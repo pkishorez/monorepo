@@ -4,7 +4,6 @@ import { Accounts } from '@kestack/auth-toolkit/client';
 import { IDB } from '@kestack/std-toolkit/db/idb';
 import { ReplicaError, Store } from '@kestack/std-toolkit/replica';
 import { Store as IdbStore } from '@kestack/std-toolkit/replica/idb';
-import { Store as MemoryStore } from '@kestack/std-toolkit/replica/memory';
 import { AccountReplicas } from '../capabilities/index.ts';
 
 /*
@@ -148,11 +147,3 @@ export const idb = make(
   storedInIdb,
   (keep) => IDB.prune({ prefix: PREFIX, keep }),
 );
-
-/** Each Account's records in memory, for a test. */
-export const memory = () =>
-  make(
-    () => MemoryStore.memory(),
-    Effect.succeed([]),
-    () => Effect.void,
-  );

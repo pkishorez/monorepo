@@ -29,7 +29,7 @@ src/
 so an Actor's folder has no prefix.
 
 ```
-shell                                   root; Provides CurrentAccount, Replicas, AiClients
+shell                                   root; Provides CurrentAccount, Replicas, CodeClients, Moves
 │                                       States: Reading | Ready
 ├── (account, replicas)                 always; library Actors
 ├── machines/machine-list               Ready, while signed in; key: account id
@@ -46,10 +46,12 @@ shell                                   root; Provides CurrentAccount, Replicas,
 │   │   ├── harness-binaries            each: listed Machine id
 │   │   └── speech-to-text              each: listed Machine id
 │   └── shortcuts                       always
-└── pages/project                       /m/:machineId/p/:projectId; Provides AiClient, SharedCatalog, Picker Owners
+└── pages/project                       /m/:machineId/p/:projectId; Provides CodeClient, SharedCatalog, Picker Owners
     ├── draft                           while no session is open: the new session's
+    │   └── touch                       always
     └── session                         /s/:sessionId
         └── draft                       key: the session id
+            └── touch                   always
 ```
 
 Every Picker made by `Picker.make`, every Replica Query and the Account
@@ -61,13 +63,14 @@ their own.
 Down, from the root: what each level gives the one below.
 
 ```
-app Layer ─ Accounts, Store, MachinesClient, DeviceState, SavedMachines,
-            Machines, Recorder, Dictations ─────────────────────▶ shell
-shell ─ Provides CurrentAccount, Replicas, AiClients ────────▶ everything below
+app Layer ─ Accounts, Store, AccountReplicas, CloudClient, DeviceState,
+            SavedMachines, Machines, Recorder, Dictations ──────▶ shell
+shell ─ Provides CurrentAccount, Replicas, CodeClients, Moves ▶ everything below
 shell ─ Input: accountId; Props: email ──────────────────────▶ machine-list
 shell ─ Props: place (the Draft open) ───────────────────────▶ header, dictation
 shell ─ Props: bindings ─────────────────────────────────────▶ session-actions
-project ─ Provides AiClient of :machineId, SharedCatalog ──────────▶ session
+project ─ Provides CodeClient of :machineId, SharedCatalog ───────▶ session
+draft ─ Provides TouchDraft.owner ───────────────────▶ touch
 machines ─ each id; Input: machineId ───────────────▶ harness-binaries, speech-to-text
 ```
 
@@ -78,9 +81,11 @@ machine-list ─ publishes into Machines ─────────────
 sidebar, Settings, home ─ Request Machines.reload / forget ─▶ machine-list
 any Picker ─ Request Owner.done / load / settle ──────────▶ the Actor that holds it
 session ─ Request SharedCatalog.retry ───────────────▶ project
+touch ─ Request Owner.send ──────────────────────────▶ draft
+sidebar, session-actions ─ put, into Moves ─────────▶ each Session's Machine
 shell ─ Command askDictation, into Dictations ───────▶ dictation
 machine-list ─ Worker: recheck, while a Line is down ▶ Sends RecheckDue
-sidebar ─ Worker: unsettle, while one is asked ─────▶ Sends Unsettled, UnsettleRefused
+sidebar ─ Worker: moves, from Moves ────────────────▶ Sends MovesShown, MoveRefused
 ```
 
 ## shell
@@ -92,8 +97,8 @@ sidebar ─ Worker: unsettle, while one is asked ─────▶ Sends Unsett
 **Messages**: BindingsRead: a Worker; Signed: the accounts Worker; SignInAsked, SignInFailed: the View, signIn; NewSessionAsked: the `n` key; SettingsToggled: Ctrl+, and Escape; DictationAsked: Space, Ctrl+Space, the mic button, a Draft
 **Commands**: signIn: ends with SignInFailed or nothing; keepAccounts: once Accounts are signed in, and each time one is signed out, keeps only their records; askDictation: ends with nothing; Router.push
 **Workers**: accounts: always, at the top, Sends Signed; read: in Reading, Sends BindingsRead; bindings: in Ready, Sends BindingsRead when the Bindings change
-**Requires**: Navigation, DeviceState, Accounts, Store, SavedMachines, Machines, Dictations
-**Provides**: CurrentAccount, at the top, from the Account Switcher; Replicas and AiClients, at the top, from `machines/reach.ts`
+**Requires**: Navigation, DeviceState, Accounts, Store, SavedMachines, AccountReplicas, Machines, Dictations
+**Provides**: CurrentAccount, at the top, from the Account Switcher; Replicas and CodeClients, at the top, from `machines/reach.ts`; Moves, at the top, from `actors/moves/`
 **Services**: reach: holds a Machine's Instance only while it is listed, and dials each Machine at its listed address
 **Children**: account, replicas: always; machine-list: in Ready, while signed in, key the account id; the other Actors in the Tree: in Ready, always
 **View**: Reading: nothing. Ready: signing in while nobody is signed in; else the App Shell, with each part handed its own Instance
@@ -102,7 +107,7 @@ sidebar ─ Worker: unsettle, while one is asked ─────▶ Sends Unsett
 
 - **The root keeps only the account, the Bindings and `back`**, because every other datum is read by one part, and the root's View draws the whole frame. Caveat: each Child follows its own source, so the same source is read by more than one Worker.
 - **Bindings are a State's data, not Model**, because they exist only once read, and nothing is drawn before. Caveat: none.
-- **`Replicas` and `AiClients` are root Provides, not the app Layer's**, because `Replicas.child` is a root Child and the library pairs them. Caveat: the root's own Workers cannot use them; none needs to.
+- **`Replicas`, `CodeClients` and `Moves` are root Provides, not the app Layer's**, because `Replicas.child` is a root Child and the library pairs them. Caveat: the root's own Workers cannot use them; none needs to.
 - **The router is the root's, in `src/shell/router.ts`**, read down from the root's definition and handed out by its door as `Shell.router`. Caveat: none.
 - **Dictation asks go through the `Dictations` queue the root fills**, because the asks come from Views across the tree, and `Took` comes from the Draft's editor, which holds no Dictation handle. Caveat: it is a parent reaching a Child by a side channel.
 
@@ -115,7 +120,7 @@ sidebar ─ Worker: unsettle, while one is asked ─────▶ Sends Unsett
 **Messages**: Saved, Fetched, Failed: its Workers; ReloadAsked: Reload, through Machines; RecheckDue: the recheck Worker; LineChanged, SpeechWatched: its Workers; ForgetAsked, ForgetDismissed: Settings, through Machines; Forgot, ForgetFailed: forget
 **Commands**: save: ends with nothing; forget: ends with Forgot or ForgetFailed; keep: keeps only the records of the Machines on the first list; drop: deletes a forgotten Machine's records
 **Workers**: saved: while no list; fetch: while fetching; lines, speech: each listed Machine; recheck: while not fetching and a Line is not up, waits 3 seconds for the first 20, then 30, Sends RecheckDue; publish: always, into Machines; requests: always, from Machines
-**Requires**: MachinesClient, SavedMachines, Store, Link, AiClients
+**Requires**: CloudClient, SavedMachines, AccountReplicas, Link, CodeClients
 **Provides**: none · **Services**: none · **Children**: none
 **View**: on home, how to start a Machine while there is none, or why the list cannot be read
 
@@ -129,12 +134,12 @@ sidebar ─ Worker: unsettle, while one is asked ─────▶ Sends Unsett
 
 **Does**: Lists the Projects and Sessions of the Machine Filter's Machines.
 **Input**: none
-**Model**: machines: ids and names, null before any list; problem; chosen: the Machine Filter, from Device State; unseen: the Unseen marks; unsettling: the Session being Un-settled
+**Model**: machines: ids and names, null before any list; problem; chosen: the Machine Filter, from Device State; unseen: the Unseen marks; moving: where each Session put goes, as `Moves` says; told: the last swipe, to say with its Undo; refused: the last Move refused; refusals: how many of each Session's Moves were refused
 **States**: none
-**Messages**: MachinesKnown, DeviceRead: its Workers; MachineChosen, ReloadAsked, SessionOpened, UnsettleAsked: its View; Unsettled, UnsettleRefused: the unsettle Worker
-**Commands**: setSidebarMachine: ends with nothing; reload: ends with nothing; Router.push
-**Workers**: known: always, Sends MachinesKnown when ids or names change; device: always, Sends DeviceRead; unsettle: while a Session is being Un-settled
-**Requires**: Machines, DeviceState, AiClients, Navigation
+**Messages**: MachinesKnown, DeviceRead: its Workers; MachineChosen, ReloadAsked, SessionOpened, MoveAsked, MoveSeen: its View; MovesShown, MoveRefused: the moves Worker
+**Commands**: setSidebarMachine: ends with nothing; reload: ends with nothing; putMove, agreed: into Moves, end with nothing; Router.push
+**Workers**: moves: always, Sends MovesShown and MoveRefused, from Moves; known: always, Sends MachinesKnown when ids or names change; device: always, Sends DeviceRead
+**Requires**: Machines, DeviceState, Moves, Navigation
 **Provides**: none · **Services**: none
 **Children**: projects, sessions: Replica Queries, each: the Machines shown
 **View**: the Machine Filter and Reload, the Projects and their Sessions, the Settled List
@@ -143,7 +148,7 @@ sidebar ─ Worker: unsettle, while one is asked ─────▶ Sends Unsett
 
 - **The sidebar is an Actor, not a View of the root**, because its Projects, Sessions and marks change often and only it shows them. Caveat: the Project Picker's plus is handed in through a React context, `Slots`.
 - **Only the Machines shown are read**, because a Machine not shown has nothing to draw here. Caveat: its rows sync again when it is shown.
-- **Un-settling is a Worker of the sidebar, not an Actor**, because it has one State, one Worker and no View. Caveat: one Session at a time.
+- **Settling and Un-settling go through `Moves`, a root Provide, not a Worker of the sidebar**, because Session Actions settles too, and each Session's Moves must be asked in order whatever asked them. Caveat: the sidebar draws each Session where `Moves` says it goes until the Session as synced agrees, so a late update flickers for a moment.
 
 ## header
 
@@ -159,7 +164,7 @@ sidebar ─ Worker: unsettle, while one is asked ─────▶ Sends Unsett
 **Does**: Each owns one Picker: `model.picking` opens it, and `opened` keys a fresh Instance each time.
 **Props**: none / none / bindings / none
 **Workers**: machines, always, and recent, while open / sessions, while open / session, while open / inputs and chosen, while open
-**Requires**: AiClients, Navigation, Replicas, Machines / Navigation, Replicas, Machines / AiClients, Navigation, Replicas / Recorder, DeviceState
+**Requires**: CodeClients, Navigation, Replicas, Machines / Navigation, Replicas, Machines / CodeClients, Moves, Navigation, Replicas / Recorder, DeviceState
 **Provides**: its Picker's Owner, from self
 **Children**: picker, while open, key: opened
 **View**: its Picker, and a Button or a Notice where one is drawn
@@ -176,7 +181,7 @@ sidebar ─ Worker: unsettle, while one is asked ─────▶ Sends Unsett
 **Model**: count; listed; machines: whether each Machine is ready and answers; microphone: from Device State; notice
 **States**: Idle | Starting | Recording | Transcribing | Failed | Done, each with its id
 **Workers**: machines: always, from Machines; microphone: always, from Device State; asks: always, from Dictations; record, switch: while recording; transcribe: while transcribing; notice: while one shows
-**Requires**: AiClients, Machines, DeviceState, Recorder, Dictations
+**Requires**: CodeClients, Machines, DeviceState, Recorder, Dictations
 **View**: the badge; its hooks give every Draft its line
 
 ### Decisions
@@ -185,14 +190,14 @@ sidebar ─ Worker: unsettle, while one is asked ─────▶ Sends Unsett
 
 ## home · settings · machines · harness-binaries · speech-to-text · shortcuts
 
-Home and Machine Settings follow `Machines`. Each per-Machine Child gets its Machine by Input. Harness Binaries reads its Machine over `AiClients`. Speech to Text reads its state from `Machines` and switches it over `AiClients`. Shortcuts reads and writes the Bindings in Device State.
+Home and Machine Settings follow `Machines`. Each per-Machine Child gets its Machine by Input. Harness Binaries reads its Machine over `CodeClients`. Speech to Text reads its state from `Machines` and switches it over `CodeClients`. Shortcuts reads and writes the Bindings in Device State.
 
 ## project · session
 
 **Does**: The new session's Draft and its start / the open Session: its transcript, Draft, send, `/btw`, fork and stop.
-**Provides**: AiClient of `:machineId`, from AiClients, and SharedCatalog, from self (`project/capabilities/`), both project only
-**Requires**: AiClients, Machines, Navigation / AiClient, Replicas, DeviceState
-**Workers** (project): machine: always, Sends MachineKnown, so a Machine no longer listed says so in place of the page; harnesses, models, skills: the catalog, read over `AiClients` on its own Machine
+**Provides**: CodeClient of `:machineId`, from CodeClients, and SharedCatalog, from self (`project/capabilities/`), both project only
+**Requires**: CodeClients, Machines, Navigation / CodeClient, Replicas, DeviceState
+**Workers** (project): machine: always, Sends MachineKnown, so a Machine no longer listed says so in place of the page; harnesses, models, skills: the catalog, read over `CodeClients` on its own Machine
 **Children**: ProjectRow, and a draft while no session is open / SessionRow, Messages, earlier Messages each up the fork chain, and a draft keyed by the session, handed its agent and whether it runs
 
 ### Decisions
@@ -207,13 +212,13 @@ Home and Machine Settings follow `Machines`. Each per-Machine Child gets its Mac
 **Props**: machineId, projectId, to: NewSession, or Session with its id, its agent once read, and whether it runs
 **Model**: text, attachments, insert: the last Insert; catalog, as the project shares it; chosen: the agent, model and settings picked; picking, opened; problem; starting; unsent, sends; asked, asks
 **States**: none
-**Messages**: Typed, AttachmentsChanged, InsertAsked, PickerOpened, SendAsked, AnswerDismissed, CatalogRetryAsked: its View; PickerClosed, SkillChosen, ModelChosen: its Pickers' Owners; CatalogRead: its Worker; Started, StartRefused, Sent, SendRefused, Answered, AskRefused: its Commands
+**Messages**: Typed, AttachmentsChanged, InsertAsked, PickerOpened, SendAsked, AnswerDismissed, CatalogRetryAsked: its View; PickerClosed, SkillChosen, ModelChosen: its Pickers' Owners; SendAsked: also the Touch Draft's Owner; CatalogRead: its Worker; Started, StartRefused, Sent, SendRefused, Answered, AskRefused: its Commands
 **Commands**: startSession: ends with Started or StartRefused; send: ends with Sent or SendRefused; ask: ends with Answered or AskRefused; retryCatalog; Router.push
 **Workers**: catalog: always, Sends CatalogRead
-**Requires**: AiClient, SharedCatalog, Navigation
-**Provides**: SkillPicker and ModelPicker Owners, at the top, from self
+**Requires**: CodeClient, SharedCatalog, Navigation
+**Provides**: SkillPicker and ModelPicker Owners, and `TouchDraft.owner`, at the top, from self
 **Services**: none
-**Children**: skills, models: Pickers, while picking, key: opened
+**Children**: touch: the Touch Draft, always; skills, models: Pickers, while picking, key: opened
 **View**: why nothing can be sent or what went wrong, the `/btw` answer, the card and its Status Line; the page adds Stop and its own problem through `Slots`
 
 ### Decisions

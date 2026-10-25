@@ -226,6 +226,21 @@ describe('navigation', () => {
       expect(await navigate(fake, '/feed')).toBe('fresh');
     });
 
+    it('is not kept when the server marks it private or no-store', async () => {
+      const fake = start();
+      withPrecache(fake);
+      for (const control of ['private', 'no-store']) {
+        fake.setNetwork(
+          () => new Response('mine', { headers: { 'cache-control': control } }),
+        );
+        const first = fake.fetchEvent('/feed', { mode: 'navigate' });
+        expect(await text(first)).toBe('mine');
+        await settle(first);
+      }
+      fake.setNetwork(offline);
+      expect(await navigate(fake, '/feed')).toBe('shell');
+    });
+
     it('is the App Shell offline when it was never kept', async () => {
       const fake = start();
       withPrecache(fake);
@@ -254,6 +269,18 @@ describe('navigation', () => {
       fake.setNetwork(() => new Response('fresh'));
       expect(await navigate(fake, '/')).toBe('home');
       expect(fake.requests).toEqual([]);
+    });
+
+    it('with a query is its own page, fetched once, then kept', async () => {
+      const fake = start();
+      withPrecache(fake);
+      fake.setNetwork(() => new Response('other'));
+      const first = fake.fetchEvent('/?q=other', { mode: 'navigate' });
+      expect(await text(first)).toBe('other');
+      await settle(first);
+      fake.setNetwork(offline);
+      expect(await navigate(fake, '/?q=other')).toBe('other');
+      expect(await navigate(fake, '/')).toBe('home');
     });
 
     it('with params is fetched once, then kept', async () => {

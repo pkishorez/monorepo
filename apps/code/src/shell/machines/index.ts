@@ -1,7 +1,6 @@
 export { MachineList } from './machine-list/index.ts';
 export {
   Connection,
-  outOfReach,
   PageMachine,
   useHealth,
   useMachineId,
@@ -19,6 +18,5 @@ export {
   Projects,
   SessionRow,
   Sessions,
-  type Everything,
   type OnMachine,
 } from './replica.ts';
