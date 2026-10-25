@@ -14,10 +14,9 @@ import { homeOf, keyAt, placeOf } from './place.ts';
  * 2. Go       Enter or Ctrl+L goes into the folder highlighted, and Ctrl+H
  *             or Backspace back out; a path typed (`~/code/fo`) goes to
  *             its folder and searches it for what follows the last `/`.
- * 3. Choose   Mod+Enter chooses the folder highlighted, as a row's
- *             "Open" does on touch, and "Open this folder" the folder
- *             open; a search that names no folder offers to create it
- *             there. Either way it becomes a
+ * 3. Choose   Mod+Enter chooses the folder highlighted, and "Open this
+ *             folder" the folder open, under its path on touch; a search
+ *             that names no folder offers to create it there. Either way it becomes a
  *             Project, or opens the one it already is, while the Picker
  *             waits; a refusal is said in the Step.
  */
@@ -79,7 +78,8 @@ const steps = {
     },
     finishes: 'step' as const,
     done: () => 'Open this folder',
-    doneOnRow: 'Open',
+    where: ({ key }: At) => `${placeOf(key).path}/`,
+    icon: 'folder' as const,
     settles: true,
   },
 };

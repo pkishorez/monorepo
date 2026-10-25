@@ -133,7 +133,7 @@ export function Frame({
   };
   const drawn = (as: typeof shape) => (shape === as ? children : null);
   return (
-    <DrawnIn value={{ shape: shape ?? 'list', label, focusOnTouch, tall }}>
+    <DrawnIn value={{ shape: shape ?? 'list', label, focusOnTouch }}>
       {trigger !== undefined && (
         <ByTrigger
           open={shape === 'popover' && active}

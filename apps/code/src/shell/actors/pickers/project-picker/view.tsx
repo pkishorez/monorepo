@@ -15,7 +15,7 @@ import { ProjectPickerLive, ProjectsView } from './actor.ts';
  * the Button, the plus beside the sidebar's Projects, opens it by pointer
  * as a popover by it. On a phone, where the sidebar is the whole screen,
  * the plus floats in its bottom right corner, under the thumb. A tap opens
- * it in a tall Drawer, its folders too, with their search. A folder made without its git repository
+ * it in a tall Drawer, its folders too, each tapped into. A folder made without its git repository
  * says so over the page until dismissed.
  */
 

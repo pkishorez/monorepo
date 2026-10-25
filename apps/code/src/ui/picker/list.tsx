@@ -9,6 +9,7 @@ import {
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
+  FolderIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import { LayerHeader } from '@kestack/web-platform/recipes/touch-layers';
 import { Button } from '@kestack/web-platform/ui/components/button';
@@ -52,13 +53,12 @@ import { useDrawn } from './shape.ts';
  * Opened by touch, in a Drawer or a Dialog, a header names
  * the Step, with a button back to the one under it; the keys' hints are
  * gone, and so is the highlight, and rows still loading show a spinner in
- * the middle. A Drawer has no search but a tall one, nor has a Step that
- * says it has none. The keyboard moves no focus there:
+ * the middle. A Drawer has no search, nor has a Step that says it has
+ * none; a row is tapped to go into it. The keyboard moves no focus there:
  * the search waits to be tapped, unless its Frame opts in with
  * `focusOnTouch`, when the Dialog focuses it once it is on screen. With no
  * Mod+Enter to finish with, a Step that finishes on itself has a button
- * at the foot that does, and, when it says so, one on each row that opens
- * a Step, which finishes on that row as Mod+Enter on it does.
+ * at the top that does, under where the Step is, such as a folder's path.
  */
 
 // The keys cmdk picks and moves with, which are the Surface's to decide.
@@ -79,12 +79,12 @@ export function List<P>({
   const shown = shownOf(spec, model, props);
   const { query, highlighted } = model.step;
   const { enter, leave } = keys.useKeyboard();
-  const { shape, label, focusOnTouch, tall } = useDrawn();
+  const { shape, label, focusOnTouch } = useDrawn();
   const touch = shape === 'drawer' || shape === 'dialog';
   // Opened by touch, nothing takes focus on its own.
   const search = keys.useFocusSpot('picker', 'search', { default: !touch });
-  // A Drawer has no search, but for a tall one, which holds a long list.
-  const searched = (shape !== 'drawer' || tall) && (!touch || shown.search);
+  // A Drawer has no search: its rows are tapped through.
+  const searched = !touch || (shape === 'dialog' && shown.search);
   const close = (choices: ReadonlyArray<Choice>) => {
     leave('picker');
     if (spec.lands?.(choices) === true) enter('content');
@@ -201,6 +201,24 @@ export function List<P>({
             {...(model.below.length > 0 ? { onBack: back } : {})}
           />
         )}
+        {touch && (shown.where !== null || shown.done !== null) && (
+          <div className="flex shrink-0 flex-col gap-3 px-4 pb-3">
+            {shown.where !== null && (
+              <p className="truncate rounded-lg bg-muted px-3 py-2.5 font-mono text-[13px] text-muted-foreground">
+                {shown.where}
+              </p>
+            )}
+            {shown.done !== null && (
+              <Button
+                className="h-11 w-full text-[15px]"
+                disabled={finishedOn(spec, model, props, null) === null}
+                onClick={() => finish(null)}
+              >
+                {shown.done}
+              </Button>
+            )}
+          </div>
+        )}
         {!touch && trail.length > 0 && (
           <nav
             aria-label="Chosen so far"
@@ -281,10 +299,16 @@ export function List<P>({
                   onSelect={() => pick(entry.value)}
                   className={cn(
                     'items-start data-quiet:opacity-60',
-                    // No room kept for a check a row does not have, so its button sits at the edge.
+                    // No room kept for a check a row does not have.
                     touch && 'data-[checked=false]:[&>svg:last-child]:hidden',
                   )}
                 >
+                  {touch && shown.icon === 'folder' && (
+                    <FolderIcon
+                      aria-hidden
+                      className="size-4! self-center text-muted-foreground!"
+                    />
+                  )}
                   <span
                     className={cn(
                       'flex min-w-0 flex-1 flex-col',
@@ -312,28 +336,6 @@ export function List<P>({
                       </span>
                     )}
                   </span>
-                  {/* The row itself goes into it; this finishes on it. A
-                      shortcut for a finger alone: inside an option, the
-                      keys and screen readers go in and use the foot's. */}
-                  {touch &&
-                    shown.doneOnRow !== null &&
-                    outcomeOf(spec, model, props, entry.value)._tag ===
-                      'Next' && (
-                      // A small pill, its tap area still a finger's.
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        tabIndex={-1}
-                        aria-hidden
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          finish(entry.value);
-                        }}
-                        className="relative -my-1 h-7 shrink-0 rounded-full px-3 text-[13px] after:absolute after:-inset-x-2 after:-inset-y-2"
-                      >
-                        {shown.doneOnRow}
-                      </Button>
-                    )}
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -355,17 +357,6 @@ export function List<P>({
             </p>
           )}
         </CommandList>
-        {touch && shown.done !== null && (
-          <div className="shrink-0 border-t border-border p-4">
-            <Button
-              className="h-12 w-full text-base"
-              disabled={finishedOn(spec, model, props, null) === null}
-              onClick={() => finish(null)}
-            >
-              {shown.done}
-            </Button>
-          </div>
-        )}
         {!touch && (
           <p
             aria-hidden
