@@ -27,7 +27,12 @@ Test Users only with `testUsers: true`. An app whose whole backend runs in
 the tab cannot reach an Auth Worker, so it uses the `fake` door instead:
 `fakeAccounts` in place of `browser()` and `fakeGuard.rpc()` or
 `fakeGuard.http()` in place of `auth.rpc()` or `auth.http()`. Handlers' tests
-put a fixed Principal behind every call with `fakeGuard.rpc({ as })`.
+put a fixed Principal behind every call with `fakeGuard.rpc({ as })`. Under
+the `kestack-fake-auth` export condition, which only development sets (the
+Web Platform does under `pnpm dev`), `server`, `client/browser` and
+`client/device` are the Fake themselves, so app code does not change. A Fake
+Account's email must be at `kestack.test`; why is
+[root ADR 0012](../../docs/adr/0012-pnpm-dev-signs-in-with-the-fake.md).
 
 The Guard is Middleware from
 [`@kestack/rpc-toolkit`](../rpc-toolkit/README.md), and the clients keep

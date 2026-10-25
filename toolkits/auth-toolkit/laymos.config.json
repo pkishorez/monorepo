@@ -26,7 +26,10 @@
       "src/guard/authz/middleware",
       "src/guard/client/accounts",
       "src/guard/client/engine",
-      "src/guard/server/guard-layer"
+      "src/guard/server/guard-layer",
+      "src/guard/client/browser",
+      "src/guard/client/device",
+      "src/guard/server"
     ],
     "src/worker/database/d1/database": ["src/worker/database/schema"],
     "src/worker/database/d1/resource": ["src/worker/database/migration"],

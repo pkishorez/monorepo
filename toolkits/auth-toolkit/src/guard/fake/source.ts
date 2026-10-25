@@ -43,8 +43,8 @@ const snapshotOf = ({ users, active }: Stored): Snapshot => ({
 });
 
 /** Fake Accounts in a table: signing in asks `choose` who, unless it names a
- * Test User (`test`, any email, no key asked), and nothing else is asked.
- * Never fails. */
+ * Test User (`test`, no key asked), and nothing else is asked. An email not
+ * at `FAKE_DOMAIN` signs nobody in. Never fails. */
 export const makeFakeSource = (choose: Effect.Effect<FakeChoice | null>) =>
   Effect.gen(function* () {
     const table =
@@ -69,8 +69,8 @@ export const makeFakeSource = (choose: Effect.Effect<FakeChoice | null>) =>
         Effect.flatMap(
           options.test ? Effect.succeed(options.test) : choose,
           (choice) => {
-            if (choice === null) return read;
-            const user = fakeUser(choice);
+            const user = choice === null ? null : fakeUser(choice);
+            if (user === null) return read;
             return update(({ users }) => ({
               users: [...users.filter(({ id }) => id !== user.id), user],
               active: user.id,

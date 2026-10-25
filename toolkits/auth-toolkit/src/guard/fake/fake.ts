@@ -22,9 +22,24 @@ import {
   type FakeStorage,
   makeFakeSource,
 } from './source.js';
-import { fakeToken } from './token.js';
+import { FAKE_DOMAIN, fakeToken } from './token.js';
 
 export { fakeAccountsTable };
+
+/** In every bundle that carries the Fake, so a production build is checked
+ * for it (the Web Platform fails one that has it), and the condition that
+ * swaps the Fake in for the real doors in development. */
+export const FAKE_MARK = 'kestack-fake-auth';
+
+// Said once per process, however often a Layer is built.
+let warned = false;
+const warn = Effect.suspend(() => {
+  if (warned) return Effect.void;
+  warned = true;
+  return Effect.logWarning(
+    `${FAKE_MARK}: anyone may sign in as any @${FAKE_DOMAIN} User. Never in production.`,
+  );
+});
 
 /**
  * `Accounts` for the browser environment, with no Auth Worker and no
@@ -32,8 +47,9 @@ export { fakeAccountsTable };
  * one Layer to the app in place of `browser()`.
  *
  * Signing in asks `choose` who (`fakeChooser()` gives one a dialog
- * answers), or names them with `signIn({ test: { email } })`; any email
- * will do, and the same email is always the same User. Accounts live in
+ * answers), or names them with `signIn({ test: { email } })`; only an
+ * email at `kestack.test` will do, and the same email is always the same
+ * User. Accounts live in
  * `storage` (a `fakeAccountsTable` Layer; in memory unless given), and every
  * guarded call carries the Active Account's fake token, which `fakeGuard`
  * reads. Other tabs are told of every change.
@@ -49,6 +65,7 @@ export const fakeAccounts = ({
 }): AccountsLayer =>
   Layer.unwrap(
     Effect.gen(function* () {
+      yield* warn;
       const source = yield* makeFakeSource(choose);
       const made = yield* makeAccounts({
         source,
@@ -102,9 +119,10 @@ const resolverOf = ({ as }: FakeGuardOptions) =>
         );
 
 /**
- * The Guard's server half with nobody behind it: it asks no one. Every User
- * is admitted, Test Users included, so it must never guard real data:
- * anyone may be anyone.
+ * The Guard's server half with nobody behind it: it asks no one. Every fake
+ * User is admitted, and only a fake User: a token is believed only for an
+ * email at `kestack.test`, whose User is made from the email again. Still,
+ * anyone may be any fake User, so it must never guard real data.
  *
  * - `fakeGuard.rpc()`: for Effect RPC, given with the group's handlers. It
  *   reads the fake token `fakeAccounts` signs each call with.
@@ -114,7 +132,13 @@ const resolverOf = ({ as }: FakeGuardOptions) =>
  */
 export const fakeGuard = {
   rpc: (options: FakeGuardOptions = {}): RpcGuard =>
-    rpcGuardLayer(resolverOf(options), { testUsers: true }),
+    Layer.merge(
+      rpcGuardLayer(resolverOf(options), { testUsers: true }),
+      Layer.effectDiscard(warn),
+    ),
   http: (options: FakeGuardOptions = {}): HttpGuard =>
-    httpGuardLayer(resolverOf(options), { testUsers: true }),
+    Layer.merge(
+      httpGuardLayer(resolverOf(options), { testUsers: true }),
+      Layer.effectDiscard(warn),
+    ),
 };
