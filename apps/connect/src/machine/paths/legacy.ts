@@ -1,10 +1,12 @@
 import {
   cpSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   renameSync,
   rmSync,
   symlinkSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -13,9 +15,12 @@ import { Effect } from 'effect';
 /*
  * Before Connect, ai-toolkit kept everything in ~/.ai-toolkit. The first
  * production run moves what is still read there into Connect's folders,
- * once: it runs only while the old database is there and the new one is
- * not. dev.db, dev-local.db and preview.db were for development and are
- * left alone.
+ * once: it runs while the old database is there and the new one is not,
+ * or while its `MOVING` note says a move was cut short, which it then
+ * finishes. Each step moves only what is still there, the database last of
+ * its files, so its WAL never stays behind once `connect.db` exists.
+ * dev.db, dev-local.db and preview.db were for development and are left
+ * alone.
  */
 
 /** Where each old file goes. */
@@ -27,7 +32,12 @@ interface Targets {
   readonly cloudflared: string;
 }
 
-/** Moves `from` to `to`, copying then deleting when they are on different disks. */
+const MOVING = 'MOVING';
+
+/**
+ * Moves `from` to `to`, copying then deleting when they are on different
+ * disks: copied under a temporary name first, so `to` appears whole.
+ */
 const move = (from: string, to: string) =>
   Effect.gen(function* () {
     yield* Effect.sync(() => {
@@ -36,7 +46,10 @@ const move = (from: string, to: string) =>
         renameSync(from, to);
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'EXDEV') throw error;
-        cpSync(from, to, { recursive: true });
+        const temp = `${to}.moving`;
+        rmSync(temp, { recursive: true, force: true });
+        cpSync(from, temp, { recursive: true });
+        renameSync(temp, to);
         rmSync(from, { recursive: true, force: true });
       }
     });
@@ -47,20 +60,40 @@ const move = (from: string, to: string) =>
 const moveIfThere = (from: string, to: string) =>
   Effect.suspend(() => (existsSync(from) ? move(from, to) : Effect.void));
 
-/** Whether there is anything to move. */
+/** Whether anything is at `path`, a dangling link included. */
+const lexists = (path: string) => {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** Whether there is anything to move, or a move to finish. */
 export const needsMove = (legacy: string, db: string) =>
-  existsSync(join(legacy, 'ai.db')) && !existsSync(db);
+  existsSync(join(legacy, MOVING)) ||
+  (existsSync(join(legacy, 'ai.db')) && !existsSync(db));
 
 /** Moves the old files out of `legacy`, then leaves a note saying where. */
 export const moveFrom = (legacy: string, targets: Targets) =>
   Effect.gen(function* () {
     const at = (name: string) => join(legacy, name);
-    yield* move(at('ai.db'), targets.db);
-    yield* moveIfThere(at('ai.db-wal'), `${targets.db}-wal`);
-    yield* moveIfThere(at('ai.db-shm'), `${targets.db}-shm`);
+    yield* Effect.sync(() => writeFileSync(at(MOVING), ''));
+    // Never over a database already moved, should an old ai-toolkit have
+    // made another since.
+    if (!existsSync(targets.db)) {
+      yield* moveIfThere(at('ai.db-wal'), `${targets.db}-wal`);
+      yield* moveIfThere(at('ai.db-shm'), `${targets.db}-shm`);
+      yield* moveIfThere(at('ai.db'), targets.db);
+    }
 
-    if (existsSync(at('attachments'))) {
+    if (
+      existsSync(at('attachments')) &&
+      !lstatSync(at('attachments')).isSymbolicLink()
+    )
       yield* move(at('attachments'), targets.attachments);
+    if (!lexists(at('attachments')) && existsSync(targets.attachments)) {
       // Old Raw records name their attachments by absolute path.
       yield* Effect.sync(() =>
         symlinkSync(targets.attachments, at('attachments'), 'junction'),
@@ -98,4 +131,5 @@ export const moveFrom = (legacy: string, targets: Targets) =>
       ),
     );
     yield* Effect.log(`Wrote ${at('MOVED.txt')}`);
+    yield* Effect.sync(() => unlinkSync(at(MOVING)));
   });

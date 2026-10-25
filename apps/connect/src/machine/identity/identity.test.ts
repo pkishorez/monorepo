@@ -7,6 +7,7 @@ import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { afterEach, describe, expect, it } from 'vitest';
 import { claim, forget, found } from './index.js';
+import { takeLegacyMachine } from './legacy.js';
 import { ESchema } from '@kestack/std-toolkit/eschema';
 
 const folders: Array<string> = [];
@@ -140,6 +141,25 @@ describe('machine.json is one Machine of one User', () => {
         yield* forget(at);
         const next = yield* claim({ ...at, owner: ada });
         expect(next.id).not.toBe('m-old');
+      }),
+    ));
+
+  it('keeps ai-toolkit’s Machine until machine.json holds it', () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const at = kept();
+        const legacy = {
+          id: 'm-old',
+          name: 'laptop',
+          key: 'k-old',
+          owner: ada,
+        };
+        yield* keepLegacy(at.db, legacy);
+        const cut = yield* Effect.exit(
+          takeLegacyMachine(at.db, () => Effect.die('cut short')),
+        );
+        expect(cut._tag).toBe('Failure');
+        expect((yield* claim({ ...at, owner: ada })).id).toBe('m-old');
       }),
     ));
 });

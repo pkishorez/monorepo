@@ -97,6 +97,30 @@ const ownFolder = (folder: string) =>
   });
 
 /**
+ * Readies the data folder, 0700, first moving ~/.ai-toolkit's files into
+ * it on a production run: one whose paths serve resolved itself, with no
+ * branch, never one given paths.
+ */
+const ownData = (
+  options: {
+    readonly branch?: string | undefined;
+    readonly paths?: ConnectPaths | undefined;
+  },
+  paths: ConnectPaths,
+) =>
+  Effect.gen(function* () {
+    if (options.branch === undefined && options.paths === undefined)
+      yield* moveLegacy(paths);
+    yield* ownFolder(paths.data);
+  });
+
+/** Keeps the database 0600 once it is there. */
+const ownDb = (paths: ConnectPaths) =>
+  Effect.sync(() => {
+    if (existsSync(paths.db)) chmodSync(paths.db, 0o600);
+  });
+
+/**
  * Runs Connect until it is stopped or the Machine must stop: signed in,
  * serving the API, tunnelled and reporting its Heartbeat. It logs to the
  * console and to `paths.log`.
@@ -106,8 +130,7 @@ export const serve = (options: ServeOptions) =>
     const paths = yield* pathsOf(options);
     yield* ownFolder(paths.state);
     yield* Effect.gen(function* () {
-      if (options.branch === undefined) yield* moveLegacy(paths);
-      yield* ownFolder(paths.data);
+      yield* ownData(options, paths);
 
       const identified = yield* identify({
         cloud: options.cloud,
@@ -122,7 +145,7 @@ export const serve = (options: ServeOptions) =>
       });
       const { machine, user } = identified;
       // Signing in opened the database first.
-      if (existsSync(paths.db)) chmodSync(paths.db, 0o600);
+      yield* ownDb(paths);
 
       const listening = yield* Layer.build(
         server({
@@ -169,7 +192,8 @@ export const serve = (options: ServeOptions) =>
 /**
  * Signs out of Cloud Connect and forgets this Machine (a branch's, given
  * `branch`), keeping its Projects and Sessions: the next serve is a new
- * Machine.
+ * Machine. Before a first serve, it readies the folders as serve would,
+ * so the database it opens is the one moved from ~/.ai-toolkit.
  */
 export const logout = (options: {
   readonly cloud: string;
@@ -178,12 +202,14 @@ export const logout = (options: {
 }) =>
   Effect.gen(function* () {
     const paths = yield* pathsOf(options);
+    yield* ownData(options, paths);
     yield* forgetMachine({
       cloud: options.cloud,
       db: paths.db,
       machineFile: paths.machine,
       version,
     });
+    yield* ownDb(paths);
     yield* Effect.log(
       `Signed out and forgot this Machine; ${paths.data} keeps its Projects and Sessions, and the next serve is a new Machine.`,
     );

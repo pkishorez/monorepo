@@ -38,14 +38,15 @@ export interface Kept {
   readonly db: string;
 }
 
-/** The Machine kept, taking ai-toolkit's over first when there is no machine.json yet; null when there is none. */
+/** The Machine kept, taking ai-toolkit's over first when there is no machine.json yet, written before it is cleared there; null when there is none. */
 const current = (kept: Kept) =>
   Effect.gen(function* () {
     const found = yield* readMachine(kept.file);
     if (found !== null) return found;
-    const legacy = yield* takeLegacyMachine(kept.db);
+    const legacy = yield* takeLegacyMachine(kept.db, (machine) =>
+      writeMachine(kept.file, machine),
+    );
     if (legacy === null) return null;
-    yield* writeMachine(kept.file, legacy);
     yield* Effect.log(
       `Moved Machine ${legacy.name} (${legacy.id}) to ${kept.file}`,
     );
