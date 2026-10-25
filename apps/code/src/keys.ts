@@ -33,9 +33,10 @@ import { useCallback, useRef } from 'react';
  * Forward, and Page Up and Page Down work while typing too; Ctrl+Space
  * works in a Picker as well, and Escape never touches a Dictation. Escape in
  * the sidebar goes back to the page. Every Picker, those three, the skills,
- * the model and the microphone, is drawn on the one isolated `picker` Surface, and the help
- * sheet on `help`: drawn while Active, they close when left and go back to
- * where they were opened from, focus too. A Picker's keys are its
+ * the model, the microphone and the Keys Picker, opened by `?` in Vim Mode
+ * or Ctrl+/ in either, is drawn on the one isolated `picker` Surface: drawn
+ * while Active, it closes when left and goes back to where it was opened
+ * from, focus too. A Picker's keys are its
  * Surface's Actions, taken before cmdk hears them. Settings has no keys of
  * its own: recording a new key for an Action enters the isolated `record`
  * Surface, which has none, so no key works until it is pressed; Escape
@@ -66,12 +67,10 @@ export const keys = createKeys({
       help: {
         keys: '?',
         label: 'Show the keys',
-        enters: 'help',
       },
       helpAnywhere: {
         keys: 'ctrl+/',
         label: 'Show the keys, even while typing',
-        enters: 'help',
         always: true,
         inField: true,
       },
@@ -306,7 +305,6 @@ export const keys = createKeys({
           },
         },
       },
-      help: { label: 'keys', isolated: true },
     },
   },
 });
@@ -325,7 +323,7 @@ export interface KeyRow {
 /**
  * Every Action as people look for it, by what it does rather than where
  * it works: one row per thing done, its keys in either Mode beside its
- * plain Vim Mode ones. Settings and the keys sheet draw it; every Action
+ * plain Vim Mode ones. Settings and the Keys Picker draw it; every Action
  * of the definition is in it once (`keys.test.ts`).
  */
 export const keyTable: ReadonlyArray<{
@@ -512,6 +510,7 @@ const actionsOf = (
     string,
     {
       readonly keys: string | ReadonlyArray<string>;
+      readonly label: string;
       readonly inField?: boolean;
     },
   ]
@@ -531,17 +530,26 @@ const actions = new Map(actionsOf(keys.definition));
 export const worksWhileTyping = (id: string) =>
   actions.get(id)?.inField === true;
 
+/** What an Action does, as its definition says it. */
+export const labelOf = (id: string) => actions.get(id)?.label ?? id;
+
 /**
- * An Action's first keys under the user's Bindings, else its defaults, as
- * people write them, for an actor that names them; null with none.
+ * An Action's keys under the user's Bindings, else its defaults, as people
+ * write them, for an actor that names them.
  */
+export const keysIn = (
+  bindings: Readonly<Record<string, ReadonlyArray<string>>>,
+  id: ActionId<typeof keys.definition>,
+): ReadonlyArray<string> => {
+  const written = bindings[id] ?? actions.get(id)?.keys ?? [];
+  return typeof written === 'string' ? [written] : written;
+};
+
+/** An Action's first keys, as `keysIn` gives them; null with none. */
 export const boundIn = (
   bindings: Readonly<Record<string, ReadonlyArray<string>>>,
   id: ActionId<typeof keys.definition>,
-) => {
-  const written = bindings[id] ?? actions.get(id)?.keys ?? [];
-  return (typeof written === 'string' ? written : written[0]) ?? null;
-};
+) => keysIn(bindings, id)[0] ?? null;
 
 /**
  * For a text editor with keys of its own, such as the Composer's: runs the

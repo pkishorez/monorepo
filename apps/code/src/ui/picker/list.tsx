@@ -16,7 +16,8 @@ import { LayerHeader } from '@kestack/web-platform/recipes/touch-layers';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { cn } from '@kestack/web-platform/ui/components/utils';
-import { describe } from '@kestack/use-keys';
+import { BindingKeys } from '@kestack/web-platform/ui/input';
+import { bindingOf, describe } from '@kestack/use-keys';
 import { revealInView } from '@kestack/use-keys/surfaces';
 import { Fragment, useEffect, useLayoutEffect, useRef } from 'react';
 import { keys } from '../../keys.ts';
@@ -50,7 +51,9 @@ import { useDrawn } from './shape.ts';
  * does once it has settled a choice, unless another Picker was opened
  * since, which holds the Surface now. Opened by keys or a mouse, the
  * search is the Surface's default Focus Spot, so it takes focus as the
- * Picker opens.
+ * Picker opens. Rows that carry an Action's keys show them in two columns,
+ * out of Vim Mode and in it, under heads that say so, the set in effect
+ * lit and the other quieter.
  *
  * Opened by touch, in a Drawer or a Sheet, a header names
  * the Step, with a button back to the one under it; the keys' hints are
@@ -177,6 +180,7 @@ export function List<P>({
   }, [highlighted]);
 
   const { groups } = shown;
+  const keyed = shown.rows.find((row) => row.keys !== undefined)?.keys;
   const trail = [
     ...model.choices.map((choice) => choice.label),
     ...(shown.title === null ? [] : [shown.title]),
@@ -317,6 +321,29 @@ export function List<P>({
             )}
             {shown.problem ?? (shown.loading ? 'Loading…' : shown.empty)}
           </CommandEmpty>
+          {keyed !== undefined && groups.length > 0 && (
+            <div
+              aria-hidden
+              className="sticky top-0 z-10 flex justify-end gap-3 bg-popover px-3 pt-2 pb-1 text-[11px] text-muted-foreground"
+            >
+              <span
+                className={cn(
+                  'w-28 text-right',
+                  keyed.on === 'out' && 'text-foreground',
+                )}
+              >
+                Out of Vim Mode
+              </span>
+              <span
+                className={cn(
+                  'w-28 text-right',
+                  keyed.on === 'vim' && 'text-foreground',
+                )}
+              >
+                In Vim Mode
+              </span>
+            </div>
+          )}
           {groups.map(({ heading, rows }) => (
             <CommandGroup key={heading} heading={heading || undefined}>
               {rows.map(({ entry, matched }) => (
@@ -364,6 +391,18 @@ export function List<P>({
                       </span>
                     )}
                   </span>
+                  {entry.keys !== undefined && (
+                    <span className="flex shrink-0 gap-3 self-center">
+                      <Keys
+                        written={entry.keys.out}
+                        lit={entry.keys.on === 'out'}
+                      />
+                      <Keys
+                        written={entry.keys.vim}
+                        lit={entry.keys.on === 'vim'}
+                      />
+                    </span>
+                  )}
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -410,6 +449,33 @@ function useHints() {
     const [first] = available.find((action) => action.id === id)?.keys ?? [];
     return first === undefined ? null : describe(first);
   };
+}
+
+/** One column of a row's keys, as written; a dash for none. */
+function Keys({
+  written,
+  lit,
+}: {
+  readonly written: ReadonlyArray<string>;
+  readonly lit: boolean;
+}) {
+  return (
+    <span
+      data-lit={lit}
+      className={cn(
+        'flex w-28 flex-wrap justify-end gap-1',
+        !lit && 'opacity-50',
+      )}
+    >
+      {written.length === 0 ? (
+        <span className="text-muted-foreground/60">–</span>
+      ) : (
+        written.map((each) => (
+          <BindingKeys key={each} binding={bindingOf(each)} always />
+        ))
+      )}
+    </span>
+  );
 }
 
 function Highlighted({

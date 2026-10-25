@@ -62,4 +62,29 @@ describe('rank', () => {
     });
     expect(rank(entries, 'rw')[0]?.matched).toEqual([0, 5]);
   });
+
+  it('finds a row by its keys, first when they are the query', () => {
+    const keyed = [
+      { label: 'Back to the last page', keys: { out: ['ctrl+o'], vim: [] } },
+      {
+        label: 'Show or hide the sidebar',
+        keys: { out: ['ctrl+b'], vim: ['b'] },
+      },
+      {
+        label: 'Turn Vim Mode on or off',
+        keys: { out: ['mod+alt+v'], vim: [] },
+      },
+    ];
+    const found = (query: string) =>
+      rank(keyed, query).map(({ entry }) => entry.label);
+    expect(found('b')[0]).toBe('Show or hide the sidebar');
+    expect(found('ctrl+b')).toEqual(['Show or hide the sidebar']);
+    expect(found('Ctrl B')).toEqual(['Show or hide the sidebar']);
+    expect(found('cmd+alt+v')).toEqual(['Turn Vim Mode on or off']);
+    expect([...found('ctrl')].sort()).toEqual([
+      'Back to the last page',
+      'Show or hide the sidebar',
+      'Turn Vim Mode on or off',
+    ]);
+  });
 });

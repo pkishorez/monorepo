@@ -54,6 +54,17 @@ const Row = Schema.Struct({
   quiet: Schema.optionalKey(Schema.Boolean),
   /** What it is, drawn beside it on touch: a Project, a folder, or an action that adds one. */
   icon: Schema.optionalKey(Schema.Literals(['project', 'folder', 'add'])),
+  /**
+   * An Action's keys out of Vim Mode and in it, as written, and the set in
+   * effect now: drawn in two columns after the label, and searched too.
+   */
+  keys: Schema.optionalKey(
+    Schema.Struct({
+      out: Schema.Array(Schema.String),
+      vim: Schema.Array(Schema.String),
+      on: Schema.Literals(['out', 'vim']),
+    }),
+  ),
 });
 type Row = typeof Row.Type;
 

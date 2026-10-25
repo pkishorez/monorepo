@@ -25,6 +25,7 @@ import {
 import { Dictation } from './actors/dictation/index.ts';
 import { Header } from './actors/header/index.ts';
 import { MachineList, reach } from './machines/index.ts';
+import { KeysPicker } from './actors/pickers/keys-picker/index.ts';
 import { MicrophonePicker } from './actors/pickers/microphone-picker/index.ts';
 import { ProjectPicker } from './actors/pickers/project-picker/index.ts';
 import { SessionActions } from './actors/pickers/session-actions/index.ts';
@@ -54,7 +55,7 @@ import { layer as moves } from './actors/moves/index.ts';
  * 3. Reach     every listed Machine's Replicas and socket, Provided to
  *              everything below; the Machine List of the Account signed in
  *              says which Machines those are, through `Machines`.
- * 4. Children  the sidebar, the header, the four Pickers the app's keys
+ * 4. Children  the sidebar, the header, the five Pickers the app's keys
  *              open anywhere, and the Dictation, which carries on wherever
  *              the app goes; each told only where the app is.
  * 5. Pages     home, Settings, and a project of one Machine,
@@ -267,6 +268,10 @@ export const ShellLive = Page.build(Shell, {
           props: ({ state }) => ({ bindings: state.keyboard.bindings }),
         },
         microphonePicker: { actor: MicrophonePicker.actor },
+        keysPicker: {
+          actor: KeysPicker.actor,
+          props: ({ state }) => ({ bindings: state.keyboard.bindings }),
+        },
         dictation: {
           actor: Dictation.actor,
           props: ({ props }) => ({ place: draftAt(props.route.page) }),
