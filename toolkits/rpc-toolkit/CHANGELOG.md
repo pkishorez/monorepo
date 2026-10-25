@@ -1,5 +1,12 @@
 # @kestack/rpc-toolkit
 
+## 0.0.4
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @kestack/std-toolkit@0.0.4
+
 ## 0.0.3
 
 ### Patch Changes

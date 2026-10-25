@@ -1,5 +1,25 @@
 # @kestack/ui-toolkit
 
+## 0.0.4
+
+### Patch Changes
+
+- [#91](https://github.com/pkishorez/monorepo/pull/91) [`2642a80`](https://github.com/pkishorez/monorepo/commit/2642a80efb0ca75b2f2698f739914525de95f98e) Thanks [@kishorenuma](https://github.com/kishorenuma)! - `pnpm dev` signs in with auth-toolkit's Fake everywhere, through the `kestack-fake-auth` export condition, and serves every backend on the site's own origin at `/rpc-<name>`, so one tunnel reaches the whole app; `pnpm dev:real` keeps the Auth Worker. A Fake Account's email must be at `kestack.test`, and `fakeGuard` makes the User from it again. The Web Platform fails any build that carries the Fake, and its `backend` gives a Worker's build the same switch.
+
+- [#91](https://github.com/pkishorez/monorepo/pull/91) [`4482206`](https://github.com/pkishorez/monorepo/commit/4482206b19b068ddff9e11d359f04dbf3ba9882b) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A touch Drawer swipes down by its own Gesture Zone, so a zone inside it keeps its own Swipes, and an owner that cancels the close springs it back. A touch screen is touch until keys are used outside a field, and touch again on the next touch. A Swipe Row closes its gap as it leaves, and says `data-swiping` while a finger moves it. A toast rises and fades in, and fades out quicker.
+
+- [#91](https://github.com/pkishorez/monorepo/pull/91) [`31904d6`](https://github.com/pkishorez/monorepo/commit/31904d63b4510647e678fd7a490a2923f6f43453) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A Drawer or Top Dialog opened over another layer draws its backdrop too, so everything under it dims.
+
+- [#91](https://github.com/pkishorez/monorepo/pull/91) [`0ddc5c0`](https://github.com/pkishorez/monorepo/commit/0ddc5c05e096b445591de1d03a443b88085b8063) Thanks [@kishorenuma](https://github.com/kishorenuma)! - `AccountSwitcherList` draws the Account menu as a list for a sheet such as a Drawer, and a bottom Drawer is the page's background, with rounder corners and a soft shadow, instead of a grey sheet.
+
+- [`27c2da4`](https://github.com/pkishorez/monorepo/commit/27c2da45f3ac9e06f92ae89e93c16ae4a6343929) Thanks [@pkishorez](https://github.com/pkishorez)! - Touch: the page never zooms, as an app does not: no pinch, no double tap, and no zoom into a field it focuses, iOS's included. The Drawer's and Top Dialog's lists have taller rows and more room around them, and a `tall` Drawer stands at three quarters of the screen whatever it holds.
+- Updated dependencies [[`2642a80`](https://github.com/pkishorez/monorepo/commit/2642a80efb0ca75b2f2698f739914525de95f98e)]:
+  - @kestack/auth-toolkit@0.0.4
+  - laymos@0.0.15
+  - @kestack/kabuki@0.0.3
+  - @kestack/use-gesture@0.0.2
+  - @kestack/use-keys@0.0.2
+
 ## 0.0.3
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@kestack/auth-toolkit",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": false,
   "description": "One sign-in service on Cloudflare, the guard both sides of an Effect API import, and the Layers a web app or a device signs in with",
   "keywords": [
