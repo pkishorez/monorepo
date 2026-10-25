@@ -4,8 +4,7 @@ import { Navigation, Page, Router } from '@kestack/kabuki/routing';
 import { Machines } from '../../../layer/capabilities/index.ts';
 import { home } from '../../routes/index.ts';
 import { Refused, ProjectRow } from '../../machines/index.ts';
-import { SharedCatalog } from './capabilities/index.ts';
-import * as Catalog from './catalog/index.ts';
+import { Catalog, SharedCatalog } from './capabilities/index.ts';
 import { removeProject } from './commands.ts';
 import { Draft } from './draft/index.ts';
 import { Session } from './session/index.ts';
@@ -20,8 +19,8 @@ import { Session } from './session/index.ts';
  *             Account's list no longer has says so in place of the page.
  * 1. Catalog  the agents, their models and Skills, read once while the
  *             project is open, and shared with what is under it
- *             (`catalog/`); what could not be read is read again when
- *             asked.
+ *             (`capabilities/catalog/`); what could not be read is read
+ *             again when asked.
  * 2. Draft    while no session is open, a new session's Draft (`draft/`),
  *             which starts one.
  * 3. Remove   asks first, then forgets the project; its folder is never

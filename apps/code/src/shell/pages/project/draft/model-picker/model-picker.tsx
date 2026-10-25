@@ -13,7 +13,7 @@ import { cn } from '@kestack/web-platform/ui/components/utils';
 import { useState, type ReactNode } from 'react';
 import { keys, useBound } from '../../../../../keys.ts';
 import * as Picker from '../../../../../ui/picker/index.ts';
-import * as Catalog from '../../catalog/index.ts';
+import { Catalog } from '../../capabilities/index.ts';
 import { OpenRow, Setting } from './chip.tsx';
 
 /*

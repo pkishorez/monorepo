@@ -15,7 +15,7 @@ import {
 } from 'vitest';
 import { keys } from '../../../../../keys.ts';
 import * as Picker from '../../../../../ui/picker/index.ts';
-import * as Catalog from '../../catalog/index.ts';
+import { Catalog } from '../../capabilities/index.ts';
 import { Chip, ModelPicker, Triggers } from './model-picker.tsx';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
