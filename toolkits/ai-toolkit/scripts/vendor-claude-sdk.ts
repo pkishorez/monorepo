@@ -5,7 +5,7 @@ import {
   readFile,
   writeFile,
 } from 'node:fs/promises';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /*
@@ -41,9 +41,15 @@ let pointed = 0;
 for (const file of await files(dist)) {
   const source = await readFile(file, 'utf8');
   if (!source.includes(`'${SDK}'`)) continue;
-  let target = relative(dirname(file), join(vendor, 'sdk.mjs'));
+  // An import path is written with `/`, even on Windows.
+  let target = relative(dirname(file), join(vendor, 'sdk.mjs'))
+    .split(sep)
+    .join('/');
   if (!target.startsWith('.')) target = `./${target}`;
-  await writeFile(file, source.replaceAll(`'${SDK}'`, `'${target}'`));
+  await writeFile(
+    file,
+    source.replaceAll(`'${SDK}'`, () => JSON.stringify(target)),
+  );
   pointed += 1;
 }
 if (pointed === 0) throw new Error(`No file in dist imports ${SDK}`);

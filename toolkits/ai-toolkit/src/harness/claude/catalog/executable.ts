@@ -36,19 +36,37 @@ const runnable = (path: string): boolean => {
 };
 
 /**
+ * Where Claude Code sits in one PATH folder. On Windows npm puts a
+ * `claude.cmd` there, which Node cannot start without a shell, so the
+ * `claude.exe` that npm's package holds is run instead.
+ */
+const inFolder = (dir: string): ReadonlyArray<string> =>
+  process.platform === 'win32'
+    ? [
+        join(dir, 'claude.exe'),
+        join(
+          dir,
+          'node_modules',
+          '@anthropic-ai',
+          'claude-code',
+          'bin',
+          'claude.exe',
+        ),
+      ]
+    : [join(dir, 'claude')];
+
+/**
  * The Claude Code the user keeps updated: `AI_TOOLKIT_CLAUDE` or `claude`
  * on PATH. This package ships none of its own.
  */
-const installed = (): string | undefined => {
-  const exe = process.platform === 'win32' ? 'claude.exe' : 'claude';
-  return [
+const installed = (): string | undefined =>
+  [
     process.env['AI_TOOLKIT_CLAUDE'],
     ...(process.env['PATH'] ?? '')
       .split(delimiter)
       .filter((dir) => dir !== '')
-      .map((dir) => join(dir, exe)),
+      .flatMap(inFolder),
   ].find((path) => path !== undefined && runnable(path));
-};
 
 /** The Harness Account's Claude Code: its binary, else the installed one. */
 export const current: Effect.Effect<Executable, never, HarnessAccount> =

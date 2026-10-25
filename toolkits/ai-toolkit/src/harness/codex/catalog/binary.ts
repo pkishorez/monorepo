@@ -27,17 +27,17 @@ export const binary: Effect.Effect<BinaryInfo, never, HarnessAccount> =
     return yield* Effect.callback<BinaryInfo>((resume) => {
       execFile(
         codex.command,
-        ['--version'],
+        [...codex.args, '--version'],
         { timeout: VERSION_TIMEOUT_MS, env: codex.env },
         (error, stdout) =>
           resume(
             Effect.succeed({
-              path: codex.command,
+              path: codex.path,
               version: error === null ? stdout.trim() : null,
               error:
                 error === null
                   ? null
-                  : reason(codex.command, codex.isDefault, error),
+                  : reason(codex.path, codex.isDefault, error),
               isDefault: codex.isDefault,
             }),
           ),
