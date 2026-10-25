@@ -101,7 +101,12 @@ export const standingOf = async (
 export const stopUnlessLeased = (dir: string, pid: number = process.pid) =>
   withLock(dir, async () => {
     if (live(dir).length > 0) return false;
-    const record = readRecord(dir);
-    if (record?.pid === pid) writeRecord(dir, { ...record, stopping: true });
+    markStopping(dir, pid);
     return true;
   });
+
+/** Says in `dir`'s record that the Connect `pid` runs is stopping, when it is that one's. */
+export const markStopping = (dir: string, pid: number = process.pid) => {
+  const record = readRecord(dir);
+  if (record?.pid === pid) writeRecord(dir, { ...record, stopping: true });
+};

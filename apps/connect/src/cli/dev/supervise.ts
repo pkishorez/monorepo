@@ -4,6 +4,7 @@ import { serve } from '../serve/index.js';
 import { live } from './leases.js';
 import {
   type ConnectRecord,
+  markStopping,
   removeRecord,
   stopUnlessLeased,
   writeRecord,
@@ -33,6 +34,8 @@ const RETRY_MS = 500;
 const POLL_MS = 1_000;
 const GRACE_MS = 3_000;
 const KILL_AFTER_MS = 10_000;
+/** Refusals of the lock in a row, with no lease left, before it stops without it. */
+const LOCK_TRIES = 3;
 
 const exitOf = (child: ChildProcess) =>
   new Promise<void>((resolve) => {
@@ -90,12 +93,29 @@ const answering = (cloud: string) =>
 const unleased = (dir: string) =>
   Effect.promise(async (signal) => {
     let since = Date.now();
+    let refused = 0;
     while (!signal.aborted) {
       await new Promise((resolve) => setTimeout(resolve, POLL_MS));
-      if (live(dir).length > 0) since = Date.now();
-      else if (Date.now() - since >= GRACE_MS) {
-        // A lock it cannot take keeps it running, to decide again.
-        if (await stopUnlessLeased(dir).catch(() => false)) return;
+      if (live(dir).length > 0) {
+        since = Date.now();
+        refused = 0;
+      } else if (Date.now() - since >= GRACE_MS) {
+        try {
+          if (await stopUnlessLeased(dir)) return;
+          refused = 0;
+        } catch (error) {
+          // A lock it cannot take, such as one another program holds the
+          // port of, keeps it running to decide again; one refused this
+          // many times running stops it anyway, with no lease left.
+          refused += 1;
+          process.stderr.write(
+            `Connect could not take its lock to stop (${refused}/${LOCK_TRIES}): ${error instanceof Error ? error.message : String(error)}\n`,
+          );
+          if (refused >= LOCK_TRIES && live(dir).length === 0) {
+            markStopping(dir);
+            return;
+          }
+        }
         since = Date.now();
       }
     }
