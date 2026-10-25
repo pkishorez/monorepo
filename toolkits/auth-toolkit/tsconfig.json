@@ -8,12 +8,16 @@
     "moduleResolution": "nodenext",
     "jsx": "react-jsx",
     "paths": {
-      "@kestack/auth-toolkit": ["./src/auth/index.ts"],
-      "@kestack/auth-toolkit/server": ["./src/server/index.ts"],
-      "@kestack/auth-toolkit/client": ["./src/client/accounts/index.ts"],
-      "@kestack/auth-toolkit/client/browser": ["./src/client/browser/index.ts"],
-      "@kestack/auth-toolkit/client/device": ["./src/client/device/index.ts"],
-      "@kestack/auth-toolkit/fake": ["./src/fake/index.ts"]
+      "@kestack/auth-toolkit": ["./src/guard/authz/index.ts"],
+      "@kestack/auth-toolkit/server": ["./src/guard/server/index.ts"],
+      "@kestack/auth-toolkit/client": ["./src/guard/client/accounts/index.ts"],
+      "@kestack/auth-toolkit/client/browser": [
+        "./src/guard/client/browser/index.ts"
+      ],
+      "@kestack/auth-toolkit/client/device": [
+        "./src/guard/client/device/index.ts"
+      ],
+      "@kestack/auth-toolkit/fake": ["./src/guard/fake/index.ts"]
     },
     "rootDir": ".",
     "strict": true,

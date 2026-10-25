@@ -11,29 +11,27 @@
     "src/worker/app/loaders.server.ts"
   ],
   "rules": {
-    "src/client": ["src/contract", "src/guard"],
-    "src/client/engine": ["src/client/accounts"],
-    "src/client/auth-worker": ["src/client/accounts"],
-    "src/client/browser": [
-      "src/client/accounts",
-      "src/client/engine",
-      "src/client/auth-worker"
-    ],
-    "src/client/device": [
-      "src/client/accounts",
-      "src/client/engine",
-      "src/client/auth-worker"
-    ],
     "src/guard": ["src/contract"],
-    "src/auth": ["src/guard"],
-    "src/server": ["src/contract", "src/guard", "src/guard-layer"],
-    "src/guard-layer": ["src/guard"],
-    "src/fake": [
-      "src/contract",
-      "src/guard",
-      "src/client/accounts",
-      "src/client/engine",
-      "src/guard-layer"
+    "src/guard/client": ["src/guard/authz/middleware"],
+    "src/guard/client/engine": ["src/guard/client/accounts"],
+    "src/guard/client/auth-worker-api": ["src/guard/client/accounts"],
+    "src/guard/client/browser": [
+      "src/guard/client/accounts",
+      "src/guard/client/engine",
+      "src/guard/client/auth-worker-api"
+    ],
+    "src/guard/client/device": [
+      "src/guard/client/accounts",
+      "src/guard/client/engine",
+      "src/guard/client/auth-worker-api"
+    ],
+    "src/guard/server": ["src/guard/authz/middleware"],
+    "src/guard/server/verification": ["src/guard/server/guard-layer"],
+    "src/guard/fake": [
+      "src/guard/authz/middleware",
+      "src/guard/client/accounts",
+      "src/guard/client/engine",
+      "src/guard/server/guard-layer"
     ],
     "src/worker/database/sqlite/d1/database": [
       "src/worker/database/sqlite/schema"

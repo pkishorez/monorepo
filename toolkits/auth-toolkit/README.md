@@ -156,8 +156,8 @@ Peer dependencies, all optional; install the ones your doors need:
 
 The contract guards `WhoAmI`; the backend at `api.example.com` serves it with
 `auth.rpc({ url })`; the web app at `app.example.com` provides `browser({ url })`
-and calls it. Lifted from `src/server/tests/rpc.test.ts` and
-`src/client/browser/tests/browser.test.ts`.
+and calls it. Lifted from `src/guard/server/tests/rpc.test.ts` and
+`src/guard/client/browser/tests/browser.test.ts`.
 
 ```ts
 // api.ts, imported by both sides
@@ -207,7 +207,7 @@ const whoAmI = Effect.gen(function* () {
 
 `device` keeps each Account's Sign-in token in a StdTable the program
 chooses; here SQLite, so the Accounts last between runs. Lifted from
-`src/client/device/tests/device.test.ts`.
+`src/guard/client/device/tests/device.test.ts`.
 
 ```ts
 import { client } from '@kestack/rpc-toolkit/rpc/http';
@@ -254,7 +254,7 @@ await Effect.runPromise(
 
 An MCP server is one HttpApi endpoint behind `auth.http` with
 `oauth`; its tools check Scopes inside. The Auth Worker lists the resource
-under `oauth.resources`. Lifted from `src/server/tests/http.test.ts`;
+under `oauth.resources`. Lifted from `src/guard/server/tests/http.test.ts`;
 the MCP protocol itself is left out.
 
 ```ts

@@ -25,8 +25,8 @@
   ],
   "exports": {
     ".": {
-      "types": "./dist/auth/index.d.ts",
-      "default": "./dist/auth/index.js"
+      "types": "./dist/guard/authz/index.d.ts",
+      "default": "./dist/guard/authz/index.js"
     },
     "./worker": {
       "types": "./dist/worker/worker/index.d.ts",
@@ -41,24 +41,24 @@
       "default": "./dist/worker/database/sqlite/d1/resource/index.js"
     },
     "./server": {
-      "types": "./dist/server/index.d.ts",
-      "default": "./dist/server/index.js"
+      "types": "./dist/guard/server/index.d.ts",
+      "default": "./dist/guard/server/index.js"
     },
     "./client": {
-      "types": "./dist/client/accounts/index.d.ts",
-      "default": "./dist/client/accounts/index.js"
+      "types": "./dist/guard/client/accounts/index.d.ts",
+      "default": "./dist/guard/client/accounts/index.js"
     },
     "./client/browser": {
-      "types": "./dist/client/browser/index.d.ts",
-      "default": "./dist/client/browser/index.js"
+      "types": "./dist/guard/client/browser/index.d.ts",
+      "default": "./dist/guard/client/browser/index.js"
     },
     "./client/device": {
-      "types": "./dist/client/device/index.d.ts",
-      "default": "./dist/client/device/index.js"
+      "types": "./dist/guard/client/device/index.d.ts",
+      "default": "./dist/guard/client/device/index.js"
     },
     "./fake": {
-      "types": "./dist/fake/index.d.ts",
-      "default": "./dist/fake/index.js"
+      "types": "./dist/guard/fake/index.d.ts",
+      "default": "./dist/guard/fake/index.js"
     }
   },
   "scripts": {
