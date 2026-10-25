@@ -2,13 +2,19 @@ import { type ChildProcess, spawn } from 'node:child_process';
 import { Effect } from 'effect';
 import { serve } from '../serve/index.js';
 import { live } from './leases.js';
-import { type ConnectRecord, removeRecord, writeRecord } from './record.js';
+import {
+  type ConnectRecord,
+  removeRecord,
+  stopUnlessLeased,
+  writeRecord,
+} from './record.js';
 
 /*
  * Running this branch's Connect: its Cloud Connect under `alchemy dev`
  * behind Portless, then a Machine of the branch's own serving against it,
  * ready once `connect.json` says so. A shared Connect stops 3 s after its
- * last lease is gone; a foreground one stops on Ctrl-C.
+ * last lease is gone, unless an App leased it as it decided; a foreground
+ * one stops on Ctrl-C.
  */
 
 export interface Supervised {
@@ -79,14 +85,18 @@ const answering = (cloud: string) =>
     }
   });
 
-/** Ends once no live lease has been left in `dir` for 3 s. */
+/** Ends once no live lease has been left in `dir` for 3 s, its record then saying it is stopping. */
 const unleased = (dir: string) =>
   Effect.promise(async () => {
     let since = Date.now();
     for (;;) {
       await new Promise((resolve) => setTimeout(resolve, POLL_MS));
       if (live(dir).length > 0) since = Date.now();
-      else if (Date.now() - since >= GRACE_MS) return;
+      else if (Date.now() - since >= GRACE_MS) {
+        // A lock it cannot take keeps it running, to decide again.
+        if (await stopUnlessLeased(dir).catch(() => false)) return;
+        since = Date.now();
+      }
     }
   });
 

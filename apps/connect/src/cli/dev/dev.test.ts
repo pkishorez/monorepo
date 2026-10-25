@@ -4,15 +4,22 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { slugOf } from './branch.js';
-import { live, take } from './leases.js';
-import { withLock } from './lock.js';
-import { type ConnectRecord, standingOf } from './record.js';
+import { live, runs, take } from './leases.js';
+import { takeOver, withLock } from './lock.js';
+import {
+  type ConnectRecord,
+  readRecord,
+  standingOf,
+  stopUnlessLeased,
+  writeRecord,
+} from './record.js';
 import { proxyUp } from './terminal.js';
 
 let dir: string;
@@ -72,6 +79,17 @@ describe('withLock', () => {
       withLock(dir, async () => 'taken', { retryMs: 10, timeoutMs: 50 }),
     ).rejects.toThrow(/Could not take/);
   });
+
+  it('leaves a lock taken again since it was judged stale', () => {
+    const file = join(dir, 'lock');
+    const seen = JSON.stringify({ pid: deadPid(), at: Date.now() });
+    const fresh = JSON.stringify({ pid: process.ppid, at: Date.now() });
+    writeFileSync(file, fresh);
+    takeOver(file, seen);
+    expect(readFileSync(file, 'utf8')).toBe(fresh);
+    takeOver(file, fresh);
+    expect(existsSync(file)).toBe(false);
+  });
 });
 
 describe('leases', () => {
@@ -83,6 +101,39 @@ describe('leases', () => {
     release();
     expect(live(dir)).toEqual([]);
   });
+
+  it('skips a lease that does not read yet, and prunes it once old', () => {
+    const file = join(dir, 'leases', '123.json');
+    take(dir, 'code')();
+    writeFileSync(file, '{"pid":');
+    expect(live(dir)).toEqual([]);
+    expect(existsSync(file)).toBe(true);
+    const old = new Date(Date.now() - 11_000);
+    utimesSync(file, old, old);
+    expect(live(dir)).toEqual([]);
+    expect(existsSync(file)).toBe(false);
+  });
+
+  it('prunes a lease whose pid a later process took', () => {
+    take(dir, 'code')();
+    writeFileSync(
+      join(dir, 'leases', `${process.pid}.json`),
+      JSON.stringify({
+        pid: process.pid,
+        app: 'old',
+        startedAt: new Date(0).toISOString(),
+      }),
+    );
+    expect(live(dir)).toEqual([]);
+  });
+});
+
+describe('runs', () => {
+  it('is true for a process started before `since`, false for one started after or dead', () => {
+    expect(runs(process.pid, Date.now())).toBe(true);
+    expect(runs(process.pid, 0)).toBe(false);
+    expect(runs(deadPid(), Date.now())).toBe(false);
+  });
 });
 
 describe('standingOf', () => {
@@ -93,7 +144,7 @@ describe('standingOf', () => {
     port: 4999,
     machine: { id: 'm1', name: 'host (feat-x)' },
     ready: true,
-    startedAt: new Date(0).toISOString(),
+    startedAt: new Date().toISOString(),
     version: '0.0.2',
   };
   const asked: Array<string> = [];
@@ -129,6 +180,53 @@ describe('standingOf', () => {
     expect((await standingOf(record, answering(), () => false)).kind).toBe(
       'absent',
     );
+  });
+
+  it('is absent when its pid was taken by a later process', async () => {
+    expect(
+      (
+        await standingOf(
+          { ...record, startedAt: new Date(0).toISOString() },
+          answering(),
+        )
+      ).kind,
+    ).toBe('absent');
+  });
+
+  it('is stopping once it decided to stop, until its process is gone', async () => {
+    const stopping = { ...record, stopping: true };
+    expect((await standingOf(stopping, answering())).kind).toBe('stopping');
+    expect((await standingOf(stopping, answering(), () => false)).kind).toBe(
+      'absent',
+    );
+  });
+});
+
+describe('stopUnlessLeased', () => {
+  const record: ConnectRecord = {
+    pid: process.pid,
+    mode: 'shared',
+    cloud: 'https://connect.kishore.computer',
+    port: 4999,
+    machine: null,
+    ready: true,
+    startedAt: new Date().toISOString(),
+    version: '0.0.2',
+  };
+
+  it('stays while an App holds a lease', async () => {
+    writeRecord(dir, record);
+    const release = take(dir, 'code');
+    expect(await stopUnlessLeased(dir)).toBe(false);
+    expect(readRecord(dir)?.stopping).toBeUndefined();
+    release();
+  });
+
+  it('marks the record stopping, under the lock, once none does', async () => {
+    writeRecord(dir, record);
+    expect(await stopUnlessLeased(dir)).toBe(true);
+    expect(readRecord(dir)?.stopping).toBe(true);
+    expect(existsSync(join(dir, 'lock'))).toBe(false);
   });
 });
 

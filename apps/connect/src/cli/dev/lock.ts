@@ -1,7 +1,10 @@
+import { randomUUID } from 'node:crypto';
 import {
   closeSync,
+  linkSync,
   openSync,
   readFileSync,
+  renameSync,
   statSync,
   unlinkSync,
   writeSync,
@@ -13,7 +16,7 @@ import { pidAlive } from './leases.js';
  * One dev process at a time decides whether this branch's Connect must be
  * started: a lock file made with `open(…, 'wx')`, holding `{ pid, at }`.
  * A lock whose pid is dead, or older than a minute, is stale: it is
- * removed and taken again.
+ * renamed aside, which only one process can do, and taken again.
  */
 
 interface Held {
@@ -32,27 +35,63 @@ export interface LockOptions {
 
 const lockFile = (dir: string) => join(dir, 'lock');
 
-/** Who holds the lock at `file`, and since when; undefined when it cannot be read. */
-const heldAt = (file: string): Held | undefined => {
+/** What the lock at `file` says; undefined when it is missing. */
+const contentOf = (file: string): string | undefined => {
   try {
-    const held = JSON.parse(readFileSync(file, 'utf8')) as Partial<Held>;
+    return readFileSync(file, 'utf8');
+  } catch {
+    return undefined;
+  }
+};
+
+/** Who holds a lock saying `text`, and since when; undefined when it does not read. */
+const heldIn = (text: string | undefined): Held | undefined => {
+  try {
+    const held = JSON.parse(text ?? '') as Partial<Held>;
     if (typeof held.pid === 'number' && typeof held.at === 'number')
       return { pid: held.pid, at: held.at };
   } catch {
-    // Missing, or written half; its age below decides.
+    // Missing, or written half; its age decides.
   }
   return undefined;
 };
 
-/** Whether the lock at `file` was left by a dead process or long ago. */
-const stale = (file: string, staleMs: number): boolean => {
-  const held = heldAt(file);
+/** Whether the lock at `file`, saying `text`, was left by a dead process or long ago. */
+const stale = (file: string, text: string, staleMs: number): boolean => {
+  const held = heldIn(text);
   if (held !== undefined)
     return !pidAlive(held.pid) || Date.now() - held.at > staleMs;
   try {
     return Date.now() - statSync(file).mtimeMs > staleMs;
   } catch {
     return true;
+  }
+};
+
+/**
+ * Removes the stale lock at `file`, judged so while it said `seen`. It is
+ * renamed aside first, so of two processes taking it over only one moves
+ * it; one that moved a fresh lock instead, taken since, puts it back.
+ */
+export const takeOver = (file: string, seen: string) => {
+  const aside = `${file}.${process.pid}.${randomUUID()}.stale`;
+  try {
+    renameSync(file, aside);
+  } catch {
+    // Another process moved it first.
+    return;
+  }
+  if (contentOf(aside) !== seen) {
+    try {
+      linkSync(aside, file);
+    } catch {
+      // Taken again already.
+    }
+  }
+  try {
+    unlinkSync(aside);
+  } catch {
+    // Already gone.
   }
 };
 
@@ -74,7 +113,7 @@ const tryTake = (file: string): boolean => {
 
 /** Removes the lock, if it is still this process's. */
 const giveBack = (file: string) => {
-  if (heldAt(file)?.pid !== process.pid) return;
+  if (heldIn(contentOf(file))?.pid !== process.pid) return;
   try {
     unlinkSync(file);
   } catch {
@@ -92,12 +131,10 @@ export const withLock = async <A>(
   const file = lockFile(dir);
   const until = Date.now() + timeoutMs;
   while (!tryTake(file)) {
-    if (stale(file, staleMs)) {
-      try {
-        unlinkSync(file);
-      } catch {
-        // Another process took it over first.
-      }
+    const seen = contentOf(file);
+    if (seen === undefined) continue;
+    if (stale(file, seen, staleMs)) {
+      takeOver(file, seen);
       continue;
     }
     if (Date.now() > until)

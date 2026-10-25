@@ -108,6 +108,41 @@ describe('moveLegacy', () => {
     expect(existsSync(paths.ai.models)).toBe(false);
   });
 
+  it('finishes a move cut short, WAL first, and leaves no MOVING note', () => {
+    write(join(legacy, 'ai.db'), 'db');
+    write(join(legacy, 'attachments', 's1', 'a.txt'), 'attached');
+    write(join(legacy, 'models.json'), '{}');
+    const paths = pathsIn(home);
+    // Cut short after the WAL and the attachments moved, before the link.
+    write(join(legacy, 'MOVING'), '');
+    write(`${paths.db}-wal`, 'wal');
+    write(join(paths.attachments, 's1', 'a.txt'), 'attached');
+    rmSync(join(legacy, 'attachments'), { recursive: true });
+
+    Effect.runSync(moveLegacy(paths, legacy));
+
+    expect(readFileSync(paths.db, 'utf8')).toBe('db');
+    expect(readFileSync(`${paths.db}-wal`, 'utf8')).toBe('wal');
+    expect(lstatSync(join(legacy, 'attachments')).isSymbolicLink()).toBe(true);
+    expect(readFileSync(paths.ai.models, 'utf8')).toBe('{}');
+    expect(existsSync(join(legacy, 'MOVING'))).toBe(false);
+  });
+
+  it('finishes a move cut short after the database, without touching it again', () => {
+    write(join(legacy, 'models.json'), '{}');
+    write(join(legacy, 'MOVING'), '');
+    const paths = pathsIn(home);
+    write(paths.db, 'moved');
+    write(join(legacy, 'ai.db'), 'newer');
+
+    Effect.runSync(moveLegacy(paths, legacy));
+
+    expect(readFileSync(paths.db, 'utf8')).toBe('moved');
+    expect(readFileSync(join(legacy, 'ai.db'), 'utf8')).toBe('newer');
+    expect(readFileSync(paths.ai.models, 'utf8')).toBe('{}');
+    expect(existsSync(join(legacy, 'MOVING'))).toBe(false);
+  });
+
   it('does nothing without an old database', () => {
     write(join(legacy, 'models.json'), '{}');
     const paths = pathsIn(home);

@@ -12,11 +12,12 @@ import { fileURLToPath } from 'node:url';
 import { NodeRuntime } from '@effect/platform-node';
 import { resolvePaths } from '../../machine/index.js';
 import { branchOf } from './branch.js';
-import { pidAlive, take, live } from './leases.js';
+import { live, runs, take } from './leases.js';
 import { withLock } from './lock.js';
 import {
   type ConnectRecord,
   readRecord,
+  type Standing,
   standingOf,
   writeRecord,
 } from './record.js';
@@ -40,6 +41,10 @@ export { branchOf };
 
 const SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const;
 const WAIT_MS = 500;
+/** How long an App waits for a starting Connect, a new branch's device sign-in included. */
+const STARTING_MS = 10 * 60_000;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** apps/connect, from dist/cli/dev or src/cli/dev. */
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
@@ -95,18 +100,28 @@ const spawnSupervisor = (cwd: string, log: string): number => {
   }
 };
 
-/** Gives `release` back when the process exits or is signalled, signalling again when no one else listens. */
-const bindRelease = (release: () => void) => {
+/**
+ * Gives `release` back when the process exits or is signalled, signalling
+ * again when no one else listens; the function returned stops it giving
+ * back on a signal.
+ */
+const bindRelease = (release: () => void): (() => void) => {
   process.once('exit', release);
-  for (const signal of SIGNALS)
-    process.once(signal, () => {
+  const bound = SIGNALS.map((signal) => {
+    const onSignal = () => {
       release();
       if (process.listenerCount(signal) === 0)
         process.kill(process.pid, signal);
-    });
+    };
+    process.once(signal, onSignal);
+    return () => process.off(signal, onSignal);
+  });
+  return () => {
+    for (const unbind of bound) unbind();
+  };
 };
 
-/** Waits until the Connect in `dir` is alive, showing the shared one's log meanwhile; fails if it stops first. */
+/** Waits until the Connect in `dir` is alive, showing the shared one's log meanwhile; fails if it stops first, or is not ready in 10 minutes. */
 const waitAlive = async (dir: string, log: string): Promise<ConnectRecord> => {
   let first = await standingOf(readRecord(dir));
   if (first.kind === 'alive') return first.record;
@@ -118,14 +133,19 @@ const waitAlive = async (dir: string, log: string): Promise<ConnectRecord> => {
     first.kind === 'starting' && first.record.mode === 'shared'
       ? follow(log)
       : () => {};
+  const until = Date.now() + STARTING_MS;
   try {
     for (;;) {
-      await new Promise((resolve) => setTimeout(resolve, WAIT_MS));
+      await sleep(WAIT_MS);
       first = await standingOf(readRecord(dir));
       if (first.kind === 'alive') return first.record;
-      if (first.kind === 'absent')
+      if (first.kind === 'absent' || first.kind === 'stopping')
         throw new Error(
           `Connect stopped before it was ready; its log is ${log}`,
+        );
+      if (Date.now() > until)
+        throw new Error(
+          `Connect was not ready within ${STARTING_MS / 60_000} minutes; its log is ${log}`,
         );
     }
   } finally {
@@ -133,11 +153,47 @@ const waitAlive = async (dir: string, log: string): Promise<ConnectRecord> => {
   }
 };
 
+/** `ensureConnect`, also returning the function that stops a signal giving the lease back. */
+const ensure = async (app: string, cwd: string) => {
+  const { cloud, dir, log } = await devOf(cwd);
+  let release: (() => void) | undefined;
+  let told = false;
+  for (;;) {
+    release = await withLock(dir, async () => {
+      const standing = await standingOf(readRecord(dir));
+      // A shared Connect on its way out takes no lease; once its process
+      // is gone, the record is absent and a new one starts.
+      if (standing.kind === 'stopping') return undefined;
+      if (standing.kind === 'absent') {
+        if (!(await proxyUp(cloud))) throw new Error(PROXY_DOWN);
+        writeRecord(dir, starting(spawnSupervisor(cwd, log), cloud, 'shared'));
+      }
+      return take(dir, app);
+    });
+    if (release !== undefined) break;
+    if (!told)
+      process.stdout.write(
+        "Waiting for this branch's Connect to finish stopping\n",
+      );
+    told = true;
+    await sleep(WAIT_MS);
+  }
+  const unbind = bindRelease(release);
+  try {
+    await waitAlive(dir, log);
+  } catch (error) {
+    release();
+    throw error;
+  }
+  return { cloud, release, unbind };
+};
+
 /**
  * Makes sure the Connect of the branch at `cwd` runs, starting it detached
- * when it does not, and takes a lease on it for `app`. It resolves once
- * Connect is ready, with its Cloud Connect's URL and the function that gives
- * the lease back (also given back on exit and on SIGINT, SIGTERM, SIGHUP).
+ * when it does not (or once one stopping has gone), and takes a lease on it
+ * for `app`. It resolves once Connect is ready, with its Cloud Connect's
+ * URL and the function that gives the lease back (also given back on exit
+ * and on SIGINT, SIGTERM, SIGHUP).
  */
 export const ensureConnect = async ({
   app,
@@ -146,22 +202,7 @@ export const ensureConnect = async ({
   readonly app: string;
   readonly cwd?: string;
 }): Promise<{ readonly cloud: string; readonly release: () => void }> => {
-  const { cloud, dir, log } = await devOf(cwd);
-  const release = await withLock(dir, async () => {
-    const standing = await standingOf(readRecord(dir));
-    if (standing.kind === 'absent') {
-      if (!(await proxyUp(cloud))) throw new Error(PROXY_DOWN);
-      writeRecord(dir, starting(spawnSupervisor(cwd, log), cloud, 'shared'));
-    }
-    return take(dir, app);
-  });
-  bindRelease(release);
-  try {
-    await waitAlive(dir, log);
-  } catch (error) {
-    release();
-    throw error;
-  }
+  const { cloud, release } = await ensure(app, cwd);
   return { cloud, release };
 };
 
@@ -169,8 +210,9 @@ export const ensureConnect = async ({
  * An App's `pnpm dev`: makes sure the branch's Connect runs, then runs
  * `command args` with `CONNECT_URL` set to its Cloud Connect, and exits
  * with the command's code, giving the lease back. Ctrl-C reaches the
- * command through the terminal; the detached Connect stops on its own once
- * no App holds a lease.
+ * command through the terminal, and the lease is given back only once the
+ * command exits; the detached Connect stops on its own once no App holds a
+ * lease.
  */
 export const withConnect = async ({
   app,
@@ -183,9 +225,9 @@ export const withConnect = async ({
   readonly args?: ReadonlyArray<string>;
   readonly cwd?: string;
 }): Promise<never> => {
-  let ensured: Awaited<ReturnType<typeof ensureConnect>>;
+  let ensured: Awaited<ReturnType<typeof ensure>>;
   try {
-    ensured = await ensureConnect({ app, cwd });
+    ensured = await ensure(app, cwd);
   } catch (error) {
     process.stderr.write(
       `${error instanceof Error ? error.message : String(error)}\n`,
@@ -198,9 +240,17 @@ export const withConnect = async ({
     env: { ...process.env, CONNECT_URL: ensured.cloud },
   });
   // SIGINT reaches the child through the terminal's process group; the
-  // others are passed on, and none ends this process before the child.
+  // others are passed on, and none ends this process, or gives the lease
+  // back, before the child exits. A second signal does both at once.
+  ensured.unbind();
+  let signalled = false;
   for (const signal of SIGNALS)
     process.on(signal, () => {
+      if (signalled) {
+        ensured.release();
+        process.exit(128 + constants.signals[signal]);
+      }
+      signalled = true;
       if (signal !== 'SIGINT') child.kill(signal);
     });
   const code = await new Promise<number>((resolve) => {
@@ -227,8 +277,7 @@ const attach = async (dir: string, log: string, record: ConnectRecord) => {
     record.mode === 'shared'
       ? follow(log, record.ready ? sizeOf(log) : 0)
       : () => {};
-  while (pidAlive(record.pid))
-    await new Promise((resolve) => setTimeout(resolve, 1_000));
+  while (runs(record.pid, record.startedAt)) await sleep(1_000);
   stop();
   release();
   process.stdout.write('Connect stopped.\n');
@@ -237,7 +286,8 @@ const attach = async (dir: string, log: string, record: ConnectRecord) => {
 /**
  * Runs this branch's Connect until it stops. In the foreground (Connect's
  * own `pnpm dev`) Ctrl-C stops it, warning about Apps still using it; if
- * one already runs, this attaches to it instead. In shared mode (the
+ * one already runs, this attaches to it instead, and if one is stopping,
+ * this waits for it to go, then starts. In shared mode (the
  * detached supervisor) it stops 3 s after the last lease is gone, and exits
  * at once if another Connect already runs. It runs only in the monorepo,
  * where the package has its `alchemy.run.ts`.
@@ -248,15 +298,20 @@ export const runConnectDev = async ({
   if (!existsSync(join(ROOT, 'alchemy.run.ts')))
     throw new Error('runConnectDev runs only in the monorepo');
   const { slug, cloud, dir, log } = await devOf(ROOT);
-  const other = await withLock(dir, async () => {
-    const standing = await standingOf(readRecord(dir));
-    if (standing.kind !== 'absent' && standing.record.pid !== process.pid)
-      return standing.record;
-    writeRecord(dir, starting(process.pid, cloud, mode));
-    return undefined;
-  });
+  let other: Standing | undefined;
+  for (;;) {
+    other = await withLock(dir, async () => {
+      const standing = await standingOf(readRecord(dir));
+      if (standing.kind !== 'absent' && standing.record.pid !== process.pid)
+        return standing;
+      writeRecord(dir, starting(process.pid, cloud, mode));
+      return undefined;
+    });
+    if (other?.kind !== 'stopping') break;
+    await sleep(WAIT_MS);
+  }
   if (other !== undefined) {
-    if (mode === 'foreground') await attach(dir, log, other);
+    if (mode === 'foreground') await attach(dir, log, other.record);
     return;
   }
   if (mode === 'foreground' && live(dir).length > 0)

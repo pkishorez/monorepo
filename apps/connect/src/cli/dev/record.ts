@@ -1,12 +1,15 @@
 import { readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { pidAlive } from './leases.js';
+import { live, runs } from './leases.js';
+import { withLock } from './lock.js';
 
 /*
  * `connect.json`: how this branch's Connect stands, written by whoever runs
  * it. It is alive only when its process runs, it says it is ready, Cloud
- * Connect answers `/auth` and the Machine answers `/health`; starting while
- * its process runs but it is not alive yet; absent otherwise.
+ * Connect answers `/auth` and the Machine answers `/health`; stopping once
+ * a shared Connect has decided to stop, until its process exits; starting
+ * while its process runs but it is not alive yet; absent otherwise. Its
+ * process runs while its pid is alive and was not reused since `startedAt`.
  */
 
 export interface ConnectRecord {
@@ -18,13 +21,17 @@ export interface ConnectRecord {
   readonly port: number;
   readonly machine: { readonly id: string; readonly name: string } | null;
   readonly ready: boolean;
+  /** Before its process started, or as it did. */
   readonly startedAt: string;
   readonly version: string;
+  /** Set once a shared Connect decided to stop: no lease may be taken on it. */
+  readonly stopping?: boolean;
 }
 
 export type Standing =
   | { readonly kind: 'absent' }
   | { readonly kind: 'starting'; readonly record: ConnectRecord }
+  | { readonly kind: 'stopping'; readonly record: ConnectRecord }
   | { readonly kind: 'alive'; readonly record: ConnectRecord };
 
 const recordFile = (dir: string) => join(dir, 'connect.json');
@@ -70,9 +77,11 @@ const answers = async (fetcher: typeof fetch, url: string) => {
 export const standingOf = async (
   record: ConnectRecord | undefined,
   fetcher: typeof fetch = fetch,
-  alive: (pid: number) => boolean = pidAlive,
+  alive: (pid: number, since: string) => boolean = runs,
 ): Promise<Standing> => {
-  if (record === undefined || !alive(record.pid)) return { kind: 'absent' };
+  if (record === undefined || !alive(record.pid, record.startedAt))
+    return { kind: 'absent' };
+  if (record.stopping === true) return { kind: 'stopping', record };
   const up =
     record.ready &&
     (
@@ -83,3 +92,16 @@ export const standingOf = async (
     ).every(Boolean);
   return { kind: up ? 'alive' : 'starting', record };
 };
+
+/**
+ * A shared Connect's decision to stop, holding the lock: when a live lease
+ * is in `dir` it stays (false); else its record says it is stopping, so no
+ * App leases it while it goes, and it may stop (true).
+ */
+export const stopUnlessLeased = (dir: string, pid: number = process.pid) =>
+  withLock(dir, async () => {
+    if (live(dir).length > 0) return false;
+    const record = readRecord(dir);
+    if (record?.pid === pid) writeRecord(dir, { ...record, stopping: true });
+    return true;
+  });

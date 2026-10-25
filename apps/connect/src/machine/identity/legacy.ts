@@ -10,9 +10,10 @@ import { MachineRecord } from './file.js';
  * Where ai-toolkit kept the one Machine a database file was: a table of
  * its own on the same SQLite file as the Store, holding a single record.
  * Connect keeps the Machine in machine.json instead; the first run on a
- * database moved from ~/.ai-toolkit reads the record here once, and nulls
- * it, so the Machine keeps its id and Machine Key. The names are what is
- * stored and never change.
+ * database moved from ~/.ai-toolkit reads the record here once, keeps it,
+ * and only then nulls it, so the Machine keeps its id and Machine Key even
+ * when the first run is cut short. The names are what is stored and never
+ * change.
  */
 
 const Stored = ESchema.make('Machine', {
@@ -26,10 +27,14 @@ const machineTable = StdTable.make(LEGACY_TABLE).primary('pk', 'sk').build();
 const stored = machineTable.singleEntity(Stored).default({ machine: null });
 
 /**
- * The Machine the database at `db` was under ai-toolkit, nulled there as
- * it is read; null when it holds none, or has no such table.
+ * The Machine the database at `db` was under ai-toolkit, handed to `keep`
+ * and nulled there once kept; null when it holds none, or has no such
+ * table.
  */
-export const takeLegacyMachine = (db: string) =>
+export const takeLegacyMachine = (
+  db: string,
+  keep: (machine: MachineRecord) => Effect.Effect<void>,
+) =>
   Effect.acquireUseRelease(
     Effect.sync(() => (existsSync(db) ? makeNodeSQLite({ path: db }) : null)),
     (database) =>
@@ -42,7 +47,9 @@ export const takeLegacyMachine = (db: string) =>
             );
             if (tables.length === 0) return null;
             const { value } = yield* stored.get();
-            if (value.machine !== null) yield* stored.put({ machine: null });
+            if (value.machine === null) return null;
+            yield* keep(value.machine);
+            yield* stored.put({ machine: null });
             return value.machine;
           }).pipe(
             Effect.orDie,
