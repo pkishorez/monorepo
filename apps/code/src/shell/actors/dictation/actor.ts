@@ -1,5 +1,5 @@
 import { Effect, Schema, Stream } from 'effect';
-import { AiClients } from '@kestack/ai-toolkit/client';
+import { CodeClients } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import {
   DeviceState,
@@ -143,7 +143,7 @@ export const State = Schema.TaggedUnion({
 });
 
 export const Dictation = Actor.define('Dictation', {
-  requires: [AiClients, Machines, DeviceState, Recorder, Dictations],
+  requires: [CodeClients, Machines, DeviceState, Recorder, Dictations],
   props: Props,
   model: Model,
   state: State,

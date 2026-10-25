@@ -1,6 +1,5 @@
 import { Effect } from 'effect';
-import type { HarnessName } from '@kestack/ai-toolkit/api';
-import { AiClient } from '@kestack/ai-toolkit/client';
+import { CodeClient, type HarnessName } from '@kestack/connect/code';
 import { orRefused } from '../../../refusal/index.ts';
 
 /*
@@ -10,7 +9,7 @@ import { orRefused } from '../../../refusal/index.ts';
  */
 
 export const loadHarnesses = orRefused(
-  AiClient.use((api) => api.harnesses()),
+  CodeClient.use((api) => api.harnesses()),
   (harnesses) => ({ _tag: 'HarnessesLoaded' as const, harnesses }),
 ).pipe(
   Effect.map((result) =>
@@ -22,7 +21,7 @@ export const loadHarnesses = orRefused(
 
 export const loadModels = (harness: HarnessName) =>
   orRefused(
-    AiClient.use((api) => api.models({ harness })),
+    CodeClient.use((api) => api.models({ harness })),
     (models) => ({ _tag: 'ModelsLoaded' as const, harness, list: models }),
   ).pipe(
     Effect.map((result) =>
@@ -34,7 +33,7 @@ export const loadModels = (harness: HarnessName) =>
 
 export const loadSkills = (projectId: string, harness: HarnessName) =>
   orRefused(
-    AiClient.use((api) => api.skills({ projectId, harness })),
+    CodeClient.use((api) => api.skills({ projectId, harness })),
     (skills) => ({ _tag: 'SkillsLoaded' as const, harness, list: skills }),
   ).pipe(
     Effect.map((result) =>

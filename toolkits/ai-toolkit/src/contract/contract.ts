@@ -1,0 +1,55 @@
+/*
+ * `@kestack/ai-toolkit/contract`: what any side may read, the browser
+ * included. The Raw records a Coding Harness emits, the Messages they are
+ * projected into, and the shapes a harness takes and tells that also cross
+ * the wire.
+ */
+
+export {
+  HARNESS_NAMES,
+  JsonSchema,
+  RAW_SOURCES,
+  RawSchema,
+  type HarnessName,
+  type Json,
+  type Raw,
+  type RawSource,
+} from './raw/index.js';
+export {
+  MessageSchema,
+  PartSchema,
+  PROJECTION_VERSION,
+  ROLES,
+  TOOL_KINDS,
+  TURN_END_STATUSES,
+  UsageSchema,
+  type Message,
+  type Part,
+  type Projected,
+  type Role,
+  type ToolKind,
+  type TurnEndStatus,
+  type Usage,
+} from './projection/index.js';
+export {
+  AskAnswerSchema,
+  AttachmentSchema,
+  BACKGROUND_JOB_KINDS,
+  BackgroundJobSchema,
+  BinaryInfoSchema,
+  ContextUsageSchema,
+  MCP_SERVER_STATES,
+  McpServerStatusSchema,
+  ModelInfo,
+  RateLimitSchema,
+  SkillSchema,
+  type AskAnswer,
+  type Attachment,
+  type BackgroundJob,
+  type BackgroundJobKind,
+  type BinaryInfo,
+  type ContextUsage,
+  type McpServerState,
+  type McpServerStatus,
+  type Skill,
+} from './wire/index.js';

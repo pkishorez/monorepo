@@ -4,7 +4,7 @@ QA pass on 2026-10-22, after the UI redesign. Every scenario was recorded at 144
 
 ## Run it yourself
 
-Build and start the server with `pnpm --filter @kestack/ai-toolkit build`, then `node toolkits/ai-toolkit/bin/ai-toolkit.mjs serve --port 4590 --db /tmp/ai-qa2-db/ai.db`. In another terminal run `pnpm --filter code dev` and open the URL it prints.
+Start this branch's Connect with `pnpm -F @kestack/connect dev`. In another terminal run `pnpm --filter code dev` and open the URL it prints.
 Test folders: `/tmp/ai-qa/demo` (README.md, a math.ts with only `add`, package.json) and `/tmp/ai-qa/other` (README.md, notes.txt).
 Models: Claude `claude-haiku-5-5` (effort Low), Codex `gpt-5.6-luna` (reasoning effort Low). Scenario 02b uses Claude's default, `claude-opus-5-5`.
 

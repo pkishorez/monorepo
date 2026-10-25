@@ -18,7 +18,7 @@ import type {
   SpeechToTextNotReady,
   TranscriptionFailed,
   UnknownHarness,
-} from '@kestack/ai-toolkit/api';
+} from '@kestack/connect/code';
 
 /*
  * How every call to the server ends: in one Message, what came back or why

@@ -385,9 +385,6 @@ importers:
       '@codemirror/view':
         specifier: 'catalog:'
         version: 6.43.15
-      '@kestack/ai-toolkit':
-        specifier: workspace:*
-        version: link:../../toolkits/ai-toolkit
       '@kestack/auth-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/auth-toolkit
@@ -1196,9 +1193,6 @@ importers:
       '@anthropic-ai/claude-agent-sdk':
         specifier: 'catalog:'
         version: 0.3.309(@anthropic-ai/sdk@0.125.0(zod@4.5.4))(@modelcontextprotocol/sdk@1.32.1(supports-color@10.2.2)(zod@4.5.4))(zod@4.5.4)
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.6(effect@4.0.6)(redis@6.2.1(@opentelemetry/api@1.10.0))
       '@openai/codex':
         specifier: 'catalog:'
         version: 0.164.0
@@ -1209,15 +1203,9 @@ importers:
       '@kestack/kabuki':
         specifier: workspace:*
         version: link:../../packages/kabuki
-      '@kestack/rpc-toolkit':
-        specifier: workspace:*
-        version: link:../rpc-toolkit
       '@kestack/std-toolkit':
         specifier: workspace:*
         version: link:../std-toolkit
-      '@tanstack/db':
-        specifier: 'catalog:'
-        version: 0.15.2(typescript@7.0.2)
       '@tsconfig/node22':
         specifier: 'catalog:'
         version: 22.0.6

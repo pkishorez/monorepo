@@ -7,9 +7,11 @@
   },
   "include": [],
   "files": [
-    "src/api/contract/index.ts",
-    "src/api/client/index.ts",
-    "src/server/index.ts",
-    "src/services/speech/sherpa/sherpa-onnx-node.d.ts"
+    "src/contract/index.ts",
+    "src/harness/index.ts",
+    "src/harness/fake/index.ts",
+    "src/speech/index.ts",
+    "src/speech/fake/index.ts",
+    "src/speech/sherpa/sherpa-onnx-node.d.ts"
   ]
 }

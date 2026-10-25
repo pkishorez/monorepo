@@ -1,7 +1,7 @@
 import type {
   Project as ProjectRecord,
   Session as SessionRecord,
-} from '@kestack/ai-toolkit/api';
+} from '@kestack/connect/code';
 import type { OnMachine } from '../../replica/index.ts';
 
 type Project = OnMachine<ProjectRecord>;

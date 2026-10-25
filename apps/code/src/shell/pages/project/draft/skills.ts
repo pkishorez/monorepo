@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import type { Effect } from 'effect';
-import { SkillSchema } from '@kestack/ai-toolkit/api';
+import { SkillSchema } from '@kestack/connect/code';
 import * as Picker from '../../../../ui/picker/index.ts';
 
 /*

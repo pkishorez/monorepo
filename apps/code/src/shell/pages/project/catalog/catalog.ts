@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { HarnessInfo, ModelInfo, SkillSchema } from '@kestack/ai-toolkit/api';
+import { HarnessInfo, ModelInfo, SkillSchema } from '@kestack/connect/code';
 import { loadHarnesses, loadModels, loadSkills } from './api.ts';
 
 /*

@@ -1,4 +1,4 @@
-import type { Session } from '@kestack/ai-toolkit/api';
+import type { Session } from '@kestack/connect/code';
 import {
   CircleAlertIcon,
   SquareIcon,

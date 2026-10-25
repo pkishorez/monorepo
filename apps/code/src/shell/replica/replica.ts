@@ -1,12 +1,11 @@
 import { eq } from '@tanstack/db';
 import { Effect, Queue, Schema, Stream } from 'effect';
-import type { Project, Session } from '@kestack/ai-toolkit/api';
-import { Ai } from '@kestack/ai-toolkit/client';
+import { CodeReplica, type Project, type Session } from '@kestack/connect/code';
 import { Query } from '@kestack/std-toolkit/replica';
 
 /*
- * What the pages read of the Machines, as Queries over their `Ai`
- * Instances, `Ai.get(machineId)`, one per Machine, each syncing over its
+ * What the pages read of the Machines, as Queries over their `CodeReplica`
+ * Instances, `CodeReplica.get(machineId)`, one per Machine, each syncing over its
  * own Machine's socket. `Projects` and `Sessions` read every Machine named
  * at once, and each row says which Machine it is from; a row, or a
  * session's messages, are read from the one Machine its address names.
@@ -53,7 +52,7 @@ export const across = {
 const instancesOf = (machineIds: ReadonlyArray<string>) =>
   Effect.map(
     Effect.forEach(machineIds, (machineId) =>
-      Effect.map(Ai.get(machineId), (ai) => [machineId, ai] as const),
+      Effect.map(CodeReplica.get(machineId), (ai) => [machineId, ai] as const),
     ),
     (pairs) => Object.fromEntries(pairs),
   );
@@ -62,7 +61,7 @@ type Instances = Effect.Success<ReturnType<typeof instancesOf>>;
 
 /** One Machine's Instance, as a Query reads it. */
 const one = ({ props }: { readonly props: { readonly machineId: string } }) =>
-  Effect.all({ ai: Ai.get(props.machineId) });
+  Effect.all({ ai: CodeReplica.get(props.machineId) });
 
 /** The Instance of a Machine read: `from` held every one named. */
 const held = (instances: Instances, machineId: string) => {
@@ -73,7 +72,8 @@ const held = (instances: Instances, machineId: string) => {
 };
 
 /** The name a Query's `neverSynced` gives a Machine's Instance. */
-export const instanceOf = (machineId: string) => Ai.instanceName(machineId);
+export const instanceOf = (machineId: string) =>
+  CodeReplica.instanceName(machineId);
 
 /** Every project of every Machine named, each with its Machine. */
 export const Projects = Query.make('Projects', {
@@ -206,7 +206,7 @@ export const everything = (machineIds: ReadonlyArray<string>) =>
  */
 export const lineage = (machineId: string, sessionId: string) =>
   Stream.unwrap(
-    Effect.map(Ai.get(machineId), (ai) =>
+    Effect.map(CodeReplica.get(machineId), (ai) =>
       Stream.callback<ReadonlyArray<Session>>(
         (queue) =>
           Effect.acquireRelease(

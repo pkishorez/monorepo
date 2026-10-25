@@ -1,5 +1,5 @@
 import { Effect, Layer, Schema, Stream } from 'effect';
-import { AiLive } from '@kestack/ai-toolkit/client';
+import { CodeReplicaLive } from '@kestack/connect/code';
 import { Accounts } from '@kestack/auth-toolkit/client';
 import { Navigation, Page, Router } from '@kestack/kabuki/routing';
 import { Replicas, Store } from '@kestack/std-toolkit/replica';
@@ -219,7 +219,7 @@ export const ShellLive = Page.build(Shell, {
   children: {
     // The Auth Worker's `maxAccounts`: its default, 5.
     account: { actor: AccountSwitcherLive, input: () => ({ maxAccounts: 5 }) },
-    replicas: Replicas.child([AiLive]),
+    replicas: Replicas.child([CodeReplicaLive]),
   },
   workers: {
     // 2. Accounts

@@ -1,4 +1,4 @@
-import type { Message, Part, Usage } from '@kestack/ai-toolkit/api';
+import type { Message, Part, Usage } from '@kestack/connect/code';
 
 /*
  * A session's Messages as rows to draw, one agent at a time. A Message is

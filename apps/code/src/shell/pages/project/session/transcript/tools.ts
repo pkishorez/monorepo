@@ -1,4 +1,4 @@
-import type { Part } from '@kestack/ai-toolkit/api';
+import type { Part } from '@kestack/connect/code';
 import type { Row, ToolState } from './thread.ts';
 
 /*

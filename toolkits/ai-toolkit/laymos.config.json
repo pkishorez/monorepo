@@ -4,104 +4,31 @@
   "ignoredPaths": [],
   "fileModules": [],
   "rules": {
-    "src/api/client": [
-      "src/api/contract",
-      "src/services/records/entities",
-      "src/services/records/projection"
+    "src/contract/projection": ["src/contract/raw"],
+    "src/contract/wire": ["src/contract/raw"],
+    "src/harness": ["src/contract"],
+    "src/harness/claude": ["src/harness/contract"],
+    "src/harness/claude/sdk-session": ["src/harness/claude/project"],
+    "src/harness/codex": ["src/harness/contract"],
+    "src/harness/codex/catalog": ["src/harness/codex/app-server"],
+    "src/harness/codex/fork": ["src/harness/codex/app-server"],
+    "src/harness/codex/project": [
+      "src/harness/codex/app-server",
+      "src/harness/codex/thread"
     ],
-    "src/api/contract": [
-      "src/services/harness/wire",
-      "src/services/records/entities",
-      "src/services/records/projection",
-      "src/services/records/raw"
+    "src/harness/codex/thread": [
+      "src/harness/codex/app-server",
+      "src/harness/codex/catalog"
     ],
-    "src/api/live": [
-      "src/api/contract",
-      "src/kabuki/engine",
-      "src/kabuki/speech",
-      "src/services/harness/contract",
-      "src/services/records/entities",
-      "src/services/records/projection",
-      "src/services/records/raw",
-      "src/services/records/store"
+    "src/harness/codex/titler": [
+      "src/harness/codex/app-server",
+      "src/harness/codex/catalog",
+      "src/harness/codex/thread"
     ],
-    "src/kabuki/engine": [
-      "src/services/harness/contract",
-      "src/services/records/entities",
-      "src/services/records/projection",
-      "src/services/records/raw",
-      "src/services/records/store"
-    ],
-    "src/kabuki/engine/actor-projects": [
-      "src/kabuki/engine/capabilities",
-      "src/kabuki/engine/engine-raw",
-      "src/kabuki/engine/prompt",
-      "src/services/harness/wire"
-    ],
-    "src/kabuki/engine/prompt": ["src/kabuki/engine/engine-raw"],
-    "src/kabuki/engine/services": ["src/kabuki/engine/capabilities"],
-    "src/kabuki/speech": ["src/services/speech/contract"],
-    "src/kabuki/speech/actor-speech-model": ["src/kabuki/speech/capabilities"],
-    "src/server": [
-      "src/api/contract",
-      "src/api/live",
-      "src/kabuki/engine",
-      "src/kabuki/speech",
-      "src/services/harness/claude",
-      "src/services/harness/codex",
-      "src/services/harness/contract",
-      "src/services/harness/fake",
-      "src/services/records/store",
-      "src/services/speech/contract",
-      "src/services/speech/fake",
-      "src/services/speech/sherpa"
-    ],
-    "src/services/harness/claude": [
-      "src/services/harness/contract",
-      "src/services/records/projection",
-      "src/services/records/raw"
-    ],
-    "src/services/harness/claude/sdk-session": [
-      "src/services/harness/claude/project"
-    ],
-    "src/services/harness/codex": [
-      "src/services/harness/contract",
-      "src/services/records/projection",
-      "src/services/records/raw"
-    ],
-    "src/services/harness/codex/catalog": [
-      "src/services/harness/codex/app-server"
-    ],
-    "src/services/harness/codex/fork": [
-      "src/services/harness/codex/app-server"
-    ],
-    "src/services/harness/codex/project": [
-      "src/services/harness/codex/app-server",
-      "src/services/harness/codex/thread"
-    ],
-    "src/services/harness/codex/thread": [
-      "src/services/harness/codex/app-server",
-      "src/services/harness/codex/catalog"
-    ],
-    "src/services/harness/codex/titler": [
-      "src/services/harness/codex/app-server",
-      "src/services/harness/codex/catalog",
-      "src/services/harness/codex/thread"
-    ],
-    "src/services/harness/contract": [
-      "src/services/harness/wire",
-      "src/services/records/projection",
-      "src/services/records/raw"
-    ],
-    "src/services/harness/fake": ["src/services/harness/contract"],
-    "src/services/harness/wire": ["src/services/records/raw"],
-    "src/services/records/entities": ["src/services/records/raw"],
-    "src/services/records/projection": ["src/services/records/raw"],
-    "src/services/records/store": [
-      "src/services/records/entities",
-      "src/services/records/raw"
-    ],
-    "src/services/speech/fake": ["src/services/speech/contract"],
-    "src/services/speech/sherpa": ["src/services/speech/contract"]
+    "src/harness/models": ["src/harness/contract"],
+    "src/harness/fake": ["src/harness/contract"],
+    "src/speech/actor-speech-model": ["src/speech/capabilities"],
+    "src/speech/sherpa": ["src/speech/contract"],
+    "src/speech/fake": ["src/speech/contract"]
   }
 }

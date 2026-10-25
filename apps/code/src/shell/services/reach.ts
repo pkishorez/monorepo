@@ -1,11 +1,11 @@
 import { Effect, Layer } from 'effect';
-import { AiClients, MachineAddress } from '@kestack/ai-toolkit/client';
+import { CodeClients, MachineAddress } from '@kestack/connect/code';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { Machines } from '../../layer/capabilities/index.ts';
 
 /*
  * How the app reaches every Machine of the signed-in Account's list. Each
- * Machine's `Ai` Instance opens only once the Machine is in the list, so
+ * Machine's `CodeReplica` Instance opens only once the Machine is in the list, so
  * an address naming another Account's Machine never reads what this
  * device keeps of it; and each Machine's socket dials its `https://`
  * address, over `wss`, offering its Machine Key as listed on each connect,
@@ -43,5 +43,5 @@ const address = Layer.effect(
 /** Every listed Machine's Replicas and socket, for the page that Provides them. */
 export const reach = Layer.mergeAll(
   listedOnly.pipe(Layer.provideMerge(Replicas.layer)),
-  AiClients.layer.pipe(Layer.provide(address)),
+  CodeClients.layer.pipe(Layer.provide(address)),
 );

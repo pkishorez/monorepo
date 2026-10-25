@@ -1,7 +1,10 @@
 import { Effect, Schema, Stream, SubscriptionRef } from 'effect';
-import { SpeechToTextState } from '@kestack/ai-toolkit/api';
-import { AiClients } from '@kestack/ai-toolkit/client';
-import { CloudClient, Machine } from '@kestack/connect/code';
+import {
+  CloudClient,
+  CodeClients,
+  Machine,
+  SpeechToTextState,
+} from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import {
   AccountReplicas,
@@ -67,7 +70,7 @@ const Model = Schema.Struct({
 type Model = typeof Model.Type;
 
 export const MachineList = Actor.define('MachineList', {
-  requires: [CloudClient, SavedMachines, AccountReplicas, Link, AiClients],
+  requires: [CloudClient, SavedMachines, AccountReplicas, Link, CodeClients],
   input: Schema.Struct({ accountId: Schema.String }),
   props: Schema.Struct({
     /** The Account's email, for the command that adds a Machine. */
@@ -132,7 +135,7 @@ export const MachineListLive = Actor.build(MachineList, {
     lines: {
       each: ({ model }) => idsOf(model),
       run: (self, machineId) =>
-        Stream.runForEach(AiClients.connection(machineId), (line) =>
+        Stream.runForEach(CodeClients.connection(machineId), (line) =>
           self.send({ _tag: 'LineChanged', machineId, line }),
         ),
     },

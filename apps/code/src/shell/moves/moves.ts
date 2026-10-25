@@ -9,7 +9,7 @@ import {
   Stream,
   SubscriptionRef,
 } from 'effect';
-import { AiClient, AiClients } from '@kestack/ai-toolkit/client';
+import { CodeClient, CodeClients } from '@kestack/connect/code';
 import { orRefused } from '../refusal/index.ts';
 import { answered, asking, idle, next, type Plan, put } from './plan.ts';
 
@@ -90,9 +90,9 @@ interface Entry extends Session {
 }
 
 const ask = ({ machineId, sessionId }: Session, settled: boolean) =>
-  AiClients.on(
+  CodeClients.on(
     machineId,
-    AiClient.use((api) =>
+    CodeClient.use((api) =>
       settled
         ? api.settleSession({ sessionId })
         : api.unsettleSession({ sessionId }),
@@ -101,7 +101,7 @@ const ask = ({ machineId, sessionId }: Session, settled: boolean) =>
 
 const make = Effect.gen(function* () {
   const scope = yield* Effect.scope;
-  const clients = yield* Effect.context<AiClients>();
+  const clients = yield* Effect.context<CodeClients>();
   const entries = yield* Ref.make(new Map<string, Entry>());
   const intents = yield* SubscriptionRef.make<
     ReadonlyArray<typeof Intent.Type>
@@ -225,7 +225,7 @@ const make = Effect.gen(function* () {
 });
 
 /** The Moves of the Machines reached here. */
-export const layer: Layer.Layer<Moves, never, AiClients> = Layer.effect(
+export const layer: Layer.Layer<Moves, never, CodeClients> = Layer.effect(
   Moves,
   make,
 );

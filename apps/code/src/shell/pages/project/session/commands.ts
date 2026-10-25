@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { AiClient } from '@kestack/ai-toolkit/client';
+import { CodeClient } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
 import { DeviceState } from '../../../../layer/capabilities/index.ts';
 import { orRefused } from '../../../refusal/index.ts';
@@ -13,7 +13,7 @@ export const cancel = Command.make('Cancel', {
   args: Schema.Struct({ sessionId: Schema.String }),
   run: (args) =>
     orRefused(
-      AiClient.use((api) => api.cancel(args)),
+      CodeClient.use((api) => api.cancel(args)),
       () => ({
         _tag: 'Stopped' as const,
       }),
@@ -28,7 +28,7 @@ export const forkSession = Command.make('ForkSession', {
   }),
   run: (args) =>
     orRefused(
-      AiClient.use((api) => api.forkSession(args)),
+      CodeClient.use((api) => api.forkSession(args)),
       (session) => ({
         _tag: 'Forked' as const,
         projectId: session.projectId,

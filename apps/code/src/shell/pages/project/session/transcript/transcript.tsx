@@ -5,7 +5,7 @@ import {
   type MouseEvent,
   type ReactNode,
 } from 'react';
-import type { Part, ToolKind, Usage } from '@kestack/ai-toolkit/api';
+import type { Part, ToolKind, Usage } from '@kestack/connect/code';
 import {
   BotIcon,
   CheckIcon,

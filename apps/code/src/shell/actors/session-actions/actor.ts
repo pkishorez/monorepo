@@ -1,6 +1,5 @@
 import { Effect, Layer, Schema, Stream } from 'effect';
-import type { Session } from '@kestack/ai-toolkit/api';
-import { AiClients } from '@kestack/ai-toolkit/client';
+import { CodeClients, type Session } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
 import { Replicas } from '@kestack/std-toolkit/replica';
@@ -127,7 +126,7 @@ const openOf = (
 };
 
 export const SessionActions = Actor.define('SessionActions', {
-  requires: [AiClients, Moves, Navigation, Replicas],
+  requires: [CodeClients, Moves, Navigation, Replicas],
   props: Schema.Struct({ bindings: Bindings }),
   model: Schema.Struct({
     picking: Schema.NullOr(Picker.How),
@@ -212,7 +211,7 @@ export const SessionActionsLive = Actor.build(SessionActions, {
   },
   provides: (self) =>
     Layer.unwrap(
-      Effect.map(Effect.context<AiClients | Moves>(), (client) =>
+      Effect.map(Effect.context<CodeClients | Moves>(), (client) =>
         Actions.owner({
           done: () => self.send({ _tag: 'Closed' }),
           settle: (choices) =>
@@ -229,7 +228,7 @@ export const SessionActionsLive = Actor.build(SessionActions, {
                         action === 'settle',
                       ),
                     ).pipe(Effect.as(null), Effect.provide(client))
-                  : yield* AiClients.on(machineId, run(action, session)).pipe(
+                  : yield* CodeClients.on(machineId, run(action, session)).pipe(
                       Effect.provide(client),
                     );
               yield* self.send({ _tag: 'Ran', go });

@@ -6,7 +6,7 @@ Connects a computer to the cloud as a Machine its User reaches from anywhere: th
 
 Connect is how a computer becomes a Machine its User can reach from outside: the `ke-connect` program run on the computer, and Cloud Connect, where the Machine signs in and sends its Heartbeats. Code is one App on it; later Apps reach the same Machines. It takes over the Machine, Cloud Connect and Code's Sessions from [`@kestack/ai-toolkit`](../../toolkits/ai-toolkit/README.md), which keeps only the Coding Harnesses, as [ADR 0011](../../docs/adr/0011-ai-toolkit-stops-at-the-harness-connect-owns-the-rest.md) decides.
 
-The package is being built in steps. So far it holds the Machine, Cloud Connect and the `ke-connect` command; Connect keeps its files in the XDG folders under `kestack/`, with a folder per branch in development, moved there once from `~/.ai-toolkit`. The `code` App Group is still served from ai-toolkit. The words are in [CONTEXT.md](CONTEXT.md).
+The package is being built in steps. So far it holds the Machine, Cloud Connect, the `ke-connect` command and the `code` App Group; Connect keeps its files in the XDG folders under `kestack/`, with a folder per branch in development, moved there once from `~/.ai-toolkit`. The words are in [CONTEXT.md](CONTEXT.md).
 
 ## Install
 

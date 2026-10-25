@@ -1,10 +1,10 @@
 import { Effect, Schema, Stream } from 'effect';
-import { AiClient } from '@kestack/ai-toolkit/client';
-import { Page, Router } from '@kestack/kabuki/routing';
 import {
+  CodeClient,
   HarnessInfo,
   type Session as SessionRecord,
-} from '@kestack/ai-toolkit/api';
+} from '@kestack/connect/code';
+import { Page, Router } from '@kestack/kabuki/routing';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { machineIn, projectIn, session } from '../../../places/index.ts';
 import { Refused } from '../../../refusal/index.ts';
@@ -98,7 +98,7 @@ export const Session = Page.define({
   path: '/s/:sessionId',
   params: { sessionId: Schema.String },
   metadata: { title: 'Session · code' },
-  requires: [AiClient, Replicas, DeviceState],
+  requires: [CodeClient, Replicas, DeviceState],
   model: Model,
   message: Schema.TaggedUnion({
     Read: Read.fields,

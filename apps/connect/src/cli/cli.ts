@@ -5,11 +5,14 @@ import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import {
   logout as logoutMachine,
   serve as serveMachine,
-} from '../serve/index.js';
+} from './serve/index.js';
+
+// What a Node program starts a Connect with, without the command line.
+export { logout, serve, type ServeOptions } from './serve/index.js';
 
 /*
  * `ke-connect`: the flags, and nothing else. `serve` runs Connect as a
- * Machine and `logout` forgets it, both from src/serve; a failure ends the
+ * Machine and `logout` forgets it, both from serve/; a failure ends the
  * program with its message alone.
  */
 
@@ -77,7 +80,7 @@ const exitWith = (error: unknown) =>
     process.exitCode = 1;
   });
 
-const serve = Command.make(
+const serveCommand = Command.make(
   'serve',
   { port, cloud, branch, origin, name, heartbeat },
   ({ port, cloud, branch, origin, name, heartbeat }) =>
@@ -101,14 +104,17 @@ const serve = Command.make(
   ),
 );
 
-const logout = Command.make('logout', { cloud, branch }, ({ cloud, branch }) =>
-  logoutMachine({
-    cloud,
-    ...Option.match(branch, {
-      onNone: () => ({}),
-      onSome: (branch) => ({ branch }),
-    }),
-  }).pipe(Effect.catch(exitWith)),
+const logoutCommand = Command.make(
+  'logout',
+  { cloud, branch },
+  ({ cloud, branch }) =>
+    logoutMachine({
+      cloud,
+      ...Option.match(branch, {
+        onNone: () => ({}),
+        onSome: (branch) => ({ branch }),
+      }),
+    }).pipe(Effect.catch(exitWith)),
 ).pipe(
   Command.withDescription(
     'Sign out and forget this Machine, keeping its Projects and Sessions',
@@ -119,9 +125,11 @@ const { version } = JSON.parse(
   readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
 ) as { readonly version: string };
 
-Command.make('ke-connect', {}, () => Effect.void).pipe(
-  Command.withSubcommands([serve, logout]),
-  Command.run({ version }),
-  Effect.provide(NodeServices.layer),
-  NodeRuntime.runMain,
-);
+/** Runs `ke-connect` on this process's arguments, until it ends. */
+export const main = () =>
+  Command.make('ke-connect', {}, () => Effect.void).pipe(
+    Command.withSubcommands([serveCommand, logoutCommand]),
+    Command.run({ version }),
+    Effect.provide(NodeServices.layer),
+    NodeRuntime.runMain,
+  );

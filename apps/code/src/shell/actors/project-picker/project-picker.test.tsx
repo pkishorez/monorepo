@@ -2,7 +2,7 @@
 import { act, type ReactNode, useState } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema, Stream } from 'effect';
-import { AiClients } from '@kestack/ai-toolkit/client';
+import { CodeClients } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { toReact, View } from '@kestack/kabuki/react';
 import { Navigation } from '@kestack/kabuki/routing';
@@ -101,7 +101,7 @@ const OwnerView = View.make(OwnerLive, ({ model, children, send }) => {
 });
 
 const services = Layer.mergeAll(
-  Layer.mock(AiClients)({}),
+  Layer.mock(CodeClients)({}),
   // One Machine: the Picker opens at its Projects.
   Layer.mock(Machines)({
     state: Stream.make({

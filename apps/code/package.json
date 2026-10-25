@@ -19,7 +19,6 @@
     "@codemirror/commands": "catalog:",
     "@codemirror/state": "catalog:",
     "@codemirror/view": "catalog:",
-    "@kestack/ai-toolkit": "workspace:*",
     "@kestack/auth-toolkit": "workspace:*",
     "@kestack/connect": "workspace:*",
     "@kestack/kabuki": "workspace:*",

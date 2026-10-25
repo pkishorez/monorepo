@@ -1,4 +1,4 @@
-import type { Session } from '@kestack/ai-toolkit/api';
+import type { Session } from '@kestack/connect/code';
 
 /*
  * How a Session stands, as one 6px dot, drawn only when it asks for

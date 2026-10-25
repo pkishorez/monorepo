@@ -1,4 +1,4 @@
-import type { Project, Session } from '@kestack/ai-toolkit/api';
+import type { Project, Session } from '@kestack/connect/code';
 import { describe, expect, it } from 'vitest';
 import type { OnMachine } from '../../replica/index.ts';
 import { groupsOf, rowsOf, sessionBeside } from './rows.ts';

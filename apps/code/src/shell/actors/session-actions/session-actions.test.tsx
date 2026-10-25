@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema, Stream } from 'effect';
-import { AiClient, AiClients } from '@kestack/ai-toolkit/client';
+import { CodeClient, CodeClients } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { toReact, View } from '@kestack/kabuki/react';
 import { Navigation } from '@kestack/kabuki/routing';
@@ -117,9 +117,9 @@ const services = Layer.mergeAll(
       agreed: () => Effect.void,
     }),
   ),
-  AiClients.make(() =>
+  CodeClients.make(() =>
     Layer.merge(
-      Layer.mock(AiClient)({}),
+      Layer.mock(CodeClient)({}),
       Layer.mock(RpcConnection)({
         hooks: { onConnect: Effect.void, onDisconnect: Effect.void },
       }),

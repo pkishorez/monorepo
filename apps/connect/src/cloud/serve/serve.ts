@@ -8,7 +8,7 @@ import {
   type D1Statement,
   makeD1SQLite,
 } from '@kestack/std-toolkit/db/sqlite/d1';
-import { allowsOrigin } from '../../origins/index.js';
+import { allowsOrigin } from '../origins/index.js';
 import {
   AUTH_PATH,
   type AuthInfo,
@@ -28,7 +28,7 @@ import { machinesTable } from './storage/index.js';
  *   asking the Auth Worker; a call with no Sign-in is refused
  *   Unauthenticated.
  * - Apps are on other origins of the same site: an origin matching one of
- *   `origins` (patterns, see src/origins) may call `/rpc` with credentials,
+ *   `origins` (patterns, see cloud/origins) may call `/rpc` with credentials,
  *   its own origin echoed back, and its preflight is answered here, since
  *   the RPC server answers POST alone. A call from any other origin is
  *   refused 403 before it is read: another page of the same site would send
@@ -36,7 +36,7 @@ import { machinesTable } from './storage/index.js';
  *   makes, is no browser's and goes ahead.
  *
  * The Worker is a few lines over `serve`, reading its env (see
- * src/deploy/worker.server.ts). The table itself is made at deploy, by
+ * cloud/deploy/worker.server.ts). The table itself is made at deploy, by
  * `D1.table(machinesTable)`.
  */
 

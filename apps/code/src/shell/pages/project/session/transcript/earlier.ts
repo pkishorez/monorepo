@@ -1,4 +1,4 @@
-import type { Message } from '@kestack/ai-toolkit/api';
+import type { Message } from '@kestack/connect/code';
 
 /*
  * What a Fork carries on from: the history before its Fork Point, read

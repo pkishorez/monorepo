@@ -10,10 +10,11 @@ import {
 import type { Cause, Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import {
-  TranscriptionFailed,
+  CodeClient,
+  CodeClients,
   type SpeechToTextState,
-} from '@kestack/ai-toolkit/api';
-import { AiClient, AiClients } from '@kestack/ai-toolkit/client';
+  TranscriptionFailed,
+} from '@kestack/connect/code';
 import {
   Actor,
   Command,
@@ -109,7 +110,7 @@ const OwnerLive = (start: { readonly place: Place }) =>
     },
   });
 
-type Api = AiClient['Service'];
+type Api = CodeClient['Service'];
 
 const speechOf = (tag: SpeechToTextState['_tag']): SpeechToTextState =>
   tag === 'Downloading'
@@ -186,7 +187,7 @@ const world = (options: {
       Layer.merge(
         // An RPC client's procedures are generic over how they are called;
         // a stand-in answers the one way the app calls them.
-        Layer.mock(AiClient)({
+        Layer.mock(CodeClient)({
           watchSpeechToText: (() =>
             Stream.make(
               speechOf(options.speech[machineId] ?? 'Off'),
@@ -219,7 +220,7 @@ const world = (options: {
       dictations,
       device,
       Layer.mock(Machines)({ state: Stream.make(known) }),
-      AiClients.make(machine),
+      CodeClients.make(machine),
       Layer.succeed(Recorder, {
         record: (microphone) =>
           options.microphone === 'denied'

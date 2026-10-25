@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Message, Part } from '@kestack/ai-toolkit/api';
+import type { Message, Part } from '@kestack/connect/code';
 import { thread } from './thread.ts';
 
 let n = 0;

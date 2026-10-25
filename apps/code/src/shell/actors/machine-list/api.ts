@@ -1,6 +1,5 @@
 import { Effect, Schedule, Stream } from 'effect';
-import { AiClient, AiClients } from '@kestack/ai-toolkit/client';
-import { CloudClient } from '@kestack/connect/code';
+import { CloudClient, CodeClient, CodeClients } from '@kestack/connect/code';
 import { keepSubscribed } from '@kestack/rpc-toolkit/rpc/websocket';
 
 /*
@@ -28,10 +27,10 @@ export const list = CloudClient.use((client) => client.List({})).pipe(
 
 /** How Speech to Text stands on one Machine, now and on each change; a feed it refuses is tried again a little later. */
 export const speechOn = (machineId: string) =>
-  AiClients.stream(
+  CodeClients.stream(
     machineId,
     keepSubscribed(() =>
-      Stream.unwrap(Effect.map(AiClient, (api) => api.watchSpeechToText())),
+      Stream.unwrap(Effect.map(CodeClient, (api) => api.watchSpeechToText())),
     ),
   ).pipe(
     Stream.retry(Schedule.spaced('5 seconds')),
