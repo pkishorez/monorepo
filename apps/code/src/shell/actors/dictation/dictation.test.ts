@@ -1,4 +1,12 @@
-import { Effect, Layer, Queue, Schema, Stream, SubscriptionRef } from 'effect';
+import {
+  Deferred,
+  Effect,
+  Layer,
+  Queue,
+  Schema,
+  Stream,
+  SubscriptionRef,
+} from 'effect';
 import type { Cause, Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import {
@@ -120,6 +128,8 @@ const world = (options: {
   readonly connected?: ReadonlyArray<string>;
   /** The microphone chosen in Device State at the start. */
   readonly chosen?: string | null;
+  /** What each `transcribe` waits for before it answers. */
+  readonly gate?: Effect.Effect<void>;
 }) =>
   Effect.gen(function* () {
     // Two Machines listed, each answering, each with its Speech to Text.
@@ -184,11 +194,17 @@ const world = (options: {
           transcribe: (({ audio }: { readonly audio: Uint8Array }) =>
             Effect.suspend(() => {
               asked.push({ machineId, audio: [...audio] });
-              const next = said.length > 1 ? said.shift()! : said[0]!;
-              return typeof next === 'string'
-                ? Effect.succeed(next)
-                : Effect.fail(next);
-            })) as unknown as Api['transcribe'],
+              return options.gate ?? Effect.void;
+            }).pipe(
+              Effect.andThen(
+                Effect.suspend(() => {
+                  const next = said.length > 1 ? said.shift()! : said[0]!;
+                  return typeof next === 'string'
+                    ? Effect.succeed(next)
+                    : Effect.fail(next);
+                }),
+              ),
+            )) as unknown as Api['transcribe'],
         }),
         Layer.mock(RpcConnection)({
           connectionStatus: Stream.concat(
@@ -298,6 +314,43 @@ const send = (
   );
 
 describe('Dictation', () => {
+  it('throws away one being transcribed on a Cancel that comes after its Stop, its text with it', () =>
+    timed(
+      Effect.gen(function* () {
+        const gate = yield* Deferred.make<void>();
+        const { layer, asked } = yield* world({
+          speech: { m1: 'Ready' },
+          said: ['too late'],
+          gate: Deferred.await(gate),
+        });
+        const app = yield* start(session('m1', 's1'), layer);
+        yield* settle;
+        yield* toggle(app);
+        yield* send(app, { _tag: 'Stop' });
+        expect(stateOf(app)._tag).toBe('Transcribing');
+        expect(asked).toHaveLength(1);
+        yield* askIt(app, { _tag: 'Cancel' });
+        expect(stateOf(app)._tag).toBe('Idle');
+        yield* Deferred.succeed(gate, undefined);
+        yield* settle;
+        expect(stateOf(app)._tag).toBe('Idle');
+      }),
+    ));
+
+  it('throws away text not yet taken on Cancel', () =>
+    timed(
+      Effect.gen(function* () {
+        const { layer } = yield* world({ speech: { m1: 'Ready' } });
+        const app = yield* start(session('m1', 's1'), layer);
+        yield* settle;
+        yield* toggle(app);
+        yield* toggle(app);
+        expect(stateOf(app)._tag).toBe('Done');
+        yield* askIt(app, { _tag: 'Cancel' });
+        expect(stateOf(app)._tag).toBe('Idle');
+      }),
+    ));
+
   it('throws away the one recording on Cancel: the microphone lets go and nothing is transcribed', () =>
     timed(
       Effect.gen(function* () {

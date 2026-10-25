@@ -19,6 +19,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type KeyboardEvent,
   type ReactNode,
   type RefObject,
 } from 'react';
@@ -151,9 +152,14 @@ export const TouchDraftView = View.make(
     const { onShown } = draft.dictation;
     useEffect(onShown, [onShown]);
 
-    // The Dictation, as it stands for this Draft, told to the Touch Draft.
+    // The Dictation, as it stands for this Draft, told to the Touch Draft
+    // with whether the Draft could be sent as it moves.
     const heard = heardOf(draft.dictation);
-    useEffect(() => send({ _tag: 'Heard', dictation: heard }), [heard]);
+    const sendable = !slots.blocked && !draft.disabled;
+    useEffect(
+      () => send({ _tag: 'Heard', dictation: heard, sendable }),
+      [heard],
+    );
     // Every send on touch goes through it: Send, the swipe and Enter.
     useEffect(() => {
       sending.current = () => send({ _tag: 'Send' });
@@ -167,6 +173,7 @@ export const TouchDraftView = View.make(
     const [shift, setShift] = useState(0);
     const collapsed = !editing && !expanded;
     const more = useMoreThan(draft.parent, 2 * LINE);
+    const toggles = !editing && !draft.empty && (more || expanded);
     const scroller = useRef<HTMLDivElement>(null);
     useEffect(() => {
       if (draft.empty) setShift(0);
@@ -281,8 +288,28 @@ export const TouchDraftView = View.make(
                     if (draft.empty) edit();
                     else if (expanded || more) setExpanded(!expanded);
                   }}
+                  // Its words are the control that shows them whole, for
+                  // the keys and a screen reader too: no button of its own.
+                  {...(toggles
+                    ? {
+                        role: 'button',
+                        tabIndex: 0,
+                        'aria-expanded': expanded,
+                        'aria-label': expanded
+                          ? 'Show less of the message'
+                          : 'Show the whole message',
+                        onKeyDown: (event: KeyboardEvent) => {
+                          if (event.key !== 'Enter' && event.key !== ' ')
+                            return;
+                          // Its own, not the page's Enter, which sends.
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setExpanded(!expanded);
+                        },
+                      }
+                    : {})}
                   className={cn(
-                    'relative min-w-0 flex-1 pl-3 text-foreground group-data-disabled/draft:opacity-40',
+                    'focus-ring relative min-w-0 flex-1 rounded-2xl pl-3 text-foreground group-data-disabled/draft:opacity-40',
                     editing ? 'pr-3' : 'pr-1',
                     editing || expanded
                       ? 'max-h-[min(40dvh,20rem)] overflow-y-auto overscroll-contain py-2 [mask-image:linear-gradient(to_bottom,transparent,black_0.5rem,black_calc(100%-0.5rem),transparent)]'

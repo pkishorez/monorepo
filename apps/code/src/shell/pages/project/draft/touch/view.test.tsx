@@ -297,6 +297,12 @@ afterEach(async () => {
 });
 
 describe('Touch Draft', () => {
+  it('is no control while its words fit', async () => {
+    expect(
+      document.querySelector('[aria-label="Show the whole message"]'),
+    ).toBeNull();
+  });
+
   it('is read only at rest, and a tap on its words does not edit it', async () => {
     expect(editor().getAttribute('contenteditable')).toBe('false');
     expect(card().dataset['writing']).toBeUndefined();
@@ -527,6 +533,21 @@ describe('Touch Draft', () => {
       expect(card().dataset['writing']).toBeUndefined();
       await tap(box());
       expect(box().className).toContain('h-14');
+    });
+
+    it('is a control itself, as a screen reader finds it', async () => {
+      const words = () =>
+        document.querySelector<HTMLElement>(
+          '[role="button"][aria-label="Show the whole message"], [role="button"][aria-label="Show less of the message"]',
+        )!;
+      expect(words().getAttribute('aria-expanded')).toBe('false');
+      expect(words().tabIndex).toBe(0);
+      // A screen reader activates it with a click.
+      await tap(words());
+      expect(words().getAttribute('aria-expanded')).toBe('true');
+      expect(words().getAttribute('aria-label')).toBe(
+        'Show less of the message',
+      );
     });
   });
 });
