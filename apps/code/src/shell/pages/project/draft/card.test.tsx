@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
+import { EditorView } from '@codemirror/view';
 import { Layer, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { toReact, View, type ViewProps } from '@kestack/kabuki/react';
@@ -375,6 +376,41 @@ describe('Draft', () => {
     expect(marked()).toBeNull();
     await key('u', 'KeyU');
     expect(page.text).toBe('Please ');
+  });
+
+  it('opens Skills by a `/` typed in the Composer as the input last used asks', async () => {
+    await key('i', 'KeyI');
+    const view = EditorView.findFromDOM(editor())!;
+    const typeSlash = () =>
+      act(async () => {
+        const at = view.state.selection.main.head;
+        for (const handler of view.state.facet(EditorView.inputHandler))
+          if (handler(view, at, at, '/', () => view.state.update({}))) break;
+      });
+    // An on-screen keyboard on a touch laptop: the last input was a touch.
+    document.documentElement.dataset['input'] = 'touch';
+    await typeSlash();
+    await flush();
+    delete document.documentElement.dataset['input'];
+    expect(document.querySelector('[data-slot="top-dialog"]')).not.toBeNull();
+    expect(document.activeElement).not.toBe(search());
+  });
+
+  it('opens Skills centred, search focused, by a `/` typed on the keys', async () => {
+    await key('i', 'KeyI');
+    const view = EditorView.findFromDOM(editor())!;
+    document.documentElement.dataset['input'] = 'keys';
+    await act(async () => {
+      const at = view.state.selection.main.head;
+      for (const handler of view.state.facet(EditorView.inputHandler))
+        if (handler(view, at, at, '/', () => view.state.update({}))) break;
+    });
+    await flush();
+    delete document.documentElement.dataset['input'];
+    expect(
+      document.querySelector('[data-slot="dialog-content"]'),
+    ).not.toBeNull();
+    expect(document.activeElement).toBe(search());
   });
 
   it('puts what is pasted in the Composer in at its cursor, the same way', async () => {
