@@ -1,5 +1,5 @@
 import { Router } from '@kestack/kabuki/routing';
-import { Shell } from './shell/index.ts';
+import { Shell } from './actor.ts';
 
 /*
  * The router, read down from the root page: every place the app has, and
@@ -9,7 +9,7 @@ import { Shell } from './shell/index.ts';
  * its bottom, rather than where the page before was scrolled.
  */
 
-export const router = Router.define(Shell.page, {
+export const router = Router.define(Shell, {
   notFound: { title: 'Not found · code', robots: 'noindex' },
   scrollRestoration: true,
   scrollRestorationBehavior: 'instant',
