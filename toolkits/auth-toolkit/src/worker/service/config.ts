@@ -1,5 +1,5 @@
 import type { BetterAuthOptions } from 'better-auth';
-import type { TestUsers } from './plugins/index.js';
+import type { TestUsers } from './identity/test-sign-in.js';
 
 export type { TestUsers };
 

@@ -1,6 +1,6 @@
 import { makeSignature } from 'better-auth/crypto';
 import type { AuthWorkerConfig } from '../config.js';
-import { authWorker } from '../worker.js';
+import { authWorker } from '../service.js';
 
 export const baseURL = 'https://auth.example.com';
 export const origin = 'https://app.example.com';

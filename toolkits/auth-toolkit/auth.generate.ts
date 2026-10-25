@@ -5,12 +5,10 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from '@better-auth/drizzle-adapter/relations-v2';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import {
-  authModelOptions,
-  authorizationServerOptions,
-} from './src/worker/worker/auth-model.ts';
+import { authorizationServerOptions } from './src/worker/service/authorization-server/authorization-server.ts';
+import { identityOptions } from './src/worker/service/identity/identity.ts';
 
-const identity = authModelOptions({
+const identity = identityOptions({
   google: {
     clientId: 'auth-generate-fixture-client-id',
     clientSecret: 'auth-generate-fixture-client-secret',

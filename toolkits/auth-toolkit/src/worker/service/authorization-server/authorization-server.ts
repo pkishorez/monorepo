@@ -1,46 +1,13 @@
 import type { BetterAuthOptions, BetterAuthPlugin } from 'better-auth';
-import {
-  admin,
-  bearer,
-  deviceAuthorization,
-  jwt,
-  multiSession,
-} from 'better-auth/plugins';
+import { jwt } from 'better-auth/plugins';
 import { cimd } from '@better-auth/cimd';
 import {
   DEFAULT_OAUTH_SCOPES,
   oauthProvider,
 } from '@better-auth/oauth-provider';
-import { AUTH_PAGES, accessTokenUserClaims } from '../../contract/index.js';
+import { AUTH_PAGES, accessTokenUserClaims } from '../../../contract/index.js';
 import { workerClientMetadataFetch } from './client-metadata-fetch.js';
-import { COOKIE_CACHE_SECONDS, DEFAULT_MAX_ACCOUNTS } from './config.js';
-import { grantRevocation } from './plugins/index.js';
-
-/** The Identity Role: always on. */
-export const authModelOptions = (config: {
-  google: { clientId: string; clientSecret: string };
-  maxAccounts?: number | undefined;
-}): BetterAuthOptions =>
-  ({
-    socialProviders: {
-      google: { ...config.google, prompt: 'select_account' },
-    },
-    session: {
-      storeSessionInDatabase: true,
-      cookieCache: { enabled: true, maxAge: COOKIE_CACHE_SECONDS },
-    },
-    verification: { storeInDatabase: true },
-    rateLimit: { enabled: false },
-    onAPIError: { errorURL: AUTH_PAGES.error },
-    plugins: [
-      admin(),
-      bearer(),
-      deviceAuthorization({ verificationUri: AUTH_PAGES.device }),
-      multiSession({
-        maximumSessions: config.maxAccounts ?? DEFAULT_MAX_ACCOUNTS,
-      }),
-    ],
-  }) satisfies BetterAuthOptions;
+import { grantRevocation } from './grant-revocation.js';
 
 /** The Authorization Server Role. OAuth Clients register themselves, by
  * Dynamic Client Registration or a Client ID Metadata Document. */

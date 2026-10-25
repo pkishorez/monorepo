@@ -1,7 +1,7 @@
 import { handler } from '@kestack/kabuki/start/server';
 import { describe, expect, it } from 'vitest';
 import { memory } from '../../database/sqlite/memory/index.js';
-import type { AuthWorkerConfig } from '../../worker/config.js';
+import type { AuthWorkerConfig } from '../../service/config.js';
 import {
   applyCookies,
   baseURL,
@@ -9,8 +9,8 @@ import {
   post,
   postAsProgram,
   signIn,
-} from '../../worker/tests/fixture.js';
-import { makeAuthWorker } from '../../worker/worker.js';
+} from '../../service/tests/fixture.js';
+import { makeAuthWorker } from '../../service/service.js';
 import app from '../app.tsx';
 import server from '../loaders.server.ts';
 

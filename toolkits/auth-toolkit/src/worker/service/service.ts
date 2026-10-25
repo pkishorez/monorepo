@@ -1,10 +1,11 @@
 import { betterAuth, type Auth, type BetterAuthOptions } from 'better-auth';
 import { APIError } from 'better-auth/api';
 import { dash } from '@better-auth/infra';
-import { authModelOptions, authorizationServerOptions } from './auth-model.js';
-import { browserApi, type AuthApi } from './browser-api.js';
-import { refuseCaller } from './callers.js';
-import { normalizeClientRegistration } from './client-registration.js';
+import { authorizationServerOptions } from './authorization-server/authorization-server.js';
+import { identityOptions } from './identity/identity.js';
+import { browserApi, type AuthApi } from './browser/browser-api.js';
+import { refuseCaller } from './browser/callers.js';
+import { normalizeClientRegistration } from './authorization-server/client-registration.js';
 import {
   resolveConfig,
   trustedOriginPatterns,
@@ -16,8 +17,8 @@ import {
   TEST_SIGN_IN_PATH,
   isTestEmail,
 } from '../../contract/index.js';
-import { withoutSessionTokens } from './no-tokens.js';
-import { TEST_SIGN_IN_METHOD, testSignIn } from './plugins/index.js';
+import { withoutSessionTokens } from './browser/no-tokens.js';
+import { TEST_SIGN_IN_METHOD, testSignIn } from './identity/test-sign-in.js';
 import { servePages, type PagesApp, type PagesContext } from './pages.js';
 import { d1 } from '../database/sqlite/d1/database/index.js';
 
@@ -131,7 +132,7 @@ export const makeAuthWorker = (
   pages?: PagesApp,
 ): AuthWorker => {
   const resolved = resolveConfig(config);
-  const model = authModelOptions({
+  const model = identityOptions({
     google: config.google,
     maxAccounts: resolved.maxAccounts,
   });

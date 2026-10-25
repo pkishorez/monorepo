@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('better-auth', () => ({ betterAuth: mocks.betterAuth }));
 
 import type { PagesContext } from '../pages.js';
-import { authWorker, makeAuthWorker } from '../worker.js';
+import { authWorker, makeAuthWorker } from '../service.js';
 
 const config = {
   url: 'https://auth.example.com',

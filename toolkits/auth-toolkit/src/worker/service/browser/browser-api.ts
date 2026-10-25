@@ -5,8 +5,8 @@
 // session out of this browser's multi-session cookies on the server.
 import { isAPIError } from 'better-auth/api';
 import { makeSignature } from 'better-auth/crypto';
-import { AUTH_API_PATH } from '../../contract/index.js';
-import type { Resolved } from './config.js';
+import { AUTH_API_PATH } from '../../../contract/index.js';
+import type { Resolved } from '../config.js';
 import { signInName, type SignInKind } from './sign-in-name.js';
 
 /** An Account as a page sees it: a User, never a token. */

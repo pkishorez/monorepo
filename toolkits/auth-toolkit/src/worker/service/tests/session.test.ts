@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { memory } from '../../database/sqlite/memory/index.js';
-import { authWorker } from '../worker.js';
+import { authWorker } from '../service.js';
 import { config, get, post, signIn } from './fixture.js';
 
 describe('database sessions', () => {

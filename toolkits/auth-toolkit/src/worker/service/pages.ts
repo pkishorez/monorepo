@@ -1,4 +1,4 @@
-import type { BrowserReads } from './browser-api.js';
+import type { BrowserReads } from './browser/browser-api.js';
 import type { Brand } from './config.js';
 
 /** What the Auth Worker hands its pages app on every request. */

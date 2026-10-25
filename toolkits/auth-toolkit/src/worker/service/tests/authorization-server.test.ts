@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { memory } from '../../database/sqlite/memory/index.js';
 import type { PagesContext } from '../pages.js';
-import { makeAuthWorker } from '../worker.js';
+import { makeAuthWorker } from '../service.js';
 import { baseURL, config } from './fixture.js';
 
 const createAuthWorker = (

@@ -29,7 +29,7 @@
       "default": "./dist/guard/authz/index.js"
     },
     "./worker": {
-      "types": "./dist/worker/worker/index.d.ts",
+      "types": "./dist/worker/service/index.d.ts",
       "default": "./dist/worker/app/worker.js"
     },
     "./worker/memory": {

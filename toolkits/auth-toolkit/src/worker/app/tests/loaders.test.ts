@@ -9,8 +9,8 @@ import {
   postAsProgram,
   secret,
   signIn,
-} from '../../worker/tests/fixture.js';
-import { makeAuthWorker } from '../../worker/worker.js';
+} from '../../service/tests/fixture.js';
+import { makeAuthWorker } from '../../service/service.js';
 import app from '../app.tsx';
 import server from '../loaders.server.ts';
 

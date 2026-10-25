@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { signInName } from '../sign-in-name.js';
+import { signInName } from '../browser/sign-in-name.js';
 
 describe('signInName', () => {
   it.each([

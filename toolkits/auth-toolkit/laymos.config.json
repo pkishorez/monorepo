@@ -43,7 +43,7 @@
       "src/worker/database/sqlite/schema",
       "src/worker/database/sqlite/migration"
     ],
-    "src/worker/worker": [
+    "src/worker/service": [
       "src/contract",
       "src/worker/database/sqlite/d1/database"
     ],
