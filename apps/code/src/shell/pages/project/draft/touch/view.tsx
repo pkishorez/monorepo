@@ -78,7 +78,7 @@ export interface Draft {
       | {
           readonly _tag: 'Recording';
           readonly elapsed: ReactNode;
-          readonly level: ReactNode;
+          readonly wave: ReactNode;
         }
       | null;
     readonly pending: {
@@ -268,7 +268,7 @@ export const TouchDraftView = View.make(
                   done();
               }}
               className={cn(
-                'group/draft flex min-w-0 flex-1 flex-col rounded-[1.375rem] border border-border bg-card p-1',
+                'group/draft flex min-w-0 flex-1 flex-col rounded-[1.375rem] border border-border bg-card p-1 transition-[border-color] duration-200 ease-out motion-reduce:transition-none data-recording:border-destructive/50',
                 // As tall as the button's column, the line under the words included.
                 !editing && 'min-h-29',
               )}
@@ -513,7 +513,7 @@ function Recording({
         >
           <span className="sr-only">Recording</span>
           {recording.elapsed}
-          {recording.level}
+          {recording.wave}
         </span>
       ) : (
         <span role="status" className="ml-2 text-sm text-muted-foreground">
