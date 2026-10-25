@@ -6,6 +6,7 @@ import {
   FolderNotFound,
   FolderUnreadable,
   HarnessFailed,
+  InvalidAccount,
   InvalidBinary,
   InvalidFolderName,
   ModelsUnavailable,
@@ -17,7 +18,7 @@ import {
   SkillsUnavailable,
   SpeechToTextNotReady,
   TranscriptionFailed,
-  UnknownHarness,
+  UnknownAccount,
 } from './api/contract/index.js';
 import { Engine } from './engine/index.js';
 import { Speech } from '@kestack/ai-toolkit/speech';
@@ -85,37 +86,41 @@ export const CodeApiLive = CodeApi.toLayer(
     return {
       harnesses: () =>
         Effect.gen(function* () {
-          const binaries = yield* engine.harnessBinaries;
+          const accounts = yield* engine.harnessAccounts;
           return yield* Effect.forEach(
-            harnesses.all,
-            (harness) =>
-              Effect.map(models.defaultModel(harness), (defaultModel) => {
-                const error =
-                  binaries.find((row) => row.harness === harness.name)?.resolved
-                    .error ?? null;
-                return {
+            accounts,
+            (account) => {
+              const harness = harnesses.get(account.harness);
+              return models.defaultModel(harness).pipe(
+                engine.runAs(account.id),
+                Effect.orElseSucceed(() => harness.defaultModel),
+                Effect.map((defaultModel) => ({
+                  account: account.id,
                   name: harness.name,
-                  label: harness.label,
+                  label: account.name,
                   settings: harness.settings,
                   defaultModel,
-                  available: error === null,
-                  unavailableReason: error,
-                };
-              }),
+                  available: account.resolved.error === null,
+                  unavailableReason: account.resolved.error,
+                })),
+              );
+            },
             { concurrency: 'unbounded' },
           );
         }),
-      models: ({ harness: name }) => {
-        const harness = harnesses.all.find((each) => each.name === name);
-        if (!harness) return Effect.succeed([]);
-        return models
-          .list(harness)
-          .pipe(
-            Effect.mapError(
-              (error) => new ModelsUnavailable({ message: error.message }),
-            ),
-          );
-      },
+      models: ({ account: id }) =>
+        Effect.gen(function* () {
+          const accounts = yield* engine.harnessAccounts;
+          const account = accounts.find((each) => each.id === id);
+          if (!account) return [];
+          return yield* models
+            .list(harnesses.get(account.harness))
+            .pipe(engine.runAs(id));
+        }).pipe(
+          Effect.mapError(
+            (error) => new ModelsUnavailable({ message: error.message }),
+          ),
+        ),
       addProject: ({ path }) =>
         engine
           .addProject(path)
@@ -129,7 +134,7 @@ export const CodeApiLive = CodeApi.toLayer(
             Effect.mapError((error) =>
               error._tag === 'ProjectNotFound'
                 ? wire.ProjectNotFound(error)
-                : new UnknownHarness({ harness: error.harness }),
+                : new UnknownAccount({ account: error.account }),
             ),
           ),
       send: ({ sessionId, ...message }) =>
@@ -177,9 +182,9 @@ export const CodeApiLive = CodeApi.toLayer(
         engine
           .regenerateTitle(sessionId)
           .pipe(Effect.mapError(wire.SessionNotFound)),
-      skills: ({ projectId, harness }) =>
+      skills: ({ projectId, account }) =>
         engine
-          .skills(projectId, harness)
+          .skills(projectId, account)
           .pipe(
             Effect.mapError((error) =>
               error._tag === 'ProjectNotFound'
@@ -218,13 +223,23 @@ export const CodeApiLive = CodeApi.toLayer(
                 : wire.HarnessFailed(error),
             ),
           ),
-      harnessBinaries: () => engine.harnessBinaries,
-      setHarnessBinary: ({ harness, path }) =>
+      harnessAccounts: () => engine.harnessAccounts,
+      saveHarnessAccount: (input) =>
         engine
-          .setHarnessBinary(harness, path)
+          .saveHarnessAccount(input)
+          .pipe(
+            Effect.mapError((error) =>
+              error._tag === 'InvalidBinary'
+                ? new InvalidBinary({ message: error.message })
+                : new InvalidAccount({ message: error.message }),
+            ),
+          ),
+      removeHarnessAccount: ({ id }) =>
+        engine
+          .removeHarnessAccount(id)
           .pipe(
             Effect.mapError(
-              (error) => new InvalidBinary({ message: error.message }),
+              (error) => new InvalidAccount({ message: error.message }),
             ),
           ),
       listFolder: (input) =>

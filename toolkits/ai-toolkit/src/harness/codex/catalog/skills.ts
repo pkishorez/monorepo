@@ -2,7 +2,7 @@ import { tmpdir } from 'node:os';
 import { Duration, Effect } from 'effect';
 import {
   HarnessError,
-  type HarnessBinaries,
+  type HarnessAccount,
   type Skill,
 } from '../../contract/index.js';
 import {
@@ -57,7 +57,7 @@ export const toSkill = (skill: SkillMetadata): Skill => ({
 /** Asks a short-lived `codex app-server` which Skills it offers in `cwd`. */
 export const skills = (
   cwd: string,
-): Effect.Effect<ReadonlyArray<Skill>, HarnessError, HarnessBinaries> =>
+): Effect.Effect<ReadonlyArray<Skill>, HarnessError, HarnessAccount> =>
   Effect.gen(function* () {
     const server = yield* start(tmpdir());
     return (yield* listSkills(server, cwd)).map(toSkill);

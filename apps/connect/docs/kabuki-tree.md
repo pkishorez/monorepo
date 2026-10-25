@@ -6,7 +6,7 @@ the Sessions in them, runs each Session's Turns on its Agent, and keeps every
 record in the Store. The Heartbeat tree keeps the Machine online: a tunnel to
 this computer, and a Heartbeat to Cloud Connect. Each root runs with
 `Runtime.start`. The engine Layer gives `Store`, `Harnesses`,
-`HarnessBinaries`, `OneShotPrompt` and `Agents`. The machine Layer gives
+`HarnessAccounts`, `OneShotPrompt` and `Agents`. The machine Layer gives
 `HeartbeatHost`.
 Changed through `/kabukifi`; edit by hand and it drifts.
 
@@ -43,7 +43,7 @@ Groups on its one socket, with its files where `paths/` says; and
 Down, from the root:
 
 ```
-engine Layer ─ Store, Harnesses, HarnessBinaries, OneShotPrompt, Agents ─▶ actor-code
+engine Layer ─ Store, Harnesses, HarnessAccounts, OneShotPrompt, Agents ─▶ actor-code
 actor-code   ─ each session id; Input: session, cwd, first ──────────────▶ actor-session
 machine Layer ─ HeartbeatHost ───────────────────────────────────────────▶ actor-heartbeat
 ```
@@ -136,7 +136,7 @@ Agent's answer to a question. retitle: a Title from the latest messages, or
 null. mcpStatus, contextUsage: from the open Agent; AgentClosed while closed.
 **Requires**: Agents: agent, jobs, agentTurn, turn, cancel, StopJob,
 mcpStatus, contextUsage. Store: persist, turn, fork, retitle. Harnesses:
-agent, fork, ask. HarnessBinaries: agent, title, retitle. OneShotPrompt:
+agent, fork, ask. HarnessAccounts: agent, fork, ask, title, retitle. OneShotPrompt:
 title, retitle.
 **Provides**: none.
 **Services**: none in the tree: services/agents/ keeps each Agent, opened on

@@ -3,7 +3,7 @@ import {
   HarnessError,
   type AskAnswer,
   type AskInput,
-  type HarnessBinaries,
+  type HarnessAccount,
 } from '../../contract/index.js';
 import type { Json } from '../../../contract/raw/index.js';
 import { isNotification, start } from '../app-server/index.js';
@@ -32,7 +32,7 @@ const parse = (text: string) =>
  */
 export const ask = (
   input: AskInput,
-): Effect.Effect<AskAnswer, HarnessError, HarnessBinaries> =>
+): Effect.Effect<AskAnswer, HarnessError, HarnessAccount> =>
   Effect.gen(function* () {
     const server = yield* start(input.cwd);
     const { thread } = yield* server.request('thread/fork', {

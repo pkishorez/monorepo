@@ -8,7 +8,7 @@ import {
   type Json,
 } from '@kestack/ai-toolkit/contract';
 import {
-  HarnessBinaries,
+  HarnessAccount,
   Harnesses,
   OneShotPrompt,
   type Agent,
@@ -19,7 +19,7 @@ import {
   type Session as SessionRecord,
   type SessionStatus,
 } from '../../../records/index.js';
-import { Agents, Store } from '../../capabilities/index.js';
+import { Agents, HarnessAccounts, Store } from '../../capabilities/index.js';
 import { StopJob } from './commands.js';
 import { forkFrom } from './fork.js';
 import { Prompt } from './prompt.js';
@@ -214,21 +214,25 @@ const persist = (self: SessionSelf) =>
 const agent = (self: SessionSelf) =>
   Effect.gen(function* () {
     const harnesses = yield* Harnesses;
-    const binaries = yield* HarnessBinaries;
+    const accounts = yield* HarnessAccounts;
     const { model } = yield* self.get;
     const harness = harnesses.get(model.session.harness);
     yield* (yield* Agents).keep(
       model.session.id,
-      Effect.flatMap(self.get, ({ model }) =>
-        harness.open({
-          cwd: model.cwd,
-          model: model.session.model,
-          settings: model.session.settings,
-          ...(model.session.nativeId === null
-            ? {}
-            : { nativeId: model.session.nativeId }),
-        }),
-      ).pipe(Effect.provideService(HarnessBinaries, binaries)),
+      Effect.gen(function* () {
+        const { model } = yield* self.get;
+        const account = yield* accounts.as(model.session.account);
+        return yield* harness
+          .open({
+            cwd: model.cwd,
+            model: model.session.model,
+            settings: model.session.settings,
+            ...(model.session.nativeId === null
+              ? {}
+              : { nativeId: model.session.nativeId }),
+          })
+          .pipe(Effect.provideService(HarnessAccount, account));
+      }),
     );
     yield* Effect.never;
   });
@@ -267,18 +271,22 @@ const ask = (self: SessionQuerySelf, question: string, schema: Json | null) =>
           'This session has no context to ask about yet; wait for its first turn to start.',
       });
     const harnesses = yield* Harnesses;
-    return yield* harnesses
-      .get(harness)
-      .ask({
-        cwd: model.cwd,
-        nativeId,
-        model: languageModel,
-        question,
-        ...(schema === null ? {} : { schema }),
-      })
-      .pipe(
-        Effect.mapError((error) => new AskFailed({ message: error.message })),
-      );
+    const accounts = yield* HarnessAccounts;
+    return yield* accounts.as(model.session.account).pipe(
+      Effect.flatMap((account) =>
+        harnesses
+          .get(harness)
+          .ask({
+            cwd: model.cwd,
+            nativeId,
+            model: languageModel,
+            question,
+            ...(schema === null ? {} : { schema }),
+          })
+          .pipe(Effect.provideService(HarnessAccount, account)),
+      ),
+      Effect.mapError((error) => new AskFailed({ message: error.message })),
+    );
   });
 
 /**
@@ -299,7 +307,7 @@ const agentTurn = (self: SessionSelf) =>
 
 export const Session = Actor.build(
   Actor.define('Session', {
-    requires: [Agents, Harnesses, HarnessBinaries, OneShotPrompt, Store],
+    requires: [Agents, Harnesses, HarnessAccounts, OneShotPrompt, Store],
     input: SessionInput,
     model: Model,
     state: State,

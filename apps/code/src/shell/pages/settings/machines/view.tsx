@@ -11,7 +11,7 @@ import {
   statusOf,
 } from '../../../../layer/capabilities/index.ts';
 import { MachineSettingsLive } from './actor.ts';
-import { HarnessBinaries } from './harness-binaries/index.ts';
+import { HarnessAccounts } from './harness-accounts/index.ts';
 import { SpeechToText } from './speech-to-text/index.ts';
 
 type Machine = typeof MachineSchema.Type;
@@ -20,7 +20,7 @@ type Machine = typeof MachineSchema.Type;
  * Settings → Machines: one card per Machine, drawn at once from the list:
  * its name, and a line with a dot for whether it is up, its Machine
  * Status and its version, and a quiet Forget, which asks first; then,
- * each between rules, its agents' binaries and its Speech to Text switch,
+ * each between rules, its agents' accounts and its Speech to Text switch,
  * each loading on its own, so one that does not answer says so in its own
  * place. Below,
  * outside Local mode, the way to the Auth Worker's Home Page, where a
@@ -86,7 +86,7 @@ export const MachineSettingsView = View.make(
         ) : (
           <ul className="flex flex-col gap-4">
             {model.machines.map((machine) => {
-              const settings = children.binaries.find(
+              const settings = children.accounts.find(
                 ({ key }) => key === machine.id,
               );
               const speech = children.speech.find(
@@ -131,7 +131,7 @@ export const MachineSettingsView = View.make(
                     </Button>
                   </div>
                   {settings !== undefined && (
-                    <HarnessBinaries.view instance={settings} />
+                    <HarnessAccounts.view instance={settings} />
                   )}
                   {speech !== undefined && (
                     <SpeechToText.view instance={speech} />

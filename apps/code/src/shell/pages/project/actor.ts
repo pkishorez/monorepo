@@ -132,13 +132,13 @@ export const ProjectLive = Page.build(Project, {
     },
     models: {
       each: ({ model }) => Catalog.wants.models(model.catalog),
-      run: (self, harness) =>
+      run: (self, account) =>
         Effect.gen(function* () {
           const { model } = yield* self.get;
           const change = yield* onMachine(
             self,
             Effect.gen(function* () {
-              return yield* Catalog.read.models(model.catalog, harness);
+              return yield* Catalog.read.models(model.catalog, account);
             }),
           );
           yield* self.send({ _tag: 'Catalog', change });
@@ -146,7 +146,7 @@ export const ProjectLive = Page.build(Project, {
     },
     skills: {
       each: ({ model }) => Catalog.wants.skills(model.catalog),
-      run: (self, harness) =>
+      run: (self, account) =>
         Effect.gen(function* () {
           const { model, props } = yield* self.get;
           const change = yield* onMachine(
@@ -155,7 +155,7 @@ export const ProjectLive = Page.build(Project, {
               return yield* Catalog.read.skills(
                 model.catalog,
                 props.params.projectId,
-                harness,
+                account,
               );
             }),
           );

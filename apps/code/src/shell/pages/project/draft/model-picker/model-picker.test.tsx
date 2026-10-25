@@ -58,6 +58,7 @@ const catalog = {
   ...Catalog.empty,
   harnesses: [
     {
+      account: 'claude',
       name: 'claude' as const,
       label: 'Claude',
       settings: [setting, permissions],
@@ -66,6 +67,7 @@ const catalog = {
       unavailableReason: null,
     },
     {
+      account: 'codex',
       name: 'codex' as const,
       label: 'Codex',
       settings: [],
@@ -76,7 +78,7 @@ const catalog = {
   ],
   models: [
     {
-      harness: 'claude',
+      account: 'claude',
       list: [
         { id: 'opus', name: 'Opus', releaseDate: '2026-05-01' },
         { id: 'sonnet', name: 'Sonnet', releaseDate: null },
@@ -84,7 +86,7 @@ const catalog = {
       problem: null,
     },
     {
-      harness: 'codex',
+      account: 'codex',
       list: [{ id: 'gpt', name: 'GPT', releaseDate: null }],
       problem: null,
     },
@@ -92,7 +94,7 @@ const catalog = {
 };
 
 const Chosen = Schema.Struct({
-  harness: Schema.String,
+  account: Schema.String,
   model: Schema.NullOr(Schema.String),
   settings: Schema.Record(Schema.String, Schema.String),
 });
@@ -113,7 +115,7 @@ const Page = Actor.define('Page', {
     Done: {
       chosen: Schema.NullOr(
         Schema.Struct({
-          harness: Schema.NullOr(Schema.String),
+          account: Schema.NullOr(Schema.String),
           model: Schema.NullOr(Schema.String),
           settings: Schema.Record(Schema.String, Schema.String),
         }),
@@ -125,7 +127,7 @@ const Page = Actor.define('Page', {
 const PageLive = Actor.build(Page, {
   init: () => ({
     model: {
-      current: { harness: 'claude', model: null, settings: {} },
+      current: { account: 'claude', model: null, settings: {} },
       picking: null,
       opened: 0,
       pings: 0,
@@ -176,7 +178,7 @@ const PageLive = Actor.build(Page, {
           chosen === null
             ? model.current
             : {
-                harness: chosen.harness ?? model.current.harness,
+                account: chosen.account ?? model.current.account,
                 model: chosen.model,
                 settings: { ...model.current.settings, ...chosen.settings },
               },
@@ -187,7 +189,7 @@ const PageLive = Actor.build(Page, {
 
 let page = {
   current: {
-    harness: '',
+    account: '',
     model: null as string | null,
     settings: {} as Readonly<Record<string, string>>,
   },
@@ -326,7 +328,7 @@ describe('ModelPicker', () => {
     await flush();
     expect(search()).toBeNull();
     expect(page.current).toEqual({
-      harness: 'claude',
+      account: 'claude',
       model: 'opus',
       settings: { effort: 'high', permissionMode: 'bypassPermissions' },
     });
@@ -341,7 +343,7 @@ describe('ModelPicker', () => {
     await key('Enter', { ctrlKey: true });
     await flush();
     expect(page.current).toEqual({
-      harness: 'codex',
+      account: 'codex',
       model: 'gpt',
       settings: {},
     });
@@ -379,7 +381,7 @@ describe('ModelPicker', () => {
     await flush();
     expect(search()).toBeNull();
     expect(page.current).toEqual({
-      harness: 'claude',
+      account: 'claude',
       model: 'sonnet',
       settings: { permissionMode: 'plan' },
     });
@@ -463,7 +465,7 @@ describe('ModelPicker, from the model chip on a device with no keyboard', () => 
     await tap(document.querySelector<HTMLElement>('[cmdk-item]')!);
     expect(dialog()).toBeNull();
     expect(page.current).toEqual({
-      harness: 'claude',
+      account: 'claude',
       model: 'opus',
       settings: {},
     });
@@ -479,6 +481,6 @@ describe('ModelPicker, from the model chip on a device with no keyboard', () => 
     expect(rows()).toEqual([{ text: 'GPT', checked: true }]);
     await tap(document.querySelector<HTMLElement>('[cmdk-item]')!);
     expect(dialog()).toBeNull();
-    expect(page.current.harness).toBe('codex');
+    expect(page.current.account).toBe('codex');
   });
 });

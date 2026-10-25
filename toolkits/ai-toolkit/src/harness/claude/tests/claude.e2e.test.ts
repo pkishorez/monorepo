@@ -11,7 +11,7 @@ import { crc32, deflateSync } from 'node:zlib';
 import { Duration, Effect, Exit, Fiber, Option, Scope, Stream } from 'effect';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
-  HarnessBinaries,
+  HarnessAccount,
   isRecord,
   type Agent,
   type RawOut,
@@ -204,10 +204,8 @@ describe.skipIf(!enabled)('claude harness against the real Claude Code', () => {
   const cwd = mkdtempSync(join(tmpdir(), 'ai-toolkit-claude-e2e-'));
   let scope: Scope.Closeable;
   let session: Agent;
-  const run = <A>(effect: Effect.Effect<A, unknown, HarnessBinaries>) =>
-    Effect.runPromise(
-      effect.pipe(Effect.provide(HarnessBinaries.layerDefault)),
-    );
+  const run = <A>(effect: Effect.Effect<A, unknown, HarnessAccount>) =>
+    Effect.runPromise(effect.pipe(Effect.provide(HarnessAccount.layerDefault)));
 
   beforeAll(async () => {
     writeFileSync(join(cwd, 'note.txt'), `The secret word is ${SECRET}.\n`);
@@ -454,13 +452,10 @@ describe.skipIf(!enabled)(
   () => {
     const cwd = mkdtempSync(join(tmpdir(), 'ai-toolkit-claude-e2e-features-'));
     const run = <A>(
-      effect: Effect.Effect<A, unknown, HarnessBinaries | Scope.Scope>,
+      effect: Effect.Effect<A, unknown, HarnessAccount | Scope.Scope>,
     ) =>
       Effect.runPromise(
-        effect.pipe(
-          Effect.scoped,
-          Effect.provide(HarnessBinaries.layerDefault),
-        ),
+        effect.pipe(Effect.scoped, Effect.provide(HarnessAccount.layerDefault)),
       );
     const open = (nativeId?: string) =>
       claude.open({
@@ -480,8 +475,9 @@ describe.skipIf(!enabled)(
     it('runs the configured binary, and says why a broken one cannot run', async () => {
       const info = await Effect.runPromise(
         claude.binary.pipe(
-          Effect.provideService(HarnessBinaries, {
-            path: () => Effect.succeed('/nowhere/claude'),
+          Effect.provideService(HarnessAccount, {
+            binary: '/nowhere/claude',
+            home: undefined,
           }),
         ),
       );

@@ -5,6 +5,7 @@ export {
   FolderNotFound,
   FolderUnreadable,
   HarnessFailed,
+  InvalidAccount,
   InvalidBinary,
   InvalidFolderName,
   NotForkable,
@@ -15,9 +16,9 @@ export {
   SessionNotFound,
   SkillsUnavailable,
   Store,
-  storedHarnessBinaries,
+  storedHarnessAccounts,
   storeLayer,
-  UnknownHarness,
+  UnknownAccount,
   type EngineOptions,
   type EngineService,
   type Feed,
@@ -25,3 +26,4 @@ export {
   type SessionJobs,
   type StartSession,
 } from './engine.js';
+export type { AccountInput, HarnessAccountRow } from './services/index.js';

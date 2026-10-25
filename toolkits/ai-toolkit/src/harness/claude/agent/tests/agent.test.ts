@@ -88,7 +88,7 @@ const withSession = <A, E>(
       Effect.flatMap(
         openSdkAgent({
           cwd: '/tmp',
-          executable: undefined,
+          executable: { path: '/usr/local/bin/claude', env: {} },
           model: 'claude-test',
           effort: 'high',
           permissionMode: 'default',

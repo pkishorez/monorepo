@@ -3,14 +3,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { HarnessBinaries, type Harness } from '../../contract/index.js';
+import { HarnessAccount, type Harness } from '../../contract/index.js';
 import { binaryAt, checkBinary } from '../binaries.js';
 
 const folder = mkdtempSync(join(tmpdir(), 'ai-toolkit-binaries-'));
 /** A harness whose binary runs wherever it is set. */
 const harness = {
   binary: Effect.map(
-    Effect.flatMap(HarnessBinaries, (binaries) => binaries.path('claude')),
+    Effect.map(HarnessAccount, (account) => account.binary),
     (path) => ({
       path: path ?? '/usr/local/bin/claude',
       version: '1.0.0',
@@ -27,10 +27,13 @@ const whyNot = (path: string) =>
 
 describe('Harness Binaries', () => {
   it('reads a harness binary at a path, or its default', async () => {
-    expect((await Effect.runPromise(binaryAt(harness, null))).isDefault).toBe(
-      true,
+    const installed = await Effect.runPromise(
+      binaryAt(harness, { binary: undefined, home: undefined }),
     );
-    const at = await Effect.runPromise(binaryAt(harness, '/x/claude'));
+    expect(installed.isDefault).toBe(true);
+    const at = await Effect.runPromise(
+      binaryAt(harness, { binary: '/x/claude', home: undefined }),
+    );
     expect(at.isDefault).toBe(false);
   });
 

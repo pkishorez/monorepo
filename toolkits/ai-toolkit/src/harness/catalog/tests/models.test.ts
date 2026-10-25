@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Effect, Layer } from 'effect';
 import {
-  HarnessBinaries,
+  HarnessAccount,
   HarnessError,
   type Harness,
 } from '../../contract/index.js';
@@ -43,8 +43,9 @@ const list = (
   Effect.runPromise(
     Effect.flatMap(Models, (models) => models.list(harness)).pipe(
       Effect.provide(
-        Models.layer({ cacheFile, fetch }).pipe(
-          Layer.provide(HarnessBinaries.layerDefault),
+        Layer.merge(
+          Models.layer({ cacheFile, fetch }),
+          HarnessAccount.layerDefault,
         ),
       ),
     ),
@@ -164,14 +165,38 @@ describe('Models', () => {
         ];
       }).pipe(
         Effect.provide(
-          Models.layer({
-            cacheFile: tempFile(),
-            fetch: () => Promise.resolve(catalog),
-          }).pipe(Layer.provide(HarnessBinaries.layerDefault)),
+          Layer.merge(
+            Models.layer({
+              cacheFile: tempFile(),
+              fetch: () => Promise.resolve(catalog),
+            }),
+            HarnessAccount.layerDefault,
+          ),
         ),
       ),
     );
     expect(result).toEqual(['claude-b', 'claude-test', 'claude-test']);
     expect(account.asks()).toBe(1);
+  });
+  it('asks each Harness Account for its own models', async () => {
+    const account = withAccount(Effect.succeed([{ id: 'claude-a' }]));
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const models = yield* Models;
+        const as = (home: string | undefined) =>
+          Effect.provideService(HarnessAccount, { binary: undefined, home });
+        yield* as(undefined)(models.list(account.harness));
+        yield* as('/home/work')(models.list(account.harness));
+        yield* as('/home/work')(models.list(account.harness));
+      }).pipe(
+        Effect.provide(
+          Models.layer({
+            cacheFile: tempFile(),
+            fetch: () => Promise.resolve(catalog),
+          }),
+        ),
+      ),
+    );
+    expect(account.asks()).toBe(2);
   });
 });

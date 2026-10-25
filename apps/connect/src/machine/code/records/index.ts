@@ -1,9 +1,10 @@
 export {
-  HarnessConfigSchema,
+  defaultAccount,
+  HarnessAccountSchema,
   ProjectSchema,
   SESSION_STATUSES,
   SessionSchema,
-  type HarnessConfig,
+  type HarnessAccountRecord,
   type Project,
   type Session,
   type SessionStatus,

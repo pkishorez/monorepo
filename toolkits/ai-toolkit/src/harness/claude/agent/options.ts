@@ -4,8 +4,11 @@ import type { TurnOptions } from './turn-options.js';
 export interface SdkAgentConfig extends TurnOptions {
   readonly cwd: string;
   readonly nativeId?: string;
-  /** The Claude Code to run; undefined runs the SDK's bundled one. */
-  readonly executable: string | undefined;
+  /** The Claude Code to run, and the environment it runs in. */
+  readonly executable: {
+    readonly path: string;
+    readonly env: NodeJS.ProcessEnv;
+  };
 }
 
 const canUseTool: CanUseTool = async (toolName, input) =>
@@ -16,9 +19,8 @@ const canUseTool: CanUseTool = async (toolName, input) =>
 /** The live query's options, for a prompt fed one user message at a time. */
 export const queryOptions = (config: SdkAgentConfig): Options => ({
   cwd: config.cwd,
-  ...(config.executable === undefined
-    ? {}
-    : { pathToClaudeCodeExecutable: config.executable }),
+  pathToClaudeCodeExecutable: config.executable.path,
+  env: config.executable.env,
   model: config.model,
   effort: config.effort,
   permissionMode: config.permissionMode,

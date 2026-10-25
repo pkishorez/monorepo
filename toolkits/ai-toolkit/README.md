@@ -4,11 +4,11 @@ Effect-native Coding Harnesses as plain Effects: Claude Code and Codex Agents in
 
 ## Big picture
 
-Claude Code and Codex each have their own SDK, their own records and their own idea of a session. ai-toolkit puts one contract over both: open an Agent in a folder, run and steer its Turns, cancel one, fork it after a finished Turn, ask it a question that leaves it untouched, and read every whole record it emits as Raw, projected into one Message form. It keeps nothing and serves nothing, and it offers plain Effects, not Actors: what is kept of an Agent, and how its Turns are ordered, is the business of whoever uses it. [`@kestack/connect`](../../apps/connect/README.md) is the first user: its `code` App Group keeps each Agent as a Session.
+Claude Code and Codex each have their own SDK, their own records and their own idea of a session. ai-toolkit puts one contract over both, running the Claude Code and Codex the user installed, as one of their logins (a Harness Account): open an Agent in a folder, run and steer its Turns, cancel one, fork it after a finished Turn, ask it a question that leaves it untouched, and read every whole record it emits as Raw, projected into one Message form. It keeps nothing and serves nothing, and it offers plain Effects, not Actors: what is kept of an Agent, and how its Turns are ordered, is the business of whoever uses it. [`@kestack/connect`](../../apps/connect/README.md) is the first user: its `code` App Group keeps each Agent as a Session.
 
-Speech to Text sits behind a door of its own and knows nothing of Agents. It downloads its model into a folder the caller names, and turns audio into text on the computer.
+Speech to Text sits behind a door of its own and knows nothing of Agents. When it is switched on, it downloads its runtime and model into a folder the caller names, and turns audio into text on the computer.
 
-The words are in [CONTEXT.md](CONTEXT.md). Raw records and their projection to Messages are in [docs/v1-spec.md](docs/v1-spec.md), and how a Turn's stream carries its facts in [docs/turn-flow.md](docs/turn-flow.md). The one Kabuki tree left, behind Speech to Text, is in [docs/kabuki-tree.md](docs/kabuki-tree.md). Decisions are in [docs/adr/](docs/adr/); 0011 (Fork Points are Turn ends), 0012 (Background Jobs are live, and agents may start Turns), 0013 (A Turn's facts travel in its stream) and 0017 (Speech to Text runs on the Machine) are current here. 0004, 0014, 0015, 0016 and 0018 moved to [Connect's ADRs](../../apps/connect/docs/adr/), and the rest record a design that was replaced.
+The words are in [CONTEXT.md](CONTEXT.md). Raw records and their projection to Messages are in [docs/v1-spec.md](docs/v1-spec.md), and how a Turn's stream carries its facts in [docs/turn-flow.md](docs/turn-flow.md). The one Kabuki tree left, behind Speech to Text, is in [docs/kabuki-tree.md](docs/kabuki-tree.md). Decisions are in [docs/adr/](docs/adr/); 0011 (Fork Points are Turn ends), 0012 (Background Jobs are live, and agents may start Turns), 0013 (A Turn's facts travel in its stream), 0017 (Speech to Text runs on the Machine) and 0019 (The harnesses run what the user installed) are current here. 0004, 0014, 0015, 0016 and 0018 moved to [Connect's ADRs](../../apps/connect/docs/adr/), and the rest record a design that was replaced.
 
 ## Install
 
@@ -20,7 +20,7 @@ pnpm add @kestack/ai-toolkit effect @kestack/kabuki @kestack/std-toolkit
 - `@kestack/kabuki`: Speech to Text runs its model as a private Actor.
 - `@kestack/std-toolkit`: the entity Schemas of Raw and Message.
 
-`@anthropic-ai/claude-agent-sdk`, `@openai/codex` and `sherpa-onnx-node` (Speech to Text) are regular dependencies. Node 24 or newer is required, and a `tar` that reads bzip2 to unpack the Speech to Text model.
+Claude Code and Codex are not dependencies: install the ones you use, and sign in (`claude auth login`, `codex login`). The Claude Agent SDK's JavaScript ships inside `dist/vendor`, under Anthropic's license; Speech to Text's runtime, `sherpa-onnx-node`, is fetched from the npm registry when it is switched on. Node 24 or newer is required, and a `tar` that reads gzip and bzip2 to unpack Speech to Text's files.
 
 ## Exports
 
@@ -53,25 +53,25 @@ pnpm add @kestack/ai-toolkit effect @kestack/kabuki @kestack/std-toolkit
 
 ### `@kestack/ai-toolkit/harness`
 
-| Export                         | What it does                                                                                |
-| ------------------------------ | ------------------------------------------------------------------------------------------- |
-| `claude`                       | The Claude Code harness, through the Agent SDK.                                             |
-| `codex`                        | The Codex harness, through `codex app-server`.                                              |
-| `codexOneShot`                 | Layer of `OneShotPrompt` answered by Codex on a small model, read-only, in a temp folder.   |
-| `Harnesses`                    | Service listing the Coding Harnesses a program runs, each found by name.                    |
-| `harnesses`                    | Layer of `Harnesses` from a list of harnesses.                                              |
-| `HarnessBinaries`              | Service saying which Harness Binary each harness runs; the caller keeps the paths.          |
-| `HarnessBinaries.layerDefault` | Layer running every harness on its default binary.                                          |
-| `binaryAt`                     | What a harness runs as with a given path, or its default.                                   |
-| `checkBinary`                  | A path the user gave, expanded, once it runs as the harness's binary.                       |
-| `InvalidBinary`                | Error: the path is missing, not executable, or its `--version` failed.                      |
-| `OneShotPrompt`                | Service answering a prompt with no Agent behind it and nothing kept.                        |
-| `HarnessError`                 | Error: a Coding Harness failed.                                                             |
-| `isRecord`                     | Whether something in a Turn's stream is a record of the agent's, not a fact about the Turn. |
-| `projectRaw`                   | One Raw record to its Message form, by the harness in a list that wrote it.                 |
-| `Models`                       | Service listing the Language Models each harness can run, from models.dev and the account.  |
-| `Models.layer`                 | Layer of `Models`, keeping its models.dev copy in a file the caller names.                  |
-| `ModelsError`                  | Error: the models could not be listed.                                                      |
+| Export                        | What it does                                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------------- |
+| `claude`                      | The Claude Code harness, through the Agent SDK.                                             |
+| `codex`                       | The Codex harness, through `codex app-server`.                                              |
+| `codexOneShot`                | Layer of `OneShotPrompt` answered by Codex on a small model, read-only, in a temp folder.   |
+| `Harnesses`                   | Service listing the Coding Harnesses a program runs, each found by name.                    |
+| `harnesses`                   | Layer of `Harnesses` from a list of harnesses.                                              |
+| `HarnessAccount`              | Service saying which Harness Account a call runs as: its binary and config folder.          |
+| `HarnessAccount.layerDefault` | Layer running the installed harness from PATH, on its own config folder.                    |
+| `binaryAt`                    | What a harness's binary resolves to, run as a given Harness Account.                        |
+| `checkBinary`                 | A path the user gave, expanded, once it runs as the harness's binary.                       |
+| `InvalidBinary`               | Error: the path is missing, not executable, or its `--version` failed.                      |
+| `OneShotPrompt`               | Service answering a prompt with no Agent behind it and nothing kept.                        |
+| `HarnessError`                | Error: a Coding Harness failed.                                                             |
+| `isRecord`                    | Whether something in a Turn's stream is a record of the agent's, not a fact about the Turn. |
+| `projectRaw`                  | One Raw record to its Message form, by the harness in a list that wrote it.                 |
+| `Models`                      | Service listing the Language Models each harness can run, from models.dev and the account.  |
+| `Models.layer`                | Layer of `Models`, keeping its models.dev copy in a file the caller names.                  |
+| `ModelsError`                 | Error: the models could not be listed.                                                      |
 
 ### `@kestack/ai-toolkit/harness/fake`
 
@@ -106,7 +106,7 @@ pnpm add @kestack/ai-toolkit effect @kestack/kabuki @kestack/std-toolkit
 
 ```ts
 import { Effect, Stream } from 'effect';
-import { claude, HarnessBinaries, isRecord } from '@kestack/ai-toolkit/harness';
+import { claude, HarnessAccount, isRecord } from '@kestack/ai-toolkit/harness';
 
 const program = Effect.scoped(
   Effect.gen(function* () {
@@ -120,12 +120,13 @@ const program = Effect.scoped(
     const records = outs.filter(isRecord);
     return { nativeId: yield* agent.nativeId, records };
   }),
-).pipe(Effect.provide(HarnessBinaries.layerDefault));
+).pipe(Effect.provide(HarnessAccount.layerDefault));
 ```
 
 - Each record is a `RawOut`; stamp it with ids and keep it as `Raw`, then `projectRaw([claude, codex])` turns it into a Message.
 - `turn.steer(id, input)` hands a message to the running Turn; a steer whose `TurnSteered` never comes was not taken, and the caller runs it as the next Turn.
 - Open again with `nativeId` to resume the Agent's context. `claude.fork` and `claude.ask` read it without opening it.
+- Give `HarnessAccount` a `home` to run as another login, such as `{ binary: undefined, home: '~/.claude-work' }` for a second Claude; its context is resumed, forked and asked as that same account.
 
 ### Ask a One-shot Prompt
 
@@ -165,5 +166,5 @@ const program = Effect.scoped(
 );
 ```
 
-- `enable` keeps the wish at once and downloads the model after; `disable` deletes the folder.
+- `enable` keeps the wish at once and downloads the runtime, then the model, after; `disable` deletes the folder, both with it.
 - `transcribe` takes 16 kHz mono PCM, each sample 16-bit signed little-endian, and fails `SpeechToTextNotReady` unless Ready.

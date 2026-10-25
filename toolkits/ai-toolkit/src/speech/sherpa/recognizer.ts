@@ -6,12 +6,14 @@ import {
   SpeechToTextError,
   type Recognizer,
 } from '../contract/index.js';
+import { requireSherpa } from './runtime.js';
 
 /*
  * The one typed wrapper around sherpa-onnx-node, and the only code that
- * touches it. The package loads its native addon as it is imported, so it
- * is imported on the first load, never before: a Machine that never turns
- * Speech to Text on never loads it. Loading and decoding run off the main
+ * touches it. The package is fetched into the model's folder (see
+ * runtime.ts) and loads its native addon as it is required, so it is
+ * required on the first load, never before: a Machine that never turns
+ * Speech to Text on never fetches or loads it. Loading and decoding run off the main
  * thread (`createAsync`, `decodeAsync`), so the server never blocks; one
  * clip is decoded at a time.
  */
@@ -33,13 +35,13 @@ const failed = (message: string) => (cause: unknown) =>
 /** Parakeet, loaded from the files in `folder`. */
 export const loadRecognizer = (folder: string) =>
   Effect.gen(function* () {
-    const sherpa = yield* Effect.tryPromise({
-      try: () => import('sherpa-onnx-node'),
+    const sherpa = yield* Effect.try({
+      try: () => requireSherpa(folder),
       catch: failed('sherpa-onnx does not run on this computer'),
     });
     const recognizer = yield* Effect.tryPromise({
       try: () =>
-        sherpa.default.OfflineRecognizer.createAsync({
+        sherpa.OfflineRecognizer.createAsync({
           featConfig: { sampleRate: SAMPLE_RATE, featureDim: 80 },
           modelConfig: {
             transducer: {

@@ -1,16 +1,28 @@
 import { execFile } from 'node:child_process';
 import { accessSync, constants } from 'node:fs';
-import { createRequire } from 'node:module';
 import { delimiter, join } from 'node:path';
 import { Effect } from 'effect';
-import type { BinaryInfo } from '../../contract/index.js';
+import {
+  HarnessAccount,
+  HarnessError,
+  type BinaryInfo,
+} from '../../contract/index.js';
 
-/** Which Claude Code to run; `path` undefined lets the SDK run its bundled one. */
+/** The Claude Code a Harness Account runs, and the environment it runs in. */
 export interface Executable {
+  /** undefined when none is configured and none is installed. */
   readonly path: string | undefined;
+  /** Its config folder as `CLAUDE_CONFIG_DIR`, when the account names one. */
+  readonly env: NodeJS.ProcessEnv;
+  /** Its config folder; undefined for Claude Code's own default. */
+  readonly home: string | undefined;
   /** No Harness Binary is configured. */
   readonly isDefault: boolean;
 }
+
+/** What to do when no Claude Code is installed. */
+export const INSTALL_CLAUDE =
+  'Claude Code is not installed: install it from https://claude.com/claude-code, then run `claude auth login`';
 
 const VERSION_TIMEOUT_MS = 10_000;
 
@@ -24,39 +36,42 @@ const runnable = (path: string): boolean => {
 };
 
 /**
- * The Claude Code the user keeps updated: `AI_TOOLKIT_CLAUDE` or `claude` on
- * PATH. The SDK's bundled one lags behind, and refuses models newer than it.
+ * The Claude Code the user keeps updated: `AI_TOOLKIT_CLAUDE` or `claude`
+ * on PATH. This package ships none of its own.
  */
-const installed = (): string | undefined =>
-  [
+const installed = (): string | undefined => {
+  const exe = process.platform === 'win32' ? 'claude.exe' : 'claude';
+  return [
     process.env['AI_TOOLKIT_CLAUDE'],
     ...(process.env['PATH'] ?? '')
       .split(delimiter)
       .filter((dir) => dir !== '')
-      .map((dir) => join(dir, 'claude')),
+      .map((dir) => join(dir, exe)),
   ].find((path) => path !== undefined && runnable(path));
-
-/** The binary the SDK ships for this platform, found the way the SDK finds it. */
-const bundled = (): string | undefined => {
-  const exe = process.platform === 'win32' ? '.exe' : '';
-  const name = `@anthropic-ai/claude-agent-sdk-${process.platform}-${process.arch}/claude${exe}`;
-  try {
-    const require = createRequire(
-      import.meta.resolve('@anthropic-ai/claude-agent-sdk'),
-    );
-    return require.resolve(name);
-  } catch {
-    return undefined;
-  }
 };
 
-/** The configured Harness Binary, else the installed one, else the SDK's own. */
-export const resolveExecutable = (
-  configured: string | undefined,
-): Executable =>
-  configured === undefined
-    ? { path: installed(), isDefault: true }
-    : { path: configured, isDefault: false };
+/** The Harness Account's Claude Code: its binary, else the installed one. */
+export const current: Effect.Effect<Executable, never, HarnessAccount> =
+  Effect.map(HarnessAccount, (account) => ({
+    path: account.binary ?? installed(),
+    env:
+      account.home === undefined
+        ? process.env
+        : { ...process.env, CLAUDE_CONFIG_DIR: account.home },
+    home: account.home,
+    isDefault: account.binary === undefined,
+  }));
+
+/** The Claude Code to launch, read every time a process starts. */
+export const executable: Effect.Effect<
+  Executable & { readonly path: string },
+  HarnessError,
+  HarnessAccount
+> = Effect.flatMap(current, (found) =>
+  found.path === undefined
+    ? Effect.fail(new HarnessError({ message: INSTALL_CLAUDE }))
+    : Effect.succeed({ ...found, path: found.path }),
+);
 
 const reason = (
   path: string,
@@ -70,14 +85,14 @@ const reason = (
   return `${path} --version failed: ${error.message.trim()}`;
 };
 
-/** Runs `--version` on the executable the SDK would launch. */
+/** Runs `--version` on the executable a call would launch. */
 export const describe = (executable: Executable): Effect.Effect<BinaryInfo> => {
-  const path = executable.path ?? bundled();
+  const path = executable.path;
   if (path === undefined) {
     return Effect.succeed({
       path: null,
       version: null,
-      error: 'No Claude Code found: none on PATH and no bundled binary',
+      error: INSTALL_CLAUDE,
       isDefault: executable.isDefault,
     });
   }
@@ -85,7 +100,7 @@ export const describe = (executable: Executable): Effect.Effect<BinaryInfo> => {
     execFile(
       path,
       ['--version'],
-      { timeout: VERSION_TIMEOUT_MS },
+      { timeout: VERSION_TIMEOUT_MS, env: executable.env },
       (error, stdout) =>
         resume(
           Effect.succeed({

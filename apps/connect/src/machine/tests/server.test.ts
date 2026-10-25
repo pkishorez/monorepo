@@ -479,7 +479,7 @@ describe('the server, through the client and Replica', () => {
 
             const session = yield* api.startSession({
               projectId: project.id,
-              harness: 'claude',
+              account: 'claude',
               model: 'claude-test',
               settings: {},
               text: 'hi',
@@ -612,7 +612,7 @@ describe('the server, through the client and Replica', () => {
   );
 
   it(
-    'answers the agent features over RPC: harnesses, binaries, skills, ask, fork and jobs',
+    'answers the agent features over RPC: harnesses, accounts, skills, ask, fork and jobs',
     () =>
       Effect.runPromise(
         Effect.scoped(
@@ -627,27 +627,60 @@ describe('the server, through the client and Replica', () => {
             const api = Context.get(client, CodeClient);
 
             expect(yield* api.harnesses()).toMatchObject([
-              { name: 'claude', available: true, unavailableReason: null },
+              {
+                account: 'claude',
+                name: 'claude',
+                label: 'Claude',
+                available: true,
+                unavailableReason: null,
+              },
             ]);
             const invalid = yield* Effect.flip(
-              api.setHarnessBinary({ harness: 'claude', path: '/no/such' }),
+              api.saveHarnessAccount({
+                id: 'claude',
+                harness: 'claude',
+                name: 'Claude',
+                binaryPath: '/no/such',
+                home: null,
+              }),
             );
             expect(invalid).toMatchObject({
               _tag: 'InvalidBinary',
               message: 'Nothing is at /no/such',
             });
-            expect(yield* api.harnessBinaries()).toMatchObject([
-              { harness: 'claude', configuredPath: null },
+            const work = yield* api.saveHarnessAccount({
+              id: null,
+              harness: 'claude',
+              name: 'Claude work',
+              binaryPath: null,
+              home: folder(),
+            });
+            expect(yield* api.harnessAccounts()).toMatchObject([
+              { id: 'claude', binaryPath: null, isDefault: true },
+              { id: work.id, name: 'Claude work', isDefault: false },
             ]);
+            expect(
+              (yield* api.harnesses()).map(({ account, label }) => [
+                account,
+                label,
+              ]),
+            ).toEqual([
+              ['claude', 'Claude'],
+              [work.id, 'Claude work'],
+            ]);
+            expect(
+              yield* Effect.flip(api.removeHarnessAccount({ id: 'claude' })),
+            ).toMatchObject({ _tag: 'InvalidAccount' });
+            yield* api.removeHarnessAccount({ id: work.id });
 
             const project = yield* api.addProject({ path: folder() });
             expect(
-              yield* api.skills({ projectId: project.id, harness: 'claude' }),
+              yield* api.skills({ projectId: project.id, account: 'claude' }),
             ).toEqual(FAKE_SKILLS);
 
             const session = yield* api.startSession({
               projectId: project.id,
-              harness: 'claude',
+              account: 'claude',
               model: 'claude-test',
               settings: {},
               text: 'hi',

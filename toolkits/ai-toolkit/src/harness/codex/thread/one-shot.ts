@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Duration, Effect, Layer, Stream } from 'effect';
 import {
-  HarnessBinaries,
+  HarnessAccount,
   HarnessError,
   isRecord,
   OneShotPrompt,
@@ -50,17 +50,17 @@ const tempFolder = Effect.acquireRelease(
 
 const prompt = (text: string) =>
   Effect.gen(function* () {
-    // The configured Harness Binary when the caller provides one, else the default.
-    const binaries = yield* Effect.serviceOption(HarnessBinaries).pipe(
+    // The caller's Harness Account when it gives one, else the installed Codex.
+    const account = yield* Effect.serviceOption(HarnessAccount).pipe(
       Effect.map((found) =>
         found._tag === 'Some'
           ? found.value
-          : { path: () => Effect.succeed(undefined) },
+          : { binary: undefined, home: undefined },
       ),
     );
     const cwd = yield* tempFolder;
     const server = yield* start(cwd).pipe(
-      Effect.provideService(HarnessBinaries, binaries),
+      Effect.provideService(HarnessAccount, account),
     );
     const session = yield* openSession(server, {
       cwd,

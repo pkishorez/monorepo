@@ -5,14 +5,13 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { Duration, Effect, Fiber, Layer, Stream, type Schema } from 'effect';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
-  HarnessBinaries,
+  HarnessAccount,
   isRecord,
   OneShotPrompt,
   type Agent,
@@ -126,10 +125,10 @@ const open = (nativeId?: string) =>
   });
 
 const run = <A, E>(
-  effect: Effect.Effect<A, E, import('effect').Scope.Scope | HarnessBinaries>,
+  effect: Effect.Effect<A, E, import('effect').Scope.Scope | HarnessAccount>,
 ) =>
   Effect.runPromise(
-    Effect.scoped(effect).pipe(Effect.provide(HarnessBinaries.layerDefault)),
+    Effect.scoped(effect).pipe(Effect.provide(HarnessAccount.layerDefault)),
   );
 
 describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
@@ -411,7 +410,7 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
       async () => {
         const models = await Effect.runPromise(
           codex.availableModels!.pipe(
-            Effect.provide(HarnessBinaries.layerDefault),
+            Effect.provide(HarnessAccount.layerDefault),
           ),
         );
         const ids = models.map((model) => model.id);
@@ -501,25 +500,15 @@ const solidPng = (rgb: readonly [number, number, number]): string => {
   ]).toString('base64');
 };
 
-/** The platform binary the bundled npm launcher would run. */
-const nativeCodex = (() => {
-  const triple =
-    process.platform === 'darwin'
-      ? `${process.arch === 'arm64' ? 'aarch64' : 'x86_64'}-apple-darwin`
-      : `${process.arch === 'arm64' ? 'aarch64' : 'x86_64'}-unknown-linux-musl`;
-  const launcher = createRequire(import.meta.url).resolve(
-    '@openai/codex/bin/codex.js',
-  );
-  const platformPackage = createRequire(launcher).resolve(
-    `@openai/codex-${process.platform}-${process.arch}/package.json`,
-  );
-  return join(dirname(platformPackage), 'vendor', triple, 'bin', 'codex');
-})();
+/** The `codex` on PATH, which the default Harness Account runs. */
+const installedCodex =
+  (process.env['PATH'] ?? '')
+    .split(delimiter)
+    .map((dir) => join(dir, 'codex'))
+    .find((path) => existsSync(path)) ?? '/nowhere/codex';
 
-const binaries = (path: string | undefined) =>
-  Layer.succeed(HarnessBinaries, {
-    path: (harness) => Effect.succeed(harness === 'codex' ? path : undefined),
-  });
+const account = (binary: string | undefined) =>
+  Layer.succeed(HarnessAccount, { binary, home: undefined });
 
 /** Waits for the first Background Jobs snapshot that passes. */
 const jobsUntil = (
@@ -876,28 +865,29 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
       TIMEOUT,
     );
 
-    it.runIf(existsSync(nativeCodex))(
+    it.runIf(existsSync(installedCodex))(
       'runs a configured Harness Binary, and says when one cannot run',
       async () => {
         const configured = await Effect.runPromise(
-          codex.binary.pipe(Effect.provide(binaries(nativeCodex))),
+          codex.binary.pipe(Effect.provide(account(installedCodex))),
         );
-        expect(configured).toEqual({
-          path: nativeCodex,
-          version: 'codex-cli 0.154.0',
+        expect(configured).toMatchObject({
+          path: installedCodex,
           error: null,
           isDefault: false,
         });
-        const bundled = await Effect.runPromise(
-          codex.binary.pipe(Effect.provide(binaries(undefined))),
+        expect(configured.version).toMatch(/^codex-cli \d+\.\d+\.\d+/);
+        const installed = await Effect.runPromise(
+          codex.binary.pipe(Effect.provide(account(undefined))),
         );
-        expect(bundled).toMatchObject({
-          version: 'codex-cli 0.154.0',
+        expect(installed).toMatchObject({
+          path: 'codex',
+          version: configured.version,
           error: null,
           isDefault: true,
         });
         const missing = await Effect.runPromise(
-          codex.binary.pipe(Effect.provide(binaries('/nowhere/codex'))),
+          codex.binary.pipe(Effect.provide(account('/nowhere/codex'))),
         );
         expect(missing).toEqual({
           path: '/nowhere/codex',
@@ -916,7 +906,7 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
                 'native',
               );
             }),
-          ).pipe(Effect.provide(binaries(nativeCodex))),
+          ).pipe(Effect.provide(account(installedCodex))),
         );
         expect(assistantText(projectAll(outs))).toContain('native-ok');
       },

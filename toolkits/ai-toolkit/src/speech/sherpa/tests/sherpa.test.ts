@@ -7,6 +7,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -14,10 +15,12 @@ import { Context, Effect, Layer } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
 import { SpeechToText, type Fetched } from '../../contract/index.js';
 import { sherpa } from '../index.js';
+import { runtimePackages, SHERPA_VERSION } from '../runtime.js';
 
 /*
  * The Parakeet model's install against small files and a small tarball of
- * the same shape, served from this process, the tarball with Range support; and one real transcription,
+ * the same shape, served from this process, the tarball with Range support;
+ * sherpa-onnx's runtime from a small registry served the same way; and one real transcription,
  * run only when the model is already on disk: in AI_TOOLKIT_SPEECH_MODEL,
  * or where `ke-connect serve` keeps it.
  */
@@ -41,6 +44,79 @@ const folder = () => {
   folders.push(made);
   return made;
 };
+
+/** A folder for the model, its runtime already there, so a test sees the model's bytes alone. */
+const modelFolder = () => {
+  const model = join(folder(), 'model');
+  for (const name of runtimePackages()) {
+    const into = join(model, 'runtime', 'node_modules', name);
+    mkdirSync(into, { recursive: true });
+    writeFileSync(join(into, 'package.json'), JSON.stringify({ name }));
+  }
+  return model;
+};
+
+/** An npm tarball of a package holding its package.json and one file. */
+const npmTarball = (name: string) => {
+  const source = folder();
+  mkdirSync(join(source, 'package'));
+  writeFileSync(
+    join(source, 'package', 'package.json'),
+    JSON.stringify({ name, version: SHERPA_VERSION }),
+  );
+  writeFileSync(
+    join(source, 'package', 'index.js'),
+    `module.exports = '${name}';`,
+  );
+  const made = join(folder(), `${name}.tgz`);
+  execFileSync('tar', ['-czf', made, '-C', source, 'package']);
+  return readFileSync(made);
+};
+
+/**
+ * A registry serving the runtime's packages at SHERPA_VERSION: a manifest
+ * naming each tarball and its sha512, then the tarball; `corrupt` serves
+ * other bytes than the manifest's checksum says.
+ */
+const serveRegistry = (corrupt = false) =>
+  Effect.promise(
+    () =>
+      new Promise<string>((resolve) => {
+        const tarballs = new Map(
+          runtimePackages().map((name) => [name, npmTarball(name)]),
+        );
+        const server = createServer((request, response) => {
+          const address = server.address();
+          const port =
+            typeof address === 'object' && address !== null ? address.port : 0;
+          const [, name, rest] =
+            /^\/([^/]+)\/(.+)$/.exec(request.url ?? '') ?? [];
+          const bytes = tarballs.get(name ?? '');
+          if (bytes === undefined) return void response.writeHead(404).end();
+          if (rest === SHERPA_VERSION) {
+            const integrity = `sha512-${createHash('sha512').update(bytes).digest('base64')}`;
+            return void response.end(
+              JSON.stringify({
+                dist: {
+                  tarball: `http://127.0.0.1:${port}/${name}/-/${name}.tgz`,
+                  integrity,
+                },
+              }),
+            );
+          }
+          const served = corrupt ? Buffer.from('not the package') : bytes;
+          response.writeHead(200, { 'content-length': served.length });
+          response.end(served);
+        });
+        servers.push(server);
+        server.listen(0, '127.0.0.1', () => {
+          const address = server.address();
+          const port =
+            typeof address === 'object' && address !== null ? address.port : 0;
+          resolve(`http://127.0.0.1:${port}`);
+        });
+      }),
+  );
 
 /** A tarball like the release's: one top folder holding the model's files. */
 const tarball = () => {
@@ -130,7 +206,7 @@ describe('Parakeet with sherpa-onnx', () => {
           const bytes = tarball();
           const { url, ranges } = yield* serve(bytes);
           const speech = yield* speechAt(url);
-          const model = join(folder(), 'model');
+          const model = modelFolder();
           expect(yield* speech.installed(model)).toBe(false);
           const { seen, progress } = record();
           yield* speech.install(model, progress);
@@ -156,8 +232,8 @@ describe('Parakeet with sherpa-onnx', () => {
           const half = Math.floor(bytes.length / 2);
           const { url, ranges } = yield* serve(bytes);
           const speech = yield* speechAt(url);
-          const model = join(folder(), 'model');
-          mkdirSync(model);
+          const model = modelFolder();
+          mkdirSync(model, { recursive: true });
           writeFileSync(join(model, 'model.tar.bz2'), bytes.subarray(0, half));
           const { seen, progress } = record();
           yield* speech.install(model, progress);
@@ -174,7 +250,7 @@ describe('Parakeet with sherpa-onnx', () => {
         Effect.gen(function* () {
           const { url } = yield* serve(Buffer.from('not a tarball'));
           const speech = yield* speechAt(url);
-          const model = join(folder(), 'model');
+          const model = modelFolder();
           const failure = yield* Effect.flip(
             speech.install(model, () => Effect.void),
           );
@@ -197,7 +273,7 @@ describe('Parakeet with sherpa-onnx', () => {
           );
           const { base, asked } = yield* serveFiles(files);
           const speech = yield* speechFrom({ files: base, tarball: 'unused' });
-          const model = join(folder(), 'model');
+          const model = modelFolder();
           const { seen, progress } = record();
           yield* speech.install(model, progress);
           expect(yield* speech.installed(model)).toBe(true);
@@ -211,6 +287,70 @@ describe('Parakeet with sherpa-onnx', () => {
       ),
     ));
 
+  it('fetches the runtime from the registry before the model, checked against its sha512', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const files = Object.fromEntries(
+            FILES.map((file) => [file, Buffer.from(file)]),
+          );
+          const { base } = yield* serveFiles(files);
+          const registry = yield* serveRegistry();
+          const speech = yield* speechFrom({ files: base, registry });
+          const model = join(folder(), 'model');
+          const { seen, progress } = record();
+          yield* speech.install(model, progress);
+          expect(yield* speech.installed(model)).toBe(true);
+          for (const name of runtimePackages()) {
+            const into = join(model, 'runtime', 'node_modules', name);
+            expect(readFileSync(join(into, 'index.js'), 'utf8')).toContain(
+              name,
+            );
+            expect(existsSync(`${into}.part`)).toBe(false);
+          }
+          expect(
+            existsSync(join(model, 'runtime', 'sherpa-onnx-node.tgz')),
+          ).toBe(false);
+          // The runtime's bytes come first, its total unknown; the model's carry on from them.
+          expect(seen[0]).toEqual({ done: 0, total: null });
+          const last = seen.at(-1);
+          const model_ = Object.values(files).reduce(
+            (all, b) => all + b.length,
+            0,
+          );
+          expect(last?.total).toBe(last?.done);
+          expect(last?.done).toBeGreaterThan(model_);
+        }),
+      ),
+    ));
+
+  it('refuses a runtime that does not match its checksum, keeping none of it', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const registry = yield* serveRegistry(true);
+          const speech = yield* speechFrom({
+            files: null,
+            tarball: 'unused',
+            registry,
+          });
+          const model = join(folder(), 'model');
+          const failure = yield* Effect.flip(
+            speech.install(model, () => Effect.void),
+          );
+          expect(failure.message).toBe(
+            'sherpa-onnx-node did not match its checksum',
+          );
+          const modules = join(model, 'runtime', 'node_modules');
+          expect(existsSync(join(modules, 'sherpa-onnx-node'))).toBe(false);
+          expect(existsSync(join(modules, 'sherpa-onnx-node.part'))).toBe(
+            false,
+          );
+          expect(yield* speech.installed(model)).toBe(false);
+        }),
+      ),
+    ));
+
   it('falls back to the tarball when the files cannot be fetched', () =>
     Effect.runPromise(
       Effect.scoped(
@@ -218,7 +358,7 @@ describe('Parakeet with sherpa-onnx', () => {
           const { base } = yield* serveFiles({});
           const { url } = yield* serve(tarball());
           const speech = yield* speechFrom({ files: base, tarball: url });
-          const model = join(folder(), 'model');
+          const model = modelFolder();
           yield* speech.install(model, () => Effect.void);
           expect(yield* speech.installed(model)).toBe(true);
         }),
@@ -236,7 +376,12 @@ describe('Parakeet with sherpa-onnx', () => {
       'model',
     );
   const wave = join(real, 'test_wavs', '0.wav');
-  it.skipIf(!existsSync(join(real, 'tokens.txt')) || !existsSync(wave))(
+  const runtime = join(real, 'runtime', 'node_modules', 'sherpa-onnx-node');
+  it.skipIf(
+    !existsSync(join(real, 'tokens.txt')) ||
+      !existsSync(wave) ||
+      !existsSync(join(runtime, 'package.json')),
+  )(
     'transcribes a recording with the model on disk',
     () =>
       Effect.runPromise(

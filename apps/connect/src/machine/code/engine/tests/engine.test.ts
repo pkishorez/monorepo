@@ -59,7 +59,7 @@ const started = Effect.gen(function* () {
   const project = yield* engine.addProject(folder());
   const session = yield* engine.startSession({
     projectId: project.id,
-    harness: 'claude',
+    account: 'claude',
     model: 'claude-test',
     settings: { effort: 'high' },
     text: 'hello there\nsecond line',

@@ -20,7 +20,13 @@ const silence = () => {
  * never sent a message, asked, then closed. No API call is made.
  */
 export const askIdle = <A>(
-  options: { readonly cwd?: string; readonly executable: string | undefined },
+  options: {
+    readonly cwd?: string;
+    readonly executable: {
+      readonly path: string;
+      readonly env: NodeJS.ProcessEnv;
+    };
+  },
   what: string,
   ask: (live: Query) => Promise<A>,
 ): Effect.Effect<A, HarnessError> =>
@@ -34,9 +40,8 @@ export const askIdle = <A>(
             prompt: input.iterable,
             options: {
               cwd: options.cwd ?? tmpdir(),
-              ...(options.executable === undefined
-                ? {}
-                : { pathToClaudeCodeExecutable: options.executable }),
+              pathToClaudeCodeExecutable: options.executable.path,
+              env: options.executable.env,
             },
           }),
         };

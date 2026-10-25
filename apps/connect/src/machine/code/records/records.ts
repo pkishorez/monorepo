@@ -32,7 +32,11 @@ const ForkedFrom = Schema.Struct({
   turnId: Schema.String,
 });
 
-/** One conversation with a Coding Harness in a Project's folder. */
+/**
+ * One conversation with a Coding Harness in a Project's folder. v2 runs it
+ * as a Harness Account; a v1 Session ran its harness's Default Account,
+ * whose id is the harness's name.
+ */
 export const SessionSchema = EntityESchema.make('AiSession', 'id', {
   projectId: Schema.String,
   harness: Schema.Literals(HARNESS_NAMES),
@@ -55,19 +59,61 @@ export const SessionSchema = EntityESchema.make('AiSession', 'id', {
   activeAt: Schema.Finite,
   /** When its last Turn ended, however it ended; null until one has. */
   endedAt: Schema.NullOr(Schema.Finite),
-}).build();
+})
+  .evolve(
+    'v2',
+    {
+      /** The Harness Account it runs as, of its harness; never changes. */
+      account: Schema.String,
+    },
+    (v1) => ({ ...v1, account: v1.harness }),
+  )
+  .build();
 
 export type Session = typeof SessionSchema.Type;
 
-/**
- * The Harness Binary one harness is set to run, by harness name. A harness
- * with no record runs its default.
- */
-export const HarnessConfigSchema = EntityESchema.make('AiHarnessConfig', 'id', {
-  harness: Schema.Literals(HARNESS_NAMES),
-  /** The executable to run; null for the harness's default. */
-  binaryPath: Schema.NullOr(Schema.String),
-  updatedAt: Schema.Finite,
-}).build();
+/** What each harness's Default Account is named. */
+const DEFAULT_NAMES = { claude: 'Claude', codex: 'Codex' } as const;
 
-export type HarnessConfig = typeof HarnessConfigSchema.Type;
+/**
+ * A Harness Account: one login of a Coding Harness, run with its own
+ * Harness Binary and config folder. Each harness has a Default Account,
+ * whose id is the harness's name, even with no record; others have ids of
+ * their own. v1 kept only a harness's binary, by harness name: the
+ * Default Account's.
+ */
+export const HarnessAccountSchema = EntityESchema.make(
+  'AiHarnessConfig',
+  'id',
+  {
+    harness: Schema.Literals(HARNESS_NAMES),
+    /** The executable to run; null runs the harness's name from PATH. */
+    binaryPath: Schema.NullOr(Schema.String),
+    updatedAt: Schema.Finite,
+  },
+)
+  .evolve(
+    'v2',
+    {
+      /** What the user calls it, such as "Claude work". */
+      name: Schema.String,
+      /** Its config folder (CLAUDE_CONFIG_DIR, CODEX_HOME); null for the harness's own. */
+      home: Schema.NullOr(Schema.String),
+    },
+    (v1) => ({ ...v1, name: DEFAULT_NAMES[v1.harness], home: null }),
+  )
+  .build();
+
+export type HarnessAccountRecord = typeof HarnessAccountSchema.Type;
+
+/** A harness's Default Account as it is before the user changes it. */
+export const defaultAccount = (
+  harness: HarnessAccountRecord['harness'],
+): HarnessAccountRecord => ({
+  id: harness,
+  harness,
+  name: DEFAULT_NAMES[harness],
+  binaryPath: null,
+  home: null,
+  updatedAt: 0,
+});

@@ -37,17 +37,12 @@
     }
   },
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.build.json && tsc -p tsconfig.types.json",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && tsc -p tsconfig.types.json && node scripts/vendor-claude-sdk.ts",
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && laymos lint",
     "lint:tsc": "tsc --noEmit",
     "test": "vitest run --exclude \"**/*.e2e.test.ts\"",
     "test:e2e": "AI_TOOLKIT_E2E=1 vitest run .e2e.test.ts"
-  },
-  "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "catalog:",
-    "@openai/codex": "catalog:",
-    "sherpa-onnx-node": "catalog:"
   },
   "peerDependencies": {
     "@kestack/kabuki": "workspace:*",
@@ -55,6 +50,7 @@
     "effect": "^4.0.0"
   },
   "devDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "catalog:",
     "@kestack/kabuki": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
     "@tsconfig/node22": "catalog:",

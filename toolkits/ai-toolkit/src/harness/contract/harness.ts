@@ -190,23 +190,23 @@ export interface Harness {
   readonly availableModels?: Effect.Effect<
     ReadonlyArray<AvailableModel>,
     HarnessError,
-    HarnessBinaries
+    HarnessAccount
   >;
   readonly settings: ReadonlyArray<Setting>;
   readonly open: (
     config: AgentConfig,
-  ) => Effect.Effect<Agent, HarnessError, Scope.Scope | HarnessBinaries>;
+  ) => Effect.Effect<Agent, HarnessError, Scope.Scope | HarnessAccount>;
   /** The Skills this harness offers in a folder; no Turn needed. */
   readonly skills: (
     cwd: string,
-  ) => Effect.Effect<ReadonlyArray<Skill>, HarnessError, HarnessBinaries>;
+  ) => Effect.Effect<ReadonlyArray<Skill>, HarnessError, HarnessAccount>;
   /** A new Agent with a copy of the context up to a Fork Point. */
   readonly fork: (
     input: ForkInput,
   ) => Effect.Effect<
     { readonly nativeId: string },
     HarnessError,
-    HarnessBinaries
+    HarnessAccount
   >;
   /**
    * Answers a question from an Agent's context in a throwaway fork: read
@@ -214,9 +214,9 @@ export interface Harness {
    */
   readonly ask: (
     input: AskInput,
-  ) => Effect.Effect<AskAnswer, HarnessError, HarnessBinaries>;
+  ) => Effect.Effect<AskAnswer, HarnessError, HarnessAccount>;
   /** The Harness Binary this harness runs, and whether it runs. */
-  readonly binary: Effect.Effect<BinaryInfo, never, HarnessBinaries>;
+  readonly binary: Effect.Effect<BinaryInfo, never, HarnessAccount>;
   /** Pure: one Raw record this harness wrote, to its projected form or null. */
   readonly project: (raw: Raw) => Projected | null;
 }
@@ -231,19 +231,26 @@ export class Harnesses extends Context.Service<
 >()('@kestack/ai-toolkit/Harnesses') {}
 
 /**
- * The Harness Binary each harness is set to run; undefined for its default.
- * Harnesses read it every time they start a process.
+ * The Harness Account a harness call runs as: which Harness Binary, and
+ * which config folder it keeps its login, settings and transcripts in.
+ * The caller gives one with every call that starts a harness process.
  */
-export class HarnessBinaries extends Context.Service<
-  HarnessBinaries,
+export class HarnessAccount extends Context.Service<
+  HarnessAccount,
   {
-    readonly path: (harness: HarnessName) => Effect.Effect<string | undefined>;
+    /** The executable to run; undefined runs the harness's name from PATH. */
+    readonly binary: string | undefined;
+    /**
+     * Its config folder, as `CLAUDE_CONFIG_DIR` or `CODEX_HOME`; undefined
+     * leaves the harness's own default.
+     */
+    readonly home: string | undefined;
   }
->()('@kestack/ai-toolkit/HarnessBinaries') {
-  /** Every harness on its default binary, as tests and the CLI start. */
-  static readonly layerDefault: Layer.Layer<HarnessBinaries> = Layer.succeed(
-    HarnessBinaries,
-    { path: () => Effect.succeed(undefined) },
+>()('@kestack/ai-toolkit/HarnessAccount') {
+  /** The installed harness from PATH, on its own config folder. */
+  static readonly layerDefault: Layer.Layer<HarnessAccount> = Layer.succeed(
+    HarnessAccount,
+    { binary: undefined, home: undefined },
   );
 }
 

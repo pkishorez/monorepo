@@ -25,6 +25,7 @@ const session: Session = {
   id: 's1',
   projectId: 'p1',
   harness: 'claude',
+  account: 'claude',
   model: 'claude-test',
   settings: { effort: 'high' },
   title: 'Hello',

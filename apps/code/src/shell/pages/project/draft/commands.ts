@@ -3,7 +3,6 @@ import {
   type AskAnswer,
   AttachmentSchema,
   CodeClient,
-  HarnessInfo,
 } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
 import { orRefused, reasonOf } from '../../../machines/index.ts';
@@ -20,7 +19,8 @@ import { SharedCatalog } from '../capabilities/index.ts';
 export const startSession = Command.make('StartSession', {
   args: Schema.Struct({
     projectId: Schema.String,
-    harness: HarnessInfo.fields.name,
+    /** The Harness Account it runs as. */
+    account: Schema.String,
     model: Schema.String,
     settings: Schema.Record(Schema.String, Schema.String),
     text: Schema.String,

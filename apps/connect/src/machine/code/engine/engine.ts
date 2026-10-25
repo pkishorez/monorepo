@@ -5,7 +5,7 @@ import { Clock, Context, Data, Effect, Layer, Option, Stream } from 'effect';
 import { Runtime, type Stopped } from '@kestack/kabuki';
 import { nextUlid } from '@kestack/std-toolkit/core';
 import {
-  HarnessBinaries,
+  HarnessAccount,
   Harnesses,
   InvalidBinary,
   OneShotPrompt,
@@ -16,7 +16,6 @@ import type {
   Attachment,
   BackgroundJob,
   ContextUsage,
-  HarnessName,
   Json,
   McpServerStatus,
   Skill,
@@ -30,20 +29,24 @@ import {
 } from './actor-code/actor-session/index.js';
 import { Code } from './actor-code/index.js';
 import { saveAttachments } from './attachments/index.js';
-import { Agents, Store } from './capabilities/index.js';
+import { Agents, HarnessAccounts, Store } from './capabilities/index.js';
 import {
+  accountRow,
   agents,
-  binaryRow,
+  allAccounts,
   FolderExists,
   FolderNotFound,
   Folders,
   FolderUnreadable,
+  InvalidAccount,
   InvalidFolderName,
   OutsideHome,
   PermissionDenied,
-  setBinary,
-  storedHarnessBinaries,
-  type HarnessBinaryRow,
+  removeAccount,
+  saveAccount,
+  storedHarnessAccounts,
+  type AccountInput,
+  type HarnessAccountRow,
 } from './services/index.js';
 
 /*
@@ -58,7 +61,7 @@ import {
  *    Agent's MCP Server Status and Context Usage, is a Query on the
  *    Session Instance; what the answer changes is a Message after it, such
  *    as AddSession for a Fork. A question for a harness alone, its Skills
- *    or its Harness Binary, is asked of the harness; one about the folders
+ *    or a Harness Account's binary, is asked of the harness as that account; one about the folders
  *    under home, of Folders (see services/folders/).
  */
 
@@ -68,8 +71,8 @@ export class ProjectNotFound extends Data.TaggedError('ProjectNotFound')<{
 export class SessionNotFound extends Data.TaggedError('SessionNotFound')<{
   readonly id: string;
 }> {}
-export class UnknownHarness extends Data.TaggedError('UnknownHarness')<{
-  readonly harness: string;
+export class UnknownAccount extends Data.TaggedError('UnknownAccount')<{
+  readonly account: string;
 }> {}
 export class SkillsUnavailable extends Data.TaggedError('SkillsUnavailable')<{
   readonly message: string;
@@ -79,12 +82,13 @@ export class HarnessFailed extends Data.TaggedError('HarnessFailed')<{
 }> {}
 export { Store, type Feed } from './capabilities/index.js';
 export { projectEngineRaw } from './engine-raw/index.js';
-export { storedHarnessBinaries, storeLayer } from './services/index.js';
+export { storedHarnessAccounts, storeLayer } from './services/index.js';
 export {
   AskFailed,
   FolderExists,
   FolderNotFound,
   FolderUnreadable,
+  InvalidAccount,
   InvalidBinary,
   InvalidFolderName,
   NotForkable,
@@ -104,7 +108,8 @@ export interface Send {
 
 export interface StartSession {
   readonly projectId: string;
-  readonly harness: HarnessName;
+  /** The Harness Account it runs as, and so its harness. */
+  readonly account: string;
   readonly model: string;
   readonly settings: Readonly<Record<string, string>>;
   readonly text: string;
@@ -140,7 +145,7 @@ export interface EngineService {
   /** Starts a Session already running its first message. */
   readonly startSession: (
     input: StartSession,
-  ) => Effect.Effect<Session, ProjectNotFound | UnknownHarness>;
+  ) => Effect.Effect<Session, ProjectNotFound | UnknownAccount>;
   /** Starts a turn, or steers the running one. */
   readonly send: (
     sessionId: string,
@@ -172,9 +177,10 @@ export interface EngineService {
   readonly regenerateTitle: (
     sessionId: string,
   ) => Effect.Effect<string, SessionNotFound>;
+  /** The Skills a Harness Account's harness offers in a Project's folder. */
   readonly skills: (
     projectId: string,
-    harness: HarnessName,
+    account: string,
   ) => Effect.Effect<ReadonlyArray<Skill>, ProjectNotFound | SkillsUnavailable>;
   readonly mcpStatus: (
     sessionId: string,
@@ -192,12 +198,22 @@ export interface EngineService {
     sessionId: string,
     jobId: string,
   ) => Effect.Effect<void, SessionNotFound | HarnessFailed>;
-  /** Every harness's Harness Binary. */
-  readonly harnessBinaries: Effect.Effect<ReadonlyArray<HarnessBinaryRow>>;
-  readonly setHarnessBinary: (
-    harness: HarnessName,
-    path: string | null,
-  ) => Effect.Effect<HarnessBinaryRow, InvalidBinary>;
+  /** Every Harness Account, each harness's Default Account first. */
+  readonly harnessAccounts: Effect.Effect<ReadonlyArray<HarnessAccountRow>>;
+  /** Saves a Harness Account once its binary runs; a new one when its id is null. */
+  readonly saveHarnessAccount: (
+    input: AccountInput,
+  ) => Effect.Effect<HarnessAccountRow, InvalidBinary | InvalidAccount>;
+  /** Removes an account the user added; a Session on it fails its next Turn. */
+  readonly removeHarnessAccount: (
+    id: string,
+  ) => Effect.Effect<void, InvalidAccount>;
+  /** Runs a harness call as account `id`. */
+  readonly runAs: (
+    id: string,
+  ) => <A, E>(
+    effect: Effect.Effect<A, E, HarnessAccount>,
+  ) => Effect.Effect<A, E | HarnessError>;
 }
 
 const expand = (path: string) =>
@@ -235,8 +251,9 @@ const make = (options: EngineOptions) =>
     const harnesses = yield* Harnesses;
     const folders = yield* Folders;
     const services = yield* Effect.context<
-      Store | Harnesses | OneShotPrompt | HarnessBinaries | Agents
+      Store | Harnesses | OneShotPrompt | HarnessAccounts | Agents
     >();
+    const accounts = yield* HarnessAccounts;
     const running = yield* Runtime.start(Code, Layer.succeedContext(services));
     const root = running.instance({ from: 'rpc' });
     // The root reads the Store first; the engine is open once it is Ready.
@@ -245,8 +262,13 @@ const make = (options: EngineOptions) =>
       Stream.runHead,
     );
 
-    /** Gives a harness call the Harness Binaries the user set. */
+    /** Gives a call the Store. */
     const withServices = Effect.provideContext(services);
+
+    const runAs: EngineService['runAs'] = (id) => (effect) =>
+      Effect.flatMap(accounts.as(id), (account) =>
+        Effect.provideService(effect, HarnessAccount, account),
+      );
 
     /** The Projects; there are none while Loading. */
     const projects = () => root.model.projects;
@@ -329,13 +351,17 @@ const make = (options: EngineOptions) =>
           const project = projectAt(input.projectId);
           if (!project)
             return yield* new ProjectNotFound({ id: input.projectId });
-          if (!harnesses.all.some((harness) => harness.name === input.harness))
-            return yield* new UnknownHarness({ harness: input.harness });
+          const account = (yield* allAccounts(harnesses.all).pipe(
+            withServices,
+          )).find((each) => each.id === input.account);
+          if (!account)
+            return yield* new UnknownAccount({ account: input.account });
           const now = yield* Clock.currentTimeMillis;
           const session: Session = {
             id: yield* nextUlid,
             projectId: input.projectId,
-            harness: input.harness,
+            harness: account.harness,
+            account: account.id,
             model: input.model,
             settings: { ...input.settings },
             title: fallbackTitle(input.text),
@@ -410,21 +436,26 @@ const make = (options: EngineOptions) =>
           return found;
         }),
 
-      skills: (projectId, name) =>
+      skills: (projectId, id) =>
         Effect.gen(function* () {
           const project = projectAt(projectId);
           if (!project) return yield* new ProjectNotFound({ id: projectId });
-          const harness = harnesses.all.find((each) => each.name === name);
-          if (!harness)
-            return yield* new SkillsUnavailable({
-              message: `No harness named ${name}`,
-            });
-          return yield* harness.skills(project.path).pipe(
+          const account = (yield* allAccounts(harnesses.all).pipe(
             withServices,
-            Effect.mapError(
-              (error) => new SkillsUnavailable({ message: error.message }),
-            ),
-          );
+          )).find((each) => each.id === id);
+          if (!account)
+            return yield* new SkillsUnavailable({
+              message: `No Harness Account ${id}`,
+            });
+          return yield* harnesses
+            .get(account.harness)
+            .skills(project.path)
+            .pipe(
+              runAs(id),
+              Effect.mapError(
+                (error) => new SkillsUnavailable({ message: error.message }),
+              ),
+            );
         }),
 
       mcpStatus: (sessionId) =>
@@ -478,12 +509,24 @@ const make = (options: EngineOptions) =>
             return yield* new HarnessFailed({ message: reason });
         }),
 
-      harnessBinaries: Effect.forEach(harnesses.all, binaryRow, {
-        concurrency: 'unbounded',
-      }).pipe(withServices),
+      harnessAccounts: allAccounts(harnesses.all).pipe(
+        Effect.flatMap((all) =>
+          Effect.forEach(
+            all,
+            (account) => accountRow(harnesses.get(account.harness), account),
+            { concurrency: 'unbounded' },
+          ),
+        ),
+        withServices,
+      ),
 
-      setHarnessBinary: (name, path) =>
-        setBinary(harnesses.get(name), path).pipe(withServices),
+      saveHarnessAccount: (input) =>
+        saveAccount(harnesses.all, input).pipe(withServices),
+
+      removeHarnessAccount: (id) =>
+        removeAccount(harnesses.all, id).pipe(withServices),
+
+      runAs,
     };
     return service;
   });
@@ -498,7 +541,7 @@ export class Engine extends Context.Service<Engine, EngineService>()(
     Layer.effect(Engine, make(options)).pipe(
       Layer.provide(
         Layer.mergeAll(
-          storedHarnessBinaries,
+          storedHarnessAccounts,
           agents,
           Folders.layer({ home: options.home }),
         ),

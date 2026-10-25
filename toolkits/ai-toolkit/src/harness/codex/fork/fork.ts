@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import type {
   ForkInput,
-  HarnessBinaries,
+  HarnessAccount,
   HarnessError,
 } from '../../contract/index.js';
 import { start } from '../app-server/index.js';
@@ -13,11 +13,7 @@ import { start } from '../app-server/index.js';
  */
 export const fork = (
   input: ForkInput,
-): Effect.Effect<
-  { readonly nativeId: string },
-  HarnessError,
-  HarnessBinaries
-> =>
+): Effect.Effect<{ readonly nativeId: string }, HarnessError, HarnessAccount> =>
   Effect.gen(function* () {
     const server = yield* start(input.cwd);
     const { thread } = yield* server.request('thread/fork', {

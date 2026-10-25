@@ -46,6 +46,10 @@ _Avoid_: last active, updated at, online
 One Agent kept on a Machine, in one of its Projects: its Messages, its Title, and whether it is Settled. A Fork of a Session is listed as a Session of its own, not under the original, and reads what came before its Fork Point from the original rather than copying it.
 _Avoid_: thread, chat, Agent (what a Session keeps), conversation
 
+**Default Account**:
+The Harness Account a Machine has for each Coding Harness it runs, even before the user sets it: the harness from PATH, on its own config folder, its id the harness's name. It can be changed but never removed. Every other Harness Account is one the user added, such as a work login; a Session runs as one account, chosen when it starts, and keeps it.
+_Avoid_: main account, primary login
+
 **Session Status**:
 How a Session stands: idle, running, or how its last Turn ended if not done: cancelled, failed, or interrupted.
 _Avoid_: streaming flag

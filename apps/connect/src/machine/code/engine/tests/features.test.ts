@@ -1,6 +1,5 @@
 import {
   chmodSync,
-  existsSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -72,7 +71,7 @@ const started = (text = 'hello') =>
     const project = yield* engine.addProject(folder());
     const session = yield* engine.startSession({
       projectId: project.id,
-      harness: 'claude',
+      account: 'claude',
       model: 'claude-test',
       settings: { effort: 'high' },
       text,
@@ -139,7 +138,7 @@ describe('a Turn', () => {
         const project = yield* engine.addProject(folder());
         const session = yield* engine.startSession({
           projectId: project.id,
-          harness: 'claude',
+          account: 'claude',
           model: 'claude-test',
           settings: {},
           text: 'look',
@@ -233,6 +232,7 @@ describe('a Fork', () => {
         expect(fork).toMatchObject({
           projectId: session.projectId,
           harness: 'claude',
+          account: 'claude',
           model: 'claude-test',
           settings: { effort: 'high' },
           title: 'hello',
@@ -392,6 +392,7 @@ describe('a Fork', () => {
             id: 's1',
             projectId: project.id,
             harness: 'claude',
+            account: 'claude',
             model: 'claude-test',
             settings: {},
             title: 'Never ran',
@@ -550,8 +551,9 @@ describe('asking a Session', () => {
           expect(asked).toContain(`<message>\n${text}\n</message>`);
         expect(asked).toContain('<latest-message>\nsix\n</latest-message>');
         expect(asked).not.toContain('\none\n');
-        // Both the first title and this one ran with the Harness Binaries.
-        expect(fake.promptBinaries).toEqual([true, true]);
+        // Titles run as Codex's Default Account; with no Codex here, as
+        // the One-shot Prompt's own default, both times.
+        expect(fake.promptAccounts).toEqual([false, false]);
         yield* eventually(async () =>
           expect((await saved())?.title).toBe('A greeting'),
         );
@@ -770,7 +772,7 @@ describe('Agent-started Turns', () => {
   });
 });
 
-describe('Harness Binaries', () => {
+describe('Harness Accounts', () => {
   const executable = (name: string) => {
     const path = join(folder(), name);
     writeFileSync(path, '#!/bin/sh\necho fake\n');
@@ -778,29 +780,40 @@ describe('Harness Binaries', () => {
     return path;
   };
 
-  it('are set once they run, reach every new agent, and reset to the default', async () => {
+  const fakeResolved = {
+    path: '/usr/local/bin/fake',
+    version: 'fake 1.0.0',
+    error: null,
+    isDefault: true,
+  };
+
+  it('keep a Default Account, set once its binary runs, reaching every new agent', async () => {
     const fake = makeFakeHarness();
     await run(
       Effect.gen(function* () {
         const engine = yield* Engine;
-        expect(yield* engine.harnessBinaries).toEqual([
+        expect(yield* engine.harnessAccounts).toEqual([
           {
+            id: 'claude',
             harness: 'claude',
-            configuredPath: null,
-            resolved: {
-              path: '/usr/local/bin/fake',
-              version: 'fake 1.0.0',
-              error: null,
-              isDefault: true,
-            },
+            name: 'Claude',
+            binaryPath: null,
+            home: null,
+            isDefault: true,
+            resolved: fakeResolved,
           },
         ]);
 
+        const save = (binaryPath: string | null) =>
+          engine.saveHarnessAccount({
+            id: 'claude',
+            harness: 'claude',
+            name: 'Claude',
+            binaryPath,
+            home: null,
+          });
         const invalid = (path: string) =>
-          Effect.map(
-            Effect.flip(engine.setHarnessBinary('claude', path)),
-            (error) => error.message,
-          );
+          Effect.map(Effect.flip(save(path)), (error) => error.message);
         expect(yield* invalid('/no/such/binary')).toBe(
           'Nothing is at /no/such/binary',
         );
@@ -811,29 +824,99 @@ describe('Harness Binaries', () => {
         expect(yield* invalid(broken)).toBe(`${broken} not found`);
 
         const good = executable('claude');
-        expect(yield* engine.setHarnessBinary('claude', good)).toEqual({
-          harness: 'claude',
-          configuredPath: good,
-          resolved: {
-            path: good,
-            version: 'fake 1.0.0',
-            error: null,
-            isDefault: false,
-          },
+        expect(yield* save(good)).toMatchObject({
+          id: 'claude',
+          binaryPath: good,
+          resolved: { path: good, error: null, isDefault: false },
         });
-        expect((yield* engine.harnessBinaries)[0]?.configuredPath).toBe(good);
+        expect((yield* engine.harnessAccounts)[0]?.binaryPath).toBe(good);
 
         const { session, idle } = yield* started();
         yield* idle();
-        expect(fake.binaries).toEqual([good]);
-        expect(existsSync(good)).toBe(true);
+        expect(fake.accounts).toEqual([{ binary: good, home: undefined }]);
 
-        const reset = yield* engine.setHarnessBinary('claude', null);
-        expect(reset.configuredPath).toBeNull();
+        const reset = yield* save(null);
+        expect(reset.binaryPath).toBeNull();
         expect(reset.resolved.isDefault).toBe(true);
         expect(
           (yield* engine.skills(session.projectId, 'claude')).length,
         ).toBeGreaterThan(0);
+        expect(
+          (yield* Effect.flip(engine.removeHarnessAccount('claude'))).message,
+        ).toBe('A Default Account cannot be removed');
+      }),
+      fake,
+    );
+  });
+
+  it('add a second login with its own config folder, which its Sessions run as until it is removed', async () => {
+    const fake = makeFakeHarness();
+    await run(
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const add = (name: string, home: string | null) =>
+          engine.saveHarnessAccount({
+            id: null,
+            harness: 'claude',
+            name,
+            binaryPath: null,
+            home,
+          });
+        expect((yield* Effect.flip(add(' ', null))).message).toBe(
+          'Give the account a name',
+        );
+        const nowhere = join(folder(), 'nowhere');
+        expect((yield* Effect.flip(add('Claude work', nowhere))).message).toBe(
+          `Nothing is at ${nowhere}; sign in with that config folder first`,
+        );
+
+        const home = folder();
+        const work = yield* add(' Claude work ', home);
+        expect(work).toMatchObject({
+          harness: 'claude',
+          name: 'Claude work',
+          home,
+          isDefault: false,
+        });
+        expect((yield* engine.harnessAccounts).map(({ id }) => id)).toEqual([
+          'claude',
+          work.id,
+        ]);
+
+        const project = yield* engine.addProject(folder());
+        const session = yield* engine.startSession({
+          projectId: project.id,
+          account: work.id,
+          model: 'claude-test',
+          settings: {},
+          text: 'hi',
+          attachments: [],
+        });
+        expect(session).toMatchObject({ harness: 'claude', account: work.id });
+        yield* eventually(() =>
+          expect(fake.accounts).toEqual([{ binary: undefined, home }]),
+        );
+
+        expect(
+          yield* Effect.flip(
+            engine.startSession({
+              projectId: project.id,
+              account: 'claude-gone',
+              model: 'claude-test',
+              settings: {},
+              text: 'hi',
+              attachments: [],
+            }),
+          ),
+        ).toMatchObject({ _tag: 'UnknownAccount', account: 'claude-gone' });
+
+        yield* engine.removeHarnessAccount(work.id);
+        expect((yield* engine.harnessAccounts).map(({ id }) => id)).toEqual([
+          'claude',
+        ]);
+        expect(
+          (yield* Effect.flip(engine.removeHarnessAccount(work.id))).message,
+        ).toBe(`No Harness Account ${work.id}`);
       }),
       fake,
     );

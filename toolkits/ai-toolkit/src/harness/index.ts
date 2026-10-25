@@ -4,7 +4,7 @@ export {
   claude,
   codex,
   codexOneShot,
-  HarnessBinaries,
+  HarnessAccount,
   HarnessError,
   harnesses,
   Harnesses,

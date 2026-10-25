@@ -12,7 +12,7 @@ import {
 } from 'effect';
 import type { ModelInfo } from '../../contract/index.js';
 import {
-  HarnessBinaries,
+  HarnessAccount,
   type AvailableModel,
   type Harness,
 } from '../contract/index.js';
@@ -110,7 +110,6 @@ const decode = Schema.decodeUnknownEffect(Catalog);
 
 const make = (options: ModelsOptions) =>
   Effect.gen(function* () {
-    const binaries = yield* HarnessBinaries;
     const lock = yield* Semaphore.make(1);
     let held: { readonly catalog: Catalog; readonly at: number } | undefined;
 
@@ -154,26 +153,37 @@ const make = (options: ModelsOptions) =>
       }),
     );
 
+    // By harness, then by Harness Account: each login runs its own models.
     const asked = new Map<
       Harness,
-      {
-        readonly lock: Semaphore.Semaphore;
-        held?: {
-          readonly models: ReadonlyArray<AvailableModel>;
-          readonly at: number;
-        };
-      }
+      Map<
+        string,
+        {
+          readonly lock: Semaphore.Semaphore;
+          held?: {
+            readonly models: ReadonlyArray<AvailableModel>;
+            readonly at: number;
+          };
+        }
+      >
     >();
 
-    /** The account's models, or None when the harness cannot say. */
+    /** The account's models, or undefined when the harness cannot say. */
     const account = (harness: Harness) =>
       Effect.gen(function* () {
         const ask = harness.availableModels;
         if (ask === undefined) return undefined;
-        let entry = asked.get(harness);
+        const login = yield* HarnessAccount;
+        const key = JSON.stringify([login.binary, login.home]);
+        let logins = asked.get(harness);
+        if (logins === undefined) {
+          logins = new Map();
+          asked.set(harness, logins);
+        }
+        let entry = logins.get(key);
         if (entry === undefined) {
           entry = { lock: yield* Semaphore.make(1) };
-          asked.set(harness, entry);
+          logins.set(key, entry);
         }
         const slot = entry;
         return yield* slot.lock.withPermits(1)(
@@ -184,9 +194,7 @@ const make = (options: ModelsOptions) =>
               now - slot.held.at < Duration.toMillis(ACCOUNT_FRESH_FOR)
             )
               return slot.held.models;
-            const result = yield* Effect.result(
-              ask.pipe(Effect.provideService(HarnessBinaries, binaries)),
-            );
+            const result = yield* Effect.result(ask);
             if (result._tag === 'Success') {
               slot.held = { models: result.success, at: now };
               return result.success;
@@ -222,17 +230,17 @@ const make = (options: ModelsOptions) =>
 export class Models extends Context.Service<
   Models,
   {
-    /** The models `harness` can run here, newest first. */
+    /** The models `harness` can run as the Harness Account, newest first. */
     readonly list: (
       harness: Harness,
-    ) => Effect.Effect<ReadonlyArray<ModelInfo>, ModelsError>;
+    ) => Effect.Effect<ReadonlyArray<ModelInfo>, ModelsError, HarnessAccount>;
     /** The account's default model, else the harness's own. */
-    readonly defaultModel: (harness: Harness) => Effect.Effect<string>;
+    readonly defaultModel: (
+      harness: Harness,
+    ) => Effect.Effect<string, never, HarnessAccount>;
   }
 >()('@kestack/ai-toolkit/Models') {
-  /** Harnesses are asked with the Harness Binaries the user set. */
-  static readonly layer = (
-    options: ModelsOptions,
-  ): Layer.Layer<Models, never, HarnessBinaries> =>
+  /** Each call asks as the Harness Account it is given. */
+  static readonly layer = (options: ModelsOptions): Layer.Layer<Models> =>
     Layer.effect(Models, make(options));
 }

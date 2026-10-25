@@ -1,9 +1,9 @@
 import { Clock, Data, Effect } from 'effect';
 import { nextUlid } from '@kestack/std-toolkit/core';
-import { Harnesses } from '@kestack/ai-toolkit/harness';
+import { HarnessAccount, Harnesses } from '@kestack/ai-toolkit/harness';
 import type { Raw } from '@kestack/ai-toolkit/contract';
 import type { Session } from '../../../records/index.js';
-import { Store } from '../../capabilities/index.js';
+import { HarnessAccounts, Store } from '../../capabilities/index.js';
 import { EngineRaw } from '../../engine-raw/index.js';
 import type { SessionQuerySelf } from './actor.js';
 
@@ -140,17 +140,22 @@ export const forkFrom = (self: SessionQuerySelf, afterTurnId: string | null) =>
         ? asked.nativeId
         : ((yield* store.session(point.sessionId))?.nativeId ?? asked.nativeId);
     const harnesses = yield* Harnesses;
-    const forked = yield* harnesses
-      .get(asked.harness)
-      .fork({ cwd: model.cwd, nativeId: owner, at: point.nativeTurnId })
-      .pipe(
-        Effect.mapError(
-          (error) =>
-            new NotForkable({
-              reason: `The agent could not fork: ${error.message}`,
-            }),
-        ),
-      );
+    const accounts = yield* HarnessAccounts;
+    // A Fork runs as the same Harness Account, which holds the context.
+    const forked = yield* accounts.as(asked.account).pipe(
+      Effect.flatMap((account) =>
+        harnesses
+          .get(asked.harness)
+          .fork({ cwd: model.cwd, nativeId: owner, at: point.nativeTurnId })
+          .pipe(Effect.provideService(HarnessAccount, account)),
+      ),
+      Effect.mapError(
+        (error) =>
+          new NotForkable({
+            reason: `The agent could not fork: ${error.message}`,
+          }),
+      ),
+    );
     const now = yield* Clock.currentTimeMillis;
     const fork: Session = {
       ...asked,

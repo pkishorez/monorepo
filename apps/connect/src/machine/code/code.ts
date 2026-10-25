@@ -8,7 +8,7 @@ import {
 } from '@kestack/ai-toolkit/harness';
 import { sherpa, Speech, type SpeechToText } from '@kestack/ai-toolkit/speech';
 import { CodeApi } from './api/index.js';
-import { Engine, storedHarnessBinaries, storeLayer } from './engine/index.js';
+import { Engine, storeLayer } from './engine/index.js';
 import { CodeApiLive } from './handlers.js';
 
 /*
@@ -46,7 +46,7 @@ export const codeGroup = (options: CodeGroupOptions) => {
   }).pipe(Layer.provide(base));
   const models = Models.layer({
     cacheFile: options.modelsCache ?? beside('models.json'),
-  }).pipe(Layer.provide(storedHarnessBinaries), Layer.provide(base));
+  });
   const speech = Speech.layer({
     folder: options.speechFolder ?? beside('speech-to-text'),
   }).pipe(Layer.provide(options.speech ?? sherpa()));

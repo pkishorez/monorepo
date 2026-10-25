@@ -1,5 +1,5 @@
 import { Effect, Layer, Schema, Stream } from 'effect';
-import { CodeClient, HarnessInfo } from '@kestack/connect/code';
+import { CodeClient } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
 import { session } from '../../../routes/index.ts';
@@ -43,9 +43,9 @@ import { TouchDraft } from './touch/index.ts';
  *             a Child that keeps how it stands, and has it sent.
  */
 
-/** A Session's agent, model and settings, as its row says them. */
+/** A Session's agent (its Harness Account), model and settings, as its row says them. */
 const Agent = Schema.Struct({
-  harness: HarnessInfo.fields.name,
+  account: Schema.String,
   model: Schema.String,
   settings: Schema.Record(Schema.String, Schema.String),
 });
@@ -76,7 +76,8 @@ const Picking = Schema.TaggedUnion({
 
 /** What the model Picker set; null: as it was. */
 const Chosen = Schema.Struct({
-  harness: Schema.NullOr(Schema.String),
+  /** The Harness Account picked. */
+  account: Schema.NullOr(Schema.String),
   model: Schema.NullOr(Schema.String),
   settings: Schema.Record(Schema.String, Schema.String),
 });
@@ -157,11 +158,11 @@ const COMMANDS = [
 ];
 
 /** What the model Picker is handed before anything is known, which it never opens for. */
-const NOBODY = { harness: '', model: null, settings: {} };
+const NOBODY = { account: '', model: null, settings: {} };
 
 /** A new session's agent, as the catalog describes it: the one picked, else the first that runs. */
 export const pickedHarness = ({ catalog, chosen }: Model) =>
-  Catalog.harnessOf(catalog, chosen.harness) ??
+  Catalog.harnessOf(catalog, chosen.account) ??
   catalog.harnesses?.find(({ available }) => available) ??
   catalog.harnesses?.[0] ??
   null;
@@ -185,7 +186,7 @@ export const current = (model: Model, { to }: Props) => {
     return to.agent === null
       ? null
       : {
-          harness: to.agent.harness,
+          account: to.agent.account,
           model: model.chosen.model ?? to.agent.model,
           settings: { ...to.agent.settings, ...model.chosen.settings },
         };
@@ -193,7 +194,7 @@ export const current = (model: Model, { to }: Props) => {
   return harness === null
     ? null
     : {
-        harness: harness.name,
+        account: harness.account,
         model: model.chosen.model,
         settings: model.chosen.settings,
       };
@@ -201,8 +202,8 @@ export const current = (model: Model, { to }: Props) => {
 
 /** The agent's Skills, and a Session's commands, as the skills Picker lists them. */
 export const skillsOf = (model: Model, props: Props) => {
-  const name = current(model, props)?.harness ?? null;
-  const read = Catalog.skillsOf(model.catalog, name);
+  const account = current(model, props)?.account ?? null;
+  const read = Catalog.skillsOf(model.catalog, account);
   const loading =
     read === undefined &&
     (props.to._tag === 'Session' ||
@@ -237,7 +238,7 @@ const start = (model: Model, props: Props) => {
     model: { ...model, starting: true, problem: null },
     command: startSession({
       projectId: props.projectId,
-      harness: harness.name,
+      account: harness.account,
       model: picked,
       settings: pickedSettings(model),
       text,
@@ -297,7 +298,7 @@ export const DraftLive = Actor.build(Draft, {
       attachments: [],
       insert: null,
       catalog: Catalog.empty,
-      chosen: { harness: null, model: null, settings: {} },
+      chosen: { account: null, model: null, settings: {} },
       picking: null,
       opened: 0,
       problem: null,
@@ -413,16 +414,16 @@ export const DraftLive = Actor.build(Draft, {
       const harness =
         props.to._tag === 'Session'
           ? null
-          : Catalog.harnessOf(model.catalog, chosen.harness);
+          : Catalog.harnessOf(model.catalog, chosen.account);
       const fresh =
-        harness !== null && harness.name !== pickedHarness(model)?.name;
+        harness !== null && harness.account !== pickedHarness(model)?.account;
       return {
         model: {
           ...model,
           picking: null,
           problem: null,
           chosen: {
-            harness: harness?.name ?? model.chosen.harness,
+            account: harness?.account ?? model.chosen.account,
             model: chosen.model ?? (fresh ? null : model.chosen.model),
             settings: {
               ...(fresh ? {} : model.chosen.settings),

@@ -13,7 +13,7 @@ import { type Harness, Harnesses } from './contract/index.js';
  */
 
 export {
-  HarnessBinaries,
+  HarnessAccount,
   HarnessError,
   Harnesses,
   isRecord,

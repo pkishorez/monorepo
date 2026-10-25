@@ -9,8 +9,12 @@ A provider-native coding agent, such as Claude Code or Codex, that executes work
 _Avoid_: model, provider, agent SDK
 
 **Harness Binary**:
-The executable a Coding Harness runs as on this computer. Each harness has a default; the user may point it at another path.
-_Avoid_: CLI path, executable setting
+The executable a Coding Harness runs as on this computer: the one the user installed, found by its name on PATH, unless a Harness Account points at another path. This package ships none.
+_Avoid_: CLI path, executable setting, bundled binary
+
+**Harness Account**:
+One login of a Coding Harness on this computer: the Harness Binary it runs and the config folder it keeps its login, settings and transcripts in (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`), such as a work Claude beside a personal one. Every harness call runs as one; an Agent's context lives in its account's folder, so it is resumed, forked and asked as the same account.
+_Avoid_: profile, alias, login (alone), instance
 
 **Language Model**:
 A named model offered through a Coding Harness. An Agent has one, and any Turn may change it within the same harness.
@@ -83,3 +87,7 @@ _Avoid_: tokens left, quota
 **Speech to Text**:
 Turning spoken audio into text, on the computer itself. It knows nothing of Agents or Coding Harnesses.
 _Avoid_: transcription service, STT, voice
+
+## TODO
+
+- The Agent SDK's JavaScript is vendored at one version (`@anthropic-ai/claude-agent-sdk` in the catalog), and Codex's app-server protocol is typed at one version, but each runs whatever Claude Code or Codex the user installed. Nothing checks that the two agree: a Claude Code or Codex much older or newer than the one this package was built against may refuse an option, or send records the projection does not know. Read each Harness Binary's `--version`, say when it is outside the range this package was tested with, and keep the range in one place.
