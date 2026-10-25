@@ -411,7 +411,7 @@ export function Triggers({
         how={at('model')}
         mode="dialog"
         label="Model"
-        onOpen={() => onOpen('model', 'pointer')}
+        onOpen={(how) => onOpen('model', how)}
         className="w-72"
         trigger={
           <button
@@ -440,7 +440,7 @@ export function Triggers({
           how={at('settings')}
           mode="drawer"
           label="Settings"
-          onOpen={() => onOpen('settings', 'pointer')}
+          onOpen={(how) => onOpen('settings', how)}
           className="w-64"
           trigger={
             <button

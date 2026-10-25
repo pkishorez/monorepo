@@ -45,10 +45,11 @@ import { useDrawn } from './shape.ts';
  * or, for choices that take the app somewhere, on to the page;
  * so is leaving it when the owner drops the Picker while it is open, as it
  * does once it has settled a choice, unless another Picker was opened
- * since, which holds the Surface now. The search is the Surface's default
- * Focus Spot, so it takes focus as the Picker opens.
+ * since, which holds the Surface now. Opened by keys or a mouse, the
+ * search is the Surface's default Focus Spot, so it takes focus as the
+ * Picker opens.
  *
- * On a device with no keyboard, in a Drawer or a Dialog, a header names
+ * Opened by touch, in a Drawer or a Dialog, a header names
  * the Step, with a button back to the one under it; the keys' hints are
  * gone, and so is the highlight. A Drawer has no search, nor has a Step
  * in a Dialog that says it has none. The keyboard moves no focus there:
@@ -76,9 +77,10 @@ export function List<P>({
   const shown = shownOf(spec, model, props);
   const { query, highlighted } = model.step;
   const { enter, leave } = keys.useKeyboard();
-  const search = keys.useFocusSpot('picker', 'search', { default: true });
   const { shape, label, focusOnTouch } = useDrawn();
   const touch = shape === 'drawer' || shape === 'dialog';
+  // Opened by touch, nothing takes focus on its own.
+  const search = keys.useFocusSpot('picker', 'search', { default: !touch });
   const searched = shape !== 'drawer' && (!touch || shown.search);
   const close = (choices: ReadonlyArray<Choice>) => {
     leave('picker');

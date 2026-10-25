@@ -9,24 +9,25 @@ import { MicrophonePickerLive, MicrophonesView } from './actor.ts';
 /*
  * The Microphone Picker: `d` opens it centred from anywhere, drawn by the
  * View the shell keeps; the Button, the small chevron beside the Status
- * Line's mic, opens it by pointer as a popover by it, and by a tap in a
- * Drawer. Whatever else opens it, such as the Draft's `+` Drawer on a
- * device with no keyboard, does so through `Opener`, as its keys do.
+ * Line's mic, opens it by a click as a popover by it. Opened by a tap,
+ * there or from elsewhere through `Opener`, such as the Touch Draft's
+ * Quick actions, the View the shell keeps draws it in a Drawer.
  */
 
 const LABEL = 'Choose the microphone';
 
 /** Where the View keeps how to open it from elsewhere, while it is drawn. */
-export const Opener = createContext<RefObject<(() => void) | null> | null>(
-  null,
-);
+export const Opener = createContext<RefObject<
+  ((how: 'keys' | 'touch') => void) | null
+> | null>(null);
 
 export const MicrophonePickerView = View.make(
   MicrophonePickerLive,
   ({ model, children, send }) => {
     const open = Picker.useOpen();
-    const choose = () => open(() => send({ _tag: 'Open', how: 'keys' }));
-    keys.useAction('app.microphone', choose);
+    const choose = (how: 'keys' | 'touch') =>
+      open(() => send({ _tag: 'Open', how }));
+    keys.useAction('app.microphone', () => choose('keys'));
     const opener = use(Opener);
     useEffect(() => {
       if (opener === null) return;
@@ -35,7 +36,7 @@ export const MicrophonePickerView = View.make(
     });
     return (
       <Picker.Frame
-        how={model.picking === 'keys' ? 'keys' : null}
+        how={model.picking === 'mouse' ? null : model.picking}
         mode="drawer"
         label={LABEL}
       >
@@ -51,10 +52,10 @@ export const MicrophonePickerButton = View.make(
     const bound = useBound('app.microphone');
     return (
       <Picker.Frame
-        how={model.picking === 'pointer' ? 'pointer' : null}
+        how={model.picking === 'mouse' ? 'mouse' : null}
         mode="drawer"
         label={LABEL}
-        onOpen={() => send({ _tag: 'Open', how: 'pointer' })}
+        onOpen={(how) => send({ _tag: 'Open', how })}
         side="top"
         className="w-80"
         trigger={

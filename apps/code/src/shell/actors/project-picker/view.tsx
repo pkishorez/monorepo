@@ -44,10 +44,10 @@ export const ProjectPickerButton = View.make(
     const bound = useBound('app.projects');
     return (
       <Picker.Frame
-        how={model.picking === 'pointer' ? 'pointer' : null}
+        how={model.picking === 'keys' ? null : model.picking}
         mode="dialog"
         label="Open a project"
-        onOpen={() => send({ _tag: 'Open', how: 'pointer' })}
+        onOpen={(how) => send({ _tag: 'Open', how })}
         side="bottom"
         className="w-96"
         // On a phone it floats at the bottom right. Wider, it sits in the
