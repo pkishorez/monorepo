@@ -198,11 +198,12 @@ export interface StepSpec<P> {
    */
   readonly done?: (at: At<P>) => string;
   /**
-   * What the button on each row that opens a Step says, such as "Open", in
-   * a Step that finishes on itself: on a device with no keyboard, it
-   * finishes on that row, as Mod+Enter on it does.
+   * Where the Step is, such as a folder's path: on a device with no
+   * keyboard, shown above its rows, with the button that finishes on it.
    */
-  readonly doneOnRow?: string;
+  readonly where?: (at: At<P>) => string;
+  /** What each row is, drawn beside it on a device with no keyboard. */
+  readonly icon?: 'folder';
   /** The owner settles what is chosen here: the Picker waits for it, and says why when it refuses. */
   readonly settles?: boolean;
 }
@@ -284,7 +285,8 @@ export const shownOf = <P>(spec: Spec<P>, model: Model, props: P) => {
     placeholder: own?.placeholder(at) ?? '',
     search: own?.search !== false,
     done: own?.finishes === 'step' ? (own.done?.(at) ?? 'Choose') : null,
-    doneOnRow: own?.finishes === 'step' ? (own.doneOnRow ?? null) : null,
+    where: own?.where?.(at) ?? null,
+    icon: own?.icon ?? null,
     title: own?.title?.(at) ?? null,
     empty: own?.empty?.(at) ?? 'Nothing by that name',
   };

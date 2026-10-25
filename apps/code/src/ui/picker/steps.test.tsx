@@ -73,7 +73,7 @@ const Places = make('PlacePicker', {
           : [{ value: `new:${query}`, label: `Make ${query}` }],
       finishes: 'step',
       done: () => 'Choose this place',
-      doneOnRow: 'Pick',
+      where: ({ key }) => `/${key}`,
       settles: true,
     },
   },
@@ -379,23 +379,15 @@ describe('Picker Steps, on a device with no keyboard', () => {
       (button) => button.textContent === 'Choose this place',
     );
 
-  it('chooses the place open with the button at its foot', async () => {
+  it('goes into a place by its row, and chooses the one open by the button under its path', async () => {
     expect(done()).toBeUndefined();
     await click(row('walk'));
     await click(row('a'));
-    // Each row a place, with its own button.
-    expect(rows()).toEqual(['bPick', 'cPick']);
+    expect(rows()).toEqual(['b', 'c']);
+    expect(document.body.textContent).toContain('/a');
     await click(done()!);
     await flush();
     expect(state).toEqual({ settled: ['a'], heard: 'a' });
-    expect(search()).toBeNull();
-  });
-
-  it("chooses a row's place with its own button, without going into it", async () => {
-    await click(row('walk'));
-    await click(row('b').querySelector('button')!);
-    await flush();
-    expect(state).toEqual({ settled: ['b'], heard: 'b' });
     expect(search()).toBeNull();
   });
 });
