@@ -1,6 +1,6 @@
 # AI Toolkit
 
-Making Coding Harnesses work, and nothing around them: opening a harness's Conversation in a folder, running and steering its Turns, forking it and asking it, and reading what it emits as Messages. It keeps nothing and serves nothing; what is kept of a Conversation, and where, is the business of whoever uses it, such as [[connect]]'s Sessions.
+Making Coding Harnesses work, and nothing around them: opening an Agent in a folder, running and steering its Turns, forking it and asking it, and reading what it emits as Messages; and Speech to Text. It keeps nothing and serves nothing, and offers plain Effects, not Actors: what is kept of an Agent, and how its Turns are ordered, is the business of whoever uses it, such as [[connect]]'s Sessions.
 
 ## Language
 
@@ -13,12 +13,12 @@ The executable a Coding Harness runs as on this computer. Each harness has a def
 _Avoid_: CLI path, executable setting
 
 **Language Model**:
-A named model offered through a Coding Harness. A Conversation has one, and any Turn may change it within the same harness.
+A named model offered through a Coding Harness. An Agent has one, and any Turn may change it within the same harness.
 _Avoid_: harness, provider
 
-**Conversation**:
-A Coding Harness's own context in one folder, named by its Native Id. Its harness never changes. Opened, it is a **live Conversation**: an agent running Turns, until it is closed.
-_Avoid_: session (that is Code's word for a kept Conversation), thread, chat, HarnessSession
+**Agent**:
+A Coding Harness's agent in one folder, resumed by its Native Id. It is open while its process runs, and runs one Turn at a time. Its harness never changes.
+_Avoid_: conversation, live conversation, session (that is Code's word for a kept Agent), HarnessSession, thread, chat
 
 **Turn**:
 One user message to the agent and everything it emits until it is idle again. Messages sent while it runs steer it; one the agent could not take before the Turn ended starts the next Turn instead.
@@ -37,7 +37,7 @@ A Turn the Coding Harness itself ended in an error.
 _Avoid_: cancelled, interrupted
 
 **Native Id**:
-The harness's own identity for a Conversation or Turn, used to resume and to fork its context.
+The harness's own identity for an Agent or Turn, used to resume and to fork its context.
 _Avoid_: session id, resume token
 
 **Message**:
@@ -53,7 +53,7 @@ A named, reusable instruction set a Coding Harness offers in a folder, invoked f
 _Avoid_: command, prompt, plugin
 
 **Fork**:
-A new Conversation in the same harness that carries on another's context from a Fork Point. The original is untouched.
+A new Agent in the same harness that carries on another's context from a Fork Point. The original is untouched.
 _Avoid_: branch, clone, copy
 
 **Fork Point**:
@@ -61,25 +61,25 @@ The end of a finished Turn; a Fork keeps that Turn and everything before it.
 _Avoid_: checkpoint, message index
 
 **Ask**:
-A question put to a Conversation's context that leaves the Conversation untouched, answered as text or as data shaped by a given schema. The answer is not kept.
+A question put to an Agent's context that leaves the Agent untouched, answered as text or as data shaped by a given schema. The answer is not kept.
 _Avoid_: side question, btw, query, summarize
 
 **One-shot Prompt**:
-A prompt a Coding Harness answers with no Conversation behind it and nothing kept, such as writing a Title for a Session.
-_Avoid_: titler, completion, Ask (that reads a Conversation)
+A prompt a Coding Harness answers with no Agent behind it and nothing kept, such as writing a Title for a Session.
+_Avoid_: titler, completion, Ask (that reads an Agent)
 
 **Background Job**:
-Work a live Conversation's agent started that runs beyond the Turn that started it, such as a shell process or a subagent. Background Jobs live only while the Conversation is open and are never kept.
+Work an open Agent started that runs beyond the Turn that started it, such as a shell process or a subagent. Background Jobs live only while the Agent is open and are never kept.
 _Avoid_: task, process, daemon
 
 **MCP Server Status**:
-Which MCP servers a live Conversation's agent is connected to, and how each stands.
+Which MCP servers an open Agent is connected to, and how each stands.
 _Avoid_: tool status, plugin status
 
 **Context Usage**:
-How much of a Conversation's context window is filled, and the account's remaining rate limits.
+How much of an Agent's context window is filled, and the account's remaining rate limits.
 _Avoid_: tokens left, quota
 
 **Speech to Text**:
-Turning spoken audio into text, on the computer itself. It knows nothing of Conversations or Coding Harnesses.
+Turning spoken audio into text, on the computer itself. It knows nothing of Agents or Coding Harnesses.
 _Avoid_: transcription service, STT, voice
