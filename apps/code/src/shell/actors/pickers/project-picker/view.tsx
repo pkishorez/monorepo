@@ -142,10 +142,7 @@ function Start({
       label="New session"
     >
       {starting !== null && (
-        <ClosedOnStart
-          starting={starting}
-          onStarted={() => send({ _tag: 'Closed' })}
-        />
+        <ClosedOnStart onStarted={() => send({ _tag: 'Closed' })} />
       )}
       {starter && <Starter.view instance={starter} />}
     </Drawer>
@@ -153,29 +150,16 @@ function Start({
 }
 
 /**
- * Closes the Picker once the session it started has its page open: a
- * session page of the project other than the one open as it opened, so
- * one of that project already open closes nothing.
+ * Closes the Picker once the page changes, as starting the session does:
+ * whatever page was open as it opened, the same project's too, never does.
  */
-function ClosedOnStart({
-  starting,
-  onStarted,
-}: {
-  readonly starting: NonNullable<Self['model']['starting']>;
-  readonly onStarted: () => void;
-}) {
+function ClosedOnStart({ onStarted }: { readonly onStarted: () => void }) {
   const { route } = useRouter<Route>();
-  const sessionOf = (at: Route) =>
-    at._tag === 'Project' &&
-    at.machineId === starting.machineId &&
-    at.projectId === starting.projectId
-      ? (at.page?.sessionId ?? null)
-      : null;
-  const now = sessionOf(route);
+  const now = JSON.stringify(route);
   const before = useRef(now);
-  const started = now !== null && now !== before.current;
+  const moved = now !== before.current;
   useEffect(() => {
-    if (started) onStarted();
-  }, [started]);
+    if (moved) onStarted();
+  }, [moved]);
   return null;
 }
