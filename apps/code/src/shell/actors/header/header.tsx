@@ -9,8 +9,9 @@ import * as routes from '../../routes/index.ts';
 import type { Route } from '../../routes/index.ts';
 import { SessionStatus } from '../../../ui/session-status/index.ts';
 import {
-  HealthDot,
   pillOf,
+  StandingDot,
+  standingOf,
   shortOf,
   useHealth,
   useMachineName,
@@ -127,14 +128,14 @@ export function Offline({ machineId }: { readonly machineId: string }) {
   const health = useHealth(machineId);
   const pill = pillOf(health);
   if (pill === null) return null;
-  const [label, title, tone] = pill;
+  const [label, title] = pill;
   return (
     <span
       role="status"
       title={title}
       className="inline-flex h-7 shrink-0 items-center gap-2 rounded-full border border-border bg-muted/50 px-3 text-xs font-medium"
     >
-      <HealthDot health={health} tone={tone} />
+      <StandingDot kind={standingOf(health, null).kind} />
       <span className="md:hidden">{shortOf(health)}</span>
       <span className="max-md:hidden">{label}</span>
     </span>
