@@ -16,7 +16,7 @@ import {
   standingOf,
   useHealths,
 } from '../../../machines/index.ts';
-import { MachineSettingsLive } from './actor.ts';
+import { keyOf, MachineSettingsLive } from './actor.ts';
 import { HarnessAccounts } from './harness-accounts/index.ts';
 import { SpeechToText } from './speech-to-text/index.ts';
 
@@ -111,12 +111,14 @@ export const MachineSettingsView = View.make(
         ) : (
           <ul className="flex flex-col gap-4">
             {model.machines.map((machine) => {
+              const key =
+                model.accountId === null
+                  ? null
+                  : keyOf(model.accountId, machine.id);
               const settings = children.accounts.find(
-                ({ key }) => key === machine.id,
+                (each) => each.key === key,
               );
-              const speech = children.speech.find(
-                ({ key }) => key === machine.id,
-              );
+              const speech = children.speech.find((each) => each.key === key);
               const standing = standingOf(healthOf(machine.id), machine);
               return (
                 <li

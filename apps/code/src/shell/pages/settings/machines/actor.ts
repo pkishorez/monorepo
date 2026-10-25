@@ -15,7 +15,8 @@ import { ask, keepForgetting } from './commands.ts';
  *
  * 1. Read    what `Machines` holds, followed; one child per Machine for
  *            each of its settings, its Harness Accounts and its Speech to
- *            Text switch, each told whose Machine it is. Reload asks the
+ *            Text switch, each told whose Machine it is, and none while
+ *            no Account is known. Reload asks the
  *            Machine List again, as the sidebar's does.
  * 2. Ask     Forget asks first, saying when the Machine was last seen and
  *            how its tunnel stands.
@@ -60,6 +61,31 @@ export const MachineSettings = Page.define({
   }),
 });
 
+/**
+ * A per-Machine child's key: its Account's id and its Machine's, which no
+ * id holds a space of, so a child is never told an Account it is not of.
+ */
+export const keyOf = (accountId: string, machineId: string) =>
+  `${accountId} ${machineId}`;
+
+/** Each listed Machine's key, none while no Account is known. */
+const keysOf = ({
+  accountId,
+  machines,
+}: {
+  readonly accountId: string | null;
+  readonly machines: ReadonlyArray<{ readonly id: string }> | null;
+}) =>
+  accountId === null
+    ? []
+    : (machines ?? []).map(({ id }) => keyOf(accountId, id));
+
+/** The Account and the Machine a key names. */
+const whoseOf = (key: string) => {
+  const at = key.indexOf(' ');
+  return { accountId: key.slice(0, at), machineId: key.slice(at + 1) };
+};
+
 export const MachineSettingsLive = Page.build(MachineSettings, {
   init: () => ({
     model: {
@@ -74,19 +100,13 @@ export const MachineSettingsLive = Page.build(MachineSettings, {
   children: {
     accounts: {
       actor: HarnessAccounts.actor,
-      each: ({ model }) => (model.machines ?? []).map(({ id }) => id),
-      input: ({ model }, machineId) => ({
-        machineId,
-        accountId: model.accountId ?? '',
-      }),
+      each: ({ model }) => keysOf(model),
+      input: (_, key) => whoseOf(key),
     },
     speech: {
       actor: SpeechToText.actor,
-      each: ({ model }) => (model.machines ?? []).map(({ id }) => id),
-      input: ({ model }, machineId) => ({
-        machineId,
-        accountId: model.accountId ?? '',
-      }),
+      each: ({ model }) => keysOf(model),
+      input: (_, key) => whoseOf(key),
     },
   },
   workers: {
