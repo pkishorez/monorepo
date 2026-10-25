@@ -5,10 +5,10 @@ import {
   type Route,
   session,
   settings,
-} from './places/index.ts';
+} from './routes/index.ts';
 import { router } from './router.ts';
 
-describe('places', () => {
+describe('routes', () => {
   it('are the Routes the router makes', () => {
     expect(home()).toEqual(router.Home());
     expect(settings()).toEqual(router.Settings());

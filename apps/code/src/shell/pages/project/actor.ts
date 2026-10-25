@@ -2,7 +2,7 @@ import { Effect, Layer, Schema, Stream } from 'effect';
 import { type CodeClient, CodeClients } from '@kestack/connect/code';
 import { Navigation, Page, Router } from '@kestack/kabuki/routing';
 import { Machines } from '../../../layer/capabilities/index.ts';
-import { home } from '../../places/index.ts';
+import { home } from '../../routes/index.ts';
 import { Refused } from '../../refusal/index.ts';
 import { ProjectRow } from '../../replica/index.ts';
 import { SharedCatalog } from './capabilities/index.ts';

@@ -3,7 +3,7 @@ import { Router } from '@kestack/kabuki/routing';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { Trash2Icon } from '@kestack/web-platform/ui/components/lucide';
 import { keys } from '../../../keys.ts';
-import * as places from '../../places/index.ts';
+import * as routes from '../../routes/index.ts';
 import * as Confirm from '../../../ui/confirm/index.ts';
 import { OnMachine } from '../../connection/index.ts';
 import { ProjectLive } from './actor.ts';
@@ -32,7 +32,7 @@ export const ProjectView = View.make(ProjectLive, (self) => (
         <p className="mx-auto w-full max-w-3xl px-6 py-10 text-sm text-muted-foreground">
           This Machine is not one of yours any more: it was forgotten, or you
           are signed in as someone else.{' '}
-          <Router.Link to={places.home()} className={link}>
+          <Router.Link to={routes.home()} className={link}>
             Go to your projects
           </Router.Link>
         </p>
@@ -61,7 +61,7 @@ function ProjectScreen({ root, model, children, send }: Self) {
         <p className="mx-auto w-full max-w-3xl px-6 py-10 text-sm text-muted-foreground">
           It may have been removed.{' '}
           <Router.Link
-            to={places.home()}
+            to={routes.home()}
             className="text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
           >
             Go to your projects

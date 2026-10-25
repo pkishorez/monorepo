@@ -3,7 +3,7 @@ import { useRouter } from '@kestack/kabuki/routing';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { EllipsisIcon } from '@kestack/web-platform/ui/components/lucide';
 import { keys, useBound } from '../../../keys.ts';
-import { placeOf, type Route } from '../../places/index.ts';
+import type { Route } from '../../routes/index.ts';
 import * as Picker from '../../../ui/picker/index.ts';
 import { ActionsView, SessionActionsLive } from './actor.ts';
 
@@ -19,7 +19,7 @@ export const SessionActionsView = View.make(
   ({ model, children, send }) => {
     const open = Picker.useOpen();
     const bound = useBound('app.actions');
-    const route = placeOf(useRouter<Route>().route);
+    const route = useRouter<Route>().route;
     const at =
       route._tag === 'Project' && route.page !== undefined
         ? { machineId: route.machineId, sessionId: route.page.sessionId }

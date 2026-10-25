@@ -17,12 +17,11 @@ import {
 } from '../layer/capabilities/index.ts';
 import {
   home,
-  placeOf,
   project,
   session,
   settings,
   type Route,
-} from './places/index.ts';
+} from './routes/index.ts';
 import { Dictation } from './actors/dictation/index.ts';
 import { Header } from './actors/header/index.ts';
 import { MachineList } from './actors/machine-list/index.ts';
@@ -181,7 +180,7 @@ const goneFrom = (before: Signed, after: Signed) =>
 
 /** The Draft open at `route`, a new session's or a Session's, if any. */
 const draftAt = (route: Route | undefined) => {
-  const place = route === undefined ? null : placeOf(route);
+  const place = route ?? null;
   return place?._tag === 'Project'
     ? {
         machineId: place.machineId,

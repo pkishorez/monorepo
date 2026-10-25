@@ -11,7 +11,7 @@ import {
 } from '@kestack/web-platform/ui/components/select';
 import { createContext, type ReactNode, use, useEffect } from 'react';
 import { notify } from '../../../ui/toast/index.ts';
-import { placeOf, type Route } from '../../places/index.ts';
+import type { Route } from '../../routes/index.ts';
 import { refusedKey, shownOf, SidebarLive } from './actor.ts';
 import { Places } from './sidebar.tsx';
 import { doneOf, movedOf } from './moves.ts';
@@ -37,7 +37,7 @@ const EVERY = 'every';
 export const SidebarView = View.make(
   SidebarLive,
   ({ model, children, send }) => {
-    const route = placeOf(useRouter<Route>().route);
+    const route = useRouter<Route>().route;
     const { projectPicker } = use(Slots);
     const [projects] = useChildren(children.projects, ({ model }) => model);
     const [found] = useChildren(children.sessions, ({ model }) => model);

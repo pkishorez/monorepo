@@ -27,7 +27,7 @@ import {
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import type { Project } from '@kestack/connect/code';
 import { keys, useBound } from '../../../keys.ts';
-import * as places from '../../places/index.ts';
+import * as routes from '../../routes/index.ts';
 import type { OnMachine } from '../../replica/index.ts';
 import { useMachineName } from '../../connection/index.ts';
 import { HomeLive } from './actor.ts';
@@ -99,7 +99,7 @@ function ProjectItem({ project }: { readonly project: OnMachine<Project> }) {
       variant="outline"
       size="sm"
       render={
-        <Router.Link to={places.project(project.machineId, project.id)} />
+        <Router.Link to={routes.project(project.machineId, project.id)} />
       }
       className="group"
     >

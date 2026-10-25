@@ -9,7 +9,7 @@ import {
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
-import * as places from '../../../places/index.ts';
+import * as routes from '../../../routes/index.ts';
 import { RunningDot } from '../../../../ui/running-dot/index.ts';
 import { keys, useBound } from '../../../../keys.ts';
 import { useMachineId, useOffline } from '../../../connection/index.ts';
@@ -232,7 +232,7 @@ const Transcript = memo(function Transcript({
           <GitForkIcon aria-hidden className="size-3.5 shrink-0" />
           <span className="shrink-0">Forked from</span>
           <Router.Link
-            to={places.session(
+            to={routes.session(
               machineId,
               session.projectId,
               session.forkedFrom.sessionId,

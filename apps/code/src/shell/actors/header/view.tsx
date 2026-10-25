@@ -1,6 +1,6 @@
 import { useChild, View, type ViewProps } from '@kestack/kabuki/react';
 import { useRouter } from '@kestack/kabuki/routing';
-import { placeOf, type Route } from '../../places/index.ts';
+import type { Route } from '../../routes/index.ts';
 import { HeaderLive } from './actor.ts';
 import { Model, Title } from './header.tsx';
 
@@ -14,7 +14,7 @@ type ProjectHandle = NonNullable<Children['project']>;
 type SessionHandle = NonNullable<Children['session']>;
 
 export const HeaderView = View.make(HeaderLive, ({ children }) => {
-  const route = placeOf(useRouter<Route>().route);
+  const route = useRouter<Route>().route;
   if (children.project === undefined)
     return (
       <Title
@@ -38,7 +38,7 @@ function ProjectTitle({
   project,
   session,
 }: {
-  readonly route: ReturnType<typeof placeOf>;
+  readonly route: Route;
   readonly project: ProjectHandle;
   readonly session: SessionHandle | undefined;
 }) {
@@ -70,7 +70,7 @@ function SessionTitle({
   unknown,
   session,
 }: {
-  readonly route: ReturnType<typeof placeOf>;
+  readonly route: Route;
   readonly project: Parameters<typeof Title>[0]['project'];
   readonly unknown: boolean;
   readonly session: SessionHandle;

@@ -1,7 +1,7 @@
 import { View } from '@kestack/kabuki/react';
 import { useRouter } from '@kestack/kabuki/routing';
 import { keys } from '../../../keys.ts';
-import { placeOf, type Route } from '../../places/index.ts';
+import type { Route } from '../../routes/index.ts';
 import * as Picker from '../../../ui/picker/index.ts';
 import { SessionSwitcherLive, SessionsView } from './actor.ts';
 
@@ -14,7 +14,7 @@ export const SessionSwitcherView = View.make(
   SessionSwitcherLive,
   ({ model, children, send }) => {
     const open = Picker.useOpen();
-    const route = placeOf(useRouter<Route>().route);
+    const route = useRouter<Route>().route;
     const here =
       route._tag === 'Project' && route.page !== undefined
         ? { machineId: route.machineId, id: route.page.sessionId }

@@ -4,7 +4,7 @@ import { Actor } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { boundIn } from '../../../keys.ts';
-import { session as sessionPlace } from '../../places/index.ts';
+import { session as sessionPlace } from '../../routes/index.ts';
 import { everything } from '../../replica/index.ts';
 import * as Picker from '../../../ui/picker/index.ts';
 import { Moves } from '../../moves/index.ts';

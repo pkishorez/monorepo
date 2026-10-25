@@ -10,7 +10,7 @@ import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket'
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { keys } from '../../../keys.ts';
-import { session } from '../../places/index.ts';
+import { session } from '../../routes/index.ts';
 import { Moves } from '../../moves/index.ts';
 import * as Picker from '../../../ui/picker/index.ts';
 import { ActionsView, SessionActionsLive } from './actor.ts';

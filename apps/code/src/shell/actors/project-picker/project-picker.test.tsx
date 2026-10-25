@@ -10,7 +10,7 @@ import { Replicas } from '@kestack/std-toolkit/replica';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Machines, nobody } from '../../../layer/capabilities/index.ts';
 import { keys } from '../../../keys.ts';
-import { project } from '../../places/index.ts';
+import { project } from '../../routes/index.ts';
 import { ProjectPickerLive } from './actor.ts';
 import { ProjectPickerButton, ProjectPickerView } from './view.tsx';
 
