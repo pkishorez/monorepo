@@ -29,6 +29,6 @@
       "src/code/engine"
     ],
     "src/cli/serve": ["src/machine", "src/code"],
-    "src/cli/dev": ["src/cli/serve"]
+    "src/cli/dev": ["src/cli/serve", "src/machine"]
   }
 }

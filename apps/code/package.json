@@ -6,7 +6,7 @@
   "type": "module",
   "sideEffects": false,
   "scripts": {
-    "dev": "vp run --filter 'code^...' build && CONNECT_URL=$(portless get connect.kishore) portless run --force alchemy dev",
+    "dev": "vp run --filter 'code^...' build && node scripts/dev.ts",
     "build": "vp build",
     "lint": "tsc --noEmit && pnpm lint:laymos",
     "lint:laymos": "laymos lint",
