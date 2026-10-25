@@ -12,25 +12,18 @@
     "src/shell": ["src/layer/capabilities", "src/ui", "src/keys.ts"],
     "src/shell/actors": [
       "src/shell/routes",
-      "src/shell/refusal",
-      "src/shell/replica",
-      "src/shell/connection",
+      "src/shell/machines",
       "src/shell/moves"
     ],
-    "src/shell/moves": ["src/shell/refusal"],
-    "src/shell/pages": [
-      "src/shell/routes",
-      "src/shell/refusal",
-      "src/shell/replica",
-      "src/shell/connection",
-      "src/shell/actors/dictation"
-    ],
+    "src/shell/moves": ["src/shell/machines"],
+    "src/shell/pages": ["src/shell/routes", "src/shell/machines"],
     "src/shell/actors/sidebar/settled-list": ["src/shell/actors/sidebar/swipe"],
     "src/shell/pages/project/capabilities": ["src/shell/pages/project/catalog"],
     "src/shell/pages/project/session": ["src/shell/pages/project/draft"],
     "src/shell/pages/project/draft": [
       "src/shell/pages/project/capabilities",
-      "src/shell/pages/project/catalog"
+      "src/shell/pages/project/catalog",
+      "src/shell/actors/dictation"
     ]
   }
 }

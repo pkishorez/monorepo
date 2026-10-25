@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { CodeClient, CodeClients } from '@kestack/connect/code';
-import { reasonOf } from '../../refusal/index.ts';
+import { reasonOf } from '../../machines/index.ts';
 
 /*
  * What a Dictation asks of a Machine, over its own socket: the text of a

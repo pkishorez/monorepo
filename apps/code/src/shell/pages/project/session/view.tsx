@@ -12,7 +12,7 @@ import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import * as routes from '../../../routes/index.ts';
 import { RunningDot } from '../../../../ui/running-dot/index.ts';
 import { keys, useBound } from '../../../../keys.ts';
-import { useMachineId, useOffline } from '../../../connection/index.ts';
+import { useMachineId, useOffline } from '../../../machines/index.ts';
 import { Draft } from '../draft/index.ts';
 import { SessionLive } from './actor.ts';
 import { useFollow } from './follow.ts';

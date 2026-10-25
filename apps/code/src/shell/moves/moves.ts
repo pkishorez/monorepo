@@ -10,7 +10,7 @@ import {
   SubscriptionRef,
 } from 'effect';
 import { CodeClient, CodeClients } from '@kestack/connect/code';
-import { orRefused } from '../refusal/index.ts';
+import { orRefused } from '../machines/index.ts';
 import { answered, asking, idle, next, type Plan, put } from './plan.ts';
 
 /*

@@ -24,10 +24,10 @@ export const Connection = createContext<{
 }>({ machines: null, status: {} });
 
 /** The Machine a project's or a session's page is on: its address names it. */
-export const OnMachine = createContext('');
+export const PageMachine = createContext('');
 
-/** The id of the Machine the page is on, for links to its places. */
-export const useMachineId = () => use(OnMachine);
+/** The id of the Machine the page is on, for links to its Routes. */
+export const useMachineId = () => use(PageMachine);
 
 /** The Machines as listed, empty before any list. */
 export const useMachines = () => use(Connection).machines ?? [];

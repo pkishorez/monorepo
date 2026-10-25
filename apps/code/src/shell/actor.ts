@@ -24,7 +24,7 @@ import {
 } from './routes/index.ts';
 import { Dictation } from './actors/dictation/index.ts';
 import { Header } from './actors/header/index.ts';
-import { MachineList } from './actors/machine-list/index.ts';
+import { MachineList, reach } from './machines/index.ts';
 import { MicrophonePicker } from './actors/microphone-picker/index.ts';
 import { ProjectPicker } from './actors/project-picker/index.ts';
 import { SessionActions } from './actors/session-actions/index.ts';
@@ -35,7 +35,6 @@ import { Home } from './pages/home/index.ts';
 import { Project } from './pages/project/index.ts';
 import { Settings } from './pages/settings/index.ts';
 import { layer as moves } from './moves/index.ts';
-import { reach } from './services/index.ts';
 
 /*
  * The root page, drawn only in the browser: the app, on every Machine of

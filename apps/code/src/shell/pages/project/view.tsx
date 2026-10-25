@@ -5,7 +5,7 @@ import { Trash2Icon } from '@kestack/web-platform/ui/components/lucide';
 import { keys } from '../../../keys.ts';
 import * as routes from '../../routes/index.ts';
 import * as Confirm from '../../../ui/confirm/index.ts';
-import { OnMachine } from '../../connection/index.ts';
+import { PageMachine } from '../../machines/index.ts';
 import { ProjectLive } from './actor.ts';
 import { Draft } from './draft/index.ts';
 import { Session as SessionPage } from './session/index.ts';
@@ -26,7 +26,7 @@ const link =
  * it; a Machine Cloud Connect no longer lists says so in its place.
  */
 export const ProjectView = View.make(ProjectLive, (self) => (
-  <OnMachine value={self.props.params.machineId}>
+  <PageMachine value={self.props.params.machineId}>
     {self.model.gone ? (
       <div {...self.root} className="flex min-h-0 flex-1 flex-col">
         <p className="mx-auto w-full max-w-3xl px-6 py-10 text-sm text-muted-foreground">
@@ -40,7 +40,7 @@ export const ProjectView = View.make(ProjectLive, (self) => (
     ) : (
       <ProjectScreen {...self} />
     )}
-  </OnMachine>
+  </PageMachine>
 ));
 
 function ProjectScreen({ root, model, children, send }: Self) {

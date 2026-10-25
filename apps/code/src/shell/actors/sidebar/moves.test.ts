@@ -9,7 +9,7 @@ import {
   nobody,
   nothing,
 } from '../../../layer/capabilities/index.ts';
-import type { OnMachine } from '../../replica/index.ts';
+import type { OnMachine } from '../../machines/index.ts';
 import { type Intent, Moves } from '../../moves/index.ts';
 import { SidebarLive } from './actor.ts';
 import { doneOf, movedOf } from './moves.ts';

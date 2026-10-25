@@ -1,6 +1,6 @@
 import { Effect, Schema, Stream } from 'effect';
 import { Page } from '@kestack/kabuki/routing';
-import { across, Projects } from '../../replica/index.ts';
+import { across, Projects } from '../../machines/index.ts';
 import { Machines } from '../../../layer/capabilities/index.ts';
 
 /*

@@ -1,5 +1,5 @@
 import type { Session } from '@kestack/connect/code';
-import type { OnMachine } from '../../replica/index.ts';
+import type { OnMachine } from '../../machines/index.ts';
 import type { Intent } from '../../moves/index.ts';
 
 /*

@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
 import { CodeClient, CodeClients } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
-import { orRefused } from '../../../../refusal/index.ts';
+import { orRefused } from '../../../../machines/index.ts';
 
 /*
  * What a Machine's Speech to Text switch asks of it, over its own socket.

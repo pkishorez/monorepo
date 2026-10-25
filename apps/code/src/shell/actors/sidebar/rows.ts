@@ -2,7 +2,7 @@ import type {
   Project as ProjectRecord,
   Session as SessionRecord,
 } from '@kestack/connect/code';
-import type { OnMachine } from '../../replica/index.ts';
+import type { OnMachine } from '../../machines/index.ts';
 
 type Project = OnMachine<ProjectRecord>;
 type Session = OnMachine<SessionRecord>;

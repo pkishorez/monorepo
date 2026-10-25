@@ -16,7 +16,7 @@ import {
 import { useDevice } from '@kestack/web-platform/ui/input';
 import { useBound } from '../../../../keys.ts';
 import * as routes from '../../../routes/index.ts';
-import type { OnMachine } from '../../../replica/index.ts';
+import type { OnMachine } from '../../../machines/index.ts';
 import { SwipeToMove } from '../swipe/index.ts';
 
 /*

@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import { ProjectRow, SessionRow } from '../../replica/index.ts';
+import { ProjectRow, SessionRow } from '../../machines/index.ts';
 
 /*
  * What the header reads: the rows of the project and the session the URL

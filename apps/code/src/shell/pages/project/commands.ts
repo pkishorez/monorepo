@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { CodeClient, CodeClients } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
-import { reasonOf } from '../../refusal/index.ts';
+import { reasonOf } from '../../machines/index.ts';
 
 /*
  * What the project page asks of its Machine, over that Machine's own
