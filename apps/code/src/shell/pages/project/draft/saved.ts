@@ -140,8 +140,9 @@ export const saving = <P>(
 ) =>
   Effect.gen(function* () {
     const saved = yield* SavedDrafts;
-    // What was saved last; at first, as if none was.
-    let last = JSON.stringify(null);
+    const since = yield* Clock.monotonicTimeNanos;
+    // What was saved last; null until a first save, which is always made.
+    let last: string | null = null;
     let deleted = false;
     const save = Effect.gen(function* () {
       const at = yield* Clock.monotonicTimeNanos;
@@ -158,6 +159,7 @@ export const saving = <P>(
         placeOf(where),
         draft,
         at,
+        since,
       );
       if (!made) return;
       last = json;

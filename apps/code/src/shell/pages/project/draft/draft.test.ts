@@ -133,7 +133,7 @@ const writeIn = (
 ) =>
   Effect.flatMap(SavedDrafts, (drafts) =>
     Effect.flatMap(Clock.monotonicTimeNanos, (at) =>
-      drafts.save('a1', place, draft, at),
+      drafts.save('a1', place, draft, at, at),
     ),
   ).pipe(Effect.provide(saved));
 
@@ -600,6 +600,27 @@ describe('Draft', () => {
           yield* write(app, 'Never mind');
           yield* wait(300);
           expect(yield* keptIn(saved)).not.toBeNull();
+          yield* write(app, '');
+          yield* wait(300);
+          expect(yield* keptIn(saved)).toBeNull();
+        }),
+      ));
+
+    it('deletes a restored one emptied before its first save', () =>
+      run(
+        Effect.gen(function* () {
+          const { layer, saved } = world();
+          yield* writeIn(saved, {
+            mode: 'Message',
+            written: {
+              Message: { text: 'Restored', anchor: 8, head: 8 },
+              SideQuestion: { text: '', anchor: 0, head: 0 },
+            },
+            attachments: [],
+            chosen: { account: null, model: null, settings: {} },
+          });
+          const app = yield* start('Session', layer);
+          yield* wait();
           yield* write(app, '');
           yield* wait(300);
           expect(yield* keptIn(saved)).toBeNull();

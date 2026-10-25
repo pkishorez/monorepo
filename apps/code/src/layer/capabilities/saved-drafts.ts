@@ -63,15 +63,18 @@ export class SavedDrafts extends Context.Service<
      * `at` is when the draft was read, on this tab's monotonic clock: a
      * save read before one already made of the place is dropped. Saves of
      * a place are made one at a time, and each is finished even once the
-     * caller goes. Says whether it was made.
+     * caller goes. `since` is when the caller began saving: once its place
+     * has been dropped after that, it saves the place no more. Says whether
+     * it was made.
      */
     readonly save: (
       accountId: string,
       place: Place,
       draft: SavedDraft | null,
       at: bigint,
+      since: bigint,
     ) => Effect.Effect<boolean>;
-    /** Deletes every Saved Draft that went. */
+    /** Deletes every Saved Draft that went, and stops the saves begun before. */
     readonly drop: (gone: Gone) => Effect.Effect<void>;
   }
 >()('code/SavedDrafts') {}
