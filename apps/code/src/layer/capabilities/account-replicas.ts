@@ -1,5 +1,6 @@
 import { Context } from 'effect';
 import type { Effect } from 'effect';
+import type { Gone } from './gone.ts';
 
 /*
  * Each Account's records on this device: one Replica Store per Account,
@@ -13,26 +14,12 @@ export class AccountReplicas extends Context.Service<
   AccountReplicas,
   {
     /**
-     * Keeps the records of these Machines for the Account and deletes the
-     * rest of its records, a Machine gone and an old Replica alike: best
-     * effort.
+     * Deletes the records that went, best effort: a Machine forgotten, its
+     * own and no other's; a Machine unlisted, every one of the Account's
+     * not listed, and its old Replicas with them; an Account signed out,
+     * every one's not signed in, and the records from before they were
+     * kept per Account. A Project has none of its own.
      */
-    readonly keepMachines: (
-      accountId: string,
-      machineIds: ReadonlyArray<string>,
-    ) => Effect.Effect<void>;
-    /**
-     * Keeps the records of these Accounts, every one signed in here, and
-     * deletes every other's, the records from before they were kept per
-     * Account too: best effort.
-     */
-    readonly keepAccounts: (
-      accountIds: ReadonlyArray<string>,
-    ) => Effect.Effect<void>;
-    /** Deletes the records of one Machine of the Account, and no other: best effort. */
-    readonly dropMachine: (
-      accountId: string,
-      machineId: string,
-    ) => Effect.Effect<void>;
+    readonly drop: (gone: Gone) => Effect.Effect<void>;
   }
 >()('code/AccountReplicas') {}

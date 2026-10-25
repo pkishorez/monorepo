@@ -4,7 +4,7 @@ import { Accounts } from '@kestack/auth-toolkit/client';
 import { IDB } from '@kestack/std-toolkit/db/idb';
 import { ReplicaError, Store } from '@kestack/std-toolkit/replica';
 import { Store as IdbStore } from '@kestack/std-toolkit/replica/idb';
-import { AccountReplicas } from '../capabilities/index.ts';
+import { AccountReplicas, type Gone } from '../capabilities/index.ts';
 
 /*
  * One Replica Store per Account, each made the first time it is asked for,
@@ -107,36 +107,46 @@ const make = (
           { discard: true },
         );
 
-      return Context.make(Store, store).pipe(
-        Context.add(AccountReplicas, {
+      const drop = (gone: Gone): Effect.Effect<void> => {
+        switch (gone._tag) {
+          case 'Project':
+            return Effect.void;
           // 2. Machines
-          keepMachines: (accountId, machineIds) =>
-            Effect.flatMap(storeOf(accountId), (each) =>
-              each.prune([[CodeReplica, machineIds]]),
+          case 'Machine':
+            return Effect.flatMap(storeOf(gone.accountId), (each) =>
+              each.remove(CodeReplica, gone.machineId),
             ).pipe(
-              Effect.catch(warn(`prune the records of Account ${accountId}`)),
+              Effect.catch(
+                warn(`delete the records of Machine ${gone.machineId}`),
+              ),
+            );
+          case 'Unlisted':
+            return Effect.flatMap(storeOf(gone.accountId), (each) =>
+              each.prune([[CodeReplica, gone.listed]]),
+            ).pipe(
+              Effect.catch(
+                warn(`prune the records of Account ${gone.accountId}`),
+              ),
               Effect.asVoid,
-            ),
-          dropMachine: (accountId, machineId) =>
-            Effect.flatMap(storeOf(accountId), (each) =>
-              each.remove(CodeReplica, machineId),
-            ).pipe(
-              Effect.catch(warn(`delete the records of Machine ${machineId}`)),
-            ),
+            );
           // 3. Accounts
-          keepAccounts: (accountIds) =>
-            Effect.flatMap(stored, (found) =>
+          case 'SignedOut':
+            return Effect.flatMap(stored, (found) =>
               empty(
                 [...new Set([...stores.keys(), ...found])].filter(
-                  (id) => !accountIds.includes(id),
+                  (id) => !gone.signedIn.includes(id),
                 ),
               ),
             ).pipe(
-              Effect.andThen(pruneOthers(accountIds)),
+              Effect.andThen(pruneOthers(gone.signedIn)),
               Effect.catch(warn('delete the records of Accounts signed out')),
               Effect.asVoid,
-            ),
-        }),
+            );
+        }
+      };
+
+      return Context.make(Store, store).pipe(
+        Context.add(AccountReplicas, { drop }),
       );
     }),
   );
