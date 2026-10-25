@@ -89,15 +89,15 @@ The Auth Worker's second way to sign in, beside Google: naming a Test User's ema
 _Avoid_: Test Login, dev login, magic login, backdoor
 
 **Fake**:
-auth-toolkit's stand-in for the browser environment, where the whole backend runs in the tab and no Auth Worker can be reached: the `fake` door. `fakeAccounts` takes the place of `browser()`, and `fakeGuard.rpc()` and `fakeGuard.http()` of `auth.rpc()` and `auth.http()`. Anyone may be anyone, so it never guards real data.
-_Avoid_: Local mode (the former name), mock auth, sandbox
+auth-toolkit's stand-in for the Auth Worker, where none can be reached or none should be: the browser environment, where the whole backend runs in the tab, and every app under `pnpm dev`. The `fake` door: `fakeAccounts` takes the place of `browser()`, and `fakeGuard.rpc()` and `fakeGuard.http()` of `auth.rpc()` and `auth.http()`. Under the `kestack-fake-auth` export condition, which only development sets, the `server`, `client/browser` and `client/device` doors are the Fake themselves. Anyone may be any Fake Account, so it never guards real data.
+_Avoid_: Local mode (the former name), mock auth, sandbox, dev login
 
 **Fake Account**:
-An Account the Fake signs in by naming any email, with no Auth Worker and no identity provider. The same email is always the same User. Switching and signing out work as they would with a real sign-in.
+An Account the Fake signs in by naming an email at `kestack.test`, with no Auth Worker and no identity provider. The same email is always the same User, and only such an email names one. Switching and signing out work as they would with a real sign-in.
 _Avoid_: Local Account, Named Account (the former names), test account (a Test User is a real User at a real Auth Worker)
 
 **Fake Token**:
-The token a Fake Account signs each call with, which carries the User it names. `fakeGuard` reads the User straight out of it without asking anyone, so the two sides never share state. Any Fake Token is accepted, and signing out revokes nothing.
+The token a Fake Account signs each call with, which carries the User it names. `fakeGuard` reads it without asking anyone, so the two sides never share state, and makes the User from its email again: a token naming any other email, or a real User's id, names no one. Signing out revokes nothing.
 _Avoid_: Local Token, Name Token (the former names), test token
 
 **Theme**:

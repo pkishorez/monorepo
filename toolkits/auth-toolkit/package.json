@@ -42,6 +42,7 @@
     },
     "./server": {
       "types": "./dist/guard/server/index.d.ts",
+      "kestack-fake-auth": "./dist/guard/fake/doors/server.js",
       "default": "./dist/guard/server/index.js"
     },
     "./client": {
@@ -50,10 +51,12 @@
     },
     "./client/browser": {
       "types": "./dist/guard/client/browser/index.d.ts",
+      "kestack-fake-auth": "./dist/guard/fake/doors/browser.js",
       "default": "./dist/guard/client/browser/index.js"
     },
     "./client/device": {
       "types": "./dist/guard/client/device/index.d.ts",
+      "kestack-fake-auth": "./dist/guard/fake/doors/device.js",
       "default": "./dist/guard/client/device/index.js"
     },
     "./fake": {

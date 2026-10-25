@@ -1,5 +1,13 @@
 import { normalizeEmail, type User } from '../../contract/index.js';
 
+/** The one domain a fake User's email may be at. A `.test` domain, so no
+ * real mailbox has it and every backend sees a Test User. */
+export const FAKE_DOMAIN = 'kestack.test';
+
+/** Whether `email` may be a fake User's: at `FAKE_DOMAIN`, nothing else. */
+export const isFakeEmail = (email: string): boolean =>
+  normalizeEmail(email).endsWith(`@${FAKE_DOMAIN}`);
+
 // A fake token's prefix and a fake user's id prefix are kept on devices,
 // and toolkits/ai-toolkit copies the token, so they never change.
 const PREFIX = 'local.';
@@ -48,12 +56,15 @@ export const fakeToken = {
   },
 };
 
-/** The fake User an email names: the same email is always the same User.
- * Any email will do. The name defaults to the part before the `@`. */
+/** The fake User an email names: the same email is always the same User,
+ * and its id comes from the email alone. Only an email at `FAKE_DOMAIN`
+ * names one; any other is null. The name defaults to the part before the
+ * `@`. */
 export const fakeUser = (input: {
   readonly email: string;
   readonly name?: string | undefined;
-}): User => {
+}): User | null => {
+  if (!isFakeEmail(input.email)) return null;
   const email = normalizeEmail(input.email);
   return {
     id: `local_${toBase64Url(email)}`,
