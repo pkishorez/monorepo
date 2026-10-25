@@ -1,11 +1,14 @@
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { Layer } from 'effect';
-import { Harnesses, Models, type Titler } from '@kestack/ai-toolkit/harness';
+import {
+  Harnesses,
+  Models,
+  type OneShotPrompt,
+} from '@kestack/ai-toolkit/harness';
 import { sherpa, Speech, type SpeechToText } from '@kestack/ai-toolkit/speech';
 import { CodeApi } from './api/index.js';
-import { Engine, storedHarnessBinaries } from './engine/index.js';
-import { Store } from './engine/services/store/index.js';
+import { Engine, storedHarnessBinaries, storeLayer } from './engine/index.js';
 import { CodeApiLive } from './handlers.js';
 
 /*
@@ -26,7 +29,7 @@ export interface CodeGroupOptions {
   readonly modelsCache?: string;
   /** Where the Speech to Text model is kept; `speech-to-text/` beside the database unless given. */
   readonly speechFolder?: string;
-  readonly harnesses: Layer.Layer<Harnesses | Titler>;
+  readonly harnesses: Layer.Layer<Harnesses | OneShotPrompt>;
   /** Speech to Text; sherpa-onnx with Parakeet unless given. */
   readonly speech?: Layer.Layer<SpeechToText>;
   /** The folder `listFolder` and `createFolder` never leave; the user's home unless given. */
@@ -36,7 +39,7 @@ export interface CodeGroupOptions {
 /** The code App Group: `CodeApi`, and the Layer of its handlers. */
 export const codeGroup = (options: CodeGroupOptions) => {
   const beside = (name: string) => join(dirname(options.db), name);
-  const base = Layer.merge(Store.layer(options.db), options.harnesses);
+  const base = Layer.merge(storeLayer(options.db), options.harnesses);
   const engine = Engine.layer({
     attachments: options.attachments ?? beside('attachments'),
     home: options.home ?? homedir(),

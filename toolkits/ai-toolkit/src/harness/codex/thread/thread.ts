@@ -11,7 +11,7 @@ import {
 import {
   HarnessError,
   type BackgroundJob,
-  type HarnessSession,
+  type Agent,
   type McpServerStatus,
   type TurnEnd,
   type TurnHandle,
@@ -44,7 +44,7 @@ export interface SessionConfig {
   readonly sandbox: SandboxMode;
   readonly effort: ReasoningEffort;
   readonly nativeId?: string | undefined;
-  /** Keep the thread out of Codex's saved history (the titler's one-shots). */
+  /** Keep the thread out of Codex's saved history (One-shot Prompts). */
   readonly ephemeral?: boolean;
 }
 
@@ -277,7 +277,7 @@ const allPages = <A>(
 export const openSession = (
   server: AppServer,
   config: SessionConfig,
-): Effect.Effect<HarnessSession, HarnessError, Scope.Scope> =>
+): Effect.Effect<Agent, HarnessError, Scope.Scope> =>
   Effect.gen(function* () {
     const { thread } = yield* startThread(server, config);
     const threadId = thread.id;
@@ -635,7 +635,7 @@ export const openSession = (
       stopBackgroundJob,
       mcpStatus,
       contextUsage,
-    } satisfies HarnessSession;
+    } satisfies Agent;
   });
 
 export { isToolItem, type ToolItem } from './records.js';

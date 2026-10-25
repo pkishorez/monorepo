@@ -49,12 +49,13 @@ export interface Setting {
   readonly default: string;
 }
 
-export interface OpenConfig {
+/** What an Agent is opened with. */
+export interface AgentConfig {
   readonly cwd: string;
   readonly model: string;
   /** Values for the harness's Settings, by key; a missing key takes its default. */
   readonly settings: Readonly<Record<string, string>>;
-  /** The harness's own session id, to resume its context. */
+  /** The Agent's Native Id, to resume its context. */
   readonly nativeId?: string;
 }
 
@@ -120,9 +121,13 @@ export interface TurnHandle {
   ) => Effect.Effect<void, HarnessError>;
 }
 
-/** A live agent session in one folder. Closing its Scope stops the agent. */
-export interface HarnessSession {
-  /** The harness's own session id, once it has one. */
+/**
+ * A Coding Harness's agent in one folder, open while its process runs.
+ * Closing its Scope stops it. It runs one Turn at a time; how its Turns are
+ * ordered is the caller's business.
+ */
+export interface Agent {
+  /** The Agent's Native Id, once it has one. */
   readonly nativeId: Effect.Effect<string | undefined>;
   /** Asks for one turn; it runs as its `out` is read. */
   readonly turn: (input: TurnInput) => TurnHandle;
@@ -145,7 +150,7 @@ export interface HarnessSession {
 
 export interface ForkInput {
   readonly cwd: string;
-  /** The Session's Native Id. */
+  /** The Agent's Native Id. */
   readonly nativeId: string;
   /** The Fork Point: a Turn's `nativeTurnId`; omitted forks at the latest. */
   readonly at?: string;
@@ -153,7 +158,7 @@ export interface ForkInput {
 
 export interface AskInput {
   readonly cwd: string;
-  /** The Session's Native Id. */
+  /** The Agent's Native Id. */
   readonly nativeId: string;
   readonly model: string;
   readonly question: string;
@@ -189,17 +194,13 @@ export interface Harness {
   >;
   readonly settings: ReadonlyArray<Setting>;
   readonly open: (
-    config: OpenConfig,
-  ) => Effect.Effect<
-    HarnessSession,
-    HarnessError,
-    Scope.Scope | HarnessBinaries
-  >;
+    config: AgentConfig,
+  ) => Effect.Effect<Agent, HarnessError, Scope.Scope | HarnessBinaries>;
   /** The Skills this harness offers in a folder; no Turn needed. */
   readonly skills: (
     cwd: string,
   ) => Effect.Effect<ReadonlyArray<Skill>, HarnessError, HarnessBinaries>;
-  /** A new native session with a copy of the context up to a Fork Point. */
+  /** A new Agent with a copy of the context up to a Fork Point. */
   readonly fork: (
     input: ForkInput,
   ) => Effect.Effect<
@@ -208,7 +209,7 @@ export interface Harness {
     HarnessBinaries
   >;
   /**
-   * Answers a question from a session's context in a throwaway fork: read
+   * Answers a question from an Agent's context in a throwaway fork: read
    * only, one turn, never kept.
    */
   readonly ask: (
@@ -246,12 +247,13 @@ export class HarnessBinaries extends Context.Service<
   );
 }
 
-/** Writes a short title for a session from its latest user messages, oldest first. */
-export class Titler extends Context.Service<
-  Titler,
+/**
+ * The reply to a prompt from a Coding Harness with no Agent behind it:
+ * read-only, no tools, nothing kept.
+ */
+export class OneShotPrompt extends Context.Service<
+  OneShotPrompt,
   {
-    readonly title: (
-      userMessages: ReadonlyArray<string>,
-    ) => Effect.Effect<string, HarnessError>;
+    readonly prompt: (text: string) => Effect.Effect<string, HarnessError>;
   }
->()('@kestack/ai-toolkit/Titler') {}
+>()('@kestack/ai-toolkit/OneShotPrompt') {}

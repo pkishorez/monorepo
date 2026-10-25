@@ -10,15 +10,18 @@ export {
   NotForkable,
   OutsideHome,
   PermissionDenied,
+  projectEngineRaw,
   ProjectNotFound,
   SessionNotFound,
   SkillsUnavailable,
+  Store,
+  storedHarnessBinaries,
+  storeLayer,
   UnknownHarness,
   type EngineOptions,
   type EngineService,
+  type Feed,
   type Send,
   type SessionJobs,
   type StartSession,
 } from './engine.js';
-export { projectEngineRaw } from './engine-raw/index.js';
-export { storedHarnessBinaries } from './services/index.js';

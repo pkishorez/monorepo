@@ -14,8 +14,8 @@ import { afterAll, describe, expect, it } from 'vitest';
 import {
   HarnessBinaries,
   isRecord,
-  Titler,
-  type HarnessSession,
+  OneShotPrompt,
+  type Agent,
   type BackgroundJob,
   type RawOut,
   type TurnEnd,
@@ -25,7 +25,7 @@ import {
 import type { Part, Projected } from '../../contract/projection/index.js';
 import type { Raw } from '../../contract/raw/index.js';
 import { isNotification, start } from './app-server/index.js';
-import { codex, codexTitler, restore } from './index.js';
+import { codex, codexOneShot, restore } from './index.js';
 import { openSession } from './thread/index.js';
 
 // Runs against the real, logged-in Codex on this machine. A cheap, fast model.
@@ -393,17 +393,14 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
     );
 
     it(
-      'titles a session',
+      'answers a One-shot Prompt',
       async () => {
-        const title = await Effect.runPromise(
-          Titler.use((titler) =>
-            titler.title([
-              'Please add dark mode to the settings page of my React app, with a toggle.',
-            ]),
-          ).pipe(Effect.provide(codexTitler)),
+        const reply = await Effect.runPromise(
+          OneShotPrompt.use((oneShot) =>
+            oneShot.prompt('Reply with exactly: ok-one-shot'),
+          ).pipe(Effect.provide(codexOneShot)),
         );
-        expect(title.length).toBeGreaterThan(0);
-        expect(title.split(' ').length).toBeLessThanOrEqual(6);
+        expect(reply).toContain('ok-one-shot');
       },
       TIMEOUT,
     );
@@ -455,7 +452,7 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
 );
 
 const collectAll = (
-  session: HarnessSession,
+  session: Agent,
   text: string,
   name: string,
   more: Omit<TurnInput, 'text'> = { images: [] },
@@ -526,7 +523,7 @@ const binaries = (path: string | undefined) =>
 
 /** Waits for the first Background Jobs snapshot that passes. */
 const jobsUntil = (
-  session: HarnessSession,
+  session: Agent,
   done: (jobs: ReadonlyArray<BackgroundJob>) => boolean,
 ) =>
   session.backgroundJobs.pipe(

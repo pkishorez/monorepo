@@ -405,7 +405,7 @@ describe('the server, through the client and Replica', () => {
           Effect.gen(function* () {
             const port = yield* Effect.promise(freePort);
             const db = join(folder(), 'ai.db');
-            const fake = makeFakeHarness({ hold: true, title: 'Greeting' });
+            const fake = makeFakeHarness({ hold: true, oneShot: 'Greeting' });
             const options = { port, db, harnesses: fake.layer };
 
             let running = yield* Scope.make();

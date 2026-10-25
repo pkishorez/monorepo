@@ -12,12 +12,12 @@ import {
   HarnessBinaries,
   HarnessError,
   Harnesses,
-  Titler,
+  OneShotPrompt,
   type AskInput,
   type BackgroundJob,
   type ForkInput,
   type Harness,
-  type OpenConfig,
+  type AgentConfig,
   type RawOut,
   type Skill,
   type TurnInput,
@@ -67,9 +67,9 @@ interface FakeAgent {
 
 export interface FakeHarness {
   readonly harness: Harness;
-  readonly layer: Layer.Layer<Harnesses | Titler>;
+  readonly layer: Layer.Layer<Harnesses | OneShotPrompt>;
   /** Every open, with what it was opened with. */
-  readonly opens: Array<OpenConfig>;
+  readonly opens: Array<AgentConfig>;
   /** The Harness Binary path each open was given; undefined for the default. */
   readonly binaries: Array<string | undefined>;
   /** How many agents were closed. */
@@ -80,10 +80,10 @@ export interface FakeHarness {
   readonly forks: Array<ForkInput>;
   /** Every Ask put. */
   readonly asks: Array<AskInput>;
-  /** Every call to the Titler, with the messages it was given. */
-  readonly titles: Array<ReadonlyArray<string>>;
-  /** Whether each Titler call had Harness Binaries to run with. */
-  readonly titleBinaries: Array<boolean>;
+  /** Every One-shot Prompt, with its text. */
+  readonly prompts: Array<string>;
+  /** Whether each One-shot Prompt had Harness Binaries to run with. */
+  readonly promptBinaries: Array<boolean>;
   /** Every Background Job stopped, by id. */
   readonly stoppedJobs: Array<string>;
   /** Lets a turn that is slow to start emit its first record. */
@@ -113,8 +113,8 @@ export const makeFakeHarness = (
   options: {
     /** Turns wait for `finish()` instead of ending at once. */
     readonly hold?: boolean;
-    /** What the Titler answers; a failure when undefined. */
-    readonly title?: string;
+    /** What a One-shot Prompt answers; a failure when undefined. */
+    readonly oneShot?: string;
     /** The agent ignores a cancel. */
     readonly stubborn?: boolean;
     /** Turns wait for `begin()` before their first record. */
@@ -125,13 +125,13 @@ export const makeFakeHarness = (
     readonly refuseStops?: boolean;
   } = {},
 ): FakeHarness => {
-  const opens: Array<OpenConfig> = [];
+  const opens: Array<AgentConfig> = [];
   const binaries: Array<string | undefined> = [];
   const inputs: Array<TurnInput> = [];
   const forks: Array<ForkInput> = [];
   const asks: Array<AskInput> = [];
-  const titles: Array<ReadonlyArray<string>> = [];
-  const titleBinaries: Array<boolean> = [];
+  const prompts: Array<string> = [];
+  const promptBinaries: Array<boolean> = [];
   const stoppedJobs: Array<string> = [];
   const agents = new Map<string, FakeAgent>();
   let closed = 0;
@@ -344,15 +344,17 @@ export const makeFakeHarness = (
         return harness;
       },
     }),
-    Layer.succeed(Titler, {
-      title: (userMessages) =>
+    Layer.succeed(OneShotPrompt, {
+      prompt: (text) =>
         Effect.gen(function* () {
-          titles.push(userMessages);
+          prompts.push(text);
           const given = yield* Effect.serviceOption(HarnessBinaries);
-          titleBinaries.push(given._tag === 'Some');
-          if (options.title === undefined)
-            return yield* new HarnessError({ message: 'no titles here' });
-          return options.title;
+          promptBinaries.push(given._tag === 'Some');
+          if (options.oneShot === undefined)
+            return yield* new HarnessError({
+              message: 'no One-shot Prompts here',
+            });
+          return options.oneShot;
         }),
     }),
   );
@@ -368,8 +370,8 @@ export const makeFakeHarness = (
     inputs,
     forks,
     asks,
-    titles,
-    titleBinaries,
+    prompts,
+    promptBinaries,
     stoppedJobs,
     begin: Effect.sync(() => {
       if (running) Deferred.doneUnsafe(running.gate, Effect.succeed(true));

@@ -2,11 +2,12 @@ import { Effect, Stream, type Scope } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { Raw } from '@kestack/ai-toolkit/contract';
 import type { Session } from '../../../api/records/index.js';
-import { Store } from './index.js';
+import { Store } from '../../capabilities/index.js';
+import { storeLayer } from './index.js';
 
 const run = <A, E>(effect: Effect.Effect<A, E, Store | Scope.Scope>) =>
   Effect.runPromise(
-    Effect.scoped(effect).pipe(Effect.provide(Store.layer(':memory:'))),
+    Effect.scoped(effect).pipe(Effect.provide(storeLayer(':memory:'))),
   );
 
 const raw = (id: string, sessionId = 's1'): Raw => ({

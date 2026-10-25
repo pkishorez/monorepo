@@ -1,7 +1,7 @@
 {
   "name": "@kestack/ai-toolkit",
   "version": "0.0.2",
-  "description": "Effect-native engine that runs Claude Code and Codex sessions in local folders, keeps every Raw record, and serves one projected Message form over WebSocket",
+  "description": "Effect-native Coding Harnesses as plain Effects: Claude Code and Codex Agents in a folder, their Turns, Forks, Asks and One-shot Prompts, and the Messages projected from their Raw records; and Speech to Text on the computer",
   "repository": {
     "type": "git",
     "url": "https://github.com/pkishorez/monorepo",

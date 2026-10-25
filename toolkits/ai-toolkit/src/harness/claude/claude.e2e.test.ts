@@ -13,7 +13,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   HarnessBinaries,
   isRecord,
-  type HarnessSession,
+  type Agent,
   type RawOut,
   type TurnEnd,
   type TurnHandle,
@@ -22,7 +22,7 @@ import {
 import type { Part, Projected } from '../../contract/projection/index.js';
 import type { Raw } from '../../contract/raw/index.js';
 import { claude } from './index.js';
-import { restore } from './sdk-session/index.js';
+import { restore } from './agent/index.js';
 
 /** Every message the Agent SDK's query yields, as the harness reads it. */
 const sdkMessages = vi.hoisted(() => [] as Array<Record<string, unknown>>);
@@ -142,7 +142,7 @@ const save = (name: string, outs: ReadonlyArray<RawOut>) => {
  * steers the agent took, and how the turn ended.
  */
 const fullTurn = (
-  session: HarnessSession,
+  session: Agent,
   text: string,
   options?: {
     readonly when: (out: RawOut) => boolean;
@@ -203,7 +203,7 @@ const hasToolCall = (name: string) => (out: RawOut) =>
 describe.skipIf(!enabled)('claude harness against the real Claude Code', () => {
   const cwd = mkdtempSync(join(tmpdir(), 'ai-toolkit-claude-e2e-'));
   let scope: Scope.Closeable;
-  let session: HarnessSession;
+  let session: Agent;
   const run = <A>(effect: Effect.Effect<A, unknown, HarnessBinaries>) =>
     Effect.runPromise(
       effect.pipe(Effect.provide(HarnessBinaries.layerDefault)),

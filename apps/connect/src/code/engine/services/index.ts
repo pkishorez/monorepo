@@ -1,11 +1,11 @@
-export { desks } from './desks.js';
+export { agents } from './agents/index.js';
+export { storeLayer } from './store/index.js';
 export {
   binaryRow,
-  InvalidBinary,
   setBinary,
   storedHarnessBinaries,
   type HarnessBinaryRow,
-} from './harness-binaries.js';
+} from './harness-binaries/index.js';
 export {
   FolderExists,
   FolderNotFound,

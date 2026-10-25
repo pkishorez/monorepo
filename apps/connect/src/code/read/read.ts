@@ -1,7 +1,7 @@
 import { Effect, Schema, Stream } from 'effect';
 import type { Entity } from '@kestack/std-toolkit/core';
 import type { WireEntity } from '../api/contract/index.js';
-import { projectEngineRaw } from '../engine/index.js';
+import { projectEngineRaw, Store } from '../engine/index.js';
 import {
   Harnesses,
   projectRaw as projectHarnessRaw,
@@ -12,7 +12,6 @@ import {
   type Raw,
 } from '@kestack/ai-toolkit/contract';
 import { ProjectSchema, SessionSchema } from '../api/records/index.js';
-import { Store } from '../engine/services/store/index.js';
 import { follow } from './follow.js';
 
 /*
