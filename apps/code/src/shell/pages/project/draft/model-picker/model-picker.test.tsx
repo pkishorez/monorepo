@@ -28,7 +28,7 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * permissions or the effort alone, where choosing finishes. Focus comes
  * back to the editor. On a device with no keyboard the model chip opens a
  * Drawer instead: each setting changes there in place, and the agent and
- * the model open the Picker in a Dialog, where the model finishes it.
+ * the model open the Picker in a Sheet, where the model finishes it.
  */
 
 // A device with no keyboard: the model chip in place of the triggers.
@@ -405,7 +405,8 @@ describe('ModelPicker, from the model chip on a device with no keyboard', () => 
     chip = false;
   });
   const drawer = () => document.querySelector('[data-slot="touch-drawer"]');
-  const dialog = () => document.querySelector('[data-slot="top-dialog"]');
+  const dialog = () =>
+    document.querySelector('[data-slot="touch-drawer"] [cmdk-input]');
   const button = (label: RegExp) =>
     [...document.querySelectorAll<HTMLElement>('button')].find((each) =>
       label.test(each.getAttribute('aria-label') ?? each.textContent ?? ''),
@@ -451,7 +452,7 @@ describe('ModelPicker, from the model chip on a device with no keyboard', () => 
     ]);
   });
 
-  it('opens the model in a Dialog from its row, where choosing one finishes', async () => {
+  it('opens the model in a Sheet from its row, where choosing one finishes', async () => {
     await tap(button(/^Model and settings/));
     await tap(button(/^Model: /));
     expect(dialog()).not.toBeNull();

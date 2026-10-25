@@ -222,10 +222,10 @@ const OwnerView = View.make(OwnerLive, ({ model, children, send: own }) => {
   return (
     <keys.Provider vim>
       <Page>
-        <Frame how={model.first} mode="dialog" label="First">
+        <Frame how={model.first} mode="sheet" label="First">
           {children.first && <Places.View instance={children.first} />}
         </Frame>
-        <Frame how={model.second} mode="dialog" label="Second">
+        <Frame how={model.second} mode="sheet" label="Second">
           {children.second && <Places.View instance={children.second} />}
         </Frame>
       </Page>

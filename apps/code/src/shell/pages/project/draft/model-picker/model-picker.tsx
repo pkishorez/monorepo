@@ -29,7 +29,7 @@ import { OpenRow, Setting } from './chip.tsx';
  * which give up their words as the line narrows. `m` opens it at the model
  * from the page's Normal Mode. On a device with no keyboard the Draft has
  * one model chip instead, "Opus · High · Bypass permissions", which opens
- * a Drawer: the agent and the model open the Picker in a Dialog, and
+ * a Drawer: the agent and the model open the Picker in a Sheet, and
  * choosing the model finishes it; each setting is changed there in place.
  */
 
@@ -409,7 +409,7 @@ export function Triggers({
     <>
       <Picker.Frame
         how={at('model')}
-        mode="dialog"
+        mode="sheet"
         label="Model"
         onOpen={(how) => onOpen('model', how)}
         className="w-72"
@@ -481,7 +481,7 @@ const shortName = (name: string, agent: string) => {
  * The model chip, on a device with no keyboard: the model and its settings
  * in one line. It opens a Drawer, which stays until it is swiped away: the
  * agent, while the session has not started, and the model open the Picker
- * in a Dialog, closing the Drawer; each setting changes in place.
+ * in a Sheet, closing the Drawer; each setting changes in place.
  */
 export function Chip({
   catalog,
@@ -566,7 +566,7 @@ export function Chip({
           ))}
         </div>
       </Drawer>
-      <Picker.Frame how={how} mode="dialog" label="Model">
+      <Picker.Frame how={how} mode="sheet" label="Model">
         {how !== null && children}
       </Picker.Frame>
     </>

@@ -24,7 +24,7 @@ export const SessionSwitcherView = View.make(
     keys.useAction('app.sessions', switcher);
     keys.useAction('app.sessionsAnywhere', switcher);
     return (
-      <Picker.Frame how={model.picking} mode="dialog" label="Switch session">
+      <Picker.Frame how={model.picking} mode="sheet" label="Switch session">
         {children.picker && <SessionsView instance={children.picker} />}
       </Picker.Frame>
     );

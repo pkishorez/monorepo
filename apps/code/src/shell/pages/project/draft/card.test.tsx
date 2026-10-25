@@ -392,7 +392,9 @@ describe('Draft', () => {
     await typeSlash();
     await flush();
     delete document.documentElement.dataset['input'];
-    expect(document.querySelector('[data-slot="top-dialog"]')).not.toBeNull();
+    expect(
+      document.querySelector('[data-slot="touch-drawer"] [cmdk-input]'),
+    ).not.toBeNull();
     expect(document.activeElement).not.toBe(search());
   });
 
