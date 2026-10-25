@@ -55,7 +55,6 @@ export const identify = (
     const owner = { id: session.user.id, email: session.user.email };
     const machine = yield* claim({
       file: options.machineFile,
-      db: options.db,
       owner,
       name: options.name,
       firstName: options.firstName,
@@ -164,7 +163,7 @@ export const online = (
 export const logout = (options: Where) =>
   Effect.scoped(
     Effect.gen(function* () {
-      const kept = { file: options.machineFile, db: options.db };
+      const kept = { file: options.machineFile };
       const machine = yield* found(kept);
       const session = yield* stored(options);
       if (machine !== null && session.signing !== null) {

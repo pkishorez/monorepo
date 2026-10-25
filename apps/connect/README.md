@@ -8,7 +8,7 @@ A coding agent runs on a computer, but its User wants to reach it from a phone o
 
 What a Machine serves comes in App Groups. The `code` App Group keeps Projects and Sessions for [Code](../code/README.md): it runs each Session's Agent through [`@kestack/ai-toolkit`](../../toolkits/ai-toolkit/README.md), orders its Turns, stores its Raw records, and sends them to the browser through a [std-toolkit](../../toolkits/std-toolkit/README.md) Replica over [rpc-toolkit](../../toolkits/rpc-toolkit/README.md). Sign-in comes from [auth-toolkit](../../toolkits/auth-toolkit/README.md). Why Connect owns this and ai-toolkit stops at the harness is [root ADR 0011](../../docs/adr/0011-ai-toolkit-stops-at-the-harness-connect-owns-the-rest.md).
 
-Connect keeps its files in the XDG folders under `kestack/`, moved there once from `~/.ai-toolkit`. In development each branch has its own folders, Machine and Cloud Connect, and every App's `pnpm dev` starts or reuses them: see [docs/dev.md](docs/dev.md).
+Connect keeps its files in the XDG folders under `kestack/`. In development each branch has its own folders, Machine and Cloud Connect, and every App's `pnpm dev` starts or reuses them: see [docs/dev.md](docs/dev.md).
 
 The words are in [CONTEXT.md](CONTEXT.md), the Actors in [docs/kabuki-tree.md](docs/kabuki-tree.md), and the decisions in [docs/adr/](docs/adr/).
 

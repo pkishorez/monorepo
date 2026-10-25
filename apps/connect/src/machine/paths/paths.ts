@@ -1,7 +1,5 @@
 import { homedir } from 'node:os';
-import { join as nativeJoin, posix, win32 } from 'node:path';
-import { Effect } from 'effect';
-import { moveFrom, needsMove } from './legacy.js';
+import { posix, win32 } from 'node:path';
 import { windowsFolders } from './windows.js';
 import { xdgFolders } from './xdg.js';
 
@@ -89,25 +87,3 @@ export const resolvePaths = ({
     },
   };
 };
-
-/**
- * Moves what ai-toolkit kept in `legacy` (~/.ai-toolkit) into `paths`, on
- * the first production run only: it does nothing unless `legacy/ai.db` is
- * there and `paths.db` is not. Call it with production paths, never a
- * branch's.
- */
-export const moveLegacy = (
-  paths: ConnectPaths,
-  legacy: string = nativeJoin(homedir(), '.ai-toolkit'),
-) =>
-  Effect.suspend(() =>
-    needsMove(legacy, paths.db)
-      ? moveFrom(legacy, {
-          db: paths.db,
-          attachments: paths.attachments,
-          models: paths.ai.models,
-          speech: paths.ai.speech,
-          cloudflared: paths.cloudflared,
-        })
-      : Effect.void,
-  );
