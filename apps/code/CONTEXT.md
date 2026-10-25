@@ -85,5 +85,5 @@ The one line at the foot of the page: the model and permissions in effect, and t
 _Avoid_: footer, toolbar
 
 **Settled List**:
-Where the sidebar keeps Settled Sessions, ungrouped, the most recently Settled first.
+Where the sidebar keeps Settled Sessions, the most recently Settled first, opened in place of the timeline by "Settled", last in it.
 _Avoid_: archive, trash

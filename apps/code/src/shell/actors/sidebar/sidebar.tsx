@@ -2,25 +2,17 @@ import type { Project, Session } from '@kestack/connect/code';
 import { Router } from '@kestack/kabuki/routing';
 import { revealInView } from '@kestack/use-keys/surfaces';
 import {
+  ArchiveIcon,
+  ChevronRightIcon,
   GitForkIcon,
-  SettingsIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import {
-  SidebarGroup,
-  useAppShell,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useAppShell,
 } from '@kestack/web-platform/recipes/frame';
-import {
-  type ReactNode,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { keys, useBound } from '../../../keys.ts';
 import { outOfReach } from '../../../layer/capabilities/index.ts';
 import * as routes from '../../routes/index.ts';
@@ -35,46 +27,40 @@ import {
 import { ago } from '../../../ui/time/index.ts';
 import { StatusDot } from '../../../ui/status-dot/index.ts';
 import {
-  groupsOf,
+  type Entry,
   keyOf,
-  projectPlace,
-  type Row,
-  rowsOf,
+  recentOf,
   sessionBeside,
   sessionPlace,
-  SHOWN,
+  timelineOf,
 } from './rows.ts';
-import { SettledLine, SettledList, settledOf } from './settled-list/index.ts';
+import { SettledList, settledOf } from './settled-list/index.ts';
 import { SwipeToMove } from './swipe/index.ts';
 
 /*
- * The sidebar: every Project of every Machine, one list, the most recently
- * active first, as a small muted heading over its unsettled Sessions, flat
- * (rows.ts). After a Project's name, its Machine's name in small text,
- * while there is more than one Machine; a Machine that does not answer
- * keeps what it last synced, its Projects marked by its Last Seen. The Project
- * open shows all its Sessions; any other its three most recent and "+N",
- * which shows the rest in place. A Session row is its title, bold while
- * Unseen, a fork glyph for a Fork, and a dot only when it asks for
- * attention. The plus beside the label opens
- * the Project Picker, as a popover. While no Project is held and some
- * Machine's were never synced here, each such Machine is listed instead,
- * saying how far it got: downloading cloudflared, opening its tunnel,
- * connecting. At the foot, "Settled · N" opens the Settled List in place
- * of the Projects.
+ * The sidebar: every unsettled Session of every Machine, the most recently
+ * active first, under the day it was last active (rows.ts). A row is its
+ * title, bold while Unseen, a fork glyph for a Fork, with its Project's
+ * name under it, then its Machine's while there is more than one, and its
+ * status at the right. A Machine that does not answer keeps what it last
+ * synced, its rows saying when it was last seen. Last of all, "Settled"
+ * with how many opens the Settled List in place of the timeline. While
+ * nothing is held and some Machine's were never synced here, each such
+ * Machine is listed instead, saying how far it got: downloading
+ * cloudflared, opening its tunnel, connecting. Its foot, the two buttons
+ * that float over it, is `foot.tsx`.
  *
  * The whole sidebar is the `sidebar` Surface, which the App View draws. A
- * cursor goes through the rows shown, the foot's line last: j
- * and k move it, g g and Shift+G go to the first and the last, and Enter
- * opens the row and goes to the page, or, on "+N" or the foot's line, does
- * what a click does and stays. Escape goes back to the page. The cursor
- * follows the place open, and entering the sidebar opens it if it was shut.
+ * cursor goes through the rows shown, "Settled" last: j and k move it,
+ * g g and Shift+G go to the first and the last, and Enter opens the row
+ * and goes to the page, or, on "Settled", opens the list and stays.
+ * Escape goes back to the page. The cursor follows the place open, and
+ * entering the sidebar opens it if it was shut.
  *
- * From the page, [ and ] open the unsettled Session before and after the
- * open one in the sidebar's order, across Projects, and Ctrl+[ and Ctrl+]
- * do so from anywhere, while typing too, going round past either end; one hidden behind "+N"
- * is shown first. The Session open is
- * scrolled into view whenever it changes, without taking focus.
+ * From the page, [ and ] open the Session before and after the open one in
+ * the timeline, and Ctrl+[ and Ctrl+] do so from anywhere, while typing
+ * too, going round past either end. The Session open is scrolled into
+ * view whenever it changes, without taking focus.
  */
 
 export function Places({
@@ -82,7 +68,6 @@ export function Places({
   projects,
   sessions,
   isUnseen,
-  projectPicker,
   onOpenSession,
   onUnsettle,
   onMove,
@@ -99,8 +84,6 @@ export function Places({
   /** Every Session, Settled ones too. */
   readonly sessions: ReadonlyArray<OnMachine<Session>>;
   readonly isUnseen: (session: OnMachine<Session>) => boolean;
-  /** The Project Picker, drawn by its plus. */
-  readonly projectPicker: ReactNode;
   /** Moves the app to a session, as its link would. */
   readonly onOpenSession: (
     machineId: string,
@@ -113,42 +96,29 @@ export function Places({
 }) {
   const here = route._tag === 'Project' ? route : null;
   const openSession = here?.page?.sessionId ?? null;
-  const hereProject =
-    here === null ? null : { machineId: here.machineId, id: here.projectId };
-  const open =
-    here === null || hereProject === null
+  const from =
+    here === null || openSession === null
       ? null
-      : openSession === null
-        ? projectPlace(hereProject)
-        : sessionPlace({ machineId: here.machineId, id: openSession });
-  // Projects shown whole by their "+N", for as long as the sidebar is drawn.
-  const [whole, setWhole] = useState<ReadonlySet<string>>(() => new Set());
+      : { machineId: here.machineId, sessionId: openSession };
+  const open =
+    from === null
+      ? null
+      : sessionPlace({ machineId: from.machineId, id: from.sessionId });
   const [settledOpen, setSettledOpen] = useState(false);
-  const shownWhole = (key: string) =>
-    (hereProject !== null && key === keyOf(hereProject)) || whole.has(key);
-  const showWhole = (key: string) =>
-    setWhole((now) => (now.has(key) ? now : new Set([...now, key])));
-
-  const groups = groupsOf(projects.rows, sessions);
-  const rows = rowsOf(groups, shownWhole);
+  const recent = recentOf(projects.rows, sessions);
   const settled = settledOf(projects.rows, sessions);
   const toggleSettled = () => setSettledOpen((now) => !now);
-  const stops: ReadonlyArray<Stop> = [
-    ...(settledOpen
-      ? settled.map(({ place }) => ({ place, opens: true }))
-      : rows.map(({ place, kind }) => ({ place, opens: kind !== 'more' }))),
-    { place: 'settled', opens: false },
-  ];
+  const stops: ReadonlyArray<Stop> = settledOpen
+    ? settled.map(({ place }) => ({ place, opens: true }))
+    : [
+        ...recent.map(({ place }) => ({ place, opens: true })),
+        { place: 'settled', opens: false },
+      ];
 
   const surface = keys.useSurface('sidebar');
   // Lit, with its cursor drawn, only in Vim Mode; the keys are in it either way.
   const active = surface.state === 'active';
-  const cursor = useCursor({
-    stops,
-    open,
-    openProject: hereProject === null ? null : projectPlace(hereProject),
-    active,
-  });
+  const cursor = useCursor({ stops, open, active });
   const shell = useAppShell();
   const picks = useBound('app.projects');
   // A sidebar entered from the keyboard is shown, in either Mode.
@@ -163,21 +133,10 @@ export function Places({
     if (open !== null) revealInView(cursor.element(open));
   }, [open, settledOpen]);
 
-  const from =
-    here === null
-      ? null
-      : {
-          machineId: here.machineId,
-          projectId: here.projectId,
-          sessionId: openSession,
-        };
-  const before = sessionBeside(groups, from, -1);
-  const after = sessionBeside(groups, from, 1);
+  const before = sessionBeside(recent, from, -1);
+  const after = sessionBeside(recent, from, 1);
   const go = (to: OnMachine<Session> | undefined) => {
     if (to === undefined) return;
-    const key = keyOf({ machineId: to.machineId, id: to.projectId });
-    const group = groups.find(({ project }) => keyOf(project) === key);
-    if ((group?.sessions.indexOf(to) ?? 0) >= SHOWN) showWhole(key);
     setSettledOpen(false);
     onOpenSession(to.machineId, to.projectId, to.id);
   };
@@ -199,243 +158,194 @@ export function Places({
   const titles = new Map(
     sessions.map((session) => [keyOf(session), session.title]),
   );
-  // Projects the device holds draw at once, of every Machine; with none,
+  // Sessions the device holds draw at once, of every Machine; with none,
   // how far each Machine never synced here got.
   const waiting =
-    groups.length === 0 &&
+    recent.length === 0 &&
+    projects.rows.length === 0 &&
     (projects.waiting === null || projects.waiting.length > 0);
   return (
-    <div ref={cursor.list} className="flex min-h-full flex-col">
+    <div ref={cursor.list} className="flex flex-col px-2 pb-1">
       {settledOpen ? (
         <SettledList
           listed={settled}
-          open={
-            here === null || openSession === null
-              ? null
-              : { machineId: here.machineId, id: openSession }
-          }
+          open={from && { machineId: from.machineId, id: from.sessionId }}
           at={at}
           onUnsettle={onUnsettle}
           onMove={onMove}
           onClose={toggleSettled}
         />
       ) : (
-        <SidebarGroup className="px-2 py-1">
-          {/* Room for the Project Picker's plus, a finger's size with no
-              keyboard; on a phone it floats instead. */}
-          <SidebarGroupLabel className="h-7 justify-between pr-0 md:h-11 keyboard:md:h-7">
-            Projects
-            {projectPicker}
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            {waiting ? (
-              <Waiting machines={projects.waiting} />
-            ) : groups.length === 0 ? (
-              <p className="px-2 py-1.5 text-sm text-muted-foreground">
-                No projects yet. Open a folder with the plus
-                {picks === null ? '' : `, or ${picks}`}.
-              </p>
-            ) : (
-              <SidebarMenu className="gap-1 max-md:gap-4">
-                {groups.map(({ project }) => (
-                  <ProjectGroup
-                    key={keyOf(project)}
-                    rows={rows.filter(
-                      (row) => keyOf(row.project) === keyOf(project),
-                    )}
-                    here={here}
-                    at={at}
-                    titles={titles}
-                    isUnseen={isUnseen}
-                    onShowWhole={showWhole}
-                    onMove={onMove}
-                  />
-                ))}
-              </SidebarMenu>
-            )}
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <>
+          {waiting ? (
+            <Waiting machines={projects.waiting} />
+          ) : recent.length === 0 ? (
+            <p className="px-3 py-2 text-[15px] text-pretty text-muted-foreground keyboard:md:text-sm">
+              No sessions yet. Start one with the plus
+              {picks === null ? '' : `, or ${picks}`}: pick a folder, then say
+              what to do.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-4 keyboard:md:gap-3">
+              {timelineOf(recent, Date.now()).map(({ day, entries }) => (
+                <section key={day} aria-label={day}>
+                  <h3 className="px-3 pb-1 text-[13px] font-medium text-muted-foreground keyboard:md:text-xs">
+                    {day}
+                  </h3>
+                  <SidebarMenu className="gap-0">
+                    {entries.map((entry) => (
+                      <SessionRow
+                        key={entry.place}
+                        entry={entry}
+                        here={here}
+                        at={at}
+                        titles={titles}
+                        isUnseen={isUnseen}
+                        onMove={onMove}
+                      />
+                    ))}
+                  </SidebarMenu>
+                </section>
+              ))}
+            </div>
+          )}
+          <SidebarMenu className="mt-4 keyboard:md:mt-3">
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                data-place="settled"
+                data-cursor={at('settled')}
+                onClick={toggleSettled}
+                className={`h-12 gap-3 rounded-xl px-3 text-[15px] keyboard:md:h-8 keyboard:md:text-[13px] ${cursorRing}`}
+              >
+                <ArchiveIcon aria-hidden className="text-muted-foreground" />
+                <span className="flex-1">Settled</span>
+                <span className="tabular-nums text-muted-foreground">
+                  {settled.length}
+                </span>
+                <ChevronRightIcon
+                  aria-hidden
+                  className="text-muted-foreground/60"
+                />
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </>
       )}
-      <div className="sticky bottom-0 mt-auto bg-sidebar pb-1">
-        <SettledLine
-          count={settled.length}
-          open={settledOpen}
-          cursor={at('settled')}
-          onToggle={toggleSettled}
-        />
-      </div>
     </div>
   );
 }
 
-/**
- * A row: a finger's height, but 28px with a keyboard on a wide screen,
- * so a tablet with no keyboard keeps rows a finger can hit.
- */
-const row = 'h-11 gap-2 px-2 py-0 keyboard:md:h-7 data-active:font-normal';
-/** A Session's row: a little taller than a finger, to swipe, alike. */
-const sessionRow =
-  'h-12 gap-2 px-2 py-0 keyboard:md:h-7 data-active:font-normal';
 const cursorRing = 'data-cursor:ring-2 data-cursor:ring-inset';
 
-/** One Project's heading, its Sessions shown, and its "+N". */
-function ProjectGroup({
-  rows,
+/** One Session: its title over where it is, its status at the right. */
+function SessionRow({
+  entry: { place, session, project },
   here,
   at,
   titles,
   isUnseen,
-  onShowWhole,
   onMove,
 }: {
-  readonly rows: ReadonlyArray<Row>;
+  readonly entry: Entry;
   readonly here: Extract<Route, { readonly _tag: 'Project' }> | null;
   readonly at: (place: string) => true | undefined;
   /** Every Session's title, by `keyOf`, to name what a Fork came from. */
   readonly titles: ReadonlyMap<string, string>;
   readonly isUnseen: (session: OnMachine<Session>) => boolean;
-  readonly onShowWhole: (key: string) => void;
   readonly onMove: (session: OnMachine<Session>, settled: boolean) => void;
 }) {
+  const original =
+    session.forkedFrom === null
+      ? null
+      : titles.get(
+          keyOf({
+            machineId: session.machineId,
+            id: session.forkedFrom.sessionId,
+          }),
+        ) || 'Untitled session';
+  const title = session.title || 'Untitled session';
   return (
     <SidebarMenuItem>
-      <SidebarMenu className="gap-0">
-        {rows.map((each) => {
-          switch (each.kind) {
-            case 'project':
-              return (
-                <SidebarMenuItem key={each.place}>
-                  <SidebarMenuButton
-                    data-place={each.place}
-                    data-cursor={at(each.place)}
-                    isActive={
-                      here?.machineId === each.project.machineId &&
-                      here.projectId === each.project.id &&
-                      here.page === undefined
-                    }
-                    className={`${row} ${cursorRing} text-xs font-medium text-muted-foreground data-active:font-medium max-md:mt-2 max-md:text-sm max-md:text-sidebar-foreground`}
-                    render={
-                      <Router.Link
-                        to={routes.project(
-                          each.project.machineId,
-                          each.project.id,
-                        )}
-                        title={`${each.project.path}: a new session`}
-                      />
-                    }
-                  >
-                    <ProjectLabel project={each.project} />
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              );
-            case 'session': {
-              const { session } = each;
-              const original =
-                session.forkedFrom === null
-                  ? null
-                  : titles.get(
-                      keyOf({
-                        machineId: session.machineId,
-                        id: session.forkedFrom.sessionId,
-                      }),
-                    ) || 'Untitled session';
-              const title = session.title || 'Untitled session';
-              return (
-                <SidebarMenuItem key={each.place}>
-                  <SwipeToMove
-                    machineId={session.machineId}
-                    sessionId={session.id}
-                    settled={false}
-                    onMove={(settled) => onMove(session, settled)}
-                  >
-                    <SidebarMenuButton
-                      data-place={each.place}
-                      data-cursor={at(each.place)}
-                      isActive={
-                        here?.machineId === session.machineId &&
-                        here.page?.sessionId === session.id
-                      }
-                      className={`${sessionRow} ${cursorRing}`}
-                      render={
-                        <Router.Link
-                          to={routes.session(
-                            session.machineId,
-                            session.projectId,
-                            session.id,
-                          )}
-                          title={
-                            original === null
-                              ? title
-                              : `${title}\nForked from ${original}`
-                          }
-                        />
-                      }
-                    >
-                      {original !== null && (
-                        <GitForkIcon
-                          role="img"
-                          aria-label={`Forked from ${original}`}
-                          className="size-3! text-muted-foreground/70"
-                        />
-                      )}
-                      <span
-                        className={`min-w-0 flex-1 truncate ${isUnseen(session) ? 'font-semibold text-sidebar-foreground' : ''}`}
-                      >
-                        {title}
-                      </span>
-                      <StatusDot status={session.status} />
-                    </SidebarMenuButton>
-                  </SwipeToMove>
-                </SidebarMenuItem>
-              );
-            }
-            case 'more':
-              return (
-                <SidebarMenuItem key={each.place}>
-                  <SidebarMenuButton
-                    data-place={each.place}
-                    data-cursor={at(each.place)}
-                    aria-label={`Show ${each.hidden} more session${each.hidden === 1 ? '' : 's'} of ${each.project.name}`}
-                    onClick={() => onShowWhole(keyOf(each.project))}
-                    className={`${row} ${cursorRing} text-xs text-muted-foreground tabular-nums`}
-                  >
-                    {/* On a phone, room to say what it does. */}
-                    <span className="md:hidden">Show {each.hidden} more</span>
-                    <span className="max-md:hidden">+{each.hidden}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              );
+      <SwipeToMove
+        machineId={session.machineId}
+        sessionId={session.id}
+        settled={false}
+        onMove={(settled) => onMove(session, settled)}
+      >
+        <SidebarMenuButton
+          data-place={place}
+          data-cursor={at(place)}
+          isActive={
+            here?.machineId === session.machineId &&
+            here.page?.sessionId === session.id
           }
-        })}
-      </SidebarMenu>
+          className={`h-auto min-h-14 gap-3 rounded-xl px-3 py-2 data-active:font-normal keyboard:md:min-h-10 keyboard:md:py-1 ${cursorRing}`}
+          render={
+            <Router.Link
+              to={routes.session(
+                session.machineId,
+                session.projectId,
+                session.id,
+              )}
+              title={
+                original === null ? title : `${title}\nForked from ${original}`
+              }
+            />
+          }
+        >
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="flex min-w-0 items-center gap-1.5">
+              {original !== null && (
+                <GitForkIcon
+                  role="img"
+                  aria-label={`Forked from ${original}`}
+                  className="size-3.5! text-muted-foreground/70"
+                />
+              )}
+              <span
+                className={`min-w-0 truncate text-[15px] keyboard:md:text-[13px] ${isUnseen(session) ? 'font-semibold text-sidebar-foreground' : ''}`}
+              >
+                {title}
+              </span>
+            </span>
+            <Where machineId={session.machineId} project={project} />
+          </span>
+          <StatusDot status={session.status} />
+        </SidebarMenuButton>
+      </SwipeToMove>
     </SidebarMenuItem>
   );
 }
 
 /**
- * A Project's name, then its Machine's while there is more than one, and,
- * while the Machine does not answer, when it was last seen.
+ * Where a Session is: its Project's name, then its Machine's while there
+ * is more than one, and, while the Machine does not answer, when it was
+ * last seen.
  */
-function ProjectLabel({ project }: { readonly project: OnMachine<Project> }) {
-  const machine = useMachineName(project.machineId);
-  const health = useHealth(project.machineId);
+function Where({
+  machineId,
+  project,
+}: {
+  readonly machineId: string;
+  readonly project: string | null;
+}) {
+  const machine = useMachineName(machineId);
+  const health = useHealth(machineId);
   const seen = outOfReach(health) ? `seen ${ago(health.lastSeen)}` : null;
-  const note = [machine, seen].filter((each) => each !== null).join(' · ');
+  const where = [project, machine, seen]
+    .filter((each) => each !== null)
+    .join(' · ');
+  if (where === '') return null;
   return (
-    <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
-      <span className="min-w-0 truncate">{project.name}</span>
-      {note !== '' && (
-        <span
-          className="shrink-0 truncate text-[11px] font-normal text-muted-foreground/70"
-          title={
-            seen === null
-              ? undefined
-              : 'Not answering: what it last synced is shown'
-          }
-        >
-          {note}
-        </span>
-      )}
+    <span
+      className="truncate text-[13px] text-muted-foreground keyboard:md:text-xs"
+      title={
+        seen === null
+          ? undefined
+          : 'Not answering: what it last synced is shown'
+      }
+    >
+      {where}
     </span>
   );
 }
@@ -511,20 +421,17 @@ interface Stop {
 /**
  * The cursor through the rows shown, UI state alone. It follows the place
  * open, and is put on it as the Surface is entered; on a row that is no
- * longer shown, it falls back to the place open, or its project. Enter
+ * longer shown, it falls back to the place open, or the first. Enter
  * clicks the row it is on, so a link moves the router as for a click, and
  * then, on a link, enters the page.
  */
 function useCursor({
   stops,
   open,
-  openProject,
   active,
 }: {
   readonly stops: ReadonlyArray<Stop>;
   readonly open: string | null;
-  /** The project of the place open, shown when a session of it is not. */
-  readonly openProject: string | null;
   readonly active: boolean;
 }) {
   const { enter } = keys.useKeyboard();
@@ -536,7 +443,7 @@ function useCursor({
   }
   const placeAt = (place: string | null) =>
     place === null ? undefined : stops.find((stop) => stop.place === place);
-  const fallback = placeAt(open) ?? placeAt(openProject) ?? stops[0];
+  const fallback = placeAt(open) ?? stops[0];
   const stop = placeAt(cursor) ?? fallback;
   // Read by the keys, which may repeat faster than a render.
   const latest = useRef(stop);
@@ -569,21 +476,4 @@ function useCursor({
     if (on?.opens) enter('content');
   });
   return { at: stop?.place, list, element };
-}
-
-/** The way to Settings, at the sidebar's foot. */
-export function SettingsLink({ route }: { readonly route: Route }) {
-  return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          isActive={route._tag === 'Settings'}
-          render={<Router.Link to={routes.settings()} />}
-        >
-          <SettingsIcon aria-hidden className="text-muted-foreground" />
-          <span>Settings</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-    </SidebarMenu>
-  );
 }

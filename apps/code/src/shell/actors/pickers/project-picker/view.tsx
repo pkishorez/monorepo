@@ -12,10 +12,9 @@ import { ProjectPickerLive, ProjectsView } from './actor.ts';
 /*
  * The Project Picker: `o` opens it centred from anywhere, drawn by the
  * View the shell keeps whatever the sidebar shows;
- * the Button, the plus beside the sidebar's Projects, opens it by pointer
- * as a popover by it. On a phone, where the sidebar is the whole screen,
- * the plus floats in its bottom right corner, under the thumb. A tap opens
- * it in a tall Drawer, its folders too, each tapped into. A folder made without its git repository
+ * the Button, the round plus at the right of the sidebar's foot, opens it
+ * by pointer as a popover above it, and by a tap in a tall Drawer, its
+ * folders too, each tapped into. A folder made without its git repository
  * says so over the page until dismissed.
  */
 
@@ -50,20 +49,16 @@ export const ProjectPickerButton = View.make(
         tall
         label="Open a project"
         onOpen={(how) => send({ _tag: 'Open', how })}
-        side="bottom"
+        side="top"
         className="w-96"
-        // On a phone it floats at the bottom right. Wider, it sits in the
-        // Projects heading: 24px with a keyboard, a finger's 44px without,
-        // its plus as small either way.
+        // Round, 56px on a phone and 44px wider, sinking as it is pressed.
         trigger={
           <Button
-            variant="ghost"
-            size="icon-xs"
             aria-label="Open a project"
             title={
               bound === null ? 'Open a project' : `Open a project (${bound})`
             }
-            className="size-11 text-muted-foreground keyboard:md:size-6 max-md:fixed max-md:right-[max(1.25rem,env(safe-area-inset-right))] max-md:bottom-[max(4.5rem,calc(env(safe-area-inset-bottom)+4rem))] max-md:z-20 max-md:size-14 max-md:rounded-full max-md:bg-primary max-md:text-primary-foreground max-md:shadow-lg max-md:hover:bg-primary/90 max-md:active:scale-95 max-md:[&_svg]:size-6!"
+            className="size-14 rounded-full shadow-[0_1px_2px_rgb(0_0_0/0.16),0_6px_20px_rgb(0_0_0/0.22)] transition-[transform,box-shadow,background-color] duration-150 ease-out active:scale-90 active:shadow-[0_1px_2px_rgb(0_0_0/0.16)] motion-reduce:transition-none md:size-11 [&_svg]:size-6! md:[&_svg]:size-5!"
           >
             <PlusIcon aria-hidden />
           </Button>

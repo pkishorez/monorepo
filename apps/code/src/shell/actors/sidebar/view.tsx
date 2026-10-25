@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@kestack/web-platform/ui/components/select';
-import { createContext, type ReactNode, use, useEffect } from 'react';
+import { useEffect } from 'react';
 import { notify } from '../../../ui/toast/index.ts';
 import { instanceOf } from '../../machines/index.ts';
 import type { Route } from '../../routes/index.ts';
@@ -22,15 +22,9 @@ import { isUnseen } from './unseen.ts';
 
 /*
  * The sidebar's View: the Machine Filter and Reload at its top, then the
- * Projects and Sessions of the Machine shown (`sidebar.tsx`). The Project
- * Picker's plus is the root's, handed in through `Slots`. Only this View
- * draws again as the Projects and Sessions it reads change.
+ * Sessions of the Machine shown (`sidebar.tsx`). Only this View draws
+ * again as the Projects and Sessions it reads change.
  */
-
-/** What the root hands the sidebar to draw in it. */
-export const Slots = createContext<{ readonly projectPicker: ReactNode }>({
-  projectPicker: null,
-});
 
 /** The value the Machine Filter gives every Machine. */
 const EVERY = 'every';
@@ -39,7 +33,6 @@ export const SidebarView = View.make(
   SidebarLive,
   ({ model, children, send }) => {
     const route = useRouter<Route>().route;
-    const { projectPicker } = use(Slots);
     const [projects] = useChildren(children.projects, ({ model }) => model);
     const [found] = useChildren(children.sessions, ({ model }) => model);
     const synced = (found?.rows ?? []).map(({ row }) => row);
@@ -123,7 +116,6 @@ export const SidebarView = View.make(
                 each.endedAt,
               )
             }
-            projectPicker={projectPicker}
             onOpenSession={(machineId, projectId, sessionId) =>
               send({ _tag: 'SessionOpened', machineId, projectId, sessionId })
             }

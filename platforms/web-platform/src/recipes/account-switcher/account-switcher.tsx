@@ -13,6 +13,7 @@ import { View } from '@kestack/kabuki/react';
 import type { ViewOf } from '@kestack/kabuki/react';
 import { Accounts } from '@kestack/auth-toolkit/client';
 
+import { AccountList } from './list.tsx';
 import { AccountMenu, Remembered, SignInButton, Slot } from './menu.tsx';
 import {
   Model,
@@ -335,5 +336,35 @@ export const AccountSwitcherView: ViewOf<typeof AccountSwitcherLive> =
           </span>
         )}
       </Slot>
+    );
+  });
+
+/**
+ * The Account menu as a list, for a sheet such as a Drawer: the same
+ * Accounts and actions as the header's menu, from the same Instance.
+ * Nothing unless signed in.
+ */
+export const AccountSwitcherList: ViewOf<typeof AccountSwitcherLive> =
+  View.make(AccountSwitcherLive, ({ model, send }) => {
+    const { account, switching } = model;
+    if (account._tag !== 'SignedIn') return null;
+    return (
+      <AccountList
+        active={account.active}
+        accounts={account.accounts}
+        maxAccounts={model.maxAccounts}
+        busy={model.busy}
+        switching={
+          switching && {
+            id: switching.id,
+            shown: switching.shownAt !== null,
+          }
+        }
+        failed={model.failed}
+        onSwitch={(id) => send({ _tag: 'SwitchTo', id })}
+        onAdd={() => send({ _tag: 'SignIn' })}
+        onSignOut={() => send({ _tag: 'SignOut' })}
+        onSignOutAll={() => send({ _tag: 'SignOutAll' })}
+      />
     );
   });
