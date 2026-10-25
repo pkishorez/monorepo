@@ -1,7 +1,7 @@
 import { Effect, Stream, type Scope } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { Raw } from '@kestack/ai-toolkit/contract';
-import type { Session } from '../../../api/records/index.js';
+import type { Session } from '../../../records/index.js';
 import { Store } from '../../capabilities/index.js';
 import { storeLayer } from './index.js';
 

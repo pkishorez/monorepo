@@ -6,7 +6,7 @@ import {
   ContextUsageSchema,
   McpServerStatusSchema,
 } from '@kestack/ai-toolkit/contract';
-import { SessionSchema } from '../records/index.js';
+import { SessionSchema } from '../../records/index.js';
 import {
   AskFailed,
   HarnessFailed,

@@ -4,7 +4,7 @@ import {
   HarnessConfigSchema,
   ProjectSchema,
   SessionSchema,
-} from '../../../api/records/index.js';
+} from '../../../records/index.js';
 
 /*
  * One table holds everything: GSI1 holds a session's Raw in write order,

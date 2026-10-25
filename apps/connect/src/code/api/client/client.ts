@@ -15,7 +15,7 @@ import {
   MessageSchema,
   PROJECTION_VERSION,
 } from '@kestack/ai-toolkit/contract';
-import { ProjectSchema, SessionSchema } from '../records/index.js';
+import { ProjectSchema, SessionSchema } from '../../records/index.js';
 
 /*
  * What Code needs to talk to the code App Group on its Machines: each

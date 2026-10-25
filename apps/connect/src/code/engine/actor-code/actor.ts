@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import { ProjectSchema } from '../../api/records/index.js';
+import { ProjectSchema } from '../../records/index.js';
 import { Store } from '../capabilities/index.js';
 import { Prompt, Session, SessionInput } from './actor-session/index.js';
 import { Remove, Save } from './commands.js';

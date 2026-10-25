@@ -1,11 +1,7 @@
 import { Context, type Effect, type Scope, type Stream } from 'effect';
 import type { Entity } from '@kestack/std-toolkit/core';
 import type { HarnessName, Raw } from '@kestack/ai-toolkit/contract';
-import type {
-  HarnessConfig,
-  Project,
-  Session,
-} from '../../api/records/index.js';
+import type { HarnessConfig, Project, Session } from '../../records/index.js';
 
 /*
  * Where the code App Group keeps its records: Raw, Projects, Sessions and

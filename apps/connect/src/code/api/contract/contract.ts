@@ -59,7 +59,7 @@ export {
   type Project,
   type Session,
   type SessionStatus,
-} from '../records/index.js';
+} from '../../records/index.js';
 export {
   AskAnswerSchema,
   AttachmentSchema,

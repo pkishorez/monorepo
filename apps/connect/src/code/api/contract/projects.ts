@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { ProjectSchema } from '../records/index.js';
+import { ProjectSchema } from '../../records/index.js';
 import { FolderNotFound, ProjectNotFound } from './errors.js';
 import { Batch, Cursor } from './wire.js';
 

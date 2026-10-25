@@ -1,6 +1,6 @@
 import { Clock, Effect, Schema } from 'effect';
 import { type Raw, TURN_END_STATUSES } from '@kestack/ai-toolkit/contract';
-import type { Session } from '../../api/records/index.js';
+import type { Session } from '../../records/index.js';
 import { Store } from '../capabilities/index.js';
 import { EngineRaw } from '../engine-raw/index.js';
 import type { Loaded } from './actor.js';

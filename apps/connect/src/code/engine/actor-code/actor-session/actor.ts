@@ -18,7 +18,7 @@ import {
   SessionSchema,
   type Session as SessionRecord,
   type SessionStatus,
-} from '../../../api/records/index.js';
+} from '../../../records/index.js';
 import { Agents, Store } from '../../capabilities/index.js';
 import { StopJob } from './commands.js';
 import { forkFrom } from './fork.js';

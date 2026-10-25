@@ -2,7 +2,7 @@ import { Clock, Data, Effect } from 'effect';
 import { nextUlid } from '@kestack/std-toolkit/core';
 import { Harnesses } from '@kestack/ai-toolkit/harness';
 import type { Raw } from '@kestack/ai-toolkit/contract';
-import type { Session } from '../../../api/records/index.js';
+import type { Session } from '../../../records/index.js';
 import { Store } from '../../capabilities/index.js';
 import { EngineRaw } from '../../engine-raw/index.js';
 import type { SessionQuerySelf } from './actor.js';
