@@ -31,7 +31,8 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * its card; an added account removed once asked again, a Default Account
  * never. Kept on this device per Account: what was kept shows at once,
  * with no skeleton, and the Machine's answer, and each change, is kept;
- * kept nowhere, a skeleton shows until it answers. While its Line is not
+ * kept nowhere, a skeleton shows until it answers. A change made while it
+ * is asked asks again, so an older answer never undoes it. While its Line is not
  * connected, the cards show as kept, locked, saying why.
  */
 
@@ -253,6 +254,35 @@ describe('Harness Accounts, kept on this device', () => {
     await mount();
     expect(busy()).toBe(false);
     expect(names()).toEqual(['Claude home']);
+    await answers(DEFAULTS);
+    expect(names()).toEqual(['Claude', 'Codex']);
+  });
+
+  it('asks again when an account is removed while the Machine is asked, so the older answer never brings it back', async () => {
+    const work: HarnessAccountInfo = {
+      ...DEFAULTS[1]!,
+      id: 'codex-work',
+      name: 'Codex work',
+      isDefault: false,
+    };
+    await keep([...DEFAULTS, work]);
+    await mount();
+    const older = answer;
+    answer = Effect.runSync(Deferred.make<ReadonlyArray<HarnessAccountInfo>>());
+    await click(labelled('Change Codex work'));
+    await click(button('Remove…'));
+    await click(button('Remove'));
+    expect(removed).toEqual(['codex-work']);
+    await act(
+      async () =>
+        void Effect.runSync(Deferred.succeed(older, [...DEFAULTS, work])),
+    );
+    await flush();
+    expect(names()).toEqual(['Claude', 'Codex']);
+    expect((await keptAccounts())?.map(({ id }) => id)).toEqual([
+      'claude',
+      'codex',
+    ]);
     await answers(DEFAULTS);
     expect(names()).toEqual(['Claude', 'Codex']);
   });

@@ -10,7 +10,7 @@ import { Refused } from '../../../../machines/index.ts';
 import { loadAccounts } from './api.ts';
 import { AccountList } from './capabilities/index.ts';
 import { Card } from './card/index.ts';
-import { keepAccounts } from './commands.ts';
+import { keepHarnessAccounts } from './commands.ts';
 
 /*
  * One Machine's Harness Accounts: each login an agent runs as there, with
@@ -24,7 +24,8 @@ import { keepAccounts } from './commands.ts';
  * 2. Read   every account, asked once behind what is shown: what it is
  *           set to, and what its binary resolved to. A Machine that does
  *           not answer is asked until it does; its answer replaces what is
- *           shown, and is kept.
+ *           shown, and is kept. A card changed while it is asked asks
+ *           again, so an answer older than the change never undoes it.
  * 3. Cards  one per account, and one for the account being added, keyed by
  *           the account's id or `new`; each edits, saves and removes its
  *           own (card/), and tells the list what the Machine did
@@ -43,8 +44,10 @@ const Model = Schema.Struct({
   accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo)),
   /** Whether what was kept on this device has been read. */
   savedRead: Schema.Boolean,
-  /** Whether the Machine has answered since this was opened. */
-  answered: Schema.Boolean,
+  /** Whether the Machine has said since this was opened. */
+  heard: Schema.Boolean,
+  /** How many accounts the Machine has saved or removed since this was opened. */
+  changes: Schema.Finite,
   loadProblem: Schema.NullOr(Schema.String),
   /** The agent of the account being added, while its card is open. */
   adding: Schema.NullOr(HarnessInfo.fields.harness),
@@ -56,7 +59,10 @@ const HarnessAccounts = Actor.define('HarnessAccounts', {
   model: Model,
   message: Schema.TaggedUnion({
     SavedRead: { accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo)) },
-    AccountsLoaded: { accounts: Schema.Array(HarnessAccountInfo) },
+    AccountsLoaded: {
+      accounts: Schema.Array(HarnessAccountInfo),
+      since: Schema.Finite,
+    },
     Refused,
     Retry: {},
     AddAsked: { harness: HarnessInfo.fields.harness },
@@ -71,7 +77,7 @@ const keep = (
   model: typeof Model.Type,
   accounts: ReadonlyArray<HarnessAccountInfo>,
 ) =>
-  keepAccounts({
+  keepHarnessAccounts({
     accountId: model.accountId,
     machineId: model.machineId,
     accounts,
@@ -84,7 +90,8 @@ export const HarnessAccountsLive = Actor.build(HarnessAccounts, {
       accountId,
       accounts: null,
       savedRead: false,
-      answered: false,
+      heard: false,
+      changes: 0,
       loadProblem: null,
       adding: null,
     },
@@ -106,10 +113,16 @@ export const HarnessAccountsLive = Actor.build(HarnessAccounts, {
     },
     // 2. Read
     accounts: {
-      while: ({ model }) => !model.answered && model.loadProblem === null,
-      run: (self) =>
+      each: ({ model }) =>
+        !model.heard && model.loadProblem === null
+          ? [String(model.changes)]
+          : [],
+      run: (self, since) =>
         Effect.flatMap(self.get, ({ model }) =>
-          Effect.flatMap(loadAccounts(model.machineId), self.send),
+          Effect.flatMap(
+            loadAccounts(model.machineId, Number(since)),
+            self.send,
+          ),
         ),
     },
   },
@@ -142,18 +155,22 @@ export const HarnessAccountsLive = Actor.build(HarnessAccounts, {
       cancelled: self.send({ _tag: 'AddCancelled' }),
     }),
   on: {
-    // 1. Saved: the Machine's own answer, if it came first, stays.
+    // 1. Saved: what the Machine said, if it came first, stays.
     SavedRead: ({ accounts }, { model }) => ({
       model: {
         ...model,
         savedRead: true,
-        accounts: model.answered ? model.accounts : accounts,
+        accounts: model.heard ? model.accounts : accounts,
       },
     }),
-    AccountsLoaded: ({ accounts }, { model }) => ({
-      model: { ...model, accounts, answered: true },
-      command: keep(model, accounts),
-    }),
+    // 2. Read: an answer asked before the latest change is dropped.
+    AccountsLoaded: ({ accounts, since }, { model }) =>
+      since === model.changes
+        ? {
+            model: { ...model, accounts, heard: true },
+            command: keep(model, accounts),
+          }
+        : {},
     Refused: ({ reason }, { model }) => ({
       model: { ...model, loadProblem: reason },
     }),
@@ -169,6 +186,7 @@ export const HarnessAccountsLive = Actor.build(HarnessAccounts, {
           ...model,
           adding: key === NEW ? null : model.adding,
           accounts,
+          changes: model.changes + 1,
         },
         command: keep(model, accounts),
       };
@@ -176,7 +194,7 @@ export const HarnessAccountsLive = Actor.build(HarnessAccounts, {
     AccountRemoved: ({ id }, { model }) => {
       const accounts = (model.accounts ?? []).filter((each) => each.id !== id);
       return {
-        model: { ...model, accounts },
+        model: { ...model, accounts, changes: model.changes + 1 },
         command: keep(model, accounts),
       };
     },
