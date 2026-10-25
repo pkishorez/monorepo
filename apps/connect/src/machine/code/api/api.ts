@@ -96,5 +96,5 @@ export {
   MachineTaken,
   RPC_PATH,
   TunnelCheck,
-} from '../../cloud/contract/index.js';
-export { CloudClient } from '../../cloud/client/index.js';
+} from '../../../cloud/contract/index.js';
+export { CloudClient } from '../../../cloud/client/index.js';

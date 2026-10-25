@@ -13,7 +13,7 @@ Changed through `/kabukifi`; edit by hand and it drifts.
 ## Tree
 
 ```
-src/code/engine/
+src/machine/code/engine/
   engine.ts                  the front door: finds an Instance, Sends a Message, asks a Query
   capabilities/              Agents, Store
   services/                  agents, store, harness-binaries, folders
@@ -22,18 +22,21 @@ src/code/engine/
   actor-code/                root; States: Loading | Ready
   └── actor-session          in Ready, each: model.sessions; States: Idle | Running
 
-src/machine/
-  machine.ts                 identify, online, logout; builds HeartbeatHost
-  heartbeat.ts               runs actor-heartbeat until it ends
-  capabilities/              HeartbeatHost
-  actor-heartbeat/           root; States: Online | SigningIn | Forgotten | Stopped
+src/machine/online/
+  online.ts                  identify, online, logout; builds HeartbeatHost
+  heartbeat/
+    heartbeat.ts             runs actor-heartbeat until it ends
+    capabilities/            HeartbeatHost
+    actor-heartbeat/         root; States: Online | SigningIn | Forgotten | Stopped
 ```
 
-Around the engine tree, `src/code/api/` is the contract, the records the
-browser gets and the browser client; `src/code/code.ts` and its handlers and
-read feeds serve the engine on the Machine's socket. Around the Heartbeat
-tree, `src/machine/` holds the paths, identity, sign-in, tunnel and the one
-socket, and `src/cloud/` is Cloud Connect, which it reports to.
+Around the engine tree, `src/machine/code/records/` is what it keeps,
+`src/machine/code/api/` is the contract and the browser client, and
+`src/machine/code/code.ts` and its handlers and read feeds serve the engine
+on the Machine's socket. Around the Heartbeat tree, `src/machine/online/`
+holds identity, sign-in and the tunnel; `src/machine/` serves the App
+Groups on its one socket, with its files where `paths/` says; and
+`src/cloud/` is Cloud Connect, which it reports to.
 
 ## How it connects
 

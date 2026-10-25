@@ -115,13 +115,14 @@ What Code's browser imports: the `code` App Group's API and records, the client 
 | `serveOver`     | The same over any std-toolkit SQLite driver and auth Guard, for tests.         |
 | `machinesTable` | The std Table Cloud Connect keeps Machines in, for `SQLite.setup` and deploys. |
 
-### `./node`
+### `./machine`
 
-| Export   | What it does                                                                           |
-| -------- | -------------------------------------------------------------------------------------- |
-| `serve`  | Runs Connect as a Machine until stopped: signed in, serving, tunnelled, reporting.     |
-| `logout` | Signs out of Cloud Connect and forgets the Machine, keeping its Projects and Sessions. |
-| `main`   | Runs the `ke-connect` command on this process's arguments.                             |
+| Export         | What it does                                                                           |
+| -------------- | -------------------------------------------------------------------------------------- |
+| `serve`        | Runs Connect as a Machine until stopped: signed in, serving, tunnelled, reporting.     |
+| `logout`       | Signs out of Cloud Connect and forgets the Machine, keeping its Projects and Sessions. |
+| `main`         | Runs the `ke-connect` command on this process's arguments.                             |
+| `resolvePaths` | Where Connect keeps its files: its XDG folders, or a branch's own in development.      |
 
 ### `./dev`
 
@@ -136,12 +137,12 @@ What Code's browser imports: the `code` App Group's API and records, the client 
 
 ### Serve a Machine
 
-Run `npx @kestack/connect serve` on a computer, sign in with the device code it prints, and the computer is listed as one of your Machines within a few seconds. `ke-connect serve --help` lists the flags, and `ke-connect logout` forgets the Machine. From code, `serve` from `./node` does the same. Shaped after `src/cli/cli.ts`.
+Run `npx @kestack/connect serve` on a computer, sign in with the device code it prints, and the computer is listed as one of your Machines within a few seconds. `ke-connect serve --help` lists the flags, and `ke-connect logout` forgets the Machine. From code, `serve` from `./machine` does the same. Shaped after `src/machine/machine.ts`.
 
 ```ts
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { Effect } from 'effect';
-import { serve } from '@kestack/connect/node';
+import { serve } from '@kestack/connect/machine';
 
 serve({
   cloud: 'https://connect.kishore.app',
@@ -156,7 +157,7 @@ serve({
 
 ### Talk to a Machine from a browser
 
-An App lists its User's Machines from Cloud Connect, says where each one is through `MachineAddress`, and reads each Machine's records through `CodeReplicaLive`, one Instance per Machine. Trimmed from `src/cli/serve/server.test.ts` and Code's `reach.ts`.
+An App lists its User's Machines from Cloud Connect, says where each one is through `MachineAddress`, and reads each Machine's records through `CodeReplicaLive`, one Instance per Machine. Trimmed from `src/machine/server.test.ts` and Code's `reach.ts`.
 
 ```ts
 import { Effect, Layer, Schema } from 'effect';

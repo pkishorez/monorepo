@@ -1,7 +1,7 @@
 import { Context, Data, Effect, Layer } from 'effect';
 import { Accounts, type AccountsState } from '@kestack/auth-toolkit/client';
 import { device } from '@kestack/auth-toolkit/client/device';
-import { authInfo } from '../../cloud/client/index.js';
+import { authInfo } from '../../../cloud/client/index.js';
 import { signInStore } from './sign-in-store.js';
 
 /*

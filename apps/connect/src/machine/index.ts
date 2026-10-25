@@ -1,13 +1,8 @@
 export {
-  DEFAULT_ORIGINS,
-  identify,
   logout,
-  MachineStopped,
-  moveLegacy,
-  online,
+  main,
   resolvePaths,
-  server,
-  type AppGroup,
+  serve,
   type ConnectPaths,
-  type ServerOptions,
+  type ServeOptions,
 } from './machine.js';

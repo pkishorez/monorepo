@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { Effect } from 'effect';
-import { serve } from '../serve/index.js';
+import { serve } from '../machine/index.js';
 import { live } from './leases.js';
 import {
   type ConnectRecord,

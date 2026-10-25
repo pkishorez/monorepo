@@ -11,17 +11,10 @@ import {
   type OneShotPrompt,
 } from '@kestack/ai-toolkit/harness';
 import type { SpeechToText } from '@kestack/ai-toolkit/speech';
-import { codeGroup } from '../../code/index.js';
-import {
-  type ConnectPaths,
-  DEFAULT_ORIGINS,
-  identify,
-  logout as forgetMachine,
-  moveLegacy,
-  online,
-  resolvePaths,
-  server,
-} from '../../machine/index.js';
+import { codeGroup } from './code/index.js';
+import { identify, logout as forgetMachine, online } from './online/index.js';
+import { type ConnectPaths, moveLegacy, resolvePaths } from './paths/index.js';
+import { DEFAULT_ORIGINS, server } from './server/index.js';
 import { logsTo } from './logs.js';
 
 /*
@@ -45,7 +38,7 @@ const DEFAULT_HEARTBEAT = 15;
 /** This Connect's version, as it reports itself. */
 const version = (
   JSON.parse(
-    readFileSync(new URL('../../../package.json', import.meta.url), 'utf8'),
+    readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
   ) as { readonly version: string }
 ).version;
 

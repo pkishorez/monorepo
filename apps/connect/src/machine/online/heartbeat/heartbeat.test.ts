@@ -1,6 +1,9 @@
 import { type Duration, Effect, Fiber } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import { addressOf, type MachineStatus } from '../cloud/contract/index.js';
+import {
+  addressOf,
+  type MachineStatus,
+} from '../../../cloud/contract/index.js';
 import { heartbeat } from './heartbeat.js';
 
 /*

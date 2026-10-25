@@ -1,5 +1,8 @@
 import { Context, type Duration, type Effect, type Scope } from 'effect';
-import type { MachineStatus, TunnelCheck } from '../../cloud/contract/index.js';
+import type {
+  MachineStatus,
+  TunnelCheck,
+} from '../../../../cloud/contract/index.js';
 
 /*
  * What the Heartbeat stands on, so it can be run against a fake tunnel and

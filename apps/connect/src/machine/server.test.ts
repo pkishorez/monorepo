@@ -28,11 +28,11 @@ import {
   CodeReplicaLive,
   connection,
   MachineAddress,
-} from '../../code/api/client/index.js';
+} from './code/api/client/index.js';
 import { FAKE_SKILLS, makeFakeHarness } from '@kestack/ai-toolkit/harness/fake';
 import { makeFakeSpeech } from '@kestack/ai-toolkit/speech/fake';
-import { codeGroup, type CodeGroupOptions } from '../../code/index.js';
-import { server as machineServer } from '../../machine/index.js';
+import { codeGroup, type CodeGroupOptions } from './code/index.js';
+import { server as machineServer } from './server/index.js';
 
 /*
  * The whole stack: the Machine's socket serving the code App Group on a real port, an app with the real client
