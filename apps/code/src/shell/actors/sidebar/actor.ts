@@ -12,7 +12,7 @@ import { agreed, putMove, reload, setSidebarMachine } from './commands.ts';
  * Machine, and what this device marks of them.
  *
  * 1. Machines  the list, as `Machines` says it, for the Machine Filter at
- *              its top, and Reload, which asks the Backend again.
+ *              its top, and Reload, which asks Cloud Connect again.
  * 2. Choose    the Machine chosen is kept in Device State; one no longer
  *              listed shows every Machine. Only the Machines shown are
  *              read, so a Machine not shown syncs nothing here.
@@ -41,7 +41,7 @@ const Told = Schema.Struct({
 const Model = Schema.Struct({
   /** The listed Machines; null before any list. */
   machines: Schema.NullOr(Schema.Array(Listed)),
-  /** Why the Backend could not list them, while nothing is listed. */
+  /** Why Cloud Connect could not list them, while nothing is listed. */
   problem: Schema.NullOr(Schema.String),
   /** The Machine chosen, as Device State keeps it; null for every Machine. */
   chosen: Schema.NullOr(Schema.String),

@@ -1,4 +1,4 @@
-import type { Machine as MachineSchema } from '@kestack/ai-toolkit/machines';
+import type { Machine as MachineSchema } from '@kestack/connect/code';
 import { describe, expect, it } from 'vitest';
 import { health, socketUrl } from './machine-health.ts';
 

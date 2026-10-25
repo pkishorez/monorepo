@@ -30,7 +30,7 @@ import { Session } from './session/index.ts';
  */
 
 const Model = Schema.Struct({
-  /** Whether the Backend has answered and no longer lists the Machine. */
+  /** Whether Cloud Connect has answered and no longer lists the Machine. */
   gone: Schema.Boolean,
   catalog: Catalog.Model,
   removal: Schema.Struct({

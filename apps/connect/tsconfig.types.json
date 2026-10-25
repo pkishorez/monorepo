@@ -6,5 +6,10 @@
     "emitDeclarationOnly": true
   },
   "include": [],
-  "files": ["src/paths/index.ts", "src/origins/index.ts"]
+  "files": [
+    "src/doors/code/index.ts",
+    "src/cloud/serve/index.ts",
+    "src/serve/index.ts",
+    "src/dev/index.ts"
+  ]
 }

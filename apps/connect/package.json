@@ -9,14 +9,38 @@
   },
   "license": "MIT",
   "type": "module",
+  "bin": {
+    "ke-connect": "bin/ke-connect.mjs"
+  },
   "files": [
+    "bin",
     "dist",
     "README.md",
     "LICENSE"
   ],
-  "exports": {},
+  "exports": {
+    "./code": {
+      "types": "./dist/doors/code/index.d.ts",
+      "default": "./dist/doors/code/index.js"
+    },
+    "./worker": {
+      "types": "./dist/cloud/serve/index.d.ts",
+      "default": "./dist/cloud/serve/index.js"
+    },
+    "./node": {
+      "types": "./dist/serve/index.d.ts",
+      "default": "./dist/serve/index.js"
+    },
+    "./dev": {
+      "types": "./dist/dev/index.d.ts",
+      "default": "./dist/dev/index.js"
+    }
+  },
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json && tsc -p tsconfig.types.json",
+    "dev": "vp run --filter '@kestack/connect...' build && node scripts/dev.ts",
+    "deploy": "alchemy deploy",
+    "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod",
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && laymos lint",
     "lint:tsc": "tsc --noEmit",

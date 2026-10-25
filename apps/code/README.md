@@ -11,9 +11,9 @@ through the Machine's tunnel. How the server thinks is in its
 [v1 spec](../../toolkits/ai-toolkit/docs/v1-spec.md). The app adds a folder
 as a project, starts sessions in it with either agent, and follows each one
 live: what you asked, the agent's words, its tool calls and subagents, and
-how each turn ended. You sign in (auth-toolkit's `Accounts`, or a Local
-Account by email under `dev:local`), and the Machines Backend lists the
-Machines signed in as you; the app is on all of them at once
+how each turn ended. You sign in (auth-toolkit's `Accounts`), and Cloud
+Connect ([`@kestack/connect`](../connect/README.md)) lists the Machines
+signed in as you; the app is on all of them at once
 ([ADR 0018](../../toolkits/ai-toolkit/docs/adr/0018-an-app-is-on-every-machine-at-once.md)).
 
 It is a Kabuki Start app, every page drawn in the browser
@@ -316,52 +316,28 @@ version waits for "Reload" instead of reloading under you.
 
 ### Run a Machine and the app
 
-Start the app (below), sign in, then make this computer a Machine: it
-signs in as you, reports itself to the Backend every 15 seconds, and
-shows up in the app.
+Start this branch's Connect, then the app beside it, and sign in: the
+Machine signs in as you, reports itself to Cloud Connect every 15 seconds,
+and shows up in the app.
 
 ```sh
-pnpm --filter code dev                  # signs in with https://auth.kishore.computer
-pnpm --filter @kestack/ai-toolkit dev   # opens the Device Screen once, then is a Machine
-
-pnpm --filter code dev:local            # or: sign in by name, no Auth Worker
-pnpm --filter @kestack/ai-toolkit dev:local
+pnpm --filter @kestack/connect dev   # Cloud Connect and a Machine; the Device Screen once
+pnpm --filter code dev               # the site, signing in with https://auth.kishore.computer
+pnpm --filter code deploy            # your own stage, at its workers.dev URLs
+pnpm --filter code deploy:prod       # ALLOW_DEPLOY=true: code.kishore.app
 ```
 
-- ai-toolkit's `dev` asks portless where this app's Backend is
-  (`api-code.kishore`, the name `dev` gives it), so the two always meet.
-- Under `dev:local` the Machine signs in as `dev@kishore.computer`: sign in
-  to the app by typing that email, since the same email is the same User.
-  Signing in through the Auth Worker, the Machine signs in from its Device
-  Screen the first time and keeps the Sign-in.
+- `pnpm dev` runs `alchemy dev` (`alchemy.run.ts`, `src/deploy/infra/`)
+  through Portless, the site at `https://code.kishore.computer` (the
+  branch in front in a linked git worktree), handed the branch's Cloud
+  Connect in `CONNECT_URL`, as Portless names it.
+- The site gets `VITE_AUTH_URL` and `VITE_CONNECT_URL`. A deployed stage
+  uses `https://connect.kishore.app`, where your Machines are.
 - With no Machine, home says what to run; each Machine that signs in
   shows up beside the others.
+- A deployed stage (`prod`, `demo`, `pr<N>`) needs `ALLOW_DEPLOY=true` and
+  keeps its state in Cloudflare; a personal stage keeps it in `.alchemy/`.
 - `pnpm --filter code lint` checks types and the Laymos Rules; `pnpm --filter
   code test` runs the tests. Videos recorded under `qa/` stay local.
 - `pnpm --filter code draw:install` redraws the iOS Splash and the
   manifest's screenshots into `public/`, after a build of the packages.
-
-### Run with the Machines Backend, and deploy
-
-`pnpm dev` runs `alchemy dev` (`alchemy.run.ts`, `src/deploy/infra/`) through
-Portless: the site at `https://code.kishore.computer` and the Machines
-Worker, the Backend from `@kestack/ai-toolkit/machines/backend` over a D1
-database of its own, on port 4591, aliased as
-`https://api-code.kishore.computer`. In a linked git worktree both have
-the branch in front, `https://<branch>.api-code.kishore.computer`, so each
-worktree has its own Backend; only one can run at a time, since the port
-is fixed.
-
-```sh
-pnpm --filter code dev:local     # AUTH=local: sign in by name, no Auth Worker
-pnpm --filter code dev           # signs in with https://auth.kishore.computer, which must be running
-pnpm --filter code deploy        # your own stage, at its workers.dev URLs
-pnpm --filter code deploy:prod   # ALLOW_DEPLOY=true: code.kishore.app and api-code.kishore.app
-```
-
-- The site gets `VITE_MACHINES_URL` and either `VITE_AUTH_URL` or
-  `VITE_AUTH_LOCAL=true`; the Worker gets `AUTH_URL` or `AUTH_LOCAL=true`,
-  `SITE_ORIGIN` (the one origin it lets call with credentials) and `DB`.
-- `AUTH=local` works only under `alchemy dev`; any deploy with it throws.
-- A deployed stage (`prod`, `demo`, `pr<N>`) needs `ALLOW_DEPLOY=true` and
-  keeps its state in Cloudflare; a personal stage keeps it in `.alchemy/`.

@@ -1,5 +1,5 @@
 import { Layer } from 'effect';
-import { MachinesClient } from '@kestack/ai-toolkit/machines/client';
+import { CloudClient } from '@kestack/connect/code';
 import { Start } from '@kestack/kabuki/start';
 import { document } from '@kestack/web-platform/app/document';
 import { Shell } from './shell/index.ts';
@@ -19,8 +19,8 @@ import './styles.css';
 /*
  * The app as Start draws it: the router, the root page's View, the
  * Document, and the browser's Layer: who is signed in (`Accounts`, which
- * also signs every call to the Machines Backend), the Machines Backend at
- * `VITE_MACHINES_URL`, the Replica's Store in IndexedDB, one per Account
+ * also signs every call to Cloud Connect), Cloud Connect at
+ * `VITE_CONNECT_URL`, the Replica's Store in IndexedDB, one per Account
  * with one database per Machine's Instance in it, so a reload shows what
  * it last saw at once and catches up from there, each Account's last list
  * of Machines and `Machines`, which says it to every page, and Device
@@ -31,7 +31,7 @@ import './styles.css';
  */
 
 const layer = Layer.mergeAll(
-  MachinesClient.layer(import.meta.env.VITE_MACHINES_URL),
+  CloudClient.layer(import.meta.env.VITE_CONNECT_URL),
   deviceStateIdb,
   savedMachinesIdb,
   machines,

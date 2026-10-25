@@ -391,6 +391,9 @@ importers:
       '@kestack/auth-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/auth-toolkit
+      '@kestack/connect':
+        specifier: workspace:*
+        version: link:../connect
       '@kestack/kabuki':
         specifier: workspace:*
         version: link:../../packages/kabuki
@@ -1199,16 +1202,10 @@ importers:
       '@openai/codex':
         specifier: 'catalog:'
         version: 0.164.0
-      cloudflared:
-        specifier: 'catalog:'
-        version: 0.7.3
       sherpa-onnx-node:
         specifier: 'catalog:'
         version: 1.13.8
     devDependencies:
-      '@kestack/auth-toolkit':
-        specifier: workspace:*
-        version: link:../auth-toolkit
       '@kestack/kabuki':
         specifier: workspace:*
         version: link:../../packages/kabuki

@@ -1,8 +1,7 @@
 import { Effect, Schema, Stream, SubscriptionRef } from 'effect';
 import { SpeechToTextState } from '@kestack/ai-toolkit/api';
 import { AiClients } from '@kestack/ai-toolkit/client';
-import { Machine } from '@kestack/ai-toolkit/machines';
-import { MachinesClient } from '@kestack/ai-toolkit/machines/client';
+import { CloudClient, Machine } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import {
   AccountReplicas,
@@ -18,8 +17,8 @@ import { drop, forget, keep, save } from './commands.ts';
  * that Account is signed in: the list, and a line to each Machine on it.
  *
  * 1. Saved    the list last kept for the Account shows first, so the app
- *             opens on its Machines even while the Backend is out of reach.
- * 2. Fetch    then the Backend's list, once, and again on Reload; each
+ *             opens on its Machines even while Cloud Connect is out of reach.
+ * 2. Fetch    then Cloud Connect's list, once, and again on Reload; each
  *             answer is kept for next time. The first answer keeps only
  *             the records of the Machines on it: a Machine gone from it
  *             takes its records here with it. Later answers delete
@@ -28,12 +27,12 @@ import { drop, forget, keep, save } from './commands.ts';
  *             nothing either.
  * 3. Lines    one socket per listed Machine, followed, and its Speech to
  *             Text, watched over it.
- * 4. Recheck  while a listed Machine's line is not up, the Backend is asked
+ * 4. Recheck  while a listed Machine's line is not up, Cloud Connect is asked
  *             again: every few seconds for the first minute, then every
  *             half a minute, so one on its way, whose tunnel is opening,
  *             shows up as soon as it can be reached. Once every line is up
  *             it stops; a line that drops starts it again.
- * 5. Forget   a Machine, asked from Settings: the Backend forgets it, it
+ * 5. Forget   a Machine, asked from Settings: Cloud Connect forgets it, it
  *             leaves the list, so nothing reads its Instance any more, and
  *             then its records here go, and no other's: another tab
  *             may list a Machine this one has not heard of yet.
@@ -41,7 +40,7 @@ import { drop, forget, keep, save } from './commands.ts';
  *             what they ask through it comes here.
  */
 
-/** How long to wait before asking the Backend again, while a line is not up. */
+/** How long to wait before asking Cloud Connect again, while a line is not up. */
 export const RECHECK = { fast: 3_000, slow: 30_000, fastFor: 20 } as const;
 
 const Line = Schema.Literals(['connecting', 'connected', 'reconnecting']);
@@ -62,13 +61,13 @@ const Model = Schema.Struct({
   lines: Schema.Record(Schema.String, Line),
   /** Each listed Machine's Speech to Text, by id, once it has said. */
   speech: Schema.Record(Schema.String, SpeechToTextState),
-  /** How many times the Backend was asked again since every line was last up. */
+  /** How many times Cloud Connect was asked again since every line was last up. */
   rechecks: Schema.Finite,
 });
 type Model = typeof Model.Type;
 
 export const MachineList = Actor.define('MachineList', {
-  requires: [MachinesClient, SavedMachines, AccountReplicas, Link, AiClients],
+  requires: [CloudClient, SavedMachines, AccountReplicas, Link, AiClients],
   input: Schema.Struct({ accountId: Schema.String }),
   props: Schema.Struct({
     /** The Account's email, for the command that adds a Machine. */
@@ -92,7 +91,7 @@ export const MachineList = Actor.define('MachineList', {
 
 const idsOf = (model: Model) => (model.machines ?? []).map(({ id }) => id);
 
-/** Whether a listed Machine's line is not up, so the Backend is asked again. */
+/** Whether a listed Machine's line is not up, so Cloud Connect is asked again. */
 export const anyDown = (model: Model) =>
   idsOf(model).some((id) => model.lines[id] !== 'connected');
 

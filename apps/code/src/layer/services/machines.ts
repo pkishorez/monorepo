@@ -7,7 +7,7 @@ import {
   Stream,
   SubscriptionRef,
 } from 'effect';
-import type { Machine as MachineSchema } from '@kestack/ai-toolkit/machines';
+import type { Machine as MachineSchema } from '@kestack/connect/code';
 import {
   type Known,
   Link,

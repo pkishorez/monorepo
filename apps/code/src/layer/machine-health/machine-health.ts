@@ -2,7 +2,7 @@ import {
   addressOf,
   type Machine as MachineSchema,
   type MachineStatus,
-} from '@kestack/ai-toolkit/machines';
+} from '@kestack/connect/code';
 
 type Machine = typeof MachineSchema.Type;
 

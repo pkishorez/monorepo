@@ -6,8 +6,7 @@
   "type": "module",
   "sideEffects": false,
   "scripts": {
-    "dev": "vp run --filter 'code^...' build && MACHINES_URL=$(portless get api-code.kishore) && portless alias \"$(echo $MACHINES_URL | sed -E 's#^https://##; s#\\.computer$##')\" 4591 --force && MACHINES_URL=$MACHINES_URL portless run --force alchemy dev",
-    "dev:local": "AUTH=local pnpm dev",
+    "dev": "vp run --filter 'code^...' build && CONNECT_URL=$(portless get connect.kishore) portless run --force alchemy dev",
     "build": "vp build",
     "lint": "tsc --noEmit && pnpm lint:laymos",
     "lint:laymos": "laymos lint",
@@ -22,6 +21,7 @@
     "@codemirror/view": "catalog:",
     "@kestack/ai-toolkit": "workspace:*",
     "@kestack/auth-toolkit": "workspace:*",
+    "@kestack/connect": "workspace:*",
     "@kestack/kabuki": "workspace:*",
     "@kestack/rpc-toolkit": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",

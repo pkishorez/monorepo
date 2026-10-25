@@ -9,8 +9,7 @@
   "files": [
     "src/api/contract/index.ts",
     "src/api/client/index.ts",
-    "src/kabuki/machine/backend/contract/index.ts",
-    "src/kabuki/machine/backend/client/index.ts",
-    "src/kabuki/machine/backend/serve/index.ts"
+    "src/server/index.ts",
+    "src/services/speech/sherpa/sherpa-onnx-node.d.ts"
   ]
 }

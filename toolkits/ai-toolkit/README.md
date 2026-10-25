@@ -4,9 +4,9 @@ Effect-native engine that runs Claude Code and Codex sessions in local folders, 
 
 ## Big picture
 
-Claude Code and Codex sessions run for minutes, start work that outlives a Turn, and must outlive the browser tab that started them. ai-toolkit is a long-running server on this machine that owns them. It adds folders as Projects, runs Sessions in them on either Coding Harness, stores every whole record the harness emits, and lets any app follow and steer them over one WebSocket API. It runs as a Machine: signed in to the Machines Backend as one User, reached through a tunnel by whoever holds its Machine Key, and called by a browser page only from an origin it allows. [`apps/code`](../../apps/code/README.md) is the first app on it.
+Claude Code and Codex sessions run for minutes, start work that outlives a Turn, and must outlive the browser tab that started them. ai-toolkit is a long-running server on this machine that owns them. It adds folders as Projects, runs Sessions in them on either Coding Harness, stores every whole record the harness emits, and lets any app follow and steer them over one WebSocket API. [`@kestack/connect`](../../apps/connect/README.md) runs it as a Machine (`ke-connect serve`): signed in to Cloud Connect as one User, reached through a tunnel by whoever holds its Machine Key, and called by a browser page only from an origin it allows. [`apps/code`](../../apps/code/README.md) is the first app on it.
 
-The API, `AiApi`, has commands and feeds, in seven groups merged into one: harnesses, projects, sessions, turns, jobs, folders and speech. Commands add and remove Projects, start a Session, and `send` to it: text plus Attachments, and a model or settings that hold from that Turn on. Images go to the agent as images; other files are saved under `~/.ai-toolkit/attachments/<sessionId>/` and named in the message text. `forkSession` makes a Fork after any finished Turn, its own or one it inherited, copying nothing: its `forkedFrom` names the Session forked and the Turn. `settleSession` and `unsettleSession` Settle a Session and take it back, and sending to it un-settles it; a Session's `activeAt` is when a Turn last started in it, and its `endedAt` when one last ended. `ask` puts an Ask to a Session and leaves it untouched, and `regenerateTitle` writes its Title again. `listFolder` and `createFolder` walk the home folder and make a folder in it, with `git init`, to add as a Project. `skills`, `mcpStatus` and `contextUsage` say what a harness offers and how a Session stands. `backgroundJobs` streams every Session's Background Jobs and `stopBackgroundJob` stops one. `harnesses` says which harnesses run here (`available`, `unavailableReason`), and `harnessBinaries` and `setHarnessBinary` read and set each Harness Binary. `enableSpeechToText` switches Speech to Text on for this Machine, which downloads its model, and `disableSpeechToText` deletes it; `watchSpeechToText` streams how it stands, and `transcribe` turns a clip of audio into text on the Machine itself. The `projects`, `sessions` and `messages` feeds replay every change after a cursor, then stay live.
+The API, `AiApi`, has commands and feeds, in seven groups merged into one: harnesses, projects, sessions, turns, jobs, folders and speech. Commands add and remove Projects, start a Session, and `send` to it: text plus Attachments, and a model or settings that hold from that Turn on. Images go to the agent as images; other files are saved in the Attachments folder, under `<sessionId>/`, and named in the message text. `forkSession` makes a Fork after any finished Turn, its own or one it inherited, copying nothing: its `forkedFrom` names the Session forked and the Turn. `settleSession` and `unsettleSession` Settle a Session and take it back, and sending to it un-settles it; a Session's `activeAt` is when a Turn last started in it, and its `endedAt` when one last ended. `ask` puts an Ask to a Session and leaves it untouched, and `regenerateTitle` writes its Title again. `listFolder` and `createFolder` walk the home folder and make a folder in it, with `git init`, to add as a Project. `skills`, `mcpStatus` and `contextUsage` say what a harness offers and how a Session stands. `backgroundJobs` streams every Session's Background Jobs and `stopBackgroundJob` stops one. `harnesses` says which harnesses run here (`available`, `unavailableReason`), and `harnessBinaries` and `setHarnessBinary` read and set each Harness Binary. `enableSpeechToText` switches Speech to Text on for this Machine, which downloads its model, and `disableSpeechToText` deletes it; `watchSpeechToText` streams how it stands, and `transcribe` turns a clip of audio into text on the Machine itself. The `projects`, `sessions` and `messages` feeds replay every change after a cursor, then stay live.
 
 The client side builds on [`@kestack/rpc-toolkit`](../rpc-toolkit/README.md) for the reconnecting WebSocket and on [`@kestack/std-toolkit`](../std-toolkit/README.md) for the `Ai` Replica, which keeps Projects, Sessions and open Sessions' Messages in step with the server. The engine itself is a tree of [`@kestack/kabuki`](../../packages/kabuki/README.md) Actors over a SQLite store; [docs/kabuki-tree.md](docs/kabuki-tree.md) says what the tree is and why.
 
@@ -15,17 +15,16 @@ The words are in [CONTEXT.md](CONTEXT.md). How the server thinks, Raw records an
 ## Install
 
 ```sh
-pnpm add @kestack/ai-toolkit effect @kestack/rpc-toolkit @kestack/std-toolkit @kestack/kabuki @kestack/auth-toolkit @tanstack/db
+pnpm add @kestack/ai-toolkit effect @kestack/rpc-toolkit @kestack/std-toolkit @kestack/kabuki @tanstack/db
 ```
 
 - `effect`: the API, its schemas and errors, and the client Layer are Effect values.
 - `@kestack/rpc-toolkit`: the WebSocket Transport each Machine's `AiClient` connects through, and `connection`.
 - `@kestack/std-toolkit`: entity schemas, the SQLite store, and the Replica behind `Ai` and `AiLive`.
 - `@kestack/kabuki`: the engine runs Projects, Sessions and Turns as Actors.
-- `@kestack/auth-toolkit`: Machines sign in to the Machines Backend, which checks every call with its Guard.
 - `@tanstack/db`: the collections the `Ai` Replica fills and Queries read.
 
-`@anthropic-ai/claude-agent-sdk`, `@openai/codex`, `@effect/platform-node` and `sherpa-onnx-node` (Speech to Text) are regular dependencies. Node 24 or newer is required, and a `tar` that reads bzip2 to unpack the Speech to Text model. The package also installs the `ai-toolkit` binary.
+`@anthropic-ai/claude-agent-sdk`, `@openai/codex`, `@effect/platform-node` and `sherpa-onnx-node` (Speech to Text) are regular dependencies. Node 24 or newer is required, and a `tar` that reads bzip2 to unpack the Speech to Text model.
 
 ## Exports
 
@@ -97,80 +96,56 @@ pnpm add @kestack/ai-toolkit effect @kestack/rpc-toolkit @kestack/std-toolkit @k
 | `Ai`                   | The Replica of each Machine's records, keyed by Machine id: `projects`, `sessions` and `messages`.                                                |
 | `AiLive`               | How `Ai` syncs: every Project and Session, and a Session's Messages while a Query filters on its id, each Instance over its own Machine's socket. |
 
-### `@kestack/ai-toolkit/machines`
+### `@kestack/ai-toolkit/server`
 
-| Export             | What it does                                                                                    |
-| ------------------ | ----------------------------------------------------------------------------------------------- |
-| `MachinesApi`      | The RPC group the Machines Backend answers: `Report`, `List` and `Forget`, for the caller only. |
-| `MachineReport`    | Schema of what a Machine says of itself on each Heartbeat: id, name, Machine Key, status.       |
-| `Machine`          | Schema of a Machine as its User sees it: its last Report and its Last Seen.                     |
-| `MachineStatus`    | Schema of how far a Machine's tunnel got: downloading cloudflared, opening, failed, or up.      |
-| `addressOf`        | The public address a Machine Status is up at, or null.                                          |
-| `TunnelCheck`      | Schema of whether a Machine could reach itself at its public address, and when it checked.      |
-| `AuthInfo`         | Schema of how a Machine signs in to the Backend: the Auth Worker's URL, or Local mode.          |
-| `MachineForgotten` | Error: the Machine, or its Sign-in, was forgotten; it must sign out and stop.                   |
-| `MachineTaken`     | Error: another User's Machine already has this id.                                              |
-| `RPC_PATH`         | The RPC's path on the Backend, `/rpc`.                                                          |
-| `AUTH_PATH`        | The path that answers `AuthInfo`, `/auth`.                                                      |
+For now, what `ke-connect serve` composes the server from; it moves to `@kestack/connect`.
 
-### `@kestack/ai-toolkit/machines/client`
-
-| Export                 | What it does                                                                      |
-| ---------------------- | --------------------------------------------------------------------------------- |
-| `MachinesClient`       | Service holding the `MachinesApi` client over HTTP.                               |
-| `MachinesClient.layer` | Layer of `MachinesClient` for the Backend's base URL; the caller's auth signs it. |
-| `authInfo`             | Effect asking the Backend at a base URL how a Machine signs in to it: `AuthInfo`. |
-
-### `@kestack/ai-toolkit/machines/backend`
-
-| Export          | What it does                                                                                 |
-| --------------- | -------------------------------------------------------------------------------------------- |
-| `serve`         | The Machines Backend on a D1 binding, as `(request) => Promise<Response>` for a Worker.      |
-| `serveOver`     | The same over any std-toolkit SQLite driver and auth Guard, for tests and local runs.        |
-| `machinesTable` | The `machines` std Table it keeps Machines in, for `SQLite.setup`, `D1.table` and snapshots. |
+| Export            | What it does                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------------ |
+| `server`          | The whole server as one Layer: the Store, the engine, the harnesses and the API on `/rpc`. |
+| `DEFAULT_ORIGINS` | The origins a browser page may call from unless told otherwise.                            |
+| `Harnesses`       | Service listing the Coding Harnesses that run here.                                        |
+| `claude`          | The Claude Code harness.                                                                   |
+| `codex`           | The Codex harness.                                                                         |
+| `codexTitler`     | Layer writing Titles with Codex.                                                           |
+| `makeFakeHarness` | A fake harness for tests, scripted Turn by Turn.                                           |
+| `FAKE_SKILLS`     | The skills the fake harness offers.                                                        |
+| `makeFakeSpeech`  | A fake Speech to Text for tests.                                                           |
 
 ## Usage
 
 ### Serve the engine
 
-The `ai-toolkit` binary runs the server on this machine as a Machine: signed in to the Machines Backend, listening on `127.0.0.1`, reachable through a Cloudflare quick tunnel, and reporting itself on every Heartbeat.
+`server` is the whole server as one Layer, running until its Scope closes. `ke-connect serve` in [`@kestack/connect`](../../apps/connect/README.md) starts it as a Machine, with its files in Connect's folders; a test starts it over a fake harness. Trimmed from `src/server/server.test.ts`.
 
-```sh
-pnpm --filter @kestack/ai-toolkit build
-node toolkits/ai-toolkit/bin/ai-toolkit.mjs serve --port 4590 --db ~/.ai-toolkit/ai.db
-# ai-toolkit 0.0.2 on ws://127.0.0.1:4590/rpc
-# database /Users/ada/.ai-toolkit/ai.db
-# Machine studio (8ce2bd84-…)
-# signed in as ada@example.com to https://api-code.kishore.app
-# Tunnel at https://details-bathrooms-starring-volume.trycloudflare.com
+```ts
+import { Effect, Layer } from 'effect';
+import { makeFakeHarness, server } from '@kestack/ai-toolkit/server';
 
-node toolkits/ai-toolkit/bin/ai-toolkit.mjs logout --db ~/.ai-toolkit/ai.db
+const program = Effect.scoped(
+  Effect.gen(function* () {
+    yield* Layer.build(
+      server({
+        port: 4590,
+        db: '/tmp/ai.db',
+        harnesses: makeFakeHarness().layer,
+        origins: ['http://localhost:*', 'https://*.app.test'],
+      }),
+    );
+    // ws://127.0.0.1:4590/rpc is up until the Scope closes.
+  }),
+);
 ```
 
-In this repo, `pnpm dev` serves against `apps/code`'s dev Backend, asking portless for its address, with the database `~/.ai-toolkit/dev.db`; `pnpm dev:local` does the same for a Backend in Local mode, as `dev@kishore.computer`, with `~/.ai-toolkit/dev-local.db`, since one database file is one User's. `pnpm dev:preview` serves against the deployed Backend instead, `https://api-code.kishore.app` (or `AI_TOOLKIT_BACKEND`, such as a PR stage's `https://pr12-api-code.kishore.app`), which signs in with `https://auth.kishore.app`, with `~/.ai-toolkit/preview.db`. Any flag after them is passed on, such as `pnpm dev --name studio`.
-
-```sh
-pnpm --filter code dev                  # the app and its Backend, signing in with auth.kishore.computer
-pnpm --filter @kestack/ai-toolkit dev   # this Machine, against that Backend
-```
-
-- `--backend` falls back to `AI_TOOLKIT_BACKEND`, then `https://api-code.kishore.app`. `serve` asks it how to sign in: through its Auth Worker, by Device Login the first time (the link and code are printed; `o` opens the browser), the Sign-in kept in the database file for later runs; or, for a Backend in Local mode, as the User `--as <email>` names. `--as` is refused by a Backend with an Auth Worker, and a Local mode Backend needs it.
-- One database file is one Machine of one User. The first run makes the Machine: a random id, a Machine Key that never changes, and the host's name, which `--name` replaces and keeps. Another User signing in on the file is refused: use another `--db`.
-- With a Machine Key, every request but `/health` must offer the subprotocols `ai-toolkit` and `key.<key>`, page or program; without the key it gets 401, with a wrong one 403. The server answers with `ai-toolkit`, never the key.
-- The tunnel is `cloudflared tunnel --url http://127.0.0.1:<port>`; the binary is downloaded on first use to `~/.ai-toolkit/bin`, and a download that takes over ten minutes fails and is tried again. Every `--heartbeat` seconds (15 unless given) the Machine checks `<tunnel>/health` and reports its id, name, key, version and Machine Status to the Backend: downloading cloudflared, opening the tunnel, failed to open and why, or up at its address and whether the last check reached it. Three failed checks in a row restart cloudflared. A download begun, a tunnel up and a tunnel that failed to open are reported at once.
-- A Machine forgotten from the app signs out, which revokes its Sign-in, and stops. A revoked Sign-in closes the tunnel and asks to sign in again in the terminal.
-- `logout` asks the Backend to Forget the Machine (a failure is only logged), signs out and forgets the Machine here, keeping its Projects and Sessions: the next `serve` is a new Machine.
-- `--port` falls back to `PORT`, then 4590. `--db` defaults to `~/.ai-toolkit/ai.db`.
-- A browser page may call the server only from `http://localhost`, `127.0.0.1` or `[::1]` on any port, `https://localhost` and `https://*.localhost` (portless) on any port, `https://code.kishore.app`, and `https://code.kishore.computer` with its subdomains. Each `--origin` adds one: `scheme://host[:port]`, `*.` for any subdomains, `:*` for any port. Any other page gets 403; a program that sends no `Origin` is let in. `server({ origins })` replaces the list, and `server({ key })` asks for a Machine Key.
-- `listFolder` and `createFolder` never leave the user's home folder; `server({ home })` sets another.
-- Attachments that are not images are saved under `~/.ai-toolkit/attachments/<sessionId>/`.
+- `port: 0` binds any free port; the Layer's `HttpServer` says which.
+- With `key`, every request but `/health` must offer the subprotocols `ai-toolkit` and `key.<key>`, page or program; without the key it gets 401, with a wrong one 403. The server answers with `ai-toolkit`, never the key.
+- A browser page may call only from an origin in `origins` (`DEFAULT_ORIGINS` unless given: this computer, and `https://*.kishore.app` and `https://*.kishore.computer`); any other page gets 403, and a program that sends no `Origin` is let in.
+- `attachments`, `modelsCache` and `speechFolder` say where Attachments, the models.dev copy and the Speech to Text model go; left out, they sit beside the database. `home` is the folder `listFolder` and `createFolder` never leave.
 - At start the Bootstrap Sweep ends any Turn the last server left running as interrupted.
-- A harness whose Harness Binary does not run shows as unavailable in `harnesses`; `setHarnessBinary` points it at another path.
-- Speech to Text lives in `speech-to-text/` beside the database: the wish `on` while it is switched on, and the model in `model/`, sherpa-onnx's Parakeet TDT 0.6b v2 int8, about 660 MB, fetched file by file from its Hugging Face copy, else as the 480 MB tarball of its GitHub release. A start with the wish kept and the model not whole downloads it again, carrying on from what is there; switching it off deletes the folder. `server({ speech })` gives another SpeechToText.
 
 ### Talk to it from a program
 
-`AiClient.layer` connects to a running server. Every command is an Effect. Trimmed from `src/cli/server/server.test.ts`.
+`AiClient.layer` connects to a running server. Every command is an Effect. Trimmed from `src/server/server.test.ts`.
 
 ```ts
 import { Context, Effect, Layer } from 'effect';
@@ -215,36 +190,6 @@ Effect.runPromise(Effect.scoped(program));
 - `transcribe({ audio })` takes one whole clip as a `Uint8Array` of 16 kHz mono PCM, each sample 16-bit signed little-endian, and answers its text. It fails `SpeechToTextNotReady` unless `watchSpeechToText` says `Ready`; the model loads on the first clip and stays loaded.
 - Commands sent while the socket is down wait for it to come back.
 - With `key`, the socket offers the subprotocols `ai-toolkit` and `key.<key>`, since a browser can set no other header on a WebSocket; the server selects `ai-toolkit` once the Machine Key checks out.
-
-### Run the Machines Backend on a Worker
-
-The app's Worker reads its env and hands it to `serve`; Alchemy makes the `machines` table with `D1.table(machinesTable)` at deploy. Trimmed from `src/kabuki/machine/backend/serve/backend.ts`.
-
-```ts
-import { serve } from '@kestack/ai-toolkit/machines/backend';
-
-interface Env {
-  readonly AUTH_URL?: string; // the Auth Worker; unset with AUTH_LOCAL
-  readonly AUTH_LOCAL?: string; // any value: Local mode
-  readonly SITE_ORIGIN: string; // the app's origin, e.g. https://code.example.com
-  readonly DB: D1Database;
-}
-
-let served: ((request: Request) => Promise<Response>) | undefined;
-
-export default {
-  fetch: (request: Request, env: Env) =>
-    (served ??= serve({
-      auth: env.AUTH_LOCAL ? { local: true } : { url: env.AUTH_URL! },
-      site: env.SITE_ORIGIN,
-      database: env.DB,
-    }))(request),
-};
-```
-
-- `GET /auth` answers the `AuthInfo` given, to anyone, so a Machine needs only the Backend's address. `POST /rpc` is `MachinesApi`, behind auth-toolkit's Guard.
-- Only `SITE_ORIGIN` may call `/rpc` with credentials; its preflight is answered.
-- `Report` refuses an id another User reported with `MachineTaken`. After `Forget`, a Report from that id, or from the Sign-in it last reported with, is refused `MachineForgotten` ([ADR 0016](docs/adr/0016-a-forgotten-machine-stays-forgotten.md)).
 
 ### Keep the server's records in an app
 

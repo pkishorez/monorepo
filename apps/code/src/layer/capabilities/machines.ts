@@ -1,7 +1,7 @@
 import { Context } from 'effect';
 import type { Effect, Queue, Stream, SubscriptionRef } from 'effect';
 import type { SpeechToTextState } from '@kestack/ai-toolkit/api';
-import type { Machine as MachineSchema } from '@kestack/ai-toolkit/machines';
+import type { Machine as MachineSchema } from '@kestack/connect/code';
 
 type Machine = typeof MachineSchema.Type;
 
@@ -22,7 +22,7 @@ export interface Known {
   readonly accountId: string | null;
   /** The list, saved or fetched; null before either. */
   readonly machines: ReadonlyArray<Machine> | null;
-  /** When the Backend last answered, epoch ms; null before it has. */
+  /** When Cloud Connect last answered, epoch ms; null before it has. */
   readonly fetchedAt: number | null;
   /** Why the last ask failed, until one does not. */
   readonly problem: string | null;
@@ -81,7 +81,7 @@ export class Machines extends Context.Service<
     readonly reachable: (
       id: string,
     ) => Effect.Effect<{ readonly socket: string; readonly key: string }>;
-    /** Asks the Backend for the list again now. */
+    /** Asks Cloud Connect for the list again now. */
     readonly reload: Effect.Effect<void>;
     /** Forgets the Machine for good, and its records on this device. */
     readonly forget: (id: string) => Effect.Effect<void>;

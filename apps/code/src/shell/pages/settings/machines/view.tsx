@@ -1,4 +1,4 @@
-import type { Machine as MachineSchema } from '@kestack/ai-toolkit/machines';
+import type { Machine as MachineSchema } from '@kestack/connect/code';
 import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
@@ -122,20 +122,18 @@ export const MachineSettingsView = View.make(
             })}
           </ul>
         )}
-        {authHome !== null && (
-          <p className="text-xs text-muted-foreground">
-            To revoke a Machine's sign-in outright, go to{' '}
-            <a
-              href={authHome}
-              target="_blank"
-              rel="noreferrer"
-              className="text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
-            >
-              your account
-            </a>
-            .
-          </p>
-        )}
+        <p className="text-xs text-muted-foreground">
+          To revoke a Machine's sign-in outright, go to{' '}
+          <a
+            href={authHome}
+            target="_blank"
+            rel="noreferrer"
+            className="text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+          >
+            your account
+          </a>
+          .
+        </p>
         <Confirm.Dialog
           open={asked !== undefined}
           title={`Forget ${asked?.name ?? 'this Machine'}?`}

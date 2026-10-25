@@ -2,12 +2,7 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "ignoredPaths": ["src/styles.css", "src/env.d.ts"],
-  "fileModules": [
-    "src/app.tsx",
-    "src/pages.ts",
-    "src/keys.ts",
-    "src/deploy/machines-api/worker.server.ts"
-  ],
+  "fileModules": ["src/app.tsx", "src/pages.ts", "src/keys.ts"],
   "rules": {
     "src/app.tsx": [
       "src/shell",
