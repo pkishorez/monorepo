@@ -75,3 +75,39 @@ All five steps ship together in one PR, each step its own commits.
   theme switch on an installed iPhone app needs a device: it is checked on
   one before merge, and the result recorded in the PR.
 - Manifest screenshots, so Android shows its richer install sheet.
+
+## 6. The Touch Draft, and Pickers by how they were opened
+
+Decided on 2026-10-25, after trying step 3 on a phone. It replaces step 3's
+row of buttons; keep only what has a place.
+
+- Pickers follow the input that opened them, not the device: keys → the
+  fuzzy list in the middle, search focused; mouse → next to its button;
+  touch (`pointerType === 'touch'`) → its Picker Mode, nothing focused.
+  The screen dims behind every Picker, desktop included. Vim Mode and which
+  Draft is drawn still follow the device.
+- No focus rings or highlighted borders on touch, the Draft's card included.
+- The Touch Draft is its own actor, separate from the desktop Draft. Its
+  States: Resting, Recording, Transcribing (to take, or to take and send),
+  Editing, Sending. The Draft's text is its Model, not a State; whether it
+  is expanded is the View's. It drives the one Dictation actor: start, take,
+  cancel. Each State is drawn with `motion/react` transitions, none while a
+  field has focus.
+- One main button, bottom right: the microphone (Lucide `Mic`).
+  - Resting, empty: only the microphone.
+  - Resting, with text: a small Send (`ArrowUp`) appears above it; swipe the
+    microphone up onto it, or tap it, to send. No double tap.
+  - Recording: the microphone becomes take (`Check`); tap to take the text,
+    swipe up to take and send once transcribed; a small cancel (`X`) on the
+    left throws it away. If it cannot be transcribed, nothing is sent and
+    the Dictation's Retry shows.
+  - Android buzzes as the swipe crosses into send; iOS cannot.
+- Left of it: the Draft's text in a few lines (the card as tall as the
+  microphone's column), edit (`Pencil`), then the model chip, Skills
+  (`SquareSlash`) and Quick actions (`Zap`).
+- Quick actions: a Drawer, each row an icon, its action and one line:
+  Ask on the side, Paste (reads the clipboard on tap; iOS shows its own
+  Paste bubble), Attach a file, Photo, and the Microphone Picker.
+- Edit makes the whole card the Composer above the keyboard, with Done;
+  sending from it closes it.
+- Desktop: unchanged but for the dimmed screen behind its Pickers.
