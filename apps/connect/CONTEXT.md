@@ -43,8 +43,8 @@ _Avoid_: last active, updated at, online
 ### The code App Group
 
 **Session**:
-One Conversation kept on a Machine, in one of its Projects: its Messages, its Title, and whether it is Settled. A Fork of a Session is listed as a Session of its own, not under the original, and reads what came before its Fork Point from the original rather than copying it.
-_Avoid_: thread, chat, conversation (that is the harness's own, which a Session has one of)
+One Agent kept on a Machine, in one of its Projects: its Messages, its Title, and whether it is Settled. A Fork of a Session is listed as a Session of its own, not under the original, and reads what came before its Fork Point from the original rather than copying it.
+_Avoid_: thread, chat, Agent (what a Session keeps), conversation
 
 **Session Status**:
 How a Session stands: idle, running, or how its last Turn ended if not done: cancelled, failed, or interrupted.
@@ -61,10 +61,6 @@ _Avoid_: cancelled, failed
 **Title**:
 A short name for a Session, written from its user messages; it can be regenerated at any time.
 _Avoid_: name, label
-
-**Desk**:
-What a Session puts out for the Machine to ask it: its live Conversation, a Fork, a new Title, an Ask. A Session's Desk is out for as long as the Session is; a question to a Session that is gone finds no Desk.
-_Avoid_: registry, handle, API (for this)
 
 **Bootstrap Sweep**:
 The startup step that finds Turns the last run of the Machine left running and ends them interrupted.
