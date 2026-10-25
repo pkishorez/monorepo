@@ -1,6 +1,6 @@
 # Kabuki Start serves; the Web Platform decides
 
-Kabuki Start knows nothing of a look, a PWA, a service worker or a deploy: it serves an app from its two entries, `app` and `loaders`, and offers seams to build on, such as each page's Render Mode at build time and the App Shell. The Web Platform is where every kstack app's choices are made, in four modules (`ui`, `pwa`, `recipes`, `app`), and every app is a PWA unless it turns that off. The PWA works out how each page behaves offline from its Render Mode alone (static pages precached, dynamic ones network-first with the last copy, client ones answered by the App Shell) rather than from settings of its own, so a page's offline behaviour cannot disagree with how it is served.
+Kabuki Start knows nothing of a look, a PWA, a service worker or a deploy: it serves an app from its two entries, `app` and `loaders`, and offers seams to build on, such as each page's Render Mode at build time and the App Shell. The Web Platform is where every kestack app's choices are made, in four modules (`ui`, `pwa`, `recipes`, `app`), and every app is a PWA unless it turns that off. The PWA works out how each page behaves offline from its Render Mode alone (static pages precached, dynamic ones network-first with the last copy, client ones answered by the App Shell) rather than from settings of its own, so a page's offline behaviour cannot disagree with how it is served.
 
 ## Considered Options
 

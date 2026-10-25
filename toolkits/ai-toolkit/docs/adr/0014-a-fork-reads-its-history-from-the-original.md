@@ -1,5 +1,7 @@
 # A Fork reads its history from the original
 
+Status: moved to apps/connect/docs/adr/0002
+
 A Fork no longer copies the original Session's Raw. It stores only `forkedFrom: { sessionId, turnId }`, and its transcript is the original's Messages up to that Turn's end followed by its own; a Fork of a Fork reads up the chain. The harness still makes its own native copy of the agent's context (ADR 0011), so the copy we dropped was ours alone and only duplicated what the original already holds. A Fork is listed as a Session of its own, not nested under the original.
 
 ## Considered options

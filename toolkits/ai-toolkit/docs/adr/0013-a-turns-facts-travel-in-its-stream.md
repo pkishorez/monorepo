@@ -1,5 +1,7 @@
 # A Turn's facts travel in its stream
 
+Note: the harness's live handle, called `HarnessSession` when this was written, is now `Agent`, and the engine is the `code` App Group in `@kestack/connect`.
+
 Everything the engine records about a Turn comes from that Turn's own stream, in the order the stream gives it: the agent's records, each steer where the agent took it (`TurnSteered`, with the engine's steer id), and how the Turn ended (`TurnEnd`: status, error, and the Turn's own Fork Point), always last. The engine writes a steer's `turn.started` when it reads its `TurnSteered`, and a steer counts as delivered only if that came; one that did not starts the next Turn. `turn.ended` takes its status and `nativeTurnId` from the `TurnEnd` alone. A stream that fails ends its Turn failed; one that ends without a `TurnEnd` ends it cancelled if a cancel asked for it, failed otherwise.
 
 Steering is bound to a Turn too: `turn(input)` returns a handle, `{ out, steer }`, and so does each Agent-started Turn. A handle's `steer` joins only its own turn, and is refused once that turn has ended or while the agent runs another, so a steer meant for one Turn can never land in the next.
@@ -13,6 +15,6 @@ The harness writes each fact into the stream at the moment it is true: Claude ma
 
 ## Consequences
 
-- `HarnessSession` has no `lastTurnNativeId` and no `steer`: `turn` and `agentTurns` give `TurnHandle`s, whose `out` is `Stream<TurnOut>`, records and facts together, and whose `steer` takes the engine's id.
+- `Agent` has no `lastTurnNativeId` and no `steer`: `turn` and `agentTurns` give `TurnHandle`s, whose `out` is `Stream<TurnOut>`, records and facts together, and whose `steer` takes the engine's id.
 - A steered message always sits before the agent's answer to it, and is never run twice or lost.
 - A harness that cannot say how a turn ended, as when Codex never confirms a cancel, ends the stream with `TurnEnd { cancelled }` itself.

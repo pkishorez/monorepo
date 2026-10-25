@@ -1,6 +1,6 @@
 # code
 
-The local app for running Claude Code and Codex sessions in project folders, on an ai-toolkit server, at code.kishore.computer.
+The app for running Claude Code and Codex sessions in project folders on any of your Machines, through Connect, at code.kishore.app.
 
 ## Big picture
 
@@ -39,7 +39,7 @@ session's messages once its page has been open. A page draws a quiet
 skeleton only for what this device has never synced (a Query's
 `neverSynced`); a missing row is believed only once its Query is Caught
 Up. Every write is a Command an actor asks for of one Machine, through
-`AiClients`.
+`CodeClients`.
 
 The app is one tree of Kabuki Actors, drawn in [docs/kabuki-tree.md](docs/kabuki-tree.md):
 each part reads only what it shows, so a change draws only that part. The
@@ -50,20 +50,20 @@ until it has. Then who is signed in (`src/sign-in/`), with the Account
 Switcher in every header; signed out, only signing in is drawn, and an
 Account signed out of this device takes its Machines' records with it.
 Then the Machine List of the Account (`actors/machine-list/`): the list
-saved here shows first, then the Backend's, asked again on Reload and,
+saved here shows first, then Cloud Connect's, asked again on Reload and,
 while a Machine's Line is not up, every 3 seconds for the first minute and
 every 30 after, until every Line is up. It holds a Line to each Machine
 and watches its Speech to Text, and shares all of it as `Machines`; with
 no Machine, home says how to start one. The root Provides every listed
-Machine's Replicas, whose `Ai` Instances open only for a Machine in the
+Machine's Replicas, whose `CodeReplica` Instances open only for a Machine in the
 list, and each Machine's socket, dialled at its listed address
-(`AiClients`, over `MachineAddress`), so a Machine added opens its
+(`CodeClients`, over `MachineAddress`), so a Machine added opens its
 Instance and one forgotten lets go of it, then its database is deleted.
 Under it: the sidebar (`actors/sidebar/`), the header (`actors/header/`),
 the Pickers, and the Dictation (`actors/dictation/`), which records from
 the microphone (`src/layer/services/recorder/`) and carries on wherever
 the app goes. The project page (`pages/project/`) names its Machine: it
-Provides that Machine's `AiClient` to its session page. A Machine that does not answer keeps what it synced,
+Provides that Machine's `CodeClient` to its session page. A Machine that does not answer keeps what it synced,
 readable, its projects marked by its Last Seen in the sidebar; on its
 pages the header says why, from its Machine Status: downloading
 cloudflared, opening its tunnel, the tunnel failed to open, its tunnel
@@ -89,8 +89,8 @@ the one way a server call ends when refused, `replica/`, the Queries,
 (`src/pages.ts` defines the router), and `connection/`, every Machine as
 the Views see it; and in `src/`, used by the entry files too, `sign-in/`
 and `ui/`, the small parts any feature draws, the Picker and the
-confirmation among them. `src/deploy/` is the server: the infrastructure
-and the Machines API's Worker. A feature that makes a
+confirmation among them. `src/deploy/` is the infrastructure: the
+site's Worker. A feature that makes a
 Picker with `Picker.make` keeps it in its main file and exports it as one
 object, as `ModelPicker.Live`, `ModelPicker.View`; one that owns its
 Picker, as the four of `shell/actors/` do, is an Actor folder with the
@@ -99,15 +99,15 @@ part of the Project Picker's one stack, so Ctrl+H from the home folder
 goes back to the recent projects, and it exports them with how they load
 and how a folder becomes a Project.
 
-Settings lists your Machines from the Backend alone, at once, each in its
+Settings lists your Machines from Cloud Connect alone, at once, each in its
 own section with when it was last seen and how its tunnel stands, then
 its own settings, read from the Machine itself on their own: one that does
 not answer says so in its section. Its Speech to Text switch follows the
 Machine live: off; downloading, with how much of the model is in; ready;
 or failed, saying why, with a retry. On, the Machine downloads the model
-and keeps the wish; off deletes the model. Forget asks first, then the Backend
+and keeps the wish; off deletes the model. Forget asks first, then Cloud Connect
 forgets it, it leaves the list, and this device deletes its records.
-Outside Local mode, a link goes to the Auth Worker's Home Page to revoke
+A link goes to the Auth Worker's Home Page to revoke
 a Machine's Sign-in outright.
 
 `o` opens the Project Picker: first the Machine, a Step skipped while
@@ -133,7 +133,7 @@ Stop the turn while one runs, each with its keys as bound.
 
 At its top the sidebar (`src/shell/actors/sidebar/`) has the Machine
 Filter, every Machine or one, kept in this browser, and Reload, which asks
-the Backend for the Machines again; only the Machines shown are synced
+Cloud Connect for the Machines again; only the Machines shown are synced
 there. It lists their projects as one list, the most recently active first (a turn started or a session
 made, never viewing, so the order holds while you browse), each a small
 muted heading over its unsettled sessions, flat and dense; after a
@@ -316,23 +316,25 @@ version waits for "Reload" instead of reloading under you.
 
 ## Usage
 
-### Run a Machine and the app
+### Run the app on this branch's Connect
 
-Start this branch's Connect, then the app beside it, and sign in: the
-Machine signs in as you, reports itself to Cloud Connect every 15 seconds,
-and shows up in the app.
+`pnpm dev` makes sure this branch's Connect runs, starting it or reusing
+the one another App started, then runs the site against it. Sign in, and
+the branch's Machine shows up in the app; it reports itself to Cloud
+Connect every 15 seconds.
 
 ```sh
-pnpm --filter @kestack/connect dev   # Cloud Connect and a Machine; the Device Screen once
-pnpm --filter code dev               # the site, signing in with https://auth.kishore.computer
-pnpm --filter code deploy            # your own stage, at its workers.dev URLs
-pnpm --filter code deploy:prod       # ALLOW_DEPLOY=true: code.kishore.app
+pnpm --filter code dev           # this branch's Connect, then the site; the Device Screen on a new branch
+pnpm --filter code deploy        # your own stage, at its workers.dev URLs
+pnpm --filter code deploy:prod   # ALLOW_DEPLOY=true: code.kishore.app
 ```
 
-- `pnpm dev` runs `alchemy dev` (`alchemy.run.ts`, `src/deploy/infra/`)
-  through Portless, the site at `https://code.kishore.computer` (the
-  branch in front in a linked git worktree), handed the branch's Cloud
-  Connect in `CONNECT_URL`, as Portless names it.
+- `pnpm dev` calls `withConnect` from `@kestack/connect/dev`
+  ([Connect in development](../connect/docs/dev.md)), then runs
+  `alchemy dev` (`alchemy.run.ts`, `src/deploy/infra/`) through Portless,
+  the site at `https://code.kishore.computer` (the branch in front in a
+  linked git worktree), handed the branch's Cloud Connect in
+  `CONNECT_URL`. Connect stops once no App on the branch runs.
 - The site gets `VITE_AUTH_URL` and `VITE_CONNECT_URL`. A deployed stage
   uses `https://connect.kishore.app`, where your Machines are.
 - With no Machine, home says what to run; each Machine that signs in

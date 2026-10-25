@@ -10,7 +10,7 @@ Accepted. Amends [ADR 0014](./0014-first-party-apps-may-switch-and-act-as-an-acc
 
 ## Context
 
-ADR 0014 left adding and signing out accounts on the Auth Worker's pages. kstack's Ledger sent its users to a new tab for the two things they came to its User Switcher for, which they found worse than doing it in place (kstack ADR 0004).
+ADR 0014 left adding and signing out accounts on the Auth Worker's pages. kestack's Ledger sent its users to a new tab for the two things they came to its User Switcher for, which they found worse than doing it in place (kestack ADR 0004).
 
 ## Decision
 

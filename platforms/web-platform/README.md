@@ -1,10 +1,10 @@
 # @kestack/web-platform
 
-The way to build a kstack app on Kabuki Start in one go: its UI, its PWA, Recipes for whole features, and the app's Document and deploy.
+The way to build a kestack app on Kabuki Start in one go: its UI, its PWA, Recipes for whole features, and the app's Document and deploy.
 
 ## Big picture
 
-Every kstack web app used to wire the same things by hand: the Document, the Theme, the PWA, the screens and the deploy. This Package holds them for apps on Kabuki Start, so a new app writes only its pages. Kabuki Start serves the app and knows none of this; the Web Platform is where the choices are made ([ADR 0010](../../docs/adr/0010-kabuki-start-serves-the-web-platform-decides.md)). It replaces `@kestack/ui-toolkit` and `@kestack/pwa-toolkit`.
+Every kestack web app used to wire the same things by hand: the Document, the Theme, the PWA, the screens and the deploy. This Package holds them for apps on Kabuki Start, so a new app writes only its pages. Kabuki Start serves the app and knows none of this; the Web Platform is where the choices are made ([ADR 0010](../../docs/adr/0010-kabuki-start-serves-the-web-platform-decides.md)). It replaces `@kestack/ui-toolkit` and `@kestack/pwa-toolkit`.
 
 It has four modules, each depending only on the ones before it:
 
@@ -376,9 +376,9 @@ The Account Switcher of a Kabuki app: a Child of the root page, its View in the 
 
 ### `@kestack/web-platform/app/vite`
 
-| Export | What it does                                                                                                                                           |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `app`  | Every Vite plugin a kstack app needs: Tailwind, React, Kabuki Start and the PWA (`pwa: false` for none), with the Web Platform bundled for the server. |
+| Export | What it does                                                                                                                                            |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app`  | Every Vite plugin a kestack app needs: Tailwind, React, Kabuki Start and the PWA (`pwa: false` for none), with the Web Platform bundled for the server. |
 
 ### `@kestack/web-platform/app/document`
 
@@ -399,7 +399,7 @@ The Account Switcher of a Kabuki app: a Child of the root page, its View in the 
 
 ## Usage
 
-### A kstack app
+### A kestack app
 
 An app writes its Vite config, its `src/app.tsx` and its `alchemy.run.ts`; the Web Platform gives the rest, and the app is a PWA. Lifted from `apps/code`.
 

@@ -4,6 +4,12 @@ ai-toolkit is a local, long-running server that runs Claude Code and Codex
 sessions in project folders. Any app talks to it over one WebSocket RPC API.
 `apps/code` (code.kishore.computer) is the first such app. Local only, no auth.
 
+That was v1. Since root ADR 0011, ai-toolkit runs the Coding Harnesses and
+nothing more: the stored records, the engine and the API below are now the
+`code` App Group of [`@kestack/connect`](../../../apps/connect/README.md),
+which keeps them in its Store and serves them on its Machine's socket. Raw,
+Message and the projection still hold here as written.
+
 ## The mental model
 
 Two records, one rule.
@@ -86,6 +92,8 @@ server is local and fast), so a projection change never leaves a stale copy.
 
 ## Records the engine owns (stored)
 
+Kept by Connect's `code` App Group, in its Store.
+
 ```
 Project { id, path, name, createdAt }            name = folder name
 Session { id, projectId, harness, model, settings, title, status, nativeId?,
@@ -98,12 +106,12 @@ Session { id, projectId, harness, model, settings, title, status, nativeId?,
 interface Harness {
   name: 'claude' | 'codex'
   settings: Setting[]        // agent-specific settings, each with a default
-  open(config: { cwd, model, settings, nativeId? }) -> HarnessSession
+  open(config: { cwd, model, settings, nativeId? }) -> Agent
   project(raw) -> Message | null
   availableModels?: Effect<{ id, name?, isDefault? }[]>  // what this login runs
 }
 
-interface HarnessSession {
+interface Agent {
   nativeId                   // to resume after a restart
   turn(text) -> Stream<{ kind, payload }>   // ends when the agent is idle
   steer(text) -> Effect      // a message while a turn runs; same turn
@@ -123,12 +131,15 @@ interface HarnessSession {
   Codex: `item/started` for tool-like items, `item/completed`, `turn/completed`,
   token usage).
 
-Session titles: after the first user message, one-shot Codex with model
-`gpt-6-luna` (or the account's newest luna model), a short title, written to the Session. Failure leaves the first
+Session titles: after the first user message, Connect asks a One-shot Prompt
+(`codexOneShot`: Codex with model
+`gpt-6-luna`, or the account's newest luna model) for a short title, written to the Session. Failure leaves the first
 line of the message as the title.
 
 ## Engine (Kabuki, server-side, no drawing)
 
+Now Connect's: `actor-code` -> `actor-session` (each), drawn in
+[Connect's kabuki-tree.md](../../../apps/connect/docs/kabuki-tree.md). In v1:
 Host -> Project (each) -> Session (each) -> Turn (while running).
 
 - `sendMessage` to an idle Session starts a Turn: writes `turn.started` Raw,
@@ -140,6 +151,8 @@ Host -> Project (each) -> Session (each) -> Turn (while running).
   goes idle. The next message resumes the agent by `nativeId`.
 
 ## API (rpc-toolkit WebSocket, one group)
+
+Now Connect's `CodeApi`, from `@kestack/connect/code`.
 
 Commands: `harnesses`, `models { harness }`, `addProject { path }`,
 `removeProject { id }`, `startSession { projectId, harness, model, settings, text }`,
@@ -166,4 +179,4 @@ importing existing sessions, sync priority between feeds.
 Forking came after v1, without breaking the rule above: a Fork stores only
 `forkedFrom: { sessionId, turnId }` and none of the original's Raw. Its
 transcript is the original's Messages up to that Turn's `turnEnded`, then
-its own (ADR 0011, ADR 0014).
+its own (ADR 0011, and ADR 0014, now Connect's ADR 0002).

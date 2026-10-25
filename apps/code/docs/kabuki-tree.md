@@ -2,7 +2,7 @@
 
 `code` runs Claude Code and Codex Sessions in Projects, on every Machine of
 the signed-in Account at once. Its root is a Page, drawn only in the
-browser. The app Layer gives it the Accounts, the Machines Backend client,
+browser. The app Layer gives it the Accounts, the Cloud Connect client,
 the Replica Store, Device State, the saved Machine Lists, `Machines`, the
 Recorder and `Dictations`. Each Actor reads only what it shows, so a change
 draws only the part that shows it.

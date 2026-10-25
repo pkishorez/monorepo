@@ -10,7 +10,7 @@ Accepted. Amends [ADR 0012](./0012-account-switch-is-browser-wide.md). Amended b
 
 ## Context
 
-ADR 0012 kept the Account Switch on the Auth Worker's pages and let every First-Party web app see only the Active Account, because letting a Consumer Backend pick its own account seemed to need a new credential shape. It does not: the Auth Worker already runs Better Auth's `bearer` plugin, `list-device-sessions` already returns each Signed-in Account's Session token, and Server-Side Verification already forwards an `authorization` header instead of the cookie. A First-Party app that keeps a local copy per User (kstack's Ledger) cannot rely on the cookie alone: a switch in another tab changes the User under its background sync, and one User's data lands in another's copy.
+ADR 0012 kept the Account Switch on the Auth Worker's pages and let every First-Party web app see only the Active Account, because letting a Consumer Backend pick its own account seemed to need a new credential shape. It does not: the Auth Worker already runs Better Auth's `bearer` plugin, `list-device-sessions` already returns each Signed-in Account's Session token, and Server-Side Verification already forwards an `authorization` header instead of the cookie. A First-Party app that keeps a local copy per User (kestack's Ledger) cannot rely on the cookie alone: a switch in another tab changes the User under its background sync, and one User's data lands in another's copy.
 
 ## Decision
 

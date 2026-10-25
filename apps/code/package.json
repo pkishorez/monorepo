@@ -1,7 +1,7 @@
 {
   "name": "code",
   "version": "0.0.0",
-  "description": "The local app for running Claude Code and Codex sessions in project folders, on an ai-toolkit server, at code.kishore.computer.",
+  "description": "The app for running Claude Code and Codex sessions in project folders on any of your Machines, through Connect, at code.kishore.app.",
   "private": true,
   "type": "module",
   "sideEffects": false,

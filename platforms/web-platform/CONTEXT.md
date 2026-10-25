@@ -1,6 +1,6 @@
 # Web Platform
 
-The way to build a kstack app on Kabuki Start, in one go: a PWA by default, with its Theme, and the look, input, components and Recipes to build its screens. Kabuki Start serves the app and knows nothing of these; the Web Platform is where they are decided.
+The way to build a kestack app on Kabuki Start, in one go: a PWA by default, with its Theme, and the look, input, components and Recipes to build its screens. Kabuki Start serves the app and knows nothing of these; the Web Platform is where they are decided.
 
 ## Language
 

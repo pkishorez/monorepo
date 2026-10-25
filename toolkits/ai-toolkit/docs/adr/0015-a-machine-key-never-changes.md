@@ -1,8 +1,10 @@
 ---
-status: accepted
+status: moved to apps/connect/docs/adr/0003
 ---
 
 # A Machine Key never changes
+
+Status: moved to apps/connect/docs/adr/0003
 
 A Machine is reached through a public tunnel address, and a browser cannot carry its Sign-in there: its cookie only reaches the Shared Cookie Domain, and browsers never hold tokens (auth-toolkit ADR 0019). So a Machine accepts a caller by its Machine Key instead, a secret it makes once, keeps with its own records, and lists for its User alongside its address. The key never rotates, and a lost or leaked key is lost for good. A browser sends it in the `Sec-WebSocket-Protocol` header, the one header page code may set on a WebSocket, so it stays out of URLs and most logs. We chose this for simplicity, knowing it is the weakest option.
 

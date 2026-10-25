@@ -23,7 +23,7 @@ import { Engine } from './engine/index.js';
 import { Speech } from '@kestack/ai-toolkit/speech';
 import { Harnesses, Models } from '@kestack/ai-toolkit/harness';
 import { JsonSchema } from '@kestack/ai-toolkit/contract';
-import * as Read from './read/index.js';
+import * as Read from './feeds.js';
 
 /*
  * The API's handlers. Commands go to the Engine, which hands them to its
