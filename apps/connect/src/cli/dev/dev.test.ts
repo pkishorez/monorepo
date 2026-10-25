@@ -6,6 +6,7 @@ import {
   utimesSync,
   writeFileSync,
 } from 'node:fs';
+import { connect, type Socket } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -95,6 +96,30 @@ describe('withLock', () => {
         timeoutMs: 1000,
       }),
     ).toBe('taken');
+  });
+
+  it('takes a port outside the ranges the OS hands out for port 0', () => {
+    for (const port of [lockPort(dir), lockPort('/a'), lockPort('/b')]) {
+      expect(port).toBeGreaterThanOrEqual(20_000);
+      expect(port).toBeLessThan(30_000);
+    }
+  });
+
+  it('gives the lock back promptly while a client is connected to it', async () => {
+    let client: Socket | undefined;
+    const started = Date.now();
+    const result = await withLock(dir, async () => {
+      const socket = connect(lockPort(dir), '127.0.0.1');
+      client = socket;
+      socket.on('error', () => {});
+      await new Promise((resolve) => socket.once('connect', resolve));
+      socket.write('hello');
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return 'done';
+    });
+    expect(result).toBe('done');
+    expect(Date.now() - started).toBeLessThan(1000);
+    client?.destroy();
   });
 
   it('names the port when it gives up', async () => {
