@@ -5,6 +5,7 @@ import type {
   Machine as MachineSchema,
   SpeechToTextState,
 } from '@kestack/connect/code';
+import type { Gone } from './gone.ts';
 
 /*
  * The last list of Machines each Account was given on this device, so the
@@ -49,19 +50,7 @@ export class SavedMachines extends Context.Service<
       machineId: string,
       settings: Partial<SavedSettings>,
     ) => Effect.Effect<void>;
-    /** Deletes a forgotten Machine's settings. */
-    readonly dropMachine: (
-      accountId: string,
-      machineId: string,
-    ) => Effect.Effect<void>;
-    /** Keeps the settings of the Machines listed for the Account, and deletes the rest of its. */
-    readonly keepMachines: (
-      accountId: string,
-      machineIds: ReadonlyArray<string>,
-    ) => Effect.Effect<void>;
-    /** Keeps the settings of the Accounts given, and deletes every other's. */
-    readonly keepAccounts: (
-      accountIds: ReadonlyArray<string>,
-    ) => Effect.Effect<void>;
+    /** Deletes the settings of every Machine that went; a Project is none of its. */
+    readonly drop: (gone: Gone) => Effect.Effect<void>;
   }
 >()('code/SavedMachines') {}

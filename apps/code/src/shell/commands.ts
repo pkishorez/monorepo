@@ -2,11 +2,10 @@ import { Effect, Queue, Schema } from 'effect';
 import { Accounts } from '@kestack/auth-toolkit/client';
 import { Command } from '@kestack/kabuki';
 import {
-  AccountReplicas,
   Ask,
   DeviceState,
   Dictations,
-  SavedDrafts,
+  dropEverywhere,
   SavedMachines,
 } from '../layer/capabilities/index.ts';
 
@@ -43,12 +42,7 @@ export const keepAccounts = Command.make('KeepAccounts', {
       yield* Effect.forEach(signedOut, (id) => saved.write(id, []), {
         discard: true,
       });
-      yield* (yield* AccountReplicas).keepAccounts(accountIds);
-      yield* saved.keepAccounts(accountIds);
-      yield* (yield* SavedDrafts).drop({
-        _tag: 'SignedOut',
-        signedIn: accountIds,
-      });
+      yield* dropEverywhere({ _tag: 'SignedOut', signedIn: accountIds });
     }),
 });
 

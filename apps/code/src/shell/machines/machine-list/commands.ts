@@ -2,8 +2,7 @@ import { Effect, Schema } from 'effect';
 import { CloudClient, Machine } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
 import {
-  AccountReplicas,
-  SavedDrafts,
+  dropEverywhere,
   SavedMachines,
 } from '../../../layer/capabilities/index.ts';
 import { problemOf } from './api.ts';
@@ -39,45 +38,19 @@ export const forget = Command.make('ForgetMachine', {
     ),
 });
 
-/** A forgotten Machine's records and settings go, and no other's, once it has left the list. */
+/** A forgotten Machine's records, settings and Saved Drafts go, and no other's, once it has left the list. */
 export const drop = Command.make('DropMachineRecords', {
   args: Schema.Struct({ accountId: Schema.String, id: Schema.String }),
   run: ({ accountId, id }) =>
-    Effect.flatMap(AccountReplicas, (replicas) =>
-      replicas.dropMachine(accountId, id),
-    ).pipe(
-      Effect.andThen(
-        Effect.flatMap(SavedDrafts, (saved) =>
-          saved.drop({ _tag: 'Machine', accountId, machineId: id }),
-        ),
-      ),
-      Effect.andThen(
-        Effect.flatMap(SavedMachines, (saved) =>
-          saved.dropMachine(accountId, id),
-        ),
-      ),
-    ),
+    dropEverywhere({ _tag: 'Machine', accountId, machineId: id }),
 });
 
-/** Keeps the records and settings of the Machines listed for the Account, and deletes the rest. */
+/** Keeps the records, settings and Saved Drafts of the Machines listed for the Account, and deletes the rest. */
 export const keep = Command.make('KeepMachineRecords', {
   args: Schema.Struct({
     accountId: Schema.String,
     machineIds: Schema.Array(Schema.String),
   }),
   run: ({ accountId, machineIds }) =>
-    Effect.flatMap(AccountReplicas, (replicas) =>
-      replicas.keepMachines(accountId, machineIds),
-    ).pipe(
-      Effect.andThen(
-        Effect.flatMap(SavedDrafts, (saved) =>
-          saved.drop({ _tag: 'Unlisted', accountId, listed: machineIds }),
-        ),
-      ),
-      Effect.andThen(
-        Effect.flatMap(SavedMachines, (saved) =>
-          saved.keepMachines(accountId, machineIds),
-        ),
-      ),
-    ),
+    dropEverywhere({ _tag: 'Unlisted', accountId, listed: machineIds }),
 });

@@ -1,6 +1,7 @@
 import { Context, Schema } from 'effect';
 import type { Effect } from 'effect';
 import { AttachmentSchema } from '@kestack/connect/code';
+import type { Gone } from './gone.ts';
 
 /*
  * Saved Drafts: the Draft as last written, kept on this device for each
@@ -67,30 +68,6 @@ export interface Kept {
   readonly draft: SavedDraft;
   readonly revision: number;
 }
-
-/** What goes, at once: a Project removed, a Machine forgotten or no longer listed, an Account signed out. */
-export type Gone =
-  | {
-      readonly _tag: 'Project';
-      readonly machineId: string;
-      readonly projectId: string;
-    }
-  | {
-      readonly _tag: 'Machine';
-      readonly accountId: string;
-      readonly machineId: string;
-    }
-  | {
-      readonly _tag: 'Unlisted';
-      readonly accountId: string;
-      /** The Account's Machines still listed: every other's go. */
-      readonly listed: ReadonlyArray<string>;
-    }
-  | {
-      readonly _tag: 'SignedOut';
-      /** The Accounts still signed in: every other's go. */
-      readonly signedIn: ReadonlyArray<string>;
-    };
 
 /** The Capability that keeps each place's Saved Draft, for the Account named. */
 export class SavedDrafts extends Context.Service<

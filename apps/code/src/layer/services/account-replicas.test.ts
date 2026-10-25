@@ -69,7 +69,7 @@ describe('Account Replicas', () => {
 
     await run(
       Effect.flatMap(AccountReplicas, (replicas) =>
-        replicas.keepMachines('a1', ['m1']),
+        replicas.drop({ _tag: 'Unlisted', accountId: 'a1', listed: ['m1'] }),
       ),
     );
     expect(await names()).toEqual([
@@ -82,7 +82,7 @@ describe('Account Replicas', () => {
 
     await run(
       Effect.flatMap(AccountReplicas, (replicas) =>
-        replicas.keepAccounts(['a1', 'a2']),
+        replicas.drop({ _tag: 'SignedOut', signedIn: ['a1', 'a2'] }),
       ),
     );
     expect(await names()).toEqual([
@@ -110,7 +110,7 @@ describe('Account Replicas', () => {
         );
         yield* Deferred.await(opened);
         yield* Effect.flatMap(AccountReplicas, (replicas) =>
-          replicas.keepAccounts(['a1', 'a2']),
+          replicas.drop({ _tag: 'SignedOut', signedIn: ['a1', 'a2'] }),
         );
         yield* Fiber.join(other).pipe(Effect.timeout('1 second'));
       }),
@@ -123,7 +123,7 @@ describe('Account Replicas', () => {
     await create(`replica:a5:${CodeReplica.instanceName('m6')}`);
     await run(
       Effect.flatMap(AccountReplicas, (replicas) =>
-        replicas.dropMachine('a5', 'm5'),
+        replicas.drop({ _tag: 'Machine', accountId: 'a5', machineId: 'm5' }),
       ),
     );
     const left = await names();

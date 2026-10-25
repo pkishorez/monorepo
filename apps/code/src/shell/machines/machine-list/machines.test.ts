@@ -118,11 +118,12 @@ const world = (
         Effect.sync(() => void forgotten.push(id)),
     } as never),
     Layer.succeed(AccountReplicas, {
-      keepMachines: (accountId, machineIds) =>
-        Effect.sync(() => void kept.push({ accountId, machineIds })),
-      keepAccounts: () => Effect.void,
-      dropMachine: (_, machineId) =>
-        Effect.sync(() => void dropped.push(machineId)),
+      drop: (gone) =>
+        Effect.sync(() => {
+          if (gone._tag === 'Unlisted')
+            kept.push({ accountId: gone.accountId, machineIds: gone.listed });
+          if (gone._tag === 'Machine') dropped.push(gone.machineId);
+        }),
     }),
     Layer.mock(SavedDrafts)({ drop: () => Effect.void }),
   );

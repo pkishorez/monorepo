@@ -31,7 +31,7 @@ import {
  *
  * 1. Keep    a list or a Machine's settings replaces its row, or makes it.
  * 2. Prune   a Machine forgotten or no longer listed, an Account signed
- *            out: its settings rows are deleted.
+ *            out: its settings rows are deleted. A Project has none.
  */
 
 // Kept as JSON: a Machine's numbers, and a download's, are plain
@@ -198,17 +198,26 @@ const make = (layer: Layer.Layer<StdTableService<typeof TABLE>>) => {
         Effect.provide(layer),
         Effect.ignore,
       ),
-    dropMachine: (accountId, machineId) =>
-      prune(
-        (row) => row.accountId === accountId && row.machineId === machineId,
-      ),
-    keepMachines: (accountId, machineIds) =>
-      prune(
-        (row) =>
-          row.accountId === accountId && !machineIds.includes(row.machineId),
-      ),
-    keepAccounts: (accountIds) =>
-      prune((row) => !accountIds.includes(row.accountId)),
+    drop: (gone) => {
+      switch (gone._tag) {
+        case 'Project':
+          return Effect.void;
+        case 'Machine':
+          return prune(
+            (row) =>
+              row.accountId === gone.accountId &&
+              row.machineId === gone.machineId,
+          );
+        case 'Unlisted':
+          return prune(
+            (row) =>
+              row.accountId === gone.accountId &&
+              !gone.listed.includes(row.machineId),
+          );
+        case 'SignedOut':
+          return prune((row) => !gone.signedIn.includes(row.accountId));
+      }
+    },
   });
 };
 
