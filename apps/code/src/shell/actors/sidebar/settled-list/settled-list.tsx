@@ -1,15 +1,11 @@
 import type { Project, Session } from '@kestack/connect/code';
 import { Router } from '@kestack/kabuki/routing';
-import {
-  ArchiveRestoreIcon,
-  ChevronLeftIcon,
-} from '@kestack/web-platform/ui/components/lucide';
+import { ArchiveRestoreIcon } from '@kestack/web-platform/ui/components/lucide';
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@kestack/web-platform/recipes/frame';
-import { type PointerEvent, useRef } from 'react';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import { useBound } from '../../../../keys.ts';
 import * as routes from '../../../routes/index.ts';
@@ -22,13 +18,8 @@ import { SwipeToMove } from '../swipe/index.ts';
  * Un-settles it, which puts it back in the timeline. With no keyboard a row
  * swipes right to left to un-Settle instead, and its button is only heard,
  * by a screen reader, which cannot swipe it. "Settled", last in the
- * timeline, opens it in its place; "Recent" at its top goes back, as does
- * a swipe left to right anywhere on it.
+ * timeline, opens it under itself, and closes it again.
  */
-
-// How far a finger goes left to right, and how little up or down, to go back.
-const BACK_PX = 72;
-const STRAY_PX = 40;
 
 /** The Settled Sessions, the most recently Settled first, with their Project's name. */
 export const settledOf = (
@@ -61,7 +52,6 @@ export function SettledList({
   at,
   onUnsettle,
   onMove,
-  onClose,
 }: {
   readonly listed: ReadonlyArray<Listed>;
   /** The Session open, if one is, by its Machine and id. */
@@ -71,47 +61,12 @@ export function SettledList({
   readonly onUnsettle: (machineId: string, sessionId: string) => void;
   /** A Session swiped to un-Settle it. */
   readonly onMove: (session: OnMachine<Session>, settled: boolean) => void;
-  readonly onClose: () => void;
 }) {
   const settle = useBound('app.actions');
   // With no keyboard a row swipes to un-Settle; its button is only heard.
   const { keyboard } = useDevice();
-  // A swipe left to right on the list goes back to the timeline.
-  const press = useRef<{ x: number; y: number } | null>(null);
-  const down = (event: PointerEvent) => {
-    press.current =
-      event.pointerType === 'touch'
-        ? { x: event.clientX, y: event.clientY }
-        : null;
-  };
-  const up = (event: PointerEvent) => {
-    const from = press.current;
-    press.current = null;
-    if (
-      from !== null &&
-      event.clientX - from.x > BACK_PX &&
-      Math.abs(event.clientY - from.y) < STRAY_PX
-    )
-      onClose();
-  };
   return (
-    <div
-      onPointerDown={down}
-      onPointerUp={up}
-      onPointerCancel={() => (press.current = null)}
-      className="flex flex-col"
-    >
-      <button
-        type="button"
-        onClick={onClose}
-        className="focus-ring flex h-11 items-center gap-1 self-start rounded-lg pr-3 pl-1.5 text-[15px] text-muted-foreground transition-colors duration-150 hover:text-sidebar-foreground keyboard:md:h-7 keyboard:md:text-[13px] motion-reduce:transition-none"
-      >
-        <ChevronLeftIcon aria-hidden className="size-4.5" />
-        Recent
-      </button>
-      <h2 className="px-3 pt-1 pb-2 text-[13px] font-medium text-muted-foreground keyboard:md:text-xs">
-        Settled
-      </h2>
+    <div className="flex flex-col">
       <div>
         {listed.length === 0 ? (
           <p className="px-3 py-1.5 text-[15px] text-pretty text-muted-foreground keyboard:md:text-xs">
