@@ -9,13 +9,14 @@ import {
 } from 'effect';
 import type { Machine as MachineSchema } from '@kestack/connect/code';
 import {
+  addressOf,
   type Known,
   Link,
   Machines,
   nobody,
   type Request,
+  socketUrl,
 } from '../capabilities/index.ts';
-import { addressOf, socketUrl } from '../machine-health/index.ts';
 
 type Machine = typeof MachineSchema.Type;
 

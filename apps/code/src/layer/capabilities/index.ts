@@ -16,3 +16,14 @@ export {
 export { SavedMachines } from './saved-machines.ts';
 export { Ask, Dictations } from './dictations.ts';
 export { AccountReplicas } from './account-replicas.ts';
+export {
+  addressOf,
+  type Connection,
+  DOWN_AFTER,
+  type Health,
+  HEARTBEAT,
+  health,
+  outOfReach,
+  socketUrl,
+  statusOf,
+} from './machine-health.ts';
