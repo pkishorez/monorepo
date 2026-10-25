@@ -161,7 +161,7 @@ const Models = Picker.make('ModelPicker', {
       empty: () => 'No agent by that name',
       rows: ({ props: { catalog, current } }) => ({
         rows: (catalog.harnesses ?? []).map(
-          ({ account, label, available, unavailableReason }) => ({
+          ({ account, name: label, available, unavailableReason }) => ({
             value: account,
             label,
             checked: account === current.account,
@@ -180,7 +180,7 @@ const Models = Picker.make('ModelPicker', {
     },
     model: {
       placeholder: ({ key, props }) =>
-        `Search ${Catalog.harnessOf(props.catalog, key)?.label ?? ''} models`,
+        `Search ${Catalog.harnessOf(props.catalog, key)?.name ?? ''} models`,
       empty: () => 'No model by that name',
       rows: ({ key, props: { catalog, current } }) => {
         const read = Catalog.modelsOf(catalog, key);
@@ -264,7 +264,7 @@ export const ModelPicker = {
       step: 'agent',
       key: '',
       value: current.account,
-      label: harness?.label ?? current.account,
+      label: harness?.name ?? current.account,
     };
     const model = modelFor(catalog, current, current.account) ?? '';
     const named =
@@ -417,13 +417,13 @@ export function Triggers({
         trigger={
           <button
             type="button"
-            aria-label={`Model: ${started ? '' : `${harness.label}, `}${name}`}
+            aria-label={`Model: ${started ? '' : `${harness.name}, `}${name}`}
             title={modelKeys === null ? 'Model' : `Model (${modelKeys})`}
             className={trigger}
           >
             {!started && (
               <span className="hidden shrink-0 text-muted-foreground/80 @sm/status:inline">
-                {harness.label}
+                {harness.name}
               </span>
             )}
             <span className="truncate text-foreground/90">{name}</span>
@@ -526,13 +526,13 @@ export function Chip({
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={`Model and settings: ${started ? '' : `${harness.label}, `}${words}`}
+        aria-label={`Model and settings: ${started ? '' : `${harness.name}, `}${words}`}
         onClick={() => setOpen(true)}
         className="focus-ring flex h-11 min-w-0 items-center rounded-full px-3 text-left transition-colors duration-150 active:bg-muted aria-expanded:bg-muted motion-reduce:transition-none"
       >
         <span className="flex min-w-0 flex-col">
           <span className="truncate text-sm leading-4.5 font-medium text-foreground/90">
-            {shortName(name, harness.label)}
+            {shortName(name, harness.name)}
           </span>
           {settings.length > 0 && (
             <span className="truncate text-xs leading-4 text-muted-foreground">
@@ -556,7 +556,7 @@ export function Chip({
           {!started && (
             <OpenRow
               label="Agent"
-              value={harness.label}
+              value={harness.name}
               onOpen={() => pick('agent')}
             />
           )}

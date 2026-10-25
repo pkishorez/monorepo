@@ -1,21 +1,13 @@
 import { execFile } from 'node:child_process';
-import { Effect } from 'effect';
+import { Effect, Schema } from 'effect';
 import {
   HarnessError,
   type AskAnswer,
   type AskInput,
   type ForkInput,
 } from '../../contract/index.js';
-import { askOptions, runAsk, toAnswer } from './ask.js';
+import { askOptions, runAsk, toAnswer, type Launch } from './ask.js';
 import { readTranscript, resolveEntry } from './transcript.js';
-
-/** The Claude Code to run, and the environment it runs in. */
-interface Launch {
-  readonly path: string;
-  readonly env: NodeJS.ProcessEnv;
-  /** Its config folder; undefined for Claude Code's own default. */
-  readonly home: string | undefined;
-}
 
 /*
  * The SDK's `forkSession` runs in this process and finds transcripts from
@@ -28,6 +20,24 @@ const { forkSession } = await import(sdk);
 const forked = await forkSession(sessionId, JSON.parse(options));
 process.stdout.write(JSON.stringify(forked));
 `;
+
+const Forked = Schema.Struct({ sessionId: Schema.String });
+
+/** The new session the child printed. */
+const readForked = (stdout: string) =>
+  Effect.try({
+    try: () => JSON.parse(stdout) as unknown,
+    catch: (cause) => cause,
+  }).pipe(
+    Effect.flatMap(Schema.decodeUnknownEffect(Forked)),
+    Effect.mapError(
+      (cause) =>
+        new HarnessError({
+          message: 'Claude Code did not say which session it forked',
+          cause,
+        }),
+    ),
+  );
 
 const forkSession = (
   sessionId: string,
@@ -49,7 +59,7 @@ const forkSession = (
       (error, stdout, stderr) =>
         resume(
           error === null
-            ? Effect.succeed(JSON.parse(stdout) as { sessionId: string })
+            ? readForked(stdout)
             : Effect.fail(
                 new HarnessError({
                   message: 'Claude Code did not fork',
@@ -68,11 +78,11 @@ const forkSession = (
  */
 export const fork = (
   input: ForkInput,
-  executable: Launch,
+  launch: Launch,
 ): Effect.Effect<{ readonly nativeId: string }, HarnessError> =>
   Effect.gen(function* () {
     const read = (sessionId: string) =>
-      readTranscript(sessionId, executable.home);
+      readTranscript(sessionId, launch.configFolder);
     const upTo =
       input.at === undefined
         ? undefined
@@ -90,7 +100,7 @@ export const fork = (
         dir: input.cwd,
         ...(upTo === undefined ? {} : { upToMessageId: upTo }),
       },
-      executable.env,
+      launch.env,
     );
     return { nativeId: forked.sessionId };
   });
@@ -98,13 +108,13 @@ export const fork = (
 /** Answers a question from a session's context in a fork never kept. */
 export const ask = (
   input: AskInput,
-  executable: Launch,
+  launch: Launch,
 ): Effect.Effect<AskAnswer, HarnessError> =>
   Effect.tryPromise({
     try: (signal) => {
       const abort = new AbortController();
       signal.addEventListener('abort', () => abort.abort());
-      return runAsk(input, askOptions(input, executable, abort));
+      return runAsk(input, askOptions(input, launch, abort));
     },
     catch: (cause) =>
       new HarnessError({ message: 'Claude Code did not answer', cause }),

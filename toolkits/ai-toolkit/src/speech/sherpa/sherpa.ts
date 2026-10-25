@@ -1,5 +1,4 @@
-import { execFile } from 'node:child_process';
-import { access, mkdir, rename, rm, stat } from 'node:fs/promises';
+import { mkdir, rename, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Effect, Layer } from 'effect';
 import {
@@ -7,9 +6,14 @@ import {
   SpeechToTextError,
   type Fetched,
 } from '../contract/index.js';
-import { download } from './download.js';
+import { download, exists, untar } from './download.js';
 import { loadRecognizer, MODEL_FILES } from './recognizer.js';
-import { installRuntime, NPM_REGISTRY, runtimeInstalled } from './runtime.js';
+import {
+  installRuntime,
+  NPM_REGISTRY,
+  requireSherpa,
+  runtimeInstalled,
+} from './runtime.js';
 
 /*
  * Speech to Text with sherpa-onnx and NVIDIA's Parakeet TDT 0.6b v2, int8
@@ -37,30 +41,6 @@ export const PARAKEET_URL =
   'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2';
 
 const TARBALL = 'model.tar.bz2';
-
-const exists = (path: string) =>
-  Effect.promise(() =>
-    access(path).then(
-      () => true,
-      () => false,
-    ),
-  );
-
-/** Unpacks the tarball's one top folder into `folder`; why it failed, or null. */
-const unpack = (tarball: string, folder: string) =>
-  Effect.callback<string | null>((resume) => {
-    const child = execFile(
-      'tar',
-      ['-xjf', tarball, '-C', folder, '--strip-components=1'],
-      (error, _stdout, stderr) =>
-        resume(
-          Effect.succeed(
-            error === null ? null : stderr.trim() || error.message,
-          ),
-        ),
-    );
-    return Effect.sync(() => void child.kill());
-  });
 
 const installed = (folder: string) =>
   Effect.gen(function* () {
@@ -138,7 +118,7 @@ const fromTarball = (
   Effect.gen(function* () {
     const tarball = join(folder, TARBALL);
     yield* download(url, tarball, progress);
-    const why = yield* unpack(tarball, folder);
+    const why = yield* untar(tarball, folder, 'bzip2');
     yield* Effect.promise(() => rm(tarball, { force: true }));
     if (why !== null)
       return yield* new SpeechToTextError({
@@ -197,6 +177,6 @@ export const sherpa = (options?: {
             message: `The model was fetched without ${MODEL_FILES.join(', ')}`,
           });
       }),
-    load: loadRecognizer,
+    load: (folder) => loadRecognizer(folder, () => requireSherpa(folder)),
   });
 };

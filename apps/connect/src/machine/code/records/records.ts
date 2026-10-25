@@ -98,9 +98,9 @@ export const HarnessAccountSchema = EntityESchema.make(
       /** What the user calls it, such as "Claude work". */
       name: Schema.String,
       /** Its config folder (CLAUDE_CONFIG_DIR, CODEX_HOME); null for the harness's own. */
-      home: Schema.NullOr(Schema.String),
+      configFolder: Schema.NullOr(Schema.String),
     },
-    (v1) => ({ ...v1, name: DEFAULT_NAMES[v1.harness], home: null }),
+    (v1) => ({ ...v1, name: DEFAULT_NAMES[v1.harness], configFolder: null }),
   )
   .build();
 
@@ -114,6 +114,10 @@ export const defaultAccount = (
   harness,
   name: DEFAULT_NAMES[harness],
   binaryPath: null,
-  home: null,
+  configFolder: null,
   updatedAt: 0,
 });
+
+/** Whether `id` is a harness's Default Account, whose id is the harness's name. */
+export const isDefaultAccount = (id: string) =>
+  (HARNESS_NAMES as ReadonlyArray<string>).includes(id);

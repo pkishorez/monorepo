@@ -19,8 +19,8 @@ export const launcher: Effect.Effect<Launcher, never, HarnessAccount> =
   Effect.map(HarnessAccount, (account) => ({
     command: account.binary ?? 'codex',
     env:
-      account.home === undefined
+      account.configFolder === undefined
         ? process.env
-        : { ...process.env, CODEX_HOME: account.home },
+        : { ...process.env, CODEX_HOME: account.configFolder },
     isDefault: account.binary === undefined,
   }));

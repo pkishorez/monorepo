@@ -15,7 +15,7 @@ export interface Executable {
   /** Its config folder as `CLAUDE_CONFIG_DIR`, when the account names one. */
   readonly env: NodeJS.ProcessEnv;
   /** Its config folder; undefined for Claude Code's own default. */
-  readonly home: string | undefined;
+  readonly configFolder: string | undefined;
   /** No Harness Binary is configured. */
   readonly isDefault: boolean;
 }
@@ -55,10 +55,10 @@ export const current: Effect.Effect<Executable, never, HarnessAccount> =
   Effect.map(HarnessAccount, (account) => ({
     path: account.binary ?? installed(),
     env:
-      account.home === undefined
+      account.configFolder === undefined
         ? process.env
-        : { ...process.env, CLAUDE_CONFIG_DIR: account.home },
-    home: account.home,
+        : { ...process.env, CLAUDE_CONFIG_DIR: account.configFolder },
+    configFolder: account.configFolder,
     isDefault: account.binary === undefined,
   }));
 

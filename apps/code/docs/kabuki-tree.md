@@ -43,7 +43,8 @@ shell                                   root; Provides CurrentAccount, Replicas,
 ├── pages/home                          while the URL names it
 ├── pages/settings                      while the URL names it
 │   ├── machines                        always
-│   │   ├── harness-accounts            each: listed Machine id
+│   │   ├── harness-accounts            each: listed Machine id; Provides AccountList
+│   │   │   └── card                    each: account id, and `new` while one is added
 │   │   └── speech-to-text              each: listed Machine id
 │   └── shortcuts                       always
 └── pages/project                       /m/:machineId/p/:projectId; Provides CodeClient, SharedCatalog, Picker Owners
@@ -72,6 +73,7 @@ shell ─ Props: bindings ──────────────────
 project ─ Provides CodeClient of :machineId, SharedCatalog ───────▶ session
 draft ─ Provides TouchDraft.owner ───────────────────▶ touch
 machines ─ each id; Input: machineId ───────────────▶ harness-accounts, speech-to-text
+harness-accounts ─ each key; Provides AccountList; Props: account ▶ card
 ```
 
 Up, from the leaves: what each level asks of the one above, and what runs.
@@ -190,7 +192,7 @@ sidebar ─ Worker: moves, from Moves ──────────────
 
 ## home · settings · machines · harness-accounts · speech-to-text · shortcuts
 
-Home and Machine Settings follow `Machines`. Each per-Machine Child gets its Machine by Input. Harness Accounts reads and saves its Machine's accounts over `CodeClients`. Speech to Text reads its state from `Machines` and switches it over `CodeClients`. Shortcuts reads and writes the Bindings in Device State.
+Home and Machine Settings follow `Machines`. Each per-Machine Child gets its Machine by Input. Harness Accounts reads its Machine's accounts over `CodeClients`; each card saves or removes its own and tells the list through `AccountList`. Speech to Text reads its state from `Machines` and switches it over `CodeClients`. Shortcuts reads and writes the Bindings in Device State.
 
 ## project · session
 

@@ -20,7 +20,11 @@ import type {
   McpServerStatus,
   Skill,
 } from '@kestack/ai-toolkit/contract';
-import type { Project, Session } from '../records/index.js';
+import type {
+  HarnessAccountRecord,
+  Project,
+  Session,
+} from '../records/index.js';
 import {
   AskFailed,
   fallbackTitle,
@@ -31,6 +35,7 @@ import { Code } from './actor-code/index.js';
 import { saveAttachments } from './attachments/index.js';
 import { Agents, HarnessAccounts, Store } from './capabilities/index.js';
 import {
+  accountOf,
   accountRow,
   agents,
   allAccounts,
@@ -198,6 +203,10 @@ export interface EngineService {
     sessionId: string,
     jobId: string,
   ) => Effect.Effect<void, SessionNotFound | HarnessFailed>;
+  /** The Harness Account with this id. */
+  readonly harnessAccount: (
+    id: string,
+  ) => Effect.Effect<HarnessAccountRecord, UnknownAccount>;
   /** Every Harness Account, each harness's Default Account first. */
   readonly harnessAccounts: Effect.Effect<ReadonlyArray<HarnessAccountRow>>;
   /** Saves a Harness Account once its binary runs; a new one when its id is null. */
@@ -268,6 +277,16 @@ const make = (options: EngineOptions) =>
     const runAs: EngineService['runAs'] = (id) => (effect) =>
       Effect.flatMap(accounts.as(id), (account) =>
         Effect.provideService(effect, HarnessAccount, account),
+      );
+
+    const harnessAccount: EngineService['harnessAccount'] = (id) =>
+      accountOf(harnesses.all, id).pipe(
+        withServices,
+        Effect.flatMap((found) =>
+          found === undefined
+            ? Effect.fail(new UnknownAccount({ account: id }))
+            : Effect.succeed(found),
+        ),
       );
 
     /** The Projects; there are none while Loading. */
@@ -351,11 +370,7 @@ const make = (options: EngineOptions) =>
           const project = projectAt(input.projectId);
           if (!project)
             return yield* new ProjectNotFound({ id: input.projectId });
-          const account = (yield* allAccounts(harnesses.all).pipe(
-            withServices,
-          )).find((each) => each.id === input.account);
-          if (!account)
-            return yield* new UnknownAccount({ account: input.account });
+          const account = yield* harnessAccount(input.account);
           const now = yield* Clock.currentTimeMillis;
           const session: Session = {
             id: yield* nextUlid,
@@ -440,13 +455,12 @@ const make = (options: EngineOptions) =>
         Effect.gen(function* () {
           const project = projectAt(projectId);
           if (!project) return yield* new ProjectNotFound({ id: projectId });
-          const account = (yield* allAccounts(harnesses.all).pipe(
-            withServices,
-          )).find((each) => each.id === id);
-          if (!account)
-            return yield* new SkillsUnavailable({
-              message: `No Harness Account ${id}`,
-            });
+          const account = yield* harnessAccount(id).pipe(
+            Effect.mapError(
+              () =>
+                new SkillsUnavailable({ message: `No Harness Account ${id}` }),
+            ),
+          );
           return yield* harnesses
             .get(account.harness)
             .skills(project.path)
@@ -508,6 +522,8 @@ const make = (options: EngineOptions) =>
           if (reason !== null)
             return yield* new HarnessFailed({ message: reason });
         }),
+
+      harnessAccount,
 
       harnessAccounts: allAccounts(harnesses.all).pipe(
         Effect.flatMap((all) =>

@@ -1,6 +1,7 @@
 export {
   defaultAccount,
   HarnessAccountSchema,
+  isDefaultAccount,
   ProjectSchema,
   SESSION_STATUSES,
   SessionSchema,

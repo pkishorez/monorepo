@@ -26,7 +26,10 @@ const whyNot = (harness: Harness, path: string) =>
   Effect.gen(function* () {
     const notExecutable = yield* whyNotExecutable(path);
     if (notExecutable !== null) return notExecutable;
-    const info = yield* binaryAt(harness, { binary: path, home: undefined });
+    const info = yield* binaryAt(harness, {
+      binary: path,
+      configFolder: undefined,
+    });
     if (info.error !== null) return info.error;
     if (info.version === null) return `${path} did not say which version it is`;
     return null;

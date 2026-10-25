@@ -96,8 +96,8 @@ export const CodeApiLive = CodeApi.toLayer(
                 Effect.orElseSucceed(() => harness.defaultModel),
                 Effect.map((defaultModel) => ({
                   account: account.id,
-                  name: harness.name,
-                  label: account.name,
+                  harness: harness.name,
+                  name: account.name,
                   settings: harness.settings,
                   defaultModel,
                   available: account.resolved.error === null,
@@ -110,15 +110,19 @@ export const CodeApiLive = CodeApi.toLayer(
         }),
       models: ({ account: id }) =>
         Effect.gen(function* () {
-          const accounts = yield* engine.harnessAccounts;
-          const account = accounts.find((each) => each.id === id);
-          if (!account) return [];
+          const account = yield* engine.harnessAccount(id);
           return yield* models
             .list(harnesses.get(account.harness))
             .pipe(engine.runAs(id));
         }).pipe(
           Effect.mapError(
-            (error) => new ModelsUnavailable({ message: error.message }),
+            (error) =>
+              new ModelsUnavailable({
+                message:
+                  error._tag === 'UnknownAccount'
+                    ? `No Harness Account ${id}`
+                    : error.message,
+              }),
           ),
         ),
       addProject: ({ path }) =>

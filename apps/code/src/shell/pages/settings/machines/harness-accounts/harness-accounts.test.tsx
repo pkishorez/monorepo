@@ -22,8 +22,9 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 /*
  * One Machine's agent accounts, drawn from what the Machine says: a card
  * per account, saying why one does not run; another login added with its
- * config folder, saved as typed; a refusal kept on its card; an added
- * account removed once asked again, a Default Account never.
+ * config folder, saved as typed, or dropped on Cancel; a refusal kept on
+ * its card; an added account removed once asked again, a Default Account
+ * never.
  */
 
 const Owner = Actor.define('Owner', {
@@ -71,7 +72,7 @@ const DEFAULTS: ReadonlyArray<HarnessAccountInfo> = [
     harness: 'claude',
     name: 'Claude',
     binaryPath: null,
-    home: null,
+    configFolder: null,
     isDefault: true,
     resolved: resolved('/usr/local/bin/claude'),
   },
@@ -80,7 +81,7 @@ const DEFAULTS: ReadonlyArray<HarnessAccountInfo> = [
     harness: 'codex',
     name: 'Codex',
     binaryPath: null,
-    home: null,
+    configFolder: null,
     isDefault: true,
     resolved: resolved(
       'codex',
@@ -201,7 +202,7 @@ describe('Harness Accounts', () => {
   it('adds another login with its config folder, saved as typed', async () => {
     await click(button('Add a Claude account'));
     await type(field('new-name-field'), ' Claude work ');
-    await type(field('new-home'), '~/.claude-work');
+    await type(field('new-config-folder'), '~/.claude-work');
     await click(button('Add account'));
     expect(saved).toEqual([
       {
@@ -209,7 +210,7 @@ describe('Harness Accounts', () => {
         harness: 'claude',
         name: 'Claude work',
         binaryPath: null,
-        home: '~/.claude-work',
+        configFolder: '~/.claude-work',
       },
     ]);
     expect(
@@ -221,12 +222,21 @@ describe('Harness Accounts', () => {
     refuse = 'Nothing is at /nowhere; sign in with that config folder first';
     await click(button('Add a Claude account'));
     await type(field('new-name-field'), 'Claude work');
-    await type(field('new-home'), '/nowhere');
+    await type(field('new-config-folder'), '/nowhere');
     await click(button('Add account'));
     expect(document.querySelector('[role="alert"]')?.textContent).toContain(
       'sign in with that config folder first',
     );
-    expect(field('new-home').value).toBe('/nowhere');
+    expect(field('new-config-folder').value).toBe('/nowhere');
+  });
+
+  it('drops the account being added on Cancel', async () => {
+    await click(button('Add a Claude account'));
+    await type(field('new-name-field'), 'Claude work');
+    await click(button('Cancel'));
+    expect(saved).toEqual([]);
+    expect(field('new-name-field')).toBeNull();
+    expect(button('Add a Claude account')).toBeDefined();
   });
 
   it('removes an added account once asked again', async () => {

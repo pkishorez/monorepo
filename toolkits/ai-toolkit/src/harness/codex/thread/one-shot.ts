@@ -55,7 +55,7 @@ const prompt = (text: string) =>
       Effect.map((found) =>
         found._tag === 'Some'
           ? found.value
-          : { binary: undefined, home: undefined },
+          : { binary: undefined, configFolder: undefined },
       ),
     );
     const cwd = yield* tempFolder;

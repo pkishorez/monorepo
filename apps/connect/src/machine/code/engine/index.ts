@@ -26,4 +26,3 @@ export {
   type SessionJobs,
   type StartSession,
 } from './engine.js';
-export type { AccountInput, HarnessAccountRow } from './services/index.js';

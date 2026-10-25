@@ -14,6 +14,7 @@ import type { BinaryInfo, HarnessName } from '@kestack/ai-toolkit/contract';
 import { nextUlid } from '@kestack/std-toolkit/core';
 import {
   defaultAccount,
+  isDefaultAccount,
   type HarnessAccountRecord,
 } from '../../../records/index.js';
 import { HarnessAccounts, Store } from '../../capabilities/index.js';
@@ -23,7 +24,9 @@ import { HarnessAccounts, Store } from '../../capabilities/index.js';
  * it or as it starts, then every other account the user added, oldest
  * first. An account is kept only once its binary runs (ai-toolkit's
  * `checkBinary`) and its config folder is a folder; a Default Account can
- * be changed but never removed.
+ * be changed but never removed. The records (../../../records/) give the
+ * stored shape and each Default Account as it starts, as they do for all
+ * of the engine.
  */
 
 /** A Harness Account the user cannot save, or cannot remove. */
@@ -39,7 +42,7 @@ export interface HarnessAccountRow {
   /** null runs the harness's name from PATH. */
   readonly binaryPath: string | null;
   /** null for the harness's own config folder. */
-  readonly home: string | null;
+  readonly configFolder: string | null;
   /** Its harness's Default Account, which cannot be removed. */
   readonly isDefault: boolean;
   readonly resolved: BinaryInfo;
@@ -51,7 +54,7 @@ export interface AccountInput {
   readonly harness: HarnessName;
   readonly name: string;
   readonly binaryPath: string | null;
-  readonly home: string | null;
+  readonly configFolder: string | null;
 }
 
 /** Every Harness Account of `harnesses`, each Default Account first. */
@@ -66,18 +69,24 @@ export const allAccounts = (harnesses: ReadonlyArray<Harness>) =>
       );
       const others = saved.filter(
         (account) =>
-          account.id !== account.harness && names.has(account.harness),
+          !isDefaultAccount(account.id) && names.has(account.harness),
       );
       return [...defaults, ...others];
     }),
   );
 
+/** The Harness Account of `harnesses` with this id, or undefined. */
+export const accountOf = (harnesses: ReadonlyArray<Harness>, id: string) =>
+  Effect.map(allAccounts(harnesses), (accounts) =>
+    accounts.find((account) => account.id === id),
+  );
+
 /** What ai-toolkit runs a harness call as, for `account`. */
-export const toolkitAccount = (
+const toolkitAccount = (
   account: HarnessAccountRecord,
 ): HarnessAccount['Service'] => ({
   binary: account.binaryPath ?? undefined,
-  home: account.home ?? undefined,
+  configFolder: account.configFolder ?? undefined,
 });
 
 /** The Harness Accounts as the Store holds them, read on every call. */
@@ -92,19 +101,18 @@ export const storedHarnessAccounts: Layer.Layer<
     const context = yield* Effect.context<Store>();
     return {
       as: (id: string) =>
-        allAccounts(harnesses.all).pipe(
+        accountOf(harnesses.all, id).pipe(
           Effect.provideContext(context),
-          Effect.flatMap((accounts) => {
-            const found = accounts.find((account) => account.id === id);
-            return found === undefined
+          Effect.flatMap((found) =>
+            found === undefined
               ? Effect.fail(
                   new HarnessError({
                     message:
                       'Its Harness Account was removed from this Machine',
                   }),
                 )
-              : Effect.succeed(toolkitAccount(found));
-          }),
+              : Effect.succeed(toolkitAccount(found)),
+          ),
         ),
     };
   }),
@@ -120,8 +128,8 @@ export const accountRow = (
     harness: account.harness,
     name: account.name,
     binaryPath: account.binaryPath,
-    home: account.home,
-    isDefault: account.id === account.harness,
+    configFolder: account.configFolder,
+    isDefault: isDefaultAccount(account.id),
     resolved,
   }));
 
@@ -131,7 +139,7 @@ const expand = (path: string) =>
   );
 
 /** The config folder the user gave, `~` expanded and made absolute, once it is a folder. */
-const checkHome = (given: string) =>
+const checkConfigFolder = (given: string) =>
   Effect.gen(function* () {
     const path = expand(given.trim());
     const found = yield* Effect.promise(() =>
@@ -166,9 +174,8 @@ export const saveAccount = (
     const name = input.name.trim();
     if (name === '')
       return yield* new InvalidAccount({ message: 'Give the account a name' });
-    const accounts = yield* allAccounts(harnesses);
     if (input.id !== null) {
-      const found = accounts.find((account) => account.id === input.id);
+      const found = yield* accountOf(harnesses, input.id);
       if (found === undefined || found.harness !== input.harness)
         return yield* new InvalidAccount({
           message: `No ${harness.label} account ${input.id}`,
@@ -178,13 +185,16 @@ export const saveAccount = (
       input.binaryPath === null
         ? null
         : yield* checkBinary(harness, input.binaryPath);
-    const home = input.home === null ? null : yield* checkHome(input.home);
+    const configFolder =
+      input.configFolder === null
+        ? null
+        : yield* checkConfigFolder(input.configFolder);
     const account: HarnessAccountRecord = {
       id: input.id ?? `${input.harness}-${yield* nextUlid}`,
       harness: input.harness,
       name,
       binaryPath,
-      home,
+      configFolder,
       updatedAt: yield* Clock.currentTimeMillis,
     };
     yield* (yield* Store).saveHarnessAccount(account);
@@ -194,7 +204,7 @@ export const saveAccount = (
 /** Removes a Harness Account the user added; a Default Account stays. */
 export const removeAccount = (harnesses: ReadonlyArray<Harness>, id: string) =>
   Effect.gen(function* () {
-    if (harnesses.some((harness) => harness.name === id))
+    if (isDefaultAccount(id))
       return yield* new InvalidAccount({
         message: 'A Default Account cannot be removed',
       });

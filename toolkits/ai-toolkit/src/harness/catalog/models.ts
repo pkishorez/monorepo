@@ -174,7 +174,7 @@ const make = (options: ModelsOptions) =>
         const ask = harness.availableModels;
         if (ask === undefined) return undefined;
         const login = yield* HarnessAccount;
-        const key = JSON.stringify([login.binary, login.home]);
+        const key = JSON.stringify([login.binary, login.configFolder]);
         let logins = asked.get(harness);
         if (logins === undefined) {
           logins = new Map();
