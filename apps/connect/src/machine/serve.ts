@@ -13,17 +13,16 @@ import {
 import type { SpeechToText } from '@kestack/ai-toolkit/speech';
 import { codeGroup } from './code/index.js';
 import { identify, logout as forgetMachine, online } from './online/index.js';
-import { type ConnectPaths, moveLegacy, resolvePaths } from './paths/index.js';
+import { type ConnectPaths, resolvePaths } from './paths/index.js';
 import { DEFAULT_ORIGINS, server } from './server/index.js';
 import { logsTo } from './logs.js';
 
 /*
  * `ke-connect serve`: the composition root. Connect's files in its XDG
- * folders (a branch's own in development), moved there once from
- * ~/.ai-toolkit on the first production run; Claude and Codex as the
+ * folders (a branch's own in development); Claude and Codex as the
  * harnesses, Codex writing titles; and the code App Group on the Machine's
- * one socket, ws://127.0.0.1:<port>/rpc, for pages on this computer and every App's
- * address, plus any origin given.
+ * one socket, ws://127.0.0.1:<port>/rpc, for pages on this computer and
+ * every App's address, plus any origin given.
  *
  * Serving is also being a Machine: signed in to Cloud Connect, the one
  * Machine its machine.json is, asking callers for its Machine Key, and
@@ -89,24 +88,6 @@ const ownFolder = (folder: string) =>
     chmodSync(folder, 0o700);
   });
 
-/**
- * Readies the data folder, 0700, first moving ~/.ai-toolkit's files into
- * it on a production run: one whose paths serve resolved itself, with no
- * branch, never one given paths.
- */
-const ownData = (
-  options: {
-    readonly branch?: string | undefined;
-    readonly paths?: ConnectPaths | undefined;
-  },
-  paths: ConnectPaths,
-) =>
-  Effect.gen(function* () {
-    if (options.branch === undefined && options.paths === undefined)
-      yield* moveLegacy(paths);
-    yield* ownFolder(paths.data);
-  });
-
 /** Keeps the database 0600 once it is there. */
 const ownDb = (paths: ConnectPaths) =>
   Effect.sync(() => {
@@ -123,7 +104,7 @@ export const serve = (options: ServeOptions) =>
     const paths = yield* pathsOf(options);
     yield* ownFolder(paths.state);
     yield* Effect.gen(function* () {
-      yield* ownData(options, paths);
+      yield* ownFolder(paths.data);
 
       const identified = yield* identify({
         cloud: options.cloud,
@@ -185,8 +166,7 @@ export const serve = (options: ServeOptions) =>
 /**
  * Signs out of Cloud Connect and forgets this Machine (a branch's, given
  * `branch`), keeping its Projects and Sessions: the next serve is a new
- * Machine. Before a first serve, it readies the folders as serve would,
- * so the database it opens is the one moved from ~/.ai-toolkit.
+ * Machine.
  */
 export const logout = (options: {
   readonly cloud: string;
@@ -195,7 +175,7 @@ export const logout = (options: {
 }) =>
   Effect.gen(function* () {
     const paths = yield* pathsOf(options);
-    yield* ownData(options, paths);
+    yield* ownFolder(paths.data);
     yield* forgetMachine({
       cloud: options.cloud,
       db: paths.db,

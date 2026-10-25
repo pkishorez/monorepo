@@ -1,15 +1,9 @@
 import { mkdtempSync, rmSync, statSync } from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Effect, Schema } from 'effect';
-import { StdTable } from '@kestack/std-toolkit/db';
-import { SQLite } from '@kestack/std-toolkit/db/sqlite';
-import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
+import { Effect } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
 import { claim, forget, found } from '../index.js';
-import { writeMachine } from '../machine-file.js';
-import { takeLegacyMachine } from '../legacy.js';
-import { ESchema } from '@kestack/std-toolkit/eschema';
 
 const folders: Array<string> = [];
 afterEach(() => {
@@ -18,47 +12,11 @@ afterEach(() => {
 const kept = () => {
   const made = mkdtempSync(join(tmpdir(), 'connect-machine-'));
   folders.push(made);
-  return { file: join(made, 'machine.json'), db: join(made, 'connect.db') };
+  return { file: join(made, 'machine.json') };
 };
 
 const ada = { id: 'u-ada', email: 'ada@example.com' };
 const bob = { id: 'u-bob', email: 'bob@example.com' };
-
-// ai-toolkit's table, spelled as ai-toolkit spelled it: what a moved
-// database holds.
-const machineTable = StdTable.make('ai-toolkit-machine')
-  .primary('pk', 'sk')
-  .build();
-const stored = machineTable
-  .singleEntity(
-    ESchema.make('Machine', {
-      machine: Schema.NullOr(
-        Schema.Struct({
-          id: Schema.String,
-          name: Schema.String,
-          key: Schema.String,
-          owner: Schema.Struct({ id: Schema.String, email: Schema.String }),
-        }),
-      ),
-    }).build(),
-  )
-  .default({ machine: null });
-
-/** Puts `machine` in ai-toolkit's table on `db`, as a moved database holds it. */
-const keepLegacy = (
-  db: string,
-  machine: Parameters<typeof stored.put>[0]['machine'],
-) =>
-  Effect.acquireUseRelease(
-    Effect.sync(() => makeNodeSQLite({ path: db })),
-    (database) =>
-      SQLite.setup(machineTable, { database, mode: 'persistent' }).pipe(
-        Effect.andThen(stored.put({ machine })),
-        Effect.provide(SQLite.make(machineTable, { database }).layer),
-        Effect.orDie,
-      ),
-    (database) => Effect.sync(() => database.close?.()),
-  );
 
 describe('machine.json is one Machine of one User', () => {
   it('makes the Machine once, 0600, then finds the same one', () =>
@@ -118,86 +76,6 @@ describe('machine.json is one Machine of one User', () => {
         const next = yield* claim({ ...at, owner: bob });
         expect(next.id).not.toBe(first.id);
         expect(next.key).not.toBe(first.key);
-      }),
-    ));
-
-  it('takes over the Machine ai-toolkit kept in a moved database, once', () =>
-    Effect.runPromise(
-      Effect.gen(function* () {
-        const at = kept();
-        const legacy = {
-          id: 'm-old',
-          name: 'laptop',
-          key: 'k-old',
-          owner: ada,
-        };
-        yield* keepLegacy(at.db, legacy);
-        expect(yield* claim({ ...at, owner: ada })).toEqual({
-          id: 'm-old',
-          name: 'laptop',
-          key: 'k-old',
-        });
-        expect(statSync(at.file).mode & 0o777).toBe(0o600);
-        // The old record is nulled: forgetting leaves nothing to take again.
-        yield* forget(at);
-        const next = yield* claim({ ...at, owner: ada });
-        expect(next.id).not.toBe('m-old');
-      }),
-    ));
-
-  it('keeps ai-toolkit’s Machine until machine.json holds it', () =>
-    Effect.runPromise(
-      Effect.gen(function* () {
-        const at = kept();
-        const legacy = {
-          id: 'm-old',
-          name: 'laptop',
-          key: 'k-old',
-          owner: ada,
-        };
-        yield* keepLegacy(at.db, legacy);
-        const cut = yield* Effect.exit(
-          takeLegacyMachine(at.db, () => Effect.die('cut short')),
-        );
-        expect(cut._tag).toBe('Failure');
-        expect((yield* claim({ ...at, owner: ada })).id).toBe('m-old');
-      }),
-    ));
-
-  it('clears ai-toolkit’s Machine left behind by a take cut short, so logout never brings it back', () =>
-    Effect.runPromise(
-      Effect.gen(function* () {
-        const at = kept();
-        const legacy = {
-          id: 'm-old',
-          name: 'laptop',
-          key: 'k-old',
-          owner: ada,
-        };
-        yield* keepLegacy(at.db, legacy);
-        // Cut short after machine.json was written, before the record was nulled.
-        yield* writeMachine(at.file, legacy);
-        expect((yield* claim({ ...at, owner: ada })).id).toBe('m-old');
-        yield* forget(at);
-        expect(yield* found(at)).toBeNull();
-        expect((yield* claim({ ...at, owner: ada })).id).not.toBe('m-old');
-      }),
-    ));
-
-  it('clears ai-toolkit’s Machine on logout too', () =>
-    Effect.runPromise(
-      Effect.gen(function* () {
-        const at = kept();
-        const legacy = {
-          id: 'm-old',
-          name: 'laptop',
-          key: 'k-old',
-          owner: ada,
-        };
-        yield* keepLegacy(at.db, legacy);
-        yield* writeMachine(at.file, legacy);
-        yield* forget(at);
-        expect(yield* found(at)).toBeNull();
       }),
     ));
 });

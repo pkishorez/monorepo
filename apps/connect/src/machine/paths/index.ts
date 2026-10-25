@@ -1,2 +1,2 @@
-export { moveLegacy, resolvePaths } from './paths.js';
+export { resolvePaths } from './paths.js';
 export type { ConnectPaths } from './paths.js';

@@ -6,7 +6,6 @@ import {
   removeMachine,
   writeMachine,
 } from './machine-file.js';
-import { clearLegacyMachine, takeLegacyMachine } from './legacy.js';
 import { newMachineId, newMachineKey } from './secrets.js';
 
 /*
@@ -15,12 +14,6 @@ import { newMachineId, newMachineKey } from './secrets.js';
  * Machine Key and the host's name (and the branch's, in development), and
  * every later start finds it again. A different User signing in is
  * refused, and `logout` forgets the Machine so the next start is a new one.
- *
- * A database moved from ~/.ai-toolkit still holds its Machine in
- * ai-toolkit's table: while there is no machine.json, that record becomes
- * it, so the Machine keeps its id and Machine Key. Once there is one,
- * the record is cleared on every start, should a first start have been
- * cut short between the two, so `logout` never brings the old Machine back.
  */
 
 /** This Machine belongs to another User. */
@@ -36,31 +29,7 @@ export class MachineOwnedByAnother extends Data.TaggedError(
 export interface Kept {
   /** Its machine.json. */
   readonly file: string;
-  /** The database, which may hold the Machine ai-toolkit kept. */
-  readonly db: string;
 }
-
-/**
- * The Machine kept, taking ai-toolkit's over first when there is no
- * machine.json yet, written before it is cleared there, and clearing it
- * there when machine.json already holds one; null when there is none.
- */
-const current = (kept: Kept) =>
-  Effect.gen(function* () {
-    const found = yield* readMachine(kept.file);
-    if (found !== null) {
-      yield* clearLegacyMachine(kept.db);
-      return found;
-    }
-    const legacy = yield* takeLegacyMachine(kept.db, (machine) =>
-      writeMachine(kept.file, machine),
-    );
-    if (legacy === null) return null;
-    yield* Effect.log(
-      `Moved Machine ${legacy.name} (${legacy.id}) to ${kept.file}`,
-    );
-    return legacy;
-  });
 
 /**
  * The Machine kept, for `owner`: made on first use, named `name` when
@@ -75,7 +44,7 @@ export const claim = (
   },
 ) =>
   Effect.gen(function* () {
-    const found = yield* current(options);
+    const found = yield* readMachine(options.file);
     if (found && found.owner.id !== options.owner.id)
       return yield* new MachineOwnedByAnother({
         file: options.file,
@@ -97,8 +66,7 @@ export const claim = (
   });
 
 /** The Machine kept, and its owner, without making one; null when there is none yet. */
-export const found = current;
+export const found = (kept: Kept) => readMachine(kept.file);
 
-/** Forgets the Machine kept, ai-toolkit's record of it included, so the next start makes a new one. */
-export const forget = (kept: Kept) =>
-  Effect.andThen(current(kept), removeMachine(kept.file));
+/** Forgets the Machine kept, so the next start makes a new one. */
+export const forget = (kept: Kept) => removeMachine(kept.file);
