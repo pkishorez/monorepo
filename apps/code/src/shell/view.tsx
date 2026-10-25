@@ -24,6 +24,7 @@ import { Toasts } from '../ui/toast/index.ts';
 import { Dictation } from './actors/dictation/index.ts';
 import { Header } from './actors/header/index.ts';
 import { MachineList, Connection } from './machines/index.ts';
+import { KeysPicker } from './actors/pickers/keys-picker/index.ts';
 import { MicrophonePicker } from './actors/pickers/microphone-picker/index.ts';
 import { ProjectPicker } from './actors/pickers/project-picker/index.ts';
 import { SessionActions } from './actors/pickers/session-actions/index.ts';
@@ -42,8 +43,8 @@ import { Settings } from './pages/settings/index.ts';
  * the app, on every Machine at once, in the Web Platform's App Shell: the
  * sidebar (`actors/sidebar/`), the header with where you are
  * (`actors/header/`), Session Actions, the Machine of the page while it is
- * out of reach, the Account and the theme, and the Project Picker and
- * Session Switcher opened by keys; the page the URL names; over
+ * out of reach, the Account and the theme, and the Project Picker, the
+ * Session Switcher and the Keys Picker opened by keys; the page the URL names; over
  * everything, in the bottom right corner, the Dictation's badge, and the
  * Dictation handed down to every Draft, with the Microphone Picker's
  * button for the Status Line. Each part is handed its own Instance, never
@@ -241,6 +242,7 @@ function Signed({
           <SessionSwitcher.view instance={children.sessionSwitcher} />
           <ProjectPicker.view instance={children.projectPicker} />
           <MicrophonePicker.view instance={children.microphonePicker} />
+          <KeysPicker.view instance={children.keysPicker} />
           <ProjectPicker.notice instance={children.projectPicker} />
           {children.Home ? (
             <>
@@ -293,7 +295,11 @@ function Screen({
   readonly header: ComponentProps<typeof AppShell>['header'];
   readonly children: ReactNode;
 }) {
-  const { vim, enter } = keys.useKeyboard();
+  const { vim } = keys.useKeyboard();
+  // Its help opens the Keys Picker, as Ctrl+/ does.
+  const help = keys
+    .useAvailableActions()
+    .find(({ id }) => id === 'app.helpAnywhere');
   // A touch screen with no keyboard has no use for the keys' status line.
   const { keyboard } = useDevice();
   return (
@@ -302,7 +308,7 @@ function Screen({
       // status line at its foot, saying the Mode and where the keys are.
       vim={{
         on: vim.on && keyboard,
-        statusLine: <KeysStatusBar keys={keys} onHelp={() => enter('help')} />,
+        statusLine: <KeysStatusBar keys={keys} onHelp={help?.run} />,
       }}
       // On a phone the sidebar is a page of its own: home.
       sidebarMode="fullscreen"

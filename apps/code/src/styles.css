@@ -111,7 +111,7 @@
 /*
  * The sidebar and the page never dim: the one the keys are in is lit by
  * its inset edge, as the Web Platform draws it, and the other stays as it
- * is. Only behind what opens over them, a Picker, the keys or a
+ * is. Only behind what opens over them, a Picker or a
  * confirmation, does the rest dim.
  */
 [data-surface][data-state='inactive'] {
@@ -119,11 +119,7 @@
 }
 
 :root:has(
-    :is(
-      [data-surface='picker'],
-      [data-surface='help'],
-      [data-surface='confirm']
-    )[data-state='active']
+    :is([data-surface='picker'], [data-surface='confirm'])[data-state='active']
   )
   [data-surface][data-state='inactive']:not(
     [data-surface][data-state='inactive'] *

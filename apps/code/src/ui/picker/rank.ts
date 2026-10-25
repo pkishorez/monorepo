@@ -1,8 +1,11 @@
 /*
- * Which rows a query finds, best first. A label that starts with the
- * query beats one that has it at a word start, which beats one that has it
+ * Which rows a query finds, best first. A row whose keys are the query,
+ * such as `ctrl+b`, comes first; then a label that starts with the query
+ * beats one that has it at a word start, which beats one that has it
  * anywhere, which beats one whose letters merely appear in order; a detail
- * that has it comes last. Ties go to the shorter label. With no query,
+ * or keys that have it come last. Keys are matched as written, with or
+ * without their `+` and spaces, `mod` read as Ctrl or Cmd too. Ties go to
+ * the shorter label. With no query,
  * every row stays in the order it was given. `matched` holds the label's
  * matching character offsets, for highlighting.
  */
@@ -10,6 +13,13 @@
 interface Labelled {
   readonly label: string;
   readonly detail?: string | undefined;
+  /** An Action's keys, out of Vim Mode and in it, as written. */
+  readonly keys?:
+    | {
+        readonly out: ReadonlyArray<string>;
+        readonly vim: ReadonlyArray<string>;
+      }
+    | undefined;
 }
 
 export interface Ranked<T> {
@@ -38,12 +48,18 @@ export function rank<T extends Labelled>(
 }
 
 function score(
-  { label, detail }: Labelled,
+  { label, detail, keys }: Labelled,
   wanted: string,
 ): { tier: number; matched: ReadonlyArray<number> } | null {
   const lower = label.toLowerCase();
   const run = (at: number) =>
     Array.from({ length: wanted.length }, (_, i) => at + i);
+  const pressed = compact(wanted);
+  const written =
+    pressed === ''
+      ? []
+      : [...(keys?.out ?? []), ...(keys?.vim ?? [])].flatMap(spellings);
+  if (written.includes(pressed)) return { tier: -1, matched: [] };
   if (lower.startsWith(wanted)) return { tier: 0, matched: run(0) };
   const atWord = wordStart(lower, wanted);
   if (atWord !== -1) return { tier: 1, matched: run(atWord) };
@@ -52,7 +68,19 @@ function score(
   const inOrder = subsequence(lower, wanted);
   if (inOrder !== null) return { tier: 3, matched: inOrder };
   if (detail?.toLowerCase().includes(wanted)) return { tier: 4, matched: [] };
+  if (written.some((each) => each.includes(pressed)))
+    return { tier: 4, matched: [] };
   return null;
+}
+
+const compact = (keys: string) => keys.toLowerCase().replace(/[\s+]/g, '');
+
+/** Keys as they may be typed: `mod+k` as `modk`, `ctrlk` and `cmdk`. */
+function spellings(written: string): ReadonlyArray<string> {
+  const plain = compact(written);
+  return plain.includes('mod')
+    ? [plain, plain.replace('mod', 'ctrl'), plain.replace('mod', 'cmd')]
+    : [plain];
 }
 
 function wordStart(label: string, wanted: string): number {

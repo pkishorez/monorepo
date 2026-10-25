@@ -16,7 +16,7 @@ src/
   shell/                                        the root page; router.ts, sign-in.tsx
     actors/   sidebar · header · dictation · moves (plain)
       pickers/  project-picker · session-switcher · session-actions ·
-                microphone-picker
+                microphone-picker · keys-picker
     pages/    home · settings (machines, shortcuts) · project (session)
     machines/                                   reaching every Machine; machine-list
     routes/                                     the address of every page
@@ -39,6 +39,7 @@ shell                                   root; Provides CurrentAccount, Replicas,
 ├── actors/pickers/session-switcher     Ready, always
 ├── actors/pickers/session-actions      Ready, always
 ├── actors/pickers/microphone-picker    Ready, always
+├── actors/pickers/keys-picker          Ready, always
 ├── actors/dictation                    Ready, always
 ├── pages/home                          while the URL names it
 ├── pages/settings                      while the URL names it
@@ -69,7 +70,7 @@ app Layer ─ Accounts, Store, AccountReplicas, CloudClient, DeviceState,
 shell ─ Provides CurrentAccount, Replicas, CodeClients, Moves ▶ everything below
 shell ─ Input: accountId; Props: email ──────────────────────▶ machine-list
 shell ─ Props: place (the Draft open) ───────────────────────▶ header, dictation
-shell ─ Props: bindings ─────────────────────────────────────▶ session-actions
+shell ─ Props: bindings ────────────────────────▶ session-actions, keys-picker
 project ─ Provides CodeClient of :machineId, SharedCatalog ───────▶ session
 draft ─ Provides TouchDraft.owner ───────────────────▶ touch
 machines ─ each id; Input: machineId ───────────────▶ harness-accounts, speech-to-text
@@ -161,12 +162,12 @@ sidebar ─ Worker: moves, from Moves ──────────────
 **Children**: project: ProjectRow, while a project is open; session: SessionRow, while a session is open
 **View**: the title, and the open session's agent and model
 
-## project-picker · session-switcher · session-actions · microphone-picker
+## project-picker · session-switcher · session-actions · microphone-picker · keys-picker
 
 **Does**: Each owns one Picker: `model.picking` opens it, and `opened` keys a fresh Instance each time.
-**Props**: none / none / bindings / none
-**Workers**: machines, always, and recent, while open / sessions, while open / session, while open / inputs and chosen, while open
-**Requires**: CodeClients, Navigation, Replicas, Machines / Navigation, Replicas, Machines / CodeClients, Moves, Navigation, Replicas / Recorder, DeviceState
+**Props**: none / none / bindings / none / bindings
+**Workers**: machines, always, and recent, while open / sessions, while open / session, while open / inputs and chosen, while open / none
+**Requires**: CodeClients, Navigation, Replicas, Machines / Navigation, Replicas, Machines / CodeClients, Moves, Navigation, Replicas / Recorder, DeviceState / none
 **Provides**: its Picker's Owner, from self
 **Children**: picker, while open, key: opened
 **View**: its Picker, and a Button or a Notice where one is drawn
@@ -175,6 +176,7 @@ sidebar ─ Worker: moves, from Moves ──────────────
 
 - **A Picker is a `while` Child keyed by `opened`, not a State**, because open and closed hold the same data. Caveat: the owner's Model carries a counter.
 - **The Project Picker follows the Machines always**, because its first Step is chosen as it opens. Caveat: one Worker runs while it is closed.
+- **The Keys Picker is opened with the Actions that worked, and its View runs the one chosen**, because the keyboard knows them only in React, and only before the Picker takes it. Caveat: the Model carries the Action chosen until the View has run it.
 
 ## dictation
 
