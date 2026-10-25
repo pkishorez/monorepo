@@ -1,140 +1,133 @@
 import 'fake-indexeddb/auto';
-import { Effect, Layer } from 'effect';
-import { Accounts, AccountsState } from '@kestack/auth-toolkit/client';
+import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { type SavedDraft, SavedDrafts } from '../capabilities/index.ts';
+import {
+  type Place,
+  type SavedDraft,
+  SavedDrafts,
+} from '../capabilities/index.ts';
 import { savedDraftsIdb } from './index.ts';
 
 /*
- * Saved Drafts in IndexedDB: each place's own, for the Account signed in
- * and no other; written again, the last write wins; cleared, gone; and a
- * Project removed, a Machine forgotten or an Account signed out takes its
- * Saved Drafts with it.
+ * Saved Drafts in IndexedDB: each place's own, for the Account named and
+ * no other; written again, the last write wins and the revision counts
+ * up; changed to nothing, gone; writes to one place never lose one
+ * another; and a Project removed, a Machine forgotten or no longer
+ * listed, or an Account signed out takes its Saved Drafts with it.
  */
 
-const account = (id: string) => ({
-  id,
-  email: `${id}@example.com`,
-  name: id,
-  image: null,
-  test: false,
-});
-
-/** Saved Drafts as `id` signed in sees them. */
-const as = (id: string) =>
-  savedDraftsIdb.pipe(
-    Layer.provide(
-      Layer.mock(Accounts)({
-        current: Effect.succeed(
-          AccountsState.SignedIn({
-            active: account(id),
-            accounts: [account('a1'), account('a2')],
-          }),
-        ),
-      }),
-    ),
-  );
-
-const run = <A>(id: string, effect: Effect.Effect<A, unknown, SavedDrafts>) =>
-  Effect.runPromise(effect.pipe(Effect.provide(as(id))));
-
-const drafts = Effect.map(SavedDrafts, (saved) => saved);
+const run = <A>(effect: Effect.Effect<A, unknown, SavedDrafts>) =>
+  Effect.runPromise(effect.pipe(Effect.provide(savedDraftsIdb)));
 
 const draftOf = (text: string): SavedDraft => ({
   mode: 'Message',
   written: { Message: { text, anchor: 0, head: text.length } },
   attachments: [],
   chosen: { account: null, model: null, settings: {} },
+  unsent: [],
 });
 
-const session = (machineId: string, projectId: string, sessionId: string) => ({
-  machineId,
-  projectId,
-  sessionId,
-});
+const session = (
+  machineId: string,
+  projectId: string,
+  sessionId: string,
+): Place => ({ machineId, projectId, sessionId });
 
 describe('Saved Drafts', () => {
-  it('keeps each place its own, for the Account signed in alone', async () => {
+  it('keeps each place its own, for the Account named alone', async () => {
     const place = session('m1', 'p1', 's1');
-    const project = { machineId: 'm1', projectId: 'p1', sessionId: null };
-    await run(
-      'a1',
+    const project: Place = {
+      machineId: 'm1',
+      projectId: 'p1',
+      sessionId: null,
+    };
+    const result = await run(
       Effect.gen(function* () {
-        const saved = yield* drafts;
-        yield* saved.write(place, draftOf('first'));
-        yield* saved.write(place, draftOf('second'));
-        yield* saved.write(project, draftOf('new session'));
+        const saved = yield* SavedDrafts;
+        const first = yield* saved.write('a1', place, () => draftOf('first'));
+        const second = yield* saved.write('a1', place, () => draftOf('second'));
+        yield* saved.write('a1', project, () => draftOf('new session'));
+        const mine = yield* Effect.all([
+          saved.read('a1', place),
+          saved.read('a1', project),
+        ]);
+        const theirs = yield* saved.read('a2', place);
+        const gone = yield* saved.write('a1', place, () => null);
+        const after = yield* saved.read('a1', place);
+        return { first, second, mine, theirs, gone, after };
       }),
     );
-    const [mine, theirs] = await Promise.all([
-      run(
-        'a1',
-        Effect.flatMap(drafts, (saved) =>
-          Effect.all([saved.read(place), saved.read(project)]),
-        ),
-      ),
-      run(
-        'a2',
-        Effect.flatMap(drafts, (saved) => saved.read(place)),
-      ),
+    expect([result.first, result.second]).toEqual([1, 2]);
+    expect(result.mine).toEqual([
+      { draft: draftOf('second'), revision: 2 },
+      { draft: draftOf('new session'), revision: 1 },
     ]);
-    expect(mine).toEqual([draftOf('second'), draftOf('new session')]);
-    expect(theirs).toBeNull();
-    await run(
-      'a1',
-      Effect.flatMap(drafts, (saved) => saved.clear(place)),
-    );
-    expect(
-      await run(
-        'a1',
-        Effect.flatMap(drafts, (saved) => saved.read(place)),
-      ),
-    ).toBeNull();
+    expect(result.theirs).toBeNull();
+    expect(result.gone).toBeNull();
+    expect(result.after).toBeNull();
   });
 
-  it('forgets those of a Project removed, a Machine forgotten and an Account signed out', async () => {
+  it('makes one write at a time to a place, so none is lost', async () => {
+    const place = session('m3', 'p3', 's3');
+    const kept = await run(
+      Effect.gen(function* () {
+        const saved = yield* SavedDrafts;
+        yield* Effect.forEach(
+          ['a', 'b', 'c', 'd', 'e'],
+          (letter) =>
+            saved.write('a1', place, (kept) =>
+              draftOf(`${kept?.draft.written['Message']?.text ?? ''}${letter}`),
+            ),
+          { concurrency: 'unbounded', discard: true },
+        );
+        return yield* saved.read('a1', place);
+      }),
+    );
+    expect(kept?.draft.written['Message']?.text).toHaveLength(5);
+    expect(kept?.revision).toBe(5);
+  });
+
+  it('forgets those of a Project removed, a Machine forgotten or unlisted, and an Account signed out', async () => {
     const kept = session('m1', 'p2', 's3');
     const places = [
       session('m1', 'p1', 's1'),
       { machineId: 'm1', projectId: 'p1', sessionId: null },
       session('m2', 'p9', 's2'),
+      session('m4', 'p4', 's4'),
       kept,
     ];
-    await run(
-      'a1',
+    const left = await run(
       Effect.gen(function* () {
-        const saved = yield* drafts;
-        for (const place of places) yield* saved.write(place, draftOf('x'));
-        yield* saved.dropProject('m1', 'p1');
-        yield* saved.dropMachine('a1', 'm2');
+        const saved = yield* SavedDrafts;
+        for (const place of places)
+          yield* saved.write('a1', place, () => draftOf('x'));
+        yield* saved.write('a2', kept, () => draftOf('theirs'));
+        yield* saved.drop({
+          _tag: 'Project',
+          machineId: 'm1',
+          projectId: 'p1',
+        });
+        yield* saved.drop({
+          _tag: 'Machine',
+          accountId: 'a1',
+          machineId: 'm2',
+        });
+        yield* saved.drop({
+          _tag: 'Unlisted',
+          accountId: 'a1',
+          listed: ['m1', 'm2'],
+        });
+        const mine = yield* Effect.forEach(places, (place) =>
+          Effect.map(saved.read('a1', place), (each) => each?.draft ?? null),
+        );
+        yield* saved.drop({ _tag: 'SignedOut', signedIn: ['a1'] });
+        const theirs = yield* saved.read('a2', kept);
+        const still = yield* saved.read('a1', kept);
+        return { mine, theirs, still };
       }),
     );
-    await run(
-      'a2',
-      Effect.flatMap(drafts, (saved) => saved.write(kept, draftOf('theirs'))),
-    );
-    const left = await run(
-      'a1',
-      Effect.flatMap(drafts, (saved) =>
-        Effect.forEach(places, (place) => saved.read(place)),
-      ),
-    );
-    expect(left).toEqual([null, null, null, draftOf('x')]);
-    await run(
-      'a1',
-      Effect.flatMap(drafts, (saved) => saved.keepAccounts(['a1'])),
-    );
-    expect(
-      await run(
-        'a2',
-        Effect.flatMap(drafts, (saved) => saved.read(kept)),
-      ),
-    ).toBeNull();
-    expect(
-      await run(
-        'a1',
-        Effect.flatMap(drafts, (saved) => saved.read(kept)),
-      ),
-    ).toEqual(draftOf('x'));
+    expect(left.mine).toEqual([null, null, null, null, draftOf('x')]);
+    expect(left.theirs).toBeNull();
+    expect(left.still?.draft).toEqual(draftOf('x'));
   });
 });

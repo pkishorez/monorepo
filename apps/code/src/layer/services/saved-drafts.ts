@@ -1,5 +1,4 @@
-import { Effect, Layer, Schema } from 'effect';
-import { Accounts } from '@kestack/auth-toolkit/client';
+import { Effect, Layer, Schema, Semaphore } from 'effect';
 import type { Entity } from '@kestack/std-toolkit/core';
 import {
   type QueryOptions,
@@ -10,29 +9,35 @@ import {
 import { IDB } from '@kestack/std-toolkit/db/idb';
 import { Memory } from '@kestack/std-toolkit/db/memory';
 import { EntityESchema } from '@kestack/std-toolkit/eschema';
-import { type Place, SavedDraft, SavedDrafts } from '../capabilities/index.ts';
+import {
+  type Gone,
+  type Place,
+  SavedDraft,
+  SavedDrafts,
+} from '../capabilities/index.ts';
 
 /*
  * Saved Drafts in this browser's IndexedDB, one database of their own: a
  * row for each place, a Session of a Machine or a Project's new session,
- * of each Account. A place's own reads and writes are for the Account
- * signed in, read at each call; with nobody signed in nothing is read or
- * kept. Never synced: the last write wins, whichever tab made it.
+ * of each Account, named by every call. Never synced: the last write
+ * wins, whichever tab made it.
  *
- * 1. Keep    a write replaces the place's row, or makes it; a clear
- *            deletes it.
+ * 1. Keep    a write changes the place's row from what it holds, one at a
+ *            time for each place in this tab, and counts its revision; a
+ *            change to nothing deletes it.
  * 2. Prune   a Project removed, a Machine forgotten or no longer listed,
  *            an Account signed out: every row of theirs is deleted.
  */
 
 // The Draft is kept as its JSON: an attachment's size is a plain number,
-// which an ESchema refuses to keep as a field.
+// which an ESchema refuses to keep as a field, and so is the revision.
 const DraftSchema = EntityESchema.make('SavedDraft', 'place', {
   accountId: Schema.String,
   machineId: Schema.String,
   projectId: Schema.String,
   sessionId: Schema.NullOr(Schema.String),
   draft: Schema.String,
+  revision: Schema.String,
 }).build();
 
 type Row = typeof DraftSchema.Type;
@@ -56,14 +61,36 @@ const placeOf = (
   { machineId, projectId, sessionId }: Place,
 ) => `${accountId} ${machineId} ${sessionId ?? `project:${projectId}`}`;
 
-const make = (
-  layer: Layer.Layer<StdTableService<typeof TABLE>>,
-  accounts: Accounts['Service'],
-) => {
-  const signedIn = Effect.map(accounts.current, (state) =>
-    state._tag === 'SignedIn' ? state.active.id : null,
-  );
+/** Whether a row went. */
+const goneOf =
+  (gone: Gone) =>
+  (row: Row): boolean => {
+    switch (gone._tag) {
+      case 'Project':
+        return (
+          row.machineId === gone.machineId && row.projectId === gone.projectId
+        );
+      case 'Machine':
+        return (
+          row.accountId === gone.accountId && row.machineId === gone.machineId
+        );
+      case 'Unlisted':
+        return (
+          row.accountId === gone.accountId &&
+          !gone.listed.includes(row.machineId)
+        );
+      case 'SignedOut':
+        return !gone.signedIn.includes(row.accountId);
+    }
+  };
 
+const keptOf = (row: Row) =>
+  Effect.map(decode(row.draft), (draft) => ({
+    draft,
+    revision: Number(row.revision),
+  }));
+
+const make = (layer: Layer.Layer<StdTableService<typeof TABLE>>) => {
   // Every row, to prune by.
   const all = Effect.gen(function* () {
     const found: Array<Row> = [];
@@ -86,100 +113,86 @@ const make = (
       row === null ? Effect.void : rows.hardDelete({ place }, CONFIRM),
     );
 
-  // 2. Prune
-  const prune = (gone: (row: Row) => boolean) =>
-    Effect.flatMap(all, (found) =>
-      Effect.forEach(found.filter(gone), ({ place }) => remove(place), {
-        discard: true,
-      }),
-    ).pipe(Effect.provide(layer), Effect.ignore);
+  // 1. Keep: one write at a time for each place.
+  const turns = new Map<string, Semaphore.Semaphore>();
+  const turnOf = (id: string) => {
+    const found = turns.get(id);
+    if (found !== undefined) return found;
+    const made = Semaphore.makeUnsafe(1);
+    turns.set(id, made);
+    return made;
+  };
 
   return SavedDrafts.of({
-    read: (place) =>
-      Effect.gen(function* () {
-        const accountId = yield* signedIn;
-        if (accountId === null) return null;
-        const row = yield* rows.get({ place: placeOf(accountId, place) });
-        return row === null ? null : yield* decode(row.value.draft);
-      }).pipe(
+    read: (accountId, place) =>
+      Effect.flatMap(rows.get({ place: placeOf(accountId, place) }), (row) =>
+        row === null ? Effect.succeed(null) : keptOf(row.value),
+      ).pipe(
         Effect.provide(layer),
         Effect.orElseSucceed(() => null),
       ),
-    // 1. Keep
-    write: (place, draft) =>
-      Effect.gen(function* () {
-        const accountId = yield* signedIn;
-        if (accountId === null) return;
-        const id = placeOf(accountId, place);
-        const json = yield* encode(draft);
+    write: (accountId, place, change) => {
+      const id = placeOf(accountId, place);
+      return Effect.gen(function* () {
         const row = yield* rows.get({ place: id });
+        const kept =
+          row === null
+            ? null
+            : yield* keptOf(row.value).pipe(Effect.orElseSucceed(() => null));
+        const draft = change(kept);
+        if (kept !== null && draft === kept.draft) return kept.revision;
+        if (draft === null) {
+          if (row !== null) yield* rows.hardDelete({ place: id }, CONFIRM);
+          return null;
+        }
+        const revision = (kept?.revision ?? 0) + 1;
+        const json = yield* encode(draft);
         if (row === null)
-          return yield* rows.insert({
+          yield* rows.insert({
             place: id,
             accountId,
             machineId: place.machineId,
             projectId: place.projectId,
             sessionId: place.sessionId,
             draft: json,
+            revision: String(revision),
           });
-        return yield* rows.getAndUpdate(
-          { place: id },
-          () => ({ draft: json }),
-          {
-            retries: RETRIES,
-          },
-        );
+        else
+          yield* rows.getAndUpdate(
+            { place: id },
+            () => ({ draft: json, revision: String(revision) }),
+            { retries: RETRIES },
+          );
+        return revision;
       }).pipe(
         Effect.retry({ times: RETRIES }),
         Effect.provide(layer),
-        Effect.ignore,
-      ),
-    clear: (place) =>
-      Effect.flatMap(signedIn, (accountId) =>
-        accountId === null ? Effect.void : remove(placeOf(accountId, place)),
-      ).pipe(Effect.provide(layer), Effect.ignore),
-    dropProject: (machineId, projectId) =>
-      Effect.flatMap(signedIn, (accountId) =>
-        prune(
-          (row) =>
-            row.accountId === accountId &&
-            row.machineId === machineId &&
-            row.projectId === projectId,
+        Effect.orElseSucceed(() => null),
+        turnOf(id).withPermit,
+      );
+    },
+    // 2. Prune
+    drop: (gone) =>
+      Effect.flatMap(all, (found) =>
+        Effect.forEach(
+          found.filter(goneOf(gone)),
+          ({ place }) => remove(place),
+          { discard: true },
         ),
-      ),
-    dropMachine: (accountId, machineId) =>
-      prune(
-        (row) => row.accountId === accountId && row.machineId === machineId,
-      ),
-    keepMachines: (accountId, machineIds) =>
-      prune(
-        (row) =>
-          row.accountId === accountId && !machineIds.includes(row.machineId),
-      ),
-    keepAccounts: (accountIds) =>
-      prune((row) => !accountIds.includes(row.accountId)),
+      ).pipe(Effect.provide(layer), Effect.ignore),
   });
 };
 
 /** Saved Drafts in this browser's IndexedDB. */
-export const idb = Layer.effect(
-  SavedDrafts,
-  Effect.map(Accounts, (accounts) =>
-    make(
-      IDB.make(table, {
-        database: IDB.database({ databaseName: 'code:drafts' }),
-        mode: 'disposable',
-      }).layer,
-      accounts,
-    ),
+export const idb = Layer.sync(SavedDrafts, () =>
+  make(
+    IDB.make(table, {
+      database: IDB.database({ databaseName: 'code:drafts' }),
+      mode: 'disposable',
+    }).layer,
   ),
 );
 
 /** Saved Drafts in memory, for a test. */
-export const memory = () => {
-  const store = Memory.make(table).layer;
-  return Layer.effect(
-    SavedDrafts,
-    Effect.map(Accounts, (accounts) => make(store, accounts)),
-  );
-};
+export const memory = () =>
+  Layer.succeed(SavedDrafts, make(Memory.make(table).layer));

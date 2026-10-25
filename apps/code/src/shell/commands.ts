@@ -45,7 +45,10 @@ export const keepAccounts = Command.make('KeepAccounts', {
       });
       yield* (yield* AccountReplicas).keepAccounts(accountIds);
       yield* saved.keepAccounts(accountIds);
-      yield* (yield* SavedDrafts).keepAccounts(accountIds);
+      yield* (yield* SavedDrafts).drop({
+        _tag: 'SignedOut',
+        signedIn: accountIds,
+      });
     }),
 });
 

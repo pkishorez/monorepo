@@ -27,7 +27,8 @@ import { rank, type Ranked } from './rank.ts';
  * 4. Back      drops the top Step and the choice that opened it; never
  *              below the Step it opened at.
  * 5. Done      the owner hears once: the choices it finished with and the
- *              Step it finished in, or null when it closed with none. In a
+ *              Step it finished in, or null when it closed with none; a
+ *              query the Step `ends` on finishes it as it is typed. In a
  *              Step the owner settles, the Picker stays, busy, until the
  *              owner has taken the choices, and only then finishes; a
  *              refusal says why in the Step, which can be chosen from
@@ -213,6 +214,15 @@ export interface StepSpec<P> {
   } | null;
   /** Loaded rows for one scope of query never answer another's, such as hidden folders for a query starting with `.`. */
   readonly scope?: (query: string) => string;
+  /**
+   * A query that finishes the Picker as soon as it is typed, on a row of
+   * its own, such as `btw ` and a question in the skills Picker; null for
+   * any other.
+   */
+  readonly ends?: (
+    query: string,
+    at: At<P>,
+  ) => { readonly value: string; readonly label: string } | null;
   /**
    * What finishing on no row ends on: the choices so far, or this Step
    * itself, with the choices that opened it. Finishing on a row that opens
@@ -619,18 +629,30 @@ export const build = <const Name extends string, P>(
       },
     },
     on: {
-      // The best row is highlighted as the search changes.
-      Typed: ({ query }, { model, props }) =>
-        model.busy
-          ? {}
-          : {
-              model: highlightedIn(
-                spec,
-                typed(spec, model, props, query),
-                props,
-                false,
-              ),
-            },
+      // The best row is highlighted as the search changes, unless the
+      // search finishes it.
+      Typed: ({ query }, { model, props }) => {
+        if (model.busy) return {};
+        const ended = model.finished
+          ? null
+          : (spec.steps[model.step.id]?.ends?.(query, {
+              ...atOf(model, props),
+              query,
+            }) ?? null);
+        if (ended !== null)
+          return finish(model, [
+            ...model.choices,
+            { step: model.step.id, key: model.step.key, ...ended },
+          ]);
+        return {
+          model: highlightedIn(
+            spec,
+            typed(spec, model, props, query),
+            props,
+            false,
+          ),
+        };
+      },
       Highlighted: ({ value }, { model }) => ({
         model: { ...model, step: { ...model.step, highlighted: value } },
       }),

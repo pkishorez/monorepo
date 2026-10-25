@@ -18,19 +18,19 @@ import {
   it,
   vi,
 } from 'vitest';
-import { keys } from '../../../../../keys.ts';
+import { keys } from '../../../../../../keys.ts';
 import {
   type Ask,
   DeviceState,
   Dictations,
   nothing,
-} from '../../../../../layer/capabilities/index.ts';
-import type { Availability } from '../../../../actors/dictation/index.ts';
-import * as Picker from '../../../../../ui/picker/index.ts';
-import { Toasts } from '../../../../../ui/toast/index.ts';
-import { Card, useDraft } from '../card.tsx';
-import { Insert } from '../message.ts';
-import { SkillPicker } from '../skills.ts';
+} from '../../../../../../layer/capabilities/index.ts';
+import type { Availability } from '../../../../../actors/dictation/index.ts';
+import * as Picker from '../../../../../../ui/picker/index.ts';
+import { Toasts } from '../../../../../../ui/toast/index.ts';
+import { Card, useDraft } from '../../card.tsx';
+import { Insert } from '../../message.ts';
+import { SkillPicker } from '../../skills.ts';
 import { TouchDraft } from './index.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });

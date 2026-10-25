@@ -124,10 +124,7 @@ const world = (
       dropMachine: (_, machineId) =>
         Effect.sync(() => void dropped.push(machineId)),
     }),
-    Layer.mock(SavedDrafts)({
-      keepMachines: () => Effect.void,
-      dropMachine: () => Effect.void,
-    }),
+    Layer.mock(SavedDrafts)({ drop: () => Effect.void }),
   );
   return { layer, forgotten, kept, dropped, lists: () => lists };
 };

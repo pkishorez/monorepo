@@ -4,7 +4,7 @@ import {
   Ask,
   DeviceState,
   Dictations,
-} from '../../../../../layer/capabilities/index.ts';
+} from '../../../../../../layer/capabilities/index.ts';
 
 /*
  * The Touch Draft: the Draft on a device with no keyboard, as its own
