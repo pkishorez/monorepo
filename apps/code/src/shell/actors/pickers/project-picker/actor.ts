@@ -141,6 +141,8 @@ export const ProjectPicker = Actor.define('ProjectPicker', {
     machines: Schema.Array(Listed),
     /** How it is open; null while it is not. */
     picking: Schema.NullOr(Picker.How),
+    /** Whether its button opened it, which then draws it; else the View the shell keeps does. */
+    byButton: Schema.Boolean,
     /** How many times it was opened, so each is a fresh one. */
     opened: Schema.Finite,
     /** Null until read. */
@@ -156,7 +158,7 @@ export const ProjectPicker = Actor.define('ProjectPicker', {
   }),
   message: Schema.TaggedUnion({
     MachinesKnown: { machines: Schema.Array(Listed) },
-    Open: { how: Picker.How },
+    Open: { how: Picker.How, byButton: Schema.optional(Schema.Boolean) },
     Read: { recent: Schema.Array(Recent) },
     Closed: {},
     Chose: { machineId: Schema.String, projectId: Schema.String },
@@ -177,6 +179,7 @@ export const ProjectPickerLive = Actor.build(ProjectPicker, {
     model: {
       machines: [],
       picking: null,
+      byButton: false,
       opened: 0,
       recent: null,
       added: null,
@@ -262,13 +265,14 @@ export const ProjectPickerLive = Actor.build(ProjectPicker, {
     MachinesKnown: ({ machines }, { model }) => ({
       model: { ...model, machines },
     }),
-    Open: ({ how }, { model }) =>
+    Open: ({ how, byButton }, { model }) =>
       model.picking !== null
         ? {}
         : {
             model: {
               ...model,
               picking: how,
+              byButton: byButton === true,
               opened: model.opened + 1,
               added: null,
               warning: null,

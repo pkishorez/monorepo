@@ -11,7 +11,8 @@ import { ProjectPickerLive, ProjectsView } from './actor.ts';
 
 /*
  * The Project Picker: `o` opens it centred from anywhere, drawn by the
- * View the shell keeps whatever the sidebar shows;
+ * View the shell keeps whatever the sidebar shows, as does a button that
+ * runs its keys, such as home's "Open a folder", in a Drawer when tapped;
  * the Button, the round plus at the right of the sidebar's foot, opens it
  * by pointer as a popover above it, and by a tap in a tall Drawer, its
  * folders too, each tapped into. A folder made without its git repository
@@ -22,12 +23,15 @@ export const ProjectPickerView = View.make(
   ProjectPickerLive,
   ({ model, children, send }) => {
     const open = Picker.useOpen();
-    const picker = () => open(() => send({ _tag: 'Open', how: 'keys' }));
+    // By its keys, or by a button elsewhere that runs them, such as home's
+    // "Open a folder": a tap there draws it for a finger.
+    const picker = () =>
+      open(() => send({ _tag: 'Open', how: Picker.howTyped() }));
     keys.useAction('app.projects', picker);
     keys.useAction('app.projectsAnywhere', picker);
     return (
       <Picker.Frame
-        how={model.picking === 'keys' ? 'keys' : null}
+        how={model.byButton ? null : model.picking}
         mode="drawer"
         tall
         label="Open a project"
@@ -44,11 +48,11 @@ export const ProjectPickerButton = View.make(
     const bound = useBound('app.projects');
     return (
       <Picker.Frame
-        how={model.picking === 'keys' ? null : model.picking}
+        how={model.byButton ? model.picking : null}
         mode="drawer"
         tall
         label="Open a project"
-        onOpen={(how) => send({ _tag: 'Open', how })}
+        onOpen={(how) => send({ _tag: 'Open', how, byButton: true })}
         side="top"
         className="w-96"
         // Round, 56px on a phone and 44px wider, sinking as it is pressed.
