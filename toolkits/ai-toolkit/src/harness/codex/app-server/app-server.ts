@@ -55,7 +55,7 @@ export const start = (
     const child = yield* Effect.acquireRelease(
       Effect.try({
         try: () =>
-          spawn(codex.command, ['app-server'], {
+          spawn(codex.command, [...codex.args, 'app-server'], {
             cwd,
             env: codex.env,
             stdio: ['pipe', 'pipe', 'pipe'],
