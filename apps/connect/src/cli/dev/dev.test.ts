@@ -1,10 +1,7 @@
-import { spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { spawn, spawnSync } from 'node:child_process';
 import {
   existsSync,
   mkdtempSync,
-  readdirSync,
-  readFileSync,
   rmSync,
   utimesSync,
   writeFileSync,
@@ -14,7 +11,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { slugOf } from './branch.js';
 import { live, runs, take } from './leases.js';
-import { takeOver, withLock } from './lock.js';
+import { lockPort, withLock } from './lock.js';
 import {
   type ConnectRecord,
   readRecord,
@@ -50,93 +47,66 @@ describe('slugOf', () => {
 });
 
 describe('withLock', () => {
-  it('takes over a lock whose process is dead', async () => {
-    writeFileSync(
-      join(dir, 'lock'),
-      JSON.stringify({ pid: deadPid(), at: Date.now() }),
-    );
-    const held = await withLock(
-      dir,
-      async () =>
-        JSON.parse(readFileSync(join(dir, 'lock'), 'utf8')) as { pid: number },
-    );
-    expect(held.pid).toBe(process.pid);
-    expect(existsSync(join(dir, 'lock'))).toBe(false);
-  });
-
-  it('takes over a live lock once it is too old', async () => {
-    writeFileSync(
-      join(dir, 'lock'),
-      JSON.stringify({ pid: process.ppid, at: Date.now() - 61_000 }),
-    );
-    expect(await withLock(dir, async () => 'taken')).toBe('taken');
-  });
-
-  it('waits for a fresh live lock, then gives up', async () => {
-    writeFileSync(
-      join(dir, 'lock'),
-      JSON.stringify({ pid: process.ppid, at: Date.now() }),
-    );
-    await expect(
-      withLock(dir, async () => 'taken', { retryMs: 10, timeoutMs: 50 }),
-    ).rejects.toThrow(/Could not take/);
-  });
-
-  it('leaves a lock taken again since it was judged stale', () => {
-    const file = join(dir, 'lock');
-    const seen = JSON.stringify({ pid: deadPid(), at: Date.now() });
-    const fresh = JSON.stringify({ pid: process.ppid, at: Date.now() });
-    writeFileSync(file, fresh);
-    takeOver(file, seen);
-    expect(readFileSync(file, 'utf8')).toBe(fresh);
-    takeOver(file, fresh);
-    expect(existsSync(file)).toBe(false);
-  });
-
-  it('gives one owner when a late contender takes over a lock already taken over', async () => {
-    const file = join(dir, 'lock');
-    const seen = JSON.stringify({ pid: deadPid(), at: Date.now() });
-    writeFileSync(file, seen);
-    // A and B both judge the lock stale. B takes it over and takes it.
-    expect(takeOver(file, seen)).toBe(true);
-    const fresh = JSON.stringify({ pid: process.ppid, at: Date.now() });
-    writeFileSync(file, fresh, { flag: 'wx' });
-    // A comes late: B's lock stays, so C finds it held and waits.
-    expect(takeOver(file, seen)).toBe(false);
-    expect(readFileSync(file, 'utf8')).toBe(fresh);
-    await expect(
-      withLock(dir, async () => 'taken', { retryMs: 10, timeoutMs: 50 }),
-    ).rejects.toThrow(/Could not take/);
-    expect(readFileSync(file, 'utf8')).toBe(fresh);
-    expect(readdirSync(dir)).toEqual(['lock']);
-  });
-
-  it('leaves a stale lock to the process holding its guard, and clears a guard whose holder died', () => {
-    const file = join(dir, 'lock');
-    const seen = JSON.stringify({ pid: deadPid(), at: Date.now() });
-    writeFileSync(file, seen);
-    const guard = `${file}.${createHash('sha256').update(seen).digest('hex').slice(0, 16)}`;
-    // Another, live, process is taking it over.
-    writeFileSync(guard, JSON.stringify({ pid: process.ppid, at: Date.now() }));
-    expect(takeOver(file, seen)).toBe(false);
-    expect(readFileSync(file, 'utf8')).toBe(seen);
-    expect(existsSync(guard)).toBe(true);
-    // It died doing so.
-    writeFileSync(guard, JSON.stringify({ pid: deadPid(), at: Date.now() }));
-    expect(takeOver(file, seen)).toBe(false);
-    expect(existsSync(guard)).toBe(false);
-    expect(takeOver(file, seen)).toBe(true);
-    expect(readdirSync(dir)).toEqual([]);
-  });
-
-  it('gives back only its own lock, never one taken over since', async () => {
-    const file = join(dir, 'lock');
-    const fresh = JSON.stringify({ pid: process.ppid, at: Date.now() });
-    await withLock(dir, async () => {
-      takeOver(file, readFileSync(file, 'utf8'));
-      writeFileSync(file, fresh, { flag: 'wx' });
+  /** Runs `fn` holding the lock, noting when it starts and ends. */
+  const hold = (lockDir: string, name: string, log: string[]) =>
+    withLock(lockDir, async () => {
+      log.push(`${name} in`);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      log.push(`${name} out`);
     });
-    expect(readFileSync(file, 'utf8')).toBe(fresh);
+
+  it('runs two holders of one lock strictly one after the other', async () => {
+    const log: string[] = [];
+    await Promise.all([hold(dir, 'a', log), hold(dir, 'b', log)]);
+    expect(log).toEqual(['a in', 'a out', 'b in', 'b out']);
+  });
+
+  it('runs holders of different locks side by side', async () => {
+    const other = mkdtempSync(join(tmpdir(), 'connect-dev-'));
+    try {
+      expect(lockPort(other)).not.toBe(lockPort(dir));
+      const log: string[] = [];
+      await Promise.all([hold(dir, 'a', log), hold(other, 'b', log)]);
+      expect(log.slice(0, 2).sort()).toEqual(['a in', 'b in']);
+    } finally {
+      rmSync(other, { recursive: true, force: true });
+    }
+  });
+
+  it('is free right after the process holding it is killed', async () => {
+    const child = spawn(
+      process.execPath,
+      [
+        '-e',
+        `require('node:net').createServer().listen(${lockPort(dir)}, '127.0.0.1', () => console.log('held'))`,
+      ],
+      { stdio: ['ignore', 'pipe', 'inherit'] },
+    );
+    await new Promise((resolve) => child.stdout.once('data', resolve));
+    await expect(
+      withLock(dir, async () => 'taken', { retryMs: 10, timeoutMs: 50 }),
+    ).rejects.toThrow();
+    const exited = new Promise((resolve) => child.once('exit', resolve));
+    child.kill('SIGKILL');
+    await exited;
+    expect(
+      await withLock(dir, async () => 'taken', {
+        retryMs: 10,
+        timeoutMs: 1000,
+      }),
+    ).toBe('taken');
+  });
+
+  it('names the port when it gives up', async () => {
+    await withLock(dir, async () => {
+      await expect(
+        withLock(dir, async () => 'taken', { retryMs: 10, timeoutMs: 50 }),
+      ).rejects.toThrow(
+        new RegExp(
+          `port ${lockPort(dir)} is held; if no ke-connect dev is running, another program owns it`,
+        ),
+      );
+    });
   });
 });
 
@@ -274,7 +244,9 @@ describe('stopUnlessLeased', () => {
     writeRecord(dir, record);
     expect(await stopUnlessLeased(dir)).toBe(true);
     expect(readRecord(dir)?.stopping).toBe(true);
-    expect(existsSync(join(dir, 'lock'))).toBe(false);
+    expect(
+      await withLock(dir, async () => 'free', { retryMs: 10, timeoutMs: 50 }),
+    ).toBe('free');
   });
 });
 

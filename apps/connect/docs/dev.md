@@ -22,10 +22,11 @@ The Machine is named `<host> (<branch>)`, so each branch's Machine is told apart
 
 `dev/` holds:
 
-- `lock`: taken while a dev process decides whether Connect must start. A lock whose process is dead, or older than 60 s, is taken over.
 - `connect.json`: the running Connect's pid, mode, Cloud Connect URL, port, Machine and whether it is ready.
 - `leases/<pid>.json`: one per App dev process using Connect.
 - `connect.log`: the shared Connect's output.
+
+The lock that one dev process takes while it decides whether Connect must start is not a file: it is a TCP port on 127.0.0.1, from 49152 to 65535, derived from the path of `dev/`. Holding it is listening on it, so it is freed when the process exits, however it exits. If taking it fails after 30 s, the error names the port; when no `ke-connect` dev runs, another program owns that port.
 
 ## Running an App
 

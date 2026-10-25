@@ -20,6 +20,9 @@ import { Effect } from 'effect';
  * or while its `MOVING` note says a move was cut short, which it then
  * finishes. Each step moves only what is still there, the database last of
  * its files, so its WAL never stays behind once `connect.db` exists.
+ * A file moved across disks is copied, then put in place whole, then
+ * deleted; a move cut short after it was put in place finds both, and
+ * only deletes the old one.
  * The database and attachments must move; models, speech and cloudflared
  * need not: one already in Connect's folder (a speech model downloaded in
  * development, say) is kept and the old one left, and one that fails to
@@ -38,6 +41,16 @@ interface Targets {
 }
 
 const MOVING = 'MOVING';
+
+/** Whether anything is at `path`, a dangling link included. */
+const lexists = (path: string) => {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 /**
  * Moves `from` to `to`, copying then deleting when they are on different
@@ -61,9 +74,25 @@ const move = (from: string, to: string) =>
     yield* Effect.log(`Moved ${from} to ${to}`);
   });
 
-/** Moves `from` if it is there. */
-const moveIfThere = (from: string, to: string) =>
-  Effect.suspend(() => (existsSync(from) ? move(from, to) : Effect.void));
+/**
+ * Moves `from`, which Connect needs. In a move cut short, a `to` already
+ * there while `from` still is was copied whole and put in place, and only
+ * deleting `from` was left: that is done instead of moving it again.
+ */
+const moveStrict = (from: string, to: string, resumed: boolean) =>
+  Effect.suspend(() => {
+    if (!(resumed && lexists(to))) return move(from, to);
+    return Effect.sync(() => {
+      rmSync(`${to}.moving`, { recursive: true, force: true });
+      rmSync(from, { recursive: true, force: true });
+    }).pipe(Effect.andThen(Effect.log(`Moved ${from} to ${to}, finished`)));
+  });
+
+/** Moves `from`, which Connect needs, if it is there. */
+const moveIfThere = (from: string, to: string, resumed: boolean) =>
+  Effect.suspend(() =>
+    existsSync(from) ? moveStrict(from, to, resumed) : Effect.void,
+  );
 
 /** Whether `path` is there and is a file, or a folder with something in it. */
 const filled = (path: string) => {
@@ -92,16 +121,6 @@ const moveSpare = (from: string, to: string) =>
     );
   });
 
-/** Whether anything is at `path`, a dangling link included. */
-const lexists = (path: string) => {
-  try {
-    lstatSync(path);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
 /** Whether there is anything to move, or a move to finish. */
 export const needsMove = (legacy: string, db: string) =>
   existsSync(join(legacy, MOVING)) ||
@@ -111,20 +130,21 @@ export const needsMove = (legacy: string, db: string) =>
 export const moveFrom = (legacy: string, targets: Targets) =>
   Effect.gen(function* () {
     const at = (name: string) => join(legacy, name);
+    const resumed = existsSync(at(MOVING));
     yield* Effect.sync(() => writeFileSync(at(MOVING), ''));
     // Never over a database already moved, should an old ai-toolkit have
     // made another since.
     if (!existsSync(targets.db)) {
-      yield* moveIfThere(at('ai.db-wal'), `${targets.db}-wal`);
-      yield* moveIfThere(at('ai.db-shm'), `${targets.db}-shm`);
-      yield* moveIfThere(at('ai.db'), targets.db);
+      yield* moveIfThere(at('ai.db-wal'), `${targets.db}-wal`, resumed);
+      yield* moveIfThere(at('ai.db-shm'), `${targets.db}-shm`, resumed);
+      yield* moveIfThere(at('ai.db'), targets.db, resumed);
     }
 
     if (
       existsSync(at('attachments')) &&
       !lstatSync(at('attachments')).isSymbolicLink()
     )
-      yield* move(at('attachments'), targets.attachments);
+      yield* moveStrict(at('attachments'), targets.attachments, resumed);
     if (!lexists(at('attachments')) && existsSync(targets.attachments)) {
       // Old Raw records name their attachments by absolute path.
       yield* Effect.sync(() =>
