@@ -143,6 +143,44 @@ describe('moveLegacy', () => {
     expect(existsSync(join(legacy, 'MOVING'))).toBe(false);
   });
 
+  it('keeps a speech model already in Connect’s folder, leaves the old one, and finishes', () => {
+    write(join(legacy, 'ai.db'), 'db');
+    write(join(legacy, 'speech-to-text', 'model.onnx'), 'old');
+    write(join(legacy, 'models.json'), '{"old":true}');
+    const paths = pathsIn(home);
+    write(join(paths.ai.speech, 'model.onnx'), 'downloaded');
+    write(paths.ai.models, '{}');
+
+    Effect.runSync(moveLegacy(paths, legacy));
+
+    expect(readFileSync(paths.db, 'utf8')).toBe('db');
+    expect(readFileSync(join(paths.ai.speech, 'model.onnx'), 'utf8')).toBe(
+      'downloaded',
+    );
+    expect(
+      readFileSync(join(legacy, 'speech-to-text', 'model.onnx'), 'utf8'),
+    ).toBe('old');
+    expect(readFileSync(paths.ai.models, 'utf8')).toBe('{}');
+    expect(existsSync(join(legacy, 'MOVING'))).toBe(false);
+    expect(existsSync(join(legacy, 'MOVED.txt'))).toBe(true);
+  });
+
+  it('finishes even when a file Connect can do without fails to move', () => {
+    write(join(legacy, 'ai.db'), 'db');
+    write(join(legacy, 'speech-to-text', 'model.onnx'), 'model');
+    const paths = pathsIn(home);
+    // Its folder's parent is a file, so the folder cannot be made.
+    write(join(paths.ai.speech, '..'), 'in the way');
+
+    Effect.runSync(moveLegacy(paths, legacy));
+
+    expect(readFileSync(paths.db, 'utf8')).toBe('db');
+    expect(
+      readFileSync(join(legacy, 'speech-to-text', 'model.onnx'), 'utf8'),
+    ).toBe('model');
+    expect(existsSync(join(legacy, 'MOVING'))).toBe(false);
+  });
+
   it('does nothing without an old database', () => {
     write(join(legacy, 'models.json'), '{}');
     const paths = pathsIn(home);

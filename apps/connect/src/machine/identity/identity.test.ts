@@ -7,6 +7,7 @@ import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { afterEach, describe, expect, it } from 'vitest';
 import { claim, forget, found } from './index.js';
+import { writeMachine } from './file.js';
 import { takeLegacyMachine } from './legacy.js';
 import { ESchema } from '@kestack/std-toolkit/eschema';
 
@@ -160,6 +161,43 @@ describe('machine.json is one Machine of one User', () => {
         );
         expect(cut._tag).toBe('Failure');
         expect((yield* claim({ ...at, owner: ada })).id).toBe('m-old');
+      }),
+    ));
+
+  it('clears ai-toolkit’s Machine left behind by a take cut short, so logout never brings it back', () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const at = kept();
+        const legacy = {
+          id: 'm-old',
+          name: 'laptop',
+          key: 'k-old',
+          owner: ada,
+        };
+        yield* keepLegacy(at.db, legacy);
+        // Cut short after machine.json was written, before the record was nulled.
+        yield* writeMachine(at.file, legacy);
+        expect((yield* claim({ ...at, owner: ada })).id).toBe('m-old');
+        yield* forget(at);
+        expect(yield* found(at)).toBeNull();
+        expect((yield* claim({ ...at, owner: ada })).id).not.toBe('m-old');
+      }),
+    ));
+
+  it('clears ai-toolkit’s Machine on logout too', () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const at = kept();
+        const legacy = {
+          id: 'm-old',
+          name: 'laptop',
+          key: 'k-old',
+          owner: ada,
+        };
+        yield* keepLegacy(at.db, legacy);
+        yield* writeMachine(at.file, legacy);
+        yield* forget(at);
+        expect(yield* found(at)).toBeNull();
       }),
     ));
 });

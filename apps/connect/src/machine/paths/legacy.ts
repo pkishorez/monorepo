@@ -3,6 +3,7 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  readdirSync,
   renameSync,
   rmSync,
   symlinkSync,
@@ -19,6 +20,10 @@ import { Effect } from 'effect';
  * or while its `MOVING` note says a move was cut short, which it then
  * finishes. Each step moves only what is still there, the database last of
  * its files, so its WAL never stays behind once `connect.db` exists.
+ * The database and attachments must move; models, speech and cloudflared
+ * need not: one already in Connect's folder (a speech model downloaded in
+ * development, say) is kept and the old one left, and one that fails to
+ * move is logged and left, so neither keeps the move from finishing.
  * dev.db, dev-local.db and preview.db were for development and are left
  * alone.
  */
@@ -59,6 +64,33 @@ const move = (from: string, to: string) =>
 /** Moves `from` if it is there. */
 const moveIfThere = (from: string, to: string) =>
   Effect.suspend(() => (existsSync(from) ? move(from, to) : Effect.void));
+
+/** Whether `path` is there and is a file, or a folder with something in it. */
+const filled = (path: string) => {
+  try {
+    return !lstatSync(path).isDirectory() || readdirSync(path).length > 0;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Moves `from`, which Connect can do without, if it is there: left where
+ * it is when `to` is already filled, or when it fails to move.
+ */
+const moveSpare = (from: string, to: string) =>
+  Effect.suspend(() => {
+    if (!existsSync(from)) return Effect.void;
+    if (filled(to))
+      return Effect.logWarning(
+        `Left ${from}: ${to} is already there, and is kept`,
+      );
+    return move(from, to).pipe(
+      Effect.catchDefect((error) =>
+        Effect.logWarning(`Left ${from}: moving it to ${to} failed`, error),
+      ),
+    );
+  });
 
 /** Whether anything is at `path`, a dangling link included. */
 const lexists = (path: string) => {
@@ -103,9 +135,9 @@ export const moveFrom = (legacy: string, targets: Targets) =>
       );
     }
 
-    yield* moveIfThere(at('models.json'), targets.models);
-    yield* moveIfThere(at('speech-to-text'), targets.speech);
-    yield* moveIfThere(
+    yield* moveSpare(at('models.json'), targets.models);
+    yield* moveSpare(at('speech-to-text'), targets.speech);
+    yield* moveSpare(
       at(
         join(
           'bin',

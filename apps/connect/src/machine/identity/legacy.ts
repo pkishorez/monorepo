@@ -57,3 +57,11 @@ export const takeLegacyMachine = (
           ),
     (database) => Effect.sync(() => database?.close?.()),
   );
+
+/**
+ * Nulls the Machine ai-toolkit kept in the database at `db`, if it still
+ * holds one: once machine.json holds the Machine, a take cut short before
+ * it nulled the record must not leave it to be taken again.
+ */
+export const clearLegacyMachine = (db: string) =>
+  takeLegacyMachine(db, () => Effect.void);

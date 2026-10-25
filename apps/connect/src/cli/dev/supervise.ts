@@ -13,8 +13,9 @@ import {
  * Running this branch's Connect: its Cloud Connect under `alchemy dev`
  * behind Portless, then a Machine of the branch's own serving against it,
  * ready once `connect.json` says so. A shared Connect stops 3 s after its
- * last lease is gone, unless an App leased it as it decided; a foreground
- * one stops on Ctrl-C.
+ * last lease is gone, unless an App leased it as it decided, watching from
+ * the moment it starts, so an App that gives up while Cloud Connect never
+ * answers does not leave it running; a foreground one stops on Ctrl-C.
  */
 
 export interface Supervised {
@@ -72,8 +73,8 @@ const exited = (child: ChildProcess) =>
 
 /** Waits until `GET <cloud>/auth` answers 200. */
 const answering = (cloud: string) =>
-  Effect.promise(async () => {
-    for (;;) {
+  Effect.promise(async (signal) => {
+    while (!signal.aborted) {
       try {
         const response = await fetch(`${cloud.replace(/\/+$/, '')}/auth`);
         await response.body?.cancel();
@@ -87,9 +88,9 @@ const answering = (cloud: string) =>
 
 /** Ends once no live lease has been left in `dir` for 3 s, its record then saying it is stopping. */
 const unleased = (dir: string) =>
-  Effect.promise(async () => {
+  Effect.promise(async (signal) => {
     let since = Date.now();
-    for (;;) {
+    while (!signal.aborted) {
       await new Promise((resolve) => setTimeout(resolve, POLL_MS));
       if (live(dir).length > 0) since = Date.now();
       else if (Date.now() - since >= GRACE_MS) {
@@ -117,30 +118,32 @@ export const supervise = (options: Supervised) =>
     const { root, dir, slug, cloud, mode, version } = options;
     const startedAt = new Date().toISOString();
     const alchemy = yield* alchemyDev(root);
-    yield* Effect.log(`Waiting for Cloud Connect at ${cloud}`);
-    yield* Effect.raceFirst(answering(cloud), exited(alchemy));
-    const serving = serve({
-      cloud,
-      branch: slug,
-      port: 0,
-      onListening: ({ port, machine }) =>
-        Effect.sync(() =>
-          writeRecord(dir, {
-            pid: process.pid,
-            mode,
-            cloud,
-            port,
-            machine,
-            ready: true,
-            startedAt,
-            version,
-          }),
-        ),
-    }).pipe(Effect.raceFirst(exited(alchemy)));
+    const running = Effect.gen(function* () {
+      yield* Effect.log(`Waiting for Cloud Connect at ${cloud}`);
+      yield* Effect.raceFirst(answering(cloud), exited(alchemy));
+      yield* serve({
+        cloud,
+        branch: slug,
+        port: 0,
+        onListening: ({ port, machine }) =>
+          Effect.sync(() =>
+            writeRecord(dir, {
+              pid: process.pid,
+              mode,
+              cloud,
+              port,
+              machine,
+              ready: true,
+              startedAt,
+              version,
+            }),
+          ),
+      }).pipe(Effect.raceFirst(exited(alchemy)));
+    });
     if (mode === 'shared') {
-      yield* Effect.raceFirst(serving, unleased(dir));
+      yield* Effect.raceFirst(running, unleased(dir));
       yield* Effect.log('No App uses Connect any more; stopping it');
-    } else yield* serving.pipe(Effect.onInterrupt(() => warnLeft(dir)));
+    } else yield* running.pipe(Effect.onInterrupt(() => warnLeft(dir)));
   }).pipe(
     Effect.scoped,
     Effect.ensuring(Effect.sync(() => removeRecord(options.dir, process.pid))),
