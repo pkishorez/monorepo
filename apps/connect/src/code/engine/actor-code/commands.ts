@@ -3,7 +3,7 @@ import { Command } from '@kestack/kabuki';
 import {
   ProjectSchema,
   type Project as ProjectRecord,
-} from '../../api/records/index.js';
+} from '../../records/index.js';
 import { Store } from '../capabilities/index.js';
 
 export const Save = Command.make('SaveProject', {

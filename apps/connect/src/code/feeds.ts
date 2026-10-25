@@ -11,7 +11,7 @@ import {
   type Message,
   type Raw,
 } from '@kestack/ai-toolkit/contract';
-import { ProjectSchema, SessionSchema } from './api/records/index.js';
+import { ProjectSchema, SessionSchema } from './records/index.js';
 import { follow } from './follow.js';
 
 /*

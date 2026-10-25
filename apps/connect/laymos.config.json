@@ -8,10 +8,13 @@
     "src/cloud/worker/registry": ["src/cloud/worker/storage"],
     "src/machine": ["src/cloud/contract", "src/cloud/client"],
     "src/machine/actor-heartbeat": ["src/machine/capabilities"],
-    "src/code/api": ["src/cloud/contract", "src/cloud/client"],
-    "src/code/api/contract": ["src/code/api/records"],
-    "src/code/api/client": ["src/code/api/contract", "src/code/api/records"],
-    "src/code/engine": ["src/code/api/records"],
+    "src/code/api": [
+      "src/cloud/contract",
+      "src/cloud/client",
+      "src/code/records"
+    ],
+    "src/code/api/client": ["src/code/api/contract"],
+    "src/code/engine": ["src/code/records"],
     "src/code/engine/actor-code": [
       "src/code/engine/capabilities",
       "src/code/engine/engine-raw"

@@ -21,7 +21,7 @@ import type {
   McpServerStatus,
   Skill,
 } from '@kestack/ai-toolkit/contract';
-import type { Project, Session } from '../api/records/index.js';
+import type { Project, Session } from '../records/index.js';
 import {
   AskFailed,
   fallbackTitle,

@@ -3,7 +3,7 @@ import { Broadcaster, type Entity } from '@kestack/std-toolkit/core';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import type { Raw } from '@kestack/ai-toolkit/contract';
-import type { Project, Session } from '../../../api/records/index.js';
+import type { Project, Session } from '../../../records/index.js';
 import {
   Store,
   type Feed,
