@@ -53,7 +53,7 @@ The keyboard-first way of working the app, off until turned on in this browser, 
 _Avoid_: keyboard mode, power mode
 
 **Device State**:
-What this browser keeps for itself and no other device sees: the user's Bindings, whether Vim Mode is on, the Microphone chosen, the Machine Filter and the Unseen marks. The app draws nothing until the Bindings have been read.
+What this browser keeps for itself and no other device sees: the user's Bindings, whether Vim Mode is on, the Microphone chosen, whether the Touch Draft is written by text or by voice, the Machine Filter and the Unseen marks. The app draws nothing until the Bindings have been read.
 _Avoid_: preferences, local settings, localStorage
 
 **Draft**:
@@ -61,7 +61,7 @@ The open Session's next message, kept at the foot of the page with the Status Li
 _Avoid_: input, insert bar, prompt box, composer (that is the Draft while editable)
 
 **Touch Draft**:
-The Draft on a device with no keyboard: a few lines of it, read only, beside the microphone, its one main button. Tapping that starts a Dictation; while it records, tapping it again takes the Dictation and swiping it up takes it and sends the Draft once it is text, and a small cancel throws it away. With text and nothing recording, swiping the microphone up sends the Draft. It is resting, recording, transcribing, being edited or sending; what it holds is the Draft's text, not one of these.
+The Draft on a device with no keyboard: a sheet at the foot of the page, edge to edge, with the model chip and Text | Voice on top, a few lines of the Draft read only under them, and a row that never moves: Skills and Quick actions on the left, the talk bar in the middle, Send on the right. In voice, tapping the words places the cursor and the talk bar dictates: tap to talk, tap again to take it, or Send to take it and send the Draft once it is text; Cancel throws it away, and a failed one is tried again or thrown away from the same place. In text, tapping the words makes it the Composer. A Swipe on the words switches between them; voice can't be chosen while no Machine can transcribe. Which one it is, is kept in Device State. It is resting, recording, transcribing, being edited or sending; what it holds is the Draft's text, not one of these.
 _Avoid_: mobile composer, mobile input
 
 **Composer**:

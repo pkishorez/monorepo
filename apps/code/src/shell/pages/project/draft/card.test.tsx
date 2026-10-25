@@ -220,6 +220,8 @@ function OnPage({
       onToggle: () => void toggled++,
       onTook: (id) => send({ _tag: 'Took', id }),
       onRetry: (id) => send({ _tag: 'Retry', id }),
+      onCancel: () => {},
+      availability: { _tag: 'Ready' },
       onShown: showing,
     },
   });

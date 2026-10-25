@@ -10,7 +10,7 @@ import {
 } from '@kestack/web-platform/ui/components/lucide';
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { cn } from '@kestack/web-platform/ui/components/utils';
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { keys, useBound } from '../../../../../keys.ts';
 import * as Picker from '../../../../../ui/picker/index.ts';
 import { Catalog } from '../../capabilities/index.ts';
@@ -29,8 +29,9 @@ import { OpenRow, Setting } from './chip.tsx';
  * which give up their words as the line narrows. `m` opens it at the model
  * from the page's Normal Mode. On a device with no keyboard the Draft has
  * one model chip instead, "Opus · High · Bypass permissions", which opens
- * a Drawer: the agent and the model open the Picker in a Sheet, and
- * choosing the model finishes it; each setting is changed there in place.
+ * a Drawer: the agent and the model open the Picker in a Sheet over it,
+ * and choosing, or closing the Sheet, comes back to the Drawer; each
+ * setting is changed there in place.
  */
 
 const trigger =
@@ -481,7 +482,9 @@ const shortName = (name: string, agent: string) => {
  * The model chip, on a device with no keyboard: the model and its settings
  * in one line. It opens a Drawer, which stays until it is swiped away: the
  * agent, while the session has not started, and the model open the Picker
- * in a Sheet, closing the Drawer; each setting changes in place.
+ * in a Sheet over it, the two a stack: the Sheet closes alone, on a choice,
+ * a swipe or a tap outside it, back to the Drawer. Each setting changes in
+ * place.
  */
 export function Chip({
   catalog,
@@ -507,16 +510,16 @@ export function Chip({
 }) {
   const [open, setOpen] = useState(false);
   const openPicker = Picker.useOpen();
+  // Read in the press itself: the Sheet over it is open until it is not.
+  const over = useRef(false);
+  over.current = how !== null;
   const harness = Catalog.harnessOf(catalog, current?.harness ?? null);
   if (current === null || harness === null)
     return <Skeleton className="h-11 w-32 rounded-full" />;
   const name = modelNamed(catalog, current);
   const settings = settingsOf(catalog, current);
   const words = [name, ...settings.map(({ label }) => label)].join(' · ');
-  const pick = (at: 'agent' | 'modelAlone') => {
-    setOpen(false);
-    openPicker(() => onOpen(at));
-  };
+  const pick = (at: 'agent' | 'modelAlone') => openPicker(() => onOpen(at));
   return (
     <>
       <button
@@ -540,7 +543,12 @@ export function Chip({
       </button>
       <Drawer
         open={open}
-        onOpenChange={(next) => setOpen(next)}
+        onOpenChange={(next, details) => {
+          // A press on the Sheet over it, or on its backdrop, is the Sheet's.
+          if (!next && over.current && details.reason === 'outside-press')
+            return details.cancel();
+          setOpen(next);
+        }}
         label="Model and settings"
       >
         <LayerHeader title="Model and settings" />

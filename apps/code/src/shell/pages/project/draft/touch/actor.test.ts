@@ -1,17 +1,20 @@
-import { Effect, Layer, Queue, Schema } from 'effect';
+import { Effect, Layer, Queue, Schema, Stream, SubscriptionRef } from 'effect';
 import type { Scope } from 'effect';
 import { Actor, type Instance, Runtime, type Running } from '@kestack/kabuki';
 import { describe, expect, it } from 'vitest';
 import {
   type Ask,
+  DeviceState,
   Dictations,
+  nothing,
 } from '../../../../../layer/capabilities/index.ts';
 import { owner, State, TouchDraftLive } from './actor.ts';
 
 /*
  * The Touch Draft under a Draft that counts its sends, with the
  * Dictation's queue read back: what it asks of the Dictation, and how it
- * follows what the Dictation then says, as its View hears it.
+ * follows what the Dictation then says, as its View hears it; and its
+ * mode, kept in Device State.
  */
 
 const Draft = Actor.define('Draft', {
@@ -34,9 +37,21 @@ const settle = Effect.gen(function* () {
 
 const world = Effect.gen(function* () {
   const asked = yield* Queue.unbounded<typeof Ask.Type>();
+  const kept = yield* SubscriptionRef.make(nothing.touchMode);
+  const device = Layer.mock(DeviceState)({
+    read: Effect.map(SubscriptionRef.get(kept), (touchMode) => ({
+      ...nothing,
+      touchMode,
+    })),
+    setTouchMode: (mode) => SubscriptionRef.set(kept, mode),
+    changes: SubscriptionRef.changes(kept).pipe(
+      Stream.drop(1),
+      Stream.map(() => undefined),
+    ),
+  });
   const app = (yield* Runtime.start(
     DraftLive as never,
-    Layer.succeed(Dictations, { asked }) as never,
+    Layer.merge(Layer.succeed(Dictations, { asked }), device) as never,
   )) as Running<unknown>;
   yield* settle;
   const root = () => app.snapshot() as Instance;
@@ -48,6 +63,11 @@ const world = Effect.gen(function* () {
     state: () => Schema.decodeUnknownSync(State)(touch().state)._tag,
     then: () => Schema.decodeUnknownSync(State)(touch().state),
     sent: () => (root().model as { sent: number }).sent,
+    mode: () => (touch().model as { mode: string }).mode,
+    kept: () => SubscriptionRef.get(kept),
+    /** Another tab writes it. */
+    keep: (mode: 'text' | 'voice') =>
+      Effect.andThen(SubscriptionRef.set(kept, mode), settle),
     send: (message: { readonly _tag: string; readonly [k: string]: unknown }) =>
       Effect.andThen(
         Effect.sync(() => app.send(touch().id, message)),
@@ -226,6 +246,26 @@ describe('Touch Draft', () => {
         expect(t.sent()).toBe(1);
         expect(t.state()).toBe('Resting');
         expect(yield* t.asks()).toEqual([]);
+      }),
+    ));
+
+  it('is voice until text is chosen, and keeps the choice in Device State', () =>
+    run(
+      Effect.gen(function* () {
+        const t = yield* world;
+        expect(t.mode()).toBe('voice');
+        yield* t.send({ _tag: 'Choose', mode: 'text' });
+        expect(t.mode()).toBe('text');
+        expect(yield* t.kept()).toBe('text');
+      }),
+    ));
+
+  it('follows a mode chosen in another tab', () =>
+    run(
+      Effect.gen(function* () {
+        const t = yield* world;
+        yield* t.keep('text');
+        expect(t.mode()).toBe('text');
       }),
     ));
 });

@@ -12,7 +12,7 @@ import {
   ZapIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import { useRef, useState, type ReactNode, type RefObject } from 'react';
-import { notify } from '../../../../../ui/toast/index.ts';
+import { notify } from '../../../../../../ui/toast/index.ts';
 
 /*
  * Quick actions: one button, and a Drawer of what else can go into the
@@ -43,6 +43,7 @@ export function QuickActions({
   onPaste,
   onFiles,
   onChooseMicrophone,
+  className,
 }: {
   readonly disabled: boolean;
   /** Starts a question on the side; null where there is no Session to ask. */
@@ -50,6 +51,8 @@ export function QuickActions({
   readonly onPaste: (text: string) => void;
   readonly onFiles: (files: ReadonlyArray<File>) => void;
   readonly onChooseMicrophone: (() => void) | undefined;
+  /** The trigger's look, as the row beside it draws its buttons. */
+  readonly className: string;
 }) {
   const [open, setOpen] = useState(false);
   const files = useRef<HTMLInputElement>(null);
@@ -85,7 +88,7 @@ export function QuickActions({
         aria-expanded={open}
         disabled={disabled}
         onClick={() => setOpen(true)}
-        className="size-11 shrink-0 rounded-full text-muted-foreground aria-expanded:bg-muted [&_svg:not([class*=size-])]:size-5"
+        className={className}
       >
         <ZapIcon aria-hidden />
       </Button>

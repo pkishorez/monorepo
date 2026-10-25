@@ -69,6 +69,14 @@ import {
  * view whenever it changes, without taking focus.
  */
 
+/**
+ * On touch, the open Session's row is only tinted, a press barely shows,
+ * and none shows while a finger swipes the row (`SwipeRow`'s
+ * `data-swiping`): the row in motion is enough.
+ */
+const TOUCH_ROW =
+  'touch:data-active:bg-sidebar-accent/25! touch:data-active:text-sidebar-foreground! touch:active:bg-sidebar-accent/20! in-data-swiping:bg-transparent!';
+
 export function Places({
   route,
   projects,
@@ -305,7 +313,7 @@ function SessionRow({
             here?.machineId === session.machineId &&
             here.page?.sessionId === session.id
           }
-          className={`h-auto min-h-14 gap-3 rounded-xl px-3 py-2 data-active:font-normal keyboard:md:min-h-10 keyboard:md:py-1 ${cursorRing}`}
+          className={`h-auto min-h-14 gap-3 rounded-xl px-3 py-2 data-active:font-normal keyboard:md:min-h-10 keyboard:md:py-1 ${TOUCH_ROW} ${cursorRing}`}
           render={
             <Router.Link
               to={routes.session(

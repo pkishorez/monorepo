@@ -10,9 +10,11 @@ import { Replicas } from '@kestack/std-toolkit/replica';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   Ask,
+  DeviceState,
   Dictations,
   Machines,
   nobody,
+  nothing,
 } from '../../../../layer/capabilities/index.ts';
 import { keys } from '../../../../keys.ts';
 import { project } from '../../../routes/index.ts';
@@ -131,6 +133,11 @@ const services = Layer.mergeAll(
       Dictations.of({ asked }),
     ),
   ),
+  // It keeps nothing: the Touch Draft is in voice.
+  Layer.mock(DeviceState)({
+    read: Effect.succeed(nothing),
+    changes: Stream.never,
+  }),
   // Recent Projects are handed over by `read`, never held from a Replica.
   Layer.mock(Replicas)({ hold: () => Effect.never }),
   Layer.mock(Navigation)({

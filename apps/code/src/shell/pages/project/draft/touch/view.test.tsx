@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { act, useRef } from 'react';
+import { act, useRef, type ReactNode } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
-import { Effect, Layer, Queue, Schema } from 'effect';
+import { Effect, Layer, Queue, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { toReact, useChild, View, type ViewProps } from '@kestack/kabuki/react';
 import { undoDepth } from '@codemirror/commands';
@@ -16,12 +16,16 @@ import {
   describe,
   expect,
   it,
+  vi,
 } from 'vitest';
 import { keys } from '../../../../../keys.ts';
 import {
   type Ask,
+  DeviceState,
   Dictations,
+  nothing,
 } from '../../../../../layer/capabilities/index.ts';
+import type { Availability } from '../../../../actors/dictation/index.ts';
 import * as Picker from '../../../../../ui/picker/index.ts';
 import { Toasts } from '../../../../../ui/toast/index.ts';
 import { Card, useDraft } from '../card.tsx';
@@ -31,12 +35,27 @@ import { TouchDraft } from './index.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
+// No router around the page: a link to Settings is its words.
+vi.mock(import('@kestack/kabuki/routing'), async (actual) => {
+  const routing = await actual();
+  return {
+    ...routing,
+    Router: {
+      ...routing.Router,
+      Link: ({ children }: { readonly children?: ReactNode }) => (
+        <a>{children}</a>
+      ),
+    },
+  };
+});
+
 /*
  * The Touch Draft on a page that keeps the Draft's text and its Inserts,
  * as the session page does, on a device with no keyboard. It is read
- * only at rest; edit makes it the Composer, focused in the same tap, until
- * Done, focus leaving, or a send. The main button asks the Dictation;
- * Send shows once there is something to send. A Dictation's placeholder
+ * only at rest. In voice mode the talk bar asks the Dictation; in text
+ * mode a tap on the words makes it the Composer, focused in the same tap,
+ * until Done, focus leaving, or a send. Voice is kept in Device State, and
+ * can't be had while no Machine can transcribe. A Dictation's placeholder
  * and text go in at the cursor of the last edit, else at the end. Quick
  * actions paste from the clipboard, at the cursor.
  */
@@ -62,6 +81,7 @@ const Page = Actor.define('Page', {
     pending: Schema.NullOr(Pending),
     recording: Schema.Boolean,
     retried: Schema.Array(Schema.Finite),
+    discarded: Schema.Finite,
   }),
   message: Schema.TaggedUnion({
     Ping: {},
@@ -69,6 +89,7 @@ const Page = Actor.define('Page', {
     Recording: { on: Schema.Boolean },
     Took: { id: Schema.Finite },
     Retry: { id: Schema.Finite },
+    Discard: {},
     Typed: { text: Schema.String },
     Insert: { what: Insert.What },
     Open: { how: Picker.How, typed: Schema.Boolean },
@@ -89,6 +110,7 @@ const PageLive = Actor.build(Page, {
       pending: null,
       recording: false,
       retried: [],
+      discarded: 0,
     },
   }),
   children: {
@@ -121,6 +143,9 @@ const PageLive = Actor.build(Page, {
     Retry: ({ id }, { model }) => ({
       model: { ...model, retried: [...model.retried, id] },
     }),
+    Discard: (_, { model }) => ({
+      model: { ...model, pending: null, discarded: model.discarded + 1 },
+    }),
     Typed: ({ text }, { model }) => ({ model: { ...model, text } }),
     Insert: ({ what }, { model }) => ({
       model: { ...model, insert: Insert.next(model.insert, what) },
@@ -140,7 +165,12 @@ let page = {
   sent: 0,
   pings: 0,
   retried: [] as ReadonlyArray<number>,
+  discarded: 0,
 };
+/** Whether a Dictation could start, as the Dictation says. */
+let availability: Availability = { _tag: 'Ready' };
+/** How the Touch Draft is written, as Device State keeps it. */
+let kept = nothing.touchMode;
 let ping = () => {};
 let dictate: (pending: typeof Pending.Type | null) => void = () => {};
 let record: (on: boolean) => void = () => {};
@@ -151,6 +181,7 @@ const PageView = View.make(PageLive, ({ model, children, send }) => {
     sent: model.sent,
     pings: model.pings,
     retried: model.retried,
+    discarded: model.discarded,
   };
   ping = () => send({ _tag: 'Ping' });
   dictate = (pending) => send({ _tag: 'Dictation', pending });
@@ -202,6 +233,8 @@ function OnPage({
       onToggle: () => {},
       onTook: (id) => send({ _tag: 'Took', id }),
       onRetry: (id) => send({ _tag: 'Retry', id }),
+      onCancel: () => send({ _tag: 'Discard' }),
+      availability,
       onShown: () => () => {},
     },
     editing: touchState === 'Editing',
@@ -286,7 +319,13 @@ beforeEach(async () => {
       return { asked: queue };
     }),
   );
-  const App = toReact(PageLive, PageView, dictations, {
+  kept = nothing.touchMode;
+  const device = Layer.mock(DeviceState)({
+    read: Effect.sync(() => ({ ...nothing, touchMode: kept })),
+    setTouchMode: (mode) => Effect.sync(() => void (kept = mode)),
+    changes: Stream.never,
+  });
+  const App = toReact(PageLive, PageView, Layer.merge(dictations, device), {
     name: `touch-draft-test-${apps++}`,
   });
   root = createRoot(document.body.appendChild(document.createElement('div')));
@@ -304,25 +343,35 @@ afterEach(async () => {
   document.body.innerHTML = '';
 });
 
-describe('Touch Draft', () => {
-  it('is no control while its words fit', async () => {
-    expect(
-      document.querySelector('[aria-label="Show the whole message"]'),
-    ).toBeNull();
-  });
+const radio = (label: string) =>
+  document.querySelector<HTMLElement>(`[role="radio"][aria-label="${label}"]`)!;
+/** Writes by text: a tap on the words edits. */
+const toText = () => tap(radio('Text'));
+/** Whether what holds `element` takes no tap now. */
+const asleep = (element: HTMLElement) => element.closest('[inert]') !== null;
 
-  it('is read only at rest, and a tap on its words does not edit it', async () => {
+describe('Touch Draft', () => {
+  it('is in voice, read only, and a tap on its words does not edit it', async () => {
+    expect(radio('Voice').getAttribute('aria-checked')).toBe('true');
     expect(editor().getAttribute('contenteditable')).toBe('false');
-    expect(card().dataset['writing']).toBeUndefined();
     await tap(editor());
-    expect(editor().getAttribute('contenteditable')).toBe('false');
+    expect(card().dataset['writing']).toBeUndefined();
     expect(document.activeElement).not.toBe(editor());
   });
 
-  it('becomes the Composer from edit, focused in the same tap, until Done', async () => {
+  it('keeps text, once chosen, in Device State', async () => {
+    await toText();
+    expect(radio('Text').getAttribute('aria-checked')).toBe('true');
+    expect(kept).toBe('text');
+    // Its talk bar is gone, its room kept.
+    expect(asleep(button('Dictate')!)).toBe(true);
+  });
+
+  it('becomes the Composer from a tap on its words in text, focused in the same tap, until Done', async () => {
+    await toText();
     let focused = false;
     await act(async () => {
-      button('Edit the message')!.click();
+      editor().click();
       // Before anything else runs: iOS raises its keyboard only then.
       focused = document.activeElement === editor();
     });
@@ -330,7 +379,6 @@ describe('Touch Draft', () => {
     await flush();
     expect(card().dataset['writing']).toBe('true');
     expect(editor().getAttribute('contenteditable')).toBe('true');
-    expect(button('Dictate')).toBeNull();
     // Pressed, Done keeps focus, so nothing moves under the finger.
     const down = new MouseEvent('mousedown', {
       bubbles: true,
@@ -346,33 +394,34 @@ describe('Touch Draft', () => {
   });
 
   it('is read only again once focus leaves the Composer', async () => {
-    await tap(button('Edit the message')!);
+    await toText();
+    await tap(editor());
     await leave();
     expect(card().dataset['writing']).toBeUndefined();
   });
 
   it('closes the Composer on a send from it', async () => {
-    await tap(button('Edit the message')!);
+    await toText();
+    await tap(editor());
     await tap(button('Send')!);
     expect(page.sent).toBe(1);
     expect(card().dataset['writing']).toBeUndefined();
     expect(document.activeElement).not.toBe(editor());
   });
 
-  it('shows Send over the microphone only with something to send, and the microphone asks the Dictation', async () => {
+  it('sends only with something to send, and the talk bar asks the Dictation', async () => {
     await tap(button('Send')!);
     expect(page.sent).toBe(1);
     await flush();
-    expect(button('Send')).toBeNull();
+    expect(button('Send')!.hasAttribute('disabled')).toBe(true);
     await tap(button('Dictate')!);
     expect(asks()).toEqual(['Toggle']);
   });
 
-  it('throws away a Dictation taken to send while it is transcribed, sending nothing', async () => {
+  it('stops one that records and sends it, or throws it away', async () => {
     await act(async () => record(true));
     await flush();
-    await tap(button('Take and send')!);
-    expect(asks()).toEqual(['Toggle']);
+    expect(button('Stop and send')).not.toBeNull();
     await tap(button('Cancel the Dictation')!);
     expect(asks()).toEqual(['Cancel']);
     expect(page.sent).toBe(0);
@@ -383,9 +432,7 @@ describe('Touch Draft', () => {
     await flush();
     let focused = false;
     await act(async () => {
-      const words =
-        card().querySelector<HTMLElement>('p[aria-hidden]')!.parentElement!;
-      words.click();
+      card().querySelector<HTMLElement>('p[aria-hidden]')!.click();
       focused = document.activeElement === editor();
     });
     expect(focused).toBe(true);
@@ -394,7 +441,8 @@ describe('Touch Draft', () => {
   });
 
   it('shows "Transcribing…" where the cursor of the last edit was, then the text there', async () => {
-    await tap(button('Edit the message')!);
+    await toText();
+    await tap(editor());
     const view = EditorView.findFromDOM(editor())!;
     await act(async () => view.dispatch({ selection: { anchor: 6 } }));
     await leave();
@@ -421,6 +469,17 @@ describe('Touch Draft', () => {
     expect(card().dataset['writing']).toBeUndefined();
   });
 
+  it('tries a failed one again from the talk bar, or throws its recording away', async () => {
+    await act(async () =>
+      dictate({ _tag: 'Failed', id: 7, reason: 'The model would not load' }),
+    );
+    await flush();
+    await tap(button('Couldn’t transcribe: try again')!);
+    expect(page.retried).toEqual([7]);
+    await tap(button('Throw the recording away')!);
+    expect(page.discarded).toBe(1);
+  });
+
   it('puts a Dictation at the end of an untouched Draft', async () => {
     await act(async () => dictate({ _tag: 'Transcribing', id: 5 }));
     await act(async () => dictate({ _tag: 'Text', id: 5, text: 'now' }));
@@ -429,7 +488,8 @@ describe('Touch Draft', () => {
   });
 
   it('keeps the same editor, its text, selection and history, when a keyboard turns up', async () => {
-    await tap(button('Edit the message')!);
+    await toText();
+    await tap(editor());
     const view = EditorView.findFromDOM(editor())!;
     await act(async () =>
       view.dispatch({
@@ -451,6 +511,67 @@ describe('Touch Draft', () => {
     expect(view.state.doc.toString()).toBe('Please look');
     expect(view.state.selection.main).toMatchObject({ anchor: 2, head: 5 });
     expect(undoDepth(view.state)).toBe(1);
+  });
+
+  it('keeps its cursor and selection when it is touched again after keys', async () => {
+    const keys = () =>
+      document.body.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Shift', bubbles: true }),
+      );
+    await act(async () => keys());
+    await flush();
+    expect(card().dataset['touch']).toBeUndefined();
+    const view = EditorView.findFromDOM(editor())!;
+    await act(async () => view.dispatch({ selection: { anchor: 2, head: 5 } }));
+    // A finger on the screen: touch again.
+    await act(async () =>
+      window.dispatchEvent(
+        Object.assign(new Event('pointerdown', { bubbles: true }), {
+          pointerType: 'touch',
+        }),
+      ),
+    );
+    await flush();
+    expect(card().dataset['touch']).toBe('');
+    expect(view.state.selection.main).toMatchObject({ anchor: 2, head: 5 });
+  });
+
+  it("takes a tap on a failed Dictation's Retry in text, without editing", async () => {
+    await toText();
+    await act(async () =>
+      dictate({ _tag: 'Failed', id: 8, reason: 'The model would not load' }),
+    );
+    await flush();
+    await tap(placeholder()!.querySelector('button')!);
+    expect(page.retried).toEqual([8]);
+    expect(card().dataset['writing']).toBeUndefined();
+  });
+
+  describe('while no Machine can transcribe', () => {
+    beforeAll(() => {
+      availability = { _tag: 'Off', reason: 'Turn on Speech to Text' };
+    });
+    afterAll(() => {
+      availability = { _tag: 'Ready' };
+    });
+
+    it('is text, and asked for voice, says why instead', async () => {
+      expect(radio('Text').getAttribute('aria-checked')).toBe('true');
+      await tap(radio("Voice, isn't on"));
+      expect(radio('Text').getAttribute('aria-checked')).toBe('true');
+      expect(card().textContent).toContain("Voice isn't on");
+      expect(kept).toBe('voice');
+    });
+
+    it('still throws a failed one away', async () => {
+      await act(async () =>
+        dictate({ _tag: 'Failed', id: 9, reason: 'The model would not load' }),
+      );
+      await flush();
+      expect(asleep(button('Throw the recording away')!)).toBe(false);
+      await tap(button('Throw the recording away')!);
+      expect(page.discarded).toBe(1);
+    });
   });
 
   describe('Quick actions', () => {
@@ -478,7 +599,8 @@ describe('Touch Draft', () => {
     });
 
     it('pastes the clipboard at the cursor of the last edit', async () => {
-      await tap(button('Edit the message')!);
+      await toText();
+      await tap(editor());
       const view = EditorView.findFromDOM(editor())!;
       await act(async () => view.dispatch({ selection: { anchor: 0 } }));
       await leave();
@@ -503,69 +625,6 @@ describe('Touch Draft', () => {
       await flush();
       expect(page.text).toBe('/btw Please ');
       expect(card().dataset['writing']).toBe('true');
-    });
-  });
-
-  describe('with more than two lines', () => {
-    const scrollHeight = Object.getOwnPropertyDescriptor(
-      Element.prototype,
-      'scrollHeight',
-    );
-    const Observer = globalThis.ResizeObserver;
-    beforeAll(() => {
-      initial = 'A long message. '.repeat(20);
-      // It hears its first size once the editor is drawn, as a browser's.
-      globalThis.ResizeObserver = class {
-        constructor(private readonly heard: () => void) {}
-        observe() {
-          queueMicrotask(() => this.heard());
-        }
-        unobserve() {}
-        disconnect() {}
-      } as unknown as typeof ResizeObserver;
-      // jsdom lays nothing out: the editor's words say how tall it is.
-      Object.defineProperty(Element.prototype, 'scrollHeight', {
-        configurable: true,
-        get(this: Element) {
-          return (this.textContent?.length ?? 0) > 100 ? 280 : 28;
-        },
-      });
-    });
-    afterAll(() => {
-      initial = 'Please ';
-      globalThis.ResizeObserver = Observer;
-      if (scrollHeight !== undefined)
-        Object.defineProperty(Element.prototype, 'scrollHeight', scrollHeight);
-    });
-
-    it('shows all of it on a tap on its words, and two lines on the next', async () => {
-      const box = () =>
-        editor().closest<HTMLElement>('.cm-editor')!.parentElement!
-          .parentElement!;
-      expect(box().className).toContain('h-14');
-      // Its words past two lines fade out at the foot.
-      expect(box().className).toContain('black_60%');
-      await tap(box());
-      expect(box().className).not.toContain('h-14');
-      expect(box().className).toContain('overflow-y-auto');
-      expect(card().dataset['writing']).toBeUndefined();
-      await tap(box());
-      expect(box().className).toContain('h-14');
-    });
-
-    it('is a control itself, as a screen reader finds it', async () => {
-      const words = () =>
-        document.querySelector<HTMLElement>(
-          '[role="button"][aria-label="Show the whole message"], [role="button"][aria-label="Show less of the message"]',
-        )!;
-      expect(words().getAttribute('aria-expanded')).toBe('false');
-      expect(words().tabIndex).toBe(0);
-      // A screen reader activates it with a click.
-      await tap(words());
-      expect(words().getAttribute('aria-expanded')).toBe('true');
-      expect(words().getAttribute('aria-label')).toBe(
-        'Show less of the message',
-      );
     });
   });
 });

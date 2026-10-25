@@ -58,7 +58,13 @@ const NOTICE = 4_000;
 const Hearing = Schema.Struct({
   ready: Schema.Boolean,
   answering: Schema.Boolean,
+  /** How far its Speech to Text has downloaded, 0 to 1, while it does. */
+  downloading: Schema.NullOr(Schema.Number),
 });
+
+/** How far a download has come, in whole percent so its progress draws rarely. */
+const progressOf = (done: number, total: number | null) =>
+  total === null || total === 0 ? 0 : Math.floor((done / total) * 100) / 100;
 
 /** What `Machines` says, as far as a Dictation needs it. */
 const heardOf = ({ machines, lines, speech }: Known) => {
@@ -71,6 +77,10 @@ const heardOf = ({ machines, lines, speech }: Known) => {
         {
           ready: speech[id]?._tag === 'Ready',
           answering: lines[id] === 'connected',
+          downloading:
+            speech[id]?._tag === 'Downloading'
+              ? progressOf(speech[id].done, speech[id].total)
+              : null,
         },
       ]),
     ),
@@ -243,7 +253,8 @@ export const DictationLive = Actor.build(Dictation, {
   }),
   workers: {
     // 1. Hear: what `Machines` says of each, only as far as it matters
-    // here, so a Heartbeat or a download's progress changes nothing.
+    // here, so a Heartbeat changes nothing, and a download's progress
+    // only by the percent.
     machines: {
       run: (self) =>
         Effect.flatMap(Machines, ({ state }) =>

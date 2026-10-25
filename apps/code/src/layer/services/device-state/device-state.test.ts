@@ -7,7 +7,8 @@ import { idb, memory } from './device-state.ts';
 
 /*
  * Device State in memory: what is written reads back, the microphone
- * chosen and the Machine the sidebar shows too, Bindings that no
+ * chosen, how the Touch Draft is written and the Machine the sidebar
+ * shows too, Bindings that no
  * longer fit the keys are left out, a mark only moves forward, and every
  * write is heard. In IndexedDB, as two tabs share it: a mark only moves
  * forward however their writes interleave.
@@ -35,6 +36,7 @@ describe('Device State', () => {
       bindings: { 'picker.finish': ['ctrl+Enter'] },
       vim: false,
       microphone: null,
+      touchMode: 'voice',
       sidebarMachine: null,
       unseen: {},
     });
@@ -51,6 +53,18 @@ describe('Device State', () => {
       }),
     );
     expect(read).toEqual(['usb-mic', null]);
+  });
+
+  it('keeps how the Touch Draft is written, voice until it is text', async () => {
+    const read = await run(
+      Effect.gen(function* () {
+        const device = yield* store;
+        const before = (yield* device.read).touchMode;
+        yield* device.setTouchMode('text');
+        return [before, (yield* device.read).touchMode];
+      }),
+    );
+    expect(read).toEqual(['voice', 'text']);
   });
 
   it('keeps Vim Mode, off until it is turned on', async () => {

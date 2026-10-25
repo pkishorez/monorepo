@@ -9,6 +9,7 @@ import {
   use,
   useCallback,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -16,6 +17,7 @@ import { createPortal } from 'react-dom';
 import { keys } from '../../../keys.ts';
 import type { Ask } from '../../../layer/capabilities/index.ts';
 import { DictationLive } from './actor.ts';
+import { machineFor, type Hearing } from './choose.ts';
 
 /*
  * The Dictation as the app draws it. Each Draft on screen shows it in the
@@ -117,7 +119,9 @@ export const useDictation = (target: {
       ? state
       : null,
   );
+  const availability = useAvailability(dictation);
   return {
+    availability,
     recording:
       phase === 'Starting'
         ? { _tag: 'Starting' as const }
@@ -139,12 +143,64 @@ export const useDictation = (target: {
             ? { _tag: 'Failed' as const, id: mine.id, reason: mine.reason }
             : { _tag: 'Transcribing' as const, id: mine.id },
     onToggle: () => ask({ _tag: 'Toggle' }),
+    /** Throws it away, wherever it is: a failed one's clip too. */
+    onCancel: () => ask({ _tag: 'Cancel' }),
     onTook: (id: number) => ask({ _tag: 'Took', id }),
     onRetry: (id: number) => ask({ _tag: 'Retry', id }),
     onShown: shown,
     microphones,
     onChooseMicrophone: chooseMicrophone,
   };
+};
+
+/** Whether a Dictation could start now, and if not why, from what each Machine says. */
+export type Availability =
+  | { readonly _tag: 'Ready' }
+  | { readonly _tag: 'Downloading'; readonly progress: number }
+  | { readonly _tag: 'Off'; readonly reason: string };
+
+/**
+ * Whether a Dictation could start now: ready on the Machine it would
+ * choose; else downloading, the furthest along; else off, and why.
+ */
+const availabilityOf = ({
+  machines,
+  listed,
+}: {
+  readonly machines: Readonly<
+    Record<string, Hearing & { readonly downloading: number | null }>
+  >;
+  readonly listed: ReadonlyArray<string>;
+}): Availability => {
+  const choice = machineFor(machines, listed, null);
+  if (choice._tag === 'On') return READY;
+  const downloading = listed
+    .map((id) => machines[id]?.downloading ?? null)
+    .filter((progress) => progress !== null);
+  return downloading.length > 0
+    ? { _tag: 'Downloading', progress: Math.max(...downloading) }
+    : { _tag: 'Off', reason: choice.reason };
+};
+
+const READY: Availability = { _tag: 'Ready' };
+
+const equal = (a: Availability, b: Availability) =>
+  a._tag === b._tag &&
+  (a._tag !== 'Downloading' || a.progress === (b as typeof a).progress) &&
+  (a._tag !== 'Off' || a.reason === (b as typeof a).reason);
+
+/**
+ * Availability, the same object while it is equal, so the page draws
+ * again only as it changes, not as the level moves.
+ */
+const useAvailability = (dictation: Dictation): Availability => {
+  const last = useRef<Availability>(READY);
+  return (
+    useChild(dictation, ({ model }) => {
+      const next = availabilityOf(model);
+      return equal(next, last.current) ? last.current : (last.current = next);
+    }) ?? last.current
+  );
 };
 
 const clock = (seconds: number) =>
