@@ -279,7 +279,11 @@ export function List<P>({
                   data-quiet={entry.quiet === true || undefined}
                   title={entry.unavailable}
                   onSelect={() => pick(entry.value)}
-                  className="items-start data-quiet:opacity-60"
+                  className={cn(
+                    'items-start data-quiet:opacity-60',
+                    // No room kept for a check a row does not have, so its button sits at the edge.
+                    touch && 'data-[checked=false]:[&>svg:last-child]:hidden',
+                  )}
                 >
                   <span
                     className={cn(
@@ -315,8 +319,9 @@ export function List<P>({
                     shown.doneOnRow !== null &&
                     outcomeOf(spec, model, props, entry.value)._tag ===
                       'Next' && (
+                      // A small pill, its tap area still a finger's.
                       <Button
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         tabIndex={-1}
                         aria-hidden
@@ -324,7 +329,7 @@ export function List<P>({
                           event.stopPropagation();
                           finish(entry.value);
                         }}
-                        className="-my-1.5 h-11 shrink-0 px-4 text-sm"
+                        className="relative -my-1 h-7 shrink-0 rounded-full px-3 text-[13px] after:absolute after:-inset-x-2 after:-inset-y-2"
                       >
                         {shown.doneOnRow}
                       </Button>
