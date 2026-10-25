@@ -1,5 +1,0 @@
----
-'code': patch
----
-
-The sidebar lists every project, the most recently active first, as a small muted heading over its unsettled sessions, flat and dense: the project open shows all of them, any other its three most recent and "+N", which shows the rest in place. A session's title is bold while Unseen on this device, a fork has a small glyph and says what it was forked from on hover, and a 6px dot shows only what needs attention: breathing while running, red when the last turn failed, amber when the server's stopping cut it off. "Settled · N" at the foot opens the Settled List, the most recently Settled first with each project's name, to open a session or Un-settle it. Folding is gone, with `h` and `l`; Escape in the sidebar goes back to the page; `Ctrl+[`/`Ctrl+]` walk the unsettled sessions in the sidebar's order, showing one hidden behind "+N". A fork's page draws what it carries on from, read up its chain without copies, each original only up to the tightest Fork Point below it, as one line, "Earlier in ‹title› · N turns", that opens to those turns.
