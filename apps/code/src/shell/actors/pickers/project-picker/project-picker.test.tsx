@@ -1,14 +1,19 @@
 // @vitest-environment jsdom
 import { act, type ReactNode, useState } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
-import { Effect, Layer, Schema, Stream } from 'effect';
+import { Effect, Layer, Queue, Schema, Stream } from 'effect';
 import { CodeClients } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { toReact, View } from '@kestack/kabuki/react';
 import { Navigation } from '@kestack/kabuki/routing';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { Machines, nobody } from '../../../../layer/capabilities/index.ts';
+import {
+  Ask,
+  Dictations,
+  Machines,
+  nobody,
+} from '../../../../layer/capabilities/index.ts';
 import { keys } from '../../../../keys.ts';
 import { project } from '../../../routes/index.ts';
 import { ProjectPickerLive } from './actor.ts';
@@ -119,6 +124,13 @@ const services = Layer.mergeAll(
       ],
     }),
   }),
+  // A new session's Draft, opened by touch, never dictates here.
+  Layer.effect(
+    Dictations,
+    Effect.map(Queue.unbounded<typeof Ask.Type>(), (asked) =>
+      Dictations.of({ asked }),
+    ),
+  ),
   // Recent Projects are handed over by `read`, never held from a Replica.
   Layer.mock(Replicas)({ hold: () => Effect.never }),
   Layer.mock(Navigation)({

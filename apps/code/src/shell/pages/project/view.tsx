@@ -9,6 +9,7 @@ import { PageMachine } from '../../machines/index.ts';
 import { ProjectLive } from './actor.ts';
 import { Draft } from './draft/index.ts';
 import { Session as SessionPage } from './session/index.ts';
+import { NewSessionBody } from './starter/index.ts';
 
 /*
  * A project: the session open in it, or, with none open, a new one, its
@@ -97,43 +98,21 @@ function NewSession({
 }) {
   const page = keys.useFocusSpot('content', 'page', { default: true });
   return (
-    <>
-      <div
-        ref={page}
-        tabIndex={-1}
-        className="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto outline-none"
-      >
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-1 px-4 pt-8 pb-6 sm:px-6">
-          <h2 className="text-lg font-semibold">New session</h2>
-          <p className="text-sm text-muted-foreground">
-            Write the first message to start one
-            {project ? (
-              <>
-                {' '}
-                in <span className="font-mono text-xs">{project.path}</span>
-              </>
-            ) : null}
-            .
-          </p>
-          {project && (
-            <RemoveProject
-              name={project.name}
-              removal={model.removal}
-              onConfirm={(open) => send({ _tag: 'ConfirmToggled', open })}
-              onRemove={() => send({ _tag: 'RemoveAsked' })}
-            />
-          )}
-        </div>
-      </div>
-      <section
-        aria-label="New session"
-        className="relative shrink-0 bg-background pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent"
-      >
-        <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">
-          {children.draft && <Draft.view instance={children.draft} />}
-        </div>
-      </section>
-    </>
+    <NewSessionBody
+      path={project?.path ?? null}
+      page={page}
+      extra={
+        project && (
+          <RemoveProject
+            name={project.name}
+            removal={model.removal}
+            onConfirm={(open) => send({ _tag: 'ConfirmToggled', open })}
+            onRemove={() => send({ _tag: 'RemoveAsked' })}
+          />
+        )
+      }
+      draft={children.draft && <Draft.view instance={children.draft} />}
+    />
   );
 }
 

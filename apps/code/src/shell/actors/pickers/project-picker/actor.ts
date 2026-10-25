@@ -7,6 +7,7 @@ import { Machines } from '../../../../layer/capabilities/index.ts';
 import { project } from '../../../routes/index.ts';
 import { everything, type OnMachine } from '../../../machines/index.ts';
 import * as Picker from '../../../../ui/picker/index.ts';
+import { Starter } from '../../../pages/project/index.ts';
 import { FolderPicker } from './folder-picker/index.ts';
 
 /*
@@ -26,7 +27,10 @@ import { FolderPicker } from './folder-picker/index.ts';
  *             Picker waits, and opens as it closes; one whose `git init`
  *             failed opens with a warning.
  * Either way the keyboard goes on to the page, to write the first message,
- * wherever the Picker was opened from.
+ * wherever the Picker was opened from. Opened by touch, a Project picked or
+ * a folder made one opens no page: its new session, the Starter, opens in a
+ * Drawer over the Picker, which stays where it was, so closing the Drawer
+ * goes back to choosing; the session started, both close on its page.
  */
 
 const OPEN_FOLDER = 'open-folder';
@@ -112,6 +116,8 @@ const Projects = Picker.make('ProjectPicker', {
         row.value === OPEN_FOLDER
           ? FolderPicker.opens(key, query.trim())
           : null,
+      // On touch the owner opens the Project's new session over it.
+      settles: true,
     },
     // 4. Folder
     ...FolderPicker.steps,
@@ -159,6 +165,14 @@ export const ProjectPicker = Actor.define('ProjectPicker', {
     added: Schema.NullOr(
       Schema.Struct({ machineId: Schema.String, projectId: Schema.String }),
     ),
+    /** The Project picked on touch, its new session in a Drawer over the Picker. */
+    starting: Schema.NullOr(
+      Schema.Struct({
+        machineId: Schema.String,
+        projectId: Schema.String,
+        path: Schema.String,
+      }),
+    ),
     /** A folder made whose `git init` failed, until dismissed. */
     warning: Schema.NullOr(
       Schema.Struct({ path: Schema.String, reason: Schema.String }),
@@ -179,6 +193,14 @@ export const ProjectPicker = Actor.define('ProjectPicker', {
       gitInitError: Schema.NullOr(Schema.String),
     },
     Dismiss: {},
+    /** A Project picked on touch: its new session, over the Picker. */
+    Starting: {
+      machineId: Schema.String,
+      projectId: Schema.String,
+      path: Schema.String,
+    },
+    /** Its Drawer closed: back to choosing. */
+    StartClosed: {},
   }),
 });
 
@@ -191,10 +213,23 @@ export const ProjectPickerLive = Actor.build(ProjectPicker, {
       opened: 0,
       recent: null,
       added: null,
+      starting: null,
       warning: null,
     },
   }),
   children: {
+    // A Project picked on touch, its new session.
+    starter: {
+      actor: Starter.actor,
+      while: ({ model }) => model.starting !== null,
+      key: ({ model }) =>
+        `${model.starting?.machineId}/${model.starting?.projectId}`,
+      props: ({ model }) => ({
+        machineId: model.starting?.machineId ?? '',
+        projectId: model.starting?.projectId ?? '',
+        path: model.starting?.path ?? '',
+      }),
+    },
     picker: {
       actor: Projects.Live,
       while: ({ model }) => model.picking !== null,
@@ -229,14 +264,44 @@ export const ProjectPickerLive = Actor.build(ProjectPicker, {
             FolderPicker.load(key, query).pipe(Effect.provide(client)),
           make: ({ key }, name) =>
             FolderPicker.make(key, name).pipe(Effect.provide(client)),
-          settle: (choices, { key }) =>
-            FolderPicker.choose(choices, key).pipe(
-              Effect.provide(client),
-              Effect.flatMap((added) =>
-                Effect.as(self.send({ _tag: 'Added', ...added }), null),
-              ),
-              Effect.catch((reason) => Effect.succeed(reason)),
-            ),
+          // By touch, the Project picked, or the folder made one, opens
+          // its new session over the Picker, which holds; else it opens.
+          settle: (choices, { id, key }) =>
+            Effect.gen(function* () {
+              const { model } = yield* self.get;
+              const touch = model.picking === 'touch';
+              if (id === 'recent') {
+                const chosen = choices.at(-1)?.value;
+                const picked = model.recent?.find(
+                  (each) => each.machineId === key && each.id === chosen,
+                );
+                if (!touch || picked === undefined) return null;
+                yield* self.send({
+                  _tag: 'Starting',
+                  machineId: key,
+                  projectId: picked.id,
+                  path: picked.path,
+                });
+                return Picker.HOLD;
+              }
+              return yield* FolderPicker.choose(choices, key).pipe(
+                Effect.provide(client),
+                Effect.flatMap((added) =>
+                  touch
+                    ? Effect.as(
+                        self.send({
+                          _tag: 'Starting',
+                          machineId: added.machineId,
+                          projectId: added.projectId,
+                          path: added.path,
+                        }),
+                        Picker.HOLD,
+                      )
+                    : Effect.as(self.send({ _tag: 'Added', ...added }), null),
+                ),
+                Effect.catch((reason) => Effect.succeed(reason)),
+              );
+            }),
         }),
       ),
     ),
@@ -289,7 +354,9 @@ export const ProjectPickerLive = Actor.build(ProjectPicker, {
             },
           },
     Read: ({ recent }, { model }) => ({ model: { ...model, recent } }),
-    Closed: (_, { model }) => ({ model: { ...model, picking: null } }),
+    Closed: (_, { model }) => ({
+      model: { ...model, picking: null, starting: null },
+    }),
     // 2. Pick
     Chose: ({ machineId, projectId }, { model }) => ({
       model: { ...model, picking: null },
@@ -315,6 +382,10 @@ export const ProjectPickerLive = Actor.build(ProjectPicker, {
           }),
     }),
     Dismiss: (_, { model }) => ({ model: { ...model, warning: null } }),
+    Starting: ({ machineId, projectId, path }, { model }) => ({
+      model: { ...model, starting: { machineId, projectId, path } },
+    }),
+    StartClosed: (_, { model }) => ({ model: { ...model, starting: null } }),
   },
 });
 

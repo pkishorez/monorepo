@@ -128,7 +128,11 @@ export const Message = Schema.TaggedUnion({
   Finished: { on: Schema.NullOr(Schema.String) },
   Back: {},
   Closed: {},
-  Settled: { refused: Schema.NullOr(Schema.String) },
+  /** Taken, refused with why, or `held`: the owner showed something over it, and it stays as it was. */
+  Settled: {
+    refused: Schema.NullOr(Schema.String),
+    held: Schema.optionalKey(Schema.Boolean),
+  },
   /** Make a new place named `name` in the top Step, such as a folder. */
   Make: { name: Schema.String },
   /** What the owner made, to go into, or why it could not. */
@@ -238,6 +242,9 @@ export interface Spec<P> {
   readonly lands?: (choices: ReadonlyArray<Choice>) => boolean;
 }
 
+/** What an owner's `settle` gives to keep the Picker open where it was. */
+export const HOLD = { hold: true } as const;
+
 /** What the owner gives the Picker: where its choices go, and the rows it loads. */
 interface Owner {
   /** The choices it finished with and the Step it finished in, or null when closed with none. */
@@ -246,11 +253,15 @@ interface Owner {
     step: StepRef | null,
   ) => Effect.Effect<void>;
   readonly load: (step: StepRef, query: string) => Effect.Effect<Loaded>;
-  /** Takes what a Step that settles finished with, giving null, or why not; `done` hears it after. */
+  /**
+   * Takes what a Step that settles finished with, giving null, or why not;
+   * `done` hears it after. Or `HOLD`: the owner shows something over the
+   * Picker, which stays open where it was, to be chosen from again.
+   */
   readonly settle: (
     choices: ReadonlyArray<Choice>,
     step: StepRef,
-  ) => Effect.Effect<string | null>;
+  ) => Effect.Effect<string | null | typeof HOLD>;
   /** Makes `name` in the Step, giving the row it is, or why not. */
   readonly make: (
     step: StepRef,
@@ -509,7 +520,11 @@ export const build = <const Name extends string, P>(
     args: Schema.Struct({ choices: Schema.Array(Choice), step: StepRef }),
     run: ({ choices, step }) =>
       Effect.flatMap(Owner, (owner) => owner.settle(choices, step)).pipe(
-        Effect.map((refused) => ({ _tag: 'Settled' as const, refused })),
+        Effect.map((settled) =>
+          typeof settled === 'object' && settled !== null
+            ? { _tag: 'Settled' as const, refused: null, held: true }
+            : { _tag: 'Settled' as const, refused: settled },
+        ),
       ),
   });
 
@@ -721,19 +736,21 @@ export const build = <const Name extends string, P>(
       // 5. Done: taken, it finishes, and the View leaves the Surface, after
       // which the owner hears, so it never drops a Picker still entered;
       // refused, it can be chosen from again.
-      Settled: ({ refused }, { model }) =>
-        refused !== null
-          ? { model: { ...model, busy: false, settling: null, refused } }
-          : {
-              model: {
-                ...model,
-                busy: false,
-                settling: null,
-                choices: model.settling ?? model.choices,
-                finished: true,
-                taken: true,
+      Settled: ({ refused, held }, { model }) =>
+        held === true
+          ? { model: { ...model, busy: false, settling: null } }
+          : refused !== null
+            ? { model: { ...model, busy: false, settling: null, refused } }
+            : {
+                model: {
+                  ...model,
+                  busy: false,
+                  settling: null,
+                  choices: model.settling ?? model.choices,
+                  finished: true,
+                  taken: true,
+                },
               },
-            },
       Closed: (_, { model }) =>
         model.taken
           ? {
