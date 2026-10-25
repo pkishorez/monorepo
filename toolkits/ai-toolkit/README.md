@@ -102,7 +102,7 @@ pnpm add @kestack/ai-toolkit effect @kestack/kabuki @kestack/std-toolkit
 
 ### Open an Agent and run a Turn
 
-`open` gives an Agent for as long as its Scope. A Turn is asked for with `turn`, and runs as its `out` is read: the agent's records, each steer where it joined, then the Turn's end. Shaped after `src/harness/codex/codex.e2e.test.ts`.
+`open` gives an Agent for as long as its Scope. A Turn is asked for with `turn`, and runs as its `out` is read: the agent's records, each steer where it joined, then the Turn's end. Shaped after `src/harness/codex/tests/codex.e2e.test.ts`.
 
 ```ts
 import { Effect, Stream } from 'effect';
@@ -144,7 +144,7 @@ const reply = OneShotPrompt.use((oneShot) =>
 
 ### Turn speech into text
 
-`Speech.layer` runs Speech to Text from a folder until its Scope closes. Trimmed from `src/speech/speech.test.ts`.
+`Speech.layer` runs Speech to Text from a folder until its Scope closes. Trimmed from `src/speech/tests/speech.test.ts`.
 
 ```ts
 import { Context, Effect, Layer } from 'effect';

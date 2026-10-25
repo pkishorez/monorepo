@@ -5,7 +5,7 @@ import {
   readMachine,
   removeMachine,
   writeMachine,
-} from './file.js';
+} from './machine-file.js';
 import { clearLegacyMachine, takeLegacyMachine } from './legacy.js';
 import { newMachineId, newMachineKey } from './secrets.js';
 
