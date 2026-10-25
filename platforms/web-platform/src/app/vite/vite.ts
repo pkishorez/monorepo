@@ -5,7 +5,7 @@ import type { Plugin } from 'vite';
 import { noPwa, pwa } from '../../pwa/engine/vite/index.ts';
 
 /*
- * A kstack app's Vite plugins, as one:
+ * A kestack app's Vite plugins, as one:
  *
  * 1. Look    Tailwind, which the Theme's CSS is written in, and React.
  * 2. Serve   Kabuki Start, with the app's own files and platform.
@@ -38,7 +38,7 @@ const server: Plugin = {
   }),
 };
 
-/** Every Vite plugin a kstack app needs: `plugins: [app({ name, platform: cloudflare() })]`. */
+/** Every Vite plugin a kestack app needs: `plugins: [app({ name, platform: cloudflare() })]`. */
 export const app = ({
   name,
   pwa: pwaOptions = {},

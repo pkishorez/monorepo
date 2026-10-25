@@ -106,7 +106,7 @@ keys inside the `picker` Surface stay as they are.
   text after it, hidden with only one Machine. A Machine that does not answer
   keeps what it last synced, marked by its Last Seen.
 - The Project Picker's first Step picks the Machine, skipped with only one.
-- Settings is at the root. Its Machines list comes from the Machines Backend
+- Settings is at the root. Its Machines list comes from Cloud Connect
   alone and draws at once. Each Machine has its own settings (its Harness
   Binaries, its Speech to Text switch), each loading on its own; one that
   does not answer says so in its own row.

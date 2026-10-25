@@ -19,7 +19,7 @@ import { sherpa } from './index.js';
  * The Parakeet model's install against small files and a small tarball of
  * the same shape, served from this process, the tarball with Range support; and one real transcription,
  * run only when the model is already on disk: in AI_TOOLKIT_SPEECH_MODEL,
- * or where `ai-toolkit serve` keeps it.
+ * or where `ke-connect serve` keeps it.
  */
 
 const FILES = [
@@ -227,7 +227,14 @@ describe('Parakeet with sherpa-onnx', () => {
 
   const real =
     process.env['AI_TOOLKIT_SPEECH_MODEL'] ??
-    join(homedir(), '.ai-toolkit', 'speech-to-text', 'model');
+    join(
+      process.env['XDG_CACHE_HOME'] ?? join(homedir(), '.cache'),
+      'kestack',
+      'connect',
+      'ai',
+      'speech-to-text',
+      'model',
+    );
   const wave = join(real, 'test_wavs', '0.wav');
   it.skipIf(!existsSync(join(real, 'tokens.txt')) || !existsSync(wave))(
     'transcribes a recording with the model on disk',

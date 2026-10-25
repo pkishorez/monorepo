@@ -1,4 +1,4 @@
-// A kstack app on alchemy: its Stages, where each serves, the site on
+// A kestack app on alchemy: its Stages, where each serves, the site on
 // Cloudflare, and, opt-in, where alchemy keeps its state.
 export {
   type Address,

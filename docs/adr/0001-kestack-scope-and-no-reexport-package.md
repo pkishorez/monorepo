@@ -1,8 +1,8 @@
-# Publish the kstack umbrella under `@kestack`, with no re-export package
+# Publish the kestack umbrella under `@kestack`, with no re-export package
 
 Amended: the packages first published under `@kstackz` and moved to `@kestack` once that scope was ours. ui-toolkit and pwa-toolkit later merged into `@kestack/web-platform` ([ADR 0003](0003-web-toolkit-and-the-gate.md)), and `@kestack/flow` and `@kestack/expo-platform` were removed ([ADR 0007](0007-web-is-the-only-platform.md)). The lists below are the packages as they were then.
 
-kstack is the umbrella name for this repo's stack. The `@kstack` npm org belongs to someone else, so the packages publish under `@kestack`. Toolkits keep the `-toolkit` suffix (`@kestack/std-toolkit`, `@kestack/ui-toolkit`, `@kestack/ai-toolkit`, `@kestack/pwa-toolkit`, `@kestack/rpc-toolkit`, `@kestack/auth-toolkit`, `@kestack/expo-platform`) so they stand apart from the other kstack packages (`@kestack/flow`, `@kestack/lotel`, `@kestack/effect-tracer`, `@kestack/devtools`, `@kestack/effect-webrtc`). Stand-alone tools that are useful without kstack (`laymos`, `use-effect-ts`) keep their own unscoped names.
+kestack is the umbrella name for this repo's stack. The `@kstack` npm org belongs to someone else, so the packages publish under `@kestack`. Toolkits keep the `-toolkit` suffix (`@kestack/std-toolkit`, `@kestack/ui-toolkit`, `@kestack/ai-toolkit`, `@kestack/pwa-toolkit`, `@kestack/rpc-toolkit`, `@kestack/auth-toolkit`, `@kestack/expo-platform`) so they stand apart from the other kestack packages (`@kestack/flow`, `@kestack/lotel`, `@kestack/effect-tracer`, `@kestack/devtools`, `@kestack/effect-webrtc`). Stand-alone tools that are useful without kestack (`laymos`, `use-effect-ts`) keep their own unscoped names.
 
 ## Considered Options
 

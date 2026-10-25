@@ -1,5 +1,7 @@
 # An app is on every Machine at once, and each Instance owns its connection
 
+Status: moved to apps/connect/docs/adr/0005
+
 An app holds one `Ai` Instance for every Machine in the signed-in User's Machine List, and each Instance syncs through its own Machine's socket, found by its key, the Machine id. Queries read across every Instance, and each row says which Machine it came from, as the Replica glossary already allows. Nothing in the app is inside one Machine: only a Session's address names its Machine. The Machine list itself always comes from the Machines Backend and never waits for a Machine.
 
 ## Considered options

@@ -14,7 +14,7 @@
       show the call as running in the background until the job ends.
 - [ ] ai-toolkit: when Claude Code exits while a Session is idle, its Background
       Jobs clear, but the engine only finds the agent gone on the next Turn
-      (which then fails and reopens it). Let a `HarnessSession` say it ended
+      (which then fails and reopens it). Let an `Agent` say it ended
       so the Session drops it at once.
 - [ ] ai-toolkit: when the server dies without shutting Codex down, Codex
       exits as its input ends, but a command it started and does not stop

@@ -4,9 +4,9 @@ Source: `this conversation`
 
 ## Problem
 
-Every kstack web app wires the same things by hand: the root document and head, the Theme, the Frame and Sidebar, sign-in, the local or remote Backend, the `/rpc` server, and, for Ledger, the PWA. The pieces sit in two Toolkits (ui-toolkit, pwa-toolkit) and in Ledger itself; about 1,500 lines of Ledger web are setup any web app needs, and three other apps repeat Ledger's root route. The Gate, which runs sign-in, the Backend and the Active Session, lives in `ledger/core` though nothing in it but the Session's contents is Ledger's, and it waits on the network before showing data the device already has.
+Every kestack web app wires the same things by hand: the root document and head, the Theme, the Frame and Sidebar, sign-in, the local or remote Backend, the `/rpc` server, and, for Ledger, the PWA. The pieces sit in two Toolkits (ui-toolkit, pwa-toolkit) and in Ledger itself; about 1,500 lines of Ledger web are setup any web app needs, and three other apps repeat Ledger's root route. The Gate, which runs sign-in, the Backend and the Active Session, lives in `ledger/core` though nothing in it but the Session's contents is Ledger's, and it waits on the network before showing data the device already has.
 
-kstack needs one opinionated Web Toolkit an app is built from, with a Gate both platforms share, so a new app writes only its API, its Session's contents and its screens.
+kestack needs one opinionated Web Toolkit an app is built from, with a Gate both platforms share, so a new app writes only its API, its Session's contents and its screens.
 
 ## Outcome
 

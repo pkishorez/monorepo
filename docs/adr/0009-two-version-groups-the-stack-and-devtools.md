@@ -2,6 +2,8 @@
 
 Status: accepted. Narrows [ADR 0008](0008-one-version-for-the-packages-that-depend-on-each-other.md).
 
+Status: amended by [ADR 0011](0011-ai-toolkit-stops-at-the-harness-connect-owns-the-rest.md): @kestack/connect joins the stack group.
+
 The changeset `fixed` config holds two groups instead of one.
 
 - **The stack**: ai-toolkit, auth-toolkit, rpc-toolkit, std-toolkit and the Web Platform. They read each other, and an app installs them together, so they release under one version. They start at `0.0.1`.

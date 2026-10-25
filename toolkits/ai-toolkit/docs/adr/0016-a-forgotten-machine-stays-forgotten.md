@@ -1,8 +1,10 @@
 ---
-status: accepted
+status: moved to apps/connect/docs/adr/0004
 ---
 
 # A forgotten Machine stays forgotten, and its Sign-in with it
+
+Status: moved to apps/connect/docs/adr/0004
 
 A User forgets a Machine from the app, from anywhere, for example because it was compromised. auth-toolkit lets only the Auth Worker's own pages revoke a Sign-in (its ADR 0018), so neither the app nor the Machines Backend can end the Machine's Sign-in itself. Instead the Backend keeps the forgotten Machine as a tombstone naming its Sign-in, refuses every later Report from that Machine id or that Sign-in with `MachineForgotten`, and a Machine told so signs itself out, which revokes its token, and stops. The app's confirmation links to the Auth Worker's Home Page for revoking the Sign-in outright.
 

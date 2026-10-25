@@ -8,7 +8,7 @@ Claude Code and Codex each have their own SDK, their own records and their own i
 
 Speech to Text sits behind a door of its own and knows nothing of Agents. It downloads its model into a folder the caller names, and turns audio into text on the computer.
 
-The words are in [CONTEXT.md](CONTEXT.md). Raw records and their projection to Messages are in [docs/v1-spec.md](docs/v1-spec.md), and how a Turn's stream carries its facts in [docs/turn-flow.md](docs/turn-flow.md). The one Kabuki tree left, behind Speech to Text, is in [docs/kabuki-tree.md](docs/kabuki-tree.md). Decisions are in [docs/adr/](docs/adr/); 0011 (Fork Points are Turn ends), 0012 (Background Jobs are live, and agents may start Turns), 0013 (A Turn's facts travel in its stream) and 0017 (Speech to Text runs on the Machine) are current here, and the others record a design that moved to Connect or was replaced.
+The words are in [CONTEXT.md](CONTEXT.md). Raw records and their projection to Messages are in [docs/v1-spec.md](docs/v1-spec.md), and how a Turn's stream carries its facts in [docs/turn-flow.md](docs/turn-flow.md). The one Kabuki tree left, behind Speech to Text, is in [docs/kabuki-tree.md](docs/kabuki-tree.md). Decisions are in [docs/adr/](docs/adr/); 0011 (Fork Points are Turn ends), 0012 (Background Jobs are live, and agents may start Turns), 0013 (A Turn's facts travel in its stream) and 0017 (Speech to Text runs on the Machine) are current here. 0004, 0014, 0015, 0016 and 0018 moved to [Connect's ADRs](../../apps/connect/docs/adr/), and the rest record a design that was replaced.
 
 ## Install
 
@@ -100,7 +100,7 @@ pnpm add @kestack/ai-toolkit effect @kestack/kabuki @kestack/std-toolkit
 
 ## Usage
 
-### Run a Turn on an Agent
+### Open an Agent and run a Turn
 
 `open` gives an Agent for as long as its Scope. A Turn is asked for with `turn`, and runs as its `out` is read: the agent's records, each steer where it joined, then the Turn's end. Shaped after `src/harness/codex/codex.e2e.test.ts`.
 
