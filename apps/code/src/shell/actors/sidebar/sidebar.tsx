@@ -17,9 +17,10 @@ import { outOfReach } from '../../../layer/capabilities/index.ts';
 import * as routes from '../../routes/index.ts';
 import type { Route } from '../../routes/index.ts';
 import {
-  HealthDot,
   type OnMachine,
   pillOf,
+  StandingDot,
+  standingOf,
   useHealth,
   useMachineName,
 } from '../../machines/index.ts';
@@ -409,7 +410,7 @@ function Waiting({
         role="status"
         className="flex items-center gap-2.5 px-2 py-2 text-sm text-muted-foreground"
       >
-        <HealthDot health={{ _tag: 'Unknown' }} tone="bg-warning" />
+        <StandingDot kind="Connecting" />
         Finding your Machines…
       </p>
     );
@@ -432,10 +433,9 @@ function MachineWaiting({
 }) {
   const health = useHealth(machineId);
   // Connected, it is only reading its Projects.
-  const [label, title, tone] = pillOf(health) ?? [
+  const [label, title] = pillOf(health) ?? [
     'Loading projects…',
     'Connected: reading its projects',
-    'bg-positive',
   ];
   return (
     <li
@@ -444,7 +444,7 @@ function MachineWaiting({
       className="flex items-baseline gap-2.5 px-2 py-2"
     >
       <span className="flex h-5 shrink-0 items-center">
-        <HealthDot health={health} tone={tone} />
+        <StandingDot kind={standingOf(health, null).kind} />
       </span>
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="truncate text-sm font-medium text-sidebar-foreground">

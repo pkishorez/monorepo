@@ -10,7 +10,6 @@ export {
   useOffline,
 } from './connection.ts';
 export {
-  HealthDot,
   Locked,
   pillOf,
   shortOf,
