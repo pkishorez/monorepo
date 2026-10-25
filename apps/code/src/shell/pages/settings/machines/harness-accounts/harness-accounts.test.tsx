@@ -151,7 +151,7 @@ const button = (label: string) =>
 const labelled = (label: string) =>
   document.querySelector<HTMLElement>(`[aria-label="${label}"]`)!;
 const names = () =>
-  [...document.querySelectorAll('h4')].map((each) => each.textContent);
+  [...document.querySelectorAll('h5')].map((each) => each.textContent);
 const field = (id: string) =>
   document.querySelector<HTMLInputElement>(`#account-m1-${id}`)!;
 
@@ -263,7 +263,7 @@ describe('Harness Accounts, kept on this device', () => {
     await mount();
     expect(names()).toEqual(['Claude', 'Codex']);
     expect(labelled('Change Claude')).toBeNull();
-    expect(button('Add a Claude account')).toBeUndefined();
+    expect(labelled('Add a Claude account')).toBeNull();
     expect(document.querySelector('[role="note"]')?.textContent).toContain(
       'Locked',
     );
@@ -279,13 +279,16 @@ describe('Harness Accounts', () => {
   it('draws a row per account, saying how to install an agent that is not there', async () => {
     expect(names()).toEqual(['Claude', 'Codex']);
     expect(text()).toContain('npm install -g @openai/codex');
+    // An empty folder is the agent's own; an empty binary, the one on PATH.
+    expect(text()).toContain('~/.claude · its own');
+    expect(text()).toContain('/usr/local/bin/claude · from PATH');
     // A Default Account is never removed.
     await click(labelled('Change Claude'));
     expect(button('Remove…')).toBeUndefined();
   });
 
   it('adds another login with its config folder, saved as typed', async () => {
-    await click(button('Add a Claude account'));
+    await click(labelled('Add a Claude account'));
     await type(field('new-name-field'), ' Claude work ');
     await type(field('new-config-folder'), '~/.claude-work');
     await click(button('Add account'));
@@ -298,7 +301,9 @@ describe('Harness Accounts', () => {
         configFolder: '~/.claude-work',
       },
     ]);
-    expect(names()).toEqual(['Claude', 'Codex', 'Claude work']);
+    // Under its agent, after the Default Account, its folder and the variable it sets.
+    expect(names()).toEqual(['Claude', 'Claude work', 'Codex']);
+    expect(text()).toContain('~/.claude-work · CLAUDE_CONFIG_DIR');
     expect((await keptAccounts())?.map(({ name }) => name)).toEqual([
       'Claude',
       'Codex',
@@ -308,7 +313,7 @@ describe('Harness Accounts', () => {
 
   it('keeps what was typed, and why the Machine refused it', async () => {
     refuse = 'Nothing is at /nowhere; sign in with that config folder first';
-    await click(button('Add a Claude account'));
+    await click(labelled('Add a Claude account'));
     await type(field('new-name-field'), 'Claude work');
     await type(field('new-config-folder'), '/nowhere');
     await click(button('Add account'));
@@ -319,12 +324,12 @@ describe('Harness Accounts', () => {
   });
 
   it('drops the account being added on Cancel', async () => {
-    await click(button('Add a Claude account'));
+    await click(labelled('Add a Claude account'));
     await type(field('new-name-field'), 'Claude work');
     await click(button('Cancel'));
     expect(saved).toEqual([]);
     expect(field('new-name-field')).toBeNull();
-    expect(button('Add a Claude account')).toBeDefined();
+    expect(labelled('Add a Claude account')).not.toBeNull();
   });
 
   it('closes a form on Cancel, dropping what was typed', async () => {
@@ -337,7 +342,7 @@ describe('Harness Accounts', () => {
   });
 
   it('removes an added account once asked again', async () => {
-    await click(button('Add a Codex account'));
+    await click(labelled('Add a Codex account'));
     await type(field('new-name-field'), 'Codex work');
     await click(button('Add account'));
     await click(labelled('Change Codex work'));
