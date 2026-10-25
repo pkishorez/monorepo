@@ -164,7 +164,8 @@ function MachineFilter({
 }) {
   const [only, ...others] = machines;
   return (
-    <div className="flex items-center gap-1 px-2 pb-1">
+    // It stays at the top while the timeline scrolls under it, with room below.
+    <div className="sticky top-0 z-10 flex items-center gap-1 bg-sidebar px-2 pb-3">
       {only === undefined ? (
         <span className="min-w-0 flex-1 px-2 text-sm text-muted-foreground">
           No Machines
