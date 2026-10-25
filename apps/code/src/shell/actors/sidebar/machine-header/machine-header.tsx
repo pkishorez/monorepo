@@ -5,15 +5,16 @@ import {
   ChevronDownIcon,
   RefreshCwIcon,
 } from '@kestack/web-platform/ui/components/lucide';
-import { cn } from '@kestack/web-platform/ui/components/utils';
 import { type ReactNode, useState } from 'react';
 import {
   type OnMachine,
   pillOf,
+  type Standing,
+  StandingDot,
+  standingOf,
   useHealths,
   useMachines,
 } from '../../../machines/index.ts';
-import { ago } from '../../../../ui/time/index.ts';
 
 /*
  * The sidebar's top, which stays put as the timeline scrolls under it: the
@@ -27,12 +28,10 @@ import { ago } from '../../../../ui/time/index.ts';
  * Connect it runs, the one shown checked.
  */
 
-type Kind = 'Connected' | 'Down' | 'Connecting';
-
 interface Info {
   readonly id: string;
   readonly name: string;
-  readonly kind: Kind;
+  readonly kind: Standing;
   /** How it stands, in a few words. */
   readonly state: string;
   /** How it stands in a word or two, for the header: when it was seen is for the Drawer. */
@@ -80,20 +79,12 @@ function useInfos(
     const own = sessions.filter(
       (each) => each.machineId === id && each.settledAt === null,
     );
+    const standing = standingOf(health, record ?? null);
     return {
       id,
       name,
-      kind:
-        health._tag === 'Connected'
-          ? 'Connected'
-          : health._tag === 'Down'
-            ? 'Down'
-            : 'Connecting',
-      state:
-        pillOf(health)?.[0] ??
-        (record === undefined
-          ? 'Connected'
-          : `Connected · seen ${ago(record.lastSeen)}`),
+      kind: standing.kind,
+      state: standing.label,
       brief: pillOf(health)?.[0] ?? 'Connected',
       sessions: own.length,
       running: own.filter(({ status }) => status === 'running').length,
@@ -107,22 +98,6 @@ function useInfos(
           .join(' · ') || null,
     };
   });
-}
-
-function Dot({ kind }: { readonly kind: Kind }) {
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        'size-2 shrink-0 rounded-full',
-        kind === 'Connected'
-          ? 'bg-positive'
-          : kind === 'Down'
-            ? 'bg-destructive'
-            : 'animate-pulse bg-warning motion-reduce:animate-none',
-      )}
-    />
-  );
 }
 
 /** The app's mark: a prompt in a rounded square, in the theme's ink. */
@@ -204,7 +179,7 @@ export function MachineHeader({
         <span className="flex max-w-full items-center gap-1.5 text-[13px] text-muted-foreground md:text-xs">
           {chosen !== null ? (
             <>
-              <Dot kind={chosen.kind} />
+              <StandingDot kind={chosen.kind} />
               <span className="truncate" title={chosen.state}>
                 {chosen.brief}
               </span>
@@ -281,7 +256,7 @@ export function MachineHeader({
                 key={info.id}
                 name={info.name}
                 lines={[info.state, countsOf(info), info.about]}
-                mark={<Dot kind={info.kind} />}
+                mark={<StandingDot kind={info.kind} />}
                 selected={shown === info.id}
                 onPick={() => pick(info.id)}
               />
