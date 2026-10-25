@@ -60,11 +60,13 @@ const Page = Actor.define('Page', {
     sent: Schema.Finite,
     pings: Schema.Finite,
     pending: Schema.NullOr(Pending),
+    recording: Schema.Boolean,
     retried: Schema.Array(Schema.Finite),
   }),
   message: Schema.TaggedUnion({
     Ping: {},
     Dictation: { pending: Schema.NullOr(Pending) },
+    Recording: { on: Schema.Boolean },
     Took: { id: Schema.Finite },
     Retry: { id: Schema.Finite },
     Typed: { text: Schema.String },
@@ -85,6 +87,7 @@ const PageLive = Actor.build(Page, {
       sent: 0,
       pings: 0,
       pending: null,
+      recording: false,
       retried: [],
     },
   }),
@@ -111,6 +114,9 @@ const PageLive = Actor.build(Page, {
   on: {
     Ping: (_, { model }) => ({ model: { ...model, pings: model.pings + 1 } }),
     Dictation: ({ pending }, { model }) => ({ model: { ...model, pending } }),
+    Recording: ({ on }, { model }) => ({
+      model: { ...model, recording: on },
+    }),
     Took: (_, { model }) => ({ model: { ...model, pending: null } }),
     Retry: ({ id }, { model }) => ({
       model: { ...model, retried: [...model.retried, id] },
@@ -137,6 +143,7 @@ let page = {
 };
 let ping = () => {};
 let dictate: (pending: typeof Pending.Type | null) => void = () => {};
+let record: (on: boolean) => void = () => {};
 
 const PageView = View.make(PageLive, ({ model, children, send }) => {
   page = {
@@ -147,6 +154,7 @@ const PageView = View.make(PageLive, ({ model, children, send }) => {
   };
   ping = () => send({ _tag: 'Ping' });
   dictate = (pending) => send({ _tag: 'Dictation', pending });
+  record = (on) => send({ _tag: 'Recording', on });
   return (
     <GestureProvider>
       <keys.Provider autoFocus={false}>
@@ -189,7 +197,7 @@ function OnPage({
       picker: null,
     },
     dictation: {
-      recording: null,
+      recording: model.recording ? { _tag: 'Starting' } : null,
       pending: model.pending,
       onToggle: () => {},
       onTook: (id) => send({ _tag: 'Took', id }),
@@ -358,6 +366,16 @@ describe('Touch Draft', () => {
     expect(button('Send')).toBeNull();
     await tap(button('Dictate')!);
     expect(asks()).toEqual(['Toggle']);
+  });
+
+  it('throws away a Dictation taken to send while it is transcribed, sending nothing', async () => {
+    await act(async () => record(true));
+    await flush();
+    await tap(button('Take and send')!);
+    expect(asks()).toEqual(['Toggle']);
+    await tap(button('Cancel the Dictation')!);
+    expect(asks()).toEqual(['Cancel']);
+    expect(page.sent).toBe(0);
   });
 
   it('edits from its placeholder while empty', async () => {
