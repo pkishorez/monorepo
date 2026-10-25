@@ -17,7 +17,7 @@ After [ADR 0022](./0022-test-users-at-the-auth-worker-local-mode-becomes-the-fak
 - A Principal's `user` is the toolkit's own `{ id, email, name }`, the same for both kinds, and a Sign-in Principal's `session` is `{ id, expiresAt }`. It never holds the Sign-in token.
 - The client's three "could not ask the Auth Worker" errors are one `AuthWorkerUnavailable` with a `kind`: `'unreachable'`, `'server-error'` or `'unreadable'`.
 - An Account Switch that a newer one replaces before its turn is never sent; it succeeds, and the newest is shown until it is answered.
-- Inside, the part that turns a Resolver into the RPC and HttpApi Layers and admits the caller is its own module, `src/guard-layer`, used by `server` and `fake`; `src/server/verification` is only the real Resolver.
+- Inside, the part that turns a Resolver into the RPC and HttpApi Layers and admits the caller is its own module, `src/guard/server/guard-layer`, used by `server` and `fake`; `src/guard/server/verification` is only the real Resolver.
 
 ## Considered options
 

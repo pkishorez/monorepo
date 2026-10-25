@@ -34,4 +34,4 @@ What was kept from it: each Middleware is its own module, created under `/*#__PU
 
 ## Consequences
 
-`src/auth/tests/tree-shaking.test.ts` bundles the doors the way consumers import them and holds what stays true: the contract and `browser()` bring neither Effect's `HttpApiBuilder` nor any rpc-toolkit Transport, `server/rpc` brings no `HttpApiBuilder`, and `server/http` no RPC Transport.
+`src/guard/authz/tests/tree-shaking.test.ts` bundles the doors the way consumers import them and holds what stays true: the contract and `browser()` bring neither Effect's `HttpApiBuilder` nor any rpc-toolkit Transport, `server/rpc` brings no `HttpApiBuilder`, and `server/http` no RPC Transport.
