@@ -13,7 +13,7 @@
     "node_modules",
     "dist",
     "src/**/*.test.ts",
-    "src/deploy",
+    "src/cloud/deploy",
     "alchemy.run.ts"
   ]
 }

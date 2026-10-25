@@ -1,6 +1,5 @@
 import { Effect, Layer, Schema, Stream } from 'effect';
-import { AiClients } from '@kestack/ai-toolkit/client';
-import type { Project, Session } from '@kestack/ai-toolkit/api';
+import { CodeClients, type Project, type Session } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
 import { Replicas } from '@kestack/std-toolkit/replica';
@@ -136,7 +135,7 @@ const recentOf = (
 };
 
 export const ProjectPicker = Actor.define('ProjectPicker', {
-  requires: [AiClients, Navigation, Replicas, Machines],
+  requires: [CodeClients, Navigation, Replicas, Machines],
   model: Schema.Struct({
     /** The Machines it opens projects on, as `Machines` lists them. */
     machines: Schema.Array(Listed),
@@ -203,7 +202,7 @@ export const ProjectPickerLive = Actor.build(ProjectPicker, {
   // The folder Steps call each Machine through the clients this actor has.
   provides: (self) =>
     Layer.unwrap(
-      Effect.map(Effect.context<AiClients>(), (client) =>
+      Effect.map(Effect.context<CodeClients>(), (client) =>
         Projects.owner({
           done: (choices, step) => {
             const chosen = choices?.at(-1)?.value;

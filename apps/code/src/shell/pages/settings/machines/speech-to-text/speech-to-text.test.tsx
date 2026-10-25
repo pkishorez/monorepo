@@ -2,8 +2,11 @@
 import { act } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Queue, Schema, Stream } from 'effect';
-import type { SpeechToTextState } from '@kestack/ai-toolkit/api';
-import { AiClient, AiClients } from '@kestack/ai-toolkit/client';
+import {
+  CodeClient,
+  CodeClients,
+  type SpeechToTextState,
+} from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { toReact, View } from '@kestack/kabuki/react';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
@@ -49,7 +52,7 @@ const OwnerView = View.make(OwnerLive, ({ model, children, send }) => {
   );
 });
 
-type Api = AiClient['Service'];
+type Api = CodeClient['Service'];
 
 let says: Queue.Queue<SpeechToTextState>;
 let switched: Array<'on' | 'off'> = [];
@@ -59,11 +62,11 @@ const machines = Layer.mock(Machines)({
   speech: () => Stream.fromQueue(says),
 });
 
-const clients = AiClients.make(() =>
+const clients = CodeClients.make(() =>
   Layer.merge(
     // An RPC client's procedures are generic over how they are called;
     // a stand-in answers the one way the app calls them.
-    Layer.mock(AiClient)({
+    Layer.mock(CodeClient)({
       enableSpeechToText: (() =>
         Effect.sync(
           () => void switched.push('on'),

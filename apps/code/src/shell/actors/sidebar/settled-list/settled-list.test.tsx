@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { Project, Session } from '@kestack/ai-toolkit/api';
+import type { Project, Session } from '@kestack/connect/code';
 import { GestureProvider } from '@kestack/web-platform/ui/input';
 import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';

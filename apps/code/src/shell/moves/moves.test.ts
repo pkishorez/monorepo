@@ -6,7 +6,7 @@ import {
   Stream,
   SubscriptionRef,
 } from 'effect';
-import { AiClient, AiClients } from '@kestack/ai-toolkit/client';
+import { CodeClient, CodeClients } from '@kestack/connect/code';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HOLD, layer, Moves } from './index.ts';
@@ -40,9 +40,9 @@ const machines = (
           sessionId,
         });
     });
-  const layer = AiClients.make(() =>
+  const layer = CodeClients.make(() =>
     Layer.merge(
-      Layer.mock(AiClient)({
+      Layer.mock(CodeClient)({
         settleSession: ({ sessionId }: { readonly sessionId: string }) =>
           ask(sessionId, true),
         unsettleSession: ({ sessionId }: { readonly sessionId: string }) =>

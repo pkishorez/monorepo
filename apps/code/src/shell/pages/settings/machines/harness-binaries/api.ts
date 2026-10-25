@@ -1,4 +1,4 @@
-import { AiClient, AiClients } from '@kestack/ai-toolkit/client';
+import { CodeClient, CodeClients } from '@kestack/connect/code';
 import { orRefused } from '../../../../refusal/index.ts';
 
 /*
@@ -8,9 +8,9 @@ import { orRefused } from '../../../../refusal/index.ts';
 /** Every agent's Harness Binary on a Machine, as a Message; a Worker reads it. */
 export const loadBinaries = (machineId: string) =>
   orRefused(
-    AiClients.on(
+    CodeClients.on(
       machineId,
-      AiClient.use((api) => api.harnessBinaries()),
+      CodeClient.use((api) => api.harnessBinaries()),
     ),
     (binaries) => ({ _tag: 'BinariesLoaded' as const, binaries }),
   );

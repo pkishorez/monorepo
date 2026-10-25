@@ -1,6 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { HarnessInfo } from '@kestack/ai-toolkit/api';
-import { AiClient, AiClients } from '@kestack/ai-toolkit/client';
+import { CodeClient, CodeClients, HarnessInfo } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
 import { orRefused } from '../../../../refusal/index.ts';
 
@@ -17,9 +16,9 @@ export const setHarnessBinary = Command.make('SetHarnessBinary', {
   }),
   run: ({ machineId, ...args }) =>
     orRefused(
-      AiClients.on(
+      CodeClients.on(
         machineId,
-        AiClient.use((api) => api.setHarnessBinary(args)),
+        CodeClient.use((api) => api.setHarnessBinary(args)),
       ),
       (binary) => ({ _tag: 'BinarySaved' as const, binary }),
     ).pipe(

@@ -1,5 +1,5 @@
 import { Effect, Layer, Schema, Stream } from 'effect';
-import { type AiClient, AiClients } from '@kestack/ai-toolkit/client';
+import { type CodeClient, CodeClients } from '@kestack/connect/code';
 import { Navigation, Page, Router } from '@kestack/kabuki/routing';
 import { Machines } from '../../../layer/capabilities/index.ts';
 import { home } from '../../places/index.ts';
@@ -15,7 +15,7 @@ import { Session } from './session/index.ts';
  * A project: a new session in it, and the session open under it, if the
  * URL names one.
  *
- * 0. Machine  the project's own Machine, `:machineId`: its `AiClient`,
+ * 0. Machine  the project's own Machine, `:machineId`: its `CodeClient`,
  *             over its own socket, Provided to what is under it; its own
  *             reads and errands go over the same socket. A Machine the
  *             Account's list no longer has says so in place of the page.
@@ -45,7 +45,7 @@ export const Project = Page.define({
   path: '/m/:machineId/p/:projectId',
   params: { machineId: Schema.String, projectId: Schema.String },
   metadata: { title: 'Project · code' },
-  requires: [AiClients, Machines, Navigation],
+  requires: [CodeClients, Machines, Navigation],
   pages: { Session: Session.page },
   model: Model,
   message: Schema.TaggedUnion({
@@ -66,10 +66,10 @@ const onMachine = <A, E>(
       readonly props: { readonly params: { readonly machineId: string } };
     }>;
   },
-  read: Effect.Effect<A, E, AiClient>,
+  read: Effect.Effect<A, E, CodeClient>,
 ) =>
   Effect.flatMap(self.get, ({ props }) =>
-    AiClients.on(props.params.machineId, read),
+    CodeClients.on(props.params.machineId, read),
   );
 
 const retried = (model: Model) => ({
@@ -88,10 +88,10 @@ export const ProjectLive = Page.build(Project, {
   pages: { Session: Session.actor },
   provides: (self) =>
     Layer.mergeAll(
-      // 0. Machine: its own `AiClient`, for what is under it.
+      // 0. Machine: its own `CodeClient`, for what is under it.
       Layer.unwrap(
         Effect.map(self.get, ({ props }) =>
-          AiClients.machine(props.params.machineId),
+          CodeClients.machine(props.params.machineId),
         ),
       ),
       // 1. Catalog, for the pages under it.

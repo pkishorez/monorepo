@@ -1,6 +1,5 @@
 import { Effect, Layer, Schema, Stream } from 'effect';
-import { HarnessInfo } from '@kestack/ai-toolkit/api';
-import { AiClient } from '@kestack/ai-toolkit/client';
+import { CodeClient, HarnessInfo } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
 import { session } from '../../../places/index.ts';
@@ -125,7 +124,7 @@ const Model = Schema.Struct({
 type Model = typeof Model.Type;
 
 const Draft = Actor.define('Draft', {
-  requires: [AiClient, SharedCatalog, Navigation],
+  requires: [CodeClient, SharedCatalog, Navigation],
   props: Props,
   model: Model,
   message: Schema.TaggedUnion({

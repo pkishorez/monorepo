@@ -1,7 +1,6 @@
 import { Effect, Schema } from 'effect';
-import { AiClients } from '@kestack/ai-toolkit/client';
+import { CodeClients, HarnessBinary, HarnessInfo } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
-import { HarnessBinary, HarnessInfo } from '@kestack/ai-toolkit/api';
 import { Refused } from '../../../../refusal/index.ts';
 import { loadBinaries } from './api.ts';
 import { setHarnessBinary } from './commands.ts';
@@ -22,7 +21,7 @@ import { setHarnessBinary } from './commands.ts';
 const Name = HarnessInfo.fields.name;
 
 const HarnessBinaries = Actor.define('HarnessBinaries', {
-  requires: [AiClients],
+  requires: [CodeClients],
   input: Schema.Struct({ machineId: Schema.String }),
   model: Schema.Struct({
     machineId: Schema.String,

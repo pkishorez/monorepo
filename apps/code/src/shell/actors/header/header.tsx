@@ -1,4 +1,4 @@
-import type { Project, Session } from '@kestack/ai-toolkit/api';
+import type { Project, Session } from '@kestack/connect/code';
 import { Router } from '@kestack/kabuki/routing';
 import {
   ChevronRightIcon,

@@ -11,6 +11,16 @@ import {
   openTunnel,
 } from './tunnel/index.js';
 
+// Where this Connect keeps its files, and the one socket it serves every
+// App Group on.
+export { moveLegacy, resolvePaths, type ConnectPaths } from './paths/index.js';
+export {
+  DEFAULT_ORIGINS,
+  server,
+  type AppGroup,
+  type ServerOptions,
+} from './server/index.js';
+
 /*
  * This Connect as a Machine: signed in to Cloud Connect as one User, the
  * one Machine its machine.json is, reachable through a tunnel, and
@@ -18,6 +28,7 @@ import {
  *
  * `identify` comes first, since the server needs the Machine Key before it
  * listens; `online` then opens the tunnel and beats; `logout` undoes both.
+ * The Machine's files are where paths/ says, and server/ is its one socket.
  */
 
 /** Wait before signing in again once a new Sign-in was refused too; it doubles after, up to a minute. */

@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { AiClient, AiClients } from '@kestack/ai-toolkit/client';
+import { CodeClient, CodeClients } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
 import { orRefused } from '../../../../refusal/index.ts';
 
@@ -12,9 +12,9 @@ export const switchSpeechToText = Command.make('SwitchSpeechToText', {
   args: Schema.Struct({ machineId: Schema.String, on: Schema.Boolean }),
   run: ({ machineId, on }) =>
     orRefused(
-      AiClients.on(
+      CodeClients.on(
         machineId,
-        AiClient.use((api) =>
+        CodeClient.use((api) =>
           on ? api.enableSpeechToText() : api.disableSpeechToText(),
         ),
       ),

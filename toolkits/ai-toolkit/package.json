@@ -15,17 +15,25 @@
     "LICENSE"
   ],
   "exports": {
-    "./api": {
-      "types": "./dist/api/contract/index.d.ts",
-      "default": "./dist/api/contract/index.js"
+    "./contract": {
+      "types": "./dist/contract/index.d.ts",
+      "default": "./dist/contract/index.js"
     },
-    "./client": {
-      "types": "./dist/api/client/index.d.ts",
-      "default": "./dist/api/client/index.js"
+    "./harness": {
+      "types": "./dist/harness/index.d.ts",
+      "default": "./dist/harness/index.js"
     },
-    "./server": {
-      "types": "./dist/server/index.d.ts",
-      "default": "./dist/server/index.js"
+    "./harness/fake": {
+      "types": "./dist/harness/fake/index.d.ts",
+      "default": "./dist/harness/fake/index.js"
+    },
+    "./speech": {
+      "types": "./dist/speech/index.d.ts",
+      "default": "./dist/speech/index.js"
+    },
+    "./speech/fake": {
+      "types": "./dist/speech/fake/index.d.ts",
+      "default": "./dist/speech/fake/index.js"
     }
   },
   "scripts": {
@@ -38,22 +46,17 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "catalog:",
-    "@effect/platform-node": "catalog:",
     "@openai/codex": "catalog:",
     "sherpa-onnx-node": "catalog:"
   },
   "peerDependencies": {
     "@kestack/kabuki": "workspace:*",
-    "@kestack/rpc-toolkit": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
-    "@tanstack/db": "0.15.2",
     "effect": "^4.0.0"
   },
   "devDependencies": {
     "@kestack/kabuki": "workspace:*",
-    "@kestack/rpc-toolkit": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
-    "@tanstack/db": "catalog:",
     "@tsconfig/node22": "catalog:",
     "@types/node": "catalog:",
     "effect": "catalog:",

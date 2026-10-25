@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { Deferred, Effect, Fiber, Layer } from 'effect';
-import { Ai } from '@kestack/ai-toolkit/client';
+import { CodeReplica } from '@kestack/connect/code';
 import { Accounts, AccountsState } from '@kestack/auth-toolkit/client';
 import { Store } from '@kestack/std-toolkit/replica';
 import { Store as IdbStore } from '@kestack/std-toolkit/replica/idb';
@@ -55,13 +55,13 @@ const run = <A>(effect: Effect.Effect<A, unknown, AccountReplicas | Store>) =>
 
 describe('Account Replicas', () => {
   it('keeps each Account’s records to itself', async () => {
-    const legacy = `replica:${Ai.instanceName('m0')}`;
+    const legacy = `replica:${CodeReplica.instanceName('m0')}`;
     for (const name of [
-      `replica:a1:${Ai.instanceName('m1')}`,
-      `replica:a1:${Ai.instanceName('m2')}`,
+      `replica:a1:${CodeReplica.instanceName('m1')}`,
+      `replica:a1:${CodeReplica.instanceName('m2')}`,
       'replica:a1:ai-m1·m1',
-      `replica:a2:${Ai.instanceName('m3')}`,
-      `replica:a3:${Ai.instanceName('m4')}`,
+      `replica:a2:${CodeReplica.instanceName('m3')}`,
+      `replica:a3:${CodeReplica.instanceName('m4')}`,
       legacy,
       'code:device',
     ])
@@ -74,9 +74,9 @@ describe('Account Replicas', () => {
     );
     expect(await names()).toEqual([
       'code:device',
-      `replica:a1:${Ai.instanceName('m1')}`,
-      `replica:a2:${Ai.instanceName('m3')}`,
-      `replica:a3:${Ai.instanceName('m4')}`,
+      `replica:a1:${CodeReplica.instanceName('m1')}`,
+      `replica:a2:${CodeReplica.instanceName('m3')}`,
+      `replica:a3:${CodeReplica.instanceName('m4')}`,
       legacy,
     ]);
 
@@ -87,13 +87,13 @@ describe('Account Replicas', () => {
     );
     expect(await names()).toEqual([
       'code:device',
-      `replica:a1:${Ai.instanceName('m1')}`,
-      `replica:a2:${Ai.instanceName('m3')}`,
+      `replica:a1:${CodeReplica.instanceName('m1')}`,
+      `replica:a2:${CodeReplica.instanceName('m3')}`,
     ]);
   });
 
   it('stops another tab still reading an Account it deletes', async () => {
-    const name = Ai.instanceName('m7');
+    const name = CodeReplica.instanceName('m7');
     await create(`replica:a7:${name}`);
     await run(
       Effect.gen(function* () {
@@ -119,25 +119,25 @@ describe('Account Replicas', () => {
   });
 
   it('drops one Machine’s records and no other', async () => {
-    await create(`replica:a5:${Ai.instanceName('m5')}`);
-    await create(`replica:a5:${Ai.instanceName('m6')}`);
+    await create(`replica:a5:${CodeReplica.instanceName('m5')}`);
+    await create(`replica:a5:${CodeReplica.instanceName('m6')}`);
     await run(
       Effect.flatMap(AccountReplicas, (replicas) =>
         replicas.dropMachine('a5', 'm5'),
       ),
     );
     const left = await names();
-    expect(left).not.toContain(`replica:a5:${Ai.instanceName('m5')}`);
-    expect(left).toContain(`replica:a5:${Ai.instanceName('m6')}`);
+    expect(left).not.toContain(`replica:a5:${CodeReplica.instanceName('m5')}`);
+    expect(left).toContain(`replica:a5:${CodeReplica.instanceName('m6')}`);
   });
 
   it('gives the active Account’s Store as `Store`', async () => {
-    await create(`replica:a1:${Ai.instanceName('m9')}`);
+    await create(`replica:a1:${CodeReplica.instanceName('m9')}`);
     const listed = await run(Effect.flatMap(Store, (store) => store.list));
     expect(listed).toContainEqual({
-      replica: Ai.name,
+      replica: CodeReplica.name,
       key: 'm9',
     });
-    expect(listed).not.toContainEqual({ replica: Ai.name, key: 'm3' });
+    expect(listed).not.toContainEqual({ replica: CodeReplica.name, key: 'm3' });
   });
 });

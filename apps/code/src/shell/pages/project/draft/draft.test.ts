@@ -1,6 +1,5 @@
 import { Effect, Layer, Schema, Scope, Stream } from 'effect';
-import { SessionNotFound } from '@kestack/ai-toolkit/api';
-import { AiClient } from '@kestack/ai-toolkit/client';
+import { CodeClient, SessionNotFound } from '@kestack/connect/code';
 import { Actor, type Instance, Runtime, type Running } from '@kestack/kabuki';
 import { Navigation } from '@kestack/kabuki/routing';
 import { describe, expect, it } from 'vitest';
@@ -17,7 +16,7 @@ import { DraftLive } from './actor.ts';
  * to it, or says what is missing.
  */
 
-type Api = AiClient['Service'];
+type Api = CodeClient['Service'];
 
 const CATALOG: typeof Catalog.Model.Type = {
   ...Catalog.empty,
@@ -86,7 +85,7 @@ const world = (refuse = false) => {
   const layer = Layer.mergeAll(
     // An RPC client's procedures are generic over how they are called; a
     // stand-in answers the one way the Draft calls them.
-    Layer.mock(AiClient)({
+    Layer.mock(CodeClient)({
       send: ((args: unknown) =>
         Effect.suspend(() => {
           sent.push(args);

@@ -3,7 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Queue, Schema, Stream } from 'effect';
 import type { Cause } from 'effect';
-import { AiClients } from '@kestack/ai-toolkit/client';
+import { CodeClients } from '@kestack/connect/code';
 import { Actor, Command } from '@kestack/kabuki';
 import { toReact, useChild, View } from '@kestack/kabuki/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -138,7 +138,7 @@ const services = () =>
           read: Effect.succeed(nothing),
           changes: Stream.never,
         }),
-        Layer.mock(AiClients)({}),
+        Layer.mock(CodeClients)({}),
         Layer.succeed(Recorder, {
           record: () =>
             Effect.succeed({

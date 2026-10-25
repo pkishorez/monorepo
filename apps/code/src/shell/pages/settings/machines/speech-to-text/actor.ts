@@ -1,6 +1,5 @@
 import { Effect, Schema, Stream } from 'effect';
-import { SpeechToTextState } from '@kestack/ai-toolkit/api';
-import { AiClients } from '@kestack/ai-toolkit/client';
+import { CodeClients, SpeechToTextState } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { Machines } from '../../../../../layer/capabilities/index.ts';
 import { Refused } from '../../../../refusal/index.ts';
@@ -20,7 +19,7 @@ import { switchSpeechToText } from './commands.ts';
  */
 
 const SpeechToText = Actor.define('SpeechToText', {
-  requires: [AiClients, Machines],
+  requires: [CodeClients, Machines],
   input: Schema.Struct({ machineId: Schema.String }),
   model: Schema.Struct({
     machineId: Schema.String,

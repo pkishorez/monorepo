@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { AiClient, AiClients } from '@kestack/ai-toolkit/client';
+import { CodeClient, CodeClients } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
 import { reasonOf } from '../../refusal/index.ts';
 
@@ -12,9 +12,9 @@ import { reasonOf } from '../../refusal/index.ts';
 export const removeProject = Command.make('RemoveProject', {
   args: Schema.Struct({ machineId: Schema.String, id: Schema.String }),
   run: ({ machineId, id }) =>
-    AiClients.on(
+    CodeClients.on(
       machineId,
-      AiClient.use((api) => api.removeProject({ id })),
+      CodeClient.use((api) => api.removeProject({ id })),
     ).pipe(
       Effect.as({ _tag: 'Removed' as const }),
       Effect.catch((cause) =>

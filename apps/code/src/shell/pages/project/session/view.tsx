@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 import { useChild, useChildren, View } from '@kestack/kabuki/react';
-import type { Session } from '@kestack/ai-toolkit/api';
+import type { Session } from '@kestack/connect/code';
 import { Router, useElementScrollRestoration } from '@kestack/kabuki/routing';
 import {
   GitForkIcon,

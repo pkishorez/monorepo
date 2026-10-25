@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Part } from '@kestack/ai-toolkit/api';
+import type { Part } from '@kestack/connect/code';
 import type { Row } from './thread.ts';
 import {
   diffsOf,

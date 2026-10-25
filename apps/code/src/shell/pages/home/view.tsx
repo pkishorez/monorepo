@@ -25,7 +25,7 @@ import {
   FolderPlusIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
-import type { Project } from '@kestack/ai-toolkit/api';
+import type { Project } from '@kestack/connect/code';
 import { keys, useBound } from '../../../keys.ts';
 import * as places from '../../places/index.ts';
 import type { OnMachine } from '../../replica/index.ts';

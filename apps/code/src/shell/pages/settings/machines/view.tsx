@@ -96,7 +96,7 @@ export const MachineSettingsView = View.make(
                       </span>
                       <span className="truncate text-xs text-muted-foreground">
                         {lastSeen(machine, now)} · {statusOf(machine.status)} ·
-                        ai-toolkit {machine.version}
+                        ke-connect {machine.version}
                       </span>
                     </div>
                     <Button

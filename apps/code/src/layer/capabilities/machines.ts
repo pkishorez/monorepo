@@ -1,7 +1,9 @@
 import { Context } from 'effect';
 import type { Effect, Queue, Stream, SubscriptionRef } from 'effect';
-import type { SpeechToTextState } from '@kestack/ai-toolkit/api';
-import type { Machine as MachineSchema } from '@kestack/connect/code';
+import type {
+  Machine as MachineSchema,
+  SpeechToTextState,
+} from '@kestack/connect/code';
 
 type Machine = typeof MachineSchema.Type;
 

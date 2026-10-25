@@ -1,4 +1,4 @@
-import type { HarnessBinary } from '@kestack/ai-toolkit/api';
+import type { HarnessBinary } from '@kestack/connect/code';
 import { View, type ViewProps } from '@kestack/kabuki/react';
 import { Badge } from '@kestack/web-platform/ui/components/badge';
 import { Button } from '@kestack/web-platform/ui/components/button';

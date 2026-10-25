@@ -9,9 +9,10 @@ import {
   SubscriptionRef,
 } from 'effect';
 import { TestClock } from 'effect/testing';
-import { AiClient, AiClients } from '@kestack/ai-toolkit/client';
 import {
   CloudClient,
+  CodeClient,
+  CodeClients,
   type Machine as MachineSchema,
 } from '@kestack/connect/code';
 import { Actor, type Instance, Runtime, type Running } from '@kestack/kabuki';
@@ -66,7 +67,7 @@ const OwnerLive = Actor.build(Actor.define('Owner', {}), {
   },
 });
 
-type Api = AiClient['Service'];
+type Api = CodeClient['Service'];
 
 /** A test's stand-ins, and what they were asked; every line is up unless `down` says otherwise. */
 const world = (
@@ -89,11 +90,11 @@ const world = (
           ),
         );
   const layer = Layer.mergeAll(
-    AiClients.make((machineId) =>
+    CodeClients.make((machineId) =>
       Layer.merge(
         // An RPC client's procedures are generic over how they are called;
         // a stand-in answers the one way the app calls them.
-        Layer.mock(AiClient)({
+        Layer.mock(CodeClient)({
           watchSpeechToText: (() =>
             Stream.make({
               _tag: 'Off' as const,

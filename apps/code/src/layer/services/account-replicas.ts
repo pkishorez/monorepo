@@ -1,5 +1,5 @@
 import { Context, Effect, Layer } from 'effect';
-import { Ai } from '@kestack/ai-toolkit/client';
+import { CodeReplica } from '@kestack/connect/code';
 import { Accounts } from '@kestack/auth-toolkit/client';
 import { IDB } from '@kestack/std-toolkit/db/idb';
 import { ReplicaError, Store } from '@kestack/std-toolkit/replica';
@@ -113,14 +113,14 @@ const make = (
           // 2. Machines
           keepMachines: (accountId, machineIds) =>
             Effect.flatMap(storeOf(accountId), (each) =>
-              each.prune([[Ai, machineIds]]),
+              each.prune([[CodeReplica, machineIds]]),
             ).pipe(
               Effect.catch(warn(`prune the records of Account ${accountId}`)),
               Effect.asVoid,
             ),
           dropMachine: (accountId, machineId) =>
             Effect.flatMap(storeOf(accountId), (each) =>
-              each.remove(Ai, machineId),
+              each.remove(CodeReplica, machineId),
             ).pipe(
               Effect.catch(warn(`delete the records of Machine ${machineId}`)),
             ),

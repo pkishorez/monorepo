@@ -20,20 +20,20 @@
   ],
   "exports": {
     "./code": {
-      "types": "./dist/doors/code/index.d.ts",
-      "default": "./dist/doors/code/index.js"
+      "types": "./dist/code/api/index.d.ts",
+      "default": "./dist/code/api/index.js"
     },
     "./worker": {
       "types": "./dist/cloud/serve/index.d.ts",
       "default": "./dist/cloud/serve/index.js"
     },
     "./node": {
-      "types": "./dist/serve/index.d.ts",
-      "default": "./dist/serve/index.js"
+      "types": "./dist/cli/index.d.ts",
+      "default": "./dist/cli/index.js"
     },
     "./dev": {
-      "types": "./dist/dev/index.d.ts",
-      "default": "./dist/dev/index.js"
+      "types": "./dist/cli/dev/index.d.ts",
+      "default": "./dist/cli/dev/index.js"
     }
   },
   "scripts": {

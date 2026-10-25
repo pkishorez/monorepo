@@ -1,5 +1,5 @@
 import { Effect, Schema, Stream } from 'effect';
-import type { Project, Session } from '@kestack/ai-toolkit/api';
+import type { Project, Session } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
 import { Replicas } from '@kestack/std-toolkit/replica';

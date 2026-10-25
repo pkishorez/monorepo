@@ -1,10 +1,10 @@
 import { Effect, Schema } from 'effect';
 import {
-  AttachmentSchema,
   type AskAnswer,
+  AttachmentSchema,
+  CodeClient,
   HarnessInfo,
-} from '@kestack/ai-toolkit/api';
-import { AiClient } from '@kestack/ai-toolkit/client';
+} from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
 import { orRefused, reasonOf } from '../../../refusal/index.ts';
 import { SharedCatalog } from '../capabilities/index.ts';
@@ -28,7 +28,7 @@ export const startSession = Command.make('StartSession', {
   }),
   run: (args) =>
     orRefused(
-      AiClient.use((api) => api.startSession(args)),
+      CodeClient.use((api) => api.startSession(args)),
       (session) => ({
         _tag: 'Started' as const,
         sessionId: session.id,
@@ -54,7 +54,7 @@ export const send = Command.make('Send', {
     settings: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
   }),
   run: ({ id, ...args }) =>
-    AiClient.use((api) => api.send(args)).pipe(
+    CodeClient.use((api) => api.send(args)).pipe(
       Effect.map(() => ({ _tag: 'Sent' as const, id })),
       Effect.catch((cause) =>
         Effect.succeed({
@@ -78,7 +78,9 @@ export const ask = Command.make('Ask', {
     question: Schema.String,
   }),
   run: ({ id, sessionId, question }) =>
-    AiClient.use((api) => api.ask({ sessionId, question, schema: null })).pipe(
+    CodeClient.use((api) =>
+      api.ask({ sessionId, question, schema: null }),
+    ).pipe(
       Effect.map((answer) => ({
         _tag: 'Answered' as const,
         id,

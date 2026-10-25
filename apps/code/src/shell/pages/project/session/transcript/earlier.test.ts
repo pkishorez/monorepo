@@ -1,4 +1,4 @@
-import type { Message } from '@kestack/ai-toolkit/api';
+import type { Message } from '@kestack/connect/code';
 import { describe, expect, it } from 'vitest';
 import { earlierOf } from './earlier.ts';
 

@@ -4,10 +4,12 @@ The local app for running Claude Code and Codex sessions in project folders, on 
 
 ## Big picture
 
-`code` is the first app on [`@kestack/ai-toolkit`](../../toolkits/ai-toolkit/README.md):
-a server on each of your Machines that runs Claude Code and Codex in
-folders and serves one projected Message form over WebSocket, reached
-through the Machine's tunnel. How the server thinks is in its
+`code` is the first app on [`@kestack/connect`](../connect/README.md): it
+talks to `@kestack/connect`, whose `code` App Group on each of your
+Machines runs Claude Code and Codex in folders (through
+[ai-toolkit](../../toolkits/ai-toolkit/README.md)) and serves
+one projected Message form over WebSocket, reached through the Machine's
+tunnel. How it thinks is in the
 [v1 spec](../../toolkits/ai-toolkit/docs/v1-spec.md). The app adds a folder
 as a project, starts sessions in it with either agent, and follows each one
 live: what you asked, the agent's words, its tool calls and subagents, and
@@ -27,7 +29,7 @@ waiting for the first message, and `/m/:machineId/p/:projectId/s/:sessionId`
 is a session. An agent whose program does not run is greyed out where
 sessions start.
 All state lives in the pages' actors; the Views only draw and send. The
-Machines' records arrive only through the `Ai` Replica
+Machines' records arrive only through the `CodeReplica` Replica
 ([`@kestack/std-toolkit/replica`](../../toolkits/std-toolkit/src/replica/README.md)),
 one Instance per Machine, each syncing over its own Machine's socket, read
 by Queries across every Machine, each row with its Machine, and kept in

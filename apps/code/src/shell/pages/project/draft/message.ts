@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { AttachmentSchema } from '@kestack/ai-toolkit/api';
+import { AttachmentSchema } from '@kestack/connect/code';
 
 /*
  * What a Draft holds that is sent: its files, and the Inserts put into it.

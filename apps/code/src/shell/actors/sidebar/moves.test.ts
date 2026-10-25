@@ -1,5 +1,5 @@
 import { Effect, Layer, PubSub, Scope, Stream, SubscriptionRef } from 'effect';
-import type { Session } from '@kestack/ai-toolkit/api';
+import type { Session } from '@kestack/connect/code';
 import { Runtime, type Running } from '@kestack/kabuki';
 import { Navigation } from '@kestack/kabuki/routing';
 import { describe, expect, it } from 'vitest';
