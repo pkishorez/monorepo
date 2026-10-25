@@ -1,6 +1,6 @@
 # code
 
-The local app for running Coding Harness Sessions in Projects. Its records and their words come from the [[ai-toolkit]]; this file holds the words for how the app is worked.
+The local app for running Coding Harness Sessions in Projects. Its records and their words come from [[connect]] and the [[ai-toolkit]]; this file holds the words for how the app is worked.
 
 ## Language
 
@@ -21,7 +21,7 @@ The Picker for where to work next: first the Machine, a Step skipped while there
 _Avoid_: add project, open project
 
 **Machine List**:
-The signed-in Account's Machines as this device last had them, kept per Account so the app opens with all of them even while the Backend is out of reach, then asked again once, on Reload, and on each Recheck. The app holds a Line to every Machine in it at once, and shows their Projects and Sessions together. A Machine that stops answering keeps what was last synced, marked by its Last Seen.
+The signed-in Account's Machines as this device last had them, kept per Account so the app opens with all of them even while Cloud Connect is out of reach, then asked again once, on Reload, and on each Recheck. The app holds a Line to every Machine in it at once, and shows their Projects and Sessions together. A Machine that stops answering keeps what was last synced, marked by its Last Seen.
 _Avoid_: machine registry, device list, machine switcher
 
 **Line**:

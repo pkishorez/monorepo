@@ -1,19 +1,19 @@
 # Monorepo
 
-Published packages for building full-stack Effect apps under the kstack umbrella, designed to work together.
+Published packages for building full-stack Effect apps under the kestack umbrella, designed to work together.
 
 ## Language
 
-**kstack**:
-The umbrella name for the packages in this repo that make up one stack, published under the `@kestack` npm scope.
-_Avoid_: brand, kstackz or kestack (as a name), pkishorez packages
+**kestack**:
+The umbrella name for the packages and apps in this repo that make up one stack, published under the `@kestack` npm scope, and the one folder each keeps its config and data under on a computer.
+_Avoid_: kstack, kstackz, brand, pkishorez packages
 
 **Toolkit**:
-A kstack package covering one area of an app (data, AI, RPC, auth), named `@kestack/<area>-toolkit`. rpc-, auth- and std-toolkit are the first principles the Web Platform builds on. A Toolkit never knows whether it runs in a browser, a Worker or Node.
+A kestack package covering one area of an app (data, AI, RPC, auth), named `@kestack/<area>-toolkit`. rpc-, auth- and std-toolkit are the first principles the Web Platform builds on. A Toolkit never knows whether it runs in a browser, a Worker or Node.
 _Avoid_: kai-toolkit, kui-toolkit, unscoped toolkit names, web-toolkit (now the Web Platform), platform-toolkit (folded into the Web Platform)
 
 **Web Platform**:
-The one way to build a kstack app, `@kestack/web-platform`: a PWA on TanStack Start, with its APIs, the two Backends, the Gate and a Session per Account when auth is configured, the Theme, the opinionated server, and the UI, input, Recipes, gestures and keys to build screens. The web is the only platform; a native app, if one comes, wraps this one. It decides what every app gets without asking; an author who wants none of it uses the Toolkits directly. Replaces the Web Toolkit and the Platform Toolkit.
+The one way to build a kestack app, `@kestack/web-platform`: a PWA on TanStack Start, with its APIs, the two Backends, the Gate and a Session per Account when auth is configured, the Theme, the opinionated server, and the UI, input, Recipes, gestures and keys to build screens. The web is the only platform; a native app, if one comes, wraps this one. It decides what every app gets without asking; an author who wants none of it uses the Toolkits directly. Replaces the Web Toolkit and the Platform Toolkit.
 _Avoid_: platform (as a kind of package: there is one), web-toolkit, platform-toolkit, ui-toolkit, pwa-toolkit, frontend, framework, starter
 
 **Door**:
@@ -97,8 +97,8 @@ Where a Std Sync is kept: `Sync.idb` or `Sync.memory`. Whether that place is sha
 _Avoid_: sync platform, StdSyncPlatform, browser platform
 
 **Stand-alone tool**:
-A package from this repo that is useful without kstack and keeps its own unscoped name, such as `laymos` or `use-effect-ts`.
+A package from this repo that is useful without kestack and keeps its own unscoped name, such as `laymos` or `use-effect-ts`.
 
 **Re-export package**:
-A package that depends on every Toolkit and only re-exports them. Considered and rejected for kstack.
+A package that depends on every Toolkit and only re-exports them. Considered and rejected for kestack.
 _Avoid_: umbrella package, meta-package
