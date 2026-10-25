@@ -25,7 +25,7 @@ import {
   useMachineName,
 } from '../../machines/index.ts';
 import { ago } from '../../../ui/time/index.ts';
-import { StatusDot } from '../../../ui/status-dot/index.ts';
+import { StatusWord } from '../../../ui/status-word/index.ts';
 import {
   type Entry,
   keyOf,
@@ -42,7 +42,7 @@ import { SwipeToMove } from './swipe/index.ts';
  * active first, under the day it was last active (rows.ts). A row is its
  * title, bold while Unseen, a fork glyph for a Fork, with its Project's
  * name under it, then its Machine's while there is more than one, and its
- * status at the right. A Machine that does not answer keeps what it last
+ * status in a word at the right (`ui/status-word`). A Machine that does not answer keeps what it last
  * synced, its rows saying when it was last seen. Last of all, "Settled"
  * with how many, quieter, opens the Settled List under it, and closes it. While
  * nothing is held and some Machine's were never synced here, each such
@@ -312,7 +312,11 @@ function SessionRow({
             </span>
             <Where machineId={session.machineId} project={project} />
           </span>
-          <StatusDot status={session.status} />
+          <StatusWord
+            status={session.status}
+            unseen={isUnseen(session)}
+            at={session.activeAt}
+          />
         </SidebarMenuButton>
       </SwipeToMove>
     </SidebarMenuItem>
