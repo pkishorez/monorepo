@@ -49,9 +49,14 @@ const factory = (): IDBFactory => {
 
 const everyoneLeads: Leader = (_name, effect) => effect;
 
+// It hears no one, yet still rings once at first when asked: a Space waits
+// for that ring before it is handed out.
 const noDoorbell: Doorbell = {
   ring: () => Effect.void,
-  listen: () => Stream.never,
+  listen: (_topic, initial = false) =>
+    initial
+      ? Stream.concat(Stream.succeed(undefined), Stream.never)
+      : Stream.never,
 };
 
 /** The Store in IndexedDB, shared by this browser's tabs. */
