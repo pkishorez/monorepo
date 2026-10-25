@@ -21,7 +21,9 @@ import { rank, type Ranked } from './rank.ts';
  *              there, and finishing on no row ends on the Step itself.
  * 3. Go        a query that names a place, such as a path, goes there: the
  *              Steps of its kind are dropped down to the first, and the
- *              Steps it names are opened from it.
+ *              Steps it names are opened from it. A Step that `make`s
+ *              asks its owner to make a place named as typed, such as a
+ *              folder, and goes into it once made; refused, it says why.
  * 4. Back      drops the top Step and the choice that opened it; never
  *              below the Step it opened at.
  * 5. Done      the owner hears once: the choices it finished with and the
@@ -50,6 +52,8 @@ const Row = Schema.Struct({
   unavailable: Schema.optionalKey(Schema.String),
   /** Drawn quieter than the rest, such as a Settled Session. */
   quiet: Schema.optionalKey(Schema.Boolean),
+  /** What it is, drawn beside it on touch: a Project, a folder, or an action that adds one. */
+  icon: Schema.optionalKey(Schema.Literals(['project', 'folder', 'add'])),
 });
 type Row = typeof Row.Type;
 
@@ -125,6 +129,15 @@ export const Message = Schema.TaggedUnion({
   Back: {},
   Closed: {},
   Settled: { refused: Schema.NullOr(Schema.String) },
+  /** Make a new place named `name` in the top Step, such as a folder. */
+  Make: { name: Schema.String },
+  /** What the owner made, to go into, or why it could not. */
+  Made: {
+    row: Schema.NullOr(
+      Schema.Struct({ value: Schema.String, label: Schema.String }),
+    ),
+    refused: Schema.NullOr(Schema.String),
+  },
   Loaded: {
     depth: Schema.Finite,
     ...StepRef.fields,
@@ -206,6 +219,11 @@ export interface StepSpec<P> {
   readonly icon?: 'folder';
   /** The owner settles what is chosen here: the Picker waits for it, and says why when it refuses. */
   readonly settles?: boolean;
+  /**
+   * What the button that makes a new place here says, such as "New folder":
+   * the owner's `make` makes it, and the Picker goes into it.
+   */
+  readonly make?: string;
 }
 
 export interface Spec<P> {
@@ -233,6 +251,14 @@ interface Owner {
     choices: ReadonlyArray<Choice>,
     step: StepRef,
   ) => Effect.Effect<string | null>;
+  /** Makes `name` in the Step, giving the row it is, or why not. */
+  readonly make: (
+    step: StepRef,
+    name: string,
+  ) => Effect.Effect<
+    | { readonly row: { readonly value: string; readonly label: string } }
+    | { readonly refused: string }
+  >;
 }
 
 // 1. Rows -------------------------------------------------------------------
@@ -287,6 +313,7 @@ export const shownOf = <P>(spec: Spec<P>, model: Model, props: P) => {
     done: own?.finishes === 'step' ? (own.done?.(at) ?? 'Choose') : null,
     where: own?.where?.(at) ?? null,
     icon: own?.icon ?? null,
+    make: own?.make ?? null,
     title: own?.title?.(at) ?? null,
     empty: own?.empty?.(at) ?? 'Nothing by that name',
   };
@@ -486,6 +513,18 @@ export const build = <const Name extends string, P>(
       ),
   });
 
+  const make = Command.make(`${name}Make`, {
+    args: Schema.Struct({ step: StepRef, name: Schema.String }),
+    run: ({ step, name: made }) =>
+      Effect.flatMap(Owner, (owner) => owner.make(step, made)).pipe(
+        Effect.map((result) => ({
+          _tag: 'Made' as const,
+          row: 'row' in result ? result.row : null,
+          refused: 'refused' in result ? result.refused : null,
+        })),
+      ),
+  });
+
   const Picker = Actor.define(name, {
     requires: [Owner],
     input: Opening,
@@ -626,6 +665,45 @@ export const build = <const Name extends string, P>(
         const ended = finishedOn(spec, model, props, on);
         return ended === null ? {} : finish(ended.model, ended.choices);
       },
+      // 3. Make: the owner makes it, then the Picker goes into it, the
+      // Step it was made in to be read again when gone back to.
+      Make: ({ name: made }, { model }) =>
+        model.busy || model.finished || made.trim() === ''
+          ? {}
+          : {
+              model: { ...model, busy: true, refused: null },
+              command: make({
+                step: { id: model.step.id, key: model.step.key },
+                name: made.trim(),
+              }),
+            },
+      Made: ({ row, refused }, { model, props }) => {
+        if (row === null) return { model: { ...model, busy: false, refused } };
+        const next =
+          spec.steps[model.step.id]?.next?.(
+            { value: row.value, label: row.label },
+            atOf(model, props),
+          ) ?? null;
+        if (next === null) return { model: { ...model, busy: false } };
+        return {
+          model: {
+            ...model,
+            busy: false,
+            step: fresh({ ...next, query: '' }),
+            below: [...model.below, { ...model.step, listing: null }],
+            choices: [
+              ...model.choices,
+              {
+                step: model.step.id,
+                key: model.step.key,
+                value: row.value,
+                label: row.label,
+              },
+            ],
+            refused: null,
+          },
+        };
+      },
       // 4. Back
       Back: (_, { model }) => {
         const under = model.below.at(-1);
@@ -679,9 +757,13 @@ export const build = <const Name extends string, P>(
     readonly done: Owner['done'];
     readonly load?: Owner['load'];
     readonly settle?: Owner['settle'];
+    readonly make?: Owner['make'];
   }) =>
     Layer.succeed(Owner, {
       done: given.done,
+      make:
+        given.make ??
+        (() => Effect.succeed({ refused: 'Nothing can be made here' })),
       settle:
         given.settle ??
         ((choices, step) => Effect.as(given.done(choices, step), null)),

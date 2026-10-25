@@ -16,7 +16,8 @@ import { homeOf, keyAt, placeOf } from './place.ts';
  *             its folder and searches it for what follows the last `/`.
  * 3. Choose   Mod+Enter chooses the folder highlighted, and "Open this
  *             folder" the folder open, under its path on touch; a search
- *             that names no folder offers to create it there. Either way it becomes a
+ *             that names no folder offers to create it there, and on touch
+ *             "New folder" makes one, with git init, and goes into it. Either way it becomes a
  *             Project, or opens the one it already is, while the Picker
  *             waits; a refusal is said in the Step.
  */
@@ -79,6 +80,7 @@ const steps = {
     finishes: 'step' as const,
     done: () => 'Open this folder',
     where: ({ key }: At) => `${placeOf(key).path}/`,
+    make: 'New folder',
     icon: 'folder' as const,
     settles: true,
   },
@@ -129,10 +131,28 @@ const choose = (choices: ReadonlyArray<Choice>, key: string) =>
     };
   });
 
+/**
+ * Makes the folder `name` in the folder Step `key`, with git init: the row
+ * it is, to go into, or why not. A `git init` that failed is no refusal:
+ * the folder is there.
+ */
+const make = (key: string, name: string) => {
+  const { machineId, path } = placeOf(key);
+  if (name.includes('/'))
+    return Effect.succeed({ refused: 'A folder name has no “/”' });
+  return createFolder(machineId, path, name).pipe(
+    Effect.map(() => ({
+      row: { value: keyAt(machineId, inside(path, name)), label: name },
+    })),
+    Effect.catch((refused) => Effect.succeed({ refused })),
+  );
+};
+
 export const FolderPicker = {
   steps,
   load,
   choose,
+  make,
   /** The first folder Step, a Machine's home, searching `query`. */
   opens: (machineId: string, query: string) => ({
     id: 'folder',

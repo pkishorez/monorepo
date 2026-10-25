@@ -90,14 +90,18 @@ const Projects = Picker.make('ProjectPicker', {
           .map(({ id, name, path }) => ({
             value: id,
             label: name,
-            detail: path,
+            detail: shortOf(path),
+            group: 'Recent projects',
+            icon: 'project' as const,
           })),
         loading: props.recent === null,
       }),
       pinned: ({ query }) => [
         {
           value: OPEN_FOLDER,
-          label: 'Open folder…',
+          label: 'Open a folder…',
+          group: 'New project',
+          icon: 'add' as const,
           detail:
             query.trim() === ''
               ? 'Add a folder under home as a project'
@@ -115,6 +119,10 @@ const Projects = Picker.make('ProjectPicker', {
   // A Project chosen, or a folder made one, opens: the keyboard goes there.
   lands: () => true,
 });
+
+/** A path under a home folder as `~/…`, as short as it says the same. */
+const shortOf = (path: string) =>
+  path.replace(/^\/(?:Users|home)\/[^/]+(?=\/|$)/, '~');
 
 /** Projects by when they were last active, the latest first. */
 const recentOf = (
@@ -219,6 +227,8 @@ export const ProjectPickerLive = Actor.build(ProjectPicker, {
           },
           load: ({ key }, query) =>
             FolderPicker.load(key, query).pipe(Effect.provide(client)),
+          make: ({ key }, name) =>
+            FolderPicker.make(key, name).pipe(Effect.provide(client)),
           settle: (choices, { key }) =>
             FolderPicker.choose(choices, key).pipe(
               Effect.provide(client),

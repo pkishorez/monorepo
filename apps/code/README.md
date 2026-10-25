@@ -117,7 +117,7 @@ a Machine's Sign-in outright.
 
 `o` opens the Project Picker: first the Machine, a Step skipped while
 there is only one, then its recent projects, the most recently active
-first, then "Open folder…". Choosing a project opens it, a new
+first, then "Open a folder…". Choosing a project opens it, a new
 session with its Draft; text that names no project, then
 Enter, walks the folders under the Machine's home searching it. Each folder gone into
 is a Step: Enter or Ctrl+L goes in, Ctrl+H or Backspace back out, a path
@@ -125,7 +125,9 @@ typed (`~/code/fo`) goes to `~/code` and searches `fo`, hidden folders
 show only for a search starting with `.`, and a listing cut short at 100
 asks the server again as the search narrows. Mod+Enter chooses the folder
 open; a search that names no folder offers to create it there with a git
-repository. Either becomes a Project, or opens the one it already is,
+repository. On touch, folders are tapped through, the one open is chosen by
+"Open this folder" under its path, and "New folder" beside it makes one
+there, with a git repository, and goes into it. Either becomes a Project, or opens the one it already is,
 while the Picker waits and says why if the server refuses; a folder whose
 `git init` failed opens with a warning over the page. `s` opens the
 Session Switcher, every unsettled session across projects and Machines,

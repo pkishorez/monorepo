@@ -10,6 +10,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   FolderIcon,
+  FolderPlusIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import { LayerHeader } from '@kestack/web-platform/recipes/touch-layers';
 import { Button } from '@kestack/web-platform/ui/components/button';
@@ -29,6 +30,7 @@ import {
   type Model,
   type Spec,
 } from './actor.ts';
+import { MakeHere } from './make.tsx';
 import { isLatest, useOpening } from './opening.ts';
 import { useDrawn } from './shape.ts';
 
@@ -204,18 +206,39 @@ export function List<P>({
         {touch && (shown.where !== null || shown.done !== null) && (
           <div className="flex shrink-0 flex-col gap-3 px-4 pb-3">
             {shown.where !== null && (
-              <p className="truncate rounded-lg bg-muted px-3 py-2.5 font-mono text-[13px] text-muted-foreground">
+              <p className="truncate rounded-lg px-3 py-2.5 font-mono text-[13px] text-muted-foreground ring-1 ring-border">
                 {shown.where}
               </p>
             )}
-            {shown.done !== null && (
-              <Button
-                className="h-11 w-full text-[15px]"
-                disabled={finishedOn(spec, model, props, null) === null}
-                onClick={() => finish(null)}
-              >
-                {shown.done}
-              </Button>
+            {shown.make !== null ? (
+              <MakeHere
+                // Each Step starts with its buttons, the one made into too.
+                key={`${model.below.length}:${model.step.key}`}
+                label={shown.make}
+                busy={model.busy}
+                onMake={(name) => send({ _tag: 'Make', name })}
+                done={
+                  shown.done !== null && (
+                    <Button
+                      className="h-11 min-w-0 flex-1 text-[15px] active:scale-[0.98]"
+                      disabled={finishedOn(spec, model, props, null) === null}
+                      onClick={() => finish(null)}
+                    >
+                      {shown.done}
+                    </Button>
+                  )
+                }
+              />
+            ) : (
+              shown.done !== null && (
+                <Button
+                  className="h-11 w-full text-[15px]"
+                  disabled={finishedOn(spec, model, props, null) === null}
+                  onClick={() => finish(null)}
+                >
+                  {shown.done}
+                </Button>
+              )
             )}
           </div>
         )}
@@ -303,11 +326,8 @@ export function List<P>({
                     touch && 'data-[checked=false]:[&>svg:last-child]:hidden',
                   )}
                 >
-                  {touch && shown.icon === 'folder' && (
-                    <FolderIcon
-                      aria-hidden
-                      className="size-4! self-center text-muted-foreground!"
-                    />
+                  {touch && (entry.icon ?? shown.icon) !== null && (
+                    <RowIcon icon={entry.icon ?? shown.icon!} />
                   )}
                   <span
                     className={cn(
@@ -404,5 +424,29 @@ function Highlighted({
     ) : (
       letter
     ),
+  );
+}
+
+/**
+ * What a row is, on touch: a folder in a square, or, for one that adds a
+ * place, a plus in a filled one, so the action stands apart from what it
+ * lists.
+ */
+function RowIcon({ icon }: { readonly icon: 'project' | 'folder' | 'add' }) {
+  if (icon === 'add')
+    return (
+      <span className="grid size-9 shrink-0 place-items-center self-center rounded-[10px] bg-foreground text-background">
+        <FolderPlusIcon aria-hidden className="size-4.5! text-background!" />
+      </span>
+    );
+  return icon === 'project' ? (
+    <span className="grid size-9 shrink-0 place-items-center self-center rounded-[10px] ring-1 ring-border">
+      <FolderIcon aria-hidden className="size-4.5! text-muted-foreground!" />
+    </span>
+  ) : (
+    <FolderIcon
+      aria-hidden
+      className="size-4! self-center text-muted-foreground!"
+    />
   );
 }
