@@ -1,1 +1,1 @@
-export { branchOf, runConnectDev } from './dev.js';
+export { branchOf, ensureConnect, runConnectDev, withConnect } from './dev.js';
