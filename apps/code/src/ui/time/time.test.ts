@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ago, elapsed } from './time.ts';
+import { ago, elapsed, since } from './time.ts';
 
 describe('elapsed', () => {
   it('counts seconds, then minutes and seconds, then hours and minutes', () => {
@@ -22,5 +22,22 @@ describe('ago', () => {
     expect(ago(0, 9_000)).toBe('just now');
     expect(ago(0, 40_000)).toBe('40 seconds ago');
     expect(ago(0, 60_000)).toBe('1 minute ago');
+  });
+});
+
+describe('since', () => {
+  it('says now under a minute, then the largest whole unit in a letter or two', () => {
+    expect(since(0, 59_000)).toBe('now');
+    expect(since(0, 60_000)).toBe('1m');
+    expect(since(0, 3_599_000)).toBe('59m');
+    expect(since(0, 3 * 3_600_000)).toBe('3h');
+    expect(since(0, 2 * 86_400_000)).toBe('2d');
+    expect(since(0, 15 * 86_400_000)).toBe('2w');
+    expect(since(0, 61 * 86_400_000)).toBe('2mo');
+    expect(since(0, 400 * 86_400_000)).toBe('1y');
+  });
+
+  it('says now for a time a clock ahead of this one puts later', () => {
+    expect(since(5_000, 0)).toBe('now');
   });
 });

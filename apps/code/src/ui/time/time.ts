@@ -20,6 +20,23 @@ export const ago = (at: number, now = Date.now()) => {
   return 'just now';
 };
 
+const marks: ReadonlyArray<[string, number]> = [
+  ['y', 365 * 24 * 3600],
+  ['mo', 30 * 24 * 3600],
+  ['w', 7 * 24 * 3600],
+  ['d', 24 * 3600],
+  ['h', 3600],
+  ['m', 60],
+];
+
+/** How long ago `at` was, at a glance: `now` under a minute, then `5m`, `3h`, `2d`, `4w`, `6mo`, `1y`. */
+export const since = (at: number, now = Date.now()) => {
+  const seconds = (now - at) / 1000;
+  for (const [mark, size] of marks)
+    if (seconds >= size) return `${Math.floor(seconds / size)}${mark}`;
+  return 'now';
+};
+
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /** How long something has run, short and ticking: `8s`, `4m 05s`, `2h 03m`. */

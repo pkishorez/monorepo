@@ -44,7 +44,7 @@ type Listed = ReturnType<typeof settledOf>[number];
 
 /** A Settled row: done with, so quieter and shorter than the timeline's, still a finger's to hit. */
 const sessionRow =
-  'h-11 gap-3 rounded-lg px-3 py-0 text-[14px] text-sidebar-foreground/75 keyboard:md:h-7 keyboard:md:text-[13px] data-active:font-normal data-active:text-sidebar-foreground';
+  'h-11 gap-3 rounded-lg px-3 py-0 text-[14px] text-sidebar-foreground/75 keyboard:md:h-7 keyboard:md:text-[13px] data-active:font-normal data-active:text-sidebar-foreground hover:bg-sidebar-accent/50 data-active:hover:bg-sidebar-accent';
 const cursorRing = 'data-cursor:ring-2 data-cursor:ring-inset';
 
 export function SettledList({

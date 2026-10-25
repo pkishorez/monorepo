@@ -47,8 +47,10 @@ import {
  * active first, under the day it was last active (rows.ts). A row is its
  * title, bold while Unseen, a fork glyph for a Fork, with its Project's
  * name under it, then its Machine's while there is more than one, and its
- * status in a word at the right (`ui/status-word`). A Machine that does not answer keeps what it last
- * synced, its rows saying when it was last seen. Last of all, "Settled"
+ * status in a word at the right, level with the title (`ui/status-word`).
+ * A row under a pointer is half lit, so the open one still stands out. A
+ * Machine that does not answer keeps what it last synced, its rows saying
+ * when it was last seen. Last of all, "Settled"
  * with how many, quieter, opens the Settled List under it, and closes it. While
  * nothing is held and some Machine's were never synced here, each such
  * Machine is listed instead, saying how far it got: downloading
@@ -76,6 +78,10 @@ import {
  */
 const TOUCH_ROW =
   'touch:data-active:bg-sidebar-accent/25! touch:data-active:text-sidebar-foreground! touch:active:bg-sidebar-accent/20! in-data-swiping:bg-transparent!';
+
+/** A row under a pointer, half lit, the open one still in full. */
+const HOVER_ROW =
+  'hover:bg-sidebar-accent/50 data-active:hover:bg-sidebar-accent';
 
 export function Places({
   route,
@@ -313,7 +319,7 @@ function SessionRow({
             here?.machineId === session.machineId &&
             here.page?.sessionId === session.id
           }
-          className={`h-auto min-h-14 gap-3 rounded-xl px-3 py-2 data-active:font-normal keyboard:md:min-h-10 keyboard:md:py-1 ${TOUCH_ROW} ${cursorRing}`}
+          className={`h-auto min-h-14 items-start gap-3 rounded-xl px-3 py-2 data-active:font-normal keyboard:md:h-auto keyboard:md:min-h-10 keyboard:md:rounded-lg keyboard:md:py-1 ${HOVER_ROW} ${TOUCH_ROW} ${cursorRing}`}
           render={
             <Router.Link
               to={routes.session(
@@ -337,7 +343,7 @@ function SessionRow({
                 />
               )}
               <span
-                className={`min-w-0 truncate text-[15px] keyboard:md:text-[13px] ${isUnseen(session) ? 'font-semibold text-sidebar-foreground' : ''}`}
+                className={`min-w-0 truncate text-[15px] leading-5 keyboard:md:text-[13px] ${isUnseen(session) ? 'font-semibold text-sidebar-foreground' : ''}`}
               >
                 {title}
               </span>
