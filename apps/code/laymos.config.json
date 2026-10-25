@@ -15,7 +15,10 @@
     "src/shell/actors/sidebar": ["src/shell/actors/moves"],
     "src/shell/actors/pickers/session-actions": ["src/shell/actors/moves"],
     "src/shell/pages": ["src/shell/routes", "src/shell/machines"],
-    "src/shell/actors/sidebar/settled-list": ["src/shell/actors/sidebar/swipe"],
+    "src/shell/actors/sidebar/settled-list": [
+      "src/shell/actors/sidebar/swipe",
+      "src/shell/actors/sidebar/arrive"
+    ],
     "src/shell/pages/project/session": ["src/shell/pages/project/draft"],
     "src/shell/pages/project/draft": [
       "src/shell/pages/project/capabilities",

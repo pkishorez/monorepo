@@ -2,7 +2,6 @@ import type { Project, Session } from '@kestack/connect/code';
 import { Router } from '@kestack/kabuki/routing';
 import { revealInView } from '@kestack/use-keys/surfaces';
 import {
-  ArchiveIcon,
   ChevronRightIcon,
   GitForkIcon,
 } from '@kestack/web-platform/ui/components/lucide';
@@ -36,6 +35,12 @@ import {
 } from './rows.ts';
 import { SettledList, settledOf } from './settled-list/index.ts';
 import { SwipeToMove } from './swipe/index.ts';
+import { arrive, ArriveItem } from './arrive/index.ts';
+import {
+  AnimatePresence,
+  MotionConfig,
+  motion,
+} from '@kestack/web-platform/ui/components/motion';
 
 /*
  * The sidebar: every unsettled Session of every Machine, the most recently
@@ -167,73 +172,92 @@ export function Places({
     projects.rows.length === 0 &&
     (projects.waiting === null || projects.waiting.length > 0);
   return (
-    <div ref={cursor.list} className="flex flex-col px-2 pb-1">
-      <>
-        {waiting ? (
-          <Waiting machines={projects.waiting} />
-        ) : recent.length === 0 ? (
-          <p className="px-3 py-2 text-[15px] text-pretty text-muted-foreground keyboard:md:text-sm">
-            No sessions yet. Start one with the plus
-            {picks === null ? '' : `, or ${picks}`}: pick a folder, then say
-            what to do.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-4 keyboard:md:gap-3">
-            {timelineOf(recent, Date.now()).map(({ day, entries }) => (
-              <section key={day} aria-label={day}>
-                <h3 className="px-3 pb-1 text-[13px] font-medium text-muted-foreground keyboard:md:text-xs">
-                  {day}
-                </h3>
-                <SidebarMenu className="gap-0">
-                  {entries.map((entry) => (
-                    <SessionRow
-                      key={entry.place}
-                      entry={entry}
-                      here={here}
-                      at={at}
-                      titles={titles}
-                      isUnseen={isUnseen}
-                      onMove={onMove}
-                    />
-                  ))}
-                </SidebarMenu>
-              </section>
-            ))}
-          </div>
-        )}
-        {/* Quiet, but a finger's height to hit. */}
-        <SidebarMenu className="mt-4 keyboard:md:mt-3">
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              data-place="settled"
-              data-cursor={at('settled')}
-              aria-expanded={settledOpen}
-              onClick={toggleSettled}
-              className={`h-11 gap-2 rounded-xl px-3 text-[13px] text-muted-foreground/80 hover:text-muted-foreground keyboard:md:h-7 keyboard:md:text-xs ${cursorRing}`}
-            >
-              <ArchiveIcon aria-hidden className="size-3.5!" />
-              <span>Settled</span>
-              <span className="tabular-nums text-muted-foreground/60">
-                {settled.length}
-              </span>
-              <ChevronRightIcon
-                aria-hidden
-                className={`ml-auto size-3.5! text-muted-foreground/50 transition-transform duration-150 motion-reduce:transition-none ${settledOpen ? 'rotate-90' : ''}`}
-              />
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-        {settledOpen && (
-          <SettledList
-            listed={settled}
-            open={from && { machineId: from.machineId, id: from.sessionId }}
-            at={at}
-            onUnsettle={onUnsettle}
-            onMove={onMove}
-          />
-        )}
-      </>
-    </div>
+    <MotionConfig reducedMotion="user">
+      <div ref={cursor.list} className="flex flex-col px-2 pb-1">
+        <>
+          {waiting ? (
+            <Waiting machines={projects.waiting} />
+          ) : recent.length === 0 ? (
+            <p className="px-3 py-2 text-[15px] text-pretty text-muted-foreground keyboard:md:text-sm">
+              No sessions yet. Start one with the plus
+              {picks === null ? '' : `, or ${picks}`}: pick a folder, then say
+              what to do.
+            </p>
+          ) : (
+            <div className="flex flex-col">
+              <AnimatePresence initial={false}>
+                {timelineOf(recent, Date.now()).map(({ day, entries }) => (
+                  <motion.section key={day} aria-label={day} {...arrive}>
+                    <div className="pb-4 keyboard:md:pb-3">
+                      <h3 className="px-3 pb-1 text-[13px] font-medium text-muted-foreground keyboard:md:text-xs">
+                        {day}
+                      </h3>
+                      <SidebarMenu className="gap-0">
+                        <AnimatePresence initial={false}>
+                          {entries.map((entry) => (
+                            <SessionRow
+                              key={entry.place}
+                              entry={entry}
+                              here={here}
+                              at={at}
+                              titles={titles}
+                              isUnseen={isUnseen}
+                              onMove={onMove}
+                            />
+                          ))}
+                        </AnimatePresence>
+                      </SidebarMenu>
+                    </div>
+                  </motion.section>
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+          {/* A heading like the days', so what opens under it reads as its own; a finger's height to hit. */}
+          <section aria-label="Settled">
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  data-place="settled"
+                  data-cursor={at('settled')}
+                  aria-expanded={settledOpen}
+                  onClick={toggleSettled}
+                  className={`h-11 gap-1.5 rounded-lg px-3 text-[13px] font-medium text-muted-foreground hover:bg-transparent hover:text-sidebar-foreground active:bg-sidebar-accent/60 keyboard:md:h-7 keyboard:md:text-xs ${cursorRing}`}
+                >
+                  <span>Settled</span>
+                  <span className="font-normal tabular-nums">
+                    {settled.length}
+                  </span>
+                  <ChevronRightIcon
+                    aria-hidden
+                    className={`size-3.5! transition-transform duration-200 ease-out motion-reduce:transition-none ${settledOpen ? 'rotate-90' : ''}`}
+                  />
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+            <AnimatePresence initial={false}>
+              {settledOpen && (
+                <motion.div
+                  key="settled"
+                  className="overflow-hidden"
+                  {...arrive}
+                >
+                  <SettledList
+                    listed={settled}
+                    open={
+                      from && { machineId: from.machineId, id: from.sessionId }
+                    }
+                    at={at}
+                    onUnsettle={onUnsettle}
+                    onMove={onMove}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </section>
+        </>
+      </div>
+    </MotionConfig>
   );
 }
 
@@ -267,7 +291,7 @@ function SessionRow({
         ) || 'Untitled session';
   const title = session.title || 'Untitled session';
   return (
-    <SidebarMenuItem>
+    <ArriveItem>
       <SwipeToMove
         machineId={session.machineId}
         sessionId={session.id}
@@ -319,7 +343,7 @@ function SessionRow({
           />
         </SidebarMenuButton>
       </SwipeToMove>
-    </SidebarMenuItem>
+    </ArriveItem>
   );
 }
 
