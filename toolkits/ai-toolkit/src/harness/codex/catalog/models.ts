@@ -3,7 +3,7 @@ import { Duration, Effect } from 'effect';
 import {
   HarnessError,
   type AvailableModel,
-  type HarnessBinaries,
+  type HarnessAccount,
 } from '../../contract/index.js';
 import { start, type AppServer, type Model } from '../app-server/index.js';
 
@@ -61,7 +61,7 @@ const ASK_TIMEOUT = Duration.seconds(15);
 export const availableModels: Effect.Effect<
   ReadonlyArray<AvailableModel>,
   HarnessError,
-  HarnessBinaries
+  HarnessAccount
 > = Effect.gen(function* () {
   const server = yield* start(tmpdir());
   return yield* listModels(server);

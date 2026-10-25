@@ -48,9 +48,10 @@ export class SessionNotFound extends Schema.TaggedError<SessionNotFound>()(
   { id: Schema.String },
 ) {}
 
-export class UnknownHarness extends Schema.TaggedError<UnknownHarness>()(
-  'UnknownHarness',
-  { harness: Schema.String },
+/** No Harness Account has this id. */
+export class UnknownAccount extends Schema.TaggedError<UnknownAccount>()(
+  'UnknownAccount',
+  { account: Schema.String },
 ) {}
 
 export class ModelsUnavailable extends Schema.TaggedError<ModelsUnavailable>()(
@@ -76,6 +77,12 @@ export class SkillsUnavailable extends Schema.TaggedError<SkillsUnavailable>()(
 /** The path is missing, not executable, or its `--version` failed. */
 export class InvalidBinary extends Schema.TaggedError<InvalidBinary>()(
   'InvalidBinary',
+  { message: Schema.String },
+) {}
+
+/** A Harness Account with no name or no config folder, unknown, or a Default Account removed. */
+export class InvalidAccount extends Schema.TaggedError<InvalidAccount>()(
+  'InvalidAccount',
   { message: Schema.String },
 ) {}
 

@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { Effect, type Scope } from 'effect';
-import { HarnessError, type HarnessBinaries } from '../../contract/index.js';
+import { HarnessError, type HarnessAccount } from '../../contract/index.js';
 import { answer } from './answers.js';
 import { launcher } from './launcher.js';
 import { shutdown } from './shutdown.js';
@@ -43,23 +43,24 @@ interface Pending {
 const STDERR_TAIL_CHARS = 2_000;
 
 /**
- * Spawns `codex app-server` in `cwd`, from the configured Harness Binary,
- * in a process group of its own, and initializes it. Closing the Scope
+ * Spawns `codex app-server` in `cwd`, as the Harness Account, in a process
+ * group of its own, and initializes it. Closing the Scope
  * shuts it down (see shutdown.ts).
  */
 export const start = (
   cwd: string,
-): Effect.Effect<AppServer, HarnessError, Scope.Scope | HarnessBinaries> =>
+): Effect.Effect<AppServer, HarnessError, Scope.Scope | HarnessAccount> =>
   Effect.gen(function* () {
     const codex = yield* launcher;
     const child = yield* Effect.acquireRelease(
       Effect.try({
         try: () =>
-          spawn(codex.command, [...codex.args, 'app-server'], {
+          spawn(codex.command, ['app-server'], {
             cwd,
+            env: codex.env,
             stdio: ['pipe', 'pipe', 'pipe'],
             // Its own process group, so a kill reaches the Codex binary
-            // behind the npm launcher. Our exit still stops it: its input
+            // behind an npm-installed `codex` launcher. Our exit still stops it: its input
             // ends.
             detached: true,
           }),

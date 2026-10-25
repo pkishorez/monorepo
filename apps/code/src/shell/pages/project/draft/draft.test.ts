@@ -22,6 +22,7 @@ const CATALOG: typeof Catalog.Model.Type = {
   ...Catalog.empty,
   harnesses: [
     {
+      account: 'codex',
       name: 'codex',
       label: 'Codex',
       settings: [],
@@ -30,6 +31,7 @@ const CATALOG: typeof Catalog.Model.Type = {
       unavailableReason: 'not installed',
     },
     {
+      account: 'claude',
       name: 'claude',
       label: 'Claude',
       settings: [
@@ -65,7 +67,7 @@ const Owner = (to: typeof To.Type) =>
                   _tag: 'Session' as const,
                   sessionId: 's1',
                   agent: {
-                    harness: 'claude' as const,
+                    account: 'claude',
                     model: 'opus',
                     settings: {},
                   },
@@ -215,7 +217,7 @@ describe('Draft', () => {
         expect(started).toEqual([
           {
             projectId: 'p1',
-            harness: 'claude',
+            account: 'claude',
             model: 'opus',
             settings: { effort: 'high' },
             text: 'Fix the build',

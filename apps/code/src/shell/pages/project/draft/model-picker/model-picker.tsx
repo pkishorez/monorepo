@@ -37,9 +37,9 @@ import { OpenRow, Setting } from './chip.tsx';
 const trigger =
   'focus-ring inline-flex h-7 min-w-0 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground motion-reduce:transition-none';
 
-/** The agent, model and settings in effect now. */
+/** The agent (its Harness Account), model and settings in effect now. */
 const Current = Schema.Struct({
-  harness: Schema.String,
+  account: Schema.String,
   /** null: the agent's default. */
   model: Schema.NullOr(Schema.String),
   /** The settings set; any other is its default. */
@@ -58,7 +58,7 @@ const agentOf = (choices: Choices) =>
 
 /** An agent's model in effect: the one picked, or its default. */
 const modelFor = (catalog: Catalog, current: Current, agent: string) =>
-  (agent === current.harness ? current.model : null) ??
+  (agent === current.account ? current.model : null) ??
   Catalog.harnessOf(catalog, agent)?.defaultModel ??
   null;
 
@@ -69,7 +69,7 @@ const settingFor = (
   agent: string,
   key: string,
 ) =>
-  (agent === current.harness ? current.settings[key] : undefined) ??
+  (agent === current.account ? current.settings[key] : undefined) ??
   Catalog.harnessOf(catalog, agent)?.settings.find((each) => each.key === key)
     ?.default ??
   null;
@@ -161,10 +161,10 @@ const Models = Picker.make('ModelPicker', {
       empty: () => 'No agent by that name',
       rows: ({ props: { catalog, current } }) => ({
         rows: (catalog.harnesses ?? []).map(
-          ({ name, label, available, unavailableReason }) => ({
-            value: name,
+          ({ account, label, available, unavailableReason }) => ({
+            value: account,
             label,
-            checked: name === current.harness,
+            checked: account === current.account,
             ...(available
               ? {}
               : {
@@ -206,7 +206,7 @@ const Models = Picker.make('ModelPicker', {
       title: ({ key, props, choices }) =>
         settingNamed(props.catalog, agentOf(choices), key)?.label ?? key,
       rows: ({ key, props: { catalog, current }, choices }) =>
-        settingRows(catalog, current, agentOf(choices) ?? current.harness, key),
+        settingRows(catalog, current, agentOf(choices) ?? current.account, key),
       next: (_, { key, props, choices }) =>
         settingAfter(props.catalog, agentOf(choices), key),
     },
@@ -218,14 +218,14 @@ const Models = Picker.make('ModelPicker', {
       title: ({ key, props, choices }) =>
         settingNamed(props.catalog, agentOf(choices), key)?.label ?? key,
       rows: ({ key, props: { catalog, current }, choices }) =>
-        settingRows(catalog, current, agentOf(choices) ?? current.harness, key),
+        settingRows(catalog, current, agentOf(choices) ?? current.account, key),
     },
   },
 });
 
 /** What was chosen, to apply over what is in effect. */
 const chosenOf = (choices: Choices) => ({
-  harness: agentOf(choices),
+  account: agentOf(choices),
   model: choices.find(({ step }) => step === 'model')?.value ?? null,
   settings: Object.fromEntries(
     choices.flatMap((choice) =>
@@ -259,28 +259,28 @@ export const ModelPicker = {
     readonly catalog: Catalog;
     readonly current: Current;
   }) => {
-    const harness = Catalog.harnessOf(catalog, current.harness);
+    const harness = Catalog.harnessOf(catalog, current.account);
     const agent = {
       step: 'agent',
       key: '',
-      value: current.harness,
-      label: harness?.label ?? current.harness,
+      value: current.account,
+      label: harness?.label ?? current.account,
     };
-    const model = modelFor(catalog, current, current.harness) ?? '';
+    const model = modelFor(catalog, current, current.account) ?? '';
     const named =
-      Catalog.modelsOf(catalog, current.harness)?.list.find(
+      Catalog.modelsOf(catalog, current.account)?.list.find(
         ({ id }) => id === model,
       )?.name ?? model;
     const chosen = [
       agent,
-      { step: 'model', key: current.harness, value: model, label: named },
+      { step: 'model', key: current.account, value: model, label: named },
     ];
-    const first = settingAfter(catalog, current.harness, null);
+    const first = settingAfter(catalog, current.account, null);
     if (at === 'settings' && first !== null)
       return { how, step: first, choices: chosen };
     const alone =
       at === 'permissions' || at === 'effort'
-        ? aspectOf(catalog, current.harness, at)
+        ? aspectOf(catalog, current.account, at)
         : null;
     if (alone !== null)
       return { how, step: { id: 'alone', key: alone.key }, choices: chosen };
@@ -289,18 +289,18 @@ export const ModelPicker = {
     if (at === 'modelAlone' || at === 'agent')
       return {
         how,
-        step: { id: 'model', key: current.harness },
+        step: { id: 'model', key: current.account },
         choices: [agent],
       };
     return started
-      ? { how, step: { id: 'model', key: current.harness }, choices: [agent] }
+      ? { how, step: { id: 'model', key: current.account }, choices: [agent] }
       : { how, step: { id: 'agent', key: '' }, choices: [] };
   },
   /** The Layer its owner Provides: `done` hears what was chosen, or null. */
   owner: (
     done: (
       chosen: {
-        readonly harness: string | null;
+        readonly account: string | null;
         readonly model: string | null;
         readonly settings: Readonly<Record<string, string>>;
       } | null,
@@ -313,9 +313,9 @@ export const ModelPicker = {
 
 /** The model in effect, by its name. */
 const modelNamed = (catalog: Catalog, current: Current) => {
-  const model = modelFor(catalog, current, current.harness) ?? '';
+  const model = modelFor(catalog, current, current.account) ?? '';
   return (
-    Catalog.modelsOf(catalog, current.harness)?.list.find(
+    Catalog.modelsOf(catalog, current.account)?.list.find(
       ({ id }) => id === model,
     )?.name ?? model
   );
@@ -323,9 +323,9 @@ const modelNamed = (catalog: Catalog, current: Current) => {
 
 /** Each of the agent's settings, with the choice in effect and its label. */
 const settingsOf = (catalog: Catalog, current: Current) =>
-  (Catalog.harnessOf(catalog, current.harness)?.settings ?? []).map(
+  (Catalog.harnessOf(catalog, current.account)?.settings ?? []).map(
     (setting) => {
-      const value = settingFor(catalog, current, current.harness, setting.key);
+      const value = settingFor(catalog, current, current.account, setting.key);
       return {
         key: setting.key,
         label:
@@ -373,8 +373,8 @@ export function Triggers({
 }) {
   const open = Picker.useOpen();
   const modelKeys = useBound('content.model');
-  const harness = Catalog.harnessOf(catalog, current?.harness ?? null);
-  const agent = harness?.name ?? null;
+  const harness = Catalog.harnessOf(catalog, current?.account ?? null);
+  const agent = harness?.account ?? null;
   keys.useAction('content.model', () => open(() => onOpen('model', 'keys')), {
     enabled: harness !== null,
   });
@@ -513,7 +513,7 @@ export function Chip({
   // Read in the press itself: the Sheet over it is open until it is not.
   const over = useRef(false);
   over.current = how !== null;
-  const harness = Catalog.harnessOf(catalog, current?.harness ?? null);
+  const harness = Catalog.harnessOf(catalog, current?.account ?? null);
   if (current === null || harness === null)
     return <Skeleton className="h-11 w-32 rounded-full" />;
   const name = modelNamed(catalog, current);

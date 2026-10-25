@@ -2,7 +2,7 @@ import { Effect, Schema, Stream } from 'effect';
 import { Machine } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { Machines } from '../../../../layer/capabilities/index.ts';
-import { HarnessBinaries } from './harness-binaries/index.ts';
+import { HarnessAccounts } from './harness-accounts/index.ts';
 import { SpeechToText } from './speech-to-text/index.ts';
 import { ask, keepForgetting } from './commands.ts';
 
@@ -57,8 +57,8 @@ export const MachineSettingsLive = Actor.build(MachineSettings, {
     model: { machines: null, fetchedAt: null, forgetting: null, asking: null },
   }),
   children: {
-    binaries: {
-      actor: HarnessBinaries.actor,
+    accounts: {
+      actor: HarnessAccounts.actor,
       each: ({ model }) => (model.machines ?? []).map(({ id }) => id),
       input: (_, machineId) => ({ machineId }),
     },

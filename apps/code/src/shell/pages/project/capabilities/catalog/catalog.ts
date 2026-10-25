@@ -4,8 +4,9 @@ import { loadHarnesses, loadModels, loadSkills } from './api.ts';
 
 /*
  * What sessions in a project are started and run with: every agent the
- * server runs, each with its settings; the models each agent takes; and
- * the Skills each offers in the project's folder. The project page keeps it
+ * server runs, one per Harness Account, each with its settings; the models
+ * each account's login takes; and the Skills each offers in the project's
+ * folder. The project page keeps it
  * while it is open and shares it with the pages under it, so moving between
  * its sessions reads nothing again.
  *
@@ -17,7 +18,8 @@ import { loadHarnesses, loadModels, loadSkills } from './api.ts';
 
 const Read = <S extends Schema.Top>(item: S) =>
   Schema.Struct({
-    harness: Schema.String,
+    /** The Harness Account it was read for. */
+    account: Schema.String,
     list: Schema.Array(item),
     /** Why it could not be read; null when it was. */
     problem: Schema.NullOr(Schema.String),
@@ -43,10 +45,10 @@ export const empty: Catalog = {
 export const Change = Schema.TaggedUnion({
   HarnessesLoaded: { harnesses: Schema.Array(HarnessInfo) },
   HarnessesFailed: { reason: Schema.String },
-  ModelsLoaded: { harness: Schema.String, list: Schema.Array(ModelInfo) },
-  ModelsFailed: { harness: Schema.String, reason: Schema.String },
-  SkillsLoaded: { harness: Schema.String, list: Schema.Array(SkillSchema) },
-  SkillsFailed: { harness: Schema.String, reason: Schema.String },
+  ModelsLoaded: { account: Schema.String, list: Schema.Array(ModelInfo) },
+  ModelsFailed: { account: Schema.String, reason: Schema.String },
+  SkillsLoaded: { account: Schema.String, list: Schema.Array(SkillSchema) },
+  SkillsFailed: { account: Schema.String, reason: Schema.String },
   Retry: {},
 });
 
@@ -64,7 +66,7 @@ export const changed = (
         ...catalog,
         models: [
           ...catalog.models,
-          { harness: change.harness, list: change.list, problem: null },
+          { account: change.account, list: change.list, problem: null },
         ],
       };
     case 'SkillsLoaded':
@@ -72,7 +74,7 @@ export const changed = (
         ...catalog,
         skills: [
           ...catalog.skills,
-          { harness: change.harness, list: change.list, problem: null },
+          { account: change.account, list: change.list, problem: null },
         ],
       };
     case 'ModelsFailed':
@@ -80,7 +82,7 @@ export const changed = (
         ...catalog,
         models: [
           ...catalog.models,
-          { harness: change.harness, list: [], problem: change.reason },
+          { account: change.account, list: [], problem: change.reason },
         ],
       };
     case 'SkillsFailed':
@@ -88,7 +90,7 @@ export const changed = (
         ...catalog,
         skills: [
           ...catalog.skills,
-          { harness: change.harness, list: [], problem: change.reason },
+          { account: change.account, list: [], problem: change.reason },
         ],
       };
     // 4. Retry
@@ -102,28 +104,28 @@ export const changed = (
   }
 };
 
-/** The agent by its name; null when the catalog has none by it. */
-export const harnessOf = (catalog: Catalog, name: string | null) =>
-  catalog.harnesses?.find((each) => each.name === name) ?? null;
+/** The agent by its Harness Account; null when the catalog has none by it. */
+export const harnessOf = (catalog: Catalog, account: string | null) =>
+  catalog.harnesses?.find((each) => each.account === account) ?? null;
 
 /** An agent's models as read, or undefined while they are being read. */
-export const modelsOf = (catalog: Catalog, name: string | null) =>
-  catalog.models.find(({ harness }) => harness === name);
+export const modelsOf = (catalog: Catalog, account: string | null) =>
+  catalog.models.find((read) => read.account === account);
 
 /** An agent's Skills as read, or undefined while they are being read. */
-export const skillsOf = (catalog: Catalog, name: string | null) =>
-  catalog.skills.find(({ harness }) => harness === name);
+export const skillsOf = (catalog: Catalog, account: string | null) =>
+  catalog.skills.find((read) => read.account === account);
 
 const unread = (
   catalog: Catalog,
-  read: ReadonlyArray<{ readonly harness: string }>,
+  read: ReadonlyArray<{ readonly account: string }>,
 ) =>
   (catalog.harnesses ?? [])
     .filter(
-      ({ name, available }) =>
-        available && !read.some(({ harness }) => harness === name),
+      ({ account, available }) =>
+        available && !read.some((each) => each.account === account),
     )
-    .map(({ name }) => name);
+    .map(({ account }) => account);
 
 /** What the catalog still has to read, for its keeper's Workers. */
 export const wants = {
@@ -136,29 +138,26 @@ export const wants = {
   skills: (catalog: Catalog) => unread(catalog, catalog.skills),
 };
 
-const unknown = (name: string) => `This server does not run ${name}`;
+const unknown = (account: string) =>
+  `This server has no Harness Account ${account}`;
 
 /** Reads what `wants` names, ending in the Change it makes. */
 export const read = {
   harnesses: loadHarnesses,
-  models: (catalog: Catalog, name: string) => {
-    const harness = harnessOf(catalog, name);
-    return harness === null
+  models: (catalog: Catalog, account: string) =>
+    harnessOf(catalog, account) === null
       ? Effect.succeed({
           _tag: 'ModelsFailed' as const,
-          harness: name,
-          reason: unknown(name),
+          account,
+          reason: unknown(account),
         })
-      : loadModels(harness.name);
-  },
-  skills: (catalog: Catalog, projectId: string, name: string) => {
-    const harness = harnessOf(catalog, name);
-    return harness === null
+      : loadModels(account),
+  skills: (catalog: Catalog, projectId: string, account: string) =>
+    harnessOf(catalog, account) === null
       ? Effect.succeed({
           _tag: 'SkillsFailed' as const,
-          harness: name,
-          reason: unknown(name),
+          account,
+          reason: unknown(account),
         })
-      : loadSkills(projectId, harness.name);
-  },
+      : loadSkills(projectId, account),
 };

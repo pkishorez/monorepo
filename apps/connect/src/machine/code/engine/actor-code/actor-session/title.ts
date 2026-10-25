@@ -1,6 +1,6 @@
-import { Duration, Effect } from 'effect';
-import { HarnessBinaries, OneShotPrompt } from '@kestack/ai-toolkit/harness';
-import { Store } from '../../capabilities/index.js';
+import { Duration, Effect, Option } from 'effect';
+import { HarnessAccount, OneShotPrompt } from '@kestack/ai-toolkit/harness';
+import { HarnessAccounts, Store } from '../../capabilities/index.js';
 import { EngineRaw } from '../../engine-raw/index.js';
 import type { SessionQuerySelf, SessionSelf } from './actor.js';
 
@@ -12,6 +12,9 @@ import type { SessionQuerySelf, SessionSelf } from './actor.js';
 
 /** How long the One-shot Prompt may take before the title stays as it is. */
 const TITLE_TIMEOUT = Duration.seconds(60);
+
+/** Titles are written by Codex (`codexOneShot`), as its Default Account. */
+const TITLE_ACCOUNT = 'codex';
 
 /** How many of the user's latest messages a Title is written from. */
 const TITLE_MESSAGES = 5;
@@ -73,10 +76,16 @@ export const clean = (reply: string): string =>
 const titled = (messages: ReadonlyArray<string>, why: string) =>
   Effect.gen(function* () {
     const oneShot = yield* OneShotPrompt;
-    const binaries = yield* HarnessBinaries;
-    return yield* oneShot.prompt(prompt(messages)).pipe(
-      // A One-shot Prompt that runs a Harness Binary runs the one the user set.
-      Effect.provideService(HarnessBinaries, binaries),
+    const accounts = yield* HarnessAccounts;
+    // As Codex's Default Account, as the user set it; with no Codex
+    // harness on this Machine, as the One-shot Prompt's own default.
+    const account = yield* Effect.option(accounts.as(TITLE_ACCOUNT));
+    const asked = oneShot.prompt(prompt(messages));
+    return yield* (
+      Option.isSome(account)
+        ? asked.pipe(Effect.provideService(HarnessAccount, account.value))
+        : asked
+    ).pipe(
       Effect.timeout(TITLE_TIMEOUT),
       Effect.map(clean),
       Effect.catch((error) =>

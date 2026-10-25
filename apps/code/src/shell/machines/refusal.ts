@@ -6,6 +6,7 @@ import type {
   FolderNotFound,
   FolderUnreadable,
   HarnessFailed,
+  InvalidAccount,
   InvalidBinary,
   InvalidFolderName,
   ModelsUnavailable,
@@ -17,7 +18,7 @@ import type {
   SkillsUnavailable,
   SpeechToTextNotReady,
   TranscriptionFailed,
-  UnknownHarness,
+  UnknownAccount,
 } from '@kestack/connect/code';
 
 /*
@@ -34,6 +35,7 @@ type Failure =
   | FolderNotFound
   | FolderUnreadable
   | HarnessFailed
+  | InvalidAccount
   | InvalidBinary
   | InvalidFolderName
   | ModelsUnavailable
@@ -45,7 +47,7 @@ type Failure =
   | SkillsUnavailable
   | SpeechToTextNotReady
   | TranscriptionFailed
-  | UnknownHarness
+  | UnknownAccount
   | RpcClientError.RpcClientError;
 
 /** What a refused call ends with. */
@@ -70,8 +72,8 @@ export const reasonOf = (cause: Failure): string => {
       return 'This project no longer exists';
     case 'SessionNotFound':
       return 'This session no longer exists';
-    case 'UnknownHarness':
-      return 'This server does not run that agent';
+    case 'UnknownAccount':
+      return 'That agent account is no longer on this Machine';
     case 'ModelsUnavailable':
       return 'Could not load the models';
     case 'NotForkable':
@@ -85,6 +87,7 @@ export const reasonOf = (cause: Failure): string => {
     case 'TranscriptionFailed':
       return cause.message || "Couldn't make out the audio";
     case 'AskFailed':
+    case 'InvalidAccount':
     case 'InvalidBinary':
     case 'HarnessFailed':
     case 'SkillsUnavailable':

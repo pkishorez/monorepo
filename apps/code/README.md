@@ -21,13 +21,15 @@ signed in as you; the app is on all of them at once
 It is a Kabuki Start app, every page drawn in the browser
 ([`packages/kabuki/docs/routing.md`](../../packages/kabuki/docs/routing.md)).
 `/` picks a project of any Machine, and `/settings` lists your Machines,
-to Forget one, each with its own settings: the program each agent runs
-as there (its Harness Binary) and its Speech to Text switch
+to Forget one, each with its own settings: each login of an agent there
+(its Harness Accounts: the program it runs and its config folder, such as
+a second Claude for work) and its Speech to Text switch
 ([ADR 0017](../../toolkits/ai-toolkit/docs/adr/0017-speech-to-text-runs-on-the-machine.md)). Only what is on one Machine names it:
 `/m/:machineId/p/:projectId` is a new session in the project, its Draft
 waiting for the first message, and `/m/:machineId/p/:projectId/s/:sessionId`
-is a session. An agent whose program does not run is greyed out where
-sessions start.
+is a session. Each Harness Account is an agent to pick where sessions
+start; one whose program does not run, such as an agent not installed,
+is greyed out with how to install it.
 All state lives in the pages' actors; the Views only draw and send. The
 Machines' records arrive only through the `CodeReplica` Replica
 ([`@kestack/std-toolkit/replica`](../../toolkits/std-toolkit/src/replica/README.md)),

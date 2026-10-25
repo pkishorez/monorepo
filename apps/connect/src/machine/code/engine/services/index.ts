@@ -1,11 +1,15 @@
 export { agents } from './agents/index.js';
 export { storeLayer } from './store/index.js';
 export {
-  binaryRow,
-  setBinary,
-  storedHarnessBinaries,
-  type HarnessBinaryRow,
-} from './harness-binaries/index.js';
+  accountRow,
+  allAccounts,
+  InvalidAccount,
+  removeAccount,
+  saveAccount,
+  storedHarnessAccounts,
+  type AccountInput,
+  type HarnessAccountRow,
+} from './harness-accounts/index.js';
 export {
   FolderExists,
   FolderNotFound,

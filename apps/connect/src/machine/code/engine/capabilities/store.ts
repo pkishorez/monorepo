@@ -1,11 +1,15 @@
 import { Context, type Effect, type Scope, type Stream } from 'effect';
 import type { Entity } from '@kestack/std-toolkit/core';
-import type { HarnessName, Raw } from '@kestack/ai-toolkit/contract';
-import type { HarnessConfig, Project, Session } from '../../records/index.js';
+import type { Raw } from '@kestack/ai-toolkit/contract';
+import type {
+  HarnessAccountRecord,
+  Project,
+  Session,
+} from '../../records/index.js';
 
 /*
  * Where the code App Group keeps its records: Raw, Projects, Sessions and
- * Harness Configs. The implementation is services/store/.
+ * Harness Accounts. The implementation is services/store/.
  */
 
 /** One stream of changes: read after a cursor, then follow live. */
@@ -41,11 +45,14 @@ export interface StoreService {
   readonly allSessions: Effect.Effect<ReadonlyArray<Session>>;
   /** Writes a Session unless it is unchanged. */
   readonly saveSession: (session: Session) => Effect.Effect<void>;
-  /** The Harness Binary a harness is set to; null when it has never been set. */
-  readonly harnessConfig: (
-    harness: HarnessName,
-  ) => Effect.Effect<HarnessConfig | null>;
-  readonly saveHarnessConfig: (config: HarnessConfig) => Effect.Effect<void>;
+  /** Every Harness Account the user saved that is not removed, oldest change first. */
+  readonly harnessAccounts: Effect.Effect<ReadonlyArray<HarnessAccountRecord>>;
+  /** Writes a Harness Account unless it is unchanged or removed. */
+  readonly saveHarnessAccount: (
+    account: HarnessAccountRecord,
+  ) => Effect.Effect<void>;
+  /** Tombstones a Harness Account; false if there was none to remove. */
+  readonly removeHarnessAccount: (id: string) => Effect.Effect<boolean>;
 }
 
 export class Store extends Context.Service<Store, StoreService>()(

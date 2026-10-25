@@ -3,17 +3,21 @@ import { Broadcaster, type Entity } from '@kestack/std-toolkit/core';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import type { Raw } from '@kestack/ai-toolkit/contract';
-import type { Project, Session } from '../../../records/index.js';
+import type {
+  HarnessAccountRecord,
+  Project,
+  Session,
+} from '../../../records/index.js';
 import {
   Store,
   type Feed,
   type StoreService,
 } from '../../capabilities/index.js';
-import { aiTable, harnessConfigs, projects, raws, sessions } from './table.js';
+import { aiTable, harnessAccounts, projects, raws, sessions } from './table.js';
 
 /*
  * The one place records are kept: Raw, Projects, Sessions and Harness
- * Configs in one SQLite
+ * Accounts in one SQLite
  * table. Every write goes through one permit, so writes land in `_u` order
  * and a reader that has seen a `_u` has seen everything older. Every write
  * is also published in this process, so a reader can subscribe before it
@@ -184,17 +188,38 @@ const make = (path: string) =>
               yield* sessions.getAndUpdate({ id: session.id }, session);
           }),
         ),
-      harnessConfig: (harness) =>
-        run(harnessConfigs.get({ id: harness }, { excludeDeleted: true })).pipe(
-          Effect.map((found) => found?.value ?? null),
-        ),
-      saveHarnessConfig: (config) =>
+      harnessAccounts: allOf<HarnessAccountRecord>({
+        after: (cursor, limit = PAGE) =>
+          run(
+            harnessAccounts.query(
+              'byUpdate',
+              cursor === null
+                ? { pk: {}, '>=': null }
+                : { pk: {}, '>': { _u: cursor } },
+              { limit },
+            ),
+          ),
+        changes: changesOf<HarnessAccountRecord>(harnessAccounts.name),
+      }),
+      saveHarnessAccount: (account) =>
         write(
           Effect.gen(function* () {
-            const found = yield* harnessConfigs.get({ id: config.id });
-            if (found === null) yield* harnessConfigs.insert(config);
-            else if (!same(found.value, config))
-              yield* harnessConfigs.getAndUpdate({ id: config.id }, config);
+            const found = yield* harnessAccounts.get({ id: account.id });
+            if (found === null) yield* harnessAccounts.insert(account);
+            else if (!found.meta._d && !same(found.value, account))
+              yield* harnessAccounts.getAndUpdate({ id: account.id }, account);
+          }),
+        ),
+      removeHarnessAccount: (id) =>
+        write(
+          Effect.gen(function* () {
+            const found = yield* harnessAccounts.get(
+              { id },
+              { excludeDeleted: true },
+            );
+            if (found === null) return false;
+            yield* harnessAccounts.delete({ id });
+            return true;
           }),
         ),
     };

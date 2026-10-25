@@ -1,7 +1,6 @@
 import { Effect, Schema, Stream } from 'effect';
 import {
   CodeClient,
-  HarnessInfo,
   type Session as SessionRecord,
 } from '@kestack/connect/code';
 import { Page, Router } from '@kestack/kabuki/routing';
@@ -44,7 +43,8 @@ const ForkedFrom = Schema.NullOr(
 const Row = Schema.Struct({
   id: Schema.String,
   projectId: Schema.String,
-  harness: HarnessInfo.fields.name,
+  /** The Harness Account it runs as. */
+  account: Schema.String,
   /** The model and settings it runs with now. */
   model: Schema.String,
   settings: Schema.Record(Schema.String, Schema.String),
@@ -72,7 +72,7 @@ const readOf = ([own, ...up]: ReadonlyArray<SessionRecord>) =>
         row: {
           id: own.id,
           projectId: own.projectId,
-          harness: own.harness,
+          account: own.account,
           model: own.model,
           settings: own.settings,
           running: own.status === 'running',
@@ -167,7 +167,7 @@ export const SessionLive = Page.build(Session, {
               row === null
                 ? null
                 : {
-                    harness: row.harness,
+                    account: row.account,
                     model: row.model,
                     settings: row.settings,
                   },

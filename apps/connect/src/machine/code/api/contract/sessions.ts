@@ -13,9 +13,9 @@ import {
   NotForkable,
   ProjectNotFound,
   SessionNotFound,
-  UnknownHarness,
+  UnknownAccount,
 } from './errors.js';
-import { Batch, Cursor, Harness } from './wire.js';
+import { Batch, Cursor } from './wire.js';
 
 /* Sessions as a whole: started, forked, Settled, asked, and how they stand. */
 
@@ -26,14 +26,15 @@ export const SessionsRpc = RpcGroup.make(
   Rpc.make('startSession', {
     payload: {
       projectId: Schema.String,
-      harness: Harness,
+      /** The Harness Account it runs as, and so its harness. */
+      account: Schema.String,
       model: Schema.String,
       settings: Schema.Record(Schema.String, Schema.String),
       text: Schema.String,
       attachments: Schema.Array(AttachmentSchema),
     },
     success: SessionValue,
-    error: Schema.Union([ProjectNotFound, UnknownHarness]),
+    error: Schema.Union([ProjectNotFound, UnknownAccount]),
   }),
   /**
    * A new Session in the same harness with the context up to the end of a

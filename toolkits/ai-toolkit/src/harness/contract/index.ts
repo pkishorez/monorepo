@@ -6,7 +6,7 @@ export {
   type Chunker,
 } from './chunker/index.js';
 export {
-  HarnessBinaries,
+  HarnessAccount,
   HarnessError,
   Harnesses,
   isRecord,

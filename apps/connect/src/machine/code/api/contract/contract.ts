@@ -32,7 +32,7 @@ export class CodeApi extends HarnessesRpc.merge(
 
 export * from './errors.js';
 export { CreatedFolder, FolderEntry, FolderListing } from './folders.js';
-export { HarnessBinary, HarnessInfo, SettingInfo } from './harnesses.js';
+export { HarnessAccountInfo, HarnessInfo, SettingInfo } from './harnesses.js';
 export { SessionJobs } from './jobs.js';
 export { ProjectValue } from './projects.js';
 export { SessionValue } from './sessions.js';
@@ -52,10 +52,10 @@ export {
   type Usage,
 } from '@kestack/ai-toolkit/contract';
 export {
-  HarnessConfigSchema,
+  HarnessAccountSchema,
   ProjectSchema,
   SessionSchema,
-  type HarnessConfig,
+  type HarnessAccountRecord,
   type Project,
   type Session,
   type SessionStatus,

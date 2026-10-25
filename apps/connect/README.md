@@ -6,7 +6,7 @@ Connects a computer to the cloud as a Machine its User reaches from anywhere: th
 
 A coding agent runs on a computer, but its User wants to reach it from a phone or another laptop. Connect makes the computer a Machine: `ke-connect serve` signs it in to Cloud Connect as its User, opens a tunnel, and reports a Heartbeat with its address and Machine Key. An App lists its User's Machines from Cloud Connect, a Worker with a D1 database at `connect.kishore.app`, then talks to each Machine straight over its one socket.
 
-What a Machine serves comes in App Groups. The `code` App Group keeps Projects and Sessions for [Code](../code/README.md): it runs each Session's Agent through [`@kestack/ai-toolkit`](../../toolkits/ai-toolkit/README.md), orders its Turns, stores its Raw records, and sends them to the browser through a [std-toolkit](../../toolkits/std-toolkit/README.md) Replica over [rpc-toolkit](../../toolkits/rpc-toolkit/README.md). Sign-in comes from [auth-toolkit](../../toolkits/auth-toolkit/README.md). Why Connect owns this and ai-toolkit stops at the harness is [root ADR 0011](../../docs/adr/0011-ai-toolkit-stops-at-the-harness-connect-owns-the-rest.md).
+What a Machine serves comes in App Groups. The `code` App Group keeps Projects and Sessions for [Code](../code/README.md): it runs each Session's Agent through [`@kestack/ai-toolkit`](../../toolkits/ai-toolkit/README.md), with the Claude Code or Codex installed on the computer and as one of its Harness Accounts, orders its Turns, stores its Raw records, and sends them to the browser through a [std-toolkit](../../toolkits/std-toolkit/README.md) Replica over [rpc-toolkit](../../toolkits/rpc-toolkit/README.md). Sign-in comes from [auth-toolkit](../../toolkits/auth-toolkit/README.md). Why Connect owns this and ai-toolkit stops at the harness is [root ADR 0011](../../docs/adr/0011-ai-toolkit-stops-at-the-harness-connect-owns-the-rest.md).
 
 Connect keeps its files in the XDG folders under `kestack/`. In development each branch has its own folders, Machine and Cloud Connect, and every App's `pnpm dev` starts or reuses them: see [docs/dev.md](docs/dev.md).
 
@@ -26,7 +26,7 @@ npx @kestack/connect serve
 - `@kestack/auth-toolkit`: a Machine signs in to Cloud Connect as its User.
 - `@tanstack/db`: the collections the Replica fills.
 
-Node 24 or newer is required.
+Node 24 or newer is required. Sessions run the agents installed on the computer, which Connect does not bring: install [Claude Code](https://claude.com/claude-code) or Codex (`npm install -g @openai/codex`) and sign in with `claude auth login` or `codex login`.
 
 ## Exports
 
@@ -34,78 +34,79 @@ Node 24 or newer is required.
 
 What Code's browser imports: the `code` App Group's API and records, the client and Replica that reach it on each Machine, and Cloud Connect's contract and client.
 
-| Export                   | What it does                                                                                                  |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `CodeApi`                | The RPC group of the `code` App Group: its commands and the `projects`, `sessions`, `messages` feeds.         |
-| `CodeClient`             | Service holding one Machine's `CodeApi` client over its reconnecting WebSocket.                               |
-| `CodeClient.layer`       | Layer of `CodeClient` for a `ws(s)://…/rpc` URL, or a path in a browser, with the Machine Key if given.       |
-| `MachineAddress`         | Service the App gives: where a Machine's socket is, by Machine id, and its Machine Key, on each connect.      |
-| `CodeClients`            | Service holding every Machine's client by Machine id, one socket each, shared by whatever holds it.           |
-| `CodeClients.layer`      | Layer of `CodeClients` opening each Machine's socket at the address `MachineAddress` gives.                   |
-| `CodeClients.make`       | Layer of `CodeClients` opening each Machine with a given Layer, for one server or a test.                     |
-| `CodeClients.machine`    | Layer of one Machine's `CodeClient` and connection, for everything under it.                                  |
-| `CodeClients.on`         | Runs an Effect that needs `CodeClient` against one Machine, by its id.                                        |
-| `CodeClients.stream`     | Runs a Stream that needs `CodeClient` against one Machine, its socket held while it runs.                     |
-| `CodeClients.connection` | Stream of one Machine's connection status now and on each change.                                             |
-| `connection`             | Stream of the connection status of the `CodeClient` in context: `connecting`, `connected` or `reconnecting`.  |
-| `CodeReplica`            | The Replica of each Machine's records, keyed by Machine id: `projects`, `sessions` and `messages`.            |
-| `CodeReplicaLive`        | How `CodeReplica` syncs: every Project and Session, and a Session's Messages while a Query filters on its id. |
-| `FolderListing`          | Schema of a `listFolder` answer: the folder, its parent, up to 100 sub-folders, and if it was cut short.      |
-| `FolderEntry`            | Schema of one sub-folder in a listing: its name, whether it is hidden, and whether it is a symlink.           |
-| `CreatedFolder`          | Schema of a `createFolder` answer: the new folder's path, and why `git init` failed, if it did.               |
-| `WireEntity`             | An entity in encoded form with its meta, as feeds send it and take it back as a cursor.                       |
-| `Harness`                | Schema of a harness name: `claude` or `codex`.                                                                |
-| `HarnessInfo`            | Schema of one harness: label, settings, default model, and whether its Harness Binary runs.                   |
-| `SettingInfo`            | Schema of one harness setting and the choices a picker offers.                                                |
-| `ModelInfo`              | Schema of one Language Model: id, name, and release date.                                                     |
-| `ProjectSchema`          | Entity schema of a Project.                                                                                   |
-| `ProjectValue`           | Plain struct of a Project's fields, as `addProject` returns it.                                               |
-| `SessionSchema`          | Entity schema of a Session.                                                                                   |
-| `SessionValue`           | Plain struct of a Session's fields, as `startSession` and `forkSession` return it.                            |
-| `MessageSchema`          | Entity schema of a Message, the projected form a client reads.                                                |
-| `PartSchema`             | Schema of one Message part: text, thinking, tool call, attachment, turn start or end, and more.               |
-| `HarnessConfigSchema`    | Entity schema of the Harness Binary path stored for one harness.                                              |
-| `HarnessBinary`          | Schema of a harness's Harness Binary: the path set for it and what it resolved to.                            |
-| `BinaryInfoSchema`       | Schema of a resolved binary: its path and what `--version` printed.                                           |
-| `AttachmentSchema`       | Schema of an Attachment: name, mime type, and base64 data.                                                    |
-| `SkillSchema`            | Schema of a Skill: name, description, and an optional argument hint.                                          |
-| `AskAnswerSchema`        | Schema of an Ask's answer: `Text`, or `Data` shaped by the given JSON Schema.                                 |
-| `BackgroundJobSchema`    | Schema of one Background Job.                                                                                 |
-| `BACKGROUND_JOB_KINDS`   | Tuple of Background Job kinds: `shell`, `agent`.                                                              |
-| `SessionJobs`            | Schema of one Session's Background Jobs, as the `backgroundJobs` stream sends them.                           |
-| `McpServerStatusSchema`  | Schema of one MCP server a Session's Agent is connected to.                                                   |
-| `MCP_SERVER_STATES`      | Tuple of MCP server states, such as `connected`, `failed`, `needs-auth`, `pending`.                           |
-| `ContextUsageSchema`     | Schema of Context Usage: tokens used, the window size, and rate limits.                                       |
-| `SpeechToTextState`      | Schema of how Speech to Text stands: `Off`, `Downloading` with bytes of total, `Ready`, or `Failed`.          |
-| `FolderNotFound`         | Error: no folder at the path given.                                                                           |
-| `PermissionDenied`       | Error: this user may not read or write the folder.                                                            |
-| `FolderExists`           | Error: something is already at the path `createFolder` would make.                                            |
-| `InvalidFolderName`      | Error: the name cannot be one new folder.                                                                     |
-| `OutsideHome`            | Error: the path, its symlinks resolved, is not inside the home folder.                                        |
-| `FolderUnreadable`       | Error: the folder could not be listed, or listing it took too long.                                           |
-| `ProjectNotFound`        | Error: no Project with this id.                                                                               |
-| `SessionNotFound`        | Error: no Session with this id.                                                                               |
-| `UnknownHarness`         | Error: this Machine does not run that harness.                                                                |
-| `ModelsUnavailable`      | Error: the harness could not list its models.                                                                 |
-| `NotForkable`            | Error: the Session cannot be forked after the Turn asked for.                                                 |
-| `AskFailed`              | Error: the harness could not answer the Ask.                                                                  |
-| `SkillsUnavailable`      | Error: the harness could not list its Skills.                                                                 |
-| `InvalidBinary`          | Error: the path is missing, not executable, or its `--version` failed.                                        |
-| `HarnessFailed`          | Error: a harness failed to answer for a live Session.                                                         |
-| `SpeechToTextNotReady`   | Error: Speech to Text is off, still downloading, or failed on this Machine.                                   |
-| `TranscriptionFailed`    | Error: the model would not load, or the audio is not 16-bit PCM.                                              |
-| `CloudApi`               | Cloud Connect's RPC group: a Machine's `Report`, and an App's `List` and `Forget`, for the caller only.       |
-| `CloudClient`            | Service holding the `CloudApi` client over HTTP.                                                              |
-| `CloudClient.layer`      | Layer of `CloudClient` for Cloud Connect's base URL; the caller's auth signs every call.                      |
-| `Machine`                | Schema of a Machine as its User sees it: its last Report and its Last Seen.                                   |
-| `MachineReport`          | Schema of what a Machine says of itself on each Heartbeat: id, name, Machine Key, version, status.            |
-| `MachineStatus`          | Schema of how far a Machine's tunnel got: installing cloudflared, opening, failed, or up.                     |
-| `TunnelCheck`            | Schema of whether a Machine could reach itself at its public address, and when it checked.                    |
-| `addressOf`              | The public address a Machine Status is up at, or null.                                                        |
-| `MachineForgotten`       | Error: the Machine was forgotten by its User; it must sign out and stop.                                      |
-| `MachineTaken`           | Error: another User's Machine already has this id.                                                            |
-| `RPC_PATH`               | Cloud Connect's RPC path, `/rpc`.                                                                             |
-| `AUTH_PATH`              | The path that answers how a Machine signs in, `/auth`.                                                        |
+| Export                   | What it does                                                                                                                       |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `CodeApi`                | The RPC group of the `code` App Group: its commands and the `projects`, `sessions`, `messages` feeds.                              |
+| `CodeClient`             | Service holding one Machine's `CodeApi` client over its reconnecting WebSocket.                                                    |
+| `CodeClient.layer`       | Layer of `CodeClient` for a `ws(s)://…/rpc` URL, or a path in a browser, with the Machine Key if given.                            |
+| `MachineAddress`         | Service the App gives: where a Machine's socket is, by Machine id, and its Machine Key, on each connect.                           |
+| `CodeClients`            | Service holding every Machine's client by Machine id, one socket each, shared by whatever holds it.                                |
+| `CodeClients.layer`      | Layer of `CodeClients` opening each Machine's socket at the address `MachineAddress` gives.                                        |
+| `CodeClients.make`       | Layer of `CodeClients` opening each Machine with a given Layer, for one server or a test.                                          |
+| `CodeClients.machine`    | Layer of one Machine's `CodeClient` and connection, for everything under it.                                                       |
+| `CodeClients.on`         | Runs an Effect that needs `CodeClient` against one Machine, by its id.                                                             |
+| `CodeClients.stream`     | Runs a Stream that needs `CodeClient` against one Machine, its socket held while it runs.                                          |
+| `CodeClients.connection` | Stream of one Machine's connection status now and on each change.                                                                  |
+| `connection`             | Stream of the connection status of the `CodeClient` in context: `connecting`, `connected` or `reconnecting`.                       |
+| `CodeReplica`            | The Replica of each Machine's records, keyed by Machine id: `projects`, `sessions` and `messages`.                                 |
+| `CodeReplicaLive`        | How `CodeReplica` syncs: every Project and Session, and a Session's Messages while a Query filters on its id.                      |
+| `FolderListing`          | Schema of a `listFolder` answer: the folder, its parent, up to 100 sub-folders, and if it was cut short.                           |
+| `FolderEntry`            | Schema of one sub-folder in a listing: its name, whether it is hidden, and whether it is a symlink.                                |
+| `CreatedFolder`          | Schema of a `createFolder` answer: the new folder's path, and why `git init` failed, if it did.                                    |
+| `WireEntity`             | An entity in encoded form with its meta, as feeds send it and take it back as a cursor.                                            |
+| `Harness`                | Schema of a harness name: `claude` or `codex`.                                                                                     |
+| `HarnessInfo`            | Schema of one Harness Account as a new Session offers it: its harness, name, settings, default model, and whether its binary runs. |
+| `SettingInfo`            | Schema of one harness setting and the choices a picker offers.                                                                     |
+| `ModelInfo`              | Schema of one Language Model: id, name, and release date.                                                                          |
+| `ProjectSchema`          | Entity schema of a Project.                                                                                                        |
+| `ProjectValue`           | Plain struct of a Project's fields, as `addProject` returns it.                                                                    |
+| `SessionSchema`          | Entity schema of a Session.                                                                                                        |
+| `SessionValue`           | Plain struct of a Session's fields, as `startSession` and `forkSession` return it.                                                 |
+| `MessageSchema`          | Entity schema of a Message, the projected form a client reads.                                                                     |
+| `PartSchema`             | Schema of one Message part: text, thinking, tool call, attachment, turn start or end, and more.                                    |
+| `HarnessAccountSchema`   | Entity schema of a Harness Account: its harness, name, binary and config folder.                                                   |
+| `HarnessAccountInfo`     | Schema of a Harness Account as set, whether it is its harness's Default Account, and what its binary resolved to.                  |
+| `BinaryInfoSchema`       | Schema of a resolved binary: its path and what `--version` printed.                                                                |
+| `AttachmentSchema`       | Schema of an Attachment: name, mime type, and base64 data.                                                                         |
+| `SkillSchema`            | Schema of a Skill: name, description, and an optional argument hint.                                                               |
+| `AskAnswerSchema`        | Schema of an Ask's answer: `Text`, or `Data` shaped by the given JSON Schema.                                                      |
+| `BackgroundJobSchema`    | Schema of one Background Job.                                                                                                      |
+| `BACKGROUND_JOB_KINDS`   | Tuple of Background Job kinds: `shell`, `agent`.                                                                                   |
+| `SessionJobs`            | Schema of one Session's Background Jobs, as the `backgroundJobs` stream sends them.                                                |
+| `McpServerStatusSchema`  | Schema of one MCP server a Session's Agent is connected to.                                                                        |
+| `MCP_SERVER_STATES`      | Tuple of MCP server states, such as `connected`, `failed`, `needs-auth`, `pending`.                                                |
+| `ContextUsageSchema`     | Schema of Context Usage: tokens used, the window size, and rate limits.                                                            |
+| `SpeechToTextState`      | Schema of how Speech to Text stands: `Off`, `Downloading` with bytes of total, `Ready`, or `Failed`.                               |
+| `FolderNotFound`         | Error: no folder at the path given.                                                                                                |
+| `PermissionDenied`       | Error: this user may not read or write the folder.                                                                                 |
+| `FolderExists`           | Error: something is already at the path `createFolder` would make.                                                                 |
+| `InvalidFolderName`      | Error: the name cannot be one new folder.                                                                                          |
+| `OutsideHome`            | Error: the path, its symlinks resolved, is not inside the home folder.                                                             |
+| `FolderUnreadable`       | Error: the folder could not be listed, or listing it took too long.                                                                |
+| `ProjectNotFound`        | Error: no Project with this id.                                                                                                    |
+| `SessionNotFound`        | Error: no Session with this id.                                                                                                    |
+| `UnknownAccount`         | Error: this Machine has no Harness Account with that id.                                                                           |
+| `ModelsUnavailable`      | Error: the harness could not list its models.                                                                                      |
+| `NotForkable`            | Error: the Session cannot be forked after the Turn asked for.                                                                      |
+| `AskFailed`              | Error: the harness could not answer the Ask.                                                                                       |
+| `SkillsUnavailable`      | Error: the harness could not list its Skills.                                                                                      |
+| `InvalidBinary`          | Error: the path is missing, not executable, or its `--version` failed.                                                             |
+| `InvalidAccount`         | Error: a Harness Account has no name or no config folder, is unknown, or is a Default Account to remove.                           |
+| `HarnessFailed`          | Error: a harness failed to answer for a live Session.                                                                              |
+| `SpeechToTextNotReady`   | Error: Speech to Text is off, still downloading, or failed on this Machine.                                                        |
+| `TranscriptionFailed`    | Error: the model would not load, or the audio is not 16-bit PCM.                                                                   |
+| `CloudApi`               | Cloud Connect's RPC group: a Machine's `Report`, and an App's `List` and `Forget`, for the caller only.                            |
+| `CloudClient`            | Service holding the `CloudApi` client over HTTP.                                                                                   |
+| `CloudClient.layer`      | Layer of `CloudClient` for Cloud Connect's base URL; the caller's auth signs every call.                                           |
+| `Machine`                | Schema of a Machine as its User sees it: its last Report and its Last Seen.                                                        |
+| `MachineReport`          | Schema of what a Machine says of itself on each Heartbeat: id, name, Machine Key, version, status.                                 |
+| `MachineStatus`          | Schema of how far a Machine's tunnel got: installing cloudflared, opening, failed, or up.                                          |
+| `TunnelCheck`            | Schema of whether a Machine could reach itself at its public address, and when it checked.                                         |
+| `addressOf`              | The public address a Machine Status is up at, or null.                                                                             |
+| `MachineForgotten`       | Error: the Machine was forgotten by its User; it must sign out and stop.                                                           |
+| `MachineTaken`           | Error: another User's Machine already has this id.                                                                                 |
+| `RPC_PATH`               | Cloud Connect's RPC path, `/rpc`.                                                                                                  |
+| `AUTH_PATH`              | The path that answers how a Machine signs in, `/auth`.                                                                             |
 
 ### `./worker`
 
@@ -137,7 +138,7 @@ What Code's browser imports: the `code` App Group's API and records, the client 
 
 ### Serve a Machine
 
-Run `npx @kestack/connect serve` on a computer, sign in with the device code it prints, and the computer is listed as one of your Machines within a few seconds. `ke-connect serve --help` lists the flags, and `ke-connect logout` forgets the Machine. From code, `serve` from `./machine` does the same. Shaped after `src/machine/machine.ts`.
+Install Claude Code or Codex first. Run `npx @kestack/connect serve` on a computer, sign in with the device code it prints, and the computer is listed as one of your Machines within a few seconds. `ke-connect serve --help` lists the flags, and `ke-connect logout` forgets the Machine. From code, `serve` from `./machine` does the same. Shaped after `src/machine/machine.ts`.
 
 ```ts
 import { NodeRuntime, NodeServices } from '@effect/platform-node';

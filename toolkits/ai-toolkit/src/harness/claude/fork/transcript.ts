@@ -12,10 +12,16 @@ export interface Entry {
   };
 }
 
-/** Where Claude Code keeps a session's JSONL transcript, if it has one. */
-export const transcriptPath = (sessionId: string): string | undefined => {
+/**
+ * Where Claude Code keeps a session's JSONL transcript, if it has one,
+ * under the config folder `home`, else Claude Code's default.
+ */
+export const transcriptPath = (
+  sessionId: string,
+  home?: string,
+): string | undefined => {
   const projects = join(
-    process.env['CLAUDE_CONFIG_DIR'] ?? join(homedir(), '.claude'),
+    home ?? process.env['CLAUDE_CONFIG_DIR'] ?? join(homedir(), '.claude'),
     'projects',
   );
   if (!existsSync(projects)) return undefined;
@@ -25,8 +31,11 @@ export const transcriptPath = (sessionId: string): string | undefined => {
 };
 
 /** A session's transcript entries; empty when it has none. */
-export const readTranscript = (sessionId: string): ReadonlyArray<Entry> => {
-  const path = transcriptPath(sessionId);
+export const readTranscript = (
+  sessionId: string,
+  home?: string,
+): ReadonlyArray<Entry> => {
+  const path = transcriptPath(sessionId, home);
   if (path === undefined) return [];
   return readFileSync(path, 'utf8')
     .split('\n')

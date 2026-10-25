@@ -114,7 +114,7 @@ export const DraftView = View.make(
     // A new session's agent cannot run, or its catalog cannot be read.
     const harness = fresh ? pickedHarness(model) : null;
     const models = fresh
-      ? Catalog.modelsOf(model.catalog, harness?.name ?? null)
+      ? Catalog.modelsOf(model.catalog, harness?.account ?? null)
       : undefined;
     const unavailable =
       harness?.available === false

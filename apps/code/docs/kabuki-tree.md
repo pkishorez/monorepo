@@ -43,7 +43,7 @@ shell                                   root; Provides CurrentAccount, Replicas,
 ├── pages/home                          while the URL names it
 ├── pages/settings                      while the URL names it
 │   ├── machines                        always
-│   │   ├── harness-binaries            each: listed Machine id
+│   │   ├── harness-accounts            each: listed Machine id
 │   │   └── speech-to-text              each: listed Machine id
 │   └── shortcuts                       always
 └── pages/project                       /m/:machineId/p/:projectId; Provides CodeClient, SharedCatalog, Picker Owners
@@ -71,7 +71,7 @@ shell ─ Props: place (the Draft open) ─────────────�
 shell ─ Props: bindings ─────────────────────────────────────▶ session-actions
 project ─ Provides CodeClient of :machineId, SharedCatalog ───────▶ session
 draft ─ Provides TouchDraft.owner ───────────────────▶ touch
-machines ─ each id; Input: machineId ───────────────▶ harness-binaries, speech-to-text
+machines ─ each id; Input: machineId ───────────────▶ harness-accounts, speech-to-text
 ```
 
 Up, from the leaves: what each level asks of the one above, and what runs.
@@ -188,9 +188,9 @@ sidebar ─ Worker: moves, from Moves ──────────────
 
 - **It reads which Machines can transcribe from `Machines`**, because the Machine List already watches each Line and each Speech to Text. Caveat: none.
 
-## home · settings · machines · harness-binaries · speech-to-text · shortcuts
+## home · settings · machines · harness-accounts · speech-to-text · shortcuts
 
-Home and Machine Settings follow `Machines`. Each per-Machine Child gets its Machine by Input. Harness Binaries reads its Machine over `CodeClients`. Speech to Text reads its state from `Machines` and switches it over `CodeClients`. Shortcuts reads and writes the Bindings in Device State.
+Home and Machine Settings follow `Machines`. Each per-Machine Child gets its Machine by Input. Harness Accounts reads and saves its Machine's accounts over `CodeClients`. Speech to Text reads its state from `Machines` and switches it over `CodeClients`. Shortcuts reads and writes the Bindings in Device State.
 
 ## project · session
 

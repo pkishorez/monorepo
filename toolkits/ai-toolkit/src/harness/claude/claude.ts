@@ -26,7 +26,7 @@ const DATED = /-\d{8}$/;
 /**
  * Claude Code through the Agent SDK: one streaming-input `query` per open
  * session, steered by pushing more user messages into it. Every process it
- * starts runs the configured Harness Binary.
+ * starts runs the Harness Account's Claude Code, never one of the SDK's.
  */
 export const claude: Harness = {
   name: 'claude',
@@ -73,8 +73,8 @@ export const claude: Harness = {
       return agent;
     }),
   skills,
-  fork,
-  ask: (input) => Effect.flatMap(executable, (path) => ask(input, path)),
+  fork: (input) => Effect.flatMap(executable, (found) => fork(input, found)),
+  ask: (input) => Effect.flatMap(executable, (found) => ask(input, found)),
   binary,
   project,
 };

@@ -9,7 +9,7 @@ import {
   SubscriptionRef,
 } from 'effect';
 import {
-  HarnessBinaries,
+  HarnessAccount,
   HarnessError,
   Harnesses,
   OneShotPrompt,
@@ -70,8 +70,8 @@ export interface FakeHarness {
   readonly layer: Layer.Layer<Harnesses | OneShotPrompt>;
   /** Every open, with what it was opened with. */
   readonly opens: Array<AgentConfig>;
-  /** The Harness Binary path each open was given; undefined for the default. */
-  readonly binaries: Array<string | undefined>;
+  /** The Harness Account each open ran as. */
+  readonly accounts: Array<HarnessAccount['Service']>;
   /** How many agents were closed. */
   readonly closes: () => number;
   /** Every turn and steer, with what it carried. */
@@ -82,8 +82,8 @@ export interface FakeHarness {
   readonly asks: Array<AskInput>;
   /** Every One-shot Prompt, with its text. */
   readonly prompts: Array<string>;
-  /** Whether each One-shot Prompt had Harness Binaries to run with. */
-  readonly promptBinaries: Array<boolean>;
+  /** Whether each One-shot Prompt had a Harness Account to run as. */
+  readonly promptAccounts: Array<boolean>;
   /** Every Background Job stopped, by id. */
   readonly stoppedJobs: Array<string>;
   /** Lets a turn that is slow to start emit its first record. */
@@ -126,12 +126,12 @@ export const makeFakeHarness = (
   } = {},
 ): FakeHarness => {
   const opens: Array<AgentConfig> = [];
-  const binaries: Array<string | undefined> = [];
+  const accounts: Array<HarnessAccount['Service']> = [];
   const inputs: Array<TurnInput> = [];
   const forks: Array<ForkInput> = [];
   const asks: Array<AskInput> = [];
   const prompts: Array<string> = [];
-  const promptBinaries: Array<boolean> = [];
+  const promptAccounts: Array<boolean> = [];
   const stoppedJobs: Array<string> = [];
   const agents = new Map<string, FakeAgent>();
   let closed = 0;
@@ -237,7 +237,7 @@ export const makeFakeHarness = (
     open: (config) =>
       Effect.gen(function* () {
         opens.push(config);
-        binaries.push(yield* (yield* HarnessBinaries).path('claude'));
+        accounts.push(yield* HarnessAccount);
         const nativeId = config.nativeId ?? `native-${opens.length}`;
         const agent: FakeAgent = {
           jobs: yield* SubscriptionRef.make<ReadonlyArray<BackgroundJob>>([]),
@@ -301,8 +301,7 @@ export const makeFakeHarness = (
       }),
     // A configured path containing `missing` does not run.
     binary: Effect.gen(function* () {
-      const binaries = yield* HarnessBinaries;
-      const configured = yield* binaries.path('claude');
+      const configured = (yield* HarnessAccount).binary;
       if (configured?.includes('missing'))
         return {
           path: null,
@@ -348,8 +347,8 @@ export const makeFakeHarness = (
       prompt: (text) =>
         Effect.gen(function* () {
           prompts.push(text);
-          const given = yield* Effect.serviceOption(HarnessBinaries);
-          promptBinaries.push(given._tag === 'Some');
+          const given = yield* Effect.serviceOption(HarnessAccount);
+          promptAccounts.push(given._tag === 'Some');
           if (options.oneShot === undefined)
             return yield* new HarnessError({
               message: 'no One-shot Prompts here',
@@ -365,13 +364,13 @@ export const makeFakeHarness = (
     harness,
     layer,
     opens,
-    binaries,
+    accounts,
     closes: () => closed,
     inputs,
     forks,
     asks,
     prompts,
-    promptBinaries,
+    promptAccounts,
     stoppedJobs,
     begin: Effect.sync(() => {
       if (running) Deferred.doneUnsafe(running.gate, Effect.succeed(true));

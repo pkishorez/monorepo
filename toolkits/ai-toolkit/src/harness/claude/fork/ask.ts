@@ -24,13 +24,12 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
  */
 export const askOptions = (
   input: AskInput,
-  executable: string | undefined,
+  executable: { readonly path: string; readonly env: NodeJS.ProcessEnv },
   abortController: AbortController,
 ): Options => ({
   cwd: input.cwd,
-  ...(executable === undefined
-    ? {}
-    : { pathToClaudeCodeExecutable: executable }),
+  pathToClaudeCodeExecutable: executable.path,
+  env: executable.env,
   model: input.model,
   resume: input.nativeId,
   forkSession: true,
