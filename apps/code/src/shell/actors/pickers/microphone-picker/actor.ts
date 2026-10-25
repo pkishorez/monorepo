@@ -1,9 +1,9 @@
 import { Effect, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import * as Picker from '../../../ui/picker/index.ts';
-import { DeviceState } from '../../../layer/capabilities/index.ts';
+import * as Picker from '../../../../ui/picker/index.ts';
+import { DeviceState } from '../../../../layer/capabilities/index.ts';
 import { setMicrophone } from './commands.ts';
-import { Recorder } from '../../../layer/capabilities/index.ts';
+import { Recorder } from '../../../../layer/capabilities/index.ts';
 
 /*
  * The Microphone Picker: which of this browser's microphones a Dictation

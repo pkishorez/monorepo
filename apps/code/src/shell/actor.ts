@@ -25,16 +25,16 @@ import {
 import { Dictation } from './actors/dictation/index.ts';
 import { Header } from './actors/header/index.ts';
 import { MachineList, reach } from './machines/index.ts';
-import { MicrophonePicker } from './actors/microphone-picker/index.ts';
-import { ProjectPicker } from './actors/project-picker/index.ts';
-import { SessionActions } from './actors/session-actions/index.ts';
-import { SessionSwitcher } from './actors/session-switcher/index.ts';
+import { MicrophonePicker } from './actors/pickers/microphone-picker/index.ts';
+import { ProjectPicker } from './actors/pickers/project-picker/index.ts';
+import { SessionActions } from './actors/pickers/session-actions/index.ts';
+import { SessionSwitcher } from './actors/pickers/session-switcher/index.ts';
 import { Sidebar } from './actors/sidebar/index.ts';
 import { askDictation, keepAccounts, setVim, signIn } from './commands.ts';
 import { Home } from './pages/home/index.ts';
 import { Project } from './pages/project/index.ts';
 import { Settings } from './pages/settings/index.ts';
-import { layer as moves } from './moves/index.ts';
+import { layer as moves } from './actors/moves/index.ts';
 
 /*
  * The root page, drawn only in the browser: the app, on every Machine of

@@ -6,9 +6,12 @@ import { Effect, Layer, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { toReact, View } from '@kestack/kabuki/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { keys } from '../../../keys.ts';
-import { DeviceState } from '../../../layer/capabilities/index.ts';
-import { deviceStateMemory, recorder } from '../../../layer/services/index.ts';
+import { keys } from '../../../../keys.ts';
+import { DeviceState } from '../../../../layer/capabilities/index.ts';
+import {
+  deviceStateMemory,
+  recorder,
+} from '../../../../layer/services/index.ts';
 import { MicrophonePickerLive } from './actor.ts';
 import { MicrophonePickerView } from './view.tsx';
 

@@ -2,8 +2,8 @@ import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { ChevronUpIcon } from '@kestack/web-platform/ui/components/lucide';
 import { createContext, use, useEffect, type RefObject } from 'react';
-import { keys, useBound } from '../../../keys.ts';
-import * as Picker from '../../../ui/picker/index.ts';
+import { keys, useBound } from '../../../../keys.ts';
+import * as Picker from '../../../../ui/picker/index.ts';
 import { MicrophonePickerLive, MicrophonesView } from './actor.ts';
 
 /*

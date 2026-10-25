@@ -16,7 +16,7 @@ import { useHealth, useMachineName } from '../../machines/index.ts';
  * project to the session; the open session's agent and model; and, while
  * the Machine is out of reach, a quiet pill that says why: on its way,
  * its tunnel broken, or the Machine down, with when it was last seen.
- * Session Actions sit beside them (`actors/session-actions/`). The header
+ * Session Actions sit beside them (`actors/pickers/session-actions/`). The header
  * itself is the Web Platform's.
  */
 
