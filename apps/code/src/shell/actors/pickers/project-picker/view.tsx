@@ -41,6 +41,7 @@ export const ProjectPickerView = View.make(
         how={model.byButton ? null : model.picking}
         mode="drawer"
         tall
+        held={model.starting !== null}
         label="Open a project"
       >
         {children.picker && <ProjectsView instance={children.picker} />}
@@ -59,6 +60,7 @@ export const ProjectPickerButton = View.make(
         how={model.byButton ? model.picking : null}
         mode="drawer"
         tall
+        held={model.starting !== null}
         label="Open a project"
         onOpen={(how) => send({ _tag: 'Open', how, byButton: true })}
         side="top"

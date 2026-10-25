@@ -1,7 +1,7 @@
 import { View } from '@kestack/kabuki/react';
 import { raiseKeyboard } from '@kestack/web-platform/recipes/touch-layers';
 import { useDevice } from '@kestack/web-platform/ui/input';
-import { useRef, type ReactElement, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactElement, type ReactNode } from 'react';
 import { keys } from '../../keys.ts';
 import { build, How, type Spec } from './actor.ts';
 import { ByTrigger, Centred } from './keyboard-frame.tsx';
@@ -81,6 +81,7 @@ export function Frame({
   className,
   focusOnTouch = false,
   tall = false,
+  held = false,
   children,
 }: {
   readonly how: typeof How.Type | null;
@@ -106,6 +107,12 @@ export function Frame({
    * search, for a long list: it never changes height as its rows load.
    */
   readonly tall?: boolean;
+  /**
+   * Its owner shows something over it, such as a new session: drawn by
+   * touch, it stays open while another Picker over that comes and goes,
+   * whichever has the keys, and takes them back once that is gone.
+   */
+  readonly held?: boolean;
   /** The Picker's View. */
   readonly children: ReactNode;
 }) {
@@ -115,7 +122,13 @@ export function Frame({
   // Once drawn by touch, its layer stays, closed, so a Drawer can slide away.
   const touched = useRef(false);
   if (shape === mode) touched.current = true;
-  const { leave } = keys.useKeyboard();
+  const { leave, enter } = keys.useKeyboard();
+  // Back from what was over it, it has the keys again.
+  const wasHeld = useRef(held);
+  useEffect(() => {
+    if (wasHeld.current && !held && shape === mode && !active) enter('picker');
+    wasHeld.current = held;
+  }, [held]);
   const openPicker = useOpen();
   const change: Change = (open, details) => {
     // Escape goes through the Surface's order instead.
@@ -124,6 +137,9 @@ export function Frame({
       details.allowPropagation();
       return;
     }
+    // A tap on what is over it, such as another Picker, is no tap outside it.
+    if (!open && held && details.reason === 'outside-press')
+      return details.cancel();
     if (!open) leave('picker');
     else if (how === null && onOpen !== undefined) {
       const by = howOf(details.event, touch && !keyboard);
@@ -156,7 +172,7 @@ export function Frame({
         <Touch
           mode={mode}
           tall={tall}
-          open={shape === mode && active}
+          open={shape === mode && (active || held)}
           onOpenChange={change}
           label={label}
         >
