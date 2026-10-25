@@ -157,7 +157,7 @@ serve({
 
 ### Talk to a Machine from a browser
 
-An App lists its User's Machines from Cloud Connect, says where each one is through `MachineAddress`, and reads each Machine's records through `CodeReplicaLive`, one Instance per Machine. Trimmed from `src/machine/server.test.ts` and Code's `reach.ts`.
+An App lists its User's Machines from Cloud Connect, says where each one is through `MachineAddress`, and reads each Machine's records through `CodeReplicaLive`, one Instance per Machine. Trimmed from `src/machine/tests/server.test.ts` and Code's `reach.ts`.
 
 ```ts
 import { Effect, Layer, Schema } from 'effect';

@@ -4,7 +4,7 @@ import { StdTable } from '@kestack/std-toolkit/db';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { ESchema } from '@kestack/std-toolkit/eschema';
-import { MachineRecord } from './file.js';
+import { MachineRecord } from './machine-file.js';
 
 /*
  * Where ai-toolkit kept the one Machine a database file was: a table of
