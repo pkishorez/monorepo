@@ -71,3 +71,24 @@ export const useHealth = (machineId: string) => {
   }, [status]);
   return health(machine, status, now);
 };
+
+/** Every Machine's health at once, by its id, worked out again every few seconds while any is out of reach. */
+export const useHealths = () => {
+  const { machines, status } = use(Connection);
+  const away = (machines ?? []).some(
+    ({ id }) => statusOf(status, id) !== 'connected',
+  );
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!away) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), TICK);
+    return () => clearInterval(timer);
+  }, [away]);
+  return (machineId: string) =>
+    health(
+      machines?.find(({ id }) => id === machineId) ?? null,
+      statusOf(status, machineId),
+      now,
+    );
+};

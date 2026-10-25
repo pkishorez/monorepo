@@ -136,10 +136,13 @@ open, also by the header's button: Settle or Un-settle, Fork from the
 latest turn, Go to the original for a fork, Regenerate the title, and
 Stop the turn while one runs, each with its keys as bound.
 
-At its top the sidebar (`src/shell/actors/sidebar/`) has the Machine
-Filter, every Machine or one, kept in this browser, and Reload, which asks
-Cloud Connect for the Machines again; only the Machines shown are synced
-there. It lists every unsettled session as one timeline, the most recently
+At its top, which stays put as it scrolls, the sidebar
+(`src/shell/actors/sidebar/`) has the app's mark and the Machine Filter as
+a title: the Machine shown and how it stands, or "All Machines" and how
+many sessions they hold; with more than one, it opens the Machines, a
+Drawer of each Machine with its state, sessions, projects, tunnel and
+version. Beside it, Reload asks Cloud Connect for the Machines again; only
+the Machines shown are synced there. It lists every unsettled session as one timeline, the most recently
 active first (a turn started or a session made, never viewing, so the
 order holds while you browse), under Today, Yesterday, Previous 7 days and
 Earlier. A session row is its title, bold while Unseen (its last turn

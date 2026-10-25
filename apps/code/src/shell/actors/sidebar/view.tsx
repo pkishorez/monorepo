@@ -1,14 +1,5 @@
 import { useChildren, View } from '@kestack/kabuki/react';
 import { useRouter } from '@kestack/kabuki/routing';
-import { Button } from '@kestack/web-platform/ui/components/button';
-import { RefreshCwIcon } from '@kestack/web-platform/ui/components/lucide';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@kestack/web-platform/ui/components/select';
 import { useEffect } from 'react';
 import { notify } from '../../../ui/toast/index.ts';
 import { instanceOf } from '../../machines/index.ts';
@@ -19,15 +10,14 @@ import { doneOf, movedOf } from './moves.ts';
 import { useReload } from './pull/index.ts';
 import { sayMoved, SwipeBack } from './swipe/index.ts';
 import { isUnseen } from './unseen.ts';
+import { MachineHeader } from './machine-header/index.ts';
 
 /*
- * The sidebar's View: the Machine Filter and Reload at its top, then the
- * Sessions of the Machine shown (`sidebar.tsx`). Only this View draws
+ * The sidebar's View: its header, the Machine Filter and Reload
+ * (`machine-header/`), then the Sessions of the Machine shown
+ * (`sidebar.tsx`). Only this View draws
  * again as the Projects and Sessions it reads change.
  */
-
-/** The value the Machine Filter gives every Machine. */
-const EVERY = 'every';
 
 export const SidebarView = View.make(
   SidebarLive,
@@ -90,11 +80,13 @@ export const SidebarView = View.make(
           );
     return (
       <>
-        <MachineFilter
+        <MachineHeader
           machines={model.machines ?? []}
           shown={shown}
           onChoose={(machineId) => send({ _tag: 'MachineChosen', machineId })}
           onReload={() => send({ _tag: 'ReloadAsked' })}
+          sessions={synced}
+          projects={(projects?.rows ?? []).map(({ row }) => row)}
         />
         {/* A refusal brings its row swiped away back, drawn afresh. */}
         <SwipeBack
@@ -143,69 +135,3 @@ export const SidebarView = View.make(
     );
   },
 );
-
-/**
- * Which Machine the sidebar shows, every Machine first, and Reload. With
- * one Machine there is nothing to choose: only its name shows.
- */
-function MachineFilter({
-  machines,
-  shown,
-  onChoose,
-  onReload,
-}: {
-  readonly machines: ReadonlyArray<{
-    readonly id: string;
-    readonly name: string;
-  }>;
-  readonly shown: string | null;
-  readonly onChoose: (machineId: string | null) => void;
-  readonly onReload: () => void;
-}) {
-  const [only, ...others] = machines;
-  return (
-    // It stays at the top while the timeline scrolls under it, with room below.
-    <div className="sticky top-0 z-10 flex items-center gap-1 bg-sidebar px-2 pb-3">
-      {only === undefined ? (
-        <span className="min-w-0 flex-1 px-2 text-sm text-muted-foreground">
-          No Machines
-        </span>
-      ) : others.length === 0 ? (
-        <span className="min-w-0 flex-1 truncate px-2 text-sm max-md:text-base max-md:font-semibold">
-          {only.name}
-        </span>
-      ) : (
-        <Select
-          value={shown ?? EVERY}
-          onValueChange={(value) => onChoose(value === EVERY ? null : value)}
-        >
-          <SelectTrigger
-            size="sm"
-            aria-label="Machine"
-            className="min-w-0 flex-1 border-none shadow-none data-[size=sm]:h-11 keyboard:md:data-[size=sm]:h-8 max-md:text-base max-md:font-semibold"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={EVERY}>All Machines</SelectItem>
-            {machines.map(({ id, name }) => (
-              <SelectItem key={id} value={id}>
-                {name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Reload the Machines"
-        title="Reload the Machines"
-        onClick={onReload}
-        className="size-11 keyboard:md:size-8 max-md:-mr-1 max-md:rounded-full max-md:text-muted-foreground"
-      >
-        <RefreshCwIcon />
-      </Button>
-    </div>
-  );
-}

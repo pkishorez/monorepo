@@ -33,7 +33,7 @@ The Machine List asked again because a Machine's Line is not up: every 3 seconds
 _Avoid_: poll, heartbeat (that is the Machine's own report)
 
 **Machine Filter**:
-The sidebar's choice of whose Projects it lists: every Machine, or one, kept in Device State. Only the Machines it shows are synced for the sidebar. Reload sits beside it.
+The sidebar's choice of whose sessions it lists: every Machine, or one, kept in Device State. Only the Machines it shows are synced for the sidebar. Reload sits beside it.
 _Avoid_: machine switcher, machine picker
 
 **Session Switcher**:
