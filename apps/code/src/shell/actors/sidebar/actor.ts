@@ -4,7 +4,7 @@ import { Navigation, Router } from '@kestack/kabuki/routing';
 import { DeviceState, Machines } from '../../../layer/capabilities/index.ts';
 import { session } from '../../routes/index.ts';
 import { across, Projects, Sessions } from '../../machines/index.ts';
-import { Intent, Moves } from '../../moves/index.ts';
+import { Intent, Moves } from '../moves/index.ts';
 import { agreed, putMove, reload, setSidebarMachine } from './commands.ts';
 
 /*

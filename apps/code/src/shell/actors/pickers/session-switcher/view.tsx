@@ -1,8 +1,8 @@
 import { View } from '@kestack/kabuki/react';
 import { useRouter } from '@kestack/kabuki/routing';
-import { keys } from '../../../keys.ts';
-import type { Route } from '../../routes/index.ts';
-import * as Picker from '../../../ui/picker/index.ts';
+import { keys } from '../../../../keys.ts';
+import type { Route } from '../../../routes/index.ts';
+import * as Picker from '../../../../ui/picker/index.ts';
 import { SessionSwitcherLive, SessionsView } from './actor.ts';
 
 /*

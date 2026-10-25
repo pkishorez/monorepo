@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { Command } from '@kestack/kabuki';
 import { DeviceState, Machines } from '../../../layer/capabilities/index.ts';
-import { Moves } from '../../moves/index.ts';
+import { Moves } from '../moves/index.ts';
 
 /*
  * What the sidebar asks for: the Machine it shows kept in Device State,

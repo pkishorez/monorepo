@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { CodeClient, CodeClients } from '@kestack/connect/code';
-import { reasonOf } from '../../../machines/index.ts';
+import { reasonOf } from '../../../../machines/index.ts';
 
 /*
  * What the folder Steps ask of a Machine, over its own socket: a folder's

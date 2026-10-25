@@ -1,6 +1,6 @@
 import type { Session } from '@kestack/connect/code';
 import type { OnMachine } from '../../machines/index.ts';
-import type { Intent } from '../../moves/index.ts';
+import type { Intent } from '../moves/index.ts';
 
 /*
  * Sessions put to Settle or un-Settle them, as the sidebar draws them:

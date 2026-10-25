@@ -3,10 +3,10 @@ import type { Project, Session } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
 import { Replicas } from '@kestack/std-toolkit/replica';
-import { Machines } from '../../../layer/capabilities/index.ts';
-import { session } from '../../routes/index.ts';
-import { everything, type OnMachine } from '../../machines/index.ts';
-import * as Picker from '../../../ui/picker/index.ts';
+import { Machines } from '../../../../layer/capabilities/index.ts';
+import { session } from '../../../routes/index.ts';
+import { everything, type OnMachine } from '../../../machines/index.ts';
+import * as Picker from '../../../../ui/picker/index.ts';
 
 /*
  * The Session Switcher: every Session to go back to, across Projects and
