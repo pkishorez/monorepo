@@ -31,6 +31,8 @@ import { machineFor } from './choose.ts';
  *             five minutes it stops itself. Another microphone chosen
  *             while it records is recorded from for the rest of it, into
  *             the same clip.
+ *             Cancelled while it starts or records, the microphone lets go
+ *             and nothing is transcribed.
  * 4. Stop     the Draft open now is where its text goes, and the Machine is
  *             the open Session's, if it can, else any that can. While it
  *             transcribes, that Draft shows it is coming.
@@ -148,6 +150,7 @@ export const Dictation = Actor.define('Dictation', {
   message: Schema.TaggedUnion({
     // What the app asks, through `Dictations`.
     Toggle: {},
+    Cancel: {},
     Retry: { id: Schema.Finite },
     Took: { id: Schema.Finite },
     Opened: {
@@ -382,6 +385,7 @@ export const DictationLive = Actor.build(Dictation, {
       on: {
         // Asked again before the microphone opened: nothing to keep.
         Toggle: () => ({ state: idle }),
+        Cancel: () => ({ state: idle }),
         Opened: ({ microphone, fellBack, using }, { model, state, at }) => ({
           ...(fellBack ? noticed(model, FELL_BACK, at) : {}),
           state: {
@@ -420,6 +424,7 @@ export const DictationLive = Actor.build(Dictation, {
         }),
         Toggle: (_, { model, props, state }) =>
           transcribing(model, props, state.id, props.place),
+        Cancel: () => ({ state: idle }),
         Stop: (_, { model, props, state }) =>
           transcribing(model, props, state.id, props.place),
       },
