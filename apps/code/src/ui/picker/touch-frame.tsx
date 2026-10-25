@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import type { Change, Mode } from './shape.ts';
 
 /*
- * A Picker on a device with no keyboard, in the Picker Mode its opener
+ * A Picker opened by touch, in the Picker Mode its opener
  * chose: a Drawer rising from the bottom, kept while it slides away, or a
  * Dialog at the top, there only while it is open.
  */

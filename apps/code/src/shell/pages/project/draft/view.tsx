@@ -213,7 +213,7 @@ export const DraftView = View.make(
                 onOpen={(at) =>
                   send({
                     _tag: 'PickerOpened',
-                    picking: { _tag: 'Model', how: 'pointer', at },
+                    picking: { _tag: 'Model', how: 'touch', at },
                   })
                 }
                 onSet={(key, value) =>

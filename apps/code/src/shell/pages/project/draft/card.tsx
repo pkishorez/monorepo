@@ -193,9 +193,10 @@ export function useDraft(options: DraftOptions) {
     spot: composer,
     atoms,
     typingKeys,
+    // A `/` typed on an on-screen keyboard came from a touch.
     onSlash: () => {
       if (!skills.offered) return;
-      open(() => skills.onOpen('keys', true));
+      open(() => skills.onOpen(keyboard ? 'keys' : 'touch', true));
     },
     onRetry: (id) => latest.current.onRetry(id),
   });
@@ -527,7 +528,7 @@ export function StatusLine({
           how={draft.skills.how}
           mode="dialog"
           label="Skills and commands"
-          onOpen={() => draft.skills.onOpen('pointer', false)}
+          onOpen={(how) => draft.skills.onOpen(how, false)}
           trigger={
             <Button
               type="button"

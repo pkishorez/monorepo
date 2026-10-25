@@ -31,7 +31,8 @@ import { rank, type Ranked } from './rank.ts';
  *              again.
  */
 
-export const How = Schema.Literals(['keys', 'pointer']);
+/** How a Picker was opened: by keys, a mouse, or a touch, a pen's included. */
+export const How = Schema.Literals(['keys', 'mouse', 'touch']);
 
 const Row = Schema.Struct({
   value: Schema.String,

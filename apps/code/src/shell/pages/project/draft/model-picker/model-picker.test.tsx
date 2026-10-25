@@ -207,7 +207,7 @@ const PageView = View.make(PageLive, ({ model, children, send }) => {
           current={model.current}
           started={false}
           how={model.picking?.how ?? null}
-          onOpen={(at) => send({ _tag: 'Open', how: 'pointer', at })}
+          onOpen={(at) => send({ _tag: 'Open', how: 'touch', at })}
           onSet={(key, value) => send({ _tag: 'Set', key, value })}
         >
           {children.models && <ModelPicker.View instance={children.models} />}

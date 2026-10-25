@@ -399,7 +399,7 @@ function Skills({ draft }: { readonly draft: Draft }) {
       how={draft.skills.how}
       mode="dialog"
       label="Skills and commands"
-      onOpen={() => draft.skills.onOpen('pointer', false)}
+      onOpen={(how) => draft.skills.onOpen(how, false)}
       trigger={
         <Button
           type="button"

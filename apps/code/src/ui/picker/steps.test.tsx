@@ -92,7 +92,7 @@ type OwnerModel = typeof OwnerModel.Type;
 
 const OwnerMessage = Schema.TaggedUnion({
   Ping: {},
-  Open: { which: Which },
+  Open: { which: Which, how: How },
   Drop: { which: Which },
   Settled: { place: Schema.String },
   Heard: { place: Schema.NullOr(Schema.String) },
@@ -151,8 +151,8 @@ const OwnerLive = Actor.build(Owner, {
     }),
   on: {
     Ping: (_, { model }) => ({ model: { ...model, pings: model.pings + 1 } }),
-    Open: ({ which }, { model }) => ({
-      model: { ...model, [which]: 'keys', opened: model.opened + 1 },
+    Open: ({ which, how }, { model }) => ({
+      model: { ...model, [which]: how, opened: model.opened + 1 },
     }),
     Drop: ({ which }, { model }) => ({ model: { ...model, [which]: null } }),
     Settled: ({ place }, { model }) => ({
@@ -182,7 +182,16 @@ function Page({ children }: { readonly children: ReactNode }) {
           key={which}
           type="button"
           data-testid={which}
-          onClick={() => open(() => send({ _tag: 'Open', which }))}
+          // A tap on touch; else as its keys open it.
+          onClick={() =>
+            open(() =>
+              send({
+                _tag: 'Open',
+                which,
+                how: device === 'touch' ? 'touch' : 'keys',
+              }),
+            )
+          }
         />
       ))}
       {children}

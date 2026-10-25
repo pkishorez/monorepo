@@ -177,7 +177,7 @@ function Signed({
     enabled: route._tag === 'Project',
   });
   const drafts = Dictation.useDraftsShown();
-  const microphones = useRef<(() => void) | null>(null);
+  const microphones = useRef<((how: 'keys' | 'touch') => void) | null>(null);
   // The Dictation itself is handed down, never its State, which moves
   // with every level heard: what reads it draws again, nothing else.
   const dictating = useMemo(
@@ -187,7 +187,7 @@ function Signed({
       microphones: (
         <MicrophonePicker.button instance={children.microphonePicker} />
       ),
-      chooseMicrophone: () => microphones.current?.(),
+      chooseMicrophone: () => microphones.current?.('touch'),
       shown: drafts.shown,
     }),
     [children.dictation, children.microphonePicker, send, drafts.shown],
