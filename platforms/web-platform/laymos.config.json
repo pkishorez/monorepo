@@ -89,7 +89,8 @@
       "src/ui/input/device",
       "src/ui/theme"
     ],
-    "src/app/vite": ["src/pwa/engine/vite"],
+    "src/app/vite": ["src/pwa/engine/vite", "src/app/dev-auth"],
+    "src/app/alchemy": ["src/app/dev-auth"],
     "src/pwa/engine/contract/config": [
       "src/pwa/engine/contract/build",
       "src/pwa/engine/contract/manifest",

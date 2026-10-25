@@ -376,9 +376,9 @@ The Account Switcher of a Kabuki app: a Child of the root page, its View in the 
 
 ### `@kestack/web-platform/app/vite`
 
-| Export | What it does                                                                                                                                            |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app`  | Every Vite plugin a kestack app needs: Tailwind, React, Kabuki Start and the PWA (`pwa: false` for none), with the Web Platform bundled for the server. |
+| Export | What it does                                                                                                                                                                                                                                                                                                                |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app`  | Every Vite plugin a kestack app needs: Tailwind, React, Kabuki Start and the PWA (`pwa: false` for none), with the Web Platform bundled for the server. Under `vite dev` it signs in with auth-toolkit's Fake and serves every backend at `/rpc-<name>` on the site's origin, and it fails any build that carries the Fake. |
 
 ### `@kestack/web-platform/app/document`
 
@@ -388,14 +388,15 @@ The Account Switcher of a Kabuki app: a Child of the root page, its View in the 
 
 ### `@kestack/web-platform/app/alchemy`
 
-| Export              | What it does                                                                                                                   |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `Site`              | A Kabuki Start app as a Cloudflare Website: on its domain on a deployed Stage, on Portless's port under `alchemy dev`.         |
-| `State`             | Where alchemy keeps a Stack's state: Cloudflare's state store for a deployed Stage, `.alchemy/state` on disk for anyone's own. |
-| `where`             | Where the Stage being run serves the site and its API Workers, once it is checked it may be run.                               |
-| `isDeployedStage`   | Whether a Stage reaches the world: `prod`, `demo` or a pull request's `prN`.                                                   |
-| `assertStageIsSafe` | Refuses a deployed Stage unless `ALLOW_DEPLOY=true`.                                                                           |
-| `portlessPort`      | The `PORT` `portless run` gives `pnpm dev`; throws when there is none.                                                         |
+| Export              | What it does                                                                                                                              |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `Site`              | A Kabuki Start app as a Cloudflare Website: on its domain on a deployed Stage, on Portless's port under `alchemy dev`.                    |
+| `State`             | Where alchemy keeps a Stack's state: Cloudflare's state store for a deployed Stage, `.alchemy/state` on disk for anyone's own.            |
+| `where`             | Where the Stage being run serves the site and its API Workers, once it is checked it may be run.                                          |
+| `isDeployedStage`   | Whether a Stage reaches the world: `prod`, `demo` or a pull request's `prN`.                                                              |
+| `assertStageIsSafe` | Refuses a deployed Stage unless `ALLOW_DEPLOY=true`.                                                                                      |
+| `portlessPort`      | The `PORT` `portless run` gives `pnpm dev`; throws when there is none.                                                                    |
+| `backend`           | A backend Worker's `build`: auth-toolkit's Fake under `alchemy dev` (unless `KESTACK_AUTH=real`), and failing elsewhere if it carries it. |
 
 ## Usage
 
