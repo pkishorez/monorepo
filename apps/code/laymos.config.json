@@ -4,23 +4,12 @@
   "ignoredPaths": ["src/styles.css", "src/env.d.ts"],
   "fileModules": ["src/app.tsx", "src/keys.ts"],
   "rules": {
-    "src/app.tsx": [
-      "src/shell",
-      "src/layer/services",
-      "src/sign-in",
-      "src/ui/theme"
-    ],
+    "src/app.tsx": ["src/shell", "src/layer/services", "src/ui/theme"],
     "src/layer/services": ["src/layer/capabilities", "src/keys.ts"],
-    "src/sign-in": ["src/ui"],
     "src/ui/session-status": ["src/ui/running-dot"],
     "src/ui/picker": ["src/keys.ts"],
     "src/ui/confirm": ["src/keys.ts"],
-    "src/shell": [
-      "src/layer/capabilities",
-      "src/sign-in",
-      "src/ui",
-      "src/keys.ts"
-    ],
+    "src/shell": ["src/layer/capabilities", "src/ui", "src/keys.ts"],
     "src/shell/actors": [
       "src/shell/routes",
       "src/shell/refusal",

@@ -13,3 +13,4 @@ export {
   memory as savedMachinesMemory,
 } from './saved-machines.ts';
 export { layer as dictations } from './dictations.ts';
+export { accounts } from './accounts.ts';
