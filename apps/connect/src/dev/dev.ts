@@ -10,7 +10,7 @@ import { constants } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NodeRuntime } from '@effect/platform-node';
-import { resolvePaths } from '../../machine/index.js';
+import { resolvePaths } from '../machine/index.js';
 import { branchOf } from './branch.js';
 import { live, runs, take } from './leases.js';
 import { withLock } from './lock.js';
@@ -46,8 +46,8 @@ const STARTING_MS = 10 * 60_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** apps/connect, from dist/cli/dev or src/cli/dev. */
-const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
+/** apps/connect, from dist/dev or src/dev. */
+const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
 const version = (
   JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as {

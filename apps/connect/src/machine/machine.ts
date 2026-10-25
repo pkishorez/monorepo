@@ -1,197 +1,137 @@
-import { Context, Data, Effect, Layer } from 'effect';
-import { CloudClient } from '../cloud/client/index.js';
-import type { MachineStatus } from '../cloud/contract/index.js';
-import { heartbeat } from './heartbeat.js';
-import { claim, forget, found } from './identity/index.js';
-import { signIn, stored } from './sign-in/index.js';
-import {
-  checkAt,
-  cloudflaredInstalled,
-  installCloudflared,
-  openTunnel,
-} from './tunnel/index.js';
+import { readFileSync } from 'node:fs';
+import { Config, Effect, Option } from 'effect';
+import { Command, Flag } from 'effect/cli';
+import { NodeRuntime, NodeServices } from '@effect/platform-node';
+import { logout as logoutMachine, serve as serveMachine } from './serve.js';
 
-// Where this Connect keeps its files, and the one socket it serves every
-// App Group on.
-export { moveLegacy, resolvePaths, type ConnectPaths } from './paths/index.js';
-export {
-  DEFAULT_ORIGINS,
-  server,
-  type AppGroup,
-  type ServerOptions,
-} from './server/index.js';
+// What a Node program starts a Connect with, without the command line,
+// and where that Connect keeps its files.
+export { logout, serve, type ServeOptions } from './serve.js';
+export { resolvePaths, type ConnectPaths } from './paths/index.js';
 
 /*
- * This Connect as a Machine: signed in to Cloud Connect as one User, the
- * one Machine its machine.json is, reachable through a tunnel, and
- * reporting itself on every Heartbeat until it is forgotten or told to stop.
- *
- * `identify` comes first, since the server needs the Machine Key before it
- * listens; `online` then opens the tunnel and beats; `logout` undoes both.
- * The Machine's files are where paths/ says, and server/ is its one socket.
+ * This computer as a Machine, run by `ke-connect`. This file is the flags,
+ * and nothing else. `serve` runs Connect as a Machine and `logout` forgets
+ * it, both from serve.ts; a failure ends the program with its message
+ * alone. Beneath it: online/ signs in and keeps the Machine reachable,
+ * server/ is its one socket, paths/ is where its files go, and code/ is
+ * the App Group it serves.
  */
 
-/** Wait before signing in again once a new Sign-in was refused too; it doubles after, up to a minute. */
-const FIRST_BACKOFF = '1 second';
+const DEFAULT_PORT = 4590;
+const DEFAULT_CLOUD = 'https://connect.kishore.app';
+const DEFAULT_HEARTBEAT = 15;
 
-/** The Machine cannot go on serving; `message` says why and what to do. */
-export class MachineStopped extends Data.TaggedError('MachineStopped')<{
-  readonly message: string;
-}> {}
+const port = Flag.Int('port').pipe(
+  Flag.withAlias('p'),
+  Flag.withDescription(
+    'Port to listen on; PORT, else 4590; 0 for any free port',
+  ),
+  Flag.withFallbackConfig(Config.Int('PORT')),
+  Flag.withDefault(DEFAULT_PORT),
+);
 
-interface Where {
-  /** Cloud Connect's base URL. */
-  readonly cloud: string;
-  /** The SQLite database file, which keeps the Sign-in. */
-  readonly db: string;
-  /** The Machine's machine.json. */
-  readonly machineFile: string;
-  /** This Connect's version. */
-  readonly version: string;
-}
+const cloud = Flag.String('cloud').pipe(
+  Flag.withDescription(
+    `Cloud Connect; KE_CONNECT_CLOUD, else ${DEFAULT_CLOUD}`,
+  ),
+  Flag.withFallbackConfig(Config.String('KE_CONNECT_CLOUD')),
+  Flag.withDefault(DEFAULT_CLOUD),
+);
 
-/**
- * Signs in and finds which Machine this is, making it on the first run,
- * for as long as the Scope: the Machine (its id, name and key) and the
- * User. `name` renames the Machine; `firstName` names a new one.
- */
-export const identify = (
-  options: Where & {
-    readonly name?: string | undefined;
-    readonly firstName?: string | undefined;
-  },
-) =>
-  Effect.gen(function* () {
-    const session = yield* signIn(options);
-    const owner = { id: session.user.id, email: session.user.email };
-    const machine = yield* claim({
-      file: options.machineFile,
-      db: options.db,
-      owner,
-      name: options.name,
-      firstName: options.firstName,
-    });
-    return { ...options, machine, user: session.user, session };
-  });
+const branch = Flag.String('branch').pipe(
+  Flag.withDescription(
+    'For development: the branch whose own folders and Machine to use; KESTACK_BRANCH',
+  ),
+  Flag.withFallbackConfig(Config.String('KESTACK_BRANCH')),
+  Flag.optional,
+);
 
-type Identified = Effect.Success<ReturnType<typeof identify>>;
+const origin = Flag.String('origin').pipe(
+  Flag.withDescription(
+    'Another origin a browser page may call from, such as https://*.example.ts.net:*; repeatable',
+  ),
+  Flag.atLeast(0),
+);
 
-/** Cloud Connect at `cloud`, its calls signed by `signing`, for as long as the Scope. */
-const clientAt = (cloud: string, signing: Layer.Layer<unknown>) =>
-  Effect.map(
-    Layer.build(CloudClient.layer(cloud).pipe(Layer.provide(signing))),
-    (context) => Context.get(context, CloudClient),
-  );
+const name = Flag.String('name').pipe(
+  Flag.withDescription(
+    "This Machine's name, kept for later runs; the host's name at first",
+  ),
+  Flag.optional,
+);
 
-/** How a Report's failure stands for the Heartbeat. */
-const outcomeOf = (error: unknown) => {
-  const tag = (error as { readonly _tag?: string })._tag;
-  switch (tag) {
-    case 'MachineForgotten':
-      return { _tag: 'Forgotten' } as const;
-    case 'Unauthenticated':
-      return { _tag: 'SignedOut' } as const;
-    case 'MachineTaken':
-      return {
-        _tag: 'Refused',
-        reason:
-          'Another User holds this Machine id. Run `ke-connect logout` to start as a new Machine.',
-      } as const;
-    default:
-      return {
-        _tag: 'Unsent',
-        problem: error instanceof Error ? error.message : String(tag ?? error),
-      } as const;
-  }
+const heartbeat = Flag.Int('heartbeat').pipe(
+  Flag.withDescription(
+    `Seconds between Heartbeats; ${DEFAULT_HEARTBEAT} unless given`,
+  ),
+  Flag.withDefault(DEFAULT_HEARTBEAT),
+);
+
+/** What went wrong, down every cause, such as a port already in use under a failed serve. */
+const reasonOf = (error: unknown): string => {
+  if (!(error instanceof Error)) return String(error);
+  const cause = error.cause === undefined ? '' : reasonOf(error.cause);
+  return [error.message, cause].filter((part) => part !== '').join(': ');
 };
 
-/**
- * Puts the identified Machine online, the server already listening on
- * `port`: a tunnel to it through the cloudflared at `cloudflared`
- * (downloaded there when missing), and a Heartbeat every `every` seconds
- * reporting it to Cloud Connect. Runs until the Machine is forgotten (it
- * signs out first) or must stop, failing MachineStopped with why.
- */
-export const online = (
-  identified: Identified,
-  options: {
-    readonly port: number;
-    readonly every: number;
-    readonly cloudflared: string;
-  },
-) =>
-  Effect.gen(function* () {
-    const { machine, session, cloud, version } = identified;
-    const client = yield* clientAt(cloud, session.signing);
-    const report = (status: MachineStatus) =>
-      client.Report({ ...machine, version, status }).pipe(
-        Effect.as({ _tag: 'Reported' } as const),
-        Effect.catch((error) => Effect.succeed(outcomeOf(error))),
-      );
-    const again: Effect.Effect<
-      { readonly id: string; readonly email: string },
-      unknown
-    > = session.signInAgain;
-    const signInAgain = again.pipe(
-      Effect.mapError((error) =>
-        error instanceof Error ? error.message : String(error),
-      ),
-      Effect.flatMap((user) =>
-        user.id === identified.user.id
-          ? Effect.void
-          : Effect.fail(
-              `Signed in as ${user.email}, but this Machine is ${identified.user.email}'s. Run with another --branch.`,
-            ),
-      ),
-    );
-
-    const ended = yield* heartbeat({
-      every: `${options.every} seconds`,
-      installed: cloudflaredInstalled(options.cloudflared),
-      install: installCloudflared(options.cloudflared),
-      open: openTunnel(options.port, options.cloudflared),
-      check: checkAt,
-      report,
-      backoff: FIRST_BACKOFF,
-      signInAgain,
-    });
-    if (ended._tag === 'Forgotten') {
-      yield* session.signOut;
-      return yield* new MachineStopped({
-        message: `${machine.name} was forgotten from the app, so it signed out and stopped. Run \`ke-connect logout\` to forget it here too, then serve again as a new Machine.`,
-      });
-    }
-    return yield* new MachineStopped({
-      message: ended._tag === 'Stopped' ? ended.reason : 'Stopped',
-    });
+/** Ends the program with `error`'s message alone, and a failing exit code. */
+const exitWith = (error: unknown) =>
+  Effect.sync(() => {
+    process.stderr.write(`${reasonOf(error)}\n`);
+    process.exitCode = 1;
   });
 
-/**
- * Asks Cloud Connect to forget the Machine, signs out, revoking the
- * Sign-in, and forgets the Machine here, keeping its Projects and
- * Sessions: the next start is a new Machine. A Cloud Connect that cannot
- * be told is only logged: the Sign-in revoked, it can never Report again.
- */
-export const logout = (options: Where) =>
-  Effect.scoped(
-    Effect.gen(function* () {
-      const kept = { file: options.machineFile, db: options.db };
-      const machine = yield* found(kept);
-      const session = yield* stored(options);
-      if (machine !== null && session.signing !== null) {
-        const client = yield* clientAt(options.cloud, session.signing);
-        yield* client
-          .Forget({ id: machine.id })
-          .pipe(
-            Effect.catch((error) =>
-              Effect.logWarning(
-                `${options.cloud} could not be told to forget ${machine.name}; Forget it from the app`,
-                error,
-              ),
-            ),
-          );
-      }
-      yield* session.signOut;
-      yield* forget(kept);
-    }),
+const serveCommand = Command.make(
+  'serve',
+  { port, cloud, branch, origin, name, heartbeat },
+  ({ port, cloud, branch, origin, name, heartbeat }) =>
+    serveMachine({
+      cloud,
+      port,
+      ...Option.match(branch, {
+        onNone: () => ({}),
+        onSome: (branch) => ({ branch }),
+      }),
+      ...Option.match(name, {
+        onNone: () => ({}),
+        onSome: (name) => ({ name }),
+      }),
+      origins: origin,
+      heartbeat,
+    }).pipe(Effect.catch(exitWith)),
+).pipe(
+  Command.withDescription(
+    'Run Connect as a Machine: signed in, tunnelled and reporting its Heartbeat',
+  ),
+);
+
+const logoutCommand = Command.make(
+  'logout',
+  { cloud, branch },
+  ({ cloud, branch }) =>
+    logoutMachine({
+      cloud,
+      ...Option.match(branch, {
+        onNone: () => ({}),
+        onSome: (branch) => ({ branch }),
+      }),
+    }).pipe(Effect.catch(exitWith)),
+).pipe(
+  Command.withDescription(
+    'Sign out and forget this Machine, keeping its Projects and Sessions',
+  ),
+);
+
+const { version } = JSON.parse(
+  readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
+) as { readonly version: string };
+
+/** Runs `ke-connect` on this process's arguments, until it ends. */
+export const main = () =>
+  Command.make('ke-connect', {}, () => Effect.void).pipe(
+    Command.withSubcommands([serveCommand, logoutCommand]),
+    Command.run({ version }),
+    Effect.provide(NodeServices.layer),
+    NodeRuntime.runMain,
   );

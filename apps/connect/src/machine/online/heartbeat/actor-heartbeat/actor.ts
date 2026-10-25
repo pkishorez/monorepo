@@ -4,7 +4,7 @@ import {
   addressOf,
   MachineStatus,
   TunnelCheck,
-} from '../../cloud/contract/index.js';
+} from '../../../../cloud/contract/index.js';
 import { HeartbeatHost } from '../capabilities/index.js';
 
 /*
