@@ -143,6 +143,41 @@ describe('moveLegacy', () => {
     expect(existsSync(join(legacy, 'MOVING'))).toBe(false);
   });
 
+  it('finishes a move cut short after the attachments were put in place but before the old ones were deleted', () => {
+    write(join(legacy, 'ai.db'), 'db');
+    write(join(legacy, 'attachments', 's1', 'a.txt'), 'attached');
+    const paths = pathsIn(home);
+    // Cut short across disks: the copy was put in place, the old folder stayed.
+    write(join(legacy, 'MOVING'), '');
+    write(join(paths.attachments, 's1', 'a.txt'), 'attached');
+    write(join(`${paths.attachments}.moving`, 's1', 'a.txt'), 'partial');
+
+    Effect.runSync(moveLegacy(paths, legacy));
+
+    expect(readFileSync(paths.db, 'utf8')).toBe('db');
+    expect(readFileSync(join(paths.attachments, 's1', 'a.txt'), 'utf8')).toBe(
+      'attached',
+    );
+    expect(existsSync(`${paths.attachments}.moving`)).toBe(false);
+    expect(lstatSync(join(legacy, 'attachments')).isSymbolicLink()).toBe(true);
+    expect(existsSync(join(legacy, 'MOVING'))).toBe(false);
+  });
+
+  it('finishes a move cut short after the WAL was put in place but before the old one was deleted', () => {
+    write(join(legacy, 'ai.db'), 'db');
+    write(join(legacy, 'ai.db-wal'), 'wal');
+    write(join(legacy, 'MOVING'), '');
+    const paths = pathsIn(home);
+    write(`${paths.db}-wal`, 'wal');
+
+    Effect.runSync(moveLegacy(paths, legacy));
+
+    expect(readFileSync(paths.db, 'utf8')).toBe('db');
+    expect(readFileSync(`${paths.db}-wal`, 'utf8')).toBe('wal');
+    expect(existsSync(join(legacy, 'ai.db-wal'))).toBe(false);
+    expect(existsSync(join(legacy, 'MOVING'))).toBe(false);
+  });
+
   it('keeps a speech model already in Connect’s folder, leaves the old one, and finishes', () => {
     write(join(legacy, 'ai.db'), 'db');
     write(join(legacy, 'speech-to-text', 'model.onnx'), 'old');
