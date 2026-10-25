@@ -6,14 +6,21 @@ glossary's: see [CONTEXT.md](../CONTEXT.md) and, for Code, `apps/code/CONTEXT.md
 ## Which test decides what
 
 - **Behaviour follows input.** A device with no keyboard (`useDevice().keyboard`
-  is false) gets gestures, Picker Modes and no auto-focus. Vim Mode and the keys'
-  status line are off there, however wide the screen.
+  is false) gets gestures and no auto-focus. Vim Mode and the keys' status line
+  are off there, however wide the screen.
+- **A Picker follows the input that opened it**, not the device: keys, a mouse
+  or a touch (`pointerType`, a pen counted as a touch). See Choosing from a
+  list.
 - **Layout follows width.** Below the `md` breakpoint the Sidebar shows in its
   Sidebar Mode; above it, beside the page.
 - Never use `useIsMobile` to decide behaviour, only layout.
 
 ## Focus
 
+- No focus ring or lit border on touch. While the input last used is a touch
+  (`data-input="touch"` on `<html>`, kept by `DEVICE_SCRIPT`), the
+  `focus-visible:` and `focus-within:` variants and the `focus-ring` utility
+  draw nothing. Keys and a mouse still see them.
 - Nothing takes focus on its own. The keyboard rises only when the user taps a
   field or a button made to start typing.
 - A component may opt in to focusing a field as it opens. It then appears at
@@ -28,10 +35,16 @@ glossary's: see [CONTEXT.md](../CONTEXT.md) and, for Code, `apps/code/CONTEXT.md
 
 ## Choosing from a list
 
+A Picker is drawn as the input that opened it asks, whatever the device:
+keys, a fuzzy list in the middle, search focused; a mouse, a popover by its
+button, search focused; a touch, its Picker Mode, nothing focused. A device
+with a keyboard opens a Picker in its Picker Mode when it is tapped. The rest
+of the screen dims behind every Picker, and a tap or click there closes it.
+
 Whoever opens a Picker chooses its Picker Mode for touch:
 
 - **Drawer** for a few choices with nothing to type: effort, permissions,
-  Session Actions, the Draft's `+` menu. It rises from the bottom, animated,
+  Session Actions, the Draft's Quick actions. It rises from the bottom, animated,
   and closes on swipe down, a tap outside, or a choice that finishes it.
 - **Dialog** for a list worth searching: projects, folders, models, Sessions,
   Skills. It sits at the top with the search box above the list, so the
@@ -39,9 +52,6 @@ Whoever opens a Picker chooses its Picker Mode for touch:
   search box is not focused unless the Picker opts in. A tap outside with the
   search box focused only takes focus away; a tap outside with nothing focused
   closes it. No swipe closes it.
-
-With a keyboard, Pickers keep their keyboard shapes: a fuzzy list when opened
-by keys, a popover by its button when opened by pointer, search focused.
 
 ## Gestures
 
