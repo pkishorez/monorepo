@@ -14,6 +14,7 @@ import {
   it,
 } from 'vitest';
 import { keys } from '../../keys.ts';
+import { HOLD } from './actor.ts';
 import { Frame, How, make, useOpen } from './picker.tsx';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -157,6 +158,8 @@ const OwnerLive = Actor.build(Owner, {
               },
         ),
       settle: (choices, { key }) => {
+        // The owner shows something over the place b: the Picker holds.
+        if (key === 'b') return Effect.succeed(HOLD);
         const made = choices.at(-1)?.value ?? '';
         if (made === 'new:bad') return Effect.succeed('Not a good name');
         return Effect.as(self.send({ _tag: 'Settled', place: key }), null);
@@ -436,5 +439,16 @@ describe('Picker Steps, on a device with no keyboard', () => {
     await click(done()!);
     await flush();
     expect(state).toEqual({ settled: ['a/d'], heard: 'a/d' });
+  });
+
+  it('holds where it is when its owner shows something over it, to be chosen from again', async () => {
+    await click(row('walk'));
+    await click(row('b'));
+    await click(done()!);
+    await flush();
+    expect(state).toEqual({ settled: [], heard: null });
+    // Still open on b, and not waiting: it can be chosen from again.
+    expect(document.body.textContent).toContain('/b');
+    expect(done()?.disabled).toBe(false);
   });
 });

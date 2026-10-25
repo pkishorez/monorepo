@@ -20,6 +20,11 @@
       "src/shell/actors/sidebar/arrive"
     ],
     "src/shell/pages/project/session": ["src/shell/pages/project/draft"],
+    "src/shell/actors/pickers/project-picker": ["src/shell/pages/project"],
+    "src/shell/pages/project/starter": [
+      "src/shell/pages/project/capabilities",
+      "src/shell/pages/project/draft"
+    ],
     "src/shell/pages/project/draft": [
       "src/shell/pages/project/capabilities",
       "src/shell/actors/dictation"

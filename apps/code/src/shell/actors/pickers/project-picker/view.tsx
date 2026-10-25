@@ -1,4 +1,6 @@
-import { View } from '@kestack/kabuki/react';
+import { View, type ViewProps } from '@kestack/kabuki/react';
+import { useRouter } from '@kestack/kabuki/routing';
+import { Drawer } from '@kestack/web-platform/recipes/touch-layers';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   PlusIcon,
@@ -7,6 +9,9 @@ import {
 } from '@kestack/web-platform/ui/components/lucide';
 import { keys, useBound } from '../../../../keys.ts';
 import * as Picker from '../../../../ui/picker/index.ts';
+import { Starter } from '../../../pages/project/index.ts';
+import type { Route } from '../../../routes/index.ts';
+import { useEffect } from 'react';
 import { ProjectPickerLive, ProjectsView } from './actor.ts';
 
 /*
@@ -15,8 +20,10 @@ import { ProjectPickerLive, ProjectsView } from './actor.ts';
  * runs its keys, such as home's "Open a folder", in a Drawer when tapped;
  * the Button, the round plus at the right of the sidebar's foot, opens it
  * by pointer as a popover above it, and by a tap in a tall Drawer, its
- * folders too, each tapped into. A folder made without its git repository
- * says so over the page until dismissed.
+ * folders too, each tapped into. Picked there, a Project's new session
+ * opens in a Drawer over it (`Start`); closing that goes back to choosing.
+ * A folder made without its git repository says so over the page until
+ * dismissed.
  */
 
 export const ProjectPickerView = View.make(
@@ -37,6 +44,7 @@ export const ProjectPickerView = View.make(
         label="Open a project"
       >
         {children.picker && <ProjectsView instance={children.picker} />}
+        <Start model={model} starter={children.starter} send={send} />
       </Picker.Frame>
     );
   },
@@ -69,6 +77,7 @@ export const ProjectPickerButton = View.make(
         }
       >
         {children.picker && <ProjectsView instance={children.picker} />}
+        <Start model={model} starter={children.starter} send={send} />
       </Picker.Frame>
     );
   },
@@ -104,3 +113,60 @@ export const ProjectPickerNotice = View.make(
       </p>
     ),
 );
+
+type Self = ViewProps<typeof ProjectPickerLive>;
+
+/**
+ * A Project picked on touch: its new session in a Drawer over the Picker.
+ * Closed, the Picker is where it was; the session started, its page open,
+ * the Picker closes with it.
+ */
+function Start({
+  model,
+  starter,
+  send,
+}: {
+  readonly model: Self['model'];
+  readonly starter: Self['children']['starter'];
+  readonly send: Self['send'];
+}) {
+  const { starting } = model;
+  return (
+    <Drawer
+      open={starting !== null}
+      onOpenChange={(open) => {
+        if (!open) send({ _tag: 'StartClosed' });
+      }}
+      label="New session"
+      tall
+    >
+      {starting !== null && (
+        <ClosedOnStart
+          starting={starting}
+          onStarted={() => send({ _tag: 'Closed' })}
+        />
+      )}
+      {starter && <Starter.view instance={starter} />}
+    </Drawer>
+  );
+}
+
+/** Closes the Picker once the session it started has its page open. */
+function ClosedOnStart({
+  starting,
+  onStarted,
+}: {
+  readonly starting: NonNullable<Self['model']['starting']>;
+  readonly onStarted: () => void;
+}) {
+  const { route } = useRouter<Route>();
+  const started =
+    route._tag === 'Project' &&
+    route.machineId === starting.machineId &&
+    route.projectId === starting.projectId &&
+    route.page?.sessionId !== undefined;
+  useEffect(() => {
+    if (started) onStarted();
+  }, [started]);
+  return null;
+}

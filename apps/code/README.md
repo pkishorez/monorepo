@@ -127,7 +127,11 @@ asks the server again as the search narrows. Mod+Enter chooses the folder
 open; a search that names no folder offers to create it there with a git
 repository. On touch, folders are tapped through, the one open is chosen by
 "Open this folder" under its path, and "New folder" beside it makes one
-there, with a git repository, and goes into it. Either becomes a Project, or opens the one it already is,
+there, with a git repository, and goes into it. On touch, a project
+picked, or a folder made one, opens its new session in a Drawer over the
+Picker (`pages/project/starter/`, the same as the project's page shows),
+and closing it goes back to choosing; the session started, both close on
+its page. Either becomes a Project, or opens the one it already is,
 while the Picker waits and says why if the server refuses; a folder whose
 `git init` failed opens with a warning over the page. `s` opens the
 Session Switcher, every unsettled session across projects and Machines,
