@@ -13,7 +13,7 @@ import { keys, useBound } from '../../../../keys.ts';
 import { Dictation } from '../../../actors/dictation/index.ts';
 import { useOffline } from '../../../machines/index.ts';
 import * as routes from '../../../routes/index.ts';
-import * as Catalog from '../catalog/index.ts';
+import { Catalog } from '../capabilities/index.ts';
 import {
   current,
   DraftLive,

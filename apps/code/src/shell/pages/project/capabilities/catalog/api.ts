@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { CodeClient, type HarnessName } from '@kestack/connect/code';
-import { orRefused } from '../../../machines/index.ts';
+import { orRefused } from '../../../../machines/index.ts';
 
 /*
  * What the catalog reads from the server: the agents it runs, the models

@@ -1,6 +1,6 @@
 import { Context } from 'effect';
 import type { Effect, Stream } from 'effect';
-import type { Model } from '../catalog/index.ts';
+import type { Model } from './catalog/index.ts';
 
 /*
  * The project's catalog, the agents, their models and Skills, as the
