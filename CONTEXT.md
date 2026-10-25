@@ -33,16 +33,16 @@ auth-toolkit's Middleware, `Authz`: which calls need a signed-in user, which pol
 _Avoid_: Auth Cannotation, authz middleware
 
 **Sign-in**:
-How an Account proves who it is, named by mechanism: `cookie` (a browser against the sign-in service), `named` (by name, on the device Backend) or `deviceCode` (a CLI).
+How an Account proves who it is, named by mechanism: `cookie` (a browser against the sign-in service), `fake` (by naming any email, with no Auth Worker) or `deviceCode` (a CLI).
 _Avoid_: auth live, auth expo, auth local, login method
 
 **Account**:
-One user signed in on this device, with their token. Several can be signed in at once; one is active.
+One user signed in on this device, as the device sees them: never a token. Several can be signed in at once; one is active.
 _Avoid_: Signed-in Account, OpenAccount, GateUser, remembered account, local account
 
-**Named Account**:
-An Account on the device Backend, signed in by choosing any name; the same name is always the same user. Its token is a Name Token, which no one verifies.
-_Avoid_: Local Account, Local Token, local sign-in, test user
+**Fake Account**:
+An Account signed in by naming an email at `kestack.test`, through auth-toolkit's Fake, with no Auth Worker; the same email is always the same user. Every app signs in with one under `pnpm dev`. Anyone may be any Fake Account, so it never guards real data.
+_Avoid_: Named Account, Local Account (the former names), test user (a Test User is a real User at a real Auth Worker)
 
 **Recipe**:
 One whole interaction the Web Platform ships ready to use, such as the Sidebar, the Thumb Picker or Local Sign-In.
@@ -69,7 +69,7 @@ Whether the open Account has been confirmed by its Sign-in since the Session ope
 _Avoid_: auth state, loading, confirmed (the word for the Account, not the status)
 
 **API**:
-One of an app's named ways to call a Backend: a group and the Transport it is reached by, such as `ledger: Api.http(LedgerApi, { path: '/rpc' })`. A path is resolved against the cloud address; a full URL is left alone. Every API is signed by the one auth; which calls need it is the Guard's business.
+One of an app's named ways to call a Backend, at the address the app's infra gives it. Under `pnpm dev` every API is on the site's own origin, so one address reaches the whole app. Every API is signed by the one auth; which calls need it is the Guard's business.
 _Avoid_: endpoint, service, client
 
 **Open First**:
