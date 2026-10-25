@@ -22,10 +22,11 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * A Picker under an owner, on the app's own keyboard: a fruit, then its
  * size, which the owner loads, a Step with no search. The page has an
  * editor as its default Focus Spot; every way the Picker closes puts focus
- * back in it, and the owner hears the choices once. On a device with no
- * keyboard it is drawn in the Picker Mode its opener chose, the app's
- * keyboard moves no focus, and nothing focuses the search unless it opts
- * in, and then only once the Dialog is on screen.
+ * back in it, and the owner hears the choices once. It is drawn as the
+ * input that opened it asks, whatever the device: keys, a centred list; a
+ * mouse, a popover; a touch, the Picker Mode its opener chose, where
+ * nothing focuses the search unless it opts in, and then only once the
+ * Dialog is on screen. The rest of the screen dims behind each.
  */
 
 let optIn = false;
@@ -144,7 +145,7 @@ function Page({
         mode={mode}
         label="Fruit"
         focusOnTouch={optIn}
-        onOpen={() => onOpen('pointer')}
+        onOpen={onOpen}
         trigger={
           <button type="button" data-testid="trigger">
             Fruit
@@ -389,6 +390,29 @@ describe('Picker', () => {
     expect(search()).not.toBeNull();
   });
 
+  it('opens by a tap in its Picker Mode, nothing focused, keyboard or not', async () => {
+    // As Chrome's device mode once a key was pressed: a keyboard, then a tap.
+    document.documentElement.dataset['input'] = 'touch';
+    await click(by('trigger'));
+    delete document.documentElement.dataset['input'];
+    expect(document.querySelector('[data-slot="top-dialog"]')).not.toBeNull();
+    expect(document.querySelector('[data-slot="popover-content"]')).toBeNull();
+    expect(search()).not.toBeNull();
+    expect(document.activeElement).not.toBe(search());
+  });
+
+  it('dims the screen behind it, opened by keys or by a mouse', async () => {
+    await openByKeys();
+    expect(
+      document.querySelector('[data-slot="dialog-overlay"]'),
+    ).not.toBeNull();
+    await key('Escape');
+    await click(by('trigger'));
+    expect(
+      document.querySelector('[data-slot="popover-backdrop"]'),
+    ).not.toBeNull();
+  });
+
   it('draws by how it was opened, whatever its Picker Mode', async () => {
     mode = 'drawer';
     await openByKeys();
@@ -414,18 +438,28 @@ describe('Picker', () => {
   });
 });
 
-describe('Picker, on a device with no keyboard', () => {
+describe('Picker, opened by touch', () => {
   beforeAll(() => {
     device = 'touch';
   });
   afterAll(() => {
     device = 'keyboard';
   });
+  beforeEach(() => {
+    // As the page keeps it: the input last used was a touch.
+    document.documentElement.dataset['input'] = 'touch';
+  });
   afterEach(() => {
     optIn = false;
     mode = 'dialog';
     letFramesGo();
+    delete document.documentElement.dataset['input'];
   });
+  /** A tap on the trigger. */
+  const openByTouch = async () => {
+    await click(by('trigger'));
+    expect(search() ?? document.querySelector('[cmdk-item]')).not.toBeNull();
+  };
   // Animation frames held, to run one at a time with `frame`: jsdom fires
   // them on a timer of its own, which a slow run can reach early.
   let held: Array<FrameRequestCallback> | null = null;
@@ -476,8 +510,8 @@ describe('Picker, on a device with no keyboard', () => {
       (item) => item.textContent === label,
     )!;
 
-  it('opens without focusing its search, however it was opened', async () => {
-    await openByKeys();
+  it('opens without focusing its search', async () => {
+    await openByTouch();
     expect(document.activeElement).not.toBe(search());
     expect(rows()).toEqual(['Apple', 'Pear', 'PlumOut of season']);
     await click(row('Apple'));
@@ -485,13 +519,32 @@ describe('Picker, on a device with no keyboard', () => {
     await click(row('Small'));
     await flush();
     expect(owner).toEqual({ chosen: ['apple', 'apple-small'], done: 1 });
-    await click(by('trigger'));
-    expect(search()).not.toBeNull();
-    expect(document.activeElement).not.toBe(search());
+  });
+
+  it('reads a touch from the pointer that opened it, whatever was used last', async () => {
+    delete document.documentElement.dataset['input'];
+    await act(async () => {
+      const tapped = new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+      });
+      Object.assign(tapped, { pointerType: 'pen' });
+      by('trigger').dispatchEvent(tapped);
+    });
+    await flush();
+    expect(dialog()).not.toBeNull();
+  });
+
+  it('opens centred by keys, even on touch', async () => {
+    await openByKeys();
+    expect(dialog()).toBeNull();
+    expect(
+      document.querySelector('[data-slot="dialog-content"]'),
+    ).not.toBeNull();
   });
 
   it('draws the Picker Mode its opener chose, not the width', async () => {
-    await openByKeys();
+    await openByTouch();
     expect(dialog()).not.toBeNull();
     expect(drawer()).toBeNull();
     expect(search()).not.toBeNull();
@@ -500,7 +553,7 @@ describe('Picker, on a device with no keyboard', () => {
     await outside();
     expect(dialog()).toBeNull();
     mode = 'drawer';
-    await click(by('trigger'));
+    await openByTouch();
     expect(drawer()).not.toBeNull();
     expect(dialog()).toBeNull();
     // A Drawer never has a search.
@@ -509,7 +562,7 @@ describe('Picker, on a device with no keyboard', () => {
   });
 
   it('names each Step in its header, goes back from it, and hides the search of a Step without one', async () => {
-    await openByKeys();
+    await openByTouch();
     expect(title()).toBe('Fruit');
     expect(button('Back')).toBeNull();
     await click(row('Pear'));
@@ -522,7 +575,7 @@ describe('Picker, on a device with no keyboard', () => {
   });
 
   it('takes focus from its search on a tap outside, and closes on the next', async () => {
-    await openByKeys();
+    await openByTouch();
     await act(async () => search()!.focus());
     expect(document.activeElement).toBe(search());
     await outside();
@@ -537,7 +590,7 @@ describe('Picker, on a device with no keyboard', () => {
   it('focuses its search only once the Dialog is on screen, when the Picker opts in', async () => {
     optIn = true;
     holdFrames();
-    await openByKeys();
+    await openByTouch();
     expect(dialog()).not.toBeNull();
     expect(document.activeElement).not.toBe(search());
     await frame();

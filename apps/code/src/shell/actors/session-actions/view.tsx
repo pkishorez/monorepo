@@ -9,8 +9,8 @@ import { ActionsView, SessionActionsLive } from './actor.ts';
 
 /*
  * Session Actions, by the header's button while a session is open, where
- * a click opens them as a popover; `a` opens them centred. A tap opens
- * them in a Drawer. On a phone the button is the header's only one, a
+ * a click opens them as a popover and a tap in a Drawer; `a` opens them
+ * centred. On a phone the button is the header's only one, a
  * finger wide.
  */
 
@@ -35,7 +35,7 @@ export const SessionActionsView = View.make(
         how={model.picking}
         mode="drawer"
         label="Session actions"
-        onOpen={() => send({ _tag: 'Open', how: 'pointer', ...at })}
+        onOpen={(how) => send({ _tag: 'Open', how, ...at })}
         side="bottom"
         align="end"
         className="w-72"

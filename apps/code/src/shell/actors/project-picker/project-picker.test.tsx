@@ -160,7 +160,7 @@ const key = async (name: string, init: KeyboardEventInit = {}) => {
 };
 
 /** Opens the Picker from the sidebar, by keys or by its plus, and hands it the Projects. */
-const openFromSidebar = async (how: 'keys' | 'pointer') => {
+const openFromSidebar = async (how: 'keys' | 'mouse') => {
   await act(async () => {
     row().dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
     row().focus();
@@ -217,7 +217,7 @@ describe('the Project Picker', () => {
     expect(document.activeElement).toBe(search());
   });
 
-  it.each(['keys', 'pointer'] as const)(
+  it.each(['keys', 'mouse'] as const)(
     'opened from the sidebar by %s, goes on to the page as a Project is chosen',
     async (how) => {
       await openFromSidebar(how);

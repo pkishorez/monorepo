@@ -13,10 +13,10 @@ import type { ReactElement, ReactNode } from 'react';
 import type { Change } from './shape.ts';
 
 /*
- * A Picker on a device with a keyboard: by its trigger in a popover when
- * opened by pointer, or a list centred on the page when opened by keys.
- * Base UI moves no focus as either closes: leaving the Surface puts it
- * back where it was.
+ * A Picker opened by a mouse, in a popover by its trigger, or by keys, as
+ * a list centred on the page; the rest of the screen dims behind either,
+ * and a click there closes it. Base UI moves no focus as either closes:
+ * leaving the Surface puts it back where it was.
  */
 
 /** The trigger, and the popover it opens. */
@@ -46,6 +46,7 @@ export function ByTrigger({
         side={side}
         align={align}
         finalFocus={false}
+        backdrop
         aria-label={label}
         className={cn('w-80 gap-0 overflow-hidden p-0', className)}
       >
