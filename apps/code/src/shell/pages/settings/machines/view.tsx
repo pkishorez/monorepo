@@ -28,9 +28,9 @@ type Machine = typeof MachineSchema.Type;
  * its name, and under it how it stands, its dot and its Line and Last Seen
  * as the sidebar says them, then its tunnel and the version of Connect it
  * runs, and a quiet Forget, which asks first; then, each between rules,
- * its agents' accounts and its Speech to Text switch, each asked of the
- * Machine on its own, the switch shown as last kept, so one that does not
- * answer says so in its own place. Below, the way to the Auth Worker's Home
+ * its agents' accounts and its Speech to Text switch, each shown as last
+ * kept and asked of the Machine on its own, so one that does not answer
+ * says so in its own place. Below, the way to the Auth Worker's Home
  * Page, where a Machine's Sign-in is revoked outright.
  */
 

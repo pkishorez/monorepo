@@ -1,5 +1,6 @@
 import { Effect, Layer, Schema } from 'effect';
 import {
+  HarnessAccountInfo,
   Machine as MachineSchema,
   SpeechToTextState,
 } from '@kestack/connect/code';
@@ -31,12 +32,18 @@ const SavedSchema = EntityESchema.make('SavedMachines', 'accountId', {
 
 const SettingsSchema = EntityESchema.make('SavedMachineSettings', 'key', {
   speech: Schema.NullOr(Schema.String),
-}).build();
+})
+  .evolve('v2', { accounts: Schema.NullOr(Schema.String) }, (v1) => ({
+    ...v1,
+    accounts: null,
+  }))
+  .build();
 
 const List = Schema.fromJsonString(Schema.Array(MachineSchema));
 const decode = Schema.decodeUnknownEffect(List);
 const encode = Schema.encodeEffect(List);
 
+const Accounts = Schema.fromJsonString(Schema.Array(HarnessAccountInfo));
 const Speech = Schema.fromJsonString(SpeechToTextState);
 
 /** A part kept as JSON, read back; null when never kept or no longer read. */
@@ -97,6 +104,7 @@ const make = (layer: Layer.Layer<StdTableService<typeof TABLE>>) =>
         });
         if (row === null) return noSettings;
         return {
+          accounts: yield* readPart(Accounts, row.value.accounts),
           speech: yield* readPart(Speech, row.value.speech),
         } satisfies SavedSettings;
       }).pipe(
@@ -106,19 +114,29 @@ const make = (layer: Layer.Layer<StdTableService<typeof TABLE>>) =>
     keepSettings: (accountId, machineId, settings) =>
       Effect.gen(function* () {
         const key = keyOf(accountId, machineId);
-        const part =
-          settings.speech === undefined
+        const part = {
+          ...(settings.accounts === undefined
+            ? {}
+            : {
+                accounts:
+                  settings.accounts === null
+                    ? null
+                    : yield* Schema.encodeEffect(Accounts)(settings.accounts),
+              }),
+          ...(settings.speech === undefined
             ? {}
             : {
                 speech:
                   settings.speech === null
                     ? null
                     : yield* Schema.encodeEffect(Speech)(settings.speech),
-              };
+              }),
+        };
         const row = yield* settingsRows.get({ key });
         if (row === null)
           return yield* settingsRows.insert({
             key,
+            accounts: null,
             speech: null,
             ...part,
           });

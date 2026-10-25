@@ -75,7 +75,10 @@ export const MachineSettingsLive = Page.build(MachineSettings, {
     accounts: {
       actor: HarnessAccounts.actor,
       each: ({ model }) => (model.machines ?? []).map(({ id }) => id),
-      input: (_, machineId) => ({ machineId }),
+      input: ({ model }, machineId) => ({
+        machineId,
+        accountId: model.accountId ?? '',
+      }),
     },
     speech: {
       actor: SpeechToText.actor,

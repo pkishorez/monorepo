@@ -1,6 +1,7 @@
 import { Context } from 'effect';
 import type { Effect } from 'effect';
 import type {
+  HarnessAccountInfo,
   Machine as MachineSchema,
   SpeechToTextState,
 } from '@kestack/connect/code';
@@ -18,11 +19,12 @@ type Machine = typeof MachineSchema.Type;
 
 /** A Machine's settings as it last said them; each null until it has. */
 export interface SavedSettings {
+  readonly accounts: ReadonlyArray<HarnessAccountInfo> | null;
   readonly speech: SpeechToTextState | null;
 }
 
 /** What a Machine never heard from on this device reads as. */
-export const noSettings: SavedSettings = { speech: null };
+export const noSettings: SavedSettings = { accounts: null, speech: null };
 
 /** The Capability that keeps each Account's last list, and each of its Machines' settings. */
 export class SavedMachines extends Context.Service<

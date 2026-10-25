@@ -74,8 +74,7 @@ shell ─ Props: place (the Draft open) ─────────────�
 shell ─ Props: bindings ────────────────────────▶ session-actions, keys-picker
 project ─ Provides CodeClient of :machineId, SharedCatalog ───────▶ session
 draft ─ Provides TouchDraft.owner ───────────────────▶ touch
-machines ─ each id; Input: machineId ───────────────▶ harness-accounts
-machines ─ each id; Input: machineId, accountId ────▶ speech-to-text
+machines ─ each id; Input: machineId, accountId ────▶ harness-accounts, speech-to-text
 harness-accounts ─ each key; Provides AccountList; Props: account ▶ card
 ```
 
@@ -196,7 +195,7 @@ sidebar ─ Worker: moves, from Moves ──────────────
 
 ## home · settings · general · shortcuts · machines · harness-accounts · speech-to-text
 
-Settings is a page of three pages, drawn as tabs beside the one open. General reads and writes Device State; the Microphone is chosen through the Microphone Picker's `Opener`. The Shortcuts page holds the Shortcuts Actor, which reads and writes the Bindings in Device State. Home and Machine Settings follow `Machines`; Machine Settings draws each Machine's Line and Last Seen from the shell's `Connection`, as the sidebar does. Each per-Machine Child gets its Machine by Input. Speech to Text also gets its Account, reads what `SavedMachines` kept of it first, and keeps what the Machine says. Harness Accounts reads its Machine's accounts over `CodeClients`; each card saves or removes its own and tells the list through `AccountList`. Speech to Text reads its state from `Machines` and switches it over `CodeClients`. Speech to Text's View locks it while the Machine's Line is not connected.
+Settings is a page of three pages, drawn as tabs beside the one open. General reads and writes Device State; the Microphone is chosen through the Microphone Picker's `Opener`. The Shortcuts page holds the Shortcuts Actor, which reads and writes the Bindings in Device State. Home and Machine Settings follow `Machines`; Machine Settings draws each Machine's Line and Last Seen from the shell's `Connection`, as the sidebar does. Each per-Machine Child gets its Machine and Account by Input, reads what `SavedMachines` kept of it first, and keeps what the Machine says. Harness Accounts reads its Machine's accounts over `CodeClients`; each card saves or removes its own and tells the list through `AccountList`. Speech to Text reads its state from `Machines` and switches it over `CodeClients`. Their Views lock them while the Machine's Line is not connected.
 
 ### Decisions
 
