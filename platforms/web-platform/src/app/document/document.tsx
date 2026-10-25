@@ -5,9 +5,14 @@ import { DEVICE_SCRIPT } from '../../ui/input/device/index.ts';
 import { FontPreload, type createTheme } from '../../ui/theme/index.ts';
 
 // Drawn under the notch and home bar, which the App Shell pads for; the
-// on-screen keyboard shrinks the page rather than covering it.
+// on-screen keyboard shrinks the page rather than covering it; and never
+// zoomed, as an app is not.
 const VIEWPORT =
-  'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content';
+  'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content';
+
+// iOS Safari zooms on a pinch whatever the viewport says: its gesture
+// events, which only Safari sends, are stopped.
+const NO_ZOOM_SCRIPT = `for(const t of['gesturestart','gesturechange'])addEventListener(t,e=>e.preventDefault(),{passive:false})`;
 
 /*
  * The Document for an app on Kabuki Start, with the Web Platform's look
@@ -20,7 +25,8 @@ const VIEWPORT =
  * 3. Device  the script that marks `<html>` with `data-keyboard` and
  *            `data-touch`, for the `keyboard:` and `touch:` variants.
  * 4. Screen  the viewport drawn under the notch and home bar, which the
- *            App Shell pads for.
+ *            App Shell pads for, and never zoomed: no pinch, no double
+ *            tap, no zoom into a field it focuses, iOS's included.
  * 5. PWA     the manifest and the Build ID in the head, and around the
  *            app the worker, the Update Prompt and the Install Prompt;
  *            nothing in a build `app({ pwa: false })` made.
@@ -58,6 +64,7 @@ export const document = ({
           <FontPreload />
           <theme.Script />
           <script dangerouslySetInnerHTML={{ __html: DEVICE_SCRIPT }} />
+          <script dangerouslySetInnerHTML={{ __html: NO_ZOOM_SCRIPT }} />
           <PwaHead />
           {head}
         </head>

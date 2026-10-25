@@ -71,10 +71,20 @@
 }
 
 /*
- * A field a finger types in is never under 16px, so iOS never zooms the
- * page in on it as it takes focus, and pinch zoom stays. Outside any
- * layer, it wins over the utilities that size it smaller.
+ * The page is never zoomed, as an app is not. `manipulation` scrolls
+ * either way and ends the double tap's zoom, iOS's too; the Document's
+ * viewport and script stop the pinch. It is a base, so a part that takes
+ * its own gestures, as a swipe does, still sets its own. A field a finger
+ * types in is never under 16px, so iOS never zooms in on it as it takes
+ * focus: outside any layer, to win over the utilities that size it
+ * smaller.
  */
+@layer base {
+  * {
+    touch-action: manipulation;
+  }
+}
+
 @media (pointer: coarse) {
   :is(
     input,
