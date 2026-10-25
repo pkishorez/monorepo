@@ -150,10 +150,10 @@ than one and, while that Machine does not answer, when it was last seen,
 and at its right a 6px dot only when it needs attention: breathing while
 it runs, red when its last turn failed, amber when the server's stopping
 cut it off. On a touch screen a row swipes left to right to Settle it.
-Last of all, "Settled" with how many opens the Settled List
-(`settled-list/`) in its place, the most recently Settled first, each row
-opening its session or Un-settling it, by its button or a swipe right to
-left; "Recent", or a swipe left to right across it, goes back. Two round
+Last of all, a quieter "Settled" with how many opens the Settled List
+(`settled-list/`) under it, and closes it again: the most recently Settled
+first, each row opening its session or Un-settling it, by its button or a
+swipe right to left. Two round
 buttons float over its foot: You, a Drawer with who is signed in (which
 opens the Accounts in a Drawer on top), the theme and Settings, and New
 project, the Project Picker.

@@ -44,7 +44,7 @@ import { SwipeToMove } from './swipe/index.ts';
  * name under it, then its Machine's while there is more than one, and its
  * status at the right. A Machine that does not answer keeps what it last
  * synced, its rows saying when it was last seen. Last of all, "Settled"
- * with how many opens the Settled List in place of the timeline. While
+ * with how many, quieter, opens the Settled List under it, and closes it. While
  * nothing is held and some Machine's were never synced here, each such
  * Machine is listed instead, saying how far it got: downloading
  * cloudflared, opening its tunnel, connecting. Its foot, the two buttons
@@ -53,7 +53,8 @@ import { SwipeToMove } from './swipe/index.ts';
  * The whole sidebar is the `sidebar` Surface, which the App View draws. A
  * cursor goes through the rows shown, "Settled" last: j and k move it,
  * g g and Shift+G go to the first and the last, and Enter opens the row
- * and goes to the page, or, on "Settled", opens the list and stays.
+ * and goes to the page, or, on "Settled", opens or closes the list and
+ * stays.
  * Escape goes back to the page. The cursor follows the place open, and
  * entering the sidebar opens it if it was shut.
  *
@@ -108,12 +109,13 @@ export function Places({
   const recent = recentOf(projects.rows, sessions);
   const settled = settledOf(projects.rows, sessions);
   const toggleSettled = () => setSettledOpen((now) => !now);
-  const stops: ReadonlyArray<Stop> = settledOpen
-    ? settled.map(({ place }) => ({ place, opens: true }))
-    : [
-        ...recent.map(({ place }) => ({ place, opens: true })),
-        { place: 'settled', opens: false },
-      ];
+  const stops: ReadonlyArray<Stop> = [
+    ...recent.map(({ place }) => ({ place, opens: true })),
+    { place: 'settled', opens: false },
+    ...(settledOpen
+      ? settled.map(({ place }) => ({ place, opens: true }))
+      : []),
+  ];
 
   const surface = keys.useSurface('sidebar');
   // Lit, with its cursor drawn, only in Vim Mode; the keys are in it either way.
@@ -166,71 +168,71 @@ export function Places({
     (projects.waiting === null || projects.waiting.length > 0);
   return (
     <div ref={cursor.list} className="flex flex-col px-2 pb-1">
-      {settledOpen ? (
-        <SettledList
-          listed={settled}
-          open={from && { machineId: from.machineId, id: from.sessionId }}
-          at={at}
-          onUnsettle={onUnsettle}
-          onMove={onMove}
-          onClose={toggleSettled}
-        />
-      ) : (
-        <>
-          {waiting ? (
-            <Waiting machines={projects.waiting} />
-          ) : recent.length === 0 ? (
-            <p className="px-3 py-2 text-[15px] text-pretty text-muted-foreground keyboard:md:text-sm">
-              No sessions yet. Start one with the plus
-              {picks === null ? '' : `, or ${picks}`}: pick a folder, then say
-              what to do.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-4 keyboard:md:gap-3">
-              {timelineOf(recent, Date.now()).map(({ day, entries }) => (
-                <section key={day} aria-label={day}>
-                  <h3 className="px-3 pb-1 text-[13px] font-medium text-muted-foreground keyboard:md:text-xs">
-                    {day}
-                  </h3>
-                  <SidebarMenu className="gap-0">
-                    {entries.map((entry) => (
-                      <SessionRow
-                        key={entry.place}
-                        entry={entry}
-                        here={here}
-                        at={at}
-                        titles={titles}
-                        isUnseen={isUnseen}
-                        onMove={onMove}
-                      />
-                    ))}
-                  </SidebarMenu>
-                </section>
-              ))}
-            </div>
-          )}
-          <SidebarMenu className="mt-4 keyboard:md:mt-3">
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                data-place="settled"
-                data-cursor={at('settled')}
-                onClick={toggleSettled}
-                className={`h-12 gap-3 rounded-xl px-3 text-[15px] keyboard:md:h-8 keyboard:md:text-[13px] ${cursorRing}`}
-              >
-                <ArchiveIcon aria-hidden className="text-muted-foreground" />
-                <span className="flex-1">Settled</span>
-                <span className="tabular-nums text-muted-foreground">
-                  {settled.length}
-                </span>
-                <ChevronRightIcon
-                  aria-hidden
-                  className="text-muted-foreground/60"
-                />
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </>
-      )}
+      <>
+        {waiting ? (
+          <Waiting machines={projects.waiting} />
+        ) : recent.length === 0 ? (
+          <p className="px-3 py-2 text-[15px] text-pretty text-muted-foreground keyboard:md:text-sm">
+            No sessions yet. Start one with the plus
+            {picks === null ? '' : `, or ${picks}`}: pick a folder, then say
+            what to do.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-4 keyboard:md:gap-3">
+            {timelineOf(recent, Date.now()).map(({ day, entries }) => (
+              <section key={day} aria-label={day}>
+                <h3 className="px-3 pb-1 text-[13px] font-medium text-muted-foreground keyboard:md:text-xs">
+                  {day}
+                </h3>
+                <SidebarMenu className="gap-0">
+                  {entries.map((entry) => (
+                    <SessionRow
+                      key={entry.place}
+                      entry={entry}
+                      here={here}
+                      at={at}
+                      titles={titles}
+                      isUnseen={isUnseen}
+                      onMove={onMove}
+                    />
+                  ))}
+                </SidebarMenu>
+              </section>
+            ))}
+          </div>
+        )}
+        {/* Quiet, but a finger's height to hit. */}
+        <SidebarMenu className="mt-4 keyboard:md:mt-3">
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              data-place="settled"
+              data-cursor={at('settled')}
+              aria-expanded={settledOpen}
+              onClick={toggleSettled}
+              className={`h-11 gap-2 rounded-xl px-3 text-[13px] text-muted-foreground/80 hover:text-muted-foreground keyboard:md:h-7 keyboard:md:text-xs ${cursorRing}`}
+            >
+              <ArchiveIcon aria-hidden className="size-3.5!" />
+              <span>Settled</span>
+              <span className="tabular-nums text-muted-foreground/60">
+                {settled.length}
+              </span>
+              <ChevronRightIcon
+                aria-hidden
+                className={`ml-auto size-3.5! text-muted-foreground/50 transition-transform duration-150 motion-reduce:transition-none ${settledOpen ? 'rotate-90' : ''}`}
+              />
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+        {settledOpen && (
+          <SettledList
+            listed={settled}
+            open={from && { machineId: from.machineId, id: from.sessionId }}
+            at={at}
+            onUnsettle={onUnsettle}
+            onMove={onMove}
+          />
+        )}
+      </>
     </div>
   );
 }
