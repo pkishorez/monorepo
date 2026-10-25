@@ -1,4 +1,4 @@
-import { View } from '@kestack/kabuki/react';
+import { useChild, View } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import {
@@ -7,7 +7,8 @@ import {
   WifiOffIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
-import { createContext, type ReactNode, use } from 'react';
+import { useDevice } from '@kestack/web-platform/ui/input';
+import { createContext, type ReactNode, use, useRef } from 'react';
 import { keys, useBound } from '../../../../keys.ts';
 import { Dictation } from '../../../actors/dictation/index.ts';
 import { useOffline } from '../../../connection/index.ts';
@@ -21,11 +22,12 @@ import {
   skillsOf,
 } from './actor.ts';
 import { AskAnswer } from './ask.tsx';
+import { AttachmentStrip } from './attachments/index.ts';
 import { btwQuestion } from './btw.ts';
 import { Card, PRIMARY, StatusLine, useDraft } from './card.tsx';
 import { Chip, ModelPicker, Triggers } from './model-picker/index.ts';
 import { SkillPicker } from './skills.ts';
-import { TouchCard } from './touch.tsx';
+import { TouchDraft } from './touch/index.ts';
 
 /*
  * The Draft at the page's foot: the line that says why nothing can be
@@ -35,8 +37,8 @@ import { TouchCard } from './touch.tsx';
  * says Start session; a Session's says Send, Steer while the agent runs, or
  * Ask for a `/btw`, whose answer floats over it until Escape closes it.
  * What the page adds, such as a Session's Stop, comes through `Slots`. On
- * a device with no keyboard the card is the touch one (`touch.tsx`), with
- * the model chip in place of the triggers.
+ * a device with no keyboard it is the Touch Draft (`touch/`), with the
+ * model chip in place of the triggers, and every send goes through it.
  */
 
 /** What the page that holds the Draft adds to its foot. */
@@ -63,6 +65,10 @@ export const DraftView = View.make(
     const fresh = to._tag === 'NewSession';
     const running = to._tag === 'Session' && to.running;
     const describedBy = fresh ? 'new-session-offline' : 'draft-offline';
+    const { keyboard } = useDevice();
+    const touchState = useChild(children.touch, ({ state }) => state._tag);
+    // On touch, set by the Touch Draft's View: a send goes through it.
+    const touchSend = useRef<(() => void) | null>(null);
     const draft = useDraft({
       label: fresh ? 'First message' : running ? 'Steer the agent' : 'Message',
       placeholder: fresh
@@ -78,7 +84,9 @@ export const DraftView = View.make(
       insert: model.insert,
       onInsert: (what) => send({ _tag: 'InsertAsked', what }),
       onSend: () => {
-        if (offline === null) send({ _tag: 'SendAsked' });
+        if (offline !== null) return;
+        if (!keyboard && touchSend.current !== null) touchSend.current();
+        else send({ _tag: 'SendAsked' });
       },
       known: SkillPicker.known(skills),
       skills: {
@@ -95,6 +103,7 @@ export const DraftView = View.make(
       },
       dictation,
       disabled: model.starting,
+      editing: touchState === 'Editing',
       ...(offline === null ? {} : { describedBy }),
     });
     keys.useAction('content.close', () => send({ _tag: 'AnswerDismissed' }), {
@@ -189,43 +198,65 @@ export const DraftView = View.make(
           )
         )}
         {draft.touch ? (
-          <TouchCard
-            draft={draft}
-            actions={slots.actions}
-            send={
-              <Button
-                type="button"
-                size="icon"
-                aria-label={label}
-                disabled={blocked}
-                onClick={draft.send}
-                className="size-11 shrink-0 rounded-full [&_svg:not([class*=size-])]:size-5"
-              >
-                {model.starting ? <Spinner /> : <ArrowUpIcon aria-hidden />}
-              </Button>
-            }
-            chip={
-              <Chip
-                catalog={model.catalog}
-                current={current(model, props)}
-                started={!fresh}
-                how={picking?._tag === 'Model' ? picking.how : null}
-                onOpen={(at) =>
-                  send({
-                    _tag: 'PickerOpened',
-                    picking: { _tag: 'Model', how: 'touch', at },
-                  })
-                }
-                onSet={(key, value) =>
-                  send({ _tag: 'SettingChosen', key, value })
-                }
-              >
-                {children.models && (
-                  <ModelPicker.View instance={children.models} />
-                )}
-              </Chip>
-            }
-          />
+          <TouchDraft.Touch
+            value={{
+              draft,
+              label,
+              blocked,
+              starting: model.starting,
+              actions: slots.actions,
+              attachments:
+                draft.attachments.length > 0 ||
+                draft.files.refused.length > 0 ? (
+                  <AttachmentStrip
+                    attachments={draft.attachments}
+                    refused={draft.files.refused}
+                    disabled={draft.disabled}
+                    onRemove={draft.files.remove}
+                  />
+                ) : null,
+              onAsk:
+                to._tag === 'Session'
+                  ? () => {
+                      const view = draft.view.current;
+                      if (view === null) return;
+                      if (btwQuestion(view.state.doc.toString()) === null)
+                        view.dispatch({
+                          changes: { from: 0, insert: '/btw ' },
+                        });
+                      view.dispatch({
+                        selection: { anchor: view.state.doc.length },
+                      });
+                    }
+                  : null,
+              onPaste: (text) =>
+                send({ _tag: 'InsertAsked', what: { _tag: 'Text', text } }),
+              sending: touchSend,
+              chip: (
+                <Chip
+                  catalog={model.catalog}
+                  current={current(model, props)}
+                  started={!fresh}
+                  how={picking?._tag === 'Model' ? picking.how : null}
+                  onOpen={(at) =>
+                    send({
+                      _tag: 'PickerOpened',
+                      picking: { _tag: 'Model', how: 'touch', at },
+                    })
+                  }
+                  onSet={(key, value) =>
+                    send({ _tag: 'SettingChosen', key, value })
+                  }
+                >
+                  {children.models && (
+                    <ModelPicker.View instance={children.models} />
+                  )}
+                </Chip>
+              ),
+            }}
+          >
+            <TouchDraft.view instance={children.touch} />
+          </TouchDraft.Touch>
         ) : (
           <Card draft={draft}>
             <StatusLine

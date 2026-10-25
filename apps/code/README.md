@@ -204,9 +204,10 @@ any listed Machine that is; refused, the placeholder reads "couldn't
 transcribe — retry", which sends the same clip again. Escape never touches
 a Dictation.
 
-A Picker (`src/ui/picker/`) is a stack of Steps drawn by cmdk: opened by keys
-it is a centred list, by pointer a popover by its button, and a trail shows
-the choices so far ([CONTEXT.md](./CONTEXT.md)). In a session,
+A Picker (`src/ui/picker/`) is a stack of Steps drawn by cmdk, as the input
+that opened it asks, whatever the device: by keys a centred list, by a mouse
+a popover by its button, by a touch a Drawer or a Dialog at the top; the
+screen dims behind it, and a trail shows the choices so far ([CONTEXT.md](./CONTEXT.md)). In a session,
 `/btw <question>` asks the session on the side and shows the answer in a
 popover; nothing is kept. Each finished turn can be forked from, which
 opens a new session that remembers the conversation up to that turn. A
@@ -284,19 +285,26 @@ slides it away, and the header's back arrow, or a swipe from the left
 edge, brings it back. On a touch screen a session row swipes left to right
 to Settle it, or, in the Settled List, to un-Settle it: it slides out, the
 list closes up, and a toast offers Undo for five seconds; pulling the
-sidebar down from its top Reloads the Machines. Pickers fill the screen,
-the header keeps only where you are, the Machine's offline mark and one
+sidebar down from its top Reloads the Machines. A tap opens a Picker in a
+Drawer or a Dialog at the top, nothing focused, and there is no focus ring
+while you touch. The header keeps only where you are, the Machine's offline mark and one
 `⋯` for Session Actions, and a touch screen with no keyboard is shown
 no keys: no hints, no Vim status line, no keyboard settings. Vim Mode is off
 on a device with no keyboard whatever is kept, however wide its screen, and
 nothing takes focus as it opens there, a Picker's search included. The Draft's
 one round button is the microphone while there is nothing to send, Send
 once there is, and a stop while a Dictation records; a narrow Draft folds
-Skills, the paperclip and the microphone behind a "+". With no keyboard the
-Draft is read only and two lines tall until its edit button makes it the
-Composer; under it the microphone sits in the middle, largest, beside a `+`
-Drawer (a file, a photo, the microphone), a model chip whose Drawer changes
-effort and permissions in place, Skills, and Send.
+Skills, the paperclip and the microphone behind a "+". With no keyboard it is
+the Touch Draft (`pages/project/draft/touch/`), its own actor: one microphone
+at the bottom right, and Send over it once there is text, which a tap or a
+swipe of the microphone up onto it sends. While a Dictation records, the
+microphone takes it, a swipe up takes it and sends once it is text, and a
+small cancel on the left throws it away beside its time and level. Left of
+it, two lines of the Draft, read only, which a tap shows whole; edit, which
+makes the whole card the Composer above the keyboard with Done; and the model
+chip, whose Drawer changes effort and permissions in place, Skills, and Quick
+actions, a Drawer to ask on the side, paste, attach a file or a photo, or
+choose the microphone.
 
 The app is a PWA ([`@kestack/web-platform/pwa`](../../platforms/web-platform/README.md)):
 "Code" installs with its Mark as the icon (`public/`), opens on iOS to a

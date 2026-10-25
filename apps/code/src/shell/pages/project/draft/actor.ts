@@ -12,6 +12,7 @@ import { ask, retryCatalog, send, startSession } from './commands.ts';
 import { Attached, Insert, wire } from './message.ts';
 import { ModelPicker } from './model-picker/index.ts';
 import { SkillPicker } from './skills.ts';
+import { TouchDraft } from './touch/index.ts';
 
 /*
  * The Draft: the next message of a page, a new session's first or an open
@@ -40,6 +41,8 @@ import { SkillPicker } from './skills.ts';
  * 6. Ask      a Draft that starts with `/btw` is a question on the side:
  *             its answer shows over the Status Line, never in the
  *             transcript. A newer question replaces it.
+ * 7. Touch    on a device with no keyboard it is drawn as the Touch Draft,
+ *             a Child that keeps how it stands, and has it sent.
  */
 
 /** A Session's agent, model and settings, as its row says them. */
@@ -324,8 +327,11 @@ export const DraftLive = Actor.build(Draft, {
             : { _tag: 'ModelChosen', chosen },
         ),
       ),
+      TouchDraft.owner(self.send({ _tag: 'SendAsked' })),
     ),
   children: {
+    // On a device with no keyboard, the Draft is drawn as the Touch Draft.
+    touch: { actor: TouchDraft.actor },
     skills: {
       actor: SkillPicker.Live,
       while: ({ model }) => model.picking?._tag === 'Skills',

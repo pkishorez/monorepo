@@ -4,23 +4,12 @@ import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { Layer, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { toReact, View, type ViewProps } from '@kestack/kabuki/react';
-import { undoDepth } from '@codemirror/commands';
-import { EditorView } from '@codemirror/view';
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-} from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { keys } from '../../../../keys.ts';
 import * as Picker from '../../../../ui/picker/index.ts';
 import { Card, StatusLine, useDraft } from './card.tsx';
 import { Insert } from './message.ts';
 import { SkillPicker } from './skills.ts';
-import { TouchCard } from './touch.tsx';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -37,15 +26,11 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * Its one primary button is the mic while there is nothing to send, Send
  * once there is, and stops a Dictation while one records.
  *
- * On a device with no keyboard it is read only at rest, two lines tall
- * until expanded, and its edit button makes it the Composer, focused in
- * the same tap, until focus leaves it. A Dictation's placeholder and text
- * go in at the cursor of the last edit, else at the end.
+ * On a device with no keyboard it is the Touch Draft (`touch/`).
  */
 
-// What the device can be driven by, and the Draft's text as it opens.
-let touch = false;
-let initial = 'Please ';
+// The Draft's text as it opens.
+const initial = 'Please ';
 
 const Pending = Schema.TaggedUnion({
   Transcribing: { id: Schema.Finite },
@@ -236,17 +221,6 @@ function OnPage({
       onShown: showing,
     },
   });
-  // As the page draws it: by what the device can be driven by, live.
-  if (draft.touch)
-    return (
-      <div ref={page} tabIndex={-1} data-testid="page">
-        <TouchCard
-          draft={draft}
-          chip={null}
-          send={<button type="button" aria-label="Send" onClick={draft.send} />}
-        />
-      </div>
-    );
   return (
     <div ref={page} tabIndex={-1} data-testid="page">
       <Card draft={draft} />
@@ -332,7 +306,7 @@ beforeAll(() => {
 
 beforeEach(async () => {
   // As the page marks it before the first paint.
-  document.documentElement.toggleAttribute('data-keyboard', !touch);
+  document.documentElement.toggleAttribute('data-keyboard', true);
   const App = toReact(PageLive, PageView, Layer.empty, {
     name: `draft-test-${apps++}`,
   });
@@ -487,219 +461,5 @@ describe('Draft', () => {
     await flush();
     expect(placeholder()).toBeNull();
     expect(page.text).toBe('Please ');
-  });
-});
-
-describe('Draft, on a device with no keyboard', () => {
-  beforeAll(() => {
-    touch = true;
-  });
-  afterAll(() => {
-    touch = false;
-  });
-
-  const button = (label: string) =>
-    document.querySelector<HTMLElement>(`button[aria-label="${label}"]`);
-  const pill = () =>
-    [...document.querySelectorAll<HTMLElement>('button')].find(
-      ({ textContent }) => textContent === 'Write a message…',
-    );
-  const tap = async (target: HTMLElement) => {
-    await act(async () => target.click());
-    await flush();
-  };
-  const leave = async () => {
-    await act(async () =>
-      document
-        .querySelector<HTMLElement>('input[aria-label="Elsewhere"]')!
-        .focus(),
-    );
-    await flush();
-  };
-
-  it('is read only at rest, and a tap on its words does nothing', async () => {
-    expect(editor().getAttribute('contenteditable')).toBe('false');
-    expect(card().dataset['writing']).toBeUndefined();
-    await act(async () => {
-      for (const type of ['pointerdown', 'pointerup'])
-        editor().dispatchEvent(
-          new PointerEvent(type, { bubbles: true, pointerType: 'touch' }),
-        );
-      editor().click();
-    });
-    await flush();
-    expect(editor().getAttribute('contenteditable')).toBe('false');
-    expect(document.activeElement).not.toBe(editor());
-  });
-
-  it('becomes the Composer from its edit button, focused in the same tap, and read only again once focus leaves', async () => {
-    let focused = false;
-    await act(async () => {
-      button('Edit the message')!.click();
-      // Before anything else runs: iOS raises its keyboard only then.
-      focused = document.activeElement === editor();
-    });
-    expect(focused).toBe(true);
-    await flush();
-    expect(card().dataset['writing']).toBe('true');
-    expect(editor().getAttribute('contenteditable')).toBe('true');
-    expect(button('Edit the message')).toBeNull();
-    await leave();
-    expect(card().dataset['writing']).toBeUndefined();
-    expect(editor().getAttribute('contenteditable')).toBe('false');
-    expect(page.text).toBe('Please ');
-  });
-
-  it('is one wide pill while empty, which edits it too', async () => {
-    expect(pill()).toBeUndefined();
-    await tap(button('Send')!);
-    expect(page.text).toBe('');
-    // Send keeps its place, hidden, so the microphone does not move.
-    expect(button('Send')!.closest('.invisible')).not.toBeNull();
-    expect(button('Edit the message')).toBeNull();
-    let focused = false;
-    await act(async () => {
-      pill()!.click();
-      focused = document.activeElement === editor();
-    });
-    expect(focused).toBe(true);
-    await flush();
-    expect(pill()).toBeUndefined();
-    expect(card().dataset['writing']).toBe('true');
-  });
-
-  it('shows "Transcribing…" where the cursor of the last edit was, then the text there', async () => {
-    await tap(button('Edit the message')!);
-    const view = EditorView.findFromDOM(editor())!;
-    await act(async () => view.dispatch({ selection: { anchor: 6 } }));
-    await leave();
-    await act(async () => dictate({ _tag: 'Transcribing', id: 4 }));
-    await flush();
-    expect(placeholder()?.textContent).toBe('transcribing…');
-    expect(editor().getAttribute('contenteditable')).toBe('false');
-    await act(async () => dictate({ _tag: 'Text', id: 4, text: 'look' }));
-    await flush();
-    expect(page.text).toBe('Please look ');
-    expect(placeholder()).toBeNull();
-    expect(marked()?.textContent).toBe(' look');
-  });
-
-  it('opens the `+` Drawer from a tap while it is the Composer, the same `+` as at rest', async () => {
-    await tap(button('Edit the message')!);
-    const add = button('Add to the message')!;
-    // Pressed, it keeps focus in the Composer, so the row stays as it is
-    // under the finger until the tap lands.
-    const down = new MouseEvent('mousedown', {
-      bubbles: true,
-      cancelable: true,
-    });
-    await act(async () => void add.dispatchEvent(down));
-    expect(down.defaultPrevented).toBe(true);
-    await tap(add);
-    // Then the Composer lets go, and `+` is the same button at rest.
-    expect(card().dataset['writing']).toBeUndefined();
-    expect(document.activeElement).not.toBe(editor());
-    expect(button('Add to the message')).toBe(add);
-    expect(add.getAttribute('aria-expanded')).toBe('true');
-    expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
-      'Attach a file',
-    );
-  });
-
-  it("takes a tap on a failed Dictation's retry at rest, though its words take none", async () => {
-    await act(async () =>
-      dictate({ _tag: 'Failed', id: 6, reason: 'The model would not load' }),
-    );
-    await flush();
-    expect(card().dataset['writing']).toBeUndefined();
-    const retry = placeholder()!.querySelector('button')!;
-    // Its words' box takes no tap, but lets its buttons take theirs.
-    const words = retry.closest<HTMLElement>('.pointer-events-none')!;
-    expect(words.className).toContain('[&_button]:pointer-events-auto');
-    await tap(retry);
-    expect(page.retried).toEqual([6]);
-    expect(card().dataset['writing']).toBeUndefined();
-  });
-
-  it('keeps the same editor, its text, selection and history, when a keyboard turns up', async () => {
-    await tap(button('Edit the message')!);
-    const view = EditorView.findFromDOM(editor())!;
-    await act(async () =>
-      view.dispatch({
-        changes: { from: 7, insert: 'look' },
-        selection: { anchor: 2, head: 5 },
-      }),
-    );
-    await leave();
-    // A key pressed outside a text field: a hardware keyboard.
-    await act(async () =>
-      document.body.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'Shift', bubbles: true }),
-      ),
-    );
-    await flush();
-    expect(card().dataset['touch']).toBeUndefined();
-    expect(editor().isConnected).toBe(true);
-    expect(card().contains(editor())).toBe(true);
-    expect(EditorView.findFromDOM(editor())).toBe(view);
-    expect(view.state.doc.toString()).toBe('Please look');
-    expect(view.state.selection.main).toMatchObject({ anchor: 2, head: 5 });
-    expect(undoDepth(view.state)).toBe(1);
-  });
-
-  it('puts a Dictation at the end of an untouched Draft', async () => {
-    await act(async () => dictate({ _tag: 'Transcribing', id: 5 }));
-    await act(async () => dictate({ _tag: 'Text', id: 5, text: 'now' }));
-    await flush();
-    expect(page.text).toBe('Please now');
-  });
-
-  describe('with more than two lines', () => {
-    const scrollHeight = Object.getOwnPropertyDescriptor(
-      Element.prototype,
-      'scrollHeight',
-    );
-    const Observer = globalThis.ResizeObserver;
-    beforeAll(() => {
-      initial = 'A long message. '.repeat(20);
-      // It hears its first size once the editor is drawn, as a browser's.
-      globalThis.ResizeObserver = class {
-        constructor(private readonly heard: () => void) {}
-        observe() {
-          queueMicrotask(() => this.heard());
-        }
-        unobserve() {}
-        disconnect() {}
-      } as unknown as typeof ResizeObserver;
-      // jsdom lays nothing out: the editor's words say how tall it is.
-      Object.defineProperty(Element.prototype, 'scrollHeight', {
-        configurable: true,
-        get(this: Element) {
-          return (this.textContent?.length ?? 0) > 100 ? 280 : 28;
-        },
-      });
-    });
-    afterAll(() => {
-      initial = 'Please ';
-      globalThis.ResizeObserver = Observer;
-      if (scrollHeight !== undefined)
-        Object.defineProperty(Element.prototype, 'scrollHeight', scrollHeight);
-    });
-
-    it('expands to all of it and back to two lines', async () => {
-      const box = () =>
-        editor().closest<HTMLElement>('.cm-editor')!.parentElement!
-          .parentElement!;
-      expect(box().className).toContain('h-14');
-      await tap(button('Show all of it')!);
-      expect(box().className).not.toContain('h-14');
-      expect(box().className).toContain('overflow-y-auto');
-      expect(button('Show two lines')?.getAttribute('aria-expanded')).toBe(
-        'true',
-      );
-      await tap(button('Show two lines')!);
-      expect(box().className).toContain('h-14');
-      expect(button('Show all of it')).not.toBeNull();
-    });
   });
 });

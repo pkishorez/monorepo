@@ -29,13 +29,13 @@ import { useTransfers } from './transfer.ts';
  *             and dragged to select, but not typed into; Enter sends it,
  *             from the page's Normal Mode. Out of Vim Mode it is always
  *             the Composer, as a text box is, but on a device with no
- *             keyboard, where it is read only at rest (`touch.tsx`). In an
+ *             keyboard, where it is read only at rest (`touch/`). In an
  *             untouched Draft the cursor is at the end.
  * 2. Write    `i`, or a tap, makes it the Composer in place: typed into,
  *             Enter or Mod+Enter sending, Shift+Enter a new line. Escape,
  *             as any move to the page's Normal Mode, makes it read only
  *             again, keeping its text, cursor and selection. With no
- *             keyboard its edit button does, and focus leaving it undoes.
+ *             keyboard the Touch Draft's edit does, and its Done undoes.
  * 3. Insert   everything put in goes in at the cursor, over the selection:
  *             a paste or a drop anywhere on the page (`transfer.ts`), and a
  *             Skill from the skills Picker, opened by `/` from Normal Mode,
@@ -123,10 +123,12 @@ interface DraftOptions {
     readonly onShown: () => () => void;
     /** The button beside the mic that chooses the microphone. */
     readonly microphones?: ReactNode;
-    /** Opens the Microphone Picker, from the `+` Drawer on touch. */
+    /** Opens the Microphone Picker, from the Touch Draft's Quick actions. */
     readonly onChooseMicrophone?: () => void;
   };
   readonly disabled?: boolean;
+  /** With no keyboard: whether the Touch Draft is being edited, so it is the Composer. */
+  readonly editing?: boolean;
   /** The id of a line that explains the editor's state, such as being offline. */
   readonly describedBy?: string;
 }
@@ -155,10 +157,13 @@ export function useDraft(options: DraftOptions) {
   const [composing, setWriting] = useState(false);
   const surface = keys.useSurface('content');
   // Out of Vim Mode it is always the Composer, as any text box is, but
-  // where there is no keyboard: there it is one only while edited.
+  // where there is no keyboard: there it is one only while the Touch
+  // Draft is edited.
   const { vim } = keys.useKeyboard();
   const { keyboard } = useDevice();
-  const writing = composing || (!vim.on && keyboard);
+  const writing = keyboard
+    ? composing || !vim.on
+    : (options.editing ?? composing);
   const files = useAttachments({
     attachments,
     onChange: options.onAttachmentsChange,
@@ -214,10 +219,6 @@ export function useDraft(options: DraftOptions) {
     editor.write();
     setWriting(true);
   };
-  /** With no keyboard, focus has left it: read only again. */
-  const leave = () => {
-    if (!keyboard) setWriting(false);
-  };
 
   // 3. Insert: each Insert the page hands back goes in once.
   const inserted = useRef(insert?.id ?? 0);
@@ -228,7 +229,7 @@ export function useDraft(options: DraftOptions) {
   }, [insert]);
 
   // 4. Dictate: its text goes in once, as it is there to take. With no
-  // keyboard, the card brings where it goes into view (`touch.tsx`).
+  // keyboard, the Touch Draft brings where it goes into view.
   const took = useRef<number | null>(null);
   const reveal = useRef<(() => void) | null>(null);
   const { pending } = dictation;
@@ -275,7 +276,7 @@ export function useDraft(options: DraftOptions) {
     mount: editor.mount,
     view: editor.view,
     vim: vim.on,
-    /** No keyboard: it is drawn for touch (`touch.tsx`). */
+    /** No keyboard: it is drawn as the Touch Draft (`touch/`). */
     touch: !keyboard,
     /** Set by the card on touch: brings a Dictation's placeholder into view. */
     reveal,
@@ -292,7 +293,6 @@ export function useDraft(options: DraftOptions) {
     dictation,
     send,
     write,
-    leave,
   };
 }
 

@@ -45,7 +45,7 @@ export const Dictating = createContext<{
   readonly ask: (ask: Asked) => void;
   /** The button by the mic that opens the Microphone Picker by pointer. */
   readonly microphones: ReactNode;
-  /** Opens the Microphone Picker, as its keys do. */
+  /** Opens the Microphone Picker, from a tap elsewhere, such as the Touch Draft's Quick actions. */
   readonly chooseMicrophone: () => void;
   /** A Draft is on screen until what it returns is called. */
   readonly shown: () => () => void;
@@ -246,7 +246,7 @@ export const DictationBadge = View.make(
       <div
         {...root}
         role="status"
-        className="pointer-events-none fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-100 flex flex-col items-end gap-2"
+        className="pointer-events-none fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-100 max-md:bottom-[calc(env(safe-area-inset-bottom)+9rem)] flex flex-col items-end gap-2"
       >
         {notice}
         {recording}
