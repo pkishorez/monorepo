@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '#components/button';
-import { CheckIcon, CopyIcon } from '#lib/lucide';
+import { CheckIcon, CopyIcon } from '#kit/icons';
 import { JsonEditor } from './json-editor';
 
 export type JsonViewerProps = {

@@ -5,7 +5,7 @@ import {
   FolderOpenIcon,
 } from 'lucide-react';
 import { useMemo, type ReactNode } from 'react';
-import { cn } from '#lib/utils';
+import { cn } from '#kit/class-names';
 import { toggleSubtree } from './expand';
 
 type TreeNode = {

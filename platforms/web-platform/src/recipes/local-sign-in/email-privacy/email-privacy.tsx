@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import { Button } from '#components/button';
-import { cn } from '#lib/utils';
+import { cn } from '#kit/class-names';
 
 interface EmailPrivacy {
   masked: boolean;

@@ -3,8 +3,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { SourceViewer } from '../source-viewer/index';
-import { scrollbarStyles } from '#lib/scrollStyles';
-import { cn } from '#lib/utils';
+import { scrollbarStyles } from '#kit/scroll-styles';
+import { cn } from '#kit/class-names';
 
 export function MarkdownViewer({
   children,

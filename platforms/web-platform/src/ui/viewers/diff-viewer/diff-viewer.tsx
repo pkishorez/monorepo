@@ -29,8 +29,8 @@ import {
 } from '#components/dropdown-menu';
 import { useIsMobile } from '#hooks/use-mobile';
 import { Switch } from '#components/switch';
-import { scrollbarStyles } from '#lib/scrollStyles';
-import { cn } from '#lib/utils';
+import { scrollbarStyles } from '#kit/scroll-styles';
+import { cn } from '#kit/class-names';
 
 import { collapseRows } from './collapse';
 import {

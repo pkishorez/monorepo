@@ -1,5 +1,5 @@
-import { Trash2 } from '#lib/lucide';
-import { cn } from '#lib/utils';
+import { Trash2 } from '#kit/icons';
+import { cn } from '#kit/class-names';
 import { GestureZone, useSwipe } from '../../ui/input/index.ts';
 import {
   animate,

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 
-import { cn } from '#lib/utils';
+import { cn } from '#kit/class-names';
 import { Input } from '#components/input';
 import {
   Field,

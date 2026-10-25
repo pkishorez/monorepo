@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 
-import { cn } from '#lib/utils';
+import { cn } from '#kit/class-names';
 import { Switch } from '#components/switch';
 import { Field, FieldDescription, FieldError } from '#components/field';
 import { Label } from '#components/label';

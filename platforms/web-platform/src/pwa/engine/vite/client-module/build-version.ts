@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import type { ResolvedPwaConfig } from '../../shared/config/index.js';
+import type { ResolvedPwaConfig } from '../../contract/config/index.js';
 
 export interface BuildVersion {
   readonly commit: string | null;

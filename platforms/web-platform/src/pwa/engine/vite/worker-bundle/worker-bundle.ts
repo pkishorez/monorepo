@@ -1,5 +1,5 @@
 import { type AliasOptions, build, type Rolldown } from 'vite';
-import type { WorkerBuildInfo } from '../../shared/config/index.js';
+import type { WorkerBuildInfo } from '../../contract/config/index.js';
 import { buildModulePlugin } from './build-module.js';
 import { resolveWorkerEntry } from './entry.js';
 import { killSwitchSource } from './kill-switch.js';

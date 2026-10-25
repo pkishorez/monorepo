@@ -1,7 +1,7 @@
 import type * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
-import type { WorkerBuildInfo } from '../../shared/config/index.js';
-import { isNeverCached } from '../../shared/strategy/index.js';
+import type { WorkerBuildInfo } from '../../contract/config/index.js';
+import { isNeverCached } from '../../contract/strategy/index.js';
 import type { GlobalScope, KeepAlive } from '../global-scope/index.js';
 import { handleNavigation, isHandledNavigation } from './pages/index.js';
 import { precachedUrls, servePrecached } from '../precache/index.js';

@@ -4,11 +4,11 @@ import {
   isRuntimeCacheName,
   pagesCacheName,
   runtimeCacheName,
-} from '../../shared/build/index.js';
+} from '../../contract/build/index.js';
 import type {
   WorkerBuildInfo,
   WorkerConfig,
-} from '../../shared/config/index.js';
+} from '../../contract/config/index.js';
 import { attempt, deleteCaches, GlobalScope } from '../global-scope/index.js';
 import {
   deleteOtherPrecaches,

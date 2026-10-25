@@ -11,7 +11,7 @@ import {
 } from '#components/dialog';
 import { Input } from '#components/input';
 import { Label } from '#components/label';
-import { cn } from '#lib/utils';
+import { cn } from '#kit/class-names';
 
 import { MaskedEmail } from './email-privacy';
 

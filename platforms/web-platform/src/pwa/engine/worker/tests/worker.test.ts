@@ -7,16 +7,16 @@ import {
   pagesCacheName,
   precacheCacheName,
   runtimeCacheName,
-} from '../../shared/build/index.js';
+} from '../../contract/build/index.js';
 import {
   type PwaOptions,
   resolvePwaConfig,
   type WorkerBuildInfo,
   workerConfigOf,
-} from '../../shared/config/index.js';
-import { makeCommand } from '../../shared/commands/index.js';
-import type { StrategyRule } from '../../shared/strategy/index.js';
-import { WorkerHost } from '../../shared/worker-host/index.js';
+} from '../../contract/config/index.js';
+import { makeCommand } from '../../contract/commands/index.js';
+import type { StrategyRule } from '../../contract/strategy/index.js';
+import { WorkerHost } from '../../contract/worker-host/index.js';
 import { makeFakeGlobal, settle, sleep, text } from './fake-global.js';
 import { startServiceWorker } from '../worker.js';
 

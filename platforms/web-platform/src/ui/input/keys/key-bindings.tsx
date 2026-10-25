@@ -1,5 +1,5 @@
 import { Kbd, KbdGroup } from '#components/kbd';
-import { cn } from '#lib/utils';
+import { cn } from '#kit/class-names';
 import type { Binding, Shortcut } from '@kestack/use-keys';
 
 /** Whether this is an Apple device, where `mod` is Cmd. */

@@ -1,7 +1,7 @@
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
-import { type BuildId, pagesCacheName } from '../../../shared/build/index.js';
-import type { WorkerBuildInfo } from '../../../shared/config/index.js';
+import { type BuildId, pagesCacheName } from '../../../contract/build/index.js';
+import type { WorkerBuildInfo } from '../../../contract/config/index.js';
 import {
   attempt,
   fetchNetwork,

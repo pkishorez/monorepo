@@ -1,9 +1,9 @@
-import { BuildId, MANIFEST_URL } from '../../shared/build/index.js';
+import { BuildId, MANIFEST_URL } from '../../contract/build/index.js';
 import type {
   ClientBuildInfo,
   ResolvedPwaConfig,
-} from '../../shared/config/index.js';
-import type { WebAppManifest } from '../../shared/manifest/index.js';
+} from '../../contract/config/index.js';
+import type { WebAppManifest } from '../../contract/manifest/index.js';
 import type { BuildVersion } from './build-version.js';
 
 const DEV_BUILD_ID = BuildId.make('dev');

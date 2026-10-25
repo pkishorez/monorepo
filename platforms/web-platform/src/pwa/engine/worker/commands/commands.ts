@@ -1,5 +1,5 @@
 import * as Effect from 'effect/Effect';
-import { type Command, commandReply } from '../../shared/commands/index.js';
+import { type Command, commandReply } from '../../contract/commands/index.js';
 import { attempt, GlobalScope } from '../global-scope/index.js';
 
 /**

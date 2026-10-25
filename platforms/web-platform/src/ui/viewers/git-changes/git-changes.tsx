@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Branch, ChangeStatus } from 'laymos';
 
-import { ChevronDown, GitBranch, Search } from '#lib/lucide';
+import { ChevronDown, GitBranch, Search } from '#kit/icons';
 import { Input } from '#components/input';
 import {
   DropdownMenu,
@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '#components/dropdown-menu';
-import { cn } from '#lib/utils';
+import { cn } from '#kit/class-names';
 
 export interface GitOptions {
   // Off hides the change overlay entirely, whatever git reports.

@@ -24,8 +24,8 @@
   ],
   "imports": {
     "#components/*": "./src/ui/components/*.tsx",
-    "#lib/shadow-dom": "./src/ui/components/lib/shadow-dom.tsx",
-    "#lib/*": "./src/ui/components/lib/*.ts",
+    "#kit/shadow-dom": "./src/ui/components/kit/shadow-dom.tsx",
+    "#kit/*": "./src/ui/components/kit/*.ts",
     "#hooks/*": "./src/ui/components/hooks/*.ts"
   },
   "exports": {
@@ -35,24 +35,24 @@
     },
     "./ui/theme/*.css": "./dist/ui/theme/css/*.css",
     "./ui/components/utils": {
-      "types": "./dist/ui/components/lib/utils.d.ts",
-      "default": "./dist/ui/components/lib/utils.js"
+      "types": "./dist/ui/components/kit/class-names.d.ts",
+      "default": "./dist/ui/components/kit/class-names.js"
     },
     "./ui/components/lucide": {
-      "types": "./dist/ui/components/lib/lucide.d.ts",
-      "default": "./dist/ui/components/lib/lucide.js"
+      "types": "./dist/ui/components/kit/icons.d.ts",
+      "default": "./dist/ui/components/kit/icons.js"
     },
     "./ui/components/motion": {
-      "types": "./dist/ui/components/lib/motion.d.ts",
-      "default": "./dist/ui/components/lib/motion.js"
+      "types": "./dist/ui/components/kit/motion.d.ts",
+      "default": "./dist/ui/components/kit/motion.js"
     },
     "./ui/components/scroll-styles": {
-      "types": "./dist/ui/components/lib/scrollStyles.d.ts",
-      "default": "./dist/ui/components/lib/scrollStyles.js"
+      "types": "./dist/ui/components/kit/scroll-styles.d.ts",
+      "default": "./dist/ui/components/kit/scroll-styles.js"
     },
     "./ui/components/shadow-dom": {
-      "types": "./dist/ui/components/lib/shadow-dom.d.ts",
-      "default": "./dist/ui/components/lib/shadow-dom.js"
+      "types": "./dist/ui/components/kit/shadow-dom.d.ts",
+      "default": "./dist/ui/components/kit/shadow-dom.js"
     },
     "./ui/components/hooks/*": {
       "types": "./dist/ui/components/hooks/*.d.ts",
@@ -91,12 +91,12 @@
       "default": "./dist/pwa/engine/worker/index.js"
     },
     "./pwa/rpc/worker": {
-      "types": "./dist/pwa/engine/rpc/worker/index.d.ts",
-      "default": "./dist/pwa/engine/rpc/worker/index.js"
+      "types": "./dist/pwa/engine/worker/rpc/index.d.ts",
+      "default": "./dist/pwa/engine/worker/rpc/index.js"
     },
     "./pwa/rpc/client": {
-      "types": "./dist/pwa/engine/rpc/client/index.d.ts",
-      "default": "./dist/pwa/engine/rpc/client/index.js"
+      "types": "./dist/pwa/engine/page/rpc/index.d.ts",
+      "default": "./dist/pwa/engine/page/rpc/index.js"
     },
     "./recipes/*": {
       "types": "./dist/recipes/*/index.d.ts",

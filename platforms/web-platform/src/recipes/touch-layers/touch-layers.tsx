@@ -1,8 +1,8 @@
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { Button } from '#components/button';
 import { Drawer as DrawerRoot, DrawerContent } from '#components/drawer';
-import { ChevronLeftIcon, XIcon } from '#lib/lucide';
-import { cn } from '#lib/utils';
+import { ChevronLeftIcon, XIcon } from '#kit/icons';
+import { cn } from '#kit/class-names';
 import {
   createContext,
   type ReactNode,

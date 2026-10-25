@@ -4,8 +4,8 @@ import {
   type BuildId,
   isPrecacheCacheName,
   precacheCacheName,
-} from '../../shared/build/index.js';
-import type { WorkerBuildInfo } from '../../shared/config/index.js';
+} from '../../contract/build/index.js';
+import type { WorkerBuildInfo } from '../../contract/config/index.js';
 import {
   attempt,
   deleteCaches,
