@@ -40,6 +40,10 @@ _Avoid_: machine switcher, machine picker
 The Picker over Sessions to go back to one, the most recently active first.
 _Avoid_: session picker, quick open
 
+**Keys Picker**:
+The Picker over the Actions that work where the user is, opened by `?`: each row the Action's name, its keys out of Vim Mode and in it, the set in effect marked, searched by name or by key. Choosing a row does the Action, as pressing its keys would. Changing keys is Settings' business, not its.
+_Avoid_: help sheet, cheat sheet, shortcuts dialog, command palette
+
 **Session Actions**:
 The Picker over what can be done to the open Session, such as Settling it, un-Settling it or Forking it from its latest Turn.
 _Avoid_: command palette, session menu
@@ -60,6 +64,14 @@ _Avoid_: preferences, local settings, localStorage
 The open Session's next message, kept at the foot of the page with the Status Line while the transcript scrolls above it, always visible. With a keyboard and out of Vim Mode it is typed into as any text box is; in Vim Mode it can be read, scrolled and clicked to place a cursor or select, but not typed into until it is the Composer. On a device with no keyboard it is the Touch Draft. A Dictation, while it is turned into text, shows as transcribing where its text will go. Everything the user adds, such as a Dictation, a paste, a file or a Skill, goes in at its cursor, replacing any selection, and the page brings that spot into view. Sending it makes it the Session's next message.
 _Avoid_: input, insert bar, prompt box, composer (that is the Draft while editable)
 
+**Draft Mode**:
+What the Draft is for at the moment: a Message, the Session's next message, or a Side Question. Each mode keeps its own text, cursor and selection, and the page around the Draft follows the mode it is in. A Session reopened is in the mode it was left in.
+_Avoid_: composer mode, state, tab
+
+**Side Question**:
+A question put to the Session on the side and forgotten once answered: answered by the Session's own agent, never part of the transcript, and replaced by the next one. While the Draft is in this mode the page shows the Side Question and its answer in place of the transcript; leaving the mode brings the transcript back. Typing `/btw` at the start of a Message turns the Draft into this mode.
+_Avoid_: btw, by the way, aside, ask
+
 **Touch Draft**:
 The Draft on a device with no keyboard: a sheet at the foot of the page, edge to edge, with the model chip and Text | Voice on top, a few lines of the Draft read only under them, and a row that never moves: Skills and Quick actions on the left, the talk bar in the middle, Send on the right. In voice, tapping the words places the cursor and the talk bar dictates: tap to talk, tap again to take it, or Send to take it and send the Draft once it is text; Cancel throws it away, and a failed one is tried again or thrown away from the same place. In text, tapping the words makes it the Composer. A Swipe on the words switches between them; voice can't be chosen while no Machine can transcribe. Which one it is, is kept in Device State. It is resting, recording, transcribing, being edited or sending; what it holds is the Draft's text, not one of these.
 _Avoid_: mobile composer, mobile input
@@ -69,7 +81,7 @@ The Draft while the user is editing it: the same place, now typed into. With a k
 _Avoid_: input, editor
 
 **Dictation**:
-Speech from the moment the user starts talking to the moment they stop, turned into text and put in at the Draft's cursor as if typed, replacing any selection. Once in, it is plain text like any other. It carries on while the user goes elsewhere in the app, and its text goes to the Session open when it stops. The sound itself is never sent to the agent, so a Dictation is not an Attachment.
+Speech from the moment the user starts talking to the moment they stop, turned into text and put in at the Draft's cursor as if typed, replacing any selection. Once in, it is plain text like any other. It carries on while the user goes elsewhere in the app, and its text goes to the Session open when it stops, into the Draft Mode it is in then. The sound itself is never sent to the agent, so a Dictation is not an Attachment.
 _Avoid_: voice message, voice note, recording, transcript
 
 **Microphone**:
