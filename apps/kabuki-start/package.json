@@ -6,6 +6,7 @@
   "sideEffects": false,
   "scripts": {
     "dev": "vp run --filter 'kabuki-start^...' build && portless alias hello-http-start.kishore 4581 --force && portless alias hello-rpc-start.kishore 4582 --force && portless alias pocket-start.kishore 4583 --force && portless run --force alchemy dev",
+    "dev:real": "KESTACK_AUTH=real pnpm run dev",
     "build": "vp build",
     "lint": "tsc --noEmit && pnpm lint:laymos",
     "lint:laymos": "laymos lint",

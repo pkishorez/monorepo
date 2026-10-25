@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { Effect } from 'effect';
 import { serve } from '../machine/index.js';
+import { type DevAuth, machineBranch } from './auth.js';
 import { live } from './leases.js';
 import {
   type ConnectRecord,
@@ -28,6 +29,7 @@ export interface Supervised {
   readonly cloud: string;
   readonly mode: ConnectRecord['mode'];
   readonly version: string;
+  readonly auth: DevAuth;
 }
 
 const RETRY_MS = 500;
@@ -135,7 +137,7 @@ const warnLeft = (dir: string) =>
 /** Runs Connect as `options` says, until it stops; `connect.json` goes with it. */
 export const supervise = (options: Supervised) =>
   Effect.gen(function* () {
-    const { root, dir, slug, cloud, mode, version } = options;
+    const { root, dir, slug, cloud, mode, version, auth } = options;
     const startedAt = new Date().toISOString();
     const alchemy = yield* alchemyDev(root);
     const running = Effect.gen(function* () {
@@ -143,14 +145,19 @@ export const supervise = (options: Supervised) =>
       yield* Effect.raceFirst(answering(cloud), exited(alchemy));
       yield* serve({
         cloud,
-        branch: slug,
+        branch: machineBranch(slug, auth),
         port: 0,
+        // A page through a Cloudflare tunnel, which only the Fake signs in.
+        ...(auth === 'fake'
+          ? { origins: ['https://*.trycloudflare.com'] }
+          : {}),
         onListening: ({ port, machine }) =>
           Effect.sync(() =>
             writeRecord(dir, {
               pid: process.pid,
               mode,
               cloud,
+              auth,
               port,
               machine,
               ready: true,

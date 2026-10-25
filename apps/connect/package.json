@@ -38,7 +38,8 @@
   },
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json && tsc -p tsconfig.types.json",
-    "dev": "vp run --filter '@kestack/connect...' build && node scripts/dev.ts",
+    "dev": "vp run --filter '@kestack/connect...' build && node --conditions=kestack-fake-auth scripts/dev.ts",
+    "dev:real": "vp run --filter '@kestack/connect...' build && KESTACK_AUTH=real node scripts/dev.ts",
     "deploy": "alchemy deploy",
     "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod",
     "fmt": "vp fmt",

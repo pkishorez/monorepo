@@ -3,6 +3,7 @@ import * as Cloudflare from '@alchemy.run/cloudflare';
 import * as Output from 'alchemy/Output';
 import { Effect } from 'effect';
 import { D1 } from '@kestack/std-toolkit/alchemy';
+import { backend } from '@kestack/web-platform/app/alchemy';
 import { pocketTable } from '../apis/pocket/storage/index.ts';
 import { where } from './stage.ts';
 
@@ -12,7 +13,8 @@ import { where } from './stage.ts';
  * with and the one origin it lets call with credentials, the site's.
  * Under `alchemy dev` each listens on a fixed port, which the `dev` script
  * names to Portless as `<api>-start.kishore.computer`, so the session
- * cookie for `.kishore.computer` reaches it.
+ * cookie for `.kishore.computer` reaches it. Under `pnpm dev` each signs in
+ * with auth-toolkit's Fake, as the Web Platform's `backend` bundles it.
  *
  * The Pocket Worker keeps its records in a D1 database of its own, in the
  * `pocket` std Table. The table goes through std-toolkit's deploy guard,
@@ -27,6 +29,7 @@ const api = <const Id extends string>(id: Id, name: string, port: number) =>
       const at = yield* where;
       return {
         main: `./src/apis/${name}/worker.server.ts`,
+        ...backend(at),
         compatibility: { date: '2025-07-04', flags: ['nodejs_compat'] },
         domain: at.domain(name),
         dev: at.dev ? { port, strictPort: true } : undefined,
@@ -58,6 +61,7 @@ export const PocketWorker = Cloudflare.Worker(
     });
     return {
       main: './src/apis/pocket/worker.server.ts',
+      ...backend(at),
       compatibility: { date: '2025-07-04', flags: ['nodejs_compat'] },
       domain: at.domain('pocket'),
       dev: at.dev ? { port: 4583, strictPort: true } : undefined,

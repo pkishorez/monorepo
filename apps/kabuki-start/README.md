@@ -93,6 +93,9 @@ pnpm --filter kabuki-start test    # each API Worker answered in-process, Pocket
 pnpm --filter kabuki-start build   # client and Worker -> dist/client, dist/ssr
 ```
 
+`pnpm dev` signs in with auth-toolkit's Fake (any `@kestack.test` email),
+with every API Worker at `/rpc-<name>` on the site's own origin; `pnpm
+dev:real` signs in as below.
 `pnpm dev` runs `alchemy dev` through Portless: the site in workerd under
 Vite, with HMR, at `https://kabuki-start.kishore.computer` (`portless.json`),
 and the API Workers on ports 4581, 4582 and 4583, which the script names to
