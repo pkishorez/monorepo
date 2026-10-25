@@ -1,4 +1,4 @@
-import { Effect, Fiber, Layer, Schema, Scope, Semaphore } from 'effect';
+import { Clock, Effect, Fiber, Layer, Schema, Scope } from 'effect';
 import type { Entity } from '@kestack/std-toolkit/core';
 import {
   type QueryOptions,
@@ -61,10 +61,10 @@ const placeOf = (
   { machineId, projectId, sessionId }: Place,
 ) => `${accountId} ${machineId} ${sessionId ?? `project:${projectId}`}`;
 
-/** Whether a row went. */
+/** Whether a row, or a place under an Account, went. */
 const goneOf =
   (gone: Gone) =>
-  (row: Row): boolean => {
+  (row: Pick<Row, 'accountId' | 'machineId' | 'projectId'>): boolean => {
     switch (gone._tag) {
       case 'Project':
         return (
@@ -105,23 +105,54 @@ const make = (
     }
   });
 
-  const remove = (place: string) =>
-    Effect.flatMap(rows.get({ place }), (row) =>
-      row === null ? Effect.void : rows.hardDelete({ place }, CONFIRM),
-    );
-
   // 1. Save: one at a time for each place, and the last read of each.
   const turns = new Map<
     string,
-    { readonly turn: Semaphore.Semaphore; last: bigint }
+    { tail: Fiber.Fiber<unknown, unknown> | null; last: bigint }
   >();
   const turnOf = (id: string) => {
     const found = turns.get(id);
     if (found !== undefined) return found;
-    const made = { turn: Semaphore.makeUnsafe(1), last: -1n };
+    const made = { tail: null, last: -1n };
     turns.set(id, made);
     return made;
   };
+  /**
+   * Runs after all of the place already asked for, from the moment it is
+   * asked, in the service's own scope, so it finishes even once its caller
+   * goes.
+   */
+  const inTurn = <A>(id: string, effect: Effect.Effect<A>) =>
+    Effect.suspend(() => {
+      const held = turnOf(id);
+      const before = held.tail;
+      return Effect.flatMap(
+        Effect.forkIn(
+          before === null
+            ? effect
+            : Effect.andThen(Fiber.await(before), effect),
+          scope,
+        ),
+        (fiber) => {
+          held.tail = fiber;
+          return Fiber.join(fiber);
+        },
+      );
+    });
+
+  const remove = (place: string) =>
+    Effect.flatMap(rows.get({ place }), (row) =>
+      row === null ? Effect.void : rows.hardDelete({ place }, CONFIRM),
+    ).pipe(Effect.provide(layer), Effect.ignore, (removing) =>
+      inTurn(place, removing),
+    );
+
+  // 2. Prune: what went and when, so a save begun before is never made after.
+  const drops: Array<{ readonly gone: Gone; readonly at: bigint }> = [];
+  const droppedSince = (accountId: string, place: Place, since: bigint) =>
+    drops.some(
+      ({ gone, at }) => at > since && goneOf(gone)({ accountId, ...place }),
+    );
 
   const write = (accountId: string, place: Place, draft: SavedDraft | null) => {
     const id = placeOf(accountId, place);
@@ -149,34 +180,46 @@ const make = (
   };
 
   return SavedDrafts.of({
-    read: (accountId, place) =>
-      Effect.flatMap(rows.get({ place: placeOf(accountId, place) }), (row) =>
+    // After the saves of the place before it, such as a Draft's last as it went.
+    read: (accountId, place) => {
+      const id = placeOf(accountId, place);
+      return Effect.flatMap(rows.get({ place: id }), (row) =>
         row === null ? Effect.succeed(null) : decode(row.value.draft),
       ).pipe(
         Effect.provide(layer),
         Effect.orElseSucceed(() => null),
-      ),
-    save: (accountId, place, draft, at) => {
-      const held = turnOf(placeOf(accountId, place));
+        (reading) => inTurn(id, reading),
+      );
+    },
+    save: (accountId, place, draft, at, since) => {
+      const id = placeOf(accountId, place);
+      const held = turnOf(id);
       const saving = Effect.suspend(() => {
-        if (at < held.last) return Effect.succeed(false);
+        if (at < held.last || droppedSince(accountId, place, since))
+          return Effect.succeed(false);
         held.last = at;
         return write(accountId, place, draft).pipe(
           Effect.as(true),
           Effect.orElseSucceed(() => false),
         );
-      }).pipe(held.turn.withPermit);
-      return Effect.flatMap(Effect.forkIn(saving, scope), Fiber.join);
+      });
+      return inTurn(id, saving);
     },
-    // 2. Prune
     drop: (gone) =>
-      Effect.flatMap(all, (found) =>
-        Effect.forEach(
-          found.filter(goneOf(gone)),
-          ({ place }) => remove(place),
-          { discard: true },
+      Effect.flatMap(Clock.monotonicTimeNanos, (at) => {
+        drops.push({ gone, at });
+        return all;
+      }).pipe(
+        Effect.flatMap((found) =>
+          Effect.forEach(
+            found.filter(goneOf(gone)),
+            ({ place }) => remove(place),
+            { discard: true },
+          ),
         ),
-      ).pipe(Effect.provide(layer), Effect.ignore),
+        Effect.provide(layer),
+        Effect.ignore,
+      ),
   });
 };
 
