@@ -8,6 +8,8 @@ import { resolve } from 'node:path';
  * `dir`, which is already one per branch: holding it is listening on it.
  * The kernel gives the port back when the process exits, however it
  * exits, so a lock is never left behind and nothing is ever taken over.
+ * Nothing talks to the lock: a connection to it is closed at once, and
+ * giving the lock back closes any still open, so none can hold it up.
  */
 
 export interface LockOptions {
@@ -17,10 +19,16 @@ export interface LockOptions {
   readonly timeoutMs?: number;
 }
 
-const FIRST_PORT = 49_152;
-const PORTS = 65_536 - FIRST_PORT;
+/*
+ * 20000–29999 is below every common range the OS hands out for port 0
+ * (macOS and Windows 49152–65535, Linux 32768–60999), so the Machine,
+ * which listens on port 0, is never given a lock's port; and above
+ * Portless's app ports, 4000–4999, and Connect's own 4590.
+ */
+const FIRST_PORT = 20_000;
+const PORTS = 10_000;
 
-/** The port that is the lock in `dir`: one of the dynamic ports, 49152–65535. */
+/** The port that is the lock in `dir`: one of 20000–29999. */
 export const lockPort = (dir: string) =>
   FIRST_PORT +
   (createHash('sha256').update(resolve(dir)).digest().readUInt32BE(0) % PORTS);
@@ -28,7 +36,8 @@ export const lockPort = (dir: string) =>
 /** Listens on `port`, if it is free; undefined when it is held. */
 const listen = (port: number) =>
   new Promise<Server | undefined>((done, fail) => {
-    const server = createServer();
+    // Each connection is closed as it comes, so `close` never waits on one.
+    const server = createServer((socket) => socket.destroy());
     server.once('error', (error: NodeJS.ErrnoException) =>
       error.code === 'EADDRINUSE' ? done(undefined) : fail(error),
     );

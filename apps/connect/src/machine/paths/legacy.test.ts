@@ -147,8 +147,12 @@ describe('moveLegacy', () => {
     write(join(legacy, 'ai.db'), 'db');
     write(join(legacy, 'attachments', 's1', 'a.txt'), 'attached');
     const paths = pathsIn(home);
-    // Cut short across disks: the copy was put in place, the old folder stayed.
-    write(join(legacy, 'MOVING'), '');
+    // Cut short across disks: the copy was put in place and noted, the old
+    // folder stayed.
+    write(
+      join(legacy, 'MOVING'),
+      JSON.stringify([join(legacy, 'attachments')]),
+    );
     write(join(paths.attachments, 's1', 'a.txt'), 'attached');
     write(join(`${paths.attachments}.moving`, 's1', 'a.txt'), 'partial');
 
@@ -166,7 +170,7 @@ describe('moveLegacy', () => {
   it('finishes a move cut short after the WAL was put in place but before the old one was deleted', () => {
     write(join(legacy, 'ai.db'), 'db');
     write(join(legacy, 'ai.db-wal'), 'wal');
-    write(join(legacy, 'MOVING'), '');
+    write(join(legacy, 'MOVING'), JSON.stringify([join(legacy, 'ai.db-wal')]));
     const paths = pathsIn(home);
     write(`${paths.db}-wal`, 'wal');
 
@@ -175,6 +179,44 @@ describe('moveLegacy', () => {
     expect(readFileSync(paths.db, 'utf8')).toBe('db');
     expect(readFileSync(`${paths.db}-wal`, 'utf8')).toBe('wal');
     expect(existsSync(join(legacy, 'ai.db-wal'))).toBe(false);
+    expect(existsSync(join(legacy, 'MOVING'))).toBe(false);
+  });
+
+  it('never deletes old attachments over a folder this move did not put there, on any start', () => {
+    write(join(legacy, 'ai.db'), 'db');
+    write(join(legacy, 'attachments', 's1', 'a.txt'), 'attached');
+    const paths = pathsIn(home);
+    write(join(paths.attachments, 'other.txt'), 'unrelated');
+
+    for (const start of [1, 2]) {
+      expect(
+        () => Effect.runSync(moveLegacy(paths, legacy)),
+        `start ${start}`,
+      ).toThrow(
+        `Cannot move ${join(legacy, 'attachments')} to ${paths.attachments}: both are there`,
+      );
+      expect(
+        readFileSync(join(legacy, 'attachments', 's1', 'a.txt'), 'utf8'),
+      ).toBe('attached');
+      expect(readFileSync(join(paths.attachments, 'other.txt'), 'utf8')).toBe(
+        'unrelated',
+      );
+      expect(existsSync(join(legacy, 'MOVING'))).toBe(true);
+    }
+  });
+
+  it('moves the attachments in place of an empty folder', () => {
+    write(join(legacy, 'ai.db'), 'db');
+    write(join(legacy, 'attachments', 's1', 'a.txt'), 'attached');
+    const paths = pathsIn(home);
+    mkdirSync(paths.attachments, { recursive: true });
+
+    Effect.runSync(moveLegacy(paths, legacy));
+
+    expect(readFileSync(join(paths.attachments, 's1', 'a.txt'), 'utf8')).toBe(
+      'attached',
+    );
+    expect(lstatSync(join(legacy, 'attachments')).isSymbolicLink()).toBe(true);
     expect(existsSync(join(legacy, 'MOVING'))).toBe(false);
   });
 
