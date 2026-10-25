@@ -8,10 +8,5 @@
     "rootDir": "src",
     "allowImportingTsExtensions": false
   },
-  "exclude": [
-    "node_modules",
-    "dist",
-    "src/**/*.test.ts",
-    "src/services/harness/fake"
-  ]
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts"]
 }

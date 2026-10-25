@@ -5,22 +5,16 @@ import { MachineListLive } from './actor.ts';
 
 /*
  * What home shows in place of the projects while there is no Machine to
- * show them from: the Backend out of reach with nothing saved, or no
+ * show them from: Cloud Connect out of reach with nothing saved, or no
  * Machine at all, with how to start one. Nothing otherwise.
  */
 
-const local = import.meta.env.VITE_AUTH_LOCAL === 'true';
-const backend = import.meta.env.VITE_MACHINES_URL;
-
 /** The command that makes this computer one of the Account's Machines. */
-export const serveCommand = (email: string | null) =>
-  local
-    ? `npx @kestack/ai-toolkit serve --as ${email ?? '<email>'} --backend ${backend}`
-    : 'npx @kestack/ai-toolkit serve';
+export const serveCommand = () => 'npx @kestack/connect serve';
 
 export const MachineListView = View.make(
   MachineListLive,
-  ({ root, model, props, send }) => {
+  ({ root, model, send }) => {
     // Never listed on this device: the page draws its skeleton meanwhile.
     if (model.machines === null && model.problem === null) return null;
     if (model.machines === null)
@@ -48,7 +42,7 @@ export const MachineListView = View.make(
           in as you are here, and it shows up in a few seconds:
         </p>
         <pre className="w-full overflow-x-auto rounded-md border border-border bg-muted/50 px-3 py-2 font-mono text-xs">
-          {serveCommand(props.email)}
+          {serveCommand()}
         </pre>
         <Button
           variant="outline"

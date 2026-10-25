@@ -44,9 +44,9 @@ jobs:
         with:
           node-version: 24.18.0
 
-      # Only the app, ai-toolkit (its Machines Backend and client) and this
-      # workflow deploy it; a change to another workspace package does not.
-      # Run it by hand to ship one.
+      # Only the app, Connect (its client), ai-toolkit and this workflow
+      # deploy it; a change to another workspace package does not. Run it by
+      # hand to ship one.
       - name: Check code affected
         id: affected
         env:
@@ -58,7 +58,7 @@ jobs:
             echo "Base '$BASE' unknown; deploying to be safe."
             echo 'affected=true' >> "$GITHUB_OUTPUT"
           elif git diff --name-only "$(git merge-base "$BASE" HEAD)" HEAD \
-            | grep -E '^(apps/code/|toolkits/ai-toolkit/|\.github/workflows/deploy-code\.yml$)'; then
+            | grep -E '^(apps/code/|apps/connect/|toolkits/ai-toolkit/|\.github/workflows/deploy-code\.yml$)'; then
             echo 'affected=true' >> "$GITHUB_OUTPUT"
           else
             echo 'affected=false' >> "$GITHUB_OUTPUT"
@@ -138,9 +138,9 @@ jobs:
           RESULT: ${{ needs.deploy.result }}
         run: |
           if [ "$STAGE" = "prod" ]; then
-            url="https://code.kishore.app" api="https://api-code.kishore.app"
+            url="https://code.kishore.app"
           else
-            url="https://$STAGE-code.kishore.app" api="https://$STAGE-api-code.kishore.app"
+            url="https://$STAGE-code.kishore.app"
           fi
           case "$RESULT" in
             success) status="✅ deployed" ;;
@@ -154,5 +154,4 @@ jobs:
             echo "| App | Status | URL |"
             echo "| --- | --- | --- |"
             echo "| code | $status | $url |"
-            echo "| Machines API | $status | $api |"
           } >> "$GITHUB_STEP_SUMMARY"

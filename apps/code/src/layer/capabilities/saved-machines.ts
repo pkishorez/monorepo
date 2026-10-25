@@ -1,11 +1,11 @@
 import { Context } from 'effect';
 import type { Effect } from 'effect';
-import type { Machine as MachineSchema } from '@kestack/ai-toolkit/machines';
+import type { Machine as MachineSchema } from '@kestack/connect/code';
 
 /*
  * The last list of Machines each Account was given on this device, so the
- * app opens on its Machines even while the Backend is out of reach.
- * Nothing here is the truth: the Backend's next answer replaces it. The
+ * app opens on its Machines even while Cloud Connect is out of reach.
+ * Nothing here is the truth: Cloud Connect's next answer replaces it. The
  * app Layer gives it, from `services/saved-machines.ts`.
  */
 

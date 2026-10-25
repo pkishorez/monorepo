@@ -1,4 +1,4 @@
-import type { Machine as MachineSchema } from '@kestack/ai-toolkit/machines';
+import type { Machine as MachineSchema } from '@kestack/connect/code';
 import { createContext, use, useEffect, useState } from 'react';
 import { health } from '../../layer/machine-health/index.ts';
 

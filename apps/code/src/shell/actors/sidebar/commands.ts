@@ -17,7 +17,7 @@ export const setSidebarMachine = Command.make('SetSidebarMachine', {
     ).pipe(Effect.ignore),
 });
 
-/** Asks the Backend for the Machines again now. */
+/** Asks Cloud Connect for the Machines again now. */
 export const reload = Command.make('ReloadMachines', {
   run: () => Effect.flatMap(Machines, (machines) => machines.reload),
 });

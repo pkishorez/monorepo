@@ -1,5 +1,5 @@
 import { Effect, Layer, Schema } from 'effect';
-import { Machine as MachineSchema } from '@kestack/ai-toolkit/machines';
+import { Machine as MachineSchema } from '@kestack/connect/code';
 import { StdTable, type StdTableService } from '@kestack/std-toolkit/db';
 import { IDB } from '@kestack/std-toolkit/db/idb';
 import { Memory } from '@kestack/std-toolkit/db/memory';
@@ -8,9 +8,9 @@ import { SavedMachines } from '../capabilities/index.ts';
 
 /*
  * The last list of Machines each Account was given here, in this browser's
- * IndexedDB, so the app opens on the last Machine even while the Backend
+ * IndexedDB, so the app opens on the last Machine even while Cloud Connect
  * is out of reach. One row per Account; an Account signed out keeps an
- * empty list. Nothing here is the truth: the Backend's next answer
+ * empty list. Nothing here is the truth: Cloud Connect's next answer
  * replaces it.
  */
 

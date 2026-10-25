@@ -1,5 +1,5 @@
 import { Effect, Schema, Stream } from 'effect';
-import { Machine } from '@kestack/ai-toolkit/machines';
+import { Machine } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { Machines } from '../../../../layer/capabilities/index.ts';
 import { HarnessBinaries } from './harness-binaries/index.ts';
@@ -7,8 +7,8 @@ import { SpeechToText } from './speech-to-text/index.ts';
 import { ask, keepForgetting } from './commands.ts';
 
 /*
- * Settings → Machines: the signed-in Account's Machines, from the Machines
- * Backend alone, so the list never waits for a Machine: each with when it
+ * Settings → Machines: the signed-in Account's Machines, from Cloud
+ * Connect alone, so the list never waits for a Machine: each with when it
  * was last seen, how its tunnel stands, and its own settings, which load
  * from the Machine itself, each on its own.
  *
@@ -17,7 +17,7 @@ import { ask, keepForgetting } from './commands.ts';
  *            to Text switch.
  * 2. Ask     Forget asks first, saying when the Machine was last seen and
  *            how its tunnel stands.
- * 3. Forget  confirmed, the Machine List forgets it: the Backend first,
+ * 3. Forget  confirmed, the Machine List forgets it: Cloud Connect first,
  *            then its records on this device. Once it is gone from the
  *            list the question closes; refused, it says why.
  */

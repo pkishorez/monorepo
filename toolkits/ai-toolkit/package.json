@@ -9,11 +9,7 @@
   },
   "license": "MIT",
   "type": "module",
-  "bin": {
-    "ai-toolkit": "bin/ai-toolkit.mjs"
-  },
   "files": [
-    "bin",
     "dist",
     "README.md",
     "LICENSE"
@@ -27,24 +23,13 @@
       "types": "./dist/api/client/index.d.ts",
       "default": "./dist/api/client/index.js"
     },
-    "./machines": {
-      "types": "./dist/kabuki/machine/backend/contract/index.d.ts",
-      "default": "./dist/kabuki/machine/backend/contract/index.js"
-    },
-    "./machines/client": {
-      "types": "./dist/kabuki/machine/backend/client/index.d.ts",
-      "default": "./dist/kabuki/machine/backend/client/index.js"
-    },
-    "./machines/backend": {
-      "types": "./dist/kabuki/machine/backend/serve/index.d.ts",
-      "default": "./dist/kabuki/machine/backend/serve/index.js"
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
     }
   },
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json && tsc -p tsconfig.types.json",
-    "dev": "tsc -p tsconfig.build.json && tsc -p tsconfig.types.json && node bin/ai-toolkit.mjs serve --backend \"$(portless get api-code.kishore)\" --db ~/.ai-toolkit/dev.db",
-    "dev:local": "tsc -p tsconfig.build.json && tsc -p tsconfig.types.json && node bin/ai-toolkit.mjs serve --backend \"$(portless get api-code.kishore)\" --db ~/.ai-toolkit/dev-local.db --as dev@kishore.computer",
-    "dev:preview": "tsc -p tsconfig.build.json && tsc -p tsconfig.types.json && node bin/ai-toolkit.mjs serve --db ~/.ai-toolkit/preview.db",
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && laymos lint",
     "lint:tsc": "tsc --noEmit",
@@ -55,11 +40,9 @@
     "@anthropic-ai/claude-agent-sdk": "catalog:",
     "@effect/platform-node": "catalog:",
     "@openai/codex": "catalog:",
-    "cloudflared": "catalog:",
     "sherpa-onnx-node": "catalog:"
   },
   "peerDependencies": {
-    "@kestack/auth-toolkit": "workspace:*",
     "@kestack/kabuki": "workspace:*",
     "@kestack/rpc-toolkit": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
@@ -67,7 +50,6 @@
     "effect": "^4.0.0"
   },
   "devDependencies": {
-    "@kestack/auth-toolkit": "workspace:*",
     "@kestack/kabuki": "workspace:*",
     "@kestack/rpc-toolkit": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",

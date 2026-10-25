@@ -10,8 +10,10 @@ import {
 } from 'effect';
 import { TestClock } from 'effect/testing';
 import { AiClient, AiClients } from '@kestack/ai-toolkit/client';
-import type { Machine as MachineSchema } from '@kestack/ai-toolkit/machines';
-import { MachinesClient } from '@kestack/ai-toolkit/machines/client';
+import {
+  CloudClient,
+  type Machine as MachineSchema,
+} from '@kestack/connect/code';
 import { Actor, type Instance, Runtime, type Running } from '@kestack/kabuki';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { describe, expect, it } from 'vitest';
@@ -27,12 +29,12 @@ import {
 import { MachineListLive, RECHECK } from './actor.ts';
 
 /*
- * The Machine List with the Backend and the records stood in for: what
- * was saved shows first and the Backend's answer replaces it and is kept,
- * with only the records of the Machines on it; Forget asks the Backend,
+ * The Machine List with Cloud Connect and the records stood in for: what
+ * was saved shows first and Cloud Connect's answer replaces it and is kept,
+ * with only the records of the Machines on it; Forget asks Cloud Connect,
  * takes the Machine out of the list and then deletes its records alone; `Machines` says all of it to the pages, waiting for
  * a Machine with an address; and while a Machine's line is not up the
- * Backend is asked again, every few seconds, until every line is.
+ * Cloud Connect is asked again, every few seconds, until every line is.
  */
 
 type Machine = typeof MachineSchema.Type;
@@ -104,7 +106,7 @@ const world = (
         }),
       ),
     ),
-    Layer.mock(MachinesClient)({
+    Layer.mock(CloudClient)({
       List: () =>
         Effect.andThen(
           Effect.sync(() => void lists++),
@@ -166,7 +168,7 @@ const listModel = (app: Running<unknown>) =>
   };
 
 describe('Machine List', () => {
-  it('shows the saved list first, then the Backend’s, and keeps it', async () => {
+  it('shows the saved list first, then Cloud Connect’s, and keeps it', async () => {
     const answer = await Effect.runPromise(
       Deferred.make<ReadonlyArray<Machine>>(),
     );
@@ -210,7 +212,7 @@ describe('Machine List', () => {
     );
   });
 
-  it('keeps nothing less when the Backend cannot be asked', async () => {
+  it('keeps nothing less when Cloud Connect cannot be asked', async () => {
     const { layer, kept } = world(Effect.fail(new Error('offline')));
     await run(
       Effect.gen(function* () {
@@ -224,7 +226,7 @@ describe('Machine List', () => {
     );
   });
 
-  it('forgets a Machine at the Backend, takes it out of the list, then deletes its records here', async () => {
+  it('forgets a Machine at Cloud Connect, takes it out of the list, then deletes its records here', async () => {
     const { layer, forgotten, kept, dropped } = world(
       Effect.succeed([machine('m1', 5), machine('m2', 1)]),
     );
@@ -315,7 +317,7 @@ describe('Machine List rechecks', () => {
       ) as Effect.Effect<A>,
     );
 
-  it('asks the Backend again while a line is not up, and stops once every line is', () =>
+  it('asks Cloud Connect again while a line is not up, and stops once every line is', () =>
     timed(
       Effect.gen(function* () {
         const down = yield* SubscriptionRef.make<ReadonlySet<string>>(

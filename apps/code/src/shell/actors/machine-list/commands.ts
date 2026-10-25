@@ -1,6 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { Machine } from '@kestack/ai-toolkit/machines';
-import { MachinesClient } from '@kestack/ai-toolkit/machines/client';
+import { CloudClient, Machine } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
 import {
   AccountReplicas,
@@ -9,9 +8,9 @@ import {
 import { problemOf } from './api.ts';
 
 /*
- * What the Machines actor asks of the Machines Backend, and what it keeps
+ * What the Machines actor asks of Cloud Connect, and what it keeps
  * on this device: each ends in one Message, but for `drop` and `keep`. A
- * Machine forgotten, or gone from the Backend's first list, has its
+ * Machine forgotten, or gone from Cloud Connect's first list, has its
  * Instance stopped, in every tab, and its database deleted.
  */
 
@@ -27,7 +26,7 @@ export const save = Command.make('SaveMachines', {
 export const forget = Command.make('ForgetMachine', {
   args: Schema.Struct({ id: Schema.String }),
   run: ({ id }) =>
-    MachinesClient.use((client) => client.Forget({ id })).pipe(
+    CloudClient.use((client) => client.Forget({ id })).pipe(
       Effect.as({ _tag: 'Forgot' as const, id }),
       Effect.catch((error) =>
         Effect.succeed({

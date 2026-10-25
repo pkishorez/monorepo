@@ -1,21 +1,21 @@
 import { Effect, Schedule, Stream } from 'effect';
 import { AiClient, AiClients } from '@kestack/ai-toolkit/client';
-import { MachinesClient } from '@kestack/ai-toolkit/machines/client';
+import { CloudClient } from '@kestack/connect/code';
 import { keepSubscribed } from '@kestack/rpc-toolkit/rpc/websocket';
 
 /*
  * What the Workers of the Machines actor read: the Account's list from the
- * Machines Backend, over HTTP and signed by the Account signed in, and each
+ * Cloud Connect, over HTTP and signed by the Account signed in, and each
  * Machine's Speech to Text, over its own socket.
  */
 
 export const problemOf = (error: unknown) =>
   typeof error === 'object' && error !== null && 'message' in error
-    ? String(error.message) || 'The Machines Backend could not be reached'
-    : 'The Machines Backend could not be reached';
+    ? String(error.message) || 'Cloud Connect could not be reached'
+    : 'Cloud Connect could not be reached';
 
-/** The Account's Machines as the Backend lists them now, or why it could not. */
-export const list = MachinesClient.use((client) => client.List({})).pipe(
+/** The Account's Machines as Cloud Connect lists them now, or why it could not. */
+export const list = CloudClient.use((client) => client.List({})).pipe(
   Effect.map((machines) => ({
     _tag: 'Fetched' as const,
     machines,

@@ -1,5 +1,5 @@
 import { Effect, Fiber, Layer, SubscriptionRef } from 'effect';
-import type { Machine as MachineSchema } from '@kestack/ai-toolkit/machines';
+import type { Machine as MachineSchema } from '@kestack/connect/code';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { describe, expect, it } from 'vitest';
 import { Link, nobody } from '../../layer/capabilities/index.ts';

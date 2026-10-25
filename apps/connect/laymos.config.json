@@ -2,6 +2,18 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "ignoredPaths": [],
-  "fileModules": [],
-  "rules": {}
+  "fileModules": ["src/deploy/worker.server.ts"],
+  "rules": {
+    "src/cloud/client": ["src/cloud/contract"],
+    "src/cloud/serve": ["src/cloud/contract", "src/origins"],
+    "src/cloud/serve/registry": ["src/cloud/serve/storage"],
+    "src/machine": ["src/cloud/contract", "src/cloud/client"],
+    "src/machine/actor-heartbeat": ["src/machine/capabilities"],
+    "src/serve": ["src/paths", "src/machine"],
+    "src/cli": ["src/serve"],
+    "src/dev": ["src/serve"],
+    "src/doors/code": ["src/cloud/contract", "src/cloud/client"],
+    "src/deploy/infra": ["src/cloud/serve"],
+    "src/deploy/worker.server.ts": ["src/cloud/serve"]
+  }
 }

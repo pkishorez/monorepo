@@ -23,7 +23,7 @@ const link =
 
 /**
  * The project on its Machine, with the Machine handed to every View under
- * it; a Machine the Backend no longer lists says so in its place.
+ * it; a Machine Cloud Connect no longer lists says so in its place.
  */
 export const ProjectView = View.make(ProjectLive, (self) => (
   <OnMachine value={self.props.params.machineId}>

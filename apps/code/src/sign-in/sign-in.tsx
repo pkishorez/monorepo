@@ -3,21 +3,10 @@ import {
   browser,
   browserAccountsTable,
 } from '@kestack/auth-toolkit/client/browser';
-import {
-  fakeAccounts,
-  fakeAccountsTable,
-  fakeChooser,
-} from '@kestack/auth-toolkit/fake';
 import { IDB } from '@kestack/std-toolkit/db/idb';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
-import { LocalSignIn } from '@kestack/web-platform/recipes/local-sign-in';
-import {
-  createContext,
-  type ReactNode,
-  useContext,
-  useSyncExternalStore,
-} from 'react';
+import { createContext, type ReactNode, useContext } from 'react';
 import { Mark } from '../ui/mark/index.ts';
 
 /*
@@ -25,19 +14,11 @@ import { Mark } from '../ui/mark/index.ts';
  *
  * 1. Accounts  `accounts` is the browser's Layer: through the Auth Worker
  *              at `VITE_AUTH_URL`, its Accounts last seen kept here without
- *              tokens; or, with `VITE_AUTH_LOCAL=true`, Local Accounts,
- *              signed in by typing an email and kept here. The same email
- *              is the same User `ai-toolkit serve --as <email>` signs in.
- * 2. Ask       in Local mode, the Local Sign-In asks who signs in.
- * 3. Screens   signed out, a screen to sign in; nothing else opens.
- * 4. Slot      where the Account Switcher is drawn, handed from the root
+ *              tokens.
+ * 2. Screens   signed out, a screen to sign in; nothing else opens.
+ * 3. Slot      where the Account Switcher is drawn, handed from the root
  *              to the pages' headers.
  */
-
-const local = import.meta.env.VITE_AUTH_LOCAL === 'true';
-
-/** Who answers the Local Sign-In: one per app. */
-const chooser = fakeChooser();
 
 const table = <T extends Parameters<typeof IDB.make>[0]>(of: T) =>
   Layer.unwrap(
@@ -54,43 +35,18 @@ const table = <T extends Parameters<typeof IDB.make>[0]>(of: T) =>
 // Made once the Layer is built, in the browser: never as the module loads.
 export const accounts = Layer.unwrap(
   Effect.sync(() =>
-    local
-      ? fakeAccounts({
-          choose: chooser.choose,
-          storage: table(fakeAccountsTable),
-        })
-      : browser({
-          url: import.meta.env.VITE_AUTH_URL ?? '',
-          cache: table(browserAccountsTable),
-        }),
+    browser({
+      url: import.meta.env.VITE_AUTH_URL,
+      cache: table(browserAccountsTable),
+    }),
   ),
 );
 
-/** The Auth Worker's Home Page, where a Sign-in is revoked; null in Local mode. */
-export const authHome = local
-  ? null
-  : `${(import.meta.env.VITE_AUTH_URL ?? '').replace(/\/+$/, '')}/`;
+/** The Auth Worker's Home Page, where a Sign-in is revoked. */
+// Tests run with no env at all.
+export const authHome = `${(import.meta.env.VITE_AUTH_URL ?? '').replace(/\/+$/, '')}/`;
 
-// 2. Ask
-/** The Local Sign-In, open while a sign-in waits for who; nothing outside Local mode. */
-export function LocalSignInDialog() {
-  const asking = useSyncExternalStore(
-    chooser.subscribe,
-    chooser.isAsking,
-    () => false,
-  );
-  if (!local) return null;
-  return (
-    <LocalSignIn
-      open={asking}
-      presets={[]}
-      onChoose={chooser.answer}
-      onCancel={() => chooser.answer(null)}
-    />
-  );
-}
-
-// 3. Screens
+// 2. Screens
 /** Signed out, or still checking: the one thing to do is sign in. */
 export function SignedOut({
   checking,
@@ -128,7 +84,7 @@ export function SignedOut({
   );
 }
 
-// 4. Slot
+// 3. Slot
 const Slot = createContext<ReactNode>(null);
 
 /** Hands the Account Switcher, drawn, to the headers below. */
