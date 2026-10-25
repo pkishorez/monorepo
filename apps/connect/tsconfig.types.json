@@ -8,7 +8,7 @@
   "include": [],
   "files": [
     "src/code/api/index.ts",
-    "src/cloud/serve/index.ts",
+    "src/cloud/worker/index.ts",
     "src/cli/index.ts",
     "src/cli/dev/index.ts"
   ]

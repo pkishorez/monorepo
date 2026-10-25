@@ -4,7 +4,7 @@ import * as Output from 'alchemy/Output';
 import { Effect } from 'effect';
 import { portlessPort } from '@kestack/web-platform/app/alchemy';
 import { D1 } from '@kestack/std-toolkit/alchemy';
-import { machinesTable } from '../../serve/index.ts';
+import { machinesTable } from '../src/cloud/worker/index.ts';
 import { where } from './stage.ts';
 
 /*
@@ -36,7 +36,7 @@ export const CloudConnect = Cloudflare.Worker(
     });
     const domain = at.domain();
     return {
-      main: './src/cloud/deploy/worker.server.ts',
+      main: './src/cloud/worker/worker.server.ts',
       compatibility: { date: '2025-07-04', flags: ['nodejs_compat'] },
       ...(domain === undefined ? {} : { domain }),
       ...(at.dev ? { dev: { port: portlessPort(), strictPort: true } } : {}),

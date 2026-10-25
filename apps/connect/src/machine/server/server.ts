@@ -13,7 +13,7 @@ import {
   RpcServer,
 } from 'effect/rpc';
 import { NodeHttpServer } from '@effect/platform-node';
-import { allowsOrigin } from '../../cloud/origins/index.js';
+import { allowsOrigin } from '../../cloud/contract/index.js';
 import { keyGuard, selectProtocol } from './machine-key.js';
 
 /*

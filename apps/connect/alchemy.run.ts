@@ -3,7 +3,7 @@ import * as Cloudflare from '@alchemy.run/cloudflare';
 import { Layer } from 'effect';
 import { providers as stdToolkitProviders } from '@kestack/std-toolkit/alchemy';
 import { State } from '@kestack/web-platform/app/alchemy';
-import { CloudConnect } from './src/cloud/deploy/infra/index.ts';
+import { CloudConnect } from './infra/index.ts';
 
 export default Stack(
   'Connect',

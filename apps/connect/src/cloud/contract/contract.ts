@@ -10,8 +10,11 @@ import { Authz, type Guarded } from '@kestack/auth-toolkit';
  * forgotten: its Sign-in may never report it again (ADR 0016).
  *
  * Besides the RPC, Cloud Connect answers `GET /auth` with how a Machine signs
- * in, so `serve` needs Cloud Connect's address alone.
+ * in, so `serve` needs Cloud Connect's address alone. Both servers, Cloud
+ * Connect and a Machine's, let in the same origin patterns.
  */
+
+export { allowsOrigin } from './origins.js';
 
 /** The RPC's path on Cloud Connect. */
 export const RPC_PATH = '/rpc';
