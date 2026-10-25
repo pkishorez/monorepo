@@ -1,1 +1,1 @@
-export { SettledLine, SettledList, settledOf } from './settled-list.tsx';
+export { SettledList, settledOf } from './settled-list.tsx';

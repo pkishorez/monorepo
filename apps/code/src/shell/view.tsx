@@ -1,6 +1,9 @@
 import { useChild, View, type ViewProps } from '@kestack/kabuki/react';
 import { Router, useRouter } from '@kestack/kabuki/routing';
-import { AccountSwitcherView } from '@kestack/web-platform/recipes/account-switcher';
+import {
+  AccountSwitcherList,
+  AccountSwitcherView,
+} from '@kestack/web-platform/recipes/account-switcher';
 import { AppShell, useAppShell } from '@kestack/web-platform/recipes/frame';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import { KeysStatusBar } from '@kestack/web-platform/recipes/keyboard';
@@ -76,7 +79,7 @@ export const ShellView = View.make(
               />
             ) : (
               <Machines machines={children.machines}>
-                <Signed actors={children} send={send} />
+                <Signed actors={children} email={account.email} send={send} />
               </Machines>
             )}
           </AccountSlot>
@@ -124,9 +127,12 @@ function Listed({
 /** The app, signed in. */
 function Signed({
   actors: children,
+  email,
   send,
 }: {
   readonly actors: Self['children'];
+  /** Who is signed in. */
+  readonly email: string;
   readonly send: Self['send'];
 }) {
   const route = useRouter<Route>().route;
@@ -186,19 +192,13 @@ function Signed({
     [children.dictation, children.microphonePicker, send, drafts.shown],
   );
   Dictation.useDictationKeys(dictating.ask);
-  const slots = useMemo(
-    () => ({
-      projectPicker: <ProjectPicker.button instance={children.projectPicker} />,
-    }),
-    [children.projectPicker],
-  );
   return (
     <Dictation.Dictating value={dictating}>
       <MicrophonePicker.Opener value={microphones}>
         <Screen
           route={route}
           sidebar={
-            <Sidebar.Slots value={slots}>
+            <>
               {/* On a phone the sidebar is home, so it says what home would. */}
               {children.machines && (
                 <div className="md:hidden">
@@ -206,7 +206,16 @@ function Signed({
                 </div>
               )}
               <Sidebar.view instance={children.sidebar} />
-            </Sidebar.Slots>
+            </>
+          }
+          foot={
+            <Sidebar.Foot
+              email={email}
+              accounts={<AccountSwitcherList instance={children.account} />}
+              projectPicker={
+                <ProjectPicker.button instance={children.projectPicker} />
+              }
+            />
           }
           header={{
             title: <Header.view instance={children.header} />,
@@ -273,11 +282,14 @@ function Signed({
 function Screen({
   route,
   sidebar,
+  foot,
   header,
   children,
 }: {
   readonly route: Route;
   readonly sidebar: ReactNode;
+  /** Two buttons, over the sidebar on a phone, under it when wide. */
+  readonly foot: ReactNode;
   readonly header: ComponentProps<typeof AppShell>['header'];
   readonly children: ReactNode;
 }) {
@@ -298,24 +310,16 @@ function Screen({
         width: 260,
         content: (
           <keys.Surface id="sidebar" asChild>
-            <div className="flex min-h-0 flex-1 flex-col rounded-xl pt-2 md:mx-2">
+            <div className="relative flex min-h-0 flex-1 flex-col rounded-xl pt-2 md:mx-2">
               <SidebarSwitch home={route._tag === 'Home'} />
               <Sidebar.PullToReload>
-                <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-2 overflow-auto">
+                {/* On a phone, room under the last row for the foot that floats over it. */}
+                <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-2 overflow-auto max-md:pb-24">
                   {sidebar}
                 </div>
               </Sidebar.PullToReload>
               {/* The App Shell keeps it above the home indicator. */}
-              <div className="flex items-center gap-2 p-2">
-                <div className="min-w-0 flex-1">
-                  <Sidebar.SettingsLink route={route} />
-                </div>
-                {/* The header's, on a phone, where the header has no room. */}
-                <div className="flex items-center gap-1 md:hidden [&_[data-slot=avatar]]:size-9">
-                  <ThemeToggle />
-                  <Account />
-                </div>
-              </div>
+              {foot}
             </div>
           </keys.Surface>
         ),

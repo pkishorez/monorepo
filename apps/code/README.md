@@ -139,21 +139,24 @@ Stop the turn while one runs, each with its keys as bound.
 At its top the sidebar (`src/shell/actors/sidebar/`) has the Machine
 Filter, every Machine or one, kept in this browser, and Reload, which asks
 Cloud Connect for the Machines again; only the Machines shown are synced
-there. It lists their projects as one list, the most recently active first (a turn started or a session
-made, never viewing, so the order holds while you browse), each a small
-muted heading over its unsettled sessions, flat and dense; after a
-project's name, its Machine's name in small text, while there is more than
-one Machine, and, while that Machine does not answer, when it was last
-seen. The project open shows all its
-sessions, any other its three most recent and "+N", which shows the rest
-in place. A session row is its title, bold while Unseen (its last turn
+there. It lists every unsettled session as one timeline, the most recently
+active first (a turn started or a session made, never viewing, so the
+order holds while you browse), under Today, Yesterday, Previous 7 days and
+Earlier. A session row is its title, bold while Unseen (its last turn
 ended since it was last open on this device, kept per Machine; opening
-it, or a turn ending while it is open, marks it seen), a fork glyph for a fork, and a
-6px dot only when it needs attention: breathing while it runs, red when
-its last turn failed, amber when the server's stopping cut it off.
-"Settled · N" at its foot opens the Settled List (`settled-list/`) in
-place of the projects, the most recently Settled first, each row opening
-its session or Un-settling it.
+it, or a turn ending while it is open, marks it seen), a fork glyph for a
+fork, its project's name under it, then its Machine's while there is more
+than one and, while that Machine does not answer, when it was last seen,
+and at its right a 6px dot only when it needs attention: breathing while
+it runs, red when its last turn failed, amber when the server's stopping
+cut it off. On a touch screen a row swipes left to right to Settle it.
+Last of all, "Settled" with how many opens the Settled List
+(`settled-list/`) in its place, the most recently Settled first, each row
+opening its session or Un-settling it, by its button or a swipe right to
+left; "Recent", or a swipe left to right across it, goes back. Two round
+buttons float over its foot: You, a Drawer with who is signed in (which
+opens the Accounts in a Drawer on top), the theme and Settings, and New
+project, the Project Picker.
 
 A message is written in the Draft (`src/shell/pages/project/draft/`), an
 Actor of its own, a Child of the new-session page and of each session, so
@@ -256,8 +259,8 @@ the effort, Space starts or stops a Dictation, `d` opens the Microphone
 Picker, `t` switches the theme, `o`, `s` and `a` open the
 Project Picker, the Session Switcher and Session Actions, `n` starts a new session in the project
 open, `b` shows or hides the sidebar, `[` and `]` open the previous and
-next unsettled session in the sidebar's order, round past either end, showing one hidden behind
-"+N" and scrolling it into view without taking focus, `?` lists every
+next unsettled session in the sidebar's order, round past either end,
+scrolling it into view without taking focus, `?` lists every
 key, and Escape in the sidebar goes back to the page. Even while typing,
 `Ctrl+,` goes to Settings and, again or by Escape, back where you were,
 Ctrl+H and Ctrl+L go to the sidebar and the page, Ctrl+[ and Ctrl+]

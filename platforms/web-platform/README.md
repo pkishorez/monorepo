@@ -332,12 +332,13 @@ The PWA on the page.
 
 ### `@kestack/web-platform/recipes/account-switcher`
 
-The Account Switcher of a Kabuki app: a Child of the root page, its View in the header, and `CurrentAccount` for every page.
+The Account Switcher of a Kabuki app: a Child of the root page, its View in the header, its list for a sheet, and `CurrentAccount` for every page.
 
 | Export                | What it does                                                                                                                                                                                                |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `AccountSwitcherLive` | The Child to place on the root page, given `maxAccounts`: follows auth-toolkit's `Accounts`, shows a switch once under way 150 ms and for at least 300 ms, and runs switch, add and sign-out one at a time. |
 | `AccountSwitcherView` | Its slot in the header, always the width of "Sign in": the button signed out, the Account menu signed in, the remembered avatar or nothing while checking.                                                  |
+| `AccountSwitcherList` | The Account menu as a list for a sheet, such as a Drawer, from the same Instance: the Active Account, the others to switch to, adding one and signing out. Nothing unless signed in.                        |
 | `CurrentAccount`      | The Capability the root page Provides with `CurrentAccount.layer`: who is signed in and the switch on screen as a stream, and Requests to sign in, switch and sign out.                                     |
 
 ### `@kestack/web-platform/recipes/keyboard`

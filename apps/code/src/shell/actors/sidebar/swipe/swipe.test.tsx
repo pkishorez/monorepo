@@ -10,9 +10,9 @@ import { sayMoved, SwipeBack, SwipeToMove } from './swipe.tsx';
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 /*
- * A Session row on a touch screen, swiped left to right by one finger:
- * an unsettled one Settles, a Settled one un-Settles, and the toast's Undo
- * moves it back. Motion is reduced, so a row that goes goes at once.
+ * A Session row on a touch screen, swiped by one finger: an unsettled one
+ * left to right Settles, a Settled one right to left un-Settles, and the
+ * toast's Undo moves it back. Motion is reduced, so a row that goes goes at once.
  */
 
 const media = (touch: boolean) => (query: string) =>
@@ -108,9 +108,13 @@ describe('a Session row swiped on a touch screen', () => {
     expect(moves).toEqual([true, false]);
   });
 
-  it('un-Settles a Settled one, and Undo Settles it again', async () => {
+  it('un-Settles a Settled one swiped right to left, and Undo Settles it again', async () => {
     render(true);
     await swipe(320);
+    // Left to right does nothing to a Settled one.
+    expect(moves).toEqual([]);
+    render(true);
+    await swipe(-120);
     expect(moves).toEqual([false]);
     expect(document.body.textContent).toContain('Back among your sessions');
     act(() => undo()?.click());

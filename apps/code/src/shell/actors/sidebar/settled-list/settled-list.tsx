@@ -1,18 +1,15 @@
 import type { Project, Session } from '@kestack/connect/code';
 import { Router } from '@kestack/kabuki/routing';
 import {
-  ArchiveIcon,
   ArchiveRestoreIcon,
-  XIcon,
+  ChevronLeftIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import {
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@kestack/web-platform/recipes/frame';
+import { type PointerEvent, useRef } from 'react';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import { useBound } from '../../../../keys.ts';
 import * as routes from '../../../routes/index.ts';
@@ -22,12 +19,16 @@ import { SwipeToMove } from '../swipe/index.ts';
 /*
  * The Settled List: every Settled Session, flat, the most recently Settled
  * first, each with its Project's name. A row opens its Session; its button
- * Un-settles it, which puts it back among its Project's Sessions. With no
- * keyboard a row swipes to un-Settle instead, and its button is only
- * heard, by a screen reader, which cannot swipe it. The one
- * line at the sidebar's foot, "Settled · N", opens and closes it in place
- * of the Projects.
+ * Un-settles it, which puts it back in the timeline. With no keyboard a row
+ * swipes right to left to un-Settle instead, and its button is only heard,
+ * by a screen reader, which cannot swipe it. "Settled", last in the
+ * timeline, opens it in its place; "Recent" at its top goes back, as does
+ * a swipe left to right anywhere on it.
  */
+
+// How far a finger goes left to right, and how little up or down, to go back.
+const BACK_PX = 72;
+const STRAY_PX = 40;
 
 /** The Settled Sessions, the most recently Settled first, with their Project's name. */
 export const settledOf = (
@@ -49,11 +50,9 @@ export const settledOf = (
 
 type Listed = ReturnType<typeof settledOf>[number];
 
-/** A row: a finger's height, but 28px with a keyboard on a wide screen. */
-const row = 'h-11 gap-2 px-2 py-0 keyboard:md:h-7 data-active:font-normal';
-/** A Session's row: a little taller than a finger, to swipe, alike. */
+/** A Session's row: taller than a finger, to swipe, but compact with a keyboard on a wide screen. */
 const sessionRow =
-  'h-12 gap-2 px-2 py-0 keyboard:md:h-7 data-active:font-normal';
+  'h-14 gap-3 rounded-xl px-3 py-0 text-[15px] keyboard:md:h-8 keyboard:md:text-[13px] data-active:font-normal';
 const cursorRing = 'data-cursor:ring-2 data-cursor:ring-inset';
 
 export function SettledList({
@@ -77,25 +76,47 @@ export function SettledList({
   const settle = useBound('app.actions');
   // With no keyboard a row swipes to un-Settle; its button is only heard.
   const { keyboard } = useDevice();
+  // A swipe left to right on the list goes back to the timeline.
+  const press = useRef<{ x: number; y: number } | null>(null);
+  const down = (event: PointerEvent) => {
+    press.current =
+      event.pointerType === 'touch'
+        ? { x: event.clientX, y: event.clientY }
+        : null;
+  };
+  const up = (event: PointerEvent) => {
+    const from = press.current;
+    press.current = null;
+    if (
+      from !== null &&
+      event.clientX - from.x > BACK_PX &&
+      Math.abs(event.clientY - from.y) < STRAY_PX
+    )
+      onClose();
+  };
   return (
-    <SidebarGroup className="px-2 py-1">
-      <SidebarGroupLabel className="h-11 justify-between pr-0 keyboard:h-7">
+    <div
+      onPointerDown={down}
+      onPointerUp={up}
+      onPointerCancel={() => (press.current = null)}
+      className="flex flex-col"
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        className="focus-ring flex h-11 items-center gap-1 self-start rounded-lg pr-3 pl-1.5 text-[15px] text-muted-foreground transition-colors duration-150 hover:text-sidebar-foreground keyboard:md:h-7 keyboard:md:text-[13px] motion-reduce:transition-none"
+      >
+        <ChevronLeftIcon aria-hidden className="size-4.5" />
+        Recent
+      </button>
+      <h2 className="px-3 pt-1 pb-2 text-[13px] font-medium text-muted-foreground keyboard:md:text-xs">
         Settled
-        <button
-          type="button"
-          aria-label="Close the Settled list"
-          title="Close"
-          onClick={onClose}
-          className="focus-ring grid size-11 place-items-center rounded-md text-muted-foreground/70 keyboard:size-6 transition-colors duration-150 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground motion-reduce:transition-none"
-        >
-          <XIcon aria-hidden className="size-3.5" />
-        </button>
-      </SidebarGroupLabel>
-      <SidebarGroupContent>
+      </h2>
+      <div>
         {listed.length === 0 ? (
-          <p className="px-2 py-1.5 text-xs text-muted-foreground">
+          <p className="px-3 py-1.5 text-[15px] text-pretty text-muted-foreground keyboard:md:text-xs">
             {!keyboard
-              ? 'Nothing is Settled. Swipe a session you are done with to the right to Settle it.'
+              ? 'Nothing is Settled. Swipe a session you are done with left to right to Settle it.'
               : `Nothing is Settled. Settle a session you are done with from Session Actions${settle === null ? '' : ` (${settle})`}.`}
           </p>
         ) : (
@@ -156,38 +177,7 @@ export function SettledList({
             })}
           </SidebarMenu>
         )}
-      </SidebarGroupContent>
-    </SidebarGroup>
-  );
-}
-
-/** The one line at the sidebar's foot that opens and closes the Settled List. */
-export function SettledLine({
-  count,
-  open,
-  cursor,
-  onToggle,
-}: {
-  readonly count: number;
-  readonly open: boolean;
-  readonly cursor: true | undefined;
-  readonly onToggle: () => void;
-}) {
-  return (
-    <SidebarMenu className="px-2">
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          data-place="settled"
-          data-cursor={cursor}
-          aria-expanded={open}
-          isActive={open}
-          onClick={onToggle}
-          className={`${row} ${cursorRing} text-xs text-muted-foreground`}
-        >
-          <ArchiveIcon aria-hidden className="size-3.5!" />
-          <span className="tabular-nums">Settled · {count}</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-    </SidebarMenu>
+      </div>
+    </div>
   );
 }

@@ -99,6 +99,9 @@ export function Drawer({
         initialFocus={false}
         finalFocus={false}
         className={cn(
+          // The page's own background, not a grey sheet, set off by a soft
+          // shadow and a hairline, with rounder top corners.
+          'bg-background [--drawer-bleed-background:var(--color-background)] border-border/60 shadow-[0_-1px_2px_rgb(0_0_0/0.06),0_-8px_32px_rgb(0_0_0/0.18)] data-[swipe-direction=down]:rounded-t-[20px]',
           'pb-[max(0.5rem,env(safe-area-inset-bottom))] motion-reduce:transition-none sm:mx-auto sm:max-w-lg',
           tall &&
             // Above the keyboard, and gone past it as it slides away.

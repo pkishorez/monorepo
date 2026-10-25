@@ -30,7 +30,7 @@ import { Spinner } from '#components/spinner';
  * once it has been under way a moment: a quick one shows nothing.
  */
 
-interface Account {
+export interface Account {
   readonly id: string;
   readonly name: string;
   readonly email: string;
@@ -106,7 +106,7 @@ export function Remembered({ account }: { readonly account: Account }) {
 }
 
 /** Name and email, each on one line, cut with … and whole in a title. */
-function Who({ account }: { readonly account: Account }) {
+export function Who({ account }: { readonly account: Account }) {
   return (
     <span className="min-w-0 flex-1">
       <span

@@ -1,12 +1,11 @@
 import { SidebarLive } from './actor.ts';
+import { Foot } from './foot.tsx';
 import { PullToReload } from './pull/index.ts';
-import { SettingsLink } from './sidebar.tsx';
-import { SidebarView, Slots } from './view.tsx';
+import { SidebarView } from './view.tsx';
 
 export const Sidebar = {
   actor: SidebarLive,
   view: SidebarView,
-  Slots,
-  SettingsLink,
+  Foot,
   PullToReload,
 };

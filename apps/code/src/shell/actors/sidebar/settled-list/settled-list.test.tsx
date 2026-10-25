@@ -59,6 +59,7 @@ describe('a Settled row', () => {
   let host: HTMLDivElement;
   let root: Root;
   let unsettled: Array<string>;
+  let closed: number;
 
   const render = (keyboard: boolean) => {
     document.documentElement.toggleAttribute('data-keyboard', keyboard);
@@ -82,7 +83,7 @@ describe('a Settled row', () => {
               at={() => undefined}
               onUnsettle={(_, id) => void unsettled.push(id)}
               onMove={() => {}}
-              onClose={() => {}}
+              onClose={() => void (closed += 1)}
             />
           </keys.Provider>
         </GestureProvider>,
@@ -96,6 +97,7 @@ describe('a Settled row', () => {
 
   beforeEach(() => {
     unsettled = [];
+    closed = 0;
     host = document.body.appendChild(document.createElement('div'));
     root = createRoot(host);
   });
@@ -117,5 +119,32 @@ describe('a Settled row', () => {
     expect(button()?.className).toBe('sr-only');
     act(() => button()!.click());
     expect(unsettled).toEqual(['s1']);
+  });
+
+  it('goes back to the timeline by "Recent", or a finger swiped left to right across it', () => {
+    render(false);
+    const recent = [...host.querySelectorAll('button')].find(
+      (each) => each.textContent === 'Recent',
+    )!;
+    act(() => recent.click());
+    expect(closed).toBe(1);
+    const list = recent.parentElement!;
+    // jsdom has no PointerEvent: a MouseEvent with a pointer type stands in.
+    const finger = (type: string, x: number, y: number) => {
+      const event = new MouseEvent(type, {
+        bubbles: true,
+        clientX: x,
+        clientY: y,
+      });
+      Object.assign(event, { pointerType: 'touch' });
+      act(() => void list.dispatchEvent(event));
+    };
+    finger('pointerdown', 20, 100);
+    finger('pointerup', 140, 110);
+    expect(closed).toBe(2);
+    // Mostly down, it is a scroll, not a swipe back.
+    finger('pointerdown', 20, 100);
+    finger('pointerup', 140, 220);
+    expect(closed).toBe(2);
   });
 });
