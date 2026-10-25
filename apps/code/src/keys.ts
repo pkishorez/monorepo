@@ -226,6 +226,13 @@ export const keys = createKeys({
             label: 'Pick the permissions',
           },
           effort: { keys: 'e', label: 'Pick the effort' },
+          side: { keys: 'q', label: 'Ask on the side, or back' },
+          sideAnywhere: {
+            keys: 'ctrl+q',
+            label: 'Ask on the side, or back, even while typing',
+            always: true,
+            inField: true,
+          },
           previousSession: {
             keys: '[',
             label: 'Previous session in the sidebar',
@@ -428,6 +435,11 @@ export const keyTable: ReadonlyArray<{
         vim: ['content.undo'],
       },
       { label: 'Put a skill in', always: [], vim: ['content.skills'] },
+      {
+        label: 'Ask on the side, or back',
+        always: ['content.sideAnywhere'],
+        vim: ['content.side'],
+      },
       {
         label: 'Pick the model, permissions, effort',
         always: [],

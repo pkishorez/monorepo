@@ -55,6 +55,8 @@ export interface Draft {
   /** Something to send. */
   readonly filled: boolean;
   readonly disabled: boolean;
+  /** Text only: no file goes in, as in a Side Question. */
+  readonly textOnly?: boolean;
   readonly files: { readonly add: (files: ReadonlyArray<File>) => unknown };
   readonly skills: {
     readonly how: typeof Picker.How.Type | null;
@@ -228,7 +230,9 @@ export const TouchDraftView = View.make(
               quick={{
                 onAsk: t.ask,
                 onPaste: slots.onPaste,
-                onFiles: (files) => void draft.files.add(files),
+                onFiles: draft.textOnly
+                  ? null
+                  : (files) => void draft.files.add(files),
                 onChooseMicrophone: draft.dictation.onChooseMicrophone,
               }}
               send={

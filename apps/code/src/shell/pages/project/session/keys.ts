@@ -6,7 +6,7 @@ import { keys } from '../../../../keys.ts';
  * scroll the transcript a line, Ctrl+D and Ctrl+U half a page, g g goes to
  * the top and Shift+G back to the bottom, following again. Page Up and
  * Page Down scroll it even while typing, and Mod+. stops the running turn
- * (the Draft closes its own `/btw` answer). Every
+ * (the Draft leaves its own Side Question mode). Every
  * scroll is instant; scrolling up lets the transcript stop following new
  * messages.
  */

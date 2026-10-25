@@ -51,9 +51,11 @@ shell                                   root; Provides CurrentAccount, Replicas,
 │       └── speech-to-text              each: listed Machine id
 └── pages/project                       /m/:machineId/p/:projectId; Provides CodeClient, SharedCatalog, Picker Owners
     ├── draft                           while no session is open: the new session's
+    │   ├── mode                        each: Message
     │   └── touch                       always
     └── session                         /s/:sessionId
         └── draft                       key: the session id
+            ├── mode                    each: Message, SideQuestion
             └── touch                   always
 ```
 
@@ -74,6 +76,7 @@ shell ─ Props: place (the Draft open) ─────────────�
 shell ─ Props: bindings ────────────────────────▶ session-actions, keys-picker
 project ─ Provides CodeClient of :machineId, SharedCatalog ───────▶ session
 draft ─ Provides TouchDraft.owner ───────────────────▶ touch
+draft ─ Input: its text as written; Props: mode, reset ▶ mode
 machines ─ each id; Input: machineId, accountId ────▶ harness-accounts, speech-to-text
 harness-accounts ─ each key; Provides AccountList; Props: account ▶ card
 ```
@@ -204,7 +207,7 @@ Settings is a page of three pages, drawn as tabs beside the one open. General re
 
 ## project · session
 
-**Does**: The new session's Draft and its start / the open Session: its transcript, Draft, send, `/btw`, fork and stop.
+**Does**: The new session's Draft and its start / the open Session: its transcript, Draft, send, Side Questions, fork and stop.
 **Provides**: CodeClient of `:machineId`, from CodeClients, and SharedCatalog, from self (`project/capabilities/`), both project only
 **Requires**: CodeClients, Machines, Navigation / CodeClient, Replicas, DeviceState
 **Workers** (project): machine: always, Sends MachineKnown, so a Machine no longer listed says so in place of the page; harnesses, models, skills: the catalog, read over `CodeClients` on its own Machine
@@ -220,18 +223,28 @@ Settings is a page of three pages, drawn as tabs beside the one open. General re
 **Does**: Holds the next message of a page, a new session's first or a Session's next, and sends it.
 **Input**: none
 **Props**: machineId, projectId, to: NewSession, or Session with its id, its agent once read, and whether it runs
-**Model**: text, attachments, insert: the last Insert; catalog, as the project shares it; chosen: the agent, model and settings picked; picking, opened; problem; starting; unsent, sends; asked, asks
+**Model**: mode: the Draft Mode open; written: each mode's text and selection, as last written; resets, reset: the text each mode was last set to; attachments, insert: the last Insert; catalog, as the project shares it; chosen: the agent, model and settings picked; picking, opened; problem; starting; unsent, sends; asked, asks
 **States**: none
-**Messages**: Typed, AttachmentsChanged, InsertAsked, PickerOpened, SendAsked, AnswerDismissed, CatalogRetryAsked: its View; PickerClosed, SkillChosen, ModelChosen: its Pickers' Owners; SendAsked: also the Touch Draft's Owner; CatalogRead: its Worker; Started, StartRefused, Sent, SendRefused, Answered, AskRefused: its Commands
+**Messages**: Written, ModeAsked, AttachmentsChanged, InsertAsked, PickerOpened, SendAsked, CatalogRetryAsked: its View; PickerClosed, SkillChosen, ModelChosen: its Pickers' Owners; SendAsked: also the Touch Draft's Owner; CatalogRead: its Worker; Started, StartRefused, Sent, SendRefused, Answered, AskRefused: its Commands
 **Commands**: startSession: ends with Started or StartRefused; send: ends with Sent or SendRefused; ask: ends with Answered or AskRefused; retryCatalog; Router.push
 **Workers**: catalog: always, Sends CatalogRead
 **Requires**: CodeClient, SharedCatalog, Navigation
 **Provides**: SkillPicker and ModelPicker Owners, and `TouchDraft.owner`, at the top, from self
 **Services**: none
-**Children**: touch: the Touch Draft, always; skills, models: Pickers, while picking, key: opened
-**View**: why nothing can be sent or what went wrong, the `/btw` answer, the card and its Status Line; the page adds Stop and its own problem through `Slots`
+**Children**: modes: a Draft Mode each, the Side Question only in a Session; touch: the Touch Draft, always; skills, models: Pickers, while picking, key: opened
+**View**: why nothing can be sent or what went wrong, the card and its Status Line showing the mode open; in Side Question mode the question and its answer, where the page says; the page adds Stop, its own problem and that place through `Slots`
 
 ### Decisions
 
 - **A Session's Draft is keyed by its session**, because the session page stays as the URL moves between sessions. Caveat: a Draft not sent is gone when another session opens.
 - **Stop is the session's, handed to the Draft's View through `Slots`**, because stopping a turn is not the Draft's errand. Caveat: a React context, not Props, since it carries a button.
+- **Each Draft Mode is a Child, and the Draft keeps a copy of each one's text as written**, because a mode owns its text, cursor and selection, while the Draft acts on them: it sends, asks and sets them. The Draft's one editor hands each edit to both, and the Draft sets a mode's text by a numbered reset the mode takes once. Caveat: the edit reaches the mode through its View, which says how in `Edits`, as the Touch Draft's View hands the Draft its send.
+
+## project/draft/mode
+
+**Does**: Keeps one Draft Mode's text, cursor and selection.
+**Input**: its text and selection, and the last reset that holds already · **Props**: mode, reset: the text the Draft last set it to
+**Model**: written, reset: the last reset taken · **States**: none
+**Messages**: Edited, ResetTaken: its View · **Commands**: none · **Workers**: none
+**Requires**: none · **Provides**: none · **Services**: none · **Children**: none
+**View**: nothing; says in `Edits` how an edit reaches it, and takes a reset

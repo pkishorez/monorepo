@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { useChild, useChildren, View } from '@kestack/kabuki/react';
 import type { Session } from '@kestack/connect/code';
 import { Router, useElementScrollRestoration } from '@kestack/kabuki/routing';
@@ -36,7 +36,8 @@ import {
  * session the server stopped mid-turn says so under its transcript; a fork
  * names the session it came from over it, and draws what it carries on
  * from as one folded line before its own turns. Typing in the Draft draws
- * only the Draft.
+ * only the Draft. While the Draft is in Side Question mode, the question
+ * takes the transcript's place, which keeps where it was scrolled to.
  */
 
 /** The transcript's name, under which its scroll is kept per history entry. */
@@ -119,11 +120,17 @@ export const SessionView = View.make(
     const canStop = running && !model.stopping && offline === null;
     useSessionKeys({ scroller, follow, stop, canStop });
     const stopKeys = useBound('content.stop');
+    // Where the Draft draws Side Question mode, in the transcript's place.
+    const [aside, setAside] = useState<HTMLElement | null>(null);
+    const side =
+      useChild(children.draft, ({ model }) => model.mode === 'SideQuestion') ===
+      true;
     // What the session adds to its Draft's foot: Stop, and why a stop or a
     // fork was refused.
     const slots = useMemo(
       () => ({
         problem: model.problem,
+        aside,
         actions: running && (
           <Button
             type="button"
@@ -143,7 +150,7 @@ export const SessionView = View.make(
           </Button>
         ),
       }),
-      [model.problem, model.stopping, running, offline, stopKeys, stop],
+      [model.problem, model.stopping, running, offline, stopKeys, stop, aside],
     );
     return (
       <div {...root} className="flex min-h-0 flex-1 flex-col">
@@ -153,6 +160,7 @@ export const SessionView = View.make(
             return element === null ? undefined : page(element);
           }}
           tabIndex={-1}
+          hidden={side}
           data-scroll-restoration-id={TRANSCRIPT}
           className="min-h-0 flex-1 overflow-y-auto outline-none select-text [overflow-anchor:none]"
         >
@@ -173,6 +181,11 @@ export const SessionView = View.make(
             offline={offline}
           />
         </div>
+        <div
+          ref={setAside}
+          hidden={!side}
+          className="min-h-0 flex-1 overflow-y-auto select-text"
+        />
         {!missing && (
           <div className="relative shrink-0 bg-background pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent">
             <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">

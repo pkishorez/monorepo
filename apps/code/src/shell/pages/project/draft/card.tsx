@@ -16,7 +16,7 @@ import {
   useAttachments,
   type Attachment,
 } from './attachments/index.ts';
-import { slashAtoms, useEditor } from './editor/index.ts';
+import { slashAtoms, useEditor, type Selected } from './editor/index.ts';
 import type { Insert } from './message.ts';
 import { useTransfers } from './transfer.ts';
 
@@ -54,6 +54,9 @@ import { useTransfers } from './transfer.ts';
  *             Draft says it took it; refused, the placeholder offers a
  *             retry.
  * 5. Undo     `u`, or Mod+Z in the Composer, takes the last step back.
+ * 6. Modes    it shows the Draft Mode open, one text at a time, each with
+ *             its own cursor and selection; one that is text only, as a
+ *             Side Question, takes no file and no Skill.
  *
  * Under it is its Status Line: the model and its settings, the skills,
  * the paperclip and the mic, and the send buttons.
@@ -65,7 +68,18 @@ interface DraftOptions {
   /** What the empty Composer says. */
   readonly placeholder: string;
   readonly text: string;
-  readonly onTextChange: (text: string) => void;
+  readonly onTextChange: (text: string, selection: Selected) => void;
+  /** Which Draft Mode's text it shows; each keeps its own cursor and history. */
+  readonly doc?: string;
+  /** Where the cursor starts in a text first shown. */
+  readonly selection?: Selected;
+  readonly onSelect?: (text: string, selection: Selected) => void;
+  /** What the Draft is called over it in place of Message or Draft. */
+  readonly title?: string;
+  /** Text only: no file and no Skill goes in, as in a Side Question. */
+  readonly textOnly?: boolean;
+  /** Escape in the Composer out of Vim Mode, where it leaves nothing else. */
+  readonly onEscape?: () => void;
   readonly attachments: ReadonlyArray<Attachment>;
   readonly onAttachmentsChange: (
     attachments: ReadonlyArray<Attachment>,
@@ -155,6 +169,7 @@ export function useDraft(options: DraftOptions) {
     skills,
     dictation,
     disabled = false,
+    textOnly = false,
   } = options;
   const names = known.join('\n');
   const atoms = useMemo(() => slashAtoms(new Set(names.split('\n'))), [names]);
@@ -191,11 +206,20 @@ export function useDraft(options: DraftOptions) {
     writeKeys === null ? 'Write a message' : `Press ${writeKeys} to write`;
   const placeholder = writing || !keyboard ? options.placeholder : reading;
 
-  const latest = useRef(dictation);
-  latest.current = dictation;
+  const latest = useRef({ ...dictation, escape: options.onEscape });
+  latest.current = { ...dictation, escape: options.onEscape };
   const editor = useEditor({
     text,
+    doc: options.doc ?? null,
+    selection: options.selection ?? null,
     onTextChange: options.onTextChange,
+    ...(options.onSelect === undefined ? {} : { onSelect: options.onSelect }),
+    onEscape: () => {
+      const escape = latest.current.escape;
+      if (vim.on || escape === undefined) return false;
+      escape();
+      return true;
+    },
     onSend: send,
     label: options.label,
     describedBy: options.describedBy,
@@ -259,7 +283,9 @@ export function useDraft(options: DraftOptions) {
     own: () => editor.view.current?.dom ?? null,
     disabled,
     onText: (text) => onInsert({ _tag: 'Text', text }),
-    onFiles: (pasted) => void files.add(pasted),
+    onFiles: (pasted) => {
+      if (!textOnly) void files.add(pasted);
+    },
   });
 
   keys.useAction('content.write', write, { enabled: !disabled });
@@ -277,6 +303,8 @@ export function useDraft(options: DraftOptions) {
   return {
     /** The ref for the element the editor is drawn in. */
     mount: editor.mount,
+    title: options.title,
+    textOnly,
     view: editor.view,
     vim: vim.on,
     /** No keyboard: it is drawn as the Touch Draft (`touch/`). */
@@ -445,7 +473,7 @@ export function Heading({ draft }: { readonly draft: Draft }) {
     return (
       <div aria-hidden className={HEADING}>
         <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground/40" />
-        <span>Message</span>
+        <span>{draft.title ?? 'Message'}</span>
         <span className={HINT}>Shift+Enter for a new line</span>
       </div>
     );
@@ -453,7 +481,7 @@ export function Heading({ draft }: { readonly draft: Draft }) {
     <div aria-hidden className={HEADING}>
       <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground/40 transition-colors duration-150 group-data-writing/draft:bg-primary motion-reduce:transition-none" />
       <span className="group-data-writing/draft:text-foreground">
-        {draft.writing ? 'Editing' : 'Draft'}
+        {draft.writing ? 'Editing' : (draft.title ?? 'Draft')}
       </span>
       <span className={HINT}>
         {draft.writing
@@ -525,37 +553,41 @@ export function StatusLine({
         data-open={tools || undefined}
         className="col-span-3 row-start-1 hidden min-w-0 items-center gap-0.5 pb-1 data-open:flex pointer-coarse:*:size-11 @md/status:col-span-1 @md/status:col-start-2 @md/status:flex @md/status:pb-0"
       >
-        <Picker.Frame
-          how={draft.skills.how}
-          mode="sheet"
-          label="Skills and commands"
-          onOpen={(how) => draft.skills.onOpen(how, false)}
-          trigger={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Add a skill or command"
-              title={
-                skillKeys === null
-                  ? 'Add a skill or command'
-                  : `Add a skill or command (${skillKeys})`
-              }
-              disabled={draft.disabled || !draft.skills.offered}
-              className="shrink-0 text-muted-foreground"
-            >
-              <SquareSlashIcon aria-hidden />
-            </Button>
-          }
-          side="top"
-          className="w-[min(26rem,calc(100vw-2rem))]"
-        >
-          {draft.skills.picker}
-        </Picker.Frame>
-        <AttachButton
-          disabled={draft.disabled}
-          onFiles={(picked) => void draft.files.add(picked)}
-        />
+        {!draft.textOnly && (
+          <Picker.Frame
+            how={draft.skills.how}
+            mode="sheet"
+            label="Skills and commands"
+            onOpen={(how) => draft.skills.onOpen(how, false)}
+            trigger={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Add a skill or command"
+                title={
+                  skillKeys === null
+                    ? 'Add a skill or command'
+                    : `Add a skill or command (${skillKeys})`
+                }
+                disabled={draft.disabled || !draft.skills.offered}
+                className="shrink-0 text-muted-foreground"
+              >
+                <SquareSlashIcon aria-hidden />
+              </Button>
+            }
+            side="top"
+            className="w-[min(26rem,calc(100vw-2rem))]"
+          >
+            {draft.skills.picker}
+          </Picker.Frame>
+        )}
+        {!draft.textOnly && (
+          <AttachButton
+            disabled={draft.disabled}
+            onFiles={(picked) => void draft.files.add(picked)}
+          />
+        )}
         {!micFirst && (
           <Button
             type="button"

@@ -1,4 +1,4 @@
-import { useChild, View } from '@kestack/kabuki/react';
+import { useChild, useChildren, View } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import {
@@ -9,6 +9,7 @@ import {
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import { createContext, type ReactNode, use, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { keys, useBound } from '../../../../keys.ts';
 import { Dictation } from '../../../actors/dictation/index.ts';
 import { useOffline } from '../../../machines/index.ts';
@@ -17,14 +18,15 @@ import { Catalog } from '../capabilities/index.ts';
 import {
   current,
   DraftLive,
+  modesOf,
   pickedHarness,
   pickedModel,
   skillsOf,
 } from './actor.ts';
-import { AskAnswer } from './ask.tsx';
 import { AttachmentStrip } from './attachments/index.ts';
-import { btwQuestion } from './btw.ts';
 import { Card, PRIMARY, StatusLine, useDraft } from './card.tsx';
+import { DraftMode, type Mode, type Written } from './mode/index.ts';
+import { SideQuestion } from './side-question.tsx';
 import { Chip, ModelPicker, Triggers } from './model-picker/index.ts';
 import { SkillPicker } from './skills.ts';
 import { TouchDraft } from './touch/index.ts';
@@ -34,11 +36,16 @@ import { TouchDraft } from './touch/index.ts';
  * sent or what went wrong, the Draft's card, and under it the Status Line
  * with the model Picker's triggers and the send button, which takes the
  * mic's place once there is something to send. A new session's
- * says Start session; a Session's says Send, Steer while the agent runs, or
- * Ask for a `/btw`, whose answer floats over it until Escape closes it.
- * What the page adds, such as a Session's Stop, comes through `Slots`. On
- * a device with no keyboard it is the Touch Draft (`touch/`), with the
- * model chip in place of the triggers, and every send goes through it.
+ * says Start session; a Session's says Send, or Steer while the agent
+ * runs. Its one editor shows the Draft Mode open (`mode/`), and hands
+ * each edit to that mode and to the Draft. In a Session, Ask on the side
+ * switches to Side Question mode and back, as do Escape and the "Back to
+ * session" over it: text only, no model Picker, and its send says Ask.
+ * The question and its answer take the transcript's place, drawn where
+ * the page says through `Slots`. What the page adds, such as a Session's
+ * Stop, comes through `Slots` too. On a device with no keyboard it is the
+ * Touch Draft (`touch/`), with the model chip in place of the triggers,
+ * and every send goes through it.
  */
 
 /** What the page that holds the Draft adds to its foot. */
@@ -47,6 +54,8 @@ export const Slots = createContext<{
   readonly actions?: ReactNode;
   /** The page's own problem, shown where the Draft's would be. */
   readonly problem?: string | null;
+  /** Where Side Question mode is drawn, in place of the transcript. */
+  readonly aside?: HTMLElement | null;
 }>({});
 
 export const DraftView = View.make(
@@ -63,6 +72,24 @@ export const DraftView = View.make(
     const skills = skillsOf(model, props);
     const { picking } = model;
     const fresh = to._tag === 'NewSession';
+    // 6. Modes: the one open, as its Child holds it.
+    const side = model.mode === 'SideQuestion';
+    const asking = modesOf(props).includes('SideQuestion');
+    const takes = DraftMode.takes(model.mode);
+    const modes = useChildren(children.modes);
+    const written =
+      modes.find((each) => each.props.mode === model.mode)?.model.written ??
+      model.written[model.mode];
+    // Set by each mode's View: how an edit reaches it.
+    const edits = useRef<Partial<Record<Mode, (written: Written) => void>>>({});
+    const edit = (text: string, selection: Omit<Written, 'text'>) => {
+      const next = { text, ...selection };
+      edits.current[model.mode]?.(next);
+      send({ _tag: 'Written', mode: model.mode, ...next });
+    };
+    const toggle = () =>
+      send({ _tag: 'ModeAsked', mode: side ? 'Message' : 'SideQuestion' });
+    const back = () => send({ _tag: 'ModeAsked', mode: 'Message' });
     const running = to._tag === 'Session' && to.running;
     const describedBy = fresh ? 'new-session-offline' : 'draft-offline';
     const { keyboard } = useDevice();
@@ -70,17 +97,32 @@ export const DraftView = View.make(
     // On touch, set by the Touch Draft's View: a send goes through it.
     const touchSend = useRef<(() => void) | null>(null);
     const draft = useDraft({
-      label: fresh ? 'First message' : running ? 'Steer the agent' : 'Message',
+      label: fresh
+        ? 'First message'
+        : side
+          ? 'Side question'
+          : running
+            ? 'Steer the agent'
+            : 'Message',
       placeholder: fresh
         ? 'What should the agent do?'
-        : running
-          ? 'Steer the agent while it works'
-          : 'Reply to the agent',
-      text: model.text,
-      onTextChange: (text) => send({ _tag: 'Typed', text }),
-      attachments: model.attachments,
-      onAttachmentsChange: (attachments) =>
-        send({ _tag: 'AttachmentsChanged', attachments }),
+        : side
+          ? 'Ask about this session, without interrupting it'
+          : running
+            ? 'Steer the agent while it works'
+            : 'Reply to the agent',
+      text: written.text,
+      doc: model.mode,
+      selection: written,
+      onTextChange: edit,
+      onSelect: edit,
+      ...(side
+        ? { title: 'Side question', textOnly: true, onEscape: back }
+        : {}),
+      attachments: takes.files ? model.attachments : [],
+      onAttachmentsChange: (attachments) => {
+        if (takes.files) send({ _tag: 'AttachmentsChanged', attachments });
+      },
       insert: model.insert,
       onInsert: (what) => send({ _tag: 'InsertAsked', what }),
       onSend: () => {
@@ -88,10 +130,10 @@ export const DraftView = View.make(
         if (!keyboard && touchSend.current !== null) touchSend.current();
         else send({ _tag: 'SendAsked' });
       },
-      known: SkillPicker.known(skills),
+      known: takes.skills ? SkillPicker.known(skills) : [],
       skills: {
         how: picking?._tag === 'Skills' ? picking.how : null,
-        offered: SkillPicker.offers(skills),
+        offered: takes.skills && SkillPicker.offers(skills),
         onOpen: (how, typed) =>
           send({
             _tag: 'PickerOpened',
@@ -106,9 +148,9 @@ export const DraftView = View.make(
       editing: touchState === 'Editing',
       ...(offline === null ? {} : { describedBy }),
     });
-    keys.useAction('content.close', () => send({ _tag: 'AnswerDismissed' }), {
-      enabled: model.asked !== null,
-    });
+    keys.useAction('content.side', toggle, { enabled: asking });
+    keys.useAction('content.sideAnywhere', toggle, { enabled: asking });
+    keys.useAction('content.close', back, { enabled: side });
     const sendKeys = useBound('content.send');
 
     // A new session's agent cannot run, or its catalog cannot be read.
@@ -131,7 +173,7 @@ export const DraftView = View.make(
 
     const label = fresh
       ? 'Start session'
-      : btwQuestion(model.text) !== null
+      : side
         ? 'Ask'
         : running
           ? 'Steer'
@@ -148,13 +190,17 @@ export const DraftView = View.make(
 
     return (
       <div {...root} className="relative flex flex-col gap-2">
-        {model.asked && (
-          <AskAnswer
-            key={model.asked.id}
-            asked={model.asked}
-            onDismiss={() => send({ _tag: 'AnswerDismissed' })}
-          />
-        )}
+        <DraftMode.Edits value={edits}>
+          {children.modes.map((mode) => (
+            <DraftMode.view key={mode.id} instance={mode} />
+          ))}
+        </DraftMode.Edits>
+        {side &&
+          slots.aside &&
+          createPortal(
+            <SideQuestion asked={model.asked} onBack={back} />,
+            slots.aside,
+          )}
         {offline !== null ? (
           <p
             id={describedBy}
@@ -216,24 +262,11 @@ export const DraftView = View.make(
                     onRemove={draft.files.remove}
                   />
                 ) : null,
-              onAsk:
-                to._tag === 'Session'
-                  ? () => {
-                      const view = draft.view.current;
-                      if (view === null) return;
-                      if (btwQuestion(view.state.doc.toString()) === null)
-                        view.dispatch({
-                          changes: { from: 0, insert: '/btw ' },
-                        });
-                      view.dispatch({
-                        selection: { anchor: view.state.doc.length },
-                      });
-                    }
-                  : null,
+              onAsk: asking && !side ? toggle : null,
               onPaste: (text) =>
                 send({ _tag: 'InsertAsked', what: { _tag: 'Text', text } }),
               sending: touchSend,
-              chip: (
+              chip: takes.picks && (
                 <Chip
                   catalog={model.catalog}
                   current={current(model, props)}
@@ -278,22 +311,24 @@ export const DraftView = View.make(
                 </Button>
               }
             >
-              <Triggers
-                catalog={model.catalog}
-                current={current(model, props)}
-                started={!fresh}
-                how={picking?._tag === 'Model' ? picking : null}
-                onOpen={(at, how) =>
-                  send({
-                    _tag: 'PickerOpened',
-                    picking: { _tag: 'Model', how, at },
-                  })
-                }
-              >
-                {children.models && (
-                  <ModelPicker.View instance={children.models} />
-                )}
-              </Triggers>
+              {takes.picks && (
+                <Triggers
+                  catalog={model.catalog}
+                  current={current(model, props)}
+                  started={!fresh}
+                  how={picking?._tag === 'Model' ? picking : null}
+                  onOpen={(at, how) =>
+                    send({
+                      _tag: 'PickerOpened',
+                      picking: { _tag: 'Model', how, at },
+                    })
+                  }
+                >
+                  {children.models && (
+                    <ModelPicker.View instance={children.models} />
+                  )}
+                </Triggers>
+              )}
             </StatusLine>
           </Card>
         )}
