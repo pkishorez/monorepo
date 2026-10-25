@@ -1,0 +1,59 @@
+{
+  "name": "@kestack/connect",
+  "version": "0.0.2",
+  "description": "Connects a computer to the cloud as a Machine its User reaches from anywhere: the ke-connect command, Cloud Connect on a Cloudflare Worker, and the code App Group Code talks to",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo",
+    "directory": "apps/connect"
+  },
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {},
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && tsc -p tsconfig.types.json",
+    "fmt": "vp fmt",
+    "lint": "vp check && pnpm lint:tsc && laymos lint",
+    "lint:tsc": "tsc --noEmit",
+    "test": "vitest run --exclude \"**/*.e2e.test.ts\""
+  },
+  "dependencies": {
+    "@effect/platform-node": "catalog:",
+    "@kestack/ai-toolkit": "workspace:*",
+    "cloudflared": "catalog:"
+  },
+  "peerDependencies": {
+    "@kestack/auth-toolkit": "workspace:*",
+    "@kestack/kabuki": "workspace:*",
+    "@kestack/rpc-toolkit": "workspace:*",
+    "@kestack/std-toolkit": "workspace:*",
+    "@tanstack/db": "0.15.2",
+    "effect": "^4.0.0"
+  },
+  "devDependencies": {
+    "@alchemy.run/cloudflare": "catalog:",
+    "@cloudflare/workers-types": "catalog:",
+    "@kestack/auth-toolkit": "workspace:*",
+    "@kestack/kabuki": "workspace:*",
+    "@kestack/rpc-toolkit": "workspace:*",
+    "@kestack/std-toolkit": "workspace:*",
+    "@kestack/web-platform": "workspace:*",
+    "@tanstack/db": "catalog:",
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "alchemy": "catalog:",
+    "effect": "catalog:",
+    "laymos": "workspace:*",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

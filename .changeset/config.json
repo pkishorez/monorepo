@@ -13,6 +13,7 @@
     [
       "@kestack/ai-toolkit",
       "@kestack/auth-toolkit",
+      "@kestack/connect",
       "@kestack/rpc-toolkit",
       "@kestack/std-toolkit",
       "@kestack/web-platform"
