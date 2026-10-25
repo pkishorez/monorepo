@@ -171,6 +171,8 @@ let page = {
 let availability: Availability = { _tag: 'Ready' };
 /** How the Touch Draft is written, as Device State keeps it. */
 let kept = nothing.touchMode;
+/** Text only, as a Side Question: read as it is drawn. */
+let textOnly = false;
 let ping = () => {};
 let dictate: (pending: typeof Pending.Type | null) => void = () => {};
 let record: (on: boolean) => void = () => {};
@@ -213,6 +215,7 @@ function OnPage({
     placeholder: 'Reply',
     text: model.text,
     onTextChange: (text) => send({ _tag: 'Typed', text }),
+    textOnly,
     attachments: [],
     onAttachmentsChange: () => {},
     insert: model.insert,
@@ -338,6 +341,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  textOnly = false;
   await act(async () => root?.unmount());
   root = undefined;
   document.body.innerHTML = '';
@@ -357,6 +361,14 @@ describe('Touch Draft', () => {
     await tap(editor());
     expect(card().dataset['writing']).toBeUndefined();
     expect(document.activeElement).not.toBe(editor());
+  });
+
+  it('has no Skills button when text only, as a Side Question', async () => {
+    expect(button('Add a skill or command')).not.toBeNull();
+    textOnly = true;
+    await act(async () => ping());
+    await flush();
+    expect(button('Add a skill or command')).toBeNull();
   });
 
   it('keeps text, once chosen, in Device State', async () => {
