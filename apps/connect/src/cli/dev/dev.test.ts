@@ -1,7 +1,9 @@
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   existsSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   utimesSync,
@@ -89,6 +91,52 @@ describe('withLock', () => {
     expect(readFileSync(file, 'utf8')).toBe(fresh);
     takeOver(file, fresh);
     expect(existsSync(file)).toBe(false);
+  });
+
+  it('gives one owner when a late contender takes over a lock already taken over', async () => {
+    const file = join(dir, 'lock');
+    const seen = JSON.stringify({ pid: deadPid(), at: Date.now() });
+    writeFileSync(file, seen);
+    // A and B both judge the lock stale. B takes it over and takes it.
+    expect(takeOver(file, seen)).toBe(true);
+    const fresh = JSON.stringify({ pid: process.ppid, at: Date.now() });
+    writeFileSync(file, fresh, { flag: 'wx' });
+    // A comes late: B's lock stays, so C finds it held and waits.
+    expect(takeOver(file, seen)).toBe(false);
+    expect(readFileSync(file, 'utf8')).toBe(fresh);
+    await expect(
+      withLock(dir, async () => 'taken', { retryMs: 10, timeoutMs: 50 }),
+    ).rejects.toThrow(/Could not take/);
+    expect(readFileSync(file, 'utf8')).toBe(fresh);
+    expect(readdirSync(dir)).toEqual(['lock']);
+  });
+
+  it('leaves a stale lock to the process holding its guard, and clears a guard whose holder died', () => {
+    const file = join(dir, 'lock');
+    const seen = JSON.stringify({ pid: deadPid(), at: Date.now() });
+    writeFileSync(file, seen);
+    const guard = `${file}.${createHash('sha256').update(seen).digest('hex').slice(0, 16)}`;
+    // Another, live, process is taking it over.
+    writeFileSync(guard, JSON.stringify({ pid: process.ppid, at: Date.now() }));
+    expect(takeOver(file, seen)).toBe(false);
+    expect(readFileSync(file, 'utf8')).toBe(seen);
+    expect(existsSync(guard)).toBe(true);
+    // It died doing so.
+    writeFileSync(guard, JSON.stringify({ pid: deadPid(), at: Date.now() }));
+    expect(takeOver(file, seen)).toBe(false);
+    expect(existsSync(guard)).toBe(false);
+    expect(takeOver(file, seen)).toBe(true);
+    expect(readdirSync(dir)).toEqual([]);
+  });
+
+  it('gives back only its own lock, never one taken over since', async () => {
+    const file = join(dir, 'lock');
+    const fresh = JSON.stringify({ pid: process.ppid, at: Date.now() });
+    await withLock(dir, async () => {
+      takeOver(file, readFileSync(file, 'utf8'));
+      writeFileSync(file, fresh, { flag: 'wx' });
+    });
+    expect(readFileSync(file, 'utf8')).toBe(fresh);
   });
 });
 

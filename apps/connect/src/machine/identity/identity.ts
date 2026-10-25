@@ -6,7 +6,7 @@ import {
   removeMachine,
   writeMachine,
 } from './file.js';
-import { takeLegacyMachine } from './legacy.js';
+import { clearLegacyMachine, takeLegacyMachine } from './legacy.js';
 import { newMachineId, newMachineKey } from './secrets.js';
 
 /*
@@ -18,7 +18,9 @@ import { newMachineId, newMachineKey } from './secrets.js';
  *
  * A database moved from ~/.ai-toolkit still holds its Machine in
  * ai-toolkit's table: while there is no machine.json, that record becomes
- * it, so the Machine keeps its id and Machine Key.
+ * it, so the Machine keeps its id and Machine Key. Once there is one,
+ * the record is cleared on every start, should a first start have been
+ * cut short between the two, so `logout` never brings the old Machine back.
  */
 
 /** This Machine belongs to another User. */
@@ -38,11 +40,18 @@ export interface Kept {
   readonly db: string;
 }
 
-/** The Machine kept, taking ai-toolkit's over first when there is no machine.json yet, written before it is cleared there; null when there is none. */
+/**
+ * The Machine kept, taking ai-toolkit's over first when there is no
+ * machine.json yet, written before it is cleared there, and clearing it
+ * there when machine.json already holds one; null when there is none.
+ */
 const current = (kept: Kept) =>
   Effect.gen(function* () {
     const found = yield* readMachine(kept.file);
-    if (found !== null) return found;
+    if (found !== null) {
+      yield* clearLegacyMachine(kept.db);
+      return found;
+    }
     const legacy = yield* takeLegacyMachine(kept.db, (machine) =>
       writeMachine(kept.file, machine),
     );
@@ -90,6 +99,6 @@ export const claim = (
 /** The Machine kept, and its owner, without making one; null when there is none yet. */
 export const found = current;
 
-/** Forgets the Machine kept, so the next start makes a new one. */
+/** Forgets the Machine kept, ai-toolkit's record of it included, so the next start makes a new one. */
 export const forget = (kept: Kept) =>
   Effect.andThen(current(kept), removeMachine(kept.file));
