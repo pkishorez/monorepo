@@ -74,6 +74,7 @@ const Places = make('PlacePicker', {
       finishes: 'step',
       done: () => 'Choose this place',
       where: ({ key }) => `/${key}`,
+      make: 'New place',
       settles: true,
     },
   },
@@ -144,6 +145,17 @@ const OwnerLive = Actor.build(Owner, {
           truncated: false,
           problem: null,
         }),
+      make: ({ key }, name) =>
+        Effect.succeed(
+          name === 'taken'
+            ? { refused: 'Already there' }
+            : {
+                row: {
+                  value: key === '' ? name : `${key}/${name}`,
+                  label: name,
+                },
+              },
+        ),
       settle: (choices, { key }) => {
         const made = choices.at(-1)?.value ?? '';
         if (made === 'new:bad') return Effect.succeed('Not a good name');
@@ -389,5 +401,40 @@ describe('Picker Steps, on a device with no keyboard', () => {
     await flush();
     expect(state).toEqual({ settled: ['a'], heard: 'a' });
     expect(search()).toBeNull();
+  });
+
+  const button = (text: string) =>
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (each) => each.textContent === text,
+    );
+  const named = () =>
+    document.querySelector<HTMLInputElement>(
+      'input[aria-label="Name of the new folder"]',
+    )!;
+  const name = async (text: string) => {
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )!.set!.call(named(), text);
+      named().dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await flush();
+  };
+
+  it('makes a new place where it is and goes into it, or says why not', async () => {
+    await click(row('walk'));
+    await click(row('a'));
+    await click(button('New place')!);
+    await name('taken');
+    await click(button('Create')!);
+    expect(document.body.textContent).toContain('Already there');
+    await name('d');
+    await click(button('Create')!);
+    // In the place made, which the button under its path chooses.
+    expect(document.body.textContent).toContain('/a/d');
+    await click(done()!);
+    await flush();
+    expect(state).toEqual({ settled: ['a/d'], heard: 'a/d' });
   });
 });
