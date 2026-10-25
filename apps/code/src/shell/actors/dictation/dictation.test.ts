@@ -234,6 +234,7 @@ const world = (options: {
       levels,
       asked,
       recordings: () => recordings,
+      recording: () => recording,
       opened,
     };
   });
@@ -279,13 +280,13 @@ const start = (place: Place, layer: Layer.Layer<any>) =>
   >;
 
 /** Asks the Dictation as the app does: through the root's Command. */
-const toggle = (app: Running<unknown>) =>
+const askIt = (app: Running<unknown>, asked: typeof Ask.Type) =>
   Effect.andThen(
-    Effect.sync(() =>
-      app.send(app.snapshot().id, { _tag: 'Ask', ask: { _tag: 'Toggle' } }),
-    ),
+    Effect.sync(() => app.send(app.snapshot().id, { _tag: 'Ask', ask: asked })),
     settle,
   );
+
+const toggle = (app: Running<unknown>) => askIt(app, { _tag: 'Toggle' });
 
 const send = (
   app: Running<unknown>,
@@ -297,6 +298,24 @@ const send = (
   );
 
 describe('Dictation', () => {
+  it('throws away the one recording on Cancel: the microphone lets go and nothing is transcribed', () =>
+    timed(
+      Effect.gen(function* () {
+        const { layer, asked, recording } = yield* world({
+          speech: { m1: 'Ready' },
+        });
+        const app = yield* start(session('m1', 's1'), layer);
+        yield* settle;
+        yield* toggle(app);
+        expect(stateOf(app)._tag).toBe('Recording');
+        expect(recording()).toBe(true);
+        yield* askIt(app, { _tag: 'Cancel' });
+        expect(stateOf(app)._tag).toBe('Idle');
+        expect(recording()).toBe(false);
+        expect(asked).toEqual([]);
+      }),
+    ));
+
   it('does not start without a Machine to transcribe on, and says why for a few seconds', () =>
     timed(
       Effect.gen(function* () {

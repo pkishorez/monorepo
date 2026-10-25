@@ -11,6 +11,8 @@ import type { Queue } from 'effect';
 export const Ask = Schema.TaggedUnion({
   /** Start one, or stop the one recording. */
   Toggle: {},
+  /** Throw away the one starting or recording: nothing is transcribed. */
+  Cancel: {},
   /** Transcribe the failed one again. */
   Retry: { id: Schema.Finite },
   /** Its Draft put the text in. */
