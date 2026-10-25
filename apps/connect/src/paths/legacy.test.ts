@@ -1,0 +1,120 @@
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { Effect } from 'effect';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { moveLegacy, resolvePaths } from './paths.js';
+
+let home: string;
+let legacy: string;
+
+const write = (path: string, text: string) => {
+  mkdirSync(join(path, '..'), { recursive: true });
+  writeFileSync(path, text);
+};
+
+const pathsIn = (home: string) =>
+  resolvePaths({ env: {}, platform: process.platform, home });
+
+beforeEach(() => {
+  home = mkdtempSync(join(tmpdir(), 'connect-legacy-'));
+  legacy = join(home, '.ai-toolkit');
+});
+
+afterEach(() => rmSync(home, { recursive: true, force: true }));
+
+describe('moveLegacy', () => {
+  it('moves each old file into Connect’s folders and leaves a note', () => {
+    write(join(legacy, 'ai.db'), 'db');
+    write(join(legacy, 'ai.db-wal'), 'wal');
+    write(join(legacy, 'attachments', 's1', 'a.txt'), 'attached');
+    write(join(legacy, 'models.json'), '{}');
+    write(join(legacy, 'speech-to-text', 'model.onnx'), 'model');
+    write(
+      join(
+        legacy,
+        'bin',
+        process.platform === 'win32' ? 'cloudflared.exe' : 'cloudflared',
+      ),
+      'binary',
+    );
+    write(join(legacy, 'dev.db'), 'dev');
+    const paths = pathsIn(home);
+
+    Effect.runSync(moveLegacy(paths, legacy));
+
+    expect(readFileSync(paths.db, 'utf8')).toBe('db');
+    expect(readFileSync(`${paths.db}-wal`, 'utf8')).toBe('wal');
+    expect(existsSync(`${paths.db}-shm`)).toBe(false);
+    expect(readFileSync(join(paths.attachments, 's1', 'a.txt'), 'utf8')).toBe(
+      'attached',
+    );
+    expect(readFileSync(paths.ai.models, 'utf8')).toBe('{}');
+    expect(readFileSync(join(paths.ai.speech, 'model.onnx'), 'utf8')).toBe(
+      'model',
+    );
+    expect(readFileSync(paths.cloudflared, 'utf8')).toBe('binary');
+    expect(existsSync(join(legacy, 'ai.db'))).toBe(false);
+    expect(readFileSync(join(legacy, 'dev.db'), 'utf8')).toBe('dev');
+    expect(readFileSync(join(legacy, 'MOVED.txt'), 'utf8')).toContain(paths.db);
+  });
+
+  it('links the old attachments folder to the new one, for the paths old records name', () => {
+    write(join(legacy, 'ai.db'), 'db');
+    write(join(legacy, 'attachments', 's1', 'a.txt'), 'attached');
+    const paths = pathsIn(home);
+
+    Effect.runSync(moveLegacy(paths, legacy));
+
+    expect(lstatSync(join(legacy, 'attachments')).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(join(legacy, 'attachments'))).toBe(paths.attachments);
+    expect(
+      readFileSync(join(legacy, 'attachments', 's1', 'a.txt'), 'utf8'),
+    ).toBe('attached');
+  });
+
+  it('moves only what is there', () => {
+    write(join(legacy, 'ai.db'), 'db');
+    const paths = pathsIn(home);
+
+    Effect.runSync(moveLegacy(paths, legacy));
+
+    expect(readFileSync(paths.db, 'utf8')).toBe('db');
+    expect(existsSync(paths.attachments)).toBe(false);
+    expect(existsSync(join(legacy, 'attachments'))).toBe(false);
+    expect(existsSync(paths.ai.models)).toBe(false);
+  });
+
+  it('does nothing once Connect has its own database', () => {
+    write(join(legacy, 'ai.db'), 'db');
+    const paths = pathsIn(home);
+    Effect.runSync(moveLegacy(paths, legacy));
+    write(join(legacy, 'ai.db'), 'newer');
+    write(join(legacy, 'models.json'), '{}');
+
+    Effect.runSync(moveLegacy(paths, legacy));
+
+    expect(readFileSync(paths.db, 'utf8')).toBe('db');
+    expect(readFileSync(join(legacy, 'ai.db'), 'utf8')).toBe('newer');
+    expect(existsSync(paths.ai.models)).toBe(false);
+  });
+
+  it('does nothing without an old database', () => {
+    write(join(legacy, 'models.json'), '{}');
+    const paths = pathsIn(home);
+
+    Effect.runSync(moveLegacy(paths, legacy));
+
+    expect(existsSync(paths.data)).toBe(false);
+    expect(existsSync(join(legacy, 'MOVED.txt'))).toBe(false);
+  });
+});
