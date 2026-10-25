@@ -128,7 +128,12 @@ function Column({ does, send, disabled, onPress, onSend }: Props) {
           data-slot="dictate"
           disabled={disabled || does === 'busy'}
           onClick={onPress}
-          className="size-15 rounded-full shadow-[0_1px_2px_rgb(0_0_0/0.08),0_6px_16px_rgb(0_0_0/0.12)] transition-transform duration-150 ease-out active:scale-[0.96] disabled:opacity-100 motion-reduce:transition-none [&_svg:not([class*=size-])]:size-6"
+          className={cn(
+            'size-15 rounded-full shadow-[0_1px_2px_rgb(0_0_0/0.08),0_6px_16px_rgb(0_0_0/0.12)] transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.96] disabled:opacity-100 motion-reduce:transition-none [&_svg:not([class*=size-])]:size-6',
+            // Red while it records: a tap takes the Dictation.
+            does === 'take' &&
+              'bg-destructive text-white hover:bg-destructive/90',
+          )}
         >
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.span

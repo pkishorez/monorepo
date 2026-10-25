@@ -102,6 +102,8 @@ interface DraftOptions {
           readonly microphone: string;
           readonly elapsed: ReactNode;
           readonly level: ReactNode;
+          /** The level as a waveform, for the Touch Draft. */
+          readonly wave: ReactNode;
         }
       | null;
     /** The one coming to this Draft, if any: on its way, refused, or its text. */

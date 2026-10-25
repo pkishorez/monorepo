@@ -137,13 +137,14 @@ export const DraftView = View.make(
           ? 'Steer'
           : 'Send';
     const title = sendKeys === null ? label : `${label} (${sendKeys})`;
-    const blocked =
+    // Nothing could be sent now, whatever the Draft holds.
+    const unsendable =
       offline !== null ||
-      !draft.filled ||
       (fresh &&
         (model.starting ||
           pickedModel(model) === null ||
           unavailable !== null));
+    const blocked = unsendable || !draft.filled;
 
     return (
       <div {...root} className="relative flex flex-col gap-2">
@@ -202,7 +203,7 @@ export const DraftView = View.make(
             value={{
               draft,
               label,
-              blocked,
+              blocked: unsendable,
               starting: model.starting,
               actions: slots.actions,
               attachments:

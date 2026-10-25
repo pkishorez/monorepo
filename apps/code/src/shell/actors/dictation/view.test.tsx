@@ -100,6 +100,7 @@ function Page() {
       {recording?._tag === 'Recording' && (
         <p data-testid="recording">
           {recording.microphone} {recording.elapsed} {recording.level}
+          {recording.wave}
         </p>
       )}
     </div>
@@ -161,6 +162,11 @@ const bars = () =>
     ({ style }) => style.transform,
   );
 
+const wavebars = () =>
+  [...document.querySelectorAll<HTMLElement>('[data-slot="wave"] > span')].map(
+    ({ style }) => style.transform,
+  );
+
 beforeEach(async () => {
   pageDrawn = 0;
   canStart = false;
@@ -197,5 +203,19 @@ describe('the Dictation, drawn', () => {
     }
     expect(bars()).toEqual(['scaleY(0.55)', 'scaleY(1)', 'scaleY(0.75)']);
     expect(pageDrawn).toBe(before);
+  });
+
+  it('draws the waveform of the last levels heard, the newest on the right', async () => {
+    await act(async () => document.querySelector('button')!.click());
+    await flush();
+    await flush();
+    for (const level of [0.2, 0.6]) {
+      await act(async () => void Queue.offerUnsafe(levels, level));
+      await flush();
+    }
+    const wave = wavebars();
+    expect(wave).toHaveLength(14);
+    expect(wave.slice(-2)).toEqual(['scaleY(0.3)', 'scaleY(0.9)']);
+    expect(wave[0]).toBe('scaleY(0.15)');
   });
 });

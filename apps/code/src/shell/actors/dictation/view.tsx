@@ -3,10 +3,12 @@ import {
   CircleAlertIcon,
   MicIcon,
 } from '@kestack/web-platform/ui/components/lucide';
+import { useReducedMotion } from '@kestack/web-platform/ui/components/motion';
 import {
   createContext,
   use,
   useCallback,
+  useEffect,
   useState,
   type ReactNode,
 } from 'react';
@@ -125,6 +127,7 @@ export const useDictation = (target: {
               microphone: microphone ?? '',
               elapsed: <Elapsed dictation={dictation} />,
               level: <Level dictation={dictation} />,
+              wave: <Wave dictation={dictation} />,
             }
           : null,
     pending:
@@ -167,6 +170,44 @@ function Level({ dictation }: { readonly dictation: Dictation }) {
     state._tag === 'Recording' ? state.level : 0,
   );
   return <Bars level={level ?? 0} />;
+}
+
+/** How many levels the waveform shows, the newest on the right. */
+const WAVE = 14;
+
+/**
+ * The level as a waveform, for the Touch Draft: thin bars, one for each
+ * of the last levels heard, moving left as each new one comes in. Under
+ * reduced motion they hold still at the levels last drawn.
+ */
+function Wave({ dictation }: { readonly dictation: Dictation }) {
+  const level = useChild(dictation, ({ state }) =>
+    state._tag === 'Recording' ? state.level : 0,
+  );
+  const reduced = useReducedMotion() === true;
+  const [levels, setLevels] = useState<ReadonlyArray<number>>(() =>
+    Array.from({ length: WAVE }, () => 0),
+  );
+  useEffect(() => {
+    if (!reduced) setLevels((now) => [...now.slice(1), level ?? 0]);
+  }, [level]);
+  return (
+    <span
+      aria-hidden
+      data-slot="wave"
+      className="flex h-5 items-center gap-0.75"
+    >
+      {levels.map((heard, at) => (
+        <span
+          key={at}
+          className="h-full w-0.75 rounded-full bg-destructive transition-transform duration-100 ease-out motion-reduce:transition-none"
+          style={{
+            transform: `scaleY(${Math.round(Math.max(0.15, Math.min(1, heard * 1.5)) * 100) / 100})`,
+          }}
+        />
+      ))}
+    </span>
+  );
 }
 
 /** Each bar's share of the level, so the meter has a shape. */

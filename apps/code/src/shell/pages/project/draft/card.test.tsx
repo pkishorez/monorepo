@@ -212,6 +212,7 @@ function OnPage({
               ...model.recording,
               elapsed: '0:07',
               level: <span data-testid="level" />,
+              wave: null,
             }
           : model.recording,
       pending: model.pending,
