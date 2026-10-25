@@ -15,6 +15,7 @@ import {
   Machines,
   nobody,
   nothing,
+  SavedDrafts,
 } from '../../../../layer/capabilities/index.ts';
 import { keys } from '../../../../keys.ts';
 import { project } from '../../../routes/index.ts';
@@ -138,6 +139,8 @@ const services = Layer.mergeAll(
     read: Effect.succeed(nothing),
     changes: Stream.never,
   }),
+  // The new session's Draft has nothing kept.
+  Layer.mock(SavedDrafts)({ read: () => Effect.succeed(null) }),
   // Recent Projects are handed over by `read`, never held from a Replica.
   Layer.mock(Replicas)({ hold: () => Effect.never }),
   Layer.mock(Navigation)({

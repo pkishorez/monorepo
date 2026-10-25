@@ -4,12 +4,18 @@ import { Actor } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
 import { session } from '../../../routes/index.ts';
 import * as Picker from '../../../../ui/picker/index.ts';
+import {
+  type Place,
+  SavedDraft,
+  SavedDrafts,
+} from '../../../../layer/capabilities/index.ts';
 import { Catalog, SharedCatalog } from '../capabilities/index.ts';
 import { btwQuestion } from './btw.ts';
 import { ask, retryCatalog, send, startSession } from './commands.ts';
 import { Attached, Insert, wire } from './message.ts';
 import { DraftMode, type Mode, type Written } from './mode/index.ts';
 import { ModelPicker } from './model-picker/index.ts';
+import { forget, keep, leaving, restoredOf, savedOf } from './saved.ts';
 import { SkillPicker } from './skills.ts';
 import { TouchDraft } from './touch/index.ts';
 
@@ -47,7 +53,14 @@ import { TouchDraft } from './touch/index.ts';
  *             answer. A Message that starts with `/btw` switches to it,
  *             the rest carried over as the question. Nothing of it is
  *             kept.
- * 7. Touch    on a device with no keyboard it is drawn as the Touch Draft,
+ * 7. Keep     the Draft is kept on this device as a Saved Draft, for its
+ *             Session, or its Project's new session: read back before it
+ *             is drawn, kept a quarter of a second after the last change,
+ *             and at once as the page is hidden or left. Not while a send
+ *             is on its way: once a Message is sent, its Saved Draft is
+ *             forgotten, both modes and what was picked; refused, the
+ *             Draft comes back and is kept again.
+ * 8. Touch    on a device with no keyboard it is drawn as the Touch Draft,
  *             a Child that keeps how it stands, and has it sent.
  */
 
@@ -95,6 +108,8 @@ const Unsent = Schema.Struct({
   id: Schema.Finite,
   text: Schema.String,
   attachments: Schema.Array(Attached),
+  /** The changes counted once it was sent: none since, its Saved Draft is only forgotten. */
+  changes: Schema.Finite,
 });
 
 const Asked = Schema.Struct({
@@ -110,6 +125,11 @@ const ByMode = <S extends Schema.Top>(each: S) =>
   Schema.Struct({ Message: each, SideQuestion: each });
 
 const Model = Schema.Struct({
+  /** Its Saved Draft has been read back. */
+  restored: Schema.Boolean,
+  /** How many changes there were to keep, and how many are kept. */
+  changes: Schema.Finite,
+  kept: Schema.Finite,
   /** The Draft Mode open. */
   mode: DraftMode.Mode,
   /** What each mode holds, as last written. */
@@ -143,7 +163,7 @@ const Model = Schema.Struct({
 type Model = typeof Model.Type;
 
 const Draft = Actor.define('Draft', {
-  requires: [CodeClient, SharedCatalog, Navigation],
+  requires: [CodeClient, SharedCatalog, Navigation, SavedDrafts],
   props: Props,
   model: Model,
   message: Schema.TaggedUnion({
@@ -165,6 +185,8 @@ const Draft = Actor.define('Draft', {
     SendRefused: { id: Schema.Finite, reason: Schema.String },
     Answered: { id: Schema.Finite, answer: Schema.String },
     AskRefused: { id: Schema.Finite, reason: Schema.String },
+    Restored: { draft: Schema.NullOr(SavedDraft) },
+    Kept: { changes: Schema.Finite },
   }),
 });
 
@@ -241,12 +263,35 @@ export const skillsOf = (model: Model, props: Props) => {
 export const modesOf = ({ to }: Props) =>
   DraftMode.modesOf(to._tag === 'Session');
 
+/** Where its Saved Draft is kept. */
+const placeOf = ({ machineId, projectId, to }: Props): Place => ({
+  machineId,
+  projectId,
+  sessionId: to._tag === 'Session' ? to.sessionId : null,
+});
+
+/** One more change to keep. */
+const changed = (model: Model): Model => ({
+  ...model,
+  changes: model.changes + 1,
+});
+
+/** Whether there is a change to keep now: none while a send is on its way. */
+const unkept = (model: Model) =>
+  model.restored &&
+  model.changes !== model.kept &&
+  model.unsent.length === 0 &&
+  !model.starting;
+
+// 7. Keep: after the last change, or at once.
+const SETTLE = 250;
+
 /** Sets a mode's text, the cursor at its end, for the mode to take. */
 const setText = (model: Model, mode: Mode, text: string): Model => {
   const written = DraftMode.writtenOf(text);
   const id = model.reset + 1;
   return {
-    ...model,
+    ...changed(model),
     written: { ...model.written, [mode]: written },
     resets: { ...model.resets, [mode]: { id, ...written } },
     reset: id,
@@ -255,14 +300,14 @@ const setText = (model: Model, mode: Mode, text: string): Model => {
 
 // 2. Write: a `/btw` at the start of a Message switches to a Side Question.
 const write = (model: Model, props: Props, mode: Mode, written: Written) => {
-  const changed = model.written[mode].text !== written.text;
+  const retyped = model.written[mode].text !== written.text;
   const next = {
-    ...model,
+    ...changed(model),
     written: { ...model.written, [mode]: written },
-    problem: changed ? null : model.problem,
+    problem: retyped ? null : model.problem,
   };
   const question =
-    changed && mode === 'Message' && modesOf(props).includes('SideQuestion')
+    retyped && mode === 'Message' && modesOf(props).includes('SideQuestion')
       ? btwQuestion(written.text)
       : null;
   return question === null
@@ -334,7 +379,15 @@ const sendTo = (model: Model, sessionId: string) => {
     model: {
       ...setText(model, 'Message', ''),
       attachments: [],
-      unsent: [...model.unsent, { id, text, attachments: model.attachments }],
+      unsent: [
+        ...model.unsent,
+        {
+          id,
+          text,
+          attachments: model.attachments,
+          changes: model.changes + 1,
+        },
+      ],
       sends: id,
       problem: null,
     },
@@ -354,6 +407,9 @@ const sendTo = (model: Model, sessionId: string) => {
 export const DraftLive = Actor.build(Draft, {
   init: () => ({
     model: {
+      restored: false,
+      changes: 0,
+      kept: 0,
       mode: 'Message',
       written: { Message: DraftMode.blank, SideQuestion: DraftMode.blank },
       resets: { Message: null, SideQuestion: null },
@@ -395,7 +451,7 @@ export const DraftLive = Actor.build(Draft, {
     // 2. Write: one Child per Draft Mode, each from its text as written.
     modes: {
       actor: DraftMode.actor,
-      each: ({ props }) => modesOf(props),
+      each: ({ model, props }) => (model.restored ? modesOf(props) : []),
       input: ({ model }, key) => {
         const mode = DraftMode.modeOf(key);
         return { ...model.written[mode], reset: model.resets[mode]?.id ?? 0 };
@@ -437,6 +493,49 @@ export const DraftLive = Actor.build(Draft, {
     },
   },
   workers: {
+    // 7. Keep: read back once, before anything is drawn.
+    restore: {
+      while: ({ model }) => !model.restored,
+      run: (self) =>
+        Effect.gen(function* () {
+          const { props } = yield* self.get;
+          const draft = yield* (yield* SavedDrafts).read(placeOf(props));
+          yield* self.send({ _tag: 'Restored', draft });
+        }),
+    },
+    // 7. Keep: a quarter of a second after the last change.
+    save: {
+      each: ({ model }) => (unkept(model) ? [String(model.changes)] : []),
+      run: (self) =>
+        Effect.gen(function* () {
+          yield* Effect.sleep(SETTLE);
+          const { model, props } = yield* self.get;
+          yield* keep(placeOf(props), savedOf(model));
+          yield* self.send({ _tag: 'Kept', changes: model.changes });
+        }),
+    },
+    // 7. Keep: at once as the page is hidden or left, and as the Draft goes.
+    flush: {
+      while: ({ model }) => model.restored,
+      run: (self) => {
+        const flush = Effect.flatMap(self.get, ({ model, props }) =>
+          unkept(model)
+            ? Effect.as(keep(placeOf(props), savedOf(model)), model.changes)
+            : Effect.succeed(null),
+        );
+        return Effect.addFinalizer(() => flush).pipe(
+          Effect.andThen(
+            Stream.runForEach(leaving, () =>
+              Effect.flatMap(flush, (changes) =>
+                changes === null
+                  ? Effect.void
+                  : self.send({ _tag: 'Kept', changes }),
+              ),
+            ),
+          ),
+        );
+      },
+    },
     // 1. Catalog
     catalog: {
       run: (self) =>
@@ -448,6 +547,20 @@ export const DraftLive = Actor.build(Draft, {
   },
   on: {
     CatalogRead: ({ catalog }, { model }) => ({ model: { ...model, catalog } }),
+    // 7. Keep
+    Restored: ({ draft }, { model, props }) => ({
+      model:
+        draft === null
+          ? { ...model, restored: true }
+          : {
+              ...model,
+              ...restoredOf(draft, modesOf(props)),
+              restored: true,
+            },
+    }),
+    Kept: ({ changes }, { model }) => ({
+      model: { ...model, kept: Math.max(model.kept, changes) },
+    }),
     CatalogRetryAsked: () => ({ command: retryCatalog() }),
     // 2. Write
     Written: ({ mode, text, anchor, head }, { model, props }) => ({
@@ -456,9 +569,16 @@ export const DraftLive = Actor.build(Draft, {
     ModeAsked: ({ mode }, { model, props }) =>
       !modesOf(props).includes(mode) || model.mode === mode
         ? {}
-        : { model: { ...model, mode, picking: null, problem: null } },
+        : {
+            model: {
+              ...changed(model),
+              mode,
+              picking: null,
+              problem: null,
+            },
+          },
     AttachmentsChanged: ({ attachments }, { model }) => ({
-      model: { ...model, attachments, problem: null },
+      model: { ...changed(model), attachments, problem: null },
     }),
     InsertAsked: ({ what }, { model }) => ({
       model: { ...model, insert: Insert.next(model.insert, what) },
@@ -502,7 +622,7 @@ export const DraftLive = Actor.build(Draft, {
         harness !== null && harness.account !== pickedHarness(model)?.account;
       return {
         model: {
-          ...model,
+          ...changed(model),
           picking: null,
           problem: null,
           chosen: {
@@ -518,7 +638,7 @@ export const DraftLive = Actor.build(Draft, {
     },
     SettingChosen: ({ key, value }, { model }) => ({
       model: {
-        ...model,
+        ...changed(model),
         problem: null,
         chosen: {
           ...model.chosen,
@@ -544,12 +664,19 @@ export const DraftLive = Actor.build(Draft, {
     StartRefused: ({ reason }, { model }) => ({
       model: { ...model, starting: false, problem: reason },
     }),
-    Sent: ({ id }, { model }) => ({
-      model: {
-        ...model,
-        unsent: model.unsent.filter((each) => each.id !== id),
-      },
-    }),
+    // 7. Keep: sent, its Saved Draft is forgotten.
+    Sent: ({ id }, { model, props }) => {
+      const sent = model.unsent.find((each) => each.id === id);
+      const unsent = model.unsent.filter((each) => each.id !== id);
+      return {
+        model: {
+          ...model,
+          unsent,
+          kept: sent?.changes === model.changes ? model.changes : model.kept,
+        },
+        ...(unsent.length === 0 ? { command: forget(placeOf(props)) } : {}),
+      };
+    },
     SendRefused: ({ id, reason }, { model }) => {
       const refused = model.unsent.find((each) => each.id === id);
       const back =

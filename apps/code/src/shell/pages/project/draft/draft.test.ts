@@ -2,8 +2,15 @@ import { Effect, Layer, Schema, Scope, Stream } from 'effect';
 import { CodeClient, SessionNotFound } from '@kestack/connect/code';
 import { Actor, type Instance, Runtime, type Running } from '@kestack/kabuki';
 import { Navigation } from '@kestack/kabuki/routing';
+import { Accounts, AccountsState } from '@kestack/auth-toolkit/client';
 import { describe, expect, it } from 'vitest';
-import { DeviceState, nothing } from '../../../../layer/capabilities/index.ts';
+import {
+  DeviceState,
+  nothing,
+  type SavedDraft,
+  SavedDrafts,
+} from '../../../../layer/capabilities/index.ts';
+import { savedDraftsMemory } from '../../../../layer/services/index.ts';
 import { session } from '../../../routes/index.ts';
 import { Catalog, SharedCatalog } from '../capabilities/index.ts';
 import { DraftLive } from './actor.ts';
@@ -16,6 +23,9 @@ import { DraftLive } from './actor.ts';
  * missing. In a Session it has a Side Question mode beside the Message,
  * each with its own text; `/btw` switches to it with the question carried
  * over, a question asked replaces the last, and no file or Skill goes in.
+ * It is kept as a Saved Draft a quarter of a second after the last change,
+ * and at once as it goes; it comes back as it was left, and is forgotten
+ * once sent, but kept again when the send is refused.
  */
 
 type Api = CodeClient['Service'];
@@ -81,7 +91,35 @@ const Owner = (to: typeof To.Type) =>
   });
 
 /** The stand-ins, and what they were asked. */
-const world = (refuse = false) => {
+const account = {
+  id: 'a1',
+  email: 'a1@example.com',
+  name: 'a1',
+  image: null,
+  test: false,
+};
+
+/** Saved Drafts in memory, for the Account `a1`, shared by every app given them. */
+const keeping = () =>
+  savedDraftsMemory().pipe(
+    Layer.provide(
+      Layer.mock(Accounts)({
+        current: Effect.succeed(
+          AccountsState.SignedIn({ active: account, accounts: [account] }),
+        ),
+      }),
+    ),
+  );
+
+const SESSION = { machineId: 'm1', projectId: 'p1', sessionId: 's1' };
+
+/** What is kept for the Session's Draft now. */
+const keptIn = (saved: Layer.Layer<SavedDrafts>) =>
+  Effect.flatMap(SavedDrafts, (drafts) => drafts.read(SESSION)).pipe(
+    Effect.provide(saved),
+  );
+
+const world = (refuse = false, saved = keeping()) => {
   const sent: Array<unknown> = [];
   const asked: Array<unknown> = [];
   const started: Array<unknown> = [];
@@ -116,12 +154,13 @@ const world = (refuse = false) => {
       push: (to) => Effect.sync(() => void pushed.push(to)),
     }),
     // Its Touch Draft reads how it is written.
+    saved,
     Layer.mock(DeviceState)({
       read: Effect.succeed(nothing),
       changes: Stream.never,
     }),
   );
-  return { layer, sent, asked, started, pushed };
+  return { layer, sent, asked, started, pushed, saved };
 };
 
 const wait = (ms = 20) =>
@@ -376,4 +415,121 @@ describe('Draft', () => {
         expect(modelOf(app).problem).toBe('Write the first message');
       }),
     ));
+
+  describe('Saved Drafts', () => {
+    it('keeps it a quarter of a second after the last change, not before', () =>
+      run(
+        Effect.gen(function* () {
+          const { layer, saved } = world();
+          const app = yield* start('Session', layer);
+          yield* wait();
+          yield* write(app, 'Half');
+          yield* wait(100);
+          yield* write(app, 'Half a thought');
+          yield* wait(150);
+          expect(yield* keptIn(saved)).toBeNull();
+          yield* wait(200);
+          expect(yield* keptIn(saved)).toEqual({
+            mode: 'Message',
+            written: {
+              Message: { text: 'Half a thought', anchor: 14, head: 14 },
+              SideQuestion: { text: '', anchor: 0, head: 0 },
+            },
+            attachments: [],
+            chosen: { account: null, model: null, settings: {} },
+          });
+        }),
+      ));
+
+    it('keeps it at once as the Draft goes', () =>
+      run(
+        Effect.gen(function* () {
+          const { layer, saved } = world();
+          yield* Effect.scoped(
+            Effect.gen(function* () {
+              const app = yield* start('Session', layer);
+              yield* wait();
+              yield* write(app, 'Leaving now');
+            }),
+          );
+          expect((yield* keptIn(saved))?.written['Message']?.text).toBe(
+            'Leaving now',
+          );
+        }),
+      ));
+
+    it('brings back the mode, each text and cursor, the files and what was picked', () =>
+      run(
+        Effect.gen(function* () {
+          const { layer, saved } = world();
+          const draft: SavedDraft = {
+            mode: 'SideQuestion',
+            written: {
+              Message: { text: 'Fix the build', anchor: 4, head: 9 },
+              SideQuestion: { text: 'why red?', anchor: 3, head: 3 },
+            },
+            attachments: [
+              { name: 'a.txt', mime: 'text/plain', data: 'aGk=', size: 2 },
+            ],
+            chosen: {
+              account: null,
+              model: 'haiku',
+              settings: { effort: 'low' },
+            },
+          };
+          yield* Effect.flatMap(SavedDrafts, (drafts) =>
+            drafts.write(SESSION, draft),
+          ).pipe(Effect.provide(saved));
+          const app = yield* start('Session', layer);
+          yield* wait();
+          const model = draftOf(app).model as {
+            readonly mode: string;
+            readonly written: unknown;
+            readonly attachments: unknown;
+            readonly chosen: unknown;
+          };
+          expect(model.mode).toBe('SideQuestion');
+          expect(model.written).toEqual(draft.written);
+          expect(model.attachments).toEqual(draft.attachments);
+          expect(model.chosen).toEqual(draft.chosen);
+          expect(
+            (modesOf(app)['Message']!.model as { readonly written: Written })
+              .written,
+          ).toEqual({ text: 'Fix the build', anchor: 4, head: 9 });
+          expect(textOf(app, 'SideQuestion')).toBe('why red?');
+        }),
+      ));
+
+    it('forgets it, both modes, once the message is sent', () =>
+      run(
+        Effect.gen(function* () {
+          const { layer, saved } = world();
+          const app = yield* start('Session', layer);
+          yield* wait();
+          yield* write(app, 'Carry on');
+          yield* wait(300);
+          expect(yield* keptIn(saved)).not.toBeNull();
+          yield* ask(app, 'SideQuestion');
+          yield* write(app, 'a question too');
+          yield* ask(app, 'Message');
+          yield* say(app, 'Carry on');
+          yield* wait(300);
+          expect(yield* keptIn(saved)).toBeNull();
+        }),
+      ));
+
+    it('keeps it again when the send is refused and the Draft comes back', () =>
+      run(
+        Effect.gen(function* () {
+          const { layer, saved } = world(true);
+          const app = yield* start('Session', layer);
+          yield* wait();
+          yield* say(app, 'Carry on');
+          yield* wait(300);
+          expect((yield* keptIn(saved))?.written['Message']?.text).toBe(
+            'Carry on',
+          );
+        }),
+      ));
+  });
 });

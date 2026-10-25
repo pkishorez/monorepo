@@ -20,6 +20,7 @@ import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket'
 import { describe, expect, it } from 'vitest';
 import {
   AccountReplicas,
+  SavedDrafts,
   Machines,
   SavedMachines,
 } from '../../../layer/capabilities/index.ts';
@@ -122,6 +123,10 @@ const world = (
       keepAccounts: () => Effect.void,
       dropMachine: (_, machineId) =>
         Effect.sync(() => void dropped.push(machineId)),
+    }),
+    Layer.mock(SavedDrafts)({
+      keepMachines: () => Effect.void,
+      dropMachine: () => Effect.void,
     }),
   );
   return { layer, forgotten, kept, dropped, lists: () => lists };

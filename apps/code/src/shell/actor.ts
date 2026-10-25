@@ -13,6 +13,7 @@ import {
   DeviceState,
   Dictations,
   Machines,
+  SavedDrafts,
   SavedMachines,
 } from '../layer/capabilities/index.ts';
 import {
@@ -112,6 +113,7 @@ export const Shell = Page.define({
     Accounts,
     Store,
     SavedMachines,
+    SavedDrafts,
     AccountReplicas,
     Machines,
     Dictations,

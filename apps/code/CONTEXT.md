@@ -61,12 +61,16 @@ The keyboard-first way of working the app, off until turned on in this browser, 
 _Avoid_: keyboard mode, power mode
 
 **Device State**:
-What this browser keeps for itself and no other device sees: the user's Bindings, whether Vim Mode is on, the Microphone chosen, whether the Touch Draft is written by text or by voice, the Machine Filter and the Unseen marks. The app draws nothing until the Bindings have been read.
+What this browser keeps for itself and no other device sees: the user's Bindings, whether Vim Mode is on, the Microphone chosen, whether the Touch Draft is written by text or by voice, the Machine Filter and the Unseen marks. Each Draft is kept apart, as its Saved Draft. The app draws nothing until the Bindings have been read.
 _Avoid_: preferences, local settings, localStorage
 
 **Draft**:
-The open Session's next message, kept at the foot of the page with the Status Line while the transcript scrolls above it, always visible. It is written in one Draft Mode at a time. With a keyboard and out of Vim Mode it is typed into as any text box is; in Vim Mode it can be read, scrolled and clicked to place a cursor or select, but not typed into until it is the Composer. On a device with no keyboard it is the Touch Draft. A Dictation, while it is turned into text, shows as transcribing where its text will go. Everything the user adds, such as a Dictation, a paste, a file or a Skill, goes in at the cursor of the Draft Mode open, replacing any selection, and the page brings that spot into view. Sending it makes it the Session's next message, or, in Side Question mode, asks the Side Question.
+The open Session's next message, kept at the foot of the page with the Status Line while the transcript scrolls above it, always visible. It is written in one Draft Mode at a time. With a keyboard and out of Vim Mode it is typed into as any text box is; in Vim Mode it can be read, scrolled and clicked to place a cursor or select, but not typed into until it is the Composer. On a device with no keyboard it is the Touch Draft. A Dictation, while it is turned into text, shows as transcribing where its text will go. Everything the user adds, such as a Dictation, a paste, a file or a Skill, goes in at the cursor of the Draft Mode open, replacing any selection, and the page brings that spot into view. Sending it makes it the Session's next message, or, in Side Question mode, asks the Side Question. Until it is sent it is kept on this device as its Saved Draft.
 _Avoid_: input, insert bar, prompt box, composer (that is the Draft while editable)
+
+**Saved Draft**:
+A Draft as last written, kept on this device for its Session, or for its Project's new session, so it comes back as it was left: the Draft Mode open, each mode's text, cursor and selection, the Message's files, and the agent, model and settings picked. Kept per Account and never synced: the last save wins. It is kept a moment after each change and as the page is left, forgotten once a Message is sent, and goes with its Project, its Machine or its Account. A Dictation still recording is not part of it, and what the whole device keeps is Device State.
+_Avoid_: autosave, local draft, cached draft
 
 **Draft Mode**:
 One way the Draft is written: a Message, the Session's next message with its files, Skills and the model picked, or, in a Session, a Side Question. Each keeps its own text, cursor and selection, so switching away and back finds it as it was left. Ask on the side switches between them; Escape and "Back to session" return to the Message, and a Message that starts with `/btw` switches to a Side Question, the rest of it the question. A new session's Draft has only the Message.
