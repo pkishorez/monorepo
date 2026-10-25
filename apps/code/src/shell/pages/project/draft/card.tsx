@@ -203,7 +203,7 @@ export function useDraft(options: DraftOptions) {
     // A `/` typed on an on-screen keyboard came from a touch.
     onSlash: () => {
       if (!skills.offered) return;
-      open(() => skills.onOpen(keyboard ? 'keys' : 'touch', true));
+      open(() => skills.onOpen(Picker.howTyped(), true));
     },
     onRetry: (id) => latest.current.onRetry(id),
   });

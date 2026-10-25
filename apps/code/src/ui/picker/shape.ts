@@ -38,23 +38,40 @@ export const shapeOf = (
         : mode;
 
 /**
- * How a pointer that opened a Picker asks it to be drawn: a pen as a
- * finger. A click with no pointer, as a key pressing a button makes, is
- * read from the input last used (`data-input`), and is a mouse's unless a
- * touch was last: iOS clicks carry no pointer.
+ * The input last used, as the page keeps it (`data-input`): a touch, the
+ * keys, or else a mouse.
  */
-export const howOf = (event: Event | undefined): 'mouse' | 'touch' => {
+const lastInput = (): typeof How.Type => {
+  const input =
+    typeof document === 'undefined'
+      ? undefined
+      : document.documentElement.dataset['input'];
+  return input === 'touch' ? 'touch' : input === 'keys' ? 'keys' : 'mouse';
+};
+
+/**
+ * How the click that opened a Picker asks it to be drawn: by its pointer,
+ * a pen as a finger. A click with no pointer, as Enter or Space on a
+ * focused button makes, or a tap in iOS, whose clicks carry none, is read
+ * from the input last used: the keys, a touch, or else a mouse.
+ */
+export const howOf = (event: Event | undefined): typeof How.Type => {
   const type =
     event !== undefined && 'pointerType' in event
       ? (event as PointerEvent).pointerType
       : '';
   if (type === 'mouse') return 'mouse';
   if (type === 'touch' || type === 'pen') return 'touch';
-  return typeof document !== 'undefined' &&
-    document.documentElement.dataset.input === 'touch'
-    ? 'touch'
-    : 'mouse';
+  return lastInput();
 };
+
+/**
+ * How something typed opens a Picker, such as a `/` in the Composer: a
+ * touch while the input last used was one, as an on-screen keyboard
+ * types, else the keys.
+ */
+export const howTyped = (): 'keys' | 'touch' =>
+  lastInput() === 'touch' ? 'touch' : 'keys';
 
 /**
  * What the List needs of its Frame: the shape, what the Picker is called,

@@ -63,7 +63,7 @@ export const useOpen = () => {
  * Where a Picker is drawn, around its trigger, as `how` it was opened
  * asks: a centred list by keys, a popover by its trigger by a mouse, its
  * Picker Mode, `mode`, by a touch. Nothing while `how` is null. The
- * trigger opens it, saying whether a mouse or a touch did; opted in with
+ * trigger opens it, saying whether the keys, a mouse or a touch did; opted in with
  * `focusOnTouch`, a tap on it raises the on-screen keyboard there and
  * then, as iOS needs, for the Dialog's search to take once it is on
  * screen.
@@ -87,8 +87,8 @@ export function Frame({
   readonly label: string;
   /** The button it opens from, as an element for Base UI to render; without one, it opens only by keys. */
   readonly trigger?: ReactElement;
-  /** Opened by its trigger: the owner Invokes the Picker, as a mouse or a touch opened it. */
-  readonly onOpen?: (how: 'mouse' | 'touch') => void;
+  /** Opened by its trigger: the owner Invokes the Picker, as the keys, a mouse or a touch opened it. */
+  readonly onOpen?: (how: typeof How.Type) => void;
   readonly side?: 'top' | 'bottom';
   readonly align?: 'start' | 'center' | 'end';
   /** The popover's size. */
