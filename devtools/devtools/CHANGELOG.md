@@ -1,5 +1,13 @@
 # @kestack/devtools
 
+## 0.0.14
+
+### Patch Changes
+
+- Updated dependencies [[`71c93f3`](https://github.com/pkishorez/monorepo/commit/71c93f3e7d8c13bb4845fefc70cfb28c58d1d6e1), [`71c93f3`](https://github.com/pkishorez/monorepo/commit/71c93f3e7d8c13bb4845fefc70cfb28c58d1d6e1)]:
+  - laymos@0.0.14
+  - @kestack/std-toolkit@0.0.3
+
 ## 0.0.13
 
 ### Patch Changes

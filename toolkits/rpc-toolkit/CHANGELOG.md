@@ -1,5 +1,15 @@
 # @kestack/rpc-toolkit
 
+## 0.0.3
+
+### Patch Changes
+
+- [#88](https://github.com/pkishorez/monorepo/pull/88) [`71c93f3`](https://github.com/pkishorez/monorepo/commit/71c93f3e7d8c13bb4845fefc70cfb28c58d1d6e1) Thanks [@kishorenuma](https://github.com/kishorenuma)! - - Breaking: each Transport is its own door (`rpc/http`, `rpc/websocket`, `rpc/in-process`, `http-api`); the `Rpc` and `HttpApi` namespaces are gone.
+  - `onExit` lets a Client Implementation see how a call ended.
+  - The websocket `client` takes `protocols`.
+- Updated dependencies [[`71c93f3`](https://github.com/pkishorez/monorepo/commit/71c93f3e7d8c13bb4845fefc70cfb28c58d1d6e1)]:
+  - @kestack/std-toolkit@0.0.3
+
 ## 0.0.2
 
 ### Patch Changes

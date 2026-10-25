@@ -1,5 +1,11 @@
 # @kestack/use-gesture
 
+## 0.0.2
+
+### Patch Changes
+
+- [#88](https://github.com/pkishorez/monorepo/pull/88) [`71c93f3`](https://github.com/pkishorez/monorepo/commit/71c93f3e7d8c13bb4845fefc70cfb28c58d1d6e1) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A Touch Source's `sink.pick(direction)` names the zone that would take the Gesture, `{ zone, how }`.
+
 ## 0.0.1
 
 ### Patch Changes

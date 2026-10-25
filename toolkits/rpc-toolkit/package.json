@@ -1,6 +1,6 @@
 {
   "name": "@kestack/rpc-toolkit",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": false,
   "description": "Effect RPC and HttpApi with Middleware both sides agree on, three Transports with a fixed protocol, and Cloudflare deploy declarations",
   "keywords": [

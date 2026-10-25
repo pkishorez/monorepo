@@ -1,5 +1,15 @@
 # @kestack/kabuki
 
+## 0.0.3
+
+### Patch Changes
+
+- [#88](https://github.com/pkishorez/monorepo/pull/88) [`71c93f3`](https://github.com/pkishorez/monorepo/commit/71c93f3e7d8c13bb4845fefc70cfb28c58d1d6e1) Thanks [@kishorenuma](https://github.com/kishorenuma)! - - Kabuki Start serves `/_kabuki/pages` and `/_kabuki/shell` for whatever stands in front of the app, and runs anywhere Nitro does.
+  - Breaking: `Start.app({ router, view, document, layer })` and `Start.server(...)` each take one object.
+  - Queries ask a live Instance a question; `running.instance()` reaches a running app from outside.
+  - Breaking: `Navigation.reload` is a function, `reload({ anew, hold })`.
+  - An Actor's type is slim, so deep apps emit declarations; doors export only what is used.
+
 ## 0.0.2
 
 ### Patch Changes
