@@ -9,7 +9,7 @@ import {
   type PageData,
   type PagesEnv,
 } from './api/index.ts';
-import { router } from './pages/index.ts';
+import { router } from './actor-app/index.ts';
 
 /*
  * Every page arrives with its data: the Auth Worker is the server, so each

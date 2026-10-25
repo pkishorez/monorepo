@@ -3,7 +3,7 @@
 The Auth Worker's pages (`src/worker/app`) are a quiet, ink-on-paper product
 surface: one column, one next step, the brand's accent on that step and
 nowhere else. Everything below traces to a file in `src/worker/app/ui` or
-`src/worker/app/views`; a variant, token or size not listed here does not
+`src/worker/app/actor-app`; a variant, token or size not listed here does not
 exist. Adding one means adding it to the code and to this file together.
 
 ## Tokens
@@ -47,7 +47,7 @@ the popup (`rounded-md`, 12 − 6 padding).
 
 ## Page templates
 
-Every page is drawn in `Frame` (`views/frame.tsx`). Never build a page
+Every page is drawn in `Frame` (`actor-app/frame/frame.tsx`). Never build a page
 without it: the header and column are what make the pages one product.
 
 - **Header**: 64px, 640px wide. Product name left (links to `/`); right,
@@ -168,7 +168,7 @@ first ("Keep them"), the confirm is `primary` and says the count ("Sign out
 
 ## Account menu
 
-`AccountMenu` (`views/account-menu.tsx`) is the last control at the top
+`AccountMenu` (`actor-app/frame/account-menu.tsx`) is the last control at the top
 right of a signed-in page, after the Theme toggle. It is a Base UI `Menu`
 (`role="menu"`): arrow keys, Home/End and typing a name move through the
 items, Escape closes, and focus goes back to the avatar. Top to bottom:
@@ -197,7 +197,7 @@ the menu, never in the header.
 
 ## Theme
 
-Light or dark, no "System" choice. `ThemeToggle` (`views/theme.tsx`) is one
+Light or dark, no "System" choice. `ThemeToggle` (`actor-app/frame/theme.tsx`) is one
 44px icon button in the header, before the Account menu, on every page
 signed in or out; nowhere else. Its icon shows the Theme it switches to
 (moon in light, sun in dark), its `aria-label` says it ("Switch to dark

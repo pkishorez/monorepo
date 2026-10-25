@@ -5,11 +5,6 @@
     "src/worker/database/migration/migrations",
     "src/worker/app/styles.css"
   ],
-  "fileModules": [
-    "src/worker/app/app.tsx",
-    "src/worker/app/document.tsx",
-    "src/worker/app/loaders.server.ts"
-  ],
   "rules": {
     "src/guard": ["src/contract"],
     "src/guard/client": ["src/guard/authz/middleware"],
@@ -41,21 +36,6 @@
     ],
     "src/worker/service": ["src/contract", "src/worker/database/d1/database"],
     "src/worker/app/api": ["src/contract"],
-    "src/worker/app/pages": ["src/worker/app/api"],
-    "src/worker/app/views": [
-      "src/worker/app/api",
-      "src/worker/app/pages",
-      "src/worker/app/ui"
-    ],
-    "src/worker/app/app.tsx": [
-      "src/worker/app/api",
-      "src/worker/app/pages",
-      "src/worker/app/views",
-      "src/worker/app/document.tsx"
-    ],
-    "src/worker/app/loaders.server.ts": [
-      "src/worker/app/api",
-      "src/worker/app/pages"
-    ]
+    "src/worker/app/actor-app": ["src/worker/app/api", "src/worker/app/ui"]
   }
 }
