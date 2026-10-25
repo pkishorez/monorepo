@@ -108,7 +108,7 @@ keys inside the `picker` Surface stay as they are.
 - The Project Picker's first Step picks the Machine, skipped with only one.
 - Settings is at the root. Its Machines list comes from Cloud Connect
   alone and draws at once. Each Machine has its own settings (its Harness
-  Binaries, its Speech to Text switch), each loading on its own; one that
+  Accounts, its Speech to Text switch), each loading on its own; one that
   does not answer says so in its own row.
 - Screens draw from the local copy at once. A loading state, a quiet
   skeleton shaped like the content and never a spinner, shows only for data

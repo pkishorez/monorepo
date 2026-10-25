@@ -1,35 +1,48 @@
 import { Effect, Schema, Stream } from 'effect';
 import { CodeClients, SpeechToTextState } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
-import { Machines } from '../../../../../layer/capabilities/index.ts';
+import {
+  Machines,
+  SavedMachines,
+} from '../../../../../layer/capabilities/index.ts';
 import { Refused } from '../../../../machines/index.ts';
-import { switchSpeechToText } from './commands.ts';
+import { keepSpeech, switchSpeechToText } from './commands.ts';
 
 /*
  * One Machine's Speech to Text switch (ADR 0017), over that Machine's own
  * socket.
  *
- * 1. Watch   how it stands, live, as `Machines` says it: off, downloading
+ * 1. Saved   how it last stood, as kept on this device for its Account,
+ *            shown at once.
+ * 2. Watch   how it stands, live, as `Machines` says it: off, downloading
  *            with how much of the model is in, ready, or failed. A Machine
- *            that does not answer says once it does.
- * 2. Switch  on is a wish the Machine keeps: it downloads the model and
+ *            that does not answer says once it does; what it says
+ *            replaces what is shown, and is kept, a download's progress
+ *            only as it starts.
+ * 3. Switch  on is a wish the Machine keeps: it downloads the model and
  *            carries on after a restart; from failed, on again tries
  *            again. Off deletes the model. What came of it shows in what
  *            is watched; a refusal says why.
  */
 
 const SpeechToText = Actor.define('SpeechToText', {
-  requires: [CodeClients, Machines],
-  input: Schema.Struct({ machineId: Schema.String }),
+  requires: [CodeClients, Machines, SavedMachines],
+  input: Schema.Struct({ machineId: Schema.String, accountId: Schema.String }),
   model: Schema.Struct({
     machineId: Schema.String,
-    /** How it stands; null until the Machine first says. */
+    accountId: Schema.String,
+    /** How it stands: as kept on this device, or as the Machine says; null before either. */
     state: Schema.NullOr(SpeechToTextState),
+    /** Whether what was kept on this device has been read. */
+    savedRead: Schema.Boolean,
+    /** Whether the Machine has said since this was opened. */
+    heard: Schema.Boolean,
     /** Whether a switch is on its way to the Machine. */
     switching: Schema.Boolean,
     problem: Schema.NullOr(Schema.String),
   }),
   message: Schema.TaggedUnion({
+    SavedRead: { state: Schema.NullOr(SpeechToTextState) },
     Watched: { state: SpeechToTextState },
     Switch: { on: Schema.Boolean },
     Switched: {},
@@ -38,11 +51,33 @@ const SpeechToText = Actor.define('SpeechToText', {
 });
 
 export const SpeechToTextLive = Actor.build(SpeechToText, {
-  init: ({ machineId }) => ({
-    model: { machineId, state: null, switching: false, problem: null },
+  init: ({ machineId, accountId }) => ({
+    model: {
+      machineId,
+      accountId,
+      state: null,
+      savedRead: false,
+      heard: false,
+      switching: false,
+      problem: null,
+    },
   }),
   workers: {
-    // 1. Watch
+    // 1. Saved
+    saved: {
+      while: ({ model }) => !model.savedRead,
+      run: (self) =>
+        Effect.gen(function* () {
+          const { model } = yield* self.get;
+          const saved = yield* SavedMachines;
+          const { speech } = yield* saved.settings(
+            model.accountId,
+            model.machineId,
+          );
+          yield* self.send({ _tag: 'SavedRead', state: speech });
+        }),
+    },
+    // 2. Watch
     watch: {
       run: (self) =>
         Effect.gen(function* () {
@@ -56,8 +91,34 @@ export const SpeechToTextLive = Actor.build(SpeechToText, {
     },
   },
   on: {
-    Watched: ({ state }, { model }) => ({ model: { ...model, state } }),
-    // 2. Switch
+    // 1. Saved: what the Machine said, if it came first, stays.
+    SavedRead: ({ state }, { model }) => ({
+      model: {
+        ...model,
+        savedRead: true,
+        state: model.heard ? model.state : state,
+      },
+    }),
+    // 2. Watch
+    Watched: ({ state }, { model }) => {
+      const progress =
+        model.heard &&
+        model.state?._tag === 'Downloading' &&
+        state._tag === 'Downloading';
+      return {
+        model: { ...model, state, heard: true },
+        ...(progress
+          ? {}
+          : {
+              command: keepSpeech({
+                accountId: model.accountId,
+                machineId: model.machineId,
+                state,
+              }),
+            }),
+      };
+    },
+    // 3. Switch
     Switch: ({ on }, { model }) =>
       model.switching
         ? {}

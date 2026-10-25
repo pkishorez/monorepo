@@ -1,20 +1,22 @@
 import { Effect, Schema, Stream } from 'effect';
 import { Machine } from '@kestack/connect/code';
-import { Actor } from '@kestack/kabuki';
+import { Page } from '@kestack/kabuki/routing';
 import { Machines } from '../../../../layer/capabilities/index.ts';
 import { HarnessAccounts } from './harness-accounts/index.ts';
 import { SpeechToText } from './speech-to-text/index.ts';
 import { ask, keepForgetting } from './commands.ts';
 
 /*
- * Settings → Machines: the signed-in Account's Machines, from Cloud
- * Connect alone, so the list never waits for a Machine: each with when it
- * was last seen, how its tunnel stands, and its own settings, which load
- * from the Machine itself, each on its own.
+ * Settings → Machines, `/settings/machines`: the signed-in Account's
+ * Machines as the Machine List holds them, so the list never waits for a
+ * Machine, each standing as the sidebar says it, by its Line and Last
+ * Seen; and each Machine's own settings, shown as last kept on this device
+ * and asked of the Machine behind, each on its own.
  *
  * 1. Read    what `Machines` holds, followed; one child per Machine for
- *            each of its settings: its Harness Binaries, and its Speech
- *            to Text switch.
+ *            each of its settings, its Harness Accounts and its Speech to
+ *            Text switch, each told whose Machine it is. Reload asks the
+ *            Machine List again, as the sidebar's does.
  * 2. Ask     Forget asks first, saying when the Machine was last seen and
  *            how its tunnel stands.
  * 3. Forget  confirmed, the Machine List forgets it: Cloud Connect first,
@@ -28,15 +30,21 @@ const Forgetting = Schema.NullOr(
 
 /** What it follows of `Machines`. */
 const Known = Schema.Struct({
+  accountId: Schema.NullOr(Schema.String),
   machines: Schema.NullOr(Schema.Array(Machine)),
   fetchedAt: Schema.NullOr(Schema.Number),
   forgetting: Forgetting,
 });
 const sameKnown = Schema.toEquivalence(Known);
 
-export const MachineSettings = Actor.define('MachineSettings', {
+export const MachineSettings = Page.define({
+  path: '/machines',
+  metadata: { title: 'Machines · Settings · code' },
   requires: [Machines],
   model: Schema.Struct({
+    /** Whether `Machines` has said anything yet. */
+    heard: Schema.Boolean,
+    accountId: Schema.NullOr(Schema.String),
     machines: Schema.NullOr(Schema.Array(Machine)),
     fetchedAt: Schema.NullOr(Schema.Number),
     forgetting: Forgetting,
@@ -48,13 +56,20 @@ export const MachineSettings = Actor.define('MachineSettings', {
     Ask: { id: Schema.String },
     Keep: {},
     Forget: {},
-    Refresh: {},
+    Reload: {},
   }),
 });
 
-export const MachineSettingsLive = Actor.build(MachineSettings, {
+export const MachineSettingsLive = Page.build(MachineSettings, {
   init: () => ({
-    model: { machines: null, fetchedAt: null, forgetting: null, asking: null },
+    model: {
+      heard: false,
+      accountId: null,
+      machines: null,
+      fetchedAt: null,
+      forgetting: null,
+      asking: null,
+    },
   }),
   children: {
     accounts: {
@@ -65,7 +80,10 @@ export const MachineSettingsLive = Actor.build(MachineSettings, {
     speech: {
       actor: SpeechToText.actor,
       each: ({ model }) => (model.machines ?? []).map(({ id }) => id),
-      input: (_, machineId) => ({ machineId }),
+      input: ({ model }, machineId) => ({
+        machineId,
+        accountId: model.accountId ?? '',
+      }),
     },
   },
   workers: {
@@ -76,7 +94,8 @@ export const MachineSettingsLive = Actor.build(MachineSettings, {
         // nothing here: each Machine's own settings follow those.
         Effect.flatMap(Machines, ({ state }) =>
           state.pipe(
-            Stream.map(({ machines, fetchedAt, forgetting }) => ({
+            Stream.map(({ accountId, machines, fetchedAt, forgetting }) => ({
+              accountId,
               machines,
               fetchedAt,
               forgetting,
@@ -94,6 +113,7 @@ export const MachineSettingsLive = Actor.build(MachineSettings, {
       model: {
         ...model,
         ...known,
+        heard: true,
         // 3. Gone from the list: nothing left to ask about.
         asking:
           model.asking !== null &&
@@ -120,6 +140,6 @@ export const MachineSettingsLive = Actor.build(MachineSettings, {
     // 3. Forget
     Forget: (_, { model }) =>
       model.asking === null ? {} : { command: ask({ forget: model.asking }) },
-    Refresh: () => ({ command: ask({ forget: null }) }),
+    Reload: () => ({ command: ask({ forget: null }) }),
   },
 });
