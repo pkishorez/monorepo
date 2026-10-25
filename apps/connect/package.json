@@ -24,8 +24,8 @@
       "default": "./dist/code/api/index.js"
     },
     "./worker": {
-      "types": "./dist/cloud/serve/index.d.ts",
-      "default": "./dist/cloud/serve/index.js"
+      "types": "./dist/cloud/worker/index.d.ts",
+      "default": "./dist/cloud/worker/index.js"
     },
     "./node": {
       "types": "./dist/cli/index.d.ts",

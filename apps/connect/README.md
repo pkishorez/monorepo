@@ -221,7 +221,7 @@ Runtime.start(
 
 ### Run Cloud Connect on a Worker
 
-`serve` from `./worker` is Cloud Connect over a D1 database, signing in through an Auth Worker and letting the listed origins call with credentials. This is `src/cloud/deploy/worker.server.ts`, which `alchemy.run.ts` deploys.
+`serve` from `./worker` is Cloud Connect over a D1 database, signing in through an Auth Worker and letting the listed origins call with credentials. This is `src/cloud/worker/worker.server.ts`, which `alchemy.run.ts` deploys.
 
 ```ts
 import { serve } from '@kestack/connect/worker';

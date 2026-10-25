@@ -1,10 +1,10 @@
-import { serve } from '../serve/index.ts';
+import { serve } from './worker.ts';
 
 /*
  * Cloud Connect's Worker: Cloud Connect over the Worker's D1 database,
  * signing in through the Auth Worker at `AUTH_URL`, and letting pages on
  * the origins `ALLOWED_ORIGINS` names (comma-separated patterns, see
- * cloud/origins) call with credentials.
+ * cloud/contract) call with credentials.
  */
 
 /** What this Worker is handed by Alchemy. */

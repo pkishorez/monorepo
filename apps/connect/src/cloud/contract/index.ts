@@ -1,4 +1,5 @@
 export {
+  allowsOrigin,
   addressOf,
   AUTH_PATH,
   AuthInfo,
