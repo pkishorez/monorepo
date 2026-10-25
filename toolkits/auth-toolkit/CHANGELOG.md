@@ -1,5 +1,14 @@
 # @kestack/auth-toolkit
 
+## 0.0.4
+
+### Patch Changes
+
+- [#91](https://github.com/pkishorez/monorepo/pull/91) [`2642a80`](https://github.com/pkishorez/monorepo/commit/2642a80efb0ca75b2f2698f739914525de95f98e) Thanks [@kishorenuma](https://github.com/kishorenuma)! - `pnpm dev` signs in with auth-toolkit's Fake everywhere, through the `kestack-fake-auth` export condition, and serves every backend on the site's own origin at `/rpc-<name>`, so one tunnel reaches the whole app; `pnpm dev:real` keeps the Auth Worker. A Fake Account's email must be at `kestack.test`, and `fakeGuard` makes the User from it again. The Web Platform fails any build that carries the Fake, and its `backend` gives a Worker's build the same switch.
+- Updated dependencies []:
+  - @kestack/rpc-toolkit@0.0.4
+  - @kestack/std-toolkit@0.0.4
+
 ## 0.0.3
 
 ### Patch Changes

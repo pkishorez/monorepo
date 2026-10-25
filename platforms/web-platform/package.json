@@ -1,6 +1,6 @@
 {
   "name": "@kestack/web-platform",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": false,
   "description": "The way to build a kestack app on Kabuki Start in one go: its UI, its PWA, Recipes for whole features, and the app's Document and deploy.",
   "license": "MIT",

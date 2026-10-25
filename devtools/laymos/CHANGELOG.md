@@ -1,5 +1,12 @@
 # laymos
 
+## 0.0.15
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @kestack/effect-tracer@0.0.15
+
 ## 0.0.14
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@kestack/ai-toolkit",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Effect-native Coding Harnesses as plain Effects: Claude Code and Codex Agents in a folder, their Turns, Forks, Asks and One-shot Prompts, and the Messages projected from their Raw records; and Speech to Text on the computer",
   "repository": {
     "type": "git",
