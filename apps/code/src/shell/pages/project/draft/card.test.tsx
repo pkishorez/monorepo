@@ -27,6 +27,10 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * Its one primary button is the mic while there is nothing to send, Send
  * once there is, and stops a Dictation while one records.
  *
+ * It shows one Draft Mode's text at a time: each keeps its own text,
+ * cursor and history, a Dictation's text goes into the one open, and a
+ * text-only one takes no file and no Skill.
+ *
  * On a device with no keyboard it is the Touch Draft (`touch/`).
  */
 
@@ -49,9 +53,14 @@ const SKILLS = [
   { name: 'deploy', description: 'Ship it' },
 ];
 
+const Doc = Schema.Literals(['Message', 'SideQuestion']);
+
 const Page = Actor.define('Page', {
   model: Schema.Struct({
     text: Schema.String,
+    /** The Draft Mode shown, and the Side Question's text. */
+    doc: Doc,
+    side: Schema.String,
     insert: Schema.NullOr(Insert.Schema),
     picking: Schema.NullOr(
       Schema.Struct({ how: Picker.How, typed: Schema.Boolean }),
@@ -75,6 +84,7 @@ const Page = Actor.define('Page', {
     Open: { how: Picker.How, typed: Schema.Boolean },
     Picked: { name: Schema.NullOr(Schema.String) },
     Send: {},
+    Switch: { doc: Doc },
   }),
 });
 
@@ -82,6 +92,8 @@ const PageLive = Actor.build(Page, {
   init: () => ({
     model: {
       text: initial,
+      doc: 'Message',
+      side: '',
       insert: null,
       picking: null,
       opened: 0,
@@ -120,7 +132,11 @@ const PageLive = Actor.build(Page, {
     Retry: ({ id }, { model }) => ({
       model: { ...model, retried: [...model.retried, id] },
     }),
-    Typed: ({ text }, { model }) => ({ model: { ...model, text } }),
+    Typed: ({ text }, { model }) => ({
+      model:
+        model.doc === 'Message' ? { ...model, text } : { ...model, side: text },
+    }),
+    Switch: ({ doc }, { model }) => ({ model: { ...model, doc } }),
     Insert: ({ what }, { model }) => ({
       model: { ...model, insert: Insert.next(model.insert, what) },
     }),
@@ -149,11 +165,13 @@ const PageLive = Actor.build(Page, {
 
 let page: {
   text: string;
+  side: string;
   sent: number;
   pings: number;
   took: ReadonlyArray<number>;
   retried: ReadonlyArray<number>;
-} = { text: '', sent: 0, pings: 0, took: [], retried: [] };
+} = { text: '', side: '', sent: 0, pings: 0, took: [], retried: [] };
+let switchTo: (doc: typeof Doc.Type) => void = () => {};
 let ping = () => {};
 let dictate: (pending: typeof Pending.Type | null) => void = () => {};
 let record: (recording: typeof Recording.Type | null) => void = () => {};
@@ -163,6 +181,7 @@ let toggled = 0;
 const PageView = View.make(PageLive, ({ model, children, send }) => {
   page = {
     text: model.text,
+    side: model.side,
     sent: model.sent,
     pings: model.pings,
     took: model.took,
@@ -171,6 +190,7 @@ const PageView = View.make(PageLive, ({ model, children, send }) => {
   ping = () => send({ _tag: 'Ping' });
   dictate = (pending) => send({ _tag: 'Dictation', pending });
   record = (recording) => send({ _tag: 'Record', recording });
+  switchTo = (doc) => send({ _tag: 'Switch', doc });
   return (
     <keys.Provider vim>
       <keys.Surface id="content">
@@ -189,10 +209,13 @@ function OnPage({
   readonly picker: ViewProps<typeof PageLive>['children']['skills'];
 }) {
   const page = keys.useFocusSpot('content', 'page', { default: true });
+  const side = model.doc === 'SideQuestion';
   const draft = useDraft({
     label: 'Message',
     placeholder: 'Reply',
-    text: model.text,
+    text: side ? model.side : model.text,
+    doc: model.doc,
+    textOnly: side,
     onTextChange: (text) => send({ _tag: 'Typed', text }),
     attachments: [],
     onAttachmentsChange: () => {},
@@ -502,5 +525,55 @@ describe('Draft', () => {
     await flush();
     expect(placeholder()).toBeNull();
     expect(page.text).toBe('Please ');
+  });
+
+  describe('Modes', () => {
+    const view = () => EditorView.findFromDOM(editor())!;
+    const show = async (doc: typeof Doc.Type) => {
+      await act(async () => switchTo(doc));
+      await flush();
+    };
+
+    it('keeps each mode its own text and cursor', async () => {
+      await act(async () => view().dispatch({ selection: { anchor: 2 } }));
+      await show('SideQuestion');
+      expect(view().state.doc.toString()).toBe('');
+      await paste(editor(), 'why?');
+      expect(page.side).toBe('why?');
+      await show('Message');
+      expect(view().state.doc.toString()).toBe('Please ');
+      expect(view().state.selection.main.anchor).toBe(2);
+      expect(page.text).toBe('Please ');
+      await show('SideQuestion');
+      expect(view().state.doc.toString()).toBe('why?');
+    });
+
+    it('puts a Dictation into the mode open when its text comes', async () => {
+      await act(async () => dictate({ _tag: 'Transcribing', id: 1 }));
+      await flush();
+      await show('SideQuestion');
+      expect(placeholder()?.textContent).toBe('transcribing…');
+      await act(async () =>
+        dictate({ _tag: 'Text', id: 1, text: 'what broke' }),
+      );
+      await flush();
+      expect(page.side).toBe('what broke');
+      expect(page.text).toBe('Please ');
+      await show('Message');
+      expect(placeholder()).toBeNull();
+    });
+
+    it('takes no file and no Skill in a text-only mode', async () => {
+      expect(
+        document.querySelector('button[aria-label="Add a skill or command"]'),
+      ).not.toBeNull();
+      await show('SideQuestion');
+      expect(
+        document.querySelector('button[aria-label="Add a skill or command"]'),
+      ).toBeNull();
+      expect(
+        document.querySelector('button[aria-label="Attach files"]'),
+      ).toBeNull();
+    });
   });
 });

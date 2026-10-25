@@ -8,6 +8,7 @@ import { Catalog, SharedCatalog } from '../capabilities/index.ts';
 import { btwQuestion } from './btw.ts';
 import { ask, retryCatalog, send, startSession } from './commands.ts';
 import { Attached, Insert, wire } from './message.ts';
+import { DraftMode, type Mode, type Written } from './mode/index.ts';
 import { ModelPicker } from './model-picker/index.ts';
 import { SkillPicker } from './skills.ts';
 import { TouchDraft } from './touch/index.ts';
@@ -21,8 +22,12 @@ import { TouchDraft } from './touch/index.ts';
  *             them; nothing waits for them. When they cannot be read the
  *             Draft says why, and opening the skills Picker again asks the
  *             project to read them again.
- * 2. Write    its text and files, and every Insert put in, numbered, for its
- *             editor to put in once at its cursor: a paste, a drop, a Skill.
+ * 2. Write    in its Draft Mode, a Child each (`mode/`): a Message, or,
+ *             in a Session, a Side Question. Each keeps its own text,
+ *             cursor and selection; the Draft keeps a copy of each as
+ *             written, to act on, and its files. Every Insert put in is
+ *             numbered, for its editor to put in once at the cursor of
+ *             the mode open: a paste, a drop, a Dictation, a Skill.
  * 3. Pick     the model Picker sets the agent, its model and settings, each
  *             its default until picked; a new agent starts from its own. A
  *             Session keeps its agent, and what is picked goes with every
@@ -36,9 +41,12 @@ import { TouchDraft } from './touch/index.ts';
  *             when the session is idle and steers the running one
  *             otherwise. It clears at once; refused, it comes back, each
  *             send kept apart until the server has answered it.
- * 6. Ask      a Draft that starts with `/btw` is a question on the side:
- *             its answer shows over the Status Line, never in the
- *             transcript. A newer question replaces it.
+ * 6. Ask      in Side Question mode the Draft asks the Session on the
+ *             side, text only, answered by its own agent and never part
+ *             of the transcript; a new question replaces the last and its
+ *             answer. A Message that starts with `/btw` switches to it,
+ *             the rest carried over as the question. Nothing of it is
+ *             kept.
  * 7. Touch    on a device with no keyboard it is drawn as the Touch Draft,
  *             a Child that keeps how it stands, and has it sent.
  */
@@ -97,8 +105,19 @@ const Asked = Schema.Struct({
   problem: Schema.NullOr(Schema.String),
 });
 
+/** Each mode's text as written, by mode. */
+const ByMode = <S extends Schema.Top>(each: S) =>
+  Schema.Struct({ Message: each, SideQuestion: each });
+
 const Model = Schema.Struct({
-  text: Schema.String,
+  /** The Draft Mode open. */
+  mode: DraftMode.Mode,
+  /** What each mode holds, as last written. */
+  written: ByMode(DraftMode.Written),
+  /** The text the Draft last set each mode to, for it to take once. */
+  resets: ByMode(Schema.NullOr(DraftMode.Reset)),
+  /** How many resets were set: each one's id. */
+  reset: Schema.Finite,
   attachments: Schema.Array(Attached),
   /** The last thing put in, for its editor to put in at its cursor. */
   insert: Schema.NullOr(Insert.Schema),
@@ -130,7 +149,8 @@ const Draft = Actor.define('Draft', {
   message: Schema.TaggedUnion({
     CatalogRead: { catalog: Catalog.Model },
     CatalogRetryAsked: {},
-    Typed: { text: Schema.String },
+    Written: { mode: DraftMode.Mode, ...DraftMode.Written.fields },
+    ModeAsked: { mode: DraftMode.Mode },
     AttachmentsChanged: { attachments: Schema.Array(Attached) },
     InsertAsked: { what: Insert.What },
     PickerOpened: { picking: Picking },
@@ -145,7 +165,6 @@ const Draft = Actor.define('Draft', {
     SendRefused: { id: Schema.Finite, reason: Schema.String },
     Answered: { id: Schema.Finite, answer: Schema.String },
     AskRefused: { id: Schema.Finite, reason: Schema.String },
-    AnswerDismissed: {},
   }),
 });
 
@@ -218,9 +237,50 @@ export const skillsOf = (model: Model, props: Props) => {
   };
 };
 
+/** The modes this Draft has. */
+export const modesOf = ({ to }: Props) =>
+  DraftMode.modesOf(to._tag === 'Session');
+
+/** Sets a mode's text, the cursor at its end, for the mode to take. */
+const setText = (model: Model, mode: Mode, text: string): Model => {
+  const written = DraftMode.writtenOf(text);
+  const id = model.reset + 1;
+  return {
+    ...model,
+    written: { ...model.written, [mode]: written },
+    resets: { ...model.resets, [mode]: { id, ...written } },
+    reset: id,
+  };
+};
+
+// 2. Write: a `/btw` at the start of a Message switches to a Side Question.
+const write = (model: Model, props: Props, mode: Mode, written: Written) => {
+  const changed = model.written[mode].text !== written.text;
+  const next = {
+    ...model,
+    written: { ...model.written, [mode]: written },
+    problem: changed ? null : model.problem,
+  };
+  const question =
+    changed && mode === 'Message' && modesOf(props).includes('SideQuestion')
+      ? btwQuestion(written.text)
+      : null;
+  return question === null
+    ? next
+    : setText(
+        setText(
+          { ...next, mode: 'SideQuestion', picking: null },
+          'Message',
+          '',
+        ),
+        'SideQuestion',
+        question,
+      );
+};
+
 // 4. Start
 const start = (model: Model, props: Props) => {
-  const text = model.text.trim();
+  const text = model.written.Message.text.trim();
   const harness = pickedHarness(model);
   const picked = pickedModel(model);
   if (model.starting || harness === null || picked === null) return {};
@@ -247,32 +307,32 @@ const start = (model: Model, props: Props) => {
   };
 };
 
-// 5. Send, 6. Ask
+// 6. Ask
+const askOf = (model: Model, sessionId: string) => {
+  const question = model.written.SideQuestion.text.trim();
+  if (question === '') return {};
+  const id = model.asks + 1;
+  return {
+    model: {
+      ...setText(model, 'SideQuestion', ''),
+      problem: null,
+      asked: { id, question, answer: null, problem: null },
+      asks: id,
+    },
+    command: ask({ id, sessionId, question }),
+  };
+};
+
+// 5. Send
 const sendTo = (model: Model, sessionId: string) => {
-  const question = btwQuestion(model.text);
-  if (question === '')
-    return { model: { ...model, problem: 'Write a question after /btw' } };
-  if (question !== null) {
-    const id = model.asks + 1;
-    return {
-      model: {
-        ...model,
-        text: '',
-        problem: null,
-        asked: { id, question, answer: null, problem: null },
-        asks: id,
-      },
-      command: ask({ id, sessionId, question }),
-    };
-  }
-  const text = model.text.trim();
+  if (model.mode === 'SideQuestion') return askOf(model, sessionId);
+  const text = model.written.Message.text.trim();
   if (text === '' && model.attachments.length === 0) return {};
   const id = model.sends + 1;
   const { chosen } = model;
   return {
     model: {
-      ...model,
-      text: '',
+      ...setText(model, 'Message', ''),
       attachments: [],
       unsent: [...model.unsent, { id, text, attachments: model.attachments }],
       sends: id,
@@ -294,7 +354,10 @@ const sendTo = (model: Model, sessionId: string) => {
 export const DraftLive = Actor.build(Draft, {
   init: () => ({
     model: {
-      text: '',
+      mode: 'Message',
+      written: { Message: DraftMode.blank, SideQuestion: DraftMode.blank },
+      resets: { Message: null, SideQuestion: null },
+      reset: 0,
       attachments: [],
       insert: null,
       catalog: Catalog.empty,
@@ -329,6 +392,19 @@ export const DraftLive = Actor.build(Draft, {
       TouchDraft.owner(self.send({ _tag: 'SendAsked' })),
     ),
   children: {
+    // 2. Write: one Child per Draft Mode, each from its text as written.
+    modes: {
+      actor: DraftMode.actor,
+      each: ({ props }) => modesOf(props),
+      input: ({ model }, key) => {
+        const mode = DraftMode.modeOf(key);
+        return { ...model.written[mode], reset: model.resets[mode]?.id ?? 0 };
+      },
+      props: ({ model }, key) => {
+        const mode = DraftMode.modeOf(key);
+        return { mode, reset: model.resets[mode] };
+      },
+    },
     // On a device with no keyboard, the Draft is drawn as the Touch Draft.
     touch: { actor: TouchDraft.actor },
     skills: {
@@ -374,9 +450,13 @@ export const DraftLive = Actor.build(Draft, {
     CatalogRead: ({ catalog }, { model }) => ({ model: { ...model, catalog } }),
     CatalogRetryAsked: () => ({ command: retryCatalog() }),
     // 2. Write
-    Typed: ({ text }, { model }) => ({
-      model: { ...model, text, problem: null },
+    Written: ({ mode, text, anchor, head }, { model, props }) => ({
+      model: write(model, props, mode, { text, anchor, head }),
     }),
+    ModeAsked: ({ mode }, { model, props }) =>
+      !modesOf(props).includes(mode) || model.mode === mode
+        ? {}
+        : { model: { ...model, mode, picking: null, problem: null } },
     AttachmentsChanged: ({ attachments }, { model }) => ({
       model: { ...model, attachments, problem: null },
     }),
@@ -385,7 +465,10 @@ export const DraftLive = Actor.build(Draft, {
     }),
     // 3. Pick
     PickerOpened: ({ picking }, { model, props }) =>
-      model.picking !== null
+      model.picking !== null ||
+      !DraftMode.takes(model.mode)[
+        picking._tag === 'Skills' ? 'skills' : 'picks'
+      ]
         ? {}
         : {
             model: { ...model, picking, opened: model.opened + 1 },
@@ -449,7 +532,11 @@ export const DraftLive = Actor.build(Draft, {
         ? sendTo(model, props.to.sessionId)
         : start(model, props),
     Started: ({ sessionId }, { model, props }) => ({
-      model: { ...model, text: '', attachments: [], starting: false },
+      model: {
+        ...setText(model, 'Message', ''),
+        attachments: [],
+        starting: false,
+      },
       command: Router.push(
         session(props.machineId, props.projectId, sessionId),
       ),
@@ -466,14 +553,15 @@ export const DraftLive = Actor.build(Draft, {
     SendRefused: ({ id, reason }, { model }) => {
       const refused = model.unsent.find((each) => each.id === id);
       const back =
-        refused && model.text === '' && model.attachments.length === 0
+        refused &&
+        model.written.Message.text === '' &&
+        model.attachments.length === 0
           ? refused
           : null;
       return {
         model: {
-          ...model,
+          ...(back === null ? model : setText(model, 'Message', back.text)),
           problem: reason,
-          text: back?.text ?? model.text,
           attachments: back?.attachments ?? model.attachments,
           unsent: model.unsent.filter((each) => each.id !== id),
         },
@@ -487,6 +575,5 @@ export const DraftLive = Actor.build(Draft, {
       model.asked?.id === id
         ? { model: { ...model, asked: { ...model.asked, problem: reason } } }
         : {},
-    AnswerDismissed: (_, { model }) => ({ model: { ...model, asked: null } }),
   },
 });

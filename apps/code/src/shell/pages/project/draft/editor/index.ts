@@ -1,2 +1,2 @@
-export { useEditor } from './editor.ts';
+export { useEditor, type Selected } from './editor.ts';
 export { slashAtoms } from './atoms.ts';

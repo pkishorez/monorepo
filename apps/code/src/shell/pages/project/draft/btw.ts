@@ -1,7 +1,7 @@
 /*
- * `/btw` asks the session a question on the side instead of sending a
- * message: the rest of the line on is the question. Only at the very start,
- * as the skills Picker puts it in.
+ * `/btw` at the start of a Message switches the Draft to a Side Question:
+ * the rest of the text on is the question. Only at the very start, as the
+ * skills Picker puts it in.
  */
 
 const BTW = /^\/btw(?:\s+([\s\S]*))?$/;

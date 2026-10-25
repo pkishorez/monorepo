@@ -45,11 +45,31 @@ import { skillChange, slashTrigger } from './slash.ts';
  * cursor are drawn whether it has focus or not. Inserts and undo work
  * either way, unless `disabled`, and so does a Dictation's placeholder,
  * which waits where the cursor was for its text (`dictation.ts`).
+ *
+ * It holds one text at a time, `doc` names which: given another, it keeps
+ * the one it held, its selection and history with it, and shows the other
+ * as it was left, or from `text` and `selection` the first time, in the
+ * same field, so focus stays. A Dictation's placeholder goes with it to
+ * the text shown.
  */
+
+/** A cursor, or a selection from `anchor` to `head`. */
+export interface Selected {
+  readonly anchor: number;
+  readonly head: number;
+}
 
 interface EditorOptions {
   readonly text: string;
-  readonly onTextChange: (text: string) => void;
+  /** Which text it holds; null when it only ever holds one. */
+  readonly doc?: string | null;
+  /** Where the cursor starts in a text first shown; else at its end. */
+  readonly selection?: Selected | null;
+  readonly onTextChange: (text: string, selection: Selected) => void;
+  /** The cursor or selection moved, the text as it is. */
+  readonly onSelect?: (text: string, selection: Selected) => void;
+  /** Escape pressed in it; says whether it was taken. */
+  readonly onEscape?: () => boolean;
   readonly onSend: () => void;
   readonly label: string;
   readonly describedBy: string | undefined;
@@ -97,6 +117,17 @@ const changeOf = (put: Put): Change =>
 
 const fromProps = Annotation.define<boolean>();
 
+const selectedIn = (state: EditorState): Selected => ({
+  anchor: state.selection.main.anchor,
+  head: state.selection.main.head,
+});
+
+/** `selection` inside a text of `length`, else its end. */
+const within = (selection: Selected | null | undefined, length: number) => ({
+  anchor: Math.min(selection?.anchor ?? length, length),
+  head: Math.min(selection?.head ?? length, length),
+});
+
 export function useEditor(options: EditorOptions): {
   /** The element it is drawn in, while there is one. */
   readonly parent: RefObject<HTMLDivElement | null>;
@@ -131,13 +162,13 @@ export function useEditor(options: EditorOptions): {
     current.requestMeasure();
   }, []);
 
-  useEffect(() => {
-    const options = latest.current;
-    const created = new EditorView({
-      parent: parent.current!,
-      state: EditorState.create({
-        doc: options.text,
-        selection: { anchor: options.text.length },
+  // A fresh state for a text, as the options are now.
+  const stateOf = useCallback(
+    (text: string, selection: Selected | null | undefined) => {
+      const options = latest.current;
+      return EditorState.create({
+        doc: text,
+        selection: within(selection, text.length),
         extensions: [
           history(),
           drawSelection(),
@@ -158,7 +189,14 @@ export function useEditor(options: EditorOptions): {
             }),
           ),
           sendKeys(() => latest.current.onSend()),
-          keymap.of([...defaultKeymap, ...historyKeymap]),
+          keymap.of([
+            {
+              key: 'Escape',
+              run: () => latest.current.onEscape?.() ?? false,
+            },
+            ...defaultKeymap,
+            ...historyKeymap,
+          ]),
           EditorView.lineWrapping,
           theme,
           slashTrigger((at) => latest.current.onSlash(at)),
@@ -166,14 +204,34 @@ export function useEditor(options: EditorOptions): {
           parts.editable.of(editable(options)),
           parts.atoms.of(options.atoms),
           EditorView.updateListener.of((update) => {
-            if (
-              update.docChanged &&
-              !update.transactions.some((each) => each.annotation(fromProps))
-            )
-              latest.current.onTextChange(update.state.doc.toString());
+            if (update.transactions.some((each) => each.annotation(fromProps)))
+              return;
+            if (update.docChanged)
+              latest.current.onTextChange(
+                update.state.doc.toString(),
+                selectedIn(update.state),
+              );
+            else if (update.selectionSet)
+              latest.current.onSelect?.(
+                update.state.doc.toString(),
+                selectedIn(update.state),
+              );
           }),
         ],
-      }),
+      });
+    },
+    [parts],
+  );
+
+  // The texts not shown, as they were left, by `doc`.
+  const held = useRef(new Map<string, EditorState>());
+  const shown = useRef(options.doc ?? null);
+
+  useEffect(() => {
+    const options = latest.current;
+    const created = new EditorView({
+      parent: parent.current!,
+      state: stateOf(options.text, options.selection),
     });
     view.current = created;
     const unmark = options.spot(created.contentDOM);
@@ -182,7 +240,45 @@ export function useEditor(options: EditorOptions): {
       created.destroy();
       view.current = null;
     };
-  }, [parts]);
+  }, [stateOf]);
+
+  // Another text: the one shown is kept, the other shown as it was left.
+  const doc = options.doc ?? null;
+  useEffect(() => {
+    const current = view.current;
+    if (current === null || shown.current === doc) return;
+    const awaited = awaitedIn(current.state);
+    if (shown.current !== null)
+      held.current.set(
+        shown.current,
+        awaited === null
+          ? current.state
+          : current.state.update({ effects: awaiting.of(null) }).state,
+      );
+    shown.current = doc;
+    const options = latest.current;
+    const next =
+      (doc === null ? undefined : held.current.get(doc)) ??
+      stateOf(options.text, options.selection);
+    current.setState(next);
+    // Set while it was not shown, as a text cleared once sent.
+    const changes = difference(next.doc.toString(), options.text);
+    current.dispatch({
+      ...(changes === null
+        ? {}
+        : {
+            changes,
+            selection: next.selection.map(next.changes(changes), 1),
+          }),
+      effects: [
+        parts.attributes.reconfigure(attributes(options)),
+        parts.editable.reconfigure(editable(options)),
+        parts.atoms.reconfigure(options.atoms),
+        ...(awaited === null ? [] : [awaiting.of(awaited)]),
+      ],
+      annotations: [fromProps.of(true), Transaction.addToHistory.of(false)],
+    });
+  }, [doc]);
 
   useEffect(() => {
     const current = view.current;

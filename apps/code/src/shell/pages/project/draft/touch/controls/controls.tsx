@@ -75,7 +75,8 @@ export function Row({
     /** Starts a question on the side; null where there is no Session to ask. */
     readonly onAsk: (() => void) | null;
     readonly onPaste: (text: string) => void;
-    readonly onFiles: (files: ReadonlyArray<File>) => void;
+    /** Takes files; null where none go in, as a Side Question. */
+    readonly onFiles: ((files: ReadonlyArray<File>) => void) | null;
     readonly onChooseMicrophone: (() => void) | undefined;
   };
   readonly send: {

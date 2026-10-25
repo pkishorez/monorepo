@@ -19,7 +19,7 @@ import { notify } from '../../../../../../ui/toast/index.ts';
  * Draft, each row its icon, what it does and one line more. Ask on the
  * side, in a Session; Paste, which reads the clipboard in the tap, as iOS
  * needs to show its own Paste bubble, and says so quietly when it may
- * not; a file; a photo; and the Microphone Picker. The file fields stay
+ * not; a file and a photo, where files go in; and the Microphone Picker. The file fields stay
  * outside the Drawer, so a file picked after it closed still arrives.
  */
 
@@ -49,7 +49,8 @@ export function QuickActions({
   /** Starts a question on the side; null where there is no Session to ask. */
   readonly onAsk: (() => void) | null;
   readonly onPaste: (text: string) => void;
-  readonly onFiles: (files: ReadonlyArray<File>) => void;
+  /** Takes files; null where none go in, as a Side Question. */
+  readonly onFiles: ((files: ReadonlyArray<File>) => void) | null;
   readonly onChooseMicrophone: (() => void) | undefined;
   /** The trigger's look, as the row beside it draws its buttons. */
   readonly className: string;
@@ -70,7 +71,7 @@ export function QuickActions({
       tabIndex={-1}
       {...(accept === undefined ? {} : { accept })}
       onChange={(event) => {
-        onFiles([...(event.currentTarget.files ?? [])]);
+        onFiles?.([...(event.currentTarget.files ?? [])]);
         event.currentTarget.value = '';
       }}
     />
@@ -121,20 +122,24 @@ export function QuickActions({
           >
             Paste
           </Row>
-          <Row
-            icon={<PaperclipIcon />}
-            detail="Any file, sent with the message"
-            onClick={() => pick(files)}
-          >
-            Attach a file
-          </Row>
-          <Row
-            icon={<ImageIcon />}
-            detail="From your photos, or the camera"
-            onClick={() => pick(photos)}
-          >
-            Photo
-          </Row>
+          {onFiles !== null && (
+            <>
+              <Row
+                icon={<PaperclipIcon />}
+                detail="Any file, sent with the message"
+                onClick={() => pick(files)}
+              >
+                Attach a file
+              </Row>
+              <Row
+                icon={<ImageIcon />}
+                detail="From your photos, or the camera"
+                onClick={() => pick(photos)}
+              >
+                Photo
+              </Row>
+            </>
+          )}
           {onChooseMicrophone !== undefined && (
             <Row
               icon={<MicIcon />}
