@@ -302,8 +302,12 @@ export const forgetUnsent = Command.make('ForgetUnsent', {
 
 // 5. Start
 
-/** Forgets the place's Saved Draft, as once its new session started. */
+/**
+ * Forgets the place's Saved Draft, as once its new session started: past
+ * the Draft, which goes as the app moves to the session.
+ */
 export const forget = Command.make('ForgetSavedDraft', {
   args: Schema.Struct({ where: Where }),
-  run: ({ where }) => Effect.asVoid(write(where, () => null)),
+  run: ({ where }) =>
+    Effect.asVoid(Effect.forkDetach(write(where, () => null))),
 });
