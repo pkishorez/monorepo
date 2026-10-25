@@ -417,13 +417,19 @@ export const TouchDraftView = View.make(
                     ) : state._tag === 'Transcribing' &&
                       state.then === 'send' ? (
                       // Its words say "Transcribing…" where the text goes.
-                      <p
-                        role="status"
-                        className="flex items-center gap-2 pl-3 text-sm text-muted-foreground"
-                      >
-                        <ArrowUpIcon aria-hidden className="size-4" />
-                        Sends once transcribed
-                      </p>
+                      // Cancel stays, so a send regretted can still be stopped.
+                      <>
+                        <CancelDictation
+                          onCancel={() => send({ _tag: 'Cancel' })}
+                        />
+                        <p
+                          role="status"
+                          className="ml-1 flex items-center gap-2 text-sm text-muted-foreground"
+                        >
+                          <ArrowUpIcon aria-hidden className="size-4" />
+                          Sends once transcribed
+                        </p>
+                      </>
                     ) : (
                       <>
                         <div className="flex min-w-0 flex-1">{slots.chip}</div>
@@ -509,6 +515,22 @@ function useMoreThan(
   return more;
 }
 
+/** Throws the Dictation away, recording or transcribed: nothing goes in. */
+function CancelDictation({ onCancel }: { readonly onCancel: () => void }) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      aria-label="Cancel the Dictation"
+      onClick={onCancel}
+      className="size-11 shrink-0 rounded-full text-muted-foreground [&_svg:not([class*=size-])]:size-5"
+    >
+      <XIcon aria-hidden />
+    </Button>
+  );
+}
+
 /** The line under the words while a Dictation records: cancel, its time and level. */
 function Recording({
   recording,
@@ -519,16 +541,7 @@ function Recording({
 }) {
   return (
     <>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        aria-label="Cancel the Dictation"
-        onClick={onCancel}
-        className="size-11 shrink-0 rounded-full text-muted-foreground [&_svg:not([class*=size-])]:size-5"
-      >
-        <XIcon aria-hidden />
-      </Button>
+      <CancelDictation onCancel={onCancel} />
       <span
         aria-hidden
         className="ml-1 size-2 shrink-0 animate-breathe rounded-full bg-destructive motion-reduce:animate-none"
