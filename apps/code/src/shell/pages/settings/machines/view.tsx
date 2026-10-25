@@ -5,10 +5,7 @@ import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { useEffect, useState } from 'react';
 import * as Confirm from '../../../../ui/confirm/index.ts';
 import { ago } from '../../../../ui/time/index.ts';
-import {
-  DOWN_AFTER,
-  statusOf,
-} from '../../../../layer/machine-health/index.ts';
+import { DOWN_AFTER, statusOf } from '../../../../layer/capabilities/index.ts';
 import { authHome } from '../../../../sign-in/index.ts';
 import { MachineSettingsLive } from './actor.ts';
 import { HarnessBinaries } from './harness-binaries/index.ts';
