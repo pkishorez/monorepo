@@ -7,15 +7,18 @@ import { Switch } from '@kestack/web-platform/ui/components/switch';
 import { useBound } from '../../../../../keys.ts';
 import { ago } from '../../../../../ui/time/index.ts';
 import { outOfReach } from '../../../../../layer/capabilities/index.ts';
-import { useHealth } from '../../../../machines/index.ts';
+import { Locked, useHealth } from '../../../../machines/index.ts';
 import { SpeechToTextLive } from './actor.ts';
 
 /*
  * One Machine's Speech to Text switch, as the Machine says it stands, live:
  * off; downloading, with how much of the model is in and a bar; ready; or
  * failed, saying why, with a retry. Switched off, the model is deleted.
- * Until the Machine first says, a quiet skeleton while it answers, and,
- * while it does not, a line that says so.
+ * While the Machine's Line is not connected, it shows as last kept, the
+ * switch off limits, with a lock and why beside it. Nothing shows while
+ * what was kept is read; kept nowhere, until the Machine first says, a
+ * quiet skeleton while it answers, and, while it does not, a line that
+ * says so.
  */
 
 const megabytes = (bytes: number) => `${Math.round(bytes / 1_000_000)} MB`;
@@ -28,6 +31,7 @@ export const SpeechToTextView = View.make(
     const { state } = model;
     const id = `speech-${model.machineId}`;
     const on = state !== null && state._tag !== 'Off';
+    const locked = health._tag !== 'Connected';
     return (
       <section
         {...root}
@@ -48,6 +52,7 @@ export const SpeechToTextView = View.make(
               downloads when on and deletes when off.
             </p>
           </div>
+          {locked && <Locked health={health} />}
           {state !== null && (
             // A finger's 44px to tap with no keyboard; with one, the
             // switch alone.
@@ -58,7 +63,7 @@ export const SpeechToTextView = View.make(
               <Switch
                 id={id}
                 checked={on}
-                disabled={model.switching}
+                disabled={model.switching || locked}
                 onCheckedChange={(checked) =>
                   send({ _tag: 'Switch', on: checked })
                 }
@@ -68,7 +73,7 @@ export const SpeechToTextView = View.make(
           )}
         </div>
         {state === null ? (
-          outOfReach(health) ? (
+          !model.savedRead ? null : outOfReach(health) ? (
             <p role="status" className="text-sm text-muted-foreground">
               Not answering, last seen {ago(health.lastSeen)}. Its Speech to
               Text shows here once it is back.
@@ -113,7 +118,7 @@ export const SpeechToTextView = View.make(
               variant="link"
               size="xs"
               type="button"
-              disabled={model.switching}
+              disabled={model.switching || locked}
               onClick={() => send({ _tag: 'Switch', on: true })}
             >
               Try again

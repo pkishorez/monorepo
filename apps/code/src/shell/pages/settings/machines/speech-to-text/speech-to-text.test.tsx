@@ -11,8 +11,13 @@ import { Actor } from '@kestack/kabuki';
 import { toReact, View } from '@kestack/kabuki/react';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { Machines } from '../../../../../layer/capabilities/index.ts';
+import {
+  Machines,
+  SavedMachines,
+} from '../../../../../layer/capabilities/index.ts';
+import { savedMachinesMemory } from '../../../../../layer/services/index.ts';
 import { keys } from '../../../../../keys.ts';
+import { Connection } from '../../../../machines/index.ts';
 import { SpeechToTextLive } from './actor.ts';
 import { SpeechToTextView } from './view.tsx';
 
@@ -23,7 +28,9 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * live: nothing to switch until it says; off, with the switch off, and on
  * asks it to download; the download's progress; ready, with the switch
  * on, and off asks it to delete the model; failed, saying why, with a
- * retry.
+ * retry. How it last stood, kept on this device, shows at once, and what
+ * the Machine says replaces it and is kept. While its Line is not
+ * connected, the switch is locked, and says why.
  */
 
 const Owner = Actor.define('Owner', {
@@ -34,20 +41,26 @@ const Owner = Actor.define('Owner', {
 const OwnerLive = Actor.build(Owner, {
   init: () => ({ model: { pings: 0 } }),
   children: {
-    speech: { actor: SpeechToTextLive, input: () => ({ machineId: 'm1' }) },
+    speech: {
+      actor: SpeechToTextLive,
+      input: () => ({ machineId: 'm1', accountId: 'a1' }),
+    },
   },
   on: { Ping: (_, { model }) => ({ model: { pings: model.pings + 1 } }) },
 });
 
 let pings = 0;
 let ping = () => {};
+let line: 'connected' | 'reconnecting' = 'connected';
 
 const OwnerView = View.make(OwnerLive, ({ model, children, send }) => {
   pings = model.pings;
   ping = () => send({ _tag: 'Ping' });
   return (
     <keys.Provider vim>
-      <SpeechToTextView instance={children.speech} />
+      <Connection value={{ machines: null, status: { m1: line } }}>
+        <SpeechToTextView instance={children.speech} />
+      </Connection>
     </keys.Provider>
   );
 });
@@ -56,6 +69,7 @@ type Api = CodeClient['Service'];
 
 let says: Queue.Queue<SpeechToTextState>;
 let switched: Array<'on' | 'off'> = [];
+let saved: Layer.Layer<SavedMachines>;
 
 /** What the Machine says of its Speech to Text, as `Machines` hands it on. */
 const machines = Layer.mock(Machines)({
@@ -83,8 +97,6 @@ const clients = CodeClients.make(() =>
   ),
 );
 
-const services = Layer.merge(machines, clients);
-
 let apps = 0;
 let root: ReactRoot | undefined;
 
@@ -102,6 +114,39 @@ const click = async (element: HTMLElement) => {
   await flush();
 };
 
+/** What this device kept of the Machine's Speech to Text. */
+const kept = () =>
+  Effect.runPromise(
+    Effect.flatMap(SavedMachines, (each) => each.settings('a1', 'm1')).pipe(
+      Effect.provide(saved),
+    ),
+  );
+
+const keep = (speech: SpeechToTextState) =>
+  Effect.runPromise(
+    Effect.flatMap(SavedMachines, (each) =>
+      each.keepSettings('a1', 'm1', { speech }),
+    ).pipe(Effect.provide(saved)),
+  );
+
+const mount = async () => {
+  const App = toReact(
+    OwnerLive,
+    OwnerView,
+    Layer.mergeAll(machines, clients, saved),
+    {
+      name: `speech-to-text-test-${apps++}`,
+    },
+  );
+  root = createRoot(document.body.appendChild(document.createElement('div')));
+  await act(async () => root!.render(<App />));
+  for (let tries = 0; tries < 50 && pings === 0; tries++) {
+    await act(async () => ping());
+    await flush();
+  }
+  expect(pings).toBeGreaterThan(0);
+};
+
 beforeAll(() => {
   globalThis.ResizeObserver ??= class {
     observe() {}
@@ -110,19 +155,12 @@ beforeAll(() => {
   };
 });
 
-beforeEach(async () => {
+beforeEach(() => {
   says = Effect.runSync(Queue.unbounded<SpeechToTextState>());
   switched = [];
-  const App = toReact(OwnerLive, OwnerView, services, {
-    name: `speech-to-text-test-${apps++}`,
-  });
-  root = createRoot(document.body.appendChild(document.createElement('div')));
-  await act(async () => root!.render(<App />));
-  for (let tries = 0; tries < 50 && pings === 0; tries++) {
-    await act(async () => ping());
-    await flush();
-  }
-  expect(pings).toBeGreaterThan(0);
+  saved = savedMachinesMemory();
+  line = 'connected';
+  pings = 0;
 });
 
 afterEach(async () => {
@@ -132,6 +170,8 @@ afterEach(async () => {
 });
 
 describe('Speech to Text switch', () => {
+  beforeEach(mount);
+
   it('has nothing to switch until the Machine says how it stands', () => {
     expect(toggle()).toBeNull();
     expect(document.querySelector('[aria-busy]')).not.toBeNull();
@@ -175,5 +215,43 @@ describe('Speech to Text switch', () => {
     )!;
     await click(retry);
     expect(switched).toEqual(['on']);
+  });
+
+  it('keeps what the Machine said, but not each step of a download', async () => {
+    await say({ _tag: 'Downloading', done: 1, total: 10 });
+    await say({ _tag: 'Downloading', done: 5, total: 10 });
+    expect((await kept()).speech).toEqual({
+      _tag: 'Downloading',
+      done: 1,
+      total: 10,
+    });
+    await say({ _tag: 'Ready' });
+    expect((await kept()).speech).toEqual({ _tag: 'Ready' });
+  });
+});
+
+describe('Speech to Text, kept on this device', () => {
+  it('shows how it last stood at once, with no skeleton, then what the Machine says', async () => {
+    await keep({ _tag: 'Ready' });
+    await mount();
+    expect(document.querySelector('[aria-busy]')).toBeNull();
+    expect(toggle()?.getAttribute('aria-checked')).toBe('true');
+    expect(text()).toContain('Ready');
+    await say({ _tag: 'Off' });
+    expect(toggle()?.getAttribute('aria-checked')).toBe('false');
+    expect((await kept()).speech).toEqual({ _tag: 'Off' });
+  });
+
+  it("is locked while the Machine's Line is not connected, and says why", async () => {
+    await keep({ _tag: 'Off' });
+    line = 'reconnecting';
+    await mount();
+    expect(toggle()?.getAttribute('aria-checked')).toBe('false');
+    expect(toggle()?.hasAttribute('data-disabled')).toBe(true);
+    expect(document.querySelector('[role="note"]')?.textContent).toContain(
+      'Locked',
+    );
+    await click(toggle()!);
+    expect(switched).toEqual([]);
   });
 });

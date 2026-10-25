@@ -17,7 +17,7 @@ src/
     actors/   sidebar · header · dictation · moves (plain)
       pickers/  project-picker · session-switcher · session-actions ·
                 microphone-picker · keys-picker
-    pages/    home · settings (machines, shortcuts) · project (session)
+    pages/    home · settings (general, shortcuts, machines) · project (session)
     machines/                                   reaching every Machine; machine-list
     routes/                                     the address of every page
   layer/      capabilities/ · services/         what the app Layer gives
@@ -42,12 +42,13 @@ shell                                   root; Provides CurrentAccount, Replicas,
 ├── actors/pickers/keys-picker          Ready, always
 ├── actors/dictation                    Ready, always
 ├── pages/home                          while the URL names it
-├── pages/settings                      while the URL names it
-│   ├── machines                        always
-│   │   ├── harness-accounts            each: listed Machine id; Provides AccountList
-│   │   │   └── card                    each: account id, and `new` while one is added
-│   │   └── speech-to-text              each: listed Machine id
-│   └── shortcuts                       always
+├── pages/settings                      /settings, which alone redirects to General
+│   ├── general                         /general
+│   ├── shortcuts                       /shortcuts; holds Shortcuts, always
+│   └── machines                        /machines
+│       ├── harness-accounts            each: listed Machine id; Provides AccountList
+│       │   └── card                    each: account id, and `new` while one is added
+│       └── speech-to-text              each: listed Machine id
 └── pages/project                       /m/:machineId/p/:projectId; Provides CodeClient, SharedCatalog, Picker Owners
     ├── draft                           while no session is open: the new session's
     │   └── touch                       always
@@ -73,7 +74,8 @@ shell ─ Props: place (the Draft open) ─────────────�
 shell ─ Props: bindings ────────────────────────▶ session-actions, keys-picker
 project ─ Provides CodeClient of :machineId, SharedCatalog ───────▶ session
 draft ─ Provides TouchDraft.owner ───────────────────▶ touch
-machines ─ each id; Input: machineId ───────────────▶ harness-accounts, speech-to-text
+machines ─ each id; Input: machineId ───────────────▶ harness-accounts
+machines ─ each id; Input: machineId, accountId ────▶ speech-to-text
 harness-accounts ─ each key; Provides AccountList; Props: account ▶ card
 ```
 
@@ -192,9 +194,14 @@ sidebar ─ Worker: moves, from Moves ──────────────
 
 - **It reads which Machines can transcribe from `Machines`**, because the Machine List already watches each Line and each Speech to Text. Caveat: none.
 
-## home · settings · machines · harness-accounts · speech-to-text · shortcuts
+## home · settings · general · shortcuts · machines · harness-accounts · speech-to-text
 
-Home and Machine Settings follow `Machines`. Each per-Machine Child gets its Machine by Input. Harness Accounts reads its Machine's accounts over `CodeClients`; each card saves or removes its own and tells the list through `AccountList`. Speech to Text reads its state from `Machines` and switches it over `CodeClients`. Shortcuts reads and writes the Bindings in Device State.
+Settings is a page of three pages, drawn as tabs beside the one open. General reads and writes Device State; the Microphone is chosen through the Microphone Picker's `Opener`. The Shortcuts page holds the Shortcuts Actor, which reads and writes the Bindings in Device State. Home and Machine Settings follow `Machines`; Machine Settings draws each Machine's Line and Last Seen from the shell's `Connection`, as the sidebar does. Each per-Machine Child gets its Machine by Input. Speech to Text also gets its Account, reads what `SavedMachines` kept of it first, and keeps what the Machine says. Harness Accounts reads its Machine's accounts over `CodeClients`; each card saves or removes its own and tells the list through `AccountList`. Speech to Text reads its state from `Machines` and switches it over `CodeClients`. Speech to Text's View locks it while the Machine's Line is not connected.
+
+### Decisions
+
+- **A Machine's settings are kept beside the Machine List, in `SavedMachines`, not in Kabuki**, because they belong to the Account and the Machine, as the list does. Caveat: a Machine forgotten, or an Account signed out, leaves its settings row behind until overwritten.
+- **Shortcuts is a page that holds the Shortcuts Actor**, so the editor stays an Actor its test draws alone. Caveat: one level more than General and Machines.
 
 ## project · session
 

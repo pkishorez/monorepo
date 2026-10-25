@@ -21,7 +21,7 @@ The Picker for where to work next: first the Machine, a Step skipped while there
 _Avoid_: add project, open project
 
 **Machine List**:
-The signed-in Account's Machines as this device last had them, kept per Account so the app opens with all of them even while Cloud Connect is out of reach, then asked again once, on Reload, and on each Recheck. The app holds a Line to every Machine in it at once, and shows their Projects and Sessions together. A Machine that stops answering keeps what was last synced, marked by its Last Seen.
+The signed-in Account's Machines as this device last had them, each with its settings as it last said them, kept per Account so the app opens with all of them even while Cloud Connect is out of reach, then asked again once, on Reload, and on each Recheck. The app holds a Line to every Machine in it at once, and shows their Projects and Sessions together. A Machine that stops answering keeps what was last synced, marked by its Last Seen.
 _Avoid_: machine registry, device list, machine switcher
 
 **Line**:
@@ -35,6 +35,10 @@ _Avoid_: poll, heartbeat (that is the Machine's own report)
 **Machine Filter**:
 The sidebar's choice of whose sessions it lists: every Machine, or one, kept in Device State. Only the Machines it shows are synced for the sidebar. Reload sits beside it.
 _Avoid_: machine switcher, machine picker
+
+**Settings**:
+What the user sets, on no Machine, in three pages chosen by tabs: General, the parts of Device State a user sets; Shortcuts, the Bindings; and Machines, every Machine in the Machine List standing by its Line and Last Seen as the sidebar says them, with its own settings, shown as the Machine last said them and asked again behind, and changed only while its Line is connected.
+_Avoid_: preferences, options, config
 
 **Session Switcher**:
 The Picker over Sessions to go back to one, the most recently active first.
