@@ -65,14 +65,14 @@ export const ProjectPickerButton = View.make(
         onOpen={(how) => send({ _tag: 'Open', how, byButton: true })}
         side="top"
         className="w-96"
-        // Round, 56px on a phone and 44px wider, sinking as it is pressed.
+        // Round, 56px and raised on a phone, 44px and barely raised wider, sinking as it is pressed.
         trigger={
           <Button
             aria-label="Open a project"
             title={
               bound === null ? 'Open a project' : `Open a project (${bound})`
             }
-            className="size-14 rounded-full shadow-[0_1px_2px_rgb(0_0_0/0.16),0_6px_20px_rgb(0_0_0/0.22)] transition-[transform,box-shadow,background-color] duration-150 ease-out active:scale-90 active:shadow-[0_1px_2px_rgb(0_0_0/0.16)] motion-reduce:transition-none md:size-11 [&_svg]:size-6! md:[&_svg]:size-5!"
+            className="size-14 rounded-full shadow-[0_1px_2px_rgb(0_0_0/0.16),0_6px_20px_rgb(0_0_0/0.22)] transition-[transform,box-shadow,background-color] duration-150 ease-out active:scale-90 active:shadow-[0_1px_2px_rgb(0_0_0/0.16)] motion-reduce:transition-none md:size-11 md:shadow-[0_1px_2px_rgb(0_0_0/0.12),0_2px_8px_rgb(0_0_0/0.08)] [&_svg]:size-6! md:[&_svg]:size-5!"
           >
             <PlusIcon aria-hidden />
           </Button>

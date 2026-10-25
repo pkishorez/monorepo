@@ -18,7 +18,8 @@ import { ago } from '../../../../ui/time/index.ts';
 /*
  * The sidebar's top, which stays put as the timeline scrolls under it: the
  * app's mark, then whose sessions it shows, the Machine Filter, as a title,
- * with how that Machine stands under it, or how many Machines and sessions
+ * with how that Machine stands under it in a word or two, its whole state
+ * on hover, or how many Machines and sessions
  * there are when it shows every Machine; and Reload, which turns once as
  * it asks. With more than one Machine the title opens the Machines, a
  * Drawer of every Machine and All Machines: each with its state, its
@@ -34,6 +35,8 @@ interface Info {
   readonly kind: Kind;
   /** How it stands, in a few words. */
   readonly state: string;
+  /** How it stands in a word or two, for the header: when it was seen is for the Drawer. */
+  readonly brief: string;
   readonly sessions: number;
   readonly running: number;
   readonly projects: number;
@@ -91,6 +94,7 @@ function useInfos(
         (record === undefined
           ? 'Connected'
           : `Connected · seen ${ago(record.lastSeen)}`),
+      brief: pillOf(health)?.[0] ?? 'Connected',
       sessions: own.length,
       running: own.filter(({ status }) => status === 'running').length,
       projects: projects.filter(({ machineId }) => machineId === id).length,
@@ -201,7 +205,9 @@ export function MachineHeader({
           {chosen !== null ? (
             <>
               <Dot kind={chosen.kind} />
-              <span className="truncate">{chosen.state}</span>
+              <span className="truncate" title={chosen.state}>
+                {chosen.brief}
+              </span>
             </>
           ) : many ? (
             <span className="truncate">
@@ -215,7 +221,7 @@ export function MachineHeader({
   );
 
   return (
-    <div className="sticky top-0 z-10 flex items-center gap-2 bg-sidebar px-4 pt-1 pb-4 md:px-3 md:pb-3">
+    <div className="sticky top-0 z-10 flex items-center gap-2 bg-sidebar px-4 pt-1 pb-4 md:px-2 md:pb-3">
       {many ? (
         <button
           type="button"
@@ -238,7 +244,7 @@ export function MachineHeader({
           onReload();
           setTurns((n) => n + 1);
         }}
-        className="focus-ring -mr-2 grid size-11 shrink-0 place-items-center rounded-full text-muted-foreground transition-[background-color,transform] duration-150 hover:bg-sidebar-accent active:scale-90 motion-reduce:transition-none md:size-8"
+        className="focus-ring -mr-2 grid size-11 shrink-0 place-items-center rounded-full text-muted-foreground transition-[background-color,color,transform] duration-150 hover:bg-sidebar-accent hover:text-sidebar-foreground active:scale-90 motion-reduce:transition-none md:mr-0 md:size-8"
       >
         <RefreshCwIcon
           aria-hidden
