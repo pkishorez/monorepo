@@ -136,6 +136,10 @@ const button = (label: string) =>
   [...document.querySelectorAll('button')].find(
     (each) => each.textContent === label,
   )!;
+const labelled = (label: string) =>
+  document.querySelector<HTMLElement>(`[aria-label="${label}"]`)!;
+const names = () =>
+  [...document.querySelectorAll('h4')].map((each) => each.textContent);
 const field = (id: string) =>
   document.querySelector<HTMLInputElement>(`#account-m1-${id}`)!;
 
@@ -189,13 +193,11 @@ afterEach(async () => {
 });
 
 describe('Harness Accounts', () => {
-  it('draws a card per account, saying how to install an agent that is not there', () => {
-    const names = [...document.querySelectorAll('h3')].map(
-      (each) => each.textContent,
-    );
-    expect(names).toEqual(['Agents', 'Claude', 'Codex']);
+  it('draws a row per account, saying how to install an agent that is not there', async () => {
+    expect(names()).toEqual(['Claude', 'Codex']);
     expect(text()).toContain('npm install -g @openai/codex');
     // A Default Account is never removed.
+    await click(labelled('Change Claude'));
     expect(button('Remove…')).toBeUndefined();
   });
 
@@ -213,9 +215,7 @@ describe('Harness Accounts', () => {
         configFolder: '~/.claude-work',
       },
     ]);
-    expect(
-      [...document.querySelectorAll('h3')].map((each) => each.textContent),
-    ).toEqual(['Agents', 'Claude', 'Codex', 'Claude work']);
+    expect(names()).toEqual(['Claude', 'Codex', 'Claude work']);
   });
 
   it('keeps what was typed, and why the Machine refused it', async () => {
@@ -239,10 +239,20 @@ describe('Harness Accounts', () => {
     expect(button('Add a Claude account')).toBeDefined();
   });
 
+  it('closes a form on Cancel, dropping what was typed', async () => {
+    await click(labelled('Change Claude'));
+    await type(field('claude-name-field'), 'Claude home');
+    await click(button('Cancel'));
+    expect(field('claude-name-field')).toBeNull();
+    await click(labelled('Change Claude'));
+    expect(field('claude-name-field').value).toBe('Claude');
+  });
+
   it('removes an added account once asked again', async () => {
     await click(button('Add a Codex account'));
     await type(field('new-name-field'), 'Codex work');
     await click(button('Add account'));
+    await click(labelled('Change Codex work'));
     await click(button('Remove…'));
     expect(removed).toEqual([]);
     expect(text()).toContain('Its sessions stop working.');

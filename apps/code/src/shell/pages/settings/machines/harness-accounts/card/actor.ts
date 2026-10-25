@@ -14,8 +14,9 @@ import { cancelAccount, removeAccount, saveAccount } from './commands.ts';
  * folder it keeps its login in, as typed, until the Machine saves them.
  * `account` is the account as saved, null for the one being added.
  *
- * 1. Edit    the card keeps what is typed; untouched, it shows the account
- *            as saved.
+ * 1. Edit    Change opens the card's form, which keeps what is typed;
+ *            untouched, it shows the account as saved. Cancel closes it,
+ *            or drops the account being added.
  * 2. Save    only once the Machine finds the binary runs and the config
  *            folder is there; refused, the card keeps what was typed and
  *            says why. An empty binary runs the agent from PATH; an empty
@@ -45,6 +46,8 @@ const Model = Schema.Struct({
   problem: Schema.NullOr(Schema.String),
   /** A save or a remove is running. */
   busy: Schema.Boolean,
+  /** The form is open; the account being added always has it open. */
+  editing: Schema.Boolean,
   /** Remove was asked once, and waits to be confirmed or kept. */
   confirmingRemove: Schema.Boolean,
 });
@@ -60,6 +63,7 @@ const Card = Actor.define('AccountCard', {
   props: Props,
   model: Model,
   message: Schema.TaggedUnion({
+    EditAsked: {},
     Edited: { field: Field, value: Schema.String },
     Save: {},
     Cancel: {},
@@ -91,6 +95,7 @@ export const CardLive = Actor.build(Card, {
       form: null,
       problem: null,
       busy: false,
+      editing: false,
       confirmingRemove: false,
     },
   }),
@@ -103,8 +108,20 @@ export const CardLive = Actor.build(Card, {
         problem: null,
       },
     }),
-    Cancel: (_, { model }) =>
-      model.busy ? {} : { command: cancelAccount({}) },
+    EditAsked: (_, { model }) => ({ model: { ...model, editing: true } }),
+    Cancel: (_, { model, props }) => {
+      if (model.busy) return {};
+      if (props.account === null) return { command: cancelAccount({}) };
+      return {
+        model: {
+          ...model,
+          form: null,
+          problem: null,
+          editing: false,
+          confirmingRemove: false,
+        },
+      };
+    },
     // 2. Save
     Save: (_, { model, props }) => {
       if (model.busy) return {};
@@ -125,7 +142,13 @@ export const CardLive = Actor.build(Card, {
       };
     },
     Saved: (_, { model }) => ({
-      model: { ...model, busy: false, form: null, problem: null },
+      model: {
+        ...model,
+        busy: false,
+        form: null,
+        problem: null,
+        editing: false,
+      },
     }),
     Refused: ({ reason }, { model }) => ({
       model: { ...model, busy: false, problem: reason },
