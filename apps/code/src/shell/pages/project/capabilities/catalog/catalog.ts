@@ -10,7 +10,9 @@ import { loadHarnesses, loadModels, loadSkills } from './api.ts';
  * while it is open and shares it with the pages under it, so moving between
  * its sessions reads nothing again.
  *
- * 1. Agents   read once; when they cannot be, the pickers say why.
+ * 1. Agents   read once, each agent's Harness Accounts together, in the
+ *             order the server first names the agents, its Default
+ *             Account first; when they cannot be, the pickers say why.
  * 2. Models   read for every agent that runs, once the agents are known.
  * 3. Skills   the same, in the project's folder. Nothing waits for them.
  * 4. Retry    drops what failed, so it is read again.
@@ -52,13 +54,29 @@ export const Change = Schema.TaggedUnion({
   Retry: {},
 });
 
+type Harness = typeof HarnessInfo.Type;
+
+/** 1. Agents: each agent's accounts together, its Default Account, named as the agent, first. */
+const grouped = (harnesses: ReadonlyArray<Harness>): ReadonlyArray<Harness> =>
+  [...new Set(harnesses.map(({ harness }) => harness))].flatMap((agent) => {
+    const own = harnesses.filter(({ harness }) => harness === agent);
+    return [
+      ...own.filter(({ account }) => account === agent),
+      ...own.filter(({ account }) => account !== agent),
+    ];
+  });
+
 export const changed = (
   catalog: Catalog,
   change: typeof Change.Type,
 ): Catalog => {
   switch (change._tag) {
     case 'HarnessesLoaded':
-      return { ...catalog, harnesses: change.harnesses, problem: null };
+      return {
+        ...catalog,
+        harnesses: grouped(change.harnesses),
+        problem: null,
+      };
     case 'HarnessesFailed':
       return { ...catalog, problem: change.reason };
     case 'ModelsLoaded':
