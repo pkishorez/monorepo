@@ -8,7 +8,7 @@ import {
   SunIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import { cn } from '@kestack/web-platform/ui/components/utils';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import * as routes from '../../routes/index.ts';
 import { Theme } from '../../../ui/theme/index.ts';
 
@@ -21,6 +21,7 @@ import { Theme } from '../../../ui/theme/index.ts';
  *
  * Who is signed in is one row; it opens the Accounts, the Account
  * Switcher's list, in a Drawer on top of this one, which closes back to it.
+ * Once another Account is active, both close.
  */
 
 /** A light tap back, where the phone can. */
@@ -42,6 +43,12 @@ export function Foot({
 }) {
   const [you, setYou] = useState(false);
   const [switching, setSwitching] = useState(false);
+  // Another Account active, switched to or just added: both Drawers close,
+  // so the foot shows who it is now.
+  useEffect(() => {
+    setSwitching(false);
+    setYou(false);
+  }, [email]);
   return (
     <>
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end justify-between px-5 pb-3 md:static md:px-3 md:py-2">
