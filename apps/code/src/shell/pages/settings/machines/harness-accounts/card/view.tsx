@@ -4,6 +4,7 @@ import { Button } from '@kestack/web-platform/ui/components/button';
 import { Input } from '@kestack/web-platform/ui/components/input';
 import { CircleAlertIcon } from '@kestack/web-platform/ui/components/lucide';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
+import { Locked, useHealth } from '../../../../../machines/index.ts';
 import { CardLive, formOf } from './actor.ts';
 
 /*
@@ -13,7 +14,8 @@ import { CardLive, formOf } from './actor.ts';
  * "Change" opens its form: name, config folder and binary as typed, why
  * the Machine refused, else a hint, then Save and Cancel, and Remove for
  * an added account, which asks again. The account being added is its
- * form alone.
+ * form alone. While the Machine's Line is not connected, a lock and why
+ * stand in place of "Change", and an open form takes nothing.
  */
 
 const AGENT = { claude: 'Claude', codex: 'Codex' } as const;
@@ -117,7 +119,8 @@ function Actions({
   model,
   props,
   send,
-}: Pick<Self, 'model' | 'props' | 'send'>) {
+  locked,
+}: Pick<Self, 'model' | 'props' | 'send'> & { readonly locked: boolean }) {
   const cancel = (
     <Button
       type="button"
@@ -139,7 +142,7 @@ function Actions({
           type="button"
           variant="ghost"
           className={`ml-auto text-muted-foreground hover:text-destructive ${BUTTON}`}
-          disabled={model.busy}
+          disabled={model.busy || locked}
           onClick={() => send({ _tag: 'RemoveAsked' })}
         >
           Remove…
@@ -156,6 +159,7 @@ function Actions({
         type="button"
         variant="destructive"
         className={BUTTON}
+        disabled={locked}
         onClick={() => send({ _tag: 'Remove' })}
       >
         Remove
@@ -173,6 +177,8 @@ function Actions({
 }
 
 export const CardView = View.make(CardLive, ({ root, model, props, send }) => {
+  const health = useHealth(model.machineId);
+  const locked = health._tag !== 'Connected';
   const { account } = props;
   const { harness } = model;
   const id = `account-${model.machineId}-${model.key}`;
@@ -202,17 +208,21 @@ export const CardView = View.make(CardLive, ({ root, model, props, send }) => {
             <Summary account={account} />
           )}
         </div>
-        {!open && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            aria-label={`Change ${account.name}`}
-            className="-my-1 h-11 shrink-0 text-muted-foreground keyboard:h-8"
-            onClick={() => send({ _tag: 'EditAsked' })}
-          >
-            Change
-          </Button>
+        {locked ? (
+          <Locked health={health} />
+        ) : (
+          !open && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label={`Change ${account.name}`}
+              className="-my-1 h-11 shrink-0 text-muted-foreground keyboard:h-8"
+              onClick={() => send({ _tag: 'EditAsked' })}
+            >
+              Change
+            </Button>
+          )
         )}
       </div>
       {open && (
@@ -231,7 +241,7 @@ export const CardView = View.make(CardLive, ({ root, model, props, send }) => {
               label="Name"
               value={form.name}
               placeholder={`${AGENT[harness]} work`}
-              disabled={model.busy}
+              disabled={model.busy || locked}
               onChange={edit('name')}
             />
             <Field
@@ -239,7 +249,7 @@ export const CardView = View.make(CardLive, ({ root, model, props, send }) => {
               label="Config folder"
               value={form.configFolder}
               placeholder={`${FOLDER[harness].own} (its own)`}
-              disabled={model.busy}
+              disabled={model.busy || locked}
               mono
               onChange={edit('configFolder')}
             />
@@ -248,7 +258,7 @@ export const CardView = View.make(CardLive, ({ root, model, props, send }) => {
               label="Binary"
               value={form.binaryPath}
               placeholder={`${harness} from PATH`}
-              disabled={model.busy}
+              disabled={model.busy || locked}
               mono
               onChange={edit('binaryPath')}
             />
@@ -276,12 +286,12 @@ export const CardView = View.make(CardLive, ({ root, model, props, send }) => {
             <Button
               type="submit"
               className={BUTTON}
-              disabled={model.busy || !changed}
+              disabled={model.busy || locked || !changed}
             >
               {model.busy && <Spinner />}
               {account === null ? 'Add account' : 'Save'}
             </Button>
-            <Actions model={model} props={props} send={send} />
+            <Actions model={model} props={props} send={send} locked={locked} />
           </div>
         </form>
       )}
