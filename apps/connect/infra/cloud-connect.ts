@@ -2,7 +2,7 @@ import { Stage } from 'alchemy';
 import * as Cloudflare from '@alchemy.run/cloudflare';
 import * as Output from 'alchemy/Output';
 import { Effect } from 'effect';
-import { portlessPort } from '@kestack/web-platform/app/alchemy';
+import { backend, portlessPort } from '@kestack/web-platform/app/alchemy';
 import { D1 } from '@kestack/std-toolkit/alchemy';
 import { machinesTable } from '../src/cloud/worker/index.ts';
 import { where } from './stage.ts';
@@ -13,7 +13,9 @@ import { where } from './stage.ts';
  * in a linked worktree), with a D1 database of its own holding the
  * `machines` std Table. The table goes through std-toolkit's deploy guard,
  * which refuses a deploy whose table would no longer read the rows
- * already stored, and the Worker is deployed only behind it.
+ * already stored, and the Worker is deployed only behind it. Under `pnpm
+ * dev` it signs in with auth-toolkit's Fake, as the Web Platform's
+ * `backend` bundles it.
  */
 
 export const CloudConnectDatabase = Cloudflare.D1.Database(
@@ -37,6 +39,7 @@ export const CloudConnect = Cloudflare.Worker(
     const domain = at.domain();
     return {
       main: './src/cloud/worker/worker.server.ts',
+      ...backend(at),
       compatibility: { date: '2025-07-04', flags: ['nodejs_compat'] },
       ...(domain === undefined ? {} : { domain }),
       ...(at.dev ? { dev: { port: portlessPort(), strictPort: true } } : {}),

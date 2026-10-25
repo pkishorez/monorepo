@@ -28,6 +28,10 @@ The Machine is named `<host> (<branch>)`, so each branch's Machine is told apart
 
 The lock that one dev process takes while it decides whether Connect must start is not a file: it is a TCP port on 127.0.0.1, from 20000 to 29999, derived from the path of `dev/`. That range is below every range the OS hands out for port 0 (macOS and Windows 49152–65535, Linux 32768–60999), so the Machine, which listens on port 0, never takes a lock's port; and it is clear of Portless's app ports, 4000–4999, and Connect's 4590. Holding it is listening on it, so it is freed when the process exits, however it exits. Connections to it are closed at once, so none holds up giving it back. If taking it fails after 30 s, the error names the port; when no `ke-connect` dev runs, another program owns that port.
 
+## Signing in
+
+`pnpm dev` signs in with auth-toolkit's Fake ([root ADR 0012](../../../docs/adr/0012-pnpm-dev-signs-in-with-the-fake.md)): Cloud Connect reads Fake Tokens, and the Machine signs in at once as `dev@kestack.test`, with no device code. A Fake Machine keeps its own folders, `<branch>-fake`, and lets in pages through a Cloudflare tunnel (`https://*.trycloudflare.com`). `pnpm dev:real` (`KESTACK_AUTH=real`) signs in through the Auth Worker, as before. `connect.json` says which (`auth`), and an App run the other way while one runs is refused: stop every dev on the branch first.
+
 ## Running an App
 
 `pnpm dev` in an App, such as `apps/code`, calls `withConnect`:

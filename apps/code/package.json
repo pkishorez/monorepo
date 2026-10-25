@@ -7,6 +7,7 @@
   "sideEffects": false,
   "scripts": {
     "dev": "vp run --filter 'code^...' build && node scripts/dev.ts",
+    "dev:real": "KESTACK_AUTH=real pnpm run dev",
     "build": "vp build",
     "lint": "tsc --noEmit && pnpm lint:laymos",
     "lint:laymos": "laymos lint",

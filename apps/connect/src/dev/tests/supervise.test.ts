@@ -60,6 +60,7 @@ describe('supervise', () => {
           slug: 'test',
           cloud,
           mode: 'shared',
+          auth: 'real',
           version: 'test',
         }),
       );

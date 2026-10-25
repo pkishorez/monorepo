@@ -1,6 +1,7 @@
 import { readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { live, runs } from './leases.js';
+import type { DevAuth } from './auth.js';
 import { withLock } from './lock.js';
 
 /*
@@ -17,6 +18,8 @@ export interface ConnectRecord {
   /** Foreground: `pnpm dev` in apps/connect; shared: the detached supervisor. */
   readonly mode: 'foreground' | 'shared';
   readonly cloud: string;
+  /** How it signs in; a record from before it said is `real`. */
+  readonly auth?: DevAuth;
   /** The Machine's port; 0 until it listens. */
   readonly port: number;
   readonly machine: { readonly id: string; readonly name: string } | null;

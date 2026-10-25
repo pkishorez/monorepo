@@ -324,12 +324,17 @@ version waits for "Reload" instead of reloading under you.
 ### Run the app on this branch's Connect
 
 `pnpm dev` makes sure this branch's Connect runs, starting it or reusing
-the one another App started, then runs the site against it. Sign in, and
-the branch's Machine shows up in the app; it reports itself to Cloud
-Connect every 15 seconds.
+the one another App started, then runs the site against it. It signs in
+with auth-toolkit's Fake: sign in as any `@kestack.test` email
+(`dev@kestack.test` is the Machine's), and the branch's Machine shows up in
+the app; it reports itself to Cloud Connect every 15 seconds. Every backend
+is on the site's own origin, so a tunnel to it, such as
+`cloudflared tunnel --url http://localhost:<port>`, opens the whole app on
+a phone. `pnpm dev:real` signs in through the Auth Worker instead.
 
 ```sh
-pnpm --filter code dev           # this branch's Connect, then the site; the Device Screen on a new branch
+pnpm --filter code dev           # this branch's Connect, then the site, signed in with the Fake
+pnpm --filter code dev:real      # the same through the Auth Worker; the Device Screen on a new branch
 pnpm --filter code deploy        # your own stage, at its workers.dev URLs
 pnpm --filter code deploy:prod   # ALLOW_DEPLOY=true: code.kishore.app
 ```
