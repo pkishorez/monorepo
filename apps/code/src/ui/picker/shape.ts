@@ -5,12 +5,12 @@ import type { How } from './actor.ts';
  * The shape a Picker is drawn in: as the input that opened it asks,
  * whatever the width of the screen. Opened by keys, a centred list; by a
  * mouse, a popover by its trigger; by a touch, its Picker Mode, as
- * whoever opens it chose: a Drawer or a Dialog. A click on its trigger
+ * whoever opens it chose: a Drawer, or a Sheet, a tall Drawer with a search. A click on its trigger
  * on a device with no keyboard and no mouse is a touch, whatever it said.
  */
 
 /** A Picker Mode: how a Picker is drawn when opened by touch. */
-export type Mode = 'drawer' | 'dialog';
+export type Mode = 'drawer' | 'sheet';
 
 export type Shape = 'list' | 'popover' | Mode;
 
@@ -81,15 +81,13 @@ export const howTyped = (): 'keys' | 'touch' =>
 
 /**
  * What the List needs of its Frame: the shape, what the Picker is called,
- * whether its search takes focus in a Dialog opened by touch, and whether
- * its owner holds it, under something it shows.
+ * and whether its owner holds it, under something it shows.
  */
 const Drawn = createContext<{
   readonly shape: Shape;
   readonly label: string;
-  readonly focusOnTouch: boolean;
   readonly held: boolean;
-}>({ shape: 'list', label: '', focusOnTouch: false, held: false });
+}>({ shape: 'list', label: '', held: false });
 
 export const DrawnIn = Drawn.Provider;
 

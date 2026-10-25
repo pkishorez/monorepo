@@ -52,13 +52,13 @@ import { useDrawn } from './shape.ts';
  * search is the Surface's default Focus Spot, so it takes focus as the
  * Picker opens.
  *
- * Opened by touch, in a Drawer or a Dialog, a header names
+ * Opened by touch, in a Drawer or a Sheet, a header names
  * the Step, with a button back to the one under it; the keys' hints are
  * gone, and so is the highlight, and rows still loading show a spinner in
- * the middle. A Drawer has no search, nor has a Step that says it has
- * none; a row is tapped to go into it. The keyboard moves no focus there:
- * the search waits to be tapped, unless its Frame opts in with
- * `focusOnTouch`, when the Dialog focuses it once it is on screen. With no
+ * the middle. Only a Sheet has a search, and not for a Step that says it
+ * has none; a row is tapped to go into it. The keyboard moves no focus
+ * there: the search waits to be tapped, and the Sheet then rises over the
+ * on-screen keyboard. With no
  * Mod+Enter to finish with, a Step that finishes on itself has a button
  * at the top that does, under where the Step is, such as a folder's path.
  */
@@ -81,16 +81,16 @@ export function List<P>({
   const shown = shownOf(spec, model, props);
   const { query, highlighted } = model.step;
   const { enter, leave } = keys.useKeyboard();
-  const { shape, label, focusOnTouch, held } = useDrawn();
+  const { shape, label, held } = useDrawn();
   // Every Picker is the one Surface: one over this, leaving it, is no
   // closing of this while its owner holds it.
   const holding = useRef(held);
   holding.current = held;
-  const touch = shape === 'drawer' || shape === 'dialog';
+  const touch = shape === 'drawer' || shape === 'sheet';
   // Opened by touch, nothing takes focus on its own.
   const search = keys.useFocusSpot('picker', 'search', { default: !touch });
   // A Drawer has no search: its rows are tapped through.
-  const searched = !touch || (shape === 'dialog' && shown.search);
+  const searched = !touch || (shape === 'sheet' && shown.search);
   const close = (choices: ReadonlyArray<Choice>) => {
     leave('picker');
     if (spec.lands?.(choices) === true) enter('content');
@@ -293,8 +293,6 @@ export function List<P>({
             value={query}
             onValueChange={(next) => send({ _tag: 'Typed', query: next })}
             placeholder={shown.placeholder}
-            // Opted in, a Dialog focuses it once it is on screen.
-            data-autofocus={(shape === 'dialog' && focusOnTouch) || undefined}
           />
         )}
         <CommandList

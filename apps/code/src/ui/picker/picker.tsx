@@ -1,5 +1,4 @@
 import { View } from '@kestack/kabuki/react';
-import { raiseKeyboard } from '@kestack/web-platform/recipes/touch-layers';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import { useEffect, useRef, type ReactElement, type ReactNode } from 'react';
 import { keys } from '../../keys.ts';
@@ -25,8 +24,8 @@ import { Touch } from './touch-frame.tsx';
  * the device: opened by keys, a centred list, its search focused; by a
  * mouse, a popover by its trigger; by a touch, as any click on its
  * trigger on a device with no keyboard and no mouse is, in the Picker
- * Mode its opener chose, a Drawer, or a Dialog at the top, nothing
- * focused: its search waits to be tapped unless the opener opts in. How
+ * Mode its opener chose, a Drawer, or a Sheet, a tall Drawer with a
+ * search, nothing focused: its search waits to be tapped. How
  * it was opened stays while it is open. The rest of the
  * screen dims behind it either way. Focus moves as the Surface says, and
  * a Picker closed by a tap or click outside, or a swipe, leaves the
@@ -65,10 +64,7 @@ export const useOpen = () => {
  * Where a Picker is drawn, around its trigger, as `how` it was opened
  * asks: a centred list by keys, a popover by its trigger by a mouse, its
  * Picker Mode, `mode`, by a touch. Nothing while `how` is null. The
- * trigger opens it, saying whether the keys, a mouse or a touch did; opted in with
- * `focusOnTouch`, a tap on it raises the on-screen keyboard there and
- * then, as iOS needs, for the Dialog's search to take once it is on
- * screen.
+ * trigger opens it, saying whether the keys, a mouse or a touch did.
  */
 export function Frame({
   how,
@@ -79,13 +75,12 @@ export function Frame({
   side = 'top',
   align = 'start',
   className,
-  focusOnTouch = false,
   tall = false,
   held = false,
   children,
 }: {
   readonly how: typeof How.Type | null;
-  /** Its Picker Mode, when opened by touch: a few choices in a Drawer, a list worth searching in a Dialog. */
+  /** Its Picker Mode, when opened by touch: a few choices in a Drawer, a list worth searching in a Sheet. */
   readonly mode: Mode;
   /** What it is called to a screen reader, and the title of its first Step on touch. */
   readonly label: string;
@@ -97,11 +92,6 @@ export function Frame({
   readonly align?: 'start' | 'center' | 'end';
   /** The popover's size. */
   readonly className?: string;
-  /**
-   * Opened by touch, its Dialog's search takes focus as it opens, raising
-   * the on-screen keyboard. Without it, it waits to be tapped.
-   */
-  readonly focusOnTouch?: boolean;
   /**
    * Its Drawer, opened by touch, three quarters of the screen tall with a
    * search, for a long list: it never changes height as its rows load.
@@ -143,13 +133,12 @@ export function Frame({
     if (!open) leave('picker');
     else if (how === null && onOpen !== undefined) {
       const by = howOf(details.event, touch && !keyboard);
-      if (by === 'touch' && mode === 'dialog' && focusOnTouch) raiseKeyboard();
       openPicker(() => onOpen(by));
     }
   };
   const drawn = (as: typeof shape) => (shape === as ? children : null);
   return (
-    <DrawnIn value={{ shape: shape ?? 'list', label, focusOnTouch, held }}>
+    <DrawnIn value={{ shape: shape ?? 'list', label, held }}>
       {trigger !== undefined && (
         <ByTrigger
           open={shape === 'popover' && active}

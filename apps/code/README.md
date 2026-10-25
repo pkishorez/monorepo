@@ -226,7 +226,7 @@ a Dictation.
 
 A Picker (`src/ui/picker/`) is a stack of Steps drawn by cmdk, as the input
 that opened it asks, whatever the device: by keys a centred list, by a mouse
-a popover by its button, by a touch a Drawer or a Dialog at the top; the
+a popover by its button, by a touch a Drawer or a Sheet from the bottom; the
 screen dims behind it, and a trail shows the choices so far ([CONTEXT.md](./CONTEXT.md)). In a session,
 `/btw <question>` asks the session on the side and shows the answer in a
 popover; nothing is kept. Each finished turn can be forked from, which
@@ -306,7 +306,7 @@ edge, brings it back. On a touch screen a session row swipes left to right
 to Settle it, or, in the Settled List, to un-Settle it: it slides out, the
 list closes up, and a toast offers Undo for five seconds; pulling the
 sidebar down from its top Reloads the Machines. A tap opens a Picker in a
-Drawer or a Dialog at the top, nothing focused, and there is no focus ring
+Drawer or a Sheet from the bottom, nothing focused, and there is no focus ring
 while you touch. The header keeps only where you are, the Machine's offline mark and one
 `⋯` for Session Actions, and a touch screen with no keyboard is shown
 no keys: no hints, no Vim status line, no keyboard settings. Vim Mode is off
