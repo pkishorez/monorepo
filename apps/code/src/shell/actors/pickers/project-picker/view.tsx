@@ -11,7 +11,7 @@ import { keys, useBound } from '../../../../keys.ts';
 import * as Picker from '../../../../ui/picker/index.ts';
 import { Starter } from '../../../pages/project/index.ts';
 import type { Route } from '../../../routes/index.ts';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ProjectPickerLive, ProjectsView } from './actor.ts';
 
 /*
@@ -152,7 +152,11 @@ function Start({
   );
 }
 
-/** Closes the Picker once the session it started has its page open. */
+/**
+ * Closes the Picker once the session it started has its page open: a
+ * session page of the project other than the one open as it opened, so
+ * one of that project already open closes nothing.
+ */
 function ClosedOnStart({
   starting,
   onStarted,
@@ -161,11 +165,15 @@ function ClosedOnStart({
   readonly onStarted: () => void;
 }) {
   const { route } = useRouter<Route>();
-  const started =
-    route._tag === 'Project' &&
-    route.machineId === starting.machineId &&
-    route.projectId === starting.projectId &&
-    route.page?.sessionId !== undefined;
+  const sessionOf = (at: Route) =>
+    at._tag === 'Project' &&
+    at.machineId === starting.machineId &&
+    at.projectId === starting.projectId
+      ? (at.page?.sessionId ?? null)
+      : null;
+  const now = sessionOf(route);
+  const before = useRef(now);
+  const started = now !== null && now !== before.current;
   useEffect(() => {
     if (started) onStarted();
   }, [started]);
