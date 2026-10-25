@@ -3,7 +3,7 @@ import { CodeClient, SessionNotFound } from '@kestack/connect/code';
 import { Actor, type Instance, Runtime, type Running } from '@kestack/kabuki';
 import { Navigation } from '@kestack/kabuki/routing';
 import { describe, expect, it } from 'vitest';
-import { session } from '../../../places/index.ts';
+import { session } from '../../../routes/index.ts';
 import { SharedCatalog } from '../capabilities/index.ts';
 import * as Catalog from '../catalog/index.ts';
 import { DraftLive } from './actor.ts';

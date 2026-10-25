@@ -27,7 +27,7 @@
       "src/keys.ts"
     ],
     "src/shell/actors": [
-      "src/shell/places",
+      "src/shell/routes",
       "src/shell/refusal",
       "src/shell/replica",
       "src/shell/connection",
@@ -35,7 +35,7 @@
     ],
     "src/shell/moves": ["src/shell/refusal"],
     "src/shell/pages": [
-      "src/shell/places",
+      "src/shell/routes",
       "src/shell/refusal",
       "src/shell/replica",
       "src/shell/connection",

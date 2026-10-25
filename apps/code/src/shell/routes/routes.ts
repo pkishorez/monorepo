@@ -4,8 +4,8 @@
  * itself, and only the root page does. The app is on every Machine at
  * once, so home and Settings are on none; only a project and a session,
  * `/m/:machineId/p/:projectId`, name the Machine they are on. Views link
- * through these and read where the app is as a `Place`.
- * `pages.test.ts` checks each against the router's own.
+ * through these and read where the app is as a `Route`.
+ * The shell's `router.test.ts` checks each against the router's own.
  */
 
 /** Home, `/`: every Machine's projects. */
@@ -32,8 +32,8 @@ export const session = (
   page: { _tag: 'Session' as const, sessionId },
 });
 
-/** Where the app is: one of the places above, or an address that names none. */
-export type Place =
+/** Where the app is: one of the Routes above, or an address that names none. */
+export type Route =
   | { readonly _tag: 'Home' }
   | { readonly _tag: 'Settings' }
   | {
@@ -43,12 +43,6 @@ export type Place =
       readonly page?: { readonly _tag: 'Session'; readonly sessionId: string };
     }
   | { readonly _tag: 'NotFound'; readonly path: string };
-
-/** Where the app is, as the router reads it: the same as a Place. */
-export type Route = Place;
-
-/** Where a Route is. */
-export const placeOf = (route: Route): Place => route;
 
 /** The Machine a page under it is on, from the params its route carries down. */
 export const machineIn = (params: Readonly<Record<string, unknown>>): string =>

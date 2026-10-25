@@ -12,7 +12,7 @@ import { createContext, type ReactNode, use, useRef } from 'react';
 import { keys, useBound } from '../../../../keys.ts';
 import { Dictation } from '../../../actors/dictation/index.ts';
 import { useOffline } from '../../../connection/index.ts';
-import * as places from '../../../places/index.ts';
+import * as routes from '../../../routes/index.ts';
 import * as Catalog from '../catalog/index.ts';
 import {
   current,
@@ -179,7 +179,7 @@ export const DraftView = View.make(
               {problem}
               {problem === unavailable && (
                 <Router.Link
-                  to={places.settings()}
+                  to={routes.settings()}
                   className="focus-ring shrink-0 rounded-sm text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
                 >
                   Open Settings

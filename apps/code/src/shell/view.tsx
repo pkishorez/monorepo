@@ -13,8 +13,8 @@ import {
 } from 'react';
 import type { Ask } from '../layer/capabilities/index.ts';
 import { keys } from '../keys.ts';
-import * as places from './places/index.ts';
-import type { Place, Route } from './places/index.ts';
+import * as routes from './routes/index.ts';
+import type { Route } from './routes/index.ts';
 import { Account, AccountSlot, SignedOut } from '../sign-in/index.ts';
 import { Theme, ThemeToggle } from '../ui/theme/index.ts';
 import { Toasts } from '../ui/toast/index.ts';
@@ -130,7 +130,7 @@ function Signed({
   readonly actors: Self['children'];
   readonly send: Self['send'];
 }) {
-  const route = places.placeOf(useRouter<Route>().route);
+  const route = useRouter<Route>().route;
   const { enter } = keys.useKeyboard();
   const inSettings = route._tag === 'Settings';
   const settings = () =>
@@ -249,7 +249,7 @@ function Signed({
             <p className="mx-auto w-full max-w-3xl px-6 py-10 text-sm text-muted-foreground">
               Nothing lives at this address.{' '}
               <Router.Link
-                to={places.home()}
+                to={routes.home()}
                 className="text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
               >
                 Go to your projects
@@ -277,7 +277,7 @@ function Screen({
   header,
   children,
 }: {
-  readonly route: Place;
+  readonly route: Route;
   readonly sidebar: ReactNode;
   readonly header: ComponentProps<typeof AppShell>['header'];
   readonly children: ReactNode;

@@ -2,7 +2,7 @@ import { Effect, Layer, Schema, Stream } from 'effect';
 import { CodeClient, HarnessInfo } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
-import { session } from '../../../places/index.ts';
+import { session } from '../../../routes/index.ts';
 import * as Picker from '../../../../ui/picker/index.ts';
 import { SharedCatalog } from '../capabilities/index.ts';
 import * as Catalog from '../catalog/index.ts';

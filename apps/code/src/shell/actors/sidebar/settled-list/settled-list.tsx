@@ -15,7 +15,7 @@ import {
 } from '@kestack/web-platform/recipes/frame';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import { useBound } from '../../../../keys.ts';
-import * as places from '../../../places/index.ts';
+import * as routes from '../../../routes/index.ts';
 import type { OnMachine } from '../../../replica/index.ts';
 import { SwipeToMove } from '../swipe/index.ts';
 
@@ -119,7 +119,7 @@ export function SettledList({
                       className={`${sessionRow} ${cursorRing} ${keyboard ? 'pr-9' : ''}`}
                       render={
                         <Router.Link
-                          to={places.session(
+                          to={routes.session(
                             session.machineId,
                             session.projectId,
                             session.id,

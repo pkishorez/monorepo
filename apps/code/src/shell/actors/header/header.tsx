@@ -5,8 +5,8 @@ import {
   GitForkIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
-import * as places from '../../places/index.ts';
-import type { Place } from '../../places/index.ts';
+import * as routes from '../../routes/index.ts';
+import type { Route } from '../../routes/index.ts';
 import { ago } from '../../../ui/time/index.ts';
 import { SessionStatus } from '../../../ui/session-status/index.ts';
 import { useHealth, useMachineName } from '../../connection/index.ts';
@@ -29,7 +29,7 @@ export function Title({
   session,
   unknown,
 }: {
-  readonly route: Place;
+  readonly route: Route;
   readonly project: Project | undefined;
   readonly session: Session | undefined;
   /** Whether this device has never synced the Machine's lists: a row missing may only be not read yet. */
@@ -66,7 +66,7 @@ export function Title({
   return (
     <span className="flex min-w-0 items-center gap-1.5">
       <Router.Link
-        to={places.project(machineId, project.id)}
+        to={routes.project(machineId, project.id)}
         className="focus-ring hidden shrink-0 items-center rounded-sm font-normal text-muted-foreground transition-colors duration-150 hover:text-foreground sm:flex sm:min-h-11 sm:min-w-11 keyboard:sm:min-h-0 keyboard:sm:min-w-0"
       >
         {project.name}

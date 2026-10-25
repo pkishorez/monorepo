@@ -23,8 +23,8 @@ import {
   useState,
 } from 'react';
 import { keys, useBound } from '../../../keys.ts';
-import * as places from '../../places/index.ts';
-import type { Place } from '../../places/index.ts';
+import * as routes from '../../routes/index.ts';
+import type { Route } from '../../routes/index.ts';
 import type { OnMachine } from '../../replica/index.ts';
 import { ago } from '../../../ui/time/index.ts';
 import { StatusDot } from '../../../ui/status-dot/index.ts';
@@ -83,7 +83,7 @@ export function Places({
   onUnsettle,
   onMove,
 }: {
-  readonly route: Place;
+  readonly route: Route;
   readonly projects: {
     readonly rows: ReadonlyArray<OnMachine<Project>>;
     /** Whether some Machine's projects were never synced on this device. */
@@ -286,7 +286,7 @@ function ProjectGroup({
   onMove,
 }: {
   readonly rows: ReadonlyArray<Row>;
-  readonly here: Extract<Place, { readonly _tag: 'Project' }> | null;
+  readonly here: Extract<Route, { readonly _tag: 'Project' }> | null;
   readonly at: (place: string) => true | undefined;
   /** Every Session's title, by `keyOf`, to name what a Fork came from. */
   readonly titles: ReadonlyMap<string, string>;
@@ -313,7 +313,7 @@ function ProjectGroup({
                     className={`${row} ${cursorRing} text-xs font-medium text-muted-foreground data-active:font-medium max-md:mt-2 max-md:text-sm max-md:text-sidebar-foreground`}
                     render={
                       <Router.Link
-                        to={places.project(
+                        to={routes.project(
                           each.project.machineId,
                           each.project.id,
                         )}
@@ -355,7 +355,7 @@ function ProjectGroup({
                       className={`${sessionRow} ${cursorRing}`}
                       render={
                         <Router.Link
-                          to={places.session(
+                          to={routes.session(
                             session.machineId,
                             session.projectId,
                             session.id,
@@ -507,13 +507,13 @@ function useCursor({
 }
 
 /** The way to Settings, at the sidebar's foot. */
-export function SettingsLink({ route }: { readonly route: Place }) {
+export function SettingsLink({ route }: { readonly route: Route }) {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
         <SidebarMenuButton
           isActive={route._tag === 'Settings'}
-          render={<Router.Link to={places.settings()} />}
+          render={<Router.Link to={routes.settings()} />}
         >
           <SettingsIcon aria-hidden className="text-muted-foreground" />
           <span>Settings</span>

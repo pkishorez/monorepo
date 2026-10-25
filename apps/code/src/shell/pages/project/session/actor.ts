@@ -6,7 +6,7 @@ import {
 } from '@kestack/connect/code';
 import { Page, Router } from '@kestack/kabuki/routing';
 import { Replicas } from '@kestack/std-toolkit/replica';
-import { machineIn, projectIn, session } from '../../../places/index.ts';
+import { machineIn, projectIn, session } from '../../../routes/index.ts';
 import { Refused } from '../../../refusal/index.ts';
 import { lineage, Messages, SessionRow } from '../../../replica/index.ts';
 import { DeviceState } from '../../../../layer/capabilities/index.ts';
