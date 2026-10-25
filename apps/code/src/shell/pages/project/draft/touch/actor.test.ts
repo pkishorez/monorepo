@@ -53,9 +53,11 @@ const world = Effect.gen(function* () {
         Effect.sync(() => app.send(touch().id, message)),
         settle,
       ),
-    heard: (dictation: string) =>
+    heard: (dictation: string, sendable = true) =>
       Effect.andThen(
-        Effect.sync(() => app.send(touch().id, { _tag: 'Heard', dictation })),
+        Effect.sync(() =>
+          app.send(touch().id, { _tag: 'Heard', dictation, sendable }),
+        ),
         settle,
       ),
   };
@@ -122,6 +124,37 @@ describe('Touch Draft', () => {
         yield* t.heard('idle');
         expect(t.sent()).toBe(1);
         expect(t.state()).toBe('Resting');
+      }),
+    ));
+
+  it('keeps the text and sends nothing when the Draft cannot be sent as its text comes in', () =>
+    run(
+      Effect.gen(function* () {
+        const t = yield* world;
+        yield* t.heard('recording');
+        yield* t.send({ _tag: 'Take', send: true });
+        yield* t.heard('transcribing');
+        yield* t.heard('text');
+        // The line dropped meanwhile.
+        yield* t.heard('idle', false);
+        expect(t.sent()).toBe(0);
+        expect(t.state()).toBe('Resting');
+      }),
+    ));
+
+  it('throws the Dictation away on a cancel while it is transcribed, sending nothing', () =>
+    run(
+      Effect.gen(function* () {
+        const t = yield* world;
+        yield* t.heard('recording');
+        yield* t.send({ _tag: 'Take', send: true });
+        yield* t.asks();
+        yield* t.heard('transcribing');
+        yield* t.send({ _tag: 'Cancel' });
+        expect(yield* t.asks()).toEqual(['Cancel']);
+        expect(t.state()).toBe('Resting');
+        yield* t.heard('idle');
+        expect(t.sent()).toBe(0);
       }),
     ));
 

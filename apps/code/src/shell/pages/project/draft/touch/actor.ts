@@ -16,9 +16,11 @@ import { Ask, Dictations } from '../../../../../layer/capabilities/index.ts';
  *                  the same, then the Draft is sent; cancel: thrown away.
  *                  A Dictation that stops on its own is taken.
  * 3. Transcribing  until its text is in, then Resting, or Sending when it
- *                  was taken to send. Failing, or with nothing heard,
- *                  nothing is sent: Resting, with the Dictation's Retry in
- *                  the Draft.
+ *                  was taken to send and the Draft can be sent then; if
+ *                  it cannot, as offline, the text stays in the Draft.
+ *                  Failing, or with nothing heard, nothing is sent:
+ *                  Resting, with the Dictation's Retry in the Draft. A
+ *                  cancel still throws it away.
  * 4. Editing       the Composer, until done or sent.
  * 5. Sending       its owner, the Draft, is asked to send, then Resting.
  */
@@ -79,7 +81,8 @@ export const TouchDraft = Actor.define('TouchDraft', {
     /** Send the Draft, at rest or from the Composer. */
     Send: {},
     Sent: {},
-    Heard: { dictation: Heard },
+    /** `sendable`: nothing stops the Draft being sent now, such as being offline. */
+    Heard: { dictation: Heard, sendable: Schema.Boolean },
   }),
 });
 
@@ -128,11 +131,12 @@ export const TouchDraftLive = Actor.build(TouchDraft, {
     // 3. Transcribing
     Transcribing: {
       on: {
-        Heard: ({ dictation }, { state }) => {
+        Cancel: () => ({ state: resting, command: ask({ _tag: 'Cancel' }) }),
+        Heard: ({ dictation, sendable }, { state }) => {
           if (dictation === 'text') return { state: { ...state, said: true } };
           if (dictation === 'failed') return { state: resting };
           if (dictation !== 'idle') return {};
-          return state.said && state.then === 'send'
+          return state.said && state.then === 'send' && sendable
             ? sending
             : { state: resting };
         },
