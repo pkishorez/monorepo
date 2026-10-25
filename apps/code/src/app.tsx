@@ -4,7 +4,6 @@ import { Start } from '@kestack/kabuki/start';
 import { document } from '@kestack/web-platform/app/document';
 import { Shell } from './shell/index.ts';
 import { Theme } from './ui/theme/index.ts';
-import { router } from './pages.ts';
 import {
   accountReplicasIdb,
   deviceStateIdb,
@@ -40,7 +39,7 @@ const layer = Layer.mergeAll(
 ).pipe(Layer.provideMerge(accountReplicasIdb), Layer.provideMerge(accounts));
 
 export default Start.app({
-  router,
+  router: Shell.router,
   view: Shell.view,
   // The Web Platform's Document: Inter, the Theme and the PWA.
   document: document({

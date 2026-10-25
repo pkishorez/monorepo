@@ -5,8 +5,8 @@ import {
   type Route,
   session,
   settings,
-} from './shell/places/index.ts';
-import { router } from './pages.ts';
+} from './places/index.ts';
+import { router } from './router.ts';
 
 describe('places', () => {
   it('are the Routes the router makes', () => {
