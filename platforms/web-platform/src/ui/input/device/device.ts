@@ -16,10 +16,13 @@ const COARSE = '(any-pointer: coarse)';
 
 /**
  * Marks `<html>` with `data-keyboard` and `data-touch` before the first
- * paint, so CSS shows the right hints without a flash. Inline it in the
- * document's head.
+ * paint, so CSS shows the right hints without a flash, and keeps
+ * `data-input` on the input last used: `touch` (a pen too), `mouse` or
+ * `keys`. A key typed into a field is not the keys, as an on-screen
+ * keyboard types there too, but Tab is. CSS draws no focus ring while it
+ * is `touch`. Inline it in the document's head.
  */
-export const DEVICE_SCRIPT = `(()=>{const h=document.documentElement;if(matchMedia('${FINE}').matches)h.dataset.keyboard='';if(matchMedia('${COARSE}').matches)h.dataset.touch=''})()`;
+export const DEVICE_SCRIPT = `(()=>{const h=document.documentElement,f=matchMedia('${FINE}').matches,c=matchMedia('${COARSE}').matches;if(f)h.dataset.keyboard='';if(c)h.dataset.touch='';if(c&&!f)h.dataset.input='touch';addEventListener('pointerdown',e=>{h.dataset.input=e.pointerType==='mouse'?'mouse':'touch'},true);addEventListener('keydown',e=>{const t=e.target;if(e.key==='Tab'||!(t instanceof HTMLElement&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))))h.dataset.input='keys'},true)})()`;
 
 const SERVER: Device = { keyboard: false, touch: false };
 

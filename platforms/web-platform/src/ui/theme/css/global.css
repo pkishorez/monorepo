@@ -12,10 +12,18 @@
 @custom-variant keyboard (&:where([data-keyboard] *));
 @custom-variant touch (&:where([data-touch] *));
 
+/*
+ * Focus shows only to the keys and the mouse: while the input last used is
+ * a touch (`data-input`, kept by DEVICE_SCRIPT), nothing focused draws a
+ * ring or a lit border. A finger knows where it is.
+ */
+@custom-variant focus-visible (&:focus-visible:where(:not([data-input='touch'] *)));
+@custom-variant focus-within (&:focus-within:where(:not([data-input='touch'] *)));
+
 /* The one focus ring: drawn inside, so no scrolling parent clips it. */
 @utility focus-ring {
   outline: none;
-  &:focus-visible {
+  &:focus-visible:where(:not([data-input='touch'] *)) {
     box-shadow: inset 0 0 0 2px var(--color-ring);
   }
 }
