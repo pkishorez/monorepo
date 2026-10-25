@@ -48,7 +48,7 @@ export const drop = Command.make('DropMachineRecords', {
     ).pipe(
       Effect.andThen(
         Effect.flatMap(SavedDrafts, (saved) =>
-          saved.dropMachine(accountId, id),
+          saved.drop({ _tag: 'Machine', accountId, machineId: id }),
         ),
       ),
       Effect.andThen(
@@ -71,7 +71,7 @@ export const keep = Command.make('KeepMachineRecords', {
     ).pipe(
       Effect.andThen(
         Effect.flatMap(SavedDrafts, (saved) =>
-          saved.keepMachines(accountId, machineIds),
+          saved.drop({ _tag: 'Unlisted', accountId, listed: machineIds }),
         ),
       ),
       Effect.andThen(

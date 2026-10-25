@@ -20,7 +20,7 @@ export const removeProject = Command.make('RemoveProject', {
     ).pipe(
       Effect.andThen(
         Effect.flatMap(SavedDrafts, (saved) =>
-          saved.dropProject(machineId, id),
+          saved.drop({ _tag: 'Project', machineId, projectId: id }),
         ),
       ),
       Effect.as({ _tag: 'Removed' as const }),

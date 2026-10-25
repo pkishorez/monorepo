@@ -12,7 +12,7 @@ import {
   ZapIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import { useRef, useState, type ReactNode, type RefObject } from 'react';
-import { notify } from '../../../../../../ui/toast/index.ts';
+import { notify } from '../../../../../../../ui/toast/index.ts';
 
 /*
  * Quick actions: one button, and a Drawer of what else can go into the

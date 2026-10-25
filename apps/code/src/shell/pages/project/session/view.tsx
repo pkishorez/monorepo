@@ -121,7 +121,7 @@ export const SessionView = View.make(
     useSessionKeys({ scroller, follow, stop, canStop });
     const stopKeys = useBound('content.stop');
     // Where the Draft draws Side Question mode, in the transcript's place.
-    const [aside, setAside] = useState<HTMLElement | null>(null);
+    const [sideQuestion, setSideQuestion] = useState<HTMLElement | null>(null);
     const side =
       useChild(children.draft, ({ model }) => model.mode === 'SideQuestion') ===
       true;
@@ -130,7 +130,7 @@ export const SessionView = View.make(
     const slots = useMemo(
       () => ({
         problem: model.problem,
-        aside,
+        sideQuestion,
         actions: running && (
           <Button
             type="button"
@@ -150,7 +150,15 @@ export const SessionView = View.make(
           </Button>
         ),
       }),
-      [model.problem, model.stopping, running, offline, stopKeys, stop, aside],
+      [
+        model.problem,
+        model.stopping,
+        running,
+        offline,
+        stopKeys,
+        stop,
+        sideQuestion,
+      ],
     );
     return (
       <div {...root} className="flex min-h-0 flex-1 flex-col">
@@ -182,7 +190,7 @@ export const SessionView = View.make(
           />
         </div>
         <div
-          ref={setAside}
+          ref={setSideQuestion}
           hidden={!side}
           className="min-h-0 flex-1 overflow-y-auto select-text"
         />

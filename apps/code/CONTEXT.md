@@ -69,11 +69,11 @@ The open Session's next message, kept at the foot of the page with the Status Li
 _Avoid_: input, insert bar, prompt box, composer (that is the Draft while editable)
 
 **Saved Draft**:
-A Draft as last written, kept on this device for its Session, or for its Project's new session, so it comes back as it was left: the Draft Mode open, each mode's text, cursor and selection, the Message's files, and the agent, model and settings picked. Kept per Account and never synced: the last save wins. It is kept a moment after each change and as the page is left, forgotten once a Message is sent, and goes with its Project, its Machine or its Account. A Dictation still recording is not part of it, and what the whole device keeps is Device State.
+A Draft as last written, kept on this device for its Session, or for its Project's new session, so it comes back as it was left: the Draft Mode open, each mode's text, cursor and selection, the Message's files, and the agent, model and settings picked. Kept for the Account the Draft was opened under, even if another is switched to before it goes, and never synced: the last save wins. It is kept a moment after each change and as the page is left. A Message sent is kept in it until its Machine answers, so one refused after the page was left comes back into the Message; once a Message sent is taken with nothing written since, it is forgotten, and a new session's is forgotten as the session starts, the picks with it. It goes with its Project, its Machine or its Account. A Dictation still recording is not part of it, and what the whole device keeps is Device State.
 _Avoid_: autosave, local draft, cached draft
 
 **Draft Mode**:
-One way the Draft is written: a Message, the Session's next message with its files, Skills and the model picked, or, in a Session, a Side Question. Each keeps its own text, cursor and selection, so switching away and back finds it as it was left. Ask on the side switches between them; Escape and "Back to session" return to the Message, and a Message that starts with `/btw` switches to a Side Question, the rest of it the question. A new session's Draft has only the Message.
+One way the Draft is written: a Message, the Session's next message with its files, Skills and the model picked, or, in a Session, a Side Question. Each keeps its own text, cursor and selection, so switching away and back finds it as it was left. Ask on the side switches between them; Escape and "Back to session" return to the Message, and a Message that starts with `/btw`, or `btw` and a space typed into the search of the Picker a `/` opens, switches to a Side Question, the rest of it the question. A new session's Draft has only the Message.
 _Avoid_: tab, composer mode, input mode
 
 **Side Question**:

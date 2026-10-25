@@ -2,6 +2,7 @@
 import { act, type ReactNode, useState } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Queue, Schema, Stream } from 'effect';
+import { Accounts, AccountsState } from '@kestack/auth-toolkit/client';
 import { CodeClients } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { toReact, View } from '@kestack/kabuki/react';
@@ -139,8 +140,11 @@ const services = Layer.mergeAll(
     read: Effect.succeed(nothing),
     changes: Stream.never,
   }),
-  // The new session's Draft has nothing kept.
+  // The new session's Draft has nothing kept, with nobody signed in.
   Layer.mock(SavedDrafts)({ read: () => Effect.succeed(null) }),
+  Layer.mock(Accounts)({
+    current: Effect.succeed(AccountsState.SignedOut()),
+  }),
   // Recent Projects are handed over by `read`, never held from a Replica.
   Layer.mock(Replicas)({ hold: () => Effect.never }),
   Layer.mock(Navigation)({

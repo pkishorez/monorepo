@@ -51,12 +51,12 @@ shell                                   root; Provides CurrentAccount, Replicas,
 │       └── speech-to-text              each: Account and listed Machine id
 └── pages/project                       /m/:machineId/p/:projectId; Provides CodeClient, SharedCatalog, Picker Owners
     ├── draft                           while no session is open: the new session's
-    │   ├── mode                        each: Message
-    │   └── touch                       always
+    │   └── mode                        each: Message
+    │       └── touch                   always
     └── session                         /s/:sessionId
         └── draft                       key: the session id
-            ├── mode                    each: Message, SideQuestion
-            └── touch                   always
+            └── mode                    each: Message, SideQuestion, a Side Question carried to keyed anew
+                └── touch               always
 ```
 
 Every Picker made by `Picker.make`, every Replica Query and the Account
@@ -76,8 +76,9 @@ shell ─ Input: accountId; Props: email ─────────────
 shell ─ Props: place (the Draft open) ───────────────────────▶ header, dictation
 shell ─ Props: bindings ────────────────────────▶ session-actions, keys-picker
 project ─ Provides CodeClient of :machineId, SharedCatalog ───────▶ session
-draft ─ Provides TouchDraft.owner ───────────────────▶ touch
-draft ─ Input: its text as written; Props: mode, reset ▶ mode
+draft ─ Provides DraftMode.Owner; Input: the text it starts from;
+        Props: mode, clears, btw ─────────────────────▶ mode
+mode ─ Provides TouchDraft.owner ────────────────────▶ touch
 machines ─ each Account and id; Input: machineId, accountId ▶ harness-accounts, speech-to-text
 harness-accounts ─ each key; Provides AccountList; Props: account ▶ card
 ```
@@ -89,7 +90,8 @@ machine-list ─ publishes into Machines ─────────────
 sidebar, Settings, home ─ Request Machines.reload / forget ─▶ machine-list
 any Picker ─ Request Owner.done / load / settle ──────────▶ the Actor that holds it
 session ─ Request SharedCatalog.retry ───────────────▶ project
-touch ─ Request Owner.send ──────────────────────────▶ draft
+touch ─ Request Owner.send ──────────────────────────▶ mode
+mode ─ Request Owner.keep / send / btw ──────────────▶ draft
 sidebar, session-actions ─ put, into Moves ─────────▶ each Session's Machine
 shell ─ Command askDictation, into Dictations ───────▶ dictation
 machine-list ─ Worker: recheck, while a Line is down ▶ Sends RecheckDue
@@ -224,29 +226,35 @@ Settings is a page of three pages, drawn as tabs beside the one open. General re
 **Does**: Holds the next message of a page, a new session's first or a Session's next, and sends it.
 **Input**: none
 **Props**: machineId, projectId, to: NewSession, or Session with its id, its agent once read, and whether it runs
-**Model**: restored: its Saved Draft read back; changes, kept: how many changes there were to keep, and how many are kept; mode: the Draft Mode open; written: each mode's text and selection, as last written; resets, reset: the text each mode was last set to; attachments, insert: the last Insert; catalog, as the project shares it; chosen: the agent, model and settings picked; picking, opened; problem; starting; unsent, sends; asked, asks
+**Model**: restored: its Saved Draft read back; where: the Account and place it is kept under, fixed once read back; changes, kept: of its own parts; mode: the Draft Mode open; opening, carried: what each mode starts from, and how many questions were carried to a fresh Side Question; attachments, insert: the last Insert; catalog, as the project shares it; chosen: the agent, model and settings picked; picking, opened; problem; starting; unsent, sends, handed: the Messages sent and not yet answered, and the last texts handed up; asked, asks
 **States**: none
-**Messages**: Written, ModeAsked, AttachmentsChanged, InsertAsked, PickerOpened, SendAsked, CatalogRetryAsked: its View; PickerClosed, SkillChosen, ModelChosen: its Pickers' Owners; SendAsked: also the Touch Draft's Owner; CatalogRead, Restored, Kept: its Workers; Started, StartRefused, Sent, SendRefused, Answered, AskRefused: its Commands
-**Commands**: startSession: ends with Started or StartRefused; send: ends with Sent or SendRefused; ask: ends with Answered or AskRefused; forget: its Saved Draft, once a Message is sent, ends with nothing; retryCatalog; Router.push
-**Workers**: catalog: always, Sends CatalogRead; restore: until read back, Sends Restored; save: each change to keep, while no send is on its way, a quarter of a second after it, Sends Kept; flush: once read back, as the page is hidden or left and as the Draft goes, Sends Kept
-**Requires**: CodeClient, SharedCatalog, Navigation, SavedDrafts
-**Provides**: SkillPicker and ModelPicker Owners, and `TouchDraft.owner`, at the top, from self
+**Messages**: ModeAsked, AttachmentsChanged, InsertAsked, PickerOpened, CatalogRetryAsked: its View; PickerClosed, SkillChosen, ModelChosen: its Pickers' Owners; SendAsked, BtwAsked, Retyped, RefusalTaken: its modes, through `DraftMode.Owner`; CatalogRead, Restored, Kept: its Workers; Started, StartRefused, Sent, SendRefused, Answered, AskRefused: its Commands
+**Commands**: startSession: ends with Started or StartRefused; send: holds the Message in its Saved Draft, past the Draft, until answered, ends with Sent or SendRefused; ask: ends with Answered or AskRefused; forget: its Project's Saved Draft, once its session started, ends with nothing; forgetUnsent: the Messages that came back, ends with nothing; retryCatalog; Router.push
+**Workers**: catalog: always, Sends CatalogRead; restore: until read back, Sends Restored; save: each change to its own parts, a quarter of a second after it, Sends Kept; flush: as the page is hidden or left and as the Draft goes, Sends Kept
+**Requires**: CodeClient, SharedCatalog, Navigation, SavedDrafts, Accounts
+**Provides**: SkillPicker and ModelPicker Owners, and `DraftMode.Owner`, at the top, from self
 **Services**: none
-**Children**: modes: a Draft Mode each, the Side Question only in a Session, once its Saved Draft is read back; touch: the Touch Draft, always; skills, models: Pickers, while picking, key: opened
-**View**: nothing until its Saved Draft is read back; then why nothing can be sent or what went wrong, the card and its Status Line showing the mode open; in Side Question mode the question and its answer, where the page says; the page adds Stop, its own problem and that place through `Slots`
+**Children**: modes: a Draft Mode each, the Side Question only in a Session, once its Saved Draft is read back; skills, models: Pickers, while picking, key: opened
+**View**: nothing until its Saved Draft is read back; then why nothing can be sent or what went wrong, and the mode open, which draws the card and its Status Line around its own text through `Compose`; in Side Question mode the question and its answer, where the page says; the page adds Stop, its own problem and that place through `Slots`
 
 ### Decisions
 
 - **A Session's Draft is keyed by its session**, because the session page stays as the URL moves between sessions. Caveat: none now; a Draft not sent comes back from its Saved Draft.
-- **The Saved Draft is kept by the Draft's own Workers, through `SavedDrafts`, an app-Layer Capability**, because only the Draft knows when it changed, and the store must outlive it. Caveat: a Session's Saved Draft goes with its Project, Machine or Account; the app learns of no single Session forgotten, so none goes alone.
+- **The Saved Draft is kept by its owners, each its own part, through `SavedDrafts`, an app-Layer Capability, under the Account read as the Draft opens**, because only the owner knows when its part changed, the store must outlive the Draft, and a switch of Account tears the Draft down after the switch. Caveat: a Session's Saved Draft goes with its Project, Machine or Account; the app learns of no single Session forgotten, so none goes alone.
+- **A Message sent is held in the Saved Draft by its send, which runs past the Draft**, so one refused after the page was left comes back, and one taken forgets the Saved Draft only when nothing was written since it was held. Caveat: a send cut off as the page closes stays held, unknown, and is never brought back, since it may have gone.
 - **Stop is the session's, handed to the Draft's View through `Slots`**, because stopping a turn is not the Draft's errand. Caveat: a React context, not Props, since it carries a button.
-- **Each Draft Mode is a Child, and the Draft keeps a copy of each one's text as written**, because a mode owns its text, cursor and selection, while the Draft acts on them: it sends, asks and sets them. The Draft's one editor hands each edit to both, and the Draft sets a mode's text by a numbered reset the mode takes once. Caveat: the edit reaches the mode through its View, which says how in `Edits`, as the Touch Draft's View hands the Draft its send.
+- **Each Draft Mode is a Child and the one owner of its text, cursor and selection; the Draft gets the text only as a mode hands it up, to send or keep**, because a mode's text has one home and the Draft acts on it only at those moments. Caveat: the editor's edits must reach the mode, so the mode's View draws the Draft's card through `Compose`: switching modes draws the card anew, its editor's history with it, and focus is handed on.
+- **The Touch Draft is a Child of each mode**, because its send must reach the text it sends. Caveat: a Session's Draft holds two, the one not drawn idle.
+- **A question carried over by `/btw` goes to a fresh Side Question, keyed anew**, because a parent sets a Child's data only as it starts. Caveat: the question replaces what the Side Question held, as before.
 
 ## project/draft/mode
 
-**Does**: Keeps one Draft Mode's text, cursor and selection.
-**Input**: its text and selection, and the last reset that holds already · **Props**: mode, reset: the text the Draft last set it to
-**Model**: written, reset: the last reset taken · **States**: none
-**Messages**: Edited, ResetTaken: its View · **Commands**: none · **Workers**: none
-**Requires**: none · **Provides**: none · **Services**: none · **Children**: none
-**View**: nothing; says in `Edits` how an edit reaches it, and takes a reset
+**Does**: Owns one Draft Mode's text, cursor and selection, and hands it up to send and to keep.
+**Input**: its text and selection, and whether it is kept yet · **Props**: mode; clears: a send empties it at once; btw: a `/btw` at its start switches to a Side Question
+**Model**: written; changes, kept · **States**: none
+**Messages**: Edited, SendAsked: its View; SendAsked: also its Touch Draft's Owner; Settled: its send; Kept: its Workers
+**Commands**: sendUp: through `Owner.send`, ends with Settled; carry: a `/btw` question, through `Owner.btw`, ends with nothing
+**Workers**: save: each change, a quarter of a second after it, through `Owner.keep`, Sends Kept; flush: as the page is hidden or left and as it goes, Sends Kept
+**Requires**: Owner · **Provides**: `TouchDraft.owner`, at the top, from self · **Services**: none
+**Children**: touch: the Touch Draft, always
+**View**: the Draft's card, through `Compose`, around its own text, with its Touch Draft drawn

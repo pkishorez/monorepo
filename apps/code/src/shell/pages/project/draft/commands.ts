@@ -1,4 +1,4 @@
-import { Effect, Schema } from 'effect';
+import { Effect, Fiber, Schema } from 'effect';
 import {
   type AskAnswer,
   AttachmentSchema,
@@ -7,12 +7,14 @@ import {
 import { Command } from '@kestack/kabuki';
 import { orRefused, reasonOf } from '../../../machines/index.ts';
 import { SharedCatalog } from '../capabilities/index.ts';
+import { Attached, wire } from './message.ts';
+import { hold, refused, taken, Where } from './saved.ts';
 
 /*
  * What the Draft asks of its Machine, over the socket the project page
  * Provides: start a session with its first message, send the next one,
- * or ask the session on the side; and of the project, to read its catalog
- * again.
+ * held in its Saved Draft until answered, or ask the session on the side;
+ * and of the project, to read its catalog again.
  */
 
 /** Starts a session already running its first message. */
@@ -42,28 +44,49 @@ export const startSession = Command.make('StartSession', {
     ),
 });
 
-/** A message to the session; `id` tells its answer apart from other sends'. */
+/**
+ * A message to the session; `id` tells its answer apart from other sends'.
+ * Held in its Saved Draft until the Machine answers, and the answer kept
+ * there even once the Draft has gone, so a refused one comes back.
+ */
 export const send = Command.make('Send', {
   args: Schema.Struct({
     id: Schema.Finite,
+    /** Where it is held; null with nobody signed in. */
+    where: Schema.NullOr(Where),
     sessionId: Schema.String,
     text: Schema.String,
-    attachments: Schema.Array(AttachmentSchema),
+    attachments: Schema.Array(Attached),
     /** Changes that hold from this message's turn on. */
     model: Schema.optionalKey(Schema.String),
     settings: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
   }),
-  run: ({ id, ...args }) =>
-    CodeClient.use((api) => api.send(args)).pipe(
-      Effect.map(() => ({ _tag: 'Sent' as const, id })),
-      Effect.catch((cause) =>
-        Effect.succeed({
-          _tag: 'SendRefused' as const,
-          id,
-          reason: reasonOf(cause),
-        }),
-      ),
-    ),
+  run: ({ id, where, attachments, ...args }) =>
+    Effect.gen(function* () {
+      const key = crypto.randomUUID();
+      const sending = Effect.gen(function* () {
+        const held =
+          where === null
+            ? null
+            : yield* hold(where, { key, text: args.text, attachments });
+        const reason = yield* CodeClient.use((api) =>
+          api.send({ ...args, attachments: wire(attachments) }),
+        ).pipe(
+          Effect.as(null),
+          Effect.catch((cause) => Effect.succeed(reasonOf(cause))),
+        );
+        if (where !== null)
+          yield* reason === null
+            ? taken(where, key, held)
+            : refused(where, key, reason);
+        return reason;
+      });
+      // Past the Draft: the answer is kept even once it has gone.
+      const reason = yield* Fiber.join(yield* Effect.forkDetach(sending));
+      return reason === null
+        ? { _tag: 'Sent' as const, id }
+        : { _tag: 'SendRefused' as const, id, key, reason };
+    }),
 });
 
 /** An Ask's answer as a person reads it: its text, or its data as JSON. */

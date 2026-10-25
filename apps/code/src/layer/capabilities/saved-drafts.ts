@@ -17,59 +17,101 @@ export interface Place {
   readonly sessionId: string | null;
 }
 
-/** One Draft Mode's text, and its cursor or selection. */
-const Written = Schema.Struct({
+/** One Draft Mode's text, and its cursor or selection, from `anchor` to `head`. */
+export const Written = Schema.Struct({
   text: Schema.String,
   anchor: Schema.Finite,
   head: Schema.Finite,
 });
+export type Written = typeof Written.Type;
+
+/** A file on a Message, as it is sent, with its size to show. */
+const Attached = Schema.Struct({
+  ...AttachmentSchema.fields,
+  size: Schema.Finite,
+});
+
+/**
+ * A Message sent and not yet answered, kept until the Machine takes it,
+ * so one refused after the Draft is gone comes back. `refused`: why, once
+ * it was.
+ */
+const Unsent = Schema.Struct({
+  key: Schema.String,
+  text: Schema.String,
+  attachments: Schema.Array(Attached),
+  refused: Schema.NullOr(Schema.String),
+});
 
 /**
  * A Saved Draft: the Draft Mode open; each mode's text and selection, by
- * mode; the Message's files, as they are sent, with their sizes; and the
- * agent, model and settings picked, null where none was.
+ * mode; the Message's files, as they are sent, with their sizes; the
+ * agent, model and settings picked, null where none was; and the Messages
+ * sent and not yet answered.
  */
 export const SavedDraft = Schema.Struct({
   mode: Schema.String,
   written: Schema.Record(Schema.String, Written),
-  attachments: Schema.Array(
-    Schema.Struct({ ...AttachmentSchema.fields, size: Schema.Finite }),
-  ),
+  attachments: Schema.Array(Attached),
   chosen: Schema.Struct({
     account: Schema.NullOr(Schema.String),
     model: Schema.NullOr(Schema.String),
     settings: Schema.Record(Schema.String, Schema.String),
   }),
+  unsent: Schema.Array(Unsent),
 });
 export type SavedDraft = typeof SavedDraft.Type;
 
-/** The Capability that keeps each place's Saved Draft for the Account signed in. */
+/** A Saved Draft as it is kept: `revision` counts its writes, whichever tab made them. */
+export interface Kept {
+  readonly draft: SavedDraft;
+  readonly revision: number;
+}
+
+/** What goes, at once: a Project removed, a Machine forgotten or no longer listed, an Account signed out. */
+export type Gone =
+  | {
+      readonly _tag: 'Project';
+      readonly machineId: string;
+      readonly projectId: string;
+    }
+  | {
+      readonly _tag: 'Machine';
+      readonly accountId: string;
+      readonly machineId: string;
+    }
+  | {
+      readonly _tag: 'Unlisted';
+      readonly accountId: string;
+      /** The Account's Machines still listed: every other's go. */
+      readonly listed: ReadonlyArray<string>;
+    }
+  | {
+      readonly _tag: 'SignedOut';
+      /** The Accounts still signed in: every other's go. */
+      readonly signedIn: ReadonlyArray<string>;
+    };
+
+/** The Capability that keeps each place's Saved Draft, for the Account named. */
 export class SavedDrafts extends Context.Service<
   SavedDrafts,
   {
     /** The place's Saved Draft; null when none is kept, or none can be read. */
-    readonly read: (place: Place) => Effect.Effect<SavedDraft | null>;
-    readonly write: (place: Place, draft: SavedDraft) => Effect.Effect<void>;
-    /** Forgets the place's Saved Draft. */
-    readonly clear: (place: Place) => Effect.Effect<void>;
-    /** Forgets every Saved Draft of a Project removed, its Sessions' too. */
-    readonly dropProject: (
-      machineId: string,
-      projectId: string,
-    ) => Effect.Effect<void>;
-    /** Forgets every Saved Draft of one Machine of the Account. */
-    readonly dropMachine: (
+    readonly read: (
       accountId: string,
-      machineId: string,
-    ) => Effect.Effect<void>;
-    /** Forgets every Saved Draft of the Account's Machines not listed. */
-    readonly keepMachines: (
+      place: Place,
+    ) => Effect.Effect<Kept | null>;
+    /**
+     * Changes the place's Saved Draft from what is kept, one change at a
+     * time for each place: null forgets it, and the draft kept, as it is,
+     * leaves it. Gives the revision kept after, or null once there is none.
+     */
+    readonly write: (
       accountId: string,
-      machineIds: ReadonlyArray<string>,
-    ) => Effect.Effect<void>;
-    /** Forgets every Saved Draft of the Accounts not listed. */
-    readonly keepAccounts: (
-      accountIds: ReadonlyArray<string>,
-    ) => Effect.Effect<void>;
+      place: Place,
+      change: (kept: Kept | null) => SavedDraft | null,
+    ) => Effect.Effect<number | null>;
+    /** Forgets every Saved Draft that went. */
+    readonly drop: (gone: Gone) => Effect.Effect<void>;
   }
 >()('code/SavedDrafts') {}

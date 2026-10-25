@@ -18,7 +18,14 @@ export {
   SavedMachines,
   type SavedSettings,
 } from './saved-machines.ts';
-export { type Place, SavedDraft, SavedDrafts } from './saved-drafts.ts';
+export {
+  type Gone,
+  type Kept,
+  type Place,
+  SavedDraft,
+  SavedDrafts,
+  Written,
+} from './saved-drafts.ts';
 export { Ask, Dictations } from './dictations.ts';
 export { AccountReplicas } from './account-replicas.ts';
 export {

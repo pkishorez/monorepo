@@ -7,7 +7,7 @@ import {
   DeviceState,
   Dictations,
   nothing,
-} from '../../../../../layer/capabilities/index.ts';
+} from '../../../../../../layer/capabilities/index.ts';
 import { owner, State, TouchDraftLive } from './actor.ts';
 
 /*

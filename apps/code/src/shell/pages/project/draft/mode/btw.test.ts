@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { btwQuestion } from './btw.ts';
+import { btwQuestion, btwSearched } from './btw.ts';
 
 describe('btwQuestion', () => {
   it('is the rest of a draft that starts with /btw', () => {
@@ -18,5 +18,18 @@ describe('btwQuestion', () => {
     expect(btwQuestion('/btwx hi')).toBeNull();
     expect(btwQuestion('see /btw later')).toBeNull();
     expect(btwQuestion('/review the diff')).toBeNull();
+  });
+});
+
+describe('btwSearched', () => {
+  it('is what follows `btw` and a space in the skills Picker', () => {
+    expect(btwSearched('btw ')).toBe('');
+    expect(btwSearched('btw what is this?')).toBe('what is this?');
+  });
+
+  it('is null for any other search', () => {
+    expect(btwSearched('btw')).toBeNull();
+    expect(btwSearched('btwx')).toBeNull();
+    expect(btwSearched('review')).toBeNull();
   });
 });

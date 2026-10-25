@@ -11,7 +11,7 @@ import {
 } from '@kestack/web-platform/ui/components/lucide';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import type { ReactNode } from 'react';
-import * as Picker from '../../../../../../ui/picker/index.ts';
+import * as Picker from '../../../../../../../ui/picker/index.ts';
 import { QuickActions } from './quick-actions.tsx';
 import { Slot } from './slot.tsx';
 import { TalkBar, type Recording, type Voice } from './talk-bar.tsx';

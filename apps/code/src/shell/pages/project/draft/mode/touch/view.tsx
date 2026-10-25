@@ -17,9 +17,9 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react';
-import type { Availability } from '../../../../actors/dictation/index.ts';
-import * as routes from '../../../../routes/index.ts';
-import type * as Picker from '../../../../../ui/picker/index.ts';
+import type { Availability } from '../../../../../actors/dictation/index.ts';
+import * as routes from '../../../../../routes/index.ts';
+import type * as Picker from '../../../../../../ui/picker/index.ts';
 import { TouchDraftLive } from './actor.ts';
 import { ModeSwitch, Row } from './controls/index.ts';
 import { useMode, useTouchDraft } from './wiring.ts';

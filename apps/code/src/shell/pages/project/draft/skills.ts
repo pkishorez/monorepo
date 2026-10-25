@@ -2,10 +2,12 @@ import { Schema } from 'effect';
 import type { Effect } from 'effect';
 import { SkillSchema } from '@kestack/connect/code';
 import * as Picker from '../../../../ui/picker/index.ts';
+import { DraftMode } from './mode/index.ts';
 
 /*
  * The skills Picker: one Step of the agent's skills and the commands, such
- * as `/btw`. The one picked goes into the Draft as a `/name`.
+ * as `/btw`. The one picked goes into the Draft as a `/name`; `btw` and a
+ * space typed in its search go in as `/btw`, the rest after it.
  */
 
 export const Listing = Schema.Struct({
@@ -25,6 +27,14 @@ const Skills = Picker.make('SkillPicker', {
     skill: {
       placeholder: () => 'Search skills and commands',
       empty: () => 'No skill or command by that name',
+      ends: (query, { props }) => {
+        const question = props.commands.some(({ name }) => name === 'btw')
+          ? DraftMode.btwSearched(query)
+          : null;
+        return question === null
+          ? null
+          : { value: `btw ${question}`.trim(), label: '/btw' };
+      },
       rows: ({ props }) => ({
         rows: [
           ...props.commands.map(rowOf('Commands')),
