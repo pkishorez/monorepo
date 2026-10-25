@@ -15,8 +15,8 @@ import {
 } from 'shiki/core';
 import { createOnigurumaEngine } from 'shiki/engine/oniguruma';
 
-import { cn } from '#lib/utils';
-import { scrollbarStyles } from '#lib/scrollStyles';
+import { cn } from '#kit/class-names';
+import { scrollbarStyles } from '#kit/scroll-styles';
 
 export interface SourceViewerRange {
   readonly startLine: number;

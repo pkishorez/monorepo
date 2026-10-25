@@ -17,7 +17,7 @@ import {
   ContextMenuTrigger,
 } from '#components/context-menu';
 import { useIsMobile } from '#hooks/use-mobile';
-import { cn } from '#lib/utils';
+import { cn } from '#kit/class-names';
 
 /*
  * The Devtools Dock: a page with devtools beside it, opened from one button

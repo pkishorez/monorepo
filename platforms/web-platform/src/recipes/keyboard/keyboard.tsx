@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '#components/dialog';
-import { cn } from '#lib/utils';
+import { cn } from '#kit/class-names';
 import { BindingKeys } from '../../ui/input/keys/index.ts';
 
 // The Surfaces that only hold Actions: never somewhere the user is.

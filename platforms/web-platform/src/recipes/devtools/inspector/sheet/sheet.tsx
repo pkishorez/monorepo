@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { X } from 'lucide-react';
-import { cn } from '../../../../ui/components/lib/utils.ts';
+import { cn } from '../../../../ui/components/kit/class-names.ts';
 import { JsonTree } from '../../../../ui/viewers/json/index.ts';
 import { ink } from '../ink/index.ts';
 import type { Tone } from '../ink/index.ts';

@@ -1,6 +1,6 @@
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
-import type { StrategyName } from '../../../shared/strategy/index.js';
+import type { StrategyName } from '../../../contract/strategy/index.js';
 import {
   fetchNetwork,
   type GlobalScope,

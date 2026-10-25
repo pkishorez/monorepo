@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BuildId } from '../../../shared/build/index.js';
-import { resolvePwaConfig } from '../../../shared/config/index.js';
+import { BuildId } from '../../../contract/build/index.js';
+import { resolvePwaConfig } from '../../../contract/config/index.js';
 import { clientBuildInfo } from '../client-info.js';
 
 const buildId = BuildId.make('abc');

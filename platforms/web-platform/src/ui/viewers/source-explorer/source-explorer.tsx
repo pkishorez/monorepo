@@ -26,10 +26,10 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   RefreshCw,
-} from '#lib/lucide';
+} from '#kit/icons';
 import { useIsMobile } from '#hooks/use-mobile';
-import { scrollbarStyles } from '#lib/scrollStyles';
-import { cn } from '#lib/utils';
+import { scrollbarStyles } from '#kit/scroll-styles';
+import { cn } from '#kit/class-names';
 
 import { initialSourceFile } from './initial-selection';
 import { buildSnapshotTree } from './snapshot-tree';

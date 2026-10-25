@@ -1,6 +1,6 @@
 import type { Plugin } from 'vite';
-import { VIRTUAL_CLIENT_MODULE_ID } from '../../shared/build/index.js';
-import type { ResolvedPwaConfig } from '../../shared/config/index.js';
+import { VIRTUAL_CLIENT_MODULE_ID } from '../../contract/build/index.js';
+import type { ResolvedPwaConfig } from '../../contract/config/index.js';
 import type { BuildState } from '../build/index.js';
 import { type BuildVersion, resolveBuildVersion } from './build-version.js';
 import { clientBuildInfo } from './client-info.js';

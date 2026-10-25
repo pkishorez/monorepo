@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolvePwaConfig } from '../../../shared/config/index.js';
+import { resolvePwaConfig } from '../../../contract/config/index.js';
 import { resolveBuildVersion } from '../build-version.js';
 
 const now = new Date('2026-09-27T10:00:00.000Z');

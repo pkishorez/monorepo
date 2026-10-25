@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 
-import { cn } from '#lib/utils';
+import { cn } from '#kit/class-names';
 import { Button } from '#components/button';
 import { Calendar } from '#components/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '#components/popover';

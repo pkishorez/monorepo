@@ -7,8 +7,8 @@
     "src/pwa/engine/vite/tests/fixture"
   ],
   "fileModules": [
-    "src/pwa/engine/browser/dom-events.ts",
-    "src/pwa/engine/browser/subscription-ref.ts",
+    "src/pwa/engine/contract/dom-events.ts",
+    "src/pwa/engine/contract/subscription-ref.ts",
     "src/pwa/engine/vite/vite.ts",
     "src/ui/components/accordion.tsx",
     "src/ui/components/alert-dialog.tsx",
@@ -47,12 +47,12 @@
     "src/ui/components/input.tsx",
     "src/ui/components/item.tsx",
     "src/ui/components/kbd.tsx",
+    "src/ui/components/kit/class-names.ts",
+    "src/ui/components/kit/icons.ts",
+    "src/ui/components/kit/motion.ts",
+    "src/ui/components/kit/scroll-styles.ts",
+    "src/ui/components/kit/shadow-dom.tsx",
     "src/ui/components/label.tsx",
-    "src/ui/components/lib/lucide.ts",
-    "src/ui/components/lib/motion.ts",
-    "src/ui/components/lib/scrollStyles.ts",
-    "src/ui/components/lib/shadow-dom.tsx",
-    "src/ui/components/lib/utils.ts",
     "src/ui/components/marker.tsx",
     "src/ui/components/menubar.tsx",
     "src/ui/components/message-scroller.tsx",
@@ -84,28 +84,27 @@
     "src/ui/theme/model.ts"
   ],
   "rules": {
-    "src/app/vite": ["src/pwa/engine/vite"],
     "src/app/document": [
       "src/pwa/prompts",
       "src/ui/input/device",
       "src/ui/theme"
     ],
-    "src/pwa/engine/client": [
-      "src/pwa/engine/browser",
-      "src/pwa/engine/shared"
-    ],
-    "src/pwa/engine/client/status": ["src/pwa/engine/client/commands"],
-    "src/pwa/engine/rpc": ["src/pwa/engine/shared"],
-    "src/pwa/engine/rpc/client": ["src/pwa/engine/rpc/handshake"],
-    "src/pwa/engine/rpc/worker": ["src/pwa/engine/rpc/handshake"],
-    "src/pwa/engine/shared/config": [
-      "src/pwa/engine/shared/build",
-      "src/pwa/engine/shared/manifest",
-      "src/pwa/engine/shared/strategy",
+    "src/app/vite": ["src/pwa/engine/vite"],
+    "src/pwa/engine/contract/config": [
+      "src/pwa/engine/contract/build",
+      "src/pwa/engine/contract/manifest",
+      "src/pwa/engine/contract/strategy",
       "src/ui/theme/model.ts"
     ],
-    "src/pwa/engine/shared/worker-host": ["src/pwa/engine/shared/build"],
-    "src/pwa/engine/vite": ["src/pwa/engine/shared"],
+    "src/pwa/engine/contract/handshake": ["src/pwa/engine/contract/build"],
+    "src/pwa/engine/contract/worker-host": ["src/pwa/engine/contract/build"],
+    "src/pwa/engine/page": ["src/pwa/engine/contract"],
+    "src/pwa/engine/page/status": ["src/pwa/engine/page/commands"],
+    "src/pwa/engine/vite": [
+      "src/pwa/engine/contract/build",
+      "src/pwa/engine/contract/config",
+      "src/pwa/engine/contract/manifest"
+    ],
     "src/pwa/engine/vite/build": [
       "src/pwa/engine/vite/precache",
       "src/pwa/engine/vite/worker-bundle"
@@ -117,7 +116,14 @@
       "src/pwa/engine/vite/client-module",
       "src/pwa/engine/vite/dev"
     ],
-    "src/pwa/engine/worker": ["src/pwa/engine/shared"],
+    "src/pwa/engine/worker": [
+      "src/pwa/engine/contract/build",
+      "src/pwa/engine/contract/commands",
+      "src/pwa/engine/contract/config",
+      "src/pwa/engine/contract/handshake",
+      "src/pwa/engine/contract/strategy",
+      "src/pwa/engine/contract/worker-host"
+    ],
     "src/pwa/engine/worker/commands": ["src/pwa/engine/worker/global-scope"],
     "src/pwa/engine/worker/lifecycle": [
       "src/pwa/engine/worker/global-scope",
@@ -131,11 +137,11 @@
     "src/pwa/engine/worker/requests/pages": [
       "src/pwa/engine/worker/requests/strategies"
     ],
-    "src/pwa/prompts/document": [
-      "src/pwa/prompts/extras",
-      "src/pwa/prompts/react"
+    "src/pwa/prompts/extras": [
+      "src/pwa/engine/contract/dom-events.ts",
+      "src/pwa/engine/contract/subscription-ref.ts",
+      "src/ui/components"
     ],
-    "src/pwa/prompts/extras": ["src/pwa/engine/browser", "src/ui/components"],
     "src/pwa/prompts/extras/display-mode": [
       "src/pwa/prompts/extras/lazy-service"
     ],
@@ -145,11 +151,11 @@
     ],
     "src/pwa/prompts/extras/online": ["src/pwa/prompts/extras/lazy-service"],
     "src/pwa/prompts/extras/storage": ["src/pwa/prompts/extras/lazy-service"],
-    "src/pwa/prompts/react": [
-      "src/pwa/engine/browser/subscription-ref.ts",
-      "src/pwa/engine/client",
-      "src/pwa/engine/shared/build",
-      "src/pwa/engine/shared/config",
+    "src/pwa/prompts/status": [
+      "src/pwa/engine/contract/build",
+      "src/pwa/engine/contract/config",
+      "src/pwa/engine/contract/subscription-ref.ts",
+      "src/pwa/engine/page",
       "src/pwa/prompts/splash",
       "src/ui/components"
     ],
@@ -186,8 +192,8 @@
     ],
     "src/ui/components/file-tree.tsx": [
       "src/ui/components/button.tsx",
-      "src/ui/components/scroll-area.tsx",
-      "src/ui/components/lib/utils.ts"
+      "src/ui/components/kit/class-names.ts",
+      "src/ui/components/scroll-area.tsx"
     ],
     "src/ui/components/input-group.tsx": [
       "src/ui/components/button.tsx",
@@ -195,7 +201,9 @@
       "src/ui/components/textarea.tsx"
     ],
     "src/ui/components/item.tsx": ["src/ui/components/separator.tsx"],
-    "src/ui/components/lib/scrollStyles.ts": ["src/ui/components/lib/utils.ts"],
+    "src/ui/components/kit/scroll-styles.ts": [
+      "src/ui/components/kit/class-names.ts"
+    ],
     "src/ui/components/menubar.tsx": ["src/ui/components/dropdown-menu.tsx"],
     "src/ui/components/message-scroller.tsx": ["src/ui/components/button.tsx"],
     "src/ui/components/pagination.tsx": ["src/ui/components/button.tsx"],
@@ -212,7 +220,7 @@
     ],
     "src/ui/input/keys": [
       "src/ui/components/kbd.tsx",
-      "src/ui/components/lib/utils.ts"
+      "src/ui/components/kit/class-names.ts"
     ],
     "src/ui/viewers": ["src/ui/components"],
     "src/ui/viewers/diff-viewer": ["src/ui/viewers/source-viewer"],

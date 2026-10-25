@@ -1,5 +1,5 @@
 import { Button } from '#components/button';
-import { ShareIcon, SquarePlusIcon } from '#lib/lucide';
+import { ShareIcon, SquarePlusIcon } from '#kit/icons';
 import type { ReactNode } from 'react';
 
 /** iOS Safari has no install API; the user adds the app from the Share sheet. */

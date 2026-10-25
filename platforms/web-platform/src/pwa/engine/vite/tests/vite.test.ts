@@ -5,8 +5,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { runInNewContext } from 'node:vm';
 import { build, createBuilder } from 'vite';
 import { afterAll, describe, expect, it } from 'vitest';
-import type { WorkerBuildInfo } from '../../shared/config/index.js';
-import type { PwaOptions } from '../../shared/config/index.js';
+import type { WorkerBuildInfo } from '../../contract/config/index.js';
+import type { PwaOptions } from '../../contract/config/index.js';
 import { noPwa, pwa } from '../index.js';
 
 const root = fileURLToPath(new URL('./fixture', import.meta.url));

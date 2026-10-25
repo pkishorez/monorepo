@@ -3,9 +3,9 @@ import * as Option from 'effect/Option';
 import {
   isRuntimeCacheName,
   runtimeCacheName,
-} from '../../../shared/build/index.js';
-import type { WorkerConfig } from '../../../shared/config/index.js';
-import { findStrategyRule } from '../../../shared/strategy/index.js';
+} from '../../../contract/build/index.js';
+import type { WorkerConfig } from '../../../contract/config/index.js';
+import { findStrategyRule } from '../../../contract/strategy/index.js';
 import {
   deleteCaches,
   type GlobalScope,

@@ -2,7 +2,7 @@
 // `Pwa` around the app; the rest is for screens that show the PWA's state:
 // its Status, the Install Prompt, online state, display mode, storage
 // persistence and the iOS splash screens.
-export * from './react/index.js';
+export * from './status/index.js';
 export * from './extras/index.js';
-export { Pwa, PwaHead } from './document/index.ts';
+export { Pwa, PwaHead } from './prompts.tsx';
 export { splashHead, splashScreens } from './splash/index.ts';

@@ -70,7 +70,7 @@ All five steps ship together in one PR, each step its own commits.
 - Manifest `short_name: 'Code'` and `apple-mobile-web-app-title`.
 - iOS splash screens (`pwa/prompts/splash`): the Code logo at the top,
   "Powered by kestack" at the bottom. They need `apple-mobile-web-app-capable`,
-  which `pwa/prompts/react/head.ts` leaves out for the status bar on theme
+  which `pwa/prompts/status/head.ts` leaves out for the status bar on theme
   switch; `splash.ts` says the Status Bar Surface covers it. Turn it on. A
   theme switch on an installed iPhone app needs a device: it is checked on
   one before merge, and the result recorded in the PR.

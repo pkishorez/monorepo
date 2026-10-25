@@ -16,9 +16,9 @@
   "aliases": {
     "components": "#components",
     "ui": "#components",
-    "lib": "#lib",
+    "lib": "#kit",
     "hooks": "#hooks",
-    "utils": "#lib/utils"
+    "utils": "#kit/class-names"
   },
   "registries": {
     "@magicui": "https://magicui.design/r/{name}"

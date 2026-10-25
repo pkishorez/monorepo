@@ -1,5 +1,5 @@
-import { ChevronRight } from '#lib/lucide';
-import { cn } from '#lib/utils';
+import { ChevronRight } from '#kit/icons';
+import { cn } from '#kit/class-names';
 import { TreeWalk } from '@kestack/use-gesture';
 import { motion, type Transition } from 'motion/react';
 import type { Choice } from './choice.ts';

@@ -9,3 +9,4 @@ The Web Platform is for apps on Kabuki Start, in four modules: `ui`, `pwa`, `rec
 - `pwa()` needs only a name. Offline, each page follows its Render Mode, and a page marked `private` or `no-store` is never saved.
 - Touch: `Drawer`, `TopDialog`, `SwipeRow` either way, pull to refresh, no focus ring on touch, and `AppShell`'s `sidebarMode`.
 - Keyboard: `recipes/keyboard` with `KeysStatusBar` and `KeysHelp`; `recipes/account-switcher`; `recipes/devtools`.
+- Inside, the PWA engine is three sides (`vite`, `worker`, `page`) on one `contract`, and the UI kit's helpers sit in `kit` under the `#kit/*` alias; no public subpath changes.

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import CodeMirror, { EditorView, Prec } from '@uiw/react-codemirror';
 import { json } from '@codemirror/lang-json';
 import { xcodeDark, xcodeLight } from '@uiw/codemirror-theme-xcode';
-import { cn } from '#lib/utils';
+import { cn } from '#kit/class-names';
 
 export type JsonEditorProps = {
   value: string;
