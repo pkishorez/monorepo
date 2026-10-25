@@ -46,9 +46,9 @@ shell                                   root; Provides CurrentAccount, Replicas,
 │   ├── general                         /general
 │   ├── shortcuts                       /shortcuts; holds Shortcuts, always
 │   └── machines                        /machines
-│       ├── harness-accounts            each: listed Machine id; Provides AccountList
+│       ├── harness-accounts            each: Account and listed Machine id; Provides AccountList
 │       │   └── card                    each: account id, and `new` while one is added
-│       └── speech-to-text              each: listed Machine id
+│       └── speech-to-text              each: Account and listed Machine id
 └── pages/project                       /m/:machineId/p/:projectId; Provides CodeClient, SharedCatalog, Picker Owners
     ├── draft                           while no session is open: the new session's
     │   ├── mode                        each: Message
@@ -78,7 +78,7 @@ shell ─ Props: bindings ──────────────────
 project ─ Provides CodeClient of :machineId, SharedCatalog ───────▶ session
 draft ─ Provides TouchDraft.owner ───────────────────▶ touch
 draft ─ Input: its text as written; Props: mode, reset ▶ mode
-machines ─ each id; Input: machineId, accountId ────▶ harness-accounts, speech-to-text
+machines ─ each Account and id; Input: machineId, accountId ▶ harness-accounts, speech-to-text
 harness-accounts ─ each key; Provides AccountList; Props: account ▶ card
 ```
 
@@ -103,7 +103,7 @@ sidebar ─ Worker: moves, from Moves ──────────────
 **Model**: account: who is signed in, kept across States; signInProblem: why signing in failed; back: where Settings were opened from
 **States**: Reading: nothing is drawn, the Bindings are read (BindingsRead → Ready); Ready: bindings, the keys; BindingsRead again when they change
 **Messages**: BindingsRead: a Worker; Signed: the accounts Worker; SignInAsked, SignInFailed: the View, signIn; NewSessionAsked: the `n` key; SettingsToggled: Ctrl+, and Escape; DictationAsked: Space, Ctrl+Space, the mic button, a Draft
-**Commands**: signIn: ends with SignInFailed or nothing; keepAccounts: once Accounts are signed in, and each time one is signed out, keeps only their records and Saved Drafts; askDictation: ends with nothing; Router.push
+**Commands**: signIn: ends with SignInFailed or nothing; keepAccounts: once Accounts are signed in, and each time one is signed out, keeps only their records, Machine settings and Saved Drafts; askDictation: ends with nothing; Router.push
 **Workers**: accounts: always, at the top, Sends Signed; read: in Reading, Sends BindingsRead; bindings: in Ready, Sends BindingsRead when the Bindings change
 **Requires**: Navigation, DeviceState, Accounts, Store, SavedMachines, SavedDrafts, AccountReplicas, Machines, Dictations
 **Provides**: CurrentAccount, at the top, from the Account Switcher; Replicas and CodeClients, at the top, from `machines/reach.ts`; Moves, at the top, from `actors/moves/`
@@ -126,7 +126,7 @@ sidebar ─ Worker: moves, from Moves ──────────────
 **Model**: accountId; machines: the list, null before any; fetchedAt; fetching; problem; forgetting; lines: each Machine's Line; speech: each Machine's Speech to Text; rechecks: how many Rechecks since every Line was up
 **States**: none
 **Messages**: Saved, Fetched, Failed: its Workers; ReloadAsked: Reload, through Machines; RecheckDue: the recheck Worker; LineChanged, SpeechWatched: its Workers; ForgetAsked, ForgetDismissed: Settings, through Machines; Forgot, ForgetFailed: forget
-**Commands**: save: ends with nothing; forget: ends with Forgot or ForgetFailed; keep: keeps only the records and Saved Drafts of the Machines on the first list; drop: deletes a forgotten Machine's records and Saved Drafts
+**Commands**: save: ends with nothing; forget: ends with Forgot or ForgetFailed; keep: keeps only the records, settings and Saved Drafts of the Machines on the first list; drop: deletes a forgotten Machine's records, settings and Saved Drafts
 **Workers**: saved: while no list; fetch: while fetching; lines, speech: each listed Machine; recheck: while not fetching and a Line is not up, waits 3 seconds for the first 20, then 30, Sends RecheckDue; publish: always, into Machines; requests: always, from Machines
 **Requires**: CloudClient, SavedMachines, SavedDrafts, AccountReplicas, Link, CodeClients
 **Provides**: none · **Services**: none · **Children**: none
@@ -199,11 +199,11 @@ sidebar ─ Worker: moves, from Moves ──────────────
 
 ## home · settings · general · shortcuts · machines · harness-accounts · speech-to-text
 
-Settings is a page of three pages, drawn as tabs beside the one open. General reads and writes Device State; the Microphone is chosen through the Microphone Picker's `Opener`. The Shortcuts page holds the Shortcuts Actor, which reads and writes the Bindings in Device State. Home and Machine Settings follow `Machines`; Machine Settings draws each Machine's Line and Last Seen from the shell's `Connection`, as the sidebar does. Each per-Machine Child gets its Machine and Account by Input, reads what `SavedMachines` kept of it first, and keeps what the Machine says. Harness Accounts reads its Machine's accounts over `CodeClients`; each card saves or removes its own and tells the list through `AccountList`. Speech to Text reads its state from `Machines` and switches it over `CodeClients`. Their Views lock them while the Machine's Line is not connected.
+Settings is a page of three pages, drawn as tabs beside the one open. General reads and writes Device State; the Microphone is chosen through the Microphone Picker's `Opener`. The Shortcuts page holds the Shortcuts Actor, which reads and writes the Bindings in Device State. Home and Machine Settings follow `Machines`; Machine Settings draws each Machine's Line and Last Seen from the shell's `Connection`, as the sidebar does. Each per-Machine Child, keyed by its Account and Machine and none while no Account is known, gets them by Input, reads what `SavedMachines` kept of it first, and keeps what the Machine says. Harness Accounts reads its Machine's accounts over `CodeClients`, and asks again when a card changes one before the Machine answers; each card saves or removes its own and tells the list through `AccountList`. Speech to Text reads its state from `Machines` and switches it over `CodeClients`. Their Views lock them while the Machine's Line is not connected.
 
 ### Decisions
 
-- **A Machine's settings are kept beside the Machine List, in `SavedMachines`, not in Kabuki**, because they belong to the Account and the Machine, as the list does. Caveat: a Machine forgotten, or an Account signed out, leaves its settings row behind until overwritten.
+- **A Machine's settings are kept beside the Machine List, in `SavedMachines`, not in Kabuki**, because they belong to the Account and the Machine, as the list does. Caveat: their rows are pruned by the Machine List's `keep` and `drop` and the root's `keepAccounts`, as Replicas are, so a Machine gone from a later list keeps its row until the next first list.
 - **Shortcuts is a page that holds the Shortcuts Actor**, so the editor stays an Actor its test draws alone. Caveat: one level more than General and Machines.
 
 ## project · session

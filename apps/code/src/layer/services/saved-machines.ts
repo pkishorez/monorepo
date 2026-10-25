@@ -4,7 +4,13 @@ import {
   Machine as MachineSchema,
   SpeechToTextState,
 } from '@kestack/connect/code';
-import { StdTable, type StdTableService } from '@kestack/std-toolkit/db';
+import type { Entity } from '@kestack/std-toolkit/core';
+import {
+  type QueryOptions,
+  type QueryPage,
+  StdTable,
+  type StdTableService,
+} from '@kestack/std-toolkit/db';
 import { IDB } from '@kestack/std-toolkit/db/idb';
 import { Memory } from '@kestack/std-toolkit/db/memory';
 import { EntityESchema } from '@kestack/std-toolkit/eschema';
@@ -22,6 +28,10 @@ import {
  * One row per Account, and one per Account and Machine; an Account signed
  * out keeps an empty list. Nothing here is the truth: Cloud Connect's next
  * answer, and the Machine's, replace it.
+ *
+ * 1. Keep    a list or a Machine's settings replaces its row, or makes it.
+ * 2. Prune   a Machine forgotten or no longer listed, an Account signed
+ *            out: its settings rows are deleted.
  */
 
 // Kept as JSON: a Machine's numbers, and a download's, are plain
@@ -69,10 +79,49 @@ const settingsRows = table.entity(SettingsSchema).primary().build();
 const keyOf = (accountId: string, machineId: string) =>
   `${accountId} ${machineId}`;
 
-const RETRIES = 5;
+type SettingsRow = typeof SettingsSchema.Type;
 
-const make = (layer: Layer.Layer<StdTableService<typeof TABLE>>) =>
-  SavedMachines.of({
+const RETRIES = 5;
+const PAGE = 500;
+const CONFIRM = 'I KNOW WHAT I AM DOING';
+
+/** The Account and the Machine a settings row's key names. */
+const whoseOf = (key: string) => {
+  const at = key.indexOf(' ');
+  return { accountId: key.slice(0, at), machineId: key.slice(at + 1) };
+};
+
+// Every settings row, to prune by.
+const allSettings = Effect.gen(function* () {
+  const found: Array<SettingsRow> = [];
+  let options: QueryOptions<SettingsRow> = { limit: PAGE };
+  while (true) {
+    const page: QueryPage<Entity<SettingsRow>> = yield* settingsRows.query(
+      'primary',
+      { pk: {}, '>=': null },
+      options,
+    );
+    found.push(...page.items.map(({ value }) => value));
+    const last = page.items.at(-1);
+    if (!page.hasMore || last === undefined) return found;
+    options = { limit: PAGE, after: last };
+  }
+});
+
+const make = (layer: Layer.Layer<StdTableService<typeof TABLE>>) => {
+  // 2. Prune
+  const prune = (
+    gone: (whose: { accountId: string; machineId: string }) => boolean,
+  ) =>
+    Effect.flatMap(allSettings, (found) =>
+      Effect.forEach(
+        found.filter(({ key }) => gone(whoseOf(key))),
+        ({ key }) => settingsRows.hardDelete({ key }, CONFIRM),
+        { discard: true },
+      ),
+    ).pipe(Effect.provide(layer), Effect.ignore);
+
+  return SavedMachines.of({
     read: (accountId) =>
       rows.get({ accountId }).pipe(
         Effect.flatMap((row) =>
@@ -81,6 +130,7 @@ const make = (layer: Layer.Layer<StdTableService<typeof TABLE>>) =>
         Effect.provide(layer),
         Effect.orElseSucceed(() => null),
       ),
+    // 1. Keep
     write: (accountId, machines) =>
       Effect.gen(function* () {
         const json = yield* encode(machines);
@@ -148,7 +198,19 @@ const make = (layer: Layer.Layer<StdTableService<typeof TABLE>>) =>
         Effect.provide(layer),
         Effect.ignore,
       ),
+    dropMachine: (accountId, machineId) =>
+      prune(
+        (row) => row.accountId === accountId && row.machineId === machineId,
+      ),
+    keepMachines: (accountId, machineIds) =>
+      prune(
+        (row) =>
+          row.accountId === accountId && !machineIds.includes(row.machineId),
+      ),
+    keepAccounts: (accountIds) =>
+      prune((row) => !accountIds.includes(row.accountId)),
   });
+};
 
 /** Each Account's list, and its Machines' settings, in this browser's IndexedDB. */
 export const idb = Layer.unwrap(

@@ -12,7 +12,7 @@ import { problemOf } from './api.ts';
  * What the Machines actor asks of Cloud Connect, and what it keeps
  * on this device: each ends in one Message, but for `drop` and `keep`. A
  * Machine forgotten, or gone from Cloud Connect's first list, has its
- * Instance stopped, in every tab, and its database deleted.
+ * Instance stopped, in every tab, and its database and settings deleted.
  */
 
 export const save = Command.make('SaveMachines', {
@@ -39,7 +39,7 @@ export const forget = Command.make('ForgetMachine', {
     ),
 });
 
-/** A forgotten Machine's records go, and no other's, once it has left the list. */
+/** A forgotten Machine's records and settings go, and no other's, once it has left the list. */
 export const drop = Command.make('DropMachineRecords', {
   args: Schema.Struct({ accountId: Schema.String, id: Schema.String }),
   run: ({ accountId, id }) =>
@@ -51,10 +51,15 @@ export const drop = Command.make('DropMachineRecords', {
           saved.dropMachine(accountId, id),
         ),
       ),
+      Effect.andThen(
+        Effect.flatMap(SavedMachines, (saved) =>
+          saved.dropMachine(accountId, id),
+        ),
+      ),
     ),
 });
 
-/** Keeps the records of the Machines listed for the Account, and deletes the rest. */
+/** Keeps the records and settings of the Machines listed for the Account, and deletes the rest. */
 export const keep = Command.make('KeepMachineRecords', {
   args: Schema.Struct({
     accountId: Schema.String,
@@ -66,6 +71,11 @@ export const keep = Command.make('KeepMachineRecords', {
     ).pipe(
       Effect.andThen(
         Effect.flatMap(SavedDrafts, (saved) =>
+          saved.keepMachines(accountId, machineIds),
+        ),
+      ),
+      Effect.andThen(
+        Effect.flatMap(SavedMachines, (saved) =>
           saved.keepMachines(accountId, machineIds),
         ),
       ),

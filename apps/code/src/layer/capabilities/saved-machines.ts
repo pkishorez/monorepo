@@ -49,5 +49,19 @@ export class SavedMachines extends Context.Service<
       machineId: string,
       settings: Partial<SavedSettings>,
     ) => Effect.Effect<void>;
+    /** Deletes a forgotten Machine's settings. */
+    readonly dropMachine: (
+      accountId: string,
+      machineId: string,
+    ) => Effect.Effect<void>;
+    /** Keeps the settings of the Machines listed for the Account, and deletes the rest of its. */
+    readonly keepMachines: (
+      accountId: string,
+      machineIds: ReadonlyArray<string>,
+    ) => Effect.Effect<void>;
+    /** Keeps the settings of the Accounts given, and deletes every other's. */
+    readonly keepAccounts: (
+      accountIds: ReadonlyArray<string>,
+    ) => Effect.Effect<void>;
   }
 >()('code/SavedMachines') {}
