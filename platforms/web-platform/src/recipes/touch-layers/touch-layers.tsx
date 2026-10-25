@@ -141,7 +141,11 @@ export function TopDialog({ open, onOpenChange, label, children }: Layer) {
   return (
     <DialogPrimitive.Root open={open} onOpenChange={change}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/10 supports-backdrop-filter:backdrop-blur-xs dark:bg-black/75" />
+        {/* Drawn even over another layer, such as a Drawer, which it dims too. */}
+        <DialogPrimitive.Backdrop
+          forceRender
+          className="fixed inset-0 z-50 bg-black/10 supports-backdrop-filter:backdrop-blur-xs dark:bg-black/75"
+        />
         <DialogPrimitive.Popup
           ref={popup}
           data-slot="top-dialog"

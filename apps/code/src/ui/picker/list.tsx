@@ -81,7 +81,11 @@ export function List<P>({
   const shown = shownOf(spec, model, props);
   const { query, highlighted } = model.step;
   const { enter, leave } = keys.useKeyboard();
-  const { shape, label, focusOnTouch } = useDrawn();
+  const { shape, label, focusOnTouch, held } = useDrawn();
+  // Every Picker is the one Surface: one over this, leaving it, is no
+  // closing of this while its owner holds it.
+  const holding = useRef(held);
+  holding.current = held;
   const touch = shape === 'drawer' || shape === 'dialog';
   // Opened by touch, nothing takes focus on its own.
   const search = keys.useFocusSpot('picker', 'search', { default: !touch });
@@ -179,7 +183,13 @@ export function List<P>({
   ];
   const back = () => send({ _tag: 'Back' });
   return (
-    <keys.Surface id="picker" asChild onExit={() => send({ _tag: 'Closed' })}>
+    <keys.Surface
+      id="picker"
+      asChild
+      onExit={() => {
+        if (!holding.current) send({ _tag: 'Closed' });
+      }}
+    >
       <Command
         // Taken Over: the Surface's Actions hear every key before cmdk.
         data-keys="enabled"
