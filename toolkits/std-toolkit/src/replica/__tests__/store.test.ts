@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { Deferred, Effect, Fiber, Layer } from 'effect';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ReplicaError, Store } from '../index.js';
 import { Store as Idb } from '../store/idb/index.js';
 import { Store as Memory } from '../store/memory/index.js';
@@ -315,6 +315,21 @@ describe('Store', () => {
             Effect.exit,
           ),
         ).toMatchObject({ _tag: 'Success' });
+      }),
+    ));
+
+  it('opens a space in a browser without BroadcastChannel', () =>
+    run(
+      Effect.gen(function* () {
+        vi.stubGlobal('BroadcastChannel', undefined);
+        const store = Idb.idb({ prefix: 'replica:alone:' });
+        vi.unstubAllGlobals();
+
+        const opened = yield* Effect.scoped(
+          Effect.flatMap(Store, (kept) => kept.open('pocket·s')),
+        ).pipe(Effect.provide(store), Effect.timeout('1 second'), Effect.exit);
+
+        expect(opened).toMatchObject({ _tag: 'Success' });
       }),
     ));
 
