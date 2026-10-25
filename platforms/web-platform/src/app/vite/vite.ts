@@ -1,7 +1,13 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { start } from '@kestack/kabuki/start/vite';
-import type { Plugin } from 'vite';
+import { defaultClientConditions, type Plugin, type ProxyOptions } from 'vite';
+import {
+  backendsOf,
+  FAKE_AUTH,
+  isFakeAuth,
+  noFakeAuth,
+} from '../dev-auth/index.ts';
 import { noPwa, pwa } from '../../pwa/engine/vite/index.ts';
 
 /*
@@ -14,6 +20,9 @@ import { noPwa, pwa } from '../../pwa/engine/vite/index.ts';
  * 4. Server  the Web Platform bundled for the server too, its components
  *            being ESM with CSS-only side effects; and `debug`'s browser
  *            build, as workerd throws on its Node one.
+ * 5. Auth    under `vite dev`, auth-toolkit's Fake in the browser and every
+ *            backend on the site's own origin, so one tunnel reaches it
+ *            all; a build that carries the Fake fails.
  *
  * An app that wires its own still has `start()` and `pwa()`.
  */
@@ -38,6 +47,59 @@ const server: Plugin = {
   }),
 };
 
+// A proxied request is the page's own, whatever origin it came from.
+const sameOrigin = (target: string, path: string): ProxyOptions => ({
+  target,
+  changeOrigin: true,
+  secure: false,
+  ws: true,
+  rewrite: (url) => url.slice(path.length) || '/',
+  configure: (proxy) => {
+    proxy.on('proxyReq', (request) => request.removeHeader('origin'));
+    proxy.on('proxyReqWs', (request) => request.removeHeader('origin'));
+  },
+});
+
+/**
+ * Under `vite dev`, unless `KESTACK_AUTH=real`: the browser resolves
+ * auth-toolkit's doors to its Fake, every backend `define` names (each
+ * `VITE_<NAME>_URL` but auth's) is served at `/rpc-<name>` on the site's
+ * origin, and a Cloudflare tunnel's host is let in.
+ */
+const devAuth: Plugin = {
+  name: '@kestack/web-platform:dev-auth',
+  apply: (_config, { command }) => isFakeAuth(command === 'serve'),
+  config: (config) => {
+    const backends = backendsOf(config.define ?? {});
+    const hosts = config.server?.allowedHosts;
+    return {
+      define: Object.fromEntries(
+        backends.map(({ key, path }) => [key, JSON.stringify(path)]),
+      ),
+      server: {
+        ...(hosts === true ? {} : { allowedHosts: ['.trycloudflare.com'] }),
+        proxy: Object.fromEntries(
+          backends.map(({ path, target }) => [
+            `^${path}(/|$)`,
+            sameOrigin(target, path),
+          ]),
+        ),
+      },
+    };
+  },
+  configEnvironment: (name, config) => {
+    if (name !== 'client') return;
+    config.resolve ??= {};
+    config.resolve.conditions = [
+      ...(config.resolve.conditions ?? defaultClientConditions),
+      FAKE_AUTH,
+    ];
+  },
+};
+
+/** Fails a build that carries auth-toolkit's Fake. */
+const noFake: Plugin = { ...(noFakeAuth() as Plugin), apply: 'build' };
+
 /** Every Vite plugin a kestack app needs: `plugins: [app({ name, platform: cloudflare() })]`. */
 export const app = ({
   name,
@@ -49,6 +111,6 @@ export const app = ({
   const plugins: Array<unknown> = [];
   plugins.push(tailwindcss(), react(reactOptions), start(startOptions));
   plugins.push(pwaOptions === false ? noPwa() : pwa({ ...pwaOptions, name }));
-  plugins.push(server);
+  plugins.push(server, devAuth, noFake);
   return plugins.flat() as Plugin[];
 };

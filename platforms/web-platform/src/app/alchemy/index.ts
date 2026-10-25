@@ -8,5 +8,6 @@ export {
   type Where,
   where,
 } from './stage.ts';
+export { backend } from './backend.ts';
 export { Site, type SiteOptions } from './site.ts';
 export { State } from './state.ts';
