@@ -401,6 +401,19 @@ describe('Picker', () => {
     expect(document.activeElement).not.toBe(search());
   });
 
+  it('opens centred, search focused, when Enter or Space on its button opens it', async () => {
+    // A click with no pointer, after a key: as the browser makes for Enter.
+    document.documentElement.dataset['input'] = 'keys';
+    await act(async () => by('trigger').click());
+    await flush();
+    delete document.documentElement.dataset['input'];
+    expect(
+      document.querySelector('[data-slot="dialog-content"]'),
+    ).not.toBeNull();
+    expect(document.querySelector('[data-slot="popover-content"]')).toBeNull();
+    expect(document.activeElement).toBe(search());
+  });
+
   it('dims the screen behind it, opened by keys or by a mouse', async () => {
     await openByKeys();
     expect(
