@@ -71,7 +71,8 @@ const THUMB = cn(
   // The row's text in line with the header's title, 20px in.
   '**:data-[slot=command]:p-0 **:data-[slot=command-input-wrapper]:px-4 **:data-[slot=command-input-wrapper]:pt-1 **:data-[slot=command-input-wrapper]:pb-3',
   '**:data-[slot=command-list]:pb-3 **:data-[slot=command-group]:px-2 **:data-[slot=command-group]:py-1 **:[[cmdk-group-heading]]:px-3! **:[[cmdk-group-heading]]:pt-3! **:[[cmdk-group-heading]]:pb-2!',
-  '**:data-[slot=command-item]:min-h-14 **:data-[slot=command-item]:items-center **:data-[slot=command-item]:gap-3 **:data-[slot=command-item]:rounded-lg **:data-[slot=command-item]:px-3 **:data-[slot=command-item]:py-3 **:data-[slot=command-item]:text-base',
+  // A row is a finger's 44px, no taller, as a phone's own lists are.
+  '**:data-[slot=command-item]:min-h-11 **:data-[slot=command-item]:items-center **:data-[slot=command-item]:gap-3 **:data-[slot=command-item]:rounded-lg **:data-[slot=command-item]:px-3 **:data-[slot=command-item]:py-1.5 **:data-[slot=command-item]:text-[15px]',
   '**:data-[slot=command-item]:data-selected:bg-transparent **:data-[slot=command-item]:active:bg-muted',
   '**:data-[slot=input-group]:h-12! **:[input]:text-base',
 );
