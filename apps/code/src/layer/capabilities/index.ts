@@ -27,3 +27,4 @@ export {
   socketUrl,
   statusOf,
 } from './machine-health.ts';
+export { authHome } from './auth-home.ts';

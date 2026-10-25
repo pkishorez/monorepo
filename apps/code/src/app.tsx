@@ -6,13 +6,13 @@ import { Shell } from './shell/index.ts';
 import { Theme } from './ui/theme/index.ts';
 import {
   accountReplicasIdb,
+  accounts,
   deviceStateIdb,
   dictations,
   machines,
   recorder,
   savedMachinesIdb,
 } from './layer/services/index.ts';
-import { accounts } from './sign-in/index.ts';
 import './styles.css';
 
 /*

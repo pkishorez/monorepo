@@ -15,7 +15,7 @@ import type { Ask } from '../layer/capabilities/index.ts';
 import { keys } from '../keys.ts';
 import * as routes from './routes/index.ts';
 import type { Route } from './routes/index.ts';
-import { Account, AccountSlot, SignedOut } from '../sign-in/index.ts';
+import { Account, AccountSlot, SignedOut } from './sign-in.tsx';
 import { Theme, ThemeToggle } from '../ui/theme/index.ts';
 import { Toasts } from '../ui/toast/index.ts';
 import { Dictation } from './actors/dictation/index.ts';
