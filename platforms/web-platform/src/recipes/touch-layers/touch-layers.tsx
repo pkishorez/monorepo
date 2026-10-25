@@ -18,10 +18,14 @@ import { useVisibleViewport } from './visible-viewport.ts';
  * Two layers for choosing on a device with no keyboard, each with a
  * header naming what is shown, and a way back when there is one.
  *
- * 1. Drawer      a few choices, nothing to type: it rises from the bottom,
- *                and goes on a swipe down, a tap outside, or when its owner
- *                closes it, keeping what it drew while it slides away. It
- *                jumps instead under `prefers-reduced-motion`.
+ * 1. Drawer      it rises from the bottom, and goes on a swipe down, a tap
+ *                outside, or when its owner closes it, keeping what it drew
+ *                while it slides away. It jumps instead under
+ *                `prefers-reduced-motion`. As tall as its few choices, or,
+ *                `tall`, three quarters of the screen whatever is in it, so
+ *                a long list never changes its height as it loads; with
+ *                the on-screen keyboard up, it sits above it, in the part
+ *                of the page left visible.
  * 2. Top Dialog  a list worth searching: at the top, under the status bar,
  *                its search above the list, so the keyboard never covers a
  *                row. No motion, and no swipe closes it. A tap outside
@@ -51,6 +55,8 @@ type Change = (
 ) => void;
 
 interface Layer {
+  /** A Drawer three quarters of the screen tall, whatever is in it. */
+  readonly tall?: boolean;
   /** Whether it shows; its owner decides. */
   readonly open: boolean;
   /** Asked to open or close, and why, as Base UI says: the owner decides. */
@@ -74,16 +80,29 @@ const THUMB = cn(
 const InDialog = createContext(false);
 
 /** 1. A layer rising from the bottom, closed by a swipe down or a tap outside. */
-export function Drawer({ open, onOpenChange, label, children }: Layer) {
+export function Drawer({
+  open,
+  onOpenChange,
+  label,
+  tall = false,
+  children,
+}: Layer) {
   const { live, look } = useLastLook(open);
+  const visible = useVisibleViewport(open && tall);
   return (
     <DrawerRoot open={open} onOpenChange={onOpenChange}>
       <DrawerContent
+        style={visible}
         data-slot="touch-drawer"
         aria-label={label}
         initialFocus={false}
         finalFocus={false}
-        className="pb-[max(0.5rem,env(safe-area-inset-bottom))] motion-reduce:transition-none sm:mx-auto sm:max-w-lg"
+        className={cn(
+          'pb-[max(0.5rem,env(safe-area-inset-bottom))] motion-reduce:transition-none sm:mx-auto sm:max-w-lg',
+          tall &&
+            // Above the keyboard, and gone past it as it slides away.
+            'h-[min(75dvh,calc(var(--visible-height,100dvh)-env(safe-area-inset-top)-0.5rem))] max-h-none data-[swipe-direction=down]:bottom-(--visible-bottom,0px) data-[swipe-direction=down]:[--closed-transform:translate3d(0,calc(100%+var(--visible-bottom,0px)+var(--drawer-inset,0px)+2px),0)]',
+        )}
       >
         {/* The grab handle: the whole Drawer swipes, this says so. */}
         <div aria-hidden className="flex shrink-0 justify-center pt-2 pb-1">

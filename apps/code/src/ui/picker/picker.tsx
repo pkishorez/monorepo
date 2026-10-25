@@ -23,9 +23,11 @@ import { Touch } from './touch-frame.tsx';
  *
  * It is drawn in a `Frame`, as the input that opened it asks, whatever
  * the device: opened by keys, a centred list, its search focused; by a
- * mouse, a popover by its trigger; by a touch, in the Picker Mode its
- * opener chose, a Drawer, or a Dialog at the top, nothing focused: its
- * search waits to be tapped unless the opener opts in. The rest of the
+ * mouse, a popover by its trigger; by a touch, as any click on its
+ * trigger on a device with no keyboard and no mouse is, in the Picker
+ * Mode its opener chose, a Drawer, or a Dialog at the top, nothing
+ * focused: its search waits to be tapped unless the opener opts in. How
+ * it was opened stays while it is open. The rest of the
  * screen dims behind it either way. Focus moves as the Surface says, and
  * a Picker closed by a tap or click outside, or a swipe, leaves the
  * Surface too.
@@ -78,6 +80,7 @@ export function Frame({
   align = 'start',
   className,
   focusOnTouch = false,
+  tall = false,
   children,
 }: {
   readonly how: typeof How.Type | null;
@@ -98,11 +101,16 @@ export function Frame({
    * the on-screen keyboard. Without it, it waits to be tapped.
    */
   readonly focusOnTouch?: boolean;
+  /**
+   * Its Drawer, opened by touch, three quarters of the screen tall with a
+   * search, for a long list: it never changes height as its rows load.
+   */
+  readonly tall?: boolean;
   /** The Picker's View. */
   readonly children: ReactNode;
 }) {
   const { active } = keys.useSurface('picker');
-  const { touch } = useDevice();
+  const { touch, keyboard } = useDevice();
   const shape = shapeOf(how, mode);
   // Once drawn by touch, its layer stays, closed, so a Drawer can slide away.
   const touched = useRef(false);
@@ -118,14 +126,14 @@ export function Frame({
     }
     if (!open) leave('picker');
     else if (how === null && onOpen !== undefined) {
-      const by = howOf(details.event);
+      const by = howOf(details.event, touch && !keyboard);
       if (by === 'touch' && mode === 'dialog' && focusOnTouch) raiseKeyboard();
       openPicker(() => onOpen(by));
     }
   };
   const drawn = (as: typeof shape) => (shape === as ? children : null);
   return (
-    <DrawnIn value={{ shape: shape ?? 'list', label, focusOnTouch }}>
+    <DrawnIn value={{ shape: shape ?? 'list', label, focusOnTouch, tall }}>
       {trigger !== undefined && (
         <ByTrigger
           open={shape === 'popover' && active}
@@ -147,6 +155,7 @@ export function Frame({
       {(touch || touched.current) && (
         <Touch
           mode={mode}
+          tall={tall}
           open={shape === mode && active}
           onOpenChange={change}
           label={label}

@@ -3,9 +3,10 @@ import type { How } from './actor.ts';
 
 /*
  * The shape a Picker is drawn in: as the input that opened it asks,
- * whatever the device or the width of the screen. Opened by keys, a
- * centred list; by a mouse, a popover by its trigger; by a touch, its
- * Picker Mode, as whoever opens it chose: a Drawer or a Dialog.
+ * whatever the width of the screen. Opened by keys, a centred list; by a
+ * mouse, a popover by its trigger; by a touch, its Picker Mode, as
+ * whoever opens it chose: a Drawer or a Dialog. A click on its trigger
+ * on a device with no keyboard and no mouse is a touch, whatever it said.
  */
 
 /** A Picker Mode: how a Picker is drawn when opened by touch. */
@@ -50,12 +51,17 @@ const lastInput = (): typeof How.Type => {
 };
 
 /**
- * How the click that opened a Picker asks it to be drawn: by its pointer,
- * a pen as a finger. A click with no pointer, as Enter or Space on a
- * focused button makes, or a tap in iOS, whose clicks carry none, is read
- * from the input last used: the keys, a touch, or else a mouse.
+ * How the click that opened a Picker asks it to be drawn: on a device
+ * with no keyboard and no mouse, `touchOnly`, a touch; else by its
+ * pointer, a pen as a finger. A click with no pointer, as Enter or Space
+ * on a focused button makes, or a tap in iOS, whose clicks carry none, is
+ * read from the input last used: the keys, a touch, or else a mouse.
  */
-export const howOf = (event: Event | undefined): typeof How.Type => {
+export const howOf = (
+  event: Event | undefined,
+  touchOnly = false,
+): typeof How.Type => {
+  if (touchOnly) return 'touch';
   const type =
     event !== undefined && 'pointerType' in event
       ? (event as PointerEvent).pointerType
@@ -75,13 +81,15 @@ export const howTyped = (): 'keys' | 'touch' =>
 
 /**
  * What the List needs of its Frame: the shape, what the Picker is called,
- * and whether its search takes focus in a Dialog opened by touch.
+ * whether its search takes focus in a Dialog opened by touch, and whether
+ * its Drawer is a tall one, which has a search.
  */
 const Drawn = createContext<{
   readonly shape: Shape;
   readonly label: string;
   readonly focusOnTouch: boolean;
-}>({ shape: 'list', label: '', focusOnTouch: false });
+  readonly tall: boolean;
+}>({ shape: 'list', label: '', focusOnTouch: false, tall: false });
 
 export const DrawnIn = Drawn.Provider;
 

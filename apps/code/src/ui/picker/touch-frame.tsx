@@ -4,8 +4,9 @@ import type { Change, Mode } from './shape.ts';
 
 /*
  * A Picker opened by touch, in the Picker Mode its opener
- * chose: a Drawer rising from the bottom, kept while it slides away, or a
- * Dialog at the top, there only while it is open.
+ * chose: a Drawer rising from the bottom, kept while it slides away, as
+ * tall as its rows or, `tall`, three quarters of the screen; or a Dialog
+ * at the top, there only while it is open.
  */
 
 export function Touch({
@@ -13,18 +14,23 @@ export function Touch({
   open,
   onOpenChange,
   label,
+  tall,
   children,
 }: {
   readonly mode: Mode;
+  readonly tall: boolean;
   readonly open: boolean;
   readonly onOpenChange: Change;
   readonly label: string;
   readonly children: ReactNode;
 }) {
-  const Layer = mode === 'drawer' ? Drawer : TopDialog;
-  return (
-    <Layer open={open} onOpenChange={onOpenChange} label={label}>
+  return mode === 'drawer' ? (
+    <Drawer open={open} onOpenChange={onOpenChange} label={label} tall={tall}>
       {children}
-    </Layer>
+    </Drawer>
+  ) : (
+    <TopDialog open={open} onOpenChange={onOpenChange} label={label}>
+      {children}
+    </TopDialog>
   );
 }

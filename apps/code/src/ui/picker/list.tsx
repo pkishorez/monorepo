@@ -12,6 +12,7 @@ import {
 } from '@kestack/web-platform/ui/components/lucide';
 import { LayerHeader } from '@kestack/web-platform/recipes/touch-layers';
 import { Button } from '@kestack/web-platform/ui/components/button';
+import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { describe } from '@kestack/use-keys';
 import { revealInView } from '@kestack/use-keys/surfaces';
@@ -50,8 +51,9 @@ import { useDrawn } from './shape.ts';
  *
  * Opened by touch, in a Drawer or a Dialog, a header names
  * the Step, with a button back to the one under it; the keys' hints are
- * gone, and so is the highlight. A Drawer has no search, nor has a Step
- * in a Dialog that says it has none. The keyboard moves no focus there:
+ * gone, and so is the highlight, and rows still loading show a spinner in
+ * the middle. A Drawer has no search but a tall one, nor has a Step that
+ * says it has none. The keyboard moves no focus there:
  * the search waits to be tapped, unless its Frame opts in with
  * `focusOnTouch`, when the Dialog focuses it once it is on screen. With no
  * Mod+Enter to finish with, a Step that finishes on itself has a button
@@ -77,11 +79,12 @@ export function List<P>({
   const shown = shownOf(spec, model, props);
   const { query, highlighted } = model.step;
   const { enter, leave } = keys.useKeyboard();
-  const { shape, label, focusOnTouch } = useDrawn();
+  const { shape, label, focusOnTouch, tall } = useDrawn();
   const touch = shape === 'drawer' || shape === 'dialog';
   // Opened by touch, nothing takes focus on its own.
   const search = keys.useFocusSpot('picker', 'search', { default: !touch });
-  const searched = shape !== 'drawer' && (!touch || shown.search);
+  // A Drawer has no search, but for a tall one, which holds a long list.
+  const searched = (shape !== 'drawer' || tall) && (!touch || shown.search);
   const close = (choices: ReadonlyArray<Choice>) => {
     leave('picker');
     if (spec.lands?.(choices) === true) enter('content');
@@ -247,15 +250,22 @@ export function List<P>({
           ref={list}
           className={
             touch
-              ? 'max-h-none min-h-0 flex-1 overscroll-contain'
+              ? // Its rows' wrapper fills it, so what it says while empty sits in the middle.
+                'max-h-none min-h-0 flex-1 overscroll-contain **:[[cmdk-list-sizer]]:flex **:[[cmdk-list-sizer]]:min-h-full **:[[cmdk-list-sizer]]:flex-col'
               : 'max-h-[min(22rem,55dvh)]'
           }
         >
           <CommandEmpty
-            className={
-              shown.problem !== null ? 'px-4 text-destructive' : undefined
-            }
+            className={cn(
+              shown.problem !== null && 'px-4 text-destructive',
+              // On touch, in the middle of a list that keeps its height.
+              touch &&
+                'flex flex-1 flex-col items-center justify-center gap-3 py-16 text-base text-muted-foreground',
+            )}
           >
+            {shown.problem === null && shown.loading && touch && (
+              <Spinner className="size-6" />
+            )}
             {shown.problem ?? (shown.loading ? 'Loading…' : shown.empty)}
           </CommandEmpty>
           {groups.map(({ heading, rows }) => (
