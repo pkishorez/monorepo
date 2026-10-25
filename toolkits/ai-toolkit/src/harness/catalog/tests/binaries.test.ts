@@ -28,11 +28,11 @@ const whyNot = (path: string) =>
 describe('Harness Binaries', () => {
   it('reads a harness binary at a path, or its default', async () => {
     const installed = await Effect.runPromise(
-      binaryAt(harness, { binary: undefined, home: undefined }),
+      binaryAt(harness, { binary: undefined, configFolder: undefined }),
     );
     expect(installed.isDefault).toBe(true);
     const at = await Effect.runPromise(
-      binaryAt(harness, { binary: '/x/claude', home: undefined }),
+      binaryAt(harness, { binary: '/x/claude', configFolder: undefined }),
     );
     expect(at.isDefault).toBe(false);
   });

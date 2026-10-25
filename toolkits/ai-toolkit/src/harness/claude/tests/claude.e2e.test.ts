@@ -477,7 +477,7 @@ describe.skipIf(!enabled)(
         claude.binary.pipe(
           Effect.provideService(HarnessAccount, {
             binary: '/nowhere/claude',
-            home: undefined,
+            configFolder: undefined,
           }),
         ),
       );

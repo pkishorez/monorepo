@@ -1,6 +1,7 @@
 export { agents } from './agents/index.js';
 export { storeLayer } from './store/index.js';
 export {
+  accountOf,
   accountRow,
   allAccounts,
   InvalidAccount,

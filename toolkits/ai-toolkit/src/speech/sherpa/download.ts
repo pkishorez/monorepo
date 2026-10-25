@@ -1,4 +1,5 @@
-import { open, stat } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { access, open, stat } from 'node:fs/promises';
 import { Effect, Stream } from 'effect';
 import { SpeechToTextError, type Fetched } from '../contract/index.js';
 
@@ -7,7 +8,8 @@ import { SpeechToTextError, type Fetched } from '../contract/index.js';
  * earlier fetch left there: it asks for the rest with a Range, appends
  * when the server sends only that, and starts over when it sends the
  * whole file. A server that has nothing past those bytes (416) means the
- * file is already whole.
+ * file is already whole. Beside it, the two steps a fetch ends with:
+ * whether a file is there, and unpacking a tarball with the system's `tar`.
  */
 
 const failed = (message: string) => (cause?: unknown) =>
@@ -78,3 +80,41 @@ export const download = (
         `The download from ${url} ended at ${done} of ${total} bytes`,
       )();
   }).pipe(Effect.scoped);
+
+/** Whether anything is at `path`. */
+export const exists = (path: string) =>
+  Effect.promise(() =>
+    access(path).then(
+      () => true,
+      () => false,
+    ),
+  );
+
+/**
+ * Unpacks the one top folder of `tarball`, gzip or bzip2, into `into`; why
+ * it failed, or null.
+ */
+export const untar = (
+  tarball: string,
+  into: string,
+  compression: 'gzip' | 'bzip2',
+) =>
+  Effect.callback<string | null>((resume) => {
+    const child = execFile(
+      'tar',
+      [
+        compression === 'gzip' ? '-xzf' : '-xjf',
+        tarball,
+        '-C',
+        into,
+        '--strip-components=1',
+      ],
+      (error, _stdout, stderr) =>
+        resume(
+          Effect.succeed(
+            error === null ? null : stderr.trim() || error.message,
+          ),
+        ),
+    );
+    return Effect.sync(() => void child.kill());
+  });

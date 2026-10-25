@@ -798,7 +798,7 @@ describe('Harness Accounts', () => {
             harness: 'claude',
             name: 'Claude',
             binaryPath: null,
-            home: null,
+            configFolder: null,
             isDefault: true,
             resolved: fakeResolved,
           },
@@ -810,7 +810,7 @@ describe('Harness Accounts', () => {
             harness: 'claude',
             name: 'Claude',
             binaryPath,
-            home: null,
+            configFolder: null,
           });
         const invalid = (path: string) =>
           Effect.map(Effect.flip(save(path)), (error) => error.message);
@@ -833,7 +833,9 @@ describe('Harness Accounts', () => {
 
         const { session, idle } = yield* started();
         yield* idle();
-        expect(fake.accounts).toEqual([{ binary: good, home: undefined }]);
+        expect(fake.accounts).toEqual([
+          { binary: good, configFolder: undefined },
+        ]);
 
         const reset = yield* save(null);
         expect(reset.binaryPath).toBeNull();
@@ -854,13 +856,13 @@ describe('Harness Accounts', () => {
     await run(
       Effect.gen(function* () {
         const engine = yield* Engine;
-        const add = (name: string, home: string | null) =>
+        const add = (name: string, configFolder: string | null) =>
           engine.saveHarnessAccount({
             id: null,
             harness: 'claude',
             name,
             binaryPath: null,
-            home,
+            configFolder,
           });
         expect((yield* Effect.flip(add(' ', null))).message).toBe(
           'Give the account a name',
@@ -870,12 +872,12 @@ describe('Harness Accounts', () => {
           `Nothing is at ${nowhere}; sign in with that config folder first`,
         );
 
-        const home = folder();
-        const work = yield* add(' Claude work ', home);
+        const configFolder = folder();
+        const work = yield* add(' Claude work ', configFolder);
         expect(work).toMatchObject({
           harness: 'claude',
           name: 'Claude work',
-          home,
+          configFolder,
           isDefault: false,
         });
         expect((yield* engine.harnessAccounts).map(({ id }) => id)).toEqual([
@@ -894,7 +896,7 @@ describe('Harness Accounts', () => {
         });
         expect(session).toMatchObject({ harness: 'claude', account: work.id });
         yield* eventually(() =>
-          expect(fake.accounts).toEqual([{ binary: undefined, home }]),
+          expect(fake.accounts).toEqual([{ binary: undefined, configFolder }]),
         );
 
         expect(

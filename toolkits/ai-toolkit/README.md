@@ -126,7 +126,7 @@ const program = Effect.scoped(
 - Each record is a `RawOut`; stamp it with ids and keep it as `Raw`, then `projectRaw([claude, codex])` turns it into a Message.
 - `turn.steer(id, input)` hands a message to the running Turn; a steer whose `TurnSteered` never comes was not taken, and the caller runs it as the next Turn.
 - Open again with `nativeId` to resume the Agent's context. `claude.fork` and `claude.ask` read it without opening it.
-- Give `HarnessAccount` a `home` to run as another login, such as `{ binary: undefined, home: '~/.claude-work' }` for a second Claude; its context is resumed, forked and asked as that same account.
+- Give `HarnessAccount` a `configFolder` to run as another login, such as `{ binary: undefined, configFolder: '~/.claude-work' }` for a second Claude; its context is resumed, forked and asked as that same account.
 
 ### Ask a One-shot Prompt
 

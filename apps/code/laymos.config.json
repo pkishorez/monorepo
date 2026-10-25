@@ -25,6 +25,9 @@
       "src/shell/pages/project/capabilities",
       "src/shell/pages/project/draft"
     ],
+    "src/shell/pages/settings/machines/harness-accounts/card": [
+      "src/shell/pages/settings/machines/harness-accounts/capabilities"
+    ],
     "src/shell/pages/project/draft": [
       "src/shell/pages/project/capabilities",
       "src/shell/actors/dictation"

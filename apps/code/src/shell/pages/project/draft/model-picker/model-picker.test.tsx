@@ -59,8 +59,8 @@ const catalog = {
   harnesses: [
     {
       account: 'claude',
-      name: 'claude' as const,
-      label: 'Claude',
+      harness: 'claude' as const,
+      name: 'Claude',
       settings: [setting, permissions],
       defaultModel: 'sonnet',
       available: true,
@@ -68,8 +68,8 @@ const catalog = {
     },
     {
       account: 'codex',
-      name: 'codex' as const,
-      label: 'Codex',
+      harness: 'codex' as const,
+      name: 'Codex',
       settings: [],
       defaultModel: 'gpt',
       available: true,

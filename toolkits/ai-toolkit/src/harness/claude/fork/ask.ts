@@ -6,6 +6,14 @@ import {
 import type { AskAnswer, AskInput } from '../../contract/index.js';
 import type { Json } from '../../../contract/raw/index.js';
 
+/** The Claude Code to run, and the environment it runs in. */
+export interface Launch {
+  readonly path: string;
+  readonly env: NodeJS.ProcessEnv;
+  /** Its config folder; undefined for Claude Code's own default. */
+  readonly configFolder: string | undefined;
+}
+
 const ASK_PREAMBLE =
   'A side question about this conversation follows. Answer it from what ' +
   'you already know here. Do not continue or change the task, and do not ' +
@@ -24,12 +32,12 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
  */
 export const askOptions = (
   input: AskInput,
-  executable: { readonly path: string; readonly env: NodeJS.ProcessEnv },
+  launch: Launch,
   abortController: AbortController,
 ): Options => ({
   cwd: input.cwd,
-  pathToClaudeCodeExecutable: executable.path,
-  env: executable.env,
+  pathToClaudeCodeExecutable: launch.path,
+  env: launch.env,
   model: input.model,
   resume: input.nativeId,
   forkSession: true,

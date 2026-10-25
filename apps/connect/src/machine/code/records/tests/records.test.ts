@@ -48,7 +48,7 @@ describe('stored records', () => {
       harness: 'claude',
       name: 'Claude',
       binaryPath: '/opt/claude',
-      home: null,
+      configFolder: null,
       updatedAt: 1,
     });
   });

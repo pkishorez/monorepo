@@ -36,9 +36,9 @@ export const HarnessInfo = Schema.Struct({
   /** The Harness Account's id, which a new Session runs as. */
   account: Schema.String,
   /** Its harness. */
-  name: Harness,
+  harness: Harness,
   /** The account's name, such as "Claude" or "Claude work". */
-  label: Schema.String,
+  name: Schema.String,
   settings: Schema.Array(SettingInfo),
   /** The account's default model when the harness can say, else its own. */
   defaultModel: Schema.String,
@@ -57,7 +57,7 @@ export const HarnessAccountInfo = Schema.Struct({
   /** null runs the harness's name from PATH. */
   binaryPath: Schema.NullOr(Schema.String),
   /** Its config folder (CLAUDE_CONFIG_DIR, CODEX_HOME); null for the harness's own. */
-  home: Schema.NullOr(Schema.String),
+  configFolder: Schema.NullOr(Schema.String),
   /** Its harness's Default Account, which cannot be removed. */
   isDefault: Schema.Boolean,
   resolved: BinaryInfoSchema,
@@ -88,7 +88,7 @@ export const HarnessesRpc = RpcGroup.make(
   /**
    * Saves a Harness Account once it has a name, its binary runs and its
    * config folder is a folder; a new one when `id` is null. A null binary
-   * runs the harness from PATH; a null home, the harness's own folder.
+   * runs the harness from PATH; a null config folder, the harness's own folder.
    */
   Rpc.make('saveHarnessAccount', {
     payload: {
@@ -96,7 +96,7 @@ export const HarnessesRpc = RpcGroup.make(
       harness: Harness,
       name: Schema.String,
       binaryPath: Schema.NullOr(Schema.String),
-      home: Schema.NullOr(Schema.String),
+      configFolder: Schema.NullOr(Schema.String),
     },
     success: HarnessAccountInfo,
     error: Schema.Union([InvalidBinary, InvalidAccount]),

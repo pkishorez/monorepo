@@ -508,7 +508,7 @@ const installedCodex =
     .find((path) => existsSync(path)) ?? '/nowhere/codex';
 
 const account = (binary: string | undefined) =>
-  Layer.succeed(HarnessAccount, { binary, home: undefined });
+  Layer.succeed(HarnessAccount, { binary, configFolder: undefined });
 
 /** Waits for the first Background Jobs snapshot that passes. */
 const jobsUntil = (

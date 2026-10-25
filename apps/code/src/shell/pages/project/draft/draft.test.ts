@@ -23,8 +23,8 @@ const CATALOG: typeof Catalog.Model.Type = {
   harnesses: [
     {
       account: 'codex',
-      name: 'codex',
-      label: 'Codex',
+      harness: 'codex',
+      name: 'Codex',
       settings: [],
       defaultModel: 'gpt',
       available: false,
@@ -32,8 +32,8 @@ const CATALOG: typeof Catalog.Model.Type = {
     },
     {
       account: 'claude',
-      name: 'claude',
-      label: 'Claude',
+      harness: 'claude',
+      name: 'Claude',
       settings: [
         {
           key: 'effort',

@@ -183,8 +183,11 @@ describe('Models', () => {
     await Effect.runPromise(
       Effect.gen(function* () {
         const models = yield* Models;
-        const as = (home: string | undefined) =>
-          Effect.provideService(HarnessAccount, { binary: undefined, home });
+        const as = (configFolder: string | undefined) =>
+          Effect.provideService(HarnessAccount, {
+            binary: undefined,
+            configFolder,
+          });
         yield* as(undefined)(models.list(account.harness));
         yield* as('/home/work')(models.list(account.harness));
         yield* as('/home/work')(models.list(account.harness));

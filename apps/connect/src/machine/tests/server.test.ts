@@ -277,7 +277,7 @@ describe('the server, through the client and Replica', () => {
             CodeClient.layer(`ws://127.0.0.1:${port}/rpc`, { key }),
           );
           const api = Context.get(client, CodeClient);
-          expect(yield* api.harnesses()).toMatchObject([{ name: 'claude' }]);
+          expect(yield* api.harnesses()).toMatchObject([{ harness: 'claude' }]);
         }),
       ),
     ));
@@ -629,8 +629,8 @@ describe('the server, through the client and Replica', () => {
             expect(yield* api.harnesses()).toMatchObject([
               {
                 account: 'claude',
-                name: 'claude',
-                label: 'Claude',
+                harness: 'claude',
+                name: 'Claude',
                 available: true,
                 unavailableReason: null,
               },
@@ -641,7 +641,7 @@ describe('the server, through the client and Replica', () => {
                 harness: 'claude',
                 name: 'Claude',
                 binaryPath: '/no/such',
-                home: null,
+                configFolder: null,
               }),
             );
             expect(invalid).toMatchObject({
@@ -653,16 +653,16 @@ describe('the server, through the client and Replica', () => {
               harness: 'claude',
               name: 'Claude work',
               binaryPath: null,
-              home: folder(),
+              configFolder: folder(),
             });
             expect(yield* api.harnessAccounts()).toMatchObject([
               { id: 'claude', binaryPath: null, isDefault: true },
               { id: work.id, name: 'Claude work', isDefault: false },
             ]);
             expect(
-              (yield* api.harnesses()).map(({ account, label }) => [
+              (yield* api.harnesses()).map(({ account, name }) => [
                 account,
-                label,
+                name,
               ]),
             ).toEqual([
               ['claude', 'Claude'],

@@ -1,12 +1,11 @@
-import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { access, mkdir, rename, rm } from 'node:fs/promises';
+import { mkdir, rename, rm } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { Effect, Schema } from 'effect';
 import { SpeechToTextError, type Fetched } from '../contract/index.js';
-import { download } from './download.js';
+import { download, exists, untar } from './download.js';
 
 /*
  * sherpa-onnx's Node runtime, fetched with the model rather than shipped
@@ -16,6 +15,8 @@ import { download } from './download.js';
  * before it is unpacked, by the system's `tar`, into
  * `<folder>/runtime/node_modules`, where `sherpa-onnx-node` finds its
  * addon beside it. A package is there only once its `package.json` is.
+ * It fetches, checks for files and unpacks with download.ts, as the model
+ * does.
  */
 
 /** The sherpa-onnx release Speech to Text runs. */
@@ -40,14 +41,6 @@ const Manifest = Schema.Struct({
 
 const failed = (message: string) => (cause?: unknown) =>
   new SpeechToTextError({ message, cause });
-
-const exists = (path: string) =>
-  Effect.promise(() =>
-    access(path).then(
-      () => true,
-      () => false,
-    ),
-  );
 
 /** Whether every package of the runtime is unpacked in `folder`. */
 export const runtimeInstalled = (folder: string) =>
@@ -96,22 +89,6 @@ const matches = (file: string, integrity: string) =>
       }),
   );
 
-/** Unpacks an npm tarball's `package/` into `into`; why it failed, or null. */
-const unpack = (tarball: string, into: string) =>
-  Effect.callback<string | null>((resume) => {
-    const child = execFile(
-      'tar',
-      ['-xzf', tarball, '-C', into, '--strip-components=1'],
-      (error, _stdout, stderr) =>
-        resume(
-          Effect.succeed(
-            error === null ? null : stderr.trim() || error.message,
-          ),
-        ),
-    );
-    return Effect.sync(() => void child.kill());
-  });
-
 const installPackage = (
   folder: string,
   registry: string,
@@ -134,7 +111,7 @@ const installPackage = (
     const tarball = join(folder, RUNTIME, `${name}.tgz`);
     yield* download(dist.tarball, tarball, ({ done }) => progress(done));
     const intact = yield* matches(tarball, dist.integrity);
-    const why = intact ? yield* unpack(tarball, part) : null;
+    const why = intact ? yield* untar(tarball, part, 'gzip') : null;
     yield* Effect.promise(() => rm(tarball, { force: true }));
     if (!intact || why !== null) {
       yield* Effect.promise(() => rm(part, { recursive: true, force: true }));

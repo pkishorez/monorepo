@@ -244,13 +244,13 @@ export class HarnessAccount extends Context.Service<
      * Its config folder, as `CLAUDE_CONFIG_DIR` or `CODEX_HOME`; undefined
      * leaves the harness's own default.
      */
-    readonly home: string | undefined;
+    readonly configFolder: string | undefined;
   }
 >()('@kestack/ai-toolkit/HarnessAccount') {
   /** The installed harness from PATH, on its own config folder. */
   static readonly layerDefault: Layer.Layer<HarnessAccount> = Layer.succeed(
     HarnessAccount,
-    { binary: undefined, home: undefined },
+    { binary: undefined, configFolder: undefined },
   );
 }
 
