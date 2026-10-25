@@ -35,7 +35,8 @@ export const isHandledNavigation = (
  *   client   the App Shell, which is what the server would send; the
  *            network only if it is missing.
  *   static   this build's copy, precached or saved when first visited;
- *            else as dynamic.
+ *            else as dynamic. Only the bare path is precached: one with
+ *            a query is its own page, saved when first visited.
  *   dynamic  the network within `networkTimeoutMs`, kept; then the copy
  *            saved last, then the App Shell.
  *
@@ -44,6 +45,8 @@ export const isHandledNavigation = (
  * first: every page stays on the active Build ID until the update is
  * accepted. For the same reason, pages are not saved while a newer version
  * waits: they belong to that build, not to this Build ID's pages cache.
+ * A page the server marks `private` or `no-store` is never saved: it is
+ * one account's, and the cache is the device's.
  */
 export const handleNavigation = (
   info: WorkerBuildInfo,
@@ -52,7 +55,7 @@ export const handleNavigation = (
   Effect.gen(function* () {
     const scope = yield* GlobalScope;
     const pages = yield* readPages(info.buildId);
-    const { pathname } = new URL(request.url);
+    const { pathname, search } = new URL(request.url);
     const render = pages.pipe(
       Option.flatMap((all) => pageAt(all, pathname)),
       Option.match({ onNone: () => 'dynamic', onSome: (page) => page.render }),
@@ -63,7 +66,7 @@ export const handleNavigation = (
     });
     const saved = matchPage(info.buildId, request);
     const network = Effect.tap(fetchNetwork(request), (response) =>
-      response.ok
+      keeps(response)
         ? savePage(info.buildId, request, response.clone())
         : Effect.void,
     );
@@ -71,7 +74,9 @@ export const handleNavigation = (
       render === 'client'
         ? [shell]
         : render === 'static'
-          ? [matchPrecache(info.buildId, pathname), saved]
+          ? search === ''
+            ? [matchPrecache(info.buildId, pathname), saved]
+            : [saved]
           : [];
     const pinned = scope.hasWaitingWorker() ? [saved, shell] : [];
     const first = yield* firstSome([...ours, ...pinned]);
@@ -82,6 +87,13 @@ export const handleNavigation = (
       timeoutMs: info.config.navigation.networkTimeoutMs,
     });
   });
+
+/** Whether a page from the network may be saved for later. */
+const keeps = (response: Response): boolean =>
+  response.ok &&
+  !/\b(?:private|no-store)\b/i.test(
+    response.headers.get('cache-control') ?? '',
+  );
 
 const savePage = (buildId: BuildId, request: Request, response: Response) =>
   Effect.gen(function* () {

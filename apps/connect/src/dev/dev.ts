@@ -266,9 +266,12 @@ export const withConnect = async ({
   process.exit(code);
 };
 
-/** Follows a running Connect as App `connect` until Ctrl-C, or until it stops. */
-const attach = async (dir: string, log: string, record: ConnectRecord) => {
-  const release = take(dir, 'connect');
+/** Follows a running Connect, on the lease `release` gives back, until Ctrl-C, or until it stops. */
+const attach = async (
+  log: string,
+  record: ConnectRecord,
+  release: () => void,
+) => {
   bindRelease(release);
   process.stdout.write(
     `Attached to this branch's Connect (pid ${record.pid}, ${record.mode}) at ${record.cloud}; Ctrl-C detaches.\n`,
@@ -298,20 +301,28 @@ export const runConnectDev = async ({
   if (!existsSync(join(ROOT, 'alchemy.run.ts')))
     throw new Error('runConnectDev runs only in the monorepo');
   const { slug, cloud, dir, log } = await devOf(ROOT);
-  let other: Standing | undefined;
+  let other:
+    | { readonly standing: Standing; readonly release?: () => void }
+    | undefined;
   for (;;) {
     other = await withLock(dir, async () => {
       const standing = await standingOf(readRecord(dir));
-      if (standing.kind !== 'absent' && standing.record.pid !== process.pid)
-        return standing;
-      writeRecord(dir, starting(process.pid, cloud, mode));
-      return undefined;
+      if (standing.kind === 'absent' || standing.record.pid === process.pid) {
+        writeRecord(dir, starting(process.pid, cloud, mode));
+        return undefined;
+      }
+      // Leased under the lock that saw it running, so it cannot decide to
+      // stop in between.
+      return standing.kind === 'stopping' || mode === 'shared'
+        ? { standing }
+        : { standing, release: take(dir, 'connect') };
     });
-    if (other?.kind !== 'stopping') break;
+    if (other?.standing.kind !== 'stopping') break;
     await sleep(WAIT_MS);
   }
   if (other !== undefined) {
-    if (mode === 'foreground') await attach(dir, log, other.record);
+    if (other.release !== undefined && other.standing.kind !== 'absent')
+      await attach(log, other.standing.record, other.release);
     return;
   }
   if (mode === 'foreground' && live(dir).length > 0)

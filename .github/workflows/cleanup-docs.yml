@@ -40,9 +40,13 @@ jobs:
       STAGE: pr${{ inputs.pr || github.event.number }}
     steps:
       - name: Validate stage
+        # The input reaches the shell as a variable, never as its source.
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_INPUT: ${{ inputs.pr }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && ! echo "${{ inputs.pr }}" | grep -qE '^[0-9]+$'; then
-            echo "PR number must be numeric, got '${{ inputs.pr }}'." >&2
+          if [ "$EVENT" = "workflow_dispatch" ] && ! printf '%s\n' "$PR_INPUT" | grep -qxE '[0-9]+'; then
+            echo "PR number must be numeric, got '$PR_INPUT'." >&2
             exit 1
           fi
 

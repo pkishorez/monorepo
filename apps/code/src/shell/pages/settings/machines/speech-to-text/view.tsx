@@ -6,7 +6,8 @@ import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { Switch } from '@kestack/web-platform/ui/components/switch';
 import { useBound } from '../../../../../keys.ts';
 import { ago } from '../../../../../ui/time/index.ts';
-import { outOfReach, useHealth } from '../../../../machines/index.ts';
+import { outOfReach } from '../../../../../layer/capabilities/index.ts';
+import { useHealth } from '../../../../machines/index.ts';
 import { SpeechToTextLive } from './actor.ts';
 
 /*

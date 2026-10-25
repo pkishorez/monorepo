@@ -23,11 +23,11 @@ import {
   useState,
 } from 'react';
 import { keys, useBound } from '../../../keys.ts';
+import { outOfReach } from '../../../layer/capabilities/index.ts';
 import * as routes from '../../routes/index.ts';
 import type { Route } from '../../routes/index.ts';
 import {
   type OnMachine,
-  outOfReach,
   useHealth,
   useMachineName,
 } from '../../machines/index.ts';
