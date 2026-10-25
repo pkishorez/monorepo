@@ -46,10 +46,10 @@ each part reads only what it shows, so a change draws only that part. The
 root page (`src/shell/`) first reads the user's Bindings from Device
 State, what this browser keeps for itself in IndexedDB
 (`src/layer/`); nothing is drawn
-until it has. Then who is signed in (`src/sign-in/`), with the Account
+until it has. Then who is signed in (`sign-in.tsx`), with the Account
 Switcher in every header; signed out, only signing in is drawn, and an
 Account signed out of this device takes its Machines' records with it.
-Then the Machine List of the Account (`actors/machine-list/`): the list
+Then the Machine List of the Account (`machines/machine-list/`): the list
 saved here shows first, then Cloud Connect's, asked again on Reload and,
 while a Machine's Line is not up, every 3 seconds for the first minute and
 every 30 after, until every Line is up. It holds a Line to each Machine
@@ -72,28 +72,31 @@ and nothing can be sent. Device State is the truth: an actor that shows
 it reads it again after every write, from this tab or another.
 
 `src/` is laid out as the Actor tree, checked by Laymos
-(`laymos.config.json`). `src/shell/` is the root page, with the Actors on
-every page in `actors/` and the pages in `pages/`, a child page in its
-parent's folder (`pages/project/session/`). Each Actor folder has
-`actor.ts` (its define and build), `commands.ts` when it has Commands,
-`view.tsx` when it has a View, and an `index.ts` that exports one object,
-as `Home.actor`, `Home.view`, `Home.page`. `src/layer/` is what the app
-Layer gives the tree: `capabilities/`, the keys, `services/`, what backs
-them, and `machine-health/`, what a Machine's record says of it; an Actor
+(`laymos.config.json`). `src/app.tsx` starts it: the root page's View and
+router, and the Layer. `src/shell/` is the root page, with its router
+(`router.ts`) and its signed-out screen (`sign-in.tsx`); under it the
+Actors on every page in `actors/`, the four Pickers the app's keys open in
+`actors/pickers/`, and the pages in `pages/`, a child page in its parent's
+folder (`pages/project/session/`). Each Actor folder has `actor.ts` (its
+define and build), `commands.ts` when it has Commands, `view.tsx` when it
+has a View, and an `index.ts` that exports one object, as `Home.actor`,
+`Home.view`, `Home.page`. `src/layer/` is what the app Layer gives the
+tree: `capabilities/`, the keys, with what a Machine's record says of it,
+and `services/`, what backs them, who is signed in among them; an Actor
 that Provides a key of its own keeps it in its own `capabilities/`, as the
 project page does its catalog. Code shared by Actors that is not one is a
-plain Module in the lowest folder that holds every user: in `pages/project/`
-the catalog; in `src/shell/` `refusal/`,
-the one way a server call ends when refused, `replica/`, the Queries,
-`places/`, the address of every place, which every View links through
-(`src/pages.ts` defines the router), and `connection/`, every Machine as
-the Views see it; and in `src/`, used by the entry files too, `sign-in/`
-and `ui/`, the small parts any feature draws, the Picker and the
-confirmation among them. `src/deploy/` is the infrastructure: the
-site's Worker. A feature that makes a
+plain Module in the lowest folder that holds every user: in `src/shell/`
+`machines/`, everything about reaching a Machine (the Machine List, each
+Machine's Line, the Replica's Queries, its socket and Replicas, and the one
+way a server call ends when refused), and `routes/`, the address of every
+page, which every View links through; in `actors/`, `moves/`, the Settles
+the sidebar and Session Actions ask for. `src/ui/` holds the small parts
+any feature draws, the Picker and the confirmation among them, and
+`src/keys.ts` the app's whole keyboard. `src/deploy/` is the
+infrastructure: the site's Worker. A feature that makes a
 Picker with `Picker.make` keeps it in its main file and exports it as one
 object, as `ModelPicker.Live`, `ModelPicker.View`; one that owns its
-Picker, as the four of `shell/actors/` do, is an Actor folder with the
+Picker, as the four of `shell/actors/pickers/` do, is an Actor folder with the
 Picker in its `actor.ts`. `folder-picker/` holds no actor: its Steps are
 part of the Project Picker's one stack, so Ctrl+H from the home folder
 goes back to the recent projects, and it exports them with how they load

@@ -12,32 +12,33 @@ Changed through `/kabukifi`; edit by hand and it drifts.
 
 ```
 src/
-  app.tsx  pages.ts  keys.ts                    entry files
-  shell/                                        the root page
-    actors/   machine-list · sidebar · header · dictation · project-picker ·
-              session-switcher · session-actions · microphone-picker
+  app.tsx  keys.ts                             entry file, and the keyboard
+  shell/                                        the root page; router.ts, sign-in.tsx
+    actors/   sidebar · header · dictation · moves (plain)
+      pickers/  project-picker · session-switcher · session-actions ·
+                microphone-picker
     pages/    home · settings (machines, shortcuts) · project (session)
-    places/ · refusal/ · replica/ · connection/  plain Modules of the tree
-    services/                                   reach
-  layer/      capabilities/ · services/ · machine-health/   what the app Layer gives
-  ui/ · sign-in/                                used by the entry files and the tree
-  deploy/     infra/ · machines-api/            the server, not the browser app
+    machines/                                   reaching every Machine; machine-list
+    routes/                                     the address of every page
+  layer/      capabilities/ · services/         what the app Layer gives
+  ui/                                           used by the entry file and the tree
+  deploy/     infra/                            the server, not the browser app
 ```
 
-`actors/` and `pages/` are Wrappers: they say the kind, so an Actor's
-folder has no prefix.
+`actors/`, `actors/pickers/` and `pages/` are Wrappers: they say the kind,
+so an Actor's folder has no prefix.
 
 ```
 shell                                   root; Provides CurrentAccount, Replicas, AiClients
 │                                       States: Reading | Ready
 ├── (account, replicas)                 always; library Actors
-├── actors/machine-list                 Ready, while signed in; key: account id
+├── machines/machine-list               Ready, while signed in; key: account id
 ├── actors/sidebar                      Ready, always
 ├── actors/header                       Ready, always
-├── actors/project-picker               Ready, always
-├── actors/session-switcher             Ready, always
-├── actors/session-actions              Ready, always
-├── actors/microphone-picker            Ready, always
+├── actors/pickers/project-picker       Ready, always
+├── actors/pickers/session-switcher     Ready, always
+├── actors/pickers/session-actions      Ready, always
+├── actors/pickers/microphone-picker    Ready, always
 ├── actors/dictation                    Ready, always
 ├── pages/home                          while the URL names it
 ├── pages/settings                      while the URL names it
@@ -92,7 +93,7 @@ sidebar ─ Worker: unsettle, while one is asked ─────▶ Sends Unsett
 **Commands**: signIn: ends with SignInFailed or nothing; keepAccounts: once Accounts are signed in, and each time one is signed out, keeps only their records; askDictation: ends with nothing; Router.push
 **Workers**: accounts: always, at the top, Sends Signed; read: in Reading, Sends BindingsRead; bindings: in Ready, Sends BindingsRead when the Bindings change
 **Requires**: Navigation, DeviceState, Accounts, Store, SavedMachines, Machines, Dictations
-**Provides**: CurrentAccount, at the top, from the Account Switcher; Replicas and AiClients, at the top, from `services/reach.ts`
+**Provides**: CurrentAccount, at the top, from the Account Switcher; Replicas and AiClients, at the top, from `machines/reach.ts`
 **Services**: reach: holds a Machine's Instance only while it is listed, and dials each Machine at its listed address
 **Children**: account, replicas: always; machine-list: in Ready, while signed in, key the account id; the other Actors in the Tree: in Ready, always
 **View**: Reading: nothing. Ready: signing in while nobody is signed in; else the App Shell, with each part handed its own Instance
@@ -102,7 +103,7 @@ sidebar ─ Worker: unsettle, while one is asked ─────▶ Sends Unsett
 - **The root keeps only the account, the Bindings and `back`**, because every other datum is read by one part, and the root's View draws the whole frame. Caveat: each Child follows its own source, so the same source is read by more than one Worker.
 - **Bindings are a State's data, not Model**, because they exist only once read, and nothing is drawn before. Caveat: none.
 - **`Replicas` and `AiClients` are root Provides, not the app Layer's**, because `Replicas.child` is a root Child and the library pairs them. Caveat: the root's own Workers cannot use them; none needs to.
-- **The router is in `src/pages.ts`**, read down from the root's definition. Caveat: none.
+- **The router is the root's, in `src/shell/router.ts`**, read down from the root's definition and handed out by its door as `Shell.router`. Caveat: none.
 - **Dictation asks go through the `Dictations` queue the root fills**, because the asks come from Views across the tree, and `Took` comes from the Draft's editor, which holds no Dictation handle. Caveat: it is a parent reaching a Child by a side channel.
 
 ## machine-list
@@ -197,7 +198,7 @@ Home and Machine Settings follow `Machines`. Each per-Machine Child gets its Mac
 ### Decisions
 
 - **The Draft is one Actor, a Child of each page that has one**, because typing, picking and dictating then change only its own Model, and only it draws again. Caveat: its folder is in `project/`, and the session page reaches it by a Laymos Rule.
-- **Code shared by Actors and not an Actor is a plain Module with no prefix**, in the lowest Actor folder that holds every user (`project/draft/`, `project/model-picker/`, `shell/connection/`, `shell/places/`), or in `src/` when the entry file or a service uses it too. Caveat: its users below reach it by a Laymos Rule, an import upward.
+- **Code shared by Actors and not an Actor is a plain Module with no prefix**, in the lowest Actor folder that holds every user (`project/capabilities/catalog/`, `actors/moves/`, `shell/machines/`, `shell/routes/`), or in `src/` when the entry file or a service uses it too. Caveat: its users below reach it by a Laymos Rule, an import upward.
 
 ## project/draft
 
