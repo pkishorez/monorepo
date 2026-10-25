@@ -9,7 +9,7 @@ One way to choose something, made of Steps: choosing a row finishes it or opens 
 _Avoid_: palette, finder, chooser, menu, dropdown
 
 **Picker Mode**:
-How a Picker is drawn when opened by touch, or always on a device with no keyboard and no mouse, chosen by whoever opens it: a Drawer, rising from the bottom with a few choices and no search, or, tall, three quarters of the screen whatever it holds, with a search above a long list; or a Dialog, at the top with its search box above the list, typed into only once tapped. A Dialog appears and goes without motion.
+How a Picker is drawn when opened by touch, or always on a device with no keyboard and no mouse, chosen by whoever opens it: a Drawer, rising from the bottom with a few choices and no search, or, tall, three quarters of the screen whatever it holds, a long list tapped through with no search; or a Dialog, at the top with its search box above the list, typed into only once tapped. A Dialog appears and goes without motion.
 _Avoid_: tray, shade, sheet, bottom sheet
 
 **Step**:
