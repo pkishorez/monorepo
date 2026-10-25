@@ -43,5 +43,4 @@ export const codex: Harness = {
   project,
 };
 
-export { codexOneShot } from './one-shot/index.js';
-export { restore, type StreamPointer } from './thread/index.js';
+export { codexOneShot, restore, type StreamPointer } from './thread/index.js';

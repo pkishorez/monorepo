@@ -17,7 +17,7 @@ import {
   type SdkTurn,
   type SdkTurnHandle,
 } from './agent/index.js';
-import { ask, fork } from './session-files/index.js';
+import { ask, fork } from './fork/index.js';
 import { readSettings, SETTINGS } from './settings.js';
 
 /** A dated snapshot such as `claude-opus-4-5-20251101` repeats its alias. */
