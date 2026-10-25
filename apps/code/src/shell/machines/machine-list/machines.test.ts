@@ -183,6 +183,8 @@ describe('Machine List', () => {
       Effect.gen(function* () {
         const saved = yield* SavedMachines;
         yield* saved.write('a1', [machine('m1', 1)]);
+        yield* saved.keepSettings('a1', 'm1', { speech: { _tag: 'Off' } });
+        yield* saved.keepSettings('a1', 'm2', { speech: { _tag: 'Off' } });
         const app = yield* start(OwnerLive, layer);
         yield* wait();
         expect(listModel(app).machines?.map(({ id }) => id)).toEqual(['m1']);
@@ -197,6 +199,11 @@ describe('Machine List', () => {
         ]);
         expect(yield* saved.read('a1')).toHaveLength(2);
         expect(kept).toEqual([{ accountId: 'a1', machineIds: ['m2', 'm3'] }]);
+        // A Machine gone from the first list takes its settings with it.
+        expect((yield* saved.settings('a1', 'm1')).speech).toBeNull();
+        expect((yield* saved.settings('a1', 'm2')).speech).toEqual({
+          _tag: 'Off',
+        });
       }),
     );
   });
@@ -232,12 +239,15 @@ describe('Machine List', () => {
     );
   });
 
-  it('forgets a Machine at Cloud Connect, takes it out of the list, then deletes its records here', async () => {
+  it('forgets a Machine at Cloud Connect, takes it out of the list, then deletes its records and settings here', async () => {
     const { layer, forgotten, kept, dropped } = world(
       Effect.succeed([machine('m1', 5), machine('m2', 1)]),
     );
     await run(
       Effect.gen(function* () {
+        const saved = yield* SavedMachines;
+        yield* saved.keepSettings('a1', 'm1', { speech: { _tag: 'Off' } });
+        yield* saved.keepSettings('a1', 'm2', { speech: { _tag: 'Off' } });
         const app = yield* start(OwnerLive, layer);
         yield* wait();
         app.send(list(app).id, { _tag: 'ForgetAsked', id: 'm1' });
@@ -245,6 +255,8 @@ describe('Machine List', () => {
         expect(forgotten).toEqual(['m1']);
         // Its records alone: another tab may list a Machine not heard of here.
         expect(dropped).toEqual(['m1']);
+        expect((yield* saved.settings('a1', 'm1')).speech).toBeNull();
+        expect((yield* saved.settings('a1', 'm2')).speech).not.toBeNull();
         expect(kept).toHaveLength(1);
         expect(listModel(app).machines?.map(({ id }) => id)).toEqual(['m2']);
       }),

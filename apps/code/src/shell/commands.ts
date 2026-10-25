@@ -28,8 +28,8 @@ export const signIn = Command.make('SignIn', {
 });
 
 /**
- * Keeps the records and Saved Drafts of the Accounts signed in on this
- * device and deletes every other's; an Account signed out also has its
+ * Keeps the records, Machine settings and Saved Drafts of the Accounts
+ * signed in on this device and deletes every other's; an Account signed out also has its
  * list of Machines emptied. Best effort.
  */
 export const keepAccounts = Command.make('KeepAccounts', {
@@ -44,6 +44,7 @@ export const keepAccounts = Command.make('KeepAccounts', {
         discard: true,
       });
       yield* (yield* AccountReplicas).keepAccounts(accountIds);
+      yield* saved.keepAccounts(accountIds);
       yield* (yield* SavedDrafts).keepAccounts(accountIds);
     }),
 });
