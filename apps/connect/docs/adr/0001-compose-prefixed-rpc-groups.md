@@ -4,7 +4,7 @@ Moved from toolkits/ai-toolkit/docs/adr/0004
 
 Status: accepted.
 
-`CodeApi` is one Effect RpcGroup merged from six, each in its own file under `src/code/api/contract/`: `harnesses` (what each Coding Harness offers, and its Harness Binary), `projects`, `sessions` (started, forked, Settled, asked, and how they stand), `turns` (messages sent and the Messages they emit), `jobs` (Background Jobs) and `folders` (the home folder's sub-folders, listed and made). Procedures keep plain verb-first names (`listFolder`, `settleSession`), unique across the groups, so the client stays one flat object (`api.listFolder`) and one handler Layer serves them all.
+`CodeApi` is one Effect RpcGroup merged from six, each in its own file under `src/machine/code/api/contract/`: `harnesses` (what each Coding Harness offers, and its Harness Binary), `projects`, `sessions` (started, forked, Settled, asked, and how they stand), `turns` (messages sent and the Messages they emit), `jobs` (Background Jobs) and `folders` (the home folder's sub-folders, listed and made). Procedures keep plain verb-first names (`listFolder`, `settleSession`), unique across the groups, so the client stays one flat object (`api.listFolder`) and one handler Layer serves them all.
 
 ## Considered options
 
