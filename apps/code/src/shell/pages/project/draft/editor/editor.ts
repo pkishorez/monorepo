@@ -1,6 +1,7 @@
 import {
   defaultKeymap,
   history,
+  historyField,
   historyKeymap,
   undo,
 } from '@codemirror/commands';
@@ -50,8 +51,13 @@ import { skillChange, slashTrigger } from './slash.ts';
  * the one it held, its selection and history with it, and shows the other
  * as it was left, or from `text` and `selection` the first time, in the
  * same field, so focus stays. A Dictation's placeholder goes with it to
- * the text shown.
+ * the text shown. The texts not shown are kept in `held`, which may
+ * outlast the editor: one drawn anew with the same `held` and `doc` takes
+ * its text up as it was left, its undo history with it.
  */
+
+/** The texts an editor does not show, as they were left, by `doc`. */
+export type Held = Map<string, EditorState>;
 
 /** A cursor, or a selection from `anchor` to `head`. */
 export interface Selected {
@@ -63,6 +69,8 @@ interface EditorOptions {
   readonly text: string;
   /** Which text it holds; null when it only ever holds one. */
   readonly doc?: string | null;
+  /** Where the texts not shown are kept; its own, unless given one that outlasts it. */
+  readonly held?: Held;
   /** Where the cursor starts in a text first shown; else at its end. */
   readonly selection?: Selected | null;
   readonly onTextChange: (text: string, selection: Selected) => void;
@@ -162,81 +170,121 @@ export function useEditor(options: EditorOptions): {
     current.requestMeasure();
   }, []);
 
-  // A fresh state for a text, as the options are now.
+  // A fresh state for a text, as the options are now; or the one left, its
+  // text, selection and history taken over.
   const stateOf = useCallback(
-    (text: string, selection: Selected | null | undefined) => {
+    (
+      text: string,
+      selection: Selected | null | undefined,
+      left?: EditorState,
+    ) => {
       const options = latest.current;
-      return EditorState.create({
-        doc: text,
-        selection: within(selection, text.length),
-        extensions: [
-          history(),
-          drawSelection(),
-          insertMark,
-          dictation,
-          retrying.of((id) => latest.current.onRetry(id)),
-          // Before any keymap: a key the page takes is not the editor's.
-          Prec.highest(
-            EditorView.domEventHandlers({
-              keydown: (event, view) => {
-                if (view.composing) return false;
-                const pressed = shortcutOf(event);
-                return (
-                  pressed !== null &&
-                  latest.current.typingKeys(describe(pressed))
-                );
-              },
-            }),
-          ),
-          sendKeys(() => latest.current.onSend()),
-          keymap.of([
-            {
-              key: 'Escape',
-              run: () => latest.current.onEscape?.() ?? false,
+      const extensions = [
+        history(),
+        drawSelection(),
+        insertMark,
+        dictation,
+        retrying.of((id) => latest.current.onRetry(id)),
+        // Before any keymap: a key the page takes is not the editor's.
+        Prec.highest(
+          EditorView.domEventHandlers({
+            keydown: (event, view) => {
+              if (view.composing) return false;
+              const pressed = shortcutOf(event);
+              return (
+                pressed !== null && latest.current.typingKeys(describe(pressed))
+              );
             },
-            ...defaultKeymap,
-            ...historyKeymap,
-          ]),
-          EditorView.lineWrapping,
-          theme,
-          slashTrigger((at) => latest.current.onSlash(at)),
-          parts.attributes.of(attributes(options)),
-          parts.editable.of(editable(options)),
-          parts.atoms.of(options.atoms),
-          EditorView.updateListener.of((update) => {
-            if (update.transactions.some((each) => each.annotation(fromProps)))
-              return;
-            if (update.docChanged)
-              latest.current.onTextChange(
-                update.state.doc.toString(),
-                selectedIn(update.state),
-              );
-            else if (update.selectionSet)
-              latest.current.onSelect?.(
-                update.state.doc.toString(),
-                selectedIn(update.state),
-              );
           }),
-        ],
-      });
+        ),
+        sendKeys(() => latest.current.onSend()),
+        keymap.of([
+          {
+            key: 'Escape',
+            run: () => latest.current.onEscape?.() ?? false,
+          },
+          ...defaultKeymap,
+          ...historyKeymap,
+        ]),
+        EditorView.lineWrapping,
+        theme,
+        slashTrigger((at) => latest.current.onSlash(at)),
+        parts.attributes.of(attributes(options)),
+        parts.editable.of(editable(options)),
+        parts.atoms.of(options.atoms),
+        EditorView.updateListener.of((update) => {
+          if (update.transactions.some((each) => each.annotation(fromProps)))
+            return;
+          if (update.docChanged)
+            latest.current.onTextChange(
+              update.state.doc.toString(),
+              selectedIn(update.state),
+            );
+          else if (update.selectionSet)
+            latest.current.onSelect?.(
+              update.state.doc.toString(),
+              selectedIn(update.state),
+            );
+        }),
+      ];
+      return left === undefined
+        ? EditorState.create({
+            doc: text,
+            selection: within(selection, text.length),
+            extensions,
+          })
+        : EditorState.fromJSON(
+            left.toJSON({ history: historyField }),
+            { extensions },
+            { history: historyField },
+          );
     },
     [parts],
   );
 
-  // The texts not shown, as they were left, by `doc`.
-  const held = useRef(new Map<string, EditorState>());
+  const own = useRef<Held>(new Map());
+  const held = options.held ?? own.current;
   const shown = useRef(options.doc ?? null);
 
-  useEffect(() => {
+  /** The state shown, kept as it is left, without a Dictation's placeholder. */
+  const keep = (current: EditorView) => {
+    if (shown.current === null) return null;
+    const awaited = awaitedIn(current.state);
+    held.set(
+      shown.current,
+      awaited === null
+        ? current.state
+        : current.state.update({ effects: awaiting.of(null) }).state,
+    );
+    return awaited;
+  };
+
+  /** The state of `doc` as it was left, or a fresh one; and what changed since. */
+  const takeUp = (doc: string | null) => {
     const options = latest.current;
+    const left = doc === null ? undefined : held.get(doc);
+    const next = stateOf(options.text, options.selection, left);
+    return { next, changes: difference(next.doc.toString(), options.text) };
+  };
+
+  useEffect(() => {
+    const { next, changes } = takeUp(shown.current);
     const created = new EditorView({
       parent: parent.current!,
-      state: stateOf(options.text, options.selection),
+      state:
+        changes === null
+          ? next
+          : next.update({
+              changes,
+              selection: next.selection.map(next.changes(changes), 1),
+              annotations: Transaction.addToHistory.of(false),
+            }).state,
     });
     view.current = created;
-    const unmark = options.spot(created.contentDOM);
+    const unmark = latest.current.spot(created.contentDOM);
     return () => {
       unmark?.();
+      keep(created);
       created.destroy();
       view.current = null;
     };
@@ -247,22 +295,12 @@ export function useEditor(options: EditorOptions): {
   useEffect(() => {
     const current = view.current;
     if (current === null || shown.current === doc) return;
-    const awaited = awaitedIn(current.state);
-    if (shown.current !== null)
-      held.current.set(
-        shown.current,
-        awaited === null
-          ? current.state
-          : current.state.update({ effects: awaiting.of(null) }).state,
-      );
+    const awaited = keep(current);
     shown.current = doc;
     const options = latest.current;
-    const next =
-      (doc === null ? undefined : held.current.get(doc)) ??
-      stateOf(options.text, options.selection);
+    const { next, changes } = takeUp(doc);
     current.setState(next);
     // Set while it was not shown, as a text cleared once sent.
-    const changes = difference(next.doc.toString(), options.text);
     current.dispatch({
       ...(changes === null
         ? {}

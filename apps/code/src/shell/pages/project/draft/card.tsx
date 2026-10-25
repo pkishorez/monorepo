@@ -16,7 +16,12 @@ import {
   useAttachments,
   type Attachment,
 } from './attachments/index.ts';
-import { slashAtoms, useEditor, type Selected } from './editor/index.ts';
+import {
+  type Held,
+  slashAtoms,
+  useEditor,
+  type Selected,
+} from './editor/index.ts';
 import type { Insert } from './message.ts';
 import { useTransfers } from './transfer.ts';
 
@@ -71,6 +76,8 @@ interface DraftOptions {
   readonly onTextChange: (text: string, selection: Selected) => void;
   /** Which Draft Mode's text it shows; each keeps its own cursor and history. */
   readonly doc?: string;
+  /** Where the texts not shown are kept, to outlast the card as it is drawn anew. */
+  readonly held?: Held;
   /** Where the cursor starts in a text first shown. */
   readonly selection?: Selected;
   readonly onSelect?: (text: string, selection: Selected) => void;
@@ -211,6 +218,7 @@ export function useDraft(options: DraftOptions) {
   const editor = useEditor({
     text,
     doc: options.doc ?? null,
+    ...(options.held === undefined ? {} : { held: options.held }),
     selection: options.selection ?? null,
     onTextChange: options.onTextChange,
     ...(options.onSelect === undefined ? {} : { onSelect: options.onSelect }),
