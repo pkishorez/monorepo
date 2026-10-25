@@ -39,13 +39,13 @@ export const SpeechToTextView = View.make(
             <label
               id={`${id}-name`}
               htmlFor={id}
-              className="text-sm font-semibold"
+              className="text-sm font-medium"
             >
               Speech to Text
             </label>
-            <p className="text-sm text-muted-foreground">
-              Dictations are written out on this Machine. Turning it on
-              downloads a model of about 460 MB; turning it off deletes it.
+            <p className="text-xs text-muted-foreground">
+              Writes out Dictations on this Machine, with a 460 MB model it
+              downloads when on and deletes when off.
             </p>
           </div>
           {state !== null && (

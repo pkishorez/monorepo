@@ -21,6 +21,7 @@ export {
   type Connection,
   DOWN_AFTER,
   health,
+  type Health,
   outOfReach,
   socketUrl,
   statusOf,

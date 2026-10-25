@@ -18,8 +18,7 @@ import { revealInView } from '@kestack/use-keys/surfaces';
 import { Fragment, useEffect, useLayoutEffect, useRef } from 'react';
 import { keys } from '../../keys.ts';
 import {
-  finishes,
-  finishingWith,
+  finishedOn,
   Message,
   outcomeOf,
   settles,
@@ -37,7 +36,7 @@ import { useDrawn } from './shape.ts';
  * under their headings. The actor holds the query and the highlighted row;
  * cmdk only draws them. Every key is an Action of the Surface, taken before
  * cmdk hears it, so each can be rebound: Enter picks, Ctrl+L goes into
- * the row's next Step and never finishes, Mod+Enter finishes, the arrows
+ * the row's next Step and never finishes, Mod+Enter finishes on it, the arrows
  * and Ctrl+N/Ctrl+P move, Ctrl+H or Backspace in an empty search goes back
  * a Step, and Escape clears the search, then leaves the Surface, which
  * closes it. Leaving it by a pick that finishes, or by finishing, is done
@@ -56,7 +55,8 @@ import { useDrawn } from './shape.ts';
  * the search waits to be tapped, unless its Frame opts in with
  * `focusOnTouch`, when the Dialog focuses it once it is on screen. With no
  * Mod+Enter to finish with, a Step that finishes on itself has a button
- * at the foot that does.
+ * at the foot that does, and, when it says so, one on each row that opens
+ * a Step, which finishes on that row as Mod+Enter on it does.
  */
 
 // The keys cmdk picks and moves with, which are the Surface's to decide.
@@ -95,10 +95,12 @@ export function List<P>({
     if (outcome._tag === 'Finish' && !waits)
       close([...model.choices, outcome.choice]);
   };
-  const finish = () => {
-    if (!finishes(spec, model, props)) return;
-    send({ _tag: 'Finished' });
-    if (!waits) close(finishingWith(spec, model, props));
+  // On the row `on`, or with null on the Step itself.
+  const finish = (on: string | null) => {
+    const ended = finishedOn(spec, model, props, on);
+    if (ended === null) return;
+    send({ _tag: 'Finished', on });
+    if (!settles(spec, ended.model)) close(ended.choices);
   };
   // A choice the owner settled finishes once taken: leaving the Surface
   // closes it, and then the owner hears.
@@ -119,7 +121,7 @@ export function List<P>({
   });
   keys.useAction('picker.pick', () => pick(highlighted));
   keys.useAction('picker.into', into);
-  keys.useAction('picker.finish', finish);
+  keys.useAction('picker.finish', () => finish(highlighted || null));
   keys.useAction('picker.next', () => send({ _tag: 'Moved', by: 1 }));
   keys.useAction('picker.previous', () => send({ _tag: 'Moved', by: -1 }));
   const hint = useHints();
@@ -269,7 +271,12 @@ export function List<P>({
                   onSelect={() => pick(entry.value)}
                   className="items-start data-quiet:opacity-60"
                 >
-                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span
+                    className={cn(
+                      'flex min-w-0 flex-1 flex-col',
+                      touch ? 'gap-1' : 'gap-0.5',
+                    )}
+                  >
                     <span className="flex min-w-0 items-baseline gap-2">
                       <span className="max-w-full shrink-0 truncate font-medium">
                         <Highlighted text={entry.label} matched={matched} />
@@ -281,11 +288,37 @@ export function List<P>({
                       )}
                     </span>
                     {(entry.unavailable ?? entry.detail) !== undefined && (
-                      <span className="truncate text-xs text-muted-foreground">
+                      <span
+                        className={cn(
+                          'truncate text-muted-foreground',
+                          touch ? 'text-sm' : 'text-xs',
+                        )}
+                      >
                         {entry.unavailable ?? entry.detail}
                       </span>
                     )}
                   </span>
+                  {/* The row itself goes into it; this finishes on it. A
+                      shortcut for a finger alone: inside an option, the
+                      keys and screen readers go in and use the foot's. */}
+                  {touch &&
+                    shown.doneOnRow !== null &&
+                    outcomeOf(spec, model, props, entry.value)._tag ===
+                      'Next' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        tabIndex={-1}
+                        aria-hidden
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          finish(entry.value);
+                        }}
+                        className="-my-1.5 h-11 shrink-0 px-4 text-sm"
+                      >
+                        {shown.doneOnRow}
+                      </Button>
+                    )}
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -308,11 +341,11 @@ export function List<P>({
           )}
         </CommandList>
         {touch && shown.done !== null && (
-          <div className="shrink-0 border-t border-border p-3">
+          <div className="shrink-0 border-t border-border p-4">
             <Button
-              className="h-11 w-full text-base"
-              disabled={!finishes(spec, model, props)}
-              onClick={finish}
+              className="h-12 w-full text-base"
+              disabled={finishedOn(spec, model, props, null) === null}
+              onClick={() => finish(null)}
             >
               {shown.done}
             </Button>

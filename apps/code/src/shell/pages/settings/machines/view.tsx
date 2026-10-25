@@ -17,19 +17,29 @@ import { SpeechToText } from './speech-to-text/index.ts';
 type Machine = typeof MachineSchema.Type;
 
 /*
- * Settings → Machines: one section per Machine, drawn at once from the
- * list: its name, when it was last seen, its Machine Status, and
- * Forget, which asks first; then its own settings, its agents' binaries
- * and its Speech to Text switch, each loading on its own, so one that does
- * not answer says so in its own section. Below,
+ * Settings → Machines: one card per Machine, drawn at once from the list:
+ * its name, and a line with a dot for whether it is up, its Machine
+ * Status and its version, and a quiet Forget, which asks first; then,
+ * each between rules, its agents' binaries and its Speech to Text switch,
+ * each loading on its own, so one that does not answer says so in its own
+ * place. Below,
  * outside Local mode, the way to the Auth Worker's Home Page, where a
  * Machine's Sign-in is revoked outright.
  */
 
+const isDown = (machine: Machine, now: number) =>
+  now - machine.lastSeen > DOWN_AFTER;
+
 const lastSeen = (machine: Machine, now: number) =>
-  now - machine.lastSeen > DOWN_AFTER
-    ? `Last seen ${ago(machine.lastSeen, now)}`
-    : 'Online';
+  isDown(machine, now) ? `Last seen ${ago(machine.lastSeen, now)}` : 'Online';
+
+/** The dot's colour: down, its tunnel working, or on its way or broken. */
+const toneOf = (machine: Machine, now: number) =>
+  isDown(machine, now)
+    ? 'bg-destructive'
+    : machine.status._tag === 'Reachable'
+      ? 'bg-positive'
+      : 'bg-warning';
 
 /** The real clock, every few seconds, for each Last Seen. */
 const useNow = () => {
@@ -57,9 +67,7 @@ export const MachineSettingsView = View.make(
           <div className="flex flex-1 flex-col gap-1">
             <h2 className="text-sm font-semibold">Machines</h2>
             <p className="text-sm text-muted-foreground">
-              The computers your sessions run on, each with its own settings.
-              Forgetting one signs it out and deletes what this device keeps of
-              it.
+              The computers your sessions run on.
             </p>
           </div>
           <Button
@@ -76,7 +84,7 @@ export const MachineSettingsView = View.make(
         ) : model.machines.length === 0 ? (
           <p className="text-sm text-muted-foreground">No Machines.</p>
         ) : (
-          <ul className="flex flex-col gap-6">
+          <ul className="flex flex-col gap-4">
             {model.machines.map((machine) => {
               const settings = children.binaries.find(
                 ({ key }) => key === machine.id,
@@ -87,22 +95,33 @@ export const MachineSettingsView = View.make(
               return (
                 <li
                   key={machine.id}
-                  className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:p-5"
+                  className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card *:p-4 sm:*:px-5"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="truncate text-sm font-medium">
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="truncate text-sm font-semibold">
                         {machine.name}
                       </span>
-                      <span className="truncate text-xs text-muted-foreground">
-                        {lastSeen(machine, now)} · {statusOf(machine.status)} ·
-                        ke-connect {machine.version}
+                      <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                        <span
+                          aria-hidden
+                          className={`size-1.5 shrink-0 rounded-full ${toneOf(machine, now)}`}
+                        />
+                        <span
+                          className="truncate"
+                          title={statusOf(machine.status)}
+                        >
+                          {lastSeen(machine, now)} · {statusOf(machine.status)}
+                        </span>
+                        <span className="shrink-0 tabular-nums opacity-70">
+                          v{machine.version}
+                        </span>
                       </span>
                     </div>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-11 text-destructive keyboard:h-8"
+                      className="h-11 text-muted-foreground hover:text-destructive keyboard:h-8"
                       aria-label={`Forget ${machine.name}`}
                       onClick={() =>
                         open(() => send({ _tag: 'Ask', id: machine.id }))

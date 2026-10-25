@@ -1,27 +1,24 @@
 import type { HarnessBinary } from '@kestack/connect/code';
 import { View, type ViewProps } from '@kestack/kabuki/react';
-import { Badge } from '@kestack/web-platform/ui/components/badge';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { Input } from '@kestack/web-platform/ui/components/input';
-import {
-  CircleAlertIcon,
-  CircleCheckIcon,
-} from '@kestack/web-platform/ui/components/lucide';
+import { CircleAlertIcon } from '@kestack/web-platform/ui/components/lucide';
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
+import { useEffect, useState } from 'react';
 import { ago } from '../../../../../ui/time/index.ts';
 import { outOfReach } from '../../../../../layer/capabilities/index.ts';
 import { useHealth } from '../../../../machines/index.ts';
 import { HarnessBinariesLive } from './actor.ts';
 
 /*
- * One Machine's agents' binaries, one card each. It says what runs now (the
- * path, and its version or why it does not run) and whether that is the
- * agent's default. A path typed is saved only once the Machine has run it;
- * a refusal shows under the field, which keeps what was typed. "Use
- * default" forgets the path set. Until they are read, a quiet skeleton of
- * the cards while the Machine answers, and, while it does not, a line that
- * says so.
+ * One Machine's agents' binaries, a row each: the agent, the version that
+ * runs, and the path, marked Custom when it is not the agent's default, or
+ * why it does not run. "Change" opens a field for the path; a path typed
+ * is saved only once the Machine has run it, which closes the field, and a
+ * refusal shows under it, which keeps what was typed. "Use default"
+ * forgets the path set. Until they are read, a quiet skeleton of the rows
+ * while the Machine answers, and, while it does not, a line that says so.
  */
 
 const AGENT = { claude: 'Claude', codex: 'Codex' } as const;
@@ -38,62 +35,82 @@ function Binary({
   const saving = model.saving === harness;
   const value = model.drafts[harness] ?? configuredPath ?? '';
   const changed = value.trim() !== (configuredPath ?? '');
+  const [editing, setEditing] = useState(false);
+  // A path saved, or forgotten, closes the field.
+  useEffect(() => setEditing(false), [configuredPath]);
+  const open = editing || problem !== null;
+  const close = () => {
+    setEditing(false);
+    send({ _tag: 'Typed', harness, path: configuredPath ?? '' });
+  };
   return (
-    <section
-      aria-labelledby={`${id}-name`}
-      className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-xs sm:p-5"
-    >
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center gap-2">
-          <h3 id={`${id}-name`} className="text-sm font-semibold">
-            {AGENT[harness]}
-          </h3>
-          {resolved.isDefault ? (
-            <Badge variant="secondary">Default</Badge>
-          ) : (
-            <Badge variant="outline">Custom path</Badge>
-          )}
-          {resolved.error === null && resolved.version !== null && (
-            <span className="ml-auto flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
-              <CircleCheckIcon
-                aria-hidden
-                className="size-3.5 shrink-0 text-positive"
-              />
-              <span className="truncate" title={resolved.version}>
+    <section aria-labelledby={`${id}-name`} className="flex flex-col gap-3">
+      <div className="flex items-start gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex min-w-0 items-baseline gap-2">
+            <h4 id={`${id}-name`} className="text-sm font-medium">
+              {AGENT[harness]}
+            </h4>
+            {resolved.error === null && resolved.version !== null && (
+              <span
+                className="truncate text-xs text-muted-foreground tabular-nums"
+                title={resolved.version}
+              >
                 {resolved.version}
               </span>
-            </span>
+            )}
+          </div>
+          <p
+            title={resolved.path ?? undefined}
+            className="truncate font-mono text-xs text-muted-foreground"
+          >
+            {!resolved.isDefault && (
+              <span className="font-sans font-medium text-foreground">
+                Custom ·{' '}
+              </span>
+            )}
+            {resolved.path ?? 'No binary found'}
+          </p>
+          {resolved.error !== null && (
+            <p className="flex items-start gap-2 text-sm text-destructive">
+              <CircleAlertIcon
+                aria-hidden
+                className="mt-0.5 size-3.5 shrink-0"
+              />
+              <span className="min-w-0 break-words">{resolved.error}</span>
+            </p>
           )}
         </div>
-        <p
-          title={resolved.path ?? undefined}
-          className="truncate font-mono text-xs text-muted-foreground"
-        >
-          {resolved.path ?? 'No binary found'}
-        </p>
-        {resolved.error !== null && (
-          <p className="flex items-start gap-2 text-sm text-destructive">
-            <CircleAlertIcon aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-            <span className="min-w-0 break-words">{resolved.error}</span>
-          </p>
+        {!open && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-label={`Change the path of ${AGENT[harness]}`}
+            className="-my-1 h-11 shrink-0 text-muted-foreground keyboard:h-8"
+            onClick={() => setEditing(true)}
+          >
+            Change
+          </Button>
         )}
       </div>
-      <form
-        noValidate
-        className="flex flex-col gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          send({ _tag: 'Save', harness });
-        }}
-      >
-        <label htmlFor={id} className="text-sm font-medium">
-          Custom path
-        </label>
-        <div className="flex flex-wrap gap-2">
+      {open && (
+        <form
+          noValidate
+          className="flex flex-col gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            send({ _tag: 'Save', harness });
+          }}
+        >
+          <label htmlFor={id} className="sr-only">
+            Path of {AGENT[harness]}
+          </label>
           <Input
             id={id}
             autoComplete="off"
             spellCheck={false}
+            autoFocus
             placeholder={`/path/to/${harness}`}
             value={value}
             disabled={saving}
@@ -102,22 +119,49 @@ function Binary({
             onChange={(event) =>
               send({ _tag: 'Typed', harness, path: event.currentTarget.value })
             }
-            className="h-11 min-w-0 flex-1 basis-64 font-mono text-base keyboard:h-9 md:text-base keyboard:md:text-[13px]"
+            className="h-11 min-w-0 font-mono text-base keyboard:h-9 md:text-base keyboard:md:text-[13px]"
           />
-          <div className="flex gap-2">
+          {problem !== null ? (
+            <p
+              id={`${id}-problem`}
+              role="alert"
+              className="flex items-start gap-1.5 text-sm text-destructive"
+            >
+              <CircleAlertIcon
+                aria-hidden
+                className="mt-0.5 size-3.5 shrink-0"
+              />
+              {problem}
+            </p>
+          ) : (
+            <p id={`${id}-hint`} className="text-xs text-muted-foreground">
+              The Machine runs it with --version before saving. Sessions started
+              after a change use it.
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="submit"
-              className="h-11 keyboard:h-9"
+              className="h-11 keyboard:h-8"
               disabled={model.saving !== null || !changed}
             >
               {saving && model.drafts[harness] !== undefined && <Spinner />}
-              Save
+              Save path
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-11 keyboard:h-8"
+              disabled={model.saving !== null}
+              onClick={close}
+            >
+              Cancel
             </Button>
             {configuredPath !== null && (
               <Button
                 type="button"
                 variant="ghost"
-                className="h-11 keyboard:h-9"
+                className="ml-auto h-11 text-muted-foreground keyboard:h-8"
                 disabled={model.saving !== null}
                 onClick={() => send({ _tag: 'UseDefault', harness })}
               >
@@ -126,23 +170,8 @@ function Binary({
               </Button>
             )}
           </div>
-        </div>
-        {problem !== null ? (
-          <p
-            id={`${id}-problem`}
-            role="alert"
-            className="flex items-start gap-1.5 text-sm text-destructive"
-          >
-            <CircleAlertIcon aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-            {problem}
-          </p>
-        ) : (
-          <p id={`${id}-hint`} className="text-xs text-muted-foreground">
-            The Machine runs it with --version before saving. Sessions started
-            after a change use it.
-          </p>
-        )}
-      </form>
+        </form>
+      )}
     </section>
   );
 }
@@ -152,14 +181,8 @@ export const HarnessBinariesView = View.make(
   ({ root, model, send }) => {
     const health = useHealth(model.machineId);
     return (
-      <div {...root} className="flex flex-col gap-4">
-        <header className="flex flex-col gap-1">
-          <h3 className="text-sm font-semibold">Agents</h3>
-          <p className="text-sm text-muted-foreground">
-            The program each agent runs as on this Machine. Leave it on the
-            default unless you keep your own build.
-          </p>
-        </header>
+      <div {...root} className="flex flex-col gap-3">
+        <h3 className="text-xs font-medium text-muted-foreground">Agents</h3>
         {model.loadProblem !== null ? (
           <p
             role="alert"
@@ -183,21 +206,17 @@ export const HarnessBinariesView = View.make(
               here once it is back.
             </p>
           ) : (
-            <div className="flex flex-col gap-4" aria-busy>
+            <div className="flex flex-col gap-5" aria-busy>
               {['claude', 'codex'].map((name) => (
-                <div
-                  key={name}
-                  className="flex flex-col gap-4 rounded-xl border border-border p-5"
-                >
+                <div key={name} className="flex flex-col gap-2">
                   <Skeleton className="h-4 w-32" />
                   <Skeleton className="h-3 w-64" />
-                  <Skeleton className="h-9 w-full" />
                 </div>
               ))}
             </div>
           )
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-5">
             {model.binaries.map((binary) => (
               <Binary
                 key={binary.harness}

@@ -11,6 +11,7 @@ import {
 } from '@kestack/web-platform/ui/components/select';
 import { createContext, type ReactNode, use, useEffect } from 'react';
 import { notify } from '../../../ui/toast/index.ts';
+import { instanceOf } from '../../machines/index.ts';
 import type { Route } from '../../routes/index.ts';
 import { refusedKey, shownOf, SidebarLive } from './actor.ts';
 import { Places } from './sidebar.tsx';
@@ -83,8 +84,17 @@ export const SidebarView = View.make(
         description: refused.reason,
       });
     }, [refused?.n]);
-    // Never listed on this device yet: a skeleton meanwhile.
-    const neverListed = model.machines === null && model.problem === null;
+    // The Machines shown whose Projects never synced here, each said as it
+    // comes up; null while none was ever listed on this device.
+    const neverSynced = new Set(projects?.neverSynced ?? []);
+    const waiting =
+      model.machines === null && model.problem === null
+        ? null
+        : (model.machines ?? []).filter(
+            ({ id }) =>
+              (shown === null || id === shown) &&
+              neverSynced.has(instanceOf(id)),
+          );
     return (
       <>
         <MachineFilter
@@ -103,7 +113,7 @@ export const SidebarView = View.make(
             route={route}
             projects={{
               rows: (projects?.rows ?? []).map(({ row }) => row),
-              loading: neverListed || (projects?.neverSynced.length ?? 0) > 0,
+              waiting,
             }}
             sessions={movedOf(synced, model.moving)}
             isUnseen={(each) =>

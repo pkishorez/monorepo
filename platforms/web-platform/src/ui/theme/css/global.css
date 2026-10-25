@@ -69,3 +69,19 @@
     );
   }
 }
+
+/*
+ * A field a finger types in is never under 16px, so iOS never zooms the
+ * page in on it as it takes focus, and pinch zoom stays. Outside any
+ * layer, it wins over the utilities that size it smaller.
+ */
+@media (pointer: coarse) {
+  :is(
+    input,
+    textarea,
+    select,
+    [contenteditable]:not([contenteditable='false'])
+  ) {
+    font-size: max(16px, 1em);
+  }
+}

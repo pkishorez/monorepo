@@ -36,8 +36,9 @@ import { useVisibleViewport } from './visible-viewport.ts';
  * and, in a Top Dialog, a way to close it.
  *
  * Both size what is in them for a thumb: lists drawn with the Command
- * component get rows 48px tall and no highlight but a pressed one, fields
- * 16px text, so iOS does not zoom.
+ * component get rows 56px tall, room around them and between them, and no
+ * highlight but a pressed one, fields 48px tall with 16px text, so iOS
+ * does not zoom.
  */
 
 type Change = (
@@ -61,11 +62,12 @@ interface Layer {
 
 const THUMB = cn(
   'flex min-h-0 flex-1 flex-col',
-  // Edge to edge, the row's text in line with the header's title.
-  '**:data-[slot=command]:p-0 **:data-[slot=command-input-wrapper]:px-3 **:[[cmdk-group-heading]]:px-4!',
-  '**:data-[slot=command-item]:min-h-12 **:data-[slot=command-item]:items-center **:data-[slot=command-item]:gap-3 **:data-[slot=command-item]:px-4 **:data-[slot=command-item]:py-2.5 **:data-[slot=command-item]:text-base',
+  // The row's text in line with the header's title, 20px in.
+  '**:data-[slot=command]:p-0 **:data-[slot=command-input-wrapper]:px-4 **:data-[slot=command-input-wrapper]:pt-1 **:data-[slot=command-input-wrapper]:pb-3',
+  '**:data-[slot=command-list]:pb-3 **:data-[slot=command-group]:px-2 **:data-[slot=command-group]:py-1 **:[[cmdk-group-heading]]:px-3! **:[[cmdk-group-heading]]:pt-3! **:[[cmdk-group-heading]]:pb-2!',
+  '**:data-[slot=command-item]:min-h-14 **:data-[slot=command-item]:items-center **:data-[slot=command-item]:gap-3 **:data-[slot=command-item]:rounded-lg **:data-[slot=command-item]:px-3 **:data-[slot=command-item]:py-3 **:data-[slot=command-item]:text-base',
   '**:data-[slot=command-item]:data-selected:bg-transparent **:data-[slot=command-item]:active:bg-muted',
-  '**:data-[slot=input-group]:h-11! **:[input]:text-base',
+  '**:data-[slot=input-group]:h-12! **:[input]:text-base',
 );
 
 // Which layer a header is in: a Top Dialog's has a close button.
@@ -125,7 +127,7 @@ export function TopDialog({ open, onOpenChange, label, children }: Layer) {
           finalFocus={false}
           style={visible}
           className={cn(
-            'fixed inset-x-2 z-50 mx-auto flex max-w-lg flex-col overflow-hidden rounded-xl bg-dialog text-sm text-popover-foreground shadow-lg ring-1 ring-edge outline-none dark:shadow-black/60',
+            'fixed inset-x-3 z-50 mx-auto flex max-w-lg flex-col overflow-hidden rounded-xl bg-dialog text-sm text-popover-foreground shadow-lg ring-1 ring-edge outline-none dark:shadow-black/60',
             // Under the status bar, in the part of the page left visible.
             'top-[calc(var(--visible-top,0px)+env(safe-area-inset-top)+0.5rem)]',
             // Room below to tap outside; with a field focused, the keyboard is there instead.
@@ -170,7 +172,7 @@ export function LayerHeader({
     <div
       data-slot="layer-header"
       className={cn(
-        'flex h-12 shrink-0 items-center gap-1 px-1.5',
+        'flex h-14 shrink-0 items-center gap-1 px-2',
         onBack === undefined && 'pl-5',
       )}
     >

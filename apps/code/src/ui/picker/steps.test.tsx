@@ -73,6 +73,7 @@ const Places = make('PlacePicker', {
           : [{ value: `new:${query}`, label: `Make ${query}` }],
       finishes: 'step',
       done: () => 'Choose this place',
+      doneOnRow: 'Pick',
       settles: true,
     },
   },
@@ -319,7 +320,7 @@ describe('Picker Steps', () => {
     expect(rows()[0]).toBe('c');
   });
 
-  it('goes into the highlighted row on Ctrl+L, and finishes on the place open on Mod+Enter, once settled', async () => {
+  it('goes into the highlighted row on Ctrl+L, and finishes on the highlighted row on Mod+Enter, once settled', async () => {
     await key('ArrowDown');
     await key('Enter');
     await key('l', { ctrlKey: true });
@@ -329,9 +330,11 @@ describe('Picker Steps', () => {
     await key('l', { ctrlKey: true });
     expect(search()?.placeholder).toBe('In a');
     await type('');
+    expect(rows()).toEqual(['b', 'c']);
+    await key('ArrowDown');
     await key('Enter', { ctrlKey: true });
     await flush();
-    expect(state).toEqual({ settled: ['a'], heard: 'a' });
+    expect(state).toEqual({ settled: ['a/c'], heard: 'a/c' });
     expect(search()).toBeNull();
     expect(document.activeElement).toBe(by('editor'));
   });
@@ -367,23 +370,32 @@ describe('Picker Steps, on a device with no keyboard', () => {
   afterAll(() => {
     device = 'keyboard';
   });
-  const row = (label: string) =>
+  const row = (value: string) =>
     [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].find(
-      (item) => item.textContent === label,
+      (item) => item.getAttribute('data-value') === value,
     )!;
   const done = () =>
     [...document.querySelectorAll<HTMLButtonElement>('button')].find(
       (button) => button.textContent === 'Choose this place',
     );
 
-  it('chooses the place open with a button, as Mod+Enter does', async () => {
+  it('chooses the place open with the button at its foot', async () => {
     expect(done()).toBeUndefined();
-    await click(row('Walk…'));
+    await click(row('walk'));
     await click(row('a'));
-    expect(rows()).toEqual(['b', 'c']);
+    // Each row a place, with its own button.
+    expect(rows()).toEqual(['bPick', 'cPick']);
     await click(done()!);
     await flush();
     expect(state).toEqual({ settled: ['a'], heard: 'a' });
+    expect(search()).toBeNull();
+  });
+
+  it("chooses a row's place with its own button, without going into it", async () => {
+    await click(row('walk'));
+    await click(row('b').querySelector('button')!);
+    await flush();
+    expect(state).toEqual({ settled: ['b'], heard: 'b' });
     expect(search()).toBeNull();
   });
 });

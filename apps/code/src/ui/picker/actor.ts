@@ -15,9 +15,10 @@ import { rank, type Ranked } from './rank.ts';
  * 2. Pick      the highlight moves through the rows that can be chosen, as
  *              drawn, round from the last to the first; choosing a row opens
  *              the Step its `next` names, or finishes there; finishing ends
- *              on the highlighted row, or on the choices so far when
- *              nothing is highlighted, or, in a Step that says so, on the
- *              Step itself.
+ *              on a row, the highlighted one by keys, or on the choices so
+ *              far when there is none. In a Step that finishes on itself,
+ *              finishing on a row that opens a Step goes into it and ends
+ *              there, and finishing on no row ends on the Step itself.
  * 3. Go        a query that names a place, such as a path, goes there: the
  *              Steps of its kind are dropped down to the first, and the
  *              Steps it names are opened from it.
@@ -119,7 +120,8 @@ export const Message = Schema.TaggedUnion({
   /** The highlight moves `by` rows, down for 1 and up for -1. */
   Moved: { by: Schema.Finite },
   Picked: { value: Schema.String },
-  Finished: {},
+  /** Finished on the row `on`, or with null on the Step itself. */
+  Finished: { on: Schema.NullOr(Schema.String) },
   Back: {},
   Closed: {},
   Settled: { refused: Schema.NullOr(Schema.String) },
@@ -183,7 +185,11 @@ export interface StepSpec<P> {
   } | null;
   /** Loaded rows for one scope of query never answer another's, such as hidden folders for a query starting with `.`. */
   readonly scope?: (query: string) => string;
-  /** What finishing ends on: the highlighted row, or this Step itself, with the choices that opened it. */
+  /**
+   * What finishing on no row ends on: the choices so far, or this Step
+   * itself, with the choices that opened it. Finishing on a row that opens
+   * a Step goes into it, and ends there, in a Step that finishes on itself.
+   */
   readonly finishes?: 'row' | 'step';
   /**
    * What the button that finishes on this Step itself says, such as "Open
@@ -191,6 +197,12 @@ export interface StepSpec<P> {
    * `finishes` on itself shows one.
    */
   readonly done?: (at: At<P>) => string;
+  /**
+   * What the button on each row that opens a Step says, such as "Open", in
+   * a Step that finishes on itself: on a device with no keyboard, it
+   * finishes on that row, as Mod+Enter on it does.
+   */
+  readonly doneOnRow?: string;
   /** The owner settles what is chosen here: the Picker waits for it, and says why when it refuses. */
   readonly settles?: boolean;
 }
@@ -272,6 +284,7 @@ export const shownOf = <P>(spec: Spec<P>, model: Model, props: P) => {
     placeholder: own?.placeholder(at) ?? '',
     search: own?.search !== false,
     done: own?.finishes === 'step' ? (own.done?.(at) ?? 'Choose') : null,
+    doneOnRow: own?.finishes === 'step' ? (own.doneOnRow ?? null) : null,
     title: own?.title?.(at) ?? null,
     empty: own?.empty?.(at) ?? 'Nothing by that name',
   };
@@ -360,21 +373,41 @@ const movedFrom = <P>(spec: Spec<P>, model: Model, props: P, by: number) => {
   return values[next] ?? model.step.highlighted;
 };
 
-/** Whether finishing does anything: on the Step, the highlighted row, or the choices so far. */
-export const finishes = <P>(spec: Spec<P>, model: Model, props: P) =>
-  !model.finished &&
-  !model.busy &&
-  (spec.steps[model.step.id]?.finishes === 'step' ||
-    outcomeOf(spec, model, props, model.step.highlighted)._tag !== 'None' ||
-    model.choices.length > 0);
-
-/** What finishing now ends on: the Step itself, the highlighted row, or the choices so far. */
-export const finishingWith = <P>(spec: Spec<P>, model: Model, props: P) => {
-  if (spec.steps[model.step.id]?.finishes === 'step') return model.choices;
-  const outcome = outcomeOf(spec, model, props, model.step.highlighted);
-  return outcome._tag === 'None'
-    ? model.choices
-    : [...model.choices, outcome.choice];
+/**
+ * Finishing on the row `on`, or, with null, on the Step itself: the Model
+ * it ends in and the choices it finishes with. In a Step that finishes on
+ * itself, a row that opens a Step is gone into, to end there; any other
+ * row is only chosen, so a refusal leaves the choices as they were. Null
+ * when finishing does nothing.
+ */
+export const finishedOn = <P>(
+  spec: Spec<P>,
+  model: Model,
+  props: P,
+  on: string | null,
+): {
+  readonly model: Model;
+  readonly choices: ReadonlyArray<Choice>;
+} | null => {
+  if (model.finished || model.busy) return null;
+  const onStep = spec.steps[model.step.id]?.finishes === 'step';
+  const outcome = on === null ? null : outcomeOf(spec, model, props, on);
+  if (outcome === null || outcome._tag === 'None')
+    return onStep || model.choices.length > 0
+      ? { model, choices: model.choices }
+      : null;
+  const choices = [...model.choices, outcome.choice];
+  return outcome._tag === 'Next' && onStep
+    ? {
+        model: {
+          ...model,
+          step: fresh({ ...outcome.next, query: '' }),
+          below: [...model.below, model.step],
+          choices,
+        },
+        choices,
+      }
+    : { model, choices };
 };
 
 /** Whether the owner settles what the top Step finishes with, so the Picker waits. */
@@ -587,10 +620,10 @@ export const build = <const Name extends string, P>(
           }
         }
       },
-      Finished: (_, { model, props }) =>
-        finishes(spec, model, props)
-          ? finish(model, finishingWith(spec, model, props))
-          : {},
+      Finished: ({ on }, { model, props }) => {
+        const ended = finishedOn(spec, model, props, on);
+        return ended === null ? {} : finish(ended.model, ended.choices);
+      },
       // 4. Back
       Back: (_, { model }) => {
         const under = model.below.at(-1);

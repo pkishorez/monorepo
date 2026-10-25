@@ -14,7 +14,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@kestack/web-platform/recipes/frame';
-import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import {
   type ReactNode,
   useEffect,
@@ -27,7 +26,9 @@ import { outOfReach } from '../../../layer/capabilities/index.ts';
 import * as routes from '../../routes/index.ts';
 import type { Route } from '../../routes/index.ts';
 import {
+  HealthDot,
   type OnMachine,
+  pillOf,
   useHealth,
   useMachineName,
 } from '../../machines/index.ts';
@@ -56,8 +57,11 @@ import { SwipeToMove } from './swipe/index.ts';
  * which shows the rest in place. A Session row is its title, bold while
  * Unseen, a fork glyph for a Fork, and a dot only when it asks for
  * attention. The plus beside the label opens
- * the Project Picker, as a popover. At the foot, "Settled · N" opens the
- * Settled List in place of the Projects.
+ * the Project Picker, as a popover. While no Project is held and some
+ * Machine's were never synced here, each such Machine is listed instead,
+ * saying how far it got: downloading cloudflared, opening its tunnel,
+ * connecting. At the foot, "Settled · N" opens the Settled List in place
+ * of the Projects.
  *
  * The whole sidebar is the `sidebar` Surface, which the App View draws. A
  * cursor goes through the rows shown, the foot's line last: j
@@ -86,8 +90,11 @@ export function Places({
   readonly route: Route;
   readonly projects: {
     readonly rows: ReadonlyArray<OnMachine<Project>>;
-    /** Whether some Machine's projects were never synced on this device. */
-    readonly loading: boolean;
+    /** The Machines whose projects never synced on this device; null while none was ever listed. */
+    readonly waiting: ReadonlyArray<{
+      readonly id: string;
+      readonly name: string;
+    }> | null;
   };
   /** Every Session, Settled ones too. */
   readonly sessions: ReadonlyArray<OnMachine<Session>>;
@@ -192,9 +199,11 @@ export function Places({
   const titles = new Map(
     sessions.map((session) => [keyOf(session), session.title]),
   );
-  // Projects the device holds draw at once, of every Machine; with none, a
-  // skeleton only while some Machine's were never synced here.
-  const loading = groups.length === 0 && projects.loading;
+  // Projects the device holds draw at once, of every Machine; with none,
+  // how far each Machine never synced here got.
+  const waiting =
+    groups.length === 0 &&
+    (projects.waiting === null || projects.waiting.length > 0);
   return (
     <div ref={cursor.list} className="flex min-h-full flex-col">
       {settledOpen ? (
@@ -219,14 +228,8 @@ export function Places({
             {projectPicker}
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            {loading ? (
-              <div className="flex flex-col gap-1">
-                {['w-24', 'w-32', 'w-20'].map((width) => (
-                  <div key={width} className="flex h-7 items-center px-2">
-                    <Skeleton className={`h-3.5 ${width}`} />
-                  </div>
-                ))}
-              </div>
+            {waiting ? (
+              <Waiting machines={projects.waiting} />
             ) : groups.length === 0 ? (
               <p className="px-2 py-1.5 text-sm text-muted-foreground">
                 No projects yet. Open a folder with the plus
@@ -434,6 +437,68 @@ function ProjectLabel({ project }: { readonly project: OnMachine<Project> }) {
         </span>
       )}
     </span>
+  );
+}
+
+/** The Machines whose Projects never synced here, each with how far it got. */
+function Waiting({
+  machines,
+}: {
+  readonly machines: ReadonlyArray<{
+    readonly id: string;
+    readonly name: string;
+  }> | null;
+}) {
+  if (machines === null)
+    return (
+      <p
+        role="status"
+        className="flex items-center gap-2.5 px-2 py-2 text-sm text-muted-foreground"
+      >
+        <HealthDot health={{ _tag: 'Unknown' }} tone="bg-warning" />
+        Finding your Machines…
+      </p>
+    );
+  return (
+    <ul className="flex flex-col gap-1">
+      {machines.map(({ id, name }) => (
+        <MachineWaiting key={id} machineId={id} name={name} />
+      ))}
+    </ul>
+  );
+}
+
+/** One Machine never synced here: its name, and how far it got. */
+function MachineWaiting({
+  machineId,
+  name,
+}: {
+  readonly machineId: string;
+  readonly name: string;
+}) {
+  const health = useHealth(machineId);
+  // Connected, it is only reading its Projects.
+  const [label, title, tone] = pillOf(health) ?? [
+    'Loading projects…',
+    'Connected: reading its projects',
+    'bg-positive',
+  ];
+  return (
+    <li
+      role="status"
+      title={title}
+      className="flex items-baseline gap-2.5 px-2 py-2"
+    >
+      <span className="flex h-5 shrink-0 items-center">
+        <HealthDot health={health} tone={tone} />
+      </span>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="truncate text-sm font-medium text-sidebar-foreground">
+          {name}
+        </span>
+        <span className="text-xs text-muted-foreground">{label}</span>
+      </span>
+    </li>
   );
 }
 

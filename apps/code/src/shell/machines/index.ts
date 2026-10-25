@@ -7,11 +7,13 @@ export {
   useMachineName,
   useOffline,
 } from './connection.ts';
+export { HealthDot, pillOf, shortOf } from './health.tsx';
 export { reach } from './reach.ts';
 export { orRefused, reasonOf, Refused } from './refusal.ts';
 export {
   across,
   everything,
+  instanceOf,
   lineage,
   Messages,
   ProjectRow,
