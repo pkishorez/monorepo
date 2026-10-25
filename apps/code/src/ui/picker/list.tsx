@@ -53,7 +53,8 @@ import { useDrawn } from './shape.ts';
  * search is the Surface's default Focus Spot, so it takes focus as the
  * Picker opens. Rows that carry an Action's keys show them in two columns,
  * out of Vim Mode and in it, under heads that say so, the set in effect
- * lit and the other quieter.
+ * lit and the other quieter; on a narrow screen, the name has its own line
+ * and the set in effect sits under it, alone.
  *
  * Opened by touch, in a Drawer or a Sheet, a header names
  * the Step, with a button back to the one under it; the keys' hints are
@@ -324,7 +325,7 @@ export function List<P>({
           {keyed !== undefined && groups.length > 0 && (
             <div
               aria-hidden
-              className="sticky top-0 z-10 flex justify-end gap-3 bg-popover px-3 pt-2 pb-1 text-[11px] text-muted-foreground"
+              className="sticky top-0 z-10 flex justify-end gap-3 bg-popover px-3 pt-2 pb-1 text-[11px] text-muted-foreground max-sm:hidden"
             >
               <span
                 className={cn(
@@ -357,6 +358,7 @@ export function List<P>({
                   onSelect={() => pick(entry.value)}
                   className={cn(
                     'items-start data-quiet:opacity-60',
+                    entry.keys !== undefined && 'max-sm:flex-wrap',
                     // No room kept for a check a row does not have.
                     touch && 'data-[checked=false]:[&>svg:last-child]:hidden',
                   )}
@@ -368,6 +370,7 @@ export function List<P>({
                     className={cn(
                       'flex min-w-0 flex-1 flex-col',
                       touch ? 'gap-1' : 'gap-0.5',
+                      entry.keys !== undefined && 'max-sm:basis-full',
                     )}
                   >
                     <span className="flex min-w-0 items-baseline gap-2">
@@ -392,7 +395,7 @@ export function List<P>({
                     )}
                   </span>
                   {entry.keys !== undefined && (
-                    <span className="flex shrink-0 gap-3 self-center">
+                    <span className="flex shrink-0 gap-3 self-center max-sm:self-start">
                       <Keys
                         written={entry.keys.out}
                         lit={entry.keys.on === 'out'}
@@ -463,8 +466,8 @@ function Keys({
     <span
       data-lit={lit}
       className={cn(
-        'flex w-28 flex-wrap justify-end gap-1',
-        !lit && 'opacity-50',
+        'flex w-28 flex-wrap justify-end gap-1 max-sm:w-auto max-sm:justify-start',
+        !lit && 'opacity-50 max-sm:hidden',
       )}
     >
       {written.length === 0 ? (
