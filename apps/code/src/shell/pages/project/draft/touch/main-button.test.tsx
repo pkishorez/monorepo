@@ -132,3 +132,29 @@ describe('the main button, swiped up', () => {
     expect(follow(SEND_AT + 50)).toBe(SEND_AT + 10);
   });
 });
+
+describe('the main button, while a Dictation records', () => {
+  it('is red with a check, and a tap takes it', () => {
+    act(() =>
+      root.render(
+        <GestureProvider>
+          <MainButton
+            does="take"
+            send="Take and send"
+            disabled={false}
+            onPress={() => pressed++}
+            onSend={() => sent++}
+          />
+        </GestureProvider>,
+      ),
+    );
+    const button = host.querySelector<HTMLElement>('[data-slot="dictate"]')!;
+    expect(button.getAttribute('aria-label')).toBe('Take the Dictation');
+    expect(button.className).toContain('bg-destructive');
+    expect(button.querySelector('svg')?.getAttribute('class')).toContain(
+      'lucide-check',
+    );
+    act(() => button.click());
+    expect(pressed).toBe(1);
+  });
+});
