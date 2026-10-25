@@ -1,4 +1,4 @@
-import { Deferred, Effect, Layer, Schema, Scope, Stream } from 'effect';
+import { Clock, Deferred, Effect, Layer, Schema, Scope, Stream } from 'effect';
 import { CodeClient, SessionNotFound } from '@kestack/connect/code';
 import { Actor, type Instance, Runtime, type Running } from '@kestack/kabuki';
 import { Navigation } from '@kestack/kabuki/routing';
@@ -25,10 +25,11 @@ import { DraftLive } from './actor.ts';
  * each the one owner of its text; `/btw` switches to it with the question
  * carried over, typed into the Message or into the skills Picker's
  * search, a question asked replaces the last, and no file or Skill goes
- * in. It is kept as a Saved Draft under the Account it opened with, a
- * quarter of a second after the last change and at once as it goes; it
- * comes back as it was left, a Message sent is held until answered, and
- * it is forgotten once sent with nothing written since.
+ * in. Its Saved Draft is what it shows, under the Account it opened with,
+ * saved a quarter of a second after the last change and at once as it
+ * goes; it comes back as it was left, and a new session's is deleted once
+ * the session has started. Each round of review's way to lose or bring
+ * back a Saved Draft wrongly has its case.
  */
 
 type Api = CodeClient['Service'];
@@ -114,14 +115,34 @@ const keptIn = (
   accountId = 'a1',
 ) =>
   Effect.flatMap(SavedDrafts, (drafts) => drafts.read(accountId, place)).pipe(
-    Effect.map((kept) => kept?.draft ?? null),
     Effect.provide(saved),
   );
 
 /** What the server does with a send: takes it, refuses it, or waits to be told. */
-type Answer = 'take' | 'refuse' | Deferred.Deferred<boolean>;
+type Answer =
+  | 'take'
+  | 'refuse'
+  | Deferred.Deferred<boolean>
+  | ReadonlyArray<Deferred.Deferred<boolean>>;
 
-const world = (answer: Answer = 'take', saved = savedDraftsMemory()) => {
+/** Writes a place's Saved Draft as another tab would. */
+const writeIn = (
+  saved: Layer.Layer<SavedDrafts>,
+  draft: SavedDraft,
+  place = SESSION,
+) =>
+  Effect.flatMap(SavedDrafts, (drafts) =>
+    Effect.flatMap(Clock.monotonicTimeNanos, (at) =>
+      drafts.save('a1', place, draft, at),
+    ),
+  ).pipe(Effect.provide(saved));
+
+const world = (
+  answer: Answer = 'take',
+  saved = savedDraftsMemory(),
+  /** What the server does with a start: takes it, or waits to be told. */
+  starts: 'take' | Deferred.Deferred<boolean> = 'take',
+) => {
   const sent: Array<unknown> = [];
   const asked: Array<unknown> = [];
   const started: Array<unknown> = [];
@@ -140,7 +161,9 @@ const world = (answer: Answer = 'take', saved = savedDraftsMemory()) => {
               ? Effect.succeed(true)
               : answer === 'refuse'
                 ? Effect.succeed(false)
-                : Deferred.await(answer);
+                : Array.isArray(answer)
+                  ? Deferred.await(answer[sent.length - 1]!)
+                  : Deferred.await(answer as Deferred.Deferred<boolean>);
           return Effect.flatMap(taken, (ok) =>
             ok ? Effect.void : Effect.fail(new SessionNotFound({ id: 's1' })),
           );
@@ -151,9 +174,15 @@ const world = (answer: Answer = 'take', saved = savedDraftsMemory()) => {
           return { _tag: 'Text' as const, text: 'It is fine' };
         })) as unknown as Api['ask'],
       startSession: ((args: unknown) =>
-        Effect.sync(() => {
+        Effect.suspend(() => {
           started.push(args);
-          return { id: 's9' };
+          const taken =
+            starts === 'take' ? Effect.succeed(true) : Deferred.await(starts);
+          return Effect.flatMap(taken, (ok) =>
+            ok
+              ? Effect.succeed({ id: 's9' })
+              : Effect.fail(new SessionNotFound({ id: 's9' })),
+          );
         })) as unknown as Api['startSession'],
     }),
     Layer.succeed(SharedCatalog, {
@@ -465,7 +494,10 @@ describe('Draft', () => {
     ));
 
   describe('Saved Drafts', () => {
-    it('keeps it a quarter of a second after the last change, not before', () =>
+    const effort = (app: Running<unknown>, value: string) =>
+      toDraft(app, { _tag: 'SettingChosen', key: 'effort', value });
+
+    it('saves it a quarter of a second after the last change, not before', () =>
       run(
         Effect.gen(function* () {
           const { layer, saved } = world();
@@ -481,15 +513,15 @@ describe('Draft', () => {
             mode: 'Message',
             written: {
               Message: { text: 'Half a thought', anchor: 14, head: 14 },
+              SideQuestion: { text: '', anchor: 0, head: 0 },
             },
             attachments: [],
             chosen: { account: null, model: null, settings: {} },
-            unsent: [],
           });
         }),
       ));
 
-    it('keeps it at once as the Draft goes', () =>
+    it('saves it at once as the Draft goes', () =>
       run(
         Effect.gen(function* () {
           const { layer, saved } = world();
@@ -506,7 +538,7 @@ describe('Draft', () => {
         }),
       ));
 
-    it('keeps it under the Account it opened with, even as another is switched to before it goes', () =>
+    it('saves it under the Account it opened with, even as another is switched to before it goes', () =>
       run(
         Effect.gen(function* () {
           const { layer, saved, signed } = world();
@@ -543,11 +575,8 @@ describe('Draft', () => {
               model: 'haiku',
               settings: { effort: 'low' },
             },
-            unsent: [],
           };
-          yield* Effect.flatMap(SavedDrafts, (drafts) =>
-            drafts.write('a1', SESSION, () => draft),
-          ).pipe(Effect.provide(saved));
+          yield* writeIn(saved, draft);
           const app = yield* start('Session', layer);
           yield* wait();
           expect(modelOf(app).mode).toBe('SideQuestion');
@@ -562,59 +591,164 @@ describe('Draft', () => {
         }),
       ));
 
-    it('forgets it, both modes and what was picked, once a message sent is taken with nothing written since', () =>
+    it('deletes it once the Draft shows nothing again', () =>
       run(
         Effect.gen(function* () {
           const { layer, saved } = world();
           const app = yield* start('Session', layer);
           yield* wait();
-          yield* toDraft(app, {
-            _tag: 'SettingChosen',
-            key: 'effort',
-            value: 'low',
-          });
-          yield* ask(app, 'SideQuestion');
-          yield* write(app, 'a question too');
-          yield* ask(app, 'Message');
-          yield* write(app, 'Carry on');
+          yield* write(app, 'Never mind');
           yield* wait(300);
           expect(yield* keptIn(saved)).not.toBeNull();
-          yield* say(app, 'Carry on');
+          yield* write(app, '');
           yield* wait(300);
           expect(yield* keptIn(saved)).toBeNull();
         }),
       ));
 
-    it('keeps what is typed while a send waits for its answer, as the Draft goes', () =>
+    it('saves what a send leaves, the Message emptied, the Side Question and the picks as shown', () =>
       run(
         Effect.gen(function* () {
-          const answer = yield* Deferred.make<boolean>();
-          const { layer, saved } = world(answer);
+          const { layer, saved } = world();
+          const app = yield* start('Session', layer);
+          yield* wait();
+          yield* effort(app, 'low');
+          yield* ask(app, 'SideQuestion');
+          yield* write(app, 'a question too');
+          yield* ask(app, 'Message');
+          yield* say(app, 'Carry on');
+          yield* wait(300);
+          expect(yield* keptIn(saved)).toEqual({
+            mode: 'Message',
+            written: {
+              Message: { text: '', anchor: 0, head: 0 },
+              SideQuestion: { text: 'a question too', anchor: 14, head: 14 },
+            },
+            attachments: [],
+            chosen: { account: null, model: null, settings: { effort: 'low' } },
+          });
+        }),
+      ));
+
+    // Codex round 2, 1: a start pending kept nothing, and a failed one lost the text.
+    it('keeps saving while a new session starts, so a start that fails loses nothing', () =>
+      run(
+        Effect.gen(function* () {
+          const starts = yield* Deferred.make<boolean>();
+          const { layer, saved } = world('take', savedDraftsMemory(), starts);
           yield* Effect.scoped(
             Effect.gen(function* () {
-              const app = yield* start('Session', layer);
+              const app = yield* start('NewSession', layer);
               yield* wait();
-              yield* say(app, 'First');
-              yield* write(app, 'Second, while the first waits');
+              yield* effort(app, 'low');
+              yield* say(app, 'Fix the build');
+              expect(modelOf(app).starting).toBe(true);
             }),
           );
-          const kept = yield* keptIn(saved);
-          expect(kept?.written['Message']?.text).toBe(
-            'Second, while the first waits',
-          );
-          expect(kept?.unsent).toMatchObject([
-            { text: 'First', refused: null },
-          ]);
-          yield* Deferred.succeed(answer, true);
+          const kept = yield* keptIn(saved, PROJECT);
+          expect(kept?.written['Message']?.text).toBe('Fix the build');
+          expect(kept?.chosen.settings).toEqual({ effort: 'low' });
+          yield* Deferred.succeed(starts, false);
+          const app = yield* start('NewSession', layer);
           yield* wait();
-          expect((yield* keptIn(saved))?.unsent).toEqual([]);
+          expect(textOf(app, 'Message')).toBe('Fix the build');
+        }),
+      ));
+
+    // Codex round 2, 2: a later send taken took the earlier ones' copies with it.
+    it('brings a refused send back into the Draft and saves it, whatever a later send does', () =>
+      run(
+        Effect.gen(function* () {
+          const first = yield* Deferred.make<boolean>();
+          const second = yield* Deferred.make<boolean>();
+          const { layer, saved } = world([first, second]);
+          const app = yield* start('Session', layer);
+          yield* wait();
+          yield* say(app, 'First');
+          yield* say(app, 'Second');
+          yield* Deferred.succeed(first, false);
+          yield* wait();
+          expect(textOf(app, 'Message')).toBe('First');
+          yield* Deferred.succeed(second, true);
+          yield* wait(300);
           expect((yield* keptIn(saved))?.written['Message']?.text).toBe(
-            'Second, while the first waits',
+            'First',
           );
         }),
       ));
 
-    it('brings a send refused after the Draft went back into the Message when it is opened again', () =>
+    // Codex round 2, 3: tabs merged by part, and a retry wrote a stale copy.
+    it('lets the last save win across tabs, the whole Draft as this one shows it', () =>
+      run(
+        Effect.gen(function* () {
+          const { layer, saved } = world();
+          const app = yield* start('Session', layer);
+          yield* wait();
+          yield* write(app, 'From this tab');
+          yield* wait(300);
+          yield* writeIn(saved, {
+            mode: 'SideQuestion',
+            written: {
+              SideQuestion: { text: 'From the other tab', anchor: 0, head: 0 },
+            },
+            attachments: [],
+            chosen: { account: null, model: 'haiku', settings: {} },
+          });
+          yield* write(app, 'From this tab, later');
+          yield* wait(300);
+          expect(yield* keptIn(saved)).toEqual({
+            mode: 'Message',
+            written: {
+              Message: { text: 'From this tab, later', anchor: 20, head: 20 },
+              SideQuestion: { text: '', anchor: 0, head: 0 },
+            },
+            attachments: [],
+            chosen: { account: null, model: null, settings: {} },
+          });
+        }),
+      ));
+
+    // Codex round 2, 4: a send within the quarter second marked a pick saved.
+    it('saves a pick made just before a send', () =>
+      run(
+        Effect.gen(function* () {
+          const { layer, saved } = world();
+          yield* Effect.scoped(
+            Effect.gen(function* () {
+              const app = yield* start('Session', layer);
+              yield* wait();
+              yield* effort(app, 'low');
+              yield* say(app, 'Carry on');
+            }),
+          );
+          expect((yield* keptIn(saved))?.chosen.settings).toEqual({
+            effort: 'low',
+          });
+        }),
+      ));
+
+    // Codex round 2, 5: another mode's late save brought back what a send cleared.
+    it('never brings a sent Message back into its Saved Draft', () =>
+      run(
+        Effect.gen(function* () {
+          const { layer, saved } = world();
+          const app = yield* start('Session', layer);
+          yield* wait();
+          yield* write(app, 'Carry on');
+          yield* ask(app, 'SideQuestion');
+          yield* write(app, 'and this?');
+          yield* ask(app, 'Message');
+          yield* Effect.sync(() =>
+            app.send(modesOf(app)['Message']!.id, { _tag: 'SendAsked' }),
+          );
+          yield* wait(600);
+          const kept = yield* keptIn(saved);
+          expect(kept?.written['Message']?.text).toBe('');
+          expect(kept?.written['SideQuestion']?.text).toBe('and this?');
+        }),
+      ));
+
+    it('loses a send refused once the Draft has gone, as documented', () =>
       run(
         Effect.gen(function* () {
           const answer = yield* Deferred.make<boolean>();
@@ -628,45 +762,11 @@ describe('Draft', () => {
           );
           yield* Deferred.succeed(answer, false);
           yield* wait();
-          expect((yield* keptIn(saved))?.unsent).toMatchObject([
-            { text: 'Carry on', refused: 'This session no longer exists' },
-          ]);
-          const app = yield* start('Session', layer);
-          yield* wait();
-          expect(textOf(app, 'Message')).toBe('Carry on');
-          expect(modelOf(app).problem).toBe('This session no longer exists');
-          yield* wait(300);
-          const kept = yield* keptIn(saved);
-          expect(kept?.unsent).toEqual([]);
-          expect(kept?.written['Message']?.text).toBe('Carry on');
+          expect(yield* keptIn(saved)).toBeNull();
         }),
       ));
 
-    it('keeps a newer Saved Draft another tab wrote while a send waited, taking out only the message sent', () =>
-      run(
-        Effect.gen(function* () {
-          const answer = yield* Deferred.make<boolean>();
-          const { layer, saved } = world(answer);
-          const app = yield* start('Session', layer);
-          yield* wait();
-          yield* say(app, 'From this tab');
-          yield* Effect.flatMap(SavedDrafts, (drafts) =>
-            drafts.write('a1', SESSION, (kept) => ({
-              ...kept!.draft,
-              written: {
-                Message: { text: 'From the other tab', anchor: 0, head: 0 },
-              },
-            })),
-          ).pipe(Effect.provide(saved));
-          yield* Deferred.succeed(answer, true);
-          yield* wait();
-          const kept = yield* keptIn(saved);
-          expect(kept?.written['Message']?.text).toBe('From the other tab');
-          expect(kept?.unsent).toEqual([]);
-        }),
-      ));
-
-    it('forgets the new session’s Saved Draft, picks and all, once the session starts', () =>
+    it('deletes the new session’s Saved Draft, picks and all, once the session starts, and saves no more', () =>
       run(
         Effect.gen(function* () {
           const { layer, saved, started } = world();
@@ -674,16 +774,15 @@ describe('Draft', () => {
             Effect.gen(function* () {
               const app = yield* start('NewSession', layer);
               yield* wait();
-              yield* toDraft(app, {
-                _tag: 'SettingChosen',
-                key: 'effort',
-                value: 'low',
-              });
+              yield* effort(app, 'low');
               yield* write(app, 'Fix the build');
               yield* wait(300);
               expect(yield* keptIn(saved, PROJECT)).not.toBeNull();
               yield* say(app, 'Fix the build');
               expect(started).toHaveLength(1);
+              yield* wait(300);
+              expect(yield* keptIn(saved, PROJECT)).toBeNull();
+              yield* effort(app, 'high');
               yield* wait(300);
               expect(yield* keptIn(saved, PROJECT)).toBeNull();
             }),

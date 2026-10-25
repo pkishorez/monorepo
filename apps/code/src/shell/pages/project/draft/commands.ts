@@ -1,4 +1,4 @@
-import { Effect, Fiber, Schema } from 'effect';
+import { Effect, Schema } from 'effect';
 import {
   type AskAnswer,
   AttachmentSchema,
@@ -8,13 +8,12 @@ import { Command } from '@kestack/kabuki';
 import { orRefused, reasonOf } from '../../../machines/index.ts';
 import { SharedCatalog } from '../capabilities/index.ts';
 import { Attached, wire } from './message.ts';
-import { hold, refused, taken, Where } from './saved.ts';
 
 /*
  * What the Draft asks of its Machine, over the socket the project page
  * Provides: start a session with its first message, send the next one,
- * held in its Saved Draft until answered, or ask the session on the side;
- * and of the project, to read its catalog again.
+ * or ask the session on the side; and of the project, to read its catalog
+ * again.
  */
 
 /** Starts a session already running its first message. */
@@ -45,15 +44,12 @@ export const startSession = Command.make('StartSession', {
 });
 
 /**
- * A message to the session; `id` tells its answer apart from other sends'.
- * Held in its Saved Draft until the Machine answers, and the answer kept
- * there even once the Draft has gone, so a refused one comes back.
+ * A message to the session. Refused, its text and files come back to the
+ * Draft; one refused after the Draft has gone is lost, as its Saved Draft
+ * no longer holds it.
  */
 export const send = Command.make('Send', {
   args: Schema.Struct({
-    id: Schema.Finite,
-    /** Where it is held; null with nobody signed in. */
-    where: Schema.NullOr(Where),
     sessionId: Schema.String,
     text: Schema.String,
     attachments: Schema.Array(Attached),
@@ -61,32 +57,20 @@ export const send = Command.make('Send', {
     model: Schema.optionalKey(Schema.String),
     settings: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
   }),
-  run: ({ id, where, attachments, ...args }) =>
-    Effect.gen(function* () {
-      const key = crypto.randomUUID();
-      const sending = Effect.gen(function* () {
-        const held =
-          where === null
-            ? null
-            : yield* hold(where, { key, text: args.text, attachments });
-        const reason = yield* CodeClient.use((api) =>
-          api.send({ ...args, attachments: wire(attachments) }),
-        ).pipe(
-          Effect.as(null),
-          Effect.catch((cause) => Effect.succeed(reasonOf(cause))),
-        );
-        if (where !== null)
-          yield* reason === null
-            ? taken(where, key, held)
-            : refused(where, key, reason);
-        return reason;
-      });
-      // Past the Draft: the answer is kept even once it has gone.
-      const reason = yield* Fiber.join(yield* Effect.forkDetach(sending));
-      return reason === null
-        ? { _tag: 'Sent' as const, id }
-        : { _tag: 'SendRefused' as const, id, key, reason };
-    }),
+  run: ({ attachments, ...args }) =>
+    CodeClient.use((api) =>
+      api.send({ ...args, attachments: wire(attachments) }),
+    ).pipe(
+      Effect.asVoid,
+      Effect.catch((cause) =>
+        Effect.succeed({
+          _tag: 'SendRefused' as const,
+          text: args.text,
+          attachments,
+          reason: reasonOf(cause),
+        }),
+      ),
+    ),
 });
 
 /** An Ask's answer as a person reads it: its text, or its data as JSON. */
