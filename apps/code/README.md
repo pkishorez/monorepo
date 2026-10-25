@@ -46,7 +46,9 @@ each part reads only what it shows, so a change draws only that part. The
 root page (`src/shell/`) first reads the user's Bindings from Device
 State, what this browser keeps for itself in IndexedDB
 (`src/layer/`); nothing is drawn
-until it has. Then who is signed in (`sign-in.tsx`), with the Account
+until it has. Then who is signed in, from auth-toolkit's `Accounts`
+(`src/layer/services/accounts.ts`; the shell's `sign-in.tsx` draws the
+signed-out screen), with the Account
 Switcher in every header; signed out, only signing in is drawn, and an
 Account signed out of this device takes its Machines' records with it.
 Then the Machine List of the Account (`machines/machine-list/`): the list
