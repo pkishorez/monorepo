@@ -26,6 +26,7 @@ import { Catalog } from '../capabilities/index.ts';
 import { DraftLive, modesOf } from './actor.ts';
 import { AttachmentStrip } from './attachments/index.ts';
 import { Card, PRIMARY, StatusLine, useDraft } from './card.tsx';
+import type { Held } from './editor/index.ts';
 import { DraftMode, type Composing, type Mode } from './mode/index.ts';
 import { SideQuestion } from './side-question.tsx';
 import { Chip, ModelPicker, Triggers } from './model-picker/index.ts';
@@ -89,6 +90,8 @@ function Drafting(self: ViewProps<typeof DraftLive>) {
   keys.useAction('content.sideAnywhere', toggle, { enabled: asking });
   keys.useAction('content.close', back, { enabled: side });
   const shown: Shown = useRef(null);
+  // Each mode's editor, as it was left: the card is drawn anew per mode.
+  const held = useRef<Held>(new Map()).current;
   const describedBy = fresh ? 'new-session-offline' : 'draft-offline';
 
   // A new session's agent cannot run, or its catalog cannot be read.
@@ -172,6 +175,7 @@ function Drafting(self: ViewProps<typeof DraftLive>) {
             onAsk={asking && !side ? toggle : null}
             onBack={back}
             shown={shown}
+            held={held}
           />
         )}
       >
@@ -190,6 +194,7 @@ function Composer({
   onAsk,
   onBack,
   shown,
+  held,
 }: {
   readonly self: ViewProps<typeof DraftLive>;
   readonly composing: Composing;
@@ -199,6 +204,7 @@ function Composer({
   readonly onAsk: (() => void) | null;
   readonly onBack: () => void;
   readonly shown: Shown;
+  readonly held: Held;
 }) {
   const { machineId, projectId, to } = props;
   const { mode, written } = composing;
@@ -236,6 +242,7 @@ function Composer({
           : 'Reply to the agent',
     text: written.text,
     doc: mode,
+    held,
     selection: written,
     onTextChange: (text, selection) => {
       edit(text, selection);

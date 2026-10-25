@@ -9,6 +9,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { keys } from '../../../../keys.ts';
 import * as Picker from '../../../../ui/picker/index.ts';
 import { Card, StatusLine, useDraft } from './card.tsx';
+import type { Held } from './editor/index.ts';
 import { Insert } from './message.ts';
 import { SkillPicker } from './skills.ts';
 
@@ -176,6 +177,8 @@ let ping = () => {};
 let dictate: (pending: typeof Pending.Type | null) => void = () => {};
 let record: (recording: typeof Recording.Type | null) => void = () => {};
 let shown = 0;
+/** The card drawn anew for each mode, as the Draft's modes draw it, over one `held`. */
+let anew: Held | null = null;
 let toggled = 0;
 
 const PageView = View.make(PageLive, ({ model, children, send }) => {
@@ -194,7 +197,12 @@ const PageView = View.make(PageLive, ({ model, children, send }) => {
   return (
     <keys.Provider vim>
       <keys.Surface id="content">
-        <OnPage model={model} send={send} picker={children.skills} />
+        <OnPage
+          key={anew === null ? 'one' : model.doc}
+          model={model}
+          send={send}
+          picker={children.skills}
+        />
       </keys.Surface>
       <input aria-label="Elsewhere" />
     </keys.Provider>
@@ -215,6 +223,7 @@ function OnPage({
     placeholder: 'Reply',
     text: side ? model.side : model.text,
     doc: model.doc,
+    ...(anew === null ? {} : { held: anew }),
     textOnly: side,
     onTextChange: (text) => send({ _tag: 'Typed', text }),
     attachments: [],
@@ -350,6 +359,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  anew = null;
   await act(async () => root?.unmount());
   root = undefined;
   document.body.innerHTML = '';
@@ -546,6 +556,21 @@ describe('Draft', () => {
       expect(page.text).toBe('Please ');
       await show('SideQuestion');
       expect(view().state.doc.toString()).toBe('why?');
+    });
+
+    it('undoes as before once switched back, though each mode draws the card anew', async () => {
+      anew = new Map();
+      await act(async () => ping());
+      await flush();
+      await paste(editor(), 'more ');
+      expect(page.text).toBe('Please more ');
+      await show('SideQuestion');
+      await paste(editor(), 'why?');
+      await show('Message');
+      expect(view().state.doc.toString()).toBe('Please more ');
+      await key('u', 'KeyU');
+      expect(page.text).toBe('Please ');
+      expect(page.side).toBe('why?');
     });
 
     it('puts a Dictation into the mode open when its text comes', async () => {
