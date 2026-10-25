@@ -17,7 +17,8 @@ export interface SiteOptions extends Address {
 /**
  * A Kabuki Start app as a Cloudflare Website: one Worker in front of the
  * built assets, whose entry Start's Vite plugin gives it. On its own
- * domain on a deployed Stage, on Portless's port under `alchemy dev`.
+ * domain on a deployed Stage, on Portless's port under `alchemy dev`,
+ * which it fails on if that port is taken rather than serve beside it.
  * What the app adds, such as `env`, `bindings` or another
  * `compatibility`, comes from `props`, given where the Stage serves.
  */
@@ -44,7 +45,7 @@ export const Site = <
       const own = props ? yield* props(at) : undefined;
       return {
         compatibility: COMPATIBILITY,
-        dev: at.dev ? { port: portlessPort() } : undefined,
+        dev: at.dev ? { port: portlessPort(), strictPort: true } : undefined,
         domain: at.domain(),
         ...own,
       } as InputProps<Cloudflare.Website.ViteProps<Bindings>>;
