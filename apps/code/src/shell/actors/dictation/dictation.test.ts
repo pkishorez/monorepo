@@ -159,6 +159,7 @@ const world = (options: {
       setBindings: () => Effect.void,
       setVim: () => Effect.void,
       setMicrophone: (microphone) => SubscriptionRef.set(chosen, microphone),
+      setTouchMode: () => Effect.void,
       setSidebarMachine: () => Effect.void,
       markSeen: () => Effect.void,
       changes: SubscriptionRef.changes(chosen).pipe(

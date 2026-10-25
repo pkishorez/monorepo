@@ -9,6 +9,7 @@ import {
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { keys, useBound, useTypingKeys } from '../../../../keys.ts';
 import * as Picker from '../../../../ui/picker/index.ts';
+import type { Availability } from '../../../actors/dictation/index.ts';
 import {
   AttachButton,
   AttachmentStrip,
@@ -121,6 +122,10 @@ interface DraftOptions {
     /** Its text is in. */
     readonly onTook: (id: number) => void;
     readonly onRetry: (id: number) => void;
+    /** Throws it away, wherever it is: a failed one's clip too. */
+    readonly onCancel: () => void;
+    /** Whether a Dictation could start now, and if not why. */
+    readonly availability: Availability;
     /** Called while the Draft is on screen; what it returns, once it is not. */
     readonly onShown: () => () => void;
     /** The button beside the mic that chooses the microphone. */
@@ -230,10 +235,8 @@ export function useDraft(options: DraftOptions) {
     editor.insert(insert.what);
   }, [insert]);
 
-  // 4. Dictate: its text goes in once, as it is there to take. With no
-  // keyboard, the Touch Draft brings where it goes into view.
+  // 4. Dictate: its text goes in once, as it is there to take.
   const took = useRef<number | null>(null);
-  const reveal = useRef<(() => void) | null>(null);
   const { pending } = dictation;
   useEffect(() => {
     if (pending === null) return editor.awaiting(null);
@@ -243,7 +246,6 @@ export function useDraft(options: DraftOptions) {
         failed: pending._tag === 'Failed',
         reason: pending._tag === 'Failed' ? pending.reason : null,
       });
-      if (!keyboard) reveal.current?.();
       return;
     }
     if (took.current === pending.id) return;
@@ -273,15 +275,12 @@ export function useDraft(options: DraftOptions) {
   );
 
   return {
-    parent: editor.parent,
     /** The ref for the element the editor is drawn in. */
     mount: editor.mount,
     view: editor.view,
     vim: vim.on,
     /** No keyboard: it is drawn as the Touch Draft (`touch/`). */
     touch: !keyboard,
-    /** Set by the card on touch: brings a Dictation's placeholder into view. */
-    reveal,
     placeholder,
     /** Nothing in it yet, nor a Dictation coming: its placeholder shows. */
     empty: text === '' && dictation.pending === null,

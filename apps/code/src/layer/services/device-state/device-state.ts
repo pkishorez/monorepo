@@ -19,6 +19,7 @@ import {
   microphone,
   sidebar,
   table,
+  touch,
   vim,
 } from './layout.ts';
 
@@ -26,7 +27,8 @@ import {
  * Device State: what this browser keeps for itself and no other device
  * sees, in one IndexedDB database of its own: the user's own Bindings and
  * whether Vim Mode is on,
- * the microphone a Dictation records from, the Machine the sidebar shows,
+ * the microphone a Dictation records from, whether the Touch Draft is
+ * written by text or by voice, the Machine the sidebar shows,
  * and the Unseen marks of each Machine. It is local only, so it is a StdTable on
  * std-toolkit's IndexedDB adapter rather than a Replica, which mirrors a
  * server; the adapter makes its store on first open.
@@ -77,12 +79,14 @@ const make = (
     const { value } = yield* keyboard.get();
     const mode = yield* vim.get();
     const chosen = yield* microphone.get();
+    const written = yield* touch.get();
     const shown = yield* sidebar.get();
     const unseen = yield* readMarks;
     return {
       bindings: fitted(value.bindings),
       vim: mode.value.on,
       microphone: chosen.value.deviceId,
+      touchMode: written.value.mode,
       sidebarMachine: shown.value.machineId,
       unseen,
     };
@@ -118,6 +122,8 @@ const make = (
       write(
         microphone.getAndUpdate(() => ({ deviceId }), { retries: RETRIES }),
       ),
+    setTouchMode: (mode) =>
+      write(touch.getAndUpdate(() => ({ mode }), { retries: RETRIES })),
     setSidebarMachine: (machineId) =>
       write(sidebar.getAndUpdate(() => ({ machineId }), { retries: RETRIES })),
     markSeen,

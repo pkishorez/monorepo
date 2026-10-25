@@ -14,9 +14,8 @@ import {
 /*
  * The app's toasts: a short note of what just happened, with one way to
  * take it back, such as Undo, for a few seconds. `Toasts` draws them, once,
- * at the bottom of the screen above its safe area, and on a phone higher, clear
- * of the sidebar's `+` and the Draft's microphone; `notify` says one from
- * anywhere.
+ * at the very bottom of the screen above its safe area, over what is there
+ * for the few seconds they show; `notify` says one from anywhere.
  */
 
 const manager = createToastManager();
@@ -56,7 +55,7 @@ export function Toasts() {
   return (
     <ToastProvider toastManager={manager}>
       <ToastPortal>
-        <ToastViewport className="bottom-[max(1rem,env(safe-area-inset-bottom))] max-md:bottom-[calc(env(safe-area-inset-bottom)+9rem)]">
+        <ToastViewport className="bottom-[max(1rem,env(safe-area-inset-bottom))]">
           <List />
         </ToastViewport>
       </ToastPortal>

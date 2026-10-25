@@ -8,6 +8,8 @@ import {
   useDraftsShown,
 } from './view.tsx';
 
+export type { Availability } from './view.tsx';
+
 export const Dictation = {
   actor: DictationLive,
   view: DictationBadge,

@@ -3,6 +3,7 @@ import { CodeClient, SessionNotFound } from '@kestack/connect/code';
 import { Actor, type Instance, Runtime, type Running } from '@kestack/kabuki';
 import { Navigation } from '@kestack/kabuki/routing';
 import { describe, expect, it } from 'vitest';
+import { DeviceState, nothing } from '../../../../layer/capabilities/index.ts';
 import { session } from '../../../routes/index.ts';
 import { Catalog, SharedCatalog } from '../capabilities/index.ts';
 import { DraftLive } from './actor.ts';
@@ -109,6 +110,11 @@ const world = (refuse = false) => {
     }),
     Layer.mock(Navigation)({
       push: (to) => Effect.sync(() => void pushed.push(to)),
+    }),
+    // Its Touch Draft reads how it is written.
+    Layer.mock(DeviceState)({
+      read: Effect.succeed(nothing),
+      changes: Stream.never,
     }),
   );
   return { layer, sent, asked, started, pushed };
