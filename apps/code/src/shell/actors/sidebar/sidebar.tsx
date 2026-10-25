@@ -25,7 +25,12 @@ import {
 import { keys, useBound } from '../../../keys.ts';
 import * as routes from '../../routes/index.ts';
 import type { Route } from '../../routes/index.ts';
-import type { OnMachine } from '../../replica/index.ts';
+import {
+  type OnMachine,
+  outOfReach,
+  useHealth,
+  useMachineName,
+} from '../../machines/index.ts';
 import { ago } from '../../../ui/time/index.ts';
 import { StatusDot } from '../../../ui/status-dot/index.ts';
 import {
@@ -38,11 +43,6 @@ import {
   sessionPlace,
   SHOWN,
 } from './rows.ts';
-import {
-  outOfReach,
-  useHealth,
-  useMachineName,
-} from '../../connection/index.ts';
 import { SettledLine, SettledList, settledOf } from './settled-list/index.ts';
 import { SwipeToMove } from './swipe/index.ts';
 

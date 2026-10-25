@@ -6,7 +6,7 @@ import {
   HarnessInfo,
 } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
-import { orRefused, reasonOf } from '../../../refusal/index.ts';
+import { orRefused, reasonOf } from '../../../machines/index.ts';
 import { SharedCatalog } from '../capabilities/index.ts';
 
 /*

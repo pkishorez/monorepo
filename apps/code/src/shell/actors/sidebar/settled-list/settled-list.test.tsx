@@ -5,7 +5,7 @@ import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { keys } from '../../../../keys.ts';
-import type { OnMachine } from '../../../replica/index.ts';
+import type { OnMachine } from '../../../machines/index.ts';
 import { SettledList, settledOf } from './settled-list.tsx';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });

@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { CodeClient, CodeClients, HarnessInfo } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
-import { orRefused } from '../../../../refusal/index.ts';
+import { orRefused } from '../../../../machines/index.ts';
 
 /*
  * What a Machine's Harness Binaries ask of it, over its own socket.

@@ -2,7 +2,7 @@ import { Effect, Schema, Stream } from 'effect';
 import { CodeClients, SpeechToTextState } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { Machines } from '../../../../../layer/capabilities/index.ts';
-import { Refused } from '../../../../refusal/index.ts';
+import { Refused } from '../../../../machines/index.ts';
 import { switchSpeechToText } from './commands.ts';
 
 /*

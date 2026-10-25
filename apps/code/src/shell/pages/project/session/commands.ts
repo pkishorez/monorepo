@@ -2,7 +2,7 @@ import { Effect, Schema } from 'effect';
 import { CodeClient } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
 import { DeviceState } from '../../../../layer/capabilities/index.ts';
-import { orRefused } from '../../../refusal/index.ts';
+import { orRefused } from '../../../machines/index.ts';
 
 /*
  * What a session's page asks of the server: stop the turn, fork after a

@@ -5,7 +5,7 @@ import { Navigation, Router } from '@kestack/kabuki/routing';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { Machines } from '../../../layer/capabilities/index.ts';
 import { session } from '../../routes/index.ts';
-import { everything, type OnMachine } from '../../replica/index.ts';
+import { everything, type OnMachine } from '../../machines/index.ts';
 import * as Picker from '../../../ui/picker/index.ts';
 
 /*

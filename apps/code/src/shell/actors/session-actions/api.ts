@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { CodeClient } from '@kestack/connect/code';
-import { reasonOf } from '../../refusal/index.ts';
+import { reasonOf } from '../../machines/index.ts';
 
 /*
  * What Session Actions ask of the open Session's Machine, its `CodeClient`

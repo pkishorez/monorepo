@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { CodeClients, HarnessBinary, HarnessInfo } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
-import { Refused } from '../../../../refusal/index.ts';
+import { Refused } from '../../../../machines/index.ts';
 import { loadBinaries } from './api.ts';
 import { setHarnessBinary } from './commands.ts';
 

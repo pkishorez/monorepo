@@ -28,8 +28,7 @@ import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import type { Project } from '@kestack/connect/code';
 import { keys, useBound } from '../../../keys.ts';
 import * as routes from '../../routes/index.ts';
-import type { OnMachine } from '../../replica/index.ts';
-import { useMachineName } from '../../connection/index.ts';
+import { type OnMachine, useMachineName } from '../../machines/index.ts';
 import { HomeLive } from './actor.ts';
 
 /*

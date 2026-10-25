@@ -11,7 +11,7 @@ import { useDevice } from '@kestack/web-platform/ui/input';
 import { createContext, type ReactNode, use, useRef } from 'react';
 import { keys, useBound } from '../../../../keys.ts';
 import { Dictation } from '../../../actors/dictation/index.ts';
-import { useOffline } from '../../../connection/index.ts';
+import { useOffline } from '../../../machines/index.ts';
 import * as routes from '../../../routes/index.ts';
 import * as Catalog from '../catalog/index.ts';
 import {

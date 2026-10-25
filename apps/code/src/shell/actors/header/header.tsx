@@ -9,7 +9,7 @@ import * as routes from '../../routes/index.ts';
 import type { Route } from '../../routes/index.ts';
 import { ago } from '../../../ui/time/index.ts';
 import { SessionStatus } from '../../../ui/session-status/index.ts';
-import { useHealth, useMachineName } from '../../connection/index.ts';
+import { useHealth, useMachineName } from '../../machines/index.ts';
 
 /*
  * What the App Shell's header says: where you are, as a trail from the
