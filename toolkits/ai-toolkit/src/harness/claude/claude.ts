@@ -1,7 +1,7 @@
 import { Effect, Stream } from 'effect';
 import type {
   Harness,
-  HarnessSession,
+  Agent,
   TurnHandle,
   TurnInput,
 } from '../contract/index.js';
@@ -13,10 +13,10 @@ import {
 } from './catalog/index.js';
 import { project } from './project/index.js';
 import {
-  openSdkSession,
+  openSdkAgent,
   type SdkTurn,
   type SdkTurnHandle,
-} from './sdk-session/index.js';
+} from './agent/index.js';
 import { ask, fork } from './session-files/index.js';
 import { readSettings, SETTINGS } from './settings.js';
 
@@ -54,7 +54,7 @@ export const claude: Harness = {
           },
         };
       };
-      const session = yield* openSdkSession({
+      const session = yield* openSdkAgent({
         cwd: config.cwd,
         model: config.model,
         executable: yield* executable,
@@ -65,12 +65,12 @@ export const claude: Harness = {
         out: handle.out,
         steer: (id, input) => handle.steer(id, toSdkTurn(input)),
       });
-      const harnessSession: HarnessSession = {
+      const agent: Agent = {
         ...session,
         turn: (input) => handleOf(session.turn(toSdkTurn(input))),
         agentTurns: Stream.map(session.agentTurns, handleOf),
       };
-      return harnessSession;
+      return agent;
     }),
   skills,
   fork,

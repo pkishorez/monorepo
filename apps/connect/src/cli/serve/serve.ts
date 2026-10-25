@@ -5,10 +5,10 @@ import { HttpServer } from 'effect/http';
 import {
   claude,
   codex,
-  codexTitler,
+  codexOneShot,
   harnesses,
   type Harnesses,
-  type Titler,
+  type OneShotPrompt,
 } from '@kestack/ai-toolkit/harness';
 import type { SpeechToText } from '@kestack/ai-toolkit/speech';
 import { codeGroup } from '../../code/index.js';
@@ -49,7 +49,7 @@ const version = (
   ) as { readonly version: string }
 ).version;
 
-const defaultHarnesses = Layer.merge(harnesses([claude, codex]), codexTitler);
+const defaultHarnesses = Layer.merge(harnesses([claude, codex]), codexOneShot);
 
 export interface ServeOptions {
   /** Cloud Connect's base URL. */
@@ -66,8 +66,8 @@ export interface ServeOptions {
   readonly heartbeat?: number;
   /** For tests: where the files go, instead of the XDG folders. */
   readonly paths?: ConnectPaths;
-  /** For tests: fake harnesses; Claude and Codex, Codex writing titles, unless given. */
-  readonly harnesses?: Layer.Layer<Harnesses | Titler>;
+  /** For tests: fake harnesses; Claude and Codex, Codex answering One-shot Prompts, unless given. */
+  readonly harnesses?: Layer.Layer<Harnesses | OneShotPrompt>;
   /** For tests: fake Speech to Text; sherpa-onnx unless given. */
   readonly speech?: Layer.Layer<SpeechToText>;
   /** Called once the socket is bound, with the port it is bound to. */

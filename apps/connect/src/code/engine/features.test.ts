@@ -16,8 +16,7 @@ import {
   type FakeHarness,
 } from '@kestack/ai-toolkit/harness/fake';
 import type { Raw } from '@kestack/ai-toolkit/contract';
-import { Store } from './services/store/index.js';
-import { Engine, type SessionJobs } from './index.js';
+import { Engine, Store, storeLayer, type SessionJobs } from './index.js';
 
 /*
  * The engine's features beyond running Turns, over the fake harness: per-turn
@@ -41,7 +40,7 @@ const run = <A, E>(
   fake: FakeHarness,
   options: { readonly path?: string; readonly attachments?: string } = {},
 ) => {
-  const base = Layer.merge(Store.layer(options.path ?? ':memory:'), fake.layer);
+  const base = Layer.merge(storeLayer(options.path ?? ':memory:'), fake.layer);
   const world = Layer.merge(
     base,
     Engine.layer({
@@ -406,7 +405,7 @@ describe('a Fork', () => {
           });
           return { sessionId: 's1' };
         }),
-      ).pipe(Effect.provide(Store.layer(path))),
+      ).pipe(Effect.provide(storeLayer(path))),
     );
     await run(
       Effect.gen(function* () {
@@ -534,7 +533,7 @@ describe('asking a Session', () => {
   });
 
   it('regenerates the Title from the last five user messages', async () => {
-    const fake = makeFakeHarness({ title: 'A greeting' });
+    const fake = makeFakeHarness({ oneShot: 'A greeting' });
     await run(
       Effect.gen(function* () {
         const { engine, session, saved, idle } = yield* started('one');
@@ -545,15 +544,14 @@ describe('asking a Session', () => {
         }
         yield* idle();
         expect(yield* engine.regenerateTitle(session.id)).toBe('A greeting');
-        expect(fake.titles.at(-1)).toEqual([
-          'two',
-          'three',
-          'four',
-          'five',
-          'six',
-        ]);
+        // Written from the five latest, the latest leading.
+        const asked = fake.prompts.at(-1)!;
+        for (const text of ['two', 'three', 'four', 'five'])
+          expect(asked).toContain(`<message>\n${text}\n</message>`);
+        expect(asked).toContain('<latest-message>\nsix\n</latest-message>');
+        expect(asked).not.toContain('\none\n');
         // Both the first title and this one ran with the Harness Binaries.
-        expect(fake.titleBinaries).toEqual([true, true]);
+        expect(fake.promptBinaries).toEqual([true, true]);
         yield* eventually(async () =>
           expect((await saved())?.title).toBe('A greeting'),
         );

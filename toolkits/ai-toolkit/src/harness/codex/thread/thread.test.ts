@@ -1,6 +1,6 @@
 import { Effect, Fiber, Stream, type Scope } from 'effect';
 import { describe, expect, it } from 'vitest';
-import type { HarnessSession, TurnOut } from '../../contract/index.js';
+import type { Agent, TurnOut } from '../../contract/index.js';
 import type { AppServer } from '../app-server/index.js';
 
 type Listener = Parameters<AppServer['listen']>[0];
@@ -74,7 +74,7 @@ const kinds = (outs: Iterable<TurnOut>) =>
 
 const withSession = <A, E>(
   body: (
-    session: HarnessSession,
+    session: Agent,
     fake: ReturnType<typeof fakeServer>,
   ) => Effect.Effect<A, E, Scope.Scope>,
 ) => {

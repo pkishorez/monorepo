@@ -8,7 +8,7 @@
     "src/contract/wire": ["src/contract/raw"],
     "src/harness": ["src/contract"],
     "src/harness/claude": ["src/harness/contract"],
-    "src/harness/claude/sdk-session": ["src/harness/claude/project"],
+    "src/harness/claude/agent": ["src/harness/claude/project"],
     "src/harness/codex": ["src/harness/contract"],
     "src/harness/codex/catalog": ["src/harness/codex/app-server"],
     "src/harness/codex/fork": ["src/harness/codex/app-server"],
@@ -20,11 +20,12 @@
       "src/harness/codex/app-server",
       "src/harness/codex/catalog"
     ],
-    "src/harness/codex/titler": [
+    "src/harness/codex/one-shot": [
       "src/harness/codex/app-server",
       "src/harness/codex/catalog",
       "src/harness/codex/thread"
     ],
+    "src/harness/binaries": ["src/harness/contract"],
     "src/harness/models": ["src/harness/contract"],
     "src/harness/fake": ["src/harness/contract"],
     "src/speech/actor-speech-model": ["src/speech/capabilities"],

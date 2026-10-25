@@ -1,9 +1,9 @@
 import { Clock, Effect, Schema } from 'effect';
 import { type Raw, TURN_END_STATUSES } from '@kestack/ai-toolkit/contract';
 import type { Session } from '../../api/records/index.js';
-import { Store } from '../services/store/index.js';
+import { Store } from '../capabilities/index.js';
 import { EngineRaw } from '../engine-raw/index.js';
-import type { ProjectInput } from './actor-project/index.js';
+import type { Loaded } from './actor.js';
 
 /*
  * The Bootstrap Sweep, run by the root while Loading: every project and
@@ -60,15 +60,17 @@ const swept = (session: Session) =>
     return saved;
   });
 
-/** Every Project with its Sessions, swept. */
+/** Every Project, and the Sessions in them, swept. */
 export const sweep = Effect.gen(function* () {
   const store = yield* Store;
   const sessions = yield* Effect.forEach(yield* store.allSessions, swept);
   const projects = yield* store.allProjects;
-  return projects.map((project): ProjectInput => ({
-    project,
-    sessions: sessions
-      .filter((session) => session.projectId === project.id)
-      .map((session) => ({ session, first: null })),
-  }));
+  return {
+    projects,
+    sessions: projects.flatMap((project) =>
+      sessions
+        .filter((session) => session.projectId === project.id)
+        .map((session) => ({ session, cwd: project.path, first: null })),
+    ),
+  } satisfies Loaded;
 });

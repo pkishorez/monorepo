@@ -20,11 +20,8 @@
     "src/code/engine": ["src/code/api/records"],
     "src/code/engine/actor-code": [
       "src/code/engine/capabilities",
-      "src/code/engine/engine-raw",
-      "src/code/engine/prompt",
-      "src/code/engine/services/store"
+      "src/code/engine/engine-raw"
     ],
-    "src/code/engine/prompt": ["src/code/engine/engine-raw"],
     "src/code/engine/services": ["src/code/engine/capabilities"],
     "src/code/read": [
       "src/code/api/contract",

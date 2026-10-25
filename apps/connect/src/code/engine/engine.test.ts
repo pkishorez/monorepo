@@ -8,8 +8,7 @@ import {
   type FakeHarness,
 } from '@kestack/ai-toolkit/harness/fake';
 import type { Raw } from '@kestack/ai-toolkit/contract';
-import { Store } from './services/store/index.js';
-import { Engine } from './index.js';
+import { Engine, Store, storeLayer } from './index.js';
 
 const folders: Array<string> = [];
 const folder = () => {
@@ -22,7 +21,7 @@ afterEach(() => {
 });
 
 const world = (fake: FakeHarness, path = ':memory:') => {
-  const base = Layer.merge(Store.layer(path), fake.layer);
+  const base = Layer.merge(storeLayer(path), fake.layer);
   return Layer.merge(
     base,
     Engine.layer({ attachments: folder(), home: folder() }).pipe(
@@ -393,8 +392,8 @@ describe('Engine', () => {
     );
   });
 
-  it('titles a session with the Titler, or keeps the first line', async () => {
-    const fake = makeFakeHarness({ title: 'A greeting' });
+  it('titles a session with a One-shot Prompt, or keeps the first line', async () => {
+    const fake = makeFakeHarness({ oneShot: 'A greeting' });
     await run(
       Effect.gen(function* () {
         const { store, session } = yield* started;

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { RawOut } from '@kestack/ai-toolkit/harness';
 import { makeFakeHarness } from '@kestack/ai-toolkit/harness/fake';
 import { MessageSchema, type Message } from '@kestack/ai-toolkit/contract';
-import { Store } from '../engine/services/store/index.js';
+import { Store, storeLayer } from '../engine/index.js';
 import type { WireEntity } from '../api/contract/index.js';
 import { messages, projects } from './index.js';
 
@@ -20,7 +20,7 @@ const raw = (out: RawOut & { readonly harness?: 'claude' | 'engine' }) => ({
 });
 const text = (value: string) => raw({ kind: 'text', payload: { text: value } });
 
-const layer = Layer.merge(Store.layer(':memory:'), makeFakeHarness().layer);
+const layer = Layer.merge(storeLayer(':memory:'), makeFakeHarness().layer);
 
 const run = <A, E>(effect: Effect.Effect<A, E, any>) =>
   Effect.runPromise(

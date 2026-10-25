@@ -4,10 +4,11 @@ import { type Harness, Harnesses } from './contract/index.js';
 
 /*
  * `@kestack/ai-toolkit/harness`: running Coding Harnesses, for whoever
- * runs them on Node. The contract every harness meets, Claude Code and
- * Codex behind it, the models each can run, and two ways to use a list of
- * harnesses: as the `Harnesses` a program is given, and to project the
- * Raw records each one wrote.
+ * runs them on Node, as plain Effects. The contract every harness meets
+ * (an Agent, its Turns, Forks, Asks, a One-shot Prompt), Claude Code and
+ * Codex behind it, Harness Binaries checked, the models each can run, and
+ * two ways to use a list of harnesses: as the `Harnesses` a program is
+ * given, and to project the Raw records each one wrote.
  */
 
 export {
@@ -15,13 +16,13 @@ export {
   HarnessError,
   Harnesses,
   isRecord,
-  Titler,
+  OneShotPrompt,
+  type Agent,
+  type AgentConfig,
   type AskInput,
   type AvailableModel,
   type ForkInput,
   type Harness,
-  type HarnessSession,
-  type OpenConfig,
   type RawOut,
   type Setting,
   type TurnEnd,
@@ -31,8 +32,9 @@ export {
   type TurnSteered,
   type TurnStream,
 } from './contract/index.js';
+export { binaryAt, checkBinary, InvalidBinary } from './binaries/index.js';
 export { claude } from './claude/index.js';
-export { codex, codexTitler } from './codex/index.js';
+export { codex, codexOneShot } from './codex/index.js';
 export { Models, ModelsError, type ModelsOptions } from './models/index.js';
 
 /** `list` as the program's Coding Harnesses, each found by its name. */

@@ -7,7 +7,8 @@ import { nextUlid } from '@kestack/std-toolkit/core';
 import {
   HarnessBinaries,
   Harnesses,
-  Titler,
+  InvalidBinary,
+  OneShotPrompt,
   type HarnessError,
 } from '@kestack/ai-toolkit/harness';
 import type {
@@ -21,22 +22,22 @@ import type {
   Skill,
 } from '@kestack/ai-toolkit/contract';
 import type { Project, Session } from '../api/records/index.js';
-import { Store } from './services/store/index.js';
 import {
+  AskFailed,
   fallbackTitle,
+  NotForkable,
   type AgentClosed,
-} from './actor-code/actor-project/actor-session/index.js';
+} from './actor-code/actor-session/index.js';
 import { Code } from './actor-code/index.js';
-import { AskFailed, Desks, NotForkable } from './capabilities/index.js';
-import { promptOf } from './prompt/index.js';
+import { saveAttachments } from './attachments/index.js';
+import { Agents, Store } from './capabilities/index.js';
 import {
+  agents,
   binaryRow,
-  desks,
   FolderExists,
   FolderNotFound,
   Folders,
   FolderUnreadable,
-  InvalidBinary,
   InvalidFolderName,
   OutsideHome,
   PermissionDenied,
@@ -52,13 +53,13 @@ import {
  *    ids its reply needs, finds the Instance it is for, and Sends. Nothing
  *    here runs a turn or decides anything.
  * 2. Everything the user reads is the tree's state, read through the root
- *    Instance; what only a Session's agent knows, its MCP Server Status and
- *    Context Usage, is a Query on the Session Instance.
- * 3. What a Session must do with an answer, a Fork, a new Title, an Ask, is
- *    asked at the Session's Desk (see capabilities/desks.ts). A question for
- *    a harness alone, its Skills or its Harness Binary, is asked of the
- *    harness; one about the folders under home, of Folders (see
- *    services/folders/).
+ *    Instance.
+ * 3. Every question for a Session, a Fork, an Ask, a new Title, its
+ *    Agent's MCP Server Status and Context Usage, is a Query on the
+ *    Session Instance; what the answer changes is a Message after it, such
+ *    as AddSession for a Fork. A question for a harness alone, its Skills
+ *    or its Harness Binary, is asked of the harness; one about the folders
+ *    under home, of Folders (see services/folders/).
  */
 
 export class ProjectNotFound extends Data.TaggedError('ProjectNotFound')<{
@@ -76,6 +77,9 @@ export class SkillsUnavailable extends Data.TaggedError('SkillsUnavailable')<{
 export class HarnessFailed extends Data.TaggedError('HarnessFailed')<{
   readonly message: string;
 }> {}
+export { Store, type Feed } from './capabilities/index.js';
+export { projectEngineRaw } from './engine-raw/index.js';
+export { storedHarnessBinaries, storeLayer } from './services/index.js';
 export {
   AskFailed,
   FolderExists,
@@ -229,10 +233,9 @@ const failed = (error: HarnessError | AgentClosed | Stopped) =>
 const make = (options: EngineOptions) =>
   Effect.gen(function* () {
     const harnesses = yield* Harnesses;
-    const atDesks = yield* Desks;
     const folders = yield* Folders;
     const services = yield* Effect.context<
-      Store | Harnesses | Titler | HarnessBinaries | Desks
+      Store | Harnesses | OneShotPrompt | HarnessBinaries | Agents
     >();
     const running = yield* Runtime.start(Code, Layer.succeedContext(services));
     const root = running.instance({ from: 'rpc' });
@@ -245,41 +248,48 @@ const make = (options: EngineOptions) =>
     /** Gives a harness call the Harness Binaries the user set. */
     const withServices = Effect.provideContext(services);
 
-    /** The Project Instances; there are none while Loading. */
-    const projects = () => {
-      const children = root.children;
-      return 'projects' in children ? children.projects : [];
-    };
+    /** The Projects; there are none while Loading. */
+    const projects = () => root.model.projects;
     const projectAt = (id: string) =>
-      projects().find((project) => project.key === id);
-    const sessionAt = (id: string) =>
-      projects()
-        .flatMap((project) =>
-          project.children.sessions.map((session) => ({ project, session })),
-        )
-        .find(({ session }) => session.key === id);
+      projects().find((project) => project.id === id);
+    /** The Session Instances; there are none while Loading. */
+    const sessions = () => {
+      const children = root.children;
+      return 'sessions' in children ? children.sessions : [];
+    };
 
     const toSession = (id: string) =>
       Effect.suspend(() => {
-        const found = sessionAt(id);
+        const found = sessions().find((session) => session.key === id);
         return found
           ? Effect.succeed(found)
           : Effect.fail(new SessionNotFound({ id }));
       });
 
-    /** The Session's Desk; a Session that is there puts one out as it starts. */
-    const deskOf = (sessionId: string) =>
-      Effect.andThen(toSession(sessionId), atDesks.of(sessionId));
+    /** A user message as a Session keeps it, its files saved on disk. */
+    const promptOf = (sessionId: string, message: Send) =>
+      Effect.gen(function* () {
+        const id = yield* nextUlid;
+        const attachments = yield* saveAttachments(
+          options.attachments,
+          sessionId,
+          message.attachments,
+        );
+        return {
+          id,
+          text: message.text,
+          attachments,
+          ...(message.model === undefined ? {} : { model: message.model }),
+          ...(message.settings === undefined
+            ? {}
+            : { settings: { ...message.settings } }),
+        };
+      });
 
     const send: EngineService['send'] = (sessionId, message) =>
       Effect.gen(function* () {
-        const { session } = yield* toSession(sessionId);
-        const prompt = yield* promptOf({
-          ...message,
-          root: options.attachments,
-          sessionId,
-          id: yield* nextUlid,
-        });
+        const session = yield* toSession(sessionId);
+        const prompt = yield* promptOf(sessionId, message);
         session.send({
           _tag: 'Send',
           prompt,
@@ -295,10 +305,8 @@ const make = (options: EngineOptions) =>
         Effect.gen(function* () {
           const path = yield* folderAt(expand(given));
           if (path === null) return yield* new FolderNotFound({ path: given });
-          const known = projects().find(
-            (project) => project.model.project.path === path,
-          );
-          if (known) return known.model.project;
+          const known = projects().find((project) => project.path === path);
+          if (known) return known;
           const project: Project = {
             id: yield* nextUlid,
             path,
@@ -339,49 +347,68 @@ const make = (options: EngineOptions) =>
             activeAt: now,
             endedAt: null,
           };
-          const first = yield* promptOf({
-            root: options.attachments,
-            sessionId: session.id,
-            id: yield* nextUlid,
+          const first = yield* promptOf(session.id, {
             text: input.text,
             attachments: input.attachments,
           });
-          project.send({ _tag: 'StartSession', session, first });
+          root.send({ _tag: 'StartSession', session, first });
           return session;
         }),
 
       send,
 
       cancel: (sessionId) =>
-        Effect.map(toSession(sessionId), ({ session }) =>
+        Effect.map(toSession(sessionId), (session) =>
           session.send({ _tag: 'Cancel' }),
         ),
 
       settleSession: (sessionId) =>
         Effect.gen(function* () {
-          const { session } = yield* toSession(sessionId);
+          const session = yield* toSession(sessionId);
           session.send({ _tag: 'Settle', at: yield* Clock.currentTimeMillis });
         }),
 
       unsettleSession: (sessionId) =>
-        Effect.map(toSession(sessionId), ({ session }) =>
+        Effect.map(toSession(sessionId), (session) =>
           session.send({ _tag: 'Unsettle' }),
         ),
 
       forkSession: (sessionId, afterTurnId) =>
         Effect.gen(function* () {
-          const { project } = yield* toSession(sessionId);
-          const desk = yield* deskOf(sessionId);
-          const fork = yield* desk.fork(afterTurnId);
-          project.send({ _tag: 'AddSession', session: fork });
+          const session = yield* toSession(sessionId);
+          const fork = yield* session.queries.fork(afterTurnId).pipe(
+            // A Session that stopped while asked is no longer there.
+            Effect.catchTag('Stopped', () =>
+              Effect.fail(new SessionNotFound({ id: sessionId })),
+            ),
+          );
+          root.send({ _tag: 'AddSession', session: fork });
           return fork;
         }),
 
       ask: (sessionId, question, schema) =>
-        Effect.flatMap(deskOf(sessionId), (desk) => desk.ask(question, schema)),
+        Effect.flatMap(toSession(sessionId), (session) =>
+          session.queries.ask({ question, schema }).pipe(
+            // A Session that stopped while asked is no longer there.
+            Effect.catchTag('Stopped', () =>
+              Effect.fail(new SessionNotFound({ id: sessionId })),
+            ),
+          ),
+        ),
 
       regenerateTitle: (sessionId) =>
-        Effect.flatMap(deskOf(sessionId), (desk) => desk.retitle),
+        Effect.gen(function* () {
+          const session = yield* toSession(sessionId);
+          const found = yield* session.queries.retitle().pipe(
+            // A Session that stopped while asked is no longer there.
+            Effect.catchTag('Stopped', () =>
+              Effect.fail(new SessionNotFound({ id: sessionId })),
+            ),
+          );
+          if (found === null) return session.model.session.title;
+          session.send({ _tag: 'Titled', title: found });
+          return found;
+        }),
 
       skills: (projectId, name) =>
         Effect.gen(function* () {
@@ -392,7 +419,7 @@ const make = (options: EngineOptions) =>
             return yield* new SkillsUnavailable({
               message: `No harness named ${name}`,
             });
-          return yield* harness.skills(project.model.project.path).pipe(
+          return yield* harness.skills(project.path).pipe(
             withServices,
             Effect.mapError(
               (error) => new SkillsUnavailable({ message: error.message }),
@@ -401,32 +428,36 @@ const make = (options: EngineOptions) =>
         }),
 
       mcpStatus: (sessionId) =>
-        Effect.flatMap(toSession(sessionId), ({ session }) =>
+        Effect.flatMap(toSession(sessionId), (session) =>
           Effect.mapError(session.queries.mcpStatus(), failed),
         ),
 
       contextUsage: (sessionId) =>
-        Effect.flatMap(toSession(sessionId), ({ session }) =>
+        Effect.flatMap(toSession(sessionId), (session) =>
           Effect.mapError(session.queries.contextUsage(), failed),
         ),
 
       backgroundJobs: running.changes.pipe(
         Stream.map(() =>
-          projects().flatMap((project) =>
-            project.children.sessions.flatMap((session): Array<SessionJobs> => {
-              const { jobs } = session.model;
-              return jobs.length === 0
-                ? []
-                : [{ sessionId: session.key!, projectId: project.key!, jobs }];
-            }),
-          ),
+          sessions().flatMap((session): Array<SessionJobs> => {
+            const { jobs } = session.model;
+            return jobs.length === 0
+              ? []
+              : [
+                  {
+                    sessionId: session.key!,
+                    projectId: session.model.session.projectId,
+                    jobs,
+                  },
+                ];
+          }),
         ),
         Stream.changesWith(sameJobs),
       ),
 
       stopBackgroundJob: (sessionId, jobId) =>
         Effect.gen(function* () {
-          const { session } = yield* toSession(sessionId);
+          const session = yield* toSession(sessionId);
           session.send({ _tag: 'StopJob', jobId });
           // Gone from the agent's jobs, or refused: the Session's Model says which first.
           const outcome = yield* running.changes.pipe(
@@ -463,12 +494,12 @@ export class Engine extends Context.Service<Engine, EngineService>()(
   /** Runs the engine until its Scope closes; the root sweeps the Store first. */
   static readonly layer = (
     options: EngineOptions,
-  ): Layer.Layer<Engine, never, Store | Harnesses | Titler> =>
+  ): Layer.Layer<Engine, never, Store | Harnesses | OneShotPrompt> =>
     Layer.effect(Engine, make(options)).pipe(
       Layer.provide(
         Layer.mergeAll(
           storedHarnessBinaries,
-          desks,
+          agents,
           Folders.layer({ home: options.home }),
         ),
       ),
