@@ -1,5 +1,0 @@
----
-'@kestack/use-keys': patch
----
-
-`createKeys` is redesigned around one typed Keys tree. The definition names every Surface (`label`, `focusable`, `isolated`, `initial`), as they nest, and its Actions (`keys` as strings, `label`, `always`, `inField`, `repeat`, `enters`). Surface names are flat and unique, a name used twice fails to compile, and keys are checked when it runs. `keys.Surface` draws a Surface anywhere, as a `div` or on its child with `asChild`, any number of times, with `data-surface`, `data-state` (`active`, `parent`, `inactive`, `off`) and `data-mode`, plus the `appearance` class for its state. `keys.useAction(id, run)` gives an Action its Handler. The provider holds the Active Surface: a click or focus enters one, an Action `enters` one, Escape leaves it in one order, and the UI follows (`keys.useSurface(name).active`). `keys.Provider` takes `vim`, `onVimChange`, `timing`, `appearance` and the user's own `bindings`; `keys.useKeyboard`, `keys.useActive` and `keys.useAvailableActions` feed a status bar and a help sheet, and `revealInView` scrolls a keyboard cursor into view at once. `KeysProvider` takes `vim` and `onVimChange`.

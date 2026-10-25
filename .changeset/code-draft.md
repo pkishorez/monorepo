@@ -1,7 +1,0 @@
----
-'code': patch
----
-
-The keyboard is always on: the Vim Mode switch, `Mod+Alt+V` and its Device State are gone. Plain keys work from the page's Normal Mode: `h` and `l` go to the sidebar and the page, `o`, `s` and `a` open the Project Picker, the Session Switcher and Session Actions, `n` starts a new session, `b` shows or hides the sidebar, `[` and `]` open the previous and next session, `m`, `p` and `e` open the model Picker at the model, the permissions or the effort alone, `/` opens the skills Picker, and `?` lists the keys. `Ctrl+,` and `Mod+.` still work while typing; the Ctrl copies of those keys and `Space e` are gone. Saved keys for Actions that no longer exist are ignored.
-
-The composer box is replaced by the Draft: the session's next message, drawn faded at the end of its transcript as it will look once sent, and on a project's new-session page where the first message goes. It is read only, yet can be clicked to place the cursor and dragged to select; `i`, or a tap, makes it the Composer in place, and Escape makes it read only again, keeping its text, cursor and selection. Enter sends it from the page. A paste or a drop anywhere on the page, and a Skill picked, go in at its cursor, over the selection: the cursor sits after it, the page scrolls to it, and it fades from a highlight in about a second, with no fade under reduced motion. `u`, or Mod+Z in the Composer, takes the last one back out. The model and settings, the skills, the paperclip and the send button sit in the Status Line at the page's foot.

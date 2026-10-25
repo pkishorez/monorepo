@@ -1,5 +1,0 @@
----
-'@kestack/web-platform': patch
----
-
-`@kestack/web-platform/recipes/touch-layers` gives two layers for choosing on a device with no keyboard, and the header for both. `Drawer` rises from the bottom with a grab handle and goes on a swipe down, a tap outside, or when its owner closes it, keeping what it drew while it slides away. `TopDialog` sits at the top under the status bar with no motion, bounded by `window.visualViewport` so its list never goes under the on-screen keyboard; a tap outside takes focus from a field in it first and closes it only once nothing has focus, and a field marked `data-autofocus` is focused a frame after it is on screen. `raiseKeyboard`, called in the tap that opens such a layer, gives focus to a stand-in field out of sight so the on-screen keyboard rises in the tap, as iOS needs, and stays up as the field takes focus from it. `LayerHeader` names what is shown, with a back button when given `onBack` and, in a `TopDialog`, a close button. Lists drawn with the Command component get 48px rows and 16px fields in both. A Cosmos fixture tries them with a few or many rows.
