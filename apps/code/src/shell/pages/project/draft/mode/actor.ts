@@ -1,32 +1,29 @@
-import { Context, Effect, Layer, Schema } from 'effect';
+import { Context, Effect, Layer, Schema, Stream } from 'effect';
 import { Actor, Command } from '@kestack/kabuki';
 import { Written } from '../../../../../layer/capabilities/index.ts';
 import { TouchDraft } from './touch/index.ts';
-import { btwQuestion } from './btw.ts';
-import { keeping } from './keep.ts';
+import { carriedQuestion } from './carry.ts';
 
 /*
  * A Draft Mode: one way the Draft is written, a Child of the Draft for
  * each mode it has. Each is the one owner of its text, cursor and
  * selection, so switching away and back finds it as it was left; the
- * Draft has what it needs of it only as the mode hands it up, through
- * the `Owner` it Provides.
+ * Draft sees them only as the mode shows them to it, through the `Owner`
+ * it Provides.
  *
  * 1. Modes   a Message, sent to the Session, with files and Skills; a
  *            Side Question, text only, asked of the Session on the side.
  *            A new session's Draft has only a Message: there is no
  *            Session to ask yet.
  * 2. Write   its View draws the Draft's card from its text, and the
- *            editor reports each edit and each move of the cursor. A
- *            Message that starts with `/btw` hands the rest up as a
- *            question, and empties.
+ *            editor reports each edit and each move of the cursor; each
+ *            is shown to the Draft, which keeps it in its Saved Draft. A
+ *            Message that starts with `/btw` carries the rest up as a
+ *            question, and empties. Text the Draft gives back, a refused
+ *            send's or a question carried over, it takes once.
  * 3. Send    its text goes up to the Draft, to send or ask. In a Session
- *            it empties at once; untaken or refused, the text comes back.
- *            On a device with no keyboard it holds the Touch Draft, which
- *            has it sent the same way.
- * 4. Keep    its text and selection go up to be kept in the Saved Draft,
- *            a quarter of a second after the last change, and at once as
- *            the page is hidden or left and as it goes.
+ *            it empties at once. On a device with no keyboard it holds
+ *            the Touch Draft, which has it sent the same way.
  */
 
 // 1. Modes
@@ -54,31 +51,19 @@ export const writtenOf = (text: string): Written => ({
   head: text.length,
 });
 
-/** What became of a text handed up to send or ask. */
-export const Outcome = Schema.TaggedUnion({
-  /** Nothing went: empty, or the Draft could not send it now. */
-  Untaken: {},
-  /** It went, and nothing more is told of it here. */
-  Taken: {},
-  Sent: {},
-  Refused: { reason: Schema.String },
-});
-export type Outcome = typeof Outcome.Type;
-
 /** What a Draft Mode asks of its owner, the Draft. */
 export class Owner extends Context.Service<
   Owner,
   {
-    /** Keeps the mode's text in its Saved Draft; `at` orders the writes. */
-    readonly keep: (
+    /** Shows the Draft each text and selection the mode holds, for as long as it lives. */
+    readonly shows: (
       mode: Mode,
-      written: Written,
-      at: number,
+      written: Stream.Stream<Written>,
     ) => Effect.Effect<void>;
-    /** Sends the mode's text, or asks it, and says what became of it. */
-    readonly send: (mode: Mode, text: string) => Effect.Effect<Outcome>;
-    /** A Message started with `/btw`: `question` goes to a fresh Side Question. */
-    readonly btw: (question: string) => Effect.Effect<void>;
+    /** Sends the mode's text, or asks it. */
+    readonly send: (mode: Mode, text: string) => Effect.Effect<void>;
+    /** A Message started with `/btw`: `question` goes to the Side Question. */
+    readonly carry: (question: string) => Effect.Effect<void>;
   }
 >()('code/DraftMode/Owner') {}
 
@@ -89,105 +74,103 @@ export const owner = <R>(given: Effect.Effect<Owner['Service'], never, R>) =>
 const sendUp = Command.make('DraftModeSends', {
   args: Schema.Struct({ mode: Mode, text: Schema.String }),
   run: ({ mode, text }) =>
-    Effect.flatMap(Owner, (owner) => owner.send(mode, text)).pipe(
-      Effect.map((outcome) => ({ _tag: 'Settled' as const, text, outcome })),
-    ),
+    Effect.flatMap(Owner, (owner) => owner.send(mode, text)),
 });
 
 const carry = Command.make('DraftModeCarries', {
   args: Schema.Struct({ question: Schema.String }),
-  run: ({ question }) => Effect.flatMap(Owner, (owner) => owner.btw(question)),
+  run: ({ question }) =>
+    Effect.flatMap(Owner, (owner) => owner.carry(question)),
+});
+
+/** Text the Draft gives a mode, once: before what it holds, or in place of it. */
+export const Given = Schema.Struct({
+  id: Schema.Finite,
+  text: Schema.String,
+  replaces: Schema.Boolean,
 });
 
 const Props = Schema.Struct({
   mode: Mode,
   /** A send empties it at once: a Session's. */
   clears: Schema.Boolean,
-  /** A `/btw` at its start switches to a Side Question: a Session's Message. */
-  btw: Schema.Boolean,
+  /** A `/btw` at its start carries the rest to a Side Question: a Session's Message. */
+  carries: Schema.Boolean,
+  given: Schema.NullOr(Given),
 });
 
 const Model = Schema.Struct({
   written: Written,
-  /** How many changes there were to keep, and how many are kept. */
-  changes: Schema.Finite,
-  kept: Schema.Finite,
+  /** The last text given it that it took. */
+  took: Schema.Finite,
 });
 
 const DraftMode = Actor.define('DraftMode', {
   requires: [Owner],
-  /** What it starts from; `changed`: not kept yet, as a question carried over. */
-  input: Schema.Struct({ ...Written.fields, changed: Schema.Boolean }),
+  /** What it starts from. */
+  input: Written,
   props: Props,
   model: Model,
   message: Schema.TaggedUnion({
     Edited: Written.fields,
     SendAsked: {},
-    Settled: { text: Schema.String, outcome: Outcome },
-    Kept: { changes: Schema.Finite },
+    Took: { given: Given },
   }),
 });
 
-interface Data {
-  readonly model: typeof Model.Type;
-  readonly props: typeof Props.Type;
-}
-
-// 4. Keep
-const { save, flush } = keeping(
-  ({ model }: Data) => model.changes !== model.kept,
-  ({ model, props }: Data, at) =>
-    Effect.flatMap(Owner, (owner) => owner.keep(props.mode, model.written, at)),
-);
-
 export const DraftModeLive = Actor.build(DraftMode, {
-  init: ({ changed, ...written }) => ({
-    model: { written, changes: changed ? 1 : 0, kept: 0 },
-  }),
+  init: (written) => ({ model: { written, took: 0 } }),
   // 3. Send: on touch, through the Touch Draft.
   provides: (self) => TouchDraft.owner(self.send({ _tag: 'SendAsked' })),
   children: { touch: { actor: TouchDraft.actor } },
-  workers: { save, flush },
+  workers: {
+    // 2. Write
+    shows: {
+      run: (self) =>
+        Effect.gen(function* () {
+          const { props } = yield* self.get;
+          const owner = yield* Owner;
+          yield* owner.shows(
+            props.mode,
+            Stream.map(self.changes, ({ model }) => model.written),
+          );
+        }),
+    },
+    takes: {
+      each: ({ model, props }) =>
+        props.given !== null && props.given.id > model.took
+          ? [String(props.given.id)]
+          : [],
+      run: (self) =>
+        Effect.gen(function* () {
+          const { props } = yield* self.get;
+          if (props.given !== null)
+            yield* self.send({ _tag: 'Took', given: props.given });
+        }),
+    },
+  },
   on: {
     // 2. Write
     Edited: ({ text, anchor, head }, { model, props }) => {
       const written = { text, anchor, head };
       const retyped = written.text !== model.written.text;
-      const question = retyped && props.btw ? btwQuestion(written.text) : null;
-      const changes = model.changes + 1;
+      const question =
+        retyped && props.carries ? carriedQuestion(written.text) : null;
       return question === null
-        ? { model: { ...model, written, changes } }
-        : {
-            model: { ...model, written: blank, changes },
-            command: carry({ question }),
-          };
+        ? { model: { ...model, written } }
+        : { model: { ...model, written: blank }, command: carry({ question }) };
     },
-    // 3. Send: a Message's emptying is kept with its send.
-    SendAsked: (_, { model, props }) => ({
-      model: !props.clears
-        ? model
-        : props.mode === 'Message'
-          ? { ...model, written: blank, kept: model.changes }
-          : { ...model, written: blank, changes: model.changes + 1 },
-      command: sendUp({ mode: props.mode, text: model.written.text }),
-    }),
-    Settled: ({ text, outcome }, { model, props }) => {
-      const back =
-        props.clears &&
-        text.trim() !== '' &&
-        (outcome._tag === 'Untaken' || outcome._tag === 'Refused');
-      if (!back) return {};
+    Took: ({ given }, { model }) => {
+      if (given.id <= model.took) return {};
       const now = model.written.text;
-      return {
-        model: {
-          ...model,
-          written: writtenOf(now === '' ? text : `${text}\n\n${now}`),
-          changes: model.changes + 1,
-        },
-      };
+      const text =
+        given.replaces || now === '' ? given.text : `${given.text}\n\n${now}`;
+      return { model: { written: writtenOf(text), took: given.id } };
     },
-    Kept: ({ changes }, { model }) => ({
-      model: { ...model, kept: Math.max(model.kept, changes) },
+    // 3. Send
+    SendAsked: (_, { model, props }) => ({
+      ...(props.clears ? { model: { ...model, written: blank } } : {}),
+      command: sendUp({ mode: props.mode, text: model.written.text }),
     }),
   },
 });

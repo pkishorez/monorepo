@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { Effect } from 'effect';
+import { Effect, Fiber } from 'effect';
 import { describe, expect, it } from 'vitest';
 import {
   type Place,
@@ -10,10 +10,11 @@ import { savedDraftsIdb } from './index.ts';
 
 /*
  * Saved Drafts in IndexedDB: each place's own, for the Account named and
- * no other; written again, the last write wins and the revision counts
- * up; changed to nothing, gone; writes to one place never lose one
- * another; and a Project removed, a Machine forgotten or no longer
- * listed, or an Account signed out takes its Saved Drafts with it.
+ * no other; saved again, the last save wins; saved as nothing, gone; a
+ * save read before one already made of the place is dropped, and one is
+ * finished even once its caller goes; and a Project removed, a Machine
+ * forgotten or no longer listed, or an Account signed out takes its Saved
+ * Drafts with it.
  */
 
 const run = <A>(effect: Effect.Effect<A, unknown, SavedDrafts>) =>
@@ -24,7 +25,6 @@ const draftOf = (text: string): SavedDraft => ({
   written: { Message: { text, anchor: 0, head: text.length } },
   attachments: [],
   chosen: { account: null, model: null, settings: {} },
-  unsent: [],
 });
 
 const session = (
@@ -44,47 +44,53 @@ describe('Saved Drafts', () => {
     const result = await run(
       Effect.gen(function* () {
         const saved = yield* SavedDrafts;
-        const first = yield* saved.write('a1', place, () => draftOf('first'));
-        const second = yield* saved.write('a1', place, () => draftOf('second'));
-        yield* saved.write('a1', project, () => draftOf('new session'));
+        yield* saved.save('a1', place, draftOf('first'), 1n);
+        yield* saved.save('a1', place, draftOf('second'), 2n);
+        yield* saved.save('a1', project, draftOf('new session'), 3n);
         const mine = yield* Effect.all([
           saved.read('a1', place),
           saved.read('a1', project),
         ]);
         const theirs = yield* saved.read('a2', place);
-        const gone = yield* saved.write('a1', place, () => null);
+        yield* saved.save('a1', place, null, 4n);
         const after = yield* saved.read('a1', place);
-        return { first, second, mine, theirs, gone, after };
+        return { mine, theirs, after };
       }),
     );
-    expect([result.first, result.second]).toEqual([1, 2]);
-    expect(result.mine).toEqual([
-      { draft: draftOf('second'), revision: 2 },
-      { draft: draftOf('new session'), revision: 1 },
-    ]);
+    expect(result.mine).toEqual([draftOf('second'), draftOf('new session')]);
     expect(result.theirs).toBeNull();
-    expect(result.gone).toBeNull();
     expect(result.after).toBeNull();
   });
 
-  it('makes one write at a time to a place, so none is lost', async () => {
+  it('drops a save read before one already made of the place', async () => {
     const place = session('m3', 'p3', 's3');
+    const result = await run(
+      Effect.gen(function* () {
+        const saved = yield* SavedDrafts;
+        const newer = yield* saved.save('a1', place, draftOf('newer'), 20n);
+        const older = yield* saved.save('a1', place, draftOf('older'), 10n);
+        return { newer, older, kept: yield* saved.read('a1', place) };
+      }),
+    );
+    expect([result.newer, result.older]).toEqual([true, false]);
+    expect(result.kept).toEqual(draftOf('newer'));
+  });
+
+  it('finishes a save even once its caller goes', async () => {
+    const place = session('m4', 'p4', 's4');
     const kept = await run(
       Effect.gen(function* () {
         const saved = yield* SavedDrafts;
-        yield* Effect.forEach(
-          ['a', 'b', 'c', 'd', 'e'],
-          (letter) =>
-            saved.write('a1', place, (kept) =>
-              draftOf(`${kept?.draft.written['Message']?.text ?? ''}${letter}`),
-            ),
-          { concurrency: 'unbounded', discard: true },
+        const caller = yield* Effect.forkChild(
+          saved.save('a1', place, draftOf('mine'), 1n),
         );
+        yield* Effect.yieldNow;
+        yield* Fiber.interrupt(caller);
+        yield* Effect.sleep(50);
         return yield* saved.read('a1', place);
       }),
     );
-    expect(kept?.draft.written['Message']?.text).toHaveLength(5);
-    expect(kept?.revision).toBe(5);
+    expect(kept).toEqual(draftOf('mine'));
   });
 
   it('forgets those of a Project removed, a Machine forgotten or unlisted, and an Account signed out', async () => {
@@ -100,8 +106,8 @@ describe('Saved Drafts', () => {
       Effect.gen(function* () {
         const saved = yield* SavedDrafts;
         for (const place of places)
-          yield* saved.write('a1', place, () => draftOf('x'));
-        yield* saved.write('a2', kept, () => draftOf('theirs'));
+          yield* saved.save('a1', place, draftOf('x'), 1n);
+        yield* saved.save('a2', kept, draftOf('theirs'), 1n);
         yield* saved.drop({
           _tag: 'Project',
           machineId: 'm1',
@@ -118,7 +124,7 @@ describe('Saved Drafts', () => {
           listed: ['m1', 'm2'],
         });
         const mine = yield* Effect.forEach(places, (place) =>
-          Effect.map(saved.read('a1', place), (each) => each?.draft ?? null),
+          saved.read('a1', place),
         );
         yield* saved.drop({ _tag: 'SignedOut', signedIn: ['a1'] });
         const theirs = yield* saved.read('a2', kept);
@@ -128,6 +134,6 @@ describe('Saved Drafts', () => {
     );
     expect(left.mine).toEqual([null, null, null, null, draftOf('x')]);
     expect(left.theirs).toBeNull();
-    expect(left.still?.draft).toEqual(draftOf('x'));
+    expect(left.still).toEqual(draftOf('x'));
   });
 });

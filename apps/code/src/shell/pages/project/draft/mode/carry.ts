@@ -5,16 +5,16 @@
  * that a `/` opened: `btw` and a space there.
  */
 
-const BTW = /^\/btw(?:\s+([\s\S]*))?$/;
+const CARRIES = /^\/btw(?:\s+([\s\S]*))?$/;
 
 /** The question a draft asks with `/btw`, `''` when it names none, or null when it is a message. */
-export const btwQuestion = (draft: string): string | null => {
-  const match = BTW.exec(draft.trim());
+export const carriedQuestion = (draft: string): string | null => {
+  const match = CARRIES.exec(draft.trim());
   return match === null ? null : (match[1] ?? '').trim();
 };
 
 const SEARCHED = /^btw\s([\s\S]*)$/;
 
 /** The question a skills Picker's search asks once it is `btw` and a space, or null. */
-export const btwSearched = (query: string): string | null =>
+export const searchedQuestion = (query: string): string | null =>
   SEARCHED.exec(query)?.[1] ?? null;

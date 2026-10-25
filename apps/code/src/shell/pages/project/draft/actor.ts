@@ -1,30 +1,23 @@
-import { Effect, Layer, Schema, Stream } from 'effect';
+import { Effect, Layer, Schema, Stream, SubscriptionRef } from 'effect';
 import { Accounts } from '@kestack/auth-toolkit/client';
 import { CodeClient } from '@kestack/connect/code';
-import { Actor, type Self as Kabuki, type Single } from '@kestack/kabuki';
+import { Actor } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
 import { session } from '../../../routes/index.ts';
 import * as Picker from '../../../../ui/picker/index.ts';
 import {
-  type Place,
   SavedDraft,
   SavedDrafts,
   Written,
 } from '../../../../layer/capabilities/index.ts';
 import { Catalog, SharedCatalog } from '../capabilities/index.ts';
-import { ask, retryCatalog, send, startSession } from './commands.ts';
-import { Attached, Insert, wire } from './message.ts';
-import { DraftMode, type Mode, type Outcome } from './mode/index.ts';
+import { retryCatalog } from './commands.ts';
+import { Attached, Insert } from './message.ts';
+import { DraftMode, type Mode } from './mode/index.ts';
 import { ModelPicker } from './model-picker/index.ts';
-import {
-  forget,
-  forgetUnsent,
-  keeps,
-  keepWritten,
-  restoredOf,
-  Where,
-  workers,
-} from './saved.ts';
+import { current, NOBODY, pickedHarness, skillsOf } from './picks.ts';
+import { read, restoredOf, saving, Where, whereOf } from './saved.ts';
+import { askOf, sendTo, start } from './send.ts';
 import { SkillPicker } from './skills.ts';
 
 /*
@@ -32,40 +25,30 @@ import { SkillPicker } from './skills.ts';
  * Session's next, with what goes with it. It is its own Actor, so typing
  * into it, picking for it or dictating into it draws only it.
  *
- * 1. Catalog  the agents, their models and Skills, as the project shares
- *             them; nothing waits for them. When they cannot be read the
- *             Draft says why, and opening the skills Picker again asks the
- *             project to read them again.
- * 2. Write    in its Draft Mode, a Child each (`mode/`): a Message, or,
- *             in a Session, a Side Question, each the one owner of its
- *             text, cursor and selection, which it hands up only to send
- *             or keep. The Draft keeps the mode open, the Message's files
- *             and every Insert, numbered, for the editor of the mode open
- *             to put in once at its cursor: a paste, a drop, a Dictation,
- *             a Skill.
- * 3. Pick     the model Picker sets the agent, its model and settings, each
- *             its default until picked; a new agent starts from its own. A
- *             Session keeps its agent, and what is picked goes with every
- *             message from then on. On touch the model chip sets a
- *             setting in place, with no Picker. The skills Picker puts a
- *             `/name` in. One Picker is open at a time, each a fresh one.
- * 4. Send     a mode hands its text up. A new session's Draft starts the
- *             session, already running its first message, and the app
- *             moves to it. A Session's Message goes to the server, which
- *             starts a turn or steers the running one, kept apart until
- *             answered; refused, its files come back here, its text to the
- *             mode. In Side Question mode the question is asked on the
- *             side, answered by the Session's own agent; a new one
- *             replaces the last and its answer, and nothing of it is kept.
- *             A Message that starts with `/btw`, or a `btw ` typed in the
- *             skills Picker, carries the rest to a fresh Side Question.
- * 5. Keep     the Draft is kept on this device as a Saved Draft
- *             (`saved.ts`), under the Account it opened with: read back
- *             before it is drawn; each part kept by its owner after each
- *             change and as the page is left, a Message sent held until
- *             answered. A Session's is forgotten once a Message sent is
- *             taken with nothing written since; a new session's, once the
- *             session starts.
+ * 1. Write and Pick  in its Draft Mode, a Child each (`mode/`): a
+ *           Message, or, in a Session, a Side Question, each the one owner
+ *           of its text, cursor and selection. The Draft keeps the mode
+ *           open, the Message's files and every Insert, numbered, for the
+ *           editor of the mode open to put in once at its cursor: a paste,
+ *           a drop, a Dictation, a Skill. The model Picker sets the agent,
+ *           its model and settings, each its default until picked
+ *           (`picks.ts`), from the agents, models and Skills the project
+ *           shares, which nothing waits for; a new agent starts from its
+ *           own, and a Session keeps its agent. On touch the model chip
+ *           sets a setting in place. The skills Picker puts a `/name` in.
+ *           One Picker is open at a time, each a fresh one.
+ * 2. Send   a mode hands its text up (`send.ts`). A new session's Draft
+ *           starts the session, already running its first message, and the
+ *           app moves to it. A Session's Message goes to the server, which
+ *           starts a turn or steers the running one; refused, its files
+ *           and its text come back. A Side Question is asked on the side,
+ *           answered by the Session's own agent, a new one replacing the
+ *           last. A Message that starts with `/btw`, or a `btw ` typed in
+ *           the skills Picker, carries the rest to the Side Question.
+ * 3. Keep   the Draft is saved on this device as it shows, its Saved Draft
+ *           (`saved.ts`), under the Account it opened with: read back
+ *           before it is drawn, saved after each change and as the page is
+ *           left, and deleted once a new session it started has started.
  */
 
 /** A Session's agent (its Harness Account), model and settings, as its row says them. */
@@ -91,7 +74,7 @@ const Props = Schema.Struct({
   projectId: Schema.String,
   to: To,
 });
-type Props = typeof Props.Type;
+export type Props = typeof Props.Type;
 
 const Picking = Schema.TaggedUnion({
   /** `typed`: opened by a `/` typed in the Composer, which the skill takes the place of. */
@@ -107,13 +90,6 @@ const Chosen = Schema.Struct({
   settings: Schema.Record(Schema.String, Schema.String),
 });
 
-/** A Message sent, kept until the server answers; `refused`: why, until its mode has it back. */
-const Unsent = Schema.Struct({
-  id: Schema.Finite,
-  attachments: Schema.Array(Attached),
-  refused: Schema.NullOr(Schema.String),
-});
-
 const Asked = Schema.Struct({
   id: Schema.Finite,
   question: Schema.String,
@@ -122,32 +98,24 @@ const Asked = Schema.Struct({
   problem: Schema.NullOr(Schema.String),
 });
 
-const Handed = Schema.Struct({
-  id: Schema.String,
-  taken: Schema.Boolean,
-  send: Schema.NullOr(Schema.Finite),
+/** Text given back to a mode: a refused send's, or a question carried over. */
+const Given = Schema.Struct({
+  mode: DraftMode.Mode,
+  ...DraftMode.Given.fields,
 });
-
-/** How many texts handed up are remembered. */
-const HANDED = 8;
-
-/** What a mode starts from; `changed`: not kept yet, as a question carried over. */
-const Opening = Schema.Struct({ ...Written.fields, changed: Schema.Boolean });
 
 const Model = Schema.Struct({
   /** Its Saved Draft has been read back. */
   restored: Schema.Boolean,
-  /** The Account and place it is kept under, fixed once read back; null with nobody signed in. */
+  /** The Account and place it is saved under, fixed once read back; null with nobody signed in. */
   where: Schema.NullOr(Where),
-  /** How many changes to its own parts there were to keep, and how many are kept. */
-  changes: Schema.Finite,
-  kept: Schema.Finite,
+  /** Its new session has started: it is saved no more. */
+  started: Schema.Boolean,
   /** The Draft Mode open. */
   mode: DraftMode.Mode,
-  /** What each mode starts from, as read back or carried over; the mode owns it after. */
-  opening: Schema.Struct({ Message: Opening, SideQuestion: Opening }),
-  /** How many questions were carried to a fresh Side Question. */
-  carried: Schema.Finite,
+  /** What each mode starts from, as read back; the mode owns it after. */
+  opening: Schema.Struct({ Message: Written, SideQuestion: Written }),
+  given: Schema.NullOr(Given),
   attachments: Schema.Array(Attached),
   /** The last thing put in, for its editor to put in at its cursor. */
   insert: Schema.NullOr(Insert.Schema),
@@ -158,21 +126,15 @@ const Model = Schema.Struct({
   picking: Schema.NullOr(Picking),
   /** How many Pickers were opened, so each is a fresh one. */
   opened: Schema.Finite,
-  /** Why the last start or send went wrong, until the next. */
+  /** Why the last start or send went wrong, until the next, or an edit. */
   problem: Schema.NullOr(Schema.String),
   /** A new session is being started, or has started. */
   starting: Schema.Boolean,
-  /** Sent and not yet answered, oldest first. */
-  unsent: Schema.Array(Unsent),
-  /** How many were sent: each send's id. */
-  sends: Schema.Finite,
   asked: Schema.NullOr(Asked),
   /** The last question's id: a late answer to a dismissed one is told apart. */
   asks: Schema.Finite,
-  /** The last texts handed up, whether each was taken, and the send it became. */
-  handed: Schema.Array(Handed),
 });
-type Model = typeof Model.Type;
+export type Model = typeof Model.Type;
 
 const Message = Schema.TaggedUnion({
   CatalogRead: { catalog: Catalog.Model },
@@ -180,31 +142,27 @@ const Message = Schema.TaggedUnion({
   ModeAsked: { mode: DraftMode.Mode },
   AttachmentsChanged: { attachments: Schema.Array(Attached) },
   InsertAsked: { what: Insert.What },
+  /** A mode's text was edited since the last problem. */
+  Retyped: {},
   PickerOpened: { picking: Picking },
   PickerClosed: {},
   ModelChosen: { chosen: Chosen },
   SettingChosen: { key: Schema.String, value: Schema.String },
   SkillChosen: { name: Schema.String },
-  /** A mode handed up its text: to send, start with or ask; `handed` tells it apart. */
-  SendAsked: {
-    mode: DraftMode.Mode,
-    text: Schema.String,
-    handed: Schema.String,
-  },
+  /** A mode handed up its text: to send, start with or ask. */
+  SendAsked: { mode: DraftMode.Mode, text: Schema.String },
   /** A Message started with `/btw`. */
-  BtwAsked: { question: Schema.String },
-  /** A mode's text changed since the last problem. */
-  Retyped: {},
+  Carried: { question: Schema.String },
   Started: { sessionId: Schema.String },
   StartRefused: { reason: Schema.String },
-  Sent: { id: Schema.Finite },
-  SendRefused: { id: Schema.Finite, key: Schema.String, reason: Schema.String },
-  /** Its mode has the text of a refused send back. */
-  RefusalTaken: { id: Schema.Finite },
+  SendRefused: {
+    text: Schema.String,
+    attachments: Schema.Array(Attached),
+    reason: Schema.String,
+  },
   Answered: { id: Schema.Finite, answer: Schema.String },
   AskRefused: { id: Schema.Finite, reason: Schema.String },
   Restored: { where: Schema.NullOr(Where), draft: Schema.NullOr(SavedDraft) },
-  Kept: { changes: Schema.Finite },
 });
 
 const Draft = Actor.define('Draft', {
@@ -214,231 +172,27 @@ const Draft = Actor.define('Draft', {
   message: Message,
 });
 
-/** `/` entries that are not skills, for a Session's Draft. */
-const COMMANDS = [
-  {
-    name: 'btw',
-    description: 'Ask about this session without interrupting it',
-  },
-];
-
-/** What the model Picker is handed before anything is known, which it never opens for. */
-const NOBODY = { account: '', model: null, settings: {} };
-
-/** A new session's agent, as the catalog describes it: the one picked, else the first that runs. */
-export const pickedHarness = ({ catalog, chosen }: Model) =>
-  Catalog.harnessOf(catalog, chosen.account) ??
-  catalog.harnesses?.find(({ available }) => available) ??
-  catalog.harnesses?.[0] ??
-  null;
-
-/** A new session's model: the one picked, or its agent's default. */
-export const pickedModel = (model: Model) =>
-  model.chosen.model ?? pickedHarness(model)?.defaultModel ?? null;
-
-/** A new session's settings: each the one picked, or its default. */
-const pickedSettings = (model: Model): Record<string, string> =>
-  Object.fromEntries(
-    (pickedHarness(model)?.settings ?? []).map(({ key, default: value }) => [
-      key,
-      model.chosen.settings[key] ?? value,
-    ]),
-  );
-
-/** The agent, model and settings in effect, for the model Picker; null until they are known. */
-export const current = (model: Model, { to }: Props) => {
-  if (to._tag === 'Session')
-    return to.agent === null
-      ? null
-      : {
-          account: to.agent.account,
-          model: model.chosen.model ?? to.agent.model,
-          settings: { ...to.agent.settings, ...model.chosen.settings },
-        };
-  const harness = pickedHarness(model);
-  return harness === null
-    ? null
-    : {
-        account: harness.account,
-        model: model.chosen.model,
-        settings: model.chosen.settings,
-      };
-};
-
-/** The agent's Skills, and a Session's commands, as the skills Picker lists them. */
-export const skillsOf = (model: Model, props: Props) => {
-  const account = current(model, props)?.account ?? null;
-  const read = Catalog.skillsOf(model.catalog, account);
-  const loading =
-    read === undefined &&
-    (props.to._tag === 'Session' ||
-      (model.catalog.harnesses === null
-        ? model.catalog.problem === null
-        : pickedHarness(model)?.available === true));
-  return {
-    commands: props.to._tag === 'Session' ? COMMANDS : [],
-    skills: read?.list ?? [],
-    loading,
-    problem: read?.problem ?? null,
-  };
-};
-
 /** The modes this Draft has. */
 export const modesOf = ({ to }: Props) =>
   DraftMode.modesOf(to._tag === 'Session');
 
-/** A mode Child's key: a Side Question carried over to is a fresh one. */
-const keyOf = (mode: Mode, carried: number) =>
-  mode === 'SideQuestion' && carried > 0 ? `${mode} ${carried}` : mode;
-
-/** The mode a Child's key names. */
-const modeOfKey = (key: string): Mode =>
-  key.startsWith('SideQuestion') ? 'SideQuestion' : 'Message';
-
-/** Where its Saved Draft is kept. */
-const placeOf = ({ machineId, projectId, to }: Props): Place => ({
-  machineId,
-  projectId,
-  sessionId: to._tag === 'Session' ? to.sessionId : null,
+/** Text given back to a mode, the next after the last. */
+const give = (model: Model, mode: Mode, text: string, replaces: boolean) => ({
+  mode,
+  id: (model.given?.id ?? 0) + 1,
+  text,
+  replaces,
 });
-
-/** One more change to keep. */
-const changed = (model: Model): Model => ({
-  ...model,
-  changes: model.changes + 1,
-});
-
-// 4. Send: a new session.
-const start = (model: Model, props: Props, written: string) => {
-  const text = written.trim();
-  const harness = pickedHarness(model);
-  const picked = pickedModel(model);
-  if (model.starting || harness === null || picked === null) return {};
-  if (!harness.available)
-    return {
-      model: {
-        ...model,
-        problem:
-          harness.unavailableReason ?? 'This agent cannot run on this machine',
-      },
-    };
-  if (text === '' && model.attachments.length === 0)
-    return { model: { ...model, problem: 'Write the first message' } };
-  return {
-    model: { ...model, starting: true, problem: null },
-    command: startSession({
-      projectId: props.projectId,
-      account: harness.account,
-      model: picked,
-      settings: pickedSettings(model),
-      text,
-      attachments: wire(model.attachments),
-    }),
-  };
-};
-
-// 4. Send: a Side Question.
-const askOf = (model: Model, sessionId: string, text: string) => {
-  const question = text.trim();
-  if (question === '') return {};
-  const id = model.asks + 1;
-  return {
-    model: {
-      ...model,
-      problem: null,
-      asked: { id, question, answer: null, problem: null },
-      asks: id,
-    },
-    command: ask({ id, sessionId, question }),
-  };
-};
-
-// 4. Send: a Session's Message; its files emptied are kept with its send.
-const sendTo = (model: Model, sessionId: string, written: string) => {
-  const text = written.trim();
-  if (text === '' && model.attachments.length === 0) return {};
-  const id = model.sends + 1;
-  const { chosen } = model;
-  return {
-    model: {
-      ...model,
-      attachments: [],
-      kept: model.changes,
-      unsent: [
-        ...model.unsent,
-        { id, attachments: model.attachments, refused: null },
-      ],
-      sends: id,
-      problem: null,
-    },
-    command: send({
-      id,
-      where: model.where,
-      sessionId,
-      text,
-      attachments: model.attachments,
-      ...(chosen.model === null ? {} : { model: chosen.model }),
-      ...(Object.keys(chosen.settings).length === 0
-        ? {}
-        : { settings: chosen.settings }),
-    }),
-  };
-};
-
-type Self = Kabuki<Model, Single, typeof Message.Type, Props>;
-
-/** The first value `pick` finds in the Draft as it changes. */
-const first = <A>(
-  self: Self,
-  pick: (model: Model) => A | undefined,
-): Effect.Effect<A | undefined> =>
-  self.changes.pipe(
-    Stream.map(({ model }) => pick(model)),
-    Stream.filter((found) => found !== undefined),
-    Stream.runHead,
-    Effect.map((found) => (found._tag === 'Some' ? found.value : undefined)),
-  );
-
-/**
- * 4. Send: a mode's text handed up, and what became of it: a Session's
- * Message waits for the server's answer.
- */
-const handedUp = (self: Self, mode: Mode, text: string) =>
-  Effect.gen(function* () {
-    const id = crypto.randomUUID();
-    yield* self.send({ _tag: 'SendAsked', mode, text, handed: id });
-    const handed = yield* first(self, ({ handed }) =>
-      handed.find((each) => each.id === id),
-    );
-    if (handed === undefined || !handed.taken)
-      return { _tag: 'Untaken' } satisfies Outcome;
-    const { send } = handed;
-    if (send === null) return { _tag: 'Taken' } satisfies Outcome;
-    const refused = yield* first(self, ({ unsent }) => {
-      const each = unsent.find((one) => one.id === send);
-      return each === undefined ? null : (each.refused ?? undefined);
-    });
-    if (refused === null || refused === undefined)
-      return { _tag: 'Sent' } satisfies Outcome;
-    yield* self.send({ _tag: 'RefusalTaken', id: send });
-    return { _tag: 'Refused', reason: refused } satisfies Outcome;
-  });
-
-const keep = workers(placeOf);
 
 export const DraftLive = Actor.build(Draft, {
   init: () => ({
     model: {
       restored: false,
       where: null,
-      changes: 0,
-      kept: 0,
+      started: false,
       mode: 'Message',
-      opening: {
-        Message: { ...DraftMode.blank, changed: false },
-        SideQuestion: { ...DraftMode.blank, changed: false },
-      },
-      carried: 0,
+      opening: { Message: DraftMode.blank, SideQuestion: DraftMode.blank },
+      given: null,
       attachments: [],
       insert: null,
       catalog: Catalog.empty,
@@ -447,16 +201,13 @@ export const DraftLive = Actor.build(Draft, {
       opened: 0,
       problem: null,
       starting: false,
-      unsent: [],
-      sends: 0,
       asked: null,
       asks: 0,
-      handed: [],
     },
   }),
   provides: (self) =>
     Layer.mergeAll(
-      // 3. Pick
+      // 1. Pick
       SkillPicker.owner((name) =>
         self.send(
           name === null
@@ -471,38 +222,51 @@ export const DraftLive = Actor.build(Draft, {
             : { _tag: 'ModelChosen', chosen },
         ),
       ),
-      // 2. Write, 4. Send, 5. Keep: what each mode hands up.
+      // 1. Write, 2. Send, 3. Keep: what each mode shows and hands up.
       DraftMode.owner(
-        Effect.map(SavedDrafts, (saved) => ({
-          keep: (mode: Mode, written: Written, at: number) =>
-            Effect.gen(function* () {
-              const { model } = yield* self.get;
-              if (!keeps(model) || model.where === null) return;
-              if (model.problem !== null) yield* self.send({ _tag: 'Retyped' });
-              yield* keepWritten(model.where, at, mode, written).pipe(
-                Effect.provideService(SavedDrafts, saved),
-              );
-            }),
-          send: (mode: Mode, text: string) => handedUp(self, mode, text),
-          btw: (question: string) => self.send({ _tag: 'BtwAsked', question }),
-        })),
+        Effect.gen(function* () {
+          const texts = yield* SubscriptionRef.make<
+            Partial<Record<Mode, Written>>
+          >({});
+          yield* Effect.forkScoped(saving(self, modesOf, texts));
+          return {
+            shows: (mode: Mode, written: Stream.Stream<Written>) =>
+              Stream.runForEach(written, (each) =>
+                SubscriptionRef.update(texts, (all) => ({
+                  ...all,
+                  [mode]: each,
+                })),
+              ),
+            send: (mode: Mode, text: string) =>
+              self.send({ _tag: 'SendAsked', mode, text }),
+            carry: (question: string) =>
+              self.send({ _tag: 'Carried', question }),
+          };
+        }),
       ),
     ),
   children: {
-    // 2. Write: one Child per Draft Mode, once its Saved Draft is read back.
+    // 1. Write: one Child per Draft Mode, once its Saved Draft is read back.
     modes: {
       actor: DraftMode.actor,
-      each: ({ model, props }) =>
-        model.restored
-          ? modesOf(props).map((mode) => keyOf(mode, model.carried))
-          : [],
-      input: ({ model }, key) => model.opening[modeOfKey(key)],
-      props: ({ props }, key) => {
+      each: ({ model, props }) => (model.restored ? modesOf(props) : []),
+      input: ({ model }, key) => model.opening[key as Mode],
+      props: ({ model, props }, key) => {
+        const mode = key as Mode;
         const session = props.to._tag === 'Session';
-        const mode = modeOfKey(key);
-        return { mode, clears: session, btw: session && mode === 'Message' };
+        const { given } = model;
+        return {
+          mode,
+          clears: session,
+          carries: session && mode === 'Message',
+          given:
+            given?.mode === mode
+              ? { id: given.id, text: given.text, replaces: given.replaces }
+              : null,
+        };
       },
     },
+    // 1. Pick
     skills: {
       actor: SkillPicker.Live,
       while: ({ model }) => model.picking?._tag === 'Skills',
@@ -533,9 +297,22 @@ export const DraftLive = Actor.build(Draft, {
     },
   },
   workers: {
-    // 5. Keep
-    ...keep,
-    // 1. Catalog
+    // 3. Keep: read back once, under the Account signed in as it opens.
+    restore: {
+      while: ({ model }) => !model.restored,
+      run: (self) =>
+        Effect.gen(function* () {
+          const { props } = yield* self.get;
+          const where = yield* whereOf({
+            machineId: props.machineId,
+            projectId: props.projectId,
+            sessionId: props.to._tag === 'Session' ? props.to.sessionId : null,
+          });
+          const draft = where === null ? null : yield* read(where);
+          yield* self.send({ _tag: 'Restored', where, draft });
+        }),
+    },
+    // 1. Pick: the catalog, as the project shares it.
     catalog: {
       run: (self) =>
         Stream.runForEach(
@@ -545,76 +322,21 @@ export const DraftLive = Actor.build(Draft, {
     },
   },
   on: {
+    // 1. Write
     CatalogRead: ({ catalog }, { model }) => ({ model: { ...model, catalog } }),
     CatalogRetryAsked: () => ({ command: retryCatalog() }),
-    // 5. Keep: what came back of a refused Message is held again, not kept apart.
-    Restored: ({ where, draft }, { model, props }) => {
-      if (draft === null) return { model: { ...model, where, restored: true } };
-      const { parts, opening, refused, back } = restoredOf(
-        draft,
-        modesOf(props),
-      );
-      return {
-        model: {
-          ...model,
-          ...parts,
-          opening: {
-            Message: { ...opening.Message, changed: back.length > 0 },
-            SideQuestion: { ...opening.SideQuestion, changed: false },
-          },
-          where,
-          restored: true,
-          problem: refused,
-          changes: back.length === 0 ? model.changes : model.changes + 1,
-        },
-        ...(where === null || back.length === 0
-          ? {}
-          : { command: forgetUnsent({ where, keys: back }) }),
-      };
-    },
-    Kept: ({ changes }, { model }) => ({
-      model: { ...model, kept: Math.max(model.kept, changes) },
-    }),
-    // 2. Write
     ModeAsked: ({ mode }, { model, props }) =>
       !modesOf(props).includes(mode) || model.mode === mode
         ? {}
-        : {
-            model: {
-              ...changed(model),
-              mode,
-              picking: null,
-              problem: null,
-            },
-          },
+        : { model: { ...model, mode, picking: null, problem: null } },
     AttachmentsChanged: ({ attachments }, { model }) => ({
-      model: { ...changed(model), attachments, problem: null },
+      model: { ...model, attachments, problem: null },
     }),
     InsertAsked: ({ what }, { model }) => ({
       model: { ...model, insert: Insert.next(model.insert, what) },
     }),
     Retyped: (_, { model }) => ({ model: { ...model, problem: null } }),
-    // 4. Send: `/btw` carries the rest to a fresh Side Question.
-    BtwAsked: ({ question }, { model, props }) =>
-      !modesOf(props).includes('SideQuestion')
-        ? {}
-        : {
-            model: {
-              ...changed(model),
-              mode: 'SideQuestion',
-              picking: null,
-              problem: null,
-              opening: {
-                ...model.opening,
-                SideQuestion: {
-                  ...DraftMode.writtenOf(question),
-                  changed: true,
-                },
-              },
-              carried: model.carried + 1,
-            },
-          },
-    // 3. Pick
+    // 1. Pick
     PickerOpened: ({ picking }, { model, props }) =>
       model.picking !== null ||
       !DraftMode.takes(model.mode)[
@@ -653,7 +375,7 @@ export const DraftLive = Actor.build(Draft, {
         harness !== null && harness.account !== pickedHarness(model)?.account;
       return {
         model: {
-          ...changed(model),
+          ...model,
           picking: null,
           problem: null,
           chosen: {
@@ -669,7 +391,7 @@ export const DraftLive = Actor.build(Draft, {
     },
     SettingChosen: ({ key, value }, { model }) => ({
       model: {
-        ...changed(model),
+        ...model,
         problem: null,
         chosen: {
           ...model.chosen,
@@ -677,67 +399,41 @@ export const DraftLive = Actor.build(Draft, {
         },
       },
     }),
-    // 4. Send
-    SendAsked: ({ mode, text, handed }, { model, props }) => {
-      const message = props.to._tag === 'Session' && mode === 'Message';
-      const done =
-        props.to._tag === 'NewSession'
-          ? start(model, props, text)
-          : mode === 'SideQuestion'
-            ? askOf(model, props.to.sessionId, text)
-            : sendTo(model, props.to.sessionId, text);
-      const next = done.model ?? model;
-      const taken = 'command' in done;
-      return {
-        ...done,
-        model: {
-          ...next,
-          handed: [
-            ...next.handed.slice(1 - HANDED),
-            { id: handed, taken, send: taken && message ? next.sends : null },
-          ],
-        },
-      };
-    },
-    // 5. Keep: started, its Project's Saved Draft goes, and is kept no more.
+    // 2. Send
+    SendAsked: ({ mode, text }, { model, props }) =>
+      props.to._tag === 'NewSession'
+        ? start(model, props, text)
+        : mode === 'SideQuestion'
+          ? askOf(model, props.to.sessionId, text)
+          : sendTo(model, props.to.sessionId, text),
+    Carried: ({ question }, { model, props }) =>
+      !modesOf(props).includes('SideQuestion')
+        ? {}
+        : {
+            model: {
+              ...model,
+              mode: 'SideQuestion',
+              picking: null,
+              problem: null,
+              given: give(model, 'SideQuestion', question, true),
+            },
+          },
+    // 3. Keep: started, it is saved no more, and its Saved Draft goes.
     Started: ({ sessionId }, { model, props }) => ({
-      model: { ...model, attachments: [] },
-      command: [
-        Router.push(session(props.machineId, props.projectId, sessionId)),
-        ...(model.where === null ? [] : [forget({ where: model.where })]),
-      ],
+      model: { ...model, started: true, attachments: [] },
+      command: Router.push(
+        session(props.machineId, props.projectId, sessionId),
+      ),
     }),
     StartRefused: ({ reason }, { model }) => ({
       model: { ...model, starting: false, problem: reason },
     }),
-    Sent: ({ id }, { model }) => ({
+    SendRefused: ({ text, attachments, reason }, { model }) => ({
       model: {
         ...model,
-        unsent: model.unsent.filter((each) => each.id !== id),
-      },
-    }),
-    // 5. Keep: refused while the Draft is here, its text comes back to its
-    // mode, not from the Saved Draft.
-    SendRefused: ({ id, key, reason }, { model }) => {
-      const refused = model.unsent.find((each) => each.id === id);
-      return {
-        model: {
-          ...changed(model),
-          problem: reason,
-          attachments: [...(refused?.attachments ?? []), ...model.attachments],
-          unsent: model.unsent.map((each) =>
-            each.id === id ? { ...each, refused: reason } : each,
-          ),
-        },
-        ...(model.where === null
-          ? {}
-          : { command: forgetUnsent({ where: model.where, keys: [key] }) }),
-      };
-    },
-    RefusalTaken: ({ id }, { model }) => ({
-      model: {
-        ...model,
-        unsent: model.unsent.filter((each) => each.id !== id),
+        problem: reason,
+        attachments: [...attachments, ...model.attachments],
+        ...(text === '' ? {} : { given: give(model, 'Message', text, false) }),
       },
     }),
     Answered: ({ id, answer }, { model }) =>
@@ -748,5 +444,14 @@ export const DraftLive = Actor.build(Draft, {
       model.asked?.id === id
         ? { model: { ...model, asked: { ...model.asked, problem: reason } } }
         : {},
+    // 3. Keep
+    Restored: ({ where, draft }, { model, props }) => ({
+      model: {
+        ...model,
+        ...(draft === null ? {} : restoredOf(draft, modesOf(props))),
+        where,
+        restored: true,
+      },
+    }),
   },
 });

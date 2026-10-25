@@ -29,7 +29,7 @@ const Skills = Picker.make('SkillPicker', {
       empty: () => 'No skill or command by that name',
       ends: (query, { props }) => {
         const question = props.commands.some(({ name }) => name === 'btw')
-          ? DraftMode.btwSearched(query)
+          ? DraftMode.searchedQuestion(query)
           : null;
         return question === null
           ? null

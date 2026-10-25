@@ -4,7 +4,7 @@ import { AttachmentSchema } from '@kestack/connect/code';
 import type { Gone } from './gone.ts';
 
 /*
- * Saved Drafts: the Draft as last written, kept on this device for each
+ * Saved Drafts: the Draft as it shows, kept on this device for each
  * Session, and for each Project's new session, so a reload or a return
  * finds it as it was left. Kept per Account, never synced, and the last
  * save wins. What the whole device keeps, such as Vim Mode, is Device
@@ -33,22 +33,9 @@ const Attached = Schema.Struct({
 });
 
 /**
- * A Message sent and not yet answered, kept until the Machine takes it,
- * so one refused after the Draft is gone comes back. `refused`: why, once
- * it was.
- */
-const Unsent = Schema.Struct({
-  key: Schema.String,
-  text: Schema.String,
-  attachments: Schema.Array(Attached),
-  refused: Schema.NullOr(Schema.String),
-});
-
-/**
  * A Saved Draft: the Draft Mode open; each mode's text and selection, by
- * mode; the Message's files, as they are sent, with their sizes; the
- * agent, model and settings picked, null where none was; and the Messages
- * sent and not yet answered.
+ * mode; the Message's files, as they are sent, with their sizes; and the
+ * agent, model and settings picked, null where none was.
  */
 export const SavedDraft = Schema.Struct({
   mode: Schema.String,
@@ -59,15 +46,8 @@ export const SavedDraft = Schema.Struct({
     model: Schema.NullOr(Schema.String),
     settings: Schema.Record(Schema.String, Schema.String),
   }),
-  unsent: Schema.Array(Unsent),
 });
 export type SavedDraft = typeof SavedDraft.Type;
-
-/** A Saved Draft as it is kept: `revision` counts its writes, whichever tab made them. */
-export interface Kept {
-  readonly draft: SavedDraft;
-  readonly revision: number;
-}
 
 /** The Capability that keeps each place's Saved Draft, for the Account named. */
 export class SavedDrafts extends Context.Service<
@@ -77,18 +57,21 @@ export class SavedDrafts extends Context.Service<
     readonly read: (
       accountId: string,
       place: Place,
-    ) => Effect.Effect<Kept | null>;
+    ) => Effect.Effect<SavedDraft | null>;
     /**
-     * Changes the place's Saved Draft from what is kept, one change at a
-     * time for each place: null forgets it, and the draft kept, as it is,
-     * leaves it. Gives the revision kept after, or null once there is none.
+     * Saves the place's Saved Draft as `draft`, or deletes it for null.
+     * `at` is when the draft was read, on this tab's monotonic clock: a
+     * save read before one already made of the place is dropped. Saves of
+     * a place are made one at a time, and each is finished even once the
+     * caller goes. Says whether it was made.
      */
-    readonly write: (
+    readonly save: (
       accountId: string,
       place: Place,
-      change: (kept: Kept | null) => SavedDraft | null,
-    ) => Effect.Effect<number | null>;
-    /** Forgets every Saved Draft that went. */
+      draft: SavedDraft | null,
+      at: bigint,
+    ) => Effect.Effect<boolean>;
+    /** Deletes every Saved Draft that went. */
     readonly drop: (gone: Gone) => Effect.Effect<void>;
   }
 >()('code/SavedDrafts') {}

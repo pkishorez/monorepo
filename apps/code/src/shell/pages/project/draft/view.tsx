@@ -23,19 +23,13 @@ import { Dictation } from '../../../actors/dictation/index.ts';
 import { useOffline } from '../../../machines/index.ts';
 import * as routes from '../../../routes/index.ts';
 import { Catalog } from '../capabilities/index.ts';
-import {
-  current,
-  DraftLive,
-  modesOf,
-  pickedHarness,
-  pickedModel,
-  skillsOf,
-} from './actor.ts';
+import { DraftLive, modesOf } from './actor.ts';
 import { AttachmentStrip } from './attachments/index.ts';
 import { Card, PRIMARY, StatusLine, useDraft } from './card.tsx';
 import { DraftMode, type Composing, type Mode } from './mode/index.ts';
 import { SideQuestion } from './side-question.tsx';
 import { Chip, ModelPicker, Triggers } from './model-picker/index.ts';
+import { current, pickedHarness, pickedModel, skillsOf } from './picks.ts';
 import { SkillPicker } from './skills.ts';
 
 /*
@@ -118,9 +112,7 @@ function Drafting(self: ViewProps<typeof DraftLive>) {
     offline !== null ||
     (fresh &&
       (model.starting || pickedModel(model) === null || unavailable !== null));
-  const open = children.modes.find(
-    (each) => each.key?.startsWith(model.mode) === true,
-  );
+  const open = children.modes.find((each) => each.key === model.mode);
 
   return (
     <div {...root} className="relative flex flex-col gap-2">
@@ -245,7 +237,10 @@ function Composer({
     text: written.text,
     doc: mode,
     selection: written,
-    onTextChange: edit,
+    onTextChange: (text, selection) => {
+      edit(text, selection);
+      if (model.problem !== null) send({ _tag: 'Retyped' });
+    },
     onSelect: edit,
     ...(side
       ? { title: 'Side question', textOnly: true, onEscape: onBack }

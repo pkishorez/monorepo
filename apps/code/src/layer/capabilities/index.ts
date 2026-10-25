@@ -20,7 +20,6 @@ export {
 } from './saved-machines.ts';
 export { dropEverywhere, type Gone } from './gone.ts';
 export {
-  type Kept,
   type Place,
   SavedDraft,
   SavedDrafts,
