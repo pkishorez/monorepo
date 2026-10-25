@@ -5,8 +5,11 @@ glossary's: see [CONTEXT.md](../CONTEXT.md) and, for Code, `apps/code/CONTEXT.md
 
 ## Which test decides what
 
-- **Behaviour follows input.** A device with no keyboard (`useDevice().keyboard`
-  is false) gets gestures and no auto-focus. Vim Mode and the keys' status line
+- **Behaviour follows input.** A touch screen is touch until keys are used: a
+  key pressed outside a field turns `useDevice().keyboard` on, and the next
+  touch turns it off again. Only a device with no touch screen and a mouse
+  that hovers starts as a keyboard one. Without a keyboard it gets gestures and
+  no auto-focus. Vim Mode and the keys' status line
   are off there, however wide the screen.
 - **A Picker follows the input that opened it**, not the device: keys, a mouse
   or a touch (`pointerType`, a pen counted as a touch). See Choosing from a

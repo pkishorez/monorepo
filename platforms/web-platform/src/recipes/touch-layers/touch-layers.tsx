@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { raiseKeyboard, useFieldAtPress, useFocusOnOpen } from './focus.ts';
 import { useLastLook } from './last-look.ts';
+import { SwipeDown } from './swipe-down.tsx';
 import { useVisibleViewport } from './visible-viewport.ts';
 
 /*
@@ -20,7 +21,9 @@ import { useVisibleViewport } from './visible-viewport.ts';
  *
  * 1. Drawer      it rises from the bottom, and goes on a swipe down, a tap
  *                outside, or when its owner closes it, keeping what it drew
- *                while it slides away. It jumps instead under
+ *                while it slides away. The swipe is its own
+ *                (`swipe-down.tsx`), so a Gesture Zone inside keeps its
+ *                own ways. It jumps instead under
  *                `prefers-reduced-motion`. As tall as its few choices, or,
  *                `tall`, three quarters of the screen whatever is in it, so
  *                a long list never changes its height as it loads; with
@@ -90,9 +93,11 @@ export function Drawer({
 }: Layer) {
   const { live, look } = useLastLook(open);
   const visible = useVisibleViewport(open && tall);
+  const popup = useRef<HTMLDivElement>(null);
   return (
     <DrawerRoot open={open} onOpenChange={onOpenChange}>
       <DrawerContent
+        ref={popup}
         style={visible}
         data-slot="touch-drawer"
         aria-label={label}
@@ -108,21 +113,35 @@ export function Drawer({
             'h-[min(75dvh,calc(var(--visible-height,100dvh)-env(safe-area-inset-top)-0.5rem))] max-h-none data-[swipe-direction=down]:bottom-(--visible-bottom,0px) data-[swipe-direction=down]:[--closed-transform:translate3d(0,calc(100%+var(--visible-bottom,0px)+var(--drawer-inset,0px)+2px),0)]',
         )}
       >
-        {/* The grab handle: the whole Drawer swipes, this says so. */}
-        <div aria-hidden className="flex shrink-0 justify-center pt-2 pb-1">
-          <div className="h-1.25 w-9 rounded-full bg-muted-foreground/40" />
-        </div>
-        {open ? (
-          <div ref={live} className={THUMB}>
-            {children}
+        <SwipeDown
+          popup={popup}
+          open={open}
+          onClose={() => {
+            let kept = false;
+            onOpenChange(false, {
+              reason: 'swipe',
+              cancel: () => void (kept = true),
+              allowPropagation: () => {},
+            });
+            return !kept;
+          }}
+        >
+          {/* The grab handle: the whole Drawer swipes, this says so. */}
+          <div aria-hidden className="flex shrink-0 justify-center pt-2 pb-1">
+            <div className="h-1.25 w-9 rounded-full bg-muted-foreground/40" />
           </div>
-        ) : (
-          <div
-            inert
-            className={THUMB}
-            dangerouslySetInnerHTML={{ __html: look }}
-          />
-        )}
+          {open ? (
+            <div ref={live} className={THUMB}>
+              {children}
+            </div>
+          ) : (
+            <div
+              inert
+              className={THUMB}
+              dangerouslySetInnerHTML={{ __html: look }}
+            />
+          )}
+        </SwipeDown>
       </DrawerContent>
     </DrawerRoot>
   );

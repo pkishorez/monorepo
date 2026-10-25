@@ -27,14 +27,17 @@ const FLICK = 650;
 const HOME = { type: 'spring', visualDuration: 0.3, bounce: 0.15 } as const;
 const OUT = {
   type: 'spring',
-  visualDuration: 0.16,
+  visualDuration: 0.22,
   bounce: 0,
   // Done once out of sight, not when the spring's tail comes to rest.
   restDelta: 2,
   restSpeed: 200,
 } as const;
-// The gap it leaves closes as a drawer does: quick, then easing in.
-const CLOSE = { duration: 0.18, ease: [0.32, 0.72, 0, 1] } as const;
+// The gap it leaves closes, and the row fades with it: on screen already,
+// so it eases in and out. It starts while the row is still going.
+const CLOSE = { duration: 0.24, ease: [0.65, 0, 0.35, 1] } as const;
+/** How far into its way out, in ms, the gap starts closing. */
+const OVERLAP = 90;
 const POP = { type: 'spring', duration: 0.3, bounce: 0.4 } as const;
 
 /**
@@ -125,22 +128,27 @@ function Swiped(
   }, [props.zone]);
 
   const home = () => (still() ? x.jump(0) : void animate(x, 0, HOME));
-  // Out the way it went, carrying the finger's speed, then the gap closes;
-  // under reduced motion it is gone at once.
+  // Out the way it went, carrying the finger's speed, the gap closing and
+  // the row fading as it goes, one motion rather than two; under reduced
+  // motion it is gone at once.
   const leave = async (velocity: number) => {
     const { props, sounds, sign } = latest.current;
     if (sounds) play('success');
     const element = props.zone.current;
     if (element !== null && !still()) {
-      await animate(x, sign * element.offsetWidth, {
+      const out = animate(x, sign * element.offsetWidth, {
         ...OUT,
         velocity: sign * velocity,
       });
-      await animate(
-        element,
-        { height: [element.offsetHeight, 0], opacity: [1, 0] },
-        CLOSE,
-      );
+      await new Promise((go) => setTimeout(go, OVERLAP));
+      await Promise.all([
+        out,
+        animate(
+          element,
+          { height: [element.offsetHeight, 0], opacity: [1, 0] },
+          CLOSE,
+        ),
+      ]);
     }
     props.onSwipe();
   };
@@ -191,7 +199,13 @@ function Swiped(
           )}
         </motion.span>
       </motion.div>
-      <motion.div style={{ x }} className="relative bg-inherit">
+      {/* `data-swiping` while a finger moves it: a pressed look inside
+          can step aside for it. */}
+      <motion.div
+        style={{ x }}
+        data-swiping={swipe.state === 'tracking' || undefined}
+        className="relative bg-inherit"
+      >
         {props.children}
       </motion.div>
     </>
