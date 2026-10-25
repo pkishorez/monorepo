@@ -140,7 +140,6 @@ function Start({
         if (!open) send({ _tag: 'StartClosed' });
       }}
       label="New session"
-      tall
     >
       {starting !== null && (
         <ClosedOnStart

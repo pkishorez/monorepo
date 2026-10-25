@@ -107,8 +107,9 @@ function DrawerContent({
 
   return (
     <DrawerPortal data-slot="drawer-portal">
+      {/* Drawn for a Drawer over another too, so what is under it dims. */}
       {modal === true && (
-        <DrawerOverlay data-snap-points={hasSnapPoints ? "" : undefined} />
+        <DrawerOverlay forceRender data-snap-points={hasSnapPoints ? "" : undefined} />
       )}
       <DrawerPrimitive.Viewport
         data-slot="drawer-viewport"

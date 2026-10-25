@@ -81,13 +81,15 @@ export const howTyped = (): 'keys' | 'touch' =>
 
 /**
  * What the List needs of its Frame: the shape, what the Picker is called,
- * and whether its search takes focus in a Dialog opened by touch.
+ * whether its search takes focus in a Dialog opened by touch, and whether
+ * its owner holds it, under something it shows.
  */
 const Drawn = createContext<{
   readonly shape: Shape;
   readonly label: string;
   readonly focusOnTouch: boolean;
-}>({ shape: 'list', label: '', focusOnTouch: false });
+  readonly held: boolean;
+}>({ shape: 'list', label: '', focusOnTouch: false, held: false });
 
 export const DrawnIn = Drawn.Provider;
 

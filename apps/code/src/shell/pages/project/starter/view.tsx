@@ -56,15 +56,30 @@ export function NewSessionBody({
   );
 }
 
-/** A new session outside the project's page. */
+/** A path under a home folder as `~/…`. */
+const shortOf = (path: string) =>
+  path.replace(/^\/(?:Users|home)\/[^/]+(?=\/|$)/, '~');
+
+/**
+ * A new session outside the project's page, as compact as what it holds:
+ * where it starts, the folder's name over its path, then the Draft.
+ */
 export const StarterView = View.make(
   StarterLive,
   ({ root, props, children }) => (
-    <div {...root} className="flex min-h-0 flex-1 flex-col">
-      <NewSessionBody
-        path={props.path}
-        draft={children.draft && <Draft.view instance={children.draft} />}
-      />
+    <div
+      {...root}
+      className="flex flex-col gap-3 px-4 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+    >
+      <div className="flex min-w-0 flex-col gap-0.5 px-1">
+        <h2 className="truncate text-[17px] font-semibold">
+          New session in {props.path.split('/').at(-1) || props.path}
+        </h2>
+        <p className="truncate font-mono text-[13px] text-muted-foreground">
+          {shortOf(props.path)}
+        </p>
+      </div>
+      {children.draft && <Draft.view instance={children.draft} />}
     </div>
   ),
 );
