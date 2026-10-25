@@ -3,8 +3,8 @@
 `code` runs Claude Code and Codex Sessions in Projects, on every Machine of
 the signed-in Account at once. Its root is a Page, drawn only in the
 browser. The app Layer gives it the Accounts, the Cloud Connect client,
-the Replica Store, Device State, the saved Machine Lists, `Machines`, the
-Recorder and `Dictations`. Each Actor reads only what it shows, so a change
+the Replica Store, Device State, the saved Machine Lists, the Saved
+Drafts, `Machines`, the Recorder and `Dictations`. Each Actor reads only what it shows, so a change
 draws only the part that shows it.
 Changed through `/kabukifi`; edit by hand and it drifts.
 
@@ -69,7 +69,8 @@ Down, from the root: what each level gives the one below.
 
 ```
 app Layer ─ Accounts, Store, AccountReplicas, CloudClient, DeviceState,
-            SavedMachines, Machines, Recorder, Dictations ──────▶ shell
+            SavedMachines, SavedDrafts, Machines, Recorder,
+            Dictations ────────────────────────────────────────▶ shell
 shell ─ Provides CurrentAccount, Replicas, CodeClients, Moves ▶ everything below
 shell ─ Input: accountId; Props: email ──────────────────────▶ machine-list
 shell ─ Props: place (the Draft open) ───────────────────────▶ header, dictation
@@ -102,9 +103,9 @@ sidebar ─ Worker: moves, from Moves ──────────────
 **Model**: account: who is signed in, kept across States; signInProblem: why signing in failed; back: where Settings were opened from
 **States**: Reading: nothing is drawn, the Bindings are read (BindingsRead → Ready); Ready: bindings, the keys; BindingsRead again when they change
 **Messages**: BindingsRead: a Worker; Signed: the accounts Worker; SignInAsked, SignInFailed: the View, signIn; NewSessionAsked: the `n` key; SettingsToggled: Ctrl+, and Escape; DictationAsked: Space, Ctrl+Space, the mic button, a Draft
-**Commands**: signIn: ends with SignInFailed or nothing; keepAccounts: once Accounts are signed in, and each time one is signed out, keeps only their records; askDictation: ends with nothing; Router.push
+**Commands**: signIn: ends with SignInFailed or nothing; keepAccounts: once Accounts are signed in, and each time one is signed out, keeps only their records and Saved Drafts; askDictation: ends with nothing; Router.push
 **Workers**: accounts: always, at the top, Sends Signed; read: in Reading, Sends BindingsRead; bindings: in Ready, Sends BindingsRead when the Bindings change
-**Requires**: Navigation, DeviceState, Accounts, Store, SavedMachines, AccountReplicas, Machines, Dictations
+**Requires**: Navigation, DeviceState, Accounts, Store, SavedMachines, SavedDrafts, AccountReplicas, Machines, Dictations
 **Provides**: CurrentAccount, at the top, from the Account Switcher; Replicas and CodeClients, at the top, from `machines/reach.ts`; Moves, at the top, from `actors/moves/`
 **Services**: reach: holds a Machine's Instance only while it is listed, and dials each Machine at its listed address
 **Children**: account, replicas: always; machine-list: in Ready, while signed in, key the account id; the other Actors in the Tree: in Ready, always
@@ -125,9 +126,9 @@ sidebar ─ Worker: moves, from Moves ──────────────
 **Model**: accountId; machines: the list, null before any; fetchedAt; fetching; problem; forgetting; lines: each Machine's Line; speech: each Machine's Speech to Text; rechecks: how many Rechecks since every Line was up
 **States**: none
 **Messages**: Saved, Fetched, Failed: its Workers; ReloadAsked: Reload, through Machines; RecheckDue: the recheck Worker; LineChanged, SpeechWatched: its Workers; ForgetAsked, ForgetDismissed: Settings, through Machines; Forgot, ForgetFailed: forget
-**Commands**: save: ends with nothing; forget: ends with Forgot or ForgetFailed; keep: keeps only the records of the Machines on the first list; drop: deletes a forgotten Machine's records
+**Commands**: save: ends with nothing; forget: ends with Forgot or ForgetFailed; keep: keeps only the records and Saved Drafts of the Machines on the first list; drop: deletes a forgotten Machine's records and Saved Drafts
 **Workers**: saved: while no list; fetch: while fetching; lines, speech: each listed Machine; recheck: while not fetching and a Line is not up, waits 3 seconds for the first 20, then 30, Sends RecheckDue; publish: always, into Machines; requests: always, from Machines
-**Requires**: CloudClient, SavedMachines, AccountReplicas, Link, CodeClients
+**Requires**: CloudClient, SavedMachines, SavedDrafts, AccountReplicas, Link, CodeClients
 **Provides**: none · **Services**: none · **Children**: none
 **View**: on home, how to start a Machine while there is none, or why the list cannot be read
 
@@ -209,7 +210,7 @@ Settings is a page of three pages, drawn as tabs beside the one open. General re
 
 **Does**: The new session's Draft and its start / the open Session: its transcript, Draft, send, Side Questions, fork and stop.
 **Provides**: CodeClient of `:machineId`, from CodeClients, and SharedCatalog, from self (`project/capabilities/`), both project only
-**Requires**: CodeClients, Machines, Navigation / CodeClient, Replicas, DeviceState
+**Requires**: CodeClients, Machines, Navigation, SavedDrafts (a Project removed takes its Saved Drafts) / CodeClient, Replicas, DeviceState
 **Workers** (project): machine: always, Sends MachineKnown, so a Machine no longer listed says so in place of the page; harnesses, models, skills: the catalog, read over `CodeClients` on its own Machine
 **Children**: ProjectRow, and a draft while no session is open / SessionRow, Messages, earlier Messages each up the fork chain, and a draft keyed by the session, handed its agent and whether it runs
 
@@ -223,20 +224,21 @@ Settings is a page of three pages, drawn as tabs beside the one open. General re
 **Does**: Holds the next message of a page, a new session's first or a Session's next, and sends it.
 **Input**: none
 **Props**: machineId, projectId, to: NewSession, or Session with its id, its agent once read, and whether it runs
-**Model**: mode: the Draft Mode open; written: each mode's text and selection, as last written; resets, reset: the text each mode was last set to; attachments, insert: the last Insert; catalog, as the project shares it; chosen: the agent, model and settings picked; picking, opened; problem; starting; unsent, sends; asked, asks
+**Model**: restored: its Saved Draft read back; changes, kept: how many changes there were to keep, and how many are kept; mode: the Draft Mode open; written: each mode's text and selection, as last written; resets, reset: the text each mode was last set to; attachments, insert: the last Insert; catalog, as the project shares it; chosen: the agent, model and settings picked; picking, opened; problem; starting; unsent, sends; asked, asks
 **States**: none
-**Messages**: Written, ModeAsked, AttachmentsChanged, InsertAsked, PickerOpened, SendAsked, CatalogRetryAsked: its View; PickerClosed, SkillChosen, ModelChosen: its Pickers' Owners; SendAsked: also the Touch Draft's Owner; CatalogRead: its Worker; Started, StartRefused, Sent, SendRefused, Answered, AskRefused: its Commands
-**Commands**: startSession: ends with Started or StartRefused; send: ends with Sent or SendRefused; ask: ends with Answered or AskRefused; retryCatalog; Router.push
-**Workers**: catalog: always, Sends CatalogRead
-**Requires**: CodeClient, SharedCatalog, Navigation
+**Messages**: Written, ModeAsked, AttachmentsChanged, InsertAsked, PickerOpened, SendAsked, CatalogRetryAsked: its View; PickerClosed, SkillChosen, ModelChosen: its Pickers' Owners; SendAsked: also the Touch Draft's Owner; CatalogRead, Restored, Kept: its Workers; Started, StartRefused, Sent, SendRefused, Answered, AskRefused: its Commands
+**Commands**: startSession: ends with Started or StartRefused; send: ends with Sent or SendRefused; ask: ends with Answered or AskRefused; forget: its Saved Draft, once a Message is sent, ends with nothing; retryCatalog; Router.push
+**Workers**: catalog: always, Sends CatalogRead; restore: until read back, Sends Restored; save: each change to keep, while no send is on its way, a quarter of a second after it, Sends Kept; flush: once read back, as the page is hidden or left and as the Draft goes, Sends Kept
+**Requires**: CodeClient, SharedCatalog, Navigation, SavedDrafts
 **Provides**: SkillPicker and ModelPicker Owners, and `TouchDraft.owner`, at the top, from self
 **Services**: none
-**Children**: modes: a Draft Mode each, the Side Question only in a Session; touch: the Touch Draft, always; skills, models: Pickers, while picking, key: opened
-**View**: why nothing can be sent or what went wrong, the card and its Status Line showing the mode open; in Side Question mode the question and its answer, where the page says; the page adds Stop, its own problem and that place through `Slots`
+**Children**: modes: a Draft Mode each, the Side Question only in a Session, once its Saved Draft is read back; touch: the Touch Draft, always; skills, models: Pickers, while picking, key: opened
+**View**: nothing until its Saved Draft is read back; then why nothing can be sent or what went wrong, the card and its Status Line showing the mode open; in Side Question mode the question and its answer, where the page says; the page adds Stop, its own problem and that place through `Slots`
 
 ### Decisions
 
-- **A Session's Draft is keyed by its session**, because the session page stays as the URL moves between sessions. Caveat: a Draft not sent is gone when another session opens.
+- **A Session's Draft is keyed by its session**, because the session page stays as the URL moves between sessions. Caveat: none now; a Draft not sent comes back from its Saved Draft.
+- **The Saved Draft is kept by the Draft's own Workers, through `SavedDrafts`, an app-Layer Capability**, because only the Draft knows when it changed, and the store must outlive it. Caveat: a Session's Saved Draft goes with its Project, Machine or Account; the app learns of no single Session forgotten, so none goes alone.
 - **Stop is the session's, handed to the Draft's View through `Slots`**, because stopping a turn is not the Draft's errand. Caveat: a React context, not Props, since it carries a button.
 - **Each Draft Mode is a Child, and the Draft keeps a copy of each one's text as written**, because a mode owns its text, cursor and selection, while the Draft acts on them: it sends, asks and sets them. The Draft's one editor hands each edit to both, and the Draft sets a mode's text by a numbered reset the mode takes once. Caveat: the edit reaches the mode through its View, which says how in `Edits`, as the Touch Draft's View hands the Draft its send.
 

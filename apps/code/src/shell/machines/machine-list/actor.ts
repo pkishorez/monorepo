@@ -10,6 +10,7 @@ import {
   AccountReplicas,
   Link,
   nobody,
+  SavedDrafts,
   SavedMachines,
 } from '../../../layer/capabilities/index.ts';
 import { list, speechOn } from './api.ts';
@@ -70,7 +71,14 @@ const Model = Schema.Struct({
 type Model = typeof Model.Type;
 
 export const MachineList = Actor.define('MachineList', {
-  requires: [CloudClient, SavedMachines, AccountReplicas, Link, CodeClients],
+  requires: [
+    CloudClient,
+    SavedMachines,
+    SavedDrafts,
+    AccountReplicas,
+    Link,
+    CodeClients,
+  ],
   input: Schema.Struct({ accountId: Schema.String }),
   props: Schema.Struct({
     /** The Account's email, for the command that adds a Machine. */

@@ -11,6 +11,7 @@ import {
   dictations,
   machines,
   recorder,
+  savedDraftsIdb,
   savedMachinesIdb,
 } from './layer/services/index.ts';
 import './styles.css';
@@ -23,7 +24,8 @@ import './styles.css';
  * with one database per Machine's Instance in it, so a reload shows what
  * it last saw at once and catches up from there, each Account's last list
  * of Machines and `Machines`, which says it to every page, and Device
- * State, what this browser keeps for itself, in IndexedDB too, and the
+ * State, what this browser keeps for itself, and each Account's Saved
+ * Drafts, in IndexedDB too, and the
  * microphone a Dictation records, with how the app's asks reach it. No
  * Machine's socket is here: the root page reaches each Machine over its
  * own.
@@ -33,6 +35,7 @@ const layer = Layer.mergeAll(
   CloudClient.layer(import.meta.env.VITE_CONNECT_URL),
   deviceStateIdb,
   savedMachinesIdb,
+  savedDraftsIdb,
   machines,
   dictations,
   recorder,

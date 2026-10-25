@@ -6,6 +6,7 @@ import {
   Ask,
   DeviceState,
   Dictations,
+  SavedDrafts,
   SavedMachines,
 } from '../layer/capabilities/index.ts';
 
@@ -27,9 +28,9 @@ export const signIn = Command.make('SignIn', {
 });
 
 /**
- * Keeps the records of the Accounts signed in on this device and deletes
- * every other's; an Account signed out also has its list of Machines
- * emptied. Best effort.
+ * Keeps the records and Saved Drafts of the Accounts signed in on this
+ * device and deletes every other's; an Account signed out also has its
+ * list of Machines emptied. Best effort.
  */
 export const keepAccounts = Command.make('KeepAccounts', {
   args: Schema.Struct({
@@ -43,6 +44,7 @@ export const keepAccounts = Command.make('KeepAccounts', {
         discard: true,
       });
       yield* (yield* AccountReplicas).keepAccounts(accountIds);
+      yield* (yield* SavedDrafts).keepAccounts(accountIds);
     }),
 });
 

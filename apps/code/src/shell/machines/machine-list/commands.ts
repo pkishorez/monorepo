@@ -3,6 +3,7 @@ import { CloudClient, Machine } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
 import {
   AccountReplicas,
+  SavedDrafts,
   SavedMachines,
 } from '../../../layer/capabilities/index.ts';
 import { problemOf } from './api.ts';
@@ -44,6 +45,12 @@ export const drop = Command.make('DropMachineRecords', {
   run: ({ accountId, id }) =>
     Effect.flatMap(AccountReplicas, (replicas) =>
       replicas.dropMachine(accountId, id),
+    ).pipe(
+      Effect.andThen(
+        Effect.flatMap(SavedDrafts, (saved) =>
+          saved.dropMachine(accountId, id),
+        ),
+      ),
     ),
 });
 
@@ -56,5 +63,11 @@ export const keep = Command.make('KeepMachineRecords', {
   run: ({ accountId, machineIds }) =>
     Effect.flatMap(AccountReplicas, (replicas) =>
       replicas.keepMachines(accountId, machineIds),
+    ).pipe(
+      Effect.andThen(
+        Effect.flatMap(SavedDrafts, (saved) =>
+          saved.keepMachines(accountId, machineIds),
+        ),
+      ),
     ),
 });

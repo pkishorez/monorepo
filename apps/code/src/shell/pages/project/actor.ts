@@ -1,7 +1,7 @@
 import { Effect, Layer, Schema, Stream } from 'effect';
 import { type CodeClient, CodeClients } from '@kestack/connect/code';
 import { Navigation, Page, Router } from '@kestack/kabuki/routing';
-import { Machines } from '../../../layer/capabilities/index.ts';
+import { Machines, SavedDrafts } from '../../../layer/capabilities/index.ts';
 import { home } from '../../routes/index.ts';
 import { Refused, ProjectRow } from '../../machines/index.ts';
 import { Catalog, SharedCatalog } from './capabilities/index.ts';
@@ -43,7 +43,7 @@ export const Project = Page.define({
   path: '/m/:machineId/p/:projectId',
   params: { machineId: Schema.String, projectId: Schema.String },
   metadata: { title: 'Project · code' },
-  requires: [CodeClients, Machines, Navigation],
+  requires: [CodeClients, Machines, Navigation, SavedDrafts],
   pages: { Session: Session.page },
   model: Model,
   message: Schema.TaggedUnion({

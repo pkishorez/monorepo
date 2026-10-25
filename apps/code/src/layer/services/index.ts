@@ -9,5 +9,9 @@ export {
   idb as savedMachinesIdb,
   memory as savedMachinesMemory,
 } from './saved-machines.ts';
+export {
+  idb as savedDraftsIdb,
+  memory as savedDraftsMemory,
+} from './saved-drafts.ts';
 export { layer as dictations } from './dictations.ts';
 export { accounts } from './accounts.ts';
