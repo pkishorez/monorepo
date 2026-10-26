@@ -41,13 +41,13 @@ const Owner = Actor.define('Owner', {
   requires: [Connections],
   model: Schema.Struct({
     pings: Schema.Finite,
-    accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo)),
+    accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo.schema)),
     problem: Schema.NullOr(Schema.String),
   }),
   message: Schema.TaggedUnion({
     Ping: {},
     SetupShown: {
-      accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo)),
+      accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo.schema)),
       problem: Schema.NullOr(Schema.String),
     },
   }),

@@ -49,7 +49,7 @@ export const backoffAfter = (refusals: number, first: Duration.Input) =>
 const Model = Schema.Struct({
   /** Which tunnel this is; a new one is a restart. */
   generation: Schema.Number,
-  status: ConnectionStatus,
+  status: ConnectionStatus.schema,
   /** Failed Tunnel Checks in a row. */
   failures: Schema.Number,
   /** Sign-ins Cloud Connect refused in a row, since a Report was last taken. */
@@ -75,7 +75,7 @@ const Message = Schema.TaggedUnion({
   },
   TunnelUp: { generation: Schema.Number, url: Schema.String },
   TunnelLost: { generation: Schema.Number },
-  Checked: { generation: Schema.Number, check: TunnelCheck },
+  Checked: { generation: Schema.Number, check: TunnelCheck.schema },
   Reported: {},
   SignedOut: {},
   SignedIn: {},

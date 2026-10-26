@@ -84,7 +84,7 @@ const Link = Schema.Literals(['linking', 'linked', 'relinking']);
 const Model = Schema.Struct({
   accountId: Schema.String,
   /** The list: kept on this device, or as Cloud Connect said it. */
-  list: Copy(Schema.Array(Connection)),
+  list: Copy(Schema.Array(Connection.schema)),
   fetchedAt: Schema.NullOr(Schema.Number),
   /** Whether the list's Last Seen is believed: Cloud Connect answered, or `CHECK_FOR` passed. */
   checked: Schema.Boolean,
@@ -122,10 +122,10 @@ export const Connections = Actor.define('Connections', {
   }),
   model: Model,
   message: Schema.TaggedUnion({
-    KeptRead: { connections: Schema.NullOr(Schema.Array(Connection)) },
+    KeptRead: { connections: Schema.NullOr(Schema.Array(Connection.schema)) },
     Fetched: {
       since: Schema.Finite,
-      connections: Schema.Array(Connection),
+      connections: Schema.Array(Connection.schema),
       at: Schema.Number,
     },
     Failed: { since: Schema.Finite, problem: Schema.String },

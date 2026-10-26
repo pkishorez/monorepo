@@ -108,4 +108,4 @@ export {
   RPC_PATH,
   TunnelCheck,
 } from '../../../cloud/contract/index.js';
-export { CloudClient } from '../../../cloud/client/index.js';
+export { CloudClient, VersionGap } from '../../../cloud/client/index.js';

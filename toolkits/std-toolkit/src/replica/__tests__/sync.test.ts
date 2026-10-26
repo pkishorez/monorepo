@@ -1,4 +1,5 @@
-import { Effect } from 'effect';
+import { Effect, Layer } from 'effect';
+import { OnOutdated } from '../index.js';
 import { describe, expect, it } from 'vitest';
 import { Store } from '../store/memory/index.js';
 import {
@@ -126,13 +127,25 @@ describe('Query', () => {
 });
 
 describe('Entities', () => {
-  it('ignores an Entity newer than the app knows, advancing neither data nor cursor', () =>
+  it('ignores an Entity newer than the app knows, advancing neither data nor cursor, and tells the app', () =>
     run(
       Effect.gen(function* () {
         const world = makeWorld();
         const store = Store.memory();
         const first = world.backend.put(Wallet, wallet('w1', 'a', 100));
-        const app = yield* start(world, store);
+        let told = 0;
+        const app = yield* start(
+          world,
+          Layer.merge(
+            store,
+            Layer.succeed(
+              OnOutdated,
+              Effect.sync(() => {
+                told += 1;
+              }),
+            ),
+          ),
+        );
         const seen = read(app);
         yield* eventually(() =>
           expect(balances(seen.mine())).toEqual({ w1: 100 }),
@@ -146,6 +159,7 @@ describe('Entities', () => {
             window: null,
           }),
         );
+        yield* eventually(() => expect(told).toBe(1));
         // It stops reading that Collection until a reload.
         const reads = world.backend.reads.filter(
           (each) => each.entity === 'Wallet' && each.key === 'a',

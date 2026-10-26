@@ -37,8 +37,8 @@ const Forgetting = Schema.NullOr(
 
 /** What it shows of a Connection's setup, once read. */
 const SetupShown = Schema.Struct({
-  accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo)),
-  speech: Schema.NullOr(SpeechToTextState),
+  accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo.schema)),
+  speech: Schema.NullOr(SpeechToTextState.schema),
   /** Why its Connection could not be asked. */
   problem: Schema.NullOr(Schema.String),
 });
@@ -46,7 +46,7 @@ const SetupShown = Schema.Struct({
 /** What it follows of `Connections`. */
 const Known = Schema.Struct({
   accountId: Schema.NullOr(Schema.String),
-  connections: Schema.NullOr(Schema.Array(Connection)),
+  connections: Schema.NullOr(Schema.Array(Connection.schema)),
   savedRead: Schema.Boolean,
   fetchedAt: Schema.NullOr(Schema.Number),
   forgetting: Forgetting,
@@ -70,7 +70,7 @@ const Model = Schema.Struct({
   /** Whether `Connections` has said anything yet. */
   heard: Schema.Boolean,
   accountId: Schema.NullOr(Schema.String),
-  connections: Schema.NullOr(Schema.Array(Connection)),
+  connections: Schema.NullOr(Schema.Array(Connection.schema)),
   savedRead: Schema.Boolean,
   fetchedAt: Schema.NullOr(Schema.Number),
   forgetting: Forgetting,

@@ -47,7 +47,7 @@ const HarnessAccounts = Actor.define('HarnessAccounts', {
   input: Schema.Struct({ connectionId: Schema.String }),
   props: Schema.Struct({
     /** What its setup holds; null before it knows. */
-    accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo)),
+    accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo.schema)),
     /** Why the Connection could not be asked. */
     problem: Schema.NullOr(Schema.String),
   }),

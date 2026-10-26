@@ -1,4 +1,4 @@
-import { Effect, Layer } from 'effect';
+import { Effect, Layer, Schema } from 'effect';
 import { Authz } from '@kestack/auth-toolkit';
 import { auth, type AuthOptions } from '@kestack/auth-toolkit/server';
 import { server } from '@kestack/rpc-toolkit/rpc/http';
@@ -11,7 +11,7 @@ import {
 import {
   allowsOrigin,
   AUTH_PATH,
-  type AuthInfo,
+  AuthInfo,
   CloudApi,
   RPC_PATH,
 } from '../contract/index.js';
@@ -81,7 +81,9 @@ export const serveOver = (options: {
     Layer.mergeAll(handlers.pipe(Layer.provide(table.layer)), options.guard),
   );
   const allowed = allowsOrigin(options.origins);
-  const authBody = JSON.stringify(options.authInfo);
+  const authBody = JSON.stringify(
+    Schema.encodeSync(AuthInfo.schema)(options.authInfo),
+  );
   return async (request: Request): Promise<Response> => {
     // Effect's HTTP client asks for `/rpc/`; either is the same path.
     const pathname = new URL(request.url).pathname.replace(/\/+$/, '');

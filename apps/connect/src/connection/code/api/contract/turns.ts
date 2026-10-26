@@ -1,5 +1,6 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
+import { ESchema, ValueESchema } from '@kestack/std-toolkit/eschema';
 import { AttachmentSchema } from '@kestack/ai-toolkit/contract';
 import { SessionNotFound } from './errors.js';
 import { Batch, Cursor } from './wire.js';
@@ -13,17 +14,24 @@ export const TurnsRpc = RpcGroup.make(
    * harness.
    */
   Rpc.make('send', {
-    payload: {
-      sessionId: Schema.String,
-      text: Schema.String,
-      attachments: Schema.Array(AttachmentSchema),
-      model: Schema.optionalKey(Schema.String),
-      settings: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
-    },
+    payload: ValueESchema.make(
+      'SendPayload',
+      Schema.Struct({
+        sessionId: Schema.String,
+        text: Schema.String,
+        attachments: Schema.Array(AttachmentSchema),
+        model: Schema.optionalKey(Schema.String),
+        settings: Schema.optionalKey(
+          Schema.Record(Schema.String, Schema.String),
+        ),
+      }),
+    ).build().schema,
     error: SessionNotFound,
   }),
   Rpc.make('cancel', {
-    payload: { sessionId: Schema.String },
+    payload: ESchema.make('CancelPayload', {
+      sessionId: Schema.String,
+    }).build().schema,
     error: SessionNotFound,
   }),
   /**
@@ -31,7 +39,10 @@ export const TurnsRpc = RpcGroup.make(
    * Fork's start after its Fork Point; what came before is the original's.
    */
   Rpc.make('messages', {
-    payload: { sessionId: Schema.String, ...Cursor },
+    payload: ESchema.make('MessagesPayload', {
+      sessionId: Schema.String,
+      ...Cursor.fields,
+    }).build().schema,
     success: Batch,
     stream: true,
   }),

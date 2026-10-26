@@ -1,8 +1,14 @@
 import { Effect, Schema, SchemaGetter, SchemaIssue } from 'effect';
-import type { AnyESchema, AnyValueESchema } from '../schema-model/index.js';
+import type {
+  AnyESchema,
+  AnyEvolvingSchema,
+  AnyValueESchema,
+  VersionedCodec,
+} from '../schema-model/index.js';
 import {
   type ESchemaIntrospection,
   inspectESchema,
+  inspectESchemaComposition,
   latestSchema,
   registerESchemaComposition,
 } from '../introspection/index.js';
@@ -13,8 +19,7 @@ const compositionSchemas = new WeakMap<object, Schema.Top>();
 
 /**
  * What an ESchema's value looks like encoded, as JSON or any other codec
- * carries it: the latest version, with its `_v`. An older or unversioned value
- * is refused, never guessed at; only stored values are migrated.
+ * carries it: the latest version, with its `_v`.
  */
 function wireSchema({ kind, evolutions }: ESchemaIntrospection): Schema.Top {
   const { version, schema } = evolutions.at(-1)!;
@@ -33,7 +38,7 @@ function wireSchema({ kind, evolutions }: ESchemaIntrospection): Schema.Top {
 // latest with `_v` inline.
 export function versionedSchema<T extends AnyESchema | AnyValueESchema>(
   eschema: T,
-): Schema.Codec<T['Type'], T['Encoded']>;
+): VersionedCodec<T['Type'], T['Encoded']>;
 export function versionedSchema(
   eschema: AnyESchema | AnyValueESchema,
 ): Schema.Top {
@@ -46,7 +51,13 @@ export function versionedSchema(
     ? `ValueESchema_${eschema.name}`
     : `ESchema_${eschema.name}`;
   const latest = latestSchema(eschema);
-  const wire = wireSchema(introspection).annotate({ identifier });
+  // Written as the latest version; read in any encoded form, older or
+  // unversioned, and migrated, so a newer reader reads an older writer. A
+  // version newer than the schema knows fails with `OutdatedVersion`.
+  const wire = Schema.Union([
+    wireSchema(introspection).annotate({ identifier }),
+    Schema.Unknown,
+  ]);
   const toIssue = (input: unknown, error: ESchemaError | OutdatedVersion) =>
     new SchemaIssue.InvalidValue(
       error._tag === 'OutdatedVersion'
@@ -93,3 +104,9 @@ export function versionedSchema(
   compositionSchemas.set(eschema, composed);
   return composed;
 }
+
+/** The ESchema whose `schema` this is; undefined for any other schema, even one that nests an ESchema. */
+export const eschemaOf = (schema: Schema.Top): AnyEvolvingSchema | undefined =>
+  inspectESchemaComposition(schema.ast)?.eschema as
+    | AnyEvolvingSchema
+    | undefined;

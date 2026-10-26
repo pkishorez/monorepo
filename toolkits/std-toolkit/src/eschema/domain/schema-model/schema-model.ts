@@ -148,6 +148,14 @@ export type SingleEntitySchemaOf<T, E> = EntitySchemaWith<
 /**
  * Widest type — matches any ESchema (base, SingleEntity, or Entity).
  */
+/**
+ * An ESchema's `schema`: an Effect Schema whose constructor takes the latest
+ * value, so an RPC payload or `make` built from it is typed.
+ */
+export interface VersionedCodec<T, E> extends Schema.Codec<T, E> {
+  readonly '~type.make.in': T;
+}
+
 export interface AnyESchema<
   V extends string = string,
   S extends StructFieldsSchema = any,
@@ -160,7 +168,7 @@ export interface AnyESchema<
   readonly Encoded: Prettify<StructFieldsEncoded<S>> & {
     readonly _v: V;
   };
-  readonly schema: Schema.Codec<this['Type'], this['Encoded']>;
+  readonly schema: VersionedCodec<this['Type'], this['Encoded']>;
   readonly entity: EntitySchemaOf<this['Type'], this['Encoded']>;
   getDescriptor(): ESchemaDescriptor;
   readonly '~standard': StandardSchemaV1.Props<
@@ -207,7 +215,7 @@ export interface AnyValueESchema<
   readonly latestVersion: V;
   readonly Type: ValueSchemaType<S>;
   readonly Encoded: ValueEnvelopeEncoded<V, S>;
-  readonly schema: Schema.Codec<this['Type'], this['Encoded']>;
+  readonly schema: VersionedCodec<this['Type'], this['Encoded']>;
   getDescriptor(): ESchemaDescriptor;
   readonly '~standard': StandardSchemaV1.Props<unknown, ValueSchemaType<S>>;
 }
