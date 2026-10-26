@@ -1,4 +1,4 @@
-import { Clock, Effect, Fiber, Layer, Schema, Scope } from 'effect';
+import { Clock, Effect, Layer, Schema, type Scope } from 'effect';
 import {
   type QueryOptions,
   StdTable,
@@ -8,13 +8,13 @@ import { IDB } from '@kestack/std-toolkit/db/idb';
 import { Memory } from '@kestack/std-toolkit/db/memory';
 import { EntityESchema } from '@kestack/std-toolkit/eschema';
 import {
-  type Gone,
+  type Asked,
   type Place,
   SavedDraft,
   SavedDrafts,
   went,
 } from '../capabilities/index.ts';
-import { keyOf, RETRIES, scan, upsert } from './kept/index.ts';
+import { keyOf, RETRIES, scan, turns, upsert } from './rows/index.ts';
 
 /*
  * Saved Drafts in this browser's IndexedDB, one database of their own: a
@@ -26,8 +26,10 @@ import { keyOf, RETRIES, scan, upsert } from './kept/index.ts';
  *            Saves of a place run one at a time, in this Layer's own
  *            Scope, so one is finished even once its caller goes; one read
  *            before a save already made of the place is dropped.
- * 2. Prune   a Project removed, a Machine forgotten or no longer listed,
- *            an Account signed out: every row of theirs is deleted.
+ * 2. Prune   a Project removed or a Machine forgotten, as the user asked:
+ *            every row of theirs is deleted, once the saves of it under
+ *            way are made, and the saves begun before are made no more. A
+ *            list that no longer names them never reaches here (`Asked`).
  */
 
 // The Draft is kept as its JSON: an attachment's size is a plain number,
@@ -57,62 +59,27 @@ const placeOf = (
   { machineId, projectId, sessionId }: Place,
 ) => keyOf(accountId, machineId, sessionId ?? `project:${projectId}`);
 
+/** Whose a row is, as a Gone judges it. */
+type Whose = Place & { readonly accountId: string };
+
 const make = (
   layer: Layer.Layer<StdTableService<typeof TABLE>>,
   scope: Scope.Scope,
 ) => {
-  // 1. Save: one at a time for each place, and the last read of each.
-  const turns = new Map<
-    string,
-    { tail: Fiber.Fiber<unknown, unknown> | null; last: bigint }
-  >();
-  const turnOf = (id: string) => {
-    const found = turns.get(id);
-    if (found !== undefined) return found;
-    const made = { tail: null, last: -1n };
-    turns.set(id, made);
-    return made;
-  };
-  /**
-   * Runs after all of the place already asked for, from the moment it is
-   * asked, in the service's own scope, so it finishes even once its caller
-   * goes.
-   */
-  const inTurn = <A>(id: string, effect: Effect.Effect<A>) =>
-    Effect.suspend(() => {
-      const held = turnOf(id);
-      const before = held.tail;
-      return Effect.flatMap(
-        Effect.forkIn(
-          before === null
-            ? effect
-            : Effect.andThen(Fiber.await(before), effect),
-          scope,
-        ),
-        (fiber) => {
-          held.tail = fiber;
-          return Fiber.join(fiber);
-        },
-      );
-    });
+  // 1. Save and 2. Prune: in turn for each place, in this Layer's Scope.
+  const turn = turns<Whose>(scope);
 
-  const remove = (place: string) =>
-    Effect.flatMap(rows.get({ place }), (row) =>
-      row === null ? Effect.void : rows.hardDelete({ place }, CONFIRM),
-    ).pipe(Effect.provide(layer), Effect.ignore, (removing) =>
-      inTurn(place, removing),
+  // 2. Prune: when each Gone was last dropped, so a save begun before is
+  // never made after. One a Project removed or a Machine forgotten, the
+  // user's own acts, so it grows only as they are made.
+  const dropped = new Map<string, { readonly gone: Asked; at: bigint }>();
+  const droppedSince = (whose: Whose, since: bigint) =>
+    [...dropped.values()].some(
+      ({ gone, at }) => at > since && went(gone)(whose),
     );
 
-  // 2. Prune: what went and when, so a save begun before is never made after.
-  const drops: Array<{ readonly gone: Gone; readonly at: bigint }> = [];
-  const droppedSince = (accountId: string, place: Place, since: bigint) =>
-    drops.some(
-      ({ gone, at }) => at > since && went(gone)({ accountId, ...place }),
-    );
-
-  const write = (accountId: string, place: Place, draft: SavedDraft | null) => {
-    const id = placeOf(accountId, place);
-    return Effect.gen(function* () {
+  const write = (whose: Whose, id: string, draft: SavedDraft | null) =>
+    Effect.gen(function* () {
       if (draft === null) {
         const row = yield* rows.get({ place: id });
         if (row !== null) yield* rows.hardDelete({ place: id }, CONFIRM);
@@ -121,65 +88,76 @@ const make = (
       const json = yield* encode(draft);
       yield* upsert({
         get: rows.get({ place: id }),
-        insert: rows.insert({
-          place: id,
-          accountId,
-          machineId: place.machineId,
-          projectId: place.projectId,
-          sessionId: place.sessionId,
-          draft: json,
-        }),
+        insert: rows.insert({ place: id, ...whose, draft: json }),
         update: () =>
           rows.getAndUpdate({ place: id }, () => ({ draft: json }), {
             retries: RETRIES,
           }),
       });
     }).pipe(Effect.provide(layer));
-  };
 
   return SavedDrafts.of({
     // After the saves of the place before it, such as a Draft's last as it went.
     read: (accountId, place) => {
       const id = placeOf(accountId, place);
-      return Effect.flatMap(rows.get({ place: id }), (row) =>
-        row === null ? Effect.succeed(null) : decode(row.value.draft),
-      ).pipe(
-        Effect.provide(layer),
-        Effect.orElseSucceed(() => null),
-        (reading) => inTurn(id, reading),
-      );
+      return turn.run({
+        key: id,
+        whose: { accountId, ...place },
+        does: Effect.flatMap(rows.get({ place: id }), (row) =>
+          row === null ? Effect.succeed(null) : decode(row.value.draft),
+        ).pipe(
+          Effect.provide(layer),
+          Effect.orElseSucceed(() => null),
+        ),
+        skipped: null,
+      });
     },
     save: (accountId, place, draft, at, since) => {
+      const whose = { accountId, ...place };
       const id = placeOf(accountId, place);
-      const held = turnOf(id);
-      const saving = Effect.suspend(() => {
-        if (at < held.last || droppedSince(accountId, place, since))
-          return Effect.succeed(false);
-        held.last = at;
-        return write(accountId, place, draft).pipe(
-          Effect.as(true),
-          Effect.orElseSucceed(() => false),
-        );
+      return turn.run({
+        key: id,
+        whose,
+        does: Effect.suspend(() =>
+          droppedSince(whose, since)
+            ? Effect.succeed(false)
+            : write(whose, id, draft).pipe(
+                Effect.as(true),
+                Effect.orElseSucceed(() => false),
+              ),
+        ),
+        skipped: false,
+        at,
       });
-      return inTurn(id, saving);
     },
     drop: (gone) =>
       Effect.flatMap(Clock.monotonicTimeNanos, (at) => {
-        drops.push({ gone, at });
-        return scan((options: QueryOptions<typeof DraftSchema.Type>) =>
-          rows.query('primary', { pk: {}, '>=': null }, options),
-        );
-      }).pipe(
-        Effect.flatMap((found) =>
-          Effect.forEach(
-            found.filter(went(gone)),
-            ({ place }) => remove(place),
-            { discard: true },
+        dropped.set(JSON.stringify(gone), { gone, at });
+        return turn.drop(
+          went(gone),
+          scan((options: QueryOptions<typeof DraftSchema.Type>) =>
+            rows.query('primary', { pk: {}, '>=': null }, options),
+          ).pipe(
+            Effect.flatMap((found) =>
+              Effect.forEach(
+                found.filter(went(gone)),
+                ({ place, accountId, machineId, projectId, sessionId }) =>
+                  turn.run({
+                    key: place,
+                    whose: { accountId, machineId, projectId, sessionId },
+                    does: rows
+                      .hardDelete({ place }, CONFIRM)
+                      .pipe(Effect.provide(layer), Effect.ignore),
+                    skipped: undefined,
+                  }),
+                { discard: true },
+              ),
+            ),
+            Effect.provide(layer),
+            Effect.ignore,
           ),
-        ),
-        Effect.provide(layer),
-        Effect.ignore,
-      ),
+        );
+      }),
   });
 };
 

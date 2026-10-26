@@ -1,6 +1,6 @@
 import { Context } from 'effect';
 import type { Effect, Stream } from 'effect';
-import type { Model } from './catalog/index.ts';
+import type { Catalog } from './catalog/index.ts';
 
 /*
  * The project's catalog, the agents, their models and Skills, as the
@@ -12,7 +12,7 @@ export class SharedCatalog extends Context.Service<
   SharedCatalog,
   {
     /** The catalog now, then each change. */
-    readonly changes: Stream.Stream<typeof Model.Type>;
+    readonly changes: Stream.Stream<typeof Catalog.Type>;
     /** Reads again what could not be read. */
     readonly retry: Effect.Effect<void>;
   }

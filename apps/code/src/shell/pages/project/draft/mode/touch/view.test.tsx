@@ -30,7 +30,7 @@ import * as Picker from '../../../../../../ui/picker/index.ts';
 import { Toasts } from '../../../../../../ui/toast/index.ts';
 import { Card, useDraft } from '../../card.tsx';
 import { Insert } from '../../message.ts';
-import { SkillPicker } from '../../skills.ts';
+import { SkillPicker } from '../../picks/skills.ts';
 import { TouchDraft } from './index.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });

@@ -2,7 +2,6 @@ export { MachineList } from './machine-list/index.ts';
 export {
   Connection,
   PageMachine,
-  LOCK_GRACE,
   useHealth,
   useHealths,
   useLock,
@@ -20,6 +19,7 @@ export {
 } from './health.tsx';
 export { reach } from './reach.ts';
 export { orRefused, reasonOf, Refused } from './refusal.ts';
+export { refreshKit } from './refresh.ts';
 export { removeProject } from './remove.ts';
 export {
   across,

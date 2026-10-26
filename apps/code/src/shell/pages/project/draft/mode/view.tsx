@@ -1,5 +1,5 @@
 import { useChild, View } from '@kestack/kabuki/react';
-import { createContext, type ReactNode, use } from 'react';
+import { type ComponentProps, createContext, type ReactNode, use } from 'react';
 import type { Written } from '../../../../../layer/capabilities/index.ts';
 import { DraftModeLive, type Mode } from './actor.ts';
 import { TouchDraft } from './touch/index.ts';
@@ -7,8 +7,8 @@ import { TouchDraft } from './touch/index.ts';
 /*
  * A Draft Mode is drawn as the Draft's card around its own text: the
  * Draft says how through `Compose`, and the mode hands it its text, its
- * own edits and sends, and its Touch Draft, drawn. Only the mode open is
- * drawn.
+ * own edits and sends, and its Touch Draft, drawn with what the Draft
+ * hands it. Only the mode open is drawn.
  */
 
 /** What a mode hands the Draft's card. */
@@ -17,8 +17,10 @@ export interface Composing {
   readonly written: Written;
   readonly onEdit: (written: Written) => void;
   readonly onSend: () => void;
-  /** Its Touch Draft, drawn, for a device with no keyboard. */
-  readonly touch: ReactNode;
+  /** Its Touch Draft, drawn with what the Draft hands it, for a device with no keyboard. */
+  readonly touch: (
+    given: NonNullable<ComponentProps<typeof TouchDraft.Touch>['value']>,
+  ) => ReactNode;
   /** The Touch Draft is being edited: the Composer. */
   readonly editing: boolean;
 }
@@ -42,7 +44,11 @@ export const DraftModeView = View.make(
       written: model.written,
       onEdit: (written) => send({ _tag: 'Edited', ...written }),
       onSend: () => send({ _tag: 'SendAsked' }),
-      touch: <TouchDraft.view instance={children.touch} />,
+      touch: (given) => (
+        <TouchDraft.Touch value={given}>
+          <TouchDraft.view instance={children.touch} />
+        </TouchDraft.Touch>
+      ),
       editing,
     });
   },

@@ -1,12 +1,11 @@
 import { FolderXIcon } from '@kestack/web-platform/ui/components/lucide';
 import type { ReactNode } from 'react';
-import { Draft } from './draft/index.ts';
 
 /*
  * A project whose folder is missing, as its Machine last found it: above
  * the Draft, that the folder no longer exists, with Remove beside it; the
- * Draft under it sends nothing, so no new session starts. Its sessions
- * stay readable.
+ * page blocks the Draft under it through `Draft.Slots`, so no new session
+ * starts. Its sessions stay readable.
  */
 
 /** Why no new session can start here, with Remove beside it. */
@@ -36,15 +35,4 @@ export function FolderMissing({
       {remove}
     </div>
   );
-}
-
-/** The Draft, sending nothing while the folder is missing. */
-export function DraftFor({
-  missing,
-  children,
-}: {
-  readonly missing: boolean;
-  readonly children: ReactNode;
-}) {
-  return <Draft.Slots value={{ blocked: missing }}>{children}</Draft.Slots>;
 }

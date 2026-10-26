@@ -2,7 +2,7 @@ import { Schema } from 'effect';
 import { HarnessInfo, SkillSchema } from '@kestack/connect/code';
 import {
   Copy,
-  copy,
+  copying,
   ModelsRead,
   Read,
   readOver,
@@ -63,7 +63,7 @@ type Keeper = typeof Keeper.Type;
 export const fresh: Keeper = {
   kit: { harnesses: null, problem: null, models: [] },
   accountId: null,
-  skills: copy.empty,
+  skills: copying.empty,
 };
 
 /** The catalog its keeper shares. */
@@ -133,7 +133,7 @@ export const update = (
             harnesses:
               change.harnesses === null ? null : grouped(change.harnesses),
           },
-          skills: more ? copy.ask(keeper.skills) : keeper.skills,
+          skills: more ? copying.ask(keeper.skills) : keeper.skills,
         },
         keep: null,
         refresh: false,
@@ -145,19 +145,19 @@ export const update = (
         keeper: {
           ...keeper,
           accountId: change.accountId,
-          skills: copy.saved(keeper.skills, change.skills),
+          skills: copying.read(keeper.skills, change.skills),
         },
         keep: null,
         refresh: false,
       };
     case 'SkillsAnswered': {
-      if (!copy.latest(keeper.skills, change.since))
+      if (!copying.latest(keeper.skills, change.since))
         return { keeper, keep: null, refresh: false };
       const skills = readOver(keeper.skills.value ?? [], change.skills);
       return {
         keeper: {
           ...keeper,
-          skills: copy.answered(keeper.skills, change.since, skills),
+          skills: copying.answered(keeper.skills, change.since, skills),
         },
         keep: skills.filter(({ problem }) => problem === null),
         refresh: false,
@@ -169,7 +169,7 @@ export const update = (
         keeper: {
           ...keeper,
           skills: failed(keeper.skills.value ?? [])
-            ? copy.ask(keeper.skills)
+            ? copying.ask(keeper.skills)
             : keeper.skills,
         },
         keep: null,
@@ -206,4 +206,4 @@ export const unread = (catalog: Catalog, account: string | null) => {
 
 /** What the keeper still has to ask, for its Workers: the Skills, keyed by the ask, once the agents are known. */
 export const wants = (keeper: Keeper) =>
-  keeper.kit.harnesses === null ? [] : copy.asking(keeper.skills);
+  keeper.kit.harnesses === null ? [] : copying.asking(keeper.skills);

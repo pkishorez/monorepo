@@ -11,14 +11,14 @@ import {
   Written,
 } from '../../../../layer/capabilities/index.ts';
 import { Catalog, SharedCatalog } from '../capabilities/index.ts';
-import { retryCatalog } from './commands.ts';
+import { retryCatalog } from './send/commands.ts';
 import { Attached, Insert } from './message.ts';
 import { DraftMode, type Mode } from './mode/index.ts';
 import { ModelPicker } from './model-picker/index.ts';
-import { current, NOBODY, pickedHarness, skillsOf } from './picks.ts';
+import { current, NOBODY, pickedHarness, skillsOf } from './picks/picks.ts';
 import { read, restoredOf, saving, Where, whereOf } from './saved.ts';
-import { askOf, sendTo, start } from './send.ts';
-import { SkillPicker } from './skills.ts';
+import { askOf, sendTo, start } from './send/send.ts';
+import { SkillPicker } from './picks/skills.ts';
 
 /*
  * The Draft: the next message of a page, a new session's first or an open
@@ -90,7 +90,8 @@ const Chosen = Schema.Struct({
   settings: Schema.Record(Schema.String, Schema.String),
 });
 
-const Asked = Schema.Struct({
+/** The Side Question asked, and how it stands. */
+export const Asked = Schema.Struct({
   id: Schema.Finite,
   question: Schema.String,
   /** null while it is being answered, or when it failed. */
@@ -119,7 +120,7 @@ const Model = Schema.Struct({
   attachments: Schema.Array(Attached),
   /** The last thing put in, for its editor to put in at its cursor. */
   insert: Schema.NullOr(Insert.Schema),
-  catalog: Catalog.Model,
+  catalog: Catalog.Catalog,
   /** Picked here; any left null is the agent's own, or its default. */
   chosen: Chosen,
   /** The Picker open, if one is. */
@@ -137,7 +138,7 @@ const Model = Schema.Struct({
 export type Model = typeof Model.Type;
 
 const Message = Schema.TaggedUnion({
-  CatalogRead: { catalog: Catalog.Model },
+  CatalogRead: { catalog: Catalog.Catalog },
   CatalogRetryAsked: {},
   ModeAsked: { mode: DraftMode.Mode },
   AttachmentsChanged: { attachments: Schema.Array(Attached) },

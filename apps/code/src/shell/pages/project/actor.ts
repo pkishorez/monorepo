@@ -62,14 +62,18 @@ export const Project = Page.define({
   model: Model,
   message: Schema.TaggedUnion({
     MachineKnown: { gone: Schema.Boolean },
-    Catalog: { change: Catalog.Change },
-    CatalogRetryAsked: {},
+    ...Catalog.messages,
     ConfirmToggled: { open: Schema.Boolean },
     RemoveAsked: {},
     Removed: {},
     RemoveRefused: Refused,
   }),
 });
+
+/** 1. Catalog: kept for the Machine and project the URL names. */
+const catalog = Catalog.keeping(
+  ({ params }: { readonly params: Catalog.Where }) => params,
+);
 
 export const ProjectLive = Page.build(Project, {
   init: () => ({
@@ -89,13 +93,7 @@ export const ProjectLive = Page.build(Project, {
         ),
       ),
       // 1. Catalog, for the pages under it.
-      Layer.succeed(SharedCatalog, {
-        changes: self.changes.pipe(
-          Stream.map(({ model }) => Catalog.shared(model.catalog)),
-          Stream.changesWith(Catalog.sameCatalog),
-        ),
-        retry: self.send({ _tag: 'CatalogRetryAsked' }),
-      }),
+      Layer.succeed(SharedCatalog, catalog.shares(self)),
     ),
   workers: {
     // 0. Machine: whether the Account's list still has it.
@@ -119,43 +117,7 @@ export const ProjectLive = Page.build(Project, {
         }),
     },
     // 1. Catalog
-    kit: {
-      run: (self) =>
-        Effect.flatMap(self.get, ({ props }) =>
-          Stream.runForEach(
-            Catalog.followKit(props.params.machineId),
-            (change) => self.send({ _tag: 'Catalog', change }),
-          ),
-        ),
-    },
-    saved: {
-      while: ({ model }) => !model.catalog.skills.savedRead,
-      run: (self) =>
-        Effect.flatMap(self.get, ({ props }) =>
-          Catalog.savedSkills(
-            props.params.machineId,
-            props.params.projectId,
-          ).pipe(
-            Effect.flatMap((change) => self.send({ _tag: 'Catalog', change })),
-          ),
-        ),
-    },
-    skills: {
-      each: ({ model }) => Catalog.wants(model.catalog),
-      run: (self, since) =>
-        Effect.gen(function* () {
-          const { model, props } = yield* self.get;
-          const change = yield* CodeClients.on(
-            props.params.machineId,
-            Catalog.askSkills(
-              props.params.projectId,
-              Catalog.running(model.catalog.kit.harnesses),
-              Number(since),
-            ),
-          );
-          yield* self.send({ _tag: 'Catalog', change });
-        }),
-    },
+    ...catalog.workers,
   },
   children: {
     project: {
@@ -178,22 +140,7 @@ export const ProjectLive = Page.build(Project, {
   },
   on: {
     MachineKnown: ({ gone }, { model }) => ({ model: { ...model, gone } }),
-    Catalog: ({ change }, { model, props }) => {
-      const { keeper, command } = Catalog.changed(
-        model.catalog,
-        change,
-        props.params,
-      );
-      return { model: { ...model, catalog: keeper }, command };
-    },
-    CatalogRetryAsked: (_, { model, props }) => {
-      const { keeper, command } = Catalog.changed(
-        model.catalog,
-        { _tag: 'Retry' },
-        props.params,
-      );
-      return { model: { ...model, catalog: keeper }, command };
-    },
+    ...catalog.on,
     // 3. Remove
     ConfirmToggled: ({ open }, { model }) =>
       model.removal.removing

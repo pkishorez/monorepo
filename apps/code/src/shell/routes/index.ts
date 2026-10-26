@@ -5,6 +5,7 @@ export {
   project,
   projectIn,
   session,
+  SETTINGS_TABS,
   settings,
   settingsTabAsked,
   type Route,

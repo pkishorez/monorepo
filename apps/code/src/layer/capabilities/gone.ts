@@ -8,6 +8,15 @@ import { SavedDrafts } from './saved-drafts.ts';
  * What goes from this device at once, told as one thing to every store
  * that keeps something per Account, Machine or Project: each deletes
  * what of its own went, and leaves what it never kept.
+ *
+ * Saved Drafts go only as the user asks: a Project removed, a Machine
+ * forgotten, or the Draft itself sent or emptied, which is its own save.
+ * A list that no longer names a Machine or an Account, Cloud Connect's
+ * first, or the Accounts this device still has signed in, may have come
+ * short, and what was typed cannot be asked for again: they prune
+ * records, kept copies and Unseen marks, which can, and never a Saved
+ * Draft. An Account signed out leaves its Saved Drafts until it signs in
+ * again, as no other Account reads them.
  */
 
 /** A Project removed, a Machine forgotten or no longer listed, an Account signed out. */
@@ -67,11 +76,21 @@ export const went =
     }
   };
 
-/** Tells every store what went: records, kept copies, Saved Drafts and Unseen marks. */
+/** What went as the user asked: a Project removed, a Machine forgotten. */
+export type Asked = Extract<Gone, { readonly _tag: 'Project' | 'Machine' }>;
+
+/** Whether the user asked for it, not a list that no longer names it. */
+export const asked = (gone: Gone): gone is Asked =>
+  gone._tag === 'Project' || gone._tag === 'Machine';
+
+/**
+ * Tells every store what went: records, kept copies and Unseen marks; and
+ * Saved Drafts only as the user asked.
+ */
 export const dropEverywhere = (gone: Gone) =>
   Effect.gen(function* () {
     yield* (yield* AccountReplicas).drop(gone);
     yield* (yield* DeviceState).drop(gone);
     yield* (yield* Kept).drop(gone);
-    yield* (yield* SavedDrafts).drop(gone);
+    if (asked(gone)) yield* (yield* SavedDrafts).drop(gone);
   });

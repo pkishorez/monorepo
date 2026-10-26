@@ -21,6 +21,7 @@ import {
   SavedDrafts,
 } from '../../../../layer/capabilities/index.ts';
 import { keptMemory } from '../../../../layer/services/index.ts';
+import { SkillsShelf } from '../capabilities/catalog/commands.ts';
 import { Catalog } from '../capabilities/index.ts';
 import { StarterLive } from './actor.ts';
 
@@ -144,7 +145,7 @@ const catalogOf = (app: Running<unknown>, projectId: string) => {
       (each.props as { readonly projectId: string }).projectId === projectId,
   )!;
   const draft = walk(starter).find((each) => each.actor === 'Draft')!;
-  return (draft.model as { readonly catalog: typeof Catalog.Model.Type })
+  return (draft.model as { readonly catalog: typeof Catalog.Catalog.Type })
     .catalog;
 };
 
@@ -168,8 +169,8 @@ describe('a new session’s catalog', () => {
     run(
       Effect.gen(function* () {
         const kept = yield* Kept;
-        yield* kept.write(Catalog.SkillsShelf, where('p1'), skillsOf('review'));
-        yield* kept.write(Catalog.SkillsShelf, where('p2'), skillsOf('deploy'));
+        yield* kept.write(SkillsShelf, where('p1'), skillsOf('review'));
+        yield* kept.write(SkillsShelf, where('p2'), skillsOf('deploy'));
         const app = yield* start(services({}));
         yield* wait();
         const p1 = catalogOf(app, 'p1');
@@ -190,7 +191,7 @@ describe('a new session’s catalog', () => {
     run(
       Effect.gen(function* () {
         const kept = yield* Kept;
-        yield* kept.write(Catalog.SkillsShelf, where('p2'), skillsOf('deploy'));
+        yield* kept.write(SkillsShelf, where('p2'), skillsOf('deploy'));
         const app = yield* start(
           services({
             p1: Effect.succeed([skill('review'), skill('test')]),
@@ -204,7 +205,7 @@ describe('a new session’s catalog', () => {
           ),
         ).toEqual(['review', 'test']);
         expect(
-          (yield* kept.read(Catalog.SkillsShelf, where('p1')))?.[0]?.list.map(
+          (yield* kept.read(SkillsShelf, where('p1')))?.[0]?.list.map(
             ({ name }) => name,
           ),
         ).toEqual(['review', 'test']);
@@ -212,7 +213,7 @@ describe('a new session’s catalog', () => {
           skillsOf('deploy')[0],
         );
         expect(
-          (yield* kept.read(Catalog.SkillsShelf, where('p2')))?.[0]?.list.map(
+          (yield* kept.read(SkillsShelf, where('p2')))?.[0]?.list.map(
             ({ name }) => name,
           ),
         ).toEqual(['deploy']);

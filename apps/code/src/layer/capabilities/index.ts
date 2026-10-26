@@ -20,8 +20,9 @@ export {
   readOver,
   type Request,
 } from './machines.ts';
-export { dropEverywhere, type Gone, went } from './gone.ts';
-export { copy, Copy, Kept, type Shelf, shelf, type Whose } from './kept.ts';
+export { type Asked, dropEverywhere, type Gone, went } from './gone.ts';
+export { Kept, type Shelf, shelf, type Whose } from './kept.ts';
+export { Copy, copying } from './copy.ts';
 export {
   type Place,
   SavedDraft,

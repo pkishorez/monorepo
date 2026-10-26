@@ -1,5 +1,5 @@
-import { Catalog } from '../capabilities/index.ts';
-import type { Model, Props } from './actor.ts';
+import { Catalog } from '../../capabilities/index.ts';
+import type { Model, Props } from '../actor.ts';
 
 /*
  * What the Draft's picks come to: a new session's agent, model and

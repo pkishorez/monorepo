@@ -33,8 +33,9 @@ import { KitShelf } from './kit/commands.ts';
 
 /*
  * The Machine List with Cloud Connect and the records stood in for: what
- * was saved shows first and Cloud Connect's answer replaces it and is kept,
- * with only the records and Kits of the Machines on it; Forget asks Cloud
+ * was kept shows first and Cloud Connect's answer replaces it and is kept,
+ * with only the records and Kits of the Machines on it, every Saved Draft
+ * left; Forget asks Cloud
  * Connect, takes the Machine out of the list and then deletes its records
  * and Kit alone; `Machines` says all of it to the pages, waiting for a
  * Machine with an address; and while a Machine's line is not up the
@@ -81,6 +82,8 @@ const world = (
   const kept: Array<{ accountId: string; machineIds: ReadonlyArray<string> }> =
     [];
   const dropped: Array<string> = [];
+  /** The Gones told to the Saved Drafts. */
+  const drafts: Array<string> = [];
   let lists = 0;
   const line = (machineId: string) =>
     down === null
@@ -133,10 +136,12 @@ const world = (
           if (gone._tag === 'Machine') dropped.push(gone.machineId);
         }),
     }),
-    Layer.mock(SavedDrafts)({ drop: () => Effect.void }),
+    Layer.mock(SavedDrafts)({
+      drop: (gone) => Effect.sync(() => void drafts.push(gone._tag)),
+    }),
     Layer.mock(DeviceState)({ drop: () => Effect.void }),
   );
-  return { layer, forgotten, kept, dropped, lists: () => lists };
+  return { layer, forgotten, kept, dropped, drafts, lists: () => lists };
 };
 
 const wait = (ms = 20) =>
@@ -198,7 +203,7 @@ describe('Machine List', () => {
     const answer = await Effect.runPromise(
       Deferred.make<ReadonlyArray<Machine>>(),
     );
-    const { layer, kept } = world(Deferred.await(answer));
+    const { layer, kept, drafts } = world(Deferred.await(answer));
     await run(
       Effect.gen(function* () {
         const saved = yield* Kept;
@@ -219,8 +224,10 @@ describe('Machine List', () => {
         ]);
         expect(yield* saved.read(ListShelf, a1)).toHaveLength(2);
         expect(kept).toEqual([{ accountId: 'a1', machineIds: ['m2', 'm3'] }]);
-        // A Machine gone from the first list takes its Kit with it.
+        // A Machine gone from the first list takes its Kit with it, but
+        // never its Saved Drafts: the list may have come short.
         expect(yield* saved.read(KitShelf, kitOf('m1'))).toBeNull();
+        expect(drafts).toEqual([]);
         expect((yield* saved.read(KitShelf, kitOf('m2')))?.speech).toEqual({
           _tag: 'Off',
         });
@@ -259,8 +266,8 @@ describe('Machine List', () => {
     );
   });
 
-  it('forgets a Machine at Cloud Connect, takes it out of the list, then deletes its records and Kit here', async () => {
-    const { layer, forgotten, kept, dropped } = world(
+  it('forgets a Machine at Cloud Connect, takes it out of the list, then deletes its records, Kit and Saved Drafts here', async () => {
+    const { layer, forgotten, kept, dropped, drafts } = world(
       Effect.succeed([machine('m1', 5), machine('m2', 1)]),
     );
     await run(
@@ -275,6 +282,7 @@ describe('Machine List', () => {
         expect(forgotten).toEqual(['m1']);
         // Its records alone: another tab may list a Machine not heard of here.
         expect(dropped).toEqual(['m1']);
+        expect(drafts).toEqual(['Machine']);
         expect(yield* saved.read(KitShelf, kitOf('m1'))).toBeNull();
         expect(yield* saved.read(KitShelf, kitOf('m2'))).not.toBeNull();
         expect(kept).toHaveLength(1);

@@ -1,14 +1,15 @@
-import { Effect, Schema } from 'effect';
+import { Effect, Fiber, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { copy, Kept, shelf, went } from '../../capabilities/index.ts';
+import { copying, Kept, shelf, went } from '../../capabilities/index.ts';
 import { memory } from './kept.ts';
 
 /*
- * The kept foundation: a copy saved shows first and is asked again behind;
+ * The kept foundation: a copy kept shows first and is asked again behind;
  * the answer to the latest ask shows and is kept, and one to an ask made
  * before a later ask or a change made here is dropped; a copy kept at
- * another version reads as nothing; what went is deleted, and a write
- * asked before it went is not made.
+ * another version reads as nothing; what went is deleted, a row just
+ * made by a write under way too, and a write asked before it went is not
+ * made.
  */
 
 const Names = shelf('names', 1, Schema.Array(Schema.String));
@@ -85,33 +86,47 @@ describe('Kept', () => {
         expect(yield* kept.read(Names, a1m2)).toEqual(['kept']);
       }),
     ));
+
+  it('drops a row a write under way makes, once it is made', () =>
+    run(
+      Effect.gen(function* () {
+        const kept = yield* Kept;
+        const writing = yield* Effect.forkChild(
+          kept.write(Names, a1m1, ['under way']),
+        );
+        yield* Effect.yieldNow;
+        yield* kept.drop({ _tag: 'Machine', accountId: 'a1', machineId: 'm1' });
+        yield* Fiber.join(writing);
+        expect(yield* kept.read(Names, a1m1)).toBeNull();
+      }),
+    ));
 });
 
-describe('copy', () => {
-  it('shows the saved copy, asks once it is read, and shows the answer', () => {
-    const held = copy.empty;
-    expect(copy.asking(held)).toEqual([]);
-    const saved = copy.saved(held, ['saved']);
+describe('copying', () => {
+  it('shows the kept copy, asks once it is read, and shows the answer', () => {
+    const held = copying.empty;
+    expect(copying.asking(held)).toEqual([]);
+    const saved = copying.read(held, ['saved']);
     expect(saved.value).toEqual(['saved']);
-    expect(copy.asking(saved)).toEqual(['1']);
-    const answered = copy.answered(saved, 1, ['fresh']);
+    expect(copying.asking(saved)).toEqual(['1']);
+    const answered = copying.answered(saved, 1, ['fresh']);
     expect(answered.value).toEqual(['fresh']);
-    expect(copy.asking(answered)).toEqual([]);
-    expect(copy.asking(copy.ask(answered))).toEqual(['2']);
+    expect(copying.asking(answered)).toEqual([]);
+    expect(copying.asking(copying.ask(answered))).toEqual(['2']);
   });
 
-  it('keeps an answer that came before the saved copy', () => {
-    const answered = copy.answered(copy.empty, 1, ['fresh']);
-    expect(copy.saved(answered, ['saved']).value).toEqual(['fresh']);
+  it('keeps an answer that came before the kept copy', () => {
+    const answered = copying.answered(copying.empty, 1, ['fresh']);
+    expect(copying.read(answered, ['saved']).value).toEqual(['fresh']);
   });
 
   it('drops an answer to an ask made before a change, and asks again', () => {
-    const asked = copy.saved(copy.empty, ['a']);
-    const changed = copy.changed(asked, ['a', 'b']);
-    expect(copy.latest(changed, 1)).toBe(false);
-    expect(copy.answered(changed, 1, ['a'])).toBe(changed);
-    expect(copy.asking(changed)).toEqual(['2']);
-    expect(copy.answered(changed, 2, ['a', 'b', 'c']).value).toEqual([
+    const asked = copying.read(copying.empty, ['a']);
+    const changed = copying.changed(asked, ['a', 'b']);
+    expect(copying.latest(changed, 1)).toBe(false);
+    expect(copying.answered(changed, 1, ['a'])).toBe(changed);
+    expect(copying.asking(changed)).toEqual(['2']);
+    expect(copying.answered(changed, 2, ['a', 'b', 'c']).value).toEqual([
       'a',
       'b',
       'c',
@@ -119,12 +134,12 @@ describe('copy', () => {
   });
 
   it('says why an ask was refused, until one is answered, and keeps what shows', () => {
-    const asked = copy.saved(copy.empty, ['a']);
-    const refused = copy.refused(asked, 1, 'offline');
+    const asked = copying.read(copying.empty, ['a']);
+    const refused = copying.refused(asked, 1, 'offline');
     expect(refused).toMatchObject({ value: ['a'], problem: 'offline' });
-    expect(copy.asking(refused)).toEqual([]);
-    const again = copy.ask(refused);
-    expect(copy.answered(again, 2, ['b']).problem).toBeNull();
+    expect(copying.asking(refused)).toEqual([]);
+    const again = copying.ask(refused);
+    expect(copying.answered(again, 2, ['b']).problem).toBeNull();
   });
 });
 

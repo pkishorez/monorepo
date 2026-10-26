@@ -4,7 +4,7 @@ import { Actor } from '@kestack/kabuki';
 import {
   AccountReplicas,
   Copy,
-  copy,
+  copying,
   DeviceState,
   Kept,
   Link,
@@ -12,7 +12,13 @@ import {
   SavedDrafts,
 } from '../../../layer/capabilities/index.ts';
 import { list } from './api.ts';
-import { drop, forget, keep, ListShelf, save } from './commands.ts';
+import {
+  dropForgotten,
+  dropUnlisted,
+  forget,
+  keepList,
+  ListShelf,
+} from './commands.ts';
 import { Kit } from './kit/index.ts';
 
 /*
@@ -20,16 +26,17 @@ import { Kit } from './kit/index.ts';
  * that Account is signed in: the list, a line to each Machine on it, and
  * each one's Kit.
  *
- * 1. Saved    the list last kept for the Account shows first, so the app
+ * 1. Kept     the list last kept for the Account shows first, so the app
  *             opens on its Machines even while Cloud Connect is out of reach;
  *             once read, kept or not, it says so.
  * 2. Fetch    then Cloud Connect's list, once, and again on Reload; each
  *             answer is kept for next time. The first answer keeps only
  *             the records of the Machines on it: a Machine gone from it
- *             takes its records here with it. Later answers delete
- *             nothing, so an answer older than another tab's never stops
- *             an Instance that tab reads, and a list that failed deletes
- *             nothing either.
+ *             takes its records, Kit and Unseen marks here with it, but
+ *             never its Saved Drafts, since a list may come short. Later
+ *             answers delete nothing, so an answer older than another
+ *             tab's never stops an Instance that tab reads, and a list
+ *             that failed deletes nothing either.
  * 3. Lines    one socket per listed Machine, followed, and one Machine Kit
  *             each (kit/), which keeps what the app knows of it.
  * 4. Recheck  while a listed Machine's line is not up, Cloud Connect is asked
@@ -86,7 +93,7 @@ export const MachineList = Actor.define('MachineList', {
   }),
   model: Model,
   message: Schema.TaggedUnion({
-    Saved: { machines: Schema.NullOr(Schema.Array(Machine)) },
+    KeptRead: { machines: Schema.NullOr(Schema.Array(Machine)) },
     Fetched: {
       since: Schema.Finite,
       machines: Schema.Array(Machine),
@@ -106,7 +113,7 @@ export const MachineList = Actor.define('MachineList', {
 const idsOf = (model: Model) => (model.list.value ?? []).map(({ id }) => id);
 
 /** Whether Cloud Connect is being asked. */
-export const fetching = (model: Model) => copy.asking(model.list).length > 0;
+export const fetching = (model: Model) => copying.asking(model.list).length > 0;
 
 /** Whether a listed Machine's line is not up, so Cloud Connect is asked again. */
 export const anyDown = (model: Model) =>
@@ -119,7 +126,7 @@ export const MachineListLive = Actor.build(MachineList, {
   init: ({ accountId }) => ({
     model: {
       accountId,
-      list: copy.empty,
+      list: copying.empty,
       fetchedAt: null,
       forgetting: null,
       lines: {},
@@ -127,9 +134,9 @@ export const MachineListLive = Actor.build(MachineList, {
     },
   }),
   workers: {
-    // 1. Saved
-    saved: {
-      while: ({ model }) => !model.list.savedRead,
+    // 1. Kept
+    kept: {
+      while: ({ model }) => !model.list.keptRead,
       run: (self) =>
         Effect.gen(function* () {
           const { model } = yield* self.get;
@@ -138,12 +145,12 @@ export const MachineListLive = Actor.build(MachineList, {
             machineId: null,
             projectId: null,
           });
-          yield* self.send({ _tag: 'Saved', machines });
+          yield* self.send({ _tag: 'KeptRead', machines });
         }),
     },
     // 2. Fetch
     fetch: {
-      each: ({ model }) => copy.asking(model.list),
+      each: ({ model }) => copying.asking(model.list),
       run: (self, since) => Effect.flatMap(list(Number(since)), self.send),
     },
     // 3. Lines
@@ -172,7 +179,7 @@ export const MachineListLive = Actor.build(MachineList, {
             Stream.map(({ model }) => ({
               accountId: model.accountId,
               machines: model.list.value,
-              savedRead: model.list.savedRead,
+              savedRead: model.list.keptRead,
               fetchedAt: model.fetchedAt,
               problem: model.list.problem,
               forgetting: model.forgetting,
@@ -207,24 +214,24 @@ export const MachineListLive = Actor.build(MachineList, {
     },
   },
   on: {
-    Saved: ({ machines }, { model }) => ({
-      model: { ...model, list: copy.saved(model.list, machines) },
+    KeptRead: ({ machines }, { model }) => ({
+      model: { ...model, list: copying.read(model.list, machines) },
     }),
     // An answer asked before a later ask, or a Forget, is dropped.
     Fetched: ({ since, machines, at }, { model }) =>
-      !copy.latest(model.list, since)
+      !copying.latest(model.list, since)
         ? {}
         : {
             model: {
               ...model,
-              list: copy.answered(model.list, since, machines),
+              list: copying.answered(model.list, since, machines),
               fetchedAt: at,
             },
             command: [
-              save({ accountId: model.accountId, machines }),
+              keepList({ accountId: model.accountId, machines }),
               ...(model.fetchedAt === null
                 ? [
-                    keep({
+                    dropUnlisted({
                       accountId: model.accountId,
                       machineIds: machines.map(({ id }) => id),
                     }),
@@ -233,16 +240,16 @@ export const MachineListLive = Actor.build(MachineList, {
             ],
           },
     Failed: ({ since, problem }, { model }) => ({
-      model: { ...model, list: copy.refused(model.list, since, problem) },
+      model: { ...model, list: copying.refused(model.list, since, problem) },
     }),
     // Reload: asked at once, and quickly again while a line is not up.
     ReloadAsked: (_, { model }) => ({
-      model: { ...model, list: copy.ask(model.list), rechecks: 0 },
+      model: { ...model, list: copying.ask(model.list), rechecks: 0 },
     }),
     RecheckDue: (_, { model }) => ({
       model: {
         ...model,
-        list: copy.ask(model.list),
+        list: copying.ask(model.list),
         rechecks: model.rechecks + 1,
       },
     }),
@@ -266,12 +273,12 @@ export const MachineListLive = Actor.build(MachineList, {
       return {
         model: {
           ...model,
-          list: copy.changed(model.list, machines),
+          list: copying.changed(model.list, machines),
           forgetting: null,
         },
         command: [
-          save({ accountId: model.accountId, machines }),
-          drop({ accountId: model.accountId, id }),
+          keepList({ accountId: model.accountId, machines }),
+          dropForgotten({ accountId: model.accountId, id }),
         ],
       };
     },

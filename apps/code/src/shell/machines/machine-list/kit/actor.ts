@@ -8,7 +8,7 @@ import {
 import { Actor } from '@kestack/kabuki';
 import {
   Copy,
-  copy,
+  copying,
   Kept,
   type Kit as Shared,
   KitChange,
@@ -24,7 +24,7 @@ import { KitShelf, keepKit } from './commands.ts';
  * A Machine Kit: what the app keeps of one listed Machine, its Harness
  * Accounts, its Speech to Text, and its agents with each one's models.
  *
- * 1. Saved   `Reading` reads what this device kept of it; `Shown` shows
+ * 1. Kept    `Reading` reads what this device kept of it; `Shown` shows
  *            it at once, kept or not.
  * 2. Ask     then the Machine is asked again behind, once its Line is
  *            connected, and again each time its Line connects, on
@@ -34,8 +34,10 @@ import { KitShelf, keepKit } from './commands.ts';
  * 3. Change  a change Settings made to the Machine shows at once, is kept,
  *            and the Machine is asked again, so an answer begun before it
  *            never undoes it.
- * 4. Speech  how Speech to Text stands, watched live: each change shows
- *            and is kept, a download's progress only as it starts.
+ * 4. Speech  how Speech to Text stands, watched live once the kept copy
+ *            shows, so it is shown over it, never in its place: each
+ *            change shows and is kept, a download's progress only as it
+ *            starts.
  * 5. Share   what it holds is its Machine's Kit in `Machines`, for
  *            Settings, the Dictation and each Project; it is taken out as
  *            the Kit goes.
@@ -57,7 +59,7 @@ const Kit = Actor.define('MachineKit', {
   model: Model,
   state: Schema.TaggedUnion({ Reading: {}, Shown: {} }),
   message: Schema.TaggedUnion({
-    SavedRead: { parts: Schema.NullOr(KitParts) },
+    KeptRead: { parts: Schema.NullOr(KitParts) },
     LineChanged: { line: Line },
     Asked: {},
     Changed: { change: KitChange },
@@ -107,7 +109,7 @@ const sharedOf = (model: Model, shown: boolean): Shared => ({
 
 export const KitLive = Actor.build(Kit, {
   init: ({ accountId, machineId }) => ({
-    model: { accountId, machineId, kit: copy.empty, line: 'connecting' },
+    model: { accountId, machineId, kit: copying.empty, line: 'connecting' },
     state: { _tag: 'Reading' },
   }),
   workers: {
@@ -116,15 +118,6 @@ export const KitLive = Actor.build(Kit, {
         Effect.flatMap(self.get, ({ model }) =>
           Stream.runForEach(CodeClients.connection(model.machineId), (line) =>
             self.send({ _tag: 'LineChanged', line }),
-          ),
-        ),
-    },
-    // 4. Speech
-    speech: {
-      run: (self) =>
-        Effect.flatMap(self.get, ({ model }) =>
-          Stream.runForEach(speechOn(model.machineId), (state) =>
-            self.send({ _tag: 'SpeechWatched', state }),
           ),
         ),
     },
@@ -175,10 +168,10 @@ export const KitLive = Actor.build(Kit, {
     },
   },
   state: {
-    // 1. Saved
+    // 1. Kept
     Reading: {
       workers: {
-        saved: {
+        kept: {
           run: (self) =>
             Effect.gen(function* () {
               const { model } = yield* self.get;
@@ -187,13 +180,13 @@ export const KitLive = Actor.build(Kit, {
                 machineId: model.machineId,
                 projectId: null,
               });
-              yield* self.send({ _tag: 'SavedRead', parts });
+              yield* self.send({ _tag: 'KeptRead', parts });
             }),
         },
       },
       on: {
-        SavedRead: ({ parts }, { model }) => ({
-          model: { ...model, kit: copy.saved(model.kit, parts) },
+        KeptRead: ({ parts }, { model }) => ({
+          model: { ...model, kit: copying.read(model.kit, parts) },
           state: { _tag: 'Shown' },
         }),
       },
@@ -203,10 +196,21 @@ export const KitLive = Actor.build(Kit, {
       workers: {
         ask: {
           each: ({ model }) =>
-            model.line === 'connected' ? copy.asking(model.kit) : [],
+            model.line === 'connected' ? copying.asking(model.kit) : [],
           run: (self, since) =>
             Effect.flatMap(self.get, ({ model }) =>
               Effect.flatMap(ask(model.machineId, Number(since)), self.send),
+            ),
+        },
+        // 4. Speech: only once the kept copy shows, so a state heard
+        // before it is read never stands in for it, and is never kept
+        // over it.
+        speech: {
+          run: (self) =>
+            Effect.flatMap(self.get, ({ model }) =>
+              Stream.runForEach(speechOn(model.machineId), (state) =>
+                self.send({ _tag: 'SpeechWatched', state }),
+              ),
             ),
         },
       },
@@ -222,12 +226,12 @@ export const KitLive = Actor.build(Kit, {
           line === 'connected' &&
           model.line !== 'connected' &&
           model.kit.answered === model.kit.wanted
-            ? copy.ask(model.kit)
+            ? copying.ask(model.kit)
             : model.kit,
       },
     }),
     Asked: (_, { model }) => ({
-      model: { ...model, kit: copy.ask(model.kit) },
+      model: { ...model, kit: copying.ask(model.kit) },
     }),
     // 3. Change
     Changed: ({ change }, { model }) => {
@@ -237,13 +241,13 @@ export const KitLive = Actor.build(Kit, {
         accounts: changedAccounts(parts.accounts ?? [], change),
       };
       return {
-        model: { ...model, kit: copy.changed(model.kit, next) },
+        model: { ...model, kit: copying.changed(model.kit, next) },
         command: keep(model, next),
       };
     },
     // 2. Ask: an answer to an ask made before a later one, or a change, is dropped.
     Answered: ({ since, accounts, harnesses, models }, { model }) => {
-      if (!copy.latest(model.kit, since)) return {};
+      if (!copying.latest(model.kit, since)) return {};
       const before = partsOf(model);
       const parts = {
         accounts,
@@ -252,12 +256,12 @@ export const KitLive = Actor.build(Kit, {
         speech: before.speech,
       };
       return {
-        model: { ...model, kit: copy.answered(model.kit, since, parts) },
+        model: { ...model, kit: copying.answered(model.kit, since, parts) },
         command: keep(model, parts),
       };
     },
     Refused: ({ since, reason }, { model }) => ({
-      model: { ...model, kit: copy.refused(model.kit, since, reason) },
+      model: { ...model, kit: copying.refused(model.kit, since, reason) },
     }),
     // 4. Speech
     SpeechWatched: ({ state }, { model }) => {

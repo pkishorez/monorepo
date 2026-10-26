@@ -1,4 +1,4 @@
-import { Clock, Effect, Schema, Stream, SubscriptionRef } from 'effect';
+import { Clock, Effect, Queue, Schema, Stream, SubscriptionRef } from 'effect';
 import { Accounts } from '@kestack/auth-toolkit/client';
 import {
   type Place,
@@ -6,7 +6,6 @@ import {
   SavedDrafts,
   type Written,
 } from '../../../../layer/capabilities/index.ts';
-import { keeping } from '../../../../ui/keep/index.ts';
 import { DraftMode, type Mode } from './mode/index.ts';
 
 /*
@@ -121,6 +120,46 @@ export const savedOf = (
   return empty ? null : { mode, written, attachments, chosen };
 };
 
+/** How long after the last change the Draft is saved, in ms. */
+const SETTLE = 250;
+
+/**
+ * Once each time the page is hidden or left, as the browser says: a tab
+ * switched away from, the app put in the background, a reload. None
+ * outside a browser.
+ */
+const leaving: Stream.Stream<void> =
+  typeof document === 'undefined'
+    ? Stream.never
+    : Stream.callback<void>((queue) =>
+        Effect.acquireRelease(
+          Effect.sync(() => {
+            const hidden = () => {
+              if (document.visibilityState === 'hidden')
+                Queue.offerUnsafe(queue, undefined);
+            };
+            const left = () => Queue.offerUnsafe(queue, undefined);
+            document.addEventListener('visibilitychange', hidden);
+            window.addEventListener('pagehide', left);
+            return () => {
+              document.removeEventListener('visibilitychange', hidden);
+              window.removeEventListener('pagehide', left);
+            };
+          }),
+          (stop) => Effect.sync(stop),
+        ),
+      );
+
+/** Runs `save` after `changes` settle, as the page is hidden or left, and as it is stopped, each after the one before. */
+const whenDue = <R>(
+  changes: Stream.Stream<unknown>,
+  save: Effect.Effect<void, never, R>,
+): Effect.Effect<void, never, R> =>
+  Stream.merge(Stream.debounce(changes, SETTLE), leaving).pipe(
+    Stream.runForEach(() => save),
+    Effect.ensuring(save),
+  );
+
 /** The part of the Draft's Self its saves read. */
 interface Read<P> {
   readonly get: Effect.Effect<{ readonly model: Shown; readonly props: P }>;
@@ -165,7 +204,7 @@ export const saving = <P>(
       last = json;
       deleted = started;
     });
-    yield* keeping(
+    yield* whenDue(
       Stream.merge(self.changes, SubscriptionRef.changes(texts)),
       save,
     );

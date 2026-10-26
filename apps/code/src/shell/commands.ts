@@ -9,8 +9,9 @@ import {
 } from '../layer/capabilities/index.ts';
 
 /*
- * The root page's errands: signing in, which Accounts' records this
- * device keeps, handing an ask on to the Dictation, and keeping Vim Mode.
+ * The root page's errands: signing in, dropping what this device keeps of
+ * Accounts no longer signed in, handing an ask on to the Dictation, and
+ * keeping Vim Mode.
  */
 
 export const signIn = Command.make('SignIn', {
@@ -26,10 +27,12 @@ export const signIn = Command.make('SignIn', {
 });
 
 /**
- * Keeps the records, kept copies, Saved Drafts and Unseen marks of the
- * Accounts signed in on this device and deletes every other's. Best effort.
+ * Deletes the records, kept copies and Unseen marks of every Account not
+ * signed in on this device, and keeps their Saved Drafts, for when one
+ * signs in again: the Accounts signed in are a list, and may come short
+ * (`Gone`). Best effort.
  */
-export const keepAccounts = Command.make('KeepAccounts', {
+export const dropSignedOut = Command.make('DropSignedOut', {
   args: Schema.Struct({ accountIds: Schema.Array(Schema.String) }),
   run: ({ accountIds }) =>
     dropEverywhere({ _tag: 'SignedOut', signedIn: accountIds }),

@@ -5,9 +5,9 @@ import {
   CodeClient,
 } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
-import { orRefused, reasonOf } from '../../../machines/index.ts';
-import { SharedCatalog } from '../capabilities/index.ts';
-import { Attached, wire } from './message.ts';
+import { orRefused, reasonOf } from '../../../../machines/index.ts';
+import { SharedCatalog } from '../../capabilities/index.ts';
+import { Attached, wire } from '../message.ts';
 
 /*
  * What the Draft asks of its Machine, over the socket the project page

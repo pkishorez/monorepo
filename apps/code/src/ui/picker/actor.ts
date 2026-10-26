@@ -1,4 +1,5 @@
 import { Context, Effect, Layer, Schema } from 'effect';
+import type { ReactNode } from 'react';
 import { Actor, Command } from '@kestack/kabuki';
 import { rank, type Ranked } from './rank.ts';
 
@@ -53,14 +54,13 @@ const Row = Schema.Struct({
   unavailable: Schema.optionalKey(Schema.String),
   /** Drawn quieter than the rest, such as a Settled Session. */
   quiet: Schema.optionalKey(Schema.Boolean),
+  /** What it is, drawn beside it on touch: a Project, a folder, or an action that adds one. */
+  icon: Schema.optionalKey(Schema.Literals(['project', 'folder', 'add'])),
   /**
-   * What it is, drawn beside it on touch: a Project, a folder, or an action
-   * that adds one; or an agent, its logo drawn however it was opened, and
-   * its name searched.
+   * The name of a mark its Step draws before it however the Picker was
+   * opened, such as an agent's logo, and searched as the mark says it.
    */
-  icon: Schema.optionalKey(
-    Schema.Literals(['project', 'folder', 'add', 'claude', 'codex']),
-  ),
+  mark: Schema.optionalKey(Schema.String),
   /** What it is called where only words go, as in the trail of choices, when its label leans on its icon. */
   plain: Schema.optionalKey(Schema.String),
   /**
@@ -250,6 +250,8 @@ export interface StepSpec<P> {
   readonly where?: (at: At<P>) => string;
   /** What each row is, drawn beside it on a device with no keyboard. */
   readonly icon?: 'folder';
+  /** Draws a row's `mark`, sized by `className`; a mark it draws nothing for is left out. */
+  readonly mark?: (name: string, className: string) => ReactNode;
   /** The owner settles what is chosen here: the Picker waits for it, and says why when it refuses. */
   readonly settles?: boolean;
   /**
@@ -353,6 +355,7 @@ export const shownOf = <P>(spec: Spec<P>, model: Model, props: P) => {
     done: own?.finishes === 'step' ? (own.done?.(at) ?? 'Choose') : null,
     where: own?.where?.(at) ?? null,
     icon: own?.icon ?? null,
+    mark: own?.mark ?? null,
     make: own?.make ?? null,
     title: own?.title?.(at) ?? null,
     empty: own?.empty?.(at) ?? 'Nothing by that name',

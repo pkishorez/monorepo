@@ -1,7 +1,7 @@
 import { Context, Schema } from 'effect';
 import type { Effect } from 'effect';
 import { AttachmentSchema } from '@kestack/connect/code';
-import type { Gone } from './gone.ts';
+import type { Asked } from './gone.ts';
 
 /*
  * Saved Drafts: the Draft as it shows, kept on this device for each
@@ -74,7 +74,10 @@ export class SavedDrafts extends Context.Service<
       at: bigint,
       since: bigint,
     ) => Effect.Effect<boolean>;
-    /** Deletes every Saved Draft that went, and stops the saves begun before. */
-    readonly drop: (gone: Gone) => Effect.Effect<void>;
+    /**
+     * Deletes every Saved Draft of what the user asked to go, and stops the
+     * saves begun before; a list that no longer names it is never `Asked`.
+     */
+    readonly drop: (gone: Asked) => Effect.Effect<void>;
   }
 >()('code/SavedDrafts') {}

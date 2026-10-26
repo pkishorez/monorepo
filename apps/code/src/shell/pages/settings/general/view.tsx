@@ -5,6 +5,7 @@ import { Switch } from '@kestack/web-platform/ui/components/switch';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { type ReactNode, use } from 'react';
 import { keys, useBound } from '../../../../keys.ts';
+import type { DeviceState } from '../../../../layer/capabilities/index.ts';
 import { MicrophonePicker } from '../../../actors/pickers/microphone-picker/index.ts';
 import { GeneralLive } from './actor.ts';
 
@@ -16,7 +17,8 @@ import { GeneralLive } from './actor.ts';
  * by voice.
  */
 
-type Mode = 'text' | 'voice';
+/** How the Touch Draft is written, as Device State keeps it. */
+type TouchMode = typeof DeviceState.Device.fields.touchMode.Type;
 
 /** One setting: its name over what it does, and its control beside them. */
 function Row({
@@ -90,8 +92,8 @@ function ModeChoice({
   mode,
   onChoose,
 }: {
-  readonly mode: Mode;
-  readonly onChoose: (mode: Mode) => void;
+  readonly mode: TouchMode;
+  readonly onChoose: (mode: TouchMode) => void;
 }) {
   return (
     <div

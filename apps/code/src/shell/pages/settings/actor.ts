@@ -22,7 +22,7 @@ import { Shortcuts } from './shortcuts/index.ts';
  * (`ui/tabs`).
  */
 
-const Tab = Schema.Literals(['General', 'Shortcuts', 'Machines']);
+const Tab = Schema.Literals(routes.SETTINGS_TABS);
 
 export const Settings = Page.define({
   path: '/settings',

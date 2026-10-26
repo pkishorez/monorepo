@@ -8,7 +8,7 @@ import * as Confirm from '../../../ui/confirm/index.ts';
 import { PageMachine } from '../../machines/index.ts';
 import { ProjectLive } from './actor.ts';
 import { Draft } from './draft/index.ts';
-import { DraftFor, FolderMissing } from './missing.tsx';
+import { FolderMissing } from './missing.tsx';
 import { Session as SessionPage } from './session/index.ts';
 import { NewSessionBody } from './starter/index.ts';
 
@@ -122,9 +122,9 @@ function NewSession({
       extra={!missing && remove}
       draft={
         children.draft && (
-          <DraftFor missing={missing}>
+          <Draft.Slots value={{ blocked: missing }}>
             <Draft.view instance={children.draft} />
-          </DraftFor>
+          </Draft.Slots>
         )
       }
     />

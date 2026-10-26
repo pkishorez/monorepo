@@ -4,8 +4,8 @@ import { IDB } from '@kestack/std-toolkit/db/idb';
 import { Memory } from '@kestack/std-toolkit/db/memory';
 import { broadcast, type Doorbell } from './doorbell.ts';
 import { fitted } from './fit.ts';
-import { DeviceState, went } from '../../capabilities/index.ts';
-import { keyOf, RETRIES, scan } from '../kept/index.ts';
+import { DeviceState, type Gone, went } from '../../capabilities/index.ts';
+import { keyOf, RETRIES, scan } from '../rows/index.ts';
 import {
   DEVICE_TABLE,
   keyboard,
@@ -118,7 +118,7 @@ const make = (
     );
 
   // 4. Drop
-  const drop = (gone: Parameters<typeof went>[0]) =>
+  const drop = (gone: Gone) =>
     write(
       Effect.flatMap(allMarks, (found) =>
         Effect.forEach(
