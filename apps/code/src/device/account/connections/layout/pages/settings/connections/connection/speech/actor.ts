@@ -22,7 +22,7 @@ const SpeechToText = Actor.define('SpeechToText', {
   input: Schema.Struct({ connectionId: Schema.String }),
   props: Schema.Struct({
     /** How it stands, as its setup holds it; null before it knows. */
-    speech: Schema.NullOr(SpeechToTextState),
+    speech: Schema.NullOr(SpeechToTextState.schema),
   }),
   model: Schema.Struct({
     connectionId: Schema.String,

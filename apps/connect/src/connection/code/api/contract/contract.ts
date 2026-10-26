@@ -21,6 +21,10 @@ import { TurnsRpc } from './turns.js';
  * - questions  Agent Questions, and the user's answers to them.
  * - folders    the home folder's sub-folders, listed and made.
  * - speech     Speech to Text, switched on and off, and audio turned into text.
+ *
+ * Every value it sends is an ESchema, as Cloud Connect's are, so Code reads
+ * a Connection that lags behind it; a payload that names one Rpc alone is an
+ * ESchema of its own, named for it.
  */
 
 export class CodeApi extends HarnessesRpc.merge(

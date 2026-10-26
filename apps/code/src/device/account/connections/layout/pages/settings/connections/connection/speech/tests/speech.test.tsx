@@ -30,9 +30,12 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const Owner = Actor.define('Owner', {
   model: Schema.Struct({
     pings: Schema.Finite,
-    speech: Schema.NullOr(SpeechToTextState),
+    speech: Schema.NullOr(SpeechToTextState.schema),
   }),
-  message: Schema.TaggedUnion({ Ping: {}, Said: { state: SpeechToTextState } }),
+  message: Schema.TaggedUnion({
+    Ping: {},
+    Said: { state: SpeechToTextState.schema },
+  }),
 });
 
 const OwnerLive = Actor.build(Owner, {

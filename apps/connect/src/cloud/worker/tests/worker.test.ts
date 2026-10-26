@@ -199,7 +199,7 @@ describe('Cloud Connect', () => {
 
   it('takes a Report only with an https:// address, or none, and every field bounded', async () => {
     // Client and Cloud Connect both check the payload against the contract.
-    const valid = Schema.is(ConnectionReport);
+    const valid = Schema.is(ConnectionReport.schema);
     const base = reportOf('bounded');
     expect(valid(base)).toBe(true);
     const at = (url: string) => ({
@@ -225,7 +225,7 @@ describe('Cloud Connect', () => {
   it('answers /auth with how a Connection signs in, to anyone', async () => {
     const response = await answerAs(null)(new Request(`${CLOUD}/auth`));
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual(AUTH_INFO);
+    expect(await response.json()).toEqual({ ...AUTH_INFO, _v: 'v1' });
   });
 
   it("answers an allowed origin's preflight with that origin, and lets no other origin read it", async () => {

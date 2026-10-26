@@ -67,6 +67,7 @@ export {
   TranscriptionFailed,
   TunnelCheck,
   UnknownAccount,
+  VersionGap,
   WireEntity,
   type Address,
   type AskAnswer,

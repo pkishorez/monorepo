@@ -75,7 +75,7 @@ const Model = Schema.Struct({
   /** Its Unseen marks; null until read. */
   seen: Schema.NullOr(Marks),
   /** Its Sessions' Agent Questions, as it last said them. */
-  questions: Schema.Array(SessionQuestions),
+  questions: Schema.Array(SessionQuestions.schema),
   /** How each Session's questions are being answered here, by Session id. */
   answering: Schema.Record(Schema.String, Answering),
 });
@@ -96,19 +96,21 @@ const Connection = Actor.define('Connection', {
     Changed: { change: SetupChange },
     Answered: {
       since: Schema.Finite,
-      accounts: Schema.Array(HarnessAccountInfo),
-      harnesses: Schema.Array(HarnessInfo),
+      accounts: Schema.Array(HarnessAccountInfo.schema),
+      harnesses: Schema.Array(HarnessInfo.schema),
       models: Schema.Array(ModelsRead),
     },
     Refused: { since: Schema.Finite, reason: Schema.String },
-    SpeechWatched: { state: SpeechToTextState },
+    SpeechWatched: { state: SpeechToTextState.schema },
     SeenRead: { marks: Marks },
-    QuestionsHeard: { questions: Schema.Array(SessionQuestions) },
+    QuestionsHeard: { questions: Schema.Array(SessionQuestions.schema) },
     AnsweringKept: { sessionId: Schema.String, answering: Answering },
   }),
 });
 
-const sameQuestions = Schema.toEquivalence(Schema.Array(SessionQuestions));
+const sameQuestions = Schema.toEquivalence(
+  Schema.Array(SessionQuestions.schema),
+);
 
 const nothing: SetupParts = {
   accounts: null,

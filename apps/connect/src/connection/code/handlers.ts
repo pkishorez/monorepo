@@ -134,7 +134,7 @@ export const CodeApiLive = CodeApi.toLayer(
         engine.removeProject(id).pipe(Effect.mapError(wire.ProjectNotFound)),
       startSession: (input) =>
         engine
-          .startSession(input)
+          .startSession({ ...input, id: input.id ?? undefined })
           .pipe(
             Effect.mapError((error) =>
               error._tag === 'ProjectNotFound'

@@ -28,6 +28,22 @@ const PwaContext = createContext<Pwa['Service'] | null>(null);
 
 const UNSUPPORTED = PwaStatus.Unsupported();
 
+/** The service `PwaProvider` built, for `updateToNewest`; null until then. */
+let built: Pwa['Service'] | null = null;
+let toNewest = false;
+
+/**
+ * Moves the page to the newest build, once per page load, from anywhere: an
+ * app calls it when it finds it is older than what it talks to. It checks
+ * for a newer build and applies it once it is downloaded, and every open
+ * page reloads into it; asked before `PwaProvider` has started, it waits for
+ * it. Without a service worker, as in development, it does nothing.
+ */
+export const updateToNewest = (): void => {
+  toNewest = true;
+  if (built !== null) Effect.runFork(built.updateToNewest);
+};
+
 /**
  * Registers the service worker after mount (never during SSR) and gives
  * `usePwa` its status. Render it once, in the root route.
@@ -41,12 +57,18 @@ export const PwaProvider = (props: {
     const runtime = ManagedRuntime.make(Pwa.layer(info));
     let mounted = true;
     runtime.context().then(
-      (context) => mounted && setPwa(Context.get(context, Pwa)),
+      (context) => {
+        if (!mounted) return;
+        built = Context.get(context, Pwa);
+        setPwa(built);
+        if (toNewest) Effect.runFork(built.updateToNewest);
+      },
       (error: unknown) =>
         console.error('pwa-toolkit: client failed to start', error),
     );
     return () => {
       mounted = false;
+      built = null;
       setPwa(null);
       void runtime.dispose();
     };

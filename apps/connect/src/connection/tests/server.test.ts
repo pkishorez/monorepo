@@ -482,6 +482,7 @@ describe('the server, through the client and Replica', () => {
             );
 
             const session = yield* api.startSession({
+              id: null,
               projectId: project.id,
               account: 'claude',
               model: 'claude-test',
@@ -691,6 +692,7 @@ describe('the server, through the client and Replica', () => {
             ).toEqual(FAKE_SKILLS);
 
             const session = yield* api.startSession({
+              id: null,
               projectId: project.id,
               account: 'claude',
               model: 'claude-test',

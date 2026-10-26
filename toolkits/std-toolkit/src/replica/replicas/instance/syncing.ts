@@ -1,4 +1,12 @@
-import { Duration, Effect, Option, Schedule, Schema, Stream } from 'effect';
+import {
+  Context,
+  Duration,
+  Effect,
+  Option,
+  Schedule,
+  Schema,
+  Stream,
+} from 'effect';
 import type { Strategy } from './strategy/index.js';
 import type { Message } from './model.js';
 import type { Opened } from './opened.js';
@@ -17,6 +25,16 @@ import { scopeOf, type WindowAt } from './windows.js';
 
 const FIRST_RETRY = Duration.seconds(1);
 const LAST_RETRY = Duration.seconds(30);
+
+/**
+ * What the app does when a Strategy meets an Entity newer than it knows,
+ * just before it stops until a reload: nothing, unless the app's Layer gives
+ * it something quick, such as asking for its newest build.
+ */
+export const OnOutdated = Context.Reference<Effect.Effect<void>>(
+  '@kestack/std-toolkit/replica/OnOutdated',
+  { defaultValue: () => Effect.void },
+);
 
 /** The Strategy stopped on purpose: what it read is newer than this app. */
 class Outdated {
@@ -91,9 +109,10 @@ export const runStrategy = <K, R>(options: {
           Effect.tap(() => answer),
           Effect.flatMap((result) =>
             result === 'outdated'
-              ? Effect.andThen(
-                  send({ _tag: 'Outdated', ...at }),
-                  Effect.fail(new Outdated()),
+              ? // Told first: the Outdated Message stops this Strategy.
+                Effect.flatMap(Effect.service(OnOutdated), (tell) => tell).pipe(
+                  Effect.andThen(send({ _tag: 'Outdated', ...at })),
+                  Effect.andThen(Effect.fail(new Outdated())),
                 )
               : kept,
           ),

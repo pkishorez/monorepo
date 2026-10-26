@@ -4,6 +4,7 @@ export {
   pwaHead,
   pwaIncluded,
   pwaName,
+  updateToNewest,
   usePwa,
 } from './status.js';
 export type { PwaVersion } from './head.js';

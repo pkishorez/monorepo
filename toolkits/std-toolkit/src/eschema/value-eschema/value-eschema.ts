@@ -9,6 +9,7 @@ import type {
   ValueEvolution,
   ValueSchema,
   ValueSchemaType,
+  VersionedCodec,
 } from '../domain/schema-model/index.js';
 import { INITIAL_VERSION } from '../domain/schema-model/index.js';
 import { latestSchema } from '../domain/introspection/index.js';
@@ -70,7 +71,7 @@ export class ValueESchema<
   Type = null as unknown as ValueSchemaType<TLatest>;
   Encoded = null as unknown as ValueEnvelopeEncoded<TVersion, TLatest>;
 
-  get schema(): Schema.Codec<this['Type'], this['Encoded']> {
+  get schema(): VersionedCodec<this['Type'], this['Encoded']> {
     return versionedSchema(this);
   }
 

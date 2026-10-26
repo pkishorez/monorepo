@@ -85,9 +85,9 @@ export const ModelsRead = Read(ModelInfo);
  * runs takes; each null, or none, until it is known.
  */
 export const SetupParts = Schema.Struct({
-  accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo)),
-  speech: Schema.NullOr(SpeechToTextState),
-  harnesses: Schema.NullOr(Schema.Array(HarnessInfo)),
+  accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo.schema)),
+  speech: Schema.NullOr(SpeechToTextState.schema),
+  harnesses: Schema.NullOr(Schema.Array(HarnessInfo.schema)),
   models: Schema.Array(ModelsRead),
 });
 export type SetupParts = typeof SetupParts.Type;
@@ -104,7 +104,7 @@ export type Setup = typeof Setup.Type;
 
 /** A change made to a Connection from Settings, which its setup shows at once. */
 export const SetupChange = Schema.TaggedUnion({
-  AccountSaved: { account: HarnessAccountInfo },
+  AccountSaved: { account: HarnessAccountInfo.schema },
   AccountRemoved: { id: Schema.String },
 });
 export type SetupChange = typeof SetupChange.Type;

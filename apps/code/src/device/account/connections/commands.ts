@@ -43,13 +43,17 @@ export const list = (since: number) =>
   );
 
 /** The Account's Connection List as kept, in its database's `connections` table. */
-export const ListShelf = shelf('connections', 1, Schema.Array(Connection));
+export const ListShelf = shelf(
+  'connections',
+  1,
+  Schema.Array(Connection.schema),
+);
 
 /** Keeps the list for the Account; a write that fails is lost. */
 export const keepList = Command.make('KeepConnectionList', {
   args: Schema.Struct({
     accountId: Schema.String,
-    connections: Schema.Array(Connection),
+    connections: Schema.Array(Connection.schema),
   }),
   run: ({ accountId, connections }) =>
     Effect.flatMap(Cache, (kept) =>

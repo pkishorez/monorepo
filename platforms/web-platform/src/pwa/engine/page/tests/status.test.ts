@@ -1,4 +1,5 @@
 import * as Effect from 'effect/Effect';
+import * as Fiber from 'effect/Fiber';
 import * as Option from 'effect/Option';
 import * as TestClock from 'effect/testing/TestClock';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -133,6 +134,37 @@ describe('status', () => {
     ]);
     expect(tag).toBe('Updating');
     expect(browser.reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('updateToNewest checks, applies the update once it is downloaded, and only once per page load', async () => {
+    controlled();
+    const next = new FakeWorker();
+    const tag = await run(
+      Effect.gen(function* () {
+        const pwa = yield* Pwa;
+        yield* settle;
+        const update = browser.container.registration.update;
+        const checks = update.mock.calls.length;
+        const fiber = yield* Effect.forkChild(pwa.updateToNewest);
+        yield* settle;
+        expect(update.mock.calls.length).toBe(checks + 1);
+        // The newer build finishes downloading.
+        const registration = browser.container.registration;
+        next.state = 'installing';
+        registration.installing = next;
+        yield* fire(registration, 'updatefound');
+        registration.installing = null;
+        registration.waiting = next;
+        next.becomes('installed');
+        yield* Fiber.join(fiber);
+        yield* pwa.updateToNewest;
+        return yield* statusTag;
+      }),
+    );
+    expect(next.received.map((m) => matchCommand(m))).toEqual([
+      Option.some({ __pwaToolkit: 1, type: 'SKIP_WAITING' }),
+    ]);
+    expect(tag).toBe('Updating');
   });
 
   it('returns to UpdateReady when the waiting worker refuses', async () => {

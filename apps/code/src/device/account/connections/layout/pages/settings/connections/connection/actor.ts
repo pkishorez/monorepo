@@ -32,10 +32,10 @@ const ConnectionCard = Actor.define('ConnectionCard', {
   requires: [ConnectionCards],
   input: Schema.Struct({ connectionId: Schema.String }),
   props: Schema.Struct({
-    connection: Connection,
+    connection: Connection.schema,
     /** What its setup holds; null before it knows. */
-    accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo)),
-    speech: Schema.NullOr(SpeechToTextState),
+    accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo.schema)),
+    speech: Schema.NullOr(SpeechToTextState.schema),
     /** Why its Connection could not be asked. */
     problem: Schema.NullOr(Schema.String),
   }),

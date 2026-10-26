@@ -1,6 +1,7 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { Authz, type Guarded } from '@kestack/auth-toolkit';
+import { ESchema, ValueESchema } from '@kestack/std-toolkit/eschema';
 
 /*
  * What Cloud Connect answers, shared by Cloud Connect, `ke-connect serve`
@@ -23,22 +24,33 @@ export const RPC_PATH = '/rpc';
 export const AUTH_PATH = '/auth';
 
 /** How a Connection signs in to reach Cloud Connect: through the Auth Worker at `url`. */
-export const AuthInfo = Schema.Struct({ url: Schema.String });
+export const AuthInfo = ESchema.make('AuthInfo', {
+  url: Schema.String,
+}).build();
 export type AuthInfo = typeof AuthInfo.Type;
 
 /** Whether a Connection could reach itself at its public address: a Tunnel Check. */
-export const TunnelCheck = Schema.Struct({
+export const TunnelCheck = ESchema.make('TunnelCheck', {
   ok: Schema.Boolean,
   /** When it was checked, epoch ms. */
   at: Schema.Finite,
   /** Why it failed, when it did. */
   problem: Schema.NullOr(Schema.String),
-});
+}).build();
 export type TunnelCheck = typeof TunnelCheck.Type;
 
 /** A non-empty string of at most `max` characters. */
 const Bounded = (max: number) =>
   Schema.NonEmptyString.check(Schema.isMaxLength(max));
+
+/**
+ * One case of a union, tagged by `_tag`. An ESchema stores no constructor
+ * default, so the tag is a plain literal, not `Schema.tag`.
+ */
+const tagged = <const Tag extends string, Fields extends Schema.Struct.Fields>(
+  tag: Tag,
+  fields: Fields,
+) => Schema.Struct({ _tag: Schema.Literal(tag), ...fields });
 
 /** A Connection's public address, `https://…` alone. */
 const Address = Bounded(256).check(Schema.isPattern(/^https:\/\/[^/?#\s]+/));
@@ -48,20 +60,27 @@ const Address = Bounded(256).check(Schema.isPattern(/^https:\/\/[^/?#\s]+/));
  * (Installing, then Opening), failed to open and about to try again, or up
  * at an address, with what its last Tunnel Check found there.
  */
-export const ConnectionStatus = Schema.TaggedUnion({
-  /** Downloading cloudflared, once per computer. */
-  Installing: {},
-  /** cloudflared is starting and connecting to Cloudflare. */
-  Opening: {},
-  /** The tunnel could not open; another is tried shortly. */
-  OpenFailed: { at: Schema.Finite, problem: Schema.String },
-  /** Up at `url`, not checked yet. */
-  Unchecked: { url: Address },
-  /** Up at `url`, and the last Tunnel Check reached it. */
-  Reachable: { url: Address, at: Schema.Finite },
-  /** Up at `url`, but the last Tunnel Check did not reach it. */
-  Unreachable: { url: Address, at: Schema.Finite, problem: Schema.String },
-});
+export const ConnectionStatus = ValueESchema.make(
+  'ConnectionStatus',
+  Schema.Union([
+    /** Downloading cloudflared, once per computer. */
+    tagged('Installing', {}),
+    /** cloudflared is starting and connecting to Cloudflare. */
+    tagged('Opening', {}),
+    /** The tunnel could not open; another is tried shortly. */
+    tagged('OpenFailed', { at: Schema.Finite, problem: Schema.String }),
+    /** Up at `url`, not checked yet. */
+    tagged('Unchecked', { url: Address }),
+    /** Up at `url`, and the last Tunnel Check reached it. */
+    tagged('Reachable', { url: Address, at: Schema.Finite }),
+    /** Up at `url`, but the last Tunnel Check did not reach it. */
+    tagged('Unreachable', {
+      url: Address,
+      at: Schema.Finite,
+      problem: Schema.String,
+    }),
+  ]),
+).build();
 export type ConnectionStatus = typeof ConnectionStatus.Type;
 
 /** The address a status is up at; null while there is none. */
@@ -73,23 +92,23 @@ export const addressOf = (status: ConnectionStatus) =>
  * and its address is `https://` alone: the app dials it with the Connection
  * Key, which must never cross in clear.
  */
-export const ConnectionReport = Schema.Struct({
+export const ConnectionReport = ESchema.make('ConnectionReport', {
   id: Bounded(64),
   name: Bounded(64),
   /** Its Connection Key (ADR 0015). */
   key: Bounded(128),
   /** The version of Connect it runs. */
   version: Schema.String.check(Schema.isMaxLength(32)),
-  status: ConnectionStatus,
-});
+  status: ConnectionStatus.schema,
+}).build();
 export type ConnectionReport = typeof ConnectionReport.Type;
 
 /** A Connection as its User sees it: what it last reported, and its Last Seen. */
-export const Connection = Schema.Struct({
+export const Connection = ESchema.make('Connection', {
   ...ConnectionReport.fields,
   /** Its Last Seen: when it last reported, epoch ms, by Cloud Connect's clock. */
-  lastSeen: Schema.Number,
-});
+  lastSeen: Schema.Finite,
+}).build();
 export type Connection = typeof Connection.Type;
 
 /** The Connection was forgotten by its User; it must sign out and stop. */
@@ -104,18 +123,26 @@ export class ConnectionTaken extends Schema.TaggedError<ConnectionTaken>()(
   { id: Schema.String },
 ) {}
 
+/** What `List` takes: nothing yet. */
+const ListPayload = ESchema.make('ListPayload', {}).build();
+
+/** What `Forget` takes: the Connection to forget. */
+const ForgetPayload = ESchema.make('ForgetPayload', {
+  id: Schema.NonEmptyString,
+}).build();
+
 const Rpcs = RpcGroup.make(
   Rpc.make('Report', {
-    payload: ConnectionReport,
-    success: Connection,
+    payload: ConnectionReport.schema,
+    success: Connection.schema,
     error: Schema.Union([ConnectionForgotten, ConnectionTaken]),
   }),
   Rpc.make('List', {
-    payload: Schema.Struct({}),
-    success: Schema.Array(Connection),
+    payload: ListPayload.schema,
+    success: Schema.Array(Connection.schema),
   }),
   Rpc.make('Forget', {
-    payload: Schema.Struct({ id: Schema.NonEmptyString }),
+    payload: ForgetPayload.schema,
     success: Schema.Void,
   }),
 );
