@@ -1,4 +1,5 @@
 import { Router } from '@kestack/kabuki/routing';
+import { useAppShell } from '@kestack/web-platform/recipes/frame';
 import { Drawer } from '@kestack/web-platform/recipes/touch-layers';
 import {
   ChevronRightIcon,
@@ -16,9 +17,10 @@ import { Theme } from '../../../ui/theme/index.ts';
  * The sidebar's foot: two round buttons, a thumb's reach apart, over the
  * timeline on a phone, raised, and under it in a wide sidebar, barely
  * raised, since nothing scrolls beneath them there. On the left, You:
- * a Drawer with who is signed in, the theme, and Settings; on the right,
- * New project, the Project Picker's own trigger. Each sinks as it is
- * pressed, and on a phone that can, taps back.
+ * a Drawer with who is signed in, the theme, and Settings, which on a
+ * phone shuts the sidebar over the page, as a Session's row does; on the
+ * right, New project, the Project Picker's own trigger. Each sinks as it
+ * is pressed, and on a phone that can, taps back.
  *
  * Who is signed in is one row; it opens the Accounts, the Account
  * Switcher's list, in a Drawer on top of this one, which closes back to it.
@@ -43,6 +45,7 @@ export function Foot({
   readonly projectPicker: ReactNode;
 }) {
   const [you, setYou] = useState(false);
+  const shell = useAppShell();
   const [switching, setSwitching] = useState(false);
   // Another Account active, switched to or just added: both Drawers close,
   // so the foot shows who it is now.
@@ -99,7 +102,10 @@ export function Foot({
           <ThemeChoice />
           <Router.Link
             to={routes.settings()}
-            onClick={() => setYou(false)}
+            onClick={() => {
+              setYou(false);
+              if (shell.isMobile) shell.setOpen(false);
+            }}
             className="focus-ring flex h-14 items-center gap-3.5 border-y border-border/70 px-2 text-[17px] transition-[background-color,transform] duration-150 active:scale-[0.99] active:bg-muted/60 motion-reduce:transition-none"
           >
             <SettingsIcon
