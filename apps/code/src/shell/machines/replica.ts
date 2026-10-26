@@ -146,6 +146,22 @@ export const Messages = Query.make('Messages', {
         .where(({ message }) => eq(message.sessionId, props.sessionId)),
 });
 
+/**
+ * Calls `changed` after each change to a Collection, a row taken away
+ * included. TanStack DB tells a subscriber of a row taken away only if it
+ * handed it that row first, which a subscriber that reads the rows itself
+ * was never handed: so each is told it has seen them all.
+ */
+const onChange = (
+  collection: {
+    readonly subscribeChanges: (
+      changed: () => void,
+      options: { readonly includeInitialState: false },
+    ) => { readonly unsubscribe: () => void };
+  },
+  changed: () => void,
+) => collection.subscribeChanges(changed, { includeInitialState: false });
+
 /** Every project and session the device holds of the Machines named. */
 export interface Everything {
   readonly projects: ReadonlyArray<OnMachine<Project>>;
@@ -182,8 +198,8 @@ export const everything = (machineIds: ReadonlyArray<string>) =>
                 });
               offer();
               return all.flatMap(([, ai]) => [
-                ai.projects.subscribeChanges(offer),
-                ai.sessions.subscribeChanges(offer),
+                onChange(ai.projects, offer),
+                onChange(ai.sessions, offer),
               ]);
             }),
             (subscriptions) =>
@@ -225,7 +241,7 @@ export const lineage = (machineId: string, sessionId: string) =>
               };
               let last = chain();
               Queue.offerUnsafe(queue, last);
-              return ai.sessions.subscribeChanges(() => {
+              return onChange(ai.sessions, () => {
                 const next = chain();
                 // Only a change to one of them is news.
                 if (
