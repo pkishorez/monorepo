@@ -47,7 +47,7 @@ describe('supervise', () => {
         mode: 'shared',
         cloud,
         port: 0,
-        machine: null,
+        connection: null,
         ready: false,
         startedAt: new Date().toISOString(),
         version: 'test',

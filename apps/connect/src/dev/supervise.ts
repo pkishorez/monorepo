@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { Effect } from 'effect';
-import { serve } from '../machine/index.js';
-import { type DevAuth, machineBranch } from './auth.js';
+import { serve } from '../connection/index.js';
+import { type DevAuth, connectionBranch } from './auth.js';
 import { live } from './leases.js';
 import {
   type ConnectRecord,
@@ -13,7 +13,7 @@ import {
 
 /*
  * Running this branch's Connect: its Cloud Connect under `alchemy dev`
- * behind Portless, then a Machine of the branch's own serving against it,
+ * behind Portless, then a Connection of the branch's own serving against it,
  * ready once `connect.json` says so. A shared Connect stops 3 s after its
  * last lease is gone, unless an App leased it as it decided, watching from
  * the moment it starts, so an App that gives up while Cloud Connect never
@@ -145,13 +145,13 @@ export const supervise = (options: Supervised) =>
       yield* Effect.raceFirst(answering(cloud), exited(alchemy));
       yield* serve({
         cloud,
-        branch: machineBranch(slug, auth),
+        branch: connectionBranch(slug, auth),
         port: 0,
         // A page through a Cloudflare tunnel, which only the Fake signs in.
         ...(auth === 'fake'
           ? { origins: ['https://*.trycloudflare.com'] }
           : {}),
-        onListening: ({ port, machine }) =>
+        onListening: ({ port, connection }) =>
           Effect.sync(() =>
             writeRecord(dir, {
               pid: process.pid,
@@ -159,7 +159,7 @@ export const supervise = (options: Supervised) =>
               cloud,
               auth,
               port,
-              machine,
+              connection,
               ready: true,
               startedAt,
               version,

@@ -33,8 +33,8 @@ import {
  *                 Smart Input and Smart Displacement, and the sidebar's
  *                 width. The store is the truth; an actor that shows it
  *                 reads it again after every write, from this tab or
- *                 another. The Machine the sidebar shows is its Account's
- *                 (`account/machines/store.ts`).
+ *                 another. The Connection the sidebar shows is its Account's
+ *                 (`account/connections/store.ts`).
  * 3. Accounts     who uses the app: auth-toolkit's `Accounts`, through the
  *                 Auth Worker at `VITE_AUTH_URL`, its Accounts last seen
  *                 kept in the `accounts` table here.
@@ -126,7 +126,7 @@ export class Preferences extends Context.Service<
  * is turned on; one for the text size, medium until chosen; one for the
  * microphone a Dictation records from; one each for whether the Touch
  * Draft takes Smart Input and Smart Displacement, off until turned on;
- * one for the sidebar's width. The Unseen marks are each Machine's own.
+ * one for the sidebar's width. The Unseen marks are each Connection's own.
  *
  * How the Touch Draft was written before Smart Input (`DeviceTouch`, text
  * or voice) is no longer read.

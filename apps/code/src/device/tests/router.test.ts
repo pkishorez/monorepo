@@ -15,11 +15,11 @@ describe('routes', () => {
     expect(home()).toEqual(router.Home());
     expect(settings()).toEqual(router.Settings());
     expect(project('m1', 'p1')).toEqual(
-      router.Project({ machineId: 'm1', projectId: 'p1' }),
+      router.Project({ connectionId: 'm1', projectId: 'p1' }),
     );
     expect(session('m1', 'p1', 's1')).toEqual(
       router.Project.Session({
-        machineId: 'm1',
+        connectionId: 'm1',
         projectId: 'p1',
         sessionId: 's1',
       }),
@@ -40,7 +40,7 @@ describe('routes', () => {
     for (const path of [
       '/settings/general',
       '/settings/shortcuts',
-      '/settings/machines',
+      '/settings/connections',
     ])
       expect(router.read(path)).toEqual({
         _tag: 'Redirect',
@@ -50,8 +50,8 @@ describe('routes', () => {
 
   it('open Settings on the tab a link asked for, once, else General', () => {
     expect(settingsTabAsked()).toBe('General');
-    openSettingsOn('Machines');
-    expect(settingsTabAsked()).toBe('Machines');
+    openSettingsOn('Connections');
+    expect(settingsTabAsked()).toBe('Connections');
     expect(settingsTabAsked()).toBe('General');
   });
 

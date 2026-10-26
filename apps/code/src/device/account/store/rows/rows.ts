@@ -13,7 +13,7 @@ import type { QueryOptions, QueryPage } from '@kestack/std-toolkit/db';
  *            once, each row's writes in turn, a drop waiting for those
  *            under way (`turns.ts`); each write heard in every tab, by its
  *            database's doorbell (`doorbell.ts`).
- * 4. Place   one table in many databases, one per Account or Machine, each
+ * 4. Place   one table in many databases, one per Account or Connection, each
  *            made the first time it is asked for.
  * 5. Gone    what the user asked to go, by whose a row is (`gone.ts`).
  */

@@ -4,11 +4,11 @@ import { Effect } from 'effect';
 /*
  * Where Code is served on the Stage being run, as the Web Platform says
  * (`code.kishore.app`, `pr12-code.kishore.app`), how it signs in, and the
- * Cloud Connect it lists Machines from. Sign-in through the Auth Worker
+ * Cloud Connect it lists Connections from. Sign-in through the Auth Worker
  * works only where the site, Cloud Connect and the Auth Worker share a
  * cookie domain: `.kishore.computer` under `alchemy dev`, `.kishore.app` on
  * a deployed Stage. Every deployed Stage uses production Cloud Connect,
- * where the User's Machines are; under `alchemy dev`, `pnpm dev` hands the
+ * where the User's Connections are; under `alchemy dev`, `pnpm dev` hands the
  * branch's own in `CONNECT_URL`.
  */
 

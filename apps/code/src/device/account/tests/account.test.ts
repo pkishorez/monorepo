@@ -16,7 +16,7 @@ import {
  * it is checked, and never said to be checked then; only a real answer
  * prunes, keeping every Account signed in on this device; and another
  * Account than the one drawn waits, the one drawn staying, until its
- * Machines are ready, then is drawn, home, in one step.
+ * Connections are ready, then is drawn, home, in one step.
  */
 
 const account = (id: string) => ({
@@ -158,7 +158,7 @@ describe('drawing an Account', () => {
     });
   });
 
-  it('runs no Machines with no Account', () => {
+  it('runs no Connections with no Account', () => {
     expect(running(null, null)).toEqual([]);
     expect(running(null, shown('a1'))).toEqual([shown('a1')]);
   });

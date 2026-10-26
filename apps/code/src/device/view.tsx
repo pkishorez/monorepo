@@ -6,14 +6,14 @@ import {
 } from '@kestack/web-platform/recipes/account-switcher';
 import { Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { StartScreen, startOf } from './account/index.ts';
-import { Machines as MachinesActor } from './account/machines/index.ts';
-import { Connection } from './account/machines/machine/connection/index.ts';
-import { Layout } from './account/machines/layout/index.ts';
-import { Home } from './account/machines/layout/pages/home/index.ts';
-import { Project } from './account/machines/layout/pages/project/index.ts';
-import { Draft } from './account/machines/layout/pages/project/draft/index.ts';
-import { Session } from './account/machines/layout/pages/project/session/index.ts';
-import { Settings } from './account/machines/layout/pages/settings/index.ts';
+import { Connections as ConnectionsActor } from './account/connections/index.ts';
+import { Links } from './account/connections/connection/link/index.ts';
+import { Layout } from './account/connections/layout/index.ts';
+import { Home } from './account/connections/layout/pages/home/index.ts';
+import { Project } from './account/connections/layout/pages/project/index.ts';
+import { Draft } from './account/connections/layout/pages/project/draft/index.ts';
+import { Session } from './account/connections/layout/pages/project/session/index.ts';
+import { Settings } from './account/connections/layout/pages/settings/index.ts';
 import { Kabuki } from './kabuki/index.ts';
 import * as routes from './routes/index.ts';
 import { DeviceLive } from './actor.ts';
@@ -22,17 +22,17 @@ import { DeviceLive } from './actor.ts';
  * The root page's View, as the Account step goes: the mark, signing in, or
  * checking who is, while no Account is drawn, or its keyboard is read;
  * else the app, drawn for the Account the root page draws, on every
- * Machine at once, its Machines' and no other's: their Voice
- * (`account/machines/voice/`) around Layout (`account/machines/layout/`),
+ * Connection at once, its Connections' and no other's: their Voice
+ * (`account/connections/voice/`) around Layout (`account/connections/layout/`),
  * around the page the URL names, handed the Account Switcher for its
  * header and its list for the sidebar's foot, and on a phone, over the
- * sidebar, what home would say of the Machines. Every Machine as listed,
- * with its line now and whether its Last Seen is believed yet, is handed to the Views below through `Connection`.
+ * sidebar, what home would say of the Connections. Every Connection as listed,
+ * with its link now and whether its Last Seen is believed yet, is handed to the Views below through `Links`.
  * Each part is handed its own Instance, never its data, so a change to
  * one draws only it. A page's code loads on its own (`usePreloaded`).
  * The mark stays until Layout is shown: until then it draws nothing, and
  * the page says when it can be drawn whole (`PageReady`), its code loaded
- * and what it reads read from this device, never waiting on a Machine.
+ * and what it reads read from this device, never waiting on a Connection.
  */
 
 type Self = ViewProps<typeof DeviceLive>;
@@ -55,8 +55,8 @@ export const DeviceView = View.make(
           </Suspense>
         </div>
       );
-    // The Machines of the Account drawn, not of one preparing.
-    const machines = children.machines.find(
+    // The Connections of the Account drawn, not of one preparing.
+    const connections = children.connections.find(
       ({ key }) => key === model.drawn?.id,
     );
     const app = model.drawn !== null && children.layout !== undefined;
@@ -70,20 +70,20 @@ export const DeviceView = View.make(
           />
         )}
         {app && (
-          <Machines machines={machines}>
-            <Spoken machines={machines}>
+          <Connections connections={connections}>
+            <Spoken connections={connections}>
               <Layout.Given
                 value={{
                   page: (
                     <Suspense fallback={null}>
-                      <PageOf children={children} machines={machines} />
+                      <PageOf children={children} connections={connections} />
                     </Suspense>
                   ),
                   ready,
                   // On a phone the sidebar is home, so it says what home would.
-                  machines: machines && (
+                  connections: connections && (
                     <div className="md:hidden">
-                      <MachinesActor.view instance={machines} />
+                      <ConnectionsActor.view instance={connections} />
                     </div>
                   ),
                   account: <AccountSwitcherView instance={children.account} />,
@@ -94,7 +94,7 @@ export const DeviceView = View.make(
                 {!shown && <PageReady children={children} />}
               </Layout.Given>
             </Spoken>
-          </Machines>
+          </Connections>
         )}
       </div>
     );
@@ -197,21 +197,21 @@ function PageReady({ children }: { readonly children: Self['children'] }) {
   return null;
 }
 
-/** The Machines of the Account drawn. */
-type Drawn = Self['children']['machines'][number] | undefined;
+/** The Connections of the Account drawn. */
+type Drawn = Self['children']['connections'][number] | undefined;
 
 /** The page the URL names, or that nothing lives there. */
 function PageOf({
   children,
-  machines,
+  connections,
 }: {
   readonly children: Self['children'];
-  readonly machines: Drawn;
+  readonly connections: Drawn;
 }) {
   if (children.Home)
     return (
       <>
-        {machines && <MachinesActor.view instance={machines} />}
+        {connections && <ConnectionsActor.view instance={connections} />}
         <Home.view instance={children.Home} />
       </>
     );
@@ -235,55 +235,55 @@ function PageOf({
  * every Draft and Layout reach, and which carries on across pages.
  */
 function Spoken({
-  machines,
+  connections,
   children,
 }: {
-  readonly machines: Drawn;
+  readonly connections: Drawn;
   readonly children: ReactNode;
 }) {
-  if (machines === undefined) return children;
+  if (connections === undefined) return children;
   return (
-    <MachinesActor.Around value={children}>
-      <MachinesActor.voice instance={machines} />
-    </MachinesActor.Around>
+    <ConnectionsActor.Around value={children}>
+      <ConnectionsActor.voice instance={connections} />
+    </ConnectionsActor.Around>
   );
 }
 
 /**
- * Every Machine as the Views see it, as listed and with its line now. Only
+ * Every Connection as the Views see it, as listed and with its link now. Only
  * this provider draws again as they change, and what reads them.
  */
-function Machines({
-  machines,
+function Connections({
+  connections,
   children,
 }: {
-  readonly machines: Drawn;
+  readonly connections: Drawn;
   readonly children: ReactNode;
 }) {
-  if (machines === undefined)
+  if (connections === undefined)
     return (
-      <Connection value={{ machines: null, status: {}, checked: false }}>
+      <Links value={{ connections: null, status: {}, checked: false }}>
         {children}
-      </Connection>
+      </Links>
     );
-  return <Listed machines={machines}>{children}</Listed>;
+  return <Listed connections={connections}>{children}</Listed>;
 }
 
 function Listed({
-  machines,
+  connections,
   children,
 }: {
-  readonly machines: NonNullable<Drawn>;
+  readonly connections: NonNullable<Drawn>;
   readonly children: ReactNode;
 }) {
-  const known = useChild(machines, ({ model }) => model);
+  const known = useChild(connections, ({ model }) => model);
   const value = useMemo(
     () => ({
-      machines: known?.list.value ?? null,
-      status: known?.lines ?? {},
+      connections: known?.list.value ?? null,
+      status: known?.links ?? {},
       checked: known?.checked ?? false,
     }),
-    [known?.list.value, known?.lines, known?.checked],
+    [known?.list.value, known?.links, known?.checked],
   );
-  return <Connection value={value}>{children}</Connection>;
+  return <Links value={value}>{children}</Links>;
 }

@@ -28,12 +28,12 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * the sidebar. The track follows the finger, so the tab beside shows,
  * springs back from a short slow drag, and once another tab is open,
  * swiped to or tapped, slides from where it was to it. Up and down,
- * nothing. Tabs inside a tab, as a Machine's Agents and Projects inside
- * Settings' Machines, take a swipe they have a tab for, and leave one past
+ * nothing. Tabs inside a tab, as a Connection's Agents and Projects inside
+ * Settings' Connections, take a swipe they have a tab for, and leave one past
  * either end to the tabs around them.
  */
 
-type SettingsTab = 'General' | 'Shortcuts' | 'Machines';
+type SettingsTab = 'General' | 'Shortcuts' | 'Connections';
 type Shows = 'Agents' | 'Projects';
 
 let reduce = false;
@@ -116,7 +116,7 @@ function Shell() {
   return null;
 }
 
-const SHOWN: ReadonlyArray<SettingsTab> = ['General', 'Machines'];
+const SHOWN: ReadonlyArray<SettingsTab> = ['General', 'Connections'];
 
 /** How far the track is moved off the tab open, in px. */
 const moved = () => slid.current?.get() ?? 0;
@@ -126,7 +126,7 @@ const SHOWS: ReadonlyArray<Shows> = ['Agents', 'Projects'];
 /** How far the tabs inside are moved off the one open, in px. */
 const movedInside = () => inner.current?.get() ?? 0;
 
-/** Settings' tabs, `open` open; on Machines, its Agents and Projects inside it, `shows` open. */
+/** Settings' tabs, `open` open; on Connections, its Agents and Projects inside it, `shows` open. */
 const render = (open: SettingsTab, shows?: Shows) =>
   act(() =>
     root.render(
@@ -139,7 +139,7 @@ const render = (open: SettingsTab, shows?: Shows) =>
             heading={null}
             panel={(tab) => (
               <div data-testid="page" style={{ height: 800 }}>
-                {tab === 'Machines' && shows !== undefined ? (
+                {tab === 'Connections' && shows !== undefined ? (
                   <TabTrack
                     open={shows}
                     shown={SHOWS}
@@ -195,14 +195,14 @@ afterEach(() => {
 
 describe('the tabs beside the one open', () => {
   it('are those shown, none past either end', () => {
-    expect(besideOf(['General', 'Shortcuts', 'Machines'], 'Shortcuts')).toEqual(
-      { before: 'General', after: 'Machines' },
-    );
+    expect(
+      besideOf(['General', 'Shortcuts', 'Connections'], 'Shortcuts'),
+    ).toEqual({ before: 'General', after: 'Connections' });
     expect(besideOf(SHOWN, 'General')).toEqual({
       before: null,
-      after: 'Machines',
+      after: 'Connections',
     });
-    expect(besideOf(SHOWN, 'Machines')).toEqual({
+    expect(besideOf(SHOWN, 'Connections')).toEqual({
       before: 'General',
       after: null,
     });
@@ -215,7 +215,7 @@ describe('Settings swiped sideways on a touch screen', () => {
     const pages = [...host.querySelectorAll('[data-testid="page"]')];
     expect(pages.map((page) => page.textContent)).toEqual([
       'General',
-      'Machines',
+      'Connections',
     ]);
     expect(pages.map((page) => page.closest('[inert]') !== null)).toEqual([
       false,
@@ -226,10 +226,10 @@ describe('Settings swiped sideways on a touch screen', () => {
   it('opens the next tab right to left, and the one before left to right', async () => {
     render('General');
     await swipe(-150);
-    expect(swiped).toEqual(['Machines']);
-    render('Machines');
+    expect(swiped).toEqual(['Connections']);
+    render('Connections');
     await swipe(150);
-    expect(swiped).toEqual(['Machines', 'General']);
+    expect(swiped).toEqual(['Connections', 'General']);
     expect(sidebar).toBe(0);
   });
 
@@ -237,13 +237,13 @@ describe('Settings swiped sideways on a touch screen', () => {
     render('General');
     drag(-(innerWidth * 0.2 + 4), 0, 60);
     await lift(-(innerWidth * 0.2 + 4));
-    expect(swiped).toEqual(['Machines']);
-    render('Machines');
+    expect(swiped).toEqual(['Connections']);
+    render('Connections');
     render('General');
     await settled();
     drag(-40, 0, 4);
     await lift(-40);
-    expect(swiped).toEqual(['Machines', 'Machines']);
+    expect(swiped).toEqual(['Connections', 'Connections']);
   });
 
   it('follows the finger, and springs back from a short slow drag', async () => {
@@ -260,9 +260,9 @@ describe('Settings swiped sideways on a touch screen', () => {
     drag(-150);
     expect(moved()).toBe(-150);
     await lift(-150);
-    expect(swiped).toEqual(['Machines']);
+    expect(swiped).toEqual(['Connections']);
     expect(moved()).toBe(-150);
-    render('Machines');
+    render('Connections');
     expect(moved()).toBe(innerWidth - 150);
     await settled();
     expect(moved()).toBe(0);
@@ -270,13 +270,13 @@ describe('Settings swiped sideways on a touch screen', () => {
 
   it('slides to a tab tapped by its name from the one open', async () => {
     render('General');
-    render('Machines');
+    render('Connections');
     expect(moved()).toBe(innerWidth);
     await settled();
     expect(moved()).toBe(0);
     expect(
       host.querySelector('[data-testid="page"]:not([inert] *)')?.textContent,
-    ).toBe('Machines');
+    ).toBe('Connections');
   });
 
   it('follows the finger under reduced motion, but jumps where it goes', async () => {
@@ -286,7 +286,7 @@ describe('Settings swiped sideways on a touch screen', () => {
     expect(moved()).toBe(-60);
     act(() => pointer('pointerup', 140, 200));
     expect(moved()).toBe(0);
-    render('Machines');
+    render('Connections');
     expect(moved()).toBe(0);
   });
 
@@ -298,7 +298,7 @@ describe('Settings swiped sideways on a touch screen', () => {
   });
 
   it('does nothing past the last tab, or up and down', async () => {
-    render('Machines');
+    render('Connections');
     await swipe(-150);
     await swipe(0, -300);
     expect(swiped).toEqual([]);
@@ -311,14 +311,14 @@ describe('tabs inside a tab, swiped sideways', () => {
   });
 
   it('takes a swipe it has a tab for, the tabs around it still', async () => {
-    render('Machines', 'Agents');
+    render('Connections', 'Agents');
     drag(-60, 0, 40);
     expect(movedInside()).toBe(-60);
     expect(moved()).toBe(0);
     await lift(-60);
     await swipe(-150);
     expect(chosen).toEqual(['Projects']);
-    render('Machines', 'Projects');
+    render('Connections', 'Projects');
     await settled();
     await swipe(150);
     expect(chosen).toEqual(['Projects', 'Agents']);
@@ -327,7 +327,7 @@ describe('tabs inside a tab, swiped sideways', () => {
   });
 
   it('leaves left to right on its first tab to the tabs around it, which follow the finger', async () => {
-    render('Machines', 'Agents');
+    render('Connections', 'Agents');
     drag(60, 0, 40);
     expect(moved()).toBe(60);
     expect(movedInside()).toBe(0);
@@ -339,7 +339,7 @@ describe('tabs inside a tab, swiped sideways', () => {
   });
 
   it('leaves right to left on its last tab to the tabs around it, which have none there either', async () => {
-    render('Machines', 'Projects');
+    render('Connections', 'Projects');
     await swipe(-150);
     expect(chosen).toEqual([]);
     expect(swiped).toEqual([]);
@@ -347,7 +347,7 @@ describe('tabs inside a tab, swiped sideways', () => {
   });
 
   it('wants nothing up and down', async () => {
-    render('Machines', 'Agents');
+    render('Connections', 'Agents');
     await swipe(0, -300);
     expect(chosen).toEqual([]);
     expect(swiped).toEqual([]);

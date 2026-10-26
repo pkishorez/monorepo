@@ -19,7 +19,7 @@ import type { Start } from './sign-in/index.ts';
  * 4. Draw      the Account the app is drawn for: the one wanted at once
  *              when none is drawn, none is wanted, or it is the same;
  *              another stays drawn until the one wanted is ready, its
- *              Machines' kept list read, and then the app is drawn for it,
+ *              Connections' kept list read, and then the app is drawn for it,
  *              home, in one step, never from nothing.
  */
 
@@ -139,7 +139,7 @@ export const draw = (drawn: Shown | null, wanted: Shown | null): Drawing =>
     ? drawing(drawn, wanted)
     : { drawn, home: false };
 
-/** What is drawn as the Machines of `accountId` are ready: it, if it is still the one wanted. */
+/** What is drawn as the Connections of `accountId` are ready: it, if it is still the one wanted. */
 export const ready = (
   drawn: Shown | null,
   wanted: Shown | null,
@@ -147,7 +147,7 @@ export const ready = (
 ): Drawing =>
   wanted?.id === accountId ? drawing(drawn, wanted) : { drawn, home: false };
 
-/** The Accounts whose Machines run: the one drawn, and the one wanted, preparing. */
+/** The Accounts whose Connections run: the one drawn, and the one wanted, preparing. */
 export const running = (
   drawn: Shown | null,
   wanted: Shown | null,

@@ -1,4 +1,4 @@
-# Single keys, the Draft, every Machine, Dictation: the plan
+# Single keys, the Draft, every Connection, Dictation: the plan
 
 The decisions from the design session, and the order they are built in. It
 replaces `keyboard-first-plan.md`, whose tasks are done. Words are defined in
@@ -7,8 +7,8 @@ replaces `keyboard-first-plan.md`, whose tasks are done. Words are defined in
 [`toolkits/std-toolkit/src/replica/CONTEXT.md`](../../../toolkits/std-toolkit/src/replica/CONTEXT.md)
 and [`packages/use-keys/CONTEXT.md`](../../../packages/use-keys/CONTEXT.md).
 The decision records are ai-toolkit's ADR
-[0017](../../../toolkits/ai-toolkit/docs/adr/0017-speech-to-text-runs-on-the-machine.md)
-and [0018](../../../toolkits/ai-toolkit/docs/adr/0018-an-app-is-on-every-machine-at-once.md).
+[0017](../../../toolkits/ai-toolkit/docs/adr/0017-speech-to-text-runs-on-the-connection.md)
+and [0018](../../../toolkits/ai-toolkit/docs/adr/0018-an-app-is-on-every-connection-at-once.md).
 Delete this file once every task is done.
 
 ## Ground rules (every task)
@@ -91,23 +91,23 @@ keys inside the `picker` Surface stay as they are.
 - The Status Line at the page's foot shows the model and permissions, a mic
   button (start or stop a Dictation) and a send button.
 
-### Every Machine at once (ai-toolkit client, apps/code)
+### Every Connection at once (ai-toolkit client, apps/code)
 
-- Each Machine's `Ai` Instance opens its own Machine's socket, found by its
+- Each Connection's `Ai` Instance opens its own Connection's socket, found by its
   key; `AiLive` no longer takes one `AiClient` from context. The app holds an
-  Instance for every Machine in the Machine List, opens one when a Machine is
+  Instance for every Connection in the Connection List, opens one when a Connection is
   added, and closes one and deletes its local database when it is forgotten.
-- App Queries read across every Instance; each row says its Machine.
-  `CurrentMachine` goes. The Machine Switcher goes.
+- App Queries read across every Instance; each row says its Connection.
+  `CurrentConnection` goes. The Connection Switcher goes.
 - The shell (sidebar, Pickers, Settings) is at the root. Only a Session's
-  address names its Machine: `/m/:machineId/s/:sessionId` or the code's
+  address names its Connection: `/m/:connectionId/s/:sessionId` or the code's
   equivalent.
-- The sidebar is one list of Projects; each shows its Machine's name in small
-  text after it, hidden with only one Machine. A Machine that does not answer
+- The sidebar is one list of Projects; each shows its Connection's name in small
+  text after it, hidden with only one Connection. A Connection that does not answer
   keeps what it last synced, marked by its Last Seen.
-- The Project Picker's first Step picks the Machine, skipped with only one.
-- Settings is at the root. Its Machines list comes from Cloud Connect
-  alone and draws at once. Each Machine has its own settings (its Harness
+- The Project Picker's first Step picks the Connection, skipped with only one.
+- Settings is at the root. Its Connections list comes from Cloud Connect
+  alone and draws at once. Each Connection has its own settings (its Harness
   Accounts, its Speech to Text switch), each loading on its own; one that
   does not answer says so in its own row.
 - Screens draw from the local copy at once. A loading state, a quiet
@@ -127,7 +127,7 @@ keys inside the `picker` Surface stay as they are.
   `watchSpeechToText` (a stream: the state now, then every change: off,
   downloading with bytes of total, ready, failed) and `transcribe` (a typed
   failure when not ready).
-- On is a wish the Machine keeps in its data folder. It downloads the model
+- On is a wish the Connection keeps in its data folder. It downloads the model
   there, starts again after a restart, shows failed with a retry, and off
   deletes the files. The model loads on first `transcribe` and stays loaded.
 
@@ -139,17 +139,17 @@ keys inside the `picker` Surface stay as they are.
 - The browser records raw PCM through an AudioWorklet, mono at 16 kHz, and
   sends the whole clip in one `transcribe` when it stops. It stops itself
   and transcribes at 5 minutes.
-- It transcribes on the open Session's Machine when that has Speech to Text
-  on, else on any Machine that has it on and answers.
+- It transcribes on the open Session's Connection when that has Speech to Text
+  on, else on any Connection that has it on and answers.
 - While it records, a mic badge sits in a corner above everything, Pickers
   and dialogs included, with the time and a level. When it stops, a
   "transcribing…" placeholder sits at the Draft's cursor until the text
   arrives. If transcribing fails, the placeholder becomes "couldn't
   transcribe — retry", and the last clip stays in memory until the next
   Dictation.
-- When it cannot start (the mic is denied, there is none, or no Machine has
+- When it cannot start (the mic is denied, there is none, or no Connection has
   Speech to Text on), the badge says why for a few seconds.
-- Settings shows each Machine's Speech to Text switch with its live state
+- Settings shows each Connection's Speech to Text switch with its live state
   from `watchSpeechToText`, download progress included.
 
 ## Tasks
@@ -162,5 +162,5 @@ Phase 1 runs in parallel; each task stays inside its own package.
 
 Phase 2 runs in order, each on the last one's result.
 
-3. **Every Machine at once**: ai-toolkit's client first, then apps/code.
+3. **Every Connection at once**: ai-toolkit's client first, then apps/code.
 4. **Dictation**: apps/code, "Dictation".

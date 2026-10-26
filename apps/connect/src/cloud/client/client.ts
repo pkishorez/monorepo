@@ -7,7 +7,7 @@ import { AUTH_PATH, AuthInfo, CloudApi, RPC_PATH } from '../contract/index.js';
  * Cloud Connect as a client calls it: the RPC over HTTP at `<cloud>/rpc`,
  * every call signed by whatever signs the caller's calls (auth-toolkit's
  * `browser()` in an App, `device()` in `serve`), and `authInfo`, the one
- * call that needs no Sign-in: how a Machine signs in to this Cloud
+ * call that needs no Sign-in: how a Connection signs in to this Cloud
  * Connect.
  */
 
@@ -34,7 +34,7 @@ const reason = (cause: unknown): string => {
     : cause.message;
 };
 
-/** How a Machine signs in to Cloud Connect at `cloud`; fails when it cannot be asked. */
+/** How a Connection signs in to Cloud Connect at `cloud`; fails when it cannot be asked. */
 export const authInfo = (cloud: string) =>
   Effect.tryPromise({
     try: async () => {

@@ -1,14 +1,14 @@
 # @kestack/connect
 
-Connects a computer to the cloud as a Machine its User reaches from anywhere: the ke-connect command, Cloud Connect on a Cloudflare Worker, and the code App Group Code talks to
+Connects a computer to the cloud as a Connection its User reaches from anywhere: the ke-connect command, Cloud Connect on a Cloudflare Worker, and the code Plugin Code talks to
 
 ## Big picture
 
-A coding agent runs on a computer, but its User wants to reach it from a phone or another laptop. Connect makes the computer a Machine: `ke-connect serve` signs it in to Cloud Connect as its User, opens a tunnel, and reports a Heartbeat with its address and Machine Key. An App lists its User's Machines from Cloud Connect, a Worker with a D1 database at `connect.kishore.app`, then talks to each Machine straight over its one socket.
+A coding agent runs on a computer, but its User wants to reach it from a phone or another laptop. Connect makes the computer a Connection: `ke-connect serve` signs it in to Cloud Connect as its User, opens a tunnel, and reports a Heartbeat with its address and Connection Key. An App lists its User's Connections from Cloud Connect, a Worker with a D1 database at `connect.kishore.app`, then talks to each Connection straight over its one socket.
 
-What a Machine serves comes in App Groups. The `code` App Group keeps Projects and Sessions for [Code](../code/README.md): it runs each Session's Agent through [`@kestack/ai-toolkit`](../../toolkits/ai-toolkit/README.md), with the Claude Code or Codex installed on the computer and as one of its Harness Accounts, orders its Turns, stores its Raw records, and sends them to the browser through a [std-toolkit](../../toolkits/std-toolkit/README.md) Replica over [rpc-toolkit](../../toolkits/rpc-toolkit/README.md). Sign-in comes from [auth-toolkit](../../toolkits/auth-toolkit/README.md). Why Connect owns this and ai-toolkit stops at the harness is [root ADR 0011](../../docs/adr/0011-ai-toolkit-stops-at-the-harness-connect-owns-the-rest.md).
+What a Connection serves comes in Plugins. The `code` Plugin keeps Projects and Sessions for [Code](../code/README.md): it runs each Session's Agent through [`@kestack/ai-toolkit`](../../toolkits/ai-toolkit/README.md), with the Claude Code or Codex installed on the computer and as one of its Harness Accounts, orders its Turns, stores its Raw records, and sends them to the browser through a [std-toolkit](../../toolkits/std-toolkit/README.md) Replica over [rpc-toolkit](../../toolkits/rpc-toolkit/README.md). Sign-in comes from [auth-toolkit](../../toolkits/auth-toolkit/README.md). Why Connect owns this and ai-toolkit stops at the harness is [root ADR 0011](../../docs/adr/0011-ai-toolkit-stops-at-the-harness-connect-owns-the-rest.md).
 
-Connect keeps its files in the XDG folders under `kestack/`. In development each branch has its own folders, Machine and Cloud Connect, and every App's `pnpm dev` starts or reuses them: see [docs/dev.md](docs/dev.md).
+Connect keeps its files in the XDG folders under `kestack/`. In development each branch has its own folders, Connection and Cloud Connect, and every App's `pnpm dev` starts or reuses them: see [docs/dev.md](docs/dev.md).
 
 The words are in [CONTEXT.md](CONTEXT.md), the Actors in [docs/kabuki-tree.md](docs/kabuki-tree.md), and the decisions in [docs/adr/](docs/adr/).
 
@@ -20,10 +20,10 @@ npx @kestack/connect serve
 ```
 
 - `effect`: everything Connect exposes is an Effect value.
-- `@kestack/kabuki`: the Machine's Heartbeat and the `code` App Group run as Actors.
+- `@kestack/kabuki`: the Connection's Heartbeat and the `code` Plugin run as Actors.
 - `@kestack/std-toolkit`: the stored records and the Replica an App reads them through.
-- `@kestack/rpc-toolkit`: the WebSocket an App reaches a Machine over.
-- `@kestack/auth-toolkit`: a Machine signs in to Cloud Connect as its User.
+- `@kestack/rpc-toolkit`: the WebSocket an App reaches a Connection over.
+- `@kestack/auth-toolkit`: a Connection signs in to Cloud Connect as its User.
 - `@tanstack/db`: the collections the Replica fills.
 
 Node 24 or newer is required. Sessions run the agents installed on the computer, which Connect does not bring: install [Claude Code](https://claude.com/claude-code) or Codex (`npm install -g @openai/codex`) and sign in with `claude auth login` or `codex login`.
@@ -32,23 +32,23 @@ Node 24 or newer is required. Sessions run the agents installed on the computer,
 
 ### `./code`
 
-What Code's browser imports: the `code` App Group's API and records, the client and Replica that reach it on each Machine, and Cloud Connect's contract and client.
+What Code's browser imports: the `code` Plugin's API and records, the client and Replica that reach it on each Connection, and Cloud Connect's contract and client.
 
 | Export                   | What it does                                                                                                                                        |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CodeApi`                | The RPC group of the `code` App Group: its commands and the `projects`, `sessions`, `messages` feeds.                                               |
-| `CodeClient`             | Service holding one Machine's `CodeApi` client over its reconnecting WebSocket.                                                                     |
-| `CodeClient.layer`       | Layer of `CodeClient` for a `ws(s)://…/rpc` URL, or a path in a browser, with the Machine Key if given.                                             |
-| `MachineAddress`         | Service the App gives: where a Machine's socket is, by Machine id, and its Machine Key, on each connect.                                            |
-| `CodeClients`            | Service holding every Machine's client by Machine id, one socket each, shared by whatever holds it.                                                 |
-| `CodeClients.layer`      | Layer of `CodeClients` opening each Machine's socket at the address `MachineAddress` gives.                                                         |
-| `CodeClients.make`       | Layer of `CodeClients` opening each Machine with a given Layer, for one server or a test.                                                           |
-| `CodeClients.machine`    | Layer of one Machine's `CodeClient` and connection, for everything under it.                                                                        |
-| `CodeClients.on`         | Runs an Effect that needs `CodeClient` against one Machine, by its id.                                                                              |
-| `CodeClients.stream`     | Runs a Stream that needs `CodeClient` against one Machine, its socket held while it runs.                                                           |
-| `CodeClients.connection` | Stream of one Machine's connection status now and on each change.                                                                                   |
-| `connection`             | Stream of the connection status of the `CodeClient` in context: `connecting`, `connected` or `reconnecting`.                                        |
-| `CodeReplica`            | The Replica of each Machine's records, keyed by Machine id: `projects`, `sessions` and `messages`.                                                  |
+| `CodeApi`                | The RPC group of the `code` Plugin: its commands and the `projects`, `sessions`, `messages` feeds.                                                  |
+| `CodeClient`             | Service holding one Connection's `CodeApi` client over its reconnecting WebSocket.                                                                  |
+| `CodeClient.layer`       | Layer of `CodeClient` for a `ws(s)://…/rpc` URL, or a path in a browser, with the Connection Key if given.                                          |
+| `ConnectionAddress`      | Service the App gives: where a Connection's socket is, by Connection id, and its Connection Key, on each connect.                                   |
+| `CodeClients`            | Service holding every Connection's client by Connection id, one socket each, shared by whatever holds it.                                           |
+| `CodeClients.layer`      | Layer of `CodeClients` opening each Connection's socket at the address `ConnectionAddress` gives.                                                   |
+| `CodeClients.make`       | Layer of `CodeClients` opening each Connection with a given Layer, for one server or a test.                                                        |
+| `CodeClients.connection` | Layer of one Connection's `CodeClient` and its socket, for everything under it.                                                                     |
+| `CodeClients.on`         | Runs an Effect that needs `CodeClient` against one Connection, by its id.                                                                           |
+| `CodeClients.stream`     | Runs a Stream that needs `CodeClient` against one Connection, its socket held while it runs.                                                        |
+| `CodeClients.link`       | Stream of one Connection's Link now and on each change.                                                                                             |
+| `link`                   | Stream of the Link of the `CodeClient` in context: `linking`, `linked` or `relinking`.                                                              |
+| `CodeReplica`            | The Replica of each Connection's records, keyed by Connection id: `projects`, `sessions` and `messages`.                                            |
 | `CodeReplicaLive`        | How `CodeReplica` syncs: every Project and Session, and a Session's Messages while a Query filters on its id.                                       |
 | `FolderListing`          | Schema of a `listFolder` answer: the folder, its parent, up to 100 sub-folders, and if it was cut short.                                            |
 | `FolderEntry`            | Schema of one sub-folder in a listing: its name, whether it is hidden, and whether it is a symlink.                                                 |
@@ -90,7 +90,7 @@ What Code's browser imports: the `code` App Group's API and records, the client 
 | `FolderUnreadable`       | Error: the folder could not be listed, or listing it took too long.                                                                                 |
 | `ProjectNotFound`        | Error: no Project with this id.                                                                                                                     |
 | `SessionNotFound`        | Error: no Session with this id.                                                                                                                     |
-| `UnknownAccount`         | Error: this Machine has no Harness Account with that id.                                                                                            |
+| `UnknownAccount`         | Error: this Connection has no Harness Account with that id.                                                                                         |
 | `ModelsUnavailable`      | Error: the harness could not list its models.                                                                                                       |
 | `NotForkable`            | Error: the Session cannot be forked after the Turn asked for.                                                                                       |
 | `AskFailed`              | Error: the harness could not answer the Ask.                                                                                                        |
@@ -98,37 +98,37 @@ What Code's browser imports: the `code` App Group's API and records, the client 
 | `InvalidBinary`          | Error: the path is missing, not executable, or its `--version` failed.                                                                              |
 | `InvalidAccount`         | Error: a Harness Account has no name or no config folder, is unknown, or is a Default Account to remove.                                            |
 | `HarnessFailed`          | Error: a harness failed to answer for a live Session.                                                                                               |
-| `SpeechToTextNotReady`   | Error: Speech to Text is off, still downloading, or failed on this Machine.                                                                         |
+| `SpeechToTextNotReady`   | Error: Speech to Text is off, still downloading, or failed on this Connection.                                                                      |
 | `TranscriptionFailed`    | Error: the model would not load, or the audio is not 16-bit PCM.                                                                                    |
-| `CloudApi`               | Cloud Connect's RPC group: a Machine's `Report`, and an App's `List` and `Forget`, for the caller only.                                             |
+| `CloudApi`               | Cloud Connect's RPC group: a Connection's `Report`, and an App's `List` and `Forget`, for the caller only.                                          |
 | `CloudClient`            | Service holding the `CloudApi` client over HTTP.                                                                                                    |
 | `CloudClient.layer`      | Layer of `CloudClient` for Cloud Connect's base URL; the caller's auth signs every call.                                                            |
-| `Machine`                | Schema of a Machine as its User sees it: its last Report and its Last Seen.                                                                         |
-| `MachineReport`          | Schema of what a Machine says of itself on each Heartbeat: id, name, Machine Key, version, status.                                                  |
-| `MachineStatus`          | Schema of how far a Machine's tunnel got: installing cloudflared, opening, failed, or up.                                                           |
-| `TunnelCheck`            | Schema of whether a Machine could reach itself at its public address, and when it checked.                                                          |
-| `addressOf`              | The public address a Machine Status is up at, or null.                                                                                              |
-| `MachineForgotten`       | Error: the Machine was forgotten by its User; it must sign out and stop.                                                                            |
-| `MachineTaken`           | Error: another User's Machine already has this id.                                                                                                  |
+| `Connection`             | Schema of a Connection as its User sees it: its last Report and its Last Seen.                                                                      |
+| `ConnectionReport`       | Schema of what a Connection says of itself on each Heartbeat: id, name, Connection Key, version, status.                                            |
+| `ConnectionStatus`       | Schema of how far a Connection's tunnel got: installing cloudflared, opening, failed, or up.                                                        |
+| `TunnelCheck`            | Schema of whether a Connection could reach itself at its public address, and when it checked.                                                       |
+| `addressOf`              | The public address a Connection Status is up at, or null.                                                                                           |
+| `ConnectionForgotten`    | Error: the Connection was forgotten by its User; it must sign out and stop.                                                                         |
+| `ConnectionTaken`        | Error: another User's Connection already has this id.                                                                                               |
 | `RPC_PATH`               | Cloud Connect's RPC path, `/rpc`.                                                                                                                   |
-| `AUTH_PATH`              | The path that answers how a Machine signs in, `/auth`.                                                                                              |
+| `AUTH_PATH`              | The path that answers how a Connection signs in, `/auth`.                                                                                           |
 
 ### `./worker`
 
-| Export          | What it does                                                                   |
-| --------------- | ------------------------------------------------------------------------------ |
-| `serve`         | Cloud Connect on a Worker's D1 database, as `(request) => Promise<Response>`.  |
-| `serveOver`     | The same over any std-toolkit SQLite driver and auth Guard, for tests.         |
-| `machinesTable` | The std Table Cloud Connect keeps Machines in, for `SQLite.setup` and deploys. |
+| Export             | What it does                                                                      |
+| ------------------ | --------------------------------------------------------------------------------- |
+| `serve`            | Cloud Connect on a Worker's D1 database, as `(request) => Promise<Response>`.     |
+| `serveOver`        | The same over any std-toolkit SQLite driver and auth Guard, for tests.            |
+| `connectionsTable` | The std Table Cloud Connect keeps Connections in, for `SQLite.setup` and deploys. |
 
-### `./machine`
+### `./connection`
 
-| Export         | What it does                                                                           |
-| -------------- | -------------------------------------------------------------------------------------- |
-| `serve`        | Runs Connect as a Machine until stopped: signed in, serving, tunnelled, reporting.     |
-| `logout`       | Signs out of Cloud Connect and forgets the Machine, keeping its Projects and Sessions. |
-| `main`         | Runs the `ke-connect` command on this process's arguments.                             |
-| `resolvePaths` | Where Connect keeps its files: its XDG folders, or a branch's own in development.      |
+| Export         | What it does                                                                              |
+| -------------- | ----------------------------------------------------------------------------------------- |
+| `serve`        | Runs Connect as a Connection until stopped: signed in, serving, tunnelled, reporting.     |
+| `logout`       | Signs out of Cloud Connect and forgets the Connection, keeping its Projects and Sessions. |
+| `main`         | Runs the `ke-connect` command on this process's arguments.                                |
+| `resolvePaths` | Where Connect keeps its files: its XDG folders, or a branch's own in development.         |
 
 ### `./dev`
 
@@ -136,19 +136,19 @@ What Code's browser imports: the `code` App Group's API and records, the client 
 | --------------- | ------------------------------------------------------------------------------------------------ |
 | `withConnect`   | An App's `pnpm dev`: makes sure the branch's Connect runs, then runs the App with `CONNECT_URL`. |
 | `ensureConnect` | Makes sure the branch's Connect runs, starting it detached if not, and takes a lease on it.      |
-| `runConnectDev` | Runs this branch's Cloud Connect under `alchemy dev` and a Machine on it.                        |
+| `runConnectDev` | Runs this branch's Cloud Connect under `alchemy dev` and a Connection on it.                     |
 | `branchOf`      | The branch a checkout is, and its Cloud Connect's URL, as Portless names them.                   |
 
 ## Usage
 
-### Serve a Machine
+### Serve a Connection
 
-Install Claude Code or Codex first. Run `npx @kestack/connect serve` on a computer, sign in with the device code it prints, and the computer is listed as one of your Machines within a few seconds. `ke-connect serve --help` lists the flags, and `ke-connect logout` forgets the Machine. From code, `serve` from `./machine` does the same. Shaped after `src/machine/machine.ts`.
+Install Claude Code or Codex first. Run `npx @kestack/connect serve` on a computer, sign in with the device code it prints, and the computer is listed as one of your Connections within a few seconds. `ke-connect serve --help` lists the flags, and `ke-connect logout` forgets the Connection. From code, `serve` from `./connection` does the same. Shaped after `src/connection/connection.ts`.
 
 ```ts
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { Effect } from 'effect';
-import { serve } from '@kestack/connect/machine';
+import { serve } from '@kestack/connect/connection';
 
 serve({
   cloud: 'https://connect.kishore.app',
@@ -157,13 +157,13 @@ serve({
 }).pipe(Effect.provide(NodeServices.layer), NodeRuntime.runMain);
 ```
 
-- It signs in through the Auth Worker that Cloud Connect's `/auth` names, and keeps the Machine's id and Machine Key in `machine.json`.
-- It serves the `code` App Group on `ws://127.0.0.1:4590/rpc`, asks every caller for the Machine Key, and opens a cloudflared tunnel.
-- Its Heartbeat reports the tunnel's address to Cloud Connect every 15 seconds. A forgotten Machine signs out and stops.
+- It signs in through the Auth Worker that Cloud Connect's `/auth` names, and keeps the Connection's id and Connection Key in `connection.json`.
+- It serves the `code` Plugin on `ws://127.0.0.1:4590/rpc`, asks every caller for the Connection Key, and opens a cloudflared tunnel.
+- Its Heartbeat reports the tunnel's address to Cloud Connect every 15 seconds. A forgotten Connection signs out and stops.
 
-### Talk to a Machine from a browser
+### Talk to a Connection from a browser
 
-An App lists its User's Machines from Cloud Connect, says where each one is through `MachineAddress`, and reads each Machine's records through `CodeReplicaLive`, one Instance per Machine. Trimmed from `src/machine/tests/server.test.ts` and Code's `reach.ts`.
+An App lists its User's Connections from Cloud Connect, says where each one is through `ConnectionAddress`, and reads each Connection's records through `CodeReplicaLive`, one Instance per Connection. Trimmed from `src/connection/tests/server.test.ts` and Code's `reach.ts`.
 
 ```ts
 import { Effect, Layer, Schema } from 'effect';
@@ -176,26 +176,27 @@ import {
   CodeClients,
   CodeReplica,
   CodeReplicaLive,
-  MachineAddress,
+  ConnectionAddress,
 } from '@kestack/connect/code';
 
 const address = Layer.effect(
-  MachineAddress,
+  ConnectionAddress,
   Effect.map(CloudClient, (cloud) =>
-    MachineAddress.of({
-      of: (machineId) =>
-        Effect.map(Effect.orDie(cloud.List({})), (machines) => {
-          const machine = machines.find(({ id }) => id === machineId)!;
-          const url = addressOf(machine.status)!.replace('https', 'wss');
-          return { url: `${url}/rpc`, key: machine.key };
+    ConnectionAddress.of({
+      of: (connectionId) =>
+        Effect.map(Effect.orDie(cloud.List({})), (connections) => {
+          const connection = connections.find(({ id }) => id === connectionId)!;
+          const url = addressOf(connection.status)!.replace('https', 'wss');
+          return { url: `${url}/rpc`, key: connection.key };
         }),
     }),
   ),
 );
 
 const Projects = Query.make('Projects', {
-  props: Schema.Struct({ machineId: Schema.String }),
-  from: ({ props }) => Effect.all({ code: CodeReplica.get(props.machineId) }),
+  props: Schema.Struct({ connectionId: Schema.String }),
+  from: ({ props }) =>
+    Effect.all({ code: CodeReplica.get(props.connectionId) }),
   query:
     (_, { code }) =>
     (q) =>
@@ -206,7 +207,7 @@ const Root = Actor.build(Actor.define('Root', {}), {
   provides: () => Replicas.layer,
   children: {
     replicas: Replicas.child([CodeReplicaLive]),
-    projects: { actor: Projects, props: () => ({ machineId: 'm1' }) },
+    projects: { actor: Projects, props: () => ({ connectionId: 'm1' }) },
   },
 });
 
@@ -223,8 +224,8 @@ Runtime.start(
 ```
 
 - `CloudClient` calls are signed by the App's auth-toolkit `browser()` Accounts, provided above it.
-- Each Machine gets its own socket, opened at the address `MachineAddress` gives on each connect, so a Machine back at a new tunnel address is reached there.
-- `CodeClients.on(machineId, …)` runs a command, such as `addProject`, against one Machine.
+- Each Connection gets its own socket, opened at the address `ConnectionAddress` gives on each connect, so a Connection back at a new tunnel address is reached there.
+- `CodeClients.on(connectionId, …)` runs a command, such as `addProject`, against one Connection.
 
 ### Run Cloud Connect on a Worker
 
@@ -252,5 +253,5 @@ export default {
 ```
 
 - `ALLOWED_ORIGINS` takes comma-separated patterns such as `https://*.kishore.app`.
-- Set the D1 table up from `machinesTable` before the first request.
+- Set the D1 table up from `connectionsTable` before the first request.
 - In this monorepo, `pnpm -F @kestack/connect deploy:prod` deploys it to `connect.kishore.app`.

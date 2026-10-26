@@ -1,1 +1,1 @@
-export { machines, machinesTable, MachineRecord } from './storage.js';
+export { connections, connectionsTable, ConnectionRecord } from './storage.js';

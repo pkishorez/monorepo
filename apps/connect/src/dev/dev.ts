@@ -10,7 +10,7 @@ import { constants } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NodeRuntime } from '@effect/platform-node';
-import { resolvePaths } from '../machine/index.js';
+import { resolvePaths } from '../connection/index.js';
 import { assertResolves, type DevAuth, devAuth, nodeFlags } from './auth.js';
 import { branchOf } from './branch.js';
 import { live, runs, take } from './leases.js';
@@ -79,7 +79,7 @@ const starting = (
   cloud,
   auth,
   port: 0,
-  machine: null,
+  connection: null,
   ready: false,
   startedAt: new Date().toISOString(),
   version,

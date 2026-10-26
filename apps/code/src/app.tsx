@@ -6,8 +6,8 @@ import { Start } from '@kestack/kabuki/start';
 import { document } from '@kestack/web-platform/app/document';
 import { Device } from './device/index.ts';
 import { accounts, preferencesIdb } from './device/store.ts';
-import { fitted } from './device/account/machines/layout/commands.ts';
-import { storageIdb } from './device/account/machines/machine/store/index.ts';
+import { fitted } from './device/account/connections/layout/commands.ts';
+import { storageIdb } from './device/account/connections/connection/store/index.ts';
 import { Devtools } from './ui/page/devtools/index.ts';
 import { Theme } from './ui/page/theme/index.ts';
 import './styles.css';
@@ -19,8 +19,8 @@ import './styles.css';
  * Cloud Connect), Cloud Connect at `VITE_CONNECT_URL`, this device's
  * Preferences, their Bindings kept to what the keys still take, and `Storage`, which deletes the databases of Accounts
  * signed out. Everything below it is Provided by the root page
- * (`device/actor.ts`). No Machine's socket is here: the root page reaches
- * each Machine over its own.
+ * (`device/actor.ts`). No Connection's socket is here: the root page reaches
+ * each Connection over its own.
  *
  * Attached beside it while developing, the DevTools Server, as a Kabuki
  * Session: at `/__devtools` on the app's own origin, which Vite pipes to

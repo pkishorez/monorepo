@@ -14,7 +14,7 @@ const AGENT: Record<Agent, string> = { claude: 'Claude', codex: 'Codex' };
 /** The agent's name, as its logo says it. */
 export const agentName = (agent: Agent) => AGENT[agent];
 
-/** A Harness Account, as the Machine names it. */
+/** A Harness Account, as the Connection names it. */
 export interface Named {
   readonly agent: Agent;
   /** Its id; the Default Account's is the agent's. */

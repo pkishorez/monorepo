@@ -15,13 +15,13 @@ export { sherpa } from './sherpa/index.js';
  * it on or off is a Message to the speech model; how it stands is the
  * model's State; a transcription is a Query of the model while Ready.
  *
- * Everything lives in one folder of the Machine's data folder: the wish,
+ * Everything lives in one folder of the Connection's data folder: the wish,
  * `on`, kept while Speech to Text is switched on, and the model's files in
  * `model/`. Switching off deletes the folder. speech.ts builds the
  * SpeechHost the model stands on from SpeechToText and that folder.
  */
 
-/** Speech to Text is not ready on this Machine: off, still downloading, or failed. */
+/** Speech to Text is not ready on this Connection: off, still downloading, or failed. */
 export class SpeechToTextNotReady extends Data.TaggedError(
   'SpeechToTextNotReady',
 )<{
@@ -35,7 +35,7 @@ export class TranscriptionFailed extends Data.TaggedError(
   readonly message: string;
 }> {}
 
-/** How Speech to Text stands on this Machine. */
+/** How Speech to Text stands on this Connection. */
 export type SpeechToTextStatus =
   | { readonly _tag: 'Off' }
   /** Bytes of the model downloaded, of `total` once the server says it. */

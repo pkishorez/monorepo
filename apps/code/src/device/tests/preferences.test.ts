@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { Effect, Fiber, Stream } from 'effect';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fitted, keys } from '../account/machines/layout/commands.ts';
+import { fitted, keys } from '../account/connections/layout/commands.ts';
 import { Preferences, nothing } from '../store.ts';
 import { preferencesIdb, preferencesMemory } from '../store.ts';
 

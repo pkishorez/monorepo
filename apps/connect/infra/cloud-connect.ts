@@ -4,14 +4,14 @@ import * as Output from 'alchemy/Output';
 import { Effect } from 'effect';
 import { backend, portlessPort } from '@kestack/web-platform/app/alchemy';
 import { D1 } from '@kestack/std-toolkit/alchemy';
-import { machinesTable } from '../src/cloud/worker/index.ts';
+import { connectionsTable } from '../src/cloud/worker/index.ts';
 import { where } from './stage.ts';
 
 /*
  * Cloud Connect's Worker, served at `connect.kishore.app` (Portless's
  * `connect.kishore.computer` under `alchemy dev`, with the branch in front
  * in a linked worktree), with a D1 database of its own holding the
- * `machines` std Table. The table goes through std-toolkit's deploy guard,
+ * `connections` std Table. The table goes through std-toolkit's deploy guard,
  * which refuses a deploy whose table would no longer read the rows
  * already stored, and the Worker is deployed only behind it. Under `pnpm
  * dev` it signs in with auth-toolkit's Fake, as the Web Platform's
@@ -31,8 +31,8 @@ export const CloudConnect = Cloudflare.Worker(
   Effect.gen(function* () {
     const at = yield* where;
     const database = yield* CloudConnectDatabase;
-    const table = yield* D1.table('MachinesTable', {
-      table: machinesTable,
+    const table = yield* D1.table('ConnectionsTable', {
+      table: connectionsTable,
       database,
       mode: 'persistent',
     });
@@ -49,7 +49,7 @@ export const CloudConnect = Cloudflare.Worker(
         DB: CloudConnectDatabase,
       },
       // Keep the Worker's deployment behind the table and its guard.
-      tag: Output.map(table.snapshot, () => 'machines'),
+      tag: Output.map(table.snapshot, () => 'connections'),
     };
   }),
 );

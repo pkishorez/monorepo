@@ -23,7 +23,7 @@ export const signIn = Command.make('SignIn', {
 /**
  * Deletes what this device keeps of every Account not signed in on it, as
  * the Auth Worker answered: its databases and all under them, its
- * Machines' records, cached copies, Unseen marks and Saved Drafts. Best
+ * Connections' records, cached copies, Unseen marks and Saved Drafts. Best
  * effort, and run to its end once begun.
  */
 export const pruneAccounts = Command.make('PruneAccounts', {

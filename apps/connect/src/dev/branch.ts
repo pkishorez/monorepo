@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
  * Which branch a dev run is, as Portless names it. Portless puts a prefix
  * in front of a host only in a linked git worktree (the last part of its
  * branch, made host-safe), so the main checkout is always `main`, and the
- * prefix names a worktree's own folders, Machine and Cloud Connect.
+ * prefix names a worktree's own folders, Connection and Cloud Connect.
  */
 
 /** A dev run's branch: its folder slug, and its Cloud Connect's URL. */
