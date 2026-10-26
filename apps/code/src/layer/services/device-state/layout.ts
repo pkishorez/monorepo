@@ -9,7 +9,7 @@ import { EntityESchema, ESchema } from '@kestack/std-toolkit/eschema';
  * from; one for whether the Touch Draft is written by text or by voice;
  * one for the Machine the sidebar shows; one row per Unseen mark, each the
  * end time of the last Turn of a Session of one Machine seen on this
- * device.
+ * device, and whose Machine it is.
  *
  * The marks of before Machines (`UnseenMark`, by Session id alone) are no
  * longer read: no Machine can claim them.
@@ -65,12 +65,15 @@ const MarkSchema = EntityESchema.make('MachineUnseenMark', 'mark', {
   sessionId: Schema.String,
   /** When the last Turn seen ended, in ms since the epoch; 0 before any. */
   seen: Schema.Finite,
-}).build();
+})
+  // Whose Machine it is, so it goes with the Account; null for a mark made
+  // before, until its Session is seen again.
+  .evolve('v2', { accountId: Schema.NullOr(Schema.String) }, (v1) => ({
+    ...v1,
+    accountId: null,
+  }))
+  .build();
 
 export type Mark = typeof MarkSchema.Type;
-
-/** A mark's id: its Machine's and its Session's, which no id holds a space of. */
-export const markOf = (machineId: string, sessionId: string) =>
-  `${machineId} ${sessionId}`;
 
 export const marks = table.entity(MarkSchema).primary().build();

@@ -12,7 +12,7 @@ import {
   Messages,
   SessionRow,
 } from '../../../machines/index.ts';
-import { DeviceState } from '../../../../layer/capabilities/index.ts';
+import { DeviceState, Machines } from '../../../../layer/capabilities/index.ts';
 import { Draft } from '../draft/index.ts';
 import { cancel, forkSession, markSeen } from './commands.ts';
 
@@ -102,7 +102,7 @@ export const Session = Page.define({
   path: '/s/:sessionId',
   params: { sessionId: Schema.String },
   metadata: { title: 'Session · code' },
-  requires: [CodeClient, Replicas, DeviceState],
+  requires: [CodeClient, Replicas, DeviceState, Machines],
   model: Model,
   message: Schema.TaggedUnion({
     Read: Read.fields,

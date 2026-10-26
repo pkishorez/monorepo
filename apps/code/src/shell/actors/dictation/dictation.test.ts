@@ -162,6 +162,7 @@ const world = (options: {
       setTouchMode: () => Effect.void,
       setSidebarMachine: () => Effect.void,
       markSeen: () => Effect.void,
+      drop: () => Effect.void,
       changes: SubscriptionRef.changes(chosen).pipe(
         Stream.drop(1),
         Stream.map(() => undefined),

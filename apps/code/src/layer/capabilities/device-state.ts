@@ -1,5 +1,6 @@
 import { Context, Effect, Schema, Stream } from 'effect';
 import type { DatabaseError } from '@kestack/std-toolkit/db';
+import type { Gone } from './gone.ts';
 
 /*
  * Device State: what this browser keeps for itself and no other device
@@ -12,7 +13,8 @@ import type { DatabaseError } from '@kestack/std-toolkit/db';
  *
  * An Unseen mark is a Machine's Session with the end time of the last
  * Turn seen on this device. A Session is Unseen when its last Turn ended
- * after that; one never opened here has no mark, and is never Unseen.
+ * after that; one never opened here has no mark, and is never Unseen. A
+ * mark goes with its Machine, and with the Account the Machine is of.
  */
 
 /** One Machine's Unseen marks, by Session id. */
@@ -63,11 +65,15 @@ export class DeviceState extends Context.Service<
     readonly setSidebarMachine: (
       machineId: string | null,
     ) => Effect.Effect<void, DatabaseError>;
+    /** Marks the Session seen, for the Account its Machine is of; null when none is known. */
     readonly markSeen: (
+      accountId: string | null,
       machineId: string,
       sessionId: string,
       seen: number,
     ) => Effect.Effect<void, DatabaseError>;
+    /** Deletes the Unseen marks of what went, best effort. */
+    readonly drop: (gone: Gone) => Effect.Effect<void>;
     /** Once per write, here or in another tab; rings while busy fold into one. */
     readonly changes: Stream.Stream<void>;
   }

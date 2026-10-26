@@ -8,6 +8,7 @@ import {
 import { Actor } from '@kestack/kabuki';
 import {
   AccountReplicas,
+  DeviceState,
   Link,
   nobody,
   SavedDrafts,
@@ -77,6 +78,7 @@ export const MachineList = Actor.define('MachineList', {
   requires: [
     CloudClient,
     SavedMachines,
+    DeviceState,
     SavedDrafts,
     AccountReplicas,
     Link,
