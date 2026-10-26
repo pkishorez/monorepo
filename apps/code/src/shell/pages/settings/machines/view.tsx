@@ -1,5 +1,5 @@
 import type { Machine as MachineSchema } from '@kestack/connect/code';
-import { View } from '@kestack/kabuki/react';
+import { View, type ViewProps } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   LockIcon,
@@ -19,7 +19,7 @@ import {
   statusOf,
 } from '../../../../layer/capabilities/index.ts';
 import { StandingDot, standingOf, useLock } from '../../../machines/index.ts';
-import { keyOf, MachineSettingsLive } from './actor.ts';
+import { keyOf, MachineSettingsLive, MachineTab } from './actor.ts';
 import { HarnessAccounts } from './harness-accounts/index.ts';
 import { MachineProjects } from './projects/index.ts';
 import { SpeechToText } from './speech-to-text/index.ts';
@@ -45,8 +45,7 @@ type Machine = typeof MachineSchema.Type;
  * is revoked outright.
  */
 
-type Shows = 'Agents' | 'Projects';
-const SHOWS: ReadonlyArray<Shows> = ['Agents', 'Projects'];
+type Children = ViewProps<typeof MachineSettingsLive>['children'];
 
 const isDown = (machine: Machine, now: number) =>
   now - machine.lastSeen > DOWN_AFTER;
@@ -119,6 +118,108 @@ function Reload({ onReload }: { readonly onReload: () => void }) {
   );
 }
 
+/**
+ * One Machine's card: its head and Forget over its tabs, the tab open
+ * under them; on a touch screen both tabs side by side, swiped between.
+ */
+function MachineCard({
+  machine,
+  tab,
+  touch,
+  accounts,
+  speech,
+  projects,
+  onChoose,
+  onForget,
+}: {
+  readonly machine: Machine;
+  readonly tab: MachineTab;
+  /** A touch screen: both tabs side by side, swiped between. */
+  readonly touch: boolean;
+  readonly accounts: Children['accounts'][number];
+  readonly speech: Children['speech'][number];
+  readonly projects: Children['projects'][number];
+  readonly onChoose: (tab: MachineTab) => void;
+  readonly onForget: () => void;
+}) {
+  const tabId = (each: MachineTab) =>
+    `machine-${machine.id}-${each.toLowerCase()}-tab`;
+  const panelId = (each: MachineTab) =>
+    `machine-${machine.id}-${each.toLowerCase()}`;
+  const heading = (
+    <div className="flex flex-col gap-3 border-b border-border px-4 pt-4 sm:px-5">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <MachineHead machine={machine} />
+        </div>
+        <Button
+          type="button"
+          variant="destructive"
+          size="icon"
+          className="-mt-1 -mr-2 size-11 keyboard:mt-0 keyboard:mr-0 keyboard:size-8"
+          aria-label={`Forget ${machine.name}`}
+          title={`Forget ${machine.name}…`}
+          onClick={onForget}
+        >
+          <Trash2Icon aria-hidden />
+        </Button>
+      </div>
+      <TabList label={`What ${machine.name} shows`} className="-mx-3">
+        {MachineTab.literals.map((each) => (
+          <Tab
+            key={each}
+            id={tabId(each)}
+            controls={panelId(each)}
+            selected={tab === each}
+            onSelect={() => onChoose(each)}
+            className="keyboard:h-9"
+          >
+            {each}
+          </Tab>
+        ))}
+      </TabList>
+    </div>
+  );
+  const panel = (each: MachineTab) => (
+    <div
+      role="tabpanel"
+      id={panelId(each)}
+      aria-labelledby={tabId(each)}
+      className={cn(
+        'flex flex-col divide-y divide-border *:px-4 *:py-4 sm:*:px-5',
+        touch && 'min-h-[50dvh]',
+      )}
+    >
+      {each === 'Agents' ? (
+        <>
+          <HarnessAccounts.view instance={accounts} />
+          <SpeechToText.view instance={speech} />
+        </>
+      ) : (
+        <MachineProjects.view instance={projects} />
+      )}
+    </div>
+  );
+  return (
+    <li className="flex flex-col rounded-xl border border-border bg-card">
+      {touch ? (
+        <TabTrack
+          open={tab}
+          shown={MachineTab.literals}
+          heading={heading}
+          panel={panel}
+          onChoose={onChoose}
+        />
+      ) : (
+        <>
+          {heading}
+          {panel(tab)}
+        </>
+      )}
+    </li>
+  );
+}
+
 export const MachineSettingsView = View.make(
   MachineSettingsLive,
   ({ root, model, children, send }) => {
@@ -167,95 +268,23 @@ export const MachineSettingsView = View.make(
           <p className="text-sm text-muted-foreground">No Machines.</p>
         ) : (
           <ul className="flex flex-col gap-4">
-            {shown.map(({ machine, accounts, speech, projects }) => {
-              const view = model.views[machine.id] ?? 'Agents';
-              const tabId = (each: Shows) =>
-                `machine-${machine.id}-${each.toLowerCase()}-tab`;
-              const panelId = (each: Shows) =>
-                `machine-${machine.id}-${each.toLowerCase()}`;
-              const choose = (each: Shows) =>
-                send({ _tag: 'ViewChosen', id: machine.id, view: each });
-              const heading = (
-                <div className="flex flex-col gap-3 border-b border-border px-4 pt-4 sm:px-5">
-                  <div className="flex items-start gap-2">
-                    <div className="min-w-0 flex-1">
-                      <MachineHead machine={machine} />
-                    </div>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      className="-mt-1 -mr-2 size-11 keyboard:mt-0 keyboard:mr-0 keyboard:size-8"
-                      aria-label={`Forget ${machine.name}`}
-                      title={`Forget ${machine.name}…`}
-                      onClick={() =>
-                        open(() => send({ _tag: 'Ask', id: machine.id }))
-                      }
-                    >
-                      <Trash2Icon aria-hidden />
-                    </Button>
-                  </div>
-                  <TabList
-                    label={`What ${machine.name} shows`}
-                    className="-mx-3"
-                  >
-                    {SHOWS.map((each) => (
-                      <Tab
-                        key={each}
-                        id={tabId(each)}
-                        controls={panelId(each)}
-                        selected={view === each}
-                        onSelect={() => choose(each)}
-                        className="keyboard:h-9"
-                      >
-                        {each}
-                      </Tab>
-                    ))}
-                  </TabList>
-                </div>
-              );
-              const panel = (each: Shows) => (
-                <div
-                  role="tabpanel"
-                  id={panelId(each)}
-                  aria-labelledby={tabId(each)}
-                  className={cn(
-                    'flex flex-col divide-y divide-border *:px-4 *:py-4 sm:*:px-5',
-                    touch && 'min-h-[50dvh]',
-                  )}
-                >
-                  {each === 'Agents' ? (
-                    <>
-                      <HarnessAccounts.view instance={accounts} />
-                      <SpeechToText.view instance={speech} />
-                    </>
-                  ) : (
-                    <MachineProjects.view instance={projects} />
-                  )}
-                </div>
-              );
-              return (
-                <li
-                  key={machine.id}
-                  className="flex flex-col rounded-xl border border-border bg-card"
-                >
-                  {touch ? (
-                    <TabTrack
-                      open={view}
-                      shown={SHOWS}
-                      heading={heading}
-                      panel={panel}
-                      onChoose={choose}
-                    />
-                  ) : (
-                    <>
-                      {heading}
-                      {panel(view)}
-                    </>
-                  )}
-                </li>
-              );
-            })}
+            {shown.map(({ machine, accounts, speech, projects }) => (
+              <MachineCard
+                key={machine.id}
+                machine={machine}
+                tab={model.tabs[machine.id] ?? 'Agents'}
+                touch={touch}
+                accounts={accounts}
+                speech={speech}
+                projects={projects}
+                onChoose={(tab) =>
+                  send({ _tag: 'TabChosen', id: machine.id, tab })
+                }
+                onForget={() =>
+                  open(() => send({ _tag: 'Ask', id: machine.id }))
+                }
+              />
+            ))}
           </ul>
         )}
         {model.drawn && (

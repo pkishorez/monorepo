@@ -22,8 +22,9 @@ src/
     machines/                                   reaching every Machine; machine-list
     routes/                                     the address of every page
   layer/      capabilities/ · services/         what the app Layer gives;
-                                                services/kept: saved copy → ask
-                                                behind → keep → drop on Gone
+                                                services/kept: kept copy → ask
+                                                behind → keep → drop on Gone;
+                                                services/rows: every store's rows
   ui/                                           used by the entry file and the tree
   deploy/     infra/                            the server, not the browser app
 ```
@@ -116,7 +117,7 @@ sidebar ─ Worker: moves, from Moves ──────────────
 **Model**: account: who is signed in, kept across States; signInProblem: why signing in failed; back: where Settings were opened from
 **States**: Reading: nothing is drawn, the Bindings are read (BindingsRead → Ready); Ready: bindings, the keys; BindingsRead again when they change
 **Messages**: BindingsRead: a Worker; Signed: the accounts Worker; SignInAsked, SignInFailed: the View, signIn; NewSessionAsked: the `n` key; SettingsToggled: Ctrl+, and Escape; DictationAsked: Space, Ctrl+Space, the mic button, a Draft
-**Commands**: signIn: ends with SignInFailed or nothing; keepAccounts: once Accounts are signed in, and each time one is signed out, keeps only their records, kept copies, Saved Drafts and Unseen marks; askDictation: ends with nothing; Router.push
+**Commands**: signIn: ends with SignInFailed or nothing; dropSignedOut: once Accounts are signed in, and each time one is signed out, deletes every other Account's records, kept copies and Unseen marks, never its Saved Drafts; askDictation: ends with nothing; Router.push
 **Workers**: accounts: always, at the top, Sends Signed; read: in Reading, Sends BindingsRead; bindings: in Ready, Sends BindingsRead when the Bindings change
 **Requires**: Navigation, DeviceState, Accounts, Store, Kept, SavedDrafts, AccountReplicas, Machines, Dictations
 **Provides**: CurrentAccount, at the top, from the Account Switcher; Replicas and CodeClients, at the top, from `machines/reach.ts`; Moves, at the top, from `actors/moves/`
@@ -130,6 +131,7 @@ sidebar ─ Worker: moves, from Moves ──────────────
 - **Bindings are a State's data, not Model**, because they exist only once read, and nothing is drawn before. Caveat: none.
 - **`Replicas`, `CodeClients` and `Moves` are root Provides, not the app Layer's**, because `Replicas.child` is a root Child and the library pairs them. Caveat: the root's own Workers cannot use them; none needs to.
 - **The router is the root's, in `src/shell/router.ts`**, read down from the root's definition and handed out by its door as `Shell.router`. Caveat: none.
+- **Saved Drafts go only as the user asks: a Project removed, a Machine forgotten, the Draft sent or emptied**, never with a list that no longer names their Machine or Account, Cloud Connect's first or the Accounts signed in, because a list may come short and what was typed cannot be asked for again; `Gone` says it once, and `SavedDrafts.drop` takes only an `Asked` one. Caveat: an Account signed out leaves its Saved Drafts on the device until it signs in again; no other Account reads them.
 - **Dictation asks go through the `Dictations` queue the root fills**, because the asks come from Views across the tree, and `Took` comes from the Draft's editor, which holds no Dictation handle. Caveat: it is a parent reaching a Child by a side channel.
 
 ## machine-list
@@ -138,9 +140,9 @@ sidebar ─ Worker: moves, from Moves ──────────────
 **Input**: accountId
 **Model**: accountId; list: the list as a kept copy (`copy`): what shows, whether the kept one was read, the latest ask, and why it failed; fetchedAt; forgetting; lines: each Machine's Line; rechecks: how many Rechecks since every Line was up
 **States**: none
-**Messages**: Saved, Fetched, Failed: its Workers, Fetched and Failed for the ask they answer; ReloadAsked: Reload, through Machines; RecheckDue: the recheck Worker; LineChanged: its Worker; ForgetAsked, ForgetDismissed: Settings, through Machines; Forgot, ForgetFailed: forget
-**Commands**: save: ends with nothing; forget: ends with Forgot or ForgetFailed; keep: keeps only what is kept of the Machines on the first list; drop: deletes all that is kept of a forgotten Machine
-**Workers**: saved: until the kept list is read; fetch: each latest ask not answered; lines: each listed Machine; recheck: while not asking and a Line is not up, waits 3 seconds for the first 20, then 30, Sends RecheckDue; publish: always, into Machines; requests: always, from Machines
+**Messages**: KeptRead, Fetched, Failed: its Workers, Fetched and Failed for the ask they answer; ReloadAsked: Reload, through Machines; RecheckDue: the recheck Worker; LineChanged: its Worker; ForgetAsked, ForgetDismissed: Settings, through Machines; Forgot, ForgetFailed: forget
+**Commands**: keepList: ends with nothing; forget: ends with Forgot or ForgetFailed; dropUnlisted: deletes what is kept of the Machines not on the first list, but their Saved Drafts; dropForgotten: deletes all that is kept of a forgotten Machine
+**Workers**: kept: until the kept list is read; fetch: each latest ask not answered; lines: each listed Machine; recheck: while not asking and a Line is not up, waits 3 seconds for the first 20, then 30, Sends RecheckDue; publish: always, into Machines; requests: always, from Machines
 **Requires**: CloudClient, Kept, DeviceState, SavedDrafts, AccountReplicas, Link, CodeClients
 **Provides**: none · **Services**: none · **Children**: kits: a Machine Kit each listed Machine
 **View**: on home, how to start a Machine while there is none, or why the list cannot be read
@@ -157,10 +159,10 @@ sidebar ─ Worker: moves, from Moves ──────────────
 **Does**: Keeps what the app knows of one Machine, its Harness Accounts, Speech to Text and agents with their models, and shares it.
 **Input**: accountId, machineId
 **Model**: accountId; machineId; kit: its parts as a kept copy (`copy`); line
-**States**: Reading: what this device kept is read (SavedRead → Shown); Shown: it shows, and the Machine is asked
-**Messages**: SavedRead, LineChanged, SpeechWatched, Answered, Refused: its Workers, Answered and Refused for the ask they answer; Asked, Changed: Reload, Settings and the project, through Machines
+**States**: Reading: what this device kept is read (KeptRead → Shown); Shown: it shows, and the Machine is asked
+**Messages**: KeptRead, LineChanged, SpeechWatched, Answered, Refused: its Workers, Answered and Refused for the ask they answer; Asked, Changed: Reload, Settings and the project, through Machines
 **Commands**: keepKit: ends with nothing, the model lists refused left out
-**Workers**: saved: in Reading; ask: in Shown, each latest ask while the Line is connected, Sends Answered or Refused; line, speech: always; requests: always, from Machines; publish: always, into Machines, taken out as it goes
+**Workers**: kept: in Reading; ask: in Shown, each latest ask while the Line is connected, Sends Answered or Refused; speech: in Shown; line: always; requests: always, from Machines; publish: always, into Machines, taken out as it goes
 **Requires**: CodeClients, Kept, Link
 **Provides**: none · **Services**: none · **Children**: none
 **View**: none
@@ -171,6 +173,7 @@ sidebar ─ Worker: moves, from Moves ──────────────
 - **Settings and the project reach a Kit by a Request on `Machines` (`refresh`, `changed`), which the Kit hears from a PubSub in `Link`**, because the Kit is a Child of the Machine List, not of either. Caveat: it is a side channel, as the Machine List's own requests are.
 - **A change from Settings is shown by the Kit at once, kept, and asked again; an answer asked before it is dropped (`copy`)**, so a card closes on the list as it now stands and a late answer never undoes it. Caveat: the card waits until the Kit shows its change before closing.
 - **Speech to Text moved here from the Machine List**, so there is one copy, live and kept, not a live one and one Settings kept. Caveat: a download's progress is shown but kept only as it starts.
+- **Speech to Text is watched only once the kept copy shows (`Shown`)**, because a state heard before it is read would stand in for the whole Kit, and be kept over it. Caveat: a state heard while the kept copy is read waits for it, a moment.
 
 ## sidebar
 
@@ -232,22 +235,32 @@ sidebar ─ Worker: moves, from Moves ──────────────
 
 - **It reads which Machines can transcribe from `Machines`**, because the Machine List already watches each Line, and each Kit its Speech to Text. Caveat: none.
 
+## layer
+
+The app Layer's Capabilities (`layer/capabilities/`) and the services that give them (`layer/services/`); no Actor.
+
+### Decisions
+
+- **`layer/services/rows/` is a sibling of the stores, reached by a Laymos Rule from `device-state` and `kept`**, because Device State, the kept copies and the Saved Drafts key, scan and write their rows the same way, and a drop must wait for the writes of what it takes under way in each (`turns`). Caveat: none; `saved-drafts.ts` is `services`' own, and reaches it as its child.
+- **A Step draws its rows' marks (`mark`), not `ui/picker`**, so the Picker knows no agent: the model Picker draws each agent's logo. Caveat: a mark's name is searched as written.
+
 ## home · settings · general · shortcuts · machines · harness-accounts · speech-to-text · projects
 
 Settings is one page that holds its three tabs as Children, the whole time it is open, and which is open in its Model, never in the URL: General, unless a link asked for another through `openSettingsOn` as it was followed, which the page takes once as it starts; old tab URLs redirect to `/settings`. With a keyboard only the tab open is drawn, beside the tab list; on a touch screen every tab shown is drawn side by side in one track, each scrolled on its own, which a sideways swipe moves by a motion value alone (`ui/tabs`, which draws the tab names too); let go far or fast enough it sends `TabChosen` for the tab beside, as a tap on its name does, and the track springs on from where it was, and a swipe before the first is left to the App Shell's, which opens the sidebar. General reads and writes Device State; the Microphone is chosen through the Microphone Picker's `Opener`. Shortcuts reads and writes the Bindings in Device State. Home and Machine Settings follow `Machines`; Machine Settings draws each Machine's Line and Last Seen from the shell's `Connection`, as the sidebar does. Machine Settings follows each listed Machine's Kit in `Machines` and draws nothing until the kept list and every Kit are read, so it draws once. Each per-Machine Child, keyed by its Account and Machine and none while no Account is known, gets its Machine by Input and what its Kit holds by Props; neither asks nor keeps anything. Harness Accounts holds which card is open, one at a time, which its View draws under the card's row, on touch too, and asks the Kit again on Retry; each card saves or removes its own over `CodeClients`, tells the Kit (`Machines.changed`), and once the Kit shows it, closes through `AccountList`, as it does when closed unsaved. Speech to Text switches over `CodeClients`; what came of it shows in its Kit. Each Machine's card shows its Agents, Harness Accounts and Speech to Text, or its Projects, as its tabs chose, kept per Machine in Machine Settings' Model, Agents until then; on a touch screen both are drawn side by side in a track of their own inside the Machines tab's, as tall as the one open, and a swipe with no tab of the Machine's that way is left to Settings' track, which then follows the finger. Projects follows that Machine's Projects and Sessions in its Replica (`everything`, which hears a row taken away as at once as one added or changed, so a Project removed here or elsewhere leaves at once), lists each Project not removed, the most recently active first, with whether its folder is there, holds which row is open, one at a time, and removes one once asked with the `removeProject` Command of `shell/machines/`, as the project page does, so the device's Gone still drops all it kept of it. Their Views lock them while the Machine's Line is not connected, and say so only once it is out of reach or a few seconds have passed (`useLock`).
 
 ### Decisions
 
-- **A Machine's settings are its Kit's, not Settings'**, because the project reads the same agents, and the Kit asks whether or not Settings is open. Caveat: kept rows are pruned by the Machine List's `keep` and `drop` and the root's `keepAccounts`, as Replicas are, so a Machine gone from a later list keeps its row until the next first list.
+- **A Machine's settings are its Kit's, not Settings'**, because the project reads the same agents, and the Kit asks whether or not Settings is open. Caveat: kept rows are pruned by the Machine List's `dropUnlisted` and `dropForgotten` and the root's `dropSignedOut`, as Replicas are, so a Machine gone from a later list keeps its row until the next first list.
 - **A Machine's Projects are read from its Replica, not its Kit**, because they are synced records, kept and followed already, and a Project's folder status is a field of its record. Caveat: a Machine whose Replica has not synced yet shows a skeleton under Projects.
 - **Settings' tabs have no address of their own**, so a swipe moves between tabs already drawn, the next showing as it comes, with no move of the router. Caveat: Back leaves Settings rather than going to the tab before, and a link to a tab asks for it apart (`openSettingsOn`), not in the Route.
+- **General opens the Microphone Picker through its `Opener`, reached by a Laymos Rule to `actors/pickers/microphone-picker`**, because the Picker is the shell's, drawn once for every page, and General only asks it to open, as the Status Line's chevron does. Caveat: a page reaching a sibling Actor's folder; the Touch Draft reaches it through the Dictation instead, which hands every Draft its microphone line.
 
 ## project · session
 
 **Does**: The new session's Draft and its start / the open Session: its transcript, Draft, send, Side Questions, fork and stop.
 **Provides**: CodeClient of `:machineId`, from CodeClients, and SharedCatalog, from self (`project/capabilities/`), both project only
 **Requires**: CodeClients, Machines, Navigation, Kept, SavedDrafts, AccountReplicas, DeviceState (a Project removed takes all kept of it, as one Gone) / CodeClient, Replicas, DeviceState, Machines
-**Workers** (project, and the Starter): machine: always, Sends MachineKnown, so a Machine no longer listed says so in place of the page; kit: always, its Machine's agents and models from `Machines`; saved: until the project's kept Skills are read, under the Account `Machines.account` waits for; skills: each latest ask once the agents are known, every agent that runs at once, over `CodeClients`
+**Workers** (project, and the Starter): machine, project only: always, Sends MachineKnown, so a Machine no longer listed says so in place of the page; then the catalog's, from `Catalog.keeping`, made from the Machine and project their Props name, as are its Messages, its Updates and what it shares: kit: always, its Machine's agents and models from `Machines`; saved: until the project's kept Skills are read, under the Account `Machines.account` waits for; skills: each latest ask once the agents are known, every agent that runs at once, over `CodeClients`
 **Children**: ProjectRow, and a draft while no session is open / SessionRow, Messages, earlier Messages each up the fork chain, and a draft keyed by the session, handed its agent and whether it runs
 
 ### Decisions
@@ -264,7 +277,7 @@ Settings is one page that holds its three tabs as Children, the whole time it is
 **Props**: machineId, projectId, to: NewSession, or Session with its id, its agent once read, and whether it runs
 **Model**: restored: its Saved Draft read back; where: the Account and place it is saved under, fixed once read back; started: its new session has started; mode: the Draft Mode open; opening: what each mode starts from; given: text given back to a mode, a refused send's or a question carried over, numbered; attachments, insert: the last Insert; catalog, as the project shares it; chosen: the agent, model and settings picked; picking, opened; problem; starting; asked, asks
 **States**: none
-**Messages**: ModeAsked, AttachmentsChanged, InsertAsked, Retyped, PickerOpened, CatalogRetryAsked: its View; PickerClosed, SkillChosen, ModelChosen: its Pickers' Owners; SendAsked, Carried: its modes, through `DraftMode.Owner`; CatalogRead, Restored: its Workers; Started, StartRefused, SendRefused, Answered, AskRefused: its Commands
+**Messages**: ModeAsked, AttachmentsChanged, InsertAsked, Retyped, PickerOpened, SettingChosen, CatalogRetryAsked: its View; PickerClosed, SkillChosen, ModelChosen: its Pickers' Owners; SendAsked, Carried: its modes, through `DraftMode.Owner`; CatalogRead, Restored: its Workers; Started, StartRefused, SendRefused, Answered, AskRefused: its Commands
 **Commands**: startSession: ends with Started or StartRefused; send: ends with SendRefused, with its text and files, or nothing; ask: ends with Answered or AskRefused; retryCatalog; Router.push
 **Workers**: catalog: always, Sends CatalogRead; restore: until read back, Sends Restored. Its saves run in what it Provides (`saved.ts`): one after another, a quarter of a second after any change to it or to a mode's text, at once as the page is hidden or left and as the Draft goes
 **Requires**: CodeClient, SharedCatalog, Navigation, SavedDrafts, Accounts
@@ -276,7 +289,7 @@ Settings is one page that holds its three tabs as Children, the whole time it is
 ### Decisions
 
 - **A Session's Draft is keyed by its session**, because the session page stays as the URL moves between sessions. Caveat: none now; a Draft not sent comes back from its Saved Draft.
-- **The Saved Draft is what the Draft shows, saved whole by one save path in the Draft's `DraftMode.Owner`, through `SavedDrafts`, an app-Layer Capability, under the Account read as the Draft opens**, because one snapshot can never mix parts saved at different times, the store must outlive the Draft, and a switch of Account tears the Draft down after the switch. `SavedDrafts` runs the saves of a place one at a time in its own Scope, and drops one read before a save already made. Caveat: a Session's Saved Draft goes with its Project, Machine or Account; the app learns of no single Session forgotten, so none goes alone.
+- **The Saved Draft is what the Draft shows, saved whole by one save path in the Draft's `DraftMode.Owner`, through `SavedDrafts`, an app-Layer Capability, under the Account read as the Draft opens**, because one snapshot can never mix parts saved at different times, the store must outlive the Draft, and a switch of Account tears the Draft down after the switch. `SavedDrafts` runs the saves of a place one at a time in its own Scope, and drops one read before a save already made. Caveat: a Session's Saved Draft goes with its Project removed or its Machine forgotten, never with a list (`Gone`); the app learns of no single Session forgotten, so none goes alone.
 - **A send clears what it sent from the Draft, and so from the Saved Draft; nothing holds a copy until the Machine answers**, because a held copy needs its own ordering against every save and every tab. Caveat: a send the Machine refuses after the page was left is lost.
 - **A new session's Saved Draft is saved while its start is pending and deleted only once Started**, so a start that fails loses nothing. Caveat: none.
 - **Stop is the session's, handed to the Draft's View through `Slots`**, because stopping a turn is not the Draft's errand. Caveat: a React context, not Props, since it carries a button.
@@ -294,4 +307,4 @@ Settings is one page that holds its three tabs as Children, the whole time it is
 **Workers**: shows: always, its text into `Owner.shows`; takes: each `given` not yet taken, Sends Took
 **Requires**: Owner · **Provides**: `TouchDraft.owner`, at the top, from self · **Services**: none
 **Children**: touch: the Touch Draft, always
-**View**: the Draft's card, through `Compose`, around its own text, with its Touch Draft drawn
+**View**: the Draft's card, through `Compose`, around its own text, with its Touch Draft drawn with what the Draft hands it

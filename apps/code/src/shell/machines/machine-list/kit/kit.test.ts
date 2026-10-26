@@ -129,6 +129,10 @@ const run = (
       readonly machines: Machines['Service'];
       readonly kept: Kept['Service'];
       readonly start: Effect.Effect<unknown, never, Scope.Scope>;
+      /** Starts it with `kept` in place of what is kept. */
+      readonly startOver: (
+        kept: Kept['Service'],
+      ) => Effect.Effect<unknown, never, Scope.Scope>;
       readonly kit: Effect.Effect<KitParts & { readonly savedRead: boolean }>;
     },
   ) => Effect.Effect<void, unknown, Scope.Scope>,
@@ -141,14 +145,20 @@ const run = (
           Layer.mergeAll(machines, keptMemory()),
         );
         const shared = Context.get(context, Machines);
+        const startOver = (kept: Kept['Service']) =>
+          Runtime.start(
+            OwnerLive as never,
+            Layer.merge(
+              Layer.succeedContext(Context.add(context, Kept, kept)),
+              the.clients,
+            ) as never,
+          );
         yield* test({
           ...the,
           machines: shared,
           kept: Context.get(context, Kept),
-          start: Runtime.start(
-            OwnerLive as never,
-            Layer.merge(Layer.succeedContext(context), the.clients) as never,
-          ),
+          start: startOver(Context.get(context, Kept)),
+          startOver,
           kit: Effect.map(shared.current, ({ kits }) => kits['m1']!),
         });
       }),
@@ -156,6 +166,37 @@ const run = (
   );
 
 describe('Machine Kit', () => {
+  it('shows what was kept over Speech to Text heard before it was read, and keeps both', () =>
+    run(({ kept, speech, startOver, kit }) =>
+      Effect.gen(function* () {
+        yield* kept.write(KitShelf, m1, {
+          accounts: [account('claude', 'Claude home')],
+          speech: { _tag: 'Off' },
+          harnesses: [HARNESS],
+          models: [],
+        });
+        yield* Queue.offer(speech, { _tag: 'Ready' });
+        const read = yield* Deferred.make<void>();
+        yield* startOver({
+          ...kept,
+          read: (shelf, whose) =>
+            Effect.andThen(Deferred.await(read), kept.read(shelf, whose)),
+        });
+        yield* wait();
+        yield* Deferred.succeed(read, undefined);
+        yield* wait();
+        expect((yield* kit).accounts?.map(({ name }) => name)).toEqual([
+          'Claude home',
+        ]);
+        expect((yield* kit).speech).toEqual({ _tag: 'Ready' });
+        const after = yield* kept.read(KitShelf, m1);
+        expect(after?.accounts?.map(({ name }) => name)).toEqual([
+          'Claude home',
+        ]);
+        expect(after?.speech).toEqual({ _tag: 'Ready' });
+      }),
+    ));
+
   it('shows what was kept at once, asks once its Line connects, and keeps the answer', () =>
     run(({ kept, line, state, start, kit }) =>
       Effect.gen(function* () {

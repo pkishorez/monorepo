@@ -28,10 +28,15 @@ import { AttachmentStrip } from './attachments/index.ts';
 import { Card, PRIMARY, StatusLine, useDraft } from './card.tsx';
 import type { Held } from './editor/index.ts';
 import { DraftMode, type Composing, type Mode } from './mode/index.ts';
-import { SideQuestion } from './side-question.tsx';
+import { SideQuestion } from './send/side-question.tsx';
 import { Chip, ModelPicker, Triggers } from './model-picker/index.ts';
-import { current, pickedHarness, pickedModel, skillsOf } from './picks.ts';
-import { SkillPicker } from './skills.ts';
+import {
+  current,
+  pickedHarness,
+  pickedModel,
+  skillsOf,
+} from './picks/picks.ts';
+import { SkillPicker } from './picks/skills.ts';
 
 /*
  * The Draft at the page's foot: the line that says why nothing can be
@@ -72,10 +77,66 @@ export const DraftView = View.make(DraftLive, (self) =>
 );
 
 /** The mode last drawn, and whether it was being written in, with focus. */
-type Shown = RefObject<{
+type LastMode = RefObject<{
   readonly mode: Mode;
   readonly writing: boolean;
 } | null>;
+
+/**
+ * What the Draft is called, says while empty, and what its send says: a
+ * new session's, a Side Question's, a running Session's, or a Session's.
+ */
+const wordingOf = (fresh: boolean, side: boolean, running: boolean) =>
+  fresh
+    ? {
+        label: 'First message',
+        placeholder: 'What should the agent do?',
+        send: 'Start session',
+      }
+    : side
+      ? {
+          label: 'Side question',
+          placeholder: 'Ask about this session',
+          send: 'Ask',
+        }
+      : running
+        ? {
+            label: 'Steer the agent',
+            placeholder: 'Steer the agent while it works',
+            send: 'Steer',
+          }
+        : { label: 'Message', placeholder: 'Reply to the agent', send: 'Send' };
+
+/**
+ * Switched to with a keyboard, the mode takes focus, and is written in if
+ * the one before was; as it goes, it says so in `last`, while its editor
+ * is still on the page.
+ */
+function useHandOn(
+  draft: ReturnType<typeof useDraft>,
+  mode: Mode,
+  last: LastMode,
+  keyboard: boolean,
+) {
+  const latest = useRef(draft);
+  latest.current = draft;
+  useEffect(() => {
+    const before = last.current;
+    if (!keyboard || before === null || before.mode === mode) return;
+    if (before.writing || !draft.vim) draft.write();
+    else draft.view.current?.focus();
+  }, []);
+  useLayoutEffect(
+    () => () => {
+      const { view, writing } = latest.current;
+      last.current = {
+        mode,
+        writing: writing && (view.current?.hasFocus ?? false),
+      };
+    },
+    [],
+  );
+}
 
 function Drafting(self: ViewProps<typeof DraftLive>) {
   const { root, model, props, children, send } = self;
@@ -91,7 +152,7 @@ function Drafting(self: ViewProps<typeof DraftLive>) {
   keys.useAction('content.side', toggle, { enabled: asking });
   keys.useAction('content.sideAnywhere', toggle, { enabled: asking });
   keys.useAction('content.close', back, { enabled: side });
-  const shown: Shown = useRef(null);
+  const last: LastMode = useRef(null);
   // Each mode's editor, as it was left: the card is drawn anew per mode.
   const held = useRef<Held>(new Map()).current;
   const describedBy = fresh ? 'new-session-offline' : 'draft-offline';
@@ -178,7 +239,7 @@ function Drafting(self: ViewProps<typeof DraftLive>) {
             unsendable={unsendable}
             onAsk={asking && !side ? toggle : null}
             onBack={back}
-            shown={shown}
+            last={last}
             held={held}
           />
         )}
@@ -197,7 +258,7 @@ function Composer({
   unsendable,
   onAsk,
   onBack,
-  shown,
+  last,
   held,
 }: {
   readonly self: ViewProps<typeof DraftLive>;
@@ -207,7 +268,7 @@ function Composer({
   readonly unsendable: boolean;
   readonly onAsk: (() => void) | null;
   readonly onBack: () => void;
-  readonly shown: Shown;
+  readonly last: LastMode;
   readonly held: Held;
 }) {
   const { machineId, projectId, to } = props;
@@ -229,21 +290,10 @@ function Composer({
   const { keyboard } = useDevice();
   // On touch, set by the Touch Draft's View: a send goes through it.
   const touchSend = useRef<(() => void) | null>(null);
+  const wording = wordingOf(fresh, side, running);
   const draft = useDraft({
-    label: fresh
-      ? 'First message'
-      : side
-        ? 'Side question'
-        : running
-          ? 'Steer the agent'
-          : 'Message',
-    placeholder: fresh
-      ? 'What should the agent do?'
-      : side
-        ? 'Ask about this session'
-        : running
-          ? 'Steer the agent while it works'
-          : 'Reply to the agent',
+    label: wording.label,
+    placeholder: wording.placeholder,
     text: written.text,
     doc: mode,
     held,
@@ -286,81 +336,50 @@ function Composer({
     ...(offline === null ? {} : { describedBy: offline }),
   });
   const sendKeys = useBound('content.send');
+  useHandOn(draft, mode, last, keyboard);
 
-  // Switched to with a keyboard, it takes focus; written in, if the mode
-  // before was.
-  const latest = useRef(draft);
-  latest.current = draft;
-  useEffect(() => {
-    const before = shown.current;
-    if (!keyboard || before === null || before.mode === mode) return;
-    if (before.writing || !draft.vim) draft.write();
-    else draft.view.current?.focus();
-  }, []);
-  // Read as it goes, while its editor is still on the page.
-  useLayoutEffect(
-    () => () => {
-      const { view, writing } = latest.current;
-      shown.current = {
-        mode,
-        writing: writing && (view.current?.hasFocus ?? false),
-      };
-    },
-    [],
-  );
-
-  const label = fresh
-    ? 'Start session'
-    : side
-      ? 'Ask'
-      : running
-        ? 'Steer'
-        : 'Send';
+  const label = wording.send;
   const title = sendKeys === null ? label : `${label} (${sendKeys})`;
   const blocked = unsendable || !draft.filled;
 
   return draft.touch ? (
-    <DraftMode.Touch
-      value={{
-        draft,
-        label,
-        blocked: unsendable,
-        starting: model.starting,
-        actions: slots.actions,
-        attachments:
-          draft.attachments.length > 0 || draft.files.refused.length > 0 ? (
-            <AttachmentStrip
-              attachments={draft.attachments}
-              refused={draft.files.refused}
-              disabled={draft.disabled}
-              onRemove={draft.files.remove}
-            />
-          ) : null,
-        onAsk,
-        onPaste: (text) =>
-          send({ _tag: 'InsertAsked', what: { _tag: 'Text', text } }),
-        sending: touchSend,
-        chip: takes.picks && (
-          <Chip
-            catalog={model.catalog}
-            current={current(model, props)}
-            started={!fresh}
-            how={picking?._tag === 'Model' ? picking.how : null}
-            onOpen={(at) =>
-              send({
-                _tag: 'PickerOpened',
-                picking: { _tag: 'Model', how: 'touch', at },
-              })
-            }
-            onSet={(key, value) => send({ _tag: 'SettingChosen', key, value })}
-          >
-            {children.models && <ModelPicker.View instance={children.models} />}
-          </Chip>
-        ),
-      }}
-    >
-      {composing.touch}
-    </DraftMode.Touch>
+    composing.touch({
+      draft,
+      label,
+      blocked: unsendable,
+      starting: model.starting,
+      actions: slots.actions,
+      attachments:
+        draft.attachments.length > 0 || draft.files.refused.length > 0 ? (
+          <AttachmentStrip
+            attachments={draft.attachments}
+            refused={draft.files.refused}
+            disabled={draft.disabled}
+            onRemove={draft.files.remove}
+          />
+        ) : null,
+      onAsk,
+      onPaste: (text) =>
+        send({ _tag: 'InsertAsked', what: { _tag: 'Text', text } }),
+      sending: touchSend,
+      chip: takes.picks && (
+        <Chip
+          catalog={model.catalog}
+          current={current(model, props)}
+          started={!fresh}
+          how={picking?._tag === 'Model' ? picking.how : null}
+          onOpen={(at) =>
+            send({
+              _tag: 'PickerOpened',
+              picking: { _tag: 'Model', how: 'touch', at },
+            })
+          }
+          onSet={(key, value) => send({ _tag: 'SettingChosen', key, value })}
+        >
+          {children.models && <ModelPicker.View instance={children.models} />}
+        </Chip>
+      ),
+    })
   ) : (
     <Card draft={draft}>
       <StatusLine

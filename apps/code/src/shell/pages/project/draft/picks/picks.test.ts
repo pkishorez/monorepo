@@ -1,7 +1,7 @@
 import type { HarnessInfo } from '@kestack/connect/code';
 import { describe, expect, it } from 'vitest';
-import { Catalog } from '../capabilities/index.ts';
-import type { Model, Props } from './actor.ts';
+import { Catalog } from '../../capabilities/index.ts';
+import type { Model, Props } from '../actor.ts';
 import { skillsOf } from './picks.ts';
 
 /*
@@ -20,7 +20,7 @@ const agent = (account: string, available: boolean): HarnessInfo => ({
   unavailableReason: available ? null : 'Claude is not installed',
 });
 
-const draft = (catalog: typeof Catalog.Model.Type) =>
+const draft = (catalog: typeof Catalog.Catalog.Type) =>
   ({
     catalog,
     chosen: { account: null, model: null, settings: {} },

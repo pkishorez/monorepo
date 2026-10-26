@@ -1,9 +1,3 @@
 export { AccountLabel } from './label.tsx';
-export { AgentLogo, ClaudeLogo, CodexLogo } from './logo.tsx';
-export {
-  accountName,
-  type Agent,
-  agentName,
-  type Named,
-  plainName,
-} from './name.ts';
+export { AgentLogo } from './logo.tsx';
+export { accountName, agentName, type Named, plainName } from './name.ts';

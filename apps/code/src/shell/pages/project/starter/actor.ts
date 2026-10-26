@@ -25,11 +25,11 @@ const Starter = Actor.define('Starter', {
   requires: [CodeClients, Machines, Kept, Navigation],
   props: Props,
   model: Schema.Struct({ catalog: Catalog.Keeper }),
-  message: Schema.TaggedUnion({
-    Catalog: { change: Catalog.Change },
-    CatalogRetryAsked: {},
-  }),
+  message: Schema.TaggedUnion(Catalog.messages),
 });
+
+/** The catalog, kept for the Machine and project its Props name. */
+const catalog = Catalog.keeping((props: Catalog.Where) => props);
 
 export const StarterLive = Actor.build(Starter, {
   init: () => ({ model: { catalog: Catalog.fresh } }),
@@ -40,49 +40,9 @@ export const StarterLive = Actor.build(Starter, {
           CodeClients.machine(props.machineId),
         ),
       ),
-      Layer.succeed(SharedCatalog, {
-        changes: self.changes.pipe(
-          Stream.map(({ model }) => Catalog.shared(model.catalog)),
-          Stream.changesWith(Catalog.sameCatalog),
-        ),
-        retry: self.send({ _tag: 'CatalogRetryAsked' }),
-      }),
+      Layer.succeed(SharedCatalog, catalog.shares(self)),
     ),
-  workers: {
-    kit: {
-      run: (self) =>
-        Effect.flatMap(self.get, ({ props }) =>
-          Stream.runForEach(Catalog.followKit(props.machineId), (change) =>
-            self.send({ _tag: 'Catalog', change }),
-          ),
-        ),
-    },
-    saved: {
-      while: ({ model }) => !model.catalog.skills.savedRead,
-      run: (self) =>
-        Effect.flatMap(self.get, ({ props }) =>
-          Catalog.savedSkills(props.machineId, props.projectId).pipe(
-            Effect.flatMap((change) => self.send({ _tag: 'Catalog', change })),
-          ),
-        ),
-    },
-    skills: {
-      each: ({ model }) => Catalog.wants(model.catalog),
-      run: (self, since) =>
-        Effect.gen(function* () {
-          const { model, props } = yield* self.get;
-          const change = yield* CodeClients.on(
-            props.machineId,
-            Catalog.askSkills(
-              props.projectId,
-              Catalog.running(model.catalog.kit.harnesses),
-              Number(since),
-            ),
-          );
-          yield* self.send({ _tag: 'Catalog', change });
-        }),
-    },
-  },
+  workers: catalog.workers,
   children: {
     draft: {
       actor: Draft.actor,
@@ -93,18 +53,5 @@ export const StarterLive = Actor.build(Starter, {
       }),
     },
   },
-  on: {
-    Catalog: ({ change }, { model, props }) => {
-      const { keeper, command } = Catalog.changed(model.catalog, change, props);
-      return { model: { ...model, catalog: keeper }, command };
-    },
-    CatalogRetryAsked: (_, { model, props }) => {
-      const { keeper, command } = Catalog.changed(
-        model.catalog,
-        { _tag: 'Retry' },
-        props,
-      );
-      return { model: { ...model, catalog: keeper }, command };
-    },
-  },
+  on: catalog.on,
 });

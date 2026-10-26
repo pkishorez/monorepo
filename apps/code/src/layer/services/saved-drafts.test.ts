@@ -13,9 +13,9 @@ import { savedDraftsIdb } from './index.ts';
  * no other; saved again, the last save wins; saved as nothing, gone; a
  * save read before one already made of the place is dropped, and one is
  * finished even once its caller goes; a read waits for the saves of the
- * place under way; and a Project removed, a Machine forgotten or no longer
- * listed, or an Account signed out takes its Saved Drafts with it, and the
- * saves begun before it.
+ * place under way; and a Project removed or a Machine forgotten takes its
+ * Saved Drafts with it, one a save under way makes too, and the saves
+ * begun before it.
  */
 
 const run = <A>(effect: Effect.Effect<A, unknown, SavedDrafts>) =>
@@ -147,13 +147,12 @@ describe('Saved Drafts', () => {
     });
   });
 
-  it('forgets those of a Project removed, a Machine forgotten or unlisted, and an Account signed out', async () => {
+  it('forgets those of a Project removed and a Machine forgotten, and no other', async () => {
     const kept = session('m1', 'p2', 's3');
     const places = [
       session('m1', 'p1', 's1'),
       { machineId: 'm1', projectId: 'p1', sessionId: null },
       session('m2', 'p9', 's2'),
-      session('m4', 'p4', 's4'),
       kept,
     ];
     const left = await run(
@@ -161,7 +160,13 @@ describe('Saved Drafts', () => {
         const saved = yield* SavedDrafts;
         for (const place of places)
           yield* saved.save('a1', place, draftOf('x'), 1n, 0n);
-        yield* saved.save('a2', kept, draftOf('theirs'), 1n, 0n);
+        yield* saved.save(
+          'a2',
+          session('m2', 'p9', 's2'),
+          draftOf('theirs'),
+          1n,
+          0n,
+        );
         yield* saved.drop({
           _tag: 'Project',
           machineId: 'm1',
@@ -172,22 +177,35 @@ describe('Saved Drafts', () => {
           accountId: 'a1',
           machineId: 'm2',
         });
-        yield* saved.drop({
-          _tag: 'Unlisted',
-          accountId: 'a1',
-          listed: ['m1', 'm2'],
-        });
         const mine = yield* Effect.forEach(places, (place) =>
           saved.read('a1', place),
         );
-        yield* saved.drop({ _tag: 'SignedOut', signedIn: ['a1'] });
-        const theirs = yield* saved.read('a2', kept);
-        const still = yield* saved.read('a1', kept);
-        return { mine, theirs, still };
+        const theirs = yield* saved.read('a2', session('m2', 'p9', 's2'));
+        return { mine, theirs };
       }),
     );
-    expect(left.mine).toEqual([null, null, null, null, draftOf('x')]);
-    expect(left.theirs).toBeNull();
-    expect(left.still).toEqual(draftOf('x'));
+    expect(left.mine).toEqual([null, null, null, draftOf('x')]);
+    expect(left.theirs).toEqual(draftOf('theirs'));
+  });
+
+  it('drops a Saved Draft a save under way makes, once it is made', async () => {
+    const place = session('m7', 'p7', 's7');
+    const kept = await run(
+      Effect.gen(function* () {
+        const saved = yield* SavedDrafts;
+        const saving = yield* Effect.forkChild(
+          saved.save('a1', place, draftOf('under way'), 1n, 0n),
+        );
+        yield* Effect.yieldNow;
+        yield* saved.drop({
+          _tag: 'Machine',
+          accountId: 'a1',
+          machineId: 'm7',
+        });
+        yield* Fiber.join(saving);
+        return yield* saved.read('a1', place);
+      }),
+    );
+    expect(kept).toBeNull();
   });
 });

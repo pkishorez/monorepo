@@ -11,7 +11,7 @@ import * as Picker from '../../../../ui/picker/index.ts';
 import { Card, StatusLine, useDraft } from './card.tsx';
 import type { Held } from './editor/index.ts';
 import { Insert } from './message.ts';
-import { SkillPicker } from './skills.ts';
+import { SkillPicker } from './picks/skills.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 

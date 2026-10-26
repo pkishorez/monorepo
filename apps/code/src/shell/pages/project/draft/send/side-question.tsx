@@ -9,7 +9,9 @@ import {
 } from '@kestack/web-platform/ui/components/lucide';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { MarkdownViewer } from '@kestack/web-platform/ui/viewers/markdown-viewer';
-import { useBound } from '../../../../keys.ts';
+import { useBound } from '../../../../../keys.ts';
+import { notify } from '../../../../../ui/toast/index.ts';
+import type { Asked } from '../actor.ts';
 
 /*
  * Side Question mode, where the transcript was: "Back to session" at the
@@ -17,22 +19,16 @@ import { useBound } from '../../../../keys.ts';
  * answer, or why it failed; before any, what the mode is for. The session
  * goes on as it was, and nothing here is kept: a new question replaces
  * this one and its answer. The answer can be copied, and the button says
- * so for a moment.
+ * so for a moment; refused, it says so quietly.
  */
 
 const COPIED_MS = 1500;
-
-export interface Asked {
-  readonly question: string;
-  readonly answer: string | null;
-  readonly problem: string | null;
-}
 
 export function SideQuestion({
   asked,
   onBack,
 }: {
-  readonly asked: Asked | null;
+  readonly asked: typeof Asked.Type | null;
   readonly onBack: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -118,9 +114,16 @@ export function SideQuestion({
                 size="xs"
                 className="text-muted-foreground"
                 onClick={() => {
-                  void navigator.clipboard
-                    .writeText(asked.answer ?? '')
-                    .then(() => setCopied(true));
+                  void navigator.clipboard.writeText(asked.answer ?? '').then(
+                    () => setCopied(true),
+                    () =>
+                      notify({
+                        title: "Couldn't copy",
+                        description:
+                          'Allow Code to use the clipboard, then try again.',
+                        seconds: 4,
+                      }),
+                  );
                 }}
               >
                 {copied ? <CheckIcon aria-hidden /> : <CopyIcon aria-hidden />}

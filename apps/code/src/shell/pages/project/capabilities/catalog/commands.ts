@@ -1,10 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { Command } from '@kestack/kabuki';
-import {
-  Kept,
-  Machines,
-  shelf,
-} from '../../../../../layer/capabilities/index.ts';
+import { Kept, shelf } from '../../../../../layer/capabilities/index.ts';
+import { refreshKit } from '../../../../machines/index.ts';
 import { type Change, type Keeper, SkillsRead, update } from './catalog.ts';
 
 /*
@@ -27,13 +24,6 @@ export const keepSkills = Command.make('KeepSkills', {
     Effect.flatMap(Kept, (kept) =>
       kept.write(SkillsShelf, { accountId, machineId, projectId }, skills),
     ),
-});
-
-/** Asks the Machine's Kit to ask the Machine again. */
-export const refreshKit = Command.make('RefreshKit', {
-  args: Schema.Struct({ machineId: Schema.String }),
-  run: ({ machineId }) =>
-    Effect.flatMap(Machines, (machines) => machines.refresh(machineId)),
 });
 
 /** The keeper after a Change, with what it asks: its Skills kept, its Kit asked again. */

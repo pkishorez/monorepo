@@ -6,10 +6,11 @@
   "rules": {
     "src/app.tsx": ["src/shell", "src/layer/services", "src/ui/theme"],
     "src/layer/services": ["src/layer/capabilities", "src/keys.ts"],
-    "src/layer/services/device-state": ["src/layer/services/kept"],
+    "src/layer/services/device-state": ["src/layer/services/rows"],
+    "src/layer/services/kept": ["src/layer/services/rows"],
     "src/ui/session-status": ["src/ui/running-dot"],
     "src/ui/status-word": ["src/ui/time"],
-    "src/ui/picker": ["src/keys.ts", "src/ui/agent"],
+    "src/ui/picker": ["src/keys.ts"],
     "src/ui/confirm": ["src/keys.ts"],
     "src/shell": ["src/layer/capabilities", "src/ui", "src/keys.ts"],
     "src/shell/actors": ["src/shell/routes", "src/shell/machines"],

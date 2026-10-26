@@ -1,8 +1,7 @@
 import { Schema } from 'effect';
 import type { Effect } from 'effect';
 import { SkillSchema } from '@kestack/connect/code';
-import * as Picker from '../../../../ui/picker/index.ts';
-import { DraftMode } from './mode/index.ts';
+import * as Picker from '../../../../../ui/picker/index.ts';
 
 /*
  * The skills Picker: one Step of the agent's skills and the commands, such
@@ -21,6 +20,12 @@ export const Listing = Schema.Struct({
 });
 type Listing = typeof Listing.Type;
 
+const SEARCHED = /^btw\s([\s\S]*)$/;
+
+/** The question the search asks once it is `btw` and a space, or null. */
+export const searchedQuestion = (query: string): string | null =>
+  SEARCHED.exec(query)?.[1] ?? null;
+
 const Skills = Picker.make('SkillPicker', {
   props: Listing,
   steps: {
@@ -29,7 +34,7 @@ const Skills = Picker.make('SkillPicker', {
       empty: () => 'No skill or command by that name',
       ends: (query, { props }) => {
         const question = props.commands.some(({ name }) => name === 'btw')
-          ? DraftMode.searchedQuestion(query)
+          ? searchedQuestion(query)
           : null;
         return question === null
           ? null

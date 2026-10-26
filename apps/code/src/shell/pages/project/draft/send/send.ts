@@ -1,7 +1,7 @@
-import type { Model, Props } from './actor.ts';
+import type { Model, Props } from '../actor.ts';
 import { ask, send, startSession } from './commands.ts';
-import { wire } from './message.ts';
-import { pickedHarness, pickedModel, pickedSettings } from './picks.ts';
+import { wire } from '../message.ts';
+import { pickedHarness, pickedModel, pickedSettings } from '../picks/picks.ts';
 
 /*
  * What a mode's text handed up becomes, by where the Draft goes: a new

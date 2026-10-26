@@ -34,7 +34,6 @@ import {
 import { MakeHere } from './make.tsx';
 import { isLatest, useOpening } from './opening.ts';
 import { useDrawn } from './shape.ts';
-import { AgentLogo } from '../agent/index.ts';
 
 /*
  * The top Step, drawn by cmdk on the isolated `picker` Surface: the trail
@@ -364,20 +363,15 @@ export function List<P>({
                     touch && 'data-[checked=false]:[&>svg:last-child]:hidden',
                   )}
                 >
-                  {entry.icon === 'claude' || entry.icon === 'codex' ? (
-                    <AgentLogo
-                      agent={entry.icon}
-                      className={cn(
-                        'self-center',
-                        touch ? 'size-5!' : 'size-4!',
+                  {entry.mark !== undefined && shown.mark !== null
+                    ? shown.mark(
+                        entry.mark,
+                        cn('self-center', touch ? 'size-5!' : 'size-4!'),
+                      )
+                    : touch &&
+                      (entry.icon ?? shown.icon) !== null && (
+                        <RowIcon icon={entry.icon ?? shown.icon!} />
                       )}
-                    />
-                  ) : (
-                    touch &&
-                    (entry.icon ?? shown.icon) !== null && (
-                      <RowIcon icon={entry.icon ?? shown.icon!} />
-                    )
-                  )}
                   <span
                     className={cn(
                       'flex min-w-0 flex-1 flex-col',
@@ -519,7 +513,7 @@ function Highlighted({
 /**
  * What a row is, on touch: a folder in a square, or, for one that adds a
  * place, a plus in a filled one, so the action stands apart from what it
- * lists. An agent's logo is drawn however the Picker was opened.
+ * lists. A row's mark, such as an agent's logo, is its Step's to draw.
  */
 function RowIcon({ icon }: { readonly icon: 'project' | 'folder' | 'add' }) {
   if (icon === 'add')

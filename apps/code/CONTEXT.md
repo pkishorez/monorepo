@@ -28,6 +28,18 @@ _Avoid_: machine registry, device list, machine switcher
 What the app keeps of one Machine in the Machine List: its Harness Accounts, its Speech to Text, and its agents with their models. It shows as last kept, at once, and the Machine is asked again when its Line connects, on Reload, and after a change in Settings, which shows at once and is never undone by an answer asked before it. Settings and every Project read it; a Project's Skills are its own, kept for it the same way.
 _Avoid_: machine cache, machine settings (as a store), catalog (for the per-Machine part)
 
+**Kept Copy**:
+What this device keeps of what Cloud Connect or a Machine last said, such as a Machine List, a Machine Kit or a Project's Skills: shown at once, then asked again behind, the answer to the latest ask replacing it and kept in its place. Never the truth, and never synced. It goes with Whose it is, or with a list that no longer names it, since it can be asked again; a Saved Draft cannot, and is not one.
+_Avoid_: cache, saved copy, snapshot
+
+**Shelf**:
+One kind of Kept Copy, by name, at a version of its shape, such as the Machine List or a Project's Skills. A copy kept at another version reads as nothing, and the next answer replaces it.
+_Avoid_: table, store, bucket
+
+**Whose**:
+Whom a Kept Copy is kept for: its Account, and its Machine and Project when it has them. Each is kept apart under it, and goes with it.
+_Avoid_: owner, scope, key
+
 **Line**:
 The app's socket to one Machine, as it stands: connecting, connected, or reconnecting. Nothing can be sent to a Machine whose Line is not connected.
 _Avoid_: connection, link
@@ -73,7 +85,7 @@ The open Session's next message, kept at the foot of the page with the Status Li
 _Avoid_: input, insert bar, prompt box, composer (that is the Draft while editable)
 
 **Saved Draft**:
-A Draft as it shows, kept on this device for its Session, or for its Project's new session, so it comes back as it was left: what is saved is what is shown, the Draft Mode open, each mode's text, cursor and selection, the Message's files, and the agent, model and settings picked. Kept for the Account the Draft was opened under, even if another is switched to before it goes, and never synced: the last save wins. It is saved a moment after each change and as the page is left; a Draft that shows nothing has none. Sending clears what was sent from the Draft and so from its Saved Draft; a refused send comes back into the Draft while it is open, but one refused after the page was left is lost. A new session's is kept while the session starts, and goes, the picks with it, once it has started. It goes with its Project, its Machine or its Account. A Dictation still recording is not part of it, and what the whole device keeps is Device State.
+A Draft as it shows, kept on this device for its Session, or for its Project's new session, so it comes back as it was left: what is saved is what is shown, the Draft Mode open, each mode's text, cursor and selection, the Message's files, and the agent, model and settings picked. Kept for the Account the Draft was opened under, even if another is switched to before it goes, and never synced: the last save wins. It is saved a moment after each change and as the page is left; a Draft that shows nothing has none. Sending clears what was sent from the Draft and so from its Saved Draft; a refused send comes back into the Draft while it is open, but one refused after the page was left is lost. A new session's is kept while the session starts, and goes, the picks with it, once it has started. It goes only as the user asks: with its Project removed or its Machine forgotten; never with a list that no longer names them, which may have come short, and an Account signed out finds its own again as it signs back in. A Dictation still recording is not part of it, and what the whole device keeps is Device State.
 _Avoid_: autosave, local draft, cached draft
 
 **Draft Mode**:

@@ -2,9 +2,9 @@ import { Layer, Schema } from 'effect';
 import { HarnessAccountInfo, HarnessInfo } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { Machines } from '../../../../../layer/capabilities/index.ts';
+import { refreshKit } from '../../../../machines/index.ts';
 import { AccountList } from './capabilities/index.ts';
 import { Card } from './card/index.ts';
-import { refresh } from './commands.ts';
 
 /*
  * One Machine's Harness Accounts: each login an agent runs as there, with
@@ -134,7 +134,7 @@ export const HarnessAccountsLive = Actor.build(HarnessAccounts, {
   on: {
     // 1. Shown
     Retry: (_, { model }) => ({
-      command: refresh({ machineId: model.machineId }),
+      command: refreshKit({ machineId: model.machineId }),
     }),
     Toggled: ({ key }, { model }) => ({
       model: model.open === key ? closed(model, key) : opened(model, key),

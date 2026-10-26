@@ -34,7 +34,7 @@ import { DraftLive } from './actor.ts';
 
 type Api = CodeClient['Service'];
 
-const CATALOG: typeof Catalog.Model.Type = {
+const CATALOG: typeof Catalog.Catalog.Type = {
   ...Catalog.empty,
   harnesses: [
     {

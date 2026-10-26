@@ -12,8 +12,11 @@
 /** Home, `/`: every Machine's projects. */
 export const home = () => ({ _tag: 'Home' as const });
 
+/** The tabs of Settings, in their order. */
+export const SETTINGS_TABS = ['General', 'Shortcuts', 'Machines'] as const;
+
 /** One tab of Settings. */
-export type SettingsTab = 'General' | 'Shortcuts' | 'Machines';
+export type SettingsTab = (typeof SETTINGS_TABS)[number];
 
 /**
  * Settings, `/settings`: this device's, its keys, and every Machine's, in

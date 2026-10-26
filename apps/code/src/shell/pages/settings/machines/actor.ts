@@ -26,7 +26,7 @@ import { ask, keepForgetting } from './commands.ts';
  *            Machine it is and handed what its Kit holds, and its
  *            Projects (`projects/`), and none while no Account is known.
  *            Each Machine shows its Agents, the first two, or its
- *            Projects, as chosen, Agents until then. Reload asks the
+ *            Projects, as its tabs chose, Agents until then. Reload asks the
  *            Machine List and every Kit again, as the sidebar's does.
  * 2. Ask     Forget asks first, saying when the Machine was last seen and
  *            how its tunnel stands.
@@ -39,8 +39,9 @@ const Forgetting = Schema.NullOr(
   Schema.Struct({ id: Schema.String, problem: Schema.NullOr(Schema.String) }),
 );
 
-/** What a Machine shows: its agents' accounts and Speech to Text, or its Projects. */
-const MachineView = Schema.Literals(['Agents', 'Projects']);
+/** A Machine's tab: its agents' accounts and Speech to Text, or its Projects. */
+export const MachineTab = Schema.Literals(['Agents', 'Projects']);
+export type MachineTab = typeof MachineTab.Type;
 
 /** What it shows of a Machine's Kit, once read. */
 const KitShown = Schema.Struct({
@@ -86,8 +87,8 @@ const Model = Schema.Struct({
   drawn: Schema.Boolean,
   /** The Machine Forget is asking about. */
   asking: Schema.NullOr(Schema.String),
-  /** What each Machine shows, by id, once chosen. */
-  views: Schema.Record(Schema.String, MachineView),
+  /** Each Machine's tab open, by id, once chosen. */
+  tabs: Schema.Record(Schema.String, MachineTab),
 });
 type Model = typeof Model.Type;
 
@@ -100,7 +101,7 @@ export const MachineSettings = Actor.define('MachineSettings', {
     Keep: {},
     Forget: {},
     Reload: {},
-    ViewChosen: { id: Schema.String, view: MachineView },
+    TabChosen: { id: Schema.String, tab: MachineTab },
   }),
 });
 
@@ -156,7 +157,7 @@ export const MachineSettingsLive = Actor.build(MachineSettings, {
       kits: {},
       drawn: false,
       asking: null,
-      views: {},
+      tabs: {},
     },
   }),
   children: {
@@ -250,8 +251,8 @@ export const MachineSettingsLive = Actor.build(MachineSettings, {
     Forget: (_, { model }) =>
       model.asking === null ? {} : { command: ask({ forget: model.asking }) },
     Reload: () => ({ command: ask({ forget: null }) }),
-    ViewChosen: ({ id, view }, { model }) => ({
-      model: { ...model, views: { ...model.views, [id]: view } },
+    TabChosen: ({ id, tab }, { model }) => ({
+      model: { ...model, tabs: { ...model.tabs, [id]: tab } },
     }),
   },
 });

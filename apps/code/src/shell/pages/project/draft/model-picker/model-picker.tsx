@@ -15,6 +15,7 @@ import { keys, useBound } from '../../../../../keys.ts';
 import {
   AccountLabel,
   accountName,
+  AgentLogo,
   type Named,
   plainName,
 } from '../../../../../ui/agent/index.ts';
@@ -56,7 +57,7 @@ const Current = Schema.Struct({
   settings: Schema.Record(Schema.String, Schema.String),
 });
 type Current = typeof Current.Type;
-type Catalog = typeof Catalog.Model.Type;
+type Catalog = typeof Catalog.Catalog.Type;
 type Choices = ReadonlyArray<{
   readonly step: string;
   readonly key: string;
@@ -169,9 +170,13 @@ const settingPlaceholder = (
 ) =>
   `Search ${settingNamed(catalog, agent, key)?.label.toLowerCase() ?? 'choices'}`;
 
+/** The agent a row's mark names, as the agents' Step marks its rows; null for none. */
+const agentNamed = (name: string): Named['agent'] | null =>
+  name === 'claude' || name === 'codex' ? name : null;
+
 const Models = Picker.make('ModelPicker', {
   props: Schema.Struct({
-    catalog: Catalog.Model,
+    catalog: Catalog.Catalog,
     current: Current,
     /** Choosing the model finishes, with no settings after it. */
     alone: Schema.optionalKey(Schema.Boolean),
@@ -186,7 +191,7 @@ const Models = Picker.make('ModelPicker', {
           return {
             value: account,
             label: accountName(namedOf(harness)) ?? 'Default',
-            icon: harness.harness,
+            mark: harness.harness,
             plain: plainName(namedOf(harness)),
             checked: account === current.account,
             ...(available
@@ -201,6 +206,13 @@ const Models = Picker.make('ModelPicker', {
         problem: catalog.problem,
       }),
       next: (row) => ({ id: 'model', key: row.value }),
+      // Each agent by its logo, however the Picker was opened.
+      mark: (name, className) => {
+        const agent = agentNamed(name);
+        return agent === null ? null : (
+          <AgentLogo agent={agent} className={className} />
+        );
+      },
     },
     model: {
       placeholder: ({ key, props }) => {
