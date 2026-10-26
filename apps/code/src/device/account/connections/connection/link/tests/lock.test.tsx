@@ -26,6 +26,7 @@ const connection = (status: Connection['status']): Connection => ({
   lastSeen: Date.now(),
   plugins: {},
   wanted: {},
+  latestVersion: null,
 });
 
 const REACHABLE = {

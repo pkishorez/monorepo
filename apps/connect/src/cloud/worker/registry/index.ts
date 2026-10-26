@@ -1,1 +1,1 @@
-export { Registry, type Wanted } from './registry.js';
+export { Registry, type Release, type Wanted } from './registry.js';

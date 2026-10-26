@@ -106,7 +106,7 @@ Every value an RPC sends is an ESchema, so the newer side reads what an older on
 | `CloudClient`            | Service holding the `CloudApi` client over HTTP.                                                                                                     |
 | `CloudClient.layer`      | Layer of `CloudClient` for Cloud Connect's base URL; the caller's auth signs every call.                                                             |
 | `VersionGap`             | Error of every `CodeClient` and `CloudClient` call that failed because one side is older: `client` or `server`.                                      |
-| `Connection`             | ESchema of a Connection as its User sees it: its last Report, its Last Seen, and the version of each Plugin it should run.                           |
+| `Connection`             | ESchema of a Connection as its User sees it: its last Report, its Last Seen, each Plugin's wanted version, and the latest Connect.                   |
 | `ConnectionReport`       | ESchema of what a Connection says of itself on each Heartbeat: id, name, Connection Key, version, status, each Plugin State.                         |
 | `ConnectionStatus`       | ESchema of how far a Connection's tunnel got: installing cloudflared, opening, failed, or up.                                                        |
 | `TunnelCheck`            | ESchema of whether a Connection could reach itself at its public address, and when it checked.                                                       |
@@ -118,11 +118,11 @@ Every value an RPC sends is an ESchema, so the newer side reads what an older on
 
 ### `./worker`
 
-| Export             | What it does                                                                      |
-| ------------------ | --------------------------------------------------------------------------------- |
-| `serve`            | Cloud Connect on a Worker's D1 database, as `(request) => Promise<Response>`.     |
-| `serveOver`        | The same over any std-toolkit SQLite driver and auth Guard, for tests.            |
-| `connectionsTable` | The std Table Cloud Connect keeps Connections in, for `SQLite.setup` and deploys. |
+| Export             | What it does                                                                        |
+| ------------------ | ----------------------------------------------------------------------------------- |
+| `serve`            | Cloud Connect on a Worker's D1 database, and the Plugins' files from its R2 bucket. |
+| `serveOver`        | The same over any std-toolkit SQLite driver and auth Guard, for tests.              |
+| `connectionsTable` | The std Table Cloud Connect keeps Connections in, for `SQLite.setup` and deploys.   |
 
 ### `./dev`
 
@@ -220,7 +220,7 @@ Runtime.start(
 
 ### Run Cloud Connect on a Worker
 
-`serve` from `./worker` is Cloud Connect over a D1 database, signing in through an Auth Worker, letting the listed origins call with credentials, and telling every Connection which Plugins to run. Shaped after `src/cloud/worker/worker.server.ts`, which `alchemy.run.ts` deploys.
+`serve` from `./worker` is Cloud Connect over a D1 database, signing in through an Auth Worker, letting the listed origins call with credentials, telling every Connection which Plugins to run and which Connect is the latest, and serving the Plugins' files. Shaped after `src/cloud/worker/worker.server.ts`, which `alchemy.run.ts` deploys.
 
 ```ts
 import { serve } from '@kestack/connect/worker';
@@ -229,7 +229,9 @@ interface Env {
   readonly AUTH_URL: string;
   readonly ALLOWED_ORIGINS: string;
   readonly PLUGINS?: string;
+  readonly CONNECT_VERSION?: string;
   readonly DB: D1Database;
+  readonly PLUGIN_FILES?: R2Bucket;
 }
 
 let served: ((request: Request) => Promise<Response>) | undefined;
@@ -241,11 +243,15 @@ export default {
       origins: env.ALLOWED_ORIGINS.split(','),
       database: env.DB,
       plugins: env.PLUGINS ? JSON.parse(env.PLUGINS) : {},
+      ...(env.CONNECT_VERSION ? { connectVersion: env.CONNECT_VERSION } : {}),
+      ...(env.PLUGIN_FILES ? { files: env.PLUGIN_FILES } : {}),
     }))(request),
 };
 ```
 
 - `ALLOWED_ORIGINS` takes comma-separated patterns such as `https://*.kishore.app`.
 - `PLUGINS` is `{"code":{"hash":"<sha256>","url":"<where to download it>"}}`; `pnpm build:plugin` makes `dist/plugin/code.mjs` and prints its sha256.
+- `GET /plugins/<name>/<sha256>.mjs` answers that file from `files`, cached for good; anything else there is 404.
+- `CONNECT_VERSION` is the latest `ke-connect`; an App tells a Connection that runs an older one to update.
 - Set the D1 table up from `connectionsTable` before the first request.
-- In this monorepo, `pnpm -F @kestack/connect deploy:prod` deploys it to `connect.kishore.app`.
+- In this monorepo, `pnpm -F @kestack/connect build:plugin && pnpm -F @kestack/connect deploy:prod` deploys it to `connect.kishore.app`: the deploy uploads `code.mjs` to the Stage's R2 bucket, unless it is there, then points `PLUGINS` at it, and sets `CONNECT_VERSION` from `package.json`.

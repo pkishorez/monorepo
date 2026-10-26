@@ -5,9 +5,10 @@ import { serve } from './worker.ts';
  * Cloud Connect's Worker: Cloud Connect over the Worker's D1 database,
  * signing in through the Auth Worker at `AUTH_URL`, letting pages on the
  * origins `ALLOWED_ORIGINS` names (comma-separated patterns, see
- * cloud/contract) call with credentials, and telling every Connection to
- * run the Plugins `PLUGINS` names: JSON, `{"code":{"hash":"…","url":"…"}}`;
- * none when it is empty.
+ * cloud/contract) call with credentials, telling every Connection to run
+ * the Plugins `PLUGINS` names (JSON, `{"code":{"hash":"…","url":"…"}}`;
+ * none when it is empty) and that Connect is at `CONNECT_VERSION`, and
+ * serving the Plugins' files from the R2 bucket `PLUGIN_FILES`.
  */
 
 /** What this Worker is handed by Alchemy. */
@@ -15,7 +16,9 @@ interface Env {
   readonly AUTH_URL: string;
   readonly ALLOWED_ORIGINS: string;
   readonly PLUGINS?: string;
+  readonly CONNECT_VERSION?: string;
   readonly DB: D1Database;
+  readonly PLUGIN_FILES?: R2Bucket;
 }
 
 const Plugins = Schema.fromJsonString(
@@ -36,6 +39,8 @@ const make = (env: Env) => {
     origins: env.ALLOWED_ORIGINS.split(','),
     database: env.DB,
     plugins: env.PLUGINS ? Schema.decodeUnknownSync(Plugins)(env.PLUGINS) : {},
+    ...(env.CONNECT_VERSION ? { connectVersion: env.CONNECT_VERSION } : {}),
+    ...(env.PLUGIN_FILES === undefined ? {} : { files: env.PLUGIN_FILES }),
   });
 };
 

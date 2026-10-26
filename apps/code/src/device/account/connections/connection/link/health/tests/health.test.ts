@@ -25,6 +25,7 @@ const connection = (
   lastSeen,
   plugins: {},
   wanted: {},
+  latestVersion: null,
 });
 
 describe('a Connection’s record', () => {
