@@ -52,12 +52,18 @@ const anotherSignIn = (user: ReturnType<typeof signIn>, n: number) => ({
   } as unknown as Principal,
 });
 
+/** The version of each Plugin this Cloud Connect wants run. */
+const WANTED = {
+  code: { hash: 'a'.repeat(64), url: 'https://files.test/code' },
+};
+
 const answerAs = (principal: Principal | null) =>
   serveOver({
     guard: fakeGuard.rpc({ as: principal }),
     authInfo: AUTH_INFO,
     origins: ORIGINS,
     driver,
+    plugins: WANTED,
   });
 
 /**
@@ -95,6 +101,7 @@ const reportOf = (id: string, name = 'laptop'): ConnectionReport => ({
   key: `key-${id}`,
   version: '0.0.2',
   status: { _tag: 'Reachable', url: `https://${id}.tunnel.test`, at: 1 },
+  plugins: {},
 });
 
 describe('Cloud Connect', () => {
@@ -108,6 +115,19 @@ describe('Cloud Connect', () => {
     expect(second.name).toBe('renamed');
     expect(second.lastSeen).toBeGreaterThanOrEqual(first.lastSeen);
     expect(await as(ada, (m) => m.List({}))).toEqual([second]);
+  });
+
+  it('answers a Report with the Plugins wanted, and keeps where each stands', async () => {
+    const ada = signIn('ada');
+    const running = { _tag: 'Running' as const, hash: 'a'.repeat(64) };
+    const reported = await as(ada, (m) =>
+      m.Report({ ...reportOf('p1'), plugins: { code: running } }),
+    );
+    expect(reported.wanted).toEqual(WANTED);
+    expect(reported.plugins).toEqual({ code: running });
+    expect(await as(ada, (m) => m.List({}))).toMatchObject([
+      { id: 'p1', plugins: { code: running }, wanted: WANTED },
+    ]);
   });
 
   it("lists only the caller's Connections", async () => {

@@ -11,8 +11,9 @@ import { dirname } from 'node:path';
 import { Effect, Schema } from 'effect';
 
 /*
- * Where a Connection keeps itself: `connection.json` in Connect's data folder,
- * holding its id, name, Connection Key and owner. It is the Connection Key's
+ * Where a Connection keeps itself: `connection.json` in its data folder,
+ * holding its id, name, Connection Key, owner, the Cloud Connect it belongs
+ * to and when it last started. It is the Connection Key's
  * one copy on disk, so it is written 0600, through a temporary file
  * renamed over it, so a write cut short never leaves half a Connection.
  */
@@ -24,6 +25,10 @@ export const ConnectionRecord = Schema.Struct({
   key: Schema.String,
   /** The User this Connection belongs to. */
   owner: Schema.Struct({ id: Schema.String, email: Schema.String }),
+  /** The Cloud Connect it belongs to, its base URL. */
+  cloud: Schema.String,
+  /** When it last started, epoch ms. */
+  startedAt: Schema.Finite,
 });
 export type ConnectionRecord = typeof ConnectionRecord.Type;
 

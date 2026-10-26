@@ -121,6 +121,8 @@ const services = () =>
                 version: '0.0.1',
                 status: { _tag: 'Opening' },
                 lastSeen: 1,
+                plugins: {},
+                wanted: {},
               },
             ],
             links: { m1: 'linked' },

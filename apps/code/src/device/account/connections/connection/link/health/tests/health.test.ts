@@ -23,6 +23,8 @@ const connection = (
       ? { _tag: 'Opening' }
       : { _tag: 'Reachable', url, at: lastSeen },
   lastSeen,
+  plugins: {},
+  wanted: {},
 });
 
 describe('a Connection’s record', () => {
@@ -65,7 +67,7 @@ describe('a Connection’s record', () => {
 
   it('is reached at its `https://` address over `wss`, and at no other', () => {
     expect(socketUrl('https://a-b.trycloudflare.com/')).toBe(
-      'wss://a-b.trycloudflare.com/rpc',
+      'wss://a-b.trycloudflare.com/code/rpc',
     );
     expect(socketUrl('http://a-b.trycloudflare.com')).toBeNull();
     expect(socketUrl('ws://a-b.trycloudflare.com')).toBeNull();

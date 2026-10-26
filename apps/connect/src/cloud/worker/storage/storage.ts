@@ -1,5 +1,6 @@
 import { Schema } from 'effect';
 import { StdTable } from '@kestack/std-toolkit/db';
+import { PluginState } from '@kestack/cli-platform/plugins/contract';
 import { EntityESchema } from '@kestack/std-toolkit/eschema';
 
 /*
@@ -16,7 +17,9 @@ import { EntityESchema } from '@kestack/std-toolkit/eschema';
  * Last Seen, and whether it was forgotten. Its own fields, not the
  * contract's, so a change to the contract never silently changes the rows.
  * v1 kept the address and the last Tunnel Check apart; v2 keeps the status
- * they make, and a v1 row with no address reads as Opening.
+ * they make, and a v1 row with no address reads as Opening. v3 keeps where
+ * each of its Plugins stands, as its last Report said, each a versioned
+ * Plugin State of its own; a v2 row had none.
  */
 export const ConnectionRecord = EntityESchema.make('Connection', 'id', {
   name: Schema.String,
@@ -85,6 +88,11 @@ export const ConnectionRecord = EntityESchema.make('Connection', 'id', {
                   problem: tunnel.problem ?? 'Unknown',
                 },
     }),
+  )
+  .evolve(
+    'v3',
+    { plugins: Schema.Record(Schema.String, PluginState.schema) },
+    (v2) => ({ ...v2, plugins: {} }),
   )
   .build();
 

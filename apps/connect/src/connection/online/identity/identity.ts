@@ -9,13 +9,14 @@ import {
 import { newConnectionId, newConnectionKey } from './secrets.js';
 
 /*
- * Which Connection this Connect is. Its `connection.json` is one Connection, signed
- * in as one User: the first `serve` makes the Connection, with a random id and
- * Connection Key and the host's name (and the branch's, in development), and
- * every later start finds it again. The host's name is cut at its first
- * dot, so `Ada-MacBook.local` is `Ada-MacBook`; a name kept with the whole
- * of it takes the short one. A different User signing in is
- * refused, and `logout` forgets the Connection so the next start is a new one.
+ * Which Connection this is. Its `connection.json` is one Connection, signed
+ * in as one User to one Cloud Connect: the first `serve` makes the
+ * Connection, with a random id and Connection Key and the name it is given,
+ * else the host's name, and every later start finds it again. The host's
+ * name is cut at its first dot, so `Ada-MacBook.local` is `Ada-MacBook`; a
+ * name kept with the whole of it takes the short one. A different User
+ * signing in is refused, and so is another Cloud Connect; `remove` forgets
+ * the Connection.
  */
 
 /** This Connection belongs to another User. */
@@ -23,7 +24,16 @@ export class ConnectionOwnedByAnother extends Data.TaggedError(
   'ConnectionOwnedByAnother',
 )<{ readonly file: string; readonly owner: string; readonly user: string }> {
   override get message() {
-    return `${this.file} is the Connection of ${this.owner}, not ${this.user}. Run \`ke-connect logout\` first, or serve with another --branch.`;
+    return `${this.file} is the Connection of ${this.owner}, not ${this.user}. Run \`ke-connect remove <name>\` first, or serve another name.`;
+  }
+}
+
+/** This Connection belongs to another Cloud Connect. */
+export class ConnectionOfAnotherCloud extends Data.TaggedError(
+  'ConnectionOfAnotherCloud',
+)<{ readonly file: string; readonly cloud: string; readonly asked: string }> {
+  override get message() {
+    return `${this.file} is a Connection of ${this.cloud}, not ${this.asked}. Serve it with --cloud ${this.cloud}, or serve another name.`;
   }
 }
 
@@ -40,19 +50,35 @@ export interface Kept {
   readonly file: string;
 }
 
+/** Fails unless the Connection kept, if any, belongs to `cloud`. */
+export const ofCloud = (kept: Kept & { readonly cloud: string }) =>
+  Effect.flatMap(readConnection(kept.file), (found) =>
+    found === null || found.cloud === kept.cloud
+      ? Effect.void
+      : Effect.fail(
+          new ConnectionOfAnotherCloud({
+            file: kept.file,
+            cloud: found.cloud,
+            asked: kept.cloud,
+          }),
+        ),
+  );
+
 /**
- * The Connection kept, for `owner`: made on first use, named `name` when
- * given (and kept), else `firstName`, else the host's name. Fails when it
- * belongs to another User.
+ * The Connection kept, for `owner` on `cloud`, started at `startedAt`:
+ * made on first use, named `firstName`, else the host's name. Fails when it
+ * belongs to another User or another Cloud Connect.
  */
 export const claim = (
   options: Kept & {
     readonly owner: { readonly id: string; readonly email: string };
-    readonly name?: string | undefined;
+    readonly cloud: string;
     readonly firstName?: string | undefined;
+    readonly startedAt: number;
   },
 ) =>
   Effect.gen(function* () {
+    yield* ofCloud(options);
     const found = yield* readConnection(options.file);
     if (found && found.owner.id !== options.owner.id)
       return yield* new ConnectionOwnedByAnother({
@@ -64,13 +90,16 @@ export const claim = (
     const connection: ConnectionRecord = found
       ? {
           ...found,
-          name: (options.name ?? shortened(found.name)).slice(0, 64),
+          name: shortened(found.name).slice(0, 64),
+          startedAt: options.startedAt,
         }
       : {
           id: newConnectionId(),
-          name: (options.name ?? options.firstName ?? hostName()).slice(0, 64),
+          name: (options.firstName ?? hostName()).slice(0, 64),
           key: newConnectionKey(),
           owner: options.owner,
+          cloud: options.cloud,
+          startedAt: options.startedAt,
         };
     if (JSON.stringify(connection) !== JSON.stringify(found))
       yield* writeConnection(options.file, connection);

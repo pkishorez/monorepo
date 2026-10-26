@@ -20,16 +20,12 @@
   ],
   "exports": {
     "./code": {
-      "types": "./dist/connection/code/api/index.d.ts",
-      "default": "./dist/connection/code/api/index.js"
+      "types": "./dist/plugins/code/api/index.d.ts",
+      "default": "./dist/plugins/code/api/index.js"
     },
     "./worker": {
       "types": "./dist/cloud/worker/index.d.ts",
       "default": "./dist/cloud/worker/index.js"
-    },
-    "./connection": {
-      "types": "./dist/connection/index.d.ts",
-      "default": "./dist/connection/index.js"
     },
     "./dev": {
       "types": "./dist/dev/index.d.ts",
@@ -38,6 +34,7 @@
   },
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json && tsc -p tsconfig.types.json",
+    "build:plugin": "vp pack && node scripts/plugin-hash.ts",
     "dev": "vp run --filter '@kestack/connect...' build && node --conditions=kestack-fake-auth scripts/dev.ts",
     "dev:real": "vp run --filter '@kestack/connect...' build && KESTACK_AUTH=real node scripts/dev.ts",
     "deploy": "alchemy deploy",
@@ -50,6 +47,7 @@
   "dependencies": {
     "@effect/platform-node": "catalog:",
     "@kestack/ai-toolkit": "workspace:*",
+    "@kestack/cli-platform": "workspace:*",
     "cloudflared": "catalog:"
   },
   "peerDependencies": {
@@ -74,6 +72,7 @@
     "alchemy": "catalog:",
     "effect": "catalog:",
     "laymos": "workspace:*",
+    "tsx": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
