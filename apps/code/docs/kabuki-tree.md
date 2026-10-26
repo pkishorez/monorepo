@@ -52,7 +52,8 @@ shell                                   root; Provides CurrentAccount, Replicas,
 │   └── machines                        always
 │       ├── harness-accounts            each: Account and listed Machine id, once its Kit is read; Provides AccountList
 │       │   └── card                    each: account id, and `new-` and its agent while one is added
-│       └── speech-to-text              each: Account and listed Machine id, once its Kit is read
+│       ├── speech-to-text              each: Account and listed Machine id, once its Kit is read
+│       └── projects                    each: Account and listed Machine id, once its Kit is read
 └── pages/project                       /m/:machineId/p/:projectId; Provides CodeClient, SharedCatalog, Picker Owners
     ├── draft                           while no session is open: the new session's
     │   └── mode                        each: Message
@@ -87,6 +88,7 @@ mode ─ Provides TouchDraft.owner ───────────────
 machines ─ each Account and id; Input: machineId;
            Props: accounts and problem / speech, from its Kit ▶ harness-accounts, speech-to-text
 harness-accounts ─ each key; Provides AccountList; Props: account ▶ card
+machines ─ each Account and id; Input: machineId ─────────────▶ projects
 ```
 
 Up, from the leaves: what each level asks of the one above, and what runs.
@@ -96,6 +98,7 @@ machine-list ─ publishes into Machines ─────────────
 kit ─ publishes its Machine's Kit into Machines ─────▶ Settings, Dictation, project, Starter, header
 sidebar, Settings, home ─ Request Machines.reload / forget ─▶ machine-list, and reload ▶ every kit
 harness-accounts, card, project ─ Request Machines.refresh / changed ─▶ its Machine's kit
+projects, project ─ Command removeProject, over CodeClients ─▶ its Machine; then each Gone
 any Picker ─ Request Owner.done / load / settle ──────────▶ the Actor that holds it
 session ─ Request SharedCatalog.retry ───────────────▶ project
 touch ─ Request Owner.send ──────────────────────────▶ mode
@@ -212,6 +215,7 @@ sidebar ─ Worker: moves, from Moves ──────────────
 
 - **A Picker is a `while` Child keyed by `opened`, not a State**, because open and closed hold the same data. Caveat: the owner's Model carries a counter.
 - **The Project Picker follows the Machines and the Machine Filter always**, because its first Step is chosen as it opens: the Machine the sidebar shows, else the Machines. Caveat: two Workers run while it is closed, and the Filter is read from Device State, not from the sidebar, which holds it too.
+- **A Project whose folder is missing is a row that cannot be chosen, not one left out**, so the Picker still says where it went. Caveat: its status is as its Machine last found it, at most a minute old.
 - **The Keys Picker is opened with the Actions that worked, and its View runs the one chosen**, because the keyboard knows them only in React, and only before the Picker takes it. Caveat: the Model carries the Action chosen until the View has run it.
 
 ## dictation
@@ -228,13 +232,14 @@ sidebar ─ Worker: moves, from Moves ──────────────
 
 - **It reads which Machines can transcribe from `Machines`**, because the Machine List already watches each Line, and each Kit its Speech to Text. Caveat: none.
 
-## home · settings · general · shortcuts · machines · harness-accounts · speech-to-text
+## home · settings · general · shortcuts · machines · harness-accounts · speech-to-text · projects
 
-Settings is one page that holds its three tabs as Children, the whole time it is open, and which is open in its Model, never in the URL: General, unless a link asked for another through `openSettingsOn` as it was followed, which the page takes once as it starts; old tab URLs redirect to `/settings`. With a keyboard only the tab open is drawn, beside the tab list; on a touch screen every tab shown is drawn side by side in one track, each scrolled on its own, which a sideways swipe moves by a motion value alone; let go far or fast enough it sends `TabChosen` for the tab beside, as a tap on its name does, and the track springs on from where it was, and a swipe before the first is left to the App Shell's, which opens the sidebar. General reads and writes Device State; the Microphone is chosen through the Microphone Picker's `Opener`. Shortcuts reads and writes the Bindings in Device State. Home and Machine Settings follow `Machines`; Machine Settings draws each Machine's Line and Last Seen from the shell's `Connection`, as the sidebar does. Machine Settings follows each listed Machine's Kit in `Machines` and draws nothing until the kept list and every Kit are read, so it draws once. Each per-Machine Child, keyed by its Account and Machine and none while no Account is known, gets its Machine by Input and what its Kit holds by Props; neither asks nor keeps anything. Harness Accounts holds which card is open, one at a time, which its View draws under the card's row, on touch too, and asks the Kit again on Retry; each card saves or removes its own over `CodeClients`, tells the Kit (`Machines.changed`), and once the Kit shows it, closes through `AccountList`, as it does when closed unsaved. Speech to Text switches over `CodeClients`; what came of it shows in its Kit. Their Views lock them while the Machine's Line is not connected, and say so only once it is out of reach or a few seconds have passed (`useLock`).
+Settings is one page that holds its three tabs as Children, the whole time it is open, and which is open in its Model, never in the URL: General, unless a link asked for another through `openSettingsOn` as it was followed, which the page takes once as it starts; old tab URLs redirect to `/settings`. With a keyboard only the tab open is drawn, beside the tab list; on a touch screen every tab shown is drawn side by side in one track, each scrolled on its own, which a sideways swipe moves by a motion value alone; let go far or fast enough it sends `TabChosen` for the tab beside, as a tap on its name does, and the track springs on from where it was, and a swipe before the first is left to the App Shell's, which opens the sidebar. General reads and writes Device State; the Microphone is chosen through the Microphone Picker's `Opener`. Shortcuts reads and writes the Bindings in Device State. Home and Machine Settings follow `Machines`; Machine Settings draws each Machine's Line and Last Seen from the shell's `Connection`, as the sidebar does. Machine Settings follows each listed Machine's Kit in `Machines` and draws nothing until the kept list and every Kit are read, so it draws once. Each per-Machine Child, keyed by its Account and Machine and none while no Account is known, gets its Machine by Input and what its Kit holds by Props; neither asks nor keeps anything. Harness Accounts holds which card is open, one at a time, which its View draws under the card's row, on touch too, and asks the Kit again on Retry; each card saves or removes its own over `CodeClients`, tells the Kit (`Machines.changed`), and once the Kit shows it, closes through `AccountList`, as it does when closed unsaved. Speech to Text switches over `CodeClients`; what came of it shows in its Kit. Each Machine's card shows its Agents, Harness Accounts and Speech to Text, or its Projects, as a segmented control chose, kept per Machine in Machine Settings' Model, Agents until then. Projects follows that Machine's Projects and Sessions in its Replica (`everything`), lists each Project not removed, the most recently active first, with whether its folder is there, holds which row is open, one at a time, and removes one once asked with the `removeProject` Command of `shell/machines/`, as the project page does, so the device's Gone still drops all it kept of it. Their Views lock them while the Machine's Line is not connected, and say so only once it is out of reach or a few seconds have passed (`useLock`).
 
 ### Decisions
 
 - **A Machine's settings are its Kit's, not Settings'**, because the project reads the same agents, and the Kit asks whether or not Settings is open. Caveat: kept rows are pruned by the Machine List's `keep` and `drop` and the root's `keepAccounts`, as Replicas are, so a Machine gone from a later list keeps its row until the next first list.
+- **A Machine's Projects are read from its Replica, not its Kit**, because they are synced records, kept and followed already, and a Project's folder status is a field of its record. Caveat: a Machine whose Replica has not synced yet shows a skeleton under Projects.
 - **Settings' tabs have no address of their own**, so a swipe moves between tabs already drawn, the next showing as it comes, with no move of the router. Caveat: Back leaves Settings rather than going to the tab before, and a link to a tab asks for it apart (`openSettingsOn`), not in the Route.
 
 ## project · session
@@ -247,6 +252,7 @@ Settings is one page that holds its three tabs as Children, the whole time it is
 
 ### Decisions
 
+- **A project whose folder is missing blocks its new session's Draft through `Slots` (`missing.tsx`), not its Model**, because it is the page that reads the Project's row, and its sessions' Drafts stay as they are: a Turn there fails and says why. Caveat: its status is as its Machine last found it, at most a minute old.
 - **The Draft is one Actor, a Child of each page that has one**, because typing, picking and dictating then change only its own Model, and only it draws again. Caveat: its folder is in `project/`, and the session page reaches it by a Laymos Rule.
 - **The catalog's agents and models are the Kit's; its Skills are the project's, kept per Account, Machine and project**, because Skills depend on the project's folder and nothing else does. Caveat: a project first opened on this device still asks for its Skills while they load.
 - **Code shared by Actors and not an Actor is a plain Module with no prefix**, in the lowest Actor folder that holds every user (`project/capabilities/catalog/`, `actors/moves/`, `shell/machines/`, `shell/routes/`), or in `src/` when the entry file or a service uses it too. Caveat: its users below reach it by a Laymos Rule, an import upward.
