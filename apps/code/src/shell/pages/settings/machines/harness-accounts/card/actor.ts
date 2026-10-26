@@ -37,7 +37,19 @@ type Form = typeof Form.Type;
 
 const Field = Schema.Literals(['name', 'binaryPath', 'configFolder']);
 
-const Props = Schema.Struct({ account: Schema.NullOr(HarnessAccountInfo) });
+/** A config folder in use, as a Machine says it. */
+const ConfigFolder = Schema.toType(
+  HarnessAccountInfo.fields.resolvedConfigFolder,
+);
+
+const Props = Schema.Struct({
+  account: Schema.NullOr(HarnessAccountInfo),
+  /**
+   * The config folder an account of this agent with none runs with, as
+   * its Default Account with none says; null when that is not known.
+   */
+  empty: Schema.NullOr(ConfigFolder),
+});
 type Props = typeof Props.Type;
 
 const Model = Schema.Struct({

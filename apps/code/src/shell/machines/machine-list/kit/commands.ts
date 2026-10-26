@@ -7,7 +7,7 @@ import { Kept, KitParts, shelf } from '../../../../layer/capabilities/index.ts';
  */
 
 /** A Machine Kit as kept, for its Account and Machine. */
-export const KitShelf = shelf('machine-kit', 1, KitParts);
+export const KitShelf = shelf('machine-kit', 2, KitParts);
 
 /** Keeps what the Machine said, the models it could not list left out; a write that fails is lost. */
 export const keepKit = Command.make('KeepKit', {

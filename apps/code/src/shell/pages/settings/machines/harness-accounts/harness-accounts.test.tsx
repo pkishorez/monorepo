@@ -120,6 +120,12 @@ const DEFAULTS: ReadonlyArray<HarnessAccountInfo> = [
     name: 'Claude',
     binaryPath: null,
     configFolder: null,
+    // Connect runs with a folder of its own for Claude Code.
+    resolvedConfigFolder: {
+      path: '/Users/me/.claude-work',
+      from: 'environment',
+      variable: 'CLAUDE_CONFIG_DIR',
+    },
     isDefault: true,
     resolved: resolved('/usr/local/bin/claude'),
   },
@@ -129,6 +135,7 @@ const DEFAULTS: ReadonlyArray<HarnessAccountInfo> = [
     name: 'Codex',
     binaryPath: null,
     configFolder: null,
+    resolvedConfigFolder: { path: '/Users/me/.codex', from: 'default' },
     isDefault: true,
     resolved: resolved(
       'codex',
@@ -196,6 +203,10 @@ const clients = CodeClients.make(() =>
               return {
                 ...input,
                 id: input.id ?? `${input.harness}-work`,
+                resolvedConfigFolder: {
+                  path: input.configFolder ?? '/Users/me/.claude',
+                  from: input.configFolder === null ? 'default' : 'account',
+                },
                 isDefault: false,
                 resolved: resolved('/usr/local/bin/claude'),
               };
@@ -413,13 +424,23 @@ describe('Harness Accounts', () => {
   it('draws a row per account, saying how to install an agent that is not there', async () => {
     expect(names()).toEqual(['Claude', 'Codex']);
     expect(text()).toContain('npm install -g @openai/codex');
-    // An empty folder is the agent's own, and the row says it, with the
-    // version that runs; an empty binary, the one on PATH, which the form says.
-    expect(labelled('Claude').textContent).toContain('~/.claude');
+    // An empty folder is the one it really runs with, and the row says it,
+    // and that Connect's environment set it, with the version that runs;
+    // an empty binary, the one on PATH, which the form says.
+    expect(labelled('Claude').textContent).toContain(
+      '~/.claude-work· from environment',
+    );
     expect(labelled('Claude').textContent).toContain('1.0.0');
+    expect(labelled('Codex').textContent).toContain('~/.codex');
+    expect(labelled('Codex').textContent).not.toContain('environment');
     // A Default Account is never removed.
     await click(labelled('Claude'));
     expect(text()).toContain('now /usr/local/bin/claude');
+    // What an empty folder means is the folder it really uses.
+    expect(field('claude-config-folder')?.value).toBe('');
+    expect(text()).toContain(
+      "CLAUDE_CONFIG_DIR · empty = ~/.claude-work, from Connect's environment",
+    );
     expect(button('Remove…')).toBeUndefined();
   });
 

@@ -17,13 +17,15 @@ import { CardLive, formOf } from './actor.ts';
 /*
  * One account's row (`Row`), which the list draws and opens the card from:
  * its name, marked Default for its agent's Default Account, and one quiet
- * line, its config folder, or the agent's own, cut in its middle so its
- * end shows, and the version that runs; or why it does not run, such as
+ * line, the config folder it really runs with, cut in its middle so its
+ * end shows, marked when it is Connect's environment's, not one set here,
+ * and the version that runs; or why it does not run, such as
  * how to install the agent. While the Machine's Line is not connected the
  * row takes no tap, a lock in place of its arrow once that is said.
  *
  * The card itself is its form: name, config folder and binary, each with a
- * short hint of what empty means, why the Machine refused, and for a new
+ * short hint of what empty means, the folder an empty one really runs
+ * with, why the Machine refused, and for a new
  * account how to sign in with its folder; then Save and Cancel, and for an
  * added account Remove, apart, which asks again. While the Line is not
  * connected it takes nothing.
@@ -102,6 +104,25 @@ function Path({ value }: { readonly value: string }) {
   );
 }
 
+/** A path under a home folder as `~/…`. */
+const tilde = (path: string) =>
+  path.replace(/^\/(?:Users|home)\/[^/]+(?=\/|$)/, '~');
+
+type Used = NonNullable<HarnessAccountInfo['resolvedConfigFolder']>;
+
+/** The config folder it really runs with, as its Machine says, else as set or the agent's own. */
+const usedOf = (account: HarnessAccountInfo): Used =>
+  account.resolvedConfigFolder ??
+  (account.configFolder === null
+    ? { path: FOLDER[account.harness].own, from: 'default' }
+    : { path: account.configFolder, from: 'account' });
+
+/** Where a config folder in use came from, when it is not one set here. */
+const fromOf = (used: Used) =>
+  used.from === 'environment'
+    ? `${used.variable} in Connect's environment`
+    : null;
+
 /** The version a binary reports, as its number alone, such as "2.1.310". */
 const versionOf = (version: string) =>
   /\d+(?:\.\d+)+/.exec(version)?.[0] ?? version;
@@ -118,7 +139,15 @@ function Summary({ account }: { readonly account: HarnessAccountInfo }) {
         {account.isDefault && <Badge variant="secondary">Default</Badge>}
       </span>
       <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-        <Path value={account.configFolder ?? FOLDER[account.harness].own} />
+        <Path value={tilde(usedOf(account).path)} />
+        {fromOf(usedOf(account)) !== null && (
+          <span
+            className="shrink-0"
+            title={fromOf(usedOf(account)) ?? undefined}
+          >
+            · from environment
+          </span>
+        )}
         {resolved.error === null && resolved.version !== null && (
           <span className="shrink-0 tabular-nums" title={resolved.version}>
             · {versionOf(resolved.version)}
@@ -276,6 +305,9 @@ export const CardView = View.make(CardLive, ({ root, model, props, send }) => {
         ? ', not found'
         : `, now ${account.resolved.path}`;
   const typedFolder = form.configFolder.trim();
+  // What an empty folder runs with: this Machine's, when it is known.
+  const empty = props.empty === null ? folder.own : tilde(props.empty.path);
+  const fromEnvironment = props.empty?.from === 'environment';
   const off = model.busy || locked;
   return (
     <form
@@ -300,9 +332,9 @@ export const CardView = View.make(CardLive, ({ root, model, props, send }) => {
         <Field
           id={`${id}-config-folder`}
           label="Config folder"
-          hint={`${folder.variable} · empty = ${folder.own}`}
+          hint={`${folder.variable} · empty = ${empty}${fromEnvironment ? ", from Connect's environment" : ''}`}
           value={form.configFolder}
-          placeholder={folder.own}
+          placeholder={empty}
           disabled={off}
           mono
           onChange={edit('configFolder')}

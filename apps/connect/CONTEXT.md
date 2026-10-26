@@ -47,7 +47,7 @@ One Agent kept on a Machine, in one of its Projects: its Messages, its Title, an
 _Avoid_: thread, chat, Agent (what a Session keeps), conversation
 
 **Default Account**:
-The Harness Account a Machine has for each Coding Harness it runs, even before the user sets it: the harness from PATH, on its own config folder, its id the harness's name. It can be changed but never removed. Every other Harness Account is one the user added, such as a work login; a Session runs as one account, chosen when it starts, and keeps it.
+The Harness Account a Machine has for each Coding Harness it runs, even before the user sets it: the harness from PATH, on its own config folder, its id the harness's name. With no folder set, it runs in Connect's environment, so the folder it really uses is `CLAUDE_CONFIG_DIR` or `CODEX_HOME` when Connect was started with one, else `~/.claude` or `~/.codex`, and it is shown as that. It can be changed but never removed. Every other Harness Account is one the user added, such as a work login; a Session runs as one account, chosen when it starts, and keeps it.
 _Avoid_: main account, primary login
 
 **Session Status**:

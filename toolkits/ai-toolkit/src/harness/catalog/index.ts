@@ -1,6 +1,7 @@
 export {
   binaryAt,
   checkBinary,
+  configFolderOf,
   InvalidBinary,
   Models,
   ModelsError,

@@ -79,6 +79,22 @@ const opened = (model: Model, key: string): Model => ({
   open: key,
 });
 
+/**
+ * The config folder an account of `harness` with none runs with: its
+ * Default Account's, while that one has none set; else not known.
+ */
+const emptyFolderOf = (
+  accounts: ReadonlyArray<typeof HarnessAccountInfo.Type> | null,
+  harness: Harness,
+) => {
+  const own = accounts?.find(
+    (each) => each.isDefault && each.harness === harness,
+  );
+  return own === undefined || own.configFolder !== null
+    ? null
+    : (own.resolvedConfigFolder ?? null);
+};
+
 export const HarnessAccountsLive = Actor.build(HarnessAccounts, {
   init: ({ machineId }) => ({
     model: { machineId, adding: null, open: null },
@@ -99,9 +115,16 @@ export const HarnessAccountsLive = Actor.build(HarnessAccounts, {
           model.adding ??
           'claude',
       }),
-      props: ({ props }, key) => ({
-        account: props.accounts?.find(({ id }) => id === key) ?? null,
-      }),
+      props: ({ model, props }, key) => {
+        const account = props.accounts?.find(({ id }) => id === key) ?? null;
+        return {
+          account,
+          empty: emptyFolderOf(
+            props.accounts,
+            account?.harness ?? model.adding ?? 'claude',
+          ),
+        };
+      },
     },
   },
   provides: (self) =>

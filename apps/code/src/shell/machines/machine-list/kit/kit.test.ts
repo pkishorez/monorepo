@@ -47,6 +47,7 @@ const account = (id: string, name: string): HarnessAccountInfo => ({
   name,
   binaryPath: null,
   configFolder: null,
+  resolvedConfigFolder: { path: '/Users/me/.claude', from: 'default' },
   isDefault: id === 'claude',
   resolved: { path: 'claude', version: '1.0.0', error: null, isDefault: true },
 });
