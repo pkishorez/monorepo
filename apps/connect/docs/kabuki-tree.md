@@ -34,7 +34,8 @@ src/plugins/code/engine/
 
 Around the Connection tree, `src/connection/online/` holds identity,
 sign-in and the tunnel, which `serve.ts` hands the root as
-`ConnectionHost`; `src/connection/cli/` is the commands; and `src/cloud/` is
+`ConnectionHost`; `src/connection/cli/` is the commands, and `cli/dev/` runs
+them in development; and `src/cloud/` is
 Cloud Connect, which it reports to. Around the engine tree,
 `src/plugins/code/records/` is what it keeps, `src/plugins/code/api/` is the
 contract and the browser client, and `src/plugins/code/main.ts` serves the

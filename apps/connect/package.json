@@ -28,8 +28,8 @@
       "default": "./dist/cloud/worker/index.js"
     },
     "./dev": {
-      "types": "./dist/dev/index.d.ts",
-      "default": "./dist/dev/index.js"
+      "types": "./dist/connection/cli/dev/index.d.ts",
+      "default": "./dist/connection/cli/dev/index.js"
     }
   },
   "scripts": {

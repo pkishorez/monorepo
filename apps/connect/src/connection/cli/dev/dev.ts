@@ -47,8 +47,8 @@ const STARTING_MS = 10 * 60_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** apps/connect, from dist/dev or src/dev. */
-const ROOT = fileURLToPath(new URL('../../', import.meta.url));
+/** apps/connect, from dist/connection/cli/dev or src/connection/cli/dev. */
+const ROOT = fileURLToPath(new URL('../../../../', import.meta.url));
 
 const version = (
   JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as {

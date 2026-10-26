@@ -185,7 +185,7 @@ describe('standingOf', () => {
     mode: 'shared',
     cloud: 'https://feat-x.connect.kishore.computer/',
     port: 4999,
-    connection: { id: 'm1', name: 'host (feat-x)' },
+    connection: 'dev-feat-x',
     ready: true,
     startedAt: new Date().toISOString(),
     version: '0.0.2',

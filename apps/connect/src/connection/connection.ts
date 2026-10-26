@@ -75,21 +75,13 @@ const runningOf = (
     Effect.scoped,
   );
 
-export interface ServeOptions extends ServeFlags {
-  /** Called once the router listens, with its port and the Connection. */
-  readonly onListening?: (info: {
-    readonly port: number;
-    readonly connection: { readonly id: string; readonly name: string };
-  }) => Effect.Effect<void>;
-}
-
 /**
  * Runs the Connection `name` until it is stopped, or must stop: signed in,
  * tunnelled, running its Plugins and reporting its Heartbeat. One already
  * running is reported instead. It logs to the console and to its state
  * folder.
  */
-export const serve = (options: ServeOptions) =>
+const serve = (options: ServeFlags) =>
   Effect.gen(function* () {
     const own = yield* connectionFolders(options.name);
     const running = yield* runningOf(own);
@@ -135,11 +127,6 @@ export const serve = (options: ServeOptions) =>
         origins: [...DEFAULT_ORIGINS, ...options.origins],
         heartbeat: options.heartbeat,
         plugins: options.plugins,
-        onListening: (port) =>
-          options.onListening?.({
-            port,
-            connection: { id: connection.id, name: connection.name },
-          }) ?? Effect.void,
       });
       if (ended._tag === 'Forgotten')
         return yield* new ConnectionStopped({
