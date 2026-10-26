@@ -8,6 +8,7 @@ import * as Confirm from '../../../ui/confirm/index.ts';
 import { PageMachine } from '../../machines/index.ts';
 import { ProjectLive } from './actor.ts';
 import { Draft } from './draft/index.ts';
+import { DraftFor, FolderMissing } from './missing.tsx';
 import { Session as SessionPage } from './session/index.ts';
 import { NewSessionBody } from './starter/index.ts';
 
@@ -16,7 +17,9 @@ import { NewSessionBody } from './starter/index.ts';
  * Draft (`draft/`) where the first message goes. Its sessions are in the
  * sidebar and the Session Switcher, not here.
  * Removing the project sits quietly above, and asks first. Its name and
- * path are in the header.
+ * path are in the header. A project whose folder is missing says so above
+ * the Draft, with Remove beside it, and starts no new session; its
+ * sessions stay readable.
  */
 
 const link =
@@ -94,24 +97,36 @@ function NewSession({
   send,
   project,
 }: Pick<Self, 'model' | 'children' | 'send'> & {
-  readonly project: { readonly name: string; readonly path: string } | null;
+  readonly project: {
+    readonly name: string;
+    readonly path: string;
+    readonly folder: 'present' | 'missing';
+  } | null;
 }) {
   const page = keys.useFocusSpot('content', 'page', { default: true });
+  const missing = project?.folder === 'missing';
+  const remove = project && (
+    <RemoveProject
+      name={project.name}
+      missing={missing}
+      removal={model.removal}
+      onConfirm={(open) => send({ _tag: 'ConfirmToggled', open })}
+      onRemove={() => send({ _tag: 'RemoveAsked' })}
+    />
+  );
   return (
     <NewSessionBody
       path={project?.path ?? null}
       page={page}
-      extra={
-        project && (
-          <RemoveProject
-            name={project.name}
-            removal={model.removal}
-            onConfirm={(open) => send({ _tag: 'ConfirmToggled', open })}
-            onRemove={() => send({ _tag: 'RemoveAsked' })}
-          />
+      about={missing && <FolderMissing path={project.path} remove={remove} />}
+      extra={!missing && remove}
+      draft={
+        children.draft && (
+          <DraftFor missing={missing}>
+            <Draft.view instance={children.draft} />
+          </DraftFor>
         )
       }
-      draft={children.draft && <Draft.view instance={children.draft} />}
     />
   );
 }
@@ -122,11 +137,14 @@ function NewSession({
  */
 function RemoveProject({
   name,
+  missing,
   removal,
   onConfirm,
   onRemove,
 }: {
   readonly name: string;
+  /** Its folder is missing: Remove is the way on, so it is not quiet. */
+  readonly missing: boolean;
   readonly removal: {
     readonly confirming: boolean;
     readonly removing: boolean;
@@ -138,12 +156,16 @@ function RemoveProject({
   const open = Confirm.useOpen();
   const spot = keys.useFocusSpot('content', 'remove project');
   return (
-    <div className="flex justify-end">
+    <div className={missing ? 'shrink-0' : 'flex justify-end'}>
       <Button
         ref={spot}
-        variant="ghost"
-        size="xs"
-        className="text-muted-foreground hover:text-destructive"
+        variant={missing ? 'outline' : 'ghost'}
+        size={missing ? 'sm' : 'xs'}
+        className={
+          missing
+            ? 'h-11 text-destructive keyboard:h-8'
+            : 'text-muted-foreground hover:text-destructive'
+        }
         onClick={() => open(() => onConfirm(true))}
       >
         <Trash2Icon aria-hidden />
@@ -152,7 +174,11 @@ function RemoveProject({
       <Confirm.Dialog
         open={removal.confirming}
         title={`Remove ${name}?`}
-        description="Its sessions leave this app. The folder and its files stay exactly as they are."
+        description={
+          missing
+            ? 'Its sessions leave this app.'
+            : 'Its sessions leave this app. The folder and its files stay exactly as they are.'
+        }
         problem={removal.problem}
         busy={removal.removing}
         keep="Keep it"
