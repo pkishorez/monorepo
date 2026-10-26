@@ -41,15 +41,17 @@ export const forkSession = Command.make('ForkSession', {
 export const markSeen = Command.make('MarkSeen', {
   args: Schema.Struct({
     machineId: Schema.String,
+    projectId: Schema.String,
     sessionId: Schema.String,
     seen: Schema.Finite,
   }),
-  run: ({ machineId, sessionId, seen }) =>
+  run: ({ machineId, projectId, sessionId, seen }) =>
     Effect.gen(function* () {
       const accountId = yield* (yield* Machines).account;
       yield* (yield* DeviceState).markSeen(
         accountId,
         machineId,
+        projectId,
         sessionId,
         seen,
       );

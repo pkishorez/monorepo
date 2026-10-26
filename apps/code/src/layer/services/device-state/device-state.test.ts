@@ -130,9 +130,9 @@ describe('Device State', () => {
     const read = await run(
       Effect.gen(function* () {
         const device = yield* store;
-        yield* device.markSeen('a1', 'm1', 's1', 20);
-        yield* device.markSeen('a1', 'm1', 's1', 10);
-        yield* device.markSeen('a1', 'm1', 's2', 0);
+        yield* device.markSeen('a1', 'm1', 'p1', 's1', 20);
+        yield* device.markSeen('a1', 'm1', 'p1', 's1', 10);
+        yield* device.markSeen('a1', 'm1', 'p1', 's2', 0);
         return yield* device.read;
       }),
     );
@@ -143,8 +143,8 @@ describe('Device State', () => {
     const read = await run(
       Effect.gen(function* () {
         const device = yield* store;
-        yield* device.markSeen('a1', 'm1', 's1', 20);
-        yield* device.markSeen('a1', 'm2', 's1', 5);
+        yield* device.markSeen('a1', 'm1', 'p1', 's1', 20);
+        yield* device.markSeen('a1', 'm2', 'p1', 's1', 5);
         return yield* device.read;
       }),
     );
@@ -155,10 +155,10 @@ describe('Device State', () => {
     const read = await run(
       Effect.gen(function* () {
         const device = yield* store;
-        yield* device.markSeen('a1', 'm1', 's1', 1);
-        yield* device.markSeen('a1', 'm2', 's1', 2);
-        yield* device.markSeen('a1', 'm3', 's1', 3);
-        yield* device.markSeen('a2', 'm4', 's1', 4);
+        yield* device.markSeen('a1', 'm1', 'p1', 's1', 1);
+        yield* device.markSeen('a1', 'm2', 'p1', 's1', 2);
+        yield* device.markSeen('a1', 'm3', 'p1', 's1', 3);
+        yield* device.markSeen('a2', 'm4', 'p1', 's1', 4);
         yield* device.drop({
           _tag: 'Machine',
           accountId: 'a1',
@@ -174,6 +174,24 @@ describe('Device State', () => {
       }),
     );
     expect(read.unseen).toEqual({ m3: { s1: 3 } });
+  });
+
+  it("deletes a removed Project's Unseen marks, and no other Project's", async () => {
+    const read = await run(
+      Effect.gen(function* () {
+        const device = yield* store;
+        yield* device.markSeen('a1', 'm1', 'p1', 's1', 1);
+        yield* device.markSeen('a1', 'm1', 'p2', 's2', 2);
+        yield* device.markSeen('a1', 'm2', 'p1', 's3', 3);
+        yield* device.drop({
+          _tag: 'Project',
+          machineId: 'm1',
+          projectId: 'p1',
+        });
+        return yield* device.read;
+      }),
+    );
+    expect(read.unseen).toEqual({ m1: { s2: 2 }, m2: { s3: 3 } });
   });
 
   it('is heard after every write', async () => {
@@ -208,7 +226,7 @@ describe('Device State across tabs', () => {
       Effect.gen(function* () {
         yield* tab(
           Effect.flatMap(store, (device) =>
-            device.markSeen('a1', 'm1', sessionId, 100),
+            device.markSeen('a1', 'm1', 'p1', sessionId, 100),
           ),
         );
         // Both read 100; whichever writes last must not take the mark back.
@@ -216,7 +234,7 @@ describe('Device State across tabs', () => {
           [one, two].map((seen) =>
             tab(
               Effect.flatMap(store, (device) =>
-                device.markSeen('a1', 'm1', sessionId, seen!),
+                device.markSeen('a1', 'm1', 'p1', sessionId, seen!),
               ),
             ),
           ),
