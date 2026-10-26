@@ -23,6 +23,7 @@ export { refreshKit } from './refresh.ts';
 export { removeProject } from './remove.ts';
 export {
   across,
+  arrival,
   everything,
   instanceOf,
   lineage,

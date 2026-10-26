@@ -12,8 +12,9 @@ import { Query } from '@kestack/std-toolkit/replica';
  * Projects and sessions sync whole while the app runs; a session's
  * messages sync only while `Messages` filters on its id, which opens that
  * session's Window. `everything` follows every project and session for a
- * Worker, which hands them to a Picker while it is open, and `lineage` one
- * session and the ones it was forked from, for a page's Worker.
+ * Worker, which hands them to a Picker while it is open, `lineage` one
+ * session and the ones it was forked from, for a page's Worker, and
+ * `arrival` waits for one session to be held.
  */
 
 /** A record as read from one Machine: its own fields, and the Machine's id. */
@@ -212,6 +213,33 @@ export const everything = (machineIds: ReadonlyArray<string>) =>
       ),
     ),
   ).pipe(Stream.orDie);
+
+/** Ends once the device holds the Session of one Machine with this id. */
+export const arrival = (machineId: string, sessionId: string) =>
+  Stream.unwrap(
+    Effect.map(CodeReplica.get(machineId), (ai) =>
+      Stream.callback<boolean>(
+        (queue) =>
+          Effect.acquireRelease(
+            Effect.sync(() => {
+              const held = () => ai.sessions.get(sessionId) !== undefined;
+              Queue.offerUnsafe(queue, held());
+              return onChange(ai.sessions, () =>
+                Queue.offerUnsafe(queue, held()),
+              );
+            }),
+            // However it ends: there, timed out or stopped.
+            (subscription) => Effect.sync(() => subscription.unsubscribe()),
+          ),
+        { bufferSize: 1, strategy: 'sliding' },
+      ),
+    ),
+  ).pipe(
+    Stream.filter((held) => held),
+    Stream.runHead,
+    Effect.asVoid,
+    Effect.orDie,
+  );
 
 /**
  * A Session of one Machine and every Session it was forked from, nearest

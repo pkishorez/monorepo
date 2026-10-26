@@ -427,6 +427,113 @@ describe('Engine', () => {
     );
   });
 
+  it('starts a session under the id the App chose, and asked again with it, starts nothing new', async () => {
+    const fake = makeFakeHarness();
+    await run(
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const store = yield* Store;
+        const project = yield* engine.addProject(folder());
+        const ask = {
+          id: '01J0Z8Q3VQ4N7Y2K5R6T8W9XAB',
+          projectId: project.id,
+          account: 'claude',
+          model: 'claude-test',
+          settings: {},
+          text: 'hello',
+          attachments: [],
+        };
+        const first = yield* engine.startSession(ask);
+        expect(first.id).toBe(ask.id);
+        yield* eventually(async () =>
+          expect((await Effect.runPromise(store.session(ask.id)))?.status).toBe(
+            'idle',
+          ),
+        );
+        // Asked again: that one, as it is now, and nothing started.
+        const again = yield* engine.startSession({ ...ask, text: 'twice' });
+        expect(again).toMatchObject({ id: ask.id, status: 'idle' });
+        const { items } = yield* store.sessions.after(null);
+        expect(items.filter(({ value }) => value.id === ask.id)).toHaveLength(
+          1,
+        );
+        const raws = yield* Effect.promise(() => rawsOf(store, ask.id));
+        expect(raws.filter((raw) => raw.kind === 'turn.started')).toHaveLength(
+          1,
+        );
+      }),
+      fake,
+    );
+  });
+
+  it('starts one session for two starts asked at once under one id, in one project or two', async () => {
+    const fake = makeFakeHarness();
+    await run(
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const store = yield* Store;
+        const project = yield* engine.addProject(folder());
+        const other = yield* engine.addProject(folder());
+        const ask = {
+          id: '01J0Z8Q3VQ4N7Y2K5R6T8W9XCD',
+          projectId: project.id,
+          account: 'claude',
+          model: 'claude-test',
+          settings: {},
+          text: 'hello',
+          attachments: [{ name: 'a.txt', mime: 'text/plain', data: btoa('a') }],
+        };
+        const [one, two, three] = yield* Effect.all(
+          [
+            engine.startSession(ask),
+            engine.startSession(ask),
+            engine.startSession({ ...ask, projectId: other.id }),
+          ],
+          { concurrency: 'unbounded' },
+        );
+        expect(one.id).toBe(ask.id);
+        expect(two.id).toBe(ask.id);
+        expect(three.id).not.toBe(ask.id);
+        expect(three.projectId).toBe(other.id);
+        const { items } = yield* store.sessions.after(null);
+        expect(items.filter(({ value }) => value.id === ask.id)).toHaveLength(
+          1,
+        );
+      }),
+      fake,
+    );
+  });
+
+  it('chooses its own id for one that is no ULID, or is another project’s session’s', async () => {
+    const fake = makeFakeHarness();
+    await run(
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const project = yield* engine.addProject(folder());
+        const other = yield* engine.addProject(folder());
+        const ask = {
+          projectId: project.id,
+          account: 'claude',
+          model: 'claude-test',
+          settings: {},
+          text: 'hello',
+          attachments: [],
+        };
+        const odd = yield* engine.startSession({ ...ask, id: '../../outside' });
+        expect(odd.id).not.toBe('../../outside');
+        expect(odd.id).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
+        const elsewhere = yield* engine.startSession({
+          ...ask,
+          projectId: other.id,
+          id: odd.id,
+        });
+        expect(elsewhere.id).not.toBe(odd.id);
+        expect(elsewhere.projectId).toBe(other.id);
+      }),
+      fake,
+    );
+  });
+
   it('removing a project tombstones it and its sessions, and stops the running one', async () => {
     const fake = makeFakeHarness({ hold: true });
     await run(

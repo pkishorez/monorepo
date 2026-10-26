@@ -3,7 +3,12 @@ import { CodeClients } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { Navigation } from '@kestack/kabuki/routing';
 import { Kept, Machines } from '../../../../layer/capabilities/index.ts';
-import { Catalog, SharedCatalog } from '../capabilities/index.ts';
+import { Replicas } from '@kestack/std-toolkit/replica';
+import {
+  Catalog,
+  SessionArrival,
+  SharedCatalog,
+} from '../capabilities/index.ts';
 import { Draft } from '../draft/index.ts';
 
 /*
@@ -22,7 +27,7 @@ const Props = Schema.Struct({
 });
 
 const Starter = Actor.define('Starter', {
-  requires: [CodeClients, Machines, Kept, Navigation],
+  requires: [CodeClients, Machines, Kept, Navigation, Replicas],
   props: Props,
   model: Schema.Struct({ catalog: Catalog.Keeper }),
   message: Schema.TaggedUnion(Catalog.messages),
@@ -41,6 +46,12 @@ export const StarterLive = Actor.build(Starter, {
         ),
       ),
       Layer.succeed(SharedCatalog, catalog.shares(self)),
+      // Its session asked for, its answer lost.
+      Layer.unwrap(
+        Effect.map(self.get, ({ props }) =>
+          SessionArrival.machine(props.machineId),
+        ),
+      ),
     ),
   workers: catalog.workers,
   children: {

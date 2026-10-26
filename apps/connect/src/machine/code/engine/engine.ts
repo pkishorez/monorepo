@@ -1,7 +1,16 @@
 import { realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, resolve } from 'node:path';
-import { Clock, Context, Data, Effect, Layer, Option, Stream } from 'effect';
+import {
+  Clock,
+  Context,
+  Data,
+  Effect,
+  Layer,
+  Option,
+  Semaphore,
+  Stream,
+} from 'effect';
 import { Runtime, type Stopped } from '@kestack/kabuki';
 import { nextUlid } from '@kestack/std-toolkit/core';
 import {
@@ -111,7 +120,18 @@ export interface Send {
   readonly settings?: Readonly<Record<string, string>> | undefined;
 }
 
+/** A ULID as written: 26 of Crockford's base 32, upper case. */
+const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/;
+
 export interface StartSession {
+  /**
+   * Its id, chosen by the App so it knows the Session before the answer:
+   * a ULID, as the Machine's own are, for it names a folder on disk. The
+   * Machine chooses one when it is not given, is not a ULID, or is another
+   * Project's Session's. Asked again with one of this Project's, it starts
+   * nothing and answers with that Session as it is now.
+   */
+  readonly id?: string | undefined;
   readonly projectId: string;
   /** The Harness Account it runs as, and so its harness. */
   readonly account: string;
@@ -273,6 +293,39 @@ const make = (options: EngineOptions) =>
 
     /** Gives a call the Store. */
     const withServices = Effect.provideContext(services);
+    /**
+     * New Sessions asked for under one id admitted one at a time, from
+     * reading whether the id is free to the Session's start, so two asked
+     * at once under it never both start it; others, under other ids or
+     * none, never wait for them. A lock lives while anyone holds or waits
+     * for it.
+     */
+    const locks = new Map<
+      string,
+      { lock: Semaphore.Semaphore; users: number }
+    >();
+    const admitting =
+      (id: string | null) =>
+      <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        id === null
+          ? effect
+          : Effect.acquireUseRelease(
+              Effect.sync(() => {
+                const entry = locks.get(id) ?? {
+                  lock: Semaphore.makeUnsafe(1),
+                  users: 0,
+                };
+                entry.users += 1;
+                locks.set(id, entry);
+                return entry;
+              }),
+              (entry) => entry.lock.withPermits(1)(effect),
+              (entry) =>
+                Effect.sync(() => {
+                  entry.users -= 1;
+                  if (entry.users === 0) locks.delete(id);
+                }),
+            );
 
     const runAs: EngineService['runAs'] = (id) => (effect) =>
       Effect.flatMap(accounts.as(id), (account) =>
@@ -368,36 +421,58 @@ const make = (options: EngineOptions) =>
             : Effect.fail(new ProjectNotFound({ id })),
         ),
 
-      startSession: (input) =>
-        Effect.gen(function* () {
-          const project = projectAt(input.projectId);
-          if (!project)
-            return yield* new ProjectNotFound({ id: input.projectId });
-          const account = yield* harnessAccount(input.account);
-          const now = yield* Clock.currentTimeMillis;
-          const session: Session = {
-            id: yield* nextUlid,
-            projectId: input.projectId,
-            harness: account.harness,
-            account: account.id,
-            model: input.model,
-            settings: { ...input.settings },
-            title: fallbackTitle(input.text),
-            status: 'running',
-            nativeId: null,
-            createdAt: now,
-            forkedFrom: null,
-            settledAt: null,
-            activeAt: now,
-            endedAt: null,
-          };
-          const first = yield* promptOf(session.id, {
-            text: input.text,
-            attachments: input.attachments,
-          });
-          root.send({ _tag: 'StartSession', session, first });
-          return session;
-        }),
+      startSession: (input) => {
+        const chosen =
+          input.id !== undefined && ULID.test(input.id) ? input.id : null;
+        return admitting(chosen)(
+          Effect.gen(function* () {
+            const project = projectAt(input.projectId);
+            if (!project)
+              return yield* new ProjectNotFound({ id: input.projectId });
+            const there =
+              chosen === null
+                ? undefined
+                : root.model.sessions.find(
+                    ({ session }) => session.id === chosen,
+                  );
+            // Asked again, as after an answer that was lost: the one there,
+            // as it is now.
+            if (there !== undefined && there.session.projectId === project.id)
+              return (
+                (yield* Effect.flatMap(Store, (store) =>
+                  store.session(there.session.id),
+                ).pipe(withServices)) ?? there.session
+              );
+            const account = yield* harnessAccount(input.account);
+            const now = yield* Clock.currentTimeMillis;
+            const session: Session = {
+              id:
+                chosen !== null && there === undefined
+                  ? chosen
+                  : yield* nextUlid,
+              projectId: input.projectId,
+              harness: account.harness,
+              account: account.id,
+              model: input.model,
+              settings: { ...input.settings },
+              title: fallbackTitle(input.text),
+              status: 'running',
+              nativeId: null,
+              createdAt: now,
+              forkedFrom: null,
+              settledAt: null,
+              activeAt: now,
+              endedAt: null,
+            };
+            const first = yield* promptOf(session.id, {
+              text: input.text,
+              attachments: input.attachments,
+            });
+            root.send({ _tag: 'StartSession', session, first });
+            return session;
+          }),
+        );
+      },
 
       send,
 

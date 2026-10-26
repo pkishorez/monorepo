@@ -1,5 +1,9 @@
 import { Clock, Deferred, Effect, Layer, Schema, Scope, Stream } from 'effect';
-import { CodeClient, SessionNotFound } from '@kestack/connect/code';
+import {
+  CodeClient,
+  ProjectNotFound,
+  SessionNotFound,
+} from '@kestack/connect/code';
 import { Actor, type Instance, Runtime, type Running } from '@kestack/kabuki';
 import { Navigation } from '@kestack/kabuki/routing';
 import { Accounts, AccountsState } from '@kestack/auth-toolkit/client';
@@ -13,7 +17,11 @@ import {
 } from '../../../../layer/capabilities/index.ts';
 import { savedDraftsMemory } from '../../../../layer/services/index.ts';
 import { session } from '../../../routes/index.ts';
-import { Catalog, SharedCatalog } from '../capabilities/index.ts';
+import {
+  Catalog,
+  SessionArrival,
+  SharedCatalog,
+} from '../capabilities/index.ts';
 import { DraftLive } from './actor.ts';
 
 /*
@@ -142,6 +150,11 @@ const world = (
   saved = savedDraftsMemory(),
   /** What the server does with a start: takes it, or waits to be told. */
   starts: 'take' | Deferred.Deferred<boolean> = 'take',
+  /** How a start told no fails: the Machine refusing it, or otherwise. */
+  failure: () => Effect.Effect<never, unknown> = () =>
+    Effect.fail(new ProjectNotFound({ id: 'p1' })),
+  /** Whether a session asked for, its answer lost, shows among the Machine's. */
+  arrives = true,
 ) => {
   const sent: Array<unknown> = [];
   const asked: Array<unknown> = [];
@@ -179,9 +192,7 @@ const world = (
           const taken =
             starts === 'take' ? Effect.succeed(true) : Deferred.await(starts);
           return Effect.flatMap(taken, (ok) =>
-            ok
-              ? Effect.succeed({ id: 's9' })
-              : Effect.fail(new SessionNotFound({ id: 's9' })),
+            ok ? Effect.succeed({ id: 's9' }) : failure(),
           );
         })) as unknown as Api['startSession'],
     }),
@@ -189,6 +200,7 @@ const world = (
       changes: Stream.concat(Stream.make(CATALOG), Stream.never),
       retry: Effect.void,
     }),
+    Layer.succeed(SessionArrival, { arrived: () => Effect.succeed(arrives) }),
     Layer.mock(Navigation)({
       push: (to) => Effect.sync(() => void pushed.push(to)),
     }),
@@ -468,6 +480,7 @@ describe('Draft', () => {
         yield* say(app, 'Fix the build');
         expect(started).toEqual([
           {
+            id: expect.any(String),
             projectId: 'p1',
             account: 'claude',
             model: 'opus',
@@ -477,6 +490,71 @@ describe('Draft', () => {
           },
         ]);
         expect(pushed).toEqual([session('m1', 'p1', 's9')]);
+      }),
+    ));
+
+  it('stays and says why when the Machine refuses a start, as nothing was started', () =>
+    run(
+      Effect.gen(function* () {
+        const starts = yield* Deferred.make<boolean>();
+        const { layer, pushed } = world('take', savedDraftsMemory(), starts);
+        const app = yield* start('NewSession', layer);
+        yield* wait();
+        yield* say(app, 'Fix the build');
+        yield* Deferred.succeed(starts, false);
+        yield* wait();
+        expect(pushed).toEqual([]);
+        expect(modelOf(app).starting).toBe(false);
+        expect(modelOf(app).problem).not.toBeNull();
+      }),
+    ));
+
+  it('moves to the session it asked for once it shows, its answer lost or unreadable', async () => {
+    const failures = [
+      () => Effect.fail(new Error('the line went down')),
+      () => Effect.die(new Error('the answer could not be read')),
+    ];
+    for (const failure of failures)
+      await run(
+        Effect.gen(function* () {
+          const starts = yield* Deferred.make<boolean>();
+          const { layer, started, pushed } = world(
+            'take',
+            savedDraftsMemory(),
+            starts,
+            failure,
+          );
+          const app = yield* start('NewSession', layer);
+          yield* wait();
+          yield* say(app, 'Fix the build');
+          yield* Deferred.succeed(starts, false);
+          yield* wait();
+          const { id } = started[0] as { readonly id: string };
+          expect(pushed).toEqual([session('m1', 'p1', id)]);
+        }),
+      );
+  });
+
+  it('stays, says why and keeps what was written when the session it asked for never shows', () =>
+    run(
+      Effect.gen(function* () {
+        const starts = yield* Deferred.make<boolean>();
+        const { layer, pushed } = world(
+          'take',
+          savedDraftsMemory(),
+          starts,
+          () => Effect.fail(new Error('the line went down')),
+          false,
+        );
+        const app = yield* start('NewSession', layer);
+        yield* wait();
+        yield* say(app, 'Fix the build');
+        yield* Deferred.succeed(starts, false);
+        yield* wait();
+        expect(pushed).toEqual([]);
+        expect(modelOf(app).starting).toBe(false);
+        expect(modelOf(app).problem).not.toBeNull();
+        expect(textOf(app, 'Message')).toBe('Fix the build');
       }),
     ));
 

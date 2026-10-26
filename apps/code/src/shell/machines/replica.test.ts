@@ -3,7 +3,7 @@ import { Effect, Fiber, Layer, Stream } from 'effect';
 import type { Project, Session } from '@kestack/connect/code';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { describe, expect, it } from 'vitest';
-import { type Everything, everything, lineage } from './replica.ts';
+import { arrival, type Everything, everything, lineage } from './replica.ts';
 
 /*
  * What a Worker follows of the Machines, as the Replica shows it: a
@@ -183,6 +183,51 @@ describe('every Project and Session of a Machine, followed', () => {
           yield* tick;
           expect(seen.at(-1)!.map(({ id }) => id)).toEqual(['fork']);
           yield* Fiber.interrupt(reading);
+        }),
+      ).pipe(Effect.provide(replicas)),
+    );
+  });
+
+  it('waits for a Session to be held, there already or to come, and leaves nothing listening', async () => {
+    const { sessions, replicas } = machine();
+    sessions.write({ type: 'insert', value: session('there') });
+    // Counts what listens to the Sessions, as it subscribes and lets go.
+    let listening = 0;
+    const subscribe = sessions.collection.subscribeChanges.bind(
+      sessions.collection,
+    );
+    sessions.collection.subscribeChanges = ((
+      ...args: Parameters<typeof subscribe>
+    ) => {
+      listening += 1;
+      const subscription = subscribe(...args);
+      return {
+        ...subscription,
+        unsubscribe: () => {
+          listening -= 1;
+          subscription.unsubscribe();
+        },
+      };
+    }) as typeof subscribe;
+
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          yield* arrival('m1', 'there');
+          expect(listening).toBe(0);
+
+          const waiting = yield* Effect.forkScoped(arrival('m1', 'coming'));
+          yield* tick;
+          expect(waiting.pollUnsafe()).toBeUndefined();
+          expect(listening).toBe(1);
+          sessions.write({ type: 'insert', value: session('coming') });
+          yield* Fiber.join(waiting);
+          expect(listening).toBe(0);
+
+          const never = yield* Effect.forkScoped(arrival('m1', 'never'));
+          yield* tick;
+          yield* Fiber.interrupt(never);
+          expect(listening).toBe(0);
         }),
       ).pipe(Effect.provide(replicas)),
     );

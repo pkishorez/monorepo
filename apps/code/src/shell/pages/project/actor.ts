@@ -10,7 +10,12 @@ import {
 } from '../../../layer/capabilities/index.ts';
 import { home } from '../../routes/index.ts';
 import { Refused, ProjectRow, removeProject } from '../../machines/index.ts';
-import { Catalog, SharedCatalog } from './capabilities/index.ts';
+import { Replicas } from '@kestack/std-toolkit/replica';
+import {
+  Catalog,
+  SessionArrival,
+  SharedCatalog,
+} from './capabilities/index.ts';
 import { Draft } from './draft/index.ts';
 import { Session } from './session/index.ts';
 
@@ -57,6 +62,7 @@ export const Project = Page.define({
     SavedDrafts,
     AccountReplicas,
     DeviceState,
+    Replicas,
   ],
   pages: { Session: Session.page },
   model: Model,
@@ -94,6 +100,12 @@ export const ProjectLive = Page.build(Project, {
       ),
       // 1. Catalog, for the pages under it.
       Layer.succeed(SharedCatalog, catalog.shares(self)),
+      // A new session its Draft asked for, its answer lost.
+      Layer.unwrap(
+        Effect.map(self.get, ({ props }) =>
+          SessionArrival.machine(props.params.machineId),
+        ),
+      ),
     ),
   workers: {
     // 0. Machine: whether the Account's list still has it.

@@ -1,12 +1,13 @@
-import { Effect, Schema } from 'effect';
+import { Cause, Effect, Schema } from 'effect';
 import {
   type AskAnswer,
   AttachmentSchema,
   CodeClient,
 } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
-import { orRefused, reasonOf } from '../../../../machines/index.ts';
-import { SharedCatalog } from '../../capabilities/index.ts';
+import { nextUlid } from '@kestack/std-toolkit/core';
+import { reasonOf } from '../../../../machines/index.ts';
+import { SessionArrival, SharedCatalog } from '../../capabilities/index.ts';
 import { Attached, wire } from '../message.ts';
 
 /*
@@ -16,7 +17,16 @@ import { Attached, wire } from '../message.ts';
  * again.
  */
 
-/** Starts a session already running its first message. */
+/**
+ * Starts a session already running its first message, under an id chosen
+ * here, so the session is known whatever the answer. Started, it is moved
+ * to. Refused by the Machine, for a project or an agent it does not have,
+ * nothing was started, and the Draft says why. Any other way it ends, its
+ * answer lost or the line down, it may well have started: it is moved to
+ * once it shows among the Machine's sessions (`SessionArrival`), and if it
+ * never does, the Draft says why, keeping what was written. Never asked
+ * again, so it never starts twice, whatever Connect the Machine runs.
+ */
 export const startSession = Command.make('StartSession', {
   args: Schema.Struct({
     projectId: Schema.String,
@@ -28,20 +38,60 @@ export const startSession = Command.make('StartSession', {
     attachments: Schema.Array(AttachmentSchema),
   }),
   run: (args) =>
-    orRefused(
-      CodeClient.use((api) => api.startSession(args)),
-      (session) => ({
+    Effect.gen(function* () {
+      const id = yield* nextUlid;
+      const started = (sessionId: string) => ({
         _tag: 'Started' as const,
-        sessionId: session.id,
-      }),
-    ).pipe(
-      Effect.map((ended) =>
-        ended._tag === 'Refused'
-          ? { _tag: 'StartRefused' as const, reason: ended.reason }
-          : ended,
-      ),
-    ),
+        sessionId,
+      });
+      const refused = (cause: Cause.Cause<unknown>) => ({
+        _tag: 'StartRefused' as const,
+        reason: whyOf(cause),
+      });
+      return yield* CodeClient.use((api) =>
+        api.startSession({ ...args, id }),
+      ).pipe(
+        Effect.map((session) => started(session.id)),
+        // Every way it fails, a lost answer's defect too; stopped, it ends.
+        Effect.catchCause((cause) =>
+          Cause.hasInterruptsOnly(cause)
+            ? Effect.interrupt
+            : refusedByMachine(Cause.squash(cause))
+              ? Effect.succeed(refused(cause))
+              : Effect.map(
+                  Effect.flatMap(SessionArrival, ({ arrived }) => arrived(id)),
+                  (came) => (came ? started(id) : refused(cause)),
+                ),
+        ),
+      );
+    }),
 });
+
+/** A refusal the Machine made itself, so nothing was started. */
+const refusedByMachine = (error: unknown) =>
+  typeof error === 'object' &&
+  error !== null &&
+  '_tag' in error &&
+  (error._tag === 'ProjectNotFound' || error._tag === 'UnknownAccount');
+
+/** Why a start failed, as a person reads it. */
+const whyOf = (cause: Cause.Cause<unknown>) => {
+  const error = Cause.squash(cause);
+  return typeof error === 'object' &&
+    error !== null &&
+    '_tag' in error &&
+    typeof error._tag === 'string' &&
+    error._tag in REASONED
+    ? reasonOf(error as Parameters<typeof reasonOf>[0])
+    : 'The Machine could not be reached to start it';
+};
+
+/** The failures `reasonOf` reads. */
+const REASONED = {
+  ProjectNotFound: true,
+  UnknownAccount: true,
+  RpcClientError: true,
+};
 
 /**
  * A message to the session. Refused, its text and files come back to the

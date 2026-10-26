@@ -26,6 +26,16 @@ export const SessionsRpc = RpcGroup.make(
   /** Starts a Session, already running its first message. */
   Rpc.make('startSession', {
     payload: {
+      /**
+       * Its id, chosen by the App so it knows the Session before the
+       * answer: a ULID. The Machine chooses one when it is not given, or
+       * is another Project's Session's. Asked again with one of this
+       * Project's, it starts nothing and answers with that Session as it
+       * is now.
+       */
+      id: Schema.optionalKey(
+        Schema.String.check(Schema.isPattern(/^[0-9A-HJKMNP-TV-Z]{26}$/)),
+      ),
       projectId: Schema.String,
       /** The Harness Account it runs as, and so its harness. */
       account: Schema.String,

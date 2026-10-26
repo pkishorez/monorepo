@@ -10,7 +10,11 @@ import {
   SavedDrafts,
   Written,
 } from '../../../../layer/capabilities/index.ts';
-import { Catalog, SharedCatalog } from '../capabilities/index.ts';
+import {
+  Catalog,
+  SessionArrival,
+  SharedCatalog,
+} from '../capabilities/index.ts';
 import { retryCatalog } from './send/commands.ts';
 import { Attached, Insert } from './message.ts';
 import { DraftMode, type Mode } from './mode/index.ts';
@@ -38,8 +42,10 @@ import { SkillPicker } from './picks/skills.ts';
  *           sets a setting in place. The skills Picker puts a `/name` in.
  *           One Picker is open at a time, each a fresh one.
  * 2. Send   a mode hands its text up (`send.ts`). A new session's Draft
- *           starts the session, already running its first message, and the
- *           app moves to it. A Session's Message goes to the server, which
+ *           starts the session, already running its first message, under
+ *           an id it chose, and the app moves to it once it is there: as
+ *           the Machine answers or, the answer lost, as it shows among the
+ *           Machine's sessions. Refused, or never there, it stays. A Session's Message goes to the server, which
  *           starts a turn or steers the running one; refused, its files
  *           and its text come back. A Side Question is asked on the side,
  *           answered by the Session's own agent, a new one replacing the
@@ -167,7 +173,14 @@ const Message = Schema.TaggedUnion({
 });
 
 const Draft = Actor.define('Draft', {
-  requires: [CodeClient, SharedCatalog, Navigation, SavedDrafts, Accounts],
+  requires: [
+    CodeClient,
+    SharedCatalog,
+    SessionArrival,
+    Navigation,
+    SavedDrafts,
+    Accounts,
+  ],
   props: Props,
   model: Model,
   message: Message,
