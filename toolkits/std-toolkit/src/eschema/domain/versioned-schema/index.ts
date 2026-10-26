@@ -1,1 +1,1 @@
-export { versionedSchema } from './versioned-schema.js';
+export { eschemaOf, versionedSchema } from './versioned-schema.js';

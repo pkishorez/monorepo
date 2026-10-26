@@ -43,7 +43,7 @@ const ConfigFolder = Schema.toType(
 );
 
 const Props = Schema.Struct({
-  account: Schema.NullOr(HarnessAccountInfo),
+  account: Schema.NullOr(HarnessAccountInfo.schema),
   /**
    * The config folder an account of this agent with none runs with, as
    * its Default Account with none says; null when that is not known.

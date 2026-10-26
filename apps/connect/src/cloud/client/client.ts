@@ -2,6 +2,7 @@ import { Context, Effect, Layer, Schema } from 'effect';
 import { RpcClient, type RpcClientError } from 'effect/rpc';
 import { client } from '@kestack/rpc-toolkit/rpc/http';
 import { AUTH_PATH, AuthInfo, CloudApi, RPC_PATH } from '../contract/index.js';
+import { versionedClient, type VersionGap } from './version-gap.js';
 
 /*
  * Cloud Connect as a client calls it: the RPC over HTTP at `<cloud>/rpc`,
@@ -16,11 +17,14 @@ const at = (base: string, path: string) => `${base.replace(/\/+$/, '')}${path}`;
 
 export class CloudClient extends Context.Service<
   CloudClient,
-  RpcClient.FromGroup<typeof CloudApi, RpcClientError.RpcClientError>
+  RpcClient.FromGroup<
+    typeof CloudApi,
+    RpcClientError.RpcClientError | VersionGap
+  >
 >()('@kestack/connect/CloudClient') {
   /** Cloud Connect at `cloud`, its base URL such as `https://connect.kishore.app`. */
   static readonly layer = (cloud: string) =>
-    Layer.effect(CloudClient, RpcClient.make(CloudApi)).pipe(
+    Layer.effect(CloudClient, versionedClient(CloudApi)).pipe(
       Layer.provide(client(CloudApi, { url: at(cloud, RPC_PATH) })),
     );
 }
@@ -50,7 +54,7 @@ export const authInfo = (cloud: string) =>
   }).pipe(
     Effect.flatMap((body) =>
       Effect.mapError(
-        Schema.decodeUnknownEffect(AuthInfo)(body),
+        Schema.decodeUnknownEffect(AuthInfo.schema)(body),
         (cause) => new Error(`${cloud} gave no AuthInfo`, { cause }),
       ),
     ),

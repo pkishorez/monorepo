@@ -12,6 +12,7 @@ import type {
   StructFieldsType,
   StructFieldsEncoded,
   StructFieldsSchema,
+  VersionedCodec,
 } from '../domain/schema-model/index.js';
 import { INITIAL_VERSION } from '../domain/schema-model/index.js';
 import { makeObjectSchemaRuntime } from '../domain/object-schema-runtime/index.js';
@@ -103,7 +104,7 @@ export class EntityESchema<
     return this.#runtime.fields();
   }
 
-  get schema(): Schema.Codec<this['Type'], this['Encoded']> {
+  get schema(): VersionedCodec<this['Type'], this['Encoded']> {
     return versionedSchema(this);
   }
 

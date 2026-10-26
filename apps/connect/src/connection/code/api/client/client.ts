@@ -12,6 +12,10 @@ import type { Entity } from '@kestack/std-toolkit/core';
 import { oldToNew, Replica, Replicas } from '@kestack/std-toolkit/replica';
 import { CodeApi, type WireEntity } from '../contract/index.js';
 import {
+  versionedClient,
+  type VersionGap,
+} from '../../../../cloud/client/index.js';
+import {
   MessageSchema,
   PROJECTION_VERSION,
 } from '@kestack/ai-toolkit/contract';
@@ -52,7 +56,10 @@ const protocolsOf = (key: string | undefined): ReadonlyArray<string> =>
 
 export class CodeClient extends Context.Service<
   CodeClient,
-  RpcClient.FromGroup<typeof CodeApi, RpcClientError.RpcClientError>
+  RpcClient.FromGroup<
+    typeof CodeApi,
+    RpcClientError.RpcClientError | VersionGap
+  >
 >()('@kestack/connect/CodeClient') {
   /**
    * The API at `url`, an absolute `ws(s)://…/rpc` or a path in a browser,
@@ -62,7 +69,7 @@ export class CodeClient extends Context.Service<
     url: string,
     options?: { readonly key?: string | undefined },
   ) =>
-    Layer.effect(CodeClient, RpcClient.make(CodeApi)).pipe(
+    Layer.effect(CodeClient, versionedClient(CodeApi)).pipe(
       Layer.provideMerge(
         client(CodeApi, {
           url,
@@ -96,7 +103,7 @@ export type ConnectionClient = Context.Context<CodeClient | RpcConnection>;
 
 /** One Connection's socket, at the address `of` gives for it on each connect. */
 const socketTo = (of: Effect.Effect<Address>) =>
-  Layer.effect(CodeClient, RpcClient.make(CodeApi)).pipe(
+  Layer.effect(CodeClient, versionedClient(CodeApi)).pipe(
     Layer.provideMerge(
       client(CodeApi, {
         url: Effect.map(of, ({ url }) => url),
@@ -201,8 +208,8 @@ export const link = Stream.map(status, (now) => linkOf[now]);
 
 type Wire = Entity<unknown>;
 
-const newer = (current: Wire | null, batch: ReadonlyArray<Wire>) =>
-  batch.reduce<Wire | null>(
+const newer = (current: WireEntity | null, batch: ReadonlyArray<WireEntity>) =>
+  batch.reduce<WireEntity | null>(
     (newest, entity) =>
       newest === null || entity.meta._u > newest.meta._u ? entity : newest,
     current,
@@ -226,7 +233,8 @@ const resumable =
       key,
       Stream.unwrap(
         Effect.map(CodeClient, (api) => {
-          let cursor = after;
+          // The Replica's cursor is an entity a feed sent: never empty.
+          let cursor = after as WireEntity | null;
           return keepSubscribed(() => open(api, cursor)).pipe(
             Stream.tap((batch) =>
               Effect.sync(() => {

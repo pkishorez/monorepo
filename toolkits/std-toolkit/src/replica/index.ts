@@ -8,3 +8,4 @@ export {
   Replicas,
   Store,
 } from './replica.js';
+export { OnOutdated } from './replicas/instance/index.js';

@@ -51,7 +51,7 @@ export const SkillsRead = Read(SkillSchema);
 
 /** The catalog as it is shared. */
 export const Catalog = Schema.Struct({
-  harnesses: Schema.NullOr(Schema.Array(HarnessInfo)),
+  harnesses: Schema.NullOr(Schema.Array(HarnessInfo.schema)),
   /** Why the agents could not be read. */
   problem: Schema.NullOr(Schema.String),
   models: Schema.Array(ModelsRead),

@@ -82,7 +82,7 @@ export type QuestionItem = typeof QuestionItemSchema.Type;
 export const AgentQuestionSchema = Schema.Struct({
   /** The harness's own id: a Claude tool call id, a Codex item id. */
   id: Schema.String,
-  items: Schema.NonEmptyArray(QuestionItemSchema),
+  items: Schema.Array(QuestionItemSchema).check(Schema.isMinLength(1)),
   /** Epoch ms. */
   askedAt: Schema.Finite,
 });

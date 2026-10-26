@@ -259,6 +259,7 @@ The PWA on the page.
 | `PwaProvider`           | Registers the worker after mount and gives `usePwa` its Status; `Pwa` renders it.                                                   |
 | `pwaHead`               | Head tags: manifest link, Apple icon, and meta tags for the Build ID, build time and commit.                                        |
 | `usePwa`                | The Status with `checkForUpdate` and `applyUpdate` (`Unsupported` before mount), and the page's `version`.                          |
+| `updateToNewest`        | Once per page load, from anywhere: checks for a newer build and applies it once downloaded, so every page reloads into it.          |
 | `clearRuntimeCache`     | Deletes every Runtime Cache; works outside `PwaProvider`, for example in sign-out.                                                  |
 | `UpdatePrompt`          | Persistent toast while an update is ready; accepting it reloads every page into it.                                                 |
 | `splashHead`            | The iOS startup image tags, one per screen iOS matches.                                                                             |

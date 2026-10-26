@@ -11,3 +11,4 @@ export {
   type Opened,
   type WindowMap,
 } from './instance.js';
+export { OnOutdated } from './syncing.js';

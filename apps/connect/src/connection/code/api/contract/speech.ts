@@ -1,6 +1,8 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
+import { ESchema, ValueESchema } from '@kestack/std-toolkit/eschema';
 import { SpeechToTextNotReady, TranscriptionFailed } from './errors.js';
+import { tagged } from './wire.js';
 
 /*
  * Speech to Text, on this Connection (ADR 0017): switched on and off, how it
@@ -9,14 +11,20 @@ import { SpeechToTextNotReady, TranscriptionFailed } from './errors.js';
  */
 
 /** How Speech to Text stands on this Connection. */
-export const SpeechToTextState = Schema.TaggedUnion({
-  Off: {},
-  /** Bytes of the model downloaded, of `total` once the server says it. */
-  Downloading: { done: Schema.Number, total: Schema.NullOr(Schema.Number) },
-  Ready: {},
-  /** Enabling again tries again. */
-  Failed: { reason: Schema.String },
-});
+export const SpeechToTextState = ValueESchema.make(
+  'SpeechToTextState',
+  Schema.Union([
+    tagged('Off', {}),
+    /** Bytes of the model downloaded, of `total` once the server says it. */
+    tagged('Downloading', {
+      done: Schema.Finite,
+      total: Schema.NullOr(Schema.Finite),
+    }),
+    tagged('Ready', {}),
+    /** Enabling again tries again. */
+    tagged('Failed', { reason: Schema.String }),
+  ]),
+).build();
 export type SpeechToTextState = typeof SpeechToTextState.Type;
 
 export const SpeechRpc = RpcGroup.make(
@@ -29,13 +37,18 @@ export const SpeechRpc = RpcGroup.make(
   /** Switches it off, deleting the model and the wish. */
   Rpc.make('disableSpeechToText'),
   /** How it stands now, then each change. */
-  Rpc.make('watchSpeechToText', { success: SpeechToTextState, stream: true }),
+  Rpc.make('watchSpeechToText', {
+    success: SpeechToTextState.schema,
+    stream: true,
+  }),
   /**
    * The text spoken in one clip: 16 kHz mono PCM, each sample 16-bit
    * signed little-endian. The model loads on the first one and stays.
    */
   Rpc.make('transcribe', {
-    payload: { audio: Schema.Uint8Array },
+    payload: ESchema.make('TranscribePayload', {
+      audio: Schema.Uint8ArrayFromBase64,
+    }).build().schema,
     success: Schema.String,
     error: Schema.Union([SpeechToTextNotReady, TranscriptionFailed]),
   }),

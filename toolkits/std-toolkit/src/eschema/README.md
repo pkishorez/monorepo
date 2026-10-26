@@ -16,18 +16,19 @@ See the [top README](../../README.md).
 
 ### `@kestack/std-toolkit/eschema`
 
-| Export                | What it does                                                                                      |
-| --------------------- | ------------------------------------------------------------------------------------------------- |
-| `ESchema.make`        | Starts a builder for a named object schema; chain `evolve`, then `build`.                         |
-| `EntityESchema.make`  | Starts a builder for a keyed entity schema with a name and an id field.                           |
-| `ValueESchema.make`   | Starts a builder for a versioned single value.                                                    |
-| `ESchema.fromType`    | Declares a field typed as `T` with no runtime check; use only for values eschema cannot describe. |
-| `ESchema.id`          | Marks a `Schema.String` field with an identifier annotation.                                      |
-| `ESchemaError`        | Tagged error raised when a value cannot be read or written.                                       |
-| `OutdatedVersion`     | Tagged error raised when a value carries a version newer than the schema knows.                   |
-| `findOutdatedVersion` | Finds the `OutdatedVersion` inside any failure, such as an Effect Schema error.                   |
-| `checkAnnotation`     | Names a check the built-in catalogue does not know, so a snapshot can list it.                    |
-| `SnapshotTypeSchema`  | Effect Schema for the snapshot type language that describes a field's stored shape.               |
+| Export                | What it does                                                                                       |
+| --------------------- | -------------------------------------------------------------------------------------------------- |
+| `ESchema.make`        | Starts a builder for a named object schema; chain `evolve`, then `build`.                          |
+| `EntityESchema.make`  | Starts a builder for a keyed entity schema with a name and an id field.                            |
+| `ValueESchema.make`   | Starts a builder for a versioned single value.                                                     |
+| `ESchema.fromType`    | Declares a field typed as `T` with no runtime check; use only for values eschema cannot describe.  |
+| `ESchema.id`          | Marks a `Schema.String` field with an identifier annotation.                                       |
+| `ESchemaError`        | Tagged error raised when a value cannot be read or written.                                        |
+| `OutdatedVersion`     | Tagged error raised when a value carries a version newer than the schema knows.                    |
+| `findOutdatedVersion` | Finds the `OutdatedVersion` inside any failure, such as an Effect Schema error.                    |
+| `eschemaOf`           | The ESchema whose `schema` a schema is, or undefined; tells a versioned boundary from a plain one. |
+| `checkAnnotation`     | Names a check the built-in catalogue does not know, so a snapshot can list it.                     |
+| `SnapshotTypeSchema`  | Effect Schema for the snapshot type language that describes a field's stored shape.                |
 
 ### `@kestack/std-toolkit/eschema/testing`
 

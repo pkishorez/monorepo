@@ -19,7 +19,7 @@ import { AccountList } from '../store.ts';
  * list (AccountList), which closes the card.
  */
 
-const same = Schema.toEquivalence(HarnessAccountInfo);
+const same = Schema.toEquivalence(HarnessAccountInfo.schema);
 
 /** Tells the setup what the Connection did, and waits until it shows it. */
 const told = (

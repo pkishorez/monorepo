@@ -3,6 +3,7 @@ import * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import * as Schedule from 'effect/Schedule';
+import * as Stream from 'effect/Stream';
 import * as SubscriptionRef from 'effect/SubscriptionRef';
 import { listen } from '../../contract/dom-events.js';
 import type { UpdateConfig } from '../../contract/config/index.js';
@@ -29,6 +30,12 @@ export interface StatusService {
   readonly status: SubscriptionRef.SubscriptionRef<PwaStatus>;
   readonly checkForUpdate: Effect.Effect<void>;
   readonly applyUpdate: Effect.Effect<void>;
+  /**
+   * Moves the page to the newest build, once per page load: checks for one
+   * and applies it as soon as it is downloaded, so every open page reloads
+   * into it. For an app that finds it is older than what it talks to.
+   */
+  readonly updateToNewest: Effect.Effect<void>;
 }
 
 const unsupported = Effect.map(
@@ -37,6 +44,7 @@ const unsupported = Effect.map(
     status,
     checkForUpdate: Effect.void,
     applyUpdate: Effect.void,
+    updateToNewest: Effect.void,
   }),
 );
 
@@ -118,6 +126,22 @@ const makeRegisteredStatus = Effect.fnUntraced(function* (
     }
   });
 
+  let toNewest = false;
+  const updateToNewest = Effect.suspend(() => {
+    if (toNewest) return Effect.void;
+    toNewest = true;
+    return checkForUpdate.pipe(
+      Effect.andThen(
+        SubscriptionRef.changes(status).pipe(
+          Stream.filter((now) => now._tag === 'UpdateReady'),
+          Stream.take(1),
+          Stream.runDrain,
+        ),
+      ),
+      Effect.andThen(applyUpdate),
+    );
+  });
+
   // First install takes control of a page with no previous controller: Ready, no reload.
   let hadController = container.controller !== null;
   let reloading = false;
@@ -151,5 +175,10 @@ const makeRegisteredStatus = Effect.fnUntraced(function* (
     ),
   );
 
-  return { status, checkForUpdate, applyUpdate } satisfies StatusService;
+  return {
+    status,
+    checkForUpdate,
+    applyUpdate,
+    updateToNewest,
+  } satisfies StatusService;
 });

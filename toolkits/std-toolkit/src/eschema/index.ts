@@ -6,6 +6,7 @@ export {
   OutdatedVersion,
   findOutdatedVersion,
 } from './domain/eschema-error/index.js';
+export { eschemaOf } from './domain/versioned-schema/index.js';
 // The snapshot type language: how a snapshot describes a field's stored
 // shape, and the annotation that names a check the catalogue does not know.
 export {
@@ -20,8 +21,11 @@ export type {
   AnyESchema,
   AnyUnkeyedESchema,
   AnyEntityESchema,
+  AnyEvolvingSchema,
   EntitySchemaOf,
   ESchemaIdField,
   ESchemaType,
   SingleEntitySchemaOf,
+  ValueEnvelopeEncoded,
+  VersionedCodec,
 } from './domain/schema-model/index.js';

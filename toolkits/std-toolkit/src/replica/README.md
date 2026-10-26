@@ -18,20 +18,21 @@ See the [top README](../../README.md). This subpath needs the optional peers `@k
 
 ### `@kestack/std-toolkit/replica`
 
-| Export              | What it does                                                                                                                                                      |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Replica.make`      | Says what a Replica is: its name, its Key Schema if it has one, and its Collections as entity ESchemas; it gets `get`.                                            |
-| `Replica.build`     | Says how each Instance of a Replica syncs: its Gate, its GC Time, and per Collection a Strategy, one per Window, or both.                                         |
-| `Replicas`          | The Capability `get` holds Instances through; what runs is in the Model of the actor `Replicas.child` places.                                                     |
-| `Replicas.layer`    | The Layer a page Provides, once, near the root.                                                                                                                   |
-| `Replicas.child`    | The Child the same page places once, running the Builds it is given.                                                                                              |
-| `Query.make`        | Makes a Query: an actor whose Model is rows from Collections of the Instances its Props pick.                                                                     |
-| `Action.make`       | Defines an Action as a Kabuki Command that ends with one Message tagged with its name.                                                                            |
-| `Action.optimistic` | Makes Optimistic Changes inside an Action, across Instances and Replicas, rolled back if the Action fails.                                                        |
-| `oldToNew`          | A Strategy that reads from the oldest change forward, by pulling, by subscription, or both, with an optional Settle Window.                                       |
-| `newToOld`          | A Strategy that reads the newest page first on every open, fills in older pages, and keeps the top fresh.                                                         |
-| `Store`             | The Capability where Instances are kept: `list` them, `remove` one (stopping it everywhere first), `prune` all but those it keeps, or `open` an Instance's space. |
-| `ReplicaError`      | What a Replica fails with: a Store that failed, an Instance that stopped, a Replica not run here.                                                                 |
+| Export              | What it does                                                                                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Replica.make`      | Says what a Replica is: its name, its Key Schema if it has one, and its Collections as entity ESchemas; it gets `get`.                                             |
+| `Replica.build`     | Says how each Instance of a Replica syncs: its Gate, its GC Time, and per Collection a Strategy, one per Window, or both.                                          |
+| `Replicas`          | The Capability `get` holds Instances through; what runs is in the Model of the actor `Replicas.child` places.                                                      |
+| `Replicas.layer`    | The Layer a page Provides, once, near the root.                                                                                                                    |
+| `Replicas.child`    | The Child the same page places once, running the Builds it is given.                                                                                               |
+| `Query.make`        | Makes a Query: an actor whose Model is rows from Collections of the Instances its Props pick.                                                                      |
+| `Action.make`       | Defines an Action as a Kabuki Command that ends with one Message tagged with its name.                                                                             |
+| `Action.optimistic` | Makes Optimistic Changes inside an Action, across Instances and Replicas, rolled back if the Action fails.                                                         |
+| `oldToNew`          | A Strategy that reads from the oldest change forward, by pulling, by subscription, or both, with an optional Settle Window.                                        |
+| `newToOld`          | A Strategy that reads the newest page first on every open, fills in older pages, and keeps the top fresh.                                                          |
+| `Store`             | The Capability where Instances are kept: `list` them, `remove` one (stopping it everywhere first), `prune` all but those it keeps, or `open` an Instance's space.  |
+| `ReplicaError`      | What a Replica fails with: a Store that failed, an Instance that stopped, a Replica not run here.                                                                  |
+| `OnOutdated`        | What the app does when a Strategy meets an Entity newer than it knows, before it stops until a reload; nothing unless the app's Layer gives it, such as an update. |
 
 ### `@kestack/std-toolkit/replica/idb`
 

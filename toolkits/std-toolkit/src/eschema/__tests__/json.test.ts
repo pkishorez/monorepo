@@ -1,6 +1,11 @@
 import { describe, expect, it } from '@effect/vitest';
 import { Schema } from 'effect';
-import { EntityESchema, ESchema, ValueESchema } from '../index.js';
+import {
+  EntityESchema,
+  ESchema,
+  findOutdatedVersion,
+  ValueESchema,
+} from '../index.js';
 
 // What RPC and HTTP do with a payload: its canonical JSON codec.
 const Task = EntityESchema.make('Task', 'id', {
@@ -46,15 +51,24 @@ describe('ESchema over JSON', () => {
     ).toEqual({ id: 't1', title: 'Write', priority: 'high' });
   });
 
-  it('refuses an older version instead of migrating it', () => {
-    expect(() =>
+  it('migrates an older version, as a newer reader of an older writer', () => {
+    expect(
       Schema.decodeUnknownSync(json)({
         id: 't1',
         title: 'Write',
         done: true,
         _v: 'v1',
       }),
-    ).toThrow();
+    ).toEqual({ id: 't1', title: 'Write', priority: 'low' });
+  });
+
+  it('fails a newer version with OutdatedVersion', () => {
+    const read = Schema.decodeUnknownExit(json)({
+      id: 't1',
+      title: 'Write',
+      _v: 'v4',
+    });
+    expect(findOutdatedVersion(read)?.version).toBe('v4');
   });
 
   it('round-trips a nested ESchema inside a struct', () => {
@@ -74,10 +88,14 @@ describe('ESchema over JSON', () => {
     });
   });
 
-  it('refuses a value with no version instead of reading it as v1', () => {
-    expect(() =>
+  it('reads a value with no version as v1', () => {
+    expect(
       Schema.decodeUnknownSync(json)({ id: 't1', title: 'Write', done: false }),
-    ).toThrow();
+    ).toEqual({
+      id: 't1',
+      title: 'Write',
+      priority: 'low',
+    });
   });
 
   it('round-trips a value ESchema in its envelope', () => {
@@ -90,8 +108,9 @@ describe('ESchema over JSON', () => {
     const wire = Schema.encodeUnknownSync(codec)('shut');
     expect(wire).toEqual({ _v: 'v2', _value: 'shut' });
     expect(Schema.decodeUnknownSync(codec)(wire)).toBe('shut');
-    expect(() =>
+    expect(
       Schema.decodeUnknownSync(codec)({ _v: 'v1', _value: 'anything' }),
-    ).toThrow();
+    ).toBe('open');
+    expect(Schema.decodeUnknownSync(codec)('shut')).toBe('shut');
   });
 });
