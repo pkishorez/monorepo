@@ -41,6 +41,9 @@ export const settingsTabAsked = (): SettingsTab => {
   return tab;
 };
 
+/** `/kabuki`, a prototype: the app's own Actor tree, open signed in or not. */
+export const kabuki = () => ({ _tag: 'Kabuki' as const });
+
 /** A project of one Machine: a new session in it. */
 export const project = (machineId: string, projectId: string) => ({
   _tag: 'Project' as const,
@@ -63,6 +66,7 @@ export const session = (
 export type Route =
   | { readonly _tag: 'Home' }
   | { readonly _tag: 'Settings' }
+  | { readonly _tag: 'Kabuki' }
   | {
       readonly _tag: 'Project';
       readonly machineId: string;

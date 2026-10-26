@@ -33,6 +33,7 @@ import { Sidebar } from './actors/sidebar/index.ts';
 import { ShellLive } from './actor.ts';
 import { Keyboard } from './keyboard.tsx';
 import { Home } from './pages/home/index.ts';
+import { Kabuki } from './pages/kabuki/index.ts';
 import { Project } from './pages/project/index.ts';
 import { Settings } from './pages/settings/index.ts';
 
@@ -59,6 +60,13 @@ import { Settings } from './pages/settings/index.ts';
 export const ShellView = View.make(
   ShellLive,
   ({ _tag, root, model, state, children, send }) => {
+    // A prototype: the app's Actor tree, open to anyone, signed in or not.
+    if (children.Kabuki)
+      return (
+        <div {...root}>
+          <Kabuki.view instance={children.Kabuki} />
+        </div>
+      );
     // Nothing is drawn while the keyboard is read.
     if (_tag === 'Reading') return <div {...root} />;
     const { account } = model;

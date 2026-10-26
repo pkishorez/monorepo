@@ -34,6 +34,7 @@ import { SessionSwitcher } from './actors/pickers/session-switcher/index.ts';
 import { Sidebar } from './actors/sidebar/index.ts';
 import { askDictation, dropSignedOut, setVim, signIn } from './commands.ts';
 import { Home } from './pages/home/index.ts';
+import { Kabuki } from './pages/kabuki/index.ts';
 import { Project } from './pages/project/index.ts';
 import { Settings } from './pages/settings/index.ts';
 import { layer as moves } from './actors/moves/index.ts';
@@ -120,7 +121,12 @@ export const Shell = Page.define({
     Dictations,
   ],
   metadata: { title: 'code' },
-  pages: { Home: Home.page, Settings: Settings.page, Project: Project.page },
+  pages: {
+    Home: Home.page,
+    Settings: Settings.page,
+    Project: Project.page,
+    Kabuki: Kabuki.page,
+  },
   model: Model,
   state: Schema.TaggedUnion({
     Reading: {},
@@ -213,6 +219,7 @@ export const ShellLive = Page.build(Shell, {
     Home: Home.actor,
     Settings: Settings.actor,
     Project: Project.actor,
+    Kabuki: Kabuki.actor,
   },
   // At the top, as the pages are: the Account, how each Machine is
   // reached, and the Moves on their way to them, are shared from here.
