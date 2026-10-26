@@ -62,12 +62,12 @@ let pushed: Array<unknown> = [];
 let pings = 0;
 let ping = () => {};
 let active = '';
-let read = () => {};
+let read: (recent?: typeof RECENT) => void = () => {};
 let showProjects: (shown: boolean) => void = () => {};
 
 /** Hands the Picker its recent Projects, as its Worker would. */
 const Recent = View.make(ProjectPickerLive, ({ send }) => {
-  read = () => send({ _tag: 'Read', recent: RECENT });
+  read = (recent = RECENT) => send({ _tag: 'Read', recent });
   return null;
 });
 
@@ -110,24 +110,25 @@ const OwnerView = View.make(OwnerLive, ({ model, children, send }) => {
   );
 });
 
+const machine = (id: string, name: string) => ({
+  id,
+  name,
+  key: `key-${id}`,
+  version: '0.0.1',
+  status: { _tag: 'Opening' as const },
+  lastSeen: 1,
+});
+
+// One Machine unless a test lists more, and every Machine shown unless it filters.
+let listed = [machine('m1', 'studio')];
+let filter: string | null = null;
+
 const services = Layer.mergeAll(
   Layer.mock(CodeClients)({}),
-  // One Machine: the Picker opens at its Projects.
   Layer.mock(Machines)({
-    state: Stream.make({
-      ...nobody,
-      accountId: 'a1',
-      machines: [
-        {
-          id: 'm1',
-          name: 'studio',
-          key: 'key-m1',
-          version: '0.0.1',
-          status: { _tag: 'Opening' },
-          lastSeen: 1,
-        },
-      ],
-    }),
+    state: Stream.suspend(() =>
+      Stream.make({ ...nobody, accountId: 'a1', machines: listed }),
+    ),
   }),
   // A new session's Draft, opened by touch, never dictates here.
   Layer.effect(
@@ -136,9 +137,9 @@ const services = Layer.mergeAll(
       Dictations.of({ asked }),
     ),
   ),
-  // It keeps nothing: the Touch Draft is in voice.
+  // It keeps nothing but the Machine Filter: the Touch Draft is in voice.
   Layer.mock(DeviceState)({
-    read: Effect.succeed(nothing),
+    read: Effect.sync(() => ({ ...nothing, sidebarMachine: filter })),
     changes: Stream.never,
   }),
   // The new session's Draft has nothing kept, with nobody signed in.
@@ -167,6 +168,7 @@ const row = () =>
 const plus = () =>
   document.querySelector<HTMLElement>('button[aria-label="Open a project"]');
 const search = () => document.querySelector<HTMLInputElement>('[cmdk-input]');
+const placeholder = () => search()?.getAttribute('placeholder');
 
 const key = async (name: string, init: KeyboardEventInit = {}) => {
   const target = document.activeElement ?? document.body;
@@ -214,7 +216,7 @@ beforeAll(() => {
   };
 });
 
-beforeEach(async () => {
+const start = async () => {
   pushed = [];
   const App = toReact(OwnerLive, OwnerView, services, {
     name: `project-picker-test-${apps++}`,
@@ -226,6 +228,12 @@ beforeEach(async () => {
     await flush();
   }
   expect(pings).toBeGreaterThan(0);
+};
+
+beforeEach(async () => {
+  listed = [machine('m1', 'studio')];
+  filter = null;
+  await start();
 });
 
 afterEach(async () => {
@@ -265,5 +273,40 @@ describe('the Project Picker', () => {
     expect(pushed).toEqual([]);
     expect(active).toBe('sidebar');
     expect(document.activeElement).toBe(row());
+  });
+});
+
+describe('the Project Picker on more than one Machine', () => {
+  const two = async (chosen: string | null) => {
+    await act(async () => root?.unmount());
+    document.body.innerHTML = '';
+    listed = [machine('m1', 'studio'), machine('m2', 'laptop')];
+    filter = chosen;
+    await start();
+    await act(async () => editor().focus());
+    await key('o');
+  };
+
+  it('opens on the Machines while the sidebar shows every Machine', async () => {
+    await two(null);
+    expect(placeholder()).toBe('Search your Machines');
+  });
+
+  it('opens on the Projects of the Machine the sidebar shows, with no Machine Step', async () => {
+    await two('m2');
+    expect(placeholder()).toBe('Search projects, or a folder under home');
+    await act(async () =>
+      read([
+        { machineId: 'm2', id: 'p9', name: 'site', path: '/home/me/site' },
+      ]),
+    );
+    await flush();
+    await key('Enter');
+    expect(pushed).toEqual([project('m2', 'p9')]);
+  });
+
+  it('opens on the Machines while the Machine the sidebar shows is no longer listed', async () => {
+    await two('gone');
+    expect(placeholder()).toBe('Search your Machines');
   });
 });
