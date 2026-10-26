@@ -7,6 +7,7 @@ import {
 } from '@kestack/connect/code';
 import { type Kit, Machines } from '../../../../layer/capabilities/index.ts';
 import { HarnessAccounts } from './harness-accounts/index.ts';
+import { MachineProjects } from './projects/index.ts';
 import { SpeechToText } from './speech-to-text/index.ts';
 import { ask, keepForgetting } from './commands.ts';
 
@@ -22,9 +23,11 @@ import { ask, keepForgetting } from './commands.ts';
  *            Machine's Kit has been read, so the page draws once. Then
  *            one child per Machine for each of its settings, its Harness
  *            Accounts and its Speech to Text switch, each told whose
- *            Machine it is and handed what its Kit holds, and none while
- *            no Account is known. Reload asks the Machine List and every
- *            Kit again, as the sidebar's does.
+ *            Machine it is and handed what its Kit holds, and its
+ *            Projects (`projects/`), and none while no Account is known.
+ *            Each Machine shows its Agents, the first two, or its
+ *            Projects, as chosen, Agents until then. Reload asks the
+ *            Machine List and every Kit again, as the sidebar's does.
  * 2. Ask     Forget asks first, saying when the Machine was last seen and
  *            how its tunnel stands.
  * 3. Forget  confirmed, the Machine List forgets it: Cloud Connect first,
@@ -35,6 +38,9 @@ import { ask, keepForgetting } from './commands.ts';
 const Forgetting = Schema.NullOr(
   Schema.Struct({ id: Schema.String, problem: Schema.NullOr(Schema.String) }),
 );
+
+/** What a Machine shows: its agents' accounts and Speech to Text, or its Projects. */
+const MachineView = Schema.Literals(['Agents', 'Projects']);
 
 /** What it shows of a Machine's Kit, once read. */
 const KitShown = Schema.Struct({
@@ -80,6 +86,8 @@ const Model = Schema.Struct({
   drawn: Schema.Boolean,
   /** The Machine Forget is asking about. */
   asking: Schema.NullOr(Schema.String),
+  /** What each Machine shows, by id, once chosen. */
+  views: Schema.Record(Schema.String, MachineView),
 });
 type Model = typeof Model.Type;
 
@@ -92,6 +100,7 @@ export const MachineSettings = Actor.define('MachineSettings', {
     Keep: {},
     Forget: {},
     Reload: {},
+    ViewChosen: { id: Schema.String, view: MachineView },
   }),
 });
 
@@ -147,6 +156,7 @@ export const MachineSettingsLive = Actor.build(MachineSettings, {
       kits: {},
       drawn: false,
       asking: null,
+      views: {},
     },
   }),
   children: {
@@ -166,6 +176,11 @@ export const MachineSettingsLive = Actor.build(MachineSettings, {
       props: ({ model }, key) => ({
         speech: kitOf(model, key)?.speech ?? null,
       }),
+    },
+    projects: {
+      actor: MachineProjects.actor,
+      each: ({ model }) => readKeysOf(model),
+      input: (_, key) => ({ machineId: whoseOf(key).machineId }),
     },
   },
   workers: {
@@ -235,5 +250,8 @@ export const MachineSettingsLive = Actor.build(MachineSettings, {
     Forget: (_, { model }) =>
       model.asking === null ? {} : { command: ask({ forget: model.asking }) },
     Reload: () => ({ command: ask({ forget: null }) }),
+    ViewChosen: ({ id, view }, { model }) => ({
+      model: { ...model, views: { ...model.views, [id]: view } },
+    }),
   },
 });
