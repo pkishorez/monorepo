@@ -1,8 +1,6 @@
 import { Clock, Effect, Fiber, Layer, Schema, Scope } from 'effect';
-import type { Entity } from '@kestack/std-toolkit/core';
 import {
   type QueryOptions,
-  type QueryPage,
   StdTable,
   type StdTableService,
 } from '@kestack/std-toolkit/db';
@@ -14,7 +12,9 @@ import {
   type Place,
   SavedDraft,
   SavedDrafts,
+  went,
 } from '../capabilities/index.ts';
+import { keyOf, RETRIES, scan, upsert } from './kept/index.ts';
 
 /*
  * Saved Drafts in this browser's IndexedDB, one database of their own: a
@@ -40,71 +40,27 @@ const DraftSchema = EntityESchema.make('SavedDraft', 'place', {
   draft: Schema.String,
 }).build();
 
-type Row = typeof DraftSchema.Type;
-
 const Json = Schema.fromJsonString(SavedDraft);
 const decode = Schema.decodeUnknownEffect(Json);
 const encode = Schema.encodeEffect(Json);
 
 const TABLE = 'drafts';
-const PAGE = 500;
-const RETRIES = 5;
 const CONFIRM = 'I KNOW WHAT I AM DOING';
 
 const table = StdTable.make(TABLE).primary('pk', 'sk').build();
 
 const rows = table.entity(DraftSchema).primary().build();
 
-/** A row's id: its Account's, its Machine's and its Session's or Project's, which no id holds a space of. */
+/** A row's id: its Account's, its Machine's and its Session's or Project's. */
 const placeOf = (
   accountId: string,
   { machineId, projectId, sessionId }: Place,
-) => `${accountId} ${machineId} ${sessionId ?? `project:${projectId}`}`;
-
-/** Whether a row, or a place under an Account, went. */
-const goneOf =
-  (gone: Gone) =>
-  (row: Pick<Row, 'accountId' | 'machineId' | 'projectId'>): boolean => {
-    switch (gone._tag) {
-      case 'Project':
-        return (
-          row.machineId === gone.machineId && row.projectId === gone.projectId
-        );
-      case 'Machine':
-        return (
-          row.accountId === gone.accountId && row.machineId === gone.machineId
-        );
-      case 'Unlisted':
-        return (
-          row.accountId === gone.accountId &&
-          !gone.listed.includes(row.machineId)
-        );
-      case 'SignedOut':
-        return !gone.signedIn.includes(row.accountId);
-    }
-  };
+) => keyOf(accountId, machineId, sessionId ?? `project:${projectId}`);
 
 const make = (
   layer: Layer.Layer<StdTableService<typeof TABLE>>,
   scope: Scope.Scope,
 ) => {
-  // Every row, to prune by.
-  const all = Effect.gen(function* () {
-    const found: Array<Row> = [];
-    let options: QueryOptions<Row> = { limit: PAGE };
-    while (true) {
-      const page: QueryPage<Entity<Row>> = yield* rows.query(
-        'primary',
-        { pk: {}, '>=': null },
-        options,
-      );
-      found.push(...page.items.map(({ value }) => value));
-      const last = page.items.at(-1);
-      if (!page.hasMore || last === undefined) return found;
-      options = { limit: PAGE, after: last };
-    }
-  });
-
   // 1. Save: one at a time for each place, and the last read of each.
   const turns = new Map<
     string,
@@ -151,32 +107,34 @@ const make = (
   const drops: Array<{ readonly gone: Gone; readonly at: bigint }> = [];
   const droppedSince = (accountId: string, place: Place, since: bigint) =>
     drops.some(
-      ({ gone, at }) => at > since && goneOf(gone)({ accountId, ...place }),
+      ({ gone, at }) => at > since && went(gone)({ accountId, ...place }),
     );
 
   const write = (accountId: string, place: Place, draft: SavedDraft | null) => {
     const id = placeOf(accountId, place);
     return Effect.gen(function* () {
-      const row = yield* rows.get({ place: id });
       if (draft === null) {
+        const row = yield* rows.get({ place: id });
         if (row !== null) yield* rows.hardDelete({ place: id }, CONFIRM);
         return;
       }
       const json = yield* encode(draft);
-      if (row === null)
-        yield* rows.insert({
+      yield* upsert({
+        get: rows.get({ place: id }),
+        insert: rows.insert({
           place: id,
           accountId,
           machineId: place.machineId,
           projectId: place.projectId,
           sessionId: place.sessionId,
           draft: json,
-        });
-      else
-        yield* rows.getAndUpdate({ place: id }, () => ({ draft: json }), {
-          retries: RETRIES,
-        });
-    }).pipe(Effect.retry({ times: RETRIES }), Effect.provide(layer));
+        }),
+        update: () =>
+          rows.getAndUpdate({ place: id }, () => ({ draft: json }), {
+            retries: RETRIES,
+          }),
+      });
+    }).pipe(Effect.provide(layer));
   };
 
   return SavedDrafts.of({
@@ -208,11 +166,13 @@ const make = (
     drop: (gone) =>
       Effect.flatMap(Clock.monotonicTimeNanos, (at) => {
         drops.push({ gone, at });
-        return all;
+        return scan((options: QueryOptions<typeof DraftSchema.Type>) =>
+          rows.query('primary', { pk: {}, '>=': null }, options),
+        );
       }).pipe(
         Effect.flatMap((found) =>
           Effect.forEach(
-            found.filter(goneOf(gone)),
+            found.filter(went(gone)),
             ({ place }) => remove(place),
             { discard: true },
           ),
