@@ -427,17 +427,32 @@ describe('Engine', () => {
     );
   });
 
-  it('removing a project tombstones it and stops its sessions', async () => {
+  it('removing a project tombstones it and its sessions, and stops the running one', async () => {
     const fake = makeFakeHarness({ hold: true });
     await run(
       Effect.gen(function* () {
         const { engine, project, session, raws, store } = yield* started;
+        const other = yield* engine.addProject(folder());
+        const kept = yield* engine.startSession({
+          projectId: other.id,
+          account: 'claude',
+          model: 'claude-test',
+          settings: {},
+          text: 'elsewhere',
+          attachments: [],
+        });
         yield* eventually(async () => expect(await raws()).toHaveLength(2));
         yield* engine.removeProject(project.id);
         yield* eventually(async () =>
           expect(await Effect.runPromise(store.project(project.id))).toBeNull(),
         );
         yield* eventually(() => expect(fake.closes()).toBe(1));
+        expect(yield* store.session(session.id)).toBeNull();
+        expect(yield* store.session(kept.id)).not.toBeNull();
+        const { items } = yield* store.sessions.after(null);
+        expect(
+          items.find(({ value }) => value.id === session.id)?.meta._d,
+        ).toBe(true);
         expect(yield* Effect.promise(raws)).toHaveLength(2);
         expect(
           (yield* Effect.flip(engine.send(session.id, say('x'))))._tag,
@@ -509,6 +524,77 @@ describe('Engine', () => {
           'engine turn.ended {"status":"interrupted"}',
         ]);
         expect(fake.opens).toHaveLength(1);
+      }),
+      fake,
+      path,
+    );
+  });
+
+  it('on start, removes the sessions a project removed earlier left behind, and only once', async () => {
+    const path = join(folder(), 'ai.db');
+    const session = {
+      harness: 'claude' as const,
+      account: 'claude',
+      model: 'claude-test',
+      settings: {},
+      title: 'Hello',
+      status: 'idle' as const,
+      nativeId: null,
+      createdAt: 1,
+      forkedFrom: null,
+      settledAt: null,
+      activeAt: 1,
+      endedAt: null,
+    };
+    /** Each removed Session's id and when it was last written. */
+    const removed = (store: Store['Service']) =>
+      Effect.map(store.sessions.after(null), ({ items }) =>
+        items.flatMap(({ value, meta }) =>
+          meta._d ? [[value.id, meta._u]] : [],
+        ),
+      );
+    // As a removal before Sessions went with their Project left them.
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const store = yield* Store;
+          yield* store.saveProject({
+            id: 'p1',
+            path: folder(),
+            name: 'a',
+            createdAt: 1,
+          });
+          yield* store.saveProject({
+            id: 'p2',
+            path: folder(),
+            name: 'b',
+            createdAt: 1,
+          });
+          yield* store.removeProject('p2');
+          yield* store.saveSession({ ...session, id: 's1', projectId: 'p1' });
+          yield* store.saveSession({ ...session, id: 's2', projectId: 'p2' });
+        }),
+      ).pipe(Effect.provide(storeLayer(path))),
+    );
+    const fake = makeFakeHarness();
+    const swept = await run(
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const store = yield* Store;
+        expect((yield* store.allSessions).map(({ id }) => id)).toEqual(['s1']);
+        const now = yield* removed(store);
+        expect(now.map(([id]) => id)).toEqual(['s2']);
+        expect((yield* Effect.flip(engine.send('s2', say('x'))))._tag).toBe(
+          'SessionNotFound',
+        );
+        return now;
+      }),
+      fake,
+      path,
+    );
+    await run(
+      Effect.gen(function* () {
+        expect(yield* removed(yield* Store)).toEqual(swept);
       }),
       fake,
       path,

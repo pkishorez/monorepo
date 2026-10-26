@@ -39,11 +39,15 @@ export interface StoreService {
   readonly allProjects: Effect.Effect<ReadonlyArray<Project>>;
   /** Writes a Project unless it is unchanged or removed. */
   readonly saveProject: (project: Project) => Effect.Effect<void>;
-  /** Tombstones a Project; false if there was none to remove. */
+  /** Tombstones a Project and its Sessions; false if there was none to remove. */
   readonly removeProject: (id: string) => Effect.Effect<boolean>;
+  /** Tombstones a Session; false if there was none to remove. */
+  readonly removeSession: (id: string) => Effect.Effect<boolean>;
+  /** A Session that is not removed. */
   readonly session: (id: string) => Effect.Effect<Session | null>;
+  /** Every Session that is not removed, oldest change first. */
   readonly allSessions: Effect.Effect<ReadonlyArray<Session>>;
-  /** Writes a Session unless it is unchanged. */
+  /** Writes a Session unless it is unchanged or removed. */
   readonly saveSession: (session: Session) => Effect.Effect<void>;
   /** Every Harness Account the user saved that is not removed, oldest change first. */
   readonly harnessAccounts: Effect.Effect<ReadonlyArray<HarnessAccountRecord>>;

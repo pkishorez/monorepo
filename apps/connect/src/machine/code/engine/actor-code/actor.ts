@@ -13,8 +13,9 @@ import { sweep } from './sweep.js';
  * - Loading  one Worker reads the Store and runs the Bootstrap Sweep (see
  *            sweep.ts); what it finds is `Loaded`.
  * - Ready    the Projects, added and removed on request, each change saved;
- *            removing one stops its Sessions. A new session starts here,
- *            already running its first message; a Fork joins idle.
+ *            removing one stops its Sessions and removes them. A new
+ *            session starts here, already running its first message; a
+ *            Fork joins idle.
  */
 
 const ProjectRecord = Schema.Struct(ProjectSchema.fields);

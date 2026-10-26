@@ -21,7 +21,7 @@ What a Machine serves for one App, such as the `code` group; every App Group is 
 _Avoid_: plugin, module, feature
 
 **Project**:
-A folder on a Machine that Sessions run in.
+A folder on a Machine that Sessions run in. Removing a Project removes its Sessions with it; the folder stays as it is.
 _Avoid_: workspace, repo
 
 **Machine**:

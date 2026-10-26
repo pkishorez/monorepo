@@ -5,7 +5,7 @@ import { makeFakeHarness } from '@kestack/ai-toolkit/harness/fake';
 import { MessageSchema, type Message } from '@kestack/ai-toolkit/contract';
 import { Store, storeLayer } from '../engine/index.js';
 import type { WireEntity } from '../api/contract/index.js';
-import { messages, projects } from '../feeds.js';
+import { messages, projects, sessions } from '../feeds.js';
 
 let n = 0;
 const raw = (out: RawOut & { readonly harness?: 'claude' | 'engine' }) => ({
@@ -181,6 +181,45 @@ describe('the projects feed', () => {
         yield* eventually(() => expect(got).toHaveLength(2));
         expect(got[0]).toMatchObject({ value: project, meta: { _v: 'v1' } });
         expect(got[1]?.meta._d).toBe(true);
+      }),
+    ));
+});
+
+describe('the sessions feed', () => {
+  it("sends a removed Project's Sessions as tombstones", () =>
+    run(
+      Effect.gen(function* () {
+        const store = yield* Store;
+        yield* store.saveProject({
+          id: 'p1',
+          path: '/tmp/x',
+          name: 'x',
+          createdAt: 1,
+        });
+        yield* store.saveSession({
+          id: 's1',
+          projectId: 'p1',
+          harness: 'claude',
+          account: 'claude',
+          model: 'claude-test',
+          settings: {},
+          title: 'Hello',
+          status: 'idle',
+          nativeId: null,
+          createdAt: 1,
+          forkedFrom: null,
+          settledAt: null,
+          activeAt: 1,
+          endedAt: null,
+        });
+        const { got } = yield* collect(sessions(null));
+        yield* eventually(() => expect(got).toHaveLength(1));
+        yield* store.removeProject('p1');
+        yield* eventually(() => expect(got).toHaveLength(2));
+        expect(got[1]).toMatchObject({
+          value: { id: 's1' },
+          meta: { _d: true },
+        });
       }),
     ));
 });

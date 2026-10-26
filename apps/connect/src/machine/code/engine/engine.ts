@@ -145,7 +145,7 @@ export interface EngineService {
    * Project; the one already added for it, if any.
    */
   readonly addProject: (path: string) => Effect.Effect<Project, FolderNotFound>;
-  /** Removes a Project and stops its sessions; its folder is never touched. */
+  /** Removes a Project and its sessions, stopped; its folder is never touched. */
   readonly removeProject: (id: string) => Effect.Effect<void, ProjectNotFound>;
   /** Starts a Session already running its first message. */
   readonly startSession: (

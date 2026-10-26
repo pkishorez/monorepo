@@ -123,6 +123,14 @@ const make = (path: string) =>
       changes: changesOf<Session>(sessions.name),
     };
 
+    const removeSession = (id: string) =>
+      Effect.gen(function* () {
+        const found = yield* sessions.get({ id }, { excludeDeleted: true });
+        if (found === null) return false;
+        yield* sessions.delete({ id });
+        return true;
+      });
+
     const service: StoreService = {
       appendRaw: (raw) => write(raws.insert(raw)),
       raws: (sessionId) => ({
@@ -170,10 +178,15 @@ const make = (path: string) =>
           Effect.gen(function* () {
             const found = yield* projects.get({ id }, { excludeDeleted: true });
             if (found === null) return false;
+            // The Project first: a stop between the two leaves its Sessions
+            // for the next start's sweep to remove.
             yield* projects.delete({ id });
+            for (const session of yield* allOf(sessionFeed))
+              if (session.projectId === id) yield* removeSession(session.id);
             return true;
           }),
         ),
+      removeSession: (id) => write(removeSession(id)),
       session: (id) =>
         run(sessions.get({ id }, { excludeDeleted: true })).pipe(
           Effect.map((found) => found?.value ?? null),
@@ -184,7 +197,7 @@ const make = (path: string) =>
           Effect.gen(function* () {
             const found = yield* sessions.get({ id: session.id });
             if (found === null) yield* sessions.insert(session);
-            else if (!same(found.value, session))
+            else if (!found.meta._d && !same(found.value, session))
               yield* sessions.getAndUpdate({ id: session.id }, session);
           }),
         ),
