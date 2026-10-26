@@ -20,7 +20,7 @@ import { BindingKeys } from '@kestack/web-platform/ui/input';
 import { bindingOf, describe } from '@kestack/use-keys';
 import { revealInView } from '@kestack/use-keys/surfaces';
 import { Fragment, useEffect, useLayoutEffect, useRef } from 'react';
-import { keys } from '../../../../device/account/machines/layout/commands.ts';
+import { keys } from '../../../../device/account/connections/layout/commands.ts';
 import {
   finishedOn,
   Message,

@@ -1,7 +1,7 @@
 import { Context, Data, type Effect } from 'effect';
 
 /*
- * Speech to Text: 16 kHz mono audio in, text out, on this Machine. A model
+ * Speech to Text: 16 kHz mono audio in, text out, on this Connection. A model
  * lives in a folder: fetched into it once, then loaded from it. The
  * implementation says which model and where it comes from; what decides
  * when to fetch, load and delete it is the speech tree's.

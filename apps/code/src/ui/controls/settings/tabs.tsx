@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 /*
  * A row of tabs by name, the one open underlined: Settings' own, and a
- * Machine's Agents and Projects within it, drawn the same. Each tall
+ * Connection's Agents and Projects within it, drawn the same. Each tall
  * enough to tap on touch.
  */
 

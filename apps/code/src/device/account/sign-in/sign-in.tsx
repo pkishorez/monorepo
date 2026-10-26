@@ -104,7 +104,7 @@ export function StartScreen({
         </Rise>
         <Rise order={1}>
           <p className="text-sm text-pretty text-muted-foreground">
-            Run Claude Code and Codex on your Machines, from any device.
+            Run Claude Code and Codex on your Connections, from any device.
           </p>
         </Rise>
       </div>

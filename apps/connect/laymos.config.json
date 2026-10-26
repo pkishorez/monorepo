@@ -6,20 +6,20 @@
   "rules": {
     "*": ["src/cloud/contract"],
     "src/cloud/worker/registry": ["src/cloud/worker/storage"],
-    "src/machine": ["src/cloud/contract", "src/cloud/client"],
-    "src/machine/online/heartbeat/actor-heartbeat": [
-      "src/machine/online/heartbeat/capabilities"
+    "src/connection": ["src/cloud/contract", "src/cloud/client"],
+    "src/connection/online/heartbeat/actor-heartbeat": [
+      "src/connection/online/heartbeat/capabilities"
     ],
-    "src/machine/code/api": ["src/machine/code/records"],
-    "src/machine/code/api/client": ["src/machine/code/api/contract"],
-    "src/machine/code/engine": ["src/machine/code/records"],
-    "src/machine/code/engine/actor-code": [
-      "src/machine/code/engine/capabilities",
-      "src/machine/code/engine/engine-raw"
+    "src/connection/code/api": ["src/connection/code/records"],
+    "src/connection/code/api/client": ["src/connection/code/api/contract"],
+    "src/connection/code/engine": ["src/connection/code/records"],
+    "src/connection/code/engine/actor-code": [
+      "src/connection/code/engine/capabilities",
+      "src/connection/code/engine/engine-raw"
     ],
-    "src/machine/code/engine/services": [
-      "src/machine/code/engine/capabilities"
+    "src/connection/code/engine/services": [
+      "src/connection/code/engine/capabilities"
     ],
-    "src/dev": ["src/machine"]
+    "src/dev": ["src/connection"]
   }
 }

@@ -1,8 +1,8 @@
 /*
  * How a dev run signs in, as the Web Platform decides for the site and
  * Cloud Connect: with auth-toolkit's Fake, as `dev@kestack.test`, unless
- * the run says `KESTACK_AUTH=real` (`pnpm dev:real`). The Machine is a Node
- * process, so it takes the Fake by Node's `--conditions`; a Fake Machine
+ * the run says `KESTACK_AUTH=real` (`pnpm dev:real`). The Connection is a Node
+ * process, so it takes the Fake by Node's `--conditions`; a Fake Connection
  * keeps its own folders, `<branch>-fake`, apart from the real one's.
  */
 
@@ -19,8 +19,8 @@ export const devAuth = (): DevAuth =>
 export const nodeFlags = (auth: DevAuth): ReadonlyArray<string> =>
   auth === 'fake' ? [`--conditions=${FAKE_AUTH}`] : [];
 
-/** The branch whose folders and Machine a run signing in as `auth` uses. */
-export const machineBranch = (slug: string, auth: DevAuth): string =>
+/** The branch whose folders and Connection a run signing in as `auth` uses. */
+export const connectionBranch = (slug: string, auth: DevAuth): string =>
   auth === 'fake' ? `${slug.slice(0, 58)}-fake` : slug;
 
 /** Throws unless this process resolves auth-toolkit's doors as `auth` says. */

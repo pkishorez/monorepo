@@ -6,8 +6,8 @@ sessions in project folders. Any app talks to it over one WebSocket RPC API.
 
 That was v1. Since root ADR 0011, ai-toolkit runs the Coding Harnesses and
 nothing more: the stored records, the engine and the API below are now the
-`code` App Group of [`@kestack/connect`](../../../apps/connect/README.md),
-which keeps them in its Store and serves them on its Machine's socket. Raw,
+`code` Plugin of [`@kestack/connect`](../../../apps/connect/README.md),
+which keeps them in its Store and serves them on its Connection's socket. Raw,
 Message and the projection still hold here as written.
 
 ## The mental model
@@ -93,7 +93,7 @@ server is local and fast), so a projection change never leaves a stale copy.
 
 ## Records the engine owns (stored)
 
-Kept by Connect's `code` App Group, in its Store.
+Kept by Connect's `code` Plugin, in its Store.
 
 ```
 Project { id, path, name, createdAt }            name = folder name

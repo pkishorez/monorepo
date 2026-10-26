@@ -1,34 +1,34 @@
 # code
 
-The app for running Claude Code and Codex sessions in project folders on any of your Machines, through Connect, at code.kishore.app.
+The app for running Claude Code and Codex sessions in project folders on any of your Connections, through Connect, at code.kishore.app.
 
 ## Big picture
 
 `code` is the first app on [`@kestack/connect`](../connect/README.md). Its
 `code` App Group runs Claude Code and Codex in folders on each of your
-Machines (through [ai-toolkit](../../toolkits/ai-toolkit/README.md), as the
+Connections (through [ai-toolkit](../../toolkits/ai-toolkit/README.md), as the
 [v1 spec](../../toolkits/ai-toolkit/docs/v1-spec.md) says), and the app
 follows each Session live: what you asked, the agent's words, its tool
 calls and subagents, and how each turn ended. You sign in with
-auth-toolkit's `Accounts`; Cloud Connect lists the Machines signed in as
+auth-toolkit's `Accounts`; Cloud Connect lists the Connections signed in as
 you, and the app is on all of them at once
-([ADR 0018](../../toolkits/ai-toolkit/docs/adr/0018-an-app-is-on-every-machine-at-once.md)).
+([ADR 0018](../../toolkits/ai-toolkit/docs/adr/0018-an-app-is-on-every-connection-at-once.md)).
 
 It is a Kabuki Start app, every page drawn in the browser
 ([routing](../../packages/kabuki/docs/routing.md)). `/` picks a Project on
-any Machine, `/settings` holds this device's settings, your keys and one
-card per Machine, `/m/:machineId/p/:projectId` is a new Session in a
+any Connection, `/settings` holds this device's settings, your keys and one
+card per Connection, `/m/:connectionId/p/:projectId` is a new Session in a
 Project and `…/s/:sessionId` is a Session. Records arrive only through the
 `CodeReplica` Replica
 ([`@kestack/std-toolkit/replica`](../../toolkits/std-toolkit/src/replica/README.md)),
-one Instance per Machine over its own socket, kept in IndexedDB, so a
+one Instance per Connection over its own socket, kept in IndexedDB, so a
 reload shows what this device last saw at once. The sidebar keeps every
 Session it shows in sync ahead, so opening one draws its messages at once.
-Every write is a Command an Actor asks of one Machine.
+Every write is a Command an Actor asks of one Connection.
 
 The app is one tree of Kabuki Actors, and `src/device/` tells it as one
 story, top down, each level with at most three parts: Device, then Account,
-then Machines, then `machine/`, `voice/` and `layout/`, then the sidebar,
+then Connections, then `connection/`, `voice/` and `layout/`, then the sidebar,
 the Pickers and the pages. [docs/kabuki-tree.md](docs/kabuki-tree.md)
 walks it, with what each level keeps in storage. Voice is global: a
 Dictation starts anywhere, keeps going as you move, and its text goes into
@@ -39,7 +39,7 @@ one question a step, until you answer or skip it; you can minimise it to
 read the session, and the sidebar stays yours throughout. `src/ui/` holds
 plain parts with no data.
 
-The words the app uses, such as Draft, Dictation, Picker and Machine List,
+The words the app uses, such as Draft, Dictation, Picker and Connection List,
 are in [CONTEXT.md](CONTEXT.md). Plans in progress are in
 [docs/draft-and-dictation-plan.md](docs/draft-and-dictation-plan.md) and
 [docs/mobile-plan.md](docs/mobile-plan.md). The app is a PWA
@@ -54,7 +54,7 @@ waits for "Reload" before taking a new version.
 `pnpm dev` makes sure this branch's Connect runs, starting it or reusing
 the one another App started, then runs the site against it. It signs in
 with auth-toolkit's Fake: sign in as any `@kestack.test` email
-(`dev@kestack.test` is the Machine's), and the branch's Machine shows up in
+(`dev@kestack.test` is the Connection's), and the branch's Connection shows up in
 the app; it reports itself to Cloud Connect every 15 seconds. Every backend
 is on the site's own origin, so a tunnel to it, such as
 `cloudflared tunnel --url http://localhost:<port>`, opens the whole app on
@@ -74,8 +74,8 @@ pnpm --filter code deploy:prod   # ALLOW_DEPLOY=true: code.kishore.app
   linked git worktree), handed the branch's Cloud Connect in
   `CONNECT_URL`. Connect stops once no App on the branch runs.
 - The site gets `VITE_AUTH_URL` and `VITE_CONNECT_URL`. A deployed stage
-  uses `https://connect.kishore.app`, where your Machines are.
-- With no Machine, home says what to run; each Machine that signs in
+  uses `https://connect.kishore.app`, where your Connections are.
+- With no Connection, home says what to run; each Connection that signs in
   shows up beside the others.
 - A deployed stage (`prod`, `demo`, `pr<N>`) needs `ALLOW_DEPLOY=true` and
   keeps its state in Cloudflare; a personal stage keeps it in `.alchemy/`.

@@ -22,7 +22,7 @@ import {
 /*
  * On a touch screen tabs sit side by side in one track, each drawn on its
  * own, the track showing one at a time: Settings' tabs, each scrolled on
- * its own, and a Machine's Agents and Projects inside one of them, as tall
+ * its own, and a Connection's Agents and Projects inside one of them, as tall
  * as the one open.
  *
  * 1. Follow  a sideways drag moves the track with the finger, so the tab
