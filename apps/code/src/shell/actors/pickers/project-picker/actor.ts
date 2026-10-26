@@ -18,7 +18,8 @@ import { FolderPicker } from './folder-picker/index.ts';
  *             the Picker opens on that Machine's Projects.
  * 2. Recent   the Machine's Projects, the most recently active first: a
  *             Turn started or a Session made in it, else when it was
- *             added. Followed while the Picker is open.
+ *             added. One whose folder is missing shows so, and cannot be
+ *             chosen. Followed while the Picker is open.
  * 3. Pick     a Project opens it, which is a new Session in it. After the
  *             Projects, "Open folder…" goes to the folder Steps
  *             (`folder-picker/`), searching what was typed, so text that
@@ -41,6 +42,8 @@ const Recent = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
   path: Schema.String,
+  /** Whether its folder is there, as its Machine last found it. */
+  missing: Schema.Boolean,
 });
 type Recent = typeof Recent.Type;
 
@@ -101,10 +104,13 @@ const Projects = Picker.make('ProjectPicker', {
       rows: ({ props, key }) => ({
         rows: (props.recent ?? [])
           .filter(({ machineId }) => machineId === key)
-          .map(({ id, name, path }) => ({
+          .map(({ id, name, path, missing }) => ({
             value: id,
             label: name,
             detail: shortOf(path),
+            ...(missing
+              ? { unavailable: `Folder missing · ${shortOf(path)}` }
+              : {}),
             group: 'Recent projects',
             icon: 'project' as const,
           })),
@@ -155,7 +161,13 @@ const recentOf = (
     active.get(keyOf(each.machineId, each.id)) ?? each.createdAt;
   return [...projects]
     .sort((a, b) => at(b) - at(a))
-    .map(({ machineId, id, name, path }) => ({ machineId, id, name, path }));
+    .map(({ machineId, id, name, path, folder }) => ({
+      machineId,
+      id,
+      name,
+      path,
+      missing: folder === 'missing',
+    }));
 };
 
 export const ProjectPicker = Actor.define('ProjectPicker', {
@@ -289,7 +301,8 @@ export const ProjectPickerLive = Actor.build(ProjectPicker, {
                 const picked = model.recent?.find(
                   (each) => each.machineId === key && each.id === chosen,
                 );
-                if (!touch || picked === undefined) return null;
+                if (!touch || picked === undefined || picked.missing)
+                  return null;
                 yield* self.send({
                   _tag: 'Starting',
                   machineId: key,
