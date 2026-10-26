@@ -3,7 +3,7 @@ import {
   ChevronRightIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import { cn } from '@kestack/web-platform/ui/components/utils';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { type ReactNode, useLayoutEffect, useRef, useState } from 'react';
 
 /*
  * What the model chip's Drawer shows: a row each for the agent and the
@@ -37,10 +37,14 @@ const HEADING = 'px-4 pt-4 pb-1.5 text-xs font-medium text-muted-foreground';
 export function OpenRow({
   label,
   value,
+  shown,
   onOpen,
 }: {
   readonly label: string;
+  /** What it says, read aloud. */
   readonly value: string;
+  /** What it shows, if not its words, such as an agent's logo. */
+  readonly shown?: ReactNode;
   readonly onOpen: () => void;
 }) {
   return (
@@ -52,7 +56,7 @@ export function OpenRow({
     >
       <span className="shrink-0 font-medium">{label}</span>
       <span className="ml-auto min-w-0 truncate text-muted-foreground">
-        {value}
+        {shown ?? value}
       </span>
       <ChevronRightIcon
         aria-hidden

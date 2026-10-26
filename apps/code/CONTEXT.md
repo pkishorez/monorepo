@@ -105,7 +105,7 @@ The Picker over this browser's Microphones, the system default first, the one ch
 _Avoid_: device picker, mic menu
 
 **Status Line**:
-The one line at the foot of the page: the model and permissions in effect, and the ways to add to the Draft and send it.
+The one line at the foot of the page: the model and permissions in effect, and the ways to add to the Draft and send it. Wherever the app says which agent runs, here, on the model chip, in the model Picker and beside a Session's title, the agent is its logo, then its Harness Account's name unless it is the Default Account: the Claude logo, then "Work · Opus 5.5". Where only words go, it is one: "Claude", or "Claude-Work".
 _Avoid_: footer, toolbar
 
 **Settled List**:

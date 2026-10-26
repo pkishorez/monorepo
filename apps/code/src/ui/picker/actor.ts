@@ -53,8 +53,16 @@ const Row = Schema.Struct({
   unavailable: Schema.optionalKey(Schema.String),
   /** Drawn quieter than the rest, such as a Settled Session. */
   quiet: Schema.optionalKey(Schema.Boolean),
-  /** What it is, drawn beside it on touch: a Project, a folder, or an action that adds one. */
-  icon: Schema.optionalKey(Schema.Literals(['project', 'folder', 'add'])),
+  /**
+   * What it is, drawn beside it on touch: a Project, a folder, or an action
+   * that adds one; or an agent, its logo drawn however it was opened, and
+   * its name searched.
+   */
+  icon: Schema.optionalKey(
+    Schema.Literals(['project', 'folder', 'add', 'claude', 'codex']),
+  ),
+  /** What it is called where only words go, as in the trail of choices, when its label leans on its icon. */
+  plain: Schema.optionalKey(Schema.String),
   /**
    * An Action's keys out of Vim Mode and in it, as written, and the set in
    * effect now: drawn in two columns after the label, and searched too.
@@ -395,7 +403,7 @@ export const outcomeOf = <P>(
     step: model.step.id,
     key: model.step.key,
     value: row.value,
-    label: row.label,
+    label: row.plain ?? row.label,
   };
   const next =
     spec.steps[model.step.id]?.next?.(row, atOf(model, props)) ?? null;

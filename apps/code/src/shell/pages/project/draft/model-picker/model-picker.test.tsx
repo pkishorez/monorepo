@@ -93,6 +93,22 @@ const catalog = {
   ],
 };
 
+/** A second Claude login, "Claude Work", beside the Default Accounts. */
+const work = {
+  ...catalog,
+  harnesses: [
+    ...catalog.harnesses,
+    { ...catalog.harnesses[0]!, account: 'claude-work', name: 'Claude Work' },
+  ],
+  models: [
+    ...catalog.models,
+    { ...catalog.models[0]!, account: 'claude-work' },
+  ],
+};
+/** The catalog the page is drawn with, and the account it starts on. */
+let shown: typeof catalog = catalog;
+let startAs = 'claude';
+
 const Chosen = Schema.Struct({
   account: Schema.String,
   model: Schema.NullOr(Schema.String),
@@ -127,7 +143,7 @@ const Page = Actor.define('Page', {
 const PageLive = Actor.build(Page, {
   init: () => ({
     model: {
-      current: { account: 'claude', model: null, settings: {} },
+      current: { account: startAs, model: null, settings: {} },
       picking: null,
       opened: 0,
       pings: 0,
@@ -143,11 +159,11 @@ const PageLive = Actor.build(Page, {
           how: model.picking?.how ?? 'keys',
           at: model.picking?.at ?? 'model',
           started: false,
-          catalog,
+          catalog: shown,
           current: model.current,
         }),
       props: ({ model }) => ({
-        catalog,
+        catalog: shown,
         current: model.current,
         alone:
           model.picking?.at === 'agent' || model.picking?.at === 'modelAlone',
@@ -205,7 +221,7 @@ const PageView = View.make(PageLive, ({ model, children, send }) => {
       <Editor />
       {chip ? (
         <Chip
-          catalog={catalog}
+          catalog={shown}
           current={model.current}
           started={false}
           how={model.picking?.how ?? null}
@@ -216,7 +232,7 @@ const PageView = View.make(PageLive, ({ model, children, send }) => {
         </Chip>
       ) : (
         <Triggers
-          catalog={catalog}
+          catalog={shown}
           current={model.current}
           started={false}
           how={model.picking}
@@ -249,6 +265,7 @@ const rows = () =>
   [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].map((item) => ({
     text: item.textContent,
     checked: item.dataset['checked'] === 'true',
+    logo: item.querySelector('svg[role="img"]')?.getAttribute('aria-label'),
   }));
 
 const key = async (name: string, init: KeyboardEventInit = {}) => {
@@ -305,8 +322,8 @@ describe('ModelPicker', () => {
     await key('m');
     expect(document.activeElement).toBe(search());
     expect(rows()).toEqual([
-      { text: 'Claude', checked: true },
-      { text: 'Codex', checked: false },
+      { text: 'Default', checked: true, logo: 'Claude' },
+      { text: 'Default', checked: false, logo: 'Codex' },
     ]);
   });
 
@@ -474,7 +491,10 @@ describe('ModelPicker, from the model chip on a device with no keyboard', () => 
   it('opens the agent from its row, then its model, which finishes', async () => {
     await tap(button(/^Model and settings/));
     await tap(button(/^Agent: /));
-    expect(rows().map(({ text }) => text)).toEqual(['Claude', 'Codex']);
+    expect(rows().map(({ logo, text }) => `${logo} ${text}`)).toEqual([
+      'Claude Default',
+      'Codex Default',
+    ]);
     await tap(
       [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].at(-1)!,
     );
@@ -482,5 +502,83 @@ describe('ModelPicker, from the model chip on a device with no keyboard', () => 
     await tap(document.querySelector<HTMLElement>('[cmdk-item]')!);
     expect(dialog()).toBeNull();
     expect(page.current.account).toBe('codex');
+  });
+});
+
+describe('ModelPicker, with a Harness Account beside the Default Accounts', () => {
+  beforeAll(() => {
+    shown = work;
+    startAs = 'claude-work';
+  });
+  afterAll(() => {
+    shown = catalog;
+    startAs = 'claude';
+    chip = false;
+  });
+  const type = async (text: string) => {
+    const input = search()!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )!.set!.call(input, text);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await flush();
+  };
+  const trigger = (label: RegExp) =>
+    [...document.querySelectorAll<HTMLElement>('button')].find((each) =>
+      label.test(each.getAttribute('aria-label') ?? ''),
+    )!;
+
+  it("names it by its agent's logo and its own name, and in words Claude-Work", async () => {
+    const model = trigger(/^Model: /);
+    expect(model.getAttribute('aria-label')).toBe('Model: Claude-Work, Sonnet');
+    expect(
+      model.querySelector('svg[role="img"]')?.getAttribute('aria-label'),
+    ).toBe('Claude');
+    expect(model.textContent).toBe('Work ·Sonnet');
+    await key('m');
+    expect(rows()).toEqual([
+      { text: 'Default', checked: false, logo: 'Claude' },
+      { text: 'Default', checked: false, logo: 'Codex' },
+      { text: 'Work', checked: true, logo: 'Claude' },
+    ]);
+    await key('Escape');
+  });
+
+  it('finds an agent by the name its logo says, and says the account chosen in words', async () => {
+    await key('m');
+    await type('codex');
+    expect(rows().map(({ logo, text }) => `${logo} ${text}`)).toEqual([
+      'Codex Default',
+    ]);
+    await type('');
+    await key('ArrowDown');
+    await key('ArrowDown');
+    await key('Enter');
+    expect(
+      document.querySelector('nav[aria-label="Chosen so far"]')?.textContent,
+    ).toBe('Claude-Work');
+    await key('Escape');
+    await key('Escape');
+  });
+
+  it('says the account on the chip, before its model', async () => {
+    await act(async () => root?.unmount());
+    document.body.innerHTML = '';
+    chip = true;
+    document.documentElement.toggleAttribute('data-keyboard', false);
+    const App = toReact(PageLive, PageView, Layer.empty, {
+      name: `model-picker-test-${apps++}`,
+    });
+    root = createRoot(document.body.appendChild(document.createElement('div')));
+    await act(async () => root!.render(<App />));
+    await flush();
+    const opener = trigger(/^Model and settings/);
+    expect(opener.getAttribute('aria-label')).toBe(
+      'Model and settings: Claude-Work, Sonnet · Low · Bypass permissions',
+    );
+    expect(opener.textContent).toBe('Work·SonnetLow · Bypass permissions');
   });
 });

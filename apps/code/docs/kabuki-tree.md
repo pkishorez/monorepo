@@ -93,7 +93,7 @@ Up, from the leaves: what each level asks of the one above, and what runs.
 
 ```
 machine-list ─ publishes into Machines ─────────────▶ sidebar, Pickers, Dictation, pages
-kit ─ publishes its Machine's Kit into Machines ─────▶ Settings, Dictation, project, Starter
+kit ─ publishes its Machine's Kit into Machines ─────▶ Settings, Dictation, project, Starter, header
 sidebar, Settings, home ─ Request Machines.reload / forget ─▶ machine-list, and reload ▶ every kit
 harness-accounts, card, project ─ Request Machines.refresh / changed ─▶ its Machine's kit
 any Picker ─ Request Owner.done / load / settle ──────────▶ the Actor that holds it
@@ -191,12 +191,12 @@ sidebar ─ Worker: moves, from Moves ──────────────
 
 ## header
 
-**Does**: Reads the rows of the project and the session the URL names.
+**Does**: Reads the rows of the project and the session the URL names, and the names of its Machine's Harness Accounts.
 **Input**: none · **Props**: place
-**Model**: none · **States**: none · **Messages**: none · **Commands**: none · **Workers**: none
-**Requires**: none · **Provides**: none · **Services**: none
+**Model**: names: the Harness Accounts' names, by id, from the Machine's Kit · **States**: none · **Messages**: Named: its Worker · **Commands**: none · **Workers**: names: each Machine of the place, from Machines
+**Requires**: Machines · **Provides**: none · **Services**: none
 **Children**: project: ProjectRow, while a project is open; session: SessionRow, while a session is open
-**View**: the title, and the open session's agent and model
+**View**: the title, and the open session's agent, by its logo, the account it runs as, and model
 
 ## project-picker · session-switcher · session-actions · microphone-picker · keys-picker
 
