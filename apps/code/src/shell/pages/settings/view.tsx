@@ -7,15 +7,16 @@ import { SettingsLive } from './actor.ts';
 import { General } from './general/index.ts';
 import { MachineSettings } from './machines/index.ts';
 import { Shortcuts } from './shortcuts/index.ts';
-import { TabSwipe } from './swipe.tsx';
+import { Sliding, TabSwipe } from './swipe.tsx';
 
 /*
  * Settings: its three pages as tabs, and the page open beside them. With a
  * keyboard, on a wide screen, the tabs are a list down the left; on touch,
  * or narrow, a row across the top that stays as the page scrolls under it.
  * Shortcuts, which a touch screen with no keyboard has no use for, is left
- * out there. On a touch screen a sideways swipe opens the tab beside, and
- * one before the first opens the sidebar.
+ * out there. On a touch screen the page open follows a sideways swipe to
+ * the tab beside, the tabs staying put, and one before the first opens the
+ * sidebar.
  */
 
 const TABS: ReadonlyArray<{
@@ -73,7 +74,7 @@ export const SettingsView = View.make(
                 </Router.Link>
               ))}
             </nav>
-            <div className="flex min-w-0 flex-1 flex-col px-4 py-6 sm:px-6 md:py-8 keyboard:md:max-w-2xl keyboard:md:p-0">
+            <Sliding className="flex min-w-0 flex-1 flex-col px-4 py-6 sm:px-6 md:py-8 keyboard:md:max-w-2xl keyboard:md:p-0">
               {children.General ? (
                 <General.view instance={children.General} />
               ) : children.Shortcuts ? (
@@ -81,7 +82,7 @@ export const SettingsView = View.make(
               ) : children.Machines ? (
                 <MachineSettings.view instance={children.Machines} />
               ) : null}
-            </div>
+            </Sliding>
           </div>
         </TabSwipe>
       </div>
