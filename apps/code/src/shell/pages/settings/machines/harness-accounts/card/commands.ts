@@ -51,8 +51,8 @@ export const removeAccount = Command.make('RemoveAccount', {
     ),
 });
 
-/** Drops the account being added. */
-export const cancelAccount = Command.make('CancelAccount', {
-  args: Schema.Struct({}),
-  run: () => Effect.flatMap(AccountList, (list) => list.cancelled),
+/** Closes the card, dropping it if it is the account being added. */
+export const closeAccount = Command.make('CloseAccount', {
+  args: Schema.Struct({ key: Schema.String }),
+  run: ({ key }) => Effect.flatMap(AccountList, (list) => list.closed(key)),
 });

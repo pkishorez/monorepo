@@ -1,24 +1,33 @@
 import type { HarnessAccountInfo } from '@kestack/connect/code';
 import { View } from '@kestack/kabuki/react';
+import { Drawer } from '@kestack/web-platform/recipes/touch-layers';
 import { Button } from '@kestack/web-platform/ui/components/button';
+import {
+  Collapsible,
+  CollapsibleContent,
+} from '@kestack/web-platform/ui/components/collapsible';
 import {
   CircleAlertIcon,
   PlusIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
+import { useDevice } from '@kestack/web-platform/ui/input';
 import { ago } from '../../../../../ui/time/index.ts';
 import { outOfReach } from '../../../../../layer/capabilities/index.ts';
 import { useLock } from '../../../../machines/index.ts';
-import { HarnessAccountsLive } from './actor.ts';
+import { HarnessAccountsLive, newKeyOf } from './actor.ts';
 import { Card } from './card/index.ts';
 
 /*
- * One Machine's agent accounts, by agent: a row per account (card/), its
- * Default Account first and the one being added last, then a quiet button
- * that adds another login of it. While the
- * Machine's Line is not connected, the rows show as last kept and take no
- * tap, and none is added. Kept nowhere, a quiet skeleton of the rows while
- * the Machine answers, and, while it does not, a line that says so.
+ * One Machine's agent accounts, under each agent's name with a + that adds
+ * another login of it: a row per account (card/), its Default Account
+ * first and the one being added last. Tapping a row opens its card under
+ * it, and again closes it, sliding either way; on touch with no keyboard
+ * it opens in a Drawer instead, and the account being added has no row.
+ * While the Machine's Line is not connected, the rows show as last kept
+ * and take no tap, and none is added. Kept nowhere, a quiet skeleton of
+ * the rows while the Machine answers, and, while it does not, a line that
+ * says so.
  */
 
 type Harness = HarnessAccountInfo['harness'];
@@ -38,15 +47,25 @@ export const HarnessAccountsView = View.make(
   HarnessAccountsLive,
   ({ root, model, children, send }) => {
     const accounts = model.accounts ?? [];
-    const harnessOf = (key: string) =>
-      accounts.find(({ id }) => id === key)?.harness ?? model.adding;
+    const accountOf = (key: string) =>
+      accounts.find(({ id }) => id === key) ?? null;
+    const harnessOf = (key: string) => accountOf(key)?.harness ?? model.adding;
     /** The Default Account first, the one being added last, the rest as listed. */
     const rank = (key: string) => {
       const index = accounts.findIndex(({ id }) => id === key);
       if (index === -1) return accounts.length + 1;
       return accounts[index]!.isDefault ? -1 : index;
     };
-    const { health, locked } = useLock(model.machineId);
+    const { health, locked, said } = useLock(model.machineId);
+    const { touch, keyboard } = useDevice();
+    const drawer = touch && !keyboard;
+    const panelOf = (key: string) => `account-${model.machineId}-${key}-panel`;
+    const opened = children.cards.find((card) => card.key === model.open);
+    const openedName =
+      opened === undefined
+        ? ''
+        : (accountOf(opened.key)?.name ??
+          `New ${Card.agentName(harnessOf(opened.key) ?? 'claude')} account`);
     const problem = model.loadProblem !== null && (
       <p
         role="alert"
@@ -65,43 +84,76 @@ export const HarnessAccountsView = View.make(
       </p>
     );
     return (
-      <div {...root} className="flex flex-col gap-3">
-        <h4 className="text-sm font-medium">Agents</h4>
+      <div {...root} className="flex flex-col gap-5">
         {model.accounts !== null ? (
-          <div className="flex flex-col gap-2">
+          <>
             {problem}
             {agents(model.accounts, model.adding).map((harness) => {
               const name = Card.agentName(harness);
               const cards = children.cards
                 .filter((card) => harnessOf(card.key) === harness)
+                .filter((card) => !drawer || card.key !== newKeyOf(harness))
                 .sort((a, b) => rank(a.key) - rank(b.key));
               return (
                 <section
                   key={harness}
-                  aria-label={name}
-                  className="flex flex-col"
+                  aria-labelledby={`agent-${model.machineId}-${harness}`}
+                  className="flex flex-col gap-1"
                 >
-                  {cards.map((card) => (
-                    <Card.view key={card.key} instance={card} />
-                  ))}
-                  {model.adding === null && (
+                  <div className="flex items-center justify-between gap-2">
+                    <h4
+                      id={`agent-${model.machineId}-${harness}`}
+                      className="text-sm font-semibold"
+                    >
+                      {name}
+                    </h4>
                     <Button
                       type="button"
                       variant="ghost"
-                      size="sm"
+                      size="icon"
                       aria-label={`Add ${name} account`}
                       disabled={locked}
-                      className="-ml-2.5 h-11 self-start text-muted-foreground keyboard:h-8"
+                      className="-mr-2.5 size-11 text-muted-foreground keyboard:-mr-1.5 keyboard:size-8"
                       onClick={() => send({ _tag: 'AddAsked', harness })}
                     >
                       <PlusIcon aria-hidden />
-                      Add {name} account
                     </Button>
-                  )}
+                  </div>
+                  {cards.map((card) => {
+                    const expanded = model.open === card.key;
+                    return (
+                      <div key={card.key} className="flex flex-col">
+                        <Card.Row
+                          account={accountOf(card.key)}
+                          harness={harness}
+                          expanded={expanded}
+                          opensDrawer={drawer}
+                          controls={panelOf(card.key)}
+                          disabled={locked}
+                          said={said}
+                          onToggle={() =>
+                            send({ _tag: 'Toggled', key: card.key })
+                          }
+                        />
+                        {!drawer && (
+                          <Collapsible open={expanded}>
+                            <CollapsibleContent
+                              id={panelOf(card.key)}
+                              className="h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] data-ending-style:h-0 data-ending-style:duration-150 data-starting-style:h-0 motion-reduce:transition-none"
+                            >
+                              <div className="pt-3 pb-5">
+                                <Card.view instance={card} />
+                              </div>
+                            </CollapsibleContent>
+                          </Collapsible>
+                        )}
+                      </div>
+                    );
+                  })}
                 </section>
               );
             })}
-          </div>
+          </>
         ) : model.loadProblem !== null ? (
           problem
         ) : outOfReach(health) ? (
@@ -118,6 +170,26 @@ export const HarnessAccountsView = View.make(
               </div>
             ))}
           </div>
+        )}
+        {drawer && (
+          <Drawer
+            tall
+            open={opened !== undefined}
+            label={openedName}
+            onOpenChange={(next) => {
+              if (!next && model.open !== null)
+                send({ _tag: 'Closed', key: model.open });
+            }}
+          >
+            {opened !== undefined && (
+              <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 pt-1 pb-4">
+                <h2 className="truncate text-[17px] font-semibold">
+                  {openedName}
+                </h2>
+                <Card.view instance={opened} />
+              </div>
+            )}
+          </Drawer>
         )}
       </div>
     );

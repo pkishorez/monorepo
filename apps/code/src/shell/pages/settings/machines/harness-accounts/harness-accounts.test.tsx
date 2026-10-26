@@ -25,10 +25,12 @@ import { HarnessAccountsView } from './view.tsx';
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 /*
- * One Machine's agent accounts, drawn from what the Machine says: a card
- * per account, saying why one does not run; another login added with its
- * config folder, saved as typed, or dropped on Cancel; a refusal kept on
- * its card; an added account removed once asked again, a Default Account
+ * One Machine's agent accounts, drawn from what the Machine says, under
+ * each agent: a row per account, saying why one does not run, which opens
+ * its card under it and closes it again, one at a time, or on touch opens
+ * it in a Drawer; another login added from its agent's +, with its config
+ * folder, saved as typed, or dropped on Cancel; a refusal kept on its
+ * card; an added account removed once asked again, a Default Account
  * never. Kept on this device per Account: what was kept shows at once,
  * with no skeleton, and the Machine's answer, and each change, is kept;
  * kept nowhere, a skeleton shows until it answers. A change made while it
@@ -157,6 +159,9 @@ const names = () =>
   [...document.querySelectorAll('[data-slot="account-name"]')].map(
     (each) => each.textContent,
   );
+const expanded = (label: string) =>
+  labelled(label).getAttribute('aria-expanded');
+const drawer = () => document.querySelector('[data-slot="touch-drawer"]');
 const field = (id: string) =>
   document.querySelector<HTMLInputElement>(`#account-m1-${id}`)!;
 
@@ -177,7 +182,29 @@ const type = async (input: HTMLInputElement, value: string) => {
   await flush();
 };
 
+/** Makes the device a touch screen with no keyboard, or one driven by keys, as `useDevice` hears it. */
+const driven = async (by: 'touch' | 'keys') => {
+  await act(async () => {
+    if (by === 'touch') {
+      const event = new MouseEvent('pointerdown', { bubbles: true });
+      Object.assign(event, { pointerType: 'touch' });
+      window.dispatchEvent(event);
+    } else
+      document.body.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
+  });
+  await flush();
+};
+
 beforeAll(() => {
+  window.matchMedia = (query: string) =>
+    ({
+      matches: false,
+      media: query,
+      addEventListener() {},
+      removeEventListener() {},
+    }) as unknown as MediaQueryList;
   globalThis.ResizeObserver ??= class {
     observe() {}
     unobserve() {}
@@ -271,7 +298,7 @@ describe('Harness Accounts, kept on this device', () => {
     await mount();
     const older = answer;
     answer = Effect.runSync(Deferred.make<ReadonlyArray<HarnessAccountInfo>>());
-    await click(labelled('Change Codex work'));
+    await click(labelled('Codex work'));
     await click(button('Remove…'));
     await click(button('Remove'));
     expect(removed).toEqual(['codex-work']);
@@ -294,16 +321,67 @@ describe('Harness Accounts, kept on this device', () => {
     line = 'reconnecting';
     await mount();
     expect(names()).toEqual(['Claude', 'Codex']);
-    expect(labelled('Change Claude').hasAttribute('disabled')).toBe(true);
+    expect(labelled('Claude').hasAttribute('disabled')).toBe(true);
     expect(labelled('Add Claude account').hasAttribute('disabled')).toBe(true);
     expect(text()).not.toContain('Locked');
+  });
+});
+
+describe('Harness Accounts on touch with no keyboard', () => {
+  beforeEach(async () => {
+    await mount();
+    await driven('touch');
+    await answers(DEFAULTS);
+  });
+
+  it('opens a row’s card in a Drawer, and the account being added there too', async () => {
+    expect(labelled('Claude').getAttribute('aria-haspopup')).toBe('dialog');
+    await click(labelled('Claude'));
+    expect(drawer()?.textContent).toContain('Config folder');
+    expect(field('claude-name-field').value).toBe('Claude');
+    await click(button('Cancel'));
+    await click(labelled('Add Claude account'));
+    expect(drawer()?.textContent).toContain('New Claude account');
+    expect(field('new-claude-name-field')).not.toBeNull();
+    // Its row is the Drawer alone.
+    expect(labelled('New Claude account')?.tagName).not.toBe('BUTTON');
   });
 });
 
 describe('Harness Accounts', () => {
   beforeEach(async () => {
     await mount();
+    await driven('keys');
     await answers(DEFAULTS);
+  });
+
+  it('opens a row’s card under it, closes it on a second tap, and keeps one open at a time', async () => {
+    expect(expanded('Claude')).toBe('false');
+    await click(labelled('Claude'));
+    expect(expanded('Claude')).toBe('true');
+    expect(field('claude-name-field').value).toBe('Claude');
+    await click(labelled('Claude'));
+    expect(expanded('Claude')).toBe('false');
+    expect(field('claude-name-field')).toBeNull();
+    await click(labelled('Claude'));
+    await click(labelled('Codex'));
+    expect(expanded('Claude')).toBe('false');
+    expect(expanded('Codex')).toBe('true');
+    expect(field('claude-name-field')).toBeNull();
+  });
+
+  it('adds an account for the agent whose + was tapped, under that agent', async () => {
+    await click(labelled('Add Codex account'));
+    expect(expanded('New Codex account')).toBe('true');
+    expect(field('new-codex-name-field')).not.toBeNull();
+    expect(field('new-claude-name-field')).toBeNull();
+    expect(
+      labelled('New Codex account').closest('section')?.textContent,
+    ).toContain('Codex');
+    // Another row opened drops the account being added.
+    await click(labelled('Claude'));
+    expect(field('new-codex-name-field')).toBeNull();
+    expect(labelled('New Codex account')).toBeNull();
   });
 
   it('draws a row per account, saying how to install an agent that is not there', async () => {
@@ -311,18 +389,18 @@ describe('Harness Accounts', () => {
     expect(text()).toContain('npm install -g @openai/codex');
     // An empty folder is the agent's own, and the row says it, with the
     // version that runs; an empty binary, the one on PATH, which the form says.
-    expect(labelled('Change Claude').textContent).toContain('~/.claude');
-    expect(labelled('Change Claude').textContent).toContain('1.0.0');
+    expect(labelled('Claude').textContent).toContain('~/.claude');
+    expect(labelled('Claude').textContent).toContain('1.0.0');
     // A Default Account is never removed.
-    await click(labelled('Change Claude'));
+    await click(labelled('Claude'));
     expect(text()).toContain('now /usr/local/bin/claude');
     expect(button('Remove…')).toBeUndefined();
   });
 
   it('adds another login with its config folder, saved as typed', async () => {
     await click(labelled('Add Claude account'));
-    await type(field('new-name-field'), ' Claude work ');
-    await type(field('new-config-folder'), '~/.claude-work');
+    await type(field('new-claude-name-field'), ' Claude work ');
+    await type(field('new-claude-config-folder'), '~/.claude-work');
     await click(button('Add account'));
     expect(saved).toEqual([
       {
@@ -335,9 +413,7 @@ describe('Harness Accounts', () => {
     ]);
     // Under its agent, after the Default Account, its folder and the variable it sets.
     expect(names()).toEqual(['Claude', 'Claude work', 'Codex']);
-    expect(labelled('Change Claude work').textContent).toContain(
-      '~/.claude-work',
-    );
+    expect(labelled('Claude work').textContent).toContain('~/.claude-work');
     expect((await keptAccounts())?.map(({ name }) => name)).toEqual([
       'Claude',
       'Codex',
@@ -348,38 +424,38 @@ describe('Harness Accounts', () => {
   it('keeps what was typed, and why the Machine refused it', async () => {
     refuse = 'Nothing is at /nowhere; sign in with that config folder first';
     await click(labelled('Add Claude account'));
-    await type(field('new-name-field'), 'Claude work');
-    await type(field('new-config-folder'), '/nowhere');
+    await type(field('new-claude-name-field'), 'Claude work');
+    await type(field('new-claude-config-folder'), '/nowhere');
     await click(button('Add account'));
     expect(document.querySelector('[role="alert"]')?.textContent).toContain(
       'sign in with that config folder first',
     );
-    expect(field('new-config-folder').value).toBe('/nowhere');
+    expect(field('new-claude-config-folder').value).toBe('/nowhere');
   });
 
   it('drops the account being added on Cancel', async () => {
     await click(labelled('Add Claude account'));
-    await type(field('new-name-field'), 'Claude work');
+    await type(field('new-claude-name-field'), 'Claude work');
     await click(button('Cancel'));
     expect(saved).toEqual([]);
-    expect(field('new-name-field')).toBeNull();
+    expect(field('new-claude-name-field')).toBeNull();
     expect(labelled('Add Claude account')).not.toBeNull();
   });
 
   it('closes a form on Cancel, dropping what was typed', async () => {
-    await click(labelled('Change Claude'));
+    await click(labelled('Claude'));
     await type(field('claude-name-field'), 'Claude home');
     await click(button('Cancel'));
     expect(field('claude-name-field')).toBeNull();
-    await click(labelled('Change Claude'));
+    await click(labelled('Claude'));
     expect(field('claude-name-field').value).toBe('Claude');
   });
 
   it('removes an added account once asked again', async () => {
     await click(labelled('Add Codex account'));
-    await type(field('new-name-field'), 'Codex work');
+    await type(field('new-codex-name-field'), 'Codex work');
     await click(button('Add account'));
-    await click(labelled('Change Codex work'));
+    await click(labelled('Codex work'));
     await click(button('Remove…'));
     expect(removed).toEqual([]);
     expect(text()).toContain('Its sessions stop working.');

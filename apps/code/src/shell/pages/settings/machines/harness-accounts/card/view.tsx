@@ -1,5 +1,5 @@
 import type { HarnessAccountInfo } from '@kestack/connect/code';
-import { View, type ViewProps } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { Badge } from '@kestack/web-platform/ui/components/badge';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { Input } from '@kestack/web-platform/ui/components/input';
@@ -9,20 +9,24 @@ import {
   LockIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
+import { cn } from '@kestack/web-platform/ui/components/utils';
+import { useState } from 'react';
 import { useLock } from '../../../../../machines/index.ts';
 import { CardLive, formOf } from './actor.ts';
 
 /*
- * One account's row, tapped to change it: its name, marked Default for its
- * agent's Default Account, and one quiet line, its config folder, or the
- * agent's own, cut in its middle so its end shows, and the version that
- * runs; or why it does not run, such as how to install the agent. Opened,
- * its form: name, config folder and binary, each saying what empty means,
- * why the Machine refused, else how to sign in with the folder, then Save
- * and Cancel, and Remove for an added account, which asks again. The
- * account being added is its form alone. While the Machine's Line is not
- * connected the row takes no tap, a lock in place of its arrow once that
- * is said, and an open form takes nothing.
+ * One account's row (`Row`), which the list draws and opens the card from:
+ * its name, marked Default for its agent's Default Account, and one quiet
+ * line, its config folder, or the agent's own, cut in its middle so its
+ * end shows, and the version that runs; or why it does not run, such as
+ * how to install the agent. While the Machine's Line is not connected the
+ * row takes no tap, a lock in place of its arrow once that is said.
+ *
+ * The card itself is its form: name, config folder and binary, each with a
+ * short hint of what empty means, why the Machine refused, and for a new
+ * account how to sign in with its folder; then Save and Cancel, and for an
+ * added account Remove, apart, which asks again. While the Line is not
+ * connected it takes nothing.
  */
 
 const AGENT = { claude: 'Claude', codex: 'Codex' } as const;
@@ -40,8 +44,6 @@ const FOLDER = {
   },
   codex: { own: '~/.codex', variable: 'CODEX_HOME', signIn: 'codex login' },
 } as const;
-
-type Self = ViewProps<typeof CardLive>;
 
 const BUTTON = 'h-11 keyboard:h-8';
 
@@ -127,70 +129,136 @@ function Summary({ account }: { readonly account: HarnessAccountInfo }) {
   );
 }
 
-/** Cancel; and for an added account, Remove, asked twice. */
-function Actions({
-  model,
-  props,
-  send,
-  locked,
-}: Pick<Self, 'model' | 'props' | 'send'> & { readonly locked: boolean }) {
-  const cancel = (
-    <Button
-      type="button"
-      variant="ghost"
-      className={BUTTON}
-      disabled={model.busy}
-      onClick={() => send({ _tag: 'Cancel' })}
-    >
-      Cancel
-    </Button>
-  );
-  const { account } = props;
-  if (account === null || account.isDefault) return cancel;
-  if (!model.confirmingRemove)
-    return (
-      <>
-        {cancel}
-        <Button
-          type="button"
-          variant="ghost"
-          className={`ml-auto text-muted-foreground hover:text-destructive ${BUTTON}`}
-          disabled={model.busy || locked}
-          onClick={() => send({ _tag: 'RemoveAsked' })}
-        >
-          Remove…
-        </Button>
-      </>
-    );
+/**
+ * An account's row, or the account being added's when `account` is null:
+ * tapped, it opens its card or closes it, `expanded` saying it is open
+ * below it; `opensDrawer`, it opens it in a Drawer instead.
+ */
+export function Row({
+  account,
+  harness,
+  expanded,
+  opensDrawer,
+  controls,
+  disabled,
+  said,
+  onToggle,
+}: {
+  readonly account: HarnessAccountInfo | null;
+  readonly harness: HarnessAccountInfo['harness'];
+  readonly expanded: boolean;
+  readonly opensDrawer: boolean;
+  /** The id of what it opens. */
+  readonly controls: string;
+  readonly disabled: boolean;
+  /** Whether the Machine is said to be out of reach: a lock for the arrow. */
+  readonly said: boolean;
+  readonly onToggle: () => void;
+}) {
   return (
-    <>
-      {cancel}
-      <span className="ml-auto text-sm text-muted-foreground">
-        Its sessions stop working.
-      </span>
+    <div className="flex flex-col">
+      <button
+        type="button"
+        aria-label={
+          account === null ? `New ${AGENT[harness]} account` : account.name
+        }
+        {...(opensDrawer
+          ? { 'aria-haspopup': 'dialog' as const }
+          : { 'aria-expanded': expanded, 'aria-controls': controls })}
+        disabled={disabled}
+        className="focus-ring -mx-2 flex min-h-12 items-center gap-3 rounded-md px-2 py-2 text-left transition-colors duration-150 hover:bg-muted active:bg-muted disabled:hover:bg-transparent"
+        onClick={onToggle}
+      >
+        {account === null ? (
+          <span
+            data-slot="account-name"
+            className="min-w-0 flex-1 truncate text-sm font-medium"
+          >
+            New {AGENT[harness]} account
+          </span>
+        ) : (
+          <Summary account={account} />
+        )}
+        {said ? (
+          <LockIcon
+            aria-hidden
+            className="size-4 shrink-0 text-muted-foreground"
+          />
+        ) : (
+          <ChevronRightIcon
+            aria-hidden
+            className={cn(
+              'size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-out motion-reduce:transition-none',
+              expanded && !opensDrawer && 'rotate-90',
+            )}
+          />
+        )}
+      </button>
+      {account !== null && account.resolved.error !== null && (
+        <p className="flex items-start gap-2 pb-2 text-sm text-destructive">
+          <CircleAlertIcon aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+          <span className="min-w-0 break-words">{account.resolved.error}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Remove, apart from Save and Cancel; tapped, it asks again in its place. */
+function RemoveButton({
+  name,
+  disabled,
+  onRemove,
+}: {
+  readonly name: string;
+  readonly disabled: boolean;
+  readonly onRemove: () => void;
+}) {
+  const [asking, setAsking] = useState(false);
+  if (!asking)
+    return (
       <Button
         type="button"
         variant="destructive"
-        className={BUTTON}
-        disabled={locked}
-        onClick={() => send({ _tag: 'Remove' })}
+        className={`ml-auto ${BUTTON}`}
+        disabled={disabled}
+        onClick={() => setAsking(true)}
       >
-        Remove
+        Remove…
       </Button>
+    );
+  return (
+    <div
+      role="group"
+      aria-label={`Remove ${name}?`}
+      className="flex basis-full flex-wrap items-center gap-2 border-t border-border pt-3"
+    >
+      <p className="mr-auto text-sm text-muted-foreground">
+        Remove {name}? Its sessions stop working.
+      </p>
       <Button
         type="button"
         variant="ghost"
         className={BUTTON}
-        onClick={() => send({ _tag: 'RemoveKept' })}
+        onClick={() => setAsking(false)}
       >
         Keep
       </Button>
-    </>
+      <Button
+        type="button"
+        variant="destructive"
+        className={BUTTON}
+        disabled={disabled}
+        onClick={onRemove}
+      >
+        Remove
+      </Button>
+    </div>
   );
 }
 
 export const CardView = View.make(CardLive, ({ root, model, props, send }) => {
-  const { locked, said } = useLock(model.machineId);
+  const { locked } = useLock(model.machineId);
   const { account } = props;
   const { harness } = model;
   const folder = FOLDER[harness];
@@ -204,137 +272,97 @@ export const CardView = View.make(CardLive, ({ root, model, props, send }) => {
   const edit =
     (field: 'name' | 'binaryPath' | 'configFolder') => (value: string) =>
       send({ _tag: 'Edited', field, value });
-  const open = model.editing || model.problem !== null || account === null;
-  const binary =
-    account === null
+  const resolved =
+    account === null || account.binaryPath !== null
       ? ''
-      : account.binaryPath === null
-        ? account.resolved.path === null
-          ? ', not found on PATH'
-          : `, now ${account.resolved.path}`
-        : '';
+      : account.resolved.path === null
+        ? ', not found'
+        : `, now ${account.resolved.path}`;
   const typedFolder = form.configFolder.trim();
-  const row =
-    'flex min-h-11 w-full items-center gap-3 rounded-md px-2 py-2 text-left';
+  const off = model.busy || locked;
   return (
-    <section
+    <form
       {...root}
-      aria-label={account?.name ?? `New ${AGENT[harness]} account`}
-      className="-mx-2 flex flex-col gap-2"
+      noValidate
+      aria-describedby={model.problem ? `${id}-problem` : undefined}
+      className="flex flex-1 flex-col gap-5"
+      onSubmit={(event) => {
+        event.preventDefault();
+        send({ _tag: 'Save' });
+      }}
     >
-      {account === null ? (
-        <div className={row}>
-          <span data-slot="account-name" className="text-sm font-medium">
-            New {AGENT[harness]} account
-          </span>
-        </div>
-      ) : open ? (
-        <div className={row}>
-          <Summary account={account} />
-        </div>
-      ) : (
-        <button
-          type="button"
-          aria-label={`Change ${account.name}`}
-          disabled={locked}
-          className={`focus-ring ${row} transition-colors duration-150 hover:bg-muted active:bg-muted disabled:hover:bg-transparent`}
-          onClick={() => send({ _tag: 'EditAsked' })}
+      <div className="flex max-w-xl flex-col gap-4">
+        <Field
+          id={`${id}-name-field`}
+          label="Name"
+          value={form.name}
+          placeholder={`${AGENT[harness]} work`}
+          disabled={off}
+          onChange={edit('name')}
+        />
+        <Field
+          id={`${id}-config-folder`}
+          label="Config folder"
+          hint={`${folder.variable} · empty = ${folder.own}`}
+          value={form.configFolder}
+          placeholder={folder.own}
+          disabled={off}
+          mono
+          onChange={edit('configFolder')}
+        />
+        <Field
+          id={`${id}-binary`}
+          label="Binary"
+          hint={`Empty = from PATH${resolved}`}
+          value={form.binaryPath}
+          placeholder={harness}
+          disabled={off}
+          mono
+          onChange={edit('binaryPath')}
+        />
+      </div>
+      {model.problem !== null ? (
+        <p
+          id={`${id}-problem`}
+          role="alert"
+          className="flex items-start gap-1.5 text-sm text-destructive"
         >
-          <Summary account={account} />
-          {said ? (
-            <LockIcon
-              aria-hidden
-              className="size-4 shrink-0 text-muted-foreground"
-            />
-          ) : (
-            <ChevronRightIcon
-              aria-hidden
-              className="size-4 shrink-0 text-muted-foreground"
-            />
-          )}
-        </button>
-      )}
-      {account !== null && account.resolved.error !== null && (
-        <p className="flex items-start gap-2 px-2 text-sm text-destructive">
           <CircleAlertIcon aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-          <span className="min-w-0 break-words">{account.resolved.error}</span>
+          {model.problem}
         </p>
+      ) : (
+        account === null && (
+          <p className="text-xs text-muted-foreground">
+            Sign in with a new folder on the Machine first:{' '}
+            <code className="font-mono break-all">
+              {folder.variable}={typedFolder === '' ? '<folder>' : typedFolder}{' '}
+              {folder.signIn}
+            </code>
+          </p>
+        )
       )}
-      {open && (
-        <form
-          noValidate
-          className="flex flex-col gap-3 px-2 pb-3"
-          aria-describedby={model.problem ? `${id}-problem` : `${id}-hint`}
-          onSubmit={(event) => {
-            event.preventDefault();
-            send({ _tag: 'Save' });
-          }}
+      <div className="mt-auto flex flex-wrap items-center gap-2">
+        <Button type="submit" className={BUTTON} disabled={off || !changed}>
+          {model.busy && <Spinner />}
+          {account === null ? 'Add account' : 'Save'}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          className={BUTTON}
+          disabled={model.busy}
+          onClick={() => send({ _tag: 'Cancel' })}
         >
-          <div className="flex max-w-xl flex-col gap-4">
-            <Field
-              id={`${id}-name-field`}
-              label="Name"
-              value={form.name}
-              placeholder={`${AGENT[harness]} work`}
-              disabled={model.busy || locked}
-              onChange={edit('name')}
-            />
-            <Field
-              id={`${id}-config-folder`}
-              label="Config folder"
-              hint={`Empty uses ${folder.own}, ${AGENT[harness]}'s own. Set as ${folder.variable}.`}
-              value={form.configFolder}
-              placeholder={folder.own}
-              disabled={model.busy || locked}
-              mono
-              onChange={edit('configFolder')}
-            />
-            <Field
-              id={`${id}-binary`}
-              label="Binary"
-              hint={`Empty runs ${harness} from PATH${binary}.`}
-              value={form.binaryPath}
-              placeholder={`${harness} from PATH`}
-              disabled={model.busy || locked}
-              mono
-              onChange={edit('binaryPath')}
-            />
-          </div>
-          {model.problem !== null ? (
-            <p
-              id={`${id}-problem`}
-              role="alert"
-              className="flex items-start gap-1.5 text-sm text-destructive"
-            >
-              <CircleAlertIcon
-                aria-hidden
-                className="mt-0.5 size-3.5 shrink-0"
-              />
-              {model.problem}
-            </p>
-          ) : (
-            <p id={`${id}-hint`} className="text-xs text-muted-foreground">
-              A new folder? Sign in on the Machine first:{' '}
-              <code className="font-mono break-all">
-                {folder.variable}=
-                {typedFolder === '' ? '<folder>' : typedFolder} {folder.signIn}
-              </code>
-              . Sessions started after saving use it.
-            </p>
-          )}
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="submit"
-              className={BUTTON}
-              disabled={model.busy || locked || !changed}
-            >
-              {model.busy && <Spinner />}
-              {account === null ? 'Add account' : 'Save'}
-            </Button>
-            <Actions model={model} props={props} send={send} locked={locked} />
-          </div>
-        </form>
-      )}
-    </section>
+          Cancel
+        </Button>
+        {account !== null && !account.isDefault && (
+          <RemoveButton
+            name={account.name}
+            disabled={off}
+            onRemove={() => send({ _tag: 'Remove' })}
+          />
+        )}
+      </div>
+    </form>
   );
 });
