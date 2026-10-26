@@ -84,7 +84,7 @@ const make = (
 
   // 2. Write
   const markSeen = (
-    accountId: string | null,
+    accountId: string,
     machineId: string,
     sessionId: string,
     seen: number,
@@ -110,7 +110,7 @@ const make = (
           id,
           (current) => ({
             seen: Math.max(current.seen, seen),
-            accountId: current.accountId ?? accountId,
+            accountId,
           }),
           { retries: RETRIES },
         );

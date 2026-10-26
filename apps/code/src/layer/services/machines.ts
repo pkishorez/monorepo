@@ -67,6 +67,17 @@ export const layer: Layer.Layer<Machines | Link> = Layer.effectContext(
       Context.add(Machines, {
         state,
         current: SubscriptionRef.get(known),
+        account: state.pipe(
+          Stream.map(({ accountId }) => accountId),
+          Stream.filter((id) => id !== null),
+          Stream.runHead,
+          Effect.flatMap(
+            Option.match({
+              onNone: () => Effect.never,
+              onSome: Effect.succeed,
+            }),
+          ),
+        ),
         machine,
         line,
         kit,

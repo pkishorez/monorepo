@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { copy, Kept, shelf } from '../../capabilities/index.ts';
+import { copy, Kept, shelf, went } from '../../capabilities/index.ts';
 import { memory } from './kept.ts';
 
 /*
@@ -125,5 +125,18 @@ describe('copy', () => {
     expect(copy.asking(refused)).toEqual([]);
     const again = copy.ask(refused);
     expect(copy.answered(again, 2, ['b']).problem).toBeNull();
+  });
+});
+
+describe('went', () => {
+  it('takes a row kept before rows named their Account only with its Machine', () => {
+    const before = { accountId: null, machineId: 'm1', projectId: null };
+    expect(went({ _tag: 'SignedOut', signedIn: [] })(before)).toBe(false);
+    expect(
+      went({ _tag: 'Unlisted', accountId: 'a1', listed: [] })(before),
+    ).toBe(false);
+    expect(
+      went({ _tag: 'Machine', accountId: 'a1', machineId: 'm1' })(before),
+    ).toBe(true);
   });
 });

@@ -159,8 +159,6 @@ describe('Device State', () => {
         yield* device.markSeen('a1', 'm2', 's1', 2);
         yield* device.markSeen('a1', 'm3', 's1', 3);
         yield* device.markSeen('a2', 'm4', 's1', 4);
-        // A mark of before, whose Account is not known.
-        yield* device.markSeen(null, 'm5', 's1', 5);
         yield* device.drop({
           _tag: 'Machine',
           accountId: 'a1',
@@ -175,7 +173,7 @@ describe('Device State', () => {
         return yield* device.read;
       }),
     );
-    expect(read.unseen).toEqual({ m3: { s1: 3 }, m5: { s1: 5 } });
+    expect(read.unseen).toEqual({ m3: { s1: 3 } });
   });
 
   it('is heard after every write', async () => {

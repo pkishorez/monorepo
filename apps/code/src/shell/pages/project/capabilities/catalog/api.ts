@@ -26,15 +26,12 @@ export const followKit = (machineId: string) =>
 /** 2. The Skills kept for the project, under the Account signed in. */
 export const savedSkills = (machineId: string, projectId: string) =>
   Effect.gen(function* () {
-    const { accountId } = yield* (yield* Machines).current;
-    const skills =
-      accountId === null
-        ? null
-        : yield* (yield* Kept).read(SkillsShelf, {
-            accountId,
-            machineId,
-            projectId,
-          });
+    const accountId = yield* (yield* Machines).account;
+    const skills = yield* (yield* Kept).read(SkillsShelf, {
+      accountId,
+      machineId,
+      projectId,
+    });
     return { _tag: 'SkillsSaved' as const, accountId, skills };
   });
 

@@ -65,9 +65,9 @@ export class DeviceState extends Context.Service<
     readonly setSidebarMachine: (
       machineId: string | null,
     ) => Effect.Effect<void, DatabaseError>;
-    /** Marks the Session seen, for the Account its Machine is of; null when none is known. */
+    /** Marks the Session seen, for the Account its Machine is of. */
     readonly markSeen: (
-      accountId: string | null,
+      accountId: string,
       machineId: string,
       sessionId: string,
       seen: number,

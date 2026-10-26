@@ -46,7 +46,7 @@ export const markSeen = Command.make('MarkSeen', {
   }),
   run: ({ machineId, sessionId, seen }) =>
     Effect.gen(function* () {
-      const { accountId } = yield* (yield* Machines).current;
+      const accountId = yield* (yield* Machines).account;
       yield* (yield* DeviceState).markSeen(
         accountId,
         machineId,
