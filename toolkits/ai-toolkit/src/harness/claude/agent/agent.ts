@@ -3,6 +3,7 @@ import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { Deferred, Effect, Queue, Stream } from 'effect';
 import type { Cause, Scope } from 'effect';
 import {
+  failureReason,
   HarnessError,
   type Attachment,
   type Agent,
@@ -329,9 +330,15 @@ export const openSdkAgent = (
         );
       });
 
+    const failedIn = {
+      harness: 'Claude Code',
+      cwd: config.cwd,
+      binary: config.executable.path,
+    };
     yield* Stream.fromAsyncIterable(
       live,
-      (cause) => new HarnessError({ message: 'Claude Code failed', cause }),
+      (cause) =>
+        new HarnessError({ message: failureReason(cause, failedIn), cause }),
     ).pipe(
       Stream.runForEach(onMessage),
       Effect.flatMap(() =>

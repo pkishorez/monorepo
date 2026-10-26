@@ -21,6 +21,11 @@ const live = vi.hoisted(() => {
       records.push(record);
       wake?.();
     },
+    /** Claude Code's stream throws, as it does when its process cannot run. */
+    crash: (error: unknown) => {
+      records.push({ thrown: error });
+      wake?.();
+    },
     query: ({
       prompt,
     }: {
@@ -38,6 +43,7 @@ const live = vi.hoisted(() => {
         async *[Symbol.asyncIterator]() {
           while (!closed) {
             const next = mine.shift();
+            if (isThrown(next)) throw next.thrown;
             if (next !== undefined) yield next;
             else await new Promise<void>((resolve) => (wake = resolve));
           }
@@ -57,6 +63,10 @@ const live = vi.hoisted(() => {
     },
   };
 });
+
+function isThrown(record: unknown): record is { thrown: unknown } {
+  return typeof record === 'object' && record !== null && 'thrown' in record;
+}
 
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({ query: live.query }));
 
@@ -82,12 +92,13 @@ const sentNow = (count: number) =>
 
 const withSession = <A, E>(
   body: (session: SdkAgent) => Effect.Effect<A, E, Scope.Scope>,
+  cwd = '/tmp',
 ) =>
   Effect.runPromise(
     Effect.scoped(
       Effect.flatMap(
         openSdkAgent({
-          cwd: '/tmp',
+          cwd,
           executable: { path: '/usr/local/bin/claude', env: {} },
           model: 'claude-test',
           effort: 'high',
@@ -298,6 +309,53 @@ describe('openSdkAgent', () => {
           `end done ${uuid}`,
         ]);
         expect(outs.at(-1)).toMatchObject({ shown: true });
+      }),
+    ));
+
+  it('fails a turn with why: its project folder no longer exists', () =>
+    withSession(
+      (session) =>
+        Effect.gen(function* () {
+          const turn = yield* Effect.forkChild(
+            Effect.flip(
+              Stream.runCollect(
+                session.turn({ text: 'hi', images: [], options: {} }).out,
+              ),
+            ),
+          );
+          yield* sentNow(1);
+          // What Claude Code's SDK throws when its process cannot start in
+          // a missing folder.
+          live.crash(
+            Object.assign(
+              new Error(
+                "Claude Code native binary at /usr/local/bin/claude exists but failed to launch. This usually means the binary does not match this system's libc.",
+              ),
+              { code: 'ENOENT', errorClass: 'executable_launch_failed' },
+            ),
+          );
+          expect((yield* Fiber.join(turn)).message).toBe(
+            'The project folder /tmp/kestack-no-such-folder no longer exists',
+          );
+        }),
+      '/tmp/kestack-no-such-folder',
+    ));
+
+  it('fails a turn with what Claude Code said, when the reason is unknown', () =>
+    withSession((session) =>
+      Effect.gen(function* () {
+        const turn = yield* Effect.forkChild(
+          Effect.flip(
+            Stream.runCollect(
+              session.turn({ text: 'hi', images: [], options: {} }).out,
+            ),
+          ),
+        );
+        yield* sentNow(1);
+        live.crash(new Error('Something odd happened'));
+        expect((yield* Fiber.join(turn)).message).toBe(
+          'Something odd happened',
+        );
       }),
     ));
 });
