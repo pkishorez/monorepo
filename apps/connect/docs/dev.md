@@ -9,28 +9,29 @@ The branch is the name Portless gives this checkout. `portless get connect.kisho
 - In the main checkout it is `https://connect.kishore.computer`, and the branch is `main`.
 - In a linked git worktree Portless adds a prefix, `https://<prefix>.connect.kishore.computer`, and the branch is `<prefix>`.
 
-The Connection is named `<host> (<branch>)`, so each branch's Connection is told apart in Code.
+The branch's Connection is `ke-connect serve <branch>`, named `<host> (<branch>)` in Code (`<host>` alone on `main`), so each branch's Connection is told apart there. It runs the code Plugin this checkout built, `dist/plugins/code/main.js`, as `--plugin code=<file>` would, whatever Cloud Connect names.
 
 ## Folders
 
-| What                                    | Where                                                |
-| --------------------------------------- | ---------------------------------------------------- |
-| Data: database, attachments, Connection | `~/.local/share/kestack/.branches/<branch>/connect/` |
-| State: `ke-connect.log`, `dev/`         | `~/.local/state/kestack/.branches/<branch>/connect/` |
+| What                                                    | Where                                                  |
+| ------------------------------------------------------- | ------------------------------------------------------ |
+| Data: `connection.json`, the Sign-in, the code Plugin's | `~/.local/share/kestack/connect/connections/<branch>/` |
+| State: `connect.log`, `plugins/code.log`                | `~/.local/state/kestack/connect/connections/<branch>/` |
+| The branch's dev folder                                 | `~/.local/state/kestack/connect/dev/<branch>/`         |
 
-`$XDG_DATA_HOME` and `$XDG_STATE_HOME` replace `~/.local/share` and `~/.local/state` when set. The cache (cloudflared, models, Speech to Text) is shared by every branch.
+`$XDG_DATA_HOME` and `$XDG_STATE_HOME` replace `~/.local/share` and `~/.local/state` when set. The cache (cloudflared, models, Speech to Text) is shared by every Connection. `ke-connect list` shows every branch's Connection, and whether it runs.
 
-`dev/` holds:
+The dev folder holds:
 
 - `connect.json`: the running Connect's pid, mode, Cloud Connect URL, port, Connection and whether it is ready.
 - `leases/<pid>.json`: one per App dev process using Connect.
 - `connect.log`: the shared Connect's output.
 
-The lock that one dev process takes while it decides whether Connect must start is not a file: it is a TCP port on 127.0.0.1, from 20000 to 29999, derived from the path of `dev/`. That range is below every range the OS hands out for port 0 (macOS and Windows 49152–65535, Linux 32768–60999), so the Connection, which listens on port 0, never takes a lock's port; and it is clear of Portless's app ports, 4000–4999, and Connect's 4590. Holding it is listening on it, so it is freed when the process exits, however it exits. Connections to it are closed at once, so none holds up giving it back. If taking it fails after 30 s, the error names the port; when no `ke-connect` dev runs, another program owns that port.
+The lock that one dev process takes while it decides whether Connect must start is not a file: it is a TCP port on 127.0.0.1, from 20000 to 29999, derived from the path of `dev/`. That range is below every range the OS hands out for port 0 (macOS and Windows 49152–65535, Linux 32768–60999), so the Connection, which listens on port 0, never takes a lock's port; and it is clear of Portless's app ports, 4000–4999. Holding it is listening on it, so it is freed when the process exits, however it exits. Connections to it are closed at once, so none holds up giving it back. If taking it fails after 30 s, the error names the port; when no `ke-connect` dev runs, another program owns that port.
 
 ## Signing in
 
-`pnpm dev` signs in with auth-toolkit's Fake ([root ADR 0012](../../../docs/adr/0012-pnpm-dev-signs-in-with-the-fake.md)): Cloud Connect reads Fake Tokens, and the Connection signs in at once as `dev@kestack.test`, with no device code. A Fake Connection keeps its own folders, `<branch>-fake`, and lets in pages through a Cloudflare tunnel (`https://*.trycloudflare.com`). `pnpm dev:real` (`KESTACK_AUTH=real`) signs in through the Auth Worker, as before. `connect.json` says which (`auth`), and an App run the other way while one runs is refused: stop every dev on the branch first.
+`pnpm dev` signs in with auth-toolkit's Fake ([root ADR 0012](../../../docs/adr/0012-pnpm-dev-signs-in-with-the-fake.md)): Cloud Connect reads Fake Tokens, and the Connection `<branch>` signs in at once as `dev@kestack.test`, with no device code, and lets in pages through a Cloudflare tunnel (`https://*.trycloudflare.com`). `pnpm dev:real` (`KESTACK_AUTH=real`) signs in through the Auth Worker, as the Connection `<branch>-real`, with folders of its own. `connect.json` says which (`auth`), and an App run the other way while one runs is refused: stop every dev on the branch first.
 
 ## Running an App
 
@@ -55,13 +56,15 @@ If a Connect already runs for the branch, it attaches instead: it takes a lease,
 - **"Connect stopped before it was ready"**: read `connect.log` in the branch's `dev/` folder.
 - **TLS errors reaching `*.kishore.computer`**: Node needs Portless's CA. Set `NODE_EXTRA_CA_CERTS=~/.portless/ca.pem`.
 - **A Connect that will not stop**: `pgrep -fl supervisor.js` finds it. Kill it and delete `connect.json`.
+- **The code Plugin is Crashed**: its output is in `plugins/code.log` in the Connection's state folder. `pnpm dev` builds it first; after changing it, stop and start `pnpm dev` again.
+- **`main` belongs to another Cloud Connect**: the main checkout's Connection is `main`, the name `ke-connect serve` takes by default. Run `ke-connect remove main` to start it again for this Cloud Connect.
 
 ## Resetting a branch
 
-Stop every dev on the branch, then delete its folders:
+Stop every dev on the branch, then remove its Connection:
 
 ```sh
-rm -rf ~/.local/share/kestack/.branches/<branch> ~/.local/state/kestack/.branches/<branch>
+node apps/connect/bin/ke-connect.mjs remove <branch>
 ```
 
 The next `pnpm dev` makes a new Connection and signs in again.
