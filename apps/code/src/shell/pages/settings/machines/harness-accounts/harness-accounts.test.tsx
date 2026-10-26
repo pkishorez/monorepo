@@ -33,7 +33,7 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * with no skeleton, and the Machine's answer, and each change, is kept;
  * kept nowhere, a skeleton shows until it answers. A change made while it
  * is asked asks again, so an older answer never undoes it. While its Line is not
- * connected, the cards show as kept, locked, saying why.
+ * connected, the rows show as kept and take no tap, and none is added.
  */
 
 const Owner = Actor.define('Owner', {
@@ -46,7 +46,7 @@ const OwnerLive = Actor.build(Owner, {
   children: {
     accounts: {
       actor: HarnessAccountsLive,
-      input: () => ({ machineId: 'm1', accountId: 'a1' }),
+      input: () => ({ machineId: 'm1', accountId: 'a1', kept: handed }),
     },
   },
   on: { Ping: (_, { model }) => ({ model: { pings: model.pings + 1 } }) },
@@ -108,6 +108,8 @@ let refuse: string | null = null;
 /** What the Machine answers, once the test says. */
 let answer: Deferred.Deferred<ReadonlyArray<HarnessAccountInfo>>;
 let kept: Layer.Layer<SavedMachines>;
+/** What this device kept, handed in as it opens. */
+let handed: ReadonlyArray<HarnessAccountInfo> | null = null;
 
 const clients = CodeClients.make(() =>
   Layer.merge(
@@ -152,7 +154,9 @@ const button = (label: string) =>
 const labelled = (label: string) =>
   document.querySelector<HTMLElement>(`[aria-label="${label}"]`)!;
 const names = () =>
-  [...document.querySelectorAll('h5')].map((each) => each.textContent);
+  [...document.querySelectorAll('[data-slot="account-name"]')].map(
+    (each) => each.textContent,
+  );
 const field = (id: string) =>
   document.querySelector<HTMLInputElement>(`#account-m1-${id}`)!;
 
@@ -201,12 +205,9 @@ const keptAccounts = () =>
     ),
   );
 
-const keep = (accounts: ReadonlyArray<HarnessAccountInfo>) =>
-  Effect.runPromise(
-    Effect.flatMap(SavedMachines, (each) =>
-      each.keepSettings('a1', 'm1', { accounts }),
-    ).pipe(Effect.provide(kept)),
-  );
+const keep = (accounts: ReadonlyArray<HarnessAccountInfo>) => {
+  handed = accounts;
+};
 
 const mount = async () => {
   const services = Layer.mergeAll(Layer.mock(Machines)({}), clients, kept);
@@ -231,6 +232,7 @@ beforeEach(() => {
   line = 'connected';
   answer = Effect.runSync(Deferred.make<ReadonlyArray<HarnessAccountInfo>>());
   kept = savedMachinesMemory();
+  handed = null;
 });
 
 afterEach(async () => {
@@ -250,7 +252,7 @@ describe('Harness Accounts, kept on this device', () => {
   });
 
   it('shows what was kept at once, with no skeleton, then the Machine’s answer', async () => {
-    await keep([{ ...DEFAULTS[0]!, name: 'Claude home' }]);
+    keep([{ ...DEFAULTS[0]!, name: 'Claude home' }]);
     await mount();
     expect(busy()).toBe(false);
     expect(names()).toEqual(['Claude home']);
@@ -265,7 +267,7 @@ describe('Harness Accounts, kept on this device', () => {
       name: 'Codex work',
       isDefault: false,
     };
-    await keep([...DEFAULTS, work]);
+    keep([...DEFAULTS, work]);
     await mount();
     const older = answer;
     answer = Effect.runSync(Deferred.make<ReadonlyArray<HarnessAccountInfo>>());
@@ -287,16 +289,14 @@ describe('Harness Accounts, kept on this device', () => {
     expect(names()).toEqual(['Claude', 'Codex']);
   });
 
-  it("shows what was kept, locked, while the Machine's Line is not connected", async () => {
-    await keep(DEFAULTS);
+  it("shows what was kept, taking no tap, while the Machine's Line is not connected", async () => {
+    keep(DEFAULTS);
     line = 'reconnecting';
     await mount();
     expect(names()).toEqual(['Claude', 'Codex']);
-    expect(labelled('Change Claude')).toBeNull();
-    expect(labelled('Add a Claude account')).toBeNull();
-    expect(document.querySelector('[role="note"]')?.textContent).toContain(
-      'Locked',
-    );
+    expect(labelled('Change Claude').hasAttribute('disabled')).toBe(true);
+    expect(labelled('Add Claude account').hasAttribute('disabled')).toBe(true);
+    expect(text()).not.toContain('Locked');
   });
 });
 
@@ -309,16 +309,18 @@ describe('Harness Accounts', () => {
   it('draws a row per account, saying how to install an agent that is not there', async () => {
     expect(names()).toEqual(['Claude', 'Codex']);
     expect(text()).toContain('npm install -g @openai/codex');
-    // An empty folder is the agent's own; an empty binary, the one on PATH.
-    expect(text()).toContain('~/.claude · its own');
-    expect(text()).toContain('/usr/local/bin/claude · from PATH');
+    // An empty folder is the agent's own, and the row says it, with the
+    // version that runs; an empty binary, the one on PATH, which the form says.
+    expect(labelled('Change Claude').textContent).toContain('~/.claude');
+    expect(labelled('Change Claude').textContent).toContain('1.0.0');
     // A Default Account is never removed.
     await click(labelled('Change Claude'));
+    expect(text()).toContain('now /usr/local/bin/claude');
     expect(button('Remove…')).toBeUndefined();
   });
 
   it('adds another login with its config folder, saved as typed', async () => {
-    await click(labelled('Add a Claude account'));
+    await click(labelled('Add Claude account'));
     await type(field('new-name-field'), ' Claude work ');
     await type(field('new-config-folder'), '~/.claude-work');
     await click(button('Add account'));
@@ -333,7 +335,9 @@ describe('Harness Accounts', () => {
     ]);
     // Under its agent, after the Default Account, its folder and the variable it sets.
     expect(names()).toEqual(['Claude', 'Claude work', 'Codex']);
-    expect(text()).toContain('~/.claude-work · CLAUDE_CONFIG_DIR');
+    expect(labelled('Change Claude work').textContent).toContain(
+      '~/.claude-work',
+    );
     expect((await keptAccounts())?.map(({ name }) => name)).toEqual([
       'Claude',
       'Codex',
@@ -343,7 +347,7 @@ describe('Harness Accounts', () => {
 
   it('keeps what was typed, and why the Machine refused it', async () => {
     refuse = 'Nothing is at /nowhere; sign in with that config folder first';
-    await click(labelled('Add a Claude account'));
+    await click(labelled('Add Claude account'));
     await type(field('new-name-field'), 'Claude work');
     await type(field('new-config-folder'), '/nowhere');
     await click(button('Add account'));
@@ -354,12 +358,12 @@ describe('Harness Accounts', () => {
   });
 
   it('drops the account being added on Cancel', async () => {
-    await click(labelled('Add a Claude account'));
+    await click(labelled('Add Claude account'));
     await type(field('new-name-field'), 'Claude work');
     await click(button('Cancel'));
     expect(saved).toEqual([]);
     expect(field('new-name-field')).toBeNull();
-    expect(labelled('Add a Claude account')).not.toBeNull();
+    expect(labelled('Add Claude account')).not.toBeNull();
   });
 
   it('closes a form on Cancel, dropping what was typed', async () => {
@@ -372,7 +376,7 @@ describe('Harness Accounts', () => {
   });
 
   it('removes an added account once asked again', async () => {
-    await click(labelled('Add a Codex account'));
+    await click(labelled('Add Codex account'));
     await type(field('new-name-field'), 'Codex work');
     await click(button('Add account'));
     await click(labelled('Change Codex work'));

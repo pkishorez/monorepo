@@ -1,4 +1,3 @@
-import { LockIcon } from '@kestack/web-platform/ui/components/lucide';
 import type { Health } from '../../layer/capabilities/index.ts';
 import { ago } from '../../ui/time/index.ts';
 
@@ -102,24 +101,5 @@ export function StandingDot({ kind }: { readonly kind: Standing }) {
             : 'animate-pulse bg-warning motion-reduce:animate-none'
       }`}
     />
-  );
-}
-
-/**
- * Why a Machine's setting can't be changed now, beside it: a lock and a
- * few words, the rest on hover. Drawn only while its Line is not connected.
- */
-export function Locked({ health }: { readonly health: Health }) {
-  const pill = pillOf(health);
-  if (pill === null) return null;
-  return (
-    <span
-      role="note"
-      title={pill[1]}
-      className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground"
-    >
-      <LockIcon aria-hidden className="size-3.5 shrink-0" />
-      <span>Locked · {shortOf(health)}</span>
-    </span>
   );
 }

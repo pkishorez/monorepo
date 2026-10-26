@@ -1,23 +1,28 @@
 import type { HarnessAccountInfo } from '@kestack/connect/code';
 import { View, type ViewProps } from '@kestack/kabuki/react';
+import { Badge } from '@kestack/web-platform/ui/components/badge';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { Input } from '@kestack/web-platform/ui/components/input';
-import { CircleAlertIcon } from '@kestack/web-platform/ui/components/lucide';
+import {
+  ChevronRightIcon,
+  CircleAlertIcon,
+  LockIcon,
+} from '@kestack/web-platform/ui/components/lucide';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
-import { Locked, useHealth } from '../../../../../machines/index.ts';
+import { useLock } from '../../../../../machines/index.ts';
 import { CardLive, formOf } from './actor.ts';
 
 /*
- * One account's row: its name, marked Default for its agent's Default
- * Account, and the version that runs; then its config folder, or the
- * agent's own, and its binary, the path set or the one found on PATH; or
- * why it does not run, such as how to install the agent. "Change" opens
+ * One account's row, tapped to change it: its name, marked Default for its
+ * agent's Default Account, and one quiet line, its config folder, or the
+ * agent's own, cut in its middle so its end shows, and the version that
+ * runs; or why it does not run, such as how to install the agent. Opened,
  * its form: name, config folder and binary, each saying what empty means,
  * why the Machine refused, else how to sign in with the folder, then Save
  * and Cancel, and Remove for an added account, which asks again. The
  * account being added is its form alone. While the Machine's Line is not
- * connected, a lock and why stand in place of "Change", and an open form
- * takes nothing.
+ * connected the row takes no tap, a lock in place of its arrow once that
+ * is said, and an open form takes nothing.
  */
 
 const AGENT = { claude: 'Claude', codex: 'Codex' } as const;
@@ -84,77 +89,41 @@ function Field({
   );
 }
 
-/** One line of the summary: a quiet label, and its value in mono, then what it means in plain words. */
-function Line({
-  label,
-  value,
-  note,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly note?: string;
-}) {
+/** A path cut in its middle, so its last part always shows. */
+function Path({ value }: { readonly value: string }) {
+  const at = value.lastIndexOf('/', value.length - 2) + 1;
   return (
-    <>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 truncate" title={value}>
-        <span className="font-mono">{value}</span>
-        {note !== undefined && (
-          <span className="text-muted-foreground"> · {note}</span>
-        )}
-      </dd>
-    </>
+    <span className="flex min-w-0 font-mono" title={value}>
+      <span className="truncate">{value.slice(0, at)}</span>
+      <span className="shrink-0">{value.slice(at)}</span>
+    </span>
   );
 }
 
+/** The version a binary reports, as its number alone, such as "2.1.310". */
+const versionOf = (version: string) =>
+  /\d+(?:\.\d+)+/.exec(version)?.[0] ?? version;
+
+/** The row's name, Default tag and quiet line. */
 function Summary({ account }: { readonly account: HarnessAccountInfo }) {
   const { resolved } = account;
-  const folder = FOLDER[account.harness];
   return (
-    <>
-      <div className="flex min-w-0 items-baseline gap-2">
-        <h5 className="truncate text-sm font-medium">{account.name}</h5>
-        {account.isDefault && (
-          <span className="shrink-0 text-xs text-muted-foreground">
-            Default
-          </span>
-        )}
+    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span className="flex min-w-0 items-center gap-2">
+        <span data-slot="account-name" className="truncate text-sm font-medium">
+          {account.name}
+        </span>
+        {account.isDefault && <Badge variant="secondary">Default</Badge>}
+      </span>
+      <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+        <Path value={account.configFolder ?? FOLDER[account.harness].own} />
         {resolved.error === null && resolved.version !== null && (
-          <span
-            className="ml-auto truncate text-xs text-muted-foreground tabular-nums"
-            title={resolved.version}
-          >
-            {resolved.version}
+          <span className="shrink-0 tabular-nums" title={resolved.version}>
+            · {versionOf(resolved.version)}
           </span>
         )}
-      </div>
-      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-xs">
-        {account.configFolder === null ? (
-          <Line label="Config folder" value={folder.own} note="its own" />
-        ) : (
-          <Line
-            label="Config folder"
-            value={account.configFolder}
-            note={folder.variable}
-          />
-        )}
-        {account.binaryPath === null ? (
-          <Line
-            label="Binary"
-            value={resolved.path ?? account.harness}
-            note={resolved.path === null ? 'not on PATH' : 'from PATH'}
-          />
-        ) : (
-          <Line label="Binary" value={resolved.path ?? account.binaryPath} />
-        )}
-      </dl>
-      {resolved.error !== null && (
-        <p className="flex items-start gap-2 text-sm text-destructive">
-          <CircleAlertIcon aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-          <span className="min-w-0 break-words">{resolved.error}</span>
-        </p>
-      )}
-    </>
+      </span>
+    </span>
   );
 }
 
@@ -221,8 +190,7 @@ function Actions({
 }
 
 export const CardView = View.make(CardLive, ({ root, model, props, send }) => {
-  const health = useHealth(model.machineId);
-  const locked = health._tag !== 'Connected';
+  const { locked, said } = useLock(model.machineId);
   const { account } = props;
   const { harness } = model;
   const folder = FOLDER[harness];
@@ -237,48 +205,65 @@ export const CardView = View.make(CardLive, ({ root, model, props, send }) => {
     (field: 'name' | 'binaryPath' | 'configFolder') => (value: string) =>
       send({ _tag: 'Edited', field, value });
   const open = model.editing || model.problem !== null || account === null;
-  const fromPath =
-    account?.binaryPath === null && account.resolved.path !== null
-      ? `, now ${account.resolved.path}`
-      : '';
+  const binary =
+    account === null
+      ? ''
+      : account.binaryPath === null
+        ? account.resolved.path === null
+          ? ', not found on PATH'
+          : `, now ${account.resolved.path}`
+        : '';
   const typedFolder = form.configFolder.trim();
+  const row =
+    'flex min-h-11 w-full items-center gap-3 rounded-md px-2 py-2 text-left';
   return (
     <section
       {...root}
       aria-label={account?.name ?? `New ${AGENT[harness]} account`}
-      className="flex flex-col gap-3"
+      className="-mx-2 flex flex-col gap-2"
     >
-      <div className="flex items-start gap-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          {account === null ? (
-            <h5 className="text-sm font-medium">
-              New {AGENT[harness]} account
-            </h5>
-          ) : (
-            <Summary account={account} />
-          )}
+      {account === null ? (
+        <div className={row}>
+          <span data-slot="account-name" className="text-sm font-medium">
+            New {AGENT[harness]} account
+          </span>
         </div>
-        {locked ? (
-          <Locked health={health} />
-        ) : (
-          !open && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              aria-label={`Change ${account.name}`}
-              className="-my-1 h-11 shrink-0 text-muted-foreground keyboard:h-8"
-              onClick={() => send({ _tag: 'EditAsked' })}
-            >
-              Change
-            </Button>
-          )
-        )}
-      </div>
+      ) : open ? (
+        <div className={row}>
+          <Summary account={account} />
+        </div>
+      ) : (
+        <button
+          type="button"
+          aria-label={`Change ${account.name}`}
+          disabled={locked}
+          className={`focus-ring ${row} transition-colors duration-150 hover:bg-muted active:bg-muted disabled:hover:bg-transparent`}
+          onClick={() => send({ _tag: 'EditAsked' })}
+        >
+          <Summary account={account} />
+          {said ? (
+            <LockIcon
+              aria-hidden
+              className="size-4 shrink-0 text-muted-foreground"
+            />
+          ) : (
+            <ChevronRightIcon
+              aria-hidden
+              className="size-4 shrink-0 text-muted-foreground"
+            />
+          )}
+        </button>
+      )}
+      {account !== null && account.resolved.error !== null && (
+        <p className="flex items-start gap-2 px-2 text-sm text-destructive">
+          <CircleAlertIcon aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+          <span className="min-w-0 break-words">{account.resolved.error}</span>
+        </p>
+      )}
       {open && (
         <form
           noValidate
-          className="flex flex-col gap-3"
+          className="flex flex-col gap-3 px-2 pb-3"
           aria-describedby={model.problem ? `${id}-problem` : `${id}-hint`}
           onSubmit={(event) => {
             event.preventDefault();
@@ -307,7 +292,7 @@ export const CardView = View.make(CardLive, ({ root, model, props, send }) => {
             <Field
               id={`${id}-binary`}
               label="Binary"
-              hint={`Empty runs ${harness} from PATH${fromPath}.`}
+              hint={`Empty runs ${harness} from PATH${binary}.`}
               value={form.binaryPath}
               placeholder={`${harness} from PATH`}
               disabled={model.busy || locked}
@@ -329,13 +314,12 @@ export const CardView = View.make(CardLive, ({ root, model, props, send }) => {
             </p>
           ) : (
             <p id={`${id}-hint`} className="text-xs text-muted-foreground">
-              Sign in with a new folder first, on the Machine:{' '}
-              <code className="font-mono">
+              A new folder? Sign in on the Machine first:{' '}
+              <code className="font-mono break-all">
                 {folder.variable}=
                 {typedFolder === '' ? '<folder>' : typedFolder} {folder.signIn}
               </code>
-              . The Machine runs the binary with --version before saving;
-              sessions started after a change use it.
+              . Sessions started after saving use it.
             </p>
           )}
           <div className="flex flex-wrap items-center gap-2">

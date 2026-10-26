@@ -19,8 +19,8 @@ import { keepHarnessAccounts } from './commands.ts';
  * has a Default Account; others, such as a work login of Claude, are
  * added. A change applies to agents started from then on.
  *
- * 1. Saved  what the Machine last said of them, as kept on this device
- *           for its Account, shown at once.
+ * 1. Kept   what the Machine last said of them, as kept on this device
+ *           for its Account and handed in, shown at once.
  * 2. Read   every account, asked once behind what is shown: what it is
  *           set to, and what its binary resolved to. A Machine that does
  *           not answer is asked until it does; its answer replaces what is
@@ -42,8 +42,6 @@ const Model = Schema.Struct({
   accountId: Schema.String,
   /** What is shown: kept on this device, or as the Machine said; null before either. */
   accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo)),
-  /** Whether what was kept on this device has been read. */
-  savedRead: Schema.Boolean,
   /** Whether the Machine has said since this was opened. */
   heard: Schema.Boolean,
   /** How many accounts the Machine has saved or removed since this was opened. */
@@ -55,10 +53,14 @@ const Model = Schema.Struct({
 
 const HarnessAccounts = Actor.define('HarnessAccounts', {
   requires: [CodeClients, SavedMachines],
-  input: Schema.Struct({ machineId: Schema.String, accountId: Schema.String }),
+  input: Schema.Struct({
+    machineId: Schema.String,
+    accountId: Schema.String,
+    /** What this device kept of them; null if nothing. */
+    kept: Schema.NullOr(Schema.Array(HarnessAccountInfo)),
+  }),
   model: Model,
   message: Schema.TaggedUnion({
-    SavedRead: { accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo)) },
     AccountsLoaded: {
       accounts: Schema.Array(HarnessAccountInfo),
       since: Schema.Finite,
@@ -84,12 +86,11 @@ const keep = (
   });
 
 export const HarnessAccountsLive = Actor.build(HarnessAccounts, {
-  init: ({ machineId, accountId }) => ({
+  init: ({ machineId, accountId, kept }) => ({
     model: {
       machineId,
       accountId,
-      accounts: null,
-      savedRead: false,
+      accounts: kept,
       heard: false,
       changes: 0,
       loadProblem: null,
@@ -97,20 +98,6 @@ export const HarnessAccountsLive = Actor.build(HarnessAccounts, {
     },
   }),
   workers: {
-    // 1. Saved
-    saved: {
-      while: ({ model }) => !model.savedRead,
-      run: (self) =>
-        Effect.gen(function* () {
-          const { model } = yield* self.get;
-          const saved = yield* SavedMachines;
-          const { accounts } = yield* saved.settings(
-            model.accountId,
-            model.machineId,
-          );
-          yield* self.send({ _tag: 'SavedRead', accounts });
-        }),
-    },
     // 2. Read
     accounts: {
       each: ({ model }) =>
@@ -155,14 +142,6 @@ export const HarnessAccountsLive = Actor.build(HarnessAccounts, {
       cancelled: self.send({ _tag: 'AddCancelled' }),
     }),
   on: {
-    // 1. Saved: what the Machine said, if it came first, stays.
-    SavedRead: ({ accounts }, { model }) => ({
-      model: {
-        ...model,
-        savedRead: true,
-        accounts: model.heard ? model.accounts : accounts,
-      },
-    }),
     // 2. Read: an answer asked before the latest change is dropped.
     AccountsLoaded: ({ accounts, since }, { model }) =>
       since === model.changes
