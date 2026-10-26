@@ -119,8 +119,11 @@ function Listed({
 }) {
   const known = useChild(machines, ({ model }) => model);
   const value = useMemo(
-    () => ({ machines: known?.machines ?? null, status: known?.lines ?? {} }),
-    [known?.machines, known?.lines],
+    () => ({
+      machines: known?.list.value ?? null,
+      status: known?.lines ?? {},
+    }),
+    [known?.list.value, known?.lines],
   );
   return <Connection value={value}>{children}</Connection>;
 }

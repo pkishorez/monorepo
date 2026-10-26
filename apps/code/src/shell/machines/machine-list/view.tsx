@@ -1,7 +1,7 @@
 import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import type { ReactNode } from 'react';
-import { MachineListLive } from './actor.ts';
+import { fetching, MachineListLive } from './actor.ts';
 
 /*
  * What home shows in place of the projects while there is no Machine to
@@ -15,25 +15,26 @@ export const serveCommand = () => 'npx @kestack/connect serve';
 export const MachineListView = View.make(
   MachineListLive,
   ({ root, model, send }) => {
+    const { value: machines, problem } = model.list;
     // Never listed on this device: the page draws its skeleton meanwhile.
-    if (model.machines === null && model.problem === null) return null;
-    if (model.machines === null)
+    if (machines === null && problem === null) return null;
+    if (machines === null)
       return (
         <Screen root={root}>
           <h1 className="text-lg font-semibold">
             Your Machines can't be listed
           </h1>
-          <p className="text-sm text-muted-foreground">{model.problem}</p>
+          <p className="text-sm text-muted-foreground">{problem}</p>
           <Button
             variant="outline"
-            disabled={model.fetching}
+            disabled={fetching(model)}
             onClick={() => send({ _tag: 'ReloadAsked' })}
           >
             Try again
           </Button>
         </Screen>
       );
-    if (model.machines.length > 0) return null;
+    if (machines.length > 0) return null;
     return (
       <Screen root={root}>
         <h1 className="text-lg font-semibold">No Machine yet</h1>
@@ -46,10 +47,10 @@ export const MachineListView = View.make(
         </pre>
         <Button
           variant="outline"
-          disabled={model.fetching}
+          disabled={fetching(model)}
           onClick={() => send({ _tag: 'ReloadAsked' })}
         >
-          {model.fetching ? 'Looking…' : 'Look again'}
+          {fetching(model) ? 'Looking…' : 'Look again'}
         </Button>
       </Screen>
     );

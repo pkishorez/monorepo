@@ -5,6 +5,7 @@ import {
   HarnessInfo,
 } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
+import { Machines } from '../../../../../../layer/capabilities/index.ts';
 import { Refused } from '../../../../../machines/index.ts';
 import { AccountList } from '../capabilities/index.ts';
 import { closeAccount, removeAccount, saveAccount } from './commands.ts';
@@ -13,7 +14,8 @@ import { closeAccount, removeAccount, saveAccount } from './commands.ts';
  * One Harness Account's card: its name, the binary it runs and the config
  * folder it keeps its login in, as typed, until the Machine saves them.
  * `account` is the account as saved, null for the one being added. The
- * list opens and closes it (AccountList).
+ * list opens and closes it (AccountList); saved or removed, it closes
+ * once the Machine's Kit shows it.
  *
  * 1. Edit    its form keeps what is typed, closed or open; untouched, it
  *            shows the account as saved. Cancel drops what was typed and
@@ -52,7 +54,7 @@ const Model = Schema.Struct({
 type Model = typeof Model.Type;
 
 const Card = Actor.define('AccountCard', {
-  requires: [CodeClients, AccountList],
+  requires: [CodeClients, Machines, AccountList],
   input: Schema.Struct({
     machineId: Schema.String,
     key: Schema.String,

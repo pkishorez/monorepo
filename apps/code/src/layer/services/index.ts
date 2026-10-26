@@ -5,10 +5,7 @@ export {
   memory as deviceStateMemory,
 } from './device-state/index.ts';
 export { layer as machines } from './machines.ts';
-export {
-  idb as savedMachinesIdb,
-  memory as savedMachinesMemory,
-} from './saved-machines.ts';
+export { idb as keptIdb, memory as keptMemory } from './kept/index.ts';
 export {
   idb as savedDraftsIdb,
   memory as savedDraftsMemory,

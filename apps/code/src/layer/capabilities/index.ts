@@ -6,18 +6,20 @@ export {
 } from './recorder.ts';
 export { DeviceState, nothing } from './device-state.ts';
 export {
+  Kit,
+  KitChange,
+  KitParts,
+  type KitRequest,
   type Known,
   type Line,
   Link,
   Machines,
+  ModelsRead,
   nobody,
+  Read,
+  readOver,
   type Request,
 } from './machines.ts';
-export {
-  noSettings,
-  SavedMachines,
-  type SavedSettings,
-} from './saved-machines.ts';
 export { dropEverywhere, type Gone, went } from './gone.ts';
 export { copy, Copy, Kept, type Shelf, shelf, type Whose } from './kept.ts';
 export {

@@ -21,22 +21,23 @@ import { describe, expect, it } from 'vitest';
 import {
   AccountReplicas,
   DeviceState,
-  SavedDrafts,
+  Kept,
+  KitParts,
   Machines,
-  SavedMachines,
+  SavedDrafts,
 } from '../../../layer/capabilities/index.ts';
-import {
-  machines,
-  savedMachinesMemory,
-} from '../../../layer/services/index.ts';
+import { keptMemory, machines } from '../../../layer/services/index.ts';
 import { MachineListLive, RECHECK } from './actor.ts';
+import { ListShelf } from './commands.ts';
+import { KitShelf } from './kit/commands.ts';
 
 /*
  * The Machine List with Cloud Connect and the records stood in for: what
  * was saved shows first and Cloud Connect's answer replaces it and is kept,
- * with only the records of the Machines on it; Forget asks Cloud Connect,
- * takes the Machine out of the list and then deletes its records alone; `Machines` says all of it to the pages, waiting for
- * a Machine with an address; and while a Machine's line is not up the
+ * with only the records and Kits of the Machines on it; Forget asks Cloud
+ * Connect, takes the Machine out of the list and then deletes its records
+ * and Kit alone; `Machines` says all of it to the pages, waiting for a
+ * Machine with an address; and while a Machine's line is not up the
  * Cloud Connect is asked again, every few seconds, until every line is.
  */
 
@@ -101,6 +102,9 @@ const world = (
             Stream.make({
               _tag: 'Off' as const,
             })) as unknown as Api['watchSpeechToText'],
+          harnessAccounts: (() =>
+            Effect.succeed([])) as unknown as Api['harnessAccounts'],
+          harnesses: (() => Effect.succeed([])) as unknown as Api['harnesses'],
         }),
         Layer.mock(RpcConnection)({
           connectionStatus: line(machineId),
@@ -110,10 +114,13 @@ const world = (
       ),
     ),
     Layer.mock(CloudClient)({
+      // A Machine forgotten is no longer listed.
       List: () =>
         Effect.andThen(
           Effect.sync(() => void lists++),
-          listed,
+          Effect.map(listed, (each) =>
+            each.filter(({ id }) => !forgotten.includes(id)),
+          ),
         ),
       Forget: ({ id }: { readonly id: string }) =>
         Effect.sync(() => void forgotten.push(id)),
@@ -135,27 +142,38 @@ const world = (
 const wait = (ms = 20) =>
   Effect.promise(() => new Promise((done) => setTimeout(done, ms)));
 
-/** Runs a test with each Account's list kept in memory, `SavedMachines` handed to its app too. */
-const run = <A>(
-  effect: Effect.Effect<A, unknown, Scope.Scope | SavedMachines>,
-) =>
+/** Runs a test with what is kept in memory, `Kept` handed to its app too. */
+const run = <A>(effect: Effect.Effect<A, unknown, Scope.Scope | Kept>) =>
   Effect.runPromise(
     Effect.scoped(effect).pipe(
-      Effect.provide(savedMachinesMemory()),
+      Effect.provide(keptMemory()),
     ) as Effect.Effect<A>,
   );
 
-/** Starts the app over the stand-ins and the test's `SavedMachines`. */
+/** Starts the app over the stand-ins and the test's `Kept`. */
 const start = <A extends Parameters<typeof Runtime.start>[0]>(
   actor: A,
   layer: Layer.Layer<never, never, never> | Layer.Layer<any>,
 ) =>
-  Effect.flatMap(SavedMachines, (saved) =>
+  Effect.flatMap(Kept, (kept) =>
     Runtime.start(
       actor as never,
-      Layer.merge(layer, Layer.succeed(SavedMachines, saved)) as never,
+      Layer.merge(layer, Layer.succeed(Kept, kept)) as never,
     ),
-  ) as Effect.Effect<Running<unknown>, never, Scope.Scope | SavedMachines>;
+  ) as Effect.Effect<Running<unknown>, never, Scope.Scope | Kept>;
+
+const a1 = { accountId: 'a1', machineId: null, projectId: null };
+const kitOf = (machineId: string) => ({
+  accountId: 'a1',
+  machineId,
+  projectId: null,
+});
+const speechOff: KitParts = {
+  accounts: null,
+  speech: { _tag: 'Off' },
+  harnesses: null,
+  models: [],
+};
 
 const walk = (at: Instance): ReadonlyArray<Instance> => [
   at,
@@ -167,11 +185,13 @@ const walk = (at: Instance): ReadonlyArray<Instance> => [
 const list = (app: Running<unknown>) =>
   walk(app.snapshot()).find((each) => each.actor === 'MachineList')!;
 
-const listModel = (app: Running<unknown>) =>
-  list(app).model as {
-    readonly machines: ReadonlyArray<Machine> | null;
+const listModel = (app: Running<unknown>) => {
+  const { list: held, fetchedAt } = list(app).model as {
+    readonly list: { readonly value: ReadonlyArray<Machine> | null };
     readonly fetchedAt: number | null;
   };
+  return { machines: held.value, fetchedAt };
+};
 
 describe('Machine List', () => {
   it('shows the saved list first, then Cloud Connect’s, and keeps it', async () => {
@@ -181,10 +201,10 @@ describe('Machine List', () => {
     const { layer, kept } = world(Deferred.await(answer));
     await run(
       Effect.gen(function* () {
-        const saved = yield* SavedMachines;
-        yield* saved.write('a1', [machine('m1', 1)]);
-        yield* saved.keepSettings('a1', 'm1', { speech: { _tag: 'Off' } });
-        yield* saved.keepSettings('a1', 'm2', { speech: { _tag: 'Off' } });
+        const saved = yield* Kept;
+        yield* saved.write(ListShelf, a1, [machine('m1', 1)]);
+        yield* saved.write(KitShelf, kitOf('m1'), speechOff);
+        yield* saved.write(KitShelf, kitOf('m2'), speechOff);
         const app = yield* start(OwnerLive, layer);
         yield* wait();
         expect(listModel(app).machines?.map(({ id }) => id)).toEqual(['m1']);
@@ -197,11 +217,11 @@ describe('Machine List', () => {
           'm2',
           'm3',
         ]);
-        expect(yield* saved.read('a1')).toHaveLength(2);
+        expect(yield* saved.read(ListShelf, a1)).toHaveLength(2);
         expect(kept).toEqual([{ accountId: 'a1', machineIds: ['m2', 'm3'] }]);
-        // A Machine gone from the first list takes its settings with it.
-        expect((yield* saved.settings('a1', 'm1')).speech).toBeNull();
-        expect((yield* saved.settings('a1', 'm2')).speech).toEqual({
+        // A Machine gone from the first list takes its Kit with it.
+        expect(yield* saved.read(KitShelf, kitOf('m1'))).toBeNull();
+        expect((yield* saved.read(KitShelf, kitOf('m2')))?.speech).toEqual({
           _tag: 'Off',
         });
       }),
@@ -229,8 +249,8 @@ describe('Machine List', () => {
     const { layer, kept } = world(Effect.fail(new Error('offline')));
     await run(
       Effect.gen(function* () {
-        const saved = yield* SavedMachines;
-        yield* saved.write('a1', [machine('m1', 1)]);
+        const saved = yield* Kept;
+        yield* saved.write(ListShelf, a1, [machine('m1', 1)]);
         const app = yield* start(OwnerLive, layer);
         yield* wait();
         expect(listModel(app).machines?.map(({ id }) => id)).toEqual(['m1']);
@@ -239,15 +259,15 @@ describe('Machine List', () => {
     );
   });
 
-  it('forgets a Machine at Cloud Connect, takes it out of the list, then deletes its records and settings here', async () => {
+  it('forgets a Machine at Cloud Connect, takes it out of the list, then deletes its records and Kit here', async () => {
     const { layer, forgotten, kept, dropped } = world(
       Effect.succeed([machine('m1', 5), machine('m2', 1)]),
     );
     await run(
       Effect.gen(function* () {
-        const saved = yield* SavedMachines;
-        yield* saved.keepSettings('a1', 'm1', { speech: { _tag: 'Off' } });
-        yield* saved.keepSettings('a1', 'm2', { speech: { _tag: 'Off' } });
+        const saved = yield* Kept;
+        yield* saved.write(KitShelf, kitOf('m1'), speechOff);
+        yield* saved.write(KitShelf, kitOf('m2'), speechOff);
         const app = yield* start(OwnerLive, layer);
         yield* wait();
         app.send(list(app).id, { _tag: 'ForgetAsked', id: 'm1' });
@@ -255,8 +275,8 @@ describe('Machine List', () => {
         expect(forgotten).toEqual(['m1']);
         // Its records alone: another tab may list a Machine not heard of here.
         expect(dropped).toEqual(['m1']);
-        expect((yield* saved.settings('a1', 'm1')).speech).toBeNull();
-        expect((yield* saved.settings('a1', 'm2')).speech).not.toBeNull();
+        expect(yield* saved.read(KitShelf, kitOf('m1'))).toBeNull();
+        expect(yield* saved.read(KitShelf, kitOf('m2'))).not.toBeNull();
         expect(kept).toHaveLength(1);
         expect(listModel(app).machines?.map(({ id }) => id)).toEqual(['m2']);
       }),
@@ -325,12 +345,10 @@ describe('Machine List rechecks', () => {
     for (let at = 0; at < 20; at++) yield* Effect.yieldNow;
   });
 
-  const timed = <A>(
-    effect: Effect.Effect<A, unknown, Scope.Scope | SavedMachines>,
-  ) =>
+  const timed = <A>(effect: Effect.Effect<A, unknown, Scope.Scope | Kept>) =>
     Effect.runPromise(
       Effect.scoped(effect).pipe(
-        Effect.provide(savedMachinesMemory()),
+        Effect.provide(keptMemory()),
         Effect.provide(TestClock.layer()),
       ) as Effect.Effect<A>,
     );

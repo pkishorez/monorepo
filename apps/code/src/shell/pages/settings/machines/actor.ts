@@ -6,8 +6,8 @@ import {
   SpeechToTextState,
 } from '@kestack/connect/code';
 import {
+  type Kit as Shared,
   Machines,
-  SavedMachines,
 } from '../../../../layer/capabilities/index.ts';
 import { HarnessAccounts } from './harness-accounts/index.ts';
 import { SpeechToText } from './speech-to-text/index.ts';
@@ -17,17 +17,17 @@ import { ask, keepForgetting } from './commands.ts';
  * Settings → Machines: the signed-in Account's Machines as the Machine
  * List holds them, so the list never waits for a Machine, each standing as
  * the sidebar says it, by its Line and Last Seen; and each Machine's own
- * settings, shown as last kept on this device and asked of the Machine
- * behind, each on its own.
+ * settings, as its Machine Kit holds them: kept on this device, and asked
+ * of the Machine behind, each on its own.
  *
- * 1. Read    what `Machines` holds, followed, and what this device kept
- *            of each listed Machine's settings; nothing is drawn until the
- *            list kept here and every one of those has been read, so the
- *            page draws once. Then one child per Machine for each of its
- *            settings, its Harness Accounts and its Speech to Text switch,
- *            each told whose Machine it is and what was kept of it, and
- *            none while no Account is known. Reload asks the Machine List
- *            again, as the sidebar's does.
+ * 1. Read    what `Machines` holds, followed, the list and each Kit;
+ *            nothing is drawn until the list kept here and every listed
+ *            Machine's Kit has been read, so the page draws once. Then
+ *            one child per Machine for each of its settings, its Harness
+ *            Accounts and its Speech to Text switch, each told whose
+ *            Machine it is and handed what its Kit holds, and none while
+ *            no Account is known. Reload asks the Machine List and every
+ *            Kit again, as the sidebar's does.
  * 2. Ask     Forget asks first, saying when the Machine was last seen and
  *            how its tunnel stands.
  * 3. Forget  confirmed, the Machine List forgets it: Cloud Connect first,
@@ -39,6 +39,14 @@ const Forgetting = Schema.NullOr(
   Schema.Struct({ id: Schema.String, problem: Schema.NullOr(Schema.String) }),
 );
 
+/** What it shows of a Machine's Kit, once read. */
+const Kit = Schema.Struct({
+  accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo)),
+  speech: Schema.NullOr(SpeechToTextState),
+  /** Why its Machine could not be asked. */
+  problem: Schema.NullOr(Schema.String),
+});
+
 /** What it follows of `Machines`. */
 const Known = Schema.Struct({
   accountId: Schema.NullOr(Schema.String),
@@ -46,14 +54,21 @@ const Known = Schema.Struct({
   savedRead: Schema.Boolean,
   fetchedAt: Schema.NullOr(Schema.Number),
   forgetting: Forgetting,
+  /** Each Machine's Kit, by id, once read. */
+  kits: Schema.Record(Schema.String, Kit),
 });
 const sameKnown = Schema.toEquivalence(Known);
 
-/** A Machine's settings as this device kept them. */
-const Kept = Schema.Struct({
-  accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo)),
-  speech: Schema.NullOr(SpeechToTextState),
-});
+/** Each Kit read, as it shows here. */
+const shownOf = (kits: Readonly<Record<string, Shared>>) =>
+  Object.fromEntries(
+    Object.entries(kits)
+      .filter(([, kit]) => kit.savedRead)
+      .map(([id, { accounts, speech, problem }]) => [
+        id,
+        { accounts, speech, problem },
+      ]),
+  );
 
 const Model = Schema.Struct({
   /** Whether `Machines` has said anything yet. */
@@ -63,8 +78,7 @@ const Model = Schema.Struct({
   savedRead: Schema.Boolean,
   fetchedAt: Schema.NullOr(Schema.Number),
   forgetting: Forgetting,
-  /** What was kept of each listed Machine's settings, by its key, once read. */
-  kept: Schema.Record(Schema.String, Kept),
+  kits: Known.fields.kits,
   /** Whether the page has been drawn: from then on it never waits again. */
   drawn: Schema.Boolean,
   /** The Machine Forget is asking about. */
@@ -73,11 +87,10 @@ const Model = Schema.Struct({
 type Model = typeof Model.Type;
 
 export const MachineSettings = Actor.define('MachineSettings', {
-  requires: [Machines, SavedMachines],
+  requires: [Machines],
   model: Model,
   message: Schema.TaggedUnion({
     Known: Known.fields,
-    KeptRead: { key: Schema.String, kept: Kept },
     Ask: { id: Schema.String },
     Keep: {},
     Forget: {},
@@ -110,17 +123,20 @@ const whoseOf = (key: string) => {
   return { accountId: key.slice(0, at), machineId: key.slice(at + 1) };
 };
 
-/** Each listed Machine's key whose kept settings have been read. */
+/** A key's Machine's Kit, once read. */
+const kitOf = (model: Model, key: string) => model.kits[whoseOf(key).machineId];
+
+/** Each listed Machine's key whose Kit has been read. */
 const readKeysOf = (model: Model) =>
-  keysOf(model).filter((key) => model.kept[key] !== undefined);
+  keysOf(model).filter((key) => kitOf(model, key) !== undefined);
 
 /**
  * Whether what this device kept has been read: the list, unless Cloud
- * Connect's came first, and each listed Machine's settings.
+ * Connect's came first, and each listed Machine's Kit.
  */
 const readAll = (model: Model) =>
   (model.savedRead || model.machines !== null) &&
-  keysOf(model).every((key) => model.kept[key] !== undefined);
+  keysOf(model).every((key) => kitOf(model, key) !== undefined);
 
 export const MachineSettingsLive = Actor.build(MachineSettings, {
   init: () => ({
@@ -131,7 +147,7 @@ export const MachineSettingsLive = Actor.build(MachineSettings, {
       savedRead: false,
       fetchedAt: null,
       forgetting: null,
-      kept: {},
+      kits: {},
       drawn: false,
       asking: null,
     },
@@ -140,17 +156,18 @@ export const MachineSettingsLive = Actor.build(MachineSettings, {
     accounts: {
       actor: HarnessAccounts.actor,
       each: ({ model }) => readKeysOf(model),
-      input: ({ model }, key) => ({
-        ...whoseOf(key),
-        kept: model.kept[key]?.accounts ?? null,
+      input: (_, key) => ({ machineId: whoseOf(key).machineId }),
+      props: ({ model }, key) => ({
+        accounts: kitOf(model, key)?.accounts ?? null,
+        problem: kitOf(model, key)?.problem ?? null,
       }),
     },
     speech: {
       actor: SpeechToText.actor,
       each: ({ model }) => readKeysOf(model),
-      input: ({ model }, key) => ({
-        ...whoseOf(key),
-        kept: model.kept[key]?.speech ?? null,
+      input: (_, key) => ({ machineId: whoseOf(key).machineId }),
+      props: ({ model }, key) => ({
+        speech: kitOf(model, key)?.speech ?? null,
       }),
     },
   },
@@ -158,17 +175,25 @@ export const MachineSettingsLive = Actor.build(MachineSettings, {
     // 1. Read
     known: {
       run: (self) =>
-        // The list and Forget only, so a line or a download changes
-        // nothing here: each Machine's own settings follow those.
+        // The list, Forget and each Kit read, so a line changes nothing
+        // here.
         Effect.flatMap(Machines, ({ state }) =>
           state.pipe(
             Stream.map(
-              ({ accountId, machines, savedRead, fetchedAt, forgetting }) => ({
+              ({
                 accountId,
                 machines,
                 savedRead,
                 fetchedAt,
                 forgetting,
+                kits,
+              }) => ({
+                accountId,
+                machines,
+                savedRead,
+                fetchedAt,
+                forgetting,
+                kits: shownOf(kits),
               }),
             ),
             Stream.changesWith(sameKnown),
@@ -177,17 +202,6 @@ export const MachineSettingsLive = Actor.build(MachineSettings, {
             ),
           ),
         ),
-    },
-    kept: {
-      each: ({ model }) =>
-        keysOf(model).filter((key) => model.kept[key] === undefined),
-      run: (self, key) =>
-        Effect.gen(function* () {
-          const { accountId, machineId } = whoseOf(key);
-          const saved = yield* SavedMachines;
-          const kept = yield* saved.settings(accountId, machineId);
-          yield* self.send({ _tag: 'KeptRead', key, kept });
-        }),
     },
   },
   on: {
@@ -203,10 +217,6 @@ export const MachineSettingsLive = Actor.build(MachineSettings, {
             ? model.asking
             : null,
       };
-      return { model: { ...next, drawn: next.drawn || readAll(next) } };
-    },
-    KeptRead: ({ key, kept }, { model }) => {
-      const next = { ...model, kept: { ...model.kept, [key]: kept } };
       return { model: { ...next, drawn: next.drawn || readAll(next) } };
     },
     // 2. Ask

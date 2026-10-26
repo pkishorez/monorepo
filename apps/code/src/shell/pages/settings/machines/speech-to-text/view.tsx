@@ -27,10 +27,10 @@ const megabytes = (bytes: number) => `${Math.round(bytes / 1_000_000)} MB`;
 
 export const SpeechToTextView = View.make(
   SpeechToTextLive,
-  ({ root, model, send }) => {
+  ({ root, model, props, send }) => {
     const { health, locked } = useLock(model.machineId);
     const dictateKeys = useBound('app.dictateAnywhere');
-    const { state } = model;
+    const state = props.speech;
     const id = `speech-${model.machineId}`;
     const on = state !== null && state._tag !== 'Off';
     const downloading = state?._tag === 'Downloading' ? state : null;

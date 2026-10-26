@@ -19,7 +19,7 @@ import { machineFor } from './choose.ts';
  * `Dictations`.
  *
  * 1. Hear     each listed Machine, as `Machines` says it: whether its
- *             Speech to Text is Ready and
+ *             Speech to Text is Ready, as its Kit holds it, and
  *             whether it answers, so a Dictation knows where it can be
  *             transcribed before it starts.
  * 2. Start    with no Machine to transcribe on, it does not start, and says
@@ -67,22 +67,25 @@ const progressOf = (done: number, total: number | null) =>
   total === null || total === 0 ? 0 : Math.floor((done / total) * 100) / 100;
 
 /** What `Machines` says, as far as a Dictation needs it. */
-const heardOf = ({ machines, lines, speech }: Known) => {
+const heardOf = ({ machines, lines, kits }: Known) => {
   const listed = (machines ?? []).map(({ id }) => id);
   return {
     listed,
     machines: Object.fromEntries(
-      listed.map((id) => [
-        id,
-        {
-          ready: speech[id]?._tag === 'Ready',
-          answering: lines[id] === 'connected',
-          downloading:
-            speech[id]?._tag === 'Downloading'
-              ? progressOf(speech[id].done, speech[id].total)
-              : null,
-        },
-      ]),
+      listed.map((id) => {
+        const speech = kits[id]?.speech;
+        return [
+          id,
+          {
+            ready: speech?._tag === 'Ready',
+            answering: lines[id] === 'connected',
+            downloading:
+              speech?._tag === 'Downloading'
+                ? progressOf(speech.done, speech.total)
+                : null,
+          },
+        ];
+      }),
     ),
   };
 };

@@ -6,7 +6,6 @@ import {
   DeviceState,
   Dictations,
   dropEverywhere,
-  SavedMachines,
 } from '../layer/capabilities/index.ts';
 
 /*
@@ -27,23 +26,13 @@ export const signIn = Command.make('SignIn', {
 });
 
 /**
- * Keeps the records, Machine settings and Saved Drafts of the Accounts
- * signed in on this device and deletes every other's; an Account signed out also has its
- * list of Machines emptied. Best effort.
+ * Keeps the records, kept copies, Saved Drafts and Unseen marks of the
+ * Accounts signed in on this device and deletes every other's. Best effort.
  */
 export const keepAccounts = Command.make('KeepAccounts', {
-  args: Schema.Struct({
-    accountIds: Schema.Array(Schema.String),
-    signedOut: Schema.Array(Schema.String),
-  }),
-  run: ({ accountIds, signedOut }) =>
-    Effect.gen(function* () {
-      const saved = yield* SavedMachines;
-      yield* Effect.forEach(signedOut, (id) => saved.write(id, []), {
-        discard: true,
-      });
-      yield* dropEverywhere({ _tag: 'SignedOut', signedIn: accountIds });
-    }),
+  args: Schema.Struct({ accountIds: Schema.Array(Schema.String) }),
+  run: ({ accountIds }) =>
+    dropEverywhere({ _tag: 'SignedOut', signedIn: accountIds }),
 });
 
 /** Hands an ask to the Dictation. */
