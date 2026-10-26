@@ -219,7 +219,7 @@ sidebar ─ Worker: moves, from Moves ──────────────
 **Does**: Records, transcribes and hands its text to the Draft open when it stops, wherever the app goes.
 **Props**: place: the Draft open
 **Model**: count; listed; machines: whether each Machine is ready and answers; microphone: from Device State; notice
-**States**: Idle | Starting | Recording | Transcribing | Failed | Done, each with its id
+**States**: Idle | Waiting: the Microphone asked for, not yet live | Recording | Transcribing | Failed | Done, each with its id
 **Workers**: machines: always, from Machines; microphone: always, from Device State; asks: always, from Dictations; record, switch: while recording; transcribe: while transcribing; notice: while one shows
 **Requires**: CodeClients, Machines, DeviceState, Recorder, Dictations
 **View**: the badge; its hooks give every Draft its line

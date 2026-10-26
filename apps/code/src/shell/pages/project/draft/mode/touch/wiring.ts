@@ -85,10 +85,12 @@ export function useTouchDraft(
   const busy =
     state._tag === 'Transcribing' ||
     state._tag === 'Sending' ||
-    draft.dictation.recording?._tag === 'Starting' ||
+    draft.dictation.recording?._tag === 'Waiting' ||
     slots.starting;
   const voice = recording
-    ? 'take'
+    ? draft.dictation.recording?._tag === 'Waiting'
+      ? 'wait'
+      : 'take'
     : failed !== null
       ? 'resend'
       : busy
@@ -96,6 +98,7 @@ export function useTouchDraft(
         : 'dictate';
   const talk = () => {
     if (voice === 'take') send({ _tag: 'Take', send: false });
+    else if (voice === 'wait') send({ _tag: 'Cancel' });
     else if (voice === 'dictate') send({ _tag: 'Dictate' });
     else if (voice === 'resend' && failed !== null)
       draft.dictation.onRetry(failed.id);

@@ -131,6 +131,8 @@ const world = (options: {
   readonly chosen?: string | null;
   /** What each `transcribe` waits for before it answers. */
   readonly gate?: Effect.Effect<void>;
+  /** What the microphone waits for before it opens, as a browser asking for permission does. */
+  readonly opening?: Effect.Effect<void>;
 }) =>
   Effect.gen(function* () {
     // Two Machines listed, each answering, each with its Speech to Text.
@@ -241,16 +243,19 @@ const world = (options: {
                   reason: 'The microphone is blocked for this site',
                 }),
               )
-            : Effect.acquireRelease(
-                Effect.sync(() => {
-                  recordings++;
-                  recording = true;
-                  return {
-                    heard: heard(microphone),
-                    levels: Stream.fromQueue(levels),
-                  };
-                }),
-                () => Effect.sync(() => void (recording = false)),
+            : Effect.andThen(
+                options.opening ?? Effect.void,
+                Effect.acquireRelease(
+                  Effect.sync(() => {
+                    recordings++;
+                    recording = true;
+                    return {
+                      heard: heard(microphone),
+                      levels: Stream.fromQueue(levels),
+                    };
+                  }),
+                  () => Effect.sync(() => void (recording = false)),
+                ),
               ),
         switchTo: (microphone) =>
           Effect.sync(() => (recording ? heard(microphone) : null)),
@@ -410,6 +415,42 @@ describe('Dictation', () => {
         yield* toggle(app);
         expect(stateOf(app)._tag).toBe('Idle');
         expect(noticeOf(app)).toBe('The microphone is blocked for this site');
+      }),
+    ));
+
+  it('waits while the microphone opens, recording only once it is live, and a toggle while it waits lets go of it', () =>
+    timed(
+      Effect.gen(function* () {
+        const open = yield* Deferred.make<void>();
+        const { layer, levels, recording } = yield* world({
+          speech: { m1: 'Ready' },
+          opening: Deferred.await(open),
+        });
+        const app = yield* start(session('m1', 's1'), layer);
+        yield* settle;
+        yield* toggle(app);
+        expect(stateOf(app)).toEqual({ _tag: 'Waiting', id: 1 });
+        expect(recording()).toBe(false);
+        yield* Deferred.succeed(open, undefined);
+        yield* settle;
+        expect(stateOf(app)).toMatchObject({ _tag: 'Recording', id: 1 });
+        yield* Queue.offer(levels, 0.5);
+        yield* settle;
+        expect(stateOf(app)).toMatchObject({ _tag: 'Recording', level: 0.5 });
+        yield* askIt(app, { _tag: 'Cancel' });
+        expect(stateOf(app)._tag).toBe('Idle');
+
+        const { layer: blocked, recordings } = yield* world({
+          speech: { m1: 'Ready' },
+          opening: Effect.never,
+        });
+        const again = yield* start(session('m1', 's1'), blocked);
+        yield* settle;
+        yield* toggle(again);
+        expect(stateOf(again)._tag).toBe('Waiting');
+        yield* toggle(again);
+        expect(stateOf(again)._tag).toBe('Idle');
+        expect(recordings()).toBe(0);
       }),
     ));
 

@@ -21,9 +21,9 @@ import { machineFor, type Hearing } from './choose.ts';
 
 /*
  * The Dictation as the app draws it. Each Draft on screen shows it in the
- * line over its text: while it records, a red dot, the time, a level and
- * the microphone; while it is written out for that Draft, that it is
- * coming. With no Draft on screen, as at home or in Settings, a badge in
+ * line over its text: while the microphone opens, that it is Waiting;
+ * while it records, a red dot, the time, a level and the microphone; while
+ * it is written out for that Draft, that it is coming. With no Draft on screen, as at home or in Settings, a badge in
  * the bottom right corner, over everything, shows the same. The badge also
  * says, for a few seconds, why one could not start or what went wrong
  * with the microphone, wherever the app is.
@@ -123,8 +123,8 @@ export const useDictation = (target: {
   return {
     availability,
     recording:
-      phase === 'Starting'
-        ? { _tag: 'Starting' as const }
+      phase === 'Waiting'
+        ? { _tag: 'Waiting' as const }
         : phase === 'Recording'
           ? {
               _tag: 'Recording' as const,
@@ -322,10 +322,12 @@ export const DictationBadge = View.make(
           </span>
           <Bars level={state.level} />
         </div>
-      ) : state._tag === 'Starting' ? (
+      ) : state._tag === 'Waiting' ? (
         <div className={PILL}>
           <MicIcon aria-hidden className="size-3.5 shrink-0" />
-          <span className="text-muted-foreground">Opening the microphone…</span>
+          <span className="text-muted-foreground">
+            Waiting for the microphone
+          </span>
         </div>
       ) : null;
     const notice =

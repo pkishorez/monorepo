@@ -80,13 +80,15 @@ const Page = Actor.define('Page', {
     pings: Schema.Finite,
     pending: Schema.NullOr(Pending),
     recording: Schema.Boolean,
+    /** The microphone is live: it records, no longer waits. */
+    live: Schema.Boolean,
     retried: Schema.Array(Schema.Finite),
     discarded: Schema.Finite,
   }),
   message: Schema.TaggedUnion({
     Ping: {},
     Dictation: { pending: Schema.NullOr(Pending) },
-    Recording: { on: Schema.Boolean },
+    Recording: { on: Schema.Boolean, live: Schema.Boolean },
     Took: { id: Schema.Finite },
     Retry: { id: Schema.Finite },
     Discard: {},
@@ -109,6 +111,7 @@ const PageLive = Actor.build(Page, {
       pings: 0,
       pending: null,
       recording: false,
+      live: false,
       retried: [],
       discarded: 0,
     },
@@ -136,8 +139,8 @@ const PageLive = Actor.build(Page, {
   on: {
     Ping: (_, { model }) => ({ model: { ...model, pings: model.pings + 1 } }),
     Dictation: ({ pending }, { model }) => ({ model: { ...model, pending } }),
-    Recording: ({ on }, { model }) => ({
-      model: { ...model, recording: on },
+    Recording: ({ on, live }, { model }) => ({
+      model: { ...model, recording: on, live },
     }),
     Took: (_, { model }) => ({ model: { ...model, pending: null } }),
     Retry: ({ id }, { model }) => ({
@@ -175,7 +178,7 @@ let kept = nothing.touchMode;
 let textOnly = false;
 let ping = () => {};
 let dictate: (pending: typeof Pending.Type | null) => void = () => {};
-let record: (on: boolean) => void = () => {};
+let record: (on: boolean, live?: boolean) => void = () => {};
 
 const PageView = View.make(PageLive, ({ model, children, send }) => {
   page = {
@@ -187,7 +190,7 @@ const PageView = View.make(PageLive, ({ model, children, send }) => {
   };
   ping = () => send({ _tag: 'Ping' });
   dictate = (pending) => send({ _tag: 'Dictation', pending });
-  record = (on) => send({ _tag: 'Recording', on });
+  record = (on, live = false) => send({ _tag: 'Recording', on, live });
   return (
     <GestureProvider>
       <keys.Provider autoFocus={false}>
@@ -231,7 +234,17 @@ function OnPage({
       picker: null,
     },
     dictation: {
-      recording: model.recording ? { _tag: 'Starting' } : null,
+      recording: !model.recording
+        ? null
+        : model.live
+          ? {
+              _tag: 'Recording',
+              microphone: 'Studio Mic',
+              elapsed: '0:01',
+              level: null,
+              wave: null,
+            }
+          : { _tag: 'Waiting' },
       pending: model.pending,
       onToggle: () => {},
       onTook: (id) => send({ _tag: 'Took', id }),
@@ -437,6 +450,26 @@ describe('Touch Draft', () => {
     await tap(button('Cancel the Dictation')!);
     expect(asks()).toEqual(['Cancel']);
     expect(page.sent).toBe(0);
+  });
+
+  it('waits quietly while the microphone opens, in the same bar, then records once it is live', async () => {
+    await act(async () => record(true));
+    await flush();
+    const waiting = button('Waiting for the microphone: tap to cancel')!;
+    expect(waiting.textContent).toContain('Waiting');
+    expect(waiting.textContent).not.toContain('0:01');
+    await act(async () => record(true, true));
+    await flush();
+    const recording = button('Stop the Dictation')!;
+    expect(recording).toBe(waiting);
+    expect(recording.textContent).toContain('0:01');
+  });
+
+  it('lets go of the microphone on a tap while it waits', async () => {
+    await act(async () => record(true));
+    await flush();
+    await tap(button('Waiting for the microphone: tap to cancel')!);
+    expect(asks()).toEqual(['Cancel']);
   });
 
   it('edits from its placeholder while empty', async () => {

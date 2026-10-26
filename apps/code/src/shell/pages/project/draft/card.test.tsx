@@ -45,7 +45,7 @@ const Pending = Schema.TaggedUnion({
 });
 
 const Recording = Schema.TaggedUnion({
-  Starting: {},
+  Waiting: {},
   Recording: { microphone: Schema.String },
 });
 
@@ -477,11 +477,9 @@ describe('Draft', () => {
 
   it('shows a Dictation recording over it in place of that, with the time, the level, the microphone and its keys', async () => {
     expect(shown).toBe(1);
-    await act(async () => record({ _tag: 'Starting' }));
+    await act(async () => record({ _tag: 'Waiting' }));
     await flush();
-    expect(heading()).toBe(
-      'Opening the microphone… | Space to stop · d microphone',
-    );
+    expect(heading()).toBe('Waiting | Space to cancel · d microphone');
     await act(async () =>
       record({ _tag: 'Recording', microphone: 'MacBook Pro Microphone' }),
     );

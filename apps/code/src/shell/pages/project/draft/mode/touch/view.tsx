@@ -66,7 +66,7 @@ export interface Draft {
   };
   readonly dictation: {
     readonly recording:
-      | { readonly _tag: 'Starting' }
+      | { readonly _tag: 'Waiting' }
       | {
           readonly _tag: 'Recording';
           readonly elapsed: ReactNode;
