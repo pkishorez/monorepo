@@ -2,12 +2,28 @@ import { Schema } from 'effect';
 import { EntityESchema } from '@kestack/std-toolkit/eschema';
 import { HARNESS_NAMES } from '@kestack/ai-toolkit/contract';
 
-/** A folder on this machine that sessions run in. Its name is the folder's name. */
+/**
+ * - present  the folder is there.
+ * - missing  the folder is gone: no Turn can run in it until it is back.
+ */
+export const PROJECT_FOLDERS = ['present', 'missing'] as const;
+export type ProjectFolder = (typeof PROJECT_FOLDERS)[number];
+
+/**
+ * A folder on this machine that sessions run in. Its name is the folder's
+ * name. v2 says whether the folder is still there, as the Machine last
+ * found it; a v1 Project's was.
+ */
 export const ProjectSchema = EntityESchema.make('AiProject', 'id', {
   path: Schema.String,
   name: Schema.String,
   createdAt: Schema.Finite,
-}).build();
+})
+  .evolve('v2', { folder: Schema.Literals(PROJECT_FOLDERS) }, (v1) => ({
+    ...v1,
+    folder: 'present' as const,
+  }))
+  .build();
 
 export type Project = typeof ProjectSchema.Type;
 
