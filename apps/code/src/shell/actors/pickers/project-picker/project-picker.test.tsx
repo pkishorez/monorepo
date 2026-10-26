@@ -13,6 +13,7 @@ import {
   Ask,
   DeviceState,
   Dictations,
+  Kept,
   Machines,
   nobody,
   nothing,
@@ -142,6 +143,7 @@ const services = Layer.mergeAll(
   }),
   // The new session's Draft has nothing kept, with nobody signed in.
   Layer.mock(SavedDrafts)({ read: () => Effect.succeed(null) }),
+  Layer.mock(Kept)({ read: () => Effect.succeed(null) }),
   Layer.mock(Accounts)({
     current: Effect.succeed(AccountsState.SignedOut()),
   }),
