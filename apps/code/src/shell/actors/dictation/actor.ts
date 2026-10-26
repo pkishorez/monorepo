@@ -23,11 +23,12 @@ import { machineFor } from './choose.ts';
  *             whether it answers, so a Dictation knows where it can be
  *             transcribed before it starts.
  * 2. Start    with no Machine to transcribe on, it does not start, and says
- *             why for a few seconds; else the microphone chosen in Device
- *             State opens, and denied or missing, says why the same way.
- *             One chosen that is not there falls back to the default, and
- *             says so.
- * 3. Record   the level, for the meter, an eighth of a second at a time; at
+ *             why for a few seconds; else it is Waiting while the
+ *             microphone chosen in Device State opens, and denied or
+ *             missing, says why the same way. One chosen that is not there
+ *             falls back to the default, and says so. Asked again while it
+ *             waits, it lets go.
+ * 3. Record   once the microphone is live: the level, for the meter, an eighth of a second at a time; at
  *             five minutes it stops itself. Another microphone chosen
  *             while it records is recorded from for the rest of it, into
  *             the same clip.
@@ -122,8 +123,8 @@ type Model = typeof Model.Type;
 /** Where the Dictation is. */
 export const State = Schema.TaggedUnion({
   Idle: {},
-  /** Waiting for the microphone. */
-  Starting: { id: Schema.Finite },
+  /** The microphone asked for and not yet live, as while the browser asks for permission. */
+  Waiting: { id: Schema.Finite },
   /**
    * `heard`: the Time of the level last heard; `microphone`: the name of
    * the one heard; `using`: the one chosen it was opened for, by `deviceId`.
@@ -238,7 +239,7 @@ const start = (model: Model, props: Props, at: number) => {
   if (choice._tag === 'None') return noticed(model, choice.reason, at);
   return {
     model: { ...model, count: model.count + 1, notice: null },
-    state: { _tag: 'Starting' as const, id: model.count + 1 },
+    state: { _tag: 'Waiting' as const, id: model.count + 1 },
   };
 };
 
@@ -293,7 +294,7 @@ export const DictationLive = Actor.build(Dictation, {
     // the clip is one.
     record: {
       each: ({ state }) =>
-        state._tag === 'Starting' || state._tag === 'Recording'
+        state._tag === 'Waiting' || state._tag === 'Recording'
           ? [String(state.id)]
           : [],
       run: (self) =>
@@ -302,7 +303,7 @@ export const DictationLive = Actor.build(Dictation, {
           const using = asked.microphone;
           const { heard, levels } = yield* (yield* Recorder).record(using);
           const { state } = yield* self.get;
-          if (state._tag === 'Starting')
+          if (state._tag === 'Waiting')
             yield* self.send({
               _tag: 'Opened',
               microphone: heard.name,
@@ -395,7 +396,7 @@ export const DictationLive = Actor.build(Dictation, {
     Idle: {
       on: { Toggle: (_, { model, props, at }) => start(model, props, at) },
     },
-    Starting: {
+    Waiting: {
       on: {
         // Asked again before the microphone opened: nothing to keep.
         Toggle: () => ({ state: idle }),

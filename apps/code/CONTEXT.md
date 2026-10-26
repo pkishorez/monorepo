@@ -85,7 +85,7 @@ A question about the open Session, asked on the side and answered by the Session
 _Avoid_: btw, aside, ask, side chat
 
 **Touch Draft**:
-The Draft on a device with no keyboard: a sheet at the foot of the page, edge to edge, with the model chip and Text | Voice on top, a few lines of the Draft read only under them, and a row that never moves: Skills and Quick actions on the left, the talk bar in the middle, Send on the right. In voice, tapping the words places the cursor and the talk bar dictates: tap to talk, tap again to take it, or Send to take it and send the Draft once it is text; Cancel throws it away, and a failed one is tried again or thrown away from the same place. In text, tapping the words makes it the Composer. A Swipe on the words switches between them; voice can't be chosen while no Machine can transcribe. Which one it is, is kept in Device State. It is resting, recording, transcribing, being edited or sending; what it holds is the Draft's text, not one of these.
+The Draft on a device with no keyboard: a sheet at the foot of the page, edge to edge, with the model chip and Text | Voice on top, a few lines of the Draft read only under them, and a row that never moves: Skills and Quick actions on the left, the talk bar in the middle, Send on the right. In voice, tapping the words places the cursor and the talk bar dictates: tap to talk, Waiting, quiet, while the Microphone opens, a tap letting it go, then tap again to take it, or Send to take it and send the Draft once it is text; Cancel throws it away, and a failed one is tried again or thrown away from the same place. In text, tapping the words makes it the Composer. A Swipe on the words switches between them; voice can't be chosen while no Machine can transcribe. Which one it is, is kept in Device State. It is resting, recording, transcribing, being edited or sending; what it holds is the Draft's text, not one of these.
 _Avoid_: mobile composer, mobile input
 
 **Composer**:
@@ -93,7 +93,7 @@ The Draft while the user is editing it: the same place, now typed into. With a k
 _Avoid_: input, editor
 
 **Dictation**:
-Speech from the moment the user starts talking to the moment they stop, turned into text and put in at the Draft's cursor as if typed, replacing any selection. Once in, it is plain text like any other. It carries on while the user goes elsewhere in the app or switches Draft Mode, and its text goes to the Session open when it stops, into the Draft Mode open. The sound itself is never sent to the agent, so a Dictation is not an Attachment.
+Speech from the moment the user starts talking to the moment they stop, turned into text and put in at the Draft's cursor as if typed, replacing any selection. Once in, it is plain text like any other. It carries on while the user goes elsewhere in the app or switches Draft Mode, and its text goes to the Session open when it stops, into the Draft Mode open. It is Waiting while the Microphone is asked for and not yet live, as while the browser asks for permission, said in a word where its recording will show, and Recording only once it is live; asked again while Waiting, it lets go. The sound itself is never sent to the agent, so a Dictation is not an Attachment.
 _Avoid_: voice message, voice note, recording, transcript
 
 **Microphone**:

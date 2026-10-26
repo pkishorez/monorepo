@@ -1,4 +1,5 @@
 import { Button } from '@kestack/web-platform/ui/components/button';
+import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import {
   MicIcon,
@@ -118,7 +119,7 @@ interface DraftOptions {
      * its clock and meter to draw, which draw again on their own.
      */
     readonly recording:
-      | { readonly _tag: 'Starting' }
+      | { readonly _tag: 'Waiting' }
       | {
           readonly _tag: 'Recording';
           readonly microphone: string;
@@ -428,14 +429,12 @@ export function Heading({ draft }: { readonly draft: Draft }) {
       <div data-slot="dictation" className={HEADING}>
         <span
           aria-hidden
-          className="size-1.5 shrink-0 animate-breathe rounded-full bg-destructive motion-reduce:animate-none"
+          data-waiting={recording._tag === 'Waiting' || undefined}
+          className="size-1.5 shrink-0 animate-breathe rounded-full bg-destructive motion-reduce:animate-none data-waiting:bg-muted-foreground"
         />
-        {recording._tag === 'Starting' ? (
-          <span
-            role="status"
-            className="font-normal tracking-normal normal-case"
-          >
-            Opening the microphone…
+        {recording._tag === 'Waiting' ? (
+          <span role="status" title="Waiting for the microphone">
+            Waiting
           </span>
         ) : (
           <>
@@ -456,7 +455,9 @@ export function Heading({ draft }: { readonly draft: Draft }) {
         )}
         <span aria-hidden className={HINT}>
           {[
-            dictateKeys === null ? null : `${dictateKeys} to stop`,
+            dictateKeys === null
+              ? null
+              : `${dictateKeys} to ${recording._tag === 'Waiting' ? 'cancel' : 'stop'}`,
             microphoneKeys === null ? null : `${microphoneKeys} microphone`,
           ]
             .filter((hint) => hint !== null)
@@ -531,7 +532,12 @@ export function StatusLine({
   const dictateKeys = useBound('app.dictate');
   const { recording, onToggle, microphones } = draft.dictation;
   const [tools, setTools] = useState(false);
-  const dictate = recording !== null ? 'Stop the Dictation' : 'Dictate';
+  const dictate =
+    recording === null
+      ? 'Dictate'
+      : recording._tag === 'Waiting'
+        ? 'Waiting for the microphone: cancel'
+        : 'Stop the Dictation';
   const dictateTitle =
     dictateKeys === null ? dictate : `${dictate} (${dictateKeys})`;
   // The mic is the primary button while it would be the only thing to do.
@@ -616,7 +622,13 @@ export function StatusLine({
         {micFirst ? (
           <Button
             type="button"
-            variant={recording !== null ? 'destructive' : 'default'}
+            variant={
+              recording === null
+                ? 'default'
+                : recording._tag === 'Waiting'
+                  ? 'secondary'
+                  : 'destructive'
+            }
             size="icon"
             aria-label={dictate}
             title={dictateTitle}
@@ -624,10 +636,12 @@ export function StatusLine({
             data-slot="dictate"
             className={PRIMARY}
           >
-            {recording !== null ? (
-              <SquareIcon aria-hidden className="fill-current" />
-            ) : (
+            {recording === null ? (
               <MicIcon aria-hidden />
+            ) : recording._tag === 'Waiting' ? (
+              <Spinner />
+            ) : (
+              <SquareIcon aria-hidden className="fill-current" />
             )}
           </Button>
         ) : (

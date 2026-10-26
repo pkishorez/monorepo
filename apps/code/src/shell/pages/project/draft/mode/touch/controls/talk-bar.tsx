@@ -10,18 +10,19 @@ import type { ReactNode } from 'react';
 
 /*
  * The wide bar in voice mode, one element through every one of its jobs:
- * Tap to talk; while one records, red, with its time and level, a tap
+ * Tap to talk; Waiting, quiet, while the microphone opens, a tap letting
+ * go of it; while one records, red, with its time and level, a tap
  * stopping it; Transcribing; failed, Try again. Its colour crosses over,
  * and each job's words, all drawn in one cell, fade and rise into place
- * as the last fade away.
+ * as the last fade away, so none moves the bar.
  */
 
 /** The bar's one job now. */
-export type Voice = 'dictate' | 'take' | 'busy' | 'resend';
+export type Voice = 'dictate' | 'wait' | 'take' | 'busy' | 'resend';
 
-/** A Dictation starting or recording, as the Draft draws it. */
+/** A Dictation waiting for the microphone or recording, as the Draft draws it. */
 export type Recording =
-  | { readonly _tag: 'Starting' }
+  | { readonly _tag: 'Waiting' }
   | {
       readonly _tag: 'Recording';
       readonly elapsed: ReactNode;
@@ -31,6 +32,7 @@ export type Recording =
 
 const LABEL: Record<Voice, string> = {
   dictate: 'Dictate',
+  wait: 'Waiting for the microphone: tap to cancel',
   take: 'Stop the Dictation',
   busy: 'Transcribing',
   resend: 'Couldn’t transcribe: try again',
@@ -57,8 +59,15 @@ export function TalkBar({
         {quiet ? 'Talk' : 'Tap to talk'}
       </>
     ),
+    // Its spinner only while it waits, as with Transcribing.
+    wait: (
+      <>
+        {voice === 'wait' && <Spinner />}
+        Waiting
+      </>
+    ),
     // Its time and level, only while it records: nothing to say otherwise.
-    take: voice === 'take' && (
+    take: voice === 'take' && recording?._tag === 'Recording' && (
       <span className="flex w-full min-w-0 items-center justify-between gap-3">
         <Listening recording={recording} />
         <SquareIcon aria-hidden fill="currentColor" className="size-4!" />
@@ -88,6 +97,8 @@ export function TalkBar({
       className={cn(
         'grid h-14 w-full min-w-0 overflow-hidden rounded-full px-5 text-base font-medium disabled:opacity-100 [&_svg:not([class*=size-])]:size-5',
         'transition-[background-color,color,box-shadow,scale] duration-200 ease-out active:not-disabled:scale-[0.98] motion-reduce:transition-none',
+        voice === 'wait' &&
+          'bg-muted text-foreground ring-1 ring-destructive/40 ring-inset hover:bg-muted',
         voice === 'take' && 'bg-destructive text-white hover:bg-destructive/90',
         voice === 'busy' && 'bg-muted text-muted-foreground hover:bg-muted',
         voice === 'resend' &&
@@ -117,22 +128,20 @@ export function TalkBar({
 }
 
 /** While one records: its breathing dot, its time and its level. */
-function Listening({ recording }: { readonly recording: Recording }) {
+function Listening({
+  recording,
+}: {
+  readonly recording: Extract<Recording, { _tag: 'Recording' }>;
+}) {
   return (
     <span role="status" className="flex min-w-0 items-center gap-2 text-sm">
       <span
         aria-hidden
         className="size-2 shrink-0 animate-breathe rounded-full bg-current motion-reduce:animate-none"
       />
-      {recording?._tag === 'Recording' ? (
-        <>
-          <span className="sr-only">Recording</span>
-          <span className="tabular-nums">{recording.elapsed}</span>
-          <span className="min-w-0 overflow-hidden">{recording.wave}</span>
-        </>
-      ) : (
-        <span>Opening the microphone…</span>
-      )}
+      <span className="sr-only">Recording</span>
+      <span className="tabular-nums">{recording.elapsed}</span>
+      <span className="min-w-0 overflow-hidden">{recording.wave}</span>
     </span>
   );
 }
