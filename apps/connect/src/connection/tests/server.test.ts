@@ -168,6 +168,10 @@ type Rows = ReadonlyArray<{
 }>;
 
 /** A message as one line: its first part, and its text if it has one. */
+/** What the Bootstrap Sweep sends to Resume a cut-off Turn. */
+const RESUME_PROMPT =
+  'Connect restarted and cut off your last turn, possibly in the middle of a tool call. Check the state of anything you were changing before you repeat it, then continue.';
+
 const line = ({ row }: Rows[number]) => {
   const part = row.parts[0]!;
   return part.text === undefined ? part.type : `${part.type} ${part.text}`;
@@ -490,7 +494,8 @@ describe('the server, through the client and Replica', () => {
               expect(lines()).toEqual(['turnStarted hi', 'text echo:hi']),
             );
 
-            // The server goes away mid-turn: the turn is ended as cancelled.
+            // The server goes away mid-turn: the turn is ended interrupted,
+            // then Resumed.
             yield* stop(running);
             yield* eventually(() =>
               expect(SubscriptionRef.getUnsafe(status)).toBe('relinking'),
@@ -507,6 +512,8 @@ describe('the server, through the client and Replica', () => {
                 'turnStarted hi',
                 'text echo:hi',
                 'turnEnded',
+                `turnStarted ${RESUME_PROMPT}`,
+                `text echo:${RESUME_PROMPT}`,
               ]),
             );
             // The feed reopened from the newest message it had passed on.
@@ -517,13 +524,16 @@ describe('the server, through the client and Replica', () => {
               text: 'again',
               attachments: [],
             });
+            // The Resumed Turn runs on; a message steers it.
             yield* eventually(() =>
               expect(lines()).toEqual([
                 'turnStarted hi',
                 'text echo:hi',
                 'turnEnded',
+                `turnStarted ${RESUME_PROMPT}`,
+                `text echo:${RESUME_PROMPT}`,
                 'turnStarted again',
-                'text echo:again',
+                'text steer:again',
               ]),
             );
             expect(new Set(received).size).toBe(received.length);

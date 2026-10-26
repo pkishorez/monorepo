@@ -11,7 +11,8 @@ import { Remove, Save } from './commands.js';
  * one Session child per session in them.
  *
  * - Loading  one Worker reads the Store and runs the Bootstrap Sweep (see
- *            checks/sweep.ts); what it finds is `Loaded`.
+ *            checks/sweep.ts); what it finds is `Loaded`, each Session it Resumes
+ *            with the Prompt to start Running.
  * - Ready    the Projects, added and removed on request, each change saved;
  *            removing one stops its Sessions and removes them. A new
  *            session starts here, already running its first message; a
@@ -23,7 +24,10 @@ const ProjectRecord = Schema.Struct(ProjectSchema.fields);
 
 const Loaded = Schema.Struct({
   projects: Schema.Array(ProjectRecord),
-  /** Each Session as it was first handed over; the Session keeps itself after. */
+  /**
+   * Each Session as it was first handed over, with the Prompt it starts
+   * Running, if any; the Session keeps itself after.
+   */
   sessions: Schema.Array(SessionInput),
 });
 

@@ -149,14 +149,34 @@ const make = (path: string) =>
           (raw) => raw.sessionId === sessionId,
         ),
       }),
-      lastRaw: (sessionId) =>
-        run(
-          raws.query(
-            'bySession',
-            { pk: { sessionId }, '<=': null },
-            { limit: 1 },
-          ),
-        ).pipe(Effect.map(({ items }) => items[0]?.value ?? null)),
+      // Read back from the newest until the Turn before it, as a Session
+      // runs one Turn at a time.
+      lastTurn: (sessionId) =>
+        Effect.gen(function* () {
+          const turn: Array<Raw> = [];
+          let cursor: string | null = null;
+          while (true) {
+            const page: {
+              readonly items: ReadonlyArray<Entity<Raw>>;
+              readonly hasMore: boolean;
+            } = yield* run(
+              raws.query(
+                'bySession',
+                cursor === null
+                  ? { pk: { sessionId }, '<=': null }
+                  : { pk: { sessionId }, '<': { _u: cursor } },
+                { limit: PAGE },
+              ),
+            );
+            for (const { value } of page.items) {
+              if (turn.length > 0 && value.turnId !== turn[0]!.turnId)
+                return turn.reverse();
+              turn.push(value);
+            }
+            if (!page.hasMore || page.items.length === 0) return turn.reverse();
+            cursor = page.items.at(-1)!.meta._u;
+          }
+        }),
       projects: projectFeed,
       sessions: sessionFeed,
       project: (id) =>

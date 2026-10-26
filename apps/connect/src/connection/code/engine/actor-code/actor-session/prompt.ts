@@ -5,7 +5,8 @@ import { EngineRaw } from '../../engine-raw/index.js';
 /*
  * A user message as a Session keeps it: its text, its Attachments as Raw
  * records them (an image's data, or the path a file was saved at), and any
- * change of model or settings it carries.
+ * change of model or settings it carries. The Bootstrap Sweep makes one
+ * too, `resumed`, to Resume a Turn a stop cut off.
  */
 
 export const Prompt = Schema.Struct({
@@ -15,6 +16,8 @@ export const Prompt = Schema.Struct({
   attachments: Schema.Array(EngineRaw.Attachment),
   model: Schema.optionalKey(Schema.String),
   settings: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
+  /** The engine's own, Resuming a cut-off Turn; never a user's. */
+  resumed: Schema.optionalKey(Schema.Boolean),
 });
 export type Prompt = typeof Prompt.Type;
 

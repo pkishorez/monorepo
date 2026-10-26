@@ -102,7 +102,7 @@ const TurnAttachment = Schema.Struct({
   /** Where the engine saved a file that is not an image. */
   path: Schema.optionalKey(Schema.String),
 });
-const TurnStarted = Schema.Struct({
+const TurnStartedV1 = Schema.Struct({
   type: Schema.Literal('turnStarted'),
   text: Schema.String,
   /** Sent while the turn was already running. */
@@ -110,6 +110,14 @@ const TurnStarted = Schema.Struct({
   attachments: Schema.optionalKey(Schema.Array(TurnAttachment)),
   /** An Agent-started Turn: the agent began it, so `text` is empty. */
   agentStarted: Schema.optionalKey(Schema.Boolean),
+});
+const TurnStarted = Schema.Struct({
+  ...TurnStartedV1.fields,
+  /**
+   * A Resumed Turn: the engine started it to continue one a stop cut off,
+   * and `text` is the prompt it sent the agent, not words of yours.
+   */
+  resumed: Schema.optionalKey(Schema.Boolean),
 });
 const TurnEnded = Schema.Struct({
   type: Schema.Literal('turnEnded'),
@@ -142,21 +150,27 @@ const Other = Schema.Struct({
   label: Schema.String,
 });
 
-export const PartSchema = Schema.Union([
-  Text,
-  Reasoning,
-  TextChunk,
-  ToolCall,
-  ToolResult,
-  QuestionAnswered,
-  TurnStarted,
-  TurnEnded,
-  UsagePart,
-  ErrorPart,
-  ClaudeCompaction,
-  CodexPlan,
-  Other,
-]);
+/** Every kind of Part, with the turnStarted of one Message version. */
+const partsWith = <S extends typeof TurnStartedV1 | typeof TurnStarted>(
+  turnStarted: S,
+) =>
+  Schema.Union([
+    Text,
+    Reasoning,
+    TextChunk,
+    ToolCall,
+    ToolResult,
+    QuestionAnswered,
+    turnStarted,
+    TurnEnded,
+    UsagePart,
+    ErrorPart,
+    ClaudeCompaction,
+    CodexPlan,
+    Other,
+  ]);
+
+export const PartSchema = partsWith(TurnStarted);
 export type Part = typeof PartSchema.Type;
 
 export const ROLES = ['user', 'assistant', 'tool', 'system'] as const;
@@ -172,9 +186,12 @@ export const MessageSchema = EntityESchema.make('AiMessage', 'id', {
   /** null for the main agent; else the id of the toolCall that spawned this subagent. */
   agentId: Schema.NullOr(Schema.String),
   role: Schema.Literals(ROLES),
-  parts: Schema.Array(PartSchema),
+  parts: Schema.Array(partsWith(TurnStartedV1)),
   at: Schema.Finite,
-}).build();
+})
+  // A turnStarted may say it was Resumed; every v1 part reads as it was.
+  .evolve('v2', { parts: Schema.Array(PartSchema) }, (v1) => v1)
+  .build();
 
 export type Message = typeof MessageSchema.Type;
 
