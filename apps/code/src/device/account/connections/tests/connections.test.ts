@@ -67,6 +67,8 @@ const connection = (
       ? { _tag: 'Opening' }
       : { _tag: 'Reachable', url, at: lastSeen },
   lastSeen,
+  plugins: {},
+  wanted: {},
 });
 
 /** What the root page is told by Connections preparing: nothing, here. */
@@ -388,7 +390,7 @@ describe('Connections', () => {
         listed = [connection('m1', 2)];
         app.send(list(app).id, { _tag: 'ReloadAsked' });
         yield* wait();
-        expect(reader().reached).toBe('wss://m1.trycloudflare.com/rpc');
+        expect(reader().reached).toBe('wss://m1.trycloudflare.com/code/rpc');
       }),
     );
   });

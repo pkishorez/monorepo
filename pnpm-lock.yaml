@@ -482,6 +482,9 @@ importers:
       '@kestack/ai-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/ai-toolkit
+      '@kestack/cli-platform':
+        specifier: workspace:*
+        version: link:../../platforms/cli-platform
       cloudflared:
         specifier: 'catalog:'
         version: 0.7.3
@@ -525,6 +528,9 @@ importers:
       laymos:
         specifier: workspace:*
         version: link:../../devtools/laymos
+      tsx:
+        specifier: 'catalog:'
+        version: 4.23.15
       typescript:
         specifier: 'catalog:'
         version: 7.0.2

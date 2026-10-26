@@ -1,7 +1,8 @@
 import { type ChildProcess, spawn } from 'node:child_process';
+import { join } from 'node:path';
 import { Effect } from 'effect';
 import { serve } from '../connection/index.js';
-import { type DevAuth, connectionBranch } from './auth.js';
+import { type DevAuth, connectionName } from './auth.js';
 import { live } from './leases.js';
 import {
   type ConnectRecord,
@@ -14,7 +15,8 @@ import {
 /*
  * Running this branch's Connect: its Cloud Connect under `alchemy dev`
  * behind Portless, then a Connection of the branch's own serving against it,
- * ready once `connect.json` says so. A shared Connect stops 3 s after its
+ * running the code Plugin this checkout built, ready once `connect.json`
+ * says so. A shared Connect stops 3 s after its
  * last lease is gone, unless an App leased it as it decided, watching from
  * the moment it starts, so an App that gives up while Cloud Connect never
  * answers does not leave it running; a foreground one stops on Ctrl-C.
@@ -144,13 +146,13 @@ export const supervise = (options: Supervised) =>
       yield* Effect.log(`Waiting for Cloud Connect at ${cloud}`);
       yield* Effect.raceFirst(answering(cloud), exited(alchemy));
       yield* serve({
+        name: connectionName(slug, auth),
         cloud,
-        branch: connectionBranch(slug, auth),
         port: 0,
         // A page through a Cloudflare tunnel, which only the Fake signs in.
-        ...(auth === 'fake'
-          ? { origins: ['https://*.trycloudflare.com'] }
-          : {}),
+        origins: auth === 'fake' ? ['https://*.trycloudflare.com'] : [],
+        heartbeat: 15,
+        plugins: { code: join(root, 'dist', 'plugins', 'code', 'main.js') },
         onListening: ({ port, connection }) =>
           Effect.sync(() =>
             writeRecord(dir, {

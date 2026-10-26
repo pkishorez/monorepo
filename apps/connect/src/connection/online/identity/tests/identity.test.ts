@@ -17,17 +17,19 @@ const kept = () => {
 
 const ada = { id: 'u-ada', email: 'ada@example.com' };
 const bob = { id: 'u-bob', email: 'bob@example.com' };
+const cloud = 'https://connect.example';
+const on = { cloud, startedAt: 1 };
 
 describe('connection.json is one Connection of one User', () => {
   it('makes the Connection once, 0600, then finds the same one', () =>
     Effect.runPromise(
       Effect.gen(function* () {
         const at = kept();
-        const first = yield* claim({ ...at, owner: ada });
+        const first = yield* claim({ ...at, ...on, owner: ada });
         expect(first.name).toBe(hostname().split('.')[0]);
         expect(first.key).toMatch(/^[A-Za-z0-9_-]{43}$/);
         expect(statSync(at.file).mode & 0o777).toBe(0o600);
-        expect(yield* claim({ ...at, owner: ada })).toEqual(first);
+        expect(yield* claim({ ...at, ...on, owner: ada })).toEqual(first);
       }),
     ));
 
@@ -36,6 +38,7 @@ describe('connection.json is one Connection of one User', () => {
       Effect.gen(function* () {
         const made = yield* claim({
           ...kept(),
+          ...on,
           owner: ada,
           firstName: `${'h'.repeat(60)} (main)`,
         });
@@ -43,14 +46,33 @@ describe('connection.json is one Connection of one User', () => {
       }),
     ));
 
-  it('keeps a name given, and never changes the id or key', () =>
+  it('keeps its name, id and key, and when it last started', () =>
     Effect.runPromise(
       Effect.gen(function* () {
         const at = kept();
-        const first = yield* claim({ ...at, owner: ada });
-        const renamed = yield* claim({ ...at, owner: ada, name: 'studio' });
-        expect(renamed).toEqual({ ...first, name: 'studio' });
-        expect(yield* claim({ ...at, owner: ada })).toEqual(renamed);
+        const first = yield* claim({ ...at, ...on, owner: ada });
+        const again = yield* claim({
+          ...at,
+          ...on,
+          startedAt: 2,
+          owner: ada,
+          firstName: 'studio',
+        });
+        expect(again).toEqual(first);
+        expect((yield* found(at))?.startedAt).toBe(2);
+      }),
+    ));
+
+  it('refuses another Cloud Connect', () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const at = kept();
+        yield* claim({ ...at, ...on, owner: ada });
+        const refused = yield* Effect.flip(
+          claim({ ...at, ...on, cloud: 'https://other.example', owner: ada }),
+        );
+        expect(refused._tag).toBe('ConnectionOfAnotherCloud');
+        expect(refused.message).toContain(`--cloud ${cloud}`);
       }),
     ));
 
@@ -58,9 +80,13 @@ describe('connection.json is one Connection of one User', () => {
     Effect.runPromise(
       Effect.gen(function* () {
         const at = kept();
-        const first = yield* claim({ ...at, owner: ada, name: 'x' });
-        yield* claim({ ...at, owner: ada, name: `${hostname()} (main)` });
-        const again = yield* claim({ ...at, owner: ada });
+        const first = yield* claim({
+          ...at,
+          ...on,
+          owner: ada,
+          firstName: `${hostname()} (main)`,
+        });
+        const again = yield* claim({ ...at, ...on, owner: ada });
         expect(again).toEqual({
           ...first,
           name: `${hostname().split('.')[0]} (main)`,
@@ -72,11 +98,11 @@ describe('connection.json is one Connection of one User', () => {
     Effect.runPromise(
       Effect.gen(function* () {
         const at = kept();
-        yield* claim({ ...at, owner: ada });
-        const refused = yield* Effect.flip(claim({ ...at, owner: bob }));
+        yield* claim({ ...at, ...on, owner: ada });
+        const refused = yield* Effect.flip(claim({ ...at, ...on, owner: bob }));
         expect(refused._tag).toBe('ConnectionOwnedByAnother');
         expect(refused.message).toContain('ada@example.com');
-        expect(refused.message).toContain('ke-connect logout');
+        expect(refused.message).toContain('ke-connect remove');
       }),
     ));
 
@@ -84,10 +110,10 @@ describe('connection.json is one Connection of one User', () => {
     Effect.runPromise(
       Effect.gen(function* () {
         const at = kept();
-        const first = yield* claim({ ...at, owner: ada });
+        const first = yield* claim({ ...at, ...on, owner: ada });
         yield* forget(at);
         expect(yield* found(at)).toBeNull();
-        const next = yield* claim({ ...at, owner: bob });
+        const next = yield* claim({ ...at, ...on, owner: bob });
         expect(next.id).not.toBe(first.id);
         expect(next.key).not.toBe(first.key);
       }),

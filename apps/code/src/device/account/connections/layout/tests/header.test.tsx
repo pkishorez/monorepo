@@ -23,6 +23,8 @@ const connection = (lastSeen: number, status: object) => ({
   version: '0.0.1',
   status,
   lastSeen,
+  plugins: {},
+  wanted: {},
 });
 
 let host: HTMLDivElement;

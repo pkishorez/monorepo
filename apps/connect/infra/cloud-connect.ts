@@ -46,6 +46,9 @@ export const CloudConnect = Cloudflare.Worker(
       env: {
         AUTH_URL: at.authUrl,
         ALLOWED_ORIGINS: at.origins,
+        // The Plugins every Connection runs, `{"code":{"hash","url"}}`; the
+        // deploy fills it in once it builds and uploads them.
+        PLUGINS: process.env['PLUGINS'] ?? '',
         DB: CloudConnectDatabase,
       },
       // Keep the Worker's deployment behind the table and its guard.

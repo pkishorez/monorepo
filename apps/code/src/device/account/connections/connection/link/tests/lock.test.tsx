@@ -24,6 +24,8 @@ const connection = (status: Connection['status']): Connection => ({
   version: '0.0.1',
   status,
   lastSeen: Date.now(),
+  plugins: {},
+  wanted: {},
 });
 
 const REACHABLE = {
