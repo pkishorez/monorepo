@@ -20,22 +20,28 @@ import {
   it,
   vi,
 } from 'vitest';
-import type { SettingsTab } from '../../routes/index.ts';
-import { besideOf, TabTrack } from './swipe.tsx';
+import { besideOf, TabTrack } from './track.tsx';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 /*
- * Settings' tabs on a touch screen, side by side, swiped sideways by one
- * finger: right to left opens the next tab, left to right the one before,
- * and left to right on the first is left to the App Shell around it,
- * which opens the sidebar. The track follows the finger, so the tab beside
- * shows, springs back from a short slow drag, and once another tab is
- * open, swiped to or tapped, slides from where it was to it. Up and down,
- * nothing.
+ * Tabs on a touch screen, side by side, swiped sideways by one finger:
+ * right to left opens the next tab, left to right the one before, and left
+ * to right on the first is left to the App Shell around it, which opens
+ * the sidebar. The track follows the finger, so the tab beside shows,
+ * springs back from a short slow drag, and once another tab is open,
+ * swiped to or tapped, slides from where it was to it. Up and down,
+ * nothing. Tabs inside a tab, as a Machine's Agents and Projects inside
+ * Settings' Machines, take a swipe they have a tab for, and leave one past
+ * either end to the tabs around them.
  */
 
+type SettingsTab = 'General' | 'Shortcuts' | 'Machines';
+type Shows = 'Agents' | 'Projects';
+
 let reduce = false;
+/** What a finger lands on: a tab of the track, or one of the tabs inside it. */
+let aim: 'page' | 'inner' = 'page';
 window.matchMedia = (query: string) =>
   ({
     matches: query.includes('reduce') ? reduce : query.includes('coarse'),
@@ -55,7 +61,7 @@ const pointer = (type: string, x: number, y: number) => {
   });
   Object.assign(event, { pointerId: 1, pointerType: 'touch' });
   host
-    .querySelector('[data-testid="page"]:not([inert] *)')
+    .querySelector(`[data-testid="${aim}"]:not([inert] *)`)
     ?.dispatchEvent(event);
 };
 
@@ -99,6 +105,8 @@ let root: Root;
 let swiped: Array<SettingsTab>;
 let slid: { current: MotionValue<number> | null };
 let sidebar: number;
+let chosen: Array<Shows>;
+let inner: { current: MotionValue<number> | null };
 
 /** The App Shell's own swipe, from anywhere, left to right. */
 function Shell() {
@@ -116,7 +124,13 @@ const SHOWN: ReadonlyArray<SettingsTab> = ['General', 'Machines'];
 /** How far the track is moved off the tab open, in px. */
 const moved = () => slid.current?.get() ?? 0;
 
-const render = (open: SettingsTab) =>
+const SHOWS: ReadonlyArray<Shows> = ['Agents', 'Projects'];
+
+/** How far the tabs inside are moved off the one open, in px. */
+const movedInside = () => inner.current?.get() ?? 0;
+
+/** Settings' tabs, `open` open; on Machines, its Agents and Projects inside it, `shows` open. */
+const render = (open: SettingsTab, shows?: Shows) =>
   act(() =>
     root.render(
       <GestureProvider>
@@ -128,10 +142,22 @@ const render = (open: SettingsTab) =>
             heading={null}
             panel={(tab) => (
               <div data-testid="page" style={{ height: 800 }}>
-                {tab}
+                {tab === 'Machines' && shows !== undefined ? (
+                  <TabTrack
+                    open={shows}
+                    shown={SHOWS}
+                    heading={null}
+                    panel={(each) => <div data-testid="inner">{each}</div>}
+                    onChoose={(each) => chosen.push(each)}
+                    slid={inner}
+                  />
+                ) : (
+                  tab
+                )}
               </div>
             )}
             onChoose={(tab) => swiped.push(tab)}
+            fill
             slid={slid}
           />
         </GestureZone>
@@ -154,6 +180,9 @@ afterAll(() => {
 
 beforeEach(() => {
   reduce = false;
+  aim = 'page';
+  chosen = [];
+  inner = { current: null };
   swiped = [];
   slid = { current: null };
   sidebar = 0;
@@ -275,6 +304,55 @@ describe('Settings swiped sideways on a touch screen', () => {
     render('Machines');
     await swipe(-150);
     await swipe(0, -300);
+    expect(swiped).toEqual([]);
+  });
+});
+
+describe('tabs inside a tab, swiped sideways', () => {
+  beforeEach(() => {
+    aim = 'inner';
+  });
+
+  it('takes a swipe it has a tab for, the tabs around it still', async () => {
+    render('Machines', 'Agents');
+    drag(-60, 0, 40);
+    expect(movedInside()).toBe(-60);
+    expect(moved()).toBe(0);
+    await lift(-60);
+    await swipe(-150);
+    expect(chosen).toEqual(['Projects']);
+    render('Machines', 'Projects');
+    await settled();
+    await swipe(150);
+    expect(chosen).toEqual(['Projects', 'Agents']);
+    expect(swiped).toEqual([]);
+    expect(sidebar).toBe(0);
+  });
+
+  it('leaves left to right on its first tab to the tabs around it, which follow the finger', async () => {
+    render('Machines', 'Agents');
+    drag(60, 0, 40);
+    expect(moved()).toBe(60);
+    expect(movedInside()).toBe(0);
+    await lift(60);
+    await swipe(150);
+    expect(chosen).toEqual([]);
+    expect(swiped).toEqual(['General']);
+    expect(sidebar).toBe(0);
+  });
+
+  it('leaves right to left on its last tab to the tabs around it, which have none there either', async () => {
+    render('Machines', 'Projects');
+    await swipe(-150);
+    expect(chosen).toEqual([]);
+    expect(swiped).toEqual([]);
+    expect(moved()).toBe(0);
+  });
+
+  it('wants nothing up and down', async () => {
+    render('Machines', 'Agents');
+    await swipe(0, -300);
+    expect(chosen).toEqual([]);
     expect(swiped).toEqual([]);
   });
 });

@@ -18,20 +18,22 @@ import {
   useLayoutEffect,
   useRef,
 } from 'react';
-import type { SettingsTab } from '../../routes/index.ts';
 
 /*
- * On a touch screen Settings' tabs sit side by side in one track, each
- * drawn and scrolled on its own, the track showing one at a time.
+ * On a touch screen tabs sit side by side in one track, each drawn on its
+ * own, the track showing one at a time: Settings' tabs, each scrolled on
+ * its own, and a Machine's Agents and Projects inside one of them, as tall
+ * as the one open.
  *
  * 1. Follow  a sideways drag moves the track with the finger, so the tab
  *            beside comes into view as the one open goes: right to left
  *            the next, left to right the one before. Up and down it wants
- *            nothing: the tab open scrolls.
+ *            nothing: the tab open, or what holds it, scrolls.
  * 2. Let go  past a fifth of the track's width, or flicked, it opens the
  *            tab beside; otherwise it springs back. A way with no tab
  *            there, such as before the first, is left to the zone around
- *            it, the App Shell's, whose swipe opens the sidebar.
+ *            it: the tabs around these, or the App Shell's, whose swipe
+ *            opens the sidebar.
  * 3. Settle  once another tab is open, by a swipe or a tap on its name,
  *            the track springs from where it was to it, as fast as the
  *            finger let go, and quicker the less it has to go.
@@ -50,12 +52,12 @@ const LONGEST = 0.25;
 const SHORTEST = 0.1;
 
 /** The tabs on either side of the one open, among those shown; null where there is none. */
-export const besideOf = (
-  shown: ReadonlyArray<SettingsTab>,
-  open: SettingsTab,
+export const besideOf = <Tab extends string>(
+  shown: ReadonlyArray<Tab>,
+  open: Tab,
 ): {
-  readonly before: SettingsTab | null;
-  readonly after: SettingsTab | null;
+  readonly before: Tab | null;
+  readonly after: Tab | null;
 } => {
   const at = shown.indexOf(open);
   return {
@@ -69,24 +71,27 @@ const reduced = () =>
 
 /**
  * The tabs shown, side by side, the one open in view; `heading` above
- * them, which a swipe on it moves them too. `slid` reads how far the track
- * is moved off the tab open, in px.
+ * them, which a swipe on it moves them too. Filling, the track takes the
+ * height it is given and each tab scrolls on its own; else it is as tall
+ * as the tab open, the one beside cut to it while it shows. `slid` reads
+ * how far the track is moved off the tab open, in px.
  */
-export function TabTrack({
+export function TabTrack<Tab extends string>({
   open,
   shown,
   heading,
   panel,
   onChoose,
+  fill = false,
   slid,
   className,
 }: {
-  readonly open: SettingsTab;
-  readonly shown: ReadonlyArray<SettingsTab>;
+  readonly open: Tab;
+  readonly shown: ReadonlyArray<Tab>;
   readonly heading: ReactNode;
-  /** A tab's content, in its own scroll. */
-  readonly panel: (tab: SettingsTab) => ReactNode;
-  readonly onChoose: (tab: SettingsTab) => void;
+  readonly panel: (tab: Tab) => ReactNode;
+  readonly onChoose: (tab: Tab) => void;
+  readonly fill?: boolean;
   readonly slid?: RefObject<MotionValue<number> | null>;
   readonly className?: string;
 }) {
@@ -95,7 +100,7 @@ export function TabTrack({
   const at = Math.max(0, shown.indexOf(open));
   if (slid) slid.current = x;
   return (
-    <GestureZone className={cn('flex min-h-0 flex-col', className)}>
+    <GestureZone className={cn('flex flex-col', fill && 'min-h-0', className)}>
       <Follow
         open={open}
         shown={shown}
@@ -104,20 +109,31 @@ export function TabTrack({
         onChoose={onChoose}
       />
       {heading}
-      <div ref={frame} className="min-h-0 flex-1 overflow-x-clip">
+      <div
+        ref={frame}
+        className={cn('overflow-clip', fill && 'min-h-0 flex-1')}
+      >
         <div
-          className="h-full"
+          className={cn(fill && 'h-full')}
           style={{ transform: `translateX(${-100 * at}%)` }}
         >
           <motion.div
             style={{ x }}
-            className="flex h-full will-change-transform"
+            className={cn('relative will-change-transform', fill && 'h-full')}
           >
-            {shown.map((tab) => (
+            {/* Only the tab open sets the height; each sits at its place. */}
+            {shown.map((tab, index) => (
               <div
                 key={tab}
                 inert={tab !== open}
-                className="h-full w-full shrink-0 overflow-y-auto overscroll-y-contain"
+                style={{ left: `${100 * index}%` }}
+                className={cn(
+                  'w-full',
+                  tab === open ? 'relative' : 'absolute top-0',
+                  fill
+                    ? 'h-full overflow-y-auto overscroll-y-contain'
+                    : 'bottom-0',
+                )}
               >
                 {panel(tab)}
               </div>
@@ -130,18 +146,18 @@ export function TabTrack({
 }
 
 /** Both ways' Swipes, each wanted only while there is a tab that way, and the settle once another is open. */
-function Follow({
+function Follow<Tab extends string>({
   open,
   shown,
   x,
   frame,
   onChoose,
 }: {
-  readonly open: SettingsTab;
-  readonly shown: ReadonlyArray<SettingsTab>;
+  readonly open: Tab;
+  readonly shown: ReadonlyArray<Tab>;
   readonly x: MotionValue<number>;
   readonly frame: RefObject<HTMLDivElement | null>;
-  readonly onChoose: (tab: SettingsTab) => void;
+  readonly onChoose: (tab: Tab) => void;
 }) {
   const { before, after } = besideOf(shown, open);
   const animation = useRef<AnimationPlaybackControls | undefined>(undefined);
@@ -178,19 +194,18 @@ function Follow({
   };
 
   // 2. Let go
-  const release =
-    (sign: -1 | 1, to: SettingsTab | null) => (at?: SwipeRelease) => {
-      if (moving.current !== sign) return;
-      moving.current = null;
-      const goes =
-        to !== null &&
-        at !== undefined &&
-        (sign * x.get() >= width() * SHARE || at.velocity >= FLICK);
-      const velocity = sign * (at?.velocity ?? 0);
-      if (!goes) return settle(velocity);
-      flung.current = velocity;
-      onChoose(to);
-    };
+  const release = (sign: -1 | 1, to: Tab | null) => (at?: SwipeRelease) => {
+    if (moving.current !== sign) return;
+    moving.current = null;
+    const goes =
+      to !== null &&
+      at !== undefined &&
+      (sign * x.get() >= width() * SHARE || at.velocity >= FLICK);
+    const velocity = sign * (at?.velocity ?? 0);
+    if (!goes) return settle(velocity);
+    flung.current = velocity;
+    onChoose(to);
+  };
 
   const left = useSwipe({
     enabled: after !== null,

@@ -19,7 +19,7 @@ import { Shortcuts } from './shortcuts/index.ts';
  * Which tab is open is theirs alone, never in the address: General,
  * unless a link asked for another as it opened them. On a touch screen a
  * sideways swipe opens the tab beside the one open, as tapping it does
- * (`swipe.tsx`).
+ * (`ui/tabs`).
  */
 
 const Tab = Schema.Literals(['General', 'Shortcuts', 'Machines']);
