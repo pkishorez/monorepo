@@ -834,12 +834,19 @@ function RowView({
             </span>
           )}
           {row.status === 'failed' && (
-            <span className="flex items-center gap-1.5 font-medium">
-              <CircleAlertIcon aria-hidden className="size-3.5" />
-              {row.duration === null
-                ? 'Failed'
-                : `Failed after ${took(row.duration)}`}
-              {row.error && <span className="font-normal">: {row.error}</span>}
+            <span className="flex min-w-0 items-start gap-1.5 font-medium">
+              <CircleAlertIcon
+                aria-hidden
+                className="mt-px size-3.5 shrink-0"
+              />
+              <span className="min-w-0 break-words">
+                {row.duration === null
+                  ? 'Failed'
+                  : `Failed after ${took(row.duration)}`}
+                {row.error && (
+                  <span className="font-normal"> · {row.error}</span>
+                )}
+              </span>
             </span>
           )}
           {row.usage && <span aria-hidden>·</span>}
