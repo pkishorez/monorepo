@@ -13,6 +13,7 @@ import { StarterLive } from './actor.ts';
 export function NewSessionBody({
   path,
   page,
+  about,
   extra,
   draft,
 }: {
@@ -20,6 +21,8 @@ export function NewSessionBody({
   readonly path: string | null;
   /** The scrolling part, for a page that focuses it. */
   readonly page?: Ref<HTMLDivElement>;
+  /** In place of how to start one, such as why none can be. */
+  readonly about?: ReactNode;
   /** Under the words, such as removing the project. */
   readonly extra?: ReactNode;
   readonly draft: ReactNode;
@@ -33,16 +36,18 @@ export function NewSessionBody({
       >
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-1 px-4 pt-8 pb-6 sm:px-6">
           <h2 className="text-lg font-semibold">New session</h2>
-          <p className="text-sm text-muted-foreground">
-            Write the first message to start one
-            {path !== null ? (
-              <>
-                {' '}
-                in <span className="font-mono text-xs">{path}</span>
-              </>
-            ) : null}
-            .
-          </p>
+          {about ?? (
+            <p className="text-sm text-muted-foreground">
+              Write the first message to start one
+              {path !== null ? (
+                <>
+                  {' '}
+                  in <span className="font-mono text-xs">{path}</span>
+                </>
+              ) : null}
+              .
+            </p>
+          )}
           {extra}
         </div>
       </div>

@@ -46,7 +46,7 @@ import { SkillPicker } from './skills.ts';
  * over it: text only, no model Picker, and its send says Ask. The
  * question and its answer take the transcript's place, drawn where the
  * page says through `Slots`. What the page adds, such as a Session's
- * Stop, comes through `Slots` too. On a device with no keyboard it is the
+ * Stop, or that nothing can be sent, comes through `Slots` too. On a device with no keyboard it is the
  * Touch Draft (`mode/touch/`), with the model chip in place of the
  * triggers, and every send goes through it.
  */
@@ -57,6 +57,8 @@ export const Slots = createContext<{
   readonly actions?: ReactNode;
   /** The page's own problem, shown where the Draft's would be. */
   readonly problem?: string | null;
+  /** Nothing can be sent, as the page says above it, such as in a Project whose folder is missing. */
+  readonly blocked?: boolean;
   /** Where Side Question mode is drawn, in place of the transcript. */
   readonly sideQuestion?: HTMLElement | null;
 }>({});
@@ -113,6 +115,7 @@ function Drafting(self: ViewProps<typeof DraftLive>) {
   // Nothing could be sent now, whatever the Draft holds.
   const unsendable =
     offline !== null ||
+    slots.blocked === true ||
     (fresh &&
       (model.starting || pickedModel(model) === null || unavailable !== null));
   const open = children.modes.find((each) => each.key === model.mode);
@@ -260,7 +263,7 @@ function Composer({
     insert: model.insert,
     onInsert: (what) => send({ _tag: 'InsertAsked', what }),
     onSend: () => {
-      if (offline !== null) return;
+      if (offline !== null || slots.blocked === true) return;
       if (!keyboard && touchSend.current !== null) touchSend.current();
       else composing.onSend();
     },
