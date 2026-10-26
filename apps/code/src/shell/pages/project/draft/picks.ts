@@ -62,8 +62,11 @@ export const current = (model: Model, { to }: Props) => {
 export const skillsOf = (model: Model, props: Props) => {
   const account = current(model, props)?.account ?? null;
   const read = Catalog.skillsOf(model.catalog, account);
+  // An agent that cannot run here has none to read: it says why.
+  const unread = Catalog.unread(model.catalog, account);
   const loading =
     read === undefined &&
+    unread === null &&
     (props.to._tag === 'Session' ||
       (model.catalog.harnesses === null
         ? model.catalog.problem === null
@@ -72,6 +75,6 @@ export const skillsOf = (model: Model, props: Props) => {
     commands: props.to._tag === 'Session' ? COMMANDS : [],
     skills: read?.list ?? [],
     loading,
-    problem: read?.problem ?? null,
+    problem: read?.problem ?? (read === undefined ? unread : null),
   };
 };
