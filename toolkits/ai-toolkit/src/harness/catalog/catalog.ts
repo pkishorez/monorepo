@@ -4,6 +4,10 @@
  * each can run, from models.dev.
  */
 
-export { binaryAt, checkBinary, InvalidBinary } from './binaries.js';
-export { configFolderOf } from './config-folder.js';
+export {
+  binaryAt,
+  checkBinary,
+  configFolderOf,
+  InvalidBinary,
+} from './binaries.js';
 export { Models, ModelsError, type ModelsOptions } from './models.js';

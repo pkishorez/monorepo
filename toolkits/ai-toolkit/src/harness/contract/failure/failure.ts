@@ -1,4 +1,3 @@
-import { existsSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
 
 /** Where a Coding Harness ran when it failed. */
@@ -44,16 +43,21 @@ const then = (detail: string) => (detail === '' ? '' : `: ${short(detail)}`);
  * folder, a Harness Binary that is missing or cannot run, a lost login, a
  * rate limit, or the process's exit with the last line it wrote to stderr;
  * else what the harness said. The cause is an Error from its SDK or
- * process, or `{ exitCode, signal, stderr }`.
+ * process, or `{ exitCode, signal, stderr }`. `exists` says whether a path
+ * is there; the caller looks, so this reads no disk of its own.
  */
-export const failureReason = (cause: unknown, where: FailedIn): string => {
+export const failureReason = (
+  cause: unknown,
+  where: FailedIn,
+  exists: (path: string) => boolean,
+): string => {
   const { harness, cwd, binary } = where;
   // Starting in a missing folder fails as though the binary were missing.
-  if (!existsSync(cwd)) return `The project folder ${cwd} no longer exists`;
+  if (!exists(cwd)) return `The project folder ${cwd} no longer exists`;
   const code = field(cause, 'code');
   if (code === 'EACCES')
     return `${harness} at ${binary} cannot be run: it is not executable`;
-  if (code === 'ENOENT' && !existsSync(binary))
+  if (code === 'ENOENT' && !exists(binary))
     return isAbsolute(binary)
       ? `${harness} was not found at ${binary}`
       : `${harness} (${binary}) was not found on PATH`;

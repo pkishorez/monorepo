@@ -1,34 +1,31 @@
 import { Effect, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import type { Self } from '@kestack/kabuki';
 import { PROJECT_FOLDERS, ProjectSchema } from '../../records/index.js';
 import { Store } from '../capabilities/index.js';
 import { Prompt, Session, SessionInput } from './actor-session/index.js';
+import { check, failures, sweep } from './checks/index.js';
 import { Remove, Save } from './commands.js';
-import { check, failures } from './folders.js';
-import { sweep } from './sweep.js';
 
 /*
  * Code: the root of the engine. It holds the Projects, each a folder, and
  * one Session child per session in them.
  *
  * - Loading  one Worker reads the Store and runs the Bootstrap Sweep (see
- *            sweep.ts); what it finds is `Loaded`.
+ *            checks/sweep.ts); what it finds is `Loaded`.
  * - Ready    the Projects, added and removed on request, each change saved;
  *            removing one stops its Sessions and removes them. A new
  *            session starts here, already running its first message; a
- *            Fork joins idle. The Folder Check (see folders.ts) keeps
+ *            Fork joins idle. The Folder Check (see checks/folders.ts) keeps
  *            whether each Project's folder is there, saving only a change.
  */
 
 const ProjectRecord = Schema.Struct(ProjectSchema.fields);
 
-export const Loaded = Schema.Struct({
+const Loaded = Schema.Struct({
   projects: Schema.Array(ProjectRecord),
   /** Each Session as it was first handed over; the Session keeps itself after. */
   sessions: Schema.Array(SessionInput),
 });
-export type Loaded = typeof Loaded.Type;
 
 const Model = Schema.Struct({
   ...Loaded.fields,
@@ -51,8 +48,6 @@ const Message = Schema.TaggedUnion({
   },
   FoldersAsked: {},
 });
-
-export type CodeSelf = Self<Model, typeof State.Type, typeof Message.Type>;
 
 /** The folder of the Project a session is in; null when it is gone. */
 const cwdOf = (model: Model, projectId: string) =>

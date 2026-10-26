@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { Effect, type Scope } from 'effect';
 import {
@@ -103,13 +104,19 @@ export const start = (
     const failedIn = { harness: 'Codex', cwd, binary: codex.path };
     child.once('error', (cause) =>
       exit(
-        new HarnessError({ message: failureReason(cause, failedIn), cause }),
+        new HarnessError({
+          message: failureReason(cause, failedIn, existsSync),
+          cause,
+        }),
       ),
     );
     child.once('exit', (exitCode, signal) => {
       const cause = { exitCode, signal, stderr };
       exit(
-        new HarnessError({ message: failureReason(cause, failedIn), cause }),
+        new HarnessError({
+          message: failureReason(cause, failedIn, existsSync),
+          cause,
+        }),
       );
     });
 

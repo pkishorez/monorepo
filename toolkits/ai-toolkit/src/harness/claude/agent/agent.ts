@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { Deferred, Effect, Queue, Stream } from 'effect';
 import type { Cause, Scope } from 'effect';
@@ -338,7 +339,10 @@ export const openSdkAgent = (
     yield* Stream.fromAsyncIterable(
       live,
       (cause) =>
-        new HarnessError({ message: failureReason(cause, failedIn), cause }),
+        new HarnessError({
+          message: failureReason(cause, failedIn, existsSync),
+          cause,
+        }),
     ).pipe(
       Stream.runForEach(onMessage),
       Effect.flatMap(() =>

@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
 import { Duration, Effect } from 'effect';
@@ -34,11 +35,11 @@ export const askIdle = <A>(
   Effect.suspend(() => {
     const cwd = options.cwd ?? tmpdir();
     const why = (cause: unknown) =>
-      failureReason(cause, {
-        harness: 'Claude Code',
-        cwd,
-        binary: options.executable.path,
-      });
+      failureReason(
+        cause,
+        { harness: 'Claude Code', cwd, binary: options.executable.path },
+        existsSync,
+      );
     return Effect.acquireRelease(
       Effect.try({
         try: () => {

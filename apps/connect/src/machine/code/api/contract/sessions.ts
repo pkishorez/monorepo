@@ -19,7 +19,8 @@ import { Batch, Cursor } from './wire.js';
 
 /* Sessions as a whole: started, forked, Settled, asked, and how they stand. */
 
-export const SessionValue = Schema.Struct(SessionSchema.fields);
+/** A Session as a reply carries it; an older Connect's is read as it is now. */
+export const SessionValue = SessionSchema.schema;
 
 export const SessionsRpc = RpcGroup.make(
   /** Starts a Session, already running its first message. */

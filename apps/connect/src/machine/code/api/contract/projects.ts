@@ -6,7 +6,8 @@ import { Batch, Cursor } from './wire.js';
 
 /* Folders added as Projects. */
 
-export const ProjectValue = Schema.Struct(ProjectSchema.fields);
+/** A Project as a reply carries it; an older Connect's is read as it is now. */
+export const ProjectValue = ProjectSchema.schema;
 
 export const ProjectsRpc = RpcGroup.make(
   /**

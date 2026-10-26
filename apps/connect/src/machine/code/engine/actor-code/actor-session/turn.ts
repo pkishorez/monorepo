@@ -34,7 +34,7 @@ import { toTurnInput, type Prompt } from './prompt.js';
  * A Turn stopped without a cancel, by the server stopping or its project
  * being removed, stops the agent and writes nothing: a stop may not get the
  * chance to, so the next start finds the turn cut off and ends it
- * `interrupted` (see actor-code/sweep.ts).
+ * `interrupted` (see actor-code/checks/sweep.ts).
  */
 
 /** How long an agent may take to stop after a cancel before the Turn is ended anyway. */

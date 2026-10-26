@@ -8,7 +8,7 @@ import {
   makeFakeHarness,
   type FakeHarness,
 } from '@kestack/ai-toolkit/harness/fake';
-import { EVERY } from '../actor-code/folders.js';
+import { EVERY } from '../actor-code/checks/index.js';
 import { Engine, Store, storeLayer } from '../index.js';
 
 /* The Folder Check: a Project knows whether its folder is there. */
