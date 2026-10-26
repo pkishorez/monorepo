@@ -29,8 +29,8 @@ export interface Feed<T> {
 export interface StoreService {
   readonly appendRaw: (raw: Raw) => Effect.Effect<Entity<Raw>>;
   readonly raws: (sessionId: string) => Feed<Raw>;
-  /** The newest Raw of a session, if any. */
-  readonly lastRaw: (sessionId: string) => Effect.Effect<Raw | null>;
+  /** The Raw of a session's newest Turn, in write order; empty with none. */
+  readonly lastTurn: (sessionId: string) => Effect.Effect<ReadonlyArray<Raw>>;
   readonly projects: Feed<Project>;
   readonly sessions: Feed<Session>;
   /** A Project that is not removed. */

@@ -10,10 +10,10 @@ const run = <A, E>(effect: Effect.Effect<A, E, Store | Scope.Scope>) =>
     Effect.scoped(effect).pipe(Effect.provide(storeLayer(':memory:'))),
   );
 
-const raw = (id: string, sessionId = 's1'): Raw => ({
+const raw = (id: string, sessionId = 's1', turnId = 't1'): Raw => ({
   id,
   sessionId,
-  turnId: 't1',
+  turnId,
   harness: 'claude',
   kind: 'text',
   agentId: null,
@@ -51,8 +51,22 @@ describe('Store', () => {
         const rest = yield* store.raws('s1').after(first.items[1]!.meta._u);
         expect(rest.items.map((each) => each.value.id)).toEqual(['b']);
         expect(rest.items[0]?.value.payload).toEqual(raw('b').payload);
-        expect((yield* store.lastRaw('s1'))?.id).toBe('b');
-        expect(yield* store.lastRaw('none')).toBeNull();
+      }),
+    ));
+
+  it("reads a session's newest Turn, in write order", () =>
+    run(
+      Effect.gen(function* () {
+        const store = yield* Store;
+        yield* store.appendRaw(raw('a', 's1', 't1'));
+        for (let at = 0; at < 250; at++)
+          yield* store.appendRaw(raw(`b${at}`, 's1', 't2'));
+        yield* store.appendRaw(raw('x', 's2', 't2'));
+        const turn = yield* store.lastTurn('s1');
+        expect(turn).toHaveLength(250);
+        expect(turn[0]?.id).toBe('b0');
+        expect(turn.at(-1)?.id).toBe('b249');
+        expect(yield* store.lastTurn('none')).toEqual([]);
       }),
     ));
 

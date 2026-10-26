@@ -71,6 +71,22 @@ const started = Effect.gen(function* () {
   return { engine, store, project, session, raws, status };
 });
 
+/** What a Bootstrap Sweep sends to Resume a cut-off Turn. */
+const RESUME_PROMPT =
+  'Connect restarted and cut off your last turn, possibly in the middle of a tool call. Check the state of anything you were changing before you repeat it, then continue.';
+
+/** A session left running mid-turn, its native id saved, as a stop leaves it. */
+const cutOff = Effect.gen(function* () {
+  const { session, raws, store } = yield* started;
+  yield* eventually(async () => expect(await raws()).toHaveLength(2));
+  yield* eventually(async () =>
+    expect((await Effect.runPromise(store.session(session.id)))?.nativeId).toBe(
+      'native-1',
+    ),
+  );
+  return session;
+});
+
 describe('Engine', () => {
   it('runs a turn: turn.started, every record, then idle with its native id', async () => {
     const fake = makeFakeHarness();
@@ -569,68 +585,196 @@ describe('Engine', () => {
     );
   });
 
-  it('on start, marks what the last run left running interrupted, and resumes by native id', async () => {
+  it('on start, ends what the last run left running interrupted, then Resumes it by native id', async () => {
     const path = join(folder(), 'ai.db');
     const fake = makeFakeHarness({ hold: true });
-    // A session cut off mid-turn, as a crash leaves it.
-    const cut = await run(
-      Effect.gen(function* () {
-        const { session, store } = yield* started;
-        yield* eventually(async () =>
-          expect(
-            (await Effect.runPromise(store.session(session.id)))?.nativeId,
-          ).toBe('native-1'),
-        );
-        return session;
-      }),
-      fake,
-      path,
-    );
+    const cut = await run(cutOff, fake, path);
+    expect(fake.closes()).toBe(1);
     await run(
       Effect.gen(function* () {
-        const engine = yield* Engine;
         const store = yield* Store;
-        const saved = yield* store.session(cut.id);
-        expect(saved?.status).toBe('interrupted');
-        const all = yield* Effect.promise(() => rawsOf(store, cut.id));
-        expect(all.map(brief).at(-1)).toBe(
+        const raws = () => rawsOf(store, cut.id);
+        yield* eventually(async () => expect(await raws()).toHaveLength(5));
+        const all = yield* Effect.promise(raws);
+        // The stop wrote nothing: the sweep ends the Turn, then Resumes it.
+        expect(all.map(brief)).toEqual([
+          'engine turn.started {"text":"hello there\\nsecond line","steered":false}',
+          'claude text {"text":"echo:hello there\\nsecond line"}',
           'engine turn.ended {"status":"interrupted"}',
-        );
-        expect(saved?.endedAt).toBe(all.at(-1)?.at);
-        expect(fake.opens).toHaveLength(1);
-        expect(all.at(-1)?.turnId).toBe(all[0]?.turnId);
-        yield* engine.send(cut.id, say('back again'));
-        yield* eventually(() => expect(fake.opens).toHaveLength(2));
+          `engine turn.started ${JSON.stringify({ text: RESUME_PROMPT, steered: false, resumed: true })}`,
+          `claude text ${JSON.stringify({ text: `echo:${RESUME_PROMPT}` })}`,
+        ]);
+        expect(all[2]?.turnId).toBe(all[0]?.turnId);
+        expect(all[3]?.turnId).not.toBe(all[0]?.turnId);
+        expect(fake.opens).toHaveLength(2);
         expect(fake.opens[1]?.nativeId).toBe('native-1');
+        expect(fake.inputs.at(-1)?.text).toBe(RESUME_PROMPT);
+        const saved = yield* store.session(cut.id);
+        expect(saved).toMatchObject({ status: 'running', title: cut.title });
+        expect(saved?.endedAt).toBe(all[2]?.at);
+        expect(saved?.activeAt).toBeGreaterThanOrEqual(all[2]?.at ?? NaN);
+        yield* fake.finish;
+        yield* eventually(async () =>
+          expect((await Effect.runPromise(store.session(cut.id)))?.status).toBe(
+            'idle',
+          ),
+        );
       }),
       fake,
       path,
     );
   });
 
-  it('a server stopping mid-turn writes nothing; the next start finds it interrupted', async () => {
+  it('a Resumed Turn cut off again is ended interrupted, and not Resumed again', async () => {
     const path = join(folder(), 'ai.db');
     const fake = makeFakeHarness({ hold: true });
-    const cut = await run(
+    const cut = await run(cutOff, fake, path);
+    // The next start Resumes it, and stops while the Resumed Turn runs.
+    await run(
       Effect.gen(function* () {
-        const { session, raws } = yield* started;
-        yield* eventually(async () => expect(await raws()).toHaveLength(2));
-        return session;
+        const store = yield* Store;
+        yield* eventually(async () =>
+          expect(await rawsOf(store, cut.id)).toHaveLength(5),
+        );
       }),
       fake,
       path,
     );
-    expect(fake.closes()).toBe(1);
     await run(
       Effect.gen(function* () {
         const store = yield* Store;
+        yield* Effect.sleep('100 millis');
         expect((yield* store.session(cut.id))?.status).toBe('interrupted');
         const all = yield* Effect.promise(() => rawsOf(store, cut.id));
-        expect(all.map(brief).slice(1)).toEqual([
-          'claude text {"text":"echo:hello there\\nsecond line"}',
+        expect(all.map(brief).slice(3)).toEqual([
+          `engine turn.started ${JSON.stringify({ text: RESUME_PROMPT, steered: false, resumed: true })}`,
+          `claude text ${JSON.stringify({ text: `echo:${RESUME_PROMPT}` })}`,
           'engine turn.ended {"status":"interrupted"}',
         ]);
-        expect(fake.opens).toHaveLength(1);
+        expect(fake.opens).toHaveLength(2);
+      }),
+      fake,
+      path,
+    );
+  });
+
+  it('a Turn cut off before its agent gave a native id is ended interrupted, and not Resumed', async () => {
+    const path = join(folder(), 'ai.db');
+    const fake = makeFakeHarness({ hold: true });
+    const project = {
+      id: 'p1',
+      path: folder(),
+      name: 'p1',
+      createdAt: 1,
+      folder: 'present' as const,
+    };
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const store = yield* Store;
+          yield* store.saveProject(project);
+          yield* store.saveSession({
+            id: 's1',
+            projectId: project.id,
+            harness: 'claude',
+            account: 'claude',
+            model: 'claude-test',
+            settings: {},
+            title: 'Hello',
+            status: 'running',
+            nativeId: null,
+            createdAt: 1,
+            forkedFrom: null,
+            settledAt: null,
+            activeAt: 1,
+            endedAt: null,
+          });
+          yield* store.appendRaw({
+            id: 'r1',
+            sessionId: 's1',
+            turnId: 't1',
+            harness: 'engine',
+            kind: 'turn.started',
+            agentId: null,
+            payload: { text: 'hello', steered: false },
+            at: 1,
+          });
+        }),
+      ).pipe(Effect.provide(storeLayer(path))),
+    );
+    await run(
+      Effect.gen(function* () {
+        const store = yield* Store;
+        yield* Effect.sleep('100 millis');
+        expect((yield* store.session('s1'))?.status).toBe('interrupted');
+        const all = yield* Effect.promise(() => rawsOf(store, 's1'));
+        expect(all.map(brief)).toEqual([
+          'engine turn.started {"text":"hello","steered":false}',
+          'engine turn.ended {"status":"interrupted"}',
+        ]);
+        expect(fake.opens).toHaveLength(0);
+      }),
+      fake,
+      path,
+    );
+  });
+
+  it('the next start leaves a cancelled Turn and a failed one as they ended', async () => {
+    const path = join(folder(), 'ai.db');
+    const fake = makeFakeHarness({ hold: true });
+    const before = await run(
+      Effect.gen(function* () {
+        const { engine, project, session, raws, status, store } =
+          yield* started;
+        yield* eventually(async () => expect(await raws()).toHaveLength(2));
+        yield* engine.cancel(session.id);
+        yield* eventually(async () => expect(await status()).toBe('cancelled'));
+        const other = yield* engine.startSession({
+          projectId: project.id,
+          account: 'claude',
+          model: 'claude-test',
+          settings: {},
+          text: 'another',
+          attachments: [],
+        });
+        yield* eventually(async () =>
+          expect(await rawsOf(store, other.id)).toHaveLength(2),
+        );
+        yield* fake.fail('boom');
+        yield* eventually(async () =>
+          expect(
+            (await Effect.runPromise(store.session(other.id)))?.status,
+          ).toBe('failed'),
+        );
+        return {
+          cancelled: session.id,
+          failed: other.id,
+          raws: [
+            yield* Effect.promise(raws),
+            yield* Effect.promise(() => rawsOf(store, other.id)),
+          ],
+        };
+      }),
+      fake,
+      path,
+    );
+    const opens = fake.opens.length;
+    await run(
+      Effect.gen(function* () {
+        const store = yield* Store;
+        yield* Effect.sleep('100 millis');
+        expect((yield* store.session(before.cancelled))?.status).toBe(
+          'cancelled',
+        );
+        expect((yield* store.session(before.failed))?.status).toBe('failed');
+        expect([
+          yield* Effect.promise(() => rawsOf(store, before.cancelled)),
+          yield* Effect.promise(() => rawsOf(store, before.failed)),
+        ]).toEqual(before.raws);
+        expect(fake.opens).toHaveLength(opens);
+        expect(fake.inputs.map(({ text }) => text)).not.toContain(
+          RESUME_PROMPT,
+        );
       }),
       fake,
       path,
