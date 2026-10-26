@@ -14,11 +14,16 @@ import { child, LOG_LINES, socketFree } from './child.js';
  * while the old one runs. A process that exits goes Crashed, and is tried
  * again after a pause that doubles each time, up to a minute; one that ran
  * a minute or more before it exited starts the count over. Every change in
- * where it stands is reported up through Plugins.
+ * where it stands is reported up through Plugins. While a downloaded file
+ * is what runs, it is marked used every day, so a prune by this or another
+ * CLI never deletes it.
  */
 
 /** How long a Plugin must run before its crashes no longer count. */
 const STEADY = Duration.minutes(1);
+
+/** How often the downloaded file running is marked used: well inside any prune's age. */
+const MARK_EVERY = Duration.hours(24);
 
 const Folders = Schema.Struct({
   data: Schema.String,
@@ -59,9 +64,13 @@ const Model = Schema.Struct({
   folders: Folders,
   socket: Schema.String,
   pause: Pause,
-  /** What runs: its key, the hash or local file, and the file Node runs. */
+  /** What runs: its key, the hash or local file, the file Node runs, and whether Downloads keeps it. */
   target: Schema.NullOr(
-    Schema.Struct({ key: Schema.String, file: Schema.String }),
+    Schema.Struct({
+      key: Schema.String,
+      file: Schema.String,
+      downloaded: Schema.Boolean,
+    }),
   ),
   /** Whether the process running says it listens. */
   ready: Schema.Boolean,
@@ -162,6 +171,18 @@ const fetchWanted = (self: PluginSelf, key: string) =>
           : `Could not download ${'url' in error ? error.url : error.path}: ${error.message}`,
     });
   });
+
+/** Marks the downloaded file `key` used, now and every day after, for as long as it runs. */
+const keepUsed = (key: string) =>
+  Effect.flatMap(Downloads, (downloads) =>
+    downloads
+      .use(key)
+      .pipe(
+        Effect.ignore,
+        Effect.andThen(Effect.sleep(MARK_EVERY)),
+        Effect.forever,
+      ),
+  );
 
 /** Runs the Plugin's process for `key`, Sending what happens to it, until it exits. */
 const runProcess = (self: PluginSelf, key: string) =>
@@ -290,7 +311,7 @@ export const ActorPlugin = Actor.build(
           ? {
               model: {
                 ...model,
-                target: { key, file },
+                target: { key, file, downloaded: 'hash' in props.wanted },
                 ready: false,
                 readyAt: null,
                 progress: null,
@@ -334,6 +355,11 @@ export const ActorPlugin = Actor.build(
           fetchWanted(self, each.slice(each.indexOf(':') + 1)),
       },
       report: { run: report },
+      keep: {
+        each: ({ model }) =>
+          model.target?.downloaded === true ? [model.target.key] : [],
+        run: (_, key) => keepUsed(key),
+      },
     },
     state: {
       Fetching: {},

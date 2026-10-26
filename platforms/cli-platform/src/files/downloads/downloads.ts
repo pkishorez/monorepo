@@ -20,7 +20,8 @@ import { messageOf, transfer, type Progress } from './transfer.js';
  * temporary folder beside it and renamed into place whole, so a download cut
  * short leaves nothing half-written; one process at a time makes an entry,
  * so two that start at once download it once, and the second takes what
- * the first made. Entries not used for a while are pruned.
+ * the first made. Entries not used for a while are pruned; whoever keeps
+ * using an entry, such as a Plugin running from it, marks it used again.
  */
 
 export type { Progress };
@@ -157,6 +158,13 @@ const make = (cache: string) => {
       });
     },
     ensure: ({ key, name = 'file', produce }) => entry(key, name, produce),
+    use: (key) =>
+      Effect.suspend(() => {
+        const folder = join(root, key.toLowerCase());
+        return KEY.test(key.toLowerCase()) && existsSync(folder)
+          ? markUsed(folder)
+          : Effect.void;
+      }),
     prune: ({ olderThan, keep = [] }) =>
       Effect.gen(function* () {
         if (!existsSync(root)) return [];
@@ -206,6 +214,8 @@ export class Downloads extends Context.Service<
     readonly ensure: <E>(
       made: Made<E>,
     ) => Effect.Effect<string, E | CacheError>;
+    /** Marks the entry `key` used now, if it is there, so `prune` keeps it. */
+    readonly use: (key: string) => Effect.Effect<void, CacheError>;
     /**
      * Deletes every entry not used within `olderThan` and not in `keep`,
      * and what downloads that died left; answers the keys deleted.
