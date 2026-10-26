@@ -1,7 +1,11 @@
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { Effect, type Scope } from 'effect';
-import { HarnessError, type HarnessAccount } from '../../contract/index.js';
+import {
+  failureReason,
+  HarnessError,
+  type HarnessAccount,
+} from '../../contract/index.js';
 import { answer } from './answers.js';
 import { launcher } from './launcher.js';
 import { shutdown } from './shutdown.js';
@@ -36,6 +40,7 @@ interface Envelope {
 }
 
 interface Pending {
+  readonly method: string;
   readonly resolve: (value: unknown) => void;
   readonly reject: (error: HarnessError) => void;
 }
@@ -95,16 +100,18 @@ export const start = (
     child.stderr.on('data', (chunk: Buffer) => {
       stderr = (stderr + chunk.toString()).slice(-STDERR_TAIL_CHARS);
     });
+    const failedIn = { harness: 'Codex', cwd, binary: codex.path };
     child.once('error', (cause) =>
-      exit(new HarnessError({ message: 'codex app-server failed', cause })),
-    );
-    child.once('exit', (code, signal) =>
       exit(
-        new HarnessError({
-          message: `codex app-server exited (${signal ?? code})${stderr === '' ? '' : `: ${stderr.trim()}`}`,
-        }),
+        new HarnessError({ message: failureReason(cause, failedIn), cause }),
       ),
     );
+    child.once('exit', (exitCode, signal) => {
+      const cause = { exitCode, signal, stderr };
+      exit(
+        new HarnessError({ message: failureReason(cause, failedIn), cause }),
+      );
+    });
 
     createInterface({ input: child.stdout }).on('line', (line) => {
       let envelope: Envelope;
@@ -121,7 +128,7 @@ export const start = (
         else
           call?.reject(
             new HarnessError({
-              message: `codex ${JSON.stringify(envelope.error)}`,
+              message: `${call.method}: codex ${JSON.stringify(envelope.error)}`,
               cause: envelope.error,
             }),
           );
@@ -144,17 +151,10 @@ export const start = (
         if (exited !== undefined) return resume(Effect.fail(exited));
         const id = nextId++;
         pending.set(id, {
+          method,
           resolve: (value) =>
             resume(Effect.succeed(value as Requests[M]['result'])),
-          reject: (error) =>
-            resume(
-              Effect.fail(
-                new HarnessError({
-                  message: `${method}: ${error.message}`,
-                  cause: error.cause,
-                }),
-              ),
-            ),
+          reject: (error) => resume(Effect.fail(error)),
         });
         write({ id, method, params });
       });

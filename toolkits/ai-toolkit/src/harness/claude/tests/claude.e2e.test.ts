@@ -489,6 +489,21 @@ describe.skipIf(!enabled)(
       });
     });
 
+    it('fails a turn in a folder that no longer exists, saying so', async () => {
+      const gone = join(cwd, 'gone');
+      const failure = await run(
+        claude
+          .open({ cwd: gone, model: MODEL, settings: { effort: 'low' } })
+          .pipe(
+            Effect.flatMap((session) => runTurn(session, 'Say hi.')),
+            Effect.flip,
+          ),
+      );
+      expect(failure).toMatchObject({
+        message: `The project folder ${gone} no longer exists`,
+      });
+    }, 30_000);
+
     it('lists the skills it offers in a folder, without a turn', async () => {
       const skills = await run(claude.skills(cwd));
       expect(skills.length).toBeGreaterThan(0);

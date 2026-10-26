@@ -404,6 +404,22 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
       TIMEOUT,
     );
 
+    it(
+      'fails to open in a folder that no longer exists, saying so',
+      async () => {
+        const gone = join(cwd, 'gone');
+        const failure = await run(
+          codex
+            .open({ cwd: gone, model: MODEL, settings: SETTINGS })
+            .pipe(Effect.flip),
+        );
+        expect(failure).toMatchObject({
+          message: `The project folder ${gone} no longer exists`,
+        });
+      },
+      TIMEOUT,
+    );
+
     // This machine's ChatGPT account runs gpt-5.6-luna but not gpt-6.1-sol.
     it(
       'lists only the models this login can run, one of them the default',

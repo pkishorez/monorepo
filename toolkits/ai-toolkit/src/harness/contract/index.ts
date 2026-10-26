@@ -5,6 +5,7 @@ export {
   makeChunker,
   type Chunker,
 } from './chunker/index.js';
+export { failureReason, type FailedIn } from './failure/index.js';
 export {
   HarnessAccount,
   HarnessError,
