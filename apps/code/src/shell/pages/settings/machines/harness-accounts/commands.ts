@@ -7,7 +7,7 @@ import { Machines } from '../../../../../layer/capabilities/index.ts';
  */
 
 /** Asks the Machine's Kit to ask the Machine again. */
-export const refresh = Command.make('RefreshKit', {
+export const refresh = Command.make('RetryAccounts', {
   args: Schema.Struct({ machineId: Schema.String }),
   run: ({ machineId }) =>
     Effect.flatMap(Machines, (machines) => machines.refresh(machineId)),

@@ -21,8 +21,12 @@ The Picker for where to work next: first the Machine, a Step skipped while there
 _Avoid_: add project, open project
 
 **Machine List**:
-The signed-in Account's Machines as this device last had them, each with its settings as it last said them, kept per Account so the app opens with all of them even while Cloud Connect is out of reach, then asked again once, on Reload, and on each Recheck. The app holds a Line to every Machine in it at once, and shows their Projects and Sessions together. A Machine that stops answering keeps what was last synced, marked by its Last Seen.
+The signed-in Account's Machines as this device last had them, kept per Account so the app opens with all of them even while Cloud Connect is out of reach, then asked again once, on Reload, and on each Recheck. The app holds a Line to every Machine in it at once, and a Machine Kit of each, and shows their Projects and Sessions together. A Machine that stops answering keeps what was last synced, marked by its Last Seen.
 _Avoid_: machine registry, device list, machine switcher
+
+**Machine Kit**:
+What the app keeps of one Machine in the Machine List: its Harness Accounts, its Speech to Text, and its agents with their models. It shows as last kept, at once, and the Machine is asked again when its Line connects, on Reload, and after a change in Settings, which shows at once and is never undone by an answer asked before it. Settings and every Project read it; a Project's Skills are its own, kept for it the same way.
+_Avoid_: machine cache, machine settings (as a store), catalog (for the per-Machine part)
 
 **Line**:
 The app's socket to one Machine, as it stands: connecting, connected, or reconnecting. Nothing can be sent to a Machine whose Line is not connected.
@@ -37,7 +41,7 @@ The sidebar's choice of whose sessions it lists: every Machine, or one, kept in 
 _Avoid_: machine switcher, machine picker
 
 **Settings**:
-What the user sets, on no Machine, at one address, in three tabs side by side, chosen by name, or on touch by a sideways swipe the tabs follow, the one beside showing as it comes: General, the parts of Device State a user sets; Shortcuts, the Bindings; and Machines, every Machine in the Machine List standing by its Line and Last Seen as the sidebar says them, with its own settings, shown as the Machine last said them and asked again behind, and changed only while its Line is connected. Its Harness Accounts are listed under each agent, each opened to change it, one at a time, under its row, on touch as with keys. Which tab is open is Settings' own and has no address: they open on General, unless a link to them asks for another, as the Draft's for an agent that cannot run asks for Machines.
+What the user sets, on no Machine, at one address, in three tabs side by side, chosen by name, or on touch by a sideways swipe the tabs follow, the one beside showing as it comes: General, the parts of Device State a user sets; Shortcuts, the Bindings; and Machines, every Machine in the Machine List standing by its Line and Last Seen as the sidebar says them, with its own settings as its Machine Kit holds them, changed only while its Line is connected, each change sent to the Machine and then shown by its Kit. Its Harness Accounts are listed under each agent, each opened to change it, one at a time, under its row, on touch as with keys. Which tab is open is Settings' own and has no address: they open on General, unless a link to them asks for another, as the Draft's for an agent that cannot run asks for Machines.
 _Avoid_: preferences, options, config
 
 **Session Switcher**:
@@ -61,7 +65,7 @@ The keyboard-first way of working the app, off until turned on in this browser, 
 _Avoid_: keyboard mode, power mode
 
 **Device State**:
-What this browser keeps for itself and no other device sees: the user's Bindings, whether Vim Mode is on, the Microphone chosen, whether the Touch Draft is written by text or by voice, the Machine Filter and the Unseen marks. Each Draft is kept apart, as its Saved Draft. The app draws nothing until the Bindings have been read.
+What this browser keeps for itself and no other device sees: the user's Bindings, whether Vim Mode is on, the Microphone chosen, whether the Touch Draft is written by text or by voice, the Machine Filter and the Unseen marks, which go with their Machine, and with its Account signed out. Each Draft is kept apart, as its Saved Draft, and what Machines said is kept apart, as each Machine Kit. The app draws nothing until the Bindings have been read.
 _Avoid_: preferences, local settings, localStorage
 
 **Draft**:

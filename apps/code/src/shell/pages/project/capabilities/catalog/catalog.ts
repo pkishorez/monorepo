@@ -86,9 +86,7 @@ export const Change = Schema.TaggedUnion({
 type Harness = typeof HarnessInfo.Type;
 
 /** 1. Agents: each agent's accounts together, its Default Account, named as the agent, first. */
-export const grouped = (
-  harnesses: ReadonlyArray<Harness>,
-): ReadonlyArray<Harness> =>
+const grouped = (harnesses: ReadonlyArray<Harness>): ReadonlyArray<Harness> =>
   [...new Set(harnesses.map(({ harness }) => harness))].flatMap((agent) => {
     const own = harnesses.filter(({ harness }) => harness === agent);
     return [

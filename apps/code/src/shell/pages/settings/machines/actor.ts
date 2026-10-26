@@ -5,10 +5,7 @@ import {
   Machine,
   SpeechToTextState,
 } from '@kestack/connect/code';
-import {
-  type Kit as Shared,
-  Machines,
-} from '../../../../layer/capabilities/index.ts';
+import { type Kit, Machines } from '../../../../layer/capabilities/index.ts';
 import { HarnessAccounts } from './harness-accounts/index.ts';
 import { SpeechToText } from './speech-to-text/index.ts';
 import { ask, keepForgetting } from './commands.ts';
@@ -40,7 +37,7 @@ const Forgetting = Schema.NullOr(
 );
 
 /** What it shows of a Machine's Kit, once read. */
-const Kit = Schema.Struct({
+const KitShown = Schema.Struct({
   accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo)),
   speech: Schema.NullOr(SpeechToTextState),
   /** Why its Machine could not be asked. */
@@ -55,12 +52,12 @@ const Known = Schema.Struct({
   fetchedAt: Schema.NullOr(Schema.Number),
   forgetting: Forgetting,
   /** Each Machine's Kit, by id, once read. */
-  kits: Schema.Record(Schema.String, Kit),
+  kits: Schema.Record(Schema.String, KitShown),
 });
 const sameKnown = Schema.toEquivalence(Known);
 
 /** Each Kit read, as it shows here. */
-const shownOf = (kits: Readonly<Record<string, Shared>>) =>
+const shownOf = (kits: Readonly<Record<string, Kit>>) =>
   Object.fromEntries(
     Object.entries(kits)
       .filter(([, kit]) => kit.savedRead)
