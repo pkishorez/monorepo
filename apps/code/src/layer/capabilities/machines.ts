@@ -142,6 +142,8 @@ export class Machines extends Context.Service<
     /** What is known now, then each change. */
     readonly state: Stream.Stream<Known>;
     readonly current: Effect.Effect<Known>;
+    /** The id of the Account whose Machines are known; waits until one is. */
+    readonly account: Effect.Effect<string>;
     /** The Machine as listed now, then each change; null while it is not. */
     readonly machine: (id: string) => Stream.Stream<Machine | null>;
     /** The Machine's line now, then each change. */

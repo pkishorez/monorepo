@@ -17,7 +17,6 @@ import {
   Kept,
   type Kit,
   Machines,
-  nobody,
   nothing,
   SavedDrafts,
 } from '../../../../layer/capabilities/index.ts';
@@ -108,7 +107,7 @@ const services = (
     ),
     Layer.mock(Machines)({
       kit: () => Stream.concat(Stream.make(KIT), Stream.never),
-      current: Effect.succeed({ ...nobody, accountId: 'a1' }),
+      account: Effect.succeed('a1'),
     }),
     Layer.mock(Navigation)({}),
     Layer.mock(SavedDrafts)({ read: () => Effect.succeed(null) }),

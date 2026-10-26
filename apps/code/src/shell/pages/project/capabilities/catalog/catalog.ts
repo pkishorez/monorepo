@@ -54,7 +54,7 @@ export const Keeper = Schema.Struct({
     problem: Catalog.fields.problem,
     models: Catalog.fields.models,
   }),
-  /** Whose the Skills are kept as, once read; null while nobody is signed in. */
+  /** Whose the Skills are kept as; null until the kept ones are read. */
   accountId: Schema.NullOr(Schema.String),
   skills: Copy(Schema.Array(SkillsRead)),
 });
@@ -76,7 +76,7 @@ export const shared = ({ kit, skills }: Keeper): Catalog => ({
 export const Change = Schema.TaggedUnion({
   KitKnown: Keeper.fields.kit.fields,
   SkillsSaved: {
-    accountId: Schema.NullOr(Schema.String),
+    accountId: Schema.String,
     skills: Schema.NullOr(Schema.Array(SkillsRead)),
   },
   SkillsAnswered: { since: Schema.Finite, skills: Schema.Array(SkillsRead) },
