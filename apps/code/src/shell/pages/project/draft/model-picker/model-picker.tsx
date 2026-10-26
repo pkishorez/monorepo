@@ -184,6 +184,8 @@ const Models = Picker.make('ModelPicker', {
       empty: () => 'No model by that name',
       rows: ({ key, props: { catalog, current } }) => {
         const read = Catalog.modelsOf(catalog, key);
+        // An agent that cannot run here has none to read: it says why.
+        const unread = read === undefined ? Catalog.unread(catalog, key) : null;
         const now = modelFor(catalog, current, key);
         return {
           rows: (read?.list ?? []).map(({ id, name, releaseDate }) => ({
@@ -192,8 +194,8 @@ const Models = Picker.make('ModelPicker', {
             checked: id === now,
             ...(releaseDate ? { hint: releaseDate.slice(0, 7) } : {}),
           })),
-          loading: read === undefined,
-          problem: read?.problem ?? null,
+          loading: read === undefined && unread === null,
+          problem: read?.problem ?? unread,
         };
       },
       next: (_, { key, props }) =>
