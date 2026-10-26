@@ -44,9 +44,9 @@ jobs:
         with:
           node-version: 24.18.0
 
-      # Only the package, ai-toolkit (which it runs) and this workflow deploy
-      # Cloud Connect; a change to another workspace package does not. Run
-      # it by hand to ship one.
+      # Only the package, ai-toolkit and cli-platform (which its code Plugin
+      # runs) and this workflow deploy Cloud Connect; a change to another
+      # workspace package does not. Run it by hand to ship one.
       - name: Check connect affected
         id: affected
         env:
@@ -58,7 +58,7 @@ jobs:
             echo "Base '$BASE' unknown; deploying to be safe."
             echo 'affected=true' >> "$GITHUB_OUTPUT"
           elif git diff --name-only "$(git merge-base "$BASE" HEAD)" HEAD \
-            | grep -E '^(apps/connect/|toolkits/ai-toolkit/|\.github/workflows/deploy-connect\.yml$)'; then
+            | grep -E '^(apps/connect/|toolkits/ai-toolkit/|platforms/cli-platform/|\.github/workflows/deploy-connect\.yml$)'; then
             echo 'affected=true' >> "$GITHUB_OUTPUT"
           else
             echo 'affected=false' >> "$GITHUB_OUTPUT"
@@ -107,6 +107,11 @@ jobs:
       # Build the package's workspace dependencies; Alchemy bundles the Worker itself.
       - name: Build workspace dependencies
         run: pnpm --filter '@kestack/connect^...' run build
+
+      # The code Plugin the deploy uploads to R2 and names in PLUGINS, by its
+      # sha256; alchemy.run.ts refuses a deployed Stage without it.
+      - name: Build the code Plugin
+        run: pnpm --filter @kestack/connect build:plugin
 
       - name: Bootstrap Alchemy state store
         run: pnpm -C apps/connect exec alchemy state bootstrap --backend cloudflare

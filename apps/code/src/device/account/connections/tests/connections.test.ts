@@ -69,6 +69,7 @@ const connection = (
   lastSeen,
   plugins: {},
   wanted: {},
+  latestVersion: null,
 });
 
 /** What the root page is told by Connections preparing: nothing, here. */

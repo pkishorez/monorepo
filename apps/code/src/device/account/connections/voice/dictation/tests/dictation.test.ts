@@ -128,6 +128,7 @@ const world = (options: {
         lastSeen: 1,
         plugins: {},
         wanted: {},
+        latestVersion: null,
       })),
       links: { m1: 'linked', m2: 'linked' },
       setups: Object.fromEntries(

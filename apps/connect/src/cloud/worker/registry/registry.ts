@@ -16,13 +16,19 @@ import { type ConnectionRecord, connections } from '../storage/index.js';
  * refused ConnectionTaken. A forgotten Connection stays forgotten (ADR 0016): a
  * Report from its id, or from the Sign-in it last reported with, is refused
  * ConnectionForgotten, so a Connection that comes back under a new id on the same
- * Sign-in is refused too. Every Connection is told the same wanted version
- * of each Plugin, the one Cloud Connect was deployed with. Storage failing
- * is a defect.
+ * Sign-in is refused too. Every Connection is told the same Release: the
+ * wanted version of each Plugin, and the version of Connect, both those
+ * Cloud Connect was deployed with. Storage failing is a defect.
  */
 
 /** The version of each Plugin every Connection should run, by name. */
 export type Wanted = Readonly<Record<string, PluginVersion>>;
+
+/** What Cloud Connect was deployed with: the Plugins every Connection should run, and the version of Connect, if told. */
+export interface Release {
+  readonly plugins: Wanted;
+  readonly connectVersion: string | null;
+}
 
 /** Who is calling: their User id, and their Sign-in when they have one. */
 const callerOf = (principal: Principal) => ({
@@ -30,10 +36,10 @@ const callerOf = (principal: Principal) => ({
   signInId: principal.kind === 'session' ? principal.session.id : null,
 });
 
-/** A stored Connection as its User sees it, told the Plugins `wanted`. */
+/** A stored Connection as its User sees it, told the `release`. */
 const toConnection = (
   record: ConnectionRecord,
-  wanted: Wanted,
+  release: Release,
 ): Connection => ({
   id: record.id,
   name: record.name,
@@ -42,7 +48,8 @@ const toConnection = (
   status: record.status,
   plugins: record.plugins,
   lastSeen: record.lastSeen,
-  wanted,
+  wanted: release.plugins,
+  latestVersion: release.connectVersion,
 });
 
 /** Every Connection `userId` ever reported, forgotten ones included. */
@@ -77,7 +84,7 @@ const raced = (error: unknown) => {
 const report = (
   principal: Principal,
   input: ConnectionReport,
-  wanted: Wanted,
+  release: Release,
 ) =>
   Effect.gen(function* () {
     const { userId, signInId } = callerOf(principal);
@@ -109,19 +116,19 @@ const report = (
             // A Report signed by an Access Token keeps the Sign-in last seen.
             signInId: signInId ?? current.signInId,
           }));
-    return toConnection(stored.value, wanted);
+    return toConnection(stored.value, release);
   }).pipe(
     // Two first Reports of one id at once: the loser reads the winner's.
     Effect.retry({ times: 2, while: raced }),
     Effect.catchTag('DatabaseError', Effect.die),
   );
 
-const list = (principal: Principal, wanted: Wanted) =>
+const list = (principal: Principal, release: Release) =>
   owned(callerOf(principal).userId).pipe(
     Effect.map((found) =>
       found
         .filter(({ value }) => value.forgottenAt === null)
-        .map(({ value }) => toConnection(value, wanted)),
+        .map(({ value }) => toConnection(value, release)),
     ),
     Effect.orDie,
   );

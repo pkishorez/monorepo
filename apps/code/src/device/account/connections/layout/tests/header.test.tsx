@@ -25,6 +25,7 @@ const connection = (lastSeen: number, status: object) => ({
   lastSeen,
   plugins: {},
   wanted: {},
+  latestVersion: null,
 });
 
 let host: HTMLDivElement;

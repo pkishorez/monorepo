@@ -57,6 +57,19 @@ const WANTED = {
   code: { hash: 'a'.repeat(64), url: 'https://files.test/code' },
 };
 
+/** The version of Connect this Cloud Connect was deployed with. */
+const CONNECT_VERSION = '0.0.9';
+
+/** The code Plugin's file, as R2 keeps it. */
+const PLUGIN_KEY = `plugins/code/${'b'.repeat(64)}.mjs`;
+const PLUGIN_FILE = 'export {};\n';
+
+/** R2 as Cloud Connect reads it: one Plugin file. */
+const files = {
+  get: async (key: string) =>
+    key === PLUGIN_KEY ? { body: new Response(PLUGIN_FILE).body } : null,
+};
+
 const answerAs = (principal: Principal | null) =>
   serveOver({
     guard: fakeGuard.rpc({ as: principal }),
@@ -64,6 +77,8 @@ const answerAs = (principal: Principal | null) =>
     origins: ORIGINS,
     driver,
     plugins: WANTED,
+    connectVersion: CONNECT_VERSION,
+    files,
   });
 
 /**
@@ -128,6 +143,58 @@ describe('Cloud Connect', () => {
     expect(await as(ada, (m) => m.List({}))).toMatchObject([
       { id: 'p1', plugins: { code: running }, wanted: WANTED },
     ]);
+  });
+
+  it('tells each Connection the version of Connect it was deployed with, or null', async () => {
+    const ada = signIn('ada');
+    const reported = await as(ada, (m) => m.Report(reportOf('v1')));
+    expect(reported.latestVersion).toBe(CONNECT_VERSION);
+    expect(await as(ada, (m) => m.List({}))).toMatchObject([
+      { id: 'v1', latestVersion: CONNECT_VERSION },
+    ]);
+    const untold = serveOver({
+      guard: fakeGuard.rpc({ as: ada.principal }),
+      authInfo: AUTH_INFO,
+      origins: ORIGINS,
+      driver,
+    });
+    const listed = await Effect.runPromise(
+      Effect.flatMap(CloudClient, (cloud) => cloud.List({})).pipe(
+        Effect.provide(CloudClient.layer(CLOUD)),
+        Effect.provideService(FetchHttpClient.Fetch, ((
+          input: RequestInfo | URL,
+          init?: RequestInit,
+        ) => untold(new Request(input, init))) as typeof globalThis.fetch),
+      ),
+    );
+    expect(listed).toMatchObject([{ id: 'v1', latestVersion: null }]);
+  });
+
+  it('serves a Plugin file by its hash, cached for good, and nothing else', async () => {
+    const answer = answerAs(null);
+    const found = await answer(new Request(`${CLOUD}/${PLUGIN_KEY}`));
+    expect(found.status).toBe(200);
+    expect(await found.text()).toBe(PLUGIN_FILE);
+    expect(found.headers.get('cache-control')).toBe(
+      'public, max-age=31536000, immutable',
+    );
+    expect(found.headers.get('content-type')).toMatch(/^text\/javascript/);
+    for (const path of [
+      `plugins/code/${'c'.repeat(64)}.mjs`,
+      'plugins/code/latest.mjs',
+      `plugins/../${'b'.repeat(64)}.mjs`,
+      'plugins/',
+    ])
+      expect((await answer(new Request(`${CLOUD}/${path}`))).status).toBe(404);
+    const unbound = serveOver({
+      guard: fakeGuard.rpc({ as: null }),
+      authInfo: AUTH_INFO,
+      origins: ORIGINS,
+      driver,
+    });
+    expect((await unbound(new Request(`${CLOUD}/${PLUGIN_KEY}`))).status).toBe(
+      404,
+    );
   });
 
   it("lists only the caller's Connections", async () => {
