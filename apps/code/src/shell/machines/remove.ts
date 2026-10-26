@@ -1,16 +1,17 @@
 import { Effect, Schema } from 'effect';
 import { CodeClient, CodeClients } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
-import { dropEverywhere } from '../../../layer/capabilities/index.ts';
-import { reasonOf } from '../../machines/index.ts';
+import { dropEverywhere } from '../../layer/capabilities/index.ts';
+import { reasonOf } from './refusal.ts';
 
 /*
- * What the project page asks of its Machine, over that Machine's own
- * socket: forget the project, and with it all this device kept of it, the
- * Saved Drafts of its new session and its Sessions, and its Skills.
+ * Removing a Project, as the project page and Settings ask it of its
+ * Machine, over that Machine's own socket: the Machine removes it and its
+ * Sessions, then this device forgets all it kept of it, the Saved Drafts
+ * of its new session and its Sessions, and its Skills.
  */
 
-/** Forgets a project; its folder is never touched. */
+/** Removes a Project; its folder is never touched. */
 export const removeProject = Command.make('RemoveProject', {
   args: Schema.Struct({ machineId: Schema.String, id: Schema.String }),
   run: ({ machineId, id }) =>

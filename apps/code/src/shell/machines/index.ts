@@ -20,6 +20,7 @@ export {
 } from './health.tsx';
 export { reach } from './reach.ts';
 export { orRefused, reasonOf, Refused } from './refusal.ts';
+export { removeProject } from './remove.ts';
 export {
   across,
   everything,

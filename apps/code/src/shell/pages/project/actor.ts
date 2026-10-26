@@ -9,9 +9,8 @@ import {
   SavedDrafts,
 } from '../../../layer/capabilities/index.ts';
 import { home } from '../../routes/index.ts';
-import { Refused, ProjectRow } from '../../machines/index.ts';
+import { Refused, ProjectRow, removeProject } from '../../machines/index.ts';
 import { Catalog, SharedCatalog } from './capabilities/index.ts';
-import { removeProject } from './commands.ts';
 import { Draft } from './draft/index.ts';
 import { Session } from './session/index.ts';
 
