@@ -1,0 +1,219 @@
+import type { Connection as ConnectionSchema } from '@kestack/connect/code';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { CheckIcon, CircleAlertIcon, CopyIcon } from 'lucide-react';
+import { Progress } from '@kestack/web-platform/ui/components/progress';
+import { useEffect, useState } from 'react';
+import {
+  type PluginNotice,
+  pluginNotice,
+  UPDATE_COMMAND,
+  updateOf,
+} from './health.ts';
+
+type Connection = typeof ConnectionSchema.Type;
+
+/*
+ * What the app says of a Connection's own programs, linked or not: its
+ * code Plugin Updating, with how far it downloaded, or Crashed, with its
+ * last lines to read and copy and when it is tried again; and, when Cloud
+ * Connect names a newer `ke-connect` than it runs, how to update it. A
+ * running Plugin on the latest `ke-connect` says nothing. The header's
+ * pill says it in a few words, and Settings in full.
+ */
+
+type Pill = readonly [label: string, title: string, tone: string];
+
+const megabytes = (bytes: number) => `${(bytes / 1_000_000).toFixed(1)} MB`;
+
+/** How far the download is, in whole percent; null while the total is not known. */
+const percentOf = (
+  progress: Extract<PluginNotice, { _tag: 'Updating' }>['progress'],
+) =>
+  progress === null || progress.total === null || progress.total === 0
+    ? null
+    : Math.min(100, Math.floor((progress.received / progress.total) * 100));
+
+/** When the Plugin is tried again, said for a person. */
+export const retryIn = (retryAt: number, now: number) => {
+  const seconds = Math.ceil((retryAt - now) / 1000);
+  return seconds <= 0 ? 'now' : `in ${seconds} s`;
+};
+
+/** What the pill says of the code Plugin or `ke-connect`, more on hover, and its colour; null when there is nothing to say. */
+export const noticePillOf = (
+  connection: Connection | null,
+  now: number,
+): Pill | null => {
+  const notice = pluginNotice(connection, now);
+  if (notice?._tag === 'Updating') {
+    const percent = percentOf(notice.progress);
+    return [
+      `Updating Connect…${percent === null ? '' : ` ${percent}%`}`,
+      'The Connection is updating its code Plugin. Its tunnel stays up; a session may pause for a moment.',
+      'bg-warning',
+    ];
+  }
+  if (notice?._tag === 'Crashed')
+    return [
+      'The code Plugin stopped',
+      `The Connection's code Plugin stopped; trying again ${retryIn(notice.retryAt, now)}. Its last lines are in Settings.`,
+      'bg-destructive',
+    ];
+  const update = updateOf(connection);
+  if (update !== null && connection !== null)
+    return [
+      'Update ke-connect',
+      `This Connection runs ke-connect ${connection.version}; ${update} is out. Run \`${UPDATE_COMMAND}\` on it, then start it again.`,
+      'bg-warning',
+    ];
+  return null;
+};
+
+const TICK = 5_000;
+
+/**
+ * The real clock for what is said of the Connection's code Plugin, worked out
+ * again every few seconds while its Plugin is not simply running.
+ */
+export const useNoticeClock = (connection: Connection | null) => {
+  const busy =
+    connection !== null &&
+    Object.values(connection.plugins).some(({ _tag }) => _tag !== 'Running');
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!busy) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), TICK);
+    return () => clearInterval(timer);
+  }, [busy]);
+  return now;
+};
+
+/** A button that copies `text`, and says so once it did. */
+function Copy({
+  text,
+  label,
+}: {
+  readonly text: string;
+  readonly label: string;
+}) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="xs"
+      className="text-muted-foreground"
+      aria-label={label}
+      onClick={() => {
+        void navigator.clipboard.writeText(text).then(() => setCopied(true));
+      }}
+    >
+      {copied ? <CheckIcon aria-hidden /> : <CopyIcon aria-hidden />}
+      {copied ? 'Copied' : 'Copy'}
+    </Button>
+  );
+}
+
+function Updating({
+  notice,
+}: {
+  readonly notice: Extract<PluginNotice, { _tag: 'Updating' }>;
+}) {
+  const { progress } = notice;
+  const percent = percentOf(progress);
+  return (
+    <div role="status" className="flex flex-col gap-1.5">
+      <p className="text-xs text-muted-foreground tabular-nums">
+        {progress === null
+          ? 'Updating Connect: starting the new version'
+          : progress.total === null
+            ? `Updating Connect: ${megabytes(progress.received)} so far`
+            : `Updating Connect: ${megabytes(progress.received)} of ${megabytes(progress.total)}`}
+        . The tunnel stays up.
+      </p>
+      <Progress aria-label="Updating Connect" value={percent} />
+    </div>
+  );
+}
+
+function Crashed({
+  notice,
+  now,
+}: {
+  readonly notice: Extract<PluginNotice, { _tag: 'Crashed' }>;
+  readonly now: number;
+}) {
+  const lines = notice.log.join('\n');
+  return (
+    <div role="alert" className="flex flex-col gap-2">
+      <p className="flex items-center gap-2 text-sm text-destructive">
+        <CircleAlertIcon aria-hidden className="size-3.5 shrink-0" />
+        <span className="min-w-0 break-words">
+          The code Plugin stopped; trying again {retryIn(notice.retryAt, now)}.
+        </span>
+      </p>
+      {notice.log.length > 0 && (
+        <details className="group rounded-md border border-border">
+          <summary className="focus-ring flex cursor-pointer items-center justify-between gap-2 px-3 py-1.5 text-xs text-muted-foreground select-none">
+            Its last{' '}
+            {notice.log.length === 1 ? 'line' : `${notice.log.length} lines`}
+          </summary>
+          <div className="flex flex-col gap-1 border-t border-border p-2">
+            <pre className="max-h-48 overflow-auto font-mono text-[11px] leading-snug break-words whitespace-pre-wrap">
+              {lines}
+            </pre>
+            <div className="flex justify-end">
+              <Copy text={lines} label="Copy its last lines" />
+            </div>
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
+function Update({
+  version,
+  latest,
+}: {
+  readonly version: string;
+  readonly latest: string;
+}) {
+  return (
+    <div role="status" className="flex flex-col gap-1.5">
+      <p className="text-xs text-muted-foreground">
+        Update ke-connect: this Connection runs {version}, and {latest} is out.
+        Run this on it, then start it again:
+      </p>
+      <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 py-1 pr-1 pl-3">
+        <code className="min-w-0 flex-1 truncate font-mono text-xs">
+          {UPDATE_COMMAND}
+        </code>
+        <Copy text={UPDATE_COMMAND} label="Copy the update command" />
+      </div>
+    </div>
+  );
+}
+
+/** The whole of what the app says of a Connection's code Plugin and `ke-connect`, for Settings; nothing when all is well. */
+export function ConnectionNotice({
+  connection,
+  now,
+}: {
+  readonly connection: Connection;
+  readonly now: number;
+}) {
+  const notice = pluginNotice(connection, now);
+  const update = updateOf(connection);
+  if (notice === null && update === null) return null;
+  return (
+    <div className="flex flex-col gap-3">
+      {notice?._tag === 'Updating' && <Updating notice={notice} />}
+      {notice?._tag === 'Crashed' && <Crashed notice={notice} now={now} />}
+      {update !== null && (
+        <Update version={connection.version} latest={update} />
+      )}
+    </div>
+  );
+}

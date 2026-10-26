@@ -1,6 +1,12 @@
 import type { Connection as ConnectionSchema } from '@kestack/connect/code';
 import { createContext, use, useEffect, useState } from 'react';
-import { health, type Health, outOfReach } from './health/index.ts';
+import {
+  health,
+  type Health,
+  noticePillOf,
+  outOfReach,
+  useNoticeClock,
+} from './health/index.ts';
 
 type Connection = typeof ConnectionSchema.Type;
 
@@ -137,4 +143,10 @@ export const useHealths = () => {
       now,
       checked,
     );
+};
+
+/** The pill for the Connection's code Plugin or `ke-connect`, by its id (`noticePillOf`). */
+export const useNoticePill = (connectionId: string) => {
+  const connection = useConnection(connectionId);
+  return noticePillOf(connection, useNoticeClock(connection));
 };

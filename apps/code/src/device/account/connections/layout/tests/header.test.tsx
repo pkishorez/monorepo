@@ -16,14 +16,18 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * to be read.
  */
 
-const connection = (lastSeen: number, status: object) => ({
+const connection = (
+  lastSeen: number,
+  status: object,
+  plugins: object = {},
+) => ({
   id: 'm1',
   name: 'Laptop',
   key: 'k',
   version: '0.0.1',
   status,
   lastSeen,
-  plugins: {},
+  plugins,
   wanted: {},
   latestVersion: null,
 });
@@ -36,12 +40,13 @@ const render = (
   status: object,
   link: 'linked' | 'linking' | 'relinking',
   checked = true,
+  plugins: object = {},
 ) =>
   act(() =>
     root.render(
       <Links
         value={{
-          connections: [connection(lastSeen, status)] as never,
+          connections: [connection(lastSeen, status, plugins)] as never,
           status: { m1: link },
           checked,
         }}
@@ -109,6 +114,13 @@ describe('the offline mark', () => {
   it('says a socket up and dropped since is down, checked or not', () => {
     render(Date.now() - 18 * 60_000, reachable, 'relinking', false);
     expect(words().phone).toBe('Connection down');
+  });
+
+  it('leaves linking to the Notice while the code Plugin is Updating', () => {
+    render(Date.now(), reachable, 'relinking', true, {
+      code: { _tag: 'Starting', hash: 'a'.repeat(64) },
+    });
+    expect(host.textContent).toBe('');
   });
 });
 

@@ -27,9 +27,10 @@ import type {
  * it was refused, in a sentence a person reads. Each feature makes its own
  * calls in its `api.ts`; this is what they share. A call made while the
  * socket is down waits for it to come back. A call that failed because one
- * side is older says which: a Connection that lacks the call or cannot read
- * it needs a newer Connect; Code, older, is already moving to its newest
- * build (the app's `OnOutdated`).
+ * side is older says which: a Connection whose code Plugin lacks the call or
+ * cannot read it needs a newer Connect, which it downloads on its own once
+ * Cloud Connect names it (the header then says it is Updating); Code, older,
+ * is already moving to its newest build (the app's `OnOutdated`).
  */
 
 /** Every way a call to the server can fail: its own errors, or the socket's. */
