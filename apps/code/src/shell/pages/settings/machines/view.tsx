@@ -6,13 +6,10 @@ import {
   RefreshCwIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from '@kestack/web-platform/ui/components/tabs';
+import { useDevice } from '@kestack/web-platform/ui/input';
 import { useEffect, useState } from 'react';
 import * as Confirm from '../../../../ui/confirm/index.ts';
+import { Tab, TabList, TabTrack } from '../../../../ui/tabs/index.ts';
 import { ago } from '../../../../ui/time/index.ts';
 import {
   authHome,
@@ -33,14 +30,20 @@ type Machine = typeof MachineSchema.Type;
  * card per Machine, drawn once: its name, whole, and one quiet line of how
  * it stands, its dot and its Line and Last Seen as the sidebar says them,
  * with a lock once its settings are said to be locked; on a wider screen
- * its tunnel and the version of Connect it runs under it, and a segmented
- * control of what it shows: Agents, each between rules its agents'
- * accounts and its Speech to Text switch, each as its Machine Kit holds
- * it, so one that does not answer says so in its own place; or Projects,
- * every Project on it (`projects/`). Last, Forget, small and set apart,
+ * its tunnel and the version of Connect it runs under it, and its tabs, as
+ * Settings' own are drawn, of what it shows: Agents, each between rules
+ * its agents' accounts and its Speech to Text switch, each as its Machine
+ * Kit holds it, so one that does not answer says so in its own place; or
+ * Projects, every Project on it (`projects/`). On a touch screen both sit
+ * side by side, and a sideways swipe moves them under the finger as
+ * Settings' tabs move; one past either end is left to Settings' tabs.
+ * Last, Forget, small and set apart,
  * in the danger colour, which asks first. Below, the way to the Auth
  * Worker's Home Page, where a Machine's Sign-in is revoked outright.
  */
+
+type Shows = 'Agents' | 'Projects';
+const SHOWS: ReadonlyArray<Shows> = ['Agents', 'Projects'];
 
 const isDown = (machine: Machine, now: number) =>
   now - machine.lastSeen > DOWN_AFTER;
@@ -117,6 +120,7 @@ export const MachineSettingsView = View.make(
   MachineSettingsLive,
   ({ root, model, children, send }) => {
     const now = useNow();
+    const { touch } = useDevice();
     const open = Confirm.useOpen();
     const asked = model.machines?.find(({ id }) => id === model.asking);
     const forgetting =
@@ -162,37 +166,42 @@ export const MachineSettingsView = View.make(
           <ul className="flex flex-col gap-4">
             {shown.map(({ machine, accounts, speech, projects }) => {
               const view = model.views[machine.id] ?? 'Agents';
-              return (
-                <li
-                  key={machine.id}
-                  className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card *:px-4 *:py-4 sm:*:px-5"
-                >
-                  <div className="flex flex-col gap-4">
-                    <MachineHead machine={machine} />
-                    <Tabs
-                      value={view}
-                      onValueChange={(chosen) =>
-                        send({
-                          _tag: 'ViewChosen',
-                          id: machine.id,
-                          view: chosen === 'Projects' ? 'Projects' : 'Agents',
-                        })
-                      }
-                    >
-                      <TabsList
-                        aria-label={`What ${machine.name} shows`}
-                        className="h-11! w-full sm:w-fit keyboard:h-9!"
+              const tabId = (each: Shows) =>
+                `machine-${machine.id}-${each.toLowerCase()}-tab`;
+              const panelId = (each: Shows) =>
+                `machine-${machine.id}-${each.toLowerCase()}`;
+              const choose = (each: Shows) =>
+                send({ _tag: 'ViewChosen', id: machine.id, view: each });
+              const heading = (
+                <div className="flex flex-col gap-3 border-b border-border px-4 pt-4 sm:px-5">
+                  <MachineHead machine={machine} />
+                  <TabList
+                    label={`What ${machine.name} shows`}
+                    className="-mx-3"
+                  >
+                    {SHOWS.map((each) => (
+                      <Tab
+                        key={each}
+                        id={tabId(each)}
+                        controls={panelId(each)}
+                        selected={view === each}
+                        onSelect={() => choose(each)}
+                        className="keyboard:h-9"
                       >
-                        <TabsTrigger value="Agents" className="px-4">
-                          Agents
-                        </TabsTrigger>
-                        <TabsTrigger value="Projects" className="px-4">
-                          Projects
-                        </TabsTrigger>
-                      </TabsList>
-                    </Tabs>
-                  </div>
-                  {view === 'Agents' ? (
+                        {each}
+                      </Tab>
+                    ))}
+                  </TabList>
+                </div>
+              );
+              const panel = (each: Shows) => (
+                <div
+                  role="tabpanel"
+                  id={panelId(each)}
+                  aria-labelledby={tabId(each)}
+                  className="flex flex-col divide-y divide-border *:px-4 *:py-4 sm:*:px-5"
+                >
+                  {each === 'Agents' ? (
                     <>
                       <HarnessAccounts.view instance={accounts} />
                       <SpeechToText.view instance={speech} />
@@ -200,7 +209,28 @@ export const MachineSettingsView = View.make(
                   ) : (
                     <MachineProjects.view instance={projects} />
                   )}
-                  <div className="py-3!">
+                </div>
+              );
+              return (
+                <li
+                  key={machine.id}
+                  className="flex flex-col rounded-xl border border-border bg-card"
+                >
+                  {touch ? (
+                    <TabTrack
+                      open={view}
+                      shown={SHOWS}
+                      heading={heading}
+                      panel={panel}
+                      onChoose={choose}
+                    />
+                  ) : (
+                    <>
+                      {heading}
+                      {panel(view)}
+                    </>
+                  )}
+                  <div className="border-t border-border px-4 py-3 sm:px-5">
                     <Button
                       variant="destructive"
                       size="sm"

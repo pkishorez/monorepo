@@ -257,6 +257,14 @@ describe('Settings → Machines, Agents or Projects', () => {
         (each) => each.textContent === name,
       )!;
     expect(tab('Agents').getAttribute('aria-selected')).toBe('true');
+    // Drawn as Settings' own tabs are, each naming the panel it opens.
+    for (const name of ['Agents', 'Projects'])
+      expect(tab(name).dataset['slot']).toBe('tab');
+    expect(
+      document
+        .getElementById(tab('Agents').getAttribute('aria-controls')!)
+        ?.getAttribute('role'),
+    ).toBe('tabpanel');
     expect(text()).toContain('Claude');
     await act(async () => tab('Projects').click());
     await settle();
