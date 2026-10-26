@@ -4,7 +4,9 @@ import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   LockIcon,
   RefreshCwIcon,
+  Trash2Icon,
 } from '@kestack/web-platform/ui/components/lucide';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import { useEffect, useState } from 'react';
@@ -30,16 +32,17 @@ type Machine = typeof MachineSchema.Type;
  * card per Machine, drawn once: its name, whole, and one quiet line of how
  * it stands, its dot and its Line and Last Seen as the sidebar says them,
  * with a lock once its settings are said to be locked; on a wider screen
- * its tunnel and the version of Connect it runs under it, and its tabs, as
+ * its tunnel and the version of Connect it runs under it; beside it Forget,
+ * a bin in the danger colour, which asks first; and its tabs, as
  * Settings' own are drawn, of what it shows: Agents, each between rules
  * its agents' accounts and its Speech to Text switch, each as its Machine
  * Kit holds it, so one that does not answer says so in its own place; or
  * Projects, every Project on it (`projects/`). On a touch screen both sit
- * side by side, and a sideways swipe moves them under the finger as
+ * side by side, at least half the screen tall so there is room to swipe,
+ * and a sideways swipe anywhere on the card moves them under the finger as
  * Settings' tabs move; one past either end is left to Settings' tabs.
- * Last, Forget, small and set apart,
- * in the danger colour, which asks first. Below, the way to the Auth
- * Worker's Home Page, where a Machine's Sign-in is revoked outright.
+ * Below, the way to the Auth Worker's Home Page, where a Machine's Sign-in
+ * is revoked outright.
  */
 
 type Shows = 'Agents' | 'Projects';
@@ -174,7 +177,24 @@ export const MachineSettingsView = View.make(
                 send({ _tag: 'ViewChosen', id: machine.id, view: each });
               const heading = (
                 <div className="flex flex-col gap-3 border-b border-border px-4 pt-4 sm:px-5">
-                  <MachineHead machine={machine} />
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <MachineHead machine={machine} />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="-mt-1 -mr-2 size-11 keyboard:mt-0 keyboard:mr-0 keyboard:size-8"
+                      aria-label={`Forget ${machine.name}`}
+                      title={`Forget ${machine.name}…`}
+                      onClick={() =>
+                        open(() => send({ _tag: 'Ask', id: machine.id }))
+                      }
+                    >
+                      <Trash2Icon aria-hidden />
+                    </Button>
+                  </div>
                   <TabList
                     label={`What ${machine.name} shows`}
                     className="-mx-3"
@@ -199,7 +219,10 @@ export const MachineSettingsView = View.make(
                   role="tabpanel"
                   id={panelId(each)}
                   aria-labelledby={tabId(each)}
-                  className="flex flex-col divide-y divide-border *:px-4 *:py-4 sm:*:px-5"
+                  className={cn(
+                    'flex flex-col divide-y divide-border *:px-4 *:py-4 sm:*:px-5',
+                    touch && 'min-h-[50dvh]',
+                  )}
                 >
                   {each === 'Agents' ? (
                     <>
@@ -230,19 +253,6 @@ export const MachineSettingsView = View.make(
                       {panel(view)}
                     </>
                   )}
-                  <div className="border-t border-border px-4 py-3 sm:px-5">
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="h-11 keyboard:h-8"
-                      aria-label={`Forget ${machine.name}`}
-                      onClick={() =>
-                        open(() => send({ _tag: 'Ask', id: machine.id }))
-                      }
-                    >
-                      Forget this Machine…
-                    </Button>
-                  </div>
                 </li>
               );
             })}
