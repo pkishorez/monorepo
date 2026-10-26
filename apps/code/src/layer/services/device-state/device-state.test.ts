@@ -130,9 +130,9 @@ describe('Device State', () => {
     const read = await run(
       Effect.gen(function* () {
         const device = yield* store;
-        yield* device.markSeen('m1', 's1', 20);
-        yield* device.markSeen('m1', 's1', 10);
-        yield* device.markSeen('m1', 's2', 0);
+        yield* device.markSeen('a1', 'm1', 's1', 20);
+        yield* device.markSeen('a1', 'm1', 's1', 10);
+        yield* device.markSeen('a1', 'm1', 's2', 0);
         return yield* device.read;
       }),
     );
@@ -143,12 +143,39 @@ describe('Device State', () => {
     const read = await run(
       Effect.gen(function* () {
         const device = yield* store;
-        yield* device.markSeen('m1', 's1', 20);
-        yield* device.markSeen('m2', 's1', 5);
+        yield* device.markSeen('a1', 'm1', 's1', 20);
+        yield* device.markSeen('a1', 'm2', 's1', 5);
         return yield* device.read;
       }),
     );
     expect(read.unseen).toEqual({ m1: { s1: 20 }, m2: { s1: 5 } });
+  });
+
+  it('deletes the Unseen marks of what went, and no other', async () => {
+    const read = await run(
+      Effect.gen(function* () {
+        const device = yield* store;
+        yield* device.markSeen('a1', 'm1', 's1', 1);
+        yield* device.markSeen('a1', 'm2', 's1', 2);
+        yield* device.markSeen('a1', 'm3', 's1', 3);
+        yield* device.markSeen('a2', 'm4', 's1', 4);
+        // A mark of before, whose Account is not known.
+        yield* device.markSeen(null, 'm5', 's1', 5);
+        yield* device.drop({
+          _tag: 'Machine',
+          accountId: 'a1',
+          machineId: 'm1',
+        });
+        yield* device.drop({
+          _tag: 'Unlisted',
+          accountId: 'a1',
+          listed: ['m3'],
+        });
+        yield* device.drop({ _tag: 'SignedOut', signedIn: ['a1'] });
+        return yield* device.read;
+      }),
+    );
+    expect(read.unseen).toEqual({ m3: { s1: 3 }, m5: { s1: 5 } });
   });
 
   it('is heard after every write', async () => {
@@ -183,7 +210,7 @@ describe('Device State across tabs', () => {
       Effect.gen(function* () {
         yield* tab(
           Effect.flatMap(store, (device) =>
-            device.markSeen('m1', sessionId, 100),
+            device.markSeen('a1', 'm1', sessionId, 100),
           ),
         );
         // Both read 100; whichever writes last must not take the mark back.
@@ -191,7 +218,7 @@ describe('Device State across tabs', () => {
           [one, two].map((seen) =>
             tab(
               Effect.flatMap(store, (device) =>
-                device.markSeen('m1', sessionId, seen!),
+                device.markSeen('a1', 'm1', sessionId, seen!),
               ),
             ),
           ),

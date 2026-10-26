@@ -6,6 +6,7 @@
   "rules": {
     "src/app.tsx": ["src/shell", "src/layer/services", "src/ui/theme"],
     "src/layer/services": ["src/layer/capabilities", "src/keys.ts"],
+    "src/layer/services/device-state": ["src/layer/services/kept"],
     "src/ui/session-status": ["src/ui/running-dot"],
     "src/ui/status-word": ["src/ui/time"],
     "src/ui/picker": ["src/keys.ts"],

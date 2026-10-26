@@ -20,6 +20,7 @@ import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket'
 import { describe, expect, it } from 'vitest';
 import {
   AccountReplicas,
+  DeviceState,
   SavedDrafts,
   Machines,
   SavedMachines,
@@ -126,6 +127,7 @@ const world = (
         }),
     }),
     Layer.mock(SavedDrafts)({ drop: () => Effect.void }),
+    Layer.mock(DeviceState)({ drop: () => Effect.void }),
   );
   return { layer, forgotten, kept, dropped, lists: () => lists };
 };

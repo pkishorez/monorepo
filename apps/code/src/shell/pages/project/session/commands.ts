@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { CodeClient } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
-import { DeviceState } from '../../../../layer/capabilities/index.ts';
+import { DeviceState, Machines } from '../../../../layer/capabilities/index.ts';
 import { orRefused } from '../../../machines/index.ts';
 
 /*
@@ -37,7 +37,7 @@ export const forkSession = Command.make('ForkSession', {
     ),
 });
 
-/** Marks the session seen on this device, up to the end of its last turn; a write that fails is lost. */
+/** Marks the session seen on this device, up to the end of its last turn, for the Account signed in; a write that fails is lost. */
 export const markSeen = Command.make('MarkSeen', {
   args: Schema.Struct({
     machineId: Schema.String,
@@ -45,7 +45,13 @@ export const markSeen = Command.make('MarkSeen', {
     seen: Schema.Finite,
   }),
   run: ({ machineId, sessionId, seen }) =>
-    Effect.flatMap(DeviceState, (store) =>
-      store.markSeen(machineId, sessionId, seen),
-    ).pipe(Effect.ignore),
+    Effect.gen(function* () {
+      const { accountId } = yield* (yield* Machines).current;
+      yield* (yield* DeviceState).markSeen(
+        accountId,
+        machineId,
+        sessionId,
+        seen,
+      );
+    }).pipe(Effect.ignore),
 });
