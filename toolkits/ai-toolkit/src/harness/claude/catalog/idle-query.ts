@@ -1,7 +1,7 @@
 import { tmpdir } from 'node:os';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
 import { Duration, Effect } from 'effect';
-import { HarnessError } from '../../contract/index.js';
+import { failureReason, HarnessError } from '../../contract/index.js';
 
 const ASK_TIMEOUT = Duration.seconds(15);
 
@@ -17,7 +17,8 @@ const silence = () => {
 
 /**
  * Asks Claude Code something it knows before any turn: a query that is
- * never sent a message, asked, then closed. No API call is made.
+ * never sent a message, asked, then closed. No API call is made. A refusal
+ * says why, as a failed Turn does.
  */
 export const askIdle = <A>(
   options: {
@@ -30,49 +31,53 @@ export const askIdle = <A>(
   what: string,
   ask: (live: Query) => Promise<A>,
 ): Effect.Effect<A, HarnessError> =>
-  Effect.acquireRelease(
-    Effect.try({
-      try: () => {
-        const input = silence();
-        return {
-          input,
-          live: query({
-            prompt: input.iterable,
-            options: {
-              cwd: options.cwd ?? tmpdir(),
-              pathToClaudeCodeExecutable: options.executable.path,
-              env: options.executable.env,
-            },
-          }),
-        };
-      },
-      catch: (cause) =>
-        new HarnessError({ message: 'Claude Code did not start', cause }),
-    }),
-    ({ input, live }) =>
-      Effect.sync(() => {
-        input.close();
-        live.close();
+  Effect.suspend(() => {
+    const cwd = options.cwd ?? tmpdir();
+    const why = (cause: unknown) =>
+      failureReason(cause, {
+        harness: 'Claude Code',
+        cwd,
+        binary: options.executable.path,
+      });
+    return Effect.acquireRelease(
+      Effect.try({
+        try: () => {
+          const input = silence();
+          return {
+            input,
+            live: query({
+              prompt: input.iterable,
+              options: {
+                cwd,
+                pathToClaudeCodeExecutable: options.executable.path,
+                env: options.executable.env,
+              },
+            }),
+          };
+        },
+        catch: (cause) => new HarnessError({ message: why(cause), cause }),
       }),
-  ).pipe(
-    Effect.flatMap(({ live }) =>
-      Effect.tryPromise({
-        try: () => ask(live),
-        catch: (cause) =>
-          new HarnessError({
-            message: `Claude Code did not list ${what}`,
-            cause,
-          }),
+      ({ input, live }) =>
+        Effect.sync(() => {
+          input.close();
+          live.close();
+        }),
+    ).pipe(
+      Effect.flatMap(({ live }) =>
+        Effect.tryPromise({
+          try: () => ask(live),
+          catch: (cause) => new HarnessError({ message: why(cause), cause }),
+        }),
+      ),
+      Effect.scoped,
+      Effect.timeoutOrElse({
+        duration: ASK_TIMEOUT,
+        orElse: () =>
+          Effect.fail(
+            new HarnessError({
+              message: `Claude Code took too long to list ${what}`,
+            }),
+          ),
       }),
-    ),
-    Effect.scoped,
-    Effect.timeoutOrElse({
-      duration: ASK_TIMEOUT,
-      orElse: () =>
-        Effect.fail(
-          new HarnessError({
-            message: `Claude Code took too long to list ${what}`,
-          }),
-        ),
-    }),
-  );
+    );
+  });
