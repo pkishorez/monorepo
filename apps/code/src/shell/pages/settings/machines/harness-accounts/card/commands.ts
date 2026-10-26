@@ -1,13 +1,42 @@
-import { Effect, Schema } from 'effect';
-import { CodeClient, CodeClients, HarnessInfo } from '@kestack/connect/code';
+import { Effect, Schema, Stream } from 'effect';
+import {
+  CodeClient,
+  CodeClients,
+  HarnessAccountInfo,
+  HarnessInfo,
+} from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
+import {
+  type KitChange,
+  Machines,
+} from '../../../../../../layer/capabilities/index.ts';
 import { orRefused } from '../../../../../machines/index.ts';
 import { AccountList } from '../capabilities/index.ts';
 
 /*
  * What a card asks of its Machine, over the Machine's own socket; what the
- * Machine did, it also tells the list (AccountList).
+ * Machine did, it tells the Machine's Kit, and once the Kit shows it, the
+ * list (AccountList), which closes the card.
  */
+
+const same = Schema.toEquivalence(HarnessAccountInfo);
+
+/** Tells the Kit what the Machine did, and waits until it shows it. */
+const told = (
+  machineId: string,
+  change: KitChange,
+  shows: (accounts: ReadonlyArray<HarnessAccountInfo>) => boolean,
+) =>
+  Effect.flatMap(Machines, (machines) =>
+    machines.changed(machineId, change).pipe(
+      Effect.andThen(
+        machines.kit(machineId).pipe(
+          Stream.filter((kit) => shows(kit?.accounts ?? [])),
+          Stream.runHead,
+        ),
+      ),
+    ),
+  );
 
 /** Saves a Harness Account; a new one when `id` is null. */
 export const saveAccount = Command.make('SaveAccount', {
@@ -27,7 +56,12 @@ export const saveAccount = Command.make('SaveAccount', {
         CodeClient.use((api) => api.saveHarnessAccount(args)),
       ).pipe(
         Effect.tap((account) =>
-          Effect.flatMap(AccountList, (list) => list.saved(key, account)),
+          told(machineId, { _tag: 'AccountSaved', account }, (accounts) =>
+            accounts.some((each) => same(each, account)),
+          ),
+        ),
+        Effect.tap(() =>
+          Effect.flatMap(AccountList, (list) => list.closed(key)),
         ),
       ),
       () => ({ _tag: 'Saved' as const }),
@@ -44,7 +78,14 @@ export const removeAccount = Command.make('RemoveAccount', {
         CodeClient.use((api) => api.removeHarnessAccount({ id })),
       ).pipe(
         Effect.tap(() =>
-          Effect.flatMap(AccountList, (list) => list.removed(id)),
+          told(
+            machineId,
+            { _tag: 'AccountRemoved', id },
+            (accounts) => !accounts.some((each) => each.id === id),
+          ),
+        ),
+        Effect.tap(() =>
+          Effect.flatMap(AccountList, (list) => list.closed(id)),
         ),
       ),
       () => ({ _tag: 'Removed' as const }),

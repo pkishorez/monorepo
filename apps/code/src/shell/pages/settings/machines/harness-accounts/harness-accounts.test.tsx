@@ -1,22 +1,22 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
-import { Deferred, Effect, Layer, Schema } from 'effect';
+import { Effect, Layer, Schema, Stream, SubscriptionRef } from 'effect';
 import {
   CodeClient,
   CodeClients,
+  HarnessAccountInfo,
   InvalidAccount,
-  type HarnessAccountInfo,
 } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { toReact, View } from '@kestack/kabuki/react';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
+  type Kit,
+  type KitChange,
   Machines,
-  SavedMachines,
 } from '../../../../../layer/capabilities/index.ts';
-import { savedMachinesMemory } from '../../../../../layer/services/index.ts';
 import { keys } from '../../../../../keys.ts';
 import { Connection } from '../../../../machines/index.ts';
 import { HarnessAccountsLive } from './actor.ts';
@@ -25,33 +25,66 @@ import { HarnessAccountsView } from './view.tsx';
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 /*
- * One Machine's agent accounts, drawn from what the Machine says, under
- * each agent: a row per account, saying why one does not run, which opens
- * its card under it and closes it again, one at a time, on touch too;
- * another login added from its agent's +, with its config
- * folder, saved as typed, or dropped on Cancel; a refusal kept on its
- * card; an added account removed once asked again, a Default Account
- * never. Kept on this device per Account: what was kept shows at once,
- * with no skeleton, and the Machine's answer, and each change, is kept;
- * kept nowhere, a skeleton shows until it answers. A change made while it
- * is asked asks again, so an older answer never undoes it. While its Line is not
- * connected, the rows show as kept and take no tap, and none is added.
+ * One Machine's agent accounts, drawn from what its Machine Kit holds,
+ * under each agent: a row per account, saying why one does not run, which
+ * opens its card under it and closes it again, one at a time, on touch
+ * too; another login added from its agent's +, with its config folder,
+ * saved as typed and told to the Kit, or dropped on Cancel; a refusal kept
+ * on its card; an added account removed once asked again, a Default
+ * Account never. A skeleton while the Kit knows nothing; why the Machine
+ * could not be asked, and Retry, which asks the Kit again. While its Line
+ * is not connected, the rows show as kept and take no tap, and none is
+ * added.
  */
 
 const Owner = Actor.define('Owner', {
-  model: Schema.Struct({ pings: Schema.Finite }),
-  message: Schema.TaggedUnion({ Ping: {} }),
+  requires: [Machines],
+  model: Schema.Struct({
+    pings: Schema.Finite,
+    accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo)),
+    problem: Schema.NullOr(Schema.String),
+  }),
+  message: Schema.TaggedUnion({
+    Ping: {},
+    KitShown: {
+      accounts: Schema.NullOr(Schema.Array(HarnessAccountInfo)),
+      problem: Schema.NullOr(Schema.String),
+    },
+  }),
 });
 
 const OwnerLive = Actor.build(Owner, {
-  init: () => ({ model: { pings: 0 } }),
+  init: () => ({ model: { pings: 0, accounts: null, problem: null } }),
+  workers: {
+    kit: {
+      run: (self) =>
+        Effect.flatMap(Machines, ({ kit }) =>
+          Stream.runForEach(kit('m1'), (shown) =>
+            self.send({
+              _tag: 'KitShown',
+              accounts: shown?.accounts ?? null,
+              problem: shown?.problem ?? null,
+            }),
+          ),
+        ),
+    },
+  },
   children: {
     accounts: {
       actor: HarnessAccountsLive,
-      input: () => ({ machineId: 'm1', accountId: 'a1', kept: handed }),
+      input: () => ({ machineId: 'm1' }),
+      props: ({ model }) => ({
+        accounts: model.accounts,
+        problem: model.problem,
+      }),
     },
   },
-  on: { Ping: (_, { model }) => ({ model: { pings: model.pings + 1 } }) },
+  on: {
+    Ping: (_, { model }) => ({ model: { ...model, pings: model.pings + 1 } }),
+    KitShown: ({ accounts, problem }, { model }) => ({
+      model: { ...model, accounts, problem },
+    }),
+  },
 });
 
 let pings = 0;
@@ -107,19 +140,54 @@ const DEFAULTS: ReadonlyArray<HarnessAccountInfo> = [
 let saved: Array<Saved> = [];
 let removed: Array<string> = [];
 let refuse: string | null = null;
-/** What the Machine answers, once the test says. */
-let answer: Deferred.Deferred<ReadonlyArray<HarnessAccountInfo>>;
-let kept: Layer.Layer<SavedMachines>;
-/** What this device kept, handed in as it opens. */
-let handed: ReadonlyArray<HarnessAccountInfo> | null = null;
+/** What the Kit was told and asked. */
+let told: Array<KitChange> = [];
+let refreshes = 0;
+/** The Machine's Kit, as the test says it. */
+let kit: SubscriptionRef.SubscriptionRef<Kit | null>;
+
+const kitOf = (
+  accounts: ReadonlyArray<HarnessAccountInfo> | null,
+  problem: string | null = null,
+): Kit => ({
+  accounts,
+  speech: null,
+  harnesses: null,
+  models: [],
+  savedRead: true,
+  problem,
+});
+
+/** The Kit as the stand-in keeps it: a change shows at once. */
+const changedBy = (now: Kit | null, change: KitChange): Kit => {
+  const accounts = now?.accounts ?? [];
+  return kitOf(
+    change._tag === 'AccountRemoved'
+      ? accounts.filter(({ id }) => id !== change.id)
+      : accounts.some(({ id }) => id === change.account.id)
+        ? accounts.map((each) =>
+            each.id === change.account.id ? change.account : each,
+          )
+        : [...accounts, change.account],
+  );
+};
+
+const machines = () =>
+  Layer.mock(Machines)({
+    kit: () => SubscriptionRef.changes(kit),
+    changed: (_, change) =>
+      Effect.andThen(
+        Effect.sync(() => void told.push(change)),
+        SubscriptionRef.update(kit, (now) => changedBy(now, change)),
+      ),
+    refresh: () => Effect.sync(() => void refreshes++),
+  });
 
 const clients = CodeClients.make(() =>
   Layer.merge(
     // An RPC client's procedures are generic over how they are called;
     // a stand-in answers the one way the app calls them.
     Layer.mock(CodeClient)({
-      harnessAccounts: (() =>
-        Deferred.await(answer)) as unknown as Api['harnessAccounts'],
       saveHarnessAccount: ((input: Saved) =>
         refuse !== null
           ? Effect.fail(new InvalidAccount({ message: refuse }))
@@ -213,30 +281,20 @@ beforeAll(() => {
 
 const busy = () => document.querySelector('[aria-busy]') !== null;
 
-const answers = async (accounts: ReadonlyArray<HarnessAccountInfo>) => {
+/** The Kit says the Machine's accounts. */
+const answers = async (
+  accounts: ReadonlyArray<HarnessAccountInfo> | null,
+  problem: string | null = null,
+) => {
   await act(
-    async () => void Effect.runSync(Deferred.succeed(answer, accounts)),
+    async () =>
+      void Effect.runSync(SubscriptionRef.set(kit, kitOf(accounts, problem))),
   );
-  for (let tries = 0; tries < 50 && !text().includes('Codex'); tries++)
-    await flush();
-  await flush();
-};
-
-/** What is kept on this device of the Machine's accounts. */
-const keptAccounts = () =>
-  Effect.runPromise(
-    Effect.flatMap(SavedMachines, (each) => each.settings('a1', 'm1')).pipe(
-      Effect.map(({ accounts }) => accounts),
-      Effect.provide(kept),
-    ),
-  );
-
-const keep = (accounts: ReadonlyArray<HarnessAccountInfo>) => {
-  handed = accounts;
+  for (let tries = 0; tries < 10; tries++) await flush();
 };
 
 const mount = async () => {
-  const services = Layer.mergeAll(Layer.mock(Machines)({}), clients, kept);
+  const services = Layer.mergeAll(machines(), clients);
   const App = toReact(OwnerLive, OwnerView, services, {
     name: `harness-accounts-test-${apps++}`,
   });
@@ -256,9 +314,9 @@ beforeEach(() => {
   refuse = null;
   pings = 0;
   line = 'connected';
-  answer = Effect.runSync(Deferred.make<ReadonlyArray<HarnessAccountInfo>>());
-  kept = savedMachinesMemory();
-  handed = null;
+  told = [];
+  refreshes = 0;
+  kit = Effect.runSync(SubscriptionRef.make<Kit | null>(null));
 });
 
 afterEach(async () => {
@@ -267,58 +325,27 @@ afterEach(async () => {
   document.body.innerHTML = '';
 });
 
-describe('Harness Accounts, kept on this device', () => {
-  it('shows a skeleton until the Machine answers when nothing was kept, then keeps its answer', async () => {
+describe('Harness Accounts, as the Kit holds them', () => {
+  it('shows a skeleton while the Kit knows nothing, then its accounts', async () => {
     await mount();
     expect(busy()).toBe(true);
     await answers(DEFAULTS);
     expect(busy()).toBe(false);
     expect(names()).toEqual(['Claude', 'Codex']);
-    expect(await keptAccounts()).toEqual(DEFAULTS);
   });
 
-  it('shows what was kept at once, with no skeleton, then the Machine’s answer', async () => {
-    keep([{ ...DEFAULTS[0]!, name: 'Claude home' }]);
+  it('says why the Machine could not be asked, and asks the Kit again on Retry', async () => {
     await mount();
-    expect(busy()).toBe(false);
-    expect(names()).toEqual(['Claude home']);
-    await answers(DEFAULTS);
-    expect(names()).toEqual(['Claude', 'Codex']);
-  });
-
-  it('asks again when an account is removed while the Machine is asked, so the older answer never brings it back', async () => {
-    const work: HarnessAccountInfo = {
-      ...DEFAULTS[1]!,
-      id: 'codex-work',
-      name: 'Codex work',
-      isDefault: false,
-    };
-    keep([...DEFAULTS, work]);
-    await mount();
-    const older = answer;
-    answer = Effect.runSync(Deferred.make<ReadonlyArray<HarnessAccountInfo>>());
-    await click(labelled('Codex work'));
-    await click(button('Remove…'));
-    await click(button('Remove'));
-    expect(removed).toEqual(['codex-work']);
-    await act(
-      async () =>
-        void Effect.runSync(Deferred.succeed(older, [...DEFAULTS, work])),
-    );
-    await flush();
-    expect(names()).toEqual(['Claude', 'Codex']);
-    expect((await keptAccounts())?.map(({ id }) => id)).toEqual([
-      'claude',
-      'codex',
-    ]);
-    await answers(DEFAULTS);
-    expect(names()).toEqual(['Claude', 'Codex']);
+    await answers(null, 'The Machine could not be reached');
+    expect(text()).toContain('The Machine could not be reached');
+    await click(button('Try again'));
+    expect(refreshes).toBe(1);
   });
 
   it("shows what was kept, taking no tap, while the Machine's Line is not connected", async () => {
-    keep(DEFAULTS);
     line = 'reconnecting';
     await mount();
+    await answers(DEFAULTS);
     expect(names()).toEqual(['Claude', 'Codex']);
     expect(labelled('Claude').hasAttribute('disabled')).toBe(true);
     expect(labelled('Add Claude account').hasAttribute('disabled')).toBe(true);
@@ -413,11 +440,7 @@ describe('Harness Accounts', () => {
     // Under its agent, after the Default Account, its folder and the variable it sets.
     expect(names()).toEqual(['Claude', 'Claude work', 'Codex']);
     expect(labelled('Claude work').textContent).toContain('~/.claude-work');
-    expect((await keptAccounts())?.map(({ name }) => name)).toEqual([
-      'Claude',
-      'Codex',
-      'Claude work',
-    ]);
+    expect(told.map(({ _tag }) => _tag)).toEqual(['AccountSaved']);
   });
 
   it('keeps what was typed, and why the Machine refused it', async () => {
@@ -460,6 +483,7 @@ describe('Harness Accounts', () => {
     expect(text()).toContain('Its sessions stop working.');
     await click(button('Remove'));
     expect(removed).toEqual(['codex-work']);
+    expect(told.at(-1)).toEqual({ _tag: 'AccountRemoved', id: 'codex-work' });
     expect(text()).not.toContain('Codex work');
   });
 });

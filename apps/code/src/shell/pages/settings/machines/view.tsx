@@ -29,8 +29,8 @@ type Machine = typeof MachineSchema.Type;
  * with a lock once its settings are said to be locked; on a wider screen
  * its tunnel and the version of Connect it runs under it. Then, each
  * between rules, its agents' accounts and its Speech to Text switch, each
- * shown as last kept and asked of the Machine on its own, so one that does
- * not answer says so in its own place; last, Forget, small and set apart,
+ * as its Machine Kit holds it, so one that does not answer says so in its
+ * own place; last, Forget, small and set apart,
  * in the danger colour, which asks first. Below, the way to the Auth
  * Worker's Home Page, where a Machine's Sign-in is revoked outright.
  */
@@ -121,7 +121,7 @@ export const MachineSettingsView = View.make(
         model.accountId === null ? null : keyOf(model.accountId, machine.id);
       const accounts = children.accounts.find((each) => each.key === key);
       const speech = children.speech.find((each) => each.key === key);
-      // A Machine whose kept settings are still read waits, alone.
+      // A Machine whose Kit is still read waits, alone.
       return accounts === undefined || speech === undefined
         ? []
         : [{ machine, accounts, speech }];

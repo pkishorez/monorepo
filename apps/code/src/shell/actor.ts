@@ -12,9 +12,9 @@ import {
   Ask,
   DeviceState,
   Dictations,
+  Kept,
   Machines,
   SavedDrafts,
-  SavedMachines,
 } from '../layer/capabilities/index.ts';
 import {
   home,
@@ -112,7 +112,7 @@ export const Shell = Page.define({
     DeviceState,
     Accounts,
     Store,
-    SavedMachines,
+    Kept,
     SavedDrafts,
     AccountReplicas,
     Machines,
@@ -317,9 +317,7 @@ export const ShellLive = Page.build(Shell, {
       return {
         model: { ...model, account, back: switched ? null : model.back },
         command: [
-          ...(keep
-            ? [keepAccounts({ accountIds: account.accounts, signedOut: gone })]
-            : []),
+          ...(keep ? [keepAccounts({ accountIds: account.accounts })] : []),
           ...(switched ? [Router.replace(home())] : []),
         ],
       };

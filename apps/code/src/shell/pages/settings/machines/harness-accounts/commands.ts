@@ -1,21 +1,14 @@
 import { Effect, Schema } from 'effect';
-import { HarnessAccountInfo } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
-import { SavedMachines } from '../../../../../layer/capabilities/index.ts';
+import { Machines } from '../../../../../layer/capabilities/index.ts';
 
 /*
- * What a Machine's Harness Accounts keep on this device of what it said.
+ * What a Machine's Harness Accounts ask of its Machine Kit.
  */
 
-/** Keeps a Machine's accounts as it said them, for its Account; a write that fails is lost. */
-export const keepHarnessAccounts = Command.make('KeepHarnessAccounts', {
-  args: Schema.Struct({
-    accountId: Schema.String,
-    machineId: Schema.String,
-    accounts: Schema.Array(HarnessAccountInfo),
-  }),
-  run: ({ accountId, machineId, accounts }) =>
-    Effect.flatMap(SavedMachines, (saved) =>
-      saved.keepSettings(accountId, machineId, { accounts }),
-    ),
+/** Asks the Machine's Kit to ask the Machine again. */
+export const refresh = Command.make('RefreshKit', {
+  args: Schema.Struct({ machineId: Schema.String }),
+  run: ({ machineId }) =>
+    Effect.flatMap(Machines, (machines) => machines.refresh(machineId)),
 });

@@ -1,21 +1,16 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
-import { Effect, Layer, Queue, Schema, Stream } from 'effect';
+import { Effect, Layer, Schema } from 'effect';
 import {
   CodeClient,
   CodeClients,
-  type SpeechToTextState,
+  SpeechToTextState,
 } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { toReact, View } from '@kestack/kabuki/react';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import {
-  Machines,
-  SavedMachines,
-} from '../../../../../layer/capabilities/index.ts';
-import { savedMachinesMemory } from '../../../../../layer/services/index.ts';
 import { keys } from '../../../../../keys.ts';
 import { Connection } from '../../../../machines/index.ts';
 import { SpeechToTextLive } from './actor.ts';
@@ -24,38 +19,46 @@ import { SpeechToTextView } from './view.tsx';
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 /*
- * One Machine's Speech to Text switch, drawn from what the Machine says,
- * live: nothing to switch until it says; off, with the switch off, and on
- * asks it to download; the download's progress; ready, with the switch
- * on, and off asks it to delete the model; failed, saying why, with a
- * retry. How it last stood, kept on this device and handed in, shows at
- * once, and what the Machine says replaces it and is kept. While its Line
- * is not connected, the switch takes nothing, and no "Locked" moves it.
+ * One Machine's Speech to Text switch, drawn from how its Machine Kit
+ * holds it: nothing to switch until it knows; off, with the switch off,
+ * and on asks it to download; the download's progress; ready, with the
+ * switch on, and off asks it to delete the model; failed, saying why,
+ * with a retry. While its Line is not connected, the switch takes
+ * nothing, and no "Locked" moves it.
  */
 
 const Owner = Actor.define('Owner', {
-  model: Schema.Struct({ pings: Schema.Finite }),
-  message: Schema.TaggedUnion({ Ping: {} }),
+  model: Schema.Struct({
+    pings: Schema.Finite,
+    speech: Schema.NullOr(SpeechToTextState),
+  }),
+  message: Schema.TaggedUnion({ Ping: {}, Said: { state: SpeechToTextState } }),
 });
 
 const OwnerLive = Actor.build(Owner, {
-  init: () => ({ model: { pings: 0 } }),
+  init: () => ({ model: { pings: 0, speech: handed } }),
   children: {
     speech: {
       actor: SpeechToTextLive,
-      input: () => ({ machineId: 'm1', accountId: 'a1', kept: handed }),
+      input: () => ({ machineId: 'm1' }),
+      props: ({ model }) => ({ speech: model.speech }),
     },
   },
-  on: { Ping: (_, { model }) => ({ model: { pings: model.pings + 1 } }) },
+  on: {
+    Ping: (_, { model }) => ({ model: { ...model, pings: model.pings + 1 } }),
+    Said: ({ state }, { model }) => ({ model: { ...model, speech: state } }),
+  },
 });
 
 let pings = 0;
 let ping = () => {};
+let tell = (_: SpeechToTextState) => {};
 let line: 'connected' | 'reconnecting' = 'connected';
 
 const OwnerView = View.make(OwnerLive, ({ model, children, send }) => {
   pings = model.pings;
   ping = () => send({ _tag: 'Ping' });
+  tell = (state) => send({ _tag: 'Said', state });
   return (
     <keys.Provider vim>
       <Connection value={{ machines: null, status: { m1: line } }}>
@@ -67,16 +70,9 @@ const OwnerView = View.make(OwnerLive, ({ model, children, send }) => {
 
 type Api = CodeClient['Service'];
 
-let says: Queue.Queue<SpeechToTextState>;
 let switched: Array<'on' | 'off'> = [];
-let saved: Layer.Layer<SavedMachines>;
-/** What this device kept, handed in as it opens. */
+/** How the Kit holds it as it opens. */
 let handed: SpeechToTextState | null = null;
-
-/** What the Machine says of its Speech to Text, as `Machines` hands it on. */
-const machines = Layer.mock(Machines)({
-  speech: () => Stream.fromQueue(says),
-});
 
 const clients = CodeClients.make(() =>
   Layer.merge(
@@ -106,8 +102,9 @@ const flush = () => act(() => new Promise((done) => setTimeout(done, 0)));
 const toggle = () => document.querySelector<HTMLElement>('[role="switch"]');
 const text = () => document.body.textContent ?? '';
 
+/** The Kit says how it stands now. */
 const say = async (state: SpeechToTextState) => {
-  await act(async () => void Effect.runSync(Queue.offer(says, state)));
+  await act(async () => tell(state));
   await flush();
 };
 
@@ -116,27 +113,14 @@ const click = async (element: HTMLElement) => {
   await flush();
 };
 
-/** What this device kept of the Machine's Speech to Text. */
-const kept = () =>
-  Effect.runPromise(
-    Effect.flatMap(SavedMachines, (each) => each.settings('a1', 'm1')).pipe(
-      Effect.provide(saved),
-    ),
-  );
-
 const keep = (speech: SpeechToTextState) => {
   handed = speech;
 };
 
 const mount = async () => {
-  const App = toReact(
-    OwnerLive,
-    OwnerView,
-    Layer.mergeAll(machines, clients, saved),
-    {
-      name: `speech-to-text-test-${apps++}`,
-    },
-  );
+  const App = toReact(OwnerLive, OwnerView, clients, {
+    name: `speech-to-text-test-${apps++}`,
+  });
   root = createRoot(document.body.appendChild(document.createElement('div')));
   await act(async () => root!.render(<App />));
   for (let tries = 0; tries < 50 && pings === 0; tries++) {
@@ -155,9 +139,7 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
-  says = Effect.runSync(Queue.unbounded<SpeechToTextState>());
   switched = [];
-  saved = savedMachinesMemory();
   handed = null;
   line = 'connected';
   pings = 0;
@@ -216,21 +198,9 @@ describe('Speech to Text switch', () => {
     await click(retry);
     expect(switched).toEqual(['on']);
   });
-
-  it('keeps what the Machine said, but not each step of a download', async () => {
-    await say({ _tag: 'Downloading', done: 1, total: 10 });
-    await say({ _tag: 'Downloading', done: 5, total: 10 });
-    expect((await kept()).speech).toEqual({
-      _tag: 'Downloading',
-      done: 1,
-      total: 10,
-    });
-    await say({ _tag: 'Ready' });
-    expect((await kept()).speech).toEqual({ _tag: 'Ready' });
-  });
 });
 
-describe('Speech to Text, kept on this device', () => {
+describe('Speech to Text, as its Kit holds it', () => {
   it('shows how it last stood at once, with no skeleton, then what the Machine says', async () => {
     keep({ _tag: 'Ready' });
     await mount();
@@ -239,7 +209,6 @@ describe('Speech to Text, kept on this device', () => {
     expect(text()).toContain('Ready');
     await say({ _tag: 'Off' });
     expect(toggle()?.getAttribute('aria-checked')).toBe('false');
-    expect((await kept()).speech).toEqual({ _tag: 'Off' });
   });
 
   it("takes nothing while the Machine's Line is not connected, and says no Locked beside it", async () => {

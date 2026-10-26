@@ -3,24 +3,36 @@ import { CloudClient, Machine } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
 import {
   dropEverywhere,
-  SavedMachines,
+  Kept,
+  shelf,
 } from '../../../layer/capabilities/index.ts';
 import { problemOf } from './api.ts';
 
 /*
- * What the Machines actor asks of Cloud Connect, and what it keeps
- * on this device: each ends in one Message, but for `drop` and `keep`. A
+ * What the Machine List asks of Cloud Connect, and what it keeps on this
+ * device: each ends in one Message, but for `save`, `drop` and `keep`. A
  * Machine forgotten, or gone from Cloud Connect's first list, has its
- * Instance stopped, in every tab, and its database and settings deleted.
+ * Instance stopped, in every tab, and its records, its Kit and all else
+ * kept of it deleted.
  */
 
+/** The Account's Machine List as kept. */
+export const ListShelf = shelf('machine-list', 1, Schema.Array(Machine));
+
+/** Keeps the list for the Account; a write that fails is lost. */
 export const save = Command.make('SaveMachines', {
   args: Schema.Struct({
     accountId: Schema.String,
     machines: Schema.Array(Machine),
   }),
   run: ({ accountId, machines }) =>
-    Effect.flatMap(SavedMachines, (saved) => saved.write(accountId, machines)),
+    Effect.flatMap(Kept, (kept) =>
+      kept.write(
+        ListShelf,
+        { accountId, machineId: null, projectId: null },
+        machines,
+      ),
+    ),
 });
 
 export const forget = Command.make('ForgetMachine', {
@@ -38,14 +50,14 @@ export const forget = Command.make('ForgetMachine', {
     ),
 });
 
-/** A forgotten Machine's records, settings and Saved Drafts go, and no other's, once it has left the list. */
+/** A forgotten Machine's records, Kit, Saved Drafts and Unseen marks go, and no other's, once it has left the list. */
 export const drop = Command.make('DropMachineRecords', {
   args: Schema.Struct({ accountId: Schema.String, id: Schema.String }),
   run: ({ accountId, id }) =>
     dropEverywhere({ _tag: 'Machine', accountId, machineId: id }),
 });
 
-/** Keeps the records, settings and Saved Drafts of the Machines listed for the Account, and deletes the rest. */
+/** Keeps what is kept of the Machines listed for the Account, and deletes the rest. */
 export const keep = Command.make('KeepMachineRecords', {
   args: Schema.Struct({
     accountId: Schema.String,

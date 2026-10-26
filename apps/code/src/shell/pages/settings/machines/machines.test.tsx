@@ -1,14 +1,7 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
-import {
-  Deferred,
-  Effect,
-  Layer,
-  Schema,
-  Stream,
-  SubscriptionRef,
-} from 'effect';
+import { Effect, Layer, Schema, Stream, SubscriptionRef } from 'effect';
 import {
   CodeClient,
   CodeClients,
@@ -21,11 +14,10 @@ import { Navigation } from '@kestack/kabuki/routing';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
+  type Kit,
   type Known,
   Machines,
   nobody,
-  SavedMachines,
-  type SavedSettings,
 } from '../../../../layer/capabilities/index.ts';
 import { keys } from '../../../../keys.ts';
 import { Connection } from '../../../machines/index.ts';
@@ -36,9 +28,9 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 /*
  * Settings → Machines draws once: nothing while the list kept on this
- * device, or any listed Machine's kept settings, is still being read, and
- * then every card whole, with what was kept, no skeleton. With nothing
- * kept at all, a skeleton until Cloud Connect answers.
+ * device, or any listed Machine's Kit, is still being read, and then every
+ * card whole, with what its Kit holds, no skeleton. With nothing kept at
+ * all, a skeleton until Cloud Connect answers.
  */
 
 type Machine = typeof MachineSchema.Type;
@@ -96,30 +88,25 @@ const CLAUDE: HarnessAccountInfo = {
 };
 
 let known: SubscriptionRef.SubscriptionRef<Known>;
-/** Lets the kept settings be read, once the test says. */
-let read: Deferred.Deferred<void>;
 
-const saved = (kept: SavedSettings) =>
-  Layer.succeed(SavedMachines, {
-    read: () => Effect.succeed(null),
-    write: () => Effect.void,
-    settings: () => Effect.as(Deferred.await(read), kept),
-    keepSettings: () => Effect.void,
-    drop: () => Effect.void,
-  });
+const kit = (parts: Partial<Kit>): Kit => ({
+  accounts: null,
+  speech: null,
+  harnesses: null,
+  models: [],
+  savedRead: true,
+  problem: null,
+  ...parts,
+});
 
 const machines = () =>
   Layer.mock(Machines)({
     state: Stream.unwrap(Effect.sync(() => SubscriptionRef.changes(known))),
-    speech: () => Stream.never,
   });
 
 const clients = CodeClients.make(() =>
   Layer.merge(
-    Layer.mock(CodeClient)({
-      harnessAccounts: (() =>
-        Effect.never) as unknown as CodeClient['Service']['harnessAccounts'],
-    }),
+    Layer.mock(CodeClient)({}),
     Layer.mock(RpcConnection)({
       keepSubscribed: (subscribe) => subscribe(),
       hooks: { onConnect: Effect.void, onDisconnect: Effect.void },
@@ -147,16 +134,11 @@ const tell = async (now: Partial<Known>) => {
   await settle();
 };
 
-const mount = async (kept: SavedSettings) => {
+const mount = async () => {
   const App = toReact(
     OwnerLive,
     OwnerView,
-    Layer.mergeAll(
-      machines(),
-      clients,
-      saved(kept),
-      Layer.mock(Navigation)({}),
-    ),
+    Layer.mergeAll(machines(), clients, Layer.mock(Navigation)({})),
     { name: `machine-settings-test-${apps++}` },
   );
   root = createRoot(document.body.appendChild(document.createElement('div')));
@@ -180,7 +162,6 @@ beforeAll(() => {
 beforeEach(() => {
   pings = 0;
   known = Effect.runSync(SubscriptionRef.make<Known>(nobody));
-  read = Effect.runSync(Deferred.make<void>());
 });
 
 afterEach(async () => {
@@ -190,17 +171,22 @@ afterEach(async () => {
 });
 
 describe('Settings → Machines, drawn once', () => {
-  it('draws nothing until the kept list and every kept setting are read, then every card whole', async () => {
-    await mount({ accounts: [CLAUDE], speech: { _tag: 'Ready' } });
+  it('draws nothing until the kept list and every Kit are read, then every card whole', async () => {
+    await mount();
     await tell({ accountId: 'a1' });
     expect(cards()).toBe(0);
-    // The list kept here is read; its Machine's settings are not yet.
-    await tell({ savedRead: true, machines: [M1] });
+    // The list kept here is read; its Machine's Kit is not yet.
+    await tell({
+      savedRead: true,
+      machines: [M1],
+      kits: { m1: kit({ savedRead: false }) },
+    });
     expect(cards()).toBe(0);
     expect(busy()).toBe(false);
     expect(text()).not.toContain('Studio');
-    await act(async () => Effect.runSync(Deferred.succeed(read, undefined)));
-    await settle();
+    await tell({
+      kits: { m1: kit({ accounts: [CLAUDE], speech: { _tag: 'Ready' } }) },
+    });
     expect(cards()).toBe(1);
     expect(text()).toContain('Studio');
     expect(text()).toContain('Claude');
@@ -209,12 +195,34 @@ describe('Settings → Machines, drawn once', () => {
   });
 
   it('shows a skeleton when nothing was ever kept, until Cloud Connect answers', async () => {
-    await act(async () => Effect.runSync(Deferred.succeed(read, undefined)));
-    await mount({ accounts: null, speech: null });
+    await mount();
     await tell({ accountId: 'a1', savedRead: true });
     expect(cards()).toBe(0);
     expect(busy()).toBe(true);
-    await tell({ machines: [M1], fetchedAt: 1 });
+    await tell({ machines: [M1], fetchedAt: 1, kits: { m1: kit({}) } });
     expect(cards()).toBe(1);
+  });
+
+  it('shows a change its Kit holds without drawing the card anew', async () => {
+    await mount();
+    await tell({
+      accountId: 'a1',
+      savedRead: true,
+      machines: [M1],
+      kits: { m1: kit({ accounts: [CLAUDE] }) },
+    });
+    const card = document.querySelector('li');
+    await tell({
+      kits: {
+        m1: kit({
+          accounts: [
+            CLAUDE,
+            { ...CLAUDE, id: 'qa', name: 'QA kit', isDefault: false },
+          ],
+        }),
+      },
+    });
+    expect(document.querySelector('li')).toBe(card);
+    expect(text()).toContain('QA kit');
   });
 });

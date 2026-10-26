@@ -9,10 +9,10 @@ import {
   accounts,
   deviceStateIdb,
   dictations,
+  keptIdb,
   machines,
   recorder,
   savedDraftsIdb,
-  savedMachinesIdb,
 } from './layer/services/index.ts';
 import './styles.css';
 
@@ -22,8 +22,9 @@ import './styles.css';
  * also signs every call to Cloud Connect), Cloud Connect at
  * `VITE_CONNECT_URL`, the Replica's Store in IndexedDB, one per Account
  * with one database per Machine's Instance in it, so a reload shows what
- * it last saw at once and catches up from there, each Account's last list
- * of Machines and `Machines`, which says it to every page, and Device
+ * it last saw at once and catches up from there, what is kept of each
+ * Account's Machines, its Machine List, each Machine's Kit and each
+ * Project's Skills, and `Machines`, which says it to every page, and Device
  * State, what this browser keeps for itself, and each Account's Saved
  * Drafts, in IndexedDB too, and the
  * microphone a Dictation records, with how the app's asks reach it. No
@@ -34,7 +35,7 @@ import './styles.css';
 const layer = Layer.mergeAll(
   CloudClient.layer(import.meta.env.VITE_CONNECT_URL),
   deviceStateIdb,
-  savedMachinesIdb,
+  keptIdb,
   savedDraftsIdb,
   machines,
   dictations,

@@ -146,8 +146,18 @@ const world = (options: {
         lastSeen: 1,
       })),
       lines: { m1: 'connected', m2: 'connected' },
-      speech: Object.fromEntries(
-        Object.entries(options.speech).map(([id, tag]) => [id, speechOf(tag)]),
+      kits: Object.fromEntries(
+        Object.entries(options.speech).map(([id, tag]) => [
+          id,
+          {
+            accounts: null,
+            speech: speechOf(tag),
+            harnesses: null,
+            models: [],
+            savedRead: true,
+            problem: null,
+          },
+        ]),
       ),
     };
     const chosen = yield* SubscriptionRef.make(options.chosen ?? null);

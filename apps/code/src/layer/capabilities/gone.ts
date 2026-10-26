@@ -1,8 +1,8 @@
 import { Effect } from 'effect';
 import { AccountReplicas } from './account-replicas.ts';
 import { DeviceState } from './device-state.ts';
+import { Kept } from './kept.ts';
 import { SavedDrafts } from './saved-drafts.ts';
-import { SavedMachines } from './saved-machines.ts';
 
 /*
  * What goes from this device at once, told as one thing to every store
@@ -67,11 +67,11 @@ export const went =
     }
   };
 
-/** Tells every store what went: records, Machine settings, Saved Drafts and Unseen marks. */
+/** Tells every store what went: records, kept copies, Saved Drafts and Unseen marks. */
 export const dropEverywhere = (gone: Gone) =>
   Effect.gen(function* () {
     yield* (yield* AccountReplicas).drop(gone);
     yield* (yield* DeviceState).drop(gone);
-    yield* (yield* SavedMachines).drop(gone);
+    yield* (yield* Kept).drop(gone);
     yield* (yield* SavedDrafts).drop(gone);
   });

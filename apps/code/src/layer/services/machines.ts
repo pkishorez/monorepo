@@ -3,6 +3,7 @@ import {
   Effect,
   Layer,
   Option,
+  PubSub,
   Queue,
   Stream,
   SubscriptionRef,
@@ -10,6 +11,7 @@ import {
 import type { Machine as MachineSchema } from '@kestack/connect/code';
 import {
   addressOf,
+  type KitRequest,
   type Known,
   Link,
   Machines,
@@ -20,13 +22,16 @@ import {
 
 type Machine = typeof MachineSchema.Type;
 
-/** The Machines, as the Machines actor publishes them. */
+/** The Machines, as the Machine List and its Kits publish them. */
 export const layer: Layer.Layer<Machines | Link> = Layer.effectContext(
   Effect.gen(function* () {
     const known = yield* SubscriptionRef.make<Known>(nobody);
     const asked = yield* Queue.unbounded<Request>();
+    const kitsAsked = yield* PubSub.unbounded<KitRequest>();
     const ask = (request: Request) =>
       Effect.asVoid(Queue.offer(asked, request));
+    const askKits = (request: KitRequest) =>
+      Effect.asVoid(PubSub.publish(kitsAsked, request));
     const state = SubscriptionRef.changes(known);
     const machine = (id: string) =>
       state.pipe(
@@ -40,9 +45,9 @@ export const layer: Layer.Layer<Machines | Link> = Layer.effectContext(
         Stream.map(({ lines }) => lines[id] ?? 'connecting'),
         Stream.changes,
       );
-    const speech = (id: string) =>
+    const kit = (id: string) =>
       state.pipe(
-        Stream.map(({ speech }) => speech[id] ?? null),
+        Stream.map(({ kits }) => kits[id] ?? null),
         Stream.changes,
       );
     /** The first `found` of the Machine as listed; waits for one, for ever if need be. */
@@ -58,20 +63,25 @@ export const layer: Layer.Layer<Machines | Link> = Layer.effectContext(
           }),
         ),
       );
-    return Context.make(Link, { known, asked }).pipe(
+    return Context.make(Link, { known, asked, kitsAsked }).pipe(
       Context.add(Machines, {
         state,
         current: SubscriptionRef.get(known),
         machine,
         line,
-        speech,
+        kit,
+        refresh: (id) => askKits({ machineId: id, ask: { _tag: 'Asked' } }),
+        changed: (id, change) => askKits({ machineId: id, ask: change }),
         listed: (id) => Effect.asVoid(first(id, () => true)),
         reachable: (id) =>
           first(id, ({ status, key }) => {
             const socket = socketUrl(addressOf(status));
             return socket === null ? null : { socket, key };
           }),
-        reload: ask({ _tag: 'ReloadAsked' }),
+        reload: Effect.andThen(
+          ask({ _tag: 'ReloadAsked' }),
+          askKits({ machineId: null, ask: { _tag: 'Asked' } }),
+        ),
         forget: (id) => ask({ _tag: 'ForgetAsked', id }),
         keepForgetting: ask({ _tag: 'ForgetDismissed' }),
       }),

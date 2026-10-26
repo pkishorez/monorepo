@@ -42,8 +42,8 @@ const agents = (
 
 export const HarnessAccountsView = View.make(
   HarnessAccountsLive,
-  ({ root, model, children, send }) => {
-    const accounts = model.accounts ?? [];
+  ({ root, model, props, children, send }) => {
+    const accounts = props.accounts ?? [];
     const accountOf = (key: string) =>
       accounts.find(({ id }) => id === key) ?? null;
     const harnessOf = (key: string) => accountOf(key)?.harness ?? model.adding;
@@ -55,13 +55,13 @@ export const HarnessAccountsView = View.make(
     };
     const { health, locked, said } = useLock(model.machineId);
     const panelOf = (key: string) => `account-${model.machineId}-${key}-panel`;
-    const problem = model.loadProblem !== null && (
+    const problem = props.problem !== null && (
       <p
         role="alert"
         className="flex items-center gap-2 text-sm text-destructive"
       >
         <CircleAlertIcon aria-hidden className="size-3.5 shrink-0" />
-        {model.loadProblem}
+        {props.problem}
         <Button
           variant="link"
           size="xs"
@@ -74,10 +74,10 @@ export const HarnessAccountsView = View.make(
     );
     return (
       <div {...root} className="flex flex-col gap-5">
-        {model.accounts !== null ? (
+        {props.accounts !== null ? (
           <>
             {problem}
-            {agents(model.accounts, model.adding).map((harness) => {
+            {agents(props.accounts, model.adding).map((harness) => {
               const name = Card.agentName(harness);
               const cards = children.cards
                 .filter((card) => harnessOf(card.key) === harness)
@@ -139,7 +139,7 @@ export const HarnessAccountsView = View.make(
               );
             })}
           </>
-        ) : model.loadProblem !== null ? (
+        ) : props.problem !== null ? (
           problem
         ) : outOfReach(health) ? (
           <p role="status" className="text-sm text-muted-foreground">

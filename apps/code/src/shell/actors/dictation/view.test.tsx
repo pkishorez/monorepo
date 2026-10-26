@@ -131,7 +131,16 @@ const services = () =>
               },
             ],
             lines: { m1: 'connected' },
-            speech: { m1: { _tag: 'Ready' } },
+            kits: {
+              m1: {
+                accounts: null,
+                speech: { _tag: 'Ready' },
+                harnesses: null,
+                models: [],
+                savedRead: true,
+                problem: null,
+              },
+            },
           }),
         }),
         Layer.mock(DeviceState)({
