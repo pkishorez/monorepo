@@ -1,7 +1,13 @@
 import { Effect, Layer, Schema, Stream } from 'effect';
-import { type CodeClient, CodeClients } from '@kestack/connect/code';
+import { CodeClients } from '@kestack/connect/code';
 import { Navigation, Page, Router } from '@kestack/kabuki/routing';
-import { Machines, SavedDrafts } from '../../../layer/capabilities/index.ts';
+import {
+  AccountReplicas,
+  DeviceState,
+  Kept,
+  Machines,
+  SavedDrafts,
+} from '../../../layer/capabilities/index.ts';
 import { home } from '../../routes/index.ts';
 import { Refused, ProjectRow } from '../../machines/index.ts';
 import { Catalog, SharedCatalog } from './capabilities/index.ts';
@@ -17,20 +23,21 @@ import { Session } from './session/index.ts';
  *             over its own socket, Provided to what is under it; its own
  *             reads and errands go over the same socket. A Machine the
  *             Account's list no longer has says so in place of the page.
- * 1. Catalog  the agents, their models and Skills, read once while the
- *             project is open, and shared with what is under it
- *             (`capabilities/catalog/`); what could not be read is read
+ * 1. Catalog  the agents and their models, as its Machine's Kit holds
+ *             them, and the project's Skills, kept and asked behind once
+ *             it opens, shared with what is under it
+ *             (`capabilities/catalog/`); what could not be read is asked
  *             again when asked.
  * 2. Draft    while no session is open, a new session's Draft (`draft/`),
  *             which starts one.
- * 3. Remove   asks first, then forgets the project; its folder is never
- *             touched.
+ * 3. Remove   asks first, then forgets the project, and all this device
+ *             kept of it; its folder is never touched.
  */
 
 const Model = Schema.Struct({
   /** Whether Cloud Connect has answered and no longer lists the Machine. */
   gone: Schema.Boolean,
-  catalog: Catalog.Model,
+  catalog: Catalog.Keeper,
   removal: Schema.Struct({
     confirming: Schema.Boolean,
     removing: Schema.Boolean,
@@ -43,7 +50,15 @@ export const Project = Page.define({
   path: '/m/:machineId/p/:projectId',
   params: { machineId: Schema.String, projectId: Schema.String },
   metadata: { title: 'Project · code' },
-  requires: [CodeClients, Machines, Navigation, SavedDrafts],
+  requires: [
+    CodeClients,
+    Machines,
+    Navigation,
+    Kept,
+    SavedDrafts,
+    AccountReplicas,
+    DeviceState,
+  ],
   pages: { Session: Session.page },
   model: Model,
   message: Schema.TaggedUnion({
@@ -57,29 +72,11 @@ export const Project = Page.define({
   }),
 });
 
-/** Runs a read on the project's own Machine, over its own socket. */
-const onMachine = <A, E>(
-  self: {
-    readonly get: Effect.Effect<{
-      readonly props: { readonly params: { readonly machineId: string } };
-    }>;
-  },
-  read: Effect.Effect<A, E, CodeClient>,
-) =>
-  Effect.flatMap(self.get, ({ props }) =>
-    CodeClients.on(props.params.machineId, read),
-  );
-
-const retried = (model: Model) => ({
-  ...model,
-  catalog: Catalog.changed(model.catalog, { _tag: 'Retry' }),
-});
-
 export const ProjectLive = Page.build(Project, {
   init: () => ({
     model: {
       gone: false,
-      catalog: Catalog.empty,
+      catalog: Catalog.fresh,
       removal: { confirming: false, removing: false, problem: null },
     },
   }),
@@ -95,8 +92,8 @@ export const ProjectLive = Page.build(Project, {
       // 1. Catalog, for the pages under it.
       Layer.succeed(SharedCatalog, {
         changes: self.changes.pipe(
-          Stream.map(({ model }) => model.catalog),
-          Stream.changes,
+          Stream.map(({ model }) => Catalog.shared(model.catalog)),
+          Stream.changesWith(Catalog.sameCatalog),
         ),
         retry: self.send({ _tag: 'CatalogRetryAsked' }),
       }),
@@ -123,41 +120,39 @@ export const ProjectLive = Page.build(Project, {
         }),
     },
     // 1. Catalog
-    harnesses: {
-      while: ({ model }) => Catalog.wants.harnesses(model.catalog),
+    kit: {
       run: (self) =>
-        onMachine(self, Catalog.read.harnesses).pipe(
-          Effect.flatMap((change) => self.send({ _tag: 'Catalog', change })),
+        Effect.flatMap(self.get, ({ props }) =>
+          Stream.runForEach(
+            Catalog.followKit(props.params.machineId),
+            (change) => self.send({ _tag: 'Catalog', change }),
+          ),
         ),
     },
-    models: {
-      each: ({ model }) => Catalog.wants.models(model.catalog),
-      run: (self, account) =>
-        Effect.gen(function* () {
-          const { model } = yield* self.get;
-          const change = yield* onMachine(
-            self,
-            Effect.gen(function* () {
-              return yield* Catalog.read.models(model.catalog, account);
-            }),
-          );
-          yield* self.send({ _tag: 'Catalog', change });
-        }),
+    saved: {
+      while: ({ model }) => !model.catalog.skills.savedRead,
+      run: (self) =>
+        Effect.flatMap(self.get, ({ props }) =>
+          Catalog.savedSkills(
+            props.params.machineId,
+            props.params.projectId,
+          ).pipe(
+            Effect.flatMap((change) => self.send({ _tag: 'Catalog', change })),
+          ),
+        ),
     },
     skills: {
-      each: ({ model }) => Catalog.wants.skills(model.catalog),
-      run: (self, account) =>
+      each: ({ model }) => Catalog.wants(model.catalog),
+      run: (self, since) =>
         Effect.gen(function* () {
           const { model, props } = yield* self.get;
-          const change = yield* onMachine(
-            self,
-            Effect.gen(function* () {
-              return yield* Catalog.read.skills(
-                model.catalog,
-                props.params.projectId,
-                account,
-              );
-            }),
+          const change = yield* CodeClients.on(
+            props.params.machineId,
+            Catalog.askSkills(
+              props.params.projectId,
+              Catalog.running(model.catalog.kit.harnesses),
+              Number(since),
+            ),
           );
           yield* self.send({ _tag: 'Catalog', change });
         }),
@@ -184,10 +179,22 @@ export const ProjectLive = Page.build(Project, {
   },
   on: {
     MachineKnown: ({ gone }, { model }) => ({ model: { ...model, gone } }),
-    Catalog: ({ change }, { model }) => ({
-      model: { ...model, catalog: Catalog.changed(model.catalog, change) },
-    }),
-    CatalogRetryAsked: (_, { model }) => ({ model: retried(model) }),
+    Catalog: ({ change }, { model, props }) => {
+      const { keeper, command } = Catalog.changed(
+        model.catalog,
+        change,
+        props.params,
+      );
+      return { model: { ...model, catalog: keeper }, command };
+    },
+    CatalogRetryAsked: (_, { model, props }) => {
+      const { keeper, command } = Catalog.changed(
+        model.catalog,
+        { _tag: 'Retry' },
+        props.params,
+      );
+      return { model: { ...model, catalog: keeper }, command };
+    },
     // 3. Remove
     ConfirmToggled: ({ open }, { model }) =>
       model.removal.removing
