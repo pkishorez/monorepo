@@ -30,7 +30,7 @@ export function MakeHere({
   const [name, setName] = useState('');
   const field = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    if (naming) field.current?.focus();
+    if (naming) field.current?.focus({ preventScroll: true });
   }, [naming]);
   const valid = name.trim() !== '' && !name.includes('/');
   const create = () => {
