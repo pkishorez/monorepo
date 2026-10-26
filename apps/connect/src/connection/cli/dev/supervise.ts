@@ -1,8 +1,10 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { Effect } from 'effect';
-import { serve } from '../connection/index.js';
-import { type DevAuth, connectionName } from './auth.js';
+import { type DevAuth, authOf, connectionName } from './auth.js';
+import { worktreeSlugs } from './branch.js';
+import { connectionNames, removeGone } from './gone.js';
+import { freePort, removing, serving } from './ke-connect.js';
 import { live } from './leases.js';
 import {
   type ConnectRecord,
@@ -14,12 +16,14 @@ import {
 
 /*
  * Running this branch's Connect: its Cloud Connect under `alchemy dev`
- * behind Portless, then a Connection of the branch's own serving against it,
- * running the code Plugin this checkout built, ready once `connect.json`
- * says so. A shared Connect stops 3 s after its
- * last lease is gone, unless an App leased it as it decided, watching from
- * the moment it starts, so an App that gives up while Cloud Connect never
- * answers does not leave it running; a foreground one stops on Ctrl-C.
+ * behind Portless, then the branch's own Connection, `ke-connect serve` as
+ * a process of its own, against it, running the code Plugin this checkout
+ * built, ready once its router answers `/health` and `connect.json` says
+ * so. Meanwhile the development Connections of branches with no checkout
+ * any more are removed. A shared Connect stops 3 s after its last lease is
+ * gone, unless an App leased it as it decided, watching from the moment it
+ * starts, so an App that gives up while Cloud Connect never answers does
+ * not leave it running; a foreground one stops on Ctrl-C.
  */
 
 export interface Supervised {
@@ -78,12 +82,12 @@ const exited = (child: ChildProcess) =>
     ),
   );
 
-/** Waits until `GET <cloud>/auth` answers 200. */
-const answering = (cloud: string) =>
+/** Waits until `GET <base>/<path>` answers 200. */
+const answering = (base: string, path: string) =>
   Effect.promise(async (signal) => {
     while (!signal.aborted) {
       try {
-        const response = await fetch(`${cloud.replace(/\/+$/, '')}/auth`);
+        const response = await fetch(`${base.replace(/\/+$/, '')}/${path}`);
         await response.body?.cancel();
         if (response.ok) return;
       } catch {
@@ -92,6 +96,10 @@ const answering = (cloud: string) =>
       await new Promise((resolve) => setTimeout(resolve, RETRY_MS));
     }
   });
+
+/** Waits until the Connection's router on `port` answers `GET /health`. */
+const healthy = (port: number) =>
+  answering(`http://127.0.0.1:${port}`, 'health');
 
 /** Ends once no live lease has been left in `dir` for 3 s, its record then saying it is stopping. */
 const unleased = (dir: string) =>
@@ -136,24 +144,38 @@ const warnLeft = (dir: string) =>
         );
   });
 
+/** Removes the development Connections of branches with no checkout, beside whatever runs. */
+const removeGoneConnections = (root: string) =>
+  removeGone({
+    slugs: Effect.tryPromise(() => worktreeSlugs(root)),
+    names: connectionNames,
+    remove: (name) => removing(root, authOf(name), name),
+  }).pipe(Effect.forkScoped);
+
 /** Runs Connect as `options` says, until it stops; `connect.json` goes with it. */
 export const supervise = (options: Supervised) =>
   Effect.gen(function* () {
     const { root, dir, slug, cloud, mode, version, auth } = options;
     const startedAt = new Date().toISOString();
+    yield* removeGoneConnections(root);
     const alchemy = yield* alchemyDev(root);
     const running = Effect.gen(function* () {
       yield* Effect.log(`Waiting for Cloud Connect at ${cloud}`);
-      yield* Effect.raceFirst(answering(cloud), exited(alchemy));
-      yield* serve({
-        name: connectionName(slug, auth),
+      yield* Effect.raceFirst(answering(cloud, 'auth'), exited(alchemy));
+      const name = connectionName(slug, auth);
+      const port = yield* freePort;
+      const ended = yield* serving({
+        root,
+        auth,
+        name,
         cloud,
-        port: 0,
+        port,
         // A page through a Cloudflare tunnel, which only the Fake signs in.
         origins: auth === 'fake' ? ['https://*.trycloudflare.com'] : [],
-        heartbeat: 15,
         plugins: { code: join(root, 'dist', 'plugins', 'code', 'main.js') },
-        onListening: ({ port, connection }) =>
+      });
+      const ready = healthy(port).pipe(
+        Effect.andThen(
           Effect.sync(() =>
             writeRecord(dir, {
               pid: process.pid,
@@ -161,14 +183,23 @@ export const supervise = (options: Supervised) =>
               cloud,
               auth,
               port,
-              connection,
+              connection: name,
               ready: true,
               startedAt,
               version,
             }),
           ),
-      }).pipe(Effect.raceFirst(exited(alchemy)));
-    });
+        ),
+        Effect.andThen(Effect.never),
+      );
+      const code = yield* Effect.raceFirst(ended, ready).pipe(
+        Effect.raceFirst(exited(alchemy)),
+      );
+      if (code !== 0 && code !== null)
+        yield* Effect.logWarning(
+          `ke-connect serve ${name} exited with ${code}`,
+        );
+    }).pipe(Effect.scoped);
     if (mode === 'shared') {
       yield* Effect.raceFirst(running, unleased(dir));
       yield* Effect.log('No App uses Connect any more; stopping it');

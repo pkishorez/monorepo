@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { use } from 'cloudflared';
-import { cloudflared } from './binary.js';
+import { CLOUDFLARED_KEY, cloudflared } from './binary.js';
 import { checkTunnel } from './check.js';
 import { quickTunnel } from './quick-tunnel.js';
 
@@ -11,7 +11,7 @@ import { quickTunnel } from './quick-tunnel.js';
  * comes from the shared cache, downloaded first when it is missing.
  */
 
-export { cloudflared };
+export { CLOUDFLARED_KEY, cloudflared };
 
 /**
  * A quick tunnel to the server on `port`, through the cloudflared at

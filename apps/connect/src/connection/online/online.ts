@@ -10,7 +10,12 @@ import {
 } from './identity/index.js';
 import { signIn, stored } from './sign-in/index.js';
 
-export { checkAt, cloudflared, openTunnel } from './tunnel/index.js';
+export {
+  checkAt,
+  CLOUDFLARED_KEY,
+  cloudflared,
+  openTunnel,
+} from './tunnel/index.js';
 
 /** Fails unless the Connection kept in `connectionFile`, if any, belongs to `cloud`; before anyone signs in. */
 export const belongsTo = (connectionFile: string, cloud: string) =>

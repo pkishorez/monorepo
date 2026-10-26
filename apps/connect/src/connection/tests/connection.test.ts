@@ -20,6 +20,7 @@ import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { connectionsTable, serveOver } from '../../cloud/worker/index.js';
 import { CodeClient } from '../../plugins/code/api/index.js';
+import { CLOUDFLARED_KEY } from '../online/index.js';
 
 /*
  * `ke-connect` end to end, each command its own process, as a user runs it:
@@ -55,13 +56,7 @@ const env = () => ({
 
 /** cloudflared as the shared cache keeps it: a script that prints a tunnel's address and its connection, then waits. */
 const fakeCloudflared = () => {
-  const entry = join(
-    home,
-    'cache',
-    'kestack',
-    'downloads',
-    'cloudflared-latest',
-  );
+  const entry = join(home, 'cache', 'kestack', 'downloads', CLOUDFLARED_KEY);
   mkdirSync(entry, { recursive: true });
   const binary = join(entry, 'cloudflared');
   writeFileSync(
