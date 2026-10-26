@@ -13,7 +13,10 @@ type Connection = typeof ConnectionSchema.Type;
  * seconds; one whose Last Seen is older than three of them is down. One seen lately
  * says in its Connection Status how far its tunnel got: cloudflared
  * downloading, the tunnel opening or failed to open, or up and whether its
- * last check reached it. A record only as this device kept it is old by
+ * last check reached it. It also says where its code Plugin stands, which
+ * the app shows while it is Updating or Crashed, linked or not; and the
+ * version of `ke-connect` it runs, which the app asks to update once Cloud
+ * Connect says a newer one is out. A record only as this device kept it is old by
  * nature, so it says nothing until it is checked: Cloud Connect answered,
  * its socket was up and dropped, or long enough passed (`Known.checked`);
  * until then the Connection is only linking.
@@ -88,5 +91,82 @@ export const statusOf = (status: ConnectionStatus) => {
       return `Tunnel broken: ${status.problem}`;
   }
 };
+
+/** The Plugin Code talks to. */
+const CODE = 'code';
+
+/**
+ * How the code Plugin stands when the app should say so: Updating while a
+ * new version downloads (how far, when known) or starts, or Crashed with
+ * its last lines and when it is tried again.
+ */
+export type PluginNotice =
+  | {
+      readonly _tag: 'Updating';
+      /** Bytes received and the total, while it downloads; null once it starts. */
+      readonly progress: {
+        readonly received: number;
+        readonly total: number | null;
+      } | null;
+    }
+  | {
+      readonly _tag: 'Crashed';
+      readonly log: ReadonlyArray<string>;
+      readonly retryAt: number;
+    };
+
+/** How the code Plugin stands, while it is not simply running; null too while the Connection is down, its report stale. */
+export const pluginNotice = (
+  connection: Connection | null,
+  now: number,
+): PluginNotice | null => {
+  if (connection === null || now - connection.lastSeen > DOWN_AFTER)
+    return null;
+  const state = connection.plugins[CODE];
+  switch (state?._tag) {
+    case 'Downloading':
+      return {
+        _tag: 'Updating',
+        progress: { received: state.received, total: state.total },
+      };
+    case 'Starting':
+      return { _tag: 'Updating', progress: null };
+    case 'Crashed':
+      return { _tag: 'Crashed', log: state.log, retryAt: state.retryAt };
+    default:
+      return null;
+  }
+};
+
+/** How `ke-connect` is updated on a computer. */
+export const UPDATE_COMMAND = 'npm i -g @kestack/connect@latest';
+
+/** A version's numbers, and whether it is a pre-release. */
+const partsOf = (version: string) => {
+  const [core = '', pre] = version.trim().replace(/^v/, '').split('-', 2);
+  return {
+    numbers: core.split('.').map((part) => Number.parseInt(part, 10) || 0),
+    pre: pre !== undefined,
+  };
+};
+
+/** Whether `version` is older than `than`, as semver orders them. */
+export const olderThan = (version: string, than: string) => {
+  const a = partsOf(version);
+  const b = partsOf(than);
+  for (let i = 0; i < Math.max(a.numbers.length, b.numbers.length); i++) {
+    const x = a.numbers[i] ?? 0;
+    const y = b.numbers[i] ?? 0;
+    if (x !== y) return x < y;
+  }
+  return a.pre && !b.pre;
+};
+
+/** The newer `ke-connect` the Connection should update to; null when it runs the latest, or none is known. */
+export const updateOf = (connection: Connection | null): string | null =>
+  connection?.latestVersion != null &&
+  olderThan(connection.version, connection.latestVersion)
+    ? connection.latestVersion
+    : null;
 
 export { addressOf };

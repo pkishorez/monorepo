@@ -12,9 +12,11 @@ import {
 } from '../../../../../../../../ui/controls/settings/index.ts';
 import { statusOf } from '../../../../../connection/link/index.ts';
 import {
+  ConnectionNotice,
   StandingDot,
   standingOf,
   useLock,
+  useNoticeClock,
 } from '../../../../../connection/link/index.ts';
 import { ConnectionCardLive, ConnectionTab } from './actor.ts';
 import { HarnessAccounts } from './accounts/index.ts';
@@ -29,7 +31,8 @@ type Connection = typeof ConnectionSchema.Type;
  * with a lock once its settings are said to be locked; on a wider screen
  * its tunnel and the version of Connect it runs under it; beside it
  * Forget, a quiet bin that turns the danger colour under the pointer,
- * which the list asks first; and its tabs, as Settings' own are drawn, of
+ * which the list asks first; while its code Plugin is Updating or stopped,
+ * or its `ke-connect` is out of date, what to know and do about it; and its tabs, as Settings' own are drawn, of
  * what it shows: Agents, each between rules its agents' accounts and its
  * Speech to Text switch, each as its Connection's setup holds it, so one that
  * does not answer says so in its own place; or Projects, every Project on
@@ -75,6 +78,7 @@ export const ConnectionCardView = View.make(
     const { touch } = useDevice();
     const open = Confirm.useOpen();
     const { connection } = props;
+    const now = useNoticeClock(connection);
     const onChoose = (tab: ConnectionTab) => send({ _tag: 'TabChosen', tab });
     const tabId = (each: ConnectionTab) =>
       `connection-${connection.id}-${each.toLowerCase()}-tab`;
@@ -98,6 +102,7 @@ export const ConnectionCardView = View.make(
             <Trash2Icon aria-hidden />
           </Button>
         </div>
+        <ConnectionNotice connection={connection} now={now} />
         <TabList label={`What ${connection.name} shows`} className="-mx-3">
           {ConnectionTab.literals.map((each) => (
             <Tab
