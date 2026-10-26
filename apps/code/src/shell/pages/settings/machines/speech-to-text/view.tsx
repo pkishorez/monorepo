@@ -1,24 +1,26 @@
 import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
-import { CircleAlertIcon } from '@kestack/web-platform/ui/components/lucide';
 import { Progress } from '@kestack/web-platform/ui/components/progress';
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { Switch } from '@kestack/web-platform/ui/components/switch';
+import { cn } from '@kestack/web-platform/ui/components/utils';
+import type { ReactNode } from 'react';
 import { useBound } from '../../../../../keys.ts';
 import { ago } from '../../../../../ui/time/index.ts';
 import { outOfReach } from '../../../../../layer/capabilities/index.ts';
-import { Locked, useHealth } from '../../../../machines/index.ts';
+import { useLock } from '../../../../machines/index.ts';
 import { SpeechToTextLive } from './actor.ts';
 
 /*
- * One Machine's Speech to Text switch, as the Machine says it stands, live:
- * off; downloading, with how much of the model is in and a bar; ready; or
- * failed, saying why, with a retry. Switched off, the model is deleted.
- * While the Machine's Line is not connected, it shows as last kept, the
- * switch off limits, with a lock and why beside it. Nothing shows while
- * what was kept is read; kept nowhere, until the Machine first says, a
- * quiet skeleton while it answers, and, while it does not, a line that
- * says so.
+ * One Machine's Speech to Text switch, in one calm layout whose size never
+ * changes: its name and the switch, then one line, and a thin bar kept
+ * under it that fills only while the model downloads. The line says what
+ * it does while off; downloading, how much is in; ready, how to dictate;
+ * failed or refused, why, with a retry. Switched off, the model is
+ * deleted. While the Machine's Line is not connected, it shows as last
+ * kept and the switch takes nothing. Kept nowhere, until the Machine
+ * first says, the line is a quiet skeleton while it answers, and, while it
+ * does not, says so.
  */
 
 const megabytes = (bytes: number) => `${Math.round(bytes / 1_000_000)} MB`;
@@ -26,114 +28,109 @@ const megabytes = (bytes: number) => `${Math.round(bytes / 1_000_000)} MB`;
 export const SpeechToTextView = View.make(
   SpeechToTextLive,
   ({ root, model, send }) => {
-    const health = useHealth(model.machineId);
+    const { health, locked } = useLock(model.machineId);
     const dictateKeys = useBound('app.dictateAnywhere');
     const { state } = model;
     const id = `speech-${model.machineId}`;
     const on = state !== null && state._tag !== 'Off';
-    const locked = health._tag !== 'Connected';
+    const downloading = state?._tag === 'Downloading' ? state : null;
+    const retry = (
+      <Button
+        variant="link"
+        size="xs"
+        type="button"
+        className="h-auto shrink-0 p-0"
+        disabled={model.switching || locked}
+        onClick={() => send({ _tag: 'Switch', on: true })}
+      >
+        Try again
+      </Button>
+    );
+    const said = (text: string, after?: ReactNode, role = 'status') => (
+      <p
+        role={role}
+        className={cn(
+          'flex min-w-0 items-center gap-2',
+          role === 'alert' && 'text-destructive',
+        )}
+      >
+        <span className="truncate" title={text}>
+          {text}
+        </span>
+        {after}
+      </p>
+    );
+    const line =
+      model.problem !== null ? (
+        said(model.problem, undefined, 'alert')
+      ) : state === null ? (
+        outOfReach(health) ? (
+          said(`Not answering, last seen ${ago(health.lastSeen)}`)
+        ) : (
+          <Skeleton aria-busy className="h-3 w-40" />
+        )
+      ) : state._tag === 'Off' ? (
+        said('Dictate by voice, with a 460 MB model on this Machine')
+      ) : state._tag === 'Downloading' ? (
+        said(
+          state.total === null
+            ? `Downloading the model, ${megabytes(state.done)} so far`
+            : `Downloading the model, ${megabytes(state.done)} of ${megabytes(state.total)}`,
+        )
+      ) : state._tag === 'Ready' ? (
+        said(
+          dictateKeys === null
+            ? 'Ready to dictate'
+            : `Ready · ${dictateKeys} dictates anywhere`,
+        )
+      ) : (
+        said(`Couldn't set it up: ${state.reason}`, retry, 'alert')
+      );
     return (
       <section
         {...root}
         aria-labelledby={`${id}-name`}
-        className="flex flex-col gap-3"
+        className="flex flex-col gap-1"
       >
-        <div className="flex items-start gap-3">
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <label
-              id={`${id}-name`}
-              htmlFor={id}
-              className="text-sm font-medium"
-            >
-              Speech to Text
-            </label>
-            <p className="text-xs text-muted-foreground">
-              Writes out Dictations on this Machine, with a 460 MB model it
-              downloads when on and deletes when off.
-            </p>
-          </div>
-          {locked && <Locked health={health} />}
-          {state !== null && (
-            // A finger's 44px to tap with no keyboard; with one, the
-            // switch alone.
-            <label
-              htmlFor={id}
-              className="-my-3 grid size-11 shrink-0 place-items-center keyboard:contents"
-            >
-              <Switch
-                id={id}
-                checked={on}
-                disabled={model.switching || locked}
-                onCheckedChange={(checked) =>
-                  send({ _tag: 'Switch', on: checked })
-                }
-                className="keyboard:mt-0.5"
-              />
-            </label>
-          )}
+        <div className="flex min-h-11 items-center gap-3 keyboard:min-h-8">
+          <label
+            id={`${id}-name`}
+            htmlFor={id}
+            className="flex-1 text-sm font-medium"
+          >
+            Speech to Text
+          </label>
+          {/* A finger's 44px to tap with no keyboard; with one, the switch alone. */}
+          <label
+            htmlFor={id}
+            className="-my-3 -mr-3 grid size-11 shrink-0 place-items-center keyboard:contents"
+          >
+            <Switch
+              id={id}
+              checked={on}
+              disabled={state === null || model.switching || locked}
+              onCheckedChange={(checked) =>
+                send({ _tag: 'Switch', on: checked })
+              }
+            />
+          </label>
         </div>
-        {state === null ? (
-          !model.savedRead ? null : outOfReach(health) ? (
-            <p role="status" className="text-sm text-muted-foreground">
-              Not answering, last seen {ago(health.lastSeen)}. Its Speech to
-              Text shows here once it is back.
-            </p>
-          ) : (
-            <Skeleton aria-busy className="h-4 w-40" />
-          )
-        ) : state._tag === 'Downloading' ? (
-          <div role="status" className="flex flex-col gap-1.5">
-            <p className="text-xs text-muted-foreground tabular-nums">
-              Downloading the model
-              {state.total === null
-                ? `, ${megabytes(state.done)} so far`
-                : `, ${megabytes(state.done)} of ${megabytes(state.total)}`}
-            </p>
+        <div className="flex h-4 items-center text-xs text-muted-foreground tabular-nums">
+          {line}
+        </div>
+        {/* Kept whether or not it downloads, so nothing moves when it starts. */}
+        <div className="mt-1 h-1.5">
+          {downloading !== null && (
             <Progress
               aria-label="Downloading the model"
               value={
-                state.total === null || state.total === 0
+                downloading.total === null || downloading.total === 0
                   ? null
-                  : Math.min(100, (state.done / state.total) * 100)
+                  : Math.min(100, (downloading.done / downloading.total) * 100)
               }
             />
-          </div>
-        ) : state._tag === 'Ready' ? (
-          <p role="status" className="text-xs text-muted-foreground">
-            Ready
-            {dictateKeys === null
-              ? '.'
-              : `: ${dictateKeys} starts a Dictation from anywhere in the app.`}
-          </p>
-        ) : state._tag === 'Failed' ? (
-          <p
-            role="alert"
-            className="flex items-center gap-2 text-sm text-destructive"
-          >
-            <CircleAlertIcon aria-hidden className="size-3.5 shrink-0" />
-            <span className="min-w-0 break-words">
-              Couldn't set it up: {state.reason}
-            </span>
-            <Button
-              variant="link"
-              size="xs"
-              type="button"
-              disabled={model.switching || locked}
-              onClick={() => send({ _tag: 'Switch', on: true })}
-            >
-              Try again
-            </Button>
-          </p>
-        ) : null}
-        {model.problem !== null && (
-          <p
-            role="alert"
-            className="flex items-center gap-2 text-sm text-destructive"
-          >
-            <CircleAlertIcon aria-hidden className="size-3.5 shrink-0" />
-            {model.problem}
-          </p>
-        )}
+          )}
+        </div>
       </section>
     );
   },

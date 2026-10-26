@@ -28,9 +28,9 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * live: nothing to switch until it says; off, with the switch off, and on
  * asks it to download; the download's progress; ready, with the switch
  * on, and off asks it to delete the model; failed, saying why, with a
- * retry. How it last stood, kept on this device, shows at once, and what
- * the Machine says replaces it and is kept. While its Line is not
- * connected, the switch is locked, and says why.
+ * retry. How it last stood, kept on this device and handed in, shows at
+ * once, and what the Machine says replaces it and is kept. While its Line
+ * is not connected, the switch takes nothing, and no "Locked" moves it.
  */
 
 const Owner = Actor.define('Owner', {
@@ -43,7 +43,7 @@ const OwnerLive = Actor.build(Owner, {
   children: {
     speech: {
       actor: SpeechToTextLive,
-      input: () => ({ machineId: 'm1', accountId: 'a1' }),
+      input: () => ({ machineId: 'm1', accountId: 'a1', kept: handed }),
     },
   },
   on: { Ping: (_, { model }) => ({ model: { pings: model.pings + 1 } }) },
@@ -70,6 +70,8 @@ type Api = CodeClient['Service'];
 let says: Queue.Queue<SpeechToTextState>;
 let switched: Array<'on' | 'off'> = [];
 let saved: Layer.Layer<SavedMachines>;
+/** What this device kept, handed in as it opens. */
+let handed: SpeechToTextState | null = null;
 
 /** What the Machine says of its Speech to Text, as `Machines` hands it on. */
 const machines = Layer.mock(Machines)({
@@ -122,12 +124,9 @@ const kept = () =>
     ),
   );
 
-const keep = (speech: SpeechToTextState) =>
-  Effect.runPromise(
-    Effect.flatMap(SavedMachines, (each) =>
-      each.keepSettings('a1', 'm1', { speech }),
-    ).pipe(Effect.provide(saved)),
-  );
+const keep = (speech: SpeechToTextState) => {
+  handed = speech;
+};
 
 const mount = async () => {
   const App = toReact(
@@ -159,6 +158,7 @@ beforeEach(() => {
   says = Effect.runSync(Queue.unbounded<SpeechToTextState>());
   switched = [];
   saved = savedMachinesMemory();
+  handed = null;
   line = 'connected';
   pings = 0;
 });
@@ -173,7 +173,7 @@ describe('Speech to Text switch', () => {
   beforeEach(mount);
 
   it('has nothing to switch until the Machine says how it stands', () => {
-    expect(toggle()).toBeNull();
+    expect(toggle()?.hasAttribute('data-disabled')).toBe(true);
     expect(document.querySelector('[aria-busy]')).not.toBeNull();
   });
 
@@ -232,7 +232,7 @@ describe('Speech to Text switch', () => {
 
 describe('Speech to Text, kept on this device', () => {
   it('shows how it last stood at once, with no skeleton, then what the Machine says', async () => {
-    await keep({ _tag: 'Ready' });
+    keep({ _tag: 'Ready' });
     await mount();
     expect(document.querySelector('[aria-busy]')).toBeNull();
     expect(toggle()?.getAttribute('aria-checked')).toBe('true');
@@ -242,15 +242,13 @@ describe('Speech to Text, kept on this device', () => {
     expect((await kept()).speech).toEqual({ _tag: 'Off' });
   });
 
-  it("is locked while the Machine's Line is not connected, and says why", async () => {
-    await keep({ _tag: 'Off' });
+  it("takes nothing while the Machine's Line is not connected, and says no Locked beside it", async () => {
+    keep({ _tag: 'Off' });
     line = 'reconnecting';
     await mount();
     expect(toggle()?.getAttribute('aria-checked')).toBe('false');
     expect(toggle()?.hasAttribute('data-disabled')).toBe(true);
-    expect(document.querySelector('[role="note"]')?.textContent).toContain(
-      'Locked',
-    );
+    expect(text()).not.toContain('Locked');
     await click(toggle()!);
     expect(switched).toEqual([]);
   });

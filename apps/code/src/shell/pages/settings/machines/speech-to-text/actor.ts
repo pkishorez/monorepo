@@ -12,8 +12,8 @@ import { keepSpeech, switchSpeechToText } from './commands.ts';
  * One Machine's Speech to Text switch (ADR 0017), over that Machine's own
  * socket.
  *
- * 1. Saved   how it last stood, as kept on this device for its Account,
- *            shown at once.
+ * 1. Kept    how it last stood, as kept on this device for its Account
+ *            and handed in, shown at once.
  * 2. Watch   how it stands, live, as `Machines` says it: off, downloading
  *            with how much of the model is in, ready, or failed. A Machine
  *            that does not answer says once it does; what it says
@@ -27,14 +27,17 @@ import { keepSpeech, switchSpeechToText } from './commands.ts';
 
 const SpeechToText = Actor.define('SpeechToText', {
   requires: [CodeClients, Machines, SavedMachines],
-  input: Schema.Struct({ machineId: Schema.String, accountId: Schema.String }),
+  input: Schema.Struct({
+    machineId: Schema.String,
+    accountId: Schema.String,
+    /** How this device kept it; null if it never heard. */
+    kept: Schema.NullOr(SpeechToTextState),
+  }),
   model: Schema.Struct({
     machineId: Schema.String,
     accountId: Schema.String,
     /** How it stands: as kept on this device, or as the Machine says; null before either. */
     state: Schema.NullOr(SpeechToTextState),
-    /** Whether what was kept on this device has been read. */
-    savedRead: Schema.Boolean,
     /** Whether the Machine has said since this was opened. */
     heard: Schema.Boolean,
     /** Whether a switch is on its way to the Machine. */
@@ -42,7 +45,6 @@ const SpeechToText = Actor.define('SpeechToText', {
     problem: Schema.NullOr(Schema.String),
   }),
   message: Schema.TaggedUnion({
-    SavedRead: { state: Schema.NullOr(SpeechToTextState) },
     Watched: { state: SpeechToTextState },
     Switch: { on: Schema.Boolean },
     Switched: {},
@@ -51,32 +53,17 @@ const SpeechToText = Actor.define('SpeechToText', {
 });
 
 export const SpeechToTextLive = Actor.build(SpeechToText, {
-  init: ({ machineId, accountId }) => ({
+  init: ({ machineId, accountId, kept }) => ({
     model: {
       machineId,
       accountId,
-      state: null,
-      savedRead: false,
+      state: kept,
       heard: false,
       switching: false,
       problem: null,
     },
   }),
   workers: {
-    // 1. Saved
-    saved: {
-      while: ({ model }) => !model.savedRead,
-      run: (self) =>
-        Effect.gen(function* () {
-          const { model } = yield* self.get;
-          const saved = yield* SavedMachines;
-          const { speech } = yield* saved.settings(
-            model.accountId,
-            model.machineId,
-          );
-          yield* self.send({ _tag: 'SavedRead', state: speech });
-        }),
-    },
     // 2. Watch
     watch: {
       run: (self) =>
@@ -91,14 +78,6 @@ export const SpeechToTextLive = Actor.build(SpeechToText, {
     },
   },
   on: {
-    // 1. Saved: what the Machine said, if it came first, stays.
-    SavedRead: ({ state }, { model }) => ({
-      model: {
-        ...model,
-        savedRead: true,
-        state: model.heard ? model.state : state,
-      },
-    }),
     // 2. Watch
     Watched: ({ state }, { model }) => {
       const progress =

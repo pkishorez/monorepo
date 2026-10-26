@@ -1,6 +1,6 @@
 import type { Machine as MachineSchema } from '@kestack/connect/code';
 import { createContext, use, useEffect, useState } from 'react';
-import { health } from '../../layer/capabilities/index.ts';
+import { health, outOfReach } from '../../layer/capabilities/index.ts';
 
 type Machine = typeof MachineSchema.Type;
 
@@ -70,6 +70,28 @@ export const useHealth = (machineId: string) => {
     return () => clearInterval(timer);
   }, [status]);
   return health(machine, status, now);
+};
+
+/** How long a Line may be on its way before a Machine's settings are said to be locked. */
+export const LOCK_GRACE = 4_000;
+
+/**
+ * Whether a Machine's settings can't be changed now, its Line not
+ * connected, and whether to say so: once it is out of reach, or its Line
+ * has been on its way for longer than `LOCK_GRACE`, so a Line connecting
+ * as the page opens is never called locked.
+ */
+export const useLock = (machineId: string) => {
+  const health = useHealth(machineId);
+  const locked = health._tag !== 'Connected';
+  const [late, setLate] = useState(false);
+  useEffect(() => {
+    setLate(false);
+    if (!locked) return;
+    const timer = setTimeout(() => setLate(true), LOCK_GRACE);
+    return () => clearTimeout(timer);
+  }, [locked]);
+  return { health, locked, said: locked && (late || outOfReach(health)) };
 };
 
 /** Every Machine's health at once, by its id, worked out again every few seconds while any is out of reach. */

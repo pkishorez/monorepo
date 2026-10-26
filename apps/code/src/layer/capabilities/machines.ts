@@ -24,6 +24,8 @@ export interface Known {
   readonly accountId: string | null;
   /** The list, saved or fetched; null before either. */
   readonly machines: ReadonlyArray<Machine> | null;
+  /** Whether the list kept on this device has been read, kept or not. */
+  readonly savedRead: boolean;
   /** When Cloud Connect last answered, epoch ms; null before it has. */
   readonly fetchedAt: number | null;
   /** Why the last ask failed, until one does not. */
@@ -42,6 +44,7 @@ export interface Known {
 export const nobody: Known = {
   accountId: null,
   machines: null,
+  savedRead: false,
   fetchedAt: null,
   problem: null,
   forgetting: null,

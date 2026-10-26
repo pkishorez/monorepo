@@ -21,7 +21,8 @@ import { drop, forget, keep, save } from './commands.ts';
  * that Account is signed in: the list, and a line to each Machine on it.
  *
  * 1. Saved    the list last kept for the Account shows first, so the app
- *             opens on its Machines even while Cloud Connect is out of reach.
+ *             opens on its Machines even while Cloud Connect is out of reach;
+ *             once read, kept or not, it says so.
  * 2. Fetch    then Cloud Connect's list, once, and again on Reload; each
  *             answer is kept for next time. The first answer keeps only
  *             the records of the Machines on it: a Machine gone from it
@@ -52,6 +53,8 @@ const Line = Schema.Literals(['connecting', 'connected', 'reconnecting']);
 const Model = Schema.Struct({
   accountId: Schema.String,
   machines: Schema.NullOr(Schema.Array(Machine)),
+  /** Whether the list kept on this device has been read, kept or not. */
+  savedRead: Schema.Boolean,
   fetchedAt: Schema.NullOr(Schema.Number),
   fetching: Schema.Boolean,
   problem: Schema.NullOr(Schema.String),
@@ -86,7 +89,7 @@ export const MachineList = Actor.define('MachineList', {
   }),
   model: Model,
   message: Schema.TaggedUnion({
-    Saved: { machines: Schema.Array(Machine) },
+    Saved: { machines: Schema.NullOr(Schema.Array(Machine)) },
     Fetched: { machines: Schema.Array(Machine), at: Schema.Number },
     Failed: { problem: Schema.String },
     ReloadAsked: {},
@@ -114,6 +117,7 @@ export const MachineListLive = Actor.build(MachineList, {
     model: {
       accountId,
       machines: null,
+      savedRead: false,
       fetchedAt: null,
       fetching: true,
       problem: null,
@@ -126,12 +130,12 @@ export const MachineListLive = Actor.build(MachineList, {
   workers: {
     // 1. Saved
     saved: {
-      while: ({ model }) => model.machines === null,
+      while: ({ model }) => !model.savedRead,
       run: (self) =>
         Effect.gen(function* () {
           const { model } = yield* self.get;
           const machines = yield* (yield* SavedMachines).read(model.accountId);
-          if (machines !== null) yield* self.send({ _tag: 'Saved', machines });
+          yield* self.send({ _tag: 'Saved', machines });
         }),
     },
     // 2. Fetch
@@ -172,6 +176,7 @@ export const MachineListLive = Actor.build(MachineList, {
             Stream.map(({ model }) => ({
               accountId: model.accountId,
               machines: model.machines,
+              savedRead: model.savedRead,
               fetchedAt: model.fetchedAt,
               problem: model.problem,
               forgetting: model.forgetting,
@@ -193,8 +198,13 @@ export const MachineListLive = Actor.build(MachineList, {
     },
   },
   on: {
-    Saved: ({ machines }, { model }) =>
-      model.machines === null ? { model: { ...model, machines } } : {},
+    Saved: ({ machines }, { model }) => ({
+      model: {
+        ...model,
+        savedRead: true,
+        machines: model.machines ?? machines,
+      },
+    }),
     Fetched: ({ machines, at }, { model }) => ({
       model: {
         ...model,

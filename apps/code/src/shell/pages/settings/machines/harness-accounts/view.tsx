@@ -8,18 +8,17 @@ import {
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { ago } from '../../../../../ui/time/index.ts';
 import { outOfReach } from '../../../../../layer/capabilities/index.ts';
-import { useHealth } from '../../../../machines/index.ts';
+import { useLock } from '../../../../machines/index.ts';
 import { HarnessAccountsLive } from './actor.ts';
 import { Card } from './card/index.ts';
 
 /*
- * One Machine's agent accounts, by agent: its name and a quiet button that
- * adds another login of it, then a row per account (card/), its Default
- * Account first and the one being added last. While the Machine's Line is
- * not connected, the rows show as last kept, each locked saying why, and
- * none is added. Nothing shows while what was kept is read; kept nowhere,
- * a quiet skeleton of the rows while the Machine answers, and, while it
- * does not, a line that says so.
+ * One Machine's agent accounts, by agent: a row per account (card/), its
+ * Default Account first and the one being added last, then a quiet button
+ * that adds another login of it. While the
+ * Machine's Line is not connected, the rows show as last kept and take no
+ * tap, and none is added. Kept nowhere, a quiet skeleton of the rows while
+ * the Machine answers, and, while it does not, a line that says so.
  */
 
 type Harness = HarnessAccountInfo['harness'];
@@ -47,8 +46,7 @@ export const HarnessAccountsView = View.make(
       if (index === -1) return accounts.length + 1;
       return accounts[index]!.isDefault ? -1 : index;
     };
-    const health = useHealth(model.machineId);
-    const locked = health._tag !== 'Connected';
+    const { health, locked } = useLock(model.machineId);
     const problem = model.loadProblem !== null && (
       <p
         role="alert"
@@ -68,9 +66,9 @@ export const HarnessAccountsView = View.make(
     );
     return (
       <div {...root} className="flex flex-col gap-3">
-        <h3 className="text-xs font-medium text-muted-foreground">Agents</h3>
+        <h4 className="text-sm font-medium">Agents</h4>
         {model.accounts !== null ? (
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-2">
             {problem}
             {agents(model.accounts, model.adding).map((harness) => {
               const name = Card.agentName(harness);
@@ -81,34 +79,30 @@ export const HarnessAccountsView = View.make(
                 <section
                   key={harness}
                   aria-label={name}
-                  className="flex flex-col gap-2"
+                  className="flex flex-col"
                 >
-                  <div className="flex min-h-11 items-center gap-2 keyboard:min-h-8">
-                    <h4 className="flex-1 text-sm font-semibold">{name}</h4>
-                    {model.adding === null && !locked && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`Add a ${name} account`}
-                        className="h-11 text-muted-foreground keyboard:h-8"
-                        onClick={() => send({ _tag: 'AddAsked', harness })}
-                      >
-                        <PlusIcon aria-hidden />
-                        Add account
-                      </Button>
-                    )}
-                  </div>
-                  <div className="flex flex-col divide-y divide-border *:py-3 *:first:pt-0 *:last:pb-0">
-                    {cards.map((card) => (
-                      <Card.view key={card.key} instance={card} />
-                    ))}
-                  </div>
+                  {cards.map((card) => (
+                    <Card.view key={card.key} instance={card} />
+                  ))}
+                  {model.adding === null && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Add ${name} account`}
+                      disabled={locked}
+                      className="-ml-2.5 h-11 self-start text-muted-foreground keyboard:h-8"
+                      onClick={() => send({ _tag: 'AddAsked', harness })}
+                    >
+                      <PlusIcon aria-hidden />
+                      Add {name} account
+                    </Button>
+                  )}
                 </section>
               );
             })}
           </div>
-        ) : !model.savedRead ? null : model.loadProblem !== null ? (
+        ) : model.loadProblem !== null ? (
           problem
         ) : outOfReach(health) ? (
           <p role="status" className="text-sm text-muted-foreground">
@@ -116,11 +110,11 @@ export const HarnessAccountsView = View.make(
             here once it is back.
           </p>
         ) : (
-          <div className="flex flex-col gap-5" aria-busy>
+          <div className="flex flex-col gap-4" aria-busy>
             {['claude', 'codex'].map((name) => (
               <div key={name} className="flex flex-col gap-2">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-3 w-64" />
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-9 w-full" />
               </div>
             ))}
           </div>

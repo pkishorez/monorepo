@@ -2,15 +2,16 @@ export { MachineList } from './machine-list/index.ts';
 export {
   Connection,
   PageMachine,
+  LOCK_GRACE,
   useHealth,
   useHealths,
+  useLock,
   useMachineId,
   useMachines,
   useMachineName,
   useOffline,
 } from './connection.ts';
 export {
-  Locked,
   pillOf,
   shortOf,
   type Standing,
