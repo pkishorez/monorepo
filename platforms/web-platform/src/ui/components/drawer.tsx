@@ -6,6 +6,10 @@ import { cn } from "cn"
 
 type DrawerContextProps = {
   hasSnapPoints: boolean
+  /** Opened inside a Drawer whose backdrop already dims the page. */
+  dimmedAbove: boolean
+  /** It, or one it is inside, dims the page: a modal Drawer's backdrop does. */
+  dims: boolean
   modal: DrawerPrimitive.Root.Props["modal"]
   showSwipeHandle: boolean
   swipeDirection: NonNullable<DrawerPrimitive.Root.Props["swipeDirection"]>
@@ -33,9 +37,18 @@ function Drawer({
   showSwipeHandle?: boolean
 }) {
   const hasSnapPoints = snapPoints != null && snapPoints.length > 0
+  const dimmedAbove = React.useContext(DrawerContext)?.dims ?? false
+  const dims = dimmedAbove || modal === true
   const contextValue = React.useMemo(
-    () => ({ hasSnapPoints, modal, showSwipeHandle, swipeDirection }),
-    [hasSnapPoints, modal, showSwipeHandle, swipeDirection]
+    () => ({
+      hasSnapPoints,
+      dimmedAbove,
+      dims,
+      modal,
+      showSwipeHandle,
+      swipeDirection,
+    }),
+    [hasSnapPoints, dimmedAbove, dims, modal, showSwipeHandle, swipeDirection]
   )
 
   return (
@@ -101,15 +114,26 @@ function DrawerContent({
   children,
   ...props
 }: DrawerPrimitive.Popup.Props) {
-  const { hasSnapPoints, modal, showSwipeHandle, swipeDirection } = useDrawer()
+  const { hasSnapPoints, dimmedAbove, modal, showSwipeHandle, swipeDirection } =
+    useDrawer()
   const swipeAxis =
     swipeDirection === "down" || swipeDirection === "up" ? "y" : "x"
 
   return (
     <DrawerPortal data-slot="drawer-portal">
-      {/* Drawn for a Drawer over another too, so what is under it dims. */}
+      {/* Drawn for a Drawer over another too, so a tap outside still
+          closes it; clear when one it is inside already dims the page
+          and dims itself, so the two never stack to near black. */}
       {modal === true && (
-        <DrawerOverlay forceRender data-snap-points={hasSnapPoints ? "" : undefined} />
+        <DrawerOverlay
+          forceRender
+          data-snap-points={hasSnapPoints ? "" : undefined}
+          className={
+            dimmedAbove
+              ? "bg-transparent dark:bg-transparent supports-backdrop-filter:backdrop-blur-none"
+              : undefined
+          }
+        />
       )}
       <DrawerPrimitive.Viewport
         data-slot="drawer-viewport"
