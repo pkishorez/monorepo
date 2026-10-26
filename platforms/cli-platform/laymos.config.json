@@ -1,0 +1,11 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": [],
+  "fileModules": [],
+  "rules": {
+    "src/plugins": ["src/files"],
+    "src/plugins/actor-plugin": ["src/plugins/contract"],
+    "src/plugins/plugin": ["src/plugins/contract"]
+  }
+}

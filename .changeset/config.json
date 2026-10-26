@@ -18,6 +18,7 @@
     [
       "@kestack/ai-toolkit",
       "@kestack/auth-toolkit",
+      "@kestack/cli-platform",
       "@kestack/connect",
       "@kestack/rpc-toolkit",
       "@kestack/std-toolkit",

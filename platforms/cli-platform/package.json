@@ -1,0 +1,66 @@
+{
+  "name": "@kestack/cli-platform",
+  "version": "0.0.4",
+  "private": false,
+  "description": "What every kestack CLI needs on a computer: its folders, one shared copy of each download, one process per name, and Plugins kept running at the version asked for.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo",
+    "directory": "platforms/cli-platform"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    "./files": {
+      "types": "./dist/files/index.d.ts",
+      "default": "./dist/files/index.js"
+    },
+    "./plugins": {
+      "types": "./dist/plugins/index.d.ts",
+      "default": "./dist/plugins/index.js"
+    },
+    "./plugins/plugin": {
+      "types": "./dist/plugins/plugin/index.d.ts",
+      "default": "./dist/plugins/plugin/index.js"
+    },
+    "./single": {
+      "types": "./dist/single/index.d.ts",
+      "default": "./dist/single/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "fmt": "vp fmt",
+    "lint": "vp check && tsc --noEmit && pnpm lint:laymos",
+    "lint:laymos": "laymos lint",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@effect/platform-node": "catalog:"
+  },
+  "devDependencies": {
+    "@kestack/kabuki": "workspace:*",
+    "@kestack/std-toolkit": "workspace:*",
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "effect": "catalog:",
+    "laymos": "workspace:*",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "@kestack/kabuki": "workspace:*",
+    "@kestack/std-toolkit": "workspace:*",
+    "effect": "^4.0.0"
+  }
+}
