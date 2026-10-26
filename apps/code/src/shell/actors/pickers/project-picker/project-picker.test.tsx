@@ -37,8 +37,20 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  */
 
 const RECENT = [
-  { machineId: 'm1', id: 'p1', name: 'monorepo', path: '/home/me/monorepo' },
-  { machineId: 'm1', id: 'p2', name: 'notes', path: '/home/me/notes' },
+  {
+    machineId: 'm1',
+    id: 'p1',
+    name: 'monorepo',
+    path: '/home/me/monorepo',
+    missing: false,
+  },
+  {
+    machineId: 'm1',
+    id: 'p2',
+    name: 'notes',
+    path: '/home/me/notes',
+    missing: false,
+  },
 ];
 
 const Owner = Actor.define('Owner', {
@@ -277,6 +289,21 @@ describe('the Project Picker', () => {
     },
   );
 
+  it('shows a Project whose folder is missing so, and never opens it', async () => {
+    await act(async () => editor().focus());
+    await key('o');
+    await act(async () => read([{ ...RECENT[0]!, missing: true }, RECENT[1]!]));
+    await flush();
+    const gone = [
+      ...document.querySelectorAll<HTMLButtonElement>('[cmdk-item]'),
+    ].find((each) => each.textContent?.includes('monorepo'));
+    expect(gone?.textContent).toContain('Folder missing');
+    expect(gone?.getAttribute('aria-disabled') ?? gone?.disabled).toBeTruthy();
+    // The highlight skips it: Enter opens the next one.
+    await key('Enter');
+    expect(pushed).toEqual([project('m1', 'p2')]);
+  });
+
   it('goes back to the sidebar when closed without a choice', async () => {
     await openFromSidebar('keys');
     await key('Escape');
@@ -308,7 +335,13 @@ describe('the Project Picker on more than one Machine', () => {
     expect(placeholder()).toBe('Search projects, or a folder under home');
     await act(async () =>
       read([
-        { machineId: 'm2', id: 'p9', name: 'site', path: '/home/me/site' },
+        {
+          machineId: 'm2',
+          id: 'p9',
+          name: 'site',
+          path: '/home/me/site',
+          missing: false,
+        },
       ]),
     );
     await flush();
