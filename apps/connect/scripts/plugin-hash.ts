@@ -1,8 +1,8 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { CODE_BUNDLE, sha256 } from '../infra/plugins.ts';
 
-/* Prints the sha256 of the code Plugin's bundle: the hash Connect is told to run. */
+/* Prints the sha256 of the code Plugin's bundle: the hash a deploy names, as infra/plugins.ts works it out. */
 
-const file = new URL('../dist/plugin/code.mjs', import.meta.url);
-const hash = createHash('sha256').update(readFileSync(file)).digest('hex');
-process.stdout.write(`${hash}  dist/plugin/code.mjs\n`);
+process.stdout.write(
+  `${sha256(readFileSync(CODE_BUNDLE))}  dist/plugin/code.mjs\n`,
+);

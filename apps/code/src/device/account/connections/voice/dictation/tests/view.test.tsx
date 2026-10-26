@@ -123,6 +123,7 @@ const services = () =>
                 lastSeen: 1,
                 plugins: {},
                 wanted: {},
+                latestVersion: null,
               },
             ],
             links: { m1: 'linked' },

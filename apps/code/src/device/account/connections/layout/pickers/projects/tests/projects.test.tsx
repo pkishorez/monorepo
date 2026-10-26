@@ -123,6 +123,7 @@ const connection = (id: string, name: string) => ({
   lastSeen: 1,
   plugins: {},
   wanted: {},
+  latestVersion: null,
 });
 
 // One Connection unless a test lists more, and every Connection shown unless it filters.

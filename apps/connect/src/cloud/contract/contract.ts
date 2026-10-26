@@ -124,7 +124,10 @@ export type ConnectionReport = typeof ConnectionReport.Type;
  * A Connection as its User sees it: what it last reported, and its Last
  * Seen. v2 adds where each Plugin stands, as it last reported, and
  * `wanted`: the version of each Plugin Cloud Connect wants it to run, which
- * the answer to its Report tells it.
+ * the answer to its Report tells it. v3 adds `latestVersion`: the version
+ * of Connect Cloud Connect was deployed with, so an App can tell the
+ * Connection runs an older `ke-connect`; null when it was not told, as
+ * before v3.
  */
 export const Connection = ESchema.make('Connection', {
   ...reportFields,
@@ -138,6 +141,13 @@ export const Connection = ESchema.make('Connection', {
       wanted: Schema.Record(Schema.String, PluginVersion),
     },
     (v1) => ({ ...v1, plugins: {}, wanted: {} }),
+  )
+  .evolve(
+    'v3',
+    {
+      latestVersion: Schema.NullOr(Schema.String.check(Schema.isMaxLength(32))),
+    },
+    (v2) => ({ ...v2, latestVersion: null }),
   )
   .build();
 export type Connection = typeof Connection.Type;

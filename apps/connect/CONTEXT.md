@@ -9,7 +9,7 @@ How a computer is connected to the cloud so that its User can reach it from outs
 _Avoid_: daemon (for now: it is not a background service), agent, server
 
 **Cloud Connect**:
-The cloud part of Connect: where a Connection signs in and sends its Heartbeats, and what keeps each User's Connections. A UI asks it for the Connections and then talks to each Connection itself.
+The cloud part of Connect: where a Connection signs in and sends its Heartbeats, what keeps each User's Connections, and where each Plugin's files are downloaded from. A UI asks it for the Connections and then talks to each Connection itself.
 _Avoid_: Connect Cloud, Connect Service, Connections Backend, registry
 
 **App**:

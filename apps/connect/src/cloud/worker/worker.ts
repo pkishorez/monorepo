@@ -15,7 +15,7 @@ import {
   CloudApi,
   RPC_PATH,
 } from '../contract/index.js';
-import { Registry, type Wanted } from './registry/index.js';
+import { Registry, type Release, type Wanted } from './registry/index.js';
 import { connectionsTable } from './storage/index.js';
 
 /*
@@ -27,7 +27,11 @@ import { connectionsTable } from './storage/index.js';
  * - `POST /rpc` is the RPC. The caller is checked by auth-toolkit's Guard,
  *   asking the Auth Worker; a call with no Sign-in is refused
  *   Unauthenticated. Every Connection is told `plugins`, the version of
- *   each Plugin it should run; none unless given.
+ *   each Plugin it should run, none unless given, and `connectVersion`, the
+ *   version of Connect it was deployed with, null unless given.
+ * - `GET /plugins/<name>/<sha256>.mjs` answers that Plugin's file from
+ *   `files`, to anyone, cached for good: a file is named by its hash, so it
+ *   never changes. Anything else there, or no `files`, is 404.
  * - Apps are on other origins of the same site: an origin matching one of
  *   `origins` (patterns, see cloud/contract) may call `/rpc` with credentials,
  *   its own origin echoed back, and its preflight is answered here, since
@@ -41,16 +45,47 @@ import { connectionsTable } from './storage/index.js';
  * `D1.table(connectionsTable)`.
  */
 
-/** The calls' handlers, telling every Connection the Plugins `wanted`. */
-const handlers = (wanted: Wanted) =>
+/** Where the Plugins' files are kept: an R2 bucket, or anything that answers `get` alike. */
+export interface PluginFiles {
+  readonly get: (
+    key: string,
+  ) => Promise<{ readonly body: ReadableStream | null } | null>;
+}
+
+/** A Plugin's file: its name and sha256. */
+const PLUGIN_FILE = /^\/plugins\/([a-z0-9-]{1,64})\/([a-f0-9]{64})\.mjs$/;
+
+/** A Plugin's file never changes: its name is its hash. */
+const IMMUTABLE = 'public, max-age=31536000, immutable';
+
+/** Answers `GET /plugins/<name>/<sha256>.mjs` from `files`; 404 for anything else. */
+const pluginFile = async (
+  pathname: string,
+  files: PluginFiles | undefined,
+): Promise<Response> => {
+  const notFound = () => new Response('Not found', { status: 404 });
+  if (files === undefined || !PLUGIN_FILE.test(pathname)) return notFound();
+  const found = await files.get(pathname.slice(1));
+  if (found === null || found.body === null) return notFound();
+  return new Response(found.body, {
+    headers: {
+      'content-type': 'text/javascript; charset=utf-8',
+      'cache-control': IMMUTABLE,
+      'access-control-allow-origin': '*',
+    },
+  });
+};
+
+/** The calls' handlers, telling every Connection the `release`. */
+const handlers = (release: Release) =>
   CloudApi.toLayer({
     Report: (input) =>
       Effect.flatMap(Authz.User, (principal) =>
-        Registry.report(principal, input, wanted),
+        Registry.report(principal, input, release),
       ),
     List: () =>
       Effect.flatMap(Authz.User, (principal) =>
-        Registry.list(principal, wanted),
+        Registry.list(principal, release),
       ),
     Forget: ({ id }) =>
       Effect.flatMap(Authz.User, (principal) => Registry.forget(principal, id)),
@@ -80,12 +115,18 @@ export const serveOver = (options: {
   readonly origins: ReadonlyArray<string>;
   readonly driver: SQLiteDriver;
   readonly plugins?: Wanted;
+  readonly connectVersion?: string;
+  readonly files?: PluginFiles;
 }) => {
   const table = SQLite.make(connectionsTable, { database: options.driver });
+  const release: Release = {
+    plugins: options.plugins ?? {},
+    connectVersion: options.connectVersion ?? null,
+  };
   const answer = server(
     CloudApi,
     Layer.mergeAll(
-      handlers(options.plugins ?? {}).pipe(Layer.provide(table.layer)),
+      handlers(release).pipe(Layer.provide(table.layer)),
       options.guard,
     ),
   );
@@ -103,6 +144,8 @@ export const serveOver = (options: {
           'access-control-allow-origin': '*',
         },
       });
+    if (pathname.startsWith('/plugins/') && request.method === 'GET')
+      return pluginFile(pathname, options.files);
     if (pathname !== RPC_PATH)
       return new Response('Not found', { status: 404 });
     const origin = request.headers.get('origin');
@@ -125,20 +168,24 @@ export const serveOver = (options: {
 /**
  * Cloud Connect on a Worker's D1 binding `database`: callers sign in
  * through the Auth Worker `auth` names, pages on `origins` may call with
- * credentials, and every Connection is told to run `plugins`.
+ * credentials, every Connection is told to run `plugins` and that Connect
+ * is at `connectVersion`, and the Plugins' files are served from `files`.
  */
 export const serve = <Statement extends D1Statement<Statement>>(options: {
   readonly auth: AuthOptions;
   readonly origins: ReadonlyArray<string>;
   readonly database: D1SQLiteConfig<Statement>['database'];
   readonly plugins?: Wanted;
-}) =>
-  serveOver({
-    guard: auth.rpc(options.auth),
-    authInfo: { url: options.auth.url },
-    origins: options.origins,
-    driver: makeD1SQLite({ database: options.database }),
-    ...(options.plugins === undefined ? {} : { plugins: options.plugins }),
+  readonly connectVersion?: string;
+  readonly files?: PluginFiles;
+}) => {
+  const { auth: authOptions, database, ...rest } = options;
+  return serveOver({
+    ...rest,
+    guard: auth.rpc(authOptions),
+    authInfo: { url: authOptions.url },
+    driver: makeD1SQLite({ database }),
   });
+};
 
 export { connectionsTable } from './storage/index.js';
