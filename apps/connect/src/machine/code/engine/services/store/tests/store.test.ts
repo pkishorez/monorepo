@@ -100,4 +100,42 @@ describe('Store', () => {
         expect(items.map((each) => each.meta._d)).toEqual([true]);
       }),
     ));
+
+  it("tombstones a removed Project's Sessions, only its own, and never writes them back", () =>
+    run(
+      Effect.gen(function* () {
+        const store = yield* Store;
+        yield* store.saveProject({
+          id: 'p1',
+          path: '/x',
+          name: 'x',
+          createdAt: 1,
+        });
+        yield* store.saveProject({
+          id: 'p2',
+          path: '/y',
+          name: 'y',
+          createdAt: 1,
+        });
+        yield* store.saveSession(session);
+        yield* store.saveSession({ ...session, id: 's2', status: 'running' });
+        yield* store.saveSession({ ...session, id: 's3', projectId: 'p2' });
+        expect(yield* store.removeProject('p1')).toBe(true);
+        expect((yield* store.allSessions).map(({ id }) => id)).toEqual(['s3']);
+        expect(yield* store.session('s1')).toBeNull();
+        const { items } = yield* store.sessions.after(null);
+        expect(
+          items.map(({ value, meta }) => [value.id, meta._d]).sort(),
+        ).toEqual([
+          ['s1', true],
+          ['s2', true],
+          ['s3', false],
+        ]);
+        yield* store.saveSession({ ...session, title: 'Again' });
+        expect((yield* store.sessions.after(null)).items).toHaveLength(3);
+        expect(yield* store.removeSession('s1')).toBe(false);
+        expect(yield* store.removeSession('s3')).toBe(true);
+        expect(yield* store.allSessions).toEqual([]);
+      }),
+    ));
 });
