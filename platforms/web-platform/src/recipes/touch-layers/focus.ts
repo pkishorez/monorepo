@@ -8,7 +8,7 @@ import { type RefObject, useEffect, useRef } from 'react';
  * keyboard up until the layer's own field takes focus from it.
  */
 
-const isField = (element: Element | null): element is HTMLElement =>
+export const isField = (element: EventTarget | null): element is HTMLElement =>
   element instanceof HTMLElement &&
   (element.isContentEditable ||
     /^(INPUT|TEXTAREA|SELECT)$/.test(element.tagName));

@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { raiseKeyboard, useFieldAtPress, useFocusOnOpen } from './focus.ts';
 import { useLastLook } from './last-look.ts';
+import { useSettled } from './settled.ts';
 import { SwipeDown } from './swipe-down.tsx';
 import { useVisibleViewport } from './visible-viewport.ts';
 
@@ -28,7 +29,10 @@ import { useVisibleViewport } from './visible-viewport.ts';
  *                `tall`, three quarters of the screen whatever is in it, so
  *                a long list never changes its height as it loads; with
  *                the on-screen keyboard up, it sits above it, in the part
- *                of the page left visible.
+ *                of the page left visible. Once risen, a Drawer holding a
+ *                field is Settled (`settled.ts`): the keyboard and the
+ *                page's scroll move and size it at once, never by its
+ *                transition, and only a swipe or closing animates it.
  * 2. Top Dialog  a list worth searching: at the top, under the status bar,
  *                its search above the list, so the keyboard never covers a
  *                row. No motion, and no swipe closes it. A tap outside
@@ -77,7 +81,7 @@ const THUMB = cn(
   // A row is a finger's 44px, no taller, as a phone's own lists are.
   '**:data-[slot=command-item]:min-h-11 **:data-[slot=command-item]:items-center **:data-[slot=command-item]:gap-3 **:data-[slot=command-item]:rounded-lg **:data-[slot=command-item]:px-3 **:data-[slot=command-item]:py-1.5 **:data-[slot=command-item]:text-[15px]',
   '**:data-[slot=command-item]:data-selected:bg-transparent **:data-[slot=command-item]:active:bg-muted',
-  '**:data-[slot=input-group]:h-12! **:[input]:text-base',
+  '**:data-[slot=input-group]:h-12! **:[input]:text-base **:[textarea]:text-base',
 );
 
 // Which layer a header is in: a Top Dialog's has a close button.
@@ -94,12 +98,19 @@ export function Drawer({
   const { live, look } = useLastLook(open);
   const visible = useVisibleViewport(open && tall);
   const popup = useRef<HTMLDivElement>(null);
+  const { settled, onOpenChangeComplete, onFocus } = useSettled(popup);
   return (
-    <DrawerRoot open={open} onOpenChange={onOpenChange}>
+    <DrawerRoot
+      open={open}
+      onOpenChange={onOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
+    >
       <DrawerContent
         ref={popup}
         style={visible}
         data-slot="touch-drawer"
+        data-settled={settled ? '' : undefined}
+        onFocus={onFocus}
         aria-label={label}
         initialFocus={false}
         finalFocus={false}
@@ -108,6 +119,8 @@ export function Drawer({
           // shadow and a hairline, with rounder top corners.
           'bg-background [--drawer-bleed-background:var(--color-background)] border-border/60 shadow-[0_-1px_2px_rgb(0_0_0/0.06),0_-8px_32px_rgb(0_0_0/0.18)] data-[swipe-direction=down]:rounded-t-[20px]',
           'pb-[max(0.5rem,env(safe-area-inset-bottom))] motion-reduce:transition-none sm:mx-auto sm:max-w-lg',
+          // Settled, only a swipe and closing move it: the keyboard, at once.
+          'motion-safe:data-settled:transition-transform',
           tall &&
             // Above the keyboard, and gone past it as it slides away.
             'h-[min(75dvh,calc(var(--visible-height,100dvh)-env(safe-area-inset-top)-0.5rem))] max-h-none data-[swipe-direction=down]:bottom-(--visible-bottom,0px) data-[swipe-direction=down]:[--closed-transform:translate3d(0,calc(100%+var(--visible-bottom,0px)+var(--drawer-inset,0px)+2px),0)]',
