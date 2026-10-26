@@ -9,6 +9,7 @@ import type {
   Entry,
   LiveInstance,
   Needs,
+  Provided,
   Running,
   SavedHistory,
   Snapshot,
@@ -89,6 +90,8 @@ export interface AppRuntime<A = AnyActor> {
   readonly clear: () => void;
   /** What an Instance's Workers are doing now. Empty while stopped. */
   readonly workers: (instance: string) => ReadonlyArray<WorkerStatus>;
+  /** The Capabilities an Instance provides to everything under it now, by key. Empty while stopped. */
+  readonly provided: (instance: string) => Provided;
   /** The root Instance, typed and live, Sending from outside named `from`; `null` until the Runtime starts. */
   readonly instance: (options: {
     readonly from: string;
@@ -401,6 +404,8 @@ export const toReact = <A extends AnyActor, Provided>(
         stop,
         clear,
         workers: (instance) => runtime?.workers(instance) ?? NO_WORKERS,
+        provided: (instance) =>
+          runtime?.provided(instance) ?? { top: [], state: [] },
         instance: (options) => runtime?.instance(options) ?? null,
         failure,
       };

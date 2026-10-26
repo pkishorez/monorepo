@@ -5,6 +5,7 @@ import { Actor, Runtime } from '../index.ts';
 import {
   Server,
   Session,
+  SignIn,
   Todos,
   AuthState,
   Auth,
@@ -29,6 +30,19 @@ describe('Provides', () => {
         app.send('Auth', { _tag: 'Renamed', user: 'grace' });
         yield* settle;
         expect(built).toEqual(['ada']);
+      }),
+    ));
+
+  it('says what an Instance provides now, at its top and in its State', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* started;
+        yield* settle;
+        expect(app.provided('Auth')).toEqual({ top: [], state: [SignIn.key] });
+        app.send('Auth', { _tag: 'LoggedIn', user: 'ada' });
+        yield* settle;
+        expect(app.provided('Auth')).toEqual({ top: [], state: [Session.key] });
+        expect(app.provided('nobody')).toEqual({ top: [], state: [] });
       }),
     ));
 });
