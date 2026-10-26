@@ -27,15 +27,23 @@ import { keepHarnessAccounts } from './commands.ts';
  *           shown, and is kept. A card changed while it is asked asks
  *           again, so an answer older than the change never undoes it.
  * 3. Cards  one per account, and one for the account being added, keyed by
- *           the account's id or `new`; each edits, saves and removes its
- *           own (card/), and tells the list what the Machine did
- *           (AccountList), which keeps the list as it now stands.
- * 4. Add    a card for another login of one agent, until it is saved or
- *           cancelled.
+ *           the account's id or `new-` and its agent; each edits, saves
+ *           and removes its own (card/), and tells the list what the
+ *           Machine did (AccountList), which keeps the list as it now
+ *           stands. One card is open at a time: tapping its row opens it,
+ *           and again closes it; saved, cancelled or removed, it closes.
+ * 4. Add    a card for another login of one agent, open, until it is
+ *           saved, or closed unsaved, as another opens.
  */
 
-/** The key of the card of the account being added. */
-const NEW = 'new';
+/**
+ * The key of the card of the account being added for `harness`, which no
+ * account's id, its agent's name alone or with a ULID after it, can be.
+ */
+export const newKeyOf = (harness: Harness) => `new-${harness}`;
+const isNew = (key: string) => key.startsWith('new-');
+
+type Harness = typeof HarnessInfo.fields.harness.Type;
 
 const Model = Schema.Struct({
   machineId: Schema.String,
@@ -49,7 +57,10 @@ const Model = Schema.Struct({
   loadProblem: Schema.NullOr(Schema.String),
   /** The agent of the account being added, while its card is open. */
   adding: Schema.NullOr(HarnessInfo.fields.harness),
+  /** The key of the card open, if any. */
+  open: Schema.NullOr(Schema.String),
 });
+type Model = typeof Model.Type;
 
 const HarnessAccounts = Actor.define('HarnessAccounts', {
   requires: [CodeClients, SavedMachines],
@@ -67,23 +78,40 @@ const HarnessAccounts = Actor.define('HarnessAccounts', {
     },
     Refused,
     Retry: {},
+    Toggled: { key: Schema.String },
+    Closed: { key: Schema.String },
     AddAsked: { harness: HarnessInfo.fields.harness },
-    AddCancelled: {},
     AccountSaved: { key: Schema.String, account: HarnessAccountInfo },
     AccountRemoved: { id: Schema.String },
   }),
 });
 
 /** The Machine's accounts as they now stand, kept for its Account. */
-const keep = (
-  model: typeof Model.Type,
-  accounts: ReadonlyArray<HarnessAccountInfo>,
-) =>
+const keep = (model: Model, accounts: ReadonlyArray<HarnessAccountInfo>) =>
   keepHarnessAccounts({
     accountId: model.accountId,
     machineId: model.machineId,
     accounts,
   });
+
+/** The card `key` closed, if it is the one open; the account being added, dropped. */
+const closed = (model: Model, key: string): Model =>
+  model.open !== key
+    ? model
+    : {
+        ...model,
+        open: null,
+        adding:
+          model.adding !== null && key === newKeyOf(model.adding)
+            ? null
+            : model.adding,
+      };
+
+/** The card `key` open, the one open before closed. */
+const opened = (model: Model, key: string): Model => ({
+  ...(model.open === null ? model : closed(model, model.open)),
+  open: key,
+});
 
 export const HarnessAccountsLive = Actor.build(HarnessAccounts, {
   init: ({ machineId, accountId, kept }) => ({
@@ -95,6 +123,7 @@ export const HarnessAccountsLive = Actor.build(HarnessAccounts, {
       changes: 0,
       loadProblem: null,
       adding: null,
+      open: null,
     },
   }),
   workers: {
@@ -119,7 +148,7 @@ export const HarnessAccountsLive = Actor.build(HarnessAccounts, {
       actor: Card.actor,
       each: ({ model }) => [
         ...(model.accounts ?? []).map(({ id }) => id),
-        ...(model.adding === null ? [] : [NEW]),
+        ...(model.adding === null ? [] : [newKeyOf(model.adding)]),
       ],
       input: ({ model }, key) => ({
         machineId: model.machineId,
@@ -139,7 +168,7 @@ export const HarnessAccountsLive = Actor.build(HarnessAccounts, {
       saved: (key, account) =>
         self.send({ _tag: 'AccountSaved', key, account }),
       removed: (id) => self.send({ _tag: 'AccountRemoved', id }),
-      cancelled: self.send({ _tag: 'AddCancelled' }),
+      closed: (key) => self.send({ _tag: 'Closed', key }),
     }),
   on: {
     // 2. Read: an answer asked before the latest change is dropped.
@@ -156,14 +185,12 @@ export const HarnessAccountsLive = Actor.build(HarnessAccounts, {
     Retry: (_, { model }) => ({ model: { ...model, loadProblem: null } }),
     AccountSaved: ({ key, account }, { model }) => {
       const before = model.accounts ?? [];
-      const accounts =
-        key === NEW
-          ? [...before, account]
-          : before.map((each) => (each.id === account.id ? account : each));
+      const accounts = isNew(key)
+        ? [...before, account]
+        : before.map((each) => (each.id === account.id ? account : each));
       return {
         model: {
-          ...model,
-          adding: key === NEW ? null : model.adding,
+          ...closed(model, key),
           accounts,
           changes: model.changes + 1,
         },
@@ -173,14 +200,17 @@ export const HarnessAccountsLive = Actor.build(HarnessAccounts, {
     AccountRemoved: ({ id }, { model }) => {
       const accounts = (model.accounts ?? []).filter((each) => each.id !== id);
       return {
-        model: { ...model, accounts, changes: model.changes + 1 },
+        model: { ...closed(model, id), accounts, changes: model.changes + 1 },
         command: keep(model, accounts),
       };
     },
+    Toggled: ({ key }, { model }) => ({
+      model: model.open === key ? closed(model, key) : opened(model, key),
+    }),
+    Closed: ({ key }, { model }) => ({ model: closed(model, key) }),
     // 4. Add
     AddAsked: ({ harness }, { model }) => ({
-      model: { ...model, adding: harness },
+      model: { ...opened(model, newKeyOf(harness)), adding: harness },
     }),
-    AddCancelled: (_, { model }) => ({ model: { ...model, adding: null } }),
   },
 });

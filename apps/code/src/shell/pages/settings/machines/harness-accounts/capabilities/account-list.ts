@@ -15,7 +15,7 @@ export class AccountList extends Context.Service<
     ) => Effect.Effect<void>;
     /** The Machine removed an added account. */
     readonly removed: (id: string) => Effect.Effect<void>;
-    /** The account being added was dropped before it was saved. */
-    readonly cancelled: Effect.Effect<void>;
+    /** The card was closed unsaved; the account being added is dropped. */
+    readonly closed: (key: string) => Effect.Effect<void>;
   }
 >()('code/AccountList') {}

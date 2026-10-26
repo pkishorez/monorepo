@@ -7,21 +7,23 @@ import {
 import { Actor } from '@kestack/kabuki';
 import { Refused } from '../../../../../machines/index.ts';
 import { AccountList } from '../capabilities/index.ts';
-import { cancelAccount, removeAccount, saveAccount } from './commands.ts';
+import { closeAccount, removeAccount, saveAccount } from './commands.ts';
 
 /*
  * One Harness Account's card: its name, the binary it runs and the config
  * folder it keeps its login in, as typed, until the Machine saves them.
- * `account` is the account as saved, null for the one being added.
+ * `account` is the account as saved, null for the one being added. The
+ * list opens and closes it (AccountList).
  *
- * 1. Edit    Change opens the card's form, which keeps what is typed;
- *            untouched, it shows the account as saved. Cancel closes it,
- *            or drops the account being added.
+ * 1. Edit    its form keeps what is typed, closed or open; untouched, it
+ *            shows the account as saved. Cancel drops what was typed and
+ *            closes it, or drops the account being added.
  * 2. Save    only once the Machine finds the binary runs and the config
  *            folder is there; refused, the card keeps what was typed and
  *            says why. An empty binary runs the agent from PATH; an empty
  *            folder, the agent's own.
- * 3. Remove  an added account, once asked again; its sessions stop working.
+ * 3. Remove  an added account, once its View has asked again; its sessions
+ *            stop working.
  */
 
 const Form = Schema.Struct({
@@ -46,10 +48,6 @@ const Model = Schema.Struct({
   problem: Schema.NullOr(Schema.String),
   /** A save or a remove is running. */
   busy: Schema.Boolean,
-  /** The form is open; the account being added always has it open. */
-  editing: Schema.Boolean,
-  /** Remove was asked once, and waits to be confirmed or kept. */
-  confirmingRemove: Schema.Boolean,
 });
 type Model = typeof Model.Type;
 
@@ -63,12 +61,9 @@ const Card = Actor.define('AccountCard', {
   props: Props,
   model: Model,
   message: Schema.TaggedUnion({
-    EditAsked: {},
     Edited: { field: Field, value: Schema.String },
     Save: {},
     Cancel: {},
-    RemoveAsked: {},
-    RemoveKept: {},
     Remove: {},
     Saved: {},
     Removed: {},
@@ -95,8 +90,6 @@ export const CardLive = Actor.build(Card, {
       form: null,
       problem: null,
       busy: false,
-      editing: false,
-      confirmingRemove: false,
     },
   }),
   on: {
@@ -108,20 +101,13 @@ export const CardLive = Actor.build(Card, {
         problem: null,
       },
     }),
-    EditAsked: (_, { model }) => ({ model: { ...model, editing: true } }),
-    Cancel: (_, { model, props }) => {
-      if (model.busy) return {};
-      if (props.account === null) return { command: cancelAccount({}) };
-      return {
-        model: {
-          ...model,
-          form: null,
-          problem: null,
-          editing: false,
-          confirmingRemove: false,
-        },
-      };
-    },
+    Cancel: (_, { model }) =>
+      model.busy
+        ? {}
+        : {
+            model: { ...model, form: null, problem: null },
+            command: closeAccount({ key: model.key }),
+          },
     // 2. Save
     Save: (_, { model, props }) => {
       if (model.busy) return {};
@@ -147,23 +133,17 @@ export const CardLive = Actor.build(Card, {
         busy: false,
         form: null,
         problem: null,
-        editing: false,
       },
     }),
     Refused: ({ reason }, { model }) => ({
       model: { ...model, busy: false, problem: reason },
     }),
     // 3. Remove
-    RemoveAsked: (_, { model }) =>
-      model.busy ? {} : { model: { ...model, confirmingRemove: true } },
-    RemoveKept: (_, { model }) => ({
-      model: { ...model, confirmingRemove: false },
-    }),
     Remove: (_, { model, props }) =>
-      model.busy || !model.confirmingRemove || props.account === null
+      model.busy || props.account === null
         ? {}
         : {
-            model: { ...model, busy: true, confirmingRemove: false },
+            model: { ...model, busy: true },
             command: removeAccount({
               machineId: model.machineId,
               id: props.account.id,
