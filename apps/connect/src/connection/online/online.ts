@@ -1,4 +1,5 @@
 import { Context, Effect, Layer } from 'effect';
+import { Downloads } from '@kestack/cli-platform/files';
 import type { PluginState } from '@kestack/cli-platform/plugins/contract';
 import { CloudClient } from '../../cloud/client/index.js';
 import type { ConnectionStatus } from '../../cloud/contract/index.js';
@@ -9,17 +10,12 @@ import {
   ofCloud,
 } from './identity/index.js';
 import { signIn, stored } from './sign-in/index.js';
-
-export {
+import {
   checkAt,
   CLOUDFLARED_KEY,
   cloudflared,
   openTunnel,
 } from './tunnel/index.js';
-
-/** Fails unless the Connection kept in `connectionFile`, if any, belongs to `cloud`; before anyone signs in. */
-export const belongsTo = (connectionFile: string, cloud: string) =>
-  ofCloud({ file: connectionFile, cloud });
 
 /*
  * This Connection as Cloud Connect knows it: signed in as one User, the one
@@ -27,9 +23,17 @@ export const belongsTo = (connectionFile: string, cloud: string) =>
  * reporting itself on every Heartbeat until it is forgotten or told to stop.
  *
  * `identify` comes first, since the router needs the Connection Key before
- * it listens; `cloud` then gives what each Heartbeat calls; `forget` undoes
- * both.
+ * it listens; `online` then gives the tunnel and what each Heartbeat calls;
+ * `forget` undoes both. `prune` empties the shared cache of old downloads,
+ * keeping cloudflared, which the tunnel runs at once.
  */
+
+/** A download unused for this long is deleted when a Connection starts. */
+const UNUSED = '30 days';
+
+/** Fails unless the Connection kept in `connectionFile`, if any, belongs to `cloud`; before anyone signs in. */
+export const belongsTo = (connectionFile: string, cloud: string) =>
+  ofCloud({ file: connectionFile, cloud });
 
 interface Where {
   /** Cloud Connect's base URL. */
@@ -95,12 +99,16 @@ const outcomeOf = (error: unknown) => {
 };
 
 /**
- * What the identified Connection's Heartbeat calls on Cloud Connect, for as
- * long as the Scope: a Report, answered with the version of each Plugin to
- * run, or with why it was not taken; and signing in again, as the same
- * User, once Cloud Connect refused the Sign-in.
+ * What the identified Connection stands on outside itself, for as long as
+ * the Scope: cloudflared, kept in `downloads`; opening a tunnel and checking
+ * it; a Report, answered with the version of each Plugin to run, or with
+ * why it was not taken; signing in again, as the same User, once Cloud
+ * Connect refused the Sign-in; and signing out.
  */
-export const cloud = (identified: Identified) =>
+export const online = (
+  identified: Identified,
+  downloads: Layer.Layer<Downloads>,
+) =>
   Effect.gen(function* () {
     const { connection, session, version } = identified;
     const client = yield* clientAt(identified.cloud, session.signing);
@@ -140,7 +148,14 @@ export const cloud = (identified: Identified) =>
             ),
       ),
     );
-    return { report, signInAgain, signOut: session.signOut };
+    return {
+      cloudflared: Effect.provide(cloudflared, downloads),
+      open: openTunnel,
+      check: checkAt,
+      report,
+      signInAgain,
+      signOut: session.signOut,
+    };
   });
 
 /**
@@ -174,3 +189,21 @@ export const forget = (options: Where) =>
 
 /** The Connection kept in `connectionFile`, without signing in; null when there is none yet. */
 export const kept = (connectionFile: string) => found({ file: connectionFile });
+
+/** Deletes the downloads no Connection used for 30 days, keeping cloudflared; a failure is only logged. */
+export const prune = (downloads: Layer.Layer<Downloads>) =>
+  Effect.flatMap(Downloads, (each) =>
+    each.prune({ olderThan: UNUSED, keep: [CLOUDFLARED_KEY] }),
+  ).pipe(
+    Effect.flatMap((removed) =>
+      removed.length === 0
+        ? Effect.void
+        : Effect.log(
+            `Deleted downloads unused for ${UNUSED}: ${removed.join(', ')}`,
+          ),
+    ),
+    Effect.catch((error) =>
+      Effect.logWarning('Could not prune the downloads', error),
+    ),
+    Effect.provide(downloads),
+  );

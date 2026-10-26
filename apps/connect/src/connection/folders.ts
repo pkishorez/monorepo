@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
-import { existsSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Effect } from 'effect';
-import { folders, socketPath } from '@kestack/cli-platform/files';
+import { folders, names, socketPath } from '@kestack/cli-platform/files';
 
 /*
  * Where each Connection keeps its files, as cli-platform lays them out for
@@ -47,16 +47,7 @@ export type ConnectionFolders = Effect.Success<
 >;
 
 /** The name of every Connection with a data folder on this computer. */
-export const connectionNames = () =>
-  Effect.sync(() => {
-    const all = dirname(folders({ app: 'connect', name: 'main' }).data);
-    return existsSync(all)
-      ? readdirSync(all, { withFileTypes: true })
-          .filter((entry) => entry.isDirectory())
-          .map((entry) => entry.name)
-          .sort()
-      : [];
-  });
+export const connectionNames = () => Effect.sync(() => names('connect'));
 
 /** The folders of Connect before Connections had their own, if still there; nothing reads them. */
 export const oldFolders = (own: ConnectionFolders) => {

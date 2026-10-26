@@ -41,7 +41,7 @@ export class VersionGap extends Data.TaggedError('VersionGap')<{
 const fromServer = /^Unknown request tag: |Unknown schema version: v\d+/;
 
 /** The side a defect says is older, if it says one is. */
-export const olderSideOf = (defect: unknown): VersionGap | null =>
+const olderSideOf = (defect: unknown): VersionGap | null =>
   typeof defect === 'string' && fromServer.test(defect)
     ? new VersionGap({ older: 'server' })
     : findOutdatedVersion(defect) !== undefined

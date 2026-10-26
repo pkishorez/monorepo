@@ -7,6 +7,7 @@ export {
   useConnectionId,
   useConnections,
   useConnectionName,
+  useNoticeClock,
   useNoticePill,
   useOffline,
   useOfflineSaid,
@@ -26,7 +27,6 @@ export {
   StandingDot,
   standingOf,
   statusOf,
-  useNoticeClock,
 } from './health/index.ts';
 export { reach } from './reach/index.ts';
 export { orRefused, reasonOf, Refused } from './refusal/index.ts';

@@ -1,6 +1,6 @@
-import { mkdirSync, chmodSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { posix, win32 } from 'node:path';
+import { dirname, posix, win32 } from 'node:path';
 import { Data, Effect } from 'effect';
 import { PIPES, windowsFolders } from './windows.js';
 import { xdgFolders, xdgRuntime } from './xdg.js';
@@ -85,6 +85,17 @@ export const folders = ({
     cache: base.cache,
     runtime: windows ? PIPES : xdgRuntime(env, tmp, uid),
   };
+};
+
+/** The name of every copy of the CLI `app` with a data folder on this computer, sorted. */
+export const names = (app: string): ReadonlyArray<string> => {
+  const all = dirname(folders({ app, name: 'main' }).data);
+  return existsSync(all)
+    ? readdirSync(all, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name)
+        .sort()
+    : [];
 };
 
 /**

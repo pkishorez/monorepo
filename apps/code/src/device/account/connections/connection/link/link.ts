@@ -5,7 +5,6 @@ import {
   type Health,
   noticePillOf,
   outOfReach,
-  useNoticeClock,
 } from './health/index.ts';
 
 type Connection = typeof ConnectionSchema.Type;
@@ -86,18 +85,24 @@ export const useOfflineSaid = (connectionId: string) => {
 
 const TICK = 5_000;
 
+/** The time now, worked out again every few seconds while `ticking`. */
+const useNow = (ticking: boolean) => {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!ticking) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), TICK);
+    return () => clearInterval(timer);
+  }, [ticking]);
+  return now;
+};
+
 /** Why the Connection is out of reach, worked out again every few seconds while it is. */
 export const useHealth = (connectionId: string) => {
   const { status: links, checked } = use(Links);
   const status = statusOf(links, connectionId);
   const connection = useConnection(connectionId);
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (status === 'linked') return;
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), TICK);
-    return () => clearInterval(timer);
-  }, [status]);
+  const now = useNow(status !== 'linked');
   return health(connection, status, now, checked);
 };
 
@@ -129,13 +134,7 @@ export const useHealths = () => {
   const away = (connections ?? []).some(
     ({ id }) => statusOf(status, id) !== 'linked',
   );
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!away) return;
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), TICK);
-    return () => clearInterval(timer);
-  }, [away]);
+  const now = useNow(away);
   return (connectionId: string) =>
     health(
       connections?.find(({ id }) => id === connectionId) ?? null,
@@ -145,7 +144,14 @@ export const useHealths = () => {
     );
 };
 
-/** The pill for the Connection's code Plugin or `ke-connect`, by its id (`noticePillOf`). */
+/** The time now for what is said of a Connection's code Plugin, worked out again every few seconds while it is not simply running. */
+export const useNoticeClock = (connection: Connection | null) =>
+  useNow(
+    connection !== null &&
+      Object.values(connection.plugins).some(({ _tag }) => _tag !== 'Running'),
+  );
+
+/** The pill for the Connection's code Plugin or `ke-connect`, worked out again every few seconds while its Plugin is not simply running (`noticePillOf`). */
 export const useNoticePill = (connectionId: string) => {
   const connection = useConnection(connectionId);
   return noticePillOf(connection, useNoticeClock(connection));
