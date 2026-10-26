@@ -27,6 +27,10 @@
       "types": "./dist/plugins/index.d.ts",
       "default": "./dist/plugins/index.js"
     },
+    "./plugins/contract": {
+      "types": "./dist/plugins/contract/index.d.ts",
+      "default": "./dist/plugins/contract/index.js"
+    },
     "./plugins/plugin": {
       "types": "./dist/plugins/plugin/index.d.ts",
       "default": "./dist/plugins/plugin/index.js"
