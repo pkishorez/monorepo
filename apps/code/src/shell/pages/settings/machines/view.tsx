@@ -30,9 +30,9 @@ type Machine = typeof MachineSchema.Type;
  * its tunnel and the version of Connect it runs under it. Then, each
  * between rules, its agents' accounts and its Speech to Text switch, each
  * shown as last kept and asked of the Machine on its own, so one that does
- * not answer says so in its own place; last, a quiet Forget, which asks
- * first. Below, the way to the Auth Worker's Home Page, where a Machine's
- * Sign-in is revoked outright.
+ * not answer says so in its own place; last, Forget, small and set apart,
+ * in the danger colour, which asks first. Below, the way to the Auth
+ * Worker's Home Page, where a Machine's Sign-in is revoked outright.
  */
 
 const isDown = (machine: Machine, now: number) =>
@@ -158,11 +158,11 @@ export const MachineSettingsView = View.make(
                 <MachineHead machine={machine} />
                 <HarnessAccounts.view instance={accounts} />
                 <SpeechToText.view instance={speech} />
-                <div className="py-2!">
+                <div className="py-3!">
                   <Button
-                    variant="ghost"
+                    variant="destructive"
                     size="sm"
-                    className="-ml-2.5 h-11 text-muted-foreground hover:text-destructive keyboard:h-8"
+                    className="h-11 keyboard:h-8"
                     aria-label={`Forget ${machine.name}`}
                     onClick={() =>
                       open(() => send({ _tag: 'Ask', id: machine.id }))
