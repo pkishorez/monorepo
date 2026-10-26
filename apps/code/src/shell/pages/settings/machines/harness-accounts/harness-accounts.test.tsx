@@ -27,8 +27,8 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 /*
  * One Machine's agent accounts, drawn from what the Machine says, under
  * each agent: a row per account, saying why one does not run, which opens
- * its card under it and closes it again, one at a time, or on touch opens
- * it in a Drawer; another login added from its agent's +, with its config
+ * its card under it and closes it again, one at a time, on touch too;
+ * another login added from its agent's +, with its config
  * folder, saved as typed, or dropped on Cancel; a refusal kept on its
  * card; an added account removed once asked again, a Default Account
  * never. Kept on this device per Account: what was kept shows at once,
@@ -161,7 +161,6 @@ const names = () =>
   );
 const expanded = (label: string) =>
   labelled(label).getAttribute('aria-expanded');
-const drawer = () => document.querySelector('[data-slot="touch-drawer"]');
 const field = (id: string) =>
   document.querySelector<HTMLInputElement>(`#account-m1-${id}`)!;
 
@@ -334,17 +333,17 @@ describe('Harness Accounts on touch with no keyboard', () => {
     await answers(DEFAULTS);
   });
 
-  it('opens a row’s card in a Drawer, and the account being added there too', async () => {
-    expect(labelled('Claude').getAttribute('aria-haspopup')).toBe('dialog');
+  it('opens a row’s card under it, as with keys, and the account being added under its own row', async () => {
+    expect(expanded('Claude')).toBe('false');
     await click(labelled('Claude'));
-    expect(drawer()?.textContent).toContain('Config folder');
+    expect(expanded('Claude')).toBe('true');
     expect(field('claude-name-field').value).toBe('Claude');
-    await click(button('Cancel'));
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    await click(labelled('Claude'));
+    expect(field('claude-name-field')).toBeNull();
     await click(labelled('Add Claude account'));
-    expect(drawer()?.textContent).toContain('New Claude account');
+    expect(expanded('New Claude account')).toBe('true');
     expect(field('new-claude-name-field')).not.toBeNull();
-    // Its row is the Drawer alone.
-    expect(labelled('New Claude account')?.tagName).not.toBe('BUTTON');
   });
 });
 

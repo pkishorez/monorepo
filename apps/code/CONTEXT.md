@@ -37,7 +37,7 @@ The sidebar's choice of whose sessions it lists: every Machine, or one, kept in 
 _Avoid_: machine switcher, machine picker
 
 **Settings**:
-What the user sets, on no Machine, in three pages chosen by tabs, or on touch by a sideways swipe the page follows: General, the parts of Device State a user sets; Shortcuts, the Bindings; and Machines, every Machine in the Machine List standing by its Line and Last Seen as the sidebar says them, with its own settings, shown as the Machine last said them and asked again behind, and changed only while its Line is connected. Its Harness Accounts are listed under each agent, each opened to change it, one at a time, under its row, or in a Drawer on touch.
+What the user sets, on no Machine, in three pages chosen by tabs, or on touch by a sideways swipe the page follows: General, the parts of Device State a user sets; Shortcuts, the Bindings; and Machines, every Machine in the Machine List standing by its Line and Last Seen as the sidebar says them, with its own settings, shown as the Machine last said them and asked again behind, and changed only while its Line is connected. Its Harness Accounts are listed under each agent, each opened to change it, one at a time, under its row, on touch as with keys.
 _Avoid_: preferences, options, config
 
 **Session Switcher**:
