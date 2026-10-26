@@ -2,7 +2,7 @@ import type { Connection as ConnectionSchema } from '@kestack/connect/code';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { CheckIcon, CircleAlertIcon, CopyIcon } from 'lucide-react';
 import { Progress } from '@kestack/web-platform/ui/components/progress';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   type PluginNotice,
   pluginNotice,
@@ -67,26 +67,6 @@ export const noticePillOf = (
       'bg-warning',
     ];
   return null;
-};
-
-const TICK = 5_000;
-
-/**
- * The real clock for what is said of the Connection's code Plugin, worked out
- * again every few seconds while its Plugin is not simply running.
- */
-export const useNoticeClock = (connection: Connection | null) => {
-  const busy =
-    connection !== null &&
-    Object.values(connection.plugins).some(({ _tag }) => _tag !== 'Running');
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!busy) return;
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), TICK);
-    return () => clearInterval(timer);
-  }, [busy]);
-  return now;
 };
 
 /** A button that copies `text`, and says so once it did. */

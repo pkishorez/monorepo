@@ -4,7 +4,6 @@ export {
   DOWN_AFTER,
   health,
   type Health,
-  olderThan,
   outOfReach,
   pluginNotice,
   type PluginNotice,
@@ -19,9 +18,4 @@ export {
   StandingDot,
   standingOf,
 } from './view.tsx';
-export {
-  ConnectionNotice,
-  noticePillOf,
-  retryIn,
-  useNoticeClock,
-} from './notice.tsx';
+export { ConnectionNotice, noticePillOf, retryIn } from './notice.tsx';

@@ -1,7 +1,4 @@
-import { existsSync, readdirSync } from 'node:fs';
-import { dirname } from 'node:path';
 import { Effect } from 'effect';
-import { folders } from '@kestack/cli-platform/files';
 import { DEV_PREFIX, connectionName } from './auth.js';
 
 /*
@@ -12,16 +9,6 @@ import { DEV_PREFIX, connectionName } from './auth.js';
  * Connect when that still answers, its folders deleted either way. When
  * the branches cannot be listed, nothing is removed.
  */
-
-/** The name of every Connection with a data folder on this computer. */
-export const connectionNames = (): ReadonlyArray<string> => {
-  const all = dirname(folders({ app: 'connect', name: 'main' }).data);
-  return existsSync(all)
-    ? readdirSync(all, { withFileTypes: true })
-        .filter((entry) => entry.isDirectory())
-        .map((entry) => entry.name)
-    : [];
-};
 
 /** The development Connections among `names` that belong to none of the branches `slugs`. */
 export const goneOf = (
