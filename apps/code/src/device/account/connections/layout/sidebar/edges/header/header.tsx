@@ -4,6 +4,7 @@ import { CheckIcon, ChevronDownIcon, RefreshCwIcon } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { type OnConnection } from '../../../../connection/records/index.ts';
 import {
+  noticePillOf,
   pillOf,
   type Standing,
   StandingDot,
@@ -20,7 +21,8 @@ import {
  * there are when it shows every Connection; and Reload, which turns once as
  * it asks. With more than one Connection the title opens the Connections, a
  * Drawer of every Connection and All Connections: each with its state, its
- * sessions (how many run) and projects, its tunnel and the version of
+ * sessions (how many run) and projects, its code Plugin Updating or
+ * stopped, or its `ke-connect` out of date, its tunnel and the version of
  * Connect it runs, the one shown checked. Until the Connections and what
  * they hold are read, only the mark and Reload, in the room the rest takes.
  */
@@ -89,6 +91,7 @@ function useInfos(
         .length,
       about:
         [
+          noticePillOf(record ?? null, Date.now())?.[0] ?? null,
           record === undefined ? null : (TUNNEL[record.status._tag] ?? null),
           record?.version ? `Connect ${record.version}` : null,
         ]

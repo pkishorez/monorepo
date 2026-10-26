@@ -5,7 +5,7 @@ The app for running Claude Code and Codex sessions in project folders on any of 
 ## Big picture
 
 `code` is the first app on [`@kestack/connect`](../connect/README.md). Its
-`code` App Group runs Claude Code and Codex in folders on each of your
+`code` Plugin runs Claude Code and Codex in folders on each of your
 Connections (through [ai-toolkit](../../toolkits/ai-toolkit/README.md), as the
 [v1 spec](../../toolkits/ai-toolkit/docs/v1-spec.md) says), and the app
 follows each Session live: what you asked, the agent's words, its tool
@@ -24,7 +24,11 @@ Project and `…/s/:sessionId` is a Session. Records arrive only through the
 one Instance per Connection over its own socket, kept in IndexedDB, so a
 reload shows what this device last saw at once. The sidebar keeps every
 Session it shows in sync ahead, so opening one draws its messages at once.
-Every write is a Command an Actor asks of one Connection.
+Every write is a Command an Actor asks of one Connection. While a Connection's
+code Plugin is Updating or stopped, or it runs a `ke-connect` older than
+Cloud Connect names, a pill in the header of a page on it says so and
+opens Settings, whose card for it shows how far the update got, the
+stopped Plugin's last lines to copy, or the command that updates it.
 
 The app is one tree of Kabuki Actors, and `src/device/` tells it as one
 story, top down, each level with at most three parts: Device, then Account,

@@ -15,6 +15,7 @@ import {
   shortOf,
   useHealth,
   useConnectionName,
+  useNoticePill,
 } from '../connection/link/index.ts';
 import { keys } from './commands.ts';
 import type { LayoutLive } from './actor.ts';
@@ -42,8 +43,10 @@ import type { LayoutLive } from './actor.ts';
  *              row "not found" that the Store or the server has yet to
  *              give; and, while the Connection is out of reach, a quiet pill
  *              that says why: on its way, its tunnel broken, or the
- *              Connection down, with when it was last seen. Actions
- *              sit beside them (`pickers/actions/`). The header itself is
+ *              Connection down, with when it was last seen; and, linked
+ *              or not, a pill while its code Plugin is Updating or
+ *              stopped, or its `ke-connect` is out of date, which opens
+ *              Settings, where the rest is. Actions sit beside them (`pickers/actions/`). The header itself is
  *              the Web Platform's.
  */
 
@@ -276,12 +279,21 @@ export function Title({
 
 /**
  * While the Connection is out of reach, a pill that says why, in a word on a
- * phone; nothing otherwise.
+ * phone; nothing otherwise, nor while its code Plugin Updating or stopped is
+ * why it is linking, which `Notice` says.
  */
 export function Offline({ connectionId }: { readonly connectionId: string }) {
   const health = useHealth(connectionId);
+  const notice = useNoticePill(connectionId);
   const pill = pillOf(health);
   if (pill === null) return null;
+  // A Plugin Updating or stopped is why it is linking: the Notice says so.
+  if (
+    notice !== null &&
+    health._tag === 'Seen' &&
+    (health.status._tag === 'Reachable' || health.status._tag === 'Unchecked')
+  )
+    return null;
   const [label, title] = pill;
   return (
     <span
@@ -293,5 +305,28 @@ export function Offline({ connectionId }: { readonly connectionId: string }) {
       <span className="md:hidden">{shortOf(health)}</span>
       <span className="max-md:hidden">{label}</span>
     </span>
+  );
+}
+
+/**
+ * While the Connection's code Plugin is Updating or stopped, or its
+ * `ke-connect` is out of date, a pill that says so and opens Settings on its
+ * Connections; nothing otherwise.
+ */
+export function Notice({ connectionId }: { readonly connectionId: string }) {
+  const notice = useNoticePill(connectionId);
+  if (notice === null) return null;
+  const [label, title, tone] = notice;
+  return (
+    <Router.Link
+      to={routes.settings()}
+      onClick={() => routes.openSettingsOn('Connections')}
+      role="status"
+      title={title}
+      className="focus-ring inline-flex h-7 max-w-56 shrink-0 items-center gap-2 rounded-full border border-border bg-muted/50 px-3 text-xs font-medium transition-colors hover:bg-muted"
+    >
+      <span aria-hidden className={`size-2 shrink-0 rounded-full ${tone}`} />
+      <span className="truncate">{label}</span>
+    </Router.Link>
   );
 }

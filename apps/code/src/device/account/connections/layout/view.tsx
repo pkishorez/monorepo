@@ -20,7 +20,13 @@ import { Voice } from '../voice/index.ts';
 import { Pickers } from './pickers/index.ts';
 import { Sidebar, type Width } from './sidebar/index.ts';
 import { LayoutLive, rowRead } from './actor.ts';
-import { HeaderTitle, Keyboard, Offline, useVoiceKeys } from './layout.tsx';
+import {
+  HeaderTitle,
+  Keyboard,
+  Notice,
+  Offline,
+  useVoiceKeys,
+} from './layout.tsx';
 
 /*
  * Layout's View: the keyboard over everything, with the Bindings from
@@ -277,7 +283,10 @@ function Signed({
           <>
             <Pickers.SessionActionsButton />
             {route._tag === 'Project' && (
-              <Offline connectionId={route.connectionId} />
+              <>
+                <Offline connectionId={route.connectionId} />
+                <Notice connectionId={route.connectionId} />
+              </>
             )}
             <Voice.Button keys={dictateKeys} />
             {/* A phone has these in the sidebar's foot. Set a little
