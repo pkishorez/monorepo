@@ -202,8 +202,8 @@ sidebar ─ Worker: moves, from Moves ──────────────
 
 **Does**: Each owns one Picker: `model.picking` opens it, and `opened` keys a fresh Instance each time.
 **Props**: none / none / bindings / none / bindings
-**Workers**: machines, always, and recent, while open / sessions, while open / session, while open / inputs and chosen, while open / none
-**Requires**: CodeClients, Navigation, Replicas, Machines / Navigation, Replicas, Machines / CodeClients, Moves, Navigation, Replicas / Recorder, DeviceState / none
+**Workers**: machines and filter, always, and recent, while open / sessions, while open / session, while open / inputs and chosen, while open / none
+**Requires**: CodeClients, Navigation, Replicas, Machines, DeviceState / Navigation, Replicas, Machines / CodeClients, Moves, Navigation, Replicas / Recorder, DeviceState / none
 **Provides**: its Picker's Owner, from self
 **Children**: picker, while open, key: opened
 **View**: its Picker, and a Button or a Notice where one is drawn
@@ -211,7 +211,7 @@ sidebar ─ Worker: moves, from Moves ──────────────
 ### Decisions
 
 - **A Picker is a `while` Child keyed by `opened`, not a State**, because open and closed hold the same data. Caveat: the owner's Model carries a counter.
-- **The Project Picker follows the Machines always**, because its first Step is chosen as it opens. Caveat: one Worker runs while it is closed.
+- **The Project Picker follows the Machines and the Machine Filter always**, because its first Step is chosen as it opens: the Machine the sidebar shows, else the Machines. Caveat: two Workers run while it is closed, and the Filter is read from Device State, not from the sidebar, which holds it too.
 - **The Keys Picker is opened with the Actions that worked, and its View runs the one chosen**, because the keyboard knows them only in React, and only before the Picker takes it. Caveat: the Model carries the Action chosen until the View has run it.
 
 ## dictation

@@ -3,7 +3,7 @@ import { CodeClients, type Project, type Session } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
 import { Replicas } from '@kestack/std-toolkit/replica';
-import { Machines } from '../../../../layer/capabilities/index.ts';
+import { DeviceState, Machines } from '../../../../layer/capabilities/index.ts';
 import { project } from '../../../routes/index.ts';
 import { everything, type OnMachine } from '../../../machines/index.ts';
 import * as Picker from '../../../../ui/picker/index.ts';
@@ -14,7 +14,8 @@ import { FolderPicker } from './folder-picker/index.ts';
  * The Project Picker: where to work next.
  *
  * 1. Machine  the first Step picks the Machine, skipped while there is
- *             only one.
+ *             only one, or while the Machine Filter shows one listed:
+ *             the Picker opens on that Machine's Projects.
  * 2. Recent   the Machine's Projects, the most recently active first: a
  *             Turn started or a Session made in it, else when it was
  *             added. Followed while the Picker is open.
@@ -48,12 +49,21 @@ const Listed = Schema.Struct({ id: Schema.String, name: Schema.String });
 
 const sameListed = Schema.toEquivalence(Schema.Array(Listed));
 
-/** The Step it opens at: the Machines, or the one Machine's Projects. */
-const firstStep = (machines: ReadonlyArray<typeof Listed.Type>) => {
+/**
+ * The Step it opens at: the Projects of the Machine the Machine Filter
+ * shows, while it is listed, or of the only one; else the Machines.
+ */
+export const firstStep = (
+  machines: ReadonlyArray<typeof Listed.Type>,
+  filter: string | null,
+) => {
   const [only, ...others] = machines;
-  return only !== undefined && others.length === 0
-    ? { id: 'recent', key: only.id }
-    : { id: 'machine', key: '' };
+  const one = machines.some(({ id }) => id === filter)
+    ? filter
+    : only !== undefined && others.length === 0
+      ? only.id
+      : null;
+  return one === null ? { id: 'machine', key: '' } : { id: 'recent', key: one };
 };
 
 const Projects = Picker.make('ProjectPicker', {
@@ -149,10 +159,12 @@ const recentOf = (
 };
 
 export const ProjectPicker = Actor.define('ProjectPicker', {
-  requires: [CodeClients, Navigation, Replicas, Machines],
+  requires: [CodeClients, Navigation, Replicas, Machines, DeviceState],
   model: Schema.Struct({
     /** The Machines it opens projects on, as `Machines` lists them. */
     machines: Schema.Array(Listed),
+    /** The Machine the Machine Filter shows, as Device State keeps it; null for every Machine. */
+    filter: Schema.NullOr(Schema.String),
     /** How it is open; null while it is not. */
     picking: Schema.NullOr(Picker.How),
     /** Whether its button opened it, which then draws it; else the View the shell keeps does. */
@@ -180,6 +192,7 @@ export const ProjectPicker = Actor.define('ProjectPicker', {
   }),
   message: Schema.TaggedUnion({
     MachinesKnown: { machines: Schema.Array(Listed) },
+    FilterRead: { filter: Schema.NullOr(Schema.String) },
     Open: { how: Picker.How, byButton: Schema.optional(Schema.Boolean) },
     Read: { recent: Schema.Array(Recent) },
     Closed: {},
@@ -208,6 +221,7 @@ export const ProjectPickerLive = Actor.build(ProjectPicker, {
   init: () => ({
     model: {
       machines: [],
+      filter: null,
       picking: null,
       byButton: false,
       opened: 0,
@@ -236,7 +250,7 @@ export const ProjectPickerLive = Actor.build(ProjectPicker, {
       key: ({ model }) => String(model.opened),
       input: ({ model }) => ({
         how: model.picking ?? 'keys',
-        step: firstStep(model.machines),
+        step: firstStep(model.machines, model.filter),
         choices: [],
       }),
       props: ({ model }) => ({
@@ -322,6 +336,18 @@ export const ProjectPickerLive = Actor.build(ProjectPicker, {
           ),
         ),
     },
+    // 1. Machine: the one the Machine Filter shows.
+    filter: {
+      run: (self) =>
+        Stream.concat(Stream.make(undefined), DeviceState.changes).pipe(
+          Stream.mapEffect(() => DeviceState.read),
+          Stream.map(({ sidebarMachine }) => sidebarMachine),
+          Stream.changes,
+          Stream.runForEach((filter) =>
+            self.send({ _tag: 'FilterRead', filter }),
+          ),
+        ),
+    },
     // 2. Recent, read for the Machines listed while it is open.
     recent: {
       each: ({ model }) =>
@@ -340,6 +366,7 @@ export const ProjectPickerLive = Actor.build(ProjectPicker, {
     MachinesKnown: ({ machines }, { model }) => ({
       model: { ...model, machines },
     }),
+    FilterRead: ({ filter }, { model }) => ({ model: { ...model, filter } }),
     Open: ({ how, byButton }, { model }) =>
       model.picking !== null
         ? {}
