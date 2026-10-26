@@ -22,7 +22,8 @@ export interface ConnectRecord {
   readonly auth?: DevAuth;
   /** The Connection's port; 0 until it listens. */
   readonly port: number;
-  readonly connection: { readonly id: string; readonly name: string } | null;
+  /** The Connection's name once it listens. */
+  readonly connection: string | null;
   readonly ready: boolean;
   /** Before its process started, or as it did. */
   readonly startedAt: string;

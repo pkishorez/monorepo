@@ -6,6 +6,7 @@ import { ActorConnection, ConnectionHost } from './actor-connection/index.js';
 import type { ConnectionFolders } from './folders.js';
 import {
   checkAt,
+  CLOUDFLARED_KEY,
   cloud,
   cloudflared,
   type identify,
@@ -15,7 +16,13 @@ import {
 /*
  * Running a signed-in Connection: its Actor tree, standing on the tunnel
  * and Cloud Connect `online/` gives, until it ends, Forgotten or Stopped.
+ * First, the shared cache drops each download no Connection has used for
+ * 30 days; cloudflared, which this one runs at once, is kept, and a running
+ * Plugin marks its file used every day, so no file in use goes.
  */
+
+/** A download unused for this long is deleted when a Connection starts. */
+const UNUSED = '30 days';
 
 /** Wait before signing in again once a new Sign-in was refused too; it doubles after, up to a minute. */
 const FIRST_BACKOFF = '1 second';
@@ -26,6 +33,22 @@ export const ownDb = (db: string) =>
     if (existsSync(db)) chmodSync(db, 0o600);
   });
 
+/** Deletes the downloads no Connection used for 30 days, keeping cloudflared; a failure is only logged. */
+const prune = Effect.flatMap(Downloads, (downloads) =>
+  downloads.prune({ olderThan: UNUSED, keep: [CLOUDFLARED_KEY] }),
+).pipe(
+  Effect.flatMap((removed) =>
+    removed.length === 0
+      ? Effect.void
+      : Effect.log(
+          `Deleted downloads unused for ${UNUSED}: ${removed.join(', ')}`,
+        ),
+  ),
+  Effect.catch((error) =>
+    Effect.logWarning('Could not prune the downloads', error),
+  ),
+);
+
 export interface RunOptions {
   readonly own: ConnectionFolders;
   readonly identified: Effect.Success<ReturnType<typeof identify>>;
@@ -33,8 +56,6 @@ export interface RunOptions {
   readonly origins: ReadonlyArray<string>;
   readonly heartbeat: number;
   readonly plugins: Readonly<Record<string, string>>;
-  /** Called once the router listens, with its port. */
-  readonly onListening?: (port: number) => Effect.Effect<void>;
 }
 
 /**
@@ -46,6 +67,7 @@ export const run = (options: RunOptions) =>
     const { own, identified } = options;
     const calls = yield* cloud(identified);
     const downloads = Downloads.layer(own.cache);
+    yield* prune.pipe(Effect.provide(downloads));
     const host = ConnectionHost.of({
       every: `${options.heartbeat} seconds`,
       cloudflared: Effect.provide(cloudflared, downloads),
@@ -89,10 +111,7 @@ export const run = (options: RunOptions) =>
       Effect.flatMap(
         Option.match({
           onNone: () => Effect.void,
-          onSome: (port) =>
-            Effect.log(`listening on 127.0.0.1:${port}`).pipe(
-              Effect.andThen(options.onListening?.(port) ?? Effect.void),
-            ),
+          onSome: (port) => Effect.log(`listening on 127.0.0.1:${port}`),
         }),
       ),
       Effect.forkScoped,

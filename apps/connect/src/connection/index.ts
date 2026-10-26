@@ -1,1 +1,1 @@
-export { main, serve, type ServeOptions } from './connection.js';
+export { main } from './connection.js';

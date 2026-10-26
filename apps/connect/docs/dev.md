@@ -9,21 +9,21 @@ The branch is the name Portless gives this checkout. `portless get connect.kisho
 - In the main checkout it is `https://connect.kishore.computer`, and the branch is `main`.
 - In a linked git worktree Portless adds a prefix, `https://<prefix>.connect.kishore.computer`, and the branch is `<prefix>`.
 
-The branch's Connection is `ke-connect serve <branch>`, named `<host> (<branch>)` in Code (`<host>` alone on `main`), so each branch's Connection is told apart there. It runs the code Plugin this checkout built, `dist/plugins/code/main.js`, as `--plugin code=<file>` would, whatever Cloud Connect names.
+The branch's Connection is `dev-<branch>`: the dev script runs this checkout's own `ke-connect serve dev-<branch>` as a process of its own, named `<host> (dev-<branch>)` in Code, so each branch's Connection is told apart there. The `dev-` keeps it clear of `main`, the Connection `ke-connect serve` makes by default, so the main checkout's development Connection (`dev-main`) never takes a real one's name. It runs the code Plugin this checkout built, `dist/plugins/code/main.js`, with `--plugin code=<file>`, whatever Cloud Connect names.
 
 ## Folders
 
-| What                                                    | Where                                                  |
-| ------------------------------------------------------- | ------------------------------------------------------ |
-| Data: `connection.json`, the Sign-in, the code Plugin's | `~/.local/share/kestack/connect/connections/<branch>/` |
-| State: `connect.log`, `plugins/code.log`                | `~/.local/state/kestack/connect/connections/<branch>/` |
-| The branch's dev folder                                 | `~/.local/state/kestack/connect/dev/<branch>/`         |
+| What                                                    | Where                                                      |
+| ------------------------------------------------------- | ---------------------------------------------------------- |
+| Data: `connection.json`, the Sign-in, the code Plugin's | `~/.local/share/kestack/connect/connections/dev-<branch>/` |
+| State: `connect.log`, `plugins/code.log`                | `~/.local/state/kestack/connect/connections/dev-<branch>/` |
+| The branch's dev folder                                 | `~/.local/state/kestack/connect/dev/<branch>/`             |
 
 `$XDG_DATA_HOME` and `$XDG_STATE_HOME` replace `~/.local/share` and `~/.local/state` when set. The cache (cloudflared, models, Speech to Text) is shared by every Connection. `ke-connect list` shows every branch's Connection, and whether it runs.
 
 The dev folder holds:
 
-- `connect.json`: the running Connect's pid, mode, Cloud Connect URL, port, Connection and whether it is ready.
+- `connect.json`: the running Connect's pid, mode, Cloud Connect URL, the Connection's port and name, and whether it is ready.
 - `leases/<pid>.json`: one per App dev process using Connect.
 - `connect.log`: the shared Connect's output.
 
@@ -31,13 +31,13 @@ The lock that one dev process takes while it decides whether Connect must start 
 
 ## Signing in
 
-`pnpm dev` signs in with auth-toolkit's Fake ([root ADR 0012](../../../docs/adr/0012-pnpm-dev-signs-in-with-the-fake.md)): Cloud Connect reads Fake Tokens, and the Connection `<branch>` signs in at once as `dev@kestack.test`, with no device code, and lets in pages through a Cloudflare tunnel (`https://*.trycloudflare.com`). `pnpm dev:real` (`KESTACK_AUTH=real`) signs in through the Auth Worker, as the Connection `<branch>-real`, with folders of its own. `connect.json` says which (`auth`), and an App run the other way while one runs is refused: stop every dev on the branch first.
+`pnpm dev` signs in with auth-toolkit's Fake ([root ADR 0012](../../../docs/adr/0012-pnpm-dev-signs-in-with-the-fake.md)): Cloud Connect reads Fake Tokens, and the Connection `dev-<branch>` signs in at once as `dev@kestack.test`, with no device code, and lets in pages through a Cloudflare tunnel (`https://*.trycloudflare.com`). `pnpm dev:real` (`KESTACK_AUTH=real`) signs in through the Auth Worker, as the Connection `dev-<branch>-real`, with folders of its own. `connect.json` says which (`auth`), and an App run the other way while one runs is refused: stop every dev on the branch first.
 
 ## Running an App
 
 `pnpm dev` in an App, such as `apps/code`, calls `withConnect`:
 
-1. Under the lock it reads `connect.json`. Connect is alive when its process runs, it says it is ready, Cloud Connect answers `/auth` and the Connection answers `/health`.
+1. Under the lock it reads `connect.json`. Connect is alive when its process runs, it says it is ready, Cloud Connect answers `/auth` and the Connection answers `/health` on its port.
 2. If no Connect runs, it starts the shared supervisor, detached from the terminal, writing to `connect.log`.
 3. It takes a lease and waits until Connect is alive, showing `connect.log` meanwhile. A new branch signs in on its first run, and the device code appears there.
 4. It runs the App with `CONNECT_URL` set to the branch's Cloud Connect.
@@ -57,14 +57,17 @@ If a Connect already runs for the branch, it attaches instead: it takes a lease,
 - **TLS errors reaching `*.kishore.computer`**: Node needs Portless's CA. Set `NODE_EXTRA_CA_CERTS=~/.portless/ca.pem`.
 - **A Connect that will not stop**: `pgrep -fl supervisor.js` finds it. Kill it and delete `connect.json`.
 - **The code Plugin is Crashed**: its output is in `plugins/code.log` in the Connection's state folder. `pnpm dev` builds it first; after changing it, stop and start `pnpm dev` again.
-- **`main` belongs to another Cloud Connect**: the main checkout's Connection is `main`, the name `ke-connect serve` takes by default. Run `ke-connect remove main` to start it again for this Cloud Connect.
 
 ## Resetting a branch
 
 Stop every dev on the branch, then remove its Connection:
 
 ```sh
-node apps/connect/bin/ke-connect.mjs remove <branch>
+node apps/connect/bin/ke-connect.mjs remove dev-<branch>
 ```
 
 The next `pnpm dev` makes a new Connection and signs in again.
+
+## Branches that are gone
+
+Each time a dev runner starts, it lists the branches that still have a checkout (`git worktree list`, with Portless's names) and removes every `dev-` Connection that is none of theirs, as `ke-connect remove` does: forgotten in its branch's Cloud Connect when that still answers, its folders deleted either way. It runs beside Connect starting, and says what it removed in the log. When git cannot list the branches, nothing is removed.

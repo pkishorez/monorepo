@@ -9,6 +9,6 @@
   "files": [
     "src/plugins/code/api/index.ts",
     "src/cloud/worker/index.ts",
-    "src/dev/index.ts"
+    "src/connection/cli/dev/index.ts"
   ]
 }

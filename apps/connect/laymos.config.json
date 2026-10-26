@@ -18,9 +18,6 @@
     "src/plugins/code/engine/actor-code/checks": [
       "src/plugins/code/engine/actor-code/actor-session"
     ],
-    "src/plugins/code/engine/services": [
-      "src/plugins/code/engine/capabilities"
-    ],
-    "src/dev": ["src/connection"]
+    "src/plugins/code/engine/services": ["src/plugins/code/engine/capabilities"]
   }
 }

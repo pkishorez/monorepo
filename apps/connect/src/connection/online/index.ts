@@ -1,6 +1,7 @@
 export {
   belongsTo,
   checkAt,
+  CLOUDFLARED_KEY,
   cloud,
   cloudflared,
   forget,

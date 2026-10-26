@@ -8,7 +8,8 @@ import { NodeRuntime, NodeServices } from '@effect/platform-node';
  * What each does is handed in. `serve [name]` runs a Connection, `list`
  * shows every Connection on this computer, and `remove <name>` deletes
  * one. With no command it opens Effect CLI's wizard, which builds one and
- * runs it. A failure ends the program with its message alone.
+ * runs it. A failure ends the program with its message alone. dev/ runs
+ * this same program in development: each branch's Connection, `dev-<branch>`.
  */
 
 const DEFAULT_NAME = 'main';
