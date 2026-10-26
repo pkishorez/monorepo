@@ -1,193 +1,110 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { Context, Effect, Layer } from 'effect';
-import { HttpServer } from 'effect/http';
+import { chmodSync, existsSync } from 'node:fs';
+import { Effect, Layer, Option, Stream } from 'effect';
+import { History, Runtime } from '@kestack/kabuki';
+import { Downloads } from '@kestack/cli-platform/files';
+import { ActorConnection, ConnectionHost } from './actor-connection/index.js';
+import type { ConnectionFolders } from './folders.js';
 import {
-  claude,
-  codex,
-  codexOneShot,
-  harnesses,
-  type Harnesses,
-  type OneShotPrompt,
-} from '@kestack/ai-toolkit/harness';
-import type { SpeechToText } from '@kestack/ai-toolkit/speech';
-import { codePlugin } from './code/index.js';
-import {
-  hostName,
-  identify,
-  logout as forgetConnection,
-  online,
+  checkAt,
+  cloud,
+  cloudflared,
+  type identify,
+  openTunnel,
 } from './online/index.js';
-import { type ConnectPaths, resolvePaths } from './paths/index.js';
-import { DEFAULT_ORIGINS, server } from './server/index.js';
-import { logsTo } from './logs.js';
 
 /*
- * `ke-connect serve`: the composition root. Connect's files in its XDG
- * folders (a branch's own in development); Claude and Codex as the
- * harnesses, Codex writing titles; and the code Plugin on the Connection's
- * one socket, ws://127.0.0.1:<port>/rpc, for pages on this computer and
- * every App's address, plus any origin given.
- *
- * Serving is also being a Connection: signed in to Cloud Connect, the one
- * Connection its connection.json is, asking callers for its Connection Key, and
- * reachable through a tunnel its Heartbeat reports. `logout` signs out and
- * forgets the Connection.
+ * Running a signed-in Connection: its Actor tree, standing on the tunnel
+ * and Cloud Connect `online/` gives, until it ends, Forgotten or Stopped.
  */
 
-const HOST = '127.0.0.1';
-const DEFAULT_PORT = 4590;
-const DEFAULT_HEARTBEAT = 15;
-
-/** This Connect's version, as it reports itself. */
-const version = (
-  JSON.parse(
-    readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
-  ) as { readonly version: string }
-).version;
-
-const defaultHarnesses = Layer.merge(harnesses([claude, codex]), codexOneShot);
-
-export interface ServeOptions {
-  /** Cloud Connect's base URL. */
-  readonly cloud: string;
-  /** The port to listen on; 4590 unless given, and 0 for any free port. */
-  readonly port?: number;
-  /** In development: the branch whose own folders and Connection to use. */
-  readonly branch?: string;
-  /** Renames the Connection, kept for later runs. */
-  readonly name?: string;
-  /** Origins a browser page may call from, besides DEFAULT_ORIGINS. */
-  readonly origins?: ReadonlyArray<string>;
-  /** Seconds between Heartbeats; 15 unless given. */
-  readonly heartbeat?: number;
-  /** For tests: where the files go, instead of the XDG folders. */
-  readonly paths?: ConnectPaths;
-  /** For tests: fake harnesses; Claude and Codex, Codex answering One-shot Prompts, unless given. */
-  readonly harnesses?: Layer.Layer<Harnesses | OneShotPrompt>;
-  /** For tests: fake Speech to Text; sherpa-onnx unless given. */
-  readonly speech?: Layer.Layer<SpeechToText>;
-  /** Called once the socket is bound, with the port it is bound to. */
-  readonly onListening?: (info: {
-    readonly port: number;
-    readonly connection: { readonly id: string; readonly name: string };
-  }) => Effect.Effect<void>;
-}
-
-/** The paths given, else the XDG ones for `branch`; fails on a bad branch. */
-const pathsOf = (options: {
-  readonly branch?: string | undefined;
-  readonly paths?: ConnectPaths | undefined;
-}) =>
-  options.paths === undefined
-    ? Effect.try({
-        try: () => resolvePaths({ branch: options.branch }),
-        catch: (error) => error,
-      })
-    : Effect.succeed(options.paths);
-
-/** Makes `folder` if it is missing, readable by this user alone. */
-const ownFolder = (folder: string) =>
-  Effect.sync(() => {
-    mkdirSync(folder, { recursive: true, mode: 0o700 });
-    chmodSync(folder, 0o700);
-  });
+/** Wait before signing in again once a new Sign-in was refused too; it doubles after, up to a minute. */
+const FIRST_BACKOFF = '1 second';
 
 /** Keeps the database 0600 once it is there. */
-const ownDb = (paths: ConnectPaths) =>
+export const ownDb = (db: string) =>
   Effect.sync(() => {
-    if (existsSync(paths.db)) chmodSync(paths.db, 0o600);
+    if (existsSync(db)) chmodSync(db, 0o600);
   });
 
-/**
- * Runs Connect until it is stopped or the Connection must stop: signed in,
- * serving the API, tunnelled and reporting its Heartbeat. It logs to the
- * console and to `paths.log`.
- */
-export const serve = (options: ServeOptions) =>
-  Effect.gen(function* () {
-    const paths = yield* pathsOf(options);
-    yield* ownFolder(paths.state);
-    yield* Effect.gen(function* () {
-      yield* ownFolder(paths.data);
-
-      const identified = yield* identify({
-        cloud: options.cloud,
-        db: paths.db,
-        connectionFile: paths.connection,
-        version,
-        name: options.name,
-        firstName:
-          options.branch === undefined
-            ? undefined
-            : `${hostName()} (${options.branch})`,
-      });
-      const { connection, user } = identified;
-      // Signing in opened the database first.
-      yield* ownDb(paths);
-
-      const listening = yield* Layer.build(
-        server({
-          port: options.port ?? DEFAULT_PORT,
-          host: HOST,
-          plugins: [
-            codePlugin({
-              db: paths.db,
-              attachments: paths.attachments,
-              modelsCache: paths.ai.models,
-              speechFolder: paths.ai.speech,
-              harnesses: options.harnesses ?? defaultHarnesses,
-              ...(options.speech === undefined
-                ? {}
-                : { speech: options.speech }),
-            }),
-          ],
-          origins: [...DEFAULT_ORIGINS, ...(options.origins ?? [])],
-          key: connection.key,
-        }),
-      );
-      const { address } = Context.get(listening, HttpServer.HttpServer);
-      const port =
-        'port' in address ? address.port : (options.port ?? DEFAULT_PORT);
-
-      yield* Effect.log(`ke-connect ${version} on ws://${HOST}:${port}/rpc`);
-      yield* Effect.log(`data in ${paths.data}`);
-      yield* Effect.log(`Connection ${connection.name} (${connection.id})`);
-      yield* Effect.log(`signed in as ${user.email} to ${options.cloud}`);
-      if (options.onListening)
-        yield* options.onListening({
-          port,
-          connection: { id: connection.id, name: connection.name },
-        });
-
-      return yield* online(identified, {
-        port,
-        every: options.heartbeat ?? DEFAULT_HEARTBEAT,
-        cloudflared: paths.cloudflared,
-      });
-    }).pipe(Effect.provide(logsTo(paths.log)));
-  }).pipe(Effect.scoped);
+export interface RunOptions {
+  readonly own: ConnectionFolders;
+  readonly identified: Effect.Success<ReturnType<typeof identify>>;
+  readonly port: number;
+  readonly origins: ReadonlyArray<string>;
+  readonly heartbeat: number;
+  readonly plugins: Readonly<Record<string, string>>;
+  /** Called once the router listens, with its port. */
+  readonly onListening?: (port: number) => Effect.Effect<void>;
+}
 
 /**
- * Signs out of Cloud Connect and forgets this Connection (a branch's, given
- * `branch`), keeping its Projects and Sessions: the next serve is a new
- * Connection.
+ * Runs the identified Connection until it ends, for as long as the Scope:
+ * how it ended. A Connection forgotten has signed out first.
  */
-export const logout = (options: {
-  readonly cloud: string;
-  readonly branch?: string;
-  readonly paths?: ConnectPaths;
-}) =>
+export const run = (options: RunOptions) =>
   Effect.gen(function* () {
-    const paths = yield* pathsOf(options);
-    yield* ownFolder(paths.data);
-    yield* forgetConnection({
-      cloud: options.cloud,
-      db: paths.db,
-      connectionFile: paths.connection,
-      version,
+    const { own, identified } = options;
+    const calls = yield* cloud(identified);
+    const downloads = Downloads.layer(own.cache);
+    const host = ConnectionHost.of({
+      every: `${options.heartbeat} seconds`,
+      cloudflared: Effect.provide(cloudflared, downloads),
+      open: openTunnel,
+      check: checkAt,
+      report: calls.report,
+      backoff: FIRST_BACKOFF,
+      signInAgain: calls.signInAgain,
     });
-    yield* ownDb(paths);
-    yield* Effect.log(
-      `Signed out and forgot this Connection; ${paths.data} keeps its Projects and Sessions, and the next serve is a new Connection.`,
+    const running = yield* Runtime.start(
+      History.make(ActorConnection, {
+        window: 0,
+        input: {
+          id: identified.connection.id,
+          name: own.name,
+          key: identified.connection.key,
+          folders: {
+            data: own.data,
+            state: own.state,
+            cache: own.cache,
+            runtime: own.runtime,
+          },
+          socketId: own.socketId,
+          control: own.control,
+          port: options.port,
+          origins: options.origins,
+          files: options.plugins,
+        },
+      }),
+      Layer.merge(Layer.succeed(ConnectionHost, host), downloads),
     );
+    const root = () => running.instance({ from: 'serve' });
+    const states = running.changes.pipe(
+      Stream.map(() => root()),
+      Stream.merge(Stream.sync(root)),
+    );
+    yield* states.pipe(
+      Stream.map(({ model }) => model.listening),
+      Stream.filter((port): port is number => port !== null),
+      Stream.runHead,
+      Effect.flatMap(
+        Option.match({
+          onNone: () => Effect.void,
+          onSome: (port) =>
+            Effect.log(`listening on 127.0.0.1:${port}`).pipe(
+              Effect.andThen(options.onListening?.(port) ?? Effect.void),
+            ),
+        }),
+      ),
+      Effect.forkScoped,
+    );
+    const ended = yield* states.pipe(
+      Stream.map(({ state }) => state),
+      Stream.filter(
+        (state) => state._tag === 'Forgotten' || state._tag === 'Stopped',
+      ),
+      Stream.runHead,
+      Effect.map(Option.getOrThrow),
+    );
+    if (ended._tag === 'Forgotten') yield* calls.signOut;
+    return ended;
   });

@@ -11,4 +11,5 @@ export {
   ConnectionTaken,
   RPC_PATH,
   TunnelCheck,
+  type PluginVersion,
 } from './contract.js';

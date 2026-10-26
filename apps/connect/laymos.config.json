@@ -1,27 +1,25 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
-  "ignoredPaths": [],
+  "ignoredPaths": ["src/connection/tests/fixtures"],
   "fileModules": [],
   "rules": {
     "*": ["src/cloud/contract"],
     "src/cloud/worker/registry": ["src/cloud/worker/storage"],
     "src/connection": ["src/cloud/contract", "src/cloud/client"],
-    "src/connection/online/heartbeat/actor-heartbeat": [
-      "src/connection/online/heartbeat/capabilities"
+    "src/plugins": ["src/cloud/contract", "src/cloud/client"],
+    "src/plugins/code/api": ["src/plugins/code/records"],
+    "src/plugins/code/api/client": ["src/plugins/code/api/contract"],
+    "src/plugins/code/engine": ["src/plugins/code/records"],
+    "src/plugins/code/engine/actor-code": [
+      "src/plugins/code/engine/capabilities",
+      "src/plugins/code/engine/engine-raw"
     ],
-    "src/connection/code/api": ["src/connection/code/records"],
-    "src/connection/code/api/client": ["src/connection/code/api/contract"],
-    "src/connection/code/engine": ["src/connection/code/records"],
-    "src/connection/code/engine/actor-code": [
-      "src/connection/code/engine/capabilities",
-      "src/connection/code/engine/engine-raw"
+    "src/plugins/code/engine/actor-code/checks": [
+      "src/plugins/code/engine/actor-code/actor-session"
     ],
-    "src/connection/code/engine/actor-code/checks": [
-      "src/connection/code/engine/actor-code/actor-session"
-    ],
-    "src/connection/code/engine/services": [
-      "src/connection/code/engine/capabilities"
+    "src/plugins/code/engine/services": [
+      "src/plugins/code/engine/capabilities"
     ],
     "src/dev": ["src/connection"]
   }

@@ -90,6 +90,8 @@ const M1: Connection = {
   version: '0.0.4',
   status: { _tag: 'Reachable', url: 'https://m1.trycloudflare.com', at: 0 },
   lastSeen: Date.now(),
+  plugins: {},
+  wanted: {},
 };
 
 const CLAUDE: HarnessAccountInfo = {

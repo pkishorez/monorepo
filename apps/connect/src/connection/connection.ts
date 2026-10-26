@@ -1,140 +1,232 @@
-import { readFileSync } from 'node:fs';
-import { Config, Effect, Option } from 'effect';
-import { Command, Flag } from 'effect/cli';
-import { NodeRuntime, NodeServices } from '@effect/platform-node';
+import { existsSync, readFileSync } from 'node:fs';
+import { Console, Data, Effect, Option, Schedule } from 'effect';
+import { createFolders } from '@kestack/cli-platform/files';
+import { reach } from '@kestack/cli-platform/single';
 import {
-  logout as logoutConnection,
-  serve as serveConnection,
-} from './serve.js';
-
-// What a Node program starts a Connect with, without the command line,
-// and where that Connect keeps its files.
-export { logout, serve, type ServeOptions } from './serve.js';
-export { resolvePaths, type ConnectPaths } from './paths/index.js';
+  ConnectionControl,
+  type RunningConnection,
+} from './actor-connection/index.js';
+import { run as runCli, type ServeFlags } from './cli/index.js';
+import {
+  type ConnectionFolders,
+  connectionFolders,
+  connectionNames,
+  deleteFolders,
+  oldFolders,
+} from './folders.js';
+import { logsTo } from './logs.js';
+import { belongsTo, forget, hostName, identify, kept } from './online/index.js';
+import { ownDb, run } from './serve.js';
 
 /*
- * This computer as a Connection, run by `ke-connect`. This file is the flags,
- * and nothing else. `serve` runs Connect as a Connection and `logout` forgets
- * it, both from serve.ts; a failure ends the program with its message
- * alone. Beneath it: online/ signs in and keeps the Connection reachable,
- * server/ is its one socket, paths/ is where its files go, and code/ is
- * the Plugin it serves.
+ * `ke-connect`: the Connections on this computer. cli/ is its commands;
+ * each is done here.
+ *
+ * - serve: a Connection already running is only reported. Else it signs
+ *   in as the Connection its folder keeps, through online/, and runs the
+ *   Connection's Actor tree, actor-connection/, until it is forgotten,
+ *   refused or stopped.
+ * - list: every Connection with a folder, asking each that runs about
+ *   itself on its control socket.
+ * - remove: stops it if it runs, forgets it in Cloud Connect, signs out
+ *   and deletes its folders.
+ *
+ * A Connection keeps its files where folders.ts says.
  */
 
-const DEFAULT_PORT = 4590;
-const DEFAULT_CLOUD = 'https://connect.kishore.app';
-const DEFAULT_HEARTBEAT = 15;
+/** This Connect's version, as it reports itself. */
+const version = (
+  JSON.parse(
+    readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
+  ) as { readonly version: string }
+).version;
 
-const port = Flag.Int('port').pipe(
-  Flag.withAlias('p'),
-  Flag.withDescription(
-    'Port to listen on; PORT, else 4590; 0 for any free port',
-  ),
-  Flag.withFallbackConfig(Config.Int('PORT')),
-  Flag.withDefault(DEFAULT_PORT),
-);
+/** This computer, and every App on the stack's domains, deployed or as Portless serves it in development. */
+export const DEFAULT_ORIGINS: ReadonlyArray<string> = [
+  'http://localhost:*',
+  'http://127.0.0.1:*',
+  'http://[::1]:*',
+  'https://localhost:*',
+  'https://*.localhost:*',
+  'https://*.kishore.app',
+  'https://*.kishore.computer',
+];
 
-const cloud = Flag.String('cloud').pipe(
-  Flag.withDescription(
-    `Cloud Connect; KE_CONNECT_CLOUD, else ${DEFAULT_CLOUD}`,
-  ),
-  Flag.withFallbackConfig(Config.String('KE_CONNECT_CLOUD')),
-  Flag.withDefault(DEFAULT_CLOUD),
-);
+/** The Connection cannot go on serving; `message` says why and what to do. */
+export class ConnectionStopped extends Data.TaggedError('ConnectionStopped')<{
+  readonly message: string;
+}> {}
 
-const branch = Flag.String('branch').pipe(
-  Flag.withDescription(
-    'For development: the branch whose own folders and Connection to use; KESTACK_BRANCH',
-  ),
-  Flag.withFallbackConfig(Config.String('KESTACK_BRANCH')),
-  Flag.optional,
-);
+/** How long `remove` waits for a running Connection to stop. */
+const STOPPING = '30 seconds';
 
-const origin = Flag.String('origin').pipe(
-  Flag.withDescription(
-    'Another origin a browser page may call from, such as https://*.example.ts.net:*; repeatable',
-  ),
-  Flag.atLeast(0),
-);
+/** What the running Connection of `own` says of itself; None when none runs. */
+const runningOf = (
+  own: ConnectionFolders,
+): Effect.Effect<Option.Option<Pick<RunningConnection, 'url'>>, unknown> =>
+  reach(own.control, ConnectionControl).pipe(
+    Effect.flatMap((client) => client.status()),
+    Effect.map((running) =>
+      Option.some<Pick<RunningConnection, 'url'>>(running),
+    ),
+    // It holds the socket, but cannot say more.
+    Effect.catchTag('RpcClientError', () => Effect.succeedSome({ url: null })),
+    Effect.catchTag('NotRunning', () => Effect.succeedNone),
+    Effect.scoped,
+  );
 
-const name = Flag.String('name').pipe(
-  Flag.withDescription(
-    "This Connection's name, kept for later runs; the host's name at first",
-  ),
-  Flag.optional,
-);
+export interface ServeOptions extends ServeFlags {
+  /** Called once the router listens, with its port and the Connection. */
+  readonly onListening?: (info: {
+    readonly port: number;
+    readonly connection: { readonly id: string; readonly name: string };
+  }) => Effect.Effect<void>;
+}
 
-const heartbeat = Flag.Int('heartbeat').pipe(
-  Flag.withDescription(
-    `Seconds between Heartbeats; ${DEFAULT_HEARTBEAT} unless given`,
-  ),
-  Flag.withDefault(DEFAULT_HEARTBEAT),
-);
+/**
+ * Runs the Connection `name` until it is stopped, or must stop: signed in,
+ * tunnelled, running its Plugins and reporting its Heartbeat. One already
+ * running is reported instead. It logs to the console and to its state
+ * folder.
+ */
+export const serve = (options: ServeOptions) =>
+  Effect.gen(function* () {
+    const own = yield* connectionFolders(options.name);
+    const running = yield* runningOf(own);
+    if (Option.isSome(running))
+      return yield* Console.log(
+        `${options.name} is already running at ${running.value.url ?? 'no address yet'}`,
+      );
+    yield* createFolders({
+      data: own.data,
+      state: own.state,
+      cache: own.cache,
+      runtime: own.runtime,
+    });
+    yield* Effect.gen(function* () {
+      for (const old of oldFolders(own))
+        yield* Effect.log(
+          `${old} is from an older ke-connect; nothing uses it any more, and it can be deleted`,
+        );
+      yield* belongsTo(own.connectionFile, options.cloud);
+      const identified = yield* identify({
+        cloud: options.cloud,
+        db: own.db,
+        connectionFile: own.connectionFile,
+        version,
+        firstName:
+          options.name === 'main'
+            ? hostName()
+            : `${hostName()} (${options.name})`,
+        startedAt: Date.now(),
+      });
+      // Signing in opened the database first.
+      yield* ownDb(own.db);
+      const { connection, user } = identified;
+      yield* Effect.log(`ke-connect ${version}: ${options.name}`);
+      yield* Effect.log(`data in ${own.data}`);
+      yield* Effect.log(`Connection ${connection.name} (${connection.id})`);
+      yield* Effect.log(`signed in as ${user.email} to ${options.cloud}`);
 
-/** What went wrong, down every cause, such as a port already in use under a failed serve. */
-const reasonOf = (error: unknown): string => {
-  if (!(error instanceof Error)) return String(error);
-  const cause = error.cause === undefined ? '' : reasonOf(error.cause);
-  return [error.message, cause].filter((part) => part !== '').join(': ');
-};
+      const ended = yield* run({
+        own,
+        identified,
+        port: options.port,
+        origins: [...DEFAULT_ORIGINS, ...options.origins],
+        heartbeat: options.heartbeat,
+        plugins: options.plugins,
+        onListening: (port) =>
+          options.onListening?.({
+            port,
+            connection: { id: connection.id, name: connection.name },
+          }) ?? Effect.void,
+      });
+      if (ended._tag === 'Forgotten')
+        return yield* new ConnectionStopped({
+          message: `${connection.name} was forgotten from the app, so it signed out and stopped. Run \`ke-connect remove ${options.name}\` to delete it here too, then serve again as a new Connection.`,
+        });
+      if (ended.reason !== null)
+        return yield* new ConnectionStopped({ message: ended.reason });
+      yield* Effect.log(`${options.name} stopped`);
+    }).pipe(Effect.provide(logsTo(own.log)));
+  }).pipe(Effect.scoped);
 
-/** Ends the program with `error`'s message alone, and a failing exit code. */
-const exitWith = (error: unknown) =>
-  Effect.sync(() => {
-    process.stderr.write(`${reasonOf(error)}\n`);
-    process.exitCode = 1;
+/** Prints every Connection on this computer: its name, whether it runs, its address and when it last started. */
+export const list = () =>
+  Effect.gen(function* () {
+    const names = yield* connectionNames();
+    if (names.length === 0)
+      return yield* Console.log(
+        'No Connections yet; `ke-connect serve` makes one.',
+      );
+    for (const name of names) {
+      const own = yield* connectionFolders(name);
+      const running = yield* runningOf(own);
+      const record = yield* kept(own.connectionFile).pipe(
+        Effect.orElseSucceed(() => null),
+      );
+      yield* Console.log(
+        [
+          name,
+          Option.isSome(running) ? 'running' : 'stopped',
+          Option.flatMap(running, ({ url }) => Option.fromNullishOr(url)).pipe(
+            Option.getOrElse(() => '-'),
+          ),
+          record === null ? '-' : new Date(record.startedAt).toISOString(),
+        ].join('\t'),
+      );
+    }
   });
 
-const serveCommand = Command.make(
-  'serve',
-  { port, cloud, branch, origin, name, heartbeat },
-  ({ port, cloud, branch, origin, name, heartbeat }) =>
-    serveConnection({
-      cloud,
-      port,
-      ...Option.match(branch, {
-        onNone: () => ({}),
-        onSome: (branch) => ({ branch }),
-      }),
-      ...Option.match(name, {
-        onNone: () => ({}),
-        onSome: (name) => ({ name }),
-      }),
-      origins: origin,
-      heartbeat,
-    }).pipe(Effect.catch(exitWith)),
-).pipe(
-  Command.withDescription(
-    'Run Connect as a Connection: signed in, tunnelled and reporting its Heartbeat',
-  ),
-);
-
-const logoutCommand = Command.make(
-  'logout',
-  { cloud, branch },
-  ({ cloud, branch }) =>
-    logoutConnection({
-      cloud,
-      ...Option.match(branch, {
-        onNone: () => ({}),
-        onSome: (branch) => ({ branch }),
-      }),
-    }).pipe(Effect.catch(exitWith)),
-).pipe(
-  Command.withDescription(
-    'Sign out and forget this Connection, keeping its Projects and Sessions',
-  ),
-);
-
-const { version } = JSON.parse(
-  readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
-) as { readonly version: string };
+/**
+ * Stops the Connection `name` if it runs, forgets it in Cloud Connect,
+ * signs it out and deletes its folders. A Cloud Connect that cannot be
+ * told is only warned of.
+ */
+export const remove = (name: string) =>
+  Effect.gen(function* () {
+    const own = yield* connectionFolders(name);
+    if (!existsSync(own.data) && !existsSync(own.state))
+      return yield* Effect.fail(new Error(`There is no Connection ${name}`));
+    if (Option.isSome(yield* runningOf(own))) {
+      yield* Console.log(`Stopping ${name}`);
+      yield* reach(own.control, ConnectionControl).pipe(
+        Effect.flatMap((client) => client.stop()),
+        Effect.ignore,
+        Effect.scoped,
+      );
+      yield* runningOf(own).pipe(
+        Effect.repeat({
+          while: (running) => Option.isSome(running),
+          schedule: Schedule.spaced('100 millis'),
+        }),
+        Effect.timeoutOrElse({
+          duration: STOPPING,
+          orElse: () =>
+            Effect.fail(new Error(`${name} did not stop in ${STOPPING}`)),
+        }),
+      );
+    }
+    const record = yield* kept(own.connectionFile).pipe(
+      Effect.orElseSucceed(() => null),
+    );
+    if (record !== null)
+      yield* forget({
+        cloud: record.cloud,
+        db: own.db,
+        connectionFile: own.connectionFile,
+        version,
+      }).pipe(
+        Effect.catch((error) =>
+          Effect.logWarning(
+            `Could not sign ${name} out of ${record.cloud}; Forget it from the app`,
+            error,
+          ),
+        ),
+      );
+    yield* deleteFolders(own);
+    yield* Console.log(`Removed ${name}`);
+  });
 
 /** Runs `ke-connect` on this process's arguments, until it ends. */
-export const main = () =>
-  Command.make('ke-connect', {}, () => Effect.void).pipe(
-    Command.withSubcommands([serveCommand, logoutCommand]),
-    Command.run({ version }),
-    Effect.provide(NodeServices.layer),
-    NodeRuntime.runMain,
-  );
+export const main = () => runCli({ serve, list, remove }, version);

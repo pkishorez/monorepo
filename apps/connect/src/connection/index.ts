@@ -1,8 +1,1 @@
-export {
-  logout,
-  main,
-  resolvePaths,
-  serve,
-  type ConnectPaths,
-  type ServeOptions,
-} from './connection.js';
+export { main, serve, type ServeOptions } from './connection.js';

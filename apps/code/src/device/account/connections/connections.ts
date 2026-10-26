@@ -41,13 +41,14 @@ import {
 type Connection = typeof ConnectionSchema.Type;
 
 /**
- * The socket of a Connection at its public `https://` address, `wss://…/rpc`;
+ * The code Plugin's socket on a Connection at its public `https://`
+ * address, `wss://…/code/rpc`;
  * null for any other address, which is never dialled: the Connection Key
  * would cross in clear.
  */
 export const socketUrl = (url: string | null) =>
   url?.startsWith('https://') === true
-    ? `wss://${url.slice('https://'.length).replace(/\/+$/, '')}/rpc`
+    ? `wss://${url.slice('https://'.length).replace(/\/+$/, '')}/code/rpc`
     : null;
 
 /** A Connection's link, its socket, now. */
@@ -272,7 +273,7 @@ export class Connections extends Context.Service<
     readonly listed: (id: string) => Effect.Effect<void>;
     /** The Connection's Replicas, over its own sync Store; waits until the Connection runs here. */
     readonly replicas: (id: string) => Effect.Effect<Replicas['Service']>;
-    /** Where to dial the Connection, `wss://…/rpc`, and its Key, once it is listed at an `https://` address; waits until it is. */
+    /** Where to dial the Connection's code Plugin, `wss://…/code/rpc`, and its Key, once it is listed at an `https://` address; waits until it is. */
     readonly reachable: (
       id: string,
     ) => Effect.Effect<{ readonly socket: string; readonly key: string }>;

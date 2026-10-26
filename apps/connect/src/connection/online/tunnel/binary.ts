@@ -1,42 +1,29 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  renameSync,
-  rmSync,
-} from 'node:fs';
-import { basename, dirname, join } from 'node:path';
 import { Duration, Effect } from 'effect';
-import { install, use } from 'cloudflared';
+import { CLOUDFLARED_VERSION, install } from 'cloudflared';
+import { Downloads } from '@kestack/cli-platform/files';
 
 /*
- * The cloudflared binary, kept at a path Connect gives (in its cache
- * folder) so reinstalling packages never loses it. Its npm package would download it on install,
- * but that step is off in this workspace, so it is downloaded here, once,
- * the first time a tunnel is opened: into a folder of its own, then moved
- * into place whole, so a download cut short leaves nothing half-written.
+ * The cloudflared binary, kept once per computer in the shared kestack
+ * cache, so every Connection and every reinstall of Connect uses the same
+ * copy. Its npm package would download it on install, but that step is off
+ * in this workspace, so it is downloaded here the first time a tunnel is
+ * opened. Downloads makes it whole or not at all, and once when two
+ * Connections start together.
  */
 
 /** The longest a download may take: 20 MB at a slow 40 KB/s. */
 const DOWNLOAD = Duration.minutes(10);
 
-/** Whether the binary is at `cloudflaredBin`; tunnels are opened with it from now on. */
-export const cloudflaredInstalled = (cloudflaredBin: string) =>
-  Effect.sync(() => {
-    use(cloudflaredBin);
-    return existsSync(cloudflaredBin);
-  });
+const NAME = process.platform === 'win32' ? 'cloudflared.exe' : 'cloudflared';
 
-/** Downloads the binary to `cloudflaredBin`; fails if it cannot, or takes longer than ten minutes. */
-export const installCloudflared = (cloudflaredBin: string) =>
-  Effect.acquireUseRelease(
-    Effect.sync(() => {
-      mkdirSync(dirname(cloudflaredBin), { recursive: true });
-      return mkdtempSync(join(dirname(cloudflaredBin), 'download-'));
-    }),
-    (folder) =>
+/** The cloudflared binary's path, downloaded first when it is missing; fails if it cannot be, or takes longer than ten minutes. */
+export const cloudflared = Effect.flatMap(Downloads, (downloads) =>
+  downloads.ensure({
+    key: `cloudflared-${CLOUDFLARED_VERSION}`.toLowerCase(),
+    name: NAME,
+    produce: (file) =>
       Effect.tryPromise({
-        try: () => install(join(folder, basename(cloudflaredBin))),
+        try: () => install(file),
         catch: (cause) =>
           new Error(
             `Could not download cloudflared: ${cause instanceof Error ? cause.message : String(cause)}`,
@@ -52,10 +39,7 @@ export const installCloudflared = (cloudflaredBin: string) =>
               ),
             ),
         }),
-        Effect.andThen((file) =>
-          Effect.sync(() => renameSync(file, cloudflaredBin)),
-        ),
+        Effect.asVoid,
       ),
-    (folder) =>
-      Effect.sync(() => rmSync(folder, { recursive: true, force: true })),
-  );
+  }),
+);

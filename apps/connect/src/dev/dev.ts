@@ -7,10 +7,10 @@ import {
   closeSync,
 } from 'node:fs';
 import { constants } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NodeRuntime } from '@effect/platform-node';
-import { resolvePaths } from '../connection/index.js';
+import { folders } from '@kestack/cli-platform/files';
 import { assertResolves, type DevAuth, devAuth, nodeFlags } from './auth.js';
 import { branchOf } from './branch.js';
 import { live, runs, take } from './leases.js';
@@ -36,8 +36,8 @@ export { branchOf };
  * attaching instead when one already runs, and, in shared mode, the
  * supervisor itself, which stops once the last lease is gone.
  *
- * Everything lives in the branch's dev folder: `lock`, `connect.json`,
- * `leases/` and the supervisor's `connect.log`.
+ * Everything lives in the branch's dev folder, `<state>/kestack/connect/dev/<branch>`:
+ * `connect.json`, `leases/` and the supervisor's `connect.log`.
  */
 
 const SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const;
@@ -59,10 +59,18 @@ const version = (
 const PROXY_DOWN =
   "Portless's proxy is not running, and Connect starts in the background where it cannot start it. Run `portless proxy start`, then `pnpm dev` again.";
 
+/** The dev folder of the branch `slug`: beside every Connection's state folder. */
+const devFolder = (slug: string) =>
+  join(
+    dirname(dirname(folders({ app: 'connect', name: slug }).state)),
+    'dev',
+    slug,
+  );
+
 /** The branch at `cwd`, and its dev folder, made if missing. */
 const devOf = async (cwd: string) => {
   const branch = await branchOf(cwd);
-  const dir = resolvePaths({ branch: branch.slug }).dev;
+  const dir = devFolder(branch.slug);
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   return { ...branch, dir, log: join(dir, 'connect.log') };
 };

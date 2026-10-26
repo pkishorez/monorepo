@@ -15,7 +15,7 @@ import {
   CloudApi,
   RPC_PATH,
 } from '../contract/index.js';
-import { Registry } from './registry/index.js';
+import { Registry, type Wanted } from './registry/index.js';
 import { connectionsTable } from './storage/index.js';
 
 /*
@@ -26,7 +26,8 @@ import { connectionsTable } from './storage/index.js';
  *   signs in here.
  * - `POST /rpc` is the RPC. The caller is checked by auth-toolkit's Guard,
  *   asking the Auth Worker; a call with no Sign-in is refused
- *   Unauthenticated.
+ *   Unauthenticated. Every Connection is told `plugins`, the version of
+ *   each Plugin it should run; none unless given.
  * - Apps are on other origins of the same site: an origin matching one of
  *   `origins` (patterns, see cloud/contract) may call `/rpc` with credentials,
  *   its own origin echoed back, and its preflight is answered here, since
@@ -40,16 +41,20 @@ import { connectionsTable } from './storage/index.js';
  * `D1.table(connectionsTable)`.
  */
 
-/** The calls' handlers. */
-const handlers = CloudApi.toLayer({
-  Report: (input) =>
-    Effect.flatMap(Authz.User, (principal) =>
-      Registry.report(principal, input),
-    ),
-  List: () => Effect.flatMap(Authz.User, Registry.list),
-  Forget: ({ id }) =>
-    Effect.flatMap(Authz.User, (principal) => Registry.forget(principal, id)),
-});
+/** The calls' handlers, telling every Connection the Plugins `wanted`. */
+const handlers = (wanted: Wanted) =>
+  CloudApi.toLayer({
+    Report: (input) =>
+      Effect.flatMap(Authz.User, (principal) =>
+        Registry.report(principal, input, wanted),
+      ),
+    List: () =>
+      Effect.flatMap(Authz.User, (principal) =>
+        Registry.list(principal, wanted),
+      ),
+    Forget: ({ id }) =>
+      Effect.flatMap(Authz.User, (principal) => Registry.forget(principal, id)),
+  });
 
 /** The CORS headers for a request from `origin`, an allowed one. */
 const corsFor = (request: Request, origin: string): Record<string, string> => ({
@@ -74,11 +79,15 @@ export const serveOver = (options: {
   readonly authInfo: AuthInfo;
   readonly origins: ReadonlyArray<string>;
   readonly driver: SQLiteDriver;
+  readonly plugins?: Wanted;
 }) => {
   const table = SQLite.make(connectionsTable, { database: options.driver });
   const answer = server(
     CloudApi,
-    Layer.mergeAll(handlers.pipe(Layer.provide(table.layer)), options.guard),
+    Layer.mergeAll(
+      handlers(options.plugins ?? {}).pipe(Layer.provide(table.layer)),
+      options.guard,
+    ),
   );
   const allowed = allowsOrigin(options.origins);
   const authBody = JSON.stringify(
@@ -115,19 +124,21 @@ export const serveOver = (options: {
 
 /**
  * Cloud Connect on a Worker's D1 binding `database`: callers sign in
- * through the Auth Worker `auth` names, and pages on `origins` may call
- * with credentials.
+ * through the Auth Worker `auth` names, pages on `origins` may call with
+ * credentials, and every Connection is told to run `plugins`.
  */
 export const serve = <Statement extends D1Statement<Statement>>(options: {
   readonly auth: AuthOptions;
   readonly origins: ReadonlyArray<string>;
   readonly database: D1SQLiteConfig<Statement>['database'];
+  readonly plugins?: Wanted;
 }) =>
   serveOver({
     guard: auth.rpc(options.auth),
     authInfo: { url: options.auth.url },
     origins: options.origins,
     driver: makeD1SQLite({ database: options.database }),
+    ...(options.plugins === undefined ? {} : { plugins: options.plugins }),
   });
 
 export { connectionsTable } from './storage/index.js';

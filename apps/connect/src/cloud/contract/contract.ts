@@ -1,6 +1,7 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { Authz, type Guarded } from '@kestack/auth-toolkit';
+import { PluginState } from '@kestack/cli-platform/plugins/contract';
 import { ESchema, ValueESchema } from '@kestack/std-toolkit/eschema';
 
 /*
@@ -87,12 +88,8 @@ export type ConnectionStatus = typeof ConnectionStatus.Type;
 export const addressOf = (status: ConnectionStatus) =>
   'url' in status ? status.url : null;
 
-/**
- * What a Connection says of itself on each Heartbeat. Every field is bounded,
- * and its address is `https://` alone: the app dials it with the Connection
- * Key, which must never cross in clear.
- */
-export const ConnectionReport = ESchema.make('ConnectionReport', {
+/** What a Connection said of itself before it reported its Plugins: v1 of both values below. */
+const reportFields = {
   id: Bounded(64),
   name: Bounded(64),
   /** Its Connection Key (ADR 0015). */
@@ -100,15 +97,49 @@ export const ConnectionReport = ESchema.make('ConnectionReport', {
   /** The version of Connect it runs. */
   version: Schema.String.check(Schema.isMaxLength(32)),
   status: ConnectionStatus.schema,
-}).build();
+};
+
+/** Where each of a Connection's Plugins stands, by the Plugin's name. */
+const PluginStates = Schema.Record(Schema.String, PluginState.schema);
+
+/** Which version of a Plugin to run: its file's sha256, and where to download it. */
+const PluginVersion = Schema.Struct({
+  hash: Schema.String,
+  url: Schema.String,
+});
+export type PluginVersion = typeof PluginVersion.Type;
+
+/**
+ * What a Connection says of itself on each Heartbeat. Every field is bounded,
+ * and its address is `https://` alone: the app dials it with the Connection
+ * Key, which must never cross in clear. v2 adds where each of its Plugins
+ * stands; a v1 Report had none.
+ */
+export const ConnectionReport = ESchema.make('ConnectionReport', reportFields)
+  .evolve('v2', { plugins: PluginStates }, (v1) => ({ ...v1, plugins: {} }))
+  .build();
 export type ConnectionReport = typeof ConnectionReport.Type;
 
-/** A Connection as its User sees it: what it last reported, and its Last Seen. */
+/**
+ * A Connection as its User sees it: what it last reported, and its Last
+ * Seen. v2 adds where each Plugin stands, as it last reported, and
+ * `wanted`: the version of each Plugin Cloud Connect wants it to run, which
+ * the answer to its Report tells it.
+ */
 export const Connection = ESchema.make('Connection', {
-  ...ConnectionReport.fields,
+  ...reportFields,
   /** Its Last Seen: when it last reported, epoch ms, by Cloud Connect's clock. */
   lastSeen: Schema.Finite,
-}).build();
+})
+  .evolve(
+    'v2',
+    {
+      plugins: PluginStates,
+      wanted: Schema.Record(Schema.String, PluginVersion),
+    },
+    (v1) => ({ ...v1, plugins: {}, wanted: {} }),
+  )
+  .build();
 export type Connection = typeof Connection.Type;
 
 /** The Connection was forgotten by its User; it must sign out and stop. */

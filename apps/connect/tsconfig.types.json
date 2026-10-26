@@ -7,9 +7,8 @@
   },
   "include": [],
   "files": [
-    "src/connection/code/api/index.ts",
+    "src/plugins/code/api/index.ts",
     "src/cloud/worker/index.ts",
-    "src/connection/index.ts",
     "src/dev/index.ts"
   ]
 }
