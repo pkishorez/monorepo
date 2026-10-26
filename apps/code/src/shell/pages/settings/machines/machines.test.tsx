@@ -51,14 +51,7 @@ const Owner = Actor.define('Owner', {
 const OwnerLive = Actor.build(Owner, {
   init: () => ({ model: { pings: 0 } }),
   children: {
-    page: {
-      actor: MachineSettingsLive,
-      props: () => ({
-        params: {},
-        query: {},
-        route: { name: 'Machines', params: {}, notFound: null },
-      }),
-    },
+    page: { actor: MachineSettingsLive },
   },
   on: { Ping: (_, { model }) => ({ model: { pings: model.pings + 1 } }) },
 });

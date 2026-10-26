@@ -1,6 +1,5 @@
 import { Effect, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import { Page } from '@kestack/kabuki/routing';
 import { DeviceState } from '../../../../layer/capabilities/index.ts';
 import { setBindings } from './commands.ts';
 import {
@@ -30,7 +29,7 @@ import {
  *            takes that one back to its defaults too, and so on; the
  *            row says which went with it.
  * Every change is saved to Device State at once, and shown before it is
- * read back. Its page, `/settings/shortcuts`, holds it and nothing else.
+ * read back.
  */
 
 const Model = Schema.Struct({
@@ -142,13 +141,4 @@ export const ShortcutsLive = Actor.build(Shortcuts, {
     },
     ResetAll: (_, { model }) => save(model, {}),
   },
-});
-
-export const ShortcutsPage = Page.define({
-  path: '/shortcuts',
-  metadata: { title: 'Shortcuts · Settings · code' },
-});
-
-export const ShortcutsPageLive = Page.build(ShortcutsPage, {
-  children: { shortcuts: { actor: ShortcutsLive } },
 });

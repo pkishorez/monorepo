@@ -1,11 +1,11 @@
 import { Effect, Schema, Stream } from 'effect';
-import { Page } from '@kestack/kabuki/routing';
+import { Actor } from '@kestack/kabuki';
 import { DeviceState } from '../../../../layer/capabilities/index.ts';
 import { setTouchMode } from './commands.ts';
 
 /*
- * Settings → General, `/settings/general`: what this browser keeps for
- * itself that the user sets, from Device State.
+ * Settings → General: what this browser keeps for itself that the user
+ * sets, from Device State.
  *
  * 1. Read    the Microphone chosen and how the Touch Draft is written,
  *            and again after every write, here or in another tab. Vim
@@ -20,9 +20,7 @@ const Device = Schema.Struct({
   touchMode: DeviceState.Device.fields.touchMode,
 });
 
-export const General = Page.define({
-  path: '/general',
-  metadata: { title: 'General · Settings · code' },
+export const General = Actor.define('General', {
   requires: [DeviceState],
   model: Schema.Struct({
     /** Null until read. */
@@ -34,7 +32,7 @@ export const General = Page.define({
   }),
 });
 
-export const GeneralLive = Page.build(General, {
+export const GeneralLive = Actor.build(General, {
   init: () => ({ model: { device: null } }),
   workers: {
     // 1. Read

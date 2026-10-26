@@ -1,10 +1,10 @@
 import { Effect, Schema, Stream } from 'effect';
+import { Actor } from '@kestack/kabuki';
 import {
   HarnessAccountInfo,
   Machine,
   SpeechToTextState,
 } from '@kestack/connect/code';
-import { Page } from '@kestack/kabuki/routing';
 import {
   Machines,
   SavedMachines,
@@ -14,11 +14,11 @@ import { SpeechToText } from './speech-to-text/index.ts';
 import { ask, keepForgetting } from './commands.ts';
 
 /*
- * Settings → Machines, `/settings/machines`: the signed-in Account's
- * Machines as the Machine List holds them, so the list never waits for a
- * Machine, each standing as the sidebar says it, by its Line and Last
- * Seen; and each Machine's own settings, shown as last kept on this device
- * and asked of the Machine behind, each on its own.
+ * Settings → Machines: the signed-in Account's Machines as the Machine
+ * List holds them, so the list never waits for a Machine, each standing as
+ * the sidebar says it, by its Line and Last Seen; and each Machine's own
+ * settings, shown as last kept on this device and asked of the Machine
+ * behind, each on its own.
  *
  * 1. Read    what `Machines` holds, followed, and what this device kept
  *            of each listed Machine's settings; nothing is drawn until the
@@ -72,9 +72,7 @@ const Model = Schema.Struct({
 });
 type Model = typeof Model.Type;
 
-export const MachineSettings = Page.define({
-  path: '/machines',
-  metadata: { title: 'Machines · Settings · code' },
+export const MachineSettings = Actor.define('MachineSettings', {
   requires: [Machines, SavedMachines],
   model: Model,
   message: Schema.TaggedUnion({
@@ -124,7 +122,7 @@ const readAll = (model: Model) =>
   (model.savedRead || model.machines !== null) &&
   keysOf(model).every((key) => model.kept[key] !== undefined);
 
-export const MachineSettingsLive = Page.build(MachineSettings, {
+export const MachineSettingsLive = Actor.build(MachineSettings, {
   init: () => ({
     model: {
       heard: false,

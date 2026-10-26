@@ -146,7 +146,8 @@ function Drafting(self: ViewProps<typeof DraftLive>) {
             {problem}
             {problem === unavailable && (
               <Router.Link
-                to={routes.settings('Machines')}
+                to={routes.settings()}
+                onClick={() => routes.openSettingsOn('Machines')}
                 className="focus-ring shrink-0 rounded-sm text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
               >
                 Open Settings
