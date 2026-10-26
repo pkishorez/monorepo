@@ -21,7 +21,8 @@ import { ProjectPickerLive, ProjectsView } from './actor.ts';
  * the Button, the round plus at the right of the sidebar's foot, opens it
  * by pointer as a popover above it, and by a tap in a tall Drawer, its
  * folders too, each tapped into. Picked there, a Project's new session
- * opens in a Drawer over it (`Start`); closing that goes back to choosing.
+ * opens in a Drawer over it (`Start`); closing that goes back to choosing,
+ * and starting it closes both on the Session's page, the keys there.
  * A folder made without its git repository says so over the page until
  * dismissed.
  */
@@ -152,14 +153,29 @@ function Start({
 /**
  * Closes the Picker once the page changes, as starting the session does:
  * whatever page was open as it opened, the same project's too, never does.
+ * The keys go on to the Session's page, as a Project chosen by keys does,
+ * never back to the sidebar it was opened from, which would show it again.
  */
 function ClosedOnStart({ onStarted }: { readonly onStarted: () => void }) {
   const { route } = useRouter<Route>();
-  const now = JSON.stringify(route);
-  const before = useRef(now);
-  const moved = now !== before.current;
+  return <OnMove at={JSON.stringify(route)} onMoved={onStarted} />;
+}
+
+/** Once `at` is not what it was first drawn with: the keys go to the page, then `onMoved`. */
+export function OnMove({
+  at,
+  onMoved,
+}: {
+  readonly at: string;
+  readonly onMoved: () => void;
+}) {
+  const { enter } = keys.useKeyboard();
+  const before = useRef(at);
+  const moved = at !== before.current;
   useEffect(() => {
-    if (moved) onStarted();
+    if (!moved) return;
+    enter('content');
+    onMoved();
   }, [moved]);
   return null;
 }

@@ -22,7 +22,7 @@ import {
 import { keys } from '../../../../keys.ts';
 import { project } from '../../../routes/index.ts';
 import { ProjectPickerLive } from './actor.ts';
-import { ProjectPickerButton, ProjectPickerView } from './view.tsx';
+import { OnMove, ProjectPickerButton, ProjectPickerView } from './view.tsx';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -64,6 +64,15 @@ let ping = () => {};
 let active = '';
 let read: (recent?: typeof RECENT) => void = () => {};
 let showProjects: (shown: boolean) => void = () => {};
+let moveTo: (at: string) => void = () => {};
+let moves = 0;
+
+/** The started session's move, as the router would draw it. */
+function Mover() {
+  const [at, setAt] = useState('/m/m1/p/p1');
+  moveTo = setAt;
+  return <OnMove at={at} onMoved={() => void moves++} />;
+}
 
 /** Hands the Picker its recent Projects, as its Worker would. */
 const Recent = View.make(ProjectPickerLive, ({ send }) => {
@@ -106,6 +115,7 @@ const OwnerView = View.make(OwnerLive, ({ model, children, send }) => {
       />
       <Page />
       <ProjectPickerView instance={children.projectPicker} />
+      <Mover />
     </keys.Provider>
   );
 });
@@ -218,6 +228,7 @@ beforeAll(() => {
 
 const start = async () => {
   pushed = [];
+  moves = 0;
   const App = toReact(OwnerLive, OwnerView, services, {
     name: `project-picker-test-${apps++}`,
   });
@@ -308,5 +319,24 @@ describe('the Project Picker on more than one Machine', () => {
   it('opens on the Machines while the Machine the sidebar shows is no longer listed', async () => {
     await two('gone');
     expect(placeholder()).toBe('Search your Machines');
+  });
+});
+
+describe('a new session started from the Picker', () => {
+  it('moves the keys to its page, never back to the sidebar it was opened from', async () => {
+    await act(async () => {
+      row().dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+      row().focus();
+    });
+    await flush();
+    expect(active).toBe('sidebar');
+    await act(async () => moveTo('/m/m1/p/p1'));
+    await flush();
+    expect(moves).toBe(0);
+    await act(async () => moveTo('/m/m1/p/p1/s/s9'));
+    await flush();
+    expect(moves).toBe(1);
+    expect(active).toBe('content');
+    expect(document.activeElement).toBe(editor());
   });
 });
