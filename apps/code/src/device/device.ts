@@ -14,7 +14,7 @@ export const router = Router.define(Device, {
   redirect: {
     '/settings/general': (r) => r.Settings(),
     '/settings/shortcuts': (r) => r.Settings(),
-    '/settings/machines': (r) => r.Settings(),
+    '/settings/connections': (r) => r.Settings(),
   },
   notFound: { title: 'Not found · code', robots: 'noindex' },
   scrollRestoration: true,

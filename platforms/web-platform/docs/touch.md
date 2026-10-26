@@ -61,7 +61,7 @@ Whoever opens a Picker chooses its Picker Mode for touch:
 - Swipe right opens the Sidebar, swipe left closes it, in either Sidebar Mode.
 - Swipe a Session row left to right to Settle it; on a Settled row, to
   un-Settle it. It commits past about 40% of the row or on a fast flick, slides
-  out with a spring, and offers Undo for 5 seconds. Its Machine is asked at
+  out with a spring, and offers Undo for 5 seconds. Its Connection is asked at
   once, and Undo asks it back.
 - Pull down at the top of the Sidebar to Reload. Scrolled down, the Sidebar
   scrolls instead, wherever the finger lands, a Session row included.

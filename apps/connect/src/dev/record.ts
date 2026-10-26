@@ -7,7 +7,7 @@ import { withLock } from './lock.js';
 /*
  * `connect.json`: how this branch's Connect stands, written by whoever runs
  * it. It is alive only when its process runs, it says it is ready, Cloud
- * Connect answers `/auth` and the Machine answers `/health`; stopping once
+ * Connect answers `/auth` and the Connection answers `/health`; stopping once
  * a shared Connect has decided to stop, until its process exits; starting
  * while its process runs but it is not alive yet; absent otherwise. Its
  * process runs while its pid is alive and was not reused since `startedAt`.
@@ -20,9 +20,9 @@ export interface ConnectRecord {
   readonly cloud: string;
   /** How it signs in; a record from before it said is `real`. */
   readonly auth?: DevAuth;
-  /** The Machine's port; 0 until it listens. */
+  /** The Connection's port; 0 until it listens. */
   readonly port: number;
-  readonly machine: { readonly id: string; readonly name: string } | null;
+  readonly connection: { readonly id: string; readonly name: string } | null;
   readonly ready: boolean;
   /** Before its process started, or as it did. */
   readonly startedAt: string;

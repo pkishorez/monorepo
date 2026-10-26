@@ -12,15 +12,15 @@ import type { Effect } from 'effect';
  *             longer lists, never itself, and only on a real answer: a
  *             failed or refused check deletes nothing. What the user asks
  *             to go goes at once. Each level names its own databases; the
- *             Machine's store deletes by them (`machines/machine/store/`).
+ *             Connection's store deletes by them (`connections/connection/store/`).
  *             - Accounts  the Account step, once the Auth Worker has
  *                         answered.
- *             - Machines  an Account's Machines, once Cloud Connect has
+ *             - Connections  an Account's Connections, once Cloud Connect has
  *                         answered.
- *             - Forget    one Machine the user forgot.
+ *             - Forget    one Connection the user forgot.
  *
  * How every store on this device keeps its rows, the Preferences, the
- * Machine Filter, the cache, the Unseen marks and the Saved Drafts alike,
+ * Connection Filter, the cache, the Unseen marks and the Saved Drafts alike,
  * is `rows/`.
  *
  * `IDB.prune` reads a name as segments split by `:`, so `accounts`, kept
@@ -43,24 +43,24 @@ export class Storage extends Context.Service<
     /**
      * Accounts: deletes every Account's databases but those of the
      * Accounts signed in on this device, and all under them: its cache,
-     * its local tables, its Machines and their sync. Best effort.
+     * its local tables, its Connections and their sync. Best effort.
      */
     readonly pruneAccounts: (
       signedIn: ReadonlyArray<string>,
     ) => Effect.Effect<void>;
     /**
-     * Machines: deletes the databases of every Machine of the Account but
+     * Connections: deletes the databases of every Connection of the Account but
      * those listed, and all under them; never the Account's own. Best
      * effort.
      */
-    readonly pruneMachines: (
+    readonly pruneConnections: (
       accountId: string,
       listed: ReadonlyArray<string>,
     ) => Effect.Effect<void>;
-    /** Forget: deletes one Machine's database and all under it, and no other's. Best effort. */
-    readonly dropMachine: (
+    /** Forget: deletes one Connection's database and all under it, and no other's. Best effort. */
+    readonly dropConnection: (
       accountId: string,
-      machineId: string,
+      connectionId: string,
     ) => Effect.Effect<void>;
   }
 >()('code/Storage') {}

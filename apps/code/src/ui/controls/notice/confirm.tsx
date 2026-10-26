@@ -10,7 +10,7 @@ import {
 } from '@kestack/web-platform/ui/components/alert-dialog';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { type ReactNode, useEffect } from 'react';
-import { keys } from '../../../device/account/machines/layout/commands.ts';
+import { keys } from '../../../device/account/connections/layout/commands.ts';
 
 /*
  * A confirmation: a question asked before something that cannot be taken

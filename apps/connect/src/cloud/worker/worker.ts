@@ -16,13 +16,13 @@ import {
   RPC_PATH,
 } from '../contract/index.js';
 import { Registry } from './registry/index.js';
-import { machinesTable } from './storage/index.js';
+import { connectionsTable } from './storage/index.js';
 
 /*
- * Cloud Connect: `CloudApi` for the signed-in caller over the `machines`
+ * Cloud Connect: `CloudApi` for the signed-in caller over the `connections`
  * table, as one `(request) => Promise<Response>`.
  *
- * - `GET /auth` answers the AuthInfo it was given, to anyone: how a Machine
+ * - `GET /auth` answers the AuthInfo it was given, to anyone: how a Connection
  *   signs in here.
  * - `POST /rpc` is the RPC. The caller is checked by auth-toolkit's Guard,
  *   asking the Auth Worker; a call with no Sign-in is refused
@@ -37,7 +37,7 @@ import { machinesTable } from './storage/index.js';
  *
  * The Worker is a few lines over `serve`, reading its env (see
  * worker.server.ts). The table itself is made at deploy, by
- * `D1.table(machinesTable)`.
+ * `D1.table(connectionsTable)`.
  */
 
 /** The calls' handlers. */
@@ -63,7 +63,7 @@ const corsFor = (request: Request, origin: string): Record<string, string> => ({
 });
 
 /**
- * Answers requests over the `machines` table on `driver`, with `guard`
+ * Answers requests over the `connections` table on `driver`, with `guard`
  * telling who calls and `authInfo` what `/auth` answers, letting pages on
  * `origins` call with credentials. For a test (`fakeGuard.rpc({ as })`) or
  * a local SQLite file; a Worker uses {@link serve}. The table must be set
@@ -75,7 +75,7 @@ export const serveOver = (options: {
   readonly origins: ReadonlyArray<string>;
   readonly driver: SQLiteDriver;
 }) => {
-  const table = SQLite.make(machinesTable, { database: options.driver });
+  const table = SQLite.make(connectionsTable, { database: options.driver });
   const answer = server(
     CloudApi,
     Layer.mergeAll(handlers.pipe(Layer.provide(table.layer)), options.guard),
@@ -128,4 +128,4 @@ export const serve = <Statement extends D1Statement<Statement>>(options: {
     driver: makeD1SQLite({ database: options.database }),
   });
 
-export { machinesTable } from './storage/index.js';
+export { connectionsTable } from './storage/index.js';

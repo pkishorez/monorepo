@@ -21,7 +21,7 @@ export interface LockOptions {
 
 /*
  * 20000–29999 is below every common range the OS hands out for port 0
- * (macOS and Windows 49152–65535, Linux 32768–60999), so the Machine,
+ * (macOS and Windows 49152–65535, Linux 32768–60999), so the Connection,
  * which listens on port 0, is never given a lock's port; and above
  * Portless's app ports, 4000–4999, and Connect's own 4590.
  */

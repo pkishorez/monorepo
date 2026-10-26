@@ -4,86 +4,86 @@
   "ignoredPaths": ["src/styles.css", "src/env.d.ts"],
   "fileModules": [
     "src/app.tsx",
-    "src/device/account/machines/layout/commands.ts",
+    "src/device/account/connections/layout/commands.ts",
     "src/device/store.ts",
-    "src/device/account/machines/store.ts",
-    "src/device/account/machines/machines.ts",
-    "src/device/account/machines/voice/voice.ts",
-    "src/device/account/machines/layout/pages/project/store.ts",
-    "src/device/account/machines/layout/pages/settings/machines/store.ts",
-    "src/device/account/machines/layout/pages/settings/machines/machine/accounts/store.ts"
+    "src/device/account/connections/store.ts",
+    "src/device/account/connections/connections.ts",
+    "src/device/account/connections/voice/voice.ts",
+    "src/device/account/connections/layout/pages/project/store.ts",
+    "src/device/account/connections/layout/pages/settings/connections/store.ts",
+    "src/device/account/connections/layout/pages/settings/connections/connection/accounts/store.ts"
   ],
   "rules": {
     "src/app.tsx": ["src/device", "src/ui/page/devtools", "src/ui/page/theme"],
     "src/device": ["src/ui"],
     "src/device/kabuki": ["src/device/routes"],
     "src/device/store.ts": ["src/device/account/store"],
-    "src/device/account/machines": ["src/device/account/store"],
-    "src/device/account/machines/machine": [
-      "src/device/account/machines/machines.ts",
-      "src/device/account/machines/store.ts"
+    "src/device/account/connections": ["src/device/account/store"],
+    "src/device/account/connections/connection": [
+      "src/device/account/connections/connections.ts",
+      "src/device/account/connections/store.ts"
     ],
-    "src/device/account/machines/voice": [
+    "src/device/account/connections/voice": [
       "src/device/store.ts",
-      "src/device/account/machines/machines.ts",
-      "src/device/account/machines/machine/connection"
+      "src/device/account/connections/connections.ts",
+      "src/device/account/connections/connection/link"
     ],
-    "src/device/account/machines/layout": [
+    "src/device/account/connections/layout": [
       "src/device/routes",
       "src/device/store.ts",
-      "src/device/account/machines/store.ts",
-      "src/device/account/machines/machines.ts",
-      "src/device/account/machines/machine",
-      "src/device/account/machines/voice"
+      "src/device/account/connections/store.ts",
+      "src/device/account/connections/connections.ts",
+      "src/device/account/connections/connection",
+      "src/device/account/connections/voice"
     ],
-    "src/device/account/machines/layout/pages/project/draft": [
-      "src/device/account/machines/layout/pages/project/store.ts"
+    "src/device/account/connections/layout/pages/project/draft": [
+      "src/device/account/connections/layout/pages/project/store.ts"
     ],
-    "src/device/account/machines/layout/pages/project/session": [
-      "src/device/account/machines/layout/pages/project/draft"
+    "src/device/account/connections/layout/pages/project/session": [
+      "src/device/account/connections/layout/pages/project/draft"
     ],
-    "src/device/account/machines/voice/dictation": [
-      "src/device/account/machines/voice/recorder",
-      "src/device/account/machines/voice/voice.ts"
+    "src/device/account/connections/voice/dictation": [
+      "src/device/account/connections/voice/recorder",
+      "src/device/account/connections/voice/voice.ts"
     ],
-    "src/device/account/machines/voice/microphone-picker": [
-      "src/device/account/machines/voice/recorder"
+    "src/device/account/connections/voice/microphone-picker": [
+      "src/device/account/connections/voice/recorder"
     ],
-    "src/device/account/machines/machine/records": [
-      "src/device/account/machines/machine/connection"
+    "src/device/account/connections/connection/records": [
+      "src/device/account/connections/connection/link"
     ],
-    "src/device/account/machines/layout/pages": [
-      "src/device/account/machines/layout/commands.ts"
+    "src/device/account/connections/layout/pages": [
+      "src/device/account/connections/layout/commands.ts"
     ],
-    "src/device/account/machines/layout/sidebar": [
-      "src/device/account/machines/layout/commands.ts"
+    "src/device/account/connections/layout/sidebar": [
+      "src/device/account/connections/layout/commands.ts"
     ],
-    "src/device/account/machines/layout/pickers": [
-      "src/device/account/machines/layout/commands.ts"
+    "src/device/account/connections/layout/pickers": [
+      "src/device/account/connections/layout/commands.ts"
     ],
-    "src/device/account/machines/layout/pages/project/new-session": [
-      "src/device/account/machines/layout/pages/project/draft"
+    "src/device/account/connections/layout/pages/project/new-session": [
+      "src/device/account/connections/layout/pages/project/draft"
     ],
-    "src/device/account/machines/layout/pages/project/session/transcript/tool": [
-      "src/device/account/machines/layout/pages/project/session/transcript/words",
-      "src/device/account/machines/layout/pages/project/session/transcript/turns/rows"
+    "src/device/account/connections/layout/pages/project/session/transcript/tool": [
+      "src/device/account/connections/layout/pages/project/session/transcript/words",
+      "src/device/account/connections/layout/pages/project/session/transcript/turns/rows"
     ],
-    "src/device/account/machines/layout/pages/settings/machines/machine": [
-      "src/device/account/machines/layout/pages/settings/machines/store.ts"
+    "src/device/account/connections/layout/pages/settings/connections/connection": [
+      "src/device/account/connections/layout/pages/settings/connections/store.ts"
     ],
-    "src/device/account/machines/layout/pages/settings/machines/machine/accounts/card": [
-      "src/device/account/machines/layout/pages/settings/machines/machine/accounts/store.ts"
+    "src/device/account/connections/layout/pages/settings/connections/connection/accounts/card": [
+      "src/device/account/connections/layout/pages/settings/connections/connection/accounts/store.ts"
     ]
   },
   "exceptions": [
     {
       "from": "src/ui/controls/picker",
-      "to": "src/device/account/machines/layout/commands.ts",
+      "to": "src/device/account/connections/layout/commands.ts",
       "because": "the Picker binds the app's own keyboard Actions (picker.*), defined with every other Action in Layout's keys, which imports nothing back"
     },
     {
       "from": "src/ui/controls/notice",
-      "to": "src/device/account/machines/layout/commands.ts",
+      "to": "src/device/account/connections/layout/commands.ts",
       "because": "Confirm, in the notices, binds the app's own keyboard Actions, defined with every other Action in Layout's keys, which imports nothing back"
     }
   ]

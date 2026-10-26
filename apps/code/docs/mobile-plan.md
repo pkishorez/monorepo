@@ -122,7 +122,7 @@ It replaces step 6's main button; Quick actions stay as they were.
   editing; the words; then a row that never moves.
 - Text or voice, kept in Device State, voice by default. A Swipe on the
   words switches: left to voice, right to text; from text, right opens the
-  sidebar. While no Machine can transcribe it is text, and asking for
+  sidebar. While no Connection can transcribe it is text, and asking for
   voice shakes the words and says why, with a link to Settings.
 - In voice a tap on the words places the caret, no keyboard; in text it
   makes the Draft the Composer. An empty Draft's placeholder edits it.

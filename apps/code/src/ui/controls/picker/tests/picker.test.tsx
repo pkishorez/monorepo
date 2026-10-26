@@ -13,7 +13,7 @@ import {
   expect,
   it,
 } from 'vitest';
-import { keys } from '../../../../device/account/machines/layout/commands.ts';
+import { keys } from '../../../../device/account/connections/layout/commands.ts';
 import { Frame, How, make } from '../picker.tsx';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });

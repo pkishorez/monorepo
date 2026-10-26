@@ -2,7 +2,7 @@
 import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { keys } from '../../../../device/account/machines/layout/commands.ts';
+import { keys } from '../../../../device/account/connections/layout/commands.ts';
 import { Dialog, useOpen } from '../confirm.tsx';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });

@@ -1,19 +1,19 @@
 # Connect actor trees
 
 Connect is one program on one computer. It has two Kabuki trees that never
-touch. The engine tree is the `code` App Group's: it holds the Projects and
+touch. The engine tree is the `code` Plugin's: it holds the Projects and
 the Sessions in them, runs each Session's Turns on its Agent, and keeps every
-record in the Store. The Heartbeat tree keeps the Machine online: a tunnel to
+record in the Store. The Heartbeat tree keeps the Connection online: a tunnel to
 this computer, and a Heartbeat to Cloud Connect. Each root runs with
 `Runtime.start`. The engine Layer gives `Store`, `Harnesses`,
-`HarnessAccounts`, `OneShotPrompt`, `Agents` and `Answers`. The machine Layer gives
+`HarnessAccounts`, `OneShotPrompt`, `Agents` and `Answers`. The connection Layer gives
 `HeartbeatHost`.
 Changed through `/kabukifi`; edit by hand and it drifts.
 
 ## Tree
 
 ```
-src/machine/code/engine/
+src/connection/code/engine/
   engine.ts                  the front door: finds an Instance, Sends a Message, asks a Query
   capabilities/              Agents, Answers, Store
   services/                  agents, answers, store, harness-binaries, folders
@@ -22,7 +22,7 @@ src/machine/code/engine/
   actor-code/                root; States: Loading | Ready
   └── actor-session          in Ready, each: model.sessions; States: Idle | Running
 
-src/machine/online/
+src/connection/online/
   online.ts                  identify, online, logout; builds HeartbeatHost
   heartbeat/
     heartbeat.ts             runs actor-heartbeat until it ends
@@ -30,12 +30,12 @@ src/machine/online/
     actor-heartbeat/         root; States: Online | SigningIn | Forgotten | Stopped
 ```
 
-Around the engine tree, `src/machine/code/records/` is what it keeps,
-`src/machine/code/api/` is the contract and the browser client, and
-`src/machine/code/code.ts` and its handlers and read feeds serve the engine
-on the Machine's socket. Around the Heartbeat tree, `src/machine/online/`
-holds identity, sign-in and the tunnel; `src/machine/` serves the App
-Groups on its one socket, with its files where `paths/` says; and
+Around the engine tree, `src/connection/code/records/` is what it keeps,
+`src/connection/code/api/` is the contract and the browser client, and
+`src/connection/code/code.ts` and its handlers and read feeds serve the engine
+on the Connection's socket. Around the Heartbeat tree, `src/connection/online/`
+holds identity, sign-in and the tunnel; `src/connection/` serves the
+Plugins on its one socket, with its files where `paths/` says; and
 `src/cloud/` is Cloud Connect, which it reports to.
 
 ## How it connects
@@ -45,7 +45,7 @@ Down, from the root:
 ```
 engine Layer ─ Store, Harnesses, HarnessAccounts, OneShotPrompt, Agents, Answers ─▶ actor-code
 actor-code   ─ each session id; Input: session, cwd, first ──────────────▶ actor-session
-machine Layer ─ HeartbeatHost ───────────────────────────────────────────▶ actor-heartbeat
+connection Layer ─ HeartbeatHost ───────────────────────────────────────────▶ actor-heartbeat
 ```
 
 Up, from the leaves:
@@ -188,7 +188,7 @@ on an Answer, for as long as it waits.
 
 ## actor-heartbeat
 
-**Does**: keeps a tunnel open and Reports the Machine to Cloud Connect every
+**Does**: keeps a tunnel open and Reports the Connection to Cloud Connect every
 beat.
 **Input**: none.
 **Model**: generation, status, failures, refusals: kept across SigningIn and
@@ -204,7 +204,7 @@ OpenFailed, TunnelUp, TunnelLost. beat: in Online, always; Sends Checked and
 the Report's answer. signIn: in SigningIn; Sends SignedIn or Stop.
 **Requires**: HeartbeatHost: all three.
 **Provides**: none.
-**Services**: none in the tree: machine.ts builds HeartbeatHost from
+**Services**: none in the tree: connection.ts builds HeartbeatHost from
 tunnel/, sign-in/ and Cloud Connect's client.
 **Children**: none.
 **View**: none.

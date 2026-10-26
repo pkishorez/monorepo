@@ -6,8 +6,8 @@ import { fakeGuard } from '@kestack/auth-toolkit/fake';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { CloudClient } from '../../client/index.js';
-import { MachineReport } from '../../contract/index.js';
-import { machinesTable, serveOver } from '../index.js';
+import { ConnectionReport } from '../../contract/index.js';
+import { connectionsTable, serveOver } from '../index.js';
 
 /*
  * Cloud Connect over an in-memory SQLite database, called through
@@ -24,7 +24,7 @@ const driver = makeNodeSQLite({ path: ':memory:' });
 
 beforeAll(() =>
   Effect.runPromise(
-    SQLite.setup(machinesTable, { database: driver, mode: 'persistent' }),
+    SQLite.setup(connectionsTable, { database: driver, mode: 'persistent' }),
   ),
 );
 
@@ -43,7 +43,7 @@ const signIn = (name: string) => {
   };
 };
 
-/** The same User on another Sign-in, as a second Machine would be. */
+/** The same User on another Sign-in, as a second Connection would be. */
 const anotherSignIn = (user: ReturnType<typeof signIn>, n: number) => ({
   ...user,
   principal: {
@@ -67,7 +67,7 @@ const answerAs = (principal: Principal | null) =>
  */
 const as = <A, E>(
   user: { readonly principal: Principal } | null,
-  program: (machines: CloudClient['Service']) => Effect.Effect<A, E>,
+  program: (connections: CloudClient['Service']) => Effect.Effect<A, E>,
   origin?: string,
 ) => {
   const answer = answerAs(user?.principal ?? null);
@@ -89,7 +89,7 @@ const as = <A, E>(
   );
 };
 
-const reportOf = (id: string, name = 'laptop'): MachineReport => ({
+const reportOf = (id: string, name = 'laptop'): ConnectionReport => ({
   id,
   name,
   key: `key-${id}`,
@@ -110,7 +110,7 @@ describe('Cloud Connect', () => {
     expect(await as(ada, (m) => m.List({}))).toEqual([second]);
   });
 
-  it("lists only the caller's Machines", async () => {
+  it("lists only the caller's Connections", async () => {
     const ada = signIn('ada');
     const bob = signIn('bob');
     await as(ada, (m) => m.Report(reportOf('ada-1')));
@@ -120,16 +120,16 @@ describe('Cloud Connect', () => {
     ]);
   });
 
-  it("refuses another User's Machine id MachineTaken", async () => {
+  it("refuses another User's Connection id ConnectionTaken", async () => {
     const ada = signIn('ada');
     const bob = signIn('bob');
     await as(ada, (m) => m.Report(reportOf('taken')));
     expect(
       await as(bob, (m) => Effect.flip(m.Report(reportOf('taken')))),
-    ).toMatchObject({ _tag: 'MachineTaken', id: 'taken' });
+    ).toMatchObject({ _tag: 'ConnectionTaken', id: 'taken' });
   });
 
-  it('forgets a Machine for good: its id, and its Sign-in under a new id', async () => {
+  it('forgets a Connection for good: its id, and its Sign-in under a new id', async () => {
     const ada = signIn('ada');
     await as(ada, (m) => m.Report(reportOf('gone')));
     await as(ada, (m) => m.Forget({ id: 'gone' }));
@@ -138,11 +138,11 @@ describe('Cloud Connect', () => {
     expect(await as(ada, (m) => m.List({}))).toEqual([]);
     expect(
       await as(ada, (m) => Effect.flip(m.Report(reportOf('gone')))),
-    ).toMatchObject({ _tag: 'MachineForgotten', id: 'gone' });
+    ).toMatchObject({ _tag: 'ConnectionForgotten', id: 'gone' });
     expect(
       await as(ada, (m) => Effect.flip(m.Report(reportOf('fresh')))),
-    ).toMatchObject({ _tag: 'MachineForgotten', id: 'fresh' });
-    // The same User on another Sign-in is a Machine of their own.
+    ).toMatchObject({ _tag: 'ConnectionForgotten', id: 'fresh' });
+    // The same User on another Sign-in is a Connection of their own.
     const elsewhere = anotherSignIn(ada, 2);
     expect(
       await as(elsewhere, (m) => m.Report(reportOf('fresh'))),
@@ -150,10 +150,10 @@ describe('Cloud Connect', () => {
     // The forgotten id stays forgotten whatever the Sign-in.
     expect(
       await as(elsewhere, (m) => Effect.flip(m.Report(reportOf('gone')))),
-    ).toMatchObject({ _tag: 'MachineForgotten' });
+    ).toMatchObject({ _tag: 'ConnectionForgotten' });
   });
 
-  it("leaves another User's Machine alone when asked to forget it", async () => {
+  it("leaves another User's Connection alone when asked to forget it", async () => {
     const ada = signIn('ada');
     const bob = signIn('bob');
     await as(ada, (m) => m.Report(reportOf('kept')));
@@ -199,7 +199,7 @@ describe('Cloud Connect', () => {
 
   it('takes a Report only with an https:// address, or none, and every field bounded', async () => {
     // Client and Cloud Connect both check the payload against the contract.
-    const valid = Schema.is(MachineReport);
+    const valid = Schema.is(ConnectionReport);
     const base = reportOf('bounded');
     expect(valid(base)).toBe(true);
     const at = (url: string) => ({
@@ -222,7 +222,7 @@ describe('Cloud Connect', () => {
     ).toMatchObject({ id: 'bounded', status: { _tag: 'Installing' } });
   });
 
-  it('answers /auth with how a Machine signs in, to anyone', async () => {
+  it('answers /auth with how a Connection signs in, to anyone', async () => {
     const response = await answerAs(null)(new Request(`${CLOUD}/auth`));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual(AUTH_INFO);

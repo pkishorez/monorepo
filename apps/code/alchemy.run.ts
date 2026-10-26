@@ -9,7 +9,7 @@ export default Stack(
   'Code',
   {
     // Cloudflare's: the site is one Worker. std-toolkit's only so a stage
-    // deployed before Cloud Connect moved out can destroy its old machines
+    // deployed before Cloud Connect moved out can destroy its old connections
     // table; drop it once every stage has deployed once.
     providers: stdToolkitProviders().pipe(
       Layer.provideMerge(Cloudflare.providers()),
@@ -17,6 +17,6 @@ export default Stack(
     // Local on disk for a personal stage; Cloudflare's for prod, demo and PRs.
     state: State,
   },
-  // The site; the Machines it lists come from Cloud Connect, in @kestack/connect.
+  // The site; the Connections it lists come from Cloud Connect, in @kestack/connect.
   Website,
 );

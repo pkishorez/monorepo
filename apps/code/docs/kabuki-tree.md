@@ -1,6 +1,6 @@
 # code actor tree
 
-`code` runs Claude Code and Codex Sessions in Projects, on every Machine of
+`code` runs Claude Code and Codex Sessions in Projects, on every Connection of
 the signed-in Account at once. The folders under `src/device/` tell one
 story, top down, and each level holds at most three parts. Read it depth
 first: a part, then what is inside it, then the next part.
@@ -19,13 +19,13 @@ checks who may import whom (`laymos.config.json`).
    it draws the app as that Account at once and checks with the Auth Worker
    in the background. Signed out from elsewhere, its data is pruned and
    sign-in shows (`sign-in/`). On an Account switch, the old screen stays
-   until the new Account's Machines are ready. It prunes `code:account:`
+   until the new Account's Connections are ready. It prunes `code:account:`
    once the Auth Worker really answers, keeping the Accounts signed in.
-3. **Machines** (`device/account/machines/`) reads the Account's Machine
+3. **Connections** (`device/account/connections/`) reads the Account's Connection
    list and sidebar filter from `code:account:<id>`. It asks Cloud Connect
-   for the list and prunes `code:account:<id>:machine:` on the first real
+   for the list and prunes `code:account:<id>:connection:` on the first real
    answer. It has three parts:
-   1. **machine/**: one per Machine. Its connection (how it is reached,
+   1. **connection/**: one per Connection. Its link (how it is reached,
       its health, why it refused), its records (Projects, Sessions,
       messages, Moves on their way, and the Agent Questions its Sessions
       wait on, `records/questions/`), and its store (setup, Skills,
@@ -35,7 +35,7 @@ checks who may import whom (`laymos.config.json`).
       you move between pages.
    3. **layout/**: what you see. Its view draws the header. It has three
       parts:
-      1. **sidebar/**: the Projects and Sessions of the Machines shown.
+      1. **sidebar/**: the Projects and Sessions of the Connections shown.
          `session-sync/` keeps the messages of every Session shown in
          sync, before you open it.
       2. **pickers/**: what the keys open. `projects/` (Project Picker and
@@ -43,7 +43,7 @@ checks who may import whom (`laymos.config.json`).
          you can do here, each with its keys).
       3. **pages/**: one page from the URL: `home/`, `project/`,
          `settings/`.
-         - `project/` (`/m/:machine/p/:project`) owns the Catalog (agents,
+         - `project/` (`/m/:connection/p/:project`) owns the Catalog (agents,
            models, Skills) and gives it down. Its parts: `draft/`,
            `new-session/` (a Draft that starts a Session) and `session/`
            (`…/s/:session`).
@@ -55,8 +55,8 @@ checks who may import whom (`laymos.config.json`).
            Fork and Seen; `transcript/` draws its turns, tool calls and
            words; `question/` is the Question Panel, which stands in for
            the Draft while its agent asks.
-         - `settings/` has `general/`, `shortcuts/` and `machines/` (one
-           card per Machine: its accounts, speech and Projects).
+         - `settings/` has `general/`, `shortcuts/` and `connections/` (one
+           card per Connection: its accounts, speech and Projects).
 
 `src/ui/` holds plain parts with no data: `page/` (devtools, gutter,
 theme), `controls/` (notices, the Picker, settings rows) and `labels/`
@@ -65,19 +65,19 @@ theme), `controls/` (notices, the Picker, settings rows) and `labels/`
 ## Actors
 
 The actor tree follows the folders, with one difference: Layout and the
-pages are Children of the Device, not of Machines. The Machines of two
+pages are Children of the Device, not of Connections. The Connections of two
 Accounts run at once while one prepares, and Layout starts over for each
-Account drawn, which a Child of one Machines could not do.
+Account drawn, which a Child of one Connections could not do.
 
 ```
 device                          root page; States: Reading | Checking | SignedIn | SignedOut
 ├── account                     the Account Switcher (library Actor)
-├── machines                    each: the Account drawn, and the one about to be
+├── connections                    each: the Account drawn, and the one about to be
 │   ├── voice                   always
 │   │   ├── dictation           always; hears asks only while its Account is drawn
 │   │   └── microphonePicker    always
-│   └── machine                 each: listed Machine id; follows its Agent Questions and their answers so far
-│       └── replicas            its Machine's Replica Instances
+│   └── connection                 each: listed Connection id; follows its Agent Questions and their answers so far
+│       └── replicas            its Connection's Replica Instances
 ├── layout                      key: the Account drawn
 │   ├── sidebar                 always, on a phone too while it is shut
 │   │   └── sessionSync         always
@@ -86,7 +86,7 @@ device                          root page; States: Reading | Checking | SignedIn
 │   └── project, session        the rows the header names
 └── pages                       one at a time, from the URL
     ├── Home
-    ├── Settings                general, shortcuts, machines (one card each)
+    ├── Settings                general, shortcuts, connections (one card each)
     ├── Project                 the Catalog; draft while no Session is open
     │   └── Session             /s/:sessionId
     │       ├── draft           key: the session id
@@ -103,17 +103,17 @@ The app is drawn whole, in one step, from what this device holds. Until
 Layout is shown, the root page's mark stays and Layout draws nothing; the
 sidebar and the page each say once, from their View, that all they first
 draw is read (`Ready`): the sidebar its width and the rows and marks of
-every Machine shown, the page its own (home its projects; a project its row
+every Connection shown, the page its own (home its projects; a project its row
 and the new session's Saved Draft; a session its row, messages and Saved
 Draft). With the header's rows and the page's code loaded too, Layout is
-shown (`Ready`). Nothing waits on Cloud Connect or a Machine: what
+shown (`Ready`). Nothing waits on Cloud Connect or a Connection: what
 they answer comes in behind.
 
 ## Moves
 
 A move to a page swaps the screen at once: the page moved to draws what it
 has read so far, and the rest arrives in its first frames. An Account
-switch keeps the old Account on screen until the new one's Machines have
+switch keeps the old Account on screen until the new one's Connections have
 read their kept list (`Prepared`); then the mark shows while the new
 Layout reads what it first draws, and the new Account's home follows.
 The page code, and the views that say a page is ready, are preloaded once
@@ -121,7 +121,7 @@ the browser is idle, so a move never waits on React's Suspense.
 
 ## Voice
 
-Voice is a Child of Machines, so a recording keeps going across pages.
+Voice is a Child of Connections, so a recording keeps going across pages.
 
 - You start or stop it from anywhere: Space, Ctrl+Space, the mic in the
   header, or a Draft's mic. Layout binds the keys and draws the mic.
@@ -137,7 +137,7 @@ Voice is a Child of Machines, so a recording keeps going across pages.
 
 The sidebar holds one `MessageIds` Query per Session it shows. Its `where`
 on the Session opens that Session's Window, so its messages sync over the
-Machine's one socket, and resume after a reconnect. The Query selects only
+Connection's one socket, and resume after a reconnect. The Query selects only
 ids, so its Model and the Kabuki History stay small. Opening the Session
 then draws its messages from this device at once.
 
@@ -145,37 +145,37 @@ then draws its messages from this device at once.
 
 Each level names its own database segment. The names stay as they were.
 
-| Database                                                   | Table                      | Kind  | Written by              |
-| ---------------------------------------------------------- | -------------------------- | ----- | ----------------------- |
-| `code:device`                                              | `accounts`                 | Local | Accounts (auth-toolkit) |
-|                                                            | `preferences`              | Local | Preferences             |
-| `code:account:<accountId>`                                 | `machines`                 | Cache | Machines                |
-|                                                            | `sidebar`                  | Local | the sidebar filter      |
-| `code:account:<accountId>:machine:<machineId>`             | `setup`, `skills`          | Cache | machine, project        |
-|                                                            | `seen`                     | Local | session                 |
-|                                                            | `drafts`                   | Local | draft                   |
-| `code:account:<accountId>:machine:<machineId>:sync:<name>` | Projects, Sessions, Turns… | Sync  | the Machine's Replicas  |
+| Database                                                         | Table                      | Kind  | Written by                |
+| ---------------------------------------------------------------- | -------------------------- | ----- | ------------------------- |
+| `code:device`                                                    | `accounts`                 | Local | Accounts (auth-toolkit)   |
+|                                                                  | `preferences`              | Local | Preferences               |
+| `code:account:<accountId>`                                       | `connections`              | Cache | Connections               |
+|                                                                  | `sidebar`                  | Local | the sidebar filter        |
+| `code:account:<accountId>:connection:<connectionId>`             | `setup`, `skills`          | Cache | connection, project       |
+|                                                                  | `seen`                     | Local | session                   |
+|                                                                  | `drafts`                   | Local | draft                     |
+| `code:account:<accountId>:connection:<connectionId>:sync:<name>` | Projects, Sessions, Turns… | Sync  | the Connection's Replicas |
 
 Local is known only here and is the truth. Cache is a copy of what Cloud
-Connect or a Machine last said: shown first, replaced by the next answer.
+Connect or a Connection last said: shown first, replaced by the next answer.
 Sync is a copy the backend keeps live.
 
 Who prunes, and only on a real answer (a check that fails deletes nothing):
 
-| Who      | When                                   | Prefix                       | Keeps                        |
-| -------- | -------------------------------------- | ---------------------------- | ---------------------------- |
-| Account  | the Auth Worker answers, or a sign-out | `code:account:`              | every Account signed in here |
-| Machines | Cloud Connect first answers            | `code:account:<id>:machine:` | the Machines it lists        |
+| Who         | When                                   | Prefix                          | Keeps                        |
+| ----------- | -------------------------------------- | ------------------------------- | ---------------------------- |
+| Account     | the Auth Worker answers, or a sign-out | `code:account:`                 | every Account signed in here |
+| Connections | Cloud Connect first answers            | `code:account:<id>:connection:` | the Connections it lists     |
 
-A Project removed and a Machine forgotten are your asks, and go at once.
+A Project removed and a Connection forgotten are your asks, and go at once.
 
 ## Agent Questions
 
-An agent's question is followed once, by its Machine, and read twice.
+An agent's question is followed once, by its Connection, and read twice.
 
-- **Machine** (`machine/records/questions/`) follows every Session's
+- **Connection** (`connection/records/questions/`) follows every Session's
   Agent Questions over its own socket, whole on each change, and says
-  them in `Machines`, beside its setup and Unseen marks. Nothing of them
+  them in `Connections`, beside its setup and Unseen marks. Nothing of them
   is kept: they live only while their Turn runs. It also holds how each
   is being answered here (`Answering`: each Item's answer so far,
   minimised or not, tried, sent), in memory, as the Question Panel gives
@@ -185,7 +185,7 @@ An agent's question is followed once, by its Machine, and read twice.
   adds a sample, answered in the browser (`samples.ts`).
 - **Sidebar** reads which Sessions ask, for their "Question" pill.
 - **Question Panel** (`pages/project/session/question/`), a Child of the
-  Session, reads its own Session's, reads back from the Machine how they
+  Session, reads its own Session's, reads back from the Connection how they
   were being answered as it opens and gives it each change, so leaving
   the session or the page and coming back finds each question as it was
   left, and answers or declines it over the page's socket; one no longer

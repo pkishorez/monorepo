@@ -1,7 +1,7 @@
 import { View } from '@kestack/kabuki/react';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import { useEffect, useRef, type ReactElement, type ReactNode } from 'react';
-import { keys } from '../../../device/account/machines/layout/commands.ts';
+import { keys } from '../../../device/account/connections/layout/commands.ts';
 import { build, How, type Spec } from './actor.ts';
 import { ByTrigger, Centred } from './shape/keyboard.tsx';
 import { List } from './list/list.tsx';

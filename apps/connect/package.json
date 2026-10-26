@@ -1,7 +1,7 @@
 {
   "name": "@kestack/connect",
   "version": "0.0.4",
-  "description": "Connects a computer to the cloud as a Machine its User reaches from anywhere: the ke-connect command, Cloud Connect on a Cloudflare Worker, and the code App Group Code talks to",
+  "description": "Connects a computer to the cloud as a Connection its User reaches from anywhere: the ke-connect command, Cloud Connect on a Cloudflare Worker, and the code Plugin Code talks to",
   "repository": {
     "type": "git",
     "url": "https://github.com/pkishorez/monorepo",
@@ -20,16 +20,16 @@
   ],
   "exports": {
     "./code": {
-      "types": "./dist/machine/code/api/index.d.ts",
-      "default": "./dist/machine/code/api/index.js"
+      "types": "./dist/connection/code/api/index.d.ts",
+      "default": "./dist/connection/code/api/index.js"
     },
     "./worker": {
       "types": "./dist/cloud/worker/index.d.ts",
       "default": "./dist/cloud/worker/index.js"
     },
-    "./machine": {
-      "types": "./dist/machine/index.d.ts",
-      "default": "./dist/machine/index.js"
+    "./connection": {
+      "types": "./dist/connection/index.d.ts",
+      "default": "./dist/connection/index.js"
     },
     "./dev": {
       "types": "./dist/dev/index.d.ts",

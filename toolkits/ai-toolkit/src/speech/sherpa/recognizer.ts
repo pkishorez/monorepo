@@ -11,7 +11,7 @@ import {
  * The one typed wrapper around sherpa-onnx-node, and the only code that
  * touches it. The package is fetched into the model's folder, and
  * sherpa.ts hands it in. It loads its native addon as it is required, so it is
- * required on the first load, never before: a Machine that never turns
+ * required on the first load, never before: a Connection that never turns
  * Speech to Text on never fetches or loads it. Loading and decoding run off the main
  * thread (`createAsync`, `decodeAsync`), so the server never blocks; one
  * clip is decoded at a time.

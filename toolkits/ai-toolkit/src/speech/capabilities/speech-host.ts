@@ -2,7 +2,7 @@ import { Context, type Effect } from 'effect';
 
 /*
  * What the speech model stands on, so it can be run against a fake: the
- * wish and the model's files in the Machine's data folder, and the model
+ * wish and the model's files in the Connection's data folder, and the model
  * once loaded. speech.ts builds it from SpeechToText. Failures are the
  * message to show.
  */

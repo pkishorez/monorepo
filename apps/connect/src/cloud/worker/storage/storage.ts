@@ -3,22 +3,22 @@ import { StdTable } from '@kestack/std-toolkit/db';
 import { EntityESchema } from '@kestack/std-toolkit/eschema';
 
 /*
- * Where Cloud Connect keeps its records: one std Table, `machines`,
- * on Cloud Connect's D1 database. A Machine id is one Machine's alone, across
- * every User, so each Machine is its own partition, keyed by its id; its
- * owner's Machines are found through `byOwner`. A forgotten Machine stays
+ * Where Cloud Connect keeps its records: one std Table, `connections`,
+ * on Cloud Connect's D1 database. A Connection id is one Connection's alone, across
+ * every User, so each Connection is its own partition, keyed by its id; its
+ * owner's Connections are found through `byOwner`. A forgotten Connection stays
  * as a tombstone, with `forgottenAt` set and the Sign-in it last reported
  * with (ADR 0016).
  */
 
 /**
- * One Machine as stored: its last Report (see `MachineReport`), its owner,
+ * One Connection as stored: its last Report (see `ConnectionReport`), its owner,
  * Last Seen, and whether it was forgotten. Its own fields, not the
  * contract's, so a change to the contract never silently changes the rows.
  * v1 kept the address and the last Tunnel Check apart; v2 keeps the status
  * they make, and a v1 row with no address reads as Opening.
  */
-export const MachineRecord = EntityESchema.make('Machine', 'id', {
+export const ConnectionRecord = EntityESchema.make('Connection', 'id', {
   name: Schema.String,
   url: Schema.NullOr(Schema.String),
   key: Schema.String,
@@ -88,16 +88,16 @@ export const MachineRecord = EntityESchema.make('Machine', 'id', {
   )
   .build();
 
-export type MachineRecord = typeof MachineRecord.Type;
+export type ConnectionRecord = typeof ConnectionRecord.Type;
 
 /** Cloud Connect's table, for `SQLite.setup`, `D1.table` and its deploy guard. */
-export const machinesTable = StdTable.make('machines')
+export const connectionsTable = StdTable.make('connections')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .build();
 
-export const machines = machinesTable
-  .entity(MachineRecord)
+export const connections = connectionsTable
+  .entity(ConnectionRecord)
   .primary({ pk: ['id'] })
   .index('GSI1', 'byOwner', { pk: ['userId'], sk: ['id'] })
   .build();

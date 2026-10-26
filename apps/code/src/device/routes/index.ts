@@ -1,7 +1,7 @@
 export {
   home,
   kabuki,
-  machineIn,
+  connectionIn,
   openSettingsOn,
   project,
   projectIn,

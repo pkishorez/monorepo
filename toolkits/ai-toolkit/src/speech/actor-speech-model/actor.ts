@@ -3,7 +3,7 @@ import { Actor, type Self } from '@kestack/kabuki';
 import { SpeechHost, type Fetched } from '../capabilities/index.js';
 
 /*
- * The Speech to Text model on this Machine as an Actor. Its State is what
+ * The Speech to Text model on this Connection as an Actor. Its State is what
  * is on disk: Off has nothing there, so it deletes what is left; Downloading
  * keeps the wish and fetches the files; Ready has them, and answers
  * transcribe; Failed keeps the wish, so a restart tries again, as Enable
