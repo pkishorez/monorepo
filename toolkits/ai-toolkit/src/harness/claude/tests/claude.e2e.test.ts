@@ -504,6 +504,14 @@ describe.skipIf(!enabled)(
       });
     }, 30_000);
 
+    it('says why it cannot list skills in a folder that no longer exists', async () => {
+      const gone = join(cwd, 'gone');
+      const failure = await run(Effect.flip(claude.skills(gone)));
+      expect(failure).toMatchObject({
+        message: `The project folder ${gone} no longer exists`,
+      });
+    }, 30_000);
+
     it('lists the skills it offers in a folder, without a turn', async () => {
       const skills = await run(claude.skills(cwd));
       expect(skills.length).toBeGreaterThan(0);
