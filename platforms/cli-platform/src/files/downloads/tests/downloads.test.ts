@@ -164,4 +164,30 @@ describe('Downloads', () => {
         expect(existsSync(join(cache, 'downloads', 'recent'))).toBe(true);
       }),
     ));
+
+  it('keeps an entry marked used again, as a running Plugin marks its file', () =>
+    withCache((downloads, cache) =>
+      Effect.gen(function* () {
+        yield* downloads.ensure({
+          key: 'running',
+          produce: (file) =>
+            Effect.promise(() =>
+              import('node:fs/promises').then((fs) =>
+                fs.writeFile(file, 'plugin'),
+              ),
+            ),
+        });
+        const longAgo = new Date(Date.now() - 40 * 24 * 3600_000);
+        utimesSync(
+          join(cache, 'downloads', 'running', 'used'),
+          longAgo,
+          longAgo,
+        );
+        yield* downloads.use('running');
+        yield* downloads.use('missing');
+        expect(yield* downloads.prune({ olderThan: '30 days' })).toEqual([]);
+        expect(existsSync(join(cache, 'downloads', 'running'))).toBe(true);
+        expect(existsSync(join(cache, 'downloads', 'missing'))).toBe(false);
+      }),
+    ));
 });

@@ -9,7 +9,7 @@ Where a kestack CLI keeps its files. Each named copy of a CLI, such as a Connect
 _Avoid_: paths, dirs, home
 
 **Downloads**:
-The one shared copy of each downloaded file on a computer, in the cache, known by its sha256, or by a key when no hash is known up front. A file is there whole or not at all, and two processes that want it at once download it once. Files not used for a while are pruned.
+The one shared copy of each downloaded file on a computer, in the cache, known by its sha256, or by a key when no hash is known up front. A file is there whole or not at all, and two processes that want it at once download it once. Files not used for a while are pruned; a Plugin running from one marks it used every day.
 _Avoid_: binary cache, store, artifacts
 
 **Single**:
