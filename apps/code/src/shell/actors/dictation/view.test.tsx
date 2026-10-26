@@ -223,8 +223,8 @@ describe('the Dictation, drawn', () => {
       await flush();
     }
     const wave = wavebars();
-    expect(wave).toHaveLength(14);
-    expect(wave.slice(-2)).toEqual(['scaleY(0.3)', 'scaleY(0.9)']);
-    expect(wave[0]).toBe('scaleY(0.15)');
+    expect(wave).toHaveLength(64);
+    expect(wave.slice(-2)).toEqual(['scaleY(0.36)', 'scaleY(1)']);
+    expect(wave[0]).toBe('scaleY(0.1)');
   });
 });

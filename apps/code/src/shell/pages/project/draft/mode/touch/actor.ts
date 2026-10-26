@@ -8,42 +8,47 @@ import {
 
 /*
  * The Touch Draft: the Draft on a device with no keyboard, as its own
- * Actor beside the Draft's, which keeps its text. It says only which of
- * its States it is in, and drives the one Dictation through `Dictations`:
- * start, take, cancel. The Dictation says how it stands through `Heard`,
- * as its View hears it, and the Touch Draft follows: what it asked may
- * not happen, such as a start with no Machine to transcribe on. Whether
- * it is written by text or by voice is its Model, kept in Device State.
+ * Actor beside the Draft's, which keeps its text. One line at the page's
+ * foot until it is opened; it says only which of its States it is in,
+ * and drives the one Dictation through `Dictations`: start, take,
+ * cancel. The Dictation says how it stands through `Heard`, as its View
+ * hears it, and the Touch Draft follows: what it asked may not happen,
+ * such as a start with no Machine to transcribe on. Whether it takes
+ * Smart Input, and Smart Displacement, is its Model, kept in Device State.
  *
- * 1. Resting       read only. The microphone starts a Dictation; once it
- *                  records, the Touch Draft is Recording.
- * 2. Recording     take: it is written out into the Draft; take and send:
+ * 1. Collapsed     one line, read only. Opened, it is Editing; with Smart
+ *                  Input, Expanded.
+ * 2. Expanded      open and read only, the keyboard down: a tap in its
+ *                  words places the caret, for the next Dictation. Edit
+ *                  makes it Editing.
+ * 3. Editing       the Composer, the keyboard up, until collapsed or sent;
+ *                  Done, with Smart Input, goes back to Expanded.
+ * 4. Recording     take: it is written out into the Draft; take and send:
  *                  the same, then the Draft is sent; cancel: thrown away.
- *                  A Dictation that stops on its own is taken.
- * 3. Transcribing  until its text is in, then Resting, or Sending when it
+ *                  A Dictation that stops on its own is taken. `open`:
+ *                  started open, and goes back to Expanded; collapsed,
+ *                  it goes on, on one line.
+ * 5. Transcribing  until its text is in, then back, or Sending when it
  *                  was taken to send and the Draft can be sent then; if
  *                  it cannot, as offline, the text stays in the Draft.
- *                  Failing, or with nothing heard, nothing is sent:
- *                  Resting, with the Dictation's Retry in the Draft. A
- *                  cancel still throws it away.
- * 4. Editing       the Composer, until done or sent.
- * 5. Sending       its owner, the Draft, is asked to send, then Resting.
+ *                  Failing, or with nothing heard, nothing is sent, the
+ *                  Dictation's Retry in the Draft. A cancel throws it
+ *                  away.
+ * 6. Sending       its owner, the Draft, is asked to send, then Collapsed.
  */
 
 /** What is done with a Dictation's text once in: kept, or sent with the Draft. */
 const Then = Schema.Literals(['take', 'send']);
 
 export const State = Schema.TaggedUnion({
-  Resting: {},
-  Recording: {},
-  /** `said`: its text has come, to go in. */
-  Transcribing: { then: Then, said: Schema.Boolean },
+  Collapsed: {},
+  Expanded: {},
   Editing: {},
+  Recording: { open: Schema.Boolean },
+  /** `said`: its text has come, to go in. */
+  Transcribing: { then: Then, said: Schema.Boolean, open: Schema.Boolean },
   Sending: {},
 });
-
-/** How it is written: by typing, or by voice. */
-export const Mode = Schema.Literals(['text', 'voice']);
 
 /** How the Dictation stands, as this Draft sees it: starting counts as recording. */
 export const Heard = Schema.Literals([
@@ -68,15 +73,6 @@ const ask = Command.make('TouchDraftAsks', {
     ),
 });
 
-/** Keeps the mode chosen; a write that fails is lost. */
-const keepMode = Command.make('KeepTouchMode', {
-  args: Schema.Struct({ mode: Mode }),
-  run: ({ mode }) =>
-    Effect.flatMap(DeviceState, (store) => store.setTouchMode(mode)).pipe(
-      Effect.ignore,
-    ),
-});
-
 const send = Command.make('TouchDraftSends', {
   run: () =>
     Effect.flatMap(Owner, (owner) => owner.send).pipe(
@@ -86,114 +82,163 @@ const send = Command.make('TouchDraftSends', {
 
 export const TouchDraft = Actor.define('TouchDraft', {
   requires: [Dictations, DeviceState, Owner],
-  model: Schema.Struct({ mode: Mode }),
+  model: Schema.Struct({ smart: Schema.Boolean, displace: Schema.Boolean }),
   state: State,
   message: Schema.TaggedUnion({
-    /** The microphone, at rest: start a Dictation. */
+    /** The microphone: start a Dictation. */
     Dictate: {},
     /** While it records: take it, and send the Draft once it is text if `send`. */
     Take: { send: Schema.Boolean },
     Cancel: {},
+    /** A tap on it, collapsed. */
+    Open: {},
+    /** Type in it: the Composer. */
     Edit: {},
+    /** Stop typing in it, and keep it open. */
     Done: {},
-    /** Send the Draft, at rest or from the Composer. */
+    Collapse: {},
+    /** Send the Draft, from wherever it rests. */
     Send: {},
     Sent: {},
     /** `sendable`: nothing stops the Draft being sent now, such as being offline. */
     Heard: { dictation: Heard, sendable: Schema.Boolean },
-    /** Text or voice, chosen. */
-    Choose: { mode: Mode },
-    ModeRead: { mode: Mode },
+    /** Whether it takes Smart Input, as Device State keeps it. */
+    SmartRead: { on: Schema.Boolean },
+    /** Whether it takes Smart Displacement, as Device State keeps it. */
+    DisplacementRead: { on: Schema.Boolean },
   }),
 });
 
-const resting = { _tag: 'Resting' as const };
+const collapsed = { _tag: 'Collapsed' as const };
 const sending = { state: { _tag: 'Sending' as const }, command: send() };
+const back = (open: boolean) =>
+  open ? { _tag: 'Expanded' as const } : collapsed;
+const transcribing = (open: boolean, then: 'take' | 'send' = 'take') => ({
+  _tag: 'Transcribing' as const,
+  then,
+  said: false,
+  open,
+});
+
+/** At rest, collapsed or open: a Dictation started, here or elsewhere, is followed. */
+const atRest = (open: boolean) => ({
+  Dictate: () => ({ command: ask({ _tag: 'Toggle' }) }),
+  Send: () => sending,
+  Heard: ({ dictation }: { readonly dictation: typeof Heard.Type }) =>
+    dictation === 'recording'
+      ? { state: { _tag: 'Recording' as const, open } }
+      : dictation === 'transcribing'
+        ? { state: transcribing(open) }
+        : {},
+});
+
+const editing = { state: { _tag: 'Editing' as const } };
 
 export const TouchDraftLive = Actor.build(TouchDraft, {
-  init: () => ({ model: { mode: 'voice' }, state: resting }),
+  init: () => ({ model: { smart: false, displace: false }, state: collapsed }),
   workers: {
-    // The mode kept, read again after every write.
-    mode: {
+    // Smart Input as kept, read again after every write.
+    smart: {
       run: (self) =>
         Stream.concat(Stream.make(undefined), DeviceState.changes).pipe(
           Stream.mapEffect(() =>
-            Effect.map(DeviceState.read, ({ touchMode }) => touchMode),
+            Effect.map(DeviceState.read, ({ smartInput }) => smartInput),
           ),
           Stream.changes,
-          Stream.runForEach((mode) => self.send({ _tag: 'ModeRead', mode })),
+          Stream.runForEach((on) => self.send({ _tag: 'SmartRead', on })),
+        ),
+    },
+    // Smart Displacement the same.
+    displace: {
+      run: (self) =>
+        Stream.concat(Stream.make(undefined), DeviceState.changes).pipe(
+          Stream.mapEffect(() =>
+            Effect.map(
+              DeviceState.read,
+              ({ smartDisplacement }) => smartDisplacement,
+            ),
+          ),
+          Stream.changes,
+          Stream.runForEach((on) =>
+            self.send({ _tag: 'DisplacementRead', on }),
+          ),
         ),
     },
   },
   state: {
-    // 1. Resting
-    Resting: {
+    // 1. Collapsed
+    Collapsed: {
       on: {
-        Dictate: () => ({ command: ask({ _tag: 'Toggle' }) }),
-        Edit: () => ({ state: { _tag: 'Editing' } }),
-        Send: () => sending,
-        Heard: ({ dictation }) =>
-          dictation === 'recording'
-            ? { state: { _tag: 'Recording' } }
-            : dictation === 'transcribing'
-              ? {
-                  state: { _tag: 'Transcribing', then: 'take', said: false },
-                }
-              : {},
+        ...atRest(false),
+        Open: (_, { model }) =>
+          model.smart ? { state: { _tag: 'Expanded' } } : editing,
+        Edit: () => editing,
       },
     },
-    // 2. Recording
+    // 2. Expanded
+    Expanded: {
+      on: {
+        ...atRest(true),
+        Edit: () => editing,
+        Collapse: () => ({ state: collapsed }),
+      },
+    },
+    // 3. Editing
+    Editing: {
+      on: {
+        ...atRest(true),
+        Done: () => ({ state: { _tag: 'Expanded' } }),
+        Collapse: () => ({ state: collapsed }),
+      },
+    },
+    // 4. Recording
     Recording: {
       on: {
-        Take: ({ send: then }) => ({
-          state: {
-            _tag: 'Transcribing',
-            then: then ? 'send' : 'take',
-            said: false,
-          },
+        Take: ({ send: then }, { state }) => ({
+          state: transcribing(state.open, then ? 'send' : 'take'),
           command: ask({ _tag: 'Toggle' }),
         }),
-        Cancel: () => ({ state: resting, command: ask({ _tag: 'Cancel' }) }),
-        Heard: ({ dictation }) =>
+        Cancel: (_, { state }) => ({
+          state: back(state.open),
+          command: ask({ _tag: 'Cancel' }),
+        }),
+        Collapse: (_, { state }) => ({ state: { ...state, open: false } }),
+        Heard: ({ dictation }, { state }) =>
           dictation === 'transcribing'
-            ? { state: { _tag: 'Transcribing', then: 'take', said: false } }
+            ? { state: transcribing(state.open) }
             : dictation === 'recording'
               ? {}
-              : { state: resting },
+              : { state: back(state.open) },
       },
     },
-    // 3. Transcribing
+    // 5. Transcribing
     Transcribing: {
       on: {
-        Cancel: () => ({ state: resting, command: ask({ _tag: 'Cancel' }) }),
+        Cancel: (_, { state }) => ({
+          state: back(state.open),
+          command: ask({ _tag: 'Cancel' }),
+        }),
+        Collapse: (_, { state }) => ({ state: { ...state, open: false } }),
         Heard: ({ dictation, sendable }, { state }) => {
           if (dictation === 'text') return { state: { ...state, said: true } };
-          if (dictation === 'failed') return { state: resting };
+          if (dictation === 'failed') return { state: back(state.open) };
           if (dictation !== 'idle') return {};
           return state.said && state.then === 'send' && sendable
             ? sending
-            : { state: resting };
+            : { state: back(state.open) };
         },
       },
     },
-    // 4. Editing
-    Editing: {
-      on: {
-        Done: () => ({ state: resting }),
-        Send: () => sending,
-      },
-    },
-    // 5. Sending
+    // 6. Sending
     Sending: {
-      on: { Sent: () => ({ state: resting }) },
+      on: { Sent: () => ({ state: collapsed }) },
     },
   },
   on: {
-    Choose: ({ mode }, { model }) => ({
-      model: { ...model, mode },
-      command: keepMode({ mode }),
+    SmartRead: ({ on }, { model }) => ({ model: { ...model, smart: on } }),
+    DisplacementRead: ({ on }, { model }) => ({
+      model: { ...model, displace: on },
     }),
-    ModeRead: ({ mode }, { model }) => ({ model: { ...model, mode } }),
   },
 });
 

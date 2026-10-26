@@ -6,13 +6,15 @@ import { EntityESchema, ESchema } from '@kestack/std-toolkit/eschema';
  * How Device State is laid out, as one StdTable: one row for the keyboard,
  * the user's own Bindings; one for whether Vim Mode is on, off until it is
  * turned on; one for the microphone a Dictation records
- * from; one for whether the Touch Draft is written by text or by voice;
+ * from; one each for whether the Touch Draft takes Smart Input and
+ * Smart Displacement, off until turned on;
  * one for the Machine the sidebar shows; one row per Unseen mark, each the
  * end time of the last Turn of a Session of one Machine seen on this
  * device, whose Machine it is, and its Session's Project.
  *
  * The marks of before Machines (`UnseenMark`, by Session id alone) are no
- * longer read: no Machine can claim them.
+ * longer read: no Machine can claim them; nor is how the Touch Draft was
+ * written before Smart Input (`DeviceTouch`, text or voice).
  */
 
 export const DEVICE_TABLE = 'device';
@@ -44,12 +46,23 @@ export const microphone = table
   .singleEntity(MicrophoneSchema)
   .default({ deviceId: null });
 
-const TouchSchema = ESchema.make('DeviceTouch', {
-  /** How the Touch Draft is written: by text, or by voice. */
-  mode: Schema.Literals(['text', 'voice']),
+const SmartInputSchema = ESchema.make('DeviceSmartInput', {
+  /** Whether the Touch Draft takes Smart Input: opened by a tap, typed in only from Edit. */
+  on: Schema.Boolean,
 }).build();
 
-export const touch = table.singleEntity(TouchSchema).default({ mode: 'voice' });
+export const smartInput = table
+  .singleEntity(SmartInputSchema)
+  .default({ on: false });
+
+const SmartDisplacementSchema = ESchema.make('DeviceSmartDisplacement', {
+  /** Whether a caret or a selection's end dragged in the Touch Draft sits above the finger. */
+  on: Schema.Boolean,
+}).build();
+
+export const smartDisplacement = table
+  .singleEntity(SmartDisplacementSchema)
+  .default({ on: false });
 
 const SidebarSchema = ESchema.make('DeviceSidebar', {
   /** The Machine whose Projects the sidebar lists; null for every Machine. */

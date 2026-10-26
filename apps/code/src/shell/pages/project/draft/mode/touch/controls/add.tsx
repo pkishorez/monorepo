@@ -6,18 +6,18 @@ import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   ClipboardPasteIcon,
   ImageIcon,
-  MessageCircleQuestionIcon,
   MicIcon,
   PaperclipIcon,
-  ZapIcon,
+  PlusIcon,
+  SquareSlashIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import { useRef, useState, type ReactNode, type RefObject } from 'react';
 import { notify } from '../../../../../../../ui/toast/index.ts';
 
 /*
- * Quick actions: one button, and a Drawer of what else can go into the
- * Draft, each row its icon, what it does and one line more. Ask on the
- * side, in a Session; Paste, which reads the clipboard in the tap, as iOS
+ * Add: one button, and a Drawer of what else can go into the Draft, each
+ * row its icon, what it does and one line more. A Skill or command,
+ * where they go in; Paste, which reads the clipboard in the tap, as iOS
  * needs to show its own Paste bubble, and says so quietly when it may
  * not; a file and a photo, where files go in; and the Microphone Picker. The file fields stay
  * outside the Drawer, so a file picked after it closed still arrives.
@@ -37,17 +37,17 @@ export const paste = (onText: (text: string) => void) =>
       }),
   );
 
-export function QuickActions({
+export function Add({
   disabled,
-  onAsk,
+  onSkill,
   onPaste,
   onFiles,
   onChooseMicrophone,
   className,
 }: {
   readonly disabled: boolean;
-  /** Starts a question on the side; null where there is no Session to ask. */
-  readonly onAsk: (() => void) | null;
+  /** Opens the skills Picker; null where none go in, as a Side Question. */
+  readonly onSkill: (() => void) | null;
   readonly onPaste: (text: string) => void;
   /** Takes files; null where none go in, as a Side Question. */
   readonly onFiles: ((files: ReadonlyArray<File>) => void) | null;
@@ -84,32 +84,28 @@ export function QuickActions({
         type="button"
         variant="ghost"
         size="icon"
-        aria-label="Quick actions"
+        aria-label="Add"
         aria-haspopup="dialog"
         aria-expanded={open}
         disabled={disabled}
         onClick={() => setOpen(true)}
         className={className}
       >
-        <ZapIcon aria-hidden />
+        <PlusIcon aria-hidden />
       </Button>
-      <Drawer
-        open={open}
-        onOpenChange={(next) => setOpen(next)}
-        label="Quick actions"
-      >
-        <LayerHeader title="Quick actions" />
+      <Drawer open={open} onOpenChange={(next) => setOpen(next)} label="Add">
+        <LayerHeader title="Add" />
         <div className="flex flex-col pb-2">
-          {onAsk !== null && (
+          {onSkill !== null && (
             <Row
-              icon={<MessageCircleQuestionIcon />}
-              detail="A question for this session, kept out of it"
+              icon={<SquareSlashIcon />}
+              detail="Or type / in the message"
               onClick={() => {
                 setOpen(false);
-                onAsk();
+                onSkill();
               }}
             >
-              Ask on the side
+              Skill or command
             </Row>
           )}
           <Row

@@ -13,8 +13,9 @@ import { owner, State, TouchDraftLive } from './actor.ts';
 /*
  * The Touch Draft under a Draft that counts its sends, with the
  * Dictation's queue read back: what it asks of the Dictation, and how it
- * follows what the Dictation then says, as its View hears it; and its
- * mode, kept in Device State.
+ * follows what the Dictation then says, as its View hears it; and
+ * where it goes back to, collapsed or open; and Smart Input, kept in
+ * Device State.
  */
 
 const Draft = Actor.define('Draft', {
@@ -37,13 +38,12 @@ const settle = Effect.gen(function* () {
 
 const world = Effect.gen(function* () {
   const asked = yield* Queue.unbounded<typeof Ask.Type>();
-  const kept = yield* SubscriptionRef.make(nothing.touchMode);
+  const kept = yield* SubscriptionRef.make(nothing.smartInput);
   const device = Layer.mock(DeviceState)({
-    read: Effect.map(SubscriptionRef.get(kept), (touchMode) => ({
+    read: Effect.map(SubscriptionRef.get(kept), (smartInput) => ({
       ...nothing,
-      touchMode,
+      smartInput,
     })),
-    setTouchMode: (mode) => SubscriptionRef.set(kept, mode),
     changes: SubscriptionRef.changes(kept).pipe(
       Stream.drop(1),
       Stream.map(() => undefined),
@@ -63,11 +63,9 @@ const world = Effect.gen(function* () {
     state: () => Schema.decodeUnknownSync(State)(touch().state)._tag,
     then: () => Schema.decodeUnknownSync(State)(touch().state),
     sent: () => (root().model as { sent: number }).sent,
-    mode: () => (touch().model as { mode: string }).mode,
-    kept: () => SubscriptionRef.get(kept),
-    /** Another tab writes it. */
-    keep: (mode: 'text' | 'voice') =>
-      Effect.andThen(SubscriptionRef.set(kept, mode), settle),
+    /** Smart Input turned on or off, as Settings does. */
+    smart: (on: boolean) =>
+      Effect.andThen(SubscriptionRef.set(kept, on), settle),
     send: (message: { readonly _tag: string; readonly [k: string]: unknown }) =>
       Effect.andThen(
         Effect.sync(() => app.send(touch().id, message)),
@@ -94,7 +92,7 @@ describe('Touch Draft', () => {
         yield* t.send({ _tag: 'Dictate' });
         expect(yield* t.asks()).toEqual(['Toggle']);
         // Nothing heard yet: the Dictation may not start.
-        expect(t.state()).toBe('Resting');
+        expect(t.state()).toBe('Collapsed');
         yield* t.heard('recording');
         expect(t.state()).toBe('Recording');
       }),
@@ -106,7 +104,7 @@ describe('Touch Draft', () => {
         const t = yield* world;
         yield* t.send({ _tag: 'Dictate' });
         yield* t.heard('idle');
-        expect(t.state()).toBe('Resting');
+        expect(t.state()).toBe('Collapsed');
       }),
     ));
 
@@ -122,11 +120,12 @@ describe('Touch Draft', () => {
           _tag: 'Transcribing',
           then: 'take',
           said: false,
+          open: false,
         });
         yield* t.heard('transcribing');
         yield* t.heard('text');
         yield* t.heard('idle');
-        expect(t.state()).toBe('Resting');
+        expect(t.state()).toBe('Collapsed');
         expect(t.sent()).toBe(0);
       }),
     ));
@@ -143,7 +142,7 @@ describe('Touch Draft', () => {
         expect(t.sent()).toBe(0);
         yield* t.heard('idle');
         expect(t.sent()).toBe(1);
-        expect(t.state()).toBe('Resting');
+        expect(t.state()).toBe('Collapsed');
       }),
     ));
 
@@ -158,7 +157,7 @@ describe('Touch Draft', () => {
         // The line dropped meanwhile.
         yield* t.heard('idle', false);
         expect(t.sent()).toBe(0);
-        expect(t.state()).toBe('Resting');
+        expect(t.state()).toBe('Collapsed');
       }),
     ));
 
@@ -172,7 +171,7 @@ describe('Touch Draft', () => {
         yield* t.heard('transcribing');
         yield* t.send({ _tag: 'Cancel' });
         expect(yield* t.asks()).toEqual(['Cancel']);
-        expect(t.state()).toBe('Resting');
+        expect(t.state()).toBe('Collapsed');
         yield* t.heard('idle');
         expect(t.sent()).toBe(0);
       }),
@@ -186,12 +185,12 @@ describe('Touch Draft', () => {
         yield* t.send({ _tag: 'Take', send: true });
         yield* t.heard('transcribing');
         yield* t.heard('failed');
-        expect(t.state()).toBe('Resting');
+        expect(t.state()).toBe('Collapsed');
         // The Retry, from rest, comes back the same way.
         yield* t.heard('transcribing');
         expect(t.state()).toBe('Transcribing');
         yield* t.heard('idle');
-        expect(t.state()).toBe('Resting');
+        expect(t.state()).toBe('Collapsed');
         expect(t.sent()).toBe(0);
       }),
     ));
@@ -203,9 +202,9 @@ describe('Touch Draft', () => {
         yield* t.heard('recording');
         yield* t.send({ _tag: 'Cancel' });
         expect(yield* t.asks()).toEqual(['Cancel']);
-        expect(t.state()).toBe('Resting');
+        expect(t.state()).toBe('Collapsed');
         yield* t.heard('idle');
-        expect(t.state()).toBe('Resting');
+        expect(t.state()).toBe('Collapsed');
       }),
     ));
 
@@ -219,22 +218,78 @@ describe('Touch Draft', () => {
           _tag: 'Transcribing',
           then: 'take',
           said: false,
+          open: false,
         });
       }),
     ));
 
-  it('is the Composer from edit until done, and sending from it closes it', () =>
+  it('is the Composer once opened, until collapsed, and sending from it collapses it', () =>
     run(
       Effect.gen(function* () {
         const t = yield* world;
-        yield* t.send({ _tag: 'Edit' });
+        yield* t.send({ _tag: 'Open' });
         expect(t.state()).toBe('Editing');
-        yield* t.send({ _tag: 'Done' });
-        expect(t.state()).toBe('Resting');
-        yield* t.send({ _tag: 'Edit' });
+        yield* t.send({ _tag: 'Collapse' });
+        expect(t.state()).toBe('Collapsed');
+        yield* t.send({ _tag: 'Open' });
         yield* t.send({ _tag: 'Send' });
         expect(t.sent()).toBe(1);
-        expect(t.state()).toBe('Resting');
+        expect(t.state()).toBe('Collapsed');
+      }),
+    ));
+
+  it('with Smart Input, only opens, and is the Composer from Edit', () =>
+    run(
+      Effect.gen(function* () {
+        const t = yield* world;
+        yield* t.smart(true);
+        yield* t.send({ _tag: 'Open' });
+        expect(t.state()).toBe('Expanded');
+        yield* t.send({ _tag: 'Edit' });
+        expect(t.state()).toBe('Editing');
+        yield* t.send({ _tag: 'Collapse' });
+        expect(t.state()).toBe('Collapsed');
+      }),
+    ));
+
+  it('goes back to Expanded after a Dictation started open', () =>
+    run(
+      Effect.gen(function* () {
+        const t = yield* world;
+        yield* t.send({ _tag: 'Open' });
+        yield* t.send({ _tag: 'Dictate' });
+        expect(yield* t.asks()).toEqual(['Toggle']);
+        yield* t.heard('recording');
+        expect(t.then()).toEqual({ _tag: 'Recording', open: true });
+        yield* t.send({ _tag: 'Take', send: false });
+        yield* t.heard('transcribing');
+        yield* t.heard('text');
+        yield* t.heard('idle');
+        expect(t.state()).toBe('Expanded');
+        // Cancelled, too.
+        yield* t.heard('recording');
+        yield* t.send({ _tag: 'Cancel' });
+        expect(t.state()).toBe('Expanded');
+      }),
+    ));
+
+  it('collapses while a Dictation goes on, and rests collapsed after it', () =>
+    run(
+      Effect.gen(function* () {
+        const t = yield* world;
+        yield* t.send({ _tag: 'Open' });
+        yield* t.send({ _tag: 'Dictate' });
+        yield* t.heard('recording');
+        yield* t.send({ _tag: 'Collapse' });
+        expect(t.then()).toEqual({ _tag: 'Recording', open: false });
+        expect(yield* t.asks()).toEqual(['Toggle']);
+        yield* t.send({ _tag: 'Take', send: false });
+        yield* t.send({ _tag: 'Collapse' });
+        expect(t.then()).toMatchObject({ _tag: 'Transcribing', open: false });
+        yield* t.heard('transcribing');
+        yield* t.heard('text');
+        yield* t.heard('idle');
+        expect(t.state()).toBe('Collapsed');
       }),
     ));
 
@@ -244,28 +299,8 @@ describe('Touch Draft', () => {
         const t = yield* world;
         yield* t.send({ _tag: 'Send' });
         expect(t.sent()).toBe(1);
-        expect(t.state()).toBe('Resting');
+        expect(t.state()).toBe('Collapsed');
         expect(yield* t.asks()).toEqual([]);
-      }),
-    ));
-
-  it('is voice until text is chosen, and keeps the choice in Device State', () =>
-    run(
-      Effect.gen(function* () {
-        const t = yield* world;
-        expect(t.mode()).toBe('voice');
-        yield* t.send({ _tag: 'Choose', mode: 'text' });
-        expect(t.mode()).toBe('text');
-        expect(yield* t.kept()).toBe('text');
-      }),
-    ));
-
-  it('follows a mode chosen in another tab', () =>
-    run(
-      Effect.gen(function* () {
-        const t = yield* world;
-        yield* t.keep('text');
-        expect(t.mode()).toBe('text');
       }),
     ));
 });

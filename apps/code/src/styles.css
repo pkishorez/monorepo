@@ -64,23 +64,41 @@
 
 /*
  * On a device with no keyboard, what goes into the read-only Draft, such
- * as a Dictation's text, comes in out of a blur instead; into the
- * Composer, with focus in it, it comes in still. A Dictation's
+ * as a Dictation's text, comes in out of a blur, then holds the blue of
+ * a selection a moment and fades from it, so what changed is plain; into
+ * the Composer, with focus in it, it comes in still, and fades the same.
+ * One animation each, as its end takes the mark off. A Dictation's
  * placeholder there says "Transcribing…", breathing while nothing has
  * focus.
  */
 [data-slot='draft'][data-touch] .cm-inserted {
-  animation: blurred-in 360ms cubic-bezier(0.23, 1, 0.32, 1);
+  border-radius: 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  animation: blurred-in 1.6s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 [data-slot='draft'][data-touch] .cm-focused .cm-inserted {
-  animation: none;
+  animation: tinted 1.6s ease-out;
 }
 
 @keyframes blurred-in {
   from {
     opacity: 0;
     filter: blur(4px);
+    background-color: oklch(0.62 0.19 255 / 0.3);
+  }
+  25% {
+    opacity: 1;
+    filter: blur(0);
+    background-color: oklch(0.62 0.19 255 / 0.3);
+  }
+}
+
+@keyframes tinted {
+  from,
+  35% {
+    background-color: oklch(0.62 0.19 255 / 0.3);
   }
 }
 

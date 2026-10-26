@@ -27,9 +27,12 @@ import { useVisibleViewport } from './visible-viewport.ts';
  *                own ways. It jumps instead under
  *                `prefers-reduced-motion`. As tall as its few choices, or,
  *                `tall`, three quarters of the screen whatever is in it, so
- *                a long list never changes its height as it loads; with
- *                the on-screen keyboard up, it sits above it, in the part
- *                of the page left visible. Once risen, a Drawer holding a
+ *                a long list never changes its height as it loads. With
+ *                the on-screen keyboard up, either sits above it, in the
+ *                part of the page left visible, and, a field in it
+ *                focused, takes all of that but the status bar, so
+ *                nothing in it is under the keyboard, nor any room kept
+ *                for the home indicator the keyboard covers. Once risen, a Drawer holding a
  *                field is Settled (`settled.ts`): the keyboard and the
  *                page's scroll move and size it at once, never by its
  *                transition, and only a swipe or closing animates it.
@@ -96,7 +99,7 @@ export function Drawer({
   children,
 }: Layer) {
   const { live, look } = useLastLook(open);
-  const visible = useVisibleViewport(open && tall);
+  const visible = useVisibleViewport(open);
   const popup = useRef<HTMLDivElement>(null);
   const { settled, onOpenChangeComplete, onFocus } = useSettled(popup);
   return (
@@ -118,12 +121,16 @@ export function Drawer({
           // The page's own background, not a grey sheet, set off by a soft
           // shadow and a hairline, with rounder top corners.
           'bg-background [--drawer-bleed-background:var(--color-background)] border-border/60 shadow-[0_-1px_2px_rgb(0_0_0/0.06),0_-8px_32px_rgb(0_0_0/0.18)] data-[swipe-direction=down]:rounded-t-[20px]',
-          'pb-[max(0.5rem,env(safe-area-inset-bottom))] motion-reduce:transition-none sm:mx-auto sm:max-w-lg',
+          'pb-[max(0.5rem,var(--visible-safe-bottom,env(safe-area-inset-bottom)))] motion-reduce:transition-none sm:mx-auto sm:max-w-lg',
           // Settled, only a swipe and closing move it: the keyboard, at once.
           'motion-safe:data-settled:transition-transform',
-          tall &&
-            // Above the keyboard, and gone past it as it slides away.
-            'h-[min(75dvh,calc(var(--visible-height,100dvh)-env(safe-area-inset-top)-0.5rem))] max-h-none data-[swipe-direction=down]:bottom-(--visible-bottom,0px) data-[swipe-direction=down]:[--closed-transform:translate3d(0,calc(100%+var(--visible-bottom,0px)+var(--drawer-inset,0px)+2px),0)]',
+          // Above the keyboard, and gone past it as it slides away.
+          'data-[swipe-direction=down]:bottom-(--visible-bottom,0px) data-[swipe-direction=down]:[--closed-transform:translate3d(0,calc(100%+var(--visible-bottom,0px)+var(--drawer-inset,0px)+2px),0)]',
+          tall
+            ? 'h-[min(75dvh,calc(var(--visible-height,100dvh)-env(safe-area-inset-top)-0.5rem))] max-h-none'
+            : // Room above to tap outside; a field focused, the keyboard is
+              // below instead, and it may take the rest.
+              'max-h-[calc(var(--visible-height,100dvh)-6rem)] has-[:is(input,textarea,[contenteditable=true]):focus]:max-h-[calc(var(--visible-height,100dvh)-env(safe-area-inset-top)-0.5rem)]',
         )}
       >
         <SwipeDown

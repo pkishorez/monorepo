@@ -237,7 +237,6 @@ function Drafting(self: ViewProps<typeof DraftLive>) {
             composing={composing}
             offline={offline !== null ? describedBy : null}
             unsendable={unsendable}
-            onAsk={asking && !side ? toggle : null}
             onBack={back}
             last={last}
             held={held}
@@ -256,7 +255,6 @@ function Composer({
   composing,
   offline,
   unsendable,
-  onAsk,
   onBack,
   last,
   held,
@@ -266,7 +264,6 @@ function Composer({
   /** The id of the line that says it is offline, while it is. */
   readonly offline: string | null;
   readonly unsendable: boolean;
-  readonly onAsk: (() => void) | null;
   readonly onBack: () => void;
   readonly last: LastMode;
   readonly held: Held;
@@ -358,7 +355,6 @@ function Composer({
             onRemove={draft.files.remove}
           />
         ) : null,
-      onAsk,
       onPaste: (text) =>
         send({ _tag: 'InsertAsked', what: { _tag: 'Text', text } }),
       sending: touchSend,

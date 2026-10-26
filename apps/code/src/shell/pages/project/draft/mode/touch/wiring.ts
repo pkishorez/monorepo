@@ -1,17 +1,21 @@
 import type { ViewProps } from '@kestack/kabuki/react';
-import { useEffect, useState, type ContextType } from 'react';
-import type { Heard, Mode, State, TouchDraftLive } from './actor.ts';
+import { useEffect, useRef, useState, type ContextType } from 'react';
+import type { Heard, TouchDraftLive } from './actor.ts';
+import type { Phase } from './controls/index.ts';
 import type { Draft, Touch } from './view.tsx';
 
 /*
- * What the Touch Draft's View runs on.
+ * What the Touch Draft's View runs on: the Dictation told to the Actor,
+ * every send through it, opening and editing, the keyboard put away once
+ * editing ends, and the one Phase its line is drawn in. A microphone
+ * pressed while no Machine can transcribe says why instead.
  *
- * 1. useTouchDraft  the Dictation told to the Actor, every send through
- *                   it, editing in the tap, the keyboard put away once
- *                   editing ends, and the talk bar's one job.
- * 2. useMode        text or voice, as the Actor keeps it: voice only
- *                   while a Machine can transcribe; asked for when it
- *                   can't, it nudges instead.
+ * iOS raises its keyboard only for focus given in the tap, and slides
+ * what has focus into view as it rises, where it is then. Opened straight
+ * to Editing, the card is first drawn open in the tap itself, its
+ * `data-collapsed` taken off by hand, and only then the words take focus:
+ * the slide finds them where they will stay. Its State follows, drawing
+ * the card as it already is.
  */
 
 type Send = ViewProps<typeof TouchDraftLive>['send'];
@@ -31,14 +35,16 @@ const heardOf = ({
           ? 'failed'
           : 'text';
 
-// 1. useTouchDraft
+/** How long "Voice isn't on" shows, in ms. */
+const NUDGE = 2_400;
+
 export function useTouchDraft(
   slots: Slots,
-  state: typeof State.Type,
+  { model, state }: Pick<ViewProps<typeof TouchDraftLive>, 'model' | 'state'>,
   send: Send,
 ) {
   const { draft, sending } = slots;
-  const { onShown } = draft.dictation;
+  const { onShown, availability } = draft.dictation;
   useEffect(onShown, [onShown]);
 
   // The Dictation, as it stands for this Draft, told to the Touch Draft
@@ -52,115 +58,128 @@ export function useTouchDraft(
     return () => void (sending.current = null);
   });
 
-  // Editing ended, by Done or a send: focus goes, and the keyboard.
+  const expanded =
+    state._tag === 'Expanded' ||
+    state._tag === 'Editing' ||
+    ((state._tag === 'Recording' || state._tag === 'Transcribing') &&
+      state.open);
   const editing = state._tag === 'Editing';
+  // The card, drawn open by hand in a tap that opens it to edit.
+  const card = useRef<HTMLDivElement>(null);
+  // Focus it moves itself, which is no leaving.
+  const moving = useRef(false);
+  const blur = () => {
+    moving.current = true;
+    draft.view.current?.contentDOM.blur();
+    moving.current = false;
+  };
+  // Editing ended, by Done, Collapse or a send, focus goes, and the
+  // keyboard; editing without it, as when the tap could not give it, the
+  // words take it once drawn.
   useEffect(() => {
-    if (!editing) draft.view.current?.contentDOM.blur();
+    if (!editing) return blur();
+    const frame = requestAnimationFrame(() => {
+      if (draft.view.current?.hasFocus) return;
+      moving.current = true;
+      draft.write();
+      moving.current = false;
+    });
+    return () => cancelAnimationFrame(frame);
   }, [editing]);
 
-  // Focus first, in the tap itself: iOS raises its keyboard only then.
+  // A tap on it collapsed: open, or draw it open and then edit.
+  const open = () => {
+    if (draft.disabled || state._tag !== 'Collapsed') return;
+    if (!model.smart && card.current !== null) {
+      card.current.removeAttribute('data-collapsed');
+      // Laid out open before the focus, which iOS slides into view.
+      void card.current.offsetHeight;
+      draft.write();
+    }
+    send({ _tag: 'Open' });
+  };
+  // Open already, the card keeps its size: the words take focus in the tap.
   const edit = () => {
-    if (draft.disabled || state._tag !== 'Resting') return;
+    if (draft.disabled) return;
+    if (state._tag === 'Collapsed') return open();
+    if (state._tag !== 'Expanded') return;
     draft.write();
     send({ _tag: 'Edit' });
   };
+  const collapse = () => {
+    blur();
+    send({ _tag: 'Collapse' });
+  };
+  // Smart Input: stop typing, and stay open.
   const done = () => {
-    draft.view.current?.contentDOM.blur();
+    blur();
     send({ _tag: 'Done' });
   };
-  // A question on the side: `/btw` at the start, then edited.
-  const { onAsk } = slots;
-  const ask =
-    onAsk === null
-      ? null
-      : () => {
-          if (draft.disabled) return;
-          onAsk();
-          edit();
-        };
 
-  const recording = state._tag === 'Recording';
-  const failed =
-    draft.dictation.pending?._tag === 'Failed' ? draft.dictation.pending : null;
-  const busy =
-    state._tag === 'Transcribing' ||
-    state._tag === 'Sending' ||
-    draft.dictation.recording?._tag === 'Waiting' ||
-    slots.starting;
-  const voice = recording
-    ? draft.dictation.recording?._tag === 'Waiting'
-      ? 'wait'
-      : 'take'
-    : failed !== null
-      ? 'resend'
-      : busy
-        ? 'busy'
-        : 'dictate';
-  const talk = () => {
-    if (voice === 'take') send({ _tag: 'Take', send: false });
-    else if (voice === 'wait') send({ _tag: 'Cancel' });
-    else if (voice === 'dictate') send({ _tag: 'Dictate' });
-    else if (voice === 'resend' && failed !== null)
-      draft.dictation.onRetry(failed.id);
-  };
-  // A failed one's clip goes with the Dictation's own cancel.
-  const cancel = () =>
-    failed !== null ? draft.dictation.onCancel() : send({ _tag: 'Cancel' });
-  // Focus leaving the card, editing, is done.
-  const onBlur = (event: {
-    readonly currentTarget: Element;
-    readonly relatedTarget: EventTarget | null;
-  }) => {
-    if (editing && !event.currentTarget.contains(event.relatedTarget as Node))
-      send({ _tag: 'Done' });
-  };
-  return {
-    editing,
-    recording,
-    failed: failed !== null,
-    voice,
-    canSend: draft.filled && sendable,
-    edit,
-    done,
-    ask,
-    talk,
-    takeAndSend: () => send({ _tag: 'Take', send: true }),
-    cancel,
-    onBlur,
-  } as const;
-}
-
-/** How long "Voice isn't on" shows, in ms. */
-const NUDGE = 2_400;
-
-// 2. useMode
-export function useMode(
-  draft: Draft,
-  chosen: typeof Mode.Type,
-  recording: boolean,
-  send: Send,
-) {
+  // Voice can't be had: the microphone says why, for a moment.
   const [nudged, setNudged] = useState<number | null>(null);
   useEffect(() => {
     if (nudged === null) return;
     const timer = setTimeout(() => setNudged(null), NUDGE);
     return () => clearTimeout(timer);
   }, [nudged]);
-  const { availability } = draft.dictation;
   const ready = availability._tag === 'Ready';
-  const mode = recording ? 'voice' : ready ? chosen : 'text';
+
+  const failed =
+    draft.dictation.pending?._tag === 'Failed' ? draft.dictation.pending : null;
+  const phase: Phase =
+    state._tag === 'Recording'
+      ? draft.dictation.recording?._tag === 'Waiting'
+        ? 'waiting'
+        : 'recording'
+      : state._tag === 'Transcribing'
+        ? 'transcribing'
+        : failed !== null
+          ? 'failed'
+          : 'idle';
   // Android buzzes; iOS cannot.
-  const choose = (next: typeof Mode.Type) => {
-    if (next === 'voice' && !ready) {
+  const dictate = () => {
+    if (!ready) {
       navigator.vibrate?.([6, 40, 6]);
       return setNudged(Date.now());
     }
-    send({ _tag: 'Choose', mode: next });
-    navigator.vibrate?.(8);
+    blur();
+    send({ _tag: 'Dictate' });
+  };
+  // A failed one's clip goes with the Dictation's own cancel.
+  const cancel = () =>
+    failed !== null ? draft.dictation.onCancel() : send({ _tag: 'Cancel' });
+  // Focus leaving the card while editing ends it: with Smart Input it
+  // stays open, as Done; without, it collapses.
+  const onBlur = (event: {
+    readonly currentTarget: Element;
+    readonly relatedTarget: EventTarget | null;
+  }) => {
+    if (
+      editing &&
+      !moving.current &&
+      !event.currentTarget.contains(event.relatedTarget as Node)
+    )
+      send({ _tag: model.smart ? 'Done' : 'Collapse' });
   };
   return {
-    mode,
-    choose,
+    expanded,
+    editing,
+    smart: model.smart,
+    displace: model.displace,
+    card,
+    open,
+    edit,
+    done,
+    phase,
+    canSend: draft.filled && sendable,
+    collapse,
+    dictate,
+    take: () => send({ _tag: 'Take', send: false }),
+    takeAndSend: () => send({ _tag: 'Take', send: true }),
+    retry: () => failed !== null && draft.dictation.onRetry(failed.id),
+    cancel,
+    onBlur,
     ready,
     /** Why voice can't be had now, while it shows; its key replays the shake. */
     nudge:
@@ -173,12 +192,5 @@ export function useMode(
                 ? `Voice is getting ready · ${Math.round(availability.progress * 100)}%`
                 : "Voice isn't on",
           },
-    // Text on the left, voice on the right; from text, a Swipe right is
-    // the sidebar's.
-    swipes: recording
-      ? {}
-      : mode === 'voice'
-        ? { right: () => choose('text') }
-        : { left: () => choose('voice') },
-  };
+  } as const;
 }

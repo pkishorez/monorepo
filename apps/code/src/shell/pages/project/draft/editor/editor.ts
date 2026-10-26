@@ -8,6 +8,7 @@ import {
 import {
   Annotation,
   Compartment,
+  type EditorSelection,
   EditorState,
   Prec,
   Transaction,
@@ -182,6 +183,7 @@ export function useEditor(options: EditorOptions): {
       const extensions = [
         history(),
         drawSelection(),
+        holding,
         insertMark,
         dictation,
         retrying.of((id) => latest.current.onRetry(id)),
@@ -383,14 +385,59 @@ export function useEditor(options: EditorOptions): {
     write: () => {
       const current = view.current;
       if (current === null || latest.current.disabled) return;
+      // Where the cursor was, kept through the focus: iOS may put it at
+      // the start as its keyboard rises, a moment after.
+      const kept = current.state.selection;
       current.dispatch({
         effects: parts.editable.reconfigure(
           editable({ disabled: false, writing: true }),
         ),
       });
       current.focus();
+      current.dispatch({ selection: kept, scrollIntoView: true });
+      holdSelection(current, kept);
     },
   };
+}
+
+/** How long after focus a move of the cursor the browser made is undone, in ms. */
+const HOLD = 600;
+
+/** The cursor each editor keeps for a moment after focus, as the text moves. */
+const held = new WeakMap<EditorView, EditorSelection>();
+
+/**
+ * Undoes, while a cursor is held, a move read from the page's own
+ * selection: iOS puts it at the start as its keyboard rises. A tap
+ * (`select.pointer`) or a key lets go; a move the app makes is its own.
+ */
+const holding = EditorView.updateListener.of((update) => {
+  const kept = held.get(update.view);
+  if (kept === undefined) return;
+  const mapped = update.docChanged ? kept.map(update.changes) : kept;
+  held.set(update.view, mapped);
+  const browsers = update.transactions.some(
+    (tr) =>
+      tr.selection !== undefined &&
+      tr.isUserEvent('select') &&
+      !tr.isUserEvent('select.pointer'),
+  );
+  if (browsers && !update.state.selection.eq(mapped))
+    queueMicrotask(() => update.view.dispatch({ selection: mapped }));
+});
+
+/** Keeps `kept` for a moment after focus; a touch or a key lets go. */
+function holdSelection(current: EditorView, kept: EditorSelection) {
+  const dom = current.contentDOM;
+  held.set(current, kept);
+  const release = () => {
+    held.delete(current);
+    dom.removeEventListener('pointerdown', release);
+    dom.removeEventListener('keydown', release);
+  };
+  dom.addEventListener('pointerdown', release);
+  dom.addEventListener('keydown', release);
+  setTimeout(release, HOLD);
 }
 
 /** The one span where `next` differs from `now`, or null when they are the same. */

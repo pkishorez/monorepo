@@ -228,13 +228,14 @@ function Level({ dictation }: { readonly dictation: Dictation }) {
   return <Bars level={level ?? 0} />;
 }
 
-/** How many levels the waveform shows, the newest on the right. */
-const WAVE = 14;
+/** How many levels the waveform keeps, the newest on the right: more than fit, the oldest cut off. */
+const WAVE = 64;
 
 /**
- * The level as a waveform, for the Touch Draft: thin bars, one for each
- * of the last levels heard, moving left as each new one comes in. Under
- * reduced motion they hold still at the levels last drawn.
+ * The level as a waveform, for the Touch Draft: as wide as it is given,
+ * thin bars grown from their middle, one for each of the last levels
+ * heard, moving left as each new one comes in and fading as they go.
+ * Under reduced motion they hold still at the levels last drawn.
  */
 function Wave({ dictation }: { readonly dictation: Dictation }) {
   const level = useChild(dictation, ({ state }) =>
@@ -251,14 +252,14 @@ function Wave({ dictation }: { readonly dictation: Dictation }) {
     <span
       aria-hidden
       data-slot="wave"
-      className="flex h-5 items-center gap-0.75"
+      className="flex h-7 w-full min-w-0 items-center justify-end gap-0.75 overflow-hidden mask-l-from-50%"
     >
       {levels.map((heard, at) => (
         <span
           key={at}
-          className="h-full w-0.75 rounded-full bg-destructive transition-transform duration-100 ease-out motion-reduce:transition-none"
+          className="h-full w-0.75 shrink-0 rounded-full bg-destructive transition-transform duration-100 ease-out motion-reduce:transition-none"
           style={{
-            transform: `scaleY(${Math.round(Math.max(0.15, Math.min(1, heard * 1.5)) * 100) / 100})`,
+            transform: `scaleY(${Math.round(Math.max(0.1, Math.min(1, heard * 1.8)) * 100) / 100})`,
           }}
         />
       ))}

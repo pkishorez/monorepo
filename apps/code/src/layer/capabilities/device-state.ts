@@ -5,8 +5,8 @@ import type { Gone } from './gone.ts';
 /*
  * Device State: what this browser keeps for itself and no other device
  * sees: the user's own Bindings and whether Vim Mode is on, the
- * microphone a Dictation records from, whether the Touch Draft is written
- * by text or by voice, the Machine the sidebar shows, and the Unseen marks
+ * microphone a Dictation records from, whether the Touch Draft takes
+ * Smart Input and Smart Displacement, the Machine the sidebar shows, and the Unseen marks
  * of each Machine. The store is the truth; an actor
  * that shows it reads it again after every write, from this tab or
  * another. The app Layer gives it, from `services/device-state/`.
@@ -24,25 +24,29 @@ export type Marks = typeof Marks.Type;
 /**
  * Device State as read: Bindings by Action id; whether Vim Mode is on; the
  * microphone chosen, by the browser's `deviceId`, null for the system
- * default; how the Touch Draft is written; the Machine the sidebar shows,
+ * default; whether the Touch Draft takes Smart Input: a tap opens it,
+ * and another places the caret, typing only from Edit; whether it takes
+ * Smart Displacement: a caret or an end dragged sits above the finger; the Machine the sidebar shows,
  * null for every Machine; Unseen marks by Machine id and then Session id.
  */
 export const Device = Schema.Struct({
   bindings: Schema.Record(Schema.String, Schema.Array(Schema.String)),
   vim: Schema.Boolean,
   microphone: Schema.NullOr(Schema.String),
-  touchMode: Schema.Literals(['text', 'voice']),
+  smartInput: Schema.Boolean,
+  smartDisplacement: Schema.Boolean,
   sidebarMachine: Schema.NullOr(Schema.String),
   unseen: Schema.Record(Schema.String, Marks),
 });
 export type Device = typeof Device.Type;
 
-/** What a browser that keeps nothing reads: the default keys, Vim Mode off, the default microphone, voice, every Machine, no marks. */
+/** What a browser that keeps nothing reads: the default keys, Vim Mode off, the default microphone, no Smart Input nor Displacement, every Machine, no marks. */
 export const nothing: Device = {
   bindings: {},
   vim: false,
   microphone: null,
-  touchMode: 'voice',
+  smartInput: false,
+  smartDisplacement: false,
   sidebarMachine: null,
   unseen: {},
 };
@@ -59,8 +63,9 @@ export class DeviceState extends Context.Service<
     readonly setMicrophone: (
       deviceId: string | null,
     ) => Effect.Effect<void, DatabaseError>;
-    readonly setTouchMode: (
-      mode: Device['touchMode'],
+    readonly setSmartInput: (on: boolean) => Effect.Effect<void, DatabaseError>;
+    readonly setSmartDisplacement: (
+      on: boolean,
     ) => Effect.Effect<void, DatabaseError>;
     readonly setSidebarMachine: (
       machineId: string | null,

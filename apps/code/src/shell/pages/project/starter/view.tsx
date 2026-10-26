@@ -53,9 +53,11 @@ export function NewSessionBody({
       </div>
       <section
         aria-label="New session"
-        className="relative shrink-0 bg-background pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent"
+        className="relative shrink-0 bg-background pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent has-[[data-slot=draft][data-touch]]:pb-0"
       >
-        <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">{draft}</div>
+        <div className="mx-auto w-full max-w-3xl px-4 sm:px-6 has-[[data-slot=draft][data-touch]]:px-0">
+          {draft}
+        </div>
       </section>
     </>
   );
@@ -74,7 +76,9 @@ export const StarterView = View.make(
   ({ root, props, children }) => (
     <div
       {...root}
-      className="flex flex-col gap-3 px-4 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+      // In a Drawer, no room for the home indicator while the keyboard
+      // covers it (`--visible-safe-bottom`).
+      className="flex flex-col gap-3 px-4 pt-1 pb-[max(0.75rem,var(--visible-safe-bottom,env(safe-area-inset-bottom)))]"
     >
       <div className="flex min-w-0 flex-col gap-0.5 px-1">
         <h2 className="truncate text-[17px] font-semibold">

@@ -5,7 +5,6 @@ import { Switch } from '@kestack/web-platform/ui/components/switch';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { type ReactNode, use } from 'react';
 import { keys, useBound } from '../../../../keys.ts';
-import type { DeviceState } from '../../../../layer/capabilities/index.ts';
 import { MicrophonePicker } from '../../../actors/pickers/microphone-picker/index.ts';
 import { GeneralLive } from './actor.ts';
 
@@ -13,12 +12,9 @@ import { GeneralLive } from './actor.ts';
  * General: one card of this browser's settings, a row each, its name and
  * what it does on the left and its control on the right: Vim Mode, which
  * a touch screen with no keyboard leaves out; the Microphone, chosen in
- * the Microphone Picker; and whether the Touch Draft is written by text or
- * by voice.
+ * the Microphone Picker; and Smart Input and Smart Displacement, which a
+ * keyboard leaves out.
  */
-
-/** How the Touch Draft is written, as Device State keeps it. */
-type TouchMode = typeof DeviceState.Device.fields.touchMode.Type;
 
 /** One setting: its name over what it does, and its control beside them. */
 function Row({
@@ -87,46 +83,6 @@ function VimSetting() {
   );
 }
 
-/** Text | Voice, as the Touch Draft's own switch draws it, in words. */
-function ModeChoice({
-  mode,
-  onChoose,
-}: {
-  readonly mode: TouchMode;
-  readonly onChoose: (mode: TouchMode) => void;
-}) {
-  return (
-    <div
-      role="radiogroup"
-      aria-labelledby="touch-name"
-      className="relative inline-flex shrink-0 items-center rounded-full bg-muted p-0.5"
-    >
-      <span
-        aria-hidden
-        className={cn(
-          'absolute inset-y-0.5 left-0.5 w-16 rounded-full bg-background shadow-sm transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none',
-          mode === 'voice' && 'translate-x-16',
-        )}
-      />
-      {(['text', 'voice'] as const).map((each) => (
-        <button
-          key={each}
-          type="button"
-          role="radio"
-          aria-checked={mode === each}
-          onClick={() => onChoose(each)}
-          className={cn(
-            'focus-ring relative z-10 flex h-11 w-16 items-center justify-center rounded-full text-sm font-medium transition-colors duration-150 keyboard:h-8',
-            mode === each ? 'text-foreground' : 'text-muted-foreground',
-          )}
-        >
-          {each === 'text' ? 'Text' : 'Voice'}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 export const GeneralView = View.make(GeneralLive, ({ root, model, send }) => {
   const opener = use(MicrophonePicker.Opener);
   const { device } = model;
@@ -179,21 +135,48 @@ export const GeneralView = View.make(GeneralLive, ({ root, model, send }) => {
           )}
         </Row>
         <Row
-          id="touch"
-          name="Touch Draft"
+          id="smart-input"
+          name="Smart input"
+          className="keyboard:hidden"
           control={
             device === null ? (
-              <Skeleton className="h-11 w-32 rounded-full keyboard:h-9" />
+              <Skeleton className="mt-0.5 h-6 w-11 rounded-full" />
             ) : (
-              <ModeChoice
-                mode={device.touchMode}
-                onChoose={(mode) => send({ _tag: 'TouchModeChosen', mode })}
+              <Switch
+                aria-labelledby="smart-input-name"
+                className="mt-0.5"
+                checked={device.smartInput}
+                onCheckedChange={(on) => send({ _tag: 'SmartInputChosen', on })}
               />
             )
           }
         >
-          On a screen with no keyboard, whether the Draft is typed or dictated.
-          A swipe on the Draft switches it too.
+          A tap opens the Draft without the keyboard, and a tap in its words
+          puts the cursor there, for the next Dictation; Edit types. Off, a tap
+          opens it and types at once.
+        </Row>
+        <Row
+          id="smart-displacement"
+          name="Smart displacement"
+          className="keyboard:hidden"
+          control={
+            device === null ? (
+              <Skeleton className="mt-0.5 h-6 w-11 rounded-full" />
+            ) : (
+              <Switch
+                aria-labelledby="smart-displacement-name"
+                className="mt-0.5"
+                checked={device.smartDisplacement}
+                onCheckedChange={(on) =>
+                  send({ _tag: 'SmartDisplacementChosen', on })
+                }
+              />
+            )
+          }
+        >
+          Dragging the cursor, or an end of a selection, holds it a little above
+          your finger, so the text under it stays in sight. A tap still puts it
+          where you touch.
         </Row>
       </div>
     </section>

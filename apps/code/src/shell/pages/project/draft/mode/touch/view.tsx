@@ -9,7 +9,14 @@ import {
   useMotionValue,
   useReducedMotion,
 } from '@kestack/web-platform/ui/components/motion';
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  PencilIcon,
+} from '@kestack/web-platform/ui/components/lucide';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import { cn } from '@kestack/web-platform/ui/components/utils';
+import { GestureZone } from '@kestack/web-platform/ui/input';
 import {
   createContext,
   use,
@@ -19,29 +26,34 @@ import {
 } from 'react';
 import type { Availability } from '../../../../../actors/dictation/index.ts';
 import * as routes from '../../../../../routes/index.ts';
-import type * as Picker from '../../../../../../ui/picker/index.ts';
 import { TouchDraftLive } from './actor.ts';
-import { ModeSwitch, Row } from './controls/index.ts';
-import { useMode, useTouchDraft } from './wiring.ts';
+import * as Picker from '../../../../../../ui/picker/index.ts';
+import { Controls } from './controls/index.ts';
+import { useMorph } from './morph.ts';
+import { useTouchDraft } from './wiring.ts';
 import { Words } from './words/index.ts';
 
 /*
  * The Touch Draft as drawn, from its State; the Draft around it hands the
- * rest through `Touch`. The page's foot, edge to edge, a sheet with
- * rounded top corners and the safe area inside it; in a Drawer, flat, the
- * Drawer the sheet.
+ * rest through `Touch`. A card at the page's foot, one grid whose cells
+ * move as it opens, so its words are never drawn anew and the keyboard
+ * raised in the tap stays up; in a Drawer, flat, the Drawer the card.
+ * On a page, edge to edge at its foot, its top corners round, the home
+ * indicator's room in it but while it is typed in, as the keyboard is
+ * there instead; its owner keeps no room around it.
  *
- * 1. Top line  the model chip, and Text | Voice; it folds away while
- *              editing.
- * 2. Words     read only, or the Composer while editing (`words/`). Text
- *              is on the left, voice on the right: a Swipe left goes to
- *              voice, right back to text, and from text a Swipe right
- *              opens the sidebar. While no Machine can transcribe it
- *              stays text, and a Swipe to voice shakes the words and says
- *              why.
- * 3. Controls  the row under the words, which never moves (`controls/`).
+ * 1. Collapsed  one line: Add, the words, the microphone and Send. While
+ *               a Dictation records or is written out, what it is doing
+ *               is drawn over the words. A tap anywhere but a button opens
+ *               it: to edit, or with Smart Input only open.
+ * 2. Open       the model chip, with Smart Input Edit or Done, and
+ *               Collapse on top, the words under them, and the same
+ *               controls under those. Collapse and open is one control;
+ *               typing and not, another. Open but not editing, a tap in the words places
+ *               the caret with Smart Input, and edits without.
  *
- * What it runs on, from the Actor and the Draft, is `wiring.ts`.
+ * Its controls are `controls/`; what it runs on, from the Actor and the
+ * Draft, is `wiring.ts`.
  */
 
 /** What the Touch Draft draws of the Draft's editing (`useDraft`). */
@@ -102,19 +114,23 @@ export const Touch = createContext<{
   readonly label: string;
   /** Nothing can be sent now, such as while offline. */
   readonly blocked: boolean;
-  /** A new session is being started: the talk bar waits. */
+  /** A new session is being started: Send waits. */
   readonly starting: boolean;
   /** What the page adds, such as Stop. */
   readonly actions?: ReactNode;
-  /** Starts the Draft with `/btw`, for a question on the side; null where there is no Session to ask. */
-  readonly onAsk: (() => void) | null;
   readonly onPaste: (text: string) => void;
   /** Where the View says how the Draft is sent on touch: through it. */
   readonly sending: RefObject<(() => void) | null>;
 } | null>(null);
 
-const BACK = { type: 'spring', visualDuration: 0.25, bounce: 0 } as const;
 const SHAKE = [0, -10, 8, -5, 3, 0];
+
+/** The grid's cells, collapsed and expanded. */
+const CELLS = cn(
+  'grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-1',
+  "data-collapsed:[grid-template-areas:'files_files_files'_'left_words_right']",
+  "not-data-collapsed:[grid-template-areas:'head_head_head'_'words_words_words'_'files_files_files'_'left_mid_right']",
+);
 
 export const TouchDraftView = View.make(
   TouchDraftLive,
@@ -123,21 +139,19 @@ export const TouchDraftView = View.make(
     if (slots === null)
       throw new Error('The Touch Draft is drawn only in a Draft');
     const { draft } = slots;
-    const t = useTouchDraft(slots, state, send);
-    const { mode, choose, ready, nudge, swipes } = useMode(
-      draft,
-      model.mode,
-      t.recording,
-      send,
-    );
-    const voice = mode === 'voice';
-    // The words lean with a Swipe, and shake when voice can't be had.
+    const t = useTouchDraft(slots, { model, state }, send);
+    // Opened straight to editing, it is at its size at once (`wiring.ts`).
+    useMorph(t.card, t.expanded, !(t.editing && !t.smart));
+    const openPicker = Picker.useOpen();
+    // The microphone's row shakes when voice can't be had.
     const reduced = useReducedMotion() === true;
     const x = useMotionValue(0);
     useEffect(() => {
-      if (nudge === null || reduced) return;
+      if (t.nudge === null || reduced) return;
       void animate(x, SHAKE, { duration: 0.42, ease: 'easeOut' });
-    }, [nudge?.key]);
+    }, [t.nudge?.key]);
+    const recording = draft.dictation.recording;
+    const { skills } = draft;
 
     return (
       <MotionConfig reducedMotion="user">
@@ -145,114 +159,154 @@ export const TouchDraftView = View.make(
           {slots.actions !== undefined && slots.actions !== false && (
             <div className="flex justify-end">{slots.actions}</div>
           )}
-          <div
-            data-slot="draft"
-            data-touch=""
-            data-writing={t.editing || undefined}
-            data-recording={t.recording || undefined}
-            data-disabled={draft.disabled || undefined}
-            onBlur={t.onBlur}
-            className={cn(
-              'group/draft relative flex flex-col',
-              // Edge to edge: out past the foot's own sides and safe area.
-              '-mx-4 -mb-[max(0.75rem,env(safe-area-inset-bottom))] sm:-mx-6',
-              'rounded-t-[1.75rem] border-t border-border bg-card px-3 pt-1.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] shadow-[0_-1px_2px_rgb(0_0_0/0.04),0_-12px_32px_rgb(0_0_0/0.08)]',
-              'transition-[border-color] duration-200 ease-out motion-reduce:transition-none data-recording:border-destructive/40',
-              // In a Drawer, the Drawer is the sheet, and keeps the safe area.
-              'in-data-[slot=touch-drawer]:rounded-none in-data-[slot=touch-drawer]:border-t-0 in-data-[slot=touch-drawer]:bg-transparent in-data-[slot=touch-drawer]:pb-1 in-data-[slot=touch-drawer]:shadow-none',
-            )}
-          >
-            {/* 1. Top line: folds away while editing, by its row's height. */}
-            <div
-              inert={t.editing}
+          {/* Trapped: no swipe that starts on it reaches the sidebar. */}
+          <GestureZone trapped className="contents">
+            <motion.div
+              ref={t.card}
+              style={{ x }}
+              data-slot="draft"
+              data-touch=""
+              data-collapsed={!t.expanded || undefined}
+              data-writing={t.editing || undefined}
+              data-recording={t.phase === 'recording' || undefined}
+              data-disabled={draft.disabled || undefined}
+              onBlur={t.onBlur}
+              // Collapsed, a tap anywhere on it but a button opens it; the
+              // words take their own.
+              onClick={(event) => {
+                const on = event.target as Element;
+                if (t.expanded || on.closest('button, [data-words]') !== null)
+                  return;
+                t.open();
+              }}
               className={cn(
-                'grid transition-[grid-template-rows,opacity] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none',
-                t.editing
-                  ? 'grid-rows-[0fr] opacity-0'
-                  : 'grid-rows-[1fr] opacity-100',
+                'group/draft relative',
+                CELLS,
+                'rounded-t-[1.625rem] border-t border-border bg-card p-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] shadow-[0_-1px_2px_rgb(0_0_0/0.04),0_-8px_24px_rgb(0_0_0/0.08)] data-writing:pb-1',
+                'transition-[border-color,border-radius] duration-200 ease-out motion-reduce:transition-none data-recording:border-destructive/40',
+                'not-data-collapsed:rounded-t-[1.375rem] not-data-collapsed:px-2 not-data-collapsed:pt-1.5',
+                // In a Drawer, the Drawer is the card.
+                'in-data-[slot=touch-drawer]:rounded-none in-data-[slot=touch-drawer]:border-0 in-data-[slot=touch-drawer]:bg-transparent in-data-[slot=touch-drawer]:pb-1 in-data-[slot=touch-drawer]:shadow-none',
               )}
             >
-              <div className="min-h-0 overflow-hidden">
-                <div className="flex min-w-0 items-center gap-2 pb-0.5">
-                  <div className="-ml-2 flex min-w-0 flex-1">{slots.chip}</div>
-                  <ModeSwitch
-                    mode={mode}
-                    ready={ready}
-                    onChoose={choose}
-                    disabled={t.recording}
-                  />
-                </div>
+              {/* 2. Open: its top line, drawn always and shown by the card's
+                own data-collapsed, so a tap that opens it by hand finds it. */}
+              <div
+                data-head=""
+                className="flex min-w-0 items-center gap-1 [grid-area:head] group-data-collapsed/draft:hidden"
+              >
+                <div className="-ml-1 flex min-w-0 flex-1">{slots.chip}</div>
+                {/* With Smart Input, typing is its own control: Edit, Done. */}
+                {t.smart &&
+                  (state._tag === 'Expanded' || state._tag === 'Editing') && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={t.editing ? t.done : t.edit}
+                      className="h-10 shrink-0 gap-1.5 rounded-full border border-border px-4 text-sm font-medium [&_svg]:size-4"
+                    >
+                      {t.editing ? (
+                        <CheckIcon aria-hidden />
+                      ) : (
+                        <PencilIcon aria-hidden />
+                      )}
+                      {t.editing ? 'Done' : 'Edit'}
+                    </Button>
+                  )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Collapse"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={t.collapse}
+                  className="size-11 shrink-0 rounded-full text-muted-foreground [&_svg]:size-5"
+                >
+                  <ChevronDownIcon aria-hidden />
+                </Button>
               </div>
-            </div>
-            {/* 2. Words */}
-            <motion.div style={{ x }} className="relative flex min-w-0">
-              <Words
-                editor={draft}
-                editing={t.editing}
-                onEdit={t.edit}
-                tapEdits={!voice}
-                swipes={swipes}
-                onSwipeMove={(offset) =>
-                  offset === null
-                    ? void animate(x, 0, BACK)
-                    : x.set(offset * 0.2)
+              {/* The words: one cell, whichever way it is drawn. */}
+              <div
+                data-words=""
+                className="relative flex min-w-0 [grid-area:words]"
+              >
+                <Words
+                  editor={draft}
+                  editing={t.editing}
+                  onEdit={t.edit}
+                  tapEdits={!t.expanded || !t.smart}
+                  oneLine={!t.expanded}
+                  displace={t.displace}
+                  swipes={{}}
+                  onSwipeMove={() => {}}
+                  className={cn(
+                    // At most 40% of what is visible, so with the keyboard
+                    // up, in a Drawer above it, the whole card still fits.
+                    'max-h-[min(40dvh,calc(var(--visible-height,100dvh)*0.4),calc(8*1.75rem+0.75rem))] min-h-[calc(3*1.75rem+0.75rem)] px-1.5 py-1.5 text-base leading-7',
+                    'group-data-collapsed/draft:max-h-7 group-data-collapsed/draft:min-h-7 group-data-collapsed/draft:py-0',
+                  )}
+                />
+                <AnimatePresence>
+                  {t.nudge !== null && (
+                    <Nudge key="nudge" said={t.nudge.said} />
+                  )}
+                </AnimatePresence>
+              </div>
+              {slots.attachments !== null && (
+                <div className="px-1 pb-1 [grid-area:files]">
+                  {slots.attachments}
+                </div>
+              )}
+              <Controls
+                phase={t.phase}
+                disabled={draft.disabled}
+                recording={recording?._tag === 'Recording' ? recording : null}
+                add={{
+                  onSkill:
+                    draft.textOnly || !skills.offered
+                      ? null
+                      : () => openPicker(() => skills.onOpen('touch', false)),
+                  onPaste: slots.onPaste,
+                  onFiles: draft.textOnly
+                    ? null
+                    : (files) => void draft.files.add(files),
+                  onChooseMicrophone: draft.dictation.onChooseMicrophone,
+                }}
+                send={
+                  t.phase === 'recording'
+                    ? {
+                        label: 'Stop and send',
+                        shown: true,
+                        disabled: slots.blocked,
+                        busy: false,
+                        onSend: t.takeAndSend,
+                      }
+                    : {
+                        label: slots.label,
+                        shown: draft.filled || slots.starting,
+                        disabled: !t.canSend || t.phase === 'transcribing',
+                        busy: slots.starting || state._tag === 'Sending',
+                        onSend: draft.send,
+                      }
                 }
-                className={cn(
-                  'px-1 py-1.5 text-[1.0625rem] leading-7',
-                  t.editing
-                    ? 'max-h-[min(40dvh,calc(6*1.75rem+0.75rem))] min-h-[calc(3*1.75rem+0.75rem)]'
-                    : 'max-h-[calc(3*1.75rem+0.75rem)] min-h-[calc(1.75rem+0.75rem)]',
-                )}
+                onDictate={t.dictate}
+                onTake={t.take}
+                onRetry={t.retry}
+                onCancel={t.cancel}
               />
-              <AnimatePresence>
-                {nudge !== null && <Nudge key="nudge" said={nudge.said} />}
-              </AnimatePresence>
+              {/* Skills' Sheet, opened from Add. */}
+              {!draft.textOnly && (
+                <Picker.Frame
+                  how={skills.how}
+                  mode="sheet"
+                  label="Skills and commands"
+                >
+                  {skills.picker}
+                </Picker.Frame>
+              )}
             </motion.div>
-            {slots.attachments !== null && (
-              <div className="px-1 pt-1">{slots.attachments}</div>
-            )}
-            {/* 3. Controls */}
-            <Row
-              phase={
-                t.editing
-                  ? 'editing'
-                  : t.recording
-                    ? 'recording'
-                    : t.failed
-                      ? 'failed'
-                      : 'resting'
-              }
-              voice={t.voice}
-              talking={voice && !t.editing}
-              disabled={draft.disabled}
-              recording={draft.dictation.recording}
-              skills={draft.textOnly ? null : draft.skills}
-              quick={{
-                onAsk: t.ask,
-                onPaste: slots.onPaste,
-                onFiles: draft.textOnly
-                  ? null
-                  : (files) => void draft.files.add(files),
-                onChooseMicrophone: draft.dictation.onChooseMicrophone,
-              }}
-              send={
-                t.recording
-                  ? {
-                      label: 'Stop and send',
-                      disabled: slots.blocked,
-                      onSend: t.takeAndSend,
-                    }
-                  : {
-                      label: slots.label,
-                      disabled: !t.canSend,
-                      onSend: draft.send,
-                    }
-              }
-              onCancel={t.cancel}
-              onDone={t.done}
-              onTalk={t.talk}
-            />
-          </div>
+          </GestureZone>
         </div>
       </MotionConfig>
     );

@@ -7,6 +7,8 @@ import { type CSSProperties, useEffect, useState } from 'react';
  * the layout viewport, and may scroll it: only `window.visualViewport`
  * knows what is left. Android resizes the page itself
  * (`interactive-widget=resizes-content`), where the two agree.
+ * `--visible-safe-bottom` is the room kept for the home indicator at the
+ * screen's foot: none while the keyboard covers the foot, and it with it.
  */
 
 type Visible = {
@@ -30,7 +32,7 @@ const read = (): Visible | null => {
       };
 };
 
-/** `--visible-top`, `--visible-height` and `--visible-bottom`, live while `on`. */
+/** `--visible-top`, `--visible-height`, `--visible-bottom` and `--visible-safe-bottom`, live while `on`. */
 export const useVisibleViewport = (on: boolean): CSSProperties => {
   const [visible, setVisible] = useState<Visible | null>(null);
   useEffect(() => {
@@ -51,5 +53,7 @@ export const useVisibleViewport = (on: boolean): CSSProperties => {
         '--visible-top': `${visible.top}px`,
         '--visible-height': `${visible.height}px`,
         '--visible-bottom': `${visible.bottom}px`,
+        '--visible-safe-bottom':
+          visible.bottom > 0 ? '0px' : 'env(safe-area-inset-bottom)',
       } as CSSProperties);
 };
