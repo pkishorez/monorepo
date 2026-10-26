@@ -69,6 +69,7 @@ export class DeviceState extends Context.Service<
     readonly markSeen: (
       accountId: string,
       machineId: string,
+      projectId: string,
       sessionId: string,
       seen: number,
     ) => Effect.Effect<void, DatabaseError>;

@@ -85,7 +85,8 @@ export const asked = (gone: Gone): gone is Asked =>
 
 /**
  * Tells every store what went: records, kept copies and Unseen marks; and
- * Saved Drafts only as the user asked.
+ * Saved Drafts only as the user asked. Once begun it runs to its end, even
+ * as the page that asked it goes.
  */
 export const dropEverywhere = (gone: Gone) =>
   Effect.gen(function* () {
@@ -93,4 +94,4 @@ export const dropEverywhere = (gone: Gone) =>
     yield* (yield* DeviceState).drop(gone);
     yield* (yield* Kept).drop(gone);
     if (asked(gone)) yield* (yield* SavedDrafts).drop(gone);
-  });
+  }).pipe(Effect.uninterruptible);

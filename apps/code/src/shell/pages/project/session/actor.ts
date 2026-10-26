@@ -201,6 +201,7 @@ export const SessionLive = Page.build(Session, {
         : {
             command: markSeen({
               machineId: machineIn(props.route.params),
+              projectId: row.projectId,
               sessionId: row.id,
               seen: row.endedAt ?? 0,
             }),

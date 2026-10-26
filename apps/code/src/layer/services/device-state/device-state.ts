@@ -34,8 +34,8 @@ import {
  *            when another tab wrote first, then rings the doorbell.
  * 3. Follow  every write, in this tab or another, as a change to read
  *            again: the store is the truth, and actors only mirror it.
- * 4. Drop    the Unseen marks of a Machine forgotten or no longer listed,
- *            or of an Account signed out, are deleted.
+ * 4. Drop    the Unseen marks of a Project removed, of a Machine forgotten
+ *            or no longer listed, or of an Account signed out, are deleted.
  */
 
 const CONFIRM = 'I KNOW WHAT I AM DOING';
@@ -86,6 +86,7 @@ const make = (
   const markSeen = (
     accountId: string,
     machineId: string,
+    projectId: string,
     sessionId: string,
     seen: number,
   ) =>
@@ -98,11 +99,16 @@ const make = (
             ...id,
             accountId,
             machineId,
+            projectId,
             sessionId,
             seen,
           });
         // A mark only moves forward: an older Turn seen late changes nothing.
-        if (mark.value.seen >= seen && mark.value.accountId !== null)
+        if (
+          mark.value.seen >= seen &&
+          mark.value.accountId !== null &&
+          mark.value.projectId !== null
+        )
           return mark;
         // Judged again on the mark as written, since another tab may have
         // moved it on after it was read here.
@@ -111,6 +117,7 @@ const make = (
           (current) => ({
             seen: Math.max(current.seen, seen),
             accountId,
+            projectId,
           }),
           { retries: RETRIES },
         );
@@ -122,7 +129,7 @@ const make = (
     write(
       Effect.flatMap(allMarks, (found) =>
         Effect.forEach(
-          found.filter((mark) => went(gone)({ ...mark, projectId: null })),
+          found.filter(went(gone)),
           ({ mark }) => marks.hardDelete({ mark }, CONFIRM),
           { discard: true },
         ),
