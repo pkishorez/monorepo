@@ -1,4 +1,4 @@
-import { ZapIcon } from 'lucide-react';
+import { RotateCcwIcon, ZapIcon } from 'lucide-react';
 import type { Row } from '../rows/index.ts';
 import { Attachments } from './attachments.tsx';
 
@@ -6,12 +6,25 @@ import { Attachments } from './attachments.tsx';
  * What you asked, on the right, as a bubble: its files over it, and, for
  * words sent while the agent worked, a quiet note under it. Wider on a
  * phone, where the column is narrow. A turn the agent began on its own has
- * no words: a quiet rule across the column says why it carried on.
+ * no words: a quiet rule across the column says why it carried on. A turn
+ * Connect Resumed after a restart says so the same way, in place of the
+ * prompt Connect sent.
  */
 
 type TurnRow = Extract<Row, { readonly kind: 'turn' }>;
 
 export function Ask({ row }: { readonly row: TurnRow }) {
+  if (row.resumed)
+    return (
+      <p className="flex items-center gap-3 text-xs text-muted-foreground">
+        <span aria-hidden className="h-px flex-1 bg-border" />
+        <span className="flex shrink-0 items-center gap-1.5">
+          <RotateCcwIcon aria-hidden className="size-3.5" />
+          Resumed after Connect restarted
+        </span>
+        <span aria-hidden className="h-px flex-1 bg-border" />
+      </p>
+    );
   if (row.agentStarted)
     return (
       <p className="flex items-center gap-3 text-xs text-muted-foreground">

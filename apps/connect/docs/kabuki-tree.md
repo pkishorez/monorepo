@@ -76,18 +76,20 @@ the answer changes is a Message after it, such as AddSession for a Fork.
 saves the Projects.
 **Input**: none.
 **Model**: projects: every Project. sessions: each Session as it was first
-handed over, with its folder and its first Prompt or null. Both are kept for
-the whole life and are empty while Loading.
+handed over, with its folder and the Prompt it starts Running or null: a new
+Session's first message, or the one that Resumes a Turn the Bootstrap Sweep
+found cut off. Both are kept for the whole life and are empty while Loading.
 **States**: Loading: nothing. Ready: nothing. Loaded moves Loading to Ready.
 **Messages**: Loaded: the load Worker. AddProject, RemoveProject,
 StartSession, AddSession: the front door.
 **Commands**: SaveProject: ends with nothing. RemoveProject: ends with nothing.
-**Workers**: load: in Loading; runs the Bootstrap Sweep; Sends Loaded.
+**Workers**: load: in Loading; runs the Bootstrap Sweep, which ends each Turn
+left running Interrupted and makes a Prompt to Resume it once; Sends Loaded.
 **Requires**: Store: the load Worker and both Commands.
 **Provides**: none.
 **Services**: none.
 **Children**: sessions: in Ready, each session id; Input: the session, cwd,
-the first Prompt or null.
+the Prompt it starts Running or null.
 **View**: none.
 
 ### Decisions
@@ -103,6 +105,12 @@ the first Prompt or null.
   while it saves and nothing stops it.
 - **cwd travels as Input, not as a Capability**, because only the direct
   Child reads it.
+- **A Resumed Turn starts from its Session's Input, not from a Message after
+  Loaded**, because a parent never Sends to a Child, and a Session handed a
+  Prompt already starts Running it, as a new Session does. From there it is
+  a Turn like any other: steers, cancel and saves hold. Caveat: the Prompt is
+  marked `resumed`, so its `turn.started` says so, and a later sweep that
+  finds that Turn cut off does not Resume it again.
 - **Folders is a Service of the engine, behind the front door**, because
   picking a folder to become a Project is the engine's domain, and the API
   then talks to the Engine alone. Caveat: the engine takes `home` as an
@@ -112,13 +120,15 @@ the first Prompt or null.
 
 **Does**: keeps one Agent of one Coding Harness in a Project's folder, and
 orders its Turns. A message starts or steers a Turn.
-**Input**: the stored session, cwd, the first Prompt or null.
+**Input**: the stored session, cwd, the Prompt it starts Running or null: a
+first message, or a Resume.
 **Model**: session: the record without status. cwd. untitled: the first
 message until it has a title. jobs and refusedStops: the Background Jobs the
 Agent last listed and the stops it refused, in memory only. questions: the
 Agent Questions the Agent last listed, in memory only.
 **States**: Idle: ended. Running: turnId, prompt, steers, cancelling, queued.
-Send and AgentTurn move Idle to Running. TurnEnded moves Running to Idle, or
+Send and AgentTurn move Idle to Running; a Session handed a Prompt starts
+Running. TurnEnded moves Running to Idle, or
 to a new Running for a steer the Agent did not take or a message sent while
 cancelling.
 **Messages**: Send, Cancel, Settle, Unsettle, StopJob, Answer, Titled: the

@@ -12,8 +12,8 @@ import {
 /*
  * The Raw the engine writes itself, with `harness: 'engine'`: where a turn
  * starts (the user's text and Attachments, whether it steered a running
- * turn, or that the agent started it), where it ends, and a failure worth
- * showing.
+ * turn, that the agent started it, or that the engine Resumed a Turn a stop
+ * cut off), where it ends, and a failure worth showing.
  *
  * Every Turn ends with the engine's `turn.ended`, which carries the Turn's
  * Fork Point as `nativeTurnId` when the agent gave one. When the harness
@@ -35,6 +35,8 @@ const TurnStarted = Schema.Struct({
   steered: Schema.Boolean,
   attachments: Schema.optionalKey(Schema.Array(Attachment)),
   agentStarted: Schema.optionalKey(Schema.Boolean),
+  /** A Resumed Turn: `text` is the engine's own prompt to continue. */
+  resumed: Schema.optionalKey(Schema.Boolean),
 });
 type TurnStarted = typeof TurnStarted.Type;
 
@@ -54,6 +56,7 @@ const turnStarted = ({
   steered,
   attachments = [],
   agentStarted = false,
+  resumed = false,
 }: TurnStarted): RawOut => ({
   kind: 'turn.started',
   payload: {
@@ -61,6 +64,7 @@ const turnStarted = ({
     steered,
     ...(attachments.length === 0 ? {} : { attachments }),
     ...(agentStarted ? { agentStarted } : {}),
+    ...(resumed ? { resumed } : {}),
   },
 });
 
@@ -110,7 +114,7 @@ const project = (raw: Raw): Projected | null => {
     case 'turn.started':
       return Option.match(read(TurnStarted, raw.payload), {
         onNone: () => null,
-        onSome: ({ text, steered, attachments, agentStarted }) => ({
+        onSome: ({ text, steered, attachments, agentStarted, resumed }) => ({
           agentId: null,
           role: 'user',
           parts: [
@@ -120,6 +124,7 @@ const project = (raw: Raw): Projected | null => {
               steered,
               ...(attachments === undefined ? {} : { attachments }),
               ...(agentStarted === undefined ? {} : { agentStarted }),
+              ...(resumed === undefined ? {} : { resumed }),
             },
           ],
         }),

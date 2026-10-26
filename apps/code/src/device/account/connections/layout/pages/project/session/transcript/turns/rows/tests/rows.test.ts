@@ -300,4 +300,28 @@ describe('turns', () => {
       { kind: 'turn', attachments: [], agentStarted: true },
     ]);
   });
+
+  it('say when Connect Resumed them, and steers of one stay yours', () => {
+    const rows = thread([
+      message(
+        [
+          {
+            type: 'turnStarted',
+            text: 'Connect restarted and cut off your last turn.',
+            steered: false,
+            resumed: true,
+          },
+        ],
+        { role: 'user', turnId: 't2' },
+      ),
+      message([{ type: 'turnStarted', text: 'also this', steered: true }], {
+        role: 'user',
+        turnId: 't2',
+      }),
+    ]);
+    expect(rows).toMatchObject([
+      { kind: 'turn', resumed: true, agentStarted: false },
+      { kind: 'turn', text: 'also this', steered: true, resumed: false },
+    ]);
+  });
 });

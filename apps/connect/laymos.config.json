@@ -17,6 +17,9 @@
       "src/connection/code/engine/capabilities",
       "src/connection/code/engine/engine-raw"
     ],
+    "src/connection/code/engine/actor-code/checks": [
+      "src/connection/code/engine/actor-code/actor-session"
+    ],
     "src/connection/code/engine/services": [
       "src/connection/code/engine/capabilities"
     ],

@@ -80,7 +80,10 @@ export const SessionInput = Schema.Struct({
   /** As stored: its status is how its last turn ended. */
   session: Schema.Struct(SessionSchema.fields),
   cwd: Schema.String,
-  /** The message it was started with, if it was started just now. */
+  /**
+   * The message it starts Running: a new Session's first, or the Prompt the
+   * Bootstrap Sweep Resumes a cut-off Turn with; null to start Idle.
+   */
   first: Schema.NullOr(Prompt),
 });
 export type SessionInput = typeof SessionInput.Type;
@@ -215,7 +218,7 @@ const choose = (model: Model, prompt: Prompt): Model =>
  * Saves the Session's record every time it changes, in order. A Session
  * that stops, with its project removed or the server stopping, saves
  * nothing more: one stopped running is still `running` in the Store, and
- * the next start marks it interrupted.
+ * the next start marks it interrupted and Resumes it once.
  */
 const persist = (self: SessionSelf) =>
   Effect.gen(function* () {
@@ -356,7 +359,8 @@ export const Session = Actor.build(
       model: {
         session: Struct.omit(session, ['status']),
         cwd,
-        untitled: first?.text ?? null,
+        // A Resumed Session has its title; only a first message asks for one.
+        untitled: first && !first.resumed ? first.text : null,
         jobs: [],
         refusedStops: [],
         questions: [],

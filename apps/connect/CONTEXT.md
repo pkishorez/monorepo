@@ -71,5 +71,9 @@ A short name for a Session, written from its user messages; it can be regenerate
 _Avoid_: name, label
 
 **Bootstrap Sweep**:
-The startup step that finds Turns the last run of the Connection left running and ends them interrupted.
+The startup step that finds Turns the last run of the Connection left running, ends them Interrupted, and Resumes each once.
 _Avoid_: recovery, orphan reaper
+
+**Resumed**:
+A Turn the Connection started on its own to continue one a stop cut off. A Resumed Turn that is cut off again is not Resumed again.
+_Avoid_: retried, restarted, replayed

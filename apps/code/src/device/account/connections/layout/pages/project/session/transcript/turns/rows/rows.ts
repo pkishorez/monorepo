@@ -16,7 +16,9 @@ import type { Message, Part, Usage } from '@kestack/connect/code';
  *   `prompt` or `description` input (Claude's Agent tool). Its last words
  *   are dropped when they are its report, as Codex sends both;
  * - a turn starts with your words and files, or, when the agent began it
- *   on its own, with none; it ends at a Fork Point, its turnEnded;
+ *   on its own, with none, or, when Connect Resumed it after a restart,
+ *   with a marker in place of the prompt it sent; it ends at a Fork Point,
+ *   its turnEnded;
  * - a turn's usage is its turnEnded's, or else the sum of its usage parts,
  *   which are never rows of their own; it ran from its turnStarted to its
  *   turnEnded;
@@ -43,6 +45,8 @@ export type Row =
       readonly attachments: ReadonlyArray<TurnAttachment>;
       /** Begun by the agent on its own, with no words from you. */
       readonly agentStarted: boolean;
+      /** Begun by Connect, to continue a turn a restart cut off. */
+      readonly resumed: boolean;
     }
   /** A user's words inside a subagent: the prompt it was given. */
   | { readonly kind: 'prompt'; readonly id: string; readonly text: string }
@@ -198,6 +202,7 @@ export const thread = (
                 steered: part.steered,
                 attachments: part.attachments ?? [],
                 agentStarted: part.agentStarted ?? false,
+                resumed: part.resumed ?? false,
               },
             ];
           case 'text':
