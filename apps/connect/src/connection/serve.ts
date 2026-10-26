@@ -4,25 +4,15 @@ import { History, Runtime } from '@kestack/kabuki';
 import { Downloads } from '@kestack/cli-platform/files';
 import { ActorConnection, ConnectionHost } from './actor-connection/index.js';
 import type { ConnectionFolders } from './folders.js';
-import {
-  checkAt,
-  CLOUDFLARED_KEY,
-  cloud,
-  cloudflared,
-  type identify,
-  openTunnel,
-} from './online/index.js';
+import { type identify, online, prune } from './online/index.js';
 
 /*
  * Running a signed-in Connection: its Actor tree, standing on the tunnel
  * and Cloud Connect `online/` gives, until it ends, Forgotten or Stopped.
  * First, the shared cache drops each download no Connection has used for
- * 30 days; cloudflared, which this one runs at once, is kept, and a running
- * Plugin marks its file used every day, so no file in use goes.
+ * 30 days; a running Plugin marks its file used every day, so no file in
+ * use goes.
  */
-
-/** A download unused for this long is deleted when a Connection starts. */
-const UNUSED = '30 days';
 
 /** Wait before signing in again once a new Sign-in was refused too; it doubles after, up to a minute. */
 const FIRST_BACKOFF = '1 second';
@@ -32,22 +22,6 @@ export const ownDb = (db: string) =>
   Effect.sync(() => {
     if (existsSync(db)) chmodSync(db, 0o600);
   });
-
-/** Deletes the downloads no Connection used for 30 days, keeping cloudflared; a failure is only logged. */
-const prune = Effect.flatMap(Downloads, (downloads) =>
-  downloads.prune({ olderThan: UNUSED, keep: [CLOUDFLARED_KEY] }),
-).pipe(
-  Effect.flatMap((removed) =>
-    removed.length === 0
-      ? Effect.void
-      : Effect.log(
-          `Deleted downloads unused for ${UNUSED}: ${removed.join(', ')}`,
-        ),
-  ),
-  Effect.catch((error) =>
-    Effect.logWarning('Could not prune the downloads', error),
-  ),
-);
 
 export interface RunOptions {
   readonly own: ConnectionFolders;
@@ -65,17 +39,17 @@ export interface RunOptions {
 export const run = (options: RunOptions) =>
   Effect.gen(function* () {
     const { own, identified } = options;
-    const calls = yield* cloud(identified);
     const downloads = Downloads.layer(own.cache);
-    yield* prune.pipe(Effect.provide(downloads));
+    const outside = yield* online(identified, downloads);
+    yield* prune(downloads);
     const host = ConnectionHost.of({
       every: `${options.heartbeat} seconds`,
-      cloudflared: Effect.provide(cloudflared, downloads),
-      open: openTunnel,
-      check: checkAt,
-      report: calls.report,
+      cloudflared: outside.cloudflared,
+      open: outside.open,
+      check: outside.check,
+      report: outside.report,
       backoff: FIRST_BACKOFF,
-      signInAgain: calls.signInAgain,
+      signInAgain: outside.signInAgain,
     });
     const running = yield* Runtime.start(
       History.make(ActorConnection, {
@@ -124,6 +98,6 @@ export const run = (options: RunOptions) =>
       Stream.runHead,
       Effect.map(Option.getOrThrow),
     );
-    if (ended._tag === 'Forgotten') yield* calls.signOut;
+    if (ended._tag === 'Forgotten') yield* outside.signOut;
     return ended;
   });

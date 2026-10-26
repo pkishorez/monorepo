@@ -1,9 +1,10 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { Effect } from 'effect';
+import { names } from '@kestack/cli-platform/files';
 import { type DevAuth, authOf, connectionName } from './auth.js';
 import { worktreeSlugs } from './branch.js';
-import { connectionNames, removeGone } from './gone.js';
+import { removeGone } from './gone.js';
 import { freePort, removing, serving } from './ke-connect.js';
 import { live } from './leases.js';
 import {
@@ -148,7 +149,7 @@ const warnLeft = (dir: string) =>
 const removeGoneConnections = (root: string) =>
   removeGone({
     slugs: Effect.tryPromise(() => worktreeSlugs(root)),
-    names: connectionNames,
+    names: () => names('connect'),
     remove: (name) => removing(root, authOf(name), name),
   }).pipe(Effect.forkScoped);
 

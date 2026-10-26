@@ -42,7 +42,7 @@ const version = (
 ).version;
 
 /** This computer, and every App on the stack's domains, deployed or as Portless serves it in development. */
-export const DEFAULT_ORIGINS: ReadonlyArray<string> = [
+const DEFAULT_ORIGINS: ReadonlyArray<string> = [
   'http://localhost:*',
   'http://127.0.0.1:*',
   'http://[::1]:*',
@@ -53,7 +53,7 @@ export const DEFAULT_ORIGINS: ReadonlyArray<string> = [
 ];
 
 /** The Connection cannot go on serving; `message` says why and what to do. */
-export class ConnectionStopped extends Data.TaggedError('ConnectionStopped')<{
+class ConnectionStopped extends Data.TaggedError('ConnectionStopped')<{
   readonly message: string;
 }> {}
 
@@ -139,7 +139,7 @@ const serve = (options: ServeFlags) =>
   }).pipe(Effect.scoped);
 
 /** Prints every Connection on this computer: its name, whether it runs, its address and when it last started. */
-export const list = () =>
+const list = () =>
   Effect.gen(function* () {
     const names = yield* connectionNames();
     if (names.length === 0)
@@ -170,7 +170,7 @@ export const list = () =>
  * signs it out and deletes its folders. A Cloud Connect that cannot be
  * told is only warned of.
  */
-export const remove = (name: string) =>
+const remove = (name: string) =>
   Effect.gen(function* () {
     const own = yield* connectionFolders(name);
     if (!existsSync(own.data) && !existsSync(own.state))
