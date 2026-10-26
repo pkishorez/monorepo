@@ -11,13 +11,18 @@ import {
 import { Actor } from '@kestack/kabuki';
 import { toReact, View } from '@kestack/kabuki/react';
 import { Navigation } from '@kestack/kabuki/routing';
+import { Replicas } from '@kestack/std-toolkit/replica';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
+  AccountReplicas,
+  DeviceState,
+  Kept,
   type Kit,
   type Known,
   Machines,
   nobody,
+  SavedDrafts,
 } from '../../../../layer/capabilities/index.ts';
 import { keys } from '../../../../keys.ts';
 import { Connection } from '../../../machines/index.ts';
@@ -139,7 +144,17 @@ const mount = async () => {
   const App = toReact(
     OwnerLive,
     OwnerView,
-    Layer.mergeAll(machines(), clients, Layer.mock(Navigation)({})),
+    Layer.mergeAll(
+      machines(),
+      clients,
+      Layer.mock(Navigation)({}),
+      // A Machine's Projects are never read here: see projects/.
+      Layer.mock(Replicas)({ hold: () => Effect.never }),
+      Layer.mock(AccountReplicas)({}),
+      Layer.mock(DeviceState)({}),
+      Layer.mock(Kept)({}),
+      Layer.mock(SavedDrafts)({}),
+    ),
     { name: `machine-settings-test-${apps++}` },
   );
   root = createRoot(document.body.appendChild(document.createElement('div')));
@@ -225,5 +240,28 @@ describe('Settings → Machines, drawn once', () => {
     });
     expect(document.querySelector('li')).toBe(card);
     expect(text()).toContain('QA kit');
+  });
+});
+
+describe('Settings → Machines, Agents or Projects', () => {
+  it('shows a Machine’s Agents, then its Projects as chosen, each Machine on its own', async () => {
+    await mount();
+    await tell({
+      accountId: 'a1',
+      savedRead: true,
+      machines: [M1],
+      kits: { m1: kit({ accounts: [CLAUDE], speech: { _tag: 'Ready' } }) },
+    });
+    const tab = (name: string) =>
+      [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find(
+        (each) => each.textContent === name,
+      )!;
+    expect(tab('Agents').getAttribute('aria-selected')).toBe('true');
+    expect(text()).toContain('Claude');
+    await act(async () => tab('Projects').click());
+    await settle();
+    expect(tab('Projects').getAttribute('aria-selected')).toBe('true');
+    expect(text()).not.toContain('Claude');
+    expect(busy()).toBe(true);
   });
 });

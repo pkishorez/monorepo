@@ -6,6 +6,11 @@ import {
   RefreshCwIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from '@kestack/web-platform/ui/components/tabs';
 import { useEffect, useState } from 'react';
 import * as Confirm from '../../../../ui/confirm/index.ts';
 import { ago } from '../../../../ui/time/index.ts';
@@ -17,6 +22,7 @@ import {
 import { StandingDot, standingOf, useLock } from '../../../machines/index.ts';
 import { keyOf, MachineSettingsLive } from './actor.ts';
 import { HarnessAccounts } from './harness-accounts/index.ts';
+import { MachineProjects } from './projects/index.ts';
 import { SpeechToText } from './speech-to-text/index.ts';
 
 type Machine = typeof MachineSchema.Type;
@@ -27,10 +33,11 @@ type Machine = typeof MachineSchema.Type;
  * card per Machine, drawn once: its name, whole, and one quiet line of how
  * it stands, its dot and its Line and Last Seen as the sidebar says them,
  * with a lock once its settings are said to be locked; on a wider screen
- * its tunnel and the version of Connect it runs under it. Then, each
- * between rules, its agents' accounts and its Speech to Text switch, each
- * as its Machine Kit holds it, so one that does not answer says so in its
- * own place; last, Forget, small and set apart,
+ * its tunnel and the version of Connect it runs under it, and a segmented
+ * control of what it shows: Agents, each between rules its agents'
+ * accounts and its Speech to Text switch, each as its Machine Kit holds
+ * it, so one that does not answer says so in its own place; or Projects,
+ * every Project on it (`projects/`). Last, Forget, small and set apart,
  * in the danger colour, which asks first. Below, the way to the Auth
  * Worker's Home Page, where a Machine's Sign-in is revoked outright.
  */
@@ -121,10 +128,13 @@ export const MachineSettingsView = View.make(
         model.accountId === null ? null : keyOf(model.accountId, machine.id);
       const accounts = children.accounts.find((each) => each.key === key);
       const speech = children.speech.find((each) => each.key === key);
+      const projects = children.projects.find((each) => each.key === key);
       // A Machine whose Kit is still read waits, alone.
-      return accounts === undefined || speech === undefined
+      return accounts === undefined ||
+        speech === undefined ||
+        projects === undefined
         ? []
-        : [{ machine, accounts, speech }];
+        : [{ machine, accounts, speech, projects }];
     });
     return (
       <section
@@ -150,29 +160,62 @@ export const MachineSettingsView = View.make(
           <p className="text-sm text-muted-foreground">No Machines.</p>
         ) : (
           <ul className="flex flex-col gap-4">
-            {shown.map(({ machine, accounts, speech }) => (
-              <li
-                key={machine.id}
-                className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card *:px-4 *:py-4 sm:*:px-5"
-              >
-                <MachineHead machine={machine} />
-                <HarnessAccounts.view instance={accounts} />
-                <SpeechToText.view instance={speech} />
-                <div className="py-3!">
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="h-11 keyboard:h-8"
-                    aria-label={`Forget ${machine.name}`}
-                    onClick={() =>
-                      open(() => send({ _tag: 'Ask', id: machine.id }))
-                    }
-                  >
-                    Forget this Machine…
-                  </Button>
-                </div>
-              </li>
-            ))}
+            {shown.map(({ machine, accounts, speech, projects }) => {
+              const view = model.views[machine.id] ?? 'Agents';
+              return (
+                <li
+                  key={machine.id}
+                  className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card *:px-4 *:py-4 sm:*:px-5"
+                >
+                  <div className="flex flex-col gap-4">
+                    <MachineHead machine={machine} />
+                    <Tabs
+                      value={view}
+                      onValueChange={(chosen) =>
+                        send({
+                          _tag: 'ViewChosen',
+                          id: machine.id,
+                          view: chosen === 'Projects' ? 'Projects' : 'Agents',
+                        })
+                      }
+                    >
+                      <TabsList
+                        aria-label={`What ${machine.name} shows`}
+                        className="h-11! w-full sm:w-fit keyboard:h-9!"
+                      >
+                        <TabsTrigger value="Agents" className="px-4">
+                          Agents
+                        </TabsTrigger>
+                        <TabsTrigger value="Projects" className="px-4">
+                          Projects
+                        </TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </div>
+                  {view === 'Agents' ? (
+                    <>
+                      <HarnessAccounts.view instance={accounts} />
+                      <SpeechToText.view instance={speech} />
+                    </>
+                  ) : (
+                    <MachineProjects.view instance={projects} />
+                  )}
+                  <div className="py-3!">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-11 keyboard:h-8"
+                      aria-label={`Forget ${machine.name}`}
+                      onClick={() =>
+                        open(() => send({ _tag: 'Ask', id: machine.id }))
+                      }
+                    >
+                      Forget this Machine…
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
         {model.drawn && (
