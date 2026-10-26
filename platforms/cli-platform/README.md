@@ -50,6 +50,10 @@ pnpm add @kestack/cli-platform effect @kestack/kabuki @kestack/std-toolkit
 | `PluginPaths`   | Where on its socket a Plugin serves its own group and PluginControl.                               |
 | `READY`         | The Node IPC message a Plugin sends once it listens.                                               |
 
+### `@kestack/cli-platform/plugins/contract`
+
+The same `Plugins`, `PluginState`, `PluginStatus`, `PluginControl`, `PluginEnv`, `PluginPaths` and `READY` as `./plugins`, without `ActorPlugin`: nothing in it needs Node, so a browser or a Worker may import it, such as a contract that carries a Plugin State.
+
 ### `@kestack/cli-platform/plugins/plugin`
 
 | Export          | What it does                                                                                              |
