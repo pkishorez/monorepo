@@ -17,15 +17,23 @@ One UI on Connect, such as Code, reaching the Connections Cloud Connect lists.
 _Avoid_: client, frontend, product
 
 **Plugin**:
-A program Connect runs and keeps up to date, serving one RPC group at `<tunnel>/<name>/rpc`. `code` is the first. Today a Plugin still runs inside Connect, and every Plugin is served together at `<tunnel>/rpc`.
+A program a Connection runs beside itself and keeps at the version Cloud Connect names, serving one RPC group at `<tunnel>/<name>/rpc`. `code` is the first.
 _Avoid_: App Group (the former name), module, feature
+
+**Plugin State**:
+Where one of a Connection's Plugins stands, as its Heartbeat reports it: Downloading its file, Starting, Running, or Crashed with its last lines and when it is tried again.
+_Avoid_: status (a Plugin's own answer about itself), health
+
+**Updating**:
+A Plugin is Updating while its new version downloads and starts; the tunnel stays up.
+_Avoid_: upgrading, deploying, restarting
 
 **Project**:
 A folder on a Connection that Sessions run in. It knows whether its folder is there, present or missing, as its Connection last found it: the Connection looks as it starts, every minute, and at once when a Turn fails or its Skills cannot be listed, and writes it only when that changes, back to present when the folder returns. Removing a Project removes its Sessions with it; the folder stays as it is.
 _Avoid_: workspace, repo
 
 **Connection**:
-One running Connect on a computer, signed in as one User to one Cloud Connect, with its own tunnel, folders and Plugins. A computer can run several Connections. It keeps the same id across restarts and has a name the User can change.
+One running Connect on a computer, signed in as one User to one Cloud Connect, with its own tunnel, folders and Plugins. A computer can run several Connections, each by a name of its own there, and each name runs once. It keeps the same id across restarts.
 _Avoid_: machine, server, host, device, instance
 
 **Link**:
@@ -37,7 +45,7 @@ The secret a Connection asks of anyone who connects to it. It is made once and n
 _Avoid_: token (that proves a Sign-in), password, API key
 
 **Heartbeat**:
-A Connection's regular report of how it stands, carrying two signals: that it is running, shown by when it last reported, and whether it could reach itself at its public address. A Connection that stops reporting is down; one that reports but cannot reach itself is up with its tunnel broken.
+A Connection's regular report of how it stands, carrying two signals: that it is running, shown by when it last reported, and whether it could reach itself at its public address; and the Plugin State of each of its Plugins. A Connection that stops reporting is down; one that reports but cannot reach itself is up with its tunnel broken. Cloud Connect answers each with the version of each Plugin to run.
 _Avoid_: poll, ping, health check (the route it calls, not the concept)
 
 **Last Seen**:
