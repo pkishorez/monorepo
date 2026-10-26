@@ -1,5 +1,8 @@
 // @vitest-environment jsdom
-import { MotionGlobalConfig } from '@kestack/web-platform/ui/components/motion';
+import {
+  MotionGlobalConfig,
+  type MotionValue,
+} from '@kestack/web-platform/ui/components/motion';
 import {
   GestureProvider,
   GestureZone,
@@ -7,24 +10,35 @@ import {
 } from '@kestack/web-platform/ui/input';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import type { SettingsTab } from '../../routes/index.ts';
-import { besideOf, Sliding, TabSwipe, useSlide } from './swipe.tsx';
+import { besideOf, TabTrack } from './swipe.tsx';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 /*
- * The Settings page on a touch screen, swiped sideways by one finger:
- * right to left opens the next tab, left to right the one before, and
- * left to right on the first is left to the App Shell around it, which
- * opens the sidebar. The page follows the finger, springs back from a
- * short slow drag, and once swiped away the tab opened comes in from the
- * other side. Up and down, and with no touch screen, nothing.
+ * Settings' tabs on a touch screen, side by side, swiped sideways by one
+ * finger: right to left opens the next tab, left to right the one before,
+ * and left to right on the first is left to the App Shell around it,
+ * which opens the sidebar. The track follows the finger, so the tab beside
+ * shows, springs back from a short slow drag, and once another tab is
+ * open, swiped to or tapped, slides from where it was to it. Up and down,
+ * nothing.
  */
 
+let reduce = false;
 window.matchMedia = (query: string) =>
   ({
-    matches: query.includes('reduce') || query.includes('coarse'),
+    matches: query.includes('reduce') ? reduce : query.includes('coarse'),
     media: query,
     addEventListener() {},
     removeEventListener() {},
@@ -40,7 +54,9 @@ const pointer = (type: string, x: number, y: number) => {
     button: 0,
   });
   Object.assign(event, { pointerId: 1, pointerType: 'touch' });
-  host.querySelector('[data-testid="page"]')?.dispatchEvent(event);
+  host
+    .querySelector('[data-testid="page"]:not([inert] *)')
+    ?.dispatchEvent(event);
 };
 
 /** One finger down at (200, 200), moved by `dx`, `dy` over 20 moves of `ms` each, still down. */
@@ -54,10 +70,22 @@ const drag = (dx: number, dy = 0, ms = 16) => {
   }
 };
 
+// Motion moves on the browser's frames, which the fake clock does not drive.
+const later = globalThis.setTimeout;
+
+/** Every animation under way run to its end. */
+const settled = () =>
+  act(async () => {
+    for (let frame = 0; frame < 3; frame += 1) {
+      await new Promise((done) => later(done, 20));
+      await vi.advanceTimersByTimeAsync(200);
+    }
+  });
+
 /** The finger lifted at (200 + `dx`, 200 + `dy`). */
 const lift = async (dx: number, dy = 0) => {
   act(() => pointer('pointerup', 200 + dx, 200 + dy));
-  await act(async () => vi.advanceTimersByTimeAsync(500));
+  await settled();
 };
 
 /** One finger from (200, 200) by `dx`, `dy`, 16ms a move, then lifted. */
@@ -66,17 +94,10 @@ const swipe = async (dx: number, dy = 0) => {
   await lift(dx, dy);
 };
 
-/** How far the page open is moved, as the page reads it. */
-let slid = () => 0;
-function Probe() {
-  const x = useSlide();
-  slid = () => x.get();
-  return null;
-}
-
 let host: HTMLDivElement;
 let root: Root;
 let swiped: Array<SettingsTab>;
+let slid: { current: MotionValue<number> | null };
 let sidebar: number;
 
 /** The App Shell's own swipe, from anywhere, left to right. */
@@ -92,36 +113,49 @@ function Shell() {
 
 const SHOWN: ReadonlyArray<SettingsTab> = ['General', 'Machines'];
 
-const render = (open: SettingsTab, enabled = true) =>
+/** How far the track is moved off the tab open, in px. */
+const moved = () => slid.current?.get() ?? 0;
+
+const render = (open: SettingsTab) =>
   act(() =>
     root.render(
       <GestureProvider>
         <GestureZone>
           <Shell />
-          <TabSwipe
+          <TabTrack
             open={open}
             shown={SHOWN}
-            enabled={enabled}
-            onSwipe={(tab) => swiped.push(tab)}
-          >
-            <Probe />
-            <Sliding>
+            heading={null}
+            panel={(tab) => (
               <div data-testid="page" style={{ height: 800 }}>
-                Settings
+                {tab}
               </div>
-            </Sliding>
-          </TabSwipe>
+            )}
+            onChoose={(tab) => swiped.push(tab)}
+            slid={slid}
+          />
         </GestureZone>
       </GestureProvider>,
     ),
   );
 
-beforeEach(() => {
+// One clock for every test: Motion keeps the time of its last frame.
+beforeAll(() => {
   MotionGlobalConfig.instantAnimations = true;
   vi.useFakeTimers({
     toFake: ['setInterval', 'clearInterval', 'setTimeout', 'performance'],
   });
+});
+
+afterAll(() => {
+  vi.useRealTimers();
+  MotionGlobalConfig.instantAnimations = false;
+});
+
+beforeEach(() => {
+  reduce = false;
   swiped = [];
+  slid = { current: null };
   sidebar = 0;
   host = document.createElement('div');
   document.body.appendChild(host);
@@ -131,8 +165,6 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   host.remove();
-  vi.useRealTimers();
-  MotionGlobalConfig.instantAnimations = false;
 });
 
 describe('the tabs beside the one open', () => {
@@ -152,6 +184,19 @@ describe('the tabs beside the one open', () => {
 });
 
 describe('Settings swiped sideways on a touch screen', () => {
+  it('draws every tab shown, only the one open taking a touch or a key', () => {
+    render('General');
+    const pages = [...host.querySelectorAll('[data-testid="page"]')];
+    expect(pages.map((page) => page.textContent)).toEqual([
+      'General',
+      'Machines',
+    ]);
+    expect(pages.map((page) => page.closest('[inert]') !== null)).toEqual([
+      false,
+      true,
+    ]);
+  });
+
   it('opens the next tab right to left, and the one before left to right', async () => {
     render('General');
     await swipe(-150);
@@ -162,25 +207,61 @@ describe('Settings swiped sideways on a touch screen', () => {
     expect(sidebar).toBe(0);
   });
 
+  it('opens the tab beside past a fifth of the width, or flicked, however short', async () => {
+    render('General');
+    drag(-(innerWidth * 0.2 + 4), 0, 60);
+    await lift(-(innerWidth * 0.2 + 4));
+    expect(swiped).toEqual(['Machines']);
+    render('Machines');
+    render('General');
+    await settled();
+    drag(-40, 0, 4);
+    await lift(-40);
+    expect(swiped).toEqual(['Machines', 'Machines']);
+  });
+
   it('follows the finger, and springs back from a short slow drag', async () => {
     render('General');
     drag(-60, 0, 40);
-    expect(slid()).toBe(-60);
+    expect(moved()).toBe(-60);
     await lift(-60);
     expect(swiped).toEqual([]);
-    expect(slid()).toBe(0);
+    expect(moved()).toBe(0);
   });
 
-  it('slides the page out once swiped, and the tab opened in from the other side', async () => {
+  it('slides on from where the finger left it to the tab opened', async () => {
     render('General');
     drag(-150);
-    expect(slid()).toBe(-150);
+    expect(moved()).toBe(-150);
     await lift(-150);
     expect(swiped).toEqual(['Machines']);
-    expect(slid()).toBe(-innerWidth);
+    expect(moved()).toBe(-150);
     render('Machines');
-    await act(async () => vi.advanceTimersByTimeAsync(500));
-    expect(slid()).toBe(0);
+    expect(moved()).toBe(innerWidth - 150);
+    await settled();
+    expect(moved()).toBe(0);
+  });
+
+  it('slides to a tab tapped by its name from the one open', async () => {
+    render('General');
+    render('Machines');
+    expect(moved()).toBe(innerWidth);
+    await settled();
+    expect(moved()).toBe(0);
+    expect(
+      host.querySelector('[data-testid="page"]:not([inert] *)')?.textContent,
+    ).toBe('Machines');
+  });
+
+  it('follows the finger under reduced motion, but jumps where it goes', async () => {
+    reduce = true;
+    render('General');
+    drag(-60, 0, 40);
+    expect(moved()).toBe(-60);
+    act(() => pointer('pointerup', 140, 200));
+    expect(moved()).toBe(0);
+    render('Machines');
+    expect(moved()).toBe(0);
   });
 
   it('leaves left to right on the first tab to the App Shell, which opens the sidebar', async () => {
@@ -190,12 +271,10 @@ describe('Settings swiped sideways on a touch screen', () => {
     expect(sidebar).toBe(1);
   });
 
-  it('does nothing past the last tab, up and down, or with no touch screen', async () => {
+  it('does nothing past the last tab, or up and down', async () => {
     render('Machines');
     await swipe(-150);
     await swipe(0, -300);
-    render('General', false);
-    await swipe(-150);
     expect(swiped).toEqual([]);
   });
 });

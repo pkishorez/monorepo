@@ -2,26 +2,41 @@
  * The Routes the app moves to and links to, made without the router: the
  * router is read from the pages, so a page that imported it would import
  * itself, and only the root page does. The app is on every Machine at
- * once, so home and Settings' pages are on none; only a project and a session,
+ * once, so home and Settings are on none; only a project and a session,
  * `/m/:machineId/p/:projectId`, name the Machine they are on. Views link
- * through these and read where the app is as a `Route`.
+ * through these and read where the app is as a `Route`. A tab of Settings
+ * has no address: a link that wants one asks for it apart.
  * The shell's `router.test.ts` checks each against the router's own.
  */
 
 /** Home, `/`: every Machine's projects. */
 export const home = () => ({ _tag: 'Home' as const });
 
-/** One page of Settings, General unless said. */
+/** One tab of Settings. */
 export type SettingsTab = 'General' | 'Shortcuts' | 'Machines';
 
 /**
- * Settings, `/settings/general` unless another page of them is named:
- * this device's, its keys, and every Machine's.
+ * Settings, `/settings`: this device's, its keys, and every Machine's, in
+ * tabs that have no address of their own.
  */
-export const settings = (tab: SettingsTab = 'General') => ({
-  _tag: 'Settings' as const,
-  page: { _tag: tab },
-});
+export const settings = () => ({ _tag: 'Settings' as const });
+
+let asked: SettingsTab = 'General';
+
+/**
+ * Asks that Settings, opened next, open on `tab`: a link to them that
+ * wants one asks as it is followed. Asked once; General unless asked.
+ */
+export const openSettingsOn = (tab: SettingsTab) => {
+  asked = tab;
+};
+
+/** The tab Settings open on, as they open: the one asked, which goes, else General. */
+export const settingsTabAsked = (): SettingsTab => {
+  const tab = asked;
+  asked = 'General';
+  return tab;
+};
 
 /** A project of one Machine: a new session in it. */
 export const project = (machineId: string, projectId: string) => ({
@@ -44,13 +59,7 @@ export const session = (
 /** Where the app is: one of the Routes above, or an address that names none. */
 export type Route =
   | { readonly _tag: 'Home' }
-  | {
-      readonly _tag: 'Settings';
-      readonly page?:
-        | { readonly _tag: 'General' }
-        | { readonly _tag: 'Shortcuts' }
-        | { readonly _tag: 'Machines' };
-    }
+  | { readonly _tag: 'Settings' }
   | {
       readonly _tag: 'Project';
       readonly machineId: string;

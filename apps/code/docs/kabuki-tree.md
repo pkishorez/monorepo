@@ -42,10 +42,10 @@ shell                                   root; Provides CurrentAccount, Replicas,
 ├── actors/pickers/keys-picker          Ready, always
 ├── actors/dictation                    Ready, always
 ├── pages/home                          while the URL names it
-├── pages/settings                      /settings, which alone redirects to General
-│   ├── general                         /general
-│   ├── shortcuts                       /shortcuts; holds Shortcuts, always
-│   └── machines                        /machines
+├── pages/settings                      /settings; each tab, always, while Settings are open
+│   ├── general                         always
+│   ├── shortcuts                       always
+│   └── machines                        always
 │       ├── harness-accounts            each: Account and listed Machine id; Provides AccountList
 │       │   └── card                    each: account id, and `new-` and its agent while one is added
 │       └── speech-to-text              each: Account and listed Machine id
@@ -201,12 +201,12 @@ sidebar ─ Worker: moves, from Moves ──────────────
 
 ## home · settings · general · shortcuts · machines · harness-accounts · speech-to-text
 
-Settings is a page of three pages, drawn as tabs beside the one open; on a touch screen the page open follows a sideways swipe by motion values alone, and one let go far or fast enough slides out and sends `TabSwiped`, which pushes the tab beside, which slides in, and a swipe before the first is left to the App Shell's, which opens the sidebar. General reads and writes Device State; the Microphone is chosen through the Microphone Picker's `Opener`. The Shortcuts page holds the Shortcuts Actor, which reads and writes the Bindings in Device State. Home and Machine Settings follow `Machines`; Machine Settings draws each Machine's Line and Last Seen from the shell's `Connection`, as the sidebar does. Machine Settings reads what `SavedMachines` kept of each listed Machine and draws nothing until that and the kept list are read, so it draws once. Each per-Machine Child, keyed by its Account and Machine and none while no Account is known, gets them and what was kept of it by Input, and keeps what the Machine says. Harness Accounts reads its Machine's accounts over `CodeClients`, and asks again when a card changes one before the Machine answers; it holds which card is open, one at a time, which its View draws under the card's row, on touch too; each card saves or removes its own and tells the list through `AccountList`, as it does when closed unsaved. Speech to Text reads its state from `Machines` and switches it over `CodeClients`. Their Views lock them while the Machine's Line is not connected, and say so only once it is out of reach or a few seconds have passed (`useLock`).
+Settings is one page that holds its three tabs as Children, the whole time it is open, and which is open in its Model, never in the URL: General, unless a link asked for another through `openSettingsOn` as it was followed, which the page takes once as it starts; old tab URLs redirect to `/settings`. With a keyboard only the tab open is drawn, beside the tab list; on a touch screen every tab shown is drawn side by side in one track, each scrolled on its own, which a sideways swipe moves by a motion value alone; let go far or fast enough it sends `TabChosen` for the tab beside, as a tap on its name does, and the track springs on from where it was, and a swipe before the first is left to the App Shell's, which opens the sidebar. General reads and writes Device State; the Microphone is chosen through the Microphone Picker's `Opener`. Shortcuts reads and writes the Bindings in Device State. Home and Machine Settings follow `Machines`; Machine Settings draws each Machine's Line and Last Seen from the shell's `Connection`, as the sidebar does. Machine Settings reads what `SavedMachines` kept of each listed Machine and draws nothing until that and the kept list are read, so it draws once. Each per-Machine Child, keyed by its Account and Machine and none while no Account is known, gets them and what was kept of it by Input, and keeps what the Machine says. Harness Accounts reads its Machine's accounts over `CodeClients`, and asks again when a card changes one before the Machine answers; it holds which card is open, one at a time, which its View draws under the card's row, on touch too; each card saves or removes its own and tells the list through `AccountList`, as it does when closed unsaved. Speech to Text reads its state from `Machines` and switches it over `CodeClients`. Their Views lock them while the Machine's Line is not connected, and say so only once it is out of reach or a few seconds have passed (`useLock`).
 
 ### Decisions
 
 - **A Machine's settings are kept beside the Machine List, in `SavedMachines`, not in Kabuki**, because they belong to the Account and the Machine, as the list does. Caveat: their rows are pruned by the Machine List's `keep` and `drop` and the root's `keepAccounts`, as Replicas are, so a Machine gone from a later list keeps its row until the next first list.
-- **Shortcuts is a page that holds the Shortcuts Actor**, so the editor stays an Actor its test draws alone. Caveat: one level more than General and Machines.
+- **Settings' tabs have no address of their own**, so a swipe moves between tabs already drawn, the next showing as it comes, with no move of the router. Caveat: Back leaves Settings rather than going to the tab before, and a link to a tab asks for it apart (`openSettingsOn`), not in the Route.
 
 ## project · session
 

@@ -12,9 +12,8 @@ import {
   useSwipe,
 } from '@kestack/web-platform/ui/input';
 import {
-  createContext,
   type ReactNode,
-  use,
+  type RefObject,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -22,25 +21,33 @@ import {
 import type { SettingsTab } from '../../routes/index.ts';
 
 /*
- * On a touch screen the Settings page swipes between its tabs: right to
- * left to the next, left to right to the one before. The page open follows
- * the finger (`Sliding`); let go past a third of the screen, or flicked,
- * it slides out and the tab beside slides in from the other side, and
- * otherwise springs back. A way with no tab there, such as before the
- * first, is left to the zone around it, the App Shell's, whose swipe opens
- * the sidebar. Up and down it wants nothing: the page scrolls. Under
- * reduced motion the page still follows the finger, but jumps where it
- * goes. It moves by transform alone, from motion values, so a frame
- * renders nothing.
+ * On a touch screen Settings' tabs sit side by side in one track, each
+ * drawn and scrolled on its own, the track showing one at a time.
+ *
+ * 1. Follow  a sideways drag moves the track with the finger, so the tab
+ *            beside comes into view as the one open goes: right to left
+ *            the next, left to right the one before. Up and down it wants
+ *            nothing: the tab open scrolls.
+ * 2. Let go  past a fifth of the track's width, or flicked, it opens the
+ *            tab beside; otherwise it springs back. A way with no tab
+ *            there, such as before the first, is left to the zone around
+ *            it, the App Shell's, whose swipe opens the sidebar.
+ * 3. Settle  once another tab is open, by a swipe or a tap on its name,
+ *            the track springs from where it was to it, as fast as the
+ *            finger let go, and quicker the less it has to go.
+ *
+ * It moves by transform alone, from a motion value, so a frame renders
+ * nothing. Under reduced motion it still follows the finger, but jumps
+ * where it goes.
  */
 
-/** Let go past this share of the screen, or flicked past this many px/s, it goes. */
-const SHARE = 0.3;
-const FLICK = 400;
+/** Let go past this share of the width, or flicked past this many px/s, it goes. */
+const SHARE = 0.2;
+const FLICK = 300;
 
-// Out is quicker than in, as the eye has already moved on.
-const OUT = { type: 'spring', visualDuration: 0.14, bounce: 0 } as const;
-const IN = { type: 'spring', visualDuration: 0.22, bounce: 0 } as const;
+/** The longest a settle looks to take, across the whole width, and the shortest, in seconds. */
+const LONGEST = 0.25;
+const SHORTEST = 0.1;
 
 /** The tabs on either side of the one open, among those shown; null where there is none. */
 export const besideOf = (
@@ -57,126 +64,132 @@ export const besideOf = (
   };
 };
 
-const Slide = createContext<MotionValue<number> | null>(null);
+const reduced = () =>
+  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
-/** How far the page open is moved sideways, in px; 0 at rest. */
-export const useSlide = () => {
-  const x = use(Slide);
-  if (x === null) throw new Error('useSlide must be used inside a TabSwipe');
-  return x;
-};
-
-export function TabSwipe({
+/**
+ * The tabs shown, side by side, the one open in view; `heading` above
+ * them, which a swipe on it moves them too. `slid` reads how far the track
+ * is moved off the tab open, in px.
+ */
+export function TabTrack({
   open,
   shown,
-  enabled,
-  onSwipe,
+  heading,
+  panel,
+  onChoose,
+  slid,
   className,
-  children,
 }: {
   readonly open: SettingsTab;
   readonly shown: ReadonlyArray<SettingsTab>;
-  /** On a touch screen only. */
-  readonly enabled: boolean;
-  readonly onSwipe: (tab: SettingsTab) => void;
+  readonly heading: ReactNode;
+  /** A tab's content, in its own scroll. */
+  readonly panel: (tab: SettingsTab) => ReactNode;
+  readonly onChoose: (tab: SettingsTab) => void;
+  readonly slid?: RefObject<MotionValue<number> | null>;
   readonly className?: string;
-  /** The whole page; what moves is in `Sliding`. */
-  readonly children: ReactNode;
 }) {
-  const { before, after } = besideOf(shown, open);
   const x = useMotionValue(0);
+  const frame = useRef<HTMLDivElement>(null);
+  const at = Math.max(0, shown.indexOf(open));
+  if (slid) slid.current = x;
   return (
-    <GestureZone className={cn('overflow-x-clip', className)}>
-      <Slide value={x}>
-        <Follow
-          open={open}
-          before={enabled ? before : null}
-          after={enabled ? after : null}
-          onSwipe={onSwipe}
-        />
-        {children}
-      </Slide>
+    <GestureZone className={cn('flex min-h-0 flex-col', className)}>
+      <Follow
+        open={open}
+        shown={shown}
+        x={x}
+        frame={frame}
+        onChoose={onChoose}
+      />
+      {heading}
+      <div ref={frame} className="min-h-0 flex-1 overflow-x-clip">
+        <div
+          className="h-full"
+          style={{ transform: `translateX(${-100 * at}%)` }}
+        >
+          <motion.div
+            style={{ x }}
+            className="flex h-full will-change-transform"
+          >
+            {shown.map((tab) => (
+              <div
+                key={tab}
+                inert={tab !== open}
+                className="h-full w-full shrink-0 overflow-y-auto overscroll-y-contain"
+              >
+                {panel(tab)}
+              </div>
+            ))}
+          </motion.div>
+        </div>
+      </div>
     </GestureZone>
   );
 }
 
-/** The page open, moved as the finger moves it. */
-export function Sliding({
-  className,
-  children,
-}: {
-  readonly className?: string;
-  readonly children: ReactNode;
-}) {
-  return (
-    <motion.div style={{ x: useSlide() }} className={className}>
-      {children}
-    </motion.div>
-  );
-}
-
-const reduced = () =>
-  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-
-/** Both ways' Swipes, each wanted only while there is a tab that way. */
+/** Both ways' Swipes, each wanted only while there is a tab that way, and the settle once another is open. */
 function Follow({
   open,
-  before,
-  after,
-  onSwipe,
+  shown,
+  x,
+  frame,
+  onChoose,
 }: {
   readonly open: SettingsTab;
-  readonly before: SettingsTab | null;
-  readonly after: SettingsTab | null;
-  readonly onSwipe: (tab: SettingsTab) => void;
+  readonly shown: ReadonlyArray<SettingsTab>;
+  readonly x: MotionValue<number>;
+  readonly frame: RefObject<HTMLDivElement | null>;
+  readonly onChoose: (tab: SettingsTab) => void;
 }) {
-  const x = useSlide();
+  const { before, after } = besideOf(shown, open);
   const animation = useRef<AnimationPlaybackControls | undefined>(undefined);
   // Which way fingers move it now: -1 left, 1 right.
   const moving = useRef<-1 | 1 | null>(null);
-  // Where it was as fingers took it, mid-spring perhaps.
+  // Where it was as fingers took it, mid-settle perhaps.
   const base = useRef(0);
-  // The side the tab swiped to comes in from, until it is open.
-  const incoming = useRef<-1 | 1 | null>(null);
+  const last = useRef({ open, at: shown.indexOf(open) });
+  // How fast the finger let go, carried into the settle it starts.
+  const flung = useRef(0);
 
-  const settle = (
-    to: number,
-    velocity: number,
-    spring: typeof IN | typeof OUT,
-    then?: () => void,
-  ) => {
+  const width = () => frame.current?.offsetWidth || innerWidth;
+
+  // 3. Settle
+  const settle = (velocity: number) => {
     animation.current?.stop();
-    if (reduced()) {
-      x.jump(to);
-      then?.();
-      return;
-    }
-    animation.current = animate(x, to, {
-      ...spring,
+    const from = x.get();
+    if (from === 0) return;
+    if (reduced()) return x.jump(0);
+    const share = Math.min(1, Math.abs(from) / width());
+    animation.current = animate(x, 0, {
+      type: 'spring',
+      visualDuration: SHORTEST + (LONGEST - SHORTEST) * share,
+      bounce: 0,
       velocity,
-      ...(then === undefined ? {} : { onComplete: then }),
     });
   };
 
+  // 1. Follow
   const grab = (sign: -1 | 1) => () => {
-    if (incoming.current !== null) return;
     animation.current?.stop();
     base.current = x.get();
     moving.current = sign;
   };
 
+  // 2. Let go
   const release =
     (sign: -1 | 1, to: SettingsTab | null) => (at?: SwipeRelease) => {
       if (moving.current !== sign) return;
       moving.current = null;
-      const velocity = sign * (at?.velocity ?? 0);
       const goes =
         to !== null &&
         at !== undefined &&
-        (at.offset >= innerWidth * SHARE || at.velocity >= FLICK);
-      if (!goes) return settle(0, velocity, IN);
-      incoming.current = -sign as -1 | 1;
-      settle(sign * innerWidth, velocity, OUT, () => onSwipe(to));
+        (sign * x.get() >= width() * SHARE || at.velocity >= FLICK);
+      const velocity = sign * (at?.velocity ?? 0);
+      if (!goes) return settle(velocity);
+      flung.current = velocity;
+      onChoose(to);
     };
 
   const left = useSwipe({
@@ -209,14 +222,18 @@ function Follow({
     };
   }, [left.offset, right.offset, x]);
 
-  // The tab swiped to comes in from the side opposite the one left.
+  // The track moved to the tab open as it drew: moved back by as much, it
+  // shows what it showed, and settles from there.
   useLayoutEffect(() => {
-    const from = incoming.current;
-    if (from === null) return;
-    incoming.current = null;
-    x.jump(from * innerWidth);
-    settle(0, 0, IN);
-  }, [open]);
+    const at = shown.indexOf(open);
+    const was = last.current;
+    last.current = { open, at };
+    const velocity = flung.current;
+    flung.current = 0;
+    if (was.open === open || was.at === -1 || at === -1) return;
+    x.jump(x.get() + (at - was.at) * width());
+    settle(velocity);
+  }, [open, shown]);
 
   useEffect(() => () => animation.current?.stop(), []);
 

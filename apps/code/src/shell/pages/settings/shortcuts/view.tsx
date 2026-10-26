@@ -9,7 +9,7 @@ import {
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { BindingKeys } from '@kestack/web-platform/ui/input';
 import { keys } from '../../../../keys.ts';
-import { ShortcutsLive, ShortcutsPageLive } from './actor.ts';
+import { ShortcutsLive } from './actor.ts';
 import { actionOf, keysOf, search, shadowsOf, swapped } from './bindings.ts';
 
 /*
@@ -408,12 +408,3 @@ function Cell({
     </span>
   );
 }
-
-export const ShortcutsPageView = View.make(
-  ShortcutsPageLive,
-  ({ root, children }) => (
-    <div {...root} className="contents">
-      <ShortcutsView instance={children.shortcuts} />
-    </div>
-  ),
-);
