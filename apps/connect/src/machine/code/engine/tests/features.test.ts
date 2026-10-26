@@ -386,6 +386,7 @@ describe('a Fork', () => {
             path: folder(),
             name: 'p',
             createdAt: 1,
+            folder: 'present' as const,
           };
           yield* store.saveProject(project);
           yield* store.saveSession({

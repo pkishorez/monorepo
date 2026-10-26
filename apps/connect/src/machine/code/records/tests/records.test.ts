@@ -1,7 +1,11 @@
 import { Effect, Schema } from 'effect';
 import { expectUpgradable } from '@kestack/std-toolkit/eschema/testing';
 import { describe, expect, it } from 'vitest';
-import { HarnessAccountSchema, SessionSchema } from '../index.js';
+import {
+  HarnessAccountSchema,
+  ProjectSchema,
+  SessionSchema,
+} from '../index.js';
 
 /* Rows the previous release stored read as the records they are now. */
 
@@ -9,6 +13,20 @@ describe('stored records', () => {
   it('upgrade from every version', async () => {
     await expectUpgradable(SessionSchema);
     await expectUpgradable(HarnessAccountSchema);
+    await expectUpgradable(ProjectSchema);
+  });
+
+  it('read a v1 Project as its folder present', async () => {
+    const project = await Effect.runPromise(
+      Schema.decodeUnknownEffect(ProjectSchema.schema)({
+        _v: 'v1',
+        id: 'p1',
+        path: '/x',
+        name: 'x',
+        createdAt: 1,
+      }),
+    );
+    expect(project.folder).toBe('present');
   });
 
   it('read a v1 Session as running its harness’s Default Account', async () => {

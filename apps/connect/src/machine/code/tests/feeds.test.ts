@@ -173,13 +173,19 @@ describe('the projects feed', () => {
     run(
       Effect.gen(function* () {
         const store = yield* Store;
-        const project = { id: 'p1', path: '/tmp/x', name: 'x', createdAt: 1 };
+        const project = {
+          id: 'p1',
+          path: '/tmp/x',
+          name: 'x',
+          createdAt: 1,
+          folder: 'present' as const,
+        };
         yield* store.saveProject(project);
         const { got } = yield* collect(projects(null));
         yield* eventually(() => expect(got).toHaveLength(1));
         yield* store.removeProject('p1');
         yield* eventually(() => expect(got).toHaveLength(2));
-        expect(got[0]).toMatchObject({ value: project, meta: { _v: 'v1' } });
+        expect(got[0]).toMatchObject({ value: project, meta: { _v: 'v2' } });
         expect(got[1]?.meta._d).toBe(true);
       }),
     ));
@@ -195,6 +201,7 @@ describe('the sessions feed', () => {
           path: '/tmp/x',
           name: 'x',
           createdAt: 1,
+          folder: 'present',
         });
         yield* store.saveSession({
           id: 's1',

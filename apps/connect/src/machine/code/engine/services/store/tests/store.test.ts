@@ -89,7 +89,13 @@ describe('Store', () => {
     run(
       Effect.gen(function* () {
         const store = yield* Store;
-        const project = { id: 'p1', path: '/x', name: 'x', createdAt: 1 };
+        const project = {
+          id: 'p1',
+          path: '/x',
+          name: 'x',
+          createdAt: 1,
+          folder: 'present' as const,
+        };
         yield* store.saveProject(project);
         expect(yield* store.removeProject('p1')).toBe(true);
         expect(yield* store.removeProject('p1')).toBe(false);
@@ -110,12 +116,14 @@ describe('Store', () => {
           path: '/x',
           name: 'x',
           createdAt: 1,
+          folder: 'present',
         });
         yield* store.saveProject({
           id: 'p2',
           path: '/y',
           name: 'y',
           createdAt: 1,
+          folder: 'present',
         });
         yield* store.saveSession(session);
         yield* store.saveSession({ ...session, id: 's2', status: 'running' });

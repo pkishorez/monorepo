@@ -1,9 +1,11 @@
 import { Effect, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import { ProjectSchema } from '../../records/index.js';
+import type { Self } from '@kestack/kabuki';
+import { PROJECT_FOLDERS, ProjectSchema } from '../../records/index.js';
 import { Store } from '../capabilities/index.js';
 import { Prompt, Session, SessionInput } from './actor-session/index.js';
 import { Remove, Save } from './commands.js';
+import { check, failures } from './folders.js';
 import { sweep } from './sweep.js';
 
 /*
@@ -15,7 +17,8 @@ import { sweep } from './sweep.js';
  * - Ready    the Projects, added and removed on request, each change saved;
  *            removing one stops its Sessions and removes them. A new
  *            session starts here, already running its first message; a
- *            Fork joins idle.
+ *            Fork joins idle. The Folder Check (see folders.ts) keeps
+ *            whether each Project's folder is there, saving only a change.
  */
 
 const ProjectRecord = Schema.Struct(ProjectSchema.fields);
@@ -27,6 +30,13 @@ export const Loaded = Schema.Struct({
 });
 export type Loaded = typeof Loaded.Type;
 
+const Model = Schema.Struct({
+  ...Loaded.fields,
+  /** How many times the Folder Check was asked for at once; each starts it over. */
+  folderAsks: Schema.Finite,
+});
+type Model = typeof Model.Type;
+
 const State = Schema.TaggedUnion({ Loading: {}, Ready: {} });
 
 const Message = Schema.TaggedUnion({
@@ -35,29 +45,40 @@ const Message = Schema.TaggedUnion({
   RemoveProject: { id: Schema.String },
   StartSession: { session: SessionInput.fields.session, first: Prompt },
   AddSession: { session: SessionInput.fields.session },
+  FolderFound: {
+    id: Schema.String,
+    folder: Schema.Literals(PROJECT_FOLDERS),
+  },
+  FoldersAsked: {},
 });
 
+export type CodeSelf = Self<Model, typeof State.Type, typeof Message.Type>;
+
 /** The folder of the Project a session is in; null when it is gone. */
-const cwdOf = (model: Loaded, projectId: string) =>
+const cwdOf = (model: Model, projectId: string) =>
   model.projects.find((project) => project.id === projectId)?.path ?? null;
 
 export const Code = Actor.build(
   Actor.define('Code', {
     requires: [Store],
-    model: Loaded,
+    model: Model,
     state: State,
     message: Message,
   }),
   {
     init: () => ({
-      model: { projects: [], sessions: [] },
+      model: { projects: [], sessions: [], folderAsks: 0 },
       state: { _tag: 'Loading' },
     }),
     state: {
       Loading: {
         on: {
-          Loaded: (loaded) => ({
-            model: { projects: loaded.projects, sessions: loaded.sessions },
+          Loaded: (loaded, { model }) => ({
+            model: {
+              ...model,
+              projects: loaded.projects,
+              sessions: loaded.sessions,
+            },
             state: { _tag: 'Ready' },
           }),
         },
@@ -78,6 +99,7 @@ export const Code = Actor.build(
           }),
           RemoveProject: ({ id }, { model }) => ({
             model: {
+              ...model,
               projects: model.projects.filter((project) => project.id !== id),
               sessions: model.sessions.filter(
                 ({ session }) => session.projectId !== id,
@@ -105,6 +127,30 @@ export const Code = Actor.build(
               },
             };
           },
+          FolderFound: ({ id, folder }, { model }) => {
+            const found = model.projects.find((project) => project.id === id);
+            if (found === undefined || found.folder === folder) return {};
+            const project = { ...found, folder };
+            return {
+              model: {
+                ...model,
+                projects: model.projects.map((each) =>
+                  each.id === id ? project : each,
+                ),
+              },
+              command: Save(project),
+            };
+          },
+          FoldersAsked: (_, { model }) => ({
+            model: { ...model, folderAsks: model.folderAsks + 1 },
+          }),
+        },
+        workers: {
+          check: {
+            each: ({ model }) => [String(model.folderAsks)],
+            run: (self) => check(self),
+          },
+          failures: { run: (self) => failures(self) },
         },
         children: {
           sessions: {

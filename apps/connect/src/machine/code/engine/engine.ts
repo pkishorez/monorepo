@@ -347,12 +347,15 @@ const make = (options: EngineOptions) =>
           const path = yield* folderAt(expand(given));
           if (path === null) return yield* new FolderNotFound({ path: given });
           const known = projects().find((project) => project.path === path);
+          // Its folder is back: the Folder Check finds it at once.
+          if (known?.folder === 'missing') root.send({ _tag: 'FoldersAsked' });
           if (known) return known;
           const project: Project = {
             id: yield* nextUlid,
             path,
             name: basename(path),
             createdAt: yield* Clock.currentTimeMillis,
+            folder: 'present',
           };
           root.send({ _tag: 'AddProject', project });
           return project;
@@ -466,6 +469,10 @@ const make = (options: EngineOptions) =>
             .skills(project.path)
             .pipe(
               runAs(id),
+              // As in a folder gone: the Folder Check looks at once.
+              Effect.tapError(() =>
+                Effect.sync(() => root.send({ _tag: 'FoldersAsked' })),
+              ),
               Effect.mapError(
                 (error) => new SkillsUnavailable({ message: error.message }),
               ),

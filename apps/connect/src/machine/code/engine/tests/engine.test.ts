@@ -563,12 +563,14 @@ describe('Engine', () => {
             path: folder(),
             name: 'a',
             createdAt: 1,
+            folder: 'present',
           });
           yield* store.saveProject({
             id: 'p2',
             path: folder(),
             name: 'b',
             createdAt: 1,
+            folder: 'present',
           });
           yield* store.removeProject('p2');
           yield* store.saveSession({ ...session, id: 's1', projectId: 'p1' });
