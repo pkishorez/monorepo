@@ -18,7 +18,8 @@ export {
   SavedMachines,
   type SavedSettings,
 } from './saved-machines.ts';
-export { dropEverywhere, type Gone } from './gone.ts';
+export { dropEverywhere, type Gone, went } from './gone.ts';
+export { copy, Copy, Kept, type Shelf, shelf, type Whose } from './kept.ts';
 export {
   type Place,
   SavedDraft,

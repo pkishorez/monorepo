@@ -33,6 +33,39 @@ export type Gone =
       readonly signedIn: ReadonlyArray<string>;
     };
 
+/**
+ * Whether a row went, by whose it is: its Account's, null for one kept
+ * before rows named theirs, which only its Machine or Project going takes,
+ * and its Machine's and Project's, null when it is of none.
+ */
+export const went =
+  (gone: Gone) =>
+  (row: {
+    readonly accountId: string | null;
+    readonly machineId: string | null;
+    readonly projectId: string | null;
+  }): boolean => {
+    switch (gone._tag) {
+      case 'Project':
+        return (
+          row.machineId === gone.machineId && row.projectId === gone.projectId
+        );
+      case 'Machine':
+        return (
+          (row.accountId === null || row.accountId === gone.accountId) &&
+          row.machineId === gone.machineId
+        );
+      case 'Unlisted':
+        return (
+          row.accountId === gone.accountId &&
+          row.machineId !== null &&
+          !gone.listed.includes(row.machineId)
+        );
+      case 'SignedOut':
+        return row.accountId !== null && !gone.signedIn.includes(row.accountId);
+    }
+  };
+
 /** Tells every store what went: records, Machine settings and Saved Drafts. */
 export const dropEverywhere = (gone: Gone) =>
   Effect.gen(function* () {
