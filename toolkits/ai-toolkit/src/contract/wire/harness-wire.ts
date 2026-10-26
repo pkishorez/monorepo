@@ -100,3 +100,23 @@ export const BinaryInfoSchema = Schema.Struct({
   isDefault: Schema.Boolean,
 });
 export type BinaryInfo = typeof BinaryInfoSchema.Type;
+
+/**
+ * The config folder a Harness Account really uses: its own (`account`);
+ * else the harness's variable, such as `CLAUDE_CONFIG_DIR`, in the
+ * environment it runs in (`environment`); else the harness's own folder
+ * under home (`default`).
+ */
+export const ConfigFolderInfoSchema = Schema.Union([
+  Schema.Struct({
+    path: Schema.String,
+    from: Schema.Literals(['account', 'default']),
+  }),
+  Schema.Struct({
+    path: Schema.String,
+    from: Schema.Literal('environment'),
+    /** The variable it was read from. */
+    variable: Schema.String,
+  }),
+]);
+export type ConfigFolderInfo = typeof ConfigFolderInfoSchema.Type;

@@ -5,12 +5,17 @@ import { Clock, Data, Effect, Layer } from 'effect';
 import {
   binaryAt,
   checkBinary,
+  configFolderOf,
   HarnessError,
   Harnesses,
   type Harness,
   type HarnessAccount,
 } from '@kestack/ai-toolkit/harness';
-import type { BinaryInfo, HarnessName } from '@kestack/ai-toolkit/contract';
+import type {
+  BinaryInfo,
+  ConfigFolderInfo,
+  HarnessName,
+} from '@kestack/ai-toolkit/contract';
 import { nextUlid } from '@kestack/std-toolkit/core';
 import {
   defaultAccount,
@@ -43,6 +48,8 @@ export interface HarnessAccountRow {
   readonly binaryPath: string | null;
   /** null for the harness's own config folder. */
   readonly configFolder: string | null;
+  /** The config folder it really runs with: its own, else this Machine's environment's, else the harness's own. */
+  readonly resolvedConfigFolder: ConfigFolderInfo;
   /** Its harness's Default Account, which cannot be removed. */
   readonly isDefault: boolean;
   readonly resolved: BinaryInfo;
@@ -129,6 +136,10 @@ export const accountRow = (
     name: account.name,
     binaryPath: account.binaryPath,
     configFolder: account.configFolder,
+    resolvedConfigFolder: configFolderOf(
+      account.harness,
+      account.configFolder ?? undefined,
+    ),
     isDefault: isDefaultAccount(account.id),
     resolved,
   }));

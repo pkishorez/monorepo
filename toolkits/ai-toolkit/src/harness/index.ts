@@ -1,6 +1,7 @@
 export {
   binaryAt,
   checkBinary,
+  configFolderOf,
   claude,
   codex,
   codexOneShot,

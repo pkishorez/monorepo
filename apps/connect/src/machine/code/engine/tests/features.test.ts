@@ -8,7 +8,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Effect, Fiber, Layer, Option, Stream, type Scope } from 'effect';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import {
   FAKE_SKILLS,
   makeFakeHarness,
@@ -789,6 +789,13 @@ describe('Harness Accounts', () => {
 
   it('keep a Default Account, set once its binary runs, reaching every new agent', async () => {
     const fake = makeFakeHarness();
+    // Connect started with a config folder of its own for Claude Code.
+    const before = process.env['CLAUDE_CONFIG_DIR'];
+    process.env['CLAUDE_CONFIG_DIR'] = '/home/me/.claude-work';
+    onTestFinished(() => {
+      if (before === undefined) delete process.env['CLAUDE_CONFIG_DIR'];
+      else process.env['CLAUDE_CONFIG_DIR'] = before;
+    });
     await run(
       Effect.gen(function* () {
         const engine = yield* Engine;
@@ -799,6 +806,12 @@ describe('Harness Accounts', () => {
             name: 'Claude',
             binaryPath: null,
             configFolder: null,
+            // None set: it runs with Connect's, as its environment says.
+            resolvedConfigFolder: {
+              path: '/home/me/.claude-work',
+              from: 'environment',
+              variable: 'CLAUDE_CONFIG_DIR',
+            },
             isDefault: true,
             resolved: fakeResolved,
           },
@@ -878,6 +891,7 @@ describe('Harness Accounts', () => {
           harness: 'claude',
           name: 'Claude work',
           configFolder,
+          resolvedConfigFolder: { path: configFolder, from: 'account' },
           isDefault: false,
         });
         expect((yield* engine.harnessAccounts).map(({ id }) => id)).toEqual([

@@ -2,6 +2,7 @@ import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import {
   BinaryInfoSchema,
+  ConfigFolderInfoSchema,
   ModelInfo,
   SkillSchema,
 } from '@kestack/ai-toolkit/contract';
@@ -56,8 +57,14 @@ export const HarnessAccountInfo = Schema.Struct({
   name: Schema.String,
   /** null runs the harness's name from PATH. */
   binaryPath: Schema.NullOr(Schema.String),
-  /** Its config folder (CLAUDE_CONFIG_DIR, CODEX_HOME); null for the harness's own. */
+  /** Its config folder (CLAUDE_CONFIG_DIR, CODEX_HOME) as the user set it; null for none. */
   configFolder: Schema.NullOr(Schema.String),
+  /**
+   * The config folder it really runs with: `configFolder`; else, with none,
+   * the variable set in this Machine's environment; else the harness's own.
+   * A Machine on a Connect from before it says nothing.
+   */
+  resolvedConfigFolder: Schema.optionalKey(ConfigFolderInfoSchema),
   /** Its harness's Default Account, which cannot be removed. */
   isDefault: Schema.Boolean,
   resolved: BinaryInfoSchema,

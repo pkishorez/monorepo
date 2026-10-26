@@ -78,6 +78,7 @@ const CLAUDE: HarnessAccountInfo = {
   name: 'Claude',
   binaryPath: null,
   configFolder: null,
+  resolvedConfigFolder: { path: '/Users/me/.claude', from: 'default' },
   isDefault: true,
   resolved: {
     path: '/usr/local/bin/claude',

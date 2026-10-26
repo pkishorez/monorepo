@@ -13,7 +13,7 @@ The executable a Coding Harness runs as on this computer: the one the user insta
 _Avoid_: CLI path, executable setting, bundled binary
 
 **Harness Account**:
-One login of a Coding Harness on this computer: the Harness Binary it runs and the config folder it keeps its login, settings and transcripts in (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`), such as a work Claude beside a personal one. Every harness call runs as one; an Agent's context lives in its account's folder, so it is resumed, forked and asked as the same account.
+One login of a Coding Harness on this computer: the Harness Binary it runs and the config folder it keeps its login, settings and transcripts in (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`), such as a work Claude beside a personal one. Every harness call runs as one; an Agent's context lives in its account's folder, so it is resumed, forked and asked as the same account. One with no folder of its own uses the environment's, else the harness's own.
 _Avoid_: profile, alias, login (alone), instance
 
 **Language Model**:
