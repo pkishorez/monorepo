@@ -12,6 +12,7 @@ import { Actor } from '@kestack/kabuki';
 import { toReact, View } from '@kestack/kabuki/react';
 import { Navigation } from '@kestack/kabuki/routing';
 import { Replicas } from '@kestack/std-toolkit/replica';
+import { GestureProvider } from '@kestack/web-platform/ui/input';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -35,7 +36,10 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * Settings → Machines draws once: nothing while the list kept on this
  * device, or any listed Machine's Kit, is still being read, and then every
  * card whole, with what its Kit holds, no skeleton. With nothing kept at
- * all, a skeleton until Cloud Connect answers.
+ * all, a skeleton until Cloud Connect answers. Forget sits beside each
+ * Machine's name, a bin that asks first. On touch a sideways swipe
+ * anywhere on the card moves its Agents and Projects, which are at least
+ * half the screen tall there, and only there.
  */
 
 type Machine = typeof MachineSchema.Type;
@@ -61,9 +65,11 @@ const OwnerView = View.make(OwnerLive, ({ model, children, send }) => {
   ping = () => send({ _tag: 'Ping' });
   return (
     <keys.Provider vim>
-      <Connection value={{ machines: null, status: { m1: 'connected' } }}>
-        <MachineSettingsView instance={children.page} />
-      </Connection>
+      <GestureProvider>
+        <Connection value={{ machines: null, status: { m1: 'connected' } }}>
+          <MachineSettingsView instance={children.page} />
+        </Connection>
+      </GestureProvider>
     </keys.Provider>
   );
 });
@@ -94,6 +100,7 @@ const CLAUDE: HarnessAccountInfo = {
 };
 
 let known: SubscriptionRef.SubscriptionRef<Known>;
+let forgot: Array<string>;
 
 const kit = (parts: Partial<Kit>): Kit => ({
   accounts: null,
@@ -108,6 +115,7 @@ const kit = (parts: Partial<Kit>): Kit => ({
 const machines = () =>
   Layer.mock(Machines)({
     state: Stream.unwrap(Effect.sync(() => SubscriptionRef.changes(known))),
+    forget: (id: string) => Effect.sync(() => void forgot.push(id)),
   });
 
 const clients = CodeClients.make(() =>
@@ -167,7 +175,61 @@ const mount = async () => {
   await settle();
 };
 
+/** Makes the device a touch screen, as `useDevice` hears it. */
+const touched = async () => {
+  await act(async () => {
+    const event = new MouseEvent('pointerdown', { bubbles: true });
+    Object.assign(event, { pointerType: 'touch' });
+    window.dispatchEvent(event);
+  });
+  await flush();
+};
+
+/** One finger on `at`, moved `dx` sideways, then lifted. */
+const swipe = async (at: Element, dx: number) => {
+  const pointer = (type: string, x: number) => {
+    const event = new MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: 200,
+      button: 0,
+    });
+    Object.assign(event, { pointerId: 1, pointerType: 'touch' });
+    at.dispatchEvent(event);
+  };
+  await act(async () => pointer('pointerdown', 200));
+  for (let step = 1; step <= 10; step += 1)
+    await act(async () => pointer('pointermove', 200 + (dx * step) / 10));
+  await act(async () => pointer('pointerup', 200 + dx));
+  await settle();
+};
+
+const tab = (name: string) =>
+  [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find(
+    (each) => each.textContent === name,
+  )!;
+
+/** The tab panel open, the one that takes a touch. */
+const panelOpen = () =>
+  document.querySelector<HTMLElement>('[role="tabpanel"]:not([inert] *)')!;
+
+const shown = () =>
+  tell({
+    accountId: 'a1',
+    savedRead: true,
+    machines: [M1],
+    kits: { m1: kit({ accounts: [CLAUDE], speech: { _tag: 'Ready' } }) },
+  });
+
 beforeAll(() => {
+  window.matchMedia = (query: string) =>
+    ({
+      matches: false,
+      media: query,
+      addEventListener() {},
+      removeEventListener() {},
+    }) as unknown as MediaQueryList;
   globalThis.ResizeObserver ??= class {
     observe() {}
     unobserve() {}
@@ -177,6 +239,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   pings = 0;
+  forgot = [];
   known = Effect.runSync(SubscriptionRef.make<Known>(nobody));
 });
 
@@ -246,16 +309,7 @@ describe('Settings → Machines, drawn once', () => {
 describe('Settings → Machines, Agents or Projects', () => {
   it('shows a Machine’s Agents, then its Projects as chosen, each Machine on its own', async () => {
     await mount();
-    await tell({
-      accountId: 'a1',
-      savedRead: true,
-      machines: [M1],
-      kits: { m1: kit({ accounts: [CLAUDE], speech: { _tag: 'Ready' } }) },
-    });
-    const tab = (name: string) =>
-      [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find(
-        (each) => each.textContent === name,
-      )!;
+    await shown();
     expect(tab('Agents').getAttribute('aria-selected')).toBe('true');
     // Drawn as Settings' own tabs are, each naming the panel it opens.
     for (const name of ['Agents', 'Projects'])
@@ -271,5 +325,62 @@ describe('Settings → Machines, Agents or Projects', () => {
     expect(tab('Projects').getAttribute('aria-selected')).toBe('true');
     expect(text()).not.toContain('Claude');
     expect(busy()).toBe(true);
+  });
+});
+
+describe('Settings → Machines, Forget', () => {
+  it('sits beside the Machine’s name, asks first, and forgets once confirmed', async () => {
+    await mount();
+    await shown();
+    const forget = document.querySelector<HTMLElement>(
+      '[aria-label="Forget Studio"]',
+    )!;
+    expect(forget.closest('li')?.textContent).not.toContain('Forget this');
+    expect(forget.parentElement?.querySelector('h3')?.textContent).toBe(
+      'Studio',
+    );
+    await act(async () => forget.click());
+    await settle();
+    expect(text()).toContain('Forget Studio?');
+    expect(forgot).toEqual([]);
+    const confirm = [...document.querySelectorAll<HTMLElement>('button')].find(
+      (each) => each.textContent === 'Forget',
+    )!;
+    await act(async () => confirm.click());
+    await settle();
+    expect(forgot).toEqual(['m1']);
+  });
+});
+
+// Before any touch: this device then stays a touch screen.
+describe('Settings → Machines on a screen never touched', () => {
+  it('keeps its tabs as tall as what they hold', async () => {
+    await mount();
+    await shown();
+    expect(panelOpen().className).not.toContain('min-h-');
+  });
+});
+
+describe('Settings → Machines on touch', () => {
+  beforeEach(async () => {
+    await mount();
+    await touched();
+    await shown();
+  });
+
+  it('moves a Machine’s tabs on a swipe from the foot of the card, or its name', async () => {
+    const card = document.querySelector('li')!;
+    // The card is the swipe's zone, whole, Forget and all.
+    expect(card.children).toHaveLength(1);
+    expect(card.firstElementChild?.contains(panelOpen())).toBe(true);
+    await swipe(panelOpen(), -150);
+    expect(tab('Projects').getAttribute('aria-selected')).toBe('true');
+    await swipe(card.querySelector('h3')!, 150);
+    expect(tab('Agents').getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('gives each tab at least half the screen, so there is room to swipe', () => {
+    for (const panel of document.querySelectorAll('[role="tabpanel"]'))
+      expect(panel.className).toContain('min-h-[50dvh]');
   });
 });
