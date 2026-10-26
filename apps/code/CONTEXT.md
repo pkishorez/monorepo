@@ -17,7 +17,7 @@ One list in a Picker, searched by typing, such as the agents, a model's settings
 _Avoid_: page, screen, level
 
 **Project Picker**:
-The Picker for where to work next: first the Machine, a Step shown only while the Machine Filter shows every Machine and there is more than one, else skipped for the Machine it shows or the only one, then that Machine's recent Projects and the folders under its home, in a tall Drawer on touch, where choosing a Project starts a new Session in it and a folder not yet added becomes a Project.
+The Picker for where to work next: first the Machine, a Step shown only while the Machine Filter shows every Machine and there is more than one, else skipped for the Machine it shows or the only one, then that Machine's recent Projects and the folders under its home, in a tall Drawer on touch, where choosing a Project starts a new Session in it and a folder not yet added becomes a Project. A new Session once started is shown on its own page, with nothing left over it, the sidebar on a phone included.
 _Avoid_: add project, open project
 
 **Machine List**:

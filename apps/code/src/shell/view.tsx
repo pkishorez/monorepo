@@ -320,7 +320,7 @@ function Screen({
         content: (
           <keys.Surface id="sidebar" asChild>
             <div className="relative flex min-h-0 flex-1 flex-col rounded-xl pt-2 md:mx-2">
-              <SidebarSwitch home={route._tag === 'Home'} />
+              <SidebarSwitch route={route} />
               <Sidebar.PullToReload>
                 {/* On a phone, room under the last row for the foot that floats over it. */}
                 <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-2 overflow-auto max-md:pb-24">
@@ -355,17 +355,21 @@ function Screen({
  * the keyboard is in it goes to the page, so focus is never left in what
  * is hidden. Not kept: the App Shell holds whether it is open, open on a
  * wide screen, and on a phone, where it is the whole screen, open at home
- * and shut on any other page, which the header's back arrow opens it from.
+ * and shut on any other page, which the header's back arrow opens it from,
+ * and shut again by any move to a page, such as a new session started
+ * from it.
  */
 
-function SidebarSwitch({ home }: { readonly home: boolean }) {
+function SidebarSwitch({ route }: { readonly route: Route }) {
   const shell = useAppShell();
   const { active, enter } = keys.useKeyboard();
+  const home = route._tag === 'Home';
+  const at = JSON.stringify(route);
   // On a phone the sidebar is home: open there, and shut anywhere else.
   const { isMobile, setOpen } = shell;
   useEffect(() => {
     if (isMobile) setOpen(home);
-  }, [isMobile, home, setOpen]);
+  }, [isMobile, at, setOpen]);
   const toggle = () => {
     if (shell.open && active === 'sidebar') enter('content');
     shell.toggle();
