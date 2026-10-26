@@ -132,13 +132,12 @@ function Summary({ account }: { readonly account: HarnessAccountInfo }) {
 /**
  * An account's row, or the account being added's when `account` is null:
  * tapped, it opens its card or closes it, `expanded` saying it is open
- * below it; `opensDrawer`, it opens it in a Drawer instead.
+ * below it.
  */
 export function Row({
   account,
   harness,
   expanded,
-  opensDrawer,
   controls,
   disabled,
   said,
@@ -147,7 +146,6 @@ export function Row({
   readonly account: HarnessAccountInfo | null;
   readonly harness: HarnessAccountInfo['harness'];
   readonly expanded: boolean;
-  readonly opensDrawer: boolean;
   /** The id of what it opens. */
   readonly controls: string;
   readonly disabled: boolean;
@@ -162,9 +160,8 @@ export function Row({
         aria-label={
           account === null ? `New ${AGENT[harness]} account` : account.name
         }
-        {...(opensDrawer
-          ? { 'aria-haspopup': 'dialog' as const }
-          : { 'aria-expanded': expanded, 'aria-controls': controls })}
+        aria-expanded={expanded}
+        aria-controls={controls}
         disabled={disabled}
         className="focus-ring -mx-2 flex min-h-12 items-center gap-3 rounded-md px-2 py-2 text-left transition-colors duration-150 hover:bg-muted active:bg-muted disabled:hover:bg-transparent"
         onClick={onToggle}
@@ -189,7 +186,7 @@ export function Row({
             aria-hidden
             className={cn(
               'size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-out motion-reduce:transition-none',
-              expanded && !opensDrawer && 'rotate-90',
+              expanded && 'rotate-90',
             )}
           />
         )}
@@ -285,7 +282,7 @@ export const CardView = View.make(CardLive, ({ root, model, props, send }) => {
       {...root}
       noValidate
       aria-describedby={model.problem ? `${id}-problem` : undefined}
-      className="flex flex-1 flex-col gap-5"
+      className="flex flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
         send({ _tag: 'Save' });
@@ -341,7 +338,7 @@ export const CardView = View.make(CardLive, ({ root, model, props, send }) => {
           </p>
         )
       )}
-      <div className="mt-auto flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" className={BUTTON} disabled={off || !changed}>
           {model.busy && <Spinner />}
           {account === null ? 'Add account' : 'Save'}

@@ -40,7 +40,7 @@ import { keepHarnessAccounts } from './commands.ts';
  * The key of the card of the account being added for `harness`, which no
  * account's id, its agent's name alone or with a ULID after it, can be.
  */
-export const newKeyOf = (harness: Harness) => `new-${harness}`;
+const newKeyOf = (harness: Harness) => `new-${harness}`;
 const isNew = (key: string) => key.startsWith('new-');
 
 type Harness = typeof HarnessInfo.fields.harness.Type;
