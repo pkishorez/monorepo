@@ -59,9 +59,9 @@ What Code's browser imports: the `code` App Group's API and records, the client 
 | `SettingInfo`            | Schema of one harness setting and the choices a picker offers.                                                                                      |
 | `ModelInfo`              | Schema of one Language Model: id, name, and release date.                                                                                           |
 | `ProjectSchema`          | Entity schema of a Project.                                                                                                                         |
-| `ProjectValue`           | Plain struct of a Project's fields, as `addProject` returns it.                                                                                     |
+| `ProjectValue`           | A Project as `addProject` returns it; an older Connect's reply reads as it is now.                                                                  |
 | `SessionSchema`          | Entity schema of a Session.                                                                                                                         |
-| `SessionValue`           | Plain struct of a Session's fields, as `startSession` and `forkSession` return it.                                                                  |
+| `SessionValue`           | A Session as `startSession` and `forkSession` return it; an older Connect's reply reads as it is now.                                               |
 | `MessageSchema`          | Entity schema of a Message, the projected form a client reads.                                                                                      |
 | `PartSchema`             | Schema of one Message part: text, thinking, tool call, attachment, turn start or end, and more.                                                     |
 | `HarnessAccountSchema`   | Entity schema of a Harness Account: its harness, name, binary and config folder.                                                                    |
