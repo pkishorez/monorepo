@@ -11,6 +11,7 @@ import {
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { useState } from 'react';
+import { Path, tilde } from '../../../../../../ui/path/index.ts';
 import { useLock } from '../../../../../machines/index.ts';
 import { CardLive, formOf } from './actor.ts';
 
@@ -92,21 +93,6 @@ function Field({
     </div>
   );
 }
-
-/** A path cut in its middle, so its last part always shows. */
-function Path({ value }: { readonly value: string }) {
-  const at = value.lastIndexOf('/', value.length - 2) + 1;
-  return (
-    <span className="flex min-w-0 font-mono" title={value}>
-      <span className="truncate">{value.slice(0, at)}</span>
-      <span className="shrink-0">{value.slice(at)}</span>
-    </span>
-  );
-}
-
-/** A path under a home folder as `~/…`. */
-const tilde = (path: string) =>
-  path.replace(/^\/(?:Users|home)\/[^/]+(?=\/|$)/, '~');
 
 type Used = NonNullable<HarnessAccountInfo['resolvedConfigFolder']>;
 
