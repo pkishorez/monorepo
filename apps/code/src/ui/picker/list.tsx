@@ -34,6 +34,7 @@ import {
 import { MakeHere } from './make.tsx';
 import { isLatest, useOpening } from './opening.ts';
 import { useDrawn } from './shape.ts';
+import { AgentLogo } from '../agent/index.ts';
 
 /*
  * The top Step, drawn by cmdk on the isolated `picker` Surface: the trail
@@ -363,8 +364,19 @@ export function List<P>({
                     touch && 'data-[checked=false]:[&>svg:last-child]:hidden',
                   )}
                 >
-                  {touch && (entry.icon ?? shown.icon) !== null && (
-                    <RowIcon icon={entry.icon ?? shown.icon!} />
+                  {entry.icon === 'claude' || entry.icon === 'codex' ? (
+                    <AgentLogo
+                      agent={entry.icon}
+                      className={cn(
+                        'self-center',
+                        touch ? 'size-5!' : 'size-4!',
+                      )}
+                    />
+                  ) : (
+                    touch &&
+                    (entry.icon ?? shown.icon) !== null && (
+                      <RowIcon icon={entry.icon ?? shown.icon!} />
+                    )
                   )}
                   <span
                     className={cn(
@@ -507,7 +519,7 @@ function Highlighted({
 /**
  * What a row is, on touch: a folder in a square, or, for one that adds a
  * place, a plus in a filled one, so the action stands apart from what it
- * lists.
+ * lists. An agent's logo is drawn however the Picker was opened.
  */
 function RowIcon({ icon }: { readonly icon: 'project' | 'folder' | 'add' }) {
   if (icon === 'add')

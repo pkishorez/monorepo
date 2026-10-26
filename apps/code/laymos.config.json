@@ -9,7 +9,7 @@
     "src/layer/services/device-state": ["src/layer/services/kept"],
     "src/ui/session-status": ["src/ui/running-dot"],
     "src/ui/status-word": ["src/ui/time"],
-    "src/ui/picker": ["src/keys.ts"],
+    "src/ui/picker": ["src/keys.ts", "src/ui/agent"],
     "src/ui/confirm": ["src/keys.ts"],
     "src/shell": ["src/layer/capabilities", "src/ui", "src/keys.ts"],
     "src/shell/actors": ["src/shell/routes", "src/shell/machines"],

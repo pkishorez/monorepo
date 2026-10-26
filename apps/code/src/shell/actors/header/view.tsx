@@ -86,14 +86,20 @@ function SessionTitle({
   );
 }
 
-/** The open session's agent and model, beside the header's actions. */
-export const HeaderModelView = View.make(HeaderLive, ({ children }) =>
+/** The open session's agent, the account it runs as, and model, beside the header's actions. */
+export const HeaderModelView = View.make(HeaderLive, ({ model, children }) =>
   children.session === undefined ? null : (
-    <SessionModel session={children.session} />
+    <SessionModel session={children.session} names={model.names} />
   ),
 );
 
-function SessionModel({ session }: { readonly session: SessionHandle }) {
+function SessionModel({
+  session,
+  names,
+}: {
+  readonly session: SessionHandle;
+  readonly names: Readonly<Record<string, string>>;
+}) {
   const found = useChild(session, ({ model }) => model);
-  return <Model session={found?.rows[0]?.row} />;
+  return <Model session={found?.rows[0]?.row} names={names} />;
 }

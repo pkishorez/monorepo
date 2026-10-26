@@ -7,6 +7,7 @@ import {
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import * as routes from '../../routes/index.ts';
 import type { Route } from '../../routes/index.ts';
+import { AccountLabel, plainName } from '../../../ui/agent/index.ts';
 import { SessionStatus } from '../../../ui/session-status/index.ts';
 import {
   pillOf,
@@ -19,14 +20,13 @@ import {
 
 /*
  * What the App Shell's header says: where you are, as a trail from the
- * project to the session; the open session's agent and model; and, while
- * the Machine is out of reach, a quiet pill that says why: on its way,
- * its tunnel broken, or the Machine down, with when it was last seen.
+ * project to the session; the open session's agent, its account and its
+ * model; and, while the Machine is out of reach, a quiet pill that says
+ * why: on its way, its tunnel broken, or the Machine down, with when it
+ * was last seen.
  * Session Actions sit beside them (`actors/pickers/session-actions/`). The header
  * itself is the Web Platform's.
  */
-
-const AGENT = { claude: 'Claude', codex: 'Codex' } as const;
 
 /** The place the route names, from the rows the header reads of it. */
 export function Title({
@@ -107,15 +107,33 @@ export function Title({
 }
 
 /**
- * The open session's agent and model, quiet, from the `md` width with a
- * keyboard. With none, the Draft's model chip says it, and the title keeps
- * the room.
+ * The open session's agent, by its logo, the Harness Account it runs as
+ * unless it is the Default Account, and its model, quiet, from the `md`
+ * width with a keyboard. With none, the Draft's model chip says it, and
+ * the title keeps the room.
  */
-export function Model({ session }: { readonly session: Session | undefined }) {
+export function Model({
+  session,
+  names,
+}: {
+  readonly session: Session | undefined;
+  /** The Machine's Harness Accounts' names, by id. */
+  readonly names: Readonly<Record<string, string>>;
+}) {
   if (session === undefined) return null;
+  const named = {
+    agent: session.harness,
+    account: session.account,
+    name: names[session.account] ?? null,
+  };
   return (
-    <span className="hidden truncate pr-1 text-xs text-muted-foreground keyboard:md:block">
-      {AGENT[session.harness]} · {session.model}
+    <span
+      title={`${plainName(named)} · ${session.model}`}
+      className="hidden min-w-0 items-center gap-1.5 pr-1 text-xs text-muted-foreground keyboard:md:flex"
+    >
+      <AccountLabel named={named} className="[&_svg]:size-3.5" />
+      <span aria-hidden>·</span>
+      <span className="truncate">{session.model}</span>
     </span>
   );
 }

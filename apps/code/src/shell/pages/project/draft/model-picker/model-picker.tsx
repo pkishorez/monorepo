@@ -12,6 +12,12 @@ import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { useRef, useState, type ReactNode } from 'react';
 import { keys, useBound } from '../../../../../keys.ts';
+import {
+  AccountLabel,
+  accountName,
+  type Named,
+  plainName,
+} from '../../../../../ui/agent/index.ts';
 import * as Picker from '../../../../../ui/picker/index.ts';
 import { Catalog } from '../../capabilities/index.ts';
 import { OpenRow, Setting } from './chip.tsx';
@@ -25,8 +31,12 @@ import { OpenRow, Setting } from './chip.tsx';
  * the agent's permissions or effort alone, so choosing there finishes.
  * What is in effect now is checked in every Step.
  *
- * In the Status Line sit its two triggers, the model and the settings,
- * which give up their words as the line narrows. `m` opens it at the model
+ * Each agent is named by its logo, then its Harness Account's name unless
+ * it is the Default Account, the agent's name not said again: the agent
+ * Step, the model trigger and the chip, a started session's too, so it
+ * says which account it runs as. In the Status Line sit its two triggers,
+ * the model and the settings, which give up their words as the line
+ * narrows. `m` opens it at the model
  * from the page's Normal Mode. On a device with no keyboard the Draft has
  * one model chip instead, "Opus · High · Bypass permissions", which opens
  * a Drawer: the agent and the model open the Picker in a Sheet over it,
@@ -52,6 +62,17 @@ type Choices = ReadonlyArray<{
   readonly key: string;
   readonly value: string;
 }>;
+
+/** A catalog's agent, as its logo and name say it. */
+const namedOf = (harness: {
+  readonly harness: Named['agent'];
+  readonly account: string;
+  readonly name: string;
+}): Named => ({
+  agent: harness.harness,
+  account: harness.account,
+  name: harness.name,
+});
 
 const agentOf = (choices: Choices) =>
   choices.find(({ step }) => step === 'agent')?.value ?? null;
@@ -160,10 +181,13 @@ const Models = Picker.make('ModelPicker', {
       placeholder: () => 'Search agents',
       empty: () => 'No agent by that name',
       rows: ({ props: { catalog, current } }) => ({
-        rows: (catalog.harnesses ?? []).map(
-          ({ account, name: label, available, unavailableReason }) => ({
+        rows: (catalog.harnesses ?? []).map((harness) => {
+          const { account, available, unavailableReason } = harness;
+          return {
             value: account,
-            label,
+            label: accountName(namedOf(harness)) ?? 'Default',
+            icon: harness.harness,
+            plain: plainName(namedOf(harness)),
             checked: account === current.account,
             ...(available
               ? {}
@@ -171,16 +195,18 @@ const Models = Picker.make('ModelPicker', {
                   unavailable:
                     unavailableReason ?? 'It cannot run on this machine',
                 }),
-          }),
-        ),
+          };
+        }),
         loading: catalog.harnesses === null && catalog.problem === null,
         problem: catalog.problem,
       }),
       next: (row) => ({ id: 'model', key: row.value }),
     },
     model: {
-      placeholder: ({ key, props }) =>
-        `Search ${Catalog.harnessOf(props.catalog, key)?.name ?? ''} models`,
+      placeholder: ({ key, props }) => {
+        const harness = Catalog.harnessOf(props.catalog, key);
+        return `Search ${harness === null ? '' : `${plainName(namedOf(harness))} `}models`;
+      },
       empty: () => 'No model by that name',
       rows: ({ key, props: { catalog, current } }) => {
         const read = Catalog.modelsOf(catalog, key);
@@ -266,7 +292,7 @@ export const ModelPicker = {
       step: 'agent',
       key: '',
       value: current.account,
-      label: harness?.name ?? current.account,
+      label: harness === null ? current.account : plainName(namedOf(harness)),
     };
     const model = modelFor(catalog, current, current.account) ?? '';
     const named =
@@ -419,16 +445,14 @@ export function Triggers({
         trigger={
           <button
             type="button"
-            aria-label={`Model: ${started ? '' : `${harness.name}, `}${name}`}
+            aria-label={`Model: ${plainName(namedOf(harness))}, ${name}`}
             title={modelKeys === null ? 'Model' : `Model (${modelKeys})`}
             className={trigger}
           >
-            {!started && (
-              <span className="hidden shrink-0 text-muted-foreground/80 @sm/status:inline">
-                {harness.name}
-              </span>
-            )}
-            <span className="truncate text-foreground/90">{name}</span>
+            <AgentMark harness={harness} />
+            <span className="truncate text-foreground/90">
+              {shortName(name, harness.name)}
+            </span>
             <ChevronDownIcon
               aria-hidden
               className="size-3 shrink-0 opacity-60"
@@ -528,13 +552,22 @@ export function Chip({
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={`Model and settings: ${started ? '' : `${harness.name}, `}${words}`}
+        aria-label={`Model and settings: ${plainName(namedOf(harness))}, ${words}`}
         onClick={() => setOpen(true)}
         className="focus-ring flex h-11 min-w-0 items-center rounded-full px-3 text-left transition-colors duration-150 active:bg-muted aria-expanded:bg-muted motion-reduce:transition-none"
       >
         <span className="flex min-w-0 flex-col">
-          <span className="truncate text-sm leading-4.5 font-medium text-foreground/90">
-            {shortName(name, harness.name)}
+          <span className="flex min-w-0 items-center gap-1.5 text-sm leading-4.5 font-medium text-foreground/90">
+            <AccountLabel
+              named={namedOf(harness)}
+              className="shrink-0 gap-1.5 [&_svg]:size-3.5"
+            />
+            {accountName(namedOf(harness)) !== null && (
+              <span aria-hidden className="text-muted-foreground">
+                ·
+              </span>
+            )}
+            <span className="truncate">{shortName(name, harness.name)}</span>
           </span>
           {settings.length > 0 && (
             <span className="truncate text-xs leading-4 text-muted-foreground">
@@ -558,7 +591,13 @@ export function Chip({
           {!started && (
             <OpenRow
               label="Agent"
-              value={harness.name}
+              value={plainName(namedOf(harness))}
+              shown={
+                <AccountLabel
+                  named={namedOf(harness)}
+                  className="justify-end [&_svg]:size-4"
+                />
+              }
               onOpen={() => pick('agent')}
             />
           )}
@@ -580,5 +619,27 @@ export function Chip({
         {how !== null && children}
       </Picker.Frame>
     </>
+  );
+}
+
+/**
+ * The agent in the model trigger: its logo, then its Harness Account's
+ * name, none for the Default Account, kept as the model's name gives way.
+ */
+function AgentMark({
+  harness,
+}: {
+  readonly harness: Parameters<typeof namedOf>[0];
+}) {
+  const named = namedOf(harness);
+  const rest = accountName(named);
+  return (
+    <span className="flex shrink-0 items-center gap-1 text-muted-foreground/80">
+      <AccountLabel
+        named={{ ...named, account: named.agent }}
+        className="[&_svg]:size-3.5"
+      />
+      {rest !== null && <span>{rest} ·</span>}
+    </span>
   );
 }

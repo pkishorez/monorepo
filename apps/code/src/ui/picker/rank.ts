@@ -2,8 +2,8 @@
  * Which rows a query finds, best first. A row whose keys are the query,
  * such as `ctrl+b`, comes first; then a label that starts with the query
  * beats one that has it at a word start, which beats one that has it
- * anywhere, which beats one whose letters merely appear in order; a detail
- * or keys that have it come last. Keys are matched as written, with or
+ * anywhere, which beats one whose letters merely appear in order; a detail,
+ * keys or the agent a logo names that have it come last. Keys are matched as written, with or
  * without their `+` and spaces, `mod` read as Ctrl or Cmd too. Ties go to
  * the shorter label. With no query,
  * every row stays in the order it was given. `matched` holds the label's
@@ -13,6 +13,8 @@
 interface Labelled {
   readonly label: string;
   readonly detail?: string | undefined;
+  /** What the row is; an agent's name is searched, as its logo says it. */
+  readonly icon?: string | undefined;
   /** An Action's keys, out of Vim Mode and in it, as written. */
   readonly keys?:
     | {
@@ -48,7 +50,7 @@ export function rank<T extends Labelled>(
 }
 
 function score(
-  { label, detail, keys }: Labelled,
+  { label, detail, icon, keys }: Labelled,
   wanted: string,
 ): { tier: number; matched: ReadonlyArray<number> } | null {
   const lower = label.toLowerCase();
@@ -68,6 +70,8 @@ function score(
   const inOrder = subsequence(lower, wanted);
   if (inOrder !== null) return { tier: 3, matched: inOrder };
   if (detail?.toLowerCase().includes(wanted)) return { tier: 4, matched: [] };
+  if ((icon === 'claude' || icon === 'codex') && icon.includes(wanted))
+    return { tier: 4, matched: [] };
   if (written.some((each) => each.includes(pressed)))
     return { tier: 4, matched: [] };
   return null;
