@@ -13,3 +13,4 @@ export {
   Sessions,
 } from './records.ts';
 export { Intent, moves, Moves } from './moves/index.ts';
+export { answerQuestion, questionsOn } from './questions/index.ts';

@@ -240,6 +240,7 @@ const VERBS: Record<Call['tool'], readonly [done: string, running: string]> = {
   web: ['Fetched', 'Fetching'],
   subagent: ['Asked', 'Asking'],
   todo: ['Updated', 'Updating'],
+  question: ['Asked', 'Asking'],
   mcp: ['Called', 'Calling'],
   other: ['', ''],
 };
@@ -317,6 +318,8 @@ export const summary = (
     }
     case 'todo':
       return { ...plain, target: 'the to-do list' };
+    case 'question':
+      return { ...plain, target: 'you a question' };
     default:
       return { ...plain, target: call.title || call.name };
   }
@@ -332,6 +335,7 @@ const NOUNS: Record<Call['tool'], readonly [one: string, many: string]> = {
   web: ['page', 'pages'],
   subagent: ['subagent', 'subagents'],
   todo: ['list', 'lists'],
+  question: ['question', 'questions'],
   mcp: ['tool', 'tools'],
   other: ['tool', 'tools'],
 };
@@ -361,7 +365,7 @@ export type Item =
       readonly rows: ReadonlyArray<ToolRow>;
     };
 
-/** Rows with each run of two or more tool calls of one kind folded into a group. */
+/** Rows with each run of two or more tool calls of one kind folded into a group; an Agent Question never is. */
 export const grouped = (rows: ReadonlyArray<Row>): ReadonlyArray<Item> => {
   const items: Item[] = [];
   let run: ToolRow[] = [];
@@ -372,15 +376,14 @@ export const grouped = (rows: ReadonlyArray<Row>): ReadonlyArray<Item> => {
     run = [];
   };
   for (const row of rows) {
-    if (
-      row.kind === 'tool' &&
-      (run.length === 0 || run[0]!.call.tool === row.call.tool)
-    ) {
+    // An Agent Question is read on its own, never folded.
+    const folds = row.kind === 'tool' && row.call.tool !== 'question';
+    if (folds && (run.length === 0 || run[0]!.call.tool === row.call.tool)) {
       run.push(row);
       continue;
     }
     flush();
-    if (row.kind === 'tool') run.push(row);
+    if (folds) run.push(row);
     else items.push({ kind: 'row', row });
   }
   flush();

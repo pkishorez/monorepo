@@ -16,6 +16,7 @@ import {
   addressOf,
   type Machine as MachineSchema,
   ModelInfo,
+  type SessionQuestions,
   SpeechToTextState,
 } from '@kestack/connect/code';
 
@@ -23,7 +24,7 @@ import {
  * The Machines of the signed-in Account, for any Actor below the root
  * page, which Provides them. The Machines Actor of the Account signed in
  * publishes what it holds here, each Machine's line too, and each Machine
- * Actor its setup, its Unseen marks and its Replicas; each hears what
+ * Actor its setup, its Unseen marks, its Agent Questions and its Replicas; each hears what
  * others ask, as the Web Platform's Account Switcher does with
  * `CurrentAccount`. A page is no Child of a Machine, so it reaches the
  * Machine's records through here: its Replicas, by its id.
@@ -142,6 +143,8 @@ export interface Known {
   readonly setups: Readonly<Record<string, Setup>>;
   /** Each listed Machine's Unseen marks (`Marks`), by id, once read, while it lives. */
   readonly seen: Readonly<Record<string, Readonly<Record<string, number>>>>;
+  /** Each listed Machine's Agent Questions, by id, as it last said them, while it lives. */
+  readonly questions: Readonly<Record<string, ReadonlyArray<SessionQuestions>>>;
 }
 
 export const nobody: Known = {
@@ -155,6 +158,7 @@ export const nobody: Known = {
   lines: {},
   setups: {},
   seen: {},
+  questions: {},
 };
 
 /** What another Actor may ask for, as the Messages it becomes. */
@@ -194,6 +198,10 @@ export class Machines extends Context.Service<
     readonly line: (id: string) => Stream.Stream<Line>;
     /** The Machine's setup now, then each change; null while it has none. */
     readonly setup: (id: string) => Stream.Stream<Setup | null>;
+    /** Every Session's Agent Questions on the Machine now, then each change; none while it says none. */
+    readonly questions: (
+      id: string,
+    ) => Stream.Stream<ReadonlyArray<SessionQuestions>>;
     /** Asks the Machine to be asked for its setup again. */
     readonly refresh: (id: string) => Effect.Effect<void>;
     /** Tells the Machine of a change made to it, for its setup to show at once and ask again. */
@@ -214,6 +222,8 @@ export class Machines extends Context.Service<
     readonly keepForgetting: Effect.Effect<void>;
   }
 >()('code/Machines') {}
+
+const none: ReadonlyArray<SessionQuestions> = [];
 
 /** The Machines, as the Machines Actor and each Machine publish them. */
 export const machinesLayer: Layer.Layer<Machines | Link> = Layer.effectContext(
@@ -277,6 +287,11 @@ export const machinesLayer: Layer.Layer<Machines | Link> = Layer.effectContext(
         machine,
         line,
         setup,
+        questions: (id) =>
+          state.pipe(
+            Stream.map(({ questions }) => questions[id] ?? none),
+            Stream.changes,
+          ),
         refresh: (id) => askSetups({ machineId: id, ask: { _tag: 'Asked' } }),
         changed: (id, change) => askSetups({ machineId: id, ask: change }),
         listed: (id) => Effect.asVoid(first(id, () => true)),

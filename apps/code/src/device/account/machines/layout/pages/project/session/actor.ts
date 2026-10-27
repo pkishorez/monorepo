@@ -20,9 +20,11 @@ import { Machines } from '../../../../machines.ts';
 import { Seen } from '../../../../machine/store/index.ts';
 import { Draft } from '../draft/index.ts';
 import { cancel, forkSession, markSeen } from './commands.ts';
+import { Question } from './question/index.ts';
 
 /*
- * A session: its row, its messages, and its Draft (`draft/`).
+ * A session: its row, its messages, its Draft (`draft/`), and the Question
+ * Panel that stands in for it while its agent asks (`question/`).
  *
  * 1. Read     the row says whether it runs; its messages sync while the
  *             page is open, through the session's Window. A Worker follows
@@ -42,6 +44,8 @@ import { cancel, forkSession, markSeen } from './commands.ts';
  *              all of it is read from this device (`readyOf`): its row, its
  *              messages, those it carries on from, and its Saved Draft.
  *              Its View says so once, so Layout first draws it whole.
+ * 7. Question  the Agent Questions its agent waits on, answered in the
+ *              Question Panel, a Child of its own, fresh for each session.
  */
 
 const ForkedFrom = Schema.NullOr(
@@ -232,6 +236,15 @@ export const SessionLive = Page.build(Session, {
           },
         };
       },
+    },
+    // 7. Question
+    question: {
+      actor: Question.actor,
+      key: ({ props }) => props.params.sessionId,
+      props: ({ props }) => ({
+        machineId: machineIn(props.route.params),
+        sessionId: props.params.sessionId,
+      }),
     },
   },
   workers: {

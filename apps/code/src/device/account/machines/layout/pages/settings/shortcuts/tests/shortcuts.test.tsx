@@ -205,7 +205,8 @@ describe('Shortcut settings', () => {
 
   it('resets every Action to its defaults', async () => {
     await record('Scroll up');
-    await press('y', 'KeyY');
+    // `y` is the question's now: a key no Action of the page has.
+    await press('z', 'KeyZ');
     const resetAll = [...document.querySelectorAll('button')].find(
       (each) => each.textContent === 'Reset all',
     )!;
