@@ -6,7 +6,7 @@ import {
   type MotionStyle,
 } from 'motion/react';
 
-import { Minus, Plus } from '@kestack/web-platform/ui/components/lucide';
+import { Minus, Plus } from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 
 import { ResizeHandle, usePreference } from '../preferences';

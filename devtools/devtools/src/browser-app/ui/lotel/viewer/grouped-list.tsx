@@ -1,4 +1,4 @@
-import { ChevronRightIcon } from '@kestack/web-platform/ui/components/lucide';
+import { ChevronRightIcon } from 'lucide-react';
 import { NewTracesRow, TraceList } from '../trace-viewer/index.js';
 import type {
   OtelSpan,

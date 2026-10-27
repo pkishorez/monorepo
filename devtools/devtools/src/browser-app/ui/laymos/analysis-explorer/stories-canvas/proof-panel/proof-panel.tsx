@@ -1,11 +1,7 @@
 import { Fragment, useCallback, useMemo, type ReactNode } from 'react';
 import type { ProofLeaf, ProofReport, StoryNode } from 'laymos/story/schema';
 
-import {
-  ChevronRight,
-  Play,
-  X,
-} from '@kestack/web-platform/ui/components/lucide';
+import { ChevronRight, Play, X } from 'lucide-react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { scrollbarStyles } from '@kestack/web-platform/ui/components/scroll-styles';
 import { cn } from '@kestack/web-platform/ui/components/utils';

@@ -2,11 +2,7 @@ import { useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
 import type { AppRuntime } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  RotateCcwIcon,
-} from '@kestack/web-platform/ui/components/lucide';
+import { ChevronLeftIcon, ChevronRightIcon, RotateCcwIcon } from 'lucide-react';
 import { carryOn, showStep, stepOf } from './steps.ts';
 
 /*

@@ -6,7 +6,7 @@ import { Layer } from 'effect';
 import { toReact } from '@kestack/kabuki/react';
 import type { AppRuntime } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
-import { HistoryIcon } from '@kestack/web-platform/ui/components/lucide';
+import { HistoryIcon } from 'lucide-react';
 import {
   Timeline,
   carryOn,

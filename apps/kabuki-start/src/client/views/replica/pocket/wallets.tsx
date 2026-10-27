@@ -1,10 +1,7 @@
 import { useContext } from 'react';
 import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
-import {
-  ArrowRightIcon,
-  PlusIcon,
-} from '@kestack/web-platform/ui/components/lucide';
+import { ArrowRightIcon, PlusIcon } from 'lucide-react';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { Switch } from '@kestack/web-platform/ui/components/switch';
 import { nextWalletName, Pages } from '../../../../shared/pages/index.ts';

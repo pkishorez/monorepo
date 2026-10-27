@@ -7,7 +7,7 @@ import {
   ShieldAlert,
   Terminal,
   TriangleAlert,
-} from '@kestack/web-platform/ui/components/lucide';
+} from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 
 import { StateMark } from '../badges';

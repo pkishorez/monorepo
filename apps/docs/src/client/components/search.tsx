@@ -10,7 +10,7 @@ import {
   CommandList,
 } from '@kestack/web-platform/ui/components/command';
 import { Kbd } from '@kestack/web-platform/ui/components/kbd';
-import { SearchIcon } from '@kestack/web-platform/ui/components/lucide';
+import { SearchIcon } from 'lucide-react';
 import { SECTIONS, router } from '../../shared/index.ts';
 
 /*

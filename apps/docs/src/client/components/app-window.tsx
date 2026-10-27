@@ -1,10 +1,7 @@
 import { Suspense, lazy, useCallback, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import { Kbd } from '@kestack/web-platform/ui/components/kbd';
-import {
-  KeyboardIcon,
-  RotateCwIcon,
-} from '@kestack/web-platform/ui/components/lucide';
+import { KeyboardIcon, RotateCwIcon } from 'lucide-react';
 import type { PlaygroundApp } from './playground/index.ts';
 
 /*

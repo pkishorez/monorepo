@@ -42,6 +42,9 @@ import { cn } from '#kit/class-names';
  *            handed the room it takes as `--dock-reserve`.
  * 4. Keys    Ctrl+/ or ⌘/ opens and closes them, unless the app keeps the
  *            key for itself.
+ * 5. Hide    closed, they are hidden, not taken down: once opened they stay
+ *            mounted, so what was chosen in them is there when they open
+ *            again. A new Layout still lays them out afresh.
  */
 
 export type DockLayout = 'full' | 'bottom' | 'side' | 'floating';
@@ -136,6 +139,9 @@ export function DevtoolsDock({
   const phone = useIsMobile();
   const offered = LAYOUTS.filter((each) => !phone || each.phone);
   const { open } = kept;
+  // 5. Hide: mounted from the first open on, hidden while closed.
+  const [mounted, setMounted] = useState(false);
+  if (open && !mounted) setMounted(true);
   const layout = phone ? ON_PHONE[kept.layout] : kept.layout;
   const current = offered.find((each) => each.value === layout)!;
   const next = offered[(offered.indexOf(current) + 1) % offered.length]!;
@@ -173,7 +179,8 @@ export function DevtoolsDock({
   const clear = { '--dock-reserve': `${reserve}px` } as CSSProperties;
 
   // 2. Lay out
-  const docked = open && (layout === 'bottom' || layout === 'side');
+  const dockable = layout === 'bottom' || layout === 'side';
+  const docked = open && dockable;
   const size = layout === 'bottom' ? kept.bottom : kept.side;
   const inFlow = scrolls === 'window';
   // A page in the window's flow makes room for the bar or the panel over it.
@@ -188,10 +195,11 @@ export function DevtoolsDock({
     };
   }, [inFlow, docked, layout, size]);
 
-  const aside = docked && (
+  const aside = mounted && dockable && (
     <aside
       // A new Layout lays the devtools out afresh: the Map fits again.
       key={layout}
+      hidden={!open}
       aria-label={label}
       className={cn(
         'bg-background flex shrink-0 flex-col',
@@ -252,9 +260,10 @@ export function DevtoolsDock({
         </div>
       )}
 
-      {open && layout === 'full' && (
+      {mounted && layout === 'full' && (
         <div
           role="dialog"
+          hidden={!open}
           aria-label={label}
           className="fixed inset-0 z-40"
           style={clear}
@@ -263,9 +272,10 @@ export function DevtoolsDock({
         </div>
       )}
 
-      {open && layout === 'floating' && (
+      {mounted && layout === 'floating' && (
         <Floating
           label={label}
+          hidden={!open}
           rect={kept.floating}
           onChange={(floating) => keep({ floating })}
           onClose={() => keep({ open: false })}
@@ -387,12 +397,14 @@ function Edge({
 /** A window over the page, moved by its title bar and resized by any corner. */
 function Floating({
   label,
+  hidden,
   rect,
   onChange,
   onClose,
   children,
 }: {
   readonly label: string;
+  readonly hidden: boolean;
   readonly rect: Kept['floating'];
   readonly onChange: (rect: Kept['floating']) => void;
   readonly onClose: () => void;
@@ -405,6 +417,7 @@ function Floating({
   return (
     <div
       role="dialog"
+      hidden={hidden}
       aria-label={label}
       className="fixed z-40"
       style={{ left: x, top: y, width, height }}

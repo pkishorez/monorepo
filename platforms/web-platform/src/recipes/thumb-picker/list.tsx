@@ -1,4 +1,4 @@
-import { ChevronRight } from '#kit/icons';
+import { ChevronRight } from 'lucide-react';
 import { cn } from '#kit/class-names';
 import { TreeWalk } from '@kestack/use-gesture';
 import { motion, type Transition } from 'motion/react';

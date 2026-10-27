@@ -7,7 +7,7 @@ import {
   LayersIcon,
   PlusIcon,
   XIcon,
-} from '@kestack/web-platform/ui/components/lucide';
+} from 'lucide-react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   Command,

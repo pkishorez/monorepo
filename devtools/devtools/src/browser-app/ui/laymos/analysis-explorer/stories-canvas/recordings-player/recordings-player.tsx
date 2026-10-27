@@ -1,12 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import {
-  Maximize2,
-  Minimize2,
-  Pause,
-  Play,
-} from '@kestack/web-platform/ui/components/lucide';
+import { Maximize2, Minimize2, Pause, Play } from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import type { PhaseReport, Recording, Step } from 'laymos/story/schema';
 

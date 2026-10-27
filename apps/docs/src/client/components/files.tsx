@@ -5,7 +5,7 @@ import {
   CopyIcon,
   FileCodeIcon,
   FolderOpenIcon,
-} from '@kestack/web-platform/ui/components/lucide';
+} from 'lucide-react';
 
 /*
  * The code behind a demo: its files as a tree on the left, the one picked

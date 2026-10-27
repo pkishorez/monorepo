@@ -1,4 +1,4 @@
-import { Check, X } from '@kestack/web-platform/ui/components/lucide';
+import { Check, X } from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { JsonTree } from '@kestack/web-platform/ui/viewers/json';
 import type {

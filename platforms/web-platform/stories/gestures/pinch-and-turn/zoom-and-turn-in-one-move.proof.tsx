@@ -1,8 +1,4 @@
-import {
-  motion,
-  useMotionValue,
-  useTransform,
-} from '@kestack/web-platform/ui/components/motion';
+import { motion, useMotionValue, useTransform } from 'motion/react';
 import {
   GestureProvider,
   GestureZone,

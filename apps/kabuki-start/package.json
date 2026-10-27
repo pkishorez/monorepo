@@ -22,6 +22,7 @@
     "@kestack/web-platform": "workspace:*",
     "@tanstack/db": "catalog:",
     "effect": "catalog:",
+    "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   },

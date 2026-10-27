@@ -9,7 +9,7 @@ import {
 } from '../trace-viewer/index.js';
 import type { OtelEvent } from '../trace-viewer/trace-model/index.js';
 import type { TraceView } from '../trace-viewer/trace-presentation/index.js';
-import { SearchIcon } from '@kestack/web-platform/ui/components/lucide';
+import { SearchIcon } from 'lucide-react';
 import { scrollbarStyles } from '@kestack/web-platform/ui/components/scroll-styles';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import type {

@@ -1,8 +1,5 @@
 import { View } from '@kestack/kabuki/react';
-import {
-  TrendingDownIcon,
-  TrendingUpIcon,
-} from '@kestack/web-platform/ui/components/lucide';
+import { TrendingDownIcon, TrendingUpIcon } from 'lucide-react';
 import { Switch } from '@kestack/web-platform/ui/components/switch';
 import { QuoteLive, TickerLive } from './ticker.ts';
 

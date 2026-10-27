@@ -133,10 +133,10 @@ Peer dependencies, all optional; install the ones your doors need:
 
 ### `@kestack/auth-toolkit/client/browser`
 
-| Export                 | What it does                                                                        |
-| ---------------------- | ----------------------------------------------------------------------------------- |
-| `browser`              | `Accounts` over the Auth Worker's cookie, plus the signing of every guarded call.   |
-| `browserAccountsTable` | The StdTable the optional `cache` keeps the last-known Accounts in, without tokens. |
+| Export                 | What it does                                                                                                                                                                                                           |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `browser`              | `Accounts` over the Auth Worker's cookie, plus the signing of every guarded call.                                                                                                                                      |
+| `browserAccountsTable` | The StdTable the optional `cache` remembers the Accounts last signed in in, without tokens, so `state` starts `Checking { last }`; forgotten only by a sign-out asked here or a signed-out answer to that first check. |
 
 ### `@kestack/auth-toolkit/client/device`
 

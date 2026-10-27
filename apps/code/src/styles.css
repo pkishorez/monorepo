@@ -21,12 +21,25 @@
 }
 
 /*
- * The newest part of words still streaming in, and a running session's
- * dot, breathing slowly enough to stay out of the way.
+ * The newest part of words still streaming in, a running session's dot,
+ * breathing slowly enough to stay out of the way, and what shows only
+ * once a wait is long enough to see, so a short one shows nothing: the
+ * start of the app waits a second, longer than a reload that opens from
+ * what this device kept takes, so only a slow start shows the mark.
  */
 @theme {
   --animate-chunk-in: chunk-in 240ms ease-out;
   --animate-breathe: breathe 2.4s ease-in-out infinite;
+  --animate-arrive: chunk-in 240ms ease-out 1s backwards;
+  --animate-rise: rise 420ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
+
+  /* Up into place: a short way, so it reads as arriving, not travelling. */
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(var(--rise-from, 8px));
+    }
+  }
 
   @keyframes chunk-in {
     from {
@@ -142,6 +155,11 @@
   [data-slot='draft'][data-touch] .cm-inserted,
   [data-slot='draft'][data-touch] .cm-dictation:not([data-failed]) {
     animation: none;
+  }
+
+  /* What rises into place only fades in. */
+  :root {
+    --rise-from: 0px;
   }
 }
 

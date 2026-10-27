@@ -75,7 +75,7 @@ An Account is a User (id, email, name, image) — never a token. Accounts are ke
 **browser({ url, cache?, local? })**
 
 - Talks to the Auth Worker with `credentials: 'include'` (Direct Sign-in Check). Lists Accounts without tokens.
-- `cache`: opt-in StdTable adapter keeping the last-known Accounts (no tokens). With it, `state` starts `Checking { last }` so an app can open at once, then confirms. Without it, `Checking {}`.
+- `cache`: opt-in StdTable adapter remembering the Accounts last signed in (no tokens). With it, `state` starts `Checking { last }` so an app can open at once, then confirms. Without it, `Checking {}`. A signed-out answer does not forget them, so an Auth Worker that answers signed out for a moment (restarting) does not cost the next start its Account; they are forgotten by a sign-out asked here (`signOut` of the last Account, `signOutAll`) or by a signed-out answer to the check made while they were shown, so a sign-out elsewhere shows the old Account at most once more.
 - Re-checks on start and whenever the tab becomes visible. A BroadcastChannel tells other tabs of switch/sign-in/sign-out at once.
 - Provides the RPC/HTTP client middleware that sends `expect-user` with the active userId and cookies. On `AccountChanged`, re-check before the failure reaches the caller (RPC through rpc-toolkit's `Rpc.onExit`, HttpApi by status).
 - `local: { choose, storage? }`: Local mode. Local Accounts in a StdTable (`localAccountsTable`, memory unless `storage` is given), `choose` is an app-provided Effect answering "who signs in" (`localChooser()` makes one a dialog answers). Calls carry the Local Token as a bearer. No Auth Worker.

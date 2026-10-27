@@ -5,7 +5,7 @@ import {
   PlusIcon,
   ShoppingCartIcon,
   Trash2Icon,
-} from '@kestack/web-platform/ui/components/lucide';
+} from 'lucide-react';
 import { CartLive } from './cart.ts';
 import { PRODUCTS, countOf, formatPrice, totalOf } from './products.ts';
 

@@ -50,6 +50,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: code's bundle size
+        run: pnpm -C apps/code size
+
       - name: Laymos
         run: node .github/scripts/laymos-lint.mjs
 

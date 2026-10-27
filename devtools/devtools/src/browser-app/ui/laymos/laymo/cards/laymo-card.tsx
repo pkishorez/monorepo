@@ -1,13 +1,7 @@
 import type { ReactNode } from 'react';
 import type { ChangeStatus } from 'laymos';
 
-import {
-  Box,
-  ChevronRight,
-  Folder,
-  Lock,
-  Package,
-} from '@kestack/web-platform/ui/components/lucide';
+import { Box, ChevronRight, Folder, Lock, Package } from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 
 import type { LaymoNode } from '../laymo-tree';

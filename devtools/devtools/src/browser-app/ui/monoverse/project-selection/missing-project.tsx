@@ -7,7 +7,7 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from '@kestack/web-platform/ui/components/empty';
-import { PencilIcon } from '@kestack/web-platform/ui/components/lucide';
+import { PencilIcon } from 'lucide-react';
 import type { WorktreeResolution } from '../../../../rpc/index.js';
 import { ManageEntryDialog } from './manage-entry.js';
 import { basename, findEntryForPath, useProjectRegistry } from './registry.js';

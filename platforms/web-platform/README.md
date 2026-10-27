@@ -208,16 +208,6 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kestack/web-plat
 | ------ | ---------------------------------------------------------- |
 | `cn`   | Joins class names and merges conflicting Tailwind classes. |
 
-### `@kestack/web-platform/ui/components/lucide`
-
-| Export | What it does |
-| ------ | ------------ |
-
-### `@kestack/web-platform/ui/components/motion`
-
-| Export | What it does |
-| ------ | ------------ |
-
 ### `@kestack/web-platform/ui/components/scroll-styles`
 
 | Export            | What it does                                                                        |

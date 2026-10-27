@@ -1,9 +1,6 @@
 import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
-import {
-  MinusIcon,
-  PlusIcon,
-} from '@kestack/web-platform/ui/components/lucide';
+import { MinusIcon, PlusIcon } from 'lucide-react';
 import { CounterLive } from './counter.ts';
 
 // Draws one Counter: its place from the Props, its count from the Model.

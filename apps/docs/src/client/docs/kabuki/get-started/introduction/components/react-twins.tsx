@@ -1,5 +1,5 @@
 import { Router } from '@kestack/kabuki/routing';
-import { ArrowRightIcon } from '@kestack/web-platform/ui/components/lucide';
+import { ArrowRightIcon } from 'lucide-react';
 import { docOf, numberOf, router } from '../../../../../../shared/index.ts';
 import type { Slug } from '../../../../../../shared/index.ts';
 

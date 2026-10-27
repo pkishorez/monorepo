@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { Input } from '@kestack/web-platform/ui/components/input';
 import { Label } from '@kestack/web-platform/ui/components/label';
-import { XIcon } from '@kestack/web-platform/ui/components/lucide';
+import { XIcon } from 'lucide-react';
 
 export const entryHint =
   'Point Monoverse at a monorepo root or a package folder by its absolute path.';

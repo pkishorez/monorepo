@@ -7,7 +7,7 @@ import {
   SkipBackIcon,
   SkipForwardIcon,
   SquareIcon,
-} from '@kestack/web-platform/ui/components/lucide';
+} from 'lucide-react';
 import { PlaylistLive, SongLive } from './playlist.ts';
 
 /** Three bars that pulse while a song plays. */

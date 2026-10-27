@@ -7,7 +7,7 @@ import {
   BookOpenText,
   ChartNoAxesGantt,
   XIcon,
-} from '@kestack/web-platform/ui/components/lucide';
+} from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { useLotelStore } from './state';
 

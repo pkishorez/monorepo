@@ -13,12 +13,7 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from '@kestack/web-platform/ui/components/empty';
-import {
-  CheckIcon,
-  EllipsisIcon,
-  FolderIcon,
-  PlusIcon,
-} from '@kestack/web-platform/ui/components/lucide';
+import { CheckIcon, EllipsisIcon, FolderIcon, PlusIcon } from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import type { ProjectEntry } from '../../../../rpc/index.js';
 import { EntryForm, entryHint } from './entry-form.js';

@@ -1,8 +1,4 @@
-import {
-  Globe,
-  ShieldAlert,
-  Terminal,
-} from '@kestack/web-platform/ui/components/lucide';
+import { Globe, ShieldAlert, Terminal } from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import type { Venue } from 'laymos/story/schema';
 

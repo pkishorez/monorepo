@@ -18,11 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@kestack/web-platform/ui/components/dialog';
-import {
-  CheckIcon,
-  GitBranchIcon,
-  Trash2Icon,
-} from '@kestack/web-platform/ui/components/lucide';
+import { CheckIcon, GitBranchIcon, Trash2Icon } from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import type { ProjectEntry, Worktree } from '../../../../rpc/index.js';
 import { EntryForm } from './entry-form.js';

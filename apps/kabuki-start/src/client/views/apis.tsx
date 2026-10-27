@@ -3,10 +3,7 @@ import { View } from '@kestack/kabuki/react';
 import type { ViewProps } from '@kestack/kabuki/react';
 import { Badge } from '@kestack/web-platform/ui/components/badge';
 import { Button } from '@kestack/web-platform/ui/components/button';
-import {
-  CircleCheckIcon,
-  CircleXIcon,
-} from '@kestack/web-platform/ui/components/lucide';
+import { CircleCheckIcon, CircleXIcon } from 'lucide-react';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { OWNER, type Level, LEVELS } from '../../apis/access/index.ts';
 import { HelloHttp } from '../../apis/hello-http/index.ts';

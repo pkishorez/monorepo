@@ -4,7 +4,7 @@ import {
   useMotionValue,
   useMotionValueEvent,
   useTransform,
-} from '@kestack/web-platform/ui/components/motion';
+} from 'motion/react';
 import { play } from '@kestack/web-platform/ui/input';
 import {
   GestureProvider,

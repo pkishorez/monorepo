@@ -1,15 +1,8 @@
 import type { ReactNode } from 'react';
 import type { Package } from '../analysis';
 
-import {
-  ChevronLeft,
-  Layers,
-} from '@kestack/web-platform/ui/components/lucide';
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-} from '@kestack/web-platform/ui/components/motion';
+import { ChevronLeft, Layers } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 

@@ -1,7 +1,7 @@
 import { View } from '@kestack/kabuki/react';
 import { useSyncExternalStore } from 'react';
 import { Router } from '@kestack/kabuki/routing';
-import { ArrowLeftIcon } from '@kestack/web-platform/ui/components/lucide';
+import { ArrowLeftIcon } from 'lucide-react';
 import { Pages, router } from '../../../shared/index.ts';
 import { ThemeToggle } from '../../components/index.ts';
 import { SnakeRecord } from '../../docs/index.ts';

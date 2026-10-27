@@ -5,7 +5,7 @@ import {
   ChevronRightIcon,
   PauseIcon,
   PlayIcon,
-} from '#kit/icons';
+} from 'lucide-react';
 import { cn } from '#kit/class-names';
 import { Track } from './track.tsx';
 

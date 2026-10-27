@@ -14,8 +14,8 @@ import {
   MailIcon,
   PlugIcon,
   XIcon,
-} from '#kit/icons';
-import { AnimatePresence, motion } from '#kit/motion';
+} from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '#kit/class-names';
 import { JsonTree } from '../../../../ui/viewers/json/index.ts';
 import type { Condition, SlotPrint } from '../read/blueprint.ts';
@@ -54,7 +54,10 @@ import { CARD_SPRING } from './space.ts';
  * edge, a tab named for the Message: amber when it changed the card, grey
  * when it changed nothing or no rule took it.
  *
- * Small, a card says its slot, its State and how many Workers run. Open,
+ * Small, a card says its slot and its State on one line, what Actor it is
+ * and how many Workers run on the next, and the key it is made again by,
+ * if it has one, on a third, made readable: a list of ids by its parts,
+ * a long id by its start and end, the whole on hover. Open,
  * it is laid out at its own size, so its Children move aside; its header
  * closes it again. Running, it shows what it is now: Always and the one
  * State it is in, its Model and Props as values; one switch in its header
@@ -65,6 +68,17 @@ import { CARD_SPRING } from './space.ts';
 export type Size = 'small' | 'open';
 
 export const SMALL = { width: 220, height: 58 } as const;
+/** A small card with a key: one line taller, for the key. */
+export const SMALL_KEYED = { width: SMALL.width, height: 78 } as const;
+
+/**
+ * Where a card's lines leave and arrive, and its fold button sits, down
+ * from its top: a small card's middle; an open card's header.
+ */
+export const anchorOf = (card: {
+  readonly width: number;
+  readonly height: number;
+}) => (card.width === OPEN_WIDTH ? 29 : card.height / 2);
 export const OPEN_WIDTH = 408;
 
 /** What came of the Message a card took: it changed the card, or it did not. */
@@ -1292,6 +1306,34 @@ export const nameOf = (node: GraphNode) => {
   return { name, key: rest.length > 0 ? rest.join(' #') : undefined };
 };
 
+/** How big a card is, small: one line taller with a key to show. */
+export const smallOf = (node: GraphNode) =>
+  nameOf(node).key === undefined ? SMALL : SMALL_KEYED;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** One id as a person reads it: a UUID by its first eight, as a commit is; a long one by its start and end. */
+const readableId = (id: string) =>
+  UUID.test(id)
+    ? id.slice(0, 8)
+    : id.length > 22
+      ? `${id.slice(0, 10)}…${id.slice(-8)}`
+      : id;
+
+/**
+ * A key as a person reads it: a list, as an `each` keyed by several ids
+ * is, by its parts in order; else the one id.
+ */
+export const readableKey = (key: string): string => {
+  try {
+    const parsed: unknown = JSON.parse(key);
+    if (Array.isArray(parsed))
+      return parsed.map((part) => readableId(String(part))).join(' / ');
+    if (typeof parsed === 'string') return readableId(parsed);
+  } catch {}
+  return readableId(key);
+};
+
 /**
  * The open card's header, each thing on its own line and the controls
  * centred beside them: its name; what Actor it is, when and where it
@@ -1519,7 +1561,7 @@ export function ActorNode({
         )}
         style={{
           width: open ? OPEN_WIDTH : SMALL.width,
-          ...(open ? {} : { height: SMALL.height }),
+          ...(open ? {} : { height: smallOf(node).height }),
         }}
       >
         {/* Its one mark, a stripe set in from its corners: the colour of what
@@ -1579,19 +1621,11 @@ export function ActorNode({
               aria-label={`${node.title}${changed ? ', changed at this Step' : ''}`}
               className="flex w-full min-w-0 flex-col gap-1 px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
             >
+              {/* Who it is, and the State it is in. */}
               <span className="flex w-full min-w-0 items-center gap-1.5">
                 <span className="min-w-0 truncate text-sm font-medium">
                   {nameOf(node).name}
                 </span>
-                {nameOf(node).key && (
-                  <span
-                    title={nameOf(node).key}
-                    // The key gives way first, the name after.
-                    className="min-w-0 shrink-[4] truncate font-mono text-[10px] text-muted-foreground/80"
-                  >
-                    #{nameOf(node).key}
-                  </span>
-                )}
                 {node.state && node.state !== 'Single' && (
                   <span className="ml-auto">
                     <Tag
@@ -1604,12 +1638,17 @@ export function ActorNode({
                   </span>
                 )}
               </span>
+              {/* What Actor it is and where, and its Workers running. */}
               <span className="flex w-full min-w-0 items-center gap-2 text-xs text-muted-foreground">
                 <span className="truncate">
-                  {node.print.name !== nameOf(node).name
-                    ? node.print.name
-                    : ' '}
-                  {node.within ? ` · in ${node.within}` : ''}
+                  {[
+                    node.print.name !== nameOf(node).name
+                      ? node.print.name
+                      : undefined,
+                    node.within ? `in ${node.within}` : undefined,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || '\u00a0'}
                 </span>
                 {node.instance && workers.length > 0 && (
                   <span
@@ -1625,11 +1664,24 @@ export function ActorNode({
                   </span>
                 )}
               </span>
+              {/* The key it is made again by, readable; the whole on hover. */}
+              {nameOf(node).key && (
+                <span
+                  title={nameOf(node).key}
+                  className="flex w-full min-w-0 items-center gap-1.5 text-[11px]"
+                >
+                  <span className="shrink-0 text-muted-foreground/70">key</span>
+                  <span className="min-w-0 truncate font-mono text-muted-foreground">
+                    {readableKey(nameOf(node).key!)}
+                  </span>
+                </span>
+              )}
             </button>
           )}
         </div>
       </div>
-      {/* Open or not, a card folds and unfolds what is under it, on its edge where its lines leave. */}
+      {/* Open or not, a card folds and unfolds what is under it: beside it,
+          clear of what it says, where its lines leave. */}
       {node.children.length > 0 && (
         <button
           type="button"
@@ -1639,7 +1691,13 @@ export function ActorNode({
               : `Fold what is under ${node.title}`
           }
           onClick={() => onFold(node.id, placed.hidden > 0)}
-          className="absolute top-[29px] -right-3 z-10 flex h-6 min-w-6 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background px-1.5 font-mono text-[11px] text-muted-foreground outline-none transition-colors duration-150 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+          // Easy to hit: larger than it looks, its reach running past its edge.
+          style={{
+            top: anchorOf(
+              open ? { width: OPEN_WIDTH, height: 0 } : smallOf(node),
+            ),
+          }}
+          className="absolute left-full z-10 ml-1.5 flex h-8 min-w-8 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background px-2 font-mono text-xs font-medium text-muted-foreground outline-none transition-[color,background-color,scale] duration-150 ease-out before:absolute before:-inset-2 before:content-[''] hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.94] motion-reduce:transition-none"
         >
           {placed.hidden > 0 ? `+${placed.hidden}` : '−'}
         </button>
