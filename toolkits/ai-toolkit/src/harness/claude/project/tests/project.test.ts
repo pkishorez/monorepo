@@ -306,6 +306,32 @@ describe('project, on hand-made records', () => {
     expect(call('Skill', {})).toMatchObject({ tool: 'other', title: 'Skill' });
   });
 
+  it('shows an Agent Question as a question titled by what it asks', () => {
+    const ask = (questions: ReadonlyArray<Record<string, string>>) =>
+      of({
+        type: 'assistant',
+        message: {
+          content: [
+            {
+              type: 'tool_use',
+              id: 'x',
+              name: 'AskUserQuestion',
+              input: { questions },
+            },
+          ],
+        },
+      })?.parts[0];
+    expect(
+      ask([{ header: 'Colour', question: 'Which colour?' }]),
+    ).toMatchObject({ tool: 'question', title: 'Which colour?' });
+    expect(
+      ask([
+        { header: 'Colour', question: 'Which colour?' },
+        { header: 'Fruits', question: 'Which fruits?' },
+      ]),
+    ).toMatchObject({ tool: 'question', title: 'Colour, Fruits' });
+  });
+
   it('ends a failed turn with its errors', () => {
     expect(
       of({

@@ -14,7 +14,10 @@ import type {
   HarnessError,
   TurnHandle,
 } from '@kestack/ai-toolkit/harness';
-import type { BackgroundJob } from '@kestack/ai-toolkit/contract';
+import type {
+  AgentQuestion,
+  BackgroundJob,
+} from '@kestack/ai-toolkit/contract';
 import { Agents, type SessionAgent } from '../../capabilities/index.js';
 
 /*
@@ -25,10 +28,10 @@ import { Agents, type SessionAgent } from '../../capabilities/index.js';
  * just the Agent and the next use opens it again, and the Session stopping
  * closes it with everything else. An open that fails leaves nothing open.
  *
- * While open, what the Agent reports between Turns is kept here, so it
- * outlives any one Turn: its Background Jobs, and the Turns it started on
- * its own, waiting for the Session to run them. Closing the Agent clears
- * both: its jobs die with it.
+ * While open, what the Agent reports is kept here, apart from any one
+ * Turn: its Background Jobs, its Agent Questions, and the Turns it started
+ * on its own, waiting for the Session to run them. Closing the Agent
+ * clears all three: its jobs die with it, and its questions with its Turn.
  */
 
 const kept = (open: Effect.Effect<Agent, HarnessError, Scope.Scope>) =>
@@ -36,6 +39,9 @@ const kept = (open: Effect.Effect<Agent, HarnessError, Scope.Scope>) =>
     const outer = yield* Effect.scope;
     const lock = yield* Semaphore.make(1);
     const jobs = yield* SubscriptionRef.make<ReadonlyArray<BackgroundJob>>([]);
+    const questions = yield* SubscriptionRef.make<ReadonlyArray<AgentQuestion>>(
+      [],
+    );
     const waiting = yield* SubscriptionRef.make<ReadonlyArray<TurnHandle>>([]);
     let current:
       | { readonly agent: Agent; readonly scope: Scope.Closeable }
@@ -45,14 +51,20 @@ const kept = (open: Effect.Effect<Agent, HarnessError, Scope.Scope>) =>
     const follow = (agent: Agent) =>
       Effect.gen(function* () {
         yield* Effect.addFinalizer(() =>
-          Effect.andThen(
+          Effect.all([
             SubscriptionRef.set(jobs, []),
+            SubscriptionRef.set(questions, []),
             SubscriptionRef.set(waiting, []),
-          ),
+          ]),
         );
         yield* Effect.forkScoped(
           Stream.runForEach(agent.backgroundJobs, (now) =>
             SubscriptionRef.set(jobs, now),
+          ),
+        );
+        yield* Effect.forkScoped(
+          Stream.runForEach(agent.questions, (now) =>
+            SubscriptionRef.set(questions, now),
           ),
         );
         yield* Effect.forkScoped(
@@ -90,6 +102,7 @@ const kept = (open: Effect.Effect<Agent, HarnessError, Scope.Scope>) =>
       opened: Effect.sync(() => current?.agent),
       reset,
       jobs: SubscriptionRef.changes(jobs),
+      questions: SubscriptionRef.changes(questions),
       nextAgentTurn: Effect.asVoid(
         SubscriptionRef.changes(waiting).pipe(
           Stream.filter((all) => all.length > 0),

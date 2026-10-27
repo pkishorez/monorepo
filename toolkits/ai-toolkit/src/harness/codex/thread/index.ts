@@ -10,5 +10,10 @@ export {
   type TextChunk,
   type ToolItem,
 } from './thread.js';
+export {
+  QUESTION_ANSWERED,
+  QUESTION_ASKED,
+  type QuestionAnswered,
+} from './questions.js';
 export { readableError, TURN_END } from './turn-end.js';
 export { codexOneShot } from './one-shot.js';

@@ -1,12 +1,14 @@
 import type { Scope, Stream } from 'effect';
 import { Context, Data, Effect, Layer } from 'effect';
 import type {
+  AgentQuestion,
   AskAnswer,
   Attachment,
   BackgroundJob,
   BinaryInfo,
   ContextUsage,
   McpServerStatus,
+  QuestionAnswer,
   Skill,
 } from '../../contract/wire/index.js';
 import type {
@@ -16,12 +18,14 @@ import type {
 import type { HarnessName, Json, Raw } from '../../contract/raw/index.js';
 
 export type {
+  AgentQuestion,
   AskAnswer,
   Attachment,
   BackgroundJob,
   BinaryInfo,
   ContextUsage,
   McpServerStatus,
+  QuestionAnswer,
   Skill,
 } from '../../contract/wire/index.js';
 
@@ -141,6 +145,20 @@ export interface Agent {
   /** The agent's Background Jobs, the current list first, then each change. */
   readonly backgroundJobs: Stream.Stream<ReadonlyArray<BackgroundJob>>;
   readonly stopBackgroundJob: (id: string) => Effect.Effect<void, HarnessError>;
+  /**
+   * The Agent Questions the running Turn waits on, the current list first,
+   * then each change. One goes once answered or declined, and every one
+   * goes when its Turn ends.
+   */
+  readonly questions: Stream.Stream<ReadonlyArray<AgentQuestion>>;
+  /**
+   * Answers an Agent Question by its id, or declines it with null, so the
+   * agent carries on without an answer. Fails once it is no longer asked.
+   */
+  readonly answer: (
+    id: string,
+    answer: QuestionAnswer | null,
+  ) => Effect.Effect<void, HarnessError>;
   readonly mcpStatus: Effect.Effect<
     ReadonlyArray<McpServerStatus>,
     HarnessError

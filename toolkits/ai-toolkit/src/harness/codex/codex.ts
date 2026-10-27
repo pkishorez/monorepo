@@ -14,7 +14,8 @@ import { openSession, SETTINGS, threadOptions } from './thread/index.js';
 
 /**
  * Codex through `codex app-server`: one process per session, approvals
- * never asked (`approvalPolicy: never`, any request answered at once), and
+ * never asked (`approvalPolicy: never`, any request answered at once but
+ * the questions an Agent asks the user), and
  * every whole record of a turn, sub-agents included, streamed as Raw.
  * Forks, asks and catalog reads each run their own short-lived process.
  */
@@ -28,7 +29,7 @@ export const codex: Harness = {
   settings: SETTINGS,
   open: (config) =>
     Effect.gen(function* () {
-      const server = yield* start(config.cwd);
+      const server = yield* start(config.cwd, { questions: true });
       return yield* openSession(server, {
         cwd: config.cwd,
         model: config.model,

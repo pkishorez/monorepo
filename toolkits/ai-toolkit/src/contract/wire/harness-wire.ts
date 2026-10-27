@@ -48,6 +48,57 @@ export const BackgroundJobSchema = Schema.Struct({
 });
 export type BackgroundJob = typeof BackgroundJobSchema.Type;
 
+/** One choice of a Question Item. */
+export const QuestionOptionSchema = Schema.Struct({
+  label: Schema.String,
+  /** What choosing it means; empty when the harness gives none. */
+  description: Schema.String,
+});
+export type QuestionOption = typeof QuestionOptionSchema.Type;
+
+/** One question of an Agent Question, answered by choosing or typing. */
+export const QuestionItemSchema = Schema.Struct({
+  /** The harness's own id for it, unique within its Agent Question. */
+  id: Schema.String,
+  /** A few words a person reads first, such as `Auth method`. */
+  header: Schema.String,
+  question: Schema.String,
+  /** None: the answer is typed. */
+  options: Schema.Array(QuestionOptionSchema),
+  /** More than one option may be chosen. */
+  multiSelect: Schema.Boolean,
+  /** An answer of the user's own may be typed instead of, or beside, the options. */
+  other: Schema.Boolean,
+  /** What is typed is a secret, such as a password, and is not shown. */
+  secret: Schema.Boolean,
+});
+export type QuestionItem = typeof QuestionItemSchema.Type;
+
+/**
+ * A question the agent puts to the user while a Turn runs: one to four
+ * Items, asked together. The Turn waits until it is answered or declined,
+ * and it goes when the Turn ends.
+ */
+export const AgentQuestionSchema = Schema.Struct({
+  /** The harness's own id: a Claude tool call id, a Codex item id. */
+  id: Schema.String,
+  items: Schema.NonEmptyArray(QuestionItemSchema),
+  /** Epoch ms. */
+  askedAt: Schema.Finite,
+});
+export type AgentQuestion = typeof AgentQuestionSchema.Type;
+
+/**
+ * The user's answer to an Agent Question, by Item id: the labels of the
+ * options chosen, then what they typed, if anything. An Item left out was
+ * not answered.
+ */
+export const QuestionAnswerSchema = Schema.Record(
+  Schema.String,
+  Schema.Array(Schema.String),
+);
+export type QuestionAnswer = typeof QuestionAnswerSchema.Type;
+
 export const MCP_SERVER_STATES = [
   'connected',
   'failed',

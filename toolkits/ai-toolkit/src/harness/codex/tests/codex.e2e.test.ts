@@ -8,14 +8,24 @@ import {
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { deflateSync } from 'node:zlib';
-import { Duration, Effect, Fiber, Layer, Stream, type Schema } from 'effect';
+import {
+  Duration,
+  Effect,
+  Fiber,
+  Layer,
+  Option,
+  Stream,
+  type Schema,
+} from 'effect';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
   HarnessAccount,
   isRecord,
   OneShotPrompt,
   type Agent,
+  type AgentQuestion,
   type BackgroundJob,
+  type QuestionAnswer,
   type RawOut,
   type TurnEnd,
   type TurnHandle,
@@ -537,6 +547,20 @@ const jobsUntil = (
     Effect.timeout(Duration.seconds(45)),
   );
 
+/** Answers the first Agent Question the session lists, once it is listed. */
+const answerFirst = (
+  session: Agent,
+  reply: (question: AgentQuestion) => QuestionAnswer | null,
+) =>
+  session.questions.pipe(
+    Stream.filter((list) => list.length > 0),
+    Stream.runHead,
+    Effect.map(Option.getOrThrow),
+    Effect.tap(([question]) => session.answer(question!.id, reply(question!))),
+    Effect.map(([question]) => question!),
+    Effect.forkChild,
+  );
+
 const SKILL = 'e2e-codeword';
 const SKILL_WORD = 'PELICAN-7731';
 
@@ -925,6 +949,77 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
           ).pipe(Effect.provide(account(installedCodex))),
         );
         expect(assistantText(projectAll(outs))).toContain('native-ok');
+      },
+      TIMEOUT,
+    );
+
+    it(
+      'asks an Agent Question and takes the answers; declined, the agent carries on',
+      async () => {
+        await run(
+          Effect.gen(function* () {
+            const session = yield* open();
+            const asked = yield* answerFirst(session, (question) => {
+              const [first, ...rest] = question.items;
+              return {
+                [first!.id]: [first!.options[0]!.label],
+                ...Object.fromEntries(
+                  rest.map((item) => [item.id, ['Durian and lychee']]),
+                ),
+              };
+            });
+            const outs = yield* collect(
+              session,
+              'Use your request_user_input tool once to ask me two questions ' +
+                'in one call: (1) my favourite colour, with options; (2) ' +
+                'which fruits I like, with options. Then repeat exactly what ' +
+                'I answered.',
+              'question',
+            );
+            const question = yield* Fiber.join(asked);
+            expect(question.items).toHaveLength(2);
+            const [colour] = question.items;
+            expect(colour).toMatchObject({ multiSelect: false });
+            expect(question.items[1]?.other).toBe(true);
+            const messages = projectAll(outs);
+            const call = ofType(messages, 'toolCall').find(
+              (part) => part.tool === 'question',
+            );
+            expect(call?.id).toBe(question.id);
+            const result = ofType(messages, 'toolResult').find(
+              (part) => part.toolCallId === question.id,
+            );
+            expect(result?.isError).toBe(false);
+            expect(result?.output).toContain('Durian and lychee');
+            const said = assistantText(messages);
+            expect(said).toContain(colour!.options[0]!.label);
+            expect(said.toLowerCase()).toContain('durian');
+
+            const refused = yield* answerFirst(session, () => null);
+            const declined = projectAll(
+              yield* collect(
+                session,
+                'Use your request_user_input tool to ask me which pet I ' +
+                  'prefer, with options. If I give no answer, reply ' +
+                  'NO-ANSWER and nothing else.',
+                'question-declined',
+              ),
+            );
+            const gone = yield* Fiber.join(refused);
+            expect(
+              ofType(declined, 'toolResult').find(
+                (part) => part.toolCallId === gone.id,
+              ),
+            ).toMatchObject({ output: 'Not answered', isError: true });
+            expect(assistantText(declined)).toContain('NO-ANSWER');
+            expect(ofType(declined, 'turnEnded')).toEqual([
+              { type: 'turnEnded', status: 'done' },
+            ]);
+            expect(
+              Option.getOrThrow(yield* Stream.runHead(session.questions)),
+            ).toEqual([]);
+          }),
+        );
       },
       TIMEOUT,
     );

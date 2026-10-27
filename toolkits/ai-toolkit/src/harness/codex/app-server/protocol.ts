@@ -407,6 +407,36 @@ export interface Requests {
 }
 export type RequestMethod = keyof Requests;
 
+/** One question of an `item/tool/requestUserInput` request. */
+export interface UserInputQuestion {
+  readonly id: string;
+  readonly header: string;
+  readonly question: string;
+  /** The user may type an answer of their own. */
+  readonly isOther: boolean;
+  readonly isSecret: boolean;
+  /** None: the answer is typed. */
+  readonly options: ReadonlyArray<{
+    readonly label: string;
+    readonly description: string;
+  }> | null;
+}
+
+/** The questions the agent asks with its `request_user_input` tool. */
+export interface UserInputRequest {
+  readonly threadId: string;
+  readonly turnId: string;
+  readonly itemId: string;
+  readonly questions: ReadonlyArray<UserInputQuestion>;
+}
+
+/** The answers to a `UserInputRequest`, by question id. */
+export interface UserInputResponse {
+  readonly answers: Readonly<
+    Record<string, { readonly answers: ReadonlyArray<string> }>
+  >;
+}
+
 /** Server → client notifications this harness reads, by method. */
 export interface Notifications {
   readonly 'turn/started': { readonly threadId: string; readonly turn: Turn };
@@ -434,6 +464,11 @@ export interface Notifications {
     readonly threadId: string;
     readonly turnId: string;
     readonly tokenUsage: ThreadTokenUsage;
+  };
+  /** A request the server sent is settled: answered, or dropped by Codex. */
+  readonly 'serverRequest/resolved': {
+    readonly threadId: string;
+    readonly requestId: number | string;
   };
   /** Skill files changed on disk: lists read before are stale. */
   readonly 'skills/changed': Readonly<Record<string, never>>;
