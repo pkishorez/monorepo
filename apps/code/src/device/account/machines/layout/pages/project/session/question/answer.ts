@@ -1,9 +1,9 @@
-import { Schema } from 'effect';
 import type {
   AgentQuestion,
   QuestionAnswer,
   QuestionItem,
 } from '@kestack/connect/code';
+import { Drafts, ItemDraft } from '../../../../../machines.ts';
 
 /*
  * An Agent Question's answer as it is being given, one Item at a time:
@@ -13,21 +13,11 @@ import type {
  * several choices are any options and the typed answer beside them. An
  * Item with no options is answered only by typing. What is sent is the
  * labels chosen, in the options' order, then what was typed: trimmed, but
- * a secret as typed.
+ * a secret as typed. Its shape is its Machine's, which keeps it while the
+ * question is asked (`Answering`).
  */
 
-/** One Item's answer so far. */
-export const ItemDraft = Schema.Struct({
-  chosen: Schema.Array(Schema.String),
-  typed: Schema.String,
-  /** The typed answer is chosen. */
-  other: Schema.Boolean,
-});
-export type ItemDraft = typeof ItemDraft.Type;
-
-/** Every Item's answer so far, by Item id. */
-export const Drafts = Schema.Record(Schema.String, ItemDraft);
-export type Drafts = typeof Drafts.Type;
+export { Drafts, ItemDraft };
 
 const EMPTY: ItemDraft = { chosen: [], typed: '', other: false };
 

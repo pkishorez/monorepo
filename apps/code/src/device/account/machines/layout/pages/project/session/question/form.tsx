@@ -27,7 +27,7 @@ import {
   typable,
   unanswered,
 } from './answer.ts';
-import type { Stop } from './question.ts';
+import { type Stop, stopTitle } from './question.ts';
 
 /*
  * The Question Panel expanded: every Item in one list that scrolls, so all
@@ -118,8 +118,9 @@ export function Form({
     enter('question');
   }, [expanded]);
 
-  // Back from what was drawn over it, such as Actions, focus goes back to
-  // the row it left, not to the panel, so the arrows go on from there.
+  // Back from what was drawn over it, such as Actions, or from the
+  // sidebar, focus goes back to the row it left, not to the panel, so the
+  // arrows go on from there; never in it yet, to the first left.
   const { active } = keys.useSurface('question');
   useEffect(() => {
     if (!active || !expanded) return;
@@ -129,8 +130,10 @@ export function Form({
         now instanceof HTMLElement &&
         now !== root.current &&
         root.current?.contains(now) === true;
-      if (!within && last.current?.isConnected === true)
+      if (within) return;
+      if (last.current?.isConnected === true)
         last.current.focus({ preventScroll: true });
+      else moves.toItem(firstLeft(question, drafts));
     });
     return () => cancelAnimationFrame(frame);
   }, [active]);
@@ -283,7 +286,7 @@ export function Form({
                 variant="outline"
                 size="sm"
                 disabled={stop.disabled || stop.stopping}
-                title="Stop the turn"
+                title={stopTitle(stop)}
                 onClick={stop.run}
                 className="mr-auto rounded-full pointer-coarse:h-11 pointer-coarse:px-4"
               >

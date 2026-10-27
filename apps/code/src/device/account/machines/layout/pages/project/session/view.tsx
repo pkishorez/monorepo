@@ -163,6 +163,7 @@ export const SessionView = View.make(
               run: stop,
               stopping: model.stopping,
               disabled: offline !== null,
+              keys: stopKeys,
             }
           : null,
       }),
@@ -174,6 +175,7 @@ export const SessionView = View.make(
         stop,
         model.stopping,
         offline,
+        stopKeys,
       ],
     );
     // Where the Draft draws Side Question mode, in the transcript's place.

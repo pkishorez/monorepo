@@ -2,17 +2,21 @@ import type { AgentQuestion } from '@kestack/connect/code';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { cn } from '@kestack/web-platform/ui/components/utils';
-import { ChevronUpIcon, MessageCircleQuestionMarkIcon } from 'lucide-react';
-import type { Stop } from './question.ts';
+import {
+  ChevronUpIcon,
+  MessageCircleQuestionMarkIcon,
+  SquareIcon,
+} from 'lucide-react';
+import { type Stop, stopTitle } from './question.ts';
 
 /*
  * The Question Panel minimised: one bar where the Draft sits, so the
  * transcript above it can be read, scrolled and opened as ever. It says
  * who asks and what, by the questions' headers, how many are answered,
  * and, with a keyboard, the keys that open it; then Stop while the Turn
- * runs, Skip, and Open, the one way on. A tap or click on its words opens
- * it too. On touch it is a finger tall, in the Touch Draft's
- * place.
+ * runs, as the Draft's Stop is drawn, Skip, and Open, the one way on. A
+ * tap or click on its words opens it too. On touch it is a finger tall, in
+ * the Touch Draft's place; on a phone's width Stop is its icon alone.
  */
 
 export function Bar({
@@ -74,15 +78,20 @@ export function Bar({
       {stop !== null && (
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           size="sm"
           disabled={stop.disabled || stop.stopping}
-          title="Stop the turn"
+          aria-label="Stop the turn"
+          title={stopTitle(stop)}
           onClick={stop.run}
-          className="text-muted-foreground pointer-coarse:h-11 pointer-coarse:px-3"
+          className="rounded-full max-sm:w-9 max-sm:px-0 pointer-coarse:h-11 pointer-coarse:px-4 max-sm:pointer-coarse:w-11 max-sm:pointer-coarse:px-0"
         >
-          {stop.stopping && <Spinner />}
-          Stop
+          {stop.stopping ? (
+            <Spinner />
+          ) : (
+            <SquareIcon aria-hidden className="fill-current sm:hidden" />
+          )}
+          <span className="max-sm:hidden">Stop</span>
         </Button>
       )}
       <Button
