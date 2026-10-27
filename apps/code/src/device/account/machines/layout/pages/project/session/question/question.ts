@@ -11,7 +11,13 @@ export type Stop = {
   readonly stopping: boolean;
   /** Nothing can be stopped, as while the Machine is out of reach. */
   readonly disabled: boolean;
+  /** The keys that stop it, as the Draft's Stop names them, or null. */
+  readonly keys: string | null;
 };
+
+/** What Stop says on hover: what it does, and its keys. */
+export const stopTitle = (stop: Stop) =>
+  stop.keys === null ? 'Stop the turn' : `Stop the turn (${stop.keys})`;
 
 export const Around = createContext<{
   /** Over the content column, under the page header: where it is drawn expanded. */

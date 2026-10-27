@@ -24,7 +24,8 @@ import {
  * The Machines of the signed-in Account, for any Actor below the root
  * page, which Provides them. The Machines Actor of the Account signed in
  * publishes what it holds here, each Machine's line too, and each Machine
- * Actor its setup, its Unseen marks, its Agent Questions and its Replicas; each hears what
+ * Actor its setup, its Unseen marks, its Agent Questions, how they are
+ * being answered here, and its Replicas; each hears what
  * others ask, as the Web Platform's Account Switcher does with
  * `CurrentAccount`. A page is no Child of a Machine, so it reaches the
  * Machine's records through here: its Replicas, by its id.
@@ -114,6 +115,36 @@ export interface SetupRequest {
   readonly ask: { readonly _tag: 'Asked' } | SetupChange;
 }
 
+/** One Item of an Agent Question, as it is being answered here. */
+export const ItemDraft = Schema.Struct({
+  chosen: Schema.Array(Schema.String),
+  typed: Schema.String,
+  /** The typed answer is chosen. */
+  other: Schema.Boolean,
+});
+export type ItemDraft = typeof ItemDraft.Type;
+
+/** Every Item's answer so far, by Item id. */
+export const Drafts = Schema.Record(Schema.String, ItemDraft);
+export type Drafts = typeof Drafts.Type;
+
+/**
+ * How a Session's Agent Questions are being answered here, each by its
+ * id: kept by their Machine while each is asked, in memory only, since an
+ * answer may be a secret (`records/questions/answering.ts`).
+ */
+export const Answering = Schema.Struct({
+  /** Each question's answer so far. */
+  drafts: Schema.Record(Schema.String, Drafts),
+  /** The questions minimised. */
+  minimised: Schema.Array(Schema.String),
+  /** The questions sent with an Item unanswered, whose Items left are marked. */
+  tried: Schema.Array(Schema.String),
+  /** The questions answered here, not shown while their Machine still lists them. */
+  sent: Schema.Array(Schema.String),
+});
+export type Answering = typeof Answering.Type;
+
 /** What is known of the Account's Machines now. */
 export interface Known {
   /** Whose Machines; null while nobody is signed in. */
@@ -145,6 +176,13 @@ export interface Known {
   readonly seen: Readonly<Record<string, Readonly<Record<string, number>>>>;
   /** Each listed Machine's Agent Questions, by id, as it last said them, while it lives. */
   readonly questions: Readonly<Record<string, ReadonlyArray<SessionQuestions>>>;
+  /**
+   * How each listed Machine's Agent Questions are being answered here, by
+   * its id, then by Session id, while each is asked.
+   */
+  readonly answering: Readonly<
+    Record<string, Readonly<Record<string, Answering>>>
+  >;
 }
 
 export const nobody: Known = {
@@ -159,6 +197,7 @@ export const nobody: Known = {
   setups: {},
   seen: {},
   questions: {},
+  answering: {},
 };
 
 /** What another Actor may ask for, as the Messages it becomes. */
@@ -166,6 +205,13 @@ export type Request =
   | { readonly _tag: 'ReloadAsked' }
   | { readonly _tag: 'ForgetAsked'; readonly id: string }
   | { readonly _tag: 'ForgetDismissed' };
+
+/** How a Session's Agent Questions are being answered, for its Machine to keep. */
+export interface AnsweringKept {
+  readonly machineId: string;
+  readonly sessionId: string;
+  readonly answering: Answering;
+}
 
 /** Between the root page and the Machines Actor and each Machine, which publish there. */
 export class Link extends Context.Service<
@@ -176,6 +222,8 @@ export class Link extends Context.Service<
     readonly asked: Queue.Queue<Request>;
     /** What is asked of the Machines, each hearing its own. */
     readonly setupsAsked: PubSub.PubSub<SetupRequest>;
+    /** How Agent Questions are being answered, each Machine keeping its own. */
+    readonly answeringKept: PubSub.PubSub<AnsweringKept>;
     /** Each running Machine's Replicas, by id: its sync Store's Instances. */
     readonly replicas: SubscriptionRef.SubscriptionRef<
       Readonly<Record<string, Replicas['Service']>>
@@ -202,6 +250,20 @@ export class Machines extends Context.Service<
     readonly questions: (
       id: string,
     ) => Stream.Stream<ReadonlyArray<SessionQuestions>>;
+    /**
+     * How the Session's Agent Questions are being answered here, as its
+     * Machine keeps them while each is asked; null when nothing is kept.
+     */
+    readonly answering: (
+      id: string,
+      sessionId: string,
+    ) => Effect.Effect<Answering | null>;
+    /** Gives the Machine how the Session's Agent Questions are being answered, to keep. */
+    readonly keepAnswering: (
+      id: string,
+      sessionId: string,
+      answering: Answering,
+    ) => Effect.Effect<void>;
     /** Asks the Machine to be asked for its setup again. */
     readonly refresh: (id: string) => Effect.Effect<void>;
     /** Tells the Machine of a change made to it, for its setup to show at once and ask again. */
@@ -231,6 +293,7 @@ export const machinesLayer: Layer.Layer<Machines | Link> = Layer.effectContext(
     const known = yield* SubscriptionRef.make<Known>(nobody);
     const asked = yield* Queue.unbounded<Request>();
     const setupsAsked = yield* PubSub.unbounded<SetupRequest>();
+    const answeringKept = yield* PubSub.unbounded<AnsweringKept>();
     const replicas = yield* SubscriptionRef.make<
       Readonly<Record<string, Replicas['Service']>>
     >({});
@@ -269,7 +332,13 @@ export const machinesLayer: Layer.Layer<Machines | Link> = Layer.effectContext(
           }),
         ),
       );
-    return Context.make(Link, { known, asked, setupsAsked, replicas }).pipe(
+    return Context.make(Link, {
+      known,
+      asked,
+      setupsAsked,
+      answeringKept,
+      replicas,
+    }).pipe(
       Context.add(Machines, {
         state,
         current: SubscriptionRef.get(known),
@@ -291,6 +360,19 @@ export const machinesLayer: Layer.Layer<Machines | Link> = Layer.effectContext(
           state.pipe(
             Stream.map(({ questions }) => questions[id] ?? none),
             Stream.changes,
+          ),
+        answering: (id, sessionId) =>
+          Effect.map(
+            SubscriptionRef.get(known),
+            ({ answering }) => answering[id]?.[sessionId] ?? null,
+          ),
+        keepAnswering: (id, sessionId, answering) =>
+          Effect.asVoid(
+            PubSub.publish(answeringKept, {
+              machineId: id,
+              sessionId,
+              answering,
+            }),
           ),
         refresh: (id) => askSetups({ machineId: id, ask: { _tag: 'Asked' } }),
         changed: (id, change) => askSetups({ machineId: id, ask: change }),

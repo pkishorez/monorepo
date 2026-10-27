@@ -15,6 +15,7 @@ import {
   type HarnessAccountInfo,
   type HarnessInfo,
   ModelsUnavailable,
+  type SessionQuestions,
   type SpeechToTextState,
 } from '@kestack/connect/code';
 import { Actor, Runtime } from '@kestack/kabuki';
@@ -36,7 +37,8 @@ import { Machine } from '../index.ts';
  * but not each step of a download; a model list refused keeps what showed.
  * Its Unseen marks are its own, said through `Machines` and read again on
  * each write; its records are in its own sync Store, its Replicas said
- * through `Machines` while it runs.
+ * through `Machines` while it runs. How its Agent Questions are being
+ * answered is kept while each is asked, and goes once it is not.
  */
 
 type Api = CodeClient['Service'];
@@ -82,6 +84,9 @@ const OwnerLive = Actor.build(Actor.define('Owner', {}), {
 const world = Effect.gen(function* () {
   const line = yield* SubscriptionRef.make<Line>('connecting');
   const speech = yield* Queue.unbounded<SpeechToTextState>();
+  const asked = yield* SubscriptionRef.make<ReadonlyArray<SessionQuestions>>(
+    [],
+  );
   const state = {
     asks: 0,
     accounts: Effect.succeed([CLAUDE]) as Effect.Effect<
@@ -106,6 +111,8 @@ const world = Effect.gen(function* () {
           Effect.succeed([HARNESS])) as unknown as Api['harnesses'],
         models: (() =>
           Effect.suspend(() => state.models)) as unknown as Api['models'],
+        agentQuestions: (() =>
+          SubscriptionRef.changes(asked)) as unknown as Api['agentQuestions'],
         watchSpeechToText: (() =>
           Stream.fromQueue(speech)) as unknown as Api['watchSpeechToText'],
       }),
@@ -116,7 +123,7 @@ const world = Effect.gen(function* () {
       }),
     ),
   );
-  return { line, speech, state, clients };
+  return { line, speech, asked, state, clients };
 });
 
 const wait = (ms = 20) =>
@@ -389,6 +396,52 @@ describe('Machine', () => {
         expect(Object.keys(yield* SubscriptionRef.get(link.replicas))).toEqual([
           'm1',
         ]);
+      }),
+    ));
+
+  it('keeps how its Agent Questions are being answered while each is asked', () =>
+    run(({ start, machines, asked }) =>
+      Effect.gen(function* () {
+        const question = {
+          id: 'q1',
+          askedAt: 0,
+          items: [
+            {
+              id: 'a',
+              header: 'Go',
+              question: 'Go on?',
+              options: [{ label: 'Yes', description: '' }],
+              multiSelect: false,
+              other: false,
+              secret: false,
+            },
+          ] as const,
+        };
+        const answering = {
+          drafts: { q1: { a: { chosen: ['Yes'], typed: '', other: false } } },
+          minimised: ['q1'],
+          tried: [],
+          sent: [],
+        };
+        yield* SubscriptionRef.set(asked, [
+          { sessionId: 's1', projectId: 'p1', questions: [question] },
+        ]);
+        yield* start;
+        yield* wait();
+        yield* machines.keepAnswering('m1', 's1', answering);
+        // One for a question it does not ask is not kept.
+        yield* machines.keepAnswering('m1', 's2', {
+          ...answering,
+          sent: ['q9'],
+        });
+        yield* wait();
+        expect(yield* machines.answering('m1', 's1')).toEqual(answering);
+        expect(yield* machines.answering('m1', 's2')).toBeNull();
+        // Answered, declined or its Turn ended: it goes with the question.
+        yield* SubscriptionRef.set(asked, []);
+        yield* wait();
+        expect(yield* machines.answering('m1', 's1')).toBeNull();
+        expect((yield* machines.current).answering).toEqual({ m1: {} });
       }),
     ));
 });

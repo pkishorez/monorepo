@@ -27,7 +27,8 @@ import { Around } from './question.ts';
  * it, and the bar, or `i`, which never reaches the hidden Draft, opens it.
  * Expanding by the user's ask takes focus into it; a new question takes
  * focus only from the page, never from the sidebar; minimising gives it
- * back to the page. It moves in and out quickly, by transform and opacity
+ * back to the page, and coming back to the page while it is expanded goes
+ * into it. It moves in and out quickly, by transform and opacity
  * alone, not at all when motion is reduced. A refusal to take the answer
  * is said in a toast; a refusal to stop, over the bar.
  */
@@ -51,7 +52,10 @@ export const QuestionView = View.make(QuestionLive, ({ root, model, send }) => {
     if (now instanceof HTMLElement && place?.contains(now) === true) now.blur();
     enter('content');
   };
+  /** Minimising: the page it hands the keys to is no way back into it. */
+  const leaving = useRef(false);
   const minimise = () => {
+    leaving.current = true;
     if (inIt.current) toPage();
     send({ _tag: 'Minimised' });
   };
@@ -77,6 +81,14 @@ export const QuestionView = View.make(QuestionLive, ({ root, model, send }) => {
   keys.useAction('content.questionAnywhere', toggle, on);
   // `i` opens the question, never the Draft it stands in for.
   keys.useAction('content.write', expand, on);
+  // Back to the page while it covers the transcript, as by `l` or Ctrl+L
+  // from the sidebar: the keys go into it, never to the transcript under
+  // it, which takes no focus.
+  const onPage = keyboardNow.active === 'content';
+  useEffect(() => {
+    if (!expanded) leaving.current = false;
+    else if (onPage && !leaving.current) enter('question');
+  }, [onPage, expanded]);
   // Answered, skipped or gone with focus in it: focus back to the page.
   const id = shown?.id ?? null;
   useEffect(
