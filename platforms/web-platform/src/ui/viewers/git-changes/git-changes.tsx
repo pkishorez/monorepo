@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Branch, ChangeStatus } from 'laymos';
 
-import { ChevronDown, GitBranch, Search } from '#kit/icons';
+import { ChevronDown, GitBranch, Search } from 'lucide-react';
 import { Input } from '#components/input';
 import {
   DropdownMenu,

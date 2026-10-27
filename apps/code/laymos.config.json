@@ -2,72 +2,89 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "ignoredPaths": ["src/styles.css", "src/env.d.ts"],
-  "fileModules": ["src/app.tsx", "src/keys.ts"],
+  "fileModules": [
+    "src/app.tsx",
+    "src/device/account/machines/layout/commands.ts",
+    "src/device/store.ts",
+    "src/device/account/machines/store.ts",
+    "src/device/account/machines/machines.ts",
+    "src/device/account/machines/voice/voice.ts",
+    "src/device/account/machines/layout/pages/project/store.ts",
+    "src/device/account/machines/layout/pages/settings/machines/store.ts",
+    "src/device/account/machines/layout/pages/settings/machines/machine/accounts/store.ts"
+  ],
   "rules": {
-    "src/app.tsx": [
-      "src/shell",
-      "src/layer/services",
-      "src/ui/devtools",
-      "src/ui/theme"
+    "src/app.tsx": ["src/device", "src/ui/page/devtools", "src/ui/page/theme"],
+    "src/device": ["src/ui"],
+    "src/device/kabuki": ["src/device/routes"],
+    "src/device/store.ts": ["src/device/account/store"],
+    "src/device/account/machines": ["src/device/account/store"],
+    "src/device/account/machines/machine": [
+      "src/device/account/machines/machines.ts",
+      "src/device/account/machines/store.ts"
     ],
-    "src/layer/services": ["src/layer/capabilities", "src/keys.ts"],
-    "src/layer/services/device-state": ["src/layer/services/rows"],
-    "src/layer/services/kept": ["src/layer/services/rows"],
-    "src/ui/session-status": ["src/ui/running-dot"],
-    "src/ui/status-word": ["src/ui/time"],
-    "src/ui/picker": ["src/keys.ts"],
-    "src/ui/confirm": ["src/keys.ts"],
-    "src/shell": ["src/layer/capabilities", "src/ui", "src/keys.ts"],
-    "src/shell/actors": ["src/shell/routes", "src/shell/machines"],
-    "src/shell/actors/sidebar": ["src/shell/actors/moves"],
-    "src/shell/actors/pickers/session-actions": ["src/shell/actors/moves"],
-    "src/shell/pages": ["src/shell/routes", "src/shell/machines"],
-    "src/shell/actors/sidebar/settled-list": [
-      "src/shell/actors/sidebar/swipe",
-      "src/shell/actors/sidebar/arrive"
+    "src/device/account/machines/voice": [
+      "src/device/store.ts",
+      "src/device/account/machines/machines.ts",
+      "src/device/account/machines/machine/connection"
     ],
-    "src/shell/pages/project/session": ["src/shell/pages/project/draft"],
-    "src/shell/pages/settings/general": [
-      "src/shell/actors/pickers/microphone-picker"
+    "src/device/account/machines/layout": [
+      "src/device/routes",
+      "src/device/store.ts",
+      "src/device/account/machines/store.ts",
+      "src/device/account/machines/machines.ts",
+      "src/device/account/machines/machine",
+      "src/device/account/machines/voice"
     ],
-    "src/shell/actors/pickers/project-picker": ["src/shell/pages/project"],
-    "src/shell/pages/project/starter": [
-      "src/shell/pages/project/capabilities",
-      "src/shell/pages/project/draft"
+    "src/device/account/machines/layout/pages/project/draft": [
+      "src/device/account/machines/layout/pages/project/store.ts"
     ],
-    "src/shell/pages/settings/machines/harness-accounts/card": [
-      "src/shell/pages/settings/machines/harness-accounts/capabilities"
+    "src/device/account/machines/layout/pages/project/session": [
+      "src/device/account/machines/layout/pages/project/draft"
     ],
-    "src/shell/pages/project/draft": [
-      "src/shell/pages/project/capabilities",
-      "src/shell/actors/dictation"
+    "src/device/account/machines/voice/dictation": [
+      "src/device/account/machines/voice/recorder",
+      "src/device/account/machines/voice/voice.ts"
     ],
-    "src/shell/pages/project/session/transcript/words": [
-      "src/shell/pages/project/session/transcript/fold"
+    "src/device/account/machines/voice/microphone-picker": [
+      "src/device/account/machines/voice/recorder"
     ],
-    "src/shell/pages/project/session/transcript/said": [
-      "src/shell/pages/project/session/transcript/checklist",
-      "src/shell/pages/project/session/transcript/rows",
-      "src/shell/pages/project/session/transcript/words"
+    "src/device/account/machines/machine/records": [
+      "src/device/account/machines/machine/connection"
     ],
-    "src/shell/pages/project/session/transcript/tool": [
-      "src/shell/pages/project/session/transcript/checklist",
-      "src/shell/pages/project/session/transcript/fold",
-      "src/shell/pages/project/session/transcript/rows"
+    "src/device/account/machines/layout/pages": [
+      "src/device/account/machines/layout/commands.ts"
     ],
-    "src/shell/pages/project/session/transcript/tool/kinds": [
-      "src/shell/pages/project/session/transcript/tool/call",
-      "src/shell/pages/project/session/transcript/tool/output"
+    "src/device/account/machines/layout/sidebar": [
+      "src/device/account/machines/layout/commands.ts"
     ],
-    "src/shell/pages/project/session/transcript/work": [
-      "src/shell/pages/project/session/transcript/fold",
-      "src/shell/pages/project/session/transcript/rows",
-      "src/shell/pages/project/session/transcript/said",
-      "src/shell/pages/project/session/transcript/tool",
-      "src/shell/pages/project/session/transcript/words"
+    "src/device/account/machines/layout/pickers": [
+      "src/device/account/machines/layout/commands.ts"
     ],
-    "src/shell/pages/project/session/transcript/turn": [
-      "src/shell/pages/project/session/transcript/rows"
+    "src/device/account/machines/layout/pages/project/new-session": [
+      "src/device/account/machines/layout/pages/project/draft"
+    ],
+    "src/device/account/machines/layout/pages/project/session/transcript/tool": [
+      "src/device/account/machines/layout/pages/project/session/transcript/words",
+      "src/device/account/machines/layout/pages/project/session/transcript/turns/rows"
+    ],
+    "src/device/account/machines/layout/pages/settings/machines/machine": [
+      "src/device/account/machines/layout/pages/settings/machines/store.ts"
+    ],
+    "src/device/account/machines/layout/pages/settings/machines/machine/accounts/card": [
+      "src/device/account/machines/layout/pages/settings/machines/machine/accounts/store.ts"
     ]
-  }
+  },
+  "exceptions": [
+    {
+      "from": "src/ui/controls/picker",
+      "to": "src/device/account/machines/layout/commands.ts",
+      "because": "the Picker binds the app's own keyboard Actions (picker.*), defined with every other Action in Layout's keys, which imports nothing back"
+    },
+    {
+      "from": "src/ui/controls/notice",
+      "to": "src/device/account/machines/layout/commands.ts",
+      "because": "Confirm, in the notices, binds the app's own keyboard Actions, defined with every other Action in Layout's keys, which imports nothing back"
+    }
+  ]
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { AppRuntime } from '@kestack/kabuki/react';
-import { GitBranchIcon } from '#kit/icons';
+import { GitBranchIcon } from 'lucide-react';
 import { cn } from '#kit/class-names';
 import { graphAt } from '../read/at.ts';
 import { Canvas } from '../ui/canvas.tsx';

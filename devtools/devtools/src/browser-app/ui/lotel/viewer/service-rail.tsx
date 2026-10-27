@@ -4,11 +4,8 @@ import {
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   SearchIcon,
-} from '@kestack/web-platform/ui/components/lucide';
-import {
-  AnimatePresence,
-  motion,
-} from '@kestack/web-platform/ui/components/motion';
+} from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { scrollbarStyles } from '@kestack/web-platform/ui/components/scroll-styles';
 import {

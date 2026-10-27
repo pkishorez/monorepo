@@ -7,11 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@kestack/web-platform/ui/components/dropdown-menu';
-import {
-  CheckIcon,
-  ChevronsUpDownIcon,
-  GitBranchIcon,
-} from '@kestack/web-platform/ui/components/lucide';
+import { CheckIcon, ChevronsUpDownIcon, GitBranchIcon } from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import type { Worktree, WorktreeResolution } from '../../../../rpc/index.js';
 import { currentWorktree } from './registry.js';

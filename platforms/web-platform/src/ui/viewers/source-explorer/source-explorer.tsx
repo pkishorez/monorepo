@@ -26,7 +26,7 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   RefreshCw,
-} from '#kit/icons';
+} from 'lucide-react';
 import { useIsMobile } from '#hooks/use-mobile';
 import { scrollbarStyles } from '#kit/scroll-styles';
 import { cn } from '#kit/class-names';

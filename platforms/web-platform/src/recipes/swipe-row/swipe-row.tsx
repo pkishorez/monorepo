@@ -1,4 +1,4 @@
-import { Trash2 } from '#kit/icons';
+import { Trash2 } from 'lucide-react';
 import { cn } from '#kit/class-names';
 import { GestureZone, useSwipe } from '../../ui/input/index.ts';
 import {

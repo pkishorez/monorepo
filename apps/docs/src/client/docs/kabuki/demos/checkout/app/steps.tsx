@@ -6,7 +6,7 @@ import {
   RadioGroup,
   RadioGroupItem,
 } from '@kestack/web-platform/ui/components/radio-group';
-import { CircleAlertIcon } from '@kestack/web-platform/ui/components/lucide';
+import { CircleAlertIcon } from 'lucide-react';
 import { PRICE, priceOf, type Format } from './checkout.ts';
 
 /*

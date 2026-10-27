@@ -25,7 +25,7 @@ import {
   FileCode2,
   FileDiff as FileDiffIcon,
   X,
-} from '@kestack/web-platform/ui/components/lucide';
+} from 'lucide-react';
 import { scrollbarStyles } from '@kestack/web-platform/ui/components/scroll-styles';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import {

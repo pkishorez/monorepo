@@ -2,7 +2,7 @@ import type {
   OtelSpan,
   TraceGroup,
 } from '../trace-viewer/trace-model/index.js';
-import { AlertTriangleIcon } from '@kestack/web-platform/ui/components/lucide';
+import { AlertTriangleIcon } from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { formatRelativeTime, groupTracesBy } from './filtering';
 

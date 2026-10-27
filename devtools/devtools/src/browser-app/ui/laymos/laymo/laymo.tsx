@@ -10,11 +10,7 @@ import {
 import { AnimatePresence, useReducedMotion } from 'motion/react';
 import type { ArchitectureAnalysis, ChangeSet } from 'laymos';
 
-import {
-  Files,
-  PanelRightClose,
-  PanelRightOpen,
-} from '@kestack/web-platform/ui/components/lucide';
+import { Files, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 
 import {

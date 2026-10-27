@@ -38,14 +38,6 @@
       "types": "./dist/ui/components/kit/class-names.d.ts",
       "default": "./dist/ui/components/kit/class-names.js"
     },
-    "./ui/components/lucide": {
-      "types": "./dist/ui/components/kit/icons.d.ts",
-      "default": "./dist/ui/components/kit/icons.js"
-    },
-    "./ui/components/motion": {
-      "types": "./dist/ui/components/kit/motion.d.ts",
-      "default": "./dist/ui/components/kit/motion.js"
-    },
     "./ui/components/scroll-styles": {
       "types": "./dist/ui/components/kit/scroll-styles.d.ts",
       "default": "./dist/ui/components/kit/scroll-styles.js"

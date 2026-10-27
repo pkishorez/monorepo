@@ -1,4 +1,4 @@
-import { WifiOffIcon } from '#kit/icons';
+import { WifiOffIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useOnline } from './online.js';
 

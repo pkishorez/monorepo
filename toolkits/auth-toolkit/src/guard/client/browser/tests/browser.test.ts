@@ -237,6 +237,42 @@ describe('browser', () => {
     ]);
   });
 
+  it('opens from the Account last signed in after a signed-out answer, and from nothing after a sign-out', async () => {
+    const cache = Memory.make(browserAccountsTable).layer;
+    const worker = fakeAuthWorker();
+    await run(
+      worker,
+      Effect.gen(function* () {
+        const accounts = yield* Accounts;
+        yield* settled;
+        // The cookie gone for a moment: signed out, as the Auth Worker says.
+        worker.cookie.accounts = [];
+        worker.cookie.active = null;
+        yield* accounts.check;
+      }),
+      cache,
+    );
+    worker.cookie.accounts = [ada, bob];
+    worker.cookie.active = 'bob';
+    const [first] = await run(
+      worker,
+      Effect.gen(function* () {
+        const first = yield* (yield* Accounts).current;
+        yield* settled;
+        yield* (yield* Accounts).signOutAll;
+        return [first] as const;
+      }),
+      cache,
+    );
+    expect(first).toEqual(AccountsState.Checking({ last: bob }));
+    const afterSignOut = await run(
+      worker,
+      Effect.flatMap(Accounts, ({ current }) => current),
+      cache,
+    );
+    expect(afterSignOut).toEqual(AccountsState.Checking({}));
+  });
+
   it('switches, signs one Account out, and signs every Account out', async () => {
     const worker = fakeAuthWorker();
     const [switched, signedOut, none] = await run(

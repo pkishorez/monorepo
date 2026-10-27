@@ -46,7 +46,10 @@ export interface MakeOptions {
   readonly last: Snapshot | null;
   /** Start `Checking` and check at once, rather than trust `last`. */
   readonly checkOnStart: boolean;
-  /** Remembers each Snapshot the state takes, in the order it takes them. */
+  /** Remembers the last Snapshot signed in, for `last` on the next start,
+   * in the order the state takes them: each one with an Active Account,
+   * and a signed-out one only to forget it, on a sign-out asked here or an
+   * answer that ends `Checking` (see `remembers`). */
   readonly keep?: (snapshot: Snapshot) => Effect.Effect<void>;
   /** Joins others sharing these Accounts (other tabs): they may ask to
    * check, or hand over a Snapshot they saw, and are told of each new one. */
@@ -88,6 +91,16 @@ const activeOf = (snapshot: Snapshot | null) => {
   const account = snapshot?.accounts.find(({ id }) => id === snapshot.active);
   return account && accountOf(account);
 };
+
+/** Whether `keep` is handed `snapshot`, as the state takes it from
+ * `before`: always one with an Active Account; a signed-out one only on a
+ * sign-out `asked` here, or as the answer to the check made while the last
+ * one signed in was shown (`Checking`). Any other signed-out answer, such
+ * as an Auth Worker answering signed out for a moment as it restarts, or a
+ * peer's, leaves the last one signed in remembered, so the next start
+ * shows it while it checks, and that check corrects it. */
+const remembers = (snapshot: Snapshot, before: AccountsState, asked: boolean) =>
+  activeOf(snapshot) !== undefined || asked || before._tag === 'Checking';
 
 /** The `Accounts` service over a Source: its state, kept as each action
  * answers and told to its peers when it changes, and `settle`, which checks
@@ -153,8 +166,11 @@ export const makeAccounts = ({
     });
 
     // Kept before it is shown, so whoever sees the state can rely on it.
-    const apply = (snapshot: Snapshot) =>
-      keep(snapshot).pipe(
+    const apply = (snapshot: Snapshot, asked = false) =>
+      SubscriptionRef.get(ref).pipe(
+        Effect.flatMap((before) =>
+          remembers(snapshot, before, asked) ? keep(snapshot) : Effect.void,
+        ),
         Effect.andThen(
           Effect.sync(() => {
             known = JSON.stringify(snapshot);
@@ -182,11 +198,14 @@ export const makeAccounts = ({
       },
     });
 
-    // Runs with the lock held.
-    const commit = (snapshot: Snapshot): Effect.Effect<AccountsState> =>
+    // Runs with the lock held. `asked`: a sign-out asked here.
+    const commit = (
+      snapshot: Snapshot,
+      asked = false,
+    ): Effect.Effect<AccountsState> =>
       Effect.suspend(() => {
         const changed = JSON.stringify(snapshot) !== known;
-        return apply(snapshot).pipe(
+        return apply(snapshot, asked).pipe(
           Effect.tap(() => (changed ? announce(snapshot) : Effect.void)),
         );
       });
@@ -268,10 +287,20 @@ export const makeAccounts = ({
               userId ?? (state._tag === 'SignedIn' ? state.active.id : null);
             return target === null
               ? Effect.void
-              : Effect.asVoid(Effect.flatMap(source.signOut(target), commit));
+              : Effect.asVoid(
+                  Effect.flatMap(source.signOut(target), (snapshot) =>
+                    commit(snapshot, true),
+                  ),
+                );
           }),
         ),
-      signOutAll: Effect.asVoid(committed(source.signOutAll)),
+      signOutAll: Effect.asVoid(
+        serially(
+          Effect.flatMap(source.signOutAll, (snapshot) =>
+            commit(snapshot, true),
+          ),
+        ),
+      ),
     });
 
     return { accounts, settle };

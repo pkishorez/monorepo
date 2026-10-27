@@ -48,8 +48,6 @@
     "src/ui/components/item.tsx",
     "src/ui/components/kbd.tsx",
     "src/ui/components/kit/class-names.ts",
-    "src/ui/components/kit/icons.ts",
-    "src/ui/components/kit/motion.ts",
     "src/ui/components/kit/scroll-styles.ts",
     "src/ui/components/kit/shadow-dom.tsx",
     "src/ui/components/label.tsx",

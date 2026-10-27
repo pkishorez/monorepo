@@ -1,4 +1,4 @@
-import { ChevronDownIcon } from '@kestack/web-platform/ui/components/lucide';
+import { ChevronDownIcon } from 'lucide-react';
 import { label } from '../../components/index.ts';
 import type { Heading } from '../../docs/index.ts';
 

@@ -1,8 +1,5 @@
 import { Router, useRouter } from '@kestack/kabuki/routing';
-import {
-  ArrowLeftIcon,
-  ArrowUpRightIcon,
-} from '@kestack/web-platform/ui/components/lucide';
+import { ArrowLeftIcon, ArrowUpRightIcon } from 'lucide-react';
 import { DEMO, SECTIONS, numberOf, router } from '../../shared/index.ts';
 import type { Route, Slug } from '../../shared/index.ts';
 

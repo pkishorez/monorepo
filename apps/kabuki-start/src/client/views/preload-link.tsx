@@ -2,7 +2,7 @@ import { useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import { Router } from '@kestack/kabuki/routing';
 import type { Preload } from '@kestack/kabuki/routing';
-import { CircleCheckIcon } from '@kestack/web-platform/ui/components/lucide';
+import { CircleCheckIcon } from 'lucide-react';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import type { router } from '../../shared/pages/index.ts';
 

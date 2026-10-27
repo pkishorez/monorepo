@@ -4,7 +4,7 @@ import {
   useMotionValue,
   useReducedMotion,
   type MotionValue,
-} from '#kit/motion';
+} from 'motion/react';
 
 /*
  * The space the cards sit in, after DevTools' canvas: drag anywhere to pan,

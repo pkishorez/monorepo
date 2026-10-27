@@ -1,10 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@kestack/web-platform/ui/components/button';
-import {
-  ChevronsUpDownIcon,
-  FolderIcon,
-  RotateCwIcon,
-} from '@kestack/web-platform/ui/components/lucide';
+import { ChevronsUpDownIcon, FolderIcon, RotateCwIcon } from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { ProjectPickerDialog } from './project-picker.js';
 import {

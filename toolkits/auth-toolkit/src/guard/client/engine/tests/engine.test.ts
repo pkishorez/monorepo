@@ -154,6 +154,81 @@ describe('makeAccounts', () => {
     ]);
   });
 
+  it('remembers the last Account signed in through a signed-out answer while it is shown', async () => {
+    const kept: Snapshot[] = [];
+    const signedIn: Snapshot = { active: ada.id, accounts: [ada] };
+    const signedOut: Snapshot = { active: null, accounts: [] };
+    let answer = signedIn;
+    const fake = fakeSource(signedIn);
+    const source: Source = {
+      ...fake.source,
+      read: Effect.sync(() => answer),
+    };
+    const states = await run(
+      Effect.gen(function* () {
+        const { accounts, settle } = yield* makeAccounts({
+          source,
+          last: signedIn,
+          checkOnStart: false,
+          keep: (snapshot) => Effect.sync(() => void kept.push(snapshot)),
+        });
+        yield* settle;
+        // An Auth Worker restarting answers signed out for a moment.
+        answer = signedOut;
+        const out = yield* accounts.check;
+        answer = signedIn;
+        return [out, yield* accounts.check] as const;
+      }),
+    );
+    expect(states).toEqual([
+      AccountsState.SignedOut(),
+      AccountsState.SignedIn({ active: ada, accounts: [ada] }),
+    ]);
+    expect(kept).toEqual([signedIn]);
+  });
+
+  it('forgets the last Account signed in as the check made while it is shown answers signed out', async () => {
+    const kept: Snapshot[] = [];
+    const { source } = fakeSource({ active: null, accounts: [] });
+    await run(
+      Effect.gen(function* () {
+        const { settle } = yield* makeAccounts({
+          source,
+          last: { active: ada.id, accounts: [ada] },
+          checkOnStart: true,
+          keep: (snapshot) => Effect.sync(() => void kept.push(snapshot)),
+        });
+        yield* settle;
+      }),
+    );
+    expect(kept).toEqual([{ active: null, accounts: [] }]);
+  });
+
+  it('forgets the last Account signed in on a sign-out asked here, and keeps the next one signed in', async () => {
+    const kept: Snapshot[] = [];
+    const { source } = fakeSource({ active: ada.id, accounts: [ada, bob] });
+    await run(
+      Effect.gen(function* () {
+        const { accounts } = yield* makeAccounts({
+          source,
+          last: { active: ada.id, accounts: [ada, bob] },
+          checkOnStart: false,
+          keep: (snapshot) => Effect.sync(() => void kept.push(snapshot)),
+        });
+        yield* accounts.signOut(ada.id);
+        yield* accounts.signOut(bob.id);
+        yield* accounts.signIn();
+        yield* accounts.signOutAll;
+      }),
+    );
+    expect(kept).toEqual([
+      { active: bob.id, accounts: [bob] },
+      { active: null, accounts: [] },
+      { active: bob.id, accounts: [ada, bob] },
+      { active: null, accounts: [] },
+    ]);
+  });
+
   it('settles with one check however many ask while Checking', async () => {
     const fake = fakeSource({ active: ada.id, accounts: [ada] });
     await run(

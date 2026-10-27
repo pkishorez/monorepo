@@ -4,7 +4,7 @@ import type { Root } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
 import type { Status } from '@kestack/kabuki/routing';
 import { Button } from '@kestack/web-platform/ui/components/button';
-import { RotateCwIcon } from '@kestack/web-platform/ui/components/lucide';
+import { RotateCwIcon } from 'lucide-react';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { Pages, router } from '../../shared/pages/index.ts';
 import type { Place } from '../../shared/pages/index.ts';

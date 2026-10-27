@@ -8,9 +8,9 @@ const KnownAccounts = ESchema.make('BrowserAccounts', {
   accounts: Schema.Array(AccountSchema),
 }).build();
 
-/** Where a Browser remembers its last-known Accounts, without tokens. Realize
- * it on a StdTable adapter (IDB keeps them across reloads) and pass the
- * Layer as `cache`. */
+/** Where a Browser remembers the Accounts last signed in, without tokens.
+ * Realize it on a StdTable adapter (IDB keeps them across reloads) and pass
+ * the Layer as `cache`. */
 export const browserAccountsTable = StdTable.make('auth-browser-accounts')
   .primary('pk', 'sk')
   .build();
@@ -23,8 +23,10 @@ const known = browserAccountsTable
   .singleEntity(KnownAccounts)
   .default({ active: null, accounts: [] });
 
-/** The last-known Snapshot, null when none was kept, and keeping a new one.
- * A cache that fails is a cache that missed. */
+/** The Snapshot last signed in, null when none is remembered, and keeping a
+ * new one: one signed in, or one signed out to forget it (the engine says
+ * which, see its `keep`). A cache that fails is a cache that missed, and
+ * says so as a warning. */
 export const makeCache = Effect.gen(function* () {
   const table =
     yield* Effect.context<
@@ -33,12 +35,25 @@ export const makeCache = Effect.gen(function* () {
   return {
     last: known.get().pipe(
       Effect.map(({ value }): Snapshot | null =>
-        value.accounts.length === 0 ? null : value,
+        value.accounts.some(({ id }) => id === value.active) ? value : null,
       ),
       Effect.provide(table),
-      Effect.orElseSucceed(() => null),
+      Effect.catch((error) =>
+        Effect.logWarning(
+          'auth-toolkit: the Accounts last signed in could not be read',
+          error,
+        ).pipe(Effect.as(null)),
+      ),
     ),
     keep: (snapshot: Snapshot) =>
-      known.put(snapshot).pipe(Effect.provide(table), Effect.ignore),
+      known.put(snapshot).pipe(
+        Effect.provide(table),
+        Effect.catch((error) =>
+          Effect.logWarning(
+            'auth-toolkit: the Accounts last signed in could not be kept',
+            error,
+          ),
+        ),
+      ),
   };
 });

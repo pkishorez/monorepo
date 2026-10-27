@@ -1,8 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import {
-  Monitor,
-  Smartphone,
-} from '@kestack/web-platform/ui/components/lucide';
+import { Monitor, Smartphone } from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import type { Recording, Step } from 'laymos/story/schema';
 

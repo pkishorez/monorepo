@@ -3,10 +3,7 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { Input } from '@kestack/web-platform/ui/components/input';
-import {
-  PlusIcon,
-  Trash2Icon,
-} from '@kestack/web-platform/ui/components/lucide';
+import { PlusIcon, Trash2Icon } from 'lucide-react';
 import { TodoView } from './todo-view.tsx';
 import { FILTERS, TodosLive } from './todos.ts';
 

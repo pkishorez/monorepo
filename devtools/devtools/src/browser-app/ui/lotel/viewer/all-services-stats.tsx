@@ -1,4 +1,4 @@
-import { AlertTriangleIcon } from '@kestack/web-platform/ui/components/lucide';
+import { AlertTriangleIcon } from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import {
   formatRelativeTime,

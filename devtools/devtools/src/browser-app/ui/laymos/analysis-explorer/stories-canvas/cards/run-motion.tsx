@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
-import { Play } from '@kestack/web-platform/ui/components/lucide';
+import { Play } from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 
 /**

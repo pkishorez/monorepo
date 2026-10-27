@@ -3,7 +3,7 @@ import {
   motion,
   useMotionValue,
   useMotionValueEvent,
-} from '@kestack/web-platform/ui/components/motion';
+} from 'motion/react';
 import {
   GestureProvider,
   GestureZone,

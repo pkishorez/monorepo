@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { ChangeStatus } from 'laymos';
 
-import { ChevronRight } from '@kestack/web-platform/ui/components/lucide';
+import { ChevronRight } from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 
 import { lookIcons, lookOf } from '../cards/laymo-card';

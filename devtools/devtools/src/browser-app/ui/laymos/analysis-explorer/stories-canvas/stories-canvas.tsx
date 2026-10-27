@@ -9,7 +9,7 @@ import {
 import { AnimatePresence, useReducedMotion } from 'motion/react';
 import type { ProofReport, StoryNode, StoryTree } from 'laymos/story/schema';
 
-import { Play, ShieldAlert } from '@kestack/web-platform/ui/components/lucide';
+import { Play, ShieldAlert } from 'lucide-react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 

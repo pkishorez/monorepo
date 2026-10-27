@@ -12,7 +12,7 @@ import {
   Network,
   PackageIcon,
   TriangleAlert,
-} from '@kestack/web-platform/ui/components/lucide';
+} from 'lucide-react';
 import { Badge } from '@kestack/web-platform/ui/components/badge';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import {

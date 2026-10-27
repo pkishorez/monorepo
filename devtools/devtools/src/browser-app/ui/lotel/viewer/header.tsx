@@ -11,7 +11,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@kestack/web-platform/ui/components/alert-dialog';
-import { Trash2Icon } from '@kestack/web-platform/ui/components/lucide';
+import { Trash2Icon } from 'lucide-react';
 import { toast } from '@kestack/web-platform/ui/components/sonner';
 
 /** Telemetry toolbar actions. The DevTools URL is owned by the route shell. */

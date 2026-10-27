@@ -11,9 +11,10 @@ export { browserAccountsTable };
 export interface BrowserOptions {
   /** The Auth Worker's own URL. */
   readonly url: string;
-  /** Keeps the last-known Accounts (never tokens), so `state` starts
-   * `Checking { last }` and the app can open at once. Not kept unless
-   * given. */
+  /** Remembers the Accounts last signed in (never tokens), so `state`
+   * starts `Checking { last }` and the app can open at once. A signed-out
+   * answer keeps them, unless it is to that first check or follows a
+   * sign-out asked here. Not kept unless given. */
   readonly cache?: CacheStorage;
 }
 

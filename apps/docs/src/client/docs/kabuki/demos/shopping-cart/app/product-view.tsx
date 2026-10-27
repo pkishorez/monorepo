@@ -7,7 +7,7 @@ import {
   PlusIcon,
   ShoppingBagIcon,
   SproutIcon,
-} from '@kestack/web-platform/ui/components/lucide';
+} from 'lucide-react';
 import { ProductLive } from './product.ts';
 import { PRODUCTS, formatPrice } from './products.ts';
 

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { MouseEvent } from 'react';
 import { useRouter } from '@kestack/kabuki/routing';
-import { MenuIcon } from '@kestack/web-platform/ui/components/lucide';
+import { MenuIcon } from 'lucide-react';
 import {
   Sheet,
   SheetContent,

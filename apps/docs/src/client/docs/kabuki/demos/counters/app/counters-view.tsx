@@ -1,7 +1,7 @@
 import { View, useChildren } from '@kestack/kabuki/react';
 import type { Handle } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
-import { PlusIcon, XIcon } from '@kestack/web-platform/ui/components/lucide';
+import { PlusIcon, XIcon } from 'lucide-react';
 import { CounterView } from './counter-view.tsx';
 import type { CounterLive } from './counter.ts';
 import { CountersLive } from './counters.ts';

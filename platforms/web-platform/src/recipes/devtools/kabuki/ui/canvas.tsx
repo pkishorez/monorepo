@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MaximizeIcon, MinusIcon, PlusIcon } from '#kit/icons';
-import { motion } from '#kit/motion';
+import { MaximizeIcon, MinusIcon, PlusIcon } from 'lucide-react';
+import { motion } from 'motion/react';
 import { cn } from '#kit/class-names';
 import {
   allOf,
@@ -11,7 +11,14 @@ import {
   type Placed,
 } from '../read/graph.ts';
 import type { Part } from '../story/story.ts';
-import { ActorNode, DASH, OPEN_WIDTH, SMALL, type Use } from './node.tsx';
+import {
+  ActorNode,
+  anchorOf,
+  DASH,
+  OPEN_WIDTH,
+  smallOf,
+  type Use,
+} from './node.tsx';
 import { CARD_SPRING, unionOf, useSpace } from './space.ts';
 
 /*
@@ -40,7 +47,6 @@ import { CARD_SPRING, unionOf, useSpace } from './space.ts';
  *            view instead, as it grows and shrinks.
  */
 
-const ANCHOR = 29;
 /** How long after a touch the layout's moves keep that card in place, or in the middle. */
 const HOLD = 900;
 /** How long, in milliseconds, the tree keeps still out of sight before it is drawn. */
@@ -48,9 +54,9 @@ const SETTLE = 120;
 
 const pathOf = (from: Placed, to: Placed) => {
   const x1 = from.x + from.width;
-  const y1 = from.y + ANCHOR;
+  const y1 = from.y + anchorOf(from);
   const x2 = to.x;
-  const y2 = to.y + ANCHOR;
+  const y2 = to.y + anchorOf(to);
   const mid = (x1 + x2) / 2;
   return `M ${x1} ${y1} C ${mid} ${y1} ${mid} ${y2} ${x2} ${y2}`;
 };
@@ -131,7 +137,7 @@ export function Canvas({
     (node) =>
       isOpen.has(node.id)
         ? { width: OPEN_WIDTH, height: heightOf(node.id) }
-        : SMALL,
+        : smallOf(node),
     unfolded,
   );
   const at = new Map(placed.map((one) => [one.node.id, one]));

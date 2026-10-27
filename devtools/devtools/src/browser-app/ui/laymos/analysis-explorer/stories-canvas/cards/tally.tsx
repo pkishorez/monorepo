@@ -1,4 +1,4 @@
-import { ShieldAlert } from '@kestack/web-platform/ui/components/lucide';
+import { ShieldAlert } from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 
 import { StateMark } from '../badges';

@@ -1,5 +1,5 @@
 import { Button } from '@kestack/web-platform/ui/components/button';
-import { MoonIcon, SunIcon } from '@kestack/web-platform/ui/components/lucide';
+import { MoonIcon, SunIcon } from 'lucide-react';
 import { Theme } from './theme.ts';
 
 /** Switches to the other theme; the icon follows `<html>`, so it is right from the first paint. */

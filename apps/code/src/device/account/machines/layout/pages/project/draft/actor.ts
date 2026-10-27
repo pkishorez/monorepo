@@ -1,0 +1,453 @@
+import { Effect, Layer, Schema, Stream, SubscriptionRef } from 'effect';
+import { Accounts } from '@kestack/auth-toolkit/client';
+import { CodeClient } from '@kestack/connect/code';
+import { Actor } from '@kestack/kabuki';
+import { Navigation, Router } from '@kestack/kabuki/routing';
+import { session } from '../../../../../../routes/index.ts';
+import * as Picker from '../../../../../../../ui/controls/picker/index.ts';
+import {
+  SavedDraft,
+  SavedDrafts,
+  Written,
+} from '../../../../machine/store/index.ts';
+import * as Catalog from '../store.ts';
+import { SessionArrival, SharedCatalog } from '../store.ts';
+import { retryCatalog } from './send/commands.ts';
+import { Attached, Insert } from './draft.ts';
+import { DraftMode, type Mode } from './write/view.tsx';
+import { ModelPicker } from './pick/model/index.ts';
+import { current, NOBODY, pickedHarness, skillsOf } from './pick/pick.ts';
+import { read, restoredOf, saving, Where, whereOf } from './store.ts';
+import { askOf, sendTo, start } from './send/send.ts';
+import { SkillPicker } from './pick/skills.ts';
+
+/*
+ * The Draft: the next message of a page, a new session's first or an open
+ * Session's next, with what goes with it. It is its own Actor, so typing
+ * into it, picking for it or dictating into it draws only it.
+ *
+ * 1. Write  in its Draft Mode, a Child each (`write/`): a Message, or, in
+ *           a Session, a Side Question, each the one owner of its text,
+ *           cursor and selection. The Draft keeps the mode open, switched
+ *           by its Side Question toggle or its keys, the Message's files
+ *           and every Insert, numbered, for the editor of the mode open to
+ *           put in once at its cursor: a paste, a drop, a Dictation, a
+ *           Skill.
+ * 2. Pick   the model Picker sets the agent, its model and settings, each
+ *           its default until picked (`pick/`), from the agents, models
+ *           and Skills the project shares, which nothing waits for; a new
+ *           agent starts from its own, and a Session keeps its agent. On
+ *           touch the model chip sets a setting in place. The skills
+ *           Picker puts a `/name` in, as one atom. One Picker is open at a
+ *           time, each a fresh one.
+ * 3. Send   a mode hands its text up (`send/`). A new session's Draft
+ *           starts the session, already running its first message, under
+ *           an id it chose, and the app moves to it once it is there: as
+ *           the Machine answers or, the answer lost, as it shows among the
+ *           Machine's sessions. Refused, or never there, it stays. A
+ *           Session's Message goes to the server, which starts a turn or
+ *           steers the running one; refused, its files and its text come
+ *           back. Sent while the Side Question toggle is on, it is a Side
+ *           Question, asked on the side, answered by the Session's own
+ *           agent, a new one replacing the last.
+ * 4. Keep   the Draft is saved on this device as it shows, its Saved Draft
+ *           (`store.ts`), under the Account it opened with: read back
+ *           before it is drawn, saved after each change and as the page is
+ *           left, and deleted once a new session it started has started.
+ */
+
+/** A Session's agent (its Harness Account), model and settings, as its row says them. */
+const Agent = Schema.Struct({
+  account: Schema.String,
+  model: Schema.String,
+  settings: Schema.Record(Schema.String, Schema.String),
+});
+
+/** Where the Draft goes: a new session in the project, or an open Session. */
+const To = Schema.TaggedUnion({
+  NewSession: {},
+  Session: {
+    sessionId: Schema.String,
+    /** null until the Session's row is read. */
+    agent: Schema.NullOr(Agent),
+    running: Schema.Boolean,
+  },
+});
+
+const Props = Schema.Struct({
+  machineId: Schema.String,
+  projectId: Schema.String,
+  to: To,
+});
+export type Props = typeof Props.Type;
+
+const Picking = Schema.TaggedUnion({
+  /** `typed`: opened by a `/` typed in the Composer, which the skill takes the place of. */
+  Skills: { how: Picker.How, typed: Schema.Boolean },
+  Model: { how: Picker.How, at: ModelPicker.At },
+});
+
+/** What the model Picker set; null: as it was. */
+const Chosen = Schema.Struct({
+  /** The Harness Account picked. */
+  account: Schema.NullOr(Schema.String),
+  model: Schema.NullOr(Schema.String),
+  settings: Schema.Record(Schema.String, Schema.String),
+});
+
+/** The Side Question asked, and how it stands. */
+export const Asked = Schema.Struct({
+  id: Schema.Finite,
+  question: Schema.String,
+  /** null while it is being answered, or when it failed. */
+  answer: Schema.NullOr(Schema.String),
+  problem: Schema.NullOr(Schema.String),
+});
+
+/** Text given back to a mode: a refused send's. */
+const Given = Schema.Struct({
+  mode: DraftMode.Mode,
+  ...DraftMode.Given.fields,
+});
+
+const Model = Schema.Struct({
+  /** Its Saved Draft has been read back. */
+  restored: Schema.Boolean,
+  /** The Account and place it is saved under, fixed once read back; null with nobody signed in. */
+  where: Schema.NullOr(Where),
+  /** Its new session has started: it is saved no more. */
+  started: Schema.Boolean,
+  /** The Draft Mode open. */
+  mode: DraftMode.Mode,
+  /** What each mode starts from, as read back; the mode owns it after. */
+  opening: Schema.Struct({ Message: Written, SideQuestion: Written }),
+  given: Schema.NullOr(Given),
+  attachments: Schema.Array(Attached),
+  /** The last thing put in, for its editor to put in at its cursor. */
+  insert: Schema.NullOr(Insert.Schema),
+  catalog: Catalog.Catalog,
+  /** Picked here; any left null is the agent's own, or its default. */
+  chosen: Chosen,
+  /** The Picker open, if one is. */
+  picking: Schema.NullOr(Picking),
+  /** How many Pickers were opened, so each is a fresh one. */
+  opened: Schema.Finite,
+  /** Why the last start or send went wrong, until the next, or an edit. */
+  problem: Schema.NullOr(Schema.String),
+  /** A new session is being started, or has started. */
+  starting: Schema.Boolean,
+  asked: Schema.NullOr(Asked),
+  /** The last question's id: a late answer to a dismissed one is told apart. */
+  asks: Schema.Finite,
+});
+export type Model = typeof Model.Type;
+
+const Message = Schema.TaggedUnion({
+  CatalogRead: { catalog: Catalog.Catalog },
+  CatalogRetryAsked: {},
+  ModeAsked: { mode: DraftMode.Mode },
+  AttachmentsChanged: { attachments: Schema.Array(Attached) },
+  InsertAsked: { what: Insert.What },
+  /** A mode's text was edited since the last problem. */
+  Retyped: {},
+  PickerOpened: { picking: Picking },
+  PickerClosed: {},
+  ModelChosen: { chosen: Chosen },
+  SettingChosen: { key: Schema.String, value: Schema.String },
+  SkillChosen: { name: Schema.String },
+  /** A mode handed up its text: to send, start with or ask. */
+  SendAsked: { mode: DraftMode.Mode, text: Schema.String },
+  Started: { sessionId: Schema.String },
+  StartRefused: { reason: Schema.String },
+  SendRefused: {
+    text: Schema.String,
+    attachments: Schema.Array(Attached),
+    reason: Schema.String,
+  },
+  Answered: { id: Schema.Finite, answer: Schema.String },
+  AskRefused: { id: Schema.Finite, reason: Schema.String },
+  Restored: { where: Schema.NullOr(Where), draft: Schema.NullOr(SavedDraft) },
+});
+
+const Draft = Actor.define('Draft', {
+  requires: [
+    CodeClient,
+    SharedCatalog,
+    SessionArrival,
+    Navigation,
+    SavedDrafts,
+    Accounts,
+  ],
+  props: Props,
+  model: Model,
+  message: Message,
+});
+
+/** The modes this Draft has. */
+export const modesOf = ({ to }: Props) =>
+  DraftMode.modesOf(to._tag === 'Session');
+
+/** Text given back to a mode, the next after the last. */
+const give = (model: Model, mode: Mode, text: string, replaces: boolean) => ({
+  mode,
+  id: (model.given?.id ?? 0) + 1,
+  text,
+  replaces,
+});
+
+export const DraftLive = Actor.build(Draft, {
+  init: () => ({
+    model: {
+      restored: false,
+      where: null,
+      started: false,
+      mode: 'Message',
+      opening: { Message: DraftMode.blank, SideQuestion: DraftMode.blank },
+      given: null,
+      attachments: [],
+      insert: null,
+      catalog: Catalog.empty,
+      chosen: { account: null, model: null, settings: {} },
+      picking: null,
+      opened: 0,
+      problem: null,
+      starting: false,
+      asked: null,
+      asks: 0,
+    },
+  }),
+  provides: (self) =>
+    Layer.mergeAll(
+      // 2. Pick
+      SkillPicker.owner((name) =>
+        self.send(
+          name === null
+            ? { _tag: 'PickerClosed' }
+            : { _tag: 'SkillChosen', name },
+        ),
+      ),
+      ModelPicker.owner((chosen) =>
+        self.send(
+          chosen === null
+            ? { _tag: 'PickerClosed' }
+            : { _tag: 'ModelChosen', chosen },
+        ),
+      ),
+      // 1. Write, 3. Send, 4. Keep: what each mode shows and hands up.
+      DraftMode.owner(
+        Effect.gen(function* () {
+          const texts = yield* SubscriptionRef.make<
+            Partial<Record<Mode, Written>>
+          >({});
+          yield* Effect.forkScoped(saving(self, modesOf, texts));
+          return {
+            shows: (mode: Mode, written: Stream.Stream<Written>) =>
+              Stream.runForEach(written, (each) =>
+                SubscriptionRef.update(texts, (all) => ({
+                  ...all,
+                  [mode]: each,
+                })),
+              ),
+            send: (mode: Mode, text: string) =>
+              self.send({ _tag: 'SendAsked', mode, text }),
+          };
+        }),
+      ),
+    ),
+  children: {
+    // 1. Write: one Child per Draft Mode, once its Saved Draft is read back.
+    modes: {
+      actor: DraftMode.actor,
+      each: ({ model, props }) => (model.restored ? modesOf(props) : []),
+      input: ({ model }, key) => model.opening[key as Mode],
+      props: ({ model, props }, key) => {
+        const mode = key as Mode;
+        const session = props.to._tag === 'Session';
+        const { given } = model;
+        return {
+          mode,
+          clears: session,
+          given:
+            given?.mode === mode
+              ? { id: given.id, text: given.text, replaces: given.replaces }
+              : null,
+        };
+      },
+    },
+    // 2. Pick
+    skills: {
+      actor: SkillPicker.Live,
+      while: ({ model }) => model.picking?._tag === 'Skills',
+      key: ({ model }) => String(model.opened),
+      input: ({ model }) => SkillPicker.opening(model.picking?.how ?? 'keys'),
+      props: ({ model, props }) => skillsOf(model, props),
+    },
+    models: {
+      actor: ModelPicker.Live,
+      while: ({ model, props }) =>
+        model.picking?._tag === 'Model' && current(model, props) !== null,
+      key: ({ model }) => String(model.opened),
+      input: ({ model, props }) =>
+        ModelPicker.opening({
+          how: model.picking?.how ?? 'keys',
+          at: model.picking?._tag === 'Model' ? model.picking.at : 'model',
+          started: props.to._tag === 'Session',
+          catalog: model.catalog,
+          current: current(model, props) ?? NOBODY,
+        }),
+      props: ({ model, props }) => ({
+        catalog: model.catalog,
+        current: current(model, props) ?? NOBODY,
+        alone:
+          model.picking?._tag === 'Model' &&
+          (model.picking.at === 'agent' || model.picking.at === 'modelAlone'),
+      }),
+    },
+  },
+  workers: {
+    // 4. Keep: read back once, under the Account signed in as it opens.
+    restore: {
+      while: ({ model }) => !model.restored,
+      run: (self) =>
+        Effect.gen(function* () {
+          const { props } = yield* self.get;
+          const where = yield* whereOf({
+            machineId: props.machineId,
+            projectId: props.projectId,
+            sessionId: props.to._tag === 'Session' ? props.to.sessionId : null,
+          });
+          const draft = where === null ? null : yield* read(where);
+          yield* self.send({ _tag: 'Restored', where, draft });
+        }),
+    },
+    // 2. Pick: the catalog, as the project shares it.
+    catalog: {
+      run: (self) =>
+        Stream.runForEach(
+          Stream.unwrap(Effect.map(SharedCatalog, ({ changes }) => changes)),
+          (catalog) => self.send({ _tag: 'CatalogRead', catalog }),
+        ),
+    },
+  },
+  on: {
+    // 1. Write
+    CatalogRead: ({ catalog }, { model }) => ({ model: { ...model, catalog } }),
+    CatalogRetryAsked: () => ({ command: retryCatalog() }),
+    ModeAsked: ({ mode }, { model, props }) =>
+      !modesOf(props).includes(mode) || model.mode === mode
+        ? {}
+        : { model: { ...model, mode, picking: null, problem: null } },
+    AttachmentsChanged: ({ attachments }, { model }) => ({
+      model: { ...model, attachments, problem: null },
+    }),
+    InsertAsked: ({ what }, { model }) => ({
+      model: { ...model, insert: Insert.next(model.insert, what) },
+    }),
+    Retyped: (_, { model }) => ({ model: { ...model, problem: null } }),
+    // 2. Pick
+    PickerOpened: ({ picking }, { model, props }) =>
+      model.picking !== null ||
+      !DraftMode.takes(model.mode)[
+        picking._tag === 'Skills' ? 'skills' : 'picks'
+      ]
+        ? {}
+        : {
+            model: { ...model, picking, opened: model.opened + 1 },
+            ...(picking._tag === 'Skills' &&
+            skillsOf(model, props).problem !== null
+              ? { command: retryCatalog() }
+              : {}),
+          },
+    PickerClosed: (_, { model }) => ({ model: { ...model, picking: null } }),
+    SkillChosen: ({ name }, { model }) =>
+      model.picking?._tag !== 'Skills'
+        ? {}
+        : {
+            model: {
+              ...model,
+              picking: null,
+              insert: Insert.next(model.insert, {
+                _tag: 'Skill',
+                name,
+                typed: model.picking.typed,
+              }),
+            },
+          },
+    ModelChosen: ({ chosen }, { model, props }) => {
+      // A Session keeps its agent; a new agent starts from its own.
+      const harness =
+        props.to._tag === 'Session'
+          ? null
+          : Catalog.harnessOf(model.catalog, chosen.account);
+      const fresh =
+        harness !== null && harness.account !== pickedHarness(model)?.account;
+      return {
+        model: {
+          ...model,
+          picking: null,
+          problem: null,
+          chosen: {
+            account: harness?.account ?? model.chosen.account,
+            model: chosen.model ?? (fresh ? null : model.chosen.model),
+            settings: {
+              ...(fresh ? {} : model.chosen.settings),
+              ...chosen.settings,
+            },
+          },
+        },
+      };
+    },
+    SettingChosen: ({ key, value }, { model }) => ({
+      model: {
+        ...model,
+        problem: null,
+        chosen: {
+          ...model.chosen,
+          settings: { ...model.chosen.settings, [key]: value },
+        },
+      },
+    }),
+    // 3. Send
+    SendAsked: ({ mode, text }, { model, props }) =>
+      props.to._tag === 'NewSession'
+        ? start(model, props, text)
+        : mode === 'SideQuestion'
+          ? askOf(model, props.to.sessionId, text)
+          : sendTo(model, props.to.sessionId, text),
+    // 4. Keep: started, it is saved no more, and its Saved Draft goes.
+    Started: ({ sessionId }, { model, props }) => ({
+      model: { ...model, started: true, attachments: [] },
+      command: Router.push(
+        session(props.machineId, props.projectId, sessionId),
+      ),
+    }),
+    StartRefused: ({ reason }, { model }) => ({
+      model: { ...model, starting: false, problem: reason },
+    }),
+    SendRefused: ({ text, attachments, reason }, { model }) => ({
+      model: {
+        ...model,
+        problem: reason,
+        attachments: [...attachments, ...model.attachments],
+        ...(text === '' ? {} : { given: give(model, 'Message', text, false) }),
+      },
+    }),
+    Answered: ({ id, answer }, { model }) =>
+      model.asked?.id === id
+        ? { model: { ...model, asked: { ...model.asked, answer } } }
+        : {},
+    AskRefused: ({ id, reason }, { model }) =>
+      model.asked?.id === id
+        ? { model: { ...model, asked: { ...model.asked, problem: reason } } }
+        : {},
+    // 4. Keep
+    Restored: ({ where, draft }, { model, props }) => ({
+      model: {
+        ...model,
+        ...(draft === null ? {} : restoredOf(draft, modesOf(props))),
+        where,
+        restored: true,
+      },
+    }),
+  },
+});

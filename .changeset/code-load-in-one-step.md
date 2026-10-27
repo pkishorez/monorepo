@@ -1,0 +1,5 @@
+---
+'code': patch
+---
+
+On load, nothing that was read from this device is drawn and then replaced. Until the Machine List, the Machine Filter and each Machine's Projects, Sessions and Unseen marks are read, the sidebar draws only its frame, then everything at once; empty words such as "No sessions yet." show only when that is true. The sidebar reads each Machine by a Query of its own, so a change to the list, its order or the Filter never empties it, and only Sessions that arrive live move in. Home, the project page, the header's title, a fork's line and Settings › Machines › Projects wait the same way, and a row is "not found" only once its Machine has answered. A Machine's Last Seen as this device kept it now reads as Connecting until Cloud Connect answers, or after 10 seconds without, so a reload no longer flashes "Machine down" before the socket connects. With no Machine list kept and Cloud Connect out of reach, home says so, and why, with Try again, instead of a skeleton that never ends.

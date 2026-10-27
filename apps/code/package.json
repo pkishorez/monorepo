@@ -9,9 +9,11 @@
     "dev": "vp run --filter 'code^...' build && node scripts/dev.ts",
     "dev:real": "KESTACK_AUTH=real pnpm run dev",
     "build": "vp build",
-    "lint": "tsc --noEmit && pnpm lint:laymos",
+    "lint": "tsc --noEmit && pnpm lint:laymos && pnpm tree",
     "lint:laymos": "laymos lint",
     "test": "vitest run",
+    "size": "node scripts/size.ts",
+    "tree": "node scripts/tree.ts",
     "draw:install": "node scripts/draw-install.ts",
     "deploy": "alchemy deploy",
     "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod"
@@ -29,6 +31,7 @@
     "@kestack/web-platform": "workspace:*",
     "@tanstack/db": "catalog:",
     "effect": "catalog:",
+    "lucide-react": "catalog:",
     "motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
