@@ -44,6 +44,17 @@ import { useCallback, useRef } from 'react';
  * drawn on the isolated `confirm` Surface, so leaving it puts focus back
  * where it was.
  *
+ * While the open session's agent waits on an Agent Question, the Question
+ * Panel stands in for the Draft. Ctrl+Y, or `y` in Vim Mode, opens it or
+ * minimises it, and `i` opens it, never the Composer. Open, it is the
+ * `question` Surface, inside the page, so the sidebar and the Pickers'
+ * keys still work from it: the arrows, or `j` and `k`, move through its
+ * choices, Left and Right, or `h` and `l`, through its questions, Space
+ * chooses, Enter chooses and goes on, 1 to 9 choose an option, `i` types an
+ * answer of one's own, Mod+Enter sends, `d` skips it, and Escape leaves
+ * what is typed, then minimises it. Minimised, the page's keys work on the
+ * transcript as ever.
+ *
  * Held down, a key that moves or scrolls does it again and again, as `j`
  * scrolls and `]` steps through the sessions (`repeat: true`); any other
  * key does its Action once.
@@ -213,7 +224,10 @@ export const keys = createKeys({
           },
           top: { keys: 'g g', label: 'To the top' },
           bottom: { keys: 'shift+g', label: 'To the bottom, following' },
-          write: { keys: 'i', label: 'Edit the Draft' },
+          write: {
+            keys: 'i',
+            label: 'Edit the Draft, or open the question in its place',
+          },
           send: { keys: 'Enter', label: 'Send the Draft' },
           undo: { keys: 'u', label: 'Undo the last thing put in the Draft' },
           skills: {
@@ -254,10 +268,80 @@ export const keys = createKeys({
             label: 'Close the answer, or leave Settings',
             always: true,
           },
+          question: { keys: 'y', label: 'Open or minimise the question' },
+          questionAnywhere: {
+            keys: 'ctrl+y',
+            label: 'Open or minimise the question, even while typing',
+            always: true,
+            inField: true,
+          },
         },
         surfaces: {
           record: { label: 'recording a key', isolated: true },
           confirm: { label: 'confirming', isolated: true },
+          question: {
+            label: 'question',
+            actions: {
+              next: {
+                keys: 'ArrowDown',
+                label: 'Next choice',
+                always: true,
+                repeat: true,
+              },
+              previous: {
+                keys: 'ArrowUp',
+                label: 'Previous choice',
+                always: true,
+                repeat: true,
+              },
+              down: { keys: 'j', label: 'Next choice', repeat: true },
+              up: { keys: 'k', label: 'Previous choice', repeat: true },
+              nextItem: {
+                keys: 'ArrowRight',
+                label: 'Next question',
+                always: true,
+              },
+              previousItem: {
+                keys: 'ArrowLeft',
+                label: 'Previous question',
+                always: true,
+              },
+              right: { keys: 'l', label: 'Next question' },
+              left: { keys: 'h', label: 'Previous question' },
+              toggle: {
+                keys: 'Space',
+                label: 'Choose, or let go',
+                always: true,
+              },
+              pick: {
+                keys: 'Enter',
+                label: 'Choose, and on to the next question',
+                always: true,
+              },
+              option1: { keys: '1', label: 'Choose option 1', always: true },
+              option2: { keys: '2', label: 'Choose option 2', always: true },
+              option3: { keys: '3', label: 'Choose option 3', always: true },
+              option4: { keys: '4', label: 'Choose option 4', always: true },
+              option5: { keys: '5', label: 'Choose option 5', always: true },
+              option6: { keys: '6', label: 'Choose option 6', always: true },
+              option7: { keys: '7', label: 'Choose option 7', always: true },
+              option8: { keys: '8', label: 'Choose option 8', always: true },
+              option9: { keys: '9', label: 'Choose option 9', always: true },
+              write: { keys: 'i', label: 'Type your own answer' },
+              send: {
+                keys: 'mod+Enter',
+                label: 'Send the answer',
+                always: true,
+                inField: true,
+              },
+              decline: { keys: 'd', label: 'Skip the question' },
+              close: {
+                keys: 'Escape',
+                label: 'Leave your own answer, then minimise',
+                always: true,
+              },
+            },
+          },
         },
       },
       picker: {
@@ -427,7 +511,11 @@ export const keyTable: ReadonlyArray<{
   {
     title: 'The Draft',
     rows: [
-      { label: 'Edit the Draft', always: [], vim: ['content.write'] },
+      {
+        label: 'Edit the Draft, or open the question in its place',
+        always: [],
+        vim: ['content.write'],
+      },
       { label: 'Send the Draft', always: [], vim: ['content.send'] },
       {
         label: 'Undo the last thing put in',
@@ -460,6 +548,55 @@ export const keyTable: ReadonlyArray<{
       {
         label: 'Close the answer, or leave Settings',
         always: ['content.close'],
+        vim: [],
+      },
+      {
+        label: 'Open or minimise the question',
+        always: ['content.questionAnywhere'],
+        vim: ['content.question'],
+      },
+    ],
+  },
+  {
+    title: 'Answering a question',
+    rows: [
+      {
+        label: 'Next, previous choice',
+        always: ['question.next', 'question.previous'],
+        vim: ['question.down', 'question.up'],
+      },
+      {
+        label: 'Next, previous question',
+        always: ['question.nextItem', 'question.previousItem'],
+        vim: ['question.right', 'question.left'],
+      },
+      { label: 'Choose, or let go', always: ['question.toggle'], vim: [] },
+      {
+        label: 'Choose, and on to the next question',
+        always: ['question.pick'],
+        vim: [],
+      },
+      {
+        label: 'Choose option 1 to 9',
+        always: [
+          'question.option1',
+          'question.option2',
+          'question.option3',
+          'question.option4',
+          'question.option5',
+          'question.option6',
+          'question.option7',
+          'question.option8',
+          'question.option9',
+        ],
+        vim: [],
+      },
+      { label: 'Type your own answer', always: [], vim: ['question.write'] },
+      { label: 'Send the answer', always: ['question.send'], vim: [] },
+      { label: 'Skip the question', always: [], vim: ['question.decline'] },
+      {
+        label: 'Leave your own answer, then minimise',
+        always: ['question.close'],
         vim: [],
       },
     ],

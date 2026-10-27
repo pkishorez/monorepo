@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { spendsOf, type Turn } from '../turns.ts';
+import type { Part } from '@kestack/connect/code';
+import type { Row } from '../rows/index.ts';
+import { isSaid } from '../answer/said.tsx';
+import { piecesOf, spendsOf, type Turn } from '../turns.ts';
 
 const turn = (id: string, costUsd?: number): Turn => ({
   id,
@@ -52,5 +55,33 @@ describe("a turn's cost", () => {
     expect(
       at(spendsOf([turn('a', 0.1), turn('b'), turn('c', 0.3)], false)),
     ).toEqual({ a: [0.1, 0.1], c: [0.2, 0.3] });
+  });
+});
+
+describe('a question the agent asked', () => {
+  type Call = Extract<Part, { readonly type: 'toolCall' }>;
+  const tool = (id: string, tool: Call['tool'], input: Call['input']): Row => ({
+    kind: 'tool',
+    id,
+    call: { type: 'toolCall', id, tool, name: id, title: '', input },
+    result: null,
+    state: 'done',
+  });
+  const read = tool('r', 'read', { file_path: 'a.ts' });
+  const asked = tool('q', 'question', {
+    questions: [{ header: 'Colour', question: 'Which colour?', options: [] }],
+  });
+
+  it('is said, between the runs of work around it', () => {
+    expect(isSaid(asked)).toBe(true);
+    expect(piecesOf([read, asked, read]).map(({ kind }) => kind)).toEqual([
+      'work',
+      'said',
+      'work',
+    ]);
+  });
+
+  it('is work as any call when it holds no question', () => {
+    expect(isSaid(tool('x', 'question', { nothing: true }))).toBe(false);
   });
 });

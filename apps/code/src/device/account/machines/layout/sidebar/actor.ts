@@ -39,6 +39,8 @@ import { drawnOf, type Read } from './list/rows/drawn.ts';
  *              each read by its Machine again after every write, from this
  *              tab or another.
  * 4. Open      a Session the keyboard steps to.
+ * 4b. Asking   the Sessions whose agent waits on an Agent Question, as
+ *              each Machine says them in `Machines`, for their mark.
  * 5. Move      a Session swiped to Settle or un-Settle it, its Undo, or
  *              the Settled List's Un-settle: each put through `Moves`,
  *              which asks its Machine at once. Every Session is drawn
@@ -102,6 +104,8 @@ const Model = Schema.Struct({
   refusals: Schema.Record(Schema.String, Schema.Finite),
   /** Whether it could once be drawn whole, from this device (8. Ready). */
   ready: Schema.Boolean,
+  /** The Sessions whose agent waits on an Agent Question, by Machine id. */
+  asking: Schema.Record(Schema.String, Schema.Array(Schema.String)),
 });
 
 /** A Session's key among the refusals: its Machine's and its own id. */
@@ -124,6 +128,7 @@ const Sidebar = Actor.define('Sidebar', {
       unseen: Model.fields.unseen,
     },
     FilterRead: { chosen: Schema.NullOr(Schema.String) },
+    AskingKnown: { asking: Model.fields.asking },
     WidthRead: { width: Schema.Finite },
     /** Dragged to a new width, once the drag rests. */
     Resized: { width: Schema.Finite },
@@ -200,6 +205,7 @@ export const readyOf = <P, S>(
 
 const sameListed = Schema.toEquivalence(Model.fields.machines);
 const sameUnseen = Schema.toEquivalence(Model.fields.unseen);
+const sameAsking = Schema.toEquivalence(Model.fields.asking);
 
 export const SidebarLive = Actor.build(Sidebar, {
   init: () => ({
@@ -216,6 +222,7 @@ export const SidebarLive = Actor.build(Sidebar, {
       refused: null,
       refusals: {},
       ready: false,
+      asking: {},
     },
   }),
   children: {
@@ -278,6 +285,29 @@ export const SidebarLive = Actor.build(Sidebar, {
           ),
         ),
     },
+    // 4b. Asking: only which Sessions ask, so a question's answer as it
+    // is typed elsewhere changes nothing here.
+    asking: {
+      run: (self) =>
+        Effect.flatMap(Machines, ({ state }) =>
+          state.pipe(
+            Stream.map(({ questions }) =>
+              Object.fromEntries(
+                Object.entries(questions).map(([machineId, all]) => [
+                  machineId,
+                  all
+                    .filter(({ questions }) => questions.length > 0)
+                    .map(({ sessionId }) => sessionId),
+                ]),
+              ),
+            ),
+            Stream.changesWith(sameAsking),
+            Stream.runForEach((asking) =>
+              self.send({ _tag: 'AskingKnown', asking }),
+            ),
+          ),
+        ),
+    },
     // 2. Choose
     filter: {
       run: (self) =>
@@ -335,6 +365,7 @@ export const SidebarLive = Actor.build(Sidebar, {
     MachinesKnown: ({ read, machines, problem, unseen }, { model }) => ({
       model: { ...model, listRead: read, machines, problem, unseen },
     }),
+    AskingKnown: ({ asking }, { model }) => ({ model: { ...model, asking } }),
     FilterRead: ({ chosen }, { model }) => ({
       model: { ...model, filterRead: true, chosen },
     }),

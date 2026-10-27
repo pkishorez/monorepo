@@ -1,5 +1,6 @@
 import type { useElementScrollRestoration } from '@kestack/kabuki/routing';
 import { useEffect, useRef, useState } from 'react';
+import { keys } from '../../../commands.ts';
 
 /*
  * Keeps a scroller at its bottom while it is there: whenever what it holds
@@ -20,7 +21,14 @@ import { useEffect, useRef, useState } from 'react';
  * whatever grew or shrank above or below it, and it follows on only if
  * that left the reader at the bottom. Away from the bottom, `away` says
  * so, for a way back down.
+ *
+ * Its keys, on the page's Surface while it is open (`useScrollKeys`): j
+ * and k scroll a line, Ctrl+D and Ctrl+U half a page, g g goes to the top
+ * and Shift+G back to the bottom, following again; Page Up and Page Down
+ * scroll even while typing. Every scroll is instant; scrolling up lets go.
  */
+
+const LINE = 48;
 
 const NEAR = 48;
 /** How long after a reader's gesture a scroll still counts as theirs. */
@@ -170,4 +178,25 @@ export function useFollow(
       toBottom.current(smooth);
     },
   };
+}
+
+/** The keys that scroll what `useFollow` follows. */
+export function useScrollKeys(follow: ReturnType<typeof useFollow>) {
+  const { scroller } = follow;
+  const by = (top: number) => {
+    if (top < 0) follow.letGo();
+    scroller.current?.scrollBy({ top, behavior: 'instant' });
+  };
+  const page = (share: number) => (scroller.current?.clientHeight ?? 0) * share;
+  keys.useAction('content.down', () => by(LINE));
+  keys.useAction('content.up', () => by(-LINE));
+  keys.useAction('content.halfDown', () => by(page(0.5)));
+  keys.useAction('content.halfUp', () => by(-page(0.5)));
+  keys.useAction('content.pageDown', () => by(page(0.9)));
+  keys.useAction('content.pageUp', () => by(-page(0.9)));
+  keys.useAction('content.top', () => {
+    follow.letGo();
+    scroller.current?.scrollTo({ top: 0, behavior: 'instant' });
+  });
+  keys.useAction('content.bottom', () => follow.holdOn());
 }

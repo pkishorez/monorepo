@@ -81,7 +81,7 @@ A Session whose last Turn ended since it was last open on this device; opening i
 _Avoid_: unread, new, notification
 
 **Vim Mode**:
-The keyboard-first way of working the app, off until turned on in this browser, and off with its status line on a device with no keyboard, however wide its screen: plain keys are shortcuts in the page's Normal Mode, the Draft is read until `i` makes it the Composer, and the keys' status line is at the app's foot. Off, the Draft is a text box as any other, and only keys holding Ctrl, Alt or Cmd are shortcuts.
+The keyboard-first way of working the app, off until turned on in this browser, and off with its status line on a device with no keyboard, however wide its screen: plain keys are shortcuts in the page's Normal Mode, the Draft is read until `i` makes it the Composer, or, while the Question Panel stands in for it, expands that, and the keys' status line is at the app's foot. Off, the Draft is a text box as any other, and only keys holding Ctrl, Alt or Cmd are shortcuts.
 _Avoid_: keyboard mode, power mode
 
 **Layout**:
@@ -101,7 +101,7 @@ The Local Storage of this browser, what it keeps for itself and no other device 
 _Avoid_: device state, local settings, localStorage
 
 **Draft**:
-The open Session's next message, kept at the foot of the page with the Status Line while the transcript scrolls above it, always visible. It is written in one Draft Mode at a time. With a keyboard and out of Vim Mode it is typed into as any text box is; in Vim Mode it can be read, scrolled and clicked to place a cursor or select, but not typed into until it is the Composer. On a device with no keyboard it is the Touch Draft. A Dictation, while it is turned into text, shows as transcribing where its text will go. Everything the user adds, such as a Dictation, a paste, a file or a Skill, goes in at the cursor of the Draft Mode open, replacing any selection, and the page brings that spot into view. Sending it makes it the Session's next message, or, in Side Question mode, asks the Side Question. Until it is sent it is kept on this device as its Saved Draft.
+The open Session's next message, kept at the foot of the page with the Status Line while the transcript scrolls above it, always visible but while the Question Panel stands in for it. It is written in one Draft Mode at a time. With a keyboard and out of Vim Mode it is typed into as any text box is; in Vim Mode it can be read, scrolled and clicked to place a cursor or select, but not typed into until it is the Composer. On a device with no keyboard it is the Touch Draft. A Dictation, while it is turned into text, shows as transcribing where its text will go. Everything the user adds, such as a Dictation, a paste, a file or a Skill, goes in at the cursor of the Draft Mode open, replacing any selection, and the page brings that spot into view. Sending it makes it the Session's next message, or, in Side Question mode, asks the Side Question. Until it is sent it is kept on this device as its Saved Draft.
 _Avoid_: input, insert bar, prompt box, composer (that is the Draft while editable)
 
 **Saved Draft**:
@@ -115,6 +115,18 @@ _Avoid_: tab, composer mode, input mode
 **Side Question**:
 A question about the open Session, asked on the side and answered by the Session's own agent without interrupting it or entering its transcript. Text only: no file or Skill goes with it, and no model is picked. While the Draft is in Side Question mode, the question asked and how it stands, being answered, answered or failed, takes the transcript's place, and the answer can be copied. A new one replaces the last and its answer; nothing of it is kept.
 _Avoid_: aside, ask, side chat
+
+**Question Panel**:
+Where the open Session's Agent Question is answered, standing in for its Draft from the moment its agent asks until the question is answered, skipped, or its Turn ends: the Draft cannot be reached by click, tap, key or focus meanwhile, and comes back as it was, its Saved Draft untouched. It lives in the page's content column, never over the sidebar or the header, which work as ever while it waits, and is in one of two states, kept for each question while the Session is open. Expanded, a question's first state, it covers the transcript under the page's header, on touch as a sheet: every question it holds in one list that scrolls, under a row of their headers once there are several, saying how many are answered; each with its options, round for one choice and square for several, numbered, and, where its agent allows, an answer of one's own, a secret's hidden as it is typed; at its foot Stop while the Turn runs, Skip, which lets the agent carry on without an answer, and Send, which sends nothing while a question is left but marks it. Minimised, by its button, a swipe down its head on touch, Escape, or Ctrl+Y or `y` in Vim Mode, it is a bar in the Draft's place, "Claude asks: Colour, Fruits · 1 of 2 answered", with Stop, Skip and Open, and the transcript is the page's again; the bar, those keys, or `i`, which never opens the Composer while it stands in, expand it. Its Session's row in the sidebar says "Question" while it waits.
+_Avoid_: question drawer, question dialog, prompt, form, modal
+
+**Expanded**:
+The Question Panel over the transcript, with the keys: the arrows or `j` and `k` through its choices, Left and Right or `h` and `l` through its questions, Space to choose, Enter to choose and go on, 1 to 9 for an option, `i` into its field, Mod+Enter to send, `d` to skip, and Escape out of a field, then to minimise it.
+_Avoid_: open, maximised
+
+**Minimised**:
+The Question Panel as a bar where the Draft sits, the question still asked and its answers so far kept, so the transcript above can be read, scrolled and opened by pointer, touch and keys.
+_Avoid_: closed, collapsed, dismissed
 
 **Touch Draft**:
 The Draft on a device with no keyboard: a sheet at the foot of the page, edge to edge, with the model chip and Text | Voice on top, a few lines of the Draft read only under them, and a row that never moves: Skills and Quick actions on the left, the talk bar in the middle, Send on the right. In voice, tapping the words places the cursor and the talk bar dictates: tap to talk, Waiting, quiet, while the Microphone opens, a tap letting it go, then tap again to take it, or Send to take it and send the Draft once it is text; Cancel throws it away, and a failed one is tried again or thrown away from the same place. In text, tapping the words makes it the Composer. A Swipe on the words switches between them; voice can't be chosen while no Machine can transcribe. Which one it is, is kept in Preferences. It is resting, recording, transcribing, being edited or sending; what it holds is the Draft's text, not one of these.

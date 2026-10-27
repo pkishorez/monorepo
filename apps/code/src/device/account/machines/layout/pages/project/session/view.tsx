@@ -17,10 +17,11 @@ import {
   useMachineId,
   useOffline,
 } from '../../../../machine/connection/index.ts';
+import { agentName } from '../../../../../../../ui/labels/agent/index.ts';
 import { Draft } from '../draft/index.ts';
 import { readyOf, SessionLive } from './actor.ts';
-import { useFollow } from './follow.ts';
-import { useSessionKeys } from './keys.ts';
+import { useFollow, useScrollKeys } from './follow.ts';
+import { Question } from './question/index.ts';
 import {
   EarlierRows,
   earlierOf,
@@ -42,7 +43,9 @@ import {
  * from as one folded line before its own turns. Typing in the Draft draws
  * only the Draft. While the Draft is in Side Question mode, the question
  * takes the transcript's place, which keeps where it was scrolled to.
- * Nothing of it is drawn until all of it is read from this device
+ * While its agent waits on an Agent Question, the Question Panel stands
+ * in for the Draft (`question/`), with Stop; expanded, it covers the
+ * transcript, which cannot be reached under it. Nothing of it is drawn until all of it is read from this device
  * (`readyOf`), then the transcript and the Draft in one step;
  * `SessionReady` says so once, before Layout is first drawn.
  */
@@ -133,13 +136,52 @@ export const SessionView = View.make(
       (messages?.rows.length === 0 && messages.neverSynced.length > 0);
     const stop = useCallback(() => send({ _tag: 'StopAsked' }), [send]);
     const canStop = running && !model.stopping && offline === null;
-    useSessionKeys({ scroller, follow, stop, canStop });
+    useScrollKeys(follow);
+    keys.useAction('content.stop', stop, { enabled: canStop });
     const stopKeys = useBound('content.stop');
+    // While its agent asks, the Question Panel stands in for the Draft.
+    const asked =
+      useChild(
+        children.question,
+        (question) => Question.shownOf(question.model) !== null,
+      ) === true;
+    const expanded =
+      useChild(children.question, (question) =>
+        Question.expandedOf(question.model),
+      ) === true;
+    // Where the Question Panel is drawn expanded, over the transcript.
+    const [questionPlace, setQuestionPlace] = useState<HTMLElement | null>(
+      null,
+    );
+    const around = useMemo(
+      () => ({
+        place: questionPlace,
+        agent: session === undefined ? 'The agent' : agentName(session.harness),
+        problem: model.problem,
+        stop: running
+          ? {
+              run: stop,
+              stopping: model.stopping,
+              disabled: offline !== null,
+            }
+          : null,
+      }),
+      [
+        questionPlace,
+        session?.harness,
+        model.problem,
+        running,
+        stop,
+        model.stopping,
+        offline,
+      ],
+    );
     // Where the Draft draws Side Question mode, in the transcript's place.
     const [sideQuestion, setSideQuestion] = useState<HTMLElement | null>(null);
-    const side =
+    const sideMode =
       useChild(children.draft, ({ model }) => model.mode === 'SideQuestion') ===
       true;
+    const side = sideMode && !asked;
     // What the session adds to its Draft's foot: Stop, and why a stop or a
     // fork was refused.
     const slots = useMemo(
@@ -178,7 +220,7 @@ export const SessionView = View.make(
     // The Draft sits under the transcript, inset by the room its scrollbar keeps.
     const gutter = useGutter();
     return (
-      <div {...root} className="flex min-h-0 flex-1 flex-col">
+      <div {...root} className="relative flex min-h-0 flex-1 flex-col">
         <div
           ref={(element) => {
             scroller.current = element;
@@ -186,6 +228,7 @@ export const SessionView = View.make(
           }}
           tabIndex={-1}
           hidden={side}
+          inert={expanded}
           data-scroll-restoration-id={TRANSCRIPT}
           // Positioned, so what is placed absolutely inside it, such as
           // markdown's screen-reader-only footnotes heading, is measured
@@ -214,6 +257,7 @@ export const SessionView = View.make(
           hidden={!side}
           className={`relative min-h-0 flex-1 overflow-y-auto select-text ${GUTTERED}`}
         />
+        <div ref={setQuestionPlace} className="contents" />
         {/* A Draft only under a row held here, so none shows over a
             session its Machine then says is missing. */}
         {session !== undefined && !reading && (
@@ -222,13 +266,20 @@ export const SessionView = View.make(
             className="relative shrink-0 bg-background pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent has-[[data-slot=draft][data-touch]]:pb-0"
           >
             <ToBottom
-              shown={follow.away && !side}
+              shown={follow.away && !side && !expanded}
               onClick={() => follow.holdOn(true)}
             />
             <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 has-[[data-slot=draft][data-touch]]:px-0">
-              <Draft.Slots value={slots}>
-                <Draft.view instance={children.draft} />
-              </Draft.Slots>
+              <Question.Around value={around}>
+                <Question.view instance={children.question} />
+              </Question.Around>
+              {/* Not drawn while a question stands in for it, so no click,
+                  tap, key or focus reaches it; its Saved Draft waits. */}
+              {!asked && (
+                <Draft.Slots value={slots}>
+                  <Draft.view instance={children.draft} />
+                </Draft.Slots>
+              )}
             </div>
           </div>
         )}

@@ -13,3 +13,4 @@ export {
   type Summary,
 } from './parse.ts';
 export { Folder } from './folder.ts';
+export { askedOf, type Asked } from './question.ts';

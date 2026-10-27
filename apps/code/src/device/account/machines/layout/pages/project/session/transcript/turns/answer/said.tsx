@@ -1,13 +1,17 @@
 import { CircleAlertIcon, ListChecksIcon } from 'lucide-react';
 import type { Row } from '../rows/index.ts';
 import { Checklist, Markdown, progressOf, Writing } from '../../words/index.ts';
+import { Asked, stateOf } from '../../tool/index.ts';
+import { askedOf } from '../../tool/parse/index.ts';
 
 /*
  * What the agent says, as opposed to what it does: its words, in full
  * type, the newest part fading in while they stream, a breathing dot at
  * their end; a plan, as a small card of its steps; an error, in red with
  * its icon; and a note, such as the context compacted, as a quiet rule
- * across the column. Inside a subagent its words are a step smaller.
+ * across the column; and a question it asked you, with what you answered,
+ * since asking is saying (`tool/`). Inside a subagent its words are a step
+ * smaller.
  */
 
 /** The agent's words; a row that is text or reasoning, narrowed to text. */
@@ -15,15 +19,19 @@ type TextRow = Extract<Row, { readonly kind: 'text' | 'reasoning' }> & {
   readonly kind: 'text';
 };
 
+type ToolRow = Extract<Row, { readonly kind: 'tool' }>;
+
 export type SaidRow =
   | TextRow
-  | Extract<Row, { readonly kind: 'plan' | 'error' | 'note' }>;
+  | Extract<Row, { readonly kind: 'plan' | 'error' | 'note' }>
+  | ToolRow;
 
 export const isSaid = (row: Row): row is SaidRow =>
   row.kind === 'text' ||
   row.kind === 'plan' ||
   row.kind === 'error' ||
-  row.kind === 'note';
+  row.kind === 'note' ||
+  (row.kind === 'tool' && askedOf(row.call, row.result) !== null);
 
 export function Said({
   row,
@@ -77,6 +85,8 @@ export function Said({
           <span className="min-w-0 break-words">{row.message}</span>
         </p>
       );
+    case 'tool':
+      return <Asked row={row} state={stateOf(row.state, running)} />;
     case 'note':
       return (
         <p className="flex items-center gap-3 text-xs text-muted-foreground">
