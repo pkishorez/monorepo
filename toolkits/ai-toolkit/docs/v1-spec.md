@@ -120,13 +120,16 @@ interface Agent {
 ```
 
 - Claude: Agent SDK in streaming-input mode (steer = push the next user
-  message). `permissionMode: 'bypassPermissions'`, AskUserQuestion disallowed.
+  message). `permissionMode: 'bypassPermissions'`. AskUserQuestion is an
+  Agent Question: `canUseTool` holds it until the user answers or declines.
   Settings: effort, permissionMode. Subagent output carries
   `parent_tool_use_id` -> `agentId`.
 - Codex: `codex app-server` JSON-RPC. Sandbox `danger-full-access`, approval
   `never`. Steer with `turn/steer` if the server supports it; otherwise cancel
-  and send again. Any request for user input is answered automatically:
-  declined, continue. Settings: reasoningEffort, sandbox.
+  and send again. `request_user_input`, which the app-server is started to
+  allow outside Plan mode, is an Agent Question, recorded as `question.asked`
+  and `question.answered`; any other request for user input is answered
+  automatically: declined, continue. Settings: reasoningEffort, sandbox.
 - Both: whole items only (Claude: assistant / user / result / system;
   Codex: `item/started` for tool-like items, `item/completed`, `turn/completed`,
   token usage).

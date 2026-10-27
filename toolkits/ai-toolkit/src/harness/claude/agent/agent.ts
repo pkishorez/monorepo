@@ -17,6 +17,7 @@ import { resultEnd } from '../project/index.js';
 import { makeBackgroundJobs } from './background-jobs/index.js';
 import { userContent } from './content.js';
 import { queryOptions, type SdkAgentConfig } from './options.js';
+import { makeQuestions } from './questions/index.js';
 import {
   forkPointOf,
   keptWhileIdle,
@@ -84,15 +85,21 @@ interface Turn {
  * Claude Code starts on its own between ours (to report a finished
  * Background Job) streams the same way on `agentTurns`; a user turn waits
  * for it to end, so the two never interleave, and a steer waits with it.
+ * An Agent Question holds its tool call until the user answers it, and is
+ * declined when its turn ends.
  */
 export const openSdkAgent = (
   config: SdkAgentConfig,
 ): Effect.Effect<SdkAgent, HarnessError, Scope.Scope> =>
   Effect.gen(function* () {
     const input = userInput();
+    const questions = yield* makeQuestions;
     const live = yield* Effect.try({
       try: () =>
-        query({ prompt: input.iterable, options: queryOptions(config) }),
+        query({
+          prompt: input.iterable,
+          options: queryOptions(config, questions),
+        }),
       catch: (cause) =>
         new HarnessError({ message: 'Claude Code did not start', cause }),
     });
@@ -191,10 +198,11 @@ export const openSdkAgent = (
                     : { forkPoint: current.forkPoint }),
                 },
               ];
-        return Queue.offerAll(current.out, [
-          ...chunks.flushAll(),
-          ...last,
-        ]).pipe(
+        // Its Agent Questions go with it.
+        return questions.clear.pipe(
+          Effect.andThen(
+            Queue.offerAll(current.out, [...chunks.flushAll(), ...last]),
+          ),
           Effect.andThen(Queue.end(current.out)),
           Effect.andThen(Deferred.succeed(current.done, undefined)),
         );
@@ -321,11 +329,12 @@ export const openSdkAgent = (
         const current = turn;
         turn = undefined;
         const rest = chunks.closeAll();
-        // Its Background Jobs went with it.
-        if (current === undefined) return jobs.clear;
+        // Its Background Jobs and Agent Questions went with it.
+        const gone = Effect.andThen(jobs.clear, questions.clear);
+        if (current === undefined) return gone;
         current.ended = true;
         return Queue.offerAll(current.out, rest).pipe(
-          Effect.andThen(jobs.clear),
+          Effect.andThen(gone),
           Effect.andThen(Queue.fail(current.out, error)),
           Effect.andThen(Deferred.succeed(current.done, undefined)),
         );
@@ -496,6 +505,8 @@ export const openSdkAgent = (
       agentTurns: Stream.fromQueue(agentTurns),
       backgroundJobs: jobs.changes,
       stopBackgroundJob: jobs.stop,
+      questions: questions.changes,
+      answer: questions.answer,
       mcpStatus: mcpStatus(live),
       contextUsage: contextUsage(live),
     };

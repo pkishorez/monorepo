@@ -32,6 +32,7 @@ import { listSkills } from '../catalog/index.js';
 import { mayNameSkill, toUserInput } from './input.js';
 import { makeSubAgents, terminalJobs, touchesTerminals } from './jobs.js';
 import { makeLineage, type Lineage } from './lineage.js';
+import { makeQuestions } from './questions.js';
 import { toRawOut } from './records.js';
 import { sandboxPolicy, threadOptions } from './settings.js';
 import { toContextUsage, toMcpStatus } from './status.js';
@@ -111,6 +112,8 @@ interface Running {
 const makeRunning = (
   queue: Queue.Queue<TurnOut, HarnessError | Cause.Done>,
   streams: Streams,
+  /** Runs as it ends, before how it ended is sent. */
+  ending: () => void,
 ): Running => {
   const ended = Deferred.makeUnsafe<void>();
   const running: Running = {
@@ -134,6 +137,7 @@ const makeRunning = (
         Queue.offerUnsafe(queue, { _tag: 'TurnSteered', id });
       running.steering.clear();
       running.release(false);
+      ending();
       // Streamed text is all the client sees of it: send what still waits.
       streams.flushAll();
       Queue.offerUnsafe(
@@ -298,6 +302,13 @@ export const openSession = (
     const terminalsSeen = new Map<string, number>();
     const jobs = yield* SubscriptionRef.make<ReadonlyArray<BackgroundJob>>([]);
     const jobChanges = yield* Queue.sliding<'terminals' | 'agents'>(1);
+    const questions = yield* makeQuestions(
+      (out) => running?.emit(out),
+      lineage.agentOf,
+      () => running !== undefined,
+    );
+    const untake = server.takeQuestions(questions.take);
+    yield* Effect.addFinalizer(() => Effect.sync(untake));
 
     // This listener hears the whole session, ahead of any turn's listener:
     // a child thread is known before its first record is routed, and a
@@ -308,6 +319,7 @@ export const openSession = (
         if (subAgents.observe(notification, Date.now()))
           Queue.offerUnsafe(jobChanges, 'agents');
         if (notification.method === 'skills/changed') skills = undefined;
+        questions.observe(notification);
         const params = (notification.params ?? {}) as { threadId?: string };
         if (params.threadId !== threadId) return;
         if (touchesTerminals(notification))
@@ -315,7 +327,7 @@ export const openSession = (
         if (isNotification(notification, 'thread/tokenUsage/updated'))
           tokenUsage = notification.params.tokenUsage;
       },
-      exit: () => {},
+      exit: () => questions.clear(false),
     });
 
     const listTerminals = allPages((cursor) =>
@@ -476,7 +488,10 @@ export const openSession = (
               message: 'A Codex turn is already running',
             });
           const streams = makeStreams((out) => Queue.offerUnsafe(queue, out));
-          const current = makeRunning(queue, streams);
+          // Its Agent Questions go with it.
+          const current = makeRunning(queue, streams, () =>
+            questions.clear(true),
+          );
           running = current;
           Deferred.doneUnsafe(claimed, Effect.succeed(current));
 
@@ -633,6 +648,8 @@ export const openSession = (
       agentTurns: Stream.never,
       backgroundJobs: SubscriptionRef.changes(jobs),
       stopBackgroundJob,
+      questions: questions.changes,
+      answer: questions.answer,
       mcpStatus,
       contextUsage,
     } satisfies Agent;

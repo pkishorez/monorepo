@@ -73,6 +73,11 @@ What Code's browser imports: the `code` App Group's API and records, the client 
 | `BackgroundJobSchema`    | Schema of one Background Job.                                                                                                                       |
 | `BACKGROUND_JOB_KINDS`   | Tuple of Background Job kinds: `shell`, `agent`.                                                                                                    |
 | `SessionJobs`            | Schema of one Session's Background Jobs, as the `backgroundJobs` stream sends them.                                                                 |
+| `AgentQuestionSchema`    | Schema of an Agent Question: its id, one to four Items, and when it was asked.                                                                      |
+| `QuestionItemSchema`     | Schema of one Item of an Agent Question: header, question, options, and whether it takes several, its own answer, or a secret.                      |
+| `QuestionOptionSchema`   | Schema of one choice of an Item: its label and what choosing it means.                                                                              |
+| `QuestionAnswerSchema`   | Schema of an answer to an Agent Question: by Item id, the labels chosen, then what was typed.                                                       |
+| `SessionQuestions`       | Schema of one Session's Agent Questions, as the `agentQuestions` stream sends them.                                                                 |
 | `McpServerStatusSchema`  | Schema of one MCP server a Session's Agent is connected to.                                                                                         |
 | `MCP_SERVER_STATES`      | Tuple of MCP server states, such as `connected`, `failed`, `needs-auth`, `pending`.                                                                 |
 | `ContextUsageSchema`     | Schema of Context Usage: tokens used, the window size, and rate limits.                                                                             |

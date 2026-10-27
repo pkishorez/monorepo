@@ -3,7 +3,9 @@ import { Actor } from '@kestack/kabuki';
 import type { Self } from '@kestack/kabuki';
 import { nextUlid } from '@kestack/std-toolkit/core';
 import {
+  AgentQuestionSchema,
   BackgroundJobSchema,
+  QuestionAnswerSchema,
   TURN_END_STATUSES,
   type Json,
 } from '@kestack/ai-toolkit/contract';
@@ -20,7 +22,7 @@ import {
   type SessionStatus,
 } from '../../../records/index.js';
 import { Agents, HarnessAccounts, Store } from '../../capabilities/index.js';
-import { StopJob } from './commands.js';
+import { AnswerQuestion, NOT_ASKED, StopJob } from './commands.js';
 import { forkFrom } from './fork.js';
 import { Prompt } from './prompt.js';
 import { title, retitle } from './title.js';
@@ -42,7 +44,9 @@ import { cancel, run } from './turn.js';
  * Across both it keeps one Agent for its Turns in Agents (the agent
  * Worker), where its other Workers, its Commands and its Queries find it;
  * follows the Background Jobs the Agent reports, stops one on a StopJob
- * (see commands.ts) and keeps the reason when the harness refuses; saves
+ * (see commands.ts) and keeps the reason when the harness refuses; follows
+ * the Agent Questions its running Turn waits on, and gives the agent an
+ * Answer, keeping how it went until the engine has read it; saves
  * itself whenever its record changes; takes a message's model and settings
  * from that Turn on; and asks a One-shot Prompt for a title after its first
  * message (see title.ts). Each Turn that starts marks it active, and each
@@ -61,6 +65,9 @@ export class AgentClosed extends Data.TaggedError('AgentClosed')<{}> {}
 export class AskFailed extends Data.TaggedError('AskFailed')<{
   readonly message: string;
 }> {}
+
+/** How many Answers' outcomes a Session keeps for the engine to read. */
+const KEPT_ANSWERS = 16;
 
 /** What a Session keeps of its record; its status is its State. */
 const Saved = Schema.Struct(SessionSchema.fields).mapFields(
@@ -86,6 +93,18 @@ const Model = Schema.Struct({
   /** Stops the harness refused, for jobs still listed; in memory only. */
   refusedStops: Schema.Array(
     Schema.Struct({ jobId: Schema.String, reason: Schema.String }),
+  ),
+  /** The Agent Questions as the agent last listed them; in memory only. */
+  questions: Schema.Array(AgentQuestionSchema),
+  /**
+   * How each Answer went, until the engine reads it: null when the agent
+   * took it, else why not; in memory only.
+   */
+  answered: Schema.Array(
+    Schema.Struct({
+      answerId: Schema.String,
+      reason: Schema.NullOr(Schema.String),
+    }),
   ),
 });
 type Model = typeof Model.Type;
@@ -144,6 +163,20 @@ const Message = Schema.TaggedUnion({
   StopJob: { jobId: Schema.String },
   /** The harness refused to stop a job. */
   JobStopFailed: { jobId: Schema.String, reason: Schema.String },
+  Questions: { questions: Schema.Array(AgentQuestionSchema) },
+  /** Answer one of the agent's Agent Questions; null declines it. */
+  Answer: {
+    answerId: Schema.String,
+    questionId: Schema.String,
+    answer: Schema.NullOr(QuestionAnswerSchema),
+  },
+  /** How an Answer went: null when the agent took it, else why not. */
+  AnswerGiven: {
+    answerId: Schema.String,
+    reason: Schema.NullOr(Schema.String),
+  },
+  /** The engine has read how an Answer went. */
+  AnswerRead: { answerId: Schema.String },
   Titled: { title: Schema.String },
   Settle: { at: Schema.Finite },
   Unsettle: {},
@@ -247,6 +280,16 @@ const jobs = (self: SessionSelf) =>
     );
   });
 
+/** Follows the Agent Questions the agent asks; none while it is closed. */
+const questions = (self: SessionSelf) =>
+  Effect.gen(function* () {
+    const { model } = yield* self.get;
+    const kept = yield* (yield* Agents).of(model.session.id);
+    yield* Stream.runForEach(kept.questions, (questions) =>
+      self.send({ _tag: 'Questions', questions }),
+    );
+  });
+
 /** Asks the open agent `read`; AgentClosed while it is closed. */
 const fromAgent = <A>(
   self: SessionQuerySelf,
@@ -321,6 +364,8 @@ export const Session = Actor.build(
         untitled: first?.text ?? null,
         jobs: [],
         refusedStops: [],
+        questions: [],
+        answered: [],
       },
       state: first ? running([first]) : idleOf(session.status),
     }),
@@ -354,6 +399,45 @@ export const Session = Actor.build(
               },
             }
           : {},
+      Questions: ({ questions }, { model }) => ({
+        model: { ...model, questions },
+      }),
+      // One no longer asked is not given: the agent would refuse it anyway.
+      Answer: ({ answerId, questionId, answer }, { model }) =>
+        model.questions.some((question) => question.id === questionId)
+          ? {
+              command: AnswerQuestion({
+                sessionId: model.session.id,
+                answerId,
+                questionId,
+                answer,
+              }),
+            }
+          : {
+              model: {
+                ...model,
+                answered: [
+                  ...model.answered,
+                  { answerId, reason: NOT_ASKED },
+                ].slice(-KEPT_ANSWERS),
+              },
+            },
+      // One its caller stopped waiting for before it came is never read:
+      // only the latest few are kept.
+      AnswerGiven: ({ answerId, reason }, { model }) => ({
+        model: {
+          ...model,
+          answered: [...model.answered, { answerId, reason }].slice(
+            -KEPT_ANSWERS,
+          ),
+        },
+      }),
+      AnswerRead: ({ answerId }, { model }) => ({
+        model: {
+          ...model,
+          answered: model.answered.filter((each) => each.answerId !== answerId),
+        },
+      }),
       Titled: ({ title }, { model }) => ({
         model: {
           ...model,
@@ -372,6 +456,7 @@ export const Session = Actor.build(
     workers: {
       agent: { run: (self) => agent(self) },
       jobs: { run: (self) => jobs(self) },
+      questions: { run: (self) => questions(self) },
       persist: { run: (self) => persist(self) },
       title: {
         while: ({ model }) => model.untitled !== null,

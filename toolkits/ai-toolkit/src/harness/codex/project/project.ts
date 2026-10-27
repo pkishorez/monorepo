@@ -6,13 +6,20 @@ import type {
   ToolKind,
 } from '../../../contract/projection/index.js';
 import type { Raw } from '../../../contract/raw/index.js';
-import type { Notifications, ThreadItem } from '../app-server/index.js';
+import type {
+  Notifications,
+  ThreadItem,
+  UserInputRequest,
+} from '../app-server/index.js';
 import {
   isToolItem,
+  QUESTION_ANSWERED,
+  QUESTION_ASKED,
   readableError,
   TEXT_CHUNK,
   TURN_END,
   type Channel,
+  type QuestionAnswered,
   type ToolItem,
 } from '../thread/index.js';
 
@@ -301,6 +308,49 @@ const turnCompleted = (
   ]);
 };
 
+/** The tool name Codex asks with, as the agent calls it. */
+const ASK_TOOL = 'request_user_input';
+
+/** One question reads as itself; several as their headers. */
+const questionTitle = (request: UserInputRequest): string =>
+  firstLine(
+    request.questions.length === 1
+      ? (request.questions[0]?.question ?? '')
+      : request.questions.map((question) => question.header).join(', '),
+  );
+
+const questionAsked = (raw: Raw, request: UserInputRequest): Projected =>
+  message(raw, 'assistant', [
+    {
+      type: 'toolCall',
+      id: request.itemId,
+      tool: 'question',
+      name: ASK_TOOL,
+      title: questionTitle(request),
+      input: json({ questions: request.questions }),
+    },
+  ]);
+
+/** Each question's answer on a line of its own, by its header. */
+const questionAnswered = (raw: Raw, answered: QuestionAnswered): Projected =>
+  message(raw, 'tool', [
+    {
+      type: 'toolResult',
+      toolCallId: answered.itemId,
+      ...trimmed(
+        answered.answers === null
+          ? 'Not answered'
+          : Object.entries(answered.answers)
+              .map(
+                ([id, answers]) =>
+                  `${answered.headers[id] ?? id}: ${answers.join(', ')}`,
+              )
+              .join('\n'),
+      ),
+      isError: answered.answers === null,
+    },
+  ]);
+
 /** Pure: one Raw record this harness wrote, to its projected form or null. */
 export const project = (raw: Raw): Projected | null => {
   switch (raw.kind) {
@@ -334,6 +384,10 @@ export const project = (raw: Raw): Projected | null => {
         },
       ]);
     }
+    case QUESTION_ASKED:
+      return questionAsked(raw, raw.payload as unknown as UserInputRequest);
+    case QUESTION_ANSWERED:
+      return questionAnswered(raw, raw.payload as unknown as QuestionAnswered);
     case 'turn/completed':
       return turnCompleted(
         raw,

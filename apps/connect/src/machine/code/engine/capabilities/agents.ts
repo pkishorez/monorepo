@@ -10,7 +10,10 @@ import type {
   HarnessError,
   TurnHandle,
 } from '@kestack/ai-toolkit/harness';
-import type { BackgroundJob } from '@kestack/ai-toolkit/contract';
+import type {
+  AgentQuestion,
+  BackgroundJob,
+} from '@kestack/ai-toolkit/contract';
 
 /*
  * Every Session's Agent, by Session id. The Session's agent Worker keeps
@@ -31,6 +34,8 @@ export interface SessionAgent {
   readonly reset: Effect.Effect<void>;
   /** The Agent's Background Jobs now, then each change; none while it is closed. */
   readonly jobs: Stream.Stream<ReadonlyArray<BackgroundJob>>;
+  /** The Agent Questions its running Turn waits on now, then each change; none while it is closed. */
+  readonly questions: Stream.Stream<ReadonlyArray<AgentQuestion>>;
   /** Waits until the Agent has started a Turn of its own that has not run. */
   readonly nextAgentTurn: Effect.Effect<void>;
   /** The oldest Turn the Agent started that has not run, taken to run now. */

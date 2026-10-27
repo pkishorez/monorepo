@@ -14,14 +14,20 @@ import {
   makeFakeHarness,
   type FakeHarness,
 } from '@kestack/ai-toolkit/harness/fake';
-import type { Raw } from '@kestack/ai-toolkit/contract';
-import { Engine, Store, storeLayer, type SessionJobs } from '../index.js';
+import type { AgentQuestion, Raw } from '@kestack/ai-toolkit/contract';
+import {
+  Engine,
+  Store,
+  storeLayer,
+  type SessionJobs,
+  type SessionQuestions,
+} from '../index.js';
 
 /*
  * The engine's features beyond running Turns, over the fake harness: per-turn
  * model, Attachments, Fork Points and Forks, Asks, Titles, Skills, what a
- * Session's agent reports, Background Jobs, Agent-started Turns and Harness
- * Binaries.
+ * Session's agent reports, Background Jobs, Agent Questions, Agent-started
+ * Turns and Harness Binaries.
  */
 
 const folders: Array<string> = [];
@@ -704,6 +710,112 @@ describe('Background Jobs', () => {
         yield* eventually(async () => expect(await now()).toHaveLength(1));
         yield* fake.fail('boom');
         yield* eventually(async () => expect(await now()).toEqual([]));
+      }),
+      fake,
+    );
+  });
+});
+
+describe('Agent Questions', () => {
+  const question = (id: string): AgentQuestion => ({
+    id,
+    items: [
+      {
+        id: 'auth',
+        header: 'Auth method',
+        question: 'How should users sign in?',
+        options: [{ label: 'OAuth', description: '' }],
+        multiSelect: false,
+        other: true,
+        secret: false,
+      },
+    ],
+    askedAt: 1,
+  });
+
+  /** A Session whose held Turn is running, and the questions as listed. */
+  const asking = Effect.gen(function* () {
+    const { engine, project, session, raws } = yield* started();
+    yield* eventually(async () => expect(await raws()).toHaveLength(2));
+    const seen: Array<ReadonlyArray<SessionQuestions>> = [];
+    yield* Effect.forkScoped(
+      Stream.runForEach(engine.agentQuestions, (now) =>
+        Effect.sync(() => void seen.push(now)),
+      ),
+    );
+    yield* eventually(() => expect(seen).toEqual([[]]));
+    const row = (questions: ReadonlyArray<AgentQuestion>) => ({
+      sessionId: session.id,
+      projectId: project.id,
+      questions,
+    });
+    return { engine, session, seen, row };
+  });
+
+  it('show while their Turn waits, and go once answered or declined', async () => {
+    const fake = makeFakeHarness({ hold: true });
+    await run(
+      Effect.gen(function* () {
+        const { engine, session, seen, row } = yield* asking;
+        yield* fake.askQuestion('native-1', question('q1'));
+        yield* fake.askQuestion('native-1', question('q2'));
+        yield* eventually(() =>
+          expect(seen.at(-1)).toEqual([row([question('q1'), question('q2')])]),
+        );
+
+        yield* engine.answerQuestion(session.id, 'q1', { auth: ['OAuth'] });
+        yield* eventually(() =>
+          expect(seen.at(-1)).toEqual([row([question('q2')])]),
+        );
+        yield* engine.answerQuestion(session.id, 'q2', null);
+        yield* eventually(() => expect(seen.at(-1)).toEqual([]));
+        expect(fake.answers).toEqual([
+          { id: 'q1', answer: { auth: ['OAuth'] } },
+          { id: 'q2', answer: null },
+        ]);
+      }),
+      fake,
+    );
+  });
+
+  it('refuse an answer to one no longer asked', async () => {
+    const fake = makeFakeHarness({ hold: true });
+    await run(
+      Effect.gen(function* () {
+        const { engine, session, seen, row } = yield* asking;
+        yield* fake.askQuestion('native-1', question('q1'));
+        yield* eventually(() =>
+          expect(seen.at(-1)).toEqual([row([question('q1')])]),
+        );
+        yield* engine.answerQuestion(session.id, 'q1', null);
+        for (const id of ['q1', 'nope'])
+          expect(
+            yield* Effect.flip(engine.answerQuestion(session.id, id, null)),
+          ).toMatchObject({ _tag: 'QuestionNotAsked', id });
+        expect(
+          yield* Effect.flip(engine.answerQuestion('nope', 'q1', null)),
+        ).toMatchObject({ _tag: 'SessionNotFound' });
+        expect(fake.answers).toEqual([{ id: 'q1', answer: null }]);
+      }),
+      fake,
+    );
+  });
+
+  it('go when their Turn is cancelled', async () => {
+    const fake = makeFakeHarness({ hold: true });
+    await run(
+      Effect.gen(function* () {
+        const { engine, session, seen, row } = yield* asking;
+        yield* fake.askQuestion('native-1', question('q1'));
+        yield* eventually(() =>
+          expect(seen.at(-1)).toEqual([row([question('q1')])]),
+        );
+        yield* engine.cancel(session.id);
+        yield* eventually(() => expect(seen.at(-1)).toEqual([]));
+        expect(
+          yield* Effect.flip(engine.answerQuestion(session.id, 'q1', null)),
+        ).toMatchObject({ _tag: 'QuestionNotAsked' });
+        expect(fake.answers).toEqual([]);
       }),
       fake,
     );

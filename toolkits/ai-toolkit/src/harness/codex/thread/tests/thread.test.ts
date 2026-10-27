@@ -1,7 +1,11 @@
-import { Effect, Fiber, Stream, type Scope } from 'effect';
+import { Effect, Fiber, Option, Stream, type Scope } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { Agent, TurnOut } from '../../../contract/index.js';
-import type { AppServer } from '../../app-server/index.js';
+import type {
+  AppServer,
+  QuestionRequest,
+  UserInputResponse,
+} from '../../app-server/index.js';
 
 type Listener = Parameters<AppServer['listen']>[0];
 import { openSession } from '../thread.js';
@@ -12,6 +16,9 @@ import { openSession } from '../thread.js';
  */
 const fakeServer = () => {
   const listeners = new Set<Listener>();
+  const takers = new Set<(request: QuestionRequest) => boolean>();
+  /** What each question was answered with, by request id. */
+  const responses = new Map<number, UserInputResponse>();
   const steers: Array<(ok: boolean) => void> = [];
   const starts: Array<Record<string, unknown>> = [];
   const skills: Array<() => void> = [];
@@ -39,16 +46,30 @@ const fakeServer = () => {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
+    takeQuestions: (take) => {
+      takers.add(take);
+      return () => takers.delete(take);
+    },
   };
   return {
     server,
     steers,
     starts,
     skills,
+    responses,
     notify: (method: string, params: unknown) => {
       for (const listener of listeners)
         listener.notification({ method, params } as never);
     },
+    /** The agent asks, as Codex does with `item/tool/requestUserInput`. */
+    ask: (id: number, params: typeof asked = asked) =>
+      [...takers].some((take) =>
+        take({
+          id,
+          params,
+          respond: (response) => responses.set(id, response),
+        }),
+      ),
   };
 };
 
@@ -57,6 +78,33 @@ const said = (text: string) => ({
   turnId: 't1',
   item: { type: 'agentMessage', id: `m-${text}`, text },
 });
+
+const asked = {
+  threadId: 'main',
+  turnId: 't1',
+  itemId: 'call_1',
+  questions: [
+    {
+      id: 'colour',
+      header: 'Colour',
+      question: 'Which colour?',
+      isOther: true,
+      isSecret: false,
+      options: [
+        { label: 'Red', description: 'Warm' },
+        { label: 'Blue', description: 'Cool' },
+      ],
+    },
+    {
+      id: 'name',
+      header: 'Name',
+      question: 'What name?',
+      isOther: false,
+      isSecret: false,
+      options: null,
+    },
+  ],
+};
 
 const completed = {
   threadId: 'main',
@@ -214,6 +262,157 @@ describe('a Codex turn', () => {
           turn.steer('late', { text: 'late', images: [] }),
         );
         expect(refused.message).toBe('Its Codex turn is not the one running');
+      }),
+    ));
+});
+
+describe('an Agent Question', () => {
+  const listed = (session: Agent, count: number) =>
+    session.questions.pipe(
+      Stream.filter((list) => list.length === count),
+      Stream.runHead,
+      Effect.map(Option.getOrThrow),
+    );
+
+  it('is listed while Codex waits, answered, and recorded both times', () =>
+    withSession((session, fake) =>
+      Effect.gen(function* () {
+        const turn = session.turn({ text: 'hi', images: [] });
+        const read = yield* Effect.forkChild(Stream.runCollect(turn.out));
+        yield* until(() => fake.starts.length === 1);
+        expect(fake.ask(7)).toBe(true);
+        const [question] = yield* listed(session, 1);
+        expect(question).toMatchObject({
+          id: 'call_1',
+          items: [
+            {
+              id: 'colour',
+              options: [{ label: 'Red', description: 'Warm' }, {}],
+              multiSelect: false,
+              other: true,
+            },
+            { id: 'name', options: [] },
+          ],
+        });
+        yield* session.answer('call_1', { colour: ['Blue'], name: ['Ada'] });
+        expect(fake.responses.get(7)).toEqual({
+          answers: {
+            colour: { answers: ['Blue'] },
+            name: { answers: ['Ada'] },
+          },
+        });
+        yield* listed(session, 0);
+        const again = yield* Effect.flip(session.answer('call_1', null));
+        expect(again.message).toBe('No question call_1 is asked');
+        // Codex says it is settled, as it does after every answer.
+        fake.notify('serverRequest/resolved', {
+          threadId: 'main',
+          requestId: 7,
+        });
+        fake.notify('turn/completed', completed);
+        const outs = [...(yield* Fiber.join(read))];
+        expect(kinds(outs)).toEqual([
+          'question.asked',
+          'question.answered',
+          'turn/completed',
+          'end done',
+        ]);
+        expect(outs[1]).toMatchObject({
+          payload: {
+            itemId: 'call_1',
+            headers: { colour: 'Colour', name: 'Name' },
+            answers: { colour: ['Blue'], name: ['Ada'] },
+          },
+        });
+      }),
+    ));
+
+  it('answers every question with nothing when declined', () =>
+    withSession((session, fake) =>
+      Effect.gen(function* () {
+        const turn = session.turn({ text: 'hi', images: [] });
+        yield* Effect.forkChild(Stream.runDrain(turn.out));
+        yield* until(() => fake.starts.length === 1);
+        fake.ask(1);
+        yield* listed(session, 1);
+        yield* session.answer('call_1', null);
+        expect(fake.responses.get(1)).toEqual({
+          answers: { colour: { answers: [] }, name: { answers: [] } },
+        });
+      }),
+    ));
+
+  it('goes when Codex settles it on its own', () =>
+    withSession((session, fake) =>
+      Effect.gen(function* () {
+        const turn = session.turn({ text: 'hi', images: [] });
+        yield* Effect.forkChild(Stream.runDrain(turn.out));
+        yield* until(() => fake.starts.length === 1);
+        fake.ask(3);
+        yield* listed(session, 1);
+        fake.notify('serverRequest/resolved', {
+          threadId: 'main',
+          requestId: 3,
+        });
+        yield* listed(session, 0);
+        expect(fake.responses.has(3)).toBe(false);
+      }),
+    ));
+
+  it('is left for the server to decline when no turn runs', () =>
+    withSession((session, fake) =>
+      Effect.gen(function* () {
+        expect(fake.ask(2)).toBe(false);
+        expect(yield* listed(session, 0)).toEqual([]);
+      }),
+    ));
+
+  it("never records a secret's answer", () =>
+    withSession((session, fake) =>
+      Effect.gen(function* () {
+        const turn = session.turn({ text: 'hi', images: [] });
+        const read = yield* Effect.forkChild(Stream.runCollect(turn.out));
+        yield* until(() => fake.starts.length === 1);
+        const [colour, name] = asked.questions;
+        fake.ask(5, {
+          ...asked,
+          questions: [colour!, { ...name!, isSecret: true }],
+        });
+        yield* listed(session, 1);
+        yield* session.answer('call_1', { colour: ['Red'], name: ['s3cr3t'] });
+        expect(fake.responses.get(5)).toMatchObject({
+          answers: { name: { answers: ['s3cr3t'] } },
+        });
+        fake.notify('turn/completed', completed);
+        const outs = [...(yield* Fiber.join(read))];
+        expect(outs[1]).toMatchObject({
+          payload: { answers: { colour: ['Red'], name: ['(hidden)'] } },
+        });
+        expect(JSON.stringify(outs)).not.toContain('s3cr3t');
+      }),
+    ));
+
+  it('goes, declined, when its turn ends', () =>
+    withSession((session, fake) =>
+      Effect.gen(function* () {
+        const turn = session.turn({ text: 'hi', images: [] });
+        const read = yield* Effect.forkChild(Stream.runCollect(turn.out));
+        yield* until(() => fake.starts.length === 1);
+        fake.ask(4);
+        yield* listed(session, 1);
+        fake.notify('turn/completed', completed);
+        const outs = [...(yield* Fiber.join(read))];
+        expect(kinds(outs)).toEqual([
+          'question.asked',
+          'turn/completed',
+          'question.answered',
+          'end done',
+        ]);
+        expect(outs[2]).toMatchObject({ payload: { answers: null } });
+        expect(fake.responses.get(4)).toEqual({
+          answers: { colour: { answers: [] }, name: { answers: [] } },
+        });
+        yield* listed(session, 0);
       }),
     ));
 });

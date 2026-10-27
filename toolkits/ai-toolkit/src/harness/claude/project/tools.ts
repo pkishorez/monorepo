@@ -17,6 +17,7 @@ const KINDS: Readonly<Record<string, ToolKind>> = {
   Task: 'subagent',
   Agent: 'subagent',
   TodoWrite: 'todo',
+  AskUserQuestion: 'question',
 };
 
 export const toolKind = (name: string): ToolKind =>
@@ -33,6 +34,21 @@ const field = (input: unknown, key: string): string | undefined => {
 const oneLine = (text: string): string => {
   const line = text.trim().split('\n')[0] ?? '';
   return line.length > TITLE_MAX ? `${line.slice(0, TITLE_MAX - 1)}…` : line;
+};
+
+/** One question reads as itself; several as their headers. */
+const questionTitle = (input: unknown): string | undefined => {
+  const questions =
+    typeof input === 'object' && input !== null
+      ? (input as Record<string, unknown>)['questions']
+      : undefined;
+  if (!Array.isArray(questions)) return undefined;
+  if (questions.length === 1) return field(questions[0], 'question');
+  const headers = questions.flatMap((question) => {
+    const header = field(question, 'header') ?? field(question, 'question');
+    return header === undefined ? [] : [header];
+  });
+  return headers.length === 0 ? undefined : headers.join(', ');
 };
 
 const titleFrom = (name: string, input: unknown): string | undefined => {
@@ -55,6 +71,8 @@ const titleFrom = (name: string, input: unknown): string | undefined => {
       return field(input, 'description') ?? field(input, 'subagent_type');
     case 'todo':
       return 'Update todos';
+    case 'question':
+      return questionTitle(input);
     case 'mcp': {
       const [, server, tool] = name.split('__');
       return server === undefined ? undefined : `${server}: ${tool ?? ''}`;

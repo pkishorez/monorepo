@@ -2,6 +2,7 @@ import { FoldersRpc } from './folders.js';
 import { HarnessesRpc } from './harnesses.js';
 import { JobsRpc } from './jobs.js';
 import { ProjectsRpc } from './projects.js';
+import { QuestionsRpc } from './questions.js';
 import { SessionsRpc } from './sessions.js';
 import { SpeechRpc } from './speech.js';
 import { TurnsRpc } from './turns.js';
@@ -9,7 +10,7 @@ import { TurnsRpc } from './turns.js';
 /*
  * The code App Group's API, which Code speaks, over WebSocket: commands that ask the engine
  * to do something, and feeds that replay every change after a cursor, then
- * stay live. It is seven groups, each in its own file, merged into one, so a
+ * stay live. It is eight groups, each in its own file, merged into one, so a
  * client reaches every procedure by its own name (`api.listFolder`):
  *
  * - harnesses  what each Coding Harness offers, and its Harness Binary.
@@ -17,6 +18,7 @@ import { TurnsRpc } from './turns.js';
  * - sessions   Sessions started, forked, Settled, asked, and how they stand.
  * - turns      messages sent to a Session, and the Messages it emits.
  * - jobs       Background Jobs.
+ * - questions  Agent Questions, and the user's answers to them.
  * - folders    the home folder's sub-folders, listed and made.
  * - speech     Speech to Text, switched on and off, and audio turned into text.
  */
@@ -26,6 +28,7 @@ export class CodeApi extends HarnessesRpc.merge(
   SessionsRpc,
   TurnsRpc,
   JobsRpc,
+  QuestionsRpc,
   FoldersRpc,
   SpeechRpc,
 ) {}
@@ -35,6 +38,7 @@ export { CreatedFolder, FolderEntry, FolderListing } from './folders.js';
 export { HarnessAccountInfo, HarnessInfo, SettingInfo } from './harnesses.js';
 export { SessionJobs } from './jobs.js';
 export { ProjectValue } from './projects.js';
+export { SessionQuestions } from './questions.js';
 export { SessionValue } from './sessions.js';
 export { SpeechToTextState } from './speech.js';
 export { Harness, WireEntity } from './wire.js';
@@ -61,6 +65,7 @@ export {
   type SessionStatus,
 } from '../../records/index.js';
 export {
+  AgentQuestionSchema,
   AskAnswerSchema,
   AttachmentSchema,
   BACKGROUND_JOB_KINDS,
@@ -69,7 +74,11 @@ export {
   ContextUsageSchema,
   MCP_SERVER_STATES,
   McpServerStatusSchema,
+  QuestionAnswerSchema,
+  QuestionItemSchema,
+  QuestionOptionSchema,
   SkillSchema,
+  type AgentQuestion,
   type AskAnswer,
   type Attachment,
   type BackgroundJob,
@@ -78,6 +87,9 @@ export {
   type ContextUsage,
   type McpServerState,
   type McpServerStatus,
+  type QuestionAnswer,
+  type QuestionItem,
+  type QuestionOption,
   type Skill,
 } from '@kestack/ai-toolkit/contract';
 export type { Json } from '@kestack/ai-toolkit/contract';

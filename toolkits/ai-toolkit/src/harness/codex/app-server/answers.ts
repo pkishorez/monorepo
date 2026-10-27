@@ -1,6 +1,9 @@
 // Every request the server sends back is answered at once, without a person:
-// approvals are granted in full, questions and elicitations are declined so
-// the agent carries on. v1 has no questions or approvals.
+// approvals are granted in full, elicitations are declined so the agent
+// carries on. A question the agent asks is declined too, unless an Agent
+// takes it to ask the user (see `AppServer.takeQuestions`).
+
+import type { UserInputResponse } from './protocol.js';
 
 export type Answer =
   | { readonly result: unknown }
@@ -10,6 +13,13 @@ const record = (value: unknown): Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null
     ? (value as Record<string, unknown>)
     : {};
+
+/** Declines every question of an `item/tool/requestUserInput` request. */
+export const declined = (params: unknown): UserInputResponse => ({
+  answers: Object.fromEntries(
+    questionIds(params).map((id) => [id, { answers: [] }]),
+  ),
+});
 
 const questionIds = (params: unknown): ReadonlyArray<string> => {
   const questions = record(params).questions;
@@ -40,13 +50,7 @@ export const answer = (method: string, params: unknown): Answer => {
     case 'item/permissions/requestApproval':
       return { result: grantAll(params) };
     case 'item/tool/requestUserInput':
-      return {
-        result: {
-          answers: Object.fromEntries(
-            questionIds(params).map((id) => [id, { answers: [] }]),
-          ),
-        },
-      };
+      return { result: declined(params) };
     case 'mcpServer/elicitation/request':
       return { result: { action: 'decline', content: null, _meta: null } };
     case 'currentTime/read':

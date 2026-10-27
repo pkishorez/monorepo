@@ -1,4 +1,5 @@
-import { Effect, Fiber, Stream, type Scope } from 'effect';
+import type { CanUseTool } from '@anthropic-ai/claude-agent-sdk';
+import { Effect, Fiber, Option, Stream, type Scope } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
 import type { TurnOut } from '../../../contract/index.js';
 import { openSdkAgent, type SdkAgent } from '../agent.js';
@@ -14,8 +15,11 @@ const live = vi.hoisted(() => {
   const sent: Array<{ uuid: string; text: unknown }> = [];
   /** Settles the model change the query is making, if any. */
   let modelChange: ((ok: boolean) => void) | undefined;
+  const asked: { canUseTool?: CanUseTool } = {};
   return {
     sent,
+    /** Calls the query's `canUseTool`, as Claude Code does before a tool runs. */
+    canUseTool: (...args: Parameters<CanUseTool>) => asked.canUseTool!(...args),
     settleModelChange: (ok: boolean) => modelChange?.(ok),
     emit: (record: unknown) => {
       records.push(record);
@@ -28,9 +32,12 @@ const live = vi.hoisted(() => {
     },
     query: ({
       prompt,
+      options,
     }: {
       prompt: AsyncIterable<{ uuid: string; message: { content: unknown } }>;
+      options: { canUseTool: CanUseTool };
     }) => {
+      asked.canUseTool = options.canUseTool;
       const mine: Array<unknown> = [];
       records = mine;
       let closed = false;
@@ -358,4 +365,116 @@ describe('openSdkAgent', () => {
         );
       }),
     ));
+
+  describe('an Agent Question', () => {
+    const input = {
+      questions: [
+        {
+          question: 'Which colour?',
+          header: 'Colour',
+          options: [
+            { label: 'Red', description: '' },
+            { label: 'Blue', description: '' },
+          ],
+          multiSelect: false,
+        },
+      ],
+    };
+    const ask = (signal = new AbortController().signal) =>
+      Effect.promise(() =>
+        live.canUseTool('AskUserQuestion', input, {
+          signal,
+          toolUseID: 'toolu_1',
+          requestId: 'r1',
+        }),
+      );
+    const listed = (session: SdkAgent, count: number) =>
+      session.questions.pipe(
+        Stream.filter((list) => list.length === count),
+        Stream.runHead,
+        Effect.map(Option.getOrThrow),
+      );
+
+    it('is listed while Claude Code waits, and answers its tool call', () =>
+      withSession((session) =>
+        Effect.gen(function* () {
+          const reply = yield* Effect.forkChild(ask());
+          const [question] = yield* listed(session, 1);
+          expect(question).toMatchObject({
+            id: 'toolu_1',
+            items: [{ id: '0', header: 'Colour', other: true }],
+          });
+          yield* session.answer('toolu_1', { '0': ['Blue'] });
+          expect(yield* Fiber.join(reply)).toEqual({
+            behavior: 'allow',
+            updatedInput: { ...input, answers: { 'Which colour?': 'Blue' } },
+          });
+          yield* listed(session, 0);
+          const again = yield* Effect.flip(session.answer('toolu_1', null));
+          expect(again.message).toBe('No question toolu_1 is asked');
+        }),
+      ));
+
+    it('denies its tool call when declined', () =>
+      withSession((session) =>
+        Effect.gen(function* () {
+          const reply = yield* Effect.forkChild(ask());
+          yield* listed(session, 1);
+          yield* session.answer('toolu_1', null);
+          expect(yield* Fiber.join(reply)).toMatchObject({ behavior: 'deny' });
+        }),
+      ));
+
+    it('goes when Claude Code aborts its tool call, as on a cancel', () =>
+      withSession((session) =>
+        Effect.gen(function* () {
+          const abort = new AbortController();
+          const reply = yield* Effect.forkChild(ask(abort.signal));
+          yield* listed(session, 1);
+          abort.abort();
+          expect(yield* Fiber.join(reply)).toMatchObject({ behavior: 'deny' });
+          yield* listed(session, 0);
+        }),
+      ));
+
+    it('goes, declined, when its turn ends', () =>
+      withSession((session) =>
+        Effect.gen(function* () {
+          const turn = yield* Effect.forkChild(
+            Stream.runCollect(
+              session.turn({ text: 'hi', images: [], options: {} }).out,
+            ),
+          );
+          const [uuid] = yield* sentNow(1);
+          live.emit(init);
+          const reply = yield* Effect.forkChild(ask());
+          yield* listed(session, 1);
+          live.emit(result([uuid!]));
+          yield* Fiber.join(turn);
+          expect(yield* Fiber.join(reply)).toMatchObject({ behavior: 'deny' });
+          yield* listed(session, 0);
+        }),
+      ));
+
+    it('lets every other tool run', () =>
+      withSession(() =>
+        Effect.gen(function* () {
+          const reply = yield* Effect.promise(() =>
+            live.canUseTool(
+              'Bash',
+              { command: 'ls' },
+              {
+                signal: new AbortController().signal,
+                toolUseID: 'toolu_2',
+                requestId: 'r2',
+              },
+            ),
+          );
+          expect(reply).toEqual({
+            behavior: 'allow',
+            updatedInput: { command: 'ls' },
+          });
+        }),
+      ));
+  });
 });
