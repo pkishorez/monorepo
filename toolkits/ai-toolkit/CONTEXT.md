@@ -76,6 +76,10 @@ _Avoid_: titler, completion, Ask (that reads an Agent)
 Work an open Agent started that runs beyond the Turn that started it, such as a shell process or a subagent. Background Jobs live only while the Agent is open and are never kept.
 _Avoid_: task, process, daemon
 
+**Agent Question**:
+A question an Agent puts to the user while a Turn runs: one to four Question Items, each answered by choosing among its options or typing an answer of one's own. The Turn waits until it is answered or declined; declined, the agent carries on without an answer. It lives only while its Turn runs and is never kept, though the Turn's records show it asked and answered.
+_Avoid_: prompt, elicitation, interaction request, Ask (that is put to an Agent)
+
 **MCP Server Status**:
 Which MCP servers an open Agent is connected to, and how each stands.
 _Avoid_: tool status, plugin status

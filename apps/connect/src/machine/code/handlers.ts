@@ -6,6 +6,7 @@ import {
   FolderNotFound,
   FolderUnreadable,
   HarnessFailed,
+  QuestionNotAsked,
   InvalidAccount,
   InvalidBinary,
   InvalidFolderName,
@@ -225,6 +226,19 @@ export const CodeApiLive = CodeApi.toLayer(
               error._tag === 'SessionNotFound'
                 ? wire.SessionNotFound(error)
                 : wire.HarnessFailed(error),
+            ),
+          ),
+      agentQuestions: () => engine.agentQuestions,
+      answerQuestion: ({ sessionId, questionId, answer }) =>
+        engine
+          .answerQuestion(sessionId, questionId, answer)
+          .pipe(
+            Effect.mapError((error) =>
+              error._tag === 'SessionNotFound'
+                ? wire.SessionNotFound(error)
+                : error._tag === 'QuestionNotAsked'
+                  ? new QuestionNotAsked({ id: error.id })
+                  : wire.HarnessFailed(error),
             ),
           ),
       harnessAccounts: () => engine.harnessAccounts,

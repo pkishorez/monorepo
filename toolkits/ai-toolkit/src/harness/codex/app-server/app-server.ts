@@ -7,7 +7,7 @@ import {
   HarnessError,
   type HarnessAccount,
 } from '../../contract/index.js';
-import { answer } from './answers.js';
+import { answer, declined } from './answers.js';
 import { launcher } from './launcher.js';
 import { shutdown } from './shutdown.js';
 import {
@@ -15,6 +15,8 @@ import {
   type Notification,
   type RequestMethod,
   type Requests,
+  type UserInputRequest,
+  type UserInputResponse,
 } from './protocol.js';
 
 /** A live `codex app-server` process, spoken to over JSON-RPC on stdio. */
@@ -25,6 +27,24 @@ export interface AppServer {
   ) => Effect.Effect<Requests[M]['result'], HarnessError>;
   /** Hears every notification, and the process exiting; returns the unlisten. */
   readonly listen: (listener: Listener) => () => void;
+  /**
+   * Offers each question the agent asks to `take`, which keeps it to answer
+   * later or returns false to have it declined at once. A server started
+   * without questions declines every one and never calls `take`. Returns
+   * the untake.
+   */
+  readonly takeQuestions: (
+    take: (request: QuestionRequest) => boolean,
+  ) => () => void;
+}
+
+/** A question the agent asks, kept to be answered later. */
+export interface QuestionRequest {
+  /** The server's id for it, as `serverRequest/resolved` names it. */
+  readonly id: number | string;
+  readonly params: UserInputRequest;
+  /** Answers it; nothing once the process has exited. */
+  readonly respond: (response: UserInputResponse) => void;
 }
 
 export interface Listener {
@@ -48,6 +68,21 @@ interface Pending {
 
 const STDERR_TAIL_CHARS = 2_000;
 
+export interface StartOptions {
+  /**
+   * The agent may ask the user questions as it works, not only in Plan
+   * mode: an open Agent's server, never a Fork's, an Ask's or a catalog
+   * read's, which nobody answers.
+   */
+  readonly questions?: boolean;
+}
+
+/** Codex asks questions in Default mode only with this feature on. */
+const QUESTIONS_FEATURE = [
+  '-c',
+  'features.default_mode_request_user_input=true',
+] as const;
+
 /**
  * Spawns `codex app-server` in `cwd`, as the Harness Account, in a process
  * group of its own, and initializes it. Closing the Scope
@@ -55,21 +90,30 @@ const STDERR_TAIL_CHARS = 2_000;
  */
 export const start = (
   cwd: string,
+  options: StartOptions = {},
 ): Effect.Effect<AppServer, HarnessError, Scope.Scope | HarnessAccount> =>
   Effect.gen(function* () {
     const codex = yield* launcher;
     const child = yield* Effect.acquireRelease(
       Effect.try({
         try: () =>
-          spawn(codex.command, [...codex.args, 'app-server'], {
-            cwd,
-            env: codex.env,
-            stdio: ['pipe', 'pipe', 'pipe'],
-            // Its own process group, so a kill reaches the Codex binary
-            // behind an npm-installed `codex` launcher. Our exit still stops it: its input
-            // ends.
-            detached: true,
-          }),
+          spawn(
+            codex.command,
+            [
+              ...codex.args,
+              'app-server',
+              ...(options.questions === true ? QUESTIONS_FEATURE : []),
+            ],
+            {
+              cwd,
+              env: codex.env,
+              stdio: ['pipe', 'pipe', 'pipe'],
+              // Its own process group, so a kill reaches the Codex binary
+              // behind an npm-installed `codex` launcher. Our exit still stops it: its input
+              // ends.
+              detached: true,
+            },
+          ),
         catch: (cause) =>
           new HarnessError({
             message: 'Could not start codex app-server',
@@ -81,6 +125,7 @@ export const start = (
 
     const pending = new Map<number, Pending>();
     const listeners = new Set<Listener>();
+    const takers = new Set<(request: QuestionRequest) => boolean>();
     let nextId = 1;
     let stderr = '';
     let exited: HarnessError | undefined;
@@ -143,6 +188,19 @@ export const start = (
       }
       if (method === undefined) return;
       if (id !== undefined && id !== null) {
+        if (
+          method === 'item/tool/requestUserInput' &&
+          options.questions === true
+        ) {
+          const request: QuestionRequest = {
+            id,
+            params: envelope.params as UserInputRequest,
+            respond: (result) => write({ id, result }),
+          };
+          for (const take of takers) if (take(request)) return;
+          write({ id, result: declined(envelope.params) });
+          return;
+        }
         write({ id, ...answer(method, envelope.params) });
         return;
       }
@@ -172,6 +230,10 @@ export const start = (
         listeners.add(listener);
         if (exited !== undefined) listener.exit(exited);
         return () => listeners.delete(listener);
+      },
+      takeQuestions: (take) => {
+        takers.add(take);
+        return () => takers.delete(take);
       },
     };
 
@@ -209,4 +271,7 @@ export {
   type Turn,
   type TurnStatus,
   type UserInput,
+  type UserInputQuestion,
+  type UserInputRequest,
+  type UserInputResponse,
 } from './protocol.js';

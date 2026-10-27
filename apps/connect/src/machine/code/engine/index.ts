@@ -13,6 +13,7 @@ export {
   PermissionDenied,
   projectEngineRaw,
   ProjectNotFound,
+  QuestionNotAsked,
   SessionNotFound,
   SkillsUnavailable,
   Store,
@@ -24,5 +25,6 @@ export {
   type Feed,
   type Send,
   type SessionJobs,
+  type SessionQuestions,
   type StartSession,
 } from './engine.js';

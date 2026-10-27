@@ -491,6 +491,50 @@ describe('project: single records', () => {
     });
   });
 
+  it('shows an Agent Question as a question call, and its answers as its result', () => {
+    const asked = {
+      threadId: 'main',
+      turnId: 't1',
+      itemId: 'call_1',
+      questions: [
+        { id: 'colour', header: 'Colour', question: 'Which colour?' },
+        { id: 'name', header: 'Name', question: 'What name?' },
+      ],
+    };
+    expect(one('question.asked', asked)?.parts[0]).toMatchObject({
+      type: 'toolCall',
+      id: 'call_1',
+      tool: 'question',
+      name: 'request_user_input',
+      title: 'Colour, Name',
+    });
+    expect(
+      one('question.asked', { ...asked, questions: [asked.questions[0]] })
+        ?.parts[0],
+    ).toMatchObject({ title: 'Which colour?' });
+    const answered = {
+      threadId: 'main',
+      turnId: 't1',
+      itemId: 'call_1',
+      headers: { colour: 'Colour', name: 'Name' },
+      answers: { colour: ['Blue'], name: ['Ada'] },
+    };
+    expect(one('question.answered', answered)).toMatchObject({
+      role: 'tool',
+      parts: [
+        {
+          type: 'toolResult',
+          toolCallId: 'call_1',
+          output: 'Colour: Blue\nName: Ada',
+          isError: false,
+        },
+      ],
+    });
+    expect(
+      one('question.answered', { ...answered, answers: null })?.parts[0],
+    ).toMatchObject({ output: 'Not answered', isError: true });
+  });
+
   it('keeps unknown records in Raw only', () => {
     expect(
       one('item/completed', item({ type: 'hookPrompt', id: 'h' })),

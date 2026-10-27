@@ -14,6 +14,8 @@ import {
   HarnessAccount,
   isRecord,
   type Agent,
+  type AgentQuestion,
+  type QuestionAnswer,
   type RawOut,
   type TurnEnd,
   type TurnHandle,
@@ -437,7 +439,10 @@ const solidPng = (rgb: readonly [number, number, number], size = 32) => {
 
 /** A session's JSONL transcript, as Claude Code keeps it. */
 const transcript = (nativeId: string): string => {
-  const projects = join(homedir(), '.claude', 'projects');
+  const projects = join(
+    process.env['CLAUDE_CONFIG_DIR'] ?? join(homedir(), '.claude'),
+    'projects',
+  );
   const path = readdirSync(projects)
     .map((dir) => join(projects, dir, `${nativeId}.jsonl`))
     .find(existsSync);
@@ -446,6 +451,20 @@ const transcript = (nativeId: string): string => {
 };
 
 const NO_TOOLS = 'Do not use any tools. ';
+
+/** Answers the first Agent Question the session lists, once it is listed. */
+const answerFirst = (
+  session: Agent,
+  reply: (question: AgentQuestion) => QuestionAnswer | null,
+) =>
+  session.questions.pipe(
+    Stream.filter((list) => list.length > 0),
+    Stream.runHead,
+    Effect.map(Option.getOrThrow),
+    Effect.tap(([question]) => session.answer(question!.id, reply(question!))),
+    Effect.map(([question]) => question!),
+    Effect.forkChild,
+  );
 
 describe.skipIf(!enabled)(
   'claude agent features against the real Claude Code',
@@ -885,5 +904,72 @@ describe.skipIf(!enabled)(
         expect(limit.usedPercent).toBeGreaterThanOrEqual(0);
       }
     }, 120_000);
+
+    it('asks an Agent Question and takes the answers; declined, the agent carries on', async () => {
+      const { question, answered, declined, left } = await run(
+        Effect.gen(function* () {
+          const session = yield* open();
+          const asked = yield* answerFirst(session, (question) =>
+            Object.fromEntries(
+              question.items.map((item) => [
+                item.id,
+                item.multiSelect
+                  ? item.options.slice(0, 2).map((option) => option.label)
+                  : [item.options[1]!.label],
+              ]),
+            ),
+          );
+          const answered = yield* runTurn(
+            session,
+            'Use the AskUserQuestion tool once to ask me two questions at ' +
+              'once: (1) my favourite colour, single choice; (2) which ' +
+              'fruits I like, multi-select. Then repeat exactly what I ' +
+              'answered.',
+          );
+          const question = yield* Fiber.join(asked);
+          const refused = yield* answerFirst(session, () => null);
+          const declined = yield* runTurn(
+            session,
+            'Use the AskUserQuestion tool to ask me which pet I prefer. If I ' +
+              'do not answer, reply NO-ANSWER and nothing else.',
+          );
+          yield* Fiber.join(refused);
+          const left = Option.getOrThrow(
+            yield* Stream.runHead(session.questions),
+          );
+          return { question, answered, declined, left };
+        }),
+      );
+      save('question', answered);
+      expect(question.items).toHaveLength(2);
+      const [colour, fruits] = question.items;
+      expect(colour).toMatchObject({ multiSelect: false, other: true });
+      expect(fruits).toMatchObject({ multiSelect: true });
+      const messages = projectAll(answered);
+      const call = toolCalls(messages).find((c) => c.tool === 'question');
+      expect(call?.id).toBe(question.id);
+      expect(call?.title).not.toBe('');
+      const result = parts(messages).find(
+        (p) => p.type === 'toolResult' && p.toolCallId === question.id,
+      );
+      expect(result).toMatchObject({ isError: false });
+      const said = texts(messages);
+      expect(said).toContain(colour!.options[1]!.label);
+      expect(said).toContain(fruits!.options[0]!.label);
+      expect(said).toContain(fruits!.options[1]!.label);
+
+      const refusedMessages = projectAll(declined);
+      const refusedCall = toolCalls(refusedMessages).find(
+        (c) => c.tool === 'question',
+      );
+      expect(
+        parts(refusedMessages).find(
+          (p) => p.type === 'toolResult' && p.toolCallId === refusedCall?.id,
+        ),
+      ).toMatchObject({ isError: true });
+      expect(texts(refusedMessages)).toContain('NO-ANSWER');
+      expect(lastTurnEnd(refusedMessages)?.status).toBe('done');
+      expect(left).toEqual([]);
+    }, 240_000);
   },
 );

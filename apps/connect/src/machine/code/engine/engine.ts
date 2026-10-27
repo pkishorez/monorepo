@@ -21,12 +21,14 @@ import {
   type HarnessError,
 } from '@kestack/ai-toolkit/harness';
 import type {
+  AgentQuestion,
   AskAnswer,
   Attachment,
   BackgroundJob,
   ContextUsage,
   Json,
   McpServerStatus,
+  QuestionAnswer,
   Skill,
 } from '@kestack/ai-toolkit/contract';
 import type {
@@ -37,6 +39,7 @@ import type {
 import {
   AskFailed,
   fallbackTitle,
+  NOT_ASKED,
   NotForkable,
   type AgentClosed,
 } from './actor-code/actor-session/index.js';
@@ -94,6 +97,10 @@ export class SkillsUnavailable extends Data.TaggedError('SkillsUnavailable')<{
 export class HarnessFailed extends Data.TaggedError('HarnessFailed')<{
   readonly message: string;
 }> {}
+/** The Agent Question is no longer asked, as when another device answered it. */
+export class QuestionNotAsked extends Data.TaggedError('QuestionNotAsked')<{
+  readonly id: string;
+}> {}
 export { Store, type Feed } from './capabilities/index.js';
 export { projectEngineRaw } from './engine-raw/index.js';
 export { storedHarnessAccounts, storeLayer } from './services/index.js';
@@ -146,6 +153,13 @@ export interface SessionJobs {
   readonly sessionId: string;
   readonly projectId: string;
   readonly jobs: ReadonlyArray<BackgroundJob>;
+}
+
+/** The Agent Questions one Session's running Turn waits on. */
+export interface SessionQuestions {
+  readonly sessionId: string;
+  readonly projectId: string;
+  readonly questions: ReadonlyArray<AgentQuestion>;
 }
 
 export interface EngineOptions {
@@ -223,6 +237,18 @@ export interface EngineService {
     sessionId: string,
     jobId: string,
   ) => Effect.Effect<void, SessionNotFound | HarnessFailed>;
+  /** Every Session with Agent Questions, now, then again on each change. */
+  readonly agentQuestions: Stream.Stream<ReadonlyArray<SessionQuestions>>;
+  /**
+   * Gives a Session's agent the answer to one of its Agent Questions, or
+   * declines it with null, and waits until the agent took it or refused,
+   * as it does one no longer asked.
+   */
+  readonly answerQuestion: (
+    sessionId: string,
+    questionId: string,
+    answer: QuestionAnswer | null,
+  ) => Effect.Effect<void, SessionNotFound | QuestionNotAsked | HarnessFailed>;
   /** The Harness Account with this id. */
   readonly harnessAccount: (
     id: string,
@@ -259,10 +285,7 @@ const folderAt = (path: string) =>
     ),
   );
 
-const sameJobs = (
-  a: ReadonlyArray<SessionJobs>,
-  b: ReadonlyArray<SessionJobs>,
-) => JSON.stringify(a) === JSON.stringify(b);
+const same = <A>(a: A, b: A) => JSON.stringify(a) === JSON.stringify(b);
 
 /** What a Query of the agent fails with, as one HarnessFailed. */
 const failed = (error: HarnessError | AgentClosed | Stopped) =>
@@ -579,7 +602,7 @@ const make = (options: EngineOptions) =>
                 ];
           }),
         ),
-        Stream.changesWith(sameJobs),
+        Stream.changesWith(same),
       ),
 
       stopBackgroundJob: (sessionId, jobId) =>
@@ -601,6 +624,51 @@ const make = (options: EngineOptions) =>
             Stream.runHead,
           );
           const reason = Option.getOrElse(outcome, () => null);
+          if (reason !== null)
+            return yield* new HarnessFailed({ message: reason });
+        }),
+
+      agentQuestions: running.changes.pipe(
+        Stream.map(() =>
+          sessions().flatMap((session): Array<SessionQuestions> => {
+            const { questions } = session.model;
+            return questions.length === 0
+              ? []
+              : [
+                  {
+                    sessionId: session.key!,
+                    projectId: session.model.session.projectId,
+                    questions,
+                  },
+                ];
+          }),
+        ),
+        Stream.changesWith(same),
+      ),
+
+      answerQuestion: (sessionId, questionId, answer) =>
+        Effect.gen(function* () {
+          const session = yield* toSession(sessionId);
+          const answerId = yield* nextUlid;
+          session.send({ _tag: 'Answer', answerId, questionId, answer });
+          // The Session keeps how it went until it is read here, or until
+          // the caller stops waiting, as when its client goes.
+          const outcome = yield* running.changes.pipe(
+            Stream.map(() =>
+              session.model.answered.find((each) => each.answerId === answerId),
+            ),
+            Stream.filter((found) => found !== undefined),
+            Stream.runHead,
+            Effect.ensuring(
+              Effect.sync(() => session.send({ _tag: 'AnswerRead', answerId })),
+            ),
+          );
+          const reason = Option.match(outcome, {
+            onNone: () => null,
+            onSome: (found) => found.reason,
+          });
+          if (reason === NOT_ASKED)
+            return yield* new QuestionNotAsked({ id: questionId });
           if (reason !== null)
             return yield* new HarnessFailed({ message: reason });
         }),

@@ -1,4 +1,6 @@
 import type { CanUseTool, Options } from '@anthropic-ai/claude-agent-sdk';
+import { Effect } from 'effect';
+import { ASK_USER_QUESTION, type Questions } from './questions/index.js';
 import type { TurnOptions } from './turn-options.js';
 
 export interface SdkAgentConfig extends TurnOptions {
@@ -11,13 +13,19 @@ export interface SdkAgentConfig extends TurnOptions {
   };
 }
 
-const canUseTool: CanUseTool = async (toolName, input) =>
-  toolName === 'AskUserQuestion'
-    ? { behavior: 'deny', message: 'Questions are not supported here.' }
-    : { behavior: 'allow', updatedInput: input };
+/** Every tool may run; an Agent Question waits for the user's answer. */
+const canUseTool =
+  (questions: Questions): CanUseTool =>
+  async (toolName, input, { signal, toolUseID }) =>
+    toolName === ASK_USER_QUESTION
+      ? Effect.runPromise(questions.ask(toolUseID, input, signal))
+      : { behavior: 'allow', updatedInput: input };
 
 /** The live query's options, for a prompt fed one user message at a time. */
-export const queryOptions = (config: SdkAgentConfig): Options => ({
+export const queryOptions = (
+  config: SdkAgentConfig,
+  questions: Questions,
+): Options => ({
   cwd: config.cwd,
   pathToClaudeCodeExecutable: config.executable.path,
   env: config.executable.env,
@@ -32,8 +40,7 @@ export const queryOptions = (config: SdkAgentConfig): Options => ({
   // Background Jobs get their own stop button, so cancelling a Turn spares
   // them.
   perTaskStopAffordance: true,
-  disallowedTools: ['AskUserQuestion'],
-  // Under bypass Claude Code never asks it, and the SDK warns so; a later
-  // Turn may switch to a mode that does.
-  canUseTool,
+  // Claude Code asks it for `AskUserQuestion` even under bypass, though
+  // the SDK warns it never will.
+  canUseTool: canUseTool(questions),
 });

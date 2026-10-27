@@ -4,7 +4,7 @@ Effect-native Coding Harnesses as plain Effects: Claude Code and Codex Agents in
 
 ## Big picture
 
-Claude Code and Codex each have their own SDK, their own records and their own idea of a session. ai-toolkit puts one contract over both, running the Claude Code and Codex the user installed, as one of their logins (a Harness Account): open an Agent in a folder, run and steer its Turns, cancel one, fork it after a finished Turn, ask it a question that leaves it untouched, and read every whole record it emits as Raw, projected into one Message form. It keeps nothing and serves nothing, and it offers plain Effects, not Actors: what is kept of an Agent, and how its Turns are ordered, is the business of whoever uses it. [`@kestack/connect`](../../apps/connect/README.md) is the first user: its `code` App Group keeps each Agent as a Session.
+Claude Code and Codex each have their own SDK, their own records and their own idea of a session. ai-toolkit puts one contract over both, running the Claude Code and Codex the user installed, as one of their logins (a Harness Account): open an Agent in a folder, run and steer its Turns, cancel one, answer the Agent Questions it asks while a Turn runs, fork it after a finished Turn, ask it a question that leaves it untouched, and read every whole record it emits as Raw, projected into one Message form. It keeps nothing and serves nothing, and it offers plain Effects, not Actors: what is kept of an Agent, and how its Turns are ordered, is the business of whoever uses it. [`@kestack/connect`](../../apps/connect/README.md) is the first user: its `code` App Group keeps each Agent as a Session.
 
 Speech to Text sits behind a door of its own and knows nothing of Agents. When it is switched on, it downloads its runtime and model into a folder the caller names, and turns audio into text on the computer.
 
@@ -41,6 +41,10 @@ Claude Code and Codex are not dependencies: install the ones you use, and sign i
 | `TURN_END_STATUSES`      | Tuple of how a Turn ends: `done`, `cancelled`, `failed`, `interrupted`.                                      |
 | `AttachmentSchema`       | Schema of an Attachment: name, mime type, and base64 data.                                                   |
 | `AskAnswerSchema`        | Schema of an Ask's answer: `Text`, or `Data` shaped by the given JSON Schema.                                |
+| `AgentQuestionSchema`    | Schema of an Agent Question: its id, its one to four Items, and when it was asked.                           |
+| `QuestionItemSchema`     | Schema of one Item of an Agent Question: header, question, options, and whether to multi-select or type.     |
+| `QuestionOptionSchema`   | Schema of one option of a Question Item: its label and what choosing it means.                               |
+| `QuestionAnswerSchema`   | Schema of the answer to an Agent Question: by Item id, the labels chosen, then any typed text.               |
 | `BackgroundJobSchema`    | Schema of one Background Job.                                                                                |
 | `BACKGROUND_JOB_KINDS`   | Tuple of Background Job kinds: `shell`, `agent`.                                                             |
 | `BinaryInfoSchema`       | Schema of a resolved Harness Binary: its path and what `--version` printed.                                  |

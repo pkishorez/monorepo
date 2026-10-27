@@ -24,6 +24,10 @@ import {
   type TurnHandle,
   type TurnOut,
 } from '../contract/index.js';
+import type {
+  AgentQuestion,
+  QuestionAnswer,
+} from '../../contract/wire/index.js';
 
 /*
  * A harness for tests, named `claude`. Each turn emits `echo:<text>` at once,
@@ -36,8 +40,11 @@ import {
  * turn's Fork Point is `<nativeId>:turn-<n>`.
  *
  * The rest answers at once and the same way every time: a fork is
- * `<nativeId>-fork`, an Ask echoes its question, Background Jobs and
- * Agent-started Turns happen only when a test makes them.
+ * `<nativeId>-fork`, an Ask echoes its question, Background Jobs,
+ * Agent-started Turns and Agent Questions happen only when a test makes
+ * them. An Agent Question is asked only while a turn of its agent runs; it
+ * goes once answered or declined, and every one goes when the turn ends,
+ * cancelled or not. Answering one no longer asked fails.
  */
 
 const Text = Schema.Struct({ text: Schema.String });
@@ -63,6 +70,9 @@ interface FakeTurn {
 interface FakeAgent {
   readonly jobs: SubscriptionRef.SubscriptionRef<ReadonlyArray<BackgroundJob>>;
   readonly agentTurns: Queue.Queue<TurnHandle>;
+  readonly questions: SubscriptionRef.SubscriptionRef<
+    ReadonlyArray<AgentQuestion>
+  >;
 }
 
 export interface FakeHarness {
@@ -86,6 +96,11 @@ export interface FakeHarness {
   readonly promptAccounts: Array<boolean>;
   /** Every Background Job stopped, by id. */
   readonly stoppedJobs: Array<string>;
+  /** Every Agent Question answered, by id; a null answer declined it. */
+  readonly answers: Array<{
+    readonly id: string;
+    readonly answer: QuestionAnswer | null;
+  }>;
   /** Lets a turn that is slow to start emit its first record. */
   readonly begin: Effect.Effect<void>;
   /** Ends the running turn with a `result`. */
@@ -106,6 +121,14 @@ export interface FakeHarness {
   readonly startAgentTurn: (
     nativeId: string,
     text: string,
+  ) => Effect.Effect<void>;
+  /**
+   * Has the agent opened as `nativeId` ask an Agent Question, while a turn
+   * of its runs; nothing otherwise.
+   */
+  readonly askQuestion: (
+    nativeId: string,
+    question: AgentQuestion,
   ) => Effect.Effect<void>;
 }
 
@@ -133,6 +156,7 @@ export const makeFakeHarness = (
   const prompts: Array<string> = [];
   const promptAccounts: Array<boolean> = [];
   const stoppedJobs: Array<string> = [];
+  const answers: FakeHarness['answers'] = [];
   const agents = new Map<string, FakeAgent>();
   let closed = 0;
   let turns = 0;
@@ -197,9 +221,13 @@ export const makeFakeHarness = (
         yield* Deferred.succeed(turn.started, undefined);
         return Stream.fromQueue(queue).pipe(
           Stream.ensuring(
-            Effect.sync(() => {
-              turn.ended = true;
-            }),
+            Effect.andThen(
+              Effect.sync(() => {
+                turn.ended = true;
+              }),
+              // Its Agent Questions go with it.
+              SubscriptionRef.set(agent.questions, []),
+            ),
           ),
         );
       }),
@@ -242,6 +270,9 @@ export const makeFakeHarness = (
         const agent: FakeAgent = {
           jobs: yield* SubscriptionRef.make<ReadonlyArray<BackgroundJob>>([]),
           agentTurns: yield* Queue.unbounded<TurnHandle>(),
+          questions: yield* SubscriptionRef.make<ReadonlyArray<AgentQuestion>>(
+            [],
+          ),
         };
         agents.set(nativeId, agent);
         yield* Effect.addFinalizer(() =>
@@ -265,6 +296,22 @@ export const makeFakeHarness = (
           }),
           agentTurns: Stream.fromQueue(agent.agentTurns),
           backgroundJobs: SubscriptionRef.changes(agent.jobs),
+          questions: SubscriptionRef.changes(agent.questions),
+          answer: (id, answer) =>
+            SubscriptionRef.modify(agent.questions, (asked) =>
+              asked.some((question) => question.id === id)
+                ? [true, asked.filter((question) => question.id !== id)]
+                : [false, asked],
+            ).pipe(
+              Effect.flatMap((was) => {
+                if (!was)
+                  return Effect.fail(
+                    new HarnessError({ message: `No question ${id} is asked` }),
+                  );
+                answers.push({ id, answer });
+                return Effect.void;
+              }),
+            ),
           stopBackgroundJob: (id) =>
             Effect.suspend(() => {
               if (options.refuseStops)
@@ -372,6 +419,7 @@ export const makeFakeHarness = (
     prompts,
     promptAccounts,
     stoppedJobs,
+    answers,
     begin: Effect.sync(() => {
       if (running) Deferred.doneUnsafe(running.gate, Effect.succeed(true));
     }),
@@ -403,6 +451,15 @@ export const makeFakeHarness = (
               agent.agentTurns,
               turnOf(agent, nativeId, `agent:${text}`, false),
             ).pipe(Effect.asVoid)
+          : Effect.void,
+      ),
+    askQuestion: (nativeId, question) =>
+      Effect.flatMap(agentOf(nativeId), (agent) =>
+        agent && running?.agent === agent && !running.ended
+          ? SubscriptionRef.update(agent.questions, (asked) => [
+              ...asked,
+              question,
+            ])
           : Effect.void,
       ),
   };

@@ -32,6 +32,7 @@ export {
   type Usage,
 } from './projection/index.js';
 export {
+  AgentQuestionSchema,
   AskAnswerSchema,
   AttachmentSchema,
   BACKGROUND_JOB_KINDS,
@@ -42,8 +43,12 @@ export {
   MCP_SERVER_STATES,
   McpServerStatusSchema,
   ModelInfo,
+  QuestionAnswerSchema,
+  QuestionItemSchema,
+  QuestionOptionSchema,
   RateLimitSchema,
   SkillSchema,
+  type AgentQuestion,
   type AskAnswer,
   type Attachment,
   type BackgroundJob,
@@ -53,5 +58,8 @@ export {
   type ContextUsage,
   type McpServerState,
   type McpServerStatus,
+  type QuestionAnswer,
+  type QuestionItem,
+  type QuestionOption,
   type Skill,
 } from './wire/index.js';

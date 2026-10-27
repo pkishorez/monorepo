@@ -43,6 +43,15 @@ export class ProjectNotFound extends Schema.TaggedError<ProjectNotFound>()(
   { id: Schema.String },
 ) {}
 
+/**
+ * The Agent Question is no longer asked: answered already, as from another
+ * device, or gone with its Turn.
+ */
+export class QuestionNotAsked extends Schema.TaggedError<QuestionNotAsked>()(
+  'QuestionNotAsked',
+  { id: Schema.String },
+) {}
+
 export class SessionNotFound extends Schema.TaggedError<SessionNotFound>()(
   'SessionNotFound',
   { id: Schema.String },

@@ -56,6 +56,7 @@ actor-session   ─ Worker turn, in Running ────────▶ appends 
 actor-session   ─ Worker cancel, while cancelling ▶ Sends TurnEnded
 actor-session   ─ Worker agentTurn, in Idle ──────▶ Sends AgentTurn
 actor-session   ─ Worker jobs, always ────────────▶ Sends Jobs
+actor-session   ─ Worker questions, always ───────▶ Sends Questions
 actor-session   ─ Worker title, while untitled ───▶ Sends Titled
 actor-session   ─ Worker persist, always ─────────▶ saves the record
 actor-code      ─ Worker load, in Loading ────────▶ Sends Loaded
@@ -114,19 +115,23 @@ orders its Turns. A message starts or steers a Turn.
 **Input**: the stored session, cwd, the first Prompt or null.
 **Model**: session: the record without status. cwd. untitled: the first
 message until it has a title. jobs and refusedStops: the Background Jobs the
-Agent last listed and the stops it refused, in memory only.
+Agent last listed and the stops it refused, in memory only. questions and
+answered: the Agent Questions the Agent last listed, and how each Answer
+went until the front door reads it, in memory only.
 **States**: Idle: ended. Running: turnId, prompt, steers, cancelling, queued.
 Send and AgentTurn move Idle to Running. TurnEnded moves Running to Idle, or
 to a new Running for a steer the Agent did not take or a message sent while
 cancelling.
-**Messages**: Send, Cancel, Settle, Unsettle, StopJob, Titled: the front
-door. TurnEnded, NativeId, Steered: the turn and cancel Workers. AgentTurn:
-the agentTurn Worker. Jobs: the jobs Worker. Titled: the title Worker.
-JobStopFailed: the StopJob Command.
+**Messages**: Send, Cancel, Settle, Unsettle, StopJob, Answer, AnswerRead,
+Titled: the front door. TurnEnded, NativeId, Steered: the turn and cancel
+Workers. AgentTurn: the agentTurn Worker. Jobs: the jobs Worker. Questions:
+the questions Worker. Titled: the title Worker. JobStopFailed: the StopJob
+Command. AnswerGiven: the AnswerQuestion Command.
 **Commands**: StopJob: ends with JobStopFailed when the harness refuses, or
-with nothing.
+with nothing. AnswerQuestion: ends with AnswerGiven, with the harness's
+reason when it refuses.
 **Workers**: agent: always; keeps the Agent in Agents, opened on first use.
-jobs: always; Sends Jobs. persist: always; saves each changed record. title:
+jobs: always; Sends Jobs. questions: always; Sends Questions. persist: always; saves each changed record. title:
 while untitled; asks OneShotPrompt; Sends Titled. agentTurn: in Idle; Sends
 AgentTurn. turn: in Running, each turnId; appends Raw, Sends NativeId,
 Steered, TurnEnded. cancel: in Running, while cancelling; Sends TurnEnded
@@ -134,8 +139,8 @@ after the grace period.
 **Queries**: fork: a new Session record after a finished Turn. ask: the
 Agent's answer to a question. retitle: a Title from the latest messages, or
 null. mcpStatus, contextUsage: from the open Agent; AgentClosed while closed.
-**Requires**: Agents: agent, jobs, agentTurn, turn, cancel, StopJob,
-mcpStatus, contextUsage. Store: persist, turn, fork, retitle. Harnesses:
+**Requires**: Agents: agent, jobs, questions, agentTurn, turn, cancel,
+StopJob, AnswerQuestion, mcpStatus, contextUsage. Store: persist, turn, fork, retitle. Harnesses:
 agent, fork, ask. HarnessAccounts: agent, fork, ask, title, retitle. OneShotPrompt:
 title, retitle.
 **Provides**: none.
@@ -160,6 +165,11 @@ first use and kept across Turns.
 - **Outside questions are Queries, not Messages**, because the caller needs
   the answer, and a Message answers nothing. Caveat: a Query never Sends, so
   the front door Sends AddSession after fork, and Titled after retitle.
+- **An Answer is a Message and a Command, not a Query**, because it changes
+  the agent, and a Query never changes the world. Caveat: the caller still
+  needs how it went, so the Session keeps each outcome in its Model, by an
+  id the front door mints, until the front door has read it and Sends
+  AnswerRead.
 - **The open Agent is shared through Agents, not a Provide**, because an
   Actor's own Workers, Commands and Queries cannot use its own Provide.
   Caveat: each waits for the agent Worker to keep the Agent, which every
