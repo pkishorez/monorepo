@@ -13,4 +13,11 @@ export {
   Sessions,
 } from './records.ts';
 export { Intent, moves, Moves } from './moves/index.ts';
-export { answerQuestion, questionsOn } from './questions/index.ts';
+export {
+  answeringAsked,
+  stillAsked,
+  answerQuestion,
+  fresh,
+  questionsOn,
+  sameAnswering,
+} from './questions/index.ts';

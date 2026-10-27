@@ -76,7 +76,7 @@ device                          root page; States: Reading | Checking | SignedIn
 │   ├── voice                   always
 │   │   ├── dictation           always; hears asks only while its Account is drawn
 │   │   └── microphonePicker    always
-│   └── machine                 each: listed Machine id; follows its Agent Questions
+│   └── machine                 each: listed Machine id; follows its Agent Questions and their answers so far
 │       └── replicas            its Machine's Replica Instances
 ├── layout                      key: the Account drawn
 │   ├── sidebar                 always, on a phone too while it is shut
@@ -176,17 +176,22 @@ An agent's question is followed once, by its Machine, and read twice.
 - **Machine** (`machine/records/questions/`) follows every Session's
   Agent Questions over its own socket, whole on each change, and says
   them in `Machines`, beside its setup and Unseen marks. Nothing of them
-  is kept: they live only while their Turn runs. In development a
+  is kept: they live only while their Turn runs. It also holds how each
+  is being answered here (`Answering`: each Item's answer so far,
+  minimised or not, tried, sent), in memory, as the Question Panel gives
+  it, and lets it go with the question when the question leaves its
+  feed; never on storage, as an answer may be a secret. In development a
   session's address with `?question=single`, `mixed`, `secret` or `long`
   adds a sample, answered in the browser (`samples.ts`).
 - **Sidebar** reads which Sessions ask, for their "Question" pill.
 - **Question Panel** (`pages/project/session/question/`), a Child of the
-  Session, reads its own Session's, keeps each question's answer so far
-  and whether it is minimised while the Session is open, and answers or
-  declines it over the page's socket; one no longer asked is as good as
-  answered. Its parts: `answer.ts` (an answer as it is given),
-  `form.tsx` (expanded, the `question` Surface, inside the page's) and
-  `bar.tsx` (minimised). The page draws it in the Draft's place, and no
-  Draft at all while it stands in, so nothing reaches the Draft; expanded,
-  it is drawn over the transcript, which is `inert` under it. The
-  sidebar and the header are outside it, and work as ever.
+  Session, reads its own Session's, reads back from the Machine how they
+  were being answered as it opens and gives it each change, so leaving
+  the session or the page and coming back finds each question as it was
+  left, and answers or declines it over the page's socket; one no longer
+  asked is as good as answered. Its parts: `answer.ts` (an answer as it
+  is given), `form.tsx` (expanded, the `question` Surface, inside the
+  page's) and `bar.tsx` (minimised). The page draws it in the Draft's
+  place, and no Draft at all while it stands in, so nothing reaches the
+  Draft; expanded, it is drawn over the transcript, which is `inert`
+  under it. The sidebar and the header are outside it, and work as ever.

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, useState } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
-import { Effect, Layer, Queue, Schema, Stream } from 'effect';
+import { Effect, Layer, Schema, SubscriptionRef } from 'effect';
 import {
   type AgentQuestion,
   CodeClient,
@@ -13,7 +13,8 @@ import { Actor } from '@kestack/kabuki';
 import { toReact, useChild, View } from '@kestack/kabuki/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { keys } from '../../../../../commands.ts';
-import { Machines } from '../../../../../../machines.ts';
+import { type Answering, Machines } from '../../../../../../machines.ts';
+import { answeringAsked } from '../../../../../../machine/records/index.ts';
 import { Question } from '../index.ts';
 import QuestionView from '../view.tsx';
 
@@ -27,8 +28,10 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * leaves a field and then minimises it. Minimised, the page's keys scroll
  * the transcript, and `i` or `y` open it again, never the Draft. Ctrl+H
  * still goes to the sidebar from it. Sending with an Item left marks it
- * and sends nothing; once all are answered, Mod+Enter sends. The Machine
- * is stood in for: its Agent Questions come from the test, and what is
+ * and sends nothing; once all are answered, Mod+Enter sends. Leaving the
+ * session and coming back finds it as it was left. The Machine is stood
+ * in for: its Agent Questions come from the test, it keeps how they are
+ * being answered while each is asked, as the real one does, and what is
  * answered is only noted.
  */
 
@@ -80,7 +83,10 @@ const asking = (questions: ReadonlyArray<AgentQuestion>): SessionQuestions => ({
   questions,
 });
 
-let feed: Queue.Queue<ReadonlyArray<SessionQuestions>>;
+let feed: SubscriptionRef.SubscriptionRef<ReadonlyArray<SessionQuestions>>;
+/** How the Machine keeps each Session's questions being answered. */
+let kept: Readonly<Record<string, Answering>> = {};
+let open = (_sessionId: string) => {};
 let answered: Array<unknown> = [];
 /** How the Machine takes the next answer: as asked, or refusing it. */
 let takes: 'yes' | 'gone' | 'fails' = 'yes';
@@ -91,22 +97,33 @@ let pings = 0;
 let ping = () => {};
 /** Whether the page is in Vim Mode, as the next render draws it. */
 let vim = true;
+/** Whether the Turn runs, so Stop is drawn, as the next render draws it. */
+let running = false;
+let stopped = 0;
 let where = () => '';
 
 const Owner = Actor.define('Owner', {
-  model: Schema.Struct({ pings: Schema.Finite }),
-  message: Schema.TaggedUnion({ Ping: {} }),
+  model: Schema.Struct({ pings: Schema.Finite, sessionId: Schema.String }),
+  message: Schema.TaggedUnion({
+    Ping: {},
+    Opened: { sessionId: Schema.String },
+  }),
 });
 
+/** The session's page: a Question Panel fresh for each session opened. */
 const OwnerLive = Actor.build(Owner, {
-  init: () => ({ model: { pings: 0 } }),
+  init: () => ({ model: { pings: 0, sessionId: 's1' } }),
   children: {
     question: {
       actor: Question.actor,
-      props: () => ({ machineId: 'm1', sessionId: 's1' }),
+      key: ({ model }) => model.sessionId,
+      props: ({ model }) => ({ machineId: 'm1', sessionId: model.sessionId }),
     },
   },
-  on: { Ping: (_, { model }) => ({ model: { pings: model.pings + 1 } }) },
+  on: {
+    Ping: (_, { model }) => ({ model: { ...model, pings: model.pings + 1 } }),
+    Opened: ({ sessionId }, { model }) => ({ model: { ...model, sessionId } }),
+  },
 });
 
 /** The Draft, drawn only while no question stands in for it. */
@@ -130,6 +147,7 @@ function Sidebar() {
 const OwnerView = View.make(OwnerLive, ({ model, children, send }) => {
   pings = model.pings;
   ping = () => send({ _tag: 'Ping' });
+  open = (sessionId) => send({ _tag: 'Opened', sessionId });
   return (
     <keys.Provider vim={vim}>
       <Page instance={children.question} />
@@ -158,7 +176,19 @@ function Page({
           <div ref={spot} tabIndex={-1} data-testid="page" />
           <div ref={setPlace} className="contents" />
           <Question.Around
-            value={{ place, agent: 'Claude', stop: null, problem: null }}
+            value={{
+              place,
+              agent: 'Claude',
+              stop: running
+                ? {
+                    run: () => void stopped++,
+                    stopping: false,
+                    disabled: false,
+                    keys: 'mod+.',
+                  }
+                : null,
+              problem: null,
+            }}
           >
             <QuestionView instance={instance} />
           </Question.Around>
@@ -181,7 +211,12 @@ const services = Layer.mergeAll(
             )) as unknown as Api['answerQuestion'],
   }),
   Layer.mock(Machines)({
-    questions: () => Stream.fromQueue(feed),
+    questions: () => SubscriptionRef.changes(feed),
+    answering: (_, sessionId) => Effect.sync(() => kept[sessionId] ?? null),
+    keepAnswering: (_, sessionId, answering) =>
+      Effect.map(SubscriptionRef.get(feed), (questions) => {
+        kept = answeringAsked({ ...kept, [sessionId]: answering }, questions);
+      }),
   }),
 );
 
@@ -221,9 +256,9 @@ const key = async (name: string, init: KeyboardEventInit = {}) => {
 };
 
 const ask = async (questions: ReadonlyArray<AgentQuestion>) => {
-  await act(async () =>
-    Effect.runPromise(Queue.offer(feed, [asking(questions)])),
-  );
+  const all = [asking(questions)];
+  kept = answeringAsked(kept, all);
+  await act(async () => Effect.runPromise(SubscriptionRef.set(feed, all)));
   await flush();
   await flush();
 };
@@ -243,6 +278,15 @@ const bar = () =>
 const expanded = () =>
   document.querySelector('[data-expanded] [data-question-item]') !== null;
 const draft = () => document.querySelector('[data-testid="draft"]');
+/** Stop, minimised in the bar or expanded at the panel's foot. */
+const stopButton = (where: 'bar' | 'panel') =>
+  [
+    ...document.querySelectorAll<HTMLButtonElement>(
+      where === 'bar'
+        ? '[data-slot="question-bar"] button'
+        : '[data-expanded] button',
+    ),
+  ].find((button) => button.title.startsWith('Stop the turn')) ?? null;
 
 const typeInto = async (input: HTMLInputElement, text: string) => {
   await act(async () => {
@@ -277,7 +321,12 @@ beforeEach(async () => {
   scrolled = 0;
   stepped = 0;
   vim = true;
-  feed = Effect.runSync(Queue.unbounded<ReadonlyArray<SessionQuestions>>());
+  running = false;
+  stopped = 0;
+  feed = Effect.runSync(
+    SubscriptionRef.make<ReadonlyArray<SessionQuestions>>([]),
+  );
+  kept = {};
   const App = toReact(OwnerLive, OwnerView, services, {
     name: `question-test-${apps++}`,
   });
@@ -389,6 +438,29 @@ describe('the Question Panel, by keys', () => {
     expect(expanded()).toBe(true);
   });
 
+  it('takes the keys back from the sidebar while expanded, on the row it left', async () => {
+    await ask([QUESTION]);
+    await key('j');
+    expect(document.activeElement).toBe(choice('Passkey'));
+    await key('h', { ctrlKey: true });
+    expect(where()).toBe('sidebar');
+    // `l` goes to the page, which the panel covers: the keys are its.
+    await key('l');
+    // The row is focused on the next frame.
+    await act(() => new Promise((done) => requestAnimationFrame(done)));
+    await flush();
+    expect(where()).toBe('question');
+    expect(document.activeElement).toBe(choice('Passkey'));
+    await key('k');
+    expect(document.activeElement).toBe(choice('Link'));
+    expect(scrolled).toBe(0);
+    // Minimised, the page keeps them.
+    await key('Escape');
+    expect(where()).toBe('content');
+    await key('j');
+    expect(scrolled).toBe(1);
+  });
+
   it('says an option once when what it means is only its label', async () => {
     await ask([QUESTION]);
     expect(choice('Passkey').textContent).toBe('Passkey2');
@@ -422,7 +494,71 @@ describe('the Question Panel, by keys', () => {
     expect(draft()).not.toBeNull();
   });
 
-  it('keeps each question minimised or not while the session is open', async () => {
+  it('finds each answer so far, and minimised, after leaving the session and coming back', async () => {
+    await ask([QUESTION]);
+    await key('j');
+    await key(' ');
+    await key('l');
+    await key('2');
+    await key('Escape');
+    expect(bar()?.textContent).toContain('2 of 3 answered');
+    // Another session in the sidebar, then back: a fresh panel each time.
+    await act(async () => open('s2'));
+    await flush();
+    expect(bar()).toBeNull();
+    await act(async () => open('s1'));
+    await flush();
+    await flush();
+    expect(expanded()).toBe(false);
+    expect(bar()?.textContent).toContain('2 of 3 answered');
+    await key('i');
+    expect(choice('Passkey').getAttribute('aria-checked')).toBe('true');
+    expect(choice('Lint').getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('keeps the Items left marked, and one sent unshown, after leaving and coming back', async () => {
+    await ask([QUESTION]);
+    await key(' ');
+    await key('Enter', mod);
+    expect(document.body.textContent).toContain('Needs an answer');
+    await act(async () => open('s2'));
+    await flush();
+    await act(async () => open('s1'));
+    await flush();
+    await flush();
+    expect(document.body.textContent).toContain('Needs an answer');
+    // Skipped, but still listed while the Machine catches up: not shown again.
+    await key('d');
+    expect(draft()).not.toBeNull();
+    await act(async () => open('s2'));
+    await flush();
+    await act(async () => open('s1'));
+    await flush();
+    await flush();
+    expect(bar()).toBeNull();
+    expect(expanded()).toBe(false);
+    expect(draft()).not.toBeNull();
+  });
+
+  it('lets what was kept of a question go once it is no longer asked', async () => {
+    await ask([QUESTION]);
+    await key(' ');
+    await key('Escape');
+    expect(kept['s1']?.drafts['q1']).toBeDefined();
+    await act(async () => open('s2'));
+    await flush();
+    // Its Turn ended while elsewhere, then the agent asked it again.
+    await ask([]);
+    expect(kept).toEqual({});
+    await ask([QUESTION]);
+    await act(async () => open('s1'));
+    await flush();
+    await flush();
+    expect(expanded()).toBe(true);
+    expect(choice('Link').getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('keeps each question minimised or not while it is asked', async () => {
     await ask([QUESTION]);
     await key('Escape');
     expect(expanded()).toBe(false);
@@ -442,5 +578,26 @@ describe('the Question Panel, by keys', () => {
     // Answered elsewhere, or its Turn ended: the Draft is back at once.
     expect(bar()).toBeNull();
     expect(draft()).not.toBeNull();
+  });
+
+  it('stops the Turn by mouse or touch, minimised or expanded, only while it runs', async () => {
+    await ask([QUESTION]);
+    expect(stopButton('panel')).toBeNull();
+    running = true;
+    await rerender();
+    const inPanel = stopButton('panel')!;
+    expect(inPanel.title).toBe('Stop the turn (mod+.)');
+    await act(async () => inPanel.click());
+    expect(stopped).toBe(1);
+    await key('Escape');
+    expect(expanded()).toBe(false);
+    const inBar = stopButton('bar')!;
+    // Named for those who cannot see its icon on a phone.
+    expect(inBar.getAttribute('aria-label')).toBe('Stop the turn');
+    await act(async () => inBar.click());
+    expect(stopped).toBe(2);
+    // Still asked: stopping is the Machine's to do, not the panel's.
+    expect(bar()).not.toBeNull();
+    expect(answered).toEqual([]);
   });
 });

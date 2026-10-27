@@ -11,6 +11,7 @@ import { Actor } from '@kestack/kabuki';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { Cache, Copy, copying, Marks, Seen, Sync } from './store/index.ts';
 import {
+  Answering,
   Link,
   ModelsRead,
   readOver,
@@ -19,7 +20,7 @@ import {
   SetupParts,
 } from '../machines.ts';
 import { ask, speechOn } from './commands.ts';
-import { questionsOn } from './records/index.ts';
+import { answeringAsked, questionsOn } from './records/index.ts';
 import { keepSetup, SetupShelf } from './commands.ts';
 
 /*
@@ -55,6 +56,13 @@ import { keepSetup, SetupShelf } from './commands.ts';
  *            change (`records/questions/`), shared in `Machines` too, for
  *            the sidebar's marks and the open session's Question Panel.
  *            Never kept: they live only while their Turn runs.
+ * 9. Answering how each is being answered here, as the Question Panel
+ *            gives it: each Item's answer so far, minimised or not, tried
+ *            or sent, so leaving the session or the page loses nothing.
+ *            Kept here, in memory, while the question is asked, and
+ *            shared in `Machines`; a question gone from the feed takes
+ *            its part with it. Never written to storage: an answer may be
+ *            a secret.
  */
 
 const Line = Schema.Literals(['connecting', 'connected', 'reconnecting']);
@@ -68,6 +76,8 @@ const Model = Schema.Struct({
   seen: Schema.NullOr(Marks),
   /** Its Sessions' Agent Questions, as it last said them. */
   questions: Schema.Array(SessionQuestions),
+  /** How each Session's questions are being answered here, by Session id. */
+  answering: Schema.Record(Schema.String, Answering),
 });
 type Model = typeof Model.Type;
 
@@ -91,6 +101,7 @@ const Machine = Actor.define('Machine', {
     SpeechWatched: { state: SpeechToTextState },
     SeenRead: { marks: Marks },
     QuestionsHeard: { questions: Schema.Array(SessionQuestions) },
+    AnsweringKept: { sessionId: Schema.String, answering: Answering },
   }),
 });
 
@@ -158,6 +169,7 @@ export const MachineLive = Actor.build(Machine, {
       line: 'connecting',
       seen: null,
       questions: [],
+      answering: {},
     },
     state: { _tag: 'Reading' },
   }),
@@ -237,6 +249,20 @@ export const MachineLive = Actor.build(Machine, {
           ),
         ),
     },
+    // 9. Answering
+    answering: {
+      run: (self) =>
+        Effect.gen(function* () {
+          const { model } = yield* self.get;
+          const { answeringKept } = yield* Link;
+          yield* Stream.fromPubSub(answeringKept).pipe(
+            Stream.filter(({ machineId }) => machineId === model.machineId),
+            Stream.runForEach(({ sessionId, answering }) =>
+              self.send({ _tag: 'AnsweringKept', sessionId, answering }),
+            ),
+          );
+        }),
+    },
     // 7. Share
     publish: {
       run: (self) =>
@@ -249,9 +275,10 @@ export const MachineLive = Actor.build(Machine, {
               setup: sharedOf(model, state._tag === 'Shown'),
               seen: model.seen,
               questions: model.questions,
+              answering: model.answering,
             })),
             Stream.changes,
-            Stream.runForEach(({ setup, seen, questions }) =>
+            Stream.runForEach(({ setup, seen, questions, answering }) =>
               SubscriptionRef.update(known, (now) => ({
                 ...now,
                 setups: { ...now.setups, [id]: setup },
@@ -260,6 +287,10 @@ export const MachineLive = Actor.build(Machine, {
                   now.questions[id] === questions
                     ? now.questions
                     : { ...now.questions, [id]: questions },
+                answering:
+                  now.answering[id] === answering
+                    ? now.answering
+                    : { ...now.answering, [id]: answering },
               })),
             ),
             Effect.ensuring(
@@ -267,7 +298,8 @@ export const MachineLive = Actor.build(Machine, {
                 const { [id]: _setup, ...setups } = now.setups;
                 const { [id]: _seen, ...seen } = now.seen;
                 const { [id]: _questions, ...questions } = now.questions;
-                return { ...now, setups, seen, questions };
+                const { [id]: _answering, ...answering } = now.answering;
+                return { ...now, setups, seen, questions, answering };
               }),
             ),
           );
@@ -385,7 +417,21 @@ export const MachineLive = Actor.build(Machine, {
     SeenRead: ({ marks }, { model }) => ({ model: { ...model, seen: marks } }),
     // 8. Asked
     QuestionsHeard: ({ questions }, { model }) => ({
-      model: { ...model, questions },
+      model: {
+        ...model,
+        questions,
+        answering: answeringAsked(model.answering, questions),
+      },
+    }),
+    // 9. Answering: only what the feed still asks is kept.
+    AnsweringKept: ({ sessionId, answering }, { model }) => ({
+      model: {
+        ...model,
+        answering: answeringAsked(
+          { ...model.answering, [sessionId]: answering },
+          model.questions,
+        ),
+      },
     }),
   },
 });
