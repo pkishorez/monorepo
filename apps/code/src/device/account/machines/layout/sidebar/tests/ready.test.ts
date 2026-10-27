@@ -25,6 +25,7 @@ const model = {
   told: null,
   refused: null,
   refusals: {},
+  asking: {},
   ready: false,
 };
 

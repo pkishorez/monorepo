@@ -1,16 +1,21 @@
 import {
   ArrowUpRightIcon,
   GlobeIcon,
+  MessageCircleQuestionMarkIcon,
   PlugIcon,
   ListTodoIcon,
   WrenchIcon,
 } from 'lucide-react';
+import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { type Kind, Output, Block, json, Labelled } from '../output/index.ts';
+import { askedOf, type Asked as Read } from '../parse/index.ts';
 import { Clamped, Checklist } from '../../words/index.ts';
+import type { Row, ToolState } from '../../turns/rows/index.ts';
 
 /*
  * Tools that reach past the files: the web, a connected server, the
- * agent's own to-do list, and any tool not modelled yet.
+ * agent's own to-do list, a question it asked you, and any tool not
+ * modelled yet.
  */
 
 /** A page fetched, or the web searched: opened, a link to the page, and what came back. */
@@ -89,6 +94,83 @@ export const todo: Kind = {
     );
   },
 };
+
+/** Each question asked under its header, and what was answered, a secret hidden. */
+function Answers({ asked }: { readonly asked: ReadonlyArray<Read> }) {
+  return (
+    <dl className="flex flex-col gap-2.5">
+      {asked.map(({ header, question, secret, answer }, at) => (
+        <div key={at} className="flex min-w-0 flex-col gap-0.5">
+          <dt className="text-sm text-muted-foreground">
+            {header !== '' && (
+              <span className="font-medium text-foreground/80">
+                {header} ·{' '}
+              </span>
+            )}
+            {question}
+          </dt>
+          <dd
+            className={
+              answer === null
+                ? 'text-sm text-muted-foreground/70'
+                : 'text-sm break-words text-foreground'
+            }
+          >
+            {answer === null ? '—' : secret ? '••••••••' : answer.join(', ')}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** A question the agent asked you: opened, each question and its answer. */
+export const question: Kind = {
+  icon: MessageCircleQuestionMarkIcon,
+  Detail: ({ row, opening }) => {
+    const read = askedOf(row.call, row.result);
+    return read === null ? (
+      <Output row={row} opening={opening} />
+    ) : (
+      <Answers asked={read.asked} />
+    );
+  },
+};
+
+/**
+ * A question the agent asked you, as the conversation reads it, never
+ * folded into its work: each question and what was answered; while its
+ * Turn waits, that it waits for you; skipped or left, that it was.
+ * Null when its input holds no question, for a tool line instead.
+ */
+export function Asked({
+  row,
+  state,
+}: {
+  readonly row: Extract<Row, { readonly kind: 'tool' }>;
+  readonly state: ToolState;
+}) {
+  const read = askedOf(row.call, row.result);
+  if (read === null) return null;
+  const said =
+    state === 'running'
+      ? 'Waiting for your answer'
+      : state === 'stopped'
+        ? 'Asked, not answered'
+        : read.declined
+          ? 'Asked, and skipped'
+          : 'Asked you';
+  return (
+    <div className="flex w-full max-w-xl flex-col gap-2.5 rounded-xl border border-border px-4 py-3">
+      <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        <MessageCircleQuestionMarkIcon aria-hidden className="size-3.5" />
+        <span className="flex-1">{said}</span>
+        {state === 'running' && <Spinner aria-hidden className="size-3.5" />}
+      </span>
+      <Answers asked={read.asked} />
+    </div>
+  );
+}
 
 /** Any tool not modelled yet: opened, its input as given and its output. */
 export const other: Kind = {

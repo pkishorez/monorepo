@@ -114,6 +114,7 @@ describe('the Machines the sidebar reads', () => {
     told: null,
     refused: null,
     refusals: {},
+    asking: {},
     ready: false,
   };
 

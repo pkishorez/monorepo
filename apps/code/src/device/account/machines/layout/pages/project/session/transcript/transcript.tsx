@@ -89,7 +89,9 @@ function TurnView({
     running &&
     (last === undefined ||
       (last.kind === 'said' &&
-        !(last.row.kind === 'text' && last.row.writing)));
+        !(last.row.kind === 'text' && last.row.writing) &&
+        // A question says itself that it waits.
+        last.row.kind !== 'tool'));
   return (
     <section className="group/turn flex min-w-0 flex-col gap-4">
       {turn.asks.map((ask) => (

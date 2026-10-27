@@ -156,6 +156,9 @@ export const SidebarView = View.make(
                 each.endedAt,
               )
             }
+            isAsking={(each) =>
+              model.asking[each.machineId]?.includes(each.id) === true
+            }
             onOpenSession={(machineId, projectId, sessionId) =>
               send({ _tag: 'SessionOpened', machineId, projectId, sessionId })
             }

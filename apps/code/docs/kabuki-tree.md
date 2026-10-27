@@ -27,7 +27,8 @@ checks who may import whom (`laymos.config.json`).
    answer. It has three parts:
    1. **machine/**: one per Machine. Its connection (how it is reached,
       its health, why it refused), its records (Projects, Sessions,
-      messages, and Moves on their way), and its store (setup, Skills,
+      messages, Moves on their way, and the Agent Questions its Sessions
+      wait on, `records/questions/`), and its store (setup, Skills,
       Unseen marks, Saved Drafts, sync).
    2. **voice/**: recording from anywhere. The Dictation, the recorder and
       the Microphone Picker. One per Account, so it keeps recording while
@@ -52,7 +53,8 @@ checks who may import whom (`laymos.config.json`).
            question).
          - `session/` holds the Session's row, its fork history, Stop,
            Fork and Seen; `transcript/` draws its turns, tool calls and
-           words.
+           words; `question/` is the Question Panel, which stands in for
+           the Draft while its agent asks.
          - `settings/` has `general/`, `shortcuts/` and `machines/` (one
            card per Machine: its accounts, speech and Projects).
 
@@ -74,7 +76,7 @@ device                          root page; States: Reading | Checking | SignedIn
 │   ├── voice                   always
 │   │   ├── dictation           always; hears asks only while its Account is drawn
 │   │   └── microphonePicker    always
-│   └── machine                 each: listed Machine id
+│   └── machine                 each: listed Machine id; follows its Agent Questions
 │       └── replicas            its Machine's Replica Instances
 ├── layout                      key: the Account drawn
 │   ├── sidebar                 always, on a phone too while it is shut
@@ -86,7 +88,9 @@ device                          root page; States: Reading | Checking | SignedIn
     ├── Home
     ├── Settings                general, shortcuts, machines (one card each)
     ├── Project                 the Catalog; draft while no Session is open
-    │   └── Session             /s/:sessionId; its draft
+    │   └── Session             /s/:sessionId
+    │       ├── draft           key: the session id
+    │       └── question        key: the session id; the Question Panel
     └── Kabuki                  /kabuki
 ```
 
@@ -164,3 +168,25 @@ Who prunes, and only on a real answer (a check that fails deletes nothing):
 | Machines | Cloud Connect first answers            | `code:account:<id>:machine:` | the Machines it lists        |
 
 A Project removed and a Machine forgotten are your asks, and go at once.
+
+## Agent Questions
+
+An agent's question is followed once, by its Machine, and read twice.
+
+- **Machine** (`machine/records/questions/`) follows every Session's
+  Agent Questions over its own socket, whole on each change, and says
+  them in `Machines`, beside its setup and Unseen marks. Nothing of them
+  is kept: they live only while their Turn runs. In development a
+  session's address with `?question=single`, `mixed`, `secret` or `long`
+  adds a sample, answered in the browser (`samples.ts`).
+- **Sidebar** reads which Sessions ask, for their "Question" pill.
+- **Question Panel** (`pages/project/session/question/`), a Child of the
+  Session, reads its own Session's, keeps each question's answer so far
+  and whether it is minimised while the Session is open, and answers or
+  declines it over the page's socket; one no longer asked is as good as
+  answered. Its parts: `answer.ts` (an answer as it is given),
+  `form.tsx` (expanded, the `question` Surface, inside the page's) and
+  `bar.tsx` (minimised). The page draws it in the Draft's place, and no
+  Draft at all while it stands in, so nothing reaches the Draft; expanded,
+  it is drawn over the transcript, which is `inert` under it. The
+  sidebar and the header are outside it, and work as ever.

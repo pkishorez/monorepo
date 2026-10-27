@@ -48,7 +48,8 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react';
  * title, bold while Unseen, a fork glyph for a Fork, with its Project's
  * name under it, then its Machine's while there is more than one, and its
  * status at the right, as quietly as it can be said: a mark, or how long
- * ago, level with the title (`ui/status-word`). Rows have room between
+ * ago, level with the title (`ui/status-word`), or, loud on purpose, a
+ * "Question" pill while its agent waits on an Agent Question. Rows have room between
  * them, and the days room above, so the list reads as a list.
  * A row under a pointer is half lit, so the open one still stands out. A
  * Machine that does not answer keeps what it last synced, its rows saying
@@ -91,6 +92,7 @@ export function Places({
   projects,
   sessions,
   isUnseen,
+  isAsking,
   onOpenSession,
   onUnsettle,
   onMove,
@@ -113,6 +115,8 @@ export function Places({
   /** Every Session, Settled ones too. */
   readonly sessions: ReadonlyArray<OnMachine<Session>>;
   readonly isUnseen: (session: OnMachine<Session>) => boolean;
+  /** Whether its agent waits on an Agent Question. */
+  readonly isAsking: (session: OnMachine<Session>) => boolean;
   /** Moves the app to a session, as its link would. */
   readonly onOpenSession: (
     machineId: string,
@@ -244,6 +248,7 @@ export function Places({
                       at={at}
                       titles={titles}
                       isUnseen={isUnseen}
+                      isAsking={isAsking}
                       onMove={onMove}
                     />
                   ))}
@@ -392,6 +397,7 @@ function SessionRow({
   at,
   titles,
   isUnseen,
+  isAsking,
   onMove,
 }: {
   readonly entry: Entry;
@@ -400,6 +406,8 @@ function SessionRow({
   /** Every Session's title, by `keyOf`, to name what a Fork came from. */
   readonly titles: ReadonlyMap<string, string>;
   readonly isUnseen: (session: OnMachine<Session>) => boolean;
+  /** Whether its agent waits on an Agent Question. */
+  readonly isAsking: (session: OnMachine<Session>) => boolean;
   readonly onMove: (session: OnMachine<Session>, settled: boolean) => void;
 }) {
   const original =
@@ -461,6 +469,7 @@ function SessionRow({
           <StatusWord
             status={session.status}
             unseen={isUnseen(session)}
+            asking={isAsking(session)}
             at={session.activeAt}
           />
         </SidebarMenuButton>

@@ -1,5 +1,5 @@
 import type { Session } from '@kestack/connect/code';
-import { LoaderCircleIcon } from 'lucide-react';
+import { LoaderCircleIcon, MessageCircleQuestionMarkIcon } from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { ago, since } from './time.ts';
 
@@ -10,8 +10,9 @@ import { ago, since } from './time.ts';
  * when it finished since you last looked, red when its last Turn failed,
  * amber when the server's stopping cut it off; and otherwise how long ago
  * it was last active, in a letter or two (`5m`, `3h`). Stopped by you
- * needs no mark: you know. Each says what it means on hover and to a
- * screen reader.
+ * needs no mark: you know. Only one thing is said louder: a "Question"
+ * pill while its agent waits on your answer, since nothing goes on until
+ * it is given. Each says what it means on hover and to a screen reader.
  */
 
 // A title's line tall, so beside one it sits level with it.
@@ -36,13 +37,25 @@ export function StatusWord({
   status,
   unseen,
   at,
+  asking = false,
 }: {
   readonly status: Session['status'];
   /** Whether its last Turn ended since it was last open here. */
   readonly unseen: boolean;
   /** When it was last active. */
   readonly at: number;
+  /** Whether its agent waits on an Agent Question. */
+  readonly asking?: boolean;
 }) {
+  if (asking)
+    return (
+      <span title="Waiting for your answer" className={mark}>
+        <span className="flex items-center gap-1 rounded-full bg-sky-500/15 px-1.5 py-0.5 text-[11px] leading-4 font-medium text-sky-700 dark:text-sky-300">
+          <MessageCircleQuestionMarkIcon aria-hidden className="size-3" />
+          Question
+        </span>
+      </span>
+    );
   if (status === 'running')
     return (
       <span title="Running" className={cn(mark, 'text-muted-foreground')}>

@@ -2,7 +2,7 @@ import type { ToolKind } from '@kestack/connect/code';
 import { BotIcon } from 'lucide-react';
 import type { Kind } from '../output/index.ts';
 import { edit, read, remove, write } from './files.tsx';
-import { mcp, other, todo, web } from './outside.tsx';
+import { mcp, other, question, todo, web } from './outside.tsx';
 import { bash, search } from './shell.tsx';
 
 /*
@@ -21,6 +21,7 @@ export const KINDS: Record<ToolKind, Kind> = {
   search,
   web,
   todo,
+  question,
   mcp,
   other,
   subagent: { ...other, icon: BotIcon },

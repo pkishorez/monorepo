@@ -4,6 +4,7 @@ import {
   CodeReplicaLive,
   HarnessAccountInfo,
   HarnessInfo,
+  SessionQuestions,
   SpeechToTextState,
 } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
@@ -18,6 +19,7 @@ import {
   SetupParts,
 } from '../machines.ts';
 import { ask, speechOn } from './commands.ts';
+import { questionsOn } from './records/index.ts';
 import { keepSetup, SetupShelf } from './commands.ts';
 
 /*
@@ -49,6 +51,10 @@ import { keepSetup, SetupShelf } from './commands.ts';
  *            and no other's.
  * 7. Share   its setup and marks in `Machines`, for Settings, the Dictation,
  *            the sidebar and each Project; taken out as the Machine goes.
+ * 8. Asked   the Agent Questions its Sessions' Turns wait on, whole on each
+ *            change (`records/questions/`), shared in `Machines` too, for
+ *            the sidebar's marks and the open session's Question Panel.
+ *            Never kept: they live only while their Turn runs.
  */
 
 const Line = Schema.Literals(['connecting', 'connected', 'reconnecting']);
@@ -60,6 +66,8 @@ const Model = Schema.Struct({
   line: Line,
   /** Its Unseen marks; null until read. */
   seen: Schema.NullOr(Marks),
+  /** Its Sessions' Agent Questions, as it last said them. */
+  questions: Schema.Array(SessionQuestions),
 });
 type Model = typeof Model.Type;
 
@@ -82,8 +90,11 @@ const Machine = Actor.define('Machine', {
     Refused: { since: Schema.Finite, reason: Schema.String },
     SpeechWatched: { state: SpeechToTextState },
     SeenRead: { marks: Marks },
+    QuestionsHeard: { questions: Schema.Array(SessionQuestions) },
   }),
 });
+
+const sameQuestions = Schema.toEquivalence(Schema.Array(SessionQuestions));
 
 const nothing: SetupParts = {
   accounts: null,
@@ -146,6 +157,7 @@ export const MachineLive = Actor.build(Machine, {
       setup: copying.empty,
       line: 'connecting',
       seen: null,
+      questions: [],
     },
     state: { _tag: 'Reading' },
   }),
@@ -213,6 +225,18 @@ export const MachineLive = Actor.build(Machine, {
           );
         }),
     },
+    // 8. Asked
+    questions: {
+      run: (self) =>
+        Effect.flatMap(self.get, ({ model }) =>
+          questionsOn(model.machineId).pipe(
+            Stream.changesWith(sameQuestions),
+            Stream.runForEach((questions) =>
+              self.send({ _tag: 'QuestionsHeard', questions: [...questions] }),
+            ),
+          ),
+        ),
+    },
     // 7. Share
     publish: {
       run: (self) =>
@@ -224,20 +248,26 @@ export const MachineLive = Actor.build(Machine, {
             Stream.map(({ model, state }) => ({
               setup: sharedOf(model, state._tag === 'Shown'),
               seen: model.seen,
+              questions: model.questions,
             })),
             Stream.changes,
-            Stream.runForEach(({ setup, seen }) =>
+            Stream.runForEach(({ setup, seen, questions }) =>
               SubscriptionRef.update(known, (now) => ({
                 ...now,
                 setups: { ...now.setups, [id]: setup },
                 seen: seen === null ? now.seen : { ...now.seen, [id]: seen },
+                questions:
+                  now.questions[id] === questions
+                    ? now.questions
+                    : { ...now.questions, [id]: questions },
               })),
             ),
             Effect.ensuring(
               SubscriptionRef.update(known, (now) => {
                 const { [id]: _setup, ...setups } = now.setups;
                 const { [id]: _seen, ...seen } = now.seen;
-                return { ...now, setups, seen };
+                const { [id]: _questions, ...questions } = now.questions;
+                return { ...now, setups, seen, questions };
               }),
             ),
           );
@@ -353,5 +383,9 @@ export const MachineLive = Actor.build(Machine, {
     },
     // 5. Seen
     SeenRead: ({ marks }, { model }) => ({ model: { ...model, seen: marks } }),
+    // 8. Asked
+    QuestionsHeard: ({ questions }, { model }) => ({
+      model: { ...model, questions },
+    }),
   },
 });
