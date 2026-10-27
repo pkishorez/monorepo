@@ -24,7 +24,7 @@ describe('machine.json is one Machine of one User', () => {
       Effect.gen(function* () {
         const at = kept();
         const first = yield* claim({ ...at, owner: ada });
-        expect(first.name).toBe(hostname());
+        expect(first.name).toBe(hostname().split('.')[0]);
         expect(first.key).toMatch(/^[A-Za-z0-9_-]{43}$/);
         expect(statSync(at.file).mode & 0o777).toBe(0o600);
         expect(yield* claim({ ...at, owner: ada })).toEqual(first);
@@ -51,6 +51,20 @@ describe('machine.json is one Machine of one User', () => {
         const renamed = yield* claim({ ...at, owner: ada, name: 'studio' });
         expect(renamed).toEqual({ ...first, name: 'studio' });
         expect(yield* claim({ ...at, owner: ada })).toEqual(renamed);
+      }),
+    ));
+
+  it('shortens a kept name that has the whole of the host name', () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const at = kept();
+        const first = yield* claim({ ...at, owner: ada, name: 'x' });
+        yield* claim({ ...at, owner: ada, name: `${hostname()} (main)` });
+        const again = yield* claim({ ...at, owner: ada });
+        expect(again).toEqual({
+          ...first,
+          name: `${hostname().split('.')[0]} (main)`,
+        });
       }),
     ));
 

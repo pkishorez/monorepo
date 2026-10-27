@@ -93,7 +93,7 @@ export const ProjectPickerNotice = View.make(
     model.warning && (
       <p
         role="status"
-        className="mx-auto mt-3 flex w-[calc(100%-2rem)] max-w-3xl items-start gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm"
+        className="mx-auto mt-3 flex w-[calc(100%-2rem)] max-w-4xl items-start gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm"
       >
         <TriangleAlertIcon
           aria-hidden

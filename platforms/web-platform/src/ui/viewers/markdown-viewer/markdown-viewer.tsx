@@ -46,12 +46,12 @@ export function MarkdownViewer({
             </div>
           ),
           th: ({ children }) => (
-            <th className="border-b border-border px-3 py-2 text-left font-semibold">
+            <th className="border-b border-border px-3 py-2 text-left font-semibold first:pl-0">
               {children}
             </th>
           ),
           td: ({ children }) => (
-            <td className="border-b border-border/50 px-3 py-2 align-top">
+            <td className="border-b border-border/50 px-3 py-2 align-top first:pl-0">
               {children}
             </td>
           ),
@@ -63,20 +63,31 @@ export function MarkdownViewer({
   );
 }
 
+/*
+ * Code: inline, a chip in the line; a block, fenced or indented, with a
+ * language or without, a quiet filled box, flush with the text's edge,
+ * its words inset inside it; a long line scrolls sideways inside the box. A block's text always ends in a newline;
+ * inline code never holds one, so that is what tells them apart, since
+ * the `pre` around a block is dropped.
+ */
 function MarkdownCode({ className, children }: ComponentProps<'code'>) {
+  const text = String(children);
   const language = /language-(\w+)/.exec(className ?? '')?.[1];
-  if (language === undefined) {
+  if (language === undefined && !text.includes('\n')) {
     return <code className={className}>{children}</code>;
   }
   return (
     <div className="not-prose my-3">
       <SourceViewer
-        filePath={`snippet.${language}`}
-        content={String(children).replace(/\n$/, '')}
+        filePath={`snippet.${language ?? 'txt'}`}
+        content={text.replace(/\n$/, '')}
         autoHeight
         showHeader={false}
         showLineNumbers={false}
-        className="rounded-lg border border-border"
+        className={cn(
+          'overflow-x-auto rounded-lg border border-border/60 bg-muted/40 [&_.source-viewer]:bg-transparent',
+          scrollbarStyles,
+        )}
       />
     </div>
   );

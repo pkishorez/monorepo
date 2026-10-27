@@ -9,13 +9,15 @@ import {
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { BindingKeys } from '@kestack/web-platform/ui/input';
 import { keys } from '../../../../keys.ts';
+import { Title } from '../../../../ui/settings/index.ts';
 import { ShortcutsLive } from './actor.ts';
 import { actionOf, keysOf, search, shadowsOf, swapped } from './bindings.ts';
 
 /*
  * Every Action and its keys as the key table lists them (`keys.ts`): one
- * row per thing done, in sections, its keys in either Mode beside its
- * Vim Mode ones, quieter while Vim Mode is off, under a search field.
+ * row per thing done, in sections, its keys beside it, and its Vim Mode
+ * ones too while Vim Mode is on; off, what only Vim Mode does is left
+ * out. Under a search field.
  * Each Action's keys are a button: clicking it records one key press in its place,
  * on the isolated `record` Surface, where no key of the app works; the
  * element itself takes the key, so the browser does nothing with it
@@ -238,28 +240,25 @@ export const ShortcutsView = View.make(
       <section
         {...root}
         aria-labelledby="shortcuts"
-        className="flex flex-col gap-4"
+        className="flex flex-col gap-6"
       >
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <h2 id="shortcuts" className="text-sm font-semibold">
-              Shortcuts
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Click an action’s keys, then press the new key; Escape keeps the
-              old one. Kept in this browser.
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={bindings === null || Object.keys(bindings).length === 0}
-            onClick={() => send({ _tag: 'ResetAll' })}
-          >
-            Reset all
-          </Button>
-        </div>
+        <Title
+          id="shortcuts"
+          name="Shortcuts"
+          action={
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={bindings === null || Object.keys(bindings).length === 0}
+              onClick={() => send({ _tag: 'ResetAll' })}
+            >
+              Reset all
+            </Button>
+          }
+        >
+          Click a shortcut, then press the new keys.
+        </Title>
         <div className="relative">
           <label htmlFor="shortcut-search" className="sr-only">
             Search shortcuts
@@ -278,7 +277,7 @@ export const ShortcutsView = View.make(
             onChange={(event) =>
               send({ _tag: 'Searched', query: event.currentTarget.value })
             }
-            className="pl-8 text-base md:text-[13px]"
+            className="pl-8 text-base md:text-sm"
           />
         </div>
         {bindings === null ? (
@@ -305,8 +304,15 @@ function Table({
   readonly send: Self['send'];
 }) {
   const { vim } = keys.useKeyboard();
-  const found = search(bindings, model.query);
   const shadows = shadowsOf(bindings);
+  // Vim Mode off, what only it does is left out.
+  const found = search(bindings, model.query).flatMap((section) => {
+    const rows = vim.on
+      ? section.rows
+      : section.rows.filter((row) => row.always.length > 0);
+    return rows.length === 0 ? [] : [{ ...section, rows }];
+  });
+  const columns = vim.on ? COLUMNS : COLUMN;
   if (found.length === 0)
     return (
       <p className="text-sm text-muted-foreground">
@@ -317,11 +323,11 @@ function Table({
     <div className="flex flex-col">
       <div
         aria-hidden
-        className={`${COLUMNS} border-b border-border px-2 pb-1.5 text-xs font-medium text-muted-foreground`}
+        className={`${columns} border-b border-border/60 px-2 pb-1.5 text-xs font-medium text-muted-foreground`}
       >
         <span>Action</span>
-        <span>Always</span>
-        <span>Vim Mode{vim.on ? '' : ', off'}</span>
+        <span>Shortcut</span>
+        {vim.on && <span>Vim mode</span>}
       </div>
       {found.map((section) => (
         <div
@@ -332,7 +338,7 @@ function Table({
         >
           <h3
             id={`shortcuts-${section.title}`}
-            className="px-2 pt-4 pb-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase"
+            className="px-2 pt-5 pb-1 text-xs font-medium text-muted-foreground"
           >
             {section.title}
           </h3>
@@ -340,9 +346,9 @@ function Table({
             {section.rows.map((row) => (
               <li
                 key={row.label}
-                className="flex flex-col gap-1.5 border-b border-border/50 px-2 py-1.5 last:border-b-0"
+                className="flex flex-col gap-1.5 border-b border-border/60 px-2 py-1.5 last:border-b-0"
               >
-                <div className={`${COLUMNS} min-h-8`}>
+                <div className={`${columns} min-h-8`}>
                   <span className="text-sm">{row.label}</span>
                   <Cell
                     ids={row.always}
@@ -350,15 +356,16 @@ function Table({
                     bindings={bindings}
                     send={send}
                   />
-                  <Cell
-                    ids={row.vim}
-                    model={model}
-                    bindings={bindings}
-                    send={send}
-                    off={!vim.on}
-                  />
+                  {vim.on && (
+                    <Cell
+                      ids={row.vim}
+                      model={model}
+                      bindings={bindings}
+                      send={send}
+                    />
+                  )}
                 </div>
-                {[...row.always, ...row.vim].map((id) => (
+                {[...row.always, ...(vim.on ? row.vim : [])].map((id) => (
                   <Notes
                     key={id}
                     id={id}
@@ -381,27 +388,26 @@ function Table({
 const COLUMNS =
   'grid grid-cols-[minmax(0,1fr)_minmax(0,9rem)_minmax(0,9rem)] items-center gap-3 sm:grid-cols-[minmax(0,1fr)_12rem_12rem]';
 
+/** Its two, out of Vim Mode: what is done, then its keys. */
+const COLUMN =
+  'grid grid-cols-[minmax(0,1fr)_minmax(0,9rem)] items-center gap-3 sm:grid-cols-[minmax(0,1fr)_14rem]';
+
 /** One column of a row: each Action's keys, a button that records new ones; a dash for none. */
 function Cell({
   ids,
   model,
   bindings,
   send,
-  off = false,
 }: {
   readonly ids: ReadonlyArray<string>;
   readonly model: Model;
   readonly bindings: Bindings;
   readonly send: Self['send'];
-  /** Vim Mode is off: its keys are drawn quieter, as they do nothing now. */
-  readonly off?: boolean;
 }) {
   if (ids.length === 0)
     return <span className="text-sm text-muted-foreground/60">–</span>;
   return (
-    <span
-      className={`flex min-w-0 flex-wrap items-center gap-1 ${off ? 'opacity-50' : ''}`}
-    >
+    <span className="flex min-w-0 flex-wrap items-center gap-1">
       {ids.map((id) => (
         <Key key={id} id={id} model={model} bindings={bindings} send={send} />
       ))}

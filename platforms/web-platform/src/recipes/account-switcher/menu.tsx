@@ -180,7 +180,9 @@ export function AccountMenu({
       >
         <Face account={active} />
       </DropdownMenuTrigger>
+      {/* Switching Accounts is all there is to do while it is open: the rest dims. */}
       <DropdownMenuContent
+        backdrop
         align="end"
         sideOffset={6}
         className="w-[min(340px,calc(100vw-24px))] rounded-xl p-0"

@@ -1,5 +1,6 @@
 export {
   home,
+  kabuki,
   machineIn,
   openSettingsOn,
   project,

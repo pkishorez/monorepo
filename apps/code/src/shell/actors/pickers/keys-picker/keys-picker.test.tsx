@@ -211,9 +211,9 @@ describe('rowsOf', () => {
 });
 
 describe('Keys Picker', () => {
-  it('opens by Ctrl+/ out of Vim Mode with only what works on the page, its own keys lit', async () => {
+  it('opens by Ctrl+? out of Vim Mode with only what works on the page, its own keys lit', async () => {
     await mount(false, 'content');
-    await key('/', { ctrlKey: true });
+    await key('?', { ctrlKey: true, shiftKey: true });
     expect(document.activeElement).toBe(search());
     const listed = rows();
     expect(listed).toContain('Show or hide the sidebar');
@@ -245,7 +245,7 @@ describe('Keys Picker', () => {
 
   it('finds a row by its name or by its keys', async () => {
     await mount(false, 'content');
-    await key('/', { ctrlKey: true });
+    await key('?', { ctrlKey: true, shiftKey: true });
     await type('sidebar');
     expect(rows()).toContain('Show or hide the sidebar');
     expect(rows()).not.toContain('Settings, or back from them');
@@ -258,7 +258,7 @@ describe('Keys Picker', () => {
 
   it('runs the Action chosen once closed, back where it was opened', async () => {
     await mount(false, 'content');
-    await key('/', { ctrlKey: true });
+    await key('?', { ctrlKey: true, shiftKey: true });
     await type('ctrl+shift+b');
     await key('Enter');
     await flush();

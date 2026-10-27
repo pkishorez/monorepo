@@ -1,5 +1,4 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { hostname } from 'node:os';
 import { Context, Effect, Layer } from 'effect';
 import { HttpServer } from 'effect/http';
 import {
@@ -12,7 +11,12 @@ import {
 } from '@kestack/ai-toolkit/harness';
 import type { SpeechToText } from '@kestack/ai-toolkit/speech';
 import { codeGroup } from './code/index.js';
-import { identify, logout as forgetMachine, online } from './online/index.js';
+import {
+  hostName,
+  identify,
+  logout as forgetMachine,
+  online,
+} from './online/index.js';
 import { type ConnectPaths, resolvePaths } from './paths/index.js';
 import { DEFAULT_ORIGINS, server } from './server/index.js';
 import { logsTo } from './logs.js';
@@ -115,7 +119,7 @@ export const serve = (options: ServeOptions) =>
         firstName:
           options.branch === undefined
             ? undefined
-            : `${hostname()} (${options.branch})`,
+            : `${hostName()} (${options.branch})`,
       });
       const { machine, user } = identified;
       // Signing in opened the database first.

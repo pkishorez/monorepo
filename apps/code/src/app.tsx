@@ -1,8 +1,10 @@
+import type { ReactNode } from 'react';
 import { Layer } from 'effect';
 import { CloudClient } from '@kestack/connect/code';
 import { Start } from '@kestack/kabuki/start';
 import { document } from '@kestack/web-platform/app/document';
 import { Shell } from './shell/index.ts';
+import { Devtools } from './ui/devtools/index.ts';
 import { Theme } from './ui/theme/index.ts';
 import {
   accountReplicasIdb,
@@ -45,10 +47,14 @@ const layer = Layer.mergeAll(
 export default Start.app({
   router: Shell.router,
   view: Shell.view,
-  // The Web Platform's Document: Inter, the Theme and the PWA.
+  // The Web Platform's Document: Inter, the Theme and the PWA, and while
+  // developing, Kabuki's devtools around every page.
   document: document({
     theme: Theme,
     head: <link rel="icon" type="image/svg+xml" href="/favicon.svg" />,
+    ...(import.meta.env.DEV
+      ? { around: (app: ReactNode) => <Devtools>{app}</Devtools> }
+      : {}),
   }),
   layer,
 });

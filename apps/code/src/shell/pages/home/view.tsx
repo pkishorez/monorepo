@@ -27,6 +27,7 @@ import {
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import type { Project } from '@kestack/connect/code';
 import { keys, useBound } from '../../../keys.ts';
+import { GUTTERED } from '../../../ui/gutter/index.ts';
 import * as routes from '../../routes/index.ts';
 import { type OnMachine, useMachineName } from '../../machines/index.ts';
 import { HomeLive } from './actor.ts';
@@ -38,7 +39,10 @@ import { HomeLive } from './actor.ts';
  * yet, that is the only thing on the page.
  */
 
-/** Opens the Project Picker, as its keys do. */
+/**
+ * Opens the Project Picker, as its keys do: centred under an empty state,
+ * at the start under the list.
+ */
 function OpenProject({ variant }: { readonly variant: 'default' | 'outline' }) {
   const available = keys.useAvailableActions();
   const quick = useBound('app.projects');
@@ -55,7 +59,7 @@ function OpenProject({ variant }: { readonly variant: 'default' | 'outline' }) {
       variant={variant}
       disabled={action === undefined}
       onClick={() => action?.run()}
-      className="h-11 self-start keyboard:h-9"
+      className={`h-11 keyboard:h-9 ${variant === 'default' ? 'self-center' : 'self-start'}`}
     >
       <FolderPlusIcon aria-hidden />
       Open a folder
@@ -146,7 +150,10 @@ export const HomeView = View.make(HomeLive, ({ root, model, children }) => {
     model.machineIds === null || (projects?.neverSynced.length ?? 0) > 0;
   if (rows.length === 0 && !reading && !neverSynced)
     return (
-      <div {...root} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <div
+        {...root}
+        className={`relative flex min-h-0 flex-1 flex-col overflow-y-auto ${GUTTERED}`}
+      >
         <Empty className="mx-auto max-w-lg">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -165,8 +172,11 @@ export const HomeView = View.make(HomeLive, ({ root, model, children }) => {
       </div>
     );
   return (
-    <div {...root} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-4 py-8 sm:px-6 md:py-10">
+    <div
+      {...root}
+      className={`relative flex min-h-0 flex-1 flex-col overflow-y-auto ${GUTTERED}`}
+    >
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-10 px-4 py-8 sm:px-6 md:py-10">
         <section aria-label="Projects">
           {rows.length === 0 ? (
             neverSynced && <Loading />

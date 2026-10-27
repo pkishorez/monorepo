@@ -5,9 +5,9 @@ import * as Picker from '../../../../ui/picker/index.ts';
 import { KeysPickerLive, KeysView } from './actor.ts';
 
 /*
- * The Keys Picker, opened centred by `?` in Vim Mode or Ctrl+/ in either,
+ * The Keys Picker, opened centred by `?` in Vim Mode or Ctrl+? in either,
  * from anywhere; it has no button of its own, but the Status Line's help
- * runs Ctrl+/'s Action. It lists what worked where it was opened from, as
+ * runs Ctrl+?'s Action. It lists what worked where it was opened from, as
  * the keyboard said just before the Picker took it, and the Action chosen
  * runs after the Picker has closed, back where the user was.
  */

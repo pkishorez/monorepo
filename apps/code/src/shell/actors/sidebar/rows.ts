@@ -9,8 +9,7 @@ type Session = OnMachine<SessionRecord>;
 
 /*
  * The sidebar as a timeline: every unsettled Session of every Machine, the
- * most recently active first, whatever its Project, under the day it was
- * last active: Today, Yesterday, Previous 7 days, or Earlier. Activity is
+ * most recently active first, whatever its Project, in one list. Activity is
  * a Turn starting or a Session being made, never viewing, so the order
  * holds while you browse. The next and previous session follow it. A
  * Project or Session is named by its Machine and its id together.
@@ -27,19 +26,6 @@ export const keyOf = ({ machineId, id }: Of) => `${machineId}/${id}`;
 
 /** A Session's place in the sidebar: `s:<machine id>/<id>`. */
 export const sessionPlace = (of: Of) => `s:${keyOf(of)}`;
-
-export type Day = 'Today' | 'Yesterday' | 'Previous 7 days' | 'Earlier';
-
-const DAY = 24 * 60 * 60 * 1000;
-
-/** The day a moment falls in, as seen at `now`, in local time. */
-export const dayOf = (at: number, now: number): Day => {
-  const today = new Date(now).setHours(0, 0, 0, 0);
-  if (at >= today) return 'Today';
-  if (at >= today - DAY) return 'Yesterday';
-  if (at >= today - 7 * DAY) return 'Previous 7 days';
-  return 'Earlier';
-};
 
 export interface Entry {
   readonly place: string;
@@ -65,18 +51,6 @@ export function recentOf(
           keyOf({ machineId: session.machineId, id: session.projectId }),
         ) ?? null,
     }));
-}
-
-/** The recent Sessions under their days, in order, a day only when it has one. */
-export function timelineOf(recent: ReadonlyArray<Entry>, now: number) {
-  const days: Array<{ day: Day; entries: Array<Entry> }> = [];
-  for (const entry of recent) {
-    const day = dayOf(entry.session.activeAt, now);
-    const last = days.at(-1);
-    if (last?.day === day) last.entries.push(entry);
-    else days.push({ day, entries: [entry] });
-  }
-  return days;
 }
 
 /**

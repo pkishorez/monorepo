@@ -1,7 +1,7 @@
 import type { Project, Session } from '@kestack/connect/code';
 import { describe, expect, it } from 'vitest';
 import type { OnMachine } from '../../machines/index.ts';
-import { dayOf, recentOf, sessionBeside, timelineOf } from './rows.ts';
+import { recentOf, sessionBeside } from './rows.ts';
 
 const project = (id: string, machineId = 'm1') =>
   ({ id, name: `Project ${id}`, machineId }) as OnMachine<Project>;
@@ -45,20 +45,6 @@ describe('the sidebar timeline', () => {
         ['x1', null],
       ],
     );
-  });
-
-  it('puts each under the day it was last active', () => {
-    expect(
-      timelineOf(recent, now).map(({ day, entries }) => [
-        day,
-        entries.map(({ session }) => session.id),
-      ]),
-    ).toEqual([
-      ['Today', ['a2', 'a1']],
-      ['Yesterday', ['b1']],
-      ['Earlier', ['x1']],
-    ]);
-    expect(dayOf(now - 3 * 24 * HOUR, now)).toBe('Previous 7 days');
   });
 
   it('steps to the session beside, round past either end, from the ends from nowhere', () => {

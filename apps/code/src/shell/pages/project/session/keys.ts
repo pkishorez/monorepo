@@ -20,7 +20,10 @@ export function useSessionKeys({
   canStop,
 }: {
   readonly scroller: RefObject<HTMLDivElement | null>;
-  readonly follow: { readonly letGo: () => void; readonly holdOn: () => void };
+  readonly follow: {
+    readonly letGo: () => void;
+    readonly holdOn: (smooth?: boolean) => void;
+  };
   readonly stop: () => void;
   readonly canStop: boolean;
 }) {
@@ -39,6 +42,6 @@ export function useSessionKeys({
     follow.letGo();
     scroller.current?.scrollTo({ top: 0, behavior: 'instant' });
   });
-  keys.useAction('content.bottom', follow.holdOn);
+  keys.useAction('content.bottom', () => follow.holdOn());
   keys.useAction('content.stop', stop, { enabled: canStop });
 }

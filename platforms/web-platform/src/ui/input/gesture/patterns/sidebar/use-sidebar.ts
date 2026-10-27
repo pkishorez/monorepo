@@ -124,6 +124,20 @@ export function useSidebar(options: SidebarOptions): Sidebar {
     if (target.current !== open) settle(open);
   });
 
+  // A new width, as the window is resized while it spans the screen, moves
+  // where open and closed are: it is put back where its state says, at
+  // once, or a closed sidebar would read as part open. Not under fingers.
+  const sized = useRef(width);
+  useEffect(() => {
+    if (sized.current === width) return;
+    sized.current = width;
+    if (moving.current) return;
+    animation.current?.stop();
+    const place = at(target.current ? width : 0);
+    position.jump(place);
+    x.jump(place);
+  });
+
   // Fingers take it from wherever it is, even mid-spring.
   const grab = (way: 'open' | 'close') => () => {
     animation.current?.stop();

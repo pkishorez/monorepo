@@ -5,12 +5,15 @@ import {
   AccountSwitcherView,
 } from '@kestack/web-platform/recipes/account-switcher';
 import { AppShell, useAppShell } from '@kestack/web-platform/recipes/frame';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { SettingsIcon } from '@kestack/web-platform/ui/components/lucide';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import { KeysStatusBar } from '@kestack/web-platform/recipes/keyboard';
 import {
   useEffect,
   useMemo,
   useRef,
+  useState,
   type ComponentProps,
   type ReactNode,
 } from 'react';
@@ -33,6 +36,7 @@ import { Sidebar } from './actors/sidebar/index.ts';
 import { ShellLive } from './actor.ts';
 import { Keyboard } from './keyboard.tsx';
 import { Home } from './pages/home/index.ts';
+import { Kabuki } from './pages/kabuki/index.ts';
 import { Project } from './pages/project/index.ts';
 import { Settings } from './pages/settings/index.ts';
 
@@ -59,11 +63,19 @@ import { Settings } from './pages/settings/index.ts';
 export const ShellView = View.make(
   ShellLive,
   ({ _tag, root, model, state, children, send }) => {
+    // A prototype: the app's Actor tree, open to anyone, signed in or not.
+    if (children.Kabuki)
+      return (
+        <div {...root}>
+          <Kabuki.view instance={children.Kabuki} />
+        </div>
+      );
     // Nothing is drawn while the keyboard is read.
     if (_tag === 'Reading') return <div {...root} />;
     const { account } = model;
     return (
       <div {...root}>
+        <TextSize size={state.keyboard.textSize} />
         <Keyboard
           vim={state.keyboard.vim}
           bindings={state.keyboard.bindings}
@@ -80,7 +92,13 @@ export const ShellView = View.make(
               />
             ) : (
               <Machines machines={children.machines}>
-                <Signed actors={children} email={account.email} send={send} />
+                <Signed
+                  actors={children}
+                  email={account.email}
+                  floating={state.keyboard.floating}
+                  sidebarWidth={state.keyboard.sidebarWidth}
+                  send={send}
+                />
               </Machines>
             )}
           </AccountSlot>
@@ -89,6 +107,14 @@ export const ShellView = View.make(
     );
   },
 );
+
+/** Marks `<html>` with the text size chosen, which the styles size by. */
+function TextSize({ size }: { readonly size: string }) {
+  useEffect(() => {
+    document.documentElement.dataset.textSize = size;
+  }, [size]);
+  return null;
+}
 
 type Self = Extract<ViewProps<typeof ShellLive>, { readonly _tag: 'Ready' }>;
 
@@ -132,11 +158,17 @@ function Listed({
 function Signed({
   actors: children,
   email,
+  floating,
+  sidebarWidth,
   send,
 }: {
   readonly actors: Self['children'];
   /** Who is signed in. */
   readonly email: string;
+  /** Whether the app floats as a window on a wide screen. */
+  readonly floating: boolean;
+  /** The sidebar's width on a wide screen, as kept. */
+  readonly sidebarWidth: number;
   readonly send: Self['send'];
 }) {
   const route = useRouter<Route>().route;
@@ -201,6 +233,9 @@ function Signed({
       <MicrophonePicker.Opener value={microphones}>
         <Screen
           route={route}
+          floating={floating}
+          sidebarWidth={sidebarWidth}
+          onSidebarResized={(width) => send({ _tag: 'SidebarResized', width })}
           sidebar={
             <>
               {/* On a phone the sidebar is home, so it says what home would. */}
@@ -225,16 +260,24 @@ function Signed({
             title: <Header.view instance={children.header} />,
             actions: (
               <>
-                {/* A phone keeps the header to where you are and Session Actions. */}
-                <div className="hidden md:contents">
-                  <Header.model instance={children.header} />
-                </div>
                 <SessionActions.view instance={children.sessionActions} />
                 {route._tag === 'Project' && (
                   <Header.Offline machineId={route.machineId} />
                 )}
-                <div className="hidden md:contents">
+                {/* A phone has these in the sidebar's foot. Set a little
+                    apart from the page's own actions. */}
+                <div className="ml-2 hidden items-center gap-1 md:flex">
                   <ThemeToggle />
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={settings}
+                    aria-label={inSettings ? 'Leave Settings' : 'Settings'}
+                    aria-pressed={inSettings}
+                    className="size-8 shrink-0 text-muted-foreground aria-pressed:bg-muted aria-pressed:text-foreground"
+                  >
+                    <SettingsIcon />
+                  </Button>
                   <Account />
                 </div>
               </>
@@ -259,7 +302,7 @@ function Signed({
           ) : children.Settings ? (
             <Settings.view instance={children.Settings} />
           ) : (
-            <p className="mx-auto w-full max-w-3xl px-6 py-10 text-sm text-muted-foreground">
+            <p className="mx-auto w-full max-w-4xl px-6 py-10 text-sm text-muted-foreground">
               Nothing lives at this address.{' '}
               <Router.Link
                 to={routes.home()}
@@ -282,16 +325,27 @@ function Signed({
 /**
  * The App Shell inside the keyboard: the whole sidebar is the `sidebar`
  * Surface and the whole page, its header too, the `content` one, and the
- * shell floats as a window. The page draws its own Status Line.
+ * shell floats as a window when asked to. The sidebar is resized by its
+ * edge, drawn at once and kept once the drag rests. The page draws its own
+ * Status Line.
  */
 function Screen({
   route,
+  floating,
+  sidebarWidth,
+  onSidebarResized,
   sidebar,
   foot,
   header,
   children,
 }: {
   readonly route: Route;
+  /** Whether the shell floats as a window on a wide screen. */
+  readonly floating: boolean;
+  /** The sidebar's width on a wide screen, as kept. */
+  readonly sidebarWidth: number;
+  /** The sidebar dragged to a new width, once the drag rests. */
+  readonly onSidebarResized: (width: number) => void;
   readonly sidebar: ReactNode;
   /** Two buttons, over the sidebar on a phone, under it when wide. */
   readonly foot: ReactNode;
@@ -299,16 +353,28 @@ function Screen({
   readonly children: ReactNode;
 }) {
   const { vim } = keys.useKeyboard();
-  // Its help opens the Keys Picker, as Ctrl+/ does.
+  // Its help opens the Keys Picker, as Ctrl+? does.
   const help = keys
     .useAvailableActions()
     .find(({ id }) => id === 'app.helpAnywhere');
   // A touch screen with no keyboard has no use for the keys' status line.
   const { keyboard } = useDevice();
+  const [width, setWidth] = useState(sidebarWidth);
+  // Kept from here or another tab: shown as kept.
+  useEffect(() => setWidth(sidebarWidth), [sidebarWidth]);
+  const rest = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(rest.current), []);
+  const resize = (next: number) => {
+    setWidth(next);
+    clearTimeout(rest.current);
+    rest.current = setTimeout(() => onSidebarResized(next), 300);
+  };
   return (
     <AppShell
-      // In Vim Mode the shell floats as a window, with the keys' own
-      // status line at its foot, saying the Mode and where the keys are.
+      // Floating as a window is a choice in Settings, for demos.
+      floating={floating}
+      // In Vim Mode the keys' own status line is at the shell's foot,
+      // saying the Mode and where the keys are.
       vim={{
         on: vim.on && keyboard,
         statusLine: <KeysStatusBar keys={keys} onHelp={help?.run} />,
@@ -316,7 +382,8 @@ function Screen({
       // On a phone the sidebar is a page of its own: home.
       sidebarMode="fullscreen"
       sidebar={{
-        width: 260,
+        width,
+        onWidthChange: resize,
         content: (
           <keys.Surface id="sidebar" asChild>
             <div className="relative flex min-h-0 flex-1 flex-col rounded-xl pt-2 md:mx-2">

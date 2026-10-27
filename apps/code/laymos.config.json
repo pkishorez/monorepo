@@ -4,7 +4,12 @@
   "ignoredPaths": ["src/styles.css", "src/env.d.ts"],
   "fileModules": ["src/app.tsx", "src/keys.ts"],
   "rules": {
-    "src/app.tsx": ["src/shell", "src/layer/services", "src/ui/theme"],
+    "src/app.tsx": [
+      "src/shell",
+      "src/layer/services",
+      "src/ui/devtools",
+      "src/ui/theme"
+    ],
     "src/layer/services": ["src/layer/capabilities", "src/keys.ts"],
     "src/layer/services/device-state": ["src/layer/services/rows"],
     "src/layer/services/kept": ["src/layer/services/rows"],
@@ -36,6 +41,33 @@
     "src/shell/pages/project/draft": [
       "src/shell/pages/project/capabilities",
       "src/shell/actors/dictation"
+    ],
+    "src/shell/pages/project/session/transcript/words": [
+      "src/shell/pages/project/session/transcript/fold"
+    ],
+    "src/shell/pages/project/session/transcript/said": [
+      "src/shell/pages/project/session/transcript/checklist",
+      "src/shell/pages/project/session/transcript/rows",
+      "src/shell/pages/project/session/transcript/words"
+    ],
+    "src/shell/pages/project/session/transcript/tool": [
+      "src/shell/pages/project/session/transcript/checklist",
+      "src/shell/pages/project/session/transcript/fold",
+      "src/shell/pages/project/session/transcript/rows"
+    ],
+    "src/shell/pages/project/session/transcript/tool/kinds": [
+      "src/shell/pages/project/session/transcript/tool/call",
+      "src/shell/pages/project/session/transcript/tool/output"
+    ],
+    "src/shell/pages/project/session/transcript/work": [
+      "src/shell/pages/project/session/transcript/fold",
+      "src/shell/pages/project/session/transcript/rows",
+      "src/shell/pages/project/session/transcript/said",
+      "src/shell/pages/project/session/transcript/tool",
+      "src/shell/pages/project/session/transcript/words"
+    ],
+    "src/shell/pages/project/session/transcript/turn": [
+      "src/shell/pages/project/session/transcript/rows"
     ]
   }
 }

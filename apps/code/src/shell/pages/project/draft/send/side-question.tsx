@@ -45,7 +45,7 @@ export function SideQuestion({
   return (
     <section
       aria-label="Side question"
-      className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 pt-6 pb-10 sm:px-6"
+      className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 pt-6 pb-10 sm:px-6"
     >
       <div className="flex items-center justify-between gap-2">
         <Button

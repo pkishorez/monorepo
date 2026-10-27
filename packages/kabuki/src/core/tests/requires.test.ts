@@ -164,3 +164,13 @@ describe('requires, from A down to D', () => {
     expect(short).toBeDefined();
   });
 });
+
+describe('Schemas', () => {
+  it('a definition keeps the Schemas it was defined with, and no others', () => {
+    const Model = Schema.Struct({ count: Schema.Number });
+    const Counted = Actor.build(Actor.define('Counted', { model: Model }), {
+      init: () => ({ model: { count: 0 } }),
+    });
+    expect(Counted.definition.schemas).toEqual({ model: Model });
+  });
+});

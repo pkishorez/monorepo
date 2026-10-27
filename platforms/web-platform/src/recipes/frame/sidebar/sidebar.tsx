@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { type Nav, NavList } from './nav.tsx';
-import { ResizeHandle } from './resize-handle.tsx';
 
 /** What an app puts in its sidebar. */
 export interface SidebarConfig {
@@ -18,7 +17,7 @@ export interface SidebarConfig {
   readonly onWidthChange?: (width: number) => void;
 }
 
-/** The sidebar, top to bottom: header, places, footer, and its edge. */
+/** The sidebar, top to bottom: header, places, footer. Its edge is the Frame's. */
 export function SidebarContents(props: { readonly config: SidebarConfig }) {
   const { config } = props;
   return (
@@ -32,12 +31,6 @@ export function SidebarContents(props: { readonly config: SidebarConfig }) {
       </div>
       {config.footer === undefined ? null : (
         <div className="flex flex-col gap-2 p-2">{config.footer}</div>
-      )}
-      {config.onWidthChange === undefined ? null : (
-        <ResizeHandle
-          width={config.width ?? 256}
-          onWidthChange={config.onWidthChange}
-        />
       )}
     </>
   );

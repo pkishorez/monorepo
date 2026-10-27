@@ -5,7 +5,7 @@ import { actorAt, isRestore } from '../snapshot/index.ts';
 import type { Snapshot, Source } from '../snapshot/index.ts';
 import { History, isHistory } from '../history/index.ts';
 import { ActorInstance, Stopped } from './instance/index.ts';
-import type { WorkerStatus } from './instance/index.ts';
+import type { Provided, WorkerStatus } from './instance/index.ts';
 import { makeMailbox } from './mailbox.ts';
 import { reach } from './reach.ts';
 import type { LiveInstance } from './reach.ts';
@@ -59,6 +59,8 @@ export interface Running<A> {
   readonly changes: Stream.Stream<Snapshot>;
   /** What an Instance's Workers are doing now. Empty while stopped. */
   readonly workers: (instance: string) => ReadonlyArray<WorkerStatus>;
+  /** The Capabilities an Instance provides to everything under it now, by key. Empty while stopped. */
+  readonly provided: (instance: string) => Provided;
   /** Ask one of an Instance's Queries by name, untyped; `instance().queries` is the typed way. `Stopped` while stopped. */
   readonly query: (
     instance: string,
@@ -206,6 +208,7 @@ const start = <A extends AnyActor>(
         { bufferSize: 1, strategy: 'sliding' },
       ),
       workers: (id) => instance?.workers(id) ?? [],
+      provided: (id) => instance?.provided(id) ?? { top: [], state: [] },
       query: (id, name, args) =>
         Effect.suspend(
           () =>

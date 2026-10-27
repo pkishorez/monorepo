@@ -28,7 +28,7 @@ function DropdownMenuContent({
     MenuPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset"
   > & {
-    /** Dims and blurs everything behind the menu while it is open. */
+    /** Dims everything behind the menu while it is open. */
     backdrop?: boolean
   }) {
   return (
@@ -36,7 +36,7 @@ function DropdownMenuContent({
       {backdrop && (
         <MenuPrimitive.Backdrop
           data-slot="dropdown-menu-backdrop"
-          className="fixed inset-0 z-50 bg-black/20 duration-150 supports-backdrop-filter:backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 dark:bg-black/40"
+          className="fixed inset-0 z-50 bg-black/30 duration-150 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 dark:bg-black/50"
         />
       )}
       <MenuPrimitive.Positioner

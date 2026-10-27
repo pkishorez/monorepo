@@ -5,10 +5,11 @@ import { EntityESchema, ESchema } from '@kestack/std-toolkit/eschema';
 /*
  * How Device State is laid out, as one StdTable: one row for the keyboard,
  * the user's own Bindings; one for whether Vim Mode is on, off until it is
- * turned on; one for the microphone a Dictation records
+ * turned on; one for whether the app floats as a window, off until it
+ * is turned on; one for the text size, medium until chosen; one for the microphone a Dictation records
  * from; one each for whether the Touch Draft takes Smart Input and
  * Smart Displacement, off until turned on;
- * one for the Machine the sidebar shows; one row per Unseen mark, each the
+ * one for the Machine the sidebar shows; one for the sidebar's width; one row per Unseen mark, each the
  * end time of the last Turn of a Session of one Machine seen on this
  * device, whose Machine it is, and its Session's Project.
  *
@@ -36,6 +37,24 @@ const VimSchema = ESchema.make('DeviceVim', {
 }).build();
 
 export const vim = table.singleEntity(VimSchema).default({ on: false });
+
+const FloatingSchema = ESchema.make('DeviceFloating', {
+  /** Whether the app floats as a window on a screen wider than it can be. */
+  on: Schema.Boolean,
+}).build();
+
+export const floating = table
+  .singleEntity(FloatingSchema)
+  .default({ on: false });
+
+const TextSizeSchema = ESchema.make('DeviceTextSize', {
+  /** How big text and spacing are with a keyboard on a wide screen. */
+  size: Schema.Literals(['small', 'medium', 'large']),
+}).build();
+
+export const textSize = table
+  .singleEntity(TextSizeSchema)
+  .default({ size: 'medium' });
 
 const MicrophoneSchema = ESchema.make('DeviceMicrophone', {
   /** The audio input chosen, by the browser's `deviceId`; null for the system default. */
@@ -72,6 +91,15 @@ const SidebarSchema = ESchema.make('DeviceSidebar', {
 export const sidebar = table
   .singleEntity(SidebarSchema)
   .default({ machineId: null });
+
+const SidebarWidthSchema = ESchema.make('DeviceSidebarWidth', {
+  /** The sidebar's width on a wide screen, in px, as last dragged. */
+  width: Schema.Finite,
+}).build();
+
+export const sidebarWidth = table
+  .singleEntity(SidebarWidthSchema)
+  .default({ width: 260 });
 
 const MarkSchema = EntityESchema.make('MachineUnseenMark', 'mark', {
   machineId: Schema.String,

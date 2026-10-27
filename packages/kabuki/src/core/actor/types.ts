@@ -1,4 +1,4 @@
-import type { Context, Effect, Layer, Scope, Stream } from 'effect';
+import type { Context, Effect, Layer, Schema, Scope, Stream } from 'effect';
 
 export type Tagged = { readonly _tag: string };
 
@@ -526,6 +526,14 @@ export interface ActorDefinition {
     readonly model: Check;
     readonly state: Check;
     readonly message: Check;
+  };
+  /** The Schemas it was defined with, as written, for a tool that describes it; one it was not given is absent. */
+  readonly schemas: {
+    readonly input?: Schema.Top;
+    readonly props?: Schema.Top;
+    readonly model?: Schema.Top;
+    readonly state?: Schema.Top;
+    readonly message?: Schema.Top;
   };
   /** The Schemas a saved History is written and read with: what it holds of an Instance, and its Messages. */
   readonly encoding: {

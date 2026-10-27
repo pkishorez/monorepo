@@ -1,85 +1,119 @@
 import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
+import { MoonIcon, SunIcon } from '@kestack/web-platform/ui/components/lucide';
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
-import { Switch } from '@kestack/web-platform/ui/components/switch';
-import { cn } from '@kestack/web-platform/ui/components/utils';
-import { type ReactNode, use } from 'react';
+import { use } from 'react';
 import { keys, useBound } from '../../../../keys.ts';
+import {
+  Choice,
+  Row,
+  Section,
+  Title,
+  Toggle,
+} from '../../../../ui/settings/index.ts';
+import { Theme } from '../../../../ui/theme/index.ts';
 import { MicrophonePicker } from '../../../actors/pickers/microphone-picker/index.ts';
 import { GeneralLive } from './actor.ts';
 
 /*
- * General: one card of this browser's settings, a row each, its name and
- * what it does on the left and its control on the right: Vim Mode, which
- * a touch screen with no keyboard leaves out; the Microphone, chosen in
- * the Microphone Picker; and Smart Input and Smart Displacement, which a
- * keyboard leaves out.
+ * General: this browser's settings, in Sections. Appearance: the theme,
+ * the text size and the window, the last two only with a keyboard on a
+ * wide screen. Keyboard: Vim Mode, which a touch screen with no keyboard
+ * leaves out. Voice: the Microphone, chosen in the Microphone Picker.
+ * Touch: Smart Input and Smart Displacement, which a keyboard leaves out.
+ * Each says what it does in a line; a Row of one switch, and the theme's,
+ * is clicked anywhere to flip it.
  */
 
-/** One setting: its name over what it does, and its control beside them. */
-function Row({
+/** A Toggle once Device State is read, a placeholder shaped like one before. */
+function OnOff({
   id,
-  name,
-  children,
-  control,
-  className,
+  on,
+  onChange,
 }: {
   readonly id: string;
-  readonly name: string;
-  readonly children: ReactNode;
-  readonly control: ReactNode;
-  readonly className?: string;
+  readonly on: boolean | null;
+  readonly onChange: (on: boolean) => void;
 }) {
+  return on === null ? (
+    <Skeleton className="h-6 w-10 rounded-full keyboard:h-5 keyboard:w-8" />
+  ) : (
+    <Toggle labelledBy={`${id}-name`} on={on} onChange={onChange} />
+  );
+}
+
+/** A key as written, set apart from the words around it. */
+function Key({ children }: { readonly children: string }) {
   return (
-    <div
-      role="group"
-      aria-labelledby={`${id}-name`}
-      className={cn('flex items-start gap-4 p-4 sm:px-5', className)}
-    >
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <span id={`${id}-name`} className="text-sm font-medium">
-          {name}
-        </span>
-        <span className="max-w-[65ch] text-sm text-pretty text-muted-foreground">
-          {children}
-        </span>
-      </div>
-      <div className="flex shrink-0 items-center">{control}</div>
-    </div>
+    <kbd className="rounded border border-border/80 px-1 font-mono text-xs text-foreground/80">
+      {children}
+    </kbd>
   );
 }
 
 /** Vim Mode, kept in this browser: off, the app is worked as any other is. */
 function VimSetting() {
   const { vim } = keys.useKeyboard();
-  const bound = {
-    side: useBound('app.side'),
-    page: useBound('app.page'),
-    write: useBound('content.write'),
-    help: useBound('app.help'),
-    vim: useBound('app.vim'),
-  };
+  const help = useBound('app.help');
+  const toggle = useBound('app.vim');
   return (
     <Row
       id="vim"
       name="Vim mode"
-      className="touch:hidden keyboard:flex"
+      onToggle={() => vim.set(!vim.on)}
+      control={<OnOff id="vim" on={vim.on} onChange={vim.set} />}
+    >
+      Single keys become shortcuts.
+      {help !== null && (
+        <>
+          {' '}
+          <Key>{help}</Key> lists them.
+        </>
+      )}
+      {toggle !== null && (
+        <>
+          {' '}
+          <Key>{toggle}</Key> turns it on and off.
+        </>
+      )}
+    </Row>
+  );
+}
+
+/** Light or dark, kept in a cookie for this host. */
+function ThemeSetting() {
+  const { theme, setTheme, toggleTheme } = Theme.useTheme();
+  return (
+    <Row
+      id="theme"
+      name="Theme"
+      onToggle={toggleTheme}
       control={
-        <Switch
-          aria-labelledby="vim-name"
-          className="mt-0.5"
-          checked={vim.on}
-          onCheckedChange={vim.set}
+        <Choice
+          label="Theme"
+          value={theme}
+          onChange={setTheme}
+          options={[
+            {
+              value: 'light',
+              label: (
+                <>
+                  <SunIcon aria-hidden /> Light
+                </>
+              ),
+            },
+            {
+              value: 'dark',
+              label: (
+                <>
+                  <MoonIcon aria-hidden /> Dark
+                </>
+              ),
+            },
+          ]}
         />
       }
-    >
-      Plain keys become shortcuts: j and k move through the sidebar and the
-      transcript, {bound.side} and {bound.page} move between them, {bound.write}{' '}
-      writes in the Draft, and {bound.help} lists every key. The app floats as a
-      window, and a line at its foot says where you are. Off, the Draft is a
-      text box as any other, and the Ctrl keys still work. {bound.vim} turns it
-      on and off.
-    </Row>
+    />
   );
 }
 
@@ -90,18 +124,60 @@ export const GeneralView = View.make(GeneralLive, ({ root, model, send }) => {
     <section
       {...root}
       aria-labelledby="general"
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-8"
     >
-      <header className="flex flex-col gap-1">
-        <h2 id="general" className="text-sm font-semibold">
-          General
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Kept in this browser only.
-        </p>
-      </header>
-      <div className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
+      <Title id="general" name="General">
+        Kept in this browser only.
+      </Title>
+      <Section name="Appearance">
+        <ThemeSetting />
+        <Row
+          id="text-size"
+          name="Text size"
+          className="max-md:hidden touch:hidden keyboard:md:flex"
+          control={
+            device === null ? (
+              <Skeleton className="h-8 w-48 rounded-lg" />
+            ) : (
+              <Choice
+                label="Text size"
+                value={device.textSize}
+                onChange={(size) => send({ _tag: 'TextSizeChosen', size })}
+                options={[
+                  { value: 'small', label: 'Small' },
+                  { value: 'medium', label: 'Medium' },
+                  { value: 'large', label: 'Large' },
+                ]}
+              />
+            )
+          }
+        >
+          Smaller fits more on screen.
+        </Row>
+        <Row
+          id="floating"
+          name="Window"
+          onToggle={
+            device === null
+              ? undefined
+              : () => send({ _tag: 'FloatingChosen', on: !device.floating })
+          }
+          className="max-md:hidden"
+          control={
+            <OnOff
+              id="floating"
+              on={device?.floating ?? null}
+              onChange={(on) => send({ _tag: 'FloatingChosen', on })}
+            />
+          }
+        >
+          Float the app in a window on very wide screens. Nice for demos.
+        </Row>
+      </Section>
+      <Section name="Keyboard" className="touch:hidden keyboard:flex">
         <VimSetting />
+      </Section>
+      <Section name="Voice">
         <Row
           id="microphone"
           name="Microphone"
@@ -129,56 +205,54 @@ export const GeneralView = View.make(GeneralLive, ({ root, model, send }) => {
           {device === null ? (
             <Skeleton className="mt-1 h-4 w-28" />
           ) : device.microphone === null ? (
-            'Dictations record from the system default.'
+            'System default.'
           ) : (
-            'Dictations record from the one chosen here, or the system default while it is not connected.'
+            'The one chosen here, or the system default while it is away.'
           )}
         </Row>
+      </Section>
+      <Section name="Touch" className="keyboard:hidden">
         <Row
           id="smart-input"
           name="Smart input"
-          className="keyboard:hidden"
+          onToggle={
+            device === null
+              ? undefined
+              : () => send({ _tag: 'SmartInputChosen', on: !device.smartInput })
+          }
           control={
-            device === null ? (
-              <Skeleton className="mt-0.5 h-6 w-11 rounded-full" />
-            ) : (
-              <Switch
-                aria-labelledby="smart-input-name"
-                className="mt-0.5"
-                checked={device.smartInput}
-                onCheckedChange={(on) => send({ _tag: 'SmartInputChosen', on })}
-              />
-            )
+            <OnOff
+              id="smart-input"
+              on={device?.smartInput ?? null}
+              onChange={(on) => send({ _tag: 'SmartInputChosen', on })}
+            />
           }
         >
-          A tap opens the Draft without the keyboard, and a tap in its words
-          puts the cursor there, for the next Dictation; Edit types. Off, a tap
-          opens it and types at once.
+          A tap opens the Draft without the keyboard, ready to dictate.
         </Row>
         <Row
           id="smart-displacement"
           name="Smart displacement"
-          className="keyboard:hidden"
+          onToggle={
+            device === null
+              ? undefined
+              : () =>
+                  send({
+                    _tag: 'SmartDisplacementChosen',
+                    on: !device.smartDisplacement,
+                  })
+          }
           control={
-            device === null ? (
-              <Skeleton className="mt-0.5 h-6 w-11 rounded-full" />
-            ) : (
-              <Switch
-                aria-labelledby="smart-displacement-name"
-                className="mt-0.5"
-                checked={device.smartDisplacement}
-                onCheckedChange={(on) =>
-                  send({ _tag: 'SmartDisplacementChosen', on })
-                }
-              />
-            )
+            <OnOff
+              id="smart-displacement"
+              on={device?.smartDisplacement ?? null}
+              onChange={(on) => send({ _tag: 'SmartDisplacementChosen', on })}
+            />
           }
         >
-          Dragging the cursor, or an end of a selection, holds it a little above
-          your finger, so the text under it stays in sight. A tap still puts it
-          where you touch.
+          The cursor you drag sits just above your finger.
         </Row>
-      </div>
+      </Section>
     </section>
   );
 });

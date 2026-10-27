@@ -43,12 +43,16 @@ export function AppShell(props: {
   /** Drawn outside the moving page, told whether the sidebar is open. */
   readonly statusBar?: (open: boolean) => ReactNode;
   /**
-   * use-keys' Vim Mode: given at all, the whole shell floats as a window
-   * inset from the viewport, the same whether Vim Mode is on or off; with
-   * `on`, `statusLine`, such as a `KeysStatusBar`, eases in as its bottom
-   * edge.
+   * use-keys' Vim Mode: with `on`, `statusLine`, such as a `KeysStatusBar`,
+   * eases in as the shell's bottom edge.
    */
   readonly vim?: { readonly on: boolean; readonly statusLine?: ReactNode };
+  /**
+   * The whole shell floats as a window inset from the viewport, once the
+   * screen is wider than the window can be. Off by default: the shell is
+   * the whole screen at every width.
+   */
+  readonly floating?: boolean;
   /**
    * Wraps the page's column, the header with the page under it, in one
    * element, such as a use-keys `keys.Surface asChild`, so the header is
@@ -63,7 +67,7 @@ export function AppShell(props: {
   const { sidebar, header } = props;
   return (
     <VimWindow
-      floating={props.vim !== undefined}
+      floating={props.floating === true}
       on={props.vim?.on === true}
       statusLine={props.vim?.statusLine}
     >
@@ -74,6 +78,7 @@ export function AppShell(props: {
           )
         }
         sidebarWidth={sidebar?.width}
+        onSidebarWidthChange={sidebar?.onWidthChange}
         swipe={props.swipe ?? 'anywhere'}
         sidebarMode={props.sidebarMode ?? 'slide'}
         statusBar={props.statusBar}

@@ -83,7 +83,7 @@ function Field({
         disabled={disabled}
         aria-describedby={hint === undefined ? undefined : `${id}-hint`}
         onChange={(event) => onChange(event.currentTarget.value)}
-        className={`h-11 min-w-0 text-base keyboard:h-9 md:text-base ${mono ? 'font-mono keyboard:md:text-[13px]' : 'keyboard:md:text-sm'}`}
+        className={`h-11 min-w-0 text-base keyboard:h-9 md:text-base ${mono ? 'font-mono keyboard:md:text-sm' : 'keyboard:md:text-sm'}`}
       />
       {hint !== undefined && (
         <p id={`${id}-hint`} className="text-xs text-muted-foreground">

@@ -31,6 +31,10 @@
   --color-chart-9: var(--chart-9);
   --color-positive: var(--positive);
   --color-positive-foreground: var(--positive-foreground);
+  --color-running: var(--running);
+  --color-added: var(--added);
+  --color-changed: var(--changed);
+  --color-removed: var(--removed);
   --font-sans:
     'Inter Variable', 'Inter Fallback', ui-sans-serif, system-ui, sans-serif;
   --font-mono:
@@ -90,6 +94,16 @@
   --chart-9: oklch(0.645 0.2 330.44);
   --positive: oklch(0.55 0.18 145);
   --positive-foreground: oklch(0.985 0 0);
+  /*
+   * What runs now, and what a change added, changed or took away, as the
+   * Kabuki Devtools mark them. One lightness for all four, so none shouts
+   * over the others: dark enough to read as text on a card here, light
+   * enough to read on a dark one below.
+   */
+  --running: oklch(0.55 0.15 255);
+  --added: oklch(0.55 0.14 150);
+  --changed: oklch(0.58 0.14 60);
+  --removed: oklch(0.55 0.17 25);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -141,6 +155,10 @@
   --chart-9: oklch(0.695 0.2 330.44);
   --positive: oklch(0.65 0.17 145);
   --positive-foreground: oklch(0.985 0 0);
+  --running: oklch(0.76 0.12 250);
+  --added: oklch(0.77 0.14 150);
+  --changed: oklch(0.8 0.13 75);
+  --removed: oklch(0.73 0.15 22);
   --sidebar: oklch(0.195 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);

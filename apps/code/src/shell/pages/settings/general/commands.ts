@@ -19,3 +19,21 @@ export const setSmartDisplacement = Command.make('SetSmartDisplacement', {
       Effect.ignore,
     ),
 });
+
+/** Keeps whether the app floats as a window in Device State; a write that fails is lost. */
+export const setFloating = Command.make('SetFloating', {
+  args: Schema.Struct({ on: Schema.Boolean }),
+  run: ({ on }) =>
+    Effect.flatMap(DeviceState, (store) => store.setFloating(on)).pipe(
+      Effect.ignore,
+    ),
+});
+
+/** Keeps the text size in Device State; a write that fails is lost. */
+export const setTextSize = Command.make('SetTextSize', {
+  args: Schema.Struct({ size: DeviceState.Device.fields.textSize }),
+  run: ({ size }) =>
+    Effect.flatMap(DeviceState, (store) => store.setTextSize(size)).pipe(
+      Effect.ignore,
+    ),
+});
