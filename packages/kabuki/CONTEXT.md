@@ -285,7 +285,7 @@ _Avoid_: sitemap, route manifest, page list
 ### Seeing the app
 
 **Timeline**:
-The Inspector's bar for picking the Step shown: every Step on the Branch in view, in order, and a way to bring another Branch into view. Picking a Step shows it everywhere, the app too; going live shows the Head again.
+The Inspector's bar for picking the Step shown: every Step on the Branch in view, in order. With Travel the app on, as it is at first, picking a Step Time Travels the app too, and a Fork carries on from it on a new Branch; off, only the Inspector looks back while the app runs on. Going live shows the Head again.
 _Avoid_: history, message list, scrubber
 
 **Branch in view**:
@@ -293,5 +293,9 @@ The one Branch the Timeline and the Inspector walk, from init to its latest entr
 _Avoid_: selected branch, active branch
 
 **Inspector**:
-The one way to look inside the app: the Snapshot at the Step shown, drawn as a tree from its Actors, filling its space, with the Timeline below it. Every Actor and every State it can be in is drawn, dim until an Instance runs there or is in it, and the drawing is the same at every Step: a slot of keyed Children is one place counting its Instances, and every Worker an Actor has is a row on it, with the keys it runs now. Each Step is drawn from its own Snapshot alone, never compared with the one before: what the Step's Message did shows as who Sent it, the Request it made, and the Commands its Update asked for. Picking an Instance, a Worker or the Message opens its data. What only the live app knows, whether each Worker is running, finished or failed, is laid over it and shown as not known where it is not.
+The one way to look inside the app: the Snapshot at the Step shown, every Instance a card on a canvas to pan and zoom, joined to its parent by a line that says its Condition, with the Timeline under it. A card opens to its States, Workers, the Messages it handles, its Children, Model, Props and Capabilities, and as many open at once as the reader likes. The Step is compared with the one before it: what it added, changed or took away is marked where it is and on the card that holds it, and the card its Message was for names the Message. A Capability picked shows who provides it and every card that uses it. Laid out by its own width, the same full screen, in a side panel or on a phone; a Story can be told on it.
 _Avoid_: devtools (the repo's DevTools is another thing), debugger, panel, stage
+
+**Story**:
+An answer told on the Inspector, one Scene at a time, as data an agent writes: each Scene names a moment of the History, the card it is about and one part of it, and says one thing about it, and the Inspector lights that part and dims the rest. It plays on the app's own History, or on a saved one it carries, the same every time.
+_Avoid_: tour, walkthrough, scene list

@@ -42,6 +42,8 @@ export interface ActorInstance {
     heard?: (handled: Handled) => void,
   ) => Handled;
   readonly workers: (instance: string) => ReadonlyArray<WorkerStatus>;
+  /** The Capabilities an Instance provides to everything under it now, by key: at its top, and in its State. */
+  readonly provided: (instance: string) => Provided;
   /** Ask one of an Instance's Queries by name; `Stopped` for an Instance that is gone or a Query not askable now. */
   readonly query: (
     instance: string,
@@ -54,10 +56,20 @@ export interface ActorInstance {
 /** What an Instance's own code reads; a change to any of it reaches its Self and its Workers. */
 const DATA = ['model', 'state', 'props'] as const;
 
+/** What an Instance provides, by Capability key: what its top built, and what its State built. */
+export interface Provided {
+  readonly top: ReadonlyArray<string>;
+  readonly state: ReadonlyArray<string>;
+}
+
+const NOTHING: Provided = { top: [], state: [] };
+
 /** Where Children hang: the Scope they live in and the Capabilities they get. */
 interface Place {
   readonly scope: Scope.Scope;
   readonly services: Services;
+  /** The keys built here, once built; none where nothing is Provided. */
+  readonly built?: () => ReadonlyArray<string>;
 }
 
 /** One living Instance, as its parent holds it. */
@@ -66,6 +78,7 @@ interface Living {
   readonly find: (id: string) => Living | undefined;
   readonly command: (commands: ReadonlyArray<unknown>) => void;
   readonly workers: () => ReadonlyArray<WorkerStatus>;
+  readonly provided: () => Provided;
   readonly query: (
     name: string,
     args: unknown,
@@ -117,6 +130,7 @@ const start = (
       };
       return {
         children: held,
+        place,
         asked,
         cancel,
         stop: () => {
@@ -150,6 +164,10 @@ const start = (
         id === instance.id ? living : (top.find(id) ?? state.children.find(id)),
       command: (commands) => runCommands(commands, own, inside.scope),
       workers: workers.statuses,
+      provided: () => ({
+        top: inside.built?.() ?? [],
+        state: state.place.built?.() ?? [],
+      }),
       query: (name, args) =>
         Effect.suspend(() => {
           const query = definition.queries[name];
@@ -189,6 +207,7 @@ const start = (
     const scope = Scope.forkUnsafe(outer.scope);
     if (!provide) return { scope, services: outer.services };
     const services = Deferred.makeUnsafe<Context.Context<never>>();
+    let keys: ReadonlyArray<string> = [];
     forkIn(
       host,
       scope,
@@ -200,13 +219,19 @@ const start = (
             scope,
           ).pipe(
             Effect.provideContext(above),
-            Effect.map((built) => Context.merge(above, built)),
+            Effect.map((built) => {
+              // What the Layer gave, without the memo map building it adds.
+              keys = [...built.mapUnsafe.keys()].filter(
+                (key) => key !== Layer.CurrentMemoMap.key,
+              );
+              return Context.merge(above, built);
+            }),
           ),
         ),
         Effect.flatMap((below) => Deferred.succeed(services, below)),
       ),
     );
-    return { scope, services };
+    return { scope, services, built: () => keys };
   };
 
   /** The Children held in some slots, alive in one Place: they start, follow and stop as the slots change. */
@@ -267,6 +292,7 @@ const start = (
       return handled;
     },
     workers: (id) => root.find(id)?.workers() ?? [],
+    provided: (id) => root.find(id)?.provided() ?? NOTHING,
     query: (id, name, args) =>
       Effect.suspend(
         () =>

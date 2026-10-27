@@ -40,7 +40,8 @@ import { cn } from '#kit/class-names';
  *            Layout kept from a wide screen shows as the nearest of them.
  *            It sits in the row of the devtools' bottom bar, which are
  *            handed the room it takes as `--dock-reserve`.
- * 4. Keys    Ctrl+/ or ⌘/ opens and closes them.
+ * 4. Keys    Ctrl+/ or ⌘/ opens and closes them, unless the app keeps the
+ *            key for itself.
  */
 
 export type DockLayout = 'full' | 'bottom' | 'side' | 'floating';
@@ -91,6 +92,7 @@ export function DevtoolsDock({
   status,
   storageKey = 'devtools-dock',
   scrolls = 'dock',
+  shortcut = true,
 }: {
   /** The devtools, drawn for the Layout they are in. */
   readonly devtools: (layout: DockLayout) => ReactNode;
@@ -108,6 +110,8 @@ export function DevtoolsDock({
    * its scroll restoration.
    */
   readonly scrolls?: 'dock' | 'window';
+  /** Whether Ctrl+/ or ⌘/ opens and closes them; off for an app that keeps the key for itself. */
+  readonly shortcut?: boolean;
 }) {
   // 1. Keep
   const [kept, setKept] = useState(INITIAL);
@@ -140,6 +144,7 @@ export function DevtoolsDock({
   const toggle = useRef(() => {});
   toggle.current = () => keep((was) => ({ open: !was.open }));
   useEffect(() => {
+    if (!shortcut) return;
     const onKey = (event: KeyboardEvent) => {
       if (!((event.ctrlKey || event.metaKey) && event.key === '/')) return;
       event.preventDefault();
@@ -147,7 +152,7 @@ export function DevtoolsDock({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [shortcut]);
 
   // 3. Button: how much room it takes from the corner.
   const button = useRef<HTMLDivElement>(null);

@@ -73,11 +73,19 @@ A Session whose last Turn ended since it was last open on this device; opening i
 _Avoid_: unread, new, notification
 
 **Vim Mode**:
-The keyboard-first way of working the app, off until turned on in this browser, and off with its status line on a device with no keyboard, however wide its screen: plain keys are shortcuts in the page's Normal Mode, the Draft is read until `i` makes it the Composer, and the app floats as a window with the keys' status line at its foot. Off, the Draft is a text box as any other, and only keys holding Ctrl, Alt or Cmd are shortcuts.
+The keyboard-first way of working the app, off until turned on in this browser, and off with its status line on a device with no keyboard, however wide its screen: plain keys are shortcuts in the page's Normal Mode, the Draft is read until `i` makes it the Composer, and the keys' status line is at the app's foot. Off, the Draft is a text box as any other, and only keys holding Ctrl, Alt or Cmd are shortcuts.
 _Avoid_: keyboard mode, power mode
 
+**Window**:
+The app floating as a window over a backdrop of its own on a screen wider than it can be, off until turned on in Settings in this browser, for demos. Off, the app fills the screen at every width.
+_Avoid_: frame, portal, inset
+
+**Text Size**:
+How big the text and spacing are with a keyboard on a wide screen: small, medium, a little under the browser's own and the default, or large, the browser's own. Chosen in Settings in this browser. A touch screen keeps the browser's size.
+_Avoid_: density, zoom, scale
+
 **Device State**:
-What this browser keeps for itself and no other device sees: the user's Bindings, whether Vim Mode is on, the Microphone chosen, whether the Touch Draft is written by text or by voice, the Machine Filter and the Unseen marks, which go with their Machine, and with its Account signed out. Each Draft is kept apart, as its Saved Draft, and what Machines said is kept apart, as each Machine Kit. The app draws nothing until the Bindings have been read.
+What this browser keeps for itself and no other device sees: the user's Bindings, whether Vim Mode is on, the Window, the Text Size, the sidebar's width, the Microphone chosen, whether the Touch Draft is written by text or by voice, the Machine Filter and the Unseen marks, which go with their Machine, and with its Account signed out. Each Draft is kept apart, as its Saved Draft, and what Machines said is kept apart, as each Machine Kit. The app draws nothing until the Bindings have been read.
 _Avoid_: preferences, local settings, localStorage
 
 **Draft**:

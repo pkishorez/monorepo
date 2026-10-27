@@ -1,7 +1,12 @@
 import { View } from '@kestack/kabuki/react';
+import {
+  KeyboardIcon,
+  MonitorIcon,
+  SlidersHorizontalIcon,
+} from '@kestack/web-platform/ui/components/lucide';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { useDevice } from '@kestack/web-platform/ui/input';
-import { useLayoutEffect, useRef } from 'react';
+import { type ComponentType, useLayoutEffect, useRef } from 'react';
 import { Tab, TabList, TabTrack } from '../../../ui/tabs/index.ts';
 import type { SettingsTab } from '../../routes/index.ts';
 import { SettingsLive } from './actor.ts';
@@ -12,7 +17,8 @@ import { Shortcuts } from './shortcuts/index.ts';
 /*
  * Settings: its three tabs by name, and the tab open beside them. With a
  * keyboard, on a wide screen, the names are a list down the left; on
- * touch, or narrow, a row across the top. Shortcuts, which a touch screen
+ * touch, or narrow, a row across the top. In the list each has its icon,
+ * and the list stays as the tab scrolls. Shortcuts, which a touch screen
  * with no keyboard has no use for, is left out there. On a touch screen
  * the tabs sit side by side, each scrolled on its own, and a sideways
  * swipe moves them under the finger to the tab beside, as tapping its
@@ -22,11 +28,16 @@ import { Shortcuts } from './shortcuts/index.ts';
 
 const TABS: ReadonlyArray<{
   readonly tab: SettingsTab;
+  readonly icon: ComponentType<{ readonly className?: string }>;
   readonly className?: string;
 }> = [
-  { tab: 'General' },
-  { tab: 'Shortcuts', className: 'touch:hidden keyboard:flex' },
-  { tab: 'Machines' },
+  { tab: 'General', icon: SlidersHorizontalIcon },
+  {
+    tab: 'Shortcuts',
+    icon: KeyboardIcon,
+    className: 'touch:hidden keyboard:flex',
+  },
+  { tab: 'Machines', icon: MonitorIcon },
 ];
 
 const tabId = (tab: SettingsTab) => `settings-${tab.toLowerCase()}-tab`;
@@ -52,14 +63,14 @@ export const SettingsView = View.make(
       <TabList
         label="Settings"
         className={cn(
-          'z-10 overflow-x-auto border-b border-border bg-background px-2 sm:px-4 keyboard:md:w-44 keyboard:md:flex-col keyboard:md:self-start keyboard:md:border-b-0 keyboard:md:bg-transparent keyboard:md:px-0',
+          'z-10 overflow-x-auto border-b border-border bg-background px-2 sm:px-4 keyboard:md:w-44 keyboard:md:flex-col keyboard:md:gap-0.5 keyboard:md:self-start keyboard:md:border-b-0 keyboard:md:bg-transparent keyboard:md:px-0',
           // Over a page that scrolls whole, it stays as the page goes under it.
           touch
             ? 'keyboard:md:mt-10'
             : 'sticky top-0 keyboard:md:top-10 keyboard:md:mt-10',
         )}
       >
-        {TABS.map(({ tab, className }) => (
+        {TABS.map(({ tab, icon: Icon, className }) => (
           <Tab
             key={tab}
             id={tabId(tab)}
@@ -68,10 +79,11 @@ export const SettingsView = View.make(
             onSelect={() => choose(tab)}
             className={cn(
               // A list: the tab open filled.
-              'keyboard:md:h-8 keyboard:md:px-2.5 keyboard:md:after:hidden keyboard:md:hover:bg-muted keyboard:md:aria-selected:bg-muted',
+              'keyboard:md:h-8 keyboard:md:gap-2.5 keyboard:md:px-2.5 keyboard:md:font-normal keyboard:md:after:hidden keyboard:md:hover:bg-muted/60 keyboard:md:aria-selected:bg-muted keyboard:md:aria-selected:font-medium',
               className,
             )}
           >
+            <Icon className="hidden size-4 shrink-0 opacity-70 keyboard:md:block" />
             {tab}
           </Tab>
         ))}
@@ -83,7 +95,7 @@ export const SettingsView = View.make(
         role="tabpanel"
         id={panelId(tab)}
         aria-labelledby={tabId(tab)}
-        className="flex min-w-0 flex-col px-4 py-6 sm:px-6 md:py-8 keyboard:md:max-w-2xl keyboard:md:px-0 keyboard:md:py-10"
+        className="flex min-w-0 flex-col px-4 py-6 sm:px-6 md:py-8 keyboard:md:max-w-2xl keyboard:md:px-0 keyboard:md:pt-10 keyboard:md:pb-16"
       >
         {tab === 'General' ? (
           <General.view instance={children.general} />
@@ -114,9 +126,11 @@ export const SettingsView = View.make(
       <div {...root} className="flex min-h-0 flex-1 flex-col">
         <div
           ref={page}
-          className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+          // Room for the scrollbar on both sides whether a tab needs it or
+          // not, so moving between tabs never shifts the page sideways.
+          className="relative flex min-h-0 flex-1 flex-col overflow-y-auto [scrollbar-gutter:stable_both-edges]"
         >
-          <div className="mx-auto flex w-full max-w-4xl flex-col keyboard:md:flex-row keyboard:md:gap-10 keyboard:md:px-6">
+          <div className="mx-auto flex w-full max-w-4xl flex-col keyboard:md:flex-row keyboard:md:gap-12 keyboard:md:px-6">
             {names}
             <div className="min-w-0 flex-1">{panel(open)}</div>
           </div>

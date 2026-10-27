@@ -41,7 +41,26 @@
   }
 }
 
+/*
+ * With a keyboard on a wide screen, the text size chosen in Settings:
+ * medium, a little smaller than the browser's, so more fits at once; small
+ * smaller still; large the browser's own. The type and the spacing are
+ * rem, so both follow. A touch screen keeps the browser's size, which
+ * keeps its fields from zooming.
+ */
 @layer base {
+  @media (min-width: 48rem) {
+    html[data-keyboard] {
+      font-size: 15px;
+    }
+    html[data-keyboard][data-text-size='small'] {
+      font-size: 14px;
+    }
+    html[data-keyboard][data-text-size='large'] {
+      font-size: 16px;
+    }
+  }
+
   body {
     @apply bg-background font-sans text-foreground antialiased;
   }

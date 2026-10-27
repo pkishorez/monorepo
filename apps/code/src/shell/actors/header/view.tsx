@@ -2,11 +2,11 @@ import { useChild, View, type ViewProps } from '@kestack/kabuki/react';
 import { useRouter } from '@kestack/kabuki/routing';
 import type { Route } from '../../routes/index.ts';
 import { HeaderLive } from './actor.ts';
-import { Model, Title } from './header.tsx';
+import { Title } from './header.tsx';
 
 /*
- * Where you are, as the header's title, and the open session's model:
- * drawn again only as the rows of the project and session open change.
+ * Where you are, as the header's title: drawn again only as the rows of
+ * the project and session open change.
  */
 
 type Children = ViewProps<typeof HeaderLive>['children'];
@@ -84,22 +84,4 @@ function SessionTitle({
       unknown={unknown || (found?.neverSynced.length ?? 0) > 0}
     />
   );
-}
-
-/** The open session's agent, the account it runs as, and model, beside the header's actions. */
-export const HeaderModelView = View.make(HeaderLive, ({ model, children }) =>
-  children.session === undefined ? null : (
-    <SessionModel session={children.session} names={model.names} />
-  ),
-);
-
-function SessionModel({
-  session,
-  names,
-}: {
-  readonly session: SessionHandle;
-  readonly names: Readonly<Record<string, string>>;
-}) {
-  const found = useChild(session, ({ model }) => model);
-  return <Model session={found?.rows[0]?.row} names={names} />;
 }

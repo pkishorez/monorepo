@@ -1,5 +1,6 @@
 import { View } from '@kestack/kabuki/react';
 import type { ReactNode, Ref } from 'react';
+import { GUTTERED, useGutter } from '../../../../ui/gutter/index.ts';
 import { Draft } from '../draft/index.ts';
 import { StarterLive } from './actor.ts';
 
@@ -27,14 +28,16 @@ export function NewSessionBody({
   readonly extra?: ReactNode;
   readonly draft: ReactNode;
 }) {
+  // The Draft sits under the words, inset by the room their scrollbar keeps.
+  const gutter = useGutter();
   return (
     <>
       <div
         ref={page}
         tabIndex={page === undefined ? undefined : -1}
-        className="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto outline-none"
+        className={`relative flex min-h-0 flex-1 flex-col justify-end overflow-y-auto outline-none ${GUTTERED}`}
       >
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-1 px-4 pt-8 pb-6 sm:px-6">
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-1 px-4 pt-8 pb-6 sm:px-6">
           <h2 className="text-lg font-semibold">New session</h2>
           {about ?? (
             <p className="text-sm text-muted-foreground">
@@ -53,9 +56,10 @@ export function NewSessionBody({
       </div>
       <section
         aria-label="New session"
+        style={{ paddingInline: gutter }}
         className="relative shrink-0 bg-background pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent has-[[data-slot=draft][data-touch]]:pb-0"
       >
-        <div className="mx-auto w-full max-w-3xl px-4 sm:px-6 has-[[data-slot=draft][data-touch]]:px-0">
+        <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 has-[[data-slot=draft][data-touch]]:px-0">
           {draft}
         </div>
       </section>

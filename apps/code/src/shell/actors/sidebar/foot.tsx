@@ -14,12 +14,12 @@ import * as routes from '../../routes/index.ts';
 import { Theme } from '../../../ui/theme/index.ts';
 
 /*
- * The sidebar's foot: two round buttons, a thumb's reach apart, over the
- * timeline on a phone, raised, and under it in a wide sidebar, barely
- * raised, since nothing scrolls beneath them there. On the left, You:
- * a Drawer with who is signed in, the theme, and Settings, which on a
- * phone shuts the sidebar over the page, as a Session's row does; on the
- * right, New project, the Project Picker's own trigger. Each sinks as it
+ * The sidebar's foot, on a phone only: two round buttons, a thumb's reach
+ * apart, raised over the timeline. On the left, You: a Drawer with who is
+ * signed in, the theme, and Settings, which shuts the sidebar over the
+ * page, as a Session's row does. On the right, New project, the Project
+ * Picker's own trigger. A wide screen has the first three in its header
+ * and Open project at the top of the sidebar. Each sinks as it
  * is pressed, and on a phone that can, taps back.
  *
  * Who is signed in is one row; it opens the Accounts, the Account
@@ -55,14 +55,14 @@ export function Foot({
   }, [email]);
   return (
     <>
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end justify-between px-5 pb-3 md:static md:px-2 md:py-2">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end justify-between px-5 pb-3 md:hidden">
         <button
           type="button"
           aria-label="You, theme and settings"
           aria-expanded={you}
           onPointerDown={tapBack}
           onClick={() => setYou(true)}
-          className="focus-ring pointer-events-auto grid size-14 place-items-center rounded-full bg-background text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.16),0_6px_20px_rgb(0_0_0/0.22)] ring-1 ring-border transition-[transform,box-shadow] duration-150 ease-out active:scale-90 active:shadow-[0_1px_2px_rgb(0_0_0/0.16)] motion-reduce:transition-none md:size-11 md:shadow-[0_1px_2px_rgb(0_0_0/0.12),0_2px_8px_rgb(0_0_0/0.08)] [&_svg]:size-6 md:[&_svg]:size-5"
+          className="focus-ring pointer-events-auto grid size-14 place-items-center rounded-full bg-background text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.16),0_6px_20px_rgb(0_0_0/0.22)] ring-1 ring-border transition-[transform,box-shadow] duration-150 ease-out active:scale-90 active:shadow-[0_1px_2px_rgb(0_0_0/0.16)] motion-reduce:transition-none [&_svg]:size-6"
         >
           <SlidersHorizontalIcon aria-hidden />
         </button>

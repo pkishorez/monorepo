@@ -12,7 +12,9 @@ import { newMachineId, newMachineKey } from './secrets.js';
  * Which Machine this Connect is. Its `machine.json` is one Machine, signed
  * in as one User: the first `serve` makes the Machine, with a random id and
  * Machine Key and the host's name (and the branch's, in development), and
- * every later start finds it again. A different User signing in is
+ * every later start finds it again. The host's name is cut at its first
+ * dot, so `Ada-MacBook.local` is `Ada-MacBook`; a name kept with the whole
+ * of it takes the short one. A different User signing in is
  * refused, and `logout` forgets the Machine so the next start is a new one.
  */
 
@@ -24,6 +26,13 @@ export class MachineOwnedByAnother extends Data.TaggedError(
     return `${this.file} is the Machine of ${this.owner}, not ${this.user}. Run \`ke-connect logout\` first, or serve with another --branch.`;
   }
 }
+
+/** The host's name up to its first dot: `Ada-MacBook.local` is `Ada-MacBook`. */
+export const hostName = () => hostname().split('.')[0] || hostname();
+
+/** A name kept with the whole of the host's name, with the short one. */
+const shortened = (name: string) =>
+  hostName() === hostname() ? name : name.replaceAll(hostname(), hostName());
 
 /** Where a Machine is kept. */
 export interface Kept {
@@ -53,10 +62,13 @@ export const claim = (
       });
     // A Report carries at most 64 characters of name.
     const machine: MachineRecord = found
-      ? { ...found, name: (options.name ?? found.name).slice(0, 64) }
+      ? {
+          ...found,
+          name: (options.name ?? shortened(found.name)).slice(0, 64),
+        }
       : {
           id: newMachineId(),
-          name: (options.name ?? options.firstName ?? hostname()).slice(0, 64),
+          name: (options.name ?? options.firstName ?? hostName()).slice(0, 64),
           key: newMachineKey(),
           owner: options.owner,
         };

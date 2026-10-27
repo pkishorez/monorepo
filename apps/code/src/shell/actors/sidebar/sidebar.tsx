@@ -3,7 +3,9 @@ import { Router } from '@kestack/kabuki/routing';
 import { revealInView } from '@kestack/use-keys/surfaces';
 import {
   ChevronRightIcon,
+  FolderPlusIcon,
   GitForkIcon,
+  SquarePenIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import {
   SidebarMenu,
@@ -32,7 +34,6 @@ import {
   recentOf,
   sessionBeside,
   sessionPlace,
-  timelineOf,
 } from './rows.ts';
 import { SettledList, settledOf } from './settled-list/index.ts';
 import { SwipeToMove } from './swipe/index.ts';
@@ -44,11 +45,15 @@ import {
 } from '@kestack/web-platform/ui/components/motion';
 
 /*
- * The sidebar: every unsettled Session of every Machine, the most recently
- * active first, under the day it was last active (rows.ts). A row is its
+ * The sidebar: on a wide screen, Open project first, which opens the
+ * Project Picker as its keys do; then every unsettled Session of every
+ * Machine, the most recently active first, in one list (rows.ts), under
+ * the new session being written while there is one. A row is its
  * title, bold while Unseen, a fork glyph for a Fork, with its Project's
  * name under it, then its Machine's while there is more than one, and its
- * status in a word at the right, level with the title (`ui/status-word`).
+ * status at the right, as quietly as it can be said: a mark, or how long
+ * ago, level with the title (`ui/status-word`). Rows have room between
+ * them, and the days room above, so the list reads as a list.
  * A row under a pointer is half lit, so the open one still stands out. A
  * Machine that does not answer keeps what it last synced, its rows saying
  * when it was last seen. Last of all, "Settled"
@@ -56,7 +61,7 @@ import {
  * nothing is held and some Machine's were never synced here, each such
  * Machine is listed instead, saying how far it got: downloading
  * cloudflared, opening its tunnel, connecting. Its foot, the two buttons
- * that float over it, is `foot.tsx`.
+ * that float over it on a phone, is `foot.tsx`.
  *
  * The whole sidebar is the `sidebar` Surface, which the App View draws. A
  * cursor goes through the rows shown, "Settled" last: j and k move it,
@@ -121,15 +126,24 @@ export function Places({
     here === null || openSession === null
       ? null
       : { machineId: here.machineId, sessionId: openSession };
-  const open =
-    from === null
+  // A new session being written, in a project open with no session in it,
+  // holds a row of its own, open, until it is made or left.
+  const drafting = here !== null && here.page === undefined ? here : null;
+  const draft =
+    drafting === null
       ? null
-      : sessionPlace({ machineId: from.machineId, id: from.sessionId });
+      : `new:${keyOf({ machineId: drafting.machineId, id: drafting.projectId })}`;
+  const open =
+    draft ??
+    (from === null
+      ? null
+      : sessionPlace({ machineId: from.machineId, id: from.sessionId }));
   const [settledOpen, setSettledOpen] = useState(false);
   const recent = recentOf(projects.rows, sessions);
   const settled = settledOf(projects.rows, sessions);
   const toggleSettled = () => setSettledOpen((now) => !now);
   const stops: ReadonlyArray<Stop> = [
+    ...(draft === null ? [] : [{ place: draft, opens: true }]),
     ...recent.map(({ place }) => ({ place, opens: true })),
     { place: 'settled', opens: false },
     ...(settledOpen
@@ -190,43 +204,49 @@ export function Places({
     <MotionConfig reducedMotion="user">
       <div ref={cursor.list} className="flex flex-col px-2 pb-1">
         <>
+          <OpenProject />
           {waiting ? (
             <Waiting machines={projects.waiting} />
-          ) : recent.length === 0 ? (
+          ) : recent.length === 0 && drafting === null ? (
             <p className="px-3 py-2 text-[15px] text-pretty text-muted-foreground keyboard:md:text-sm">
               No sessions yet. Start one with the plus
               {picks === null ? '' : `, or ${picks}`}: pick a folder, then say
               what to do.
             </p>
           ) : (
-            <div className="flex flex-col">
-              <AnimatePresence initial={false}>
-                {timelineOf(recent, Date.now()).map(({ day, entries }) => (
-                  <motion.section key={day} aria-label={day} {...arrive}>
-                    <div className="pb-4 keyboard:md:pb-3">
-                      <h3 className="px-3 pb-1 text-[13px] font-medium text-muted-foreground keyboard:md:text-xs">
-                        {day}
-                      </h3>
-                      <SidebarMenu className="gap-0">
-                        <AnimatePresence initial={false}>
-                          {entries.map((entry) => (
-                            <SessionRow
-                              key={entry.place}
-                              entry={entry}
-                              here={here}
-                              at={at}
-                              titles={titles}
-                              isUnseen={isUnseen}
-                              onMove={onMove}
-                            />
-                          ))}
-                        </AnimatePresence>
-                      </SidebarMenu>
-                    </div>
-                  </motion.section>
-                ))}
-              </AnimatePresence>
-            </div>
+            <section aria-label="Sessions" className="pb-5">
+              <SidebarMenu className="gap-0.5">
+                <AnimatePresence initial={false}>
+                  {drafting !== null && draft !== null && (
+                    <NewSessionRow
+                      key={draft}
+                      place={draft}
+                      machineId={drafting.machineId}
+                      projectId={drafting.projectId}
+                      project={
+                        projects.rows.find(
+                          ({ machineId, id }) =>
+                            machineId === drafting.machineId &&
+                            id === drafting.projectId,
+                        )?.name ?? null
+                      }
+                      at={at}
+                    />
+                  )}
+                  {recent.map((entry) => (
+                    <SessionRow
+                      key={entry.place}
+                      entry={entry}
+                      here={here}
+                      at={at}
+                      titles={titles}
+                      isUnseen={isUnseen}
+                      onMove={onMove}
+                    />
+                  ))}
+                </AnimatePresence>
+              </SidebarMenu>
+            </section>
           )}
           {/* A heading like the days', so what opens under it reads as its own; a finger's height to hit. */}
           <section aria-label="Settled">
@@ -237,7 +257,7 @@ export function Places({
                   data-cursor={at('settled')}
                   aria-expanded={settledOpen}
                   onClick={toggleSettled}
-                  className={`h-11 gap-1.5 rounded-lg px-3 text-[13px] font-medium text-muted-foreground hover:bg-transparent hover:text-sidebar-foreground active:bg-sidebar-accent/60 keyboard:md:h-7 keyboard:md:text-xs ${cursorRing}`}
+                  className={`h-11 gap-1.5 rounded-lg px-3 text-[13px] font-medium text-muted-foreground/80 hover:bg-transparent hover:text-sidebar-foreground active:bg-sidebar-accent/60 keyboard:md:h-7 keyboard:md:text-xs keyboard:md:tracking-wide ${cursorRing}`}
                 >
                   <span>Settled</span>
                   <span className="font-normal tabular-nums">
@@ -277,6 +297,89 @@ export function Places({
 }
 
 const cursorRing = 'data-cursor:ring-2 data-cursor:ring-inset';
+
+/**
+ * Open project, at the top on a wide screen, as a row: it opens the
+ * Project Picker as its keys do, and shows them. A phone has the plus at
+ * the sidebar's foot instead.
+ */
+function OpenProject() {
+  const available = keys.useAvailableActions();
+  const quick = useBound('app.projects');
+  const anywhere = useBound('app.projectsAnywhere');
+  // `o` is Vim Mode's; out of it, the one that works anywhere opens it.
+  const action =
+    available.find(({ id }) => id === 'app.projects') ??
+    available.find(({ id }) => id === 'app.projectsAnywhere');
+  const bound = action?.id === 'app.projects' ? quick : anywhere;
+  return (
+    <SidebarMenu className="mb-3 max-md:hidden">
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          disabled={action === undefined}
+          onClick={() => action?.run()}
+          className="h-9 gap-2.5 rounded-lg px-3 text-sm font-medium text-sidebar-foreground/90 hover:bg-sidebar-accent/50"
+        >
+          <FolderPlusIcon
+            aria-hidden
+            className="size-4! text-muted-foreground"
+          />
+          <span className="flex-1">Open project</span>
+          {bound !== null && (
+            <span className="text-xs font-normal text-muted-foreground/70">
+              {bound}
+            </span>
+          )}
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  );
+}
+
+/**
+ * The session being written, before it is made: shaped as a Session's
+ * row and open, so the sidebar always shows where you are; "New session"
+ * over its Project, a pen where a status would be. It goes as the session
+ * is made, which then has its own row, or as you go elsewhere.
+ */
+function NewSessionRow({
+  place,
+  machineId,
+  projectId,
+  project,
+  at,
+}: {
+  readonly place: string;
+  readonly machineId: string;
+  readonly projectId: string;
+  readonly project: string | null;
+  readonly at: (place: string) => true | undefined;
+}) {
+  return (
+    <ArriveItem>
+      <SidebarMenuButton
+        data-place={place}
+        data-cursor={at(place)}
+        isActive
+        className={`h-auto min-h-14 items-start gap-3 rounded-xl px-3 py-2 data-active:font-normal keyboard:md:h-auto keyboard:md:min-h-11 keyboard:md:rounded-lg keyboard:md:py-[7px] ${HOVER_ROW} ${TOUCH_ROW} ${cursorRing}`}
+        render={<Router.Link to={routes.project(machineId, projectId)} />}
+      >
+        <span className="flex min-w-0 flex-1 flex-col gap-px">
+          <span className="truncate text-[15px] leading-5 keyboard:md:text-sm">
+            New session
+          </span>
+          <Where machineId={machineId} project={project} />
+        </span>
+        <span title="Being written" className="flex h-5 shrink-0 items-center">
+          <SquarePenIcon
+            aria-hidden
+            className="size-3.5! text-muted-foreground"
+          />
+        </span>
+      </SidebarMenuButton>
+    </ArriveItem>
+  );
+}
 
 /** One Session: its title over where it is, its status at the right. */
 function SessionRow({
@@ -320,7 +423,7 @@ function SessionRow({
             here?.machineId === session.machineId &&
             here.page?.sessionId === session.id
           }
-          className={`h-auto min-h-14 items-start gap-3 rounded-xl px-3 py-2 data-active:font-normal keyboard:md:h-auto keyboard:md:min-h-10 keyboard:md:rounded-lg keyboard:md:py-1 ${HOVER_ROW} ${TOUCH_ROW} ${cursorRing}`}
+          className={`h-auto min-h-14 items-start gap-3 rounded-xl px-3 py-2 data-active:font-normal keyboard:md:h-auto keyboard:md:min-h-11 keyboard:md:rounded-lg keyboard:md:py-[7px] ${HOVER_ROW} ${TOUCH_ROW} ${cursorRing}`}
           render={
             <Router.Link
               to={routes.session(
@@ -334,17 +437,17 @@ function SessionRow({
             />
           }
         >
-          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="flex min-w-0 flex-1 flex-col gap-px">
             <span className="flex min-w-0 items-center gap-1.5">
               {original !== null && (
                 <GitForkIcon
                   role="img"
                   aria-label={`Forked from ${original}`}
-                  className="size-3.5! text-muted-foreground/70"
+                  className="size-3! shrink-0 text-muted-foreground/60"
                 />
               )}
               <span
-                className={`min-w-0 truncate text-[15px] leading-5 keyboard:md:text-[13px] ${isUnseen(session) ? 'font-semibold text-sidebar-foreground' : ''}`}
+                className={`min-w-0 truncate text-[15px] leading-5 keyboard:md:text-sm ${isUnseen(session) ? 'font-semibold text-sidebar-foreground' : ''}`}
               >
                 {title}
               </span>
@@ -383,7 +486,7 @@ function Where({
   if (where === '') return null;
   return (
     <span
-      className="truncate text-[13px] text-muted-foreground keyboard:md:text-xs"
+      className="truncate text-[13px] text-muted-foreground/75 keyboard:md:text-xs"
       title={
         seen === null
           ? undefined

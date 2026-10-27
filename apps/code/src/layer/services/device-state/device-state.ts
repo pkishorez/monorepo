@@ -8,22 +8,25 @@ import { DeviceState, type Gone, went } from '../../capabilities/index.ts';
 import { keyOf, RETRIES, scan } from '../rows/index.ts';
 import {
   DEVICE_TABLE,
+  floating,
   keyboard,
   type Mark,
   marks,
   microphone,
   sidebar,
+  sidebarWidth,
   smartDisplacement,
   smartInput,
   table,
+  textSize,
   vim,
 } from './layout.ts';
 
 /*
  * Device State: what this browser keeps for itself and no other device
  * sees, in one IndexedDB database of its own: the user's own Bindings and
- * whether Vim Mode is on,
- * the microphone a Dictation records from, whether the Touch Draft takes Smart Input and Smart Displacement, the Machine the sidebar shows,
+ * whether Vim Mode is on, whether the app floats as a window, the text size,
+ * the microphone a Dictation records from, whether the Touch Draft takes Smart Input and Smart Displacement, the Machine the sidebar shows and its width,
  * and the Unseen marks of each Machine. It is local only, so it is a StdTable on
  * std-toolkit's IndexedDB adapter rather than a Replica, which mirrors a
  * server; the adapter makes its store on first open.
@@ -68,18 +71,24 @@ const make = (
   const read = Effect.gen(function* () {
     const { value } = yield* keyboard.get();
     const mode = yield* vim.get();
+    const floats = yield* floating.get();
+    const sized = yield* textSize.get();
     const chosen = yield* microphone.get();
     const smart = yield* smartInput.get();
     const displaced = yield* smartDisplacement.get();
     const shown = yield* sidebar.get();
+    const wide = yield* sidebarWidth.get();
     const unseen = yield* readMarks;
     return {
       bindings: fitted(value.bindings),
       vim: mode.value.on,
+      floating: floats.value.on,
+      textSize: sized.value.size,
       microphone: chosen.value.deviceId,
       smartInput: smart.value.on,
       smartDisplacement: displaced.value.on,
       sidebarMachine: shown.value.machineId,
+      sidebarWidth: wide.value.width,
       unseen,
     };
   }).pipe(Effect.provide(layer));
@@ -144,6 +153,10 @@ const make = (
       write(keyboard.getAndUpdate(() => ({ bindings }), { retries: RETRIES })),
     setVim: (on) =>
       write(vim.getAndUpdate(() => ({ on }), { retries: RETRIES })),
+    setFloating: (on) =>
+      write(floating.getAndUpdate(() => ({ on }), { retries: RETRIES })),
+    setTextSize: (size) =>
+      write(textSize.getAndUpdate(() => ({ size }), { retries: RETRIES })),
     setMicrophone: (deviceId) =>
       write(
         microphone.getAndUpdate(() => ({ deviceId }), { retries: RETRIES }),
@@ -156,6 +169,8 @@ const make = (
       ),
     setSidebarMachine: (machineId) =>
       write(sidebar.getAndUpdate(() => ({ machineId }), { retries: RETRIES })),
+    setSidebarWidth: (width) =>
+      write(sidebarWidth.getAndUpdate(() => ({ width }), { retries: RETRIES })),
     markSeen,
     drop,
     // 3. Follow

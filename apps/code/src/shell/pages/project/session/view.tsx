@@ -3,12 +3,14 @@ import { useChild, useChildren, View } from '@kestack/kabuki/react';
 import type { Session } from '@kestack/connect/code';
 import { Router, useElementScrollRestoration } from '@kestack/kabuki/routing';
 import {
+  ArrowDownIcon,
   GitForkIcon,
   TriangleAlertIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
+import { GUTTERED, useGutter } from '../../../../ui/gutter/index.ts';
 import * as routes from '../../../routes/index.ts';
 import { RunningDot } from '../../../../ui/running-dot/index.ts';
 import { keys, useBound } from '../../../../keys.ts';
@@ -160,6 +162,8 @@ export const SessionView = View.make(
         sideQuestion,
       ],
     );
+    // The Draft sits under the transcript, inset by the room its scrollbar keeps.
+    const gutter = useGutter();
     return (
       <div {...root} className="flex min-h-0 flex-1 flex-col">
         <div
@@ -170,7 +174,10 @@ export const SessionView = View.make(
           tabIndex={-1}
           hidden={side}
           data-scroll-restoration-id={TRANSCRIPT}
-          className="min-h-0 flex-1 overflow-y-auto outline-none select-text [overflow-anchor:none]"
+          // Positioned, so what is placed absolutely inside it, such as
+          // markdown's screen-reader-only footnotes heading, is measured
+          // here and never makes the page around it scroll too.
+          className={`relative min-h-0 flex-1 overflow-y-auto outline-none select-text [overflow-anchor:none] ${GUTTERED}`}
         >
           <Transcript
             content={content}
@@ -192,11 +199,18 @@ export const SessionView = View.make(
         <div
           ref={setSideQuestion}
           hidden={!side}
-          className="min-h-0 flex-1 overflow-y-auto select-text"
+          className={`relative min-h-0 flex-1 overflow-y-auto select-text ${GUTTERED}`}
         />
         {!missing && (
-          <div className="relative shrink-0 bg-background pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent has-[[data-slot=draft][data-touch]]:pb-0">
-            <div className="mx-auto w-full max-w-3xl px-4 sm:px-6 has-[[data-slot=draft][data-touch]]:px-0">
+          <div
+            style={{ paddingInline: gutter }}
+            className="relative shrink-0 bg-background pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent has-[[data-slot=draft][data-touch]]:pb-0"
+          >
+            <ToBottom
+              shown={follow.away && !side}
+              onClick={() => follow.holdOn(true)}
+            />
+            <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 has-[[data-slot=draft][data-touch]]:px-0">
               <Draft.Slots value={slots}>
                 <Draft.view instance={children.draft} />
               </Draft.Slots>
@@ -207,6 +221,37 @@ export const SessionView = View.make(
     );
   },
 );
+
+/**
+ * Away from the bottom, a way back: a small round button centred over the
+ * Draft that glides to the very bottom and follows from there. It fades
+ * and rises in, and is gone, not merely hidden, from the keys while away.
+ */
+function ToBottom({
+  shown,
+  onClick,
+}: {
+  readonly shown: boolean;
+  readonly onClick: () => void;
+}) {
+  return (
+    <div
+      inert={!shown}
+      className="pointer-events-none absolute inset-x-0 bottom-full z-10 mb-3 flex justify-center"
+    >
+      <Button
+        type="button"
+        variant="outline"
+        onClick={onClick}
+        data-shown={shown ? '' : undefined}
+        className="pointer-events-auto h-11 translate-y-2 gap-1.5 rounded-full bg-background px-4 text-sm text-muted-foreground opacity-0 shadow-md transition-[opacity,translate,color] duration-200 ease-out hover:text-foreground data-shown:translate-y-0 data-shown:opacity-100 keyboard:h-8 keyboard:px-3 motion-reduce:transition-none"
+      >
+        <ArrowDownIcon aria-hidden className="size-3.5" />
+        Scroll to bottom
+      </Button>
+    </div>
+  );
+}
 
 /**
  * The transcript, drawn again only as what it shows changes: never as the
@@ -246,7 +291,7 @@ const Transcript = memo(function Transcript({
   return (
     <div
       ref={content}
-      className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-4 pt-8 pb-10 sm:px-6"
+      className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-4 pt-8 pb-10 sm:px-6"
     >
       {session !== undefined && session.forkedFrom !== null && (
         <p className="-mt-2 -mb-4 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
@@ -290,6 +335,7 @@ const Transcript = memo(function Transcript({
             opening={opening}
             running={running}
             forking={forking}
+            forked={session?.forkedFrom != null}
           />
         </>
       )}

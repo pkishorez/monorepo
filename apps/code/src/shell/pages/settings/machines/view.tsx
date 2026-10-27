@@ -11,6 +11,7 @@ import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import { useEffect, useState } from 'react';
 import * as Confirm from '../../../../ui/confirm/index.ts';
+import { Title } from '../../../../ui/settings/index.ts';
 import { Tab, TabList, TabTrack } from '../../../../ui/tabs/index.ts';
 import { ago } from '../../../../ui/time/index.ts';
 import {
@@ -33,7 +34,8 @@ type Machine = typeof MachineSchema.Type;
  * it stands, its dot and its Line and Last Seen as the sidebar says them,
  * with a lock once its settings are said to be locked; on a wider screen
  * its tunnel and the version of Connect it runs under it; beside it Forget,
- * a bin in the danger colour, which asks first; and its tabs, as
+ * a quiet bin that turns the danger colour under the pointer, which asks
+ * first; and its tabs, as
  * Settings' own are drawn, of what it shows: Agents, each between rules
  * its agents' accounts and its Speech to Text switch, each as its Machine
  * Kit holds it, so one that does not answer says so in its own place; or
@@ -147,16 +149,16 @@ function MachineCard({
   const panelId = (each: MachineTab) =>
     `machine-${machine.id}-${each.toLowerCase()}`;
   const heading = (
-    <div className="flex flex-col gap-3 border-b border-border px-4 pt-4 sm:px-5">
+    <div className="flex flex-col gap-3 border-b border-border/60 px-4 pt-4 sm:px-5">
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <MachineHead machine={machine} />
         </div>
         <Button
           type="button"
-          variant="destructive"
+          variant="ghost"
           size="icon"
-          className="-mt-1 -mr-2 size-11 keyboard:mt-0 keyboard:mr-0 keyboard:size-8"
+          className="-mt-1 -mr-2 size-11 text-muted-foreground hover:bg-destructive/10 hover:text-destructive keyboard:mt-0 keyboard:mr-0 keyboard:size-8"
           aria-label={`Forget ${machine.name}`}
           title={`Forget ${machine.name}…`}
           onClick={onForget}
@@ -201,7 +203,7 @@ function MachineCard({
     </div>
   );
   return (
-    <li className="flex flex-col rounded-xl border border-border bg-card">
+    <li className="flex flex-col rounded-xl border border-border/60">
       {touch ? (
         <TabTrack
           open={tab}
@@ -248,19 +250,15 @@ export const MachineSettingsView = View.make(
       <section
         {...root}
         aria-labelledby="machines"
-        className="flex flex-col gap-4"
+        className="flex flex-col gap-6"
       >
-        <header className="flex items-center gap-2">
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <h2 id="machines" className="text-sm font-semibold">
-              Machines
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              The computers your sessions run on.
-            </p>
-          </div>
-          <Reload onReload={() => send({ _tag: 'Reload' })} />
-        </header>
+        <Title
+          id="machines"
+          name="Machines"
+          action={<Reload onReload={() => send({ _tag: 'Reload' })} />}
+        >
+          The computers your sessions run on.
+        </Title>
         {/* Nothing until what this device kept is read, so it draws once. */}
         {!model.drawn ? null : model.machines === null ? (
           <Skeleton aria-busy className="h-40 w-full rounded-xl" />
@@ -289,7 +287,7 @@ export const MachineSettingsView = View.make(
         )}
         {model.drawn && (
           <p className="text-xs text-muted-foreground">
-            To revoke a Machine's sign-in outright, go to{' '}
+            Revoke a Machine's sign-in from{' '}
             <a
               href={authHome}
               target="_blank"

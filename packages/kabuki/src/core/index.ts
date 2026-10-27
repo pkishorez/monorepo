@@ -36,5 +36,6 @@ export type {
   LiveInstance,
   Needs,
   Running,
+  Provided,
   WorkerStatus,
 } from './runtime/index.ts';

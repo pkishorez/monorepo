@@ -36,15 +36,7 @@ export function Devtools({ children }: { readonly children: ReactNode }) {
       devtools={(layout) =>
         runtime && (
           <Suspense fallback={null}>
-            <KabukiDevtools
-              runtime={runtime}
-              {...(layout === 'full'
-                ? {
-                    dotted: false,
-                    className: 'bg-background/45 backdrop-blur-[3px]',
-                  }
-                : {})}
-            />
+            <KabukiDevtools runtime={runtime} overlay={layout === 'full'} />
           </Suspense>
         )
       }

@@ -34,7 +34,7 @@ import { useCallback, useRef } from 'react';
  * works in a Picker as well, and Escape never touches a Dictation. Escape in
  * the sidebar goes back to the page. Every Picker, those three, the skills,
  * the model, the microphone and the Keys Picker, opened by `?` in Vim Mode
- * or Ctrl+/ in either, is drawn on the one isolated `picker` Surface: drawn
+ * or Ctrl+? in either, is drawn on the one isolated `picker` Surface: drawn
  * while Active, it closes when left and goes back to where it was opened
  * from, focus too. A Picker's keys are its
  * Surface's Actions, taken before cmdk hears them. Settings has no keys of
@@ -69,7 +69,7 @@ export const keys = createKeys({
         label: 'Show the keys',
       },
       helpAnywhere: {
-        keys: 'ctrl+/',
+        keys: 'ctrl+?',
         label: 'Show the keys, even while typing',
         always: true,
         inField: true,

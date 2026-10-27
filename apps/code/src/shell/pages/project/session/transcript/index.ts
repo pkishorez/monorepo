@@ -1,9 +1,5 @@
-export { earlierOf } from './earlier.ts';
-export { thread } from './thread.ts';
-export {
-  EarlierRows,
-  Folder,
-  Rows,
-  type Forking,
-  type Opening,
-} from './transcript.tsx';
+export { type Opening } from './fold/index.ts';
+export { earlierOf, thread } from './rows/index.ts';
+export { Folder } from './tool/index.ts';
+export { EarlierRows, Rows } from './transcript.tsx';
+export { type Forking } from './turn/index.ts';

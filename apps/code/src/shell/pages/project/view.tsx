@@ -33,7 +33,7 @@ export const ProjectView = View.make(ProjectLive, (self) => (
   <PageMachine value={self.props.params.machineId}>
     {self.model.gone ? (
       <div {...self.root} className="flex min-h-0 flex-1 flex-col">
-        <p className="mx-auto w-full max-w-3xl px-6 py-10 text-sm text-muted-foreground">
+        <p className="mx-auto w-full max-w-4xl px-6 py-10 text-sm text-muted-foreground">
           This Machine is not one of yours any more: it was forgotten, or you
           are signed in as someone else.{' '}
           <Router.Link to={routes.home()} className={link}>
@@ -62,7 +62,7 @@ function ProjectScreen({ root, model, children, send }: Self) {
   if (found?.caughtUp === true && project === undefined)
     return (
       <div {...root} className="flex min-h-0 flex-1 flex-col">
-        <p className="mx-auto w-full max-w-3xl px-6 py-10 text-sm text-muted-foreground">
+        <p className="mx-auto w-full max-w-4xl px-6 py-10 text-sm text-muted-foreground">
           It may have been removed.{' '}
           <Router.Link
             to={routes.home()}

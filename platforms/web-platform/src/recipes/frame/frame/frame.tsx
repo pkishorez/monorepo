@@ -19,6 +19,7 @@ import {
   SIDEBAR_STYLE,
 } from './geometry.ts';
 import { useMobileProgress, useOpenProgress } from './motion.ts';
+import { ResizeHandle } from './resize-handle.tsx';
 import { useHydrated, useOpenState } from './state.ts';
 
 interface FrameState {
@@ -51,6 +52,8 @@ interface FrameProps {
   readonly sidebarMode: 'slide' | 'fullscreen';
   /** The sidebar's width on a wide screen, in px. */
   readonly sidebarWidth?: number;
+  /** Lets people resize the sidebar by its edge on a wide screen. */
+  readonly onSidebarWidthChange?: (width: number) => void;
   /** Drawn outside the moving page, told whether the sidebar is open. */
   readonly statusBar?: (open: boolean) => ReactNode;
   readonly className?: string;
@@ -217,6 +220,13 @@ function WithSidebar(props: FrameProps & { readonly sidebar: ReactNode }) {
               )}
             />
           </main>
+          {/* Over both, on the line between them, while the sidebar is beside the page. */}
+          {props.onSidebarWidthChange !== undefined && shown && !isMobile && (
+            <ResizeHandle
+              width={props.sidebarWidth ?? 256}
+              onWidthChange={props.onSidebarWidthChange}
+            />
+          )}
         </motion.div>
       </div>
     </FrameContext.Provider>

@@ -11,7 +11,7 @@ import {
 /*
  * The root page's errands: signing in, dropping what this device keeps of
  * Accounts no longer signed in, handing an ask on to the Dictation, and
- * keeping Vim Mode.
+ * keeping Vim Mode and the sidebar's width.
  */
 
 export const signIn = Command.make('SignIn', {
@@ -52,6 +52,15 @@ export const setVim = Command.make('SetVim', {
   args: Schema.Struct({ on: Schema.Boolean }),
   run: ({ on }) =>
     Effect.flatMap(DeviceState, (store) => store.setVim(on)).pipe(
+      Effect.ignore,
+    ),
+});
+
+/** Keeps the sidebar's width in Device State; a write that fails is lost. */
+export const setSidebarWidth = Command.make('SetSidebarWidth', {
+  args: Schema.Struct({ width: Schema.Finite }),
+  run: ({ width }) =>
+    Effect.flatMap(DeviceState, (store) => store.setSidebarWidth(width)).pipe(
       Effect.ignore,
     ),
 });

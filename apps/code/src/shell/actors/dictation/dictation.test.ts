@@ -170,10 +170,13 @@ const world = (options: {
       })),
       setBindings: () => Effect.void,
       setVim: () => Effect.void,
+      setFloating: () => Effect.void,
+      setTextSize: () => Effect.void,
       setMicrophone: (microphone) => SubscriptionRef.set(chosen, microphone),
       setSmartInput: () => Effect.void,
       setSmartDisplacement: () => Effect.void,
       setSidebarMachine: () => Effect.void,
+      setSidebarWidth: () => Effect.void,
       markSeen: () => Effect.void,
       drop: () => Effect.void,
       changes: SubscriptionRef.changes(chosen).pipe(

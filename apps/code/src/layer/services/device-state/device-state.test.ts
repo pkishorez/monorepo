@@ -35,10 +35,13 @@ describe('Device State', () => {
     expect(read).toEqual({
       bindings: { 'picker.finish': ['ctrl+Enter'] },
       vim: false,
+      floating: false,
+      textSize: 'medium',
       microphone: null,
       smartInput: false,
       smartDisplacement: false,
       sidebarMachine: null,
+      sidebarWidth: 260,
       unseen: {},
     });
   });

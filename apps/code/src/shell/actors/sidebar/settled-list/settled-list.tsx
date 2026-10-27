@@ -42,9 +42,9 @@ export const settledOf = (
 
 type Listed = ReturnType<typeof settledOf>[number];
 
-/** A Settled row: done with, so quieter and shorter than the timeline's, still a finger's to hit. */
+/** A Settled row: shaped as the timeline's, title over project, quieter since it is done with. */
 const sessionRow =
-  'h-11 gap-3 rounded-lg px-3 py-0 text-[14px] text-sidebar-foreground/75 keyboard:md:h-7 keyboard:md:text-[13px] data-active:font-normal data-active:text-sidebar-foreground hover:bg-sidebar-accent/50 data-active:hover:bg-sidebar-accent';
+  'h-auto min-h-14 items-start gap-3 rounded-xl px-3 py-2 text-[14px] text-sidebar-foreground/60 keyboard:md:min-h-11 keyboard:md:rounded-lg keyboard:md:py-[7px] keyboard:md:text-sm data-active:font-normal data-active:text-sidebar-foreground hover:bg-sidebar-accent/50 data-active:hover:bg-sidebar-accent';
 const cursorRing = 'data-cursor:ring-2 data-cursor:ring-inset';
 
 export function SettledList({
@@ -76,7 +76,7 @@ export function SettledList({
               : `Nothing is Settled. Settle a session you are done with from Session Actions${settle === null ? '' : ` (${settle})`}.`}
           </p>
         ) : (
-          <SidebarMenu className="gap-0">
+          <SidebarMenu className="gap-0.5">
             <AnimatePresence initial={false}>
               {listed.map(({ place, session, project }) => {
                 return (
@@ -106,14 +106,16 @@ export function SettledList({
                           />
                         }
                       >
-                        <span className="min-w-0 flex-1 truncate">
-                          {session.title || 'Untitled session'}
-                        </span>
-                        {project !== null && (
-                          <span className="max-w-[40%] shrink-0 truncate text-xs text-muted-foreground">
-                            {project}
+                        <span className="flex min-w-0 flex-1 flex-col gap-px">
+                          <span className="truncate">
+                            {session.title || 'Untitled session'}
                           </span>
-                        )}
+                          {project !== null && (
+                            <span className="truncate text-xs text-muted-foreground/70">
+                              {project}
+                            </span>
+                          )}
+                        </span>
                       </SidebarMenuButton>
                     </SwipeToMove>
                     <button
@@ -123,7 +125,7 @@ export function SettledList({
                       onClick={() => onUnsettle(session.machineId, session.id)}
                       className={
                         keyboard
-                          ? 'focus-ring absolute top-2.5 right-1 grid size-6 place-items-center rounded-md text-muted-foreground/70 opacity-0 transition-[opacity,color,background-color] duration-150 group-hover/settled:opacity-100 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:opacity-100 disabled:opacity-100 motion-reduce:transition-none md:top-0.5 [@media(hover:none)]:opacity-100'
+                          ? 'focus-ring absolute top-2.5 right-1 grid size-6 place-items-center rounded-md text-muted-foreground/70 opacity-0 transition-[opacity,color,background-color] duration-150 group-hover/settled:opacity-100 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:opacity-100 disabled:opacity-100 motion-reduce:transition-none md:top-[5px] [@media(hover:none)]:opacity-100'
                           : 'sr-only'
                       }
                     >

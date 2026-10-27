@@ -42,15 +42,7 @@ export function OpeningAnApp({
         )
       }
       devtools={(layout) => (
-        <KabukiDevtools
-          runtime={runtime}
-          {...(layout === 'full'
-            ? {
-                dotted: false,
-                className: 'bg-background/45 backdrop-blur-[3px]',
-              }
-            : {})}
-        />
+        <KabukiDevtools runtime={runtime} overlay={layout === 'full'} />
       )}
     >
       <main className="flex h-full flex-col overflow-hidden bg-muted/30">

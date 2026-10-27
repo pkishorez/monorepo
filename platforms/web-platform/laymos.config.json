@@ -161,17 +161,7 @@
       "src/ui/components"
     ],
     "src/recipes": ["src/ui/components", "src/ui/input"],
-    "src/recipes/devtools/inspector": ["src/ui/viewers"],
-    "src/recipes/devtools/inspector/map": [
-      "src/recipes/devtools/inspector/ink",
-      "src/recipes/devtools/inspector/scene"
-    ],
-    "src/recipes/devtools/inspector/sheet": [
-      "src/recipes/devtools/inspector/ink"
-    ],
-    "src/recipes/devtools/inspector/timeline": [
-      "src/recipes/devtools/inspector/ink"
-    ],
+    "src/recipes/devtools/kabuki": ["src/ui/viewers"],
     "src/recipes/frame/sidebar": ["src/recipes/frame/frame"],
     "src/ui/components/alert-dialog.tsx": ["src/ui/components/button.tsx"],
     "src/ui/components/attachment.tsx": ["src/ui/components/button.tsx"],

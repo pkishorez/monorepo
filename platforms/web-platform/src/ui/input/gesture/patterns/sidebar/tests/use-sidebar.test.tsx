@@ -293,6 +293,21 @@ describe('useSidebar', () => {
     });
   });
 
+  // A sidebar left at the old width's place reads as part open at the new.
+  it('stays shut when its width changes', () => {
+    render({ open: false, width: 390 });
+    render({ open: false, width: 1280 });
+    expect(sidebar.x.get()).toBe(-1280);
+    render({ open: false, width: 600 });
+    expect(sidebar.x.get()).toBe(-600);
+  });
+
+  it('stays open when its width changes', () => {
+    render({ open: true, width: 1280 });
+    render({ open: true, width: 390 });
+    expect(sidebar.x.get()).toBe(0);
+  });
+
   it('follows `open` when the app controls it', () => {
     const onOpenChange = render({ open: false });
     swipe(10, 190, 16, 200);

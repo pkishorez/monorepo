@@ -32,8 +32,15 @@ import { ProjectPicker } from './actors/pickers/project-picker/index.ts';
 import { SessionActions } from './actors/pickers/session-actions/index.ts';
 import { SessionSwitcher } from './actors/pickers/session-switcher/index.ts';
 import { Sidebar } from './actors/sidebar/index.ts';
-import { askDictation, dropSignedOut, setVim, signIn } from './commands.ts';
+import {
+  askDictation,
+  dropSignedOut,
+  setSidebarWidth,
+  setVim,
+  signIn,
+} from './commands.ts';
 import { Home } from './pages/home/index.ts';
+import { Kabuki } from './pages/kabuki/index.ts';
 import { Project } from './pages/project/index.ts';
 import { Settings } from './pages/settings/index.ts';
 import { layer as moves } from './actors/moves/index.ts';
@@ -45,10 +52,12 @@ import { layer as moves } from './actors/moves/index.ts';
  * itself, so a change to one draws only what shows it.
  *
  * 1. Keys      `Reading` reads the keyboard from Device State, the user's
- *              Bindings and whether Vim Mode is on, before anything is
- *              drawn; `Ready` follows them as they change, and nothing else
- *              of Device State. Vim Mode turned on or off shows at once,
- *              and is kept.
+ *              Bindings and whether Vim Mode is on, whether the app
+ *              floats as a window, the text size and the sidebar's width, before
+ *              anything is drawn; `Ready` follows them as they change, and
+ *              nothing else of Device State. Vim Mode turned on or off,
+ *              and the sidebar resized, show at once and are kept; the
+ *              window and the text size are chosen in Settings.
  * 2. Accounts  who is signed in, from auth-toolkit's `Accounts`, and the
  *              Account Switcher. Signed out, only signing in is drawn. Once
  *              Accounts are signed in, and each time one is signed out of
@@ -91,12 +100,34 @@ const Back = Schema.NullOr(
   }),
 );
 
-/** The keyboard as this browser keeps it: the Bindings, and Vim Mode. */
+/**
+ * The keyboard as this browser keeps it, the Bindings and Vim Mode, and
+ * the screen around it: whether the app floats as a window, the text
+ * size, and the sidebar's width.
+ */
 const Keys = Schema.Struct({
   bindings: DeviceState.Device.fields.bindings,
   vim: Schema.Boolean,
+  floating: Schema.Boolean,
+  textSize: DeviceState.Device.fields.textSize,
+  sidebarWidth: Schema.Finite,
 });
 const sameKeys = Schema.toEquivalence(Keys);
+
+/** The keyboard and the screen of Device State as read. */
+const keysOf = ({
+  bindings,
+  vim,
+  floating,
+  textSize,
+  sidebarWidth,
+}: typeof DeviceState.Device.Type): typeof Keys.Type => ({
+  bindings,
+  vim,
+  floating,
+  textSize,
+  sidebarWidth,
+});
 
 const Model = Schema.Struct({
   account: Signed,
@@ -120,7 +151,12 @@ export const Shell = Page.define({
     Dictations,
   ],
   metadata: { title: 'code' },
-  pages: { Home: Home.page, Settings: Settings.page, Project: Project.page },
+  pages: {
+    Home: Home.page,
+    Settings: Settings.page,
+    Project: Project.page,
+    Kabuki: Kabuki.page,
+  },
   model: Model,
   state: Schema.TaggedUnion({
     Reading: {},
@@ -130,6 +166,8 @@ export const Shell = Page.define({
     KeyboardRead: { keyboard: Keys },
     /** Vim Mode turned on or off, by its keys or in Settings. */
     VimChanged: { on: Schema.Boolean },
+    /** The sidebar dragged to a new width, once the drag settles. */
+    SidebarResized: { width: Schema.Finite },
     Signed: { account: Signed },
     SignInAsked: {},
     SignInFailed: { problem: Schema.String },
@@ -198,9 +236,7 @@ const keyboard = Stream.concat(
   Stream.make(undefined),
   DeviceState.changes,
 ).pipe(
-  Stream.mapEffect(() =>
-    Effect.map(DeviceState.read, ({ bindings, vim }) => ({ bindings, vim })),
-  ),
+  Stream.mapEffect(() => Effect.map(DeviceState.read, keysOf)),
   Stream.changesWith(sameKeys),
 );
 
@@ -213,6 +249,7 @@ export const ShellLive = Page.build(Shell, {
     Home: Home.actor,
     Settings: Settings.actor,
     Project: Project.actor,
+    Kabuki: Kabuki.actor,
   },
   // At the top, as the pages are: the Account, how each Machine is
   // reached, and the Moves on their way to them, are shared from here.
@@ -238,8 +275,8 @@ export const ShellLive = Page.build(Shell, {
       workers: {
         read: {
           run: (self) =>
-            Effect.flatMap(DeviceState.read, ({ bindings, vim }) =>
-              self.send({ _tag: 'KeyboardRead', keyboard: { bindings, vim } }),
+            Effect.flatMap(DeviceState.read, (device) =>
+              self.send({ _tag: 'KeyboardRead', keyboard: keysOf(device) }),
             ),
         },
       },
@@ -297,6 +334,13 @@ export const ShellLive = Page.build(Shell, {
           ...ready({ ...state.keyboard, vim: on }),
           command: setVim({ on }),
         }),
+        SidebarResized: ({ width }, { state }) =>
+          width === state.keyboard.sidebarWidth
+            ? {}
+            : {
+                ...ready({ ...state.keyboard, sidebarWidth: width }),
+                command: setSidebarWidth({ width }),
+              },
       },
     },
   },

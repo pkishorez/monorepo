@@ -214,6 +214,11 @@ const definitionOf = (
       state: checkerOf(name)(shape.state),
       message: checkerOf(name)(shape.message),
     },
+    schemas: Object.fromEntries(
+      (['input', 'props', 'model', 'state', 'message'] as const).flatMap(
+        (what) => (shape[what] ? [[what, shape[what]]] : []),
+      ),
+    ),
     encoding: {
       props: encodingOf(shape.props),
       model: encodingOf(shape.model),

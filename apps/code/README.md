@@ -235,16 +235,27 @@ popover; nothing is kept. Each finished turn can be forked from, which
 opens a new session that remembers the conversation up to that turn. A
 fork copies nothing: its page reads the sessions up its chain, one
 Window each, and draws what came before its own turns as one line,
-"Earlier in ‹title› · N turns", that opens to them (`earlier.ts`).
+"Earlier in ‹title› · N turns", that opens to them (`rows/earlier.ts`).
 
-The transcript pairs Messages as it draws them (`thread.ts`): a tool call
+The transcript reads as a conversation (`transcript/`): your words are
+bubbles on the right (`turn/`), the agent's answer is full type on the left
+(`said/`), and everything it did between two things it said folds into one
+line that counts it up, "Read 3 files, changed 2 files and ran one command",
+and opens to each step (`work/`). While a turn runs, that line says what the
+agent is doing now. Each kind of tool has its own module under
+`tool/kinds/`, with its icon and what it shows when opened: a terminal for a
+command, a diff for an edit, the list for a to-do. A turn ends with how long
+it took and a way to copy the answer or fork there, shown on pointing at it
+and always on a touch screen.
+
+The transcript pairs Messages as it draws them (`rows/thread.ts`): a tool call
 runs until its result arrives, and is stopped if its turn ended first; a
 subagent's call holds the Messages whose `agentId` is its id, nested,
 under its prompt; a turn's usage is its `turnEnded` usage, or the sum of its usage parts;
 streamed text and reasoning arrive a few sentences at a time as `textChunk`s,
 joined by `streamId` into one block where the first chunk is. Each tool call
 reads as a verb and its target, with paths relative to the project's folder
-and an edit drawn as its diff (`tools.ts`); a run of calls of one kind folds
+and an edit drawn as its diff (`tool/call/`); a run of calls of one kind folds
 into one line.
 
 The keyboard comes from `@kestack/use-keys`, defined in one file
@@ -256,7 +267,7 @@ Session Actions, Ctrl+N starts a new session, Ctrl+B shows or hides the
 sidebar, Ctrl+/ shows the keys, and the keys below that work while typing
 work here too.
 Mod+Alt+V, or the switch in Settings, turns Vim Mode on, kept in Device
-State: the app floats as a window with the keys' status line at its foot,
+State: the keys' status line shows at the app's foot,
 and dialogs and Pickers open at once. In Vim Mode the sidebar and the
 page are the two Surfaces you work in, the Draft is part of the page, and every Picker and
 the help sheet are isolated Surfaces over them, open while Active. Each
@@ -290,8 +301,9 @@ Surface, taken before cmdk hears it. A Picker opened over another takes
 the Surface from it. Settings and the keys sheet (`?`, or Ctrl+/) list every Action of
 `keys.ts` as its key table does: in sections by what is done (Open, Move
 around, The Draft, The session, Inside a Picker, The app), one row per
-thing, its keys that work in either Mode beside its Vim Mode ones, quieter
-while Vim Mode is off. Settings has a search: clicking an Action's keys records the next key pressed in
+thing, its keys that work in either Mode beside its Vim Mode ones; with
+Vim Mode off, Settings leaves out the Vim Mode column and what only Vim
+Mode does. Settings has a search: clicking an Action's keys records the next key pressed in
 their place, on an isolated Surface where no app key works, and Escape
 keeps them. A key another Action on the same Surface has names it and
 offers to Swap; one a nearer Surface has is allowed, with a note; a key

@@ -29,6 +29,7 @@
     "@kestack/web-platform": "workspace:*",
     "@tanstack/db": "catalog:",
     "effect": "catalog:",
+    "motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   },

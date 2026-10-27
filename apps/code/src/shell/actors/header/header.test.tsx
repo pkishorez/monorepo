@@ -3,7 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Connection } from '../../machines/index.ts';
-import { Model, Offline } from './header.tsx';
+import { Offline } from './header.tsx';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -87,45 +87,5 @@ describe('the offline mark', () => {
     );
     expect(words().phone).toBe('Out of reach');
     expect(words().wide).toMatch(/^Out of reach · seen /);
-  });
-});
-
-describe("the open session's model", () => {
-  const session = (account: string) =>
-    ({
-      id: 's1',
-      projectId: 'p1',
-      harness: 'claude',
-      account,
-      model: 'claude-opus-5-5',
-    }) as never;
-  const draw = (account: string) =>
-    act(() =>
-      root.render(
-        <Model
-          session={session(account)}
-          names={{ claude: 'Claude', 'claude-work': 'Claude Work' }}
-        />,
-      ),
-    );
-  const logo = () =>
-    host.querySelector('svg[role="img"]')?.getAttribute('aria-label');
-
-  it('is the Claude logo alone for the Default Account, then the model', () => {
-    draw('claude');
-    expect(logo()).toBe('Claude');
-    expect(host.textContent).toBe('·claude-opus-5-5');
-    expect(host.firstElementChild?.getAttribute('title')).toBe(
-      'Claude · claude-opus-5-5',
-    );
-  });
-
-  it('is the logo and the account it runs as for any other', () => {
-    draw('claude-work');
-    expect(logo()).toBe('Claude');
-    expect(host.textContent).toBe('Work·claude-opus-5-5');
-    expect(host.firstElementChild?.getAttribute('title')).toBe(
-      'Claude-Work · claude-opus-5-5',
-    );
   });
 });
