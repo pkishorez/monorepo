@@ -104,6 +104,20 @@ Checked on 2026-10-28 with `pnpm --filter code dev` and the touch-layers fixture
 
 Fixed: every touch layer measured the keyboard as `innerHeight - visualViewport.offsetTop - visualViewport.height`. iOS (27, and 18 too) pans the page under the keyboard and shrinks `innerHeight` by as much, so this came out at zero or below, and a Drawer's foot stayed under the keyboard. The layers now take `documentElement.clientHeight` for the layout viewport (`platforms/web-platform/src/recipes/touch-layers/visible-viewport.ts`, tested in `visible-viewport.test.ts`), and the Question Panel's sheet uses the same measure. Fixed too: on iOS a tap on the Touch Draft's model chip, Add or Send while typing gives the button no focus, so the Draft collapsed and the tap missed; it now looks at where the press began (`draft/write/touch/touch.ts`, tested in `touch/tests/blur.test.ts`). The Draft is padded over the keyboard, as iOS pans only as far as the caret. And a tap in the Skills' search reached the Draft through React's portal and focused it.
 
+### The on-screen keyboard on Android
+
+Checked on 2026-10-28 with `pnpm --filter code dev` in Chrome 113 on an Android 14 emulator (Pixel 3a), Gboard on screen, driven by `adb` taps and keys, live with Claude `claude-haiku-5-5` (Low) and Codex `gpt-5.6-luna` (Low), and the touch-layers fixtures from `cosmos`, with the app's `interactive-widget=resizes-content` and without it (Chrome then pans, as iOS). Chrome resizes the layout viewport to what is seen, so `visualViewport` adds no lift: no layer was lifted twice or left a gap. An Android 10 emulator's Chrome 91 does not start the app. Screenshots and videos are in `~/Downloads/agent-questions-qa/android/`.
+
+| #   | Scenario                    | What to watch for                                                                                                             | Result           |
+| --- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| 48  | Android, a field in a layer | New folder, model and Skills search, the fixtures' top, middle and foot fields, the Top Dialog: each on the keyboard          | pass             |
+| 49  | Android, field to field     | Gboard's Next between the fixture's fields: no jump; the Drawer stays                                                         | pass             |
+| 50  | Android, keyboard down      | Back hides the keyboard and leaves the layer; a tap outside, a swipe down, Send; reopened, no gap                             | pass             |
+| 51  | Android, keyboard height    | Gboard's emoji keyboard and back: the Sheet follows                                                                           | pass             |
+| 52  | Android, Question Panel     | Other typed; Gboard's action key goes on, Send on the last step; a swipe down with the keyboard up leaves the bar at the foot | pass after fixes |
+
+Fixed: Gboard's action key in the Question Panel's own answer did nothing. Asked for `next`, Chrome on Android only looks for another field; and its Enter came while the word was still composed, which the field ignored. The field asks for `go`, or `send` on the last step, and ignores only an IME's own Enter, which says 229 (`question/dialog/step.tsx`, tested in `question.test.tsx`). Fixed too: a swipe down with the keyboard up left the bar mid-page. The sheet, slid under the column's foot, gave the page room to scroll, and Chrome scrolled it as the keyboard fell; the dialog's layer now clips it on touch (`question/dialog/dialog.tsx`). Left: with the keyboard down, Back goes back in the page's history rather than closing an open layer.
+
 ## Fixed during QA
 
 - A Claude subagent's "What it reported" ended with Claude Code's note for the model (`agentId: … (use SendMessage …) <usage>…</usage>`). The Claude projection now drops that text block. Files: `toolkits/ai-toolkit/src/harnesses/claude/project/project.ts`, `project.test.ts` (new test).

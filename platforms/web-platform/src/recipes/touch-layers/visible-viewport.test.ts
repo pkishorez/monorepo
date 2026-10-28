@@ -77,6 +77,50 @@ describe('a layer fixed to the page', () => {
     ).toEqual({ top: 0, height: 420, bottom: 0, keyboard: true });
   });
 
+  it('lifts nothing where Chrome on Android resizes the page, Gboard up, and up taller for its emoji', () => {
+    // Chrome 113 on a Pixel 3a, Android 14, the page 704 tall with
+    // `interactive-widget=resizes-content`: Gboard's letters leave 429,
+    // its emoji 405; the layout viewport is what is seen, so a Drawer at
+    // its foot already sits on the keyboard.
+    const android = { tallest: 704, field: true };
+    expect(visibleOf(at({ ...android, layout: 429, height: 429 }))).toEqual({
+      top: 0,
+      height: 429,
+      bottom: 0,
+      keyboard: true,
+    });
+    expect(visibleOf(at({ ...android, layout: 405, height: 405.09 }))).toEqual({
+      top: 0,
+      height: 405,
+      bottom: 0,
+      keyboard: true,
+    });
+  });
+
+  it('sits on the keyboard where Chrome on Android pans the page, as with no interactive-widget', () => {
+    // The same Chrome with only `width=device-width`: it leaves the
+    // layout viewport 704 tall and pans 268 to show the field, as iOS.
+    expect(
+      visibleOf(
+        at({
+          layout: 704,
+          tallest: 704,
+          offsetTop: 268,
+          pageTop: 268,
+          height: 430,
+          field: true,
+        }),
+      ),
+    ).toEqual({ top: 268, height: 430, bottom: 6, keyboard: true });
+  });
+
+  it('says no keyboard once Back hides it on Android, the field still focused', () => {
+    // Back hides Gboard but leaves the focus where it was.
+    expect(
+      visibleOf(at({ layout: 704, tallest: 704, height: 704, field: true })),
+    ).toEqual({ top: 0, height: 704, bottom: 0, keyboard: false });
+  });
+
   it('says no keyboard for a shorter view with no field, as Safari’s toolbar folding', () => {
     expect(visibleOf(at({ height: 560 })).keyboard).toBe(false);
   });
