@@ -13,4 +13,3 @@ export {
   Downloads,
   HashMismatch,
 } from './downloads/index.js';
-export { lockPort, tryLock } from './lock/index.js';
