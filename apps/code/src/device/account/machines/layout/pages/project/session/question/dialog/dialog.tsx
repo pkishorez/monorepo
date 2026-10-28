@@ -228,7 +228,9 @@ export function Dialog({
           style={touch ? { paddingBottom: covered } : undefined}
           className={cn(
             'relative flex min-h-0 w-full flex-col bg-dialog text-sm text-popover-foreground shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.08),0_16px_40px_rgb(0_0_0/0.12)] ring-1 ring-edge outline-none',
-            'opacity-0 transition-[opacity,scale,translate] duration-150 ease-in in-data-expanded:opacity-100 in-data-expanded:duration-200 in-data-expanded:ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none',
+            // Hidden minimised over the Surface's own look, which an
+            // Inactive Surface takes, opacity 1, as the page draws it.
+            'opacity-0 transition-[opacity,scale,translate] duration-150 ease-in not-in-data-expanded:opacity-0! in-data-expanded:opacity-100 in-data-expanded:duration-200 in-data-expanded:ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none',
             touch
               ? 'max-h-full translate-y-full rounded-t-2xl in-data-expanded:translate-y-0'
               : 'max-h-full max-w-[36rem] translate-y-3 scale-[0.97] rounded-xl in-data-expanded:translate-y-0 in-data-expanded:scale-100',
