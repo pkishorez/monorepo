@@ -9,12 +9,11 @@ import {
   SubscriptionRef,
 } from 'effect';
 import { TestClock } from 'effect/testing';
+import { CodeClient, CodeClients } from '@kestack/connect/code';
 import {
   CloudClient,
-  CodeClient,
-  CodeClients,
   type Connection as ConnectionSchema,
-} from '@kestack/connect/code';
+} from '@kestack/connect/cloud';
 import { Actor, type Instance, Runtime, type Running } from '@kestack/kabuki';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { describe, expect, it } from 'vitest';

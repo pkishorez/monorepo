@@ -23,6 +23,10 @@
       "types": "./dist/plugins/code/api/index.d.ts",
       "default": "./dist/plugins/code/api/index.js"
     },
+    "./cloud": {
+      "types": "./dist/cloud/client/index.d.ts",
+      "default": "./dist/cloud/client/index.js"
+    },
     "./worker": {
       "types": "./dist/cloud/worker/index.d.ts",
       "default": "./dist/cloud/worker/index.js"

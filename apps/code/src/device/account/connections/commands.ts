@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { CloudClient, Connection } from '@kestack/connect/code';
+import { CloudClient, Connection } from '@kestack/connect/cloud';
 import { Command } from '@kestack/kabuki';
 import {
   Cache,

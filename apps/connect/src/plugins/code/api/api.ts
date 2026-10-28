@@ -1,8 +1,8 @@
 /*
  * `@kestack/connect/code`: what Code's browser imports. The code
  * Plugin's API, the records it speaks of, and the client and Replica that
- * reach it on each Connection; and Cloud Connect's contract and client: the
- * Connections an App lists and forgets.
+ * reach it on each Connection. The Connections an App lists and forgets
+ * are Cloud Connect's, through `@kestack/connect/cloud`.
  */
 
 export {
@@ -96,16 +96,3 @@ export {
   type ConnectionClient,
   type LinkStatus,
 } from './client/index.js';
-export {
-  addressOf,
-  AUTH_PATH,
-  CloudApi,
-  Connection,
-  ConnectionForgotten,
-  ConnectionReport,
-  ConnectionStatus,
-  ConnectionTaken,
-  RPC_PATH,
-  TunnelCheck,
-} from '../../../cloud/contract/index.js';
-export { CloudClient, VersionGap } from '../../../cloud/client/index.js';

@@ -14,7 +14,7 @@ import { CodeApi, type WireEntity } from '../contract/index.js';
 import {
   versionedClient,
   type VersionGap,
-} from '../../../../cloud/client/index.js';
+} from '../../../../cloud/contract/index.js';
 import {
   MessageSchema,
   PROJECTION_VERSION,

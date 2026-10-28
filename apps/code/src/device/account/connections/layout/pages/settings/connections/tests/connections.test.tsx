@@ -6,8 +6,8 @@ import {
   CodeClient,
   CodeClients,
   type HarnessAccountInfo,
-  type Connection as ConnectionSchema,
 } from '@kestack/connect/code';
+import { type Connection as ConnectionSchema } from '@kestack/connect/cloud';
 import { Actor } from '@kestack/kabuki';
 import { toReact, View } from '@kestack/kabuki/react';
 import { Navigation } from '@kestack/kabuki/routing';
