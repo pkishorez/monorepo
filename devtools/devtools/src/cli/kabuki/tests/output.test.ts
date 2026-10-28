@@ -1,10 +1,12 @@
 import { describe, expect, test } from 'vitest';
 import type { Changes, Entry, History } from '@kestack/devtools-kabuki/api';
+import type { KabukiSessionSummary } from '@kestack/devtools-kabuki/server';
 import {
   renderChangesText,
   renderHistoryText,
   renderSessionsText,
   renderSnapshotText,
+  sessionsTree,
 } from '../text.js';
 
 const wrote: Entry = {
@@ -30,21 +32,51 @@ const bumped: Entry = {
 };
 
 describe('kabuki output', () => {
-  test('lists Kabuki Sessions one per row', () => {
-    expect(
-      renderSessionsText([
-        {
-          name: 'quiet-otter',
-          app: 'Diary',
-          url: 'http://localhost:5173/',
-          origin: 'http://localhost:5173',
-          connectedAt: 0,
-        },
-      ]),
-    ).toBe(
-      'quiet-otter  app Diary  origin http://localhost:5173  connected 1970-01-01T00:00:00.000Z  http://localhost:5173/',
+  test('lists Kabuki Sessions as a tree: app, Environment, one row each', () => {
+    const session = (
+      name: string,
+      app: string,
+      environment: string,
+      url: string,
+    ): KabukiSessionSummary => ({
+      name,
+      app,
+      environment,
+      url,
+      origin: null,
+      connectedAt: 0,
+    });
+    const tree = sessionsTree([
+      session('swift-seal', 'connect', 'kishores-mbp', ''),
+      session(
+        'calm-heron',
+        'code',
+        'app.trycloudflare.com',
+        'https://app.trycloudflare.com/',
+      ),
+      session(
+        'quiet-otter',
+        'code',
+        'localhost:5173',
+        'http://localhost:5173/notes',
+      ),
+      session('lynx', 'code', 'localhost:5173', 'http://localhost:5173/'),
+    ]);
+    expect(tree.apps.map(({ app }) => app)).toEqual(['code', 'connect']);
+    expect(renderSessionsText(tree)).toBe(
+      [
+        'code',
+        '  localhost:5173',
+        '    quiet-otter  /notes  connected 1970-01-01T00:00:00.000Z',
+        '    lynx         /  connected 1970-01-01T00:00:00.000Z',
+        '  app.trycloudflare.com',
+        '    calm-heron  /  connected 1970-01-01T00:00:00.000Z',
+        'connect',
+        '  kishores-mbp',
+        '    swift-seal  (no page)  connected 1970-01-01T00:00:00.000Z',
+      ].join('\n'),
     );
-    expect(renderSessionsText([])).toContain('No Kabuki Session');
+    expect(renderSessionsText(sessionsTree([]))).toContain('No Kabuki Session');
   });
 
   test('renders a History as one line per entry', () => {

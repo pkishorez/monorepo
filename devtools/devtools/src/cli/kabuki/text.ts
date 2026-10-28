@@ -5,11 +5,16 @@ import type {
   InstanceChange,
   SnapshotView,
 } from '@kestack/devtools-kabuki/api';
-import type { KabukiSessionSummary } from '@kestack/devtools-kabuki/server';
+import { grouped } from '@kestack/devtools-kabuki/server';
+import type {
+  AppGroup,
+  KabukiSessionSummary,
+} from '@kestack/devtools-kabuki/server';
 
 /*
- * The Kabuki commands as text, for an agent to read: one line per Kabuki
- * Session or History entry, and values as compact JSON.
+ * The Kabuki commands as text, for an agent to read: the Kabuki Sessions
+ * as a tree, app, Environment, then one line each; one line per History
+ * entry; and values as compact JSON.
  */
 
 const date = (millis: number) => new Date(millis).toISOString();
@@ -21,23 +26,49 @@ const appTime = (millis: number) =>
 const json = (value: unknown) =>
   value === undefined ? '(none)' : JSON.stringify(value);
 
-/** The live Kabuki Sessions, one per row. */
-export const renderSessionsText = (
+/** The live Kabuki Sessions by app, then Environment, as `sessions` prints them. */
+export interface SessionsTree {
+  readonly apps: ReadonlyArray<AppGroup<KabukiSessionSummary>>;
+}
+
+/** The Kabuki Sessions grouped into a tree. */
+export const sessionsTree = (
   sessions: ReadonlyArray<KabukiSessionSummary>,
-) =>
-  sessions.length === 0
-    ? 'No Kabuki Session is connected. Open the app with ?kabuki-session=<name>.'
-    : sessions
-        .map((one) =>
+): SessionsTree => ({ apps: grouped(sessions) });
+
+/** A Kabuki Session's page under its Environment: the path alone where the Environment is the page's host. */
+const pageText = (url: string, environment: string) => {
+  if (url === '') return '(no page)';
+  try {
+    const { host, pathname } = new URL(url);
+    return host === environment ? pathname : `${host}${pathname}`;
+  } catch {
+    return url;
+  }
+};
+
+/** The live Kabuki Sessions as a tree: each app, each of its Environments, then one row per Kabuki Session. */
+export const renderSessionsText = ({ apps }: SessionsTree) => {
+  if (apps.length === 0)
+    return 'No Kabuki Session is connected. Attach `connect` from @kestack/devtools-kabuki/session to a running app.';
+  const lines: Array<string> = [];
+  for (const { app, environments } of apps) {
+    lines.push(app);
+    for (const { environment, sessions } of environments) {
+      lines.push(`  ${environment}`);
+      const width = Math.max(...sessions.map((one) => one.name.length));
+      for (const one of sessions)
+        lines.push(
           [
-            one.name,
-            `app ${one.app}`,
-            `origin ${one.origin ?? '(none)'}`,
+            `    ${one.name.padEnd(width)}`,
+            pageText(one.url, environment),
             `connected ${date(one.connectedAt)}`,
-            one.url || '(no page)',
           ].join('  '),
-        )
-        .join('\n');
+        );
+    }
+  }
+  return lines.join('\n');
+};
 
 const sourceText = (source: Entry['source']) => {
   switch (source.kind) {

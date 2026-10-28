@@ -12,6 +12,7 @@ const snippet = (
 ) => `import { connect } from '@kestack/devtools-kabuki/session';
 
 toReact(App, AppView, layer, {
+  // environment: optional; the page's host by default.
   attach: [connect({ url: '${server}' })],
 });`;
 
@@ -63,7 +64,8 @@ export function Waiting({ link }: { readonly link: Link }) {
     <Blank title="No Kabuki apps connected" wide>
       <p className="mt-1.5 text-sm text-pretty text-muted-foreground">
         A running Kabuki app shows up here as a Kabuki Session the moment it
-        connects, and leaves when it closes. Attach{' '}
+        connects, under its app and where it runs, and leaves when it closes.
+        Attach{' '}
         <code className="font-mono text-[13px] text-foreground">connect</code>{' '}
         to it:
       </p>

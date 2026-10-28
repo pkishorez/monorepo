@@ -12,6 +12,7 @@ const client = {} as KabukiSessionClient;
 const asked = (name: string) => ({
   name,
   app: 'Diary',
+  environment: 'localhost:5173',
   url: 'http://localhost:5173/',
   origin: 'http://localhost:5173',
   client,

@@ -9,13 +9,14 @@ import {
   renderHistoryText,
   renderSessionsText,
   renderSnapshotText,
+  sessionsTree,
 } from './text.js';
 
 /*
  * `devtools kabuki`: ask a running Kabuki app about itself, through the
  * DevTools Server it is connected to as a Kabuki Session.
  *
- * 1. sessions   the live Kabuki Sessions.
+ * 1. sessions   the live Kabuki Sessions, by app, then Environment.
  * 2. history    a Kabuki Session's History, the last few or since an entry.
  * 3. changes    what one Step did.
  * 4. snapshot   the Snapshot at a Step, or a part of it.
@@ -41,16 +42,48 @@ const someOf = <K extends string, A>(key: K, value: Option.Option<A>) =>
   });
 
 // 1. sessions
-const sessionsCommand = Command.make('sessions', clientFlags, (flags) =>
-  printClient(
-    flags,
-    withKabukiSessions(flags.url, (sessions) => sessions.list()).pipe(
-      Effect.map((list) => output(list, renderSessionsText)),
+const sessionsCommand = Command.make(
+  'sessions',
+  {
+    app: Flag.optional(
+      Flag.String('app').pipe(Flag.withDescription('Only this app')),
     ),
-  ),
+    env: Flag.optional(
+      Flag.String('env').pipe(
+        Flag.withDescription(
+          "Only this Environment: the page's host, as `localhost:5173`, or the one the app gave",
+        ),
+      ),
+    ),
+    ...clientFlags,
+  },
+  ({ app, env, ...flags }) =>
+    printClient(
+      flags,
+      withKabukiSessions(flags.url, (sessions) => sessions.list()).pipe(
+        Effect.map((list) =>
+          output(
+            sessionsTree(
+              list.filter(
+                (one) =>
+                  Option.match(app, {
+                    onNone: () => true,
+                    onSome: (only) => one.app === only,
+                  }) &&
+                  Option.match(env, {
+                    onNone: () => true,
+                    onSome: (only) => one.environment === only,
+                  }),
+              ),
+            ),
+            renderSessionsText,
+          ),
+        ),
+      ),
+    ),
 ).pipe(
   Command.withDescription(
-    'List the live Kabuki Sessions: name, app, origin, when connected, page',
+    'List the live Kabuki Sessions by app, then Environment: name, page, when connected',
   ),
 );
 

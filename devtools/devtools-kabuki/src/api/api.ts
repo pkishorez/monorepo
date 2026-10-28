@@ -493,7 +493,12 @@ export interface Dialed {
   readonly url: string;
   /** Its app. */
   readonly app: string;
+  /** Where it runs: the one it was given, else the page's host, else `DEFAULT_ENVIRONMENT`. */
+  readonly environment: string;
 }
+
+/** The Environment of a Kabuki Session given none and running on no page, as outside a browser. */
+export const DEFAULT_ENVIRONMENT = 'default';
 
 /** What both ends of the socket speak: one JSON message per frame. */
 export const serialization = RpcSerialization.layerJson;

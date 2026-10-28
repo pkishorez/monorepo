@@ -88,8 +88,11 @@ Step changed. DevTools keeps a Kabuki Session only while the app runs.
 1. Open the app with `?kabuki-session=<name>` in its URL (say
    `?kabuki-session=checkout-bug`), so you know its name. Or read the name
    from the app's in-page dock.
-2. `devtools kabuki sessions --format text` lists the live ones: name, app,
-   origin, when connected, page. A taken name gets `-2`, `-3`.
+2. `devtools kabuki sessions --format text` lists the live ones as a tree:
+   each app, each of its Environments (the page's host, as `localhost:5173`,
+   or the one the app gave), then name, page and when connected. `--app
+   <app>` and `--env <environment>` narrow it. A taken name gets `-2`, `-3`;
+   names stay unique across every app.
 3. Do the action in the app, then
    `devtools kabuki history <name> --last 20 --format text`: one line per
    entry, `#id  Message  → destination  from source  outcome  at Time`.

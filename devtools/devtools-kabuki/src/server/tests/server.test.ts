@@ -92,6 +92,7 @@ describe('the Kabuki routes', () => {
           const stop = connect(diary.runtime, {
             url: `ws://127.0.0.1:${port}`,
             name: 'diary',
+            environment: 'kishores-mbp',
           });
           yield* Effect.addFinalizer(() => Effect.sync(stop));
           yield* namesOnceThere(sessions, 1);
@@ -107,7 +108,11 @@ describe('the Kabuki routes', () => {
             'diary-2',
           ]);
           const [first] = yield* sessions.list();
-          expect(first).toMatchObject({ app: 'Diary', origin: null });
+          expect(first).toMatchObject({
+            app: 'Diary',
+            environment: 'kishores-mbp',
+            origin: null,
+          });
 
           const client = yield* dialSession(url, 'diary');
           const history = yield* client.history({});

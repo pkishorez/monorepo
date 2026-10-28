@@ -19,6 +19,8 @@ export interface KabukiSession {
   readonly name: string;
   /** Its app: the root Actor's name. */
   readonly app: string;
+  /** Where it runs: the page's host, or the one the app gave. */
+  readonly environment: string;
   /** The page it runs in now. */
   readonly url: string;
   /** The page's origin, as its socket said; `null` when it said none, as outside a browser. */

@@ -30,9 +30,15 @@ export {
   KabukiSessionSummary,
   KabukiSessionsApi,
   SESSIONS_PATH,
+  grouped,
+  isLocalEnvironment,
   sessionPath,
 } from './sessions-api.ts';
-export type { KabukiSessionsClient } from './sessions-api.ts';
+export type {
+  AppGroup,
+  EnvironmentGroup,
+  KabukiSessionsClient,
+} from './sessions-api.ts';
 
 export interface ForwardOptions {
   /** The origins of DevTools' own page, as `http://127.0.0.1:14400`. */
@@ -56,12 +62,14 @@ const guarded =
 const summaryOf = ({
   name,
   app,
+  environment,
   url,
   origin,
   connectedAt,
 }: KabukiSession): KabukiSessionSummary => ({
   name,
   app,
+  environment,
   url,
   origin,
   connectedAt,

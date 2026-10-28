@@ -22,9 +22,9 @@ import './styles.css';
  * (`device/actor.ts`). No Machine's socket is here: the root page reaches
  * each Machine over its own.
  *
- * Attached beside it, the local DevTools Server, as a Kabuki Session:
- * always while developing; in production only when the page's URL asks,
- * with `?kabuki-session`.
+ * Attached beside it while developing, the DevTools Server, as a Kabuki
+ * Session: at `/__devtools` on the app's own origin, which Vite pipes to
+ * the server its config names, so a tunnel to the app reaches it too.
  */
 
 const layer = Layer.mergeAll(
@@ -47,10 +47,5 @@ export default Start.app({
       : {}),
   }),
   layer,
-  attach: [
-    connect({
-      url: 'http://127.0.0.1:14400',
-      when: import.meta.env.DEV ? 'always' : 'asked',
-    }),
-  ],
+  attach: import.meta.env.DEV ? [connect()] : [],
 });
