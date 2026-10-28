@@ -7,12 +7,12 @@ import { Plugin, PluginFolders } from '../../plugin/index.js';
 /*
  * A tiny Plugin for the tests: `ping` answers which variant it is, and as
  * it stops it leaves a mark in its data folder, so a test sees its
- * finalizers ran.
+ * finalizers ran; given `stopping`, it takes that many ms to stop first.
  */
 
 export const Ping = RpcGroup.make(Rpc.make('ping', { success: Schema.String }));
 
-export const runPing = (variant: string) =>
+export const runPing = (variant: string, stopping = 0) =>
   Plugin.make({
     name: 'ping',
     group: Ping,
@@ -20,8 +20,12 @@ export const runPing = (variant: string) =>
       Effect.gen(function* () {
         const folders = yield* PluginFolders;
         yield* Effect.addFinalizer(() =>
-          Effect.sync(() =>
-            writeFileSync(join(folders.data, `stopped-${variant}`), ''),
+          Effect.sleep(stopping).pipe(
+            Effect.andThen(
+              Effect.sync(() =>
+                writeFileSync(join(folders.data, `stopped-${variant}`), ''),
+              ),
+            ),
           ),
         );
         return { ping: () => Effect.succeed(`pong ${variant}`) };

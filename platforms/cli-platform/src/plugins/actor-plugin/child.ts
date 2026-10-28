@@ -10,7 +10,10 @@ import { PluginEnv } from '../contract/index.js';
  * and folders in the environment. What it prints is split into lines and
  * kept in its log file; what happens to it arrives as Events. Closing the
  * Scope stops it: SIGTERM, then SIGKILL if it is still there after ten
- * seconds, and waits until it is gone, so the next one may take its socket.
+ * seconds, and waits until it is gone. Kabuki does not wait for a stopped
+ * Worker's Scope to close, so a new process on the same socket waits
+ * itself for the one before it to exit, not only to leave the socket: two
+ * never run at once on one socket's folders.
  */
 
 /** How many of its last lines a Plugin's log keeps in memory. */
@@ -21,6 +24,12 @@ const GRACE = Duration.seconds(10);
 
 /** How long a new Plugin waits for the one before it to leave the socket. */
 const SOCKET_FREE = Duration.seconds(15);
+
+/** How long a new Plugin waits for the one before it to exit: its grace, its kill, and a little more. */
+const GONE = Duration.seconds(25);
+
+/** The process last started on each socket, until it exits. */
+const started = new Map<string, ChildProcess>();
 
 /** What happens to a Plugin process. */
 export type Event =
@@ -93,6 +102,16 @@ const waitExit = (child: ChildProcess, within: Duration.Input) =>
     });
   });
 
+/** Waits until the process last started on `socket` has exited: whether it did in time. */
+export const previousGone = (socket: string) =>
+  Effect.suspend(() => {
+    const previous = started.get(socket);
+    // One that never started has no pid, and never exits.
+    return previous === undefined || previous.pid === undefined
+      ? Effect.succeed(true)
+      : waitExit(previous, GONE);
+  });
+
 const stop = (child: ChildProcess) =>
   Effect.gen(function* () {
     if (exited(child)) return;
@@ -132,6 +151,11 @@ export const child = (options: ChildOptions) =>
             [PluginEnv.state]: options.folders.state,
             [PluginEnv.cache]: options.folders.cache,
           },
+        });
+        started.set(options.socket, process_);
+        process_.once('exit', () => {
+          if (started.get(options.socket) === process_)
+            started.delete(options.socket);
         });
         process_.stdout?.on('data', lineSplitter(keep));
         process_.stderr?.on('data', lineSplitter(keep));
