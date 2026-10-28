@@ -159,7 +159,6 @@
       "src/ui/components"
     ],
     "src/recipes": ["src/ui/components", "src/ui/input"],
-    "src/recipes/devtools/kabuki": ["src/ui/viewers"],
     "src/recipes/frame/sidebar": ["src/recipes/frame/frame"],
     "src/ui/components/alert-dialog.tsx": ["src/ui/components/button.tsx"],
     "src/ui/components/attachment.tsx": ["src/ui/components/button.tsx"],

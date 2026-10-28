@@ -24,6 +24,7 @@
     "@codemirror/view": "catalog:",
     "@kestack/auth-toolkit": "workspace:*",
     "@kestack/connect": "workspace:*",
+    "@kestack/devtools-kabuki": "workspace:*",
     "@kestack/kabuki": "workspace:*",
     "@kestack/rpc-toolkit": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",

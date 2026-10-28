@@ -1,0 +1,13 @@
+{
+  "$schema": "../laymos/schema.json",
+  "sourceRoots": ["src"],
+
+  "rules": {
+    "src/session": ["src/api"],
+    "src/inspector": ["src/api", "src/session"],
+    "src/inspector/actor-inspector": ["src/inspector/kabuki-session"],
+    "src/server": ["src/api"],
+    "src/server/accept": ["src/server/registry"],
+    "src/server/forward": ["src/server/registry"]
+  }
+}

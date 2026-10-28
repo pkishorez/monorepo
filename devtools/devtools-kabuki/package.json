@@ -1,0 +1,75 @@
+{
+  "name": "@kestack/devtools-kabuki",
+  "version": "0.0.15",
+  "private": false,
+  "description": "Kabuki apps in DevTools: each running app serves its History, Snapshots and graph as a Kabuki Session over Effect RPC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo",
+    "directory": "devtools/devtools-kabuki"
+  },
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./api": {
+      "types": "./dist/api/index.d.ts",
+      "default": "./dist/api/index.js"
+    },
+    "./session": {
+      "types": "./dist/session/index.d.ts",
+      "default": "./dist/session/index.js"
+    },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
+    },
+    "./inspector": {
+      "types": "./dist/inspector/index.d.ts",
+      "default": "./dist/inspector/index.js"
+    },
+    "./inspector/sources.css": "./dist/inspector/sources.css"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "rm -rf ./dist && tsc -p tsconfig.build.json && cp src/inspector/sources.css dist/inspector/",
+    "build:watch": "tsc -p tsconfig.build.json --watch",
+    "fmt": "vp fmt",
+    "lint": "vp check src package.json tsconfig.json tsconfig.build.json laymos.config.json && pnpm lint:tsc && pnpm lint:laymos",
+    "lint:laymos": "laymos lint",
+    "lint:tsc": "tsc --noEmit",
+    "test": "vp test src",
+    "test:watch": "vp test src --watch"
+  },
+  "dependencies": {
+    "lucide-react": "catalog:",
+    "motion": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "catalog:",
+    "@kestack/kabuki": "workspace:*",
+    "@kestack/web-platform": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "effect": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "@kestack/kabuki": "workspace:*",
+    "@kestack/web-platform": "workspace:*",
+    "effect": "^4.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
