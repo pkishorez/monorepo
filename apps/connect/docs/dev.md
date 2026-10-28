@@ -13,12 +13,12 @@ The branch's Connection is `dev-<branch>`: the dev script runs this checkout's o
 
 ## Folders
 
-| What                                                                   | Where                                                      |
-| ---------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Data: `connection.json`, the Sign-in, `wanted.json`, the code Plugin's | `~/.local/share/kestack/connect/connections/dev-<branch>/` |
-| State: `connect.log`, `plugins/code.log`                               | `~/.local/state/kestack/connect/connections/dev-<branch>/` |
-| The branch's dev folder                                                | `~/.local/state/kestack/connect/dev/<branch>/`             |
-| The folder Shelf, every branch's                                       | `~/.cache/kestack/connect/shelf/<name>/<sha256>.mjs`       |
+| What                                                                                   | Where                                                      |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Data: `connection.json`, the Sign-in and `auth.json`, `wanted.json`, the code Plugin's | `~/.local/share/kestack/connect/connections/dev-<branch>/` |
+| State: `connect.log`, `plugins/code.log`                                               | `~/.local/state/kestack/connect/connections/dev-<branch>/` |
+| The branch's dev folder                                                                | `~/.local/state/kestack/connect/dev/<branch>/`             |
+| The folder Shelf, every branch's                                                       | `~/.cache/kestack/connect/shelf/<name>/<sha256>.mjs`       |
 
 `$XDG_DATA_HOME` and `$XDG_STATE_HOME` replace `~/.local/share` and `~/.local/state` when set. The cache (cloudflared, models, Speech to Text) is shared by every Connection. `ke-connect list` shows every branch's Connection, and whether it runs.
 

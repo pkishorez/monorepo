@@ -153,6 +153,13 @@ origins; Props: wanted, each Plugin State.
   start reads it: it is what the Connection last ran, not who it is, and
   `list` and `remove` never need it. Caveat: a Connection that never got an
   answer runs nothing until it does.
+- **It starts offline, from what it kept**, because a computer whose
+  Cloud Connect is down must still run Code: identity/ signs in through the
+  AuthInfo it kept in `auth.json`, with the Sign-in kept, the root starts
+  its Plugins from `wanted.json`, and online's beat Reports each beat,
+  Unsent, until Cloud Connect answers. Caveat: a first Sign-in needs Cloud
+  Connect, and a Sign-in Cloud Connect refuses once it answers is signed in
+  again as ever.
 - **An Outdated Connection stops through Connection.stop**, because it is
   a stop with a reason like any other, and its Plugins stop with it.
   Caveat: it has already reported, so its User sees the version it runs.
