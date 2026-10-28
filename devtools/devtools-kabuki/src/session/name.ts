@@ -7,8 +7,10 @@
  *            sessionStorage, so a reload asks for the same one.
  * 4. Made    a readable name, `quiet-otter`.
  *
- * DevTools may answer another, `quiet-otter-2` on a clash; that one is
- * kept for the next reload.
+ * DevTools may answer another, `quiet-otter-2` on a clash. The app dials
+ * again under that one while the page runs, but keeps the one it asked
+ * for: a reload whose last socket is not yet closed clashes with itself,
+ * and keeping its answer would move the tab to `-2`, `-3` for good.
  */
 
 /** The query parameter that names a Kabuki Session in the page's URL. */
