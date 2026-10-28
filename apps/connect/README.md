@@ -40,7 +40,7 @@ Every value an RPC sends is an ESchema, so the newer side reads what an older on
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `CodeApi`                | The RPC group of the `code` Plugin: its commands and the `projects`, `sessions`, `messages` feeds.                                                   |
 | `CodeClient`             | Service holding one Connection's `CodeApi` client over its reconnecting WebSocket.                                                                   |
-| `CodeClient.layer`       | Layer of `CodeClient` for a `ws(s)://…/code/rpc` URL, or a path in a browser, with the Connection Key if given.                                      |
+| `CodeClient.layer`       | Layer of `CodeClient` for a `ws(s)://…/code/<sha256>/rpc` URL, or a path in a browser, with the Connection Key if given.                             |
 | `ConnectionAddress`      | Service the App gives: where a Connection's socket is, by Connection id, and its Connection Key, on each connect.                                    |
 | `CodeClients`            | Service holding every Connection's client by Connection id, one socket each, shared by whatever holds it.                                            |
 | `CodeClients.layer`      | Layer of `CodeClients` opening each Connection's socket at the address `ConnectionAddress` gives.                                                    |
@@ -61,9 +61,9 @@ Every value an RPC sends is an ESchema, so the newer side reads what an older on
 | `SettingInfo`            | ESchema of one harness setting and the choices a picker offers.                                                                                      |
 | `ModelInfo`              | Schema of one Language Model: id, name, and release date.                                                                                            |
 | `ProjectSchema`          | Entity schema of a Project.                                                                                                                          |
-| `ProjectValue`           | `ProjectSchema.schema`: a Project with its version, as `addProject` returns it; an older Connect's reply reads as it is now.                         |
+| `ProjectValue`           | `ProjectSchema.schema`: a Project with its version, as `addProject` returns it.                                                                      |
 | `SessionSchema`          | Entity schema of a Session.                                                                                                                          |
-| `SessionValue`           | `SessionSchema.schema`: a Session with its version, as `startSession` and `forkSession` return it; an older Connect's reply reads as it is now.      |
+| `SessionValue`           | `SessionSchema.schema`: a Session with its version, as `startSession` and `forkSession` return it.                                                   |
 | `MessageSchema`          | Entity schema of a Message, the projected form a client reads.                                                                                       |
 | `PartSchema`             | Schema of one Message part: text, thinking, tool call, attachment, turn start or end, and more.                                                      |
 | `HarnessAccountSchema`   | Entity schema of a Harness Account: its harness, name, binary and config folder.                                                                     |
@@ -154,9 +154,8 @@ ke-connect remove work           # stops it, forgets it in Cloud Connect, signs 
 ```
 
 - It signs in through the Auth Worker that Cloud Connect's `/auth` names, and keeps the Connection's id, Connection Key and Cloud Connect in `connection.json`; serving it against another Cloud Connect is refused.
-- It runs each Plugin at the Release Cloud Connect names, or the one it last named while Cloud Connect cannot be reached, passes `/<plugin>/<sha256>/rpc` to it while it runs that Release and closes any other with 4409, asks every caller for the Connection Key, and opens a cloudflared tunnel to its port. The older `/<plugin>/rpc` is still passed, for one release.
+- It runs each Plugin at the Release Cloud Connect names, or the one it last named while Cloud Connect cannot be reached, passes `/<plugin>/<sha256>/rpc` to it while it runs that Release and closes any other with 4409, asks every caller for the Connection Key, and opens a cloudflared tunnel to its port; any other path is 404.
 - Its Heartbeat reports the tunnel's address and each Plugin State every 15 seconds. A forgotten Connection signs out and stops; one below the Minimum Connect stops, saying how to update.
-- `--plugin code=<file>` runs a Plugin from a file instead, at any hash, for development.
 
 ### Talk to a Connection from a browser
 

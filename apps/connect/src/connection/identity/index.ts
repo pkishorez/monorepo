@@ -8,5 +8,4 @@ export {
   hostName,
   identify,
   kept,
-  oldFolders,
 } from './identity.js';

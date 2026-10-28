@@ -7,7 +7,7 @@ import { Batch, Cursor } from './wire.js';
 
 /* Folders added as Projects. */
 
-/** A Project as a reply carries it, with its version; an older Connect's is read as it is now. */
+/** A Project as a reply carries it, with its version. */
 export const ProjectValue = ProjectSchema.schema;
 
 export const ProjectsRpc = RpcGroup.make(

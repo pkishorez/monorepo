@@ -113,17 +113,6 @@ export const addressOf = (status: ConnectionStatus) =>
 /** A version of Connect, as a Report names it. */
 const Version = Schema.String.check(Schema.isMaxLength(32));
 
-/** What a Connection said of itself before it reported its Plugins: v1 of both values below. */
-const reportFields = {
-  id: Bounded(64),
-  name: Bounded(64),
-  /** Its Connection Key (ADR 0015). */
-  key: Bounded(128),
-  /** The version of Connect it runs. */
-  version: Version,
-  status: ConnectionStatus.schema,
-};
-
 /** Where each of a Connection's Plugins stands, by the Plugin's name. */
 const PluginStates = Schema.Record(Schema.String, PluginState.schema);
 
@@ -134,50 +123,44 @@ const PluginVersion = Schema.Struct({
 });
 export type PluginVersion = typeof PluginVersion.Type;
 
+/** What a Connection says of itself, in its Report and in the Connection it is answered with. */
+const reportFields = {
+  id: Bounded(64),
+  name: Bounded(64),
+  /** Its Connection Key (ADR 0015). */
+  key: Bounded(128),
+  /** The version of Connect it runs. */
+  version: Version,
+  status: ConnectionStatus.schema,
+  /** Where each of its Plugins stands. */
+  plugins: PluginStates,
+};
+
 /**
  * What a Connection says of itself on each Heartbeat. Every field is bounded,
  * and its address is `https://` alone: the app dials it with the Connection
- * Key, which must never cross in clear. v2 adds where each of its Plugins
- * stands; a v1 Report had none.
+ * Key, which must never cross in clear.
  */
-export const ConnectionReport = ESchema.make('ConnectionReport', reportFields)
-  .evolve('v2', { plugins: PluginStates }, (v1) => ({ ...v1, plugins: {} }))
-  .build();
+export const ConnectionReport = ESchema.make(
+  'ConnectionReport',
+  reportFields,
+).build();
 export type ConnectionReport = typeof ConnectionReport.Type;
 
 /**
  * A Connection as its User sees it, and as Cloud Connect answers its
- * Report: what it last reported, and its Last Seen. v2 adds where each
- * Plugin stands, as it last reported, and `wanted`: the latest Release of
- * each Plugin, which the Connection should run. v3 added `latestVersion`,
- * the version of Connect Cloud Connect was deployed with. v4 drops it for
+ * Report: what it last reported, its Last Seen, `wanted`: the latest
+ * Release of each Plugin, which the Connection should run, and
  * `minConnect`, the Minimum Connect: the oldest `ke-connect` let run the
- * Plugins, null when Cloud Connect names none, as before v4; a newer
- * `ke-connect` is no reason to update.
+ * Plugins, null when Cloud Connect names none.
  */
 export const Connection = ESchema.make('Connection', {
   ...reportFields,
   /** Its Last Seen: when it last reported, epoch ms, by Cloud Connect's clock. */
   lastSeen: Schema.Finite,
-})
-  .evolve(
-    'v2',
-    {
-      plugins: PluginStates,
-      wanted: Schema.Record(Schema.String, PluginVersion),
-    },
-    (v1) => ({ ...v1, plugins: {}, wanted: {} }),
-  )
-  .evolve('v3', { latestVersion: Schema.NullOr(Version) }, (v2) => ({
-    ...v2,
-    latestVersion: null,
-  }))
-  .evolve(
-    'v4',
-    { latestVersion: null, minConnect: Schema.NullOr(Version) },
-    (v3) => ({ ...v3, minConnect: null }),
-  )
-  .build();
+  wanted: Schema.Record(Schema.String, PluginVersion),
+  minConnect: Schema.NullOr(Version),
+}).build();
 export type Connection = typeof Connection.Type;
 
 /** Whether a Connection is Outdated: it runs a `ke-connect` older than the Minimum Connect. */

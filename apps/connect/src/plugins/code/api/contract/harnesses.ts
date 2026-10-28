@@ -63,19 +63,13 @@ export const HarnessAccountInfo = ESchema.make('HarnessAccountInfo', {
   /** Its harness's Default Account, which cannot be removed. */
   isDefault: Schema.Boolean,
   resolved: BinaryInfoSchema,
-})
   /**
-   * v2: the config folder it really runs with: `configFolder`; else, with
+   * The config folder it really runs with: `configFolder`; else, with
    * none, the variable set in this Connection's environment; else the
-   * harness's own. A Connection on a Connect from before it says nothing:
-   * null.
+   * harness's own.
    */
-  .evolve(
-    'v2',
-    { resolvedConfigFolder: Schema.NullOr(ConfigFolderInfoSchema) },
-    (v1) => ({ ...v1, resolvedConfigFolder: null }),
-  )
-  .build();
+  resolvedConfigFolder: ConfigFolderInfoSchema,
+}).build();
 export type HarnessAccountInfo = typeof HarnessAccountInfo.Type;
 
 /** A Language Model a harness runs, as the wire carries it. */

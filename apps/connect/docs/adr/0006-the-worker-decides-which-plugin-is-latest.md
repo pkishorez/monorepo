@@ -11,8 +11,8 @@ Which `ke-connect` may run the Plugins is one value for all of them, the Minimum
 ## Considered options
 
 - **Each Connection runs whatever its own `ke-connect` was built with.** Rejected: a Plugin fix would wait on every computer updating `ke-connect`, and Code could not know which Release it would meet.
-- **Code asks for the latest, at `<tunnel>/<plugin>/rpc`, as before.** Rejected: an old tab and a new Plugin, or a new tab and a Connection not yet updated, would talk past each other until a call failed with `VersionGap`, with nothing to tell waiting from reloading.
-- **Each Release names the range of `ke-connect` it runs on.** Rejected for now: one Minimum Connect is enough while there is one Plugin, and a range per Release is a second thing to keep right on every release.
+- **Code asks for the latest, at `<tunnel>/<plugin>/rpc`.** Rejected: an old tab and a new Plugin, or a new tab and a Connection not yet updated, would talk past each other until a call failed with `VersionGap`, with nothing to tell waiting from reloading.
+- **Each Release names the range of `ke-connect` it runs on.** Rejected: one Minimum Connect is enough while there is one Plugin, and a range per Release is a second thing to keep right on every release.
 - **The latest is whatever was built.** The design this replaces. Rejected: any build, even one from an unmerged change, became what every Connection ran, and nothing in git said which file was live.
 
 ## Consequences
@@ -20,4 +20,5 @@ Which `ke-connect` may run the Plugins is one value for all of them, the Minimum
 - Every change to the Plugin's file needs `pnpm release:plugin <name> "<what changed>"` and its `releases.json` committed, or the deploy fails. That includes a change in a package the Plugin bundles.
 - The build must come out the same each time from the same code, or a Release could not be built again to deploy. A test builds it twice and compares; it does not compare two computers.
 - A Release's file on the Shelf never changes, and the Log only grows. Going back to an earlier Release's code builds its hash again, which the Log refuses: a rollback needs a change of its own, and so a new hash.
-- `Connection` v4 drops `latestVersion` for `minConnect`: an App asks to update `ke-connect` only below the minimum, not whenever a newer one exists.
+- An App asks to update `ke-connect` only below the Minimum Connect, never because a newer one exists.
+- This design starts fresh: ke-connect, Cloud Connect and Code ship it together, and none of them reads what one from before it sends or stores. A Connection serves a Plugin only at `/<plugin>/<sha256>/rpc`.

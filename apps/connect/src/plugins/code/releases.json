@@ -2,8 +2,8 @@
   "plugin": "code",
   "releases": [
     {
-      "hash": "ce132d2eb1cbf3bb69cd15f04c5f4be892f67ea2a9598669f52d229c46def246",
-      "summary": "The code Plugin as it ships before Releases: first in the Log"
+      "hash": "b868cf1832b87a62256c12063e5a7cc6d6b0914f81f1830c88f6aaa689d15988",
+      "summary": "The code Plugin's first Release: served at /code/<sha256>/rpc, its records at their first version"
     }
   ]
 }

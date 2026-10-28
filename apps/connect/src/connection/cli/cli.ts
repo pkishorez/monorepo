@@ -1,4 +1,3 @@
-import { isAbsolute, resolve } from 'node:path';
 import { Config, Effect } from 'effect';
 import { Argument, Command, Flag } from 'effect/cli';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
@@ -28,8 +27,6 @@ export interface ServeFlags {
   readonly origins: ReadonlyArray<string>;
   /** Seconds between Heartbeats. */
   readonly heartbeat: number;
-  /** In development: a Plugin to run from a file, by name. */
-  readonly plugins: Readonly<Record<string, string>>;
 }
 
 /** What each command does. */
@@ -76,27 +73,6 @@ const heartbeat = Flag.Int('heartbeat').pipe(
   Flag.withDefault(DEFAULT_HEARTBEAT),
 );
 
-const plugin = Flag.String('plugin').pipe(
-  Flag.withDescription(
-    'For development: run a Plugin from a file, as name=<file>, whatever Cloud Connect wants; repeatable',
-  ),
-  Flag.atLeast(0),
-);
-
-/** `name=<file>` as a name and an absolute file. */
-const pluginsOf = (given: ReadonlyArray<string>) =>
-  Effect.forEach(given, (each) => {
-    const at = each.indexOf('=');
-    return at <= 0 || at === each.length - 1
-      ? Effect.fail(new Error(`--plugin ${each} is not name=<file>`))
-      : Effect.succeed([
-          each.slice(0, at),
-          isAbsolute(each.slice(at + 1))
-            ? each.slice(at + 1)
-            : resolve(each.slice(at + 1)),
-        ] as const);
-  }).pipe(Effect.map(Object.fromEntries<string>));
-
 /** What went wrong, down every cause, such as a port already in use under a failed serve. */
 const reasonOf = (error: unknown): string => {
   if (!(error instanceof Error)) return String(error);
@@ -120,14 +96,11 @@ const root = (commands: Commands) =>
     Command.withSubcommands([
       Command.make(
         'serve',
-        { name, port, cloud, origin, heartbeat, plugin },
-        ({ origin, plugin, ...flags }) =>
-          pluginsOf(plugin).pipe(
-            Effect.flatMap((plugins) =>
-              commands.serve({ ...flags, origins: origin, plugins }),
-            ),
-            Effect.catch(exitWith),
-          ),
+        { name, port, cloud, origin, heartbeat },
+        ({ origin, ...flags }) =>
+          commands
+            .serve({ ...flags, origins: origin })
+            .pipe(Effect.catch(exitWith)),
       ).pipe(
         Command.withDescription(
           'Run a Connection: signed in, tunnelled, running its Plugins and reporting its Heartbeat',
