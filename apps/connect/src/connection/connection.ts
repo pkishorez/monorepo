@@ -24,7 +24,6 @@ import {
   hostName,
   identify,
   kept,
-  oldFolders,
 } from './identity/index.js';
 
 /*
@@ -127,10 +126,6 @@ const serve = (options: ServeFlags) =>
       runtime: own.runtime,
     });
     yield* Effect.gen(function* () {
-      for (const old of oldFolders(own))
-        yield* Effect.log(
-          `${old} is from an older ke-connect; nothing uses it any more, and it can be deleted`,
-        );
       yield* belongsTo(own.connectionFile, options.cloud);
       const identified = yield* identify({
         cloud: options.cloud,
@@ -164,7 +159,6 @@ const serve = (options: ServeFlags) =>
           control: own.control,
           port: options.port,
           origins: [...DEFAULT_ORIGINS, ...options.origins],
-          files: options.plugins,
         },
         cloud: {
           client: identified.client,

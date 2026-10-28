@@ -25,12 +25,8 @@ import { guard, HEALTH, pathOf, type Refusal, withoutKey } from './guard.js';
  * once with 4409, its reason saying so, since a browser reads nothing else
  * of it; any other request answers 409 with the same JSON. The router
  * never reads what passes: Code and the Plugin type it end to end. A
- * Plugin not listening yet answers 503; a name that is no Plugin, 404. A
- * Plugin's `/control` is its CLI's alone, and is not passed.
- *
- * For one release more, any other `/<plugin>/…` is passed as `/…` as
- * before, whatever the Plugin runs, so a Code built before Releases, which
- * calls `/<plugin>/rpc`, keeps working.
+ * Plugin not listening yet answers 503; a name that is no Plugin, and any
+ * other path, 404.
  */
 
 export interface RouterOptions {
@@ -48,9 +44,6 @@ export interface RouterOptions {
 
 const HOST = '127.0.0.1';
 
-/** `/<plugin><path>`: the Plugin's name, and the path on its socket. */
-const TARGET = /^\/([a-z0-9][a-z0-9-]{0,62})(\/[^?]*)?(\?.*)?$/;
-
 /** A request for a Release the Plugin does not run: the one it runs, null when none. */
 interface Mismatch {
   readonly running: string | null;
@@ -66,26 +59,15 @@ const targetOf = (url: string | undefined, options: RouterOptions): Target => {
   const path = pathOf(url) ?? '';
   const query = (url ?? '').slice(path.length);
   const release = pluginOfPath(path);
-  if (release !== null) {
-    const socket = options.socketOf(release.name);
-    if (socket === null)
-      return {
-        status: 404,
-        text: `This Connection runs no Plugin ${release.name}`,
-      };
-    const running = options.otherThan(release.name, release.hash);
-    return running === undefined
-      ? { socket, path: `/rpc${query}` }
-      : { running };
-  }
-  const match = TARGET.exec(url ?? '');
-  const rest = match?.[2] ?? '/';
-  if (!match || rest === '/control' || rest.startsWith('/control/'))
-    return { status: 404, text: 'Not found' };
-  const socket = options.socketOf(match[1]!);
+  if (release === null) return { status: 404, text: 'Not found' };
+  const socket = options.socketOf(release.name);
   if (socket === null)
-    return { status: 404, text: `This Connection runs no Plugin ${match[1]}` };
-  return { socket, path: `${rest}${match[3] ?? ''}` };
+    return {
+      status: 404,
+      text: `This Connection runs no Plugin ${release.name}`,
+    };
+  const running = options.otherThan(release.name, release.hash);
+  return running === undefined ? { socket, path: `/rpc${query}` } : { running };
 };
 
 const STARTING: Refusal = {

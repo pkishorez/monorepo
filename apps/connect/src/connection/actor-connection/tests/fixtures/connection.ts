@@ -115,7 +115,7 @@ export const fake = (options: {
 };
 
 /** The Input of a Connection with folders of its own. */
-export const inputOf = (files: Record<string, string> = {}) => {
+export const inputOf = () => {
   const root = folder();
   const runtime = folder();
   const socketId = 'c0ffee00';
@@ -133,7 +133,6 @@ export const inputOf = (files: Record<string, string> = {}) => {
     control: socketPath(runtime, socketId, 'connect'),
     port: 0,
     origins: ['http://localhost:*', 'https://*.app.test'],
-    files,
     lastWanted: {} as Record<string, { hash: string; url: string }>,
   };
 };

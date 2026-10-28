@@ -1,4 +1,5 @@
 import { type ChildProcess, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   chmodSync,
   existsSync,
@@ -12,12 +13,13 @@ import { createServer, type Server } from 'node:http';
 import { createServer as createNetServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Context, Effect, Layer } from 'effect';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { fakeGuard } from '@kestack/auth-toolkit/fake';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
+import { pluginPath } from '../../cloud/contract/index.js';
 import { connectionsTable, serveOver } from '../../cloud/worker/index.js';
 import { CodeClient } from '../../plugins/code/api/index.js';
 import { CLOUDFLARED_KEY } from '../actor-connection/actor-online/index.js';
@@ -26,8 +28,9 @@ import { CLOUDFLARED_KEY } from '../actor-connection/actor-online/index.js';
  * `ke-connect` end to end, each command its own process, as a user runs it:
  * `serve e2e` signs in with auth-toolkit's Fake to a Cloud Connect in this
  * process, opens a tunnel through a fake cloudflared, and runs the code
- * Plugin from a file, on a fake harness. Code's client reaches the Plugin
- * through the router at `/code/rpc` with the Connection Key. A second
+ * Plugin at the Release Cloud Connect names, on a fake harness, from a
+ * folder Shelf. Code's client reaches the Plugin through the router at
+ * `/code/<sha256>/rpc` with the Connection Key. A second
  * `serve e2e` finds it running; `list` shows it; `remove e2e` stops it and
  * deletes its folders.
  */
@@ -42,6 +45,7 @@ const FAKE_CODE = fileURLToPath(
 const TUNNEL = 'https://e2e-test.trycloudflare.com';
 
 let home: string;
+let code: { readonly hash: string; readonly url: string };
 let cloud: Server;
 let cloudUrl: string;
 const children: Array<ChildProcess> = [];
@@ -72,6 +76,15 @@ const fakeCloudflared = () => {
   chmodSync(binary, 0o755);
 };
 
+/** A Release of the fake code Plugin on a folder Shelf: one file that runs FAKE_CODE from where it is. */
+const fakeRelease = () => {
+  const content = `await import(${JSON.stringify(pathToFileURL(FAKE_CODE).href)});\n`;
+  const hash = createHash('sha256').update(content).digest('hex');
+  const file = join(home, `${hash}.mjs`);
+  writeFileSync(file, content);
+  return { hash, url: pathToFileURL(file).href };
+};
+
 /** Cloud Connect over an in-memory database, signing in with the Fake, on a port of its own. */
 const startCloud = async () => {
   const driver = makeNodeSQLite({ path: ':memory:' });
@@ -83,6 +96,7 @@ const startCloud = async () => {
     authInfo: { url: 'https://auth.test' },
     origins: [],
     driver,
+    plugins: { code },
   });
   const server = createServer(async (request, response) => {
     const chunks: Array<Buffer> = [];
@@ -145,6 +159,7 @@ const runToEnd = async (args: ReadonlyArray<string>) => {
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), 'kc-'));
   fakeCloudflared();
+  code = fakeRelease();
   ({ server: cloud, url: cloudUrl } = await startCloud());
 });
 
@@ -167,8 +182,6 @@ describe('ke-connect', () => {
       String(port),
       '--heartbeat',
       '1',
-      '--plugin',
-      `code=${FAKE_CODE}`,
     ]);
     const data = join(home, 'data', 'kestack', 'connect', 'connections', 'e2e');
     const state = join(
@@ -194,16 +207,24 @@ describe('ke-connect', () => {
         readFileSync(join(data, 'connection.json'), 'utf8'),
       ) as { readonly key: string };
 
-      // Code's client, through the router, to the code Plugin.
-      const harnesses = await Effect.runPromise(
-        Effect.scoped(
-          Effect.gen(function* () {
-            const context = yield* Layer.build(
-              CodeClient.layer(`ws://127.0.0.1:${port}/code/rpc`, { key }),
-            );
-            return yield* Context.get(context, CodeClient).harnesses();
-          }),
-        ).pipe(Effect.timeout('60 seconds')),
+      // Code's client, through the router, to the code Plugin, once it
+      // runs the Release: until then the socket closes with 4409.
+      const harnesses = await vi.waitFor(
+        () =>
+          Effect.runPromise(
+            Effect.scoped(
+              Effect.gen(function* () {
+                const context = yield* Layer.build(
+                  CodeClient.layer(
+                    `ws://127.0.0.1:${port}${pluginPath('code', code.hash)}`,
+                    { key },
+                  ),
+                );
+                return yield* Context.get(context, CodeClient).harnesses();
+              }),
+            ).pipe(Effect.timeout('10 seconds')),
+          ),
+        { timeout: 60_000, interval: 500 },
       );
       expect(harnesses).toMatchObject([{ harness: 'claude' }]);
 

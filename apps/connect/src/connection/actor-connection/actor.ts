@@ -4,7 +4,7 @@ import { Plugins, PluginState } from '@kestack/cli-platform/plugins';
 import { single } from '@kestack/cli-platform/single';
 import type { PluginVersion } from '../../cloud/contract/index.js';
 import { ActorOnline } from './actor-online/index.js';
-import { ActorPlugins, socketOf, Wanted } from './actor-plugins/index.js';
+import { ActorPlugins, socketOf } from './actor-plugins/index.js';
 import { Connection } from './capabilities/index.js';
 import { ConnectionControl } from './control.js';
 import { remember } from './remember.js';
@@ -21,8 +21,7 @@ import { remember } from './remember.js';
  * A Plugin Cloud Connect names is started, and a new version swaps it; one
  * no longer named keeps running. Until Cloud Connect answers, the Plugins
  * run at the Release the Connection last wanted, which the remember
- * Worker keeps on disk; the first answer wins over it. A Plugin given as
- * a file, in development, stays that file. Always, the control Worker
+ * Worker keeps on disk; the first answer wins over it. Always, the control Worker
  * holds the Connection's control socket, the lock that makes it the one
  * process of its name. A forgotten, refused or Outdated Connection ends
  * it, and so does `stop` on the control socket.
@@ -54,8 +53,6 @@ const Input = Schema.Struct({
   port: Schema.Finite,
   /** The origins a browser page may call from. */
   origins: Schema.Array(Schema.String),
-  /** In development: a Plugin to run from a file, by name, whatever Cloud Connect wants. */
-  files: Schema.Record(Schema.String, Schema.String),
   /** The Release of each Plugin it last wanted, as remember.ts kept it, until Cloud Connect answers. */
   lastWanted: Schema.Record(Schema.String, Version),
 });
@@ -71,7 +68,7 @@ const Model = Schema.Struct({
   /** The tunnel's address; null while there is none. */
   url: Schema.NullOr(Schema.String),
   /** The version of each Plugin to run, by name. */
-  wanted: Schema.Record(Schema.String, Wanted),
+  wanted: Schema.Record(Schema.String, Version),
   /** Where each Plugin stands, as it last reported. */
   plugins: Schema.Record(Schema.String, PluginState.schema),
 });
@@ -96,36 +93,25 @@ const Message = Schema.TaggedUnion({
 
 type ConnectionSelf = Self<Model, State, typeof Message.Type>;
 
-/** The Plugins to run: those Cloud Connect wants, then the files given, which win. */
+/** The Plugins to run: those run so far, with the Releases Cloud Connect wants over them. */
 const wantedOf = (
   model: Model,
   versions: Readonly<Record<string, PluginVersion>>,
 ): Model['wanted'] => {
-  const files = Object.fromEntries(
-    Object.entries(model.files).map(([name, file]) => [name, { file }]),
-  );
   const named = Object.fromEntries(
     Object.entries(versions).filter(
       ([name]) =>
         PLUGIN_NAME.test(name) && socketOf(model, name) !== model.control,
     ),
   );
-  return { ...model.wanted, ...named, ...files };
+  return { ...model.wanted, ...named };
 };
-
-/** The Releases among the Plugins wanted: what is remembered, never a file. */
-const releasesOf = (wanted: Model['wanted']) =>
-  Object.fromEntries(
-    Object.entries(wanted).flatMap(([name, each]) =>
-      'hash' in each ? [[name, each] as const] : [],
-    ),
-  );
 
 /** Keeps the Releases wanted on disk each time they change, until the Worker stops. */
 const rememberWanted = (self: ConnectionSelf) =>
   Effect.flatMap(self.get, ({ model }) =>
     self.changes.pipe(
-      Stream.map(({ model }) => releasesOf(model.wanted)),
+      Stream.map(({ model }) => model.wanted),
       Stream.changesWith((a, b) => JSON.stringify(a) === JSON.stringify(b)),
       Stream.runForEach((releases) => remember(model.folders.data, releases)),
     ),

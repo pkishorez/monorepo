@@ -110,7 +110,7 @@ describe('what it last wanted', () => {
     30_000,
   );
 
-  it('keeps each answer on disk, never a file given, and the answer wins over what it last wanted', () =>
+  it('keeps each answer on disk, and the answer wins over what it last wanted', () =>
     Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
@@ -121,14 +121,13 @@ describe('what it last wanted', () => {
             answer: () => ({ _tag: 'Reported', wanted: { ping: after } }),
           });
           const input = {
-            ...inputOf({ dev: '/some/dev.mjs' }),
+            ...inputOf(),
             lastWanted: { ping: before },
           };
           const { root } = yield* start(host, input);
           yield* eventually(() =>
             expect(root().model.wanted['ping']).toEqual(after),
           );
-          expect(root().model.wanted['dev']).toEqual({ file: '/some/dev.mjs' });
           yield* eventually(() =>
             expect(Effect.runSync(remembered(input.folders.data))).toEqual({
               ping: after,

@@ -15,9 +15,7 @@ import {
   fake,
   folder,
   get,
-  inputOf,
   KEY,
-  PING,
   release,
   start,
   upgrade,
@@ -63,7 +61,7 @@ describe('its router', () => {
               origin: 'https://evil.com',
             }),
           ).toBe(403);
-          // No such Plugin, and a Plugin's own control path.
+          // No such Plugin.
           expect(yield* status('/nope/rpc', withKey)).toBe(404);
           const health = yield* Effect.promise(() =>
             fetch(`http://127.0.0.1:${port}/health`),
@@ -80,37 +78,33 @@ describe('its router', () => {
     ));
 
   it(
-    'starts the Plugins Cloud Connect wants, passes /<plugin>/rpc to each, and reports where each stands',
+    'starts the Plugins Cloud Connect wants, reports where each stands, and passes no other path',
     () =>
       Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
-            const { host, plugins } = fake({ healthy: () => true });
-            const { root } = yield* start(host, inputOf({ ping: PING }));
+            const ping = release();
+            const { host, plugins } = fake({
+              healthy: () => true,
+              answer: () => ({ _tag: 'Reported', wanted: { ping } }),
+            });
+            const { root } = yield* start(host);
             yield* eventually(
               () => expect(root().model.plugins['ping']?._tag).toBe('Running'),
               20_000,
             );
             const port = root().model.listening!;
-            expect(
-              yield* Effect.promise(() =>
-                upgrade(port, '/ping/control', withKey),
-              ),
-            ).toBe(404);
-            const context = yield* Layer.build(
-              client(Ping, {
-                url: `ws://127.0.0.1:${port}/ping/rpc`,
-                protocols: ['ke-connect', `key.${KEY}`],
-              }),
-            );
-            const api = yield* Effect.provideContext(
-              RpcClient.make(Ping),
-              context,
-            );
-            expect(yield* api.ping()).toBe('pong');
+            for (const path of [
+              '/ping/rpc',
+              '/ping/control',
+              `/ping/${ping.hash}`,
+            ])
+              expect(
+                yield* Effect.promise(() => upgrade(port, path, withKey)),
+              ).toBe(404);
             yield* eventually(() =>
               expect(plugins.at(-1)).toEqual({
-                ping: { _tag: 'Running', hash: PING },
+                ping: { _tag: 'Running', hash: ping.hash },
               }),
             );
           }),
@@ -118,27 +112,6 @@ describe('its router', () => {
       ),
     30_000,
   );
-
-  it('answers 503 while a Plugin is not listening yet', () =>
-    Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const { host } = fake({ healthy: () => true });
-          const { root } = yield* start(
-            host,
-            inputOf({ slow: join(folder(), 'missing.mjs') }),
-          );
-          yield* eventually(() =>
-            expect(root().model.listening).not.toBeNull(),
-          );
-          expect(
-            yield* Effect.promise(() =>
-              upgrade(root().model.listening!, '/slow/rpc', withKey),
-            ),
-          ).toBe(503);
-        }),
-      ),
-    ));
 
   it(
     'passes /<plugin>/<sha256>/rpc to the Release it runs, and closes any other with 4409, saying which runs',
@@ -224,28 +197,4 @@ describe('its router', () => {
         }),
       ),
     ));
-
-  it(
-    'passes any hash to a Plugin run from a file',
-    () =>
-      Effect.runPromise(
-        Effect.scoped(
-          Effect.gen(function* () {
-            const { host } = fake({ healthy: () => true });
-            const { root } = yield* start(host, inputOf({ ping: PING }));
-            yield* eventually(
-              () => expect(root().model.plugins['ping']?._tag).toBe('Running'),
-              20_000,
-            );
-            const port = root().model.listening!;
-            expect(
-              yield* Effect.promise(() =>
-                upgrade(port, pluginPath('ping', 'b'.repeat(64)), withKey),
-              ),
-            ).toBe(101);
-          }),
-        ),
-      ),
-    30_000,
-  );
 });

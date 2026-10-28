@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, rmSync } from 'node:fs';
+import { rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Effect } from 'effect';
 import { folders, names, socketPath } from '@kestack/cli-platform/files';
@@ -48,14 +48,6 @@ export type ConnectionFolders = Effect.Success<
 
 /** The name of every Connection with a data folder on this computer. */
 export const connectionNames = () => Effect.sync(() => names('connect'));
-
-/** The folders of Connect before Connections had their own, if still there; nothing reads them. */
-export const oldFolders = (own: ConnectionFolders) => {
-  const app = dirname(dirname(own.data));
-  return [join(app, 'connect.db'), join(dirname(app), '.branches')].filter(
-    (path) => existsSync(path),
-  );
-};
 
 /** Deletes a Connection's data, its state and its sockets' folder. */
 export const deleteFolders = (own: ConnectionFolders) =>

@@ -1,1 +1,1 @@
-export { ActorPlugins, socketOf, Wanted } from './actor.js';
+export { ActorPlugins, socketOf } from './actor.js';

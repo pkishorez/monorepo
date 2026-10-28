@@ -3,7 +3,7 @@
 Connect is two programs on one computer, each with one Kabuki tree. The
 Connection tree is `ke-connect serve`: it keeps the Connection online, a
 router on its port and a tunnel to it, a Heartbeat to Cloud Connect, and one
-Child per Plugin that keeps that Plugin's process running at the version
+Child per Plugin that keeps that Plugin's process running at the Release
 wanted. The engine tree is the `code` Plugin's, in a process of its own: it
 holds the Projects and the Sessions in them, runs each Session's Turns on
 its Agent, and keeps every record in the Store. The two never import each
@@ -102,14 +102,12 @@ the answer changes is a Message after it, such as AddSession for a Fork.
 parts, online and plugins, joined through itself alone.
 **Input**: the Connection's id, name and Connection Key, its folders, its
 control socket and what names its Plugins' sockets, the port, the origins
-let in, the Plugins to run from a file in development, and lastWanted: the
-Release of each Plugin it last wanted, which run.ts reads from
-`wanted.json`.
+let in, and lastWanted: the Release of each Plugin it last wanted, which
+run.ts reads from `wanted.json`.
 **Model**: the Input; listening: the router's port, null until it listens.
-url: the tunnel's address, null while there is none. wanted: the version of
+url: the tunnel's address, null while there is none. wanted: the Release of
 each Plugin to run: lastWanted at first, then Cloud Connect's answers,
-which win over it, and the files given, which win over both. plugins: each
-Plugin State as last reported.
+which win over it. plugins: each Plugin State as last reported.
 **States**: Running. Forgotten. Stopped: reason, null when asked to stop.
 Forgotten and Stop end it.
 **Messages**: Listening, Wanted, Addressed, Forgotten, Stop: the Connection
@@ -117,7 +115,7 @@ Requests. PluginReported: the Plugins Request. Stop: the control Worker too.
 **Commands**: none.
 **Workers**: control: always; holds the control socket, answering `status`
 and `stop`; Sends Stop when another holds it. remember: always; writes the
-Releases in wanted, never a file, to `wanted.json` each time they change.
+Releases in wanted to `wanted.json` each time they change.
 **Requires**: none of its own.
 **Provides**: Connection: listening, wanted, address, forgotten, stop, each
 Sending its Message. Plugins: its Request `report` Sends PluginReported.
@@ -141,9 +139,9 @@ origins; Props: wanted, each Plugin State.
   holds one socket and has no States of its own. Caveat: it answers the
   tunnel's address from the root's Model, which online Requests up as it
   changes.
-- **A Plugin no longer wanted keeps running**, because an answer that names
-  no Plugins, such as an older Cloud Connect's, must not stop Code. Caveat:
-  a Plugin is stopped only with its Connection.
+- **A Plugin no longer wanted keeps running**, because an answer says which
+  Release of a Plugin to run, not which Plugins: one that names none must
+  not stop Code. Caveat: a Plugin is stopped only with its Connection.
 - **`serve` asks the control socket before it signs in**, because a second
   `serve` of a running name must report it, not sign in again. Caveat: two
   started at once both sign in, and the second stops once the first holds
@@ -154,7 +152,7 @@ origins; Props: wanted, each Plugin State.
   identity/'s**, because only the running root writes it and only the next
   start reads it: it is what the Connection last ran, not who it is, and
   `list` and `remove` never need it. Caveat: a Connection that never got an
-  answer runs nothing until it does, as before.
+  answer runs nothing until it does.
 - **An Outdated Connection stops through Connection.stop**, because it is
   a stop with a reason like any other, and its Plugins stop with it.
   Caveat: it has already reported, so its User sees the version it runs.
@@ -245,7 +243,7 @@ from.
 and one Plugin Child per Plugin wanted.
 **Input**: the Connection Key, its folders, what names its Plugins'
 sockets, the port, and the origins let in.
-**Props**: wanted: the version of each Plugin to run. plugins: each Plugin
+**Props**: wanted: the Release of each Plugin to run. plugins: each Plugin
 State, which says the Release each runs.
 **Model**: the Input.
 **States**: none.
@@ -254,16 +252,14 @@ State, which says the Release each runs.
 **Workers**: router: always; listens on the port, checks the Connection
 Key, passes `/<plugin>/<sha256>/rpc` to each Plugin's socket as `/rpc`
 while the Plugin is Running that hash, and closes a WebSocket for any other
-with 4409, or answers 409, naming the hash it runs; a Plugin run from a
-file answers at any hash; any other `/<plugin>/…`, such as an older Code's
-`/<plugin>/rpc`, is passed as before. Requests Connection.listening, or
-stop when it cannot listen.
+with 4409, or answers 409, naming the hash it runs; any other path is 404.
+Requests Connection.listening, or stop when it cannot listen.
 **Requires**: Connection: router.
 **Provides**: none: its Plugins report through the root's Plugins.
 **Services**: none.
 **Children**: plugins: each name in wanted; ActorPlugin from
 `@kestack/cli-platform/plugins`; Input: its name, its folders inside the
-Connection's, its socket; Props: the version wanted.
+Connection's, its socket; Props: the Release wanted.
 **View**: none.
 
 ### Decisions
@@ -278,9 +274,6 @@ Connection's, its socket; Props: the version wanted.
   from the root**, because that is where each Plugin reports it; it never
   asks a Plugin Child. Caveat: a Plugin Starting a new Release runs none
   yet, so a socket closes with no hash until it is Running.
-- **The unhashed `/<plugin>/rpc` is still passed, for one release**,
-  because a Code built before Releases calls it. Caveat: it reaches
-  whatever Release runs, as before.
 - **The Plugins report to the root, not to actor-plugins**, because the
   root is where online reads them from; Plugins reaches every Actor below
   the root.

@@ -14,7 +14,7 @@ import type { PluginVersion } from '../../cloud/contract/index.js';
  * `wanted.json` in its data folder, so a Connection started again while
  * Cloud Connect cannot be reached runs its Plugins at their last Release.
  * The root writes it each time what it wants changes; the next start reads
- * it as Input. Only Releases are kept, never a file given in development.
+ * it as Input.
  * A file that cannot be read is no Plugins, with a warning.
  */
 

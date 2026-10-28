@@ -27,7 +27,7 @@ export const CloudConnectDatabase = Cloudflare.D1.Database(
   'CloudConnectDatabase',
   Effect.gen(function* () {
     const stage = yield* Stage;
-    return { name: `connect-${stage}` };
+    return { name: `cloud-connect-${stage}` };
   }),
 );
 

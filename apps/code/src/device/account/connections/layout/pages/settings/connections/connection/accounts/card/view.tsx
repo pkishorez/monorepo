@@ -93,14 +93,7 @@ function Field({
   );
 }
 
-type Used = NonNullable<HarnessAccountInfo['resolvedConfigFolder']>;
-
-/** The config folder it really runs with, as its Connection says, else as set or the agent's own. */
-const usedOf = (account: HarnessAccountInfo): Used =>
-  account.resolvedConfigFolder ??
-  (account.configFolder === null
-    ? { path: FOLDER[account.harness].own, from: 'default' }
-    : { path: account.configFolder, from: 'account' });
+type Used = HarnessAccountInfo['resolvedConfigFolder'];
 
 /** Where a config folder in use came from, when it is not one set here. */
 const fromOf = (used: Used) =>
@@ -124,11 +117,11 @@ function Summary({ account }: { readonly account: HarnessAccountInfo }) {
         {account.isDefault && <Badge variant="secondary">Default</Badge>}
       </span>
       <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-        <Path value={tilde(usedOf(account).path)} />
-        {fromOf(usedOf(account)) !== null && (
+        <Path value={tilde(account.resolvedConfigFolder.path)} />
+        {fromOf(account.resolvedConfigFolder) !== null && (
           <span
             className="shrink-0"
-            title={fromOf(usedOf(account)) ?? undefined}
+            title={fromOf(account.resolvedConfigFolder) ?? undefined}
           >
             · from environment
           </span>
