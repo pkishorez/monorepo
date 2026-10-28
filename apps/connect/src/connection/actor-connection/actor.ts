@@ -1,12 +1,11 @@
 import { Effect, Layer, Schema, Stream } from 'effect';
 import { Actor, type Self } from '@kestack/kabuki';
 import { Plugins, PluginState } from '@kestack/cli-platform/plugins';
-import { single } from '@kestack/cli-platform/single';
 import type { PluginVersion } from '../../cloud/contract/index.js';
 import { ActorOnline } from './actor-online/index.js';
 import { ActorPlugins, socketOf } from './actor-plugins/index.js';
 import { Connection } from './capabilities/index.js';
-import { ConnectionControl } from './control.js';
+import { Control } from './control.js';
 import { remember } from './remember.js';
 
 /*
@@ -22,9 +21,9 @@ import { remember } from './remember.js';
  * no longer named keeps running. Until Cloud Connect answers, the Plugins
  * run at the Release the Connection last wanted, which the remember
  * Worker keeps on disk; the first answer wins over it. Always, the control Worker
- * holds the Connection's control socket, the lock that makes it the one
- * process of its name. A forgotten, refused or Outdated Connection ends
- * it, and so does `stop` on the control socket.
+ * answers on the Connection's control socket, which `serve` holds, the
+ * lock that makes it the one process of its name. A forgotten, refused or
+ * Outdated Connection ends it, and so does `stop` on the control socket.
  */
 
 /** A Plugin's name: what a folder and a socket can be named. */
@@ -117,41 +116,25 @@ const rememberWanted = (self: ConnectionSelf) =>
     ),
   );
 
-/** Holds the control socket, answering `status` and `stop`, until the Worker stops. */
+/** Answers `status` and `stop` on the control socket `serve` holds, until the Worker stops. */
 const control = (self: ConnectionSelf) =>
   Effect.gen(function* () {
-    const { model } = yield* self.get;
-    const handlers = ConnectionControl.toLayer({
-      status: () =>
-        Effect.map(self.get, ({ model }) => ({
-          name: model.name,
-          id: model.id,
-          url: model.url,
-          plugins: model.plugins,
-        })),
-      stop: () => self.send({ _tag: 'Stop', reason: null }),
+    const held = yield* Control;
+    yield* held.answer({
+      status: Effect.map(self.get, ({ model }) => ({
+        name: model.name,
+        id: model.id,
+        url: model.url,
+        plugins: model.plugins,
+      })),
+      stop: self.send({ _tag: 'Stop', reason: null }),
     });
-    const taken = yield* Effect.result(
-      single(model.control, {
-        group: ConnectionControl,
-        handlers,
-      }),
-    );
-    if (taken._tag === 'Failure')
-      return yield* self.send({
-        _tag: 'Stop',
-        reason: `Could not hold the control socket: ${taken.failure.message}`,
-      });
-    if (taken.success._tag === 'AlreadyRunning')
-      return yield* self.send({
-        _tag: 'Stop',
-        reason: `${model.name} is already running`,
-      });
     return yield* Effect.never;
   });
 
 export const ActorConnection = Actor.build(
   Actor.define('Connection', {
+    requires: [Control],
     input: Input,
     model: Model,
     state: State,

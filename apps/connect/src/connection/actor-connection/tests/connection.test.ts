@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { reach } from '@kestack/cli-platform/single';
-import { ConnectionControl } from '../index.js';
+import { ConnectionControl, hold } from '../index.js';
 import { remembered, rememberedFile } from '../remember.js';
 import {
   eventually,
@@ -168,17 +168,31 @@ describe('its control socket', () => {
             plugins: {},
           });
 
-          const second = yield* start(
-            fake({ healthy: () => true }).host,
-            input,
-          );
-          expect(yield* second.ended).toEqual({
-            _tag: 'Stopped',
-            reason: 'test is already running',
-          });
+          const second = yield* Effect.scoped(hold(input.control, input.name));
+          expect(second._tag).toBe('AlreadyRunning');
 
           yield* Effect.forkScoped(control.stop());
           expect(yield* first.ended).toEqual({ _tag: 'Stopped', reason: null });
+        }),
+      ),
+    ));
+
+  it('says a Connection that has not started yet is starting, and stopping it ends the start', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const input = inputOf();
+          const held = yield* hold(input.control, input.name);
+          if (held._tag !== 'Held') return expect.fail('not held');
+          const control = yield* reach(input.control, ConnectionControl);
+          expect(yield* control.status()).toEqual({
+            name: 'test',
+            id: '',
+            url: null,
+            plugins: {},
+          });
+          yield* control.stop();
+          yield* held.stopping;
         }),
       ),
     ));

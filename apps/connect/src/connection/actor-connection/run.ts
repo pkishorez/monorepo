@@ -2,6 +2,7 @@ import { Effect, Layer, Option, Stream } from 'effect';
 import { History, Runtime } from '@kestack/kabuki';
 import { Downloads } from '@kestack/cli-platform/files';
 import { ActorConnection, type ConnectionInput } from './actor.js';
+import { Control } from './control.js';
 import { remembered } from './remember.js';
 import {
   Cloud,
@@ -49,6 +50,8 @@ export interface RunOptions {
   readonly input: Omit<ConnectionInput, 'lastWanted'>;
   /** Cloud Connect, signed in as the Connection's User. */
   readonly cloud: CloudOptions;
+  /** The control socket `serve` holds, for the Connection to answer on. */
+  readonly control: Control['Service'];
 }
 
 /** Runs the Connection until it ends, for as long as the Scope: how it ended. */
@@ -65,6 +68,7 @@ export const run = (options: RunOptions) =>
       Layer.mergeAll(
         Layer.succeed(Cloud, Cloud.of(cloud(options.cloud))),
         Layer.succeed(Tunnels, Tunnels.of(tunnels(downloads))),
+        Layer.succeed(Control, options.control),
         downloads,
       ),
     );

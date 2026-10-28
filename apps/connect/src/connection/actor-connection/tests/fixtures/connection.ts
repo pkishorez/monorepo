@@ -10,7 +10,14 @@ import { History, Runtime } from '@kestack/kabuki';
 import { Downloads, socketPath } from '@kestack/cli-platform/files';
 import type { PluginState } from '@kestack/cli-platform/plugins';
 import type { ConnectionStatus } from '../../../../cloud/contract/index.js';
-import { ActorConnection, Cloud, type Reported, Tunnels } from '../../index.js';
+import {
+  ActorConnection,
+  Cloud,
+  Control,
+  hold,
+  type Reported,
+  Tunnels,
+} from '../../index.js';
 
 /*
  * A Connection against a fake tunnel, whose addresses are numbered by how
@@ -137,15 +144,19 @@ export const inputOf = () => {
   };
 };
 
-/** Runs a Connection on `host` until it ends, for as long as the Scope: how it ended, and its root. */
+/** Holds its control socket and runs a Connection on `host` until it ends, for as long as the Scope: how it ended, and its root. */
 export const start = (
   host: Host,
   input: ReturnType<typeof inputOf> = inputOf(),
 ) =>
   Effect.gen(function* () {
+    const held = yield* hold(input.control, input.name);
+    if (held._tag === 'AlreadyRunning')
+      return yield* Effect.die(new Error(`${input.name} is already running`));
     const running = yield* Runtime.start(
       History.make(ActorConnection, { window: 0, input }),
       Layer.mergeAll(
+        Layer.succeed(Control, held.control),
         Layer.succeed(Cloud, host.cloud),
         Layer.succeed(Tunnels, host.tunnels),
         Downloads.layer(input.folders.cache),

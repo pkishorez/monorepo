@@ -6,10 +6,11 @@ import {
   truncateSync,
 } from 'node:fs';
 import { Console, Data, Effect, Layer, Logger, Option, Schedule } from 'effect';
-import { createFolders, lockPort, tryLock } from '@kestack/cli-platform/files';
+import { createFolders } from '@kestack/cli-platform/files';
 import { reach } from '@kestack/cli-platform/single';
 import {
   ConnectionControl,
+  hold,
   run,
   type RunningConnection,
 } from './actor-connection/index.js';
@@ -30,9 +31,8 @@ import {
  * `ke-connect`: the Connections on this computer. cli/ is its commands;
  * each is done here.
  *
- * - serve: a Connection already running is only reported. Else it takes
- *   its data folder's lock, held until it stops, so of two serves at once
- *   only one signs in or starts a Plugin. Then it signs in as the
+ * - serve: a Connection already running, or starting, is only reported.
+ *   Else it holds the control socket first, so it alone signs in as the
  *   Connection its folder keeps, through identity/, and runs the
  *   Connection's Actor tree, actor-connection/, until it is forgotten,
  *   refused or stopped. A Connection forgotten signs out first.
@@ -116,24 +116,31 @@ const runningOf = (
 const serve = (options: ServeFlags) =>
   Effect.gen(function* () {
     const own = yield* connectionFolders(options.name);
-    const running = yield* runningOf(own);
-    if (Option.isSome(running))
-      return yield* Console.log(
-        `${options.name} is already running at ${running.value.url ?? 'no address yet'}`,
+    const held = yield* hold(own.control, options.name).pipe(
+      Effect.mapError(
+        (error) =>
+          new ConnectionStopped({
+            message: `Could not hold the control socket: ${error.message}`,
+          }),
+      ),
+    );
+    if (held._tag === 'AlreadyRunning') {
+      const url = yield* held.client.status().pipe(
+        Effect.map((running) => running.url),
+        // It holds the socket, but cannot say more.
+        Effect.catchTag('RpcClientError', () => Effect.succeed(null)),
       );
-    // The control socket is taken only once the Actor tree runs; this lock
-    // keeps a second serve from signing in or starting Plugins before then.
-    if (!(yield* tryLock(own.data)))
-      return yield* new ConnectionStopped({
-        message: `${options.name} is already starting, or another program holds port ${lockPort(own.data)}, its lock`,
-      });
+      return yield* Console.log(
+        `${options.name} is already running at ${url ?? 'no address yet'}`,
+      );
+    }
     yield* createFolders({
       data: own.data,
       state: own.state,
       cache: own.cache,
       runtime: own.runtime,
     });
-    yield* Effect.gen(function* () {
+    const serving = Effect.gen(function* () {
       yield* belongsTo(own.connectionFile, options.cloud);
       const identified = yield* identify({
         cloud: options.cloud,
@@ -176,6 +183,7 @@ const serve = (options: ServeFlags) =>
           signInAgain: identified.session.signInAgain,
           heartbeat: options.heartbeat,
         },
+        control: held.control,
       });
       if (ended._tag === 'Forgotten') yield* identified.session.signOut;
       if (ended._tag === 'Forgotten')
@@ -185,7 +193,13 @@ const serve = (options: ServeFlags) =>
       if (ended.reason !== null)
         return yield* new ConnectionStopped({ message: ended.reason });
       yield* Effect.log(`${options.name} stopped`);
-    }).pipe(Effect.provide(logsTo(own.log)));
+    });
+    // A `stop` asked while it starts ends the start; once it runs, the
+    // Connection answers `stop` itself.
+    yield* Effect.raceFirst(
+      serving,
+      held.stopping.pipe(Effect.andThen(Effect.log(`${options.name} stopped`))),
+    ).pipe(Effect.provide(logsTo(own.log)));
   }).pipe(Effect.scoped);
 
 /** Prints every Connection on this computer: its name, whether it runs, its address and when it last started. */
