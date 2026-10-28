@@ -10,7 +10,8 @@ import {
   Stream,
 } from 'effect';
 import { FetchHttpClient } from 'effect/http';
-import { Rpc, RpcGroup, RpcTest } from 'effect/rpc';
+import { Rpc, RpcClient, RpcGroup, RpcTest } from 'effect/rpc';
+import { client as inProcessClient } from '@kestack/rpc-toolkit/rpc/in-process';
 import { hostname } from 'node:os';
 import { describe, expect, it } from 'vitest';
 import {
@@ -436,6 +437,24 @@ describe('device', () => {
     expect(state).toEqual(Exit.succeed(AccountsState.SignedOut()));
     expect(worker.live.size).toBe(0);
   });
+
+  it('signs out here when the Auth Worker does not answer the sign-out in time', async () => {
+    const worker = fakeAuthWorker(['ada']);
+    const stalled = {
+      fetch: ((input, init) =>
+        new Request(input, init).url.endsWith('/sign-out')
+          ? new Promise<Response>(() => {})
+          : worker.fetch(input, init)) as typeof globalThis.fetch,
+    };
+    const state = await run(stalled, (accounts) =>
+      Effect.gen(function* () {
+        yield* accounts.signIn();
+        yield* accounts.signOutAll;
+        return yield* accounts.current;
+      }),
+    );
+    expect(state).toEqual(Exit.succeed(AccountsState.SignedOut()));
+  }, 15_000);
 });
 
 describe('device signing', () => {
@@ -483,4 +502,69 @@ describe('device signing', () => {
       ]),
     );
   });
+
+  /** The Guard's server half refusing every call. */
+  const refusing = rpcMiddleware.layer(() =>
+    Effect.fail(new Unauthenticated({ reason: 'Refused' })),
+  );
+
+  // Over a Transport's client, which tells the signing how each call ended.
+  const refused = Effect.gen(function* () {
+    const client = yield* RpcClient.make(Api);
+    return yield* Effect.result(client.WhoAmI());
+  }).pipe(
+    Effect.scoped,
+    Effect.provide(inProcessClient(Api, Layer.mergeAll(Handlers, refusing))),
+  );
+
+  /** Two Auth Workers, A and B, at their own URLs; `stalled` never answer. */
+  const twoWorkers = () => {
+    const a = fakeAuthWorker(['ada']);
+    const b = fakeAuthWorker(['ada']);
+    const stalled = new Set<string>();
+    const fetch = ((input, init) => {
+      const { origin } = new URL(new Request(input, init).url);
+      if (stalled.has(origin)) return new Promise<Response>(() => {});
+      return (origin === 'https://b.example.com' ? b : a).fetch(input, init);
+    }) as typeof globalThis.fetch;
+    return { a, b, stalled, fetch };
+  };
+
+  it('keeps a refused call refused when the Auth Worker does not answer its check in time', async () => {
+    const workers = twoWorkers();
+    const result = await run(workers, (accounts) =>
+      Effect.gen(function* () {
+        yield* accounts.signIn();
+        workers.stalled.add(new URL(url).origin);
+        return yield* refused;
+      }),
+    );
+    expect(result).toMatchObject(
+      Exit.succeed({ failure: { _tag: 'Unauthenticated', reason: 'Refused' } }),
+    );
+  }, 15_000);
+
+  it('follows an Auth Worker that moves: a refused call is checked at the new one', async () => {
+    const workers = twoWorkers();
+    let at = url;
+    const result = await run(
+      workers,
+      (accounts) =>
+        Effect.gen(function* () {
+          yield* accounts.signIn();
+          at = 'https://b.example.com';
+          workers.stalled.add(new URL(url).origin);
+          const before = workers.b.calls.length;
+          const answer = yield* refused;
+          return { answer, asked: workers.b.calls.slice(before) };
+        }),
+      { url: Effect.sync(() => at) },
+    );
+    expect(result).toMatchObject(
+      Exit.succeed({
+        answer: { failure: { _tag: 'Unauthenticated' } },
+        asked: ['/get-session'],
+      }),
+    );
+  }, 15_000);
 });
