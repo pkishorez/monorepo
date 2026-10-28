@@ -10,7 +10,7 @@ It has four modules, each depending only on the ones before it:
 
 - `ui`: what the user sees and touches: `ui/theme`, `ui/components/*`, `ui/viewers/*`, `ui/form` and `ui/input` (device, gestures, keys, sounds).
 - `pwa`: the app installable, working offline and updated in place. `pwa/vite` builds the worker and manifest, `pwa/worker` runs in it, `pwa/rpc/*` talks to it, and `pwa` is the page's side: `PwaHead`, `Pwa`, the Update and Install Prompts and the extras.
-- `recipes/*`: whole features built from `ui` and `pwa`: the Frame, the Account Switcher, the Vim status line, Local sign-in, Kabuki's Devtools, the Thumb Picker and swipe rows.
+- `recipes/*`: whole features built from `ui` and `pwa`: the Frame, the Account Switcher, the Vim status line, Local sign-in, Kabuki's Devtools, the Thumb Picker, swipe rows, and the touch layers that keep a Drawer and its field above the on-screen keyboard.
 - `app`: putting it together: `app/vite` is the one Vite plugin an app lists, `app/document` the Document it passes to `Start.app`, and `app/alchemy` how it is deployed on its Stages.
 
 Why the Web Platform may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md). It ships built `dist/` (from `vp pack`). Terms are in [CONTEXT.md](./CONTEXT.md); the PWA's decisions are in [docs/adr/](./docs/adr/).
@@ -364,6 +364,19 @@ The Dock devtools sit in. Kabuki's Inspector is in [`@kestack/devtools-kabuki/in
 | Export     | What it does                                                                                                                                                                 |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `SwipeRow` | A row one finger swipes aside, left or right, showing what it does behind it; past 40% of its width or on a flick it slides out and closes its gap. A mouse never swipes it. |
+
+### `@kestack/web-platform/recipes/touch-layers`
+
+| Export               | What it does                                                                                                                                                                                                                        |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Drawer`             | A layer rising from the bottom, closed by a swipe down or a tap outside, kept above the on-screen keyboard with its head in sight and its focused field scrolled into view.                                                         |
+| `TopDialog`          | A layer under the status bar with a list to search, in what the keyboard leaves seen, never in motion.                                                                                                                              |
+| `LayerHeader`        | The head of a Drawer or Top Dialog: its title, a way back when given one, and in a Top Dialog a way to close it.                                                                                                                    |
+| `raiseKeyboard`      | Raises the on-screen keyboard in the tap that opens a layer whose field takes focus once it is drawn.                                                                                                                               |
+| `useVisibleViewport` | The CSS variables a layer fixed to the page sits by: `--visible-top`, `--visible-height`, `--visible-bottom` (what the keyboard hides of the page's foot) and `--visible-safe-bottom`; keeps a focused field in the layer in sight. |
+| `useKeyboardOver`    | What the keyboard hides of a box in the page's flow, how tall a layer at its foot may be, and whether the keyboard is up; keeps a focused field in the layer in sight.                                                              |
+| `visibleOf`          | What can be seen and how much the keyboard hides, from the layout viewport's height and `visualViewport`: the measure `useVisibleViewport` uses.                                                                                    |
+| `overBox`            | How much of a box the keyboard hides, and the room above it: the measure `useKeyboardOver` uses.                                                                                                                                    |
 
 ### `@kestack/web-platform/app/vite`
 

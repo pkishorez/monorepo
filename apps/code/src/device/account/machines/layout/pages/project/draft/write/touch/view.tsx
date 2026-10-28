@@ -84,7 +84,10 @@ export const TouchDraftView = View.make(
           <GestureZone trapped className="contents">
             <motion.div
               ref={t.card}
-              style={{ x }}
+              style={{
+                x,
+                ...(t.covered > 0 ? { paddingBottom: t.covered + 4 } : {}),
+              }}
               data-slot="draft"
               data-touch=""
               data-collapsed={!t.expanded || undefined}
@@ -93,10 +96,15 @@ export const TouchDraftView = View.make(
               data-disabled={draft.disabled || undefined}
               onBlur={t.onBlur}
               // Collapsed, a tap anywhere on it but a button opens it; the
-              // words take their own.
+              // words take their own. Not one in the Skills' Sheet, drawn
+              // elsewhere in the page, whose clicks still come through here.
               onClick={(event) => {
                 const on = event.target as Element;
-                if (t.expanded || on.closest('button, [data-words]') !== null)
+                if (
+                  t.expanded ||
+                  !event.currentTarget.contains(on) ||
+                  on.closest('button, [data-words]') !== null
+                )
                   return;
                 t.open();
               }}
