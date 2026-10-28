@@ -140,7 +140,7 @@ try {
     'true',
   );
   const sessions = await runClient(['kabuki', 'sessions', '--url', origin]);
-  assert.deepEqual(JSON.parse(sessions), []);
+  assert.deepEqual(JSON.parse(sessions), { apps: [] });
 
   const skills = await runClient(['skills', '--format', 'json']);
   assert.deepEqual(
