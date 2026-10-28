@@ -1,6 +1,5 @@
 ---
 '@kestack/web-platform': patch
-'code': patch
 ---
 
 Breaking: `@kestack/web-platform/ui/components/lucide` and `/motion` are gone. Import from `lucide-react` and `motion/react`.

@@ -700,6 +700,16 @@ importers:
 
   devtools/devtools:
     dependencies:
+      oxc-parser:
+        specifier: 'catalog:'
+        version: 0.155.0
+      oxc-resolver:
+        specifier: 'catalog:'
+        version: 11.24.2
+      tsx:
+        specifier: 'catalog:'
+        version: 4.23.15
+    devDependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.6(effect@4.0.6)(redis@6.2.1(@opentelemetry/api@1.10.0))
@@ -709,31 +719,15 @@ importers:
       '@kestack/devtools-kabuki':
         specifier: workspace:*
         version: link:../devtools-kabuki
-      '@kestack/std-toolkit':
-        specifier: workspace:*
-        version: link:../../toolkits/std-toolkit
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.6
-      env-paths:
-        specifier: 'catalog:'
-        version: 4.0.0
-      laymos:
-        specifier: workspace:*
-        version: link:../laymos
-      typescript:
-        specifier: catalog:typescript6
-        version: '@typescript/typescript6@6.0.2'
-      yaml:
-        specifier: 'catalog:'
-        version: 2.9.1
-    devDependencies:
       '@kestack/effect-tracer':
         specifier: workspace:*
         version: link:../effect-tracer
       '@kestack/kabuki':
         specifier: workspace:*
         version: link:../../packages/kabuki
+      '@kestack/std-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/std-toolkit
       '@kestack/use-gesture':
         specifier: workspace:*
         version: link:../../packages/use-gesture
@@ -770,6 +764,15 @@ importers:
       '@vitejs/plugin-react':
         specifier: 'catalog:'
         version: 6.1.2(@voidzero-dev/vite-plus-core@1.4.0(@types/node@26.6.5)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.6
+      env-paths:
+        specifier: 'catalog:'
+        version: 4.0.0
+      laymos:
+        specifier: workspace:*
+        version: link:../laymos
       lucide-react:
         specifier: 'catalog:'
         version: 1.61.0(@types/react@19.3.0)(react@19.3.1)
@@ -800,9 +803,9 @@ importers:
       tailwindcss:
         specifier: 'catalog:'
         version: 4.3.3
-      tsx:
-        specifier: 'catalog:'
-        version: 4.23.15
+      typescript:
+        specifier: catalog:typescript6
+        version: '@typescript/typescript6@6.0.2'
       use-effect-ts:
         specifier: workspace:*
         version: link:../../packages/use-effect-ts
@@ -812,6 +815,9 @@ importers:
       vitest:
         specifier: 5.0.5
         version: 5.0.5(@opentelemetry/api@1.10.0)(@types/node@26.6.5)(@vitest/browser-preview@5.0.5)(@vitest/ui@5.0.5)(@voidzero-dev/vite-plus-core@1.4.0(@types/node@26.6.5)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(jsdom@30.1.3(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.6.5)(@typescript/typescript6@6.0.2))
+      yaml:
+        specifier: 'catalog:'
+        version: 2.9.1
       zustand:
         specifier: 'catalog:'
         version: 5.0.16(@types/react@19.3.0)(immer@11.1.8)(react@19.3.1)(use-sync-external-store@1.7.0(react@19.3.1))

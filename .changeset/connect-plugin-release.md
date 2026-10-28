@@ -1,7 +1,5 @@
 ---
-'@kestack/cli-platform': patch
 '@kestack/connect': patch
-'code': patch
 ---
 
 - `@kestack/cli-platform`: `Downloads.use(key)` marks an entry used, so a running Plugin's file is never pruned.

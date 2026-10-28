@@ -2,7 +2,6 @@
 '@kestack/std-toolkit': patch
 '@kestack/connect': patch
 '@kestack/web-platform': patch
-'code': patch
 ---
 
 Every value Connect's RPC sends is an ESchema, so a newer side reads an older one.

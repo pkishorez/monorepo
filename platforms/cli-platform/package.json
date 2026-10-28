@@ -1,16 +1,13 @@
 {
   "name": "@kestack/cli-platform",
   "version": "0.0.4",
-  "private": false,
+  "private": true,
   "description": "What every kestack CLI needs on a computer: its folders, one shared copy of each download, one process per name, and Plugins kept running at the version asked for.",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/pkishorez/monorepo",
     "directory": "platforms/cli-platform"
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "type": "module",
   "files": [

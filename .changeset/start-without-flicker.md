@@ -1,5 +1,4 @@
 ---
-'code': patch
 '@kestack/auth-toolkit': patch
 ---
 
