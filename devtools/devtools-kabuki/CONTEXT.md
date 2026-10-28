@@ -14,7 +14,7 @@ One running Kabuki runtime connected to DevTools, under a name unique among the 
 _Avoid_: tab, connection, client, session (on its own)
 
 **Kabuki Session Api**:
-The Effect RPC group a Kabuki Session answers: who it is, its History, the Snapshot at a Step, what a Step changed, the graph the Inspector draws, one Instance's card, a stream of its changes, and travelling or forking the app. The tab computes every answer, since only it has the Actors' code; every value of the app's own is sent as its Actor's Schemas encode it. Served over the socket the app dials, or in memory to the in-page dock.
+The Effect RPC group a Kabuki Session answers: who it is, its History, the Snapshot at a Step, what a Step changed, the graph the Inspector draws, one Instance's card, a stream of its changes and of the page it runs in, and travelling or forking the app. The tab computes every answer, since only it has the Actors' code; every value of the app's own is sent as its Actor's Schemas encode it. Served over the socket the app dials, or in memory to the in-page dock.
 _Avoid_: protocol, session API, endpoint
 
 **Attachment**:

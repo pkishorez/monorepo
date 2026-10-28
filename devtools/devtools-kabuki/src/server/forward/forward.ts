@@ -77,6 +77,7 @@ const forwarding = (client: KabukiSessionClient) =>
     named: (payload) => Effect.orDie(client.named(payload)),
     history: (payload) => Effect.orDie(client.history(payload)),
     watch: () => Stream.orDie(client.watch()),
+    page: () => Stream.orDie(client.page()),
     snapshot: (payload) =>
       client
         .snapshot(payload)

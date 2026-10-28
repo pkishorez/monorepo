@@ -42,37 +42,37 @@ Peer dependencies:
 
 The Kabuki Session Api, shared by the app, DevTools and the Inspector.
 
-| Export             | What it does                                                                                                  |
-| ------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `KabukiSessionApi` | The RPC group: `info`, `named`, `history`, `watch`, `snapshot`, `changes`, `graph`, `node`, `travel`, `fork`. |
-| `CONNECT_PATH`     | The DevTools Server path a Kabuki Session dials, `/kabuki/connect`.                                           |
-| `serialization`    | The RPC serialization both ends of the socket use: one JSON message per frame.                                |
-| `StepNotFound`     | The error for a Step no longer kept; says the oldest and newest kept.                                         |
-| `PathNotFound`     | The error for a Snapshot path that is not there; lists the keys where it stopped.                             |
-| `InstanceNotFound` | The error for an Instance not in the Snapshot at a Step; lists the ones that are.                             |
-| `Step`             | The Schema of a Step: an entry id, or `'init'`.                                                               |
-| `Entry`            | The Schema of a History entry, its Message encoded.                                                           |
-| `Source`           | The Schema of who Sent a Message.                                                                             |
-| `Outcome`          | The Schema of what came of a Message: handled, ignored or dropped.                                            |
-| `Info`             | The Schema of who a Kabuki Session is: app, page and name.                                                    |
-| `Now`              | The Schema of where the app is: Head, Branch size, Step shown, running, failure.                              |
-| `History`          | The Schema of the Head's Branch as `history` answers it.                                                      |
-| `SnapshotView`     | The Schema of a Snapshot, or part of one, at a Step.                                                          |
-| `ValueChange`      | The Schema of one Model or Props path that changed, before and after.                                         |
-| `DiffRow`          | The Schema of one line of a unified diff.                                                                     |
-| `ChangeKind`       | The Schema of whether a Step added, changed or removed an Instance.                                           |
-| `InstanceChange`   | The Schema of what a Step did to one Instance.                                                                |
-| `Changes`          | The Schema of what one Step did: its entry, its Commands, each Instance it changed.                           |
-| `Condition`        | The Schema of when a Worker or Child exists: always, while or each.                                           |
-| `Level`            | The Schema of one Blueprint level: the top, or one State's block.                                             |
-| `Blueprint`        | The Schema of what an Actor is, read from its definition.                                                     |
-| `WorkerNow`        | The Schema of a Worker and the keys it runs for.                                                              |
-| `Known`            | The Schema of what the app was seen to do with an Actor.                                                      |
-| `GraphNode`        | The Schema of one card on the canvas, with its Children.                                                      |
-| `Graph`            | The Schema of the graph at a Step.                                                                            |
-| `Shape`            | The Schema of a Schema as a card draws it.                                                                    |
-| `Field`            | The Schema of one field of a Shape.                                                                           |
-| `Node`             | The Schema of one Instance's card at a Step: data, change and Schemas.                                        |
+| Export             | What it does                                                                                                          |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `KabukiSessionApi` | The RPC group: `info`, `named`, `history`, `watch`, `page`, `snapshot`, `changes`, `graph`, `node`, `travel`, `fork`. |
+| `CONNECT_PATH`     | The DevTools Server path a Kabuki Session dials, `/kabuki/connect`.                                                   |
+| `serialization`    | The RPC serialization both ends of the socket use: one JSON message per frame.                                        |
+| `StepNotFound`     | The error for a Step no longer kept; says the oldest and newest kept.                                                 |
+| `PathNotFound`     | The error for a Snapshot path that is not there; lists the keys where it stopped.                                     |
+| `InstanceNotFound` | The error for an Instance not in the Snapshot at a Step; lists the ones that are.                                     |
+| `Step`             | The Schema of a Step: an entry id, or `'init'`.                                                                       |
+| `Entry`            | The Schema of a History entry, its Message encoded.                                                                   |
+| `Source`           | The Schema of who Sent a Message.                                                                                     |
+| `Outcome`          | The Schema of what came of a Message: handled, ignored or dropped.                                                    |
+| `Info`             | The Schema of who a Kabuki Session is: app, page and name.                                                            |
+| `Now`              | The Schema of where the app is: Head, Branch size, Step shown, running, failure.                                      |
+| `History`          | The Schema of the Head's Branch as `history` answers it.                                                              |
+| `SnapshotView`     | The Schema of a Snapshot, or part of one, at a Step.                                                                  |
+| `ValueChange`      | The Schema of one Model or Props path that changed, before and after.                                                 |
+| `DiffRow`          | The Schema of one line of a unified diff.                                                                             |
+| `ChangeKind`       | The Schema of whether a Step added, changed or removed an Instance.                                                   |
+| `InstanceChange`   | The Schema of what a Step did to one Instance.                                                                        |
+| `Changes`          | The Schema of what one Step did: its entry, its Commands, each Instance it changed.                                   |
+| `Condition`        | The Schema of when a Worker or Child exists: always, while or each.                                                   |
+| `Level`            | The Schema of one Blueprint level: the top, or one State's block.                                                     |
+| `Blueprint`        | The Schema of what an Actor is, read from its definition.                                                             |
+| `WorkerNow`        | The Schema of a Worker and the keys it runs for.                                                                      |
+| `Known`            | The Schema of what the app was seen to do with an Actor.                                                              |
+| `GraphNode`        | The Schema of one card on the canvas, with its Children.                                                              |
+| `Graph`            | The Schema of the graph at a Step.                                                                                    |
+| `Shape`            | The Schema of a Schema as a card draws it.                                                                            |
+| `Field`            | The Schema of one field of a Shape.                                                                                   |
+| `Node`             | The Schema of one Instance's card at a Step: data, change and Schemas.                                                |
 
 ### `@kestack/devtools-kabuki/session`
 
@@ -176,6 +176,7 @@ How it works:
 - `snapshot` folds a large value to its first levels and items unless
   `expand`; a path that is not there fails, listing the keys there are.
 - `watch` streams `Now` at once and after every change the app reports.
+- `page` streams the page the app runs in at once, and again each time it moves to another; DevTools follows it to keep the listed page current.
 
 ### Show the Inspector beside the app
 

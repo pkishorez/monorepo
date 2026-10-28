@@ -1,8 +1,7 @@
 import { createServer, request } from 'node:http';
 import { createServer as createNetServer } from 'node:net';
 import type { AddressInfo } from 'node:net';
-import { Effect, Layer, Option, Stream } from 'effect';
-import type { Scope } from 'effect';
+import { Effect, Exit, Fiber, Layer, Option, Scope, Stream } from 'effect';
 import { HttpRouter } from 'effect/http';
 import * as NodeHttpServer from '@effect/platform-node/NodeHttpServer';
 import { describe, expect, it } from 'vitest';
@@ -38,7 +37,12 @@ const devtools = (port: number) =>
       disableListenLog: true,
     }).pipe(
       Layer.provide(
-        NodeHttpServer.layer(createServer, { host: '127.0.0.1', port }),
+        // As the DevTools Server: a Kabuki Session's socket never drains.
+        NodeHttpServer.layer(createServer, {
+          host: '127.0.0.1',
+          port,
+          disablePreemptiveShutdown: true,
+        }),
       ),
     ),
   );
@@ -127,6 +131,44 @@ describe('the Kabuki routes', () => {
 
           stopOther();
           expect(yield* namesOnceThere(sessions, 1)).toEqual(['diary']);
+        }),
+      ),
+    20_000,
+  );
+
+  it(
+    'going down, leave the list as it was: its watchers never see the Kabuki Sessions leave one by one',
+    () =>
+      run(
+        Effect.gen(function* () {
+          const port = yield* Effect.promise(freePort);
+          const server = yield* Scope.make();
+          yield* devtools(port).pipe(Scope.provide(server));
+          const url = `http://127.0.0.1:${port}`;
+          // Watched first: its socket is older than the apps'.
+          const sessions = yield* dialSessions(url);
+          for (const name of ['diary', 'shop', 'notes']) {
+            const app = yield* started;
+            const stop = connect(app.runtime, {
+              url: `ws://127.0.0.1:${port}`,
+              name,
+            });
+            yield* Effect.addFinalizer(() => Effect.sync(stop));
+          }
+          yield* namesOnceThere(sessions, 3);
+          const seen: Array<number> = [];
+          const watching = yield* sessions.watch().pipe(
+            Stream.runForEach((list) =>
+              Effect.sync(() => seen.push(list.length)),
+            ),
+            Effect.ignore,
+            Effect.forkChild,
+          );
+          yield* Effect.sleep('50 millis');
+          yield* Scope.close(server, Exit.void);
+          yield* Fiber.await(watching);
+          expect(seen.length).toBeGreaterThan(0);
+          expect(seen.filter((count) => count !== 3)).toEqual([]);
         }),
       ),
     20_000,

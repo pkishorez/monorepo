@@ -86,6 +86,23 @@ try {
     403,
   );
   assert.equal(await statusWithHost(`${origin}/health`, 'example.test'), 403);
+  // DevTools opened at `localhost`: its page's own origin, trusted as 127.0.0.1's.
+  assert.equal(
+    (
+      await fetch(`${origin}/health`, {
+        headers: { origin: `http://localhost:${port}` },
+      })
+    ).status,
+    200,
+  );
+  assert.notEqual(
+    (
+      await fetch(`${origin}/kabuki/sessions`, {
+        headers: { origin: `http://localhost:${port}` },
+      })
+    ).status,
+    403,
+  );
 
   const preflight = await fetch(`${origin}/v1/traces`, {
     method: 'OPTIONS',

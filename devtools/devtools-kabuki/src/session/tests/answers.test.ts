@@ -1,6 +1,6 @@
 import { Effect, Exit, Fiber, Schema, Stream } from 'effect';
 import type { Scope } from 'effect';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Graph, Node } from '../../api/index.ts';
 import { inMemory } from '../index.ts';
 import { started } from './app.ts';
@@ -272,4 +272,33 @@ describe('answers', () => {
         yield* Fiber.interrupt(fiber);
       }),
     ));
+
+  it('says the page the app is on, then each other page it moves to', () =>
+    run(
+      Effect.gen(function* () {
+        const page = { href: 'http://localhost:5173/' };
+        vi.stubGlobal('location', page);
+        const { client, write } = yield* written;
+        const seen: Array<string> = [];
+        const fiber = yield* client.page().pipe(
+          Stream.runForEach((url) => Effect.sync(() => seen.push(url))),
+          Effect.forkScoped,
+        );
+        yield* settle;
+        page.href = 'http://localhost:5173/items/1';
+        write('third', 12);
+        yield* Effect.sleep('5 millis');
+        write('fourth', 14);
+        yield* Effect.sleep('5 millis');
+        expect(seen).toEqual([
+          'http://localhost:5173/',
+          'http://localhost:5173/items/1',
+        ]);
+        yield* Fiber.interrupt(fiber);
+      }),
+    ));
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
