@@ -73,6 +73,19 @@ Checked on 2026-10-28 with `pnpm --filter code dev`, the `mixed` sample, desktop
 
 Driving the app with agent-browser's `press`, a `q` pressed on the page and then Ctrl+Y left the browser sending thousands of `q` keydowns a second, and the CLI waiting; the same keys sent as raw CDP key events do not, so it is the driver's, not the app's. The dev-only Devtools dock covers the sheet's Next at 390 wide; it was hidden for the touch pass.
 
+### The Question Panel on iOS
+
+Checked on 2026-10-28 with `pnpm --filter code dev` in Mobile Safari on the iOS 27 Simulator (iPhone 18 Pro, and iPhone 17e for the keyboard), driven by idb's touch and its on-screen keyboard (the hardware keyboard turned off), live with Claude `claude-haiku-5-5` (Low) and Codex `gpt-5.6-luna` (Low), and the `mixed` sample. The Devtools dock was hidden: it covers the Draft's Send and the sheet's Next. Videos and screenshots are in `~/Downloads/agent-questions-qa/ios/`.
+
+| #   | Scenario                   | What to watch for                                                                                                                                                                                | Result           |
+| --- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
+| 35  | iOS, sheet                 | The sheet from the column's foot, its footer over Safari's floating toolbar; drags on its rows or the dimmed transcript scroll nothing behind                                                    | pass             |
+| 36  | iOS, one's own answer      | A tap on "Other…" brings up the keyboard with no zoom; the field, the head and Back / Next / Send stay in sight over the keyboard and Safari's form bar; Next and Send work with the keyboard up | pass after a fix |
+| 37  | iOS, minimise              | A swipe down the head minimises it; the bar sits over Safari's toolbar, the transcript scrolls; Open brings it back on the same step                                                             | pass             |
+| 38  | iOS, live Claude and Codex | Three Items (one, several, Other typed) and two (an option, a typed name) sent; the reply repeats them and the "Asked you" card shows them                                                       | pass             |
+
+Fixed: with the keyboard up the sheet's foot stayed under it. iOS 27 scrolls the page under the keyboard and shrinks `innerHeight` with it, so `innerHeight - offsetTop - height` came out below zero. The sheet now measures from its own box against what can be seen (`visualViewport.pageTop - scrollY + height`), and is kept no taller than the room above the keyboard, so its head stays in sight (`question/dialog/sheet.ts`, `dialog.tsx`, tested in `question/tests/sheet.test.ts`).
+
 ## Fixed during QA
 
 - A Claude subagent's "What it reported" ended with Claude Code's note for the model (`agentId: … (use SendMessage …) <usage>…</usage>`). The Claude projection now drops that text block. Files: `toolkits/ai-toolkit/src/harnesses/claude/project/project.ts`, `project.test.ts` (new test).
