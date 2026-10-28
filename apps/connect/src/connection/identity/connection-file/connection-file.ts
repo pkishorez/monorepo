@@ -5,7 +5,7 @@ import {
   readConnection,
   removeConnection,
   writeConnection,
-} from './connection-file.js';
+} from './record.js';
 import { newConnectionId, newConnectionKey } from './secrets.js';
 
 /*

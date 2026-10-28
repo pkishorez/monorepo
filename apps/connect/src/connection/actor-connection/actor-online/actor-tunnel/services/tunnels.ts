@@ -1,5 +1,6 @@
-import { Effect } from 'effect';
+import { Effect, type Layer } from 'effect';
 import { use } from 'cloudflared';
+import type { Downloads } from '@kestack/cli-platform/files';
 import { CLOUDFLARED_KEY, cloudflared } from './binary.js';
 import { checkTunnel } from './check.js';
 import { quickTunnel } from './quick-tunnel.js';
@@ -11,7 +12,7 @@ import { quickTunnel } from './quick-tunnel.js';
  * comes from the shared cache, downloaded first when it is missing.
  */
 
-export { CLOUDFLARED_KEY, cloudflared };
+export { CLOUDFLARED_KEY };
 
 /**
  * A quick tunnel to the server on `port`, through the cloudflared at
@@ -19,11 +20,15 @@ export { CLOUDFLARED_KEY, cloudflared };
  * `https://*.trycloudflare.com` URL, and an Effect that completes if
  * cloudflared exits on its own.
  */
-export const openTunnel = (port: number, binary: string) =>
+const openTunnel = (port: number, binary: string) =>
   Effect.suspend(() => {
     use(binary);
     return quickTunnel(`http://127.0.0.1:${port}`);
   });
 
-/** Whether the server answers at `url`, through its tunnel: a Tunnel Check. */
-export const checkAt = checkTunnel;
+/** What Tunnels stands on: cloudflared, kept in `downloads`; opening a quick tunnel; and the Tunnel Check. */
+export const tunnels = (downloads: Layer.Layer<Downloads>) => ({
+  cloudflared: Effect.provide(cloudflared, downloads),
+  open: openTunnel,
+  check: checkTunnel,
+});
