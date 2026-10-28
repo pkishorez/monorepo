@@ -208,6 +208,38 @@ describe('hydrating a page Start drew', () => {
     expect(runs.sort()).toEqual(['Blog', 'Blog.Post:hello']);
     expect(errors).toEqual([]);
   });
+
+  it('runs what the app attaches in the browser, and stops it when new code takes over', async () => {
+    const seen: Array<string> = [];
+    const attached = (code: string) =>
+      Start.app({
+        router,
+        view: AppView,
+        document: Document,
+        attach: [
+          (runtime) => {
+            seen.push(`${code}: ${runtime.history.save().entries.length > 0}`);
+            return () => seen.push(`${code}: stopped`);
+          },
+        ],
+      });
+    history.replaceState(null, '', '/');
+    const html = await (
+      await worker.fetch(new Request(new URL('/', location.href)), host)
+    ).text();
+    document.open();
+    document.write(html);
+    document.close();
+    await act(async () => {
+      ({ root, redraw } = await client(attached('old')));
+    });
+    await until(() => document.body.textContent!.includes('home'));
+    expect(seen).toEqual(['old: true']);
+    await act(async () => redraw!(attached('new')));
+    await until(() => seen.length === 3);
+    expect(seen).toEqual(['old: true', 'old: stopped', 'new: true']);
+    expect(errors).toEqual([]);
+  });
 });
 
 describe('the App Shell', () => {

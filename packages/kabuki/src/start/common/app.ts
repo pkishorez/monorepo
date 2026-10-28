@@ -1,7 +1,7 @@
 import type { ComponentType, ReactNode } from 'react';
 import type { Layer } from 'effect';
 import type { AnyActor, Needs } from '../../core/index.ts';
-import type { ViewOf } from '../../react/index.ts';
+import type { Attachment, ViewOf } from '../../react/index.ts';
 import { Router } from '../../routing/index.ts';
 import type {
   Navigation,
@@ -58,6 +58,8 @@ export interface StartApp<A extends ServedApp = ServedApp> {
   readonly document?: DocumentType;
   /** What the app's Actors Require in the browser, besides the address and the Loaders. */
   readonly layer?: Layer.Layer<any, never, never>;
+  /** What runs beside the app in the browser, such as a devtool. */
+  readonly attach?: ReadonlyArray<Attachment>;
 }
 
 /** What the root page's build still needs from above, besides what the Router Provides. */
@@ -76,6 +78,12 @@ export type AppOptions<G extends PageDefinition, A extends PageBuild<G>> = {
   readonly view: ViewOf<A>;
   /** The HTML around the app; the plainest one if none. */
   readonly document?: DocumentType;
+  /**
+   * What runs beside the app in the browser, such as a devtool: each is
+   * called with the running app once its Runtime starts, and what it returns
+   * when the app goes, as after a hot reload. Never on the server.
+   */
+  readonly attach?: ReadonlyArray<Attachment>;
 } & LayerOption<A>;
 
 /**
@@ -87,7 +95,8 @@ export type AppOptions<G extends PageDefinition, A extends PageBuild<G>> = {
 export const app = <G extends PageDefinition, A extends PageBuild<G>>(
   options: AppOptions<G, A>,
 ): StartApp => {
-  const { router, view, document, layer } = options as AppOptions<G, A> & {
+  const { router, view, document, attach } = options;
+  const { layer } = options as {
     readonly layer?: Layer.Layer<any, never, never>;
   };
   return {
@@ -95,6 +104,7 @@ export const app = <G extends PageDefinition, A extends PageBuild<G>>(
     app: Router.app(router as never, view as unknown as ViewOf<AnyActor>),
     ...(document && { document }),
     ...(layer && { layer }),
+    ...(attach && { attach }),
   } as unknown as StartApp;
 };
 
