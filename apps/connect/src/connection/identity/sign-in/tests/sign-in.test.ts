@@ -112,8 +112,8 @@ describe('signIn', () => {
             url: 'https://auth-b.test',
           });
 
-          // A call Cloud Connect refuses is checked with the Auth Worker it
-          // names now, and stays refused.
+          // A call Cloud Connect refuses stays refused, and is checked with
+          // the Auth Worker it names now.
           const before = fake.calls.length;
           const refused = yield* Effect.flip(
             Effect.flatMap(CloudClient, (client) => client.List({})).pipe(
@@ -124,6 +124,10 @@ describe('signIn', () => {
             ),
           );
           expect(refused).toMatchObject({ _tag: 'Unauthenticated' });
+          // The check runs beside the refusal: wait for it.
+          yield* Effect.promise(() =>
+            vi.waitFor(() => expect(fake.calls.length).toBeGreaterThan(before)),
+          );
           expect(fake.calls.slice(before)).toEqual([
             'https://auth-b.test/get-session',
           ]);
