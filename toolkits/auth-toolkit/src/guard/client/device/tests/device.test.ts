@@ -530,18 +530,78 @@ describe('device signing', () => {
     return { a, b, stalled, fetch };
   };
 
-  it('keeps a refused call refused when the Auth Worker does not answer its check in time', async () => {
+  it('hands a refused call its refusal at once, checking with the Auth Worker after', async () => {
     const workers = twoWorkers();
     const result = await run(workers, (accounts) =>
       Effect.gen(function* () {
         yield* accounts.signIn();
         workers.stalled.add(new URL(url).origin);
-        return yield* refused;
+        const started = Date.now();
+        const answer = yield* refused;
+        return { answer, took: Date.now() - started };
       }),
     );
     expect(result).toMatchObject(
-      Exit.succeed({ failure: { _tag: 'Unauthenticated', reason: 'Refused' } }),
+      Exit.succeed({
+        answer: { failure: { _tag: 'Unauthenticated', reason: 'Refused' } },
+      }),
     );
+    if (Exit.isSuccess(result)) expect(result.value.took).toBeLessThan(1_000);
+  }, 15_000);
+
+  it('drops a sign-in begun at an Auth Worker it has since moved from', async () => {
+    const workers = twoWorkers();
+    const b = fakeAuthWorker(['bob']);
+    let release = () => {};
+    const released = new Promise<void>((done) => (release = done));
+    const fetch = ((input, init) => {
+      const request = new Request(input, init);
+      const { origin, pathname } = new URL(request.url);
+      if (origin === 'https://b.example.com') return b.fetch(input, init);
+      // A's answer to the poll waits until the test lets it go.
+      return pathname.endsWith('/device/token')
+        ? released.then(() => workers.a.fetch(input, init))
+        : workers.a.fetch(input, init);
+    }) as typeof globalThis.fetch;
+    let at = url;
+    const result = await run(
+      { fetch },
+      (accounts) =>
+        Effect.gen(function* () {
+          const first = yield* Effect.forkChild(accounts.signIn());
+          yield* Effect.sleep('100 millis');
+          at = 'https://b.example.com';
+          yield* accounts.signIn();
+          release();
+          const dropped = yield* Fiber.await(first);
+          return { dropped, after: yield* accounts.current };
+        }),
+      { url: Effect.sync(() => at) },
+    );
+    expect(result).toMatchObject(
+      Exit.succeed({
+        dropped: { _tag: 'Failure' },
+        after: AccountsState.SignedIn({ active: bob, accounts: [bob] }),
+      }),
+    );
+  }, 15_000);
+
+  it('signs out here in time even when where the Auth Worker is never comes', async () => {
+    let lost = false;
+    const state = await run(
+      fakeAuthWorker(['ada']),
+      (accounts) =>
+        Effect.gen(function* () {
+          yield* accounts.signIn();
+          lost = true;
+          yield* accounts.signOutAll;
+          return yield* accounts.current;
+        }),
+      {
+        url: Effect.suspend(() => (lost ? Effect.never : Effect.succeed(url))),
+      },
+    );
+    expect(state).toEqual(Exit.succeed(AccountsState.SignedOut()));
   }, 15_000);
 
   it('follows an Auth Worker that moves: a refused call is checked at the new one', async () => {
@@ -556,6 +616,13 @@ describe('device signing', () => {
           workers.stalled.add(new URL(url).origin);
           const before = workers.b.calls.length;
           const answer = yield* refused;
+          // The check runs beside the refusal: wait for it.
+          yield* Effect.sleep('20 millis').pipe(
+            Effect.repeat({
+              until: () => workers.b.calls.length > before,
+              times: 100,
+            }),
+          );
           return { answer, asked: workers.b.calls.slice(before) };
         }),
       { url: Effect.sync(() => at) },

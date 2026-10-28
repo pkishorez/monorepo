@@ -41,12 +41,17 @@ export class AuthWorkerRejected extends Data.TaggedError('AuthWorkerRejected')<{
 
 /** A Device Login ended without a Sign-in. */
 export class DeviceLoginFailed extends Data.TaggedError('DeviceLoginFailed')<{
-  readonly reason: 'expired' | 'denied';
+  readonly reason: 'expired' | 'denied' | 'moved';
 }> {
   override get message() {
-    return this.reason === 'denied'
-      ? 'Sign-in was denied in the browser.'
-      : 'The sign-in code expired before it was approved. Sign in again.';
+    switch (this.reason) {
+      case 'denied':
+        return 'Sign-in was denied in the browser.';
+      case 'moved':
+        return 'The sign-in service moved before sign-in finished. Sign in again.';
+      case 'expired':
+        return 'The sign-in code expired before it was approved. Sign in again.';
+    }
   }
 }
 
