@@ -1,5 +1,31 @@
 # @kestack/auth-toolkit
 
+## 0.0.5
+
+### Patch Changes
+
+- [#99](https://github.com/pkishorez/monorepo/pull/99) [`278b105`](https://github.com/pkishorez/monorepo/commit/278b1054fcc9b53036a7df5b44fe90c21dbde480) Thanks [@kishorenuma](https://github.com/kishorenuma)! - Every Plugin runs at a Release Cloud Connect names, and Code calls it at the Release it was built with.
+
+  **Breaking:** ke-connect, Cloud Connect and Code must update together; nothing reads data from earlier releases. Update with `npm i -g @kestack/connect@latest`, and delete an old `code.db`.
+
+  - Each Plugin is served only at `/<plugin>/<sha256>/rpc`; another Release gets close code 4409, `PLUGIN_MISMATCH`.
+  - A Connection older than the Minimum Connect stops and says how to update. It starts its Plugins at the last wanted Releases while Cloud Connect is down.
+  - A Connection that signed in before starts while Cloud Connect is down.
+  - Cloud Connect has its own export, `@kestack/connect/cloud`; those names left `@kestack/connect/code`.
+  - `pnpm release:plugin` builds a Plugin and adds it to its Release Log.
+  - `@kestack/cli-platform`: `Downloads.fetch` takes `file:` URLs. A new Plugin process starts only after the old one exits. Of many `single` claims at once, exactly one wins.
+  - `@kestack/auth-toolkit`: a Device's `url` may be an Effect, so it follows an Auth Worker that moves.
+
+- [#99](https://github.com/pkishorez/monorepo/pull/99) [`139011f`](https://github.com/pkishorez/monorepo/commit/139011fe37d4cb1960fb30091f42308cf56e0dd2) Thanks [@kishorenuma](https://github.com/kishorenuma)! - Two `ke-connect serve` of one Connection at once: only one signs in; the other says it is already running. A Device sign-in gives up as soon as its Auth Worker moves.
+
+- [#99](https://github.com/pkishorez/monorepo/pull/99) [`0bed3f8`](https://github.com/pkishorez/monorepo/commit/0bed3f83e9701bcb850c94f4d7864445a5f9108d) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A signed-in reload opens straight from what this device kept, with no flash of loading screens. Switching Account draws the next one in one step.
+
+  `browser`'s `cache` remembers the last Accounts, so `state` starts `Checking { last }`. A cache that can't be read or written logs a warning.
+
+- Updated dependencies [[`8b4ff10`](https://github.com/pkishorez/monorepo/commit/8b4ff102bf78eb9bf94125e59b9657baafe0f19e), [`6a64461`](https://github.com/pkishorez/monorepo/commit/6a6446178baa61df7df5cc1b8272ae56e38c962c)]:
+  - @kestack/std-toolkit@0.0.5
+  - @kestack/rpc-toolkit@0.0.5
+
 ## 0.0.4
 
 ### Patch Changes
