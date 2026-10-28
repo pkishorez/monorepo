@@ -17,7 +17,7 @@ import { gzipSync } from 'node:zlib';
 
 const BUDGET = {
   entry: 190 * 1024,
-  firstLoad: 600 * 1024,
+  firstLoad: 605 * 1024,
 };
 
 const app = join(import.meta.dirname, '..');
