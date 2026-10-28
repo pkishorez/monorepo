@@ -8,7 +8,8 @@ import { type DevAuth, nodeFlags } from './auth.js';
 /*
  * The `ke-connect` this checkout built, run as a process of its own, as a
  * user runs it: `serve` for the branch's Connection, `remove` for one whose
- * branch is gone. Each runs with the Node flags of how its Connection signs
+ * branch is gone. It runs tsc's build, not bin/'s bundle, so the Node flags
+ * can still pick auth-toolkit's Fake. Each runs with the Node flags of how its Connection signs
  * in, and its output goes where this process's goes.
  */
 
@@ -41,7 +42,7 @@ const stop = (child: ChildProcess) =>
 const keConnect = (root: string, auth: DevAuth, args: ReadonlyArray<string>) =>
   spawn(
     process.execPath,
-    [...nodeFlags(auth), join(root, 'bin', 'ke-connect.mjs'), ...args],
+    [...nodeFlags(auth), join(root, 'scripts', 'ke-connect.mjs'), ...args],
     { cwd: root, stdio: 'inherit', env: process.env },
   );
 
