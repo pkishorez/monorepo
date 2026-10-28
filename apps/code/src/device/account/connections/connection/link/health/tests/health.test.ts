@@ -1,7 +1,7 @@
 import type { Connection as ConnectionSchema } from '@kestack/connect/cloud';
 import { describe, expect, it } from 'vitest';
-import { socketUrl } from '../../../../connections.ts';
-import { health, olderThan, pluginNotice, updateOf } from '../health.ts';
+import { tunnelOf } from '../../../../connections.ts';
+import { health, outdated, pluginNotice } from '../health.ts';
 
 /*
  * What a Connection's record says of it.
@@ -67,12 +67,12 @@ describe('a Connection’s record', () => {
   });
 
   it('is reached at its `https://` address over `wss`, and at no other', () => {
-    expect(socketUrl('https://a-b.trycloudflare.com/')).toBe(
-      'wss://a-b.trycloudflare.com/code/rpc',
+    expect(tunnelOf('https://a-b.trycloudflare.com/')).toBe(
+      'wss://a-b.trycloudflare.com',
     );
-    expect(socketUrl('http://a-b.trycloudflare.com')).toBeNull();
-    expect(socketUrl('ws://a-b.trycloudflare.com')).toBeNull();
-    expect(socketUrl(null)).toBeNull();
+    expect(tunnelOf('http://a-b.trycloudflare.com')).toBeNull();
+    expect(tunnelOf('ws://a-b.trycloudflare.com')).toBeNull();
+    expect(tunnelOf(null)).toBeNull();
   });
 });
 
@@ -122,27 +122,41 @@ describe('a Connection’s code Plugin', () => {
     ).toBeNull();
     expect(pluginNotice(null, now)).toBeNull();
   });
+
+  it('is Updating while its socket says it runs an older Release, with no report needed', () => {
+    const updating = { _tag: 'Updating', progress: null };
+    expect(
+      pluginNotice(withPlugin({ _tag: 'Running', hash }), now, 'Updating'),
+    ).toEqual(updating);
+    expect(pluginNotice(null, now, 'Updating')).toEqual(updating);
+    // What its report says of the download is said instead.
+    expect(
+      pluginNotice(
+        withPlugin({ _tag: 'Downloading', hash, received: 1, total: 2 }),
+        now,
+        'Updating',
+      ),
+    ).toEqual({ _tag: 'Updating', progress: { received: 1, total: 2 } });
+  });
+
+  it('is Stale when its socket says this Code is the older side', () => {
+    expect(
+      pluginNotice(withPlugin({ _tag: 'Running', hash }), now, 'Stale'),
+    ).toEqual({ _tag: 'Stale' });
+  });
 });
 
 describe('a Connection’s ke-connect', () => {
-  it('orders versions as semver does', () => {
-    expect(olderThan('0.0.4', '0.0.5')).toBe(true);
-    expect(olderThan('0.0.10', '0.0.9')).toBe(false);
-    expect(olderThan('0.1.0', '0.1.0')).toBe(false);
-    expect(olderThan('1.0.0-next.1', '1.0.0')).toBe(true);
-    expect(olderThan('1.0.0', '0.9.9')).toBe(false);
-  });
-
-  it('asks to update only below the Minimum Connect Cloud Connect names', () => {
+  it('is Outdated only below the Minimum Connect Cloud Connect names', () => {
     const at = (version: string, minConnect: string | null) => ({
       ...connection('m', 0),
       version,
       minConnect,
     });
-    expect(updateOf(at('0.0.4', '0.0.5'))).toBe('0.0.5');
-    expect(updateOf(at('0.0.5', '0.0.5'))).toBeNull();
-    expect(updateOf(at('0.0.6', '0.0.5'))).toBeNull();
-    expect(updateOf(at('0.0.4', null))).toBeNull();
-    expect(updateOf(null)).toBeNull();
+    expect(outdated(at('0.0.4', '0.0.5'))).toBe(true);
+    expect(outdated(at('0.0.5', '0.0.5'))).toBe(false);
+    expect(outdated(at('0.0.6', '0.0.5'))).toBe(false);
+    expect(outdated(at('0.0.4', null))).toBe(false);
+    expect(outdated(null)).toBe(false);
   });
 });

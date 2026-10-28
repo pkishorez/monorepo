@@ -2,21 +2,24 @@ import {
   addressOf,
   type Connection as ConnectionSchema,
   type ConnectionStatus,
+  isOutdated,
 } from '@kestack/connect/cloud';
+import type { Behind } from '../reach/index.ts';
 
 type Connection = typeof ConnectionSchema.Type;
 
 /*
  * What can be said of a Connection from its record alone: while its socket
  * is not up, why not; where its socket is, the Connections say
- * (`socketUrl`). A Connection reports itself on every Heartbeat, every 15
+ * (`tunnelOf`). A Connection reports itself on every Heartbeat, every 15
  * seconds; one whose Last Seen is older than three of them is down. One seen lately
  * says in its Connection Status how far its tunnel got: cloudflared
  * downloading, the tunnel opening or failed to open, or up and whether its
  * last check reached it. It also says where its code Plugin stands, which
- * the app shows while it is Updating or Crashed, linked or not; and the
- * version of `ke-connect` it runs, which the app asks to update once Cloud
- * Connect says a newer one is out. A record only as this device kept it is old by
+ * the app shows while it is Updating or Crashed, linked or not, as it
+ * does when its socket says it runs another Release (`Behind`); and the
+ * version of `ke-connect` it runs, which the app asks to update once it is
+ * Outdated, older than Cloud Connect accepts. A record only as this device kept it is old by
  * nature, so it says nothing until it is checked: Cloud Connect answered,
  * its socket was up and dropped, or long enough passed (`Known.checked`);
  * until then the Connection is only linking.
@@ -97,8 +100,10 @@ const CODE = 'code';
 
 /**
  * How the code Plugin stands when the app should say so: Updating while a
- * new version downloads (how far, when known) or starts, or Crashed with
- * its last lines and when it is tried again.
+ * new version downloads (how far, when known) or starts, or while its
+ * socket says it runs a Release older than this Code calls; Crashed with
+ * its last lines and when it is tried again; or Stale, when its socket
+ * says this Code is the older side, which is moving to its newest build.
  */
 export type PluginNotice =
   | {
@@ -113,15 +118,23 @@ export type PluginNotice =
       readonly _tag: 'Crashed';
       readonly log: ReadonlyArray<string>;
       readonly retryAt: number;
-    };
+    }
+  | { readonly _tag: 'Stale' };
 
-/** How the code Plugin stands, while it is not simply running; null too while the Connection is down, its report stale. */
+/**
+ * How the code Plugin stands, while it is not simply running; null too
+ * while the Connection is down, its report stale, unless its socket said
+ * who is behind (`behind`), which it says without a report.
+ */
 export const pluginNotice = (
   connection: Connection | null,
   now: number,
+  behind: Behind | null = null,
 ): PluginNotice | null => {
+  if (behind === 'Stale') return { _tag: 'Stale' };
+  const updating = behind === 'Updating' ? UPDATING : null;
   if (connection === null || now - connection.lastSeen > DOWN_AFTER)
-    return null;
+    return updating;
   const state = connection.plugins[CODE];
   switch (state?._tag) {
     case 'Downloading':
@@ -134,39 +147,18 @@ export const pluginNotice = (
     case 'Crashed':
       return { _tag: 'Crashed', log: state.log, retryAt: state.retryAt };
     default:
-      return null;
+      return updating;
   }
 };
+
+/** Updating, with no download to show. */
+const UPDATING: PluginNotice = { _tag: 'Updating', progress: null };
 
 /** How `ke-connect` is updated on a computer. */
 export const UPDATE_COMMAND = 'npm i -g @kestack/connect@latest';
 
-/** A version's numbers, and whether it is a pre-release. */
-const partsOf = (version: string) => {
-  const [core = '', pre] = version.trim().replace(/^v/, '').split('-', 2);
-  return {
-    numbers: core.split('.').map((part) => Number.parseInt(part, 10) || 0),
-    pre: pre !== undefined,
-  };
-};
-
-/** Whether `version` is older than `than`, as semver orders them. */
-export const olderThan = (version: string, than: string) => {
-  const a = partsOf(version);
-  const b = partsOf(than);
-  for (let i = 0; i < Math.max(a.numbers.length, b.numbers.length); i++) {
-    const x = a.numbers[i] ?? 0;
-    const y = b.numbers[i] ?? 0;
-    if (x !== y) return x < y;
-  }
-  return a.pre && !b.pre;
-};
-
-/** The `ke-connect` the Connection should update to, the Minimum Connect; null when it runs one as new, or none is known. */
-export const updateOf = (connection: Connection | null): string | null =>
-  connection?.minConnect != null &&
-  olderThan(connection.version, connection.minConnect)
-    ? connection.minConnect
-    : null;
+/** Whether the Connection is Outdated: its `ke-connect` is older than Cloud Connect accepts, the Minimum Connect. */
+export const outdated = (connection: Connection | null) =>
+  connection !== null && isOutdated(connection);
 
 export { addressOf };

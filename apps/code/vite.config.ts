@@ -1,8 +1,15 @@
 import { cloudflare } from '@kestack/kabuki/start/platform/cloudflare';
 import { app } from '@kestack/web-platform/app/vite';
 import { defineConfig } from 'vite';
+import { pluginCode } from './scripts/plugin-code.ts';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  // The Release of the code Plugin Code calls, read as it is built.
+  define: {
+    'import.meta.env.PLUGIN_CODE': JSON.stringify(
+      pluginCode(command === 'serve'),
+    ),
+  },
   server: {
     // Accept the Host headers the portless proxy and its Tailscale share forward during dev.
     allowedHosts: ['.code.kishore.computer', '.ts.net'],
@@ -41,4 +48,4 @@ export default defineConfig({
       },
     }),
   ],
-});
+}));

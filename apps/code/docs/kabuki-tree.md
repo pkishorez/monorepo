@@ -26,7 +26,9 @@ checks who may import whom (`laymos.config.json`).
    for the list and prunes `code:account:<id>:connection:` on the first real
    answer. It has three parts:
    1. **connection/**: one per Connection. Its link (how it is reached,
-      its health, why it refused), its records (Projects, Sessions,
+      at the code Plugin's Release this Code was built with, and who is
+      behind when the Connection runs another; its health; why a call was
+      refused), its records (Projects, Sessions,
       messages, Moves on their way, and the Agent Questions its Sessions
       wait on, `records/questions/`), and its store (setup, Skills,
       Unseen marks, Saved Drafts, sync).
@@ -72,7 +74,7 @@ Account drawn, which a Child of one Connections could not do.
 ```
 device                          root page; States: Reading | Checking | SignedIn | SignedOut
 ├── account                     the Account Switcher (library Actor)
-├── connections                    each: the Account drawn, and the one about to be
+├── connections                    each: the Account drawn, and the one about to be; follows each listed Connection's Link and mismatch
 │   ├── voice                   always
 │   │   ├── dictation           always; hears asks only while its Account is drawn
 │   │   └── microphonePicker    always
@@ -132,6 +134,30 @@ Voice is a Child of Connections, so a recording keeps going across pages.
   paste into a Draft later or throw away.
 - The Draft holds no recording logic. It only says "paste here", takes the
   text that comes, and shows the mic.
+
+## Releases
+
+Code is built with one Release of the code Plugin, `PLUGIN_CODE`, which
+Vite inlines as `import.meta.env.PLUGIN_CODE` (`scripts/plugin-code.ts`):
+the latest in the Plugin's Release Log, and the build fails without one;
+under `pnpm dev`, the sha256 of Connect's own `dist/plugin/code.mjs` when
+it is built, as the dev Worker names it. Each Connection's socket dials
+`<tunnel>/code/<sha256>/rpc` (`connection/link/reach/`).
+
+A Connection running another Release closes the socket at once with
+`PLUGIN_MISMATCH`. Connect's client keeps what it said until a socket to it
+is answered, and the Link is relinking until then, though the socket
+opened. Connections holds it as `mismatched`, per Connection, beside its
+Link, and what Cloud Connect wants it to run says who is behind
+(`release.ts`):
+
+- **Updating**: Cloud Connect wants this Code's Release, or names none. The
+  socket keeps retrying, with its own backoff, and Cloud Connect is
+  rechecked as for any Link down; the header's pill says "Updating
+  Connect…". The first socket answered ends it.
+- **Stale**: Cloud Connect wants another. This Code moves to its newest
+  build (`OnOutdated`), once, as it turns Stale; the pill says "Updating
+  Code…".
 
 ## Session Sync
 

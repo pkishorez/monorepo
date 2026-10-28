@@ -1,6 +1,10 @@
 import { Effect, Schema, Stream, SubscriptionRef } from 'effect';
 import { CodeClients } from '@kestack/connect/code';
-import { CloudClient, Connection } from '@kestack/connect/cloud';
+import {
+  CloudClient,
+  Connection,
+  PluginMismatch,
+} from '@kestack/connect/cloud';
 import { Actor } from '@kestack/kabuki';
 import {
   Cache,
@@ -20,7 +24,11 @@ import {
   ListShelf,
   pruneUnlisted,
 } from './commands.ts';
-import { Connection as ConnectionActor } from './connection/index.ts';
+import {
+  behindAll,
+  Connection as ConnectionActor,
+  toNewest,
+} from './connection/index.ts';
 import { Voice } from './voice/index.ts';
 import { Prepared } from './connections.ts';
 
@@ -43,6 +51,12 @@ import { Prepared } from './connections.ts';
  *             reads, and a list that failed deletes nothing either.
  * 3. Links    one socket per listed Connection, followed, and one Connection
  *             each (connection/), which opens its own database and sync Store.
+ *             A socket the Connection closed with `PLUGIN_MISMATCH`, as it
+ *             runs another Release of the code Plugin than this Code calls,
+ *             is kept as Mismatched until one is answered; who is behind
+ *             is what Cloud Connect wants it to run (`link/reach/`): the
+ *             Connection, Updating, while its Link keeps relinking; or
+ *             this Code, Stale, which moves to its newest build.
  * 4. Recheck  while a listed Connection's link is not up, Cloud Connect is asked
  *             again: every few seconds for the first minute, then every
  *             half a minute, so one on its way, whose tunnel is opening,
@@ -97,6 +111,8 @@ const Model = Schema.Struct({
   ),
   /** Each listed Connection's link, by id. */
   links: Schema.Record(Schema.String, Link),
+  /** Each listed Connection that closed its socket running another Release of the code Plugin, by id, until a socket to it is answered. */
+  mismatched: Schema.Record(Schema.String, PluginMismatch.schema),
   /** How many times Cloud Connect was asked again since every link was last up. */
   rechecks: Schema.Finite,
 });
@@ -134,6 +150,10 @@ export const Connections = Actor.define('Connections', {
     RecheckDue: {},
     CheckWaited: {},
     LinkChanged: { connectionId: Schema.String, link: Link },
+    Mismatched: {
+      connectionId: Schema.String,
+      mismatch: Schema.NullOr(PluginMismatch.schema),
+    },
     ForgetAsked: { id: Schema.String },
     Forgot: { id: Schema.String },
     ForgetFailed: { id: Schema.String, problem: Schema.String },
@@ -150,6 +170,14 @@ export const fetching = (model: Model) => copying.asking(model.list).length > 0;
 export const anyDown = (model: Model) =>
   idsOf(model).some((id) => model.links[id] !== 'linked');
 
+/** Whether `after` finds this Code Stale on a Connection `before` did not: it moves to its newest build. */
+const newlyStale = (before: Model, after: Model) => {
+  const was = behindAll(before.list.value, before.mismatched);
+  return Object.entries(behindAll(after.list.value, after.mismatched)).some(
+    ([id, behind]) => behind === 'Stale' && was[id] !== 'Stale',
+  );
+};
+
 const delayOf = (rechecks: number) =>
   rechecks < RECHECK.fastFor ? RECHECK.fast : RECHECK.slow;
 
@@ -162,6 +190,7 @@ export const ConnectionsLive = Actor.build(Connections, {
       checked: false,
       forgetting: null,
       links: {},
+      mismatched: {},
       rechecks: 0,
     },
   }),
@@ -185,12 +214,24 @@ export const ConnectionsLive = Actor.build(Connections, {
       each: ({ model }) => copying.asking(model.list),
       run: (self, since) => Effect.flatMap(list(Number(since)), self.send),
     },
-    // 3. Links
+    // 3. Links: each one's Link, and the Release it said it runs when it
+    // closed a socket with a mismatch.
     links: {
       each: ({ model }) => idsOf(model),
       run: (self, connectionId) =>
-        Stream.runForEach(CodeClients.link(connectionId), (link) =>
-          self.send({ _tag: 'LinkChanged', connectionId, link }),
+        Stream.runForEach(
+          Stream.merge(
+            Stream.map(
+              CodeClients.link(connectionId),
+              (link) => ({ _tag: 'LinkChanged', connectionId, link }) as const,
+            ),
+            Stream.map(
+              CodeClients.mismatch(connectionId),
+              (mismatch) =>
+                ({ _tag: 'Mismatched', connectionId, mismatch }) as const,
+            ),
+          ),
+          self.send,
         ),
     },
     // 4. Recheck
@@ -285,28 +326,32 @@ export const ConnectionsLive = Actor.build(Connections, {
       model: { ...model, list: copying.read(model.list, connections) },
     }),
     // An answer asked before a later ask, or a Forget, is dropped.
-    Fetched: ({ since, connections, at }, { model }) =>
-      !copying.latest(model.list, since)
-        ? {}
-        : {
-            model: {
-              ...model,
-              list: copying.answered(model.list, since, connections),
-              fetchedAt: at,
-              checked: true,
-            },
-            command: [
-              keepList({ accountId: model.accountId, connections }),
-              ...(model.fetchedAt === null
-                ? [
-                    pruneUnlisted({
-                      accountId: model.accountId,
-                      connectionIds: connections.map(({ id }) => id),
-                    }),
-                  ]
-                : []),
-            ],
-          },
+    Fetched: ({ since, connections, at }, { model }) => {
+      if (!copying.latest(model.list, since)) return {};
+      const next = {
+        ...model,
+        list: copying.answered(model.list, since, connections),
+        fetchedAt: at,
+        checked: true,
+      };
+      return {
+        model: next,
+        command: [
+          keepList({ accountId: model.accountId, connections }),
+          // 3. Links: Cloud Connect now wants another Release than this
+          // Code calls, of a Connection that refused it.
+          ...(newlyStale(model, next) ? [toNewest({})] : []),
+          ...(model.fetchedAt === null
+            ? [
+                pruneUnlisted({
+                  accountId: model.accountId,
+                  connectionIds: connections.map(({ id }) => id),
+                }),
+              ]
+            : []),
+        ],
+      };
+    },
     Failed: ({ since, problem }, { model }) => ({
       model: { ...model, list: copying.refused(model.list, since, problem) },
     }),
@@ -328,6 +373,20 @@ export const ConnectionsLive = Actor.build(Connections, {
         links: { ...model.links, [connectionId]: link },
       };
       return { model: anyDown(next) ? next : { ...next, rechecks: 0 } };
+    },
+    // 3. Links: a mismatch kept until a socket is answered; this Code
+    // found Stale moves to its newest build.
+    Mismatched: ({ connectionId, mismatch }, { model }) => {
+      const { [connectionId]: _was, ...rest } = model.mismatched;
+      const next = {
+        ...model,
+        mismatched:
+          mismatch === null ? rest : { ...rest, [connectionId]: mismatch },
+      };
+      return {
+        model: next,
+        ...(newlyStale(model, next) ? { command: toNewest({}) } : {}),
+      };
     },
     // 5. Forget
     ForgetAsked: ({ id }, { model }) =>

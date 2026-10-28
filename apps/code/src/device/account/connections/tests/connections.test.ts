@@ -13,9 +13,14 @@ import { CodeClient, CodeClients } from '@kestack/connect/code';
 import {
   CloudClient,
   type Connection as ConnectionSchema,
+  PLUGIN_MISMATCH,
 } from '@kestack/connect/cloud';
+import { OnOutdated } from '@kestack/std-toolkit/replica';
 import { Actor, type Instance, Runtime, type Running } from '@kestack/kabuki';
-import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
+import {
+  connection as RpcConnection,
+  type SocketWatch,
+} from '@kestack/rpc-toolkit/rpc/websocket';
 import { describe, expect, it } from 'vitest';
 import {
   Cache,
@@ -32,6 +37,7 @@ import {
 } from '../connection/store/index.ts';
 import { connectionsLayer as connections } from '../connections.ts';
 import { CHECK_FOR, ConnectionsLive, RECHECK } from '../actor.ts';
+import { PLUGIN_CODE } from '../connection/link/index.ts';
 import { ListShelf } from '../commands.ts';
 import { Prepared } from '../connections.ts';
 import { SetupShelf } from '../connection/commands.ts';
@@ -105,6 +111,8 @@ const world = (
   /** The Gones told to the Saved Drafts. */
   const drafts: Array<string> = [];
   let lists = 0;
+  /** What each Connection's sockets tell the app as they answer and close. */
+  const watches = new Map<string, SocketWatch>();
   const socket = (connectionId: string) =>
     down === null
       ? Stream.concat(Stream.make('connected' as const), Stream.never)
@@ -116,8 +124,11 @@ const world = (
           ),
         );
   const layer = Layer.mergeAll(
-    CodeClients.make((connectionId) =>
-      Layer.merge(
+    CodeClients.make((connectionId, watch) =>
+      Layer.mergeAll(
+        Layer.effectDiscard(
+          Effect.sync(() => void watches.set(connectionId, watch)),
+        ),
         // An RPC client's procedures are generic over how they are called;
         // a stand-in answers the one way the app calls them.
         Layer.mock(CodeClient)({
@@ -177,6 +188,7 @@ const world = (
     dropped,
     deleted,
     drafts,
+    watches,
     lists: () => lists,
   };
 };
@@ -357,8 +369,8 @@ describe('Connections', () => {
               Effect.flatMap(Connections, (connections) =>
                 connections.reachable('m1'),
               ).pipe(
-                Effect.flatMap(({ socket }) =>
-                  self.send({ _tag: 'Reached', url: socket }),
+                Effect.flatMap(({ tunnel }) =>
+                  self.send({ _tag: 'Reached', url: tunnel }),
                 ),
               ),
           },
@@ -390,7 +402,7 @@ describe('Connections', () => {
         listed = [connection('m1', 2)];
         app.send(list(app).id, { _tag: 'ReloadAsked' });
         yield* wait();
-        expect(reader().reached).toBe('wss://m1.trycloudflare.com/code/rpc');
+        expect(reader().reached).toBe('wss://m1.trycloudflare.com');
       }),
     );
   });
@@ -635,4 +647,140 @@ describe('Connections checks', () => {
         Effect.provide(TestClock.layer()),
       ) as Effect.Effect<void>,
     ));
+});
+
+describe('Connections mismatched', () => {
+  /** A Connection Cloud Connect wants to run the code Plugin at `wanted`. */
+  const wanting = (wanted: string): Connection => ({
+    ...connection('m1', Date.now()),
+    wanted: { code: { hash: wanted, url: `file:///${wanted}.mjs` } },
+  });
+
+  /** The close reason of a Connection running `running`, as its router says it. */
+  const mismatchReason = (running: string | null) =>
+    JSON.stringify({ running });
+
+  const OLDER = 'b'.repeat(64);
+  const NEWER = 'c'.repeat(64);
+
+  /** The Connections' Links and mismatches, as it holds them. */
+  const linksOf = (app: Running<unknown>) =>
+    list(app).model as {
+      readonly links: Readonly<Record<string, string>>;
+      readonly mismatched: Readonly<Record<string, unknown>>;
+    };
+
+  /** The app, counting each move to Code's newest build. */
+  const started = (wanted: string) => {
+    let moves = 0;
+    const { layer, watches, lists } = world(Effect.succeed([wanting(wanted)]));
+    const told = Layer.succeed(
+      OnOutdated,
+      Effect.sync(() => void moves++),
+    );
+    return {
+      app: start(OwnerLive, Layer.merge(layer, told)),
+      watches,
+      lists,
+      moves: () => moves,
+    };
+  };
+
+  it('is Updating while Cloud Connect wants this Code’s Release: it keeps relinking, until a socket is answered', async () => {
+    const { app: starting, watches, lists, moves } = started(PLUGIN_CODE);
+    await run(
+      Effect.gen(function* () {
+        const app = yield* starting;
+        yield* wait();
+        expect(linksOf(app).links).toEqual({ m1: 'linked' });
+        // The Connection still runs an older Release, and says so.
+        watches.get('m1')!.closed!({
+          code: PLUGIN_MISMATCH,
+          reason: mismatchReason(OLDER),
+        });
+        yield* wait();
+        expect(linksOf(app).links).toEqual({ m1: 'relinking' });
+        expect(linksOf(app).mismatched).toEqual({ m1: { running: OLDER } });
+        expect(moves()).toBe(0);
+        // Relinking: Cloud Connect is asked again, as for any Link down.
+        const asked = lists();
+        yield* wait(RECHECK.fast + 200);
+        expect(lists()).toBeGreaterThan(asked);
+        // Updated: a socket to it is answered, and it is linked.
+        watches.get('m1')!.answered!();
+        yield* wait();
+        expect(linksOf(app).links).toEqual({ m1: 'linked' });
+        expect(linksOf(app).mismatched).toEqual({});
+        expect(moves()).toBe(0);
+      }),
+    );
+  });
+
+  it('is Updating too while Cloud Connect wants no Release of the code Plugin', async () => {
+    const { layer, watches } = world(
+      Effect.succeed([connection('m1', Date.now())]),
+    );
+    let moves = 0;
+    await run(
+      Effect.gen(function* () {
+        const app = yield* start(
+          OwnerLive,
+          Layer.merge(
+            layer,
+            Layer.succeed(
+              OnOutdated,
+              Effect.sync(() => void moves++),
+            ),
+          ),
+        );
+        yield* wait();
+        watches.get('m1')!.closed!({
+          code: PLUGIN_MISMATCH,
+          reason: mismatchReason(null),
+        });
+        yield* wait();
+        expect(linksOf(app).links).toEqual({ m1: 'relinking' });
+        expect(moves).toBe(0);
+      }),
+    );
+  });
+
+  it('moves this Code to its newest build when Cloud Connect wants another Release', async () => {
+    const { app: starting, watches, moves } = started(NEWER);
+    await run(
+      Effect.gen(function* () {
+        const app = yield* starting;
+        yield* wait();
+        watches.get('m1')!.closed!({
+          code: PLUGIN_MISMATCH,
+          reason: mismatchReason(NEWER),
+        });
+        yield* wait();
+        expect(linksOf(app).mismatched).toEqual({ m1: { running: NEWER } });
+        expect(moves()).toBe(1);
+        // Told again, it moves once: it is moving already.
+        watches.get('m1')!.closed!({
+          code: PLUGIN_MISMATCH,
+          reason: mismatchReason(NEWER),
+        });
+        yield* wait();
+        expect(moves()).toBe(1);
+      }),
+    );
+  });
+
+  it('is not mismatched by a socket that closes another way', async () => {
+    const { app: starting, watches, moves } = started(NEWER);
+    await run(
+      Effect.gen(function* () {
+        const app = yield* starting;
+        yield* wait();
+        watches.get('m1')!.closed!({ code: 1006, reason: '' });
+        yield* wait();
+        expect(linksOf(app).links).toEqual({ m1: 'linked' });
+        expect(linksOf(app).mismatched).toEqual({});
+        expect(moves()).toBe(0);
+      }),
+    );
+  });
 });

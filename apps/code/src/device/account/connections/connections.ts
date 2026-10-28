@@ -43,14 +43,14 @@ import {
 type Connection = typeof ConnectionSchema.Type;
 
 /**
- * The code Plugin's socket on a Connection at its public `https://`
- * address, `wss://…/code/rpc`;
- * null for any other address, which is never dialled: the Connection Key
- * would cross in clear.
+ * Where the sockets to a Connection at its public `https://` address go,
+ * `wss://…`, before the path of the Plugin dialled (`reach/`); null for
+ * any other address, which is never dialled: the Connection Key would
+ * cross in clear.
  */
-export const socketUrl = (url: string | null) =>
+export const tunnelOf = (url: string | null) =>
   url?.startsWith('https://') === true
-    ? `wss://${url.slice('https://'.length).replace(/\/+$/, '')}/code/rpc`
+    ? `wss://${url.slice('https://'.length).replace(/\/+$/, '')}`
     : null;
 
 /** A Connection's link, its socket, now. */
@@ -275,10 +275,10 @@ export class Connections extends Context.Service<
     readonly listed: (id: string) => Effect.Effect<void>;
     /** The Connection's Replicas, over its own sync Store; waits until the Connection runs here. */
     readonly replicas: (id: string) => Effect.Effect<Replicas['Service']>;
-    /** Where to dial the Connection's code Plugin, `wss://…/code/rpc`, and its Key, once it is listed at an `https://` address; waits until it is. */
+    /** Where the Connection's sockets go, `wss://…` (`tunnelOf`), and its Key, once it is listed at an `https://` address; waits until it is. */
     readonly reachable: (
       id: string,
-    ) => Effect.Effect<{ readonly socket: string; readonly key: string }>;
+    ) => Effect.Effect<{ readonly tunnel: string; readonly key: string }>;
     /** Asks Cloud Connect for the list again now, and every Connection for its setup. */
     readonly reload: Effect.Effect<void>;
     /** Forgets the Connection for good, and its records on this device. */
@@ -400,8 +400,8 @@ export const connectionsLayer: Layer.Layer<Connections | ConnectionsChannel> =
             ),
           reachable: (id) =>
             first(id, ({ status, key }) => {
-              const socket = socketUrl(addressOf(status));
-              return socket === null ? null : { socket, key };
+              const tunnel = tunnelOf(addressOf(status));
+              return tunnel === null ? null : { tunnel, key };
             }),
           reload: Effect.andThen(
             ask({ _tag: 'ReloadAsked' }),
