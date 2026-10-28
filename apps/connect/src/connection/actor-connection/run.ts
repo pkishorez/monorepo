@@ -2,6 +2,7 @@ import { Effect, Layer, Option, Stream } from 'effect';
 import { History, Runtime } from '@kestack/kabuki';
 import { Downloads } from '@kestack/cli-platform/files';
 import { ActorConnection, type ConnectionInput } from './actor.js';
+import { remembered } from './remember.js';
 import {
   Cloud,
   cloud,
@@ -17,7 +18,9 @@ import {
  * ends, Forgotten or Stopped. First, the shared cache drops each download
  * no Connection has used for 30 days, keeping cloudflared, which the
  * tunnel runs at once; a running Plugin marks its file used every day, so
- * no file in use goes.
+ * no file in use goes. Then it reads the Releases the Connection last
+ * wanted, so its Plugins start at them while Cloud Connect cannot be
+ * reached.
  */
 
 /** A download unused for this long is deleted when a Connection starts. */
@@ -42,8 +45,8 @@ const prune = (downloads: Layer.Layer<Downloads>) =>
   );
 
 export interface RunOptions {
-  /** Who the Connection is: the root's Input. */
-  readonly input: ConnectionInput;
+  /** Who the Connection is: the root's Input, but for what it last wanted, which is read here. */
+  readonly input: Omit<ConnectionInput, 'lastWanted'>;
   /** Cloud Connect, signed in as the Connection's User. */
   readonly cloud: CloudOptions;
 }
@@ -51,9 +54,12 @@ export interface RunOptions {
 /** Runs the Connection until it ends, for as long as the Scope: how it ended. */
 export const run = (options: RunOptions) =>
   Effect.gen(function* () {
-    const { input } = options;
-    const downloads = Downloads.layer(input.folders.cache);
+    const downloads = Downloads.layer(options.input.folders.cache);
     yield* prune(downloads);
+    const input: ConnectionInput = {
+      ...options.input,
+      lastWanted: yield* remembered(options.input.folders.data),
+    };
     const running = yield* Runtime.start(
       History.make(ActorConnection, { window: 0, input }),
       Layer.mergeAll(

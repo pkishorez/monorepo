@@ -58,7 +58,7 @@ Down, from the root:
 connection Layer ─ Cloud, Tunnels, Downloads ────────────────────────────────▶ actor-connection
 actor-connection ─ Provides Connection, Plugins ─────────────────────────────▶ actor-online, actor-plugins
 actor-connection ─ Props: port, plugins ────────────────────────────────────▶ actor-online
-actor-connection ─ Input: key, folders, socketId, port, origins; Props: wanted ▶ actor-plugins
+actor-connection ─ Input: key, folders, socketId, port, origins; Props: wanted, plugins ▶ actor-plugins
 actor-online     ─ Provides TunnelStatus ────────────────────────────────────▶ actor-tunnel
 actor-online     ─ key: generation; Input: generation; Props: port ─────────▶ actor-tunnel
 actor-plugins    ─ each Plugin name; Input: name, folders, socket; Props: wanted ▶ ActorPlugin
@@ -77,6 +77,7 @@ actor-online     ─ Worker beat, in SignedIn ──────▶ Sends Checke
 actor-online     ─ Worker address, always ────────▶ Requests Connection.address
 actor-online     ─ Worker signIn, in SigningIn ───▶ Sends SignedIn; Requests Connection.stop
 actor-connection ─ Worker control, always ────────▶ holds the control socket; Sends Stop
+actor-connection ─ Worker remember, always ───────▶ keeps the Releases wanted in wanted.json
 actor-session    ─ Worker agent, always ───────────▶ keeps the Agent in Agents
 actor-session    ─ Worker turn, in Running ────────▶ appends Raw; Sends NativeId, Steered, TurnEnded
 actor-session    ─ Worker cancel, while cancelling ▶ Sends TurnEnded
@@ -101,18 +102,22 @@ the answer changes is a Message after it, such as AddSession for a Fork.
 parts, online and plugins, joined through itself alone.
 **Input**: the Connection's id, name and Connection Key, its folders, its
 control socket and what names its Plugins' sockets, the port, the origins
-let in, and the Plugins to run from a file in development.
+let in, the Plugins to run from a file in development, and lastWanted: the
+Release of each Plugin it last wanted, which run.ts reads from
+`wanted.json`.
 **Model**: the Input; listening: the router's port, null until it listens.
 url: the tunnel's address, null while there is none. wanted: the version of
-each Plugin to run, from Cloud Connect's answers and the files given, which
-win. plugins: each Plugin State as last reported.
+each Plugin to run: lastWanted at first, then Cloud Connect's answers,
+which win over it, and the files given, which win over both. plugins: each
+Plugin State as last reported.
 **States**: Running. Forgotten. Stopped: reason, null when asked to stop.
 Forgotten and Stop end it.
 **Messages**: Listening, Wanted, Addressed, Forgotten, Stop: the Connection
 Requests. PluginReported: the Plugins Request. Stop: the control Worker too.
 **Commands**: none.
 **Workers**: control: always; holds the control socket, answering `status`
-and `stop`; Sends Stop when another holds it.
+and `stop`; Sends Stop when another holds it. remember: always; writes the
+Releases in wanted, never a file, to `wanted.json` each time they change.
 **Requires**: none of its own.
 **Provides**: Connection: listening, wanted, address, forgotten, stop, each
 Sending its Message. Plugins: its Request `report` Sends PluginReported.
@@ -121,7 +126,7 @@ actor-online's services, and `connection.ts` hands it identity/'s
 Connection.
 **Children**: online: in Running; Props: the router's port, each Plugin
 State. plugins: always; Input: the key, folders, socket id, port and
-origins; Props: wanted.
+origins; Props: wanted, each Plugin State.
 **View**: none.
 
 ### Decisions
@@ -145,6 +150,14 @@ origins; Props: wanted.
   the socket.
 - **identity/ stays Modules beside the tree, not services/**, because
   `remove` uses sign-in and identity outside the tree.
+- **What it last wanted is the root's own file, remember.ts, not
+  identity/'s**, because only the running root writes it and only the next
+  start reads it: it is what the Connection last ran, not who it is, and
+  `list` and `remove` never need it. Caveat: a Connection that never got an
+  answer runs nothing until it does, as before.
+- **An Outdated Connection stops through Connection.stop**, because it is
+  a stop with a reason like any other, and its Plugins stop with it.
+  Caveat: it has already reported, so its User sees the version it runs.
 
 ## actor-online
 
@@ -164,7 +177,8 @@ TunnelStatus Requests. Checked, Reported, SignedOut: the beat Worker and a
 Report's answer. SignedIn: the signIn Worker.
 **Commands**: none.
 **Workers**: beat: in SignedIn; checks the tunnel, then Reports; Sends
-Checked and the answer, and Requests Connection.wanted, forgotten or stop.
+Checked and the answer, and Requests Connection.wanted, forgotten or stop,
+stop too when the answer says it is Outdated, below the Minimum Connect.
 address: always; Requests Connection.address as the status's address
 changes. signIn: in SigningIn; waits the back-off, signs in again; Sends
 SignedIn or Requests Connection.stop.
@@ -231,14 +245,19 @@ from.
 and one Plugin Child per Plugin wanted.
 **Input**: the Connection Key, its folders, what names its Plugins'
 sockets, the port, and the origins let in.
-**Props**: wanted: the version of each Plugin to run.
+**Props**: wanted: the version of each Plugin to run. plugins: each Plugin
+State, which says the Release each runs.
 **Model**: the Input.
 **States**: none.
 **Messages**: none.
 **Commands**: none.
 **Workers**: router: always; listens on the port, checks the Connection
-Key, passes `/<plugin>/…` to each Plugin's socket; Requests
-Connection.listening, or stop when it cannot listen.
+Key, passes `/<plugin>/<sha256>/rpc` to each Plugin's socket as `/rpc`
+while the Plugin is Running that hash, and closes a WebSocket for any other
+with 4409, or answers 409, naming the hash it runs; a Plugin run from a
+file answers at any hash; any other `/<plugin>/…`, such as an older Code's
+`/<plugin>/rpc`, is passed as before. Requests Connection.listening, or
+stop when it cannot listen.
 **Requires**: Connection: router.
 **Provides**: none: its Plugins report through the root's Plugins.
 **Services**: none.
@@ -255,6 +274,13 @@ Connection's, its socket; Props: the version wanted.
   the router reads wanted from its Props as they change.
 - **The router is a Worker, not an Actor**, because it holds one socket and
   has no States of its own.
+- **The router reads which Release runs from the Plugin States, as Props
+  from the root**, because that is where each Plugin reports it; it never
+  asks a Plugin Child. Caveat: a Plugin Starting a new Release runs none
+  yet, so a socket closes with no hash until it is Running.
+- **The unhashed `/<plugin>/rpc` is still passed, for one release**,
+  because a Code built before Releases calls it. Caveat: it reaches
+  whatever Release runs, as before.
 - **The Plugins report to the root, not to actor-plugins**, because the
   root is where online reads them from; Plugins reaches every Actor below
   the root.

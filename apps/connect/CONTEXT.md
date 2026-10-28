@@ -17,7 +17,7 @@ One UI on Connect, such as Code, reaching the Connections Cloud Connect lists.
 _Avoid_: client, frontend, product
 
 **Plugin**:
-A program a Connection runs beside itself and keeps at the Release Cloud Connect names latest, serving one RPC group. An App calls it at the Release it was built with, `<tunnel>/<name>/<sha256>/rpc`; a Connection running another closes the socket with 4409, naming the one it runs. `code` is the first.
+A program a Connection runs beside itself and keeps at the Release Cloud Connect names latest, or, while Cloud Connect cannot be reached, the one it last named, serving one RPC group. An App calls it at the Release it was built with, `<tunnel>/<name>/<sha256>/rpc`; a Connection running another closes the socket with 4409, naming the one it runs. `code` is the first.
 _Avoid_: App Group (the former name), module, feature
 
 **Release**:
