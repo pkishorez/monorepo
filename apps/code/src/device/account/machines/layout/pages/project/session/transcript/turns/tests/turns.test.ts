@@ -65,6 +65,7 @@ describe('a question the agent asked', () => {
     id,
     call: { type: 'toolCall', id, tool, name: id, title: '', input },
     result: null,
+    answered: null,
     state: 'done',
   });
   const read = tool('r', 'read', { file_path: 'a.ts' });

@@ -31,7 +31,7 @@ export const isSaid = (row: Row): row is SaidRow =>
   row.kind === 'plan' ||
   row.kind === 'error' ||
   row.kind === 'note' ||
-  (row.kind === 'tool' && askedOf(row.call, row.result) !== null);
+  (row.kind === 'tool' && askedOf(row.call, row.answered) !== null);
 
 export function Said({
   row,

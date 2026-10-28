@@ -21,8 +21,13 @@ import {
   type Session as SessionRecord,
   type SessionStatus,
 } from '../../../records/index.js';
-import { Agents, HarnessAccounts, Store } from '../../capabilities/index.js';
-import { AnswerQuestion, NOT_ASKED, StopJob } from './commands.js';
+import {
+  Agents,
+  Answers,
+  HarnessAccounts,
+  Store,
+} from '../../capabilities/index.js';
+import { AnswerNotAsked, AnswerQuestion, StopJob } from './commands.js';
 import { forkFrom } from './fork.js';
 import { Prompt } from './prompt.js';
 import { title, retitle } from './title.js';
@@ -46,7 +51,7 @@ import { cancel, run } from './turn.js';
  * follows the Background Jobs the Agent reports, stops one on a StopJob
  * (see commands.ts) and keeps the reason when the harness refuses; follows
  * the Agent Questions its running Turn waits on, and gives the agent an
- * Answer, keeping how it went until the engine has read it; saves
+ * Answer, its Commands telling the caller in Answers how it went; saves
  * itself whenever its record changes; takes a message's model and settings
  * from that Turn on; and asks a One-shot Prompt for a title after its first
  * message (see title.ts). Each Turn that starts marks it active, and each
@@ -65,9 +70,6 @@ export class AgentClosed extends Data.TaggedError('AgentClosed')<{}> {}
 export class AskFailed extends Data.TaggedError('AskFailed')<{
   readonly message: string;
 }> {}
-
-/** How many Answers' outcomes a Session keeps for the engine to read. */
-const KEPT_ANSWERS = 16;
 
 /** What a Session keeps of its record; its status is its State. */
 const Saved = Schema.Struct(SessionSchema.fields).mapFields(
@@ -96,16 +98,6 @@ const Model = Schema.Struct({
   ),
   /** The Agent Questions as the agent last listed them; in memory only. */
   questions: Schema.Array(AgentQuestionSchema),
-  /**
-   * How each Answer went, until the engine reads it: null when the agent
-   * took it, else why not; in memory only.
-   */
-  answered: Schema.Array(
-    Schema.Struct({
-      answerId: Schema.String,
-      reason: Schema.NullOr(Schema.String),
-    }),
-  ),
 });
 type Model = typeof Model.Type;
 
@@ -164,19 +156,15 @@ const Message = Schema.TaggedUnion({
   /** The harness refused to stop a job. */
   JobStopFailed: { jobId: Schema.String, reason: Schema.String },
   Questions: { questions: Schema.Array(AgentQuestionSchema) },
-  /** Answer one of the agent's Agent Questions; null declines it. */
+  /**
+   * Answer one of the agent's Agent Questions; null declines it. Its caller
+   * waits on `answerId` in Answers for how it went.
+   */
   Answer: {
     answerId: Schema.String,
     questionId: Schema.String,
     answer: Schema.NullOr(QuestionAnswerSchema),
   },
-  /** How an Answer went: null when the agent took it, else why not. */
-  AnswerGiven: {
-    answerId: Schema.String,
-    reason: Schema.NullOr(Schema.String),
-  },
-  /** The engine has read how an Answer went. */
-  AnswerRead: { answerId: Schema.String },
   Titled: { title: Schema.String },
   Settle: { at: Schema.Finite },
   Unsettle: {},
@@ -350,7 +338,14 @@ const agentTurn = (self: SessionSelf) =>
 
 export const Session = Actor.build(
   Actor.define('Session', {
-    requires: [Agents, Harnesses, HarnessAccounts, OneShotPrompt, Store],
+    requires: [
+      Agents,
+      Answers,
+      Harnesses,
+      HarnessAccounts,
+      OneShotPrompt,
+      Store,
+    ],
     input: SessionInput,
     model: Model,
     state: State,
@@ -365,7 +360,6 @@ export const Session = Actor.build(
         jobs: [],
         refusedStops: [],
         questions: [],
-        answered: [],
       },
       state: first ? running([first]) : idleOf(session.status),
     }),
@@ -403,40 +397,15 @@ export const Session = Actor.build(
         model: { ...model, questions },
       }),
       // One no longer asked is not given: the agent would refuse it anyway.
-      Answer: ({ answerId, questionId, answer }, { model }) =>
-        model.questions.some((question) => question.id === questionId)
-          ? {
-              command: AnswerQuestion({
-                sessionId: model.session.id,
-                answerId,
-                questionId,
-                answer,
-              }),
-            }
-          : {
-              model: {
-                ...model,
-                answered: [
-                  ...model.answered,
-                  { answerId, reason: NOT_ASKED },
-                ].slice(-KEPT_ANSWERS),
-              },
-            },
-      // One its caller stopped waiting for before it came is never read:
-      // only the latest few are kept.
-      AnswerGiven: ({ answerId, reason }, { model }) => ({
-        model: {
-          ...model,
-          answered: [...model.answered, { answerId, reason }].slice(
-            -KEPT_ANSWERS,
-          ),
-        },
-      }),
-      AnswerRead: ({ answerId }, { model }) => ({
-        model: {
-          ...model,
-          answered: model.answered.filter((each) => each.answerId !== answerId),
-        },
+      Answer: ({ answerId, questionId, answer }, { model }) => ({
+        command: model.questions.some((question) => question.id === questionId)
+          ? AnswerQuestion({
+              sessionId: model.session.id,
+              answerId,
+              questionId,
+              answer,
+            })
+          : AnswerNotAsked({ answerId }),
       }),
       Titled: ({ title }, { model }) => ({
         model: {

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { overBox, type Viewport, visibleOf } from './visible-viewport.ts';
+import {
+  createTallest,
+  overBox,
+  type Viewport,
+  visibleOf,
+} from './visible-viewport.ts';
 
 /*
  * What the on-screen keyboard leaves of the page, from what the page and
@@ -195,5 +200,30 @@ describe('a box in the page, such as the Question Panel’s sheet', () => {
         12,
       ),
     ).toEqual({ covered: 0, room: null });
+  });
+});
+
+describe('the tallest the page has been, what a keyboard is measured against', () => {
+  it('grows with the page while no field has focus', () => {
+    const tallest = createTallest();
+    expect(tallest(390, 660, false)).toBe(660);
+    expect(tallest(390, 714, false)).toBe(714);
+    expect(tallest(390, 660, false)).toBe(714);
+  });
+
+  it('keeps the height from before a field took focus, as Android shrinks the page under its keyboard', () => {
+    const tallest = createTallest();
+    tallest(412, 704, false);
+    expect(tallest(412, 429, true)).toBe(704);
+    // A taller page read with a field says nothing: the keyboard may fall.
+    expect(tallest(412, 704, true)).toBe(704);
+    expect(tallest(412, 429, true)).toBe(704);
+  });
+
+  it('starts again at a new width, as the phone turns', () => {
+    const tallest = createTallest();
+    tallest(390, 714, false);
+    expect(tallest(844, 340, false)).toBe(340);
+    expect(tallest(390, 714, false)).toBe(714);
   });
 });

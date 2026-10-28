@@ -183,6 +183,57 @@ describe('project, on a captured cancelled turn', () => {
   });
 });
 
+describe('project, on captured Agent Questions, one answered and one declined', () => {
+  const turn = projectAll(fixture('question'));
+  const answered = turn.filter((r) => r.kind === 'question.answered');
+  const results = turn.filter((r) => r.kind === 'user');
+
+  it('shows what the user answered, by Item id, each choice whole', () => {
+    expect(answered[0]?.projected).toEqual({
+      agentId: null,
+      role: 'tool',
+      parts: [
+        {
+          type: 'questionAnswered',
+          toolCallId: 'toolu_01MKda9iJ4cKnNYkkzMphTV2',
+          answers: { '0': ['Green'], '1': ['Apple', 'Banana'] },
+        },
+      ],
+    });
+    expect(partsOf(results[0]?.projected ?? null)[0]).toMatchObject({
+      type: 'toolResult',
+      toolCallId: 'toolu_01MKda9iJ4cKnNYkkzMphTV2',
+      isError: false,
+    });
+  });
+
+  it('shows a declined one as answered with null, its result an error', () => {
+    expect(partsOf(answered[1]?.projected ?? null)).toEqual([
+      {
+        type: 'questionAnswered',
+        toolCallId: 'toolu_01Hghi1qJY2khkVh7YHb29VF',
+        answers: null,
+      },
+    ]);
+    expect(partsOf(results[1]?.projected ?? null)[0]).toMatchObject({
+      type: 'toolResult',
+      toolCallId: 'toolu_01Hghi1qJY2khkVh7YHb29VF',
+      isError: true,
+    });
+  });
+
+  it('shows nothing for a record of answers it cannot read', () => {
+    expect(
+      project(
+        raw({
+          kind: 'question.answered',
+          payload: { toolUseId: 'toolu_1', answers: { '0': 'Green' } },
+        }),
+      ),
+    ).toBeNull();
+  });
+});
+
 describe('project, on hand-made records', () => {
   it('trims long tool output and joins text blocks', () => {
     const long = 'x'.repeat(TOOL_OUTPUT_MAX + 10);

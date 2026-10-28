@@ -1,6 +1,7 @@
 import { Schema } from 'effect';
 import { EntityESchema } from '@kestack/std-toolkit/eschema';
 import { JsonSchema } from '../raw/index.js';
+import { QuestionAnswerSchema } from '../wire/index.js';
 
 export const TOOL_KINDS = [
   'read',
@@ -79,6 +80,17 @@ const ToolResult = Schema.Struct({
   truncated: Schema.Boolean,
   isError: Schema.Boolean,
 });
+/**
+ * What the user answered to an Agent Question the call asked, by Item id,
+ * as the harness gave it to the agent; null when they declined. A secret's
+ * answer is recorded as `(hidden)`. Apart from the call's toolResult, which
+ * is what the agent was told.
+ */
+const QuestionAnswered = Schema.Struct({
+  type: Schema.Literal('questionAnswered'),
+  toolCallId: Schema.String,
+  answers: Schema.NullOr(QuestionAnswerSchema),
+});
 /** A file sent with a user message, as a Message shows it. */
 const TurnAttachment = Schema.Struct({
   name: Schema.String,
@@ -136,6 +148,7 @@ export const PartSchema = Schema.Union([
   TextChunk,
   ToolCall,
   ToolResult,
+  QuestionAnswered,
   TurnStarted,
   TurnEnded,
   UsagePart,
@@ -170,7 +183,7 @@ export type Message = typeof MessageSchema.Type;
  * harness's projection changes what it makes, so devices that kept
  * Messages throw them away and sync afresh.
  */
-export const PROJECTION_VERSION = 4;
+export const PROJECTION_VERSION = 5;
 
 /** What a harness's `project` decides; the engine adds the ids and time. */
 export type Projected = Pick<Message, 'agentId' | 'role' | 'parts'>;

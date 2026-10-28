@@ -6,7 +6,7 @@ the Sessions in them, runs each Session's Turns on its Agent, and keeps every
 record in the Store. The Heartbeat tree keeps the Machine online: a tunnel to
 this computer, and a Heartbeat to Cloud Connect. Each root runs with
 `Runtime.start`. The engine Layer gives `Store`, `Harnesses`,
-`HarnessAccounts`, `OneShotPrompt` and `Agents`. The machine Layer gives
+`HarnessAccounts`, `OneShotPrompt`, `Agents` and `Answers`. The machine Layer gives
 `HeartbeatHost`.
 Changed through `/kabukifi`; edit by hand and it drifts.
 
@@ -15,8 +15,8 @@ Changed through `/kabukifi`; edit by hand and it drifts.
 ```
 src/machine/code/engine/
   engine.ts                  the front door: finds an Instance, Sends a Message, asks a Query
-  capabilities/              Agents, Store
-  services/                  agents, store, harness-binaries, folders
+  capabilities/              Agents, Answers, Store
+  services/                  agents, answers, store, harness-binaries, folders
   attachments/               saves a message's files before the front door Sends it
   engine-raw/                the engine's own Raw: turn.started, turn.ended, error
   actor-code/                root; States: Loading | Ready
@@ -43,7 +43,7 @@ Groups on its one socket, with its files where `paths/` says; and
 Down, from the root:
 
 ```
-engine Layer ─ Store, Harnesses, HarnessAccounts, OneShotPrompt, Agents ─▶ actor-code
+engine Layer ─ Store, Harnesses, HarnessAccounts, OneShotPrompt, Agents, Answers ─▶ actor-code
 actor-code   ─ each session id; Input: session, cwd, first ──────────────▶ actor-session
 machine Layer ─ HeartbeatHost ───────────────────────────────────────────▶ actor-heartbeat
 ```
@@ -115,21 +115,22 @@ orders its Turns. A message starts or steers a Turn.
 **Input**: the stored session, cwd, the first Prompt or null.
 **Model**: session: the record without status. cwd. untitled: the first
 message until it has a title. jobs and refusedStops: the Background Jobs the
-Agent last listed and the stops it refused, in memory only. questions and
-answered: the Agent Questions the Agent last listed, and how each Answer
-went until the front door reads it, in memory only.
+Agent last listed and the stops it refused, in memory only. questions: the
+Agent Questions the Agent last listed, in memory only.
 **States**: Idle: ended. Running: turnId, prompt, steers, cancelling, queued.
 Send and AgentTurn move Idle to Running. TurnEnded moves Running to Idle, or
 to a new Running for a steer the Agent did not take or a message sent while
 cancelling.
-**Messages**: Send, Cancel, Settle, Unsettle, StopJob, Answer, AnswerRead,
-Titled: the front door. TurnEnded, NativeId, Steered: the turn and cancel
+**Messages**: Send, Cancel, Settle, Unsettle, StopJob, Answer, Titled: the
+front door. TurnEnded, NativeId, Steered: the turn and cancel
 Workers. AgentTurn: the agentTurn Worker. Jobs: the jobs Worker. Questions:
 the questions Worker. Titled: the title Worker. JobStopFailed: the StopJob
-Command. AnswerGiven: the AnswerQuestion Command.
+Command.
 **Commands**: StopJob: ends with JobStopFailed when the harness refuses, or
-with nothing. AnswerQuestion: ends with AnswerGiven, with the harness's
-reason when it refuses.
+with nothing. AnswerQuestion: gives the Agent the answer and tells the
+waiting caller in Answers how it went, the harness's reason when it refuses;
+ends with nothing. AnswerNotAsked: tells the waiting caller its question is
+no longer asked; ends with nothing.
 **Workers**: agent: always; keeps the Agent in Agents, opened on first use.
 jobs: always; Sends Jobs. questions: always; Sends Questions. persist: always; saves each changed record. title:
 while untitled; asks OneShotPrompt; Sends Titled. agentTurn: in Idle; Sends
@@ -140,12 +141,14 @@ after the grace period.
 Agent's answer to a question. retitle: a Title from the latest messages, or
 null. mcpStatus, contextUsage: from the open Agent; AgentClosed while closed.
 **Requires**: Agents: agent, jobs, questions, agentTurn, turn, cancel,
-StopJob, AnswerQuestion, mcpStatus, contextUsage. Store: persist, turn, fork, retitle. Harnesses:
+StopJob, AnswerQuestion, mcpStatus, contextUsage. Answers: AnswerQuestion,
+AnswerNotAsked. Store: persist, turn, fork, retitle. Harnesses:
 agent, fork, ask. HarnessAccounts: agent, fork, ask, title, retitle. OneShotPrompt:
 title, retitle.
 **Provides**: none.
 **Services**: none in the tree: services/agents/ keeps each Agent, opened on
-first use and kept across Turns.
+first use and kept across Turns; services/answers/ keeps each caller waiting
+on an Answer, for as long as it waits.
 **Children**: none.
 **View**: none.
 
@@ -167,9 +170,10 @@ first use and kept across Turns.
   the front door Sends AddSession after fork, and Titled after retitle.
 - **An Answer is a Message and a Command, not a Query**, because it changes
   the agent, and a Query never changes the world. Caveat: the caller still
-  needs how it went, so the Session keeps each outcome in its Model, by an
-  id the front door mints, until the front door has read it and Sends
-  AnswerRead.
+  needs how it went, so the front door mints an Answer id and waits on it in
+  Answers before it Sends, and the Command tells it there. The outcome is a
+  reply to one caller, not a fact about the Session, so it never enters the
+  Model; the wait goes when the call ends, however it ends.
 - **The open Agent is shared through Agents, not a Provide**, because an
   Actor's own Workers, Commands and Queries cannot use its own Provide.
   Caveat: each waits for the agent Worker to keep the Agent, which every

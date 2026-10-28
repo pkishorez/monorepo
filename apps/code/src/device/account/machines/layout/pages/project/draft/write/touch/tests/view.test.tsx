@@ -403,6 +403,40 @@ describe('Touch Draft', () => {
     expect(collapsed()).toBe(true);
   });
 
+  // A press as a finger makes it: down, and up again before focus moves.
+  const press = (target: Element) =>
+    act(async () => {
+      target.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+      target.dispatchEvent(new Event('pointerup', { bubbles: true }));
+    });
+
+  it('stays open, typing done, when a press on its own button takes focus from the words, as iOS gives the button none', async () => {
+    await tap(editor());
+    await press(button('Add')!);
+    await act(async () => editor().blur());
+    expect(collapsed()).toBe(false);
+    expect(card().dataset['writing']).toBeUndefined();
+    await tap(button('Add')!);
+    expect(collapsed()).toBe(false);
+  });
+
+  it('collapses when the words lose focus after a press in it has ended, as the keyboard put away', async () => {
+    await press(editor());
+    await tap(editor());
+    // Its press ended with its click: the keyboard's own Done is no press.
+    await act(async () => editor().blur());
+    expect(collapsed()).toBe(true);
+  });
+
+  it('collapses for a press outside it, though one in it came just before', async () => {
+    await tap(editor());
+    await press(button('Add')!);
+    // Ended without a click, as a finger dragged off; a press outside begins.
+    await press(document.body);
+    await act(async () => editor().blur());
+    expect(collapsed()).toBe(true);
+  });
+
   it('collapses on a send from the Composer', async () => {
     await tap(editor());
     await tap(button('Send')!);

@@ -7,7 +7,9 @@ import type { Message, Part, Usage } from '@kestack/connect/code';
  * - a toolCall is running until a toolResult with its id arrives; with no
  *   result once its turn has ended, it was stopped. A failed result that
  *   came after the agent's last word in a cancelled turn is the agent
- *   reporting the interrupt (Claude does), so it was stopped too;
+ *   reporting the interrupt (Claude does), so it was stopped too. A call
+ *   that asked an Agent Question also takes the questionAnswered with its
+ *   id: what the user answered;
  * - a toolCall to a subagent holds the Messages whose `agentId` is its id,
  *   drawn the same way, so subagents nest. Its prompt comes first: the
  *   subagent's own user words (Codex sends them), or else the call's
@@ -56,6 +58,8 @@ export type Row =
       readonly id: string;
       readonly call: Of<'toolCall'>;
       readonly result: Of<'toolResult'> | null;
+      /** What the user answered, when the call asked an Agent Question. */
+      readonly answered: Of<'questionAnswered'> | null;
       readonly state: ToolState;
     }
   | {
@@ -117,6 +121,7 @@ export const thread = (
 ): ReadonlyArray<Row> => {
   const sorted = [...messages].sort((a, b) => a.id.localeCompare(b.id));
   const results = new Map<string, Of<'toolResult'>>();
+  const answered = new Map<string, Of<'questionAnswered'>>();
   const resultAt = new Map<string, string>();
   const byAgent = new Map<string | null, Message[]>();
   const ended = new Set<string>();
@@ -134,6 +139,8 @@ export const thread = (
       if (part.type === 'toolResult') {
         results.set(part.toolCallId, part);
         resultAt.set(part.toolCallId, message.id);
+      } else if (part.type === 'questionAnswered') {
+        answered.set(part.toolCallId, part);
       } else if (part.type === 'turnStarted' && !part.steered) {
         if (!startedAt.has(message.turnId))
           startedAt.set(message.turnId, message.at);
@@ -225,7 +232,16 @@ export const thread = (
             const result = results.get(part.id) ?? null;
             const state = stateOf(part, message.turnId);
             if (part.tool !== 'subagent' || seen.has(part.id))
-              return [{ kind: 'tool', id, call: part, result, state }];
+              return [
+                {
+                  kind: 'tool',
+                  id,
+                  call: part,
+                  result,
+                  answered: answered.get(part.id) ?? null,
+                  state,
+                },
+              ];
             const all = rowsOf(part.id, new Set(seen).add(part.id));
             const last = all.at(-1);
             const own =
@@ -267,6 +283,7 @@ export const thread = (
           case 'other':
             return [{ kind: 'note', id, label: part.label }];
           case 'toolResult':
+          case 'questionAnswered':
           case 'usage':
             return [];
           default:
