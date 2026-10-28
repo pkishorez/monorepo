@@ -1,4 +1,4 @@
-import { Context, Data, Effect, Layer } from 'effect';
+import { Context, Data, Effect, Layer, Scope } from 'effect';
 import { Accounts, type AccountsState } from '@kestack/auth-toolkit/client';
 import { device } from '@kestack/auth-toolkit/client/device';
 import { authInfo } from '../../../cloud/client/index.js';
@@ -89,13 +89,22 @@ const deviceAt = (
     return { context, accounts: Context.get(context, Accounts) };
   });
 
-/** auth-toolkit's Device, signed in to the Auth Worker at `url`. */
+/**
+ * auth-toolkit's Device, signed in to the Auth Worker at `url`. Signing in
+ * again asks Cloud Connect how first: an Auth Worker it names anew gets a
+ * Device of its own, for the rest of the Scope. Every Device keeps its
+ * Sign-in in the same database file, which the Layer that signs reads at
+ * each call, so it signs with the newest Sign-in, whichever Device made it.
+ */
 const asDevice = (options: SignInOptions, url: string) =>
   Effect.gen(function* () {
-    const { context, accounts } = yield* deviceAt(options, url);
+    const scope = yield* Effect.scope;
+    const first = yield* deviceAt(options, url);
+    let current = { url, accounts: first.accounts };
 
-    /** A new Sign-in, through the Auth Worker, and its User. */
+    /** A new Sign-in, through the current Auth Worker, and its User. */
     const fresh = Effect.gen(function* () {
+      const { url, accounts } = current;
       yield* Effect.log(`Sign in to ${options.cloud} through ${url}`);
       yield* accounts.signIn();
       const signed = activeOf(yield* accounts.current);
@@ -110,9 +119,9 @@ const asDevice = (options: SignInOptions, url: string) =>
     const ensure = Effect.gen(function* () {
       // An Auth Worker that cannot be asked, or does not answer in time,
       // leaves the stored Sign-in trusted.
-      const checked = yield* accounts.check.pipe(
+      const checked = yield* first.accounts.check.pipe(
         Effect.timeout(CHECKING),
-        Effect.catch(() => accounts.current),
+        Effect.catch(() => first.accounts.current),
       );
       return activeOf(checked) ?? (yield* fresh);
     });
@@ -120,13 +129,22 @@ const asDevice = (options: SignInOptions, url: string) =>
     const user = yield* ensure;
     return {
       user,
-      signing: Layer.succeedContext(context) as Layer.Layer<unknown>,
-      signOut: Effect.ignore(accounts.signOutAll),
+      signing: Layer.succeedContext(first.context) as Layer.Layer<unknown>,
+      signOut: Effect.suspend(() => Effect.ignore(current.accounts.signOutAll)),
       // Cloud Connect refused the stored Sign-in, whatever the Auth Worker
-      // says of it: it goes, and only a new one is trusted.
-      signInAgain: Effect.ignore(accounts.signOutAll).pipe(
-        Effect.andThen(fresh),
-      ),
+      // says of it: it goes, and only a new one is trusted, made through
+      // the Auth Worker Cloud Connect names now.
+      signInAgain: Effect.gen(function* () {
+        const info = yield* discover(options);
+        yield* Effect.ignore(current.accounts.signOutAll);
+        if (info.url !== current.url) {
+          const moved = yield* deviceAt(options, info.url).pipe(
+            Scope.provide(scope),
+          );
+          current = { url: info.url, accounts: moved.accounts };
+        }
+        return yield* fresh;
+      }),
     };
   });
 
