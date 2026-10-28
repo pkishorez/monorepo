@@ -45,15 +45,18 @@ import { useCallback, useRef } from 'react';
  * where it was.
  *
  * While the open session's agent waits on an Agent Question, the Question
- * Panel stands in for the Draft. Ctrl+Y, or `y` in Vim Mode, opens it or
- * minimises it, and `i` opens it, never the Composer. Open, it is the
- * `question` Surface, inside the page, so the sidebar and the Pickers'
- * keys still work from it: the arrows, or `j` and `k`, move through its
- * choices, Left and Right, or `h` and `l`, through its questions, Space
- * chooses, Enter chooses and goes on, 1 to 9 choose an option, `i` types an
- * answer of one's own, Mod+Enter sends, `d` skips it, and Escape leaves
- * what is typed, then minimises it. Minimised, the page's keys work on the
- * transcript as ever.
+ * Panel stands in for the Draft. Ctrl+Y opens it or minimises it in either
+ * Mode; in Vim Mode `m` and `i` open it, never the model Picker or the
+ * Composer, which are not drawn meanwhile. Open, it is the `question`
+ * Surface, inside the page, so the sidebar and the Pickers' keys still
+ * work from it, and its own plain keys work in either Mode, focus being
+ * in it: `j` and `k`, or the arrows, through the choices, a single one
+ * chosen as it is reached; Ctrl+J and Ctrl+K, `l` and `h`, Tab and
+ * Shift+Tab, through its questions; Space or `x` chooses, Enter goes on,
+ * or sends on the last; 1 to 9 choose an option; `i` types an answer of
+ * one's own; Mod+Enter sends; `q`, then `q` or Enter, skips it; `m`
+ * minimises it, and Escape stops typing, else minimises. Minimised, the
+ * page's keys work on the transcript as ever.
  *
  * Held down, a key that moves or scrolls does it again and again, as `j`
  * scrolls and `]` steps through the sessions (`repeat: true`); any other
@@ -234,7 +237,7 @@ export const keys = createKeys({
             keys: '/',
             label: 'Put a skill in the Draft',
           },
-          model: { keys: 'm', label: 'Pick the model' },
+          model: { keys: 'm', label: 'Pick the model, or open the question' },
           permissions: {
             keys: 'p',
             label: 'Pick the permissions',
@@ -268,7 +271,6 @@ export const keys = createKeys({
             label: 'Close the answer, or leave Settings',
             always: true,
           },
-          question: { keys: 'y', label: 'Open or minimise the question' },
           questionAnywhere: {
             keys: 'ctrl+y',
             label: 'Open or minimise the question, even while typing',
@@ -282,40 +284,48 @@ export const keys = createKeys({
           question: {
             label: 'question',
             actions: {
-              next: {
-                keys: 'ArrowDown',
+              down: {
+                keys: ['j', 'ArrowDown'],
                 label: 'Next choice',
                 always: true,
                 repeat: true,
               },
-              previous: {
-                keys: 'ArrowUp',
+              up: {
+                keys: ['k', 'ArrowUp'],
                 label: 'Previous choice',
                 always: true,
                 repeat: true,
               },
-              down: { keys: 'j', label: 'Next choice', repeat: true },
-              up: { keys: 'k', label: 'Previous choice', repeat: true },
               nextItem: {
-                keys: 'ArrowRight',
+                keys: 'ctrl+j',
+                label: 'Next question, even while typing',
+                always: true,
+                inField: true,
+              },
+              previousItem: {
+                keys: 'ctrl+k',
+                label: 'Previous question, even while typing',
+                always: true,
+                inField: true,
+              },
+              right: {
+                keys: ['l', 'Tab', 'ArrowRight'],
                 label: 'Next question',
                 always: true,
               },
-              previousItem: {
-                keys: 'ArrowLeft',
+              left: {
+                keys: ['h', 'shift+Tab', 'ArrowLeft'],
                 label: 'Previous question',
                 always: true,
               },
-              right: { keys: 'l', label: 'Next question' },
-              left: { keys: 'h', label: 'Previous question' },
               toggle: {
-                keys: 'Space',
+                keys: ['Space', 'x'],
                 label: 'Choose, or let go',
                 always: true,
               },
               pick: {
                 keys: 'Enter',
-                label: 'Choose, and on to the next question',
+                label: 'Next, or send on the last',
                 always: true,
               },
               option1: { keys: '1', label: 'Choose option 1', always: true },
@@ -327,17 +337,30 @@ export const keys = createKeys({
               option7: { keys: '7', label: 'Choose option 7', always: true },
               option8: { keys: '8', label: 'Choose option 8', always: true },
               option9: { keys: '9', label: 'Choose option 9', always: true },
-              write: { keys: 'i', label: 'Type your own answer' },
+              write: {
+                keys: 'i',
+                label: 'Type your own answer',
+                always: true,
+              },
               send: {
                 keys: 'mod+Enter',
-                label: 'Send the answer',
+                label: 'Send the answers',
                 always: true,
                 inField: true,
               },
-              decline: { keys: 'd', label: 'Skip the question' },
+              decline: {
+                keys: 'q',
+                label: 'Skip the question, once asked again',
+                always: true,
+              },
+              minimise: {
+                keys: 'm',
+                label: 'Minimise the question',
+                always: true,
+              },
               close: {
                 keys: 'Escape',
-                label: 'Leave your own answer, then minimise',
+                label: 'Stop typing, else minimise',
                 always: true,
               },
             },
@@ -550,29 +573,34 @@ export const keyTable: ReadonlyArray<{
         always: ['content.close'],
         vim: [],
       },
-      {
-        label: 'Open or minimise the question',
-        always: ['content.questionAnywhere'],
-        vim: ['content.question'],
-      },
     ],
   },
   {
     title: 'Answering a question',
     rows: [
       {
+        label: 'Open or minimise the question',
+        always: ['content.questionAnywhere', 'question.minimise'],
+        vim: [],
+      },
+      {
         label: 'Next, previous choice',
-        always: ['question.next', 'question.previous'],
-        vim: ['question.down', 'question.up'],
+        always: ['question.down', 'question.up'],
+        vim: [],
       },
       {
         label: 'Next, previous question',
-        always: ['question.nextItem', 'question.previousItem'],
-        vim: ['question.right', 'question.left'],
+        always: [
+          'question.nextItem',
+          'question.previousItem',
+          'question.right',
+          'question.left',
+        ],
+        vim: [],
       },
       { label: 'Choose, or let go', always: ['question.toggle'], vim: [] },
       {
-        label: 'Choose, and on to the next question',
+        label: 'Next, or send on the last',
         always: ['question.pick'],
         vim: [],
       },
@@ -591,11 +619,15 @@ export const keyTable: ReadonlyArray<{
         ],
         vim: [],
       },
-      { label: 'Type your own answer', always: [], vim: ['question.write'] },
-      { label: 'Send the answer', always: ['question.send'], vim: [] },
-      { label: 'Skip the question', always: [], vim: ['question.decline'] },
+      { label: 'Type your own answer', always: ['question.write'], vim: [] },
+      { label: 'Send the answers', always: ['question.send'], vim: [] },
       {
-        label: 'Leave your own answer, then minimise',
+        label: 'Skip the question, once asked again',
+        always: ['question.decline'],
+        vim: [],
+      },
+      {
+        label: 'Stop typing, else minimise',
         always: ['question.close'],
         vim: [],
       },
