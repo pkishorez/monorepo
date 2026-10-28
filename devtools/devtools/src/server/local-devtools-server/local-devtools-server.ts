@@ -41,7 +41,11 @@ type Options = {
 /** Builds the one loopback server that hosts DevTools and every Tool. */
 export function makeLocalDevtoolsServer(options: Options) {
   const uiRoot = options.uiRoot ?? DEFAULT_UI_ROOT;
-  const canonicalOrigin = `http://${HOST}:${options.port}`;
+  // DevTools' own page, opened at either loopback host.
+  const ownOrigins = [
+    `http://${HOST}:${options.port}`,
+    `http://localhost:${options.port}`,
+  ];
 
   return Layer.unwrap(
     Effect.gen(function* () {
@@ -55,8 +59,8 @@ export function makeLocalDevtoolsServer(options: Options) {
           LotelOtlpHttpLive,
           makeBrowserApplicationLive({ uiRoot, version: options.version }),
           StoryEvidenceLive,
-          kabukiRoutes({ origins: [canonicalOrigin] }),
-          makeRequestAccessLive({ port: options.port, canonicalOrigin }),
+          kabukiRoutes({ origins: ownOrigins }),
+          makeRequestAccessLive({ port: options.port, ownOrigins }),
         ),
       ).pipe(
         // Lotel and the Project registry keep separate tables in the one

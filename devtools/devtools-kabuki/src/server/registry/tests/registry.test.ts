@@ -57,6 +57,20 @@ describe('KabukiSessions', () => {
       }),
     ));
 
+  it('moves one to another page, and still removes it after', () =>
+    run(
+      Effect.gen(function* () {
+        const sessions = yield* KabukiSessions;
+        const one = yield* sessions.add(asked('diary'));
+        yield* sessions.moved(one, 'http://localhost:5173/items/1');
+        expect((yield* sessions.find('diary'))?.url).toBe(
+          'http://localhost:5173/items/1',
+        );
+        yield* sessions.remove(one);
+        expect(yield* sessions.list).toEqual([]);
+      }),
+    ));
+
   it('streams the list now and after every change, and says when one is gone', () =>
     run(
       Effect.gen(function* () {

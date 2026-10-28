@@ -6,11 +6,13 @@ import type { Link } from './session-list.js';
  * Kabuki Session connected, none picked, or the one picked gone.
  */
 
-/** How an app connects, as it would write it. */
-const SNIPPET = `import { connect } from '@kestack/devtools-kabuki/session';
+/** How an app connects to the DevTools Server at `server`, as it would write it. */
+const snippet = (
+  server: string,
+) => `import { connect } from '@kestack/devtools-kabuki/session';
 
 toReact(App, AppView, layer, {
-  attach: [connect({ url: 'http://127.0.0.1:14400' })],
+  attach: [connect({ url: '${server}' })],
 });`;
 
 function Blank({
@@ -55,7 +57,7 @@ export function Connecting() {
   );
 }
 
-/** No Kabuki Session connected: how to connect one, while it waits for one. */
+/** No Kabuki Session connected: how to connect one to this DevTools Server, the page's own origin, while it waits for one. */
 export function Waiting({ link }: { readonly link: Link }) {
   return (
     <Blank title="No Kabuki apps connected" wide>
@@ -66,7 +68,7 @@ export function Waiting({ link }: { readonly link: Link }) {
         to it:
       </p>
       <pre className="mt-5 overflow-x-auto rounded-lg border border-border/60 bg-muted/40 px-4 py-3 font-mono text-xs leading-relaxed text-foreground/90">
-        {SNIPPET}
+        {snippet(location.origin)}
       </pre>
       <p
         role="status"

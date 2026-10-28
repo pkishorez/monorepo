@@ -36,6 +36,7 @@ const layer = Layer.mergeAll(
 export default Start.app({
   router: Device.router,
   view: Device.view,
+  name: 'code',
   // The Web Platform's Document: Inter, the Theme and the PWA, and while
   // developing, Kabuki's devtools around every page.
   document: document({

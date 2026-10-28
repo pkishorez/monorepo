@@ -1,5 +1,10 @@
-import { Deferred, Effect, Schedule } from 'effect';
-import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
+import { Cause, Deferred, Effect, Exit, Schedule, Stream } from 'effect';
+import {
+  HttpRouter,
+  HttpServerError,
+  HttpServerRequest,
+  HttpServerResponse,
+} from 'effect/http';
 import { RpcClient } from 'effect/rpc';
 import { Socket } from 'effect/socket';
 import {
@@ -17,8 +22,11 @@ import { KabukiSessions } from '../registry/index.ts';
  *             origin its browser said.
  * 2. Client   the Kabuki Session Api, asked over the accepted socket. The
  *             app redials on its own, so the client never does.
- * 3. Keep     it under a name of its own, tell the app that name, and
- *             forget it once the socket closes.
+ * 3. Keep     it under a name of its own, tell the app that name, follow
+ *             the page it moves to, and forget it once the socket closes.
+ *             DevTools going down takes them all at once: none is
+ *             forgotten one by one, so whoever watches the list keeps it
+ *             whole until its own socket closes.
  */
 
 // 1. Read
@@ -56,6 +64,15 @@ const clientOver = (socket: Socket.Socket) =>
   });
 
 // 3. Keep
+/** Whether the route ended because DevTools is going down: interrupted, and not by its socket closing. */
+const goingDown = (exit: Exit.Exit<unknown, unknown>) =>
+  Exit.hasInterrupts(exit) &&
+  !exit.cause.reasons.some(
+    (reason) =>
+      Cause.isInterruptReason(reason) &&
+      reason.annotations.has(HttpServerError.ClientAbort.key),
+  );
+
 /** The `/kabuki/connect` route: each Kabuki Session that dials, kept while its socket is open. */
 export const accept = HttpRouter.use((router) =>
   Effect.gen(function* () {
@@ -70,10 +87,16 @@ export const accept = HttpRouter.use((router) =>
         const { client, closed } = yield* clientOver(socket);
         const session = yield* Effect.acquireRelease(
           sessions.add({ ...asked, client }),
-          sessions.remove,
+          (session, exit) =>
+            goingDown(exit) ? Effect.void : sessions.remove(session),
         );
-        // A socket that fails this is closing, and is forgotten just below.
+        // A socket that fails these is closing, and is forgotten just below.
         yield* Effect.ignore(client.named({ name: session.name }));
+        yield* client.page().pipe(
+          Stream.runForEach((url) => sessions.moved(session, url)),
+          Effect.ignore,
+          Effect.forkChild,
+        );
         yield* closed;
         return HttpServerResponse.empty();
       }).pipe(
