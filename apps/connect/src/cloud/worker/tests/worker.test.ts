@@ -6,7 +6,7 @@ import { fakeGuard } from '@kestack/auth-toolkit/fake';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { CloudClient } from '../../client/index.js';
-import { ConnectionReport } from '../../contract/index.js';
+import { ConnectionReport, isOutdated } from '../../contract/index.js';
 import { connectionsTable, serveOver } from '../index.js';
 
 /*
@@ -57,8 +57,8 @@ const WANTED = {
   code: { hash: 'a'.repeat(64), url: 'https://files.test/code' },
 };
 
-/** The version of Connect this Cloud Connect was deployed with. */
-const CONNECT_VERSION = '0.0.9';
+/** The Minimum Connect this Cloud Connect was deployed with. */
+const MIN_CONNECT = '0.0.9';
 
 /** The code Plugin's file, as R2 keeps it. */
 const PLUGIN_KEY = `plugins/code/${'b'.repeat(64)}.mjs`;
@@ -77,7 +77,7 @@ const answerAs = (principal: Principal | null) =>
     origins: ORIGINS,
     driver,
     plugins: WANTED,
-    connectVersion: CONNECT_VERSION,
+    minConnect: MIN_CONNECT,
     files,
   });
 
@@ -145,12 +145,13 @@ describe('Cloud Connect', () => {
     ]);
   });
 
-  it('tells each Connection the version of Connect it was deployed with, or null', async () => {
+  it('tells each Connection the Minimum Connect it was deployed with, or null', async () => {
     const ada = signIn('ada');
     const reported = await as(ada, (m) => m.Report(reportOf('v1')));
-    expect(reported.latestVersion).toBe(CONNECT_VERSION);
+    expect(reported.minConnect).toBe(MIN_CONNECT);
+    expect(isOutdated(reported)).toBe(true);
     expect(await as(ada, (m) => m.List({}))).toMatchObject([
-      { id: 'v1', latestVersion: CONNECT_VERSION },
+      { id: 'v1', minConnect: MIN_CONNECT },
     ]);
     const untold = serveOver({
       guard: fakeGuard.rpc({ as: ada.principal }),
@@ -167,7 +168,8 @@ describe('Cloud Connect', () => {
         ) => untold(new Request(input, init))) as typeof globalThis.fetch),
       ),
     );
-    expect(listed).toMatchObject([{ id: 'v1', latestVersion: null }]);
+    expect(listed).toMatchObject([{ id: 'v1', minConnect: null }]);
+    expect(listed.map(isOutdated)).toEqual([false]);
   });
 
   it('serves a Plugin file by its hash, cached for good, and nothing else', async () => {

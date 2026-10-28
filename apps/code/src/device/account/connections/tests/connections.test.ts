@@ -68,7 +68,7 @@ const connection = (
   lastSeen,
   plugins: {},
   wanted: {},
-  latestVersion: null,
+  minConnect: null,
 });
 
 /** What the root page is told by Connections preparing: nothing, here. */

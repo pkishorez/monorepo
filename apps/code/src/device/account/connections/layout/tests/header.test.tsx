@@ -29,7 +29,7 @@ const connection = (
   lastSeen,
   plugins,
   wanted: {},
-  latestVersion: null,
+  minConnect: null,
 });
 
 let host: HTMLDivElement;
