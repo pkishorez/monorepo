@@ -92,7 +92,7 @@ const M1: Connection = {
   lastSeen: Date.now(),
   plugins: {},
   wanted: {},
-  latestVersion: null,
+  minConnect: null,
 };
 
 const CLAUDE: HarnessAccountInfo = {

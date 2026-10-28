@@ -25,7 +25,7 @@ const connection = (
   lastSeen,
   plugins: {},
   wanted: {},
-  latestVersion: null,
+  minConnect: null,
 });
 
 describe('a Connection’s record', () => {
@@ -133,11 +133,11 @@ describe('a Connection’s ke-connect', () => {
     expect(olderThan('1.0.0', '0.9.9')).toBe(false);
   });
 
-  it('asks to update only when Cloud Connect names a newer one', () => {
-    const at = (version: string, latestVersion: string | null) => ({
+  it('asks to update only below the Minimum Connect Cloud Connect names', () => {
+    const at = (version: string, minConnect: string | null) => ({
       ...connection('m', 0),
       version,
-      latestVersion,
+      minConnect,
     });
     expect(updateOf(at('0.0.4', '0.0.5'))).toBe('0.0.5');
     expect(updateOf(at('0.0.5', '0.0.5'))).toBeNull();
