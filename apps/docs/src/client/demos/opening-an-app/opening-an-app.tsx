@@ -4,7 +4,7 @@ import { Layer } from 'effect';
 import { toReact } from '@kestack/kabuki/react';
 import { Monitor, Smartphone } from 'lucide-react';
 import { DevtoolsDock } from '@kestack/web-platform/recipes/devtools';
-import { KabukiDevtools } from '@kestack/web-platform/recipes/devtools';
+import { KabukiInspector } from '@kestack/devtools-kabuki/inspector';
 import { Browser } from './browser/index.ts';
 import type { Device } from './browser/index.ts';
 import { AppView, PastContext } from './screens/index.ts';
@@ -42,7 +42,7 @@ export function OpeningAnApp({
         )
       }
       devtools={(layout) => (
-        <KabukiDevtools runtime={runtime} overlay={layout === 'full'} />
+        <KabukiInspector runtime={runtime} overlay={layout === 'full'} />
       )}
     >
       <main className="flex h-full flex-col overflow-hidden bg-muted/30">

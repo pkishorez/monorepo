@@ -2,18 +2,17 @@ import { View } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
 import { Start } from '@kestack/kabuki/start';
 import { useSyncExternalStore } from 'react';
-import { KabukiDevtools } from '@kestack/web-platform/recipes/devtools';
+import { KabukiInspector } from '@kestack/devtools-kabuki/inspector';
 import * as routes from '../routes/index.ts';
 import { KabukiLive } from './actor.ts';
-import { machinesStory } from './story.ts';
 
 /*
- * The page: its header, and the Kabuki Devtools on code itself, with a
- * Story about it. The Devtools are drawn inside the app they inspect, so
- * a Step picked only looks back at first: Time Travelling code would
- * travel this page away with it. The server has no running app, so while
- * the page it drew is hydrated, it is drawn as the server drew it, and the
- * Devtools only after.
+ * The page: its header, and Kabuki's Inspector on code itself. The
+ * Inspector is drawn inside the app it inspects, so a Step picked only
+ * looks back at first: Time Travelling code would travel this page away
+ * with it. The server has no running app, so while the page it drew is
+ * hydrated, it is drawn as the server drew it, and the Inspector only
+ * after.
  */
 
 const never = () => () => {};
@@ -44,11 +43,7 @@ export const KabukiView = View.make(KabukiLive, ({ root }) => {
       </header>
       <div className="min-h-0 flex-1">
         {runtime && !hydrating ? (
-          <KabukiDevtools
-            runtime={runtime}
-            story={machinesStory}
-            defaultTravel={false}
-          />
+          <KabukiInspector runtime={runtime} defaultTravel={false} />
         ) : (
           <p className="p-6 text-sm text-muted-foreground">
             code has not started yet.

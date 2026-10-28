@@ -1,9 +1,10 @@
-import type { Story } from '@kestack/web-platform/recipes/devtools';
+import type { Story } from '@kestack/devtools-kabuki/inspector';
 
 /*
  * A Story about code, as an agent would write one from its Blueprint and
- * History: why the Dictation's machines Worker is still running. It plays
- * on code's own History in this tab.
+ * History: why the Dictation's machines Worker is still running. Kept as
+ * data: the Inspector, reading code only through the Kabuki Session Api,
+ * plays no Story for now.
  */
 
 export const machinesStory: Story = {
