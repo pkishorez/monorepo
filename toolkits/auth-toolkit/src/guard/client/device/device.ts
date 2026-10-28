@@ -185,8 +185,8 @@ export const device = ({
               return yield* there(login.awaitToken(code));
             }),
           );
-          /** Keeps `token` as the Account it names, if nothing stopped it. */
-          const keep = (token: string) =>
+          /** The Account `token` names, once it may be kept. */
+          const named = (token: string) =>
             Effect.gen(function* () {
               const user = yield* there(
                 login.whoIs(token).pipe(
@@ -218,18 +218,21 @@ export const device = ({
               if (previous) yield* login.revoke(previous.token);
               // Revoking can take five seconds: the Auth Worker may move meanwhile.
               yield* stillAt(url);
-              return snapshotOf(
-                yield* store.update((latest) =>
-                  withAccount(latest, { user, token }),
-                ),
-              );
+              return user;
             });
           // A token never kept is never left signed in, however keeping it
-          // ends: failed, moved, or interrupted from the moment it came.
+          // ends: failed, moved, or interrupted from the moment it came. The
+          // store keeps it uninterrupted, so a token kept is never revoked.
           return yield* Effect.uninterruptibleMask((restore) =>
             restore(awaitToken).pipe(
               Effect.flatMap((token) =>
-                restore(keep(token)).pipe(
+                restore(named(token)).pipe(
+                  Effect.flatMap((user) =>
+                    store.update((latest) =>
+                      withAccount(latest, { user, token }),
+                    ),
+                  ),
+                  Effect.map(snapshotOf),
                   Effect.onExit((exit) =>
                     Exit.isSuccess(exit) ? Effect.void : login.revoke(token),
                   ),
