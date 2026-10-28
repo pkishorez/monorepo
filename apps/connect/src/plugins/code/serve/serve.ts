@@ -7,8 +7,8 @@ import {
   type OneShotPrompt,
 } from '@kestack/ai-toolkit/harness';
 import { sherpa, Speech, type SpeechToText } from '@kestack/ai-toolkit/speech';
-import { CodeApi } from './api/index.js';
-import { Engine, storeLayer } from './engine/index.js';
+import { CodeApi } from '../api/contract/index.js';
+import { Engine, storeLayer } from '../engine/index.js';
 import { CodeApiLive } from './handlers.js';
 
 /*

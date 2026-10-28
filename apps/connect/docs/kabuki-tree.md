@@ -46,9 +46,9 @@ Sign-in, which `run.ts` builds Cloud from; `src/connection/cli/` is the
 commands, and `cli/dev/` runs them in development; and `src/cloud/` is
 Cloud Connect, which it reports to. Around the engine tree,
 `src/plugins/code/records/` is what it keeps, `src/plugins/code/api/` is the
-contract and the browser client, and `src/plugins/code/main.ts` serves the
+contract and the browser client, and `src/plugins/code/serve/main.ts` serves the
 engine on the socket the Connection gives it, through cli-platform's
-`Plugin.make`, with `code.ts` and its handlers and read feeds.
+`Plugin.make`, with `serve.ts` and its handlers and read feeds.
 
 ## How it connects
 

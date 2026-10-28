@@ -6,7 +6,7 @@
  */
 export default {
   pack: {
-    entry: { code: 'src/plugins/code/main.ts' },
+    entry: { code: 'src/plugins/code/serve/main.ts' },
     outDir: 'dist/plugin',
     format: 'esm',
     platform: 'node',

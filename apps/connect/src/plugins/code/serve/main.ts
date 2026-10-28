@@ -7,8 +7,8 @@ import {
   harnesses,
 } from '@kestack/ai-toolkit/harness';
 import { Plugin, PluginFolders } from '@kestack/cli-platform/plugins/plugin';
-import { CodeApi } from './api/index.js';
-import { codePlugin } from './code.js';
+import { CodeApi } from '../api/contract/index.js';
+import { codePlugin } from './serve.js';
 
 /*
  * The code Plugin's file, as Connect runs it: the code Plugin on the socket
