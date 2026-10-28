@@ -12,10 +12,12 @@ import { Toaster } from '@kestack/web-platform/ui/components/sonner';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { ArrowRightIcon, MoonIcon, SunIcon } from 'lucide-react';
 import { DevtoolsRpcProvider } from './devtools-rpc/index.js';
+import { Kabuki } from './ui/kabuki/index.js';
 import { Lotel } from './ui/lotel/index.js';
 import { Monoverse, MonoverseHeader } from './ui/monoverse/index.js';
 
 type Theme = 'dark' | 'light';
+type Tool = '/lotel' | '/monoverse' | '/kabuki';
 
 const readTheme = (): Theme => {
   const stored = globalThis.localStorage?.getItem('devtools:theme');
@@ -34,6 +36,7 @@ function Shell() {
   const matchRoute = useMatchRoute();
   const onMonoverse = matchRoute({ to: '/monoverse' }) !== false;
   const onLotel = matchRoute({ to: '/lotel' }) !== false;
+  const onKabuki = matchRoute({ to: '/kabuki' }) !== false;
 
   useEffect(() => applyTheme(theme), [theme]);
 
@@ -50,6 +53,7 @@ function Shell() {
           <nav className="ml-6 flex items-center gap-1">
             <ToolLink to="/lotel">Lotel</ToolLink>
             <ToolLink to="/monoverse">Monoverse</ToolLink>
+            <ToolLink to="/kabuki">Kabuki</ToolLink>
           </nav>
         </div>
         <div className="flex items-center justify-center">
@@ -67,7 +71,7 @@ function Shell() {
             to="/"
             className="flex h-11 min-w-0 flex-1 items-center px-2 text-sm font-medium tracking-tight"
           >
-            {onLotel ? 'Lotel' : 'DevTools'}
+            {onLotel ? 'Lotel' : onKabuki ? 'Kabuki' : 'DevTools'}
           </Link>
         )}
         <ThemeButton
@@ -81,10 +85,11 @@ function Shell() {
       </main>
       <nav
         aria-label="Tools"
-        className="grid shrink-0 grid-cols-2 border-t border-border/60 bg-background px-2 pb-[max(env(safe-area-inset-bottom),0.25rem)] md:hidden"
+        className="grid shrink-0 grid-cols-3 border-t border-border/60 bg-background px-2 pb-[max(env(safe-area-inset-bottom),0.25rem)] md:hidden"
       >
         <MobileToolLink to="/lotel">Lotel</MobileToolLink>
         <MobileToolLink to="/monoverse">Monoverse</MobileToolLink>
+        <MobileToolLink to="/kabuki">Kabuki</MobileToolLink>
       </nav>
       <Toaster />
     </div>
@@ -122,13 +127,7 @@ function ThemeButton({
   );
 }
 
-function ToolLink({
-  to,
-  children,
-}: {
-  to: '/lotel' | '/monoverse';
-  children: string;
-}) {
+function ToolLink({ to, children }: { to: Tool; children: string }) {
   return (
     <Link
       to={to}
@@ -139,13 +138,7 @@ function ToolLink({
   );
 }
 
-function MobileToolLink({
-  to,
-  children,
-}: {
-  to: '/lotel' | '/monoverse';
-  children: string;
-}) {
+function MobileToolLink({ to, children }: { to: Tool; children: string }) {
   return (
     <Link
       to={to}
@@ -175,6 +168,11 @@ function Home() {
             title="Monoverse"
             description="Packages, their dependencies, and changes across a monorepo or a single package, with Laymos for each."
           />
+          <ToolRow
+            to="/kabuki"
+            title="Kabuki"
+            description="Running Kabuki apps, live: each one's Actor tree and History, and Time Travel on the app itself."
+          />
         </nav>
         <p className="mt-10 font-mono text-[11px] text-muted-foreground/60">
           v{__DEVTOOLS_VERSION__}
@@ -189,7 +187,7 @@ function ToolRow({
   title,
   description,
 }: {
-  to: '/lotel' | '/monoverse';
+  to: Tool;
   title: string;
   description: string;
 }) {
@@ -259,10 +257,21 @@ const monoverseRoute = createRoute({
   }),
   component: Monoverse,
 });
+const kabukiRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/kabuki',
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { session?: string | undefined } => ({
+    session: typeof search.session === 'string' ? search.session : undefined,
+  }),
+  component: Kabuki,
+});
 const routeTree = rootRoute.addChildren([
   indexRoute,
   lotelRoute,
   monoverseRoute,
+  kabukiRoute,
 ]);
 const router = createRouter({ routeTree });
 

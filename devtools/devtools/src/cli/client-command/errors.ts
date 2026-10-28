@@ -1,10 +1,28 @@
 import { Console, Effect } from 'effect';
 import type { RpcClientError } from 'effect/rpc';
+import type {
+  InstanceNotFound,
+  PathNotFound,
+  StepNotFound,
+} from '@kestack/devtools-kabuki/api';
+import type { KabukiSessionNotFound } from '@kestack/devtools-kabuki/server';
 
 export type ClientError =
   | { readonly _tag: 'TraceNotFound'; readonly traceId: string }
   | { readonly _tag: 'LotelRpcError'; readonly message: string }
+  | KabukiSessionNotFound
+  | StepNotFound
+  | PathNotFound
+  | InstanceNotFound
   | RpcClientError.RpcClientError;
+
+const unreachable = (baseUrl: string, kind: string) =>
+  `Could not reach a DevTools Server at ${baseUrl} (${kind}). Start one with \`devtools\` or pass --url.`;
+
+const keptRange = (error: StepNotFound) =>
+  error.oldest === null
+    ? 'The History keeps no entries.'
+    : `The History keeps entries ${error.oldest} to ${error.newest}.`;
 
 /** Formats lookup and transport failures for stderr. */
 function describeClientError(error: ClientError, baseUrl: string) {
@@ -13,10 +31,25 @@ function describeClientError(error: ClientError, baseUrl: string) {
       return `Trace not found: ${error.traceId}`;
     case 'LotelRpcError':
       return error.message;
+    case 'KabukiSessionNotFound':
+      return error.available.length === 0
+        ? `No Kabuki Session named ${error.name}: none is connected. Open the app with ?kabuki-session=<name>.`
+        : `No Kabuki Session named ${error.name}. Live: ${error.available.join(', ')}.`;
+    case 'StepNotFound':
+      return `Step ${error.step} is not kept. ${keptRange(error)}`;
+    case 'PathNotFound':
+      return `No ${error.path} in the Snapshot. ${error.found || '(the root)'} has: ${error.available.join(', ') || '(nothing)'}.`;
+    case 'InstanceNotFound':
+      return `No Instance ${error.instance} at Step ${error.at}. There are: ${error.available.join(', ')}.`;
     case 'RpcClientError':
-      return error.reason._tag === 'HttpError'
-        ? `Could not reach a DevTools Server at ${baseUrl} (${error.reason.kind}). Start one with \`devtools\` or pass --url.`
-        : `RPC request failed: ${error.reason.message}`;
+      switch (error.reason._tag) {
+        case 'HttpError':
+          return unreachable(baseUrl, error.reason.kind);
+        case 'SocketOpenError':
+          return unreachable(baseUrl, error.reason.kind);
+        default:
+          return `RPC request failed: ${error.reason.message}`;
+      }
   }
 }
 

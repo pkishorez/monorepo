@@ -48,6 +48,7 @@
   "dependencies": {
     "@effect/platform-node": "catalog:",
     "@effect/platform-node-shared": "catalog:",
+    "@kestack/devtools-kabuki": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
     "effect": "catalog:",
     "env-paths": "catalog:",
@@ -57,6 +58,7 @@
   },
   "devDependencies": {
     "@kestack/effect-tracer": "workspace:*",
+    "@kestack/kabuki": "workspace:*",
     "@kestack/use-gesture": "workspace:*",
     "@kestack/use-keys": "workspace:*",
     "@kestack/web-platform": "workspace:*",

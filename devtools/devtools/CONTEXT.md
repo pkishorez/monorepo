@@ -80,10 +80,16 @@ RPC, and Ingestion.
 _Avoid_: Dev server, daemon.
 
 **Client Command**:
-A `devtools` subcommand that serves nothing itself and reads Lotel telemetry
-from a DevTools Server. Client Commands cover Traces only; Laymos is reached
-through its own CLI.
+A `devtools` subcommand that serves nothing itself and reads from a DevTools
+Server: Lotel's Traces, or a Kabuki Session's History and Snapshots. Laymos
+is reached through its own CLI.
 _Avoid_: CLI command, query command.
+
+**Kabuki Session**:
+One running Kabuki app connected to a DevTools Server under a unique name,
+kept in memory while its socket is open. Defined in the
+[DevTools Kabuki context](../devtools-kabuki/CONTEXT.md).
+_Avoid_: session (on its own), tab, connection.
 
 **Trace Summary**:
 One row describing a Trace as a whole: its identity, root operation, service,

@@ -5,6 +5,7 @@
 @import '@kestack/web-platform/ui/theme/global.css';
 @import '@kestack/web-platform/ui/theme/typography.css';
 @import '@kestack/web-platform/ui/theme/font-inter.css';
+@import '@kestack/devtools-kabuki/inspector/sources.css';
 
 ::view-transition-old(root),
 ::view-transition-new(root) {
