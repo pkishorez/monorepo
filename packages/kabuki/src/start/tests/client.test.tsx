@@ -240,6 +240,45 @@ describe('hydrating a page Start drew', () => {
     expect(seen).toEqual(['old: true', 'old: stopped', 'new: true']);
     expect(errors).toEqual([]);
   });
+
+  it('calls the app by the name it was given, else by its root Actor', async () => {
+    const named: Array<string> = [];
+    const app = (name?: string) =>
+      Start.app({
+        router,
+        view: AppView,
+        document: Document,
+        ...(name ? { name } : {}),
+        attach: [
+          (runtime) => {
+            named.push(runtime.name);
+            return () => {};
+          },
+        ],
+      });
+    history.replaceState(null, '', '/');
+    const html = await (
+      await worker.fetch(new Request(new URL('/', location.href)), host)
+    ).text();
+    document.open();
+    document.write(html);
+    document.close();
+    await act(async () => {
+      ({ root, redraw } = await client(app('blog')));
+    });
+    await until(() => named.length === 1);
+    await act(async () => root?.unmount());
+    registry.clear();
+    document.open();
+    document.write(html);
+    document.close();
+    await act(async () => {
+      ({ root, redraw } = await client(app()));
+    });
+    await until(() => named.length === 2);
+    expect(named).toEqual(['blog', 'Router']);
+    expect(errors).toEqual([]);
+  });
 });
 
 describe('the App Shell', () => {

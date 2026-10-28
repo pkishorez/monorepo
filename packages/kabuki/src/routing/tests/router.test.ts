@@ -648,6 +648,106 @@ describe('a client page', () => {
     ));
 });
 
+describe('a Fork, the app started again from an earlier Step', () => {
+  /** A browser's history in memory: its entries, and the one shown. */
+  const browser = (url: string) => {
+    const entries: Array<{ url: string; key: string | null }> = [
+      { url, key: null },
+    ];
+    let at = 0;
+    const heard = new Set<() => void>();
+    const tell = () => heard.forEach((changed) => changed());
+    const layer = Layer.succeed(Adapter, {
+      url: () => entries[at]!.url,
+      key: () => entries[at]!.key,
+      listen: (changed) => {
+        heard.add(changed);
+        return () => heard.delete(changed);
+      },
+      push: (url, key) => {
+        entries.splice(at + 1, Infinity, { url, key });
+        at++;
+        tell();
+      },
+      replace: (url, key) => {
+        entries[at] = { url, key };
+        tell();
+      },
+      go: (by) => {
+        at = Math.min(Math.max(at + by, 0), entries.length - 1);
+        tell();
+      },
+      leave: () => {},
+    });
+    return { layer, shown: () => entries[at]!, count: () => entries.length };
+  };
+  const current = (app: Running<unknown>) => {
+    const model = app.snapshot().model as {
+      readonly entries: ReadonlyArray<{ readonly key: string; route: unknown }>;
+      readonly at: number;
+    };
+    return model.entries[model.at]!;
+  };
+
+  it("carries on at the Step's own page, and puts the address there", () =>
+    run(
+      Effect.gen(function* () {
+        const address = browser('/');
+        const app = yield* Runtime.start(
+          History.make(Root.actor),
+          Layer.merge(loading, address.layer),
+        );
+        yield* settle;
+        push(app, Routes.Blog());
+        yield* settle;
+        const onBlog = app.history.head()!;
+        push(app, Routes.Blog.Post({ slug: 'hello' }));
+        yield* settle;
+        expect(address.shown().url).toBe('/blog/hello');
+
+        yield* app.start(onBlog);
+        yield* settle;
+        expect(current(app).route).toEqual(Routes.Blog());
+        expect(address.shown()).toEqual({
+          url: '/blog',
+          key: current(app).key,
+        });
+      }),
+    ));
+
+  it('goes to the entry the address kept for it, when the Step had one', () =>
+    run(
+      Effect.gen(function* () {
+        const address = browser('/');
+        const app = yield* Runtime.start(
+          History.make(Root.actor),
+          Layer.merge(loading, address.layer),
+        );
+        yield* settle;
+        push(app, Routes.Blog());
+        yield* settle;
+        push(app, Routes.Blog.Post({ slug: 'hello' }));
+        yield* settle;
+        send(app, { _tag: 'Went', by: -1 });
+        yield* settle;
+        const backOnBlog = app.history.head()!;
+        send(app, { _tag: 'Went', by: 1 });
+        yield* settle;
+        expect(address.shown().url).toBe('/blog/hello');
+
+        yield* app.start(backOnBlog);
+        yield* settle;
+        expect(current(app).route).toEqual(Routes.Blog());
+        expect(address.shown()).toEqual({
+          url: '/blog',
+          key: current(app).key,
+        });
+        // Back on the entry it kept, not a copy written over the one after.
+        expect(address.count()).toBe(3);
+      }),
+    ));
+});
+
 describe('the not-found Route', () => {
   it('is handed to the root page as its path', () =>
     run(

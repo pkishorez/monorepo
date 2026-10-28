@@ -1081,7 +1081,11 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
             const found = yield* Effect.serviceOption(Adapter);
             if (Option.isNone(found)) return;
             const at = found.value;
-            if (!(yield* self.get).model.attached)
+            // Attached already, the Runtime started again on a History this
+            // Router wrote the address from, as a Fork does: its entry is
+            // the truth, and the address is put back there, not followed.
+            let carried = (yield* self.get).model.attached;
+            if (!carried)
               yield* self.send({
                 _tag: 'Attached',
                 session: Math.random().toString(36).slice(2, 10),
@@ -1097,6 +1101,8 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
             );
             yield* Stream.runForEach(changes, () =>
               Effect.gen(function* () {
+                const first = carried;
+                carried = false;
                 const url = inside(at.url());
                 if (url === undefined) return;
                 const { model } = yield* self.get;
@@ -1105,6 +1111,14 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
                 // The Router's own write coming back, or the address of a move still loading: nothing moved.
                 if (at.key() === entry.key && shows(url, entry.route)) return;
                 if (target && url === routes.path(target)) return;
+                if (first) {
+                  const kept = model.entries.findIndex(
+                    (one) => one.key === at.key(),
+                  );
+                  if (kept >= 0 && kept !== model.at) at.go(model.at - kept);
+                  else at.replace(addressOf(entry), entry.key);
+                  return;
+                }
                 yield* self.send({
                   _tag: 'Arrived',
                   route: routes.read(url).route,
