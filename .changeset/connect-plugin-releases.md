@@ -1,8 +1,6 @@
 ---
 '@kestack/connect': patch
-'@kestack/cli-platform': patch
 '@kestack/auth-toolkit': patch
-'code': patch
 ---
 
 Every Plugin runs at a Release Cloud Connect names, and Code calls it at the Release it was built with.

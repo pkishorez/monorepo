@@ -1,7 +1,6 @@
 ---
 '@kestack/connect': patch
 '@kestack/ai-toolkit': patch
-'code': patch
 ---
 
 A Turn cut off by Connect stopping is resumed once when Connect starts again.

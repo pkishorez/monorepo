@@ -81,14 +81,32 @@ export default defineConfig({
     },
   },
   plugins: [tailwindcss(), viteReact()],
+  // The CLI and its server, one minified file with every JavaScript
+  // dependency inlined. oxc-parser and oxc-resolver are native, and tsx
+  // loads files through Node's hooks, so they stay dependencies; vite and
+  // playwright-core come from the project laymos runs in.
   pack: {
     entry: {
       'server/main': 'src/server/main.ts',
     },
     format: 'esm',
     platform: 'node',
+    minify: true,
+    shims: true,
     dts: false,
     publint: false,
+    outputOptions: { inlineDynamicImports: true },
+    deps: {
+      alwaysBundle: [/./],
+      neverBundle: [
+        /^oxc-parser/,
+        /^oxc-resolver/,
+        /^tsx/,
+        /^vite$/,
+        /^playwright-core$/,
+      ],
+      onlyBundle: false,
+    },
   },
   test: {
     environment: 'node',

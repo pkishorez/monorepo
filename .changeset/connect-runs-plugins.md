@@ -1,7 +1,5 @@
 ---
 '@kestack/connect': patch
-'@kestack/cli-platform': patch
-'code': patch
 ---
 
 `ke-connect` runs the code Plugin as its own process, downloaded at the version Cloud Connect names.

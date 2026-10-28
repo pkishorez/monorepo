@@ -1,5 +1,4 @@
 ---
-'@kestack/devtools-kabuki': patch
 '@kestack/devtools': patch
 ---
 

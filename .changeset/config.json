@@ -9,16 +9,10 @@
   "commit": false,
   "format": false,
   "fixed": [
-    [
-      "@kestack/devtools",
-      "@kestack/devtools-kabuki",
-      "@kestack/effect-tracer",
-      "laymos"
-    ],
+    ["@kestack/devtools", "@kestack/effect-tracer", "laymos"],
     [
       "@kestack/ai-toolkit",
       "@kestack/auth-toolkit",
-      "@kestack/cli-platform",
       "@kestack/connect",
       "@kestack/rpc-toolkit",
       "@kestack/std-toolkit",

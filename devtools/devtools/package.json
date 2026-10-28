@@ -32,7 +32,8 @@
     "devtools": "dist/server/main.mjs"
   },
   "files": [
-    "dist",
+    "dist/server",
+    "dist/ui",
     "skills",
     "README.md",
     "LICENSE"
@@ -46,19 +47,17 @@
     "test": "vitest run && tsx scripts/package-smoke.mts"
   },
   "dependencies": {
+    "oxc-parser": "catalog:",
+    "oxc-resolver": "catalog:",
+    "tsx": "catalog:"
+  },
+  "devDependencies": {
     "@effect/platform-node": "catalog:",
     "@effect/platform-node-shared": "catalog:",
     "@kestack/devtools-kabuki": "workspace:*",
-    "@kestack/std-toolkit": "workspace:*",
-    "effect": "catalog:",
-    "env-paths": "catalog:",
-    "laymos": "workspace:*",
-    "typescript": "catalog:typescript6",
-    "yaml": "catalog:"
-  },
-  "devDependencies": {
     "@kestack/effect-tracer": "workspace:*",
     "@kestack/kabuki": "workspace:*",
+    "@kestack/std-toolkit": "workspace:*",
     "@kestack/use-gesture": "workspace:*",
     "@kestack/use-keys": "workspace:*",
     "@kestack/web-platform": "workspace:*",
@@ -71,6 +70,9 @@
     "@types/react-dom": "catalog:",
     "@typescript/native": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "effect": "catalog:",
+    "env-paths": "catalog:",
+    "laymos": "workspace:*",
     "lucide-react": "catalog:",
     "motion": "catalog:",
     "react": "catalog:",
@@ -81,13 +83,15 @@
     "react-resizable-panels": "catalog:",
     "remark-gfm": "catalog:",
     "tailwindcss": "catalog:",
-    "tsx": "catalog:",
+    "typescript": "catalog:typescript6",
     "use-effect-ts": "workspace:*",
     "vite": "catalog:",
     "vitest": "catalog:",
+    "yaml": "catalog:",
     "zustand": "catalog:"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "exports": {}
   }
 }

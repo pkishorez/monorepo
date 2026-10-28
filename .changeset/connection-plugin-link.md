@@ -2,7 +2,6 @@
 '@kestack/connect': patch
 '@kestack/ai-toolkit': patch
 '@kestack/web-platform': patch
-'code': patch
 ---
 
 Renames: a Machine is now a Connection, an App Group a Plugin, and a socket's status its Link.
