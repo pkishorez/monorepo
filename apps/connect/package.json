@@ -16,6 +16,7 @@
   "files": [
     "bin",
     "dist",
+    "!dist/plugin",
     "README.md",
     "LICENSE"
   ],
@@ -38,7 +39,7 @@
     }
   },
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.build.json && tsc -p tsconfig.types.json",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && tsc -p tsconfig.types.json && vp pack",
     "build:plugin": "vp pack && node scripts/plugin-hash.ts",
     "release:plugin": "node scripts/release-plugin.ts",
     "dev": "vp run --filter '@kestack/connect...' build && node --conditions=kestack-fake-auth scripts/dev.ts",
@@ -50,24 +51,13 @@
     "lint:tsc": "tsc --noEmit",
     "test": "vitest run --exclude \"**/*.e2e.test.ts\""
   },
-  "dependencies": {
-    "@effect/platform-node": "catalog:",
-    "@kestack/ai-toolkit": "workspace:*",
-    "@kestack/cli-platform": "workspace:*",
-    "cloudflared": "catalog:"
-  },
-  "peerDependencies": {
-    "@kestack/auth-toolkit": "workspace:*",
-    "@kestack/kabuki": "workspace:*",
-    "@kestack/rpc-toolkit": "workspace:*",
-    "@kestack/std-toolkit": "workspace:*",
-    "@tanstack/db": "0.15.2",
-    "effect": "^4.0.0"
-  },
   "devDependencies": {
     "@alchemy.run/cloudflare": "catalog:",
     "@cloudflare/workers-types": "catalog:",
+    "@effect/platform-node": "catalog:",
+    "@kestack/ai-toolkit": "workspace:*",
     "@kestack/auth-toolkit": "workspace:*",
+    "@kestack/cli-platform": "workspace:*",
     "@kestack/kabuki": "workspace:*",
     "@kestack/rpc-toolkit": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
@@ -76,6 +66,7 @@
     "@tsconfig/node22": "catalog:",
     "@types/node": "catalog:",
     "alchemy": "catalog:",
+    "cloudflared": "catalog:",
     "effect": "catalog:",
     "laymos": "workspace:*",
     "tsx": "catalog:",

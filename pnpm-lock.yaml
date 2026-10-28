@@ -475,19 +475,6 @@ importers:
         version: 5.0.5(@opentelemetry/api@1.10.0)(@types/node@26.6.5)(@vitest/browser-preview@5.0.5)(@vitest/ui@5.0.5)(@voidzero-dev/vite-plus-core@1.4.0(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(typescript@7.0.2)(yaml@2.9.1))(jsdom@30.1.3(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.6.5)(typescript@7.0.2))
 
   apps/connect:
-    dependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.6(effect@4.0.6)(redis@6.2.1(@opentelemetry/api@1.10.0))
-      '@kestack/ai-toolkit':
-        specifier: workspace:*
-        version: link:../../toolkits/ai-toolkit
-      '@kestack/cli-platform':
-        specifier: workspace:*
-        version: link:../../platforms/cli-platform
-      cloudflared:
-        specifier: 'catalog:'
-        version: 0.7.3
     devDependencies:
       '@alchemy.run/cloudflare':
         specifier: 'catalog:'
@@ -495,9 +482,18 @@ importers:
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261023.1
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.6(effect@4.0.6)(redis@6.2.1(@opentelemetry/api@1.10.0))
+      '@kestack/ai-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/ai-toolkit
       '@kestack/auth-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/auth-toolkit
+      '@kestack/cli-platform':
+        specifier: workspace:*
+        version: link:../../platforms/cli-platform
       '@kestack/kabuki':
         specifier: workspace:*
         version: link:../../packages/kabuki
@@ -522,6 +518,9 @@ importers:
       alchemy:
         specifier: 'catalog:'
         version: 2.0.0-beta.84(@effect/platform-node@4.0.6(effect@4.0.6)(redis@6.2.1(@opentelemetry/api@1.10.0)))(@effect/vitest@4.0.6(effect@4.0.6)(vitest@5.0.5))(@types/react@19.3.0)(@voidzero-dev/vite-plus-core@1.4.0(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(typescript@7.0.2)(yaml@2.9.1))(effect@4.0.6)(ws@8.22.0)
+      cloudflared:
+        specifier: 'catalog:'
+        version: 0.7.3
       effect:
         specifier: 'catalog:'
         version: 4.0.6

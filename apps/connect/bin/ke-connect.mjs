@@ -1,4 +1,4 @@
 #!/usr/bin/env node
-import { main } from '../dist/connection/index.js';
+import { main } from '../dist/cli/ke-connect.mjs';
 
 main();
