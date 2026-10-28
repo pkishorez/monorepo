@@ -1,7 +1,7 @@
 /*
- * `vp pack`: two self-contained ESM files, every JavaScript dependency
- * inlined and Node's own modules left as imports, so installing one needs
- * no other package.
+ * `vp pack`: two self-contained, minified ESM files, every JavaScript
+ * dependency inlined and Node's own modules left as imports, so installing
+ * one needs no other package.
  *
  * - `dist/plugin/code.mjs` (pnpm build:plugin): the code Plugin as
  *   Connect downloads it. sherpa-onnx is loaded at run time from the
@@ -15,6 +15,7 @@ const bundled = {
   format: 'esm',
   platform: 'node',
   fixedExtension: true,
+  minify: true,
   tsconfig: 'tsconfig.build.json',
   dts: false,
   publint: false,
