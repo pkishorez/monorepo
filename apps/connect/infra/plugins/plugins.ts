@@ -21,11 +21,13 @@ import { folderShelf, PluginFiles, r2Shelf } from './shelf/index.ts';
  *
  * A deployed Stage names the latest Release in the Plugin's Release Log,
  * and refuses to deploy unless the build is that Release; its file goes
- * on the R2 Shelf. Off a deployed Stage the Log is not asked: the build is
- * named as it is, and without one none is. A personal Stage puts it on the
- * R2 Shelf too; `alchemy dev` on the folder Shelf, so development reads
- * its Plugin the way a deployed Connection does. The Worker waits on the
- * Shelf, so no Connection is told of a file before it is there.
+ * on the R2 Shelf. Under `alchemy dev` the Log is not asked: the build is
+ * named as it is, and without one none is, on the folder Shelf, so
+ * development reads its Plugin the way a deployed Connection does. A
+ * personal Stage, `alchemy deploy --stage alice`, has no domain, so no URL
+ * a Connection could read its Shelf at before its Worker is made: it
+ * refuses to deploy. The Worker waits on the Shelf, so no Connection is
+ * told of a file before it is there.
  */
 
 export { PluginFiles };
@@ -56,7 +58,13 @@ const releaseOf = (name: string) =>
       );
     }
     const origin = at.url();
-    if (hash === null || (!at.dev && origin === undefined)) return null;
+    if (!at.dev && origin === undefined)
+      return yield* Effect.die(
+        new Error(
+          `Stage ${at.stage} has no URL, so no Connection could download ${name} from its Shelf: deploy prod, demo or a pull request's prN, or run \`alchemy dev\``,
+        ),
+      );
+    if (hash === null) return null;
     const url = at.dev
       ? yield* folderShelf(DEV_SHELF).put({ name, hash, file })
       : yield* r2Shelf(origin!).put({ name, hash, file });
