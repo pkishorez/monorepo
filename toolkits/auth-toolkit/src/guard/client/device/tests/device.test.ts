@@ -247,6 +247,30 @@ describe('device', () => {
     expect([...worker.live.values()]).toEqual([ada]);
   });
 
+  it('revokes a new Sign-in when signing in is stopped before it is kept', async () => {
+    const worker = fakeAuthWorker(['ada']);
+    let asked = () => {};
+    const asking = new Promise<void>((done) => (asked = done));
+    // The token comes, then the Auth Worker never says whose it is.
+    const fetch = ((input, init) => {
+      if (new Request(input, init).url.endsWith('/get-session')) {
+        asked();
+        return new Promise<Response>(() => {});
+      }
+      return worker.fetch(input, init);
+    }) as typeof globalThis.fetch;
+    const result = await run({ fetch }, (accounts) =>
+      Effect.gen(function* () {
+        const signingIn = yield* Effect.forkChild(accounts.signIn());
+        yield* Effect.promise(() => asking);
+        yield* Fiber.interrupt(signingIn);
+        return yield* accounts.current;
+      }),
+    );
+    expect(result).toMatchObject(Exit.succeed(AccountsState.SignedOut()));
+    expect([...worker.live.keys()]).toEqual([]);
+  });
+
   it('distinguishes unavailable, unreachable, rejected, and invalid responses', async () => {
     const signIn = (accounts: Accounts['Service']) => accounts.signIn();
     expect(
