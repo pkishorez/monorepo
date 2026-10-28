@@ -17,6 +17,9 @@ import {
 /** Wait before signing in again once a new Sign-in was refused too; it doubles after, up to a minute. */
 const FIRST_BACKOFF = '1 second';
 
+/** How long Cloud Connect has to answer a Report before it is Unsent, so a stalled one never holds up the beat or the tunnel. */
+const ANSWER = '10 seconds';
+
 interface User {
   readonly id: string;
   readonly email: string;
@@ -94,6 +97,14 @@ export const cloud = (options: CloudOptions) => {
               : ({ _tag: 'Reported', wanted: answer.wanted } as const),
           ),
           Effect.catch((error) => Effect.succeed(outcomeOf(error))),
+          Effect.timeoutOrElse({
+            duration: ANSWER,
+            orElse: () =>
+              Effect.succeed({
+                _tag: 'Unsent',
+                problem: `Cloud Connect did not answer in ${ANSWER}`,
+              } as const),
+          }),
         ),
     backoff: FIRST_BACKOFF,
     signInAgain: options.signInAgain.pipe(

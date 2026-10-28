@@ -155,9 +155,10 @@ origins; Props: wanted, each Plugin State.
   answer runs nothing until it does.
 - **It starts offline, from what it kept**, because a computer whose
   Cloud Connect is down must still run Code: identity/ signs in through the
-  AuthInfo it kept in `auth.json`, with the Sign-in kept, the root starts
-  its Plugins from `wanted.json`, and online's beat Reports each beat,
-  Unsent, until Cloud Connect answers. Caveat: a first Sign-in needs Cloud
+  AuthInfo it kept in `auth.json`, with the Sign-in kept, when Cloud
+  Connect cannot be asked or does not answer in five seconds, the root
+  starts its Plugins from `wanted.json`, and online's beat Reports each
+  beat, Unsent after ten seconds at most, until Cloud Connect answers. Caveat: a first Sign-in needs Cloud
   Connect, and a Sign-in Cloud Connect refuses once it answers is signed in
   again as ever.
 - **An Outdated Connection stops through Connection.stop**, because it is
