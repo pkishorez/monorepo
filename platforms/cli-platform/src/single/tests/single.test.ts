@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Effect, Exit, Fiber, Schema, Scope } from 'effect';
+import { Effect, Exit, Fiber, Layer, Schema, Scope } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { describe, expect, it } from 'vitest';
 import { tryLock } from '../../files/lock/index.js';
@@ -153,4 +153,31 @@ describe('single', () => {
         }),
       ),
     ));
+
+  it(
+    'lets the lock go once it listens, so a claim never waits on the handlers being built',
+    () =>
+      Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const path = socketIn();
+            // Handlers that take five seconds to build.
+            const slow = Layer.unwrap(
+              Effect.as(Effect.sleep('5 seconds'), handlers('slow')),
+            );
+            yield* single(path, { group: Control, handlers: slow }).pipe(
+              Effect.forkScoped,
+            );
+            yield* Effect.sleep('200 millis');
+            expect(existsSync(path)).toBe(true);
+            const second = yield* single(path, {
+              group: Control,
+              handlers: handlers('second'),
+            }).pipe(Effect.timeout('2 seconds'));
+            expect(second._tag).toBe('AlreadyRunning');
+          }),
+        ),
+      ),
+    15_000,
+  );
 });

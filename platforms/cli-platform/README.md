@@ -102,7 +102,7 @@ const reached = yield * reach(path, Control); // for `list` and `remove`
 ```
 
 - The name is held by listening on its socket: the kernel frees it when the process exits, however it exits.
-- Every claim holds a lock on 127.0.0.1, which the kernel frees with the process, from its first listen to its last. A socket file left by a process that died is deleted and taken over, once. Of many processes claiming at once, exactly one is `Acquired` and the rest are `AlreadyRunning`.
+- Every claim holds a lock on 127.0.0.1, which the kernel frees with the process, from its first listen to its last, and lets it go before its handlers are built. A socket file left by a process that died is deleted and taken over, once. Of many processes claiming at once, exactly one is `Acquired` and the rest are `AlreadyRunning`.
 - `path` comes from `socketPath(folders.runtime, id, 'serve')`.
 
 ### Keeping a Plugin running
