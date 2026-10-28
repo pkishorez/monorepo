@@ -23,7 +23,8 @@ import { clientAt, probe } from './socket.js';
  * deletes it and takes the name. Every claim listens, looks, deletes and
  * listens again holding the socket's lock, a port the kernel frees with
  * its process, so of many claims at once one takes the name and the rest
- * find it listening; none deletes a socket another has just bound.
+ * find it listening; none deletes a socket another has just bound. The
+ * lock goes as soon as it listens, before its handlers are built.
  */
 
 /** A client to the process that holds a name. */
@@ -80,63 +81,64 @@ export const single = <Rpcs extends Rpc.Any, E>(
   E | SingleError,
   Scope.Scope
 > => {
-  /** Listens on `path`, or finds who does; a file no one answers on is deleted and listened on, once. */
-  const bind = (
+  /** Listens on `path`: its server, or null when another process does; a file no one answers on is deleted and listened on, once. */
+  const listen = (
     retried: boolean,
   ): Effect.Effect<
-    Acquired | AlreadyRunning<Rpcs>,
-    E | SingleError,
+    SocketServer.SocketServer['Service'] | null,
+    SingleError,
     Scope.Scope
   > =>
     NodeSocketServer.make({ path }).pipe(
-      Effect.matchEffect({
-        onSuccess: (server) =>
-          Layer.build(
-            // A group with RPC middleware gets it from `handlers`; what is
-            // left for a generic group is unknown to the type, not to Effect.
-            RpcServer.layer(options.group).pipe(
-              Layer.provide(RpcServer.layerProtocolSocketServer),
-              Layer.provide(Layer.succeed(SocketServer.SocketServer, server)),
-              Layer.provide(RpcSerialization.layerNdjson),
-              Layer.provide(options.handlers),
-            ) as Layer.Layer<never, E>,
-          ).pipe(Effect.as({ _tag: 'Acquired' } as const)),
-        onFailure: (error) =>
-          Effect.gen(function* () {
-            if (codeOf(error) !== 'EADDRINUSE')
-              return yield* new SingleError({ path, message: error.message });
-            if ((yield* probe(path)) === 'listening')
-              return {
-                _tag: 'AlreadyRunning',
-                client: yield* reachable(path, options.group),
-              } as const;
-            if (retried || isPipe(path))
-              return yield* new SingleError({
-                path,
-                message: `${path} is in use, but nothing answers on it`,
-              });
-            // Left by a process that died: take it over, once.
-            rmSync(path, { force: true });
-            return yield* bind(true);
-          }),
-      }),
+      Effect.catch((error) =>
+        Effect.gen(function* () {
+          if (codeOf(error) !== 'EADDRINUSE')
+            return yield* new SingleError({ path, message: error.message });
+          if ((yield* probe(path)) === 'listening') return null;
+          if (retried || isPipe(path))
+            return yield* new SingleError({
+              path,
+              message: `${path} is in use, but nothing answers on it`,
+            });
+          // Left by a process that died: take it over, once.
+          rmSync(path, { force: true });
+          return yield* listen(true);
+        }),
+      ),
     );
-  // Every claim holds the lock from its first listen to its last, so no
-  // other claim listens between its look and its delete. The lock goes
-  // once this one listens, finds who does, or fails.
+  // Every claim holds the lock while it listens, looks, deletes and
+  // listens again, so no other claim listens between its look and its
+  // delete. The lock goes before the handlers are built: once it listens,
+  // another claim finds it.
   return Effect.gen(function* () {
     if (!isPipe(path))
       mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
     const held = yield* Scope.make();
-    return yield* Effect.gen(function* () {
+    const server = yield* Effect.gen(function* () {
       yield* lock(path, CLAIMING).pipe(
         Scope.provide(held),
         Effect.mapError(
           (error) => new SingleError({ path, message: error.message }),
         ),
       );
-      return yield* bind(false);
+      return yield* listen(false);
     }).pipe(Effect.ensuring(Scope.close(held, Exit.void)));
+    if (server === null)
+      return {
+        _tag: 'AlreadyRunning',
+        client: yield* reachable(path, options.group),
+      } as const;
+    yield* Layer.build(
+      // A group with RPC middleware gets it from `handlers`; what is left
+      // for a generic group is unknown to the type, not to Effect.
+      RpcServer.layer(options.group).pipe(
+        Layer.provide(RpcServer.layerProtocolSocketServer),
+        Layer.provide(Layer.succeed(SocketServer.SocketServer, server)),
+        Layer.provide(RpcSerialization.layerNdjson),
+        Layer.provide(options.handlers),
+      ) as Layer.Layer<never, E>,
+    );
+    return { _tag: 'Acquired' } as const;
   });
 };
 
