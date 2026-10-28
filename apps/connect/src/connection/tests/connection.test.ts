@@ -261,12 +261,21 @@ describe('ke-connect', () => {
     }
   }, 180_000);
 
-  it('starts again with Cloud Connect down, from its stored Sign-in and the Releases it last wanted', async () => {
+  /**
+   * Serves the Connection `name` with Cloud Connect up until Code reaches
+   * its code Plugin, stops both, has `down` stand where Cloud Connect was,
+   * and serves it again: Code reaches the Plugin all the same.
+   */
+  const startsAgainWith = async (
+    name: string,
+    down: (port: number) => Promise<() => void>,
+    expectations: (output: string) => void,
+  ) => {
     const online = await startCloud();
     const port = await freePort();
     const args = [
       'serve',
-      'offline',
+      name,
       '--cloud',
       online.url,
       '--port',
@@ -288,7 +297,7 @@ describe('ke-connect', () => {
                       'kestack',
                       'connect',
                       'connections',
-                      'offline',
+                      name,
                       'connection.json',
                     ),
                     'utf8',
@@ -304,26 +313,24 @@ describe('ke-connect', () => {
               }),
             ).pipe(Effect.timeout('10 seconds')),
           ),
-        { timeout: 60_000, interval: 500 },
+        { timeout: 30_000, interval: 500 },
       );
     const first = keConnect(args);
     let again: ReturnType<typeof keConnect> | undefined;
+    let up = () => {};
     try {
       expect(await harnessesAt()).toMatchObject([{ harness: 'claude' }]);
       first.child.kill('SIGTERM');
       await first.exited;
       online.server.closeAllConnections();
       await new Promise((resolve) => online.server.close(resolve));
-
-      // Cloud Connect cannot be asked how to sign in, nor told anything:
-      // the Connection runs all the same, and keeps trying.
+      up = await down(Number(new URL(online.url).port));
       again = keConnect(args);
       expect(await harnessesAt()).toMatchObject([{ harness: 'claude' }]);
-      await vi.waitFor(
-        () => expect(again!.output()).toMatch(/Heartbeat not sent/),
-        { timeout: 20_000, interval: 200 },
-      );
-      expect(again.output()).toMatch(/signing in as last time/);
+      await vi.waitFor(() => expectations(again!.output()), {
+        timeout: 20_000,
+        interval: 200,
+      });
       expect(again.child.exitCode).toBeNull();
     } catch (error) {
       throw new Error(
@@ -333,6 +340,48 @@ describe('ke-connect', () => {
     } finally {
       again?.child.kill('SIGTERM');
       if (again) await again.exited;
+      up();
     }
-  }, 180_000);
+  };
+
+  it(
+    'starts again with Cloud Connect down, from its stored Sign-in and the Releases it last wanted',
+    () =>
+      // Cloud Connect cannot be asked how to sign in, nor told anything: the
+      // Connection runs all the same, and keeps trying.
+      startsAgainWith(
+        'offline',
+        async () => () => {},
+        (output) => {
+          expect(output).toMatch(/signing in as last time/);
+          expect(output).toMatch(/Heartbeat not sent/);
+        },
+      ),
+    180_000,
+  );
+
+  it(
+    'starts again with a Cloud Connect that takes calls and never answers',
+    () =>
+      startsAgainWith(
+        'stalled',
+        async (port) => {
+          const stalled = createServer(() => {});
+          await new Promise<void>((resolve) =>
+            stalled.listen(port, '127.0.0.1', () => resolve()),
+          );
+          return () => {
+            stalled.closeAllConnections();
+            stalled.close();
+          };
+        },
+        (output) => {
+          expect(output).toMatch(/signing in as last time/);
+          expect(output).toMatch(
+            /Heartbeat not sent: Cloud Connect did not answer/,
+          );
+        },
+      ),
+    180_000,
+  );
 });
