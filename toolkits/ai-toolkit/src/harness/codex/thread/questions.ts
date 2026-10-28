@@ -1,7 +1,7 @@
 import type { Schema, Scope } from 'effect';
 import { Effect, Queue, Stream, SubscriptionRef } from 'effect';
 import {
-  HarnessError,
+  QuestionNotAsked,
   type AgentQuestion,
   type QuestionAnswer,
   type RawOut,
@@ -104,7 +104,7 @@ export interface Questions {
   readonly answer: (
     id: string,
     answer: QuestionAnswer | null,
-  ) => Effect.Effect<void, HarnessError>;
+  ) => Effect.Effect<void, QuestionNotAsked>;
   /**
    * Declines every one, as when their Turn ends; dropped without an answer
    * once Codex has exited.
@@ -199,9 +199,7 @@ export const makeQuestions = (
         Effect.suspend(() => {
           const one = asked.get(id);
           if (one === undefined)
-            return Effect.fail(
-              new HarnessError({ message: `No question ${id} is asked` }),
-            );
+            return Effect.fail(new QuestionNotAsked({ id }));
           settle(one, answer, true);
           return current;
         }),

@@ -1,6 +1,10 @@
 import { Effect, Fiber, Option, Stream, type Scope } from 'effect';
 import { describe, expect, it } from 'vitest';
-import type { Agent, TurnOut } from '../../../contract/index.js';
+import {
+  QuestionNotAsked,
+  type Agent,
+  type TurnOut,
+} from '../../../contract/index.js';
 import type {
   AppServer,
   QuestionRequest,
@@ -303,7 +307,7 @@ describe('an Agent Question', () => {
         });
         yield* listed(session, 0);
         const again = yield* Effect.flip(session.answer('call_1', null));
-        expect(again.message).toBe('No question call_1 is asked');
+        expect(again).toEqual(new QuestionNotAsked({ id: 'call_1' }));
         // Codex says it is settled, as it does after every answer.
         fake.notify('serverRequest/resolved', {
           threadId: 'main',

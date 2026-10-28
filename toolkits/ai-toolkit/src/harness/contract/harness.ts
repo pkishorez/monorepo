@@ -34,6 +34,11 @@ export class HarnessError extends Data.TaggedError('HarnessError')<{
   readonly cause?: unknown;
 }> {}
 
+/** The Agent Question is no longer asked: answered, declined, or its Turn ended. */
+export class QuestionNotAsked extends Data.TaggedError('QuestionNotAsked')<{
+  readonly id: string;
+}> {}
+
 /** One whole record as a harness emits it; the engine stamps the rest of Raw. */
 export interface RawOut {
   readonly kind: string;
@@ -153,12 +158,13 @@ export interface Agent {
   readonly questions: Stream.Stream<ReadonlyArray<AgentQuestion>>;
   /**
    * Answers an Agent Question by its id, or declines it with null, so the
-   * agent carries on without an answer. Fails once it is no longer asked.
+   * agent carries on without an answer. QuestionNotAsked once it is no
+   * longer asked.
    */
   readonly answer: (
     id: string,
     answer: QuestionAnswer | null,
-  ) => Effect.Effect<void, HarnessError>;
+  ) => Effect.Effect<void, HarnessError | QuestionNotAsked>;
   readonly mcpStatus: Effect.Effect<
     ReadonlyArray<McpServerStatus>,
     HarnessError

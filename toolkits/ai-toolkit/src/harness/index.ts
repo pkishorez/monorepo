@@ -7,6 +7,7 @@ export {
   codexOneShot,
   HarnessAccount,
   HarnessError,
+  QuestionNotAsked,
   harnesses,
   Harnesses,
   InvalidBinary,

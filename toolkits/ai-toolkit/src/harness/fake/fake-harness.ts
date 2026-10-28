@@ -13,6 +13,7 @@ import {
   HarnessError,
   Harnesses,
   OneShotPrompt,
+  QuestionNotAsked,
   type AskInput,
   type BackgroundJob,
   type ForkInput,
@@ -148,6 +149,12 @@ export const makeFakeHarness = (
     readonly refuseStops?: boolean;
     /** The agent refuses every answer to an Agent Question. */
     readonly refuseAnswers?: boolean;
+    /**
+     * The agent has let go of every Agent Question before its listing
+     * says so, as when another device answered first: each answer finds
+     * it no longer asked.
+     */
+    readonly lateAnswers?: boolean;
   } = {},
 ): FakeHarness => {
   const opens: Array<AgentConfig> = [];
@@ -302,22 +309,20 @@ export const makeFakeHarness = (
           answer: (id, answer) =>
             options.refuseAnswers
               ? Effect.fail(new HarnessError({ message: `${id} is refused` }))
-              : SubscriptionRef.modify(agent.questions, (asked) =>
-                  asked.some((question) => question.id === id)
-                    ? [true, asked.filter((question) => question.id !== id)]
-                    : [false, asked],
-                ).pipe(
-                  Effect.flatMap((was) => {
-                    if (!was)
-                      return Effect.fail(
-                        new HarnessError({
-                          message: `No question ${id} is asked`,
-                        }),
-                      );
-                    answers.push({ id, answer });
-                    return Effect.void;
-                  }),
-                ),
+              : options.lateAnswers
+                ? Effect.fail(new QuestionNotAsked({ id }))
+                : SubscriptionRef.modify(agent.questions, (asked) =>
+                    asked.some((question) => question.id === id)
+                      ? [true, asked.filter((question) => question.id !== id)]
+                      : [false, asked],
+                  ).pipe(
+                    Effect.flatMap((was) => {
+                      if (!was)
+                        return Effect.fail(new QuestionNotAsked({ id }));
+                      answers.push({ id, answer });
+                      return Effect.void;
+                    }),
+                  ),
           stopBackgroundJob: (id) =>
             Effect.suspend(() => {
               if (options.refuseStops)
