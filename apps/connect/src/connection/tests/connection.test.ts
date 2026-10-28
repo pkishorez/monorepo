@@ -20,7 +20,7 @@ import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { connectionsTable, serveOver } from '../../cloud/worker/index.js';
 import { CodeClient } from '../../plugins/code/api/index.js';
-import { CLOUDFLARED_KEY } from '../online/tunnel/index.js';
+import { CLOUDFLARED_KEY } from '../actor-connection/actor-online/index.js';
 
 /*
  * `ke-connect` end to end, each command its own process, as a user runs it:

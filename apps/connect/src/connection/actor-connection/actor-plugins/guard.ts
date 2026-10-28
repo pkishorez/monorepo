@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { IncomingHttpHeaders } from 'node:http';
-import { allowsOrigin } from '../../cloud/contract/index.js';
+import { allowsOrigin } from '../../../cloud/contract/index.js';
 
 /*
  * Who may come in. A browser page is let in only from an origin given; a

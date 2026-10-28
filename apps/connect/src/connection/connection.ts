@@ -1,37 +1,50 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { Console, Data, Effect, Option, Schedule } from 'effect';
+import {
+  appendFileSync,
+  existsSync,
+  readFileSync,
+  statSync,
+  truncateSync,
+} from 'node:fs';
+import { Console, Data, Effect, Layer, Logger, Option, Schedule } from 'effect';
 import { createFolders } from '@kestack/cli-platform/files';
 import { reach } from '@kestack/cli-platform/single';
 import {
   ConnectionControl,
+  run,
   type RunningConnection,
 } from './actor-connection/index.js';
 import { run as runCli, type ServeFlags } from './cli/index.js';
 import {
+  belongsTo,
   type ConnectionFolders,
   connectionFolders,
   connectionNames,
   deleteFolders,
+  forget,
+  hostName,
+  identify,
+  kept,
   oldFolders,
-} from './folders.js';
-import { logsTo } from './logs.js';
-import { belongsTo, forget, hostName, identify, kept } from './online/index.js';
-import { ownDb, run } from './serve.js';
+} from './identity/index.js';
 
 /*
  * `ke-connect`: the Connections on this computer. cli/ is its commands;
  * each is done here.
  *
  * - serve: a Connection already running is only reported. Else it signs
- *   in as the Connection its folder keeps, through online/, and runs the
+ *   in as the Connection its folder keeps, through identity/, and runs the
  *   Connection's Actor tree, actor-connection/, until it is forgotten,
- *   refused or stopped.
+ *   refused or stopped. A Connection forgotten signs out first.
  * - list: every Connection with a folder, asking each that runs about
  *   itself on its control socket.
  * - remove: stops it if it runs, forgets it in Cloud Connect, signs out
  *   and deletes its folders.
  *
- * A Connection keeps its files where folders.ts says.
+ * A Connection keeps its files where identity/ says. `serve` logs to the
+ * console and to a file, so a Connect started by a dev script or in the
+ * background can still be read afterwards. The file is only ever appended
+ * to; a file grown past 10 MB is emptied when `serve` starts, rather than
+ * rotated.
  */
 
 /** This Connect's version, as it reports itself. */
@@ -51,6 +64,24 @@ const DEFAULT_ORIGINS: ReadonlyArray<string> = [
   'https://*.kishore.app',
   'https://*.kishore.computer',
 ];
+
+/** The largest the log may be when `serve` starts before it is emptied. */
+const MOST_BYTES = 10 * 1024 * 1024;
+
+/** Every log line also appended to `file`, 0600, emptied first when it is over 10 MB. */
+const logsTo = (file: string) =>
+  Logger.layer(
+    [
+      Effect.sync(() => {
+        if (existsSync(file) && statSync(file).size > MOST_BYTES)
+          truncateSync(file, 0);
+        return Logger.map(Logger.formatLogFmt, (line) =>
+          appendFileSync(file, `${line}\n`, { mode: 0o600 }),
+        );
+      }),
+    ],
+    { mergeWithExisting: true },
+  ) satisfies Layer.Layer<never>;
 
 /** The Connection cannot go on serving; `message` says why and what to do. */
 class ConnectionStopped extends Data.TaggedError('ConnectionStopped')<{
@@ -112,8 +143,6 @@ const serve = (options: ServeFlags) =>
             : `${hostName()} (${options.name})`,
         startedAt: Date.now(),
       });
-      // Signing in opened the database first.
-      yield* ownDb(own.db);
       const { connection, user } = identified;
       yield* Effect.log(`ke-connect ${version}: ${options.name}`);
       yield* Effect.log(`data in ${own.data}`);
@@ -121,13 +150,32 @@ const serve = (options: ServeFlags) =>
       yield* Effect.log(`signed in as ${user.email} to ${options.cloud}`);
 
       const ended = yield* run({
-        own,
-        identified,
-        port: options.port,
-        origins: [...DEFAULT_ORIGINS, ...options.origins],
-        heartbeat: options.heartbeat,
-        plugins: options.plugins,
+        input: {
+          id: connection.id,
+          name: own.name,
+          key: connection.key,
+          folders: {
+            data: own.data,
+            state: own.state,
+            cache: own.cache,
+            runtime: own.runtime,
+          },
+          socketId: own.socketId,
+          control: own.control,
+          port: options.port,
+          origins: [...DEFAULT_ORIGINS, ...options.origins],
+          files: options.plugins,
+        },
+        cloud: {
+          client: identified.client,
+          connection,
+          version,
+          user,
+          signInAgain: identified.session.signInAgain,
+          heartbeat: options.heartbeat,
+        },
       });
+      if (ended._tag === 'Forgotten') yield* identified.session.signOut;
       if (ended._tag === 'Forgotten')
         return yield* new ConnectionStopped({
           message: `${connection.name} was forgotten from the app, so it signed out and stopped. Run \`ke-connect remove ${options.name}\` to delete it here too, then serve again as a new Connection.`,
