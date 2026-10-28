@@ -15,7 +15,7 @@ import { router } from './router.js';
  * Plugin's socket while the Plugin runs that Release, once it has checked
  * the Connection Key, and tells the Connection the port it got. Which
  * Release runs it reads from each Plugin State, as the Connection hands
- * them down; a Plugin run from a file answers at any hash. One ActorPlugin
+ * them down. One ActorPlugin
  * Child per Plugin wanted keeps it running at that version, and reports
  * where it stands up through Plugins, which the Connection Provides.
  */
@@ -27,11 +27,8 @@ const FoldersSchema = Schema.Struct({
   runtime: Schema.String,
 });
 
-/** Which Plugin to run, as ActorPlugin takes it: a download, or a local file. */
-export const Wanted = Schema.Union([
-  Schema.Struct({ hash: Schema.String, url: Schema.String }),
-  Schema.Struct({ file: Schema.String }),
-]);
+/** Which Release of a Plugin to run: its sha256, and where on the Shelf to read it. */
+const Wanted = Schema.Struct({ hash: Schema.String, url: Schema.String });
 
 const Input = Schema.Struct({
   /** The Connection Key. */
@@ -58,8 +55,6 @@ type PluginsSelf = Self<Input, Single, never, Props>;
 
 /** The Release the Plugin `name` runs instead of `hash`, null while it runs none; undefined when it serves `hash`. */
 const otherThan = (props: Props, name: string, hash: string) => {
-  if (props.wanted[name] !== undefined && 'file' in props.wanted[name])
-    return undefined;
   const state = props.plugins[name];
   const running = state?._tag === 'Running' ? state.hash : null;
   return running === hash ? undefined : running;

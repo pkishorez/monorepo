@@ -14,9 +14,7 @@ import { ESchema } from '@kestack/std-toolkit/eschema';
  * Which `ke-connect` may run them is one value for every Plugin, the
  * Minimum Connect. A Connection below it is Outdated: it reports once, so
  * its User sees the version it runs, then stops, and an App says to
- * update `ke-connect`. The version every Report carries is what says so,
- * so a `ke-connect` too old to know the Minimum Connect is Outdated all
- * the same.
+ * update `ke-connect`. The version every Report carries is what says so.
  */
 
 /** A Plugin's name: a DNS label. */

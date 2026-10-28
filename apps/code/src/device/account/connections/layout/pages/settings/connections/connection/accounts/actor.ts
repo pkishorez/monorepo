@@ -92,7 +92,7 @@ const emptyFolderOf = (
   );
   return own === undefined || own.configFolder !== null
     ? null
-    : (own.resolvedConfigFolder ?? null);
+    : own.resolvedConfigFolder;
 };
 
 export const HarnessAccountsLive = Actor.build(HarnessAccounts, {

@@ -14,7 +14,6 @@ export {
   connectionFolders,
   connectionNames,
   deleteFolders,
-  oldFolders,
 } from './folders.js';
 export { hostName } from './connection-file/index.js';
 

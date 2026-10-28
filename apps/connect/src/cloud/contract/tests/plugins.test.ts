@@ -1,8 +1,7 @@
-import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { expectUpgradable } from '@kestack/std-toolkit/eschema/testing';
 import {
-  Connection,
+  type Connection,
   fromShelfKey,
   isOutdated,
   mismatchOf,
@@ -85,23 +84,5 @@ describe('the Minimum Connect', () => {
     expect(isOutdated(at('0.1.0', '0.0.5'))).toBe(false);
     expect(isOutdated(at('0.0.5-next.1', '0.0.5'))).toBe(true);
     expect(isOutdated(at('0.0.1', null))).toBe(false);
-  });
-
-  it('reads as none from a Cloud Connect older than it', () => {
-    const v3 = {
-      _v: 'v3',
-      id: 'c1',
-      name: 'laptop',
-      key: 'k',
-      version: '0.0.4',
-      status: { _v: 'v1', _value: { _tag: 'Opening' } },
-      lastSeen: 1,
-      plugins: {},
-      wanted: {},
-      latestVersion: '0.0.9',
-    };
-    const read = Schema.decodeUnknownSync(Connection.schema)(v3);
-    expect(read.minConnect).toBeNull();
-    expect('latestVersion' in read).toBe(false);
   });
 });

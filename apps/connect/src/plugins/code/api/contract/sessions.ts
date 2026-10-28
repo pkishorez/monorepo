@@ -20,7 +20,7 @@ import { Batch, Cursor, Opaque, tagged } from './wire.js';
 
 /* Sessions as a whole: started, forked, Settled, asked, and how they stand. */
 
-/** A Session as a reply carries it, with its version; an older Connect's is read as it is now. */
+/** A Session as a reply carries it, with its version. */
 export const SessionValue = SessionSchema.schema;
 
 /** An Ask's answer: text, or data shaped by the schema it was given. */

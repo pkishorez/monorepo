@@ -11,19 +11,14 @@ export type ProjectFolder = (typeof PROJECT_FOLDERS)[number];
 
 /**
  * A folder on this machine that sessions run in. Its name is the folder's
- * name. v2 says whether the folder is still there, as the Connection last
- * found it; a v1 Project's was.
+ * name; `folder` says whether it is there, as the Connection last found it.
  */
 export const ProjectSchema = EntityESchema.make('AiProject', 'id', {
   path: Schema.String,
   name: Schema.String,
   createdAt: Schema.Finite,
-})
-  .evolve('v2', { folder: Schema.Literals(PROJECT_FOLDERS) }, (v1) => ({
-    ...v1,
-    folder: 'present' as const,
-  }))
-  .build();
+  folder: Schema.Literals(PROJECT_FOLDERS),
+}).build();
 
 export type Project = typeof ProjectSchema.Type;
 
@@ -48,11 +43,7 @@ const ForkedFrom = Schema.Struct({
   turnId: Schema.String,
 });
 
-/**
- * One conversation with a Coding Harness in a Project's folder. v2 runs it
- * as a Harness Account; a v1 Session ran its harness's Default Account,
- * whose id is the harness's name.
- */
+/** One conversation with a Coding Harness in a Project's folder, run as one Harness Account. */
 export const SessionSchema = EntityESchema.make('AiSession', 'id', {
   projectId: Schema.String,
   harness: Schema.Literals(HARNESS_NAMES),
@@ -75,16 +66,9 @@ export const SessionSchema = EntityESchema.make('AiSession', 'id', {
   activeAt: Schema.Finite,
   /** When its last Turn ended, however it ended; null until one has. */
   endedAt: Schema.NullOr(Schema.Finite),
-})
-  .evolve(
-    'v2',
-    {
-      /** The Harness Account it runs as, of its harness; never changes. */
-      account: Schema.String,
-    },
-    (v1) => ({ ...v1, account: v1.harness }),
-  )
-  .build();
+  /** The Harness Account it runs as, of its harness; never changes. */
+  account: Schema.String,
+}).build();
 
 export type Session = typeof SessionSchema.Type;
 
@@ -95,8 +79,7 @@ const DEFAULT_NAMES = { claude: 'Claude', codex: 'Codex' } as const;
  * A Harness Account: one login of a Coding Harness, run with its own
  * Harness Binary and config folder. Each harness has a Default Account,
  * whose id is the harness's name, even with no record; others have ids of
- * their own. v1 kept only a harness's binary, by harness name: the
- * Default Account's.
+ * their own.
  */
 export const HarnessAccountSchema = EntityESchema.make(
   'AiHarnessConfig',
@@ -106,19 +89,12 @@ export const HarnessAccountSchema = EntityESchema.make(
     /** The executable to run; null runs the harness's name from PATH. */
     binaryPath: Schema.NullOr(Schema.String),
     updatedAt: Schema.Finite,
+    /** What the user calls it, such as "Claude work". */
+    name: Schema.String,
+    /** Its config folder (CLAUDE_CONFIG_DIR, CODEX_HOME); null for the harness's own. */
+    configFolder: Schema.NullOr(Schema.String),
   },
-)
-  .evolve(
-    'v2',
-    {
-      /** What the user calls it, such as "Claude work". */
-      name: Schema.String,
-      /** Its config folder (CLAUDE_CONFIG_DIR, CODEX_HOME); null for the harness's own. */
-      configFolder: Schema.NullOr(Schema.String),
-    },
-    (v1) => ({ ...v1, name: DEFAULT_NAMES[v1.harness], configFolder: null }),
-  )
-  .build();
+).build();
 
 export type HarnessAccountRecord = typeof HarnessAccountSchema.Type;
 

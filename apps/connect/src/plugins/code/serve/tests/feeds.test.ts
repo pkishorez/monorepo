@@ -185,7 +185,7 @@ describe('the projects feed', () => {
         yield* eventually(() => expect(got).toHaveLength(1));
         yield* store.removeProject('p1');
         yield* eventually(() => expect(got).toHaveLength(2));
-        expect(got[0]).toMatchObject({ value: project, meta: { _v: 'v2' } });
+        expect(got[0]).toMatchObject({ value: project, meta: { _v: 'v1' } });
         expect(got[1]?.meta._d).toBe(true);
       }),
     ));
