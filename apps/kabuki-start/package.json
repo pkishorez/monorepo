@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@kestack/auth-toolkit": "workspace:*",
+    "@kestack/devtools-kabuki": "workspace:*",
     "@kestack/kabuki": "workspace:*",
     "@kestack/rpc-toolkit": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",

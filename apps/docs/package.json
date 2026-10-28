@@ -13,9 +13,10 @@
     "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod"
   },
   "dependencies": {
+    "@kestack/devtools-kabuki": "workspace:*",
+    "@kestack/kabuki": "workspace:*",
     "@kestack/web-platform": "workspace:*",
     "effect": "catalog:",
-    "@kestack/kabuki": "workspace:*",
     "lucide-react": "catalog:",
     "motion": "catalog:",
     "react": "catalog:",

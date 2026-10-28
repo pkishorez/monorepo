@@ -34,7 +34,7 @@ An app's stylesheet imports `@kestack/web-platform/ui/theme/global.css`, which a
 - `alchemy` and `@alchemy.run/cloudflare` (optional): the Cloudflare Website and state `./app/alchemy` deploys with.
 - `laymos` (optional): the file diff and change types the diff, git-changes and source-explorer viewers read.
 - `use-effect-ts` (optional): runs `./ui/viewers/source-explorer`'s loaders inside React.
-- `@kestack/kabuki` (optional): the running app `./recipes/devtools` inspects, the Start parts `./app/document`'s Document draws, the Start app `./pwa/vite` builds beside, and the Actor and View `./recipes/account-switcher` is.
+- `@kestack/kabuki` (optional): the Start parts `./app/document`'s Document draws, the Start app `./pwa/vite` builds beside, and the Actor and View `./recipes/account-switcher` is.
 
 ## Exports
 
@@ -347,10 +347,11 @@ The Account Switcher of a Kabuki app: a Child of the root page, its View in the 
 
 ### `@kestack/web-platform/recipes/devtools`
 
-| Export           | What it does                                                                                                                                                                                                                                                                                                                                                                  |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DevtoolsDock`   | Wraps a page with devtools opened from a corner button of one fixed size and place, or Ctrl+/ unless `shortcut` is off: full screen, a resizable bar or side panel, or a floating window, kept across reloads; phones get only full screen and the bar. With `scrolls="window"`, a page that scrolls the window stays in the document's flow, the bar or panel fixed over it. |
-| `KabukiDevtools` | The Inspector on a running Kabuki app, from `App.useRuntime()`: every Instance a card on a canvas over a Timeline of every Step, what each Step changed marked. Picking a Step Time Travels the app while Travel the app is on, and Fork carries on from it; given a `story`, it tells it beside Live; `presenting` keeps only the canvas.                                    |
+The Dock devtools sit in. Kabuki's Inspector is in [`@kestack/devtools-kabuki/inspector`](../../devtools/devtools-kabuki/README.md).
+
+| Export         | What it does                                                                                                                                                                                                                                                                                                                                                                  |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DevtoolsDock` | Wraps a page with devtools opened from a corner button of one fixed size and place, or Ctrl+/ unless `shortcut` is off: full screen, a resizable bar or side panel, or a floating window, kept across reloads; phones get only full screen and the bar. With `scrolls="window"`, a page that scrolls the window stays in the document's flow, the bar or panel fixed over it. |
 
 ### `@kestack/web-platform/recipes/thumb-picker`
 

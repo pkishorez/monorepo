@@ -1,8 +1,8 @@
 import { Page } from '@kestack/kabuki/routing';
 
 /*
- * `/kabuki`, open signed in or not: the Kabuki Devtools on code's own
- * Actor tree, from Web Platform. This Page only holds their place in code,
+ * `/kabuki`, open signed in or not: Kabuki's Inspector on code's own
+ * Actor tree, from DevTools Kabuki. This Page only holds their place in code,
  * so it keeps nothing.
  */
 

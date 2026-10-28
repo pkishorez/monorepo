@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Layer } from 'effect';
 import { CloudClient } from '@kestack/connect/code';
+import { connect } from '@kestack/devtools-kabuki/session';
 import { Start } from '@kestack/kabuki/start';
 import { document } from '@kestack/web-platform/app/document';
 import { Device } from './device/index.ts';
@@ -20,6 +21,10 @@ import './styles.css';
  * signed out. Everything below it is Provided by the root page
  * (`device/actor.ts`). No Machine's socket is here: the root page reaches
  * each Machine over its own.
+ *
+ * Attached beside it, the local DevTools Server, as a Kabuki Session:
+ * always while developing; in production only when the page's URL asks,
+ * with `?kabuki-session`.
  */
 
 const layer = Layer.mergeAll(
@@ -41,4 +46,10 @@ export default Start.app({
       : {}),
   }),
   layer,
+  attach: [
+    connect({
+      url: 'http://127.0.0.1:14400',
+      when: import.meta.env.DEV ? 'always' : 'asked',
+    }),
+  ],
 });

@@ -34,9 +34,9 @@ const IN_VIEW = 0.6;
 
 const never = () => () => {};
 
-const KabukiDevtools = lazy(() =>
-  import('@kestack/web-platform/recipes/devtools').then((module) => ({
-    default: module.KabukiDevtools,
+const KabukiInspector = lazy(() =>
+  import('@kestack/devtools-kabuki/inspector').then((module) => ({
+    default: module.KabukiInspector,
   })),
 );
 
@@ -173,5 +173,5 @@ function Reload({ app: App }: { readonly app: PlaygroundApp }) {
 }
 
 function Devtools({ app: App }: { readonly app: PlaygroundApp }) {
-  return <KabukiDevtools runtime={App.useRuntime()} timelineAt="top" />;
+  return <KabukiInspector runtime={App.useRuntime()} timelineAt="top" />;
 }

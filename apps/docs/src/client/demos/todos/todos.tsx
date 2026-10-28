@@ -3,7 +3,7 @@ import { Layer } from 'effect';
 import { toReact } from '@kestack/kabuki/react';
 import { LockIcon } from 'lucide-react';
 import { DevtoolsDock } from '@kestack/web-platform/recipes/devtools';
-import { KabukiDevtools } from '@kestack/web-platform/recipes/devtools';
+import { KabukiInspector } from '@kestack/devtools-kabuki/inspector';
 import { TodosLive } from './story.ts';
 import { TodosView } from './views.tsx';
 
@@ -36,7 +36,7 @@ export function Todos({
         )
       }
       devtools={(layout) => (
-        <KabukiDevtools runtime={runtime} overlay={layout === 'full'} />
+        <KabukiInspector runtime={runtime} overlay={layout === 'full'} />
       )}
     >
       <main className="flex h-full flex-col overflow-hidden bg-muted/30">

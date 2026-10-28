@@ -11,9 +11,9 @@ import { DevtoolsDock } from '@kestack/web-platform/recipes/devtools';
  * without them. Their code loads the first time they are opened.
  */
 
-const KabukiDevtools = lazy(() =>
-  import('@kestack/web-platform/recipes/devtools').then((module) => ({
-    default: module.KabukiDevtools,
+const KabukiInspector = lazy(() =>
+  import('@kestack/devtools-kabuki/inspector').then((module) => ({
+    default: module.KabukiInspector,
   })),
 );
 
@@ -36,7 +36,7 @@ export function Devtools({ children }: { readonly children: ReactNode }) {
       devtools={(layout) =>
         runtime && (
           <Suspense fallback={null}>
-            <KabukiDevtools runtime={runtime} overlay={layout === 'full'} />
+            <KabukiInspector runtime={runtime} overlay={layout === 'full'} />
           </Suspense>
         )
       }
