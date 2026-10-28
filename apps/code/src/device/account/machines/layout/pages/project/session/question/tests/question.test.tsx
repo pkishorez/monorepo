@@ -514,6 +514,18 @@ describe('the Question Panel, by keys', () => {
     expect(choice('Passkey').getAttribute('aria-checked')).toBe('true');
   });
 
+  it('hides the dialog minimised, though its Surface, Inactive, is drawn at full opacity', async () => {
+    await ask([QUESTION]);
+    await key('m');
+    const popup = document.querySelector<HTMLElement>(
+      '[data-slot="question-popup"]',
+    )!;
+    // The page draws an Inactive Surface at opacity 1, over any utility
+    // but an important one: without it the dialog stayed over the bar.
+    expect(popup.getAttribute('data-state')).toBe('inactive');
+    expect(popup.classList).toContain('not-in-data-expanded:opacity-0!');
+  });
+
   it('works by its plain keys out of Vim Mode too, and toggles by Ctrl+Y', async () => {
     vim = false;
     await rerender();
