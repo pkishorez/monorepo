@@ -1,13 +1,19 @@
 import { dirname, join } from 'node:path';
 import { Duration, Effect, Queue, Schema, Stream } from 'effect';
 import { Actor, type Self } from '@kestack/kabuki';
-import { Downloads } from '../../files/downloads/index.js';
+import {
+  type CacheError,
+  type DownloadFailed,
+  Downloads,
+  type HashMismatch,
+} from '../../files/downloads/index.js';
 import { Plugins, type PluginState } from '../contract/index.js';
 import { child, LOG_LINES, socketFree } from './child.js';
 
 /*
  * Keeps one Plugin running at the version its parent wants: a sha256 and
- * where to download it, or a file on this computer in development. While
+ * where to download it, `file:` for a folder a build puts each file in, or
+ * a file on this computer in development. While
  * there is nothing to run yet it is Fetching. Running, one process runs
  * per file, keyed by it: a new file is a fresh process, and the old one is
  * stopped first, so the key changing is the swap. A new version downloads
@@ -130,6 +136,25 @@ const pauseAfter = ({ first, most }: typeof Pause.Type, failures: number) =>
 const tail = (log: ReadonlyArray<string>, lines: ReadonlyArray<string>) =>
   [...log, ...lines].slice(-LOG_LINES);
 
+/** Why fetching the Plugin `name` at `hash` failed, as its log says it. */
+const whyFailed = (
+  name: string,
+  hash: string,
+  error: DownloadFailed | HashMismatch | CacheError,
+) => {
+  switch (error._tag) {
+    case 'HashMismatch':
+      return `${error.url} is not the Plugin asked for: its sha256 is ${error.actual}`;
+    case 'DownloadFailed':
+      // A `file:` URL is a folder a build puts each file in.
+      return error.missing
+        ? `${name} ${hash} isn't on the shelf; run the build`
+        : `Could not download ${error.url}: ${error.message}`;
+    case 'CacheError':
+      return `Could not download ${error.path}: ${error.message}`;
+  }
+};
+
 /** Downloads what is wanted, or takes the local file, and Sends Downloaded. */
 const fetchWanted = (self: PluginSelf, key: string) =>
   Effect.gen(function* () {
@@ -161,14 +186,10 @@ const fetchWanted = (self: PluginSelf, key: string) =>
         key,
         file: fetched.success,
       });
-    const error = fetched.failure;
     yield* self.send({
       _tag: 'DownloadFailed',
       key,
-      reason:
-        error._tag === 'HashMismatch'
-          ? `${error.url} is not the Plugin asked for: its sha256 is ${error.actual}`
-          : `Could not download ${'url' in error ? error.url : error.path}: ${error.message}`,
+      reason: whyFailed(model.name, key, fetched.failure),
     });
   });
 

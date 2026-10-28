@@ -24,19 +24,19 @@ pnpm add @kestack/cli-platform effect @kestack/kabuki @kestack/std-toolkit
 
 ### `@kestack/cli-platform/files`
 
-| Export            | What it does                                                                                             |
-| ----------------- | -------------------------------------------------------------------------------------------------------- |
-| `folders`         | Where a CLI keeps the files of one named copy of itself: data, state, the shared cache, and its runtime. |
-| `names`           | The name of every copy of a CLI with a data folder on this computer.                                     |
-| `pluginFolders`   | The data, state and cache folders of one Plugin, inside its CLI's.                                       |
-| `socketPath`      | A socket path short enough for a Unix socket, or a named pipe on Windows.                                |
-| `createFolders`   | Makes the folders that are missing, readable by this user alone.                                         |
-| `FolderError`     | A folder that could not be made.                                                                         |
-| `Downloads`       | The service that keeps one checked copy of each download: `fetch`, `ensure`, `use` and `prune`.          |
-| `Downloads.layer` | Downloads kept in a kestack cache folder.                                                                |
-| `DownloadFailed`  | A download that could not be reached, was refused, or broke off.                                         |
-| `HashMismatch`    | A download that is not the file asked for; it is thrown away.                                            |
-| `CacheError`      | The cache could not be read or written, or its lock not taken.                                           |
+| Export            | What it does                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| `folders`         | Where a CLI keeps the files of one named copy of itself: data, state, the shared cache, and its runtime.     |
+| `names`           | The name of every copy of a CLI with a data folder on this computer.                                         |
+| `pluginFolders`   | The data, state and cache folders of one Plugin, inside its CLI's.                                           |
+| `socketPath`      | A socket path short enough for a Unix socket, or a named pipe on Windows.                                    |
+| `createFolders`   | Makes the folders that are missing, readable by this user alone.                                             |
+| `FolderError`     | A folder that could not be made.                                                                             |
+| `Downloads`       | The service that keeps one checked copy of each download: `fetch`, `ensure`, `use` and `prune`.              |
+| `Downloads.layer` | Downloads kept in a kestack cache folder.                                                                    |
+| `DownloadFailed`  | A download that could not be reached, was refused, or broke off; `missing` when a `file:` URL names no file. |
+| `HashMismatch`    | A download that is not the file asked for; it is thrown away.                                                |
+| `CacheError`      | The cache could not be read or written, or its lock not taken.                                               |
 
 ### `@kestack/cli-platform/plugins`
 
@@ -144,7 +144,7 @@ yield *
   );
 ```
 
-- `wanted` is `{ hash, url }`, downloaded through Downloads and checked against the hash, or `{ file }`, a local file in development.
+- `wanted` is `{ hash, url }`, downloaded through Downloads and checked against the hash, or `{ file }`, a local file in development. A `file:` URL is copied and checked the same way; one with no file there is Crashed as not on the shelf.
 - A new `wanted` downloads while the old Plugin runs; then the old one gets SIGTERM, SIGKILL after ten seconds, and the new one starts once the socket is free.
 - A Plugin that exits is Crashed and started again after 1 s, 2 s, 4 s, up to 60 s; its last 50 lines are in the report and all of them in `<state>/plugins/<name>.log`.
 - While a downloaded file runs, it is marked used every day, so `Downloads.prune` from any CLI on the computer keeps it.

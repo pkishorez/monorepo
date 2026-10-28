@@ -5,11 +5,13 @@ import {
   readdirSync,
   readFileSync,
   utimesSync,
+  writeFileSync,
 } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { Effect } from 'effect';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Downloads } from '../downloads.js';
@@ -90,6 +92,39 @@ describe('Downloads', () => {
           expected: sha256,
         });
         expect(readdirSync(join(cache, 'downloads'))).toEqual([]);
+      }),
+    ));
+
+  it('copies a file: URL into the cache, checked like a download', () =>
+    withCache((downloads, cache) =>
+      Effect.gen(function* () {
+        const shelf = mkdtempSync(join(tmpdir(), 'cli-platform-shelf-'));
+        const at = join(shelf, `${sha256}.mjs`);
+        writeFileSync(at, content);
+        const url = pathToFileURL(at).href;
+        const progress: Array<number> = [];
+        const file = yield* downloads.fetch(
+          { url, sha256, name: 'plugin.mjs' },
+          ({ received }) => Effect.sync(() => void progress.push(received)),
+        );
+        expect(file).toBe(join(cache, 'downloads', sha256, 'plugin.mjs'));
+        expect(readFileSync(file)).toEqual(content);
+        expect(progress.at(-1)).toBe(content.length);
+
+        const wrong = join(shelf, 'wrong.mjs');
+        writeFileSync(wrong, 'not it');
+        const other = 'b'.repeat(64);
+        expect(
+          yield* Effect.flip(
+            downloads.fetch({ url: pathToFileURL(wrong).href, sha256: other }),
+          ),
+        ).toMatchObject({ _tag: 'HashMismatch', expected: other });
+
+        const gone = pathToFileURL(join(shelf, 'gone.mjs')).href;
+        expect(
+          yield* Effect.flip(downloads.fetch({ url: gone, sha256: other })),
+        ).toMatchObject({ _tag: 'DownloadFailed', url: gone, missing: true });
+        expect(readdirSync(join(cache, 'downloads'))).toEqual([sha256]);
       }),
     ));
 
