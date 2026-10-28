@@ -260,4 +260,79 @@ describe('ke-connect', () => {
       );
     }
   }, 180_000);
+
+  it('starts again with Cloud Connect down, from its stored Sign-in and the Releases it last wanted', async () => {
+    const online = await startCloud();
+    const port = await freePort();
+    const args = [
+      'serve',
+      'offline',
+      '--cloud',
+      online.url,
+      '--port',
+      String(port),
+      '--heartbeat',
+      '1',
+    ];
+    const harnessesAt = () =>
+      vi.waitFor(
+        () =>
+          Effect.runPromise(
+            Effect.scoped(
+              Effect.gen(function* () {
+                const { key } = JSON.parse(
+                  readFileSync(
+                    join(
+                      home,
+                      'data',
+                      'kestack',
+                      'connect',
+                      'connections',
+                      'offline',
+                      'connection.json',
+                    ),
+                    'utf8',
+                  ),
+                ) as { readonly key: string };
+                const context = yield* Layer.build(
+                  CodeClient.layer(
+                    `ws://127.0.0.1:${port}${pluginPath('code', code.hash)}`,
+                    { key },
+                  ),
+                );
+                return yield* Context.get(context, CodeClient).harnesses();
+              }),
+            ).pipe(Effect.timeout('10 seconds')),
+          ),
+        { timeout: 60_000, interval: 500 },
+      );
+    const first = keConnect(args);
+    let again: ReturnType<typeof keConnect> | undefined;
+    try {
+      expect(await harnessesAt()).toMatchObject([{ harness: 'claude' }]);
+      first.child.kill('SIGTERM');
+      await first.exited;
+      online.server.closeAllConnections();
+      await new Promise((resolve) => online.server.close(resolve));
+
+      // Cloud Connect cannot be asked how to sign in, nor told anything:
+      // the Connection runs all the same, and keeps trying.
+      again = keConnect(args);
+      expect(await harnessesAt()).toMatchObject([{ harness: 'claude' }]);
+      await vi.waitFor(
+        () => expect(again!.output()).toMatch(/Heartbeat not sent/),
+        { timeout: 20_000, interval: 200 },
+      );
+      expect(again.output()).toMatch(/signing in as last time/);
+      expect(again.child.exitCode).toBeNull();
+    } catch (error) {
+      throw new Error(
+        `${String(error)}\n--- first serve said:\n${first.output()}\n--- second serve said:\n${again?.output() ?? ''}`,
+        { cause: error },
+      );
+    } finally {
+      again?.child.kill('SIGTERM');
+      if (again) await again.exited;
+    }
+  }, 180_000);
 });

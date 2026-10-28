@@ -49,7 +49,7 @@ A folder on a Connection that Sessions run in. It knows whether its folder is th
 _Avoid_: workspace, repo
 
 **Connection**:
-One running Connect on a computer, signed in as one User to one Cloud Connect, with its own tunnel, folders and Plugins. A computer can run several Connections, each by a name of its own there, and each name runs once. It keeps the same id across restarts.
+One running Connect on a computer, signed in as one User to one Cloud Connect, with its own tunnel, folders and Plugins. A computer can run several Connections, each by a name of its own there, and each name runs once. It keeps the same id across restarts. One that signed in before starts while Cloud Connect cannot be reached, and reports once it can.
 _Avoid_: machine, server, host, device, instance
 
 **Link**:

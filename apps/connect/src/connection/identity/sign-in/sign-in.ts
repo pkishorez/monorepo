@@ -2,6 +2,7 @@ import { Context, Data, Effect, Layer } from 'effect';
 import { Accounts, type AccountsState } from '@kestack/auth-toolkit/client';
 import { device } from '@kestack/auth-toolkit/client/device';
 import { authInfo } from '../../../cloud/client/index.js';
+import { keepAuthInfo, keptAuthInfo } from './auth-file.js';
 import { signInStore } from './sign-in-store.js';
 
 /*
@@ -9,6 +10,11 @@ import { signInStore } from './sign-in-store.js';
  * (`authInfo`): through the Auth Worker it names, as a Device whose one
  * Sign-in is kept in the database file and reused on later runs. The
  * result signs every Cloud Connect call with a bearer.
+ *
+ * What Cloud Connect says is kept beside the Sign-in (auth-file.ts), so a
+ * Connection started while Cloud Connect cannot be asked signs in as it
+ * last did, with the Sign-in it kept, and starts offline. A first Sign-in
+ * still needs Cloud Connect.
  */
 
 /** Signing in could not go ahead as asked. */
@@ -25,6 +31,24 @@ export interface SignInOptions {
 }
 
 const APP = 'ke-connect';
+
+/** How `cloud` says to sign in, kept for the next run; as it last said when it cannot be asked. */
+const discover = (options: Pick<SignInOptions, 'cloud' | 'db'>) =>
+  authInfo(options.cloud).pipe(
+    Effect.tap((info) => keepAuthInfo(options.db, options.cloud, info)),
+    Effect.catch((error) =>
+      Effect.flatMap(keptAuthInfo(options.db, options.cloud), (kept) =>
+        kept === null
+          ? Effect.fail(error)
+          : Effect.as(
+              Effect.logWarning(
+                `${error.message}; signing in as last time, through ${kept.url}`,
+              ),
+              kept,
+            ),
+      ),
+    ),
+  );
 
 const activeOf = (state: AccountsState) =>
   state._tag === 'SignedIn' ? state.active : null;
@@ -95,7 +119,7 @@ const asDevice = (options: SignInOptions, url: string) =>
  */
 export const signIn = (options: SignInOptions) =>
   Effect.gen(function* () {
-    const info = yield* authInfo(options.cloud);
+    const info = yield* discover(options);
     return yield* asDevice(options, info.url);
   });
 
@@ -106,7 +130,7 @@ export const signIn = (options: SignInOptions) =>
  */
 export const stored = (options: SignInOptions) =>
   Effect.gen(function* () {
-    const info = yield* authInfo(options.cloud);
+    const info = yield* discover(options);
     const { context, accounts } = yield* deviceAt(options, info.url);
     return {
       signing: activeOf(yield* accounts.current)

@@ -153,7 +153,7 @@ ke-connect list                  # every Connection: running or not, its address
 ke-connect remove work           # stops it, forgets it in Cloud Connect, signs out, deletes its folders
 ```
 
-- It signs in through the Auth Worker that Cloud Connect's `/auth` names, and keeps the Connection's id, Connection Key and Cloud Connect in `connection.json`; serving it against another Cloud Connect is refused.
+- It signs in through the Auth Worker that Cloud Connect's `/auth` names, and keeps the Connection's id, Connection Key and Cloud Connect in `connection.json`; serving it against another Cloud Connect is refused. It keeps what `/auth` said in `auth.json`, so a Connection that signed in before starts while Cloud Connect cannot be reached: it signs in as last time, runs its Plugins at the Releases it last wanted, and keeps sending its Heartbeat until Cloud Connect answers. A first Sign-in needs Cloud Connect.
 - It runs each Plugin at the Release Cloud Connect names, or the one it last named while Cloud Connect cannot be reached, passes `/<plugin>/<sha256>/rpc` to it while it runs that Release and closes any other with 4409, asks every caller for the Connection Key, and opens a cloudflared tunnel to its port; any other path is 404.
 - Its Heartbeat reports the tunnel's address and each Plugin State every 15 seconds. A forgotten Connection signs out and stops; one below the Minimum Connect stops, saying how to update.
 
