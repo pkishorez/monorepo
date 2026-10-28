@@ -4,7 +4,7 @@ import { Effect, Exit, Layer, Option, Queue, Scope } from 'effect';
 import { RpcClient } from 'effect/rpc';
 import { Socket } from 'effect/socket';
 import * as NodeSocketServer from '@effect/platform-node/NodeSocketServer';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   CONNECT_PATH,
   KabukiSessionApi,
@@ -120,6 +120,31 @@ describe('connect', () => {
       ),
     20_000,
   );
+
+  it('keeps the name it asked for, not one DevTools answered on a clash', () =>
+    run(
+      Effect.gen(function* () {
+        const kept = new Map([
+          ['@kestack/devtools-kabuki:Diary:name', 'diary'],
+        ]);
+        vi.stubGlobal('sessionStorage', {
+          getItem: (key: string) => kept.get(key) ?? null,
+          setItem: (key: string, value: string) => void kept.set(key, value),
+        });
+        yield* Effect.addFinalizer(() => Effect.sync(vi.unstubAllGlobals));
+        const port = yield* Effect.promise(freePort);
+        const accepted = yield* Queue.unbounded<Accepted>();
+        yield* devtools(port, accepted);
+        const { runtime } = yield* started;
+        const stop = connect(runtime, { url: `ws://127.0.0.1:${port}` });
+        yield* Effect.addFinalizer(() => Effect.sync(stop));
+        const one = yield* Queue.take(accepted);
+        expect(one.query.get('name')).toBe('diary');
+        yield* one.client.named({ name: 'diary-2' });
+        expect(yield* one.client.info()).toMatchObject({ name: 'diary-2' });
+        expect(kept.get('@kestack/devtools-kabuki:Diary:name')).toBe('diary');
+      }),
+    ));
 
   it("with 'asked', connects only when the page's URL asks", () =>
     run(

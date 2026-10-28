@@ -47,13 +47,14 @@ const start = (runtime: AppRuntime, options: ConnectOptions): (() => void) => {
     const app = appOf(runtime);
     const kept = tabStorage();
     let name = nameFor({ app, page, given: options.name, kept });
+    // The tab keeps the name it asked for, never one DevTools answered on a
+    // clash: its own last socket, not yet closed, may be what clashed.
     keep(kept, app, name);
     const about = {
       url: pageOf,
       name: () => name,
       named: (final: string) => {
         name = final;
-        keep(kept, app, final);
       },
     };
     const fiber = Effect.runFork(
