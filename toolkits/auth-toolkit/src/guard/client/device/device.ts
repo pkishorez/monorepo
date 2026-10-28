@@ -1,4 +1,4 @@
-import { Effect, Layer, Schedule } from 'effect';
+import { Effect, Exit, Layer, Schedule } from 'effect';
 import { FetchHttpClient, HttpClient } from 'effect/http';
 import { Memory } from '@kestack/std-toolkit/db/memory';
 import { bearer, Unauthenticated } from '../../authz/middleware/index.js';
@@ -171,7 +171,7 @@ export const device = ({
           const there = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
             Effect.raceFirst(effect, movedFrom(url));
           const code = yield* there(login.requestCode);
-          const token = yield* Effect.scoped(
+          const awaitToken = Effect.scoped(
             Effect.gen(function* () {
               // Shown before the first poll, and put away once it ends.
               yield* Effect.forkScoped(
@@ -185,43 +185,56 @@ export const device = ({
               return yield* there(login.awaitToken(code));
             }),
           );
-          const user = yield* there(
-            login.whoIs(token).pipe(
-              Effect.retry({
-                while: (error) =>
-                  error._tag === 'AuthWorkerUnavailable' &&
-                  error.kind !== 'unreadable',
-                schedule: Schedule.spaced('1 second'),
-                times: 3,
-              }),
-            ),
-          ).pipe(
-            Effect.flatMap((named) =>
-              named
-                ? Effect.succeed(named)
-                : Effect.fail(
-                    new AuthWorkerUnavailable({ url, kind: 'unreadable' }),
+          /** Keeps `token` as the Account it names, if nothing stopped it. */
+          const keep = (token: string) =>
+            Effect.gen(function* () {
+              const user = yield* there(
+                login.whoIs(token).pipe(
+                  Effect.retry({
+                    while: (error) =>
+                      error._tag === 'AuthWorkerUnavailable' &&
+                      error.kind !== 'unreadable',
+                    schedule: Schedule.spaced('1 second'),
+                    times: 3,
+                  }),
+                ),
+              ).pipe(
+                Effect.flatMap((named) =>
+                  named
+                    ? Effect.succeed(named)
+                    : Effect.fail(
+                        new AuthWorkerUnavailable({ url, kind: 'unreadable' }),
+                      ),
+                ),
+              );
+              // A sign-in that outlived its Auth Worker touches nothing here.
+              yield* stillAt(url);
+              const current = yield* store.read;
+              const previous = current.accounts.find(
+                (account) => account.user.id === user.id,
+              );
+              if (!previous && current.accounts.length >= maxAccounts)
+                return yield* new AccountLimitReached({ limit: maxAccounts });
+              if (previous) yield* login.revoke(previous.token);
+              // Revoking can take five seconds: the Auth Worker may move meanwhile.
+              yield* stillAt(url);
+              return snapshotOf(
+                yield* store.update((latest) =>
+                  withAccount(latest, { user, token }),
+                ),
+              );
+            });
+          // A token never kept is never left signed in, however keeping it
+          // ends: failed, moved, or interrupted from the moment it came.
+          return yield* Effect.uninterruptibleMask((restore) =>
+            restore(awaitToken).pipe(
+              Effect.flatMap((token) =>
+                restore(keep(token)).pipe(
+                  Effect.onExit((exit) =>
+                    Exit.isSuccess(exit) ? Effect.void : login.revoke(token),
                   ),
-            ),
-            // A token never kept is never left signed in.
-            Effect.tapError(() => login.revoke(token)),
-          );
-          // A sign-in that outlived its Auth Worker touches nothing here.
-          yield* stillAt(url).pipe(Effect.tapError(() => login.revoke(token)));
-          const current = yield* store.read;
-          const previous = current.accounts.find(
-            (account) => account.user.id === user.id,
-          );
-          if (!previous && current.accounts.length >= maxAccounts) {
-            yield* login.revoke(token);
-            return yield* new AccountLimitReached({ limit: maxAccounts });
-          }
-          if (previous) yield* login.revoke(previous.token);
-          // Revoking can take five seconds: the Auth Worker may move meanwhile.
-          yield* stillAt(url).pipe(Effect.tapError(() => login.revoke(token)));
-          return snapshotOf(
-            yield* store.update((latest) =>
-              withAccount(latest, { user, token }),
+                ),
+              ),
             ),
           );
         });
