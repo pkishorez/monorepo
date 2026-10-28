@@ -20,8 +20,8 @@ import {
   SpeechToTextNotReady,
   TranscriptionFailed,
   UnknownAccount,
-} from './api/contract/index.js';
-import { Engine } from './engine/index.js';
+} from '../api/contract/index.js';
+import { Engine } from '../engine/index.js';
 import { Speech } from '@kestack/ai-toolkit/speech';
 import { Harnesses, Models } from '@kestack/ai-toolkit/harness';
 import { JsonSchema } from '@kestack/ai-toolkit/contract';

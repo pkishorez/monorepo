@@ -1,1 +1,1 @@
-export { codePlugin, type CodePluginOptions } from './code.js';
+export { codePlugin, type CodePluginOptions } from './serve/index.js';
