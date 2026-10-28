@@ -1,4 +1,5 @@
 import type { AgentQuestion } from '@kestack/connect/code';
+import { useKeyboardOver } from '@kestack/web-platform/recipes/touch-layers';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { cn } from '@kestack/web-platform/ui/components/utils';
@@ -16,7 +17,7 @@ import { AgentLogo } from '../../../../../../../../../ui/labels/agent/index.ts';
 import { draftOf, type Drafts, isAnswered, unanswered } from '../answer.ts';
 import { type Asker, type Stop, stopTitle } from '../question.ts';
 import { useStepKeys } from './keys.ts';
-import { useKeyboard, useSwipeDown } from './sheet.ts';
+import { useSwipeDown } from './sheet.ts';
 import { ROW, Step } from './step.tsx';
 
 /*
@@ -82,6 +83,7 @@ export function Dialog({
   readonly onMinimise: () => void;
 }) {
   const id = useId();
+  const box = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const stepRef = useRef<HTMLDivElement>(null);
   const count = question.items.length;
@@ -192,10 +194,13 @@ export function Dialog({
   const sendKeys = useBound('question.send');
   const minimiseKeys = useBound('question.minimise');
   const swipe = useSwipeDown(root, touch && expanded, onMinimise);
-  const keyboard = useKeyboard(touch && expanded, root);
+  // Measured from the box, which stays put as the sheet slides and follows
+  // a swipe; 12px free over it, as its `pt-3` leaves.
+  const keyboard = useKeyboardOver(touch && expanded, box, root, 12);
   const busy = sending !== null;
   return (
     <div
+      ref={box}
       data-expanded={expanded ? '' : undefined}
       inert={!expanded}
       aria-hidden={!expanded}
@@ -352,8 +357,11 @@ export function Dialog({
           <div
             className={cn(
               'flex min-h-14 shrink-0 items-center gap-2 border-t border-border px-5 py-3',
+              touch && 'min-h-16 px-4',
+              // The home indicator's room, but where the keyboard covers it.
               touch &&
-                'min-h-16 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]',
+                !keyboard.keyboard &&
+                'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
             )}
           >
             {skipping ? (
