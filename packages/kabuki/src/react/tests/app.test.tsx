@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Actor, History, Replay, Runtime } from '../../core/index.ts';
 import type { SavedHistory } from '../../core/index.ts';
 import { View, toReact } from '../index.ts';
+import type { AppRuntime } from '../index.ts';
 import { registry } from '../registry.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -461,6 +462,49 @@ describe('across mounts and hot reloads', () => {
     expect(host.textContent).toBe('2');
   });
 
+  it('a new app with the same name carries on with the Input the History was made with', async () => {
+    const From = Actor.build(
+      Actor.define('From', {
+        input: Schema.Struct({ start: Schema.Number }),
+        model: Schema.Struct({ count: Schema.Number }),
+        message: Schema.TaggedUnion({ Bumped: {} }),
+      }),
+      {
+        init: ({ start }) => ({ model: { count: start } }),
+        on: {
+          Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }),
+        },
+      },
+    );
+    const FromView = View.make(From, (self) => {
+      sends['Counter'] = self.send;
+      return <output>{self.model.count}</output>;
+    });
+    const input = vi.fn(() => ({ start: 5 }));
+    const First = toReact(From, FromView, Layer.empty, { input });
+    root = createRoot(host);
+    act(() => root!.render(<First />));
+    expect(host.textContent).toBe('5');
+    await act(async () => root!.unmount());
+    await tick();
+
+    // Not read again: the History left is played from the Input it was made with.
+    const Second = toReact(From, FromView, Layer.empty, { input });
+    root = createRoot(host);
+    await act(async () => root!.render(<Second />));
+    expect(host.textContent).toBe('5');
+    await started(host);
+    expect(host.textContent).toBe('6');
+    await act(async () => root!.unmount());
+    await tick();
+
+    const Third = toReact(From, FromView, Layer.empty, { input });
+    root = createRoot(host);
+    await act(async () => root!.render(<Third />));
+    expect(host.textContent).toBe('6');
+    expect(input).toHaveBeenCalledOnce();
+  });
+
   it('two apps with the same name mounted at once are an error, and the second keeps its own History', async () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
     const One = toReact(Counter, CounterView, Layer.empty);
@@ -547,6 +591,63 @@ describe('mounting', () => {
   });
 });
 
+describe('Attachments', () => {
+  it('is called once with the running app, which it reads as it is now, and stopped at the last unmount', async () => {
+    const stops: Array<string> = [];
+    let held: AppRuntime | undefined;
+    let heard = 0;
+    const App = toReact(Counter, CounterView, Layer.empty, {
+      attach: [
+        (runtime) => {
+          held = runtime;
+          const unsubscribe = runtime.subscribe(() => heard++);
+          return () => {
+            unsubscribe();
+            stops.push('stopped');
+          };
+        },
+      ],
+    });
+    root = createRoot(host);
+    await act(async () => root!.render(<App />));
+    await started(host);
+    expect(held?.running).toBe(true);
+    expect(held?.head).toBe(0);
+    expect(held?.branch).toHaveLength(1);
+    expect(heard).toBeGreaterThan(0);
+    await act(async () => root!.unmount());
+    root = undefined;
+    expect(stops).toEqual(['stopped']);
+  });
+
+  it('one that throws, starting or stopping, is logged; the app and the others run on', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const stops: Array<string> = [];
+    const App = toReact(Counter, CounterView, Layer.empty, {
+      attach: [
+        () => {
+          throw new Error('no');
+        },
+        () => () => {
+          throw new Error('no');
+        },
+        () => () => stops.push('kept'),
+      ],
+    });
+    root = createRoot(host);
+    await act(async () => root!.render(<App />));
+    await started(host);
+    expect(host.textContent).toBe('1');
+    await act(async () => root!.unmount());
+    root = undefined;
+    expect(stops).toEqual(['kept']);
+    expect(ours(errors)).toEqual([
+      '[@kestack/kabuki] Counter could not start an Attachment',
+      '[@kestack/kabuki] Counter could not stop an Attachment',
+    ]);
+  });
+});
+
 describe('useRuntime controls', () => {
   const probed = async (
     App: ReturnType<typeof toReact<typeof Counter, never>>,
@@ -567,6 +668,31 @@ describe('useRuntime controls', () => {
     );
     return () => seen!;
   };
+
+  it('gives one object, read as it is now, and draws again on each change', async () => {
+    const App = toReact(Counter, CounterView, Layer.empty);
+    const each: Array<ReturnType<typeof App.useRuntime>> = [];
+    const Probe = () => {
+      const runtime = App.useRuntime();
+      each.push(runtime);
+      return <span>{runtime.head}</span>;
+    };
+    root = createRoot(host);
+    await act(async () =>
+      root!.render(
+        <>
+          <App />
+          <Probe />
+        </>,
+      ),
+    );
+    await started(host);
+    expect(host.querySelector('span')!.textContent).toBe('0');
+    await act(async () => sends['Counter']!({ _tag: 'Bumped' }));
+    expect(host.querySelector('span')!.textContent).toBe('1');
+    expect(new Set(each).size).toBe(1);
+    expect(each[0]!.head).toBe(1);
+  });
 
   it('clear forgets the History and goes live from init', async () => {
     const App = toReact(Counter, CounterView, Layer.empty, {

@@ -264,6 +264,10 @@ _Avoid_: store, engine, interpreter, actor system
 An Actor tree with its Layer, made into one React component: it runs one Runtime for every mount, and draws the Snapshot at the Step shown, or live. Each View draws its Instance from that Snapshot; a Send from a past Step is dropped.
 _Avoid_: stage, root, provider
 
+**Attachment**:
+A function Kabuki calls with each App's running Runtime when it starts in a browser, which returns how to stop it; Kabuki calls that when the Runtime stops, at the last unmount or a hot reload. Given through the `attach` option, it is how something outside the app, such as a devtool, runs beside it without Kabuki knowing what it is.
+_Avoid_: plugin, hook, extension
+
 ### Serving
 
 **Start**:

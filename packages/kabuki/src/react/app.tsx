@@ -34,7 +34,10 @@ import type { DrawnApp, ViewOf } from './view.tsx';
  * 2. Mount  the first mount starts one Runtime on the History; the last
  *           unmount stops it and leaves the History for the next mount of an
  *           app with this name, after a hot reload too. A start, stop or
- *           clear that fails is logged and kept as the app's failure.
+ *           clear that fails is logged and kept as the app's failure. Each
+ *           Attachment is called with the running app at the first mount,
+ *           and stopped at the last unmount; one that throws is logged, and
+ *           the rest run on.
  * 3. Show   any Step: the Views draw the Snapshot right after it, while
  *           the live app runs on underneath. A Send from the past is
  *           dropped. A Step Compacted away shows the oldest one left.
@@ -71,10 +74,21 @@ export interface AppOptions {
    * over this.
    */
   readonly window?: number | null;
+  /**
+   * What runs beside the app in a browser, such as a devtool: each is called
+   * with the running app when it is first mounted, and what it returns when
+   * the last mount goes, as after a hot reload. Never on a server.
+   */
+  readonly attach?: ReadonlyArray<Attachment>;
 }
+
+/** Something outside the app that runs beside its Runtime: called with the running app, it returns how to stop. */
+export type Attachment<A = AnyActor> = (runtime: AppRuntime<A>) => () => void;
 
 /** The running app, for code outside the tree: a timeline, a devtool. */
 export interface AppRuntime<A = AnyActor> {
+  /** What the app is called: `AppOptions.name`, or the root Actor's name. */
+  readonly name: string;
   readonly history: History<A>;
   /** The current Branch: every entry from the first to the Head. */
   readonly branch: ReadonlyArray<Entry>;
@@ -98,6 +112,8 @@ export interface AppRuntime<A = AnyActor> {
   }) => LiveInstance<A> | null;
   /** Why the last start, stop or clear failed, also logged; `null` once one succeeds. */
   readonly failure: Cause.Cause<unknown> | null;
+  /** Calls `listener` whenever anything here changes; returns how to stop. */
+  readonly subscribe: (listener: () => void) => () => void;
 }
 
 const NO_WORKERS: ReadonlyArray<WorkerStatus> = [];
@@ -140,11 +156,14 @@ export const toReact = <A extends AnyActor, Provided>(
           ...keptWindow(),
           ...(options.input ? { input: options.input() } : {}),
         });
-  /** The History an app of this name holds or left, read with this code, else its own. */
+  /** The History an app of this name holds or left, read with this code from the Input it was made with, else its own. */
   const adopt = () => {
     const left = registry.history(name);
     return left
-      ? History.load(actor, left.save(), { window: left.window() })
+      ? History.load(actor, left.save(), {
+          window: left.window(),
+          input: left.input,
+        })
       : own();
   };
 
@@ -268,6 +287,7 @@ export const toReact = <A extends AnyActor, Provided>(
   // 2. Mount
   let mounts = 0;
   let close = () => {};
+  let detach = () => {};
   let unsubscribe = () => {};
   const mount = (saved: SavedHistory | undefined) => {
     if (takesGiven(saved)) take(givenOf(saved));
@@ -279,6 +299,7 @@ export const toReact = <A extends AnyActor, Provided>(
         take(makeDraw(own()));
         changed();
       }
+      detach = attach();
       let open = true;
       close = () => {
         open = false;
@@ -307,6 +328,7 @@ export const toReact = <A extends AnyActor, Provided>(
     return () => {
       if (--mounts === 0) {
         registry.release(name, app);
+        detach();
         close();
       }
     };
@@ -350,6 +372,33 @@ export const toReact = <A extends AnyActor, Provided>(
       }),
     );
 
+  /** Each Attachment called with the running app; returns how to stop them all. */
+  const attach = () => {
+    const stops = (options.attach ?? []).flatMap((attachment) => {
+      try {
+        return [attachment(live)];
+      } catch (error) {
+        console.error(
+          `[@kestack/kabuki] ${name} could not start an Attachment`,
+          error,
+        );
+        return [];
+      }
+    });
+    return () => {
+      for (const stop of stops) {
+        try {
+          stop();
+        } catch (error) {
+          console.error(
+            `[@kestack/kabuki] ${name} could not stop an Attachment`,
+            error,
+          );
+        }
+      }
+    };
+  };
+
   const read = () =>
     (seen ??= {
       head: historyOf().head(),
@@ -357,6 +406,38 @@ export const toReact = <A extends AnyActor, Provided>(
       shown,
       failure,
     });
+
+  /** The running app, always read as it is now: what an Attachment holds and `useRuntime` returns. */
+  const live: AppRuntime<A> = {
+    name,
+    get history() {
+      return historyOf();
+    },
+    get branch() {
+      return historyOf().branch(read().head);
+    },
+    get head() {
+      return read().head;
+    },
+    get running() {
+      return read().running;
+    },
+    get shown() {
+      return read().shown;
+    },
+    get failure() {
+      return read().failure;
+    },
+    show,
+    start,
+    stop,
+    clear,
+    workers: (instance) => runtime?.workers(instance) ?? NO_WORKERS,
+    provided: (instance) =>
+      runtime?.provided(instance) ?? { top: [], state: [] },
+    instance: (options) => runtime?.instance(options) ?? null,
+    subscribe,
+  };
 
   const Drawn = ({ draw }: { readonly draw: Draw<A> }) => {
     waitForFirstDraw(draw);
@@ -388,27 +469,9 @@ export const toReact = <A extends AnyActor, Provided>(
   return Object.assign(App, {
     displayName: name,
     useRuntime: (): AppRuntime<A> => {
-      const { head, running, shown, failure } = useSyncExternalStore(
-        subscribe,
-        read,
-        read,
-      );
-      return {
-        history: historyOf(),
-        branch: historyOf().branch(head),
-        head,
-        running,
-        shown,
-        show,
-        start,
-        stop,
-        clear,
-        workers: (instance) => runtime?.workers(instance) ?? NO_WORKERS,
-        provided: (instance) =>
-          runtime?.provided(instance) ?? { top: [], state: [] },
-        instance: (options) => runtime?.instance(options) ?? null,
-        failure,
-      };
+      // Drawn again on each change; the object stays the same, as an Attachment's does.
+      useSyncExternalStore(subscribe, read, read);
+      return live;
     },
   });
 };
