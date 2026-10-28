@@ -8,8 +8,8 @@ export {
   pluginNotice,
   type PluginNotice,
   statusOf,
+  outdated,
   UPDATE_COMMAND,
-  updateOf,
 } from './health.ts';
 export {
   pillOf,

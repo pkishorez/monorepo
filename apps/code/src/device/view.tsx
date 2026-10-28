@@ -7,7 +7,10 @@ import {
 import { Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { StartScreen, startOf } from './account/index.ts';
 import { Connections as ConnectionsActor } from './account/connections/index.ts';
-import { Links } from './account/connections/connection/link/index.ts';
+import {
+  behindAll,
+  Links,
+} from './account/connections/connection/link/index.ts';
 import { Layout } from './account/connections/layout/index.ts';
 import { Home } from './account/connections/layout/pages/home/index.ts';
 import { Project } from './account/connections/layout/pages/project/index.ts';
@@ -27,7 +30,8 @@ import { DeviceLive } from './actor.ts';
  * around the page the URL names, handed the Account Switcher for its
  * header and its list for the sidebar's foot, and on a phone, over the
  * sidebar, what home would say of the Connections. Every Connection as listed,
- * with its link now and whether its Last Seen is believed yet, is handed to the Views below through `Links`.
+ * with its link now, whether its Last Seen is believed yet, and who is behind on one that
+ * refused this Code's Release of the code Plugin, is handed to the Views below through `Links`.
  * Each part is handed its own Instance, never its data, so a change to
  * one draws only it. A page's code loads on its own (`usePreloaded`).
  * The mark stays until Layout is shown: until then it draws nothing, and
@@ -282,8 +286,9 @@ function Listed({
       connections: known?.list.value ?? null,
       status: known?.links ?? {},
       checked: known?.checked ?? false,
+      behind: behindAll(known?.list.value ?? null, known?.mismatched ?? {}),
     }),
-    [known?.list.value, known?.links, known?.checked],
+    [known?.list.value, known?.links, known?.checked, known?.mismatched],
   );
   return <Links value={value}>{children}</Links>;
 }

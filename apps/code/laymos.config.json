@@ -52,6 +52,9 @@
     "src/device/account/connections/connection/records": [
       "src/device/account/connections/connection/link"
     ],
+    "src/device/account/connections/connection/link/health": [
+      "src/device/account/connections/connection/link/reach"
+    ],
     "src/device/account/connections/layout/pages": [
       "src/device/account/connections/layout/commands.ts"
     ],

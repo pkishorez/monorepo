@@ -1,6 +1,7 @@
 export {
   Links,
   PageConnection,
+  useBehind,
   useHealth,
   useHealths,
   useLock,
@@ -28,5 +29,12 @@ export {
   standingOf,
   statusOf,
 } from './health/index.ts';
-export { reach } from './reach/index.ts';
+export {
+  type Behind,
+  behindAll,
+  behindOf,
+  PLUGIN_CODE,
+  reach,
+  toNewest,
+} from './reach/index.ts';
 export { orRefused, reasonOf, Refused } from './refusal/index.ts';

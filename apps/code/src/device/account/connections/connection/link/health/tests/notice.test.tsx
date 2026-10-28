@@ -71,10 +71,31 @@ describe('the notice pill', () => {
     expect(retryIn(NOW - 1, NOW)).toBe('now');
   });
 
-  it('asks to update an older ke-connect, with the command', () => {
+  it('asks to update an Outdated ke-connect, with the command', () => {
     const [label, title] = noticePillOf(older, NOW)!;
     expect(label).toBe('Update ke-connect');
-    expect(title).toContain('npm i -g @kestack/connect@latest');
+    expect(title).toBe(
+      'ke-connect 0.0.4 is older than Cloud Connect accepts; run `npm i -g @kestack/connect@latest` on it, then start it again.',
+    );
+    // At the Minimum Connect, or with none named, it is not Outdated.
+    expect(
+      noticePillOf(
+        connection({ code: { _tag: 'Running', hash: HASH } }, '0.0.4', null),
+        NOW,
+      ),
+    ).toBeNull();
+  });
+
+  it('says the Connection is Updating while its socket says it runs an older Release', () => {
+    const running = connection({ code: { _tag: 'Running', hash: HASH } });
+    expect(noticePillOf(running, NOW, 'Updating')?.[0]).toBe(
+      'Updating Connect…',
+    );
+  });
+
+  it('says Code is updating when it is the older side', () => {
+    const running = connection({ code: { _tag: 'Running', hash: HASH } });
+    expect(noticePillOf(running, NOW, 'Stale')?.[0]).toBe('Updating Code…');
   });
 
   it('says nothing while the Plugin runs on the latest ke-connect', () => {
@@ -131,10 +152,10 @@ describe('the notice in Settings', () => {
     expect(host.textContent).toContain('Copied');
   });
 
-  it('shows how to update an older ke-connect', () => {
+  it('shows how to update an Outdated ke-connect', () => {
     render(older);
     expect(host.textContent).toContain(
-      'this Connection runs 0.0.4, and 0.0.5 is out',
+      'ke-connect 0.0.4 is older than Cloud Connect accepts; run this on it',
     );
     expect(host.querySelector('code')?.textContent).toBe(
       'npm i -g @kestack/connect@latest',
