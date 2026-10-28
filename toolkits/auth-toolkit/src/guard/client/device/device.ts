@@ -1,5 +1,5 @@
 import { Effect, Layer, Schedule } from 'effect';
-import { FetchHttpClient } from 'effect/http';
+import { FetchHttpClient, HttpClient } from 'effect/http';
 import { Memory } from '@kestack/std-toolkit/db/memory';
 import { bearer, Unauthenticated } from '../../authz/middleware/index.js';
 import {
@@ -12,7 +12,7 @@ import {
 } from '../accounts/index.js';
 import { makeAccounts, signing } from '../engine/index.js';
 import { authWorkerApi } from '../auth-worker-api/index.js';
-import { deviceLogin, verificationUrl } from './device-login.js';
+import { ANSWER, deviceLogin, verificationUrl } from './device-login.js';
 import { processTerminal, type Show, showIn } from './show.js';
 import {
   deviceAccountsTable,
@@ -25,8 +25,9 @@ import {
 export { deviceAccountsTable };
 
 export interface DeviceOptions {
-  /** The Auth Worker's own URL. */
-  readonly url: string;
+  /** The Auth Worker's own URL, or an Effect read at each call to it, for
+   * a Device whose Auth Worker can move. */
+  readonly url: string | Effect.Effect<string>;
   /** This program's name: the Device Login's client id, and how the Home
    * Page names this Device. */
   readonly app: string;
@@ -98,16 +99,22 @@ export const device = ({
   Layer.unwrap(
     Effect.gen(function* () {
       const userAgent = userAgentOf(app, version, yield* hostname);
-      const login = deviceLogin(
-        yield* authWorkerApi(url, { userAgent }),
-        app,
-        url,
-      );
+      const client = yield* HttpClient.HttpClient;
+      const urlNow = typeof url === 'string' ? Effect.succeed(url) : url;
+      /** The Auth Worker as it is now: its URL, and Device Login there. */
+      const worker = Effect.gen(function* () {
+        const at = yield* urlNow;
+        const api = yield* authWorkerApi(at, { userAgent }).pipe(
+          Effect.provideService(HttpClient.HttpClient, client),
+        );
+        return { url: at, login: deviceLogin(api, app, at) };
+      });
       const store = yield* makeSignInStore;
       const read = Effect.map(store.read, snapshotOf);
 
       const check = Effect.gen(function* () {
         const { accounts } = yield* store.read;
+        const { login } = yield* worker;
         const answers = yield* Effect.forEach(
           accounts,
           ({ token }) => login.whoIs(token),
@@ -144,6 +151,7 @@ export const device = ({
           if (options.test) {
             return yield* new TestSignInUnsupported({ client: 'Device' });
           }
+          const { url, login } = yield* worker;
           const code = yield* login.requestCode;
           const token = yield* Effect.scoped(
             Effect.gen(function* () {
@@ -214,6 +222,7 @@ export const device = ({
           signOut: (userId) =>
             Effect.gen(function* () {
               const token = yield* tokenOf(userId);
+              const { login } = yield* worker;
               if (token) yield* login.revoke(token);
               return snapshotOf(
                 yield* store.update((current) => without(current, userId)),
@@ -221,6 +230,7 @@ export const device = ({
             }),
           signOutAll: Effect.gen(function* () {
             const { accounts } = yield* store.read;
+            const { login } = yield* worker;
             yield* Effect.forEach(
               accounts,
               ({ token }) => login.revoke(token),
@@ -250,7 +260,9 @@ export const device = ({
         signing({
           signature,
           refused: 'Unauthenticated',
-          recheck: made.accounts.check,
+          // The refusal reaches the caller even when the Auth Worker does
+          // not answer the check.
+          recheck: made.accounts.check.pipe(Effect.timeout(ANSWER)),
         }),
       );
     }),

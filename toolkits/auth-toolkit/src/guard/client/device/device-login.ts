@@ -9,6 +9,10 @@ import type { AuthWorkerApi } from '../auth-worker-api/index.js';
 
 class Pending extends Data.TaggedError('Pending') {}
 
+/** How long the Auth Worker has to answer what a Device asks on its own: a
+ * sign-out, or a check after a refused call. */
+export const ANSWER = Duration.seconds(5);
+
 const Code = Schema.Struct({
   device_code: Schema.String,
   user_code: Schema.String,
@@ -126,11 +130,13 @@ export const deviceLogin = (
       ),
     );
 
-  /** Ends a Sign-in on the Auth Worker. Best effort: a Device signing out
-   * forgets the token either way. */
+  /** Ends a Sign-in on the Auth Worker. Best effort, for five seconds at
+   * most: a Device signing out forgets the token either way. */
   const revoke = (token: string) =>
     Effect.ignore(
-      worker.post('/sign-out', {}, Schema.Unknown, { bearer: token }),
+      worker
+        .post('/sign-out', {}, Schema.Unknown, { bearer: token })
+        .pipe(Effect.timeout(ANSWER)),
     );
 
   return { requestCode, awaitToken, whoIs, revoke };

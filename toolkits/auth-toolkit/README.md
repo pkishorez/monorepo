@@ -254,6 +254,8 @@ await Effect.runPromise(
 - Every guarded call carries the Active Account's token as a bearer. The same backend accepts it with no change: it is a Sign-in, not an Access Token ([ADR 0010](./docs/adr/0010-device-login-is-a-first-party-session.md)).
 - The Device sends `acme-cli/1.4.0 (<hostname>)` as its User-Agent, so the Home Page lists it as "acme-cli on <hostname>".
 - Start-up asks nobody: the stored Accounts are trusted until `check` or a refused call.
+- A refused call is checked with the Auth Worker for five seconds at most, and a sign-out revokes there for five seconds at most and forgets the token either way, so an Auth Worker that stalls never holds a call or a sign-out.
+- `url` may be an Effect, read at each call to the Auth Worker, for a Device whose Auth Worker can move: signing in, checks and sign-outs all go to the one it names then.
 
 ### An MCP server with OAuth
 
