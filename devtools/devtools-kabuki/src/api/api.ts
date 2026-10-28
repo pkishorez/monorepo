@@ -12,7 +12,8 @@ import type { RpcClient, RpcClientError } from 'effect/rpc';
  * 2. Errors    a Step no longer kept, a path or an Instance not there,
  *              each saying what is there instead.
  * 3. Methods   read the History, the Snapshot, a Step's changes, the graph
- *              and a card; watch for changes; travel and fork the app.
+ *              and a card; watch for changes, and the page as it moves;
+ *              travel and fork the app.
  * 4. Wire      the path a Kabuki Session dials, the query it dials with,
  *              and the serialization both sides speak.
  *
@@ -432,6 +433,8 @@ export const KabukiSessionApi = RpcGroup.make(
   }),
   /** Where the app is now, then again after every change: History, Head, Step shown, Workers. */
   Rpc.make('watch', { success: Now, stream: true }),
+  /** The page the app runs in now, then again each time it moves to another. */
+  Rpc.make('page', { success: Schema.String, stream: true }),
   /** The Snapshot at a Step, or a part of it by dot path; folded when large, unless `expand`. */
   Rpc.make('snapshot', {
     payload: {

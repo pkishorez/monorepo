@@ -22,7 +22,8 @@ import { changesAt, entryOf, graphOf, nodeOf } from './views.ts';
  *            entry still kept, else StepNotFound saying which are.
  * 2. Read    who it is, its History, the Snapshot, a Step's changes, the
  *            graph and a card, each at a Step.
- * 3. Watch   where the app is, now and after every change it reports.
+ * 3. Watch   where the app is, now and after every change it reports;
+ *            and the page it runs in, each time it moves to another.
  * 4. Move    show a Step in the app, or go live; fork from an entry.
  */
 
@@ -203,6 +204,27 @@ export const answers = (runtime: AppRuntime, about: About) =>
         // A slow reader gets only the latest.
         { bufferSize: 1, strategy: 'sliding' },
       ),
+
+    page: () =>
+      Stream.callback<string>(
+        (queue) =>
+          Effect.acquireRelease(
+            Effect.sync(() => {
+              const tell = () => void Queue.offerUnsafe(queue, about.url());
+              // The Router writes the address just after the change it reports.
+              const soon = () => void setTimeout(tell, 0);
+              tell();
+              globalThis.addEventListener?.('popstate', tell);
+              const unsubscribe = runtime.subscribe(soon);
+              return () => {
+                unsubscribe();
+                globalThis.removeEventListener?.('popstate', tell);
+              };
+            }),
+            (stop) => Effect.sync(stop),
+          ),
+        { bufferSize: 1, strategy: 'sliding' },
+      ).pipe(Stream.changes),
 
     // 4. Move
     travel: ({ step }) =>

@@ -5,12 +5,14 @@ import { CONNECT_PATH } from '@kestack/devtools-kabuki/api';
 /** Restricts local application access while allowing browser OTLP ingestion and Kabuki Sessions dialing in. */
 export function makeRequestAccessLive({
   port,
-  canonicalOrigin,
+  ownOrigins,
 }: {
   readonly port: number;
-  readonly canonicalOrigin: string;
+  /** DevTools' own page, at each host it may be opened at. */
+  readonly ownOrigins: ReadonlyArray<string>;
 }) {
   const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
+  const allowedOrigins = new Set(ownOrigins);
 
   return HttpRouter.middleware(
     (app) =>
@@ -66,7 +68,7 @@ export function makeRequestAccessLive({
           return app;
         }
         const origin = request.headers.origin;
-        if (origin !== undefined && origin !== canonicalOrigin) {
+        if (origin !== undefined && !allowedOrigins.has(origin)) {
           return Effect.succeed(
             HttpServerResponse.text('Forbidden origin.', { status: 403 }),
           );
