@@ -20,6 +20,8 @@ import { type ItemDraft, typable } from '../answer.ts';
  * secret's hidden, 16px on touch so iOS never zooms; Escape, or leaving
  * it, makes it a row again, saying what was typed, a secret as dots. Enter
  * in it goes on, Tab and Shift+Tab to the next and the last question.
+ * Its on-screen keyboard's action key says Go, or Send on the last step,
+ * and sends Enter: Android's Next would only look for another field.
  * Typing chooses it, and, of one choice, lets the option go.
  */
 
@@ -31,6 +33,7 @@ export function Step({
   item,
   draft,
   missing,
+  last,
   touch,
   editing,
   onEditing,
@@ -45,6 +48,8 @@ export function Step({
   readonly draft: ItemDraft;
   /** Sent with this Item unanswered: it says so. */
   readonly missing: boolean;
+  /** The last step: Enter sends. */
+  readonly last: boolean;
   readonly touch: boolean;
   /** Whether its own answer is being typed. */
   readonly editing: boolean;
@@ -138,6 +143,7 @@ export function Step({
                   : 'Type your answer…'
                 : 'Other…'
             }
+            last={last}
             touch={touch}
             editing={editing}
             labelledBy={`${id}-question`}
@@ -162,6 +168,14 @@ export function Step({
     </div>
   );
 }
+
+/**
+ * A key an IME took, to compose text in another script: it says 229.
+ * Android's keyboards keep a word composed as it is typed, and their
+ * action key's Enter says 13 then: that one is the user's.
+ */
+const composing = (event: globalThis.KeyboardEvent) =>
+  event.keyCode === 229 || (event.isComposing && event.key !== 'Enter');
 
 /** A row: a tool line's shape, a finger tall on touch. */
 const rowClass = (touch: boolean) =>
@@ -189,6 +203,7 @@ function Own({
   draft,
   role,
   placeholder,
+  last,
   touch,
   editing,
   labelledBy,
@@ -203,6 +218,7 @@ function Own({
   /** Beside options, a choice; alone, the Item's one row. */
   readonly role: 'radio' | 'checkbox' | null;
   readonly placeholder: string;
+  readonly last: boolean;
   readonly touch: boolean;
   readonly editing: boolean;
   readonly labelledBy: string;
@@ -234,7 +250,7 @@ function Own({
     field.current?.scrollIntoView({ block: 'nearest' });
   };
   const keyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.nativeEvent.isComposing) return;
+    if (composing(event.nativeEvent)) return;
     const plain = !event.metaKey && !event.ctrlKey && !event.altKey;
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -272,7 +288,7 @@ function Own({
           autoCapitalize={item.secret ? 'off' : undefined}
           spellCheck={!item.secret}
           data-1p-ignore={item.secret ? undefined : true}
-          enterKeyHint="next"
+          enterKeyHint={last ? 'send' : 'go'}
           aria-labelledby={labelledBy}
           placeholder={role === null ? placeholder : 'Type your own answer'}
           onChange={(event) => onType(event.currentTarget.value)}

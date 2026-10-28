@@ -486,6 +486,21 @@ describe('the Question Panel, by keys', () => {
     expect(shownStep()).toBe(1);
   });
 
+  it('goes on by the on-screen keyboard’s Go, sent while a word is still composed, and not by an IME’s Enter', async () => {
+    await ask([QUESTION]);
+    await key('i');
+    // Android's Next would only look for another field: Go sends Enter.
+    expect(field()?.getAttribute('enterkeyhint')).toBe('go');
+    await typeInto(field()!, 'Magic');
+    // An IME taking Enter to end what it composes says 229: it stays.
+    await key('Enter', { isComposing: true, keyCode: 229 });
+    expect(document.activeElement).toBe(field());
+    // Gboard's action key: Enter, 13, the word still composed.
+    await key('Enter', { isComposing: true, keyCode: 13 });
+    expect(field()).toBeNull();
+    expect(shownStep()).toBe(1);
+  });
+
   it('minimises on `m` and Escape, so the page’s keys scroll the transcript, and `m` or `i` open it, never the Draft', async () => {
     await ask([QUESTION]);
     await key('j');

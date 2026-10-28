@@ -207,8 +207,11 @@ export function Dialog({
       className={cn(
         'pointer-events-none absolute inset-0 z-20 flex flex-col items-center data-expanded:pointer-events-auto',
         // Held near the top, so its head stays put as the steps change.
+        // On touch its sheet, slid down under the column's foot, is clipped:
+        // overflowing it, it gave the page room to scroll, and Android
+        // scrolled it as the keyboard fell, the bar left mid-page.
         touch
-          ? 'justify-end pt-3'
+          ? 'justify-end overflow-clip pt-3'
           : 'justify-start p-4 pt-[max(1rem,12vh)] sm:px-8',
       )}
     >
@@ -343,6 +346,7 @@ export function Dialog({
                 item={item}
                 draft={draft}
                 missing={tried && !isAnswered(item, draft)}
+                last={last}
                 touch={touch}
                 editing={editing}
                 onEditing={setEditing}
