@@ -10,6 +10,7 @@ import { client } from './client.ts';
  */
 
 const dials: Array<{ url: string; protocols: unknown }> = [];
+const sockets: Array<FakeWebSocket> = [];
 
 class FakeWebSocket extends EventTarget {
   static readonly CONNECTING = 0;
@@ -21,6 +22,7 @@ class FakeWebSocket extends EventTarget {
   constructor(url: string, protocols?: unknown) {
     super();
     dials.push({ url, protocols });
+    sockets.push(this);
   }
   send() {}
   close() {}
@@ -30,6 +32,7 @@ const original = globalThis.WebSocket;
 afterEach(() => {
   globalThis.WebSocket = original;
   dials.length = 0;
+  sockets.length = 0;
 });
 
 const dial = (options: Parameters<typeof client>[1]) => {
@@ -68,5 +71,23 @@ describe('client', () => {
       protocols: Effect.succeed(['fresh']),
     });
     expect(dials[0]?.protocols).toEqual(['fresh']);
+  });
+
+  it("tells `watch` of a socket's first frame, and how it closed", async () => {
+    const told: Array<unknown> = [];
+    await dial({
+      url: 'wss://example.test/rpc',
+      watch: {
+        answered: () => told.push('answered'),
+        closed: (close) => told.push(close),
+      },
+    });
+    const socket = sockets[0]!;
+    socket.dispatchEvent(new MessageEvent('message', { data: '[]' }));
+    socket.dispatchEvent(new MessageEvent('message', { data: '[]' }));
+    socket.dispatchEvent(
+      Object.assign(new Event('close'), { code: 4409, reason: 'why' }),
+    );
+    expect(told).toEqual(['answered', { code: 4409, reason: 'why' }]);
   });
 });

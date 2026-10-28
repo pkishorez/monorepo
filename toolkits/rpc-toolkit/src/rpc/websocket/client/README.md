@@ -124,6 +124,23 @@ client(ChatRpcs, {
 
 The server must select one of them, or the browser drops the connection.
 
+### Watch, how each socket ends
+
+A browser cannot read why a server refused a WebSocket, only how it closed.
+A server that refuses one for its own reasons accepts it and closes it at
+once, with a code of its own. `watch` is told each socket's first frame in,
+`answered`, and how it closed, `closed`, with its code and reason:
+
+```ts
+client(ChatRpcs, {
+  url: 'wss://example.com/rpc',
+  watch: {
+    answered: () => setRefused(null),
+    closed: ({ code, reason }) => code === 4409 && setRefused(reason),
+  },
+});
+```
+
 ---
 
 ## Connection status
@@ -194,6 +211,7 @@ client(group, options: {
   url: string | Effect<string>   // relative or absolute
   protocols?: ReadonlyArray<string> | Effect<ReadonlyArray<string>>
   retryTransientErrors?: boolean // default true
+  watch?: SocketWatch            // each socket's first frame in, and its close
 }): Layer.Layer<RpcClient.Protocol | RpcConnection | RpcClient.ConnectionHooks>
 
 connection         // the RpcConnection service:
@@ -205,6 +223,8 @@ keepSubscribed: <A, E, R>(
 ) => Stream<A, E, R | RpcConnection>
 
 type ConnectionStatus
+type SocketClose                 // { code, reason }
+type SocketWatch                 // { answered?, closed? }
 ```
 
 The connection layer and its constructor are deliberately **not** exported —
