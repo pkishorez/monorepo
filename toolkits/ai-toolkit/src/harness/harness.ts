@@ -18,6 +18,7 @@ export {
   Harnesses,
   isRecord,
   OneShotPrompt,
+  QuestionNotAsked,
   type Agent,
   type AgentConfig,
   type AskInput,

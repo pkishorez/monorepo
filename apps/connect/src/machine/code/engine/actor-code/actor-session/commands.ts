@@ -37,8 +37,8 @@ export const StopJob = Command.make('StopJob', {
  * Gives the agent the user's answer to one of its Agent Questions, or
  * declines it with null, and tells the caller waiting on `answerId` how it
  * went: taken, refused with the harness's reason, or not asked when the
- * agent is closed. It ends with no Message: the outcome is the caller's,
- * not the Session's. Interrupted, as when the Session stops, it tells the
+ * agent is closed or has let go of it already. It ends with no Message:
+ * the outcome is the caller's, not the Session's. Interrupted, as when the Session stops, it tells the
  * caller the question is no longer asked.
  */
 export const AnswerQuestion = Command.make('AnswerQuestion', {
@@ -57,6 +57,10 @@ export const AnswerQuestion = Command.make('AnswerQuestion', {
         ? { _tag: 'NotAsked' }
         : yield* agent.answer(questionId, answer).pipe(
             Effect.as<AnswerOutcome>({ _tag: 'Taken' }),
+            // The agent let go of it before the Session heard: answered elsewhere, or its Turn ended.
+            Effect.catchTag('QuestionNotAsked', () =>
+              Effect.succeed<AnswerOutcome>({ _tag: 'NotAsked' }),
+            ),
             Effect.catch((error) =>
               Effect.succeed<AnswerOutcome>({
                 _tag: 'Refused',

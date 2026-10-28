@@ -1,7 +1,7 @@
 import type { CanUseTool } from '@anthropic-ai/claude-agent-sdk';
 import { Effect, Fiber, Option, Stream, type Scope } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import type { TurnOut } from '../../../contract/index.js';
+import { QuestionNotAsked, type TurnOut } from '../../../contract/index.js';
 import { openSdkAgent, type SdkAgent } from '../agent.js';
 
 /*
@@ -411,7 +411,7 @@ describe('openSdkAgent', () => {
           });
           yield* listed(session, 0);
           const again = yield* Effect.flip(session.answer('toolu_1', null));
-          expect(again.message).toBe('No question toolu_1 is asked');
+          expect(again).toEqual(new QuestionNotAsked({ id: 'toolu_1' }));
         }),
       ));
 
