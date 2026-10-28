@@ -173,7 +173,9 @@ export const supervise = (options: Supervised) =>
         port,
         // A page through a Cloudflare tunnel, which only the Fake signs in.
         origins: auth === 'fake' ? ['https://*.trycloudflare.com'] : [],
-        plugins: { code: join(root, 'dist', 'plugins', 'code', 'main.js') },
+        plugins: {
+          code: join(root, 'dist', 'plugins', 'code', 'serve', 'main.js'),
+        },
       });
       const ready = healthy(port).pipe(
         Effect.andThen(

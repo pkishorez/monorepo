@@ -9,7 +9,7 @@ The branch is the name Portless gives this checkout. `portless get connect.kisho
 - In the main checkout it is `https://connect.kishore.computer`, and the branch is `main`.
 - In a linked git worktree Portless adds a prefix, `https://<prefix>.connect.kishore.computer`, and the branch is `<prefix>`.
 
-The branch's Connection is `dev-<branch>`: the dev script runs this checkout's own `ke-connect serve dev-<branch>` as a process of its own, named `<host> (dev-<branch>)` in Code, so each branch's Connection is told apart there. The `dev-` keeps it clear of `main`, the Connection `ke-connect serve` makes by default, so the main checkout's development Connection (`dev-main`) never takes a real one's name. It runs the code Plugin this checkout built, `dist/plugins/code/main.js`, with `--plugin code=<file>`, whatever Cloud Connect names.
+The branch's Connection is `dev-<branch>`: the dev script runs this checkout's own `ke-connect serve dev-<branch>` as a process of its own, named `<host> (dev-<branch>)` in Code, so each branch's Connection is told apart there. The `dev-` keeps it clear of `main`, the Connection `ke-connect serve` makes by default, so the main checkout's development Connection (`dev-main`) never takes a real one's name. It runs the code Plugin this checkout built, `dist/plugins/code/serve/main.js`, with `--plugin code=<file>`, whatever Cloud Connect names.
 
 ## Folders
 
