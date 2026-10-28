@@ -1,16 +1,14 @@
-import { Context, type Duration, type Effect, type Scope } from 'effect';
+import { Context, type Duration, type Effect } from 'effect';
+import type { PluginState } from '@kestack/cli-platform/plugins/contract';
 import type {
   ConnectionStatus,
   PluginVersion,
-  TunnelCheck,
-} from '../../../cloud/contract/index.js';
-import type { PluginState } from '@kestack/cli-platform/plugins/contract';
+} from '../../../../cloud/contract/index.js';
 
 /*
- * What a Connection stands on outside itself, so it can be run against a
- * fake tunnel and a fake Cloud Connect: how often to beat, getting
- * cloudflared, opening a tunnel, checking one, sending a Report, and
- * signing in again, and how long to back off before that.
+ * Cloud Connect as a Connection online sees it, so it can be run against a
+ * fake one: how often to beat, sending a Report, and signing in again, and
+ * how long to back off before that.
  */
 
 /** How Cloud Connect took a Report. */
@@ -29,24 +27,11 @@ export type Reported =
   /** It could not be sent; the next beat tries again. */
   | { readonly _tag: 'Unsent'; readonly problem: string };
 
-export class ConnectionHost extends Context.Service<
-  ConnectionHost,
+export class Cloud extends Context.Service<
+  Cloud,
   {
     /** How long between beats. */
     readonly every: Duration.Input;
-    /** The cloudflared binary, downloaded first when it is missing; fails if it cannot be. */
-    readonly cloudflared: Effect.Effect<string, unknown>;
-    /** A new tunnel to `port` through the binary `cloudflared`, open for as long as the Scope: its URL, and an Effect that completes if it closes on its own. */
-    readonly open: (
-      port: number,
-      cloudflared: string,
-    ) => Effect.Effect<
-      { readonly url: string; readonly closed: Effect.Effect<void> },
-      unknown,
-      Scope.Scope
-    >;
-    /** Whether the Connection answers at `url`. */
-    readonly check: (url: string) => Effect.Effect<TunnelCheck>;
     /** Reports how the tunnel and each Plugin stand. */
     readonly report: (report: {
       readonly status: ConnectionStatus;
@@ -57,4 +42,4 @@ export class ConnectionHost extends Context.Service<
     /** Signs in again, never with the Sign-in refused, after Cloud Connect refused it; fails with why the Connection must stop. */
     readonly signInAgain: Effect.Effect<void, string>;
   }
->()('@kestack/connect/ConnectionHost') {}
+>()('@kestack/connect/Cloud') {}

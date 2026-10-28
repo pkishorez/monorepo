@@ -9,7 +9,7 @@ holds the Projects and the Sessions in them, runs each Session's Turns on
 its Agent, and keeps every record in the Store. The two never import each
 other; the router passes Code's socket to the Plugin's without reading it.
 Each root runs with `Runtime.start`. The connection Layer gives
-`ConnectionHost` and `Downloads`. The engine Layer gives `Store`,
+`Cloud`, `Tunnels` and `Downloads`. The engine Layer gives `Store`,
 `Harnesses`, `HarnessAccounts`, `OneShotPrompt`, `Agents` and `Answers`.
 Changed through `/kabukifi`; edit by hand and it drifts.
 
@@ -17,10 +17,18 @@ Changed through `/kabukifi`; edit by hand and it drifts.
 
 ```
 src/connection/
-  connection.ts              serve, list, remove; serve.ts builds ConnectionHost and runs the root
-  actor-connection/          root; States: Online | SigningIn | Forgotten | Stopped
-  ├── capabilities/          ConnectionHost
-  └── ActorPlugin            each: model.wanted; from @kestack/cli-platform/plugins
+  connection.ts              serve, list, remove; serve signs in through identity/ and runs the root
+  identity/                  who the Connection is: folders, connection.json, the Sign-in
+  actor-connection/          root; States: Running | Forgotten | Stopped; run.ts builds Cloud and Tunnels
+  ├── capabilities/          Connection: the Requests of its two parts
+  ├── actor-online/          in Running; States: SignedIn | SigningIn
+  │   ├── capabilities/      Cloud; TunnelStatus: the tunnel's Requests
+  │   ├── services/          cloud: Cloud Connect's client, signed in
+  │   └── actor-tunnel/      in SignedIn, while the router listens, key: generation; States: Opening | Installing | Up | Lost
+  │       ├── capabilities/  Tunnels
+  │       └── services/      quick-tunnel, binary, check
+  └── actor-plugins/         always; the router
+      └── ActorPlugin        each: props.wanted; from @kestack/cli-platform/plugins
 
 src/plugins/code/engine/
   engine.ts                  the front door: finds an Instance, Sends a Message, asks a Query
@@ -32,10 +40,10 @@ src/plugins/code/engine/
   └── actor-session          in Ready, each: model.sessions; States: Idle | Running
 ```
 
-Around the Connection tree, `src/connection/online/` holds identity,
-sign-in and the tunnel, which `serve.ts` hands the root as
-`ConnectionHost`; `src/connection/cli/` is the commands, and `cli/dev/` runs
-them in development; and `src/cloud/` is
+Around the Connection tree, `src/connection/identity/` is who the
+Connection is, which `connection.ts` hands the root as Input, and its
+Sign-in, which `run.ts` builds Cloud from; `src/connection/cli/` is the
+commands, and `cli/dev/` runs them in development; and `src/cloud/` is
 Cloud Connect, which it reports to. Around the engine tree,
 `src/plugins/code/records/` is what it keeps, `src/plugins/code/api/` is the
 contract and the browser client, and `src/plugins/code/main.ts` serves the
@@ -47,9 +55,13 @@ engine on the socket the Connection gives it, through cli-platform's
 Down, from the root:
 
 ```
-connection Layer ─ ConnectionHost, Downloads ────────────────────────────────▶ actor-connection
-actor-connection ─ Provides Plugins ─────────────────────────────────────────▶ ActorPlugin
-actor-connection ─ each Plugin name; Input: name, folders, socket; Props: wanted ▶ ActorPlugin
+connection Layer ─ Cloud, Tunnels, Downloads ────────────────────────────────▶ actor-connection
+actor-connection ─ Provides Connection, Plugins ─────────────────────────────▶ actor-online, actor-plugins
+actor-connection ─ Props: port, plugins ────────────────────────────────────▶ actor-online
+actor-connection ─ Input: key, folders, socketId, port, origins; Props: wanted ▶ actor-plugins
+actor-online     ─ Provides TunnelStatus ────────────────────────────────────▶ actor-tunnel
+actor-online     ─ key: generation; Input: generation; Props: port ─────────▶ actor-tunnel
+actor-plugins    ─ each Plugin name; Input: name, folders, socket; Props: wanted ▶ ActorPlugin
 engine Layer     ─ Store, Harnesses, HarnessAccounts, OneShotPrompt, Agents, Answers ─▶ actor-code
 actor-code       ─ each session id; Input: session, cwd, first ──────────────▶ actor-session
 ```
@@ -58,9 +70,13 @@ Up, from the leaves:
 
 ```
 ActorPlugin      ─ Request Plugins.report ────────▶ Sends PluginReported to actor-connection
-actor-connection ─ Worker router, always ─────────▶ listens on the port; Sends Listening, or Stop
+actor-plugins    ─ Worker router, always ─────────▶ listens on the port; Requests Connection.listening, or stop
+actor-tunnel     ─ Worker keep, always ───────────▶ holds the tunnel; Requests TunnelStatus installing, opening, up, openFailed
+actor-tunnel     ─ Worker lost, in Lost ──────────▶ Requests TunnelStatus.lost
+actor-online     ─ Worker beat, in SignedIn ──────▶ Sends Checked, Reported, SignedOut; Requests Connection.wanted, forgotten, stop
+actor-online     ─ Worker address, always ────────▶ Requests Connection.address
+actor-online     ─ Worker signIn, in SigningIn ───▶ Sends SignedIn; Requests Connection.stop
 actor-connection ─ Worker control, always ────────▶ holds the control socket; Sends Stop
-actor-connection ─ Workers tunnel, beat, signIn ──▶ Sends TunnelUp, TunnelLost, Checked, Reported, …
 actor-session    ─ Worker agent, always ───────────▶ keeps the Agent in Agents
 actor-session    ─ Worker turn, in Running ────────▶ appends Raw; Sends NativeId, Steered, TurnEnded
 actor-session    ─ Worker cancel, while cancelling ▶ Sends TurnEnded
@@ -81,48 +97,45 @@ the answer changes is a Message after it, such as AddSession for a Fork.
 
 ## actor-connection
 
-**Does**: keeps one Connection running: its router and control socket, a
-tunnel to the router reported to Cloud Connect every beat, and one Plugin
-Child per Plugin wanted.
+**Does**: keeps one Connection running: its control socket, and its two
+parts, online and plugins, joined through itself alone.
 **Input**: the Connection's id, name and Connection Key, its folders, its
 control socket and what names its Plugins' sockets, the port, the origins
 let in, and the Plugins to run from a file in development.
 **Model**: the Input; listening: the router's port, null until it listens.
-generation, status, failures, refusals: kept across SigningIn and Online.
-wanted: the version of each Plugin to run, from Cloud Connect's answers and
-the files given, which win. plugins: each Plugin State as last reported.
-**States**: Online. SigningIn. Forgotten. Stopped: reason, null when asked to
-stop. SignedOut moves Online to SigningIn; SignedIn moves it back. Forgotten
-and Stop end it.
-**Messages**: Listening: the router Worker. PluginReported: the Plugins
-Request. Installing, Opening, OpenFailed, TunnelUp, TunnelLost: the tunnel
-Worker. Checked: the beat Worker. Reported, SignedOut, Forgotten, Stop: the
-Report's answer. SignedIn: the signIn Worker. Stop: the router and control
-Workers too.
+url: the tunnel's address, null while there is none. wanted: the version of
+each Plugin to run, from Cloud Connect's answers and the files given, which
+win. plugins: each Plugin State as last reported.
+**States**: Running. Forgotten. Stopped: reason, null when asked to stop.
+Forgotten and Stop end it.
+**Messages**: Listening, Wanted, Addressed, Forgotten, Stop: the Connection
+Requests. PluginReported: the Plugins Request. Stop: the control Worker too.
 **Commands**: none.
-**Workers**: router: always; listens on the port, passes `/<plugin>/…` to
-each Plugin's socket; Sends Listening. control: always; holds the control
-socket, answering `status` and `stop`; Sends Stop when another holds it.
-tunnel: in Online, each generation while the router listens; Sends
-Installing, Opening, OpenFailed, TunnelUp, TunnelLost. beat: in Online,
-always; Sends Checked and the Report's answer. signIn: in SigningIn; Sends
-SignedIn or Stop.
-**Requires**: ConnectionHost: tunnel, beat, signIn.
-**Provides**: Plugins: its Request `report` Sends PluginReported.
-**Services**: none in the tree: serve.ts builds ConnectionHost from
-online/'s tunnel, sign-in and Cloud Connect's client.
-**Children**: plugins: each name in `wanted`; ActorPlugin from
-`@kestack/cli-platform/plugins`; Input: its name, its folders inside the
-Connection's, its socket; Props: the version wanted.
+**Workers**: control: always; holds the control socket, answering `status`
+and `stop`; Sends Stop when another holds it.
+**Requires**: none of its own.
+**Provides**: Connection: listening, wanted, address, forgotten, stop, each
+Sending its Message. Plugins: its Request `report` Sends PluginReported.
+**Services**: none in the tree: run.ts builds Cloud and Tunnels from
+actor-online's services, and `connection.ts` hands it identity/'s
+Connection.
+**Children**: online: in Running; Props: the router's port, each Plugin
+State. plugins: always; Input: the key, folders, socket id, port and
+origins; Props: wanted.
 **View**: none.
 
 ### Decisions
 
-- **The tunnel is a Worker keyed by generation, not a Command**, because it
-  must be stopped and restarted. A new generation is a fresh tunnel.
-- **The router and the control socket are Workers of the root, not
-  Actors**, because each holds one socket and has no States of its own.
-  Caveat: the router reads which Plugins there are from the root's changes.
+- **The Plugins are not under online**, because a sign-out and a new
+  Sign-in must not stop them: a Turn running survives it. Caveat: what
+  one part learns reaches the other only through the root's Model.
+- **Who the Connection is stays outside the tree, as Input**, because the
+  router needs the Connection Key before it listens, and `list` and
+  `remove` read the Connection without running it.
+- **The control socket is a Worker of the root, not an Actor**, because it
+  holds one socket and has no States of its own. Caveat: it answers the
+  tunnel's address from the root's Model, which online Requests up as it
+  changes.
 - **A Plugin no longer wanted keeps running**, because an answer that names
   no Plugins, such as an older Cloud Connect's, must not stop Code. Caveat:
   a Plugin is stopped only with its Connection.
@@ -130,8 +143,121 @@ Connection's, its socket; Props: the version wanted.
   `serve` of a running name must report it, not sign in again. Caveat: two
   started at once both sign in, and the second stops once the first holds
   the socket.
-- **online/ stays Modules beside the tree, not services/**, because `remove`
-  uses sign-in and identity outside the tree.
+- **identity/ stays Modules beside the tree, not services/**, because
+  `remove` uses sign-in and identity outside the tree.
+
+## actor-online
+
+**Does**: keeps the Connection known to Cloud Connect: a tunnel to the
+router, a Heartbeat every beat, and the Sign-in, signed in again when it is
+revoked.
+**Input**: none.
+**Props**: port: the router's, null until it listens. plugins: each Plugin
+State.
+**Model**: generation: which tunnel this is. status: the Connection Status.
+failures: failed Tunnel Checks in a row. refusals: Sign-ins refused in a
+row since a Report was last taken. All kept across SignedIn and SigningIn.
+**States**: SignedIn. SigningIn. SignedOut moves SignedIn to SigningIn with
+a new generation; SignedIn moves it back.
+**Messages**: Installing, Opening, OpenFailed, TunnelUp, TunnelLost: the
+TunnelStatus Requests. Checked, Reported, SignedOut: the beat Worker and a
+Report's answer. SignedIn: the signIn Worker.
+**Commands**: none.
+**Workers**: beat: in SignedIn; checks the tunnel, then Reports; Sends
+Checked and the answer, and Requests Connection.wanted, forgotten or stop.
+address: always; Requests Connection.address as the status's address
+changes. signIn: in SigningIn; waits the back-off, signs in again; Sends
+SignedIn or Requests Connection.stop.
+**Requires**: Cloud: beat, signIn, TunnelStatus. Tunnels: beat's check.
+Connection: beat, address, signIn.
+**Provides**: TunnelStatus: installing, opening, openFailed and up Send
+their Message and Report at once; lost Sends TunnelLost.
+**Services**: cloud: Cloud from Cloud Connect's client, signed in.
+**Children**: tunnel: in SignedIn, while the port is known, key: the
+generation; Input: the generation; Props: the port.
+**View**: none.
+
+### Decisions
+
+- **Cloud and Tunnels are two Capabilities, not one ConnectionHost**,
+  because each has one outside thing behind it, Cloud Connect or
+  cloudflared, and each fake stands alone.
+- **The Tunnel Check is the beat's, not the tunnel's**, because a beat
+  checks, then Reports what it found; three failed checks in a row are a
+  new generation here. Caveat: online Requires Tunnels for `check` only.
+- **The tunnel's word is Reported inside its Request**, because the app
+  waits on a download begun or a tunnel up or failed, and the tunnel waits
+  for that Report before it goes on. Caveat: a Request that Reports needs
+  Cloud and Connection, so TunnelStatus is built from them.
+
+## actor-tunnel
+
+**Does**: holds one tunnel to the router's port, of one generation, until
+it is lost.
+**Input**: generation.
+**Props**: port: the router's.
+**Model**: generation.
+**States**: Opening. Installing. Up: url. Lost: problem, null when it
+closed on its own. Installing, Installed, Opened, OpenFailed and Closed
+move it along; Lost is its end.
+**Messages**: Installing, Installed, Opened, OpenFailed, Closed: the keep
+Worker.
+**Commands**: none.
+**Workers**: keep: always; gets cloudflared, saying Installing after half a
+second, opens the tunnel and holds it until it closes; Sends each step and
+Requests it of TunnelStatus. lost: in Lost; Requests TunnelStatus.lost, at
+once when it closed, five seconds after when it could not open.
+**Requires**: Tunnels: keep. TunnelStatus: keep, lost.
+**Provides**: none.
+**Services**: quick-tunnel, binary and check, which run.ts makes Tunnels
+from.
+**Children**: none.
+**View**: none.
+
+### Decisions
+
+- **The tunnel is an Actor keyed by generation, not a Worker**, because it
+  has States of its own, Installing, Up and Lost, and a Capability of its
+  own behind it. A new generation is a fresh tunnel. Caveat: online decides
+  when that is, and a word from a tunnel already replaced is dropped by its
+  generation.
+- **keep is one Worker across Opening, Installing and Up**, because the
+  tunnel lives in its Scope: a Worker per State would close it on each
+  step.
+
+## actor-plugins
+
+**Does**: serves the Connection's Plugins: the router on its public port,
+and one Plugin Child per Plugin wanted.
+**Input**: the Connection Key, its folders, what names its Plugins'
+sockets, the port, and the origins let in.
+**Props**: wanted: the version of each Plugin to run.
+**Model**: the Input.
+**States**: none.
+**Messages**: none.
+**Commands**: none.
+**Workers**: router: always; listens on the port, checks the Connection
+Key, passes `/<plugin>/…` to each Plugin's socket; Requests
+Connection.listening, or stop when it cannot listen.
+**Requires**: Connection: router.
+**Provides**: none: its Plugins report through the root's Plugins.
+**Services**: none.
+**Children**: plugins: each name in wanted; ActorPlugin from
+`@kestack/cli-platform/plugins`; Input: its name, its folders inside the
+Connection's, its socket; Props: the version wanted.
+**View**: none.
+
+### Decisions
+
+- **The router lives with the Plugins, not with the tunnel**, because it
+  passes requests to their sockets and reads which there are from wanted.
+  The tunnel gets the port as Props, through the root and online. Caveat:
+  the router reads wanted from its Props as they change.
+- **The router is a Worker, not an Actor**, because it holds one socket and
+  has no States of its own.
+- **The Plugins report to the root, not to actor-plugins**, because the
+  root is where online reads them from; Plugins reaches every Actor below
+  the root.
 
 ## actor-code
 

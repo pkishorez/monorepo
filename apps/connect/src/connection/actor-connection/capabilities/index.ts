@@ -1,1 +1,1 @@
-export { ConnectionHost, type Reported } from './connection-host.js';
+export { Connection } from './connection.js';
