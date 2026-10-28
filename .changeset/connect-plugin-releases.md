@@ -1,6 +1,7 @@
 ---
 '@kestack/connect': patch
 '@kestack/cli-platform': patch
+'@kestack/auth-toolkit': patch
 'code': patch
 ---
 
@@ -22,3 +23,4 @@ Every Plugin runs at a Release Cloud Connect names, and Code calls it at the Rel
 - `@kestack/cli-platform`: every `single` claim holds a lock while it listens, letting it go before its handlers are built, and while it takes over a socket file a dead process left behind: the same kind of port lock the download cache uses. Of many processes claiming at once, exactly one is `Acquired` and the rest are `AlreadyRunning`, so two Connections never run under one name.
 - `ke-connect serve` keeps what Cloud Connect's `/auth` said in `auth.json`, beside the Sign-in. A Connection that signed in before starts while Cloud Connect cannot be reached, or does not answer `/auth` in five seconds: it signs in as last time with the Sign-in kept, checking it with the Auth Worker for five seconds at most, runs its Plugins at the Releases in `wanted.json`, and keeps sending its Heartbeat until Cloud Connect answers; a Report not answered in ten seconds is Unsent. `authInfo` aborts its fetch when interrupted. Signing in again, once Cloud Connect refuses the Sign-in, asks `/auth` first and signs in through the Auth Worker it names then, keeping it in `auth.json`. A first Sign-in still needs Cloud Connect.
 - A personal Stage, `alchemy deploy --stage <name>`, refuses to deploy, saying it has no URL: its Worker has no domain, so no Connection could read its Shelf, and it would have named no Plugin. Deploy `prod`, `demo` or `prN`, or run `alchemy dev`.
+- `@kestack/auth-toolkit`: `device`'s `url` may be an Effect, read at each call to the Auth Worker, so a Device follows an Auth Worker that moves. A refused call's check and a sign-out's revoke each have five seconds: a stalled Auth Worker never holds a call, the refusal still reaches the caller, and signing out forgets the token either way.
