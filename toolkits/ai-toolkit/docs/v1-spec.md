@@ -69,6 +69,7 @@ Part =
   | { type: 'reasoning', text }
   | { type: 'toolCall', id, tool: ToolKind, name, title, input }
   | { type: 'toolResult', toolCallId, output, truncated, isError }
+  | { type: 'questionAnswered', toolCallId, answers } // by Item id; null: declined
   | { type: 'turnStarted', text, steered }      // engine
   | { type: 'turnEnded', status, usage?, error? } // status: done|failed|cancelled
   | { type: 'usage', usage }                    // one model call, as reported
@@ -121,8 +122,8 @@ interface Agent {
 
 - Claude: Agent SDK in streaming-input mode (steer = push the next user
   message). `permissionMode: 'bypassPermissions'`. AskUserQuestion is an
-  Agent Question: `canUseTool` holds it until the user answers or declines.
-  Settings: effort, permissionMode. Subagent output carries
+  Agent Question: `canUseTool` holds it until the user answers or declines,
+  recorded as `question.answered`. Settings: effort, permissionMode. Subagent output carries
   `parent_tool_use_id` -> `agentId`.
 - Codex: `codex app-server` JSON-RPC. Sandbox `danger-full-access`, approval
   `never`. Steer with `turn/steer` if the server supports it; otherwise cancel

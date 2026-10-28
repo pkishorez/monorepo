@@ -4,6 +4,7 @@ export {
   raiseKeyboard,
   TopDialog,
 } from './touch-layers.tsx';
+export { SWIPE_DISMISS } from './swipe-down.tsx';
 export {
   overBox,
   useKeyboardOver,

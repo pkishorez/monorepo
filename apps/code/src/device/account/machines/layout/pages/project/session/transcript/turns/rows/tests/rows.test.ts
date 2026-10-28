@@ -46,6 +46,22 @@ describe('thread', () => {
     ).toEqual(['turn', 'done', 'failed', 'running']);
   });
 
+  it('gives a call what the user answered, from its own part, before or after its result', () => {
+    const answered = (toolCallId: string): Part => ({
+      type: 'questionAnswered',
+      toolCallId,
+      answers: { '0': ['Red'] },
+    });
+    const rows = thread([
+      message([call('a'), call('b'), call('c')]),
+      message([answered('a')], { role: 'tool' }),
+      message([result('a'), result('b'), answered('b')], { role: 'tool' }),
+    ]);
+    expect(
+      rows.map((row) => (row.kind === 'tool' ? row.answered : row.kind)),
+    ).toEqual([answered('a'), answered('b'), null]);
+  });
+
   it('stops a call with no result once its turn has ended, and sums usage parts', () => {
     const rows = thread([
       message([call('a')]),

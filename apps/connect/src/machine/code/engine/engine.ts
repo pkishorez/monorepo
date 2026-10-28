@@ -8,6 +8,7 @@ import {
   Effect,
   Layer,
   Option,
+  Schema,
   Semaphore,
   Stream,
 } from 'effect';
@@ -20,16 +21,16 @@ import {
   OneShotPrompt,
   type HarnessError,
 } from '@kestack/ai-toolkit/harness';
-import type {
-  AgentQuestion,
-  AskAnswer,
-  Attachment,
-  BackgroundJob,
-  ContextUsage,
-  Json,
-  McpServerStatus,
-  QuestionAnswer,
-  Skill,
+import {
+  AgentQuestionSchema,
+  type AskAnswer,
+  type Attachment,
+  type BackgroundJob,
+  type ContextUsage,
+  type Json,
+  type McpServerStatus,
+  type QuestionAnswer,
+  type Skill,
 } from '@kestack/ai-toolkit/contract';
 import type {
   HarnessAccountRecord,
@@ -39,18 +40,23 @@ import type {
 import {
   AskFailed,
   fallbackTitle,
-  NOT_ASKED,
   NotForkable,
   type AgentClosed,
 } from './actor-code/actor-session/index.js';
 import { Code } from './actor-code/index.js';
 import { saveAttachments } from './attachments/index.js';
-import { Agents, HarnessAccounts, Store } from './capabilities/index.js';
+import {
+  Agents,
+  Answers,
+  HarnessAccounts,
+  Store,
+} from './capabilities/index.js';
 import {
   accountOf,
   accountRow,
   agents,
   allAccounts,
+  answers,
   FolderExists,
   FolderNotFound,
   Folders,
@@ -156,11 +162,12 @@ export interface SessionJobs {
 }
 
 /** The Agent Questions one Session's running Turn waits on. */
-export interface SessionQuestions {
-  readonly sessionId: string;
-  readonly projectId: string;
-  readonly questions: ReadonlyArray<AgentQuestion>;
-}
+const SessionQuestions = Schema.Struct({
+  sessionId: Schema.String,
+  projectId: Schema.String,
+  questions: Schema.Array(AgentQuestionSchema),
+});
+export type SessionQuestions = typeof SessionQuestions.Type;
 
 export interface EngineOptions {
   /** Where Attachments that are not images are saved, one folder per Session. */
@@ -285,7 +292,12 @@ const folderAt = (path: string) =>
     ),
   );
 
-const same = <A>(a: A, b: A) => JSON.stringify(a) === JSON.stringify(b);
+const sameJobs = (
+  a: ReadonlyArray<SessionJobs>,
+  b: ReadonlyArray<SessionJobs>,
+) => JSON.stringify(a) === JSON.stringify(b);
+
+const sameQuestions = Schema.toEquivalence(Schema.Array(SessionQuestions));
 
 /** What a Query of the agent fails with, as one HarnessFailed. */
 const failed = (error: HarnessError | AgentClosed | Stopped) =>
@@ -303,9 +315,10 @@ const make = (options: EngineOptions) =>
     const harnesses = yield* Harnesses;
     const folders = yield* Folders;
     const services = yield* Effect.context<
-      Store | Harnesses | OneShotPrompt | HarnessAccounts | Agents
+      Store | Harnesses | OneShotPrompt | HarnessAccounts | Agents | Answers
     >();
     const accounts = yield* HarnessAccounts;
+    const replies = yield* Answers;
     const running = yield* Runtime.start(Code, Layer.succeedContext(services));
     const root = running.instance({ from: 'rpc' });
     // The root reads the Store first; the engine is open once it is Ready.
@@ -602,7 +615,7 @@ const make = (options: EngineOptions) =>
                 ];
           }),
         ),
-        Stream.changesWith(same),
+        Stream.changesWith(sameJobs),
       ),
 
       stopBackgroundJob: (sessionId, jobId) =>
@@ -643,34 +656,26 @@ const make = (options: EngineOptions) =>
                 ];
           }),
         ),
-        Stream.changesWith(same),
+        Stream.changesWith(sameQuestions),
       ),
 
       answerQuestion: (sessionId, questionId, answer) =>
         Effect.gen(function* () {
           const session = yield* toSession(sessionId);
           const answerId = yield* nextUlid;
-          session.send({ _tag: 'Answer', answerId, questionId, answer });
-          // The Session keeps how it went until it is read here, or until
-          // the caller stops waiting, as when its client goes.
-          const outcome = yield* running.changes.pipe(
-            Stream.map(() =>
-              session.model.answered.find((each) => each.answerId === answerId),
-            ),
-            Stream.filter((found) => found !== undefined),
-            Stream.runHead,
-            Effect.ensuring(
-              Effect.sync(() => session.send({ _tag: 'AnswerRead', answerId })),
+          const outcome = yield* replies.await(
+            answerId,
+            Effect.suspend(() =>
+              session.send({ _tag: 'Answer', answerId, questionId, answer })
+                ? Effect.void
+                : // It stopped just now, so it is no longer there.
+                  Effect.fail(new SessionNotFound({ id: sessionId })),
             ),
           );
-          const reason = Option.match(outcome, {
-            onNone: () => null,
-            onSome: (found) => found.reason,
-          });
-          if (reason === NOT_ASKED)
+          if (outcome._tag === 'NotAsked')
             return yield* new QuestionNotAsked({ id: questionId });
-          if (reason !== null)
-            return yield* new HarnessFailed({ message: reason });
+          if (outcome._tag === 'Refused')
+            return yield* new HarnessFailed({ message: outcome.reason });
         }),
 
       harnessAccount,
@@ -709,6 +714,7 @@ export class Engine extends Context.Service<Engine, EngineService>()(
         Layer.mergeAll(
           storedHarnessAccounts,
           agents,
+          answers,
           Folders.layer({ home: options.home }),
         ),
       ),

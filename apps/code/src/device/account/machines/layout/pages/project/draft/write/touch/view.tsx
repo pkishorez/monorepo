@@ -12,7 +12,7 @@ import { CheckIcon, ChevronDownIcon, PencilIcon } from 'lucide-react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { GestureZone } from '@kestack/web-platform/ui/input';
-import { use, useEffect } from 'react';
+import { type Ref, type RefObject, use, useEffect, useRef } from 'react';
 import * as routes from '../../../../../../../../routes/index.ts';
 import { TouchDraftLive } from './actor.ts';
 import * as Picker from '../../../../../../../../../ui/controls/picker/index.ts';
@@ -60,7 +60,9 @@ export const TouchDraftView = View.make(
     if (slots === null)
       throw new Error('The Touch Draft is drawn only in a Draft');
     const { draft } = slots;
-    const t = useTouchDraft(slots, { model, state }, send);
+    // The View's root holds the card: what the keyboard is measured from.
+    const holder = useRef<HTMLDivElement>(null);
+    const t = useTouchDraft(slots, { model, state }, send, holder);
     // Opened straight to editing, it is at its size at once (`touch.ts`).
     useMorph(t.card, t.expanded, !(t.editing && !t.smart));
     const openPicker = Picker.useOpen();
@@ -76,7 +78,11 @@ export const TouchDraftView = View.make(
 
     return (
       <MotionConfig reducedMotion="user">
-        <div {...root} className="flex flex-col gap-2">
+        <div
+          {...root}
+          ref={(element) => both(holder, root.ref, element)}
+          className="flex flex-col gap-2"
+        >
           {slots.actions !== undefined && slots.actions !== false && (
             <div className="flex justify-end">{slots.actions}</div>
           )}
@@ -86,7 +92,10 @@ export const TouchDraftView = View.make(
               ref={t.card}
               style={{
                 x,
-                ...(t.covered > 0 ? { paddingBottom: t.covered + 4 } : {}),
+                // Its foot over the keyboard, then its own p-1 above that.
+                ...(t.covered > 0
+                  ? { paddingBottom: `calc(${t.covered}px + 0.25rem)` }
+                  : {}),
               }}
               data-slot="draft"
               data-touch=""
@@ -95,6 +104,7 @@ export const TouchDraftView = View.make(
               data-recording={t.phase === 'recording' || undefined}
               data-disabled={draft.disabled || undefined}
               onBlur={t.onBlur}
+              onPointerDownCapture={t.onPointerDownCapture}
               // Collapsed, a tap anywhere on it but a button opens it; the
               // words take their own. Not one in the Skills' Sheet, drawn
               // elsewhere in the page, whose clicks still come through here.
@@ -237,6 +247,18 @@ export const TouchDraftView = View.make(
     );
   },
 );
+
+/** Gives `element` to the View's own ref and to the one its parent hands it. */
+const both = (
+  own: RefObject<HTMLDivElement | null>,
+  given: Ref<never> | undefined,
+  element: HTMLDivElement | null,
+) => {
+  own.current = element;
+  const ref = given as Ref<HTMLDivElement | null> | undefined;
+  if (typeof ref === 'function') ref(element);
+  else if (ref !== undefined && ref !== null) ref.current = element;
+};
 
 /** Why voice can't be had, over the words for a moment, with the way to Settings. */
 function Nudge({ said }: { readonly said: string }) {

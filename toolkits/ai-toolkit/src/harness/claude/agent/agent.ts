@@ -93,7 +93,10 @@ export const openSdkAgent = (
 ): Effect.Effect<SdkAgent, HarnessError, Scope.Scope> =>
   Effect.gen(function* () {
     const input = userInput();
-    const questions = yield* makeQuestions;
+    // What the user answered is recorded into the Turn it was asked in.
+    const questions = yield* makeQuestions((out) =>
+      Effect.suspend(() => send([out])),
+    );
     const live = yield* Effect.try({
       try: () =>
         query({

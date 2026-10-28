@@ -41,32 +41,38 @@ export const QuestionView = View.make(QuestionLive, ({ root, model, send }) => {
   const touch = !keyboard;
   const keyboardNow = keys.useKeyboard();
   const { enter } = keyboardNow;
-  /** Whether the user is in it now, where its taking leaves them. */
+  /**
+   * Whether the user is in it now, as of the last draw: read when it goes,
+   * by a cleanup that would else see the draw it began in.
+   */
   const inIt = useRef(false);
   inIt.current = keyboardNow.active === 'question';
-  /** The user asked for it to expand, so it takes focus. */
-  const asked = useRef(false);
+  /**
+   * Who the user just handed focus to: the panel, by asking it to expand,
+   * until it takes it; the page, by minimising it, until it is minimised,
+   * so the page it hands the keys to is no way back into it. Else no one,
+   * and where focus is decides.
+   */
+  const handed = useRef<'panel' | 'page' | null>(null);
   /** Back to the page, focus too, as the panel lets go of it. */
   const toPage = () => {
     const now = document.activeElement;
     if (now instanceof HTMLElement && place?.contains(now) === true) now.blur();
     enter('content');
   };
-  /** Minimising: the page it hands the keys to is no way back into it. */
-  const leaving = useRef(false);
   const minimise = () => {
-    leaving.current = true;
+    handed.current = 'page';
     if (inIt.current) toPage();
     send({ _tag: 'Minimised' });
   };
   const expand = () => {
-    asked.current = true;
+    handed.current = 'panel';
     send({ _tag: 'Expanded' });
   };
   /** Focus is the page's, or nobody's: the panel may take it. */
   const claim = () => {
-    const wanted = asked.current;
-    asked.current = false;
+    const wanted = handed.current === 'panel';
+    if (wanted) handed.current = null;
     const now = document.activeElement;
     return (
       wanted ||
@@ -87,8 +93,9 @@ export const QuestionView = View.make(QuestionLive, ({ root, model, send }) => {
   // it, which takes no focus.
   const onPage = keyboardNow.active === 'content';
   useEffect(() => {
-    if (!expanded) leaving.current = false;
-    else if (onPage && !leaving.current) enter('question');
+    if (!expanded) {
+      if (handed.current === 'page') handed.current = null;
+    } else if (onPage && handed.current !== 'page') enter('question');
   }, [onPage, expanded]);
   // Answered, skipped or gone with focus in it: focus back to the page.
   const id = shown?.id ?? null;

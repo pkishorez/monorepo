@@ -9,6 +9,7 @@
       "src/harness/contract",
       "src/harness/codex/app-server"
     ],
+    "src/contract/projection": ["src/contract/wire"],
     "src/harness": ["src/contract"],
     "src/harness/claude/agent": ["src/harness/claude/project"],
     "src/harness/codex/project": ["src/harness/codex/thread"],

@@ -1,4 +1,11 @@
-import { type CSSProperties, type RefObject, useEffect, useState } from 'react';
+import {
+  type CSSProperties,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { isField } from './focus.ts';
 
 /*
@@ -26,6 +33,11 @@ import { isField } from './focus.ts';
  * short of the tallest the layout viewport has been at this width: on
  * Android it shrinks the layout viewport too. While it is up no room is
  * kept for the home indicator, which it covers.
+ *
+ * It is read again only when the browser says something changed: the
+ * visual viewport's `resize`, `scroll` and `scrollend`, the window's
+ * `resize`, and focus moving. A focused field in a layer is scrolled into
+ * sight in it as it takes focus, and again as the layer's room shrinks.
  */
 
 /** What the page and `window.visualViewport` say. */
@@ -53,11 +65,22 @@ export interface Visible {
   readonly keyboard: boolean;
 }
 
-/** Shorter than the tallest by more than this, with a field, is a keyboard. */
+/**
+ * Shorter than the tallest by more than this, in px, with a field focused,
+ * is the on-screen keyboard. A browser's own bars folding away as the page
+ * scrolls, Safari's toolbar or Chrome's address bar, take well under it;
+ * the shortest keyboard, a phone's held sideways, takes well over it.
+ */
 const KEYBOARD = 120;
 
-/** Pinch-zoomed in: nothing is said of a keyboard then. */
-const zoomed = (viewport: Viewport) => viewport.scale > 1.01;
+/**
+ * Scaled past this is pinch-zoomed in, and nothing is said of a keyboard:
+ * what is seen is then a part of the page the user chose, not what the
+ * keyboard left. `scale` is a float, a hair over 1 after a pinch back out.
+ */
+const PINCHED = 1.01;
+
+const zoomed = (viewport: Pick<Viewport, 'scale'>) => viewport.scale > PINCHED;
 
 export const visibleOf = (viewport: Viewport): Visible => {
   const flat = !zoomed(viewport);
@@ -99,7 +122,7 @@ export const overBox = (
   scrollY: number,
   gap = 0,
 ): Over => {
-  if (viewport.scale > 1.01) return { covered: 0, room: null };
+  if (zoomed(viewport)) return { covered: 0, room: null };
   const top = viewport.pageTop - scrollY;
   const covered = Math.max(0, Math.round(box.bottom - top - viewport.height));
   return {
@@ -111,8 +134,27 @@ export const overBox = (
   };
 };
 
-// The tallest the layout viewport has been, and at which width.
-let tallest = { width: 0, height: 0 };
+/**
+ * The tallest the layout viewport has been at one width, the keyboard
+ * down: what a keyboard is measured against, as Android shrinks the layout
+ * viewport itself under it. Each read gives the width, the height and
+ * whether a field has focus; a new width, as the phone turns, starts again
+ * from the height then.
+ */
+export const createTallest = () => {
+  let seen = { width: 0, height: 0 };
+  return (width: number, height: number, field: boolean) => {
+    if (seen.width !== width) seen = { width, height };
+    // Only with no field: the keyboard may be what shrank it.
+    else if (!field) seen = { width, height: Math.max(seen.height, height) };
+    return Math.max(seen.height, height);
+  };
+};
+
+// One for the page, shared by every layer: it is the page's height, not a
+// layer's, and a layer opened with the keyboard already up needs the
+// height from before it rose, read while another layer was open.
+const tallest = createTallest();
 
 /** The Viewport now, or `null` where there is no visual viewport, as in jsdom. */
 export const readViewport = (): Viewport | null => {
@@ -120,13 +162,9 @@ export const readViewport = (): Viewport | null => {
   if (viewport === null) return null;
   const { clientHeight: layout, clientWidth: width } = document.documentElement;
   const field = isField(document.activeElement);
-  if (tallest.width !== width) tallest = { width, height: layout };
-  // Only with no field: the keyboard may shrink it.
-  else if (!field)
-    tallest = { width, height: Math.max(tallest.height, layout) };
   return {
     layout,
-    tallest: Math.max(tallest.height, layout),
+    tallest: tallest(width, layout, field),
     offsetTop: viewport.offsetTop,
     pageTop: viewport.pageTop,
     height: viewport.height,
@@ -136,74 +174,95 @@ export const readViewport = (): Viewport | null => {
 };
 
 /**
- * Calls `update` whenever what can be seen may have changed: the visual
- * viewport resized or panned, the window resized, or focus moved, which
- * raises or drops the keyboard; then again once that has settled.
+ * Calls `update` whenever what can be seen may have changed, as the
+ * browser says it: the visual viewport resized or panned, as the keyboard
+ * rises, falls or changes height and iOS pans the page under it; the
+ * window resized, as Android's layout viewport does under its keyboard;
+ * and focus moved, which says whether a field may have the keyboard.
  */
 const watch = (update: () => void) => {
   const viewport = window.visualViewport ?? null;
-  let frame = 0;
-  let later: number[] = [];
-  const stop = () => {
-    cancelAnimationFrame(frame);
-    for (const timer of later) clearTimeout(timer);
-    later = [];
-  };
-  const soon = () => {
-    stop();
-    frame = requestAnimationFrame(update);
-    // The keyboard takes a moment to rise or fall, and some browsers say
-    // so only at its end, or not at all: read again until it has.
-    later = SETTLING.map((ms) => window.setTimeout(update, ms));
-  };
   viewport?.addEventListener('resize', update);
   viewport?.addEventListener('scroll', update);
   viewport?.addEventListener('scrollend', update);
   window.addEventListener('resize', update);
-  document.addEventListener('focusin', soon);
-  document.addEventListener('focusout', soon);
+  document.addEventListener('focusin', update);
+  document.addEventListener('focusout', update);
   return () => {
-    stop();
     viewport?.removeEventListener('resize', update);
     viewport?.removeEventListener('scroll', update);
     viewport?.removeEventListener('scrollend', update);
     window.removeEventListener('resize', update);
-    document.removeEventListener('focusin', soon);
-    document.removeEventListener('focusout', soon);
+    document.removeEventListener('focusin', update);
+    document.removeEventListener('focusout', update);
   };
 };
 
-/** When to read again after focus moves, in ms: over the keyboard's rise. */
-const SETTLING = [120, 350, 700, 1200];
+const px = (length: string) => Number.parseFloat(length) || 0;
 
 /**
  * Scrolls the focused field in `layer`, if there is one, into sight in the
  * nearest part of the layer that scrolls, and nothing outside the layer:
- * the page behind stays where it is.
+ * the page behind stays where it is, which `scrollIntoView` would scroll
+ * too. As `scrollIntoView` does, it keeps the scroller's `scroll-padding`
+ * and the field's `scroll-margin` free around it.
  */
 export const revealField = (layer: HTMLElement | null) => {
   const field = document.activeElement;
   if (layer === null || !isField(field) || !layer.contains(field)) return;
-  const MARGIN = 12;
+  const margin = getComputedStyle(field);
   for (
     let scroller = field.parentElement;
     scroller !== null && layer.contains(scroller);
     scroller = scroller.parentElement
   ) {
-    if (scroller.scrollHeight <= scroller.clientHeight + 1) continue;
-    if (!/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)) continue;
+    if (scroller.scrollHeight <= scroller.clientHeight) continue;
+    const padding = getComputedStyle(scroller);
+    if (!/(auto|scroll)/.test(padding.overflowY)) continue;
     const box = scroller.getBoundingClientRect();
     const at = field.getBoundingClientRect();
-    if (at.top < box.top + MARGIN)
-      scroller.scrollTop -= box.top + MARGIN - at.top;
-    else if (at.bottom > box.bottom - MARGIN)
-      scroller.scrollTop += Math.min(
-        at.bottom - (box.bottom - MARGIN),
-        // A field taller than the room keeps its top in sight.
-        at.top - (box.top + MARGIN),
-      );
+    const top =
+      at.top -
+      px(margin.scrollMarginTop) -
+      (box.top + px(padding.scrollPaddingTop));
+    const bottom =
+      at.bottom +
+      px(margin.scrollMarginBottom) -
+      (box.bottom - px(padding.scrollPaddingBottom));
+    if (top < 0) scroller.scrollTop += top;
+    // A field taller than the room keeps its top in sight.
+    else if (bottom > 0) scroller.scrollTop += Math.min(bottom, top);
     return;
   }
+};
+
+/**
+ * Keeps the focused field in `layer` in sight: once as it takes focus, and
+ * again each time `room`, how tall the layer may be, shrinks while it has
+ * focus, as the keyboard rises or grows under it. `room` changes only from
+ * the browser's own events (`watch`), and the layer is drawn at it by the
+ * time this reads it, so nothing is read again on a timer or a frame.
+ */
+const useReveal = (
+  on: boolean,
+  layer: RefObject<HTMLElement | null> | undefined,
+  room: number,
+) => {
+  useEffect(() => {
+    if (!on || layer === undefined) return;
+    const focused = (event: FocusEvent) => {
+      if (event.target instanceof Node && layer.current?.contains(event.target))
+        revealField(layer.current);
+    };
+    document.addEventListener('focusin', focused);
+    return () => document.removeEventListener('focusin', focused);
+  }, [on]);
+  const was = useRef(room);
+  useLayoutEffect(() => {
+    const shrank = room < was.current;
+    was.current = room;
+    if (on && shrank && layer !== undefined) revealField(layer.current);
+  }, [room]);
 };
 
 const same = (a: Visible | null, b: Visible | null) =>
@@ -230,12 +289,11 @@ export const useVisible = (
       const viewport = readViewport();
       const next = viewport === null ? null : visibleOf(viewport);
       setVisible((was) => (same(was, next) ? was : next));
-      if (layer !== undefined)
-        requestAnimationFrame(() => revealField(layer.current));
     };
     update();
     return watch(update);
   }, [on]);
+  useReveal(on, layer, visible?.height ?? Infinity);
   return visible;
 };
 
@@ -273,11 +331,12 @@ export interface Keyboard extends Over {
 const NONE: Keyboard = { covered: 0, room: null, keyboard: false };
 
 /**
- * What the keyboard leaves `box`, a part of the page that does not move
- * as its layer does, and whether it is up, live while `on`, with `gap` kept free over it; a
- * focused field in `layer` is kept in sight. For a layer placed in the
- * page rather than fixed to it: pad its foot by `covered` and keep it
- * no taller than `room`.
+ * What the keyboard leaves `box`, and whether it is up, live while `on`,
+ * with `gap` kept free over it; a focused field in `layer` is kept in
+ * sight. `box` is a part of the page that does not move as its layer
+ * does, such as what holds the layer. For a layer placed in the page
+ * rather than fixed to it: pad its foot by `covered` and keep it no
+ * taller than `room`.
  */
 export const useKeyboardOver = (
   on: boolean,
@@ -310,10 +369,11 @@ export const useKeyboardOver = (
           ? was
           : next,
       );
-      requestAnimationFrame(() => revealField(layer.current));
     };
     update();
     return watch(update);
   }, [on, gap]);
+  // What the layer has above the keyboard: its room, less its padded foot.
+  useReveal(on, layer, (over.room ?? Infinity) - over.covered);
   return over;
 };

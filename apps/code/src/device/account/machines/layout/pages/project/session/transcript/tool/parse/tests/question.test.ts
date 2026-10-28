@@ -5,15 +5,16 @@ import { grouped } from '../parse.ts';
 import { askedOf } from '../question.ts';
 
 /*
- * An Agent Question's call as the transcript reads it, from what each
- * harness really records: Claude's `AskUserQuestion` with its answers as
- * `"question"="answer"` pairs, or its declined error; Codex's
- * `request_user_input`, its answers as `Header: a, b` lines, a secret's as
- * "(hidden)", or "Not answered" as an error. It is never folded into a
+ * An Agent Question's call as the transcript reads it, from the calls each
+ * harness really makes, Claude's `AskUserQuestion` and Codex's
+ * `request_user_input`, and the questionAnswered each records: the
+ * answers by Item id, Claude's by place in the list, Codex's by its own,
+ * a secret's as "(hidden)"; null when declined. It is never folded into a
  * run of calls.
  */
 
 type Call = Extract<Part, { readonly type: 'toolCall' }>;
+type Answered = Extract<Part, { readonly type: 'questionAnswered' }>;
 
 const call = (name: string, input: Call['input']): Call => ({
   type: 'toolCall',
@@ -24,7 +25,11 @@ const call = (name: string, input: Call['input']): Call => ({
   input,
 });
 
-const result = (output: string, isError = false) => ({ output, isError });
+const answered = (answers: Answered['answers']): Answered => ({
+  type: 'questionAnswered',
+  toolCallId: 'call',
+  answers,
+});
 
 const claude = call('AskUserQuestion', {
   questions: [
@@ -66,12 +71,10 @@ const codex = call('request_user_input', {
 });
 
 describe("an Agent Question's call", () => {
-  it("reads Claude's answers by question, several in one", () => {
+  it("reads Claude's answers by place, each choice whole", () => {
     const read = askedOf(
       claude,
-      result(
-        'The user answered: "Which \\"colour\\"?"="Red", "Which fruits?"="Apple, Pear". You can now continue with the user\'s answers in mind.',
-      ),
+      answered({ '0': ['Red'], '1': ['Apple, green', 'Pear'] }),
     );
     expect(read).toEqual({
       declined: false,
@@ -86,7 +89,7 @@ describe("an Agent Question's call", () => {
           header: 'Fruits',
           question: 'Which fruits?',
           secret: false,
-          answer: ['Apple', 'Pear'],
+          answer: ['Apple, green', 'Pear'],
         },
         { header: 'Name', question: 'Called?', secret: false, answer: null },
       ],
@@ -97,28 +100,29 @@ describe("an Agent Question's call", () => {
     expect(
       askedOf(claude, null)?.asked.every(({ answer }) => answer === null),
     ).toBe(true);
-    expect(
-      askedOf(
-        claude,
-        result(
-          'The user declined to answer the questions. Carry on without their answers.',
-          true,
-        ),
-      )?.declined,
-    ).toBe(true);
+    expect(askedOf(claude, null)?.declined).toBe(false);
+    expect(askedOf(claude, answered(null))?.declined).toBe(true);
   });
 
-  it("reads Codex's by header, a secret's answer kept as one", () => {
+  it("reads Codex's by its ids, a secret's answer kept as one", () => {
     const read = askedOf(
       codex,
-      result('Database: Postgres, MySQL\nToken: (hidden)'),
+      answered({ db: ['Postgres', 'MySQL'], token: ['(hidden)'] }),
     );
     expect(read?.asked.map(({ secret, answer }) => [secret, answer])).toEqual([
       [false, ['Postgres', 'MySQL']],
       [true, ['(hidden)']],
     ]);
     expect(read?.declined).toBe(false);
-    expect(askedOf(codex, result('Not answered', true))?.declined).toBe(true);
+    expect(askedOf(codex, answered(null))?.declined).toBe(true);
+  });
+
+  it('reads an Item answered with nothing as not answered', () => {
+    expect(
+      askedOf(codex, answered({ db: [], token: ['x'] }))?.asked.map(
+        ({ answer }) => answer,
+      ),
+    ).toEqual([null, ['x']]);
   });
 
   it('is never folded into a run of calls', () => {
@@ -127,6 +131,7 @@ describe("an Agent Question's call", () => {
       id,
       call: { ...call(id, {}), id },
       result: null,
+      answered: null,
       state: 'done',
     });
     expect(grouped([tool('a'), tool('b')]).map(({ kind }) => kind)).toEqual([

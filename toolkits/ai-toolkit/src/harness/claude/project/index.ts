@@ -1,1 +1,7 @@
-export { project, resultEnd, TOOL_OUTPUT_MAX } from './project.js';
+export {
+  project,
+  QUESTION_ANSWERED,
+  resultEnd,
+  TOOL_OUTPUT_MAX,
+  type QuestionAnswered,
+} from './project.js';

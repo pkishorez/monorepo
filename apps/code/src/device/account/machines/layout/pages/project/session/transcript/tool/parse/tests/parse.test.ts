@@ -100,6 +100,7 @@ describe('tools', () => {
       id,
       call: call(kind, id, {}),
       result: null,
+      answered: null,
       state: 'done',
     });
     const items = grouped([

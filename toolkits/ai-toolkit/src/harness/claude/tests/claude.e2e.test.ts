@@ -941,6 +941,7 @@ describe.skipIf(!enabled)(
         }),
       );
       save('question', answered);
+      save('question-declined', declined);
       expect(question.items).toHaveLength(2);
       const [colour, fruits] = question.items;
       expect(colour).toMatchObject({ multiSelect: false, other: true });
@@ -953,6 +954,18 @@ describe.skipIf(!enabled)(
         (p) => p.type === 'toolResult' && p.toolCallId === question.id,
       );
       expect(result).toMatchObject({ isError: false });
+      expect(
+        parts(messages).find(
+          (p) => p.type === 'questionAnswered' && p.toolCallId === question.id,
+        ),
+      ).toEqual({
+        type: 'questionAnswered',
+        toolCallId: question.id,
+        answers: {
+          [colour!.id]: [colour!.options[1]!.label],
+          [fruits!.id]: fruits!.options.slice(0, 2).map((o) => o.label),
+        },
+      });
       const said = texts(messages);
       expect(said).toContain(colour!.options[1]!.label);
       expect(said).toContain(fruits!.options[0]!.label);
@@ -967,6 +980,12 @@ describe.skipIf(!enabled)(
           (p) => p.type === 'toolResult' && p.toolCallId === refusedCall?.id,
         ),
       ).toMatchObject({ isError: true });
+      expect(
+        parts(refusedMessages).find(
+          (p) =>
+            p.type === 'questionAnswered' && p.toolCallId === refusedCall?.id,
+        ),
+      ).toMatchObject({ answers: null });
       expect(texts(refusedMessages)).toContain('NO-ANSWER');
       expect(lastTurnEnd(refusedMessages)?.status).toBe('done');
       expect(left).toEqual([]);

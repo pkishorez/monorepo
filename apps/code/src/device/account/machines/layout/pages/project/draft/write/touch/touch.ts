@@ -123,69 +123,61 @@ const heardOf = ({
 /**
  * What focus leaving the card's words does: nothing, unless it was
  * editing and the card did not move the focus itself. Focus going to
- * something in the card, as Chrome gives a tapped button, or a press in
- * the card that took it, as iOS's tap on a button does, giving it to no
- * one: it stays open, as Done, so its controls are still there for the
- * tap. Leaving it otherwise ends editing: with Smart Input it stays open,
+ * something in the card, as Chrome gives a tapped button: nothing yet.
+ * Taken by a press begun in the card, or in a layer it opened, such as a
+ * tap on the model chip or Add, which iOS gives no focus at all: typing
+ * ends, the keyboard goes down, and the card stays open, as Done, its
+ * controls where the tap lands. Leaving it otherwise, by a press outside
+ * or the keyboard put away, ends editing: with Smart Input it stays open,
  * as Done; without, it collapses.
  */
 export const leaving = ({
   editing,
   moving,
   within,
-  pressedWithin,
+  pressing,
   smart,
 }: {
   readonly editing: boolean;
   readonly moving: boolean;
   /** Focus went to something in the card. */
   readonly within: boolean;
-  /** A press in the card began just now. */
-  readonly pressedWithin: boolean;
+  /** A press begun in the card, or a layer it opened, is under way. */
+  readonly pressing: boolean;
   readonly smart: boolean;
 }): 'Done' | 'Collapse' | null =>
-  !editing || moving || within
-    ? null
-    : pressedWithin || smart
-      ? 'Done'
-      : 'Collapse';
-
-/** How long after a press began it may still be what took focus, in ms. */
-const PRESS = 1_000;
+  !editing || moving || within ? null : pressing || smart ? 'Done' : 'Collapse';
 
 /**
- * Whether a press inside `card` began just now: iOS gives a tapped button
- * no focus, so focus leaving says nothing of where the tap was.
+ * Whether a press begun in the card is under way: from its pointerdown,
+ * heard by the card as React has it, so a press in a layer the card
+ * opened counts, to the click that ends it or its pointercancel. A tap
+ * moves focus after the finger lifts, just before its click, so the blur a
+ * tap causes always comes while its press is under way. It cannot end at
+ * pointerup: that comes before the tap's blur. So a drag in the card that
+ * the browser neither cancels nor clicks counts until the next press, and
+ * putting the keyboard away just after it keeps the card open.
  */
-function usePressIn(card: RefObject<HTMLElement | null>) {
-  const last = useRef({ inside: false, at: -Infinity });
+function usePress() {
+  const within = useRef(false);
   useEffect(() => {
-    const press = (event: PointerEvent) => {
-      last.current = {
-        inside:
-          event.target instanceof Node &&
-          card.current?.contains(event.target) === true,
-        at: performance.now(),
-      };
+    // Every press begins outside, until the card hears it.
+    const over = () => void (within.current = false);
+    document.addEventListener('pointerdown', over, true);
+    document.addEventListener('pointercancel', over, true);
+    // Bubbling, so it ends once the tap's own click has been handled.
+    document.addEventListener('click', over);
+    return () => {
+      document.removeEventListener('pointerdown', over, true);
+      document.removeEventListener('pointercancel', over, true);
+      document.removeEventListener('click', over);
     };
-    document.addEventListener('pointerdown', press, true);
-    return () => document.removeEventListener('pointerdown', press, true);
-  }, [card]);
-  return () =>
-    last.current.inside && performance.now() - last.current.at < PRESS;
+  }, []);
+  return {
+    onPointerDownCapture: () => void (within.current = true),
+    pressing: () => within.current,
+  };
 }
-
-/** What holds the card, drawn as a box: what it is measured against. */
-const foot = (
-  card: RefObject<HTMLElement | null>,
-): RefObject<HTMLElement | null> => ({
-  get current() {
-    let box = card.current?.parentElement ?? null;
-    while (box !== null && getComputedStyle(box).display === 'contents')
-      box = box.parentElement;
-    return box;
-  },
-});
 
 /** How long "Voice isn't on" shows, in ms. */
 const NUDGE = 2_400;
@@ -194,6 +186,11 @@ export function useTouchDraft(
   slots: Slots,
   { model, state }: Pick<ViewProps<typeof TouchDraftLive>, 'model' | 'state'>,
   send: Send,
+  /**
+   * What holds the card, drawn as a box: its foot is the card's, and it
+   * never moves as the card morphs open, as the card's own box does.
+   */
+  holder: RefObject<HTMLElement | null>,
 ) {
   const { draft, sending } = slots;
   const { onShown, availability } = draft.dictation;
@@ -308,13 +305,13 @@ export function useTouchDraft(
     send({ _tag: 'Take', send: then });
     draft.dictation.onToggle();
   };
-  const pressed = usePressIn(card);
+  const press = usePress();
   // Open at the page's foot: iOS pans the page only as far as the caret,
   // so its controls are padded up over the keyboard, measured from what
-  // holds it, whose foot stays put as it grows. While open, not only
-  // editing: a tap on its own button ends editing before the click lands,
-  // and the padding goes only once the keyboard is down, not under it.
-  const keyboard = useKeyboardOver(expanded, foot(card), card);
+  // holds it. While open, not only editing: a tap on its own button ends
+  // editing before the click lands, and the padding goes only once the
+  // keyboard is down, not under it.
+  const keyboard = useKeyboardOver(expanded, holder, card);
   const onBlur = (event: {
     readonly currentTarget: Element;
     readonly relatedTarget: EventTarget | null;
@@ -323,7 +320,7 @@ export function useTouchDraft(
       editing,
       moving: moving.current,
       within: event.currentTarget.contains(event.relatedTarget as Node),
-      pressedWithin: pressed(),
+      pressing: press.pressing(),
       smart: model.smart,
     });
     if (then !== null) send({ _tag: then });
@@ -346,6 +343,7 @@ export function useTouchDraft(
     retry: () => failed !== null && draft.dictation.onRetry(failed.id),
     cancel,
     onBlur,
+    onPointerDownCapture: press.onPointerDownCapture,
     /** How much of its foot the keyboard covers, while it is open. */
     covered: keyboard.covered,
     ready,

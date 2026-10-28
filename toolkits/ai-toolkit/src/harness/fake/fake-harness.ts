@@ -146,6 +146,8 @@ export const makeFakeHarness = (
     readonly slowSteer?: boolean;
     /** The agent refuses to stop any Background Job. */
     readonly refuseStops?: boolean;
+    /** The agent refuses every answer to an Agent Question. */
+    readonly refuseAnswers?: boolean;
   } = {},
 ): FakeHarness => {
   const opens: Array<AgentConfig> = [];
@@ -298,20 +300,24 @@ export const makeFakeHarness = (
           backgroundJobs: SubscriptionRef.changes(agent.jobs),
           questions: SubscriptionRef.changes(agent.questions),
           answer: (id, answer) =>
-            SubscriptionRef.modify(agent.questions, (asked) =>
-              asked.some((question) => question.id === id)
-                ? [true, asked.filter((question) => question.id !== id)]
-                : [false, asked],
-            ).pipe(
-              Effect.flatMap((was) => {
-                if (!was)
-                  return Effect.fail(
-                    new HarnessError({ message: `No question ${id} is asked` }),
-                  );
-                answers.push({ id, answer });
-                return Effect.void;
-              }),
-            ),
+            options.refuseAnswers
+              ? Effect.fail(new HarnessError({ message: `${id} is refused` }))
+              : SubscriptionRef.modify(agent.questions, (asked) =>
+                  asked.some((question) => question.id === id)
+                    ? [true, asked.filter((question) => question.id !== id)]
+                    : [false, asked],
+                ).pipe(
+                  Effect.flatMap((was) => {
+                    if (!was)
+                      return Effect.fail(
+                        new HarnessError({
+                          message: `No question ${id} is asked`,
+                        }),
+                      );
+                    answers.push({ id, answer });
+                    return Effect.void;
+                  }),
+                ),
           stopBackgroundJob: (id) =>
             Effect.suspend(() => {
               if (options.refuseStops)
