@@ -2,12 +2,17 @@ import { View } from '@kestack/kabuki/react';
 import { RemoteInspectorView } from './actor-inspector/index.js';
 import { KabukiLive } from './actor.js';
 import { Away, Connecting, Unpicked, Waiting } from './ui/blank.js';
-import { SessionColumn, SessionSelect } from './ui/session-list.js';
+import {
+  SessionColumn,
+  SessionPath,
+  SessionSelect,
+} from './ui/session-list.js';
 
 /*
- * The page drawn: the live Kabuki Sessions down the left, or in a selector
- * on a narrow screen, and the one picked beside them. With none connected
- * and none picked, the whole page says how to connect one.
+ * The page drawn: the live Kabuki Sessions down the left, by app and
+ * Environment, or in a selector on a narrow screen, and the one picked
+ * beside them under where it runs. With none connected and none picked,
+ * the whole page says how to connect one.
  */
 
 export const KabukiView = View.make(
@@ -39,6 +44,9 @@ export const KabukiView = View.make(
           className="flex min-w-0 flex-1 flex-col"
         >
           <SessionSelect {...listed} />
+          {picked !== null && (
+            <SessionPath sessions={sessions} picked={picked} />
+          )}
           {state._tag === 'Open' && 'inspector' in children ? (
             <RemoteInspectorView
               key={state.name}

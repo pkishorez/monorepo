@@ -9,6 +9,7 @@ import { RpcClient } from 'effect/rpc';
 import { Socket } from 'effect/socket';
 import {
   CONNECT_PATH,
+  DEFAULT_ENVIRONMENT,
   KabukiSessionApi,
   serialization,
 } from '../../api/index.ts';
@@ -18,8 +19,8 @@ import { KabukiSessions } from '../registry/index.ts';
  * Accept: a Kabuki Session dials `/kabuki/connect`, from any origin, and
  * DevTools keeps it for as long as the socket stays open.
  *
- * 1. Read     who dials: the name, page and app of its query, and the
- *             origin its browser said.
+ * 1. Read     who dials: the name, page, app and Environment of its
+ *             query, and the origin its browser said.
  * 2. Client   the Kabuki Session Api, asked over the accepted socket. The
  *             app redials on its own, so the client never does.
  * 3. Keep     it under a name of its own, tell the app that name, follow
@@ -37,6 +38,7 @@ const dialed = (request: HttpServerRequest.HttpServerRequest) => {
     app,
     url: query.get('url') ?? '',
     name: query.get('name') || app || 'kabuki',
+    environment: query.get('environment') || DEFAULT_ENVIRONMENT,
     origin: request.headers.origin ?? null,
   };
 };

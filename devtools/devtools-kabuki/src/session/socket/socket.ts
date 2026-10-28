@@ -15,7 +15,8 @@ import type { Dialed } from '../../api/index.ts';
  * over what it dialed. Effect's RPC server takes its sockets from a
  * SocketServer; this one accepts nothing, it dials.
  *
- * 1. Dial    `/kabuki/connect` on the DevTools Server, the query saying
+ * 1. Dial    `/kabuki/connect` on the DevTools Server, or under the path
+ *            it is proxied at on the page's origin, the query saying
  *            who asks, read again at every dial: a name DevTools gave
  *            since is the one dialed next.
  * 2. Redial  after the socket closes or never opens: soon at first, then
@@ -31,14 +32,22 @@ const MIN = 500;
 const MAX = 10_000;
 
 // 1. Dial
-/** The DevTools Server's `/kabuki/connect`, asked as `dialed`, over `ws:` or `wss:`. */
+/**
+ * The DevTools Server's `/kabuki/connect`, asked as `dialed`, over `ws:` or
+ * `wss:`. A `server` that is a path, `/__devtools`, is on the page's own
+ * origin, and its path is kept before `/kabuki/connect`.
+ */
 export const dialUrl = (server: string, dialed: Dialed): string => {
-  const url = new URL(CONNECT_PATH, server);
+  const base = URL.canParse(server)
+    ? new URL(server)
+    : new URL(server, dialed.url);
+  const url = new URL(base.pathname.replace(/\/$/, '') + CONNECT_PATH, base);
   if (url.protocol === 'http:') url.protocol = 'ws:';
   if (url.protocol === 'https:') url.protocol = 'wss:';
   url.searchParams.set('name', dialed.name);
   url.searchParams.set('url', dialed.url);
   url.searchParams.set('app', dialed.app);
+  url.searchParams.set('environment', dialed.environment);
   return url.toString();
 };
 

@@ -21,11 +21,17 @@ export {
   KabukiSessionSummary,
   KabukiSessionsApi,
   SESSIONS_PATH,
+  grouped,
+  isLocalEnvironment,
   dialSession,
   dialSessions,
   sessionPath,
 } from './forward/index.ts';
-export type { KabukiSessionsClient } from './forward/index.ts';
+export type {
+  AppGroup,
+  EnvironmentGroup,
+  KabukiSessionsClient,
+} from './forward/index.ts';
 
 export type KabukiRoutesOptions = ForwardOptions;
 

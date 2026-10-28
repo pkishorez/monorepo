@@ -31,6 +31,7 @@ const silent = new Proxy({} as KabukiSessionClient, {
 const summary = (name: string, connectedAt = 1): KabukiSessionSummary => ({
   name,
   app: 'Diary',
+  environment: 'localhost:5173',
   url: 'http://localhost:5173/',
   origin: 'http://localhost:5173',
   connectedAt,

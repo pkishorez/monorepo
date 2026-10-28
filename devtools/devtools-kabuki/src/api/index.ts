@@ -1,6 +1,7 @@
 export {
   Blueprint,
   CONNECT_PATH,
+  DEFAULT_ENVIRONMENT,
   ChangeKind,
   Changes,
   Condition,

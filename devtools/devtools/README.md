@@ -63,7 +63,7 @@ errors; see [src/lotel](./src/lotel/README.md#kestackdevtoolsloteltelemetry).
 | `devtools [--port] [--db] [--open]`          | Runs the DevTools Server: UI, RPC, and OTLP ingestion on `127.0.0.1:14400`. |
 | `devtools list-traces [--limit 20]`          | Lists recent Trace Summaries, newest first.                                 |
 | `devtools get-trace <trace-id>`              | Returns one Trace: spans in start order with their Log Records.             |
-| `devtools kabuki sessions`                   | Lists the live Kabuki Sessions: name, app, origin, page.                    |
+| `devtools kabuki sessions`                   | Lists the live Kabuki Sessions by app, then Environment; `--app`, `--env`.  |
 | `devtools kabuki history <session>`          | A Kabuki Session's History, one line per entry; `--last N`, `--since <id>`. |
 | `devtools kabuki changes <session> <step>`   | What one Step did to each Instance.                                         |
 | `devtools kabuki snapshot <session>`         | The Snapshot at a Step or a part of it; `--at`, `--path`, `--expand`.       |

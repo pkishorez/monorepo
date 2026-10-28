@@ -7,11 +7,12 @@ import * as NodeSocketServer from '@effect/platform-node/NodeSocketServer';
 import { describe, expect, it, vi } from 'vitest';
 import {
   CONNECT_PATH,
+  DEFAULT_ENVIRONMENT,
   KabukiSessionApi,
   serialization,
 } from '../../api/index.ts';
 import type { KabukiSessionClient } from '../../api/index.ts';
-import { connect } from '../index.ts';
+import { DEVTOOLS_PATH, connect } from '../index.ts';
 import { dialUrl } from '../socket/index.ts';
 import { started } from './app.ts';
 
@@ -88,6 +89,7 @@ describe('connect', () => {
           const stop = connect({
             url: `ws://127.0.0.1:${port}`,
             name: 'diary',
+            environment: 'kishores-mbp',
           })(runtime);
           yield* Effect.addFinalizer(() => Effect.sync(stop));
           const accepted = yield* Queue.unbounded<Accepted>();
@@ -99,6 +101,7 @@ describe('connect', () => {
           const one = yield* Queue.take(accepted);
           expect(one.query.get('name')).toBe('diary');
           expect(one.query.get('app')).toBe('Diary');
+          expect(one.query.get('environment')).toBe('kishores-mbp');
           yield* one.client.named({ name: 'diary-2' });
           expect(yield* one.client.info()).toMatchObject({
             app: 'Diary',
@@ -140,26 +143,39 @@ describe('connect', () => {
         yield* Effect.addFinalizer(() => Effect.sync(stop));
         const one = yield* Queue.take(accepted);
         expect(one.query.get('name')).toBe('diary');
+        // No page and none given: the default Environment.
+        expect(one.query.get('environment')).toBe(DEFAULT_ENVIRONMENT);
         yield* one.client.named({ name: 'diary-2' });
         expect(yield* one.client.info()).toMatchObject({ name: 'diary-2' });
         expect(kept.get('@kestack/devtools-kabuki:Diary:name')).toBe('diary');
       }),
     ));
 
-  it("with 'asked', connects only when the page's URL asks", () =>
+  it("in a browser, dials with the page's host as its Environment, unless given one", () =>
     run(
       Effect.gen(function* () {
+        vi.stubGlobal('location', {
+          href: 'https://app.trycloudflare.com/notes',
+          host: 'app.trycloudflare.com',
+        });
+        yield* Effect.addFinalizer(() => Effect.sync(vi.unstubAllGlobals));
         const port = yield* Effect.promise(freePort);
         const accepted = yield* Queue.unbounded<Accepted>();
         yield* devtools(port, accepted);
         const { runtime } = yield* started;
-        const stop = connect(runtime, {
+        const page = connect(runtime, { url: `ws://127.0.0.1:${port}` });
+        yield* Effect.addFinalizer(() => Effect.sync(page));
+        expect((yield* Queue.take(accepted)).query.get('environment')).toBe(
+          'app.trycloudflare.com',
+        );
+        const given = connect(runtime, {
           url: `ws://127.0.0.1:${port}`,
-          when: 'asked',
+          environment: 'staging',
         });
-        yield* Effect.sleep('300 millis');
-        expect(yield* Queue.size(accepted)).toBe(0);
-        stop();
+        yield* Effect.addFinalizer(() => Effect.sync(given));
+        expect((yield* Queue.take(accepted)).query.get('environment')).toBe(
+          'staging',
+        );
       }),
     ));
 
@@ -169,6 +185,7 @@ describe('connect', () => {
         name: 'quiet-otter',
         url: 'http://localhost:5173/?a=1',
         app: 'Diary',
+        environment: 'localhost:5173',
       }),
     );
     expect(url.protocol).toBe('ws:');
@@ -177,6 +194,33 @@ describe('connect', () => {
       name: 'quiet-otter',
       url: 'http://localhost:5173/?a=1',
       app: 'Diary',
+      environment: 'localhost:5173',
     });
+  });
+
+  it("dials /__devtools on the page's origin by default, over wss for an https page", () => {
+    const url = new URL(
+      dialUrl(DEVTOOLS_PATH, {
+        name: 'quiet-otter',
+        url: 'https://app.trycloudflare.com/notes',
+        app: 'Diary',
+        environment: 'localhost:5173',
+      }),
+    );
+    expect(url.origin).toBe('wss://app.trycloudflare.com');
+    expect(url.pathname).toBe(`/__devtools${CONNECT_PATH}`);
+  });
+
+  it("keeps a whole URL's own path before /kabuki/connect", () => {
+    const url = new URL(
+      dialUrl('https://devtools.example.com/team/', {
+        name: 'quiet-otter',
+        url: 'http://localhost:5173/',
+        app: 'Diary',
+        environment: 'localhost:5173',
+      }),
+    );
+    expect(url.origin).toBe('wss://devtools.example.com');
+    expect(url.pathname).toBe(`/team${CONNECT_PATH}`);
   });
 });

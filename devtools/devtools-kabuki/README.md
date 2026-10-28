@@ -42,47 +42,49 @@ Peer dependencies:
 
 The Kabuki Session Api, shared by the app, DevTools and the Inspector.
 
-| Export             | What it does                                                                                                          |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `KabukiSessionApi` | The RPC group: `info`, `named`, `history`, `watch`, `page`, `snapshot`, `changes`, `graph`, `node`, `travel`, `fork`. |
-| `CONNECT_PATH`     | The DevTools Server path a Kabuki Session dials, `/kabuki/connect`.                                                   |
-| `serialization`    | The RPC serialization both ends of the socket use: one JSON message per frame.                                        |
-| `StepNotFound`     | The error for a Step no longer kept; says the oldest and newest kept.                                                 |
-| `PathNotFound`     | The error for a Snapshot path that is not there; lists the keys where it stopped.                                     |
-| `InstanceNotFound` | The error for an Instance not in the Snapshot at a Step; lists the ones that are.                                     |
-| `Step`             | The Schema of a Step: an entry id, or `'init'`.                                                                       |
-| `Entry`            | The Schema of a History entry, its Message encoded.                                                                   |
-| `Source`           | The Schema of who Sent a Message.                                                                                     |
-| `Outcome`          | The Schema of what came of a Message: handled, ignored or dropped.                                                    |
-| `Info`             | The Schema of who a Kabuki Session is: app, page and name.                                                            |
-| `Now`              | The Schema of where the app is: Head, Branch size, Step shown, running, failure.                                      |
-| `History`          | The Schema of the Head's Branch as `history` answers it.                                                              |
-| `SnapshotView`     | The Schema of a Snapshot, or part of one, at a Step.                                                                  |
-| `ValueChange`      | The Schema of one Model or Props path that changed, before and after.                                                 |
-| `DiffRow`          | The Schema of one line of a unified diff.                                                                             |
-| `ChangeKind`       | The Schema of whether a Step added, changed or removed an Instance.                                                   |
-| `InstanceChange`   | The Schema of what a Step did to one Instance.                                                                        |
-| `Changes`          | The Schema of what one Step did: its entry, its Commands, each Instance it changed.                                   |
-| `Condition`        | The Schema of when a Worker or Child exists: always, while or each.                                                   |
-| `Level`            | The Schema of one Blueprint level: the top, or one State's block.                                                     |
-| `Blueprint`        | The Schema of what an Actor is, read from its definition.                                                             |
-| `WorkerNow`        | The Schema of a Worker and the keys it runs for.                                                                      |
-| `Known`            | The Schema of what the app was seen to do with an Actor.                                                              |
-| `GraphNode`        | The Schema of one card on the canvas, with its Children.                                                              |
-| `Graph`            | The Schema of the graph at a Step.                                                                                    |
-| `Shape`            | The Schema of a Schema as a card draws it.                                                                            |
-| `Field`            | The Schema of one field of a Shape.                                                                                   |
-| `Node`             | The Schema of one Instance's card at a Step: data, change and Schemas.                                                |
+| Export                | What it does                                                                                                          |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `KabukiSessionApi`    | The RPC group: `info`, `named`, `history`, `watch`, `page`, `snapshot`, `changes`, `graph`, `node`, `travel`, `fork`. |
+| `CONNECT_PATH`        | The DevTools Server path a Kabuki Session dials, `/kabuki/connect`.                                                   |
+| `DEFAULT_ENVIRONMENT` | The Environment of a Kabuki Session given none and on no page, `default`.                                             |
+| `serialization`       | The RPC serialization both ends of the socket use: one JSON message per frame.                                        |
+| `StepNotFound`        | The error for a Step no longer kept; says the oldest and newest kept.                                                 |
+| `PathNotFound`        | The error for a Snapshot path that is not there; lists the keys where it stopped.                                     |
+| `InstanceNotFound`    | The error for an Instance not in the Snapshot at a Step; lists the ones that are.                                     |
+| `Step`                | The Schema of a Step: an entry id, or `'init'`.                                                                       |
+| `Entry`               | The Schema of a History entry, its Message encoded.                                                                   |
+| `Source`              | The Schema of who Sent a Message.                                                                                     |
+| `Outcome`             | The Schema of what came of a Message: handled, ignored or dropped.                                                    |
+| `Info`                | The Schema of who a Kabuki Session is: app, page and name.                                                            |
+| `Now`                 | The Schema of where the app is: Head, Branch size, Step shown, running, failure.                                      |
+| `History`             | The Schema of the Head's Branch as `history` answers it.                                                              |
+| `SnapshotView`        | The Schema of a Snapshot, or part of one, at a Step.                                                                  |
+| `ValueChange`         | The Schema of one Model or Props path that changed, before and after.                                                 |
+| `DiffRow`             | The Schema of one line of a unified diff.                                                                             |
+| `ChangeKind`          | The Schema of whether a Step added, changed or removed an Instance.                                                   |
+| `InstanceChange`      | The Schema of what a Step did to one Instance.                                                                        |
+| `Changes`             | The Schema of what one Step did: its entry, its Commands, each Instance it changed.                                   |
+| `Condition`           | The Schema of when a Worker or Child exists: always, while or each.                                                   |
+| `Level`               | The Schema of one Blueprint level: the top, or one State's block.                                                     |
+| `Blueprint`           | The Schema of what an Actor is, read from its definition.                                                             |
+| `WorkerNow`           | The Schema of a Worker and the keys it runs for.                                                                      |
+| `Known`               | The Schema of what the app was seen to do with an Actor.                                                              |
+| `GraphNode`           | The Schema of one card on the canvas, with its Children.                                                              |
+| `Graph`               | The Schema of the graph at a Step.                                                                                    |
+| `Shape`               | The Schema of a Schema as a card draws it.                                                                            |
+| `Field`               | The Schema of one field of a Shape.                                                                                   |
+| `Node`                | The Schema of one Instance's card at a Step: data, change and Schemas.                                                |
 
 ### `@kestack/devtools-kabuki/session`
 
 The app's side: answers the Api from one running app.
 
-| Export     | What it does                                                                                         |
-| ---------- | ---------------------------------------------------------------------------------------------------- |
-| `connect`  | Connects an app to the DevTools Server as a Kabuki Session; given only options, it is an Attachment. |
-| `inMemory` | An Api client answered by the app in the same page, with nothing serialized.                         |
-| `ASKED`    | The page URL's query parameter that names a Kabuki Session, `kabuki-session`.                        |
+| Export          | What it does                                                                                                           |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `connect`       | Connects an app to the DevTools Server as a Kabuki Session; given only options, it is an Attachment.                   |
+| `inMemory`      | An Api client answered by the app in the same page, with nothing serialized.                                           |
+| `ASKED`         | The page URL's query parameter that names a Kabuki Session, `kabuki-session`.                                          |
+| `DEVTOOLS_PATH` | Where `connect` dials by default, `/__devtools` on the page's origin, as the Web Platform proxies it while developing. |
 
 ### `@kestack/devtools-kabuki/server`
 
@@ -100,6 +102,8 @@ browser too.
 | `KabukiSessionNotFound` | The error for a name no live Kabuki Session has; lists those that are.                                                          |
 | `SESSIONS_PATH`         | The path of the live list, `/kabuki/sessions`.                                                                                  |
 | `sessionPath`           | The path of one Kabuki Session's Api, `/kabuki/session/<name>`.                                                                 |
+| `grouped`               | Kabuki Sessions by app, A to Z, then Environment, this computer's first: how DevTools' page and CLI list them.                  |
+| `isLocalEnvironment`    | Whether an Environment is a host on this computer, as `localhost:5173`.                                                         |
 
 `/kabuki/connect` takes any origin, and records it. `/kabuki/sessions` and
 `/kabuki/session/:name` read and move tabs, so they answer only a request
@@ -132,11 +136,19 @@ import { toReact } from '@kestack/kabuki/react';
 import { connect } from '@kestack/devtools-kabuki/session';
 
 export const App = toReact(Shop, ShopView, ShopLive, {
-  attach: [connect({ url: 'ws://127.0.0.1:14400' })],
+  attach: import.meta.env.DEV ? [connect()] : [],
 });
 ```
 
 How it works:
+
+- DevTools lists it under its app, then its Environment: the page's host,
+  or `environment` when given, as a server would give `os.hostname()`;
+  `default` with neither.
+- With no `url` it dials `/__devtools` on the page's own origin, whose
+  `/kabuki/connect` the Web Platform's `app()` pipes to the DevTools Server
+  under `vite dev`, so a tunnel to the app reaches DevTools too. Elsewhere, give the whole URL:
+  `connect({ url: 'wss://devtools.example.com' })`.
 
 - The name asked for is the page's `?kabuki-session`, else `name`, else the
   one this tab used before, else a readable one such as `quiet-otter`.
@@ -144,7 +156,6 @@ How it works:
   the tab keeps it in sessionStorage and dials with it from then on.
 - While DevTools is down or restarting the app dials again, from half a
   second up to every ten; nothing reaches the app.
-- `when: 'asked'` connects only when the page's URL has `?kabuki-session`.
 
 ### Ask a running app about itself
 
