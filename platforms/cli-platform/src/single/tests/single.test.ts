@@ -80,4 +80,43 @@ describe('single', () => {
         expect(again._tag).toBe('Acquired');
       }),
     ));
+
+  it(
+    'lets one of many claims at once take over a socket file a process that died left behind',
+    () =>
+      Effect.runPromise(
+        Effect.forEach(
+          Array.from({ length: 10 }, (_, round) => round),
+          () =>
+            Effect.scoped(
+              Effect.gen(function* () {
+                const path = socketIn();
+                execFileSync(process.execPath, [
+                  '-e',
+                  `require('net').createServer().listen(${JSON.stringify(path)}, () => process.exit(0))`,
+                ]);
+                const claims = yield* Effect.all(
+                  Array.from({ length: 8 }, (_, i) =>
+                    single(path, {
+                      group: Control,
+                      handlers: handlers(`${i}`),
+                    }),
+                  ),
+                  { concurrency: 'unbounded' },
+                );
+                const acquired = claims.filter(
+                  (claim) => claim._tag === 'Acquired',
+                );
+                expect(acquired).toHaveLength(1);
+                const reached = yield* reach(path, Control);
+                const { owner } = yield* reached.status();
+                for (const claim of claims)
+                  if (claim._tag === 'AlreadyRunning')
+                    expect(yield* claim.client.status()).toEqual({ owner });
+              }),
+            ),
+        ),
+      ),
+    30_000,
+  );
 });

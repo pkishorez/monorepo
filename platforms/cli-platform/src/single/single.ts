@@ -1,6 +1,6 @@
 import { mkdirSync, rmSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { Data, Effect, Layer, type Scope } from 'effect';
+import { Data, Duration, Effect, Exit, Layer, Scope } from 'effect';
 import {
   type Rpc,
   type RpcClient,
@@ -11,6 +11,7 @@ import {
 } from 'effect/rpc';
 import { SocketServer } from 'effect/socket';
 import { NodeSocketServer } from '@effect/platform-node';
+import { lock } from '../files/lock/index.js';
 import { clientAt, probe } from './socket.js';
 
 /*
@@ -19,7 +20,10 @@ import { clientAt, probe } from './socket.js';
  * that process exits, however it exits. A second process finds it listening
  * and gets a client to it instead, to ask it what it is doing. A crash
  * leaves the socket's file behind with no one listening: the next process
- * deletes it and takes the name.
+ * deletes it and takes the name. It looks, deletes and listens holding the
+ * socket's lock, a port the kernel frees with its process, so of many that
+ * find the same file left behind one takes the name and the rest find it
+ * listening; none deletes a socket another has just bound.
  */
 
 /** A client to the process that holds a name. */
@@ -49,6 +53,9 @@ export class SingleError extends Data.TaggedError('SingleError')<{
   readonly path: string;
   readonly message: string;
 }> {}
+
+/** How long a takeover waits for another one of the same socket. */
+const TAKEOVER = Duration.seconds(10);
 
 const isPipe = (path: string) => path.startsWith('\\\\.\\pipe\\');
 
@@ -108,12 +115,30 @@ export const single = <Rpcs extends Rpc.Any, E>(
                 path,
                 message: `${path} is in use, but nothing answers on it`,
               });
-            // Left by a process that died: take it over, once.
-            rmSync(path, { force: true });
-            return yield* claim(true);
+            return yield* takeOver;
           }),
       }),
     );
+  // Left by a process that died, it seems: holding the lock, look again,
+  // and take it over, once. The lock goes once this one listens or fails.
+  const takeOver = Effect.gen(function* () {
+    const held = yield* Scope.make();
+    return yield* Effect.gen(function* () {
+      yield* lock(path, TAKEOVER).pipe(
+        Scope.provide(held),
+        Effect.mapError(
+          (error) => new SingleError({ path, message: error.message }),
+        ),
+      );
+      if ((yield* probe(path)) === 'listening')
+        return {
+          _tag: 'AlreadyRunning',
+          client: yield* reachable(path, options.group),
+        } as const;
+      rmSync(path, { force: true });
+      return yield* claim(true);
+    }).pipe(Effect.ensuring(Scope.close(held, Exit.void)));
+  });
   return Effect.suspend(() => {
     if (!isPipe(path))
       mkdirSync(dirname(path), { recursive: true, mode: 0o700 });

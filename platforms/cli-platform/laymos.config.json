@@ -4,8 +4,10 @@
   "ignoredPaths": [],
   "fileModules": [],
   "rules": {
+    "src/files/downloads": ["src/files/lock"],
     "src/plugins": ["src/files"],
     "src/plugins/actor-plugin": ["src/plugins/contract"],
-    "src/plugins/plugin": ["src/plugins/contract"]
+    "src/plugins/plugin": ["src/plugins/contract"],
+    "src/single": ["src/files/lock"]
   }
 }
