@@ -2,7 +2,7 @@ import { Effect, Scope } from 'effect';
 
 import type { DeviceKind } from '../../../story/schema/index.js';
 import type { ProofFile } from '../load-stories.js';
-import { startPageHost } from './page-host.js';
+import { importFromProject, startPageHost } from './page-host.js';
 import {
   openBrowserSession,
   type BrowserSession,
@@ -25,11 +25,20 @@ export function openBrowserVenue(
   files: readonly ProofFile[],
 ): Effect.Effect<BrowserVenue, string, Scope.Scope> {
   return Effect.gen(function* () {
+    const missing =
+      'Browser Proofs need playwright-core: add it to the Project’s devDependencies.';
     const playwright = yield* Effect.tryPromise({
-      try: () => import('playwright-core'),
-      catch: () =>
-        'Browser Proofs need playwright-core: add it to the Project’s devDependencies.',
-    });
+      try: () =>
+        importFromProject<typeof import('playwright-core')>(
+          projectRoot,
+          'playwright-core',
+        ),
+      catch: () => missing,
+    }).pipe(
+      Effect.flatMap((found) =>
+        found === undefined ? Effect.fail(missing) : Effect.succeed(found),
+      ),
+    );
     const browser = yield* Effect.acquireRelease(
       Effect.tryPromise({
         try: () => playwright.chromium.launch({ headless: true }),
