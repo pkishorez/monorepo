@@ -162,11 +162,11 @@ export const olderThan = (version: string, than: string) => {
   return a.pre && !b.pre;
 };
 
-/** The newer `ke-connect` the Connection should update to; null when it runs the latest, or none is known. */
+/** The `ke-connect` the Connection should update to, the Minimum Connect; null when it runs one as new, or none is known. */
 export const updateOf = (connection: Connection | null): string | null =>
-  connection?.latestVersion != null &&
-  olderThan(connection.version, connection.latestVersion)
-    ? connection.latestVersion
+  connection?.minConnect != null &&
+  olderThan(connection.version, connection.minConnect)
+    ? connection.minConnect
     : null;
 
 export { addressOf };

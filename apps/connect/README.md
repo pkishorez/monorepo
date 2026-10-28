@@ -107,15 +107,20 @@ Every value an RPC sends is an ESchema, so the newer side reads what an older on
 
 What an App imports to reach Cloud Connect: its client, and the Connections it lists.
 
-| Export              | What it does                                                                                                                       |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `CloudClient`       | Service holding the `CloudApi` client over HTTP.                                                                                   |
-| `CloudClient.layer` | Layer of `CloudClient` for Cloud Connect's base URL; the caller's auth signs every call.                                           |
-| `Connection`        | ESchema of a Connection as its User sees it: its last Report, its Last Seen, each Plugin's wanted version, and the latest Connect. |
-| `ConnectionStatus`  | ESchema of how far a Connection's tunnel got: installing cloudflared, opening, failed, or up.                                      |
-| `addressOf`         | The public address a Connection Status is up at, or null.                                                                          |
-| `VersionGap`        | Error of every `CodeClient` and `CloudClient` call that failed because one side is older: `client` or `server`.                    |
-| `authInfo`          | How a Connection signs in to the Cloud Connect at a base URL, from its `/auth`; fails when it cannot be asked.                     |
+| Export              | What it does                                                                                                                        |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `CloudClient`       | Service holding the `CloudApi` client over HTTP.                                                                                    |
+| `CloudClient.layer` | Layer of `CloudClient` for Cloud Connect's base URL; the caller's auth signs every call.                                            |
+| `Connection`        | ESchema of a Connection as its User sees it: its last Report, its Last Seen, each Plugin's latest Release, and the Minimum Connect. |
+| `ConnectionStatus`  | ESchema of how far a Connection's tunnel got: installing cloudflared, opening, failed, or up.                                       |
+| `addressOf`         | The public address a Connection Status is up at, or null.                                                                           |
+| `isOutdated`        | Whether a Connection runs a `ke-connect` older than the Minimum Connect, and so should be updated.                                  |
+| `pluginPath`        | The path a Connection serves a Plugin at one Release: `/<name>/<sha256>/rpc`.                                                       |
+| `PLUGIN_MISMATCH`   | The close code, 4409, of a socket that asked for a Release the Connection does not run.                                             |
+| `PluginMismatch`    | ESchema of that close's reason: the hash the Connection runs, or null.                                                              |
+| `mismatchOf`        | What a socket's close code and reason say of the Release asked for: a `PluginMismatch`, or null for any other close.                |
+| `VersionGap`        | Error of every `CodeClient` and `CloudClient` call that failed because one side is older: `client` or `server`.                     |
+| `authInfo`          | How a Connection signs in to the Cloud Connect at a base URL, from its `/auth`; fails when it cannot be asked.                      |
 
 ### `./worker`
 
@@ -220,7 +225,7 @@ Runtime.start(
 
 ### Run Cloud Connect on a Worker
 
-`serve` from `./worker` is Cloud Connect over a D1 database, signing in through an Auth Worker, letting the listed origins call with credentials, telling every Connection which Plugins to run and which Connect is the latest, and serving the Plugins' files. Shaped after `src/cloud/worker/worker.server.ts`, which `alchemy.run.ts` deploys.
+`serve` from `./worker` is Cloud Connect over a D1 database, signing in through an Auth Worker, letting the listed origins call with credentials, telling every Connection the latest Release of each Plugin and the Minimum Connect, and serving the Shelf. Shaped after `src/cloud/worker/worker.server.ts`, which `alchemy.run.ts` deploys.
 
 ```ts
 import { serve } from '@kestack/connect/worker';
@@ -229,7 +234,7 @@ interface Env {
   readonly AUTH_URL: string;
   readonly ALLOWED_ORIGINS: string;
   readonly PLUGINS?: string;
-  readonly CONNECT_VERSION?: string;
+  readonly MIN_CONNECT?: string;
   readonly DB: D1Database;
   readonly PLUGIN_FILES?: R2Bucket;
 }
@@ -243,15 +248,15 @@ export default {
       origins: env.ALLOWED_ORIGINS.split(','),
       database: env.DB,
       plugins: env.PLUGINS ? JSON.parse(env.PLUGINS) : {},
-      ...(env.CONNECT_VERSION ? { connectVersion: env.CONNECT_VERSION } : {}),
+      ...(env.MIN_CONNECT ? { minConnect: env.MIN_CONNECT } : {}),
       ...(env.PLUGIN_FILES ? { files: env.PLUGIN_FILES } : {}),
     }))(request),
 };
 ```
 
 - `ALLOWED_ORIGINS` takes comma-separated patterns such as `https://*.kishore.app`.
-- `PLUGINS` is `{"code":{"hash":"<sha256>","url":"<where to download it>"}}`; `pnpm build:plugin` makes `dist/plugin/code.mjs` and prints its sha256.
+- `PLUGINS` is `{"code":{"hash":"<sha256>","url":"<where to read it>"}}`, the latest Release of each Plugin; `pnpm build:plugin` makes `dist/plugin/code.mjs` and prints its sha256, and whether it is the latest Release in `src/plugins/code/releases.json`.
 - `GET /plugins/<name>/<sha256>.mjs` answers that file from `files`, cached for good; anything else there is 404.
-- `CONNECT_VERSION` is the latest `ke-connect`; an App tells a Connection that runs an older one to update.
+- `MIN_CONNECT` is the Minimum Connect, the oldest `ke-connect` let run the Plugins; a Connection below it is Outdated.
 - Set the D1 table up from `connectionsTable` before the first request.
-- In this monorepo, `pnpm -F @kestack/connect build:plugin && pnpm -F @kestack/connect deploy:prod` deploys it to `connect.kishore.app`: the deploy uploads `code.mjs` to the Stage's R2 bucket, unless it is there, then points `PLUGINS` at it, and sets `CONNECT_VERSION` from `package.json`.
+- In this monorepo, a change to the code Plugin is released with `pnpm -F @kestack/connect release:plugin code "<what changed>"`, which builds it and appends its hash to its Release Log. `pnpm -F @kestack/connect build:plugin && pnpm -F @kestack/connect deploy:prod` deploys it to `connect.kishore.app`: the deploy refuses a build that is not the latest Release, uploads `code.mjs` to the Stage's R2 bucket unless it is there, then points `PLUGINS` at it, and sets `MIN_CONNECT` from `minConnect` in `package.json` (ADR 0006).

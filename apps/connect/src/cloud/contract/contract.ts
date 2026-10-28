@@ -3,6 +3,7 @@ import { Rpc, RpcGroup } from 'effect/rpc';
 import { Authz, type Guarded } from '@kestack/auth-toolkit';
 import { PluginState } from '@kestack/cli-platform/plugins/contract';
 import { ESchema, ValueESchema } from '@kestack/std-toolkit/eschema';
+import { belowMinimum } from './plugins.js';
 
 /*
  * What Cloud Connect answers, shared by Cloud Connect, `ke-connect serve`
@@ -17,9 +18,26 @@ import { ESchema, ValueESchema } from '@kestack/std-toolkit/eschema';
  * of Connect's, Cloud Connect's and each Plugin's, is called through
  * `versionedClient`, so a call between an older side and a newer one fails
  * with `VersionGap`.
+ *
+ * Every Connection is told the same two things: the latest Release of each
+ * Plugin, which Cloud Connect alone decides (ADR 0006), and the Minimum
+ * Connect. A Plugin's address, its file on the Shelf, how a Connection
+ * says it runs another Release, and who is Outdated are in plugins.ts.
  */
 
 export { allowsOrigin } from './origins.js';
+export {
+  belowMinimum,
+  fromShelfKey,
+  mismatchOf,
+  mismatchReason,
+  PLUGIN_MISMATCH,
+  pluginOfPath,
+  pluginPath,
+  PluginMismatch,
+  SHELF_PATH,
+  shelfKey,
+} from './plugins.js';
 export { VersionGap, versionedClient } from './version-gap.js';
 
 /** The RPC's path on Cloud Connect. */
@@ -92,6 +110,9 @@ export type ConnectionStatus = typeof ConnectionStatus.Type;
 export const addressOf = (status: ConnectionStatus) =>
   'url' in status ? status.url : null;
 
+/** A version of Connect, as a Report names it. */
+const Version = Schema.String.check(Schema.isMaxLength(32));
+
 /** What a Connection said of itself before it reported its Plugins: v1 of both values below. */
 const reportFields = {
   id: Bounded(64),
@@ -99,14 +120,14 @@ const reportFields = {
   /** Its Connection Key (ADR 0015). */
   key: Bounded(128),
   /** The version of Connect it runs. */
-  version: Schema.String.check(Schema.isMaxLength(32)),
+  version: Version,
   status: ConnectionStatus.schema,
 };
 
 /** Where each of a Connection's Plugins stands, by the Plugin's name. */
 const PluginStates = Schema.Record(Schema.String, PluginState.schema);
 
-/** Which version of a Plugin to run: its file's sha256, and where to download it. */
+/** Which Release of a Plugin to run: its file's sha256, and where on the Shelf to read it. */
 const PluginVersion = Schema.Struct({
   hash: Schema.String,
   url: Schema.String,
@@ -125,13 +146,14 @@ export const ConnectionReport = ESchema.make('ConnectionReport', reportFields)
 export type ConnectionReport = typeof ConnectionReport.Type;
 
 /**
- * A Connection as its User sees it: what it last reported, and its Last
- * Seen. v2 adds where each Plugin stands, as it last reported, and
- * `wanted`: the version of each Plugin Cloud Connect wants it to run, which
- * the answer to its Report tells it. v3 adds `latestVersion`: the version
- * of Connect Cloud Connect was deployed with, so an App can tell the
- * Connection runs an older `ke-connect`; null when it was not told, as
- * before v3.
+ * A Connection as its User sees it, and as Cloud Connect answers its
+ * Report: what it last reported, and its Last Seen. v2 adds where each
+ * Plugin stands, as it last reported, and `wanted`: the latest Release of
+ * each Plugin, which the Connection should run. v3 added `latestVersion`,
+ * the version of Connect Cloud Connect was deployed with. v4 drops it for
+ * `minConnect`, the Minimum Connect: the oldest `ke-connect` let run the
+ * Plugins, null when Cloud Connect names none, as before v4; a newer
+ * `ke-connect` is no reason to update.
  */
 export const Connection = ESchema.make('Connection', {
   ...reportFields,
@@ -146,15 +168,21 @@ export const Connection = ESchema.make('Connection', {
     },
     (v1) => ({ ...v1, plugins: {}, wanted: {} }),
   )
+  .evolve('v3', { latestVersion: Schema.NullOr(Version) }, (v2) => ({
+    ...v2,
+    latestVersion: null,
+  }))
   .evolve(
-    'v3',
-    {
-      latestVersion: Schema.NullOr(Schema.String.check(Schema.isMaxLength(32))),
-    },
-    (v2) => ({ ...v2, latestVersion: null }),
+    'v4',
+    { latestVersion: null, minConnect: Schema.NullOr(Version) },
+    (v3) => ({ ...v3, minConnect: null }),
   )
   .build();
 export type Connection = typeof Connection.Type;
+
+/** Whether a Connection is Outdated: it runs a `ke-connect` older than the Minimum Connect. */
+export const isOutdated = (connection: Connection) =>
+  belowMinimum(connection.version, connection.minConnect);
 
 /** The Connection was forgotten by its User; it must sign out and stop. */
 export class ConnectionForgotten extends Schema.TaggedError<ConnectionForgotten>()(

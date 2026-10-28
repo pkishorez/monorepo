@@ -21,7 +21,7 @@ const HASH = 'a'.repeat(64);
 const connection = (
   plugins: Connection['plugins'],
   version = '0.0.5',
-  latestVersion: string | null = '0.0.5',
+  minConnect: string | null = '0.0.5',
 ): Connection => ({
   id: 'm1',
   name: 'Laptop',
@@ -31,7 +31,7 @@ const connection = (
   lastSeen: NOW,
   plugins,
   wanted: {},
-  latestVersion,
+  minConnect,
 });
 
 const updating = connection({

@@ -9,7 +9,7 @@ How a computer is connected to the cloud so that its User can reach it from outs
 _Avoid_: daemon (for now: it is not a background service), agent, server
 
 **Cloud Connect**:
-The cloud part of Connect: where a Connection signs in and sends its Heartbeats, what keeps each User's Connections, and where each Plugin's files are downloaded from. A UI asks it for the Connections and then talks to each Connection itself.
+The cloud part of Connect: where a Connection signs in and sends its Heartbeats, what keeps each User's Connections, what decides the latest Release of each Plugin, and where the Shelf is read from. A UI asks it for the Connections and then talks to each Connection itself.
 _Avoid_: Connect Cloud, Connect Service, Connections Backend, registry
 
 **App**:
@@ -17,15 +17,31 @@ One UI on Connect, such as Code, reaching the Connections Cloud Connect lists.
 _Avoid_: client, frontend, product
 
 **Plugin**:
-A program a Connection runs beside itself and keeps at the version Cloud Connect names, serving one RPC group at `<tunnel>/<name>/rpc`. `code` is the first.
+A program a Connection runs beside itself and keeps at the Release Cloud Connect names latest, serving one RPC group. An App calls it at the Release it was built with, `<tunnel>/<name>/<sha256>/rpc`; a Connection running another closes the socket with 4409, naming the one it runs. `code` is the first.
 _Avoid_: App Group (the former name), module, feature
+
+**Release**:
+One build of a Plugin, named by the sha256 of its file, with one line on what changed. Every change to the file is a new Release. Which `ke-connect` may run it is not the Release's to say: that is the Minimum Connect.
+_Avoid_: version (a Plugin has no version number), build (one that may not be a Release yet), deploy
+
+**Release Log**:
+Every Release of one Plugin in order, the latest last, kept in git as `src/plugins/<name>/releases.json`. `pnpm release:plugin <name> "<what changed>"` appends one; a deployed Stage names the latest, and refuses to deploy a build that is not it.
+_Avoid_: changelog (the package's, for people), manifest, versions file
+
+**Shelf**:
+Where each Release's file is kept, as `<name>/<sha256>.mjs`, never changed once put there. Deployed, it is an R2 bucket that Cloud Connect serves at `/plugins/`; under `alchemy dev`, a folder on the computer, read as a `file:` URL.
+_Avoid_: registry, store (the code Plugin's records), CDN, bucket (only one kind of Shelf)
+
+**Minimum Connect**:
+The oldest `ke-connect` Cloud Connect lets run its Plugins, one for all of them, which a person raises on purpose as `minConnect` in `package.json`. A Connection below it is Outdated: it reports once, so its User sees the version it runs, then stops, and an App says to update `ke-connect`.
+_Avoid_: latest version (a newer `ke-connect` is no reason to update), required version, compatibility range
 
 **Plugin State**:
 Where one of a Connection's Plugins stands, as its Heartbeat reports it: Downloading its file, Starting, Running, or Crashed with its last lines and when it is tried again.
 _Avoid_: status (a Plugin's own answer about itself), health
 
 **Updating**:
-A Plugin is Updating while its new version downloads and starts; the tunnel stays up.
+A Plugin is Updating while its new Release downloads and starts; the tunnel stays up.
 _Avoid_: upgrading, deploying, restarting
 
 **Project**:
@@ -45,7 +61,7 @@ The secret a Connection asks of anyone who connects to it. It is made once and n
 _Avoid_: token (that proves a Sign-in), password, API key
 
 **Heartbeat**:
-A Connection's regular report of how it stands, carrying two signals: that it is running, shown by when it last reported, and whether it could reach itself at its public address; and the Plugin State of each of its Plugins. A Connection that stops reporting is down; one that reports but cannot reach itself is up with its tunnel broken. Cloud Connect answers each with the version of each Plugin to run.
+A Connection's regular report of how it stands, carrying two signals: that it is running, shown by when it last reported, and whether it could reach itself at its public address; and the Plugin State of each of its Plugins. A Connection that stops reporting is down; one that reports but cannot reach itself is up with its tunnel broken. Cloud Connect answers each with the latest Release of each Plugin to run, and the Minimum Connect.
 _Avoid_: poll, ping, health check (the route it calls, not the concept)
 
 **Last Seen**:

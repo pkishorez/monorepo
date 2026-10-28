@@ -9,7 +9,7 @@ The branch is the name Portless gives this checkout. `portless get connect.kisho
 - In the main checkout it is `https://connect.kishore.computer`, and the branch is `main`.
 - In a linked git worktree Portless adds a prefix, `https://<prefix>.connect.kishore.computer`, and the branch is `<prefix>`.
 
-The branch's Connection is `dev-<branch>`: the dev script runs this checkout's own `ke-connect serve dev-<branch>` as a process of its own, named `<host> (dev-<branch>)` in Code, so each branch's Connection is told apart there. The `dev-` keeps it clear of `main`, the Connection `ke-connect serve` makes by default, so the main checkout's development Connection (`dev-main`) never takes a real one's name. It runs the code Plugin this checkout built, `dist/plugins/code/serve/main.js`, with `--plugin code=<file>`, whatever Cloud Connect names.
+The branch's Connection is `dev-<branch>`: the dev script runs this checkout's own `ke-connect serve dev-<branch>` as a process of its own, named `<host> (dev-<branch>)` in Code, so each branch's Connection is told apart there. The `dev-` keeps it clear of `main`, the Connection `ke-connect serve` makes by default, so the main checkout's development Connection (`dev-main`) never takes a real one's name. It runs the code Plugin this checkout built, `dist/plugins/code/serve/main.js`, with `--plugin code=<file>`, whatever Cloud Connect names. Cloud Connect under `alchemy dev` names the bundle `pnpm build:plugin` last made, if there is one, without asking the Release Log: it puts it on the folder Shelf and names its `file:` URL in `PLUGINS`.
 
 ## Folders
 
@@ -18,6 +18,7 @@ The branch's Connection is `dev-<branch>`: the dev script runs this checkout's o
 | Data: `connection.json`, the Sign-in, the code Plugin's | `~/.local/share/kestack/connect/connections/dev-<branch>/` |
 | State: `connect.log`, `plugins/code.log`                | `~/.local/state/kestack/connect/connections/dev-<branch>/` |
 | The branch's dev folder                                 | `~/.local/state/kestack/connect/dev/<branch>/`             |
+| The folder Shelf, every branch's                        | `~/.cache/kestack/connect/shelf/<name>/<sha256>.mjs`       |
 
 `$XDG_DATA_HOME` and `$XDG_STATE_HOME` replace `~/.local/share` and `~/.local/state` when set. The cache (cloudflared, models, Speech to Text) is shared by every Connection. `ke-connect list` shows every branch's Connection, and whether it runs.
 
