@@ -157,20 +157,26 @@ export const leaving = ({
  * pointerup: that comes before the tap's blur. So a drag in the card that
  * the browser neither cancels nor clicks counts until the next press, and
  * putting the keyboard away just after it keeps the card open.
+ *
+ * Heard on the window: it hears a press before any element as it goes
+ * down, and after them all as it comes back up. React may hear it on the
+ * document itself, where an app that draws the whole document has its
+ * root, before a listener added there later, so one on the document
+ * would undo what the card just heard.
  */
-function usePress() {
+export function usePress() {
   const within = useRef(false);
   useEffect(() => {
     // Every press begins outside, until the card hears it.
     const over = () => void (within.current = false);
-    document.addEventListener('pointerdown', over, true);
-    document.addEventListener('pointercancel', over, true);
+    window.addEventListener('pointerdown', over, true);
+    window.addEventListener('pointercancel', over, true);
     // Bubbling, so it ends once the tap's own click has been handled.
-    document.addEventListener('click', over);
+    window.addEventListener('click', over);
     return () => {
-      document.removeEventListener('pointerdown', over, true);
-      document.removeEventListener('pointercancel', over, true);
-      document.removeEventListener('click', over);
+      window.removeEventListener('pointerdown', over, true);
+      window.removeEventListener('pointercancel', over, true);
+      window.removeEventListener('click', over);
     };
   }, []);
   return {
