@@ -34,6 +34,13 @@ try {
       '/': 'DevTools browser application.',
       '/lotel': 'Lotel Tool.',
       '/monoverse': 'Monoverse Tool.',
+      '/kabuki': 'Kabuki Tool: the live Kabuki Sessions, ?session= opens one.',
+      '/kabuki/connect':
+        'WebSocket a running Kabuki app dials as a Kabuki Session: ?name=&url=&app=. Any origin.',
+      '/kabuki/sessions':
+        'WebSocket RPC: the live Kabuki Sessions, listed and watched.',
+      '/kabuki/session/:name':
+        "WebSocket RPC: one Kabuki Session's Kabuki Session Api, forwarded to its app.",
       '/rpc': 'Typed RPC endpoint.',
       '/story-evidence':
         'One Evidence file of a Proof run: ?project=<abs path>&proof=<Proof id>&file=<relative file>.',
@@ -42,7 +49,7 @@ try {
     },
   });
 
-  for (const route of ['/', '/lotel', '/monoverse', '/not-found']) {
+  for (const route of ['/', '/lotel', '/monoverse', '/kabuki', '/not-found']) {
     const response = await fetch(`${origin}${route}`, {
       headers: { accept: 'text/html' },
     });
@@ -94,6 +101,29 @@ try {
     preflight.headers.get('access-control-allow-private-network'),
     'true',
   );
+
+  assert.equal(
+    (
+      await fetch(`${origin}/kabuki/sessions`, {
+        headers: { origin: 'http://example.test' },
+      })
+    ).status,
+    403,
+  );
+  const dialing = await fetch(`${origin}/kabuki/connect`, {
+    method: 'OPTIONS',
+    headers: {
+      origin: 'http://example.test',
+      'access-control-request-private-network': 'true',
+    },
+  });
+  assert.equal(dialing.status, 204);
+  assert.equal(
+    dialing.headers.get('access-control-allow-private-network'),
+    'true',
+  );
+  const sessions = await runClient(['kabuki', 'sessions', '--url', origin]);
+  assert.deepEqual(JSON.parse(sessions), []);
 
   const skills = await runClient(['skills', '--format', 'json']);
   assert.deepEqual(

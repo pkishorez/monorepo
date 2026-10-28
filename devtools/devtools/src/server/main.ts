@@ -6,6 +6,7 @@ import envPaths from 'env-paths';
 import { Config, Effect, References } from 'effect';
 import { Command, Flag } from 'effect/cli';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
+import { kabukiCommand } from '../cli/kabuki/index.js';
 import { skillsCommand } from '../cli/skills.js';
 import { getTraceCommand, listTracesCommand } from '../cli/traces/index.js';
 import { makeLocalDevtoolsServer } from './local-devtools-server/index.js';
@@ -76,7 +77,12 @@ const command = Command.make(
   Command.withDescription(
     'Run the DevTools Server: UI, RPC, and OTLP ingestion on loopback',
   ),
-  Command.withSubcommands([listTracesCommand, getTraceCommand, skillsCommand]),
+  Command.withSubcommands([
+    listTracesCommand,
+    getTraceCommand,
+    kabukiCommand,
+    skillsCommand,
+  ]),
 );
 
 command.pipe(

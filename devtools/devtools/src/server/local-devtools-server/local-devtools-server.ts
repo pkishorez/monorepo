@@ -6,6 +6,7 @@ import { Effect, Layer } from 'effect';
 import { HttpRouter } from 'effect/http';
 import { RpcSerialization, RpcServer } from 'effect/rpc';
 import { NodeHttpServer, NodeServices } from '@effect/platform-node';
+import { kabukiRoutes } from '@kestack/devtools-kabuki/server';
 import {
   LotelOtlpHttpLive,
   LotelRpcLive,
@@ -54,6 +55,7 @@ export function makeLocalDevtoolsServer(options: Options) {
           LotelOtlpHttpLive,
           makeBrowserApplicationLive({ uiRoot, version: options.version }),
           StoryEvidenceLive,
+          kabukiRoutes({ origins: [canonicalOrigin] }),
           makeRequestAccessLive({ port: options.port, canonicalOrigin }),
         ),
       ).pipe(
@@ -65,6 +67,9 @@ export function makeLocalDevtoolsServer(options: Options) {
           NodeHttpServer.layer(createServer, {
             host: HOST,
             port: options.port,
+            // A Kabuki Session's socket stays open as long as its app runs,
+            // so waiting for open requests to drain would hold every stop.
+            disablePreemptiveShutdown: true,
           }),
         ),
         Layer.provide(NodeServices.layer),
