@@ -167,7 +167,10 @@ export const device = ({
             return yield* new TestSignInUnsupported({ client: 'Device' });
           }
           const { url, login } = yield* worker;
-          const code = yield* login.requestCode;
+          /** `effect`, given up once the Auth Worker is no longer at `url`. */
+          const there = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+            Effect.raceFirst(effect, movedFrom(url));
+          const code = yield* there(login.requestCode);
           const token = yield* Effect.scoped(
             Effect.gen(function* () {
               // Shown before the first poll, and put away once it ends.
@@ -179,20 +182,20 @@ export const device = ({
                 }),
                 { startImmediately: true },
               );
-              return yield* Effect.raceFirst(
-                login.awaitToken(code),
-                movedFrom(url),
-              );
+              return yield* there(login.awaitToken(code));
             }),
           );
-          const user = yield* login.whoIs(token).pipe(
-            Effect.retry({
-              while: (error) =>
-                error._tag === 'AuthWorkerUnavailable' &&
-                error.kind !== 'unreadable',
-              schedule: Schedule.spaced('1 second'),
-              times: 3,
-            }),
+          const user = yield* there(
+            login.whoIs(token).pipe(
+              Effect.retry({
+                while: (error) =>
+                  error._tag === 'AuthWorkerUnavailable' &&
+                  error.kind !== 'unreadable',
+                schedule: Schedule.spaced('1 second'),
+                times: 3,
+              }),
+            ),
+          ).pipe(
             Effect.flatMap((named) =>
               named
                 ? Effect.succeed(named)
@@ -200,6 +203,8 @@ export const device = ({
                     new AuthWorkerUnavailable({ url, kind: 'unreadable' }),
                   ),
             ),
+            // A token never kept is never left signed in.
+            Effect.tapError(() => login.revoke(token)),
           );
           // A sign-in that outlived its Auth Worker touches nothing here.
           yield* stillAt(url).pipe(Effect.tapError(() => login.revoke(token)));
@@ -212,6 +217,8 @@ export const device = ({
             return yield* new AccountLimitReached({ limit: maxAccounts });
           }
           if (previous) yield* login.revoke(previous.token);
+          // Revoking can take five seconds: the Auth Worker may move meanwhile.
+          yield* stillAt(url).pipe(Effect.tapError(() => login.revoke(token)));
           return snapshotOf(
             yield* store.update((latest) =>
               withAccount(latest, { user, token }),

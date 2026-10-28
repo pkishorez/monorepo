@@ -6,7 +6,7 @@ import {
   truncateSync,
 } from 'node:fs';
 import { Console, Data, Effect, Layer, Logger, Option, Schedule } from 'effect';
-import { createFolders } from '@kestack/cli-platform/files';
+import { createFolders, lockPort, tryLock } from '@kestack/cli-platform/files';
 import { reach } from '@kestack/cli-platform/single';
 import {
   ConnectionControl,
@@ -30,8 +30,10 @@ import {
  * `ke-connect`: the Connections on this computer. cli/ is its commands;
  * each is done here.
  *
- * - serve: a Connection already running is only reported. Else it signs
- *   in as the Connection its folder keeps, through identity/, and runs the
+ * - serve: a Connection already running is only reported. Else it takes
+ *   its data folder's lock, held until it stops, so of two serves at once
+ *   only one signs in or starts a Plugin. Then it signs in as the
+ *   Connection its folder keeps, through identity/, and runs the
  *   Connection's Actor tree, actor-connection/, until it is forgotten,
  *   refused or stopped. A Connection forgotten signs out first.
  * - list: every Connection with a folder, asking each that runs about
@@ -119,6 +121,12 @@ const serve = (options: ServeFlags) =>
       return yield* Console.log(
         `${options.name} is already running at ${running.value.url ?? 'no address yet'}`,
       );
+    // The control socket is taken only once the Actor tree runs; this lock
+    // keeps a second serve from signing in or starting Plugins before then.
+    if (!(yield* tryLock(own.data)))
+      return yield* new ConnectionStopped({
+        message: `${options.name} is already starting, or another program holds port ${lockPort(own.data)}, its lock`,
+      });
     yield* createFolders({
       data: own.data,
       state: own.state,
