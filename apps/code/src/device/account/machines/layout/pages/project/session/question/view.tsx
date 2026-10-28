@@ -1,5 +1,4 @@
 import { View } from '@kestack/kabuki/react';
-import { cn } from '@kestack/web-platform/ui/components/utils';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import { use, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -9,7 +8,7 @@ import { notify } from '../../../../../../../../ui/controls/notice/index.ts';
 import { expandedOf, QuestionLive, shownOf } from './actor.ts';
 import { isAnswered, draftOf } from './answer.ts';
 import { Bar } from './bar.tsx';
-import { Form } from './form.tsx';
+import { Dialog } from './dialog/dialog.tsx';
 import { Around } from './question.ts';
 
 /*
@@ -19,22 +18,23 @@ import { Around } from './question.ts';
  * back as it was. It covers the page's content column only, never the
  * sidebar or the header, which work as ever while it waits.
  *
- * Expanded, it covers the transcript, under the page's header, drawn
- * where the page says (`Around`), and has the keys (`form.tsx`).
- * Minimised, it is a bar where the Draft was (`bar.tsx`), and the
- * transcript is the page's again, by pointer, touch and keys. Ctrl+Y, or
- * `y` in Vim Mode, toggles it, its own button or a swipe down minimises
- * it, and the bar, or `i`, which never reaches the hidden Draft, opens it.
- * Expanding by the user's ask takes focus into it; a new question takes
- * focus only from the page, never from the sidebar; minimising gives it
- * back to the page, and coming back to the page while it is expanded goes
- * into it. It moves in and out quickly, by transform and opacity
- * alone, not at all when motion is reduced. A refusal to take the answer
- * is said in a toast; a refusal to stop, over the bar.
+ * Expanded, it is a dialog of steps over the transcript, under the page's
+ * header, drawn where the page says (`Around`), with the keys
+ * (`dialog/`). Minimised, it is a bar where the Draft was (`bar.tsx`),
+ * and the transcript is the page's again, by pointer, touch and keys.
+ * Ctrl+Y toggles it in either Mode; `m` and Escape in it, its own button,
+ * a click on the transcript behind it, or a swipe down minimise it; the
+ * bar, or `m` or `i` in Vim Mode, which never reach the model Picker or
+ * the Draft it stands in for, open it. Expanding by the user's ask takes
+ * focus into it; a new question takes focus only from the page, never
+ * from the sidebar; minimising gives it back to the page, and coming back
+ * to the page while it is expanded goes into it. A refusal to take the
+ * answer is said in a toast; a refusal to stop, over the bar.
  */
 
 export const QuestionView = View.make(QuestionLive, ({ root, model, send }) => {
-  const { place, agent, stop, problem } = use(Around);
+  const { place, agent, harness, stop, problem } = use(Around);
+  const asker = { agent, harness };
   const shown = shownOf(model);
   const expanded = expandedOf(model);
   const { keyboard } = useDevice();
@@ -77,9 +77,10 @@ export const QuestionView = View.make(QuestionLive, ({ root, model, send }) => {
   };
   const toggle = () => (expanded ? minimise() : expand());
   const on = { enabled: shown !== null };
-  keys.useAction('content.question', toggle, on);
   keys.useAction('content.questionAnywhere', toggle, on);
-  // `i` opens the question, never the Draft it stands in for.
+  // `m` and `i` open the question, never the model Picker or the Draft,
+  // which are not drawn while it stands in for them.
+  keys.useAction('content.model', toggle, on);
   keys.useAction('content.write', expand, on);
   // Back to the page while it covers the transcript, as by `l` or Ctrl+L
   // from the sidebar: the keys go into it, never to the transcript under
@@ -102,12 +103,12 @@ export const QuestionView = View.make(QuestionLive, ({ root, model, send }) => {
     if (refused === null) return;
     notify({ title: 'Your answer was not sent', description: refused.reason });
   }, [refused?.n]);
-  // The keys that open it from where the user is: `y` in Vim Mode's
+  // The keys that open it from where the user is: `m` in Vim Mode's
   // Normal Mode, else Ctrl+Y.
   const available = keys.useAvailableActions();
   const openKeys = useBound(
-    available.some(({ id, shadowed }) => id === 'content.question' && !shadowed)
-      ? 'content.question'
+    available.some(({ id, shadowed }) => id === 'content.model' && !shadowed)
+      ? 'content.model'
       : 'content.questionAnywhere',
   );
   if (shown === null) return <div {...root} hidden />;
@@ -121,7 +122,13 @@ export const QuestionView = View.make(QuestionLive, ({ root, model, send }) => {
   ).length;
   return (
     <div {...root}>
-      <div inert={expanded} aria-hidden={expanded}>
+      {/* Gone while expanded, so nothing of it shows behind the dialog. */}
+      <div
+        inert={expanded}
+        aria-hidden={expanded}
+        className="transition-opacity duration-150 ease-out data-[hidden]:opacity-0 motion-reduce:transition-none"
+        data-hidden={expanded ? '' : undefined}
+      >
         {/* Why a stop was refused, where the Draft would have said it. */}
         {problem !== null && (
           <p
@@ -135,7 +142,7 @@ export const QuestionView = View.make(QuestionLive, ({ root, model, send }) => {
         <Bar
           question={shown}
           answered={answered}
-          agent={agent}
+          asker={asker}
           sending={sending}
           stop={stop}
           touch={touch}
@@ -146,44 +153,30 @@ export const QuestionView = View.make(QuestionLive, ({ root, model, send }) => {
       </div>
       {place !== null &&
         createPortal(
-          <div
-            inert={!expanded}
-            aria-hidden={!expanded}
-            data-expanded={expanded ? '' : undefined}
-            className={cn(
-              'absolute inset-x-0 bottom-0 z-20 flex flex-col',
-              touch ? 'top-3' : 'top-0 bg-background',
-              // Out: down a little and gone; in: up into place.
-              'pointer-events-none translate-y-3 opacity-0 transition-[opacity,translate] duration-150 ease-in',
-              'data-expanded:pointer-events-auto data-expanded:translate-y-0 data-expanded:opacity-100 data-expanded:duration-200 data-expanded:ease-[cubic-bezier(0.32,0.72,0,1)]',
-              'motion-reduce:translate-y-0 motion-reduce:transition-none',
-            )}
-          >
-            <Form
-              key={shown.id}
-              question={shown}
-              drafts={drafts}
-              tried={model.tried.includes(shown.id)}
-              sending={sending}
-              touch={touch}
-              agent={agent}
-              stop={stop}
-              expanded={expanded}
-              claim={claim}
-              onChoose={(itemId, label) =>
-                send({ _tag: 'Chose', questionId: shown.id, itemId, label })
-              }
-              onChooseOther={(itemId) =>
-                send({ _tag: 'ChoseOther', questionId: shown.id, itemId })
-              }
-              onType={(itemId, text) =>
-                send({ _tag: 'Typed', questionId: shown.id, itemId, text })
-              }
-              onSend={() => send({ _tag: 'SendAsked' })}
-              onDecline={() => send({ _tag: 'DeclineAsked' })}
-              onMinimise={minimise}
-            />
-          </div>,
+          <Dialog
+            key={shown.id}
+            question={shown}
+            drafts={drafts}
+            tried={model.tried.includes(shown.id)}
+            sending={sending}
+            touch={touch}
+            asker={asker}
+            stop={stop}
+            expanded={expanded}
+            claim={claim}
+            onChoose={(itemId, label) =>
+              send({ _tag: 'Chose', questionId: shown.id, itemId, label })
+            }
+            onChooseOther={(itemId) =>
+              send({ _tag: 'ChoseOther', questionId: shown.id, itemId })
+            }
+            onType={(itemId, text) =>
+              send({ _tag: 'Typed', questionId: shown.id, itemId, text })
+            }
+            onSend={() => send({ _tag: 'SendAsked' })}
+            onDecline={() => send({ _tag: 'DeclineAsked' })}
+            onMinimise={minimise}
+          />,
           place,
         )}
     </div>

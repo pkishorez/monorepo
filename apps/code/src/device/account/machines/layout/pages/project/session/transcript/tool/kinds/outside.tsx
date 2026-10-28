@@ -139,8 +139,9 @@ export const question: Kind = {
 
 /**
  * A question the agent asked you, as the conversation reads it, never
- * folded into its work: each question and what was answered; while its
- * Turn waits, that it waits for you; skipped or left, that it was.
+ * folded into its work, a card as a subagent's is: where it stands, as
+ * its title, how many questions, then each and what was answered; while
+ * its Turn waits, that it waits for you; skipped or left, that it was.
  * Null when its input holds no question, for a tool line instead.
  */
 export function Asked({
@@ -160,14 +161,29 @@ export function Asked({
         : read.declined
           ? 'Asked, and skipped'
           : 'Asked you';
+  const count = read.asked.length;
   return (
-    <div className="flex w-full max-w-xl flex-col gap-2.5 rounded-xl border border-border px-4 py-3">
-      <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-        <MessageCircleQuestionMarkIcon aria-hidden className="size-3.5" />
-        <span className="flex-1">{said}</span>
-        {state === 'running' && <Spinner aria-hidden className="size-3.5" />}
-      </span>
-      <Answers asked={read.asked} />
+    <div className="my-1.5 flex w-full max-w-xl min-w-0 flex-col rounded-xl border border-border">
+      <div className="flex min-h-12 items-center gap-2.5 px-3 text-sm keyboard:min-h-10">
+        <MessageCircleQuestionMarkIcon
+          aria-hidden
+          className="size-4 shrink-0 text-muted-foreground"
+        />
+        <span className="min-w-0 flex-1 truncate font-medium">{said}</span>
+        {state === 'running' ? (
+          <Spinner
+            aria-hidden
+            className="size-3.5 shrink-0 text-muted-foreground"
+          />
+        ) : (
+          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+            {count === 1 ? 'One question' : `${count} questions`}
+          </span>
+        )}
+      </div>
+      <div className="min-w-0 border-t border-border/70 px-3 py-2.5">
+        <Answers asked={read.asked} />
+      </div>
     </div>
   );
 }

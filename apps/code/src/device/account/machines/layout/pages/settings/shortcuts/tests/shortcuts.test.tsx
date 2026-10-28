@@ -111,16 +111,20 @@ afterEach(async () => {
 
 describe('Shortcut settings', () => {
   it('records the next key in place of the old ones, and no app key works meanwhile', async () => {
-    await record('Pick the model');
+    await record('Pick the model, or open the question');
     // Ctrl+, goes to Settings, but not while recording.
     await press(',', 'Comma', { ctrlKey: true });
     expect(toSettings).toBe(0);
     expect(recorder()).toBeNull();
-    expect(rowOf('Pick the model')?.textContent).toContain(',');
-    expect(document.activeElement).toBe(button('Pick the model'));
+    expect(
+      rowOf('Pick the model, or open the question')?.textContent,
+    ).toContain(',');
+    expect(document.activeElement).toBe(
+      button('Pick the model, or open the question'),
+    );
     // A nearer Surface's key is allowed, with a note on the one it hides.
     expect(rowOf('Settings, or back from them')?.textContent).toContain(
-      'does “Pick the model” instead',
+      'does “Pick the model, or open the question” instead',
     );
     // Recording over, the key works again (this keyboard is not handed the Bindings).
     await press(',', 'Comma', { ctrlKey: true });

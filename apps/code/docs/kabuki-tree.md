@@ -190,8 +190,12 @@ An agent's question is followed once, by its Machine, and read twice.
   the session or the page and coming back finds each question as it was
   left, and answers or declines it over the page's socket; one no longer
   asked is as good as answered. Its parts: `answer.ts` (an answer as it
-  is given), `form.tsx` (expanded, the `question` Surface, inside the
-  page's) and `bar.tsx` (minimised). The page draws it in the Draft's
-  place, and no Draft at all while it stands in, so nothing reaches the
-  Draft; expanded, it is drawn over the transcript, which is `inert`
-  under it. The sidebar and the header are outside it, and work as ever.
+  is given), `dialog/` (expanded: a dialog of one Item a step, the
+  `question` Surface inside the page's; `step.tsx` draws an Item,
+  `keys.ts` its keys, `sheet.ts` its touch sheet) and `bar.tsx`
+  (minimised). Which step is shown, whether one's own answer is being
+  typed, and whether skipping waits on a second ask are the dialog's
+  alone, not kept. The page draws it in the Draft's place, and no Draft
+  at all while it stands in, so nothing reaches the Draft; expanded, it
+  is drawn over the transcript, which is dimmed and `inert` under it.
+  The sidebar and the header are outside it, and work as ever.
