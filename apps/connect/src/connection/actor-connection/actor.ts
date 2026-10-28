@@ -1,4 +1,4 @@
-import { Effect, Layer, Schema } from 'effect';
+import { Effect, Layer, Schema, Stream } from 'effect';
 import { Actor, type Self } from '@kestack/kabuki';
 import { Plugins, PluginState } from '@kestack/cli-platform/plugins';
 import { single } from '@kestack/cli-platform/single';
@@ -7,6 +7,7 @@ import { ActorOnline } from './actor-online/index.js';
 import { ActorPlugins, socketOf, Wanted } from './actor-plugins/index.js';
 import { Connection } from './capabilities/index.js';
 import { ConnectionControl } from './control.js';
+import { remember } from './remember.js';
 
 /*
  * One running Connection, standing on who it is, given as Input. It has
@@ -18,11 +19,13 @@ import { ConnectionControl } from './control.js';
  * router's port go to the next Heartbeat and the tunnel.
  *
  * A Plugin Cloud Connect names is started, and a new version swaps it; one
- * no longer named keeps running. A Plugin given as a file, in development,
- * stays that file. Always, the control Worker holds the Connection's
- * control socket, the lock that makes it the one process of its name. A
- * forgotten or refused Connection ends it, and so does `stop` on the
- * control socket.
+ * no longer named keeps running. Until Cloud Connect answers, the Plugins
+ * run at the Release the Connection last wanted, which the remember
+ * Worker keeps on disk; the first answer wins over it. A Plugin given as
+ * a file, in development, stays that file. Always, the control Worker
+ * holds the Connection's control socket, the lock that makes it the one
+ * process of its name. A forgotten, refused or Outdated Connection ends
+ * it, and so does `stop` on the control socket.
  */
 
 /** A Plugin's name: what a folder and a socket can be named. */
@@ -53,6 +56,8 @@ const Input = Schema.Struct({
   origins: Schema.Array(Schema.String),
   /** In development: a Plugin to run from a file, by name, whatever Cloud Connect wants. */
   files: Schema.Record(Schema.String, Schema.String),
+  /** The Release of each Plugin it last wanted, as remember.ts kept it, until Cloud Connect answers. */
+  lastWanted: Schema.Record(Schema.String, Version),
 });
 type Input = typeof Input.Type;
 
@@ -108,6 +113,24 @@ const wantedOf = (
   return { ...model.wanted, ...named, ...files };
 };
 
+/** The Releases among the Plugins wanted: what is remembered, never a file. */
+const releasesOf = (wanted: Model['wanted']) =>
+  Object.fromEntries(
+    Object.entries(wanted).flatMap(([name, each]) =>
+      'hash' in each ? [[name, each] as const] : [],
+    ),
+  );
+
+/** Keeps the Releases wanted on disk each time they change, until the Worker stops. */
+const rememberWanted = (self: ConnectionSelf) =>
+  Effect.flatMap(self.get, ({ model }) =>
+    self.changes.pipe(
+      Stream.map(({ model }) => releasesOf(model.wanted)),
+      Stream.changesWith((a, b) => JSON.stringify(a) === JSON.stringify(b)),
+      Stream.runForEach((releases) => remember(model.folders.data, releases)),
+    ),
+  );
+
 /** Holds the control socket, answering `status` and `stop`, until the Worker stops. */
 const control = (self: ConnectionSelf) =>
   Effect.gen(function* () {
@@ -158,7 +181,7 @@ export const ActorConnection = Actor.build(
         plugins: {},
       };
       return {
-        model: { ...model, wanted: wantedOf(model, {}) },
+        model: { ...model, wanted: wantedOf(model, input.lastWanted) },
         state: { _tag: 'Running' },
       };
     },
@@ -192,7 +215,10 @@ export const ActorConnection = Actor.build(
           port: model.port,
           origins: model.origins,
         }),
-        props: ({ model }) => ({ wanted: model.wanted }),
+        props: ({ model }) => ({
+          wanted: model.wanted,
+          plugins: model.plugins,
+        }),
       },
     },
     on: {
@@ -208,6 +234,7 @@ export const ActorConnection = Actor.build(
     },
     workers: {
       control: { run: control },
+      remember: { run: rememberWanted },
     },
     state: {
       Running: {

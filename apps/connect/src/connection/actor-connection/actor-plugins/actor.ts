@@ -5,17 +5,19 @@ import {
   socketPath,
   type Folders,
 } from '@kestack/cli-platform/files';
-import { ActorPlugin } from '@kestack/cli-platform/plugins';
+import { ActorPlugin, PluginState } from '@kestack/cli-platform/plugins';
 import { Connection } from '../capabilities/index.js';
 import { router } from './router.js';
 
 /*
  * What a Connection serves. Always, the router Worker listens on the
- * Connection's public port and passes `/<plugin>/…` to each Plugin's
- * socket, once it has checked the Connection Key, and tells the Connection
- * the port it got. One ActorPlugin Child per Plugin wanted keeps it running
- * at that version, and reports where it stands up through Plugins, which
- * the Connection Provides.
+ * Connection's public port and passes `/<plugin>/<sha256>/rpc` to each
+ * Plugin's socket while the Plugin runs that Release, once it has checked
+ * the Connection Key, and tells the Connection the port it got. Which
+ * Release runs it reads from each Plugin State, as the Connection hands
+ * them down; a Plugin run from a file answers at any hash. One ActorPlugin
+ * Child per Plugin wanted keeps it running at that version, and reports
+ * where it stands up through Plugins, which the Connection Provides.
  */
 
 const FoldersSchema = Schema.Struct({
@@ -47,9 +49,21 @@ type Input = typeof Input.Type;
 const Props = Schema.Struct({
   /** The version of each Plugin to run, by name. */
   wanted: Schema.Record(Schema.String, Wanted),
+  /** Where each Plugin stands, as it last reported. */
+  plugins: Schema.Record(Schema.String, PluginState.schema),
 });
+type Props = typeof Props.Type;
 
-type PluginsSelf = Self<Input, Single, never, typeof Props.Type>;
+type PluginsSelf = Self<Input, Single, never, Props>;
+
+/** The Release the Plugin `name` runs instead of `hash`, null while it runs none; undefined when it serves `hash`. */
+const otherThan = (props: Props, name: string, hash: string) => {
+  if (props.wanted[name] !== undefined && 'file' in props.wanted[name])
+    return undefined;
+  const state = props.plugins[name];
+  const running = state?._tag === 'Running' ? state.hash : null;
+  return running === hash ? undefined : running;
+};
 
 /** The socket of the Plugin `name`. */
 export const socketOf = (
@@ -62,13 +76,14 @@ const route = (self: PluginsSelf) =>
   Effect.gen(function* () {
     const connection = yield* Connection;
     const { model, props } = yield* self.get;
-    let wanted = props.wanted;
+    let now = props;
     const port = yield* Effect.result(
       router({
         port: model.port,
         key: model.key,
         origins: model.origins,
-        socketOf: (name) => (name in wanted ? socketOf(model, name) : null),
+        socketOf: (name) => (name in now.wanted ? socketOf(model, name) : null),
+        otherThan: (name, hash) => otherThan(now, name, hash),
       }),
     );
     if (port._tag === 'Failure')
@@ -77,7 +92,7 @@ const route = (self: PluginsSelf) =>
     yield* self.changes.pipe(
       Stream.runForEach(({ props }) =>
         Effect.sync(() => {
-          wanted = props.wanted;
+          now = props;
         }),
       ),
     );

@@ -1,8 +1,9 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { type Duration, Effect, Layer, Option, Stream } from 'effect';
 import { afterEach, vi } from 'vitest';
 import { History, Runtime } from '@kestack/kabuki';
@@ -21,6 +22,15 @@ import { ActorConnection, Cloud, type Reported, Tunnels } from '../../index.js';
 
 export const PING = fileURLToPath(new URL('./ping.mjs', import.meta.url));
 export const KEY = 'k3y_-secret';
+
+/** A Release of the ping Plugin on a folder Shelf: one file that runs PING from where it is, and its `file:` URL. */
+export const release = (variant = '') => {
+  const content = `${variant}await import(${JSON.stringify(pathToFileURL(PING).href)});\n`;
+  const hash = createHash('sha256').update(content).digest('hex');
+  const file = join(folder(), `${hash}.mjs`);
+  writeFileSync(file, content);
+  return { hash, url: pathToFileURL(file).href };
+};
 
 const made: Array<string> = [];
 afterEach(() => {
@@ -124,6 +134,7 @@ export const inputOf = (files: Record<string, string> = {}) => {
     port: 0,
     origins: ['http://localhost:*', 'https://*.app.test'],
     files,
+    lastWanted: {} as Record<string, { hash: string; url: string }>,
   };
 };
 
@@ -160,6 +171,38 @@ export const runToEnd = (host: Host) =>
 
 export const eventually = (assertion: () => void, timeout = 5_000) =>
   Effect.promise(() => vi.waitFor(assertion, { timeout, interval: 10 }));
+
+/** How a WebSocket to the router at `path`, with the key, closed: its code and reason. */
+export const closeOf = (port: number, path: string) =>
+  new Promise<{ code: number; reason: string }>((resolve) => {
+    const socket = new WebSocket(`ws://127.0.0.1:${port}${path}`, [
+      'ke-connect',
+      `key.${KEY}`,
+    ]);
+    socket.onclose = ({ code, reason }) => resolve({ code, reason });
+  });
+
+/** How the router answers a plain GET at `path`, with the key: its status and body. */
+export const get = (port: number, path: string) =>
+  new Promise<{ status: number; body: string }>((resolve, reject) => {
+    const asking = request({
+      host: '127.0.0.1',
+      port,
+      path,
+      agent: false,
+      headers: { 'sec-websocket-protocol': `ke-connect, key.${KEY}` },
+    });
+    asking.on('response', (response) => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk: string) => (body += chunk));
+      response.on('end', () =>
+        resolve({ status: response.statusCode ?? 0, body }),
+      );
+    });
+    asking.on('error', reject);
+    asking.end();
+  });
 
 /** How the router answers a WebSocket upgrade at `path`: 101, or its refusal. */
 export const upgrade = (

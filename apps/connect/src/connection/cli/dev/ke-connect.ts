@@ -66,8 +66,6 @@ export interface Serving {
   readonly port: number;
   /** Other origins a page may call from. */
   readonly origins: ReadonlyArray<string>;
-  /** A Plugin to run from a file, by name. */
-  readonly plugins: Readonly<Record<string, string>>;
 }
 
 /**
@@ -86,10 +84,6 @@ export const serving = (options: Serving) =>
           '--port',
           String(options.port),
           ...options.origins.flatMap((origin) => ['--origin', origin]),
-          ...Object.entries(options.plugins).flatMap(([name, file]) => [
-            '--plugin',
-            `${name}=${file}`,
-          ]),
         ]),
       ),
       stop,
