@@ -29,7 +29,8 @@ import { useVisibleViewport } from './visible-viewport.ts';
  *                `tall`, three quarters of the screen whatever is in it, so
  *                a long list never changes its height as it loads. With
  *                the on-screen keyboard up, either sits above it, in the
- *                part of the page left visible, and, a field in it
+ *                part of the page left visible (`visible-viewport.ts`),
+ *                its focused field scrolled into sight, and, a field in it
  *                focused, takes all of that but the status bar, so
  *                nothing in it is under the keyboard, nor any room kept
  *                for the home indicator the keyboard covers. Once risen, a Drawer holding a
@@ -99,8 +100,8 @@ export function Drawer({
   children,
 }: Layer) {
   const { live, look } = useLastLook(open);
-  const visible = useVisibleViewport(open);
   const popup = useRef<HTMLDivElement>(null);
+  const visible = useVisibleViewport(open, popup);
   const { settled, onOpenChangeComplete, onFocus } = useSettled(popup);
   return (
     <DrawerRoot
@@ -170,7 +171,7 @@ export function Drawer({
 /** 2. A layer at the top with a list to search, never in motion. */
 export function TopDialog({ open, onOpenChange, label, children }: Layer) {
   const popup = useRef<HTMLDivElement>(null);
-  const visible = useVisibleViewport(open);
+  const visible = useVisibleViewport(open, popup);
   const field = useFieldAtPress(popup);
   const change: Change = (next, details) => {
     if (!next && details.reason === 'outside-press' && field.blurred())

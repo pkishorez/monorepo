@@ -1,3 +1,4 @@
+import { useKeyboardOver } from '@kestack/web-platform/recipes/touch-layers';
 import type * as Picker from '../../../../../../../../../ui/controls/picker/index.ts';
 import type { EditorView } from '@codemirror/view';
 import {
@@ -118,6 +119,73 @@ const heardOf = ({
         : pending._tag === 'Failed'
           ? 'failed'
           : 'text';
+
+/**
+ * What focus leaving the card's words does: nothing, unless it was
+ * editing and the card did not move the focus itself. Focus going to
+ * something in the card, as Chrome gives a tapped button, or a press in
+ * the card that took it, as iOS's tap on a button does, giving it to no
+ * one: it stays open, as Done, so its controls are still there for the
+ * tap. Leaving it otherwise ends editing: with Smart Input it stays open,
+ * as Done; without, it collapses.
+ */
+export const leaving = ({
+  editing,
+  moving,
+  within,
+  pressedWithin,
+  smart,
+}: {
+  readonly editing: boolean;
+  readonly moving: boolean;
+  /** Focus went to something in the card. */
+  readonly within: boolean;
+  /** A press in the card began just now. */
+  readonly pressedWithin: boolean;
+  readonly smart: boolean;
+}): 'Done' | 'Collapse' | null =>
+  !editing || moving || within
+    ? null
+    : pressedWithin || smart
+      ? 'Done'
+      : 'Collapse';
+
+/** How long after a press began it may still be what took focus, in ms. */
+const PRESS = 1_000;
+
+/**
+ * Whether a press inside `card` began just now: iOS gives a tapped button
+ * no focus, so focus leaving says nothing of where the tap was.
+ */
+function usePressIn(card: RefObject<HTMLElement | null>) {
+  const last = useRef({ inside: false, at: -Infinity });
+  useEffect(() => {
+    const press = (event: PointerEvent) => {
+      last.current = {
+        inside:
+          event.target instanceof Node &&
+          card.current?.contains(event.target) === true,
+        at: performance.now(),
+      };
+    };
+    document.addEventListener('pointerdown', press, true);
+    return () => document.removeEventListener('pointerdown', press, true);
+  }, [card]);
+  return () =>
+    last.current.inside && performance.now() - last.current.at < PRESS;
+}
+
+/** What holds the card, drawn as a box: what it is measured against. */
+const foot = (
+  card: RefObject<HTMLElement | null>,
+): RefObject<HTMLElement | null> => ({
+  get current() {
+    let box = card.current?.parentElement ?? null;
+    while (box !== null && getComputedStyle(box).display === 'contents')
+      box = box.parentElement;
+    return box;
+  },
+});
 
 /** How long "Voice isn't on" shows, in ms. */
 const NUDGE = 2_400;
@@ -240,18 +308,25 @@ export function useTouchDraft(
     send({ _tag: 'Take', send: then });
     draft.dictation.onToggle();
   };
-  // Focus leaving the card while editing ends it: with Smart Input it
-  // stays open, as Done; without, it collapses.
+  const pressed = usePressIn(card);
+  // Open at the page's foot: iOS pans the page only as far as the caret,
+  // so its controls are padded up over the keyboard, measured from what
+  // holds it, whose foot stays put as it grows. While open, not only
+  // editing: a tap on its own button ends editing before the click lands,
+  // and the padding goes only once the keyboard is down, not under it.
+  const keyboard = useKeyboardOver(expanded, foot(card), card);
   const onBlur = (event: {
     readonly currentTarget: Element;
     readonly relatedTarget: EventTarget | null;
   }) => {
-    if (
-      editing &&
-      !moving.current &&
-      !event.currentTarget.contains(event.relatedTarget as Node)
-    )
-      send({ _tag: model.smart ? 'Done' : 'Collapse' });
+    const then = leaving({
+      editing,
+      moving: moving.current,
+      within: event.currentTarget.contains(event.relatedTarget as Node),
+      pressedWithin: pressed(),
+      smart: model.smart,
+    });
+    if (then !== null) send({ _tag: then });
   };
   return {
     expanded,
@@ -271,6 +346,8 @@ export function useTouchDraft(
     retry: () => failed !== null && draft.dictation.onRetry(failed.id),
     cancel,
     onBlur,
+    /** How much of its foot the keyboard covers, while it is open. */
+    covered: keyboard.covered,
     ready,
     /** Why voice can't be had now, while it shows; its key replays the shake. */
     nudge:
