@@ -53,6 +53,7 @@ const layer = Layer.mergeAll(
 export default Start.app({
   router,
   view: AppView,
+  name: 'kabuki-start',
   // The Web Platform's Document, with Kabuki's devtools around every page,
   // from the button in the corner.
   document: document({
