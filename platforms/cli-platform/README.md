@@ -145,7 +145,7 @@ yield *
 ```
 
 - `wanted` is `{ hash, url }`, downloaded through Downloads and checked against the hash, or `{ file }`, a local file in development. A `file:` URL is copied and checked the same way; one with no file there is Crashed as not on the shelf.
-- A new `wanted` downloads while the old Plugin runs; then the old one gets SIGTERM, SIGKILL after ten seconds, and the new one starts once the socket is free.
+- A new `wanted` downloads while the old Plugin runs; then the old one gets SIGTERM, SIGKILL after ten seconds, and the new one starts once the old process has exited, its finalizers done, and the socket is free. Two never run at once on one Plugin's folders.
 - A Plugin that exits is Crashed and started again after 1 s, 2 s, 4 s, up to 60 s; its last 50 lines are in the report and all of them in `<state>/plugins/<name>.log`.
 - While a downloaded file runs, it is marked used every day, so `Downloads.prune` from any CLI on the computer keeps it.
 
