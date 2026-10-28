@@ -7,6 +7,7 @@ import {
   Accounts,
   type AccountsLayer,
   AuthWorkerUnavailable,
+  DeviceLoginFailed,
   type SignInOptions,
   TestSignInUnsupported,
 } from '../accounts/index.js';
@@ -109,6 +110,20 @@ export const device = ({
         );
         return { url: at, login: deviceLogin(api, app, at) };
       });
+      /** Fails once the Auth Worker is no longer the one at `at`: a sign-in
+       * begun there is dropped, never kept. */
+      const moved = new DeviceLoginFailed({ reason: 'moved' });
+      const stillAt = (at: string) =>
+        Effect.flatMap(urlNow, (now) =>
+          now === at ? Effect.void : Effect.fail(moved),
+        );
+      const movedFrom = (at: string) =>
+        typeof url === 'string'
+          ? Effect.never
+          : stillAt(at).pipe(
+              Effect.repeat(Schedule.spaced('1 second')),
+              Effect.andThen(Effect.never),
+            );
       const store = yield* makeSignInStore;
       const read = Effect.map(store.read, snapshotOf);
 
@@ -164,7 +179,10 @@ export const device = ({
                 }),
                 { startImmediately: true },
               );
-              return yield* login.awaitToken(code);
+              return yield* Effect.raceFirst(
+                login.awaitToken(code),
+                movedFrom(url),
+              );
             }),
           );
           const user = yield* login.whoIs(token).pipe(
@@ -183,6 +201,8 @@ export const device = ({
                   ),
             ),
           );
+          // A sign-in that outlived its Auth Worker touches nothing here.
+          yield* stillAt(url).pipe(Effect.tapError(() => login.revoke(token)));
           const current = yield* store.read;
           const previous = current.accounts.find(
             (account) => account.user.id === user.id,
@@ -198,6 +218,17 @@ export const device = ({
             ),
           );
         });
+
+      /** Revokes `tokens` at the Auth Worker, finding it included, for
+       * five seconds at most; they are forgotten here either way. */
+      const revokeAll = (tokens: ReadonlyArray<string>) =>
+        Effect.gen(function* () {
+          const { login } = yield* worker;
+          yield* Effect.forEach(tokens, login.revoke, {
+            concurrency: 'unbounded',
+            discard: true,
+          });
+        }).pipe(Effect.timeout(ANSWER), Effect.ignore);
 
       const tokenOf = (userId: string) =>
         Effect.map(
@@ -222,22 +253,14 @@ export const device = ({
           signOut: (userId) =>
             Effect.gen(function* () {
               const token = yield* tokenOf(userId);
-              const { login } = yield* worker;
-              if (token) yield* login.revoke(token);
+              if (token) yield* revokeAll([token]);
               return snapshotOf(
                 yield* store.update((current) => without(current, userId)),
               );
             }),
           signOutAll: Effect.gen(function* () {
             const { accounts } = yield* store.read;
-            const { login } = yield* worker;
-            yield* Effect.forEach(
-              accounts,
-              ({ token }) => login.revoke(token),
-              {
-                concurrency: 'unbounded',
-              },
-            );
+            yield* revokeAll(accounts.map(({ token }) => token));
             return snapshotOf(
               yield* store.update(() => ({ accounts: [], active: null })),
             );
@@ -255,14 +278,18 @@ export const device = ({
             : Effect.fail(new Unauthenticated({ reason: 'Not signed in' }));
         }),
       );
+      const scope = yield* Effect.scope;
       return Layer.mergeAll(
         Layer.succeed(Accounts, made.accounts),
         signing({
           signature,
           refused: 'Unauthenticated',
-          // The refusal reaches the caller even when the Auth Worker does
-          // not answer the check.
-          recheck: made.accounts.check.pipe(Effect.timeout(ANSWER)),
+          // The refusal reaches the caller at once; the check runs beside
+          // it, for five seconds at most.
+          recheck: Effect.forkIn(
+            made.accounts.check.pipe(Effect.timeout(ANSWER), Effect.ignore),
+            scope,
+          ),
         }),
       );
     }),
