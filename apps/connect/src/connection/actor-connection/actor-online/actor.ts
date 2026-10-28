@@ -23,7 +23,8 @@ import { Cloud, TunnelStatus } from './capabilities/index.js';
  *
  * Cloud Connect answers a Report with the version of each Plugin to run,
  * which goes up to the Connection. A forgotten or refused Connection is told
- * up too, and ends it. A revoked Sign-in takes it to SigningIn, which
+ * up too, and ends it, and so is one Outdated: having reported its version,
+ * which is how its User learns it, it stops. A revoked Sign-in takes it to SigningIn, which
  * closes the tunnel until signed in again.
  *
  * A Cloud Connect that refuses Sign-in after Sign-in would have it sign in
@@ -113,6 +114,10 @@ const checked = (url: string, check: TunnelCheck): ConnectionStatus =>
         problem: check.problem ?? 'Unknown',
       };
 
+/** Why an Outdated Connection stops, and what to do. */
+const outdatedReason = (version: string, minConnect: string) =>
+  `ke-connect ${version} is older than Cloud Connect accepts (${minConnect}): run \`npm i -g @kestack/connect@latest\`, then serve again.`;
+
 /** Sends a Report of how things stand now, and acts on the answer. */
 const report = (self: OnlineSelf) =>
   Effect.gen(function* () {
@@ -127,6 +132,10 @@ const report = (self: OnlineSelf) =>
       case 'Reported':
         yield* self.send({ _tag: 'Reported' });
         return yield* connection.wanted(answer.wanted);
+      case 'Outdated':
+        return yield* connection.stop(
+          outdatedReason(answer.version, answer.minConnect),
+        );
       case 'Unsent':
         return yield* Effect.logWarning(
           `Heartbeat not sent: ${answer.problem}`,

@@ -18,6 +18,12 @@ export type Reported =
       readonly _tag: 'Reported';
       readonly wanted: Readonly<Record<string, PluginVersion>>;
     }
+  /** Taken, but this `ke-connect` is below the Minimum Connect: stop. */
+  | {
+      readonly _tag: 'Outdated';
+      readonly version: string;
+      readonly minConnect: string;
+    }
   /** The Connection was forgotten (ADR 0016): sign out and stop. */
   | { readonly _tag: 'Forgotten' }
   /** The Sign-in is gone: stop serving until signed in again. */

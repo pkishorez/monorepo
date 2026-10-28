@@ -1,5 +1,4 @@
 import { type ChildProcess, spawn } from 'node:child_process';
-import { join } from 'node:path';
 import { Effect } from 'effect';
 import { names } from '@kestack/cli-platform/files';
 import { type DevAuth, authOf, connectionName } from './auth.js';
@@ -16,11 +15,12 @@ import {
 } from './record.js';
 
 /*
- * Running this branch's Connect: its Cloud Connect under `alchemy dev`
- * behind Portless, then the branch's own Connection, `ke-connect serve` as
- * a process of its own, against it, running the code Plugin this checkout
- * built, ready once its router answers `/health` and `connect.json` says
- * so. Meanwhile the development Connections of branches with no checkout
+ * Running this branch's Connect: the code Plugin built first, `pnpm
+ * build:plugin`, so its Cloud Connect under `alchemy dev` behind Portless
+ * puts it on the folder Shelf and names it; then the branch's own
+ * Connection, `ke-connect serve` as a process of its own, against it,
+ * fetching that Release from the Shelf as a deployed Connection does,
+ * ready once its router answers `/health` and `connect.json` says so. Meanwhile the development Connections of branches with no checkout
  * any more are removed. A shared Connect stops 3 s after its last lease is
  * gone, unless an App leased it as it decided, watching from the moment it
  * starts, so an App that gives up while Cloud Connect never answers does
@@ -51,6 +51,38 @@ const exitOf = (child: ChildProcess) =>
     if (child.exitCode !== null || child.signalCode !== null) resolve();
     else child.once('exit', () => resolve());
   });
+
+/** `pnpm build:plugin` in `root`: the code Plugin's one file, which `alchemy dev` puts on the Shelf. Stopped with the Scope. */
+const buildPlugin = (root: string) =>
+  Effect.acquireUseRelease(
+    Effect.sync(() =>
+      spawn('pnpm', ['run', 'build:plugin'], { cwd: root, stdio: 'inherit' }),
+    ),
+    (child) =>
+      Effect.callback<void, Error>((resume) => {
+        child.once('error', (error) =>
+          resume(
+            Effect.fail(
+              new Error(`Could not run pnpm build:plugin: ${error.message}`),
+            ),
+          ),
+        );
+        child.once('exit', (code, signal) =>
+          resume(
+            code === 0
+              ? Effect.void
+              : Effect.fail(
+                  new Error(`pnpm build:plugin exited with ${code ?? signal}`),
+                ),
+          ),
+        );
+      }),
+    (child) =>
+      Effect.sync(() => {
+        if (child.exitCode === null && child.signalCode === null)
+          child.kill('SIGINT');
+      }),
+  );
 
 /** `portless run alchemy dev` in `root`, stopped with SIGINT, then SIGKILL after 10 s. */
 const alchemyDev = (root: string) =>
@@ -159,6 +191,8 @@ export const supervise = (options: Supervised) =>
     const { root, dir, slug, cloud, mode, version, auth } = options;
     const startedAt = new Date().toISOString();
     yield* removeGoneConnections(root);
+    yield* Effect.log('Building the code Plugin');
+    yield* buildPlugin(root);
     const alchemy = yield* alchemyDev(root);
     const running = Effect.gen(function* () {
       yield* Effect.log(`Waiting for Cloud Connect at ${cloud}`);
@@ -173,9 +207,6 @@ export const supervise = (options: Supervised) =>
         port,
         // A page through a Cloudflare tunnel, which only the Fake signs in.
         origins: auth === 'fake' ? ['https://*.trycloudflare.com'] : [],
-        plugins: {
-          code: join(root, 'dist', 'plugins', 'code', 'serve', 'main.js'),
-        },
       });
       const ready = healthy(port).pipe(
         Effect.andThen(

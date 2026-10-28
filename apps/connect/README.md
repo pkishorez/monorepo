@@ -4,7 +4,7 @@ Connects a computer to the cloud as a Connection its User reaches from anywhere:
 
 ## Big picture
 
-A coding agent runs on a computer, but its User wants to reach it from a phone or another laptop. Connect makes the computer a Connection: `ke-connect serve` signs it in to Cloud Connect as its User, opens a tunnel, and reports a Heartbeat with its address and Connection Key. An App lists its User's Connections from Cloud Connect, a Worker with a D1 database at `connect.kishore.app`, then talks to each Connection straight through its tunnel, at `/<plugin>/rpc`.
+A coding agent runs on a computer, but its User wants to reach it from a phone or another laptop. Connect makes the computer a Connection: `ke-connect serve` signs it in to Cloud Connect as its User, opens a tunnel, and reports a Heartbeat with its address and Connection Key. An App lists its User's Connections from Cloud Connect, a Worker with a D1 database at `connect.kishore.app`, then talks to each Connection straight through its tunnel, at `/<plugin>/<sha256>/rpc`.
 
 `ke-connect` itself stays small and rarely changes. What a Connection serves comes in Plugins: separate programs it runs, each downloaded at the version Cloud Connect names in its answer to every Heartbeat, and swapped for a new one while the tunnel stays up, through [`@kestack/cli-platform`](../../platforms/cli-platform/README.md). The Connection checks the Connection Key and passes each Plugin's requests to that Plugin's own socket without reading them. The `code` Plugin keeps Projects and Sessions for [Code](../code/README.md): it runs each Session's Agent through [`@kestack/ai-toolkit`](../../toolkits/ai-toolkit/README.md), with the Claude Code or Codex installed on the computer and as one of its Harness Accounts, orders its Turns, stores its Raw records, and sends them to the browser through a [std-toolkit](../../toolkits/std-toolkit/README.md) Replica over [rpc-toolkit](../../toolkits/rpc-toolkit/README.md). Sign-in comes from [auth-toolkit](../../toolkits/auth-toolkit/README.md). Why Connect owns this and ai-toolkit stops at the harness is [root ADR 0011](../../docs/adr/0011-ai-toolkit-stops-at-the-harness-connect-owns-the-rest.md).
 
@@ -154,9 +154,9 @@ ke-connect remove work           # stops it, forgets it in Cloud Connect, signs 
 ```
 
 - It signs in through the Auth Worker that Cloud Connect's `/auth` names, and keeps the Connection's id, Connection Key and Cloud Connect in `connection.json`; serving it against another Cloud Connect is refused.
-- It runs each Plugin Cloud Connect names, passes `/<plugin>/rpc` to it, asks every caller for the Connection Key, and opens a cloudflared tunnel to its port.
-- Its Heartbeat reports the tunnel's address and each Plugin State every 15 seconds. A forgotten Connection signs out and stops.
-- `--plugin code=<file>` runs a Plugin from a file instead, for development.
+- It runs each Plugin at the Release Cloud Connect names, or the one it last named while Cloud Connect cannot be reached, passes `/<plugin>/<sha256>/rpc` to it while it runs that Release and closes any other with 4409, asks every caller for the Connection Key, and opens a cloudflared tunnel to its port. The older `/<plugin>/rpc` is still passed, for one release.
+- Its Heartbeat reports the tunnel's address and each Plugin State every 15 seconds. A forgotten Connection signs out and stops; one below the Minimum Connect stops, saying how to update.
+- `--plugin code=<file>` runs a Plugin from a file instead, at any hash, for development.
 
 ### Talk to a Connection from a browser
 

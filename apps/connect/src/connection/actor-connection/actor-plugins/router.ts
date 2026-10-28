@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   createServer,
   type IncomingMessage,
@@ -7,16 +8,29 @@ import {
 } from 'node:http';
 import { connect, type Socket } from 'node:net';
 import { Effect } from 'effect';
+import {
+  mismatchReason,
+  PLUGIN_MISMATCH,
+  pluginOfPath,
+} from '../../../cloud/contract/index.js';
 import { guard, HEALTH, pathOf, type Refusal, withoutKey } from './guard.js';
 
 /*
  * The Connection's one public port, which its tunnel points at. After the
- * guard, `GET /health` answers here, and `/<plugin>/…` is passed to that
- * Plugin's socket as `/…`: a WebSocket as raw bytes, once its upgrade
- * request is written on, and any other request through an HTTP request of
- * its own. The router never reads what passes: Code and the Plugin type it
- * end to end. A Plugin not listening yet answers 503; a name that is no
- * Plugin, 404. A Plugin's `/control` is its CLI's alone, and is not passed.
+ * guard, `GET /health` answers here, and `/<plugin>/<sha256>/rpc` is passed
+ * to that Plugin's socket as `/rpc` when the Plugin runs that Release: a
+ * WebSocket as raw bytes, once its upgrade request is written on, and any
+ * other request through an HTTP request of its own. A Release it does not
+ * run is refused with what it runs: a WebSocket is taken and closed at
+ * once with 4409, its reason saying so, since a browser reads nothing else
+ * of it; any other request answers 409 with the same JSON. The router
+ * never reads what passes: Code and the Plugin type it end to end. A
+ * Plugin not listening yet answers 503; a name that is no Plugin, 404. A
+ * Plugin's `/control` is its CLI's alone, and is not passed.
+ *
+ * For one release more, any other `/<plugin>/…` is passed as `/…` as
+ * before, whatever the Plugin runs, so a Code built before Releases, which
+ * calls `/<plugin>/rpc`, keeps working.
  */
 
 export interface RouterOptions {
@@ -28,6 +42,8 @@ export interface RouterOptions {
   readonly origins: ReadonlyArray<string>;
   /** The socket of the Plugin `name`; null when there is no such Plugin. */
   readonly socketOf: (name: string) => string | null;
+  /** The Release the Plugin `name` runs instead of `hash`, null while it runs none; undefined when it serves `hash`. */
+  readonly otherThan: (name: string, hash: string) => string | null | undefined;
 }
 
 const HOST = '127.0.0.1';
@@ -35,19 +51,41 @@ const HOST = '127.0.0.1';
 /** `/<plugin><path>`: the Plugin's name, and the path on its socket. */
 const TARGET = /^\/([a-z0-9][a-z0-9-]{0,62})(\/[^?]*)?(\?.*)?$/;
 
+/** A request for a Release the Plugin does not run: the one it runs, null when none. */
+interface Mismatch {
+  readonly running: string | null;
+}
+
+type Target =
+  | { readonly socket: string; readonly path: string }
+  | Refusal
+  | Mismatch;
+
 /** Where a request goes: a Plugin's socket and the path on it, or why it goes nowhere. */
-const targetOf = (
-  url: string | undefined,
-  socketOf: RouterOptions['socketOf'],
-): { readonly socket: string; readonly path: string } | Refusal => {
+const targetOf = (url: string | undefined, options: RouterOptions): Target => {
+  const path = pathOf(url) ?? '';
+  const query = (url ?? '').slice(path.length);
+  const release = pluginOfPath(path);
+  if (release !== null) {
+    const socket = options.socketOf(release.name);
+    if (socket === null)
+      return {
+        status: 404,
+        text: `This Connection runs no Plugin ${release.name}`,
+      };
+    const running = options.otherThan(release.name, release.hash);
+    return running === undefined
+      ? { socket, path: `/rpc${query}` }
+      : { running };
+  }
   const match = TARGET.exec(url ?? '');
-  const path = match?.[2] ?? '/';
-  if (!match || path === '/control' || path.startsWith('/control/'))
+  const rest = match?.[2] ?? '/';
+  if (!match || rest === '/control' || rest.startsWith('/control/'))
     return { status: 404, text: 'Not found' };
-  const socket = socketOf(match[1]!);
+  const socket = options.socketOf(match[1]!);
   if (socket === null)
     return { status: 404, text: `This Connection runs no Plugin ${match[1]}` };
-  return { socket, path: `${path}${match[3] ?? ''}` };
+  return { socket, path: `${rest}${match[3] ?? ''}` };
 };
 
 const STARTING: Refusal = {
@@ -67,6 +105,52 @@ const answerRaw = (socket: Socket, { status, text }: Refusal) => {
     `HTTP/1.1 ${status} ${STATUS_CODES[status]}\r\n` +
       `Content-Type: text/plain; charset=utf-8\r\nContent-Length: ${body.length}\r\nConnection: close\r\n\r\n${text}`,
   );
+};
+
+/** Answers a plain request for a Release the Plugin does not run: 409, saying which it runs. */
+const answerMismatch = (response: ServerResponse, { running }: Mismatch) => {
+  response.writeHead(409, { 'content-type': 'application/json' });
+  response.end(mismatchReason(running));
+};
+
+/** What every WebSocket server adds to a key it accepts (RFC 6455). */
+const ACCEPT = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
+
+/**
+ * Takes a WebSocket that asked for a Release the Plugin does not run, and
+ * closes it at once with 4409, its reason saying which it runs. It selects
+ * `ke-connect`, as a Plugin does, never the key: a browser drops a socket
+ * that selects none of what it offered.
+ */
+const closeMismatch = (
+  request: IncomingMessage,
+  socket: Socket,
+  { running }: Mismatch,
+) => {
+  const key = request.headers['sec-websocket-key'];
+  if (typeof key !== 'string')
+    return answerRaw(socket, { status: 400, text: 'Not a WebSocket' });
+  const offered =
+    withoutKey(request.headers['sec-websocket-protocol'])?.split(', ') ?? [];
+  const protocol = offered.includes('ke-connect') ? 'ke-connect' : offered[0];
+  const accept = createHash('sha1')
+    .update(key + ACCEPT)
+    .digest('base64');
+  const reason = Buffer.from(mismatchReason(running));
+  const close = Buffer.alloc(4 + reason.length);
+  close[0] = 0x88; // FIN, close
+  close[1] = 2 + reason.length;
+  close.writeUInt16BE(PLUGIN_MISMATCH, 2);
+  reason.copy(close, 4);
+  socket.write(
+    'HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n' +
+      `Sec-WebSocket-Accept: ${accept}\r\n` +
+      (protocol === undefined
+        ? ''
+        : `Sec-WebSocket-Protocol: ${protocol}\r\n`) +
+      '\r\n',
+  );
+  socket.end(close);
 };
 
 /** The request's headers to pass on: its subprotocols without the key. */
@@ -164,8 +248,9 @@ export const router = (options: RouterOptions) =>
           response.writeHead(200, { 'content-type': 'application/json' });
           return response.end('{"ok":true}');
         }
-        const target = targetOf(request.url, options.socketOf);
+        const target = targetOf(request.url, options);
         if ('status' in target) return answer(response, target);
+        if ('running' in target) return answerMismatch(response, target);
         pass(request, response, target);
       });
       server.on('upgrade', (request: IncomingMessage, socket: Socket, head) => {
@@ -173,8 +258,9 @@ export const router = (options: RouterOptions) =>
         socket.once('close', () => open.delete(socket));
         const refused = allowed(request);
         if (refused !== null) return answerRaw(socket, refused);
-        const target = targetOf(request.url, options.socketOf);
+        const target = targetOf(request.url, options);
         if ('status' in target) return answerRaw(socket, target);
+        if ('running' in target) return closeMismatch(request, socket, target);
         passUpgrade(request, socket, head, target, open);
       });
       server.once('error', (error) =>

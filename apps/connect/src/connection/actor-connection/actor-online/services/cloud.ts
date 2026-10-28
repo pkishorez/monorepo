@@ -1,12 +1,16 @@
 import { Effect } from 'effect';
 import type { PluginState } from '@kestack/cli-platform/plugins/contract';
 import type { CloudClient } from '../../../../cloud/client/index.js';
-import type { ConnectionStatus } from '../../../../cloud/contract/index.js';
+import {
+  type ConnectionStatus,
+  isOutdated,
+} from '../../../../cloud/contract/index.js';
 
 /*
  * What Cloud stands on: Cloud Connect's client, signed in as the Connection's
  * User. A Report is answered with the version of each Plugin to run, or
- * with why it was not taken; signing in again must come back as the same
+ * with why it was not taken; one that says this `ke-connect` is below the
+ * Minimum Connect is Outdated. Signing in again must come back as the same
  * User.
  */
 
@@ -80,7 +84,15 @@ export const cloud = (options: CloudOptions) => {
           plugins,
         })
         .pipe(
-          Effect.map(({ wanted }) => ({ _tag: 'Reported', wanted }) as const),
+          Effect.map((answer) =>
+            isOutdated(answer)
+              ? ({
+                  _tag: 'Outdated',
+                  version: answer.version,
+                  minConnect: answer.minConnect!,
+                } as const)
+              : ({ _tag: 'Reported', wanted: answer.wanted } as const),
+          ),
           Effect.catch((error) => Effect.succeed(outcomeOf(error))),
         ),
     backoff: FIRST_BACKOFF,

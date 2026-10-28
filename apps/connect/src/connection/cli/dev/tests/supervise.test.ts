@@ -40,6 +40,9 @@ describe('supervise', () => {
         `#!/bin/sh\necho $$ > "${pidFile}"\nexec sleep 60\n`,
       );
       chmodSync(script, 0o755);
+      // `pnpm build:plugin`, built at once.
+      writeFileSync(join(bin, 'pnpm'), '#!/bin/sh\nexit 0\n');
+      chmodSync(join(bin, 'pnpm'), 0o755);
       process.env.PATH = `${bin}${delimiter}${path ?? ''}`;
       const cloud = 'http://127.0.0.1:1';
       writeRecord(dir, {
