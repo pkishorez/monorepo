@@ -16,6 +16,8 @@ export {
   type HibernationState,
   type SavedSocket,
   type SavedStream,
+  type SocketClose,
+  type SocketWatch,
   type SQLiteOptions,
   type StreamRequest,
   type StreamStore,

@@ -15,6 +15,25 @@ import { resolveUrl } from './url.ts';
 
 export type { ConnectionStatus } from './connection.ts';
 
+/** How a socket closed, as the browser reads it: its close code and reason. */
+export interface SocketClose {
+  readonly code: number;
+  readonly reason: string;
+}
+
+/**
+ * What `client` tells of each socket it opens, as it happens: the first
+ * frame the server sends on it, and how it closed. A browser cannot read
+ * why a server refused a socket, only how the socket closed, so a server
+ * that refuses one accepts it and closes it at once with a code of its own.
+ */
+export interface SocketWatch {
+  /** The server sent the socket its first frame: it was not refused. */
+  readonly answered?: (() => void) | undefined;
+  /** The socket closed, with its code and reason. */
+  readonly closed?: ((close: SocketClose) => void) | undefined;
+}
+
 // Retain the established service identity across the package migration.
 export class RpcConnection
   extends /*#__PURE__*/ Context.Service<RpcConnection, RpcConnectionService>()(
@@ -50,6 +69,25 @@ export const keepSubscribed = <A, E, R>(
     ),
   );
 
+/** A socket at `at`, offering `protocols`, told to `watch` as it answers and closes. */
+const open = (
+  at: string,
+  protocols: Array<string> | undefined,
+  watch: SocketWatch | undefined,
+) => {
+  const socket = new globalThis.WebSocket(at, protocols);
+  const { answered, closed } = watch ?? {};
+  if (answered !== undefined)
+    socket.addEventListener('message', () => answered(), { once: true });
+  if (closed !== undefined)
+    socket.addEventListener(
+      'close',
+      (event) => closed({ code: event.code, reason: event.reason }),
+      { once: true },
+    );
+  return socket;
+};
+
 /*
  * Effect's WebSocket takes its protocols once, but its URL as an Effect run
  * on every connect. So protocols given as an Effect are read alongside the
@@ -61,6 +99,7 @@ const socketLayer = (
     | ReadonlyArray<string>
     | Effect.Effect<ReadonlyArray<string>>
     | undefined,
+  watch: SocketWatch | undefined,
 ) => {
   const resolved =
     typeof url === 'string'
@@ -78,8 +117,8 @@ const socketLayer = (
     : resolved;
   return Socket.layerWebSocket(dial).pipe(
     Layer.provide(
-      Layer.succeed(Socket.WebSocketConstructor)(
-        (at) => new globalThis.WebSocket(at, offered),
+      Layer.succeed(Socket.WebSocketConstructor)((at) =>
+        open(at, offered, watch),
       ),
     ),
   );
@@ -114,6 +153,8 @@ export const client = <Rpcs extends Rpc.Any>(
       | undefined;
     /** Default `true` — ride out drops instead of failing the client. */
     readonly retryTransientErrors?: boolean | undefined;
+    /** Told of each socket's first frame in, and how it closed. */
+    readonly watch?: SocketWatch | undefined;
   },
 ): Layer.Layer<
   RpcClient.Protocol | RpcConnection | RpcClient.ConnectionHooks
@@ -125,7 +166,7 @@ export const client = <Rpcs extends Rpc.Any>(
       }).pipe(
         Layer.provide(
           Layer.mergeAll(
-            socketLayer(options.url, options.protocols),
+            socketLayer(options.url, options.protocols, options.watch),
             RpcSerialization.layerJson,
           ),
         ),
