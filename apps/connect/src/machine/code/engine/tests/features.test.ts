@@ -820,6 +820,23 @@ describe('Agent Questions', () => {
     );
   });
 
+  it('answer one the agent let go of before the Session heard as not asked', async () => {
+    const fake = makeFakeHarness({ hold: true, lateAnswers: true });
+    await run(
+      Effect.gen(function* () {
+        const { engine, session, seen, row } = yield* asking;
+        yield* fake.askQuestion('native-1', question('q1'));
+        yield* eventually(() =>
+          expect(seen.at(-1)).toEqual([row([question('q1')])]),
+        );
+        expect(
+          yield* Effect.flip(engine.answerQuestion(session.id, 'q1', null)),
+        ).toMatchObject({ _tag: 'QuestionNotAsked', id: 'q1' });
+      }),
+      fake,
+    );
+  });
+
   it('go when their Turn is cancelled', async () => {
     const fake = makeFakeHarness({ hold: true });
     await run(

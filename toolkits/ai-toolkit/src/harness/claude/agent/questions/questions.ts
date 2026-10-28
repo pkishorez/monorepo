@@ -1,7 +1,7 @@
 import type { PermissionResult } from '@anthropic-ai/claude-agent-sdk';
 import { Deferred, Effect, Stream, SubscriptionRef } from 'effect';
 import {
-  HarnessError,
+  QuestionNotAsked,
   type AgentQuestion,
   type QuestionAnswer,
   type RawOut,
@@ -28,7 +28,7 @@ export interface Questions {
   readonly answer: (
     id: string,
     answer: QuestionAnswer | null,
-  ) => Effect.Effect<void, HarnessError>;
+  ) => Effect.Effect<void, QuestionNotAsked>;
   /** Declines every one, as when their Turn ends or Claude Code exits. */
   readonly clear: Effect.Effect<void>;
 }
@@ -111,9 +111,7 @@ export const makeQuestions = (
         Effect.suspend(() => {
           const one = asked.get(id);
           if (one === undefined)
-            return Effect.fail(
-              new HarnessError({ message: `No question ${id} is asked` }),
-            );
+            return Effect.fail(new QuestionNotAsked({ id }));
           // Gone at once, so a second answer fails.
           asked.delete(id);
           const given: QuestionAnswered = { toolUseId: id, answers: answer };
