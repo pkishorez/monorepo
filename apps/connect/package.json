@@ -15,8 +15,7 @@
   },
   "files": [
     "bin",
-    "dist",
-    "!dist/plugin",
+    "dist/cli",
     "README.md",
     "LICENSE"
   ],
@@ -76,5 +75,8 @@
   },
   "engines": {
     "node": ">=24"
+  },
+  "publishConfig": {
+    "exports": {}
   }
 }
