@@ -54,6 +54,8 @@ const APP = Symbol.for('@kestack/kabuki/start/app');
 export interface StartApp<A extends ServedApp = ServedApp> {
   readonly [APP]: true;
   readonly app: A;
+  /** What the app is called in the browser; the root Actor's name, `Router`, if none. */
+  readonly name?: string;
   /** The HTML around the app; the plainest one if none. */
   readonly document?: DocumentType;
   /** What the app's Actors Require in the browser, besides the address and the Loaders. */
@@ -79,6 +81,12 @@ export type AppOptions<G extends PageDefinition, A extends PageBuild<G>> = {
   /** The HTML around the app; the plainest one if none. */
   readonly document?: DocumentType;
   /**
+   * What the app is called in the browser, as a devtool lists it: its
+   * History and its Window are kept under this name. `Router`, the root
+   * Actor's name, if none, the same for every Start app.
+   */
+  readonly name?: string;
+  /**
    * What runs beside the app in the browser, such as a devtool: each is
    * called with the running app once its Runtime starts, and what it returns
    * when the app goes, as after a hot reload. Never on the server.
@@ -95,7 +103,7 @@ export type AppOptions<G extends PageDefinition, A extends PageBuild<G>> = {
 export const app = <G extends PageDefinition, A extends PageBuild<G>>(
   options: AppOptions<G, A>,
 ): StartApp => {
-  const { router, view, document, attach } = options;
+  const { router, view, document, name, attach } = options;
   const { layer } = options as {
     readonly layer?: Layer.Layer<any, never, never>;
   };
@@ -103,6 +111,7 @@ export const app = <G extends PageDefinition, A extends PageBuild<G>>(
     [APP]: true,
     app: Router.app(router as never, view as unknown as ViewOf<AnyActor>),
     ...(document && { document }),
+    ...(name && { name }),
     ...(layer && { layer }),
     ...(attach && { attach }),
   } as unknown as StartApp;

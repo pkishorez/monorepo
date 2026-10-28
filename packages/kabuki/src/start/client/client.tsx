@@ -62,7 +62,13 @@ export const client = async (exported: StartApp): Promise<Hydrated> => {
   );
   const { saved } = drawn.page;
   const page = (next: StartApp) => {
-    const { app, document: Document = Plain, layer, attach } = appOf(next);
+    const {
+      app,
+      document: Document = Plain,
+      layer,
+      name,
+      attach,
+    } = appOf(next);
     const App = toReact(
       app.actor as never,
       app.view as never,
@@ -71,7 +77,7 @@ export const client = async (exported: StartApp): Promise<Hydrated> => {
         Router.cached(app.routes, loading(app.routes)),
         layer ?? (Layer.empty as unknown as Layer.Layer<any>),
       ) as never,
-      attach ? { attach } : {},
+      { ...(name && { name }), ...(attach && { attach }) },
     ) as unknown as DrawnApp;
     return (
       <PageContext value={drawn}>
