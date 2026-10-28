@@ -88,16 +88,29 @@ function proofPage(path: string): string {
 
 type Vite = typeof import('vite');
 
-/** Uses the Project's own Vite, so its config and plugins apply; laymos's copy otherwise. */
-async function importVite(projectRoot: string): Promise<Vite> {
+/**
+ * Imports `specifier` as the Project has it, else as laymos does: a bundle
+ * of laymos, such as DevTools', carries neither Vite nor Playwright.
+ * Undefined when neither has it.
+ */
+export async function importFromProject<T>(
+  projectRoot: string,
+  specifier: string,
+): Promise<T | undefined> {
   const resolver = new ResolverFactory({ conditionNames: ['node', 'import'] });
   const own = dirname(fileURLToPath(import.meta.url));
   for (const directory of [projectRoot, own]) {
-    const resolved = resolver.sync(directory, 'vite');
-    if (resolved.path !== undefined) {
-      return (await import(pathToFileURL(resolved.path).href)) as Vite;
-    }
+    const resolved = resolver.sync(directory, specifier);
+    if (resolved.path !== undefined)
+      return (await import(pathToFileURL(resolved.path).href)) as T;
   }
+  return undefined;
+}
+
+/** Uses the Project's own Vite, so its config and plugins apply; laymos's copy otherwise. */
+async function importVite(projectRoot: string): Promise<Vite> {
+  const vite = await importFromProject<Vite>(projectRoot, 'vite');
+  if (vite !== undefined) return vite;
   throw new Error(
     'Browser Proofs need Vite: add `vite` to the Project’s devDependencies.',
   );
