@@ -3,13 +3,6 @@
 '@kestack/web-platform': patch
 ---
 
-Under `vite dev`, not `vite preview`, `app()` pipes a Kabuki Session's
-socket at `/__devtools/kabuki/connect` on the site's own origin to the
-DevTools Server, so one tunnel reaches the app and DevTools. Nothing else of
-DevTools is reachable there: its own API reads files and runs things.
-`app({ devtools })` names the server, `http://127.0.0.1:14400` by default,
-or `false` for none.
+Under `vite dev`, `app()` forwards Kabuki Sessions at `/__devtools/kabuki/connect` on the site's own origin to DevTools, and nothing else of DevTools. `app({ devtools })` sets the server, or `false` for none.
 
-`connect()` needs no `url`: it dials `/__devtools` on the page's origin, and
-a whole URL still works for anywhere else. `when: 'asked'` is gone: attach
-`connect` only where it should dial.
+`connect()` needs no `url` now. `when: 'asked'` is gone.

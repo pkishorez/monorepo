@@ -2,4 +2,4 @@
 '@kestack/connect': patch
 ---
 
-A Machine is named by its host's name up to the first dot, so `Ada-MacBook.local` is `Ada-MacBook`; a Machine kept with the whole of the host's name takes the short one at its next start.
+A Connection is named by its host name up to the first dot: `Ada-MacBook.local` is `Ada-MacBook`.
