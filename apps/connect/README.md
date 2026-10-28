@@ -155,7 +155,7 @@ ke-connect remove work           # stops it, forgets it in Cloud Connect, signs 
 
 ### Talk to a Connection from a browser
 
-An App lists its User's Connections from Cloud Connect, says where each one is through `ConnectionAddress`, and reads each Connection's records through `CodeReplicaLive`, one Instance per Connection. Trimmed from `src/plugins/code/tests/serve.test.ts` and Code's `reach.ts`.
+An App lists its User's Connections from Cloud Connect, says where each one is through `ConnectionAddress`, and reads each Connection's records through `CodeReplicaLive`, one Instance per Connection. Trimmed from `src/plugins/code/serve/tests/serve.test.ts` and Code's `reach.ts`.
 
 ```ts
 import { Effect, Layer, Schema } from 'effect';

@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { RawOut } from '@kestack/ai-toolkit/harness';
 import { makeFakeHarness } from '@kestack/ai-toolkit/harness/fake';
 import { MessageSchema, type Message } from '@kestack/ai-toolkit/contract';
-import { Store, storeLayer } from '../engine/index.js';
-import type { WireEntity } from '../api/contract/index.js';
+import { Store, storeLayer } from '../../engine/index.js';
+import type { WireEntity } from '../../api/contract/index.js';
 import { messages, projects, sessions } from '../feeds.js';
 
 let n = 0;

@@ -17,6 +17,11 @@
       "src/connection/actor-connection/capabilities"
     ],
     "src/plugins/code/api": ["src/plugins/code/records", "src/cloud/contract"],
+    "src/plugins/code/serve": [
+      "src/plugins/code/api",
+      "src/plugins/code/engine",
+      "src/plugins/code/records"
+    ],
     "src/plugins/code/api/client": ["src/plugins/code/api/contract"],
     "src/plugins/code/engine": ["src/plugins/code/records"],
     "src/plugins/code/engine/actor-code": [

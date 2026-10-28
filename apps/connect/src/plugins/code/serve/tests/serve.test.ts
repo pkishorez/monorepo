@@ -33,7 +33,7 @@ import {
   link,
   ConnectionAddress,
   type LinkStatus,
-} from '../api/client/index.js';
+} from '../../api/client/index.js';
 import { FAKE_SKILLS, makeFakeHarness } from '@kestack/ai-toolkit/harness/fake';
 import { makeFakeSpeech } from '@kestack/ai-toolkit/speech/fake';
 import { codePlugin, type CodePluginOptions } from '../index.js';
