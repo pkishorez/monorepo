@@ -58,6 +58,8 @@ export interface HistoryOptions extends ReplayOptions {
 
 export interface History<A = AnyActor> {
   readonly actor: A;
+  /** The root's Input it plays from init with: not saved, so a History loaded again from it is given it. */
+  readonly input: unknown;
   /** The History as plain JSON: the same object until it changes, and never changed itself. */
   readonly save: () => SavedHistory;
   readonly head: () => number | null;
@@ -301,6 +303,7 @@ const open = <A extends AnyActor>(
 
   return {
     actor,
+    input: options.input,
     save,
     head: () => head,
     has: (id) => entries.has(id),
