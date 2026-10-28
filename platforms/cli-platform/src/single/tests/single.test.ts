@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Effect, Schema } from 'effect';
+import { Effect, Exit, Fiber, Schema, Scope } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { describe, expect, it } from 'vitest';
+import { tryLock } from '../../files/lock/index.js';
 import { reach, single } from '../single.js';
 
 /* One process per name, tried with two claims in one process: the socket does not care. */
@@ -119,4 +120,37 @@ describe('single', () => {
       ),
     30_000,
   );
+
+  it('binds only holding the lock, so a takeover under way never deletes a fresh claim', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const path = socketIn();
+          const owner = yield* Scope.make();
+          const first = yield* single(path, {
+            group: Control,
+            handlers: handlers('first'),
+          }).pipe(Scope.provide(owner));
+          expect(first._tag).toBe('Acquired');
+          // A takeover between its look and its delete holds the lock, as
+          // the owner closes and frees the socket.
+          const takeover = yield* Scope.make();
+          expect(yield* tryLock(path).pipe(Scope.provide(takeover))).toBe(true);
+          yield* Scope.close(owner, Exit.void);
+          expect(existsSync(path)).toBe(false);
+          const fresh = yield* single(path, {
+            group: Control,
+            handlers: handlers('fresh'),
+          }).pipe(Effect.forkScoped);
+          yield* Effect.sleep('300 millis');
+          // The fresh claim waits for the lock, so the delete takes nothing.
+          expect(existsSync(path)).toBe(false);
+          rmSync(path, { force: true });
+          yield* Scope.close(takeover, Exit.void);
+          expect((yield* Fiber.join(fresh))._tag).toBe('Acquired');
+          const reached = yield* reach(path, Control);
+          expect(yield* reached.status()).toEqual({ owner: 'fresh' });
+        }),
+      ),
+    ));
 });
