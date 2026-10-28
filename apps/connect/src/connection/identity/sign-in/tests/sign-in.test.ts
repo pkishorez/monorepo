@@ -1,23 +1,40 @@
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Effect } from 'effect';
+import { Effect, Layer } from 'effect';
+import { FetchHttpClient } from 'effect/http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { fakeGuard } from '@kestack/auth-toolkit/fake';
+import { SQLite } from '@kestack/std-toolkit/db/sqlite';
+import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
+import { CloudClient } from '../../../../cloud/client/index.js';
+import { connectionsTable, serveOver } from '../../../../cloud/worker/index.js';
 import { signIn } from '../index.js';
 
 /*
  * Signing in as a Device, against a Cloud Connect and two Auth Workers
  * faked at `fetch`: Cloud Connect's `/auth` names one, and later the
- * other.
+ * other, while the first stops answering. Cloud Connect refuses every
+ * call it is asked.
  */
 
 const CLOUD = 'https://cloud.test';
 const ada = { id: 'ada', email: 'ada@example.com', name: 'Ada' };
 
-/** Cloud Connect naming `auth.url`, and the Auth Workers `up`, each approving Ada at once. */
-const fakes = () => {
+/** Cloud Connect naming `auth.url` and refusing every call, and two Auth Workers, each approving Ada at once; those `stalled` never answer. */
+const fakes = async () => {
   const auth = { url: 'https://auth-a.test' };
-  const up = new Set(['https://auth-a.test', 'https://auth-b.test']);
+  const stalled = new Set<string>();
+  const driver = makeNodeSQLite({ path: ':memory:' });
+  await Effect.runPromise(
+    SQLite.setup(connectionsTable, { database: driver, mode: 'persistent' }),
+  );
+  const cloud = serveOver({
+    guard: fakeGuard.rpc({ as: null }),
+    authInfo: auth,
+    origins: [],
+    driver,
+  });
   const calls: Array<string> = [];
   const live = new Set<string>();
   let issued = 0;
@@ -26,7 +43,8 @@ const fakes = () => {
     const request = new Request(input, init);
     const url = new URL(request.url);
     if (url.origin === CLOUD && url.pathname === '/auth') return json(auth);
-    if (!up.has(url.origin)) throw new TypeError('fetch failed');
+    if (url.origin === CLOUD) return cloud(request);
+    if (stalled.has(url.origin)) return new Promise<Response>(() => {});
     const path = url.pathname.replace('/api/auth', '');
     calls.push(`${url.origin}${path}`);
     const token = request.headers.get('authorization')?.slice(7);
@@ -55,7 +73,7 @@ const fakes = () => {
         return json({}, 404);
     }
   }) as typeof globalThis.fetch;
-  return { auth, up, calls, fetch };
+  return { auth, stalled, calls, fetch };
 };
 
 const keptAuth = (db: string) =>
@@ -65,7 +83,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('signIn', () => {
   it('signs in again through the Auth Worker Cloud Connect names now, not the one it named before', async () => {
-    const fake = fakes();
+    const fake = await fakes();
     vi.stubGlobal('fetch', fake.fetch);
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const db = join(
@@ -82,9 +100,10 @@ describe('signIn', () => {
             url: 'https://auth-a.test',
           });
 
-          // Cloud Connect moved to another Auth Worker, and the first is gone.
+          // Cloud Connect moved to another Auth Worker, and the first
+          // stopped answering, its sign-out too.
           fake.auth.url = 'https://auth-b.test';
-          fake.up.delete('https://auth-a.test');
+          fake.stalled.add('https://auth-a.test');
           const again = yield* session.signInAgain;
           expect(again).toMatchObject({ id: 'ada' });
           expect(fake.calls).toContain('https://auth-b.test/device/token');
@@ -92,8 +111,24 @@ describe('signIn', () => {
             cloud: CLOUD,
             url: 'https://auth-b.test',
           });
+
+          // A call Cloud Connect refuses is checked with the Auth Worker it
+          // names now, and stays refused.
+          const before = fake.calls.length;
+          const refused = yield* Effect.flip(
+            Effect.flatMap(CloudClient, (client) => client.List({})).pipe(
+              Effect.provide(
+                CloudClient.layer(CLOUD).pipe(Layer.provide(session.signing)),
+              ),
+              Effect.provideService(FetchHttpClient.Fetch, fake.fetch),
+            ),
+          );
+          expect(refused).toMatchObject({ _tag: 'Unauthenticated' });
+          expect(fake.calls.slice(before)).toEqual([
+            'https://auth-b.test/get-session',
+          ]);
         }),
       ),
     );
-  });
+  }, 30_000);
 });
