@@ -227,6 +227,27 @@ describe('a Plugin kept running by its CLI', () => {
     30_000,
   );
 
+  it('says a file: URL with no file is not on the shelf', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const plugin = setup();
+          const hash = 'c'.repeat(64);
+          const url = pathToFileURL(
+            join(plugin.folders.cache, 'shelf', 'ping', `${hash}.mjs`),
+          ).href;
+          yield* Runtime.start(cliOf(plugin, { hash, url }), plugin.layer);
+          yield* eventually(() =>
+            expect(last(plugin.reports)).toMatchObject({
+              _tag: 'Crashed',
+              hash,
+              log: [`ping ${hash} isn't on the shelf; run the build`],
+            }),
+          );
+        }),
+      ),
+    ));
+
   it(
     'goes Crashed when its process exits, and tries again after a growing pause',
     () =>

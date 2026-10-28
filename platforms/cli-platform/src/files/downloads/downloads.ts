@@ -28,6 +28,7 @@ export type { Progress };
 
 /** A file to download, known by its sha256. */
 export interface Download {
+  /** Where it is: `http:` or `https:`, or `file:` to copy one on this computer. */
   readonly url: string;
   /** Its sha256, in hex. */
   readonly sha256: string;
@@ -42,10 +43,14 @@ export interface Made<E> {
   readonly produce: (file: string) => Effect.Effect<void, E>;
 }
 
-/** The download failed: the server could not be reached or answered an error, or it broke off. */
+/**
+ * The download failed: the server could not be reached or answered an
+ * error, or it broke off. `missing` says a `file:` URL named no file.
+ */
 export class DownloadFailed extends Data.TaggedError('DownloadFailed')<{
   readonly url: string;
   readonly message: string;
+  readonly missing: boolean;
 }> {}
 
 /** What arrived is not the file asked for; it was thrown away. */
@@ -147,7 +152,10 @@ const make = (cache: string) => {
         );
         return yield* entry(expected, name, (file) =>
           transfer(url, file, onProgress).pipe(
-            Effect.mapError((message) => new DownloadFailed({ url, message })),
+            Effect.mapError(
+              ({ message, missing }) =>
+                new DownloadFailed({ url, message, missing }),
+            ),
             Effect.flatMap((actual) =>
               actual === expected
                 ? Effect.void
@@ -203,8 +211,9 @@ export class Downloads extends Context.Service<
   {
     /**
      * The path of the file `sha256` names, downloaded from `url` unless it
-     * is in the cache; telling `onProgress` how far it is. A file that is
-     * not the one asked for fails with HashMismatch and is thrown away.
+     * is in the cache; telling `onProgress` how far it is. A `file:` URL is
+     * copied the same way. A file that is not the one asked for fails with
+     * HashMismatch and is thrown away.
      */
     readonly fetch: (
       download: Download,
