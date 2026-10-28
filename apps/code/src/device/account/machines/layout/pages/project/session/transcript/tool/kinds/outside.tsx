@@ -128,7 +128,7 @@ function Answers({ asked }: { readonly asked: ReadonlyArray<Read> }) {
 export const question: Kind = {
   icon: MessageCircleQuestionMarkIcon,
   Detail: ({ row, opening }) => {
-    const read = askedOf(row.call, row.result);
+    const read = askedOf(row.call, row.answered);
     return read === null ? (
       <Output row={row} opening={opening} />
     ) : (
@@ -151,7 +151,7 @@ export function Asked({
   readonly row: Extract<Row, { readonly kind: 'tool' }>;
   readonly state: ToolState;
 }) {
-  const read = askedOf(row.call, row.result);
+  const read = askedOf(row.call, row.answered);
   if (read === null) return null;
   const said =
     state === 'running'

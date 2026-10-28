@@ -501,6 +501,19 @@ describe('the Question Panel, by keys', () => {
     expect(shownStep()).toBe(1);
   });
 
+  it('leaves every key an IME takes to it, Escape and Tab too, while it composes', async () => {
+    await ask([QUESTION]);
+    await key('i');
+    await typeInto(field()!, 'にほん');
+    await key('Escape', { isComposing: true, keyCode: 229 });
+    await key('Tab', { isComposing: true, keyCode: 9 });
+    expect(document.activeElement).toBe(field());
+    expect(shownStep()).toBe(0);
+    // Composed, the same keys are the field's again.
+    await key('Escape');
+    expect(field()).toBeNull();
+  });
+
   it('minimises on `m` and Escape, so the page’s keys scroll the transcript, and `m` or `i` open it, never the Draft', async () => {
     await ask([QUESTION]);
     await key('j');
@@ -529,16 +542,21 @@ describe('the Question Panel, by keys', () => {
     expect(choice('Passkey').getAttribute('aria-checked')).toBe('true');
   });
 
-  it('hides the dialog minimised, though its Surface, Inactive, is drawn at full opacity', async () => {
+  it('hides the dialog minimised by its frame, leaving its Surface the look the keys give it', async () => {
     await ask([QUESTION]);
     await key('m');
     const popup = document.querySelector<HTMLElement>(
       '[data-slot="question-popup"]',
     )!;
-    // The page draws an Inactive Surface at opacity 1, over any utility
-    // but an important one: without it the dialog stayed over the bar.
+    // The page draws an Inactive Surface at opacity 1: the frame around
+    // it, no Surface, is what fades, so nothing fights over its opacity.
     expect(popup.getAttribute('data-state')).toBe('inactive');
-    expect(popup.classList).toContain('not-in-data-expanded:opacity-0!');
+    expect(popup.className).not.toContain('opacity');
+    const frame = popup.parentElement!;
+    expect(frame.dataset['slot']).toBe('question-frame');
+    expect(frame.closest('[data-expanded]')).toBeNull();
+    expect(frame.classList).toContain('opacity-0');
+    expect(frame.classList).toContain('in-data-expanded:opacity-100');
   });
 
   it('works by its plain keys out of Vim Mode too, and toggles by Ctrl+Y', async () => {

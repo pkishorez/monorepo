@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { MotionGlobalConfig } from 'motion/react';
-import { act, type ReactNode } from 'react';
+import { act, type ReactNode, useRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Drawer } from './touch-layers.tsx';
+import { useKeyboardOver, useVisibleViewport } from './visible-viewport.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -139,5 +140,138 @@ describe('Drawer', () => {
       expect.objectContaining({ reason: 'swipe' }),
     );
     expect(drawer().style.transitionDuration).toBe('');
+  });
+});
+
+/*
+ * A focused field kept in sight in its layer, by what the browser says:
+ * once as it takes focus, and again only as the layer's room shrinks. A
+ * stand-in `visualViewport` says what can be seen; the field sits 50px
+ * below its scroller's foot, so each reveal scrolls it by 50.
+ */
+describe('a focused field in a layer', () => {
+  const viewport = Object.assign(new EventTarget(), {
+    offsetTop: 0,
+    pageTop: 0,
+    height: 714,
+    scale: 1,
+  });
+  const rect = (top: number, bottom: number) =>
+    ({
+      top,
+      bottom,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: bottom - top,
+    }) as DOMRect;
+
+  beforeEach(() => {
+    viewport.height = 714;
+    Object.defineProperty(window, 'visualViewport', {
+      value: viewport,
+      configurable: true,
+    });
+  });
+  afterEach(() => {
+    Reflect.deleteProperty(window, 'visualViewport');
+  });
+
+  /** A scroller 100px tall holding more than that, a field past its foot. */
+  const Scroller = () => (
+    <div
+      data-testid="scroller"
+      style={{ overflowY: 'auto' }}
+      ref={(element) => {
+        if (element === null) return;
+        Object.defineProperty(element, 'scrollHeight', { value: 400 });
+        Object.defineProperty(element, 'clientHeight', { value: 100 });
+        element.getBoundingClientRect = () => rect(500, 600);
+      }}
+    >
+      <input
+        aria-label="Name"
+        ref={(element) => {
+          if (element !== null)
+            element.getBoundingClientRect = () => rect(620, 650);
+        }}
+      />
+    </div>
+  );
+  const scrolled = () =>
+    document.querySelector<HTMLElement>('[data-testid="scroller"]')!.scrollTop;
+  const say = (type: string, height = viewport.height) =>
+    act(() => {
+      viewport.height = height;
+      viewport.dispatchEvent(new Event(type));
+    });
+
+  function Fixed() {
+    const layer = useRef<HTMLDivElement>(null);
+    return (
+      <div ref={layer} style={useVisibleViewport(true, layer)}>
+        <Scroller />
+      </div>
+    );
+  }
+
+  function InPage() {
+    const box = useRef<HTMLDivElement>(null);
+    const layer = useRef<HTMLDivElement>(null);
+    const over = useKeyboardOver(true, box, layer);
+    return (
+      <div
+        ref={(element) => {
+          box.current = element;
+          if (element !== null)
+            element.getBoundingClientRect = () => rect(500, 714);
+        }}
+      >
+        <div ref={layer} style={{ paddingBottom: over.covered }}>
+          <Scroller />
+        </div>
+      </div>
+    );
+  }
+
+  it.each([
+    ['fixed to the page', <Fixed />],
+    ['placed in the page', <InPage />],
+  ])(
+    '%s, is scrolled into sight as it takes focus, and as the keyboard takes room, only then',
+    (_, layer) => {
+      act(() => root.render(layer));
+      expect(scrolled()).toBe(0);
+      act(() => document.querySelector('input')!.focus());
+      expect(scrolled()).toBe(50);
+      // Panned or resized to the same: nothing moves.
+      say('scroll');
+      say('resize');
+      expect(scrolled()).toBe(50);
+      // The keyboard rises: the layer has less room.
+      say('resize', 400);
+      expect(scrolled()).toBe(100);
+      // And falls: more room, nothing moves.
+      say('resize', 714);
+      expect(scrolled()).toBe(100);
+      // Nothing is left to read later.
+      expect(vi.getTimerCount()).toBe(0);
+    },
+  );
+
+  it('is left alone outside the layer', () => {
+    act(() =>
+      root.render(
+        <>
+          <Fixed />
+          <input aria-label="Elsewhere" />
+        </>,
+      ),
+    );
+    act(() =>
+      document.querySelector<HTMLElement>('[aria-label="Elsewhere"]')!.focus(),
+    );
+    say('resize', 400);
+    expect(scrolled()).toBe(0);
   });
 });

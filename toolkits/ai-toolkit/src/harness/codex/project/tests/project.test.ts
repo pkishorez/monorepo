@@ -491,7 +491,7 @@ describe('project: single records', () => {
     });
   });
 
-  it('shows an Agent Question as a question call, and its answers as its result', () => {
+  it('shows an Agent Question as a question call, its result, and what was answered by Item id', () => {
     const asked = {
       threadId: 'main',
       turnId: 't1',
@@ -517,7 +517,7 @@ describe('project: single records', () => {
       turnId: 't1',
       itemId: 'call_1',
       headers: { colour: 'Colour', name: 'Name' },
-      answers: { colour: ['Blue'], name: ['Ada'] },
+      answers: { colour: ['Blue', 'Red, dark'], name: ['(hidden)'] },
     };
     expect(one('question.answered', answered)).toMatchObject({
       role: 'tool',
@@ -525,14 +525,22 @@ describe('project: single records', () => {
         {
           type: 'toolResult',
           toolCallId: 'call_1',
-          output: 'Colour: Blue\nName: Ada',
+          output: 'Colour: Blue, Red, dark\nName: (hidden)',
           isError: false,
+        },
+        {
+          type: 'questionAnswered',
+          toolCallId: 'call_1',
+          answers: { colour: ['Blue', 'Red, dark'], name: ['(hidden)'] },
         },
       ],
     });
     expect(
-      one('question.answered', { ...answered, answers: null })?.parts[0],
-    ).toMatchObject({ output: 'Not answered', isError: true });
+      one('question.answered', { ...answered, answers: null })?.parts,
+    ).toMatchObject([
+      { output: 'Not answered', isError: true },
+      { type: 'questionAnswered', toolCallId: 'call_1', answers: null },
+    ]);
   });
 
   it('keeps unknown records in Raw only', () => {

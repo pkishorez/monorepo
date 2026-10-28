@@ -18,13 +18,17 @@ import {
  *
  * It follows the finger, through the Popup's own
  * `--drawer-swipe-movement-y`, with no transition; let go short, it
- * springs back by its transition; let go past `DISMISS`, it closes, and
+ * springs back by its transition; let go past `SWIPE_DISMISS`, it closes, and
  * slides the rest of the way from where it is. An owner that keeps it
  * open springs it back too.
  */
 
-/** Past this many px down, or flicked down this fast in px/s, a swipe closes it. */
-const DISMISS = { distance: 80, velocity: 500 } as const;
+/**
+ * Past this many px down, or flicked down this fast in px/s, a swipe
+ * closes a sheet: the Gesture recognizers' own default, so a Drawer, and
+ * any sheet of the app's own that takes it, go alike.
+ */
+export const SWIPE_DISMISS = { distance: 80, velocity: 500 } as const;
 
 // Base UI's swipe starts from these on its Viewport: never here.
 const keepFromBaseUi = (event: SyntheticEvent) => event.stopPropagation();
@@ -78,7 +82,7 @@ function Following({
   const swipe = useSwipe({
     direction: 'down',
     enabled: open,
-    commit: DISMISS,
+    commit: SWIPE_DISMISS,
     onCommit: () => {
       if (!onClose()) return move(0);
       const element = popup.current;

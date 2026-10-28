@@ -1,10 +1,11 @@
 import { Effect, Schema } from 'effect';
 import { Command } from '@kestack/kabuki';
 import { QuestionAnswerSchema } from '@kestack/ai-toolkit/contract';
-import { Agents } from '../../capabilities/index.js';
-
-/** Why an answer to an Agent Question that is gone was not given. */
-export const NOT_ASKED = 'This question is no longer asked';
+import {
+  Agents,
+  Answers,
+  type AnswerOutcome,
+} from '../../capabilities/index.js';
 
 /**
  * Tells the agent to stop one of its Background Jobs. A stop the harness
@@ -34,9 +35,11 @@ export const StopJob = Command.make('StopJob', {
 
 /**
  * Gives the agent the user's answer to one of its Agent Questions, or
- * declines it with null. It ends with AnswerGiven either way: no reason
- * when the agent took it, the harness's reason when it refused, as for a
- * question no longer asked. A closed agent asks nothing.
+ * declines it with null, and tells the caller waiting on `answerId` how it
+ * went: taken, refused with the harness's reason, or not asked when the
+ * agent is closed. It ends with no Message: the outcome is the caller's,
+ * not the Session's. Interrupted, as when the Session stops, it tells the
+ * caller the question is no longer asked.
  */
 export const AnswerQuestion = Command.make('AnswerQuestion', {
   args: Schema.Struct({
@@ -47,17 +50,38 @@ export const AnswerQuestion = Command.make('AnswerQuestion', {
   }),
   run: ({ sessionId, answerId, questionId, answer }) =>
     Effect.gen(function* () {
+      const answers = yield* Answers;
       const kept = yield* (yield* Agents).of(sessionId);
       const agent = yield* kept.opened;
-      const given = (reason: string | null) => ({
-        _tag: 'AnswerGiven' as const,
-        answerId,
-        reason,
-      });
-      if (!agent) return given(NOT_ASKED);
-      return yield* agent.answer(questionId, answer).pipe(
-        Effect.as(given(null)),
-        Effect.catch((error) => Effect.succeed(given(error.message))),
-      );
-    }),
+      const outcome: AnswerOutcome = !agent
+        ? { _tag: 'NotAsked' }
+        : yield* agent.answer(questionId, answer).pipe(
+            Effect.as<AnswerOutcome>({ _tag: 'Taken' }),
+            Effect.catch((error) =>
+              Effect.succeed<AnswerOutcome>({
+                _tag: 'Refused',
+                reason: error.message,
+              }),
+            ),
+          );
+      yield* answers.settle(answerId, outcome);
+    }).pipe(
+      Effect.onInterrupt(() =>
+        Effect.flatMap(Answers, (answers) =>
+          answers.settle(answerId, { _tag: 'NotAsked' }),
+        ),
+      ),
+    ),
+});
+
+/**
+ * Tells the caller waiting on `answerId` that its question is no longer
+ * asked, so nothing was given to the agent.
+ */
+export const AnswerNotAsked = Command.make('AnswerNotAsked', {
+  args: Schema.Struct({ answerId: Schema.String }),
+  run: ({ answerId }) =>
+    Effect.flatMap(Answers, (answers) =>
+      answers.settle(answerId, { _tag: 'NotAsked' }),
+    ),
 });

@@ -86,6 +86,8 @@ const THUMB = cn(
   '**:data-[slot=command-item]:min-h-11 **:data-[slot=command-item]:items-center **:data-[slot=command-item]:gap-3 **:data-[slot=command-item]:rounded-lg **:data-[slot=command-item]:px-3 **:data-[slot=command-item]:py-1.5 **:data-[slot=command-item]:text-[15px]',
   '**:data-[slot=command-item]:data-selected:bg-transparent **:data-[slot=command-item]:active:bg-muted',
   '**:data-[slot=input-group]:h-12! **:[input]:text-base **:[textarea]:text-base',
+  // A field scrolled into sight keeps 12px clear of its scroller's edge.
+  '**:[input]:scroll-my-3 **:[textarea]:scroll-my-3',
 );
 
 // Which layer a header is in: a Top Dialog's has a close button.

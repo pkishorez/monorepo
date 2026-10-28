@@ -6,6 +6,7 @@ import { cn } from '@kestack/web-platform/ui/components/utils';
 import { ChevronDownIcon, MessageCircleQuestionMarkIcon } from 'lucide-react';
 import {
   type ReactNode,
+  type RefObject,
   useEffect,
   useId,
   useLayoutEffect,
@@ -17,7 +18,7 @@ import { AgentLogo } from '../../../../../../../../../ui/labels/agent/index.ts';
 import { draftOf, type Drafts, isAnswered, unanswered } from '../answer.ts';
 import { type Asker, type Stop, stopTitle } from '../question.ts';
 import { useStepKeys } from './keys.ts';
-import { useSwipeDown } from './sheet.ts';
+import { SwipeHead } from './sheet.tsx';
 import { ROW, Step } from './step.tsx';
 
 /*
@@ -84,6 +85,7 @@ export function Dialog({
 }) {
   const id = useId();
   const box = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const stepRef = useRef<HTMLDivElement>(null);
   const count = question.items.length;
@@ -161,11 +163,14 @@ export function Dialog({
     enter('question');
   }, [expanded]);
   // Back from what was drawn over it, such as Actions, or from the
-  // sidebar: to the row it left, so the keys go on from there.
+  // sidebar: to the row it left, so the keys go on from there. A frame
+  // later: the Surface turns Active as the layer over it closes, and that
+  // layer gives focus back as it goes, after; only focus it left outside
+  // the dialog is taken back to the row.
   const { active } = keys.useSurface('question');
   useEffect(() => {
     if (!active || !expanded) return;
-    const frame = requestAnimationFrame(() => {
+    const later = requestAnimationFrame(() => {
       const now = document.activeElement;
       const within =
         now instanceof HTMLElement &&
@@ -173,7 +178,7 @@ export function Dialog({
         root.current?.contains(now) === true;
       if (!within) back();
     });
-    return () => cancelAnimationFrame(frame);
+    return () => cancelAnimationFrame(later);
   }, [active]);
 
   useStepKeys({
@@ -193,7 +198,6 @@ export function Dialog({
 
   const sendKeys = useBound('question.send');
   const minimiseKeys = useBound('question.minimise');
-  const swipe = useSwipeDown(root, touch && expanded, onMinimise);
   // Measured from the box, which stays put as the sheet slides and follows
   // a swipe; 12px free over it, as its `pt-3` leaves.
   const keyboard = useKeyboardOver(touch && expanded, box, root, 12);
@@ -207,9 +211,9 @@ export function Dialog({
       className={cn(
         'pointer-events-none absolute inset-0 z-20 flex flex-col items-center data-expanded:pointer-events-auto',
         // Held near the top, so its head stays put as the steps change.
-        // On touch its sheet, slid down under the column's foot, is clipped:
-        // overflowing it, it gave the page room to scroll, and Android
-        // scrolled it as the keyboard fell, the bar left mid-page.
+        // On touch it is the sheet's stage, the column's own area: the
+        // sheet rises from under its foot and goes back there, so nothing
+        // outside it is drawn or gives the page room to scroll.
         touch
           ? 'justify-end overflow-clip pt-3'
           : 'justify-start p-4 pt-[max(1rem,12vh)] sm:px-8',
@@ -222,234 +226,269 @@ export function Dialog({
         onClick={onMinimise}
         className="absolute inset-0 bg-black/10 opacity-0 transition-opacity duration-150 ease-in in-data-expanded:opacity-100 in-data-expanded:duration-200 in-data-expanded:ease-out supports-backdrop-filter:backdrop-blur-xs motion-reduce:transition-none dark:bg-black/60"
       />
-      <keys.Surface id="question" asChild>
-        <div
-          ref={root}
-          role="dialog"
-          aria-labelledby={`${id}-title`}
-          aria-busy={busy}
-          data-slot="question-popup"
-          // Only a row is gone back to, never a button.
-          onFocus={(event) => {
-            if (event.target.matches(ROW)) lastRow.current = event.target;
-          }}
-          style={
-            touch
-              ? {
-                  paddingBottom: keyboard.covered,
-                  maxHeight: keyboard.room ?? undefined,
-                }
-              : undefined
-          }
-          className={cn(
-            'relative flex min-h-0 w-full flex-col bg-dialog text-sm text-popover-foreground shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.08),0_16px_40px_rgb(0_0_0/0.12)] ring-1 ring-edge outline-none',
-            // Hidden minimised over the Surface's own look, which an
-            // Inactive Surface takes, opacity 1, as the page draws it.
-            'opacity-0 transition-[opacity,scale,translate] duration-150 ease-in not-in-data-expanded:opacity-0! in-data-expanded:opacity-100 in-data-expanded:duration-200 in-data-expanded:ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none',
-            touch
-              ? 'max-h-full translate-y-full rounded-t-2xl in-data-expanded:translate-y-0'
-              : 'max-h-full max-w-[36rem] translate-y-3 scale-[0.97] rounded-xl in-data-expanded:translate-y-0 in-data-expanded:scale-100',
-          )}
-        >
+      {/* How it comes and goes, and follows a swipe: drawn here, so the
+        Surface inside keeps the look the keys give it. */}
+      <div
+        ref={frame}
+        data-slot="question-frame"
+        style={touch ? { maxHeight: keyboard.room ?? undefined } : undefined}
+        className={cn(
+          'relative flex max-h-full min-h-0 w-full flex-col opacity-0 transition-[opacity,scale,translate] duration-150 ease-in in-data-expanded:opacity-100 in-data-expanded:duration-200 in-data-expanded:ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none',
+          touch
+            ? 'translate-y-full in-data-expanded:translate-y-0'
+            : 'max-w-[36rem] translate-y-3 scale-[0.97] in-data-expanded:translate-y-0 in-data-expanded:scale-100',
+        )}
+      >
+        <keys.Surface id="question" asChild>
           <div
-            {...swipe}
+            ref={root}
+            role="dialog"
+            aria-labelledby={`${id}-title`}
+            aria-busy={busy}
+            data-slot="question-popup"
+            // Only a row is gone back to, never a button.
+            onFocus={(event) => {
+              if (event.target.matches(ROW)) lastRow.current = event.target;
+            }}
+            style={touch ? { paddingBottom: keyboard.covered } : undefined}
             className={cn(
-              'flex shrink-0 flex-col gap-3 px-5 pt-4',
-              touch && 'touch-none gap-2 px-4 pt-2 select-none',
+              'flex min-h-0 flex-1 flex-col bg-dialog text-sm text-popover-foreground shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.08),0_16px_40px_rgb(0_0_0/0.12)] ring-1 ring-edge outline-none',
+              touch ? 'rounded-t-2xl' : 'rounded-xl',
             )}
           >
-            {touch && (
-              <span
-                aria-hidden
-                className="mx-auto h-1 w-9 rounded-full bg-muted-foreground/30"
-              />
-            )}
-            <div className="flex min-h-7 items-center gap-2">
-              <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground">
-                {asker.harness === null ? (
-                  <MessageCircleQuestionMarkIcon
-                    aria-hidden
-                    className="size-3.5"
-                  />
-                ) : (
-                  <AgentLogo agent={asker.harness} className="size-4" />
-                )}
-              </span>
-              <h2 id={`${id}-title`} className="min-w-0 truncate font-medium">
-                {asker.agent} asks
-              </h2>
-              {many && (
-                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                  {step + 1} of {count}
-                </span>
-              )}
-              <span className="flex-1" />
-              {stop !== null && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={stop.disabled || stop.stopping}
-                  title={stopTitle(stop)}
-                  onClick={stop.run}
-                  className="rounded-full keyboard:h-7 pointer-coarse:h-9 pointer-coarse:px-3.5"
-                >
-                  {stop.stopping && <Spinner />}
-                  Stop
-                </Button>
-              )}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                aria-label="Minimise the question"
-                title={
-                  minimiseKeys === null
-                    ? 'Minimise, to read the session'
-                    : `Minimise, to read the session (${minimiseKeys})`
-                }
-                onClick={onMinimise}
-                className="-mr-2 gap-1.5 px-2 text-muted-foreground keyboard:h-7 pointer-coarse:size-11 pointer-coarse:px-0"
-              >
-                {minimiseKeys !== null && <Keys>{minimiseKeys}</Keys>}
-                <ChevronDownIcon aria-hidden />
-              </Button>
-            </div>
-            {many && (
-              <Progress
-                question={question}
-                drafts={drafts}
-                tried={tried}
-                step={step}
-                touch={touch}
-                onStep={goTo}
-              />
-            )}
-          </div>
-          <div
-            ref={stepRef}
-            className={cn(
-              'min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-4 pb-5',
-              touch && 'px-4 pt-3 pb-4',
-            )}
-          >
-            <div
-              key={step}
-              data-slot="question-step-content"
-              className={cn(
-                'animate-in duration-200 ease-out fade-in-0 motion-reduce:animate-none',
-                from > 0 ? 'slide-in-from-right-3' : 'slide-in-from-left-3',
-              )}
+            <Head
+              sheet={frame}
+              touch={touch}
+              on={touch && expanded}
+              onMinimise={onMinimise}
             >
-              <Step
-                index={step}
-                item={item}
-                draft={draft}
-                missing={tried && !isAnswered(item, draft)}
-                last={last}
-                touch={touch}
-                editing={editing}
-                onEditing={setEditing}
-                onChoose={(label) => onChoose(item.id, label)}
-                onChooseOther={() => onChooseOther(item.id)}
-                onType={(text) => onType(item.id, text)}
-                onNext={primary}
-                onStep={(by) => goTo(step + by)}
-              />
-            </div>
-          </div>
-          <div
-            className={cn(
-              'flex min-h-14 shrink-0 items-center gap-2 border-t border-border px-5 py-3',
-              touch && 'min-h-16 px-4',
-              // The home indicator's room, but where the keyboard covers it.
-              touch &&
-                !keyboard.keyboard &&
-                'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
-            )}
-          >
-            {skipping ? (
-              <>
-                <p role="alert" className="mr-auto min-w-0 truncate">
-                  <span className="font-medium">Skip this question?</span>
-                  <span className="text-muted-foreground max-sm:hidden">
-                    {' '}
-                    {asker.agent} goes on without it.
+              {touch && (
+                <span
+                  aria-hidden
+                  className="mx-auto h-1 w-9 rounded-full bg-muted-foreground/30"
+                />
+              )}
+              <div className="flex min-h-7 items-center gap-2">
+                <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground">
+                  {asker.harness === null ? (
+                    <MessageCircleQuestionMarkIcon
+                      aria-hidden
+                      className="size-3.5"
+                    />
+                  ) : (
+                    <AgentLogo agent={asker.harness} className="size-4" />
+                  )}
+                </span>
+                <h2 id={`${id}-title`} className="min-w-0 truncate font-medium">
+                  {asker.agent} asks
+                </h2>
+                {many && (
+                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                    {step + 1} of {count}
                   </span>
-                </p>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size={touch ? 'lg' : 'sm'}
-                  onClick={() => skip(false)}
-                  className="text-muted-foreground"
-                >
-                  Cancel
-                  <Keys>esc</Keys>
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size={touch ? 'lg' : 'sm'}
-                  disabled={busy}
-                  onClick={() => skip(true)}
-                >
-                  {sending?.declining === true && <Spinner />}
-                  Skip
-                  <Keys>q</Keys>
-                </Button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  disabled={busy}
-                  title="Let the agent carry on without your answer"
-                  onClick={() => skip(true)}
-                  className="focus-ring mr-auto -ml-1 flex min-h-11 cursor-pointer items-center rounded-md px-1 text-muted-foreground underline-offset-4 transition-colors duration-150 hover:text-foreground hover:underline disabled:pointer-events-none disabled:opacity-50 keyboard:min-h-7 motion-reduce:transition-none"
-                >
-                  Skip question
-                </button>
-                {step > 0 && (
+                )}
+                <span className="flex-1" />
+                {stop !== null && (
                   <Button
                     type="button"
-                    variant="ghost"
-                    size={touch ? 'lg' : 'sm'}
-                    onClick={() => goTo(step - 1)}
+                    variant="outline"
+                    size="sm"
+                    disabled={stop.disabled || stop.stopping}
+                    title={stopTitle(stop)}
+                    onClick={stop.run}
+                    className="rounded-full keyboard:h-7 pointer-coarse:h-9 pointer-coarse:px-3.5"
                   >
-                    Back
+                    {stop.stopping && <Spinner />}
+                    Stop
                   </Button>
                 )}
                 <Button
                   type="button"
-                  size={touch ? 'lg' : 'sm'}
-                  disabled={busy}
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Minimise the question"
                   title={
-                    last && sendKeys !== null
-                      ? `Send, from any step (${sendKeys})`
-                      : undefined
+                    minimiseKeys === null
+                      ? 'Minimise, to read the session'
+                      : `Minimise, to read the session (${minimiseKeys})`
                   }
-                  onClick={primary}
-                  className={cn('min-w-20', touch && 'min-w-28')}
+                  onClick={onMinimise}
+                  className="-mr-2 gap-1.5 px-2 text-muted-foreground keyboard:h-7 pointer-coarse:size-11 pointer-coarse:px-0"
                 >
-                  {sending?.declining === false ? (
-                    <>
-                      <Spinner />
-                      Sending…
-                    </>
-                  ) : (
-                    <>
-                      {last ? (many ? 'Send answers' : 'Send answer') : 'Next'}
-                      <Keys>↵</Keys>
-                    </>
-                  )}
+                  {minimiseKeys !== null && <Keys>{minimiseKeys}</Keys>}
+                  <ChevronDownIcon aria-hidden />
                 </Button>
-              </>
-            )}
+              </div>
+              {many && (
+                <Progress
+                  question={question}
+                  drafts={drafts}
+                  tried={tried}
+                  step={step}
+                  touch={touch}
+                  onStep={goTo}
+                />
+              )}
+            </Head>
+            <div
+              ref={stepRef}
+              className={cn(
+                'min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-4 pb-5',
+                touch && 'px-4 pt-3 pb-4',
+              )}
+            >
+              <div
+                key={step}
+                data-slot="question-step-content"
+                className={cn(
+                  'animate-in duration-200 ease-out fade-in-0 motion-reduce:animate-none',
+                  from > 0 ? 'slide-in-from-right-3' : 'slide-in-from-left-3',
+                )}
+              >
+                <Step
+                  index={step}
+                  item={item}
+                  draft={draft}
+                  missing={tried && !isAnswered(item, draft)}
+                  last={last}
+                  touch={touch}
+                  editing={editing}
+                  onEditing={setEditing}
+                  onChoose={(label) => onChoose(item.id, label)}
+                  onChooseOther={() => onChooseOther(item.id)}
+                  onType={(text) => onType(item.id, text)}
+                  onNext={primary}
+                  onStep={(by) => goTo(step + by)}
+                />
+              </div>
+            </div>
+            <div
+              className={cn(
+                'flex min-h-14 shrink-0 items-center gap-2 border-t border-border px-5 py-3',
+                touch && 'min-h-16 px-4',
+                // The home indicator's room, but where the keyboard covers it.
+                touch &&
+                  !keyboard.keyboard &&
+                  'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
+              )}
+            >
+              {skipping ? (
+                <>
+                  <p role="alert" className="mr-auto min-w-0 truncate">
+                    <span className="font-medium">Skip this question?</span>
+                    <span className="text-muted-foreground max-sm:hidden">
+                      {' '}
+                      {asker.agent} goes on without it.
+                    </span>
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size={touch ? 'lg' : 'sm'}
+                    onClick={() => skip(false)}
+                    className="text-muted-foreground"
+                  >
+                    Cancel
+                    <Keys>esc</Keys>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size={touch ? 'lg' : 'sm'}
+                    disabled={busy}
+                    onClick={() => skip(true)}
+                  >
+                    {sending?.declining === true && <Spinner />}
+                    Skip
+                    <Keys>q</Keys>
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    title="Let the agent carry on without your answer"
+                    onClick={() => skip(true)}
+                    className="focus-ring mr-auto -ml-1 flex min-h-11 cursor-pointer items-center rounded-md px-1 text-muted-foreground underline-offset-4 transition-colors duration-150 hover:text-foreground hover:underline disabled:pointer-events-none disabled:opacity-50 keyboard:min-h-7 motion-reduce:transition-none"
+                  >
+                    Skip question
+                  </button>
+                  {step > 0 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size={touch ? 'lg' : 'sm'}
+                      onClick={() => goTo(step - 1)}
+                    >
+                      Back
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    size={touch ? 'lg' : 'sm'}
+                    disabled={busy}
+                    title={
+                      last && sendKeys !== null
+                        ? `Send, from any step (${sendKeys})`
+                        : undefined
+                    }
+                    onClick={primary}
+                    className={cn('min-w-20', touch && 'min-w-28')}
+                  >
+                    {sending?.declining === false ? (
+                      <>
+                        <Spinner />
+                        Sending…
+                      </>
+                    ) : (
+                      <>
+                        {last
+                          ? many
+                            ? 'Send answers'
+                            : 'Send answer'
+                          : 'Next'}
+                        <Keys>↵</Keys>
+                      </>
+                    )}
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      </keys.Surface>
+        </keys.Surface>
+      </div>
     </div>
+  );
+}
+
+/** Its head: on touch, a swipe down it minimises the sheet. */
+function Head({
+  sheet,
+  touch,
+  on,
+  onMinimise,
+  children,
+}: {
+  readonly sheet: RefObject<HTMLElement | null>;
+  readonly touch: boolean;
+  readonly on: boolean;
+  readonly onMinimise: () => void;
+  readonly children: ReactNode;
+}) {
+  if (!touch)
+    return (
+      <div className="flex shrink-0 flex-col gap-3 px-5 pt-4">{children}</div>
+    );
+  return (
+    <SwipeHead
+      sheet={sheet}
+      on={on}
+      onMinimise={onMinimise}
+      className="flex shrink-0 touch-none flex-col gap-2 px-4 pt-2 select-none"
+    >
+      {children}
+    </SwipeHead>
   );
 }
 

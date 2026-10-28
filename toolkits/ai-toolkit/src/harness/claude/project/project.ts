@@ -1,3 +1,4 @@
+import { Option, Schema } from 'effect';
 import type {
   Part,
   Projected,
@@ -5,7 +6,26 @@ import type {
   Usage,
 } from '../../../contract/projection/index.js';
 import type { Raw } from '../../../contract/raw/index.js';
+import {
+  QuestionAnswerSchema,
+  type QuestionAnswer,
+} from '../../../contract/wire/index.js';
 import { toolKind, toolTitle } from './tools.js';
+
+/**
+ * The record the harness writes as the user answers or declines an Agent
+ * Question, into its Turn. Claude Code keeps what was chosen only as it
+ * told the agent, each Item's choices joined into one string, so the
+ * harness records the answer as it gave it.
+ */
+export const QUESTION_ANSWERED = 'question.answered';
+
+/** What `question.answered` holds: null answers, the user declined. */
+export type QuestionAnswered = {
+  /** The `AskUserQuestion` call's tool_use id. */
+  readonly toolUseId: string;
+  readonly answers: QuestionAnswer | null;
+};
 
 /** Tool output longer than this is cut in the projection; Raw keeps all of it. */
 export const TOOL_OUTPUT_MAX = 4000;
@@ -171,12 +191,28 @@ const chunkParts = (payload: Obj): ReadonlyArray<Part> => {
   return [{ type: 'textChunk', streamId, channel, text }];
 };
 
+const readAnswers = Schema.decodeUnknownOption(
+  Schema.NullOr(QuestionAnswerSchema),
+);
+
+/** The user's answers to an Agent Question, as the harness recorded them. */
+const answeredParts = (payload: Obj): ReadonlyArray<Part> => {
+  const toolCallId = str(payload['toolUseId']);
+  const answers = readAnswers(payload['answers']);
+  return toolCallId === undefined || Option.isNone(answers)
+    ? []
+    : [{ type: 'questionAnswered', toolCallId, answers: answers.value }];
+};
+
 const roleAndParts = (
   kind: string,
   payload: Obj,
 ): Pick<Projected, 'role' | 'parts'> | null => {
   if (kind === 'text.chunk') {
     return { role: 'assistant', parts: chunkParts(payload) };
+  }
+  if (kind === QUESTION_ANSWERED) {
+    return { role: 'tool', parts: answeredParts(payload) };
   }
   switch (payload['type']) {
     case 'assistant':

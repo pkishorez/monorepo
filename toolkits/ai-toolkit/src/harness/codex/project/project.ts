@@ -331,7 +331,10 @@ const questionAsked = (raw: Raw, request: UserInputRequest): Projected =>
     },
   ]);
 
-/** Each question's answer on a line of its own, by its header. */
+/**
+ * The call's result, each question's answer on a line of its own by its
+ * header as the agent reads it, and what the user answered, by Item id.
+ */
 const questionAnswered = (raw: Raw, answered: QuestionAnswered): Projected =>
   message(raw, 'tool', [
     {
@@ -348,6 +351,11 @@ const questionAnswered = (raw: Raw, answered: QuestionAnswered): Projected =>
               .join('\n'),
       ),
       isError: answered.answers === null,
+    },
+    {
+      type: 'questionAnswered',
+      toolCallId: answered.itemId,
+      answers: answered.answers,
     },
   ]);
 

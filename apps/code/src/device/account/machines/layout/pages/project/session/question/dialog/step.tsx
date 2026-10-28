@@ -170,9 +170,12 @@ export function Step({
 }
 
 /**
- * A key an IME took, to compose text in another script: it says 229.
+ * A key an IME took, to compose text in another script: browsers mark it
+ * `keyCode` 229, the one way Safari says so, as it ends composing before
+ * `keydown`. Any other key while composing is the IME's too, but Enter:
  * Android's keyboards keep a word composed as it is typed, and their
- * action key's Enter says 13 then: that one is the user's.
+ * action key's Enter says 13 then, the user's (tested in
+ * `question.test.tsx`).
  */
 const composing = (event: globalThis.KeyboardEvent) =>
   event.keyCode === 229 || (event.isComposing && event.key !== 'Enter');
@@ -245,6 +248,8 @@ function Own({
   const edit = () => {
     if (typed.trim() !== '' && !draft.other && role === 'radio')
       onChooseOther();
+    // Drawn now, not after the tap: iOS raises the keyboard only for focus
+    // given in the same tap, so the field must be there to take it.
     flushSync(() => onEditing(true));
     field.current?.focus({ preventScroll: true });
     field.current?.scrollIntoView({ block: 'nearest' });
@@ -294,8 +299,9 @@ function Own({
           onChange={(event) => onType(event.currentTarget.value)}
           onKeyDown={keyDown}
           onBlur={() => onEditing(false)}
+          // Scrolled into sight, it keeps 12px clear of the step's edge.
           className={cn(
-            'h-6 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground',
+            'h-6 min-w-0 flex-1 scroll-my-3 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground',
             touch && 'h-9 text-base',
           )}
         />

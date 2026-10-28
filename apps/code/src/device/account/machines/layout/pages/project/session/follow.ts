@@ -28,12 +28,33 @@ import { keys } from '../../../commands.ts';
  * scroll even while typing. Every scroll is instant; scrolling up lets go.
  */
 
+/**
+ * How far `j` and `k` scroll, in px: two lines of the transcript's text,
+ * a little more than a browser's own arrow key, so a step is seen to move.
+ */
 const LINE = 48;
 
-const NEAR = 48;
-/** How long after a reader's gesture a scroll still counts as theirs. */
+/**
+ * Closer than this to the bottom is at the bottom: a glide that ends a
+ * little short, or a row redrawn a few px taller, still follows. No more
+ * than `LINE`, so one `k` up from the bottom is away from it, and the
+ * scroll it makes does not hold on again.
+ */
+const NEAR = LINE;
+
+/**
+ * How long after a reader's own wheel, touch or key a scroll up still
+ * counts as theirs, in ms: a flick or a wheel's spin goes on scrolling, by
+ * the browser's momentum, for up to about a second after its last event.
+ * A scroll up with no gesture that recent is the page's own, as when what
+ * it holds shrinks for a moment as it redraws.
+ */
 const GESTURE_MS = 1000;
-/** How long after a click what grows is its opening, not new words. */
+
+/**
+ * How long after a click what grows is its opening, not new words, in ms:
+ * long enough for what the click opened to draw and settle its height.
+ */
 const PIN_MS = 300;
 
 export function useFollow(

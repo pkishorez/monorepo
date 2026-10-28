@@ -17,6 +17,7 @@ import {
 import type { AgentQuestion, Raw } from '@kestack/ai-toolkit/contract';
 import {
   Engine,
+  HarnessFailed,
   Store,
   storeLayer,
   type SessionJobs,
@@ -796,6 +797,24 @@ describe('Agent Questions', () => {
           yield* Effect.flip(engine.answerQuestion('nope', 'q1', null)),
         ).toMatchObject({ _tag: 'SessionNotFound' });
         expect(fake.answers).toEqual([{ id: 'q1', answer: null }]);
+      }),
+      fake,
+    );
+  });
+
+  it("come back refused with the harness's reason", async () => {
+    const fake = makeFakeHarness({ hold: true, refuseAnswers: true });
+    await run(
+      Effect.gen(function* () {
+        const { engine, session, seen, row } = yield* asking;
+        yield* fake.askQuestion('native-1', question('q1'));
+        yield* eventually(() =>
+          expect(seen.at(-1)).toEqual([row([question('q1')])]),
+        );
+        expect(
+          yield* Effect.flip(engine.answerQuestion(session.id, 'q1', null)),
+        ).toEqual(new HarnessFailed({ message: 'q1 is refused' }));
+        expect(seen.at(-1)).toEqual([row([question('q1')])]);
       }),
       fake,
     );
