@@ -53,8 +53,16 @@ Whom a Cache is kept for: its Account, and its Connection and Project when it ha
 _Avoid_: owner, scope, key
 
 **Link**:
-The app's socket to one Connection, as it stands: linking, linked, or relinking. Nothing can be sent to a Connection whose Link is not linked.
+The app's socket to one Connection, as it stands: linking, linked, or relinking. It dials the Connection's code Plugin at the [[connect]] Release this Code was built with, by its hash. Nothing can be sent to a Connection whose Link is not linked.
 _Avoid_: line, socket status
+
+**Mismatched**:
+A Connection that closed its Link's socket at once, as it runs another Release of the code Plugin than this Code calls, until a socket to it is answered. What Cloud Connect wants it to run says who is behind: this Code's Release, or none, and the Connection is Updating, so the Link keeps relinking and the app says "Updating Connect…"; another, and this Code is Stale, so it moves to its newest build and says "Updating Code…".
+_Avoid_: version mismatch, incompatible, refused (a refused call is a Message)
+
+**Outdated**:
+A Connection whose `ke-connect` is older than Cloud Connect accepts, the Minimum Connect. Its header and Settings ask to run `npm i -g @kestack/connect@latest` on it; a newer `ke-connect` being out is no reason to.
+_Avoid_: old, behind (that is a Mismatched one)
 
 **Recheck**:
 The Connection List asked again because a Connection's Link is not up: every 3 seconds for the first minute, then every 30 seconds, until every Link is up; a Link that drops starts it again. Reload starts it over at once.

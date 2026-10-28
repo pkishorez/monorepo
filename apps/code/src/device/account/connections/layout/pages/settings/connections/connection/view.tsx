@@ -15,6 +15,7 @@ import {
   ConnectionNotice,
   StandingDot,
   standingOf,
+  useBehind,
   useLock,
   useNoticeClock,
 } from '../../../../../connection/link/index.ts';
@@ -79,6 +80,7 @@ export const ConnectionCardView = View.make(
     const open = Confirm.useOpen();
     const { connection } = props;
     const now = useNoticeClock(connection);
+    const behind = useBehind(connection.id);
     const onChoose = (tab: ConnectionTab) => send({ _tag: 'TabChosen', tab });
     const tabId = (each: ConnectionTab) =>
       `connection-${connection.id}-${each.toLowerCase()}-tab`;
@@ -102,7 +104,7 @@ export const ConnectionCardView = View.make(
             <Trash2Icon aria-hidden />
           </Button>
         </div>
-        <ConnectionNotice connection={connection} now={now} />
+        <ConnectionNotice connection={connection} now={now} behind={behind} />
         <TabList label={`What ${connection.name} shows`} className="-mx-3">
           {ConnectionTab.literals.map((each) => (
             <Tab

@@ -1,16 +1,22 @@
+import { readFileSync } from 'node:fs';
 import { Effect, Fiber, Layer, SubscriptionRef } from 'effect';
+import type { Connection } from '@kestack/connect/cloud';
+import { ConnectionAddress } from '@kestack/connect/code';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { describe, expect, it } from 'vitest';
 import {
   ConnectionsChannel,
   connectionsLayer as connections,
+  nobody,
 } from '../../../../connections.ts';
-import { byConnection } from '../reach.ts';
+import { addressAt, byConnection } from '../reach.ts';
+import { PLUGIN_CODE } from '../release.ts';
 
 /*
  * A Connection's Instance is held by that Connection's own Replicas, and opens
  * nothing until the Connection runs here: an address naming a Connection not
- * running, such as another Account's, waits.
+ * running, such as another Account's, waits. Its socket dials the code
+ * Plugin at the Release this Code was built with.
  */
 
 const wait = (ms = 20) =>
@@ -57,5 +63,55 @@ describe('the Replicas of every Connection', () => {
         ),
       ),
     );
+  });
+});
+
+describe('the socket of every Connection', () => {
+  const listed = (url: string): typeof Connection.Type => ({
+    id: 'm1',
+    name: 'm1',
+    key: 'key-m1',
+    version: '0.0.5',
+    status: { _tag: 'Reachable', url, at: 0 },
+    lastSeen: 0,
+    plugins: {},
+    wanted: {},
+    minConnect: null,
+  });
+
+  it('is built with the latest Release in the code Plugin’s Release Log', () => {
+    const log = JSON.parse(
+      readFileSync(
+        new URL(
+          '../../../../../../../../node_modules/@kestack/connect/src/plugins/code/releases.json',
+          import.meta.url,
+        ),
+        'utf8',
+      ),
+    ) as { readonly releases: ReadonlyArray<{ readonly hash: string }> };
+    expect(PLUGIN_CODE).toMatch(/^[a-f0-9]{64}$/);
+    expect(PLUGIN_CODE).toBe(log.releases.at(-1)?.hash);
+  });
+
+  it('dials the code Plugin at that Release, with its Connection Key', async () => {
+    const address = await Effect.runPromise(
+      Effect.gen(function* () {
+        const { known } = yield* ConnectionsChannel;
+        yield* SubscriptionRef.set(known, {
+          ...nobody,
+          accountId: 'a1',
+          connections: [listed('https://m1.trycloudflare.com/')],
+        });
+        return yield* (yield* ConnectionAddress).of('m1');
+      }).pipe(
+        Effect.provide(
+          addressAt(PLUGIN_CODE).pipe(Layer.provideMerge(connections)),
+        ),
+      ),
+    );
+    expect(address).toEqual({
+      url: `wss://m1.trycloudflare.com/code/${PLUGIN_CODE}/rpc`,
+      key: 'key-m1',
+    });
   });
 });

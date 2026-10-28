@@ -3,11 +3,12 @@ import { Button } from '@kestack/web-platform/ui/components/button';
 import { CheckIcon, CircleAlertIcon, CopyIcon } from 'lucide-react';
 import { Progress } from '@kestack/web-platform/ui/components/progress';
 import { useState } from 'react';
+import type { Behind } from '../reach/index.ts';
 import {
+  outdated,
   type PluginNotice,
   pluginNotice,
   UPDATE_COMMAND,
-  updateOf,
 } from './health.ts';
 
 type Connection = typeof ConnectionSchema.Type;
@@ -15,10 +16,12 @@ type Connection = typeof ConnectionSchema.Type;
 /*
  * What the app says of a Connection's own programs, linked or not: its
  * code Plugin Updating, with how far it downloaded, or Crashed, with its
- * last lines to read and copy and when it is tried again; and, when Cloud
- * Connect names a newer `ke-connect` than it runs, how to update it. A
- * running Plugin on the latest `ke-connect` says nothing. The header's
- * pill says it in a few words, and Settings in full.
+ * last lines to read and copy and when it is tried again; this Code moving
+ * to its newest build, when the Connection runs a newer Release than it
+ * calls; and, when the Connection is Outdated, its `ke-connect` older than
+ * Cloud Connect accepts, how to update it. A running Plugin on a
+ * `ke-connect` Cloud Connect accepts says nothing. The header's pill says
+ * it in a few words, and Settings in full.
  */
 
 type Pill = readonly [label: string, title: string, tone: string];
@@ -43,8 +46,10 @@ export const retryIn = (retryAt: number, now: number) => {
 export const noticePillOf = (
   connection: Connection | null,
   now: number,
+  /** Who is behind, when the Connection closed a socket running another Release. */
+  behind: Behind | null = null,
 ): Pill | null => {
-  const notice = pluginNotice(connection, now);
+  const notice = pluginNotice(connection, now, behind);
   if (notice?._tag === 'Updating') {
     const percent = percentOf(notice.progress);
     return [
@@ -59,15 +64,23 @@ export const noticePillOf = (
       `The Connection's code Plugin stopped; trying again ${retryIn(notice.retryAt, now)}. Its last lines are in Settings.`,
       'bg-destructive',
     ];
-  const update = updateOf(connection);
-  if (update !== null && connection !== null)
+  if (notice?._tag === 'Stale') return ['Updating Code…', STALE, 'bg-warning'];
+  if (connection !== null && outdated(connection))
     return [
       'Update ke-connect',
-      `This Connection runs ke-connect ${connection.version}; ${update} is out. Run \`${UPDATE_COMMAND}\` on it, then start it again.`,
+      `${outdatedOf(connection.version)} run \`${UPDATE_COMMAND}\` on it, then start it again.`,
       'bg-warning',
     ];
   return null;
 };
+
+/** What is said of this Code while it moves to its newest build. */
+const STALE =
+  'This Connection runs a newer code Plugin than this Code calls: Code is moving to its newest version.';
+
+/** What is said of an Outdated Connection's `ke-connect`. */
+const outdatedOf = (version: string) =>
+  `ke-connect ${version} is older than Cloud Connect accepts;`;
 
 /** A button that copies `text`, and says so once it did. */
 function Copy({
@@ -153,18 +166,12 @@ function Crashed({
   );
 }
 
-function Update({
-  version,
-  latest,
-}: {
-  readonly version: string;
-  readonly latest: string;
-}) {
+function Update({ version }: { readonly version: string }) {
   return (
     <div role="status" className="flex flex-col gap-1.5">
       <p className="text-xs text-muted-foreground">
-        Update ke-connect: this Connection runs {version}, and {latest} is out.
-        Run this on it, then start it again:
+        Update ke-connect: {outdatedOf(version)} run this on it, then start it
+        again:
       </p>
       <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 py-1 pr-1 pl-3">
         <code className="min-w-0 flex-1 truncate font-mono text-xs">
@@ -180,20 +187,26 @@ function Update({
 export function ConnectionNotice({
   connection,
   now,
+  behind = null,
 }: {
   readonly connection: Connection;
   readonly now: number;
+  /** Who is behind, when the Connection closed a socket running another Release. */
+  readonly behind?: Behind | null;
 }) {
-  const notice = pluginNotice(connection, now);
-  const update = updateOf(connection);
-  if (notice === null && update === null) return null;
+  const notice = pluginNotice(connection, now, behind);
+  const update = outdated(connection);
+  if (notice === null && !update) return null;
   return (
     <div className="flex flex-col gap-3">
       {notice?._tag === 'Updating' && <Updating notice={notice} />}
       {notice?._tag === 'Crashed' && <Crashed notice={notice} now={now} />}
-      {update !== null && (
-        <Update version={connection.version} latest={update} />
+      {notice?._tag === 'Stale' && (
+        <p role="status" className="text-xs text-muted-foreground">
+          {STALE}
+        </p>
       )}
+      {update && <Update version={connection.version} />}
     </div>
   );
 }

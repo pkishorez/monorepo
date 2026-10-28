@@ -1,7 +1,7 @@
 import type { Project, Session } from '@kestack/connect/code';
 import { Drawer } from '@kestack/web-platform/recipes/touch-layers';
 import { CheckIcon, ChevronDownIcon, RefreshCwIcon } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, use, useState } from 'react';
 import { type OnConnection } from '../../../../connection/records/index.ts';
 import {
   noticePillOf,
@@ -11,6 +11,7 @@ import {
   standingOf,
   useHealths,
   useConnections,
+  Links,
 } from '../../../../connection/link/index.ts';
 
 /*
@@ -72,6 +73,7 @@ function useInfos(
 ): ReadonlyArray<Info> {
   const listed = useConnections();
   const healthOf = useHealths();
+  const { behind } = use(Links);
   return connections.map(({ id, name }) => {
     const health = healthOf(id);
     const record = listed.find((each) => each.id === id);
@@ -91,7 +93,8 @@ function useInfos(
         .length,
       about:
         [
-          noticePillOf(record ?? null, Date.now())?.[0] ?? null,
+          noticePillOf(record ?? null, Date.now(), behind?.[id] ?? null)?.[0] ??
+            null,
           record === undefined ? null : (TUNNEL[record.status._tag] ?? null),
           record?.version ? `Connect ${record.version}` : null,
         ]
