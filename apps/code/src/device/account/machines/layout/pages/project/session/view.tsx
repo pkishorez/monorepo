@@ -157,6 +157,7 @@ export const SessionView = View.make(
       () => ({
         place: questionPlace,
         agent: session === undefined ? 'The agent' : agentName(session.harness),
+        harness: session?.harness ?? null,
         problem: model.problem,
         stop: running
           ? {
