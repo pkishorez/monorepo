@@ -1,5 +1,9 @@
 # @kestack/effect-tracer
 
+## 0.0.16
+
+No changes in this release.
+
 ## 0.0.15
 
 No changes in this release.

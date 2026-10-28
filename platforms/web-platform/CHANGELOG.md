@@ -1,5 +1,63 @@
 # @kestack/ui-toolkit
 
+## 0.0.5
+
+### Patch Changes
+
+- [#99](https://github.com/pkishorez/monorepo/pull/99) [`ff91379`](https://github.com/pkishorez/monorepo/commit/ff91379bba26c81bad7e4fb0325af31bfe9f9b5f) Thanks [@kishorenuma](https://github.com/kishorenuma)! - The Account Switcher's menu dims the screen behind it. `DropdownMenuContent` with `backdrop` dims instead of blurring.
+
+- [#99](https://github.com/pkishorez/monorepo/pull/99) [`ff91379`](https://github.com/pkishorez/monorepo/commit/ff91379bba26c81bad7e4fb0325af31bfe9f9b5f) Thanks [@kishorenuma](https://github.com/kishorenuma)! - The App Shell floats as a window only when given `floating`; otherwise it fills the screen. The sidebar's resize handle sits on the dividing line, and the header shows its bottom edge only once the page scrolls.
+
+- [#99](https://github.com/pkishorez/monorepo/pull/99) [`8b4ff10`](https://github.com/pkishorez/monorepo/commit/8b4ff102bf78eb9bf94125e59b9657baafe0f19e) Thanks [@kishorenuma](https://github.com/kishorenuma)! - Every value Connect's RPC sends is an ESchema, so a newer side reads an older one.
+
+  - `@kestack/std-toolkit`: an ESchema reads and migrates any known version, and fails a newer one with `OutdatedVersion`. New `eschemaOf`, and `OnOutdated` in `./replica`.
+  - `@kestack/connect`: breaking: wire types are ESchemas; use `X.schema` for an Effect Schema. Calls fail with `VersionGap` when the two sides' versions don't match.
+  - `@kestack/web-platform`: new `updateToNewest` in `./pwa`.
+  - Code reloads to its newest build when it reads something newer, and says when a Connection is too old.
+
+- [#99](https://github.com/pkishorez/monorepo/pull/99) [`68843e3`](https://github.com/pkishorez/monorepo/commit/68843e3f088acd0c41e6a908db5cb62a0f12b5ca) Thanks [@kishorenuma](https://github.com/kishorenuma)! - Renames: a Machine is now a Connection, an App Group a Plugin, and a socket's status its Link.
+
+  - Breaking: every `Machine*` name is `Connection*`, and `machineId` is `connectionId`.
+  - Breaking: socket `connection` status is `link` (`linking`, `linked`, `relinking`).
+  - Breaking: `AppGroup`, `codeGroup` and `groups` are `Plugin`, `codePlugin` and `plugins`.
+  - Breaking: every Connection signs in and registers again.
+  - Code's routes are `/c/:connectionId/…`, and its saved Connection list starts empty.
+
+- [#99](https://github.com/pkishorez/monorepo/pull/99) [`0bed3f8`](https://github.com/pkishorez/monorepo/commit/0bed3f83e9701bcb850c94f4d7864445a5f9108d) Thanks [@kishorenuma](https://github.com/kishorenuma)! - The Devtools Dock hides its devtools when closed instead of unmounting them, so their state stays. Kabuki Devtools cards show their key on a short readable line, and the fold button is larger and easier to hit.
+
+- [#99](https://github.com/pkishorez/monorepo/pull/99) [`609ac1f`](https://github.com/pkishorez/monorepo/commit/609ac1f51a43f7890ba749fba58d4cc84b9048d5) Thanks [@kishorenuma](https://github.com/kishorenuma)! - Under `vite dev`, `app()` forwards Kabuki Sessions at `/__devtools/kabuki/connect` on the site's own origin to DevTools, and nothing else of DevTools. `app({ devtools })` sets the server, or `false` for none.
+
+- [`e366e57`](https://github.com/pkishorez/monorepo/commit/e366e57baa3c6ed2dfce5eb9804c94961f0506ed) Thanks [@pkishorez](https://github.com/pkishorez)! - Every touch Drawer, not only a tall one, now sits above the on-screen keyboard in the part of the page left visible, and with a field in it focused takes all of that but the status bar, so on iOS nothing in it is hidden under the keyboard.
+
+  While the keyboard is up, a Drawer keeps no room at its foot for the home indicator the keyboard covers, so it sits right on the keyboard; `--visible-safe-bottom` gives that room to what is inside it.
+
+- [#99](https://github.com/pkishorez/monorepo/pull/99) [`ff91379`](https://github.com/pkishorez/monorepo/commit/ff91379bba26c81bad7e4fb0325af31bfe9f9b5f) Thanks [@kishorenuma](https://github.com/kishorenuma)! - The theme gains `running`, `added`, `changed` and `removed` colours.
+
+- [#99](https://github.com/pkishorez/monorepo/pull/99) [`c012561`](https://github.com/pkishorez/monorepo/commit/c012561d0faa31aa672ae341876db80bd0471deb) Thanks [@kishorenuma](https://github.com/kishorenuma)! - The Kabuki Inspector moved into DevTools, rebuilt on a canvas over a Timeline, with Time Travel and Fork.
+
+  Breaking: `KabukiDevtools` and `Inspector` are gone from web-platform, and `story` is no longer played. `recipes/devtools` keeps `DevtoolsDock`.
+
+- [#99](https://github.com/pkishorez/monorepo/pull/99) [`ff91379`](https://github.com/pkishorez/monorepo/commit/ff91379bba26c81bad7e4fb0325af31bfe9f9b5f) Thanks [@kishorenuma](https://github.com/kishorenuma)! - `MarkdownViewer` draws every code block as a block, never an inline chip. Long lines scroll sideways inside it.
+
+- [`e04aec7`](https://github.com/pkishorez/monorepo/commit/e04aec74589ad7786dd13b070ac209af73e36c40) Thanks [@pkishorez](https://github.com/pkishorez)! - A Drawer opened inside another keeps its backdrop clear, so a tap outside still closes it but the page is dimmed once, by the Drawer under it, rather than twice to near black.
+
+- [#93](https://github.com/pkishorez/monorepo/pull/93) [`01659ef`](https://github.com/pkishorez/monorepo/commit/01659ef9beddda274646bed98e0a3879fe61bd3c) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A touch Drawer holding a field stops animating on its own once it has risen, so on iOS it no longer jitters against the keyboard: the keyboard and the page's scroll move and size it at once, and only a swipe or closing animates it.
+
+- [#99](https://github.com/pkishorez/monorepo/pull/99) [`0bed3f8`](https://github.com/pkishorez/monorepo/commit/0bed3f83e9701bcb850c94f4d7864445a5f9108d) Thanks [@kishorenuma](https://github.com/kishorenuma)! - Breaking: `@kestack/web-platform/ui/components/lucide` and `/motion` are gone. Import from `lucide-react` and `motion/react`.
+
+  code's first load is about 570 KB gzipped, down from about 1 MB. Pages load on their own, and `pnpm size` fails past the budget.
+
+- [#99](https://github.com/pkishorez/monorepo/pull/99) [`ad39df1`](https://github.com/pkishorez/monorepo/commit/ad39df120da50c3eaf168f09d3f5b8dd560f9614) Thanks [@kishorenuma](https://github.com/kishorenuma)! - Drawers and Top Dialogs stay above the iOS 26 on-screen keyboard. A focused field scrolls into view inside its layer, not by scrolling the page.
+
+  New: `useVisibleViewport`, `visibleOf`, `useKeyboardOver`, `overBox`, and `SWIPE_DISMISS` for sheets that dismiss like the Drawer.
+
+- Updated dependencies [[`278b105`](https://github.com/pkishorez/monorepo/commit/278b1054fcc9b53036a7df5b44fe90c21dbde480), [`7bcb8db`](https://github.com/pkishorez/monorepo/commit/7bcb8dbdc934779cae6a86fad96a367c9923e747), [`7bcb8db`](https://github.com/pkishorez/monorepo/commit/7bcb8dbdc934779cae6a86fad96a367c9923e747), [`110f14f`](https://github.com/pkishorez/monorepo/commit/110f14f798dde8057ee65e101325128102968291), [`ff91379`](https://github.com/pkishorez/monorepo/commit/ff91379bba26c81bad7e4fb0325af31bfe9f9b5f), [`cacaf15`](https://github.com/pkishorez/monorepo/commit/cacaf15813485ad3ba06e7c656525c63ac4972ba), [`139011f`](https://github.com/pkishorez/monorepo/commit/139011fe37d4cb1960fb30091f42308cf56e0dd2), [`0bed3f8`](https://github.com/pkishorez/monorepo/commit/0bed3f83e9701bcb850c94f4d7864445a5f9108d)]:
+  - @kestack/auth-toolkit@0.0.5
+  - @kestack/kabuki@0.0.4
+  - laymos@0.0.16
+  - @kestack/use-gesture@0.0.2
+  - @kestack/use-keys@0.0.2
+
 ## 0.0.4
 
 ### Patch Changes

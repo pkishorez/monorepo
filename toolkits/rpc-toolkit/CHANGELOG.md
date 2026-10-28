@@ -1,5 +1,13 @@
 # @kestack/rpc-toolkit
 
+## 0.0.5
+
+### Patch Changes
+
+- [#99](https://github.com/pkishorez/monorepo/pull/99) [`6a64461`](https://github.com/pkishorez/monorepo/commit/6a6446178baa61df7df5cc1b8272ae56e38c962c) Thanks [@kishorenuma](https://github.com/kishorenuma)! - The websocket `client` takes `watch`, told of each socket's first frame and how it closed. `SocketWatch` and `SocketClose` are exported.
+- Updated dependencies [[`8b4ff10`](https://github.com/pkishorez/monorepo/commit/8b4ff102bf78eb9bf94125e59b9657baafe0f19e)]:
+  - @kestack/std-toolkit@0.0.5
+
 ## 0.0.4
 
 ### Patch Changes

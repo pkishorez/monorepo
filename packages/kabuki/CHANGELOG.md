@@ -1,5 +1,17 @@
 # @kestack/kabuki
 
+## 0.0.4
+
+### Patch Changes
+
+- [#99](https://github.com/pkishorez/monorepo/pull/99) [`7bcb8db`](https://github.com/pkishorez/monorepo/commit/7bcb8dbdc934779cae6a86fad96a367c9923e747) Thanks [@kishorenuma](https://github.com/kishorenuma)! - An app whose root needs Input no longer crashes when mounted again.
+
+- [#99](https://github.com/pkishorez/monorepo/pull/99) [`7bcb8db`](https://github.com/pkishorez/monorepo/commit/7bcb8dbdc934779cae6a86fad96a367c9923e747) Thanks [@kishorenuma](https://github.com/kishorenuma)! - `toReact` and `Start.app` take `attach`: Attachments that run with the app in a browser. `AppRuntime` gains `subscribe`.
+
+- [#99](https://github.com/pkishorez/monorepo/pull/99) [`110f14f`](https://github.com/pkishorez/monorepo/commit/110f14f798dde8057ee65e101325128102968291) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A Fork carries on at its Step's own page instead of the address the tab was left on. `Start.app` takes `name`; without it every Start app is called `Router`.
+
+- [#99](https://github.com/pkishorez/monorepo/pull/99) [`ff91379`](https://github.com/pkishorez/monorepo/commit/ff91379bba26c81bad7e4fb0325af31bfe9f9b5f) Thanks [@kishorenuma](https://github.com/kishorenuma)! - The Runtime's `provided(id)` lists the Capabilities an Instance provides. A built Actor keeps its Schemas under `schemas`.
+
 ## 0.0.3
 
 ### Patch Changes

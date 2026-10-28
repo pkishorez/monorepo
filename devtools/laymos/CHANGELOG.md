@@ -1,5 +1,13 @@
 # laymos
 
+## 0.0.16
+
+### Patch Changes
+
+- [#101](https://github.com/pkishorez/monorepo/pull/101) [`cacaf15`](https://github.com/pkishorez/monorepo/commit/cacaf15813485ad3ba06e7c656525c63ac4972ba) Thanks [@kishorenuma](https://github.com/kishorenuma)! - Browser stories load `playwright-core` from the project first, as they do Vite, so they run from DevTools' bundle too.
+- Updated dependencies []:
+  - @kestack/effect-tracer@0.0.16
+
 ## 0.0.15
 
 ### Patch Changes
