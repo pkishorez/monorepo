@@ -4,8 +4,9 @@ import { resolve } from 'node:path';
 import { Duration, Effect, Schedule } from 'effect';
 
 /*
- * One process at a time works on one cache entry. The lock is a TCP port on
- * 127.0.0.1 worked out from the entry's path: holding it is listening on
+ * One process at a time works on one path: a cache entry as it downloads,
+ * or a name's socket as it is taken over. The lock is a TCP port on
+ * 127.0.0.1 worked out from the path: holding it is listening on
  * it. The kernel gives the port back when the process exits, however it
  * exits, so a lock is never left behind and nothing is ever taken over.
  *
@@ -83,7 +84,7 @@ export const lock = (path: string, timeout: Duration.Input) =>
       orElse: () =>
         Effect.fail(
           new Error(
-            `Waited ${Duration.format(Duration.fromInputUnsafe(timeout))} for port ${lockPort(path)}, the lock of ${path}; if no kestack CLI is downloading it, another program holds the port`,
+            `Waited ${Duration.format(Duration.fromInputUnsafe(timeout))} for port ${lockPort(path)}, the lock of ${path}; if no kestack CLI is working on it, another program holds the port`,
           ),
         ),
     }),

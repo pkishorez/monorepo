@@ -10,7 +10,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { Context, Data, Duration, Effect, Layer } from 'effect';
-import { lock, tryLock } from './lock.js';
+import { lock, tryLock } from '../lock/index.js';
 import { messageOf, transfer, type Progress } from './transfer.js';
 
 /*
