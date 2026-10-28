@@ -15,9 +15,11 @@
     "src/browser-app/ui": ["src/browser-app/devtools-rpc"],
     "src/cli/client-command": ["src/rpc"],
     "src/cli/traces": ["src/cli/client-command", "src/lotel/telemetry-schema"],
+    "src/cli/kabuki": ["src/cli/client-command"],
     "src/server/main.ts": [
       "src/server/local-devtools-server",
       "src/cli/traces",
+      "src/cli/kabuki",
       "src/cli/skills.ts"
     ],
     "src/server/local-devtools-server": [
@@ -47,6 +49,9 @@
       "src/browser-app/ui/git-changes"
     ],
     "src/browser-app/ui/laymos": ["src/browser-app/ui/git-changes"],
+    "src/browser-app/ui/kabuki/page-kabuki": [
+      "src/browser-app/ui/kabuki/sessions"
+    ],
     "src/browser-app/ui/lotel/viewer": [
       "src/browser-app/ui/lotel/collections.ts",
       "src/browser-app/ui/lotel/trace-viewer"

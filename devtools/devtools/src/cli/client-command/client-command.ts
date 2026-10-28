@@ -16,7 +16,7 @@ const formatFlag = Flag.Literals('format', ['json', 'text']).pipe(
 /** The flags every Client Command takes: where the server is, and how to print. */
 export const clientFlags = { url: urlFlag, format: formatFlag };
 
-interface ClientOutput {
+export interface ClientOutput {
   /** Printed as pretty JSON with `--format json`. */
   readonly json: unknown;
   /** Printed with `--format text`. */
@@ -35,10 +35,24 @@ export const output = <A>(
  * with a failed exit.
  */
 export function runClient(
-  flags: { readonly url: string; readonly format: 'json' | 'text' },
+  flags: ClientFlags,
   run: (client: DevtoolsClient) => Effect.Effect<ClientOutput, ClientError>,
 ) {
-  return withDevtoolsClient(flags.url, run).pipe(
+  return printClient(flags, withDevtoolsClient(flags.url, run));
+}
+
+type ClientFlags = { readonly url: string; readonly format: 'json' | 'text' };
+
+/**
+ * Prints what one Client Command found as JSON or text, and reports a
+ * failure on stderr with a failed exit; for a command that reaches the
+ * DevTools Server its own way, as the Kabuki commands do over WebSockets.
+ */
+export function printClient<R>(
+  flags: ClientFlags,
+  result: Effect.Effect<ClientOutput, ClientError, R>,
+) {
+  return result.pipe(
     Effect.flatMap((result) =>
       Console.log(
         flags.format === 'json'

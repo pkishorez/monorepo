@@ -3,17 +3,25 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig, type ProxyOptions } from 'vite-plus';
 import viteReact from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { isTrustedOrigin } from './scripts/dev-proxy.js';
 
 const packageJson = JSON.parse(
   readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
 ) as { version: string };
 
 const backendOrigin = `http://127.0.0.1:${process.env.DEVTOOLS_PORT ?? '14400'}`;
-const backendProxy = (): ProxyOptions => ({
+// Every request leaves as from the server's own origin, so one from another
+// page is refused here, before it is rewritten. OTLP takes any origin.
+const backendProxy = ({ anyOrigin = false } = {}): ProxyOptions => ({
   target: backendOrigin,
   changeOrigin: true,
+  bypass: (request) =>
+    anyOrigin || isTrustedOrigin(request.headers) ? undefined : false,
   configure(proxy) {
     proxy.on('proxyReq', (request) =>
+      request.setHeader('origin', backendOrigin),
+    );
+    proxy.on('proxyReqWs', (request) =>
       request.setHeader('origin', backendOrigin),
     );
   },
@@ -67,7 +75,9 @@ export default defineConfig({
       '/health': backendProxy(),
       '/rpc': backendProxy(),
       '/story-evidence': backendProxy(),
-      '/v1': backendProxy(),
+      '/v1': backendProxy({ anyOrigin: true }),
+      // The /kabuki page's WebSockets; the page itself stays with Vite.
+      '^/kabuki/(sessions|session/)': { ...backendProxy(), ws: true },
     },
   },
   plugins: [tailwindcss(), viteReact()],

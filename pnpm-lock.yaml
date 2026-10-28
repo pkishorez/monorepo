@@ -701,6 +701,9 @@ importers:
       '@effect/platform-node-shared':
         specifier: 'catalog:'
         version: 4.0.6(effect@4.0.6)
+      '@kestack/devtools-kabuki':
+        specifier: workspace:*
+        version: link:../devtools-kabuki
       '@kestack/std-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/std-toolkit
@@ -723,6 +726,9 @@ importers:
       '@kestack/effect-tracer':
         specifier: workspace:*
         version: link:../effect-tracer
+      '@kestack/kabuki':
+        specifier: workspace:*
+        version: link:../../packages/kabuki
       '@kestack/use-gesture':
         specifier: workspace:*
         version: link:../../packages/use-gesture

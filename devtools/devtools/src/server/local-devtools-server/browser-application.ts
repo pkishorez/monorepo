@@ -26,6 +26,13 @@ export function makeBrowserApplicationLive({
       '/': 'DevTools browser application.',
       '/lotel': 'Lotel Tool.',
       '/monoverse': 'Monoverse Tool.',
+      '/kabuki': 'Kabuki Tool: the live Kabuki Sessions, ?session= opens one.',
+      '/kabuki/connect':
+        'WebSocket a running Kabuki app dials as a Kabuki Session: ?name=&url=&app=. Any origin.',
+      '/kabuki/sessions':
+        'WebSocket RPC: the live Kabuki Sessions, listed and watched.',
+      '/kabuki/session/:name':
+        "WebSocket RPC: one Kabuki Session's Kabuki Session Api, forwarded to its app.",
       '/rpc': 'Typed RPC endpoint.',
       '/story-evidence':
         'One Evidence file of a Proof run: ?project=<abs path>&proof=<Proof id>&file=<relative file>.',
@@ -38,6 +45,7 @@ export function makeBrowserApplicationLive({
     HttpRouter.add('GET', '/', indexResponse),
     HttpRouter.add('GET', '/lotel', indexResponse),
     HttpRouter.add('GET', '/monoverse', indexResponse),
+    HttpRouter.add('GET', '/kabuki', indexResponse),
     HttpRouter.add('GET', '/health', health),
   );
   const assets = HttpStaticServer.layer({

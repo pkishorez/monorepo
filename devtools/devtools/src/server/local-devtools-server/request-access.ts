@@ -1,7 +1,8 @@
 import { Effect } from 'effect';
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
+import { CONNECT_PATH } from '@kestack/devtools-kabuki/api';
 
-/** Restricts local application access while allowing browser OTLP ingestion. */
+/** Restricts local application access while allowing browser OTLP ingestion and Kabuki Sessions dialing in. */
 export function makeRequestAccessLive({
   port,
   canonicalOrigin,
@@ -46,6 +47,24 @@ export function makeRequestAccessLive({
           );
         }
 
+        // A Kabuki Session dials from whatever page its app runs in. Only
+        // `/kabuki/connect` takes any origin: the Kabuki routes that read
+        // and move tabs stay behind the origin check below.
+        if (pathname === CONNECT_PATH) {
+          if (request.method === 'OPTIONS') {
+            return Effect.succeed(
+              HttpServerResponse.empty({
+                status: 204,
+                headers: {
+                  'access-control-allow-origin': '*',
+                  'access-control-allow-methods': 'GET, OPTIONS',
+                  'access-control-allow-private-network': 'true',
+                },
+              }),
+            );
+          }
+          return app;
+        }
         const origin = request.headers.origin;
         if (origin !== undefined && origin !== canonicalOrigin) {
           return Effect.succeed(
