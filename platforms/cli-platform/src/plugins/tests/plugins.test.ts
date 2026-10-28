@@ -227,6 +227,44 @@ describe('a Plugin kept running by its CLI', () => {
     30_000,
   );
 
+  it(
+    'starts the new file only once the old process has exited, however long it takes to stop',
+    () =>
+      Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const plugin = setup();
+            const running = yield* Runtime.start(
+              cliOf(plugin, { file: fixture('ping-slow.mjs') }),
+              plugin.layer,
+            );
+            yield* eventually(() =>
+              expect(last(plugin.reports)?._tag).toBe('Running'),
+            );
+            const before = yield* controlAt(plugin.socket);
+            const { pid } = yield* before.status();
+            running.send('Cli', {
+              _tag: 'Want',
+              wanted: { file: fixture('ping-b.mjs') },
+            });
+            // It leaves the socket at once, then takes two seconds to stop:
+            // the new one waits all of it, so they never share the folders.
+            yield* eventually(() =>
+              expect(last(plugin.reports)).toEqual({
+                _tag: 'Running',
+                hash: fixture('ping-b.mjs'),
+              }),
+            );
+            expect(existsSync(join(plugin.folders.data, 'stopped-slow'))).toBe(
+              true,
+            );
+            expect(() => process.kill(pid, 0)).toThrow();
+          }),
+        ),
+      ),
+    30_000,
+  );
+
   it('says a file: URL with no file is not on the shelf', () =>
     Effect.runPromise(
       Effect.scoped(

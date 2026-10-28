@@ -8,7 +8,7 @@ import {
   type HashMismatch,
 } from '../../files/downloads/index.js';
 import { Plugins, type PluginState } from '../contract/index.js';
-import { child, LOG_LINES, socketFree } from './child.js';
+import { child, LOG_LINES, previousGone, socketFree } from './child.js';
 
 /*
  * Keeps one Plugin running at the version its parent wants: a sha256 and
@@ -17,7 +17,8 @@ import { child, LOG_LINES, socketFree } from './child.js';
  * there is nothing to run yet it is Fetching. Running, one process runs
  * per file, keyed by it: a new file is a fresh process, and the old one is
  * stopped first, so the key changing is the swap. A new version downloads
- * while the old one runs. A process that exits goes Crashed, and is tried
+ * while the old one runs; the new process starts only once the old one has
+ * exited, its finalizers done or it killed. A process that exits goes Crashed, and is tried
  * again after a pause that doubles each time, up to a minute; one that ran
  * a minute or more before it exited starts the count over. Every change in
  * where it stands is reported up through Plugins. While a downloaded file
@@ -211,6 +212,15 @@ const runProcess = (self: PluginSelf, key: string) =>
     const { model } = yield* self.get;
     const target = model.target;
     if (target === null || target.key !== key) return;
+    // The process before it was only told to stop: it may still be in its
+    // finalizers, with the folders, after it left the socket.
+    if (!(yield* previousGone(model.socket)))
+      return yield* self.send({
+        _tag: 'Exited',
+        key,
+        code: null,
+        log: [`The ${model.name} Plugin before it did not exit`],
+      });
     if (!(yield* socketFree(model.socket)))
       return yield* self.send({
         _tag: 'Exited',
