@@ -20,10 +20,10 @@ import { clientAt, probe } from './socket.js';
  * that process exits, however it exits. A second process finds it listening
  * and gets a client to it instead, to ask it what it is doing. A crash
  * leaves the socket's file behind with no one listening: the next process
- * deletes it and takes the name. It looks, deletes and listens holding the
- * socket's lock, a port the kernel frees with its process, so of many that
- * find the same file left behind one takes the name and the rest find it
- * listening; none deletes a socket another has just bound.
+ * deletes it and takes the name. Every claim listens, looks, deletes and
+ * listens again holding the socket's lock, a port the kernel frees with
+ * its process, so of many claims at once one takes the name and the rest
+ * find it listening; none deletes a socket another has just bound.
  */
 
 /** A client to the process that holds a name. */
@@ -54,8 +54,8 @@ export class SingleError extends Data.TaggedError('SingleError')<{
   readonly message: string;
 }> {}
 
-/** How long a takeover waits for another one of the same socket. */
-const TAKEOVER = Duration.seconds(10);
+/** How long a claim waits for another one of the same socket. */
+const CLAIMING = Duration.seconds(10);
 
 const isPipe = (path: string) => path.startsWith('\\\\.\\pipe\\');
 
@@ -80,7 +80,8 @@ export const single = <Rpcs extends Rpc.Any, E>(
   E | SingleError,
   Scope.Scope
 > => {
-  const claim = (
+  /** Listens on `path`, or finds who does; a file no one answers on is deleted and listened on, once. */
+  const bind = (
     retried: boolean,
   ): Effect.Effect<
     Acquired | AlreadyRunning<Rpcs>,
@@ -104,8 +105,7 @@ export const single = <Rpcs extends Rpc.Any, E>(
           Effect.gen(function* () {
             if (codeOf(error) !== 'EADDRINUSE')
               return yield* new SingleError({ path, message: error.message });
-            const found = yield* probe(path);
-            if (found === 'listening')
+            if ((yield* probe(path)) === 'listening')
               return {
                 _tag: 'AlreadyRunning',
                 client: yield* reachable(path, options.group),
@@ -115,34 +115,28 @@ export const single = <Rpcs extends Rpc.Any, E>(
                 path,
                 message: `${path} is in use, but nothing answers on it`,
               });
-            return yield* takeOver;
+            // Left by a process that died: take it over, once.
+            rmSync(path, { force: true });
+            return yield* bind(true);
           }),
       }),
     );
-  // Left by a process that died, it seems: holding the lock, look again,
-  // and take it over, once. The lock goes once this one listens or fails.
-  const takeOver = Effect.gen(function* () {
+  // Every claim holds the lock from its first listen to its last, so no
+  // other claim listens between its look and its delete. The lock goes
+  // once this one listens, finds who does, or fails.
+  return Effect.gen(function* () {
+    if (!isPipe(path))
+      mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
     const held = yield* Scope.make();
     return yield* Effect.gen(function* () {
-      yield* lock(path, TAKEOVER).pipe(
+      yield* lock(path, CLAIMING).pipe(
         Scope.provide(held),
         Effect.mapError(
           (error) => new SingleError({ path, message: error.message }),
         ),
       );
-      if ((yield* probe(path)) === 'listening')
-        return {
-          _tag: 'AlreadyRunning',
-          client: yield* reachable(path, options.group),
-        } as const;
-      rmSync(path, { force: true });
-      return yield* claim(true);
+      return yield* bind(false);
     }).pipe(Effect.ensuring(Scope.close(held, Exit.void)));
-  });
-  return Effect.suspend(() => {
-    if (!isPipe(path))
-      mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-    return claim(false);
   });
 };
 
