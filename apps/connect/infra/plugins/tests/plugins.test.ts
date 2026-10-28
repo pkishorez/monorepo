@@ -3,15 +3,17 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { AlchemyContext, Stage } from 'alchemy';
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { builtHash } from '../release-log/index.ts';
-import { minConnect, minConnectOf } from '../index.ts';
+import { minConnect, minConnectOf, plugins } from '../index.ts';
 
 /*
  * What a Stage tells every Connection of its Plugins: a build that is the
  * same each time, so its hash names one Release, and a Minimum Connect no
- * newer than the Connect it ships.
+ * newer than the Connect it ships. A Stage with no URL tells nothing: it
+ * refuses to deploy.
  */
 
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url));
@@ -48,5 +50,18 @@ describe("a Stage's Plugins", () => {
     await expect(
       Effect.runPromise(minConnectOf({ version: '0.0.4' })),
     ).rejects.toThrow(/no `minConnect`/);
+  });
+
+  it('refuses to deploy a personal Stage, which has no URL to serve its Shelf at', async () => {
+    const onAlice = plugins.pipe(
+      Effect.provideService(Stage, 'alice'),
+      Effect.provideService(AlchemyContext, {
+        dev: false,
+      } as AlchemyContext['Service']),
+    );
+    // It dies before it would put anything on Cloudflare's Shelf.
+    await expect(
+      Effect.runPromise(onAlice as Effect.Effect<unknown>),
+    ).rejects.toThrow(/Stage alice has no URL/);
   });
 });
