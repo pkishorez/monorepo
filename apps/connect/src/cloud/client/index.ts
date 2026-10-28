@@ -1,2 +1,8 @@
-export { authInfo, CloudClient } from './client.js';
-export { VersionGap, versionedClient } from './version-gap.js';
+export {
+  addressOf,
+  authInfo,
+  CloudClient,
+  Connection,
+  ConnectionStatus,
+  VersionGap,
+} from './client.js';

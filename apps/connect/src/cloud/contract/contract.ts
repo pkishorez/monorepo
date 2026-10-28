@@ -13,10 +13,14 @@ import { ESchema, ValueESchema } from '@kestack/std-toolkit/eschema';
  *
  * Besides the RPC, Cloud Connect answers `GET /auth` with how a Connection signs
  * in, so `serve` needs Cloud Connect's address alone. Both servers, Cloud
- * Connect and a Connection's, let in the same origin patterns.
+ * Connect and a Connection's, let in the same origin patterns. Every RPC
+ * of Connect's, Cloud Connect's and each Plugin's, is called through
+ * `versionedClient`, so a call between an older side and a newer one fails
+ * with `VersionGap`.
  */
 
 export { allowsOrigin } from './origins.js';
+export { VersionGap, versionedClient } from './version-gap.js';
 
 /** The RPC's path on Cloud Connect. */
 export const RPC_PATH = '/rpc';

@@ -1,4 +1,4 @@
-import type { Connection as ConnectionSchema } from '@kestack/connect/code';
+import type { Connection as ConnectionSchema } from '@kestack/connect/cloud';
 import { createContext, use, useEffect, useState } from 'react';
 import {
   health,

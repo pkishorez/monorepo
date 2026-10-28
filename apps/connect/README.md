@@ -32,9 +32,9 @@ Node 24 or newer is required. Sessions run the agents installed on the computer,
 
 ### `./code`
 
-What Code's browser imports: the `code` Plugin's API and records, the client and Replica that reach it on each Connection, and Cloud Connect's contract and client.
+What Code's browser imports: the `code` Plugin's API and records, and the client and Replica that reach it on each Connection.
 
-Every value an RPC sends is an ESchema, so the newer side reads what an older one sends; the older side fails with `VersionGap`, naming which side it is.
+Every value an RPC sends is an ESchema, so the newer side reads what an older one sends; the older side fails with `VersionGap`, from `./cloud`, naming which side it is.
 
 | Export                   | What it does                                                                                                                                         |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -102,19 +102,20 @@ Every value an RPC sends is an ESchema, so the newer side reads what an older on
 | `HarnessFailed`          | Error: a harness failed to answer for a live Session.                                                                                                |
 | `SpeechToTextNotReady`   | Error: Speech to Text is off, still downloading, or failed on this Connection.                                                                       |
 | `TranscriptionFailed`    | Error: the model would not load, or the audio is not 16-bit PCM.                                                                                     |
-| `CloudApi`               | Cloud Connect's RPC group: a Connection's `Report`, and an App's `List` and `Forget`, for the caller only.                                           |
-| `CloudClient`            | Service holding the `CloudApi` client over HTTP.                                                                                                     |
-| `CloudClient.layer`      | Layer of `CloudClient` for Cloud Connect's base URL; the caller's auth signs every call.                                                             |
-| `VersionGap`             | Error of every `CodeClient` and `CloudClient` call that failed because one side is older: `client` or `server`.                                      |
-| `Connection`             | ESchema of a Connection as its User sees it: its last Report, its Last Seen, each Plugin's wanted version, and the latest Connect.                   |
-| `ConnectionReport`       | ESchema of what a Connection says of itself on each Heartbeat: id, name, Connection Key, version, status, each Plugin State.                         |
-| `ConnectionStatus`       | ESchema of how far a Connection's tunnel got: installing cloudflared, opening, failed, or up.                                                        |
-| `TunnelCheck`            | ESchema of whether a Connection could reach itself at its public address, and when it checked.                                                       |
-| `addressOf`              | The public address a Connection Status is up at, or null.                                                                                            |
-| `ConnectionForgotten`    | Error: the Connection was forgotten by its User; it must sign out and stop.                                                                          |
-| `ConnectionTaken`        | Error: another User's Connection already has this id.                                                                                                |
-| `RPC_PATH`               | Cloud Connect's RPC path, `/rpc`.                                                                                                                    |
-| `AUTH_PATH`              | The path that answers how a Connection signs in, `/auth`.                                                                                            |
+
+### `./cloud`
+
+What an App imports to reach Cloud Connect: its client, and the Connections it lists.
+
+| Export              | What it does                                                                                                                       |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `CloudClient`       | Service holding the `CloudApi` client over HTTP.                                                                                   |
+| `CloudClient.layer` | Layer of `CloudClient` for Cloud Connect's base URL; the caller's auth signs every call.                                           |
+| `Connection`        | ESchema of a Connection as its User sees it: its last Report, its Last Seen, each Plugin's wanted version, and the latest Connect. |
+| `ConnectionStatus`  | ESchema of how far a Connection's tunnel got: installing cloudflared, opening, failed, or up.                                      |
+| `addressOf`         | The public address a Connection Status is up at, or null.                                                                          |
+| `VersionGap`        | Error of every `CodeClient` and `CloudClient` call that failed because one side is older: `client` or `server`.                    |
+| `authInfo`          | How a Connection signs in to the Cloud Connect at a base URL, from its `/auth`; fails when it cannot be asked.                     |
 
 ### `./worker`
 
@@ -161,9 +162,8 @@ import { Effect, Layer, Schema } from 'effect';
 import { Actor, Runtime } from '@kestack/kabuki';
 import { Query, Replicas } from '@kestack/std-toolkit/replica';
 import { Store } from '@kestack/std-toolkit/replica/idb';
+import { addressOf, CloudClient } from '@kestack/connect/cloud';
 import {
-  addressOf,
-  CloudClient,
   CodeClients,
   CodeReplica,
   CodeReplicaLive,

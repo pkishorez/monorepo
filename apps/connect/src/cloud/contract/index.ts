@@ -12,4 +12,6 @@ export {
   RPC_PATH,
   TunnelCheck,
   type PluginVersion,
+  VersionGap,
+  versionedClient,
 } from './contract.js';

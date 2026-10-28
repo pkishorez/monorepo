@@ -1,5 +1,6 @@
 import { Effect, Schema, Stream, SubscriptionRef } from 'effect';
-import { CloudClient, CodeClients, Connection } from '@kestack/connect/code';
+import { CodeClients } from '@kestack/connect/code';
+import { CloudClient, Connection } from '@kestack/connect/cloud';
 import { Actor } from '@kestack/kabuki';
 import {
   Cache,

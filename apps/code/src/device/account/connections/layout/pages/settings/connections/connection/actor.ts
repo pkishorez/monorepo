@@ -1,10 +1,7 @@
 import { Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import {
-  HarnessAccountInfo,
-  Connection,
-  SpeechToTextState,
-} from '@kestack/connect/code';
+import { HarnessAccountInfo, SpeechToTextState } from '@kestack/connect/code';
+import { Connection } from '@kestack/connect/cloud';
 import { ConnectionCards } from '../store.ts';
 import { HarnessAccounts } from './accounts/index.ts';
 import { ConnectionProjects } from './projects/index.ts';
