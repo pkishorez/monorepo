@@ -2,4 +2,4 @@
 '@kestack/connect': patch
 ---
 
-A Session's Agent Questions reach the code App Group: `agentQuestions` streams every Session's questions whole, again on each change, and `answerQuestion` answers one, or declines it with null. They live only while their Turn runs, are never stored, and go when it ends, cancelled or not; answering one no longer asked fails with `QuestionNotAsked`, even when the agent let go of it before the Session heard, and one the harness refuses with `HarnessFailed`.
+The code Plugin streams each Session's Agent Questions (`agentQuestions`) and answers them (`answerQuestion`, null to decline). Questions live only while their Turn runs. Answering one no longer asked fails with `QuestionNotAsked`.
