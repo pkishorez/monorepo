@@ -2,7 +2,7 @@ import {
   addressOf,
   type Connection as ConnectionSchema,
   type ConnectionStatus,
-} from '@kestack/connect/code';
+} from '@kestack/connect/cloud';
 
 type Connection = typeof ConnectionSchema.Type;
 

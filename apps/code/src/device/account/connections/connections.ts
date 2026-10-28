@@ -13,12 +13,14 @@ import type { Replicas } from '@kestack/std-toolkit/replica';
 import {
   HarnessAccountInfo,
   HarnessInfo,
-  addressOf,
-  type Connection as ConnectionSchema,
   ModelInfo,
   type SessionQuestions,
   SpeechToTextState,
 } from '@kestack/connect/code';
+import {
+  addressOf,
+  type Connection as ConnectionSchema,
+} from '@kestack/connect/cloud';
 
 /*
  * The Connections of the signed-in Account, for any Actor below the root

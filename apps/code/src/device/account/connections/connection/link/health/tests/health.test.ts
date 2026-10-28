@@ -1,4 +1,4 @@
-import type { Connection as ConnectionSchema } from '@kestack/connect/code';
+import type { Connection as ConnectionSchema } from '@kestack/connect/cloud';
 import { describe, expect, it } from 'vitest';
 import { socketUrl } from '../../../../connections.ts';
 import { health, olderThan, pluginNotice, updateOf } from '../health.ts';

@@ -1,16 +1,31 @@
 import { Context, Effect, Layer, Schema } from 'effect';
 import { RpcClient, type RpcClientError } from 'effect/rpc';
 import { client } from '@kestack/rpc-toolkit/rpc/http';
-import { AUTH_PATH, AuthInfo, CloudApi, RPC_PATH } from '../contract/index.js';
-import { versionedClient, type VersionGap } from './version-gap.js';
+import {
+  AUTH_PATH,
+  AuthInfo,
+  CloudApi,
+  RPC_PATH,
+  versionedClient,
+  type VersionGap,
+} from '../contract/index.js';
 
 /*
  * Cloud Connect as a client calls it: the RPC over HTTP at `<cloud>/rpc`,
  * every call signed by whatever signs the caller's calls (auth-toolkit's
  * `browser()` in an App, `device()` in `serve`), and `authInfo`, the one
  * call that needs no Sign-in: how a Connection signs in to this Cloud
- * Connect.
+ * Connect. With it, what an App needs to read its answers: a Connection,
+ * where its status says it is, and `VersionGap`, which every call may fail
+ * with.
  */
+
+export {
+  addressOf,
+  Connection,
+  ConnectionStatus,
+  VersionGap,
+} from '../contract/index.js';
 
 /** `base` without a trailing slash, then `path`. */
 const at = (base: string, path: string) => `${base.replace(/\/+$/, '')}${path}`;

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { Connection as ConnectionSchema } from '@kestack/connect/code';
+import type { Connection as ConnectionSchema } from '@kestack/connect/cloud';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

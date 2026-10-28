@@ -19,8 +19,8 @@ import type {
   SpeechToTextNotReady,
   TranscriptionFailed,
   UnknownAccount,
-  VersionGap,
 } from '@kestack/connect/code';
+import type { VersionGap } from '@kestack/connect/cloud';
 
 /*
  * How every call to the server ends: in one Message, what came back or why

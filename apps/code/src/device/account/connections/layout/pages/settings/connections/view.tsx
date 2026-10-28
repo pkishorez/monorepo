@@ -1,4 +1,4 @@
-import type { Connection as ConnectionSchema } from '@kestack/connect/code';
+import type { Connection as ConnectionSchema } from '@kestack/connect/cloud';
 import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { RefreshCwIcon } from 'lucide-react';

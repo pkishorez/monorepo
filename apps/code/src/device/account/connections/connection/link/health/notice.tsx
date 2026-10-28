@@ -1,4 +1,4 @@
-import type { Connection as ConnectionSchema } from '@kestack/connect/code';
+import type { Connection as ConnectionSchema } from '@kestack/connect/cloud';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { CheckIcon, CircleAlertIcon, CopyIcon } from 'lucide-react';
 import { Progress } from '@kestack/web-platform/ui/components/progress';

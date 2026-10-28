@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Effect, Layer } from 'effect';
-import { CloudClient } from '@kestack/connect/code';
+import { CloudClient } from '@kestack/connect/cloud';
 import { connect } from '@kestack/devtools-kabuki/session';
 import { Start } from '@kestack/kabuki/start';
 import { OnOutdated } from '@kestack/std-toolkit/replica';
