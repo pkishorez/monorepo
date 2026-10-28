@@ -17,16 +17,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: Test
+  lint:
+    name: Lint
     if: ${{ !startsWith(github.head_ref, 'changeset-release/') }}
     runs-on: ubuntu-latest
-
-    services:
-      dynamodb:
-        image: amazon/dynamodb-local:latest
-        ports:
-          - 8090:8000
 
     steps:
       - name: Checkout
@@ -56,10 +50,65 @@ jobs:
       - name: Laymos
         run: node .github/scripts/laymos-lint.mjs
 
+      - name: CI scripts
+        run: node --test .github/scripts/*.test.mjs
+
+  # The workspaces' tests, split across parallel jobs of about equal time. A
+  # pull request tests only the workspaces its changes can affect; main tests
+  # all of them.
+  test:
+    name: Test (${{ matrix.shard }}/4)
+    if: ${{ !startsWith(github.head_ref, 'changeset-release/') }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+
+    services:
+      dynamodb:
+        image: amazon/dynamodb-local:latest
+        ports:
+          - 8090:8000
+
+    env:
+      TEST_SHARD: ${{ matrix.shard }}/4
+      TEST_BASE: ${{ github.event.pull_request.base.sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # A pull request checks out a merge commit; its first parent is the
+          # base, to find what the pull request changed.
+          fetch-depth: 2
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+
+      - name: Plan
+        id: plan
+        run: node .github/scripts/test.mjs --plan
+
+      - name: Install dependencies
+        if: steps.plan.outputs.count != '0'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        if: steps.plan.outputs.count != '0'
+        run: pnpm exec vp run ${{ steps.plan.outputs.filters }} build
+
       - name: Wait for DynamoDB Local
+        if: steps.plan.outputs.count != '0'
         run: timeout 30s bash -c 'until curl --silent --output /dev/null http://localhost:8090; do sleep 1; done'
 
       - name: Test
-        run: |
-          node --test .github/scripts/test-summary.test.mjs
-          node .github/scripts/test.mjs
+        if: steps.plan.outputs.count != '0'
+        run: node .github/scripts/test.mjs
