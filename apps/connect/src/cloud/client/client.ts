@@ -59,11 +59,11 @@ const reason = (cause: unknown): string => {
     : cause.message;
 };
 
-/** How a Connection signs in to Cloud Connect at `cloud`; fails when it cannot be asked. */
+/** How a Connection signs in to Cloud Connect at `cloud`; fails when it cannot be asked. Interrupting it aborts the fetch. */
 export const authInfo = (cloud: string) =>
   Effect.tryPromise({
-    try: async () => {
-      const response = await fetch(at(cloud, AUTH_PATH));
+    try: async (signal) => {
+      const response = await fetch(at(cloud, AUTH_PATH), { signal });
       if (!response.ok) throw new Error(`${cloud} answered ${response.status}`);
       return (await response.json()) as unknown;
     },

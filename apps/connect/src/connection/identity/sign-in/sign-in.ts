@@ -32,9 +32,26 @@ export interface SignInOptions {
 
 const APP = 'ke-connect';
 
+/** How long Cloud Connect has to say how to sign in before the AuthInfo kept is used. */
+const DISCOVERY = '5 seconds';
+
+/** How long the Auth Worker has to check the stored Sign-in before it is trusted as it is. */
+const CHECKING = '5 seconds';
+
 /** How `cloud` says to sign in, kept for the next run; as it last said when it cannot be asked. */
 const discover = (options: Pick<SignInOptions, 'cloud' | 'db'>) =>
   authInfo(options.cloud).pipe(
+    // A Cloud Connect that takes the call and never answers is one that
+    // cannot be asked.
+    Effect.timeoutOrElse({
+      duration: DISCOVERY,
+      orElse: () =>
+        Effect.fail(
+          new Error(
+            `${options.cloud} did not say how to sign in in ${DISCOVERY}`,
+          ),
+        ),
+    }),
     Effect.tap((info) => keepAuthInfo(options.db, options.cloud, info)),
     Effect.catch((error) =>
       Effect.flatMap(keptAuthInfo(options.db, options.cloud), (kept) =>
@@ -91,8 +108,10 @@ const asDevice = (options: SignInOptions, url: string) =>
 
     /** The signed-in User, signing in first when the stored Sign-in is gone. */
     const ensure = Effect.gen(function* () {
-      // An Auth Worker that cannot be asked leaves the stored Sign-in trusted.
+      // An Auth Worker that cannot be asked, or does not answer in time,
+      // leaves the stored Sign-in trusted.
       const checked = yield* accounts.check.pipe(
+        Effect.timeout(CHECKING),
         Effect.catch(() => accounts.current),
       );
       return activeOf(checked) ?? (yield* fresh);
