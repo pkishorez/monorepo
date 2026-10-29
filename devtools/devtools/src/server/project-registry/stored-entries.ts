@@ -29,4 +29,5 @@ export const table = StdTable.make('project-registry')
 
 export const entries = table.ProjectEntry;
 
-export const tableName = 'project_registry_data';
+// v2: a fresh table under the Stored contract; the old one is left behind.
+export const tableName = 'project_registry_data_v2';

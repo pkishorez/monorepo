@@ -41,10 +41,10 @@ export const HelloHttpWorker = api('HelloHttp', 'hello-http', 4581);
 export const HelloRpcWorker = api('HelloRpc', 'hello-rpc', 4582);
 
 export const PocketDatabase = Cloudflare.D1.Database(
-  'PocketDatabaseV2',
+  'PocketDatabaseV3',
   Effect.gen(function* () {
     const stage = yield* Stage;
-    return { name: `kabuki-start-pocket-v2-${stage}` };
+    return { name: `kabuki-start-pocket-v3-${stage}` };
   }),
 );
 

@@ -29,6 +29,9 @@ const PAGE = 200;
 const same = (left: unknown, right: unknown) =>
   JSON.stringify(left) === JSON.stringify(right);
 
+// A fresh table under the Stored contract; an older file's table is left behind.
+const tableName = 'ai-toolkit-v2';
+
 /** The table's storage on one SQLite file, and the Broadcaster its writes publish to. */
 const storage = (path: string, pubsub: PubSub.PubSub<Entity<unknown>>) => {
   const database = makeNodeSQLite({ path });
@@ -40,7 +43,10 @@ const storage = (path: string, pubsub: PubSub.PubSub<Entity<unknown>>) => {
   });
   return {
     database,
-    layer: Layer.merge(SQLite.make(aiTable, { database }).layer, broadcaster),
+    layer: Layer.merge(
+      SQLite.make(aiTable, { database, tableName }).layer,
+      broadcaster,
+    ),
   };
 };
 
@@ -54,9 +60,11 @@ const make = (path: string) =>
     );
     const { database, layer } = storage(path, pubsub);
     yield* Effect.addFinalizer(() => Effect.sync(() => database.close?.()));
-    yield* SQLite.setup(aiTable, { database, mode: 'persistent' }).pipe(
-      Effect.orDie,
-    );
+    yield* SQLite.setup(aiTable, {
+      database,
+      tableName,
+      mode: 'persistent',
+    }).pipe(Effect.orDie);
     const context = yield* Layer.build(layer);
     const permit = yield* Semaphore.make(1);
     const run = <A, E>(

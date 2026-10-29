@@ -37,7 +37,11 @@ const remembered = Layer.unwrap(
   ),
 );
 
-const replicas = Layer.unwrap(Effect.sync(() => Store.idb()));
+// `v2:` the Pocket Worker's database started fresh, so copies synced before
+// it are left behind.
+const replicas = Layer.unwrap(
+  Effect.sync(() => Store.idb({ prefix: 'replica-v2:' })),
+);
 
 const layer = Layer.mergeAll(
   HelloHttp.layer,

@@ -24,10 +24,10 @@ import { where } from './stage.ts';
  */
 
 export const CloudConnectDatabase = Cloudflare.D1.Database(
-  'CloudConnectDatabase',
+  'CloudConnectDatabaseV2',
   Effect.gen(function* () {
     const stage = yield* Stage;
-    return { name: `cloud-connect-${stage}` };
+    return { name: `cloud-connect-v2-${stage}` };
   }),
 );
 
