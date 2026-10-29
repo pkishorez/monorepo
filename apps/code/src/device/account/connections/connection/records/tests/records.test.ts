@@ -70,6 +70,8 @@ const session = (id: string, at: Partial<Session> = {}): Session => ({
   settledAt: null,
   activeAt: 1,
   endedAt: null,
+  worktree: null,
+  branch: null,
   ...at,
 });
 
