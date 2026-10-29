@@ -4,7 +4,7 @@ SQLite adapter that realizes a StdTable over a driver for Node, Bun, better-sqli
 
 ## Big picture
 
-One adapter, several runtimes. `SQLite.make` takes a `SQLiteDriver` and returns the layer; it never changes the schema. `SQLite.setup` prepares the physical table under a required `mode`, through the setup every adapter shares ([ADR 0021](../../../docs/adr/0021-the-stored-contract-is-rows-inside-the-table.md)). It creates the table if missing, then compares the table's contract with the Stored contract kept as reserved rows inside the table. A `persistent` table refuses a breaking change, or one needing a Backfill none declares, with `SetupRefused`, and is never wiped. A `disposable` table has every row deleted on any change its rows cannot take, and never runs a Backfill. A persistent table never becomes disposable. Then setup creates or drops the SQL indexes the new snapshot needs, runs the pending Backfills, and records the new contract. Run it where no request pays for it: on D1, `D1.table` in [`@kestack/std-toolkit/alchemy`](../../../README.md#std-toolkitalchemy) calls it at deploy; on Node or Bun, at process start; in a Durable Object, on the object's first access. Each driver entrypoint is a separate subpath so its platform dependency is only loaded where it is used. Divergences from the DynamoDB topology, read-consistency, and transaction rules are in [CONTEXT.md](CONTEXT.md); shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md).
+One adapter, several runtimes. `SQLite.make` takes a `SQLiteDriver` and returns the layer; it never changes the schema. `SQLite.setup` prepares the physical table under a required `mode`, through the setup every adapter shares ([ADR 0021](../../../docs/adr/0021-the-stored-contract-is-rows-inside-the-table.md)). It creates the table if missing, then compares the table's contract with the Stored contract kept as reserved rows inside the table. A `persistent` table refuses a breaking change with `SetupRefused`, and is never wiped. A `disposable` table has every row deleted on any change its rows cannot take, an index change included. A persistent table never becomes disposable. Then setup creates or drops the SQL indexes the new snapshot needs, reindexes the rows an index change touches, and records the new contract. Run it where no request pays for it: on D1, `D1.table` in [`@kestack/std-toolkit/alchemy`](../../../README.md#std-toolkitalchemy) calls it at deploy; on Node or Bun, at process start; in a Durable Object, on the object's first access. Each driver entrypoint is a separate subpath so its platform dependency is only loaded where it is used. Divergences from the DynamoDB topology, read-consistency, and transaction rules are in [CONTEXT.md](CONTEXT.md); shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md).
 
 ## Install
 
@@ -14,12 +14,11 @@ See the [top README](../../../README.md). Install the driver's own dependency wh
 
 ### `@kestack/std-toolkit/db/sqlite`
 
-| Export           | What it does                                                                                                             |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `SQLite.make`    | Realizes a StdTable on a driver; returns `tableName` and `layer`.                                                        |
-| `SQLite.setup`   | Checks the Stored contract under the table's `mode`, then creates or updates the table and runs its Backfills.           |
-| `SetupRefused`   | Error raised when setup refuses a table: a breaking change, a mode change, a missing Backfill, or rows with no contract. |
-| `BackfillFailed` | Error raised when a Backfill fails; the Stored contract stays as it was, and the next setup resumes.                     |
+| Export         | What it does                                                                                                   |
+| -------------- | -------------------------------------------------------------------------------------------------------------- |
+| `SQLite.make`  | Realizes a StdTable on a driver; returns `tableName` and `layer`.                                              |
+| `SQLite.setup` | Checks the Stored contract under the table's `mode`, then creates or updates the table and reindexes its rows. |
+| `SetupRefused` | Error raised when setup refuses a table: a breaking change, a mode change, or rows with no contract.           |
 
 ### `@kestack/std-toolkit/db/sqlite/node`
 

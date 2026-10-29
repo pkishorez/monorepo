@@ -69,7 +69,7 @@ export const PocketWorker = Cloudflare.Worker(
         SITE_ORIGIN: at.url() ?? '',
         DB: PocketDatabase,
         // The table's name, from its resource: binding it keeps the
-        // Worker's deployment behind the table's setup and Backfills.
+        // Worker's deployment behind the table's setup and its reindex.
         DB_TABLE: table.tableName,
       },
     };

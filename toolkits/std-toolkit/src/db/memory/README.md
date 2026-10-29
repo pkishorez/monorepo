@@ -41,4 +41,3 @@ const rows = await Effect.runPromise(
 
 - The program never names a database; the layer decides where it runs.
 - Call `Memory.make(table)` again for a fresh empty table.
-- A Memory table starts empty, so a table's Backfills never run on it; `expectTableShippable` runs them through setup on a Memory table of generated rows.

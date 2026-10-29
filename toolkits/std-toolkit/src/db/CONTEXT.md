@@ -49,7 +49,10 @@ A physical table whose data must never be lost or stranded by a schema change. A
 _Avoid_: Durable table (collides with Durable Objects), server table, production table.
 
 **Disposable table**:
-A physical table whose data may be thrown away when a schema change is not safe, such as preferences or a local copy that can be fetched again. It is still stored; it is only disposable. A disposable table is not frozen by version history: its schemas may change freely. It never runs a **Table migration**:
+A physical table whose data may be thrown away when a schema change is not safe, such as preferences or a local copy that can be fetched again. It is still stored; it is only disposable. A disposable table is not frozen by version history: its schemas may change freely. Any change that is not safe wipes it, an index change included, and it is never the target of a **Table migration**: it starts empty instead.
+_Avoid_: Ephemeral table (Memory's and Sync's "ephemeral" means never stored), cache table, semi-ephemeral.
+
+**Table migration**:
 The one-time move of every row of an old **StdTable** into a new one, on a new physical table, for a change no pure **migration** can make (`StdTable.migrate(old, next, handlers)`). It has one handler per entity of the old table, and the keys are exhaustive. A handler gets one old row at its latest value, reads the old table, and writes any number of rows to the new one. It returns a `Stream` of progress events and keeps one migration row in the new table's **Stored contract**. That row says `running` until every row is through and `done` after, so a finished migration is a no-op, and a crashed or failed one clears the new table and starts over. It runs wherever it is called: at deploy in an Alchemy migration resource, or at app open on a device. Once every database has migrated, the old table and the call are deleted. The new table's ESchemas start again at v1 and do not know the old table.
 _Avoid_: Backfill (retired), data migration, table step, copy.
 
