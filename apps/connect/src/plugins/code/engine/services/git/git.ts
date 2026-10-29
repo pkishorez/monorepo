@@ -7,6 +7,7 @@ import {
   GitError,
   type GitBranches,
   type LocalBranch,
+  type MadeBranch,
   type Worktree,
 } from '../../capabilities/index.js';
 
@@ -190,6 +191,18 @@ const branchName = (path: string, name: string) =>
 
 const ORIGIN = 'origin/';
 
+/** The branch `name`, just made, and the commit it is on. */
+const madeAt = (path: string, name: string) =>
+  Effect.map(
+    run(path, [
+      'rev-parse',
+      '--verify',
+      '--end-of-options',
+      `refs/heads/${name}`,
+    ]),
+    (at): MadeBranch => ({ name, at: at.trim() }),
+  );
+
 const switchTo = (path: string, branch: string) =>
   Effect.gen(function* () {
     const local = yield* localBranches(path);
@@ -210,7 +223,7 @@ const switchTo = (path: string, branch: string) =>
         '--end-of-options',
         branch,
       ]);
-      return { made: name };
+      return { made: yield* madeAt(path, name) };
     }
     // Another local branch of its name would be different code.
     if (upstream !== `refs/remotes/${branch}`)
@@ -219,25 +232,6 @@ const switchTo = (path: string, branch: string) =>
       });
     yield* run(path, ['switch', '--end-of-options', name]);
     return { made: null };
-  });
-
-const switchBack = (
-  path: string,
-  { to, made }: Parameters<Git['Service']['switchBack']>[1],
-) =>
-  Effect.gen(function* () {
-    const changes = yield* run(path, [
-      'status',
-      '--porcelain',
-      '--untracked-files=no',
-    ]).pipe(Effect.orElseSucceed(() => 'unknown'));
-    if (to !== null && changes.trim() === '')
-      yield* Effect.ignore(run(path, ['switch', '--end-of-options', to]));
-    // `-d`: only while it is out nowhere and has nothing its upstream lacks.
-    if (made !== null)
-      yield* Effect.ignore(
-        run(path, ['branch', '-d', '--end-of-options', made]),
-      );
   });
 
 /** Whether there is anything at `path`. */
@@ -261,7 +255,8 @@ const dropWorktree = (path: string, at: string) =>
     yield* Effect.ignore(run(path, ['worktree', 'prune']));
   });
 
-const dropBranch = (path: string, branch: string) =>
+/** A branch a failed `worktree add` may have left, made by it just now. */
+const forceDropBranch = (path: string, branch: string) =>
   Effect.ignore(run(path, ['branch', '-D', '--end-of-options', branch]));
 
 /**
@@ -296,15 +291,23 @@ const addWorktree = (
       from,
     ]).pipe(
       Effect.tapError(() =>
-        Effect.andThen(dropWorktree(path, at), dropBranch(path, branch)),
+        Effect.andThen(dropWorktree(path, at), forceDropBranch(path, branch)),
       ),
     );
+    return yield* madeAt(path, branch);
   });
 
-const removeWorktree = (
-  path: string,
-  { at, branch }: Parameters<Git['Service']['removeWorktree']>[1],
-) => Effect.andThen(dropWorktree(path, at), dropBranch(path, branch));
+/**
+ * A made branch goes only while no Worktree has it out and it is still on
+ * the commit it was made on, which `update-ref` checks as it deletes.
+ */
+const dropBranch = (path: string, { name, at }: MadeBranch) =>
+  Effect.gen(function* () {
+    const ref = `refs/heads/${name}`;
+    const listed = yield* run(path, ['worktree', 'list', '--porcelain']);
+    if (lines(listed).includes(`branch ${ref}`)) return;
+    yield* run(path, ['update-ref', '-d', ref, at]);
+  }).pipe(Effect.ignore);
 
 const pushed = (path: string, branch: string) =>
   Effect.gen(function* () {
@@ -377,9 +380,9 @@ const make = Effect.gen(function* () {
     branchAt,
     fetch,
     switchTo,
-    switchBack,
+    dropBranch,
     addWorktree,
-    removeWorktree,
+    removeWorktree: dropWorktree,
     pushed,
     rename: (path, from, to) => renaming.withPermits(1)(rename(path, from, to)),
     init,

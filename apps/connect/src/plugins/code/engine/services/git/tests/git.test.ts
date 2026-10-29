@@ -112,28 +112,29 @@ describe('git', () => {
     expect(Exit.isFailure(missing)).toBe(true);
   });
 
-  it('switches back, unless there are changes, and deletes only the branch a switch made', async () => {
+  it('drops a branch it made only while it is out nowhere and still where it was made', async () => {
     const repo = clone();
     expect(await run((git) => git.switchTo(repo, 'topic'))).toEqual({
       made: null,
     });
-    await run((git) => git.switchBack(repo, { to: 'main', made: null }));
-    expect(sh(repo, 'branch', '--show-current')).toBe('main');
-    expect(sh(repo, 'branch', '--list', 'topic')).not.toBe('');
-
     const { made } = await run((git) => git.switchTo(repo, 'origin/feature'));
-    expect(made).toBe('feature');
-    await run((git) => git.switchBack(repo, { to: 'main', made }));
-    expect(sh(repo, 'branch', '--show-current')).toBe('main');
+    expect(made).toEqual({
+      name: 'feature',
+      at: sh(repo, 'rev-parse', 'origin/feature'),
+    });
+    // Out in the folder, it stays.
+    await run((git) => git.dropBranch(repo, made!));
+    expect(sh(repo, 'branch', '--list', 'feature')).not.toBe('');
+    sh(repo, 'switch', '-q', 'main');
+    // With a commit of its own, it stays.
+    sh(repo, 'switch', '-q', 'feature');
+    sh(repo, 'commit', '-q', '--allow-empty', '-m', 'mine');
+    sh(repo, 'switch', '-q', 'main');
+    await run((git) => git.dropBranch(repo, made!));
+    expect(sh(repo, 'branch', '--list', 'feature')).not.toBe('');
+    sh(repo, 'branch', '-q', '-f', 'feature', made!.at);
+    await run((git) => git.dropBranch(repo, made!));
     expect(sh(repo, 'branch', '--list', 'feature')).toBe('');
-
-    // With changes, it stays, and so does the branch out there.
-    sh(repo, 'switch', '-q', 'topic');
-    writeFileSync(join(repo, 'file'), 'one');
-    sh(repo, 'add', 'file');
-    await run((git) => git.switchBack(repo, { to: 'main', made: 'topic' }));
-    expect(sh(repo, 'branch', '--show-current')).toBe('topic');
-    expect(sh(repo, 'branch', '--list', 'topic')).not.toBe('');
   });
 
   it('makes a Worktree on a new branch from a local branch and from an Origin one, tracking nothing', async () => {
@@ -173,11 +174,9 @@ describe('git', () => {
       'ke-code/one',
     );
 
-    await run((git) =>
-      git.removeWorktree(repo, { at: fromLocal, branch: 'ke-code/one' }),
-    );
+    await run((git) => git.removeWorktree(repo, fromLocal));
     expect(existsSync(fromLocal)).toBe(false);
-    expect(sh(repo, 'branch', '--list', 'ke-code/one')).toBe('');
+    expect(sh(repo, 'branch', '--list', 'ke-code/one')).not.toBe('');
   });
 
   it('refuses a Worktree from a branch there is not', async () => {

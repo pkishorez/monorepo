@@ -31,6 +31,12 @@ export interface LocalBranch {
   readonly worktree: string | null;
 }
 
+/** A branch git made just now, and the commit it was made on. */
+export interface MadeBranch {
+  readonly name: string;
+  readonly at: string;
+}
+
 /** A repository's branches, as seen from one of its Worktrees. */
 export interface GitBranches {
   /** The branch the Worktree asked from is on; null when on none. */
@@ -65,16 +71,7 @@ export class Git extends Context.Service<
     readonly switchTo: (
       path: string,
       branch: string,
-    ) => Effect.Effect<{ readonly made: string | null }, GitError>;
-    /**
-     * Takes back a `switchTo`: switches the Worktree at `path` back to
-     * `to` unless it has changes, then deletes the branch `made`, if any,
-     * unless it is out or has commits of its own. Never fails.
-     */
-    readonly switchBack: (
-      path: string,
-      back: { readonly to: string | null; readonly made: string | null },
-    ) => Effect.Effect<void>;
+    ) => Effect.Effect<{ readonly made: MadeBranch | null }, GitError>;
     /** Makes a Worktree at `at`, on the new branch `branch` from `from`. */
     readonly addWorktree: (
       path: string,
@@ -83,14 +80,16 @@ export class Git extends Context.Service<
         readonly branch: string;
         readonly from: string;
       },
-    ) => Effect.Effect<void, GitError>;
+    ) => Effect.Effect<MadeBranch, GitError>;
+    /** Removes the Worktree at `at`, whatever of it is there; never fails. */
+    readonly removeWorktree: (path: string, at: string) => Effect.Effect<void>;
     /**
-     * Removes the Worktree at `at` and the branch `branch`, whatever of
-     * them is there; never fails.
+     * Deletes a branch made here, only while it is out in no Worktree and
+     * still where it was made; never fails.
      */
-    readonly removeWorktree: (
+    readonly dropBranch: (
       path: string,
-      worktree: { readonly at: string; readonly branch: string },
+      branch: MadeBranch,
     ) => Effect.Effect<void>;
     /**
      * Whether `branch` was pushed: it tracks a branch, or Origin has one of
