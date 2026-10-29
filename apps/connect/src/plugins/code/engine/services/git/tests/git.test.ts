@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   realpathSync,
   rmSync,
+  writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -184,6 +185,84 @@ describe('git', () => {
     expect(await run((git) => git.pushed(repo, 'topic'))).toBe(false);
     // Git that cannot say reads as pushed, so nothing is renamed.
     expect(await run((git) => git.pushed(temp(), 'topic'))).toBe(true);
+  });
+
+  it('refuses a Worktree where its branch or folder is there already, and leaves them be', async () => {
+    const repo = clone();
+    const worktrees = temp();
+    sh(repo, 'branch', 'ke-code/one');
+    const one = join(worktrees, 'p1', 'one');
+    const branchTaken = await runExit((git) =>
+      git.addWorktree(repo, { at: one, branch: 'ke-code/one', from: 'main' }),
+    );
+    expect(Exit.isFailure(branchTaken)).toBe(true);
+    expect(sh(repo, 'branch', '--list', 'ke-code/one')).not.toBe('');
+
+    const two = join(worktrees, 'p1', 'two');
+    mkdirSync(two, { recursive: true });
+    writeFileSync(join(two, 'keep'), '');
+    const folderTaken = await runExit((git) =>
+      git.addWorktree(repo, { at: two, branch: 'ke-code/two', from: 'main' }),
+    );
+    expect(Exit.isFailure(folderTaken)).toBe(true);
+    expect(existsSync(join(two, 'keep'))).toBe(true);
+    expect(sh(repo, 'branch', '--list', 'ke-code/two')).toBe('');
+  });
+
+  it('reads a branch that looks like an option as a branch, never an option', async () => {
+    const repo = clone();
+    for (const branch of ['--orphan=oops', '--detach', '-'])
+      expect(
+        Exit.isFailure(await runExit((git) => git.switchTo(repo, branch))),
+      ).toBe(true);
+    expect(sh(repo, 'branch', '--show-current')).toBe('main');
+    const at = join(temp(), 'p1', 'one');
+    const exit = await runExit((git) =>
+      git.addWorktree(repo, { at, branch: 'ke-code/one', from: '--detach' }),
+    );
+    expect(Exit.isFailure(exit)).toBe(true);
+    expect(existsSync(at)).toBe(false);
+    expect(sh(repo, 'branch', '--list', 'ke-code/one')).toBe('');
+  });
+
+  it('refuses an Origin branch whose name a local branch that does not track it has', async () => {
+    const repo = clone();
+    sh(repo, 'branch', '--no-track', 'feature', 'topic');
+    const exit = await runExit((git) => git.switchTo(repo, 'origin/feature'));
+    expect(exit).toMatchObject({
+      _tag: 'Failure',
+      cause: {
+        reasons: [{ error: { message: expect.stringContaining('feature') } }],
+      },
+    });
+    expect(sh(repo, 'branch', '--show-current')).toBe('main');
+    // Tracking it, the local one is the one switched to.
+    sh(repo, 'branch', '--set-upstream-to=origin/feature', 'feature');
+    await run((git) => git.switchTo(repo, 'origin/feature'));
+    expect(sh(repo, 'branch', '--show-current')).toBe('feature');
+  });
+
+  it('renames two branches to one name at once, each to a free one', async () => {
+    const repo = clone();
+    const worktrees = temp();
+    const ats = ['one', 'two', 'three', 'four'].map((id) => ({
+      at: join(worktrees, 'p1', id),
+      branch: `ke-code/${id}`,
+    }));
+    for (const each of ats)
+      await run((git) => git.addWorktree(repo, { ...each, from: 'main' }));
+    const names = await run((git) =>
+      Effect.all(
+        ats.map(({ at, branch }) => git.rename(at, branch, 'ke-code/fix')),
+        { concurrency: 'unbounded' },
+      ),
+    );
+    expect([...names].sort()).toEqual([
+      'ke-code/fix',
+      'ke-code/fix-2',
+      'ke-code/fix-3',
+      'ke-code/fix-4',
+    ]);
   });
 
   it('starts a repository, saying why when it cannot', async () => {

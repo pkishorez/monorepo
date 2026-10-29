@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
-import { mkdir, realpath, rm } from 'node:fs/promises';
+import { mkdir, realpath, rm, stat } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { Duration, Effect, Layer, Option } from 'effect';
+import { Duration, Effect, Layer, Option, Semaphore } from 'effect';
 import {
   Git,
   GitError,
@@ -14,7 +14,9 @@ import {
  * Git, run as the `git` on PATH. Every call has a time limit, asks for no
  * password, and reads git's own words, not the user's language. A question
  * that fails, as with git missing, answers null; a fetch is one per folder
- * at a time, in the background, and its failure only logged.
+ * at a time, in the background, and its failure only logged. What a
+ * caller names goes after `--end-of-options`, so git never reads it as an
+ * option, and a branch it makes is checked as a name first.
  */
 
 /** How long one git command may take; a fetch may take longer. */
@@ -99,6 +101,7 @@ const branches = (path: string) =>
       const heads = yield* run(path, [
         'for-each-ref',
         '--format=%(refname:lstrip=2)%00%(upstream)%00%(worktreepath)',
+        '--end-of-options',
         'refs/heads',
       ]);
       const local = yield* Effect.forEach(
@@ -120,6 +123,7 @@ const branches = (path: string) =>
       const remotes = yield* run(path, [
         'for-each-ref',
         '--format=%(refname:lstrip=2)%00%(symref)',
+        '--end-of-options',
         'refs/remotes/origin',
       ]);
       const origin = lines(remotes)
@@ -149,84 +153,177 @@ const branchAt = (path: string) =>
     }),
   ).pipe(Effect.map((found) => found ?? null));
 
-/** The names of every local branch. */
-const localNames = (path: string) =>
+/** Each local branch, with the Origin branch it tracks: `refs/remotes/...` or ''. */
+const localBranches = (path: string) =>
   Effect.map(
-    run(path, ['for-each-ref', '--format=%(refname:lstrip=2)', 'refs/heads']),
-    (output) => new Set(lines(output)),
+    run(path, [
+      'for-each-ref',
+      '--format=%(refname:lstrip=2)%00%(upstream)',
+      '--end-of-options',
+      'refs/heads',
+    ]),
+    (output) =>
+      new Map(
+        lines(output).map((line) => {
+          const [name = '', upstream = ''] = line.split('\0');
+          return [name, upstream] as const;
+        }),
+      ),
   );
+
+/**
+ * `name` if it is a branch name git takes as it is: never one read as an
+ * option, as `--orphan`, or as another, as `@{-1}`.
+ */
+const branchName = (path: string, name: string) =>
+  Effect.gen(function* () {
+    const refused = new GitError({ message: `${name} is not a branch name` });
+    if (name.startsWith('-')) return yield* refused;
+    const checked = yield* run(path, [
+      'check-ref-format',
+      '--branch',
+      name,
+    ]).pipe(Effect.mapError(() => refused));
+    if (checked.trim() !== name) return yield* refused;
+    return name;
+  });
+
+const ORIGIN = 'origin/';
 
 const switchTo = (path: string, branch: string) =>
   Effect.gen(function* () {
-    const local = yield* localNames(path);
-    if (local.has(branch) || !branch.startsWith('origin/')) {
-      yield* run(path, ['switch', branch]);
+    const local = yield* localBranches(path);
+    if (local.has(branch)) {
+      yield* run(path, ['switch', '--end-of-options', branch]);
       return;
     }
-    const name = branch.slice('origin/'.length);
-    yield* run(
-      path,
-      local.has(name)
-        ? ['switch', name]
-        : ['switch', '--create', name, '--track', branch],
-    );
+    if (!branch.startsWith(ORIGIN))
+      return yield* new GitError({ message: `There is no branch ${branch}` });
+    const name = yield* branchName(path, branch.slice(ORIGIN.length));
+    const upstream = local.get(name);
+    if (upstream === undefined) {
+      yield* run(path, [
+        'switch',
+        '--create',
+        name,
+        '--track',
+        '--end-of-options',
+        branch,
+      ]);
+      return;
+    }
+    // Another local branch of its name would be different code.
+    if (upstream !== `refs/remotes/${branch}`)
+      return yield* new GitError({
+        message: `The name ${name} is taken by a local branch that does not track ${branch}`,
+      });
+    yield* run(path, ['switch', '--end-of-options', name]);
   });
 
+/** Whether there is anything at `path`. */
+const there = (path: string) =>
+  Effect.promise(() =>
+    stat(path).then(
+      () => true,
+      () => false,
+    ),
+  );
+
+/** Removes the Worktree at `at`, and its folder, whatever of them is there. */
+const dropWorktree = (path: string, at: string) =>
+  Effect.gen(function* () {
+    yield* Effect.ignore(
+      run(path, ['worktree', 'remove', '--force', '--end-of-options', at]),
+    );
+    yield* Effect.promise(() =>
+      rm(at, { recursive: true, force: true }).catch(() => undefined),
+    );
+    yield* Effect.ignore(run(path, ['worktree', 'prune']));
+  });
+
+const dropBranch = (path: string, branch: string) =>
+  Effect.ignore(run(path, ['branch', '-D', '--end-of-options', branch]));
+
+/**
+ * A new Worktree, refused when its branch or its folder is there already:
+ * so what a failure leaves of it, git made just now, and it goes.
+ */
 const addWorktree = (
   path: string,
   { at, branch, from }: Parameters<Git['Service']['addWorktree']>[1],
 ) =>
   Effect.gen(function* () {
+    yield* branchName(path, branch);
+    if ((yield* localBranches(path)).has(branch))
+      return yield* new GitError({
+        message: `The branch ${branch} is there already`,
+      });
+    if (yield* there(at))
+      return yield* new GitError({ message: `${at} is there already` });
     yield* Effect.tryPromise({
       try: () => mkdir(dirname(at), { recursive: true }),
       catch: (error) => new GitError({ message: String(error) }),
     });
     // From an Origin branch too, the new branch tracks nothing until pushed.
-    yield* run(path, ['worktree', 'add', '--no-track', '-b', branch, at, from]);
+    yield* run(path, [
+      'worktree',
+      'add',
+      '--no-track',
+      '-b',
+      branch,
+      '--end-of-options',
+      at,
+      from,
+    ]).pipe(
+      Effect.tapError(() =>
+        Effect.andThen(dropWorktree(path, at), dropBranch(path, branch)),
+      ),
+    );
   });
 
 const removeWorktree = (
   path: string,
   { at, branch }: Parameters<Git['Service']['removeWorktree']>[1],
-) =>
-  Effect.gen(function* () {
-    yield* Effect.ignore(run(path, ['worktree', 'remove', '--force', at]));
-    yield* Effect.promise(() =>
-      rm(at, { recursive: true, force: true }).catch(() => undefined),
-    );
-    yield* Effect.ignore(run(path, ['worktree', 'prune']));
-    yield* Effect.ignore(run(path, ['branch', '-D', branch]));
-  });
+) => Effect.andThen(dropWorktree(path, at), dropBranch(path, branch));
 
 const pushed = (path: string, branch: string) =>
   Effect.gen(function* () {
     const upstream = yield* run(path, [
       'for-each-ref',
       '--format=%(upstream)',
+      '--end-of-options',
       `refs/heads/${branch}`,
     ]);
     if (upstream.trim() !== '') return true;
     const origin = yield* run(path, [
       'for-each-ref',
       '--format=%(refname)',
+      '--end-of-options',
       `refs/remotes/origin/${branch}`,
     ]);
     return origin.trim() !== '';
   }).pipe(Effect.orElseSucceed(() => true));
 
+/**
+ * The first free name of `to`, `to-2` and on. A name another took between
+ * the look and the move, as another program might, is tried again with
+ * the next.
+ */
 const rename = (path: string, from: string, to: string) =>
   Effect.gen(function* () {
-    const local = yield* localNames(path);
-    let name = to;
-    for (let suffix = 2; local.has(name); suffix++) {
-      if (suffix > MOST_SUFFIX)
-        return yield* new GitError({
-          message: `Every name for ${to} is taken`,
-        });
-      name = `${to}-${suffix}`;
+    yield* branchName(path, to);
+    let local = yield* localBranches(path);
+    for (let suffix = 1; suffix <= MOST_SUFFIX; suffix++) {
+      const name = suffix === 1 ? to : `${to}-${suffix}`;
+      if (local.has(name)) continue;
+      const moved = yield* Effect.result(
+        run(path, ['branch', '--move', '--end-of-options', from, name]),
+      );
+      if (moved._tag === 'Success') return name;
+      local = yield* localBranches(path);
+      if (!local.has(name)) return yield* moved.failure;
     }
-    yield* run(path, ['branch', '--move', from, name]);
-    return name;
+    return yield* new GitError({ message: `Every name for ${to} is taken` });
   });
 
 const init = (path: string) =>
@@ -237,6 +334,9 @@ const init = (path: string) =>
 
 const make = Effect.gen(function* () {
   const scope = yield* Effect.scope;
+  // Git's own renames in one repository trip over each other, and two at
+  // once would look for a free name at once: one at a time.
+  const renaming = yield* Semaphore.make(1);
   /** The folders a fetch runs in now. */
   const fetching = new Set<string>();
   const fetch = (path: string) =>
@@ -260,7 +360,7 @@ const make = Effect.gen(function* () {
     addWorktree,
     removeWorktree,
     pushed,
-    rename,
+    rename: (path, from, to) => renaming.withPermits(1)(rename(path, from, to)),
     init,
   } satisfies Git['Service'];
 });
