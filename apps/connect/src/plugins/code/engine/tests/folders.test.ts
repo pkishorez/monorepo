@@ -36,9 +36,11 @@ const run = <A, E>(
   const base = Layer.merge(storeLayer(options.path ?? ':memory:'), fake.layer);
   const world = Layer.merge(
     base,
-    Engine.layer({ attachments: folder(), home: folder() }).pipe(
-      Layer.provide(base),
-    ),
+    Engine.layer({
+      attachments: folder(),
+      home: folder(),
+      worktrees: folder(),
+    }).pipe(Layer.provide(base)),
   );
   return Effect.runPromise(
     Effect.scoped(effect).pipe(

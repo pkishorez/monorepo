@@ -52,6 +52,7 @@ const run = <A, E>(
     Engine.layer({
       attachments: options.attachments ?? folder(),
       home: folder(),
+      worktrees: folder(),
     }).pipe(Layer.provide(base)),
   );
   return Effect.runPromise(Effect.scoped(effect).pipe(Effect.provide(world)));

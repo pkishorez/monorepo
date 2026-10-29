@@ -1,5 +1,6 @@
 export { agents } from './agents/index.js';
 export { answers } from './answers/index.js';
+export { git } from './git/index.js';
 export { storeLayer } from './store/index.js';
 export {
   accountOf,

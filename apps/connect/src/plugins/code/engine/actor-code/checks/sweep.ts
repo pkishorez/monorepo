@@ -116,7 +116,11 @@ export const sweep = Effect.gen(function* () {
     sessions: projects.flatMap((project) =>
       sessions
         .filter(({ session }) => session.projectId === project.id)
-        .map(({ session, first }) => ({ session, cwd: project.path, first })),
+        .map(({ session, first }) => ({
+          session,
+          cwd: session.worktree ?? project.path,
+          first,
+        })),
     ),
   };
 });

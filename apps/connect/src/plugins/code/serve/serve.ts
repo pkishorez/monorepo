@@ -14,7 +14,7 @@ import { CodeApiLive } from './handlers.js';
 /*
  * The code Plugin: what a Connection runs for Code. The Store on its
  * SQLite file, the engine over it and the harnesses, Attachments, Folders
- * under the home folder, the models each harness runs, Speech to Text, and
+ * under the home folder, new Worktrees, the models each harness runs, Speech to Text, and
  * the API's handlers over them. Whoever serves it, main.ts on the socket
  * Connect gives, says where each file goes; left out, they sit beside the
  * database. When it stops, the engine stops every turn, and the Store
@@ -35,6 +35,8 @@ export interface CodePluginOptions {
   readonly speech?: Layer.Layer<SpeechToText>;
   /** The folder `listFolder` and `createFolder` never leave; the user's home unless given. */
   readonly home?: string;
+  /** Where new Worktrees are made; `worktrees/` beside the database unless given. */
+  readonly worktrees?: string;
 }
 
 /** The code Plugin: `CodeApi`, and the Layer of its handlers. */
@@ -44,6 +46,7 @@ export const codePlugin = (options: CodePluginOptions) => {
   const engine = Engine.layer({
     attachments: options.attachments ?? beside('attachments'),
     home: options.home ?? homedir(),
+    worktrees: options.worktrees ?? beside('worktrees'),
   }).pipe(Layer.provide(base));
   const models = Models.layer({
     cacheFile: options.modelsCache ?? beside('models.json'),
