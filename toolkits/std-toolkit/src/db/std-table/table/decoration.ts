@@ -247,14 +247,18 @@ export const decorateTable = (declaration: TableDeclaration): StdTable => {
       return Effect.gen(function* () {
         const contract = (yield* StdTableService(definition.logicalName))
           .contract;
-        const itemsDeleted = yield* contract
-          .hardDeleteAllItems()
-          .pipe(
-            Effect.mapError((error) =>
-              dbError('dangerouslyRemoveAllItems', error as ContractFailure),
+        // Entity by entity, so the Stored contract kept in the table stays:
+        // the table is still set up, only empty.
+        const deleted = yield* Effect.forEach(declaration.entities, (entity) =>
+          contract
+            .hardDeleteEntityItems(entity.schema.name)
+            .pipe(
+              Effect.mapError((error) =>
+                dbError('dangerouslyRemoveAllItems', error as ContractFailure),
+              ),
             ),
-          );
-        return { itemsDeleted };
+        );
+        return { itemsDeleted: deleted.reduce((sum, n) => sum + n, 0) };
       });
     },
     scan(options?: ScanOptions) {

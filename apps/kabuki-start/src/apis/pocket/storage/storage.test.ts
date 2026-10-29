@@ -1,5 +1,5 @@
 import { it } from 'vitest';
-import { expectTableShippable } from '@kestack/std-toolkit/snapshot/vitest';
+import { expectTableShippable } from '@kestack/std-toolkit/db/testing';
 import { pocketTable } from './index.ts';
 
 // The committed file is the pocket table's contract: every entity and every

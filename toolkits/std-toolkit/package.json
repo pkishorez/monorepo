@@ -44,6 +44,10 @@
       "types": "./dist/db/memory/index.d.ts",
       "default": "./dist/db/memory/index.js"
     },
+    "./db/testing": {
+      "types": "./dist/db/testing/index.d.ts",
+      "default": "./dist/db/testing/index.js"
+    },
     "./db/sqlite": {
       "types": "./dist/db/sqlite/index.d.ts",
       "default": "./dist/db/sqlite/index.js"

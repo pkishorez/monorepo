@@ -27,16 +27,8 @@ A secondary index that simply skips **Records** missing its key fields — Index
 Primary, LSI, and GSI access patterns observe the latest committed IndexedDB state available to the transaction.
 
 **Auto-versioned setup**:
-The setup discipline where the adapter owns the database's version number, bumping it only when a declared **Store** or **Sparse index** is missing or incompatible. The upgrade creates additive topology but does not migrate legacy Records or backfill index keys on existing Records. A database name given to this adapter belongs to it; no other code may version that database.
+The setup discipline where the adapter owns the database's version number, bumping it only when a declared **Store** or **Sparse index** is missing, incompatible or no longer declared. An index changes only inside the upgrade of a new version, whose transaction closes as soon as it waits on anything else, so the shared [[db]] **Adapter setup** runs on ordinary transactions and its topology step closes the connection and opens the next version to create or delete indexes; **Backfill**s run after it. A missing Store holds nothing, so it is created whole before setup reads its **Stored contract** from it. Setups of one database run one at a time across tabs under a Web Lock when the browser has one. A database name given to this adapter belongs to it; no other code may version that database. A `_std_contract` store an older version of the toolkit left is ignored.
 _Avoid_: migration, manual upgrade.
-
-**Contract store**:
-The `_std_contract` object store in the same database, holding each **Store**'s [[db]] **Stored contract** by Store name. Setup reads it on the table's first open, before it changes any Store; the name is reserved.
-_Avoid_: Metadata store, schema store.
-
-**Backfill choice**:
-What setup does with a change that needs a backfill on this adapter, the only one that backfills: reindex the stored **Records** in place, or wipe them. A **Persistent table** always reindexes; a **Disposable table** chooses, reindexing by default. A disposable Store whose Records cannot be reindexed is wiped instead.
-_Avoid_: Migration, backfill job.
 
 **Buffered transaction**:
 The atomicity model for `transact()`: operations are validated into plain descriptors first, then applied together in one native IndexedDB transaction. There is no interactive begin/commit — IndexedDB transactions cannot span foreign async work.

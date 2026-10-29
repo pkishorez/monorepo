@@ -8,6 +8,7 @@ export {
   readStoredContract,
   recordContract,
   recordProgress,
+  rowsOfContract,
   SetupRefused,
   wipeTable,
   type BackfillChoice,

@@ -1,5 +1,4 @@
 export {
-  setUpFromSnapshot,
   SQLite,
   type SQLiteTable,
   type SQLiteConfig,
@@ -7,7 +6,9 @@ export {
   type SQLiteSetupConfig,
 } from './sqlite.js';
 export {
+  BackfillFailed,
   SetupRefused,
+  type SetupOutcome,
   type SetupRefusedReason,
   type TableMode,
 } from '../setup/index.js';

@@ -1,1 +1,1 @@
-export { expectTableShippable, type ShippableOptions } from './vitest.js';
+export { expectSnapshotFile, type SnapshotFileOptions } from './vitest.js';

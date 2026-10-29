@@ -3,8 +3,13 @@ import type {
   OperationFailure,
   StdTableContract,
 } from '../../std-table/contract/index.js';
-import type { CurrentContract } from './capture.js';
-import type { BackfillProgress, ContractRows } from './rows.js';
+import type { TableSnapshot } from '../../../snapshot/index.js';
+import type { CurrentContract, StoredContract } from './capture.js';
+import {
+  splitSnapshot,
+  type BackfillProgress,
+  type ContractRows,
+} from './rows.js';
 import {
   readContractRows,
   readTableRow,
@@ -91,3 +96,27 @@ export const recordProgress = (
   progress: readonly BackfillProgress[],
 ): Effect.Effect<void, OperationFailure> =>
   writeBackfillProgress(store, current.snapshot, current.record.hash, progress);
+
+/**
+ * A contract kept outside the table, such as a deploy guard's, as the rows
+ * setup plans from: committed, with every Backfill it lists done.
+ */
+export const rowsOfContract = (
+  snapshot: TableSnapshot,
+  record: Pick<StoredContract, 'mode' | 'hash'>,
+): ContractRows => {
+  const rows = splitSnapshot(snapshot, {
+    mode: record.mode,
+    hash: record.hash,
+    generation: 1,
+    progress: (id) => ({
+      id,
+      status: 'done',
+      cursor: null,
+      rowsRewritten: 0,
+      startedAt: null,
+      finishedAt: null,
+    }),
+  });
+  return { ...rows, table: { value: rows.table, _u: '' } };
+};

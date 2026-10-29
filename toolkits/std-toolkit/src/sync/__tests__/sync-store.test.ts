@@ -1,5 +1,5 @@
 import { it } from 'vitest';
-import { expectTableShippable } from '../../snapshot/vitest/index.js';
+import { expectTableShippable } from '../../db/testing/index.js';
 import { syncStore } from '../domain/stored-entity/index.js';
 
 // The Sync Store lives in each user's IndexedDB, where no deploy guard runs:

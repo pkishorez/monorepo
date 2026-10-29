@@ -37,7 +37,7 @@ The result of `<Adapter>.make(stdTable, config)` — `DynamoDBTable`, `SQLiteTab
 _Avoid_: Configured adapter (retired term), instance, storage, public binding.
 
 **Adapter setup**:
-The adapter-native step that prepares one physical table under its **Table mode**: it compares the current table snapshot with the **Stored contract**, then refuses (a **Persistent table**) or wipes the whole table (a **Disposable table**) on a change that is not safe, applies the topology, and records the new Stored contract. Its options are the adapter's own; IndexedDB's lets a disposable table reindex or wipe on a change that needs a backfill. It runs where nothing per request pays for it: at deploy inside an Alchemy resource (D1), at runtime start (SQLite files, IndexedDB on app open), or on an object's first access (Durable Objects). DynamoDB has none: Alchemy creates its table, and its **Deploy guard** is its only check. Memory has none and takes no mode, since nothing outlives it. It is separate from `make`.
+The adapter-native step that prepares one physical table under its **Table mode**: it compares the current table snapshot with the **Stored contract**, then refuses (a **Persistent table**) or wipes the whole table (a **Disposable table**) on a change that is not safe, applies the topology, and records the new Stored contract. Its options are the adapter's own; IndexedDB changes its indexes in a version upgrade between the plan and the Backfills. SQLite runs the shared setup for every driver: it creates a missing table, keeps the Stored contract as reserved rows inside it, and runs the pending **Backfills**. It runs where nothing per request pays for it: at deploy inside an Alchemy resource (D1 and DynamoDB, with no deploy guard), at runtime start (SQLite files, IndexedDB on app open), or on an object's first access (Durable Objects). DynamoDB runs the shared setup too: it creates a missing table, adds a new global secondary index in place before the Backfills, and refuses every other index change in either mode, since DynamoDB makes it only by replacing the table. Memory has none and takes no mode, since nothing outlives it. It is separate from `make`.
 _Avoid_: Automatic setup, layer initialization, verifySnapshot.
 
 **Table mode**:
@@ -159,7 +159,7 @@ The portable, irreversible removal of one Entity or all items for an **entity su
 _Avoid_: Delete (use for tombstoning).
 
 **Adapter-native operation**:
-An adapter-specific function outside the **StdTable surface**. Only table provisioning and inspection remain: `SQLite.setup`, `IDB.setup`, `IDB.database`, and `DynamoDB.createTable`, `deleteTable` and `getTableDefinition`. No adapter offers native reads or writes; every read and write goes through the **StdTable surface**, which is the only place values are encoded and decoded. Code that uses one requires that adapter and cannot be moved unchanged to another database.
+An adapter-specific function outside the **StdTable surface**. Only table provisioning and inspection remain: `SQLite.setup`, `IDB.setup`, `IDB.database`, and `DynamoDB.setup`, `createTable`, `deleteTable` and `getTableDefinition`. No adapter offers native reads or writes; every read and write goes through the **StdTable surface**, which is the only place values are encoded and decoded. Code that uses one requires that adapter and cannot be moved unchanged to another database.
 _Avoid_: Portable extension, enhanced common operation.
 
 **DatabaseError**:

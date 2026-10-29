@@ -8,6 +8,7 @@ import {
   RetiredSnapshotGuardProvider,
   RetiredSnapshotGuardResource,
 } from './deploy-guard/index.js';
+import { DynamoDBTable, DynamoDBTableProvider } from './dynamodb/index.js';
 
 export const providers = () =>
   Layer.effect(
@@ -16,9 +17,11 @@ export const providers = () =>
       DeployGuardResource,
       RetiredSnapshotGuardResource,
       D1Table,
+      DynamoDBTable,
     ]),
   ).pipe(
     Layer.provideMerge(DeployGuardProvider()),
     Layer.provideMerge(RetiredSnapshotGuardProvider()),
     Layer.provideMerge(D1TableProvider()),
+    Layer.provideMerge(DynamoDBTableProvider()),
   );

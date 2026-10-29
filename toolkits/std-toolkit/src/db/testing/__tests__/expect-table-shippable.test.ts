@@ -1,9 +1,9 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { Effect, Schema } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
-import { StdTable } from '../../../db/index.js';
 import { EntityESchema, ESchema } from '../../../eschema/index.js';
-import { TableSnapshot } from '../../index.js';
+import { TableSnapshot } from '../../../snapshot/index.js';
+import { StdTable } from '../../std-table/table/index.js';
 import { expectTableShippable } from '../index.js';
 
 const Address = ESchema.make('Address', { city: Schema.String }).build();

@@ -1,0 +1,168 @@
+{
+  "logicalName": "tracker",
+  "topology": {
+    "primary": {
+      "pk": "pk",
+      "sk": "sk"
+    },
+    "localSecondaryIndexes": [],
+    "globalSecondaryIndexes": []
+  },
+  "entities": [
+    {
+      "name": "Owner",
+      "kind": "keyed",
+      "schema": "Owner",
+      "idField": "ownerId",
+      "primary": {
+        "pk": [],
+        "sk": [
+          "ownerId"
+        ]
+      },
+      "accessPatterns": [
+        {
+          "name": "primary",
+          "kind": "primary",
+          "pk": [],
+          "sk": [
+            "ownerId"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Task",
+      "kind": "keyed",
+      "schema": "Task",
+      "idField": "taskId",
+      "primary": {
+        "pk": [
+          "projectId"
+        ],
+        "sk": [
+          "taskId"
+        ]
+      },
+      "accessPatterns": [
+        {
+          "name": "primary",
+          "kind": "primary",
+          "pk": [
+            "projectId"
+          ],
+          "sk": [
+            "taskId"
+          ]
+        }
+      ]
+    }
+  ],
+  "schemas": [
+    {
+      "identity": "Owner",
+      "kind": "entity",
+      "idField": "ownerId",
+      "versions": [
+        {
+          "version": "v1",
+          "shape": {
+            "type": "struct",
+            "fields": [
+              {
+                "name": "name",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "ownerId",
+                "type": {
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          "gap": false
+        }
+      ]
+    },
+    {
+      "identity": "Task",
+      "kind": "entity",
+      "idField": "taskId",
+      "versions": [
+        {
+          "version": "v1",
+          "shape": {
+            "type": "struct",
+            "fields": [
+              {
+                "name": "projectId",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "taskId",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "title",
+                "type": {
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          "gap": false
+        },
+        {
+          "version": "v2",
+          "shape": {
+            "type": "struct",
+            "fields": [
+              {
+                "name": "owner",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "projectId",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "taskId",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "title",
+                "type": {
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          "gap": true
+        }
+      ]
+    }
+  ],
+  "backfills": [
+    {
+      "id": "task-owner",
+      "kind": "gap",
+      "entity": "Task",
+      "to": "v2",
+      "after": []
+    }
+  ],
+  "_v": "v2"
+}

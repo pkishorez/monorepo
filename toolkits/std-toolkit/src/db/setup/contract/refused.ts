@@ -69,7 +69,7 @@ const refusalMessage = (
           : ['', TableSnapshot.renderChanges(changes)]),
       ].join('\n');
     case 'renames-table':
-      return `std-toolkit: DynamoDB table "${table}" cannot get a new physical name under the same resource: Alchemy would replace it and delete the old table. Nothing was changed. Declare a new DynamoDB.table resource, with its own id, for the new name.`;
+      return `std-toolkit: DynamoDB table "${table}" cannot get a new physical name under the same resource: the new name would start an empty table and leave the old one, with its data, behind. Nothing was changed. Declare a new DynamoDB.table resource, with its own id, for the new name.`;
     case 'unreadable':
       return `std-toolkit: persistent table "${table}" has a stored contract this version of std-toolkit cannot read, so its data cannot be checked. Nothing was changed.`;
   }

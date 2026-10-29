@@ -16,17 +16,27 @@ const stored = (schema: AnyEntityESchema) => {
 
 const Task = EntityESchema.make('Task', 'id', { title: Schema.String }).build();
 
-const capture = (
-  table: ReturnType<ReturnType<typeof StdTable.make>['primary']>,
-) => {
-  const built = table.entity(Task, (e) => e.primary()).build();
-  return Effect.runSync(TableSnapshot.serialize(TableSnapshot.capture(built)));
-};
+const Indexed = EntityESchema.make('Task', 'id', {
+  title: Schema.String,
+}).build();
 
-const tasksTable = () => StdTable.make('tasks').primary('pk', 'sk');
-const plain = capture(tasksTable());
-const withLocalIndex = capture(tasksTable().lsi('LSI1', 'LSI1SK'));
-const withGlobalIndex = capture(tasksTable().gsi('GSI1', 'GSI1PK', 'GSI1SK'));
+const indexedTable = (reindex: boolean) => {
+  const table = StdTable.make('tasks')
+    .primary('pk', 'sk')
+    .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+    .entity(Indexed, (e) =>
+      e.primary().index('GSI1', 'byTitle', { pk: ['title'] }),
+    );
+  return Effect.runSync(
+    TableSnapshot.serialize(
+      TableSnapshot.capture(
+        reindex
+          ? table.backfill('task-by-title', { reindex: 'Task' }).build()
+          : table.build(),
+      ),
+    ),
+  );
+};
 
 const v1 = stored(
   EntityESchema.make('Task', 'id', { title: Schema.String }).build(),
@@ -60,7 +70,7 @@ const refusal = (exit: ReturnType<typeof deploy>) =>
     : undefined;
 
 describe('deploy guard', () => {
-  it('records the first contract at generation 0', () => {
+  it('records the first contract', () => {
     expect(deployed({ mode: 'persistent', snapshot: v1 }).snapshot).toBe(v1);
   });
 
@@ -119,52 +129,36 @@ describe('deploy guard', () => {
   });
 });
 
-describe('deploy guard for a table changed in place only (DynamoDB)', () => {
-  const inPlace = (
-    mode: 'persistent' | 'disposable',
-    from: unknown,
-    to: unknown,
-  ) =>
-    deploy(deployed({ mode, snapshot: from, inPlaceOnly: true }), {
-      mode,
-      snapshot: to,
-      inPlaceOnly: true,
-    });
-
-  for (const mode of ['persistent', 'disposable'] as const) {
-    it(`lets a ${mode} table add a global secondary index`, () => {
-      expect(Exit.isSuccess(inPlace(mode, plain, withGlobalIndex))).toBe(true);
-    });
-
-    it(`refuses a ${mode} table a new local secondary index`, () => {
-      expect(
-        (refusal(inPlace(mode, plain, withLocalIndex)) as SetupRefused).reason,
-      ).toBe('replaces-table');
-    });
-
-    it(`refuses a ${mode} table removing a global secondary index`, () => {
-      expect(
-        (refusal(inPlace(mode, withGlobalIndex, plain)) as SetupRefused).reason,
-      ).toBe('replaces-table');
-    });
-  }
-
-  it('refuses a new order of local secondary indexes, which DynamoDB replaces on', () => {
-    const exit = deploy(
-      deployed({
+describe('deploy guard, by setup rules', () => {
+  it('refuses an index change no declared Backfill covers', () => {
+    const error = refusal(
+      deploy(deployed({ mode: 'persistent', snapshot: v1 }), {
         mode: 'persistent',
-        snapshot: withLocalIndex,
-        inPlaceOnly: true,
-        localIndexOrder: ['A', 'B'],
+        snapshot: indexedTable(false),
       }),
-      {
-        mode: 'persistent',
-        snapshot: withLocalIndex,
-        inPlaceOnly: true,
-        localIndexOrder: ['B', 'A'],
-      },
-    );
-    expect((refusal(exit) as SetupRefused).reason).toBe('replaces-table');
+    ) as SetupRefused;
+    expect(error.reason).toBe('backfill-missing');
+    expect(error.changes.length).toBeGreaterThan(0);
+  });
+
+  it('accepts the index change with a reindex Backfill', () => {
+    const exit = deploy(deployed({ mode: 'persistent', snapshot: v1 }), {
+      mode: 'persistent',
+      snapshot: indexedTable(true),
+    });
+    expect(Exit.isSuccess(exit)).toBe(true);
+  });
+
+  it('accepts the same contract again once its Backfill has shipped', () => {
+    const shipped = deployed({
+      mode: 'persistent',
+      snapshot: indexedTable(true),
+    });
+    expect(
+      Exit.isSuccess(
+        deploy(shipped, { mode: 'persistent', snapshot: indexedTable(true) }),
+      ),
+    ).toBe(true);
   });
 
   it('still checks a table against its own contract after a move that never finished', () => {
@@ -182,29 +176,5 @@ describe('deploy guard for a table changed in place only (DynamoDB)', () => {
       target: 'A',
     });
     expect((refusal(backToA) as SetupRefused).reason).toBe('breaking');
-  });
-
-  it('refuses a new physical name, which DynamoDB makes by deleting the old table', () => {
-    const exit = deploy(
-      deployed({
-        mode: 'persistent',
-        snapshot: v1,
-        target: 'tasks-a',
-        inPlaceOnly: true,
-      }),
-      {
-        mode: 'persistent',
-        snapshot: v1,
-        target: 'tasks-b',
-        inPlaceOnly: true,
-      },
-    );
-    expect((refusal(exit) as SetupRefused).reason).toBe('renames-table');
-  });
-
-  it('refuses a disposable table a breaking change instead of wiping it', () => {
-    const error = refusal(inPlace('disposable', v1, edited)) as SetupRefused;
-    expect(error.reason).toBe('replaces-table');
-    expect(error.message).toMatch(/new DynamoDB.table resource/);
   });
 });

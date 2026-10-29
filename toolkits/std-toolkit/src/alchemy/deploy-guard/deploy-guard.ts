@@ -6,28 +6,19 @@ import { TableSnapshot } from '../../snapshot/index.js';
 import {
   captureContract,
   contractFromSnapshot,
-  planSetup,
-  SetupRefused,
   type TableMode,
 } from '../../db/setup/index.js';
+import {
+  NO_ROWS,
+  planContract,
+  rowsOfContract,
+} from '../../db/setup/contract/index.js';
 
 interface ContractProps {
   readonly mode: TableMode;
   readonly snapshot: unknown;
   /** The physical table, when there is one. A new target starts a fresh contract. */
   readonly target?: string;
-  /**
-   * The target has no setup to wipe it, and Alchemy changes it in place or
-   * replaces it (DynamoDB). Every change that would replace or wipe it is
-   * refused in either mode: the way past one is a new physical table name.
-   */
-  readonly inPlaceOnly?: boolean;
-  /**
-   * The order the target was given its local secondary indexes in. The
-   * snapshot sorts them by name, but DynamoDB replaces a table whose order
-   * changes, so an in-place-only target refuses a new order.
-   */
-  readonly localIndexOrder?: readonly string[];
 }
 
 /** The contract last accepted for one physical target. */
@@ -35,7 +26,6 @@ interface TargetContract {
   readonly mode: TableMode;
   readonly hash: string;
   readonly snapshot: unknown;
-  readonly localIndexOrder?: readonly string[];
 }
 
 interface ContractOutput extends ContractProps {
@@ -79,30 +69,11 @@ export class Providers extends Provider.ProviderCollection<Providers>()(
   'StdToolkit',
 ) {}
 
-const sameIndexes = (
-  left: TableSnapshot['topology']['localSecondaryIndexes'],
-  right: TableSnapshot['topology']['localSecondaryIndexes'],
-) => JSON.stringify(left) === JSON.stringify(right);
-
-// DynamoDB adds a global secondary index in place; any other index change
-// is made by replacing the table.
-const replacesTable = (previous: TableSnapshot, current: TableSnapshot) =>
-  !sameIndexes(
-    previous.topology.localSecondaryIndexes,
-    current.topology.localSecondaryIndexes,
-  ) ||
-  previous.topology.globalSecondaryIndexes.some(
-    (index) =>
-      !current.topology.globalSecondaryIndexes.some((next) =>
-        sameIndexes([index], [next]),
-      ),
-  );
-
 /**
- * Checks a deploy against the Deployed contract: a persistent table refuses
- * a breaking change and a switch to disposable. A target that is changed in
- * place only also refuses every change that would replace or wipe it.
- * Each physical target is checked against its own last contract, so a new
+ * Checks a deploy against the Deployed contract by setup's own rules: a
+ * persistent table refuses a breaking change, a switch to disposable, and
+ * a change needing a Backfill none of the declared ones covers. Each
+ * physical target is checked against its own last contract, so a new
  * target starts fresh and an old one is never forgotten.
  */
 export const checkDeploy = (
@@ -114,52 +85,30 @@ export const checkDeploy = (
     // when Alchemy planned is resolved here.
     const target = current.target ?? '';
     const previous = deployed?.targets[target];
-    // DynamoDB replaces a table whose name changes under the same resource,
-    // deleting the old one; a new name belongs to a new resource.
-    if (
-      current.inPlaceOnly === true &&
-      deployed !== undefined &&
-      (deployed.target ?? '') !== target
-    )
-      return yield* Effect.fail(
-        new SetupRefused(current.target ?? '', 'renames-table'),
-      );
     const contract = yield* contractFromSnapshot(
       current.snapshot,
       current.mode,
     );
-    const plan = yield* planSetup({
+    const parsed =
+      previous === undefined
+        ? undefined
+        : yield* TableSnapshot.parse(previous.snapshot).pipe(Effect.result);
+    yield* planContract({
       current: contract,
-      stored: previous,
-      loadStoredSnapshot: Effect.succeed(previous?.snapshot),
-      ...(current.inPlaceOnly === true ? { backfill: 'keep' as const } : {}),
+      storedMode: previous?.mode,
+      read:
+        parsed === undefined
+          ? { kind: 'read', rows: NO_ROWS }
+          : parsed._tag === 'Failure'
+            ? { kind: 'unreadable', cause: parsed.failure }
+            : { kind: 'read', rows: rowsOfContract(parsed.success, previous!) },
+      // The guard holds no rows: with no contract yet, it records one.
+      holdsRows: Effect.succeed(false),
     });
-    if (current.inPlaceOnly === true && previous !== undefined) {
-      const refused =
-        plan.kind === 'wipe' ||
-        JSON.stringify(previous.localIndexOrder ?? []) !==
-          JSON.stringify(current.localIndexOrder ?? []) ||
-        (plan.kind === 'apply' &&
-          replacesTable(
-            yield* TableSnapshot.parse(previous.snapshot),
-            contract.snapshot,
-          ));
-      if (refused)
-        return yield* Effect.fail(
-          new SetupRefused(
-            contract.logicalName,
-            'replaces-table',
-            plan.kind === 'wipe' ? plan.changes : [],
-          ),
-        );
-    }
     const accepted: TargetContract = {
       mode: current.mode,
       hash: contract.record.hash,
       snapshot: current.snapshot,
-      ...(current.localIndexOrder === undefined
-        ? {}
-        : { localIndexOrder: current.localIndexOrder }),
     };
     return {
       ...current,
@@ -213,11 +162,7 @@ export const guardContract = (
   id: string,
   table: TableSource,
   mode: TableMode,
-  physical: {
-    readonly target?: Input<string>;
-    readonly inPlaceOnly?: boolean;
-    readonly localIndexOrder?: readonly string[];
-  } = {},
+  physical: { readonly target?: Input<string> } = {},
 ) =>
   Effect.gen(function* () {
     const { record } = yield* captureContract(table, mode);
@@ -229,11 +174,12 @@ export const guardContract = (
   });
 
 /**
- * Guards a persistent StdTable at deploy: the deploy fails when the table's
- * contract breaks the one last shipped. Declaring the guard declares the
- * table persistent. D1 and DynamoDB tables include their own; declare this
- * for a table Alchemy does not create, such as an IndexedDB or Durable
- * Object table. One guard covers every physical table of the StdTable.
+ * Guards a persistent StdTable at deploy, for a table whose setup runs
+ * later on a device or an object (IndexedDB, Durable Objects): the deploy
+ * fails on a change that setup would refuse against the contract last
+ * shipped. Declaring the guard declares the table persistent. D1 and
+ * DynamoDB tables need none, since they are set up at deploy. One guard
+ * covers every physical table of the StdTable.
  */
 const table = (source: TableSource) =>
   guardContract(`${source.logicalName}DeployGuard`, source, 'persistent');

@@ -1,20 +1,19 @@
 import { Effect } from 'effect';
 import { isResolved, Resource, RuntimeContext } from 'alchemy';
 import * as Cloudflare from '@alchemy.run/cloudflare';
-import * as Output from 'alchemy/Output';
 import * as Provider from 'alchemy/Provider';
 import {
-  setUpFromSnapshot,
+  SQLite,
   type SQLiteDriver,
   type TableMode,
 } from '../../db/sqlite/index.js';
 import { makeD1SQLite } from '../../db/sqlite/drivers/d1/index.js';
+import type { StdTable } from '../../db/std-table/table/index.js';
 import { TableSnapshot } from '../../snapshot/index.js';
-import type { TableSource } from '../../snapshot/index.js';
-import { guardContract, type Providers } from '../deploy-guard/index.js';
+import type { Providers } from '../deploy-guard/index.js';
 
 interface D1TableOptions {
-  readonly table: TableSource;
+  readonly table: StdTable;
   readonly database: Cloudflare.D1.Database;
   /** Physical table name inside the database. Defaults to the logical name. */
   readonly tableName?: string;
@@ -22,52 +21,50 @@ interface D1TableOptions {
   readonly mode: TableMode;
 }
 
-interface D1TableProps {
+/** What Alchemy keeps in state and diffs: the snapshot says when to set up again. */
+interface D1TableAttributes {
   readonly databaseId: string;
   readonly tableName: string;
   readonly mode: TableMode;
   readonly snapshot: unknown;
 }
 
+interface D1TableProps extends D1TableAttributes {
+  /**
+   * The table itself, which setup needs for its Backfills. A function, so
+   * Alchemy passes it through as is and never writes it to state.
+   */
+  readonly table: () => StdTable;
+}
+
 export type D1Table = Resource<
   'StdToolkit.D1.Table',
   D1TableProps,
-  D1TableProps,
+  D1TableAttributes,
   never,
   Providers
 >;
 
 export const D1Table = Resource<D1Table>('StdToolkit.D1.Table');
 
-const topologyFromSnapshot = (snapshot: TableSnapshot) => ({
-  logicalName: snapshot.logicalName,
-  primary: snapshot.topology.primary,
-  localSecondaryIndexes: Object.fromEntries(
-    snapshot.topology.localSecondaryIndexes.map((index) => [
-      index.name,
-      { ...index, kind: 'lsi' as const },
-    ]),
-  ),
-  globalSecondaryIndexes: Object.fromEntries(
-    snapshot.topology.globalSecondaryIndexes.map((index) => [
-      index.name,
-      { ...index, kind: 'gsi' as const },
-    ]),
-  ),
-});
-
+/** Runs SQLite setup on the D1 database; a refusal fails the deploy. */
 export const setUpD1Table = <R>(
   props: D1TableProps,
   database: Effect.Effect<SQLiteDriver, never, R>,
 ) =>
   Effect.gen(function* () {
-    const snapshot = yield* TableSnapshot.parse(props.snapshot);
-    yield* setUpFromSnapshot(topologyFromSnapshot(snapshot), props.snapshot, {
+    yield* SQLite.setup(props.table(), {
       database: yield* database,
       tableName: props.tableName,
       mode: props.mode,
     });
-    return props;
+    const { databaseId, tableName, mode, snapshot } = props;
+    return {
+      databaseId,
+      tableName,
+      mode,
+      snapshot,
+    } satisfies D1TableAttributes;
   });
 
 const openD1 = (databaseId: string) =>
@@ -102,32 +99,23 @@ export const D1TableProvider = () =>
   });
 
 /**
- * Creates or updates the table in D1 at deploy, under its Stored contract
- * kept in the same database: setup refuses a persistent table's breaking
- * change and wipes a disposable one's. A persistent table also gets a deploy
- * guard, which refuses the change before setup runs.
+ * Creates or updates the table in D1 at deploy, before the Worker goes
+ * live: SQLite setup checks the Stored contract kept inside the table,
+ * refuses a persistent table's breaking change, wipes a disposable one's,
+ * applies its indexes and runs its pending Backfills. A refusal fails the
+ * deploy with the SetupRefused message.
  */
 const table = (id: string, options: D1TableOptions) =>
   Effect.gen(function* () {
-    const tableName = options.tableName ?? options.table.logicalName;
-    const snapshot =
-      options.mode === 'persistent'
-        ? (yield* guardContract(
-            `${id}DeployGuard`,
-            options.table,
-            'persistent',
-            {
-              target: Output.interpolate`${options.database.databaseId}/${tableName}`,
-            },
-          )).snapshot
-        : yield* TableSnapshot.serialize(
-            TableSnapshot.capture(options.table),
-          ).pipe(Effect.orDie);
+    const snapshot = yield* TableSnapshot.serialize(
+      TableSnapshot.capture(options.table),
+    ).pipe(Effect.orDie);
     return yield* D1Table(id, {
       databaseId: options.database.databaseId,
-      tableName,
+      tableName: options.tableName ?? options.table.logicalName,
       mode: options.mode,
       snapshot,
+      table: () => options.table,
     });
   });
 

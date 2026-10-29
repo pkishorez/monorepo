@@ -23,9 +23,13 @@ The adapter's **native item**: the physical representation of a **stored item**.
 The adapter's **item schema**: one table-parameterized two-way Effect Schema between a **stored item** and a **DynamoDB item** (`itemSchema(table): Schema<NativeItem, StoredItem>`). Writes run the decode direction, reads the encode direction, and malformed items fail as parse errors. It performs no I/O.
 _Avoid_: item codec, encodeItem/decodeItem pairs.
 
+**DynamoDB setup**:
+`DynamoDB.setup`, this adapter's [[db]] **Adapter setup**. It creates a missing table with its full topology, then runs the shared setup against the **Stored contract** kept as reserved rows inside the table, read with strongly consistent reads. Its topology step adds each new global secondary index in place (`UpdateTable`, one at a time) and waits until it is ACTIVE before any **Backfill** runs; it refuses every other index change in either **Table mode** (removing or changing a global secondary index, any local secondary index change, a primary key change), since DynamoDB makes those only by replacing the table. A wipe deletes every row, so a disposable table can be wiped. `DynamoDB.table` in `@kestack/std-toolkit/alchemy` runs it at deploy, inside its own resource, with no deploy guard; that resource also refuses a new physical name, and removing it leaves the table and its data. The way past a refusal is a new `DynamoDB.table` resource with its own id and table name.
+_Avoid_: Deploy guard (for this adapter), enforcement baseline.
+
 **Create-if-missing setup**:
-`DynamoDB.createTable`, an adapter-native operation for DynamoDB Local and tests: `CreateTable` from the declared topology when the table is missing, then a wait until it is active. An existing table is left as it is. Deployed tables come from `DynamoDB.table` in `@kestack/std-toolkit/alchemy`, whose resource creates and reconciles every index. A DynamoDB table keeps no [[db]] **Stored contract**: its **Deploy guard** is its only check. Nothing replaces or wipes a DynamoDB table: in either **Table mode**, a breaking change, or any index change other than adding a global secondary index (a new order of local secondary indexes included), is refused, since DynamoDB makes those only by replacing the table. The way past one is a new `DynamoDB.table` resource with its own id and table name; a new name under the same resource is refused, since Alchemy makes it by replacing the table.
-_Avoid_: Create-only setup, adapter setup (for this adapter; `make` returns only the layer).
+`DynamoDB.createTable`, an adapter-native operation for DynamoDB Local and tests: `CreateTable` from the declared topology when the table is missing, then a wait until it is active. An existing table is left as it is, and no Stored contract is read or written.
+_Avoid_: Create-only setup.
 
 **Primary index**:
 The main table index, defined by its **partition key** and **sort key**. Secondary indexes use the shared [[db]] **LSI** / **GSI** vocabulary.
@@ -49,7 +53,7 @@ Conversion between JS values and DynamoDB `AttributeValue` format.
 _Avoid_: serialize/deserialize (reserve those for eschema encode/decode).
 
 **DynamoDBNativeError**:
-The error for `DynamoDB.createTable` and `DynamoDB.deleteTable`. It names the operation (`setup` or `teardown`) and retains the original client failure in `cause`. Portable operations fail with [[db]] `DatabaseError`.
+The error for creating or deleting the physical table (`DynamoDB.setup`, `createTable`, `deleteTable`). It names the operation (`setup` or `teardown`) and retains the original client failure in `cause`. Portable operations fail with [[db]] `DatabaseError`.
 
 ## Composition
 

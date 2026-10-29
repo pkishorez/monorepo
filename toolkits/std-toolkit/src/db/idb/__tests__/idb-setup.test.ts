@@ -7,7 +7,7 @@ import { IDB } from '../index.js';
 import { makeTableContract } from '../table/index.js';
 import { reconcileIDBStore } from '../upgrade/index.js';
 
-// What a table does on its first open: create the store and its indexes.
+// The topology half of setup: the store and exactly its declared indexes.
 const setup = (
   table: Parameters<typeof reconcileIDBStore>[1] & { logicalName: string },
   database: ReturnType<typeof IDB.database>,
@@ -428,8 +428,8 @@ describe('IndexedDB setup', () => {
     expect(entityIndex.multiEntry).toBe(false);
   });
 
-  it('rejects an undeclared unique index', async () => {
-    const databaseName = `undeclared-unique-${crypto.randomUUID()}`;
+  it('removes an index the topology does not declare', async () => {
+    const databaseName = `undeclared-index-${crypto.randomUUID()}`;
     const seeded = await new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open(databaseName, 1);
       request.onerror = () => reject(request.error);
@@ -446,16 +446,12 @@ describe('IndexedDB setup', () => {
     const table = StdTable.make('records').primary('pk', 'sk').build();
     const database = IDB.database({ databaseName });
 
-    const result = await Effect.runPromise(
-      setup(table, database).pipe(Effect.result),
-    );
+    await Effect.runPromise(setup(table, database));
 
-    expect(result).toMatchObject({
-      _tag: 'Failure',
-      failure: Error(
-        'IndexedDB Store "records" has an undeclared unique index "externalUnique"',
-      ),
-    });
+    const connection = await database.open();
+    expect([
+      ...connection.transaction('records').objectStore('records').indexNames,
+    ]).toEqual(['_entity']);
   });
 
   it('removes matching entity items through the physical entity cursor', async () => {

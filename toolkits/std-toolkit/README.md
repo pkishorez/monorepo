@@ -77,9 +77,9 @@ Deploys a StdTable with Alchemy. Each table resource takes a required `mode`. A 
 
 | Export              | What it does                                                                                                                         |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `DynamoDB.table`    | Guards the contract, then creates or updates the DynamoDB table; refuses any change that would replace or wipe it.                   |
+| `DynamoDB.table`    | Creates the DynamoDB table and runs its setup at deploy; adds a new global secondary index in place and refuses other index changes. |
 | `D1.table`          | Guards a persistent table, then runs SQLite setup in D1 at deploy against the Stored contract kept in the database.                  |
-| `DeployGuard.table` | Guards a persistent StdTable Alchemy does not create, such as an IndexedDB or Durable Object table; one guard covers all its tables. |
+| `DeployGuard.table` | Refuses at deploy what setup would refuse later, for an IndexedDB or Durable Object table; one guard covers all its tables.          |
 | `providers`         | Every provider std-toolkit's resources need, to merge into a stack's `providers`.                                                    |
 
 ### `@kestack/std-toolkit/db`
@@ -237,5 +237,5 @@ export default Stack(
 
 - For a persistent table, `D1.table` registers a deploy guard, then a table resource whose provider runs SQLite setup in D1. The guard refuses a breaking change against the last shipped snapshot first; setup then checks the Stored contract kept in the database, which is the baseline, before creating the table or reconciling indexes.
 - A disposable D1 table gets no guard; setup wipes it at deploy on a change its rows cannot take. A persistent table never becomes disposable.
-- `DynamoDB.table` keeps no Stored contract, so its guard is its only check; the table resource creates the indexes itself.
+- `DynamoDB.table` works the same way on AWS: its resource creates a missing table and runs DynamoDB setup against the Stored contract inside it. It takes the `region`, and `credentials` or the `AWS_*` variables.
 - At runtime the application provides an adapter layer, `SQLite.make(table, { database }).layer`, and runs no setup.

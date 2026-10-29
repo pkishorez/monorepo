@@ -1,7 +1,15 @@
 import { Effect, Layer } from 'effect';
+import type {
+  BackfillFailed,
+  SetupOptions,
+  SetupOutcome,
+  SetupRefused,
+  TableMode,
+} from '../setup/index.js';
 import type { TableDefinition } from '../std-table/definition/index.js';
 import {
   contractLayer,
+  type OperationFailure,
   type StdTableService,
 } from '../std-table/contract/index.js';
 import {
@@ -13,6 +21,7 @@ import {
   DynamoDBNativeError,
   ensureDynamoTable,
   getTableDefinition,
+  setUpDynamoTable,
 } from './setup/index.js';
 
 export interface DynamoDBConfig {
@@ -48,9 +57,37 @@ const make = <Name extends string>(
 };
 
 /**
+ * Adapter-native: prepares the physical table under its mode. Creates it
+ * when it is missing, compares the table with the Stored contract kept
+ * inside it, refuses or wipes, adds a new global secondary index in place,
+ * runs the pending Backfills, and records the contract. Any other index
+ * change is refused in either mode, since DynamoDB makes it only by
+ * replacing the table. `DynamoDB.table` in `@kestack/std-toolkit/alchemy`
+ * runs this at deploy.
+ */
+const setup = (
+  table: SetupOptions['table'],
+  config: DynamoDBConfig,
+  options: { readonly mode: TableMode; readonly pageSize?: number },
+): Effect.Effect<
+  SetupOutcome,
+  DynamoDBNativeError | SetupRefused | BackfillFailed | OperationFailure
+> => {
+  const client = makeDynamoDBClient(config);
+  return setUpDynamoTable({
+    client,
+    table,
+    tableName: config.tableName,
+    mode: options.mode,
+    store: makeTableContract(client, table, config.tableName),
+    ...(options.pageSize === undefined ? {} : { pageSize: options.pageSize }),
+  });
+};
+
+/**
  * Adapter-native: creates the table with its full topology when it is
- * missing and waits until it is active. In production the Alchemy DynamoDB
- * target owns the table; this exists for local DynamoDB in tests and stories.
+ * missing and waits until it is active, with no Stored contract. For
+ * DynamoDB Local in tests and stories; `setup` prepares a real table.
  */
 const createTable = (
   table: DynamoTable,
@@ -73,6 +110,7 @@ const deleteTable = (
 
 export const DynamoDB = {
   make,
+  setup,
   createTable,
   deleteTable,
   getTableDefinition,

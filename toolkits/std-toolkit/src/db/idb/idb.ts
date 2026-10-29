@@ -1,16 +1,13 @@
-import { Effect, Stream } from 'effect';
+import { Effect } from 'effect';
 import {
   contractLayer,
-  type StdTableService,
-  type StoredItem,
+  OperationFailure,
 } from '../std-table/contract/index.js';
-import type { TableDefinition } from '../std-table/definition/index.js';
-import type { TableSource as SnapshotSource } from '../../snapshot/index.js';
+import type { StdTable } from '../std-table/table/index.js';
 import {
-  captureContract,
-  planSetup,
-  type BackfillChoice,
-  type CurrentContract,
+  runSetup,
+  type SetupOutcome,
+  type SetupTopology,
   type TableMode,
 } from '../setup/index.js';
 import {
@@ -20,177 +17,95 @@ import {
 } from './database/index.js';
 import { prune } from './prune/index.js';
 import { makeTableContract } from './table/index.js';
-import { reconcileIDBStore } from './upgrade/index.js';
+import { tableIndexes } from './upgrade/index.js';
 
 export interface IDBConfig {
   readonly database: IDBConnection;
   readonly storeName?: string;
   /** Required: whether this store's data must survive every schema change. */
   readonly mode: TableMode;
-  /**
-   * What a disposable store does with a change that needs a backfill:
-   * rewrite the stored rows' index keys (`reindex`, the default) or throw
-   * them away (`wipe`). A persistent store always reindexes.
-   */
-  readonly onBackfill?: BackfillChoice;
 }
 
-/** What `IDB.make` needs of a StdTable: its topology, entities, and backfill primitives. */
-export type IDBTableSource<Name extends string> = Pick<
-  TableDefinition<Name>,
-  'logicalName' | 'primary' | 'localSecondaryIndexes' | 'globalSecondaryIndexes'
-> &
-  SnapshotSource & {
-    // The StdTable's own backfill primitives, run when a change needs one.
-    scan(): Stream.Stream<StoredItem, unknown, StdTableService<Name>>;
-    drift(
-      item: StoredItem,
-    ): Effect.Effect<
-      { readonly drifted: boolean; readonly currentForm: StoredItem },
-      unknown,
-      StdTableService<Name>
-    >;
-    reindex(
-      currentForm: StoredItem,
-    ): Effect.Effect<void, unknown, StdTableService<Name>>;
-  };
+/** What `IDB.make` needs: a StdTable, whose Backfills setup runs. */
+export type IDBTableSource<Name extends string> = StdTable<Name>;
 
 export interface IDBTable<Name extends string> {
   readonly storeName: string;
   readonly layer: ReturnType<typeof contractLayer<Name>>;
 }
 
-const isReindexConflict = (error: unknown) =>
-  typeof error === 'object' &&
-  error !== null &&
-  'reason' in error &&
-  (error.reason as { _tag?: string } | undefined)?._tag === 'ReindexConflict';
+interface LockManager {
+  request<A>(name: string, callback: () => Promise<A>): Promise<A>;
+}
 
-// A row another tab wrote meanwhile fails with a conflict. That tab may run
-// an older definition, so the row is read again on the next pass rather than
-// trusted to carry the new keys.
-const PASSES = 5;
-
-const reindexAll = <Name extends string>(
-  table: IDBTableSource<Name>,
-  connection: IDBConnection,
-  storeName: string,
-) =>
-  Effect.gen(function* () {
-    for (let pass = 1; ; pass++) {
-      let conflicts = 0;
-      yield* Stream.runForEach(table.scan(), (item) =>
-        table.drift(item).pipe(
-          Effect.flatMap(({ drifted, currentForm }) =>
-            drifted ? table.reindex(currentForm) : Effect.void,
-          ),
-          Effect.catchIf(isReindexConflict, () =>
-            Effect.sync(() => void conflicts++),
-          ),
-        ),
-      );
-      if (conflicts === 0) return;
-      if (pass === PASSES)
-        return yield* Effect.fail(
-          new Error(
-            `IndexedDB Store "${storeName}" kept changing while it was reindexed`,
-          ),
-        );
-    }
-  }).pipe(
-    Effect.provide(
-      contractLayer(
-        table.logicalName,
-        makeTableContract(connection, table, storeName),
-      ),
-    ),
-  );
-
-class ContractMoved extends Error {}
-
-const prepareOnce = <Name extends string>(
-  table: IDBTableSource<Name>,
-  config: IDBConfig,
-  storeName: string,
-  contract: CurrentContract,
-) =>
-  Effect.gen(function* () {
-    const connection = config.database;
-    const stored = yield* connection.readContract(storeName);
-    const backfill =
-      config.mode === 'persistent'
-        ? 'reindex'
-        : (config.onBackfill ?? 'reindex');
-    const plan = yield* planSetup({
-      current: contract,
-      stored,
-      loadStoredSnapshot: Effect.succeed(stored?.snapshot),
-      backfill,
-    });
-    // Every write of the contract holds only while it is the one read above,
-    // so a setup deciding on a stale read never wipes or overwrites.
-    const record = (wipe: boolean) =>
-      connection
-        .swapContract(storeName, stored, contract.record, { wipe })
-        .pipe(
-          Effect.flatMap((swapped) =>
-            swapped ? Effect.void : Effect.fail(new ContractMoved()),
-          ),
-        );
-    const wipe = Effect.logWarning(
-      `std-toolkit: wiped disposable IndexedDB store "${storeName}" for a change its stored rows cannot take`,
-    ).pipe(Effect.andThen(record(true)));
-    if (plan.kind === 'wipe') yield* wipe;
-    yield* reconcileIDBStore(connection, table, storeName);
-    if (plan.kind !== 'apply') return;
-    if (plan.backfill.length > 0) {
-      const reindexed = reindexAll(table, connection, storeName);
-      // Disposable rows that cannot be reindexed are thrown away instead.
-      if (config.mode === 'persistent') yield* reindexed;
-      else {
-        const result = yield* Effect.result(reindexed);
-        if (result._tag === 'Failure') return yield* wipe;
-      }
-    }
-    yield* record(false);
-  });
+// Setups of one database run one at a time across this browser's tabs, so
+// two tabs opening at once never run the same Backfill side by side. Without
+// Web Locks they may race; the guarded contract write then sends the loser
+// round again.
+const exclusive = <A, E>(
+  name: string,
+  effect: Effect.Effect<A, E>,
+): Effect.Effect<A, E | unknown> => {
+  const locks = (globalThis as { navigator?: { locks?: LockManager } })
+    .navigator?.locks;
+  if (locks === undefined) return effect;
+  return Effect.tryPromise({
+    try: () => locks.request(name, () => Effect.runPromiseExit(effect)),
+    catch: (cause) => cause,
+  }).pipe(Effect.flatMap((exit) => exit));
+};
 
 const ATTEMPTS = 3;
 
 /**
- * Prepares the store under its Stored contract, kept in the same database:
- * a persistent store refuses a breaking change and is never wiped; a
- * disposable one is wiped on any change its stored rows cannot take. Then it
- * creates the store and its indexes, reindexes stored rows when a change
- * needs it, and records the new contract. An unchanged contract is one read
- * and skips the comparison; the store is still checked. A setup that loses a
- * race with another tab starts over from the contract that tab recorded.
+ * Prepares the store with the shared setup (ADR 0019, 0020, 0021): the
+ * Stored contract is reserved rows inside the store, read through the
+ * adapter's own StdTable contract, so the store must exist first. A missing
+ * store holds nothing, so it is created whole, indexes included, before
+ * setup reads it; an existing one is left alone until setup has planned.
+ *
+ * IndexedDB changes an index only inside a versionchange transaction, which
+ * closes as soon as it waits on anything else. So setup runs on ordinary
+ * transactions at the current version, and its `apply` closes the
+ * connection and opens the next version, whose upgrade creates and deletes
+ * indexes synchronously; Backfills then run at that version. A setup that
+ * fails on the database, such as losing the contract write to another tab,
+ * starts over and finds that tab's contract.
  */
 const prepareStore = <Name extends string>(
   table: IDBTableSource<Name>,
   config: IDBConfig,
   storeName: string,
-) =>
-  Effect.gen(function* () {
-    const contract = yield* captureContract(table, config.mode);
-    for (let attempt = 1; ; attempt++) {
-      const result = yield* prepareOnce(
-        table,
-        config,
-        storeName,
-        contract,
-      ).pipe(Effect.result);
-      if (result._tag === 'Success') return;
-      if (!(result.failure instanceof ContractMoved))
-        return yield* Effect.fail(result.failure);
-      if (attempt === ATTEMPTS)
-        return yield* Effect.fail(
-          new Error(
-            `IndexedDB setup for Store "${storeName}" kept racing another tab`,
-          ),
-        );
-    }
-  });
+): Effect.Effect<SetupOutcome, unknown> => {
+  const connection = config.database;
+  const indexes = tableIndexes(table);
+  const topology: SetupTopology = {
+    apply: () =>
+      connection
+        .setup(storeName, indexes)
+        .pipe(Effect.mapError((cause) => new OperationFailure({ cause }))),
+  };
+  return exclusive(
+    `std-toolkit:idb-setup:${connection.databaseName}`,
+    Effect.gen(function* () {
+      for (let attempt = 1; ; attempt++) {
+        yield* connection.createStore(storeName, indexes);
+        const result = yield* runSetup({
+          table,
+          mode: config.mode,
+          store: makeTableContract(connection, table, storeName),
+          topology,
+        }).pipe(Effect.result);
+        if (result._tag === 'Success') return result.success;
+        if (
+          !(result.failure instanceof OperationFailure) ||
+          attempt === ATTEMPTS
+        )
+          return yield* Effect.fail(result.failure);
+      }
+    }),
+  );
+};
 
 /**
  * Realizes a StdTable on one IndexedDB database. The store is prepared under
@@ -205,7 +120,7 @@ const make = <Name extends string>(
   let prepared: Promise<void> | undefined;
   const prepare = () =>
     (prepared ??= Effect.runPromise(
-      prepareStore(table, config, storeName).pipe(Effect.orDie),
+      prepareStore(table, config, storeName).pipe(Effect.asVoid, Effect.orDie),
     ).catch((cause) => {
       prepared = undefined;
       throw cause;
@@ -230,12 +145,12 @@ const make = <Name extends string>(
  * Adapter-native: prepares the store now instead of on the table's first
  * open. Useful when a page wants the version change to happen at a moment it
  * controls, since IndexedDB upgrades block on other tabs, or wants to handle
- * a persistent store's `SetupRefused` itself.
+ * `SetupRefused` or `BackfillFailed` itself.
  */
 const setup = <Name extends string>(
   table: IDBTableSource<Name>,
   config: IDBConfig,
-): Effect.Effect<void, unknown> =>
+): Effect.Effect<SetupOutcome, unknown> =>
   prepareStore(table, config, config.storeName ?? table.logicalName);
 
 export const IDB = {

@@ -8,8 +8,9 @@ export {
 } from './idb.js';
 export type { IDBPruneOptions } from './prune/index.js';
 export {
+  BackfillFailed,
   SetupRefused,
-  type BackfillChoice,
+  type SetupOutcome,
   type SetupRefusedReason,
   type TableMode,
 } from '../setup/index.js';

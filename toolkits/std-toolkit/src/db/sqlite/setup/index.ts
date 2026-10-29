@@ -1,5 +1,1 @@
-export {
-  ensureSQLiteTable,
-  reconcileSQLiteTable,
-  setUpSQLiteTable,
-} from './setup.js';
+export { ensureSQLiteTable, sqliteTopology } from './setup.js';
