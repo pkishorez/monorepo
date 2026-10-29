@@ -37,7 +37,8 @@ import { Session } from './session/index.ts';
  *             with one open, the Session (`session/`). A Session the
  *             Draft started is handed over (`Handover`): the Draft, and
  *             its Starting, stay drawn until the Session's page can be
- *             drawn whole, so nothing blank comes between them.
+ *             drawn whole, so nothing blank comes between them, or for
+ *             ten seconds at most, its row never synced.
  * 3. Remove   asks first, then forgets the project, and all this device
  *             kept of it; its folder is never touched.
  * 4. Ready    it is drawn whole once read from this device (`readyOf`):
