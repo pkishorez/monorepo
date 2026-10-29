@@ -9,7 +9,7 @@ import {
   planSetup,
   SetupRefused,
   type TableMode,
-} from '../../db/stored-contract/index.js';
+} from '../../db/setup/index.js';
 
 interface ContractProps {
   readonly mode: TableMode;

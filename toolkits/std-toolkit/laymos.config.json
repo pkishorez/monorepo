@@ -11,6 +11,7 @@
     "src/db/idb/__tests__",
     "src/db/memory/__tests__",
     "src/db/sqlite/__tests__",
+    "src/db/setup/__tests__",
     "src/db/std-table/__tests__",
     "src/db/std-table/definition/__tests__",
     "src/db/std-table/entity/__tests__",
@@ -115,11 +116,19 @@
       "src/db/dynamodb/expression",
       "src/db/dynamodb/item-schema"
     ],
-    "src/db/stored-contract": ["src/snapshot"],
+    "src/db/setup": [
+      "src/db/std-table/contract",
+      "src/db/std-table/definition",
+      "src/db/std-table/key",
+      "src/db/std-table/table",
+      "src/snapshot",
+      "src/eschema",
+      "src/core"
+    ],
     "src/db/idb": [
       "src/db/std-table/contract",
       "src/db/std-table/definition",
-      "src/db/stored-contract",
+      "src/db/setup",
       "src/snapshot"
     ],
     "src/db/idb/database": ["src/db/idb/upgrade"],
@@ -131,7 +140,7 @@
     "src/db/sqlite": [
       "src/db/std-table/contract",
       "src/db/std-table/definition",
-      "src/db/stored-contract",
+      "src/db/setup",
       "src/snapshot"
     ],
     "src/db/sqlite/database": ["src/db/sqlite/item-schema"],
@@ -146,7 +155,7 @@
       "src/db/sqlite/item-schema",
       "src/db/sqlite/statement"
     ],
-    "src/alchemy/deploy-guard": ["src/db/stored-contract", "src/snapshot"],
+    "src/alchemy/deploy-guard": ["src/db/setup", "src/snapshot"],
     "src/alchemy/d1": [
       "src/alchemy/deploy-guard",
       "src/db/sqlite",

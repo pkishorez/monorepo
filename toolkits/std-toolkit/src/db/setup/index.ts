@@ -1,12 +1,17 @@
 export {
+  BackfillFailed,
   captureContract,
   contractFromSnapshot,
   planSetup,
+  runSetup,
   SetupRefused,
   type BackfillChoice,
   type CurrentContract,
+  type SetupOptions,
+  type SetupOutcome,
   type SetupPlan,
   type SetupRefusedReason,
+  type SetupTopology,
   type StoredContract,
   type TableMode,
-} from './stored-contract.js';
+} from './setup.js';

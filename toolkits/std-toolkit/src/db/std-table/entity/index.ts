@@ -1,4 +1,10 @@
-export { fromStored, toStored, makeStoredItem } from './storage.js';
+export {
+  fromStored,
+  toStored,
+  toStoredSingle,
+  makeStoredItem,
+  singleKey,
+} from './storage.js';
 export {
   broadcast,
   changesOrEmpty,

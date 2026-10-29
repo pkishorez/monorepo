@@ -43,6 +43,7 @@ import type {
   TableEffect,
   TransactOp,
 } from '../entity/index.js';
+import { isReservedEntity, RESERVED_ENTITY_PREFIX } from '../key/index.js';
 import { decorateTable, TABLE_MEMBERS } from './decoration.js';
 
 export interface ScanOptions {
@@ -378,6 +379,10 @@ const withEntity = (
   if (TABLE_MEMBERS.has(name))
     throw new Error(
       `Entity name "${name}" is taken by the table's own "${name}"`,
+    );
+  if (isReservedEntity(name))
+    throw new Error(
+      `Entity name "${name}" is reserved: names starting "${RESERVED_ENTITY_PREFIX}" hold the table's Stored contract`,
     );
   return { ...declaration, entities: [...declaration.entities, entity] };
 };

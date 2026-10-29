@@ -5,7 +5,7 @@ import {
   planSetup,
   SetupRefused,
   type CurrentContract,
-} from '../../stored-contract/index.js';
+} from '../../setup/index.js';
 import { SQLiteChangesMismatch, type SQLiteDriver } from '../database/index.js';
 import { CONTRACT_TABLE, Statement } from '../statement/index.js';
 import { reconcileSQLiteTopology } from './topology.js';

@@ -10,4 +10,4 @@ export {
   SetupRefused,
   type SetupRefusedReason,
   type TableMode,
-} from '../stored-contract/index.js';
+} from '../setup/index.js';

@@ -4,7 +4,7 @@ import { defaultBroadcaster } from '../../../core/index.js';
 import { EntityESchema } from '../../../eschema/index.js';
 import { StdTable } from '../table/index.js';
 import { contractLayer } from '../contract/index.js';
-import { LEGACY_BASELINE_ENTITY } from '../key/index.js';
+import { RESERVED_ENTITY_PREFIX } from '../key/index.js';
 import { makeDeterministicContract } from './deterministic-contract.js';
 
 describe('scan, drift, and reindex', () => {
@@ -43,9 +43,13 @@ describe('scan, drift, and reindex', () => {
         });
         yield* deterministic.contract.writeItem({
           item: {
-            pk: 'legacy',
+            pk: 'reserved',
             sk: 'snapshot',
-            meta: { _e: LEGACY_BASELINE_ENTITY, _u: 'old', _d: false },
+            meta: {
+              _e: `${RESERVED_ENTITY_PREFIX}table`,
+              _u: 'old',
+              _d: false,
+            },
             data: { _v: 'v2' },
             keys: {},
           },

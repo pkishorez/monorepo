@@ -120,7 +120,7 @@ The in-memory conversion of an older **stored item** into the **value** during a
 _Avoid_: Read repair, automatic migration write-back.
 
 **Table scan**:
-A portable, table-wide walk of every Entity item (`table.scan()`), returning raw **stored item**s across every entity type intermixed — untyped, for the same reason `subscribe()` is. An internal snapshot item written by older releases is excluded. Accepts a `parallelism` hint that each **adapter** honors as best it can; DynamoDB runs real segmented scans, the others answer sequentially.
+A portable, table-wide walk of every Entity item (`table.scan()`), returning raw **stored item**s across every entity type intermixed — untyped, for the same reason `subscribe()` is. The reserved rows of the **Stored contract** are excluded. Accepts a `parallelism` hint that each **adapter** honors as best it can; DynamoDB runs real segmented scans, the others answer sequentially.
 _Avoid_: Full table read, dump.
 
 **Drift**:

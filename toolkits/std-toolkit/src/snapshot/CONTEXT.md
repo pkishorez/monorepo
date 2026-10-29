@@ -21,7 +21,7 @@ The Alchemy resource in `@kestack/std-toolkit/alchemy` that keeps the **Deployed
 _Avoid_: Snapshot guard (retired), enforcement, deploy gate, contract resource.
 
 **Stored contract**:
-The **table snapshot** the data in one physical table was last set up under, kept inside that table as reserved rows app code never sees (one for the table, one per entity, one per version of each ESchema it reaches, one per **Backfill**), together with the table's **Table mode**. A version's row is written once and never changes, so no row grows with history, and every adapter keeps it the same way. It is the baseline: setup compares the current snapshot with it, so a device or object that skipped releases is compared from where its own data actually is. A table that holds rows but no Stored contract is refused if persistent and wiped if disposable.
+The **table snapshot** the data in one physical table was last set up under, kept inside that table as reserved rows app code never sees (one for the table, one per entity, one per version of each ESchema it reaches, one per **Backfill**), together with the table's **Table mode**. A version's row is written when first shipped, rewritten only when an accepted change loosens it, so no row grows with history, and every adapter keeps it the same way. It is the baseline: setup compares the current snapshot with it, so a device or object that skipped releases is compared from where its own data actually is. A table that holds rows but no Stored contract is refused if persistent and wiped if disposable.
 _Avoid_: Baseline item, schema version row, enforcement baseline.
 
 **Deployed contract**:

@@ -35,7 +35,9 @@ import {
   failReason,
   fromStored,
   toStored,
+  toStoredSingle,
   makeStoredItem,
+  singleKey,
   makeKeyedEntity,
   makeSingleEntity,
   type AnyTransactOp,
@@ -374,3 +376,37 @@ export const tableDeclaration = (table: object): TableDeclaration =>
 export const backfillReads = (
   table: object,
 ): Readonly<Record<string, object>> => builtOf(table).reads;
+
+/**
+ * The stored form of `value`, an entity's latest value, under `meta`: its
+ * encoded form at the latest version and freshly derived keys. Internal, for
+ * the setup runner, which writes it itself.
+ */
+export const storedForm = (
+  table: StdTable,
+  entity: string,
+  value: object,
+  meta: { readonly _u: string; readonly _d: boolean },
+): Effect.Effect<StoredItem, DatabaseError> =>
+  Effect.gen(function* () {
+    const found = table.registeredEntities.find(
+      (candidate) => candidate.name === entity,
+    );
+    if (found === undefined)
+      return yield* failReason(new EntityNotFound({ entity }));
+    if (found.kind === 'single') {
+      const encoded = yield* toStoredSingle(found.schema, value, found.name);
+      return {
+        ...singleKey(found.name),
+        meta: { _e: found.name, _u: meta._u, _d: false },
+        data: encoded.value,
+        keys: {},
+      };
+    }
+    const encoded = yield* toStored(found.schema, value, found.name, {
+      _e: found.name,
+      _u: meta._u,
+      _d: meta._d,
+    });
+    return makeStoredItem(found, value, encoded, meta._u, meta._d);
+  });

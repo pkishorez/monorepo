@@ -35,6 +35,9 @@ export const scanItems = (
             Segment: request.segment ?? 0,
           }),
       ...(startKey === undefined ? {} : { ExclusiveStartKey: startKey }),
+      ...(request.consistent === undefined
+        ? {}
+        : { ConsistentRead: request.consistent }),
     })
     .pipe(
       Effect.mapError(contractFailure),

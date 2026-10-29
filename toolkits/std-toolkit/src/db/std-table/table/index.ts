@@ -8,4 +8,4 @@ export {
   type TopologyBuilder,
 } from './table.js';
 // Internal, for the setup runner; not part of the package surface.
-export { backfillReads, tableDeclaration } from './decoration.js';
+export { backfillReads, storedForm, tableDeclaration } from './decoration.js';

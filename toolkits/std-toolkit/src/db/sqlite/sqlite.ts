@@ -10,7 +10,7 @@ import {
   contractFromSnapshot,
   type SetupRefused,
   type TableMode,
-} from '../stored-contract/index.js';
+} from '../setup/index.js';
 import type { SQLiteDriver } from './database/index.js';
 import { makeTableContract } from './table/index.js';
 import { setUpSQLiteTable } from './setup/index.js';

@@ -6,7 +6,7 @@ import {
   type DynamoTableTopology,
 } from '../../db/dynamodb/index.js';
 import type { TableDefinition } from '../../db/index.js';
-import type { TableMode } from '../../db/stored-contract/index.js';
+import type { TableMode } from '../../db/setup/index.js';
 import { guardContract } from '../deploy-guard/index.js';
 
 type DynamoTable = Pick<

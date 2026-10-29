@@ -1,7 +1,7 @@
 import { Effect, Exit, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { StdTable } from '../../db/index.js';
-import { SetupRefused } from '../../db/stored-contract/index.js';
+import { SetupRefused } from '../../db/setup/index.js';
 import { type AnyEntityESchema, EntityESchema } from '../../eschema/index.js';
 import { TableSnapshot } from '../../snapshot/index.js';
 import { checkDeploy } from '../deploy-guard/deploy-guard.js';

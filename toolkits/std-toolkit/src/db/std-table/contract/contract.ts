@@ -135,6 +135,8 @@ export interface QueryRequest {
   readonly descending: boolean;
   readonly limit: number;
   readonly startAfter?: QueryPosition;
+  /** A strongly consistent read; only the primary index offers one on DynamoDB. */
+  readonly consistent?: boolean;
 }
 
 export interface QueryResult {
@@ -147,6 +149,8 @@ export interface ScanRequest {
   readonly startAfter?: StoredKey;
   readonly segment?: number;
   readonly totalSegments?: number;
+  /** A strongly consistent read, where the adapter has a weaker default (DynamoDB). */
+  readonly consistent?: boolean;
 }
 
 export interface ScanResult {
