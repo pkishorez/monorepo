@@ -5,11 +5,11 @@ Semantic contract capture and comparison for database tables. Snapshot consumes 
 ## Language
 
 **Table snapshot**:
-The one snapshot document: a table's topology, its registered entities with their key derivations and access patterns, and every version of every ESchema the table reaches, in **encoded form**, described in **snapshot types**. Each ESchema, nested ones included, appears once under its **snapshot identity**; a field that composes another ESchema is a reference to it, so a nested ESchema's versions are frozen by the same rules as a top-level one. It excludes migration behavior and presentation-only annotations; **checks** are recorded for display but are not part of the contract. Capture is one-way: a table snapshot is never turned back into a schema.
+The one snapshot document: a table's topology, its registered entities with their key derivations and access patterns, and every version of every ESchema the table reaches, in **encoded form**, described in **snapshot types** and marked when it is an [[eschema]] **gap version**, and the table's [[db]] **Backfill**s (what each fills or reindexes, never its `run`). Each ESchema, nested ones included, appears once under its **snapshot identity**; a field that composes another ESchema is a reference to it, so a nested ESchema's versions are frozen by the same rules as a top-level one. It excludes migration behavior and presentation-only annotations; **checks** are recorded for display but are not part of the contract. Capture is one-way: a table snapshot is never turned back into a schema.
 _Avoid_: ESchema snapshot (retired: there is no ESchema-only document), source snapshot, version-file snapshot.
 
 **Snapshot change**:
-One semantically coherent difference between two **table snapshots**, with its own safety classification. An addition or removal names the affected contract element; an edit describes its exact nested differences; an added, removed, or retargeted **entity reference** is safe because it affects visualization metadata rather than persisted data or runtime behavior.
+One semantically coherent difference between two **table snapshots**, with its own safety classification. An addition or removal names the affected contract element; an added gap version needs a Backfill, and a shipped Backfill removed, or changed in what it fills, is breaking; an edit describes its exact nested differences; an added, removed, or retargeted **entity reference** is safe because it affects visualization metadata rather than persisted data or runtime behavior.
 _Avoid_: Overall status, snapshot result.
 
 **snapshot verification**:

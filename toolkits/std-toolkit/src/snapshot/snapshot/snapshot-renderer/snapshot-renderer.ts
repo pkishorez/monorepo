@@ -99,6 +99,8 @@ function subjectLabel(change: SnapshotChange): string {
       return `Global secondary index ${subject.name ?? ''}`.trim();
     case 'access-pattern':
       return `Access pattern ${[subject.owner, subject.name].filter(Boolean).join('/')}`;
+    case 'backfill':
+      return `Backfill ${subject.name ?? ''}`.trim();
   }
 }
 
@@ -126,9 +128,13 @@ export function changeLabel(change: SnapshotChange): string {
 
 function changeLines(change: SnapshotChange): readonly string[] {
   const subject = subjectLabel(change);
-  if (change.action !== 'edited') return [`  ${subject} ${change.action}`];
+  const description =
+    change.description === undefined ? [] : [`    ${change.description}`];
+  if (change.action !== 'edited')
+    return [`  ${subject} ${change.action}`, ...description];
   return [
     `  ${subject}`,
+    ...description,
     ...change.edits.map((item) => `    ${editLine(item)}`),
   ];
 }

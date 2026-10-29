@@ -22,6 +22,14 @@ export {
   type TableDefinition,
   type TotalKeyPath,
 } from './definition.js';
+export {
+  addBackfill,
+  assertGapsFilled,
+  type BackfillDeclaration,
+  type BackfillOptions,
+  type BackfillRun,
+  type RegisteredBackfill,
+} from './backfill.js';
 export { keyPathKind } from './key-path-shape.js';
 export {
   declareSingleEntity,

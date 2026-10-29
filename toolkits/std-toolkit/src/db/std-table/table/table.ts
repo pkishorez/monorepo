@@ -1,8 +1,11 @@
-import type { Stream } from 'effect';
+import type { Effect, Stream } from 'effect';
 import type {
   AnyEntityESchema,
   AnyUnkeyedESchema,
   ESchemaType,
+  ESchemaVersions,
+  GapVersions,
+  PreviousVersion,
 } from '../../../eschema/index.js';
 import type {
   ChangeNotice,
@@ -12,12 +15,16 @@ import type {
 import type { DatabaseError } from '../error/index.js';
 import type { StoredItem, StdTableService } from '../contract/index.js';
 import {
+  addBackfill,
   addIndex,
+  assertGapsFilled,
   copyTopology,
   declareSingleEntity,
   makeTopology,
   startKeyedEntity,
   type AccessPatternMap,
+  type BackfillDeclaration,
+  type BackfillOptions,
   type EntityDeclaration,
   type GlobalSecondaryIndex,
   type GlobalSecondaryIndexMap,
@@ -55,7 +62,7 @@ type TableStream<A, Name extends string> = Stream.Stream<
 
 /**
  * The table-wide surface. A built table also carries each of its entities
- * under its ESchema name (see {@link EntitiesBuilder.build}).
+ * under its ESchema name (see {@link BackfillsBuilder.build}).
  */
 export interface StdTable<
   Name extends string = string,
@@ -102,11 +109,179 @@ type FreeName<S extends { readonly name: string }, Taken> = S &
 
 type Taken<Entities> = keyof Entities | keyof StdTable;
 
+type SchemaOf<E> = E extends { readonly schema: infer S } ? S : never;
+
+/** An ESchema's value at version `V`; never for a version it does not have. */
+type ValueAt<X, V> = V extends keyof ESchemaVersions<X>
+  ? ESchemaVersions<X>[V]
+  : never;
+
+/** Known gap versions; none for a schema whose type has lost its versions. */
+type GapsOf<X> = string extends GapVersions<X> ? never : GapVersions<X>;
+
+/** The gap versions of entity `E` that no Backfill fills yet. */
+type Unfilled<Entities, E, Filled> = E extends keyof Entities & string
+  ? Exclude<
+      GapsOf<SchemaOf<Entities[E]>>,
+      Filled extends `${E}@${infer V}` ? V : never
+    >
+  : never;
+
+/** Declared entities with a gap version no Backfill fills yet. */
+type GapEntity<Entities, Filled> = {
+  [K in keyof Entities & string]: [Unfilled<Entities, K, Filled>] extends [
+    never,
+  ]
+    ? never
+    : K;
+}[keyof Entities & string];
+
+type KeyedEntityName<Entities> = {
+  [K in keyof Entities & string]: Entities[K] extends {
+    readonly kind: 'keyed';
+  }
+    ? K
+    : never;
+}[keyof Entities & string];
+
+/** Each unfilled gap version, as `Entity vN`. */
+type MissingBackfill<Entities, Filled> = {
+  [K in keyof Entities & string]: `${K} ${Unfilled<Entities, K, Filled>}`;
+}[keyof Entities & string];
+
+/** `build` type-checks only once every gap version has its Backfill. */
+type GapsFilled<Entities, Filled> = [
+  MissingBackfill<Entities, Filled>,
+] extends [never]
+  ? unknown
+  : {
+      readonly '~std-toolkit/error': `Every gap version needs a Backfill; none fills ${MissingBackfill<Entities, Filled>}`;
+    };
+
+type FreeBackfillId<Id extends string, Ids> = Id extends ''
+  ? { readonly '~std-toolkit/error': 'A Backfill id must not be empty' }
+  : Id extends Ids
+    ? {
+        readonly '~std-toolkit/error': `Backfill "${Id}" is already declared on this table`;
+      }
+    : unknown;
+
+type EntityReads<E> =
+  E extends KeyedEntity<infer _N, infer _S, infer _Pk, infer _P>
+    ? Pick<E, 'get' | 'query'>
+    : E extends SingleEntity<infer _N, infer _S>
+      ? Pick<E, 'get'>
+      : never;
+
+/**
+ * What a Backfill's `run` may do with the table: read any declared entity,
+ * and nothing else. A Backfill writes only the row it returns.
+ */
+export type BackfillReads<Entities> = {
+  readonly [K in keyof Entities]: EntityReads<Entities[K]>;
+};
+
+/** The options of a Backfill that fills gap version `V` of entity `K`. */
+interface GapBackfillOptions<
+  Name extends string,
+  Entities,
+  K extends keyof Entities,
+  V,
+  Ids,
+> {
+  readonly entity: K;
+  readonly to: V;
+  readonly after?: readonly Ids[];
+  readonly run: (
+    value: ValueAt<SchemaOf<Entities[K]>, PreviousVersion<V & string>>,
+    db: BackfillReads<Entities>,
+  ) => Effect.Effect<
+    ValueAt<SchemaOf<Entities[K]>, V>,
+    unknown,
+    StdTableService<Name>
+  >;
+}
+
+/** The options of a Backfill that reindexes keyed entity `K`. */
+interface ReindexBackfillOptions<K, Ids> {
+  readonly reindex: K;
+  readonly after?: readonly Ids[];
+}
+
+/**
+ * Every Backfill the table may still declare: one per unfilled gap version,
+ * told apart by `entity` and `to`, and a reindex of any keyed entity.
+ */
+type BackfillChoice<Name extends string, Entities, Filled, Ids> =
+  | {
+      [K in GapEntity<Entities, Filled>]: {
+        [V in Unfilled<Entities, K, Filled>]: GapBackfillOptions<
+          Name,
+          Entities,
+          K,
+          V,
+          Ids
+        >;
+      }[Unfilled<Entities, K, Filled>];
+    }[GapEntity<Entities, Filled>]
+  | ReindexBackfillOptions<KeyedEntityName<Entities>, Ids>;
+
+type FilledBy<Options> = Options extends {
+  readonly entity: infer K extends string;
+  readonly to: infer V extends string;
+}
+  ? `${K}@${V}`
+  : never;
+
+/**
+ * The Backfills step of a table declaration (ADR 0020): entities are fixed,
+ * and every gap version of every entity gets exactly one Backfill before the
+ * table builds.
+ */
+export interface BackfillsBuilder<
+  Name extends string,
+  Primary extends PrimaryIndex,
+  Lsis extends LocalSecondaryIndexMap,
+  Gsis extends GlobalSecondaryIndexMap,
+  Entities extends EntityMap,
+  Filled extends string,
+  Ids extends string,
+> {
+  /**
+   * Declares a Backfill under `id`, which never changes once shipped.
+   *
+   * - `{ entity, to, run }` fills gap version `to` of `entity`: `run` reads a
+   *   row at the version before and returns its value at `to`, and may read
+   *   any entity through `db`.
+   * - `{ reindex }` rewrites every row of a keyed entity so its index keys
+   *   are current.
+   *
+   * `after` names Backfills declared earlier that must finish first.
+   */
+  backfill<
+    const Id extends string,
+    const Options extends BackfillChoice<Name, Entities, Filled, Ids>,
+  >(
+    id: Id & FreeBackfillId<Id, Ids>,
+    options: Options,
+  ): BackfillsBuilder<
+    Name,
+    Primary,
+    Lsis,
+    Gsis,
+    Entities,
+    Filled | FilledBy<Options>,
+    Ids | Id
+  >;
+  build(
+    this: GapsFilled<Entities, Filled>,
+  ): StdTable<Name, Primary, Lsis, Gsis> & Entities;
+}
+
 /**
  * The entities step of a table declaration: topology is fixed, and each
- * entity is declared once, under its ESchema name. Backfills (ADR 0020) are
- * declared after the entities, so a `backfill` step belongs here, leading to
- * a stage that takes no more entities.
+ * entity is declared once, under its ESchema name. Backfills (ADR 0020) come
+ * after the entities; once one is declared, no more entities are.
  */
 export interface EntitiesBuilder<
   Name extends string,
@@ -114,7 +289,7 @@ export interface EntitiesBuilder<
   Lsis extends LocalSecondaryIndexMap,
   Gsis extends GlobalSecondaryIndexMap,
   Entities extends EntityMap,
-> {
+> extends BackfillsBuilder<Name, Primary, Lsis, Gsis, Entities, never, never> {
   entity<
     S extends AnyEntityESchema,
     Pk extends readonly string[],
@@ -143,7 +318,6 @@ export interface EntitiesBuilder<
     Gsis,
     Entities & { readonly [K in S['name']]: SingleEntity<Name, S> }
   >;
-  build(): StdTable<Name, Primary, Lsis, Gsis> & Entities;
 }
 
 /** The topology step: indexes first, then entities. */
@@ -191,6 +365,7 @@ export interface TableDeclaration {
   readonly logicalName: string;
   readonly topology: MutableTopology;
   readonly entities: readonly EntityDeclaration[];
+  readonly backfills: readonly BackfillDeclaration[];
 }
 
 const withEntity = (
@@ -207,9 +382,30 @@ const withEntity = (
   return { ...declaration, entities: [...declaration.entities, entity] };
 };
 
+const backfillsBuilder = (
+  declaration: TableDeclaration,
+): BackfillsBuilder<string, PrimaryIndex, {}, {}, {}, never, never> => ({
+  backfill(id: string, options: BackfillOptions) {
+    return backfillsBuilder({
+      ...declaration,
+      backfills: addBackfill(
+        declaration.entities,
+        declaration.backfills,
+        id,
+        options,
+      ),
+    }) as never;
+  },
+  build() {
+    assertGapsFilled(declaration.entities, declaration.backfills);
+    return decorateTable(declaration) as never;
+  },
+});
+
 const entitiesBuilder = (
   declaration: TableDeclaration,
 ): EntitiesBuilder<string, PrimaryIndex, {}, {}, {}> => ({
+  ...backfillsBuilder(declaration),
   entity(schema, configure) {
     const start = startKeyedEntity(declaration.topology, schema);
     return entitiesBuilder(
@@ -220,9 +416,6 @@ const entitiesBuilder = (
     return entitiesBuilder(
       withEntity(declaration, declareSingleEntity(schema, options.default)),
     ) as never;
-  },
-  build() {
-    return decorateTable(declaration) as never;
   },
 });
 
@@ -258,6 +451,7 @@ export const StdTable = {
           logicalName,
           topology: makeTopology(pk, sk),
           entities: [],
+          backfills: [],
         }) as never;
       },
     });

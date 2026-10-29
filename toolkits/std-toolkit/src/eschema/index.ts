@@ -42,4 +42,8 @@ export type {
   ValueEnvelopeEncoded,
   VersionedCodec,
   VersionValue,
+  // Named in every ESchema's type, so a declaration build can refer to them.
+  AppendVersion,
+  VersionShape,
+  VersionShapes,
 } from './domain/schema-model/index.js';

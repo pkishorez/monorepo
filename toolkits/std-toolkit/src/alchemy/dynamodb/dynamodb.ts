@@ -16,6 +16,7 @@ type DynamoTable = Pick<
   | 'localSecondaryIndexes'
   | 'globalSecondaryIndexes'
   | 'registeredEntities'
+  | 'registeredBackfills'
 >;
 
 interface DynamoDBTableOptions {

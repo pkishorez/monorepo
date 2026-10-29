@@ -36,6 +36,7 @@ function table(): TableSnapshot {
         ],
       },
     ],
+    backfills: [],
     schemas: snapshotOf(schema).schemas,
   };
 }

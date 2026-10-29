@@ -63,10 +63,11 @@ export type ConnectionRecord = typeof ConnectionRecord.Type;
 export const connectionsTable = StdTable.make('connections')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+  .entity(ConnectionRecord, (e) =>
+    e
+      .primary({ pk: ['id'] })
+      .index('GSI1', 'byOwner', { pk: ['userId'], sk: ['id'] }),
+  )
   .build();
 
-export const connections = connectionsTable
-  .entity(ConnectionRecord)
-  .primary({ pk: ['id'] })
-  .index('GSI1', 'byOwner', { pk: ['userId'], sk: ['id'] })
-  .build();
+export const connections = connectionsTable.Connection;

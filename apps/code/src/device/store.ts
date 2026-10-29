@@ -134,69 +134,66 @@ export class Preferences extends Context.Service<
 
 const PREFERENCES_TABLE = 'preferences';
 
-const table = StdTable.make(PREFERENCES_TABLE).primary('pk', 'sk').build();
-
 const KeyboardSchema = ESchema.make('DeviceKeyboard', {
   /** Each Action's own keys, by Action id, as people write them. */
   bindings: Schema.Record(Schema.String, Schema.Array(Schema.String)),
 }).build();
-
-const keyboard = table.singleEntity(KeyboardSchema).default({ bindings: {} });
 
 const VimSchema = ESchema.make('DeviceVim', {
   /** Whether Vim Mode is on: plain keys as shortcuts, and the Draft read until `i`. */
   on: Schema.Boolean,
 }).build();
 
-const vim = table.singleEntity(VimSchema).default({ on: false });
-
 const FloatingSchema = ESchema.make('DeviceFloating', {
   /** Whether the app floats as a window on a screen wider than it can be. */
   on: Schema.Boolean,
 }).build();
-
-const floating = table.singleEntity(FloatingSchema).default({ on: false });
 
 const TextSizeSchema = ESchema.make('DeviceTextSize', {
   /** How big text and spacing are with a keyboard on a wide screen. */
   size: Schema.Literals(['small', 'medium', 'large']),
 }).build();
 
-const textSize = table.singleEntity(TextSizeSchema).default({ size: 'medium' });
-
 const MicrophoneSchema = ESchema.make('DeviceMicrophone', {
   /** The audio input chosen, by the browser's `deviceId`; null for the system default. */
   deviceId: Schema.NullOr(Schema.String),
 }).build();
-
-const microphone = table
-  .singleEntity(MicrophoneSchema)
-  .default({ deviceId: null });
 
 const SmartInputSchema = ESchema.make('DeviceSmartInput', {
   /** Whether the Touch Draft takes Smart Input: opened by a tap, typed in only from Edit. */
   on: Schema.Boolean,
 }).build();
 
-const smartInput = table.singleEntity(SmartInputSchema).default({ on: false });
-
 const SmartDisplacementSchema = ESchema.make('DeviceSmartDisplacement', {
   /** Whether a caret or a selection's end dragged in the Touch Draft sits above the finger. */
   on: Schema.Boolean,
 }).build();
-
-const smartDisplacement = table
-  .singleEntity(SmartDisplacementSchema)
-  .default({ on: false });
 
 const SidebarWidthSchema = ESchema.make('DeviceSidebarWidth', {
   /** The sidebar's width on a wide screen, in px, as last dragged. */
   width: Schema.Finite,
 }).build();
 
-const sidebarWidth = table
-  .singleEntity(SidebarWidthSchema)
-  .default({ width: 260 });
+const table = StdTable.make(PREFERENCES_TABLE)
+  .primary('pk', 'sk')
+  .singleEntity(KeyboardSchema, { default: { bindings: {} } })
+  .singleEntity(VimSchema, { default: { on: false } })
+  .singleEntity(FloatingSchema, { default: { on: false } })
+  .singleEntity(TextSizeSchema, { default: { size: 'medium' } })
+  .singleEntity(MicrophoneSchema, { default: { deviceId: null } })
+  .singleEntity(SmartInputSchema, { default: { on: false } })
+  .singleEntity(SmartDisplacementSchema, { default: { on: false } })
+  .singleEntity(SidebarWidthSchema, { default: { width: 260 } })
+  .build();
+
+const keyboard = table.DeviceKeyboard;
+const vim = table.DeviceVim;
+const floating = table.DeviceFloating;
+const textSize = table.DeviceTextSize;
+const microphone = table.DeviceMicrophone;
+const smartInput = table.DeviceSmartInput;
+const smartDisplacement = table.DeviceSmartDisplacement;
+const sidebarWidth = table.DeviceSidebarWidth;
 
 /** Bindings by Action id, as kept. */
 type Bindings = Readonly<Record<string, ReadonlyArray<string>>>;

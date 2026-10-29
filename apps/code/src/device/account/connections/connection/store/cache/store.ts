@@ -56,8 +56,11 @@ const CONFIRM = 'I KNOW WHAT I AM DOING';
 
 /** One table of copies, and its rows. */
 const kept = (name: Table) => {
-  const table = StdTable.make(name).primary('pk', 'sk').build();
-  return { table, rows: table.entity(CopySchema).primary().build() };
+  const table = StdTable.make(name)
+    .primary('pk', 'sk')
+    .entity(CopySchema, (e) => e.primary())
+    .build();
+  return { table, rows: table.CachedCopy };
 };
 
 const tables = {

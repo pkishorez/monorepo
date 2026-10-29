@@ -25,15 +25,14 @@ const LocalAccounts = ESchema.make('LocalAccounts', {
  * (the default), IDB to keep them across reloads and tabs. */
 export const fakeAccountsTable = StdTable.make('auth-local-accounts')
   .primary('pk', 'sk')
+  .singleEntity(LocalAccounts, { default: { users: [], active: null } })
   .build();
 
 export type FakeStorage = Layer.Layer<
   StdTableService<typeof fakeAccountsTable.logicalName>
 >;
 
-const stored = fakeAccountsTable
-  .singleEntity(LocalAccounts)
-  .default({ users: [], active: null });
+const stored = fakeAccountsTable.LocalAccounts;
 
 type Stored = typeof LocalAccounts.Type;
 

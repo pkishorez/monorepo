@@ -15,9 +15,6 @@ import type {
 import { mergeDelta } from '../domain/schema-model/index.js';
 import type { EntityESchema } from './entity-eschema.js';
 
-type WithId<S extends StructFieldsSchema, TIdField extends string> = S &
-  Record<TIdField, Schema.Codec<string, string>>;
-
 export class EntityESchemaBuilder<
   TName extends string,
   TIdField extends string,
@@ -55,11 +52,11 @@ export class EntityESchemaBuilder<
     TName,
     TIdField,
     V,
-    WithId<MergeSchemas<TLatest, D>, TIdField>,
+    MergeSchemas<TLatest, D> & Record<TIdField, Schema.Codec<string, string>>,
     AppendVersion<
       TVersions,
       V,
-      WithId<MergeSchemas<TLatest, D>, TIdField>,
+      MergeSchemas<TLatest, D> & Record<TIdField, Schema.Codec<string, string>>,
       true
     >
   >;
@@ -76,11 +73,11 @@ export class EntityESchemaBuilder<
     TName,
     TIdField,
     V,
-    WithId<MergeSchemas<TLatest, D>, TIdField>,
+    MergeSchemas<TLatest, D> & Record<TIdField, Schema.Codec<string, string>>,
     AppendVersion<
       TVersions,
       V,
-      WithId<MergeSchemas<TLatest, D>, TIdField>,
+      MergeSchemas<TLatest, D> & Record<TIdField, Schema.Codec<string, string>>,
       false
     >
   >;

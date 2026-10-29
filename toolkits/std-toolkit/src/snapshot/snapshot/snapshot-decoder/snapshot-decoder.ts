@@ -146,6 +146,49 @@ const tableIssues = (snapshot: TableSnapshot): readonly SnapshotIssue[] => {
       }
     });
   });
+  issues.push(...backfillIssues(snapshot));
+  return issues;
+};
+
+const backfillIssues = (snapshot: TableSnapshot): readonly SnapshotIssue[] => {
+  const issues: SnapshotIssue[] = [];
+  const ids = new Set(snapshot.backfills.map(({ id }) => id));
+  const seen = new Set<string>();
+  const filled = new Set<string>();
+  snapshot.backfills.forEach((backfill, index) => {
+    const path = ['backfills', index];
+    const issue = (text: string) => issues.push({ path, issue: text });
+    if (seen.has(backfill.id)) issue(`Duplicate Backfill: ${backfill.id}`);
+    seen.add(backfill.id);
+    for (const earlier of backfill.after)
+      if (earlier === backfill.id || !ids.has(earlier))
+        issue(`Dangling Backfill ref: ${backfill.id} after ${earlier}`);
+    const entity = snapshot.entities.find(
+      ({ name }) => name === backfill.entity,
+    );
+    if (entity === undefined) {
+      issue(`Dangling Backfill entity ref: ${backfill.entity}`);
+      return;
+    }
+    if (backfill.kind === 'reindex') {
+      if (backfill.to !== null)
+        issue(`Reindex Backfill ${backfill.id} must not name a version`);
+      return;
+    }
+    const definition = snapshot.schemas.find(
+      ({ identity }) => identity === entity.schema,
+    );
+    const version = definition?.versions.find(
+      ({ version }) => version === backfill.to,
+    );
+    if (version?.gap !== true)
+      issue(
+        `Backfill ${backfill.id} fills ${backfill.entity} ${String(backfill.to)}, which is not a gap version`,
+      );
+    const target = `${backfill.entity} ${String(backfill.to)}`;
+    if (filled.has(target)) issue(`Gap version filled twice: ${target}`);
+    filled.add(target);
+  });
   return issues;
 };
 
