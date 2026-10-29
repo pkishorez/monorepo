@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { keys } from '../../../../commands.ts';
+import { keys } from '../../../../../commands.ts';
 import {
   assign,
   clashOf,

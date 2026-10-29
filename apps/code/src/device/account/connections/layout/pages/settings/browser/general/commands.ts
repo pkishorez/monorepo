@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Command } from '@kestack/kabuki';
-import { Preferences, PreferencesRead } from '../../../../../../store.ts';
+import { Preferences, PreferencesRead } from '../../../../../../../store.ts';
 
 /** Keeps whether the Touch Draft takes Smart Input in Preferences; a write that fails is lost. */
 export const setSmartInput = Command.make('SetSmartInput', {

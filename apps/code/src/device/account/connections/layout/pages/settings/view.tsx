@@ -1,5 +1,10 @@
 import { View } from '@kestack/kabuki/react';
-import { KeyboardIcon, MonitorIcon, SlidersHorizontalIcon } from 'lucide-react';
+import {
+  InfoIcon,
+  KeyboardIcon,
+  MonitorIcon,
+  SlidersHorizontalIcon,
+} from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import { type ComponentType, useLayoutEffect, useRef } from 'react';
@@ -10,12 +15,13 @@ import {
 } from '../../../../../../ui/controls/settings/index.ts';
 import type { SettingsTab } from '../../../../../routes/index.ts';
 import { SettingsLive } from './actor.ts';
-import { General } from './general/index.ts';
+import { About } from './browser/about/index.ts';
+import { General } from './browser/general/index.ts';
+import { Shortcuts } from './browser/shortcuts/index.ts';
 import { ConnectionSettings } from './connections/index.ts';
-import { Shortcuts } from './shortcuts/index.ts';
 
 /*
- * Settings: its three tabs by name, and the tab open beside them. With a
+ * Settings: its four tabs by name, and the tab open beside them. With a
  * keyboard, on a wide screen, the names are a list down the left; on
  * touch, or narrow, a row across the top. In the list each has its icon,
  * and the list stays as the tab scrolls. Shortcuts, which a touch screen
@@ -38,6 +44,7 @@ const TABS: ReadonlyArray<{
     className: 'touch:hidden keyboard:flex',
   },
   { tab: 'Connections', icon: MonitorIcon },
+  { tab: 'About', icon: InfoIcon },
 ];
 
 const tabId = (tab: SettingsTab) => `settings-${tab.toLowerCase()}-tab`;
@@ -101,8 +108,10 @@ export const SettingsView = View.make(
           <General.view instance={children.general} />
         ) : tab === 'Shortcuts' ? (
           <Shortcuts.view instance={children.shortcuts} />
-        ) : (
+        ) : tab === 'Connections' ? (
           <ConnectionSettings.view instance={children.connections} />
+        ) : (
+          <About.view />
         )}
       </div>
     );

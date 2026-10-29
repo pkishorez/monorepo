@@ -1,6 +1,6 @@
 import { Effect, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import { Preferences, PreferencesRead } from '../../../../../../store.ts';
+import { Preferences, PreferencesRead } from '../../../../../../../store.ts';
 import {
   setFloating,
   setSmartDisplacement,

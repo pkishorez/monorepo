@@ -65,8 +65,9 @@ checks who may import whom (`laymos.config.json`).
            Fork and Seen; `transcript/` draws its turns, tool calls and
            words; `question/` is the Question Panel, which stands in for
            the Draft while its agent asks.
-         - `settings/` has `general/`, `shortcuts/` and `connections/` (one
-           card per Connection: its Agents, accounts and speech).
+         - `settings/` has `browser/`, with `general/`, `shortcuts/` and
+           `about/`, and `connections/` (one card per Connection: its
+           Agents, accounts and speech).
 
 `src/ui/` holds plain parts with no data: `page/` (devtools, gutter,
 theme), `controls/` (notices, the Picker, settings rows) and `labels/`

@@ -3,16 +3,16 @@ import { Button } from '@kestack/web-platform/ui/components/button';
 import { MoonIcon, SunIcon } from 'lucide-react';
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { use } from 'react';
-import { keys, useBound } from '../../../commands.ts';
+import { keys, useBound } from '../../../../commands.ts';
 import {
   Choice,
   Row,
   Section,
   Title,
   Toggle,
-} from '../../../../../../../ui/controls/settings/index.ts';
-import { Theme } from '../../../../../../../ui/page/theme/index.ts';
-import { Voice } from '../../../../voice/index.ts';
+} from '../../../../../../../../ui/controls/settings/index.ts';
+import { Theme } from '../../../../../../../../ui/page/theme/index.ts';
+import { Voice } from '../../../../../voice/index.ts';
 import { GeneralLive } from './actor.ts';
 
 /*

@@ -1,6 +1,6 @@
 import { Effect, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import { Preferences } from '../../../../../../store.ts';
+import { Preferences } from '../../../../../../../store.ts';
 import { setBindings } from './commands.ts';
 import {
   assign,

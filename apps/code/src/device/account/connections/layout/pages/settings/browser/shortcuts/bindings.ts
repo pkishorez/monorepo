@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
 import { bindingOf } from '@kestack/use-keys';
 import type { Definition } from '@kestack/use-keys/surfaces';
-import { keys, keyTable, worksWhileTyping } from '../../../commands.ts';
+import { keys, keyTable, worksWhileTyping } from '../../../../commands.ts';
 
 /*
  * The user's own keys as Settings changes them, from the typed keys

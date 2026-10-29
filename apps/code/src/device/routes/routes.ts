@@ -13,7 +13,12 @@
 export const home = () => ({ _tag: 'Home' as const });
 
 /** The tabs of Settings, in their order. */
-export const SETTINGS_TABS = ['General', 'Shortcuts', 'Connections'] as const;
+export const SETTINGS_TABS = [
+  'General',
+  'Shortcuts',
+  'Connections',
+  'About',
+] as const;
 
 /** One tab of Settings. */
 export type SettingsTab = (typeof SETTINGS_TABS)[number];

@@ -5,8 +5,8 @@ import { Input } from '@kestack/web-platform/ui/components/input';
 import { CircleAlertIcon, SearchIcon } from 'lucide-react';
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { BindingKeys } from '@kestack/web-platform/ui/input';
-import { keys } from '../../../commands.ts';
-import { Title } from '../../../../../../../ui/controls/settings/index.ts';
+import { keys } from '../../../../commands.ts';
+import { Title } from '../../../../../../../../ui/controls/settings/index.ts';
 import { ShortcutsLive } from './actor.ts';
 import { actionOf, keysOf, search, shadowsOf, swapped } from './bindings.ts';
 
