@@ -24,9 +24,11 @@ const world = (fake: FakeHarness, path = ':memory:') => {
   const base = Layer.merge(storeLayer(path), fake.layer);
   return Layer.merge(
     base,
-    Engine.layer({ attachments: folder(), home: folder() }).pipe(
-      Layer.provide(base),
-    ),
+    Engine.layer({
+      attachments: folder(),
+      home: folder(),
+      worktrees: folder(),
+    }).pipe(Layer.provide(base)),
   );
 };
 

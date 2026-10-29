@@ -1,7 +1,7 @@
-import { Effect, Stream, type Scope } from 'effect';
+import { Effect, Schema, Stream, type Scope } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { Raw } from '@kestack/ai-toolkit/contract';
-import type { Session } from '../../../../records/index.js';
+import { SessionSchema, type Session } from '../../../../records/index.js';
 import { Store } from '../../../capabilities/index.js';
 import { storeLayer } from '../index.js';
 
@@ -39,6 +39,16 @@ const session: Session = {
   worktree: null,
   branch: null,
 };
+
+describe('a Session record', () => {
+  it('reads a v1 Session as one in its Project’s folder, on no branch known', async () => {
+    const { worktree: _, branch: __, ...v1 } = session;
+    const read = await Effect.runPromise(
+      Schema.decodeUnknownEffect(SessionSchema.schema)({ ...v1, _v: 'v1' }),
+    );
+    expect(read).toEqual({ ...session, worktree: null, branch: null });
+  });
+});
 
 describe('Store', () => {
   it("reads a session's Raw in write order, after a cursor, page by page", () =>

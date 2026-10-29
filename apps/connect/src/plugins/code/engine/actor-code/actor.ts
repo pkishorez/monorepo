@@ -15,8 +15,9 @@ import { Remove, Save } from './commands.js';
  *            with the Prompt to start Running.
  * - Ready    the Projects, added and removed on request, each change saved;
  *            removing one stops its Sessions and removes them. A new
- *            session starts here, already running its first message; a
- *            Fork joins idle. The Folder Check (see checks/folders.ts) keeps
+ *            session starts here, already running its first message, in
+ *            its Worktree or else its Project's folder; a Fork joins idle,
+ *            in the original's. The Folder Check (see checks/folders.ts) keeps
  *            whether each Project's folder is there, saving only a change.
  */
 
@@ -53,9 +54,17 @@ const Message = Schema.TaggedUnion({
   FoldersAsked: {},
 });
 
-/** The folder of the Project a session is in; null when it is gone. */
-const cwdOf = (model: Model, projectId: string) =>
-  model.projects.find((project) => project.id === projectId)?.path ?? null;
+/**
+ * Where a session runs: its Worktree, or its Project's folder when it has
+ * none; null when its Project is gone.
+ */
+const cwdOf = (
+  model: Model,
+  session: { readonly projectId: string; readonly worktree: string | null },
+) => {
+  const project = model.projects.find(({ id }) => id === session.projectId);
+  return project ? (session.worktree ?? project.path) : null;
+};
 
 export const Code = Actor.build(
   Actor.define('Code', {
@@ -107,7 +116,7 @@ export const Code = Actor.build(
             command: Remove(id),
           }),
           StartSession: ({ session, first }, { model }) => {
-            const cwd = cwdOf(model, session.projectId);
+            const cwd = cwdOf(model, session);
             if (cwd === null) return {};
             return {
               model: {
@@ -117,7 +126,7 @@ export const Code = Actor.build(
             };
           },
           AddSession: ({ session }, { model }) => {
-            const cwd = cwdOf(model, session.projectId);
+            const cwd = cwdOf(model, session);
             if (cwd === null) return {};
             return {
               model: {

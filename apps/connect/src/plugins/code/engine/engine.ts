@@ -48,6 +48,7 @@ import { saveAttachments } from './attachments/index.js';
 import {
   Agents,
   Answers,
+  Git,
   HarnessAccounts,
   Store,
 } from './capabilities/index.js';
@@ -61,6 +62,7 @@ import {
   FolderNotFound,
   Folders,
   FolderUnreadable,
+  git,
   InvalidAccount,
   InvalidFolderName,
   OutsideHome,
@@ -71,6 +73,15 @@ import {
   type AccountInput,
   type HarnessAccountRow,
 } from './services/index.js';
+import {
+  GitFailed,
+  place,
+  step,
+  unplace,
+  type ReportStep,
+  type StartStepName,
+  type StartStepReport,
+} from './starting.js';
 
 /*
  * The engine's front door, as code outside its tree reaches it. Three rules:
@@ -103,11 +114,6 @@ export class SkillsUnavailable extends Data.TaggedError('SkillsUnavailable')<{
 export class HarnessFailed extends Data.TaggedError('HarnessFailed')<{
   readonly message: string;
 }> {}
-/** A git step of starting a Session failed, so it did not start. */
-export class GitFailed extends Data.TaggedError('GitFailed')<{
-  readonly step: StartStepName;
-  readonly message: string;
-}> {}
 /** The Agent Question is no longer asked, as when another device answered it. */
 export class QuestionNotAsked extends Data.TaggedError('QuestionNotAsked')<{
   readonly id: string;
@@ -117,6 +123,7 @@ export { projectEngineRaw } from './engine-raw/index.js';
 export { storedHarnessAccounts, storeLayer } from './services/index.js';
 export {
   AskFailed,
+  GitFailed,
   FolderExists,
   FolderNotFound,
   FolderUnreadable,
@@ -127,6 +134,7 @@ export {
   OutsideHome,
   PermissionDenied,
 };
+export type { ReportStep, StartStepName, StartStepReport };
 
 /** A user message, as a client sends it. */
 export interface Send {
@@ -166,22 +174,6 @@ export interface StartSession {
   readonly newWorktree?: boolean | undefined;
 }
 
-/** Reports each step of a start as it goes. */
-export type ReportStep = (step: StartStepReport) => Effect.Effect<void>;
-
-/** One step of a start, begun or done. */
-export interface StartStepReport {
-  readonly _tag: 'Step';
-  readonly step: StartStepName;
-  readonly state: 'running' | 'done';
-}
-
-/** The steps of a start, in the order they run. */
-export type StartStepName =
-  | 'switchingBranch'
-  | 'makingWorktree'
-  | 'startingAgent';
-
 /** A Project's git branches, or NotGit. */
 export type Branches =
   | { readonly _tag: 'NotGit' }
@@ -220,6 +212,11 @@ export interface EngineOptions {
   readonly attachments: string;
   /** The folder `listFolder` and `createFolder` never leave. */
   readonly home: string;
+  /**
+   * Where new Worktrees are made, one folder per Project: outside any one
+   * Connection's, so forgetting a Connection never deletes one.
+   */
+  readonly worktrees: string;
 }
 
 export interface EngineService {
@@ -373,8 +370,15 @@ const make = (options: EngineOptions) =>
     const harnesses = yield* Harnesses;
     const folders = yield* Folders;
     const services = yield* Effect.context<
-      Store | Harnesses | OneShotPrompt | HarnessAccounts | Agents | Answers
+      | Store
+      | Harnesses
+      | OneShotPrompt
+      | HarnessAccounts
+      | Agents
+      | Answers
+      | Git
     >();
+    const repos = yield* Git;
     const accounts = yield* HarnessAccounts;
     const replies = yield* Answers;
     const running = yield* Runtime.start(Code, Layer.succeedContext(services));
@@ -516,13 +520,21 @@ const make = (options: EngineOptions) =>
         ),
 
       branches: (projectId) =>
-        Effect.suspend(() =>
-          projectAt(projectId)
-            ? Effect.succeed<Branches>({ _tag: 'NotGit' })
-            : Effect.fail(new ProjectNotFound({ id: projectId })),
-        ),
+        Effect.gen(function* () {
+          const project = projectAt(projectId);
+          if (!project) return yield* new ProjectNotFound({ id: projectId });
+          const found = yield* repos.branches(project.path);
+          if (found === null) return { _tag: 'NotGit' } as const;
+          yield* repos.fetch(project.path);
+          const tracked = new Set(found.local.map((each) => each.upstream));
+          return {
+            _tag: 'Git',
+            ...found,
+            origin: found.origin.filter((name) => !tracked.has(name)),
+          } as const;
+        }),
 
-      startSession: (input) => {
+      startSession: (input, report = () => Effect.void) => {
         const chosen =
           input.id !== undefined && ULID.test(input.id) ? input.id : null;
         return admitting(chosen)(
@@ -545,35 +557,57 @@ const make = (options: EngineOptions) =>
                 ).pipe(withServices)) ?? there.session
               );
             const account = yield* harnessAccount(input.account);
-            const now = yield* Clock.currentTimeMillis;
-            const session: Session = {
-              id:
-                chosen !== null && there === undefined
-                  ? chosen
-                  : yield* nextUlid,
-              projectId: input.projectId,
-              harness: account.harness,
-              account: account.id,
-              model: input.model,
-              settings: { ...input.settings },
-              title: fallbackTitle(input.text),
-              status: 'running',
-              nativeId: null,
-              createdAt: now,
-              forkedFrom: null,
-              settledAt: null,
-              activeAt: now,
-              endedAt: null,
-              worktree: null,
-              branch: null,
-            };
-            const first = yield* promptOf(session.id, {
-              text: input.text,
-              attachments: input.attachments,
-            });
-            root.send({ _tag: 'StartSession', session, first });
-            return session;
-          }),
+            const id =
+              chosen !== null && there === undefined ? chosen : yield* nextUlid;
+            const placed = yield* place(
+              {
+                project,
+                id,
+                branch: input.branch ?? null,
+                newWorktree: input.newWorktree ?? false,
+                worktrees: options.worktrees,
+              },
+              report,
+            ).pipe(withServices);
+            return yield* step(
+              report,
+              'startingAgent',
+              Effect.gen(function* () {
+                const now = yield* Clock.currentTimeMillis;
+                const session: Session = {
+                  id,
+                  projectId: input.projectId,
+                  harness: account.harness,
+                  account: account.id,
+                  model: input.model,
+                  settings: { ...input.settings },
+                  title: fallbackTitle(input.text),
+                  status: 'running',
+                  nativeId: null,
+                  createdAt: now,
+                  forkedFrom: null,
+                  settledAt: null,
+                  activeAt: now,
+                  endedAt: null,
+                  worktree: placed.worktree,
+                  branch: placed.branch,
+                };
+                const first = yield* promptOf(session.id, {
+                  text: input.text,
+                  attachments: input.attachments,
+                });
+                root.send({ _tag: 'StartSession', session, first });
+                return session;
+              }).pipe(
+                Effect.onError(() =>
+                  unplace(project, placed).pipe(withServices),
+                ),
+              ),
+            );
+          }).pipe(
+            // A caller gone mid-start leaves no git step half done.
+            Effect.uninterruptible,
+          ),
         );
       },
 
@@ -782,7 +816,8 @@ export class Engine extends Context.Service<Engine, EngineService>()(
           storedHarnessAccounts,
           agents,
           answers,
-          Folders.layer({ home: options.home }),
+          git,
+          Folders.layer({ home: options.home }).pipe(Layer.provide(git)),
         ),
       ),
     );

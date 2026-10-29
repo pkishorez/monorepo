@@ -1,4 +1,5 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { createServer as createHttpServer } from 'node:http';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -633,6 +634,98 @@ describe('the code Plugin, through the client and Replica', () => {
               (yield* Effect.flip(api.settleSession({ sessionId: 'nope' })))
                 ._tag,
             ).toBe('SessionNotFound');
+          }),
+        ),
+      ),
+    30_000,
+  );
+
+  it(
+    'lists a git Project’s branches, streams a start’s steps, and refuses one whose git step fails',
+    () =>
+      Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const repo = realpathSync(folder());
+            const git = (...args: ReadonlyArray<string>) =>
+              execFileSync('git', args, { cwd: repo, encoding: 'utf8' });
+            git('init', '-q', '-b', 'main');
+            git(
+              '-c',
+              'user.name=Ada',
+              '-c',
+              'user.email=ada@example.com',
+              'commit',
+              '-q',
+              '--allow-empty',
+              '-m',
+              'first',
+            );
+            const port = yield* Effect.promise(freePort);
+            const worktrees = folder();
+            yield* Layer.build(
+              server({
+                port,
+                db: join(folder(), 'ai.db'),
+                harnesses: makeFakeHarness().layer,
+                worktrees,
+              }),
+            );
+            const client = yield* Layer.build(
+              CodeClient.layer(`ws://127.0.0.1:${port}/rpc`),
+            );
+            const api = Context.get(client, CodeClient);
+            const project = yield* api.addProject({ path: repo });
+            expect(yield* api.branches({ projectId: project.id })).toEqual({
+              _tag: 'Git',
+              current: 'main',
+              worktrees: [{ path: repo, branch: 'main' }],
+              local: [{ name: 'main', upstream: null, worktree: repo }],
+              origin: [],
+            });
+            const plain = yield* api.addProject({ path: folder() });
+            expect(yield* api.branches({ projectId: plain.id })).toEqual({
+              _tag: 'NotGit',
+            });
+
+            const ask = {
+              id: null,
+              projectId: project.id,
+              account: 'claude',
+              model: 'claude-test',
+              settings: {},
+              text: 'hi',
+              attachments: [],
+              branch: 'main',
+              newWorktree: true,
+            };
+            const steps = yield* Stream.runCollect(api.startSession(ask));
+            expect(
+              steps.map((each) =>
+                each._tag === 'Step' ? `${each.step} ${each.state}` : each._tag,
+              ),
+            ).toEqual([
+              'makingWorktree running',
+              'makingWorktree done',
+              'startingAgent running',
+              'startingAgent done',
+              'Started',
+            ]);
+            const last = steps.at(-1);
+            expect(last?._tag === 'Started' && last.session).toMatchObject({
+              projectId: project.id,
+              branch: expect.stringMatching(/^ke-code\//),
+            });
+
+            const refused = yield* Effect.flip(
+              Stream.runCollect(
+                api.startSession({ ...ask, branch: 'nowhere' }),
+              ),
+            );
+            expect(refused).toMatchObject({
+              _tag: 'GitFailed',
+              step: 'makingWorktree',
+            });
           }),
         ),
       ),

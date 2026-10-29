@@ -1,7 +1,7 @@
 import { mkdir, realpath } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { Context, Data, Duration, Effect, Layer } from 'effect';
-import { gitInit } from './git.js';
+import { Git } from '../../capabilities/index.js';
 import {
   expand,
   isDenied,
@@ -96,6 +96,7 @@ interface FoldersService {
 
 const make = (options: FoldersOptions) =>
   Effect.gen(function* () {
+    const git = yield* Git;
     const home = yield* Effect.promise(() =>
       realpath(options.home).catch(() => resolve(options.home)),
     );
@@ -167,7 +168,7 @@ const make = (options: FoldersOptions) =>
             return yield* new PermissionDenied({ path });
           return yield* Effect.die(failed.error);
         }
-        const gitInitError = yield* Effect.promise(() => gitInit(path));
+        const gitInitError = yield* git.init(path);
         return { path, gitInitError };
       });
 
@@ -178,6 +179,7 @@ const make = (options: FoldersOptions) =>
 export class Folders extends Context.Service<Folders, FoldersService>()(
   '@kestack/connect/Folders',
 ) {
-  static readonly layer = (options: FoldersOptions): Layer.Layer<Folders> =>
-    Layer.effect(Folders, make(options));
+  static readonly layer = (
+    options: FoldersOptions,
+  ): Layer.Layer<Folders, never, Git> => Layer.effect(Folders, make(options));
 }

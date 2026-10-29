@@ -11,8 +11,9 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Effect } from 'effect';
+import { Effect, Layer } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
+import { git } from '../../git/index.js';
 import { Folders } from '../index.js';
 
 /*
@@ -43,7 +44,11 @@ const homeWith = (names: ReadonlyArray<string> = []) => {
 };
 
 const run = <A, E>(home: string, effect: Effect.Effect<A, E, Folders>) =>
-  Effect.runPromise(effect.pipe(Effect.provide(Folders.layer({ home }))));
+  Effect.runPromise(
+    effect.pipe(
+      Effect.provide(Folders.layer({ home }).pipe(Layer.provide(git))),
+    ),
+  );
 
 const list = (home: string, path: string, query?: string) =>
   run(

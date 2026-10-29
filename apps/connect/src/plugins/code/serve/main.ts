@@ -15,7 +15,8 @@ import { codePlugin } from './serve.js';
  * Connect gives, with Claude and Codex as the harnesses, Codex writing
  * titles. Its database and Attachments are in its data folder; the models
  * each harness runs and the Speech to Text model, which any Connection may
- * share, are in its cache folder.
+ * share, are in its cache folder; the Worktrees it makes are in its shared
+ * folder, kept when the Connection is forgotten.
  */
 
 Plugin.make({
@@ -24,12 +25,13 @@ Plugin.make({
   layer: Layer.unwrap(
     Effect.map(
       PluginFolders,
-      ({ data, cache }) =>
+      ({ data, cache, shared }) =>
         codePlugin({
           db: join(data, 'code.db'),
           attachments: join(data, 'attachments'),
           modelsCache: join(cache, 'models.json'),
           speechFolder: join(cache, 'speech-to-text'),
+          worktrees: join(shared, 'worktrees'),
           harnesses: Layer.merge(harnesses([claude, codex]), codexOneShot),
         }).layer,
     ),
