@@ -35,11 +35,19 @@ export const pickedSettings = (model: Model): Record<string, string> =>
 /**
  * Where a new session runs: the branch picked, or the one the Project's
  * folder is on, and in a new Worktree or not; for a Project that is not a
- * git repository, wherever its folder is. Null while its branches are read.
+ * git repository, wherever its folder is. Null while its branches are
+ * read; once they could not be, the picks as they stand, as saved.
  */
-export const pickedBranch = ({ branches, branch, newWorktree }: Model) =>
+export const pickedBranch = ({
+  branches,
+  unlisted,
+  branch,
+  newWorktree,
+}: Model) =>
   branches === null
-    ? null
+    ? unlisted
+      ? { branch, newWorktree }
+      : null
     : branches._tag === 'NotGit'
       ? { branch: null, newWorktree: false }
       : { branch: branchOf(branches, branch), newWorktree };
