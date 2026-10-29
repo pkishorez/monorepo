@@ -10,7 +10,8 @@ its Agent, and keeps every record in the Store. The two never import each
 other; the router passes Code's socket to the Plugin's without reading it.
 Each root runs with `Runtime.start`. The connection Layer gives
 `Cloud`, `Tunnels` and `Downloads`. The engine Layer gives `Store`,
-`Harnesses`, `HarnessAccounts`, `OneShotPrompt`, `Agents` and `Answers`.
+`Harnesses`, `HarnessAccounts`, `OneShotPrompt`, `Agents`, `Answers` and
+`Git`.
 Changed through `/kabukifi`; edit by hand and it drifts.
 
 ## Tree
@@ -32,8 +33,9 @@ src/connection/
 
 src/plugins/code/engine/
   engine.ts                  the front door: finds an Instance, Sends a Message, asks a Query
-  capabilities/              Agents, Answers, Store
-  services/                  agents, answers, store, harness-binaries, folders
+  starting.ts                where a new Session runs, and the git step that puts it there
+  capabilities/              Agents, Answers, Git, Store
+  services/                  agents, answers, store, harness-binaries, folders, git
   attachments/               saves a message's files before the front door Sends it
   engine-raw/                the engine's own Raw: turn.started, turn.ended, error
   actor-code/                root; States: Loading | Ready
@@ -62,7 +64,7 @@ actor-connection ─ Input: key, folders, socketId, port, origins; Props: wanted
 actor-online     ─ Provides TunnelStatus ────────────────────────────────────▶ actor-tunnel
 actor-online     ─ key: generation; Input: generation; Props: port ─────────▶ actor-tunnel
 actor-plugins    ─ each Plugin name; Input: name, folders, socket; Props: wanted ▶ ActorPlugin
-engine Layer     ─ Store, Harnesses, HarnessAccounts, OneShotPrompt, Agents, Answers ─▶ actor-code
+engine Layer     ─ Store, Harnesses, HarnessAccounts, OneShotPrompt, Agents, Answers, Git ▶ actor-code
 actor-code       ─ each session id; Input: session, cwd, first ──────────────▶ actor-session
 ```
 
@@ -84,7 +86,8 @@ actor-session    ─ Worker cancel, while cancelling ▶ Sends TurnEnded
 actor-session    ─ Worker agentTurn, in Idle ──────▶ Sends AgentTurn
 actor-session    ─ Worker jobs, always ────────────▶ Sends Jobs
 actor-session    ─ Worker questions, always ───────▶ Sends Questions
-actor-session    ─ Worker title, while untitled ───▶ Sends Titled
+actor-session    ─ Worker title, while untitled ───▶ renames a new Worktree's branch; Sends BranchFound, Titled
+actor-session    ─ Worker branch, while not Settled ▶ Sends BranchFound
 actor-session    ─ Worker persist, always ─────────▶ saves the record
 actor-code       ─ Worker load, in Loading ────────▶ Sends Loaded
 ```
@@ -94,7 +97,10 @@ Message to one Instance: a Project or a new Session to actor-code, a message,
 cancel or Settle to a Session by its id. Everything the user reads is the
 tree's state. Every question for a Session, a Fork, an Ask, a new Title, its
 Agent's MCP Server Status and Context Usage, is a Query on the Session; what
-the answer changes is a Message after it, such as AddSession for a Fork.
+the answer changes is a Message after it, such as AddSession for a Fork. A
+new Session's git step, a branch switched or a Worktree made, runs at the
+front door before it Sends StartSession (`starting.ts`), so a step that fails
+starts nothing.
 
 ## actor-connection
 
@@ -293,7 +299,8 @@ Connection's, its socket; Props: the Release wanted.
 saves the Projects.
 **Input**: none.
 **Model**: projects: every Project. sessions: each Session as it was first
-handed over, with its folder and the Prompt it starts Running or null: a new
+handed over, with where it runs, its Worktree or else its Project's folder,
+and the Prompt it starts Running or null: a new
 Session's first message, or the one that Resumes a Turn the Bootstrap Sweep
 found cut off. Both are kept for the whole life and are empty while Loading.
 **States**: Loading: nothing. Ready: nothing. Loaded moves Loading to Ready.
@@ -321,7 +328,9 @@ the Prompt it starts Running or null.
 - **Saving a Project is a Command, not a Worker**, because nothing is shown
   while it saves and nothing stops it.
 - **cwd travels as Input, not as a Capability**, because only the direct
-  Child reads it.
+  Child reads it. It is the Session's Worktree, kept on its record, or its
+  Project's folder when it has none, as a v1 Session or one in a folder
+  that is not git.
 - **A Resumed Turn starts from its Session's Input, not from a Message after
   Loaded**, because a parent never Sends to a Child, and a Session handed a
   Prompt already starts Running it, as a new Session does. From there it is
@@ -332,17 +341,27 @@ the Prompt it starts Running or null.
   picking a folder to become a Project is the engine's domain, and the API
   then talks to the Engine alone. Caveat: the engine takes `home` as an
   option.
+- **Git is a Capability, and services/git/ the only code that runs git**,
+  because the front door, the Session's Workers and Folders all ask it, and
+  git missing or failing must read the same everywhere: as not git. Caveat:
+  only a start's step fails on it, as GitFailed.
+- **New Worktrees go in the code Plugin's shared folder, not its data
+  folder**, because a Connection forgotten deletes its data folder, and a
+  Worktree may hold work not pushed. Caveat: the engine takes `worktrees` as
+  an option, and nothing removes a Worktree once a Session runs in it.
 
 ## actor-session
 
-**Does**: keeps one Agent of one Coding Harness in a Project's folder, and
-orders its Turns. A message starts or steers a Turn.
+**Does**: keeps one Agent of one Coding Harness in a Project's folder or its
+Worktree, and orders its Turns. A message starts or steers a Turn. Keeps the
+branch its Worktree is on.
 **Input**: the stored session, cwd, the Prompt it starts Running or null: a
 first message, or a Resume.
 **Model**: session: the record without status. cwd. untitled: the first
 message until it has a title. jobs and refusedStops: the Background Jobs the
 Agent last listed and the stops it refused, in memory only. questions: the
-Agent Questions the Agent last listed, in memory only.
+Agent Questions the Agent last listed, in memory only. The record holds
+its Worktree and the branch it was last found on.
 **States**: Idle: ended. Running: turnId, prompt, steers, cancelling, queued.
 Send and AgentTurn move Idle to Running; a Session handed a Prompt starts
 Running. TurnEnded moves Running to Idle, or
@@ -351,8 +370,8 @@ cancelling.
 **Messages**: Send, Cancel, Settle, Unsettle, StopJob, Answer, Titled: the
 front door. TurnEnded, NativeId, Steered: the turn and cancel
 Workers. AgentTurn: the agentTurn Worker. Jobs: the jobs Worker. Questions:
-the questions Worker. Titled: the title Worker. JobStopFailed: the StopJob
-Command.
+the questions Worker. Titled: the title Worker. BranchFound: the branch and
+title Workers. JobStopFailed: the StopJob Command.
 **Commands**: StopJob: ends with JobStopFailed when the harness refuses, or
 with nothing. AnswerQuestion: gives the Agent the answer and tells the
 waiting caller in Answers how it went, the harness's reason when it refuses;
@@ -360,7 +379,10 @@ ends with nothing. AnswerNotAsked: tells the waiting caller its question is
 no longer asked; ends with nothing.
 **Workers**: agent: always; keeps the Agent in Agents, opened on first use.
 jobs: always; Sends Jobs. questions: always; Sends Questions. persist: always; saves each changed record. title:
-while untitled; asks OneShotPrompt; Sends Titled. agentTurn: in Idle; Sends
+while untitled; asks OneShotPrompt; renames a new Worktree's branch
+`ke-code/<id>`, never pushed, for the Title, and Sends BranchFound; Sends
+Titled. branch: while not Settled; reads the branch as it starts, then
+every minute; Sends BranchFound when it changed. agentTurn: in Idle; Sends
 AgentTurn. turn: in Running, each turnId; appends Raw, Sends NativeId,
 Steered, TurnEnded. cancel: in Running, while cancelling; Sends TurnEnded
 after the grace period.
@@ -369,7 +391,7 @@ Agent's answer to a question. retitle: a Title from the latest messages, or
 null. mcpStatus, contextUsage: from the open Agent; AgentClosed while closed.
 **Requires**: Agents: agent, jobs, questions, agentTurn, turn, cancel,
 StopJob, AnswerQuestion, mcpStatus, contextUsage. Answers: AnswerQuestion,
-AnswerNotAsked. Store: persist, turn, fork, retitle. Harnesses:
+AnswerNotAsked. Git: branch, title. Store: persist, turn, fork, retitle. Harnesses:
 agent, fork, ask. HarnessAccounts: agent, fork, ask, title, retitle. OneShotPrompt:
 title, retitle.
 **Provides**: none.
@@ -407,6 +429,13 @@ on an Answer, for as long as it waits.
   Session does as it starts.
 - **persist is a Worker, not a Command**, because it follows every change in
   order.
+- **The Branch Check is the Session's own Worker, not the root's Folder
+  Check**, because the branch is on the Session's record, which only the
+  Session writes, and a parent never Sends to a Child. Caveat: each Session
+  not Settled runs git once a minute; a Settled one keeps its last branch.
+- **The first Title renames the branch before it Sends Titled**, because
+  Titled ends the title Worker. Caveat: a rename that fails or takes too
+  long keeps the name, and a later Title never renames.
 - **attachments/ and engine-raw/ sit beside the root, not in the Session's
   folder**, because the front door saves a message's files before it Sends,
   and the read feeds and the Bootstrap Sweep read the engine's own records.

@@ -64,7 +64,8 @@ export type StartStepName = (typeof START_STEPS)[number];
 /**
  * How starting a Session goes: each step as it begins and as it is done,
  * then Started with the Session. A git step that fails ends it with
- * GitFailed, and no Session is kept.
+ * GitFailed, and no Session is kept. Progress, not a record, so a stream,
+ * as Speech to Text's is (see speech.ts).
  */
 export const StartStep = ValueESchema.make(
   'StartStep',

@@ -8,6 +8,8 @@ import { tagged } from './wire.js';
  * Speech to Text, on this Connection (ADR 0017): switched on and off, how it
  * stands, and audio turned into text. Its progress is a stream, not
  * records: the written exception to the AI Table being the only channel.
+ * A start's steps are the other (see sessions.ts): progress, not records,
+ * and the Session they end with is a record the feeds carry too.
  */
 
 /** How Speech to Text stands on this Connection. */
