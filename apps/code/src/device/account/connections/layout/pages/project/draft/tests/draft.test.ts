@@ -12,6 +12,7 @@ import {
   type Branches,
   CodeClient,
   GitFailed,
+  HarnessFailed,
   ProjectNotFound,
   SessionNotFound,
   type StartStep,
@@ -768,6 +769,72 @@ describe('Draft', () => {
           branch: 'spike',
           newWorktree: true,
         });
+      }),
+    ));
+
+  it('shows the step it expects first as running at once, until Connect tells its own', () =>
+    run(
+      Effect.gen(function* () {
+        const told = yield* Deferred.make<void>();
+        const { layer } = world();
+        const app = yield* start(
+          'NewSession',
+          Layer.merge(
+            layer,
+            Layer.mock(CodeClient)({
+              branches: (() =>
+                Effect.succeed(GIT)) as unknown as Api['branches'],
+              startSession: (() =>
+                Stream.concat(
+                  Stream.fromEffectDrain(Deferred.await(told)),
+                  Stream.concat(
+                    Stream.make<ReadonlyArray<StartStep>>(
+                      step('startingAgent', 'running'),
+                    ),
+                    Stream.never,
+                  ),
+                )) as unknown as Api['startSession'],
+            }),
+          ),
+        );
+        yield* wait();
+        yield* pickBranch(app, 'spike');
+        yield* say(app, 'Fix the build');
+        expect(modelOf(app).starting?.steps).toEqual([
+          { step: 'switchingBranch', state: 'running' },
+        ]);
+        // Connect ran no git step: its own first takes the place of it.
+        yield* Deferred.succeed(told, undefined);
+        yield* wait();
+        expect(modelOf(app).starting?.steps).toEqual([
+          { step: 'startingAgent', state: 'running' },
+        ]);
+      }),
+    ));
+
+  it('stays when the agent would not start, its text as it was, and says why', () =>
+    run(
+      Effect.gen(function* () {
+        const starts = yield* Deferred.make<boolean>();
+        const { layer, pushed, handed } = world(
+          'take',
+          savedDraftsMemory(),
+          starts,
+          () =>
+            Effect.fail(
+              new HarnessFailed({ message: 'Claude would not open' }),
+            ),
+        );
+        const app = yield* start('NewSession', layer);
+        yield* wait();
+        yield* say(app, 'Fix the build');
+        yield* Deferred.succeed(starts, false);
+        yield* wait();
+        expect(pushed).toEqual([]);
+        expect(handed).toEqual([]);
+        expect(modelOf(app).starting).toBeNull();
+        expect(modelOf(app).problem).toBe('Claude would not open');
+        expect(textOf(app, 'Message')).toBe('Fix the build');
       }),
     ));
 

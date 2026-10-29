@@ -43,8 +43,8 @@ export const nameStart = Command.make('NameStart', {
  * Starts a session already running its first message, under the id chosen
  * for it, and tells each StartStep as it comes. Started, the project page
  * is told (`Handover`) before it is moved to. Refused by the Connection,
- * for a project or an agent it does not have, or a git step that failed,
- * nothing was started, and the Draft says why. Any other way it ends, its
+ * for a project or an agent it does not have, a git step that failed, or
+ * an agent that would not start, nothing was started, and the Draft says why. Any other way it ends, its
  * answer lost or the link down, it may well have started: it is moved to
  * once it shows among the Connection's sessions (`SessionArrival`), and if
  * it never does, the Draft says why, keeping what was written. Run by the
@@ -111,7 +111,8 @@ const refusedByConnection = (error: unknown) =>
   '_tag' in error &&
   (error._tag === 'ProjectNotFound' ||
     error._tag === 'UnknownAccount' ||
-    error._tag === 'GitFailed');
+    error._tag === 'GitFailed' ||
+    error._tag === 'HarnessFailed');
 
 /** Why a start failed, as a person reads it. */
 const whyOf = (cause: Cause.Cause<unknown>) => {
@@ -130,6 +131,7 @@ const REASONED = {
   ProjectNotFound: true,
   UnknownAccount: true,
   GitFailed: true,
+  HarnessFailed: true,
   RpcClientError: true,
 };
 

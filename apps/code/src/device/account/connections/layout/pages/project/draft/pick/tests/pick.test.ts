@@ -2,7 +2,7 @@ import type { HarnessInfo } from '@kestack/connect/code';
 import { describe, expect, it } from 'vitest';
 import * as Catalog from '../../../store.ts';
 import type { Model, Props } from '../../actor.ts';
-import { skillsOf } from '../pick.ts';
+import { firstStep, skillsOf } from '../pick.ts';
 
 /*
  * The Skills a Session's Draft offers: loading while its agent's are read,
@@ -62,5 +62,46 @@ describe('a Session’s Skills', () => {
       loading: false,
       problem: 'This Connection has no Harness Account gone',
     });
+  });
+});
+
+describe('a new session’s first step', () => {
+  const git = {
+    _tag: 'Git' as const,
+    current: 'main',
+    worktrees: [
+      { path: '/code/app', branch: 'main' },
+      { path: '/data/w/01x', branch: 'fix' },
+    ],
+    local: [
+      { name: 'main', upstream: 'origin/main', worktree: '/code/app' },
+      { name: 'fix', upstream: null, worktree: '/data/w/01x' },
+      { name: 'spike', upstream: 'origin/spike', worktree: null },
+    ],
+    origin: ['origin/release'],
+  };
+  const of = (
+    branches: Model['branches'],
+    branch: string | null,
+    newWorktree = false,
+  ) => firstStep({ branches } as Model, { branch, newWorktree });
+
+  it('is making the Worktree when one is asked for', () => {
+    expect(of(git, 'main', true)).toBe('makingWorktree');
+    expect(of(null, null, true)).toBe('makingWorktree');
+  });
+
+  it('is switching the branch only to one no Worktree has out', () => {
+    expect(of(git, 'spike')).toBe('switchingBranch');
+    expect(of(git, 'origin/release')).toBe('switchingBranch');
+    expect(of(git, 'origin/spike')).toBe('switchingBranch');
+    expect(of(git, 'main')).toBe('startingAgent');
+    expect(of(git, 'fix')).toBe('startingAgent');
+  });
+
+  it('is starting the agent where no git step runs', () => {
+    expect(of({ _tag: 'NotGit' }, null)).toBe('startingAgent');
+    expect(of(null, null)).toBe('startingAgent');
+    expect(of(null, 'spike')).toBe('switchingBranch');
   });
 });

@@ -2,6 +2,7 @@ import type { Model, Props } from '../actor.ts';
 import { ask, nameStart, send } from './commands.ts';
 import { wire } from '../draft.ts';
 import {
+  firstStep,
   pickedBranch,
   pickedHarness,
   pickedModel,
@@ -57,7 +58,9 @@ export const start = (model: Model, props: Props, written: string) => {
           attachments: wire(model.attachments),
           ...where,
         },
-        steps: [],
+        // Its first step shows as running at once, till Connect tells them.
+        steps: [{ step: firstStep(model, where), state: 'running' as const }],
+        told: false,
       },
     },
     command: nameStart(),

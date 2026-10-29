@@ -7,8 +7,9 @@ import type { Starting as Shown } from '../actor.ts';
  * Starting: a new session's steps, from its send until Connect has made
  * the Session, drawn where its transcript will be, in place of the new
  * session's words. Each step as Connect tells it, running or done, in the
- * order they came; it stays, every step done, until the Session's page is
- * drawn in its place.
+ * order they came, the one expected first running from the send on, until
+ * Connect tells its own; it stays, every step done, until the Session's
+ * page is drawn in its place.
  */
 
 /** What a step says, for the branch it is started on. */
