@@ -308,8 +308,9 @@ waits until it is ACTIVE; IndexedDB changes its indexes in a version upgrade),
 it scans the table with strongly consistent reads and, for each row of an
 affected entity, uses `drift` and `reindex` to rewrite the row only if its
 index keys drifted. An entity is affected when an index or access pattern it
-uses is added or edited, and when a schema its rows reach gains a version,
-since a migration may change an indexed field.
+uses is added or edited. A new version alone never reindexes, so a release
+does not scan the table: a row whose migration changes an indexed field keeps
+its old index key until it is next written.
 
 - Each write is guarded by the row's `_u`. A row an app write moved meanwhile
   is read again and retried, up to three times, then setup fails with

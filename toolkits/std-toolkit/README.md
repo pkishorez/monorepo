@@ -293,7 +293,7 @@ const outcome = await Effect.runPromise(
 // { kind: 'applied', reindexed: ['Task'], changes: [...] }
 ```
 
-- Setup reindexes an entity when an index or access pattern it uses is added or edited, and when a schema it reaches gains a version, since a migration may change an indexed field. It rewrites only rows whose index keys drifted, with `drift` and `reindex`.
+- Setup reindexes an entity when an index or access pattern it uses is added or edited, never for a new version alone: a row whose migration changes an indexed field keeps its old index key until it is next written. It rewrites only rows whose index keys drifted, with `drift` and `reindex`.
 - It keeps no progress. The Stored contract is recorded only after the scan, so a setup that stops part-way leaves the old contract, and the next one reindexes again. A row an app write moves meanwhile is read again and retried, up to three times.
 - DynamoDB adds a new global secondary index and waits for it before the scan; IndexedDB changes its indexes in a version upgrade first. A disposable table is wiped instead.
 - A change no migration can make, such as a value no old row holds, is refused as breaking on a persistent table. The way past is a new physical table and a table migration into it, `StdTable.migrate`: see [stories/evolving-schema](stories/evolving-schema/a-table-migrates-into-a-new-table.proof.ts).

@@ -26,51 +26,21 @@ export type ContractPlan =
       readonly stored: ContractRows;
     };
 
-/** Every ESchema identity a shape refers to, at any depth. */
-const refsIn = (shape: unknown, found: Set<string>): void => {
-  if (Array.isArray(shape)) for (const item of shape) refsIn(item, found);
-  else if (shape !== null && typeof shape === 'object') {
-    const node = shape as {
-      readonly type?: unknown;
-      readonly identity?: unknown;
-    };
-    if (node.type === 'ref' && typeof node.identity === 'string')
-      found.add(node.identity);
-    for (const value of Object.values(shape)) refsIn(value, found);
-  }
-};
-
-/** The ESchema identities an entity's rows can hold, its own included. */
-const reachedBy = (snapshot: TableSnapshot, root: string): Set<string> => {
-  const reached = new Set([root]);
-  for (const identity of reached) {
-    const schema = snapshot.schemas.find((each) => each.identity === identity);
-    for (const { shape } of schema?.versions ?? []) refsIn(shape, reached);
-  }
-  return reached;
-};
-
 /**
  * The entities a change leaves with stale index keys: the owner of an added
  * or edited access pattern, every entity with an access pattern on an added
- * or edited index, and every entity with a secondary access pattern whose
- * rows reach an ESchema that gained a version, since its migration may
- * change an indexed field. An index nothing queries holds no rows.
+ * or edited index. A new version alone never reindexes, since that would
+ * scan the table on every release: a row a migration moves to another index
+ * key keeps its old key until it is next written. An index nothing queries
+ * holds no rows.
  */
 const reindexed = (
   snapshot: TableSnapshot,
   changes: readonly SnapshotChange[],
 ): readonly string[] => {
   const entities = new Set<string>();
-  for (const { impact, subject, action } of changes) {
-    if (subject.kind === 'version' && action === 'added') {
-      for (const entity of snapshot.entities)
-        if (
-          entity.accessPatterns.some(({ kind }) => kind !== 'primary') &&
-          reachedBy(snapshot, entity.schema).has(subject.name!)
-        )
-          entities.add(entity.name);
-    } else if (impact === 'requires-reindex') {
+  for (const { impact, subject } of changes) {
+    if (impact === 'requires-reindex') {
       if (subject.kind === 'access-pattern') entities.add(subject.owner!);
       else
         for (const { name, accessPatterns } of snapshot.entities)

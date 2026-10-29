@@ -368,7 +368,7 @@ describe('runSetup', () => {
       expect(counts.writes).toEqual([]);
     });
 
-    it('rewrites only rows whose index keys drifted', async () => {
+    it('does not reindex for a new version alone', async () => {
       const { store, layer, counts, reset } = await atV1([]);
       await Effect.runPromise(
         runSetup({ table: indexed(), mode: 'persistent', store }),
@@ -378,8 +378,6 @@ describe('runSetup', () => {
         layer,
       );
       reset();
-      // A pure new version with an indexed entity is checked, and t1's keys
-      // are current already.
       const outcome = await Effect.runPromise(
         runSetup({
           table: byTitle(TaskV2),
@@ -387,11 +385,11 @@ describe('runSetup', () => {
           store,
         }),
       );
-      expect(outcome).toMatchObject({ kind: 'applied', reindexed: ['Task'] });
+      expect(outcome).toMatchObject({ kind: 'applied', reindexed: [] });
       expect(tasksOf(counts.writes)).toEqual([]);
     });
 
-    it('reindexes rows a migration moves to another index key', async () => {
+    it('leaves a row a migration moves to another index key until it is written', async () => {
       const { store, layer } = await atV1([]);
       const before = indexed();
       await Effect.runPromise(
@@ -406,16 +404,10 @@ describe('runSetup', () => {
         await Effect.runPromise(
           runSetup({ table: after, mode: 'persistent', store }),
         ),
-      ).toMatchObject({ kind: 'applied', reindexed: ['Task'] });
-      expect(await titled(after, 'hello', layer)).toEqual(['t1']);
-      expect(await titled(after, 'Hello', layer)).toEqual([]);
-      // Only the keys moved: the row is still stored at v1, as old code
-      // still serving reads it.
-      const [task] = tasksOf(await allItems(store));
-      expect(task?.data).toMatchObject({ _v: 'v1', title: 'Hello' });
-      expect(
-        await run(before.Task.get({ projectId: 'p1', taskId: 't1' }), layer),
-      ).toMatchObject({ value: { title: 'Hello' } });
+      ).toMatchObject({ kind: 'applied', reindexed: [] });
+      // A new version never scans the table: the row keeps its old key.
+      expect(await titled(after, 'Hello', layer)).toEqual(['t1']);
+      expect(await titled(after, 'hello', layer)).toEqual([]);
     });
 
     it('does not reindex an entity no index change touches', async () => {
