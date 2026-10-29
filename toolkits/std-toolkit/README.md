@@ -6,7 +6,7 @@ Single-table design toolkit: database-agnostic sync over single-table item colle
 
 Applications that store many entity types in one table, then mirror that data into a browser, end up writing the same three things by hand: a schema that can still read last year's rows, a storage layer that is bolted to one database, and a sync loop that keeps a client cache fresh. std-toolkit provides each as a separate subpath that shares one Entity model, so they compose without glue code.
 
-`core` defines the Entity envelope and metadata every other subpath speaks. `eschema` gives versioned schemas that migrate on read. `db` declares a StdTable once, with its keys, indexes and entities, and the DynamoDB, SQLite, IndexedDB, and Memory adapters realize it without changing application code. `sync` drives TanStack DB Collections from any backend and persists its replica through the same StdTable contract; `replica` does the same for Kabuki apps, as actors. `snapshot` captures the resulting storage contract as one document per table. Every physical table declares a mode: `persistent` data must survive every schema change, `disposable` data may be thrown away when a change is not safe. Each adapter's setup compares the table with the Stored contract kept as reserved rows inside it, then refuses a persistent table's breaking change or wipes a disposable one, and reindexes the rows an index change touches before the new code serves. A change no migration can make goes to a new table, through a table migration that moves every row once; that is coming as `StdTable.migrate`. `alchemy` deploys D1 and DynamoDB tables and runs their setup at deploy; for a table set up later on a device or object, its deploy guard refuses at deploy what setup would refuse, keeping the Deployed contract in Alchemy state. `@kestack/std-toolkit/db/testing` is the one test a persistent table needs: it fails unless the table's snapshot has no breaking change against the committed file, and every stored version of every entity upgrades. Snapshot never runs at request time.
+`core` defines the Entity envelope and metadata every other subpath speaks. `eschema` gives versioned schemas that migrate on read. `db` declares a StdTable once, with its keys, indexes and entities, and the DynamoDB, SQLite, IndexedDB, and Memory adapters realize it without changing application code. `sync` drives TanStack DB Collections from any backend and persists its replica through the same StdTable contract; `replica` does the same for Kabuki apps, as actors. `snapshot` captures the resulting storage contract as one document per table. Every physical table declares a mode: `persistent` data must survive every schema change, `disposable` data may be thrown away when a change is not safe. Each adapter's setup compares the table with the Stored contract kept as reserved rows inside it, then refuses a persistent table's breaking change or wipes a disposable one, and reindexes the rows an index change touches before the new code serves. A change no migration can make goes to a new table, through a table migration, `StdTable.migrate`, that moves every row once. `alchemy` deploys D1 and DynamoDB tables and runs their setup at deploy; for a table set up later on a device or object, its deploy guard refuses at deploy what setup would refuse, keeping the Deployed contract in Alchemy state. `@kestack/std-toolkit/db/testing` is the one test a persistent table needs: it fails unless the table's snapshot has no breaking change against the committed file, and every stored version of every entity upgrades. Snapshot never runs at request time.
 
 Each subpath owns its vocabulary in a `CONTEXT.md`: [core](src/core/CONTEXT.md), [eschema](src/eschema/CONTEXT.md), [snapshot](src/snapshot/CONTEXT.md), [db](src/db/CONTEXT.md), [sync](src/sync/CONTEXT.md), [replica](src/replica/CONTEXT.md). The [context map](CONTEXT-MAP.md) explains how they relate. Decisions live in [docs/adr/](docs/adr/), [src/db/docs/adr/](src/db/docs/adr/), and [src/sync/docs/adr/](src/sync/docs/adr/). Longer reads: [Evolving schema](docs/evolving-schema.md), [Sync guide](docs/sync-guide.md). The [stories](stories/) folder tells this package as a tree of Stories, each folder a `story.md` with runnable Proofs beside it: `evolving-schema` (with `migrations` and `snapshot`), `entities` (`keyed` and `single`), `adapters` (with `transactions`), and `sync`. Run them with `pnpm stories`.
 
@@ -63,19 +63,25 @@ The file check `expectTableShippable` is built on. It needs `vitest` as a peer.
 
 Deploys a StdTable with Alchemy. Each table resource takes a required `mode` and runs the table's setup at deploy, before the Worker goes live, so a refusal or a failed reindex fails the deploy. A table whose setup runs later, on a device or an object, gets a deploy guard instead: it keeps the Deployed contract in Alchemy state and fails the deploy on a change setup would refuse. Add `providers()` to the stack's providers, over Cloudflare's, which its D1 table runs on.
 
-| Export              | What it does                                                                                                                         |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `DynamoDB.table`    | Creates the DynamoDB table and runs its setup at deploy; adds a new global secondary index in place and refuses other index changes. |
-| `D1.table`          | Runs SQLite setup in D1 at deploy against the Stored contract kept in the table, reindex included.                                   |
-| `DeployGuard.table` | Refuses at deploy what setup would refuse later, for an IndexedDB or Durable Object table; one guard covers all its tables.          |
-| `providers`         | Every provider std-toolkit's resources need, to merge into a stack's `providers`.                                                    |
+| Export               | What it does                                                                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `DynamoDB.table`     | Creates the DynamoDB table and runs its setup at deploy; adds a new global secondary index in place and refuses other index changes. |
+| `D1.table`           | Runs SQLite setup in D1 at deploy against the Stored contract kept in the table, reindex included.                                   |
+| `D1.migration`       | Runs a table migration from one D1 table into a new one at deploy, after both are set up and before the Worker that binds it.        |
+| `DynamoDB.migration` | Runs a table migration from one DynamoDB table into a new one at deploy, the same way.                                               |
+| `DeployGuard.table`  | Refuses at deploy what setup would refuse later, for an IndexedDB or Durable Object table; one guard covers all its tables.          |
+| `providers`          | Every provider std-toolkit's resources need, to merge into a stack's `providers`.                                                    |
 
 ### `@kestack/std-toolkit/db`
 
-| Export          | What it does                                                                                                           |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `StdTable.make` | Starts a table declaration from a logical name; chain `primary`, `lsi`, `gsi`, `entity`, `singleEntity`, then `build`. |
-| `DatabaseError` | Tagged error every StdTable operation fails with, carrying a `reason` such as a failed condition.                      |
+| Export                  | What it does                                                                                                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `StdTable.make`         | Starts a table declaration from a logical name; chain `primary`, `lsi`, `gsi`, `entity`, `singleEntity`, then `build`.   |
+| `StdTable.migrate`      | Moves every row of an old table into a new one once, through one handler per old entity, as a stream of progress events. |
+| `StdTable.runMigration` | Runs a table migration to its end, logging each event, and returns `Done` or `Skipped`.                                  |
+| `MigrationRefused`      | Tagged error a table migration fails with before it changes anything, such as a new table already in use.                |
+| `MigrationRowFailed`    | Tagged error a table migration fails with when one old row does not decode or its handler fails.                         |
+| `DatabaseError`         | Tagged error every StdTable operation fails with, carrying a `reason` such as a failed condition.                        |
 
 The built `StdTable` carries each declared entity under its ESchema name (`table.Task`) and exposes `transact`, `scan`, `subscribe`, `drift`, `reindex`, and `dangerouslyRemoveAllItems`. See [src/db/CONTEXT.md](src/db/CONTEXT.md).
 
@@ -250,6 +256,7 @@ export default Stack(
 - `DynamoDB.table` works the same way on AWS: its resource creates a missing table and runs DynamoDB setup against the Stored contract inside it. It takes the `region`, and `credentials` or the `AWS_*` variables. The Worker binds its `tableName` the same way, and needs it anyway: a DynamoDB table name never defaults.
 - At runtime the application provides an adapter layer, `SQLite.make(table, { database: makeD1SQLite({ database: env.DB }), tableName: env.DB_TABLE }).layer`, and runs no setup.
 - An IndexedDB or Durable Object table is set up when it opens; `DeployGuard.table(table)` in the stack refuses at deploy what that setup would refuse.
+- A new table that a table migration fills gets `D1.migration(id, { from, to, migrate: StdTable.migrate(oldTable, table, handlers) })`, with both `D1.table` resources. The Worker binds the migration's `tableName`, so it goes live only after every row is through; once done, later deploys skip it.
 
 ### Add an index to a table that already holds rows
 
@@ -289,4 +296,4 @@ const outcome = await Effect.runPromise(
 - Setup reindexes an entity when an index or access pattern it uses is added or edited, and when a schema it reaches gains a version, since a migration may change an indexed field. It rewrites only rows whose index keys drifted, with `drift` and `reindex`.
 - It keeps no progress. The Stored contract is recorded only after the scan, so a setup that stops part-way leaves the old contract, and the next one reindexes again. A row an app write moves meanwhile is read again and retried, up to three times.
 - DynamoDB adds a new global secondary index and waits for it before the scan; IndexedDB changes its indexes in a version upgrade first. A disposable table is wiped instead.
-- A change no migration can make, such as a value no old row holds, is refused as breaking on a persistent table. The way past is a new physical table and a table migration into it, coming as `StdTable.migrate`.
+- A change no migration can make, such as a value no old row holds, is refused as breaking on a persistent table. The way past is a new physical table and a table migration into it, `StdTable.migrate`: see [stories/evolving-schema](stories/evolving-schema/a-table-migrates-into-a-new-table.proof.ts).

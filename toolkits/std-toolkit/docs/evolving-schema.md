@@ -333,9 +333,71 @@ produce that, and a migration that guesses puts a wrong value into every read.
 Such a change goes to a new table. You declare a new StdTable on a new
 physical table, whose ESchemas start again at v1, and a **table migration**
 moves every row of the old table into it once, reading the old table as it
-goes. The old table stays in code, frozen, until every database has migrated.
-This is coming as `StdTable.migrate`
+goes. The old table stays in code, frozen, until every database has migrated
 ([ADR 0022](adr/0022-a-table-migrates-into-a-new-table-and-backfills-are-gone.md)).
+
+### A table migration
+
+`StdTable.migrate` takes the old table, the new one, and one handler per
+entity of the old table. The keys are exhaustive: a missing or extra handler
+fails to type-check. A handler gets one old row, decoded at its latest value
+with its meta, as `get` returns it, so a tombstone arrives too, with
+`meta._d` set. It also gets `old`, the old table with its reads only, and
+`next`, the new table. Reads of `old` are strongly consistent wherever the
+database offers it, so a row the scan sees is never missing from them. It may write one row, several, or none.
+
+```ts
+const migration = StdTable.migrate(
+  oldBoard,
+  board,
+  {
+    Project: (project, { next }) =>
+      next.Project.insert({ ...project.value, archived: false }),
+    Task: (task, { old, next }) =>
+      old.Project.get({ projectId: task.value.projectId }).pipe(
+        Effect.flatMap((project) =>
+          next.Task.insert({
+            ...task.value,
+            owner: project?.value.owner ?? 'nobody',
+          }),
+        ),
+      ),
+    Comment: () => Effect.void, // dropped
+  },
+  { concurrency: 8 },
+);
+```
+
+It returns a `Stream` of events and needs both tables as layers:
+`Started { attempt, restarted }`, then `Progress { read, written, total,
+counts }` after each page of the old table, then `Done { counts }`. A run on
+a table that already finished emits only `Skipped`. `StdTable.runMigration`
+runs a stream to its end, logging each event.
+
+- The new table keeps one migration row in its Stored contract: the old
+  table's logical name and contract hash, `running` or `done`, the attempt,
+  and the rows read and written by old entity. `written` counts every row put
+  through `next`.
+- The new table must be persistent and set up under this code, and must not
+  hold rows a migration did not write. The old table must be set up under its
+  declaration in this code, so its rows read as typed. An old table with no
+  contract and no rows, as in a fresh environment, migrates as empty.
+- Any failure fails the stream with `MigrationRefused` or, for one row,
+  `MigrationRowFailed`, which names its entity and key. The row stays
+  `running`, so the next run clears the new table and starts over.
+- `total` is the adapter's estimate: exact on SQLite, IndexedDB and Memory,
+  and DynamoDB's own item count, refreshed about every six hours.
+- On D1 and DynamoDB it runs at deploy, in `D1.migration` or
+  `DynamoDB.migration` from `@kestack/std-toolkit/alchemy`, after both table
+  resources. The Worker binds the migration's `tableName`, so it serves the
+  new table only once every row is through. On SQLite and IndexedDB, run it
+  at app open, after both setups and before the new table is used.
+
+Run one migration at a time: a second run started while one is still going
+takes its `running` row for a crashed run's and starts over under it. The old table is not frozen while a run reads it, so a write the old Worker
+makes after the scan passed its row is lost. Once every database has
+migrated, delete the old table, the `migrate` call and the migration
+resource together.
 
 Every edge case above is a runnable Story under
 [`stories/evolving-schema/`](../stories/evolving-schema/), with
