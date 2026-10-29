@@ -17,9 +17,10 @@ import { Session as SessionPage } from './session/index.ts';
  * new one (`new-session/`), its Draft (`draft/`) where the first message
  * goes. Its sessions are in the
  * sidebar and the Session Switcher, not here.
- * Removing the project sits quietly above, and asks first. Its name and
- * path are in the header. A project whose folder is missing says so above
- * the Draft, with Remove beside it, and starts no new session; its
+ * Its name and path head a new session, and are in the header. A project
+ * whose folder is missing says so above the Draft, with Remove beside it,
+ * the one place a project is removed, asked first, and starts no new
+ * session; its
  * sessions stay readable. Its words and its Draft are drawn in one step,
  * once its row and the Saved Draft are read (`readyOf`); `ProjectReady`
  * says so once, before Layout is first drawn. A session its Draft started
@@ -86,8 +87,8 @@ function ProjectScreen({ root, model, props, children, send }: Self) {
       </div>
     );
   // Until the Store is read, nothing; a project it does not hold is not
-  // known until the server answers, so nothing then either: its words,
-  // its folder and Remove are drawn in one step, never filled in later,
+  // known until the server answers, so nothing then either: its words
+  // and its folder are drawn in one step, never filled in later,
   // and with its Draft, once its Saved Draft is read back.
   if (
     !readyOf({
@@ -221,9 +222,8 @@ export function useHandover(
 }
 
 /**
- * A new session (`new-session/`), with Remove under its words; a project
- * whose folder is missing says so in their place, with Remove beside it,
- * and blocks its Draft.
+ * A new session (`new-session/`); a project whose folder is missing says
+ * so in place of its branch, with Remove beside it, and blocks its Draft.
  */
 function NewSessionOf({
   model,
@@ -238,20 +238,25 @@ function NewSessionOf({
   } | null;
 }) {
   const missing = project?.folder === 'missing';
-  const remove = project && (
-    <RemoveProject
-      name={project.name}
-      missing={missing}
-      removal={model.removal}
-      onConfirm={(open) => send({ _tag: 'ConfirmToggled', open })}
-      onRemove={() => send({ _tag: 'RemoveAsked' })}
-    />
-  );
   return (
     <NewSession
+      name={project?.name ?? null}
       path={project?.path ?? null}
-      about={missing && <FolderMissing path={project.path} remove={remove} />}
-      extra={!missing && remove}
+      about={
+        missing && (
+          <FolderMissing
+            path={project.path}
+            remove={
+              <RemoveProject
+                name={project.name}
+                removal={model.removal}
+                onConfirm={(open) => send({ _tag: 'ConfirmToggled', open })}
+                onRemove={() => send({ _tag: 'RemoveAsked' })}
+              />
+            }
+          />
+        )
+      }
       blocked={missing}
       draft={children.draft}
     />
@@ -259,19 +264,17 @@ function NewSessionOf({
 }
 
 /**
- * Removing the project, asked first. The button is a Focus Spot of the
- * page, so leaving the question, kept, puts focus back on it.
+ * Removing a project whose folder is missing, asked first. The button is
+ * a Focus Spot of the page, so leaving the question, kept, puts focus
+ * back on it.
  */
 function RemoveProject({
   name,
-  missing,
   removal,
   onConfirm,
   onRemove,
 }: {
   readonly name: string;
-  /** Its folder is missing: Remove is the way on, so it is not quiet. */
-  readonly missing: boolean;
   readonly removal: {
     readonly confirming: boolean;
     readonly removing: boolean;
@@ -283,16 +286,12 @@ function RemoveProject({
   const open = Confirm.useOpen();
   const spot = keys.useFocusSpot('content', 'remove project');
   return (
-    <div className={missing ? 'shrink-0' : 'flex justify-end'}>
+    <div className="shrink-0">
       <Button
         ref={spot}
-        variant={missing ? 'outline' : 'ghost'}
-        size={missing ? 'sm' : 'xs'}
-        className={
-          missing
-            ? 'h-11 text-destructive keyboard:h-8'
-            : 'text-muted-foreground hover:text-destructive'
-        }
+        variant="outline"
+        size="sm"
+        className="h-11 text-destructive keyboard:h-8"
         onClick={() => open(() => onConfirm(true))}
       >
         <Trash2Icon aria-hidden />
@@ -301,11 +300,7 @@ function RemoveProject({
       <Confirm.Dialog
         open={removal.confirming}
         title={`Remove ${name}?`}
-        description={
-          missing
-            ? 'Its sessions leave this app.'
-            : 'Its sessions leave this app. The folder and its files stay exactly as they are.'
-        }
+        description="Its sessions leave this app."
         problem={removal.problem}
         busy={removal.removing}
         keep="Keep it"
@@ -331,7 +326,7 @@ export function FolderMissing({
   return (
     <div
       role="status"
-      className="mt-2 flex flex-col items-start gap-3 rounded-lg border border-border bg-muted/40 p-3 sm:flex-row sm:items-center"
+      className="flex flex-col items-start gap-3 rounded-lg border border-border bg-muted/40 p-3 sm:flex-row sm:items-center"
     >
       <p className="flex min-w-0 flex-1 items-start gap-2 text-sm">
         <FolderXIcon

@@ -51,4 +51,6 @@ export const Slots = createContext<{
   readonly blocked?: boolean;
   /** Where Side Question mode is drawn, in place of the transcript. */
   readonly sideQuestion?: HTMLElement | null;
+  /** Where a new session's branch and New Worktree switch are drawn, over the Draft. */
+  readonly where?: HTMLElement | null;
 }>({});

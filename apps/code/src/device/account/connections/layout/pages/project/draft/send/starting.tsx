@@ -36,9 +36,13 @@ export function Starting({
 }) {
   const { steps, args } = starting;
   return (
-    <div role="status" aria-label="Starting the session">
-      <h2 className="text-lg font-semibold">Starting session</h2>
-      <ol className="mt-2 flex flex-col gap-1.5 text-sm">
+    <div
+      role="status"
+      aria-label="Starting the session"
+      className="flex flex-col gap-2 py-2.5"
+    >
+      <h3 className="text-sm font-medium">Starting session</h3>
+      <ol className="flex flex-col gap-1.5 text-sm">
         {steps.map(({ step, state }) => (
           <li
             key={step}
