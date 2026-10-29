@@ -4,8 +4,9 @@ import { revealInView } from '@kestack/use-keys/surfaces';
 import {
   ChevronRightIcon,
   FolderPlusIcon,
+  GitBranchIcon,
   GitForkIcon,
-  SquarePenIcon,
+  PlusIcon,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -30,8 +31,10 @@ import { ago } from '../../../../../../ui/labels/status/index.ts';
 import { StatusWord } from '../../../../../../ui/labels/status/index.ts';
 import {
   type Entry,
+  type Group,
+  groupedOf,
   keyOf,
-  recentOf,
+  projectPlace,
   sessionBeside,
   sessionPlace,
 } from './rows/rows.ts';
@@ -43,14 +46,16 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 /*
  * The sidebar: on a wide screen, Open project first, which opens the
  * Project Picker as its keys do; then every unsettled Session of every
- * Connection, the most recently active first, in one list (`rows/`), under
- * the new session being written while there is one. A row is its
- * title, bold while Unseen, a fork glyph for a Fork, with its Project's
- * name under it, then its Connection's while there is more than one, and its
- * status at the right, as quietly as it can be said: a mark, or how long
- * ago, level with the title (`ui/status-word`), or, loud on purpose, a
- * "Question" pill while its agent waits on an Agent Question. Rows have room between
- * them, and the days room above, so the list reads as a list.
+ * Connection under its Project's heading, the Projects and their Sessions
+ * the most recently active first (`rows/`). A heading, anywhere on it or
+ * its plus, opens its Project's new session, and is lit while that is
+ * open. A row is its title, bold while Unseen, a fork glyph for a Fork,
+ * with the branch its Worktree is on under it in a git Project, then its
+ * Connection's name while there is more than one, and its status at the
+ * right, as quietly as it can be said: a mark, or how long ago, level with
+ * the title (`ui/status-word`), or, loud on purpose, a "Question" pill
+ * while its agent waits on an Agent Question. Rows have room between them,
+ * and the Projects room above, so the list reads as a list.
  * A row under a pointer is half lit, so the open one still stands out. A
  * Connection that does not answer keeps what it last synced, its rows saying
  * when it was last seen. Last of all, "Settled"
@@ -61,15 +66,15 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react';
  * that float over it on a phone, is `edges/foot/`.
  *
  * The whole sidebar is the `sidebar` Surface, which the App View draws. A
- * cursor goes through the rows shown, "Settled" last: j and k move it,
- * g g and Shift+G go to the first and the last, and Enter opens the row
- * and goes to the page, or, on "Settled", opens or closes the list and
- * stays.
+ * cursor goes through the headings and rows shown, "Settled" last: j and k
+ * move it, g g and Shift+G go to the first and the last, and Enter opens
+ * the row and goes to the page, or, on "Settled", opens or closes the list
+ * and stays.
  * Escape goes back to the page. The cursor follows the place open, and
  * entering the sidebar opens it if it was shut.
  *
  * From the page, [ and ] open the Session before and after the open one in
- * the timeline, and Ctrl+[ and Ctrl+] do so from anywhere, while typing
+ * the order drawn, and Ctrl+[ and Ctrl+] do so from anywhere, while typing
  * too, going round past either end. The Session open is scrolled into
  * view whenever it changes, without taking focus.
  */
@@ -133,25 +138,25 @@ export function Places({
     here === null || openSession === null
       ? null
       : { connectionId: here.connectionId, sessionId: openSession };
-  // A new session being written, in a project open with no session in it,
-  // holds a row of its own, open, until it is made or left.
-  const drafting = here !== null && here.page === undefined ? here : null;
-  const draft =
-    drafting === null
+  // A Project's new session open lights its heading, if it is listed.
+  const heading =
+    here === null || here.page !== undefined
       ? null
-      : `new:${keyOf({ connectionId: drafting.connectionId, id: drafting.projectId })}`;
+      : projectPlace({ connectionId: here.connectionId, id: here.projectId });
   const open =
-    draft ??
+    heading ??
     (from === null
       ? null
       : sessionPlace({ connectionId: from.connectionId, id: from.sessionId }));
   const [settledOpen, setSettledOpen] = useState(false);
-  const recent = recentOf(projects.rows, sessions);
+  const groups = groupedOf(projects.rows, sessions);
   const settled = settledOf(projects.rows, sessions);
   const toggleSettled = () => setSettledOpen((now) => !now);
   const stops: ReadonlyArray<Stop> = [
-    ...(draft === null ? [] : [{ place: draft, opens: true }]),
-    ...recent.map(({ place }) => ({ place, opens: true })),
+    ...groups.flatMap((group) => [
+      { place: group.place, opens: true },
+      ...group.sessions.map(({ place }) => ({ place, opens: true })),
+    ]),
     { place: 'settled', opens: false },
     ...(settledOpen
       ? settled.map(({ place }) => ({ place, opens: true }))
@@ -176,8 +181,8 @@ export function Places({
     if (open !== null) revealInView(cursor.element(open));
   }, [open, settledOpen]);
 
-  const before = sessionBeside(recent, from, -1);
-  const after = sessionBeside(recent, from, 1);
+  const before = sessionBeside(groups, from, -1);
+  const after = sessionBeside(groups, from, 1);
   const go = (to: OnConnection<Session> | undefined) => {
     if (to === undefined) return;
     setSettledOpen(false);
@@ -204,7 +209,7 @@ export function Places({
   // Sessions the device holds draw at once, of every Connection; with none,
   // how far each Connection never synced here got.
   const waiting =
-    recent.length === 0 &&
+    groups.length === 0 &&
     projects.rows.length === 0 &&
     (projects.waiting === null || projects.waiting.length > 0);
   return (
@@ -214,7 +219,7 @@ export function Places({
           <OpenProject />
           {waiting ? (
             <Waiting connections={projects.waiting} />
-          ) : recent.length === 0 && drafting === null ? (
+          ) : groups.length === 0 ? (
             <p className="px-3 py-2 text-[15px] text-pretty text-muted-foreground keyboard:md:text-sm">
               No sessions yet. Start one with the plus
               {picks === null ? '' : `, or ${picks}`}: pick a folder, then say
@@ -224,34 +229,27 @@ export function Places({
             <section aria-label="Sessions" className="pb-5">
               <SidebarMenu className="gap-0.5">
                 <AnimatePresence key={read} initial={false}>
-                  {drafting !== null && draft !== null && (
-                    <NewSessionRow
-                      key={draft}
-                      place={draft}
-                      connectionId={drafting.connectionId}
-                      projectId={drafting.projectId}
-                      project={
-                        projects.rows.find(
-                          ({ connectionId, id }) =>
-                            connectionId === drafting.connectionId &&
-                            id === drafting.projectId,
-                        )?.name ?? null
-                      }
+                  {groups.flatMap((group, index) => [
+                    <ProjectHeading
+                      key={group.place}
+                      group={group}
+                      first={index === 0}
+                      open={open === group.place}
                       at={at}
-                    />
-                  )}
-                  {recent.map((entry) => (
-                    <SessionRow
-                      key={entry.place}
-                      entry={entry}
-                      here={here}
-                      at={at}
-                      titles={titles}
-                      isUnseen={isUnseen}
-                      isAsking={isAsking}
-                      onMove={onMove}
-                    />
-                  ))}
+                    />,
+                    ...group.sessions.map((entry) => (
+                      <SessionRow
+                        key={entry.place}
+                        entry={entry}
+                        here={here}
+                        at={at}
+                        titles={titles}
+                        isUnseen={isUnseen}
+                        isAsking={isAsking}
+                        onMove={onMove}
+                      />
+                    )),
+                  ])}
                 </AnimatePresence>
               </SidebarMenu>
             </section>
@@ -349,45 +347,43 @@ function OpenProject() {
 }
 
 /**
- * The session being written, before it is made: shaped as a Session's
- * row and open, so the sidebar always shows where you are; "New session"
- * over its Project, a pen where a status would be. It goes as the session
- * is made, which then has its own row, or as you go elsewhere.
+ * A Project's heading over its Sessions: its name, quieter than theirs,
+ * and a plus at the right. Anywhere on it opens its new session, so the
+ * plus is only its sign; a finger's height to hit.
  */
-function NewSessionRow({
-  place,
-  connectionId,
-  projectId,
-  project,
+function ProjectHeading({
+  group: { place, connectionId, projectId, name },
+  first,
+  open,
   at,
 }: {
-  readonly place: string;
-  readonly connectionId: string;
-  readonly projectId: string;
-  readonly project: string | null;
+  readonly group: Group;
+  readonly first: boolean;
+  /** Whether its new session is open. */
+  readonly open: boolean;
   readonly at: (place: string) => true | undefined;
 }) {
+  const project = name ?? 'Unknown project';
   return (
-    <ArriveItem>
+    <ArriveItem className={first ? undefined : 'mt-3'}>
       <SidebarMenuButton
         data-place={place}
         data-cursor={at(place)}
-        isActive
-        className={`h-auto min-h-14 items-start gap-3 rounded-xl px-3 py-2 data-active:font-normal keyboard:md:h-auto keyboard:md:min-h-11 keyboard:md:rounded-lg keyboard:md:py-[7px] ${HOVER_ROW} ${TOUCH_ROW} ${cursorRing}`}
-        render={<Router.Link to={routes.project(connectionId, projectId)} />}
-      >
-        <span className="flex min-w-0 flex-1 flex-col gap-px">
-          <span className="truncate text-[15px] leading-5 keyboard:md:text-sm">
-            New session
-          </span>
-          <Where connectionId={connectionId} project={project} />
-        </span>
-        <span title="Being written" className="flex h-5 shrink-0 items-center">
-          <SquarePenIcon
-            aria-hidden
-            className="size-3.5! text-muted-foreground"
+        isActive={open}
+        className={`group/heading h-11 gap-2 rounded-lg px-3 text-[13px] font-medium text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground data-active:text-sidebar-foreground keyboard:md:h-7 keyboard:md:text-xs ${TOUCH_ROW} ${cursorRing}`}
+        render={
+          <Router.Link
+            to={routes.project(connectionId, projectId)}
+            title={`New session in ${project}`}
           />
-        </span>
+        }
+      >
+        <span className="min-w-0 flex-1 truncate">{project}</span>
+        <PlusIcon
+          role="img"
+          aria-label="New session"
+          className="size-4! shrink-0 text-muted-foreground/60 group-hover/heading:text-sidebar-foreground keyboard:md:size-3.5!"
+        />
       </SidebarMenuButton>
     </ArriveItem>
   );
@@ -395,7 +391,7 @@ function NewSessionRow({
 
 /** One Session: its title over where it is, its status at the right. */
 function SessionRow({
-  entry: { place, session, project },
+  entry: { place, session },
   here,
   at,
   titles,
@@ -423,6 +419,13 @@ function SessionRow({
           }),
         ) || 'Untitled session';
   const title = session.title || 'Untitled session';
+  const { branch } = session;
+  const where = useWhere(session.connectionId);
+  // With nothing under its title, a row is one line high.
+  const lines =
+    branch === null && where === null
+      ? 'min-h-12 keyboard:md:min-h-8'
+      : 'min-h-14 keyboard:md:min-h-11';
   return (
     <ArriveItem>
       <SwipeToMove
@@ -438,7 +441,7 @@ function SessionRow({
             here?.connectionId === session.connectionId &&
             here.page?.sessionId === session.id
           }
-          className={`h-auto min-h-14 items-start gap-3 rounded-xl px-3 py-2 data-active:font-normal keyboard:md:h-auto keyboard:md:min-h-11 keyboard:md:rounded-lg keyboard:md:py-[7px] ${HOVER_ROW} ${TOUCH_ROW} ${cursorRing}`}
+          className={`h-auto ${lines} items-start gap-3 rounded-xl px-3 py-2 data-active:font-normal keyboard:md:h-auto keyboard:md:rounded-lg keyboard:md:py-[7px] ${HOVER_ROW} ${TOUCH_ROW} ${cursorRing}`}
           render={
             <Router.Link
               to={routes.session(
@@ -467,7 +470,24 @@ function SessionRow({
                 {title}
               </span>
             </span>
-            <Where connectionId={session.connectionId} project={project} />
+            {(branch !== null || where !== null) && (
+              <span className="flex min-w-0 items-center gap-1.5 text-[13px] text-muted-foreground/75 keyboard:md:text-xs">
+                {branch !== null && (
+                  <span
+                    title={`On ${branch}`}
+                    className="flex min-w-0 shrink items-center gap-1 rounded-md bg-sidebar-accent/70 px-1.5 font-mono text-[12px] leading-[18px] text-sidebar-foreground/75 keyboard:md:text-[11px] keyboard:md:leading-4"
+                  >
+                    <GitBranchIcon aria-hidden className="size-3! shrink-0" />
+                    <span className="truncate">{branch}</span>
+                  </span>
+                )}
+                {where !== null && (
+                  <span className="min-w-0 truncate" title={where.title}>
+                    {where.text}
+                  </span>
+                )}
+              </span>
+            )}
           </span>
           <StatusWord
             status={session.status}
@@ -482,36 +502,21 @@ function SessionRow({
 }
 
 /**
- * Where a Session is: its Project's name, then its Connection's while there
- * is more than one, and, while the Connection does not answer, when it was
- * last seen.
+ * Where a Session is: its Connection's name while there is more than one,
+ * and, while the Connection does not answer, when it was last seen; null
+ * when there is nothing to say.
  */
-function Where({
-  connectionId,
-  project,
-}: {
-  readonly connectionId: string;
-  readonly project: string | null;
-}) {
+function useWhere(connectionId: string) {
   const connection = useConnectionName(connectionId);
   const health = useHealth(connectionId);
   const seen = outOfReach(health) ? `seen ${ago(health.lastSeen)}` : null;
-  const where = [project, connection, seen]
-    .filter((each) => each !== null)
-    .join(' · ');
-  if (where === '') return null;
-  return (
-    <span
-      className="truncate text-[13px] text-muted-foreground/75 keyboard:md:text-xs"
-      title={
-        seen === null
-          ? undefined
-          : 'Not answering: what it last synced is shown'
-      }
-    >
-      {where}
-    </span>
-  );
+  const text = [connection, seen].filter((each) => each !== null).join(' · ');
+  if (text === '') return null;
+  return {
+    text,
+    title:
+      seen === null ? undefined : 'Not answering: what it last synced is shown',
+  };
 }
 
 /** The Connections whose Projects never synced here, each with how far it got. */
