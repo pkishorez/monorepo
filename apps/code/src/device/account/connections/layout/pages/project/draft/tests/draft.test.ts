@@ -1,8 +1,11 @@
 import { Clock, Deferred, Effect, Layer, Schema, Scope, Stream } from 'effect';
 import {
+  type Branches,
   CodeClient,
+  GitFailed,
   ProjectNotFound,
   SessionNotFound,
+  type StartStep,
 } from '@kestack/connect/code';
 import { Actor, type Instance, Runtime, type Running } from '@kestack/kabuki';
 import { Navigation } from '@kestack/kabuki/routing';
@@ -17,7 +20,7 @@ import {
 import { savedDraftsMemory } from '../../../../../connection/store/index.ts';
 import { session } from '../../../../../../../routes/index.ts';
 import * as Catalog from '../../store.ts';
-import { SessionArrival, SharedCatalog } from '../../store.ts';
+import { Handover, SessionArrival, SharedCatalog } from '../../store.ts';
 import { DraftLive } from '../actor.ts';
 
 /*
@@ -32,7 +35,10 @@ import { DraftLive } from '../actor.ts';
  * saved a quarter of a second after the last change and at once as it
  * goes; it comes back as it was left, and a new session's is deleted once
  * the session has started. Each round of review's way to lose or bring
- * back a Saved Draft wrongly has its case.
+ * back a Saved Draft wrongly has its case. Starting shows each step as it
+ * comes, starts on the branch picked, or the one the Project's folder is
+ * on, and, Started, hands the Session over to the project page before it
+ * moves there; a git step that fails leaves the Draft as it was.
  */
 
 type Api = CodeClient['Service'];
@@ -150,11 +156,16 @@ const world = (
     Effect.fail(new ProjectNotFound({ id: 'p1' })),
   /** Whether a session asked for, its answer lost, shows among the Connection's. */
   arrives = true,
+  /** The Project's branches, as `branches` answers. */
+  branches: Branches = { _tag: 'NotGit' },
 ) => {
   const sent: Array<unknown> = [];
   const asked: Array<unknown> = [];
   const started: Array<unknown> = [];
   const pushed: Array<unknown> = [];
+  /** Each Session handed over to the project page, and what was pushed by then. */
+  const handed: Array<{ readonly sessionId: string; readonly pushed: number }> =
+    [];
   /** Who is signed in: switched by a test. */
   const signed = { id: 'a1' };
   const layer = Layer.mergeAll(
@@ -181,21 +192,48 @@ const world = (
           asked.push(args);
           return { _tag: 'Text' as const, text: 'It is fine' };
         })) as unknown as Api['ask'],
+      // Its git step and the agent's begin, then it waits to be told.
       startSession: ((args: unknown) =>
-        Effect.suspend(() => {
-          started.push(args);
-          const taken =
-            starts === 'take' ? Effect.succeed(true) : Deferred.await(starts);
-          return Effect.flatMap(taken, (ok) =>
-            ok ? Effect.succeed({ id: 's9' }) : failure(),
-          );
-        })) as unknown as Api['startSession'],
+        Stream.unwrap(
+          Effect.sync(() => {
+            started.push(args);
+            const taken =
+              starts === 'take' ? Effect.succeed(true) : Deferred.await(starts);
+            return Stream.concat(
+              Stream.make<ReadonlyArray<StartStep>>(
+                step('switchingBranch', 'running'),
+                step('switchingBranch', 'done'),
+                step('startingAgent', 'running'),
+              ),
+              Stream.unwrap(
+                Effect.map(taken, (ok) =>
+                  ok
+                    ? Stream.make<ReadonlyArray<StartStep>>(
+                        step('startingAgent', 'done'),
+                        {
+                          _tag: 'Started',
+                          session: { id: 's9' },
+                        } as unknown as StartStep,
+                      )
+                    : Stream.fromEffect(failure()),
+                ),
+              ),
+            );
+          }),
+        )) as unknown as Api['startSession'],
+      branches: (() => Effect.succeed(branches)) as unknown as Api['branches'],
     }),
     Layer.succeed(SharedCatalog, {
       changes: Stream.concat(Stream.make(CATALOG), Stream.never),
       retry: Effect.void,
     }),
     Layer.succeed(SessionArrival, { arrived: () => Effect.succeed(arrives) }),
+    Layer.succeed(Handover, {
+      started: (sessionId) =>
+        Effect.sync(
+          () => void handed.push({ sessionId, pushed: pushed.length }),
+        ),
+    }),
     Layer.mock(Navigation)({
       push: (to) => Effect.sync(() => void pushed.push(to)),
     }),
@@ -212,8 +250,13 @@ const world = (
       changes: Stream.never,
     }),
   );
-  return { layer, sent, asked, started, pushed, saved, signed };
+  return { layer, sent, asked, started, pushed, handed, saved, signed };
 };
+
+const step = (
+  name: 'switchingBranch' | 'makingWorktree' | 'startingAgent',
+  state: 'running' | 'done',
+): StartStep => ({ _tag: 'Step', step: name, state }) as StartStep;
 
 const wait = (ms = 20) =>
   Effect.promise(() => new Promise((done) => setTimeout(done, ms)));
@@ -244,7 +287,11 @@ const modelOf = (app: Running<unknown>) =>
     readonly mode: Mode;
     readonly picking: unknown;
     readonly problem: string | null;
-    readonly starting: boolean;
+    readonly starting: {
+      readonly steps: ReadonlyArray<unknown>;
+    } | null;
+    readonly branch: string | null;
+    readonly newWorktree: boolean;
     readonly attachments: ReadonlyArray<unknown>;
     readonly chosen: unknown;
     readonly insert: { readonly what: unknown } | null;
@@ -305,6 +352,28 @@ const say = (app: Running<unknown>, text: string) =>
       ),
     ),
     wait(),
+  );
+
+/** A Project that is a git repository, on `main`. */
+const GIT: Branches = {
+  _tag: 'Git',
+  current: 'main',
+  worktrees: [{ path: '/code/app', branch: 'main' }],
+  local: [
+    { name: 'main', upstream: 'origin/main', worktree: '/code/app' },
+    { name: 'spike', upstream: null, worktree: null },
+  ],
+  origin: ['origin/release'],
+};
+
+/** Opens the Branch Picker and picks `branch`, as its owner hears it. */
+const pickBranch = (app: Running<unknown>, branch: string) =>
+  Effect.andThen(
+    toDraft(app, {
+      _tag: 'PickerOpened',
+      picking: { _tag: 'Branch', how: 'keys' },
+    }),
+    toDraft(app, { _tag: 'BranchChosen', branch }),
   );
 
 describe('Draft', () => {
@@ -443,6 +512,8 @@ describe('Draft', () => {
             settings: { effort: 'high' },
             text: 'Fix the build',
             attachments: [],
+            branch: null,
+            newWorktree: false,
           },
         ]);
         expect(pushed).toEqual([session('m1', 'p1', 's9')]);
@@ -460,7 +531,7 @@ describe('Draft', () => {
         yield* Deferred.succeed(starts, false);
         yield* wait();
         expect(pushed).toEqual([]);
-        expect(modelOf(app).starting).toBe(false);
+        expect(modelOf(app).starting).toBeNull();
         expect(modelOf(app).problem).not.toBeNull();
       }),
     ));
@@ -508,9 +579,109 @@ describe('Draft', () => {
         yield* Deferred.succeed(starts, false);
         yield* wait();
         expect(pushed).toEqual([]);
-        expect(modelOf(app).starting).toBe(false);
+        expect(modelOf(app).starting).toBeNull();
         expect(modelOf(app).problem).not.toBeNull();
         expect(textOf(app, 'Message')).toBe('Fix the build');
+      }),
+    ));
+
+  it('shows each step as it comes, then hands the Session over before it moves to it', () =>
+    run(
+      Effect.gen(function* () {
+        const starts = yield* Deferred.make<boolean>();
+        const { layer, pushed, handed } = world(
+          'take',
+          savedDraftsMemory(),
+          starts,
+        );
+        const app = yield* start('NewSession', layer);
+        yield* wait();
+        yield* say(app, 'Fix the build');
+        expect(modelOf(app).starting?.steps).toEqual([
+          { step: 'switchingBranch', state: 'done' },
+          { step: 'startingAgent', state: 'running' },
+        ]);
+        expect(pushed).toEqual([]);
+        yield* Deferred.succeed(starts, true);
+        yield* wait();
+        expect(modelOf(app).starting?.steps).toEqual([
+          { step: 'switchingBranch', state: 'done' },
+          { step: 'startingAgent', state: 'done' },
+        ]);
+        // The project page keeps the Draft from before the move on.
+        expect(handed).toEqual([{ sessionId: 's9', pushed: 0 }]);
+        expect(pushed).toEqual([session('m1', 'p1', 's9')]);
+      }),
+    ));
+
+  it('starts on the branch the Project’s folder is on, or the one picked, in a new Worktree once toggled', () =>
+    run(
+      Effect.gen(function* () {
+        const { layer, started } = world(
+          'take',
+          savedDraftsMemory(),
+          'take',
+          undefined,
+          true,
+          GIT,
+        );
+        const app = yield* start('NewSession', layer);
+        yield* wait();
+        yield* say(app, 'Fix the build');
+        const second = yield* start('NewSession', layer);
+        yield* wait();
+        yield* pickBranch(second, 'origin/release');
+        yield* toDraft(second, { _tag: 'NewWorktreeToggled' });
+        yield* say(second, 'Fix the build');
+        expect(
+          started.map((args) => {
+            const { branch, newWorktree } = args as {
+              readonly branch: string | null;
+              readonly newWorktree: boolean;
+            };
+            return { branch, newWorktree };
+          }),
+        ).toEqual([
+          { branch: 'main', newWorktree: false },
+          { branch: 'origin/release', newWorktree: true },
+        ]);
+      }),
+    ));
+
+  it('stays on a git step that failed, its text and picks as they were, and says why', () =>
+    run(
+      Effect.gen(function* () {
+        const starts = yield* Deferred.make<boolean>();
+        const { layer, pushed, handed } = world(
+          'take',
+          savedDraftsMemory(),
+          starts,
+          () =>
+            Effect.fail(
+              new GitFailed({
+                step: 'switchingBranch',
+                message: 'Your local changes would be overwritten',
+              }),
+            ),
+          true,
+          GIT,
+        );
+        const app = yield* start('NewSession', layer);
+        yield* wait();
+        yield* pickBranch(app, 'spike');
+        yield* toDraft(app, { _tag: 'NewWorktreeToggled' });
+        yield* say(app, 'Fix the build');
+        yield* Deferred.succeed(starts, false);
+        yield* wait();
+        expect(pushed).toEqual([]);
+        expect(handed).toEqual([]);
+        expect(modelOf(app).starting).toBeNull();
+        expect(modelOf(app).problem).toBe(
+          'Your local changes would be overwritten',
+        );
+        expect(textOf(app, 'Message')).toBe('Fix the build');
+        expect(modelOf(app).branch).toBe('spike');
+        expect(modelOf(app).newWorktree).toBe(true);
       }),
     ));
 
@@ -625,6 +796,36 @@ describe('Draft', () => {
         }),
       ));
 
+    it('keeps a new session’s branch and Worktree picked, and brings them back', () =>
+      run(
+        Effect.gen(function* () {
+          const { layer, saved } = world(
+            'take',
+            savedDraftsMemory(),
+            'take',
+            undefined,
+            true,
+            GIT,
+          );
+          yield* Effect.scoped(
+            Effect.gen(function* () {
+              const app = yield* start('NewSession', layer);
+              yield* wait();
+              yield* pickBranch(app, 'spike');
+              yield* toDraft(app, { _tag: 'NewWorktreeToggled' });
+            }),
+          );
+          expect(yield* keptIn(saved, PROJECT)).toMatchObject({
+            branch: 'spike',
+            newWorktree: true,
+          });
+          const app = yield* start('NewSession', layer);
+          yield* wait();
+          expect(modelOf(app).branch).toBe('spike');
+          expect(modelOf(app).newWorktree).toBe(true);
+        }),
+      ));
+
     it('deletes it once the Draft shows nothing again', () =>
       run(
         Effect.gen(function* () {
@@ -697,7 +898,7 @@ describe('Draft', () => {
               yield* wait();
               yield* effort(app, 'low');
               yield* say(app, 'Fix the build');
-              expect(modelOf(app).starting).toBe(true);
+              expect(modelOf(app).starting).not.toBeNull();
             }),
           );
           const kept = yield* keptIn(saved, PROJECT);

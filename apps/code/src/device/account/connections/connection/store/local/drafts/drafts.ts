@@ -36,8 +36,10 @@ const Attached = Schema.Struct({
 
 /**
  * A Saved Draft: the Draft Mode open; each mode's text and selection, by
- * mode; the Message's files, as they are sent, with their sizes; and the
- * agent, model and settings picked, null where none was.
+ * mode; the Message's files, as they are sent, with their sizes; the
+ * agent, model and settings picked, null where none was; and, for a new
+ * session, the branch picked and whether it runs in a new Worktree, kept
+ * only once picked.
  */
 export const SavedDraft = Schema.Struct({
   mode: Schema.String,
@@ -48,6 +50,8 @@ export const SavedDraft = Schema.Struct({
     model: Schema.NullOr(Schema.String),
     settings: Schema.Record(Schema.String, Schema.String),
   }),
+  branch: Schema.optionalKey(Schema.String),
+  newWorktree: Schema.optionalKey(Schema.Boolean),
 });
 export type SavedDraft = typeof SavedDraft.Type;
 

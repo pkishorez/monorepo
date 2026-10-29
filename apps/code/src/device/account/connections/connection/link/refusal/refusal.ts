@@ -5,6 +5,7 @@ import type {
   FolderExists,
   FolderNotFound,
   FolderUnreadable,
+  GitFailed,
   HarnessFailed,
   InvalidAccount,
   InvalidBinary,
@@ -39,6 +40,7 @@ type Failure =
   | FolderExists
   | FolderNotFound
   | FolderUnreadable
+  | GitFailed
   | HarnessFailed
   | InvalidAccount
   | InvalidBinary
@@ -98,6 +100,8 @@ export const reasonOf = (cause: Failure): string => {
           : 'Speech to Text is off on that Connection';
     case 'TranscriptionFailed':
       return cause.message || "Couldn't make out the audio";
+    case 'GitFailed':
+      return cause.message || 'Git could not make the session its branch';
     case 'AskFailed':
     case 'InvalidAccount':
     case 'InvalidBinary':

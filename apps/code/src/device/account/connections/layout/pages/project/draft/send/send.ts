@@ -1,7 +1,12 @@
 import type { Model, Props } from '../actor.ts';
-import { ask, send, startSession } from './commands.ts';
+import { ask, nameStart, send } from './commands.ts';
 import { wire } from '../draft.ts';
-import { pickedHarness, pickedModel, pickedSettings } from '../pick/pick.ts';
+import {
+  pickedBranch,
+  pickedHarness,
+  pickedModel,
+  pickedSettings,
+} from '../pick/pick.ts';
 
 /*
  * What a mode's text handed up becomes, by where the Draft goes: a new
@@ -10,12 +15,22 @@ import { pickedHarness, pickedModel, pickedSettings } from '../pick/pick.ts';
  * and the Command, or nothing when there is nothing to send now.
  */
 
-/** A new session, already running its first message. */
+/**
+ * A new session, already running its first message, where the branch
+ * picked is: started once its id is chosen, by the Draft's Worker.
+ */
 export const start = (model: Model, props: Props, written: string) => {
   const text = written.trim();
   const harness = pickedHarness(model);
   const picked = pickedModel(model);
-  if (model.starting || harness === null || picked === null) return {};
+  const where = pickedBranch(model);
+  if (
+    model.starting !== null ||
+    harness === null ||
+    picked === null ||
+    where === null
+  )
+    return {};
   if (!harness.available)
     return {
       model: {
@@ -28,15 +43,24 @@ export const start = (model: Model, props: Props, written: string) => {
   if (text === '' && model.attachments.length === 0)
     return { model: { ...model, problem: 'Write the first message' } };
   return {
-    model: { ...model, starting: true, problem: null },
-    command: startSession({
-      projectId: props.projectId,
-      account: harness.account,
-      model: picked,
-      settings: pickedSettings(model),
-      text,
-      attachments: wire(model.attachments),
-    }),
+    model: {
+      ...model,
+      problem: null,
+      starting: {
+        id: null,
+        args: {
+          projectId: props.projectId,
+          account: harness.account,
+          model: picked,
+          settings: pickedSettings(model),
+          text,
+          attachments: wire(model.attachments),
+          ...where,
+        },
+        steps: [],
+      },
+    },
+    command: nameStart(),
   };
 };
 

@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from 'react';
+import { useChild } from '@kestack/kabuki/react';
 import {
   GUTTERED,
   useGutter,
@@ -8,11 +9,17 @@ import { Draft } from '../draft/index.ts';
 
 /*
  * A new session on the project's page, while no session is open: what it
- * is and where, over the Draft at its foot, which starts it. The page is
- * the content's default Focus Spot. The project page adds what it knows
- * to it, such as Remove, or why no session can start, which blocks the
- * Draft.
+ * is and where, over the Draft at its foot, which starts it; once sent,
+ * its Starting in their place, until the Session's page is drawn instead.
+ * The page is the content's default Focus Spot. The project page adds
+ * what it knows to it, such as Remove, or why no session can start, which
+ * blocks the Draft.
  */
+
+type Instance = ComponentProps<typeof Draft.view>['instance'];
+
+/** No Instance: what a Hook reads while the Draft is absent. */
+const NONE = { id: '' } as Instance;
 
 /** A new session: the words over its Draft, with whatever else the project adds under them. */
 export function NewSession({
@@ -31,8 +38,9 @@ export function NewSession({
   /** Nothing can be sent, as `about` says. */
   readonly blocked: boolean;
   /** The project's new session Draft, while there is one. */
-  readonly draft: ComponentProps<typeof Draft.view>['instance'] | undefined;
+  readonly draft: Instance | undefined;
 }) {
+  const starting = useChild(draft ?? NONE, ({ model }) => model.starting);
   const page = keys.useFocusSpot('content', 'page', { default: true });
   // The Draft sits under the words, inset by the room their scrollbar keeps.
   const gutter = useGutter();
@@ -44,20 +52,26 @@ export function NewSession({
         className={`relative flex min-h-0 flex-1 flex-col justify-end overflow-y-auto outline-none ${GUTTERED}`}
       >
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-1 px-4 pt-8 pb-6 sm:px-6">
-          <h2 className="text-lg font-semibold">New session</h2>
-          {about || (
-            <p className="text-sm text-muted-foreground">
-              Write the first message to start one
-              {path !== null ? (
-                <>
-                  {' '}
-                  in <span className="font-mono text-xs">{path}</span>
-                </>
-              ) : null}
-              .
-            </p>
+          {draft && starting ? (
+            <Draft.Starting starting={starting} />
+          ) : (
+            <>
+              <h2 className="text-lg font-semibold">New session</h2>
+              {about || (
+                <p className="text-sm text-muted-foreground">
+                  Write the first message to start one
+                  {path !== null ? (
+                    <>
+                      {' '}
+                      in <span className="font-mono text-xs">{path}</span>
+                    </>
+                  ) : null}
+                  .
+                </p>
+              )}
+              {extra}
+            </>
           )}
-          {extra}
         </div>
       </div>
       <section

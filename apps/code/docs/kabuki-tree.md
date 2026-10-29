@@ -51,8 +51,13 @@ checks who may import whom (`laymos.config.json`).
            (`…/s/:session`).
          - `draft/` keeps the text, files and choices, and the saved
            Draft. Its parts: `write/` (editor, attachments, touch mode),
-           `pick/` (agent and model, Skills) and `send/` (message, side
-           question).
+           `pick/` (agent and model, Skills, and a new session's branch and
+           New Worktree toggle) and `send/` (message, side question, and a
+           new session's Starting: its steps, streamed by a Worker, drawn
+           where the transcript will be). Started, the Draft hands the
+           Session over to `project/`, which keeps the Draft drawn until
+           the Session's page can be drawn whole, so no blank comes
+           between them.
          - `session/` holds the Session's row, its fork history, Stop,
            Fork and Seen; `transcript/` draws its turns, tool calls and
            words; `question/` is the Question Panel, which stands in for
@@ -89,7 +94,8 @@ device                          root page; States: Reading | Checking | SignedIn
 └── pages                       one at a time, from the URL
     ├── Home
     ├── Settings                general, shortcuts, connections (one card each)
-    ├── Project                 the Catalog; draft while no Session is open
+    ├── Project                 the Catalog; the Handover of a Session its draft started
+    │   ├── draft               while no Session is open, or the one it started is not yet drawn whole
     │   └── Session             /s/:sessionId
     │       ├── draft           key: the session id
     │       └── question        key: the session id; the Question Panel

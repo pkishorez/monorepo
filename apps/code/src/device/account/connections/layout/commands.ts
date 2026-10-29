@@ -24,9 +24,9 @@ import { useCallback, useRef } from 'react';
  * A session gives the page the transcript's keys while it is open. `o`,
  * `s` and `a` open the Project Picker, the Session Switcher and
  * Actions; `m`, `p` and `e` the model Picker at the model, the permissions
- * and the effort. Space starts or stops a Dictation, and `d` opens the
- * Microphone Picker, to choose what it records from; `t` switches the
- * theme. The Ctrl keys above,
+ * and the effort; `shift+b` the Branch Picker. Space starts or stops a
+ * Dictation, and `d` opens the Microphone Picker, to choose what it
+ * records from; `t` switches the theme. The Ctrl keys above,
  * `Ctrl+,`, Settings and back, Mod+., stopping the turn, Ctrl+Space, a Dictation
  * again, Ctrl+H and Ctrl+L, the sidebar and the page, Ctrl+[ and Ctrl+],
  * the session before and after in the sidebar, Ctrl+O and Ctrl+I, Back and
@@ -243,6 +243,7 @@ export const keys = createKeys({
             label: 'Pick the permissions',
           },
           effort: { keys: 'e', label: 'Pick the effort' },
+          branch: { keys: 'shift+b', label: 'Pick the branch' },
           side: { keys: 'q', label: 'Ask on the side, or back' },
           sideAnywhere: {
             keys: 'ctrl+q',
@@ -556,6 +557,7 @@ export const keyTable: ReadonlyArray<{
         always: [],
         vim: ['content.model', 'content.permissions', 'content.effort'],
       },
+      { label: 'Pick the branch', always: [], vim: ['content.branch'] },
       {
         label: 'Start or stop a Dictation',
         always: ['app.dictateAnywhere'],
