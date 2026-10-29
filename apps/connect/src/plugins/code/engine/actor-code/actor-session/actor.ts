@@ -55,7 +55,8 @@ import { cancel, run } from './turn.js';
  * (see commands.ts) and keeps the reason when the harness refuses; follows
  * the Agent Questions its running Turn waits on, and gives the agent an
  * Answer, its Commands telling the caller in Answers how it went; saves
- * itself whenever its record changes; takes a message's model and settings
+ * itself whenever its record changes, a new one only once its Agent has
+ * opened; takes a message's model and settings
  * from that Turn on; asks a One-shot Prompt for a title after its first
  * message (see title.ts); and, while not Settled, keeps the branch its
  * Worktree is on (see branch.ts). Each Turn that starts marks it active, and each
@@ -221,7 +222,20 @@ const choose = (model: Model, prompt: Prompt): Model =>
       };
 
 /**
- * Saves the Session's record every time it changes, in order. A Session
+ * Waits until the Session's Agent has first opened. A new Session counts
+ * only from then: one whose Agent fails to open never does, for the
+ * engine drops it, so it waits on until stopped.
+ */
+const opened = (self: SessionSelf) =>
+  Effect.gen(function* () {
+    const { model } = yield* self.get;
+    const kept = yield* (yield* Agents).of(model.session.id);
+    yield* kept.firstOpen.pipe(Effect.catch(() => Effect.never));
+  });
+
+/**
+ * Saves the Session's record every time it changes, in order; a new one,
+ * still untitled, from when its Agent has opened (see `opened`). A Session
  * that stops, with its project removed or the server stopping, saves
  * nothing more: one stopped running is still `running` in the Store, and
  * the next start marks it interrupted and Resumes it once.
@@ -229,6 +243,7 @@ const choose = (model: Model, prompt: Prompt): Model =>
 const persist = (self: SessionSelf) =>
   Effect.gen(function* () {
     const store = yield* Store;
+    if ((yield* self.get).model.untitled !== null) yield* opened(self);
     yield* self.changes.pipe(
       Stream.map(({ model, state }) => recordOf(model, state)),
       Stream.changesWith((a, b) => JSON.stringify(a) === JSON.stringify(b)),
@@ -444,7 +459,8 @@ export const Session = Actor.build(
       persist: { run: (self) => persist(self) },
       title: {
         while: ({ model }) => model.untitled !== null,
-        run: (self) => title(self),
+        // Nothing is written of a Session whose Agent never opened.
+        run: (self) => Effect.andThen(opened(self), title(self)),
       },
       branch: {
         while: ({ model }) => model.session.settledAt === null,

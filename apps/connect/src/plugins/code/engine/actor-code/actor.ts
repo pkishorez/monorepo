@@ -16,7 +16,8 @@ import { Remove, Save } from './commands.js';
  * - Ready    the Projects, added and removed on request, each change saved;
  *            removing one stops its Sessions and removes them. A new
  *            session starts here, already running its first message, in
- *            its Worktree or else its Project's folder; a Fork joins idle,
+ *            its Worktree or else its Project's folder, and is dropped
+ *            if its Agent fails to open; a Fork joins idle,
  *            in the original's. The Folder Check (see checks/folders.ts) keeps
  *            whether each Project's folder is there, saving only a change.
  */
@@ -47,6 +48,8 @@ const Message = Schema.TaggedUnion({
   RemoveProject: { id: Schema.String },
   StartSession: { session: SessionInput.fields.session, first: Prompt },
   AddSession: { session: SessionInput.fields.session },
+  /** A new Session whose start failed: it stops, and was never saved. */
+  DropSession: { id: Schema.String },
   FolderFound: {
     id: Schema.String,
     folder: Schema.Literals(PROJECT_FOLDERS),
@@ -135,6 +138,14 @@ export const Code = Actor.build(
               },
             };
           },
+          DropSession: ({ id }, { model }) => ({
+            model: {
+              ...model,
+              sessions: model.sessions.filter(
+                ({ session }) => session.id !== id,
+              ),
+            },
+          }),
           FolderFound: ({ id, folder }, { model }) => {
             const found = model.projects.find((project) => project.id === id);
             if (found === undefined || found.folder === folder) return {};

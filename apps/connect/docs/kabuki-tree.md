@@ -100,7 +100,9 @@ Agent's MCP Server Status and Context Usage, is a Query on the Session; what
 the answer changes is a Message after it, such as AddSession for a Fork. A
 new Session's git step, a branch switched or a Worktree made, runs at the
 front door before it Sends StartSession (`starting.ts`), so a step that fails
-starts nothing.
+starts nothing. The start is done once the new Session's Agent has opened: it
+saves nothing before, and one whose Agent fails to open is dropped
+(DropSession), the Worktree made for it taken back.
 
 ## actor-connection
 

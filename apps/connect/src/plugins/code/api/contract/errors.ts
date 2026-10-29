@@ -95,7 +95,10 @@ export class InvalidAccount extends Schema.TaggedError<InvalidAccount>()(
   { message: Schema.String },
 ) {}
 
-/** A harness failed to answer for a live Session. */
+/**
+ * A harness failed to answer for a live Session, or a new Session's Agent
+ * failed to open, so it did not start.
+ */
 export class HarnessFailed extends Schema.TaggedError<HarnessFailed>()(
   'HarnessFailed',
   { message: Schema.String },

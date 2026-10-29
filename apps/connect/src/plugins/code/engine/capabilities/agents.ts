@@ -28,6 +28,11 @@ import type {
 export interface SessionAgent {
   /** The Agent, opened now if it is not open. */
   readonly agent: Effect.Effect<Agent, HarnessError>;
+  /**
+   * Waits for the Agent's first open: done once it opened, failed with why
+   * it could not, or when the Session stopped first.
+   */
+  readonly firstOpen: Effect.Effect<void, HarnessError>;
   /** The Agent if it is open now, without opening it. */
   readonly opened: Effect.Effect<Agent | undefined>;
   /** Closes the Agent; the next Turn opens it again, resumed by its Native Id. */
