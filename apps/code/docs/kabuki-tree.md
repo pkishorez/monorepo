@@ -58,7 +58,7 @@ checks who may import whom (`laymos.config.json`).
            words; `question/` is the Question Panel, which stands in for
            the Draft while its agent asks.
          - `settings/` has `general/`, `shortcuts/` and `connections/` (one
-           card per Connection: its accounts, speech and Projects).
+           card per Connection: its Agents, accounts and speech).
 
 `src/ui/` holds plain parts with no data: `page/` (devtools, gutter,
 theme), `controls/` (notices, the Picker, settings rows) and `labels/`

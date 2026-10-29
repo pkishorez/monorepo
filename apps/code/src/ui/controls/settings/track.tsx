@@ -22,8 +22,7 @@ import {
 /*
  * On a touch screen tabs sit side by side in one track, each drawn on its
  * own, the track showing one at a time: Settings' tabs, each scrolled on
- * its own, and a Connection's Agents and Projects inside one of them, as tall
- * as the one open.
+ * its own.
  *
  * 1. Follow  a sideways drag moves the track with the finger, so the tab
  *            beside comes into view as the one open goes: right to left
@@ -32,8 +31,7 @@ import {
  * 2. Let go  past a fifth of the track's width, or flicked, it opens the
  *            tab beside; otherwise it springs back. A way with no tab
  *            there, such as before the first, is left to the zone around
- *            it: the tabs around these, or the App Shell's, whose swipe
- *            opens the sidebar.
+ *            it: the App Shell's, whose swipe opens the sidebar.
  * 3. Settle  once another tab is open, by a swipe or a tap on its name,
  *            the track springs from where it was to it, as fast as the
  *            finger let go, and quicker the less it has to go.
@@ -71,10 +69,9 @@ const reduced = () =>
 
 /**
  * The tabs shown, side by side, the one open in view; `heading` above
- * them, which a swipe on it moves them too. Filling, the track takes the
- * height it is given and each tab scrolls on its own; else it is as tall
- * as the tab open, the one beside cut to it while it shows. `slid` reads
- * how far the track is moved off the tab open, in px.
+ * them, which a swipe on it moves them too. The track takes the height it
+ * is given and each tab scrolls on its own. `slid` reads how far the track
+ * is moved off the tab open, in px.
  */
 export function TabTrack<Tab extends string>({
   open,
@@ -82,7 +79,6 @@ export function TabTrack<Tab extends string>({
   heading,
   panel,
   onChoose,
-  fill = false,
   slid,
   className,
 }: {
@@ -91,7 +87,6 @@ export function TabTrack<Tab extends string>({
   readonly heading: ReactNode;
   readonly panel: (tab: Tab) => ReactNode;
   readonly onChoose: (tab: Tab) => void;
-  readonly fill?: boolean;
   readonly slid?: RefObject<MotionValue<number> | null>;
   readonly className?: string;
 }) {
@@ -100,7 +95,7 @@ export function TabTrack<Tab extends string>({
   const at = Math.max(0, shown.indexOf(open));
   if (slid) slid.current = x;
   return (
-    <GestureZone className={cn('flex flex-col', fill && 'min-h-0', className)}>
+    <GestureZone className={cn('flex min-h-0 flex-col', className)}>
       <Follow
         open={open}
         shown={shown}
@@ -109,17 +104,14 @@ export function TabTrack<Tab extends string>({
         onChoose={onChoose}
       />
       {heading}
-      <div
-        ref={frame}
-        className={cn('overflow-clip', fill && 'min-h-0 flex-1')}
-      >
+      <div ref={frame} className="min-h-0 flex-1 overflow-clip">
         <div
-          className={cn(fill && 'h-full')}
+          className="h-full"
           style={{ transform: `translateX(${-100 * at}%)` }}
         >
           <motion.div
             style={{ x }}
-            className={cn('relative will-change-transform', fill && 'h-full')}
+            className="relative h-full will-change-transform"
           >
             {/* Only the tab open sets the height; each sits at its place. */}
             {shown.map((tab, index) => (
@@ -128,11 +120,8 @@ export function TabTrack<Tab extends string>({
                 inert={tab !== open}
                 style={{ left: `${100 * index}%` }}
                 className={cn(
-                  'w-full',
+                  'h-full w-full overflow-y-auto overscroll-y-contain',
                   tab === open ? 'relative' : 'absolute top-0',
-                  fill
-                    ? 'h-full overflow-y-auto overscroll-y-contain'
-                    : 'bottom-0',
                 )}
               >
                 {panel(tab)}

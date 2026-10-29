@@ -116,7 +116,6 @@ export const SettingsView = View.make(
             heading={names}
             panel={panel}
             onChoose={choose}
-            fill
             className="mx-auto w-full max-w-4xl flex-1 keyboard:md:flex-row keyboard:md:gap-10 keyboard:md:px-6"
           />
         </div>
