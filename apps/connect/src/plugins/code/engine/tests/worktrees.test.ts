@@ -495,6 +495,46 @@ describe('a Session in a git Project', () => {
     }
   });
 
+  it('starts on the branch a repository with no commits is on, but makes no Worktree from it', async () => {
+    const repo = temp();
+    sh(repo, 'init', '-q', '-b', 'main');
+    await run((worktrees) =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const project = yield* engine.addProject(repo);
+        expect(yield* engine.branches(project.id)).toMatchObject({
+          current: 'main',
+          local: [],
+        });
+        const { session, steps } = yield* start(project.id, {
+          branch: 'main',
+        });
+        expect(steps).toEqual(['startingAgent running', 'startingAgent done']);
+        expect(session).toMatchObject({ worktree: repo, branch: 'main' });
+
+        const exit = yield* Effect.exit(
+          start(project.id, { branch: 'main', newWorktree: true }),
+        );
+        expect(exit).toMatchObject({
+          _tag: 'Failure',
+          cause: {
+            reasons: [
+              {
+                error: {
+                  _tag: 'GitFailed',
+                  step: 'makingWorktree',
+                  message:
+                    'This Project has no commits yet to start a worktree from',
+                },
+              },
+            ],
+          },
+        });
+        expect(inside(join(worktrees, project.id))).toEqual([]);
+      }),
+    );
+  });
+
   it('runs in its folder, with no branch, in a Project that is not git', async () => {
     await run(() =>
       Effect.gen(function* () {
