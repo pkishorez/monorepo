@@ -110,11 +110,16 @@ const Step = Schema.Struct({
   state: Schema.Literals(['running', 'done']),
 });
 
-/** A new session being started: its id, null until chosen, what it is started with, and its steps so far. */
+/**
+ * A new session being started: its id, null until chosen, what it is
+ * started with, and its steps so far: until Connect tells any (`told`),
+ * the one it is expected to run first, running.
+ */
 export const Starting = Schema.Struct({
   id: Schema.NullOr(Schema.String),
   args: StartArgs,
   steps: Schema.Array(Step),
+  told: Schema.Boolean,
 });
 
 /** What the model Picker set; null: as it was. */
@@ -582,15 +587,17 @@ export const DraftLive = Actor.build(Draft, {
       model.starting === null || model.starting.id !== null
         ? {}
         : { model: { ...model, starting: { ...model.starting, id } } },
-    // Each step where it first came, as it stands now.
+    // Each step where it first came, as it stands now; the one expected
+    // first gives way to the first Connect tells.
     Stepped: ({ step, state }, { model }) => {
       if (model.starting === null) return {};
-      const { steps } = model.starting;
+      const steps = model.starting.told ? model.starting.steps : [];
       return {
         model: {
           ...model,
           starting: {
             ...model.starting,
+            told: true,
             steps: steps.some((each) => each.step === step)
               ? steps.map((each) =>
                   each.step === step ? { step, state } : each,

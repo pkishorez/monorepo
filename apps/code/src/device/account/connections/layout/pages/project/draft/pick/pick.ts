@@ -1,3 +1,4 @@
+import type { StartStepName } from '@kestack/connect/code';
 import * as Catalog from '../../store.ts';
 import type { Model, Props } from '../actor.ts';
 import { branchOf } from './branch/index.ts';
@@ -51,6 +52,27 @@ export const pickedBranch = ({
     : branches._tag === 'NotGit'
       ? { branch: null, newWorktree: false }
       : { branch: branchOf(branches, branch), newWorktree };
+
+/**
+ * The step a new session's start runs first, as Connect decides it for
+ * where it runs: a new Worktree made, the folder switched to a branch no
+ * Worktree has out, or else the agent started. Branches not known, a
+ * branch picked is taken as one to switch to.
+ */
+export const firstStep = (
+  { branches }: Model,
+  where: { readonly branch: string | null; readonly newWorktree: boolean },
+): StartStepName => {
+  if (branches?._tag === 'NotGit') return 'startingAgent';
+  if (where.newWorktree) return 'makingWorktree';
+  if (where.branch === null) return 'startingAgent';
+  if (branches === null) return 'switchingBranch';
+  if (where.branch === branches.current) return 'startingAgent';
+  const local =
+    branches.local.find(({ name }) => name === where.branch) ??
+    branches.local.find(({ upstream }) => upstream === where.branch);
+  return local?.worktree ? 'startingAgent' : 'switchingBranch';
+};
 
 /** The agent, model and settings in effect, for the model Picker; null until they are known. */
 export const current = (model: Model, { to }: Props) => {
