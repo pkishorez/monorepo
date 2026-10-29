@@ -138,6 +138,7 @@ const serve = (options: ServeFlags) =>
       data: own.data,
       state: own.state,
       cache: own.cache,
+      shared: own.shared,
       runtime: own.runtime,
     });
     const serving = Effect.gen(function* () {
@@ -168,6 +169,7 @@ const serve = (options: ServeFlags) =>
             data: own.data,
             state: own.state,
             cache: own.cache,
+            shared: own.shared,
             runtime: own.runtime,
           },
           socketId: own.socketId,

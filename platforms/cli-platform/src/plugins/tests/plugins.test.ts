@@ -178,6 +178,9 @@ describe('a Plugin kept running by its CLI', () => {
                 'utf8',
               ),
             ).toContain('Listening on');
+            expect(existsSync(join(plugin.folders.shared, 'started-a'))).toBe(
+              true,
+            );
             expect(running.running()).toBe(true);
           }),
         ),

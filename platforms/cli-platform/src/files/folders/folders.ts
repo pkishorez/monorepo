@@ -9,8 +9,10 @@ import { xdgFolders, xdgRuntime } from './xdg.js';
  * Where a kestack CLI keeps its files. Each named copy of a CLI, such as a
  * Connection, has data and state folders of its own; the cache is one for
  * every name and every kestack CLI, so a download is kept once per
- * computer. Sockets go in a short runtime folder, or are named pipes on
- * Windows. A Plugin gets folders of its own inside its CLI's.
+ * computer. What outlives any one name, such as a working copy a Plugin
+ * makes, goes in the shared folder, one for every kestack CLI. Sockets go
+ * in a short runtime folder, or are named pipes on Windows. A Plugin gets
+ * folders of its own inside its CLI's, and a shared one of its own name.
  */
 
 /** Every folder one named copy of a CLI uses. */
@@ -21,6 +23,8 @@ export interface Folders {
   readonly state: string;
   /** Shared by every name and every kestack CLI: `<cache>/kestack`. */
   readonly cache: string;
+  /** What outlives any one name, shared by every kestack CLI: `<data>/kestack`. */
+  readonly shared: string;
   /** Where its sockets go; the named-pipe prefix on Windows. */
   readonly runtime: string;
 }
@@ -30,6 +34,8 @@ export interface PluginFolders {
   readonly data: string;
   readonly state: string;
   readonly cache: string;
+  /** Kept when any one name is forgotten: `<data>/kestack/<plugin>`. */
+  readonly shared: string;
 }
 
 /** What makes a folder's name safe on every platform: a DNS label. */
@@ -83,6 +89,7 @@ export const folders = ({
     data: own(base.data),
     state: own(base.state),
     cache: base.cache,
+    shared: base.data,
     runtime: windows ? PIPES : xdgRuntime(env, tmp, uid),
   };
 };
@@ -118,7 +125,7 @@ export const socketPath = (runtime: string, id: string, file: string) => {
 
 /** The folders of the Plugin `plugin`; throws on a bad name. */
 export const pluginFolders = (
-  { data, state, cache }: Folders,
+  { data, state, cache, shared }: Folders,
   plugin: string,
 ): PluginFolders => {
   checkName('plugin', plugin);
@@ -127,6 +134,7 @@ export const pluginFolders = (
     data: join(data, 'plugins', plugin),
     state: join(state, 'plugins', plugin),
     cache: join(cache, 'plugins', plugin),
+    shared: join(shared, plugin),
   };
 };
 

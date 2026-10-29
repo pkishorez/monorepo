@@ -45,6 +45,7 @@ export interface ChildOptions {
     readonly data: string;
     readonly state: string;
     readonly cache: string;
+    readonly shared: string;
   };
   /** Where its output is kept. */
   readonly logFile: string;
@@ -129,6 +130,7 @@ export const child = (options: ChildOptions) =>
       options.folders.data,
       options.folders.state,
       options.folders.cache,
+      options.folders.shared,
       dirname(options.logFile),
     ])
       mkdirSync(folder, { recursive: true, mode: 0o700 });
@@ -150,6 +152,7 @@ export const child = (options: ChildOptions) =>
             [PluginEnv.data]: options.folders.data,
             [PluginEnv.state]: options.folders.state,
             [PluginEnv.cache]: options.folders.cache,
+            [PluginEnv.shared]: options.folders.shared,
           },
         });
         started.set(options.socket, process_);

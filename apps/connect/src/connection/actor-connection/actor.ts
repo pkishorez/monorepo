@@ -35,6 +35,7 @@ const FoldersSchema = Schema.Struct({
   data: Schema.String,
   state: Schema.String,
   cache: Schema.String,
+  shared: Schema.String,
   runtime: Schema.String,
 });
 

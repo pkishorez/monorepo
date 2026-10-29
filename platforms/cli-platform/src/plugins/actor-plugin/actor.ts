@@ -36,6 +36,7 @@ const Folders = Schema.Struct({
   data: Schema.String,
   state: Schema.String,
   cache: Schema.String,
+  shared: Schema.String,
 });
 
 /** The first pause before trying again, and the longest, in ms. */
