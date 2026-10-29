@@ -217,6 +217,10 @@ export interface Harness {
     HarnessAccount
   >;
   readonly settings: ReadonlyArray<Setting>;
+  /**
+   * Opens an Agent once its process has started and initialized; one that
+   * exits or fails before then fails the open, with why.
+   */
   readonly open: (
     config: AgentConfig,
   ) => Effect.Effect<Agent, HarnessError, Scope.Scope | HarnessAccount>;

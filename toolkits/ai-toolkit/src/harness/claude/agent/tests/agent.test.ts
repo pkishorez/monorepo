@@ -16,8 +16,13 @@ const live = vi.hoisted(() => {
   /** Settles the model change the query is making, if any. */
   let modelChange: ((ok: boolean) => void) | undefined;
   const asked: { canUseTool?: CanUseTool } = {};
+  /** How the next query's initialize request goes; it succeeds unless set. */
+  const initialize: { next: (() => Promise<unknown>) | undefined } = {
+    next: undefined,
+  };
   return {
     sent,
+    initialize,
     /** Calls the query's `canUseTool`, as Claude Code does before a tool runs. */
     canUseTool: (...args: Parameters<CanUseTool>) => asked.canUseTool!(...args),
     settleModelChange: (ok: boolean) => modelChange?.(ok),
@@ -46,7 +51,10 @@ const live = vi.hoisted(() => {
         for await (const message of prompt)
           sent.push({ uuid: message.uuid, text: message.message.content });
       })();
+      const initialized = (initialize.next ?? (async () => ({})))();
+      initialize.next = undefined;
       return {
+        initializationResult: () => initialized,
         async *[Symbol.asyncIterator]() {
           while (!closed) {
             const next = mine.shift();
@@ -97,24 +105,19 @@ const sentNow = (count: number) =>
     }),
   );
 
+const open = (cwd = '/tmp') =>
+  openSdkAgent({
+    cwd,
+    executable: { path: '/usr/local/bin/claude', env: {} },
+    model: 'claude-test',
+    effort: 'high',
+    permissionMode: 'default',
+  });
+
 const withSession = <A, E>(
   body: (session: SdkAgent) => Effect.Effect<A, E, Scope.Scope>,
   cwd = '/tmp',
-) =>
-  Effect.runPromise(
-    Effect.scoped(
-      Effect.flatMap(
-        openSdkAgent({
-          cwd,
-          executable: { path: '/usr/local/bin/claude', env: {} },
-          model: 'claude-test',
-          effort: 'high',
-          permissionMode: 'default',
-        }),
-        body,
-      ),
-    ),
-  );
+) => Effect.runPromise(Effect.scoped(Effect.flatMap(open(cwd), body)));
 
 /** Each element's kind: a record's own, or what the turn's stream says. */
 const kinds = (outs: Iterable<TurnOut>) =>
@@ -127,6 +130,36 @@ const kinds = (outs: Iterable<TurnOut>) =>
   );
 
 describe('openSdkAgent', () => {
+  it('opens only once Claude Code has initialized', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          let ready: (() => void) | undefined;
+          live.initialize.next = () =>
+            new Promise((resolve) => (ready = () => resolve({})));
+          const opening = yield* Effect.forkChild(open());
+          yield* Effect.sleep('20 millis');
+          expect(opening.pollUnsafe()).toBeUndefined();
+          ready!();
+          yield* Fiber.join(opening);
+        }),
+      ),
+    ));
+
+  it('fails to open, with why, when Claude Code exits before it has initialized', () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        live.initialize.next = () =>
+          Promise.reject(
+            new Error('Claude Code process exited with code 1. stderr: boom'),
+          );
+        const error = yield* Effect.flip(Effect.scoped(open()));
+        expect(error.message).toBe(
+          'Claude Code stopped with exit code 1: boom',
+        );
+      }),
+    ));
+
   it("ends each turn with its own Fork Point, an agent turn read after a user turn's included", () =>
     withSession((session) =>
       Effect.gen(function* () {

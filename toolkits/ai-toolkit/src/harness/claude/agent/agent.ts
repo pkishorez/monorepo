@@ -86,7 +86,8 @@ interface Turn {
  * Background Job) streams the same way on `agentTurns`; a user turn waits
  * for it to end, so the two never interleave, and a steer waits with it.
  * An Agent Question holds its tool call until the user answers it, and is
- * declined when its turn ends.
+ * declined when its turn ends. It is open once Claude Code has initialized:
+ * one that exits first fails the open, with why.
  */
 export const openSdkAgent = (
   config: SdkAgentConfig,
@@ -371,6 +372,16 @@ export const openSdkAgent = (
         live.close();
       }),
     );
+    // Open once Claude Code has answered the SDK's initialize request, so
+    // one that exits at once fails the open rather than its first turn.
+    yield* Effect.tryPromise({
+      try: () => live.initializationResult(),
+      catch: (cause) =>
+        new HarnessError({
+          message: failureReason(cause, failedIn, existsSync),
+          cause,
+        }),
+    });
 
     /** Applies what a message changes, before the message is sent. */
     const applyOptions = (wanted: Partial<TurnOptions>) =>
