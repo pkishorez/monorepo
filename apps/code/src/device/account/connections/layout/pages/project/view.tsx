@@ -2,7 +2,7 @@ import { useChild, View, type ViewProps } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { FolderXIcon, Trash2Icon } from 'lucide-react';
-import { Suspense, useEffect, type ReactNode } from 'react';
+import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { keys } from '../../commands.ts';
 import * as routes from '../../../../../routes/index.ts';
 import * as Confirm from '../../../../../../ui/controls/notice/index.ts';
@@ -23,8 +23,8 @@ import { Session as SessionPage } from './session/index.ts';
  * sessions stay readable. Its words and its Draft are drawn in one step,
  * once its row and the Saved Draft are read (`readyOf`); `ProjectReady`
  * says so once, before Layout is first drawn. A session its Draft started
- * is drawn once it can be drawn whole, its Draft and Starting until then
- * (`HandingOver`).
+ * is drawn once it can be drawn whole, or waited for long enough, its
+ * Draft and Starting until then (`HandingOver`).
  */
 
 const link =
@@ -176,6 +176,8 @@ export const ProjectReady = View.make(
  * Draws nothing: the Session a Draft started, read until it can be drawn
  * whole with its row held here, then said so, so the project page draws it
  * in the Draft's place: its row not synced yet is not drawn as missing.
+ * A row that has not synced in `HANDOVER_WAIT` is waited for no more: the
+ * Session's page takes over all the same, and says how its row stands.
  */
 function HandingOver({
   session,
@@ -187,14 +189,35 @@ function HandingOver({
   readonly send: Self['send'];
 }) {
   const ready = useChild(session, ({ model }) => model.ready && model.held);
-  useEffect(() => {
-    if (ready) send({ _tag: 'Ready', at });
-  }, [ready, at]);
+  useHandover(ready === true, () => send({ _tag: 'Ready', at }));
   return (
     <Suspense fallback={null}>
       <SessionPage.ready instance={session} />
     </Suspense>
   );
+}
+
+/** How long a Session handed over is waited for to be drawn whole, in ms. */
+export const HANDOVER_WAIT = 10_000;
+
+/**
+ * Calls `drawn` once the Session handed over is `ready`, or once it has
+ * been waited for `wait` ms, whichever comes first.
+ */
+export function useHandover(
+  ready: boolean,
+  drawn: () => void,
+  wait = HANDOVER_WAIT,
+) {
+  const [waited, setWaited] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setWaited(true), wait);
+    return () => clearTimeout(timer);
+  }, [wait]);
+  const due = ready || waited;
+  useEffect(() => {
+    if (due) drawn();
+  }, [due]);
 }
 
 /**
