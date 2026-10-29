@@ -5,7 +5,8 @@ import { connectionFilterMemory as memory } from '../store.ts';
 
 /*
  * The Connection Filter in memory: every Connection until one is chosen, what
- * is chosen reads back, and each Account keeps its own.
+ * is chosen reads back, and each Account keeps its own; and the Connections
+ * the sidebar shows collapsed beside it, alike.
  */
 
 const run = <A, E>(effect: Effect.Effect<A, E, ConnectionFilter>) =>
@@ -35,5 +36,26 @@ describe('ConnectionFilter', () => {
       }),
     );
     expect(read).toEqual(['m1', null]);
+  });
+
+  it("keeps the Connections collapsed, each Account's own, apart from the Filter", async () => {
+    const read = await run(
+      Effect.gen(function* () {
+        const filter = yield* ConnectionFilter;
+        const before = yield* filter.collapsed('a1');
+        yield* filter.set('a1', 'm1');
+        yield* filter.setCollapsed('a1', ['m2', 'm3']);
+        const kept = yield* filter.collapsed('a1');
+        yield* filter.setCollapsed('a1', ['m3']);
+        return [
+          before,
+          kept,
+          yield* filter.collapsed('a1'),
+          yield* filter.collapsed('a2'),
+          yield* filter.read('a1'),
+        ];
+      }),
+    );
+    expect(read).toEqual([[], ['m2', 'm3'], ['m3'], [], 'm1']);
   });
 });

@@ -1,22 +1,31 @@
 import type { Project, Session } from '@kestack/connect/code';
 import { describe, expect, it } from 'vitest';
 import type { OnConnection } from '../../../../../connection/records/index.ts';
+import { shortNameOf } from '../../../../../connection/link/index.ts';
 import {
+  branchOf,
   branchShown,
+  countOf,
   groupedOf,
   namesOf,
   sessionBeside,
-  shortNameOf,
+  shownOf,
 } from '../rows.ts';
 
 const project = (id: string, connectionId = 'm1') =>
-  ({ id, name: `Project ${id}`, connectionId }) as OnConnection<Project>;
+  ({
+    id,
+    name: `Project ${id}`,
+    path: `/code/${id}`,
+    connectionId,
+  }) as OnConnection<Project>;
 const session = (
   id: string,
   projectId: string,
   activeAt: number,
   settledAt: number | null = null,
   connectionId = 'm1',
+  where: { worktree: string; branch: string } | null = null,
 ) =>
   ({
     id,
@@ -24,6 +33,8 @@ const session = (
     activeAt,
     settledAt,
     connectionId,
+    worktree: where?.worktree ?? null,
+    branch: where?.branch ?? null,
   }) as OnConnection<Session>;
 
 const HOUR = 60 * 60 * 1000;
@@ -162,5 +173,87 @@ describe('the sidebar by Project', () => {
       text: 'feat/ke-code/x',
       worktree: false,
     });
+  });
+
+  it('puts the Connections out of reach last, the others still by their most recent Session', () => {
+    const names = namesOf(
+      [
+        { id: 'm1', name: 'one' },
+        { id: 'm2', name: 'two' },
+        { id: 'm3', name: 'three' },
+      ],
+      null,
+    );
+    const drawn = groupedOf(
+      [project('a'), project('b', 'm2'), project('c', 'm3')],
+      [
+        session('a1', 'a', 1),
+        // The most recent, but its Connection is out of reach.
+        session('b1', 'b', 3, null, 'm2'),
+        session('c1', 'c', 2, null, 'm3'),
+      ],
+      names,
+      (connectionId) => connectionId === 'm2',
+    );
+    expect(drawn.map(({ connection }) => connection)).toEqual([
+      'three',
+      'one',
+      'two',
+    ]);
+  });
+
+  it('hides the Projects of a Connection collapsed, says how many, and steps past its Sessions', () => {
+    const listed = groupedOf(
+      [project('a'), project('b'), project('c', 'm2')],
+      [
+        session('a1', 'a', 1),
+        session('c1', 'c', 2, null, 'm2'),
+        session('b1', 'b', 3),
+      ],
+      namesOf(
+        [
+          { id: 'm1', name: 'one' },
+          { id: 'm2', name: 'two' },
+        ],
+        null,
+      ),
+    );
+    expect(countOf(listed, 'm1')).toBe('2 projects');
+    expect(countOf(listed, 'm2')).toBe('1 project');
+    const shown = shownOf(listed, new Set(['m1']));
+    expect(shown.map(({ name }) => name)).toEqual(['Project c']);
+    // m1's Sessions are passed over, going round to the only one shown.
+    expect(sessionBeside(shown, null, 1)?.id).toBe('c1');
+    expect(
+      sessionBeside(shown, { connectionId: 'm1', sessionId: 'b1' }, 1)?.id,
+    ).toBe('c1');
+    expect(shownOf(listed, new Set())).toEqual(listed);
+  });
+
+  it("says on its heading the branch its Project's folder is on, and on a row only a branch that differs", () => {
+    const main = { worktree: '/code/a', branch: 'main' };
+    const own = { worktree: '/w/a/s3', branch: 'ke-code/fix-login' };
+    const [group] = groupedOf(
+      [project('a')],
+      [
+        session('s1', 'a', 1, null, 'm1', main),
+        // Settled, it still says where the folder is.
+        session('s2', 'a', 3, 3, 'm1', { worktree: '/code/a', branch: 'dev' }),
+        session('s3', 'a', 2, null, 'm1', own),
+      ],
+    );
+    expect(group!.branch).toBe('dev');
+    const rows = Object.fromEntries(
+      group!.sessions.map(({ session }) => [
+        session.id,
+        branchOf(session, group!.branch),
+      ]),
+    );
+    expect(rows).toEqual({ s3: 'fix-login', s1: 'main' });
+    expect(branchOf(session('x', 'a', 1, null, 'm1', main), 'main')).toBeNull();
+    // Not git: no branch anywhere.
+    const [plain] = groupedOf([project('p')], [session('p1', 'p', 1)]);
+    expect(plain!.branch).toBeNull();
+    expect(branchOf(plain!.sessions[0]!.session, null)).toBeNull();
   });
 });

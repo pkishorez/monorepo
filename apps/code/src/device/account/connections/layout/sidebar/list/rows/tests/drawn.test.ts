@@ -108,6 +108,7 @@ describe('the Connections the sidebar reads', () => {
     problem: null,
     filterRead: true,
     chosen: null,
+    collapsed: null,
     width: null,
     unseen: {},
     moving: [],

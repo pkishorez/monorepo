@@ -16,6 +16,7 @@ import {
   agreed,
   putMove,
   reload,
+  setCollapsed,
   setConnectionFilter,
   setSidebarWidth,
 } from './commands.ts';
@@ -35,6 +36,9 @@ import { drawnOf, type Read } from './list/rows/drawn.ts';
  *              one Query each, keyed by its id, so a Connection not shown
  *              syncs nothing here, and a Connection shown stays read, rows
  *              and all, as the list or the Filter changes around it.
+ * 2b. Collapse  the Connections whose Projects are hidden under their name,
+ *              kept beside the Filter, toggled at once and kept; null until
+ *              read, and nothing is drawn until it is.
  * 3. Marks     the Unseen marks of each Connection, as `Connections` says them,
  *              each read by its Connection again after every write, from this
  *              tab or another.
@@ -81,6 +85,8 @@ const Model = Schema.Struct({
   filterRead: Schema.Boolean,
   /** The Connection chosen, as the Connection Filter keeps it; null for every Connection. */
   chosen: Schema.NullOr(Schema.String),
+  /** The Connections shown collapsed, as kept; null until read (2b. Collapse). */
+  collapsed: Schema.NullOr(Schema.Array(Schema.String)),
   /** Its width on a wide screen, as kept; null until read. */
   width: Schema.NullOr(Schema.Finite),
   /** Each Connection's Unseen marks, by Connection id and then Session id. */
@@ -128,6 +134,9 @@ const Sidebar = Actor.define('Sidebar', {
       unseen: Model.fields.unseen,
     },
     FilterRead: { chosen: Schema.NullOr(Schema.String) },
+    CollapsedRead: { connectionIds: Schema.Array(Schema.String) },
+    /** A Connection's name clicked, or Enter on it: its Projects hidden, or shown again. */
+    CollapseToggled: { connectionId: Schema.String },
     AskingKnown: { asking: Model.fields.asking },
     WidthRead: { width: Schema.Finite },
     /** Dragged to a new width, once the drag rests. */
@@ -197,6 +206,7 @@ export const readyOf = <P, S>(
   sessions: ReadonlyArray<Read<S>>,
 ) =>
   model.width !== null &&
+  model.collapsed !== null &&
   chosenRead(model) &&
   drawnOf(
     readOf(model),
@@ -217,6 +227,7 @@ export const SidebarLive = Actor.build(Sidebar, {
       problem: null,
       filterRead: false,
       chosen: null,
+      collapsed: null,
       width: null,
       unseen: {},
       moving: [],
@@ -321,6 +332,20 @@ export const SidebarLive = Actor.build(Sidebar, {
           ),
         ),
     },
+    // 2b. Collapse
+    collapsed: {
+      run: (self) =>
+        Effect.flatMap(self.get, ({ props }) =>
+          Stream.runForEach(
+            ConnectionFilter.followCollapsed(props.accountId),
+            (connectionIds) =>
+              self.send({
+                _tag: 'CollapsedRead',
+                connectionIds: [...connectionIds],
+              }),
+          ),
+        ),
+    },
     // 6. Width, now and after each change, here or in another tab.
     width: {
       run: (self) =>
@@ -381,6 +406,20 @@ export const SidebarLive = Actor.build(Sidebar, {
         connectionId,
       }),
     }),
+    // 2b. Collapse
+    CollapsedRead: ({ connectionIds }, { model }) => ({
+      model: { ...model, collapsed: connectionIds },
+    }),
+    CollapseToggled: ({ connectionId }, { model, props }) => {
+      const now = model.collapsed ?? [];
+      const connectionIds = now.includes(connectionId)
+        ? now.filter((id) => id !== connectionId)
+        : [...now, connectionId];
+      return {
+        model: { ...model, collapsed: connectionIds },
+        command: setCollapsed({ accountId: props.accountId, connectionIds }),
+      };
+    },
     // 6. Width
     WidthRead: ({ width }, { model }) => ({ model: { ...model, width } }),
     Resized: ({ width }, { model }) =>

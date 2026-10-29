@@ -153,6 +153,10 @@ export const SidebarView = View.make(
             projects={{ rows: drawn.projects, waiting }}
             sessions={movedOf(synced, model.moving)}
             connections={namesOf(model.connections ?? [], shown)}
+            collapsed={model.collapsed ?? []}
+            onCollapse={(connectionId) =>
+              send({ _tag: 'CollapseToggled', connectionId })
+            }
             isUnseen={(each) =>
               isUnseen(
                 model.unseen[each.connectionId] ?? {},

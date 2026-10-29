@@ -6,6 +6,7 @@ import { type OnConnection } from '../../../../connection/records/index.ts';
 import {
   noticePillOf,
   pillOf,
+  shortNameOf,
   type Standing,
   StandingDot,
   standingOf,
@@ -24,7 +25,8 @@ import {
  * Drawer of every Connection and All Connections: each with its state, its
  * sessions (how many run) and projects, its code Plugin Updating or
  * stopped, or its `ke-connect` out of date, its tunnel and the version of
- * Connect it runs, the one shown checked. Until the Connections and what
+ * Connect it runs, the one shown checked. Each is named by its short name,
+ * as the sidebar names it (`shortNameOf`). Until the Connections and what
  * they hold are read, only the mark and Reload, in the room the rest takes.
  */
 
@@ -83,7 +85,7 @@ function useInfos(
     const standing = standingOf(health, record ?? null);
     return {
       id,
-      name,
+      name: shortNameOf(name),
       kind: standing.kind,
       state: standing.label,
       brief: pillOf(health)?.[0] ?? 'Linked',
