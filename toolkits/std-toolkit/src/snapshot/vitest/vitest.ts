@@ -12,13 +12,6 @@ export interface SnapshotFileOptions {
    * written.
    */
   readonly refusals?: readonly string[];
-  /**
-   * More refusals, judged against the committed file's snapshot, such as
-   * setup's own plan from it; not called when there is no file yet.
-   */
-  readonly refusalsAgainst?: (
-    committed: TableSnapshot,
-  ) => Promise<readonly string[]>;
 }
 
 // A file the toolkit cannot read is never replaced, not even under `-u`: it is
@@ -68,7 +61,7 @@ const breakingSection = (
           '',
           TableSnapshot.renderChanges(blocked),
           '',
-          'Running vitest with -u does not accept a breaking change, and nothing else does: setup and the deploy guard refuse it too. A stored version is frozen once shipped: undo the edit and add the change as a new version instead, or move the data to a new physical table name.',
+          'Running vitest with -u does not accept a breaking change, and nothing else does: setup and the deploy guard refuse it too. A stored version is frozen once shipped: undo the edit and add the change as a new version with a migration instead. A change no migration can make needs a new physical table, and a table migration that moves the data into it.',
         ].join('\n'),
       ];
 };
@@ -79,7 +72,7 @@ const breakingSection = (
  * at once, and otherwise requires the file to be up to date.
  *
  * `vitest -u` writes the file only when nothing refuses: for changes that are
- * safe or need a Backfill. It never accepts a breaking change.
+ * safe or need a reindex. It never accepts a breaking change.
  */
 export async function expectSnapshotFile(
   table: TableSource,
@@ -99,9 +92,6 @@ export async function expectSnapshotFile(
   const refused = [
     ...(options.refusals ?? []),
     ...breakingSection(file, changes),
-    ...(prior === undefined || options.refusalsAgainst === undefined
-      ? []
-      : await options.refusalsAgainst(prior)),
   ];
   if (refused.length > 0) {
     throw new Error(

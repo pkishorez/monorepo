@@ -4,7 +4,6 @@ import type {
 } from '../../../eschema/index.js';
 import type {
   TableAccessPatternSnapshot,
-  TableBackfillSnapshot,
   TableEntitySnapshot,
   TableIndexSnapshot,
   TableSnapshot,
@@ -18,7 +17,6 @@ export interface TableSource {
   readonly localSecondaryIndexes: Readonly<Record<string, TableIndexSnapshot>>;
   readonly globalSecondaryIndexes: Readonly<Record<string, TableIndexSnapshot>>;
   readonly registeredEntities: readonly EntitySource[];
-  readonly registeredBackfills: readonly TableBackfillSnapshot[];
 }
 
 interface KeyedEntitySource {
@@ -92,15 +90,6 @@ export function captureTableSnapshot(table: TableSource): TableSnapshot {
     entities: table.registeredEntities
       .map(entitySnapshot)
       .sort((left, right) => compareStrings(left.name, right.name)),
-    backfills: table.registeredBackfills
-      .map(({ id, kind, entity, to, after }) => ({
-        id,
-        kind,
-        entity,
-        to,
-        after: [...after],
-      }))
-      .sort((left, right) => compareStrings(left.id, right.id)),
     schemas: buildESchemaDefinitions(
       table.registeredEntities.map((entity) => ({
         eschema: entity.schema,

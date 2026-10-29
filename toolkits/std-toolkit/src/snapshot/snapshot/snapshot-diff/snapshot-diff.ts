@@ -4,7 +4,6 @@ import type {
   ESchemaVersion,
   SnapshotChange,
   TableAccessPatternSnapshot,
-  TableBackfillSnapshot,
   TableEntitySnapshot,
   TableIndexSnapshot,
   TableSnapshot,
@@ -45,15 +44,8 @@ function change(
   action: SnapshotChange['action'],
   impact: SnapshotChange['impact'],
   edits: readonly SnapshotEdit[] = [],
-  description?: string,
 ): SnapshotChange {
-  return {
-    subject,
-    action,
-    impact,
-    edits: [...edits],
-    ...(description === undefined ? {} : { description }),
-  };
+  return { subject, action, impact, edits: [...edits] };
 }
 
 /**
@@ -311,17 +303,10 @@ function diffVersion(
   after: ESchemaVersion,
 ): readonly SnapshotChange[] {
   const subject = versionSubject(identity, after.version);
-  // Making a shipped version a gap strands its rows; making a gap migrate
-  // changes how rows written before it read.
-  const gap =
-    before.gap === after.gap ? [] : [edit(['gap'], before.gap, after.gap)];
-  const edits = [
-    ...gap,
-    ...shapeEdits(
-      contractOf(before.shape, false),
-      contractOf(after.shape, false),
-    ),
-  ];
+  const edits = shapeEdits(
+    contractOf(before.shape, false),
+    contractOf(after.shape, false),
+  );
   if (edits.length > 0) return [change(subject, 'edited', 'breaking', edits)];
   const references = shapeEdits(
     contractOf(before.shape, true),
@@ -403,21 +388,12 @@ function diffDefinitions(
     for (const [versionIndex, version] of definition.versions.entries()) {
       const prior = beforeVersions.get(version.version);
       if (prior === undefined) {
-        const appended = versionIndex >= before.versions.length;
         changes.push(
-          appended && version.gap
-            ? change(
-                versionSubject(definition.identity, version.version),
-                'added',
-                'requires-backfill',
-                [],
-                `${definition.identity} ${version.version} is a gap version: rows stored before it read only after a Backfill fills it`,
-              )
-            : change(
-                versionSubject(definition.identity, version.version),
-                'added',
-                appended ? 'safe' : 'breaking',
-              ),
+          change(
+            versionSubject(definition.identity, version.version),
+            'added',
+            versionIndex >= before.versions.length ? 'safe' : 'breaking',
+          ),
         );
       } else {
         changes.push(...diffVersion(definition.identity, prior, version));
@@ -504,7 +480,7 @@ function diffEntity(
         change(
           accessPatternSubject(after.name, pattern),
           'added',
-          'requires-backfill',
+          'requires-reindex',
         ),
       );
       continue;
@@ -521,7 +497,7 @@ function diffEntity(
           'edited',
           pattern.kind === 'primary' && prior.kind === 'primary'
             ? 'breaking'
-            : 'requires-backfill',
+            : 'requires-reindex',
           edits,
         ),
       );
@@ -562,7 +538,7 @@ function diffSecondaryIndexes(
     const prior = before.get(index.name);
     if (prior === undefined) {
       changes.push(
-        change(indexSubject(segment, index.name), 'added', 'requires-backfill'),
+        change(indexSubject(segment, index.name), 'added', 'requires-reindex'),
       );
       continue;
     }
@@ -576,7 +552,7 @@ function diffSecondaryIndexes(
         change(
           indexSubject(segment, index.name),
           'edited',
-          'requires-backfill',
+          'requires-reindex',
           edits,
         ),
       );
@@ -589,61 +565,6 @@ function diffSecondaryIndexes(
       );
     }
   }
-  return changes;
-}
-
-function backfillSubject(id: string): SnapshotSubject {
-  return { kind: 'backfill', name: id };
-}
-
-/**
- * A Backfill is never removed once shipped, and what it fills never changes:
- * a table part-way through it would be left with no step to finish. Its
- * `after` only orders it among pending Backfills, so changing that is safe.
- */
-function diffBackfills(
-  previous: readonly TableBackfillSnapshot[],
-  current: readonly TableBackfillSnapshot[],
-): readonly SnapshotChange[] {
-  const changes: SnapshotChange[] = [];
-  const before = new Map(previous.map((item) => [item.id, item]));
-  const after = new Map(current.map((item) => [item.id, item]));
-  for (const backfill of current) {
-    const prior = before.get(backfill.id);
-    if (prior === undefined) {
-      changes.push(change(backfillSubject(backfill.id), 'added', 'safe'));
-      continue;
-    }
-    const contract = recordEdits(
-      prior as unknown as Record<string, unknown>,
-      backfill as unknown as Record<string, unknown>,
-      ['kind', 'entity', 'to'],
-    );
-    if (contract.length > 0)
-      changes.push(
-        change(backfillSubject(backfill.id), 'edited', 'breaking', contract),
-      );
-    const order = recordEdits(
-      prior as unknown as Record<string, unknown>,
-      backfill as unknown as Record<string, unknown>,
-      ['after'],
-    );
-    if (order.length > 0)
-      changes.push(
-        change(backfillSubject(backfill.id), 'edited', 'safe', order),
-      );
-  }
-  for (const backfill of previous)
-    if (!after.has(backfill.id))
-      changes.push(
-        change(
-          backfillSubject(backfill.id),
-          'removed',
-          'breaking',
-          [],
-          `A shipped Backfill is never removed: a table it has not finished on could not read the rows it was filling`,
-        ),
-      );
   return changes;
 }
 
@@ -717,7 +638,6 @@ function diffTable(
       added: addedSchemas,
       removed: removedSchemas,
     }),
-    ...diffBackfills(previous.backfills, current.backfills),
   );
   return changes;
 }

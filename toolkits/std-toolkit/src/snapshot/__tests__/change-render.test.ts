@@ -7,7 +7,7 @@ describe('change rendering', () => {
       {
         subject: { kind: 'global-secondary-index', name: 'GSI2' },
         action: 'added',
-        impact: 'requires-backfill',
+        impact: 'requires-reindex',
         edits: [],
       },
       {
@@ -19,7 +19,7 @@ describe('change rendering', () => {
     ]);
 
     expect(rendered).toContain('SAFE');
-    expect(rendered).toContain('BACKFILL');
+    expect(rendered).toContain('REINDEX');
     expect(rendered).toContain('User v2 added');
     expect(rendered).toContain('Global secondary index GSI2 added');
   });

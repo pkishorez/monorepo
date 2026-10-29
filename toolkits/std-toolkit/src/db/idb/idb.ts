@@ -28,7 +28,7 @@ export interface IDBConfig {
   readonly mode: TableMode;
 }
 
-/** What `IDB.make` needs: a StdTable, whose Backfills setup runs. */
+/** What `IDB.make` needs: a StdTable, whose rows setup may reindex. */
 export type IDBTableSource<Name extends string> = StdTable<Name>;
 
 export interface IDBTable<Name extends string> {
@@ -41,7 +41,7 @@ interface LockManager {
 }
 
 // Setups of one database run one at a time across this browser's tabs, so
-// two tabs opening at once never run the same Backfill side by side. Without
+// two tabs opening at once never reindex the same rows side by side. Without
 // Web Locks they may race; the guarded contract write then sends the loser
 // round again.
 const exclusive = <A, E>(
@@ -81,7 +81,7 @@ const outdated = (connection: IDBConnection, storeName: string) =>
   });
 
 /**
- * Prepares the store with the shared setup (ADR 0019, 0020, 0021): the
+ * Prepares the store with the shared setup (ADR 0019, 0021, 0022): the
  * Stored contract is reserved rows inside the store, read through the
  * adapter's own StdTable contract, so the store must exist first. A missing
  * store holds nothing, so it is created whole, indexes included, before
@@ -91,9 +91,9 @@ const outdated = (connection: IDBConnection, storeName: string) =>
  * closes as soon as it waits on anything else. So setup runs on ordinary
  * transactions at the current version, and its `apply` closes the
  * connection and opens the next version, whose upgrade creates and deletes
- * indexes synchronously; Backfills then run at that version. `apply` opens a
- * new version for every contract change, indexes or not, so every other
- * tab's connection sees it before a Backfill runs. A setup that fails on the
+ * indexes synchronously; the reindex then runs at that version. `apply` opens
+ * a new version for every contract change, indexes or not, so every other
+ * tab's connection sees it before any row is rewritten. A setup that fails on the
  * database, such as losing the contract write to another tab, starts over
  * and finds that tab's contract.
  */
@@ -152,7 +152,7 @@ const readOnly = (store: StdTableContract): StdTableContract => ({
  * under, checked after another connection changed the version. It runs
  * setup, which is one read when unchanged, on a store it cannot change,
  * under the setup lock, so it never reads while another tab's setup is part
- * way through its Backfills.
+ * way through its reindex.
  */
 const contractIsCurrent = <Name extends string>(
   table: IDBTableSource<Name>,
@@ -261,7 +261,7 @@ const make = <Name extends string>(
  * Adapter-native: prepares the store now instead of on the table's first
  * open. Useful when a page wants the version change to happen at a moment it
  * controls, since IndexedDB upgrades block on other tabs, or wants to handle
- * `SetupRefused` or `BackfillFailed` itself.
+ * `SetupRefused` itself.
  */
 const setup = <Name extends string>(
   table: IDBTableSource<Name>,

@@ -26,12 +26,6 @@ const TaskV1 = EntityESchema.make('Task', 'taskId', {
   projectId: Schema.String,
   title: Schema.String,
 }).build();
-const TaskV2 = EntityESchema.make('Task', 'taskId', {
-  projectId: Schema.String,
-  title: Schema.String,
-})
-  .evolve('v2', { owner: Schema.String })
-  .build();
 const TaskEdited = EntityESchema.make('Task', 'taskId', {
   projectId: Schema.String,
   title: Schema.Finite,
@@ -52,29 +46,6 @@ const indexedTable = () =>
         .primary({ pk: ['projectId'] })
         .index('GSI1', 'byTitle', { pk: ['title'] }),
     )
-    .backfill('task-by-title', { reindex: 'Task' })
-    .build();
-
-const createdIndexed = () =>
-  StdTable.make(NAME)
-    .primary('pk', 'sk')
-    .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-    .entity(TaskV1, (e) =>
-      e
-        .primary({ pk: ['projectId'] })
-        .index('GSI1', 'byTitle', { pk: ['title'] }),
-    )
-    .build();
-
-const gapTable = () =>
-  StdTable.make(NAME)
-    .primary('pk', 'sk')
-    .entity(TaskV2, (e) => e.primary({ pk: ['projectId'] }))
-    .backfill('task-owner', {
-      entity: 'Task',
-      to: 'v2',
-      run: (task) => Effect.succeed({ ...task, owner: 'ann' }),
-    })
     .build();
 
 const editedTable = () =>
@@ -268,7 +239,7 @@ describe('DynamoDB setup', () => {
 
     expect(outcome).toMatchObject({
       kind: 'applied',
-      backfills: ['task-by-title'],
+      reindexed: ['Task'],
     });
     expect(physical.log).toEqual([
       'createTable',
@@ -293,7 +264,7 @@ describe('DynamoDB setup', () => {
 
     expect(outcome).toMatchObject({
       kind: 'applied',
-      backfills: ['task-by-title'],
+      reindexed: ['Task'],
     });
     expect(physical.log).toEqual([
       'createTable',
@@ -364,9 +335,7 @@ describe('DynamoDB setup', () => {
   it('refuses removing a global secondary index, in either mode', async () => {
     for (const mode of ['persistent', 'disposable'] as const) {
       const physical = physicalTable();
-      // Created with its index, so it ships no Backfill: one dropped would
-      // read as older code.
-      await physical.setUp(createdIndexed(), mode);
+      await physical.setUp(indexedTable(), mode);
       await physical.insert(['a']);
 
       const error = await physical.refusal(plainTable(), mode);
@@ -390,28 +359,6 @@ describe('DynamoDB setup', () => {
     );
 
     expect((error as SetupRefused).reason).toBe('replaces-table');
-  });
-
-  it('fills a gap version with its Backfill', async () => {
-    const physical = physicalTable();
-    await physical.setUp(plainTable());
-    await physical.insert(['a', 'b']);
-
-    const outcome = await physical.setUp(gapTable());
-
-    expect(outcome).toMatchObject({
-      kind: 'applied',
-      backfills: ['task-owner'],
-    });
-    expect(
-      tasksOf(await physical.items()).map(({ data }) => [
-        data._v,
-        (data as { owner?: unknown }).owner,
-      ]),
-    ).toEqual([
-      ['v2', 'ann'],
-      ['v2', 'ann'],
-    ]);
   });
 
   it('wipes a disposable table on a change its rows cannot take', async () => {

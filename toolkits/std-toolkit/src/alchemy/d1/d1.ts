@@ -31,7 +31,7 @@ interface D1TableAttributes {
 
 interface D1TableProps extends D1TableAttributes {
   /**
-   * The table itself, which setup needs for its Backfills. A function, so
+   * The table itself, which setup needs to reindex its rows. A function, so
    * Alchemy passes it through as is and never writes it to state.
    */
   readonly table: () => StdTable;
@@ -102,13 +102,13 @@ export const D1TableProvider = () =>
  * Creates or updates the table in D1 at deploy, before the Worker goes
  * live: SQLite setup checks the Stored contract kept inside the table,
  * refuses a persistent table's breaking change, wipes a disposable one's,
- * applies its indexes and runs its pending Backfills. A refusal fails the
+ * applies its indexes and reindexes the rows they touch. A refusal fails the
  * deploy with the SetupRefused message.
  *
  * Bind the result's `tableName` into the Worker's env and build the adapter
  * from it (`SQLite.make(table, { database, tableName })`). The Worker then
  * depends on this resource, so Alchemy deploys it only after setup and its
- * Backfills; a Worker that binds only the database may go live first.
+ * reindex; a Worker that binds only the database may go live first.
  */
 const table = (id: string, options: D1TableOptions) =>
   Effect.gen(function* () {

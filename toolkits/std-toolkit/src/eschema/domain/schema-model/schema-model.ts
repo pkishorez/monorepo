@@ -114,61 +114,6 @@ export type NextVersion<V extends string> =
     ? `v${[...BuildTuple<Num>, any]['length'] & number}`
     : never;
 
-/** The version a version follows: `v1` for `v2`; never for `v1`. */
-export type PreviousVersion<V extends string> =
-  V extends `v${infer Num extends number}`
-    ? BuildTuple<Num> extends [any, ...infer Rest]
-      ? Rest['length'] extends 0
-        ? never
-        : `v${Rest['length'] & number}`
-      : never
-    : never;
-
-/** One version of an object ESchema, as its type remembers it. */
-export type VersionShape = {
-  readonly fields: StructFieldsSchema;
-  readonly gap: boolean;
-};
-
-/** Every version of an object ESchema, by version. */
-export type VersionShapes = Record<string, VersionShape>;
-
-/** The record after `evolve` appends version `V`. */
-export type AppendVersion<
-  TVersions extends VersionShapes,
-  V extends string,
-  S extends StructFieldsSchema,
-  Gap extends boolean,
-> = Prettify<
-  TVersions & { readonly [K in V]: { readonly fields: S; readonly gap: Gap } }
->;
-
-type VersionsOf<X> = X extends {
-  readonly Versions: infer H extends VersionShapes;
-}
-  ? H
-  : never;
-
-/** The value of an ESchema at each of its versions, by version. */
-export type ESchemaVersions<X> = {
-  readonly [V in keyof VersionsOf<X>]: Prettify<
-    StructFieldsType<VersionsOf<X>[V]['fields']>
-  >;
-};
-
-/** The value of an ESchema at version `V`, as a migration or Backfill sees it. */
-export type VersionValue<
-  X,
-  V extends keyof ESchemaVersions<X>,
-> = ESchemaVersions<X>[V];
-
-/** The versions of an ESchema declared with no migration. */
-export type GapVersions<X> = {
-  [V in keyof VersionsOf<X>]: VersionsOf<X>[V]['gap'] extends true ? V : never;
-}[keyof VersionsOf<X>] &
-  string;
-
-// `migration` is null for v1, and for a gap version of an object ESchema.
 export type Evolution = {
   version: string;
   schema: StructFieldsSchema;

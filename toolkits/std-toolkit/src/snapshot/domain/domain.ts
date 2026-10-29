@@ -12,36 +12,11 @@ const ESchemaVersionSchema = Schema.Struct({
   shape: SnapshotTypeSchema,
 });
 
-const ESchemaDefinitionFields = {
+const ESchemaDefinitionSchema = Schema.Struct({
   identity: Schema.String,
   kind: Schema.Literals(['struct', 'value', 'entity']),
   idField: Schema.NullOr(Schema.String),
-};
-
-const ESchemaDefinitionSchema = Schema.Struct({
-  ...ESchemaDefinitionFields,
   versions: Schema.Array(ESchemaVersionSchema),
-});
-
-/** From v2 of the document, each version also says whether it is a gap version. */
-const ESchemaDefinitionWithGapsSchema = Schema.Struct({
-  ...ESchemaDefinitionFields,
-  versions: Schema.Array(
-    Schema.Struct({ ...ESchemaVersionSchema.fields, gap: Schema.Boolean }),
-  ),
-});
-
-/**
- * A Backfill declared on the table: one that fills gap version `to` of
- * `entity`, or one that reindexes `entity` (`to` is null). Its `run` is
- * behavior, so it is not recorded.
- */
-const TableBackfillSchema = Schema.Struct({
-  id: Schema.String,
-  kind: Schema.Literals(['gap', 'reindex']),
-  entity: Schema.String,
-  to: Schema.NullOr(Schema.String),
-  after: Schema.Array(Schema.String),
 });
 
 const TableIndexSchema = Schema.Struct({
@@ -80,28 +55,7 @@ export const TableSnapshotESchema = ESchema.make('TableSnapshot', {
   }),
   entities: Schema.Array(TableEntitySchema),
   schemas: Schema.Array(ESchemaDefinitionSchema),
-})
-  // v2 records gap versions and Backfills. A document from before them had
-  // neither: every version was migrated, and no Backfill was declared.
-  .evolve(
-    'v2',
-    {
-      schemas: Schema.Array(ESchemaDefinitionWithGapsSchema),
-      backfills: Schema.Array(TableBackfillSchema),
-    },
-    (v1) => ({
-      ...v1,
-      schemas: v1.schemas.map((definition) => ({
-        ...definition,
-        versions: definition.versions.map((version) => ({
-          ...version,
-          gap: false,
-        })),
-      })),
-      backfills: [],
-    }),
-  )
-  .build();
+}).build();
 
 export type TableSnapshot = typeof TableSnapshotESchema.Type;
 export type ESchemaDefinition = TableSnapshot['schemas'][number];
@@ -109,12 +63,11 @@ export type ESchemaVersion = ESchemaDefinition['versions'][number];
 export type TableIndexSnapshot =
   TableSnapshot['topology']['localSecondaryIndexes'][number];
 export type TableEntitySnapshot = TableSnapshot['entities'][number];
-export type TableBackfillSnapshot = TableSnapshot['backfills'][number];
 export type TableAccessPatternSnapshot =
   TableEntitySnapshot['accessPatterns'][number];
 
 export interface SnapshotChange {
-  readonly impact: 'safe' | 'requires-backfill' | 'breaking' | 'unverifiable';
+  readonly impact: 'safe' | 'requires-reindex' | 'breaking' | 'unverifiable';
   readonly subject: {
     readonly kind:
       | 'table'
@@ -124,15 +77,12 @@ export interface SnapshotChange {
       | 'primary-index'
       | 'local-secondary-index'
       | 'global-secondary-index'
-      | 'access-pattern'
-      | 'backfill';
+      | 'access-pattern';
     readonly name?: string;
     readonly owner?: string;
     readonly version?: string;
   };
   readonly action: 'added' | 'removed' | 'edited';
-  /** Why the change has its impact, when the subject and edits do not say. */
-  readonly description?: string;
   readonly edits: readonly {
     readonly path: readonly string[];
     readonly before?: unknown;

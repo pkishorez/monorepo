@@ -4,10 +4,10 @@ import {
   type OperationFailure,
 } from '../std-table/contract/index.js';
 import type { TableDefinition } from '../std-table/definition/index.js';
+import type { DatabaseError } from '../std-table/error/index.js';
 import type { StdTable } from '../std-table/table/index.js';
 import {
   runSetup,
-  type BackfillFailed,
   type SetupOutcome,
   type SetupRefused,
   type TableMode,
@@ -55,8 +55,9 @@ const make = <Name extends string>(
  * Prepares the physical table under its mode (ADR 0019, 0021): creates it
  * when missing, reads the Stored contract kept as reserved rows inside it,
  * then refuses (persistent) or wipes (disposable) a change its rows cannot
- * take, applies the SQL indexes the new snapshot needs, runs the pending
- * Backfills, and records the new contract. An unchanged table is one read.
+ * take, applies the SQL indexes the new snapshot needs, reindexes the rows
+ * an index change touches, and records the new contract. An unchanged table
+ * is one read.
  * Run it where no request pays for it: at deploy (the Alchemy D1 target
  * does), at process start, or on a Durable Object's first access.
  */
@@ -65,7 +66,7 @@ const setup = <Name extends string>(
   config: SQLiteSetupConfig,
 ): Effect.Effect<
   SetupOutcome,
-  OperationFailure | SetupRefused | BackfillFailed
+  OperationFailure | SetupRefused | DatabaseError
 > => {
   const tableName = config.tableName ?? table.logicalName;
   return ensureSQLiteTable(config.database, table, tableName).pipe(

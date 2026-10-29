@@ -6,29 +6,21 @@ import {
   contractLayer,
   OperationFailure,
   StdTableService,
+  type ConditionalPut,
   type QueryRequest,
   type ReadOptions,
   type ScanRequest,
   type StdTableContract,
   type StoredItem,
 } from '../../std-table/contract/index.js';
-import type { BackfillDeclaration } from '../../std-table/definition/index.js';
-import { DatabaseError, EntityNotFound } from '../../std-table/error/index.js';
+import { DatabaseError } from '../../std-table/error/index.js';
 import { encodeCompositeKey } from '../../std-table/key/index.js';
 import { StdTable } from '../../std-table/table/index.js';
-import { BackfillOrderRefused, planStages } from '../backfill/plan.js';
-import {
-  BackfillFailed,
-  isOutdatedCode,
-  runSetup,
-  SetupRefused,
-} from '../index.js';
+import { isOutdatedCode, runSetup, SetupRefused } from '../index.js';
 import * as setupDoor from '../index.js';
 
 const NAME = 'board';
 
-// Task, across four releases: v2 is a gap (an owner no v1 row knows), v3
-// migrates purely, v4 is a gap again and comes with a new index.
 const TaskV1 = EntityESchema.make('Task', 'taskId', {
   projectId: Schema.String,
   title: Schema.String,
@@ -37,22 +29,19 @@ const TaskV2 = EntityESchema.make('Task', 'taskId', {
   projectId: Schema.String,
   title: Schema.String,
 })
-  .evolve('v2', { owner: Schema.String })
+  .evolve('v2', { done: Schema.Boolean }, (v1) => ({ ...v1, done: false }))
   .build();
-const TaskV3 = EntityESchema.make('Task', 'taskId', {
+// A pure v2 that lowercases the indexed title: every change is safe, yet the
+// stored index keys are stale until setup reindexes.
+const LowerTitle = EntityESchema.make('Task', 'taskId', {
   projectId: Schema.String,
   title: Schema.String,
 })
-  .evolve('v2', { owner: Schema.String })
-  .evolve('v3', { done: Schema.Boolean }, (v2) => ({ ...v2, done: false }))
-  .build();
-const TaskV4 = EntityESchema.make('Task', 'taskId', {
-  projectId: Schema.String,
-  title: Schema.String,
-})
-  .evolve('v2', { owner: Schema.String })
-  .evolve('v3', { done: Schema.Boolean }, (v2) => ({ ...v2, done: false }))
-  .evolve('v4', { label: Schema.String })
+  .evolve('v2', { done: Schema.Boolean }, (v1) => ({
+    ...v1,
+    title: v1.title.toLowerCase(),
+    done: false,
+  }))
   .build();
 
 const v1Table = () =>
@@ -61,80 +50,45 @@ const v1Table = () =>
     .entity(TaskV1, (e) => e.primary({ pk: ['projectId'] }))
     .build();
 
-interface Calls {
-  owner: string[];
-  label: string[];
-}
-
-const v2Table = (calls: Calls, fail?: (taskId: string) => boolean) =>
+const v2Table = () =>
   StdTable.make(NAME)
     .primary('pk', 'sk')
     .entity(TaskV2, (e) => e.primary({ pk: ['projectId'] }))
-    .backfill('task-owner', {
-      entity: 'Task',
-      to: 'v2',
-      run: (task) =>
-        Effect.gen(function* () {
-          calls.owner.push(task.taskId);
-          if (fail?.(task.taskId)) return yield* Effect.fail('no owner');
-          return { ...task, owner: 'ann' };
-        }),
-    })
     .build();
 
-const v3Table = (calls: Calls) =>
-  StdTable.make(NAME)
-    .primary('pk', 'sk')
-    .entity(TaskV3, (e) => e.primary({ pk: ['projectId'] }))
-    .backfill('task-owner', {
-      entity: 'Task',
-      to: 'v2',
-      run: (task) => {
-        calls.owner.push(task.taskId);
-        return Effect.succeed({ ...task, owner: 'ann' });
-      },
-    })
-    .build();
-
-const v4Table = (calls: Calls) =>
+/**
+ * Task found by title, on a new global secondary index. A later Task is
+ * typed as v1: only its runtime versions matter here.
+ */
+const byTitle = (Task: typeof TaskV1 | typeof TaskV2 | typeof LowerTitle) =>
   StdTable.make(NAME)
     .primary('pk', 'sk')
     .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-    .entity(TaskV4, (e) =>
+    .entity(Task as typeof TaskV1, (e) =>
       e
         .primary({ pk: ['projectId'] })
-        .index('GSI1', 'byOwner', { pk: ['owner'], sk: ['title'] }),
+        .index('GSI1', 'byTitle', { pk: ['title'] }),
     )
-    .backfill('task-owner', {
-      entity: 'Task',
-      to: 'v2',
-      run: (task) => {
-        calls.owner.push(task.taskId);
-        return Effect.succeed({ ...task, owner: 'ann' });
-      },
-    })
-    .backfill('task-label', {
-      entity: 'Task',
-      to: 'v4',
-      after: ['task-owner'],
-      run: (task) => {
-        calls.label.push(task.taskId);
-        return Effect.succeed({ ...task, label: task.title.toUpperCase() });
-      },
-    })
-    .backfill('task-by-owner', { reindex: 'Task', after: ['task-label'] })
     .build();
 
-const noCalls = (): Calls => ({ owner: [], label: [] });
+const indexed = () => byTitle(TaskV1);
 
 /** A Memory table's StdTable contract, with every call counted. */
 const memoryStore = (
-  failWrite?: (
-    kind: 'write' | 'transact',
-    items: readonly StoredItem[],
-  ) => boolean,
+  options: {
+    readonly failWrite?: (
+      kind: 'write' | 'transact',
+      items: readonly StoredItem[],
+    ) => boolean;
+    /** Runs before each single write, on the store underneath. */
+    readonly beforeWrite?: (
+      put: ConditionalPut,
+      inner: StdTableContract,
+    ) => Effect.Effect<void>;
+  } = {},
 ) => {
-  const layer = Memory.make(v4Table(noCalls())).layer;
+  // The widest topology any test declares, so every index can be queried.
+  const layer = Memory.make(indexed()).layer;
   const inner = Effect.runSync(
     Effect.map(StdTableService(NAME), ({ contract }) => contract).pipe(
       Effect.provide(layer),
@@ -151,10 +105,10 @@ const memoryStore = (
   };
   const store: StdTableContract = {
     ...inner,
-    getItem: (key, options) => (
+    getItem: (key, read) => (
       counts.getItem++,
-      gets.push(options),
-      inner.getItem(key, options)
+      gets.push(read),
+      inner.getItem(key, read)
     ),
     queryItems: (request) => (
       counts.queryItems++,
@@ -167,16 +121,19 @@ const memoryStore = (
       inner.scanItems(request)
     ),
     writeItem: (put) => {
-      if (failWrite?.('write', [put.item]))
+      if (options.failWrite?.('write', [put.item]))
         return Effect.fail(new OperationFailure({ cause: 'injected' }));
       counts.writes.push(put.item);
-      return inner.writeItem(put);
+      return Effect.andThen(
+        options.beforeWrite?.(put, inner) ?? Effect.void,
+        inner.writeItem(put),
+      );
     },
     transactWriteItems: (items) => {
       const puts = items.flatMap((item) =>
         item.kind === 'put' ? [item.item] : [],
       );
-      if (failWrite?.('transact', puts))
+      if (options.failWrite?.('transact', puts))
         return Effect.fail(new OperationFailure({ cause: 'injected' }));
       counts.writes.push(...puts);
       return inner.transactWriteItems(items);
@@ -227,29 +184,50 @@ const insertV1 = (taskIds: readonly string[]) =>
   Effect.forEach(
     taskIds,
     (taskId) =>
-      v1Table().Task.insert({ taskId, projectId: 'p1', title: `t ${taskId}` }),
+      v1Table().Task.insert({ taskId, projectId: 'p1', title: `T ${taskId}` }),
     { discard: true },
   );
 
 const tasksOf = (items: readonly StoredItem[]) =>
   items.filter(({ meta }) => meta._e === 'Task');
 
+/** The ids of the tasks the byTitle index finds under `title`. */
+const titled = (
+  table: ReturnType<typeof indexed>,
+  title: string,
+  layer: ReturnType<typeof memoryStore>['layer'],
+) =>
+  run(
+    Effect.map(
+      table.Task.query('byTitle', { pk: { title }, '>=': null }),
+      ({ items }) => items.map(({ value }) => value.taskId),
+    ),
+    layer,
+  );
+
+/** A persistent table set up at v1 and holding `taskIds`. */
+const atV1 = async (
+  taskIds: readonly string[],
+  options?: Parameters<typeof memoryStore>[0],
+) => {
+  const memory = memoryStore(options);
+  await Effect.runPromise(
+    runSetup({ table: v1Table(), mode: 'persistent', store: memory.store }),
+  );
+  await run(insertV1(taskIds), memory.layer);
+  memory.reset();
+  return memory;
+};
+
 describe('runSetup', () => {
-  it('records a fresh empty table with every Backfill done, scanning nothing', async () => {
+  it('records a fresh empty table, scanning one page', async () => {
     const { store, counts } = memoryStore();
-    const calls = noCalls();
     const outcome = await Effect.runPromise(
-      runSetup({ table: v4Table(calls), mode: 'persistent', store }),
+      runSetup({ table: indexed(), mode: 'persistent', store }),
     );
     expect(outcome).toEqual({ kind: 'created' });
-    // One page to see the table is empty; no Backfill scan.
+    // One page to see the table is empty; nothing to reindex.
     expect(counts.scanItems).toBe(1);
-    expect(calls).toEqual(noCalls());
-    for (const id of ['task-owner', 'task-label', 'task-by-owner'])
-      expect((await contractRow(store, 'backfill', id))?.data).toMatchObject({
-        status: 'done',
-        rowsRewritten: 0,
-      });
   });
 
   it('refuses a persistent table that holds rows but no contract', async () => {
@@ -277,12 +255,7 @@ describe('runSetup', () => {
   });
 
   it('reads one row for an unchanged table', async () => {
-    const { store, counts, reset, layer } = memoryStore();
-    await Effect.runPromise(
-      runSetup({ table: v1Table(), mode: 'persistent', store }),
-    );
-    await run(insertV1(['t1']), layer);
-    reset();
+    const { store, counts } = await atV1(['t1']);
     const outcome = await Effect.runPromise(
       runSetup({ table: v1Table(), mode: 'persistent', store }),
     );
@@ -295,347 +268,21 @@ describe('runSetup', () => {
     });
   });
 
-  it('catches up a table that skipped releases in one scan, each row written once', async () => {
-    const { store, counts, reset, layer } = memoryStore();
-    await Effect.runPromise(
-      runSetup({ table: v1Table(), mode: 'persistent', store }),
-    );
-    await run(insertV1(['t1', 't2', 't3']), layer);
-    reset();
-    const calls = noCalls();
-    const table = v4Table(calls);
-    const outcome = await Effect.runPromise(
-      runSetup({ table, mode: 'persistent', store }),
-    );
-    expect(outcome).toMatchObject({
-      kind: 'applied',
-      backfills: ['task-owner', 'task-label', 'task-by-owner'],
-    });
-    expect(calls).toEqual({
-      owner: ['t1', 't2', 't3'],
-      label: ['t1', 't2', 't3'],
-    });
-    // One scan, then one verify pass that rewrites nothing.
-    expect(counts.scanItems).toBe(2);
-    expect(tasksOf(counts.writes)).toHaveLength(3);
-    for (const task of tasksOf(await allItems(store))) {
-      expect(task.data).toMatchObject({
-        _v: 'v4',
-        owner: 'ann',
-        done: false,
-        label: task.data.title === 't t1' ? 'T T1' : expect.any(String),
-      });
-      expect(task.keys.GSI1PK).toBeDefined();
-    }
-    const byOwner = await run(
-      table.Task.query('byOwner', { pk: { owner: 'ann' }, '>=': null }),
-      layer,
-    );
-    expect(byOwner.items).toHaveLength(3);
-    expect(
-      (await contractRow(store, 'backfill', 'task-owner'))?.data,
-    ).toMatchObject({ status: 'done', rowsRewritten: 3, cursor: null });
-    // Recorded: the next setup is one read.
-    expect(
-      await Effect.runPromise(runSetup({ table, mode: 'persistent', store })),
-    ).toEqual({ kind: 'unchanged' });
-  });
-
-  it('runs a Backfill that reads another entity after that entity is filled', async () => {
-    const ProjectV1 = EntityESchema.make('Project', 'projectId', {
-      name: Schema.String,
-    }).build();
-    const ProjectV2 = EntityESchema.make('Project', 'projectId', {
-      name: Schema.String,
-    })
-      .evolve('v2', { slug: Schema.String })
-      .build();
-    const Task1 = EntityESchema.make('Task', 'taskId', {
-      projectId: Schema.String,
-    }).build();
-    const Task2 = EntityESchema.make('Task', 'taskId', {
-      projectId: Schema.String,
-    })
-      .evolve('v2', { projectSlug: Schema.String })
-      .build();
-    const before = StdTable.make(NAME)
-      .primary('pk', 'sk')
-      .entity(ProjectV1, (e) => e.primary())
-      .entity(Task1, (e) => e.primary())
-      .build();
-    const order: string[] = [];
-    const after = StdTable.make(NAME)
-      .primary('pk', 'sk')
-      .entity(ProjectV2, (e) => e.primary())
-      .entity(Task2, (e) => e.primary())
-      .backfill('project-slug', {
-        entity: 'Project',
-        to: 'v2',
-        run: (project) => {
-          order.push(`project ${project.projectId}`);
-          return Effect.succeed({
-            ...project,
-            slug: project.name.toLowerCase(),
-          });
-        },
-      })
-      .backfill('task-slug', {
-        entity: 'Task',
-        to: 'v2',
-        after: ['project-slug'],
-        run: (task, db) =>
-          Effect.gen(function* () {
-            order.push(`task ${task.taskId}`);
-            const project = yield* db.Project.get({
-              projectId: task.projectId,
-            });
-            return { ...task, projectSlug: project!.value.slug };
-          }),
-      })
-      .build();
-    const { store, layer } = memoryStore();
-    await Effect.runPromise(
-      runSetup({ table: before, mode: 'persistent', store }),
-    );
-    await run(
-      Effect.gen(function* () {
-        yield* before.Task.insert({ taskId: 't1', projectId: 'p1' });
-        yield* before.Project.insert({ projectId: 'p1', name: 'Apollo' });
-      }),
-      layer,
-    );
-    await Effect.runPromise(
-      runSetup({ table: after, mode: 'persistent', store }),
-    );
-    expect(order).toEqual(['project p1', 'task t1']);
-    const task = await run(after.Task.get({ taskId: 't1' }), layer);
-    expect(task?.value.projectSlug).toBe('apollo');
-  });
-
-  const declared = (
-    id: string,
-    entity: string,
-    after: string[] = [],
-    kind: 'gap' | 'reindex' = 'reindex',
-  ): BackfillDeclaration => ({
-    id,
-    kind,
-    entity,
-    to: kind === 'gap' ? 'v2' : null,
-    after,
-    run: null,
-  });
-  const stagesOf = (pending: readonly BackfillDeclaration[]) =>
-    planStages(pending).map(({ entity, backfills }) => [
-      entity,
-      backfills.map(({ id }) => id),
-    ]);
-
-  it('refuses Backfills whose entities wait on one another', () => {
-    const cycle = [
-      declared('task', 'Task'),
-      declared('project', 'Project', ['task']),
-      declared('task-later', 'Task', ['project']),
-    ];
-    expect(() => planStages(cycle)).toThrow(BackfillOrderRefused);
-    expect(() => planStages(cycle)).toThrow(
-      /Task, Project wait on one another in a cycle/,
-    );
-  });
-
-  it("puts all of one entity's Backfills in one stage, ordered between entities", () => {
-    expect(
-      stagesOf([
-        declared('t1', 'Task'),
-        declared('p1', 'Project'),
-        declared('t2', 'Task'),
-      ]),
-    ).toEqual([
-      ['Task', ['t1', 't2']],
-      ['Project', ['p1']],
-    ]);
-    // Only Task v3 waits on Project v2: Project runs first, then both Task gaps.
-    expect(
-      stagesOf([
-        declared('task-v2', 'Task', [], 'gap'),
-        declared('project-v2', 'Project', [], 'gap'),
-        declared('task-v3', 'Task', ['project-v2'], 'gap'),
-      ]),
-    ).toEqual([
-      ['Project', ['project-v2']],
-      ['Task', ['task-v2', 'task-v3']],
-    ]);
-  });
-
   it('refuses a page size that cannot hold a row, before changing anything', async () => {
-    const { store } = memoryStore();
-    await Effect.runPromise(
-      runSetup({ table: v1Table(), mode: 'persistent', store }),
-    );
+    const { store } = await atV1(['t1']);
     const before = await allItems(store);
     for (const pageSize of [0, -1, 1.5]) {
       const exit = await Effect.runPromiseExit(
-        runSetup({
-          table: v2Table(noCalls()),
-          mode: 'persistent',
-          store,
-          pageSize,
-        }),
+        runSetup({ table: indexed(), mode: 'persistent', store, pageSize }),
       );
       expect(exit._tag).toBe('Failure');
     }
     expect(await allItems(store)).toEqual(before);
   });
 
-  it('resumes from the cursor after a failure', async () => {
-    const { store, layer } = memoryStore();
-    await Effect.runPromise(
-      runSetup({ table: v1Table(), mode: 'persistent', store }),
-    );
-    await run(insertV1(['t1', 't2', 't3', 't4', 't5', 't6']), layer);
-    const failing = noCalls();
-    const failed = await fails(
-      runSetup({
-        table: v2Table(failing, (taskId) => taskId === 't5'),
-        mode: 'persistent',
-        store,
-        pageSize: 2,
-      }),
-    );
-    expect(failed).toBeInstanceOf(BackfillFailed);
-    expect(failing.owner).toEqual(['t1', 't2', 't3', 't4', 't5']);
-    expect(
-      (await contractRow(store, 'backfill', 'task-owner'))?.data,
-    ).toMatchObject({
-      status: 'running',
-      rowsRewritten: 4,
-      cursor: { sk: encodeCompositeKey(['t4']) },
-    });
-    const calls = noCalls();
-    await Effect.runPromise(
-      runSetup({
-        table: v2Table(calls),
-        mode: 'persistent',
-        store,
-        pageSize: 2,
-      }),
-    );
-    expect(calls.owner).toEqual(['t5', 't6']);
-    expect(
-      (await contractRow(store, 'backfill', 'task-owner'))?.data,
-    ).toMatchObject({ status: 'done', rowsRewritten: 6 });
-  });
-
-  it('catches an old row written behind the cursor with a verify pass', async () => {
-    const { store, layer } = memoryStore();
-    await Effect.runPromise(
-      runSetup({ table: v1Table(), mode: 'persistent', store }),
-    );
-    await run(insertV1(['t3', 't4', 't5', 't6']), layer);
-    let written = false;
-    const calls: string[] = [];
-    const table = StdTable.make(NAME)
-      .primary('pk', 'sk')
-      .entity(TaskV2, (e) => e.primary({ pk: ['projectId'] }))
-      .backfill('task-owner', {
-        entity: 'Task',
-        to: 'v2',
-        run: (task) =>
-          Effect.gen(function* () {
-            calls.push(task.taskId);
-            if (task.taskId === 't5' && !written) {
-              written = true;
-              // An old release writes an old row the scan has passed.
-              yield* insertV1(['t1']).pipe(Effect.provide(layer));
-            }
-            return { ...task, owner: 'ann' };
-          }),
-      })
-      .build();
-    await Effect.runPromise(
-      runSetup({ table, mode: 'persistent', store, pageSize: 2 }),
-    );
-    expect(calls).toEqual(['t3', 't4', 't5', 't6', 't1']);
-    for (const task of tasksOf(await allItems(store)))
-      expect(task.data._v).toBe('v2');
-  });
-
-  it('refuses a persistent change that needs a Backfill none covers', async () => {
-    const { store } = memoryStore();
-    await Effect.runPromise(
-      runSetup({ table: v1Table(), mode: 'persistent', store }),
-    );
-    const withIndex = StdTable.make(NAME)
-      .primary('pk', 'sk')
-      .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-      .entity(TaskV1, (e) =>
-        e
-          .primary({ pk: ['projectId'] })
-          .index('GSI1', 'byTitle', { pk: ['title'] }),
-      )
-      .build();
-    const refused = await fails(
-      runSetup({ table: withIndex, mode: 'persistent', store }),
-    );
-    expect(refused).toBeInstanceOf(SetupRefused);
-    expect((refused as SetupRefused).reason).toBe('backfill-missing');
-    expect((refused as SetupRefused).message).toMatch(/byTitle/);
-  });
-
-  it('wipes a disposable table with a gap and never runs its Backfill', async () => {
-    const { store, layer } = memoryStore();
-    await Effect.runPromise(
-      runSetup({ table: v1Table(), mode: 'disposable', store }),
-    );
-    await run(insertV1(['t1', 't2']), layer);
-    const calls = noCalls();
-    const outcome = await Effect.runPromise(
-      runSetup({ table: v2Table(calls), mode: 'disposable', store }),
-    );
-    expect(outcome.kind).toBe('wiped');
-    expect(calls.owner).toEqual([]);
-    expect(tasksOf(await allItems(store))).toHaveLength(0);
-    expect(
-      (await contractRow(store, 'backfill', 'task-owner'))?.data,
-    ).toMatchObject({ status: 'done' });
-  });
-
-  it('leaves the contract unwritten and the Backfill not done when a run fails', async () => {
-    const { store, layer } = memoryStore();
-    await Effect.runPromise(
-      runSetup({ table: v1Table(), mode: 'persistent', store }),
-    );
-    await run(insertV1(['t1']), layer);
-    const failed = await fails(
-      runSetup({
-        table: v2Table(noCalls(), () => true),
-        mode: 'persistent',
-        store,
-      }),
-    );
-    expect(failed).toBeInstanceOf(BackfillFailed);
-    expect(failed).toMatchObject({
-      backfill: 'task-owner',
-      reason: 'run',
-      key: {
-        pk: encodeCompositeKey(['Task', 'p1']),
-        sk: encodeCompositeKey(['t1']),
-      },
-    });
-    expect(await contractRow(store, 'backfill', 'task-owner')).toBeNull();
-    // The table row still records v1.
-    expect(
-      await Effect.runPromise(
-        runSetup({ table: v1Table(), mode: 'persistent', store }),
-      ),
-    ).toEqual({ kind: 'unchanged' });
-  });
-
   it('keeps reserved rows out of scan and entity reads', async () => {
-    const { store, layer } = memoryStore();
+    const { store, layer } = await atV1(['t1']);
     const table = v1Table();
-    await Effect.runPromise(runSetup({ table, mode: 'persistent', store }));
-    await run(insertV1(['t1']), layer);
     expect((await allItems(store)).length).toBeGreaterThan(1);
     const scanned = await run(Stream.runCollect(table.scan()), layer);
     expect(Array.from(scanned).map(({ meta }) => meta._e)).toEqual(['Task']);
@@ -655,159 +302,253 @@ describe('runSetup', () => {
   });
 
   it('never rewrites a version row', async () => {
-    const { store, layer } = memoryStore();
-    await Effect.runPromise(
-      runSetup({ table: v1Table(), mode: 'persistent', store }),
-    );
+    const { store } = await atV1(['t1']);
     const v1Row = await contractRow(store, 'version', 'Task', 'v1', '1');
-    expect(v1Row?.data).toMatchObject({ identity: 'Task', gap: false });
-    await run(insertV1(['t1']), layer);
+    expect(v1Row?.data).toMatchObject({ identity: 'Task', version: 'v1' });
     await Effect.runPromise(
-      runSetup({ table: v3Table(noCalls()), mode: 'persistent', store }),
+      runSetup({ table: v2Table(), mode: 'persistent', store }),
     );
     expect(await contractRow(store, 'version', 'Task', 'v1', '1')).toEqual(
       v1Row,
     );
     expect(
-      (await contractRow(store, 'version', 'Task', 'v2', '2'))?.data,
-    ).toMatchObject({ gap: true });
-    expect(
-      (await contractRow(store, 'version', 'Task', 'v3', '2'))?.data,
-    ).toMatchObject({ gap: false });
+      await contractRow(store, 'version', 'Task', 'v2', '2'),
+    ).not.toBeNull();
+  });
+
+  it('refuses a breaking change on a persistent table, pointing to a new table', async () => {
+    const { store } = await atV1(['t1']);
+    const edited = StdTable.make(NAME)
+      .primary('pk', 'sk')
+      .entity(
+        EntityESchema.make('Task', 'taskId', {
+          projectId: Schema.String,
+          title: Schema.Finite,
+        }).build(),
+        (e) => e.primary({ pk: ['projectId'] }),
+      )
+      .build();
+    const refused = await fails(
+      runSetup({ table: edited, mode: 'persistent', store }),
+    );
+    expect(refused).toMatchObject({ reason: 'breaking' });
+    expect((refused as SetupRefused).message).toMatch(
+      /add the change as a new version with a migration\. A change no migration can make needs a new physical table, and a table migration/,
+    );
+    expect((refused as SetupRefused).message).not.toMatch(/Backfill/);
+  });
+
+  describe('reindex', () => {
+    it('reindexes existing rows into an added index, so they are found by it', async () => {
+      const { store, layer, scans } = await atV1(['t1', 't2', 't3']);
+      const table = indexed();
+      const outcome = await Effect.runPromise(
+        runSetup({ table, mode: 'persistent', store, pageSize: 2 }),
+      );
+      expect(outcome).toMatchObject({ kind: 'applied', reindexed: ['Task'] });
+      // Strongly consistent, page by page.
+      expect(scans.length).toBeGreaterThan(1);
+      expect(scans.every(({ consistent }) => consistent === true)).toBe(true);
+      expect(await titled(table, 'T t2', layer)).toEqual(['t2']);
+      for (const item of tasksOf(await allItems(store)))
+        expect(Object.keys(item.keys)).toContain('GSI1PK');
+    });
+
+    it('finds the next setup unchanged, rewriting nothing', async () => {
+      const { store, counts, reset } = await atV1(['t1']);
+      await Effect.runPromise(
+        runSetup({ table: indexed(), mode: 'persistent', store }),
+      );
+      reset();
+      expect(
+        await Effect.runPromise(
+          runSetup({ table: indexed(), mode: 'persistent', store }),
+        ),
+      ).toEqual({ kind: 'unchanged' });
+      expect(counts.writes).toEqual([]);
+    });
+
+    it('rewrites only rows whose index keys drifted', async () => {
+      const { store, layer, counts, reset } = await atV1([]);
+      await Effect.runPromise(
+        runSetup({ table: indexed(), mode: 'persistent', store }),
+      );
+      await run(
+        indexed().Task.insert({ taskId: 't1', projectId: 'p1', title: 'One' }),
+        layer,
+      );
+      reset();
+      // A pure new version with an indexed entity is checked, and t1's keys
+      // are current already.
+      const outcome = await Effect.runPromise(
+        runSetup({
+          table: byTitle(TaskV2),
+          mode: 'persistent',
+          store,
+        }),
+      );
+      expect(outcome).toMatchObject({ kind: 'applied', reindexed: ['Task'] });
+      expect(tasksOf(counts.writes)).toEqual([]);
+    });
+
+    it('reindexes rows a migration moves to another index key', async () => {
+      const { store, layer } = await atV1([]);
+      const before = indexed();
+      await Effect.runPromise(
+        runSetup({ table: before, mode: 'persistent', store }),
+      );
+      await run(
+        before.Task.insert({ taskId: 't1', projectId: 'p1', title: 'Hello' }),
+        layer,
+      );
+      const after = byTitle(LowerTitle);
+      expect(
+        await Effect.runPromise(
+          runSetup({ table: after, mode: 'persistent', store }),
+        ),
+      ).toMatchObject({ kind: 'applied', reindexed: ['Task'] });
+      expect(await titled(after, 'hello', layer)).toEqual(['t1']);
+      expect(await titled(after, 'Hello', layer)).toEqual([]);
+      // Only the keys moved: the row is still stored at v1, as old code
+      // still serving reads it.
+      const [task] = tasksOf(await allItems(store));
+      expect(task?.data).toMatchObject({ _v: 'v1', title: 'Hello' });
+      expect(
+        await run(before.Task.get({ projectId: 'p1', taskId: 't1' }), layer),
+      ).toMatchObject({ value: { title: 'Hello' } });
+    });
+
+    it('does not reindex an entity no index change touches', async () => {
+      const { store, counts } = await atV1(['t1']);
+      const outcome = await Effect.runPromise(
+        runSetup({ table: v2Table(), mode: 'persistent', store }),
+      );
+      expect(outcome).toMatchObject({ kind: 'applied', reindexed: [] });
+      expect(tasksOf(counts.writes)).toEqual([]);
+    });
+
+    it('wipes a disposable table instead of reindexing it', async () => {
+      const memory = memoryStore();
+      await Effect.runPromise(
+        runSetup({ table: v1Table(), mode: 'disposable', store: memory.store }),
+      );
+      await run(insertV1(['t1']), memory.layer);
+      const outcome = await Effect.runPromise(
+        runSetup({ table: indexed(), mode: 'disposable', store: memory.store }),
+      );
+      expect(outcome.kind).toBe('wiped');
+      expect(tasksOf(await allItems(memory.store))).toHaveLength(0);
+    });
+
+    it('reindexes again after a crash part-way, and then records the contract', async () => {
+      let armed = false;
+      let taskWrites = 0;
+      const { store, layer } = await atV1(['t1', 't2', 't3', 't4'], {
+        failWrite: (kind, items) =>
+          armed &&
+          kind === 'write' &&
+          items[0]?.meta._e === 'Task' &&
+          ++taskWrites === 3,
+      });
+      const table = indexed();
+      armed = true;
+      expect(
+        await fails(runSetup({ table, mode: 'persistent', store })),
+      ).toMatchObject({ reason: { _tag: 'OperationFailed' } });
+      // Two rows were rewritten; the contract is still the old one.
+      expect(
+        tasksOf(await allItems(store)).filter(({ keys }) => 'GSI1PK' in keys),
+      ).toHaveLength(2);
+      armed = false;
+      expect(
+        await Effect.runPromise(runSetup({ table, mode: 'persistent', store })),
+      ).toMatchObject({ kind: 'applied', reindexed: ['Task'] });
+      for (const taskId of ['t1', 't2', 't3', 't4'])
+        expect(await titled(table, `T ${taskId}`, layer)).toEqual([taskId]);
+      expect(
+        await Effect.runPromise(runSetup({ table, mode: 'persistent', store })),
+      ).toEqual({ kind: 'unchanged' });
+    });
+
+    // An app write between the scan's read and the reindex write: old code,
+    // so the row it writes has no key for the new index.
+    const appRenames = (title: string, times = Infinity) => {
+      let renamed = 0;
+      return {
+        renamed: () => renamed,
+        beforeWrite: (put: ConditionalPut, inner: StdTableContract) =>
+          put.item.meta._e === 'Task' &&
+          put.condition?.kind === 'updated' &&
+          renamed < times
+            ? Effect.gen(function* () {
+                const stored = (yield* Effect.orDie(inner.getItem(put.item)))!;
+                renamed++;
+                yield* Effect.orDie(
+                  inner.writeItem({
+                    item: {
+                      ...stored,
+                      meta: {
+                        ...stored.meta,
+                        _u: `${stored.meta._u}${renamed}`,
+                      },
+                      data: { ...stored.data, title },
+                    },
+                  }),
+                );
+              })
+            : Effect.void,
+      };
+    };
+
+    it('reads a row again when an app write moved it, keeping the new value', async () => {
+      const rename = appRenames('Renamed', 1);
+      const { store, layer } = await atV1(['t1'], {
+        beforeWrite: rename.beforeWrite,
+      });
+      const table = indexed();
+      expect(
+        await Effect.runPromise(runSetup({ table, mode: 'persistent', store })),
+      ).toMatchObject({ kind: 'applied' });
+      expect(rename.renamed()).toBe(1);
+      expect(await titled(table, 'Renamed', layer)).toEqual(['t1']);
+      expect(await titled(table, 'T t1', layer)).toEqual([]);
+    });
+
+    it('fails, leaving the contract, when a row keeps moving', async () => {
+      const rename = appRenames('Again');
+      const { store } = await atV1(['t1'], { beforeWrite: rename.beforeWrite });
+      const failed = await fails(
+        runSetup({ table: indexed(), mode: 'persistent', store }),
+      );
+      expect(failed).toBeInstanceOf(DatabaseError);
+      expect((failed as DatabaseError).reason._tag).toBe('ReindexConflict');
+      expect(rename.renamed()).toBe(3);
+      expect((await contractRow(store, 'table'))?.data).not.toHaveProperty(
+        'topology.globalSecondaryIndexes.0',
+      );
+    });
+
+    it('fails on a row it cannot read, leaving the contract', async () => {
+      const { store } = await atV1(['t1']);
+      const [task] = tasksOf(await allItems(store));
+      await Effect.runPromise(
+        store.writeItem({
+          item: { ...task!, data: { ...task!.data, title: 42 } as never },
+        }),
+      );
+      const failed = await fails(
+        runSetup({ table: indexed(), mode: 'persistent', store }),
+      );
+      expect(failed).toBeInstanceOf(DatabaseError);
+      expect(
+        await Effect.runPromise(
+          runSetup({ table: v1Table(), mode: 'persistent', store }),
+        ),
+      ).toEqual({ kind: 'unchanged' });
+    });
   });
 
   describe('regressions', () => {
-    it('refuses a Backfill that moves a row to another key, leaving that row alone', async () => {
-      const { store, layer } = memoryStore();
-      const before = v1Table();
-      await Effect.runPromise(
-        runSetup({ table: before, mode: 'persistent', store }),
-      );
-      // One transaction: both rows share one `_u`.
-      await run(
-        Effect.gen(function* () {
-          yield* before.transact([
-            yield* before.Task.insertOp({
-              taskId: 't1',
-              projectId: 'p1',
-              title: 'first',
-            }),
-            yield* before.Task.insertOp({
-              taskId: 't2',
-              projectId: 'p1',
-              title: 'second',
-            }),
-          ]);
-        }),
-        layer,
-      );
-      const moving = StdTable.make(NAME)
-        .primary('pk', 'sk')
-        .entity(TaskV2, (e) => e.primary({ pk: ['projectId'] }))
-        .backfill('task-owner', {
-          entity: 'Task',
-          to: 'v2',
-          run: (task) =>
-            Effect.succeed({ ...task, taskId: 't2', owner: 'ann' }),
-        })
-        .build();
-      const failed = await fails(
-        runSetup({ table: moving, mode: 'persistent', store }),
-      );
-      expect(failed).toMatchObject({
-        _tag: 'BackfillFailed',
-        backfill: 'task-owner',
-        reason: 'key-changed',
-        key: { sk: encodeCompositeKey(['t1']) },
-      });
-      const second = tasksOf(await allItems(store)).find(
-        ({ sk }) => sk === encodeCompositeKey(['t2']),
-      );
-      expect(second?.data).toMatchObject({ _v: 'v1', title: 'second' });
-    });
-
-    it('resumes when a finished Backfill is not yet in a committed contract', async () => {
-      const ProjectV1 = EntityESchema.make('Project', 'projectId', {
-        name: Schema.String,
-      }).build();
-      const ProjectV2 = EntityESchema.make('Project', 'projectId', {
-        name: Schema.String,
-      })
-        .evolve('v2', { slug: Schema.String })
-        .build();
-      const Task1 = EntityESchema.make('Task', 'taskId', {
-        projectId: Schema.String,
-      }).build();
-      const Task2 = EntityESchema.make('Task', 'taskId', {
-        projectId: Schema.String,
-      })
-        .evolve('v2', { projectSlug: Schema.String })
-        .build();
-      const before = StdTable.make(NAME)
-        .primary('pk', 'sk')
-        .entity(ProjectV1, (e) => e.primary())
-        .entity(Task1, (e) => e.primary())
-        .build();
-      const after = (failTask: boolean) =>
-        StdTable.make(NAME)
-          .primary('pk', 'sk')
-          .entity(ProjectV2, (e) => e.primary())
-          .entity(Task2, (e) => e.primary())
-          .backfill('project-slug', {
-            entity: 'Project',
-            to: 'v2',
-            run: (project) =>
-              Effect.succeed({ ...project, slug: project.name.toLowerCase() }),
-          })
-          .backfill('task-slug', {
-            entity: 'Task',
-            to: 'v2',
-            after: ['project-slug'],
-            run: (task) =>
-              failTask
-                ? Effect.fail('not yet')
-                : Effect.succeed({ ...task, projectSlug: 'apollo' }),
-          })
-          .build();
-      const { store, layer } = memoryStore();
-      await Effect.runPromise(
-        runSetup({ table: before, mode: 'persistent', store }),
-      );
-      await run(
-        Effect.gen(function* () {
-          yield* before.Project.insert({ projectId: 'p1', name: 'Apollo' });
-          yield* before.Task.insert({ taskId: 't1', projectId: 'p1' });
-        }),
-        layer,
-      );
-      expect(
-        await fails(
-          runSetup({ table: after(true), mode: 'persistent', store }),
-        ),
-      ).toBeInstanceOf(BackfillFailed);
-      expect(
-        (await contractRow(store, 'backfill', 'project-slug'))?.data,
-      ).toMatchObject({ status: 'done' });
-      // An old client writes an old Project after the uncommitted Backfill.
-      await run(
-        before.Project.insert({ projectId: 'p2', name: 'Gemini' }),
-        layer,
-      );
-      const outcome = await Effect.runPromise(
-        runSetup({ table: after(false), mode: 'persistent', store }),
-      );
-      // Not yet committed, so not trusted: project-slug checks every row again.
-      expect(outcome).toMatchObject({
-        kind: 'applied',
-        backfills: ['project-slug', 'task-slug'],
-      });
-      const late = await run(
-        after(false).Project.get({ projectId: 'p2' }),
-        layer,
-      );
-      expect(late?.value.slug).toBe('gemini');
-    });
-
     it('keeps the latest accepted checks of a version as its baseline', async () => {
       const table = (minimum: number) =>
         StdTable.make(NAME)
@@ -873,15 +614,17 @@ describe('runSetup', () => {
       for (const failing of ['second batch', 'table row'] as const) {
         let armed = false;
         let batches = 0;
-        const { store } = memoryStore((kind, items) => {
-          if (!armed) return false;
-          if (kind === 'transact' && failing === 'second batch')
-            return ++batches === 2;
-          return (
-            kind === 'write' &&
-            failing === 'table row' &&
-            items.some(({ meta }) => meta._e === '_std_table')
-          );
+        const { store } = memoryStore({
+          failWrite: (kind, items) => {
+            if (!armed) return false;
+            if (kind === 'transact' && failing === 'second batch')
+              return ++batches === 2;
+            return (
+              kind === 'write' &&
+              failing === 'table row' &&
+              items.some(({ meta }) => meta._e === '_std_table')
+            );
+          },
         });
         await Effect.runPromise(
           runSetup({ table: declare(false), mode: 'persistent', store }),
@@ -915,379 +658,31 @@ describe('runSetup', () => {
       }
     });
 
-    it("refuses at build a reindex another entity reads before that entity's gap", () => {
-      const Project2 = EntityESchema.make('Project', 'projectId', {
-        name: Schema.String,
-      })
-        .evolve('v2', { openTasks: Schema.Int })
-        .build();
-      const declare = () =>
-        StdTable.make(NAME)
-          .primary('pk', 'sk')
-          .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-          .entity(TaskV2, (e) =>
-            e
-              .primary({ pk: ['projectId'] })
-              .index('GSI1', 'byProject', { pk: ['projectId'] }),
-          )
-          .entity(Project2, (e) => e.primary())
-          .backfill('task-by-project', { reindex: 'Task' })
-          .backfill('project-open-tasks', {
-            entity: 'Project',
-            to: 'v2',
-            after: ['task-by-project'],
-            run: (project, db) =>
-              Effect.map(
-                db.Task.query('byProject', {
-                  pk: { projectId: project.projectId },
-                  '>=': null,
-                }),
-                ({ items }) => ({ ...project, openTasks: items.length }),
-              ),
-          })
-          .backfill('task-owner', {
-            entity: 'Task',
-            to: 'v2',
-            after: ['project-open-tasks'],
-            run: (task) => Effect.succeed({ ...task, owner: 'ann' }),
-          })
-          .build();
-      expect(declare).toThrow(
-        /Table "board" cannot run its Backfills: the Backfills of Task, Project wait on one another in a cycle/,
-      );
-    });
-
-    it("runs an entity's gaps together when only the later one waits on another entity", async () => {
-      const Project1 = EntityESchema.make('Project', 'projectId', {
-        name: Schema.String,
-      }).build();
-      const Project2 = EntityESchema.make('Project', 'projectId', {
-        name: Schema.String,
-      })
-        .evolve('v2', { slug: Schema.String })
-        .build();
-      const Task3 = EntityESchema.make('Task', 'taskId', {
-        projectId: Schema.String,
-        title: Schema.String,
-      })
-        .evolve('v2', { owner: Schema.String })
-        .evolve('v3', { projectSlug: Schema.String })
-        .build();
-      const before = StdTable.make(NAME)
-        .primary('pk', 'sk')
-        .entity(TaskV1, (e) => e.primary({ pk: ['projectId'] }))
-        .entity(Project1, (e) => e.primary())
-        .build();
-      const order: string[] = [];
-      const after = StdTable.make(NAME)
-        .primary('pk', 'sk')
-        .entity(Task3, (e) => e.primary({ pk: ['projectId'] }))
-        .entity(Project2, (e) => e.primary())
-        .backfill('task-v2', {
-          entity: 'Task',
-          to: 'v2',
-          run: (task) => {
-            order.push('task-v2');
-            return Effect.succeed({ ...task, owner: 'ann' });
-          },
-        })
-        .backfill('project-v2', {
-          entity: 'Project',
-          to: 'v2',
-          run: (project) => {
-            order.push('project-v2');
-            return Effect.succeed({ ...project, slug: 'apollo' });
-          },
-        })
-        .backfill('task-v3', {
-          entity: 'Task',
-          to: 'v3',
-          after: ['project-v2'],
-          run: (task, db) =>
-            Effect.gen(function* () {
-              order.push('task-v3');
-              const project = yield* db.Project.get({
-                projectId: task.projectId,
-              });
-              return { ...task, projectSlug: project!.value.slug };
-            }),
-        })
-        .build();
-      const { store, layer } = memoryStore();
+    it('reads every contract row and the table row strongly consistent', async () => {
+      const { store, queries, gets } = await atV1(['t1']);
       await Effect.runPromise(
-        runSetup({ table: before, mode: 'persistent', store }),
-      );
-      await run(
-        Effect.gen(function* () {
-          yield* before.Project.insert({ projectId: 'p1', name: 'Apollo' });
-          yield* insertV1(['t1']);
-        }),
-        layer,
-      );
-      const outcome = await Effect.runPromise(
-        runSetup({ table: after, mode: 'persistent', store }),
-      );
-      expect(outcome).toMatchObject({
-        kind: 'applied',
-        backfills: ['project-v2', 'task-v2', 'task-v3'],
-      });
-      expect(order).toEqual(['project-v2', 'task-v2', 'task-v3']);
-      const task = await run(
-        after.Task.get({ projectId: 'p1', taskId: 't1' }),
-        layer,
-      );
-      expect(task?.value).toMatchObject({
-        owner: 'ann',
-        projectSlug: 'apollo',
-      });
-    });
-
-    it('starts a Backfill over when its uncommitted progress was toward another contract', async () => {
-      const start = () =>
-        StdTable.make(NAME).primary('pk', 'sk').gsi('GSI1', 'GSI1PK', 'GSI1SK');
-      const plain = () =>
-        start()
-          .entity(TaskV1, (e) => e.primary({ pk: ['projectId'] }))
-          .build();
-      const keyed = <const P extends 'title' | 'projectId'>(pattern: P) =>
-        start()
-          .entity(TaskV1, (e) =>
-            e
-              .primary({ pk: ['projectId'] })
-              .index('GSI1', 'byKey', { pk: [pattern] }),
-          )
-          .backfill('task-by-key', { reindex: 'Task' })
-          .build();
-      let armed = false;
-      const { store, layer } = memoryStore(
-        (kind, items) =>
-          armed &&
-          kind === 'write' &&
-          items.some(({ meta }) => meta._e === '_std_table'),
-      );
-      await Effect.runPromise(
-        runSetup({ table: plain(), mode: 'persistent', store }),
-      );
-      await run(insertV1(['t1', 't2']), layer);
-      armed = true;
-      expect(
-        await fails(
-          runSetup({ table: keyed('title'), mode: 'persistent', store }),
-        ),
-      ).toBeInstanceOf(OperationFailure);
-      expect(
-        (await contractRow(store, 'backfill', 'task-by-key'))?.data,
-      ).toMatchObject({ status: 'done', rowsRewritten: 2 });
-      armed = false;
-      const table = keyed('projectId');
-      const outcome = await Effect.runPromise(
-        runSetup({ table, mode: 'persistent', store }),
-      );
-      expect(outcome).toMatchObject({
-        kind: 'applied',
-        backfills: ['task-by-key'],
-      });
-      const found = await run(
-        table.Task.query('byKey', { pk: { projectId: 'p1' }, '>=': null }),
-        layer,
-      );
-      expect(found.items.map(({ value }) => value.taskId)).toEqual([
-        't1',
-        't2',
-      ]);
-    });
-
-    it('reads every contract row with a strongly consistent query', async () => {
-      const { store, queries } = memoryStore();
-      await Effect.runPromise(
-        runSetup({ table: v1Table(), mode: 'persistent', store }),
-      );
-      await Effect.runPromise(
-        runSetup({ table: v3Table(noCalls()), mode: 'persistent', store }),
+        runSetup({ table: v2Table(), mode: 'persistent', store }),
       );
       expect(queries.length).toBeGreaterThan(0);
       expect(queries.every(({ consistent }) => consistent === true)).toBe(true);
-    });
-
-    it('scans with strongly consistent reads, and gives `run` consistent reads', async () => {
-      const Project1 = EntityESchema.make('Project', 'projectId', {
-        name: Schema.String,
-      }).build();
-      const before = StdTable.make(NAME)
-        .primary('pk', 'sk')
-        .entity(TaskV1, (e) => e.primary({ pk: ['projectId'] }))
-        .entity(Project1, (e) => e.primary())
-        .build();
-      const after = StdTable.make(NAME)
-        .primary('pk', 'sk')
-        .entity(TaskV2, (e) => e.primary({ pk: ['projectId'] }))
-        .entity(Project1, (e) => e.primary())
-        .backfill('task-owner', {
-          entity: 'Task',
-          to: 'v2',
-          run: (task, db) =>
-            Effect.gen(function* () {
-              const project = yield* db.Project.get({ projectId: 'p1' });
-              const projects = yield* db.Project.query('primary', {
-                pk: {},
-                '>=': null,
-              });
-              return {
-                ...task,
-                owner: `${project!.value.name} ${projects.items.length}`,
-              };
-            }),
-        })
-        .build();
-      const { store, layer, scans, gets, queries, reset } = memoryStore();
-      await Effect.runPromise(
-        runSetup({ table: before, mode: 'persistent', store }),
-      );
-      await run(
-        Effect.gen(function* () {
-          yield* before.Project.insert({ projectId: 'p1', name: 'Apollo' });
-          yield* insertV1(['t1']);
-        }),
-        layer,
-      );
-      reset();
-      await Effect.runPromise(
-        runSetup({ table: after, mode: 'persistent', store }),
-      );
-      expect(scans.length).toBeGreaterThan(0);
-      expect(scans.every(({ consistent }) => consistent === true)).toBe(true);
-      // The table row read, then run's get.
-      expect(gets.length).toBeGreaterThan(1);
-      expect(gets.every((options) => options?.consistent === true)).toBe(true);
-      expect(queries.every(({ consistent }) => consistent === true)).toBe(true);
-      expect(
-        queries.some(({ pk }) => pk === encodeCompositeKey(['Project'])),
-      ).toBe(true);
+      expect(gets.every((read) => read?.consistent === true)).toBe(true);
     });
   });
 });
 
 describe('runSetup, after the branch review', () => {
-  it('offers what a check ahead of setup plans with, and no warn-and-pass planner', () => {
+  it('offers what a check ahead of setup plans with, and nothing of Backfills', () => {
     expect(Object.keys(setupDoor)).toEqual(
       expect.arrayContaining([
         'planContract',
         'rowsOfContract',
         'NO_ROWS',
         'recordContract',
-        'planBackfills',
         'isOutdatedCode',
       ]),
     );
-    expect(Object.keys(setupDoor)).not.toContain('planSetup');
-  });
-
-  const Project1 = EntityESchema.make('Project', 'projectId', {
-    name: Schema.String,
-  }).build();
-  const tasksAndProjects = StdTable.make(NAME)
-    .primary('pk', 'sk')
-    .entity(TaskV1, (e) => e.primary({ pk: ['projectId'] }))
-    .entity(Project1, (e) => e.primary())
-    .build();
-  const ownerFrom = (
-    run: (
-      task: typeof TaskV1.Type,
-      db: Record<string, unknown>,
-    ) => Effect.Effect<string, unknown, StdTableService<typeof NAME>>,
-  ) =>
-    StdTable.make(NAME)
-      .primary('pk', 'sk')
-      .entity(TaskV2, (e) => e.primary({ pk: ['projectId'] }))
-      .entity(Project1, (e) => e.primary())
-      .backfill('task-owner', {
-        entity: 'Task',
-        to: 'v2',
-        run: (task, db) =>
-          Effect.map(run(task, db as never), (owner) => ({ ...task, owner })),
-      })
-      .build();
-  const atV1 = async () => {
-    const memory = memoryStore();
-    await Effect.runPromise(
-      runSetup({
-        table: tasksAndProjects,
-        mode: 'persistent',
-        store: memory.store,
-      }),
-    );
-    await run(
-      Effect.gen(function* () {
-        yield* tasksAndProjects.Project.insert({ projectId: 'p1', name: 'A' });
-        yield* insertV1(['t1', 't2']);
-      }),
-      memory.layer,
-    );
-    return memory;
-  };
-
-  it('gives `run` every entity but the one it fills', async () => {
-    const { store } = await atV1();
-    const seen: string[][] = [];
-    await Effect.runPromise(
-      runSetup({
-        table: ownerFrom((_task, db) => {
-          seen.push(Object.keys(db));
-          return Effect.succeed('ann');
-        }),
-        mode: 'persistent',
-        store,
-      }),
-    );
-    expect(seen[0]).toEqual(['Project']);
-  });
-
-  it("names a DatabaseError's reason when a run fails with one", async () => {
-    const { store } = await atV1();
-    const failed = await fails(
-      runSetup({
-        table: ownerFrom(() =>
-          Effect.fail(
-            new DatabaseError({
-              reason: new EntityNotFound({ entity: 'Ghost' }),
-            }),
-          ),
-        ),
-        mode: 'persistent',
-        store,
-      }),
-    );
-    expect(failed).toBeInstanceOf(BackfillFailed);
-    expect((failed as BackfillFailed).message).toMatch(
-      /its run failed: DatabaseError EntityNotFound on Ghost$/,
-    );
-  });
-
-  it('refuses every write from `run`, through the table or its contract', async () => {
-    const { store } = await atV1();
-    const writes: ((
-      table: ReturnType<typeof ownerFrom>,
-    ) => Effect.Effect<unknown, unknown, StdTableService<typeof NAME>>)[] = [
-      (table) => table.Project.insert({ projectId: 'p2', name: 'B' }),
-      () =>
-        Effect.flatMap(StdTableService(NAME), ({ contract }) =>
-          contract.hardDeleteAllItems(),
-        ),
-    ];
-    for (const write of writes) {
-      let table!: ReturnType<typeof ownerFrom>;
-      table = ownerFrom(() => Effect.as(write(table), 'ann'));
-      const exit = await Effect.runPromiseExit(
-        runSetup({ table, mode: 'persistent', store }),
-      );
-      expect(exit._tag).toBe('Failure');
-      expect(String(exit._tag === 'Failure' ? exit.cause : '')).toMatch(
-        /a Backfill's run called \w+, but it may only read/,
-      );
-    }
-    const items = await allItems(store);
-    expect(items.filter(({ meta }) => meta._e === 'Project')).toHaveLength(1);
-    expect(tasksOf(items)).toHaveLength(2);
+    for (const retired of ['planSetup', 'planBackfills', 'BackfillFailed'])
+      expect(Object.keys(setupDoor)).not.toContain(retired);
   });
 
   const corruptTableRow = async (
@@ -1328,81 +723,18 @@ describe('runSetup, after the branch review', () => {
     }
   });
 
-  // A pure v2 lowercases the indexed title: every change is safe, yet the
-  // stored index keys are stale until the reindex runs.
-  const byTitle = (Task: typeof TaskV1 | typeof LowerTitle) =>
-    StdTable.make(NAME)
-      .primary('pk', 'sk')
-      .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-      .entity(Task as typeof TaskV1, (e) =>
-        e
-          .primary({ pk: ['projectId'] })
-          .index('GSI1', 'byTitle', { pk: ['title'] }),
-      );
-  const LowerTitle = EntityESchema.make('Task', 'taskId', {
-    projectId: Schema.String,
-    title: Schema.String,
-  })
-    .evolve('v2', { done: Schema.Boolean }, (v1) => ({
-      ...v1,
-      title: v1.title.toLowerCase(),
-      done: false,
-    }))
-    .build();
-  const lowered = () =>
-    StdTable.make(NAME)
-      .primary('pk', 'sk')
-      .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-      .entity(LowerTitle, (e) =>
-        e
-          .primary({ pk: ['projectId'] })
-          .index('GSI1', 'byTitle', { pk: ['title'] }),
-      )
-      .backfill('task-titles', { reindex: 'Task' })
-      .build();
-
-  it('wipes a disposable table with a pending reindex, and runs it on a persistent one', async () => {
-    for (const mode of ['disposable', 'persistent'] as const) {
-      const { store, layer } = memoryStore();
-      const before = byTitle(TaskV1).build();
-      await Effect.runPromise(runSetup({ table: before, mode, store }));
-      await run(
-        before.Task.insert({ taskId: 't1', projectId: 'p1', title: 'Hello' }),
-        layer,
-      );
-      const after = lowered();
-      const outcome = await Effect.runPromise(
-        runSetup({ table: after, mode, store }),
-      );
-      if (mode === 'disposable') {
-        expect(outcome.kind).toBe('wiped');
-        expect(tasksOf(await allItems(store))).toHaveLength(0);
-      } else {
-        expect(outcome).toMatchObject({
-          kind: 'applied',
-          backfills: ['task-titles'],
-        });
-        const found = await run(
-          after.Task.query('byTitle', { pk: { title: 'hello' }, '>=': null }),
-          layer,
-        );
-        expect(found.items).toHaveLength(1);
-      }
-    }
-  });
-
   it('refuses old code on a persistent table newer code set up, and wipes a disposable one', async () => {
     for (const mode of ['disposable', 'persistent'] as const) {
       const { store, layer } = memoryStore();
       await Effect.runPromise(runSetup({ table: v1Table(), mode, store }));
-      const newer = v2Table(noCalls());
+      const newer = v2Table();
       await Effect.runPromise(runSetup({ table: newer, mode, store }));
       await run(
         newer.Task.insert({
           taskId: 't1',
           projectId: 'p1',
           title: 'T',
-          owner: 'ann',
+          done: true,
         }),
         layer,
       );
@@ -1421,7 +753,7 @@ describe('runSetup, after the branch review', () => {
         );
         expect(isOutdatedCode(refused)).toBe(true);
         expect((refused as SetupRefused).message).toMatch(
-          /this code is older than the data\. Reload or redeploy[\s\S]*Task v2[\s\S]*Backfill "task-owner"/,
+          /this code is older than the data\. Reload or redeploy[\s\S]*Task v2/,
         );
         expect(tasksOf(await allItems(store))).toHaveLength(1);
       }

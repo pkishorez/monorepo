@@ -10,7 +10,6 @@ export type {
   ESchemaVersion,
   SnapshotChange,
   TableAccessPatternSnapshot,
-  TableBackfillSnapshot,
   TableEntitySnapshot,
   TableIndexSnapshot,
   TableSnapshot,

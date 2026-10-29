@@ -1,7 +1,5 @@
 export {
   StdTable,
-  type BackfillReads,
-  type BackfillsBuilder,
   type EntitiesBuilder,
   type TableBuilder,
   type TopologyBuilder,
@@ -14,7 +12,6 @@ export type {
   KeyPathValue,
   LocalSecondaryIndex,
   PrimaryIndex,
-  RegisteredBackfill,
   SingleEntityDefinition,
   TableDefinition,
   TotalKeyPath,

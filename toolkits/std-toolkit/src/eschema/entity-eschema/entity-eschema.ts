@@ -13,7 +13,6 @@ import type {
   StructFieldsEncoded,
   StructFieldsSchema,
   VersionedCodec,
-  VersionShapes,
 } from '../domain/schema-model/index.js';
 import { INITIAL_VERSION } from '../domain/schema-model/index.js';
 import { makeObjectSchemaRuntime } from '../domain/object-schema-runtime/index.js';
@@ -37,7 +36,6 @@ export class EntityESchema<
   TIdField extends string,
   TVersion extends string,
   TLatest extends StructFieldsSchema,
-  TVersions extends VersionShapes = VersionShapes,
 > implements StandardSchemaV1<unknown, LatestType<TLatest>> {
   readonly #runtime;
 
@@ -77,23 +75,17 @@ export class EntityESchema<
     const idSchema = Schema.String as Schema.Codec<string, string>;
     const initial = { ...schema, [idField]: idSchema } as I &
       Record<Id, Schema.Codec<string, string>>;
-    return new EntityESchemaBuilder<
-      N,
-      Id,
-      'v1',
-      typeof initial,
-      { readonly v1: { readonly fields: typeof initial; readonly gap: false } }
-    >(
+    return new EntityESchemaBuilder<N, Id, 'v1', typeof initial>(
       name,
       idField,
       idSchema,
       [{ version: INITIAL_VERSION, schema: initial, migration: null }],
       INITIAL_VERSION,
-      <V extends string, S extends StructFieldsSchema, H extends VersionShapes>(
+      <V extends string, S extends StructFieldsSchema>(
         version: V,
         evolutions: readonly Evolution[],
       ) =>
-        new EntityESchema<N, Id, V, S, H>(
+        new EntityESchema<N, Id, V, S>(
           constructionToken,
           name,
           idField,
@@ -103,12 +95,6 @@ export class EntityESchema<
     );
   }
 
-  /**
-   * Type carrier for every version: its fields, and whether it is a gap
-   * version. Read it through `ESchemaVersions`, `VersionValue` and
-   * `GapVersions`.
-   */
-  Versions = null as unknown as TVersions;
   Type = null as unknown as LatestType<TLatest>;
   Encoded = null as unknown as Prettify<StructFieldsEncoded<TLatest>> & {
     readonly _v: TVersion;

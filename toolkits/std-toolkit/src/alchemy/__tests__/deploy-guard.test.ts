@@ -20,23 +20,20 @@ const Indexed = EntityESchema.make('Task', 'id', {
   title: Schema.String,
 }).build();
 
-const indexedTable = (reindex: boolean) => {
-  const table = StdTable.make('tasks')
-    .primary('pk', 'sk')
-    .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-    .entity(Indexed, (e) =>
-      e.primary().index('GSI1', 'byTitle', { pk: ['title'] }),
-    );
-  return Effect.runSync(
+const indexedTable = () =>
+  Effect.runSync(
     TableSnapshot.serialize(
       TableSnapshot.capture(
-        reindex
-          ? table.backfill('task-by-title', { reindex: 'Task' }).build()
-          : table.build(),
+        StdTable.make('tasks')
+          .primary('pk', 'sk')
+          .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+          .entity(Indexed, (e) =>
+            e.primary().index('GSI1', 'byTitle', { pk: ['title'] }),
+          )
+          .build(),
       ),
     ),
   );
-};
 
 const v1 = stored(
   EntityESchema.make('Task', 'id', { title: Schema.String }).build(),
@@ -130,33 +127,19 @@ describe('deploy guard', () => {
 });
 
 describe('deploy guard, by setup rules', () => {
-  it('refuses an index change no declared Backfill covers', () => {
-    const error = refusal(
-      deploy(deployed({ mode: 'persistent', snapshot: v1 }), {
-        mode: 'persistent',
-        snapshot: indexedTable(false),
-      }),
-    ) as SetupRefused;
-    expect(error.reason).toBe('backfill-missing');
-    expect(error.changes.length).toBeGreaterThan(0);
-  });
-
-  it('accepts the index change with a reindex Backfill', () => {
+  it('accepts an index change, which setup reindexes', () => {
     const exit = deploy(deployed({ mode: 'persistent', snapshot: v1 }), {
       mode: 'persistent',
-      snapshot: indexedTable(true),
+      snapshot: indexedTable(),
     });
     expect(Exit.isSuccess(exit)).toBe(true);
   });
 
-  it('accepts the same contract again once its Backfill has shipped', () => {
-    const shipped = deployed({
-      mode: 'persistent',
-      snapshot: indexedTable(true),
-    });
+  it('accepts the same contract again once it has shipped', () => {
+    const shipped = deployed({ mode: 'persistent', snapshot: indexedTable() });
     expect(
       Exit.isSuccess(
-        deploy(shipped, { mode: 'persistent', snapshot: indexedTable(true) }),
+        deploy(shipped, { mode: 'persistent', snapshot: indexedTable() }),
       ),
     ).toBe(true);
   });

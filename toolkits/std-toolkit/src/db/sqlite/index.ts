@@ -6,7 +6,6 @@ export {
   type SQLiteSetupConfig,
 } from './sqlite.js';
 export {
-  BackfillFailed,
   SetupRefused,
   type SetupOutcome,
   type SetupRefusedReason,

@@ -1,12 +1,12 @@
 import { type Duration, Effect, Layer } from 'effect';
 import type {
-  BackfillFailed,
   SetupOptions,
   SetupOutcome,
   SetupRefused,
   TableMode,
 } from '../setup/index.js';
 import type { TableDefinition } from '../std-table/definition/index.js';
+import type { DatabaseError } from '../std-table/error/index.js';
 import {
   contractLayer,
   type OperationFailure,
@@ -60,7 +60,7 @@ const make = <Name extends string>(
  * Adapter-native: prepares the physical table under its mode. Creates it
  * when it is missing, compares the table with the Stored contract kept
  * inside it, refuses or wipes, adds a new global secondary index in place,
- * runs the pending Backfills, and records the contract. Any other index
+ * reindexes the rows it touches, and records the contract. Any other index
  * change is refused in either mode, since DynamoDB makes it only by
  * replacing the table. `DynamoDB.table` in `@kestack/std-toolkit/alchemy`
  * runs this at deploy.
@@ -76,7 +76,7 @@ const setup = (
   },
 ): Effect.Effect<
   SetupOutcome,
-  DynamoDBNativeError | SetupRefused | BackfillFailed | OperationFailure
+  DynamoDBNativeError | SetupRefused | DatabaseError | OperationFailure
 > => {
   const client = makeDynamoDBClient(config);
   return setUpDynamoTable({

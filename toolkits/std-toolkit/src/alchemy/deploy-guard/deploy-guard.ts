@@ -69,8 +69,7 @@ export class Providers extends Provider.ProviderCollection<Providers>()(
 
 /**
  * Checks a deploy against the Deployed contract by setup's own rules: a
- * persistent table refuses a breaking change, a switch to disposable, and
- * a change needing a Backfill none of the declared ones covers. Each
+ * persistent table refuses a breaking change and a switch to disposable. Each
  * physical target is checked against its own last contract, so a new
  * target starts fresh and an old one is never forgotten.
  */

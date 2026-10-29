@@ -1,9 +1,1 @@
-export {
-  migrateToGap,
-  readEncoded,
-  readToGap,
-  registerEncoded,
-  registerGapSteps,
-  writeEncoded,
-  type VersionedValue,
-} from './encoded.js';
+export { readEncoded, registerEncoded, writeEncoded } from './encoded.js';

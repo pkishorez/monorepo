@@ -9,7 +9,6 @@ export {
 } from './idb.js';
 export type { IDBPruneOptions } from './prune/index.js';
 export {
-  BackfillFailed,
   SetupRefused,
   type SetupOutcome,
   type SetupRefusedReason,

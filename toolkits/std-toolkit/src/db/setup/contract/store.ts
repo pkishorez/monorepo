@@ -11,7 +11,6 @@ import {
 } from '../../std-table/contract/index.js';
 import { isReservedEntity } from '../../std-table/key/index.js';
 import {
-  backfillRow,
   committedGeneration,
   committedRows,
   contractRowsOf,
@@ -24,7 +23,6 @@ import {
   TABLE_ROW_KEY,
   tableRowOf,
   versionRowKey,
-  type BackfillProgress,
   type ContractRows,
   type TableRow,
 } from './rows.js';
@@ -124,27 +122,6 @@ export const wipeRows = (
 ): Effect.Effect<number, OperationFailure> =>
   store.hardDeleteAllItems().pipe(Effect.mapError(failed));
 
-/** Writes the Backfills' progress rows, as a runner reports it. */
-export const writeBackfillProgress = (
-  store: StdTableContract,
-  snapshot: TableSnapshot,
-  target: string,
-  progress: readonly BackfillProgress[],
-): Effect.Effect<void, OperationFailure> =>
-  Effect.forEach(
-    progress,
-    (entry) =>
-      Effect.gen(function* () {
-        const item = yield* rowItem(
-          'backfill',
-          backfillRow(snapshot, target, entry),
-          yield* nextUlid,
-        );
-        yield* store.writeItem({ item }).pipe(Effect.mapError(failed));
-      }),
-    { discard: true },
-  );
-
 const contractMoved = (failure: ContractFailure) =>
   failure instanceof ConditionFailure
     ? new OperationFailure({
@@ -174,8 +151,8 @@ const stable = (value: unknown): string => {
  * 2. Writes each entity and version row that is new or differs from the
  *    committed one under the new generation, where nothing reads it yet. An
  *    unchanged version row is never rewritten.
- * 3. Writes Backfill rows that changed, then the table row, alone and last,
- *    guarded on the one setup read: this switches the committed generation.
+ * 3. Writes the table row, alone and last, guarded on the one setup read:
+ *    this switches the committed generation.
  * 4. Deletes the committed rows the new generation replaced. Failing here
  *    leaves only rows nothing reads.
  */
@@ -186,7 +163,6 @@ export const writeContract = (
     readonly mode: TableRow['mode'];
     readonly hash: string;
     readonly stored: ContractRows;
-    readonly progress: (id: string) => BackfillProgress;
   },
 ): Effect.Effect<void, OperationFailure> =>
   Effect.gen(function* () {
@@ -223,9 +199,6 @@ export const writeContract = (
       const found = committedVersions.get(versionRowKey(row));
       return found === undefined || stable(found) !== stable(row);
     });
-    const storedBackfills = new Map(
-      stored.backfills.map((row) => [row.id, row]),
-    );
     const updated = yield* nextUlid;
     const staged: TransactItem[] = [];
     for (const row of changedEntities)
@@ -240,12 +213,6 @@ export const writeContract = (
         item: yield* rowItem('version', row, updated),
         condition: { kind: 'not-exists' },
       });
-    for (const row of rows.backfills)
-      if (stable(storedBackfills.get(row.id)) !== stable(row))
-        staged.push({
-          kind: 'put',
-          item: yield* rowItem('backfill', row, updated),
-        });
     for (let start = 0; start < staged.length; start += TRANSACT_LIMIT)
       yield* store
         .transactWriteItems(staged.slice(start, start + TRANSACT_LIMIT))

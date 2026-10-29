@@ -23,11 +23,7 @@ import {
   type StoredItem,
   type TransactItem,
 } from '../contract/index.js';
-import {
-  defineEntity,
-  type RegisteredBackfill,
-  type RegisteredEntity,
-} from '../definition/index.js';
+import { defineEntity, type RegisteredEntity } from '../definition/index.js';
 import {
   broadcast,
   changesOrEmpty,
@@ -35,9 +31,7 @@ import {
   failReason,
   fromStored,
   toStored,
-  toStoredSingle,
   makeStoredItem,
-  singleKey,
   makeKeyedEntity,
   makeSingleEntity,
   type AnyTransactOp,
@@ -122,7 +116,6 @@ export const TABLE_MEMBERS: ReadonlySet<string> = new Set<keyof StdTable>([
   'localSecondaryIndexes',
   'globalSecondaryIndexes',
   'registeredEntities',
-  'registeredBackfills',
   'transact',
   'subscribe',
   'dangerouslyRemoveAllItems',
@@ -137,13 +130,6 @@ const makeSurface = (entity: RegisteredEntity) =>
     ? makeKeyedEntity(entity as Parameters<typeof makeKeyedEntity>[0])
     : makeSingleEntity(entity);
 
-interface Built {
-  readonly declaration: TableDeclaration;
-  readonly reads: Readonly<Record<string, object>>;
-}
-
-const builtTables = new WeakMap<object, Built>();
-
 export const decorateTable = (declaration: TableDeclaration): StdTable => {
   const { topology } = declaration;
   const definition = {
@@ -154,12 +140,6 @@ export const decorateTable = (declaration: TableDeclaration): StdTable => {
       ...topology.globalSecondaryIndexes,
     }),
     registeredEntities: [] as readonly RegisteredEntity[],
-    registeredBackfills: Object.freeze(
-      declaration.backfills.map(
-        ({ id, kind, entity, to, after }): RegisteredBackfill =>
-          Object.freeze({ id, kind, entity, to, after }),
-      ),
-    ),
   };
   const attributes = { entity: definition.logicalName };
   const table = {
@@ -338,79 +318,7 @@ export const decorateTable = (declaration: TableDeclaration): StdTable => {
     defineEntity(table, entity),
   );
   table.registeredEntities = Object.freeze(entities);
-  const surfaces = entities.map(
-    (entity) => [entity, makeSurface(entity)] as const,
-  );
-  for (const [entity, surface] of surfaces)
-    Object.assign(table, { [entity.name]: surface });
-  const built = Object.freeze(table);
-  builtTables.set(built, {
-    declaration,
-    reads: Object.freeze(
-      Object.fromEntries(
-        surfaces.map(([entity, surface]) => [
-          entity.name,
-          Object.freeze(
-            'query' in surface
-              ? { get: surface.get, query: surface.query }
-              : { get: surface.get },
-          ),
-        ]),
-      ),
-    ),
-  });
-  return built;
+  for (const entity of entities)
+    Object.assign(table, { [entity.name]: makeSurface(entity) });
+  return Object.freeze(table);
 };
-
-const builtOf = (table: object): Built => {
-  const found = builtTables.get(table);
-  if (found === undefined)
-    throw new Error('Not a table built by StdTable.make(...).build()');
-  return found;
-};
-
-/**
- * What a table was declared with: its topology, entities and Backfills, each
- * Backfill with its `run`. Internal, for the setup runner.
- */
-export const tableDeclaration = (table: object): TableDeclaration =>
-  builtOf(table).declaration;
-
-/** The read-only view of a table's entities that a Backfill's `run` is given. */
-export const backfillReads = (
-  table: object,
-): Readonly<Record<string, object>> => builtOf(table).reads;
-
-/**
- * The stored form of `value`, an entity's latest value, under `meta`: its
- * encoded form at the latest version and freshly derived keys. Internal, for
- * the setup runner, which writes it itself.
- */
-export const storedForm = (
-  table: StdTable,
-  entity: string,
-  value: object,
-  meta: { readonly _u: string; readonly _d: boolean },
-): Effect.Effect<StoredItem, DatabaseError> =>
-  Effect.gen(function* () {
-    const found = table.registeredEntities.find(
-      (candidate) => candidate.name === entity,
-    );
-    if (found === undefined)
-      return yield* failReason(new EntityNotFound({ entity }));
-    if (found.kind === 'single') {
-      const encoded = yield* toStoredSingle(found.schema, value, found.name);
-      return {
-        ...singleKey(found.name),
-        meta: { _e: found.name, _u: meta._u, _d: false },
-        data: encoded.value,
-        keys: {},
-      };
-    }
-    const encoded = yield* toStored(found.schema, value, found.name, {
-      _e: found.name,
-      _u: meta._u,
-      _d: meta._d,
-    });
-    return makeStoredItem(found, value, encoded, meta._u, meta._d);
-  });

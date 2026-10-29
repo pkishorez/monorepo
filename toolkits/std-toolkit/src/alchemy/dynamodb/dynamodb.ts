@@ -42,7 +42,7 @@ interface DynamoDBTableAttributes {
 
 interface DynamoDBTableProps extends DynamoDBTableAttributes {
   /**
-   * The table itself, which setup needs for its Backfills, and the
+   * The table itself, which setup needs to reindex its rows, and the
    * credentials. Functions, so Alchemy passes them through as they are and
    * never writes them to state.
    */
@@ -141,8 +141,8 @@ const credentialsFromEnv = (): DynamoDBCredentialsInput => () => {
  * Creates or updates the DynamoDB table at deploy, under its Stored
  * contract kept inside the table (ADR 0021): setup refuses a persistent
  * table's breaking change, wipes a disposable one's, adds a new global
- * secondary index in place, and runs the pending Backfills before the new
- * code serves. Any other index change, and a new physical name under the
+ * secondary index in place, and reindexes the rows it touches before the
+ * new code serves. Any other index change, and a new physical name under the
  * same resource, fails the deploy in either mode, since DynamoDB makes it
  * only by replacing the table; the way past is a new `DynamoDB.table`
  * resource with its own id and table name. Removing the resource leaves
@@ -151,7 +151,7 @@ const credentialsFromEnv = (): DynamoDBCredentialsInput => () => {
  * Bind the result's `tableName` into the Worker's env and build the adapter
  * from it (`DynamoDB.make(table, { tableName, ... })`). The Worker then
  * depends on this resource, so Alchemy deploys it only after setup and its
- * Backfills.
+ * reindex.
  */
 const table = (id: string, options: DynamoDBTableOptions) =>
   Effect.gen(function* () {

@@ -53,7 +53,7 @@ function collectESchemas(roots: readonly SnapshotESchemaRoot[]) {
 
 /**
  * Every ESchema the roots reach, each version described by the snapshot type
- * of its encoded side and whether it is a gap version. The `_v` stamp and a value's `{ _v, _value }` envelope
+ * of its encoded side. The `_v` stamp and a value's `{ _v, _value }` envelope
  * follow from the kind, so they are not repeated in every shape.
  */
 export function buildESchemaDefinitions(
@@ -67,7 +67,6 @@ export function buildESchemaDefinitions(
       versions: introspection.evolutions.map((evolution) => ({
         version: evolution.version,
         shape: describeSnapshotType(evolution.schema.ast),
-        gap: evolution.gap,
       })),
     }))
     .sort((a, b) => compareStrings(a.identity, b.identity));

@@ -36,7 +36,6 @@ function table(): TableSnapshot {
         ],
       },
     ],
-    backfills: [],
     schemas: snapshotOf(schema).schemas,
   };
 }
@@ -101,13 +100,13 @@ describe('table snapshot diff', () => {
     expect(TableSnapshot.diff(table(), added)[0]).toMatchObject({
       subject: { kind: 'global-secondary-index', name: 'GSI2' },
       action: 'added',
-      impact: 'requires-backfill',
+      impact: 'requires-reindex',
     });
 
     const changed = clone() as any;
     changed.topology.globalSecondaryIndexes[0].sk = 'next';
     expect(TableSnapshot.diff(table(), changed)[0]).toMatchObject({
-      impact: 'requires-backfill',
+      impact: 'requires-reindex',
     });
 
     const removed = clone() as any;
@@ -133,7 +132,7 @@ describe('table snapshot diff', () => {
     expect(TableSnapshot.diff(table(), added)[0]).toMatchObject({
       subject: { kind: 'local-secondary-index', name: 'LSI1' },
       action: 'added',
-      impact: 'requires-backfill',
+      impact: 'requires-reindex',
     });
     expect(TableSnapshot.diff(added, table())[0]).toMatchObject({
       subject: { kind: 'local-secondary-index', name: 'LSI1' },
@@ -189,7 +188,7 @@ describe('table snapshot diff', () => {
         ({ subject, action }) =>
           subject.kind === 'access-pattern' && action === 'added',
       ),
-    ).toMatchObject({ impact: 'requires-backfill' });
+    ).toMatchObject({ impact: 'requires-reindex' });
 
     for (const mutate of [
       (value: any) => (value.entities[0].accessPatterns[0].pk = ['id']),
@@ -207,7 +206,7 @@ describe('table snapshot diff', () => {
         TableSnapshot.diff(table(), current).find(
           ({ subject }) => subject.kind === 'access-pattern',
         ),
-      ).toMatchObject({ impact: 'requires-backfill' });
+      ).toMatchObject({ impact: 'requires-reindex' });
     }
 
     const removed = clone() as any;
@@ -229,7 +228,7 @@ describe('table snapshot diff', () => {
         .filter(({ subject }) => subject.kind === 'access-pattern')
         .map(({ impact }) => impact)
         .sort(),
-    ).toEqual(['requires-backfill', 'safe']);
+    ).toEqual(['requires-reindex', 'safe']);
   });
 
   it('classifies a primary access pattern change as breaking', () => {

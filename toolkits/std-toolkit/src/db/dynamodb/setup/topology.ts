@@ -60,8 +60,8 @@ type WaitFailure = GlobalIndexNotReady | typeof notActive;
 export const INDEX_WAIT = '30 minutes' satisfies Duration.Input;
 
 /**
- * Waits until the table and the named index are ACTIVE, so the Backfills
- * that follow can read through it. An index that is missing, or in a state
+ * Waits until the table and the named index are ACTIVE, so the reindex
+ * that follows writes into it. An index that is missing, or in a state
  * other than CREATING, UPDATING or ACTIVE, fails at once; one still not
  * ACTIVE after `timeout` fails then.
  */
@@ -101,8 +101,8 @@ const waitUntilActive = (
   );
 
 /**
- * Makes every global secondary index the table declares ACTIVE before any
- * Backfill runs. One already present may still be creating, from a deploy
+ * Makes every global secondary index the table declares ACTIVE before the
+ * reindex. One already present may still be creating, from a deploy
  * that stopped after starting it, so it is waited for too, and first:
  * DynamoDB creates one index at a time. Each missing one is then added.
  */

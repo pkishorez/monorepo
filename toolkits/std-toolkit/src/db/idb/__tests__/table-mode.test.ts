@@ -19,11 +19,10 @@ const TaskV1 = EntityESchema.make('Task', 'taskId', {
 const TaskEdited = EntityESchema.make('Task', 'taskId', {
   title: Schema.String.check(Schema.isMaxLength(3)),
 }).build();
-// v2 is a gap: no v1 row knows its owner.
 const TaskV2 = EntityESchema.make('Task', 'taskId', {
   title: Schema.String,
 })
-  .evolve('v2', { owner: Schema.String })
+  .evolve('v2', { owner: Schema.String }, (v1) => ({ ...v1, owner: 'ann' }))
   .build();
 
 const makeTable = () => StdTable.make('tasks').primary('pk', 'sk');
@@ -36,30 +35,15 @@ const tasks = (schema = TaskV1) =>
 
 const byTitle = { pk: ['title'], sk: ['taskId'] } as const;
 
-// The same table with a new index, and the Backfill it needs.
+// The same table with a new index, which setup reindexes stored rows into.
 const indexedTasks = () =>
   withIndex()
     .entity(TaskV1, (e) => e.primary().index('GSI1', 'byTitle', byTitle))
-    .backfill('task-by-title', { reindex: 'Task' })
     .build();
 
-// The new index with no Backfill: stored rows would be missing from it.
-const indexedWithoutBackfill = () =>
-  withIndex()
-    .entity(TaskV1, (e) => e.primary().index('GSI1', 'byTitle', byTitle))
-    .build();
-
-const ownedTasks = (owners: string[]) =>
+const ownedTasks = () =>
   makeTable()
     .entity(TaskV2, (e) => e.primary())
-    .backfill('task-owner', {
-      entity: 'Task',
-      to: 'v2',
-      run: (task) => {
-        owners.push(task.taskId);
-        return Effect.succeed({ ...task, owner: 'ann' });
-      },
-    })
     .build();
 
 type AnyTable = IDBTableSource<'tasks'>;
@@ -219,19 +203,14 @@ describe('IndexedDB setup', () => {
     expect(await titles(factory, tasks(), 'persistent')).toEqual(['Write']);
   });
 
-  it('runs the Backfill for a gap version and keeps it done', async () => {
+  it('takes a new version, and reads old rows in its shape', async () => {
     const factory = new IDBFactory();
     await insertTask(factory, tasks(), 'persistent');
-    const owners: string[] = [];
 
-    const exit = await setup(factory, ownedTasks(owners), 'persistent');
+    const exit = await setup(factory, ownedTasks(), 'persistent');
 
-    expect(outcome(exit)).toMatchObject({
-      kind: 'applied',
-      backfills: ['task-owner'],
-    });
-    expect(owners).toEqual(['t1']);
-    const table = ownedTasks(owners);
+    expect(outcome(exit)).toMatchObject({ kind: 'applied', reindexed: [] });
+    const table = ownedTasks();
     const found = await Effect.runPromise(
       table.Task.get({ taskId: 't1' }).pipe(
         Effect.provide(layer(factory, table, 'persistent')),
@@ -240,10 +219,9 @@ describe('IndexedDB setup', () => {
     expect(found?.value).toMatchObject({ title: 'Write', owner: 'ann' });
     expect(found?.meta._v).toBe('v2');
 
-    expect(
-      outcome(await setup(factory, ownedTasks(owners), 'persistent')),
-    ).toEqual({ kind: 'unchanged' });
-    expect(owners).toEqual(['t1']);
+    expect(outcome(await setup(factory, ownedTasks(), 'persistent'))).toEqual({
+      kind: 'unchanged',
+    });
   });
 
   it('adds an index in an upgrade and reindexes old rows into it', async () => {
@@ -255,7 +233,7 @@ describe('IndexedDB setup', () => {
 
     expect(outcome(exit)).toMatchObject({
       kind: 'applied',
-      backfills: ['task-by-title'],
+      reindexed: ['Task'],
     });
     expect(await versionOf(factory)).toBe(version + 1);
     expect(await findByTitle(factory, indexedTasks())).toEqual(['t1']);
@@ -263,9 +241,7 @@ describe('IndexedDB setup', () => {
 
   it('deletes an index the table no longer declares', async () => {
     const factory = new IDBFactory();
-    // Created with its index, so it ships no Backfill: one dropped would
-    // read as older code.
-    await setup(factory, indexedWithoutBackfill(), 'disposable');
+    await setup(factory, indexedTasks(), 'disposable');
 
     await setup(factory, tasks(), 'disposable');
 
@@ -285,18 +261,6 @@ describe('a persistent IndexedDB store', () => {
     expect(refusal(exit)?.reason).toBe('breaking');
     expect(await versionOf(factory)).toBe(version);
     expect(await titles(factory, tasks(), 'persistent')).toEqual(['Write']);
-  });
-
-  it('refuses an index change no Backfill covers, before any upgrade', async () => {
-    const factory = new IDBFactory();
-    await insertTask(factory, tasks(), 'persistent');
-    const version = await versionOf(factory);
-
-    const exit = await setup(factory, indexedWithoutBackfill(), 'persistent');
-
-    expect(refusal(exit)?.reason).toBe('backfill-missing');
-    expect(await versionOf(factory)).toBe(version);
-    expect(await indexNames(factory)).not.toContain('GSI1');
   });
 
   it('can never become disposable', async () => {
@@ -335,16 +299,14 @@ describe('a disposable IndexedDB store', () => {
     expect(await appRecords(factory)).toEqual([]);
   });
 
-  it('is wiped for a gap version, never running its Backfill', async () => {
+  it('keeps its rows for a new version', async () => {
     const factory = new IDBFactory();
     await insertTask(factory, tasks(), 'disposable');
-    const owners: string[] = [];
 
-    const exit = await setup(factory, ownedTasks(owners), 'disposable');
+    const exit = await setup(factory, ownedTasks(), 'disposable');
 
-    expect(outcome(exit)).toMatchObject({ kind: 'wiped' });
-    expect(owners).toEqual([]);
-    expect(await appRecords(factory)).toEqual([]);
+    expect(outcome(exit)).toMatchObject({ kind: 'applied' });
+    expect(await appRecords(factory)).toHaveLength(1);
   });
 
   it('is wiped for a new index rather than reindexed', async () => {
@@ -396,22 +358,21 @@ const setupInTab = (factory: IDBFactory, table: AnyTable) =>
 describe('two IndexedDB tabs opening at once', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('run a Backfill once, one setup after the other', async () => {
+  it('reindex once, one setup after the other', async () => {
     const factory = new IDBFactory();
     await insertTask(factory, tasks(), 'persistent');
     await insertTask(factory, tasks(), 'persistent', 't2');
-    const owners: string[] = [];
 
     const outcomes = await Promise.all([
-      setupInTab(factory, ownedTasks(owners)),
-      setupInTab(factory, ownedTasks(owners)),
+      setupInTab(factory, indexedTasks()),
+      setupInTab(factory, indexedTasks()),
     ]);
 
     expect(outcomes.map(({ kind }) => kind).sort()).toEqual([
       'applied',
       'unchanged',
     ]);
-    expect(owners.sort()).toEqual(['t1', 't2']);
+    expect(await findByTitle(factory, indexedTasks())).toEqual(['t1', 't2']);
   });
 
   it('both set up a fresh store without Web Locks', async () => {
@@ -448,7 +409,7 @@ const outdatedCause = (exit: Exit.Exit<unknown, unknown>) =>
     ?.cause;
 
 describe('an IndexedDB tab running older code', () => {
-  it('stops writing once another tab commits a Backfill', async () => {
+  it('stops writing once another tab commits a new contract', async () => {
     const factory = new IDBFactory();
     const oldTable = tasks();
     const oldTab = layerInTab(factory, oldTable, 'persistent');
@@ -463,8 +424,8 @@ describe('an IndexedDB tab running older code', () => {
     expect(Exit.isSuccess(await insert('t1'))).toBe(true);
     const version = await versionOf(factory);
 
-    // A gap version with no index change still takes a new version.
-    await setupInTab(factory, ownedTasks([]));
+    // A new version with no index change still takes a new database version.
+    await setupInTab(factory, ownedTasks());
     expect(await versionOf(factory)).toBe(version + 1);
 
     const exit = await insert('t2');
@@ -474,7 +435,7 @@ describe('an IndexedDB tab running older code', () => {
     const records = (await appRecords(factory)) as unknown as {
       readonly _v: string;
     }[];
-    expect(records.map(({ _v }) => _v)).toEqual(['v2']);
+    expect(records.map(({ _v }) => _v)).toEqual(['v1']);
   });
 
   it('keeps writing when another tab only adds another store', async () => {
@@ -504,9 +465,9 @@ describe('an IndexedDB tab running older code', () => {
     expect(await appRecords(factory)).toHaveLength(2);
   });
 
-  it('wipes a disposable store newer code set up when old code opens it, and the newer code wipes it again', async () => {
+  it('wipes a disposable store newer code set up when old code opens it, and the newer code reads what old code wrote', async () => {
     const factory = new IDBFactory();
-    const newTable = ownedTasks([]);
+    const newTable = ownedTasks();
     await Effect.runPromise(
       newTable.Task.insert({ taskId: 't1', title: 'Write', owner: 'ann' }).pipe(
         Effect.provide(layerInTab(factory, newTable, 'disposable')),
@@ -528,13 +489,13 @@ describe('an IndexedDB tab running older code', () => {
       ['t2', 'v1'],
     ]);
 
-    // The newer code's next open meets a removed version, and wipes again.
+    // The newer code's next open meets only an added version, which is safe.
     const reopened = await Effect.runPromise(
       newTable.Task.get({ taskId: 't2' }).pipe(
         Effect.provide(layerInTab(factory, newTable, 'disposable')),
       ),
     );
-    expect(reopened).toBeNull();
-    expect(await appRecords(factory)).toEqual([]);
+    expect(reopened?.value).toMatchObject({ title: 'Write', owner: 'ann' });
+    expect(await appRecords(factory)).toHaveLength(1);
   });
 });

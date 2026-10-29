@@ -69,14 +69,14 @@ function inlineType(shape: SnapshotType, depth = 0): string {
 const impactOrder: readonly SnapshotImpact[] = [
   'breaking',
   'unverifiable',
-  'requires-backfill',
+  'requires-reindex',
   'safe',
 ];
 
 const impactLabels: Record<SnapshotImpact, string> = {
   breaking: 'BREAKING',
   unverifiable: 'UNVERIFIABLE',
-  'requires-backfill': 'BACKFILL',
+  'requires-reindex': 'REINDEX',
   safe: 'SAFE',
 };
 
@@ -99,8 +99,6 @@ function subjectLabel(change: SnapshotChange): string {
       return `Global secondary index ${subject.name ?? ''}`.trim();
     case 'access-pattern':
       return `Access pattern ${[subject.owner, subject.name].filter(Boolean).join('/')}`;
-    case 'backfill':
-      return `Backfill ${subject.name ?? ''}`.trim();
   }
 }
 
@@ -128,13 +126,9 @@ export function changeLabel(change: SnapshotChange): string {
 
 function changeLines(change: SnapshotChange): readonly string[] {
   const subject = subjectLabel(change);
-  const description =
-    change.description === undefined ? [] : [`    ${change.description}`];
-  if (change.action !== 'edited')
-    return [`  ${subject} ${change.action}`, ...description];
+  if (change.action !== 'edited') return [`  ${subject} ${change.action}`];
   return [
     `  ${subject}`,
-    ...description,
     ...change.edits.map((item) => `    ${editLine(item)}`),
   ];
 }

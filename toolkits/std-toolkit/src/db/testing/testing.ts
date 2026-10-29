@@ -1,18 +1,14 @@
 import { Effect } from 'effect';
 import {
   findUpgradeFailures,
+  type UpgradeCheckOptions,
   type UpgradeRoot,
 } from '../../eschema/testing/index.js';
 import { expectSnapshotFile } from '../../snapshot/vitest/index.js';
 import type { StdTable } from '../std-table/table/index.js';
-import {
-  findBackfillFailures,
-  type BackfillCheckOptions,
-} from './backfill-check.js';
-import { findContractRefusals } from './contract-check.js';
 
-/** How many rows to generate, and from which seed; for upgrades and Backfills alike. */
-export type ShippableOptions = BackfillCheckOptions;
+/** How many rows to generate for the upgrade check, and from which seed. */
+export type ShippableOptions = UpgradeCheckOptions;
 
 /**
  * Each entity's schema, with the key paths its rows are stored under: a
@@ -25,13 +21,6 @@ const upgradeRoots = (table: StdTable): readonly UpgradeRoot[] =>
       : { schema: entity.schema },
   );
 
-const section = (
-  title: string,
-  entries: readonly string[],
-  hint: string,
-): readonly string[] =>
-  entries.length === 0 ? [] : [[title, '', ...entries, '', hint].join('\n')];
-
 /**
  * The one test a persistent table needs; a table kept only in disposable
  * physical tables needs none. It fails, listing every reason at once, unless
@@ -39,18 +28,12 @@ const section = (
  *
  * - every stored version of every schema the table reaches upgrades to the
  *   latest, and a keyed row keeps its id and partition key;
- * - every gap Backfill, run by setup on a Memory table over generated rows
- *   (with the other entities empty, and holding generated rows), brings each
- *   row to the latest version with its id and partition key kept;
- * - the table snapshot has no breaking change against the committed file;
- * - setup, planning from the committed file as a persistent table's Stored
- *   contract, would accept the change: every change that needs a Backfill
- *   has a new one that covers it, and the pending ones can be ordered;
+ * - the table snapshot has no breaking change against the committed file,
+ *   so setup would accept it on a persistent table;
  * - the committed file is up to date.
  *
  * `vitest -u` writes the file only for changes setup accepts. It never
- * accepts a breaking change, a change no Backfill covers, a failing upgrade
- * or a failing Backfill.
+ * accepts a breaking change or a failing upgrade.
  */
 export async function expectTableShippable(
   table: StdTable,
@@ -62,30 +45,21 @@ export async function expectTableShippable(
       `Table "${table.logicalName}" has no registered entities; import the modules that define them before checking it.`,
     );
   }
-  const [upgrades, backfills] = await Effect.runPromise(
-    Effect.all([
-      findUpgradeFailures(upgradeRoots(table), options),
-      findBackfillFailures(table, options),
-    ]),
+  const upgrades = await Effect.runPromise(
+    findUpgradeFailures(upgradeRoots(table), options),
   );
   await expectSnapshotFile(table, file, {
-    refusals: [
-      ...section(
-        'Stored versions that do not upgrade:',
-        upgrades,
-        'Fix the migration or the schema. Running vitest with -u does not change this.',
-      ),
-      ...section(
-        'Backfills that do not bring every row to the latest version:',
-        backfills,
-        'A Backfill must succeed for every row, whatever the other entities hold, and keep its id and partition key. Fix the Backfill. Running vitest with -u does not change this.',
-      ),
-    ],
-    refusalsAgainst: async (committed) =>
-      section(
-        `What setup refuses against ${file}:`,
-        await Effect.runPromise(findContractRefusals(table, committed)),
-        'Setup refuses it on every persistent table, so running vitest with -u does not accept it.',
-      ),
+    refusals:
+      upgrades.length === 0
+        ? []
+        : [
+            [
+              'Stored versions that do not upgrade:',
+              '',
+              ...upgrades,
+              '',
+              'Fix the migration or the schema. Running vitest with -u does not change this.',
+            ].join('\n'),
+          ],
   });
 }

@@ -10,7 +10,7 @@ A snapshot is a plain JSON picture of your table: its keys, its entities, and ev
 const changes = TableSnapshot.diff(accepted, TableSnapshot.capture(table));
 ```
 
-Each change is judged on its own. [Adding a version is safe](std-toolkit/evolving-schema/snapshot/adding-a-version-is-safe). [Editing a shipped version](std-toolkit/evolving-schema/snapshot/editing-a-shipped-version-is-caught), [dropping an entity that has rows](std-toolkit/evolving-schema/snapshot/dropping-a-stored-entity-is-caught), or [changing a partition key](std-toolkit/evolving-schema/snapshot/changing-a-partition-key-is-caught) is breaking. [A new index needs a backfill](std-toolkit/evolving-schema/snapshot/a-new-index-needs-a-backfill-not-a-refusal), so it ships with a Backfill that fills it.
+Each change is judged on its own. [Adding a version is safe](std-toolkit/evolving-schema/snapshot/adding-a-version-is-safe). [Editing a shipped version](std-toolkit/evolving-schema/snapshot/editing-a-shipped-version-is-caught), [dropping an entity that has rows](std-toolkit/evolving-schema/snapshot/dropping-a-stored-entity-is-caught), or [changing a partition key](std-toolkit/evolving-schema/snapshot/changing-a-partition-key-is-caught) is breaking. [A new index needs a reindex](std-toolkit/evolving-schema/snapshot/a-new-index-needs-a-reindex-not-a-refusal), which setup runs itself.
 
 A version is yours to change until it ships, but [dropping one strands the rows saved with it](std-toolkit/evolving-schema/snapshot/dropping-an-unshipped-version-strands-its-rows), so try drafts on the memory adapter.
 

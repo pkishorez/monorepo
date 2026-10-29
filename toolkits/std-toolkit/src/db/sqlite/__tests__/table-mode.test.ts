@@ -14,11 +14,10 @@ const TaskV1 = EntityESchema.make('Task', 'taskId', {
 const TaskEdited = EntityESchema.make('Task', 'taskId', {
   title: Schema.String.check(Schema.isMaxLength(3)),
 }).build();
-// v2 is a gap: no v1 row knows its owner, so a Backfill fills it.
 const TaskV2 = EntityESchema.make('Task', 'taskId', {
   title: Schema.String,
 })
-  .evolve('v2', { owner: Schema.String })
+  .evolve('v2', { owner: Schema.String }, (v1) => ({ ...v1, owner: 'ann' }))
   .build();
 
 const plain = (schema: typeof TaskV1 = TaskV1) =>
@@ -28,31 +27,20 @@ const plain = (schema: typeof TaskV1 = TaskV1) =>
     .entity(schema, (e) => e.primary())
     .build();
 
-const indexed = (reindex: boolean) => {
-  const entities = StdTable.make('tasks')
+const indexed = () =>
+  StdTable.make('tasks')
     .primary('pk', 'sk')
     .gsi('GSI1', 'GSI1PK', 'GSI1SK')
     .entity(TaskV1, (e) =>
       e.primary().index('GSI1', 'byTitle', { pk: ['title'] }),
-    );
-  return reindex
-    ? entities.backfill('task-by-title', { reindex: 'Task' }).build()
-    : entities.build();
-};
+    )
+    .build();
 
-const withOwner = (ran: string[]) =>
+const withOwner = () =>
   StdTable.make('tasks')
     .primary('pk', 'sk')
     .gsi('GSI1', 'GSI1PK', 'GSI1SK')
     .entity(TaskV2, (e) => e.primary())
-    .backfill('task-owner', {
-      entity: 'Task',
-      to: 'v2',
-      run: (task) => {
-        ran.push(task.taskId);
-        return Effect.succeed({ ...task, owner: 'ann' });
-      },
-    })
     .build();
 
 type AnyTable = Parameters<typeof SQLite.setup>[0];
@@ -136,33 +124,26 @@ describe.each(drivers)('SQLite setup on %s', (_, open) => {
     expect(await db.tasks()).toHaveLength(1);
   });
 
-  it('runs a Backfill for a gap version and rewrites the row at latest', async () => {
+  it('takes a new version without rewriting the rows stored before it', async () => {
     const db = harness();
     await db.outcome(plain(), 'persistent');
     await db.insert();
-    const ran: string[] = [];
-    const exit = await db.setup(withOwner(ran), 'persistent');
+    const exit = await db.setup(withOwner(), 'persistent');
     expect(Exit.isSuccess(exit) && exit.value).toEqual({
       kind: 'applied',
       changes: expect.any(Array),
-      backfills: ['task-owner'],
+      reindexed: [],
     });
-    expect(ran).toEqual(['t1']);
     const [row] = await db.tasks();
-    expect(row?._v).toBe('v2');
-    expect(JSON.parse(String(row?.data))).toMatchObject({
-      title: 'Write',
-      owner: 'ann',
-    });
-    expect(await db.outcome(withOwner(ran), 'persistent')).toBe('unchanged');
-    expect(ran).toEqual(['t1']);
+    expect(row?._v).toBe('v1');
+    expect(await db.outcome(withOwner(), 'persistent')).toBe('unchanged');
   });
 
   it('creates a new index and reindexes old rows into it', async () => {
     const db = harness();
     await db.outcome(plain(), 'persistent');
     await db.insert();
-    const table = indexed(true);
+    const table = indexed();
     expect(await db.outcome(table, 'persistent')).toBe('applied');
     const indexes = await db.all('PRAGMA index_list("tasks")');
     expect(indexes.map(({ name }) => name)).toContain('idx_tasks_GSI1');
@@ -176,7 +157,7 @@ describe.each(drivers)('SQLite setup on %s', (_, open) => {
 
   it('drops the index setup made once the table no longer declares it', async () => {
     const db = harness();
-    await db.outcome(indexed(false), 'disposable');
+    await db.outcome(indexed(), 'disposable');
     expect(
       (await db.all('PRAGMA index_list("tasks")')).map(({ name }) => name),
     ).toContain('idx_tasks_GSI1');
@@ -201,17 +182,6 @@ describe.each(drivers)('SQLite setup on %s', (_, open) => {
       expect(refusal(exit)?.message).toMatch(/Task v1/);
       expect(await db.tasks()).toHaveLength(1);
       // The refusal changed nothing: the old contract is still the one stored.
-      expect(await db.outcome(plain(), 'persistent')).toBe('unchanged');
-    });
-
-    it('refuses a change that needs a Backfill none declares', async () => {
-      const db = harness();
-      await db.outcome(plain(), 'persistent');
-      await db.insert();
-      const exit = await db.setup(indexed(false), 'persistent');
-      expect(refusal(exit)?.reason).toBe('backfill-missing');
-      expect(refusal(exit)?.message).toMatch(/byTitle/);
-      expect(await db.tasks()).toHaveLength(1);
       expect(await db.outcome(plain(), 'persistent')).toBe('unchanged');
     });
 
@@ -259,22 +229,20 @@ describe.each(drivers)('SQLite setup on %s', (_, open) => {
   });
 
   describe('a disposable table', () => {
-    it('is wiped on a gap, and the Backfill never runs', async () => {
+    it('is wiped by an index change instead of reindexed', async () => {
       const db = harness();
       await db.outcome(plain(), 'disposable');
       await db.insert();
-      const ran: string[] = [];
-      expect(await db.outcome(withOwner(ran), 'disposable')).toBe('wiped');
-      expect(ran).toEqual([]);
+      expect(await db.outcome(indexed(), 'disposable')).toBe('wiped');
       expect(await db.tasks()).toEqual([]);
       // The new contract is recorded: what is written now is kept.
-      const after = withOwner(ran);
+      const after = indexed();
       await Effect.runPromise(
-        after.Task.insert({ taskId: 't2', title: 'Write', owner: 'bo' }).pipe(
+        after.Task.insert({ taskId: 't2', title: 'Write' }).pipe(
           Effect.provide(SQLite.make(after, { database: db.database }).layer),
         ),
       );
-      expect(await db.outcome(withOwner(ran), 'disposable')).toBe('unchanged');
+      expect(await db.outcome(indexed(), 'disposable')).toBe('unchanged');
       expect(await db.tasks()).toHaveLength(1);
     });
 

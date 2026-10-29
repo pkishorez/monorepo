@@ -8,13 +8,9 @@ export type SetupRefusedReason =
   | 'renames-table'
   /** The table holds rows but no Stored contract. */
   | 'no-contract'
-  /** A change needs a Backfill that is not declared, or is already done. */
-  | 'backfill-missing'
-  /** The pending Backfills cannot be put in an order that runs. */
-  | 'backfill-order'
   /**
    * Newer code already set a persistent table up: its Stored contract knows
-   * a version, entity or Backfill this code does not. The fix is to run the
+   * a version or entity this code does not. The fix is to run the
    * newer code. A disposable table is wiped instead.
    */
   | 'outdated-code';
@@ -47,23 +43,13 @@ const refusalMessage = (
   switch (reason) {
     case 'no-contract':
       return `std-toolkit: persistent table "${table}" holds rows but no Stored contract, so nothing says what they were written under. Nothing was changed. Use a new physical table name, or delete the data.`;
-    case 'backfill-missing':
-      return [
-        `std-toolkit: persistent table "${table}" cannot be set up: these changes need a Backfill, and no pending one covers them.`,
-        '',
-        TableSnapshot.renderChanges(changes),
-        '',
-        'Nothing was changed. Declare a Backfill for each: a gap version needs the Backfill that fills it, and an index change a new `reindex` Backfill of each entity it touches.',
-      ].join('\n');
-    case 'backfill-order':
-      return `std-toolkit: table "${table}" cannot run its pending Backfills: ${detail ?? 'their order does not resolve'}. Nothing was changed.`;
     case 'breaking':
       return [
         `std-toolkit: persistent table "${table}" cannot be set up: its stored data was written under a contract this change breaks.`,
         '',
         TableSnapshot.renderChanges(changes),
         '',
-        'Nothing was changed. Undo the edit and add the change as a new version, or move the data to a new physical table name.',
+        'Nothing was changed. Undo the edit and add the change as a new version with a migration. A change no migration can make needs a new physical table, and a table migration that moves the data into it.',
       ].join('\n');
     case 'mode-change':
       return `std-toolkit: table "${table}" is persistent and cannot become disposable. Nothing was changed. Use a new physical table name to start a disposable table.`;

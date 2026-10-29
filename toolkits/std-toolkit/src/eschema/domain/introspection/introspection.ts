@@ -6,8 +6,6 @@ export type ESchemaKind = 'struct' | 'entity' | 'value';
 export interface ESchemaEvolutionIntrospection {
   readonly version: string;
   readonly schema: Schema.Top;
-  /** Declared with no migration: a Backfill fills it, never a read. */
-  readonly gap: boolean;
 }
 
 export interface ESchemaIntrospection {
@@ -82,13 +80,6 @@ export function latestSchema(eschema: object): Schema.Top {
   return latest.schema;
 }
 
-/** The gap versions of an ESchema, oldest first. */
-export function gapVersions(eschema: object): readonly string[] {
-  return inspectESchema(eschema)
-    .evolutions.filter((evolution) => evolution.gap)
-    .map((evolution) => evolution.version);
-}
-
 export function registerESchemaComposition(
   ast: SchemaAST.AST,
   encodedAst: SchemaAST.AST,
@@ -150,24 +141,4 @@ export function findNestedESchemas(
   };
   walk(ast);
   return [...found.values()];
-}
-
-/**
- * Refuses a version that nests an ESchema with a gap version. A nested value
- * is read wherever its parent is and has no Backfill of its own, so it must
- * always migrate.
- */
-export function refuseNestedGap(
-  name: string,
-  version: string,
-  ast: SchemaAST.AST,
-): void {
-  for (const { eschema, identity } of findNestedESchemas(ast)) {
-    const [gap] = gapVersions(eschema);
-    if (gap !== undefined) {
-      throw new Error(
-        `${name} ${version}: a field nests ${identity}, whose ${gap} is a gap version. A nested ESchema must migrate every version; put the gap version on the stored entity instead.`,
-      );
-    }
-  }
 }

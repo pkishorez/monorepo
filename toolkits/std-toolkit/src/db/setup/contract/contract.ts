@@ -5,15 +5,10 @@ import type {
 } from '../../std-table/contract/index.js';
 import type { TableSnapshot } from '../../../snapshot/index.js';
 import type { CurrentContract, StoredContract } from './capture.js';
-import {
-  splitSnapshot,
-  type BackfillProgress,
-  type ContractRows,
-} from './rows.js';
+import { splitSnapshot, type ContractRows } from './rows.js';
 import {
   readContractRows,
   readTableRow,
-  writeBackfillProgress,
   writeContract,
   type ContractRead,
 } from './store.js';
@@ -35,7 +30,7 @@ export {
 } from './refused.js';
 export { planContract, type ContractPlan } from './plan.js';
 export { holdsAppRows, wipeRows as wipeTable } from './store.js';
-export { NO_ROWS, type BackfillProgress, type ContractRows } from './rows.js';
+export { NO_ROWS, type ContractRows } from './rows.js';
 
 /** What setup found stored: the same contract, or rows to plan from. */
 export type StoredRead =
@@ -76,7 +71,6 @@ export const recordContract = (
   options: {
     readonly current: CurrentContract;
     readonly stored: ContractRows;
-    readonly progress: (id: string) => BackfillProgress;
   },
 ): Effect.Effect<void, OperationFailure> =>
   writeContract(store, {
@@ -84,20 +78,11 @@ export const recordContract = (
     mode: options.current.record.mode,
     hash: options.current.record.hash,
     stored: options.stored,
-    progress: options.progress,
   });
-
-/** Records how far the given Backfills got. */
-export const recordProgress = (
-  store: StdTableContract,
-  current: CurrentContract,
-  progress: readonly BackfillProgress[],
-): Effect.Effect<void, OperationFailure> =>
-  writeBackfillProgress(store, current.snapshot, current.record.hash, progress);
 
 /**
  * A contract kept outside the table, such as a deploy guard's, as the rows
- * setup plans from: committed, with every Backfill it lists done.
+ * setup plans from, as if committed.
  */
 export const rowsOfContract = (
   snapshot: TableSnapshot,
@@ -107,14 +92,6 @@ export const rowsOfContract = (
     mode: record.mode,
     hash: record.hash,
     generation: 1,
-    progress: (id) => ({
-      id,
-      status: 'done',
-      cursor: null,
-      rowsRewritten: 0,
-      startedAt: null,
-      finishedAt: null,
-    }),
   });
   return { ...rows, table: { value: rows.table, _u: '' } };
 };

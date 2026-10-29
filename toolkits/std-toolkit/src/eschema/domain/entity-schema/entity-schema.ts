@@ -8,8 +8,7 @@ import {
 import { readEncoded, writeEncoded } from '../encoded/index.js';
 import {
   ESchemaError,
-  issueOf,
-  type ReadError,
+  type OutdatedVersion,
   unknownVersion,
 } from '../eschema-error/index.js';
 import { latestSchema } from '../introspection/index.js';
@@ -74,8 +73,14 @@ const decodeMeta =
       ),
     );
 
-const schemaIssue = (input: unknown) => (cause: ReadError) =>
-  new SchemaIssue.InvalidValue(issueOf(cause), input);
+const schemaIssue =
+  (input: unknown) => (cause: ESchemaError | OutdatedVersion) =>
+    new SchemaIssue.InvalidValue(
+      cause._tag === 'OutdatedVersion'
+        ? { message: cause.message, outdatedVersion: cause }
+        : { message: cause.message },
+      input,
+    );
 
 const makeEntityCodec = <M extends VersionedMeta>(
   eschema: AnyESchema,
@@ -84,7 +89,9 @@ const makeEntityCodec = <M extends VersionedMeta>(
   type Codec = { readonly value: any; readonly meta: M };
   const readMeta = decodeMeta(metaSchema);
 
-  const decode = (input: unknown): Effect.Effect<Codec, ReadError> =>
+  const decode = (
+    input: unknown,
+  ): Effect.Effect<Codec, ESchemaError | OutdatedVersion> =>
     Effect.gen(function* () {
       const entity = yield* entityInput(input);
       const meta = yield* readMeta(entity.meta);
@@ -97,7 +104,9 @@ const makeEntityCodec = <M extends VersionedMeta>(
       return { value, meta: { ...meta, _v: eschema.latestVersion } };
     });
 
-  const encode = (input: Codec): Effect.Effect<Codec, ReadError> =>
+  const encode = (
+    input: Codec,
+  ): Effect.Effect<Codec, ESchemaError | OutdatedVersion> =>
     Effect.gen(function* () {
       const entity = yield* entityInput(input);
       yield* requireLatest(eschema, input.meta._v);
@@ -106,9 +115,7 @@ const makeEntityCodec = <M extends VersionedMeta>(
       const { _v, ...value } = (yield* writeEncoded(
         eschema,
         entity.value as never,
-      )) as {
-        readonly _v: string;
-      };
+      )) as { readonly _v: string };
       return { value, meta };
     });
 

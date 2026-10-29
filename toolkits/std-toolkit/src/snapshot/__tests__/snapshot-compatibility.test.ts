@@ -27,7 +27,6 @@ describe('snapshot compatibility', () => {
                 type: 'struct',
                 fields: [{ name: 'value', type: { type: 'string' } }],
               },
-              gap: false,
             },
           ],
         },
@@ -44,7 +43,6 @@ describe('snapshot compatibility', () => {
                   { name: 'child', type: { type: 'ref', identity: 'Child' } },
                 ],
               },
-              gap: false,
             },
             {
               version: 'v2',
@@ -58,7 +56,6 @@ describe('snapshot compatibility', () => {
                   },
                 ],
               },
-              gap: false,
             },
           ],
         },

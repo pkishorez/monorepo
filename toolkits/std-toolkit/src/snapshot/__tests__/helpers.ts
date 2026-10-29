@@ -10,6 +10,5 @@ export const snapshotOf = (...eschemas: readonly object[]): TableSnapshot => ({
     globalSecondaryIndexes: [],
   },
   entities: [],
-  backfills: [],
   schemas: buildESchemaDefinitions(eschemas.map((eschema) => ({ eschema }))),
 });

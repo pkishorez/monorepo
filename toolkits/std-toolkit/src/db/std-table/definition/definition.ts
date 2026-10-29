@@ -3,7 +3,6 @@ import type {
   AnyUnkeyedESchema,
   ESchemaType,
 } from '../../../eschema/index.js';
-import type { RegisteredBackfill } from './backfill.js';
 
 export interface PrimaryIndex<
   Pk extends string = string,
@@ -292,6 +291,4 @@ export interface TableDefinition<
     | KeyedEntityDefinition
     | SingleEntityDefinition
   )[];
-  /** Every Backfill declared on the table, in declaration order. Snapshot capture reads this. */
-  readonly registeredBackfills: readonly RegisteredBackfill[];
 }

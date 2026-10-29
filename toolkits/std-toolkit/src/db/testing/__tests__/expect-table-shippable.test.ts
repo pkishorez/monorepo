@@ -143,7 +143,7 @@ describe('expectTableShippable', () => {
     ).rejects.toThrow(/ENOENT/);
   });
 
-  it('refuses an access pattern with no reindex, as setup does, even with -u', async () => {
+  it('accepts an added access pattern, which setup reindexes', async () => {
     const Task = EntityESchema.make('Task', 'taskId', {
       boardId: Schema.String,
       title: Schema.String,
@@ -167,12 +167,9 @@ describe('expectTableShippable', () => {
       )
       .build();
     await keepFixture();
-    await asIfUpdating(() =>
-      expect(expectTableShippable(withPattern, file)).rejects.toThrow(
-        /What setup refuses against .*board\.snapshot\.json[\s\S]*need a Backfill[\s\S]*byPriority[\s\S]*-u does not accept it/,
-      ),
+    await expect(expectTableShippable(withPattern, file)).rejects.toThrow(
+      /no longer matches its snapshot file[\s\S]*REINDEX[\s\S]*byPriority[\s\S]*Nothing refuses these changes/,
     );
-    expect(await readFile(fixture, 'utf8')).toBe(source);
   });
 
   it('refuses a table with no registered entities', async () => {

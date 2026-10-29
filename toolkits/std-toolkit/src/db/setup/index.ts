@@ -1,11 +1,8 @@
 export {
-  BackfillFailed,
-  BackfillOrderRefused,
   captureContract,
   contractFromSnapshot,
   isOutdatedCode,
   NO_ROWS,
-  planBackfills,
   planContract,
   recordContract,
   rowsOfContract,
@@ -18,7 +15,6 @@ export {
   type SetupOutcome,
   type SetupRefusedReason,
   type SetupTopology,
-  type Stage,
   type StoredContract,
   type TableMode,
 } from './setup.js';

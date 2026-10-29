@@ -1,7 +1,6 @@
 import { Data, type Duration, Effect, Schedule } from 'effect';
 import {
   runSetup,
-  type BackfillFailed,
   type SetupOptions,
   type SetupOutcome,
   type SetupRefused,
@@ -12,6 +11,7 @@ import type {
   StdTableContract,
 } from '../../std-table/contract/index.js';
 import type { TableDefinition } from '../../std-table/definition/index.js';
+import type { DatabaseError } from '../../std-table/error/index.js';
 import type { DynamoDBClient } from '../client/index.js';
 import { getTableDefinition } from './table-definition.js';
 import { dynamoTopology } from './topology.js';
@@ -75,8 +75,8 @@ export const ensureDynamoTable = (
 /**
  * Prepares one physical table under its mode (ADR 0021): creates it when it
  * is missing, then runs setup against the Stored contract kept inside it.
- * A new global secondary index is added in place, and ACTIVE before any
- * Backfill runs; every other index change is refused, in either mode.
+ * A new global secondary index is added in place, and ACTIVE before the
+ * reindex; every other index change is refused, in either mode.
  */
 export const setUpDynamoTable = (options: {
   readonly client: DynamoDBClient;
@@ -90,7 +90,7 @@ export const setUpDynamoTable = (options: {
   readonly indexWait?: Duration.Input;
 }): Effect.Effect<
   SetupOutcome,
-  DynamoDBNativeError | SetupRefused | BackfillFailed | OperationFailure
+  DynamoDBNativeError | SetupRefused | DatabaseError | OperationFailure
 > =>
   Effect.gen(function* () {
     yield* ensureDynamoTable(options.client, options.table, options.tableName);

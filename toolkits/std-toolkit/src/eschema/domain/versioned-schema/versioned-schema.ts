@@ -13,7 +13,7 @@ import {
   registerESchemaComposition,
 } from '../introspection/index.js';
 import { readEncoded, writeEncoded } from '../encoded/index.js';
-import { issueOf, type ReadError } from '../eschema-error/index.js';
+import type { ESchemaError, OutdatedVersion } from '../eschema-error/index.js';
 
 const compositionSchemas = new WeakMap<object, Schema.Top>();
 
@@ -53,14 +53,18 @@ export function versionedSchema(
   const latest = latestSchema(eschema);
   // Written as the latest version; read in any encoded form, older or
   // unversioned, and migrated, so a newer reader reads an older writer. A
-  // version newer than the schema knows fails with `OutdatedVersion`, and one
-  // older than a gap version with `NeedsBackfill`.
+  // version newer than the schema knows fails with `OutdatedVersion`.
   const wire = Schema.Union([
     wireSchema(introspection).annotate({ identifier }),
     Schema.Unknown,
   ]);
-  const toIssue = (input: unknown, error: ReadError) =>
-    new SchemaIssue.InvalidValue(issueOf(error), input);
+  const toIssue = (input: unknown, error: ESchemaError | OutdatedVersion) =>
+    new SchemaIssue.InvalidValue(
+      error._tag === 'OutdatedVersion'
+        ? { message: error.message, outdatedVersion: error }
+        : { message: error.message },
+      input,
+    );
   const surrogate = Schema.declare<unknown>(
     (_input: unknown): _input is unknown => true,
     {

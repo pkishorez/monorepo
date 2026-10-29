@@ -64,7 +64,6 @@
     "src/eschema/entity-eschema": ["src/eschema/domain"],
     "src/eschema/value-eschema": ["src/eschema/domain"],
     "src/eschema/testing": ["src/eschema/domain"],
-    "src/gap-steps": ["src/eschema/domain/encoded"],
     "src/snapshot/domain": ["src/eschema"],
     "src/snapshot/capture": ["src/snapshot/domain"],
     "src/snapshot/capture/eschema-capture": [
@@ -107,6 +106,7 @@
     "src/db/dynamodb": [
       "src/db/std-table/contract",
       "src/db/std-table/definition",
+      "src/db/std-table/error",
       "src/db/setup",
       "src/snapshot"
     ],
@@ -120,25 +120,17 @@
     ],
     "src/db/setup": [
       "src/db/std-table/contract",
-      "src/db/std-table/definition",
+      "src/db/std-table/error",
       "src/db/std-table/key",
       "src/db/std-table/table",
       "src/snapshot",
       "src/eschema",
-      "src/core",
-      "src/gap-steps"
+      "src/core"
     ],
     "src/db/testing": [
-      "src/db/memory",
-      "src/db/setup",
-      "src/db/std-table/contract",
-      "src/db/std-table/definition",
-      "src/db/std-table/entity",
-      "src/db/std-table/error",
       "src/db/std-table/table",
       "src/eschema/testing",
-      "src/snapshot/vitest",
-      "src/core"
+      "src/snapshot/vitest"
     ],
     "src/db/idb": [
       "src/db/std-table/contract",
@@ -155,6 +147,7 @@
     "src/db/sqlite": [
       "src/db/std-table/contract",
       "src/db/std-table/definition",
+      "src/db/std-table/error",
       "src/db/std-table/table",
       "src/db/setup"
     ],

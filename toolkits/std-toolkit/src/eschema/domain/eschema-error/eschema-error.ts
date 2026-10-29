@@ -13,29 +13,6 @@ export class OutdatedVersion extends Data.TaggedError('OutdatedVersion')<{
   latestVersion: string;
 }> {}
 
-/**
- * A stored value older than a gap version: no migration can reach the gap,
- * so the value reads only once a Backfill has rewritten it.
- */
-export class NeedsBackfill extends Data.TaggedError('NeedsBackfill')<{
-  message: string;
-  schema: string;
-  version: string;
-  gapVersion: string;
-}> {}
-
-export const needsBackfill = (
-  schema: string,
-  version: string,
-  gapVersion: string,
-): NeedsBackfill =>
-  new NeedsBackfill({
-    message: `${schema} ${version} needs a Backfill to reach gap version ${gapVersion}`,
-    schema,
-    version,
-    gapVersion,
-  });
-
 export class UnrepresentableFieldError extends Error {
   constructor(
     readonly schema: string,
@@ -69,50 +46,24 @@ export const unknownVersion = (
     : new ESchemaError({ message });
 };
 
-const hasTag =
-  <T>(tag: string) =>
-  (value: unknown): value is T =>
-    value !== null &&
-    typeof value === 'object' &&
-    (value as { readonly _tag?: unknown })._tag === tag;
+const isOutdatedVersion = (value: unknown): value is OutdatedVersion =>
+  value !== null &&
+  typeof value === 'object' &&
+  (value as { readonly _tag?: unknown })._tag === 'OutdatedVersion';
 
-const findTagged = <T>(
+export const findOutdatedVersion = (
   error: unknown,
-  matches: (value: unknown) => value is T,
-): T | undefined => {
+): OutdatedVersion | undefined => {
   const seen = new Set<object>();
   const pending: unknown[] = [error];
   while (pending.length > 0) {
     const next = pending.pop();
     if (next === null || typeof next !== 'object' || seen.has(next)) continue;
     seen.add(next);
-    if (matches(next)) return next;
+    if (isOutdatedVersion(next)) return next;
     pending.push(...Object.values(next));
     if (next instanceof Error && next.cause !== undefined)
       pending.push(next.cause);
   }
   return undefined;
 };
-
-export const findOutdatedVersion = (
-  error: unknown,
-): OutdatedVersion | undefined =>
-  findTagged(error, hasTag<OutdatedVersion>('OutdatedVersion'));
-
-export const findNeedsBackfill = (error: unknown): NeedsBackfill | undefined =>
-  findTagged(error, hasTag<NeedsBackfill>('NeedsBackfill'));
-
-/** The error a read raises; a gap or a newer version is told apart. */
-export type ReadError = ESchemaError | OutdatedVersion | NeedsBackfill;
-
-/**
- * What a schema issue says about a failed read or write. It carries an
- * `OutdatedVersion` or `NeedsBackfill`, so `findOutdatedVersion` and
- * `findNeedsBackfill` find it inside an Effect Schema error.
- */
-export const issueOf = (error: ReadError) =>
-  error._tag === 'OutdatedVersion'
-    ? { message: error.message, outdatedVersion: error }
-    : error._tag === 'NeedsBackfill'
-      ? { message: error.message, needsBackfill: error }
-      : { message: error.message };

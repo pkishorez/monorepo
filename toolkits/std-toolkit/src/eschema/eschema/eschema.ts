@@ -13,7 +13,6 @@ import type {
   StructFieldsEncoded,
   StructFieldsSchema,
   VersionedCodec,
-  VersionShapes,
 } from '../domain/schema-model/index.js';
 import { fromType, id, INITIAL_VERSION } from '../domain/schema-model/index.js';
 import { ESchemaError } from '../domain/eschema-error/index.js';
@@ -40,7 +39,6 @@ export class ESchema<
   TVersion extends string,
   TLatest extends StructFieldsSchema,
   TName extends string = string,
-  TVersions extends VersionShapes = VersionShapes,
 > implements StandardSchemaV1<unknown, LatestType<TLatest>> {
   readonly #runtime;
 
@@ -69,29 +67,17 @@ export class ESchema<
     schema: I & ForbidUnderscorePrefix<I> & ForbidOptionalFields<I>,
   ) {
     assertName(name);
-    return new ESchemaBuilder<
-      N,
-      'v1',
-      I,
-      { readonly v1: { readonly fields: I; readonly gap: false } }
-    >(
+    return new ESchemaBuilder<N, 'v1', I>(
       name,
       [{ version: INITIAL_VERSION, schema, migration: null }],
       INITIAL_VERSION,
-      <V extends string, S extends StructFieldsSchema, H extends VersionShapes>(
+      <V extends string, S extends StructFieldsSchema>(
         version: V,
         evolutions: readonly Evolution[],
-      ) =>
-        new ESchema<V, S, N, H>(constructionToken, name, version, evolutions),
+      ) => new ESchema<V, S, N>(constructionToken, name, version, evolutions),
     );
   }
 
-  /**
-   * Type carrier for every version: its fields, and whether it is a gap
-   * version. Read it through `ESchemaVersions`, `VersionValue` and
-   * `GapVersions`.
-   */
-  Versions = null as unknown as TVersions;
   Type = null as unknown as LatestType<TLatest>;
   Encoded = null as unknown as Prettify<StructFieldsEncoded<TLatest>> & {
     readonly _v: TVersion;
