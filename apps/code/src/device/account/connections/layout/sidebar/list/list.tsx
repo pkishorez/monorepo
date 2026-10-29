@@ -408,8 +408,9 @@ function OpenProject() {
  * A Connection's name over its Projects, said once: small, uppercase and
  * quieter than their headings, a dot for whether it is linked, green or
  * grey, and, once it is out of reach, when it was last seen at the right.
- * A click, or Enter on it, collapses its Projects under it, the name dimmer
- * still, hovered too, and saying how many, and opens them again; a finger's height to
+ * A click, or Enter on it, collapses its Projects under it, its chevron
+ * turned back, its dot dimmer and saying how many, the name as readable as
+ * ever, and opens them again; a finger's height to
  * hit. Room above it sets each Connection apart.
  */
 function ConnectionLabel({
@@ -440,11 +441,11 @@ function ConnectionLabel({
         data-cursor={at(place)}
         aria-expanded={!collapsed}
         onClick={onToggle}
-        className={`h-10 gap-2 rounded-lg px-3 text-[11px] font-medium tracking-[0.06em] uppercase hover:bg-transparent active:bg-sidebar-accent/60 keyboard:md:h-7 keyboard:md:text-[10.5px] ${collapsed ? 'text-muted-foreground/45 hover:text-muted-foreground/75 active:text-muted-foreground/75' : 'text-muted-foreground/75 hover:text-sidebar-foreground active:text-sidebar-foreground'} ${cursorRing}`}
+        className={`h-10 gap-2 rounded-lg px-3 text-[11px] font-medium tracking-[0.06em] uppercase hover:bg-transparent active:bg-sidebar-accent/60 keyboard:md:h-7 keyboard:md:text-[10.5px] text-muted-foreground hover:text-sidebar-foreground active:text-sidebar-foreground ${cursorRing}`}
       >
         <span
           aria-hidden
-          className={`size-1.5 shrink-0 rounded-full ${health._tag === 'Linked' ? 'bg-positive' : 'bg-muted-foreground/45'} ${collapsed ? 'opacity-60' : ''}`}
+          className={`size-1.5 shrink-0 rounded-full ${health._tag === 'Linked' ? 'bg-positive' : 'bg-muted-foreground/45'} ${collapsed ? 'opacity-40' : ''}`}
         />
         <span className="min-w-0 truncate">
           {name}

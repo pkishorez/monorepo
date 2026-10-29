@@ -90,16 +90,20 @@ export const branchShown = (branch: string) =>
 /**
  * The branch a row says: its Session's, as `branchShown` says it, only when
  * it is not the one its Project's heading says, so in practice its own
- * Worktree's; else null.
+ * Worktree's; never for a Session with no Worktree, which is in its
+ * Project's folder; else null.
  */
 export const branchOf = (session: Session, heading: string | null) =>
-  session.branch === null || session.branch === heading
+  session.worktree === null ||
+  session.branch === null ||
+  session.branch === heading
     ? null
     : branchShown(session.branch).text;
 
 /**
  * The branch each Project's folder is on, by `keyOf`: as its most recently
- * active Session in the folder itself last found it, Settled ones too.
+ * active Session in the folder itself last found it, Settled ones too. A
+ * Session with no Worktree, as one made before Worktrees, is in the folder.
  */
 const branchesOf = (
   projects: ReadonlyArray<Project>,
@@ -112,8 +116,9 @@ const branchesOf = (
       connectionId: session.connectionId,
       id: session.projectId,
     });
-    if (session.branch === null || session.worktree !== paths.get(key))
-      continue;
+    const inFolder =
+      session.worktree === null || session.worktree === paths.get(key);
+    if (session.branch === null || !inFolder) continue;
     const was = found.get(key);
     if (was === undefined || session.activeAt > was.at)
       found.set(key, { at: session.activeAt, branch: session.branch });
