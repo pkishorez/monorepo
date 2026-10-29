@@ -174,7 +174,8 @@ export const ProjectReady = View.make(
 
 /**
  * Draws nothing: the Session a Draft started, read until it can be drawn
- * whole, then said so, so the project page draws it in the Draft's place.
+ * whole with its row held here, then said so, so the project page draws it
+ * in the Draft's place: its row not synced yet is not drawn as missing.
  */
 function HandingOver({
   session,
@@ -185,7 +186,7 @@ function HandingOver({
   readonly at: string;
   readonly send: Self['send'];
 }) {
-  const ready = useChild(session, ({ model }) => model.ready);
+  const ready = useChild(session, ({ model }) => model.ready && model.held);
   useEffect(() => {
     if (ready) send({ _tag: 'Ready', at });
   }, [ready, at]);
