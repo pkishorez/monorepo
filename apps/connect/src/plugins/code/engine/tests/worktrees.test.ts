@@ -535,6 +535,49 @@ describe('a Session in a git Project', () => {
     );
   });
 
+  it('shows only the second attempt when a start that failed to open is asked again under its id', async () => {
+    const fake = makeFakeHarness();
+    let opens = 0;
+    const once: Harness = {
+      ...fake.harness,
+      open: (config) =>
+        ++opens === 1
+          ? Effect.fail(new HarnessError({ message: 'no agent here' }))
+          : fake.harness.open(config),
+    };
+    await run(
+      () =>
+        Effect.gen(function* () {
+          const engine = yield* Engine;
+          const store = yield* Store;
+          const project = yield* engine.addProject(temp());
+          const id = '01J0Z8Q3VQ4N7Y2K5R6T8W9XAC';
+          const failed = yield* Effect.exit(
+            start(project.id, { id, text: 'first' }),
+          );
+          expect(Exit.isFailure(failed)).toBe(true);
+          yield* Effect.sleep('50 millis');
+          yield* start(project.id, { id, text: 'second' });
+          yield* eventually(async () =>
+            expect(
+              (await Effect.runPromise(store.raws(id).after(null, 1000))).items
+                .length,
+            ).toBeGreaterThan(0),
+          );
+          yield* Effect.sleep('50 millis');
+          const { items } = yield* store.raws(id).after(null, 1000);
+          const started = items.filter(
+            ({ value }) => value.kind === 'turn.started',
+          );
+          expect(started.map(({ value }) => value.payload)).toMatchObject([
+            { text: 'second' },
+          ]);
+          expect(new Set(items.map(({ value }) => value.turnId)).size).toBe(1);
+        }),
+      { fake, harness: once },
+    );
+  });
+
   it('runs in its folder, with no branch, in a Project that is not git', async () => {
     await run(() =>
       Effect.gen(function* () {
