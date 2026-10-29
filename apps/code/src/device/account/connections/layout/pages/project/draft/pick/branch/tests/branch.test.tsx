@@ -8,7 +8,7 @@ import { toReact, View } from '@kestack/kabuki/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { keys } from '../../../../../../commands.ts';
 import * as Picker from '../../../../../../../../../../ui/controls/picker/index.ts';
-import { BranchPicker, BranchTrigger, type Git, rowsOf } from '../branch.tsx';
+import { BranchPicker, BranchSettings, type Git, rowsOf } from '../branch.tsx';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -18,8 +18,9 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * Connect lists them, a local branch that tracks one on Origin saying so;
  * one checked out in a linked Worktree says where. Until a
  * branch is picked, the one the Project's folder is on is checked. Its
- * trigger and the New Worktree toggle show only once the branches are
- * read, and never for a Project that is not a git repository.
+ * Branch row and the New Worktree switch show only once the branches are
+ * read, and never for a Project that is not a git repository, which says
+ * so in a line instead.
  */
 
 const GIT: Git = {
@@ -136,7 +137,7 @@ const PageView = View.make(PageLive, ({ model, children, send }) => {
   return (
     <keys.Provider vim>
       <Editor />
-      <BranchTrigger
+      <BranchSettings
         branches={shown}
         picked={model.picked}
         newWorktree={model.newWorktree}
@@ -147,7 +148,7 @@ const PageView = View.make(PageLive, ({ model, children, send }) => {
         {children.branches && (
           <BranchPicker.View instance={children.branches} />
         )}
-      </BranchTrigger>
+      </BranchSettings>
     </keys.Provider>
   );
 });
@@ -169,8 +170,7 @@ const editor = () =>
   document.querySelector<HTMLElement>('[data-testid="editor"]')!;
 const trigger = () =>
   document.querySelector<HTMLElement>('button[aria-label^="Branch"]');
-const toggle = () =>
-  document.querySelector<HTMLElement>('button[aria-label="New worktree"]');
+const toggle = () => document.querySelector<HTMLElement>('[role="switch"]');
 const items = () => [...document.querySelectorAll<HTMLElement>('[cmdk-item]')];
 const rows = () =>
   items().map((item) => ({
@@ -213,11 +213,12 @@ afterEach(async () => {
 });
 
 describe('BranchPicker', () => {
-  it('shows nothing for a Project that is not a git repository', async () => {
+  it('says so for a Project that is not a git repository, with no controls', async () => {
     shown = { _tag: 'NotGit' };
     await draw();
     expect(trigger()).toBeNull();
     expect(toggle()).toBeNull();
+    expect(document.body.textContent).toContain('Not a git repository');
   });
 
   it('shows nothing while the branches are read', async () => {
@@ -230,11 +231,16 @@ describe('BranchPicker', () => {
   it('starts on the branch the folder is on, the New Worktree toggle off', async () => {
     await draw();
     expect(trigger()?.getAttribute('aria-label')).toBe('Branch: main');
-    expect(toggle()?.getAttribute('aria-pressed')).toBe('false');
+    expect(trigger()?.textContent).toContain('tracks origin/main');
+    expect(toggle()?.getAttribute('aria-checked')).toBe('false');
+    expect(document.body.textContent).toContain('Works in this folder on main');
     await act(async () => toggle()!.click());
     await flush();
     expect(page.newWorktree).toBe(true);
-    expect(toggle()?.getAttribute('aria-pressed')).toBe('true');
+    expect(toggle()?.getAttribute('aria-checked')).toBe('true');
+    expect(document.body.textContent).toContain(
+      'Makes a new worktree and branch from main',
+    );
   });
 
   it('opens on `shift+b` as one list in two sections, and picks the branch chosen', async () => {

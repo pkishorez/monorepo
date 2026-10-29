@@ -1,21 +1,25 @@
 import { Schema } from 'effect';
 import type { Effect } from 'effect';
 import { Branches } from '@kestack/connect/code';
-import { ChevronDownIcon, FolderGit2Icon, GitBranchIcon } from 'lucide-react';
+import { ChevronRightIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { keys, useBound } from '../../../../../commands.ts';
 import * as Picker from '../../../../../../../../../ui/controls/picker/index.ts';
+import * as Settings from '../../../../../../../../../ui/controls/settings/index.ts';
+import { tilde } from '../../../../../../../../../ui/labels/path/index.ts';
 
 /*
  * The Branch Picker, on a new session's Draft only: one Step of the
  * Project's branches, in two sections, Local and Origin, as Connect lists
  * them. A local branch that tracks one on Origin says so under its name,
  * and Connect lists that one no more under Origin; one checked out in a
- * linked Worktree says where. The one picked is checked; until one is, the one the Project's
- * folder is on. Beside its trigger in the Status Line, the New Worktree
- * toggle, off until switched on. Both are drawn only once the branches
- * are read, and only for a Project that is a git repository. `shift+b`
- * opens it from the page's Normal Mode; on touch it is a Sheet.
+ * linked Worktree says where. The one picked is checked; until one is,
+ * the one the Project's folder is on. It opens from the Branch row of the
+ * new session's page, over the New Worktree switch, off until switched
+ * on, which says what will happen on send. Both are drawn only once the
+ * branches are read, and only for a Project that is a git repository;
+ * one that is not says so in a line. `shift+b` opens it from the page's
+ * Normal Mode; on touch it is a Sheet.
  */
 
 /** A Project's branches, as git has them: never NotGit. */
@@ -96,15 +100,13 @@ export const BranchPicker = {
     Branch.owner({ done: (choices) => done(choices?.at(-1)?.value ?? null) }),
 };
 
-const trigger =
-  'focus-ring inline-flex h-7 min-w-0 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground aria-pressed:bg-primary/10 aria-pressed:text-foreground pointer-coarse:h-11 pointer-coarse:px-3 motion-reduce:transition-none';
-
 /**
- * The Branch Picker's trigger and the New Worktree toggle, in the Status
- * Line or the Touch Draft's head; nothing until the branches are read,
- * and nothing for a Project that is not a git repository.
+ * Where a new session works, as the page draws it over the Draft: for a
+ * git repository, the Branch row, which opens the Branch Picker, and the
+ * New Worktree switch; for one that is not, a quiet line. Nothing while
+ * the branches are read.
  */
-export function BranchTrigger({
+export function BranchSettings({
   branches,
   picked,
   newWorktree,
@@ -130,52 +132,76 @@ export function BranchTrigger({
   keys.useAction('content.branch', () => open(() => onOpen('keys')), {
     enabled: git !== null,
   });
-  if (git === null) return null;
-  const on = branchOf(git, picked) ?? 'No branch';
+  if (branches === null) return null;
+  if (git === null)
+    return (
+      <p className="animate-in text-sm text-muted-foreground duration-200 ease-out fade-in-0 motion-reduce:animate-none">
+        Not a git repository: works in this folder as it is.
+      </p>
+    );
+  const on = branchOf(git, picked);
+  const local = git.local.find(({ name }) => name === on);
+  const main = git.worktrees[0]?.path ?? null;
+  const elsewhere =
+    local?.worktree != null && local.worktree !== main ? local.worktree : null;
+  const said =
+    on === null
+      ? 'Pick a branch to start on'
+      : newWorktree
+        ? `Makes a new worktree and branch from ${on}`
+        : elsewhere === null
+          ? `Works in this folder on ${on}`
+          : `Works in ${tilde(elsewhere)} on ${on}`;
   return (
-    <>
+    <div className="-mx-3 flex animate-in flex-col gap-0.5 duration-200 ease-out fade-in-0 motion-reduce:animate-none">
       <Picker.Frame
         how={how}
         mode="sheet"
         label="Branch"
         onOpen={onOpen}
-        className="w-72"
+        side="top"
+        className="w-80"
         trigger={
           <button
             type="button"
-            aria-label={`Branch: ${on}`}
+            aria-label={`Branch: ${on ?? 'No branch'}`}
             title={branchKeys === null ? 'Branch' : `Branch (${branchKeys})`}
-            className={trigger}
+            className="focus-ring flex w-full items-center gap-6 rounded-lg px-3 py-2.5 text-left transition-colors duration-150 hover:bg-muted/50 aria-expanded:bg-muted/50 motion-reduce:transition-none"
           >
-            <GitBranchIcon aria-hidden className="size-3.5 shrink-0" />
-            <span className="truncate text-foreground/90">{on}</span>
-            <ChevronDownIcon
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-sm font-medium">Branch</span>
+              <span className="text-sm text-muted-foreground">
+                <span className="font-mono text-xs [overflow-wrap:anywhere] text-foreground/90">
+                  {on ?? 'No branch'}
+                </span>
+                {local?.upstream != null && (
+                  <span> · tracks {local.upstream}</span>
+                )}
+              </span>
+            </span>
+            <ChevronRightIcon
               aria-hidden
-              className="size-3 shrink-0 opacity-60"
+              className="size-4 shrink-0 text-muted-foreground"
             />
           </button>
         }
       >
         {how !== null && children}
       </Picker.Frame>
-      <button
-        type="button"
-        aria-pressed={newWorktree}
-        aria-label="New worktree"
-        title={
-          newWorktree
-            ? 'In a new worktree, on a new branch from this one'
-            : 'Where this branch is checked out'
+      <Settings.Row
+        id="new-worktree"
+        name="New worktree"
+        control={
+          <Settings.Toggle
+            labelledBy="new-worktree-name"
+            on={newWorktree}
+            onChange={onToggle}
+          />
         }
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={onToggle}
-        className={`${trigger} shrink-0`}
+        onToggle={onToggle}
       >
-        <FolderGit2Icon aria-hidden className="size-3.5 shrink-0" />
-        <span className="hidden @md/status:inline pointer-coarse:inline">
-          New worktree
-        </span>
-      </button>
-    </>
+        {said}
+      </Settings.Row>
+    </div>
   );
 }

@@ -29,16 +29,16 @@ import {
   skillsOf,
 } from './pick/pick.ts';
 import { SkillPicker } from './pick/skills.ts';
-import { BranchPicker, BranchTrigger } from './pick/branch/index.ts';
+import { BranchPicker, BranchSettings } from './pick/branch/index.ts';
 import { Slots } from './draft.ts';
 
 /*
  * The Draft at the page's foot: the line that says why nothing can be
  * sent or what went wrong, the Draft's card, and under it the Status Line
  * with the model Picker's triggers and the send button, which takes the
- * mic's place once there is something to send. A new session's has the
- * Branch Picker's trigger and the New Worktree toggle beside the model,
- * for a Project that is a git repository, and says Start session; a
+ * mic's place once there is something to send. A new session's draws its
+ * Branch row and New Worktree switch where the page says through `Slots`,
+ * over the Draft, and says Start session; a
  * Session's says Send, or Steer while the agent runs. The card is drawn
  * by the Draft Mode open (`write/`), around its own text, which its edits
  * and sends go to; switched to, it takes focus as the one before had it. In a Session, the Side Question toggle beside
@@ -333,26 +333,33 @@ function Composer({
   const sideToggle = onSide !== null && (
     <SideQuestionToggle on={side} onToggle={onSide} />
   );
-  // A new session's branch, beside its model.
-  const branch = fresh && takes.picks && (
-    <BranchTrigger
-      branches={model.branches}
-      picked={model.branch}
-      newWorktree={model.newWorktree}
-      how={picking?._tag === 'Branch' ? picking.how : null}
-      onOpen={(how) =>
-        send({ _tag: 'PickerOpened', picking: { _tag: 'Branch', how } })
-      }
-      onToggle={() => send({ _tag: 'NewWorktreeToggled' })}
-    >
-      {children.branches && <BranchPicker.View instance={children.branches} />}
-    </BranchTrigger>
-  );
+  // A new session's branch, where the page says, over the Draft.
+  const branch =
+    fresh &&
+    takes.picks &&
+    slots.where &&
+    createPortal(
+      <BranchSettings
+        branches={model.branches}
+        picked={model.branch}
+        newWorktree={model.newWorktree}
+        how={picking?._tag === 'Branch' ? picking.how : null}
+        onOpen={(how) =>
+          send({ _tag: 'PickerOpened', picking: { _tag: 'Branch', how } })
+        }
+        onToggle={() => send({ _tag: 'NewWorktreeToggled' })}
+      >
+        {children.branches && (
+          <BranchPicker.View instance={children.branches} />
+        )}
+      </BranchSettings>,
+      slots.where,
+    );
   const label = wording.send;
   const title = sendKeys === null ? label : `${label} (${sendKeys})`;
   const blocked = unsendable || !draft.filled;
 
-  return draft.touch ? (
+  const drawn = draft.touch ? (
     composing.touch({
       draft,
       label,
@@ -395,7 +402,6 @@ function Composer({
               )}
             </Chip>
           )}
-          {branch}
         </>
       ),
     })
@@ -440,9 +446,14 @@ function Composer({
             {children.models && <ModelPicker.View instance={children.models} />}
           </Triggers>
         )}
-        {branch}
       </StatusLine>
     </Card>
+  );
+  return (
+    <>
+      {drawn}
+      {branch}
+    </>
   );
 }
 
