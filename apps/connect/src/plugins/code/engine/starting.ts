@@ -15,10 +15,14 @@ import { BRANCH_PREFIX, Git, type GitError } from './capabilities/index.js';
  *                   the Session's id lower-cased.
  * - otherwise       it runs in the Worktree that has the branch out; with
  *                   none, the Project's folder switches to it first. An
- *                   Origin branch a local one tracks is that local one.
+ *                   Origin branch a local one tracks is that local one; one
+ *                   whose name a local branch that tracks another has is
+ *                   refused.
  *
- * Each step is reported as it begins and as it is done. A step that fails
- * is GitFailed, and nothing is changed on its account.
+ * A branch the Project does not list is refused before git runs. Each step
+ * is reported as it begins and as it is done. A step that fails is
+ * GitFailed, and nothing is changed on its account: a new Worktree whose
+ * branch or folder is there already is refused, and leaves them be.
  */
 
 /** The steps of a start, in the order they run. */
@@ -85,6 +89,16 @@ export const place = (
     const { project, branch: picked } = input;
     const found = yield* git.branches(project.path);
     if (found === null) return { worktree: null, branch: null, made: false };
+    // Only a branch the Project lists reaches git.
+    if (
+      picked !== null &&
+      !found.local.some((each) => each.name === picked) &&
+      !found.origin.includes(picked)
+    )
+      return yield* new GitFailed({
+        step: input.newWorktree ? 'makingWorktree' : 'switchingBranch',
+        message: `There is no branch ${picked} in this Project`,
+      });
     if (input.newWorktree) {
       const id = input.id.toLowerCase();
       const at = join(input.worktrees, project.id, id);
@@ -94,13 +108,7 @@ export const place = (
         'makingWorktree',
         git
           .addWorktree(project.path, { at, branch, from: picked ?? 'HEAD' })
-          .pipe(
-            // Whatever of it git made before it failed goes.
-            Effect.tapError(() =>
-              git.removeWorktree(project.path, { at, branch }),
-            ),
-            Effect.mapError(failed('makingWorktree')),
-          ),
+          .pipe(Effect.mapError(failed('makingWorktree'))),
       );
       const worktree = yield* Effect.promise(() =>
         realpath(at).catch(() => at),

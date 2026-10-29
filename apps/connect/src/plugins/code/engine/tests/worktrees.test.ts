@@ -1,5 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, realpathSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Effect, Exit, Layer, type Scope } from 'effect';
@@ -87,6 +95,9 @@ const run = <A, E>(
     ),
   );
 };
+
+/** What is in the folder `path`; nothing when there is none. */
+const inside = (path: string) => (existsSync(path) ? readdirSync(path) : []);
 
 const eventually = (assertion: () => Promise<void> | void) =>
   Effect.promise(() => vi.waitFor(assertion, { timeout: 5000, interval: 10 }));
@@ -280,8 +291,89 @@ describe('a Session in a git Project', () => {
           },
         });
         expect((yield* store.allSessions).length).toBe(0);
-        expect(readdirSync(join(worktrees, project.id))).toEqual([]);
+        expect(inside(join(worktrees, project.id))).toEqual([]);
         expect(sh(repo, 'branch', '--list', 'ke-code/*')).toBe('');
+      }),
+    );
+  });
+
+  it('leaves a branch or folder that was there before a Worktree failed', async () => {
+    const repo = clone();
+    const ids = ['01J0Z8Q3VQ4N7Y2K5R6T8W9XAB', '01J0Z8Q3VQ4N7Y2K5R6T8W9XAC'];
+    await run((worktrees) =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const project = yield* engine.addProject(repo);
+        // As a start of the same id that crashed before would leave them.
+        const branch = `ke-code/${ids[0]!.toLowerCase()}`;
+        sh(repo, 'branch', branch);
+        const folder = join(worktrees, project.id, ids[1]!.toLowerCase());
+        mkdirSync(folder, { recursive: true });
+        writeFileSync(join(folder, 'keep'), '');
+        for (const id of ids) {
+          const exit = yield* Effect.exit(
+            start(project.id, { id, branch: 'main', newWorktree: true }),
+          );
+          expect(exit).toMatchObject({
+            _tag: 'Failure',
+            cause: {
+              reasons: [
+                { error: { _tag: 'GitFailed', step: 'makingWorktree' } },
+              ],
+            },
+          });
+        }
+        expect(sh(repo, 'branch', '--list', branch)).not.toBe('');
+        expect(existsSync(join(folder, 'keep'))).toBe(true);
+      }),
+    );
+  });
+
+  it('refuses a branch the Project does not list, one that reads as an option too', async () => {
+    const repo = clone();
+    await run((worktrees) =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const project = yield* engine.addProject(repo);
+        for (const branch of ['--orphan=oops', '--detach', 'HEAD~1', 'nope'])
+          for (const newWorktree of [false, true]) {
+            const exit = yield* Effect.exit(
+              start(project.id, { branch, newWorktree }),
+            );
+            expect(exit).toMatchObject({
+              _tag: 'Failure',
+              cause: { reasons: [{ error: { _tag: 'GitFailed' } }] },
+            });
+          }
+        expect(sh(repo, 'branch', '--show-current')).toBe('main');
+        expect(inside(join(worktrees, project.id))).toEqual([]);
+        expect(sh(repo, 'branch', '--list', 'ke-code/*')).toBe('');
+      }),
+    );
+  });
+
+  it('refuses an Origin branch a local one of its name does not track, and lists it', async () => {
+    const repo = clone();
+    sh(repo, 'branch', '--no-track', 'feature', 'topic');
+    await run(() =>
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const project = yield* engine.addProject(repo);
+        expect(yield* engine.branches(project.id)).toMatchObject({
+          origin: ['origin/feature'],
+        });
+        const exit = yield* Effect.exit(
+          start(project.id, { branch: 'origin/feature' }),
+        );
+        expect(exit).toMatchObject({
+          _tag: 'Failure',
+          cause: {
+            reasons: [
+              { error: { _tag: 'GitFailed', step: 'switchingBranch' } },
+            ],
+          },
+        });
+        expect(sh(repo, 'branch', '--show-current')).toBe('main');
       }),
     );
   });
