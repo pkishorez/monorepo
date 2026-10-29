@@ -23,7 +23,10 @@ import { BRANCH_PREFIX, Git, type GitError } from './capabilities/index.js';
  * new Worktree from a branch with no commits yet. Each step
  * is reported as it begins and as it is done. A step that fails is
  * GitFailed, and nothing is changed on its account: a new Worktree whose
- * branch or folder is there already is refused, and leaves them be.
+ * branch or folder is there already is refused, and leaves them be. A
+ * start that fails after its step is taken back with `unplace`: its new
+ * Worktree and branch go, or the folder switches back, unless it has
+ * changes, and a branch made to track Origin's goes.
  */
 
 /** The steps of a start, in the order they run. */
@@ -54,6 +57,14 @@ export interface Placed {
   readonly worktree: string | null;
   readonly branch: string | null;
   readonly made: boolean;
+  /**
+   * The Project's folder was switched for it: from the branch it was on,
+   * and the local branch made to track Origin's, if any.
+   */
+  readonly switched?: {
+    readonly from: string | null;
+    readonly made: string | null;
+  };
 }
 
 /** Runs one step: reported begun, run, reported done. */
@@ -133,7 +144,7 @@ export const place = (
       found.local.find((each) => each.upstream === picked);
     if (local?.worktree)
       return { worktree: local.worktree, branch: local.name, made: false };
-    yield* step(
+    const switched = yield* step(
       report,
       'switchingBranch',
       git
@@ -144,16 +155,22 @@ export const place = (
       worktree: project.path,
       branch: yield* git.branchAt(project.path),
       made: false,
+      switched: { from: found.current, made: switched.made },
     };
   });
 
-/** Takes back what `place` made, as when the start fails after it. */
+/** Takes back what `place` did, as when the start fails after it. */
 export const unplace = (project: Project, placed: Placed) =>
-  placed.made && placed.worktree !== null && placed.branch !== null
-    ? Effect.flatMap(Git, (git) =>
-        git.removeWorktree(project.path, {
-          at: placed.worktree!,
-          branch: placed.branch!,
-        }),
-      )
-    : Effect.void;
+  Effect.flatMap(Git, (git) => {
+    if (placed.made && placed.worktree !== null && placed.branch !== null)
+      return git.removeWorktree(project.path, {
+        at: placed.worktree,
+        branch: placed.branch,
+      });
+    if (placed.switched !== undefined)
+      return git.switchBack(project.path, {
+        to: placed.switched.from,
+        made: placed.switched.made,
+      });
+    return Effect.void;
+  });

@@ -243,8 +243,8 @@ export interface EngineService {
    * Starts a Session already running its first message, after the git
    * step it needs, reporting each step; started once its Agent has opened.
    * A git step that fails starts nothing, and an Agent that fails to open,
-   * HarnessFailed, keeps no Session and takes back the Worktree made for
-   * it. Once begun, it runs to the end even if its caller goes away.
+   * HarnessFailed, keeps no Session and takes back its git step: the
+   * Worktree made for it, or the folder switched back. Once begun, it runs to the end even if its caller goes away.
    */
   readonly startSession: (
     input: StartSession,

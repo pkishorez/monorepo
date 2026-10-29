@@ -59,12 +59,22 @@ export class Git extends Context.Service<
     readonly fetch: (path: string) => Effect.Effect<void>;
     /**
      * Switches the Worktree at `path` to `branch`. An Origin branch,
-     * `origin/x`, switches to the local `x`, made first to track it.
+     * `origin/x`, switches to the local `x`, made first to track it; the
+     * local branch it made, if any.
      */
     readonly switchTo: (
       path: string,
       branch: string,
-    ) => Effect.Effect<void, GitError>;
+    ) => Effect.Effect<{ readonly made: string | null }, GitError>;
+    /**
+     * Takes back a `switchTo`: switches the Worktree at `path` back to
+     * `to` unless it has changes, then deletes the branch `made`, if any,
+     * unless it is out or has commits of its own. Never fails.
+     */
+    readonly switchBack: (
+      path: string,
+      back: { readonly to: string | null; readonly made: string | null },
+    ) => Effect.Effect<void>;
     /** Makes a Worktree at `at`, on the new branch `branch` from `from`. */
     readonly addWorktree: (
       path: string,
