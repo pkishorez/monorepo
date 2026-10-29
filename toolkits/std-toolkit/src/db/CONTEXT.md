@@ -9,7 +9,7 @@ The pattern of storing many entity types in one physical table, distinguished by
 _Avoid_: multi-table, one-table-per-entity.
 
 **StdTable**:
-The adapter-independent single-table abstraction and aggregate of its entity surfaces, built with `StdTable.make`. It is an interface in the architectural sense: it defines what a table is and what every adapter must implement to realize one. Its logical name is unique within an application and is the type-level and Effect runtime identity for its layer. It is one declaration, in order: keys and indexes, then its entities, then its **Backfill**s; the built table carries each **Entity surface** under its ESchema name (`board.Task`), and an entity name is declared once per table. It also exposes table-wide `subscribe`, returning a `Stream` of core [[core]] **Change Notice**s across every entity broadcasting through the same Broadcaster — untyped, since no single entity schema applies, and not narrowed to this table's own entities (Entity Meta carries no table identity). Entity- or value-scoped subscription belongs to the **Entity surface** instead.
+The adapter-independent single-table abstraction and aggregate of its entity surfaces, built with `StdTable.make`. It is an interface in the architectural sense: it defines what a table is and what every adapter must implement to realize one. Its logical name is unique within an application and is the type-level and Effect runtime identity for its layer. It is one declaration, in order: keys and indexes, then its entities; the built table carries each **Entity surface** under its ESchema name (`board.Task`), and an entity name is declared once per table. It also exposes table-wide `subscribe`, returning a `Stream` of core [[core]] **Change Notice**s across every entity broadcasting through the same Broadcaster — untyped, since no single entity schema applies, and not narrowed to this table's own entities (Entity Meta carries no table identity). Entity- or value-scoped subscription belongs to the **Entity surface** instead.
 _Avoid_: Table (bare, for the abstraction), EntityRegistry, EntityManager, store registry, portable table.
 
 **StdTable contract**:
@@ -37,7 +37,7 @@ The result of `<Adapter>.make(stdTable, config)` — `DynamoDBTable`, `SQLiteTab
 _Avoid_: Configured adapter (retired term), instance, storage, public binding.
 
 **Adapter setup**:
-The adapter-native step that prepares one physical table under its **Table mode**: it compares the current table snapshot with the **Stored contract**, then refuses (a **Persistent table**) or wipes the whole table (a **Disposable table**) on a change that is not safe, applies the topology, and records the new Stored contract. Its options are the adapter's own; IndexedDB changes its indexes in a version upgrade between the plan and the Backfills. SQLite runs the shared setup for every driver: it creates a missing table, keeps the Stored contract as reserved rows inside it, and runs the pending **Backfills**. It runs where nothing per request pays for it: at deploy inside an Alchemy resource (D1 and DynamoDB, with no deploy guard), at runtime start (SQLite files, IndexedDB on app open), or on an object's first access (Durable Objects). DynamoDB runs the shared setup too: it creates a missing table, adds a new global secondary index in place before the Backfills, and refuses every other index change in either mode, since DynamoDB makes it only by replacing the table. Memory has none and takes no mode, since nothing outlives it. It is separate from `make`.
+The adapter-native step that prepares one physical table under its **Table mode**: it compares the current table snapshot with the **Stored contract**, then refuses (a **Persistent table**) or wipes the whole table (a **Disposable table**) on a change that is not safe, applies the topology, and records the new Stored contract. Its options are the adapter's own; IndexedDB changes its indexes in a version upgrade between the plan and the reindex. SQLite runs the shared setup for every driver: it creates a missing table, keeps the Stored contract as reserved rows inside it, and reindexes the rows an index change touches. It runs where nothing per request pays for it: at deploy inside an Alchemy resource (D1 and DynamoDB, with no deploy guard), at runtime start (SQLite files, IndexedDB on app open), or on an object's first access (Durable Objects). DynamoDB runs the shared setup too: it creates a missing table, adds a new global secondary index in place before the reindex, and refuses every other index change in either mode, since DynamoDB makes it only by replacing the table. Memory has none and takes no mode, since nothing outlives it. It is separate from `make`.
 _Avoid_: Automatic setup, layer initialization, verifySnapshot.
 
 **Table mode**:
@@ -45,95 +45,13 @@ Whether one physical table is a **Persistent table** or a **Disposable table**, 
 _Avoid_: Durability, retention, storage class.
 
 **Persistent table**:
-A physical table whose data must never be lost or stranded by a schema change. A breaking or unverifiable change to it is refused before it reaches the data, with no override, and a failed setup never wipes it. A change that needs a backfill must have a **Backfill** declared, and setup runs it before the table opens. Any adapter may hold one, the browser included.
+A physical table whose data must never be lost or stranded by a schema change. A breaking or unverifiable change to it is refused before it reaches the data, with no override, and a failed setup never wipes it. An index change is reindexed by setup before the table opens, with nothing declared. A change no pure migration can make goes to a new table through a **Table migration**. Any adapter may hold one, the browser included.
 _Avoid_: Durable table (collides with Durable Objects), server table, production table.
 
 **Disposable table**:
-A physical table whose data may be thrown away when a schema change is not safe, such as preferences or a local copy that can be fetched again. It is still stored; it is only disposable. A disposable table is not frozen by version history: its schemas may change freely. It never runs a **Backfill**: a change that needs one, or any pending one (a gap or a **Reindex**), wipes it.
-_Avoid_: Ephemeral table (Memory's and Sync's "ephemeral" means never stored), cache table, semi-ephemeral.
-
-**Stored item**:
-The portable database form of an **Entity** as it crosses the **StdTable contract**: derived pk/sk, the entity metadata, the eschema **encoded form** of the value, and derived secondary-index keys (`StoredItem`, with `StoredKey` for a key pair alone). Everything is in encoded form before an adapter sees it, and its flat layout mirrors the physical row so adapters translate native value representations, not structure.
-_Avoid_: SerializedItem, EncodedItem, row (for the portable form), indexes keyed by slot name.
-
-**Native item**:
-An adapter's concrete physical shape for one row — a DynamoDB attribute-value record, a SQLite row, or an IndexedDB stored object. Each adapter's **item schema** converts a **stored item** to and from this native representation.
-_Avoid_: Decoded item, DecodedItem, WireItem, raw row.
-
-**Item schema**:
-The single two-way Effect Schema each adapter defines between a **stored item** and a **native item**, constructed per table definition. Writes convert to the native representation and reads convert back to the stored representation; malformed rows fail as parse errors, not thrown strings.
-_Avoid_: item codec, encodeItem/decodeItem pairs, manual shape checks.
-
-**Conditional put**:
-The one write shape in the **StdTable contract**: a full **stored item**, optionally guarded by an **item condition**. Adapters never merge — they only put whole items.
-_Avoid_: WriteRequest, partial update (at the contract), upsert.
-
-**Item condition**:
-The single assertion vocabulary about one item, shared by a **conditional put** and a **check op** (`ItemCondition`): `not-exists`, `exists`, or `updated` — a match on a known `_u`. Existence is physical, so a tombstoned item exists. Conditions never inspect `data`: an adapter-independent predicate over domain values would mean DynamoDB condition expressions on one side and in-process JavaScript comparison on the other, and the two disagree on missing attributes and coercion. `_u` is the portable predicate — it asserts that nothing has moved since the read that captured it. The database evaluates an item condition; an **entity invariant** is the in-process counterpart over domain values.
-_Avoid_: PutCondition (retired term), CheckCondition, predicate, filter expression.
-
-**Topology compatibility baseline**:
-The DynamoDB-compatible structural limits enforced by every **StdTable**, so each logical definition can be implemented by DynamoDB, SQLite, IndexedDB, or Memory. Limits that depend on physical runtime state remain adapter-specific checks.
-_Avoid_: Adapter-unbounded topology.
-
-**Partition key (pk)**:
-The distribution key. All rows sharing a pk value live together as one **item collection**.
-_Avoid_: hash key (within this context use **partition key**). Note: unrelated to sync's **Partition** lifecycle concept — see the root map's collision note.
-
-**Item collection**:
-The set of rows sharing one **partition key** value — i.e. a single **partition** in the storage sense. The unit a query over a pk returns.
-_Avoid_: partition (prefer **item collection** when naming the row set; reserve "partition" for the concept).
-
-**Sort key (sk)**:
-The ordering key within an **item collection**. Enables range queries (`<`, `<=`, `>`, `>=`, `=`, `between`, `beginsWith`) over a partition.
-_Avoid_: range key (within this context use **sort key**).
-
-**IndexDefinition**:
-The explicit structure naming the pk and sk attributes or columns for an index. The toolkit does not derive these names from the index slot name.
-
-**LSI** / **GSI**:
-A **Local Secondary Index** shares the primary index's partition key and declares a different sort key; a **Global Secondary Index** declares an independent partition key and sort key. Their names identify generic physical index slots such as `LSI1` and `GSI1`, not application-specific access patterns.
-_Avoid_: Local index, global index, mobile secondary index.
-
-**Read consistency**:
-The visibility guarantee supplied by an **adapter table**. The shared LSI/GSI topology does not make all adapters equally consistent; applications that require immediate secondary-index visibility must select an adapter that provides it.
-_Avoid_: Portable consistency guarantee.
-
-**Access pattern**:
-An entity-scoped, application-specific query route such as `byEmail`, mapped onto a generic **LSI** or **GSI** slot.
-_Avoid_: Physical index name, index slot.
-
-**Index component**:
-A **key path** used to derive a physical key for an **access pattern**. Composite components use a collision-safe encoding.
-_Avoid_: String-coerced field, delimiter-joined key.
-
-**Key path**:
-A dotted path into an eschema **value** (`boardId`, `owner.userId`) that ends at a string or number. It reads the value application code sees, never the **encoded form**, and it never passes through an array. A path that exists in only some branches of a union makes a sparse index: a row whose branch lacks it is not in that index.
-_Avoid_: Key function, computed key, derived field.
-
-**Entity surface**:
-The per-entity CRUD surface defined once from a **StdTable** (`KeyedEntity`, `SingleEntity`). It accepts and returns eschema **values** only — inserts, updates, keys, query operands, and results — and returns **Entities**; conversion to and from the encoded form happens before and after the **StdTable contract**. An adapter table's layer supplies its contract implementation without changing this surface. Every operation on it returns a `TableEffect` — an Effect that can fail with `DatabaseError` and runs only once its StdTable's layer is provided. It also exposes `subscribe`, returning a `Stream` of core [[core]] **Change Notice**s for this entity, optionally narrowed by an exact-match `value` filter typed to this entity's schema (an omitted filter widens to every change on the entity).
-_Avoid_: Entity service (retired term), adapter-specific Entity wrappers, PortableKeyedEntity.
-
-**Read migration**:
-The in-memory conversion of an older **stored item** into the **value** during a get or query. It never rewrites storage; only a later explicit write persists the latest encoded version.
-_Avoid_: Read repair, automatic migration write-back.
-
-**Table scan**:
-A portable, table-wide walk of every Entity item (`table.scan()`), returning raw **stored item**s across every entity type intermixed — untyped, for the same reason `subscribe()` is. The reserved rows of the **Stored contract** are excluded. Accepts a `parallelism` hint that each **adapter** honors as best it can; DynamoDB runs real segmented scans, the others answer sequentially.
-_Avoid_: Full table read, dump.
-
-**Drift**:
-The mismatch between a stored **stored item**'s secondary-index keys and what the current entity registration would derive for the same **value** (`table.drift(item)`). A difference confined to `_v` or the encoded payload, with keys unchanged, is not Drift, since it already self-heals through **Read migration**. A primary partition-key or sort-key difference violates **Entity key immutability** and fails with `PrimaryKeyDrift`; it is never returned as repairable Drift. Detected only for keyed entities; a **SingleEntity** has no secondary indexes to drift.
-_Avoid_: Backfill need, staleness, migration debt.
-
-**Reindex**:
-The guarded, silent rewrite of one item's physical representation to the form `drift` reported (`table.reindex(currentForm)`). It preserves the exact `_u` it read rather than minting a new one, and fires no Change Notice. The rewrite updates secondary-index keys and can also persist the latest equivalent encoded payload produced by **Read migration**. This is safe under the same `_u` because the **value** did not change. A conflict (the real `_u` moved since it was read) fails with `ReindexConflict`; the operation never retries, leaving that to the caller.
-_Avoid_: Repair write, silent update, backfill write.
-
-**Backfill**:
-A named, effectful step declared on a **StdTable**, after its entities, that rewrites stored rows once so that what they need is written rather than derived on read: either filling a **gap version** from the old value and the table's other entities, or a **Reindex**. Its `run` only reads, and never its own entity: another row of that entity may not be filled yet, and would fail with `NeedsBackfill` on every retry; a write from `run` dies. Every one is declared by hand, which is the author accepting the downtime it costs, and none is ever removed once shipped. It is done when no stored row of its entity is older than its gap version (or has stale index keys); what the table records about it only saves rescanning.
-_Avoid_: data migration, migration (that is eschema's pure read-time function), job, script.
+A physical table whose data may be thrown away when a schema change is not safe, such as preferences or a local copy that can be fetched again. It is still stored; it is only disposable. A disposable table is not frozen by version history: its schemas may change freely. It never runs a **Table migration**:
+The one-time move of every row of an old **StdTable** into a new one, on a new physical table, for a change no pure **migration** can make (`StdTable.migrate(old, next, handlers)`). It has one handler per entity of the old table, and the keys are exhaustive. A handler gets one old row at its latest value, reads the old table, and writes any number of rows to the new one. It returns a `Stream` of progress events and keeps one migration row in the new table's **Stored contract**. That row says `running` until every row is through and `done` after, so a finished migration is a no-op, and a crashed or failed one clears the new table and starts over. It runs wherever it is called: at deploy in an Alchemy migration resource, or at app open on a device. Once every database has migrated, the old table and the call are deleted. The new table's ESchemas start again at v1 and do not know the old table.
+_Avoid_: Backfill (retired), data migration, table step, copy.
 
 **Entity key**:
 The logical identity accepted by a keyed **entity surface**: the entity's primary partition components plus its ESchema id field. It is derived into the physical partition and sort keys internally rather than exposing those physical values to callers.

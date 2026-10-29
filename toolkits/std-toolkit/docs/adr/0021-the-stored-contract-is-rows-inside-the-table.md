@@ -1,3 +1,5 @@
+Status: amended by [ADR 0022](0022-a-table-migrates-into-a-new-table-and-backfills-are-gone.md): there are no Backfill rows; a migrated table keeps one migration row instead.
+
 # The Stored contract is rows inside the table, the same on every adapter
 
 The Stored contract moves from each adapter's side table (`_std_contract` in SQLite and IndexedDB, nothing on DynamoDB) into the table itself, as reserved rows written through the same entity code as app data and hidden from `scan` and from app code: one row for the table (keys, indexes, mode and a hash of the rest), one per entity (its key paths and indexes), one per version of every ESchema the table reaches, nested ones included, and one per **Backfill** (status and cursor). Every adapter now keeps and checks its contract the same way, and DynamoDB gains one, set up at deploy inside `DynamoDB.table` as D1 is inside `D1.table`; the deploy guard stays only for tables whose setup runs later on a device or object.
