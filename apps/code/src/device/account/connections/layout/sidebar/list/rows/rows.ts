@@ -3,6 +3,7 @@ import type {
   Session as SessionRecord,
 } from '@kestack/connect/code';
 import type { OnConnection } from '../../../../connection/records/index.ts';
+import { shortNameOf } from '../../../../connection/link/index.ts';
 
 type Project = OnConnection<ProjectRecord>;
 type Session = OnConnection<SessionRecord>;
@@ -15,9 +16,13 @@ type Session = OnConnection<SessionRecord>;
  * being made, never viewing, so the order holds while you browse. While
  * the Connection Filter shows every Connection and more than one is listed
  * (`namesOf`), the Projects are by Connection first, the Connections in the
- * order of their most recently active Session, each named once, over its
- * first Project. The next and previous session follow the order drawn. A
- * Project or Session is named by its Connection and its id together.
+ * order of their most recently active Session, those out of reach last, each
+ * named once, over its first Project; a Connection collapsed hides its
+ * Projects (`shownOf`). The next and previous session follow the order
+ * drawn, past what is hidden. A heading says the branch its Project's folder
+ * is on, as its Sessions there last found it; a row says its own only when
+ * that differs (`branchOf`). A Project or Session is named by its Connection
+ * and its id together.
  */
 
 /** What names a Project or Session across Connections. */
@@ -35,6 +40,9 @@ export const sessionPlace = (of: Of) => `s:${keyOf(of)}`;
 /** A Project's heading's place in the sidebar: `p:<connection id>/<id>`. */
 export const projectPlace = (of: Of) => `p:${keyOf(of)}`;
 
+/** A Connection's name's place in the sidebar: `c:<connection id>`. */
+export const connectionPlace = (connectionId: string) => `c:${connectionId}`;
+
 export interface Entry {
   readonly place: string;
   readonly session: Session;
@@ -49,15 +57,10 @@ export interface Group {
   readonly name: string | null;
   /** Its Connection's name, to draw over it as the first of its Connection's Projects; else null. */
   readonly connection: string | null;
+  /** The branch its folder is on, as its Sessions there last found it; null when none says. */
+  readonly branch: string | null;
   readonly sessions: ReadonlyArray<Entry>;
 }
-
-/**
- * A Connection's name as short as it is still its own: the name it was
- * served as, for one named `<host> (<name>)`; else the name in full.
- */
-export const shortNameOf = (name: string) =>
-  /\(([^()]+)\)$/.exec(name)?.[1] ?? name;
 
 /**
  * The Connections' short names, by id, to draw the Projects under: null
@@ -84,13 +87,53 @@ export const branchShown = (branch: string) =>
     ? { text: branch.slice(OURS.length), worktree: true }
     : { text: branch, worktree: false };
 
-/** The Projects with an unsettled Session, each with them, the most recently active first. */
+/**
+ * The branch a row says: its Session's, as `branchShown` says it, only when
+ * it is not the one its Project's heading says, so in practice its own
+ * Worktree's; else null.
+ */
+export const branchOf = (session: Session, heading: string | null) =>
+  session.branch === null || session.branch === heading
+    ? null
+    : branchShown(session.branch).text;
+
+/**
+ * The branch each Project's folder is on, by `keyOf`: as its most recently
+ * active Session in the folder itself last found it, Settled ones too.
+ */
+const branchesOf = (
+  projects: ReadonlyArray<Project>,
+  sessions: ReadonlyArray<Session>,
+) => {
+  const paths = new Map(projects.map((each) => [keyOf(each), each.path]));
+  const found = new Map<string, { at: number; branch: string }>();
+  for (const session of sessions) {
+    const key = keyOf({
+      connectionId: session.connectionId,
+      id: session.projectId,
+    });
+    if (session.branch === null || session.worktree !== paths.get(key))
+      continue;
+    const was = found.get(key);
+    if (was === undefined || session.activeAt > was.at)
+      found.set(key, { at: session.activeAt, branch: session.branch });
+  }
+  return found;
+};
+
+/**
+ * The Projects with an unsettled Session, each with them, the most recently
+ * active first; by Connection while `connections` names them, those `away`,
+ * out of reach, last.
+ */
 export function groupedOf(
   projects: ReadonlyArray<Project>,
   sessions: ReadonlyArray<Session>,
   connections: ReadonlyMap<string, string> | null = null,
+  away: (connectionId: string) => boolean = () => false,
 ): ReadonlyArray<Group> {
   const names = new Map(projects.map((each) => [keyOf(each), each.name]));
+  const branches = branchesOf(projects, sessions);
   const groups = new Map<string, Group & { sessions: Array<Entry> }>();
   for (const session of sessions
     .filter(({ settledAt }) => settledAt === null)
@@ -103,6 +146,7 @@ export function groupedOf(
       projectId: session.projectId,
       name: names.get(key) ?? null,
       connection: null,
+      branch: branches.get(key)?.branch ?? null,
       sessions: [],
     };
     group.sessions.push({ place: sessionPlace(session), session });
@@ -110,8 +154,11 @@ export function groupedOf(
   }
   const ordered = [...groups.values()];
   if (connections === null) return ordered;
-  // By Connection, in the order of its first Project, so of its most recent Session.
-  const order = [...new Set(ordered.map(({ connectionId }) => connectionId))];
+  // By Connection, in the order of its first Project, so of its most recent
+  // Session, those out of reach last.
+  const order = [
+    ...new Set(ordered.map(({ connectionId }) => connectionId)),
+  ].toSorted((a, b) => Number(away(a)) - Number(away(b)));
   return order.flatMap((connectionId) =>
     ordered
       .filter((group) => group.connectionId === connectionId)
@@ -122,6 +169,21 @@ export function groupedOf(
       ),
   );
 }
+
+/**
+ * The Projects shown: all but those of a Connection `collapsed`, which only
+ * its name stands for.
+ */
+export const shownOf = (
+  groups: ReadonlyArray<Group>,
+  collapsed: ReadonlySet<string>,
+) => groups.filter(({ connectionId }) => !collapsed.has(connectionId));
+
+/** How many Projects of a Connection are listed, said as its collapsed name says it. */
+export const countOf = (groups: ReadonlyArray<Group>, connectionId: string) => {
+  const n = groups.filter((each) => each.connectionId === connectionId).length;
+  return `${n} project${n === 1 ? '' : 's'}`;
+};
 
 /**
  * The Session `by` places from the one open, in the order drawn; from

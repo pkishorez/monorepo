@@ -19,6 +19,7 @@ const model = {
   problem: null,
   filterRead: true,
   chosen: null,
+  collapsed: [],
   width: 280,
   unseen: { m1: {}, m2: {} },
   moving: [],
@@ -48,8 +49,9 @@ describe('the sidebar, ready', () => {
     expect(readyOf(model, both, both)).toBe(true);
   });
 
-  it('waits for its width, so the screen is never drawn without it', () => {
+  it('waits for its width and the Connections collapsed, so the screen is never drawn without them', () => {
     expect(readyOf({ ...model, width: null }, both, both)).toBe(false);
+    expect(readyOf({ ...model, collapsed: null }, both, both)).toBe(false);
   });
 
   it('waits for the kept list and the Connection Filter', () => {

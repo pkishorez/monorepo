@@ -22,7 +22,8 @@ checks who may import whom (`laymos.config.json`).
    until the new Account's Connections are ready. It prunes `code:account:`
    once the Auth Worker really answers, keeping the Accounts signed in.
 3. **Connections** (`device/account/connections/`) reads the Account's Connection
-   list and sidebar filter from `code:account:<id>`. It asks Cloud Connect
+   list, the sidebar filter and the Connections collapsed in the sidebar
+   from `code:account:<id>`. It asks Cloud Connect
    for the list and prunes `code:account:<id>:connection:` on the first real
    answer. It has three parts:
    1. **connection/**: one per Connection. Its link (how it is reached,
@@ -37,7 +38,9 @@ checks who may import whom (`laymos.config.json`).
       you move between pages.
    3. **layout/**: what you see. Its view draws the header. It has three
       parts:
-      1. **sidebar/**: the Projects and Sessions of the Connections shown.
+      1. **sidebar/**: the Projects and Sessions of the Connections shown,
+         under each Connection's name while several are, a name collapsing
+         its Projects.
          `session-sync/` keeps the messages of every Session shown in
          sync, before you open it.
       2. **pickers/**: what the keys open. `projects/` (Project Picker and
@@ -110,8 +113,8 @@ Switcher come from a library or a factory, and have no folder of their own.
 The app is drawn whole, in one step, from what this device holds. Until
 Layout is shown, the root page's mark stays and Layout draws nothing; the
 sidebar and the page each say once, from their View, that all they first
-draw is read (`Ready`): the sidebar its width and the rows and marks of
-every Connection shown, the page its own (home its projects; a project its row
+draw is read (`Ready`): the sidebar its width, the Connections collapsed,
+and the rows and marks of every Connection shown, the page its own (home its projects; a project its row
 and the new session's Saved Draft; a session its row, messages and Saved
 Draft). With the header's rows and the page's code loaded too, Layout is
 shown (`Ready`). Nothing waits on Cloud Connect or a Connection: what
@@ -182,7 +185,7 @@ Each level names its own database segment. The names stay as they were.
 | `code:device`                                                    | `accounts`                 | Local | Accounts (auth-toolkit)   |
 |                                                                  | `preferences`              | Local | Preferences               |
 | `code:account:<accountId>`                                       | `connections`              | Cache | Connections               |
-|                                                                  | `sidebar`                  | Local | the sidebar filter        |
+|                                                                  | `sidebar`                  | Local | the filter, the collapsed |
 | `code:account:<accountId>:connection:<connectionId>`             | `setup`, `skills`          | Cache | connection, project       |
 |                                                                  | `seen`                     | Local | session                   |
 |                                                                  | `drafts`                   | Local | draft                     |

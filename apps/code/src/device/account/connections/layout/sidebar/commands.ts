@@ -7,7 +7,7 @@ import { Moves } from '../../connection/records/index.ts';
 
 /*
  * What the sidebar asks for: the Connection it shows kept as the Account's
- * Connection Filter, its width kept in Preferences, the Connection List asked
+ * Connection Filter, the Connections it shows collapsed kept beside it, its width kept in Preferences, the Connection List asked
  * again, and each Session put, through `Moves`.
  */
 
@@ -20,6 +20,18 @@ export const setConnectionFilter = Command.make('SetConnectionFilter', {
   run: ({ accountId, connectionId }) =>
     Effect.flatMap(ConnectionFilter, (filter) =>
       filter.set(accountId, connectionId),
+    ).pipe(Effect.ignore),
+});
+
+/** Keeps the Connections the sidebar shows collapsed, for its Account; a write that fails is lost. */
+export const setCollapsed = Command.make('SetCollapsed', {
+  args: Schema.Struct({
+    accountId: Schema.String,
+    connectionIds: Schema.Array(Schema.String),
+  }),
+  run: ({ accountId, connectionIds }) =>
+    Effect.flatMap(ConnectionFilter, (filter) =>
+      filter.setCollapsed(accountId, connectionIds),
     ).pipe(Effect.ignore),
 });
 

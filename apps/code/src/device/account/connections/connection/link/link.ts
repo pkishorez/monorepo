@@ -51,11 +51,20 @@ export const useConnections = () => use(Links).connections ?? [];
 export const useConnection = (connectionId: string) =>
   use(Links).connections?.find(({ id }) => id === connectionId) ?? null;
 
-/** A Connection's name to show beside what is its, or null while there is only one Connection. */
+/**
+ * A Connection's name as short as it is still its own, as the app says it
+ * everywhere: the name it was served as, for one named `<host> (<name>)`;
+ * else the name in full.
+ */
+export const shortNameOf = (name: string) =>
+  /\(([^()]+)\)$/.exec(name)?.[1] ?? name;
+
+/** A Connection's short name to show beside what is its, or null while there is only one Connection. */
 export const useConnectionName = (connectionId: string) => {
   const connections = useConnections();
   if (connections.length < 2) return null;
-  return connections.find(({ id }) => id === connectionId)?.name ?? null;
+  const name = connections.find(({ id }) => id === connectionId)?.name;
+  return name === undefined ? null : shortNameOf(name);
 };
 
 const statusOf = (

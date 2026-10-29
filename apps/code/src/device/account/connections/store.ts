@@ -30,6 +30,9 @@ import { broadcast, placed, RETRIES } from '../store/rows/index.ts';
  *                      wrote first, then rings the Account's doorbell.
  *            - Follow  every write, in this tab or another, as a change to
  *                      read again.
+ * 3. Collapsed  local storage beside the Filter, kept and followed alike:
+ *            the Connections whose Projects the sidebar hides under their
+ *            name, none until one is collapsed.
  */
 
 // 1. Name
@@ -54,7 +57,15 @@ export class ConnectionFilter extends Context.Service<
       accountId: string,
       connectionId: string | null,
     ) => Effect.Effect<void, DatabaseError>;
-    /** Once per write to the Account's filter, here or in another tab; rings while busy fold into one. */
+    /** The Connections the sidebar shows collapsed (3. Collapsed). */
+    readonly collapsed: (
+      accountId: string,
+    ) => Effect.Effect<ReadonlyArray<string>, DatabaseError>;
+    readonly setCollapsed: (
+      accountId: string,
+      connectionIds: ReadonlyArray<string>,
+    ) => Effect.Effect<void, DatabaseError>;
+    /** Once per write to the Account's filter or its collapsed, here or in another tab; rings while busy fold into one. */
     readonly changes: (accountId: string) => Stream.Stream<void>;
   }
 >()('code/ConnectionFilter') {
@@ -70,6 +81,23 @@ export class ConnectionFilter extends Context.Service<
         ),
       ),
     );
+
+  /** The Account's collapsed Connections now, then after each change; a browser that cannot keep them reads none. */
+  static readonly followCollapsed = (accountId: string) =>
+    Stream.unwrap(
+      Effect.map(ConnectionFilter, (filter) =>
+        Stream.concat(Stream.make(undefined), filter.changes(accountId)).pipe(
+          Stream.mapEffect(() =>
+            filter
+              .collapsed(accountId)
+              .pipe(Effect.orElseSucceed((): ReadonlyArray<string> => [])),
+          ),
+          Stream.changesWith(
+            (a, b) => a.length === b.length && a.every((id, i) => id === b[i]),
+          ),
+        ),
+      ),
+    );
 }
 
 const TABLE = 'sidebar';
@@ -82,6 +110,15 @@ const ShownSchema = ESchema.make('SidebarConnection', {
 }).build();
 
 const shown = table.singleEntity(ShownSchema).default({ connectionId: null });
+
+const CollapsedSchema = ESchema.make('SidebarCollapsed', {
+  /** The Connections whose Projects the sidebar hides under their name. */
+  connectionIds: Schema.Array(Schema.String),
+}).build();
+
+const collapsed = table
+  .singleEntity(CollapsedSchema)
+  .default({ connectionIds: [] });
 
 const make = (
   layerOf: (database: string) => Layer.Layer<StdTableService<typeof TABLE>>,
@@ -105,6 +142,23 @@ const make = (
     },
     // 3. Follow
     changes: (accountId) => broadcast(account(accountId)).rings,
+    // The Connections collapsed, read and written as the Filter is.
+    collapsed: (accountId) =>
+      Effect.map(collapsed.get(), ({ value }) => value.connectionIds).pipe(
+        Effect.provide(layerOf(account(accountId))),
+      ),
+    setCollapsed: (accountId, connectionIds) => {
+      const database = account(accountId);
+      return collapsed
+        .getAndUpdate(() => ({ connectionIds: [...connectionIds] }), {
+          retries: RETRIES,
+        })
+        .pipe(
+          Effect.andThen(broadcast(database).ring),
+          Effect.asVoid,
+          Effect.provide(layerOf(database)),
+        );
+    },
   });
 
 /** The Connection Filter in this browser's IndexedDB, each Account's in its own database. */

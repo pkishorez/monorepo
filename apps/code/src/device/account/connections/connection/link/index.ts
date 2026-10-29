@@ -13,6 +13,7 @@ export {
   useOffline,
   useOfflineSaid,
   offlineSaid,
+  shortNameOf,
 } from './link.ts';
 export {
   addressOf,

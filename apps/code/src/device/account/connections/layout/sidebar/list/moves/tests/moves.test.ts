@@ -95,6 +95,7 @@ const stood = Effect.gen(function* () {
     }),
     Layer.mock(ConnectionFilter)({
       read: () => Effect.succeed(null),
+      collapsed: () => Effect.succeed([]),
       changes: () => Stream.never,
     }),
     Layer.mock(Navigation)({ push: () => Effect.void }),

@@ -33,7 +33,7 @@ What this device keeps, in databases named by their place: the device's own, `co
 _Avoid_: persistence, IndexedDB (for the idea), local storage
 
 **Local**:
-Storage only this device knows, and the truth: the Preferences, the Accounts signed in here, and each Connection's Unseen marks and Saved Drafts. Nothing asks for it again.
+Storage only this device knows, and the truth: the Preferences, the Accounts signed in here, each Account's Connection Filter and the Connections its Sidebar shows collapsed, and each Connection's Unseen marks and Saved Drafts. Nothing asks for it again.
 _Avoid_: device state, saved
 
 **Cache**:
@@ -69,7 +69,7 @@ The Connection List asked again because a Connection's Link is not up: every 3 s
 _Avoid_: poll, heartbeat (that is the Connection's own report)
 
 **Connection Filter**:
-The sidebar's choice of whose sessions it lists: every Connection, or one, kept on this device per Account, in the Account's own database, since a Connection is its Account's. Only the Connections it shows are synced for the sidebar, and nothing is listed until it and the Connection List are read. Reload sits beside it.
+The sidebar's choice of whose sessions it lists: every Connection, or one, each named by its short name as the sidebar names it, kept on this device per Account, in the Account's own database, since a Connection is its Account's; the Connections the Sidebar shows collapsed are kept beside it, alike. Only the Connections it shows are synced for the sidebar, and nothing is listed until it and the Connection List are read. Reload sits beside it.
 _Avoid_: machine switcher, machine picker
 
 **Settings**:
@@ -77,7 +77,7 @@ What the user sets, on no Connection, at one address, in three tabs side by side
 _Avoid_: options, config
 
 **Sidebar**:
-The Sessions listed by Project, each Project with its Sessions under it, the most recently active first, and the Projects in that order too, each Project's heading, anywhere on it or its +, opening its new Session's page at once. While the Connection Filter shows every Connection and the Connection List has more than one, the Projects are by Connection first, the Connections in the order of their most recently active Session, each Connection named once over its Projects by the name it was served as, quieter than a Project's heading; neither a heading nor a Session repeats it. With one Connection shown, no Connection is named. A Session in a git Project shows, as quiet text under its title, the branch its Worktree is on now, never the Worktree's folder; a branch Code made for a new Worktree is shown without its `ke-code/` prefix, marked as a Worktree. A Session shows in it only once it has started; a new Session's page puts nothing there.
+The Sessions listed by Project, each Project with its Sessions under it, hung from a thin guide line, the most recently active first, and the Projects in that order too. A Project's heading is its name and, in a git Project, the branch its folder is on, as its Sessions there last found it, quieter; anywhere on it or its + opens its new Session's page at once. A Session is one line: its title, then, only when its branch is not its heading's, so in practice in its own Worktree, a Worktree mark and that branch, never the Worktree's folder, a branch Code made shown without its `ke-code/` prefix; then its status. While the Connection Filter shows every Connection and the Connection List has more than one, the Projects are by Connection first, each Connection named once over its Projects by its short name, the name it was served as (`demo-studio`, not `<host> (demo-studio)`), as the app names a Connection everywhere, small, uppercase and quieter than a heading, with a dot, green while linked, grey while not, and when it was last seen once it is out of reach. The Connections are in the order of their most recently active Session, but those out of reach go last, so a Connection going down or coming back moves its Projects, a trade-off taken so the Connections that answer stay on top. An out-of-reach Connection's Projects and Sessions are quieter and have no +, its Sessions still readable. A Connection's name, clicked, tapped or Entered, collapses its Projects under it, the name dimmer still and saying how many, as "(3 projects)", and opens them again; which are collapsed is kept beside the Connection Filter, and the cursor and [ ] pass over what is hidden. With one Connection shown, no Connection is named. A Session shows in it only once it has started; a new Session's page puts nothing there.
 _Avoid_: timeline, session list, project tree
 
 **Branch Picker**:
@@ -117,7 +117,7 @@ How big the text and spacing are with a keyboard on a wide screen: small, medium
 _Avoid_: density, zoom, scale
 
 **Preferences**:
-The Local Storage of this browser, what it keeps for itself and no other device sees: the user's Bindings, whether Vim Mode is on, the Window, the Text Size, the sidebar's width, the Microphone chosen, and whether the Touch Draft takes Smart Input and Smart Displacement. The Connection Filter is each Account's, and goes with it; the Unseen marks are each Connection's, and go with it; each Draft is kept apart, as its Saved Draft, with its Connection; and what Connections said is kept apart, as each Setup. Signed in, the app is drawn only once they have been read, all at once, so it draws whole.
+The Local Storage of this browser, what it keeps for itself and no other device sees: the user's Bindings, whether Vim Mode is on, the Window, the Text Size, the sidebar's width, the Microphone chosen, and whether the Touch Draft takes Smart Input and Smart Displacement. The Connection Filter, and which Connections the Sidebar shows collapsed, are each Account's, and go with it; the Unseen marks are each Connection's, and go with it; each Draft is kept apart, as its Saved Draft, with its Connection; and what Connections said is kept apart, as each Setup. Signed in, the app is drawn only once they have been read, all at once, so it draws whole.
 _Avoid_: device state, local settings, localStorage
 
 **Draft**:
