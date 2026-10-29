@@ -408,7 +408,7 @@ function OpenProject() {
  * quieter than their headings, a dot for whether it is linked, green or
  * grey, and, once it is out of reach, when it was last seen at the right.
  * A click, or Enter on it, collapses its Projects under it, the name dimmer
- * still and saying how many, and opens them again; a finger's height to
+ * still, hovered too, and saying how many, and opens them again; a finger's height to
  * hit. Room above it sets each Connection apart.
  */
 function ConnectionLabel({
@@ -439,11 +439,11 @@ function ConnectionLabel({
         data-cursor={at(place)}
         aria-expanded={!collapsed}
         onClick={onToggle}
-        className={`h-10 gap-2 rounded-lg px-3 text-[11px] font-medium tracking-[0.06em] uppercase hover:bg-transparent hover:text-sidebar-foreground active:bg-sidebar-accent/60 keyboard:md:h-7 keyboard:md:text-[10.5px] ${collapsed ? 'text-muted-foreground/50' : 'text-muted-foreground/75'} ${cursorRing}`}
+        className={`h-10 gap-2 rounded-lg px-3 text-[11px] font-medium tracking-[0.06em] uppercase hover:bg-transparent active:bg-sidebar-accent/60 keyboard:md:h-7 keyboard:md:text-[10.5px] ${collapsed ? 'text-muted-foreground/45 hover:text-muted-foreground/75 active:text-muted-foreground/75' : 'text-muted-foreground/75 hover:text-sidebar-foreground active:text-sidebar-foreground'} ${cursorRing}`}
       >
         <span
           aria-hidden
-          className={`size-1.5 shrink-0 rounded-full ${health._tag === 'Linked' ? 'bg-positive' : 'bg-muted-foreground/45'}`}
+          className={`size-1.5 shrink-0 rounded-full ${health._tag === 'Linked' ? 'bg-positive' : 'bg-muted-foreground/45'} ${collapsed ? 'opacity-60' : ''}`}
         />
         <span className="min-w-0 truncate">
           {name}
@@ -537,7 +537,11 @@ function ProjectHeading({
 const GUIDE =
   'py-px pl-5 before:absolute before:inset-y-0 before:left-[13px] before:w-px before:bg-sidebar-border';
 
-/** One Session, on one line: its title, its own branch when it has one, its status at the right. */
+/**
+ * One Session, on one line: its title, its own branch when it has one, its
+ * status at the right. The title wins: the branch, capped small, gives way
+ * first, down to its mark alone, and the status never.
+ */
 function SessionRow({
   entry: { place, session },
   heading,
@@ -612,14 +616,14 @@ function SessionRow({
             />
           )}
           <span
-            className={`min-w-0 flex-1 truncate text-[15px] leading-5 keyboard:md:text-sm ${unseen ? 'font-semibold text-sidebar-foreground' : quiet ? 'text-muted-foreground' : ''}`}
+            className={`min-w-0 flex-auto truncate text-[15px] leading-5 keyboard:md:text-sm ${unseen ? 'font-semibold text-sidebar-foreground' : quiet ? 'text-muted-foreground' : ''}`}
           >
             {title}
           </span>
           {branch !== null && (
             <span
               title={`In its own worktree, on ${session.branch}`}
-              className="flex max-w-[40%] min-w-0 shrink-0 items-center gap-1 font-mono text-[12px] text-muted-foreground/70 keyboard:md:text-[11px]"
+              className="flex max-w-[min(30%,11ch)] min-w-3 flex-[0_999_auto] items-center gap-1 overflow-hidden font-mono text-[12px] text-muted-foreground/70 keyboard:md:text-[11px]"
             >
               <FolderGit2Icon
                 role="img"
