@@ -1,6 +1,7 @@
 import { Cause, Effect, Layer, Schema, Stream, SubscriptionRef } from 'effect';
 import { Accounts } from '@kestack/auth-toolkit/client';
-import { Branches, CodeClient, START_STEPS } from '@kestack/connect/code';
+import { Branches, CodeClient, link, START_STEPS } from '@kestack/connect/code';
+import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { Actor } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
 import { session } from '../../../../../../routes/index.ts';
@@ -47,7 +48,10 @@ import { BranchPicker } from './pick/branch/index.ts';
  *           Picker sets its branch, from the Project's branches, read as
  *           it opens and again as the Picker opens, and the New Worktree
  *           toggle beside it; neither shows for a Project that is not a
- *           git repository. One Picker is open at a time, each a fresh one.
+ *           git repository. Branches that could not be read, the link
+ *           down, are read again once it is back, and until they are its
+ *           picks stand as they were saved. One Picker is open at a time,
+ *           each a fresh one.
  * 3. Send   a mode hands its text up (`send/`). A new session's Draft
  *           starts the session, already running its first message, under
  *           an id it chose, its Starting run by a Worker: each StartStep
@@ -162,6 +166,10 @@ const Model = Schema.Struct({
   branches: Schema.NullOr(Branches.schema),
   /** How many times the branches were asked for, each read once. */
   listed: Schema.Finite,
+  /** The last ask for the branches failed: they are asked again once the link is back. */
+  unlisted: Schema.Boolean,
+  /** How many times its link came up, so a failure from before the last is told apart. */
+  linked: Schema.Finite,
   /** The Picker open, if one is. */
   picking: Schema.NullOr(Picking),
   /** How many Pickers were opened, so each is a fresh one. */
@@ -190,6 +198,10 @@ const Message = Schema.TaggedUnion({
   SettingChosen: { key: Schema.String, value: Schema.String },
   SkillChosen: { name: Schema.String },
   BranchesRead: { branches: Branches.schema },
+  /** The branches could not be read, asked while the link had come up `linked` times. */
+  BranchesFailed: { linked: Schema.Finite },
+  /** Its link came up. */
+  Linked: {},
   BranchChosen: { branch: Schema.String },
   NewWorktreeToggled: {},
   /** A mode handed up its text: to send, start with or ask. */
@@ -217,6 +229,7 @@ const Draft = Actor.define('Draft', {
     Navigation,
     SavedDrafts,
     Accounts,
+    RpcConnection,
   ],
   props: Props,
   model: Model,
@@ -252,6 +265,8 @@ export const DraftLive = Actor.build(Draft, {
       newWorktree: false,
       branches: null,
       listed: 0,
+      unlisted: false,
+      linked: 0,
       picking: null,
       opened: 0,
       problem: null,
@@ -382,25 +397,45 @@ export const DraftLive = Actor.build(Draft, {
           yield* self.send({ _tag: 'Restored', where, draft });
         }),
     },
-    // 2. Pick: a new session's branches, as git has them; a Project whose
-    // branches cannot be read is taken as not a git repository.
+    // 2. Pick: a new session's branches, as git has them; a Project the
+    // Connection no longer has is taken as not a git repository. Not read
+    // at all, the link down, they are not known: asked again once it is
+    // back.
     branches: {
       each: ({ model, props }) =>
         props.to._tag === 'NewSession' ? [String(model.listed)] : [],
       run: (self) =>
         Effect.gen(function* () {
-          const { props } = yield* self.get;
-          const branches = yield* CodeClient.use((api) =>
+          const { model, props } = yield* self.get;
+          const { linked } = model;
+          yield* CodeClient.use((api) =>
             api.branches({ projectId: props.projectId }),
           ).pipe(
-            Effect.catchCause((cause) =>
-              Cause.hasInterruptsOnly(cause)
-                ? Effect.interrupt
-                : Effect.succeed({ _tag: 'NotGit' as const }),
+            Effect.catchTag('ProjectNotFound', () =>
+              Effect.succeed({ _tag: 'NotGit' as const }),
             ),
+            Effect.matchCauseEffect({
+              onSuccess: (branches) =>
+                self.send({ _tag: 'BranchesRead', branches }),
+              onFailure: (cause) =>
+                Cause.hasInterruptsOnly(cause)
+                  ? Effect.interrupt
+                  : self.send({ _tag: 'BranchesFailed', linked }),
+            }),
           );
-          yield* self.send({ _tag: 'BranchesRead', branches });
         }),
+    },
+    // 2. Pick: each time a new session's link comes up again, after how
+    // it stood as the Draft opened.
+    link: {
+      while: ({ props }) => props.to._tag === 'NewSession',
+      run: (self) =>
+        link.pipe(
+          Stream.changes,
+          Stream.drop(1),
+          Stream.filter((now) => now === 'linked'),
+          Stream.runForEach(() => self.send({ _tag: 'Linked' })),
+        ),
     },
     // 3. Send: a new session's Starting, once its id is chosen.
     start: {
@@ -461,7 +496,22 @@ export const DraftLive = Actor.build(Draft, {
           },
     PickerClosed: (_, { model }) => ({ model: { ...model, picking: null } }),
     BranchesRead: ({ branches }, { model }) => ({
-      model: { ...model, branches },
+      model: { ...model, branches, unlisted: false },
+    }),
+    // Its link came up again since they were asked: asked again now.
+    BranchesFailed: ({ linked }, { model }) => ({
+      model:
+        model.linked === linked
+          ? { ...model, unlisted: true }
+          : { ...model, listed: model.listed + 1 },
+    }),
+    Linked: (_, { model }) => ({
+      model: {
+        ...model,
+        linked: model.linked + 1,
+        unlisted: false,
+        listed: model.listed + (model.unlisted ? 1 : 0),
+      },
     }),
     BranchChosen: ({ branch }, { model }) =>
       model.picking?._tag !== 'Branch'

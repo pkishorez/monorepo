@@ -1,4 +1,13 @@
-import { Clock, Deferred, Effect, Layer, Schema, Scope, Stream } from 'effect';
+import {
+  Clock,
+  Deferred,
+  Effect,
+  Layer,
+  Schema,
+  Scope,
+  Stream,
+  SubscriptionRef,
+} from 'effect';
 import {
   type Branches,
   CodeClient,
@@ -8,6 +17,7 @@ import {
   type StartStep,
 } from '@kestack/connect/code';
 import { Actor, type Instance, Runtime, type Running } from '@kestack/kabuki';
+import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { Navigation } from '@kestack/kabuki/routing';
 import { Accounts, AccountsState } from '@kestack/auth-toolkit/client';
 import { describe, expect, it } from 'vitest';
@@ -156,9 +166,17 @@ const world = (
     Effect.fail(new ProjectNotFound({ id: 'p1' })),
   /** Whether a session asked for, its answer lost, shows among the Connection's. */
   arrives = true,
-  /** The Project's branches, as `branches` answers. */
-  branches: Branches = { _tag: 'NotGit' },
+  /** The Project's branches, as `branches` answers, or how it answers each time. */
+  branches: Branches | (() => Effect.Effect<Branches, unknown>) = {
+    _tag: 'NotGit',
+  },
 ) => {
+  /** The socket's link, switched by a test. */
+  const link = Effect.runSync(
+    SubscriptionRef.make<'connecting' | 'connected' | 'reconnecting'>(
+      'connected',
+    ),
+  );
   const sent: Array<unknown> = [];
   const asked: Array<unknown> = [];
   const started: Array<unknown> = [];
@@ -221,7 +239,10 @@ const world = (
             );
           }),
         )) as unknown as Api['startSession'],
-      branches: (() => Effect.succeed(branches)) as unknown as Api['branches'],
+      branches: (() =>
+        typeof branches === 'function'
+          ? branches()
+          : Effect.succeed(branches)) as unknown as Api['branches'],
     }),
     Layer.succeed(SharedCatalog, {
       changes: Stream.concat(Stream.make(CATALOG), Stream.never),
@@ -244,13 +265,18 @@ const world = (
         return AccountsState.SignedIn({ active, accounts: [active] });
       }),
     }),
+    Layer.mock(RpcConnection)({
+      connectionStatus: SubscriptionRef.changes(link),
+      keepSubscribed: (subscribe) => subscribe(),
+      hooks: { onConnect: Effect.void, onDisconnect: Effect.void },
+    }),
     // Its Touch Drafts read how they are written.
     Layer.mock(Preferences)({
       read: Effect.succeed(nothing),
       changes: Stream.never,
     }),
   );
-  return { layer, sent, asked, started, pushed, handed, saved, signed };
+  return { layer, sent, asked, started, pushed, handed, saved, signed, link };
 };
 
 const step = (
@@ -682,6 +708,66 @@ describe('Draft', () => {
         expect(textOf(app, 'Message')).toBe('Fix the build');
         expect(modelOf(app).branch).toBe('spike');
         expect(modelOf(app).newWorktree).toBe(true);
+      }),
+    ));
+
+  it('keeps its saved picks while its branches cannot be read, and reads them again once the link is back', () =>
+    run(
+      Effect.gen(function* () {
+        const saved = savedDraftsMemory();
+        const reads = { failing: true, asked: 0 };
+        const { layer, started, link } = world(
+          'take',
+          saved,
+          'take',
+          undefined,
+          true,
+          () =>
+            Effect.suspend(() => {
+              reads.asked++;
+              return reads.failing
+                ? Effect.fail(new Error('The socket dropped'))
+                : Effect.succeed(GIT);
+            }),
+        );
+        yield* writeIn(
+          saved,
+          {
+            mode: 'Message',
+            written: {
+              Message: { text: '', anchor: 0, head: 0 },
+              SideQuestion: { text: '', anchor: 0, head: 0 },
+            },
+            attachments: [],
+            chosen: { account: null, model: null, settings: {} },
+            branch: 'spike',
+            newWorktree: true,
+          },
+          PROJECT,
+        );
+        const app = yield* start('NewSession', layer);
+        yield* wait();
+        // Not known, so not taken as a Project that is not git.
+        expect(draftOf(app).model).toMatchObject({ branches: null });
+        expect(reads.asked).toBe(1);
+        // The link drops and comes back: they are read again.
+        reads.failing = false;
+        yield* SubscriptionRef.set(link, 'reconnecting');
+        yield* wait();
+        expect(reads.asked).toBe(1);
+        yield* SubscriptionRef.set(link, 'connected');
+        yield* wait();
+        expect(reads.asked).toBe(2);
+        expect(draftOf(app).model).toMatchObject({ branches: GIT });
+        // Failing again, a send keeps the picks as they were saved.
+        reads.failing = true;
+        const second = yield* start('NewSession', layer);
+        yield* wait();
+        yield* say(second, 'Fix the build');
+        expect(started.at(-1)).toMatchObject({
+          branch: 'spike',
+          newWorktree: true,
+        });
       }),
     ));
 
