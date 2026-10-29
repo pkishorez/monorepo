@@ -112,6 +112,30 @@ describe('git', () => {
     expect(Exit.isFailure(missing)).toBe(true);
   });
 
+  it('switches back, unless there are changes, and deletes only the branch a switch made', async () => {
+    const repo = clone();
+    expect(await run((git) => git.switchTo(repo, 'topic'))).toEqual({
+      made: null,
+    });
+    await run((git) => git.switchBack(repo, { to: 'main', made: null }));
+    expect(sh(repo, 'branch', '--show-current')).toBe('main');
+    expect(sh(repo, 'branch', '--list', 'topic')).not.toBe('');
+
+    const { made } = await run((git) => git.switchTo(repo, 'origin/feature'));
+    expect(made).toBe('feature');
+    await run((git) => git.switchBack(repo, { to: 'main', made }));
+    expect(sh(repo, 'branch', '--show-current')).toBe('main');
+    expect(sh(repo, 'branch', '--list', 'feature')).toBe('');
+
+    // With changes, it stays, and so does the branch out there.
+    sh(repo, 'switch', '-q', 'topic');
+    writeFileSync(join(repo, 'file'), 'one');
+    sh(repo, 'add', 'file');
+    await run((git) => git.switchBack(repo, { to: 'main', made: 'topic' }));
+    expect(sh(repo, 'branch', '--show-current')).toBe('topic');
+    expect(sh(repo, 'branch', '--list', 'topic')).not.toBe('');
+  });
+
   it('makes a Worktree on a new branch from a local branch and from an Origin one, tracking nothing', async () => {
     const repo = clone();
     const worktrees = temp();

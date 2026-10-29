@@ -195,7 +195,7 @@ const switchTo = (path: string, branch: string) =>
     const local = yield* localBranches(path);
     if (local.has(branch)) {
       yield* run(path, ['switch', '--end-of-options', branch]);
-      return;
+      return { made: null };
     }
     if (!branch.startsWith(ORIGIN))
       return yield* new GitError({ message: `There is no branch ${branch}` });
@@ -210,7 +210,7 @@ const switchTo = (path: string, branch: string) =>
         '--end-of-options',
         branch,
       ]);
-      return;
+      return { made: name };
     }
     // Another local branch of its name would be different code.
     if (upstream !== `refs/remotes/${branch}`)
@@ -218,6 +218,26 @@ const switchTo = (path: string, branch: string) =>
         message: `The name ${name} is taken by a local branch that does not track ${branch}`,
       });
     yield* run(path, ['switch', '--end-of-options', name]);
+    return { made: null };
+  });
+
+const switchBack = (
+  path: string,
+  { to, made }: Parameters<Git['Service']['switchBack']>[1],
+) =>
+  Effect.gen(function* () {
+    const changes = yield* run(path, [
+      'status',
+      '--porcelain',
+      '--untracked-files=no',
+    ]).pipe(Effect.orElseSucceed(() => 'unknown'));
+    if (to !== null && changes.trim() === '')
+      yield* Effect.ignore(run(path, ['switch', '--end-of-options', to]));
+    // `-d`: only while it is out nowhere and has nothing its upstream lacks.
+    if (made !== null)
+      yield* Effect.ignore(
+        run(path, ['branch', '-d', '--end-of-options', made]),
+      );
   });
 
 /** Whether there is anything at `path`. */
@@ -357,6 +377,7 @@ const make = Effect.gen(function* () {
     branchAt,
     fetch,
     switchTo,
+    switchBack,
     addWorktree,
     removeWorktree,
     pushed,
