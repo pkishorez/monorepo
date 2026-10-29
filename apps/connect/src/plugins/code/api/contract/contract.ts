@@ -14,7 +14,7 @@ import { TurnsRpc } from './turns.js';
  * client reaches every procedure by its own name (`api.listFolder`):
  *
  * - harnesses  what each Coding Harness offers, and its Harness Binary.
- * - projects   folders added as Projects.
+ * - projects   folders added as Projects, and their git branches.
  * - sessions   Sessions started, forked, Settled, asked, and how they stand.
  * - turns      messages sent to a Session, and the Messages it emits.
  * - jobs       Background Jobs.
@@ -41,9 +41,14 @@ export * from './errors.js';
 export { CreatedFolder, FolderEntry, FolderListing } from './folders.js';
 export { HarnessAccountInfo, HarnessInfo, SettingInfo } from './harnesses.js';
 export { SessionJobs } from './jobs.js';
-export { ProjectValue } from './projects.js';
+export { Branches, ProjectValue } from './projects.js';
 export { SessionQuestions } from './questions.js';
-export { SessionValue } from './sessions.js';
+export {
+  SessionValue,
+  START_STEPS,
+  StartStep,
+  type StartStepName,
+} from './sessions.js';
 export { SpeechToTextState } from './speech.js';
 export { Harness, WireEntity } from './wire.js';
 

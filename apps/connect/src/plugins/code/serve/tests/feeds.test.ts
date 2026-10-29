@@ -218,6 +218,8 @@ describe('the sessions feed', () => {
           settledAt: null,
           activeAt: 1,
           endedAt: null,
+          worktree: null,
+          branch: null,
         });
         const { got } = yield* collect(sessions(null));
         yield* eventually(() => expect(got).toHaveLength(1));

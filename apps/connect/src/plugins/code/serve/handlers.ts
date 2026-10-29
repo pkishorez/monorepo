@@ -1,10 +1,11 @@
-import { Effect, Schema } from 'effect';
+import { Effect, Queue, Schema, Stream } from 'effect';
 import {
   CodeApi,
   AskFailed,
   FolderExists,
   FolderNotFound,
   FolderUnreadable,
+  GitFailed,
   HarnessFailed,
   QuestionNotAsked,
   InvalidAccount,
@@ -20,6 +21,7 @@ import {
   SpeechToTextNotReady,
   TranscriptionFailed,
   UnknownAccount,
+  type StartStep,
 } from '../api/contract/index.js';
 import { Engine } from '../engine/index.js';
 import { Speech } from '@kestack/ai-toolkit/speech';
@@ -132,16 +134,36 @@ export const CodeApiLive = CodeApi.toLayer(
           .pipe(Effect.mapError((error) => new FolderNotFound(error))),
       removeProject: ({ id }) =>
         engine.removeProject(id).pipe(Effect.mapError(wire.ProjectNotFound)),
+      // A stream of its steps, Started last; the start goes on if the
+      // caller goes away.
       startSession: (input) =>
-        engine
-          .startSession({ ...input, id: input.id ?? undefined })
-          .pipe(
-            Effect.mapError((error) =>
-              error._tag === 'ProjectNotFound'
-                ? wire.ProjectNotFound(error)
-                : new UnknownAccount({ account: error.account }),
+        Stream.callback<
+          StartStep,
+          ProjectNotFound | UnknownAccount | GitFailed
+        >((queue) =>
+          engine
+            .startSession({ ...input, id: input.id ?? undefined }, (step) =>
+              Effect.asVoid(Queue.offer(queue, step)),
+            )
+            .pipe(
+              Effect.mapError((error) =>
+                error._tag === 'ProjectNotFound'
+                  ? wire.ProjectNotFound(error)
+                  : error._tag === 'GitFailed'
+                    ? new GitFailed({
+                        step: error.step,
+                        message: error.message,
+                      })
+                    : new UnknownAccount({ account: error.account }),
+              ),
+              Effect.flatMap((session) =>
+                Queue.offer(queue, { _tag: 'Started', session }),
+              ),
+              Effect.andThen(Queue.end(queue)),
             ),
-          ),
+        ),
+      branches: ({ projectId }) =>
+        engine.branches(projectId).pipe(Effect.mapError(wire.ProjectNotFound)),
       send: ({ sessionId, ...message }) =>
         engine
           .send(sessionId, message)

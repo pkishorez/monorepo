@@ -103,6 +103,11 @@ export class SkillsUnavailable extends Data.TaggedError('SkillsUnavailable')<{
 export class HarnessFailed extends Data.TaggedError('HarnessFailed')<{
   readonly message: string;
 }> {}
+/** A git step of starting a Session failed, so it did not start. */
+export class GitFailed extends Data.TaggedError('GitFailed')<{
+  readonly step: StartStepName;
+  readonly message: string;
+}> {}
 /** The Agent Question is no longer asked, as when another device answered it. */
 export class QuestionNotAsked extends Data.TaggedError('QuestionNotAsked')<{
   readonly id: string;
@@ -152,7 +157,48 @@ export interface StartSession {
   readonly settings: Readonly<Record<string, string>>;
   readonly text: string;
   readonly attachments: ReadonlyArray<Attachment>;
+  /**
+   * The branch it runs on, local or Origin (`origin/main`); null or left
+   * out for wherever the Project's folder is.
+   */
+  readonly branch?: string | null | undefined;
+  /** Whether it runs in a new Worktree, on a new branch from `branch`. */
+  readonly newWorktree?: boolean | undefined;
 }
+
+/** Reports each step of a start as it goes. */
+export type ReportStep = (step: StartStepReport) => Effect.Effect<void>;
+
+/** One step of a start, begun or done. */
+export interface StartStepReport {
+  readonly _tag: 'Step';
+  readonly step: StartStepName;
+  readonly state: 'running' | 'done';
+}
+
+/** The steps of a start, in the order they run. */
+export type StartStepName =
+  | 'switchingBranch'
+  | 'makingWorktree'
+  | 'startingAgent';
+
+/** A Project's git branches, or NotGit. */
+export type Branches =
+  | { readonly _tag: 'NotGit' }
+  | {
+      readonly _tag: 'Git';
+      readonly current: string | null;
+      readonly worktrees: ReadonlyArray<{
+        readonly path: string;
+        readonly branch: string | null;
+      }>;
+      readonly local: ReadonlyArray<{
+        readonly name: string;
+        readonly upstream: string | null;
+        readonly worktree: string | null;
+      }>;
+      readonly origin: ReadonlyArray<string>;
+    };
 
 /** One Session's Background Jobs. */
 export interface SessionJobs {
@@ -188,10 +234,22 @@ export interface EngineService {
   readonly addProject: (path: string) => Effect.Effect<Project, FolderNotFound>;
   /** Removes a Project and its sessions, stopped; its folder is never touched. */
   readonly removeProject: (id: string) => Effect.Effect<void, ProjectNotFound>;
-  /** Starts a Session already running its first message. */
+  /**
+   * The Project's git branches; each call starts one fetch from Origin in
+   * the background, unless one runs for it already.
+   */
+  readonly branches: (
+    projectId: string,
+  ) => Effect.Effect<Branches, ProjectNotFound>;
+  /**
+   * Starts a Session already running its first message, after the git
+   * step it needs, reporting each step. A git step that fails starts
+   * nothing. Once begun, it runs to the end even if its caller goes away.
+   */
   readonly startSession: (
     input: StartSession,
-  ) => Effect.Effect<Session, ProjectNotFound | UnknownAccount>;
+    report?: ReportStep,
+  ) => Effect.Effect<Session, ProjectNotFound | UnknownAccount | GitFailed>;
   /** Starts a turn, or steers the running one. */
   readonly send: (
     sessionId: string,
@@ -457,6 +515,13 @@ const make = (options: EngineOptions) =>
             : Effect.fail(new ProjectNotFound({ id })),
         ),
 
+      branches: (projectId) =>
+        Effect.suspend(() =>
+          projectAt(projectId)
+            ? Effect.succeed<Branches>({ _tag: 'NotGit' })
+            : Effect.fail(new ProjectNotFound({ id: projectId })),
+        ),
+
       startSession: (input) => {
         const chosen =
           input.id !== undefined && ULID.test(input.id) ? input.id : null;
@@ -499,6 +564,8 @@ const make = (options: EngineOptions) =>
               settledAt: null,
               activeAt: now,
               endedAt: null,
+              worktree: null,
+              branch: null,
             };
             const first = yield* promptOf(session.id, {
               text: input.text,

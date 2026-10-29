@@ -688,6 +688,8 @@ describe('Engine', () => {
             settledAt: null,
             activeAt: 1,
             endedAt: null,
+            worktree: null,
+            branch: null,
           });
           yield* store.appendRaw({
             id: 'r1',
@@ -796,6 +798,8 @@ describe('Engine', () => {
       settledAt: null,
       activeAt: 1,
       endedAt: null,
+      worktree: null,
+      branch: null,
     };
     /** Each removed Session's id and when it was last written. */
     const removed = (store: Store['Service']) =>

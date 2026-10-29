@@ -411,6 +411,8 @@ describe('a Fork', () => {
             settledAt: null,
             activeAt: 1,
             endedAt: null,
+            worktree: null,
+            branch: null,
           });
           return { sessionId: 's1' };
         }),
