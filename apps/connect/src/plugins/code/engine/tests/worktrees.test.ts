@@ -10,7 +10,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Effect, Exit, Layer, type Scope } from 'effect';
+import { Effect, Exit, Fiber, Layer, type Scope } from 'effect';
 import {
   claude,
   HarnessError,
@@ -88,6 +88,8 @@ const run = <A, E>(
     readonly refuseOpen?: boolean;
     /** The harness every Session runs, in place of the fake's. */
     readonly harness?: Harness;
+    /** The Store as the engine sees it, changed from the in-memory one. */
+    readonly store?: (store: Store['Service']) => Store['Service'];
   } = {},
 ) => {
   const worktrees = temp();
@@ -97,8 +99,13 @@ const run = <A, E>(
     open: () => Effect.fail(new HarnessError({ message: 'no agent here' })),
   };
   const harness = options.refuseOpen ? refusing : options.harness;
+  const store = options.store;
   const base = Layer.merge(
-    storeLayer(':memory:'),
+    store
+      ? Layer.effect(Store, Effect.map(Store, store)).pipe(
+          Layer.provide(storeLayer(':memory:')),
+        )
+      : storeLayer(':memory:'),
     harness
       ? Layer.merge(
           fake.layer,
@@ -575,6 +582,42 @@ describe('a Session in a git Project', () => {
           expect(new Set(items.map(({ value }) => value.turnId)).size).toBe(1);
         }),
       { fake, harness: once },
+    );
+  });
+
+  it('reports a start only once the Session and its first message are saved', async () => {
+    const held = Promise.withResolvers<void>();
+    await run(
+      () =>
+        Effect.gen(function* () {
+          const engine = yield* Engine;
+          const store = yield* Store;
+          const project = yield* engine.addProject(temp());
+          const id = '01J0Z8Q3VQ4N7Y2K5R6T8W9XAD';
+          const starting = yield* Effect.forkChild(
+            start(project.id, { id, text: 'first' }),
+          );
+          yield* Effect.sleep('100 millis');
+          expect(starting.pollUnsafe()).toBeUndefined();
+          held.resolve();
+          yield* Fiber.join(starting);
+          const { items } = yield* store.raws(id).after(null, 1000);
+          expect(items[0]?.value).toMatchObject({
+            kind: 'turn.started',
+            payload: { text: 'first' },
+          });
+          expect(yield* store.session(id)).toMatchObject({ id });
+        }),
+      {
+        store: (store) => ({
+          ...store,
+          appendRaw: (raw) =>
+            Effect.andThen(
+              Effect.promise(() => held.promise),
+              store.appendRaw(raw),
+            ),
+        }),
+      },
     );
   });
 

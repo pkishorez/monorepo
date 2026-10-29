@@ -27,8 +27,9 @@ import { Agents, type SessionAgent } from '../../capabilities/index.js';
  * It lives in a Scope of its own inside the keeper's, so a reset closes
  * just the Agent and the next use opens it again, and the Session stopping
  * closes it with everything else. An open that fails leaves nothing open.
- * How the first open went is kept, for a new Session counts only once its
- * Agent has opened.
+ * How the first open went is kept, and the steps of a new Session's start
+ * after it, for a new Session counts only once its Agent has opened, its
+ * first message is written and it is saved.
  *
  * While open, what the Agent reports is kept here, apart from any one
  * Turn: its Background Jobs, its Agent Questions, and the Turns it started
@@ -48,16 +49,29 @@ const kept = (open: Effect.Effect<Agent, HarnessError, Scope.Scope>) =>
     let current:
       | { readonly agent: Agent; readonly scope: Scope.Closeable }
       | undefined;
-    /** How the first open went. */
+    /** How the first open went, and the start's later steps. */
     const first = yield* Deferred.make<void, HarnessError>();
+    const recorded = yield* Deferred.make<void, HarnessError>();
+    const saved = yield* Deferred.make<void, HarnessError>();
+    const stoppedFirst = new HarnessError({
+      message: 'The session stopped before it started',
+    });
     yield* Effect.addFinalizer(() =>
-      Deferred.fail(
-        first,
-        new HarnessError({
-          message: 'The session stopped before its agent opened',
-        }),
-      ),
+      Effect.all([
+        Deferred.fail(
+          first,
+          new HarnessError({
+            message: 'The session stopped before its agent opened',
+          }),
+        ),
+        Deferred.fail(recorded, stoppedFirst),
+        Deferred.fail(saved, stoppedFirst),
+      ]),
     );
+    const milestone = (done: Deferred.Deferred<void, HarnessError>) => ({
+      await: Effect.andThen(Deferred.await(first), Deferred.await(done)),
+      mark: Effect.asVoid(Deferred.succeed(done, undefined)),
+    });
 
     /** Keeps what the open Agent reports until its Scope closes. */
     const follow = (agent: Agent) =>
@@ -114,6 +128,8 @@ const kept = (open: Effect.Effect<Agent, HarnessError, Scope.Scope>) =>
     const agent: SessionAgent = {
       agent: get,
       firstOpen: Deferred.await(first),
+      firstRecord: milestone(recorded),
+      firstSave: milestone(saved),
       opened: Effect.sync(() => current?.agent),
       reset,
       jobs: SubscriptionRef.changes(jobs),

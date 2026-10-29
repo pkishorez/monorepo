@@ -218,6 +218,7 @@ export const run = (self: SessionSelf, turnId: string) =>
       }
       begun = true;
       yield* write(started(prompt));
+      if (model.untitled !== null) yield* kept.firstRecord.mark;
       const result = yield* Effect.result(stream);
       yield* finish(result._tag === 'Failure' ? result.failure : undefined);
     });
