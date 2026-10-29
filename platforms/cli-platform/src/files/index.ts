@@ -4,6 +4,7 @@ export {
   folders,
   names,
   pluginFolders,
+  pluginShared,
   socketPath,
 } from './folders/index.js';
 export type { Folders } from './folders/index.js';

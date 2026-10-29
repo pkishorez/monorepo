@@ -57,6 +57,13 @@ const checkName = (what: string, name: string) => {
     );
 };
 
+/** The data, state and cache folders every kestack CLI's are in. */
+const basesOf = (
+  platform: NodeJS.Platform,
+  env: Readonly<Record<string, string | undefined>>,
+  home: string,
+) => (platform === 'win32' ? windowsFolders(env, home) : xdgFolders(env, home));
+
 /**
  * Where the CLI `app` keeps the files of `name`, one named copy of it, such
  * as a Connection; throws on a bad `app` or `name`. `env`, `platform`,
@@ -83,7 +90,7 @@ export const folders = ({
   checkName('connection', name);
   const windows = platform === 'win32';
   const { join } = windows ? win32 : posix;
-  const base = windows ? windowsFolders(env, home) : xdgFolders(env, home);
+  const base = basesOf(platform, env, home);
   const own = (folder: string) => join(folder, app, 'connections', name);
   return {
     data: own(base.data),
@@ -92,6 +99,28 @@ export const folders = ({
     shared: base.data,
     runtime: windows ? PIPES : xdgRuntime(env, tmp, uid),
   };
+};
+
+/**
+ * The shared folder of the Plugin `plugin`, `<data>/kestack/<plugin>`, as
+ * `pluginFolders` gives it, found from `env` and `home` as `folders` finds
+ * `<data>`; throws on a bad name. For a Plugin started by a CLI that does
+ * not say where it is.
+ */
+export const pluginShared = ({
+  plugin,
+  env = process.env,
+  platform = process.platform,
+  home = homedir(),
+}: {
+  readonly plugin: string;
+  readonly env?: Readonly<Record<string, string | undefined>>;
+  readonly platform?: NodeJS.Platform;
+  readonly home?: string;
+}) => {
+  checkName('plugin', plugin);
+  const { join } = platform === 'win32' ? win32 : posix;
+  return join(basesOf(platform, env, home).data, plugin);
 };
 
 /** The name of every copy of the CLI `app` with a data folder on this computer, sorted. */

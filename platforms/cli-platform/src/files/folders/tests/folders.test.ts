@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { folders, pluginFolders, socketPath } from '../folders.js';
+import {
+  folders,
+  pluginFolders,
+  pluginShared,
+  socketPath,
+} from '../folders.js';
 
 const home = '/home/ada';
 const unix = {
@@ -59,6 +64,23 @@ describe('folders on macOS and Linux', () => {
       cache: '/home/ada/.cache/kestack/plugins/code',
       shared: '/home/ada/.local/share/kestack/code',
     });
+  });
+
+  it('finds a Plugin’s shared folder from the environment alone, as its CLI would', () => {
+    for (const env of [{}, { XDG_DATA_HOME: '/x/data' }]) {
+      const cli = folders({ app: 'connect', name: 'work', ...unix, env });
+      expect(pluginShared({ plugin: 'code', ...unix, env })).toBe(
+        pluginFolders(cli, 'code').shared,
+      );
+    }
+    const windows = { platform: 'win32', home: 'C:\\Users\\ada' } as const;
+    const env = { LOCALAPPDATA: 'D:\\Local' };
+    expect(pluginShared({ plugin: 'code', ...windows, env })).toBe(
+      pluginFolders(
+        folders({ app: 'connect', name: 'work', ...windows, env }),
+        'code',
+      ).shared,
+    );
   });
 });
 
