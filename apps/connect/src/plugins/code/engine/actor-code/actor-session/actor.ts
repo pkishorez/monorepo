@@ -222,15 +222,15 @@ const choose = (model: Model, prompt: Prompt): Model =>
       };
 
 /**
- * Waits until the Session's Agent has first opened. A new Session counts
- * only from then: one whose Agent fails to open never does, for the
+ * Waits until a new Session has started: its Agent opened, its first
+ * message written and itself saved. One that fails to never does, for the
  * engine drops it, so it waits on until stopped.
  */
-const opened = (self: SessionSelf) =>
+const started = (self: SessionSelf) =>
   Effect.gen(function* () {
     const { model } = yield* self.get;
     const kept = yield* (yield* Agents).of(model.session.id);
-    yield* kept.firstOpen.pipe(Effect.catch(() => Effect.never));
+    yield* kept.firstSave.await.pipe(Effect.catch(() => Effect.never));
   });
 
 /**
@@ -471,8 +471,9 @@ export const Session = Actor.build(
       persist: { run: (self) => persist(self) },
       title: {
         while: ({ model }) => model.untitled !== null,
-        // Nothing is written of a Session whose Agent never opened.
-        run: (self) => Effect.andThen(opened(self), title(self)),
+        // Nothing is written, nor its branch renamed, until it has
+        // started: a start that fails takes back its branch by name.
+        run: (self) => Effect.andThen(started(self), title(self)),
       },
       branch: {
         while: ({ model }) => model.session.settledAt === null,

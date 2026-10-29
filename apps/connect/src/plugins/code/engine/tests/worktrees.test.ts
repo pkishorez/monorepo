@@ -753,6 +753,35 @@ describe('a Session in a git Project', () => {
     );
   });
 
+  it('names no branch for a Title while its start may still fail', async () => {
+    const repo = clone();
+    const fake = makeFakeHarness({ oneShot: 'Fix the login bug' });
+    await run(
+      (worktrees) =>
+        Effect.gen(function* () {
+          const engine = yield* Engine;
+          const project = yield* engine.addProject(repo);
+          const exit = yield* Effect.exit(
+            start(project.id, { newWorktree: true }),
+          );
+          expect(Exit.isFailure(exit)).toBe(true);
+          expect(inside(join(worktrees, project.id))).toEqual([]);
+          expect(sh(repo, 'branch', '--list', 'ke-code/*')).toBe('');
+        }),
+      {
+        fake,
+        store: (store) => ({
+          ...store,
+          saveSession: () =>
+            Effect.andThen(
+              Effect.sleep('300 millis'),
+              Effect.die(new Error('disk full')),
+            ),
+        }),
+      },
+    );
+  });
+
   it('keeps a pushed branch’s name on the first Title', async () => {
     const repo = clone();
     const fake = makeFakeHarness({ oneShot: 'Fix the login bug' });
