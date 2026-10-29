@@ -1,5 +1,6 @@
+import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -20,6 +21,7 @@ import {
 import { ActorPlugin } from '../actor-plugin/index.js';
 import {
   PluginControl,
+  PluginEnv,
   PluginPaths,
   Plugins,
   type PluginState,
@@ -187,6 +189,39 @@ describe('a Plugin kept running by its CLI', () => {
       ),
     30_000,
   );
+
+  it('finds its shared folder itself when an older CLI does not say where', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'kestack-plugins-'));
+    const plugin = pluginFolders(
+      foldersOf({ app: 'test', name: 'work', env: {}, home, tmp: home }),
+      'ping',
+    );
+    for (const folder of [plugin.data, plugin.state, plugin.cache])
+      mkdirSync(folder, { recursive: true });
+    const child = spawn(process.execPath, [fixture('ping-a.mjs')], {
+      stdio: ['ignore', 'ignore', 'inherit', 'ipc'],
+      env: {
+        ...process.env,
+        HOME: home,
+        XDG_DATA_HOME: '',
+        KESTACK_PLUGIN_SHARED: '',
+        [PluginEnv.name]: 'ping',
+        [PluginEnv.socket]: join(home, 'ping.sock'),
+        [PluginEnv.data]: plugin.data,
+        [PluginEnv.state]: plugin.state,
+        [PluginEnv.cache]: plugin.cache,
+      },
+    });
+    try {
+      await new Promise<void>((ready, failed) => {
+        child.once('message', () => ready());
+        child.once('exit', (code) => failed(new Error(`Exited ${code}`)));
+      });
+      expect(existsSync(join(plugin.shared, 'started-a'))).toBe(true);
+    } finally {
+      child.kill('SIGTERM');
+    }
+  }, 30_000);
 
   it(
     'swaps to a new file: the old process gets SIGTERM, the new one runs',

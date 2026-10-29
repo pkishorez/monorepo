@@ -25,6 +25,7 @@ import {
   PluginPaths,
   READY,
 } from '../contract/index.js';
+import { pluginShared } from '../../files/index.js';
 
 /*
  * A Plugin's side: the `main` its one file runs. It reads where to listen
@@ -63,6 +64,19 @@ const fromEnv = (variable: string) => {
       `${variable} is not set: a Plugin is started by its CLI, which sets it`,
     );
   return value;
+};
+
+/**
+ * The Plugin's shared folder. A CLI from before there was one does not
+ * say where it is: then it is where that CLI's `pluginFolders` would put
+ * it, found from the same environment, and made here.
+ */
+const sharedOf = (plugin: string) => {
+  const given = process.env[PluginEnv.shared];
+  if (given) return given;
+  const shared = pluginShared({ plugin });
+  mkdirSync(shared, { recursive: true, mode: 0o700 });
+  return shared;
 };
 
 /** Serves the Plugin on `socket` for the Scope, and tells the CLI once it listens. */
@@ -123,7 +137,7 @@ const make =
         data: fromEnv(PluginEnv.data),
         state: fromEnv(PluginEnv.state),
         cache: fromEnv(PluginEnv.cache),
-        shared: fromEnv(PluginEnv.shared),
+        shared: sharedOf(options.name),
       }),
     ).pipe(Effect.andThen(Effect.never), Effect.scoped);
     const fiber = Effect.runFork(program);
