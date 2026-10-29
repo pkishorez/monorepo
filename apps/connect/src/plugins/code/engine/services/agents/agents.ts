@@ -9,10 +9,10 @@ import {
   Stream,
   SubscriptionRef,
 } from 'effect';
-import type {
-  Agent,
+import {
   HarnessError,
-  TurnHandle,
+  type Agent,
+  type TurnHandle,
 } from '@kestack/ai-toolkit/harness';
 import type {
   AgentQuestion,
@@ -27,6 +27,8 @@ import { Agents, type SessionAgent } from '../../capabilities/index.js';
  * It lives in a Scope of its own inside the keeper's, so a reset closes
  * just the Agent and the next use opens it again, and the Session stopping
  * closes it with everything else. An open that fails leaves nothing open.
+ * How the first open went is kept, for a new Session counts only once its
+ * Agent has opened.
  *
  * While open, what the Agent reports is kept here, apart from any one
  * Turn: its Background Jobs, its Agent Questions, and the Turns it started
@@ -46,6 +48,16 @@ const kept = (open: Effect.Effect<Agent, HarnessError, Scope.Scope>) =>
     let current:
       | { readonly agent: Agent; readonly scope: Scope.Closeable }
       | undefined;
+    /** How the first open went. */
+    const first = yield* Deferred.make<void, HarnessError>();
+    yield* Effect.addFinalizer(() =>
+      Deferred.fail(
+        first,
+        new HarnessError({
+          message: 'The session stopped before its agent opened',
+        }),
+      ),
+    );
 
     /** Keeps what the open Agent reports until its Scope closes. */
     const follow = (agent: Agent) =>
@@ -81,9 +93,11 @@ const kept = (open: Effect.Effect<Agent, HarnessError, Scope.Scope>) =>
           const scope = yield* Scope.fork(outer);
           const agent = yield* Scope.provide(open, scope).pipe(
             Effect.onError(() => Scope.close(scope, Exit.void)),
+            Effect.tapError((error) => Deferred.fail(first, error)),
           );
           yield* Scope.provide(follow(agent), scope);
           current = { agent, scope };
+          yield* Deferred.succeed(first, undefined);
           return agent;
         });
       }),
@@ -99,6 +113,7 @@ const kept = (open: Effect.Effect<Agent, HarnessError, Scope.Scope>) =>
 
     const agent: SessionAgent = {
       agent: get,
+      firstOpen: Deferred.await(first),
       opened: Effect.sync(() => current?.agent),
       reset,
       jobs: SubscriptionRef.changes(jobs),

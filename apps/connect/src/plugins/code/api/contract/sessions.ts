@@ -63,8 +63,9 @@ export type StartStepName = (typeof START_STEPS)[number];
 
 /**
  * How starting a Session goes: each step as it begins and as it is done,
- * then Started with the Session. A git step that fails ends it with
- * GitFailed, and no Session is kept. Progress, not a record, so a stream,
+ * then Started with the Session, once its Agent has opened. A git step
+ * that fails ends it with GitFailed, an Agent that fails to open with
+ * HarnessFailed; either way no Session is kept, nor a Worktree made for it. Progress, not a record, so a stream,
  * as Speech to Text's is (see speech.ts).
  */
 export const StartStep = ValueESchema.make(
@@ -128,7 +129,12 @@ export const SessionsRpc = RpcGroup.make(
       )
       .build().schema,
     success: StartStep.schema,
-    error: Schema.Union([ProjectNotFound, UnknownAccount, GitFailed]),
+    error: Schema.Union([
+      ProjectNotFound,
+      UnknownAccount,
+      GitFailed,
+      HarnessFailed,
+    ]),
     stream: true,
   }),
   /**

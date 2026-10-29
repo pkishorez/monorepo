@@ -11,6 +11,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Effect, Exit, Layer, type Scope } from 'effect';
+import { HarnessError, Harnesses } from '@kestack/ai-toolkit/harness';
 import { TestClock } from 'effect/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -75,12 +76,27 @@ const run = <A, E>(
   effect: (
     worktrees: string,
   ) => Effect.Effect<A, E, Engine | Store | Scope.Scope>,
-  options: { readonly fake?: FakeHarness; readonly testClock?: boolean } = {},
+  options: {
+    readonly fake?: FakeHarness;
+    readonly testClock?: boolean;
+    /** Every Agent fails to open. */
+    readonly refuseOpen?: boolean;
+  } = {},
 ) => {
   const worktrees = temp();
+  const fake = options.fake ?? makeFakeHarness();
+  const refusing = {
+    ...fake.harness,
+    open: () => Effect.fail(new HarnessError({ message: 'no agent here' })),
+  };
   const base = Layer.merge(
     storeLayer(':memory:'),
-    (options.fake ?? makeFakeHarness()).layer,
+    options.refuseOpen
+      ? Layer.merge(
+          fake.layer,
+          Layer.succeed(Harnesses, { all: [refusing], get: () => refusing }),
+        )
+      : fake.layer,
   );
   const world = Layer.merge(
     base,
@@ -375,6 +391,56 @@ describe('a Session in a git Project', () => {
         });
         expect(sh(repo, 'branch', '--show-current')).toBe('main');
       }),
+    );
+  });
+
+  it('keeps no Session, and no Worktree it made, when the Agent fails to open', async () => {
+    const repo = clone();
+    await run(
+      (worktrees) =>
+        Effect.gen(function* () {
+          const engine = yield* Engine;
+          const store = yield* Store;
+          const project = yield* engine.addProject(repo);
+          const id = '01J0Z8Q3VQ4N7Y2K5R6T8W9XAB';
+          const exit = yield* Effect.exit(
+            start(project.id, {
+              id,
+              branch: 'origin/feature',
+              newWorktree: true,
+            }),
+          );
+          expect(exit).toMatchObject({
+            _tag: 'Failure',
+            cause: {
+              reasons: [
+                { error: { _tag: 'HarnessFailed', message: 'no agent here' } },
+              ],
+            },
+          });
+          expect(inside(join(worktrees, project.id))).toEqual([]);
+          expect(sh(repo, 'branch', '--list', 'ke-code/*')).toBe('');
+
+          // Where the folder was switched, it stays switched.
+          const switched = yield* Effect.exit(
+            start(project.id, { branch: 'topic' }),
+          );
+          expect(Exit.isFailure(switched)).toBe(true);
+          expect(sh(repo, 'branch', '--show-current')).toBe('topic');
+
+          yield* Effect.sleep('50 millis');
+          expect(yield* store.allSessions).toEqual([]);
+          expect((yield* Effect.flip(engine.cancel(id)))._tag).toBe(
+            'SessionNotFound',
+          );
+          // Asked again under that id, it starts afresh: none was kept.
+          const again = yield* Effect.exit(start(project.id, { id }));
+          expect(again).toMatchObject({
+            _tag: 'Failure',
+            cause: { reasons: [{ error: { _tag: 'HarnessFailed' } }] },
+          });
+        }),
+      { refuseOpen: true },
     );
   });
 

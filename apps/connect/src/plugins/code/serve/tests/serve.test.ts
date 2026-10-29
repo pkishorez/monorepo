@@ -35,6 +35,7 @@ import {
   ConnectionAddress,
   type LinkStatus,
 } from '../../api/client/index.js';
+import { HarnessError, Harnesses } from '@kestack/ai-toolkit/harness';
 import { FAKE_SKILLS, makeFakeHarness } from '@kestack/ai-toolkit/harness/fake';
 import { makeFakeSpeech } from '@kestack/ai-toolkit/speech/fake';
 import { codePlugin, type CodePluginOptions } from '../index.js';
@@ -731,4 +732,55 @@ describe('the code Plugin, through the client and Replica', () => {
       ),
     30_000,
   );
+
+  it('refuses a start whose Agent fails to open, with HarnessFailed', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const fake = makeFakeHarness();
+          const refusing = {
+            ...fake.harness,
+            open: () => Effect.fail(new HarnessError({ message: 'no agent' })),
+          };
+          const port = yield* Effect.promise(freePort);
+          yield* Layer.build(
+            server({
+              port,
+              db: join(folder(), 'ai.db'),
+              harnesses: Layer.merge(
+                fake.layer,
+                Layer.succeed(Harnesses, {
+                  all: [refusing],
+                  get: () => refusing,
+                }),
+              ),
+            }),
+          );
+          const client = yield* Layer.build(
+            CodeClient.layer(`ws://127.0.0.1:${port}/rpc`),
+          );
+          const api = Context.get(client, CodeClient);
+          const project = yield* api.addProject({ path: folder() });
+          const refused = yield* Effect.flip(
+            Stream.runCollect(
+              api.startSession({
+                id: null,
+                projectId: project.id,
+                account: 'claude',
+                model: 'claude-test',
+                settings: {},
+                text: 'hi',
+                attachments: [],
+                branch: null,
+                newWorktree: false,
+              }),
+            ),
+          );
+          expect(refused).toMatchObject({
+            _tag: 'HarnessFailed',
+            message: 'no agent',
+          });
+        }),
+      ),
+    ));
 });

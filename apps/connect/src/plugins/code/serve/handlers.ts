@@ -139,7 +139,7 @@ export const CodeApiLive = CodeApi.toLayer(
       startSession: (input) =>
         Stream.callback<
           StartStep,
-          ProjectNotFound | UnknownAccount | GitFailed
+          ProjectNotFound | UnknownAccount | GitFailed | HarnessFailed
         >((queue) =>
           engine
             .startSession({ ...input, id: input.id ?? undefined }, (step) =>
@@ -154,7 +154,9 @@ export const CodeApiLive = CodeApi.toLayer(
                         step: error.step,
                         message: error.message,
                       })
-                    : new UnknownAccount({ account: error.account }),
+                    : error._tag === 'HarnessFailed'
+                      ? wire.HarnessFailed(error)
+                      : new UnknownAccount({ account: error.account }),
               ),
               Effect.flatMap((session) =>
                 Queue.offer(queue, { _tag: 'Started', session }),

@@ -189,6 +189,7 @@ export type Branches =
         readonly upstream: string | null;
         readonly worktree: string | null;
       }>;
+      /** Every Origin branch no local branch tracks, so an App lists each once. */
       readonly origin: ReadonlyArray<string>;
     };
 
@@ -240,13 +241,18 @@ export interface EngineService {
   ) => Effect.Effect<Branches, ProjectNotFound>;
   /**
    * Starts a Session already running its first message, after the git
-   * step it needs, reporting each step. A git step that fails starts
-   * nothing. Once begun, it runs to the end even if its caller goes away.
+   * step it needs, reporting each step; started once its Agent has opened.
+   * A git step that fails starts nothing, and an Agent that fails to open,
+   * HarnessFailed, keeps no Session and takes back the Worktree made for
+   * it. Once begun, it runs to the end even if its caller goes away.
    */
   readonly startSession: (
     input: StartSession,
     report?: ReportStep,
-  ) => Effect.Effect<Session, ProjectNotFound | UnknownAccount | GitFailed>;
+  ) => Effect.Effect<
+    Session,
+    ProjectNotFound | UnknownAccount | GitFailed | HarnessFailed
+  >;
   /** Starts a turn, or steers the running one. */
   readonly send: (
     sessionId: string,
@@ -597,6 +603,24 @@ const make = (options: EngineOptions) =>
                   attachments: input.attachments,
                 });
                 root.send({ _tag: 'StartSession', session, first });
+                // Its Project went as it started: nothing started.
+                if (!root.model.sessions.some((each) => each.session.id === id))
+                  return yield* new ProjectNotFound({ id: project.id });
+                // Started once its Agent has opened; else it was never saved,
+                // and goes.
+                yield* Effect.flatMap(Agents, (agents) =>
+                  Effect.flatMap(agents.of(id), (kept) => kept.firstOpen),
+                ).pipe(
+                  withServices,
+                  Effect.tapError(() =>
+                    Effect.sync(
+                      () => void root.send({ _tag: 'DropSession', id }),
+                    ),
+                  ),
+                  Effect.mapError(
+                    (error) => new HarnessFailed({ message: error.message }),
+                  ),
+                );
                 return session;
               }).pipe(
                 Effect.onError(() =>
