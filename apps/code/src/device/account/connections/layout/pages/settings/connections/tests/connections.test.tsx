@@ -11,24 +11,15 @@ import { type Connection as ConnectionSchema } from '@kestack/connect/cloud';
 import { Actor } from '@kestack/kabuki';
 import { toReact, View } from '@kestack/kabuki/react';
 import { Navigation } from '@kestack/kabuki/routing';
-import { Replicas } from '@kestack/std-toolkit/replica';
-import { Store as MemoryStore } from '@kestack/std-toolkit/replica/memory';
-import { GestureProvider, useDevice } from '@kestack/web-platform/ui/input';
+import { GestureProvider } from '@kestack/web-platform/ui/input';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import {
-  Cache,
-  SavedDrafts,
-  Seen,
-  Sync,
-} from '../../../../../connection/store/index.ts';
 import {
   type Known,
   Connections,
   nobody,
   type Setup,
 } from '../../../../../connections.ts';
-import { Storage } from '../../../../../../store/index.ts';
 import { keys } from '../../../../commands.ts';
 import { Links } from '../../../../../connection/link/index.ts';
 import { ConnectionSettingsLive } from '../actor.ts';
@@ -41,9 +32,8 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * device, or any listed Connection's setup, is still being read, and then every
  * card whole, with what its setup holds, no skeleton. With nothing kept at
  * all, a skeleton until Cloud Connect answers. Forget sits beside each
- * Connection's name, a bin that asks first. On touch a sideways swipe
- * anywhere on the card moves its Agents and Projects, which are at least
- * half the screen tall there, and only there.
+ * Connection's name, a bin that asks first. A card shows its Agents
+ * alone, with no tabs: its Projects are never managed here.
  */
 
 type Connection = typeof ConnectionSchema.Type;
@@ -65,9 +55,6 @@ let pings = 0;
 let ping = () => {};
 
 const OwnerView = View.make(OwnerLive, ({ model, children, send }) => {
-  // The app hears the device from the start, as its Layout does, so a touch
-  // before any card is drawn still counts.
-  useDevice();
   pings = model.pings;
   ping = () => send({ _tag: 'Ping' });
   return (
@@ -164,18 +151,7 @@ const mount = async () => {
   const App = toReact(
     OwnerLive,
     OwnerView,
-    Layer.mergeAll(
-      connections(),
-      clients,
-      Layer.mock(Navigation)({}),
-      // A Connection's Projects are never read here: see projects/.
-      Layer.mock(Replicas)({ hold: () => Effect.never }),
-      Layer.mock(Sync)({ store: () => MemoryStore.memory() }),
-      Layer.mock(Seen)({}),
-      Layer.mock(Cache)({}),
-      Layer.mock(SavedDrafts)({}),
-      Layer.mock(Storage)({}),
-    ),
+    Layer.mergeAll(connections(), clients, Layer.mock(Navigation)({})),
     { name: `connection-settings-test-${apps++}` },
   );
   root = createRoot(document.body.appendChild(document.createElement('div')));
@@ -187,45 +163,6 @@ const mount = async () => {
   expect(pings).toBeGreaterThan(0);
   await settle();
 };
-
-/** Makes the device a touch screen, as `useDevice` hears it. */
-const touched = async () => {
-  await act(async () => {
-    const event = new MouseEvent('pointerdown', { bubbles: true });
-    Object.assign(event, { pointerType: 'touch' });
-    window.dispatchEvent(event);
-  });
-  await flush();
-};
-
-/** One finger on `at`, moved `dx` sideways, then lifted. */
-const swipe = async (at: Element, dx: number) => {
-  const pointer = (type: string, x: number) => {
-    const event = new MouseEvent(type, {
-      bubbles: true,
-      cancelable: true,
-      clientX: x,
-      clientY: 200,
-      button: 0,
-    });
-    Object.assign(event, { pointerId: 1, pointerType: 'touch' });
-    at.dispatchEvent(event);
-  };
-  await act(async () => pointer('pointerdown', 200));
-  for (let step = 1; step <= 10; step += 1)
-    await act(async () => pointer('pointermove', 200 + (dx * step) / 10));
-  await act(async () => pointer('pointerup', 200 + dx));
-  await settle();
-};
-
-const tab = (name: string) =>
-  [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find(
-    (each) => each.textContent === name,
-  )!;
-
-/** The tab panel open, the one that takes a touch. */
-const panelOpen = () =>
-  document.querySelector<HTMLElement>('[role="tabpanel"]:not([inert] *)')!;
 
 const shown = () =>
   tell({
@@ -319,25 +256,14 @@ describe('Settings → Connections, drawn once', () => {
   });
 });
 
-describe('Settings → Connections, Agents or Projects', () => {
-  it('shows a Connection’s Agents, then its Projects as chosen, each Connection on its own', async () => {
+describe('Settings → Connections, Agents', () => {
+  it('shows a Connection’s Agents alone, with no tabs and no Projects', async () => {
     await mount();
     await shown();
-    expect(tab('Agents').getAttribute('aria-selected')).toBe('true');
-    // Drawn as Settings' own tabs are, each naming the panel it opens.
-    for (const name of ['Agents', 'Projects'])
-      expect(tab(name).dataset['slot']).toBe('tab');
-    expect(
-      document
-        .getElementById(tab('Agents').getAttribute('aria-controls')!)
-        ?.getAttribute('role'),
-    ).toBe('tabpanel');
     expect(text()).toContain('Claude');
-    await act(async () => tab('Projects').click());
-    await settle();
-    expect(tab('Projects').getAttribute('aria-selected')).toBe('true');
-    expect(text()).not.toContain('Claude');
-    expect(busy()).toBe(true);
+    expect(document.querySelector('[role="tab"]')).toBeNull();
+    expect(document.querySelector('[role="tabpanel"]')).toBeNull();
+    expect(text()).not.toContain('Projects');
   });
 });
 
@@ -362,38 +288,5 @@ describe('Settings → Connections, Forget', () => {
     await act(async () => confirm.click());
     await settle();
     expect(forgot).toEqual(['m1']);
-  });
-});
-
-// Before any touch: this device then stays a touch screen.
-describe('Settings → Connections on a screen never touched', () => {
-  it('keeps its tabs as tall as what they hold', async () => {
-    await mount();
-    await shown();
-    expect(panelOpen().className).not.toContain('min-h-');
-  });
-});
-
-describe('Settings → Connections on touch', () => {
-  beforeEach(async () => {
-    await mount();
-    await touched();
-    await shown();
-  });
-
-  it('moves a Connection’s tabs on a swipe from the foot of the card, or its name', async () => {
-    const card = document.querySelector('li')!;
-    // The card is the swipe's zone, whole, Forget and all.
-    expect(card.children).toHaveLength(1);
-    expect(card.firstElementChild?.contains(panelOpen())).toBe(true);
-    await swipe(panelOpen(), -150);
-    expect(tab('Projects').getAttribute('aria-selected')).toBe('true');
-    await swipe(card.querySelector('h3')!, 150);
-    expect(tab('Agents').getAttribute('aria-selected')).toBe('true');
-  });
-
-  it('gives each tab at least half the screen, so there is room to swipe', () => {
-    for (const panel of document.querySelectorAll('[role="tabpanel"]'))
-      expect(panel.className).toContain('min-h-[50dvh]');
   });
 });

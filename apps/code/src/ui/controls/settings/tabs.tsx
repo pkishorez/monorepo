@@ -2,8 +2,7 @@ import { cn } from '@kestack/web-platform/ui/components/utils';
 import type { ReactNode } from 'react';
 
 /*
- * A row of tabs by name, the one open underlined: Settings' own, and a
- * Connection's Agents and Projects within it, drawn the same. Each tall
+ * A row of tabs by name, the one open underlined: Settings' own. Each tall
  * enough to tap on touch.
  */
 
