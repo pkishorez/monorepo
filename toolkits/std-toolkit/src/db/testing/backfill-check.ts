@@ -1,7 +1,4 @@
-import { Arbitrary, Cause, Data, Effect } from 'effect';
-import { readToGap, type AnyESchema } from '../../eschema/index.js';
-import { inspectESchema } from '../../eschema/domain/introspection/index.js';
-import { planBackfills } from '../setup/backfill/index.js';
+import { Arbitrary, Cause, Data, Effect, Schema } from 'effect';
 import { BackfillFailed, runSetup } from '../setup/index.js';
 import type { StoredItem } from '../std-table/contract/index.js';
 import type {
@@ -20,10 +17,9 @@ import {
 
 // Runs the Backfills the way setup does, on generated rows: each gap
 // Backfill alone, over its entity's rows at the version before the gap, and
-// then every Backfill at once, as on a database at the oldest versions,
-// whose schedule setup must be able to plan. Other entities hold generated
-// rows, none at all included. Every row must end at the latest version with
-// its id and partition key as they were.
+// then every Backfill at once, as on a database at the oldest versions.
+// Other entities hold generated rows, none at all included. Every row must
+// end at the latest version with its id and partition key as they were.
 
 export interface BackfillCheckOptions {
   /** Generated cases per Backfill, each with and without other rows. Defaults to 100. */
@@ -106,13 +102,8 @@ const canonical = (value: unknown): string =>
   );
 
 /** The paths a Backfill must leave as they were: the id, and the partition key. */
-const keptPaths = (entity: RegisteredEntity): readonly string[] => {
-  const { idField } = inspectESchema(entity.schema);
-  return [
-    ...(idField === null ? [] : [idField]),
-    ...(entity.kind === 'keyed' ? entity.primary.pk : []),
-  ];
-};
+const keptPaths = (entity: RegisteredEntity): readonly string[] =>
+  entity.kind === 'keyed' ? [entity.schema.idField, ...entity.primary.pk] : [];
 
 const keyOf = (item: StoredItem) => JSON.stringify([item.pk, item.sk]);
 
@@ -137,7 +128,9 @@ const ended = (
       return yield* fail(
         `the row ended at ${after.data._v}, not the latest version ${latest}`,
       );
-    const read = yield* readToGap(entity.schema as AnyESchema, after.data).pipe(
+    const read = yield* Schema.decodeUnknownEffect(
+      entity.schema.schema as Schema.Codec<unknown, unknown>,
+    )(after.data).pipe(
       Effect.mapError(
         (cause) =>
           new BackfillCheckFailure({
@@ -147,7 +140,7 @@ const ended = (
     );
     for (const path of keptPaths(entity)) {
       const before = valueAt(value, path);
-      const now = valueAt(read.value, path);
+      const now = valueAt(read, path);
       if (canonical(before) !== canonical(now))
         return yield* fail(
           `${path} changed from ${JSON.stringify(before)} to ${JSON.stringify(now)}`,
@@ -212,12 +205,10 @@ const setsUp = (table: StdTable, scenario: Scenario) => (input: Case) =>
     return true;
   });
 
-const previousVersion = (entity: RegisteredEntity, version: string) => {
-  const versions = inspectESchema(entity.schema).evolutions.map(
-    (evolution) => evolution.version,
-  );
-  return versions[versions.indexOf(version) - 1]!;
-};
+const versionNumber = (version: string) => Number(version.slice(1));
+
+// Versions run v1, v2, ... with no holes, as eschema builds them.
+const previousVersion = (version: string) => `v${versionNumber(version) - 1}`;
 
 const rowsJson = (
   rows: Readonly<Record<string, readonly GeneratedRow[]>>,
@@ -344,7 +335,7 @@ const entityOf = (table: StdTable, name: string) =>
 /** One gap Backfill owed alone, over its entity's rows at the version before it. */
 const alone = (table: StdTable, backfill: RegisteredBackfill): Scenario => {
   const entity = entityOf(table, backfill.entity);
-  const from = previousVersion(entity, backfill.to!);
+  const from = previousVersion(backfill.to!);
   return {
     label: `Backfill "${backfill.id}" (${entity.name} ${from} → ${backfill.to})`,
     owing: new Set([backfill.id]),
@@ -355,45 +346,34 @@ const alone = (table: StdTable, backfill: RegisteredBackfill): Scenario => {
 
 /**
  * Every Backfill owed at once: each gap entity's rows at the version before
- * its first gap, as a database that skipped every release since.
+ * its earliest gap, whatever order its Backfills were declared in, as a
+ * database that skipped every release since.
  */
 const allAtOnce = (table: StdTable): Scenario => {
   const firstGaps = new Map<string, string>();
-  for (const { kind, entity, to } of table.registeredBackfills)
-    if (kind === 'gap' && !firstGaps.has(entity)) firstGaps.set(entity, to!);
+  for (const { kind, entity, to } of table.registeredBackfills) {
+    const earliest = firstGaps.get(entity);
+    if (
+      kind === 'gap' &&
+      (earliest === undefined || versionNumber(to!) < versionNumber(earliest))
+    )
+      firstGaps.set(entity, to!);
+  }
   return {
     label: `Every Backfill pending at once, as on a database at the oldest versions (${table.registeredBackfills.map(({ id }) => `"${id}"`).join(', ')})`,
     owing: new Set(table.registeredBackfills.map(({ id }) => id)),
     owed: [...firstGaps].map(([name, gap]) => {
       const entity = entityOf(table, name);
-      return { entity, from: previousVersion(entity, gap) };
+      return { entity, from: previousVersion(gap) };
     }),
     several: true,
   };
 };
 
 /**
- * Setup's own plan for every Backfill pending at once: a schedule it would
- * refuse, such as entities whose Backfills wait on one another in a cycle,
- * fails here, naming them.
- */
-const checkSchedule = (table: StdTable): Effect.Effect<string | undefined> =>
-  planBackfills(
-    table,
-    table.registeredBackfills.map(({ id }) => id),
-  ).pipe(
-    Effect.as(undefined),
-    Effect.catch((refused) =>
-      Effect.succeed(
-        `Every Backfill pending at once, as on a database at the oldest versions: setup refuses to order them: ${refused.detail}. Each entity's pending Backfills run in one scan, so \`after\` must not make two entities wait on each other.`,
-      ),
-    ),
-  );
-
-/**
  * Every gap Backfill of `table` that fails on some generated database, one
- * report entry each, with the smallest rows that show it; then the schedule
- * of every Backfill at once, planned and run. Empty when all succeed.
+ * report entry each, with the smallest rows that show it; then every
+ * Backfill at once. Empty when all succeed.
  */
 export const findBackfillFailures = (
   table: StdTable,
@@ -406,12 +386,9 @@ export const findBackfillFailures = (
         failures.push(
           yield* checkScenario(table, alone(table, backfill), options),
         );
-    // One Backfill alone was checked already; several can still clash.
-    if (table.registeredBackfills.length > 1) {
-      const refused = yield* checkSchedule(table);
-      failures.push(
-        refused ?? (yield* checkScenario(table, allAtOnce(table), options)),
-      );
-    }
+    // One Backfill alone was checked already; several can still clash. A
+    // schedule that cannot be ordered never builds.
+    if (table.registeredBackfills.length > 1)
+      failures.push(yield* checkScenario(table, allAtOnce(table), options));
     return failures.filter((line) => line !== undefined);
   });

@@ -1,6 +1,5 @@
 import { Stage } from 'alchemy';
 import * as Cloudflare from '@alchemy.run/cloudflare';
-import * as Output from 'alchemy/Output';
 import { Effect } from 'effect';
 import { D1 } from '@kestack/std-toolkit/alchemy';
 import { backend } from '@kestack/web-platform/app/alchemy';
@@ -69,9 +68,10 @@ export const PocketWorker = Cloudflare.Worker(
         AUTH_URL: at.auth,
         SITE_ORIGIN: at.url() ?? '',
         DB: PocketDatabase,
+        // The table's name, from its resource: binding it keeps the
+        // Worker's deployment behind the table's setup and Backfills.
+        DB_TABLE: table.tableName,
       },
-      // Keep the Worker's deployment behind the table and its guard.
-      tag: Output.map(table.snapshot, () => 'pocket'),
     };
   }),
 );

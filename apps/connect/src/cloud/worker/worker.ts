@@ -115,11 +115,18 @@ export const serveOver = (options: {
   readonly authInfo: AuthInfo;
   readonly origins: ReadonlyArray<string>;
   readonly driver: SQLiteDriver;
+  /** The physical name the table was set up under; its logical name by default. */
+  readonly tableName?: string;
   readonly plugins?: Wanted;
   readonly minConnect?: string;
   readonly files?: PluginFiles;
 }) => {
-  const table = SQLite.make(connectionsTable, { database: options.driver });
+  const table = SQLite.make(connectionsTable, {
+    database: options.driver,
+    ...(options.tableName === undefined
+      ? {}
+      : { tableName: options.tableName }),
+  });
   const deployment: Deployment = {
     plugins: options.plugins ?? {},
     minConnect: options.minConnect ?? null,
@@ -176,6 +183,8 @@ export const serve = <Statement extends D1Statement<Statement>>(options: {
   readonly auth: AuthOptions;
   readonly origins: ReadonlyArray<string>;
   readonly database: D1SQLiteConfig<Statement>['database'];
+  /** The physical name `D1.table` set the table up under. */
+  readonly tableName?: string;
   readonly plugins?: Wanted;
   readonly minConnect?: string;
   readonly files?: PluginFiles;

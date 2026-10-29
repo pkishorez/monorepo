@@ -9,14 +9,9 @@ export {
   findOutdatedVersion,
 } from './domain/eschema-error/index.js';
 export { eschemaOf } from './domain/versioned-schema/index.js';
-// What a Backfill runner needs: which versions are gaps, and the pure steps
-// between them. A Backfill itself is db's; eschema never runs one.
+// Which versions are gaps. The pure steps between them are the Backfill
+// runner's alone (src/gap-steps); a Backfill itself is db's, never eschema's.
 export { gapVersions } from './domain/introspection/index.js';
-export {
-  migrateToGap,
-  readToGap,
-  type VersionedValue,
-} from './domain/encoded/index.js';
 // The snapshot type language: how a snapshot describes a field's stored
 // shape, and the annotation that names a check the catalogue does not know.
 export {

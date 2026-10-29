@@ -5,6 +5,7 @@ export {
   type IDBDatabaseConfig,
   type IDBTable,
   type IDBTableSource,
+  Outdated,
 } from './idb.js';
 export type { IDBPruneOptions } from './prune/index.js';
 export {

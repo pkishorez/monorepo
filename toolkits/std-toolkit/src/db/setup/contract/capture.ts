@@ -22,9 +22,6 @@ export interface CurrentContract {
   readonly record: StoredContract;
 }
 
-/** What a disposable table does with a change that needs a backfill. */
-export type BackfillChoice = 'reindex' | 'wipe';
-
 // cyrb53: a fast, non-cryptographic 53-bit hash. A collision only costs a
 // skipped comparison, never a wrong one: an equal hash means equal JSON in
 // every case a deploy will meet.

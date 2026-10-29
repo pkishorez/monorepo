@@ -25,10 +25,13 @@ export {
 export {
   addBackfill,
   assertGapsFilled,
+  BackfillOrderRefused,
+  planStages,
   type BackfillDeclaration,
   type BackfillOptions,
   type BackfillRun,
   type RegisteredBackfill,
+  type Stage,
 } from './backfill.js';
 export { keyPathKind } from './key-path-shape.js';
 export {

@@ -1,10 +1,6 @@
 import { Effect } from 'effect';
 import { Memory } from '../memory/index.js';
-import {
-  captureContract,
-  NO_ROWS,
-  recordContract,
-} from '../setup/contract/index.js';
+import { captureContract, NO_ROWS, recordContract } from '../setup/index.js';
 import {
   OperationFailure,
   StdTableService,

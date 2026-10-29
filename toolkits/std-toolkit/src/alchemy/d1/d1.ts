@@ -104,6 +104,11 @@ export const D1TableProvider = () =>
  * refuses a persistent table's breaking change, wipes a disposable one's,
  * applies its indexes and runs its pending Backfills. A refusal fails the
  * deploy with the SetupRefused message.
+ *
+ * Bind the result's `tableName` into the Worker's env and build the adapter
+ * from it (`SQLite.make(table, { database, tableName })`). The Worker then
+ * depends on this resource, so Alchemy deploys it only after setup and its
+ * Backfills; a Worker that binds only the database may go live first.
  */
 const table = (id: string, options: D1TableOptions) =>
   Effect.gen(function* () {

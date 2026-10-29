@@ -14,14 +14,15 @@ See the [top README](../../../README.md).
 
 ### `@kestack/std-toolkit/db/dynamodb`
 
-| Export                        | What it does                                                                                |
-| ----------------------------- | ------------------------------------------------------------------------------------------- |
-| `DynamoDB.make`               | Realizes a StdTable on a DynamoDB table; returns `tableName` and `layer`.                   |
-| `DynamoDB.setup`              | Creates the table if missing, then sets it up under its mode against its Stored contract.   |
-| `DynamoDB.createTable`        | Creates the physical table and its indexes if missing, then waits until it is active.       |
-| `DynamoDB.deleteTable`        | Deletes the physical table.                                                                 |
-| `DynamoDB.getTableDefinition` | Projects a StdTable's topology into a `CreateTable`-shaped definition without credentials.  |
-| `DynamoDBNativeError`         | Tagged error wrapping a failed `createTable` or `deleteTable` with its operation and cause. |
+| Export                        | What it does                                                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `DynamoDB.make`               | Realizes a StdTable on a DynamoDB table; returns `tableName` and `layer`.                                     |
+| `DynamoDB.setup`              | Creates the table if missing, then sets it up under its mode against its Stored contract.                     |
+| `DynamoDB.createTable`        | Creates the physical table and its indexes if missing, then waits until it is active.                         |
+| `DynamoDB.deleteTable`        | Deletes the physical table.                                                                                   |
+| `DynamoDB.getTableDefinition` | Projects a StdTable's topology into a `CreateTable`-shaped definition without credentials.                    |
+| `DynamoDBNativeError`         | Tagged error wrapping a failed `createTable` or `deleteTable` with its operation and cause.                   |
+| `GlobalIndexNotReady`         | Error setup fails with when a new global secondary index is gone, deleting, or still creating after the wait. |
 
 ## Usage
 

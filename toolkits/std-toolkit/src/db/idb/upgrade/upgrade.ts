@@ -12,6 +12,14 @@ interface UpgradePlan {
   readonly removed: readonly string[];
 }
 
+/** A version change that changes nothing: it only closes other connections. */
+export const nothingToChange = (storeName: string): UpgradePlan => ({
+  storeName,
+  createStore: false,
+  indexes: [],
+  removed: [],
+});
+
 const ENTITY_INDEX: IDBIndexDefinition = { name: '_entity', keyPath: '_e' };
 
 /**

@@ -1,6 +1,5 @@
 import { Stage } from 'alchemy';
 import * as Cloudflare from '@alchemy.run/cloudflare';
-import * as Output from 'alchemy/Output';
 import { Effect } from 'effect';
 import { backend, portlessPort } from '@kestack/web-platform/app/alchemy';
 import { D1 } from '@kestack/std-toolkit/alchemy';
@@ -56,10 +55,11 @@ export const CloudConnect = Cloudflare.Worker(
         PLUGINS: yield* plugins,
         MIN_CONNECT: yield* minConnect,
         DB: CloudConnectDatabase,
+        // The table's name, from its resource: binding it keeps the
+        // Worker's deployment behind the table's setup and Backfills.
+        DB_TABLE: table.tableName,
         PLUGIN_FILES: PluginFiles,
       },
-      // Keep the Worker's deployment behind the table and its guard.
-      tag: Output.map(table.snapshot, () => 'connections'),
     };
   }),
 );

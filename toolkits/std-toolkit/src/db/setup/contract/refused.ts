@@ -11,11 +11,17 @@ export type SetupRefusedReason =
   /** A change needs a Backfill that is not declared, or is already done. */
   | 'backfill-missing'
   /** The pending Backfills cannot be put in an order that runs. */
-  | 'backfill-order';
+  | 'backfill-order'
+  /**
+   * Newer code already set a persistent table up: its Stored contract knows
+   * a version, entity or Backfill this code does not. The fix is to run the
+   * newer code. A disposable table is wiped instead.
+   */
+  | 'outdated-code';
 
 /**
- * Setup refused to touch a persistent table. It never wipes: the fix is a
- * code change, or a new physical table name.
+ * Setup refused to touch a table. It never wipes: the fix is a code change,
+ * newer code, or a new physical table name.
  */
 export class SetupRefused extends Error {
   readonly _tag = 'SetupRefused';
@@ -71,6 +77,18 @@ const refusalMessage = (
     case 'renames-table':
       return `std-toolkit: DynamoDB table "${table}" cannot get a new physical name under the same resource: the new name would start an empty table and leave the old one, with its data, behind. Nothing was changed. Declare a new DynamoDB.table resource, with its own id, for the new name.`;
     case 'unreadable':
-      return `std-toolkit: persistent table "${table}" has a stored contract this version of std-toolkit cannot read, so its data cannot be checked. Nothing was changed.`;
+      return `std-toolkit: table "${table}" has a stored contract this version of std-toolkit cannot read, so its data cannot be checked. Nothing was changed.`;
+    case 'outdated-code':
+      return [
+        `std-toolkit: table "${table}" was set up by newer code: this code is older than the data. Reload or redeploy to run the newer code. Nothing was changed.`,
+        ...(detail === undefined ? [] : ['', detail]),
+      ].join('\n');
   }
 };
+
+/**
+ * Whether `error` is setup refusing because newer code already set the
+ * table up, so an app can ask the user to reload rather than report a fault.
+ */
+export const isOutdatedCode = (error: unknown): error is SetupRefused =>
+  error instanceof SetupRefused && error.reason === 'outdated-code';

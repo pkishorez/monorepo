@@ -49,7 +49,7 @@ A physical table whose data must never be lost or stranded by a schema change. A
 _Avoid_: Durable table (collides with Durable Objects), server table, production table.
 
 **Disposable table**:
-A physical table whose data may be thrown away when a schema change is not safe, such as preferences or a local copy that can be fetched again. It is still stored; it is only disposable. A disposable table is not frozen by version history: its schemas may change freely. It never runs a **Backfill**: a change that needs one wipes it.
+A physical table whose data may be thrown away when a schema change is not safe, such as preferences or a local copy that can be fetched again. It is still stored; it is only disposable. A disposable table is not frozen by version history: its schemas may change freely. It never runs a **Backfill**: a change that needs one, or any pending one (a gap or a **Reindex**), wipes it.
 _Avoid_: Ephemeral table (Memory's and Sync's "ephemeral" means never stored), cache table, semi-ephemeral.
 
 **Stored item**:
@@ -132,7 +132,7 @@ The guarded, silent rewrite of one item's physical representation to the form `d
 _Avoid_: Repair write, silent update, backfill write.
 
 **Backfill**:
-A named, effectful step declared on a **StdTable**, after its entities, that rewrites stored rows once so that what they need is written rather than derived on read: either filling a **gap version** from the old value and other entities, read-only, or a **Reindex**. Every one is declared by hand, which is the author accepting the downtime it costs, and none is ever removed once shipped. It is done when no stored row of its entity is older than its gap version (or has stale index keys); what the table records about it only saves rescanning.
+A named, effectful step declared on a **StdTable**, after its entities, that rewrites stored rows once so that what they need is written rather than derived on read: either filling a **gap version** from the old value and the table's other entities, or a **Reindex**. Its `run` only reads, and never its own entity: another row of that entity may not be filled yet, and would fail with `NeedsBackfill` on every retry; a write from `run` dies. Every one is declared by hand, which is the author accepting the downtime it costs, and none is ever removed once shipped. It is done when no stored row of its entity is older than its gap version (or has stale index keys); what the table records about it only saves rescanning.
 _Avoid_: data migration, migration (that is eschema's pure read-time function), job, script.
 
 **Entity key**:

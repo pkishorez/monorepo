@@ -1,4 +1,4 @@
-import { Effect, Schema } from 'effect';
+import { type Duration, Effect, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { EntityESchema } from '../../../eschema/index.js';
 import { Memory } from '../../memory/index.js';
@@ -13,7 +13,11 @@ import {
 import { encodeCompositeKey } from '../../std-table/key/index.js';
 import { StdTable } from '../../std-table/table/index.js';
 import type { DynamoDBClient } from '../client/index.js';
-import { ensureDynamoTable, setUpDynamoTable } from '../setup/index.js';
+import {
+  ensureDynamoTable,
+  GlobalIndexNotReady,
+  setUpDynamoTable,
+} from '../setup/index.js';
 
 const NAME = 'board';
 const TABLE_NAME = 'board-prod';
@@ -51,6 +55,17 @@ const indexedTable = () =>
     .backfill('task-by-title', { reindex: 'Task' })
     .build();
 
+const createdIndexed = () =>
+  StdTable.make(NAME)
+    .primary('pk', 'sk')
+    .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+    .entity(TaskV1, (e) =>
+      e
+        .primary({ pk: ['projectId'] })
+        .index('GSI1', 'byTitle', { pk: ['title'] }),
+    )
+    .build();
+
 const gapTable = () =>
   StdTable.make(NAME)
     .primary('pk', 'sk')
@@ -77,6 +92,9 @@ const physicalTable = () => {
   const indexes = new Set<string>();
   // Describes left before an index started by an earlier deploy is ACTIVE.
   const creating = new Map<string, number>();
+  // A status an index keeps on every describe, and indexes that never appear.
+  const stuck = new Map<string, string>();
+  const vanishing = new Set<string>();
   let exists = false;
   const inner = Effect.runSync(
     Effect.map(StdTableService(NAME), ({ contract }) => contract).pipe(
@@ -115,6 +133,8 @@ const physicalTable = () => {
         Table: {
           TableStatus: 'ACTIVE',
           GlobalSecondaryIndexes: [...indexes].map((IndexName) => {
+            const status = stuck.get(IndexName);
+            if (status !== undefined) return { IndexName, IndexStatus: status };
             const left = creating.get(IndexName) ?? 0;
             if (left === 0) return { IndexName, IndexStatus: 'ACTIVE' };
             creating.set(IndexName, left - 1);
@@ -129,7 +149,7 @@ const physicalTable = () => {
       Effect.sync(() => {
         for (const { Create } of input.GlobalSecondaryIndexUpdates) {
           log.push(`updateTable create ${Create.IndexName}`);
-          indexes.add(Create.IndexName);
+          if (!vanishing.has(Create.IndexName)) indexes.add(Create.IndexName);
         }
         return {};
       }),
@@ -138,10 +158,21 @@ const physicalTable = () => {
     Effect.runPromise(
       setUpDynamoTable({ client, table, tableName: TABLE_NAME, mode, store }),
     );
-  const refusal = (table: AnyTable, mode: TableMode = 'persistent') =>
+  const refusal = (
+    table: AnyTable,
+    mode: TableMode = 'persistent',
+    indexWait?: Duration.Input,
+  ) =>
     Effect.runPromise(
       Effect.flip(
-        setUpDynamoTable({ client, table, tableName: TABLE_NAME, mode, store }),
+        setUpDynamoTable({
+          client,
+          table,
+          tableName: TABLE_NAME,
+          mode,
+          store,
+          ...(indexWait === undefined ? {} : { indexWait }),
+        }),
       ),
     );
   const insert = (taskIds: readonly string[]) =>
@@ -176,6 +207,8 @@ const physicalTable = () => {
     log,
     indexes,
     startIndex,
+    stuck,
+    vanishing,
     reads,
     counts,
     store,
@@ -271,10 +304,69 @@ describe('DynamoDB setup', () => {
     ]);
   });
 
+  const indexFailure = async (
+    prepare: (physical: ReturnType<typeof physicalTable>) => void,
+    indexWait?: Duration.Input,
+  ) => {
+    const physical = physicalTable();
+    await physical.setUp(plainTable());
+    await physical.insert(['a']);
+    const before = await tableRow(physical.store);
+    prepare(physical);
+    physical.reset();
+    const failure = (await physical.refusal(
+      indexedTable(),
+      'persistent',
+      indexWait,
+    )) as { readonly cause?: unknown };
+    // Nothing was recorded: the next deploy finds the old contract.
+    expect(await tableRow(physical.store)).toEqual(before);
+    expect(physical.log).not.toContain('write Task');
+    return failure.cause as GlobalIndexNotReady;
+  };
+
+  it('fails at once on an index that is being deleted', async () => {
+    const cause = await indexFailure((physical) => {
+      physical.startIndex('GSI1', 0);
+      physical.stuck.set('GSI1', 'DELETING');
+    });
+    expect(cause).toBeInstanceOf(GlobalIndexNotReady);
+    expect(cause.state).toBe('DELETING');
+  });
+
+  it('keeps waiting on an index that is updating, as it returns to active', async () => {
+    const cause = await indexFailure(
+      (physical) => physical.stuck.set('GSI1', 'UPDATING'),
+      '50 millis',
+    );
+    expect(cause).toBeInstanceOf(GlobalIndexNotReady);
+    expect(cause.state).toBe('timed-out');
+  });
+
+  it('fails at once on an index missing after it was created', async () => {
+    const cause = await indexFailure((physical) =>
+      physical.vanishing.add('GSI1'),
+    );
+    expect(cause).toBeInstanceOf(GlobalIndexNotReady);
+    expect(cause.state).toBe('missing');
+  });
+
+  it('stops waiting for an index still creating after the wait', async () => {
+    const cause = await indexFailure(
+      (physical) => physical.stuck.set('GSI1', 'CREATING'),
+      '50 millis',
+    );
+    expect(cause).toBeInstanceOf(GlobalIndexNotReady);
+    expect(cause.state).toBe('timed-out');
+    expect(cause.message).toContain('still creating');
+  });
+
   it('refuses removing a global secondary index, in either mode', async () => {
     for (const mode of ['persistent', 'disposable'] as const) {
       const physical = physicalTable();
-      await physical.setUp(indexedTable(), mode);
+      // Created with its index, so it ships no Backfill: one dropped would
+      // read as older code.
+      await physical.setUp(createdIndexed(), mode);
       await physical.insert(['a']);
 
       const error = await physical.refusal(plainTable(), mode);

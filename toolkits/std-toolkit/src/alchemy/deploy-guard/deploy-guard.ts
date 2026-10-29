@@ -6,13 +6,11 @@ import { TableSnapshot } from '../../snapshot/index.js';
 import {
   captureContract,
   contractFromSnapshot,
-  type TableMode,
-} from '../../db/setup/index.js';
-import {
   NO_ROWS,
   planContract,
   rowsOfContract,
-} from '../../db/setup/contract/index.js';
+  type TableMode,
+} from '../../db/setup/index.js';
 
 interface ContractProps {
   readonly mode: TableMode;

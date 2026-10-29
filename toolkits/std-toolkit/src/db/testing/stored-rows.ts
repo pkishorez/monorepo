@@ -1,7 +1,6 @@
-import { Arbitrary, Effect, Option, Result, Schema } from 'effect';
+import { Arbitrary, Effect } from 'effect';
 import { nextUlid } from '../../core/index.js';
-import { inspectESchema } from '../../eschema/domain/introspection/index.js';
-import { findNonPortableValue } from '../../eschema/domain/portable-value/index.js';
+import { storableRows } from '../../eschema/testing/index.js';
 import type { StoredData, StoredItem } from '../std-table/contract/index.js';
 import type { RegisteredEntity } from '../std-table/definition/index.js';
 import type { DatabaseError } from '../std-table/error/index.js';
@@ -24,25 +23,14 @@ export interface GeneratedRow {
 export const rowsAt = (
   entity: RegisteredEntity,
   version: string,
-): Arbitrary.Arbitrary<GeneratedRow> => {
-  const evolution = inspectESchema(entity.schema).evolutions.find(
-    (candidate) => candidate.version === version,
-  );
-  if (evolution === undefined)
-    throw new Error(`${entity.name} has no version ${version}`);
-  const schema = evolution.schema as Schema.Codec<unknown, unknown>;
-  const encode = Schema.encodeOption(schema);
-  return Arbitrary.schema(Schema.toType(schema)).pipe(
-    Arbitrary.filterMap((value: unknown) => {
-      const encoded = encode(value);
-      if (Option.isNone(encoded)) return Result.fail(value);
-      const data = { ...(encoded.value as object), _v: version };
-      return findNonPortableValue(data) === undefined
-        ? Result.succeed({ value, data: data as StoredData })
-        : Result.fail(value);
+): Arbitrary.Arbitrary<GeneratedRow> =>
+  Arbitrary.map(
+    storableRows(entity.schema, version),
+    ({ value, stored }): GeneratedRow => ({
+      value,
+      data: stored as StoredData,
     }),
   );
-};
 
 /** Rows of `entity` at its latest version. */
 export const latestRows = (

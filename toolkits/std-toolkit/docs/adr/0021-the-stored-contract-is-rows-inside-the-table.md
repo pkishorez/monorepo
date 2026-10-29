@@ -6,7 +6,7 @@ ADR 0012 rejected a baseline inside the table for two reasons that no longer hol
 
 What an adapter cannot apply stays its own refusal inside one shared plan: DynamoDB changes an index only by adding a global secondary index. A wipe is deleting every row, on every adapter, so a disposable DynamoDB table can now be wiped.
 
-This is a clean break. No code converts an existing `_std_contract`, and the reserved `__std_toolkit_enforcement__` row and its scan filter are removed. A table holding rows but no Stored contract is refused if persistent and wiped if disposable; the way past is a new physical table name.
+This is a clean break. No code converts an existing `_std_contract`, and the reserved `__std_toolkit_enforcement__` row and its scan filter are removed. A table holding rows but no Stored contract is refused if persistent and wiped if disposable; the way past is a new physical table name. A Stored contract that knows a version, entity or Backfill the running code does not, or is in a newer format, was written by newer code. A persistent table refuses it as `outdated-code`, since the diff would read as removals, and the way past is the newer code; a disposable table is wiped, as for any change that is not safe. A running old IndexedDB tab is still fenced: after another tab's version change it rereads the contract and fails with `Outdated`. A contract that cannot be read at all is refused if the table is persistent and wiped if disposable, by the stored mode or, when that cannot be read either, the current one.
 
 ## Considered Options
 

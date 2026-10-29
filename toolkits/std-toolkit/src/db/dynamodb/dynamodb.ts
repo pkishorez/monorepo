@@ -1,4 +1,4 @@
-import { Effect, Layer } from 'effect';
+import { type Duration, Effect, Layer } from 'effect';
 import type {
   BackfillFailed,
   SetupOptions,
@@ -68,7 +68,12 @@ const make = <Name extends string>(
 const setup = (
   table: SetupOptions['table'],
   config: DynamoDBConfig,
-  options: { readonly mode: TableMode; readonly pageSize?: number },
+  options: {
+    readonly mode: TableMode;
+    readonly pageSize?: number;
+    /** How long to wait for each new global secondary index; 30 minutes by default. */
+    readonly indexWait?: Duration.Input;
+  },
 ): Effect.Effect<
   SetupOutcome,
   DynamoDBNativeError | SetupRefused | BackfillFailed | OperationFailure
@@ -81,6 +86,9 @@ const setup = (
     mode: options.mode,
     store: makeTableContract(client, table, config.tableName),
     ...(options.pageSize === undefined ? {} : { pageSize: options.pageSize }),
+    ...(options.indexWait === undefined
+      ? {}
+      : { indexWait: options.indexWait }),
   });
 };
 
@@ -118,5 +126,6 @@ export const DynamoDB = {
 
 export {
   DynamoDBNativeError,
+  GlobalIndexNotReady,
   type DynamoTableTopology,
 } from './setup/index.js';

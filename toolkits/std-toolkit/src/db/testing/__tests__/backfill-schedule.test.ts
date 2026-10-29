@@ -22,7 +22,7 @@ const Project = EntityESchema.make('Project', 'projectId', {
   .build();
 
 describe('expectTableShippable over the schedule of every Backfill', () => {
-  it('fails a schedule setup refuses to order, naming the Backfills', async () => {
+  it('refuses at build a schedule setup could not order, naming the Backfills', () => {
     const Area = EntityESchema.make('Area', 'areaId', { name: Schema.String })
       .evolve('v2', { code: Schema.String })
       .evolve('v3', { label: Schema.String })
@@ -30,30 +30,31 @@ describe('expectTableShippable over the schedule of every Backfill', () => {
     const Zone = EntityESchema.make('Zone', 'zoneId', { name: Schema.String })
       .evolve('v2', { code: Schema.String })
       .build();
-    const table = StdTable.make('regions')
-      .primary('pk', 'sk')
-      .entity(Area, (e) => e.primary())
-      .entity(Zone, (e) => e.primary())
-      .backfill('area-code', {
-        entity: 'Area',
-        to: 'v2',
-        run: (area) => Effect.succeed({ ...area, code: 'a' }),
-      })
-      .backfill('zone-code', {
-        entity: 'Zone',
-        to: 'v2',
-        after: ['area-code'],
-        run: (zone) => Effect.succeed({ ...zone, code: 'z' }),
-      })
-      .backfill('area-label', {
-        entity: 'Area',
-        to: 'v3',
-        after: ['zone-code'],
-        run: (area) => Effect.succeed({ ...area, label: 'l' }),
-      })
-      .build();
-    await expect(expectTableShippable(table, never)).rejects.toThrow(
-      /Every Backfill pending at once[^\n]*setup refuses to order them: [^\n]*cycle[^\n]*"area-code"[^\n]*"zone-code"[^\n]*"area-label"/,
+    const declare = () =>
+      StdTable.make('regions')
+        .primary('pk', 'sk')
+        .entity(Area, (e) => e.primary())
+        .entity(Zone, (e) => e.primary())
+        .backfill('area-code', {
+          entity: 'Area',
+          to: 'v2',
+          run: (area) => Effect.succeed({ ...area, code: 'a' }),
+        })
+        .backfill('zone-code', {
+          entity: 'Zone',
+          to: 'v2',
+          after: ['area-code'],
+          run: (zone) => Effect.succeed({ ...zone, code: 'z' }),
+        })
+        .backfill('area-label', {
+          entity: 'Area',
+          to: 'v3',
+          after: ['zone-code'],
+          run: (area) => Effect.succeed({ ...area, label: 'l' }),
+        })
+        .build();
+    expect(declare).toThrow(
+      /Table "regions" cannot run its Backfills: [^\n]*cycle[^\n]*"area-code"[^\n]*"zone-code"[^\n]*"area-label"/,
     );
   });
 
@@ -85,6 +86,45 @@ describe('expectTableShippable over the schedule of every Backfill', () => {
     );
     // Each one alone passes: only the schedule shows it.
     await expect(failure).rejects.not.toThrow(/^Backfill "/m);
+  });
+
+  it('starts each entity at its earliest gap, whatever order its Backfills were declared in', async () => {
+    const Area = EntityESchema.make('Area', 'areaId', { name: Schema.String })
+      .evolve('v2', { code: Schema.String })
+      .evolve('v3', { label: Schema.String })
+      .build();
+    const Zone = EntityESchema.make('Zone', 'zoneId', { name: Schema.String })
+      .evolve('v2', { code: Schema.String })
+      .build();
+    // Area's v2 Backfill reads every Zone, without waiting for Zone's own:
+    // only a database with v1 Areas and v1 Zones shows it.
+    const table = StdTable.make('regions')
+      .primary('pk', 'sk')
+      .entity(Area, (e) => e.primary())
+      .entity(Zone, (e) => e.primary())
+      .backfill('area-label', {
+        entity: 'Area',
+        to: 'v3',
+        run: (area) => Effect.succeed({ ...area, label: 'l' }),
+      })
+      .backfill('zone-code', {
+        entity: 'Zone',
+        to: 'v2',
+        run: (zone) => Effect.succeed({ ...zone, code: 'z' }),
+      })
+      .backfill('area-code', {
+        entity: 'Area',
+        to: 'v2',
+        run: (area, db) =>
+          Effect.map(
+            db.Zone.query('primary', { pk: {}, '>=': null }),
+            ({ items }) => ({ ...area, code: items[0]?.value.code ?? 'none' }),
+          ),
+      })
+      .build();
+    await expect(expectTableShippable(table, never)).rejects.toThrow(
+      /Every Backfill pending at once[^\n]*: Backfill "area-code" [^\n]*\n {2}stored Area row: [^\n]*"_v":"v1"/,
+    );
   });
 
   it('passes the same Backfills once the Task one runs after the Project one', async () => {

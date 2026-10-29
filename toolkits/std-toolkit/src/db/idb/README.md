@@ -22,6 +22,7 @@ See the [top README](../../../README.md).
 | `IDB.prune`      | Deletes every database under a prefix whose next `:` segment is not kept, and answers their names. |
 | `SetupRefused`   | Error raised when preparing a store is refused; nothing is changed.                                |
 | `BackfillFailed` | Error raised when a Backfill cannot rewrite a row; the contract stays as it was.                   |
+| `Outdated`       | Error every operation of a layer fails with once another tab set the database up under newer code. |
 
 ## Usage
 

@@ -24,18 +24,16 @@ import {
 export {
   captureContract,
   contractFromSnapshot,
-  type BackfillChoice,
   type CurrentContract,
   type StoredContract,
   type TableMode,
 } from './capture.js';
-export { SetupRefused, type SetupRefusedReason } from './refused.js';
 export {
-  planContract,
-  planSetup,
-  type ContractPlan,
-  type SetupPlan,
-} from './plan.js';
+  isOutdatedCode,
+  SetupRefused,
+  type SetupRefusedReason,
+} from './refused.js';
+export { planContract, type ContractPlan } from './plan.js';
 export { holdsAppRows, wipeRows as wipeTable } from './store.js';
 export { NO_ROWS, type BackfillProgress, type ContractRows } from './rows.js';
 

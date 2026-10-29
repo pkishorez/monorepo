@@ -133,8 +133,10 @@ filled.backfill('task-project', {
   to: 'v2',
   run: (task, db) => {
     // The view reads, and nothing else.
-    db.Task.query('byProject', { pk: { projectId: 'p1' }, '>': null });
+    db.Project.query('primary', { pk: {}, '>': null });
     db.Settings.get();
+    // @ts-expect-error not its own entity: another Task row may still be v1
+    void db.Task;
     // @ts-expect-error a Backfill reads other entities, never writes them
     db.Project.insert({ projectId: 'p2', ownerId: 'o', owner: 'o' });
     // @ts-expect-error a single entity is read-only too

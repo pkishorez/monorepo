@@ -143,6 +143,38 @@ describe('expectTableShippable', () => {
     ).rejects.toThrow(/ENOENT/);
   });
 
+  it('refuses an access pattern with no reindex, as setup does, even with -u', async () => {
+    const Task = EntityESchema.make('Task', 'taskId', {
+      boardId: Schema.String,
+      title: Schema.String,
+      address: Address.schema,
+    })
+      .evolve(
+        'v2',
+        { priority: Schema.Literals(['low', 'high']) },
+        (previous) => ({ ...previous, priority: 'low' as const }),
+      )
+      .build();
+    const withPattern = StdTable.make('board')
+      .primary('pk', 'sk')
+      .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+      .lsi('LSI1', 'LSI1SK')
+      .entity(Task, (e) =>
+        e
+          .primary({ pk: ['boardId'] })
+          .index('GSI1', 'byTitle', { pk: ['title'], sk: ['taskId'] })
+          .index('LSI1', 'byPriority', { sk: ['priority'] }),
+      )
+      .build();
+    await keepFixture();
+    await asIfUpdating(() =>
+      expect(expectTableShippable(withPattern, file)).rejects.toThrow(
+        /What setup refuses against .*board\.snapshot\.json[\s\S]*need a Backfill[\s\S]*byPriority[\s\S]*-u does not accept it/,
+      ),
+    );
+    expect(await readFile(fixture, 'utf8')).toBe(source);
+  });
+
   it('refuses a table with no registered entities', async () => {
     const table = StdTable.make('empty').primary('pk', 'sk').build();
     await expect(expectTableShippable(table, file)).rejects.toThrow(

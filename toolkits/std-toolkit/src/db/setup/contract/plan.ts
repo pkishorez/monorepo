@@ -1,10 +1,7 @@
 import { Effect } from 'effect';
+import { findOutdatedVersion } from '../../../eschema/index.js';
 import { TableSnapshot, type SnapshotChange } from '../../../snapshot/index.js';
-import type {
-  BackfillChoice,
-  CurrentContract,
-  StoredContract,
-} from './capture.js';
+import type { CurrentContract, StoredContract } from './capture.js';
 import type { OperationFailure } from '../../std-table/contract/index.js';
 import { SetupRefused, type SetupRefusedReason } from './refused.js';
 import {
@@ -14,91 +11,8 @@ import {
 } from './rows.js';
 import type { ContractRead } from './store.js';
 
-export type SetupPlan =
-  /** The stored contract matches: nothing to prepare beyond the topology. */
-  | { readonly kind: 'unchanged' }
-  /** Apply the topology and record the contract; `backfill` lists changes owed a backfill. */
-  | {
-      readonly kind: 'apply';
-      readonly backfill: readonly SnapshotChange[];
-    }
-  /** Disposable only: throw every row away, then apply and record. */
-  | { readonly kind: 'wipe'; readonly changes: readonly SnapshotChange[] };
-
 const isRejected = ({ impact }: SnapshotChange) =>
   impact === 'breaking' || impact === 'unverifiable';
-
-/**
- * Decides what setup does, from the stored contract (only its mode and hash
- * at first; the snapshot is loaded when the hash differs) and the current one.
- *
- * - A persistent table never becomes disposable, and never accepts a breaking
- *   or unverifiable change: setup fails and nothing is changed.
- * - A disposable table is wiped on a breaking or unverifiable change, and on
- *   one that needs a backfill unless the adapter can reindex.
- * - A change that needs a backfill passes on a persistent table with a warning.
- */
-export const planSetup = <R>(options: {
-  readonly current: CurrentContract;
-  readonly stored: Pick<StoredContract, 'mode' | 'hash'> | undefined;
-  readonly loadStoredSnapshot: Effect.Effect<unknown, unknown, R>;
-  /**
-   * What a change that needs a backfill does; by default a disposable table
-   * is wiped and a persistent one is kept. `keep` keeps either, for a target
-   * that can neither wipe nor reindex.
-   */
-  readonly backfill?: BackfillChoice | 'keep';
-}): Effect.Effect<SetupPlan, SetupRefused | unknown, R> =>
-  Effect.gen(function* () {
-    const { current, stored } = options;
-    const name = current.logicalName;
-    const mode = current.record.mode;
-    if (stored === undefined) {
-      yield* Effect.logInfo(
-        `std-toolkit: recorded the first contract of ${mode} table "${name}"`,
-      );
-      return { kind: 'apply', backfill: [] };
-    }
-    if (stored.mode === 'persistent' && mode === 'disposable')
-      return yield* Effect.fail(new SetupRefused(name, 'mode-change'));
-    if (stored.hash === current.record.hash && stored.mode === mode)
-      return { kind: 'unchanged' };
-
-    // Data written while the table was disposable stays disposable until
-    // this setup records it as persistent.
-    const dataIsDisposable = stored.mode === 'disposable';
-    const previous = yield* options.loadStoredSnapshot.pipe(
-      Effect.flatMap(TableSnapshot.parse),
-      Effect.result,
-    );
-    if (previous._tag === 'Failure') {
-      if (!dataIsDisposable)
-        return yield* Effect.fail(
-          new SetupRefused(name, 'unreadable', [], previous.failure),
-        );
-      return { kind: 'wipe', changes: [] };
-    }
-    const changes = TableSnapshot.diff(previous.success, current.snapshot);
-    const rejected = changes.filter(isRejected);
-    const backfill = changes.filter(
-      ({ impact }) => impact === 'requires-backfill',
-    );
-    if (rejected.length > 0) {
-      if (!dataIsDisposable)
-        return yield* Effect.fail(new SetupRefused(name, 'breaking', rejected));
-      return { kind: 'wipe', changes: rejected };
-    }
-    if (backfill.length > 0) {
-      const choice = options.backfill ?? (dataIsDisposable ? 'wipe' : 'keep');
-      if (dataIsDisposable && choice === 'wipe')
-        return { kind: 'wipe', changes: backfill };
-      if (choice !== 'reindex')
-        yield* Effect.logWarning(
-          `std-toolkit: table "${name}" has changes that need a backfill. Rows stored before them are missing from the new access patterns until they are reindexed:\n${TableSnapshot.renderChanges(backfill)}`,
-        );
-    }
-    return { kind: 'apply', backfill };
-  });
 
 /** What setup does with the table, decided before it changes anything. */
 export type ContractPlan =
@@ -158,6 +72,49 @@ const coveredBy = (
 };
 
 /**
+ * What the stored contract knows that the current one does not: a version
+ * of an ESchema, an entity, or a Backfill. Newer code wrote it, since a
+ * shipped version, entity or Backfill is never removed.
+ */
+const unknownToCode = (
+  stored: TableSnapshot,
+  current: TableSnapshot,
+): readonly string[] => {
+  const versions = new Map(
+    current.schemas.map(({ identity, versions }) => [
+      identity,
+      new Set(versions.map(({ version }) => version)),
+    ]),
+  );
+  const entities = new Set(current.entities.map(({ name }) => name));
+  const backfills = new Set(current.backfills.map(({ id }) => id));
+  return [
+    ...stored.entities
+      .filter(({ name }) => !entities.has(name))
+      .map(({ name }) => `entity ${name}`),
+    ...stored.schemas.flatMap(({ identity, versions: storedVersions }) =>
+      storedVersions
+        .filter(({ version }) => versions.get(identity)?.has(version) !== true)
+        .map(({ version }) => `${identity} ${version}`),
+    ),
+    ...stored.backfills
+      .filter(({ id }) => !backfills.has(id))
+      .map(({ id }) => `Backfill "${id}"`),
+  ];
+};
+
+const outdatedCode = (name: string, unknown: readonly string[] | undefined) =>
+  new SetupRefused(
+    name,
+    'outdated-code',
+    [],
+    undefined,
+    unknown === undefined
+      ? 'Its Stored contract is written in a newer format.'
+      : `Its Stored contract knows what this code does not: ${unknown.join(', ')}. If this code removed them on purpose, that is a breaking change: a shipped version, entity or Backfill is never removed.`,
+  );
+
+/**
  * Decides what setup does from the Stored contract's rows and the current
  * contract (ADR 0019, 0021):
  *
@@ -166,8 +123,15 @@ const coveredBy = (
  * - A persistent table never becomes disposable, and refuses a breaking or
  *   unverifiable change, and one needing a Backfill that no pending Backfill
  *   covers.
- * - A disposable table never runs a Backfill: any change its rows cannot take
- *   wipes it.
+ * - A disposable table never runs a Backfill: any change its rows cannot
+ *   take, and any pending Backfill (a gap or a reindex), wipes it.
+ * - A contract that cannot be read is refused if the table is persistent and
+ *   wiped if disposable, by the stored mode or, when that cannot be read
+ *   either, the current one.
+ * - A persistent table whose contract newer code wrote (it knows a version,
+ *   entity or Backfill this code does not, or is in a newer format) is
+ *   refused as `outdated-code`. A disposable table is wiped, as for any
+ *   change that is not safe.
  * - A change the adapter's topology cannot make is refused in either mode.
  */
 export const planContract = (options: {
@@ -191,7 +155,9 @@ export const planContract = (options: {
         ? mode === 'disposable'
         : options.storedMode === 'disposable';
     if (read.kind === 'unreadable') {
-      if (options.storedMode !== 'disposable')
+      if (!dataIsDisposable && findOutdatedVersion(read.cause) !== undefined)
+        return yield* Effect.fail(outdatedCode(name, undefined));
+      if (!dataIsDisposable)
         return yield* Effect.fail(
           new SetupRefused(name, 'unreadable', [], read.cause),
         );
@@ -214,6 +180,11 @@ export const planContract = (options: {
       Effect.result,
     );
     if (parsed._tag === 'Failure') {
+      if (
+        !dataIsDisposable &&
+        findOutdatedVersion(parsed.failure) !== undefined
+      )
+        return yield* Effect.fail(outdatedCode(name, undefined));
       if (!dataIsDisposable)
         return yield* Effect.fail(
           new SetupRefused(name, 'unreadable', [], parsed.failure),
@@ -221,6 +192,15 @@ export const planContract = (options: {
       return { kind: 'wipe', changes: [] };
     }
     const changes = TableSnapshot.diff(parsed.success, current.snapshot);
+    // Old code meeting a persistent table newer code set up: the diff would
+    // read as removals and refuse them as breaking, when the fix is to run
+    // the newer code. A disposable table takes them as any unsafe change, and
+    // is wiped.
+    if (!dataIsDisposable) {
+      const unknown = unknownToCode(parsed.success, current.snapshot);
+      if (unknown.length > 0)
+        return yield* Effect.fail(outdatedCode(name, unknown));
+    }
     const refusal = changes.flatMap((change) => {
       const reason = options.refuses?.(change);
       return reason === undefined ? [] : [{ change, reason }];
@@ -233,21 +213,6 @@ export const planContract = (options: {
           refusal.map(({ change }) => change),
         ),
       );
-    const unsafe = changes.filter(({ impact }) => impact !== 'safe');
-    if (dataIsDisposable)
-      return unsafe.length > 0
-        ? { kind: 'wipe', changes: unsafe }
-        : {
-            kind: 'apply',
-            previous: parsed.success,
-            changes,
-            pending: [],
-            progress: [],
-            stored: read.rows,
-          };
-    const rejected = changes.filter(isRejected);
-    if (rejected.length > 0)
-      return yield* Effect.fail(new SetupRefused(name, 'breaking', rejected));
     // Progress counts only if a committed contract lists its Backfill as
     // done, or it was made toward this very contract: a Backfill that ran
     // for an upgrade that never committed, toward a contract since changed,
@@ -272,6 +237,24 @@ export const planContract = (options: {
     const pending = current.snapshot.backfills.filter(
       ({ id }) => !trusted.has(id),
     );
+    const unsafe = changes.filter(({ impact }) => impact !== 'safe');
+    // A Backfill exists because derived rows are wrong until it runs: a
+    // reindex beside a migration that changes an indexed field classifies
+    // every change as safe, and still leaves queries missing rows.
+    if (dataIsDisposable)
+      return unsafe.length > 0 || pending.length > 0
+        ? { kind: 'wipe', changes: unsafe.length > 0 ? unsafe : changes }
+        : {
+            kind: 'apply',
+            previous: parsed.success,
+            changes,
+            pending: [],
+            progress: [],
+            stored: read.rows,
+          };
+    const rejected = changes.filter(isRejected);
+    if (rejected.length > 0)
+      return yield* Effect.fail(new SetupRefused(name, 'breaking', rejected));
     // A Backfill covers a change until a committed contract lists it: one
     // that finished during this upgrade, before a later step failed, still
     // does, or a retry could never resume.

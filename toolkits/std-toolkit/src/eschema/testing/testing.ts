@@ -56,7 +56,7 @@ class UpgradeFailure extends Data.TaggedError('UpgradeFailure')<{
 }> {}
 
 /** One stored row of a version: the value it was written from, and its encoded form. */
-interface StoredRow {
+export interface StorableRow {
   readonly value: unknown;
   readonly stored: unknown;
 }
@@ -110,7 +110,7 @@ const stamp = (
 const storedRows = (
   introspection: ESchemaIntrospection,
   index: number,
-): Arbitrary.Arbitrary<StoredRow> => {
+): Arbitrary.Arbitrary<StorableRow> => {
   const { kind, evolutions } = introspection;
   const { version } = evolutions[index]!;
   const schema = evolutions[index]!.schema as Schema.Codec<unknown, unknown>;
@@ -125,6 +125,24 @@ const storedRows = (
         : Result.fail(value);
     }),
   );
+};
+
+/**
+ * Rows `version` of `eschema` can store, as the upgrade check generates
+ * them: values valid at that version, encoded with its own fields, stamped
+ * with it, and portable as JSON.
+ */
+export const storableRows = (
+  eschema: AnyEvolvingSchema,
+  version: string,
+): Arbitrary.Arbitrary<StorableRow> => {
+  const introspection = inspectESchema(eschema);
+  const index = introspection.evolutions.findIndex(
+    (evolution) => evolution.version === version,
+  );
+  if (index === -1)
+    throw new Error(`${introspection.name} has no version ${version}`);
+  return storedRows(introspection, index);
 };
 
 const step = <A, E>(stage: Stage, effect: Effect.Effect<A, E>) =>
@@ -189,7 +207,7 @@ const waitsForBackfill =
     gap: string,
     unchanged: readonly string[],
   ) =>
-  ({ value, stored }: StoredRow) =>
+  ({ value, stored }: StorableRow) =>
     Effect.gen(function* () {
       const codec = eschema.schema as Schema.Codec<unknown, unknown>;
       const read = yield* Effect.exit(
@@ -225,7 +243,7 @@ const upgrades =
     index: number,
     unchanged: readonly string[],
   ) =>
-  ({ value, stored }: StoredRow) =>
+  ({ value, stored }: StorableRow) =>
     Effect.gen(function* () {
       const codec = eschema.schema as Schema.Codec<unknown, unknown>;
       const decode = Schema.decodeUnknownEffect(codec);
@@ -301,7 +319,7 @@ const checkVersion = (
       : version === latest
         ? `${name} ${version}`
         : `${name} ${version} → ${latest}`;
-  let rows: Arbitrary.Arbitrary<StoredRow>;
+  let rows: Arbitrary.Arbitrary<StorableRow>;
   try {
     rows = storedRows(introspection, index);
   } catch (cause) {

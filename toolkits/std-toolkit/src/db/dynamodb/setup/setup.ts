@@ -1,4 +1,4 @@
-import { Data, Effect, Schedule } from 'effect';
+import { Data, type Duration, Effect, Schedule } from 'effect';
 import {
   runSetup,
   type BackfillFailed,
@@ -86,6 +86,8 @@ export const setUpDynamoTable = (options: {
   /** The adapter's StdTable contract over the physical table. */
   readonly store: StdTableContract;
   readonly pageSize?: number;
+  /** How long to wait for each new global secondary index; 30 minutes by default. */
+  readonly indexWait?: Duration.Input;
 }): Effect.Effect<
   SetupOutcome,
   DynamoDBNativeError | SetupRefused | BackfillFailed | OperationFailure
@@ -100,6 +102,7 @@ export const setUpDynamoTable = (options: {
         options.client,
         options.table,
         options.tableName,
+        options.indexWait,
       ),
       ...(options.pageSize === undefined ? {} : { pageSize: options.pageSize }),
     });
@@ -107,4 +110,5 @@ export const setUpDynamoTable = (options: {
 
 /** Kept for callers that build the physical projection without a table. */
 export { getTableDefinition } from './table-definition.js';
+export { GlobalIndexNotReady } from './topology.js';
 export type { DynamoTableTopology } from './table-definition.js';

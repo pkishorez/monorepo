@@ -64,6 +64,7 @@
     "src/eschema/entity-eschema": ["src/eschema/domain"],
     "src/eschema/value-eschema": ["src/eschema/domain"],
     "src/eschema/testing": ["src/eschema/domain"],
+    "src/gap-steps": ["src/eschema/domain/encoded"],
     "src/snapshot/domain": ["src/eschema"],
     "src/snapshot/capture": ["src/snapshot/domain"],
     "src/snapshot/capture/eschema-capture": [
@@ -124,7 +125,8 @@
       "src/db/std-table/table",
       "src/snapshot",
       "src/eschema",
-      "src/core"
+      "src/core",
+      "src/gap-steps"
     ],
     "src/db/testing": [
       "src/db/memory",
@@ -134,7 +136,7 @@
       "src/db/std-table/entity",
       "src/db/std-table/error",
       "src/db/std-table/table",
-      "src/eschema",
+      "src/eschema/testing",
       "src/snapshot/vitest",
       "src/core"
     ],
@@ -175,7 +177,11 @@
       "src/db/std-table/table",
       "src/snapshot"
     ],
-    "src/alchemy/dynamodb": ["src/alchemy/deploy-guard", "src/db"],
+    "src/alchemy/dynamodb": [
+      "src/alchemy/deploy-guard",
+      "src/db/dynamodb",
+      "src/db/setup"
+    ],
     "src/sync/domain/collection-item": ["src/eschema", "src/core"],
     "src/sync/domain/stored-entity": ["src/db", "src/eschema"],
     "src/sync/store": ["src/sync/domain/stored-entity"],

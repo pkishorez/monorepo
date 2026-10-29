@@ -6,6 +6,7 @@ import { EntityESchema } from '../../../eschema/index.js';
 import { StdTable } from '../../index.js';
 import {
   IDB,
+  Outdated,
   SetupRefused,
   type IDBTableSource,
   type TableMode,
@@ -262,7 +263,9 @@ describe('IndexedDB setup', () => {
 
   it('deletes an index the table no longer declares', async () => {
     const factory = new IDBFactory();
-    await setup(factory, indexedTasks(), 'disposable');
+    // Created with its index, so it ships no Backfill: one dropped would
+    // read as older code.
+    await setup(factory, indexedWithoutBackfill(), 'disposable');
 
     await setup(factory, tasks(), 'disposable');
 
@@ -425,5 +428,113 @@ describe('two IndexedDB tabs opening at once', () => {
       'unchanged',
     ]);
     expect((await indexNames(factory)).sort()).toEqual(['GSI1', '_entity']);
+  });
+});
+
+// One tab's layer, kept for the tab's lifetime as an app keeps it.
+const layerInTab = (factory: IDBFactory, table: AnyTable, mode: TableMode) =>
+  IDB.make(table, {
+    database: IDB.database({ databaseName: 'app', indexedDB: tab(factory) }),
+    mode,
+  }).layer;
+
+const failureOf = (exit: Exit.Exit<unknown, unknown>) =>
+  Exit.isFailure(exit)
+    ? exit.cause.reasons.find((reason) => reason._tag === 'Fail')?.error
+    : undefined;
+
+const outdatedCause = (exit: Exit.Exit<unknown, unknown>) =>
+  (failureOf(exit) as { reason?: { cause?: unknown } } | undefined)?.reason
+    ?.cause;
+
+describe('an IndexedDB tab running older code', () => {
+  it('stops writing once another tab commits a Backfill', async () => {
+    const factory = new IDBFactory();
+    const oldTable = tasks();
+    const oldTab = layerInTab(factory, oldTable, 'persistent');
+    const insert = (taskId: string) =>
+      Effect.runPromise(
+        Effect.exit(
+          oldTable.Task.insert({ taskId, title: 'Write' }).pipe(
+            Effect.provide(oldTab),
+          ),
+        ),
+      );
+    expect(Exit.isSuccess(await insert('t1'))).toBe(true);
+    const version = await versionOf(factory);
+
+    // A gap version with no index change still takes a new version.
+    await setupInTab(factory, ownedTasks([]));
+    expect(await versionOf(factory)).toBe(version + 1);
+
+    const exit = await insert('t2');
+    expect(outdatedCause(exit)).toBeInstanceOf(Outdated);
+    // Closed for good: the next operation fails the same way.
+    expect(outdatedCause(await insert('t3'))).toBeInstanceOf(Outdated);
+    const records = (await appRecords(factory)) as unknown as {
+      readonly _v: string;
+    }[];
+    expect(records.map(({ _v }) => _v)).toEqual(['v2']);
+  });
+
+  it('keeps writing when another tab only adds another store', async () => {
+    const factory = new IDBFactory();
+    const table = tasks();
+    const firstTab = layerInTab(factory, table, 'persistent');
+    const insert = (taskId: string) =>
+      Effect.runPromise(
+        table.Task.insert({ taskId, title: 'Write' }).pipe(
+          Effect.provide(firstTab),
+        ),
+      );
+    await insert('t1');
+
+    const notes = StdTable.make('notes').primary('pk', 'sk').build();
+    await Effect.runPromise(
+      IDB.setup(notes, {
+        database: IDB.database({
+          databaseName: 'app',
+          indexedDB: tab(factory),
+        }),
+        mode: 'persistent',
+      }),
+    );
+
+    await insert('t2');
+    expect(await appRecords(factory)).toHaveLength(2);
+  });
+
+  it('wipes a disposable store newer code set up when old code opens it, and the newer code wipes it again', async () => {
+    const factory = new IDBFactory();
+    const newTable = ownedTasks([]);
+    await Effect.runPromise(
+      newTable.Task.insert({ taskId: 't1', title: 'Write', owner: 'ann' }).pipe(
+        Effect.provide(layerInTab(factory, newTable, 'disposable')),
+      ),
+    );
+
+    // A fresh old tab: a disposable store's data is thrown away when not safe.
+    const oldTable = tasks();
+    await Effect.runPromise(
+      oldTable.Task.insert({ taskId: 't2', title: 'Write' }).pipe(
+        Effect.provide(layerInTab(factory, oldTable, 'disposable')),
+      ),
+    );
+    const afterOld = (await appRecords(factory)) as unknown as {
+      readonly _v: string;
+      readonly data: { readonly taskId: string };
+    }[];
+    expect(afterOld.map(({ _v, data }) => [data.taskId, _v])).toEqual([
+      ['t2', 'v1'],
+    ]);
+
+    // The newer code's next open meets a removed version, and wipes again.
+    const reopened = await Effect.runPromise(
+      newTable.Task.get({ taskId: 't2' }).pipe(
+        Effect.provide(layerInTab(factory, newTable, 'disposable')),
+      ),
+    );
+    expect(reopened).toBeNull();
+    expect(await appRecords(factory)).toEqual([]);
   });
 });

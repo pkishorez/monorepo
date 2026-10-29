@@ -27,8 +27,12 @@ A secondary index that simply skips **Records** missing its key fields — Index
 Primary, LSI, and GSI access patterns observe the latest committed IndexedDB state available to the transaction.
 
 **Auto-versioned setup**:
-The setup discipline where the adapter owns the database's version number, bumping it only when a declared **Store** or **Sparse index** is missing, incompatible or no longer declared. An index changes only inside the upgrade of a new version, whose transaction closes as soon as it waits on anything else, so the shared [[db]] **Adapter setup** runs on ordinary transactions and its topology step closes the connection and opens the next version to create or delete indexes; **Backfill**s run after it. A missing Store holds nothing, so it is created whole before setup reads its **Stored contract** from it. Setups of one database run one at a time across tabs under a Web Lock when the browser has one. A database name given to this adapter belongs to it; no other code may version that database. A `_std_contract` store an older version of the toolkit left is ignored.
+The setup discipline where the adapter owns the database's version number, bumping it when a declared **Store** or **Sparse index** is missing, incompatible or no longer declared, and for every change to a Store's **Stored contract**, so every other tab's connection sees the change before a **Backfill** runs. An index changes only inside the upgrade of a new version, whose transaction closes as soon as it waits on anything else, so the shared [[db]] **Adapter setup** runs on ordinary transactions and its topology step closes the connection and opens the next version to create or delete indexes; **Backfill**s run after it. A missing Store holds nothing, so it is created whole before setup reads its **Stored contract** from it. Setups of one database run one at a time across tabs under a Web Lock when the browser has one. A database name given to this adapter belongs to it; no other code may version that database. A `_std_contract` store an older version of the toolkit left is ignored.
 _Avoid_: migration, manual upgrade.
+
+**Outdated**:
+What an **IDB adapter table** fails every operation with once its code is older than the database: another tab changed the version and the Store's **Stored contract** is no longer the one this layer set up, or setup found a persistent Store set up by newer code (a disposable one is wiped instead). After any version change from another connection, the layer's next operation rereads the contract under the setup lock; if it still matches, the layer carries on, so a tab adding another Store stops nothing. Once Outdated, the layer never reopens: the page must reload.
+_Avoid_: stale tab, blocked.
 
 **Buffered transaction**:
 The atomicity model for `transact()`: operations are validated into plain descriptors first, then applied together in one native IndexedDB transaction. There is no interactive begin/commit — IndexedDB transactions cannot span foreign async work.
@@ -38,4 +42,4 @@ _Avoid_: begin/commit/rollback, session.
 The concurrency stance for read-modify-write: the write re-checks the **Record**'s `_u` inside the **Buffered transaction** and fails if another writer (e.g. a second browser tab) got there first. The caller retries.
 _Avoid_: locking, last-write-wins.
 
-IndexedDB failures are normalized into the shared [[db]] `DatabaseError` as an `OperationFailed` reason whose `cause` retains the browser error.
+IndexedDB failures are normalized into the shared [[db]] `DatabaseError` as an `OperationFailed` reason whose `cause` retains the browser error, or the **Outdated** error.

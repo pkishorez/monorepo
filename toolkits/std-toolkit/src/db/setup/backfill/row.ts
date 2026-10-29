@@ -1,10 +1,7 @@
 import { Data, Effect, type Layer } from 'effect';
 import { nextUlid } from '../../../core/index.js';
-import {
-  migrateToGap,
-  readToGap,
-  type AnyESchema,
-} from '../../../eschema/index.js';
+import type { AnyESchema } from '../../../eschema/index.js';
+import { migrateToGap, readToGap } from '../../../gap-steps/index.js';
 import {
   ConditionFailure,
   OperationFailure,
@@ -29,6 +26,42 @@ export class BackfillFailed extends Data.TaggedError('BackfillFailed')<{
   readonly cause?: unknown;
 }> {}
 
+/** A failure as one line: a DatabaseError says nothing until its reason does. */
+const describe = (cause: unknown, depth = 0): string => {
+  if (depth > 4) return String(cause);
+  if (cause !== null && typeof cause === 'object') {
+    const { _tag, reason, message } = cause as {
+      _tag?: unknown;
+      reason?: unknown;
+      message?: unknown;
+    };
+    if (
+      _tag === 'DatabaseError' &&
+      reason !== null &&
+      typeof reason === 'object'
+    ) {
+      const detail = reason as {
+        _tag?: unknown;
+        entity?: unknown;
+        message?: unknown;
+        cause?: unknown;
+      };
+      return [
+        `DatabaseError ${String(detail._tag)}`,
+        ...(typeof detail.entity === 'string' ? [` on ${detail.entity}`] : []),
+        ...(typeof detail.message === 'string' && detail.message !== ''
+          ? [`: ${detail.message}`]
+          : detail.cause === undefined
+            ? []
+            : [`: ${describe(detail.cause, depth + 1)}`]),
+      ].join('');
+    }
+    if (typeof message === 'string' && message !== '') return message;
+    if (typeof _tag === 'string') return _tag;
+  }
+  return String(cause);
+};
+
 const backfillFailed = (
   backfill: string,
   item: StoredKey,
@@ -38,9 +71,9 @@ const backfillFailed = (
   new BackfillFailed({
     message: `std-toolkit: Backfill "${backfill}" failed on row ${JSON.stringify([item.pk, item.sk])}: ${
       reason === 'run'
-        ? `its run failed: ${cause instanceof Error ? cause.message : String(cause)}`
+        ? `its run failed: ${describe(cause)}`
         : reason === 'unreadable'
-          ? `the row cannot be read: ${cause instanceof Error ? cause.message : String(cause)}`
+          ? `the row cannot be read: ${describe(cause)}`
           : reason === 'key-changed'
             ? `its value derives a different key ${String(cause)}; an entity key never changes (delete and insert instead)`
             : 'the row changed under it twice'
@@ -62,6 +95,7 @@ export interface RowContext {
   readonly gaps: ReadonlyMap<string, BackfillDeclaration>;
   /** The stage's reindexes of the entity; each checks every row. */
   readonly reindexes: readonly BackfillDeclaration[];
+  /** Every entity but this stage's own, read-only: its rows may still be old. */
   readonly reads: object;
   /** The Backfill named when a row fails outside any one Backfill's step. */
   readonly first: string;

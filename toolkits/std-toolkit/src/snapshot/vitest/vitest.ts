@@ -12,6 +12,13 @@ export interface SnapshotFileOptions {
    * written.
    */
   readonly refusals?: readonly string[];
+  /**
+   * More refusals, judged against the committed file's snapshot, such as
+   * setup's own plan from it; not called when there is no file yet.
+   */
+  readonly refusalsAgainst?: (
+    committed: TableSnapshot,
+  ) => Promise<readonly string[]>;
 }
 
 // A file the toolkit cannot read is never replaced, not even under `-u`: it is
@@ -92,6 +99,9 @@ export async function expectSnapshotFile(
   const refused = [
     ...(options.refusals ?? []),
     ...breakingSection(file, changes),
+    ...(prior === undefined || options.refusalsAgainst === undefined
+      ? []
+      : await options.refusalsAgainst(prior)),
   ];
   if (refused.length > 0) {
     throw new Error(
@@ -109,7 +119,7 @@ export async function expectSnapshotFile(
           '',
           TableSnapshot.renderChanges(changes),
           '',
-          `These changes keep every stored row readable. Run vitest with -u to accept them into ${file}.`,
+          `Nothing refuses these changes. Run vitest with -u to accept them into ${file}.`,
         ].join('\n');
   await expect(await serialize(current), message).toMatchFileSnapshot(path);
 }

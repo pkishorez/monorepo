@@ -147,6 +147,11 @@ const credentialsFromEnv = (): DynamoDBCredentialsInput => () => {
  * only by replacing the table; the way past is a new `DynamoDB.table`
  * resource with its own id and table name. Removing the resource leaves
  * the table and its data.
+ *
+ * Bind the result's `tableName` into the Worker's env and build the adapter
+ * from it (`DynamoDB.make(table, { tableName, ... })`). The Worker then
+ * depends on this resource, so Alchemy deploys it only after setup and its
+ * Backfills.
  */
 const table = (id: string, options: DynamoDBTableOptions) =>
   Effect.gen(function* () {

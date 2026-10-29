@@ -221,12 +221,13 @@ export const Worker = Cloudflare.Website.Vite(
   'Worker',
   Effect.gen(function* () {
     const database = yield* Database;
-    yield* D1.table('ConsoleTable', {
+    const table = yield* D1.table('ConsoleTable', {
       table: consoleTable,
       database,
       mode: 'persistent',
     });
-    return { env: { DB: Database } };
+    // Binding the table's name makes the Worker wait for its setup.
+    return { env: { DB: Database, DB_TABLE: table.tableName } };
   }),
 );
 
@@ -244,9 +245,10 @@ export default Stack(
 ```
 
 - `D1.table` registers a table resource whose provider runs SQLite setup in D1 at deploy. Setup checks the Stored contract kept in the table, which is the baseline, before creating the table, reconciling indexes and running Backfills.
+- The Worker binds `table.tableName`, so it depends on the table resource and goes live only after setup and its Backfills. A Worker that binds only `DB` may deploy in parallel with them.
 - A disposable D1 table is wiped at deploy on a change its rows cannot take, a Backfill included. A persistent table never becomes disposable.
-- `DynamoDB.table` works the same way on AWS: its resource creates a missing table and runs DynamoDB setup against the Stored contract inside it. It takes the `region`, and `credentials` or the `AWS_*` variables.
-- At runtime the application provides an adapter layer, `SQLite.make(table, { database }).layer`, and runs no setup.
+- `DynamoDB.table` works the same way on AWS: its resource creates a missing table and runs DynamoDB setup against the Stored contract inside it. It takes the `region`, and `credentials` or the `AWS_*` variables. The Worker binds its `tableName` the same way, and needs it anyway: a DynamoDB table name never defaults.
+- At runtime the application provides an adapter layer, `SQLite.make(table, { database: makeD1SQLite({ database: env.DB }), tableName: env.DB_TABLE }).layer`, and runs no setup.
 - An IndexedDB or Durable Object table is set up when it opens; `DeployGuard.table(table)` in the stack refuses at deploy what that setup would refuse.
 
 ### Fill a field no old row holds

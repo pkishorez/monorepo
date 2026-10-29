@@ -29,8 +29,6 @@ See the [top README](../../README.md).
 | `NeedsBackfill`       | Tagged error raised when a value is older than a gap version and waits for a Backfill.             |
 | `findNeedsBackfill`   | Finds the `NeedsBackfill` inside any failure, such as an Effect Schema error.                      |
 | `gapVersions`         | Lists the gap versions of an ESchema, oldest first.                                                |
-| `readToGap`           | Reads a stored value and migrates it up to the version just before the next gap, for a Backfill.   |
-| `migrateToGap`        | Runs the migrations after a given version, up to the next gap, on a value a Backfill returned.     |
 | `eschemaOf`           | The ESchema whose `schema` a schema is, or undefined; tells a versioned boundary from a plain one. |
 | `checkAnnotation`     | Names a check the built-in catalogue does not know, so a snapshot can list it.                     |
 | `SnapshotTypeSchema`  | Effect Schema for the snapshot type language that describes a field's stored shape.                |
@@ -43,6 +41,7 @@ Test helpers, for any test runner.
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `expectUpgradable`    | Generates rows every version of a schema and its nested schemas could store, and fails if any does not read at the latest version, or a path named in `unchanged` changes. |
 | `findUpgradeFailures` | The same check as an Effect over several schemas, returning one report entry per failing version.                                                                          |
+| `storableRows`        | Generates the rows one version of a schema could store, each value with its encoded form, as the upgrade check does.                                                       |
 
 Every built schema exposes `name`, `latestVersion`, `schema`, `getDescriptor`, the `Type` and `Encoded` type carriers, and the Standard Schema `~standard` interface, which checks a latest value. `schema` is the Effect Schema that reads any known version, migrates it, and writes the latest with `_v`; nest it inside another schema or use it at a boundary. `ESchema` and `EntityESchema` add `fields` and `entity`, the Effect Schema for a whole `{ value, meta }` Entity with `_v` in its meta. `EntityESchema` adds `idField`; `ESchema` adds `singleEntity`, the same for a singleton Entity.
 

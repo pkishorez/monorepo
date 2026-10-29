@@ -9,6 +9,7 @@ import {
   findBackfillFailures,
   type BackfillCheckOptions,
 } from './backfill-check.js';
+import { findContractRefusals } from './contract-check.js';
 
 /** How many rows to generate, and from which seed; for upgrades and Backfills alike. */
 export type ShippableOptions = BackfillCheckOptions;
@@ -42,11 +43,14 @@ const section = (
  *   (with the other entities empty, and holding generated rows), brings each
  *   row to the latest version with its id and partition key kept;
  * - the table snapshot has no breaking change against the committed file;
+ * - setup, planning from the committed file as a persistent table's Stored
+ *   contract, would accept the change: every change that needs a Backfill
+ *   has a new one that covers it, and the pending ones can be ordered;
  * - the committed file is up to date.
  *
- * `vitest -u` writes the file only for changes that are safe or need a
- * Backfill. It never accepts a breaking change, a failing upgrade or a
- * failing Backfill.
+ * `vitest -u` writes the file only for changes setup accepts. It never
+ * accepts a breaking change, a change no Backfill covers, a failing upgrade
+ * or a failing Backfill.
  */
 export async function expectTableShippable(
   table: StdTable,
@@ -77,5 +81,11 @@ export async function expectTableShippable(
         'A Backfill must succeed for every row, whatever the other entities hold, and keep its id and partition key. Fix the Backfill. Running vitest with -u does not change this.',
       ),
     ],
+    refusalsAgainst: async (committed) =>
+      section(
+        `What setup refuses against ${file}:`,
+        await Effect.runPromise(findContractRefusals(table, committed)),
+        'Setup refuses it on every persistent table, so running vitest with -u does not accept it.',
+      ),
   });
 }

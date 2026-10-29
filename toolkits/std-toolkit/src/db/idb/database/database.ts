@@ -15,14 +15,34 @@ export interface IDBConnection {
   /** The database's name, which names the lock its setups share across tabs. */
   readonly databaseName: string;
   readonly compare: (left: IDBValidKey, right: IDBValidKey) => number;
+  /**
+   * The open database. After another connection changes the version, the
+   * next call opens the new one; a table layer checks its contract first.
+   */
   readonly open: () => Promise<IDBDatabase>;
-  /** Creates the store, with these indexes, only when it is missing. */
+  /**
+   * How many times another connection, such as another tab's setup, has
+   * changed the version under this one.
+   */
+  readonly versionChanges: () => number;
+  /**
+   * Creates the store, with these indexes, only when it is missing, and
+   * answers whether it did.
+   */
   readonly createStore: (
     storeName: string,
     indexes: readonly IDBIndexDefinition[],
-  ) => Effect.Effect<void, unknown>;
+  ) => Effect.Effect<boolean, unknown>;
   /** Creates the store when missing and makes its indexes exactly these. */
   readonly setup: (
+    storeName: string,
+    indexes: readonly IDBIndexDefinition[],
+  ) => Effect.Effect<void, unknown>;
+  /**
+   * Like `setup`, but always in a new version, so every other connection
+   * sees a version change: what a change to the Stored contract needs.
+   */
+  readonly changeVersion: (
     storeName: string,
     indexes: readonly IDBIndexDefinition[],
   ) => Effect.Effect<void, unknown>;
@@ -103,6 +123,7 @@ const isVersionError = (cause: unknown) =>
 const makeConnection = (configuration: IDBDatabaseConfig): IDBConnection => {
   let current: Promise<IDBDatabase> | undefined;
   let generation = 0;
+  let versionChanges = 0;
   const open = (
     version?: number,
     upgrade?: Parameters<typeof openDatabase>[3],
@@ -110,6 +131,7 @@ const makeConnection = (configuration: IDBDatabaseConfig): IDBConnection => {
     const factory = resolveFactory(configuration);
     const openedGeneration = ++generation;
     const invalidate = () => {
+      versionChanges++;
       if (generation === openedGeneration) current = undefined;
     };
     const opened = openDatabase(
@@ -146,10 +168,15 @@ const makeConnection = (configuration: IDBDatabaseConfig): IDBConnection => {
     databaseName: configuration.databaseName,
     compare: (left, right) => resolveFactory(configuration).cmp(left, right),
     open: getCurrent,
+    versionChanges: () => versionChanges,
     createStore: (storeName, indexes) =>
       attempt(() => setup.createStore(storeName, indexes)),
     setup: (storeName, indexes) =>
-      attempt(() => setup.setup(storeName, indexes)),
+      attempt(() => setup.setup(storeName, indexes)).pipe(Effect.asVoid),
+    changeVersion: (storeName, indexes) =>
+      attempt(() => setup.changeVersion(storeName, indexes)).pipe(
+        Effect.asVoid,
+      ),
   };
 };
 

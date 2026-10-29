@@ -28,16 +28,26 @@ import {
 // What every adapter runs before a table opens (ADR 0019, 0020, 0021):
 // read the Stored contract, plan, run the pending Backfills, record.
 
-export { BackfillFailed } from './backfill/index.js';
-// What adapters still call directly until they move to runSetup.
+export {
+  BackfillFailed,
+  BackfillOrderRefused,
+  planBackfills,
+  type Stage,
+} from './backfill/index.js';
+// What a check ahead of setup plans with, by setup's own rules: the table
+// test against its committed file, and the deploy guard against its state.
 export {
   captureContract,
   contractFromSnapshot,
-  planSetup,
+  isOutdatedCode,
+  NO_ROWS,
+  planContract,
+  recordContract,
+  rowsOfContract,
   SetupRefused,
-  type BackfillChoice,
+  type ContractPlan,
+  type ContractRows,
   type CurrentContract,
-  type SetupPlan,
   type SetupRefusedReason,
   type StoredContract,
   type TableMode,

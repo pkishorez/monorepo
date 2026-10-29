@@ -82,24 +82,30 @@ const contextOf = (
         .map((backfill) => [backfill.to!, backfill]),
     ),
     reindexes: stage.backfills.filter(({ kind }) => kind === 'reindex'),
-    reads: backfillReads(table),
+    reads: readsBesides(table, stage.entity),
     first: stage.backfills[0]!.id,
   };
 };
 
+const writeRefused = (method: string) => () =>
+  Effect.die(
+    new Error(
+      `std-toolkit: a Backfill's run called ${method}, but it may only read: setup writes the row it returns, and nothing else. Move the write into app code that runs after setup.`,
+    ),
+  );
+
 /**
- * The store a Backfill's `run` reads through: every get is strongly
- * consistent, and so is every query on the primary index or a local
- * secondary index, so a stage sees what an earlier one just rewrote. A
- * global secondary index cannot be read consistently on DynamoDB: a `run`
- * that depends on an entity an earlier stage rewrote should read it by
- * primary key or a local secondary index.
+ * The store a Backfill's `run` reads through, and only reads: every write
+ * dies. Every get is strongly consistent, and so is every query on the
+ * primary index or a local secondary index, so a stage sees what an earlier
+ * one just rewrote. A global secondary index cannot be read consistently on
+ * DynamoDB: a `run` that depends on an entity an earlier stage rewrote should
+ * read it by primary key or a local secondary index.
  */
 const consistentReads = (
   table: StdTable,
   store: StdTableContract,
 ): StdTableContract => ({
-  ...store,
   getItem: (key) => store.getItem(key, { consistent: true }),
   queryItems: (request) =>
     store.queryItems(
@@ -108,7 +114,21 @@ const consistentReads = (
         ? { ...request, consistent: true }
         : request,
     ),
+  scanItems: (request) => store.scanItems({ ...request, consistent: true }),
+  writeItem: writeRefused('writeItem'),
+  transactWriteItems: writeRefused('transactWriteItems'),
+  hardDeleteItem: writeRefused('hardDeleteItem'),
+  hardDeleteEntityItems: writeRefused('hardDeleteEntityItems'),
+  hardDeleteAllItems: writeRefused('hardDeleteAllItems'),
 });
+
+/** The entities a stage's `run` may read: every one but its own, whose rows may still be old. */
+const readsBesides = (table: StdTable, entity: string): object =>
+  Object.freeze(
+    Object.fromEntries(
+      Object.entries(backfillReads(table)).filter(([name]) => name !== entity),
+    ),
+  );
 
 interface Pass {
   readonly from: StoredKey | null;

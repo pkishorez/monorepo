@@ -18,9 +18,11 @@ import {
   addBackfill,
   addIndex,
   assertGapsFilled,
+  BackfillOrderRefused,
   copyTopology,
   declareSingleEntity,
   makeTopology,
+  planStages,
   startKeyedEntity,
   type AccessPatternMap,
   type BackfillDeclaration,
@@ -175,8 +177,10 @@ type EntityReads<E> =
       : never;
 
 /**
- * What a Backfill's `run` may do with the table: read any declared entity,
- * and nothing else. A Backfill writes only the row it returns.
+ * What a Backfill's `run` may do with the table: read the declared entities
+ * it is given, and nothing else; a write through the table dies. A Backfill
+ * writes only the row it returns. `run` is given every entity but the one it
+ * fills, whose other rows may not be filled yet.
  */
 export type BackfillReads<Entities> = {
   readonly [K in keyof Entities]: EntityReads<Entities[K]>;
@@ -195,7 +199,9 @@ interface GapBackfillOptions<
   readonly after?: readonly Ids[];
   readonly run: (
     value: ValueAt<SchemaOf<Entities[K]>, PreviousVersion<V & string>>,
-    db: BackfillReads<Entities>,
+    // Not its own entity: another row of it may still be at the old
+    // version, and reading one fails with NeedsBackfill on every retry.
+    db: BackfillReads<Omit<Entities, K>>,
   ) => Effect.Effect<
     ValueAt<SchemaOf<Entities[K]>, V>,
     unknown,
@@ -253,7 +259,7 @@ export interface BackfillsBuilder<
    *
    * - `{ entity, to, run }` fills gap version `to` of `entity`: `run` reads a
    *   row at the version before and returns its value at `to`, and may read
-   *   any entity through `db`.
+   *   every other entity through `db`, never its own, and write nothing.
    * - `{ reindex }` rewrites every row of a keyed entity so its index keys
    *   are current.
    *
@@ -403,6 +409,16 @@ const backfillsBuilder = (
   },
   build() {
     assertGapsFilled(declaration.entities, declaration.backfills);
+    // A database at the oldest versions owes every Backfill at once; one
+    // whose `after` chain makes two entities wait on each other never runs.
+    try {
+      planStages(declaration.backfills);
+    } catch (error) {
+      if (!(error instanceof BackfillOrderRefused)) throw error;
+      throw new Error(
+        `Table "${declaration.logicalName}" cannot run its Backfills: ${error.detail}. Change \`after\` so no two entities wait on each other.`,
+      );
+    }
     return decorateTable(declaration) as never;
   },
 });

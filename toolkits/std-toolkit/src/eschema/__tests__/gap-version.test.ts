@@ -6,14 +6,14 @@ import {
   ValueESchema,
   findNeedsBackfill,
   gapVersions,
-  migrateToGap,
-  readToGap,
   type ESchemaVersions,
   type GapVersions,
   type PreviousVersion,
   type VersionValue,
 } from '../index.js';
+import * as eschemaDoor from '../index.js';
 import { inspectESchema } from '../domain/introspection/index.js';
+import { migrateToGap, readToGap } from '../../gap-steps/index.js';
 import { expectUpgradable } from '../testing/index.js';
 
 // v2 adds a migrated field, v3 is a gap (an owner no v2 row can know), v4
@@ -80,6 +80,13 @@ describe('gap version', () => {
     expect(read({ ...atGap, _v: 'v4', label: 'kept' })).toEqual(
       Exit.succeed({ ...atGap, label: 'kept' }),
     );
+  });
+
+  it('keeps the steps between gaps off the public door', () => {
+    expect(Object.keys(eschemaDoor)).not.toContain('readToGap');
+    expect(Object.keys(eschemaDoor)).not.toContain('migrateToGap');
+    expect(Object.keys(eschemaDoor)).toContain('gapVersions');
+    expect(Object.keys(eschemaDoor)).toContain('NeedsBackfill');
   });
 
   it('readToGap migrates up to, not across, the next gap', () => {
