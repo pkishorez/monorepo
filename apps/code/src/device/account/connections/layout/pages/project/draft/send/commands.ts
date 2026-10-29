@@ -1,78 +1,117 @@
-import { Cause, Effect, Schema } from 'effect';
+import { Cause, Effect, Schema, Stream } from 'effect';
 import {
   type AskAnswer,
   AttachmentSchema,
   CodeClient,
+  type StartStepName,
 } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
 import { nextUlid } from '@kestack/std-toolkit/core';
 import { reasonOf } from '../../../../../connection/link/index.ts';
-import { SessionArrival, SharedCatalog } from '../../store.ts';
+import { Handover, SessionArrival, SharedCatalog } from '../../store.ts';
 import { Attached, wire } from '../draft.ts';
 
 /*
  * What the Draft asks of its Connection, over the socket the project page
- * Provides: start a session with its first message, send the next one,
- * or ask the session on the side; and of the project, to read its catalog
- * again.
+ * Provides: start a session with its first message, step by step, send
+ * the next one, or ask the session on the side; and of the project, to
+ * read its catalog again.
  */
 
+/** What a new session is started with: its first message, its agent, and where it runs. */
+export const StartArgs = Schema.Struct({
+  projectId: Schema.String,
+  /** The Harness Account it runs as. */
+  account: Schema.String,
+  model: Schema.String,
+  settings: Schema.Record(Schema.String, Schema.String),
+  text: Schema.String,
+  attachments: Schema.Array(AttachmentSchema),
+  /** The branch picked, local or Origin; null where the Project's folder is. */
+  branch: Schema.NullOr(Schema.String),
+  newWorktree: Schema.Boolean,
+});
+export type StartArgs = typeof StartArgs.Type;
+
+/** Chooses the id a new session starts under, a ULID, so it is known whatever the answer. */
+export const nameStart = Command.make('NameStart', {
+  run: () =>
+    Effect.map(nextUlid, (id) => ({ _tag: 'StartNamed' as const, id })),
+});
+
 /**
- * Starts a session already running its first message, under an id chosen
- * here, so the session is known whatever the answer. Started, it is moved
- * to. Refused by the Connection, for a project or an agent it does not have,
+ * Starts a session already running its first message, under the id chosen
+ * for it, and tells each StartStep as it comes. Started, the project page
+ * is told (`Handover`) before it is moved to. Refused by the Connection,
+ * for a project or an agent it does not have, or a git step that failed,
  * nothing was started, and the Draft says why. Any other way it ends, its
  * answer lost or the link down, it may well have started: it is moved to
- * once it shows among the Connection's sessions (`SessionArrival`), and if it
- * never does, the Draft says why, keeping what was written. Never asked
- * again, so it never starts twice, whatever Connect the Connection runs.
+ * once it shows among the Connection's sessions (`SessionArrival`), and if
+ * it never does, the Draft says why, keeping what was written. Run by the
+ * Draft's Worker while it starts; asked again with the same id, the
+ * Connection starts nothing twice.
  */
-export const startSession = Command.make('StartSession', {
-  args: Schema.Struct({
-    projectId: Schema.String,
-    /** The Harness Account it runs as. */
-    account: Schema.String,
-    model: Schema.String,
-    settings: Schema.Record(Schema.String, Schema.String),
-    text: Schema.String,
-    attachments: Schema.Array(AttachmentSchema),
-  }),
-  run: (args) =>
-    Effect.gen(function* () {
-      const id = yield* nextUlid;
-      const started = (sessionId: string) => ({
-        _tag: 'Started' as const,
-        sessionId,
-      });
-      const refused = (cause: Cause.Cause<unknown>) => ({
-        _tag: 'StartRefused' as const,
-        reason: whyOf(cause),
-      });
-      return yield* CodeClient.use((api) =>
-        api.startSession({ ...args, id }),
-      ).pipe(
-        Effect.map((session) => started(session.id)),
-        // Every way it fails, a lost answer's defect too; stopped, it ends.
-        Effect.catchCause((cause) =>
-          Cause.hasInterruptsOnly(cause)
-            ? Effect.interrupt
-            : refusedByConnection(Cause.squash(cause))
-              ? Effect.succeed(refused(cause))
-              : Effect.map(
-                  Effect.flatMap(SessionArrival, ({ arrived }) => arrived(id)),
-                  (came) => (came ? started(id) : refused(cause)),
-                ),
-        ),
-      );
-    }),
-});
+export const starting = (
+  id: string,
+  args: StartArgs,
+  send: (
+    message:
+      | {
+          readonly _tag: 'Stepped';
+          readonly step: StartStepName;
+          readonly state: 'running' | 'done';
+        }
+      | { readonly _tag: 'Started'; readonly sessionId: string }
+      | { readonly _tag: 'StartRefused'; readonly reason: string },
+  ) => Effect.Effect<void>,
+) => {
+  const started = (sessionId: string) =>
+    Effect.andThen(
+      Effect.flatMap(Handover, ({ started }) => started(sessionId)),
+      send({ _tag: 'Started', sessionId }),
+    );
+  return Stream.unwrap(
+    Effect.map(CodeClient, (api) => api.startSession({ ...args, id })),
+  ).pipe(
+    Stream.runFoldEffect(
+      () => false,
+      (_, step) =>
+        step._tag === 'Step'
+          ? Effect.as(
+              send({ _tag: 'Stepped', step: step.step, state: step.state }),
+              false,
+            )
+          : Effect.as(started(step.session.id), true),
+    ),
+    // Ended with no Session said: its answer was lost.
+    Effect.flatMap((came) =>
+      came ? Effect.void : Effect.fail(new Error('It ended before starting')),
+    ),
+    // Every way it fails, a lost answer's defect too; stopped, it ends.
+    Effect.catchCause((cause) =>
+      Cause.hasInterruptsOnly(cause)
+        ? Effect.interrupt
+        : refusedByConnection(Cause.squash(cause))
+          ? send({ _tag: 'StartRefused', reason: whyOf(cause) })
+          : Effect.flatMap(
+              Effect.flatMap(SessionArrival, ({ arrived }) => arrived(id)),
+              (came) =>
+                came
+                  ? started(id)
+                  : send({ _tag: 'StartRefused', reason: whyOf(cause) }),
+            ),
+    ),
+  );
+};
 
 /** A refusal the Connection made itself, so nothing was started. */
 const refusedByConnection = (error: unknown) =>
   typeof error === 'object' &&
   error !== null &&
   '_tag' in error &&
-  (error._tag === 'ProjectNotFound' || error._tag === 'UnknownAccount');
+  (error._tag === 'ProjectNotFound' ||
+    error._tag === 'UnknownAccount' ||
+    error._tag === 'GitFailed');
 
 /** Why a start failed, as a person reads it. */
 const whyOf = (cause: Cause.Cause<unknown>) => {
@@ -90,6 +129,7 @@ const whyOf = (cause: Cause.Cause<unknown>) => {
 const REASONED = {
   ProjectNotFound: true,
   UnknownAccount: true,
+  GitFailed: true,
   RpcClientError: true,
 };
 

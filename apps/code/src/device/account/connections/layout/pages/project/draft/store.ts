@@ -11,7 +11,8 @@ import { DraftMode, type Mode } from './write/view.tsx';
 /*
  * The Draft as its Saved Draft, and back: what is saved is what the Draft
  * shows, its mode open, each mode's text and selection, the Message's
- * files and the picks, all in one save.
+ * files and the picks, a new session's branch and Worktree too, all in one
+ * save.
  *
  * 1. Read   once, before the Draft is drawn, under the Account the app
  *           is drawn as then, the last active while it is checked:
@@ -70,7 +71,7 @@ export const read = (where: Where) =>
  * Message, and a cursor past the end of its text is at the end.
  */
 export const restoredOf = (
-  { mode, written, attachments, chosen }: SavedDraft,
+  { mode, written, attachments, chosen, branch, newWorktree }: SavedDraft,
   modes: ReadonlyArray<Mode>,
 ) => {
   const writtenIn = (each: Mode): Written => {
@@ -86,6 +87,8 @@ export const restoredOf = (
     mode: modes.find((each) => each === mode) ?? 'Message',
     attachments,
     chosen,
+    branch: branch ?? null,
+    newWorktree: newWorktree ?? false,
     opening: {
       Message: writtenIn('Message'),
       SideQuestion: writtenIn('SideQuestion'),
@@ -107,6 +110,9 @@ export interface Shown {
   readonly opening: Readonly<Record<Mode, Written>>;
   readonly attachments: SavedDraft['attachments'];
   readonly chosen: SavedDraft['chosen'];
+  /** A new session's branch picked, null for none, and its Worktree. */
+  readonly branch: string | null;
+  readonly newWorktree: boolean;
 }
 
 /** The Saved Draft of what the Draft shows: null when it shows nothing. */
@@ -118,15 +124,26 @@ export const savedOf = (
   const written = Object.fromEntries(
     modes.map((mode) => [mode, texts[mode] ?? shown.opening[mode]]),
   );
-  const { mode, attachments, chosen } = shown;
+  const { mode, attachments, chosen, branch, newWorktree } = shown;
   const empty =
     mode === 'Message' &&
     Object.values(written).every(({ text }) => text === '') &&
     attachments.length === 0 &&
     chosen.account === null &&
     chosen.model === null &&
-    Object.keys(chosen.settings).length === 0;
-  return empty ? null : { mode, written, attachments, chosen };
+    Object.keys(chosen.settings).length === 0 &&
+    branch === null &&
+    !newWorktree;
+  return empty
+    ? null
+    : {
+        mode,
+        written,
+        attachments,
+        chosen,
+        ...(branch === null ? {} : { branch }),
+        ...(newWorktree ? { newWorktree } : {}),
+      };
 };
 
 /** How long after the last change the Draft is saved, in ms. */

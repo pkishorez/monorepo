@@ -44,7 +44,8 @@ import { arrival } from '../../../connection/records/index.ts';
  * 3. Retry    asks again what failed: the setup, or the Skills.
  *
  * And Session Arrival: whether a new session a Draft asked for came, once
- * the answer to the ask was lost (`SessionArrival`).
+ * the answer to the ask was lost (`SessionArrival`); and the Handover: a
+ * new session a Draft started, kept drawn until its page is (`Handover`).
  */
 
 export const SkillsRead = Read(SkillSchema);
@@ -488,3 +489,18 @@ export class SessionArrival extends Context.Service<
       ),
     );
 }
+
+/*
+ * A new Session the Draft started, handed over to the project page: it
+ * keeps the Draft, and its Starting, drawn until the Session's page can
+ * be drawn whole, so nothing blank comes between them.
+ */
+
+/** Where a Draft says its new Session has started, before it moves there. */
+export class Handover extends Context.Service<
+  Handover,
+  {
+    /** The Session `sessionId` started: the Draft stays until its page is ready. */
+    readonly started: (sessionId: string) => Effect.Effect<void>;
+  }
+>()('code/Handover') {}

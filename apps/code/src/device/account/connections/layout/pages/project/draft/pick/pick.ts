@@ -1,10 +1,12 @@
 import * as Catalog from '../../store.ts';
 import type { Model, Props } from '../actor.ts';
+import { branchOf } from './branch/index.ts';
 
 /*
  * What the Draft's picks come to: a new session's agent, model and
- * settings, each the one picked or its default, a Session's over its own;
- * and the Skills the skills Picker lists for the agent.
+ * settings, each the one picked or its default, a Session's over its own,
+ * and the branch it runs on; and the Skills the skills Picker lists for
+ * the agent.
  */
 
 /** What the model Picker is handed before anything is known, which it never opens for. */
@@ -29,6 +31,18 @@ export const pickedSettings = (model: Model): Record<string, string> =>
       model.chosen.settings[key] ?? value,
     ]),
   );
+
+/**
+ * Where a new session runs: the branch picked, or the one the Project's
+ * folder is on, and in a new Worktree or not; for a Project that is not a
+ * git repository, wherever its folder is. Null while its branches are read.
+ */
+export const pickedBranch = ({ branches, branch, newWorktree }: Model) =>
+  branches === null
+    ? null
+    : branches._tag === 'NotGit'
+      ? { branch: null, newWorktree: false }
+      : { branch: branchOf(branches, branch), newWorktree };
 
 /** The agent, model and settings in effect, for the model Picker; null until they are known. */
 export const current = (model: Model, { to }: Props) => {

@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { placeIn, readyOf } from '../actor.ts';
+import { drafting, placeIn, readyAt, readyOf } from '../actor.ts';
 
 /*
  * When a project's page can be drawn whole: its row read from this device
  * and, for a row held here, its new session's Saved Draft read back, so
  * the words and the Draft come in one step; with a Session open, as that
  * Session says; a Connection off the Account's list at once, as nothing of it
- * is read here. Its Connection answering is never waited for.
+ * is read here. Its Connection answering is never waited for. A new
+ * session's Draft stays over the Session it started until that Session can
+ * be drawn whole.
  */
 
 const held = { status: 'ready' as const, held: true };
@@ -104,5 +106,28 @@ describe('a place in a project', () => {
   it('is the Session open, or empty for a new session', () => {
     expect(placeIn(undefined)).toBe('');
     expect(placeIn({ sessionId: 's1' })).toBe('s1');
+  });
+});
+
+describe('a new session’s Draft, handed over', () => {
+  it('is kept while no Session is open', () => {
+    expect(drafting(undefined, null)).toBe(true);
+  });
+
+  it('stays over the Session it started until that is drawn whole, so nothing blank comes between', () => {
+    const started = { sessionId: 's9' };
+    expect(drafting(started, 's9')).toBe(true);
+    const drawn = readyAt({ handover: 's9' }, 's9');
+    expect(drawn).toEqual({ ready: 's9', handover: null });
+    expect(drafting(started, drawn.handover)).toBe(false);
+  });
+
+  it('is gone at once for a Session it did not start', () => {
+    expect(drafting({ sessionId: 's1' }, null)).toBe(false);
+    expect(drafting({ sessionId: 's1' }, 's9')).toBe(false);
+    expect(readyAt({ handover: 's9' }, 's1')).toEqual({
+      ready: 's1',
+      handover: 's9',
+    });
   });
 });

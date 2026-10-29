@@ -22,7 +22,9 @@ import { Session as SessionPage } from './session/index.ts';
  * the Draft, with Remove beside it, and starts no new session; its
  * sessions stay readable. Its words and its Draft are drawn in one step,
  * once its row and the Saved Draft are read (`readyOf`); `ProjectReady`
- * says so once, before Layout is first drawn.
+ * says so once, before Layout is first drawn. A session its Draft started
+ * is drawn once it can be drawn whole, its Draft and Starting until then
+ * (`HandingOver`).
  */
 
 const link =
@@ -50,13 +52,31 @@ export const ProjectView = View.make(ProjectLive, (self) => (
   </PageConnection>
 ));
 
-function ProjectScreen({ root, model, children, send }: Self) {
+function ProjectScreen({ root, model, props, children, send }: Self) {
   const found = useChild(children.project, ({ model }) => model);
   const project = found?.rows[0]?.row;
   const restored = useChild(
     children.draft ?? (NONE as NonNullable<Self['children']['draft']>),
     ({ model }) => model.restored,
   );
+  // A Session the Draft started: the Draft, and its Starting, until the
+  // Session's page can be drawn whole.
+  if (children.Session && children.draft)
+    return (
+      <div {...root} className="flex min-h-0 flex-1 flex-col">
+        <NewSessionOf
+          model={model}
+          children={children}
+          send={send}
+          project={project ?? null}
+        />
+        <HandingOver
+          session={children.Session}
+          at={placeIn(props.route.page)}
+          send={send}
+        />
+      </div>
+    );
   if (children.Session)
     return (
       <div {...root} className="flex min-h-0 flex-1 flex-col">
@@ -151,6 +171,30 @@ export const ProjectReady = View.make(
     );
   },
 );
+
+/**
+ * Draws nothing: the Session a Draft started, read until it can be drawn
+ * whole, then said so, so the project page draws it in the Draft's place.
+ */
+function HandingOver({
+  session,
+  at,
+  send,
+}: {
+  readonly session: NonNullable<Self['children']['Session']>;
+  readonly at: string;
+  readonly send: Self['send'];
+}) {
+  const ready = useChild(session, ({ model }) => model.ready);
+  useEffect(() => {
+    if (ready) send({ _tag: 'Ready', at });
+  }, [ready, at]);
+  return (
+    <Suspense fallback={null}>
+      <SessionPage.ready instance={session} />
+    </Suspense>
+  );
+}
 
 /**
  * A new session (`new-session/`), with Remove under its words; a project

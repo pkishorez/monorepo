@@ -17,7 +17,7 @@ import { removeProject } from '../../../connection/index.ts';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { Draft } from './draft/index.ts';
 import * as Catalog from './store.ts';
-import { SessionArrival, SharedCatalog } from './store.ts';
+import { Handover, SessionArrival, SharedCatalog } from './store.ts';
 import { Session } from './session/index.ts';
 
 /*
@@ -34,7 +34,10 @@ import { Session } from './session/index.ts';
  *             could not be read is asked again when asked.
  * 2. Draft    while no session is open, a new session's Draft (`draft/`),
  *             which starts one, drawn as a new session (`new-session/`);
- *             with one open, the Session (`session/`).
+ *             with one open, the Session (`session/`). A Session the
+ *             Draft started is handed over (`Handover`): the Draft, and
+ *             its Starting, stay drawn until the Session's page can be
+ *             drawn whole, so nothing blank comes between them.
  * 3. Remove   asks first, then forgets the project, and all this device
  *             kept of it; its folder is never touched.
  * 4. Ready    it is drawn whole once read from this device (`readyOf`):
@@ -61,6 +64,8 @@ const Model = Schema.Struct({
    * Session's id, or empty for a new session; null before any.
    */
   ready: Schema.NullOr(Schema.String),
+  /** The Session its Draft started, until its page is drawn whole (2. Draft). */
+  handover: Schema.NullOr(Schema.String),
 });
 type Model = typeof Model.Type;
 
@@ -68,6 +73,22 @@ type Model = typeof Model.Type;
 /** The place in a project: the Session open, or empty for a new session. */
 export const placeIn = (page: { readonly sessionId: string } | undefined) =>
   page?.sessionId ?? '';
+
+// 2. Draft
+/**
+ * Whether the new session's Draft is kept: while no Session is open, and,
+ * once one it started is open, until that one is drawn whole (`Handover`).
+ */
+export const drafting = (
+  page: { readonly sessionId: string } | undefined,
+  handover: string | null,
+) => page === undefined || placeIn(page) === handover;
+
+/** Drawn whole at `at`: a Session handed over there is no longer waited for. */
+export const readyAt = ({ handover }: Pick<Model, 'handover'>, at: string) => ({
+  ready: at,
+  handover: handover === at ? null : handover,
+});
 
 /**
  * Whether the project can be drawn whole: with a Session open, that
@@ -131,6 +152,8 @@ export const Project = Page.define({
     RemoveRefused: Refused,
     /** All it draws at `at` (`placeIn`) is read from this device: it can be drawn whole. */
     Ready: { at: Schema.String },
+    /** Its Draft started the Session `sessionId`, and moves to it. */
+    HandedOver: { sessionId: Schema.String },
   }),
 });
 
@@ -147,6 +170,7 @@ export const ProjectLive = Page.build(Project, {
       catalog: Catalog.fresh,
       removal: { confirming: false, removing: false, problem: null },
       ready: null,
+      handover: null,
     },
   }),
   pages: { Session: Session.actor },
@@ -165,6 +189,13 @@ export const ProjectLive = Page.build(Project, {
         Effect.map(self.get, ({ props }) =>
           SessionArrival.connection(props.params.connectionId),
         ),
+      ),
+      // 2. Draft: a new session it started, kept drawn until it is ready.
+      Layer.succeed(
+        Handover,
+        Handover.of({
+          started: (sessionId) => self.send({ _tag: 'HandedOver', sessionId }),
+        }),
       ),
     ),
   workers: {
@@ -205,10 +236,11 @@ export const ProjectLive = Page.build(Project, {
         projectId: props.params.projectId,
       }),
     },
-    // 2. Draft, while no session is open over it.
+    // 2. Draft, while no session is open over it, or the one it started
+    // is not yet drawn whole.
     draft: {
       actor: Draft.actor,
-      while: ({ props }) => props.route.page === undefined,
+      while: ({ model, props }) => drafting(props.route.page, model.handover),
       props: ({ props }) => ({
         connectionId: props.params.connectionId,
         projectId: props.params.projectId,
@@ -220,9 +252,15 @@ export const ProjectLive = Page.build(Project, {
     ConnectionKnown: ({ gone, unlisted }, { model }) => ({
       model: { ...model, gone, unlisted },
     }),
-    // 4. Ready, at each place in it.
+    // 4. Ready, at each place in it; a Session handed over is drawn whole.
     Ready: ({ at }, { model }) =>
-      model.ready === at ? {} : { model: { ...model, ready: at } },
+      model.ready === at && model.handover !== at
+        ? {}
+        : { model: { ...model, ...readyAt(model, at) } },
+    // 2. Draft
+    HandedOver: ({ sessionId }, { model }) => ({
+      model: { ...model, handover: sessionId },
+    }),
     ...catalog.on,
     // 3. Remove
     ConfirmToggled: ({ open }, { model }) =>

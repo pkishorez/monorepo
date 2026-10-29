@@ -1,6 +1,6 @@
-import { Effect, Layer, Schema, Stream, SubscriptionRef } from 'effect';
+import { Cause, Effect, Layer, Schema, Stream, SubscriptionRef } from 'effect';
 import { Accounts } from '@kestack/auth-toolkit/client';
-import { CodeClient } from '@kestack/connect/code';
+import { Branches, CodeClient, START_STEPS } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
 import { session } from '../../../../../../routes/index.ts';
@@ -11,8 +11,12 @@ import {
   Written,
 } from '../../../../connection/store/index.ts';
 import * as Catalog from '../store.ts';
-import { SessionArrival, SharedCatalog } from '../store.ts';
-import { retryCatalog } from './send/commands.ts';
+import { Handover, SessionArrival, SharedCatalog } from '../store.ts';
+import {
+  retryCatalog,
+  StartArgs,
+  starting as startingOf,
+} from './send/commands.ts';
 import { Attached, Insert } from './draft.ts';
 import { DraftMode, type Mode } from './write/view.tsx';
 import { ModelPicker } from './pick/model/index.ts';
@@ -20,6 +24,7 @@ import { current, NOBODY, pickedHarness, skillsOf } from './pick/pick.ts';
 import { read, restoredOf, saving, Where, whereOf } from './store.ts';
 import { askOf, sendTo, start } from './send/send.ts';
 import { SkillPicker } from './pick/skills.ts';
+import { BranchPicker } from './pick/branch/index.ts';
 
 /*
  * The Draft: the next message of a page, a new session's first or an open
@@ -38,13 +43,20 @@ import { SkillPicker } from './pick/skills.ts';
  *           and Skills the project shares, which nothing waits for; a new
  *           agent starts from its own, and a Session keeps its agent. On
  *           touch the model chip sets a setting in place. The skills
- *           Picker puts a `/name` in, as one atom. One Picker is open at a
- *           time, each a fresh one.
+ *           Picker puts a `/name` in, as one atom. A new session's Branch
+ *           Picker sets its branch, from the Project's branches, read as
+ *           it opens and again as the Picker opens, and the New Worktree
+ *           toggle beside it; neither shows for a Project that is not a
+ *           git repository. One Picker is open at a time, each a fresh one.
  * 3. Send   a mode hands its text up (`send/`). A new session's Draft
  *           starts the session, already running its first message, under
- *           an id it chose, and the app moves to it once it is there: as
- *           the Connection answers or, the answer lost, as it shows among the
- *           Connection's sessions. Refused, or never there, it stays. A
+ *           an id it chose, its Starting run by a Worker: each StartStep
+ *           shown as it comes, then the app moves to it once it is there,
+ *           as the Connection answers or, the answer lost, as it shows
+ *           among the Connection's sessions; the project page keeps the
+ *           Draft drawn until the Session's page is ready (`Handover`).
+ *           Refused, a git step failed, or never there, it stays, its
+ *           text and picks as they were, and says why. A
  *           Session's Message goes to the server, which starts a turn or
  *           steers the running one; refused, its files and its text come
  *           back. Sent while the Side Question toggle is on, it is a Side
@@ -85,6 +97,20 @@ const Picking = Schema.TaggedUnion({
   /** `typed`: opened by a `/` typed in the Composer, which the skill takes the place of. */
   Skills: { how: Picker.How, typed: Schema.Boolean },
   Model: { how: Picker.How, at: ModelPicker.At },
+  Branch: { how: Picker.How },
+});
+
+/** A StartStep as it stands. */
+const Step = Schema.Struct({
+  step: Schema.Literals(START_STEPS),
+  state: Schema.Literals(['running', 'done']),
+});
+
+/** A new session being started: its id, null until chosen, what it is started with, and its steps so far. */
+export const Starting = Schema.Struct({
+  id: Schema.NullOr(Schema.String),
+  args: StartArgs,
+  steps: Schema.Array(Step),
 });
 
 /** What the model Picker set; null: as it was. */
@@ -128,14 +154,22 @@ const Model = Schema.Struct({
   catalog: Catalog.Catalog,
   /** Picked here; any left null is the agent's own, or its default. */
   chosen: Chosen,
+  /** A new session's branch picked; null: the one the Project's folder is on. */
+  branch: Schema.NullOr(Schema.String),
+  /** A new session runs in a new Worktree, on a new branch from `branch`. */
+  newWorktree: Schema.Boolean,
+  /** A new session's Project's branches; null while they are read. */
+  branches: Schema.NullOr(Branches.schema),
+  /** How many times the branches were asked for, each read once. */
+  listed: Schema.Finite,
   /** The Picker open, if one is. */
   picking: Schema.NullOr(Picking),
   /** How many Pickers were opened, so each is a fresh one. */
   opened: Schema.Finite,
   /** Why the last start or send went wrong, until the next, or an edit. */
   problem: Schema.NullOr(Schema.String),
-  /** A new session is being started, or has started. */
-  starting: Schema.Boolean,
+  /** A new session being started, or started; null while none is. */
+  starting: Schema.NullOr(Starting),
   asked: Schema.NullOr(Asked),
   /** The last question's id: a late answer to a dismissed one is told apart. */
   asks: Schema.Finite,
@@ -155,8 +189,13 @@ const Message = Schema.TaggedUnion({
   ModelChosen: { chosen: Chosen },
   SettingChosen: { key: Schema.String, value: Schema.String },
   SkillChosen: { name: Schema.String },
+  BranchesRead: { branches: Branches.schema },
+  BranchChosen: { branch: Schema.String },
+  NewWorktreeToggled: {},
   /** A mode handed up its text: to send, start with or ask. */
   SendAsked: { mode: DraftMode.Mode, text: Schema.String },
+  StartNamed: { id: Schema.String },
+  Stepped: Step.fields,
   Started: { sessionId: Schema.String },
   StartRefused: { reason: Schema.String },
   SendRefused: {
@@ -174,6 +213,7 @@ const Draft = Actor.define('Draft', {
     CodeClient,
     SharedCatalog,
     SessionArrival,
+    Handover,
     Navigation,
     SavedDrafts,
     Accounts,
@@ -208,10 +248,14 @@ export const DraftLive = Actor.build(Draft, {
       insert: null,
       catalog: Catalog.empty,
       chosen: { account: null, model: null, settings: {} },
+      branch: null,
+      newWorktree: false,
+      branches: null,
+      listed: 0,
       picking: null,
       opened: 0,
       problem: null,
-      starting: false,
+      starting: null,
       asked: null,
       asks: 0,
     },
@@ -231,6 +275,13 @@ export const DraftLive = Actor.build(Draft, {
           chosen === null
             ? { _tag: 'PickerClosed' }
             : { _tag: 'ModelChosen', chosen },
+        ),
+      ),
+      BranchPicker.owner((branch) =>
+        self.send(
+          branch === null
+            ? { _tag: 'PickerClosed' }
+            : { _tag: 'BranchChosen', branch },
         ),
       ),
       // 1. Write, 3. Send, 4. Keep: what each mode shows and hands up.
@@ -303,6 +354,17 @@ export const DraftLive = Actor.build(Draft, {
           (model.picking.at === 'agent' || model.picking.at === 'modelAlone'),
       }),
     },
+    branches: {
+      actor: BranchPicker.Live,
+      while: ({ model }) =>
+        model.picking?._tag === 'Branch' && model.branches?._tag === 'Git',
+      key: ({ model }) => String(model.opened),
+      input: ({ model }) => BranchPicker.opening(model.picking?.how ?? 'keys'),
+      props: ({ model }) => ({
+        branches: model.branches ?? { _tag: 'NotGit' as const },
+        picked: model.branch,
+      }),
+    },
   },
   workers: {
     // 4. Keep: read back once, under the Account signed in as it opens.
@@ -318,6 +380,39 @@ export const DraftLive = Actor.build(Draft, {
           });
           const draft = where === null ? null : yield* read(where);
           yield* self.send({ _tag: 'Restored', where, draft });
+        }),
+    },
+    // 2. Pick: a new session's branches, as git has them; a Project whose
+    // branches cannot be read is taken as not a git repository.
+    branches: {
+      each: ({ model, props }) =>
+        props.to._tag === 'NewSession' ? [String(model.listed)] : [],
+      run: (self) =>
+        Effect.gen(function* () {
+          const { props } = yield* self.get;
+          const branches = yield* CodeClient.use((api) =>
+            api.branches({ projectId: props.projectId }),
+          ).pipe(
+            Effect.catchCause((cause) =>
+              Cause.hasInterruptsOnly(cause)
+                ? Effect.interrupt
+                : Effect.succeed({ _tag: 'NotGit' as const }),
+            ),
+          );
+          yield* self.send({ _tag: 'BranchesRead', branches });
+        }),
+    },
+    // 3. Send: a new session's Starting, once its id is chosen.
+    start: {
+      each: ({ model }) =>
+        model.starting === null || model.starting.id === null || model.started
+          ? []
+          : [model.starting.id],
+      run: (self, id) =>
+        Effect.gen(function* () {
+          const { model } = yield* self.get;
+          if (model.starting === null) return;
+          yield* startingOf(id, model.starting.args, self.send);
         }),
     },
     // 2. Pick: the catalog, as the project shares it.
@@ -352,13 +447,32 @@ export const DraftLive = Actor.build(Draft, {
       ]
         ? {}
         : {
-            model: { ...model, picking, opened: model.opened + 1 },
+            model: {
+              ...model,
+              picking,
+              opened: model.opened + 1,
+              // Its branches are read again, as Origin's may have come.
+              listed: model.listed + (picking._tag === 'Branch' ? 1 : 0),
+            },
             ...(picking._tag === 'Skills' &&
             skillsOf(model, props).problem !== null
               ? { command: retryCatalog() }
               : {}),
           },
     PickerClosed: (_, { model }) => ({ model: { ...model, picking: null } }),
+    BranchesRead: ({ branches }, { model }) => ({
+      model: { ...model, branches },
+    }),
+    BranchChosen: ({ branch }, { model }) =>
+      model.picking?._tag !== 'Branch'
+        ? {}
+        : { model: { ...model, picking: null, problem: null, branch } },
+    NewWorktreeToggled: (_, { model }) =>
+      model.starting !== null
+        ? {}
+        : {
+            model: { ...model, problem: null, newWorktree: !model.newWorktree },
+          },
     SkillChosen: ({ name }, { model }) =>
       model.picking?._tag !== 'Skills'
         ? {}
@@ -414,6 +528,28 @@ export const DraftLive = Actor.build(Draft, {
         : mode === 'SideQuestion'
           ? askOf(model, props.to.sessionId, text)
           : sendTo(model, props.to.sessionId, text),
+    StartNamed: ({ id }, { model }) =>
+      model.starting === null || model.starting.id !== null
+        ? {}
+        : { model: { ...model, starting: { ...model.starting, id } } },
+    // Each step where it first came, as it stands now.
+    Stepped: ({ step, state }, { model }) => {
+      if (model.starting === null) return {};
+      const { steps } = model.starting;
+      return {
+        model: {
+          ...model,
+          starting: {
+            ...model.starting,
+            steps: steps.some((each) => each.step === step)
+              ? steps.map((each) =>
+                  each.step === step ? { step, state } : each,
+                )
+              : [...steps, { step, state }],
+          },
+        },
+      };
+    },
     // 4. Keep: started, it is saved no more, and its Saved Draft goes.
     Started: ({ sessionId }, { model, props }) => ({
       model: { ...model, started: true, attachments: [] },
@@ -422,7 +558,7 @@ export const DraftLive = Actor.build(Draft, {
       ),
     }),
     StartRefused: ({ reason }, { model }) => ({
-      model: { ...model, starting: false, problem: reason },
+      model: { ...model, starting: null, problem: reason },
     }),
     SendRefused: ({ text, attachments, reason }, { model }) => ({
       model: {
