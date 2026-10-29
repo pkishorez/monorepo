@@ -77,7 +77,23 @@ const VersionRow = ESchema.make('StdContractVersion', {
   shape: SnapshotTypeSchema,
 }).build();
 
+/**
+ * The one row a table migration keeps in the table it fills (ADR 0022): the
+ * table it reads, its state, the attempt, and the rows read and written so
+ * far, by entity of the table it reads.
+ */
+const MigrationRow = ESchema.make('StdContractMigration', {
+  from: Schema.Struct({ table: Schema.String, hash: Schema.String }),
+  state: Schema.Literals(['running', 'done']),
+  attempt: Schema.Int,
+  counts: Schema.Record(
+    Schema.String,
+    Schema.Struct({ read: Schema.Int, written: Schema.Int }),
+  ),
+}).build();
+
 export type TableRow = typeof TableRow.Type;
+export type MigrationRow = typeof MigrationRow.Type;
 export type EntityRow = typeof EntityRow.Type;
 export type VersionRow = typeof VersionRow.Type;
 
@@ -85,6 +101,10 @@ const ROWS = {
   table: { entity: `${RESERVED_ENTITY_PREFIX}table`, schema: TableRow },
   entity: { entity: `${RESERVED_ENTITY_PREFIX}entity`, schema: EntityRow },
   version: { entity: `${RESERVED_ENTITY_PREFIX}version`, schema: VersionRow },
+  migration: {
+    entity: `${RESERVED_ENTITY_PREFIX}migration`,
+    schema: MigrationRow,
+  },
 } as const;
 
 type RowKind = keyof typeof ROWS;
@@ -92,6 +112,7 @@ interface RowValue {
   readonly table: TableRow;
   readonly entity: EntityRow;
   readonly version: VersionRow;
+  readonly migration: MigrationRow;
 }
 
 /** The one partition every contract row lives in. */
@@ -105,6 +126,7 @@ const keyOf = (kind: RowKind, ...parts: readonly string[]): StoredKey => ({
 });
 
 export const TABLE_ROW_KEY = keyOf('table');
+export const MIGRATION_ROW_KEY = keyOf('migration');
 
 export const rowKey = <K extends RowKind>(
   kind: K,
@@ -113,6 +135,8 @@ export const rowKey = <K extends RowKind>(
   switch (kind) {
     case 'table':
       return TABLE_ROW_KEY;
+    case 'migration':
+      return MIGRATION_ROW_KEY;
     case 'entity':
       return keyOf(
         'entity',
@@ -157,6 +181,7 @@ export interface ContractRows {
   readonly table?: { readonly value: TableRow; readonly _u: string };
   readonly entities: readonly EntityRow[];
   readonly versions: readonly VersionRow[];
+  readonly migration?: { readonly value: MigrationRow; readonly _u: string };
 }
 
 export const NO_ROWS: ContractRows = { entities: [], versions: [] };
@@ -177,12 +202,24 @@ export const tableRowOf = (
         _u: item.meta._u,
       }));
 
+/** The migration row alone, or nothing when no migration filled the table. */
+export const migrationRowOf = (
+  item: StoredItem | null,
+): Effect.Effect<ContractRows['migration'], Schema.SchemaError> =>
+  item === null
+    ? Effect.succeed(undefined)
+    : Effect.map(decodeAs('migration', item), (value) => ({
+        value,
+        _u: item.meta._u,
+      }));
+
 /** Every contract row read from the reserved partition. */
 export const contractRowsOf = (
   items: readonly StoredItem[],
 ): Effect.Effect<ContractRows, unknown> =>
   Effect.gen(function* () {
     let table: ContractRows['table'];
+    let migration: ContractRows['migration'];
     const entities: EntityRow[] = [];
     const versions: VersionRow[] = [];
     for (const item of items) {
@@ -194,6 +231,7 @@ export const contractRowsOf = (
         entities.push(yield* decodeAs('entity', item));
       else if (kind === 'version')
         versions.push(yield* decodeAs('version', item));
+      else if (kind === 'migration') migration = yield* migrationRowOf(item);
       else
         return yield* Effect.fail(
           new Error(`Unknown contract row "${item.meta._e}"`),
@@ -203,6 +241,7 @@ export const contractRowsOf = (
       ...(table === undefined ? {} : { table }),
       entities,
       versions,
+      ...(migration === undefined ? {} : { migration }),
     };
   });
 

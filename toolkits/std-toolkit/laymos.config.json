@@ -127,6 +127,10 @@
       "src/eschema",
       "src/core"
     ],
+    "src/db/setup/migrate": [
+      "src/db/setup/contract",
+      "src/db/std-table/entity"
+    ],
     "src/db/testing": [
       "src/db/std-table/table",
       "src/eschema/testing",
@@ -166,14 +170,17 @@
     "src/alchemy/deploy-guard": ["src/db/setup", "src/snapshot"],
     "src/alchemy/d1": [
       "src/alchemy/deploy-guard",
+      "src/db/setup",
       "src/db/sqlite",
+      "src/db/std-table/contract",
       "src/db/std-table/table",
       "src/snapshot"
     ],
     "src/alchemy/dynamodb": [
       "src/alchemy/deploy-guard",
       "src/db/dynamodb",
-      "src/db/setup"
+      "src/db/setup",
+      "src/db/std-table/contract"
     ],
     "src/sync/domain/collection-item": ["src/eschema", "src/core"],
     "src/sync/domain/stored-entity": ["src/db", "src/eschema"],

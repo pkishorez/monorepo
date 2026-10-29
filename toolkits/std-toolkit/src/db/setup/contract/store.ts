@@ -15,6 +15,8 @@ import {
   committedRows,
   contractRowsOf,
   entityRowKey,
+  migrationRowOf,
+  MIGRATION_ROW_KEY,
   rowKey,
   CONTRACT_PARTITION,
   NO_ROWS,
@@ -24,6 +26,7 @@ import {
   tableRowOf,
   versionRowKey,
   type ContractRows,
+  type MigrationRow,
   type TableRow,
 } from './rows.js';
 
@@ -93,6 +96,74 @@ export const readContractRows = (
     );
   });
 
+/** How many contract rows the table holds, read with one query. */
+export const countContractRows = (
+  store: StdTableContract,
+): Effect.Effect<number, OperationFailure> =>
+  Effect.gen(function* () {
+    let count = 0;
+    let after: StoredItem | undefined;
+    for (;;) {
+      const page = yield* store
+        .queryItems({
+          pk: CONTRACT_PARTITION,
+          descending: false,
+          limit: PAGE,
+          ...(after === undefined
+            ? {}
+            : { startAfter: { pk: after.pk, sk: after.sk } }),
+        })
+        .pipe(Effect.mapError(failed));
+      count += page.items.length;
+      after = page.items.at(-1);
+      if (!page.hasMore || after === undefined) return count;
+    }
+  });
+
+/** The migration row a table migration keeps, if one filled the table. */
+export const readMigrationRow = (
+  store: StdTableContract,
+): Effect.Effect<ContractRows['migration'], OperationFailure> =>
+  store.getItem(MIGRATION_ROW_KEY, { consistent: true }).pipe(
+    Effect.mapError(failed),
+    Effect.flatMap((item) =>
+      migrationRowOf(item).pipe(Effect.mapError(failed)),
+    ),
+  );
+
+/**
+ * Writes the migration row, guarded on the `_u` it was last read or written
+ * at, and returns the new one. Another run moving it fails the write.
+ */
+export const writeMigrationRow = (
+  store: StdTableContract,
+  value: MigrationRow,
+  previous: string | undefined,
+): Effect.Effect<string, OperationFailure> =>
+  Effect.gen(function* () {
+    const updated = yield* nextUlid;
+    yield* store
+      .writeItem({
+        item: yield* rowItem('migration', value, updated),
+        condition:
+          previous === undefined
+            ? { kind: 'not-exists' }
+            : { kind: 'updated', value: previous },
+      })
+      .pipe(
+        Effect.mapError((failure) =>
+          failure instanceof ConditionFailure
+            ? new OperationFailure({
+                cause: new Error(
+                  'std-toolkit: another table migration wrote the migration row after this one read it',
+                ),
+              })
+            : failed(failure),
+        ),
+      );
+    return updated;
+  });
+
 /** Whether the table holds any row an app wrote. */
 export const holdsAppRows = (
   store: StdTableContract,
@@ -113,6 +184,36 @@ export const holdsAppRows = (
         return true;
       after = page.items.at(-1);
       if (!page.hasMore || after === undefined) return false;
+    }
+  });
+
+/**
+ * Deletes every row an app wrote and keeps the contract's, found by a
+ * strongly consistent scan, so no row a moment old is missed.
+ */
+export const wipeAppRows = (
+  store: StdTableContract,
+): Effect.Effect<number, OperationFailure> =>
+  Effect.gen(function* () {
+    let deleted = 0;
+    let after: StoredItem | undefined;
+    for (;;) {
+      const page = yield* store
+        .scanItems({
+          limit: PAGE,
+          consistent: true,
+          ...(after === undefined
+            ? {}
+            : { startAfter: { pk: after.pk, sk: after.sk } }),
+        })
+        .pipe(Effect.mapError(failed));
+      for (const item of page.items)
+        if (!isReservedEntity(item.meta._e)) {
+          yield* store.hardDeleteItem(item).pipe(Effect.mapError(failed));
+          deleted++;
+        }
+      after = page.items.at(-1);
+      if (!page.hasMore || after === undefined) return deleted;
     }
   });
 

@@ -20,6 +20,23 @@ import {
 } from './contract/index.js';
 import { reindexEntities } from './reindex/index.js';
 
+// A table migration fills a new table from an old one, keeping its progress
+// in the new table's Stored contract (ADR 0022).
+export {
+  migrate,
+  MigrationRefused,
+  MigrationRowFailed,
+  runMigration,
+  type MigrationCounts,
+  type MigrationError,
+  type MigrationEvent,
+  type MigrationHandlers,
+  type MigrationOptions,
+  type MigrationRefusedReason,
+  type MigrationTables,
+  type ReadOnlyEntities,
+} from './migrate/index.js';
+
 // What every adapter runs before a table opens (ADR 0019, 0021, 0022):
 // read the Stored contract, plan, apply the topology, reindex, record.
 

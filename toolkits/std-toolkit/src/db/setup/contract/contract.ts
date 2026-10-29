@@ -29,8 +29,16 @@ export {
   type SetupRefusedReason,
 } from './refused.js';
 export { planContract, type ContractPlan } from './plan.js';
-export { holdsAppRows, wipeRows as wipeTable } from './store.js';
-export { NO_ROWS, type ContractRows } from './rows.js';
+export {
+  countContractRows,
+  holdsAppRows,
+  readMigrationRow,
+  readTableRow,
+  wipeAppRows,
+  wipeRows as wipeTable,
+  writeMigrationRow,
+} from './store.js';
+export { NO_ROWS, type ContractRows, type MigrationRow } from './rows.js';
 
 /** What setup found stored: the same contract, or rows to plan from. */
 export type StoredRead =

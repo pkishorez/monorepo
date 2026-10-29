@@ -208,6 +208,12 @@ export interface StdTableContract {
     entity: string,
   ) => Effect.Effect<number, ContractFailure>;
   readonly hardDeleteAllItems: () => Effect.Effect<number, ContractFailure>;
+  /**
+   * About how many rows the table holds, the Stored contract's included,
+   * for a progress total: exact on SQLite, IndexedDB and Memory, and
+   * DynamoDB's own item count, refreshed about every six hours.
+   */
+  readonly estimateItemCount?: () => Effect.Effect<number, ContractFailure>;
 }
 
 declare const stdTableServiceType: unique symbol;

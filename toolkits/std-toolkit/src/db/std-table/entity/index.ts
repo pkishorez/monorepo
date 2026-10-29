@@ -1,5 +1,6 @@
 export {
   fromStored,
+  fromStoredSingle,
   toStored,
   toStoredSingle,
   makeStoredItem,

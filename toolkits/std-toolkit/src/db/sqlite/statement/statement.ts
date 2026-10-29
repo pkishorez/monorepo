@@ -92,6 +92,10 @@ const makeDeleteEntityStatement = (tableName: string) => ({
   sql: `DELETE FROM ${quoteIdentifier(tableName)} WHERE _e = ?`,
 });
 
+const makeCountStatement = (tableName: string) => ({
+  sql: `SELECT COUNT(*) AS count FROM ${quoteIdentifier(tableName)}`,
+});
+
 const makeDeleteAllStatement = (tableName: string) => ({
   sql: `DELETE FROM ${quoteIdentifier(tableName)}`,
 });
@@ -208,6 +212,7 @@ export const Statement = {
   check: makeCheckStatement,
   createIndexes: makeCreateIndexStatements,
   createTable: makeCreateTableStatement,
+  count: makeCountStatement,
   deleteAll: makeDeleteAllStatement,
   deleteEntity: makeDeleteEntityStatement,
   findMissingColumns: findMissingColumnDefinitions,

@@ -171,7 +171,10 @@ export const planContract = (options: {
     }
     const previous = joinSnapshot(read.rows);
     if (previous === undefined) {
-      const reserved = read.rows.entities.length + read.rows.versions.length;
+      const reserved =
+        read.rows.entities.length +
+        read.rows.versions.length +
+        (read.rows.migration === undefined ? 0 : 1);
       if (!(yield* options.holdsRows))
         return { kind: 'create', clear: reserved > 0 };
       if (mode === 'persistent')
