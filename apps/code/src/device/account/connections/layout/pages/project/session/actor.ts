@@ -43,7 +43,9 @@ import { Question } from './question/index.ts';
  * 6. Ready     it is drawn whole, transcript and Draft in one step, once
  *              all of it is read from this device (`readyOf`): its row, its
  *              messages, those it carries on from, and its Saved Draft.
- *              Its View says so once, so Layout first draws it whole.
+ *              Its View says so once, so Layout first draws it whole, and
+ *              again once its row is held, so a Session just started is
+ *              drawn whole only with its row (`held`).
  * 7. Question  the Agent Questions its agent waits on, answered in the
  *              Question Panel, a Child of its own, fresh for each session.
  */
@@ -111,6 +113,8 @@ const Model = Schema.Struct({
   forking: Schema.NullOr(Schema.String),
   /** Whether it could once be drawn whole, from this device (6. Ready). */
   ready: Schema.Boolean,
+  /** Whether it was drawn whole with its row held here, not as missing (6. Ready). */
+  held: Schema.Boolean,
 });
 type Model = typeof Model.Type;
 
@@ -170,8 +174,8 @@ export const Session = Page.define({
     ForkAsked: { afterTurnId: Schema.String },
     Forked: { projectId: Schema.String, sessionId: Schema.String },
     Refused,
-    /** All it draws is read from this device: it can be drawn whole. */
-    Ready: {},
+    /** All it draws is read from this device: it can be drawn whole, its row held or not. */
+    Ready: { held: Schema.Boolean },
   }),
 });
 
@@ -185,6 +189,7 @@ export const SessionLive = Page.build(Session, {
       lineage: [],
       forking: null,
       ready: false,
+      held: false,
     },
   }),
   children: {
@@ -306,9 +311,11 @@ export const SessionLive = Page.build(Session, {
     Refused: ({ reason }, { model }) => ({
       model: { ...model, problem: reason, stopping: false, forking: null },
     }),
-    // 6. Ready, once.
-    Ready: (_, { model }) =>
-      model.ready ? {} : { model: { ...model, ready: true } },
+    // 6. Ready, once, and once more when its row is held.
+    Ready: ({ held }, { model }) =>
+      model.ready && (model.held || !held)
+        ? {}
+        : { model: { ...model, ready: true, held } },
     // 5. Open
     Toggled: ({ id }, { model }) => ({
       model: {

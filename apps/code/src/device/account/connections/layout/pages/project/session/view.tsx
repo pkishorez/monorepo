@@ -314,9 +314,11 @@ export const SessionReady = View.make(
       earlier: earlier.map((status) => ({ status })),
       restored,
     });
+    const held = found !== undefined && found.rows.length > 0;
     useEffect(() => {
-      if (ready && !model.ready) send({ _tag: 'Ready' });
-    }, [ready, model.ready]);
+      if (ready && (!model.ready || (held && !model.held)))
+        send({ _tag: 'Ready', held });
+    }, [ready, held, model.ready, model.held]);
     return null;
   },
 );
