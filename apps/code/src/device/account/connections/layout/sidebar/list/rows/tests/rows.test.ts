@@ -25,7 +25,7 @@ const session = (
   activeAt: number,
   settledAt: number | null = null,
   connectionId = 'm1',
-  where: { worktree: string; branch: string } | null = null,
+  where: { worktree: string | null; branch: string | null } | null = null,
 ) =>
   ({
     id,
@@ -255,5 +255,48 @@ describe('the sidebar by Project', () => {
     const [plain] = groupedOf([project('p')], [session('p1', 'p', 1)]);
     expect(plain!.branch).toBeNull();
     expect(branchOf(plain!.sessions[0]!.session, null)).toBeNull();
+  });
+
+  it('reads a Session with no Worktree, as one made before Worktrees, as in its Project folder', () => {
+    const migrated = { worktree: null, branch: null };
+    const own = { worktree: '/w/a/s3', branch: 'ke-code/fix-login' };
+    // Only migrated Sessions: no branch anywhere, and no Worktree mark.
+    const [old] = groupedOf(
+      [project('a')],
+      [
+        session('s1', 'a', 1, null, 'm1', migrated),
+        session('s2', 'a', 2, null, 'm1', migrated),
+      ],
+    );
+    expect(old!.branch).toBeNull();
+    expect(
+      old!.sessions.map(({ session }) => branchOf(session, old!.branch)),
+    ).toEqual([null, null]);
+    // Mixed: a folder Session with no Worktree but a branch names the
+    // heading's branch; one with neither says nothing; a Worktree's says its own.
+    const [mixed] = groupedOf(
+      [project('a')],
+      [
+        session('s1', 'a', 1, null, 'm1', migrated),
+        session('s2', 'a', 2, null, 'm1', { worktree: null, branch: 'main' }),
+        session('s3', 'a', 3, null, 'm1', own),
+      ],
+    );
+    expect(mixed!.branch).toBe('main');
+    expect(
+      Object.fromEntries(
+        mixed!.sessions.map(({ session }) => [
+          session.id,
+          branchOf(session, mixed!.branch),
+        ]),
+      ),
+    ).toEqual({ s3: 'fix-login', s2: null, s1: null });
+    // No Worktree is never a Worktree, whatever its branch.
+    expect(
+      branchOf(
+        session('x', 'a', 1, null, 'm1', { worktree: null, branch: 'dev' }),
+        'main',
+      ),
+    ).toBeNull();
   });
 });
