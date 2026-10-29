@@ -1,4 +1,4 @@
-import { Effect } from 'effect';
+import { Effect, Layer, Stream } from 'effect';
 import { isResolved, Resource, type Input } from 'alchemy';
 import * as Provider from 'alchemy/Provider';
 import {
@@ -7,10 +7,13 @@ import {
 } from '../../db/dynamodb/index.js';
 import {
   captureContract,
+  runMigration,
   SetupRefused,
+  type MigrationEvent,
   type SetupOptions,
   type TableMode,
 } from '../../db/setup/index.js';
+import type { StdTableService } from '../../db/std-table/contract/index.js';
 import type { Providers } from '../deploy-guard/index.js';
 
 type StdTable = SetupOptions['table'];
@@ -168,4 +171,143 @@ const table = (id: string, options: DynamoDBTableOptions) =>
     });
   });
 
-export const DynamoDB = { table } as const;
+/** A table migration's stream, as `StdTable.migrate` returns it. */
+type TableMigration = Stream.Stream<
+  MigrationEvent,
+  unknown,
+  StdTableService<any>
+>;
+
+interface MigrationSide {
+  readonly table: StdTable;
+  readonly credentials: DynamoDBCredentialsInput;
+}
+
+interface DynamoDBTableAddress {
+  readonly tableName: string;
+  readonly region: string;
+  readonly endpoint?: string;
+}
+
+/** What Alchemy keeps in state: where the migration read from and wrote to. */
+interface DynamoDBMigrationAttributes {
+  readonly from: DynamoDBTableAddress;
+  readonly to: DynamoDBTableAddress;
+  /** The new table's physical name. Bind it into the Worker, so the Worker waits for the migration. */
+  readonly tableName: string;
+}
+
+interface DynamoDBMigrationProps extends DynamoDBMigrationAttributes {
+  /**
+   * The two tables, their credentials and the migration, passed through as
+   * they are and never written to state.
+   */
+  readonly run: () => {
+    readonly from: MigrationSide;
+    readonly to: MigrationSide;
+    readonly migrate: TableMigration;
+  };
+}
+
+export type DynamoDBMigration = Resource<
+  'StdToolkit.DynamoDB.Migration',
+  DynamoDBMigrationProps,
+  DynamoDBMigrationAttributes,
+  never,
+  Providers
+>;
+
+export const DynamoDBMigration = Resource<DynamoDBMigration>(
+  'StdToolkit.DynamoDB.Migration',
+);
+
+/** Runs the table migration against both DynamoDB tables; its failure fails the deploy. */
+export const runDynamoDBMigration = (props: DynamoDBMigrationProps) =>
+  Effect.gen(function* () {
+    const { from, to, migrate } = props.run();
+    const layer = Layer.merge(
+      DynamoDBAdapter.make(from.table, {
+        ...props.from,
+        credentials: from.credentials,
+      }).layer,
+      DynamoDBAdapter.make(to.table, {
+        ...props.to,
+        credentials: to.credentials,
+      }).layer,
+    );
+    yield* runMigration(
+      migrate.pipe(Stream.provide(layer)) as Stream.Stream<
+        MigrationEvent,
+        unknown
+      >,
+    );
+    return {
+      from: props.from,
+      to: props.to,
+      tableName: props.tableName,
+    } satisfies DynamoDBMigrationAttributes;
+  });
+
+export const DynamoDBMigrationProvider = () =>
+  Provider.succeed(DynamoDBMigration, {
+    diff: ({ olds: previous, news: current }) =>
+      Effect.succeed(
+        !isResolved(current)
+          ? undefined
+          : JSON.stringify(previous) !== JSON.stringify(current)
+            ? { action: 'update' as const }
+            : { action: 'noop' as const },
+      ),
+    reconcile: ({ news: current }) => runDynamoDBMigration(current),
+    // The migrated rows outlive the resource: removing it leaves both tables.
+    delete: () => Effect.void,
+    read: ({ output }) => Effect.succeed(output),
+  });
+
+const addressOf = (resource: DynamoDBTable) => ({
+  tableName: resource.tableName,
+  region: resource.region,
+  ...(resource.Props.endpoint === undefined
+    ? {}
+    : { endpoint: resource.endpoint }),
+});
+
+const sideOf = (resource: DynamoDBTable): MigrationSide => ({
+  table: resource.Props.table(),
+  credentials: resource.Props.credentials(),
+});
+
+/**
+ * Runs a table migration (`StdTable.migrate`) from one DynamoDB table into
+ * a new one at deploy, logging its progress, with the credentials each
+ * `DynamoDB.table` resource signs with. It runs after both table resources,
+ * so both tables are set up first, and its failure fails the deploy. Once
+ * done it is a no-op: the new table's migration row says `done`, so a run
+ * on a later deploy is `Skipped`.
+ *
+ * Bind the result's `tableName` into the Worker that serves the new table,
+ * instead of the new table resource's: the Worker then depends on the
+ * migration, so Alchemy deploys it only after every row is through. Keep
+ * the old table until every stage has migrated, then delete the old table
+ * resource, this resource and the `StdTable.migrate` call together.
+ */
+const migration = (
+  id: string,
+  options: {
+    readonly from: DynamoDBTable;
+    readonly to: DynamoDBTable;
+    readonly migrate: TableMigration;
+  },
+) =>
+  DynamoDBMigration(id, {
+    from: addressOf(options.from),
+    to: addressOf(options.to),
+    tableName: options.to.tableName,
+    run: () => ({
+      from: sideOf(options.from),
+      to: sideOf(options.to),
+      migrate: options.migrate,
+    }),
+  });
+
+export const DynamoDB = { table, migration } as const;

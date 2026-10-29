@@ -1,4 +1,4 @@
-import { Effect } from 'effect';
+import { Effect, Layer, Stream } from 'effect';
 import { isResolved, Resource, RuntimeContext } from 'alchemy';
 import * as Cloudflare from '@alchemy.run/cloudflare';
 import * as Provider from 'alchemy/Provider';
@@ -8,6 +8,8 @@ import {
   type TableMode,
 } from '../../db/sqlite/index.js';
 import { makeD1SQLite } from '../../db/sqlite/drivers/d1/index.js';
+import { runMigration, type MigrationEvent } from '../../db/setup/index.js';
+import type { StdTableService } from '../../db/std-table/contract/index.js';
 import type { StdTable } from '../../db/std-table/table/index.js';
 import { TableSnapshot } from '../../snapshot/index.js';
 import type { Providers } from '../deploy-guard/index.js';
@@ -124,4 +126,126 @@ const table = (id: string, options: D1TableOptions) =>
     });
   });
 
-export const D1 = { table } as const;
+/** A table migration's stream, as `StdTable.migrate` returns it. */
+export type TableMigration = Stream.Stream<
+  MigrationEvent,
+  unknown,
+  StdTableService<any>
+>;
+
+interface D1TableAddress {
+  readonly databaseId: string;
+  readonly tableName: string;
+}
+
+/** What Alchemy keeps in state: where the migration read from and wrote to. */
+interface D1MigrationAttributes {
+  readonly from: D1TableAddress;
+  readonly to: D1TableAddress;
+  /** The new table's physical name. Bind it into the Worker, so the Worker waits for the migration. */
+  readonly tableName: string;
+}
+
+interface D1MigrationProps extends D1MigrationAttributes {
+  /** The two tables and the migration, passed through as they are and never written to state. */
+  readonly run: () => {
+    readonly from: StdTable;
+    readonly to: StdTable;
+    readonly migrate: TableMigration;
+  };
+}
+
+export type D1Migration = Resource<
+  'StdToolkit.D1.Migration',
+  D1MigrationProps,
+  D1MigrationAttributes,
+  never,
+  Providers
+>;
+
+export const D1Migration = Resource<D1Migration>('StdToolkit.D1.Migration');
+
+/** Runs the table migration against both D1 tables; its failure fails the deploy. */
+export const runD1Migration = <R>(
+  props: D1MigrationProps,
+  open: (databaseId: string) => Effect.Effect<SQLiteDriver, never, R>,
+) =>
+  Effect.gen(function* () {
+    const { from, to, migrate } = props.run();
+    const source = yield* open(props.from.databaseId);
+    const target =
+      props.to.databaseId === props.from.databaseId
+        ? source
+        : yield* open(props.to.databaseId);
+    const layer = Layer.merge(
+      SQLite.make(from, { database: source, tableName: props.from.tableName })
+        .layer,
+      SQLite.make(to, { database: target, tableName: props.to.tableName })
+        .layer,
+    );
+    yield* runMigration(
+      migrate.pipe(Stream.provide(layer)) as Stream.Stream<
+        MigrationEvent,
+        unknown
+      >,
+    );
+    return {
+      from: props.from,
+      to: props.to,
+      tableName: props.tableName,
+    } satisfies D1MigrationAttributes;
+  });
+
+export const D1MigrationProvider = () =>
+  Provider.succeed(D1Migration, {
+    diff: ({ olds: previous, news: current }) =>
+      Effect.succeed(
+        !isResolved(current)
+          ? undefined
+          : JSON.stringify(previous) !== JSON.stringify(current)
+            ? { action: 'update' as const }
+            : { action: 'noop' as const },
+      ),
+    reconcile: ({ news: current }) => runD1Migration(current, openD1),
+    // The migrated rows outlive the resource: removing it leaves both tables.
+    delete: () => Effect.void,
+    read: ({ output }) => Effect.succeed(output),
+  });
+
+/**
+ * Runs a table migration (`StdTable.migrate`) from one D1 table into a new
+ * one at deploy, logging its progress. It runs after both `D1.table`
+ * resources, so both tables are set up first, and its failure fails the
+ * deploy. Once done it is a no-op: the new table's migration row says
+ * `done`, so a run on a later deploy is `Skipped`.
+ *
+ * Bind the result's `tableName` into the Worker that serves the new table,
+ * instead of the new table resource's: the Worker then depends on the
+ * migration, so Alchemy deploys it only after every row is through. Keep
+ * the old table and its Worker binding until every stage has migrated, then
+ * delete the old table resource, this resource and the `StdTable.migrate`
+ * call together.
+ */
+const migration = (
+  id: string,
+  options: {
+    readonly from: D1Table;
+    readonly to: D1Table;
+    readonly migrate: TableMigration;
+  },
+) =>
+  D1Migration(id, {
+    from: {
+      databaseId: options.from.databaseId,
+      tableName: options.from.tableName,
+    },
+    to: { databaseId: options.to.databaseId, tableName: options.to.tableName },
+    tableName: options.to.tableName,
+    run: () => ({
+      from: options.from.Props.table(),
+      to: options.to.Props.table(),
+      migrate: options.migrate,
+    }),
+  });
+
+export const D1 = { table, migration } as const;
