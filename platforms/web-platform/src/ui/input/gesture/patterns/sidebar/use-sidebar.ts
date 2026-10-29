@@ -59,9 +59,17 @@ const CLOSE_SPRING = {
 const EDGE_STRIP = 24;
 
 /**
+ * How much of its width a Swipe, carried by its momentum, must travel to
+ * open or close it: under half, so a relaxed drag does it on a phone, where
+ * it spans the screen.
+ */
+const COMMIT = 0.3;
+
+/**
  * A sidebar that follows a Swipe toward open, from anywhere or only from its
  * `edge`, and a Swipe back from anywhere to close, then settles open or
- * closed by where the fingers' momentum would carry it, past half its width.
+ * closed by where the fingers' momentum would carry it, past COMMIT of its
+ * width either way.
  */
 export function useSidebar(options: SidebarOptions): Sidebar {
   const { side, width, edge, enabled = true } = options;
@@ -153,7 +161,8 @@ export function useSidebar(options: SidebarOptions): Sidebar {
       way === 'open'
         ? base.current + at.projected
         : base.current - at.projected;
-    const opens = headed >= width / 2;
+    const opens =
+      way === 'open' ? headed >= width * COMMIT : headed > width * (1 - COMMIT);
     settle(opens, (way === 'open' ? sign : -sign) * at.velocity);
     change(opens);
   };

@@ -117,7 +117,7 @@ afterEach(() => {
 });
 
 describe('useSidebar', () => {
-  it('follows a Swipe and opens past half its width', () => {
+  it('follows a Swipe and opens past COMMIT of its width', () => {
     const onOpenChange = render();
     expect(sidebar.x.get()).toBe(-200);
     act(() => pointer('pointerdown', 10));
@@ -139,6 +139,24 @@ describe('useSidebar', () => {
     swipe(10, 60, 16, 200);
     expect(onOpenChange).not.toHaveBeenCalled();
     expect(sidebar.open).toBe(false);
+  });
+
+  it('opens from a slow Swipe of a third of its width', () => {
+    const onOpenChange = render();
+    swipe(10, 80, 16, 200);
+    expect(onOpenChange).toHaveBeenCalledWith(true);
+  });
+
+  it('closes from a slow Swipe back of a third of its width', () => {
+    const onOpenChange = render({ defaultOpen: true });
+    swipe(150, 80, 16, 200);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('stays open from a short, slow Swipe back', () => {
+    const onOpenChange = render({ defaultOpen: true });
+    swipe(150, 100, 16, 200);
+    expect(onOpenChange).not.toHaveBeenCalled();
   });
 
   it('opens from a short flick, carried by its momentum', () => {
