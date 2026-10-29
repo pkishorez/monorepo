@@ -51,8 +51,10 @@ import { useDrawn } from '../shape/shape.ts';
  * does once it has settled a choice, unless another Picker was opened
  * since, which holds the Surface now. Opened by keys or a mouse, the
  * search is the Surface's default Focus Spot, so it takes focus as the
- * Picker opens. Rows that carry an Action's keys show them in two columns,
- * out of Vim Mode and in it, under heads that say so, the set in effect
+ * Picker opens. Its footer hints the keys, Mod+Enter only in a Picker
+ * where finishing is not picking: one with a Step that goes on to
+ * another, or ends on itself. Rows that carry an Action's keys show them
+ * in two columns, out of Vim Mode and in it, under heads that say so, the set in effect
  * lit and the other quieter; on a narrow screen, the name has its own line
  * and the set in effect sits under it, alone.
  *
@@ -100,6 +102,10 @@ export function List<P>({
     if (spec.lands?.(choices) === true) enter('content');
   };
   const canBack = query === '' && model.below.length > 0;
+  // Finishing differs from picking only where a Step goes on, or ends on itself.
+  const canFinish = Object.values(spec.steps).some(
+    (step) => step.next !== undefined || step.finishes === 'step',
+  );
   const waits = settles(spec, model);
   const pick = (value: string) => {
     const outcome = outcomeOf(spec, model, props, value);
@@ -439,7 +445,7 @@ export function List<P>({
             className="flex gap-3 border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground touch:hidden keyboard:flex"
           >
             <span>{hint('picker.pick')} pick</span>
-            <span>{hint('picker.finish')} done</span>
+            {canFinish && <span>{hint('picker.finish')} done</span>}
             {canBack && <span>{hint('picker.back')} back</span>}
             <span className="ml-auto">
               {query === '' ? 'esc close' : `${hint('picker.clear')} clear`}

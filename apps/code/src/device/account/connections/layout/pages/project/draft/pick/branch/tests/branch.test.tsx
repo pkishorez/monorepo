@@ -267,4 +267,12 @@ describe('BranchPicker', () => {
       'Branch: origin/release',
     );
   });
+  it('hints no Mod+Enter to finish, picking being finishing in its one Step', async () => {
+    await draw();
+    await act(async () => trigger()!.click());
+    await flush();
+    const footer = document.querySelector('[cmdk-root] > p[aria-hidden]');
+    expect(footer?.textContent).toContain('pick');
+    expect(footer?.textContent).not.toContain('done');
+  });
 });
