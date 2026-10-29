@@ -22,6 +22,7 @@ import {
   SidebarLive,
 } from './actor.ts';
 import { type Drawn, drawnOf, keptOf } from './list/rows/drawn.ts';
+import { namesOf } from './list/rows/rows.ts';
 import { Places } from './list/list.tsx';
 import { doneOf, movedOf } from './list/moves/moves.ts';
 import { useReload } from './edges/header/pull/pull.tsx';
@@ -151,6 +152,7 @@ export const SidebarView = View.make(
             route={route}
             projects={{ rows: drawn.projects, waiting }}
             sessions={movedOf(synced, model.moving)}
+            connections={namesOf(model.connections ?? [], shown)}
             isUnseen={(each) =>
               isUnseen(
                 model.unseen[each.connectionId] ?? {},

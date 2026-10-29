@@ -3,6 +3,7 @@ import { Router } from '@kestack/kabuki/routing';
 import { revealInView } from '@kestack/use-keys/surfaces';
 import {
   ChevronRightIcon,
+  FolderGit2Icon,
   FolderPlusIcon,
   GitBranchIcon,
   GitForkIcon,
@@ -25,11 +26,11 @@ import {
   StandingDot,
   standingOf,
   useHealth,
-  useConnectionName,
 } from '../../../connection/link/index.ts';
 import { ago } from '../../../../../../ui/labels/status/index.ts';
 import { StatusWord } from '../../../../../../ui/labels/status/index.ts';
 import {
+  branchShown,
   type Entry,
   type Group,
   groupedOf,
@@ -47,11 +48,15 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react';
  * The sidebar: on a wide screen, Open project first, which opens the
  * Project Picker as its keys do; then every unsettled Session of every
  * Connection under its Project's heading, the Projects and their Sessions
- * the most recently active first (`rows/`). A heading, anywhere on it or
- * its plus, opens its Project's new session, and is lit while that is
- * open. A row is its title, bold while Unseen, a fork glyph for a Fork,
- * with the branch its Worktree is on under it in a git Project, then its
- * Connection's name while there is more than one, and its status at the
+ * the most recently active first (`rows/`); while every Connection is
+ * shown and there is more than one, under its Connection's name first,
+ * said once, quieter than the headings, with room above. A heading is its
+ * Project's name; anywhere on it or its plus opens its Project's new
+ * session, and it is lit while that is open. A row is its title, bold
+ * while Unseen, a fork glyph for a Fork, with the branch its Worktree is on
+ * under it in a git Project, as plain quiet text with a branch glyph, or a
+ * Worktree's for a branch Code made, said without Code's prefix; and its
+ * status at the
  * right, as quietly as it can be said: a mark, or how long ago, level with
  * the title (`ui/status-word`), or, loud on purpose, a "Question" pill
  * while its agent waits on an Agent Question. Rows have room between them,
@@ -96,6 +101,7 @@ export function Places({
   route,
   projects,
   sessions,
+  connections,
   isUnseen,
   isAsking,
   onOpenSession,
@@ -119,6 +125,8 @@ export function Places({
   };
   /** Every Session, Settled ones too. */
   readonly sessions: ReadonlyArray<OnConnection<Session>>;
+  /** The Connections' names to draw the Projects under, or null to mix them unnamed (`rows/namesOf`). */
+  readonly connections: ReadonlyMap<string, string> | null;
   readonly isUnseen: (session: OnConnection<Session>) => boolean;
   /** Whether its agent waits on an Agent Question. */
   readonly isAsking: (session: OnConnection<Session>) => boolean;
@@ -149,7 +157,7 @@ export function Places({
       ? null
       : sessionPlace({ connectionId: from.connectionId, id: from.sessionId }));
   const [settledOpen, setSettledOpen] = useState(false);
-  const groups = groupedOf(projects.rows, sessions);
+  const groups = groupedOf(projects.rows, sessions, connections);
   const settled = settledOf(projects.rows, sessions);
   const toggleSettled = () => setSettledOpen((now) => !now);
   const stops: ReadonlyArray<Stop> = [
@@ -230,10 +238,19 @@ export function Places({
               <SidebarMenu className="gap-0.5">
                 <AnimatePresence key={read} initial={false}>
                   {groups.flatMap((group, index) => [
+                    ...(group.connection === null
+                      ? []
+                      : [
+                          <ConnectionLabel
+                            key={`c:${group.connectionId}`}
+                            name={group.connection}
+                            first={index === 0}
+                          />,
+                        ]),
                     <ProjectHeading
                       key={group.place}
                       group={group}
-                      first={index === 0}
+                      first={index === 0 || group.connection !== null}
                       open={open === group.place}
                       at={at}
                     />,
@@ -347,6 +364,27 @@ function OpenProject() {
 }
 
 /**
+ * A Connection's name over its Projects, said once: quieter than their
+ * headings, and not a stop, since it opens nothing. Room above it sets each
+ * Connection apart.
+ */
+function ConnectionLabel({
+  name,
+  first,
+}: {
+  readonly name: string;
+  readonly first: boolean;
+}) {
+  return (
+    <ArriveItem className={first ? undefined : 'mt-5'}>
+      <h3 className="truncate px-3 pt-1 pb-0.5 text-[12px] leading-5 text-muted-foreground/60 keyboard:md:text-[11px] keyboard:md:leading-4">
+        {name}
+      </h3>
+    </ArriveItem>
+  );
+}
+
+/**
  * A Project's heading over its Sessions: its name, quieter than theirs,
  * and a plus at the right. Anywhere on it opens its new session, so the
  * plus is only its sign; a finger's height to hit.
@@ -419,7 +457,7 @@ function SessionRow({
           }),
         ) || 'Untitled session';
   const title = session.title || 'Untitled session';
-  const { branch } = session;
+  const branch = session.branch === null ? null : branchShown(session.branch);
   const where = useWhere(session.connectionId);
   // With nothing under its title, a row is one line high.
   const lines =
@@ -474,11 +512,22 @@ function SessionRow({
               <span className="flex min-w-0 items-center gap-1.5 text-[13px] text-muted-foreground/75 keyboard:md:text-xs">
                 {branch !== null && (
                   <span
-                    title={`On ${branch}`}
-                    className="flex min-w-0 shrink items-center gap-1 rounded-md bg-sidebar-accent/70 px-1.5 font-mono text-[12px] leading-[18px] text-sidebar-foreground/75 keyboard:md:text-[11px] keyboard:md:leading-4"
+                    title={`On ${session.branch}`}
+                    className="flex min-w-0 shrink items-center gap-1"
                   >
-                    <GitBranchIcon aria-hidden className="size-3! shrink-0" />
-                    <span className="truncate">{branch}</span>
+                    {branch.worktree ? (
+                      <FolderGit2Icon
+                        role="img"
+                        aria-label="Worktree"
+                        className="size-3! shrink-0 opacity-80"
+                      />
+                    ) : (
+                      <GitBranchIcon
+                        aria-hidden
+                        className="size-3! shrink-0 opacity-80"
+                      />
+                    )}
+                    <span className="truncate">{branch.text}</span>
                   </span>
                 )}
                 {where !== null && (
@@ -502,20 +551,16 @@ function SessionRow({
 }
 
 /**
- * Where a Session is: its Connection's name while there is more than one,
- * and, while the Connection does not answer, when it was last seen; null
- * when there is nothing to say.
+ * Where a Session is, while its Connection does not answer: when it was
+ * last seen; null when there is nothing to say. Its Connection's name is
+ * on its Project's heading.
  */
 function useWhere(connectionId: string) {
-  const connection = useConnectionName(connectionId);
   const health = useHealth(connectionId);
-  const seen = outOfReach(health) ? `seen ${ago(health.lastSeen)}` : null;
-  const text = [connection, seen].filter((each) => each !== null).join(' · ');
-  if (text === '') return null;
+  if (!outOfReach(health)) return null;
   return {
-    text,
-    title:
-      seen === null ? undefined : 'Not answering: what it last synced is shown',
+    text: `seen ${ago(health.lastSeen)}`,
+    title: 'Not answering: what it last synced is shown',
   };
 }
 

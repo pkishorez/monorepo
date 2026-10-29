@@ -1,7 +1,13 @@
 import type { Project, Session } from '@kestack/connect/code';
 import { describe, expect, it } from 'vitest';
 import type { OnConnection } from '../../../../../connection/records/index.ts';
-import { groupedOf, sessionBeside } from '../rows.ts';
+import {
+  branchShown,
+  groupedOf,
+  namesOf,
+  sessionBeside,
+  shortNameOf,
+} from '../rows.ts';
 
 const project = (id: string, connectionId = 'm1') =>
   ({ id, name: `Project ${id}`, connectionId }) as OnConnection<Project>;
@@ -83,5 +89,78 @@ describe('the sidebar by Project', () => {
       ['p:m2/a', ['s:m2/s']],
       ['p:m1/a', ['s:m1/s']],
     ]);
+  });
+
+  it('groups by Connection while every one is shown and there are several, each named once', () => {
+    const listed = [
+      { id: 'm1', name: 'Kishores-MacBook-Pro-2 (dev-code-worktrees)' },
+      { id: 'm2', name: 'Kishores-MacBook-Pro-2 (demo-studio)' },
+    ];
+    const drawn = (names: ReadonlyMap<string, string> | null) =>
+      groupedOf(
+        [project('a'), project('b'), project('c', 'm2')],
+        [
+          session('a1', 'a', 1),
+          session('c1', 'c', 2, null, 'm2'),
+          session('b1', 'b', 3),
+        ],
+        names,
+      ).map(({ name, connection }) => [connection, name]);
+    // m1 is the most recently active; its Projects stay together.
+    expect(drawn(namesOf(listed, null))).toEqual([
+      ['dev-code-worktrees', 'Project b'],
+      [null, 'Project a'],
+      ['demo-studio', 'Project c'],
+    ]);
+    expect(namesOf(listed, 'm2')).toBeNull();
+    expect(namesOf(listed.slice(0, 1), null)).toBeNull();
+    // Unnamed, the Projects of every Connection mix, by activity alone.
+    expect(drawn(null)).toEqual([
+      [null, 'Project b'],
+      [null, 'Project c'],
+      [null, 'Project a'],
+    ]);
+  });
+
+  it('steps through the Sessions in the order drawn by Connection', () => {
+    const groups = groupedOf(
+      [project('a'), project('c'), project('b', 'm2')],
+      [
+        session('a1', 'a', 1),
+        session('b1', 'b', 2, null, 'm2'),
+        session('c1', 'c', 3),
+      ],
+      namesOf(
+        [
+          { id: 'm1', name: 'one' },
+          { id: 'm2', name: 'two' },
+        ],
+        null,
+      ),
+    );
+    expect(
+      sessionBeside(groups, { connectionId: 'm1', sessionId: 'c1' }, 1)?.id,
+    ).toBe('a1');
+  });
+
+  it('names a Connection as it was served, else in full', () => {
+    expect(shortNameOf('Kishores-MacBook-Pro-2 (demo-studio)')).toBe(
+      'demo-studio',
+    );
+    expect(shortNameOf('Kishores-MacBook-Pro-2')).toBe(
+      'Kishores-MacBook-Pro-2',
+    );
+  });
+
+  it("says a branch Code made for a Worktree without Code's prefix", () => {
+    expect(branchShown('ke-code/reply-ok')).toEqual({
+      text: 'reply-ok',
+      worktree: true,
+    });
+    expect(branchShown('main')).toEqual({ text: 'main', worktree: false });
+    expect(branchShown('feat/ke-code/x')).toEqual({
+      text: 'feat/ke-code/x',
+      worktree: false,
+    });
   });
 });

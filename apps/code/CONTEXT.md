@@ -77,7 +77,7 @@ What the user sets, on no Connection, at one address, in three tabs side by side
 _Avoid_: options, config
 
 **Sidebar**:
-The Sessions listed by Project, each Project with its Sessions under it, the most recently active first, and the Projects in that order too, each Project's heading, anywhere on it or its +, opening its new Session's page at once. A Session in a git Project shows the branch its Worktree is on now, never the Worktree's folder. A Session shows in it only once it has started; a new Session's page puts nothing there.
+The Sessions listed by Project, each Project with its Sessions under it, the most recently active first, and the Projects in that order too, each Project's heading, anywhere on it or its +, opening its new Session's page at once. While the Connection Filter shows every Connection and the Connection List has more than one, the Projects are by Connection first, the Connections in the order of their most recently active Session, each Connection named once over its Projects by the name it was served as, quieter than a Project's heading; neither a heading nor a Session repeats it. With one Connection shown, no Connection is named. A Session in a git Project shows, as quiet text under its title, the branch its Worktree is on now, never the Worktree's folder; a branch Code made for a new Worktree is shown without its `ke-code/` prefix, marked as a Worktree. A Session shows in it only once it has started; a new Session's page puts nothing there.
 _Avoid_: timeline, session list, project tree
 
 **Branch Picker**:
