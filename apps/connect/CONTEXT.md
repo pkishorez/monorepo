@@ -45,7 +45,7 @@ A Plugin is Updating while its new Release downloads and starts; the tunnel stay
 _Avoid_: upgrading, deploying, restarting
 
 **Project**:
-A folder on a Connection that Sessions run in. It knows whether its folder is there, present or missing, as its Connection last found it: the Connection looks as it starts, every minute, and at once when a Turn fails or its Skills cannot be listed, and writes it only when that changes, back to present when the folder returns. Removing a Project removes its Sessions with it; the folder stays as it is.
+A folder on a Connection that Sessions run in. It knows whether its folder is there, present or missing, as its Connection last found it: the Connection looks as it starts, every minute, and at once when a Turn fails or its Skills cannot be listed, and writes it only when that changes, back to present when the folder returns. A Project is never managed: it is listed by when its Sessions were last active, and only one whose folder is missing can be removed, its Sessions with it; the folder stays as it is. Git is optional: a folder that is not a git repository is a Project as any other.
 _Avoid_: workspace, repo
 
 **Connection**:
@@ -71,8 +71,12 @@ _Avoid_: last active, updated at, online
 ### The code Plugin
 
 **Session**:
-One Agent kept on a Connection, in one of its Projects: its Messages, its Title, and whether it is Settled. A Fork of a Session is listed as a Session of its own, not under the original, and reads what came before its Fork Point from the original rather than copying it.
+One Agent kept on a Connection, in one of its Projects and, when that Project is a git repository, in one of its Worktrees, chosen when it starts and kept: its Messages, its Title, and whether it is Settled. A Fork of a Session is listed as a Session of its own, not under the original, runs in the original's Worktree, and reads what came before its Fork Point from the original rather than copying it.
 _Avoid_: thread, chat, Agent (what a Session keeps), conversation
+
+**Worktree**:
+One working copy of a Project's git repository, on one branch: the main worktree, which is the Project's own folder, or a linked one the Connection makes in kestack's own data folder, outside any one Connection's, so forgetting a Connection never deletes one. A Project whose folder is not a git repository has none, and its Sessions run in its folder.
+_Avoid_: checkout, workspace, environment
 
 **Default Account**:
 The Harness Account a Connection has for each Coding Harness it runs, even before the user sets it: the harness from PATH, on its own config folder, its id the harness's name. With no folder set, it runs in Connect's environment, so the folder it really uses is `CLAUDE_CONFIG_DIR` or `CODEX_HOME` when Connect was started with one, else `~/.claude` or `~/.codex`, and it is shown as that. It can be changed but never removed. Every other Harness Account is one the user added, such as a work login; a Session runs as one account, chosen when it starts, and keeps it.
