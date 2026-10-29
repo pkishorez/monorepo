@@ -1,0 +1,15 @@
+# The Stored contract is rows inside the table, the same on every adapter
+
+The Stored contract moves from each adapter's side table (`_std_contract` in SQLite and IndexedDB, nothing on DynamoDB) into the table itself, as reserved rows written through the same entity code as app data and hidden from `scan` and from app code: one row for the table (keys, indexes, mode and a hash of the rest), one per entity (its key paths and indexes), one per version of every ESchema the table reaches, nested ones included, and one per **Backfill** (status and cursor). Every adapter now keeps and checks its contract the same way, and DynamoDB gains one, set up at deploy inside `DynamoDB.table` as D1 is inside `D1.table`; the deploy guard stays only for tables whose setup runs later on a device or object.
+
+ADR 0012 rejected a baseline inside the table for two reasons that no longer hold. Setup no longer runs per request (ADR 0019): it runs at deploy or when a database opens. And the baseline no longer grows: an approved version is frozen, so its row is written once and never rewritten, and no row is bigger than one version's shape, well under DynamoDB's 400 KB item. An unchanged table is still one read, of the table row's hash.
+
+What an adapter cannot apply stays its own refusal inside one shared plan: DynamoDB changes an index only by adding a global secondary index. A wipe is deleting every row, on every adapter, so a disposable DynamoDB table can now be wiped.
+
+This is a clean break. No code converts an existing `_std_contract`, and the reserved `__std_toolkit_enforcement__` row and its scan filter are removed. A table holding rows but no Stored contract is refused if persistent and wiped if disposable; the way past is a new physical table name.
+
+## Considered Options
+
+- **One contract row per table, or per entity**: rejected. Either grows with every version and reaches the item limit again, which is why ADR 0012 dropped the first try.
+- **Converting existing `_std_contract` data on first setup**: rejected. The packages are pre-release with one user, and conversion code would linger.
+- **Keeping the deploy guard on D1 and DynamoDB**: rejected. Setup at deploy checks the same contract against the data itself.

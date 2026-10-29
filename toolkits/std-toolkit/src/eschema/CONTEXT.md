@@ -46,6 +46,10 @@ _Avoid_: Parent evolution, implicit evolution.
 A total function transforming a **value** of the prior **version** into a value of the next, run while decoding. It works on rich values (a `Date`, not its stored string); each version's own fields convert its **encoded form** before the first migration runs. Migrations are chained to fold any written version up to the latest.
 _Avoid_: transform, upgrade, converter.
 
+**gap version**:
+A **version** declared with no **migration**, because its value cannot be derived from the prior version's value alone. A row stored before it fails to decode with `NeedsBackfill` until a [[db]] **Backfill** rewrites it. Its value type at each version stays known (`X.at('v1')`) so the Backfill can be typed.
+_Avoid_: breaking version, manual migration, throwing migration.
+
 **upgrade check**:
 A property test of an ESchema's **migrations** (`expectUpgradable`): for every **version** of the schema and of every ESchema it nests, it generates **values** valid at that version, stores each in that version's **encoded form**, and requires it to decode to the latest value with its id unchanged, then encode and decode again unchanged. Only rows the version could have stored are generated, and paths named `unchanged` must keep their value. It tests behavior a **table snapshot** cannot see, since a snapshot records shapes, not migrations. The table test `expectTableShippable` runs it over every schema a [[db]] **StdTable** reaches through its entities, with each keyed entity's partition-key paths `unchanged`, since a migration that moves one strands the row at its old key.
 _Avoid_: Migration test, golden rows.

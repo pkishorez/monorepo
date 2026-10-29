@@ -1,0 +1,16 @@
+# Backfills live on the table, run before new code serves, and eschema stays pure
+
+A version whose value cannot be derived from the previous one (a **gap version**, declared with `evolve` and no migration) is filled by a **Backfill**: an effectful step declared on the StdTable, after all its entities, that reads a row at the old version, may read other entities, and returns the next version's value. eschema's **migration** stays a pure, total read-time function; anything that needs IO or another entity is a Backfill, never a migration. The StdTable becomes one declaration (keys, then entities, then Backfills) so the types can require a Backfill for every gap version and give `run` typed access to every entity; entities declared apart from the table could not reach one another without import cycles.
+
+A Backfill runs before new code serves: in Adapter setup for SQLite, IndexedDB and Durable Objects, and at deploy, before the Worker goes live, for D1 and DynamoDB. It is done when no stored row is older than its gap version, not when a flag says so, because an old client can write an old row behind the scan. Setup plans the pending Backfills by `after`, scans each entity once, folds each row through every pending step and writes it once, so a database that skipped releases catches up in one pass and an empty one in none. The cost is downtime: until a Backfill finishes, the new code cannot read the rows it has not reached and the old code cannot read the rows it has rewritten. Declaring a Backfill is accepting that.
+
+A Backfill is not one atomic operation, because DynamoDB, D1 and IndexedDB cannot hold a transaction across a scan with reads of other entities. Instead each row write is guarded by its `_u`, progress is kept in one record per table (each Backfill's status and cursor, beside the Stored contract, or in one item on DynamoDB), a crash resumes from the cursor, and the Stored contract is written, and new code serves, only after every Backfill is done. Two runners at once are not guarded against: IndexedDB and Durable Objects are exclusive already, and CI runs one deploy per app and stage at a time.
+
+## Considered Options
+
+- **Effectful or throwing migrations inside eschema**: rejected. A migration runs on every read, everywhere, including in Sync and on the wire; it must be pure so the same row reads the same on every replica.
+- **Backfills declared on each entity**: rejected. An entity cannot see entities declared after it, and ordering across entities would be implicit.
+- **One scan per Backfill, in order**: rejected. A database that skipped five releases would scan five times and reindex separately.
+- **A flag as the record of done**: rejected for the reason above; the record only saves rescanning.
+- **One transaction per Backfill where the adapter allows it** (SQLite, Durable Objects): rejected. Rows rewritten before a crash are already correct, and two behaviors would be two things to test.
+- **A lease against concurrent runners**: rejected as unneeded for now; Alchemy's Cloudflare state store holds no deploy lease, but the deploy workflows' `concurrency` groups already serialize deploys.
