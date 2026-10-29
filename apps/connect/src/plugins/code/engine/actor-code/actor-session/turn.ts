@@ -1,4 +1,4 @@
-import { Clock, Duration, Effect, Option, Stream } from 'effect';
+import { Clock, Duration, Effect, Exit, Option, Stream } from 'effect';
 import {
   HarnessError,
   isRecord,
@@ -19,7 +19,9 @@ import { toTurnInput, type Prompt } from './prompt.js';
  * started on its own, and everything it emits until it is idle again. It
  * runs while the Session is Running that Turn.
  *
- * - run     writes `turn.started`, then reads the turn's stream in order
+ * - run     writes `turn.started` (in a new Session, once its Agent has
+ *           opened: one that fails to never writes), then reads the turn's
+ *           stream in order
  *           (ADR 0013): the agent's records go into Raw, a steer the agent
  *           took becomes a `turn.started` that steered and the Session
  *           hears of it, and the stream's `TurnEnd` gives `turn.ended` its
@@ -115,10 +117,12 @@ export const run = (self: SessionSelf, turnId: string) =>
     let turnEnd: TurnEnd | undefined;
     let ended: TurnEndStatus | undefined;
     let nativeId: string | undefined;
+    /** Its `turn.started` is written: only then is there a Turn to end. */
+    let begun = false;
 
     const end = (status: TurnEndStatus, error?: string) =>
       Effect.gen(function* () {
-        if (ended) return;
+        if (ended || !begun) return;
         ended = turnEnd?.status ?? status;
         const why = turnEnd ? turnEnd.error : error;
         yield* write(
@@ -201,6 +205,18 @@ export const run = (self: SessionSelf, turnId: string) =>
       });
 
     const body = Effect.gen(function* () {
+      // A new Session's Agent opens before anything is written: one whose
+      // first open fails is dropped, and its id may start again, so it
+      // must leave no records.
+      if (model.untitled !== null) {
+        const opening = yield* Effect.exit(kept.agent);
+        if (
+          Exit.isFailure(opening) &&
+          Exit.isFailure(yield* Effect.exit(kept.firstOpen))
+        )
+          return yield* Effect.never;
+      }
+      begun = true;
       yield* write(started(prompt));
       const result = yield* Effect.result(stream);
       yield* finish(result._tag === 'Failure' ? result.failure : undefined);
