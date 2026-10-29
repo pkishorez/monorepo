@@ -241,9 +241,10 @@ export function Places({
     sessions.map((session) => [keyOf(session), session.title]),
   );
   // Sessions the device holds draw at once, of every Connection; with none,
-  // how far each Connection never synced here got.
+  // how far each Connection never synced here got. Both count what is
+  // listed, collapsed or not: a collapsed Connection still shows its name.
   const waiting =
-    groups.length === 0 &&
+    listed.length === 0 &&
     projects.rows.length === 0 &&
     (projects.waiting === null || projects.waiting.length > 0);
   return (
@@ -253,7 +254,7 @@ export function Places({
           <OpenProject />
           {waiting ? (
             <Waiting connections={projects.waiting} />
-          ) : groups.length === 0 ? (
+          ) : listed.length === 0 ? (
             <p className="px-3 py-2 text-[15px] text-pretty text-muted-foreground keyboard:md:text-sm">
               No sessions yet. Start one with the plus
               {picks === null ? '' : `, or ${picks}`}: pick a folder, then say
