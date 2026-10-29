@@ -56,7 +56,7 @@ import { cancel, run } from './turn.js';
  * the Agent Questions its running Turn waits on, and gives the agent an
  * Answer, its Commands telling the caller in Answers how it went; saves
  * itself whenever its record changes, a new one only once its Agent has
- * opened; takes a message's model and settings
+ * opened and its first message is written; takes a message's model and settings
  * from that Turn on; asks a One-shot Prompt for a title after its first
  * message (see title.ts); and, while not Settled, keeps the branch its
  * Worktree is on (see branch.ts). Each Turn that starts marks it active, and each
@@ -235,7 +235,8 @@ const opened = (self: SessionSelf) =>
 
 /**
  * Saves the Session's record every time it changes, in order; a new one,
- * still untitled, from when its Agent has opened (see `opened`). A Session
+ * still untitled, from when its Agent has opened and its first message is
+ * written, which it says once saved, so a start counts only then. A Session
  * that stops, with its project removed or the server stopping, saves
  * nothing more: one stopped running is still `running` in the Store, and
  * the next start marks it interrupted and Resumes it once.
@@ -243,11 +244,16 @@ const opened = (self: SessionSelf) =>
 const persist = (self: SessionSelf) =>
   Effect.gen(function* () {
     const store = yield* Store;
-    if ((yield* self.get).model.untitled !== null) yield* opened(self);
+    const { model } = yield* self.get;
+    const kept = yield* (yield* Agents).of(model.session.id);
+    if (model.untitled !== null)
+      yield* kept.firstRecord.await.pipe(Effect.catch(() => Effect.never));
     yield* self.changes.pipe(
       Stream.map(({ model, state }) => recordOf(model, state)),
       Stream.changesWith((a, b) => JSON.stringify(a) === JSON.stringify(b)),
-      Stream.runForEach(store.saveSession),
+      Stream.runForEach((record) =>
+        Effect.andThen(store.saveSession(record), kept.firstSave.mark),
+      ),
     );
   });
 

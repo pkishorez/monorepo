@@ -24,6 +24,12 @@ import type {
  * services/agents/.
  */
 
+/** One step of a new Session's start, waited for and marked done. */
+export interface Milestone {
+  readonly await: Effect.Effect<void, HarnessError>;
+  readonly mark: Effect.Effect<void>;
+}
+
 /** A Session's Agent, as the Session's Workers, Commands and Queries share it. */
 export interface SessionAgent {
   /** The Agent, opened now if it is not open. */
@@ -33,6 +39,14 @@ export interface SessionAgent {
    * it could not, or when the Session stopped first.
    */
   readonly firstOpen: Effect.Effect<void, HarnessError>;
+  /**
+   * A new Session's start, step by step: its Agent first opened, then its
+   * first message written, then itself saved. Each waits for its step, and
+   * fails as the first open did, or when the Session stopped first; `mark`
+   * says a step is done.
+   */
+  readonly firstRecord: Milestone;
+  readonly firstSave: Milestone;
   /** The Agent if it is open now, without opening it. */
   readonly opened: Effect.Effect<Agent | undefined>;
   /** Closes the Agent; the next Turn opens it again, resumed by its Native Id. */

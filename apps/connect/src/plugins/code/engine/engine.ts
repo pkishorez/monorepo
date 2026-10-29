@@ -606,10 +606,10 @@ const make = (options: EngineOptions) =>
                 // Its Project went as it started: nothing started.
                 if (!root.model.sessions.some((each) => each.session.id === id))
                   return yield* new ProjectNotFound({ id: project.id });
-                // Started once its Agent has opened; else it was never saved,
-                // and goes.
+                // Started once its Agent has opened, its first message is
+                // written and it is saved; else it was never saved, and goes.
                 yield* Effect.flatMap(Agents, (agents) =>
-                  Effect.flatMap(agents.of(id), (kept) => kept.firstOpen),
+                  Effect.flatMap(agents.of(id), (kept) => kept.firstSave.await),
                 ).pipe(
                   withServices,
                   Effect.tapError(() =>
