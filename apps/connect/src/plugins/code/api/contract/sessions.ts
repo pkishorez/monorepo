@@ -10,6 +10,7 @@ import {
 import { SessionSchema } from '../../records/index.js';
 import {
   AskFailed,
+  GitFailed,
   HarnessFailed,
   NotForkable,
   ProjectNotFound,
@@ -44,20 +45,56 @@ const ContextUsage = ValueESchema.make(
   ContextUsageSchema,
 ).build();
 
+/**
+ * The steps of starting a Session, each run only when it is needed:
+ *
+ * - switchingBranch  the Project's folder switches to the branch picked, an
+ *                    Origin branch first made a local one that tracks it.
+ * - makingWorktree   a new Worktree is made, on a new branch from the one
+ *                    picked.
+ * - startingAgent    the Session starts, running its first message.
+ */
+export const START_STEPS = [
+  'switchingBranch',
+  'makingWorktree',
+  'startingAgent',
+] as const;
+export type StartStepName = (typeof START_STEPS)[number];
+
+/**
+ * How starting a Session goes: each step as it begins and as it is done,
+ * then Started with the Session. A git step that fails ends it with
+ * GitFailed, and no Session is kept.
+ */
+export const StartStep = ValueESchema.make(
+  'StartStep',
+  Schema.Union([
+    tagged('Step', {
+      step: Schema.Literals(START_STEPS),
+      state: Schema.Literals(['running', 'done']),
+    }),
+    tagged('Started', { session: SessionValue }),
+  ]),
+).build();
+export type StartStep = typeof StartStep.Type;
+
 /** What a command on one Session takes, named for its command. */
 const OnSession = (name: string) =>
   ESchema.make(name, { sessionId: Schema.String }).build().schema;
 
 export const SessionsRpc = RpcGroup.make(
-  /** Starts a Session, already running its first message. */
+  /**
+   * Starts a Session, already running its first message, and streams how
+   * it goes: each StartStep, ending with Started.
+   */
   Rpc.make('startSession', {
     payload: ESchema.make('StartSessionPayload', {
       /**
        * Its id, chosen by the App so it knows the Session before the
        * answer: a ULID. The Connection chooses one when it is null, or
        * is another Project's Session's. Asked again with one of this
-       * Project's, it starts nothing and answers with that Session as it
-       * is now.
+       * Project's, it starts nothing and answers Started with that Session
+       * as it is now.
        */
       id: Schema.NullOr(
         Schema.String.check(Schema.isPattern(/^[0-9A-HJKMNP-TV-Z]{26}$/)),
@@ -69,9 +106,29 @@ export const SessionsRpc = RpcGroup.make(
       settings: Schema.Record(Schema.String, Schema.String),
       text: Schema.String,
       attachments: Schema.Array(AttachmentSchema),
-    }).build().schema,
-    success: SessionValue,
-    error: Schema.Union([ProjectNotFound, UnknownAccount]),
+    })
+      .evolve(
+        'v2',
+        {
+          /**
+           * The branch it runs on, local (`main`) or Origin (`origin/main`);
+           * null for wherever the Project's folder is. Ignored when the
+           * Project is not a git repository.
+           */
+          branch: Schema.NullOr(Schema.String),
+          /**
+           * Whether it runs in a new Worktree, on a new branch from `branch`;
+           * else in the Worktree that has `branch`, or the Project's folder
+           * switched to it.
+           */
+          newWorktree: Schema.Boolean,
+        },
+        (previous) => ({ ...previous, branch: null, newWorktree: false }),
+      )
+      .build().schema,
+    success: StartStep.schema,
+    error: Schema.Union([ProjectNotFound, UnknownAccount, GitFailed]),
+    stream: true,
   }),
   /**
    * A new Session in the same harness with the context up to the end of a

@@ -95,6 +95,24 @@ const freePort = () =>
 const stop = (scope: Scope.Closeable) =>
   Effect.flatMap(Effect.forkDetach(Scope.close(scope, Exit.void)), Fiber.await);
 
+/** The Session a start's stream ends with. */
+const started = <S, E, R>(
+  steps: Stream.Stream<
+    | { readonly _tag: 'Step' }
+    | { readonly _tag: 'Started'; readonly session: S },
+    E,
+    R
+  >,
+) =>
+  Stream.runCollect(steps).pipe(
+    Effect.map((all) => {
+      const last = all.at(-1);
+      if (last?._tag !== 'Started')
+        throw new Error('The start never ended Started');
+      return last.session;
+    }),
+  );
+
 const eventually = (assertion: () => void) =>
   Effect.promise(() =>
     vi.waitFor(assertion, { timeout: 10_000, interval: 20 }),
@@ -351,15 +369,19 @@ describe('the code Plugin, through the client and Replica', () => {
               expect(page().children.projects.model.rows).toHaveLength(1),
             );
 
-            const session = yield* api.startSession({
-              id: null,
-              projectId: project.id,
-              account: 'claude',
-              model: 'claude-test',
-              settings: {},
-              text: 'hi',
-              attachments: [],
-            });
+            const session = yield* started(
+              api.startSession({
+                id: null,
+                projectId: project.id,
+                account: 'claude',
+                model: 'claude-test',
+                settings: {},
+                text: 'hi',
+                attachments: [],
+                branch: null,
+                newWorktree: false,
+              }),
+            );
             app.send('Root/page#1', { _tag: 'Open', sessionId: session.id });
             yield* eventually(() =>
               expect(lines()).toEqual(['turnStarted hi', 'text echo:hi']),
@@ -560,15 +582,19 @@ describe('the code Plugin, through the client and Replica', () => {
               yield* api.skills({ projectId: project.id, account: 'claude' }),
             ).toEqual(FAKE_SKILLS);
 
-            const session = yield* api.startSession({
-              id: null,
-              projectId: project.id,
-              account: 'claude',
-              model: 'claude-test',
-              settings: {},
-              text: 'hi',
-              attachments: [],
-            });
+            const session = yield* started(
+              api.startSession({
+                id: null,
+                projectId: project.id,
+                account: 'claude',
+                model: 'claude-test',
+                settings: {},
+                text: 'hi',
+                attachments: [],
+                branch: null,
+                newWorktree: false,
+              }),
+            );
             const fork = yield* api
               .forkSession({ sessionId: session.id, afterTurnId: null })
               .pipe(

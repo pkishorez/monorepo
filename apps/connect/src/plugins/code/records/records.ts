@@ -43,7 +43,11 @@ const ForkedFrom = Schema.Struct({
   turnId: Schema.String,
 });
 
-/** One conversation with a Coding Harness in a Project's folder, run as one Harness Account. */
+/**
+ * One conversation with a Coding Harness in a Project's folder, or in one of
+ * its Worktrees, run as one Harness Account. v2 adds the Worktree and its
+ * branch.
+ */
 export const SessionSchema = EntityESchema.make('AiSession', 'id', {
   projectId: Schema.String,
   harness: Schema.Literals(HARNESS_NAMES),
@@ -68,7 +72,22 @@ export const SessionSchema = EntityESchema.make('AiSession', 'id', {
   endedAt: Schema.NullOr(Schema.Finite),
   /** The Harness Account it runs as, of its harness; never changes. */
   account: Schema.String,
-}).build();
+})
+  .evolve(
+    'v2',
+    {
+      /**
+       * The Worktree it runs in, chosen when it starts and kept; null in a
+       * Project that is not a git repository, where it runs in its folder.
+       */
+      worktree: Schema.NullOr(Schema.String),
+      /** The branch its Worktree is on, as the Connection last found it; null when none. */
+      branch: Schema.NullOr(Schema.String),
+    },
+    // A v1 Session ran in its Project's folder; the Folder Check finds its branch.
+    (previous) => ({ ...previous, worktree: null, branch: null }),
+  )
+  .build();
 
 export type Session = typeof SessionSchema.Type;
 

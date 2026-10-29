@@ -36,6 +36,8 @@ const session: Session = {
   settledAt: null,
   activeAt: 1,
   endedAt: null,
+  worktree: null,
+  branch: null,
 };
 
 describe('Store', () => {

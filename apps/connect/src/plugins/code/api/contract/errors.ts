@@ -112,3 +112,12 @@ export class TranscriptionFailed extends Schema.TaggedError<TranscriptionFailed>
   'TranscriptionFailed',
   { message: Schema.String },
 ) {}
+
+/**
+ * A git step of starting a Session failed, so it did not start: nothing of
+ * it is kept, and a Worktree it made is removed.
+ */
+export class GitFailed extends Schema.TaggedError<GitFailed>()('GitFailed', {
+  step: Schema.String,
+  message: Schema.String,
+}) {}
