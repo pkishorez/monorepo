@@ -11,7 +11,12 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Effect, Exit, Layer, type Scope } from 'effect';
-import { HarnessError, Harnesses } from '@kestack/ai-toolkit/harness';
+import {
+  claude,
+  HarnessError,
+  Harnesses,
+  type Harness,
+} from '@kestack/ai-toolkit/harness';
 import { TestClock } from 'effect/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -81,6 +86,8 @@ const run = <A, E>(
     readonly testClock?: boolean;
     /** Every Agent fails to open. */
     readonly refuseOpen?: boolean;
+    /** The harness every Session runs, in place of the fake's. */
+    readonly harness?: Harness;
   } = {},
 ) => {
   const worktrees = temp();
@@ -89,12 +96,13 @@ const run = <A, E>(
     ...fake.harness,
     open: () => Effect.fail(new HarnessError({ message: 'no agent here' })),
   };
+  const harness = options.refuseOpen ? refusing : options.harness;
   const base = Layer.merge(
     storeLayer(':memory:'),
-    options.refuseOpen
+    harness
       ? Layer.merge(
           fake.layer,
-          Layer.succeed(Harnesses, { all: [refusing], get: () => refusing }),
+          Layer.succeed(Harnesses, { all: [harness], get: () => harness }),
         )
       : fake.layer,
   );
@@ -442,6 +450,49 @@ describe('a Session in a git Project', () => {
         }),
       { refuseOpen: true },
     );
+  });
+
+  it('keeps no Session, and no Worktree it made, when Claude Code exits before it has initialized', async () => {
+    const repo = clone();
+    const bin = temp();
+    const exits = join(bin, 'claude');
+    writeFileSync(exits, '#!/bin/sh\necho boom >&2\nexit 1\n', {
+      mode: 0o755,
+    });
+    vi.stubEnv('AI_TOOLKIT_CLAUDE', exits);
+    try {
+      await run(
+        (worktrees) =>
+          Effect.gen(function* () {
+            const engine = yield* Engine;
+            const store = yield* Store;
+            const project = yield* engine.addProject(repo);
+            const exit = yield* Effect.exit(
+              start(project.id, { branch: 'main', newWorktree: true }),
+            );
+            expect(exit).toMatchObject({
+              _tag: 'Failure',
+              cause: {
+                reasons: [
+                  {
+                    error: {
+                      _tag: 'HarnessFailed',
+                      message: 'Claude Code stopped with exit code 1: boom',
+                    },
+                  },
+                ],
+              },
+            });
+            expect(inside(join(worktrees, project.id))).toEqual([]);
+            expect(sh(repo, 'branch', '--list', 'ke-code/*')).toBe('');
+            yield* Effect.sleep('50 millis');
+            expect(yield* store.allSessions).toEqual([]);
+          }),
+        { harness: claude },
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('runs in its folder, with no branch, in a Project that is not git', async () => {
