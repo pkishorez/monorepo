@@ -319,6 +319,13 @@ describe('Picker', () => {
     expect(document.activeElement).toBe(by('editor'));
   });
 
+  it('hints Mod+Enter to finish, its Steps going on', async () => {
+    await openByKeys();
+    expect(
+      document.querySelector('[cmdk-root] > p[aria-hidden]')?.textContent,
+    ).toContain('done');
+  });
+
   it('finishes on the keys the user bound in place of Mod+Enter', async () => {
     bindings = { 'picker.finish': 'ctrl+d' };
     await act(async () => ping());
