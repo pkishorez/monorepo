@@ -4,6 +4,10 @@
     {
       "hash": "c0faf06a7a19985aa3108dd91796a1e121d9ecb84c9286bc28c311a2ecb6ebc3",
       "summary": "The code Plugin's first Release: served at /code/<sha256>/rpc, its records at their first version"
+    },
+    {
+      "hash": "caa115b47faef44022c9b2c860bd12accdb587eed805cc7c80e21c86edb38e7a",
+      "summary": "Worktrees: a Session runs in a Worktree on a branch; branches lists them; startSession streams its Starting steps and leaves nothing when it fails; Session records at v2"
     }
   ]
 }
