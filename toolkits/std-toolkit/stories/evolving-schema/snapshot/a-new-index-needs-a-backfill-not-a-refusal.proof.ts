@@ -28,7 +28,7 @@ const withPattern = StdTable.make('board')
 export default Proof.make({
   title: 'A new index on an existing entity needs a backfill, not a refusal',
   description:
-    'Rows already stored have no keys for the new pattern until they are reindexed; nothing is lost, so the deploy may proceed with a warning.',
+    'Rows already stored have no keys for the new pattern until they are reindexed; nothing is lost, so a `{ reindex }` Backfill fills them instead of the change being refused.',
   prepare: Effect.gen(function* () {
     const accepted = TableSnapshot.capture(shipped);
     yield* Proof.assert(

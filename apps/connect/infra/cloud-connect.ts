@@ -12,9 +12,10 @@ import { where } from './stage.ts';
  * Cloud Connect's Worker, served at `connect.kishore.app` (Portless's
  * `connect.kishore.computer` under `alchemy dev`, with the branch in front
  * in a linked worktree), with a D1 database of its own holding the
- * `connections` std Table. The table goes through std-toolkit's deploy guard,
- * which refuses a deploy whose table would no longer read the rows
- * already stored, and the Worker is deployed only behind it. Under `pnpm
+ * `connections` std Table. std-toolkit sets the table up at deploy against
+ * the Stored contract inside it, refusing a deploy whose table would no
+ * longer read the rows already stored and running any Backfill, and the
+ * Worker is deployed only behind it. Under `pnpm
  * dev` it signs in with auth-toolkit's Fake, as the Web Platform's
  * `backend` bundles it.
  *

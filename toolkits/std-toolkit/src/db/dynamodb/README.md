@@ -27,7 +27,7 @@ See the [top README](../../../README.md).
 
 ### Create the table, run the program, delete the table
 
-Against DynamoDB Local, create the table first and delete it afterwards; in production the Alchemy target creates it.
+Against DynamoDB Local, create the table first and delete it afterwards; in production `DynamoDB.table` in the Alchemy stack runs `DynamoDB.setup` at deploy.
 
 ```ts
 import { Effect } from 'effect';

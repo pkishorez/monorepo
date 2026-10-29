@@ -9,7 +9,7 @@ the way January's code shaped it.
 The moment you add a field, every existing row becomes a liar: it claims to be
 a `User`, but it has no `age`. You now have three bad options:
 
-- **Backfill the table** — a migration script per deploy, downtime, and a
+- **Rewrite every row** — a migration script per deploy, downtime, and a
   window where old and new code disagree about what a row looks like.
 - **Sprinkle defensive code** — `user.age ?? 0` at every read site, forever,
   with no record of _why_.
@@ -40,13 +40,18 @@ The database never has to change. Old rows are never rewritten. Code only ever
 sees the latest shape. The full history of the schema lives in one declaration,
 in one file, under version control.
 
+Most changes fit that mould. The few that do not, a value no old row holds,
+get a **gap version** and a **Backfill** that rewrites the old rows once; see
+"Gap versions and Backfills" below.
+
 ## Defining evolutions
 
 Every change to a shape is an appended `evolve(version, delta, migration)`
 step. The delta says what happened to the shape; the migration says what
-happens to the data. The builder enforces the rest at compile time — versions
-in sequence, no optional fields, no underscore keys, and (for entities) hands
-off the id.
+happens to the data. A step with no migration, `evolve(version, delta)`, is a
+gap version: the data is filled by a Backfill instead. The builder enforces
+the rest at compile time — versions in sequence, no optional fields, no
+underscore keys, and (for entities) hands off the id.
 
 ## Reading and writing
 
@@ -183,13 +188,19 @@ sharp edges worth knowing before you rely on it.
 - **The types will not stop you editing history.** Shipped versions and
   shipped migrations are contracts with the rows already written, but nothing
   in the types detects that you changed v1's fields or rewrote the v1→v2 step
-  after rows were written. On a persistent table, three things catch a changed
-  version: the per-table test (`expectTableShippable`) in CI, the deploy guard,
-  and setup against the Stored contract. See "Shipping" below. A rewritten migration is not caught by a snapshot: it is
+  after rows were written. On a persistent table, two things catch a changed
+  version: the per-table test (`expectTableShippable`) in CI, and setup
+  against the Stored contract, which runs at deploy for D1 and DynamoDB and is
+  checked at deploy by the deploy guard for a table set up later. See
+  "Shipping" below. A rewritten migration is not caught by a snapshot: it is
   code. `expectUpgradable` (below) is the test that exercises it.
-- **Migrations only run on read.** A row written at v1 stays a v1 row on disk
-  until something decodes and re-encodes it. If you delete the v1→v2 migration
-  from your code, unread v1 rows become undecodable.
+- **Migrations run on read; only a Backfill rewrites.** A row written at v1
+  stays a v1 row on disk until something decodes and re-encodes it, or a
+  Backfill rewrites it for a gap version. If you delete the v1→v2 migration
+  from your code, unread v1 rows become undecodable. A Backfill never makes a
+  migration removable either: it reads each old row through every migration
+  before its gap, and a database that skipped releases still holds rows that
+  old.
 - **Version sequencing is compile-time only.** `evolve` accepts only the next
   version literal (`'v2'` after `'v1'`), but that guarantee lives in the
   types. Nothing re-checks it at runtime, so generated or hand-edited
@@ -224,13 +235,17 @@ sharp edges worth knowing before you rely on it.
   field.
 - **Keep migrations pure.** No clocks, no randomness, no IO. The same stored
   row must decode to the same value today, tomorrow, and on every replica.
+  A value that needs IO or another entity is a gap version and a Backfill,
+  never a migration that guesses.
 - **Model absence with `Schema.NullOr`,** never optional fields — the builder
   forbids optionals so that every version has exactly one canonical shape.
 - **One test per persistent table.** `expectTableShippable(table, file)`
-  checks the committed snapshot and runs `expectUpgradable` over every schema
-  the table reaches, keeping each keyed row's id and partition key. `vitest -u`
-  accepts appended versions and other safe changes; nothing accepts an edit to
-  a shipped version or a failing upgrade. A StdTable kept only in disposable
+  from `@kestack/std-toolkit/db/testing` checks the committed snapshot, runs
+  `expectUpgradable` over every schema the table reaches, keeping each keyed
+  row's id and partition key, and runs every gap Backfill through setup on
+  generated rows, with the other entities empty and full. `vitest -u` accepts
+  appended versions, new Backfills and other safe changes; nothing accepts an
+  edit to a shipped version, a failing upgrade or a failing Backfill. A StdTable kept only in disposable
   tables needs no test: its schemas may change freely.
 - **Checks only loosen on a shipped version.** Removing a check or widening a
   bound is safe; adding or tightening one is breaking, because a stored row
@@ -251,15 +266,22 @@ send again. A disposable table may become persistent; a persistent table never
 becomes disposable.
 
 The baseline is the **Stored contract**: the table snapshot the data was last
-set up under, kept beside the data. Setup (`SQLite.setup`, `IDB.make` on first
-open, `D1.table` at deploy) diffs the current snapshot against it:
+set up under, kept inside the table itself as reserved rows that `scan` and
+your code never see. Every adapter keeps it the same way. Setup
+(`SQLite.setup`, `IDB.make` on first open or `IDB.setup`, `D1.table` and
+`DynamoDB.table` at deploy) diffs the current snapshot against it:
 
 - On a persistent table, a `breaking` or `unverifiable` change fails with
-  `SetupRefused` and changes nothing. A `requires-backfill` change passes with
-  a warning; IndexedDB reindexes the stored rows.
-- On a disposable table, a change the rows cannot take wipes the table. For a
-  change that needs a backfill, IndexedDB reindexes or wipes as `onBackfill`
-  says; the other adapters wipe.
+  `SetupRefused` and changes nothing. A change that needs a backfill needs a
+  declared Backfill: setup runs it before the table opens, and refuses the
+  change when none covers it. A gap version cannot be declared without one,
+  so in practice that is a new or changed index with no `{ reindex }`.
+- On a disposable table, a change the rows cannot take wipes the table, a
+  change that needs a Backfill included. A disposable table never runs one.
+- A table that holds rows but no Stored contract is refused if persistent and
+  wiped if disposable. That includes every table set up before the contract
+  moved into the table: an old `_std_contract` is not converted, so the way
+  past for a persistent table is a new physical table name.
 
 Because each database keeps its own contract, a browser or Durable Object that
 skipped releases is compared from where its data actually is.
@@ -281,7 +303,102 @@ Backfill covers. Declare it for an IndexedDB or Durable Object table.
 The only way past a persistent table's refusal is honest about the data: a new
 physical table name, leaving the old data in place. There is no override.
 
+## Gap versions and Backfills
+
+A migration sees one row and nothing else. Most changes need nothing more: a
+default, a rename, a split. Some do. A task gains an `owner` that no old task
+recorded, though its project knows it. No pure function of the old task can
+produce that, and a migration that guesses puts a wrong value into every read.
+Declare such a version with no migration. It is a **gap version**:
+
+```ts
+const Task = EntityESchema.make('Task', 'taskId', {
+  projectId: Schema.String,
+  title: Schema.String,
+})
+  .evolve('v2', { owner: Schema.String }) // a gap: no migration
+  .build();
+```
+
+A row stored before v2 no longer reads. It fails with `NeedsBackfill`, naming
+the gap, rather than reading as something it is not. The **Backfill** that
+fills it is declared on the table, after every entity, so its `run` can read
+any of them:
+
+```ts
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Project, (e) => e.primary())
+  .entity(Task, (e) => e.primary({ pk: ['projectId'] }))
+  .backfill('task-owner', {
+    entity: 'Task',
+    to: 'v2',
+    run: (task, db) =>
+      Effect.map(db.Project.get({ projectId: task.projectId }), (project) => ({
+        ...task,
+        owner: project?.value.lead ?? 'nobody',
+      })),
+  })
+  .build();
+```
+
+- `run` receives the row's value at the version just before the gap, and
+  `db`, a read-only view of every entity on the table (`get`, and `query` on
+  a keyed one). It returns the gap version's value; the migrations after the
+  gap run as usual.
+- `after: ['task-owner']` runs a Backfill only once those declared before it
+  are done. Use it when `run` reads an entity an earlier Backfill rewrites.
+- `.backfill('task-by-owner', { reindex: 'Task' })` rewrites the index keys
+  of every Task row, for a new or changed index. A persistent table refuses
+  an index change without one.
+- `build` does not type-check, and throws, until every gap version has its
+  Backfill. Ids are unique per table, and a shipped Backfill is never removed
+  or pointed elsewhere: the snapshot calls that breaking.
+- Only `ESchema` and `EntityESchema` have gap versions, and one that has a
+  gap cannot be nested in another schema, since a nested value has no
+  Backfill of its own.
+
+### What setup does
+
+Backfills run in setup, before the new code serves: when a SQLite file, an
+IndexedDB database or a Durable Object opens, and at deploy for D1 and
+DynamoDB, before the Worker goes live.
+
+- Setup orders the pending Backfills by `after`, scans each entity once, and
+  takes each row through every pending step in turn, writing it once at the
+  latest version. A database that skipped five releases catches up in one
+  pass, not five. A new table, with no rows, needs no scan at all.
+- Each write is guarded by the row's `_u`, and a `run` that changes the row's
+  id or partition key fails with `BackfillFailed`.
+- Progress, each Backfill's status and cursor, is saved beside the Stored
+  contract after every page. A crash, or a `run` that fails, leaves the
+  contract as it was, and the next setup resumes from the cursor.
+- A Backfill is done when no stored row of its entity is older than its gap
+  version, not when a flag says so, because an old client can write an old
+  row behind the scan. Setup checks again before it finishes.
+- The Stored contract is written last, once every Backfill is done.
+
+### What it costs
+
+Downtime. Until a Backfill finishes, the new code cannot read the rows it has
+not reached, and the old code cannot read the rows it has rewritten. Declaring
+a Backfill is accepting that, which is why every one is written by hand and a
+disposable table skips it by wiping.
+
+Setup that runs when a database opens has no other writer, so a finished
+Backfill leaves no old row behind. Setup at deploy, on D1 and DynamoDB, runs
+while the old Worker still serves, and repeated scans are not a snapshot: an
+old Worker that writes an old row behind the final check, or after the
+contract is committed, leaves a row the new code reads as `NeedsBackfill`,
+and the next setup finds the table unchanged. Until old writers can be stopped
+for the run, ship a Backfill on a D1 or DynamoDB table in a window with no old
+Worker writing ([ADR 0020](adr/0020-backfills-live-on-the-table-and-eschema-stays-pure.md)).
+On DynamoDB a global secondary index cannot be read consistently, so a `run`
+that reads an entity an earlier Backfill just rewrote reads it by primary key
+or a local secondary index.
+
 Every edge case above is a runnable Story under
-[`stories/evolving-schema/`](../stories/evolving-schema/),
-[`stories/migrations/`](../stories/migrations/), and
-[`stories/snapshot/`](../stories/snapshot/).
+[`stories/evolving-schema/`](../stories/evolving-schema/), with
+[`migrations/`](../stories/evolving-schema/migrations/),
+[`backfills/`](../stories/evolving-schema/backfills/), and
+[`snapshot/`](../stories/evolving-schema/snapshot/).

@@ -17,9 +17,9 @@ import { where } from './stage.ts';
  * with auth-toolkit's Fake, as the Web Platform's `backend` bundles it.
  *
  * The Pocket Worker keeps its records in a D1 database of its own, in the
- * `pocket` std Table. The table goes through std-toolkit's deploy guard,
- * which refuses a deploy whose table would no longer read the rows already
- * stored, and the Worker is deployed only behind it.
+ * `pocket` std Table. std-toolkit sets the table up at deploy against the
+ * Stored contract inside it, refusing a deploy whose table would no longer
+ * read the rows already stored, and the Worker is deployed only behind it.
  */
 
 const api = <const Id extends string>(id: Id, name: string, port: number) =>
