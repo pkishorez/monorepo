@@ -440,20 +440,18 @@ describe('a Session in a git Project', () => {
           expect(inside(join(worktrees, project.id))).toEqual([]);
           expect(sh(repo, 'branch', '--list', 'ke-code/*')).toBe('');
 
-          // A folder switched for it is switched back, and a branch made
-          // to track Origin's goes.
+          // A folder switched for it stays on the branch picked, and so
+          // does a branch made to track Origin's, which is out there.
           const switched = yield* Effect.exit(
             start(project.id, { branch: 'topic' }),
           );
           expect(Exit.isFailure(switched)).toBe(true);
-          expect(sh(repo, 'branch', '--show-current')).toBe('main');
+          expect(sh(repo, 'branch', '--show-current')).toBe('topic');
           const tracked = yield* Effect.exit(
             start(project.id, { branch: 'origin/feature' }),
           );
           expect(Exit.isFailure(tracked)).toBe(true);
-          expect(sh(repo, 'branch', '--show-current')).toBe('main');
-          expect(sh(repo, 'branch', '--list', 'feature')).toBe('');
-          expect(sh(repo, 'branch', '--list', 'topic')).not.toBe('');
+          expect(sh(repo, 'branch', '--show-current')).toBe('feature');
 
           yield* Effect.sleep('50 millis');
           expect(yield* store.allSessions).toEqual([]);

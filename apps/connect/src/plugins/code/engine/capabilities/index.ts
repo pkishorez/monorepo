@@ -8,5 +8,6 @@ export {
   GitError,
   type GitBranches,
   type LocalBranch,
+  type MadeBranch,
   type Worktree,
 } from './git.js';

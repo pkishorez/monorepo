@@ -244,8 +244,8 @@ export interface EngineService {
    * Starts a Session already running its first message, after the git
    * step it needs, reporting each step; started once its Agent has opened.
    * A git step that fails starts nothing, and an Agent that fails to open,
-   * HarnessFailed, keeps no Session and takes back its git step: the
-   * Worktree made for it, or the folder switched back. Once begun, it runs
+   * HarnessFailed, keeps no Session, nor the Worktree or branch made for
+   * it; a folder switched for it stays switched. Once begun, it runs
    * to the end even if its caller goes away; Connect stopping ends it,
    * taken back the same way. A Session that cannot save its first message
    * or itself is HarnessFailed too.
@@ -623,6 +623,8 @@ const make = (options: EngineOptions) =>
                     return yield* new ProjectNotFound({ id: project.id });
                   // Started once its Agent has opened, its first message is
                   // written and it is saved; else it was never saved, and goes.
+                  // Known gap: Connect stopping between the two leaves the
+                  // first message's records with no Session.
                   yield* restore(
                     Effect.flatMap(Agents, (agents) =>
                       Effect.flatMap(

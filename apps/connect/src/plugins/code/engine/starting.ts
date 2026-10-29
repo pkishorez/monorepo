@@ -2,7 +2,12 @@ import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Data, Effect } from 'effect';
 import type { Project } from '../records/index.js';
-import { BRANCH_PREFIX, Git, type GitError } from './capabilities/index.js';
+import {
+  BRANCH_PREFIX,
+  Git,
+  type GitError,
+  type MadeBranch,
+} from './capabilities/index.js';
 
 /*
  * Where a new Session runs, and the git step that puts it there, run
@@ -25,8 +30,9 @@ import { BRANCH_PREFIX, Git, type GitError } from './capabilities/index.js';
  * GitFailed, and nothing is changed on its account: a new Worktree whose
  * branch or folder is there already is refused, and leaves them be. A
  * start that fails after its step is taken back with `unplace`: its new
- * Worktree and branch go, or the folder switches back, unless it has
- * changes, and a branch made to track Origin's goes.
+ * Worktree goes, and so does a branch it made, its Worktree's or one made
+ * to track Origin's, while out nowhere and still where it was made. A
+ * folder switched for it stays switched.
  */
 
 /** The steps of a start, in the order they run. */
@@ -57,14 +63,8 @@ export interface Placed {
   readonly worktree: string | null;
   readonly branch: string | null;
   readonly made: boolean;
-  /**
-   * The Project's folder was switched for it: from the branch it was on,
-   * and the local branch made to track Origin's, if any.
-   */
-  readonly switched?: {
-    readonly from: string | null;
-    readonly made: string | null;
-  };
+  /** The branch made for it: its Worktree's, or one made to track Origin's. */
+  readonly madeBranch?: MadeBranch | null;
 }
 
 /** Runs one step: reported begun, run, reported done. */
@@ -125,7 +125,7 @@ export const place = (
       const id = input.id.toLowerCase();
       const at = join(input.worktrees, project.id, id);
       const branch = `${BRANCH_PREFIX}${id}`;
-      yield* step(
+      const madeBranch = yield* step(
         report,
         'makingWorktree',
         git
@@ -135,7 +135,7 @@ export const place = (
       const worktree = yield* Effect.promise(() =>
         realpath(at).catch(() => at),
       );
-      return { worktree, branch, made: true };
+      return { worktree, branch, made: true, madeBranch };
     }
     if (picked === null || picked === found.current)
       return { worktree: project.path, branch: found.current, made: false };
@@ -155,22 +155,16 @@ export const place = (
       worktree: project.path,
       branch: yield* git.branchAt(project.path),
       made: false,
-      switched: { from: found.current, made: switched.made },
+      madeBranch: switched.made,
     };
   });
 
 /** Takes back what `place` did, as when the start fails after it. */
 export const unplace = (project: Project, placed: Placed) =>
-  Effect.flatMap(Git, (git) => {
-    if (placed.made && placed.worktree !== null && placed.branch !== null)
-      return git.removeWorktree(project.path, {
-        at: placed.worktree,
-        branch: placed.branch,
-      });
-    if (placed.switched !== undefined)
-      return git.switchBack(project.path, {
-        to: placed.switched.from,
-        made: placed.switched.made,
-      });
-    return Effect.void;
+  Effect.gen(function* () {
+    const git = yield* Git;
+    if (placed.made && placed.worktree !== null)
+      yield* git.removeWorktree(project.path, placed.worktree);
+    if (placed.madeBranch)
+      yield* git.dropBranch(project.path, placed.madeBranch);
   });
