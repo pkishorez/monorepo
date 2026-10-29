@@ -23,7 +23,7 @@ export type EntitiesOf<T> = {
   readonly [K in keyof T as T[K] extends EntitySurface ? K : never]: T[K];
 };
 
-/** One old row as its handler gets it: decoded at its latest value, with its meta. */
+/** One live old row as its handler gets it: decoded at its latest value, with its meta. Deleted rows never reach a handler. */
 export type MigrationRowOf<E> = E extends {
   readonly kind: 'keyed';
   readonly schema: infer S extends AnyEntityESchema;
@@ -113,7 +113,10 @@ export type MigrationEvent =
       readonly _tag: 'Progress';
       readonly read: number;
       readonly written: number;
-      /** About how many rows the old table holds, when the adapter can say. */
+      /**
+       * About how many rows the old table holds, when the adapter can say.
+       * Deleted rows are in it, since no adapter counts them apart cheaply.
+       */
       readonly total: number | undefined;
       readonly counts: MigrationCounts;
     }

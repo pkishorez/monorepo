@@ -127,10 +127,12 @@ const describe = (cause: unknown) =>
 
 /**
  * Moves every row of `old` into `next` once, through one handler per entity
- * of `old` (ADR 0022). Each handler gets one old row, decoded at its latest
- * value with its meta (a tombstone included, as `get` returns one), the old
- * table read-only as `old`, and the new table as `next`; it may write one
- * row, several, or none. `written` counts every row put through `next`.
+ * of `old` (ADR 0022). Each handler gets one live old row, decoded at its
+ * latest value with its meta, the old table read-only as `old`, and the new
+ * table as `next`; it may write one row, several, or none. A deleted row
+ * (a tombstone) is skipped: the new table starts its own history, so it is
+ * neither handed out nor counted as read. `written` counts every row put
+ * through `next`.
  *
  * Both tables are needed as layers. The new one must be a persistent table
  * set up under this code, and the old one set up under its declaration here,
@@ -332,7 +334,11 @@ export const migrate = <
               })
               .pipe(Effect.mapError(failed));
             yield* Effect.forEach(
-              page.items.filter(({ meta }) => !isReservedEntity(meta._e)),
+              // Contract rows are not data, and a deleted row has no history
+              // to carry into the new table.
+              page.items.filter(
+                ({ meta }) => !isReservedEntity(meta._e) && !meta._d,
+              ),
               migrateRow,
               { concurrency, discard: true },
             );

@@ -198,6 +198,35 @@ describe('StdTable.migrate', () => {
     });
   });
 
+  it('skips a deleted row: no handler sees it, and it is not counted as read', async () => {
+    const { next, layer } = tables();
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* seed;
+        yield* oldBoard.Task.delete({ projectId: 'p1', taskId: 't2' });
+      }).pipe(Effect.provide(layer)),
+    );
+    const seen: string[] = [];
+
+    const events = await collect(
+      StdTable.migrate(oldBoard, board, {
+        ...handlers,
+        Task: (task, tables) =>
+          Effect.sync(() => seen.push(task.value.taskId)).pipe(
+            Effect.andThen(handlers.Task(task, tables)),
+          ),
+      }).pipe(Stream.provide(layer)),
+    );
+
+    expect(seen.sort()).toEqual(['t1', 't3']);
+    expect(events.at(-1)).toMatchObject({
+      _tag: 'Done',
+      counts: { Task: { read: 2, written: 4 } },
+    });
+    const tasks = appRows(next.store).filter(({ entity }) => entity === 'Task');
+    expect(tasks.map(({ data }) => data.taskId).sort()).toEqual(['t1', 't3']);
+  });
+
   it('is skipped once done, and writes nothing more', async () => {
     const { next, layer } = tables();
     await Effect.runPromise(seed.pipe(Effect.provide(layer)));

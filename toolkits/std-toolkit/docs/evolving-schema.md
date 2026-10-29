@@ -340,9 +340,10 @@ goes. The old table stays in code, frozen, until every database has migrated
 
 `StdTable.migrate` takes the old table, the new one, and one handler per
 entity of the old table. The keys are exhaustive: a missing or extra handler
-fails to type-check. A handler gets one old row, decoded at its latest value
-with its meta, as `get` returns it, so a tombstone arrives too, with
-`meta._d` set. It also gets `old`, the old table with its reads only, and
+fails to type-check. A handler gets one live old row, decoded at its latest
+value with its meta, as `get` returns it. A deleted row is skipped, since the
+new table starts its own history: no handler sees it, and it is not counted
+as read. A handler also gets `old`, the old table with its reads only, and
 `next`, the new table. Reads of `old` are strongly consistent wherever the
 database offers it, so a row the scan sees is never missing from them. It may write one row, several, or none.
 
@@ -386,7 +387,8 @@ runs a stream to its end, logging each event.
   `MigrationRowFailed`, which names its entity and key. The row stays
   `running`, so the next run clears the new table and starts over.
 - `total` is the adapter's estimate: exact on SQLite, IndexedDB and Memory,
-  and DynamoDB's own item count, refreshed about every six hours.
+  and DynamoDB's own item count, refreshed about every six hours. It counts
+  deleted rows too, so a table with many of them finishes below its total.
 - On D1 and DynamoDB it runs at deploy, in `D1.migration` or
   `DynamoDB.migration` from `@kestack/std-toolkit/alchemy`, after both table
   resources. The Worker binds the migration's `tableName`, so it serves the
