@@ -24,9 +24,11 @@ import {
 import {
   Agents,
   Answers,
+  Git,
   HarnessAccounts,
   Store,
 } from '../../capabilities/index.js';
+import { followBranch } from './branch.js';
 import { AnswerNotAsked, AnswerQuestion, StopJob } from './commands.js';
 import { forkFrom } from './fork.js';
 import { Prompt } from './prompt.js';
@@ -34,7 +36,8 @@ import { title, retitle } from './title.js';
 import { cancel, run } from './turn.js';
 
 /*
- * A Session: one Agent of a Coding Harness in a Project's folder, kept.
+ * A Session: one Agent of a Coding Harness in a Project's folder, or in
+ * its Worktree, kept.
  *
  * - Idle     a message starts a Turn, and so does the agent starting one
  *            on its own. It keeps how the last Turn ended, unless it was
@@ -53,8 +56,9 @@ import { cancel, run } from './turn.js';
  * the Agent Questions its running Turn waits on, and gives the agent an
  * Answer, its Commands telling the caller in Answers how it went; saves
  * itself whenever its record changes; takes a message's model and settings
- * from that Turn on; and asks a One-shot Prompt for a title after its first
- * message (see title.ts). Each Turn that starts marks it active, and each
+ * from that Turn on; asks a One-shot Prompt for a title after its first
+ * message (see title.ts); and, while not Settled, keeps the branch its
+ * Worktree is on (see branch.ts). Each Turn that starts marks it active, and each
  * that ends marks when; Settling it changes nothing else, and any message
  * un-settles it.
  *
@@ -169,6 +173,8 @@ const Message = Schema.TaggedUnion({
     answer: Schema.NullOr(QuestionAnswerSchema),
   },
   Titled: { title: Schema.String },
+  /** The branch its Worktree is on now; null for none. */
+  BranchFound: { branch: Schema.NullOr(Schema.String) },
   Settle: { at: Schema.Finite },
   Unsettle: {},
 });
@@ -344,6 +350,7 @@ export const Session = Actor.build(
     requires: [
       Agents,
       Answers,
+      Git,
       Harnesses,
       HarnessAccounts,
       OneShotPrompt,
@@ -418,6 +425,10 @@ export const Session = Actor.build(
           session: { ...model.session, title },
         },
       }),
+      BranchFound: ({ branch }, { model }) =>
+        branch === model.session.branch
+          ? {}
+          : { model: { ...model, session: { ...model.session, branch } } },
       Settle: ({ at }, { model }) =>
         model.session.settledAt !== null
           ? {}
@@ -434,6 +445,10 @@ export const Session = Actor.build(
       title: {
         while: ({ model }) => model.untitled !== null,
         run: (self) => title(self),
+      },
+      branch: {
+        while: ({ model }) => model.session.settledAt === null,
+        run: (self) => followBranch(self),
       },
     },
     queries: {

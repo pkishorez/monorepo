@@ -3,11 +3,13 @@ import { HarnessAccount, OneShotPrompt } from '@kestack/ai-toolkit/harness';
 import { HarnessAccounts, Store } from '../../capabilities/index.js';
 import { EngineRaw } from '../../engine-raw/index.js';
 import type { SessionQuerySelf, SessionSelf } from './actor.js';
+import { renameFor } from './branch.js';
 
 /*
  * A Session's Title: the first line of its first message until a One-shot
  * Prompt has written one, and written again from the user's latest
- * messages when the engine asks the retitle Query.
+ * messages when the engine asks the retitle Query. The first one written
+ * names a new Worktree's branch too (see branch.ts).
  */
 
 /** How long the One-shot Prompt may take before the title stays as it is. */
@@ -94,16 +96,18 @@ const titled = (messages: ReadonlyArray<string>, why: string) =>
     );
   });
 
-/** The title Worker: asks for a title from the first message, once. */
+/**
+ * The title Worker: asks for a title from the first message, once, and
+ * renames the branch for it before it Sends Titled, which ends the Worker.
+ */
 export const title = (self: SessionSelf) =>
   Effect.gen(function* () {
     const { model } = yield* self.get;
     const text = model.untitled ?? '';
     const found = yield* titled([text], 'keeping the first line');
-    yield* self.send({
-      _tag: 'Titled',
-      title: found === '' ? fallbackTitle(text) : found,
-    });
+    const written = found === '' ? fallbackTitle(text) : found;
+    yield* renameFor(self, written);
+    yield* self.send({ _tag: 'Titled', title: written });
   });
 
 /** The user's latest messages in a Session, oldest first, steers included. */

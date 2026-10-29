@@ -9,6 +9,7 @@ import {
   makeFakeHarness,
   type FakeHarness,
 } from '@kestack/ai-toolkit/harness/fake';
+import { EVERY } from '../actor-code/actor-session/branch.js';
 import {
   Engine,
   Store,
@@ -19,8 +20,9 @@ import {
 
 /*
  * Sessions in a git Project, against a real clone of an Origin of its own:
- * where a start puts each Session and the steps it reports, and a git step
- * that fails starting nothing.
+ * where a start puts each Session and the steps it reports, a git step
+ * that fails starting nothing, the first Title naming a new Worktree's
+ * branch, and the Branch Check.
  */
 
 const made: Array<string> = [];
@@ -296,6 +298,84 @@ describe('a Session in a git Project', () => {
         expect(steps).toEqual(['startingAgent running', 'startingAgent done']);
         expect(session).toMatchObject({ worktree: null, branch: null });
       }),
+    );
+  });
+
+  it('names a new Worktree’s branch for its first Title, -2 when that is taken, once', async () => {
+    const repo = clone();
+    sh(repo, 'branch', 'ke-code/fix-the-login-bug');
+    const fake = makeFakeHarness({ oneShot: 'Fix the login bug' });
+    await run(
+      () =>
+        Effect.gen(function* () {
+          const engine = yield* Engine;
+          const store = yield* Store;
+          const project = yield* engine.addProject(repo);
+          const { session } = yield* start(project.id, { newWorktree: true });
+          yield* eventually(async () =>
+            expect(await saved(store, session.id)).toMatchObject({
+              title: 'Fix the login bug',
+              branch: 'ke-code/fix-the-login-bug-2',
+            }),
+          );
+          expect(sh(session.worktree!, 'branch', '--show-current')).toBe(
+            'ke-code/fix-the-login-bug-2',
+          );
+          // A new Title leaves the branch as it is.
+          yield* engine.regenerateTitle(session.id);
+          expect((yield* stored(session.id))?.branch).toBe(
+            'ke-code/fix-the-login-bug-2',
+          );
+        }),
+      { fake },
+    );
+  });
+
+  it('keeps a pushed branch’s name on the first Title', async () => {
+    const repo = clone();
+    const fake = makeFakeHarness({ oneShot: 'Fix the login bug' });
+    await run(
+      () =>
+        Effect.gen(function* () {
+          const engine = yield* Engine;
+          const store = yield* Store;
+          const project = yield* engine.addProject(repo);
+          const { session } = yield* start(project.id, { newWorktree: true });
+          sh(session.worktree!, 'push', '-q', '-u', 'origin', session.branch!);
+          yield* eventually(async () =>
+            expect((await saved(store, session.id))?.title).toBe(
+              'Fix the login bug',
+            ),
+          );
+          expect(sh(session.worktree!, 'branch', '--show-current')).toBe(
+            session.branch,
+          );
+          expect((yield* stored(session.id))?.branch).toBe(session.branch);
+        }),
+      { fake },
+    );
+  });
+
+  it('keeps the branch its Worktree is on, read every minute', async () => {
+    const repo = clone();
+    await run(
+      () =>
+        Effect.gen(function* () {
+          const engine = yield* Engine;
+          const project = yield* engine.addProject(repo);
+          const { session } = yield* start(project.id, { branch: 'main' });
+          sh(repo, 'switch', '-q', 'topic');
+          // Each minute, as many as it takes the check to wait for the next.
+          for (let minute = 0; minute < 50; minute++) {
+            if ((yield* stored(session.id))?.branch === 'topic') break;
+            yield* TestClock.adjust(EVERY);
+            yield* Effect.promise(
+              () => new Promise((done) => setTimeout(done, 20)),
+            );
+          }
+          expect((yield* stored(session.id))?.branch).toBe('topic');
+        }),
+      { testClock: true },
     );
   });
 });
