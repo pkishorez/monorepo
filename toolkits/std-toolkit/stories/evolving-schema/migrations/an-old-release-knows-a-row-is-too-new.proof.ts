@@ -22,15 +22,13 @@ const TaskV2 = EntityESchema.make('Task', 'taskId', {
   .build();
 
 // During a rolling deploy, the new release writes while the old one still reads.
-const newRelease = StdTable.make('board').primary('pk', 'sk').build();
-const newTask = newRelease
-  .entity(TaskV2)
-  .primary({ pk: ['boardId'] })
+const newRelease = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(TaskV2, (e) => e.primary({ pk: ['boardId'] }))
   .build();
-const oldRelease = StdTable.make('board').primary('pk', 'sk').build();
-const oldTask = oldRelease
-  .entity(TaskV1)
-  .primary({ pk: ['boardId'] })
+const oldRelease = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(TaskV1, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 export default Proof.make({
@@ -40,19 +38,17 @@ export default Proof.make({
   critical: true,
   prepare: Effect.gen(function* () {
     const db = Memory.make(oldRelease);
-    const written = yield* newTask
-      .insert({
-        taskId: 't1',
-        boardId: 'work',
-        title: 'Plan',
-        priority: 'high',
-      })
-      .pipe(Effect.provide(db.layer));
+    const written = yield* newRelease.Task.insert({
+      taskId: 't1',
+      boardId: 'work',
+      title: 'Plan',
+      priority: 'high',
+    }).pipe(Effect.provide(db.layer));
     yield* Proof.assert('the new release stored v2', written.meta._v === 'v2');
     return { db };
   }),
   act: ({ db }) =>
-    oldTask.get({ boardId: 'work', taskId: 't1' }).pipe(
+    oldRelease.Task.get({ boardId: 'work', taskId: 't1' }).pipe(
       Effect.provide(db.layer),
       Effect.match({
         onFailure: (error) => {

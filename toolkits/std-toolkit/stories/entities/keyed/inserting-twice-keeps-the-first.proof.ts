@@ -9,10 +9,9 @@ const Task = EntityESchema.make('Task', 'taskId', {
   title: Schema.String,
 }).build();
 
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 export default Proof.make({
@@ -22,9 +21,11 @@ export default Proof.make({
   critical: true,
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
-    const first = yield* task
-      .insert({ taskId: 't1', boardId: 'work', title: 'Write the plan' })
-      .pipe(Effect.provide(db.layer));
+    const first = yield* table.Task.insert({
+      taskId: 't1',
+      boardId: 'work',
+      title: 'Write the plan',
+    }).pipe(Effect.provide(db.layer));
     yield* Proof.assert(
       'the first task is stored',
       first.value.title === 'Write the plan',
@@ -33,15 +34,17 @@ export default Proof.make({
   }),
   act: ({ db }) =>
     Effect.gen(function* () {
-      const reason = yield* task
-        .insert({ taskId: 't1', boardId: 'work', title: 'Overwritten' })
-        .pipe(
-          Effect.match({
-            onFailure: (error) => error.reason._tag,
-            onSuccess: () => 'inserted',
-          }),
-        );
-      const stored = yield* task.get({ boardId: 'work', taskId: 't1' });
+      const reason = yield* table.Task.insert({
+        taskId: 't1',
+        boardId: 'work',
+        title: 'Overwritten',
+      }).pipe(
+        Effect.match({
+          onFailure: (error) => error.reason._tag,
+          onSuccess: () => 'inserted',
+        }),
+      );
+      const stored = yield* table.Task.get({ boardId: 'work', taskId: 't1' });
       return { reason, stored };
     }).pipe(Effect.provide(db.layer)),
   verify: ({ reason, stored }, { first }) =>

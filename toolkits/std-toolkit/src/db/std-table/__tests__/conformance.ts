@@ -21,34 +21,16 @@ import { encodeCompositeKey } from '../key/index.js';
 import { StdTable } from '../table/index.js';
 import { StdTableService } from '../contract/index.js';
 
-export const conformanceTable = StdTable.make('portable-conformance')
-  .primary('pk', 'sk')
-  .lsi('LSI1', 'LSI1SK')
-  .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-  .build();
-
 const itemSchema = EntityESchema.make('Item', 'itemId', {
   category: Schema.String,
   label: Schema.String,
   value: Schema.Finite,
 }).build();
 
-const item = conformanceTable
-  .entity(itemSchema)
-  .primary({ pk: ['category'] })
-  .index('LSI1', 'byValue', { sk: ['label'] })
-  .index('GSI1', 'byLabel', { pk: ['category'], sk: ['label'] })
-  .build();
-
 const otherItemSchema = EntityESchema.make('OtherItem', 'itemId', {
   category: Schema.String,
   label: Schema.String,
 }).build();
-
-const otherItem = conformanceTable
-  .entity(otherItemSchema)
-  .primary({ pk: ['category'] })
-  .build();
 
 const compoundItemSchema = EntityESchema.make('CompoundItem', 'itemId', {
   category: Schema.String,
@@ -56,23 +38,10 @@ const compoundItemSchema = EntityESchema.make('CompoundItem', 'itemId', {
   label: Schema.NullOr(Schema.String),
 }).build();
 
-const compoundItem = conformanceTable
-  .entity(compoundItemSchema)
-  .primary({ pk: ['category'] })
-  .index('GSI1', 'bySegment', {
-    pk: ['category'],
-    sk: ['segment', 'label'],
-  })
-  .build();
-
 const configSchema = ESchema.make('Config', {
   theme: Schema.String,
   count: Schema.Finite,
 }).build();
-
-const config = conformanceTable
-  .singleEntity(configSchema)
-  .default({ theme: 'light', count: 0 });
 
 const migratedSchema = EntityESchema.make('MigratedItem', 'itemId', {
   category: Schema.String,
@@ -82,11 +51,6 @@ const migratedSchema = EntityESchema.make('MigratedItem', 'itemId', {
     ...previous,
     note: 'migrated',
   }))
-  .build();
-
-const migratedItem = conformanceTable
-  .entity(migratedSchema)
-  .primary({ pk: ['category'] })
   .build();
 
 const docSchema = EntityESchema.make('Doc', 'docId', {
@@ -102,13 +66,6 @@ const docSchema = EntityESchema.make('Doc', 'docId', {
     }),
   ]),
 }).build();
-
-const doc = conformanceTable
-  .entity(docSchema)
-  .primary({ pk: ['board.id'] })
-  .index('LSI1', 'byRank', { sk: ['rank'] })
-  .index('GSI1', 'byTeamSeat', { pk: ['owner.teamId'], sk: ['owner.seat'] })
-  .build();
 
 // Every kind of conversion at once, nested through structs, unions, arrays,
 // records, and another ESchema. v1 had no `rank`; its migration reads a Date.
@@ -139,10 +96,39 @@ const richSchema = EntityESchema.make('Rich', 'richId', {
   }))
   .build();
 
-const rich = conformanceTable
-  .entity(richSchema)
-  .primary({ pk: ['category'] })
-  .index('GSI1', 'byEventKind', { pk: ['event.kind'], sk: ['rank'] })
+export const conformanceTable = StdTable.make('portable-conformance')
+  .primary('pk', 'sk')
+  .lsi('LSI1', 'LSI1SK')
+  .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+  .entity(itemSchema, (e) =>
+    e
+      .primary({ pk: ['category'] })
+      .index('LSI1', 'byValue', { sk: ['label'] })
+      .index('GSI1', 'byLabel', { pk: ['category'], sk: ['label'] }),
+  )
+  .entity(otherItemSchema, (e) => e.primary({ pk: ['category'] }))
+  .entity(compoundItemSchema, (e) =>
+    e.primary({ pk: ['category'] }).index('GSI1', 'bySegment', {
+      pk: ['category'],
+      sk: ['segment', 'label'],
+    }),
+  )
+  .singleEntity(configSchema, { default: { theme: 'light', count: 0 } })
+  .entity(migratedSchema, (e) => e.primary({ pk: ['category'] }))
+  .entity(docSchema, (e) =>
+    e
+      .primary({ pk: ['board.id'] })
+      .index('LSI1', 'byRank', { sk: ['rank'] })
+      .index('GSI1', 'byTeamSeat', {
+        pk: ['owner.teamId'],
+        sk: ['owner.seat'],
+      }),
+  )
+  .entity(richSchema, (e) =>
+    e
+      .primary({ pk: ['category'] })
+      .index('GSI1', 'byEventKind', { pk: ['event.kind'], sk: ['rank'] }),
+  )
   .build();
 
 const richValue = (richId: string, rank: number): typeof richSchema.Type => ({
@@ -198,7 +184,7 @@ export const runConformanceSuite = (
     it('inserts, reads, updates, tombstones, restores, and hard deletes', async () => {
       await run(
         Effect.gen(function* () {
-          const inserted = yield* item.insert({
+          const inserted = yield* conformanceTable.Item.insert({
             itemId: 'one',
             category: 'a',
             label: 'one',
@@ -206,49 +192,60 @@ export const runConformanceSuite = (
           });
           expect(inserted.meta._d).toBe(false);
           expect(
-            yield* item.get({ itemId: 'missing', category: 'a' }),
-          ).toBeNull();
-          const duplicate = yield* item
-            .insert({
-              itemId: 'one',
+            yield* conformanceTable.Item.get({
+              itemId: 'missing',
               category: 'a',
-              label: 'one',
-              value: 1,
-            })
-            .pipe(Effect.result);
+            }),
+          ).toBeNull();
+          const duplicate = yield* conformanceTable.Item.insert({
+            itemId: 'one',
+            category: 'a',
+            label: 'one',
+            value: 1,
+          }).pipe(Effect.result);
           expect(duplicate._tag).toBe('Failure');
           if (duplicate._tag === 'Failure')
             expect(duplicate.failure.reason._tag).toBe('ItemAlreadyExists');
           expect(
-            (yield* item.get({ itemId: 'one', category: 'a' }))?.value.value,
+            (yield* conformanceTable.Item.get({ itemId: 'one', category: 'a' }))
+              ?.value.value,
           ).toBe(1);
 
-          const updated = yield* item.getAndUpdate(
+          const updated = yield* conformanceTable.Item.getAndUpdate(
             { itemId: 'one', category: 'a' },
             ({ value }) => ({ value: value + 1 }),
           );
           expect(updated.value.value).toBe(2);
 
-          const deleted = yield* item.delete({ itemId: 'one', category: 'a' });
+          const deleted = yield* conformanceTable.Item.delete({
+            itemId: 'one',
+            category: 'a',
+          });
           expect(deleted.meta._d).toBe(true);
           expect(
-            (yield* item.get({ itemId: 'one', category: 'a' }))?.meta._d,
+            (yield* conformanceTable.Item.get({ itemId: 'one', category: 'a' }))
+              ?.meta._d,
           ).toBe(true);
           expect(
-            yield* item.get(
+            yield* conformanceTable.Item.get(
               { itemId: 'one', category: 'a' },
               { excludeDeleted: true },
             ),
           ).toBeNull();
 
           expect(
-            (yield* item.restore({ itemId: 'one', category: 'a' })).meta._d,
+            (yield* conformanceTable.Item.restore({
+              itemId: 'one',
+              category: 'a',
+            })).meta._d,
           ).toBe(false);
-          yield* item.hardDelete(
+          yield* conformanceTable.Item.hardDelete(
             { itemId: 'one', category: 'a' },
             'I KNOW WHAT I AM DOING',
           );
-          expect(yield* item.get({ itemId: 'one', category: 'a' })).toBeNull();
+          expect(
+            yield* conformanceTable.Item.get({ itemId: 'one', category: 'a' }),
+          ).toBeNull();
         }),
       );
     });
@@ -261,7 +258,7 @@ export const runConformanceSuite = (
       });
       await Effect.runPromise(
         Effect.gen(function* () {
-          const inserted = yield* item.insert({
+          const inserted = yield* conformanceTable.Item.insert({
             itemId: 'stable',
             category: 'a',
             label: 'stable',
@@ -275,31 +272,31 @@ export const runConformanceSuite = (
           expect(inserted.meta._u).not.toBe('');
 
           const beforeRefusal = broadcasts.length;
-          const refused = yield* item
-            .getAndUpdate(
-              { itemId: 'stable', category: 'a' },
-              { value: 2 },
-              { check: () => false },
-            )
-            .pipe(Effect.result);
+          const refused = yield* conformanceTable.Item.getAndUpdate(
+            { itemId: 'stable', category: 'a' },
+            { value: 2 },
+            { check: () => false },
+          ).pipe(Effect.result);
           expect(refused).toMatchObject({
             _tag: 'Failure',
             failure: { reason: { _tag: 'CheckRefused' } },
           });
           expect(broadcasts).toHaveLength(beforeRefusal);
 
-          const missing = yield* item
-            .getAndUpdate({ itemId: 'missing', category: 'a' }, { value: 2 })
-            .pipe(Effect.result);
+          const missing = yield* conformanceTable.Item.getAndUpdate(
+            { itemId: 'missing', category: 'a' },
+            { value: 2 },
+          ).pipe(Effect.result);
           expect(missing).toMatchObject({
             _tag: 'Failure',
             failure: { reason: { _tag: 'NoItemToUpdate' } },
           });
 
           for (const update of [{ itemId: 'moved' }, { category: 'moved' }]) {
-            const changedKey = yield* item
-              .getAndUpdate({ itemId: 'stable', category: 'a' }, update)
-              .pipe(Effect.result);
+            const changedKey = yield* conformanceTable.Item.getAndUpdate(
+              { itemId: 'stable', category: 'a' },
+              update,
+            ).pipe(Effect.result);
             expect(changedKey).toMatchObject({
               _tag: 'Failure',
               failure: {
@@ -308,7 +305,7 @@ export const runConformanceSuite = (
             });
           }
 
-          const liveRestore = yield* item.restore({
+          const liveRestore = yield* conformanceTable.Item.restore({
             itemId: 'stable',
             category: 'a',
           });
@@ -327,16 +324,25 @@ export const runConformanceSuite = (
       await run(
         Effect.gen(function* () {
           const key = { itemId: 'ghost', category: 'a' };
-          yield* item.insert({ ...key, label: 'ghost', value: 1 });
-          const op = yield* item.getAndUpdateOp(key, { value: 2 });
-          yield* item.hardDelete(key, 'I KNOW WHAT I AM DOING');
+          yield* conformanceTable.Item.insert({
+            ...key,
+            label: 'ghost',
+            value: 1,
+          });
+          const op = yield* conformanceTable.Item.getAndUpdateOp(key, {
+            value: 2,
+          });
+          yield* conformanceTable.Item.hardDelete(
+            key,
+            'I KNOW WHAT I AM DOING',
+          );
 
           const result = yield* conformanceTable
             .transact([op])
             .pipe(Effect.result);
 
           expect(result._tag).toBe('Failure');
-          expect(yield* item.get(key)).toBeNull();
+          expect(yield* conformanceTable.Item.get(key)).toBeNull();
         }),
       );
     });
@@ -349,13 +355,13 @@ export const runConformanceSuite = (
       });
       await Effect.runPromise(
         Effect.gen(function* () {
-          const first = yield* item.insertOp({
+          const first = yield* conformanceTable.Item.insertOp({
             itemId: 'one',
             category: 'a',
             label: 'one',
             value: 1,
           });
-          const second = yield* item.insertOp({
+          const second = yield* conformanceTable.Item.insertOp({
             itemId: 'two',
             category: 'a',
             label: 'two',
@@ -380,7 +386,7 @@ export const runConformanceSuite = (
 
       await Effect.runPromise(
         Effect.gen(function* () {
-          yield* item.insert({
+          yield* conformanceTable.Item.insert({
             itemId: 'existing',
             category: 'a',
             label: 'existing',
@@ -388,7 +394,7 @@ export const runConformanceSuite = (
           });
           broadcasts.length = 0;
 
-          const duplicate = yield* item.insertOp({
+          const duplicate = yield* conformanceTable.Item.insertOp({
             itemId: 'duplicate',
             category: 'a',
             label: 'duplicate',
@@ -412,13 +418,13 @@ export const runConformanceSuite = (
             expect(oversized.failure.reason._tag).toBe('TransactionTooLarge');
           }
 
-          const fresh = yield* item.insertOp({
+          const fresh = yield* conformanceTable.Item.insertOp({
             itemId: 'fresh',
             category: 'a',
             label: 'fresh',
             value: 1,
           });
-          const conflicts = yield* item.insertOp({
+          const conflicts = yield* conformanceTable.Item.insertOp({
             itemId: 'existing',
             category: 'a',
             label: 'existing',
@@ -429,7 +435,10 @@ export const runConformanceSuite = (
             .pipe(Effect.result);
           expect(failed._tag).toBe('Failure');
           expect(
-            yield* item.get({ itemId: 'fresh', category: 'a' }),
+            yield* conformanceTable.Item.get({
+              itemId: 'fresh',
+              category: 'a',
+            }),
           ).toBeNull();
           expect(broadcasts).toHaveLength(0);
         }).pipe(
@@ -450,7 +459,7 @@ export const runConformanceSuite = (
           expect(yield* conformanceTable.transact([])).toEqual([]);
           expect(broadcasts).toEqual([]);
 
-          yield* item.insert({
+          yield* conformanceTable.Item.insert({
             itemId: 'stale',
             category: 'a',
             label: 'stale',
@@ -458,15 +467,15 @@ export const runConformanceSuite = (
           });
           // An op built before a concurrent write still commits: it reads at
           // commit time, so the interval before `transact` cannot make it stale.
-          const held = yield* item.getAndUpdateOp(
+          const held = yield* conformanceTable.Item.getAndUpdateOp(
             { itemId: 'stale', category: 'a' },
             (current) => ({ value: current.value + 1 }),
           );
-          yield* item.getAndUpdate(
+          yield* conformanceTable.Item.getAndUpdate(
             { itemId: 'stale', category: 'a' },
             { value: 3 },
           );
-          const fresh = yield* item.insertOp({
+          const fresh = yield* conformanceTable.Item.insertOp({
             itemId: 'fresh',
             category: 'a',
             label: 'fresh',
@@ -474,14 +483,20 @@ export const runConformanceSuite = (
           });
           yield* conformanceTable.transact([fresh, held]);
           expect(
-            (yield* item.get({ itemId: 'stale', category: 'a' }))?.value.value,
+            (yield* conformanceTable.Item.get({
+              itemId: 'stale',
+              category: 'a',
+            }))?.value.value,
           ).toBe(4);
           expect(
-            yield* item.get({ itemId: 'fresh', category: 'a' }),
+            yield* conformanceTable.Item.get({
+              itemId: 'fresh',
+              category: 'a',
+            }),
           ).not.toBeNull();
 
           // A refused entity invariant fails the batch before any submission.
-          const refusedOp = yield* item.getAndUpdateOp(
+          const refusedOp = yield* conformanceTable.Item.getAndUpdateOp(
             { itemId: 'stale', category: 'a' },
             { value: 5 },
             { check: (current) => current.value === 99 },
@@ -499,29 +514,35 @@ export const runConformanceSuite = (
             },
           });
           expect(
-            (yield* item.get({ itemId: 'stale', category: 'a' }))?.value.value,
+            (yield* conformanceTable.Item.get({
+              itemId: 'stale',
+              category: 'a',
+            }))?.value.value,
           ).toBe(4);
 
-          const lww = yield* item.getAndUpdateOp(
+          const lww = yield* conformanceTable.Item.getAndUpdateOp(
             { itemId: 'stale', category: 'a' },
             { value: 6 },
             { lastWriteWins: true },
           );
-          yield* item.getAndUpdate(
+          yield* conformanceTable.Item.getAndUpdate(
             { itemId: 'stale', category: 'a' },
             { value: 5 },
           );
           yield* conformanceTable.transact([lww]);
           expect(
-            (yield* item.get({ itemId: 'stale', category: 'a' }))?.value.value,
+            (yield* conformanceTable.Item.get({
+              itemId: 'stale',
+              category: 'a',
+            }))?.value.value,
           ).toBe(6);
 
-          const deleteOp = yield* item.deleteOp({
+          const deleteOp = yield* conformanceTable.Item.deleteOp({
             itemId: 'stale',
             category: 'a',
           });
           yield* conformanceTable.transact([deleteOp]);
-          const tombstoned = yield* item.get({
+          const tombstoned = yield* conformanceTable.Item.get({
             itemId: 'stale',
             category: 'a',
           });
@@ -529,24 +550,30 @@ export const runConformanceSuite = (
 
           // A redundant delete writes again: every op contributes one write,
           // so a batch stays atomic and its outcome report stays aligned.
-          const redundant = yield* item.deleteOp({
+          const redundant = yield* conformanceTable.Item.deleteOp({
             itemId: 'stale',
             category: 'a',
           });
           const beforeRedundant = broadcasts.length;
           yield* conformanceTable.transact([redundant]);
-          const again = yield* item.get({ itemId: 'stale', category: 'a' });
+          const again = yield* conformanceTable.Item.get({
+            itemId: 'stale',
+            category: 'a',
+          });
           expect(again?.meta._d).toBe(true);
           expect(again?.meta._u).not.toBe(tombstoned?.meta._u);
           expect(broadcasts).toHaveLength(beforeRedundant + 1);
 
-          const restoreOp = yield* item.restoreOp({
+          const restoreOp = yield* conformanceTable.Item.restoreOp({
             itemId: 'stale',
             category: 'a',
           });
           yield* conformanceTable.transact([restoreOp]);
           expect(
-            (yield* item.get({ itemId: 'stale', category: 'a' }))?.meta._d,
+            (yield* conformanceTable.Item.get({
+              itemId: 'stale',
+              category: 'a',
+            }))?.meta._d,
           ).toBe(false);
 
           const foreign = {
@@ -576,18 +603,21 @@ export const runConformanceSuite = (
       await run(
         Effect.gen(function* () {
           const guardKey = { itemId: 'checked', category: 'a' };
-          yield* item.insert({
+          yield* conformanceTable.Item.insert({
             ...guardKey,
             label: 'checked',
             value: 1,
           });
 
           let checks = 0;
-          const check = yield* item.getAndCheckOp(guardKey, (current) => {
-            checks++;
-            return current.value === 1;
-          });
-          const write = yield* item.insertOp({
+          const check = yield* conformanceTable.Item.getAndCheckOp(
+            guardKey,
+            (current) => {
+              checks++;
+              return current.value === 1;
+            },
+          );
+          const write = yield* conformanceTable.Item.insertOp({
             itemId: 'behind-check',
             category: 'a',
             label: 'behind-check',
@@ -600,7 +630,9 @@ export const runConformanceSuite = (
           expect(checks).toBe(1);
 
           const refused = yield* conformanceTable
-            .transact([yield* item.getAndCheckOp(guardKey, () => false)])
+            .transact([
+              yield* conformanceTable.Item.getAndCheckOp(guardKey, () => false),
+            ])
             .pipe(Effect.result);
           expect(refused).toMatchObject({
             _tag: 'Failure',
@@ -613,7 +645,12 @@ export const runConformanceSuite = (
           });
 
           const truthy = yield* conformanceTable
-            .transact([yield* item.getAndCheckOp(guardKey, () => 1 as never)])
+            .transact([
+              yield* conformanceTable.Item.getAndCheckOp(
+                guardKey,
+                () => 1 as never,
+              ),
+            ])
             .pipe(Effect.result);
           expect(truthy).toMatchObject({
             _tag: 'Failure',
@@ -622,7 +659,7 @@ export const runConformanceSuite = (
 
           const missing = yield* conformanceTable
             .transact([
-              yield* item.getAndCheckOp(
+              yield* conformanceTable.Item.getAndCheckOp(
                 { itemId: 'missing-check', category: 'a' },
                 () => true,
               ),
@@ -638,11 +675,11 @@ export const runConformanceSuite = (
             },
           });
 
-          yield* item.delete(guardKey);
+          yield* conformanceTable.Item.delete(guardKey);
           let checkedTombstone = false;
           const tombstoned = yield* conformanceTable
             .transact([
-              yield* item.getAndCheckOp(guardKey, () => {
+              yield* conformanceTable.Item.getAndCheckOp(guardKey, () => {
                 checkedTombstone = true;
                 return true;
               }),
@@ -661,19 +698,19 @@ export const runConformanceSuite = (
       await run(
         Effect.gen(function* () {
           const guardKey = { itemId: 'checked-stale', category: 'a' };
-          yield* item.insert({
+          yield* conformanceTable.Item.insert({
             ...guardKey,
             label: 'checked-stale',
             value: 1,
           });
           // The invariant names the value transact will read, not the value
           // that was current when the op was built.
-          const check = yield* item.getAndCheckOp(
+          const check = yield* conformanceTable.Item.getAndCheckOp(
             guardKey,
             ({ value }) => value === 2,
           );
-          yield* item.getAndUpdate(guardKey, { value: 2 });
-          const write = yield* item.insertOp({
+          yield* conformanceTable.Item.getAndUpdate(guardKey, { value: 2 });
+          const write = yield* conformanceTable.Item.insertOp({
             itemId: 'behind-fresh-check',
             category: 'a',
             label: 'behind-fresh-check',
@@ -682,7 +719,10 @@ export const runConformanceSuite = (
 
           yield* conformanceTable.transact([check, write]);
           expect(
-            yield* item.get({ itemId: 'behind-fresh-check', category: 'a' }),
+            yield* conformanceTable.Item.get({
+              itemId: 'behind-fresh-check',
+              category: 'a',
+            }),
           ).not.toBeNull();
         }),
       );
@@ -691,13 +731,13 @@ export const runConformanceSuite = (
     it('commits behind a passing check and rolls back every write behind a failing one', async () => {
       await run(
         Effect.gen(function* () {
-          const guard = yield* item.insert({
+          const guard = yield* conformanceTable.Item.insert({
             itemId: 'guard',
             category: 'a',
             label: 'guard',
             value: 1,
           });
-          const written = yield* item.insertOp({
+          const written = yield* conformanceTable.Item.insertOp({
             itemId: 'written',
             category: 'a',
             label: 'written',
@@ -706,47 +746,65 @@ export const runConformanceSuite = (
           expect(
             yield* conformanceTable.transact([
               written,
-              yield* item.unchangedOp(guard),
+              yield* conformanceTable.Item.unchangedOp(guard),
             ]),
           ).toEqual([
             expect.objectContaining({ value: expect.anything() }),
             null,
           ]);
           expect(
-            yield* item.get({ itemId: 'written', category: 'a' }),
+            yield* conformanceTable.Item.get({
+              itemId: 'written',
+              category: 'a',
+            }),
           ).not.toBeNull();
 
-          yield* item.getAndUpdate(
+          yield* conformanceTable.Item.getAndUpdate(
             { itemId: 'guard', category: 'a' },
             {
               value: 2,
             },
           );
-          const blocked = yield* item.insertOp({
+          const blocked = yield* conformanceTable.Item.insertOp({
             itemId: 'blocked',
             category: 'a',
             label: 'blocked',
             value: 1,
           });
           const stale = yield* conformanceTable
-            .transact([blocked, yield* item.unchangedOp(guard)])
+            .transact([
+              blocked,
+              yield* conformanceTable.Item.unchangedOp(guard),
+            ])
             .pipe(Effect.result);
           expect(stale._tag).toBe('Failure');
           expect(
-            yield* item.get({ itemId: 'blocked', category: 'a' }),
+            yield* conformanceTable.Item.get({
+              itemId: 'blocked',
+              category: 'a',
+            }),
           ).toBeNull();
 
           const current = required(
-            yield* item.get({ itemId: 'guard', category: 'a' }),
+            yield* conformanceTable.Item.get({
+              itemId: 'guard',
+              category: 'a',
+            }),
           );
-          yield* item.delete({ itemId: 'guard', category: 'a' });
+          yield* conformanceTable.Item.delete({
+            itemId: 'guard',
+            category: 'a',
+          });
           const afterDelete = yield* conformanceTable
-            .transact([yield* item.unchangedOp(current)])
+            .transact([yield* conformanceTable.Item.unchangedOp(current)])
             .pipe(Effect.result);
           expect(afterDelete._tag).toBe('Failure');
           expect(
             yield* conformanceTable.transact([
-              yield* item.existsOp({ itemId: 'guard', category: 'a' }),
+              yield* conformanceTable.Item.existsOp({
+                itemId: 'guard',
+                category: 'a',
+              }),
             ]),
           ).toEqual([null]);
         }),
@@ -756,26 +814,26 @@ export const runConformanceSuite = (
     it('reports every operation when a transacted check fails', async () => {
       await run(
         Effect.gen(function* () {
-          const first = yield* item.insert({
+          const first = yield* conformanceTable.Item.insert({
             itemId: 'first',
             category: 'a',
             label: 'first',
             value: 1,
           });
-          const second = yield* item.insert({
+          const second = yield* conformanceTable.Item.insert({
             itemId: 'second',
             category: 'a',
             label: 'second',
             value: 1,
           });
-          yield* item.getAndUpdate(
+          yield* conformanceTable.Item.getAndUpdate(
             { itemId: 'second', category: 'a' },
             {
               value: 9,
             },
           );
 
-          const write = yield* item.insertOp({
+          const write = yield* conformanceTable.Item.insertOp({
             itemId: 'third',
             category: 'a',
             label: 'third',
@@ -783,8 +841,8 @@ export const runConformanceSuite = (
           });
           const failed = yield* conformanceTable
             .transact([
-              yield* item.unchangedOp(first),
-              yield* item.unchangedOp(second),
+              yield* conformanceTable.Item.unchangedOp(first),
+              yield* conformanceTable.Item.unchangedOp(second),
               write,
             ])
             .pipe(Effect.result);
@@ -805,14 +863,17 @@ export const runConformanceSuite = (
             }
           }
           expect(
-            yield* item.get({ itemId: 'third', category: 'a' }),
+            yield* conformanceTable.Item.get({
+              itemId: 'third',
+              category: 'a',
+            }),
           ).toBeNull();
 
           const refusedEarly = yield* conformanceTable
             .transact([
-              yield* item.unchangedOp(first),
-              yield* item.unchangedOp(second),
-              yield* item.getAndUpdateOp(
+              yield* conformanceTable.Item.unchangedOp(first),
+              yield* conformanceTable.Item.unchangedOp(second),
+              yield* conformanceTable.Item.getAndUpdateOp(
                 { itemId: 'absent', category: 'a' },
                 { value: 1 },
               ),
@@ -833,22 +894,28 @@ export const runConformanceSuite = (
           });
 
           const refreshed = required(
-            yield* item.get({ itemId: 'second', category: 'a' }),
+            yield* conformanceTable.Item.get({
+              itemId: 'second',
+              category: 'a',
+            }),
           );
           expect(
             yield* conformanceTable.transact([
-              yield* item.unchangedOp(first),
-              yield* item.unchangedOp(refreshed),
-              yield* item.notExistsOp({ itemId: 'absent', category: 'a' }),
+              yield* conformanceTable.Item.unchangedOp(first),
+              yield* conformanceTable.Item.unchangedOp(refreshed),
+              yield* conformanceTable.Item.notExistsOp({
+                itemId: 'absent',
+                category: 'a',
+              }),
             ]),
           ).toEqual([null, null, null]);
 
-          const update = yield* item.getAndUpdateOp(
+          const update = yield* conformanceTable.Item.getAndUpdateOp(
             { itemId: 'first', category: 'a' },
             { value: 5 },
           );
           const duplicate = yield* conformanceTable
-            .transact([update, yield* item.unchangedOp(first)])
+            .transact([update, yield* conformanceTable.Item.unchangedOp(first)])
             .pipe(Effect.result);
           expect(duplicate).toMatchObject({
             _tag: 'Failure',
@@ -867,11 +934,16 @@ export const runConformanceSuite = (
             ['three', 'c'],
             ['four', 'd'],
           ] as const) {
-            yield* item.insert({ itemId, category: 'a', label, value: 1 });
+            yield* conformanceTable.Item.insert({
+              itemId,
+              category: 'a',
+              label,
+              value: 1,
+            });
           }
-          yield* item.delete({ itemId: 'two', category: 'a' });
+          yield* conformanceTable.Item.delete({ itemId: 'two', category: 'a' });
 
-          const first = yield* item.query(
+          const first = yield* conformanceTable.Item.query(
             'byLabel',
             { pk: { category: 'a' }, beginsWith: { label: '' } },
             { limit: 2, excludeDeleted: true },
@@ -882,7 +954,7 @@ export const runConformanceSuite = (
           ]);
           expect(first.hasMore).toBe(true);
 
-          const second = yield* item.query(
+          const second = yield* conformanceTable.Item.query(
             'byLabel',
             { pk: { category: 'a' }, beginsWith: { label: '' } },
             {
@@ -896,7 +968,7 @@ export const runConformanceSuite = (
           ]);
           expect(second.hasMore).toBe(false);
 
-          const descending = yield* item.query(
+          const descending = yield* conformanceTable.Item.query(
             'byLabel',
             { pk: { category: 'a' }, '<=': null },
             { limit: 2 },
@@ -906,7 +978,7 @@ export const runConformanceSuite = (
             'three',
           ]);
           expect(descending.hasMore).toBe(true);
-          const descendingRest = yield* item.query(
+          const descendingRest = yield* conformanceTable.Item.query(
             'byLabel',
             { pk: { category: 'a' }, '<=': null },
             { after: descending.items.at(-1)! },
@@ -916,13 +988,13 @@ export const runConformanceSuite = (
           );
           expect(descendingRest.hasMore).toBe(false);
 
-          const primary = yield* item.query(
+          const primary = yield* conformanceTable.Item.query(
             'primary',
             { pk: { category: 'a' }, '>=': null },
             { limit: 3 },
           );
           expect(primary.hasMore).toBe(true);
-          const primaryRest = yield* item.query(
+          const primaryRest = yield* conformanceTable.Item.query(
             'primary',
             { pk: { category: 'a' }, '>=': null },
             { after: primary.items.at(-1)! },
@@ -931,7 +1003,7 @@ export const runConformanceSuite = (
           expect(primaryRest.hasMore).toBe(false);
 
           for (const itemId of ['tie-1', 'tie-2', 'tie-3']) {
-            yield* item.insert({
+            yield* conformanceTable.Item.insert({
               itemId,
               category: 'ties',
               label: 'same',
@@ -939,14 +1011,14 @@ export const runConformanceSuite = (
             });
           }
           const seen: string[] = [];
-          let page = yield* item.query(
+          let page = yield* conformanceTable.Item.query(
             'byLabel',
             { pk: { category: 'ties' }, '=': { label: 'same' } },
             { limit: 1 },
           );
           seen.push(...page.items.map(({ value }) => value.itemId));
           while (page.hasMore) {
-            page = yield* item.query(
+            page = yield* conformanceTable.Item.query(
               'byLabel',
               { pk: { category: 'ties' }, '=': { label: 'same' } },
               { limit: 1, after: page.items.at(-1)! },
@@ -961,7 +1033,7 @@ export const runConformanceSuite = (
     it('persists and resets a single entity record', async () => {
       await run(
         Effect.gen(function* () {
-          const initial = yield* config.get();
+          const initial = yield* conformanceTable.Config.get();
           expect(initial.value).toEqual({ theme: 'light', count: 0 });
           expect(initial.meta).toEqual({
             _e: 'Config',
@@ -970,7 +1042,9 @@ export const runConformanceSuite = (
           });
 
           const missingOp = yield* conformanceTable
-            .transact([yield* config.getAndUpdateOp({ theme: 'dark' })])
+            .transact([
+              yield* conformanceTable.Config.getAndUpdateOp({ theme: 'dark' }),
+            ])
             .pipe(Effect.result);
           expect(missingOp).toMatchObject({
             _tag: 'Failure',
@@ -982,34 +1056,41 @@ export const runConformanceSuite = (
             },
           });
 
-          const updated = yield* config.getAndUpdate(({ count }) => ({
-            theme: 'dark',
-            count: count + 1,
-          }));
+          const updated = yield* conformanceTable.Config.getAndUpdate(
+            ({ count }) => ({
+              theme: 'dark',
+              count: count + 1,
+            }),
+          );
           expect(updated.value).toEqual({ theme: 'dark', count: 1 });
-          const refusedSingle = yield* config
-            .getAndUpdate({ count: 99 }, { check: () => false })
-            .pipe(Effect.result);
+          const refusedSingle = yield* conformanceTable.Config.getAndUpdate(
+            { count: 99 },
+            { check: () => false },
+          ).pipe(Effect.result);
           expect(refusedSingle).toMatchObject({
             _tag: 'Failure',
             failure: { reason: { _tag: 'CheckRefused' } },
           });
-          expect(yield* config.get()).toEqual(updated);
+          expect(yield* conformanceTable.Config.get()).toEqual(updated);
 
-          const op = yield* config.getAndUpdateOp({ count: 2 });
+          const op = yield* conformanceTable.Config.getAndUpdateOp({
+            count: 2,
+          });
           yield* conformanceTable.transact([op]);
-          expect((yield* config.get()).value.count).toBe(2);
+          expect((yield* conformanceTable.Config.get()).value.count).toBe(2);
 
           // A held op reads at commit time, so a concurrent write does not
           // make it stale; an invariant is what a caller guards a decision with.
-          const held = yield* config.getAndUpdateOp(({ count }) => ({
-            count: count + 1,
-          }));
-          yield* config.getAndUpdate({ count: 4 });
+          const held = yield* conformanceTable.Config.getAndUpdateOp(
+            ({ count }) => ({
+              count: count + 1,
+            }),
+          );
+          yield* conformanceTable.Config.getAndUpdate({ count: 4 });
           yield* conformanceTable.transact([held]);
-          expect((yield* config.get()).value.count).toBe(5);
+          expect((yield* conformanceTable.Config.get()).value.count).toBe(5);
 
-          const refusedOp = yield* config.getAndUpdateOp(
+          const refusedOp = yield* conformanceTable.Config.getAndUpdateOp(
             { count: 7 },
             { check: ({ count }) => count === 99 },
           );
@@ -1025,20 +1106,20 @@ export const runConformanceSuite = (
               },
             },
           });
-          expect((yield* config.get()).value.count).toBe(5);
+          expect((yield* conformanceTable.Config.get()).value.count).toBe(5);
 
-          const lww = yield* config.getAndUpdateOp(
+          const lww = yield* conformanceTable.Config.getAndUpdateOp(
             { count: 8 },
             { lastWriteWins: true },
           );
-          yield* config.getAndUpdate({ count: 6 });
+          yield* conformanceTable.Config.getAndUpdate({ count: 6 });
           yield* conformanceTable.transact([lww]);
-          expect((yield* config.get()).value.count).toBe(8);
+          expect((yield* conformanceTable.Config.get()).value.count).toBe(8);
 
-          const reset = yield* config.reset();
+          const reset = yield* conformanceTable.Config.reset();
           expect(reset.value).toEqual({ theme: 'light', count: 0 });
           expect(reset.meta._u).not.toBe('');
-          expect(yield* config.get()).toEqual(reset);
+          expect(yield* conformanceTable.Config.get()).toEqual(reset);
         }),
       );
     });
@@ -1046,25 +1127,33 @@ export const runConformanceSuite = (
     it('removes only the selected entity type', async () => {
       await run(
         Effect.gen(function* () {
-          yield* item.insert({
+          yield* conformanceTable.Item.insert({
             itemId: 'remove',
             category: 'a',
             label: 'remove',
             value: 1,
           });
-          yield* otherItem.insert({
+          yield* conformanceTable.OtherItem.insert({
             itemId: 'keep',
             category: 'a',
             label: 'keep',
           });
           expect(
-            yield* item.dangerouslyRemoveAllItems('I KNOW WHAT I AM DOING'),
+            yield* conformanceTable.Item.dangerouslyRemoveAllItems(
+              'I KNOW WHAT I AM DOING',
+            ),
           ).toEqual({ itemsDeleted: 1 });
           expect(
-            yield* item.get({ itemId: 'remove', category: 'a' }),
+            yield* conformanceTable.Item.get({
+              itemId: 'remove',
+              category: 'a',
+            }),
           ).toBeNull();
           expect(
-            yield* otherItem.get({ itemId: 'keep', category: 'a' }),
+            yield* conformanceTable.OtherItem.get({
+              itemId: 'keep',
+              category: 'a',
+            }),
           ).not.toBeNull();
           expect(
             yield* conformanceTable.dangerouslyRemoveAllItems(
@@ -1072,7 +1161,10 @@ export const runConformanceSuite = (
             ),
           ).toEqual({ itemsDeleted: 1 });
           expect(
-            yield* otherItem.get({ itemId: 'keep', category: 'a' }),
+            yield* conformanceTable.OtherItem.get({
+              itemId: 'keep',
+              category: 'a',
+            }),
           ).toBeNull();
         }),
       );
@@ -1082,7 +1174,7 @@ export const runConformanceSuite = (
       await run(
         Effect.gen(function* () {
           for (const label of ['a', 'b', 'c', 'd']) {
-            yield* item.insert({
+            yield* conformanceTable.Item.insert({
               itemId: label,
               category: 'a',
               label,
@@ -1090,7 +1182,7 @@ export const runConformanceSuite = (
             });
           }
 
-          const less = yield* item.query('byLabel', {
+          const less = yield* conformanceTable.Item.query('byLabel', {
             pk: { category: 'a' },
             '<': { label: 'd' },
           });
@@ -1099,7 +1191,7 @@ export const runConformanceSuite = (
             'b',
             'a',
           ]);
-          const greater = yield* item.query('byLabel', {
+          const greater = yield* conformanceTable.Item.query('byLabel', {
             pk: { category: 'a' },
             '>=': { label: 'c' },
           });
@@ -1107,7 +1199,7 @@ export const runConformanceSuite = (
             'c',
             'd',
           ]);
-          const lessOrEqual = yield* item.query('byLabel', {
+          const lessOrEqual = yield* conformanceTable.Item.query('byLabel', {
             pk: { category: 'a' },
             '<=': { label: 'b' },
           });
@@ -1115,7 +1207,7 @@ export const runConformanceSuite = (
             'b',
             'a',
           ]);
-          const greaterThan = yield* item.query('byLabel', {
+          const greaterThan = yield* conformanceTable.Item.query('byLabel', {
             pk: { category: 'a' },
             '>': { label: 'b' },
           });
@@ -1123,7 +1215,7 @@ export const runConformanceSuite = (
             'c',
             'd',
           ]);
-          const between = yield* item.query('byLabel', {
+          const between = yield* conformanceTable.Item.query('byLabel', {
             pk: { category: 'a' },
             between: [{ label: 'b' }, { label: 'c' }],
           });
@@ -1131,40 +1223,46 @@ export const runConformanceSuite = (
             'b',
             'c',
           ]);
-          const exact = yield* item.query('byLabel', {
+          const exact = yield* conformanceTable.Item.query('byLabel', {
             pk: { category: 'a' },
             '=': { label: 'b' },
           });
           expect(exact.items.map(({ value }) => value.label)).toEqual(['b']);
-          const lsi = yield* item.query('byValue', {
+          const lsi = yield* conformanceTable.Item.query('byValue', {
             pk: { category: 'a' },
             beginsWith: { label: 'c' },
           });
           expect(lsi.items.map(({ value }) => value.label)).toEqual(['c']);
 
-          const primary = yield* item.query('primary', {
+          const primary = yield* conformanceTable.Item.query('primary', {
             pk: { category: 'a' },
             beginsWith: { itemId: 'b' },
           });
           expect(primary.items.map(({ value }) => value.itemId)).toEqual(['b']);
 
-          const unboundedAscending = yield* item.query('primary', {
-            pk: { category: 'a' },
-            '>=': null,
-          });
+          const unboundedAscending = yield* conformanceTable.Item.query(
+            'primary',
+            {
+              pk: { category: 'a' },
+              '>=': null,
+            },
+          );
           expect(
             unboundedAscending.items.map(({ value }) => value.itemId),
           ).toEqual(['a', 'b', 'c', 'd']);
-          const unboundedDescending = yield* item.query('primary', {
-            pk: { category: 'a' },
-            '<=': null,
-          });
+          const unboundedDescending = yield* conformanceTable.Item.query(
+            'primary',
+            {
+              pk: { category: 'a' },
+              '<=': null,
+            },
+          );
           expect(
             unboundedDescending.items.map(({ value }) => value.itemId),
           ).toEqual(['d', 'c', 'b', 'a']);
 
           expect(
-            (yield* item.query('primary', {
+            (yield* conformanceTable.Item.query('primary', {
               pk: { category: 'missing' },
               '>=': null,
             })).items,
@@ -1182,13 +1280,16 @@ export const runConformanceSuite = (
             { itemId: 'c', category: 'a', segment: 'two', label: 'alpha' },
             { itemId: 'd', category: 'a', segment: 'one', label: null },
           ] as const) {
-            yield* compoundItem.insert(value);
+            yield* conformanceTable.CompoundItem.insert(value);
           }
 
-          const compound = yield* compoundItem.query('bySegment', {
-            pk: { category: 'a' },
-            beginsWith: { segment: 'one', label: 'alp' },
-          });
+          const compound = yield* conformanceTable.CompoundItem.query(
+            'bySegment',
+            {
+              pk: { category: 'a' },
+              beginsWith: { segment: 'one', label: 'alp' },
+            },
+          );
           expect(compound.items.map(({ value }) => value.itemId)).toEqual([
             'a',
             'b',
@@ -1198,14 +1299,14 @@ export const runConformanceSuite = (
           );
 
           for (const effect of [
-            compoundItem.query(
+            conformanceTable.CompoundItem.query(
               'missing' as never,
               {
                 pk: { category: 'a' },
                 '>=': null,
               } as never,
             ),
-            compoundItem.query(
+            conformanceTable.CompoundItem.query(
               'primary',
               {
                 pk: { category: 'a' },
@@ -1213,7 +1314,7 @@ export const runConformanceSuite = (
               },
               { limit: 0 },
             ),
-            compoundItem.query('primary', {
+            conformanceTable.CompoundItem.query('primary', {
               pk: { category: 'a' },
               '>=': null,
               '<=': null,
@@ -1235,7 +1336,7 @@ export const runConformanceSuite = (
           const dueAt = new Date('2026-09-01T09:00:00.000Z');
           const ranks = [10, -2.5, 9, 0, 100];
           for (const [index, rank] of ranks.entries()) {
-            yield* doc.insert({
+            yield* conformanceTable.Doc.insert({
               docId: `d${index}`,
               board: { id: 'work' },
               rank,
@@ -1248,29 +1349,32 @@ export const runConformanceSuite = (
           }
 
           const read = required(
-            yield* doc.get({ 'board.id': 'work', docId: 'd0' }),
+            yield* conformanceTable.Doc.get({
+              'board.id': 'work',
+              docId: 'd0',
+            }),
           );
           expect(read.value.dueAt).toBeInstanceOf(Date);
           expect(read.value.dueAt.getTime()).toBe(dueAt.getTime());
 
-          const byRank = yield* doc.query('byRank', {
+          const byRank = yield* conformanceTable.Doc.query('byRank', {
             pk: { 'board.id': 'work' },
             '>=': null,
           });
           expect(byRank.items.map(({ value }) => value.rank)).toEqual([
             -2.5, 0, 9, 10, 100,
           ]);
-          const above = yield* doc.query('byRank', {
+          const above = yield* conformanceTable.Doc.query('byRank', {
             pk: { 'board.id': 'work' },
             '>': { rank: 9 },
           });
           expect(above.items.map(({ value }) => value.rank)).toEqual([10, 100]);
-          const firstPage = yield* doc.query(
+          const firstPage = yield* conformanceTable.Doc.query(
             'byRank',
             { pk: { 'board.id': 'work' }, '>=': null },
             { limit: 2 },
           );
-          const secondPage = yield* doc.query(
+          const secondPage = yield* conformanceTable.Doc.query(
             'byRank',
             { pk: { 'board.id': 'work' }, '>=': null },
             { limit: 2, after: firstPage.items.at(-1)! },
@@ -1279,7 +1383,7 @@ export const runConformanceSuite = (
             9, 10,
           ]);
 
-          const team = yield* doc.query('byTeamSeat', {
+          const team = yield* conformanceTable.Doc.query('byTeamSeat', {
             pk: { 'owner.teamId': 'core' },
             '>=': null,
           });
@@ -1291,7 +1395,7 @@ export const runConformanceSuite = (
           ]);
 
           const later = new Date('2027-01-01T00:00:00.000Z');
-          const updated = yield* doc.getAndUpdate(
+          const updated = yield* conformanceTable.Doc.getAndUpdate(
             { 'board.id': 'work', docId: 'd1' },
             { dueAt: later },
           );
@@ -1305,20 +1409,20 @@ export const runConformanceSuite = (
         Effect.gen(function* () {
           for (let index = 0; index < 101; index++) {
             const id = String(index).padStart(3, '0');
-            yield* item.insert({
+            yield* conformanceTable.Item.insert({
               itemId: id,
               category: 'default-limit',
               label: id,
               value: index,
             });
           }
-          const first = yield* item.query('primary', {
+          const first = yield* conformanceTable.Item.query('primary', {
             pk: { category: 'default-limit' },
             '>=': null,
           });
           expect(first.items).toHaveLength(100);
           expect(first.hasMore).toBe(true);
-          const second = yield* item.query(
+          const second = yield* conformanceTable.Item.query(
             'primary',
             { pk: { category: 'default-limit' }, '>=': null },
             { after: first.items.at(-1)! },
@@ -1333,7 +1437,7 @@ export const runConformanceSuite = (
   it('decodes and migrates stored older schema versions', async () => {
     await run(
       Effect.gen(function* () {
-        const inserted = yield* migratedItem.insert({
+        const inserted = yield* conformanceTable.MigratedItem.insert({
           itemId: 'one',
           category: 'a',
           label: 'legacy',
@@ -1360,7 +1464,7 @@ export const runConformanceSuite = (
           condition: { kind: 'updated', value: inserted.meta._u },
         });
 
-        const migrated = yield* migratedItem.get({
+        const migrated = yield* conformanceTable.MigratedItem.get({
           itemId: 'one',
           category: 'a',
         });
@@ -1375,7 +1479,7 @@ export const runConformanceSuite = (
     await run(
       Effect.gen(function* () {
         const original = richValue('r1', 7);
-        const inserted = yield* rich.insert(original);
+        const inserted = yield* conformanceTable.Rich.insert(original);
         expect(Equal.equals(inserted.value, original)).toBe(true);
 
         // Storage holds plain JSON: strings, numbers, and nulls, never objects
@@ -1401,7 +1505,7 @@ export const runConformanceSuite = (
         });
 
         const read = required(
-          yield* rich.get({ category: 'rich', richId: 'r1' }),
+          yield* conformanceTable.Rich.get({ category: 'rich', richId: 'r1' }),
         );
         expect(Equal.equals(read.value, original)).toBe(true);
         expect(read.value.createdAt).toBeInstanceOf(Date);
@@ -1409,7 +1513,7 @@ export const runConformanceSuite = (
         expect(Duration.toMillis(read.value.timeout)).toBe(90_000);
 
         const moved = new Date('2026-05-01T00:00:00.000Z');
-        const updated = yield* rich.getAndUpdate(
+        const updated = yield* conformanceTable.Rich.getAndUpdate(
           { category: 'rich', richId: 'r1' },
           (current) => ({
             history: [...current.history, { at: moved, note: 'closed' }],
@@ -1421,7 +1525,7 @@ export const runConformanceSuite = (
         );
         expect(Option.isNone(updated.value.closedAt)).toBe(true);
 
-        const byKind = yield* rich.query('byEventKind', {
+        const byKind = yield* conformanceTable.Rich.query('byEventKind', {
           pk: { 'event.kind': 'due' },
           '>=': null,
         });
@@ -1437,7 +1541,7 @@ export const runConformanceSuite = (
           condition: { kind: 'updated', value: updated.meta._u },
         });
         const migrated = required(
-          yield* rich.get({ category: 'rich', richId: 'r1' }),
+          yield* conformanceTable.Rich.get({ category: 'rich', richId: 'r1' }),
         );
         expect(migrated.meta._v).toBe('v2');
         expect(migrated.value.rank).toBe(2026);
@@ -1451,34 +1555,32 @@ export const runConformanceSuite = (
       Effect.gen(function* () {
         const byDate = yield* Effect.forkChild(
           Stream.runCollect(
-            rich
-              .subscribe({ createdAt: new Date('2026-01-02T03:04:05.006Z') })
-              .pipe(Stream.take(1)),
+            conformanceTable.Rich.subscribe({
+              createdAt: new Date('2026-01-02T03:04:05.006Z'),
+            }).pipe(Stream.take(1)),
           ),
         );
         const byNested = yield* Effect.forkChild(
           Stream.runCollect(
-            rich
-              .subscribe({
-                window: {
-                  from: new Date('2026-03-01T00:00:00.000Z'),
-                  to: null,
-                },
-                closedAt: Option.some(
-                  DateTime.makeUnsafe('2026-02-01T00:00:00.000Z'),
-                ),
-              })
-              .pipe(Stream.take(1)),
+            conformanceTable.Rich.subscribe({
+              window: {
+                from: new Date('2026-03-01T00:00:00.000Z'),
+                to: null,
+              },
+              closedAt: Option.some(
+                DateTime.makeUnsafe('2026-02-01T00:00:00.000Z'),
+              ),
+            }).pipe(Stream.take(1)),
           ),
         );
         yield* Effect.sleep('20 millis');
 
-        yield* rich.insert({
+        yield* conformanceTable.Rich.insert({
           ...richValue('other', 1),
           createdAt: new Date('2030-01-01T00:00:00.000Z'),
           window: { from: new Date('2030-01-01T00:00:00.000Z'), to: null },
         });
-        yield* rich.insert(richValue('match', 2));
+        yield* conformanceTable.Rich.insert(richValue('match', 2));
 
         const [dateNotices, nestedNotices] = [
           yield* Fiber.join(byDate),
@@ -1498,7 +1600,7 @@ export const runConformanceSuite = (
   it('normalizes schema decoding failures', async () => {
     await run(
       Effect.gen(function* () {
-        const inserted = yield* item.insert({
+        const inserted = yield* conformanceTable.Item.insert({
           itemId: 'invalid',
           category: 'a',
           label: 'invalid',
@@ -1518,9 +1620,10 @@ export const runConformanceSuite = (
           },
           condition: { kind: 'updated', value: inserted.meta._u },
         });
-        const result = yield* item
-          .get({ itemId: 'invalid', category: 'a' })
-          .pipe(Effect.result);
+        const result = yield* conformanceTable.Item.get({
+          itemId: 'invalid',
+          category: 'a',
+        }).pipe(Effect.result);
         expect(result).toMatchObject({
           _tag: 'Failure',
           failure: { reason: { _tag: 'DecodeFailed' } },
@@ -1534,7 +1637,9 @@ export const runConformanceSuite = (
       Effect.gen(function* () {
         const filtered = yield* Effect.forkChild(
           Stream.runCollect(
-            item.subscribe({ category: 'notify' }).pipe(Stream.take(1)),
+            conformanceTable.Item.subscribe({ category: 'notify' }).pipe(
+              Stream.take(1),
+            ),
           ),
         );
         const tableWide = yield* Effect.forkChild(
@@ -1542,13 +1647,13 @@ export const runConformanceSuite = (
         );
         yield* Effect.sleep('20 millis');
 
-        yield* item.insert({
+        yield* conformanceTable.Item.insert({
           itemId: 'skip',
           category: 'ignore',
           label: 'skip',
           value: 1,
         });
-        yield* item.insert({
+        yield* conformanceTable.Item.insert({
           itemId: 'match',
           category: 'notify',
           label: 'match',

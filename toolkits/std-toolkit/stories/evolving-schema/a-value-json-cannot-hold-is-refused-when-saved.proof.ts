@@ -9,8 +9,10 @@ const Reading = EntityESchema.make('Reading', 'readingId', {
   sample: ESchema.fromType<{ readonly value: number }>(),
 }).build();
 
-const table = StdTable.make('readings').primary('pk', 'sk').build();
-const readings = table.entity(Reading).primary().build();
+const table = StdTable.make('readings')
+  .primary('pk', 'sk')
+  .entity(Reading, (e) => e.primary())
+  .build();
 
 export default Proof.make({
   title: 'A value JSON cannot hold is refused when it is saved',
@@ -18,9 +20,10 @@ export default Proof.make({
     'JSON stores NaN as null, so a row holding it would never read again. Every save checks the stored form first, on every database, and names the field.',
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
-    const saved = yield* readings
-      .insert({ readingId: 'r1', sample: { value: 21.5 } })
-      .pipe(Effect.provide(db.layer));
+    const saved = yield* table.Reading.insert({
+      readingId: 'r1',
+      sample: { value: 21.5 },
+    }).pipe(Effect.provide(db.layer));
     yield* Proof.assert(
       'a finite reading saves',
       saved.value.sample.value === 21.5,
@@ -29,16 +32,17 @@ export default Proof.make({
   }),
   act: ({ db }) =>
     Effect.gen(function* () {
-      const refused = yield* readings
-        .insert({ readingId: 'r2', sample: { value: NaN } })
-        .pipe(
-          Effect.match({
-            onFailure: (error) =>
-              `${error.reason._tag}: ${String(error.reason.cause ?? error)}`,
-            onSuccess: () => null,
-          }),
-        );
-      const stored = yield* readings.get({ readingId: 'r2' });
+      const refused = yield* table.Reading.insert({
+        readingId: 'r2',
+        sample: { value: NaN },
+      }).pipe(
+        Effect.match({
+          onFailure: (error) =>
+            `${error.reason._tag}: ${String(error.reason.cause ?? error)}`,
+          onSuccess: () => null,
+        }),
+      );
+      const stored = yield* table.Reading.get({ readingId: 'r2' });
       return { refused, stored };
     }).pipe(Effect.provide(db.layer)),
   verify: ({ refused, stored }) =>

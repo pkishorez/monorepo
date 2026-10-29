@@ -5,7 +5,12 @@ import {
   type ESchemaIntrospection,
 } from '../domain/introspection/index.js';
 import { findNonPortableValue } from '../domain/portable-value/index.js';
-import type { AnyEvolvingSchema } from '../domain/schema-model/index.js';
+import { readToGap } from '../domain/encoded/index.js';
+import { findNeedsBackfill } from '../domain/eschema-error/index.js';
+import type {
+  AnyESchema,
+  AnyEvolvingSchema,
+} from '../domain/schema-model/index.js';
 
 export interface UpgradeCheckOptions {
   /** Generated values per version. Defaults to 100. */
@@ -20,6 +25,7 @@ export interface UpgradeCheckOptions {
 const DEFAULT_SEED = 'std-toolkit/eschema';
 
 type Stage =
+  | 'backfill'
   | 'upgrade'
   | 'identity'
   | 'unchanged'
@@ -121,6 +127,93 @@ const storedRows = (
   );
 };
 
+const step = <A, E>(stage: Stage, effect: Effect.Effect<A, E>) =>
+  effect.pipe(
+    Effect.mapError(
+      (error) => new UpgradeFailure({ stage, message: messageOf(error) }),
+    ),
+  );
+
+/** The first gap version after version `index`, if any. */
+const gapAfter = (
+  introspection: ESchemaIntrospection,
+  index: number,
+): string | undefined =>
+  introspection.evolutions.slice(index + 1).find((evolution) => evolution.gap)
+    ?.version;
+
+/**
+ * What an upgraded row must keep from the value it was stored from: its id,
+ * and every `unchanged` path it had.
+ */
+const kept = (
+  introspection: ESchemaIntrospection,
+  unchanged: readonly string[],
+  value: unknown,
+  upgraded: unknown,
+) =>
+  Effect.gen(function* () {
+    const { idField } = introspection;
+    if (idField !== null) {
+      const before = (value as Record<string, unknown>)[idField];
+      const after = (upgraded as Record<string, unknown>)[idField];
+      if (before !== after) {
+        return yield* new UpgradeFailure({
+          stage: 'identity',
+          message: `${idField} changed from ${JSON.stringify(before)} to ${JSON.stringify(after)}`,
+        });
+      }
+    }
+    for (const path of unchanged) {
+      // A path the old version did not have yet has nothing to keep.
+      const before = valueAt(value, path);
+      const after = valueAt(upgraded, path);
+      if (before !== undefined && canonical(before) !== canonical(after)) {
+        return yield* new UpgradeFailure({
+          stage: 'unchanged',
+          message: `${path} changed from ${JSON.stringify(before)} to ${JSON.stringify(after)}`,
+        });
+      }
+    }
+  });
+
+/**
+ * What a stored row before a gap version must survive: it does not read but
+ * fails with `NeedsBackfill` for that gap, and its migrations up to the gap
+ * run and keep its id and every `unchanged` path. The Backfill is not run.
+ */
+const waitsForBackfill =
+  (
+    eschema: AnyEvolvingSchema,
+    introspection: ESchemaIntrospection,
+    gap: string,
+    unchanged: readonly string[],
+  ) =>
+  ({ value, stored }: StoredRow) =>
+    Effect.gen(function* () {
+      const codec = eschema.schema as Schema.Codec<unknown, unknown>;
+      const read = yield* Effect.exit(
+        Schema.decodeUnknownEffect(codec)(json(stored)),
+      );
+      const found =
+        read._tag === 'Failure' ? findNeedsBackfill(read.cause) : undefined;
+      if (found?.gapVersion !== gap) {
+        return yield* new UpgradeFailure({
+          stage: 'backfill',
+          message:
+            read._tag === 'Success'
+              ? `it read without a Backfill for gap version ${gap}`
+              : `it failed with something other than NeedsBackfill for ${gap}: ${messageOf(read.cause)}`,
+        });
+      }
+      const reached = yield* step(
+        'upgrade',
+        readToGap(eschema as AnyESchema, json(stored)),
+      );
+      yield* kept(introspection, unchanged, value, reached.value);
+      return true;
+    });
+
 /**
  * What a stored row must survive: it reads as the latest value, keeps its id
  * and every `unchanged` path it had, saves again, and reads back the same.
@@ -137,36 +230,9 @@ const upgrades =
       const codec = eschema.schema as Schema.Codec<unknown, unknown>;
       const decode = Schema.decodeUnknownEffect(codec);
       const encode = Schema.encodeEffect(codec);
-      const step = <A, E>(stage: Stage, effect: Effect.Effect<A, E>) =>
-        effect.pipe(
-          Effect.mapError(
-            (error) => new UpgradeFailure({ stage, message: messageOf(error) }),
-          ),
-        );
 
       const latest = yield* step('upgrade', decode(json(stored)));
-      const { idField } = introspection;
-      if (idField !== null) {
-        const before = (value as Record<string, unknown>)[idField];
-        const after = (latest as Record<string, unknown>)[idField];
-        if (before !== after) {
-          return yield* new UpgradeFailure({
-            stage: 'identity',
-            message: `${idField} changed from ${JSON.stringify(before)} to ${JSON.stringify(after)}`,
-          });
-        }
-      }
-      for (const path of unchanged) {
-        // A path the old version did not have yet has nothing to keep.
-        const before = valueAt(value, path);
-        const after = valueAt(latest, path);
-        if (before !== undefined && canonical(before) !== canonical(after)) {
-          return yield* new UpgradeFailure({
-            stage: 'unchanged',
-            message: `${path} changed from ${JSON.stringify(before)} to ${JSON.stringify(after)}`,
-          });
-        }
-      }
+      yield* kept(introspection, unchanged, value, latest);
       const saved = json(yield* step('save', encode(latest)));
       const again = json(
         yield* step('stable', decode(saved).pipe(Effect.flatMap(encode))),
@@ -228,10 +294,13 @@ const checkVersion = (
   const { name, evolutions } = introspection;
   const version = evolutions[index]!.version;
   const latest = evolutions.at(-1)!.version;
+  const gap = gapAfter(introspection, index);
   const label =
-    version === latest
-      ? `${name} ${version}`
-      : `${name} ${version} → ${latest}`;
+    gap !== undefined
+      ? `${name} ${version} → gap ${gap}`
+      : version === latest
+        ? `${name} ${version}`
+        : `${name} ${version} → ${latest}`;
   let rows: Arbitrary.Arbitrary<StoredRow>;
   try {
     rows = storedRows(introspection, index);
@@ -242,7 +311,9 @@ const checkVersion = (
   }
   return Arbitrary.checkEffect(
     rows,
-    upgrades(eschema, introspection, index, unchanged),
+    gap === undefined
+      ? upgrades(eschema, introspection, index, unchanged)
+      : waitsForBackfill(eschema, introspection, gap, unchanged),
     {
       runs: options.runs ?? 100,
       seed: options.seed ?? DEFAULT_SEED,
@@ -297,7 +368,9 @@ export const findUpgradeFailures = (
 /**
  * Generates rows every version of `schema` can store, and of every ESchema it
  * nests, and checks that each one reads as the latest value, keeps its id and
- * every `unchanged` path, and saves again unchanged. Resolves when all do;
+ * every `unchanged` path, and saves again unchanged. A row stored before a
+ * gap version must instead fail with `NeedsBackfill` and migrate up to the
+ * gap; the Backfill itself is not run. Resolves when all do;
  * otherwise rejects with one entry per failing version and its smallest
  * failing row. Works in any test runner.
  */

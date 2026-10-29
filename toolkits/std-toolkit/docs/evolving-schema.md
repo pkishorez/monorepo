@@ -146,13 +146,13 @@ string.
 
 ### Which one do I pick
 
-| You are versioning                                         | Use                                   |
-| ---------------------------------------------------------- | ------------------------------------- |
-| A table row, keyed by an id                                | `EntityESchema`                       |
-| An object with named fields that follows the field rules   | `ESchema`                             |
-| A single record stored once                                | `ESchema` with `table.singleEntity()` |
-| A scalar, enum, list, map, or a union of different objects | `ValueESchema`                        |
-| An existing object with optional fields                    | `ValueESchema`                        |
+| You are versioning                                         | Use                                           |
+| ---------------------------------------------------------- | --------------------------------------------- |
+| A table row, keyed by an id                                | `EntityESchema`                               |
+| An object with named fields that follows the field rules   | `ESchema`                                     |
+| A single record stored once                                | `ESchema` with `.singleEntity()` on the table |
+| A scalar, enum, list, map, or a union of different objects | `ValueESchema`                                |
+| An existing object with optional fields                    | `ValueESchema`                                |
 
 ### The bridge: `eschema.schema`
 

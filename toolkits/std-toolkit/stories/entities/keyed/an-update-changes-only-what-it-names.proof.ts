@@ -10,10 +10,9 @@ const Task = EntityESchema.make('Task', 'taskId', {
   status: Schema.Literals(['open', 'done']),
 }).build();
 
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 const key = { boardId: 'work', taskId: 't1' };
@@ -23,19 +22,21 @@ export default Proof.make({
     'An update changes only the fields it names and moves the update stamp',
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
-    const before = yield* task
-      .insert({ ...key, title: 'Write the plan', status: 'open' })
-      .pipe(Effect.provide(db.layer));
+    const before = yield* table.Task.insert({
+      ...key,
+      title: 'Write the plan',
+      status: 'open',
+    }).pipe(Effect.provide(db.layer));
     yield* Proof.assert('the task starts open', before.value.status === 'open');
     return { db, before };
   }),
   act: ({ db }) =>
     Effect.gen(function* () {
-      const updated = yield* task.getAndUpdate(key, { status: 'done' });
-      const renamed = yield* task.getAndUpdate(key, (current) => ({
+      const updated = yield* table.Task.getAndUpdate(key, { status: 'done' });
+      const renamed = yield* table.Task.getAndUpdate(key, (current) => ({
         title: `${current.title} (v2)`,
       }));
-      const stored = yield* task.get(key);
+      const stored = yield* table.Task.get(key);
       return { updated, renamed, stored };
     }).pipe(Effect.provide(db.layer)),
   verify: ({ updated, stored }, { before }) =>

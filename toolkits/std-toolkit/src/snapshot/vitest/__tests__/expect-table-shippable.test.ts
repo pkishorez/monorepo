@@ -26,11 +26,11 @@ const makeBoard = (title = Schema.String) => {
   const table = StdTable.make('board')
     .primary('pk', 'sk')
     .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-    .build();
-  table
-    .entity(Task)
-    .primary({ pk: ['boardId'] })
-    .index('GSI1', 'byTitle', { pk: ['title'], sk: ['taskId'] })
+    .entity(Task, (e) =>
+      e
+        .primary({ pk: ['boardId'] })
+        .index('GSI1', 'byTitle', { pk: ['title'], sk: ['taskId'] }),
+    )
     .build();
   return table;
 };
@@ -125,10 +125,9 @@ describe('expectTableShippable', () => {
         done: false,
       }))
       .build();
-    const table = StdTable.make('moving').primary('pk', 'sk').build();
-    table
-      .entity(Task)
-      .primary({ pk: ['boardId'] })
+    const table = StdTable.make('moving')
+      .primary('pk', 'sk')
+      .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
       .build();
     await asIfUpdating(() =>
       expect(

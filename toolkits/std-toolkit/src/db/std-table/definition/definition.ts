@@ -3,7 +3,6 @@ import type {
   AnyUnkeyedESchema,
   ESchemaType,
 } from '../../../eschema/index.js';
-import { makeTableBuilder } from './table-definition.js';
 
 export interface PrimaryIndex<
   Pk extends string = string,
@@ -159,8 +158,35 @@ export interface SingleEntityDefinition<
   readonly defaultValue: ESchemaType<TSchema>;
 }
 
+/** What a keyed entity's builder has declared so far: its schema, primary key, and access patterns. */
+export interface KeyedEntityDeclaration<
+  TSchema extends AnyEntityESchema = AnyEntityESchema,
+  PrimaryPk extends readonly string[] = readonly string[],
+  Patterns extends AccessPatternMap = AccessPatternMap,
+> {
+  readonly kind: 'keyed';
+  readonly schema: TSchema;
+  readonly primary: {
+    readonly pk: PrimaryPk;
+    readonly sk: readonly [TSchema['idField']];
+  };
+  readonly accessPatterns: Patterns;
+}
+
+/** A single entity as declared on its table: its schema and the value it reads as before it is saved. */
+export interface SingleEntityDeclaration<
+  TSchema extends AnyUnkeyedESchema = AnyUnkeyedESchema,
+> {
+  readonly kind: 'single';
+  readonly schema: TSchema;
+  readonly defaultValue: ESchemaType<TSchema>;
+}
+
+export type EntityDeclaration =
+  | KeyedEntityDeclaration
+  | SingleEntityDeclaration;
+
 export interface KeyedEntityBuilderStart<
-  TableName extends string,
   TSchema extends AnyEntityESchema,
   Lsis extends LocalSecondaryIndexMap,
   Gsis extends GlobalSecondaryIndexMap,
@@ -170,12 +196,10 @@ export interface KeyedEntityBuilderStart<
   >(derivation?: {
     readonly pk: Pk;
   }): KeyedEntityBuilder<
-    TableName,
     TSchema,
     Lsis,
     Gsis,
     Pk,
-    readonly [TSchema['idField']],
     Record<
       'primary',
       AccessPatternDefinition<
@@ -225,14 +249,13 @@ export type PatternFor<
     >;
 
 export interface KeyedEntityBuilder<
-  TableName extends string,
   TSchema extends AnyEntityESchema,
   Lsis extends LocalSecondaryIndexMap,
   Gsis extends GlobalSecondaryIndexMap,
   PrimaryPk extends readonly string[],
-  PrimarySk extends readonly string[],
   Patterns extends AccessPatternMap,
 > {
+  readonly declaration: KeyedEntityDeclaration<TSchema, PrimaryPk, Patterns>;
   index<
     const Slot extends keyof (Lsis & Gsis) & string,
     const Name extends string,
@@ -244,31 +267,13 @@ export interface KeyedEntityBuilder<
     name: Name,
     derivation: Derivation,
   ): KeyedEntityBuilder<
-    TableName,
     TSchema,
     Lsis,
     Gsis,
     PrimaryPk,
-    PrimarySk,
     Patterns &
       Record<Name, PatternFor<Slot, TSchema, Lsis, PrimaryPk, Derivation>>
   >;
-  build(): KeyedEntityDefinition<
-    TableName,
-    TSchema,
-    PrimaryPk,
-    PrimarySk,
-    Patterns
-  >;
-}
-
-export interface SingleEntityBuilder<
-  TableName extends string,
-  TSchema extends AnyUnkeyedESchema,
-> {
-  default(
-    defaultValue: ESchemaType<TSchema>,
-  ): SingleEntityDefinition<TableName, TSchema>;
 }
 
 export interface TableDefinition<
@@ -281,79 +286,9 @@ export interface TableDefinition<
   readonly primary: Primary;
   readonly localSecondaryIndexes: Lsis;
   readonly globalSecondaryIndexes: Gsis;
-  entity<TSchema extends AnyEntityESchema>(
-    schema: TSchema,
-  ): KeyedEntityBuilderStart<Name, TSchema, Lsis, Gsis>;
-  singleEntity<TSchema extends AnyUnkeyedESchema>(
-    schema: TSchema,
-  ): SingleEntityBuilder<Name, TSchema>;
-  /** Every entity registered so far, in registration order. Snapshot capture reads this. */
+  /** Every entity declared on the table, in declaration order. Snapshot capture reads this. */
   readonly registeredEntities: readonly (
     | KeyedEntityDefinition
     | SingleEntityDefinition
   )[];
 }
-
-export interface TableTopologyBuilder<
-  Name extends string,
-  Primary extends PrimaryIndex,
-  Lsis extends LocalSecondaryIndexMap,
-  Gsis extends GlobalSecondaryIndexMap,
-> {
-  lsi<const Slot extends string, const Sk extends string>(
-    name: Slot,
-    sk: Sk,
-  ): TableTopologyBuilder<
-    Name,
-    Primary,
-    Lsis & Record<Slot, LocalSecondaryIndex<Slot, Primary['pk'], Sk>>,
-    Gsis
-  >;
-  gsi<
-    const Slot extends string,
-    const Pk extends string,
-    const Sk extends string,
-  >(
-    name: Slot,
-    pk: Pk,
-    sk: Sk,
-  ): TableTopologyBuilder<
-    Name,
-    Primary,
-    Lsis,
-    Gsis & Record<Slot, GlobalSecondaryIndex<Slot, Pk, Sk>>
-  >;
-  build(): TableDefinition<Name, Primary, Lsis, Gsis>;
-}
-
-export interface TableBuilder<Name extends string> {
-  readonly logicalName: Name;
-  primary<const Pk extends string, const Sk extends string>(
-    pk: Pk,
-    sk: Sk,
-  ): TableTopologyBuilder<Name, PrimaryIndex<Pk, Sk>, {}, {}>;
-}
-
-type NonEmpty<Name extends string> = Name extends '' ? never : Name;
-
-export const Table = {
-  make<const Name extends string>(
-    logicalName: NonEmpty<Name>,
-  ): TableBuilder<Name> {
-    return makeTableBuilder(logicalName);
-  },
-  assertUniqueNames<const Definitions extends readonly TableDefinition[]>(
-    definitions: Definitions,
-  ): Definitions {
-    const names = new Set<string>();
-    for (const definition of definitions) {
-      if (names.has(definition.logicalName)) {
-        throw new Error(
-          `Logical Table "${definition.logicalName}" is already defined`,
-        );
-      }
-      names.add(definition.logicalName);
-    }
-    return definitions;
-  },
-} as const;

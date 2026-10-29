@@ -15,15 +15,13 @@ const TaskEditedInPlace = EntityESchema.make('Task', 'taskId', {
   priority: Schema.Literals(['low', 'high']),
 }).build();
 
-const shipped = StdTable.make('board').primary('pk', 'sk').build();
-shipped
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const shipped = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
-const edited = StdTable.make('board').primary('pk', 'sk').build();
-edited
-  .entity(TaskEditedInPlace)
-  .primary({ pk: ['boardId'] })
+const edited = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(TaskEditedInPlace, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 export default Proof.make({

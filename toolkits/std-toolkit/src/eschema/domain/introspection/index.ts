@@ -1,10 +1,12 @@
 export {
   findNestedESchemas,
+  gapVersions,
   inspectESchema,
   inspectESchemaComposition,
   isEncodedStringSchema,
   isESchemaCompositionPlumbing,
   latestSchema,
+  refuseNestedGap,
   registerESchemaComposition,
   registerESchemaIntrospection,
   type ESchemaCompositionIntrospection,

@@ -13,16 +13,12 @@ const Task = EntityESchema.make('Task', 'taskId', {
 }).build();
 const Settings = ESchema.make('Settings', { theme: Schema.String }).build();
 
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const board = table
-  .entity(Board)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Board, (e) => e.primary({ pk: ['boardId'] }))
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
+  .singleEntity(Settings, { default: { theme: 'light' } })
   .build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
-  .build();
-const settings = table.singleEntity(Settings).default({ theme: 'light' });
 
 export default Proof.make({
   title: 'A scan sees every stored row of every entity, deleted ones included',
@@ -31,11 +27,19 @@ export default Proof.make({
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
     const deleted = yield* Effect.gen(function* () {
-      yield* board.insert({ boardId: 'work', name: 'Work' });
-      yield* task.insert({ taskId: 't1', boardId: 'work', title: 'Plan' });
-      yield* task.insert({ taskId: 't2', boardId: 'work', title: 'Review' });
-      yield* settings.put({ theme: 'dark' });
-      return yield* task.delete({ boardId: 'work', taskId: 't2' });
+      yield* table.Board.insert({ boardId: 'work', name: 'Work' });
+      yield* table.Task.insert({
+        taskId: 't1',
+        boardId: 'work',
+        title: 'Plan',
+      });
+      yield* table.Task.insert({
+        taskId: 't2',
+        boardId: 'work',
+        title: 'Review',
+      });
+      yield* table.Settings.put({ theme: 'dark' });
+      return yield* table.Task.delete({ boardId: 'work', taskId: 't2' });
     }).pipe(Effect.provide(db.layer));
     yield* Proof.assert('t2 was deleted', deleted.meta._d === true);
     return { db, deleted };

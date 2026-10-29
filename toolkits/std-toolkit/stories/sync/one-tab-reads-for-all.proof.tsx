@@ -59,11 +59,12 @@ export default Proof.browser({
   description:
     'Two Tabs on one Device: only Tab 1 reads the backend. When Tab 1 goes away, Tab 2 takes over, starts reading, and picks up a task someone else stored on the backend.',
   page: (root) => {
-    const table = StdTable.make('board').primary('pk', 'sk').build();
-    const tasks = table
-      .entity(Task)
-      .primary({ pk: ['boardId'] })
+    const table = StdTable.make('board')
+      .primary('pk', 'sk')
+      .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
       .build();
+
+    const tasks = table.Task;
     const backend = IDB.make(table, {
       mode: 'disposable',
       database: IDB.database({ databaseName: 'backend' }),

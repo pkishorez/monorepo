@@ -11,10 +11,9 @@ const Task = EntityESchema.make('Task', 'taskId', {
 }).build();
 
 // One table; a task's board fills the partition key and its id the sort key.
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 const key = { boardId: 'work', taskId: 't1' };
@@ -25,19 +24,22 @@ export default Proof.make({
     'Insert returns the stored Entity, `{ value, meta }`; get by key returns the same value and update stamp. A key never saved reads as null.',
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
-    const before = yield* task.get(key).pipe(Effect.provide(db.layer));
+    const before = yield* table.Task.get(key).pipe(Effect.provide(db.layer));
     yield* Proof.assert('the board starts empty', before === null);
     return { db, before };
   }),
   act: ({ db }) =>
     Effect.gen(function* () {
-      const inserted = yield* task.insert({
+      const inserted = yield* table.Task.insert({
         ...key,
         title: 'Write the plan',
         status: 'open',
       });
-      const read = yield* task.get(key);
-      const missing = yield* task.get({ boardId: 'work', taskId: 'nope' });
+      const read = yield* table.Task.get(key);
+      const missing = yield* table.Task.get({
+        boardId: 'work',
+        taskId: 'nope',
+      });
       return { inserted, read, missing };
     }).pipe(Effect.provide(db.layer)),
   verify: ({ inserted, read, missing }) =>

@@ -15,7 +15,10 @@ import {
   unknownVersion,
 } from '../../domain/eschema-error/index.js';
 import { registerEncoded } from '../../domain/encoded/index.js';
-import { registerESchemaIntrospection } from '../../domain/introspection/index.js';
+import {
+  refuseNestedGap,
+  registerESchemaIntrospection,
+} from '../../domain/introspection/index.js';
 import { findUndescribableField } from '../../domain/snapshot-type/index.js';
 import { findNonPortableValue } from '../../domain/portable-value/index.js';
 
@@ -75,12 +78,17 @@ export function makeValueSchemaRuntime<
         found.detail,
       );
     }
+    refuseNestedGap(input.name, evolution.version, evolution.schema.ast);
   }
   registerESchemaIntrospection(input.owner, () => ({
     name: input.name,
     kind: 'value',
     idField: null,
-    evolutions: evolutions.map(({ version, schema }) => ({ version, schema })),
+    evolutions: evolutions.map(({ version, schema }) => ({
+      version,
+      schema,
+      gap: false,
+    })),
   }));
 
   const schema = (): TLatest => {

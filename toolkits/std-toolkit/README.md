@@ -84,12 +84,12 @@ Deploys a StdTable with Alchemy. Each table resource takes a required `mode`. A 
 
 ### `@kestack/std-toolkit/db`
 
-| Export          | What it does                                                                                      |
-| --------------- | ------------------------------------------------------------------------------------------------- |
-| `StdTable.make` | Starts a table builder from a logical name; chain `primary`, `lsi`, `gsi`, then `build`.          |
-| `DatabaseError` | Tagged error every StdTable operation fails with, carrying a `reason` such as a failed condition. |
+| Export          | What it does                                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `StdTable.make` | Starts a table declaration from a logical name; chain `primary`, `lsi`, `gsi`, then `entity` and `singleEntity`, then `build`. |
+| `DatabaseError` | Tagged error every StdTable operation fails with, carrying a `reason` such as a failed condition.                              |
 
-The built `StdTable` exposes `entity`, `singleEntity`, `transact`, `scan`, `subscribe`, `drift`, `reindex`, and `dangerouslyRemoveAllItems`. See [src/db/CONTEXT.md](src/db/CONTEXT.md).
+The built `StdTable` carries each declared entity under its ESchema name (`table.Task`) and exposes `transact`, `scan`, `subscribe`, `drift`, `reindex`, and `dangerouslyRemoveAllItems`. See [src/db/CONTEXT.md](src/db/CONTEXT.md).
 
 ### `@kestack/std-toolkit/db/dynamodb`
 
@@ -136,17 +136,16 @@ const Task = EntityESchema.make('Task', 'taskId', {
   status: Schema.Literals(['open', 'done']),
 }).build();
 
-// 2. A table, and Task bound to it: `boardId` fills the partition key.
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+// 2. A table, and Task declared on it: `boardId` fills the partition key.
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 const board = Memory.make(table);
 
 // 3. The server side of sync: tasks on one board changed after `cursor`.
 const changesOn = (boardId: string, cursor: { meta: { _u: string } } | null) =>
-  task.query('primary', { pk: { boardId }, '>=': null }).pipe(
+  table.Task.query('primary', { pk: { boardId }, '>=': null }).pipe(
     Effect.map((page) =>
       page.items
         .filter((item) => cursor === null || item.meta._u > cursor.meta._u)
@@ -168,7 +167,7 @@ const tasks = app.collection(Task, {
     },
   },
   onInsert: (items) =>
-    Effect.forEach(items, (item) => task.insert(item)).pipe(
+    Effect.forEach(items, (item) => table.Task.insert(item)).pipe(
       Effect.provide(board.layer),
     ),
 });
@@ -182,8 +181,8 @@ const screen = createLiveQueryCollection({
 ```
 
 - `EntityESchema.make(...).build()` produces a schema that encodes with a `_v` stamp and decodes any past version to the latest shape.
-- `table.entity(Task).primary({ pk: ['boardId'] })` maps key paths of the value to the table's key attributes; the sort key is always the id field. A key path may reach into nested objects and union branches (`owner.teamId`) and must end at a string or number.
-- `Memory.make(table).layer` satisfies the `StdTableService<'board'>` requirement of every `task.*` call. Any other adapter's layer does the same.
+- `.entity(Task, (e) => e.primary({ pk: ['boardId'] }))` maps key paths of the value to the table's key attributes; the sort key is always the id field. The built table carries it as `table.Task`; a table is one declaration, so every entity is declared on it before `build`. A key path may reach into nested objects and union branches (`owner.teamId`) and must end at a string or number.
+- `Memory.make(table).layer` satisfies the `StdTableService<'board'>` requirement of every `table.Task.*` call. Any other adapter's layer does the same.
 - `createStdSync` keeps its local copy in memory by default. In a real page pass `store: Sync.idb()` from `@kestack/std-toolkit/sync/idb` to keep it in IndexedDB and let one tab read for all.
 - A window's strategy starts when a TanStack query filters on `boardId`. `after` is exclusive: return entities strictly after it.
 - `onInsert` writes through to the same table, so the next poll confirms the optimistic row.
@@ -202,8 +201,6 @@ import {
   providers as stdToolkitProviders,
 } from '@kestack/std-toolkit/alchemy';
 import { consoleTable } from './src/server/storage/table/index.ts';
-// Entities register on the table as their modules load; the snapshot must see all of them.
-import './src/server/storage/stores/index.ts';
 
 export const Database = Cloudflare.D1.Database(
   'Database',

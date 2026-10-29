@@ -1,17 +1,15 @@
 import { Schema } from 'effect';
 import { EntityESchema, ESchema } from '../../../eschema/index.js';
-import { syncStore, type OpaqueValue } from './table.js';
+import type { OpaqueValue } from './table.js';
 
-const storedReplicaSchema = EntityESchema.make('SyncStoredReplica', 'key', {
-  collection: Schema.String,
-  seq: Schema.String,
-  entity: ESchema.fromType<OpaqueValue>(),
-}).build();
-
-export const storedReplicaEntity = syncStore
-  .entity(storedReplicaSchema)
-  .primary({ pk: ['collection'] })
-  .index('LSI1', 'bySequence', { sk: ['seq'] })
-  .build();
+export const storedReplicaSchema = EntityESchema.make(
+  'SyncStoredReplica',
+  'key',
+  {
+    collection: Schema.String,
+    seq: Schema.String,
+    entity: ESchema.fromType<OpaqueValue>(),
+  },
+).build();
 
 export type StoredReplicaValue = typeof storedReplicaSchema.Type;

@@ -5,11 +5,6 @@ import {
   type Entity,
   type SingletonEntity,
 } from '../../../core/index.js';
-import type {
-  AnyEntityESchema,
-  AnyUnkeyedESchema,
-  ESchemaType,
-} from '../../../eschema/index.js';
 import {
   DatabaseError,
   DuplicateTransactionTarget,
@@ -28,10 +23,7 @@ import {
   type StoredItem,
   type TransactItem,
 } from '../contract/index.js';
-import type {
-  KeyedEntityDefinition,
-  TableDefinition as DefinitionTableDefinition,
-} from '../definition/index.js';
+import { defineEntity, type RegisteredEntity } from '../definition/index.js';
 import {
   broadcast,
   changesOrEmpty,
@@ -45,26 +37,9 @@ import {
   type AnyTransactOp,
 } from '../entity/index.js';
 import { scanStream } from './scan.js';
-import type { ScanOptions, StdTable } from './table.js';
+import type { ScanOptions, StdTable, TableDeclaration } from './table.js';
 
 type AnyEntity = Entity<object> | SingletonEntity<object>;
-
-interface AnyEntityBuilder {
-  index(
-    slot: string,
-    name: string,
-    derivation: {
-      readonly pk?: readonly string[];
-      readonly sk?: readonly string[];
-    },
-  ): AnyEntityBuilder;
-  build(): KeyedEntityDefinition<
-    string,
-    AnyEntityESchema,
-    readonly string[],
-    readonly [string]
-  >;
-}
 
 const READ_CONCURRENCY = 12;
 
@@ -134,41 +109,42 @@ const REFUSAL_TAGS = new Set([
   'ItemAlreadyExists',
 ]);
 
-const decorateEntityBuilder = (
-  builder: AnyEntityBuilder,
-): AnyEntityBuilder => ({
-  index(slot, name, derivation) {
-    return decorateEntityBuilder(builder.index(slot, name, derivation));
-  },
-  build() {
-    return makeKeyedEntity(builder.build());
-  },
-});
+/** The table's own members; an entity can not be declared under one of these names. */
+export const TABLE_MEMBERS: ReadonlySet<string> = new Set<keyof StdTable>([
+  'logicalName',
+  'primary',
+  'localSecondaryIndexes',
+  'globalSecondaryIndexes',
+  'registeredEntities',
+  'transact',
+  'subscribe',
+  'dangerouslyRemoveAllItems',
+  'scan',
+  'drift',
+  'reindex',
+]);
 
-export const decorateTable = <Name extends string>(
-  definition: DefinitionTableDefinition<Name>,
-): StdTable<Name> => {
+// A keyed definition's sort key is always its id field, which the wide type loses.
+const makeSurface = (entity: RegisteredEntity) =>
+  entity.kind === 'keyed'
+    ? makeKeyedEntity(entity as Parameters<typeof makeKeyedEntity>[0])
+    : makeSingleEntity(entity);
+
+export const decorateTable = (declaration: TableDeclaration): StdTable => {
+  const { topology } = declaration;
+  const definition = {
+    logicalName: declaration.logicalName,
+    primary: topology.primary,
+    localSecondaryIndexes: Object.freeze({ ...topology.localSecondaryIndexes }),
+    globalSecondaryIndexes: Object.freeze({
+      ...topology.globalSecondaryIndexes,
+    }),
+    registeredEntities: [] as readonly RegisteredEntity[],
+  };
   const attributes = { entity: definition.logicalName };
   const table = {
     ...definition,
-    entity<S extends AnyEntityESchema>(schema: S) {
-      const builder = definition.entity(schema);
-      return {
-        primary(derivation?: { pk: readonly string[] }) {
-          const inner = builder.primary(derivation as never);
-          return decorateEntityBuilder(inner as unknown as AnyEntityBuilder);
-        },
-      };
-    },
-    singleEntity<S extends AnyUnkeyedESchema>(schema: S) {
-      const builder = definition.singleEntity(schema);
-      return {
-        default(value: ESchemaType<S>) {
-          return makeSingleEntity(builder.default(value));
-        },
-      };
-    },
-    transact(ops: readonly AnyTransactOp<Name>[]) {
+    transact(ops: readonly AnyTransactOp[]) {
       return Effect.gen(function* () {
         if (ops.length === 0) return [] as never;
         if (ops.length > 100)
@@ -209,7 +185,7 @@ export const decorateTable = <Name extends string>(
         const version = yield* nextUlid;
         const applied = [];
         for (let index = 0; index < ops.length; index++) {
-          const op = ops[index] as AnyTransactOp<Name>;
+          const op = ops[index] as AnyTransactOp;
           const result = yield* (
             op.apply(current[index] ?? null, version) as Effect.Effect<
               {
@@ -274,7 +250,7 @@ export const decorateTable = <Name extends string>(
     },
     drift(item: StoredItem) {
       return Effect.gen(function* () {
-        const found = definition.registeredEntities.find(
+        const found = table.registeredEntities.find(
           (candidate) => candidate.name === item.meta._e,
         );
         if (found === undefined)
@@ -334,5 +310,11 @@ export const decorateTable = <Name extends string>(
       });
     },
   };
-  return table as unknown as StdTable<Name>;
+  const entities = declaration.entities.map((entity) =>
+    defineEntity(table, entity),
+  );
+  table.registeredEntities = Object.freeze(entities);
+  for (const entity of entities)
+    Object.assign(table, { [entity.name]: makeSurface(entity) });
+  return Object.freeze(table);
 };

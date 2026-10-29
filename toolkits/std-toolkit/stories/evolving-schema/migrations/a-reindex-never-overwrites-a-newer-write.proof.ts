@@ -13,19 +13,16 @@ const Task = EntityESchema.make('Task', 'taskId', {
 const lastRelease = StdTable.make('board')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-  .build();
-const oldTask = lastRelease
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 const table = StdTable.make('board')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-  .build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
-  .index('GSI1', 'byStatus', { pk: ['status'], sk: ['title'] })
+  .entity(Task, (e) =>
+    e
+      .primary({ pk: ['boardId'] })
+      .index('GSI1', 'byStatus', { pk: ['status'], sk: ['title'] }),
+  )
   .build();
 
 const key = { boardId: 'work', taskId: 't1' };
@@ -37,9 +34,11 @@ export default Proof.make({
   critical: true,
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
-    yield* oldTask
-      .insert({ ...key, title: 'Plan', status: 'open' })
-      .pipe(Effect.provide(db.layer));
+    yield* lastRelease.Task.insert({
+      ...key,
+      title: 'Plan',
+      status: 'open',
+    }).pipe(Effect.provide(db.layer));
     const [stored] = yield* Stream.runCollect(table.scan()).pipe(
       Effect.provide(db.layer),
     );
@@ -52,14 +51,14 @@ export default Proof.make({
   act: ({ db, currentForm }) =>
     Effect.gen(function* () {
       // Someone finishes the task before the reindex lands.
-      const finished = yield* task.getAndUpdate(key, { status: 'done' });
+      const finished = yield* table.Task.getAndUpdate(key, { status: 'done' });
       const reindex = yield* table.reindex(currentForm).pipe(
         Effect.match({
           onFailure: (error) => error.reason._tag,
           onSuccess: () => 'written',
         }),
       );
-      const stored = yield* task.get(key);
+      const stored = yield* table.Task.get(key);
       const [row] = yield* Stream.runCollect(table.scan());
       const { drifted } = yield* table.drift(row!);
       return { reindex, finished, stored, driftedAfter: drifted };

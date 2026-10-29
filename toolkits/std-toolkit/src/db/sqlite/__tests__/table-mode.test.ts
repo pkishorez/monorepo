@@ -17,15 +17,13 @@ const tasks = (schema = TaskV1, indexed = false) => {
   const table = StdTable.make('tasks')
     .primary('pk', 'sk')
     .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+    .entity(schema, (e) =>
+      indexed
+        ? e.primary().index('GSI1', 'byTitle', { pk: ['title'] })
+        : e.primary(),
+    )
     .build();
-  const task = table.entity(schema).primary();
-  return {
-    table,
-    task: (indexed
-      ? task.index('GSI1', 'byTitle', { pk: ['title'] })
-      : task
-    ).build(),
-  };
+  return { table, task: table.Task };
 };
 
 const setup = (

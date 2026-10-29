@@ -7,9 +7,11 @@ import { makeDeterministicContract } from '../../__tests__/deterministic-contrac
 
 describe('portable single entity', () => {
   it('makes put an unconditional upsert when another writer races the read', async () => {
-    const table = StdTable.make('single-put').primary('pk', 'sk').build();
     const schema = ESchema.make('Config', { value: Schema.String }).build();
-    const config = table.singleEntity(schema).default({ value: 'default' });
+    const table = StdTable.make('single-put')
+      .primary('pk', 'sk')
+      .singleEntity(schema, { default: { value: 'default' } })
+      .build();
     const deterministic = makeDeterministicContract(table.logicalName);
     const contract = {
       ...deterministic.contract,
@@ -30,10 +32,10 @@ describe('portable single entity', () => {
     const layer = contractLayer(table.logicalName, contract);
 
     await Effect.runPromise(
-      config.put({ value: 'first' }).pipe(Effect.provide(layer)),
+      table.Config.put({ value: 'first' }).pipe(Effect.provide(layer)),
     );
     const result = await Effect.runPromise(
-      config.put({ value: 'second' }).pipe(Effect.provide(layer)),
+      table.Config.put({ value: 'second' }).pipe(Effect.provide(layer)),
     );
 
     expect(result.value).toEqual({ value: 'second' });

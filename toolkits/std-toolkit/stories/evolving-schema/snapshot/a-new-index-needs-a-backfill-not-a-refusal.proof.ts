@@ -13,19 +13,16 @@ const Task = EntityESchema.make('Task', 'taskId', {
 const shipped = StdTable.make('board')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-  .build();
-shipped
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 const withPattern = StdTable.make('board')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-  .build();
-withPattern
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
-  .index('GSI1', 'byAssignee', { pk: ['assignee'], sk: ['title'] })
+  .entity(Task, (e) =>
+    e
+      .primary({ pk: ['boardId'] })
+      .index('GSI1', 'byAssignee', { pk: ['assignee'], sk: ['title'] }),
+  )
   .build();
 
 export default Proof.make({

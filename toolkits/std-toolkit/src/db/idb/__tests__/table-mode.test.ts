@@ -20,25 +20,23 @@ const TaskEdited = EntityESchema.make('Task', 'taskId', {
 }).build();
 
 const makeTable = () =>
-  StdTable.make('tasks')
-    .primary('pk', 'sk')
-    .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-    .build();
+  StdTable.make('tasks').primary('pk', 'sk').gsi('GSI1', 'GSI1PK', 'GSI1SK');
 
 const tasks = (schema = TaskV1) => {
-  const table = makeTable();
-  return { table, task: table.entity(schema).primary().build() };
+  const table = makeTable()
+    .entity(schema, (e) => e.primary())
+    .build();
+  return { table, task: table.Task };
 };
 
 // The same table with a new access pattern: a change that needs a backfill.
 const indexedTasks = () => {
-  const table = makeTable();
-  const task = table
-    .entity(TaskV1)
-    .primary()
-    .index('GSI1', 'byTitle', { pk: ['title'], sk: ['taskId'] })
+  const table = makeTable()
+    .entity(TaskV1, (e) =>
+      e.primary().index('GSI1', 'byTitle', { pk: ['title'], sk: ['taskId'] }),
+    )
     .build();
-  return { table, task };
+  return { table, task: table.Task };
 };
 
 // Each setup gets a fresh connection, as a new page load would.

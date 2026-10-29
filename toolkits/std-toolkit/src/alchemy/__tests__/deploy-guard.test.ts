@@ -7,8 +7,10 @@ import { TableSnapshot } from '../../snapshot/index.js';
 import { checkDeploy } from '../deploy-guard/deploy-guard.js';
 
 const stored = (schema: AnyEntityESchema) => {
-  const table = StdTable.make('tasks').primary('pk', 'sk').build();
-  table.entity(schema).primary().build();
+  const table = StdTable.make('tasks')
+    .primary('pk', 'sk')
+    .entity(schema, (e) => e.primary())
+    .build();
   return Effect.runSync(TableSnapshot.serialize(TableSnapshot.capture(table)));
 };
 
@@ -17,8 +19,7 @@ const Task = EntityESchema.make('Task', 'id', { title: Schema.String }).build();
 const capture = (
   table: ReturnType<ReturnType<typeof StdTable.make>['primary']>,
 ) => {
-  const built = table.build();
-  built.entity(Task).primary().build();
+  const built = table.entity(Task, (e) => e.primary()).build();
   return Effect.runSync(TableSnapshot.serialize(TableSnapshot.capture(built)));
 };
 

@@ -35,7 +35,7 @@ _Avoid_: Editable latest version.
 The constant `v1` — the starting **version** for every new schema. The v1 shape is frozen once data exists.
 
 **Evolution**:
-One step in a schema's history: a `{ version, schema, migration }` record pairing a **version** with its shape and the function that reaches it. `ValueEvolution` is the **ValueESchema** variant.
+One step in a schema's history: a `{ version, schema, migration }` record pairing a **version** with its shape and the function that reaches it, or none for v1 and a **gap version**. `ValueEvolution` is the **ValueESchema** variant.
 _Avoid_: Step, generation record.
 
 **transitive change**:
@@ -47,7 +47,7 @@ A total function transforming a **value** of the prior **version** into a value 
 _Avoid_: transform, upgrade, converter.
 
 **gap version**:
-A **version** declared with no **migration**, because its value cannot be derived from the prior version's value alone. A row stored before it fails to decode with `NeedsBackfill` until a [[db]] **Backfill** rewrites it. Its value type at each version stays known (`X.at('v1')`) so the Backfill can be typed.
+A **version** declared with no **migration**, because its value cannot be derived from the prior version's value alone. A row stored before it fails to decode with `NeedsBackfill` until a [[db]] **Backfill** rewrites it. Its value type at each version stays known (`VersionValue<X, 'v1'>`) so the Backfill can be typed. Only an **ESchema** or **EntityESchema** may have one, and one that does may not be nested inside another ESchema, since a nested value has no Backfill of its own.
 _Avoid_: breaking version, manual migration, throwing migration.
 
 **upgrade check**:
@@ -67,7 +67,7 @@ Data as it is stored or sent — database, transport, Sync Store, Peer Sync — 
 _Avoid_: serialized form, stored form, raw value.
 
 **decode** / **encode**:
-Decoding reads an **encoded form** in any known **version**, converts it with that version's own fields, and runs **migrations** on the resulting values up to the latest version; a version newer than the schema knows fails with `OutdatedVersion`. Encoding converts a **value** to the latest encoded form and never migrates. These are the Effect Schema directions of an ESchema's **schema** and its **entity schema**; nothing else in std-toolkit is called decoding.
+Decoding reads an **encoded form** in any known **version**, converts it with that version's own fields, and runs **migrations** on the resulting values up to the latest version; a version newer than the schema knows fails with `OutdatedVersion`, and one older than a **gap version** with `NeedsBackfill`. Encoding converts a **value** to the latest encoded form and never migrates. These are the Effect Schema directions of an ESchema's **schema** and its **entity schema**; nothing else in std-toolkit is called decoding.
 _Avoid_: serialize, deserialize, read migration (outside [[db]]).
 
 **schema**:

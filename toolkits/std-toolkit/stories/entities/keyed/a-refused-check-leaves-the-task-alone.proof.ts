@@ -10,10 +10,9 @@ const Task = EntityESchema.make('Task', 'taskId', {
   status: Schema.Literals(['open', 'done']),
 }).build();
 
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 const key = { boardId: 'work', taskId: 't1' };
@@ -24,9 +23,11 @@ export default Proof.make({
     'A `check` judges the value read at write time; a refusal fails with CheckRefused and the stored task keeps its update stamp.',
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
-    const done = yield* task
-      .insert({ ...key, title: 'Write the plan', status: 'done' })
-      .pipe(Effect.provide(db.layer));
+    const done = yield* table.Task.insert({
+      ...key,
+      title: 'Write the plan',
+      status: 'done',
+    }).pipe(Effect.provide(db.layer));
     yield* Proof.assert(
       'the task is already done',
       done.value.status === 'done',
@@ -36,19 +37,17 @@ export default Proof.make({
   act: ({ db }) =>
     Effect.gen(function* () {
       // Renaming is only allowed while the task is open.
-      const reason = yield* task
-        .getAndUpdate(
-          key,
-          { title: 'Renamed' },
-          { check: (current) => current.status === 'open' },
-        )
-        .pipe(
-          Effect.match({
-            onFailure: (error) => error.reason._tag,
-            onSuccess: () => 'written',
-          }),
-        );
-      const stored = yield* task.get(key);
+      const reason = yield* table.Task.getAndUpdate(
+        key,
+        { title: 'Renamed' },
+        { check: (current) => current.status === 'open' },
+      ).pipe(
+        Effect.match({
+          onFailure: (error) => error.reason._tag,
+          onSuccess: () => 'written',
+        }),
+      );
+      const stored = yield* table.Task.get(key);
       return { reason, stored };
     }).pipe(Effect.provide(db.layer)),
   verify: ({ reason, stored }, { done }) =>

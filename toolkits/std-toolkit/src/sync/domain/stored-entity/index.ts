@@ -1,7 +1,9 @@
-export { SYNC_STORE_TABLE, syncStore } from './table.js';
-export { storedReplicaEntity, type StoredReplicaValue } from './replica.js';
-export { storedReplicaCursorEntity } from './replica-cursor.js';
 export {
+  SYNC_STORE_TABLE,
+  storedReplicaCursorEntity,
+  storedReplicaEntity,
   storedSyncStateEntity,
-  type StoredSyncStateValue,
-} from './sync-state.js';
+  syncStore,
+} from './table.js';
+export type { StoredReplicaValue } from './replica.js';
+export type { StoredSyncStateValue } from './sync-state.js';

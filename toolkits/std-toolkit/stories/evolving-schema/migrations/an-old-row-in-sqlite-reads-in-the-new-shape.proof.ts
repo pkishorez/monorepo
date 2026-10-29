@@ -26,15 +26,13 @@ const Task = EntityESchema.make('Task', 'taskId', {
   )
   .build();
 
-const lastRelease = StdTable.make('board').primary('pk', 'sk').build();
-const oldTask = lastRelease
-  .entity(TaskV1)
-  .primary({ pk: ['boardId'] })
+const lastRelease = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(TaskV1, (e) => e.primary({ pk: ['boardId'] }))
   .build();
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 const key = { boardId: 'work', taskId: 't1' };
@@ -51,9 +49,11 @@ export default Proof.make({
     // Both releases open the same database.
     const lastReleaseDb = SQLite.make(lastRelease, { database });
     const db = SQLite.make(table, { database });
-    yield* oldTask
-      .insert({ ...key, title: 'Ship', dueAt: '2026-09-01T09:00:00.000Z' })
-      .pipe(Effect.provide(lastReleaseDb.layer));
+    yield* lastRelease.Task.insert({
+      ...key,
+      title: 'Ship',
+      dueAt: '2026-09-01T09:00:00.000Z',
+    }).pipe(Effect.provide(lastReleaseDb.layer));
     const [stored] = yield* Stream.runCollect(table.scan()).pipe(
       Effect.provide(db.layer),
     );
@@ -65,8 +65,8 @@ export default Proof.make({
   }),
   act: ({ db }) =>
     Effect.gen(function* () {
-      const read = yield* task.get(key);
-      const written = yield* task.getAndUpdate(key, { title: 'Ship it' });
+      const read = yield* table.Task.get(key);
+      const written = yield* table.Task.getAndUpdate(key, { title: 'Ship it' });
       const [storedAfter] = yield* Stream.runCollect(table.scan());
       return { read, written, storedAfter };
     }).pipe(Effect.provide(db.layer)),

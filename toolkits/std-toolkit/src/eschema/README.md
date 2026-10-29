@@ -26,6 +26,11 @@ See the [top README](../../README.md).
 | `ESchemaError`        | Tagged error raised when a value cannot be read or written.                                        |
 | `OutdatedVersion`     | Tagged error raised when a value carries a version newer than the schema knows.                    |
 | `findOutdatedVersion` | Finds the `OutdatedVersion` inside any failure, such as an Effect Schema error.                    |
+| `NeedsBackfill`       | Tagged error raised when a value is older than a gap version and waits for a Backfill.             |
+| `findNeedsBackfill`   | Finds the `NeedsBackfill` inside any failure, such as an Effect Schema error.                      |
+| `gapVersions`         | Lists the gap versions of an ESchema, oldest first.                                                |
+| `readToGap`           | Reads a stored value and migrates it up to the version just before the next gap, for a Backfill.   |
+| `migrateToGap`        | Runs the migrations after a given version, up to the next gap, on a value a Backfill returned.     |
 | `eschemaOf`           | The ESchema whose `schema` a schema is, or undefined; tells a versioned boundary from a plain one. |
 | `checkAnnotation`     | Names a check the built-in catalogue does not know, so a snapshot can list it.                     |
 | `SnapshotTypeSchema`  | Effect Schema for the snapshot type language that describes a field's stored shape.                |
@@ -82,8 +87,9 @@ const written = await Effect.runPromise(Schema.encodeEffect(stored)(task));
 // { _v: 'v2', ..., priority: 'low' }
 ```
 
-- Versions must be appended in sequence (`v2` after `v1`); the type system rejects gaps.
+- Versions must be appended in sequence (`v2` after `v1`); the type system rejects a skipped number.
 - Removing a field is `evolve('v3', { colour: null }, ...)`; renaming is a remove plus an add in the same step.
+- `evolve('v3', { ownerId: Schema.String })` with no migration declares a gap version: its value cannot be derived from v2 alone, so a row stored before it fails with `NeedsBackfill` until a db Backfill rewrites it ([ADR 0020](../../docs/adr/0020-backfills-live-on-the-table-and-eschema-stays-pure.md)). `VersionValue<typeof Task, 'v2'>` and `GapVersions<typeof Task>` type the Backfill. `ValueESchema` has none, and an ESchema with one cannot be nested.
 - A field may convert between a rich value and what is stored, such as `Schema.DateFromString`: code gets a `Date`, storage keeps the ISO string, and migrations receive values. Only the stored side is versioned and captured by a snapshot.
 - Optional fields, `_`-prefixed keys, constructor defaults, and fields whose stored side is not plain JSON (such as `Schema.Date`, or a plain `Schema.Number` that allows `NaN`; use `Schema.Finite` or `Schema.Int`) are refused at build time, so a snapshot can always describe what is stored. Every encode also refuses a value JSON cannot hold unchanged, naming the field.
 - `await expectUpgradable(Task)` in a test generates rows each version could have stored and reads them at the latest version, so a migration that throws, breaks a check, or changes the id fails in CI instead of on a user's row.

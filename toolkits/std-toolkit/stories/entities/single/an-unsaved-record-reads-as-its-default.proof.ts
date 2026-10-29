@@ -9,10 +9,12 @@ const Settings = ESchema.make('Settings', {
   weekStartsOn: Schema.Literals(['monday', 'sunday']),
 }).build();
 
-const table = StdTable.make('app').primary('pk', 'sk').build();
-const settings = table
-  .singleEntity(Settings)
-  .default({ theme: 'light', weekStartsOn: 'monday' });
+const table = StdTable.make('app')
+  .primary('pk', 'sk')
+  .singleEntity(Settings, {
+    default: { theme: 'light', weekStartsOn: 'monday' },
+  })
+  .build();
 
 export default Proof.make({
   title: 'A single entity that was never saved reads as its default',
@@ -28,7 +30,7 @@ export default Proof.make({
   }),
   act: ({ db }) =>
     Effect.gen(function* () {
-      const read = yield* settings.get();
+      const read = yield* table.Settings.get();
       const rows = yield* Stream.runCollect(table.scan());
       return { read, rowsAfterRead: rows.length };
     }).pipe(Effect.provide(db.layer)),
