@@ -19,7 +19,8 @@ import { BRANCH_PREFIX, Git, type GitError } from './capabilities/index.js';
  *                   whose name a local branch that tracks another has is
  *                   refused.
  *
- * A branch the Project does not list is refused before git runs. Each step
+ * A branch the Project does not list is refused before git runs, as is a
+ * new Worktree from a branch with no commits yet. Each step
  * is reported as it begins and as it is done. A step that fails is
  * GitFailed, and nothing is changed on its account: a new Worktree whose
  * branch or folder is there already is refused, and leaves them be.
@@ -89,9 +90,11 @@ export const place = (
     const { project, branch: picked } = input;
     const found = yield* git.branches(project.path);
     if (found === null) return { worktree: null, branch: null, made: false };
-    // Only a branch the Project lists reaches git.
+    // Only a branch the Project lists reaches git; the one its folder is on
+    // is listed even before its first commit.
     if (
       picked !== null &&
+      picked !== found.current &&
       !found.local.some((each) => each.name === picked) &&
       !found.origin.includes(picked)
     )
@@ -100,6 +103,14 @@ export const place = (
         message: `There is no branch ${picked} in this Project`,
       });
     if (input.newWorktree) {
+      const unborn =
+        found.current !== null &&
+        !found.local.some((each) => each.name === found.current);
+      if (unborn && (picked === null || picked === found.current))
+        return yield* new GitFailed({
+          step: 'makingWorktree',
+          message: 'This Project has no commits yet to start a worktree from',
+        });
       const id = input.id.toLowerCase();
       const at = join(input.worktrees, project.id, id);
       const branch = `${BRANCH_PREFIX}${id}`;
