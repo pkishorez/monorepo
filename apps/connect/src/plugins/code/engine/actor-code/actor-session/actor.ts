@@ -14,7 +14,7 @@ import {
   Harnesses,
   OneShotPrompt,
   type Agent,
-  type HarnessError,
+  HarnessError,
 } from '@kestack/ai-toolkit/harness';
 import {
   SessionSchema,
@@ -253,6 +253,12 @@ const persist = (self: SessionSelf) =>
       Stream.changesWith((a, b) => JSON.stringify(a) === JSON.stringify(b)),
       Stream.runForEach((record) =>
         Effect.andThen(store.saveSession(record), kept.firstSave.mark),
+      ),
+      // A new Session that could not be saved does not start.
+      Effect.onExit(() =>
+        kept.firstSave.fail(
+          new HarnessError({ message: 'The session could not be saved' }),
+        ),
       ),
     );
   });

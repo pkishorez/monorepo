@@ -6,6 +6,7 @@ import {
   Context,
   Data,
   Effect,
+  Fiber,
   Layer,
   Option,
   Schema,
@@ -244,7 +245,10 @@ export interface EngineService {
    * step it needs, reporting each step; started once its Agent has opened.
    * A git step that fails starts nothing, and an Agent that fails to open,
    * HarnessFailed, keeps no Session and takes back its git step: the
-   * Worktree made for it, or the folder switched back. Once begun, it runs to the end even if its caller goes away.
+   * Worktree made for it, or the folder switched back. Once begun, it runs
+   * to the end even if its caller goes away; Connect stopping ends it,
+   * taken back the same way. A Session that cannot save its first message
+   * or itself is HarnessFailed too.
    */
   readonly startSession: (
     input: StartSession,
@@ -388,6 +392,8 @@ const make = (options: EngineOptions) =>
     const accounts = yield* HarnessAccounts;
     const replies = yield* Answers;
     const running = yield* Runtime.start(Code, Layer.succeedContext(services));
+    /** Closed as Connect stops, before the Sessions, interrupting a start. */
+    const scope = yield* Effect.scope;
     const root = running.instance({ from: 'rpc' });
     // The root reads the Store first; the engine is open once it is Ready.
     yield* running.changes.pipe(
@@ -543,96 +549,108 @@ const make = (options: EngineOptions) =>
       startSession: (input, report = () => Effect.void) => {
         const chosen =
           input.id !== undefined && ULID.test(input.id) ? input.id : null;
-        return admitting(chosen)(
-          Effect.gen(function* () {
-            const project = projectAt(input.projectId);
-            if (!project)
-              return yield* new ProjectNotFound({ id: input.projectId });
-            const there =
-              chosen === null
-                ? undefined
-                : root.model.sessions.find(
-                    ({ session }) => session.id === chosen,
-                  );
-            // Asked again, as after an answer that was lost: the one there,
-            // as it is now.
-            if (there !== undefined && there.session.projectId === project.id)
-              return (
-                (yield* Effect.flatMap(Store, (store) =>
-                  store.session(there.session.id),
-                ).pipe(withServices)) ?? there.session
-              );
-            const account = yield* harnessAccount(input.account);
-            const id =
-              chosen !== null && there === undefined ? chosen : yield* nextUlid;
-            const placed = yield* place(
-              {
-                project,
-                id,
-                branch: input.branch ?? null,
-                newWorktree: input.newWorktree ?? false,
-                worktrees: options.worktrees,
-              },
-              report,
-            ).pipe(withServices);
-            return yield* step(
-              report,
-              'startingAgent',
-              Effect.gen(function* () {
-                const now = yield* Clock.currentTimeMillis;
-                const session: Session = {
-                  id,
-                  projectId: input.projectId,
-                  harness: account.harness,
-                  account: account.id,
-                  model: input.model,
-                  settings: { ...input.settings },
-                  title: fallbackTitle(input.text),
-                  status: 'running',
-                  nativeId: null,
-                  createdAt: now,
-                  forkedFrom: null,
-                  settledAt: null,
-                  activeAt: now,
-                  endedAt: null,
-                  worktree: placed.worktree,
-                  branch: placed.branch,
-                };
-                const first = yield* promptOf(session.id, {
-                  text: input.text,
-                  attachments: input.attachments,
-                });
-                root.send({ _tag: 'StartSession', session, first });
-                // Its Project went as it started: nothing started.
-                if (!root.model.sessions.some((each) => each.session.id === id))
-                  return yield* new ProjectNotFound({ id: project.id });
-                // Started once its Agent has opened, its first message is
-                // written and it is saved; else it was never saved, and goes.
-                yield* Effect.flatMap(Agents, (agents) =>
-                  Effect.flatMap(agents.of(id), (kept) => kept.firstSave.await),
-                ).pipe(
-                  withServices,
-                  Effect.tapError(() =>
-                    Effect.sync(
-                      () => void root.send({ _tag: 'DropSession', id }),
-                    ),
-                  ),
-                  Effect.mapError(
-                    (error) => new HarnessFailed({ message: error.message }),
-                  ),
+        // Run apart from its caller, so it runs to the end even if the
+        // caller goes away, and with git steps no stop leaves half done;
+        // only waiting for its Session to start can be stopped, by Connect
+        // stopping, which takes it back.
+        return Effect.uninterruptibleMask((restore) =>
+          admitting(chosen)(
+            Effect.gen(function* () {
+              const project = projectAt(input.projectId);
+              if (!project)
+                return yield* new ProjectNotFound({ id: input.projectId });
+              const there =
+                chosen === null
+                  ? undefined
+                  : root.model.sessions.find(
+                      ({ session }) => session.id === chosen,
+                    );
+              // Asked again, as after an answer that was lost: the one there,
+              // as it is now.
+              if (there !== undefined && there.session.projectId === project.id)
+                return (
+                  (yield* Effect.flatMap(Store, (store) =>
+                    store.session(there.session.id),
+                  ).pipe(withServices)) ?? there.session
                 );
-                return session;
-              }).pipe(
-                Effect.onError(() =>
-                  unplace(project, placed).pipe(withServices),
+              const account = yield* harnessAccount(input.account);
+              const id =
+                chosen !== null && there === undefined
+                  ? chosen
+                  : yield* nextUlid;
+              const placed = yield* place(
+                {
+                  project,
+                  id,
+                  branch: input.branch ?? null,
+                  newWorktree: input.newWorktree ?? false,
+                  worktrees: options.worktrees,
+                },
+                report,
+              ).pipe(withServices);
+              return yield* step(
+                report,
+                'startingAgent',
+                Effect.gen(function* () {
+                  const now = yield* Clock.currentTimeMillis;
+                  const session: Session = {
+                    id,
+                    projectId: input.projectId,
+                    harness: account.harness,
+                    account: account.id,
+                    model: input.model,
+                    settings: { ...input.settings },
+                    title: fallbackTitle(input.text),
+                    status: 'running',
+                    nativeId: null,
+                    createdAt: now,
+                    forkedFrom: null,
+                    settledAt: null,
+                    activeAt: now,
+                    endedAt: null,
+                    worktree: placed.worktree,
+                    branch: placed.branch,
+                  };
+                  const first = yield* promptOf(session.id, {
+                    text: input.text,
+                    attachments: input.attachments,
+                  });
+                  root.send({ _tag: 'StartSession', session, first });
+                  // Its Project went as it started: nothing started.
+                  if (
+                    !root.model.sessions.some((each) => each.session.id === id)
+                  )
+                    return yield* new ProjectNotFound({ id: project.id });
+                  // Started once its Agent has opened, its first message is
+                  // written and it is saved; else it was never saved, and goes.
+                  yield* restore(
+                    Effect.flatMap(Agents, (agents) =>
+                      Effect.flatMap(
+                        agents.of(id),
+                        (kept) => kept.firstSave.await,
+                      ),
+                    ),
+                  ).pipe(
+                    withServices,
+                    Effect.onError(() =>
+                      Effect.sync(
+                        () => void root.send({ _tag: 'DropSession', id }),
+                      ),
+                    ),
+                    Effect.mapError(
+                      (error) => new HarnessFailed({ message: error.message }),
+                    ),
+                  );
+                  return session;
+                }).pipe(
+                  Effect.onError(() =>
+                    unplace(project, placed).pipe(withServices),
+                  ),
                 ),
-              ),
-            );
-          }).pipe(
-            // A caller gone mid-start leaves no git step half done.
-            Effect.uninterruptible,
+              );
+            }),
           ),
-        );
+        ).pipe(Effect.forkIn(scope), Effect.flatMap(Fiber.join));
       },
 
       send,

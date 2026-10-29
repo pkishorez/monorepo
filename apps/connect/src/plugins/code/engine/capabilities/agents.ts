@@ -28,6 +28,8 @@ import type {
 export interface Milestone {
   readonly await: Effect.Effect<void, HarnessError>;
   readonly mark: Effect.Effect<void>;
+  /** Does nothing once the step is done. */
+  readonly fail: (error: HarnessError) => Effect.Effect<void>;
 }
 
 /** A Session's Agent, as the Session's Workers, Commands and Queries share it. */
@@ -42,8 +44,8 @@ export interface SessionAgent {
   /**
    * A new Session's start, step by step: its Agent first opened, then its
    * first message written, then itself saved. Each waits for its step, and
-   * fails as the first open did, or when the Session stopped first; `mark`
-   * says a step is done.
+   * fails as any step before it did, or when the Session stopped first;
+   * `mark` says a step is done, and `fail` that it never will be.
    */
   readonly firstRecord: Milestone;
   readonly firstSave: Milestone;
