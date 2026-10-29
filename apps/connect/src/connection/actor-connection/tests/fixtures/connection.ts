@@ -134,6 +134,7 @@ export const inputOf = () => {
       data: join(root, 'data'),
       state: join(root, 'state'),
       cache: join(root, 'cache'),
+      shared: join(root, 'shared'),
       runtime,
     },
     socketId,

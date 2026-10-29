@@ -20,6 +20,7 @@ export const PluginEnv = {
   data: 'KESTACK_PLUGIN_DATA',
   state: 'KESTACK_PLUGIN_STATE',
   cache: 'KESTACK_PLUGIN_CACHE',
+  shared: 'KESTACK_PLUGIN_SHARED',
 } as const;
 
 /** Where on its socket a Plugin serves what. */

@@ -16,6 +16,7 @@ describe('folders on macOS and Linux', () => {
       data: '/home/ada/.local/share/kestack/connect/connections/work',
       state: '/home/ada/.local/state/kestack/connect/connections/work',
       cache: '/home/ada/.cache/kestack',
+      shared: '/home/ada/.local/share/kestack',
       runtime: '/tmp/kestack-501',
     });
   });
@@ -36,6 +37,7 @@ describe('folders on macOS and Linux', () => {
       data: '/x/data/kestack/connect/connections/work',
       state: '/x/state/kestack/connect/connections/work',
       cache: '/home/ada/.cache/kestack',
+      shared: '/x/data/kestack',
       runtime: '/run/user/501/kestack',
     });
   });
@@ -44,6 +46,7 @@ describe('folders on macOS and Linux', () => {
     const a = folders({ app: 'connect', name: 'a', ...unix });
     const b = folders({ app: 'other', name: 'b', ...unix });
     expect(a.cache).toBe(b.cache);
+    expect(a.shared).toBe(b.shared);
     expect(a.data).not.toBe(b.data);
   });
 
@@ -54,6 +57,7 @@ describe('folders on macOS and Linux', () => {
       state:
         '/home/ada/.local/state/kestack/connect/connections/work/plugins/code',
       cache: '/home/ada/.cache/kestack/plugins/code',
+      shared: '/home/ada/.local/share/kestack/code',
     });
   });
 });
@@ -71,10 +75,14 @@ describe('folders on Windows', () => {
       data: 'D:\\Local\\kestack\\connect\\connections\\work',
       state: 'D:\\Local\\kestack\\state\\connect\\connections\\work',
       cache: 'D:\\Local\\kestack\\cache',
+      shared: 'D:\\Local\\kestack',
       runtime: '\\\\.\\pipe\\',
     });
     expect(pluginFolders(paths, 'code').data).toBe(
       'D:\\Local\\kestack\\connect\\connections\\work\\plugins\\code',
+    );
+    expect(pluginFolders(paths, 'code').shared).toBe(
+      'D:\\Local\\kestack\\code',
     );
     expect(socketPath(paths.runtime, 'f00dcafe1234', 'code')).toBe(
       '\\\\.\\pipe\\kestack-f00dcafe-code',

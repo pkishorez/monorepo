@@ -24,19 +24,19 @@ pnpm add @kestack/cli-platform effect @kestack/kabuki @kestack/std-toolkit
 
 ### `@kestack/cli-platform/files`
 
-| Export            | What it does                                                                                                 |
-| ----------------- | ------------------------------------------------------------------------------------------------------------ |
-| `folders`         | Where a CLI keeps the files of one named copy of itself: data, state, the shared cache, and its runtime.     |
-| `names`           | The name of every copy of a CLI with a data folder on this computer.                                         |
-| `pluginFolders`   | The data, state and cache folders of one Plugin, inside its CLI's.                                           |
-| `socketPath`      | A socket path short enough for a Unix socket, or a named pipe on Windows.                                    |
-| `createFolders`   | Makes the folders that are missing, readable by this user alone.                                             |
-| `FolderError`     | A folder that could not be made.                                                                             |
-| `Downloads`       | The service that keeps one checked copy of each download: `fetch`, `ensure`, `use` and `prune`.              |
-| `Downloads.layer` | Downloads kept in a kestack cache folder.                                                                    |
-| `DownloadFailed`  | A download that could not be reached, was refused, or broke off; `missing` when a `file:` URL names no file. |
-| `HashMismatch`    | A download that is not the file asked for; it is thrown away.                                                |
-| `CacheError`      | The cache could not be read or written, or its lock not taken.                                               |
+| Export            | What it does                                                                                                        |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `folders`         | Where a CLI keeps the files of one named copy of itself: data, state, the shared cache and folder, and its runtime. |
+| `names`           | The name of every copy of a CLI with a data folder on this computer.                                                |
+| `pluginFolders`   | The data, state and cache folders of one Plugin, inside its CLI's, and its shared folder.                           |
+| `socketPath`      | A socket path short enough for a Unix socket, or a named pipe on Windows.                                           |
+| `createFolders`   | Makes the folders that are missing, readable by this user alone.                                                    |
+| `FolderError`     | A folder that could not be made.                                                                                    |
+| `Downloads`       | The service that keeps one checked copy of each download: `fetch`, `ensure`, `use` and `prune`.                     |
+| `Downloads.layer` | Downloads kept in a kestack cache folder.                                                                           |
+| `DownloadFailed`  | A download that could not be reached, was refused, or broke off; `missing` when a `file:` URL names no file.        |
+| `HashMismatch`    | A download that is not the file asked for; it is thrown away.                                                       |
+| `CacheError`      | The cache could not be read or written, or its lock not taken.                                                      |
 
 ### `@kestack/cli-platform/plugins`
 
@@ -60,7 +60,7 @@ The same `Plugins`, `PluginState`, `PluginStatus`, `PluginControl`, `PluginEnv`,
 | Export          | What it does                                                                                              |
 | --------------- | --------------------------------------------------------------------------------------------------------- |
 | `Plugin.make`   | Makes the `main` a Plugin's file calls: serves its group where the CLI said, until SIGTERM, then exits 0. |
-| `PluginFolders` | The service a Plugin's handlers read their data, state and cache folders from.                            |
+| `PluginFolders` | The service a Plugin's handlers read their data, state, cache and shared folders from.                    |
 
 ### `@kestack/cli-platform/single`
 

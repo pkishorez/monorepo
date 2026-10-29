@@ -35,10 +35,18 @@ import {
  * going away, closes it: its finalizers run and it exits 0.
  */
 
-/** The folders a Plugin keeps its files in, which its CLI made for it. */
+/**
+ * The folders a Plugin keeps its files in, which its CLI made for it;
+ * `shared` is kept when its CLI's name is forgotten.
+ */
 export class PluginFolders extends Context.Service<
   PluginFolders,
-  { readonly data: string; readonly state: string; readonly cache: string }
+  {
+    readonly data: string;
+    readonly state: string;
+    readonly cache: string;
+    readonly shared: string;
+  }
 >()('@kestack/cli-platform/PluginFolders') {}
 
 /** What a Plugin is: its name, the group it serves, and the Layer of its handlers. */
@@ -115,6 +123,7 @@ const make =
         data: fromEnv(PluginEnv.data),
         state: fromEnv(PluginEnv.state),
         cache: fromEnv(PluginEnv.cache),
+        shared: fromEnv(PluginEnv.shared),
       }),
     ).pipe(Effect.andThen(Effect.never), Effect.scoped);
     const fiber = Effect.runFork(program);

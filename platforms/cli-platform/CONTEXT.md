@@ -5,7 +5,7 @@ What every kestack CLI needs on one computer, whatever it does: where it keeps i
 ## Language
 
 **Folders**:
-Where a kestack CLI keeps its files. Each named copy of a CLI, such as a Connection, has its own data and state folders; the cache is one for every name and every kestack CLI; sockets go in a short runtime folder of the user's own, or are named pipes on Windows. A Plugin has folders of its own inside its CLI's.
+Where a kestack CLI keeps its files. Each named copy of a CLI, such as a Connection, has its own data and state folders; the cache is one for every name and every kestack CLI; the shared folder holds what outlives any one name, such as a working copy a Plugin makes, one for every kestack CLI too; sockets go in a short runtime folder of the user's own, or are named pipes on Windows. A Plugin has folders of its own inside its CLI's, and a shared one of its own name.
 _Avoid_: paths, dirs, home
 
 **Downloads**:
