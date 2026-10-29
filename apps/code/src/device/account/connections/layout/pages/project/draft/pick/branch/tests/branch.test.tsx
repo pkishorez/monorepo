@@ -14,9 +14,9 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 /*
  * The Branch Picker on a page that keeps the branch picked, as a new
- * session's Draft does: one list in two sections, Local, then Origin, a
- * local branch that tracks one on Origin saying so, and that one not
- * listed again; one checked out in a linked Worktree says where. Until a
+ * session's Draft does: one list in two sections, Local, then Origin, as
+ * Connect lists them, a local branch that tracks one on Origin saying so;
+ * one checked out in a linked Worktree says where. Until a
  * branch is picked, the one the Project's folder is on is checked. Its
  * trigger and the New Worktree toggle show only once the branches are
  * read, and never for a Project that is not a git repository.
@@ -34,11 +34,12 @@ const GIT: Git = {
     { name: 'fix', upstream: null, worktree: '/data/worktrees/p1/01x' },
     { name: 'spike', upstream: null, worktree: null },
   ],
-  origin: ['origin/main', 'origin/release'],
+  // Connect lists no Origin branch a local one tracks: `origin/main` is not.
+  origin: ['origin/release', 'origin/spike'],
 };
 
 describe('the branches as rows', () => {
-  it('lists Local, then Origin, tracked Origin branches said once, the one in effect checked', () => {
+  it('lists Local, then every Origin branch Connect gives, the one in effect checked', () => {
     expect(rowsOf(GIT, null)).toEqual([
       {
         value: 'main',
@@ -58,6 +59,13 @@ describe('the branches as rows', () => {
       {
         value: 'origin/release',
         label: 'origin/release',
+        group: 'Origin',
+        checked: false,
+      },
+      // A local `spike` that does not track it: listed all the same.
+      {
+        value: 'origin/spike',
+        label: 'origin/spike',
         group: 'Origin',
         checked: false,
       },
@@ -250,6 +258,7 @@ describe('BranchPicker', () => {
       { text: expect.stringContaining('fix'), checked: false },
       { text: expect.stringContaining('spike'), checked: false },
       { text: expect.stringContaining('origin/release'), checked: false },
+      { text: expect.stringContaining('origin/spike'), checked: false },
     ]);
     await act(async () => items()[3]!.click());
     await flush();

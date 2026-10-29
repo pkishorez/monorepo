@@ -8,10 +8,10 @@ import * as Picker from '../../../../../../../../../ui/controls/picker/index.ts'
 
 /*
  * The Branch Picker, on a new session's Draft only: one Step of the
- * Project's branches, in two sections, Local and Origin. A local branch
- * that tracks one on Origin says so under its name, and that one is not
- * listed again under Origin; one checked out in a linked Worktree says
- * where. The one picked is checked; until one is, the one the Project's
+ * Project's branches, in two sections, Local and Origin, as Connect lists
+ * them. A local branch that tracks one on Origin says so under its name,
+ * and Connect lists that one no more under Origin; one checked out in a
+ * linked Worktree says where. The one picked is checked; until one is, the one the Project's
  * folder is on. Beside its trigger in the Status Line, the New Worktree
  * toggle, off until switched on. Both are drawn only once the branches
  * are read, and only for a Project that is a git repository. `shift+b`
@@ -26,15 +26,12 @@ export const branchOf = (branches: Git, picked: string | null) =>
   picked ?? branches.current;
 
 /**
- * Each branch as a row: the local ones, then the Origin ones no local
- * branch tracks, each by the name it is started on.
+ * Each branch as a row: the local ones, then the Origin ones, each by the
+ * name it is started on.
  */
 export const rowsOf = (branches: Git, picked: string | null) => {
   const on = branchOf(branches, picked);
   const main = branches.worktrees[0]?.path ?? null;
-  const tracked = new Set(
-    branches.local.flatMap(({ upstream }) => upstream ?? []),
-  );
   return [
     ...branches.local.map(({ name, upstream, worktree }) => {
       const detail = [
@@ -53,14 +50,12 @@ export const rowsOf = (branches: Git, picked: string | null) => {
         ...(detail === '' ? {} : { detail }),
       };
     }),
-    ...branches.origin
-      .filter((name) => !tracked.has(name))
-      .map((name) => ({
-        value: name,
-        label: name,
-        group: 'Origin',
-        checked: name === on,
-      })),
+    ...branches.origin.map((name) => ({
+      value: name,
+      label: name,
+      group: 'Origin',
+      checked: name === on,
+    })),
   ];
 };
 
