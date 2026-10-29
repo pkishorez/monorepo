@@ -90,9 +90,13 @@ const run = <A, E>(
     readonly harness?: Harness;
     /** The Store as the engine sees it, changed from the in-memory one. */
     readonly store?: (store: Store['Service']) => Store['Service'];
+    /** A Store file kept past the run, in place of an in-memory one. */
+    readonly storePath?: string;
+    readonly worktrees?: string;
   } = {},
 ) => {
-  const worktrees = temp();
+  const worktrees = options.worktrees ?? temp();
+  const storeAt = options.storePath ?? ':memory:';
   const fake = options.fake ?? makeFakeHarness();
   const refusing = {
     ...fake.harness,
@@ -103,9 +107,9 @@ const run = <A, E>(
   const base = Layer.merge(
     store
       ? Layer.effect(Store, Effect.map(Store, store)).pipe(
-          Layer.provide(storeLayer(':memory:')),
+          Layer.provide(storeLayer(storeAt)),
         )
-      : storeLayer(':memory:'),
+      : storeLayer(storeAt),
     harness
       ? Layer.merge(
           fake.layer,
@@ -627,6 +631,81 @@ describe('a Session in a git Project', () => {
         }),
       },
     );
+  });
+
+  describe('ends a start, keeping no Session nor Worktree, when', () => {
+    const failsWith = (
+      store: (store: Store['Service']) => Store['Service'],
+    ) => {
+      const repo = clone();
+      return run(
+        (worktrees) =>
+          Effect.gen(function* () {
+            const engine = yield* Engine;
+            const project = yield* engine.addProject(repo);
+            const exit = yield* Effect.exit(
+              start(project.id, { newWorktree: true }),
+            );
+            expect(exit).toMatchObject({
+              _tag: 'Failure',
+              cause: { reasons: [{ error: { _tag: 'HarnessFailed' } }] },
+            });
+            expect(inside(join(worktrees, project.id))).toEqual([]);
+            expect(sh(repo, 'branch', '--list', 'ke-code/*')).toBe('');
+            yield* Effect.sleep('50 millis');
+            expect(yield* (yield* Store).allSessions).toEqual([]);
+          }),
+        { store },
+      );
+    };
+
+    it('its first message cannot be written', () =>
+      failsWith((store) => ({
+        ...store,
+        appendRaw: () => Effect.die(new Error('disk full')),
+      })));
+
+    it('it cannot be saved', () =>
+      failsWith((store) => ({
+        ...store,
+        saveSession: () => Effect.die(new Error('disk full')),
+      })));
+
+    it('Connect stops while it waits', async () => {
+      const repo = clone();
+      const storePath = join(temp(), 'store.sqlite');
+      const worktrees = temp();
+      let projectId = '';
+      await run(
+        () =>
+          Effect.gen(function* () {
+            const engine = yield* Engine;
+            projectId = (yield* engine.addProject(repo)).id;
+            yield* Effect.forkDetach(start(projectId, { newWorktree: true }));
+            yield* eventually(() =>
+              expect(inside(join(worktrees, projectId))).toHaveLength(1),
+            );
+            yield* Effect.sleep('50 millis');
+          }),
+        {
+          storePath,
+          worktrees,
+          store: (store) => ({
+            ...store,
+            appendRaw: () => Effect.never,
+          }),
+        },
+      );
+      expect(inside(join(worktrees, projectId))).toEqual([]);
+      expect(sh(repo, 'branch', '--list', 'ke-code/*')).toBe('');
+      await run(
+        () =>
+          Effect.gen(function* () {
+            expect(yield* (yield* Store).allSessions).toEqual([]);
+          }),
+        { storePath },
+      );
+    });
   });
 
   it('runs in its folder, with no branch, in a Project that is not git', async () => {

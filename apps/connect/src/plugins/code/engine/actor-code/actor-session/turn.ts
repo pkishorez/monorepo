@@ -235,7 +235,19 @@ export const run = (self: SessionSelf, turnId: string) =>
       yield* kept.reset;
     });
 
-    yield* body.pipe(Effect.onInterrupt(() => stopped));
+    yield* body.pipe(
+      Effect.onInterrupt(() => stopped),
+      // A new Session whose first message was not written does not start.
+      Effect.onExit(() =>
+        model.untitled === null
+          ? Effect.void
+          : kept.firstRecord.fail(
+              new HarnessError({
+                message: 'The first message could not be saved',
+              }),
+            ),
+      ),
+    );
     // Sent once ended: the Session stopping this Worker as it hears it must
     // not reach the agent, which may be running the next Turn.
     yield* self.send({

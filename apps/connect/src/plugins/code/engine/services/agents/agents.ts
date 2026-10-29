@@ -68,9 +68,17 @@ const kept = (open: Effect.Effect<Agent, HarnessError, Scope.Scope>) =>
         Deferred.fail(saved, stoppedFirst),
       ]),
     );
-    const milestone = (done: Deferred.Deferred<void, HarnessError>) => ({
-      await: Effect.andThen(Deferred.await(first), Deferred.await(done)),
+    /** A step, awaited after every step before it. */
+    const milestone = (
+      done: Deferred.Deferred<void, HarnessError>,
+      before: ReadonlyArray<Deferred.Deferred<void, HarnessError>>,
+    ) => ({
+      await: Effect.andThen(
+        Effect.forEach(before, Deferred.await, { discard: true }),
+        Deferred.await(done),
+      ),
       mark: Effect.asVoid(Deferred.succeed(done, undefined)),
+      fail: (error: HarnessError) => Effect.asVoid(Deferred.fail(done, error)),
     });
 
     /** Keeps what the open Agent reports until its Scope closes. */
@@ -128,8 +136,8 @@ const kept = (open: Effect.Effect<Agent, HarnessError, Scope.Scope>) =>
     const agent: SessionAgent = {
       agent: get,
       firstOpen: Deferred.await(first),
-      firstRecord: milestone(recorded),
-      firstSave: milestone(saved),
+      firstRecord: milestone(recorded, [first]),
+      firstSave: milestone(saved, [first, recorded]),
       opened: Effect.sync(() => current?.agent),
       reset,
       jobs: SubscriptionRef.changes(jobs),
