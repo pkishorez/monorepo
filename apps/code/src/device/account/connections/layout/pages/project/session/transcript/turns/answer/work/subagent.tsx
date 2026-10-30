@@ -4,6 +4,7 @@ import {
   Chevron,
   type Opening,
   unlessSelecting,
+  useOpen,
 } from '../../../words/index.ts';
 import type { Row } from '../../rows/index.ts';
 import {
@@ -36,7 +37,7 @@ export function Subagent({
 }) {
   const folder = useContext(Folder);
   const id = `${row.id}:open`;
-  const open = opening.isOpen(id);
+  const open = useOpen(opening, id);
   const toggle = () => opening.toggle(id);
   const state = stateOf(row.state, running);
   const first = row.rows[0];

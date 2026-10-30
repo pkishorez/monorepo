@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { View, useChild, useChildren } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
 import { useElementScrollRestoration } from '@kestack/kabuki/routing/router';
@@ -28,7 +29,8 @@ import {
   type Forking,
   type Opening,
   Rows,
-  thread,
+  useOpening,
+  useRows,
 } from './transcript/index.ts';
 
 /*
@@ -88,26 +90,27 @@ export const SessionView = View.make(
         : model.lineage.find(({ id }) => id === forkedFrom?.sessionId)?.title ||
           'Untitled session';
     const running = session?.status === 'running';
-    const rows = useMemo(
-      () => thread((messages?.rows ?? []).map(({ row }) => row)),
-      [messages?.rows],
+    const rows = useRows(
+      useMemo(
+        () => (messages?.rows ?? []).map(({ row }) => row),
+        [messages?.rows],
+      ),
     );
-    const follow = useFollow(
-      props.params.sessionId,
-      useElementScrollRestoration({ id: TRANSCRIPT }),
-    );
-    const { scroller, content } = follow;
+    const kept = useElementScrollRestoration({ id: TRANSCRIPT });
+    const follow = useFollow(props.params.sessionId, kept);
+    const { scroller, content, shift } = follow;
     const page = keys.useFocusSpot('content', 'page', { default: true });
     const offline = useOffline(connectionId);
-    // Kept the same while they are, so the transcript is not drawn again
-    // as Stop or a fork changes.
-    const opening = useMemo(
-      () => ({
-        isOpen: (id: string) => model.open.includes(id),
-        toggle: (id: string) => send({ _tag: 'Toggled', id }),
-      }),
-      [model.open, send],
+    // The same while the transcript is drawn, folds opening and shutting
+    // included, so the transcript is not drawn again as Stop, a fork or a
+    // fold changes; each fold reads its own.
+    const toggle = useCallback(
+      (id: string) => send({ _tag: 'Toggled', id }),
+      [send],
     );
+    const opening = useOpening(model.open, toggle);
+    // The session whose turns are all drawn, as before going to its top.
+    const [whole, setWhole] = useState<string | null>(null);
     const forking = useMemo(
       () => ({
         fork: (afterTurnId: string) => send({ _tag: 'ForkAsked', afterTurnId }),
@@ -136,7 +139,9 @@ export const SessionView = View.make(
       (messages?.rows.length === 0 && messages.neverSynced.length > 0);
     const stop = useCallback(() => send({ _tag: 'StopAsked' }), [send]);
     const canStop = running && !model.stopping && offline === null;
-    useScrollKeys(follow);
+    useScrollKeys(follow, {
+      beforeTop: () => flushSync(() => setWhole(props.params.sessionId)),
+    });
     keys.useAction('content.stop', stop, { enabled: canStop });
     const stopKeys = useBound('content.stop');
     // While its agent asks, the Question Panel stands in for the Draft.
@@ -241,7 +246,11 @@ export const SessionView = View.make(
           className={`relative min-h-0 flex-1 overflow-y-auto outline-none select-text [overflow-anchor:none] ${GUTTERED}`}
         >
           <Transcript
+            key={props.params.sessionId}
             content={content}
+            shift={shift}
+            gradual={kept?.scrollY == null}
+            whole={whole === props.params.sessionId}
             connectionId={connectionId}
             session={session}
             original={original}
@@ -365,6 +374,9 @@ function ToBottom({
  */
 const Transcript = memo(function Transcript({
   content,
+  shift,
+  gradual,
+  whole,
   connectionId,
   session,
   original,
@@ -380,6 +392,11 @@ const Transcript = memo(function Transcript({
   offline,
 }: {
   readonly content: ReturnType<typeof useFollow>['content'];
+  readonly shift: (by: number) => void;
+  /** Opens on its last turns, and draws those above after: not when going back to where it was scrolled. */
+  readonly gradual: boolean;
+  /** Every turn drawn now. */
+  readonly whole: boolean;
   readonly connectionId: string;
   readonly session: Session | undefined;
   /** The title of the session it was forked from; null until its chain is read. */
@@ -388,7 +405,7 @@ const Transcript = memo(function Transcript({
   readonly reading: boolean;
   readonly waiting: boolean;
   readonly earlier: ReturnType<typeof earlierOf> | null;
-  readonly rows: ReturnType<typeof thread>;
+  readonly rows: ReturnType<typeof useRows>;
   readonly opening: Opening;
   readonly forking: Forking;
   readonly running: boolean;
@@ -446,6 +463,9 @@ const Transcript = memo(function Transcript({
             running={running}
             forking={forking}
             forked={session?.forkedFrom != null}
+            gradual={gradual}
+            whole={whole}
+            shift={shift}
           />
         </>
       )}

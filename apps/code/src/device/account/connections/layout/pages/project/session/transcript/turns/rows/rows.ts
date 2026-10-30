@@ -119,11 +119,25 @@ const promptOf = (call: Of<'toolCall'>): string | null => {
   return null;
 };
 
+const NONE: ReadonlyArray<never> = [];
+
+/** Message ids are ULIDs, which sort as plain strings. */
+const byId = (a: Message, b: Message) =>
+  a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+
+/** Oldest first, sorted only if they are not already, as they mostly arrive. */
+const inOrder = (messages: ReadonlyArray<Message>) => {
+  for (let at = 1; at < messages.length; at++)
+    if (messages[at - 1]!.id > messages[at]!.id)
+      return [...messages].sort(byId);
+  return messages;
+};
+
 /** Every row of the main agent, oldest first, each subagent nested in its call. */
 export const thread = (
   messages: ReadonlyArray<Message>,
 ): ReadonlyArray<Row> => {
-  const sorted = [...messages].sort((a, b) => a.id.localeCompare(b.id));
+  const sorted = inOrder(messages);
   const results = new Map<string, Of<'toolResult'>>();
   const answered = new Map<string, Of<'questionAnswered'>>();
   const resultAt = new Map<string, string>();
@@ -200,7 +214,7 @@ export const thread = (
                 id,
                 text: part.text,
                 steered: part.steered,
-                attachments: part.attachments ?? [],
+                attachments: part.attachments ?? NONE,
                 agentStarted: part.agentStarted ?? false,
                 resumed: part.resumed ?? false,
               },
@@ -301,4 +315,68 @@ export const thread = (
   };
 
   return rowsOf(null, new Set());
+};
+
+/** Lists holding the same items, in order. */
+export const sameItems = <T>(a: ReadonlyArray<T>, b: ReadonlyArray<T>) =>
+  a === b || (a.length === b.length && a.every((item, at) => item === b[at]));
+
+/** Equal values: the same, or plain objects whose own values are the same, as a summed usage. */
+const same = (a: unknown, b: unknown) => {
+  if (a === b) return true;
+  if (
+    typeof a !== 'object' ||
+    typeof b !== 'object' ||
+    a === null ||
+    b === null ||
+    Array.isArray(a) ||
+    Array.isArray(b)
+  )
+    return false;
+  const keys = Object.keys(b);
+  return (
+    keys.length === Object.keys(a).length &&
+    keys.every(
+      (key) =>
+        (a as Record<string, unknown>)[key] ===
+        (b as Record<string, unknown>)[key],
+    )
+  );
+};
+
+/** A row as it was, when nothing in it changed; else as it is, its nested rows kept too. */
+const keptRow = (was: Row | undefined, row: Row): Row => {
+  if (was === undefined || was.kind !== row.kind) return row;
+  const next =
+    row.kind === 'subagent' && was.kind === 'subagent'
+      ? (() => {
+          const rows = kept(was.rows, row.rows);
+          return rows === row.rows ? row : { ...row, rows };
+        })()
+      : row;
+  const keys = Object.keys(next) as Array<keyof Row>;
+  return keys.length === Object.keys(was).length &&
+    keys.every((key) => same(was[key], next[key]))
+    ? was
+    : next;
+};
+
+/**
+ * Rows threaded again, each the same object it was before wherever
+ * nothing in it changed, and the same list when no row did: what draws
+ * them can tell what changed by looking, and draw only that again.
+ */
+export const kept = (
+  before: ReadonlyArray<Row>,
+  after: ReadonlyArray<Row>,
+): ReadonlyArray<Row> => {
+  if (before.length === 0) return after;
+  const old = new Map(before.map((row) => [row.id, row]));
+  let unchanged = before.length === after.length;
+  const rows = after.map((row, at) => {
+    const next = keptRow(old.get(row.id), row);
+    if (next !== before[at]) unchanged = false;
+    return next;
+  });
+  return unchanged ? before : rows;
 };

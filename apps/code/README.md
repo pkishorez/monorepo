@@ -90,5 +90,11 @@ pnpm --filter code deploy:prod   # ALLOW_DEPLOY=true: code.kishore.app
   the entry chunk and every chunk it imports, gzipped, is over its budget
   in `scripts/size.ts`. Settings, the project and session pages, the
   Draft and the Kabuki page load apart, through `View.lazy`.
+- `pnpm --filter code bench` times the transcript of a long made-up
+  session (`bench/`) in Chrome at a phone's size, its CPU slowed four
+  times: opening it, leaving and coming back, words streaming in, a fold
+  opened, scrolling to the top, and whether what is drawn above the view
+  after it opens moves it. `--out` keeps the numbers and `--compare`
+  sets new ones beside them; `--profile <move>` lists where its time goes.
 - `pnpm --filter code draw:install` redraws the iOS Splash and the
   manifest's screenshots into `public/`, after a build of the packages.
