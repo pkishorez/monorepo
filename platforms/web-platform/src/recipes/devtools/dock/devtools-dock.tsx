@@ -39,7 +39,10 @@ import { cn } from '#kit/class-names';
  *            and the bottom bar make sense, so only they are offered, and a
  *            Layout kept from a wide screen shows as the nearest of them.
  *            It sits in the row of the devtools' bottom bar, which are
- *            handed the room it takes as `--dock-reserve`.
+ *            handed the room it takes as `--dock-reserve`. An app whose own
+ *            controls sit in that corner on a phone turns `onPhones` off:
+ *            there the button is not drawn and the devtools stay closed,
+ *            while the page keeps its place in the tree.
  * 4. Keys    Ctrl+/ or ⌘/ opens and closes them, unless the app keeps the
  *            key for itself.
  * 5. Hide    closed, they are hidden, not taken down: once opened they stay
@@ -96,6 +99,7 @@ export function DevtoolsDock({
   storageKey = 'devtools-dock',
   scrolls = 'dock',
   shortcut = true,
+  onPhones = true,
 }: {
   /** The devtools, drawn for the Layout they are in. */
   readonly devtools: (layout: DockLayout) => ReactNode;
@@ -115,6 +119,8 @@ export function DevtoolsDock({
   readonly scrolls?: 'dock' | 'window';
   /** Whether Ctrl+/ or ⌘/ opens and closes them; off for an app that keeps the key for itself. */
   readonly shortcut?: boolean;
+  /** Whether a phone gets the button and the devtools; off for an app whose own controls sit in the bottom-right corner there. */
+  readonly onPhones?: boolean;
 }) {
   // 1. Keep
   const [kept, setKept] = useState(INITIAL);
@@ -138,7 +144,9 @@ export function DevtoolsDock({
     });
   const phone = useIsMobile();
   const offered = LAYOUTS.filter((each) => !phone || each.phone);
-  const { open } = kept;
+  // Not offered here: closed, and no button, whatever was kept.
+  const away = phone && !onPhones;
+  const open = kept.open && !away;
   // 5. Hide: mounted from the first open on, hidden while closed.
   const [mounted, setMounted] = useState(false);
   if (open && !mounted) setMounted(true);
@@ -148,7 +156,10 @@ export function DevtoolsDock({
 
   // 4. Keys
   const toggle = useRef(() => {});
-  toggle.current = () => keep((was) => ({ open: !was.open }));
+  // Not offered here, the keys do nothing: nothing opens later unasked.
+  toggle.current = () => {
+    if (!away) keep((was) => ({ open: !was.open }));
+  };
   useEffect(() => {
     if (!shortcut) return;
     const onKey = (event: KeyboardEvent) => {
@@ -175,7 +186,8 @@ export function DevtoolsDock({
       observer.disconnect();
       window.removeEventListener('resize', measure);
     };
-  }, []);
+    // The button comes and goes with `away`: measured afresh each time.
+  }, [away]);
   const clear = { '--dock-reserve': `${reserve}px` } as CSSProperties;
 
   // 2. Lay out
@@ -285,61 +297,63 @@ export function DevtoolsDock({
       )}
 
       {/* 3. Button: one size and place whatever is open, in the Timeline's row. */}
-      <div
-        ref={button}
-        className={cn(
-          'bg-background fixed right-3 bottom-[9px] z-50 flex h-9 items-center rounded-md border transition-shadow duration-150',
-          !open &&
-            'shadow-[0_1px_2px_rgb(0_0_0/0.04),0_4px_16px_-4px_rgb(0_0_0/0.12)]',
-        )}
-      >
-        <button
-          type="button"
-          aria-pressed={open}
-          aria-label={`${open ? 'Close' : 'Open'} ${label}`}
-          title={`${open ? 'Close' : 'Open'} ${label} (Ctrl /)`}
-          onClick={() => keep({ open: !open })}
-          className="text-muted-foreground hover:text-foreground aria-pressed:text-foreground aria-pressed:bg-muted relative grid h-full w-9 place-items-center rounded-l-[5px] transition-colors duration-150 outline-offset-2 focus-visible:outline-2 [&_svg]:size-4"
-        >
-          <Network />
-          {status && (
-            <span className="pointer-events-none absolute top-1.5 right-1.5">
-              {status}
-            </span>
+      {!away && (
+        <div
+          ref={button}
+          className={cn(
+            'bg-background fixed right-3 bottom-[9px] z-50 flex h-9 items-center rounded-md border transition-shadow duration-150',
+            !open &&
+              'shadow-[0_1px_2px_rgb(0_0_0/0.04),0_4px_16px_-4px_rgb(0_0_0/0.12)]',
           )}
-        </button>
-        <ContextMenu>
-          <ContextMenuTrigger
-            render={
-              <button
-                type="button"
-                aria-label={`Devtools layout: ${current.label}`}
-                title={`${current.label}. Click for ${next.label.toLowerCase()}, right click to pick`}
-                onClick={() => keep({ layout: next.value, open: true })}
-                className="text-muted-foreground hover:text-foreground grid h-full w-9 place-items-center rounded-r-[5px] border-l transition-colors duration-150 outline-offset-2 focus-visible:outline-2 [&_svg]:size-4"
-              />
-            }
+        >
+          <button
+            type="button"
+            aria-pressed={open}
+            aria-label={`${open ? 'Close' : 'Open'} ${label}`}
+            title={`${open ? 'Close' : 'Open'} ${label} (Ctrl /)`}
+            onClick={() => keep({ open: !open })}
+            className="text-muted-foreground hover:text-foreground aria-pressed:text-foreground aria-pressed:bg-muted relative grid h-full w-9 place-items-center rounded-l-[5px] transition-colors duration-150 outline-offset-2 focus-visible:outline-2 [&_svg]:size-4"
           >
-            <current.Icon />
-          </ContextMenuTrigger>
-          <ContextMenuContent className="w-44">
-            <ContextMenuRadioGroup
-              value={layout}
-              onValueChange={(value) =>
-                keep({ layout: value as DockLayout, open: true })
+            <Network />
+            {status && (
+              <span className="pointer-events-none absolute top-1.5 right-1.5">
+                {status}
+              </span>
+            )}
+          </button>
+          <ContextMenu>
+            <ContextMenuTrigger
+              render={
+                <button
+                  type="button"
+                  aria-label={`Devtools layout: ${current.label}`}
+                  title={`${current.label}. Click for ${next.label.toLowerCase()}, right click to pick`}
+                  onClick={() => keep({ layout: next.value, open: true })}
+                  className="text-muted-foreground hover:text-foreground grid h-full w-9 place-items-center rounded-r-[5px] border-l transition-colors duration-150 outline-offset-2 focus-visible:outline-2 [&_svg]:size-4"
+                />
               }
             >
-              <ContextMenuLabel>Layout</ContextMenuLabel>
-              {offered.map(({ value, label: name, Icon }) => (
-                <ContextMenuRadioItem key={value} value={value} closeOnClick>
-                  <Icon />
-                  {name}
-                </ContextMenuRadioItem>
-              ))}
-            </ContextMenuRadioGroup>
-          </ContextMenuContent>
-        </ContextMenu>
-      </div>
+              <current.Icon />
+            </ContextMenuTrigger>
+            <ContextMenuContent className="w-44">
+              <ContextMenuRadioGroup
+                value={layout}
+                onValueChange={(value) =>
+                  keep({ layout: value as DockLayout, open: true })
+                }
+              >
+                <ContextMenuLabel>Layout</ContextMenuLabel>
+                {offered.map(({ value, label: name, Icon }) => (
+                  <ContextMenuRadioItem key={value} value={value} closeOnClick>
+                    <Icon />
+                    {name}
+                  </ContextMenuRadioItem>
+                ))}
+              </ContextMenuRadioGroup>
+            </ContextMenuContent>
+          </ContextMenu>
+        </div>
+      )}
     </>
   );
 }

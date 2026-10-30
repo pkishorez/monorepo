@@ -12,10 +12,12 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * are not drawn at all.
  */
 
-// jsdom has neither: a wide screen, and a size that never changes.
+// jsdom has neither: a wide screen, unless a test says a phone's, and a
+// size that never changes.
+let phone = false;
 Object.assign(window, {
   matchMedia: (query: string) => ({
-    matches: false,
+    matches: phone,
     media: query,
     addEventListener: () => {},
     removeEventListener: () => {},
@@ -58,6 +60,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   host.remove();
+  phone = false;
 });
 
 const toggle = () =>
@@ -89,5 +92,20 @@ describe('the Devtools Dock', () => {
     toggle();
     expect(dialog()!.hidden).toBe(false);
     expect(choice()!.textContent).toBe('one');
+  });
+
+  it('on a phone with onPhones off, draws no button and keeps the devtools closed', () => {
+    localStorage.setItem('devtools-dock', JSON.stringify({ open: true }));
+    phone = true;
+    act(() =>
+      root.render(
+        <DevtoolsDock onPhones={false} devtools={() => <Chooser />}>
+          <main />
+        </DevtoolsDock>,
+      ),
+    );
+    expect(host.querySelector('button[aria-pressed]')).toBeNull();
+    expect(choice()).toBeNull();
+    expect(host.querySelector('main')).not.toBeNull();
   });
 });
