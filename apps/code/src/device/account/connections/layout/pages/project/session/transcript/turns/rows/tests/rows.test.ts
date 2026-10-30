@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Message, Part } from '@kestack/connect/code';
-import { thread } from '../rows.ts';
+import { kept, thread } from '../rows.ts';
+import { keptTurns, turnsOf } from '../../turns.ts';
 
 let n = 0;
 const message = (
@@ -323,5 +324,87 @@ describe('turns', () => {
       { kind: 'turn', resumed: true, agentStarted: false },
       { kind: 'turn', text: 'also this', steered: true, resumed: false },
     ]);
+  });
+});
+
+describe('threaded again', () => {
+  const chunk = (streamId: string, text: string): Part => ({
+    type: 'textChunk',
+    streamId,
+    channel: 'text',
+    text,
+  });
+  const session = () => [
+    message([{ type: 'turnStarted', text: 'one', steered: false }], {
+      role: 'user',
+    }),
+    message([call('a')]),
+    message([result('a')], { role: 'tool' }),
+    message([{ type: 'usage', usage: { inputTokens: 1, outputTokens: 1 } }], {
+      role: 'system',
+    }),
+    message([{ type: 'turnEnded', status: 'done' }]),
+    message([{ type: 'turnStarted', text: 'two', steered: false }], {
+      role: 'user',
+      turnId: 't2',
+    }),
+    message([call('b', 'subagent')], { turnId: 't2' }),
+    message([call('c')], { agentId: 'b', turnId: 't2' }),
+    message([chunk('s', 'Half')], { turnId: 't2' }),
+  ];
+
+  it('sorts its Messages by id when they come out of order', () => {
+    const messages = session();
+    expect(thread(messages.toReversed())).toEqual(thread(messages));
+  });
+
+  it('keeps every row that did not change, a summed usage included, and the list when none did', () => {
+    const messages = session();
+    const before = thread(messages);
+    const after = kept(before, thread([...messages]));
+    expect(after).toBe(before);
+  });
+
+  it('makes anew only the rows a new Message changed', () => {
+    const messages = session();
+    const before = thread(messages);
+    const after = kept(
+      before,
+      thread([...messages, message([chunk('s', ' done.')], { turnId: 't2' })]),
+    );
+    expect(after).not.toBe(before);
+    const changed = after.filter((row, at) => row !== before[at]);
+    expect(changed.map((row) => row.kind === 'text' && row.text)).toEqual([
+      'Half done.',
+    ]);
+  });
+
+  it('makes a subagent anew when a step of its own does, keeping the steps that did not', () => {
+    const messages = session();
+    const before = thread(messages);
+    const after = kept(
+      before,
+      thread([
+        ...messages,
+        message([result('c')], { role: 'tool', agentId: 'b', turnId: 't2' }),
+      ]),
+    );
+    const subagent = (rows: typeof before) =>
+      rows.find((row) => row.kind === 'subagent')!;
+    expect(subagent(after)).not.toBe(subagent(before));
+    expect(after[0]).toBe(before[0]);
+  });
+
+  it('keeps each turn whose rows it kept', () => {
+    const messages = session();
+    const first = thread(messages);
+    const before = turnsOf(first);
+    const rows = kept(
+      first,
+      thread([...messages, message([chunk('s', ' done.')], { turnId: 't2' })]),
+    );
+    const after = keptTurns(before, turnsOf(rows));
+    expect(after[0]).toBe(before[0]);
+    expect(after[1]).not.toBe(before[1]);
   });
 });
