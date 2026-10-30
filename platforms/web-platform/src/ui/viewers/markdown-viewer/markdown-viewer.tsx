@@ -1,12 +1,76 @@
-import type { ComponentProps, MouseEvent } from 'react';
-import ReactMarkdown from 'react-markdown';
+import {
+  createContext,
+  memo,
+  useContext,
+  type ComponentProps,
+  type MouseEvent,
+} from 'react';
+import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { SourceViewer } from '../source-viewer/index';
 import { scrollbarStyles } from '#kit/scroll-styles';
 import { cn } from '#kit/class-names';
 
-export function MarkdownViewer({
+/*
+ * Markdown, drawn again only when its text or its look changes. Its
+ * plugins and components are the same on every draw: a component made
+ * anew each time is a new kind of element to React, which would take down
+ * and build again everything under it, its code blocks highlighted again
+ * from nothing. What a link click does reaches them through context.
+ */
+
+type OnLinkClick = (href: string) => boolean | void;
+
+const LinkClick = createContext<OnLinkClick | undefined>(undefined);
+
+const remarkPlugins = [remarkGfm];
+
+const components: Components = {
+  a: function MarkdownLink({ href, children, node: _node, ...rest }) {
+    const onLinkClick = useContext(LinkClick);
+    return (
+      <a
+        href={href}
+        {...rest}
+        onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+          if (href !== undefined && onLinkClick?.(href) === true) {
+            event.preventDefault();
+          }
+        }}
+      >
+        {children}
+      </a>
+    );
+  },
+  pre: function MarkdownPre({ children }) {
+    return <>{children}</>;
+  },
+  code: MarkdownCode,
+  table: function MarkdownTable({ children }) {
+    return (
+      <div className={cn('not-prose my-4 overflow-x-auto', scrollbarStyles)}>
+        <table className="w-full border-collapse text-sm">{children}</table>
+      </div>
+    );
+  },
+  th: function MarkdownTh({ children }) {
+    return (
+      <th className="border-b border-border px-3 py-2 text-left font-semibold first:pl-0">
+        {children}
+      </th>
+    );
+  },
+  td: function MarkdownTd({ children }) {
+    return (
+      <td className="border-b border-border/50 px-3 py-2 align-top first:pl-0">
+        {children}
+      </td>
+    );
+  },
+};
+
+export const MarkdownViewer = memo(function MarkdownViewer({
   children,
   className,
   onLinkClick,
@@ -14,54 +78,18 @@ export function MarkdownViewer({
   readonly children: string;
   readonly className?: string;
   // Return true to take over the navigation for that href.
-  readonly onLinkClick?: (href: string) => boolean | void;
+  readonly onLinkClick?: OnLinkClick;
 }) {
   return (
     <div className={cn('prose dark:prose-invert max-w-none', className)}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          a: ({ href, children, node: _node, ...rest }) => (
-            <a
-              href={href}
-              {...rest}
-              onClick={(event: MouseEvent<HTMLAnchorElement>) => {
-                if (href !== undefined && onLinkClick?.(href) === true) {
-                  event.preventDefault();
-                }
-              }}
-            >
-              {children}
-            </a>
-          ),
-          pre: ({ children }) => <>{children}</>,
-          code: MarkdownCode,
-          table: ({ children }) => (
-            <div
-              className={cn('not-prose my-4 overflow-x-auto', scrollbarStyles)}
-            >
-              <table className="w-full border-collapse text-sm">
-                {children}
-              </table>
-            </div>
-          ),
-          th: ({ children }) => (
-            <th className="border-b border-border px-3 py-2 text-left font-semibold first:pl-0">
-              {children}
-            </th>
-          ),
-          td: ({ children }) => (
-            <td className="border-b border-border/50 px-3 py-2 align-top first:pl-0">
-              {children}
-            </td>
-          ),
-        }}
-      >
-        {children}
-      </ReactMarkdown>
+      <LinkClick.Provider value={onLinkClick}>
+        <ReactMarkdown remarkPlugins={remarkPlugins} components={components}>
+          {children}
+        </ReactMarkdown>
+      </LinkClick.Provider>
     </div>
   );
-}
+});
 
 /*
  * Code: inline, a chip in the line; a block, fenced or indented, with a
