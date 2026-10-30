@@ -262,6 +262,40 @@ describe('project, on hand-made records', () => {
     );
   });
 
+  it('keeps the images a tool gave back, whole, beside its text', () => {
+    const projected = of({
+      type: 'user',
+      message: {
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: 't1',
+            content: [
+              { type: 'text', text: 'A screenshot' },
+              {
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: 'image/png',
+                  data: 'iVBOR',
+                },
+              },
+            ],
+          },
+        ],
+      },
+    });
+    expect(projected?.parts[0]).toEqual({
+      type: 'toolResult',
+      toolCallId: 't1',
+      output: 'A screenshot',
+      truncated: false,
+      isError: false,
+      images: [{ mediaType: 'image/png', data: 'iVBOR' }],
+    });
+  });
+
   it('keeps inline reasoning and text, and drops empty (redacted) thinking', () => {
     const projected = of(
       {
