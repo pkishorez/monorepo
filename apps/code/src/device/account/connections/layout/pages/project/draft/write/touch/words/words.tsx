@@ -23,7 +23,8 @@ import { SwipeZone, type Swipes } from './swipe.tsx';
  * 2. Editing    the Composer: the caret and a selection drawn as when read
  *               only, the editor's own hidden, so the two look alike; the
  *               caret stays in view as the words' size changes, as when
- *               the keyboard rises. With Smart Displacement, the caret
+ *               the keyboard rises, if it was in view as editing began;
+ *               else they stay where they were scrolled to. With Smart Displacement, the caret
  *               and the ends drag as when read only (`select.tsx`).
  * 3. Swipe      sideways, what `swipes` says for that way (`swipe.tsx`);
  *               a way it says nothing for goes on to the sidebar.
@@ -31,6 +32,9 @@ import { SwipeZone, type Swipes } from './swipe.tsx';
 
 /** Where the caret, or a selection's ends, are drawn. */
 type Caret = ReturnType<typeof useCaret>['caret'];
+
+/** How long, as editing begins, the words are kept where they were scrolled to, in ms: as long as the keyboard takes to rise. */
+const KEEP = 800;
 
 /** Two taps within this many ms, at one spot, are a double tap. */
 const DOUBLE = 350;
@@ -144,21 +148,50 @@ export function Words({
 
   // 2. Editing
   useEditDrag(box, editor.view, editing && displace);
-  // As its size changes, the editor's caret stays in view.
+  // As its size changes, the editor's caret stays in view, if it was in
+  // view as editing began. If not, what was scrolled to stays, as the
+  // keyboard rises and iOS would scroll to its caret, until the words are
+  // touched or typed at.
   useEffect(() => {
     const scroller = box.current;
-    if (!editing || scroller === null) return;
+    const view = editor.view.current;
+    if (!editing || scroller === null || view === null) return;
+    const at = view.coordsAtPos(view.state.selection.main.head);
+    const shown = scroller.getBoundingClientRect();
+    let follows = at !== null && at.bottom > shown.top && at.top < shown.bottom;
+    const top = scroller.scrollTop;
+    let held = !follows;
+    // Touched or typed at, the caret is followed from then on.
+    const release = () => {
+      held = false;
+      follows = true;
+    };
+    scroller.addEventListener('pointerdown', release);
+    scroller.addEventListener('keydown', release);
+    const timer = setTimeout(() => void (held = false), KEEP);
+    const keep = () => {
+      if (held && scroller.scrollTop !== top) scroller.scrollTop = top;
+    };
+    scroller.addEventListener('scroll', keep);
     const observer = new ResizeObserver(() => {
-      const view = editor.view.current;
-      view?.dispatch({
-        effects: EditorView.scrollIntoView(view.state.selection.main.head, {
+      if (held) return keep();
+      if (!follows) return;
+      const now = editor.view.current;
+      now?.dispatch({
+        effects: EditorView.scrollIntoView(now.state.selection.main.head, {
           y: 'nearest',
           yMargin: 8,
         }),
       });
     });
     observer.observe(scroller);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      clearTimeout(timer);
+      scroller.removeEventListener('pointerdown', release);
+      scroller.removeEventListener('keydown', release);
+      scroller.removeEventListener('scroll', keep);
+    };
   }, [editing]);
 
   return (

@@ -16,7 +16,7 @@ export const pillOf = (health: Health): Pill | null => {
     case 'Linked':
       return null;
     case 'Unknown':
-      return ['Linking…', 'Linking to the Connection…'];
+      return ['Connecting…', 'Connecting to the Connection…'];
     case 'Down':
       return [
         `Connection down · last seen ${ago(health.lastSeen)}`,
@@ -48,8 +48,8 @@ export const pillOf = (health: Health): Pill | null => {
     case 'Unchecked':
     case 'Reachable':
       return [
-        'Linking…',
-        `Linking to the Connection, last seen ${ago(lastSeen)}…`,
+        'Connecting…',
+        `Connecting to the Connection, last seen ${ago(lastSeen)}…`,
       ];
   }
 };
@@ -62,7 +62,7 @@ export const shortOf = (health: Health) =>
         (health.status._tag === 'Unreachable' ||
           health.status._tag === 'OpenFailed')
       ? 'Out of reach'
-      : 'Linking…';
+      : 'Connecting…';
 
 /** A Connection's Link as a dot says it: up, its Connection down, or on its way. */
 export type Standing = 'Linked' | 'Down' | 'Linking';

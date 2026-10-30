@@ -61,8 +61,10 @@ describe('a Connection’s record', () => {
     expect(health(stale, 'linking', now, false)._tag).toBe('Unknown');
     // Checked: Cloud Connect answered, or long enough passed.
     expect(health(stale, 'linking', now, true)._tag).toBe('Down');
-    // A socket up and dropped since is news of its own.
-    expect(health(stale, 'relinking', now, false)._tag).toBe('Down');
+    // Relinking, as when the page comes back after a while hidden: still
+    // only linking until checked.
+    expect(health(stale, 'relinking', now, false)._tag).toBe('Unknown');
+    expect(health(stale, 'relinking', now, true)._tag).toBe('Down');
     expect(health(stale, 'linked', now, false)._tag).toBe('Linked');
   });
 

@@ -626,6 +626,34 @@ describe('Connections checks', () => {
     );
   });
 
+  it('checks the list again, asking at once, when the page comes back after a while hidden', async () => {
+    const answers = await Effect.runPromise(
+      Effect.all([
+        Deferred.make<ReadonlyArray<Connection>>(),
+        Deferred.make<ReadonlyArray<Connection>>(),
+      ]),
+    );
+    let answer = answers[0];
+    const { layer } = world(Effect.suspend(() => Deferred.await(answer)));
+    await run(
+      Effect.gen(function* () {
+        yield* (yield* Cache).write(ListShelf, a1, [connection('m1', 1)]);
+        const app = yield* start(OwnerLive, layer);
+        yield* Deferred.succeed(answers[0], [connection('m1', 2)]);
+        yield* wait();
+        expect(checkedOf(app)).toBe(true);
+        // Back: not believed again until Cloud Connect answers anew.
+        answer = answers[1];
+        app.send(list(app).id, { _tag: 'Back' });
+        yield* wait();
+        expect(checkedOf(app)).toBe(false);
+        yield* Deferred.succeed(answers[1], [connection('m1', 3)]);
+        yield* wait();
+        expect(checkedOf(app)).toBe(true);
+      }),
+    );
+  });
+
   it('believes it anyway once Cloud Connect has been waited on for long enough', () =>
     Effect.runPromise(
       Effect.scoped(

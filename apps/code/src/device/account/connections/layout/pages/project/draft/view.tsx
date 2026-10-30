@@ -1,7 +1,7 @@
 import { View, type ViewProps } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
 import { Button } from '@kestack/web-platform/ui/components/button';
-import { ArrowUpIcon, CircleAlertIcon, WifiOffIcon } from 'lucide-react';
+import { ArrowUpIcon, CircleAlertIcon } from 'lucide-react';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import { type RefObject, use, useEffect, useLayoutEffect, useRef } from 'react';
@@ -181,12 +181,10 @@ function Drafting(self: ViewProps<typeof DraftLive>) {
           <SideQuestion asked={model.asked} onBack={back} />,
           slots.sideQuestion,
         )}
+      {/* Out of reach: the header's pill says so; here, only to a screen
+          reader, so the Draft never moves as the link drops and comes back. */}
       {said ? (
-        <p
-          id={describedBy}
-          className="flex items-center gap-2 px-1 text-sm text-muted-foreground"
-        >
-          <WifiOffIcon aria-hidden className="size-3.5 shrink-0 text-warning" />
+        <p id={describedBy} className="sr-only">
           {offline} to the server.{' '}
           {fresh
             ? 'You can start once it is back.'
@@ -365,7 +363,7 @@ function Composer({
       label,
       blocked: unsendable,
       starting: model.starting !== null,
-      actions: slots.actions,
+      stop: slots.stop ?? null,
       attachments:
         draft.attachments.length > 0 || draft.files.refused.length > 0 ? (
           <AttachmentStrip

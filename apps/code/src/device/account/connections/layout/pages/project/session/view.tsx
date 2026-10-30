@@ -11,7 +11,6 @@ import {
   useGutter,
 } from '../../../../../../../ui/page/gutter/index.ts';
 import * as routes from '../../../../../../routes/index.ts';
-import { RunningDot } from '../../../../../../../ui/labels/status/index.ts';
 import { keys, useBound } from '../../../commands.ts';
 import {
   useConnectionId,
@@ -191,6 +190,7 @@ export const SessionView = View.make(
       () => ({
         problem: model.problem,
         sideQuestion,
+        stop: around.stop,
         actions: running && (
           <Button
             type="button"
@@ -218,6 +218,7 @@ export const SessionView = View.make(
         stopKeys,
         stop,
         sideQuestion,
+        around.stop,
       ],
     );
     // The Draft sits under the transcript, inset by the room its scrollbar keeps.
@@ -324,9 +325,10 @@ export const SessionReady = View.make(
 );
 
 /**
- * Away from the bottom, a way back: a small round button centred over the
+ * Away from the bottom, a way back: a small round arrow centred over the
  * Draft that glides to the very bottom and follows from there. It fades
  * and rises in, and is gone, not merely hidden, from the keys while away.
+ * Raised off the page, it still stands out over a dark code block.
  */
 function ToBottom({
   shown,
@@ -343,12 +345,14 @@ function ToBottom({
       <Button
         type="button"
         variant="outline"
+        size="icon"
+        aria-label="Scroll to bottom"
+        title="Scroll to bottom"
         onClick={onClick}
         data-shown={shown ? '' : undefined}
-        className="pointer-events-auto h-11 translate-y-2 gap-1.5 rounded-full bg-background px-4 text-sm text-muted-foreground opacity-0 shadow-md transition-[opacity,translate,color] duration-200 ease-out hover:text-foreground data-shown:translate-y-0 data-shown:opacity-100 keyboard:h-8 keyboard:px-3 motion-reduce:transition-none"
+        className="pointer-events-auto size-10 translate-y-2 rounded-full border-foreground/15 bg-card text-foreground opacity-0 shadow-[0_2px_4px_rgb(0_0_0/0.06),0_6px_16px_rgb(0_0_0/0.12)] transition-[opacity,translate,background-color] duration-200 ease-out hover:bg-muted data-shown:translate-y-0 data-shown:opacity-100 dark:bg-secondary dark:shadow-[0_2px_4px_rgb(0_0_0/0.3),0_8px_20px_rgb(0_0_0/0.5)] pointer-coarse:size-11 keyboard:size-8 motion-reduce:transition-none"
       >
-        <ArrowDownIcon aria-hidden className="size-3.5" />
-        Scroll to bottom
+        <ArrowDownIcon aria-hidden className="size-4" />
       </Button>
     </div>
   );
@@ -457,18 +461,12 @@ const Transcript = memo(function Transcript({
           message to carry on; the agent remembers the conversation.
         </p>
       )}
-      {running && ready && (
-        <p
-          role="status"
-          className="flex items-center gap-2 pt-1 text-xs text-muted-foreground"
-        >
-          {offline === null ? (
-            <>
-              <RunningDot /> Working…
-            </>
-          ) : (
-            'Last seen working. Updates resume when the server is back.'
-          )}
+      {/* Said only to a screen reader: the header's pill says on screen
+          that the server is out of reach. Working, the turn's own status
+          says so. */}
+      {running && ready && offline !== null && (
+        <p role="status" className="sr-only">
+          Last seen working. Updates resume when the server is back.
         </p>
       )}
     </div>

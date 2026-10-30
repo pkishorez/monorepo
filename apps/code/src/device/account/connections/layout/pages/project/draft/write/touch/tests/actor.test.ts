@@ -14,63 +14,87 @@ import { owner, State, TouchDraftLive } from '../actor.ts';
  */
 
 const Draft = Actor.define('Draft', {
-  model: Schema.Struct({ sent: Schema.Finite }),
-  message: Schema.TaggedUnion({ SendAsked: {} }),
+  model: Schema.Struct({
+    sent: Schema.Finite,
+    /** Each time the Touch Draft said whether it is open. */
+    opened: Schema.Array(Schema.Boolean),
+  }),
+  message: Schema.TaggedUnion({
+    SendAsked: {},
+    Opened: { open: Schema.Boolean },
+  }),
 });
 
-const DraftLive = Actor.build(Draft, {
-  init: () => ({ model: { sent: 0 } }),
-  provides: (self) => owner(self.send({ _tag: 'SendAsked' })),
-  children: { touch: { actor: TouchDraftLive } },
-  on: {
-    SendAsked: (_, { model }) => ({ model: { sent: model.sent + 1 } }),
-  },
-});
+/** A Draft whose Touch Draft was left open, or not. */
+const draftOf = (leftOpen: boolean) =>
+  Actor.build(Draft, {
+    init: () => ({ model: { sent: 0, opened: [] } }),
+    provides: (self) =>
+      owner(self.send({ _tag: 'SendAsked' }), (open) =>
+        self.send({ _tag: 'Opened', open }),
+      ),
+    children: { touch: { actor: TouchDraftLive, input: () => leftOpen } },
+    on: {
+      SendAsked: (_, { model }) => ({
+        model: { ...model, sent: model.sent + 1 },
+      }),
+      Opened: ({ open }, { model }) => ({
+        model: { ...model, opened: [...model.opened, open] },
+      }),
+    },
+  });
 
 const settle = Effect.gen(function* () {
   for (let at = 0; at < 30; at++) yield* Effect.yieldNow;
 });
 
-const world = Effect.gen(function* () {
-  const kept = yield* SubscriptionRef.make(nothing.smartInput);
-  const device = Layer.mock(Preferences)({
-    read: Effect.map(SubscriptionRef.get(kept), (smartInput) => ({
-      ...nothing,
-      smartInput,
-    })),
-    changes: SubscriptionRef.changes(kept).pipe(
-      Stream.drop(1),
-      Stream.map(() => undefined),
-    ),
-  });
-  const app = (yield* Runtime.start(
-    DraftLive as never,
-    device as never,
-  )) as Running<unknown>;
-  yield* settle;
-  const root = () => app.snapshot() as Instance;
-  const touch = () => (root().children as { touch: Instance }).touch;
-  return {
-    state: () => Schema.decodeUnknownSync(State)(touch().state)._tag,
-    then: () => Schema.decodeUnknownSync(State)(touch().state),
-    sent: () => (root().model as { sent: number }).sent,
-    /** Smart Input turned on or off, as Settings does. */
-    smart: (on: boolean) =>
-      Effect.andThen(SubscriptionRef.set(kept, on), settle),
-    send: (message: { readonly _tag: string; readonly [k: string]: unknown }) =>
-      Effect.andThen(
-        Effect.sync(() => app.send(touch().id, message)),
-        settle,
+const worldOf = (leftOpen: boolean) =>
+  Effect.gen(function* () {
+    const kept = yield* SubscriptionRef.make(nothing.smartInput);
+    const device = Layer.mock(Preferences)({
+      read: Effect.map(SubscriptionRef.get(kept), (smartInput) => ({
+        ...nothing,
+        smartInput,
+      })),
+      changes: SubscriptionRef.changes(kept).pipe(
+        Stream.drop(1),
+        Stream.map(() => undefined),
       ),
-    heard: (dictation: string, sendable = true) =>
-      Effect.andThen(
-        Effect.sync(() =>
-          app.send(touch().id, { _tag: 'Heard', dictation, sendable }),
+    });
+    const app = (yield* Runtime.start(
+      draftOf(leftOpen) as never,
+      device as never,
+    )) as Running<unknown>;
+    yield* settle;
+    const root = () => app.snapshot() as Instance;
+    const touch = () => (root().children as { touch: Instance }).touch;
+    return {
+      state: () => Schema.decodeUnknownSync(State)(touch().state)._tag,
+      then: () => Schema.decodeUnknownSync(State)(touch().state),
+      sent: () => (root().model as { sent: number }).sent,
+      opened: () => (root().model as { opened: boolean[] }).opened,
+      /** Smart Input turned on or off, as Settings does. */
+      smart: (on: boolean) =>
+        Effect.andThen(SubscriptionRef.set(kept, on), settle),
+      send: (message: {
+        readonly _tag: string;
+        readonly [k: string]: unknown;
+      }) =>
+        Effect.andThen(
+          Effect.sync(() => app.send(touch().id, message)),
+          settle,
         ),
-        settle,
-      ),
-  };
-});
+      heard: (dictation: string, sendable = true) =>
+        Effect.andThen(
+          Effect.sync(() =>
+            app.send(touch().id, { _tag: 'Heard', dictation, sendable }),
+          ),
+          settle,
+        ),
+    };
+  });
+
+const world = worldOf(false);
 
 const run = (test: Effect.Effect<void, unknown, Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(test) as Effect.Effect<void>);
@@ -279,6 +303,41 @@ describe('Touch Draft', () => {
         yield* t.send({ _tag: 'Send' });
         expect(t.sent()).toBe(1);
         expect(t.state()).toBe('Collapsed');
+      }),
+    ));
+
+  it('starts open, not typing, when it was left open', () =>
+    run(
+      Effect.gen(function* () {
+        const t = yield* worldOf(true);
+        expect(t.state()).toBe('Expanded');
+        expect(t.opened()).toEqual([]);
+      }),
+    ));
+
+  it('tells its owner each time it opens or collapses, to keep', () =>
+    run(
+      Effect.gen(function* () {
+        const t = yield* world;
+        yield* t.send({ _tag: 'Open' });
+        expect(t.state()).toBe('Editing');
+        yield* t.send({ _tag: 'Collapse' });
+        expect(t.opened()).toEqual([true, false]);
+      }),
+    ));
+
+  it('opens again while it records collapsed, and goes on recording', () =>
+    run(
+      Effect.gen(function* () {
+        const t = yield* world;
+        yield* t.heard('recording');
+        expect(t.then()).toEqual({ _tag: 'Recording', open: false });
+        yield* t.send({ _tag: 'Open' });
+        expect(t.then()).toEqual({ _tag: 'Recording', open: true });
+        yield* t.send({ _tag: 'Collapse' });
+        yield* t.heard('transcribing');
+        yield* t.send({ _tag: 'Open' });
+        expect(t.then()).toMatchObject({ _tag: 'Transcribing', open: true });
       }),
     ));
 });

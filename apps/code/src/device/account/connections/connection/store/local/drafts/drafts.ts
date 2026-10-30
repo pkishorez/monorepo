@@ -39,7 +39,8 @@ const Attached = Schema.Struct({
  * mode; the Message's files, as they are sent, with their sizes; the
  * agent, model and settings picked, null where none was; and, for a new
  * session, the branch picked and whether it runs in a new Worktree, kept
- * only once picked.
+ * only once picked; and whether, on touch, it was left open, kept only
+ * while it is.
  */
 export const SavedDraft = Schema.Struct({
   mode: Schema.String,
@@ -52,6 +53,7 @@ export const SavedDraft = Schema.Struct({
   }),
   branch: Schema.optionalKey(Schema.String),
   newWorktree: Schema.optionalKey(Schema.Boolean),
+  open: Schema.optionalKey(Schema.Boolean),
 });
 export type SavedDraft = typeof SavedDraft.Type;
 

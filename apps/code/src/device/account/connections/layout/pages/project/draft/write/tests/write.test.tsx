@@ -383,6 +383,29 @@ describe('Draft', () => {
     expect(page.sent).toBe(1);
   });
 
+  it('in the Composer, a new line on Enter, and sends only on Mod+Enter', async () => {
+    await key('i', 'KeyI');
+    const press = (ctrlKey: boolean) =>
+      act(async () => {
+        editor().dispatchEvent(
+          new KeyboardEvent('keydown', {
+            key: 'Enter',
+            code: 'Enter',
+            ctrlKey,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      });
+    await press(false);
+    expect(page.sent).toBe(0);
+    expect(EditorView.findFromDOM(editor())!.state.doc.toString()).toBe(
+      'Please \n',
+    );
+    await press(true);
+    expect(page.sent).toBe(1);
+  });
+
   it('has one primary button: Send with something to send, else the mic, which stops a Dictation recording', async () => {
     const primary = () =>
       document.querySelector('[data-slot="dictate"], [aria-label="Send"]')!;

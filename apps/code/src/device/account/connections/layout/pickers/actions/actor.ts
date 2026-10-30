@@ -18,9 +18,10 @@ import { isKey, rowsOf } from './keys.ts';
  * 1. Read    on a session, the Session, followed while open, for what
  *            applies to it, listed first: Settle or Un-settle; Fork from
  *            the latest Turn; Go to the original, for a Fork; Regenerate
- *            the title; Stop the Turn, while one runs. Then every Action of
- *            the keyboard that worked where it was opened, with its keys in
- *            either Mode (`keys.ts`).
+ *            the title; Stop the Turn, while one runs. Then, with a
+ *            keyboard, every Action of it that worked where it was opened,
+ *            with its keys in either Mode (`keys.ts`); on touch, only the
+ *            session's, and no keys named.
  * 2. Run     a session's action: the Picker waits while the server does
  *            it, then closes, and the app, and the keyboard, go to the
  *            Fork or the original for those two; a refusal is said in the
@@ -56,6 +57,8 @@ const Listing = Schema.Struct({
   /** The Actions of the keyboard that worked where it was opened, by id. */
   available: Schema.Array(Schema.String),
   vim: Schema.Boolean,
+  /** Whether it was opened with a keyboard: on touch no keys are named. */
+  keyboard: Schema.Boolean,
 });
 
 const List = Picker.make('Actions', {
@@ -65,11 +68,14 @@ const List = Picker.make('Actions', {
   }),
   steps: {
     action: {
-      placeholder: () => 'Search actions, by name or key',
+      placeholder: ({ props }) =>
+        props.keyboard ? 'Search actions, by name or key' : 'Search actions',
       empty: () => 'No action by that name',
       rows: ({ props }) => {
         const { session, bindings } = props;
-        const stopKeys = boundIn(bindings, 'content.stop');
+        const stopKeys = props.keyboard
+          ? boundIn(bindings, 'content.stop')
+          : null;
         const sessionRows =
           session === null
             ? []
@@ -111,7 +117,7 @@ const List = Picker.make('Actions', {
                   : []),
               ].map((row) => ({ ...row, group: 'This session' }));
         return {
-          rows: [...sessionRows, ...rowsOf(props)],
+          rows: [...sessionRows, ...(props.keyboard ? rowsOf(props) : [])],
           loading: props.here && session === null,
         };
       },
@@ -164,6 +170,7 @@ export const Actions = Actor.define('Actions', {
     /** The Actions of the keyboard that worked where it was opened. */
     available: Schema.Array(Schema.String),
     vim: Schema.Boolean,
+    keyboard: Schema.Boolean,
     /** The Action of the keyboard chosen, to run once the Picker is closed. */
     chosen: Schema.NullOr(Schema.String),
     /** Where the app goes as the Picker closes, after an action. */
@@ -177,6 +184,7 @@ export const Actions = Actor.define('Actions', {
       at: Schema.NullOr(At),
       available: Schema.Array(Schema.String),
       vim: Schema.Boolean,
+      keyboard: Schema.Boolean,
     },
     Read: { session: Schema.NullOr(Open) },
     Closed: {},
@@ -228,6 +236,7 @@ export const ActionsLive = Actor.build(Actions, {
       session: null,
       available: [],
       vim: false,
+      keyboard: true,
       chosen: null,
       after: null,
     },
@@ -248,6 +257,7 @@ export const ActionsLive = Actor.build(Actions, {
         here: model.sessionId !== '',
         available: model.available,
         vim: model.vim,
+        keyboard: model.keyboard,
       }),
     },
   },
@@ -301,7 +311,7 @@ export const ActionsLive = Actor.build(Actions, {
     },
   },
   on: {
-    Open: ({ how, at, available, vim }, { model }) => {
+    Open: ({ how, at, available, vim, keyboard }, { model }) => {
       if (model.picking !== null) return {};
       const connectionId = at?.connectionId ?? '';
       const sessionId = at?.sessionId ?? '';
@@ -317,6 +327,7 @@ export const ActionsLive = Actor.build(Actions, {
               : null,
           available,
           vim,
+          keyboard,
           chosen: null,
           after: null,
         },

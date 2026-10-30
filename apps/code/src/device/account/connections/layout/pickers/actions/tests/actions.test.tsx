@@ -61,6 +61,7 @@ const Actions = View.make(ActionsLive, ({ model, children, send }) => {
         at: { connectionId: 'm1', sessionId: 's2' },
         available: [],
         vim: true,
+        keyboard: true,
       }),
     ),
   );

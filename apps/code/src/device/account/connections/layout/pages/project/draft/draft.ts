@@ -1,6 +1,7 @@
 import { Schema } from 'effect';
 import { AttachmentSchema } from '@kestack/connect/code';
 import { createContext, type ReactNode } from 'react';
+import type { Stop } from './write/touch/index.ts';
 
 /*
  * What a Draft holds that is sent: its files, and the Inserts put into it;
@@ -45,6 +46,8 @@ export const Insert = {
 export const Slots = createContext<{
   /** Beside the send button, such as Stop. */
   readonly actions?: ReactNode;
+  /** The turn running, to stop: on touch, drawn in the send button's place. */
+  readonly stop?: Stop | null;
   /** The page's own problem, shown where the Draft's would be. */
   readonly problem?: string | null;
   /** Nothing can be sent, as the page says above it, such as in a Project whose folder is missing. */

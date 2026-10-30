@@ -11,8 +11,8 @@ import { DraftMode, type Mode } from './write/view.tsx';
 /*
  * The Draft as its Saved Draft, and back: what is saved is what the Draft
  * shows, its mode open, each mode's text and selection, the Message's
- * files and the picks, a new session's branch and Worktree too, all in one
- * save.
+ * files and the picks, a new session's branch and Worktree too, and on
+ * touch whether it was left open, all in one save.
  *
  * 1. Read   once, before the Draft is drawn, under the Account the app
  *           is drawn as then, the last active while it is checked:
@@ -71,7 +71,7 @@ export const read = (where: Where) =>
  * Message, and a cursor past the end of its text is at the end.
  */
 export const restoredOf = (
-  { mode, written, attachments, chosen, branch, newWorktree }: SavedDraft,
+  { mode, written, attachments, chosen, branch, newWorktree, open }: SavedDraft,
   modes: ReadonlyArray<Mode>,
 ) => {
   const writtenIn = (each: Mode): Written => {
@@ -89,6 +89,7 @@ export const restoredOf = (
     chosen,
     branch: branch ?? null,
     newWorktree: newWorktree ?? false,
+    open: open ?? false,
     opening: {
       Message: writtenIn('Message'),
       SideQuestion: writtenIn('SideQuestion'),
@@ -113,6 +114,8 @@ export interface Shown {
   /** A new session's branch picked, null for none, and its Worktree. */
   readonly branch: string | null;
   readonly newWorktree: boolean;
+  /** On touch, it is open. */
+  readonly open: boolean;
 }
 
 /** The Saved Draft of what the Draft shows: null when it shows nothing. */
@@ -124,7 +127,7 @@ export const savedOf = (
   const written = Object.fromEntries(
     modes.map((mode) => [mode, texts[mode] ?? shown.opening[mode]]),
   );
-  const { mode, attachments, chosen, branch, newWorktree } = shown;
+  const { mode, attachments, chosen, branch, newWorktree, open } = shown;
   const empty =
     mode === 'Message' &&
     Object.values(written).every(({ text }) => text === '') &&
@@ -133,7 +136,8 @@ export const savedOf = (
     chosen.model === null &&
     Object.keys(chosen.settings).length === 0 &&
     branch === null &&
-    !newWorktree;
+    !newWorktree &&
+    !open;
   return empty
     ? null
     : {
@@ -143,6 +147,7 @@ export const savedOf = (
         chosen,
         ...(branch === null ? {} : { branch }),
         ...(newWorktree ? { newWorktree } : {}),
+        ...(open ? { open } : {}),
       };
 };
 

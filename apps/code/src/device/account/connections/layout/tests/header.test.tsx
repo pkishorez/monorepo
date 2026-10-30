@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Links } from '../../connection/link/index.ts';
 import * as routes from '../../../../routes/index.ts';
-import { Offline, Title } from '../layout.tsx';
+import { CONNECTED_FOR, Offline, Title } from '../layout.tsx';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -12,7 +12,7 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * The header's offline mark: nothing while the Connection is in reach; out of
  * reach, a word for a phone's header and the whole reason for a wide one,
  * each drawn only at its width; and, from a list only kept and not yet
- * checked, only linking. Its title: never "not found" for a row still
+ * checked, only linking; once back, Connected for a moment. Its title: never "not found" for a row still
  * to be read.
  */
 
@@ -104,16 +104,36 @@ describe('the offline mark', () => {
 
   it('says only Linking, never down, from a kept list not yet checked', () => {
     render(Date.now() - 18 * 60_000, reachable, 'linking', false);
-    expect(words().phone).toBe('Linking…');
-    expect(words().wide).toBe('Linking…');
+    expect(words().phone).toBe('Connecting…');
+    expect(words().wide).toBe('Connecting…');
     // Checked, the same record is believed: the Connection is down.
     render(Date.now() - 18 * 60_000, reachable, 'linking', true);
     expect(words().phone).toBe('Connection down');
   });
 
-  it('says a socket up and dropped since is down, checked or not', () => {
+  it('says a socket up and dropped since is connecting until checked, then down', () => {
     render(Date.now() - 18 * 60_000, reachable, 'relinking', false);
+    expect(words().phone).toBe('Connecting…');
+    render(Date.now() - 18 * 60_000, reachable, 'relinking', true);
     expect(words().phone).toBe('Connection down');
+  });
+
+  it('says Connected, green, for a moment once it is back, then nothing', async () => {
+    render(Date.now(), reachable, 'relinking', false);
+    expect(words().phone).toBe('Connecting…');
+    render(Date.now(), reachable, 'linked');
+    expect(host.textContent).toBe('Connected');
+    expect(host.querySelector('.bg-positive')).not.toBeNull();
+    await act(
+      () => new Promise((done) => setTimeout(done, CONNECTED_FOR + 50)),
+    );
+    expect(host.textContent).toBe('');
+  });
+
+  it('says nothing when it was in reach all along', () => {
+    render(Date.now(), reachable, 'linked');
+    render(Date.now(), reachable, 'linked');
+    expect(host.textContent).toBe('');
   });
 
   it('leaves linking to the Notice while the code Plugin is Updating', () => {

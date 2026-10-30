@@ -1,4 +1,4 @@
-import { Effect, Schema, Stream, SubscriptionRef } from 'effect';
+import { Effect, Queue, Schema, Stream, SubscriptionRef } from 'effect';
 import { CodeClients } from '@kestack/connect/code';
 import {
   CloudClient,
@@ -66,6 +66,10 @@ import { Prepared } from './connections.ts';
  *             believed only once checked: Cloud Connect has answered, or
  *             `CHECK_FOR` passed without; until then a Connection on its way
  *             is only linking, so a reload never calls it down, then up.
+ *             The page back after `AWAY` or more hidden, the list is as old
+ *             as the time away: it is checked again, and asked at once, so
+ *             coming back never calls a Connection down that is only
+ *             relinking.
  * 5. Forget   a Connection, asked from Settings: Cloud Connect forgets it, it
  *             leaves the list, so its Connection stops and nothing reads its
  *             Instance any more, and an answer asked before never brings
@@ -90,6 +94,34 @@ import { Prepared } from './connections.ts';
 
 /** How long a kept list's Last Seen waits for Cloud Connect's before it is believed anyway. */
 export const CHECK_FOR = 10_000;
+
+/** How long the page may be hidden before what the list says is checked again. */
+export const AWAY = 15_000;
+
+/** Once each time the page shows again after `AWAY` or more hidden; never outside a browser. */
+const back: Stream.Stream<void> =
+  typeof document === 'undefined'
+    ? Stream.never
+    : Stream.callback<void>((queue) =>
+        Effect.acquireRelease(
+          Effect.sync(() => {
+            let hiddenAt: number | null = null;
+            const changed = () => {
+              if (document.visibilityState === 'hidden') {
+                hiddenAt = Date.now();
+                return;
+              }
+              if (hiddenAt !== null && Date.now() - hiddenAt >= AWAY)
+                Queue.offerUnsafe(queue, undefined);
+              hiddenAt = null;
+            };
+            document.addEventListener('visibilitychange', changed);
+            return () =>
+              document.removeEventListener('visibilitychange', changed);
+          }),
+          (stop) => Effect.sync(stop),
+        ),
+      );
 
 /** How long to wait before asking Cloud Connect again, while a link is not up. */
 export const RECHECK = { fast: 3_000, slow: 30_000, fastFor: 20 } as const;
@@ -149,6 +181,8 @@ export const Connections = Actor.define('Connections', {
     ReloadAsked: {},
     RecheckDue: {},
     CheckWaited: {},
+    /** The page shows again after a while hidden. */
+    Back: {},
     LinkChanged: { connectionId: Schema.String, link: Link },
     Mismatched: {
       connectionId: Schema.String,
@@ -243,6 +277,10 @@ export const ConnectionsLive = Actor.build(Connections, {
             Effect.andThen(self.send({ _tag: 'RecheckDue' })),
           ),
         ),
+    },
+    // 4. Recheck: back after a while away, the list is checked again.
+    back: {
+      run: (self) => Stream.runForEach(back, () => self.send({ _tag: 'Back' })),
     },
     // 4. Recheck: the kept list believed anyway, once Cloud Connect
     // has been waited on for long enough.
@@ -360,6 +398,14 @@ export const ConnectionsLive = Actor.build(Connections, {
       model: { ...model, list: copying.ask(model.list), rechecks: 0 },
     }),
     CheckWaited: (_, { model }) => ({ model: { ...model, checked: true } }),
+    Back: (_, { model }) => ({
+      model: {
+        ...model,
+        checked: false,
+        list: copying.ask(model.list),
+        rechecks: 0,
+      },
+    }),
     RecheckDue: (_, { model }) => ({
       model: {
         ...model,

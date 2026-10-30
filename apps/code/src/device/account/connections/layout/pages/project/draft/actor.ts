@@ -156,6 +156,8 @@ const Model = Schema.Struct({
   mode: DraftMode.Mode,
   /** What each mode starts from, as read back; the mode owns it after. */
   opening: Schema.Struct({ Message: Written, SideQuestion: Written }),
+  /** On touch, it is open: kept, and how it opens again. */
+  open: Schema.Boolean,
   given: Schema.NullOr(Given),
   attachments: Schema.Array(Attached),
   /** The last thing put in, for its editor to put in at its cursor. */
@@ -223,6 +225,8 @@ const Message = Schema.TaggedUnion({
   Answered: { id: Schema.Finite, answer: Schema.String },
   AskRefused: { id: Schema.Finite, reason: Schema.String },
   Restored: { where: Schema.NullOr(Where), draft: Schema.NullOr(SavedDraft) },
+  /** On touch, a mode's Touch Draft was opened or collapsed. */
+  Opened: { mode: DraftMode.Mode, open: Schema.Boolean },
 });
 
 const Draft = Actor.define('Draft', {
@@ -261,6 +265,7 @@ export const DraftLive = Actor.build(Draft, {
       started: false,
       mode: 'Message',
       opening: { Message: DraftMode.blank, SideQuestion: DraftMode.blank },
+      open: false,
       given: null,
       attachments: [],
       insert: null,
@@ -321,6 +326,8 @@ export const DraftLive = Actor.build(Draft, {
               ),
             send: (mode: Mode, text: string) =>
               self.send({ _tag: 'SendAsked', mode, text }),
+            opened: (mode: Mode, open: boolean) =>
+              self.send({ _tag: 'Opened', mode, open }),
           };
         }),
       ),
@@ -330,7 +337,10 @@ export const DraftLive = Actor.build(Draft, {
     modes: {
       actor: DraftMode.actor,
       each: ({ model, props }) => (model.restored ? modesOf(props) : []),
-      input: ({ model }, key) => model.opening[key as Mode],
+      input: ({ model }, key) => ({
+        written: model.opening[key as Mode],
+        open: model.open,
+      }),
       props: ({ model, props }, key) => {
         const mode = key as Mode;
         const session = props.to._tag === 'Session';
@@ -634,6 +644,9 @@ export const DraftLive = Actor.build(Draft, {
         ? { model: { ...model, asked: { ...model.asked, problem: reason } } }
         : {},
     // 4. Keep
+    // Only the mode on screen says: another's is out of sight.
+    Opened: ({ mode, open }, { model }) =>
+      mode === model.mode ? { model: { ...model, open } } : {},
     Restored: ({ where, draft }, { model, props }) => ({
       model: {
         ...model,

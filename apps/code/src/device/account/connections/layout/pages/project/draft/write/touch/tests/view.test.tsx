@@ -113,7 +113,7 @@ const PageLive = Actor.build(Page, {
     },
   }),
   children: {
-    touch: { actor: TouchDraft.actor },
+    touch: { actor: TouchDraft.actor, input: () => false },
     skills: {
       actor: SkillPicker.Live,
       while: ({ model }) => model.picking !== null,
@@ -262,6 +262,7 @@ function OnPage({
         label: 'Send',
         blocked: false,
         starting: false,
+        stop: null,
         attachments: null,
         onPaste: (text) =>
           send({ _tag: 'Insert', what: { _tag: 'Text', text } }),

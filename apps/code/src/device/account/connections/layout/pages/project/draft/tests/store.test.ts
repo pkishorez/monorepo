@@ -1,7 +1,7 @@
 import { Effect, Layer } from 'effect';
 import { Accounts, AccountsState } from '@kestack/auth-toolkit/client';
 import { describe, expect, it } from 'vitest';
-import { whereOf } from '../store.ts';
+import { restoredOf, savedOf, whereOf } from '../store.ts';
 
 /*
  * Where a Draft is kept: under the Account the app is drawn as, the one
@@ -43,5 +43,31 @@ describe('where a Draft is kept', () => {
   it('is nowhere with nobody', async () => {
     expect(await whereAs(AccountsState.Checking({}))).toBeNull();
     expect(await whereAs(AccountsState.SignedOut())).toBeNull();
+  });
+});
+
+describe('a Saved Draft, on touch', () => {
+  const blank = { text: '', anchor: 0, head: 0 };
+  const shown = (open: boolean) => ({
+    restored: true,
+    where: null,
+    started: false,
+    mode: 'Message' as const,
+    opening: { Message: blank, SideQuestion: blank },
+    attachments: [],
+    chosen: { account: null, model: null, settings: {} },
+    branch: null,
+    newWorktree: false,
+    open,
+  });
+
+  it('keeps it open, even with nothing written, and opens it so again', () => {
+    const saved = savedOf(shown(true), ['Message'], {});
+    expect(saved).toMatchObject({ open: true });
+    expect(restoredOf(saved!, ['Message']).open).toBe(true);
+  });
+
+  it('keeps nothing for an empty Draft left collapsed', () => {
+    expect(savedOf(shown(false), ['Message'], {})).toBeNull();
   });
 });

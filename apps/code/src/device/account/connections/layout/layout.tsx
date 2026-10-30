@@ -4,7 +4,7 @@ import { Router } from '@kestack/kabuki/routing';
 import { ChevronRightIcon, GitForkIcon } from 'lucide-react';
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { useDevice } from '@kestack/web-platform/ui/input';
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import * as routes from '../../../routes/index.ts';
 import type { Route } from '../../../routes/index.ts';
 import { SessionStatus } from '../../../../ui/labels/status/index.ts';
@@ -277,16 +277,53 @@ export function Title({
   );
 }
 
+/** How long "Connected" shows once the Connection is back, in ms. */
+export const CONNECTED_FOR = 2_000;
+
 /**
  * While the Connection is out of reach, a pill that says why, in a word on a
- * phone; nothing otherwise, nor while its code Plugin Updating or stopped is
+ * phone, amber while it connects; once it is back, a green "Connected" for
+ * a moment, then nothing; nor while its code Plugin Updating or stopped is
  * why it is linking, which `Notice` says.
  */
 export function Offline({ connectionId }: { readonly connectionId: string }) {
   const health = useHealth(connectionId);
   const notice = useNoticePill(connectionId);
   const pill = pillOf(health);
-  if (pill === null) return null;
+  const linked = health._tag === 'Linked';
+  // Back once this page saw it away: Connected, for a moment. Another
+  // Connection shown starts afresh, never Connected for one never away.
+  const away = useRef(!linked);
+  const [back, setBack] = useState(false);
+  const shownFor = useRef(connectionId);
+  useEffect(() => {
+    if (shownFor.current !== connectionId) {
+      shownFor.current = connectionId;
+      away.current = !linked;
+      setBack(false);
+      return;
+    }
+    if (!linked) {
+      away.current = true;
+      setBack(false);
+      return;
+    }
+    if (!away.current) return;
+    away.current = false;
+    setBack(true);
+    const timer = setTimeout(() => setBack(false), CONNECTED_FOR);
+    return () => clearTimeout(timer);
+  }, [linked, connectionId]);
+  if (pill === null)
+    return back ? (
+      <span
+        role="status"
+        className="inline-flex h-7 shrink-0 animate-in items-center gap-2 rounded-full border border-border bg-muted/50 px-3 text-xs font-medium duration-200 ease-out fade-in-0 motion-reduce:animate-none"
+      >
+        <StandingDot kind="Linked" />
+        Connected
+      </span>
+    ) : null;
   // A Plugin Updating or stopped is why it is linking: the Notice says so.
   if (
     notice !== null &&
