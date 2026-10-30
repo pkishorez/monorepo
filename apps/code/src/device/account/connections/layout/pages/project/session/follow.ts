@@ -1,5 +1,5 @@
 import type { useElementScrollRestoration } from '@kestack/kabuki/routing/router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { keys } from '../../../commands.ts';
 
 /*
@@ -20,7 +20,10 @@ import { keys } from '../../../commands.ts';
  * not new words: what was clicked stays just where it was on the screen,
  * whatever grew or shrank above or below it, and it follows on only if
  * that left the reader at the bottom. Away from the bottom, `away` says
- * so, for a way back down.
+ * so, for a way back down. What is drawn above the view without the
+ * reader asking, as a long transcript's turns drawn after it opens, moves
+ * the view by as much through `shift`, so it stays where it was on the
+ * screen, and the reader's own scroll up still lets go.
  *
  * Its keys, on the page's Surface while it is open (`useScrollKeys`): j
  * and k scroll a line, Ctrl+D and Ctrl+U half a page, g g goes to the top
@@ -65,6 +68,7 @@ export function useFollow(
   const content = useRef<HTMLDivElement>(null);
   const stuck = useRef(true);
   const toBottom = useRef((_smooth?: boolean) => {});
+  const shiftBy = useRef((_by: number) => {});
   /** Where the entry was scrolled, until it is reached or the reader moves. */
   const target = useRef<number | null>(null);
   const keptNow = useRef(kept);
@@ -92,6 +96,13 @@ export function useFollow(
       });
       if (!smooth) last = outer.scrollTop;
       report();
+    };
+    // Moved as much as what was drawn above it: no scroll of the reader's,
+    // so a scroll of theirs it lands within is still told by its direction.
+    shiftBy.current = (by) => {
+      const before = outer.scrollTop;
+      outer.scrollTop = before + by;
+      last += outer.scrollTop - before;
     };
     /** Back where the entry was, once what it holds reaches that far. */
     const toKept = () => {
@@ -152,6 +163,9 @@ export function useFollow(
         toBottom.current();
     };
     const grown = new ResizeObserver(() => {
+      // A scroll of the reader's whose event is yet to come is still theirs:
+      // seen first, so a scroll up just begun lets go before anything grows.
+      onScroll();
       if (target.current !== null) toKept();
       // What a click opened is not new words to follow.
       else if (stuck.current && performance.now() > pinUntil)
@@ -180,13 +194,17 @@ export function useFollow(
       outer.removeEventListener('keydown', onGesture);
       inner.removeEventListener('click', onClick, { capture: true });
       grown.disconnect();
+      shiftBy.current = () => {};
     };
   }, [key]);
+  const shift = useCallback((by: number) => shiftBy.current(by), []);
   return {
     scroller,
     content,
     /** Away from the bottom, not following: show a way back down. */
     away,
+    /** What was drawn above the view grew by `by` px: the view moves with it. */
+    shift,
     /** The reader scrolls up: stop following. */
     letGo: () => {
       target.current = null;
@@ -201,8 +219,14 @@ export function useFollow(
   };
 }
 
-/** The keys that scroll what `useFollow` follows. */
-export function useScrollKeys(follow: ReturnType<typeof useFollow>) {
+/**
+ * The keys that scroll what `useFollow` follows; `beforeTop` makes all of
+ * what it holds be there before `g g` goes to its top.
+ */
+export function useScrollKeys(
+  follow: ReturnType<typeof useFollow>,
+  { beforeTop }: { readonly beforeTop?: () => void } = {},
+) {
   const { scroller } = follow;
   const by = (top: number) => {
     if (top < 0) follow.letGo();
@@ -216,6 +240,7 @@ export function useScrollKeys(follow: ReturnType<typeof useFollow>) {
   keys.useAction('content.pageDown', () => by(page(0.9)));
   keys.useAction('content.pageUp', () => by(-page(0.9)));
   keys.useAction('content.top', () => {
+    beforeTop?.();
     follow.letGo();
     scroller.current?.scrollTo({ top: 0, behavior: 'instant' });
   });

@@ -1,4 +1,5 @@
 import { CircleAlertIcon, ListChecksIcon } from 'lucide-react';
+import { memo } from 'react';
 import type { Row } from '../rows/index.ts';
 import { Checklist, Markdown, progressOf, Writing } from '../../words/index.ts';
 import { Asked, stateOf } from '../../tool/index.ts';
@@ -33,7 +34,10 @@ export const isSaid = (row: Row): row is SaidRow =>
   row.kind === 'note' ||
   (row.kind === 'tool' && askedOf(row.call, row.answered) !== null);
 
-export function Said({
+/** Drawn again only as its row changes: words already said are not read again. */
+export const Said = memo(SaidView);
+
+function SaidView({
   row,
   running,
   nested = false,

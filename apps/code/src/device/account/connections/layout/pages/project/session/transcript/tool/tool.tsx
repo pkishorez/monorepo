@@ -2,7 +2,12 @@ import { useContext, type ReactNode } from 'react';
 import { CheckIcon, SquareIcon, XIcon } from 'lucide-react';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import type { ToolState, Row } from '../turns/rows/index.ts';
-import { Chevron, type Opening, unlessSelecting } from '../words/index.ts';
+import {
+  Chevron,
+  type Opening,
+  unlessSelecting,
+  useOpen,
+} from '../words/index.ts';
 import { Folder, groupTitle, reasonOf, summary } from './parse/index.ts';
 import { KINDS } from './kinds/kinds.ts';
 
@@ -78,7 +83,7 @@ export function StepLine({
   readonly below?: ReactNode;
   readonly children: ReactNode;
 }) {
-  const open = opening.isOpen(id);
+  const open = useOpen(opening, id);
   const toggle = () => opening.toggle(id);
   return (
     <li className="flex min-w-0 flex-col">

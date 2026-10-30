@@ -1,4 +1,4 @@
-import type { Row } from './rows/index.ts';
+import { type Row, sameItems } from './rows/index.ts';
 import { isSaid, type SaidRow } from './answer/said.tsx';
 import type { Spend } from './answer/footer.tsx';
 
@@ -42,6 +42,27 @@ export const turnsOf = (rows: ReadonlyArray<Row>): ReadonlyArray<Turn> => {
       turns.push({ id: `${row.id}:turn`, asks: [], rows: [row], ended: null });
   }
   return turns;
+};
+
+/**
+ * Turns made again, each the same object it was before wherever its rows
+ * are (`kept`), so a turn that did not change is not drawn again.
+ */
+export const keptTurns = (
+  before: ReadonlyArray<Turn>,
+  after: ReadonlyArray<Turn>,
+): ReadonlyArray<Turn> => {
+  if (before.length === 0) return after;
+  const old = new Map(before.map((turn) => [turn.id, turn]));
+  return after.map((turn) => {
+    const was = old.get(turn.id);
+    return was !== undefined &&
+      was.ended === turn.ended &&
+      sameItems(was.asks, turn.asks) &&
+      sameItems(was.rows, turn.rows)
+      ? was
+      : turn;
+  });
 };
 
 export type Piece =

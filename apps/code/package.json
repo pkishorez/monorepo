@@ -13,6 +13,7 @@
     "lint:laymos": "laymos lint",
     "test": "vitest run",
     "size": "node scripts/size.ts",
+    "bench": "node scripts/bench.ts",
     "tree": "node scripts/tree.ts",
     "draw:install": "node scripts/draw-install.ts",
     "deploy": "alchemy deploy",

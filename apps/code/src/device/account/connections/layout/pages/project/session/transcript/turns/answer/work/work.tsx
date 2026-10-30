@@ -1,7 +1,7 @@
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
-import { useContext } from 'react';
-import { Chevron, type Opening } from '../../../words/index.ts';
-import type { Row } from '../../rows/index.ts';
+import { memo, useContext } from 'react';
+import { Chevron, type Opening, useOpen } from '../../../words/index.ts';
+import { type Row, sameItems } from '../../rows/index.ts';
 import { Folder, KINDS, stateOf, summary } from '../../../tool/index.ts';
 import { Steps } from './steps.tsx';
 import { kindsOf, tally } from './tally.ts';
@@ -34,13 +34,7 @@ const nowOf = (rows: ReadonlyArray<Row>, folder: string | null): string => {
   return 'Working';
 };
 
-export function Work({
-  id,
-  rows,
-  opening,
-  running,
-  live,
-}: {
+interface WorkProps {
   readonly id: string;
   readonly rows: ReadonlyArray<Row>;
   readonly opening: Opening;
@@ -48,9 +42,22 @@ export function Work({
   readonly running: boolean;
   /** Whether this run of work is going on now: the last thing in a turn that runs, or a step of it still running. */
   readonly live: boolean;
-}) {
+}
+
+/** Drawn again only as its steps, or whether it runs, change. */
+export const Work = memo(
+  WorkLine,
+  (a, b) =>
+    a.id === b.id &&
+    a.opening === b.opening &&
+    a.running === b.running &&
+    a.live === b.live &&
+    sameItems(a.rows, b.rows),
+);
+
+function WorkLine({ id, rows, opening, running, live }: WorkProps) {
   const folder = useContext(Folder);
-  const open = opening.isOpen(id);
+  const open = useOpen(opening, id);
   const states = rows.flatMap((row) =>
     row.kind === 'tool' || row.kind === 'subagent'
       ? [stateOf(row.state, running)]
