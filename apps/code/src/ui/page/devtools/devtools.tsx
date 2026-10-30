@@ -9,7 +9,8 @@ import { DevtoolsDock } from '@kestack/web-platform/recipes/devtools';
  * screen, as a bar, a side panel or a floating window. It reads code
  * through the Kabuki Session Api, answered in memory by code's running
  * app. It sits outside code's tree, so picking a past Step Time Travels
- * code itself, read only until it goes live again.
+ * code itself, read only until it goes live again. Not on a phone, where
+ * the button would cover the Draft's Send and Stop.
  * Ctrl+/ or ⌘/ opens and closes them too; code shows its keys with
  * Ctrl+? instead. Their code loads the first time they are opened.
  */
@@ -25,6 +26,7 @@ export function Devtools({ children }: { readonly children: ReactNode }) {
   return (
     <DevtoolsDock
       storageKey="code:devtools"
+      onPhones={false}
       devtools={(layout) =>
         runtime && (
           <Suspense fallback={null}>
