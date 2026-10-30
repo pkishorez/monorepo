@@ -12,6 +12,9 @@ import { Preferences } from '../../../../../../../../store.ts';
  * what was asked may not happen, such as a start with no Connection to
  * transcribe on. Whether it takes
  * Smart Input, and Smart Displacement, is its Model, kept in Preferences.
+ * Whether it is open is told to its owner as it changes, which keeps it
+ * with the Saved Draft, and it starts open, as Expanded, when it was left
+ * open: never typing, as the keyboard only rises for a tap.
  *
  * 1. Collapsed     one line, read only. Opened, it is Editing; with Smart
  *                  Input, Expanded.
@@ -24,7 +27,8 @@ import { Preferences } from '../../../../../../../../store.ts';
  *                  the same, then the Draft is sent; cancel: thrown away.
  *                  A Dictation that stops on its own is taken. `open`:
  *                  started open, and goes back to Expanded; collapsed,
- *                  it goes on, on one line.
+ *                  it goes on, on one line, and a tap opens it again, so
+ *                  its words can be read and selected as it records.
  * 5. Transcribing  until its text is in, then back, or Sending when it
  *                  was taken to send and the Draft can be sent then; if
  *                  it cannot, as offline, the text stays in the Draft.
@@ -59,8 +63,18 @@ export const Heard = Schema.Literals([
 /** What the Touch Draft asks of its owner, the Draft. */
 export class Owner extends Context.Service<
   Owner,
-  { readonly send: Effect.Effect<void> }
+  {
+    readonly send: Effect.Effect<void>;
+    /** Keeps whether it is open, each time that changes. */
+    readonly opened: (open: boolean) => Effect.Effect<void>;
+  }
 >()('code/TouchDraft/Owner') {}
+
+/** Whether a State is drawn open. */
+export const isOpen = (state: typeof State.Type) =>
+  state._tag === 'Expanded' ||
+  state._tag === 'Editing' ||
+  ((state._tag === 'Recording' || state._tag === 'Transcribing') && state.open);
 
 const send = Command.make('TouchDraftSends', {
   run: () =>
@@ -71,6 +85,8 @@ const send = Command.make('TouchDraftSends', {
 
 export const TouchDraft = Actor.define('TouchDraft', {
   requires: [Preferences, Owner],
+  /** It was left open. */
+  input: Schema.Boolean,
   model: Schema.Struct({ smart: Schema.Boolean, displace: Schema.Boolean }),
   state: State,
   message: Schema.TaggedUnion({
@@ -121,8 +137,23 @@ const atRest = (open: boolean) => ({
 const editing = { state: { _tag: 'Editing' as const } };
 
 export const TouchDraftLive = Actor.build(TouchDraft, {
-  init: () => ({ model: { smart: false, displace: false }, state: collapsed }),
+  init: (open) => ({
+    model: { smart: false, displace: false },
+    state: open ? { _tag: 'Expanded' } : collapsed,
+  }),
   workers: {
+    // Whether it is open, told as it changes.
+    opened: {
+      run: (self) =>
+        Effect.flatMap(Owner, (owner) =>
+          self.changes.pipe(
+            Stream.map(({ state }) => isOpen(state)),
+            Stream.changes,
+            Stream.drop(1),
+            Stream.runForEach(owner.opened),
+          ),
+        ),
+    },
     // Smart Input as kept, read again after every write.
     smart: {
       run: (self) =>
@@ -184,6 +215,7 @@ export const TouchDraftLive = Actor.build(TouchDraft, {
           state: transcribing(state.open, then ? 'send' : 'take'),
         }),
         Cancel: (_, { state }) => ({ state: back(state.open) }),
+        Open: (_, { state }) => ({ state: { ...state, open: true } }),
         Collapse: (_, { state }) => ({ state: { ...state, open: false } }),
         Heard: ({ dictation }, { state }) =>
           dictation === 'transcribing'
@@ -197,6 +229,7 @@ export const TouchDraftLive = Actor.build(TouchDraft, {
     Transcribing: {
       on: {
         Cancel: (_, { state }) => ({ state: back(state.open) }),
+        Open: (_, { state }) => ({ state: { ...state, open: true } }),
         Collapse: (_, { state }) => ({ state: { ...state, open: false } }),
         Heard: ({ dictation, sendable }, { state }) => {
           if (dictation === 'text') return { state: { ...state, said: true } };
@@ -221,6 +254,8 @@ export const TouchDraftLive = Actor.build(TouchDraft, {
   },
 });
 
-/** The Layer the Draft Provides: how the Touch Draft has it sent. */
-export const owner = (sendDraft: Effect.Effect<void>) =>
-  Layer.succeed(Owner, { send: sendDraft });
+/** The Layer the Draft Provides: how the Touch Draft has it sent, and keeps whether it is open. */
+export const owner = (
+  sendDraft: Effect.Effect<void>,
+  opened: (open: boolean) => Effect.Effect<void> = () => Effect.void,
+) => Layer.succeed(Owner, { send: sendDraft, opened });

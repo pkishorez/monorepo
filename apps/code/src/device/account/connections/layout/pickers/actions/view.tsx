@@ -1,6 +1,7 @@
 import { View, type ViewProps } from '@kestack/kabuki/react';
 import { useRouter } from '@kestack/kabuki/routing';
 import { Button } from '@kestack/web-platform/ui/components/button';
+import { useDevice } from '@kestack/web-platform/ui/input';
 import { EllipsisIcon } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { keys, useBound } from '../../commands.ts';
@@ -13,7 +14,8 @@ import { ActionsLive, ListView } from './actor.ts';
  * opens them as a popover and a tap in a Drawer; `a` and Ctrl+K open them
  * centred on a session, `?` in Vim Mode and Ctrl+? from anywhere, and the
  * Status Line's help runs Ctrl+?'s Action. On a phone the button is the
- * header's only one, a finger wide. The keyboard's Actions it lists are
+ * header's only one, a finger wide, and only the session's own Actions
+ * are listed, no keys named. The keyboard's Actions it lists are
  * what worked where it was opened from, as the keyboard said just before
  * the Picker took it, and the one chosen runs after the Picker has
  * closed, back where the user was.
@@ -56,11 +58,20 @@ export function Opened({
   const latest = useRef(available);
   latest.current = available;
   const { vim } = keys.useKeyboard();
+  const { keyboard } = useDevice();
   /** What worked where it is opened, as the keyboard says just before. */
   const working = () =>
     latest.current.filter(({ shadowed }) => !shadowed).map(({ id }) => id);
   const opens = (how: typeof Picker.How.Type) =>
-    send({ _tag: 'Open', how, at, available: working(), vim: vim.on });
+    send({
+      _tag: 'Open',
+      how,
+      at,
+      available: working(),
+      vim: vim.on,
+      // Opened by its keys, there is a keyboard, whatever was seen before.
+      keyboard: keyboard || how === 'keys',
+    });
   const show = () => open(() => opens('keys'));
   keys.useAction('app.actions', show, { enabled: at !== null });
   keys.useAction('app.actionsAnywhere', show, { enabled: at !== null });

@@ -38,7 +38,8 @@ import { Words } from './words/index.ts';
  *               Collapse on top, the words under them, and the same
  *               controls under those. Collapse and open is one control;
  *               typing and not, another. Open but not editing, a tap in the words places
- *               the caret with Smart Input, and edits without.
+ *               the caret with Smart Input, and edits without; while a
+ *               Dictation records, it places the caret either way.
  *
  * Its controls are `controls/`; what it runs on, from the Actor and the
  * Draft, is `touch.ts`.
@@ -83,9 +84,6 @@ export const TouchDraftView = View.make(
           ref={(element) => both(holder, root.ref, element)}
           className="flex flex-col gap-2"
         >
-          {slots.actions !== undefined && slots.actions !== false && (
-            <div className="flex justify-end">{slots.actions}</div>
-          )}
           {/* Trapped: no swipe that starts on it reaches the sidebar. */}
           <GestureZone trapped className="contents">
             <motion.div
@@ -174,7 +172,7 @@ export const TouchDraftView = View.make(
                   editor={draft}
                   editing={t.editing}
                   onEdit={t.edit}
-                  tapEdits={!t.expanded || !t.smart}
+                  tapEdits={!t.expanded || (!t.smart && !t.dictating)}
                   oneLine={!t.expanded}
                   displace={t.displace}
                   swipes={{}}
@@ -229,6 +227,7 @@ export const TouchDraftView = View.make(
                         onSend: draft.send,
                       }
                 }
+                stop={slots.stop}
                 onDictate={t.dictate}
                 onTake={t.take}
                 onRetry={t.retry}

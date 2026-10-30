@@ -21,8 +21,9 @@ type Connection = typeof ConnectionSchema.Type;
  * version of `ke-connect` it runs, which the app asks to update once it is
  * Outdated, older than Cloud Connect accepts. A record only as this device kept it is old by
  * nature, so it says nothing until it is checked: Cloud Connect answered,
- * its socket was up and dropped, or long enough passed (`Known.checked`);
- * until then the Connection is only linking.
+ * or long enough passed (`Known.checked`); until then the Connection is
+ * only linking, its socket on its way or relinking, as it is when the page
+ * comes back after a while hidden.
  */
 
 /** How often a Connection reports itself, and the list is asked again. */
@@ -57,8 +58,8 @@ export const health = (
 ): Health => {
   if (link === 'linked') return { _tag: 'Linked' };
   if (connection === null) return { _tag: 'Unknown' };
-  // A socket up and dropped since is news; a kept record on its own is not.
-  if (!checked && link === 'linking') return { _tag: 'Unknown' };
+  // A record not checked is old news, whatever the socket does.
+  if (!checked) return { _tag: 'Unknown' };
   const { lastSeen, status } = connection;
   if (now - lastSeen > DOWN_AFTER) return { _tag: 'Down', lastSeen };
   return { _tag: 'Seen', lastSeen, status };

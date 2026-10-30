@@ -12,8 +12,8 @@ import {
 } from 'react';
 import type { Availability } from '../../../../../../voice/index.ts';
 import type { ViewProps } from '@kestack/kabuki/react';
-import type { Heard, TouchDraftLive } from './actor.ts';
-import type { Phase } from './controls/index.ts';
+import { type Heard, isOpen, type TouchDraftLive } from './actor.ts';
+import type { Phase, Stop } from './controls/index.ts';
 
 /*
  * The Touch Draft's ties to the Draft around it: what the Draft hands it
@@ -64,7 +64,7 @@ export interface Draft {
     readonly onChooseMicrophone?: () => void;
   };
   /** Makes it the Composer and focuses it, in the tap. */
-  readonly write: () => void;
+  readonly write: (how?: { readonly scroll?: boolean }) => void;
   /** Sends it, if there is something to send. */
   readonly send: () => void;
 }
@@ -82,8 +82,8 @@ export const Touch = createContext<{
   readonly blocked: boolean;
   /** A new session is being started: Send waits. */
   readonly starting: boolean;
-  /** What the page adds, such as Stop. */
-  readonly actions?: ReactNode;
+  /** The turn running, to stop, or null. */
+  readonly stop: Stop | null;
   readonly onPaste: (text: string) => void;
   /** Where the View says how the Draft is sent on touch: through it. */
   readonly sending: RefObject<(() => void) | null>;
@@ -213,12 +213,9 @@ export function useTouchDraft(
     return () => void (sending.current = null);
   });
 
-  const expanded =
-    state._tag === 'Expanded' ||
-    state._tag === 'Editing' ||
-    ((state._tag === 'Recording' || state._tag === 'Transcribing') &&
-      state.open);
+  const expanded = isOpen(state);
   const editing = state._tag === 'Editing';
+
   // The card, drawn open by hand in a tap that opens it to edit.
   const card = useRef<HTMLDivElement>(null);
   // Focus it moves itself, which is no leaving.
@@ -236,14 +233,21 @@ export function useTouchDraft(
     const frame = requestAnimationFrame(() => {
       if (draft.view.current?.hasFocus) return;
       moving.current = true;
-      draft.write();
+      draft.write({ scroll: false });
       moving.current = false;
     });
     return () => cancelAnimationFrame(frame);
   }, [editing]);
 
-  // A tap on it collapsed: open, or draw it open and then edit.
+  // A tap on it collapsed: open, or draw it open and then edit. While a
+  // Dictation records or is written out, only open: its words to read
+  // and select, the keyboard down.
   const open = () => {
+    if (
+      (state._tag === 'Recording' || state._tag === 'Transcribing') &&
+      !state.open
+    )
+      return send({ _tag: 'Open' });
     if (draft.disabled || state._tag !== 'Collapsed') return;
     if (!model.smart && card.current !== null) {
       card.current.removeAttribute('data-collapsed');
@@ -256,13 +260,26 @@ export function useTouchDraft(
   // Open already, the card keeps its size: the words take focus in the tap.
   const edit = () => {
     if (draft.disabled) return;
-    if (state._tag === 'Collapsed') return open();
+    if (
+      state._tag === 'Collapsed' ||
+      ((state._tag === 'Recording' || state._tag === 'Transcribing') &&
+        !state.open)
+    )
+      return open();
     if (state._tag !== 'Expanded') return;
-    draft.write();
+    // Its words stay where they were scrolled to, as the keyboard rises.
+    draft.write({ scroll: false });
     send({ _tag: 'Edit' });
   };
+  // Collapsed by hand, a selection goes: a cursor is left at its end, so a
+  // tap that opens it again starts from there. Left by a tap elsewhere, it
+  // stays, for a keyboard that turns up after.
   const collapse = () => {
     blur();
+    const view = draft.view.current;
+    const main = view?.state.selection.main;
+    if (view && main && !main.empty)
+      view.dispatch({ selection: { anchor: main.head } });
     send({ _tag: 'Collapse' });
   };
   // Smart Input: stop typing, and stay open.
@@ -334,6 +351,8 @@ export function useTouchDraft(
   return {
     expanded,
     editing,
+    /** A Dictation records or is written out: a tap in the words selects, never edits. */
+    dictating: state._tag === 'Recording' || state._tag === 'Transcribing',
     smart: model.smart,
     displace: model.displace,
     card,

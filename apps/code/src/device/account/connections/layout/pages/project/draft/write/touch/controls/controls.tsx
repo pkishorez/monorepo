@@ -4,6 +4,7 @@ import {
   CheckIcon,
   MicIcon,
   RotateCcwIcon,
+  SquareIcon,
   Trash2Icon,
   XIcon,
 } from 'lucide-react';
@@ -28,7 +29,17 @@ import { Slot } from './slot.tsx';
  * failed        Discard  (the words, with Retry)   Try again, Send
  *
  * Send shows once there is something to send, or while one records.
+ * While a turn runs and nothing records, Stop stands where Send would be,
+ * filled while there is nothing to send, quiet beside Send once there is.
  */
+
+/** A running turn's Stop, as the page hands it to the Draft. */
+export type Stop = {
+  readonly run: () => void;
+  readonly stopping: boolean;
+  /** Nothing can be stopped, as while the Connection is out of reach. */
+  readonly disabled: boolean;
+};
 
 /** What the line is doing now: each draws its own controls. */
 export type Phase =
@@ -41,6 +52,14 @@ export type Phase =
 /** A round button, a thumb's. */
 const ROUND =
   'size-12 shrink-0 rounded-full [&_svg:not([class*=size-])]:size-5';
+/**
+ * The filled one on the right, Send or Stop: collapsed, smaller in the
+ * same cell, so it sits inside the card's round corner, never against it.
+ */
+const PRIMARY = cn(
+  ROUND,
+  'size-11 in-data-collapsed:m-1 in-data-collapsed:size-10',
+);
 const QUIET = cn(
   ROUND,
   'text-muted-foreground shadow-none hover:bg-muted active:bg-muted aria-expanded:bg-muted',
@@ -62,6 +81,7 @@ export function Controls({
   recording,
   add,
   send,
+  stop,
   onDictate,
   onTake,
   onRetry,
@@ -79,6 +99,7 @@ export function Controls({
     readonly busy: boolean;
     readonly onSend: () => void;
   };
+  readonly stop: Stop | null;
   readonly onDictate: () => void;
   readonly onTake: () => void;
   readonly onRetry: () => void;
@@ -165,6 +186,27 @@ export function Controls({
         )}
         {phase === 'failed' &&
           quiet('Try again', <RotateCcwIcon aria-hidden />, onRetry)}
+        {stop !== null && phase === 'idle' && (
+          <Button
+            type="button"
+            variant={send.shown ? 'ghost' : 'default'}
+            size="icon"
+            aria-label="Stop the turn"
+            disabled={stop.disabled || stop.stopping}
+            onMouseDown={keepFocus}
+            onClick={stop.run}
+            className={cn(
+              send.shown ? QUIET : PRIMARY,
+              'transition-[background-color,color,scale] duration-150 ease-out active:not-disabled:scale-[0.96] motion-reduce:transition-none',
+            )}
+          >
+            {stop.stopping ? (
+              <Spinner />
+            ) : (
+              <SquareIcon aria-hidden className="size-3.5 fill-current" />
+            )}
+          </Button>
+        )}
         {send.shown && (
           <Button
             type="button"
@@ -174,8 +216,8 @@ export function Controls({
             onMouseDown={keepFocus}
             onClick={send.onSend}
             className={cn(
-              ROUND,
-              'size-11 transition-[background-color,color,scale] duration-150 ease-out active:not-disabled:scale-[0.96] disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 motion-reduce:transition-none',
+              PRIMARY,
+              'transition-[background-color,color,scale] duration-150 ease-out active:not-disabled:scale-[0.96] disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 motion-reduce:transition-none',
             )}
           >
             {send.busy ? <Spinner /> : <ArrowUpIcon aria-hidden />}

@@ -35,7 +35,7 @@ import type { Insert } from '../draft.ts';
  *             keyboard, where it is read only at rest (`touch/`). In an
  *             untouched Draft the cursor is at the end.
  * 2. Write    `i`, or a tap, makes it the Composer in place: typed into,
- *             Enter or Mod+Enter sending, Shift+Enter a new line. Escape,
+ *             Mod+Enter sending, Enter a new line. Escape,
  *             as any move to the page's Normal Mode, makes it read only
  *             again, keeping its text, cursor and selection. With no
  *             keyboard the Touch Draft's edit does, and its Done undoes.
@@ -241,9 +241,9 @@ export function useDraft(options: DraftOptions) {
 
   // Focus first, in the same handler as the tap: iOS raises its keyboard
   // only for focus that comes straight from one.
-  const write = () => {
+  const write = (how?: { readonly scroll?: boolean }) => {
     if (disabled) return;
-    editor.write();
+    editor.write(how);
     setWriting(true);
   };
 
@@ -272,7 +272,7 @@ export function useDraft(options: DraftOptions) {
     },
   });
 
-  keys.useAction('content.write', write, { enabled: !disabled });
+  keys.useAction('content.write', () => write(), { enabled: !disabled });
   keys.useAction('content.send', send, { enabled: filled && !disabled });
   // 5. Undo
   keys.useAction('content.undo', editor.undo, { enabled: !disabled });
@@ -458,7 +458,7 @@ export function Heading({ draft }: { readonly draft: Draft }) {
       <div aria-hidden className={HEADING}>
         <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground/40" />
         <span>{draft.title ?? 'Message'}</span>
-        <span className={HINT}>Shift+Enter for a new line</span>
+        <span className={HINT}>{SEND_KEYS} to send</span>
       </div>
     );
   return (
@@ -477,6 +477,13 @@ export function Heading({ draft }: { readonly draft: Draft }) {
     </div>
   );
 }
+
+/** What sends, as this computer's keyboard says it. */
+const SEND_KEYS =
+  typeof navigator !== 'undefined' &&
+  /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)
+    ? '⌘ Enter'
+    : 'Ctrl+Enter';
 
 /**
  * The Status Line, the one line at the foot of the Draft: the model and its

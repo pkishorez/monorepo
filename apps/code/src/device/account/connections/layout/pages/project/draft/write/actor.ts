@@ -22,7 +22,8 @@ import { TouchDraft } from './touch/index.ts';
  *            Text the Draft gives back, a refused send's, it takes once.
  * 3. Send    its text goes up to the Draft, to send or ask. In a Session
  *            it empties at once. On a device with no keyboard it holds
- *            the Touch Draft, which has it sent the same way.
+ *            the Touch Draft, which has it sent the same way, and whose
+ *            being open goes up to the Draft too, to be kept.
  */
 
 // 1. Modes
@@ -61,12 +62,20 @@ export class Owner extends Context.Service<
     ) => Effect.Effect<void>;
     /** Sends the mode's text, or asks it. */
     readonly send: (mode: Mode, text: string) => Effect.Effect<void>;
+    /** Keeps whether its Touch Draft is open. */
+    readonly opened: (mode: Mode, open: boolean) => Effect.Effect<void>;
   }
 >()('code/DraftMode/Owner') {}
 
 /** The Layer the Draft Provides: what each mode hands it. */
 export const owner = <R>(given: Effect.Effect<Owner['Service'], never, R>) =>
   Layer.effect(Owner, given);
+
+const openedUp = Command.make('DraftModeOpened', {
+  args: Schema.Struct({ mode: Mode, open: Schema.Boolean }),
+  run: ({ mode, open }) =>
+    Effect.flatMap(Owner, (owner) => owner.opened(mode, open)),
+});
 
 const sendUp = Command.make('DraftModeSends', {
   args: Schema.Struct({ mode: Mode, text: Schema.String }),
@@ -88,8 +97,16 @@ const Props = Schema.Struct({
   given: Schema.NullOr(Given),
 });
 
+/** What a mode starts from: its text, and whether its Touch Draft was left open. */
+export const Opening = Schema.Struct({
+  written: Written,
+  open: Schema.Boolean,
+});
+
 const Model = Schema.Struct({
   written: Written,
+  /** Its Touch Draft was left open. */
+  open: Schema.Boolean,
   /** The last text given it that it took. */
   took: Schema.Finite,
 });
@@ -97,21 +114,27 @@ const Model = Schema.Struct({
 const DraftMode = Actor.define('DraftMode', {
   requires: [Owner],
   /** What it starts from. */
-  input: Written,
+  input: Opening,
   props: Props,
   model: Model,
   message: Schema.TaggedUnion({
     Edited: Written.fields,
     SendAsked: {},
     Took: { given: Given },
+    TouchOpened: { open: Schema.Boolean },
   }),
 });
 
 export const DraftModeLive = Actor.build(DraftMode, {
-  init: (written) => ({ model: { written, took: 0 } }),
+  init: ({ written, open }) => ({ model: { written, open, took: 0 } }),
   // 3. Send: on touch, through the Touch Draft.
-  provides: (self) => TouchDraft.owner(self.send({ _tag: 'SendAsked' })),
-  children: { touch: { actor: TouchDraft.actor } },
+  provides: (self) =>
+    TouchDraft.owner(self.send({ _tag: 'SendAsked' }), (open) =>
+      self.send({ _tag: 'TouchOpened', open }),
+    ),
+  children: {
+    touch: { actor: TouchDraft.actor, input: ({ model }) => model.open },
+  },
   workers: {
     // 2. Write
     shows: {
@@ -148,9 +171,14 @@ export const DraftModeLive = Actor.build(DraftMode, {
       const now = model.written.text;
       const text =
         given.replaces || now === '' ? given.text : `${given.text}\n\n${now}`;
-      return { model: { written: writtenOf(text), took: given.id } };
+      return {
+        model: { ...model, written: writtenOf(text), took: given.id },
+      };
     },
     // 3. Send
+    TouchOpened: ({ open }, { props }) => ({
+      command: openedUp({ mode: props.mode, open }),
+    }),
     SendAsked: (_, { model, props }) => ({
       ...(props.clears ? { model: { ...model, written: blank } } : {}),
       command: sendUp({ mode: props.mode, text: model.written.text }),

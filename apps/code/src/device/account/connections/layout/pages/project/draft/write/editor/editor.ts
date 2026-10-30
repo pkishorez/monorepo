@@ -4,7 +4,6 @@ import {
   historyField,
   historyKeymap,
   undo,
-  insertNewlineAndIndent,
 } from '@codemirror/commands';
 import {
   Annotation,
@@ -157,8 +156,12 @@ export function useEditor(options: EditorOptions): {
   readonly awaiting: (awaited: Awaited | null) => void;
   /** Takes the last step of the history back. */
   readonly undo: () => void;
-  /** Makes it writable at once and gives it focus: the Composer. */
-  readonly write: () => void;
+  /**
+   * Makes it writable at once and gives it focus: the Composer. With
+   * `scroll` off, its words stay scrolled where they were, the cursor
+   * brought into view only once typed at.
+   */
+  readonly write: (how?: { readonly scroll?: boolean }) => void;
 } {
   const parent = useRef<HTMLDivElement | null>(null);
   const view = useRef<EditorView | null>(null);
@@ -384,7 +387,7 @@ export function useEditor(options: EditorOptions): {
     undo: () => {
       if (view.current !== null) undo(view.current);
     },
-    write: () => {
+    write: (how) => {
       const current = view.current;
       if (current === null || latest.current.disabled) return;
       // Where the cursor was, kept through the focus: iOS may put it at
@@ -396,7 +399,10 @@ export function useEditor(options: EditorOptions): {
         ),
       });
       current.focus();
-      current.dispatch({ selection: kept, scrollIntoView: true });
+      current.dispatch({
+        selection: kept,
+        scrollIntoView: how?.scroll ?? true,
+      });
       holdSelection(current, kept);
     },
   };
@@ -492,8 +498,9 @@ function editable({
 }
 
 /*
- * Enter and Cmd/Ctrl+Enter send; Shift+Enter is a new line. Never while an
- * input method is composing: there Enter picks the composed word.
+ * Cmd/Ctrl+Enter sends; Enter is a new line, as it is in any text box, so
+ * a message is never sent half written. On a touch screen, whose keyboard
+ * has no Cmd, only Send sends. Never while an input method is composing.
  */
 
 function sendKeys(send: () => void): Extension {
@@ -502,12 +509,7 @@ function sendKeys(send: () => void): Extension {
     send();
     return true;
   };
-  return Prec.high(
-    keymap.of([
-      { key: 'Enter', run, shift: insertNewlineAndIndent },
-      { key: 'Mod-Enter', run },
-    ]),
-  );
+  return Prec.high(keymap.of([{ key: 'Mod-Enter', run }]));
 }
 
 /*
