@@ -96,17 +96,37 @@ const outputText = (content: unknown): string => {
     .map((item) => {
       if (isObj(item) && item['type'] === 'text')
         return str(item['text']) ?? '';
-      if (isObj(item) && item['type'] === 'image') return '[image]';
+      // Its images go whole into `images`.
+      if (isObj(item) && item['type'] === 'image') return null;
       return JSON.stringify(item);
     })
+    .filter((text): text is string => text !== null)
     .join('\n');
 };
+
+/** The images a tool result holds, as Claude Code gives them: base64, by media type. */
+const imagesOf = (
+  content: unknown,
+): ReadonlyArray<{ readonly mediaType: string; readonly data: string }> =>
+  Array.isArray(content)
+    ? content.flatMap((item) => {
+        if (!isObj(item) || item['type'] !== 'image') return [];
+        const source = item['source'];
+        if (!isObj(source) || source['type'] !== 'base64') return [];
+        const mediaType = str(source['media_type']);
+        const data = str(source['data']);
+        return mediaType === undefined || data === undefined
+          ? []
+          : [{ mediaType, data }];
+      })
+    : [];
 
 const toolResultParts = (payload: Obj): ReadonlyArray<Part> =>
   blocks(payload['message']).flatMap((block): ReadonlyArray<Part> => {
     if (block['type'] !== 'tool_result') return [];
     const output = outputText(block['content']);
     const truncated = output.length > TOOL_OUTPUT_MAX;
+    const images = imagesOf(block['content']);
     return [
       {
         type: 'toolResult',
@@ -114,6 +134,7 @@ const toolResultParts = (payload: Obj): ReadonlyArray<Part> =>
         output: truncated ? output.slice(0, TOOL_OUTPUT_MAX) : output,
         truncated,
         isError: block['is_error'] === true,
+        ...(images.length > 0 ? { images } : {}),
       },
     ];
   });

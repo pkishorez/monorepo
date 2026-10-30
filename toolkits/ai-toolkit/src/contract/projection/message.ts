@@ -72,13 +72,20 @@ const ToolCall = Schema.Struct({
   title: Schema.String,
   input: JsonSchema,
 });
+/** An image a tool gave back, such as a file read: whole, in base64. */
+const ToolImage = Schema.Struct({
+  mediaType: Schema.String,
+  data: Schema.String,
+});
 const ToolResult = Schema.Struct({
   type: Schema.Literal('toolResult'),
   toolCallId: Schema.String,
+  /** Its text; the images it gave back are `images`, never cut. */
   output: Schema.String,
   /** Output was cut for the projection; Raw keeps all of it. */
   truncated: Schema.Boolean,
   isError: Schema.Boolean,
+  images: Schema.optionalKey(Schema.Array(ToolImage)),
 });
 /**
  * What the user answered to an Agent Question the call asked, by Item id,
