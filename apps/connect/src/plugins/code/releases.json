@@ -8,6 +8,10 @@
     {
       "hash": "caa115b47faef44022c9b2c860bd12accdb587eed805cc7c80e21c86edb38e7a",
       "summary": "Worktrees: a Session runs in a Worktree on a branch; branches lists them; startSession streams its Starting steps and leaves nothing when it fails; Session records at v2"
+    },
+    {
+      "hash": "f0a90217324188027bf5a716be58d3271e529d2517888fb099af4bc60b9c8918",
+      "summary": "Images a tool gives back come through whole"
     }
   ]
 }
