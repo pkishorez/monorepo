@@ -151,11 +151,85 @@ function paintSourceLine(line: HTMLElement, hovered = false) {
     : '';
 }
 
+/*
+ * Highlighting runs off the main path, so until it is done the source is
+ * drawn plain, in the same lines, so it is as tall as it will be. What was
+ * highlighted is kept, the most recent few hundred, so the same source
+ * drawn again, as when a page is left and come back to, is highlighted at
+ * once.
+ */
+
+const NO_SECTIONS: readonly SourceViewerSection[] = [];
+
+/** How many highlighted sources are kept. */
+const KEPT = 400;
+
+const highlighted = new Map<string, string>();
+
+/** The key a source's highlighting is kept under; null when it is not kept, as with line statuses. */
+const keyOf = (
+  language: SourceLanguage,
+  lineOffset: number,
+  lineStatuses: readonly SourceViewerLine[] | undefined,
+  content: string,
+) =>
+  lineStatuses === undefined ? `${language}\n${lineOffset}\n${content}` : null;
+
+const keep = (key: string, html: string) => {
+  highlighted.delete(key);
+  highlighted.set(key, html);
+  if (highlighted.size > KEPT)
+    highlighted.delete(highlighted.keys().next().value!);
+};
+
+/**
+ * Each highlighting waits its turn, one source a task, so a page drawing
+ * many at once never holds the main thread for all of them together.
+ */
+const waiting: Array<() => void> = [];
+let draining = false;
+
+const drain = () => {
+  waiting.shift()?.();
+  if (waiting.length > 0) setTimeout(drain, 0);
+  else draining = false;
+};
+
+const inTurn = () =>
+  new Promise<void>((resolve) => {
+    waiting.push(resolve);
+    if (draining) return;
+    draining = true;
+    setTimeout(drain, 0);
+  });
+
+const escaped = (text: string) =>
+  text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/** The source unhighlighted, line for line as Shiki draws it. */
+const plainOf = (
+  content: string,
+  lineOffset: number,
+  lineStatuses: readonly SourceViewerLine[] | undefined,
+) =>
+  `<pre class="shiki" tabindex="0"><code>${content
+    .split('\n')
+    .map((text, at) => {
+      const status = lineStatuses?.[at];
+      const number =
+        status === undefined
+          ? ''
+          : ` data-line-number="${status.number ?? ''}"`;
+      const kind = status === undefined ? '' : ` source-line-${status.status}`;
+      return `<span class="line source-line${kind}" data-line="${at + 1 + lineOffset}"${number}>${escaped(text)}</span>`;
+    })
+    .join('\n')}</code></pre>`;
+
 export function SourceViewer({
   filePath,
   content,
   range,
-  sections = [],
+  sections = NO_SECTIONS,
   lineStatuses,
   onSectionClick,
   scrollRequestId,
@@ -182,19 +256,28 @@ export function SourceViewer({
     const extension = filePath.split('.').pop()?.toLowerCase() ?? '';
     return languageByExtension[extension] ?? 'text';
   }, [filePath]);
+  const key = keyOf(language, lineOffset, lineStatuses, content);
+  const plain = useMemo(
+    () => plainOf(content, lineOffset, lineStatuses),
+    [content, lineOffset, lineStatuses],
+  );
   const html =
     rendered?.content === content &&
     rendered.language === language &&
     rendered.lineOffset === lineOffset &&
     rendered.lineStatuses === lineStatuses
       ? rendered.html
-      : '';
+      : ((key === null ? undefined : highlighted.get(key)) ?? plain);
 
   useEffect(() => {
+    if (key !== null && highlighted.has(key)) return;
     let active = true;
     void highlighter
       .then(async (instance) => {
         await loadLanguage(instance, language);
+        await inTurn();
+        // Taken down while it waited: nothing to highlight for.
+        if (!active) return null;
         return instance.codeToHtml(content, {
           lang: language,
           themes: { light: 'github-light', dark: 'github-dark' },
@@ -217,6 +300,8 @@ export function SourceViewer({
         });
       })
       .then((next) => {
+        if (next === null) return;
+        if (key !== null) keep(key, next);
         if (active) {
           setRendered({
             content,
@@ -230,7 +315,7 @@ export function SourceViewer({
     return () => {
       active = false;
     };
-  }, [content, language, lineOffset, lineStatuses]);
+  }, [key, content, language, lineOffset, lineStatuses]);
 
   useLayoutEffect(() => {
     if (!html) return;

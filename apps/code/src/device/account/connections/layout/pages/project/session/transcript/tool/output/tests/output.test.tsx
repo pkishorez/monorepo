@@ -3,6 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Row } from '../../../turns/rows/index.ts';
+import { SHUT } from '../../../words/index.ts';
 import { Output } from '../output.tsx';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -11,7 +12,7 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 type ToolRow = Extract<Row, { readonly kind: 'tool' }>;
 
-const opening = { isOpen: () => false, toggle: () => {} };
+const opening = SHUT;
 
 const read = (output: string): ToolRow => ({
   kind: 'tool',

@@ -1,5 +1,5 @@
 import { MarkdownViewer } from '@kestack/web-platform/ui/viewers/markdown-viewer';
-import type { Opening } from './fold.tsx';
+import { type Opening, useOpen } from './fold.tsx';
 
 /*
  * The agent's words: markdown, inline code as a quiet chip without the
@@ -48,7 +48,7 @@ export function Long({
   readonly className?: string;
 }) {
   const long = text.length > 700 || text.split('\n').length > 10;
-  const whole = !long || opening.isOpen(id);
+  const whole = useOpen(opening, id) || !long;
   return (
     <div className="flex flex-col items-start">
       <div

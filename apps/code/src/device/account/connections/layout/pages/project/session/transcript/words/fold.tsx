@@ -1,18 +1,79 @@
 import { ChevronDownIcon } from 'lucide-react';
-import type { MouseEvent, ReactNode } from 'react';
+import {
+  type MouseEvent,
+  type ReactNode,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
 /*
  * What opens and closes in a transcript, and how: one set of open ids for
  * the whole page, kept by the session; a click that opens unless it ended
  * a drag that selected text; a chevron that turns as it opens; and long
  * text that shows its start until asked for all of it.
+ *
+ * The set is handed down as one Opening that stays the same while folds
+ * open and shut, and each fold reads only whether it is open (`useOpen`):
+ * opening one draws that one again, not the whole transcript.
  */
 
 /** Which folds are open, by id. */
 export interface Opening {
   readonly isOpen: (id: string) => boolean;
   readonly toggle: (id: string) => void;
+  /** Calls back each time what is open changes. */
+  readonly subscribe: (listener: () => void) => () => void;
 }
+
+/** Whether one fold is open, drawn again only as that changes. */
+export const useOpen = (opening: Opening, id: string): boolean => {
+  const read = () => opening.isOpen(id);
+  return useSyncExternalStore(opening.subscribe, read, read);
+};
+
+/** Folds that never open, for what draws them on their own. */
+export const SHUT: Opening = {
+  isOpen: () => false,
+  toggle: () => {},
+  subscribe: () => () => {},
+};
+
+/**
+ * The Opening of a set of open ids kept elsewhere, as by the session's
+ * Model: the same one for as long as it is drawn, telling its folds as the
+ * set changes.
+ */
+export const useOpening = (
+  open: ReadonlyArray<string>,
+  toggle: (id: string) => void,
+): Opening => {
+  const toggleNow = useRef(toggle);
+  toggleNow.current = toggle;
+  const [store] = useState(() => {
+    let current = new Set(open);
+    const listeners = new Set<() => void>();
+    return {
+      set: (next: ReadonlyArray<string>) => {
+        if (next.length === current.size && next.every((id) => current.has(id)))
+          return;
+        current = new Set(next);
+        for (const listener of listeners) listener();
+      },
+      opening: {
+        isOpen: (id: string) => current.has(id),
+        toggle: (id: string) => toggleNow.current(id),
+        subscribe: (listener: () => void) => {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+      } satisfies Opening,
+    };
+  });
+  useLayoutEffect(() => store.set(open), [store, open]);
+  return store.opening;
+};
 
 /**
  * A click opens or closes, unless it ended a drag that selected text. A
@@ -53,7 +114,7 @@ export function Clamped({
   readonly children?: (shown: string) => ReactNode;
 }) {
   const all = text.replace(/\n+$/, '').split('\n');
-  const whole = opening.isOpen(id) || all.length <= SHOWN_LINES + 2;
+  const whole = useOpen(opening, id) || all.length <= SHOWN_LINES + 2;
   const shown = whole ? all.join('\n') : all.slice(0, SHOWN_LINES).join('\n');
   return (
     <>
