@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Part } from '@kestack/connect/code';
 import type { Row } from '../rows/index.ts';
 import { isSaid } from '../answer/said.tsx';
-import { piecesOf, spendsOf, type Turn } from '../turns.ts';
+import { piecesOf, spendsOf, turnsOf, type Turn } from '../turns.ts';
 
 const turn = (id: string, costUsd?: number): Turn => ({
   id,
@@ -84,5 +84,65 @@ describe('a question the agent asked', () => {
 
   it('is work as any call when it holds no question', () => {
     expect(isSaid(tool('x', 'question', { nothing: true }))).toBe(false);
+  });
+});
+
+describe('words sent while it worked', () => {
+  const said = (id: string, steered: boolean): Row => ({
+    kind: 'turn',
+    id,
+    text: id,
+    steered,
+    attachments: [],
+    agentStarted: false,
+    resumed: false,
+  });
+  const read: Row = {
+    kind: 'tool',
+    id: 'r',
+    call: {
+      type: 'toolCall',
+      id: 'r',
+      tool: 'read',
+      name: 'r',
+      title: '',
+      input: { file_path: 'a.ts' },
+    },
+    result: null,
+    answered: null,
+    state: 'done',
+  };
+
+  it('sit in the turn they steered, where they came in among its work', () => {
+    const [only, ...more] = turnsOf([
+      said('ask', false),
+      read,
+      said('steer', true),
+      read,
+    ]);
+    expect(more).toEqual([]);
+    expect(only!.asks.map(({ id }) => id)).toEqual(['ask']);
+    expect(piecesOf(only!.rows).map(({ kind }) => kind)).toEqual([
+      'work',
+      'ask',
+      'work',
+    ]);
+  });
+
+  it('start a turn of their own once the one before has ended', () => {
+    const ended: Row = {
+      kind: 'ended',
+      id: 'e',
+      turnId: 'ask',
+      status: 'done',
+      duration: 1,
+      error: null,
+      usage: null,
+    };
+    expect(
+      turnsOf([said('ask', false), ended, said('late', true)]).map(({ asks }) =>
+        asks.map(({ id }) => id),
+      ),
+    ).toEqual([['ask'], ['late']]);
   });
 });

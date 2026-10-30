@@ -3,10 +3,10 @@ import { isSaid, type SaidRow } from './answer/said.tsx';
 import type { Spend } from './answer/footer.tsx';
 
 /*
- * Rows as a conversation reads them: in turns, each your words (more than
- * one when you added to them while the agent worked), what the agent did,
- * and how it ended; and each turn cut into what the agent said and the
- * runs of work between.
+ * Rows as a conversation reads them: in turns, each your words, what the
+ * agent did, and how it ended; and each turn cut into what the agent said,
+ * the runs of work between, and what you added while it worked, where you
+ * sent it.
  */
 
 type TurnRow = Extract<Row, { readonly kind: 'turn' }>;
@@ -29,9 +29,10 @@ export const turnsOf = (rows: ReadonlyArray<Row>): ReadonlyArray<Turn> => {
   for (const row of rows) {
     const last = turns.at(-1);
     if (row.kind === 'turn') {
-      // Words sent while it worked belong to the turn they steered.
+      // Words sent while it worked belong to the turn they steered, where
+      // they came in among its work.
       if (row.steered && last !== undefined && last.ended === null)
-        last.asks.push(row);
+        last.rows.push(row);
       else turns.push({ id: row.id, asks: [row], rows: [], ended: null });
     } else if (row.kind === 'ended') {
       if (last !== undefined) last.ended = row;
@@ -45,6 +46,8 @@ export const turnsOf = (rows: ReadonlyArray<Row>): ReadonlyArray<Turn> => {
 
 export type Piece =
   | { readonly kind: 'said'; readonly row: SaidRow }
+  /** Words you sent while it worked. */
+  | { readonly kind: 'ask'; readonly row: TurnRow }
   | {
       readonly kind: 'work';
       readonly id: string;
@@ -56,6 +59,10 @@ export const piecesOf = (rows: ReadonlyArray<Row>): ReadonlyArray<Piece> => {
   for (const row of rows) {
     if (isSaid(row)) {
       pieces.push({ kind: 'said', row });
+      continue;
+    }
+    if (row.kind === 'turn') {
+      pieces.push({ kind: 'ask', row });
       continue;
     }
     const last = pieces.at(-1);

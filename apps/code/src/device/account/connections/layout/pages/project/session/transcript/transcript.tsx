@@ -88,6 +88,7 @@ function TurnView({
   const waiting =
     running &&
     (last === undefined ||
+      last.kind === 'ask' ||
       (last.kind === 'said' &&
         !(last.row.kind === 'text' && last.row.writing) &&
         // A question says itself that it waits.
@@ -99,7 +100,13 @@ function TurnView({
       ))}
       <div className="flex min-w-0 flex-col gap-3">
         {pieces.map((piece, at) =>
-          piece.kind === 'work' ? (
+          piece.kind === 'ask' ? (
+            // Sent while it worked, where it came in: as much room around
+            // it as between turns.
+            <div key={piece.row.id} className="py-1">
+              <Ask row={piece.row} />
+            </div>
+          ) : piece.kind === 'work' ? (
             <Work
               key={piece.id}
               id={piece.id}
