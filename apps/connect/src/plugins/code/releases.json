@@ -20,6 +20,10 @@
     {
       "hash": "c48848d5d7b5e399568107e2b647ae9f9a942a29b395712fc185521214782858",
       "summary": "Kabuki's explicit doors: no change in what it does"
+    },
+    {
+      "hash": "81d08891da0af67acaff1192a47660dd61161f076bbb982121abea7bce54839b",
+      "summary": "Kabuki's trimmed doors: no change in what it does"
     }
   ]
 }
