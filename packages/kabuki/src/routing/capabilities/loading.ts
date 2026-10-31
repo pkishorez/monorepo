@@ -5,6 +5,7 @@ import type {
   PlaceSchema,
   RedirectError,
 } from '../route/index.ts';
+import { cached } from './cache.ts';
 
 /** A place to load: its dotted name and what its Loader is handed, every path param down to it and its own query. */
 export interface Wanted {
@@ -69,7 +70,23 @@ export class Loading extends Context.Service<
       at?: number,
     ) => Effect.Effect<void>;
   }
->()('@kestack/kabuki/routing/Loading') {}
+>()('@kestack/kabuki/routing/Loading') {
+  /** A `Loading` that runs the Loaders in place: for tests, stories, a server, and an app with no server. */
+  static get memory() {
+    return memory;
+  }
+  /** A `Loading` with the Data cache in front of another: `Loading.cached(routes, inner)`. */
+  static get cached() {
+    return cached;
+  }
+}
+
+type Answered = Answer;
+
+export declare namespace Loading {
+  /** What a place is answered with: its data, a failure, or a Redirect. */
+  export type Answer = Answered;
+}
 
 /** A Loader's Redirect as an outcome: to its Route or its URL, and permanent only if it said so. */
 const redirectOf = (error: RedirectError): Outcome => ({

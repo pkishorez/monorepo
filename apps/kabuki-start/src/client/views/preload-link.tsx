@@ -1,7 +1,6 @@
 import { useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import { Router } from '@kestack/kabuki/routing';
-import type { Preload } from '@kestack/kabuki/routing';
 import { CircleCheckIcon } from 'lucide-react';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import type { router } from '../../shared/pages/index.ts';
@@ -48,7 +47,7 @@ export function PreloadLink({
   children,
 }: {
   readonly to: typeof router.route.Type;
-  readonly preload: Preload;
+  readonly preload: Router.Preload;
   /** Whether it is the page shown. */
   readonly current: boolean;
   readonly children: ReactNode;

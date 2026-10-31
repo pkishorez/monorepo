@@ -1,4 +1,6 @@
 export { Page } from './page.ts';
+export { notFound, redirect } from './failures.ts';
+export type { Href, RedirectOptions } from './failures.ts';
 export type {
   AnyPageBuild,
   AnyPageDefinition,

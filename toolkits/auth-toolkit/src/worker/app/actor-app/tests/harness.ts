@@ -3,7 +3,7 @@ import type { Scope } from 'effect';
 import { History, Runtime } from '@kestack/kabuki';
 import type { Snapshot } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
-import { Page, Router } from '@kestack/kabuki/routing';
+import { Loading, Page, Router } from '@kestack/kabuki/routing';
 import {
   Api,
   ApiError,
@@ -290,7 +290,7 @@ export const harness = (
     router,
     View.make(AppLive, () => null),
   );
-  const loading = Router.cached(router, Router.memory(router, loaders));
+  const loading = Loading.cached(router, Loading.memory(router, loaders));
 
   /** The app, opened at `path` as a tab would: its data loads once it runs. */
   const open = (path = '/') =>
