@@ -12,6 +12,10 @@
     {
       "hash": "f0a90217324188027bf5a716be58d3271e529d2517888fb099af4bc60b9c8918",
       "summary": "Images a tool gives back come through whole"
+    },
+    {
+      "hash": "0b6dc4d651d86726e338374e20bbfb12ee74d5a29da7859f70147fd1bbe6fd3c",
+      "summary": "Kabuki's new namespaces: no change in what it does"
     }
   ]
 }
