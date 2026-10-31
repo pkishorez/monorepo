@@ -348,6 +348,15 @@ describe('a place with data', () => {
   });
 });
 
+describe('a page built with `children` as a function', () => {
+  it('is refused, never built without them', () => {
+    const Old = Page.define({ path: '/old' });
+    expect(() => Old.build({ children: (() => ({})) as never })).toThrow(
+      "a page's `children` is an object of Children",
+    );
+  });
+});
+
 describe('a page with Queries', () => {
   it('carries them to its live Instance, typed', () => {
     const Asked = Page.define({

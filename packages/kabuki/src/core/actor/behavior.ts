@@ -170,8 +170,17 @@ declare const made: unique symbol;
  */
 export interface Made<D = any, Msg = any> {
   readonly actor: AnyActor;
-  readonly [made]?: (data: D, message: Msg) => void;
+  /**
+   * Required, and only `Actor.child` makes it, so a Child written by hand
+   * does not compile. It reads the level's data and gives its Messages: a
+   * Child made for a narrower level, or one whose Emits become Messages the
+   * parent does not have, does not fit.
+   */
+  readonly [made]: (data: D) => Msg;
 }
+
+/** What a Child's slot gives its parent: its Messages, or nothing for a Child that Emits nothing. */
+type Heard<A, Msg> = [Types<A>['emits']] extends [never] ? never : Msg;
 
 /** A Child as `Actor.child` makes it, as its parent's type keeps it: its Actor, and whether it is one of `each` or there `while` a test holds. */
 export type Slot<
@@ -181,7 +190,7 @@ export type Slot<
   Msg = any,
 > = {
   readonly actor: A;
-  readonly [made]?: (data: D, message: Msg) => void;
+  readonly [made]: (data: D) => Heard<A, Msg>;
 } & (Kind extends 'each'
   ? { readonly each: Function }
   : Kind extends 'while'
@@ -356,7 +365,7 @@ type ExtraQueries<L, Qs> = L extends { readonly queries: infer Q }
 export type Undeclared<B, Qs> = [
   | ExtraQueries<B, Qs>
   | (B extends { readonly states: infer S }
-      ? { [T in keyof S]: ExtraQueries<S[T], Qs> }[keyof S]
+      ? { [T in keyof S]-?: ExtraQueries<NonNullable<S[T]>, Qs> }[keyof S]
       : never),
 ] extends [infer Extra]
   ? [Extra] extends [never]

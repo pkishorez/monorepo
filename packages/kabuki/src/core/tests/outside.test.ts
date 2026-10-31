@@ -138,4 +138,68 @@ describe('until waits for the data', () => {
         expect(failed.instance).toBe('Door');
       }),
     ));
+
+  it('sees a State one Message enters and the next leaves, in one drain', () =>
+    timed(
+      Effect.gen(function* () {
+        let reset: (() => Sent) | undefined;
+        const Flicker = Actor.define('Flicker', {
+          model: { n: Schema.Number },
+          message: { Started: {}, Reset: {} },
+        }).build({
+          init: () => ({ model: { n: 0 } }),
+          on: {
+            Started: () => ({ model: { n: 1 } }),
+            Reset: () => ({ model: { n: 0 } }),
+          },
+          workers: {
+            // Sends as it starts, while `Started` is still being handled.
+            undo: {
+              while: ({ model }) => model.n === 1,
+              run: () => Effect.sync(() => reset?.()),
+            },
+          },
+        });
+        const running = yield* Runtime.start(History.make(Flicker));
+        const flicker = running.instance({ from: 'test' });
+        reset = () => flicker.send({ _tag: 'Reset' });
+        const waiting = yield* Effect.forkChild(
+          flicker.until((now) => now.model.n === 1),
+        );
+        yield* Effect.yieldNow;
+        flicker.send({ _tag: 'Started' });
+        yield* Effect.yieldNow;
+        expect(
+          running.history.branch().map(({ message }) => message._tag),
+        ).toEqual(['Started', 'Reset']);
+        expect(flicker.model.n).toBe(0);
+        const seen = yield* Effect.orDie(Fiber.join(waiting));
+        expect(seen.id).toBe('Flicker');
+      }),
+    ));
+
+  it('ends with a defect when its test throws, and the app goes on', () =>
+    timed(
+      Effect.gen(function* () {
+        const running = yield* Runtime.start(DoorLive);
+        const door = running.instance({ from: 'test' });
+        let calls = 0;
+        const broken = yield* Effect.forkChild(
+          door.until(() => {
+            if (calls++ > 0) throw new Error('broken test');
+            return false;
+          }),
+        );
+        const fine = yield* Effect.forkChild(
+          door.until((now) => now._tag === 'Opening'),
+        );
+        yield* Effect.yieldNow;
+        expect(door.send({ _tag: 'Pushed', by: 'ada' })).toBe('handled');
+        const exit = yield* Fiber.await(broken);
+        expect(exit._tag).toBe('Failure');
+        expect(String(exit)).toContain('broken test');
+        expect((yield* Effect.orDie(Fiber.join(fine)))._tag).toBe('Opening');
+        expect(door.send({ _tag: 'Knocked' })).toBe('handled');
+      }),
+    ));
 });

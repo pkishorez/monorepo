@@ -117,6 +117,8 @@ export interface Reachable {
   readonly send: (id: string, message: Tagged, source: Source) => Sent;
   /** Calls `listener` once the Mailbox is empty, and on every start and stop. */
   readonly subscribe: (listener: () => void) => () => void;
+  /** Calls `listener` right after each Message is handled, while the Mailbox drains. */
+  readonly observe: (listener: () => void) => () => void;
   readonly workers: (id: string) => ReadonlyArray<WorkerStatus>;
   readonly query: (
     id: string,
@@ -219,18 +221,36 @@ const live = (
     },
     until: (test) =>
       Effect.callback<Untyped, Stopped>((resume) => {
-        /** Settles once the test passes or the Instance has stopped. */
-        const settled = () => {
-          if (stopped()) resume(Effect.fail(new Stopped({ instance: id })));
-          else if (test(self)) resume(Effect.succeed(self));
-          else return false;
-          return true;
+        let done = false;
+        const leave: Array<() => void> = [];
+        const finish = (exit: Effect.Effect<Untyped, Stopped>) => {
+          done = true;
+          leave.forEach((unsubscribe) => unsubscribe());
+          resume(exit);
         };
-        if (settled()) return;
-        const unsubscribe = app.subscribe(() => {
-          if (settled()) unsubscribe();
-        });
-        return Effect.sync(unsubscribe);
+        /**
+         * Settles once the test passes or the Instance has stopped. A test
+         * that throws ends the wait with a defect, never reaching the
+         * Runtime that called it.
+         */
+        const check = () => {
+          if (done) return;
+          if (stopped())
+            return finish(Effect.fail(new Stopped({ instance: id })));
+          let passed: boolean;
+          try {
+            passed = test(self);
+          } catch (error) {
+            return finish(Effect.die(error));
+          }
+          if (passed) finish(Effect.succeed(self));
+        };
+        check();
+        if (done) return;
+        // After every Message, so a State one Message enters and the next
+        // leaves is seen; and on every start and stop, which no Message makes.
+        leave.push(app.observe(check), app.subscribe(check));
+        return Effect.sync(() => leave.forEach((unsubscribe) => unsubscribe()));
       }),
   };
   return self;

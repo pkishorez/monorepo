@@ -14,5 +14,6 @@ The definition now builds its Actor: `Auth.build({ … })`. Its types are fixed 
 
 - The plain object was checked against every case the function was: Props and Input of the wrong type or left out, an Emit the Child does not have or one turned into a Message the parent does not have, the parent's data read where it is not, the State narrowed in a State's block, the Children a View finds, and the Capabilities a Child still needs bubbling up. `src/core/tests/child.test-d.ts` keeps those checks.
 - Every Build moved with a codemod: `Actor.build(X, …)` and `Page.build(X, …)` are `X.build(…)`, and `children: (child) => ({ … child(…) })` is `children: { … Actor.child(…) }`.
-- `children` written as a function throws, naming the Actor.
+- `children` written as a function throws, naming the Actor, for a page too.
+- What `Actor.child` makes is branded, as in ADR 0044: a slot written by hand does not compile. The brand reads the level's data and gives the parent's Messages, so a Child made away from any level, typed by nothing, fits a parent only if it Emits nothing.
 - A `children` worked out at runtime, as std-toolkit's Replicas makes one Child per replica, has no level to type it, so its functions name their data's type.
