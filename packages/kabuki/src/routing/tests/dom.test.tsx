@@ -6,10 +6,10 @@ import { Effect, Layer, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { History, Runtime } from '../../core/index.ts';
 import { View } from '../../react/index.ts';
-import { registry } from '../../react/app/index.ts';
+import { Loading, Page, Router, useRouter } from '../index.ts';
+import { registry } from '../../react/view/index.ts';
 import { keyIn } from '../router/adapter/index.ts';
 import { browser } from '../router/adapter/browser/index.ts';
-import { Loading, Page, Router, useRouter } from '../index.ts';
 
 /*
  * The router drawn in a document: link clicks, the browser Adapter, Back and

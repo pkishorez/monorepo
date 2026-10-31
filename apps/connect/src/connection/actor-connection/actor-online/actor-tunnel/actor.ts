@@ -1,5 +1,6 @@
 import { Clock, Duration, Effect, Fiber, Option, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
+import type { Self } from '@kestack/kabuki/core/actor';
 import { TunnelStatus } from '../capabilities/index.js';
 import { Tunnels } from './capabilities/index.js';
 
@@ -46,12 +47,7 @@ const Message = Schema.TaggedUnion({
   Closed: {},
 });
 
-type TunnelSelf = Actor.Self<
-  Model,
-  State,
-  typeof Message.Type,
-  typeof Props.Type
->;
+type TunnelSelf = Self<Model, State, typeof Message.Type, typeof Props.Type>;
 
 /** cloudflared, Installing while it downloads, when that takes a while. */
 const install = (self: TunnelSelf) =>

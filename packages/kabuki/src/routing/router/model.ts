@@ -2,7 +2,7 @@ import type { AnyRoute } from '../capabilities/index.ts';
 import { Schema } from 'effect';
 import type { Effect } from 'effect';
 import { Actor } from '../../core/actor/index.ts';
-import type { Command } from '../../core/actor/index.ts';
+import type { Command } from '../../core/command/index.ts';
 import { moveOptions, reloadOptions } from '../capabilities/index.ts';
 import type { MoveOptions, ReloadOptions } from '../capabilities/index.ts';
 import type { Known } from '../page/index.ts';

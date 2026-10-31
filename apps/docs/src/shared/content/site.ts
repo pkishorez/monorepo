@@ -1,4 +1,4 @@
-import type { Page } from '@kestack/kabuki/routing';
+import type { Metadata } from '@kestack/kabuki/routing/page';
 
 /*
  * What the pages say about themselves to search and to a shared link.
@@ -15,7 +15,7 @@ export const about = (
   path: string,
   title: string,
   description: string,
-): Page.Metadata => ({
+): Metadata => ({
   title: `${title} · ${NAME}`,
   description,
   canonical: `${SITE}${path}`,

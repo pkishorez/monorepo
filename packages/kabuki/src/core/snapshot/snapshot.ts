@@ -1,5 +1,7 @@
 import type { ActorDefinition, Tagged } from '../actor/index.ts';
+import { handle } from './handle.ts';
 import { create } from './invoke.ts';
+import { instanceAt, isMany } from './tree.ts';
 
 /*
  * The Snapshot: the whole app as one value, and the only truth about its data.
@@ -77,3 +79,11 @@ export interface Envelope {
 /** The app right after init: the root, named after its Actor, and every Child its State Invokes. */
 export const init = (root: ActorDefinition, input?: unknown): Snapshot =>
   create(root, root.name, undefined, { input });
+
+/**
+ * Reading and stepping a Snapshot from outside the Runtime, as a devtool or
+ * a test does: `handle` gives the next Snapshot from an Envelope, purely;
+ * `instanceAt` finds an Instance by its ID; `isMany` tells the list of an
+ * `each` Child from one Instance.
+ */
+export const Snapshot = { handle, instanceAt, isMany };

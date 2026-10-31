@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import type { Runtime } from '@kestack/kabuki';
+import type { Running } from '@kestack/kabuki/core/runtime';
 import { describe, expect, it } from 'vitest';
 import {
   find,
@@ -17,7 +17,7 @@ import {
  * that lands after an Account Switch hides nothing of the Account shown now.
  */
 
-const model = (app: Runtime.Running<unknown>) =>
+const model = (app: Running<unknown>) =>
   find(app, 'Home')!.model as {
     readonly pending: ReadonlyArray<string>;
     readonly removed: ReadonlyArray<string>;
@@ -25,13 +25,13 @@ const model = (app: Runtime.Running<unknown>) =>
   };
 
 /** The Sign-in ids the Home Page draws: its data, less what it hides. */
-const drawn = (app: Runtime.Running<unknown>) =>
+const drawn = (app: Running<unknown>) =>
   ((shownData(app, 'Home')?.signIns ?? []) as ReadonlyArray<{ id: string }>)
     .map(({ id }) => id)
     .filter((id) => !model(app).removed.includes(id));
 
 /** Switches to Grace from this tab's Account menu, as the user does. */
-const switchToGrace = (app: Runtime.Running<unknown>) =>
+const switchToGrace = (app: Running<unknown>) =>
   sendTo(app, 'App', {
     _tag: 'SwitchChosen',
     userId: 'grace',

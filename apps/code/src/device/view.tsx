@@ -1,5 +1,6 @@
 import { View, useChild } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
+import type { ViewProps } from '@kestack/kabuki/react/view';
 import {
   AccountSwitcherList,
   AccountSwitcherView,
@@ -39,7 +40,7 @@ import { DeviceLive } from './actor.ts';
  * and what it reads read from this device, never waiting on a Connection.
  */
 
-type Self = View.Props<typeof DeviceLive>;
+type Self = ViewProps<typeof DeviceLive>;
 
 export const DeviceView = View.make(
   DeviceLive,

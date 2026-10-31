@@ -2,10 +2,13 @@ import { Effect, Layer, Schema } from 'effect';
 import type { Scope } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { Command, History, Runtime } from '../../core/index.ts';
-import type { Actor, Snapshot } from '../../core/index.ts';
 import { View } from '../../react/index.ts';
-import { Adapter } from '../router/adapter/index.ts';
 import { Loading, Navigation, Page, Router } from '../index.ts';
+import type { Running } from '../../core/runtime/index.ts';
+import type { Types } from '../../core/actor/index.ts';
+import type { Instance } from '../../core/snapshot/index.ts';
+import { Adapter } from '../router/adapter/index.ts';
+import type { NotFoundError, RedirectTo } from '../page/index.ts';
 
 /*
  * The Router and the Places, running in memory: each page's data is loaded
@@ -98,10 +101,7 @@ const loaders = Routes.loaders({
   'Blog.Post': ({ slug }) =>
     counted(`Blog.Post:${slug}`).pipe(
       Effect.flatMap(
-        (): Effect.Effect<
-          typeof PostData.Type,
-          Page.NotFound | Page.Redirect
-        > => {
+        (): Effect.Effect<typeof PostData.Type, NotFoundError | RedirectTo> => {
           if (slug === 'old')
             return Effect.fail(
               Page.redirect(Routes.Blog.Post({ slug: 'hello' })),
@@ -130,30 +130,28 @@ const run = <A>(effect: Effect.Effect<A, never, Scope.Scope>) => {
   return Effect.runPromise(Effect.scoped(effect));
 };
 
-const walk = (at: Snapshot.Instance): ReadonlyArray<Snapshot.Instance> => [
+const walk = (at: Instance): ReadonlyArray<Instance> => [
   at,
   ...Object.values(at.children).flatMap((child) =>
-    (
-      (Array.isArray(child) ? child : [child]) as Array<Snapshot.Instance>
-    ).flatMap(walk),
+    ((Array.isArray(child) ? child : [child]) as Array<Instance>).flatMap(walk),
   ),
 ];
-const find = (app: Runtime.Running<unknown>, name: string) =>
+const find = (app: Running<unknown>, name: string) =>
   walk(app.snapshot()).find((each) => each.actor === name);
 /** What the page `name` is handed as `status`. */
-const status = (app: Runtime.Running<unknown>, name: string) =>
+const status = (app: Running<unknown>, name: string) =>
   (find(app, name)?.props as { readonly status?: unknown } | undefined)?.status;
-const router = (app: Runtime.Running<unknown>) =>
+const router = (app: Running<unknown>) =>
   app.snapshot().model as {
     readonly entries: ReadonlyArray<{ readonly route: unknown }>;
     readonly at: number;
     readonly pending: { readonly to: unknown } | null;
   };
 const send = (
-  app: Runtime.Running<unknown>,
+  app: Running<unknown>,
   message: { readonly _tag: string; readonly [field: string]: unknown },
 ) => app.send('Router', message);
-const push = (app: Runtime.Running<unknown>, route: unknown) =>
+const push = (app: Running<unknown>, route: unknown) =>
   send(app, { _tag: 'Pushed', route });
 
 /** What a server drew a place with: `data`, loaded as the page was drawn. */
@@ -169,14 +167,14 @@ const served = (data: unknown) => ({
 const ready = (data: unknown, refreshing = false) =>
   expect.objectContaining({ _tag: 'Ready', data, refreshing });
 /** When the page `name`'s data goes stale. */
-const freshUntil = (app: Runtime.Running<unknown>, name: string) =>
+const freshUntil = (app: Running<unknown>, name: string) =>
   (
     status(app, name) as
       | { readonly info?: { readonly freshUntil?: number | null } }
       | undefined
   )?.info?.freshUntil;
 /** Where the page `name`'s data came from, and how long it took. */
-const from = (app: Runtime.Running<unknown>, name: string) => {
+const from = (app: Running<unknown>, name: string) => {
   const info = (
     status(app, name) as
       | { readonly info?: { readonly from?: string; readonly took?: unknown } }
@@ -683,7 +681,7 @@ describe('a Fork, the app started again from an earlier Step', () => {
     });
     return { layer, shown: () => entries[at]!, count: () => entries.length };
   };
-  const current = (app: Runtime.Running<unknown>) => {
+  const current = (app: Running<unknown>) => {
     const model = app.snapshot().model as {
       readonly entries: ReadonlyArray<{ readonly key: string; route: unknown }>;
       readonly at: number;
@@ -766,7 +764,7 @@ describe('the not-found Route', () => {
 });
 
 it('types a page: its Props, its pages and its data', () => {
-  const probe = (props: Actor.Types<typeof PostLive>['props']) => {
+  const probe = (props: Types<typeof PostLive>['props']) => {
     const { status: now } = props;
     // @ts-expect-error the data is there only once Ready
     void now.data;
@@ -790,7 +788,7 @@ describe('a drawing a server saves', () => {
     const loaded = History.load(Root.actor, JSON.parse(JSON.stringify(saved)));
     // Right after its one entry, the Restore.
     expect(loaded.snapshotAt(0)).toEqual(history.snapshotAt(null));
-    const tree = loaded.snapshotAt(0) as Snapshot.Instance;
+    const tree = loaded.snapshotAt(0) as Instance;
     const post = walk(tree).find((each) => each.actor === 'Post')!;
     expect((post.props as { readonly status: unknown }).status).toEqual({
       _tag: 'Failed',

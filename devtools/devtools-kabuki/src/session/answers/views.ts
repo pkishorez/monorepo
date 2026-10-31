@@ -1,5 +1,8 @@
-import { Snapshot } from '@kestack/kabuki';
-import type { Actor, History } from '@kestack/kabuki';
+import type { History } from '@kestack/kabuki';
+import { Snapshot } from '@kestack/kabuki/core/snapshot';
+import type { Instance } from '@kestack/kabuki/core/snapshot';
+import type { ActorDefinition } from '@kestack/kabuki/core/actor';
+import type { Entry } from '@kestack/kabuki/core/history';
 import type * as Api from '../../api/index.ts';
 import type { Blueprint } from './read/blueprint.ts';
 import { unified } from './read/diff.ts';
@@ -28,10 +31,7 @@ import type { Change, LiveNode } from './read/steps.ts';
  */
 
 // 1. Entry
-export const entryOf = (
-  history: History.History,
-  entry: History.Entry,
-): Api.Entry => {
+export const entryOf = (history: History, entry: Entry): Api.Entry => {
   const saved = encodedEntries(history).get(entry.id) ?? entry;
   return {
     id: entry.id,
@@ -48,8 +48,8 @@ export const entryOf = (
 // 2. Change
 /** Every Instance in a Snapshot with the definition it runs, by id. */
 const byId = (
-  snapshot: Snapshot.Snapshot | undefined,
-  root: Actor.Definition,
+  snapshot: Snapshot | undefined,
+  root: ActorDefinition,
 ): ReadonlyMap<string, LiveNode> =>
   new Map(
     snapshot
@@ -116,8 +116,8 @@ const changeOf = (
 
 /** What one entry did: the Commands its rule asked for, and each Instance it changed. */
 export const changesAt = (
-  history: History.History,
-  entry: History.Entry,
+  history: History,
+  entry: Entry,
 ): {
   readonly commands: ReadonlyArray<string>;
   readonly changes: ReadonlyArray<Api.InstanceChange>;
@@ -219,8 +219,8 @@ const casesRecord = (
 
 /** The Instance's data at a Step, and what its Schemas say it holds. */
 export const nodeOf = (
-  instance: Snapshot.Instance,
-  definition: Actor.Definition,
+  instance: Instance,
+  definition: ActorDefinition,
   workers: Api.GraphNode['workers'],
 ): Omit<Api.Node, 'at' | 'status' | 'provides' | 'change'> => {
   const { encoding, schemas } = definition;

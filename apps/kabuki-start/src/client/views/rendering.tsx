@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { View } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
-import type { Page } from '@kestack/kabuki/routing';
+import type { Root } from '@kestack/kabuki/react/view';
+import type { Status } from '@kestack/kabuki/routing/page';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { RotateCwIcon } from 'lucide-react';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
@@ -82,7 +83,7 @@ function Facts({
   readonly mode: Mode;
   /** Whether a dynamic layer is drawn inside this one. */
   readonly mixed: boolean;
-  readonly status: Page.Status<{ readonly at: number }>;
+  readonly status: Status<{ readonly at: number }>;
 }) {
   if (status._tag !== 'Ready')
     return (
@@ -131,11 +132,11 @@ function Live({
   children,
 }: {
   /** The View's root, when the layer is the whole View. */
-  readonly root?: View.Root;
+  readonly root?: Root;
   readonly mode: Mode;
   /** Whether a dynamic layer is drawn inside this one. */
   readonly mixed?: boolean;
-  readonly status: Page.Status<{ readonly at: number }>;
+  readonly status: Status<{ readonly at: number }>;
   /** A link that takes this layer away; none for the outermost. */
   readonly remove?: ReactNode;
   readonly children: ReactNode;

@@ -1,4 +1,5 @@
 import { View } from '@kestack/kabuki/react';
+import type { ViewProps } from '@kestack/kabuki/react/view';
 import { bindingOf, describe, shortcutOf } from '@kestack/use-keys';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { Input } from '@kestack/web-platform/ui/components/input';
@@ -23,7 +24,7 @@ import { actionOf, keysOf, search, shadowsOf, swapped } from './bindings.ts';
  * it is worked by pointer and Tab.
  */
 
-type Self = View.Props<typeof ShortcutsLive>;
+type Self = ViewProps<typeof ShortcutsLive>;
 type Model = Self['model'];
 type Bindings = NonNullable<Model['bindings']>;
 

@@ -1,7 +1,8 @@
 import { Effect, Layer, Scope, Stream } from 'effect';
 import { Actor, Runtime } from '@kestack/kabuki';
-import type { Snapshot } from '@kestack/kabuki';
 import { Navigation } from '@kestack/kabuki/routing';
+import type { Running } from '@kestack/kabuki/core/runtime';
+import type { Instance } from '@kestack/kabuki/core/snapshot';
 import { describe, expect, it } from 'vitest';
 import { ConnectionFilter, connectionFilterMemory } from '../../../store.ts';
 import { Preferences, nothing } from '../../../../../store.ts';
@@ -40,15 +41,15 @@ const layer = Layer.mergeAll(
 
 const start = (provided: Layer.Layer<any>) =>
   Runtime.start(OwnerLive as never, provided as never) as Effect.Effect<
-    Runtime.Running<unknown>,
+    Running<unknown>,
     never,
     Scope.Scope
   >;
-const sidebar = (app: Runtime.Running<unknown>) =>
-  app.snapshot().children['sidebar'] as Snapshot.Instance;
-const collapsed = (app: Runtime.Running<unknown>) =>
+const sidebar = (app: Running<unknown>) =>
+  app.snapshot().children['sidebar'] as Instance;
+const collapsed = (app: Running<unknown>) =>
   (sidebar(app).model as { collapsed: ReadonlyArray<string> | null }).collapsed;
-const toggle = (app: Runtime.Running<unknown>, connectionId: string) =>
+const toggle = (app: Running<unknown>, connectionId: string) =>
   app.send(sidebar(app).id, {
     _tag: 'CollapseToggled',
     connectionId,

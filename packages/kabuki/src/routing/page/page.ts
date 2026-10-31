@@ -14,7 +14,15 @@ import type {
   Types,
 } from '../../core/actor/index.ts';
 import { Navigation } from '../capabilities/index.ts';
-import { levelSchema, paramsKey, pick } from '../route/index.ts';
+import {
+  NotFoundError,
+  RedirectError,
+  levelSchema,
+  paramsKey,
+  pick,
+  wholeQuery,
+} from '../route/index.ts';
+import { notFound, redirect } from './failures.ts';
 import type {
   Children,
   Codec,
@@ -432,5 +440,19 @@ function build(definition: AnyPageDefinition, behavior: any = {}): unknown {
   return Object.assign(actor, { page: definition, pages: builds });
 }
 
-/** Pages: `define` says what one is, `build` how it behaves. */
-export const Page = { define, build };
+/**
+ * Pages: `define` says what one is, an Actor with a place in the URL, and
+ * the pages under it; `build` says how it behaves, with the build of each
+ * page under it. A Loader fails with `notFound()` and `redirect(route or
+ * URL)`, whose Schemas are `NotFound` and `Redirect`. `wholeQuery` is a
+ * query field holding the whole query, every pair as written.
+ */
+export const Page = {
+  define,
+  build,
+  notFound,
+  redirect,
+  wholeQuery,
+  NotFound: NotFoundError,
+  Redirect: RedirectError,
+};

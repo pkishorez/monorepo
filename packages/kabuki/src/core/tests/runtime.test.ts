@@ -2,7 +2,9 @@ import { Effect, Schema, Stream } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, it } from 'vitest';
 import { Replay } from '../history/index.ts';
-import { Actor, History, Runtime, Snapshot } from '../index.ts';
+import { Actor, History, Runtime } from '../index.ts';
+import type { Running } from '../runtime/index.ts';
+import { Snapshot } from '../snapshot/index.ts';
 import {
   Auth,
   settle,
@@ -72,7 +74,7 @@ describe('the mailbox', () => {
 });
 
 describe('the History as a tree', () => {
-  const tags = (app: Runtime.Running<unknown>) =>
+  const tags = (app: Running<unknown>) =>
     app.history.branch().map((e) => e.message._tag);
 
   it('grows the Branch with each Message, after the Head', () =>

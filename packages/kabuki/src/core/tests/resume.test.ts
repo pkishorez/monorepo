@@ -1,7 +1,9 @@
 import { Effect, Fiber, Schema, Stream } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, it, vi } from 'vitest';
-import { Actor, History, Runtime, Snapshot } from '../index.ts';
+import { Actor, History, Runtime } from '../index.ts';
+import type { SavedHistory } from '../history/index.ts';
+import { Snapshot } from '../snapshot/index.ts';
 import { Counter, run, settle, timed } from './fixtures.ts';
 
 /*
@@ -51,7 +53,7 @@ describe('history.changes', () => {
     run(
       Effect.gen(function* () {
         const app = yield* Runtime.start(Counter);
-        const seen: Array<History.Saved> = [];
+        const seen: Array<SavedHistory> = [];
         const reading = yield* app.history.changes.pipe(
           Stream.runForEach((saved) => Effect.sync(() => seen.push(saved))),
           Effect.forkScoped,
@@ -145,11 +147,11 @@ describe('an app saved as it changes', () => {
       const history =
         disk === undefined
           ? History.make(Ticking, { window: 0 })
-          : History.load(Ticking, JSON.parse(disk) as History.Saved, {
+          : History.load(Ticking, JSON.parse(disk) as SavedHistory, {
               window: 0,
               onMismatch: 'fail',
             });
-      const write = (saved: History.Saved) =>
+      const write = (saved: SavedHistory) =>
         Effect.sync(() => {
           disk = JSON.stringify(saved);
         });

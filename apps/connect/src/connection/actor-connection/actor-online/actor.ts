@@ -1,5 +1,6 @@
 import { Duration, Effect, Layer, Schedule, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
+import type { Self } from '@kestack/kabuki/core/actor';
 import { PluginState } from '@kestack/cli-platform/plugins';
 import {
   addressOf,
@@ -93,7 +94,7 @@ const Message = Schema.TaggedUnion({
 });
 type Message = typeof Message.Type;
 
-type OnlineSelf = Actor.Self<Model, State, Message, typeof Props.Type>;
+type OnlineSelf = Self<Model, State, Message, typeof Props.Type>;
 
 /** A new tunnel generation, with no address yet. */
 const restarted = (model: Model): Model => ({

@@ -7,7 +7,7 @@ import type {
   KidsIn,
   Only,
   Types,
-} from '../../core/actor/index.ts';
+} from '../../../core/actor/index.ts';
 
 /** One Instance in the tree, to draw: its ID and, for a keyed Child, its key. Never changes. */
 export interface Handle<A> {

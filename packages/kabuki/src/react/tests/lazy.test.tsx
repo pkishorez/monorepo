@@ -6,7 +6,9 @@ import { prerender } from 'react-dom/static';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Actor } from '../../core/index.ts';
 import { View } from '../index.ts';
-import { registry } from '../app/index.ts';
+import type { AnyActor } from '../../core/actor/index.ts';
+import type { LazyView, ViewOf } from '../view/index.ts';
+import { registry } from '../view/index.ts';
 import { Ticker } from './lazy/ticker.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -30,7 +32,7 @@ const html = async (node: React.ReactNode) => {
 };
 
 /** A parent drawing the Ticker as its fixed Child, through whichever View it is given. */
-const pageWith = (TickerView: View.Of<typeof Ticker>) => {
+const pageWith = (TickerView: ViewOf<typeof Ticker>) => {
   const Page = Actor.build(Actor.define('Page', {}), {
     children: { ticker: { actor: Ticker } },
   });
@@ -74,7 +76,7 @@ describe('a lazy View', () => {
   it('a server waits for it, and is told which lazy Views it drew', async () => {
     const TickerView = lazyTicker();
     const App = pageWith(TickerView);
-    const used = new Set<View.Lazy<Actor.Any>>();
+    const used = new Set<LazyView<AnyActor>>();
     const served = await html(<App onLazyView={(view) => used.add(view)} />);
     expect(served).toContain('<output data-ticker="true">0</output>');
     expect([...used].map((view) => view.id)).toEqual([TickerView.id]);

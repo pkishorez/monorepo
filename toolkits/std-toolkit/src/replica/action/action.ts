@@ -43,7 +43,7 @@ export type Ended<Name extends string, Args> = {
 /** An Action: asked with its args, it is a Command; `result` is its ending Message's fields. */
 export type ActionOf<Name extends string, Args, R> = ((
   args: Args,
-) => Command.Command<Ended<Name, Args>, R>) & {
+) => Command<Ended<Name, Args>, R>) & {
   readonly result: {
     readonly args: Schema.Codec<Args, unknown, never, never>;
     readonly failed: Schema.NullOr<typeof Schema.String>;

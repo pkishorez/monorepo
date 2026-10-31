@@ -1,7 +1,9 @@
 import { Effect, Layer, PubSub, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
-import { History, Runtime, Snapshot } from '@kestack/kabuki';
+import { History, Runtime } from '@kestack/kabuki';
+import type { Running } from '@kestack/kabuki/core/runtime';
+import { Snapshot } from '@kestack/kabuki/core/snapshot';
 import { describe, expect, it } from 'vitest';
 import { BACK, FALL, HIT, RECOVER, REWIND, TICK, wrap } from './rules.ts';
 import { Keyboard } from './capabilities/keyboard.ts';
@@ -48,7 +50,7 @@ const after = (millis: number) =>
 /** The whole of a rewind: the bite shown, each cell back, the rest. */
 const REWOUND = HIT + (REWIND - 1) * BACK + RECOVER;
 
-const game = (app: Runtime.Running<unknown>) =>
+const game = (app: Running<unknown>) =>
   Snapshot.instanceAt(app.snapshot(), GAME) as
     | undefined
     | {
@@ -62,7 +64,7 @@ const game = (app: Runtime.Running<unknown>) =>
       };
 
 /** The head's cell on the board. */
-const head = (app: Runtime.Running<unknown>) => {
+const head = (app: Running<unknown>) => {
   const model = game(app)!.model;
   return wrap(model.track[model.at]!);
 };
@@ -88,7 +90,7 @@ const bite = (press: (key: Press) => Effect.Effect<void>) =>
     }
   });
 
-const workers = (app: Runtime.Running<unknown>, id: string) =>
+const workers = (app: Running<unknown>, id: string) =>
   app.workers(id).map((worker) => worker.name);
 
 describe('Snake', () => {

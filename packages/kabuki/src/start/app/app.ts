@@ -1,9 +1,10 @@
 import type { Layer } from 'effect';
 import type { AnyActor } from '../../core/actor/index.ts';
 import type { Needs } from '../../core/runtime/index.ts';
-import type { View } from '../../react/index.ts';
 import { Router } from '../../routing/index.ts';
-import type { Navigation, Page } from '../../routing/index.ts';
+import type { Navigation } from '../../routing/index.ts';
+import type { Attachment, ViewOf } from '../../react/view/index.ts';
+import type { PageBuild, PageDefinition } from '../../routing/page/index.ts';
 import { APP } from './protocol/index.ts';
 import type { DocumentType, StartApp } from './protocol/index.ts';
 
@@ -23,11 +24,11 @@ type LayerOption<A> = [NeedsOf<A>] extends [never]
   : { readonly layer: Layer.Layer<NeedsOf<A>, never, never> };
 
 /** What `Start.app` takes. */
-export type AppOptions<G extends Page.Definition, A extends Page.Build<G>> = {
+export type AppOptions<G extends PageDefinition, A extends PageBuild<G>> = {
   /** Every Route of the app: `Router.define(() => App, { … })`. */
   readonly router: { readonly root: G };
   /** The View of the router's root page's build. */
-  readonly view: View.Of<A>;
+  readonly view: ViewOf<A>;
   /** The HTML around the app; the plainest one if none. */
   readonly document?: DocumentType;
   /**
@@ -41,7 +42,7 @@ export type AppOptions<G extends Page.Definition, A extends Page.Build<G>> = {
    * called with the running app once its Runtime starts, and what it returns
    * when the app goes, as after a hot reload. Never on the server.
    */
-  readonly attach?: ReadonlyArray<View.Attachment>;
+  readonly attach?: ReadonlyArray<Attachment>;
 } & LayerOption<A>;
 
 /**
@@ -50,7 +51,7 @@ export type AppOptions<G extends Page.Definition, A extends Page.Build<G>> = {
  * `view` draws the build of the router's root page. Leaving out a
  * Capability the app Requires is a type error.
  */
-export const app = <G extends Page.Definition, A extends Page.Build<G>>(
+export const app = <G extends PageDefinition, A extends PageBuild<G>>(
   options: AppOptions<G, A>,
 ): StartApp => {
   const { router, view, document, name, attach } = options;
@@ -59,7 +60,7 @@ export const app = <G extends Page.Definition, A extends Page.Build<G>>(
   };
   return {
     [APP]: true,
-    app: Router.app(router as never, view as unknown as View.Of<AnyActor>),
+    app: Router.app(router as never, view as unknown as ViewOf<AnyActor>),
     ...(document && { document }),
     ...(name && { name }),
     ...(layer && { layer }),

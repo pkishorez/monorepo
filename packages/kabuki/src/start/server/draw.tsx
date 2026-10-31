@@ -5,6 +5,7 @@ import { History } from '../../core/history/index.ts';
 import type { SavedHistory } from '../../core/history/index.ts';
 import type { AnyActor } from '../../core/actor/index.ts';
 import { View } from '../../react/index.ts';
+import type { LazyView } from '../../react/view/index.ts';
 import type { Known } from '../../routing/page/index.ts';
 import { tagsOf } from '../../routing/route/index.ts';
 import {
@@ -35,7 +36,7 @@ import type {
 
 type DrawnApp = ComponentType<{
   readonly saved?: SavedHistory;
-  readonly onLazyView?: (view: View.Lazy<AnyActor>) => void;
+  readonly onLazyView?: (view: LazyView<AnyActor>) => void;
 }>;
 
 /** What one drawing starts from: the Route and what its server-drawn places start from, by dotted name. */

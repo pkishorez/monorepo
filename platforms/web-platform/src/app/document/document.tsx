@@ -1,5 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
 import { Start } from '@kestack/kabuki/start';
+import type { DocumentProps } from '@kestack/kabuki/start/app';
 import { Pwa, PwaHead } from '../../pwa/prompts/index.ts';
 import { DEVICE_SCRIPT } from '../../ui/input/device/index.ts';
 import { FontPreload, type createTheme } from '../../ui/theme/index.ts';
@@ -55,7 +56,7 @@ export const document = ({
   head,
   lang = 'en',
   around = (app) => app,
-}: DocumentOptions): ComponentType<Start.DocumentProps> =>
+}: DocumentOptions): ComponentType<DocumentProps> =>
   function Document({ children }) {
     return (
       <html lang={lang} suppressHydrationWarning>

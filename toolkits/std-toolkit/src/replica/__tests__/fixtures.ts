@@ -1,5 +1,6 @@
 import { eq, inArray } from '@tanstack/db';
 import { Actor, History, Runtime } from '@kestack/kabuki';
+import type { Running as RunningApp } from '@kestack/kabuki/core/runtime';
 import { Deferred, Effect, Layer, Schema, SubscriptionRef } from 'effect';
 import type { Duration } from 'effect';
 import type { Scope } from 'effect';
@@ -430,7 +431,7 @@ type Running = {
 };
 
 /** What the test reads of a running app: the page, Replicas' Model, and each Instance's own. */
-export const read = (app: Runtime.Running<World['Root']>) => {
+export const read = (app: RunningApp<World['Root']>) => {
   const root = app.instance({ from: 'test' }) as unknown as {
     readonly children: {
       readonly page: Page;
@@ -483,10 +484,7 @@ export const expectReady = (model: QueryModel | undefined) => {
 };
 
 /** Every Message the app handled at an Instance whose id starts with `prefix`. */
-export const messagesAt = (
-  app: Runtime.Running<World['Root']>,
-  prefix: string,
-) =>
+export const messagesAt = (app: RunningApp<World['Root']>, prefix: string) =>
   app.history
     .branch()
     .filter((entry) => entry.destination.startsWith(prefix))

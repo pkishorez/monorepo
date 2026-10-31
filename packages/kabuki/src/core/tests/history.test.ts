@@ -4,7 +4,9 @@ import { TestClock } from 'effect/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Replay } from '../history/index.ts';
 import { init, restore } from '../snapshot/index.ts';
-import { Actor, History, Runtime, Snapshot } from '../index.ts';
+import { Actor, History, Runtime } from '../index.ts';
+import type { SavedHistory } from '../history/index.ts';
+import { Snapshot } from '../snapshot/index.ts';
 
 /*
  * A saved History: what an app carries on from, and the Restore that puts a
@@ -46,7 +48,7 @@ const envelope = (message: { readonly _tag: string }, at = 0) => ({
 });
 
 /** A History of three Messages, as a Runtime leaves it. */
-const saved = (): Effect.Effect<History.Saved, never, Scope.Scope> =>
+const saved = (): Effect.Effect<SavedHistory, never, Scope.Scope> =>
   Effect.gen(function* () {
     const app = yield* Runtime.start(History.make(Counter));
     yield* TestClock.adjust('100 millis');
@@ -64,10 +66,10 @@ afterEach(() => {
 
 describe('Restore', () => {
   const first = init(Counter.definition);
-  const at42: Snapshot.Snapshot = {
+  const at42: Snapshot = {
     ...first,
     model: { count: 42 },
-    state: { _tag: 'Busy', since: 7 } as Snapshot.Snapshot['state'],
+    state: { _tag: 'Busy', since: 7 } as Snapshot['state'],
   };
 
   it('replaces the whole Snapshot, as a Message to the root', () => {
@@ -122,7 +124,7 @@ describe('Restore', () => {
       },
     );
     const room = init(Room.definition);
-    const ahead: Snapshot.Snapshot = { ...room, invoked: {} };
+    const ahead: Snapshot = { ...room, invoked: {} };
     const stale = Snapshot.handle(Room.definition, room, {
       ...envelope(restore(ahead)),
       destination: 'Room',
@@ -289,7 +291,7 @@ describe('a saved History', () => {
         },
       },
     );
-    const through = (saved: History.Saved): History.Saved =>
+    const through = (saved: SavedHistory): SavedHistory =>
       JSON.parse(JSON.stringify(saved));
 
     it('so a Date or an Option in a Message comes back through JSON', () =>
@@ -329,13 +331,13 @@ describe('a saved History', () => {
     it("so does a Restore's Snapshot", () =>
       timed(
         Effect.gen(function* () {
-          const snapshot: Snapshot.Snapshot = {
+          const snapshot: Snapshot = {
             ...init(Diary.definition),
             model: { notes: [{ at: new Date(7), text: Option.some('kept') }] },
           };
           const saved = through(History.restored(Diary, snapshot, 10).save());
           const message = saved.entries[0]!.message as unknown as {
-            readonly snapshot: Snapshot.Snapshot;
+            readonly snapshot: Snapshot;
           };
           expect(message.snapshot.model).toEqual({
             notes: [{ at: new Date(7).toISOString(), text: 'kept' }],
@@ -406,9 +408,9 @@ describe('the History lock', () => {
 });
 
 describe('a Window', () => {
-  const tags = (history: History.History) =>
+  const tags = (history: History) =>
     history.branch().map((entry) => `${entry.id} ${entry.message._tag}`);
-  const count = (history: History.History, entry: number | null) =>
+  const count = (history: History, entry: number | null) =>
     Snapshot.instanceAt(history.snapshotAt(entry), 'Counter')?.model;
 
   it('keeps that many entries on the Branch, the oldest a Restore of the Snapshot after it', () =>

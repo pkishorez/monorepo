@@ -1,5 +1,4 @@
-export * as Actor from './namespaces/actor.ts';
-export * as Command from './namespaces/command.ts';
-export * as History from './namespaces/history.ts';
-export * as Runtime from './namespaces/runtime.ts';
-export * as Snapshot from './namespaces/snapshot.ts';
+export { Actor } from './actor/index.ts';
+export { Command } from './command/index.ts';
+export { History } from './history/index.ts';
+export { Runtime } from './runtime/index.ts';

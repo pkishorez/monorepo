@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { CSSProperties } from 'react';
 import { Layer } from 'effect';
 import { View } from '@kestack/kabuki/react';
+import type { AppRuntime } from '@kestack/kabuki/react/view';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { inMemory } from '../session/index.ts';
 import { InspectorView } from './actor-inspector/index.ts';
@@ -32,10 +33,10 @@ import { KabukiSession } from './kabuki-session/index.ts';
 const BLUR = 10;
 
 /** One Inspector app per running app inspected, kept across its mounts. */
-const apps = new WeakMap<View.AppRuntime, ReturnType<typeof inspectorOf>>();
+const apps = new WeakMap<AppRuntime, ReturnType<typeof inspectorOf>>();
 
 const inspectorOf = (
-  runtime: View.AppRuntime,
+  runtime: AppRuntime,
   input: {
     readonly travel: boolean;
     readonly look: {
@@ -63,7 +64,7 @@ export function KabukiInspector({
   className,
 }: {
   /** The running app: `App.useRuntime()`. */
-  readonly runtime: View.AppRuntime;
+  readonly runtime: AppRuntime;
   /** Whether a Step picked Time Travels the app at first; the reader switches it. */
   readonly defaultTravel?: boolean;
   /** Only the canvas, the whole tree kept in view as the app changes: no Timeline and no controls. */

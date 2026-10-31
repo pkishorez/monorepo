@@ -1,4 +1,5 @@
-import type { Actor, Snapshot } from '@kestack/kabuki';
+import type { ActorDefinition } from '@kestack/kabuki/core/actor';
+import type { Instance } from '@kestack/kabuki/core/snapshot';
 import type { Blueprint, Condition, PrintNode } from './blueprint.ts';
 import { blueprintOf } from './blueprint.ts';
 import type { Change, LiveNode, WorkerNow } from './steps.ts';
@@ -16,7 +17,7 @@ export interface GraphNode {
   readonly title: string;
   readonly print: Blueprint;
   /** The definition it is drawn from: its Schemas are read from it. */
-  readonly definition: Actor.Definition;
+  readonly definition: ActorDefinition;
   /** When it exists in its parent: null for the root. */
   readonly condition: Condition | null;
   readonly keyed: boolean;
@@ -24,7 +25,7 @@ export interface GraphNode {
   readonly within: string | null;
   /** The State it is in, or is shown in. */
   readonly state: string | null;
-  readonly instance?: Snapshot.Instance;
+  readonly instance?: Instance;
   readonly workers?: ReadonlyArray<WorkerNow>;
   readonly change?: Change;
   /** What the app was seen to do with its Actor: moves, where Workers ran, what it gives. */

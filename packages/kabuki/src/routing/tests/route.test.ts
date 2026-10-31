@@ -1,9 +1,12 @@
 import { Context, Effect, Layer, Schema } from 'effect';
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import type { Actor, Runtime } from '../../core/index.ts';
 import { View } from '../../react/index.ts';
 import { Navigation, Page, Router } from '../index.ts';
+import type { Types } from '../../core/actor/index.ts';
+import { Stopped } from '../../core/runtime/index.ts';
+import type { LiveInstance } from '../../core/runtime/index.ts';
 import { tagsOf } from '../route/index.ts';
+import type { RedirectTo } from '../page/index.ts';
 
 /*
  * The Routes, read down from the root page: values, URLs both ways,
@@ -352,8 +355,8 @@ describe('a page with Queries', () => {
       queries: { answer: { run: () => Effect.succeed(42) } },
     });
     expectTypeOf<
-      Runtime.Instance<typeof AskedLive>['queries']['answer']
-    >().returns.toEqualTypeOf<Effect.Effect<number, Runtime.Stopped>>();
+      LiveInstance<typeof AskedLive>['queries']['answer']
+    >().returns.toEqualTypeOf<Effect.Effect<number, Stopped>>();
   });
 });
 
@@ -420,7 +423,7 @@ describe('the Loaders', () => {
   });
 
   it('fail with errors their Schemas can carry over the wire', () => {
-    const carried = (redirect: Page.Redirect) =>
+    const carried = (redirect: RedirectTo) =>
       Schema.decodeUnknownSync(Page.Redirect)(
         JSON.parse(
           JSON.stringify(Schema.encodeUnknownSync(Page.Redirect)(redirect)),
@@ -615,12 +618,9 @@ describe("a page's Provides", () => {
       (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2
         ? true
         : false;
-    const child: Same<
-      Actor.Types<typeof ChildLive>['open'],
-      Greeting | Navigation
-    > = true;
-    const parent: Same<Actor.Types<typeof ParentLive>['open'], Navigation> =
+    const child: Same<Types<typeof ChildLive>['open'], Greeting | Navigation> =
       true;
+    const parent: Same<Types<typeof ParentLive>['open'], Navigation> = true;
     expect([child, parent]).toEqual([true, true]);
   });
 });

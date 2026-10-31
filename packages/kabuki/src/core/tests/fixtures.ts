@@ -10,7 +10,10 @@ import {
 import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import { expect } from 'vitest';
-import { Actor, Command, History, Runtime, Snapshot } from '../index.ts';
+import { Actor, Command, History, Runtime } from '../index.ts';
+import type { Running } from '../runtime/index.ts';
+import { Snapshot } from '../snapshot/index.ts';
+import type { Instance } from '../snapshot/index.ts';
 
 /* The Actors, Layers and helpers the core tests share. */
 
@@ -173,10 +176,7 @@ export const settle = Effect.gen(function* () {
   for (let i = 0; i < 10; i++) yield* Effect.yieldNow;
 });
 
-export const at = (
-  app: Runtime.Running<unknown>,
-  id: string,
-): Snapshot.Instance => {
+export const at = (app: Running<unknown>, id: string): Instance => {
   const instance = Snapshot.instanceAt(app.snapshot(), id);
   expect(instance, id).toBeDefined();
   return instance!;

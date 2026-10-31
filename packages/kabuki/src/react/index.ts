@@ -1,2 +1,1 @@
-export * as View from './namespaces/view.ts';
-export { useChild, useChildren, useLive } from './view/index.ts';
+export { View, useChild, useChildren, useLive } from './view/index.ts';

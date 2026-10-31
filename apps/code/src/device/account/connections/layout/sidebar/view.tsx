@@ -1,5 +1,6 @@
 import { View, useChildren } from '@kestack/kabuki/react';
 import { useRouter } from '@kestack/kabuki/routing';
+import type { ViewProps } from '@kestack/kabuki/react/view';
 import {
   createContext,
   memo,
@@ -227,7 +228,7 @@ export interface Width {
 /** What the sidebar's width is drawn into: the screen, from Layout. */
 export const Sizing = createContext<(width: Width) => ReactNode>(() => null);
 
-type Send = View.Props<typeof SidebarLive>['send'];
+type Send = ViewProps<typeof SidebarLive>['send'];
 
 export const SidebarWidth = View.make(SidebarLive, ({ model, send }) =>
   model.width === null ? null : <Sized kept={model.width} send={send} />,

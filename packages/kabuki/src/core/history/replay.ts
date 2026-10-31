@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import type { ActorDefinition } from '../actor/index.ts';
-import { actorAt, handle, init, isRestore } from '../snapshot/index.ts';
-import type { Envelope, Handled, Snapshot } from '../snapshot/index.ts';
+import { Snapshot, actorAt, init, isRestore } from '../snapshot/index.ts';
+import type { Envelope, Handled } from '../snapshot/index.ts';
 import type { Entry } from './history.ts';
 import { actorsAt, decodeEntry } from './saved.ts';
 
@@ -94,7 +94,7 @@ const replayed = (
       message,
       `Message ${JSON.stringify(message._tag)}`,
     );
-  return handle(root, snapshot, envelope);
+  return Snapshot.handle(root, snapshot, envelope);
 };
 
 /**

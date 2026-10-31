@@ -8,7 +8,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Replay } from '../../core/history/index.ts';
 import { Actor, History, Runtime } from '../../core/index.ts';
 import { View } from '../index.ts';
-import { registry } from '../app/index.ts';
+import type { SavedHistory } from '../../core/history/index.ts';
+import type { AppRuntime } from '../view/index.ts';
+import { registry } from '../view/index.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -36,7 +38,7 @@ const CounterView = View.make(Counter, (self) => {
 });
 
 /** A History of `n` Bumps, as a Runtime leaves it. */
-const bumped = (n: number): Promise<History.Saved> =>
+const bumped = (n: number): Promise<SavedHistory> =>
   Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
@@ -231,7 +233,7 @@ describe('a History given when drawn', () => {
       expect(served).toContain(`<output>${count}</output>`);
 
       // The browser reads its own copy, as Start's Scripts send it.
-      const sent = JSON.parse(JSON.stringify(saved)) as History.Saved;
+      const sent = JSON.parse(JSON.stringify(saved)) as SavedHistory;
       host.innerHTML = served;
       const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
       await act(async () => {
@@ -591,7 +593,7 @@ describe('mounting', () => {
 describe('Attachments', () => {
   it('is called once with the running app, which it reads as it is now, and stopped at the last unmount', async () => {
     const stops: Array<string> = [];
-    let held: View.AppRuntime | undefined;
+    let held: AppRuntime | undefined;
     let heard = 0;
     const App = View.app(CounterView, {
       attach: [

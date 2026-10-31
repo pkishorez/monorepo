@@ -1,12 +1,7 @@
 import { Context, Deferred, Effect, Exit, Layer, Scope } from 'effect';
 import type { ActorDefinition, SlotDefinition } from '../../actor/index.ts';
-import { handle, isMany, isRestore, within } from '../../snapshot/index.ts';
-import type {
-  Envelope,
-  Handled,
-  Instance,
-  Snapshot,
-} from '../../snapshot/index.ts';
+import { Snapshot, isRestore, within } from '../../snapshot/index.ts';
+import type { Envelope, Handled, Instance } from '../../snapshot/index.ts';
 import { runCommands } from './command.ts';
 import { Asked, ask, Stopped } from './query.ts';
 import { dataOf, forkIn, makeOwn } from './self.ts';
@@ -244,7 +239,7 @@ const start = (
     const held = (parent: Instance) =>
       Object.keys(slots).flatMap((slot) => {
         const kids = parent.children[slot];
-        const all = !kids ? [] : isMany(kids) ? kids : [kids];
+        const all = !kids ? [] : Snapshot.isMany(kids) ? kids : [kids];
         return all.map((kid) => ({ kid, definition: slots[slot]!.definition }));
       });
     const add = ({ kid, definition }: ReturnType<typeof held>[number]) =>
@@ -282,7 +277,7 @@ const start = (
   return {
     // 2. Receive
     receive: (envelope, heard) => {
-      const handled = handle(definition, current, envelope);
+      const handled = Snapshot.handle(definition, current, envelope);
       current = handled.snapshot;
       heard?.(handled);
       if (isRestore(envelope.message) && handled.outcome === 'handled')

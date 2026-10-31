@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { MotionConfig, motion } from 'motion/react';
-import { Snapshot } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
+import { Snapshot } from '@kestack/kabuki/core/snapshot';
+import type { Instance } from '@kestack/kabuki/core/snapshot';
 import { CheckIcon, PlusIcon } from 'lucide-react';
 import { FILTERS, ROWS, TodoLive, TodosLive } from './todos.ts';
 
@@ -176,7 +177,7 @@ const App = View.app(TodosView, { name: 'kabuki:todos' });
 // 2. Its Actors, read from the Snapshot
 
 /** Whether the list's filter shows a to-do, as the left column decides. */
-const showing = (list: Snapshot.Instance, todo: Snapshot.Instance) =>
+const showing = (list: Instance, todo: Instance) =>
   list.state._tag === 'All' || todo.state._tag === list.state._tag;
 
 function State({ children }: { readonly children: string }) {
@@ -198,8 +199,8 @@ function Actors({
   root,
   todos,
 }: {
-  readonly root: Snapshot.Instance;
-  readonly todos: ReadonlyArray<Snapshot.Instance>;
+  readonly root: Instance;
+  readonly todos: ReadonlyArray<Instance>;
 }) {
   return (
     <div className="hidden border-l border-border bg-muted/40 sm:block">

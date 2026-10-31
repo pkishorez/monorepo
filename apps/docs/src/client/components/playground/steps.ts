@@ -1,4 +1,4 @@
-import type { View } from '@kestack/kabuki/react';
+import type { AppRuntime } from '@kestack/kabuki/react/view';
 
 /*
  * Steps, counted the way a reader counts them: 0 is the app right after
@@ -6,7 +6,7 @@ import type { View } from '@kestack/kabuki/react';
  */
 
 /** The step shown: the last one while live. */
-export const stepOf = ({ branch, shown }: View.AppRuntime): number =>
+export const stepOf = ({ branch, shown }: AppRuntime): number =>
   shown === null
     ? branch.length
     : shown === 'init'
@@ -14,13 +14,13 @@ export const stepOf = ({ branch, shown }: View.AppRuntime): number =>
       : branch.findIndex((entry) => entry.id === shown) + 1;
 
 /** Show a step; the last one is live. */
-export const showStep = ({ branch, show }: View.AppRuntime, step: number) =>
+export const showStep = ({ branch, show }: AppRuntime, step: number) =>
   show(
     step >= branch.length ? null : step <= 0 ? 'init' : branch[step - 1]!.id,
   );
 
 /** Go live from a step, growing a new Branch from it. */
-export const carryOn = (runtime: View.AppRuntime, step: number) => {
+export const carryOn = (runtime: AppRuntime, step: number) => {
   runtime.show(null);
   runtime.start(step <= 0 ? null : runtime.branch[step - 1]!.id);
 };

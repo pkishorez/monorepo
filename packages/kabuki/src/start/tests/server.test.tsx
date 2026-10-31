@@ -1,9 +1,10 @@
 import { Context, Effect, Layer, Schema } from 'effect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Loading, Page, Router } from '../../routing/index.ts';
-import { loading as loaderRpc } from '../client/index.ts';
 import { View } from '../../react/index.ts';
 import { Start } from '../app/index.ts';
+import type { Pages } from '../app/index.ts';
+import { loading as loaderRpc } from '../client/index.ts';
 import type { Build } from '../app/protocol/index.ts';
 import { Start as Server, handler } from '../server/index.ts';
 import started, { AppView } from './app/src/app.tsx';
@@ -776,7 +777,7 @@ describe('the Pages', () => {
   it('names every page with its path and how its first drawing is made', async () => {
     const response = await get(Start.pages);
     expect(response.headers.get('content-type')).toBe('application/json');
-    const pages = (await response.json()) as Start.Pages;
+    const pages = (await response.json()) as Pages;
     expect(pages.build).toBe('build-1');
     expect(pages.shell).toBe('/_kabuki/shell');
     const by = Object.fromEntries(pages.pages.map((one) => [one.name, one]));
@@ -808,7 +809,7 @@ describe('the Pages', () => {
       new Request(`https://site.test${Start.pages}`),
       host,
     );
-    expect(((await response.json()) as Start.Pages).build).toBeNull();
+    expect(((await response.json()) as Pages).build).toBeNull();
   });
 
   it('answers nothing but a GET or a HEAD', async () => {

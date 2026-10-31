@@ -1,5 +1,6 @@
 import { createContext, use, useSyncExternalStore } from 'react';
 import { View, useChildren } from '@kestack/kabuki/react';
+import type { Handle } from '@kestack/kabuki/react/view';
 import { Pages } from '../../../../shared/pages/index.ts';
 
 /*
@@ -16,7 +17,7 @@ import { Pages } from '../../../../shared/pages/index.ts';
 
 /** The Replicas actor the root page places, for the statuses to read. */
 export const ReplicasAt = createContext<
-  View.Handle<typeof Pages.ReplicasLive> | undefined
+  Handle<typeof Pages.ReplicasLive> | undefined
 >(undefined);
 
 const AccountAt = createContext('');

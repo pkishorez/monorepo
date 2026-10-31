@@ -1,6 +1,6 @@
 import type { AnyRoute } from '../capabilities/index.ts';
 import { Clock, Effect, Option, Schema } from 'effect';
-import { Command } from '../../core/actor/index.ts';
+import { Command } from '../../core/command/index.ts';
 import { lazyOf } from '../../react/view/index.ts';
 import { Loading } from '../capabilities/index.ts';
 import { knownOf } from '../page/index.ts';

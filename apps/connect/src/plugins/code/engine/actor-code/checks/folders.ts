@@ -1,6 +1,6 @@
 import { stat } from 'node:fs/promises';
 import { Duration, Effect, Stream } from 'effect';
-import type { Actor } from '@kestack/kabuki';
+import type { Self } from '@kestack/kabuki/core/actor';
 import type { Project, ProjectFolder } from '../../../records/index.js';
 import { Store } from '../../capabilities/index.js';
 
@@ -19,7 +19,7 @@ import { Store } from '../../capabilities/index.js';
 export const EVERY = Duration.minutes(1);
 
 /** What the Folder Check holds of the root: its Projects, and what it Sends. */
-type Root = Actor.Self<
+type Root = Self<
   { readonly projects: ReadonlyArray<Project> },
   unknown,
   | {

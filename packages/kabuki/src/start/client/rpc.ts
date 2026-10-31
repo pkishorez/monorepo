@@ -1,5 +1,6 @@
 import { Cause, Effect, Layer, Stream } from 'effect';
 import { Loading } from '../../routing/index.ts';
+import type { Answer } from '../../routing/capabilities/index.ts';
 import { PATH, loadable, readLine, writeAsk } from '../app/protocol/index.ts';
 import type { Line, RoutesOnWire } from '../app/protocol/index.ts';
 
@@ -47,19 +48,18 @@ export const loading = (
           Stream.decodeText(),
           Stream.splitLines,
           Stream.filter((line) => line.trim() !== ''),
-          Stream.map((line): readonly [string, Loading.Answer] | null => {
+          Stream.map((line): readonly [string, Answer] | null => {
             try {
               const read = readLine(routes, places, JSON.parse(line) as Line);
               answered.add(read.name);
-              return [read.name, read.outcome as Loading.Answer];
+              return [read.name, read.outcome as Answer];
             } catch (error) {
               broken = error instanceof Error ? error.message : String(error);
               return null;
             }
           }),
           Stream.filter(
-            (entry): entry is readonly [string, Loading.Answer] =>
-              entry !== null,
+            (entry): entry is readonly [string, Answer] => entry !== null,
           ),
         );
       }),
@@ -85,7 +85,7 @@ export const loading = (
                     {
                       _tag: 'Broken',
                       reason: broken ?? `no answer for ${name}`,
-                    } as Loading.Answer,
+                    } as Answer,
                   ] as const,
               ),
           ),

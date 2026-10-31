@@ -1,5 +1,5 @@
-import { Snapshot } from '@kestack/kabuki';
 import type { History } from '@kestack/kabuki';
+import { Snapshot } from '@kestack/kabuki/core/snapshot';
 import { fromLive, type GraphNode } from './graph.ts';
 import { learn, type ProvidedBy } from './learned.ts';
 import { changesOf, walk } from './steps.ts';
@@ -13,7 +13,7 @@ import { changesOf, walk } from './steps.ts';
 
 /** The app at the Step after `id`, or at init for null; undefined when the Step is no longer kept. */
 export const graphAt = (
-  history: History.History,
+  history: History,
   id: number | null,
   providedBy?: ProvidedBy,
 ): GraphNode | undefined => {
@@ -22,7 +22,7 @@ export const graphAt = (
     // Found on its own Branch, so an entry a fork left behind is read too.
     const entry =
       id === null ? undefined : history.branch(id).find((one) => one.id === id);
-    const after: Snapshot.Snapshot = history.snapshotAt(id);
+    const after: Snapshot = history.snapshotAt(id);
     const before = entry ? history.snapshotAt(entry.parent) : undefined;
     const changes = changesOf(before, after, root);
     // What the Step asked for: its rules played again, as they are pure.

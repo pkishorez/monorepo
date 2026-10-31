@@ -1,6 +1,6 @@
 import { use, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
-import type { View } from '../../react/index.ts';
+import type { AppRuntime } from '../../react/view/index.ts';
 import { ID, PageContext, RuntimeContext, usePage } from './protocol/index.ts';
 
 /*
@@ -115,7 +115,7 @@ function useDrawn(): Drawn | null {
  * which draws each request from a History of its own and runs none, and
  * outside a page Start served.
  */
-function useRuntime(): View.AppRuntime | null {
+function useRuntime(): AppRuntime | null {
   const read = use(RuntimeContext);
   return read ? read() : null;
 }

@@ -1,7 +1,7 @@
 import type { ComponentType, ReactNode } from 'react';
 import type { Layer } from 'effect';
 import type { AnyActor } from '../../../core/actor/index.ts';
-import type { View } from '../../../react/index.ts';
+import type { Attachment, ViewOf } from '../../../react/view/index.ts';
 import type {
   Codec,
   Metadata,
@@ -18,7 +18,7 @@ import type {
 /** What Start needs of the app the Router serves: what `Router.app(router, AppView)` gives. */
 export interface ServedApp {
   readonly actor: AnyActor;
-  readonly view: View.Of<any>;
+  readonly view: ViewOf<any>;
   /** The Router's Input at a URL, with what its places start from, by dotted name. */
   readonly startAt: (
     url?: string,
@@ -53,7 +53,7 @@ export interface StartApp<A extends ServedApp = ServedApp> {
   /** What the app's Actors Require in the browser, besides the address and the Loaders. */
   readonly layer?: Layer.Layer<any, never, never>;
   /** What runs beside the app in the browser, such as a devtool. */
-  readonly attach?: ReadonlyArray<View.Attachment>;
+  readonly attach?: ReadonlyArray<Attachment>;
 }
 
 /** Why a file's default export is refused: only Start's own values are checked by type. */
