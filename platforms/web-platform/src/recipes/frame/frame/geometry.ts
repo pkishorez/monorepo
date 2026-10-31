@@ -10,6 +10,10 @@ import type { CSSProperties } from 'react';
  * They move only what is painted. Sizes follow the breakpoint itself, in the
  * classes, so the page reflows once as the screen crosses it, never while it
  * morphs.
+ *
+ * None of them is inherited (the theme's `frame.css`), so each is set on
+ * every element drawn from it, which a change restyles, and nothing under
+ * it: the sidebar, the page and the page's dim.
  */
 
 /** The values the shapes below read, derived from the two. */
@@ -26,10 +30,13 @@ export const DERIVED: Record<string, string> = {
 
 /**
  * The two values before the motion takes over, by the breakpoint: a phone
- * starts shut, a wide screen as the markup says.
+ * starts shut, a wide screen as the markup says. Each element drawn from
+ * them carries `data-sidebar` itself, never `data-state`: rules elsewhere
+ * read `data-state` on an element's ancestors, so a change to it restyles
+ * everything under it, a long page and all.
  */
 export const FIRST_PAINT =
-  '[--sidebar-mobile:1] [--sidebar-open:0] md:[--sidebar-mobile:0] md:data-[state=open]:[--sidebar-open:1]';
+  '[--sidebar-mobile:1] [--sidebar-open:0] md:[--sidebar-mobile:0] md:data-[sidebar=open]:[--sidebar-open:1]';
 
 /** The sidebar, under the page, sliding in and fading up as it opens. */
 export const SIDEBAR_STYLE: CSSProperties = {

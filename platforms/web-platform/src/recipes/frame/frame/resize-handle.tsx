@@ -21,6 +21,8 @@ const holdCursor = (held: boolean) => {
  */
 export function ResizeHandle(props: {
   readonly width: number;
+  /** Where it sits, centred: the sidebar's width, as the sidebar is drawn. */
+  readonly left: string;
   readonly onWidthChange: (width: number) => void;
 }) {
   const { open, toggle } = useFrame();
@@ -53,7 +55,7 @@ export function ResizeHandle(props: {
       aria-valuenow={props.width}
       aria-valuetext={`${props.width} pixels wide`}
       data-resizing={resizing}
-      style={{ left: 'var(--sidebar-width)' }}
+      style={{ left: props.left }}
       className="absolute inset-y-0 z-20 hidden w-3 -translate-x-1/2 cursor-col-resize touch-none after:absolute after:inset-y-0 after:left-1/2 after:w-0.5 after:-translate-x-1/2 after:transition-[background-color] after:duration-150 hover:after:bg-primary/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring data-[resizing=true]:after:bg-primary/60 md:block"
       onPointerDown={(event) => {
         if (!open || event.button !== 0) return;

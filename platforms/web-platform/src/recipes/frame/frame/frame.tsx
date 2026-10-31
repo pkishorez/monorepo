@@ -133,6 +133,17 @@ function WithSidebar(props: FrameProps & { readonly sidebar: ReactNode }) {
     '--sidebar-mobile': useMobileProgress(),
   };
   const hydrated = useHydrated();
+  const openState = shown ? 'open' : 'closed';
+  // Set on each element drawn from them, as none of them is inherited.
+  const drawnFrom = {
+    '--sidebar-width':
+      props.sidebarWidth === undefined ? '16rem' : `${props.sidebarWidth}px`,
+    // A page of its own pushes the page off the whole screen.
+    '--sidebar-width-mobile':
+      props.sidebarMode === 'fullscreen' ? '100vw' : '18rem',
+    ...DERIVED,
+    ...(hydrated ? values : {}),
+  };
 
   const state = useMemo<FrameState>(
     () => ({
@@ -152,22 +163,8 @@ function WithSidebar(props: FrameProps & { readonly sidebar: ReactNode }) {
     <FrameContext.Provider value={state}>
       <div
         data-slot="app-shell"
-        data-state={shown ? 'open' : 'closed'}
-        className={cn(
-          'relative flex min-h-0 w-full flex-1 overflow-hidden bg-sidebar',
-          FIRST_PAINT,
-        )}
-        style={
-          {
-            '--sidebar-width':
-              props.sidebarWidth === undefined
-                ? '16rem'
-                : `${props.sidebarWidth}px`,
-            // A page of its own pushes the page off the whole screen.
-            '--sidebar-width-mobile':
-              props.sidebarMode === 'fullscreen' ? '100vw' : '18rem',
-          } as CSSProperties
-        }
+        data-sidebar={openState}
+        className="relative flex min-h-0 w-full flex-1 overflow-hidden bg-sidebar"
         // The page is inert while covered, so a tap on it lands here: that
         // shuts the sidebar, as a tap on a scrim would.
         onClick={(event) => {
@@ -178,56 +175,60 @@ function WithSidebar(props: FrameProps & { readonly sidebar: ReactNode }) {
         }}
       >
         {props.statusBar?.(shown)}
-        {/* No box of its own: it carries the values to what it holds. */}
-        <motion.div
-          className="contents"
-          style={{ ...DERIVED, ...(hydrated ? values : {}) } as MotionStyle}
+        {/* Absolute, not fixed: a fixed element down the whole screen stops
+            an installed iOS app's status bar following theme switches. */}
+        <motion.aside
+          inert={!shown}
+          data-slot="app-shell-sidebar"
+          data-sidebar={openState}
+          style={{ ...drawnFrom, ...SIDEBAR_STYLE } as MotionStyle}
+          className={cn(
+            'absolute inset-y-0 left-0 z-0 flex w-(--sidebar-width-mobile) flex-col bg-sidebar pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] text-sidebar-foreground md:w-(--sidebar-width) md:py-2',
+            FIRST_PAINT,
+          )}
         >
-          {/* Absolute, not fixed: a fixed element down the whole screen stops
-              an installed iOS app's status bar following theme switches. */}
-          <aside
-            inert={!shown}
-            data-slot="app-shell-sidebar"
-            style={SIDEBAR_STYLE}
-            className="absolute inset-y-0 left-0 z-0 flex w-(--sidebar-width-mobile) flex-col bg-sidebar pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] text-sidebar-foreground md:w-(--sidebar-width) md:py-2"
-          >
-            {/* On touch, use-gesture keeps the first 24px from the edge from
-                the browser's back swipe, but not on a link or button. This
-                strip covers the items there, so the swipe never reaches one. */}
-            {props.swipe !== 'off' && (
-              <div
-                aria-hidden="true"
-                className="absolute inset-y-0 left-0 z-10 hidden w-6 pointer-coarse:block"
-              />
-            )}
-            {props.sidebar}
-          </aside>
-          <main
-            inert={covered}
-            data-slot="app-shell-page"
-            style={PAGE_STYLE}
-            className={cn(
-              'relative z-10 flex flex-col overflow-hidden bg-background shadow-sm',
-              PAGE_SIZE,
-            )}
-          >
-            {props.children}
+          {/* On touch, use-gesture keeps the first 24px from the edge from
+              the browser's back swipe, but not on a link or button. This
+              strip covers the items there, so the swipe never reaches one. */}
+          {props.swipe !== 'off' && (
             <div
               aria-hidden="true"
-              className={cn(
-                'pointer-events-none absolute inset-0 z-50 bg-black',
-                SCRIM,
-              )}
-            />
-          </main>
-          {/* Over both, on the line between them, while the sidebar is beside the page. */}
-          {props.onSidebarWidthChange !== undefined && shown && !isMobile && (
-            <ResizeHandle
-              width={props.sidebarWidth ?? 256}
-              onWidthChange={props.onSidebarWidthChange}
+              className="absolute inset-y-0 left-0 z-10 hidden w-6 pointer-coarse:block"
             />
           )}
-        </motion.div>
+          {props.sidebar}
+        </motion.aside>
+        <motion.main
+          inert={covered}
+          data-slot="app-shell-page"
+          data-sidebar={openState}
+          style={{ ...drawnFrom, ...PAGE_STYLE } as MotionStyle}
+          className={cn(
+            'relative z-10 flex flex-col overflow-hidden bg-background shadow-sm',
+            PAGE_SIZE,
+            FIRST_PAINT,
+          )}
+        >
+          {props.children}
+          <motion.div
+            aria-hidden="true"
+            data-sidebar={openState}
+            style={drawnFrom as MotionStyle}
+            className={cn(
+              'pointer-events-none absolute inset-0 z-50 bg-black',
+              SCRIM,
+              FIRST_PAINT,
+            )}
+          />
+        </motion.main>
+        {/* Over both, on the line between them, while the sidebar is beside the page. */}
+        {props.onSidebarWidthChange !== undefined && shown && !isMobile && (
+          <ResizeHandle
+            width={props.sidebarWidth ?? 256}
+            left={drawnFrom['--sidebar-width']}
+            onWidthChange={props.onSidebarWidthChange}
+          />
+        )}
       </div>
     </FrameContext.Provider>
   );

@@ -33,6 +33,7 @@
 @import './theme.css';
 @import './shiki.css';
 @import './keys.css';
+@import './frame.css';
 
 @layer base {
   html {
