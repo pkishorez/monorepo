@@ -530,6 +530,10 @@ function build(
     readonly children?: Made;
     readonly states?: Record<string, { readonly children?: Made }>;
   };
+  if (typeof written.children === 'function')
+    throw new Error(
+      "[@kestack/kabuki/routing] a page's `children` is an object of Children, each made with `Actor.child`, not a function",
+    );
   const pages = definition.children as Children;
   const own = [
     ...Object.keys(written.children ?? {}),

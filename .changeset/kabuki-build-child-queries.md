@@ -16,4 +16,7 @@ An Actor is built by its definition, a level's Children are a plain object made 
 - A live Instance's `send`, and `running.send`, say what became of the Message: `'handled' | 'ignored' | 'queued' | 'refused'`, in place of `true` or `false`.
 - A live Instance has `until(test)`: an Effect of the Instance once its data passes the test, narrowed as the test narrows it, failing with `Stopped` if it stops first.
 - `running.query(id, name, args)` is removed: ask through `instance.queries`.
+- `until` checks its test after every Message, so a State one Message enters and the next leaves is seen, and a test that throws ends the wait with a defect.
+- A Child is only what `Actor.child` makes: a slot written by hand as `{ actor }` does not compile, and a Child made away from any level fits a parent only if it Emits nothing.
+- Types from `@kestack/kabuki/core/actor`: `ChildOf` is gone, as `child` is no longer handed in; `MakeChild` is the type of `Actor.child`. `Query` is gone, as an answer is a function, `Answer`; `Declared` and `DeclaredQueries` are what `define` declares. `ChildOptions<A, D, Msg>` takes the level's data whole, `Given<A, D>` the same; `Queries<Model, State, R, Props, Qs>` takes the declared Queries; `Defined` takes them last, and `Buildable` is the `build` it gives. `Stopped.query` is optional, absent when an `until` was waiting.
 - devtools: the Blueprint carries each Query's args and answer as Shapes.

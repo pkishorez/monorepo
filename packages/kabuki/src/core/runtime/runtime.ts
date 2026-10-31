@@ -85,6 +85,12 @@ const start = <A extends AnyActor>(
     ) as Context.Context<never>;
     const time = makeTime(() => clock.monotonicTimeNanosUnsafe());
     const listeners = new Set<() => void>();
+    /** Told right after each Message is handled, for what waits on one Instance's data. */
+    const observers = new Set<() => void>();
+    const observe = (observer: () => void) => {
+      observers.add(observer);
+      return () => void observers.delete(observer);
+    };
     const notify = () => listeners.forEach((listener) => listener());
     const subscribe = (listener: () => void) => {
       listeners.add(listener);
@@ -108,6 +114,7 @@ const start = <A extends AnyActor>(
           snapshot = handled.snapshot;
         });
         history.append(envelope, handled);
+        observers.forEach((observer) => observer());
         return handled.outcome;
       },
       notify,
@@ -192,7 +199,7 @@ const start = <A extends AnyActor>(
     const running: Running<A> = {
       history,
       instance: ({ from }) =>
-        reach<A>({ ...running, run: () => runs, query }, root, from),
+        reach<A>({ ...running, run: () => runs, query, observe }, root, from),
       snapshot: () => snapshot,
       running: () => instance !== undefined,
       now: time.now,

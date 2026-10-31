@@ -2,7 +2,7 @@ import { Context, Schema } from 'effect';
 import { expectTypeOf } from 'vitest';
 import { Actor } from '../index.ts';
 import type { Needs } from '../runtime/index.ts';
-import type { Types } from '../actor/index.ts';
+import type { BehaviorOf, Types } from '../actor/index.ts';
 
 class Clock2 extends Context.Service<Clock2, { readonly now: number }>()(
   'Clock2',
@@ -136,4 +136,42 @@ Quiet.build({
       emits: { Remove: () => ({ _tag: 'Removed', id: '' }) },
     }),
   },
+});
+
+// A Child written by hand skips `Actor.child`, and every check with it.
+List.build({
+  init: () => ({ model: { ids: [], picked: '' }, state: { _tag: 'Closed' } }),
+  // @ts-expect-error a Child is made with `Actor.child`
+  children: { byHand: { actor: RowLive } },
+  on: { Removed: () => ({}), Renamed: () => ({}) },
+});
+
+// A Child made away from any level is typed by nothing, so one that Emits
+// fits no parent; one that Emits nothing fits any.
+const loose = Actor.child(RowLive, {
+  input: () => ({ text: '' }),
+  props: () => ({ selected: true }),
+  emits: { Remove: () => ({ _tag: 'Wrong' }) },
+});
+const quiet = Actor.child(BareLive);
+List.build({
+  init: () => ({ model: { ids: [], picked: '' }, state: { _tag: 'Closed' } }),
+  // @ts-expect-error its Emits are not checked against the List's Messages
+  children: { loose },
+  on: { Removed: () => ({}), Renamed: () => ({}) },
+});
+List.build({
+  init: () => ({ model: { ids: [], picked: '' }, state: { _tag: 'Closed' } }),
+  children: { quiet },
+  on: { Removed: () => ({}), Renamed: () => ({}) },
+});
+
+// State blocks written apart, their keys optional, declare no Query.
+const blocks: NonNullable<BehaviorOf<typeof List>['states']> = {
+  Open: { on: { Removed: () => ({}) } },
+};
+List.build({
+  init: () => ({ model: { ids: [], picked: '' }, state: { _tag: 'Closed' } }),
+  on: { Removed: () => ({}), Renamed: () => ({}) },
+  states: blocks,
 });
