@@ -1,6 +1,7 @@
 import { Context, Effect, Layer, Schema } from 'effect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Loading, Page, Router } from '../../routing/index.ts';
+import { Page, Router } from '../../routing/index.ts';
+import { Loading } from '../../routing/capabilities/index.ts';
 import { View } from '../../react/index.ts';
 import { Start } from '../app/index.ts';
 import type { Pages } from '../app/index.ts';

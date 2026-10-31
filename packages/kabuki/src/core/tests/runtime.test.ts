@@ -1,7 +1,7 @@
 import { Effect, Schema, Stream } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, it } from 'vitest';
-import { Replay } from '../history/index.ts';
+import { Replay } from '../history/replay.ts';
 import { Actor, History, Runtime } from '../index.ts';
 import type { Running } from '../runtime/index.ts';
 import { Snapshot } from '../snapshot/index.ts';

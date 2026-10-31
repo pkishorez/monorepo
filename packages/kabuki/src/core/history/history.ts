@@ -1,6 +1,6 @@
 import { Effect, Queue, Stream } from 'effect';
 import type { AnyActor } from '../actor/index.ts';
-import { isRestore, restore } from '../snapshot/index.ts';
+import { isRestore, restore } from '../snapshot/engine/index.ts';
 import type { Envelope, Handled, Snapshot } from '../snapshot/index.ts';
 import { Replay, outcomeOf, strict } from './replay.ts';
 import type { ReplayOptions } from './replay.ts';
@@ -384,4 +384,3 @@ const checkWindow = (window: number | null) => {
 export const History = { make, load, restored };
 
 /** Tells a History from an Actor. */
-export const isHistory = (value: object): value is History => 'actor' in value;

@@ -1,8 +1,8 @@
 import { Context, Effect, Exit, Layer, Scope, Stream } from 'effect';
-import { Loading } from '../../routing/index.ts';
+import { Loading } from '../../routing/capabilities/index.ts';
 import { Start } from '../app/index.ts';
-import { knownOf } from '../../routing/page/index.ts';
-import type { Known } from '../../routing/page/index.ts';
+import { knownOf } from '../../routing/page/status/index.ts';
+import type { Known } from '../../routing/page/status/index.ts';
 import type { Outcome, Place, RenderMode } from '../../routing/route/index.ts';
 import { PAGES, PATH, SHELL, appOf, pagesOf } from '../app/protocol/index.ts';
 import type { Build, StartApp, Wanted } from '../app/protocol/index.ts';

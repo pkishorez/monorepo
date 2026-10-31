@@ -1,5 +1,5 @@
 import { Cause, Effect, Layer, Stream } from 'effect';
-import { Loading } from '../../routing/index.ts';
+import { Loading } from '../../routing/capabilities/index.ts';
 import type { Answer } from '../../routing/capabilities/index.ts';
 import { PATH, loadable, readLine, writeAsk } from '../app/protocol/index.ts';
 import type { Line, RoutesOnWire } from '../app/protocol/index.ts';

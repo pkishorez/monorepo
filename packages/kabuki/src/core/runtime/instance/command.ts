@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import type { Scope } from 'effect';
-import { RUN } from '../../command/index.ts';
+import { RUN } from '../../command/run/index.ts';
 import type { Command } from '../../command/index.ts';
 import type { Own } from './self.ts';
 

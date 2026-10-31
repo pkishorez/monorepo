@@ -78,6 +78,11 @@ export type ViewOf<A> = ((props: {
 }) => ReactNode) & {
   /** The Actor it draws. */
   readonly actor: A;
+  /**
+   * The Input its app starts from, as the root of `View.app`, unless the
+   * app is given its own: a routed root starts at the browser's URL.
+   */
+  readonly input?: () => unknown;
 };
 
 /**

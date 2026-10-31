@@ -1,13 +1,14 @@
 import { Effect, Option, Schema } from 'effect';
 import { Loading } from '../capabilities/index.ts';
 import type { AnyRoute } from '../capabilities/index.ts';
-import type { DataInfo, Known, Status } from '../page/index.ts';
+import type { Status } from '../page/index.ts';
+import type { DataInfo, Known } from '../page/status/index.ts';
 import {
   DataInfoSchema,
   dataInfoOf,
   placeInfoOf,
   statusSchema,
-} from '../page/index.ts';
+} from '../page/status/index.ts';
 import type { Codec, Place } from '../route/index.ts';
 
 /*

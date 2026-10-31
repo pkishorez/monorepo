@@ -134,6 +134,7 @@ export const app = <A extends AnyActor, Provided = never>(
   const options: AppOptions = setup ?? {};
   const layer = (setup?.layer ?? Layer.empty) as Layer.Layer<any, never, never>;
   const actor = view.actor;
+  const startFrom = options.input ?? view.input;
   const RootView = view;
   const name = options.name ?? actor.definition.name;
   const root = { id: actor.definition.name };
@@ -163,7 +164,7 @@ export const app = <A extends AnyActor, Provided = never>(
       ? History.load(actor, options.saved, keptWindow())
       : History.make(actor, {
           ...keptWindow(),
-          ...(options.input ? { input: options.input() } : {}),
+          ...(startFrom ? { input: startFrom() } : {}),
         });
   /** The History an app of this name holds or left, read with this code from the Input it was made with, else its own. */
   const adopt = () => {

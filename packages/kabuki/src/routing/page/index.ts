@@ -1,5 +1,4 @@
 export { Page } from './page.ts';
-export { notFound, redirect } from './failures.ts';
 export type { Href, RedirectOptions } from './failures.ts';
 export type {
   LoadError,
@@ -15,11 +14,4 @@ export type {
   PageDefinition,
   Rootless,
 } from './page.ts';
-export {
-  DataInfoSchema,
-  dataInfoOf,
-  knownOf,
-  placeInfoOf,
-  statusSchema,
-} from './status.ts';
-export type { DataInfo, Known, Status } from './status.ts';
+export type { Status } from './status/index.ts';

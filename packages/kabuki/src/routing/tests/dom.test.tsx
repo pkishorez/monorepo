@@ -6,8 +6,9 @@ import { Effect, Layer, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { History, Runtime } from '../../core/index.ts';
 import { View } from '../../react/index.ts';
-import { Loading, Page, Router, useRouter } from '../index.ts';
-import { registry } from '../../react/view/index.ts';
+import { Page, Router, useRouter } from '../index.ts';
+import { Loading } from '../capabilities/index.ts';
+import { registry } from '../../react/view/registry.ts';
 import { keyIn } from '../router/adapter/index.ts';
 import { browser } from '../router/adapter/browser/index.ts';
 
@@ -118,11 +119,10 @@ const draw = async (adapter: 'memory' | 'browser', at = '/app') => {
   const Root = Router.app(Routes, AppView);
   const Drawn =
     adapter === 'memory'
-      ? View.app(Root.view, { name: `memory-${count++}` })
-      : View.app(Root.view, {
+      ? View.app(Root, { name: `memory-${count++}` })
+      : View.app(Root, {
           layer: browser(),
           name: `browser-${count++}`,
-          input: Root.startAt,
         });
   root = createRoot(host);
   await act(async () => root!.render(<Drawn />));
@@ -258,10 +258,9 @@ describe('a reload', () => {
     await act(async () => root?.unmount());
     registry.clear();
     const Root = Router.app(Routes, AppView);
-    const Drawn = View.app(Root.view, {
+    const Drawn = View.app(Root, {
       layer: browser(),
       name: `browser-${count++}`,
-      input: Root.startAt,
     });
     root = createRoot(host);
     await act(async () => root!.render(<Drawn />));
@@ -391,10 +390,9 @@ describe('a page with data', () => {
     broken = false;
     calls = [];
     const Root = Router.app(Shop, ShopView);
-    const Drawn = View.app(Root.view, {
+    const Drawn = View.app(Root, {
       layer: Layer.mergeAll(browser(), loading),
       name: `shop-${count++}`,
-      input: Root.startAt,
     });
     root = createRoot(host);
     await act(async () => root!.render(<Drawn />));
@@ -503,7 +501,7 @@ describe('a page with data', () => {
   it('a server draws a page without its data at its loading screen', async () => {
     const { renderToString } = await import('react-dom/server');
     const Root = Router.app(Shop, ShopView);
-    const Drawn = View.app(Root.view, {
+    const Drawn = View.app(Root, {
       name: `server-${count++}`,
       input: () => Root.startAt('/items/4'),
     });

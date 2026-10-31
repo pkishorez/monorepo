@@ -1,4 +1,4 @@
-import type { ActorDefinition, Tagged } from '../actor/index.ts';
+import type { ActorDefinition, Tagged } from '../../actor/index.ts';
 import type { Instance, Snapshot } from './snapshot.ts';
 import { counterOf, isMany, slotToward } from './tree.ts';
 

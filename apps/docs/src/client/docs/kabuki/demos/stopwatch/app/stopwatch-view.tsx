@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { motion, useAnimationFrame, useMotionValue } from 'motion/react';
-import { View, useLive } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
+import { useLive } from '@kestack/kabuki/react/view';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { StopwatchLive } from './stopwatch.ts';
 

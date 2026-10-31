@@ -1,10 +1,11 @@
 import type { AnyRoute } from '../capabilities/index.ts';
 import { Clock, Effect, Option, Schema } from 'effect';
 import { Command } from '../../core/command/index.ts';
-import { lazyOf } from '../../react/view/index.ts';
+import { lazyOf } from '../../react/view/draw/index.ts';
 import { Loading } from '../capabilities/index.ts';
-import { knownOf } from '../page/index.ts';
-import type { AnyPageBuild, Known } from '../page/index.ts';
+import { knownOf } from '../page/status/index.ts';
+import type { AnyPageBuild } from '../page/index.ts';
+import type { Known } from '../page/status/index.ts';
 import type { Value } from '../route/index.ts';
 import type { PendingMove, RoutesLike, Send } from './model.ts';
 

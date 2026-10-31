@@ -3,7 +3,7 @@ import type {
   MoveOptions,
   ReloadOptions,
 } from '../capabilities/index.ts';
-import type { Known } from '../page/index.ts';
+import type { Known } from '../page/status/index.ts';
 import { leave, write } from './commands.ts';
 import { renewing, settle } from './data.ts';
 import type { PlaceMessage } from './data.ts';

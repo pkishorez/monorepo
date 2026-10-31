@@ -10,7 +10,7 @@ import {
 } from 'effect';
 import type { Scope } from 'effect';
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { restore } from '../snapshot/index.ts';
+import { restore } from '../snapshot/engine/index.ts';
 import { Actor, Runtime } from '../index.ts';
 import { Stopped } from '../runtime/index.ts';
 import { run as runNever, settle } from './fixtures.ts';

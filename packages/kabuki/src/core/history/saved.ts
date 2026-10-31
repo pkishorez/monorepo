@@ -1,5 +1,6 @@
 import type { ActorDefinition, Encoding, Tagged } from '../actor/index.ts';
-import { Snapshot, isRestore, restore } from '../snapshot/index.ts';
+import { Snapshot } from '../snapshot/index.ts';
+import { isRestore, restore } from '../snapshot/engine/index.ts';
 import type { Instance } from '../snapshot/index.ts';
 import type { Entry, SavedHistory } from './history.ts';
 

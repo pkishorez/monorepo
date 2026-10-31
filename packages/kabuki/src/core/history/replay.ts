@@ -1,6 +1,7 @@
 import { Effect } from 'effect';
 import type { ActorDefinition } from '../actor/index.ts';
-import { Snapshot, actorAt, init, isRestore } from '../snapshot/index.ts';
+import { Snapshot } from '../snapshot/index.ts';
+import { actorAt, init, isRestore } from '../snapshot/engine/index.ts';
 import type { Envelope, Handled } from '../snapshot/index.ts';
 import type { Entry } from './history.ts';
 import { actorsAt, decodeEntry } from './saved.ts';
