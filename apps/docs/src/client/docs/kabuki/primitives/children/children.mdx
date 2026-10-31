@@ -26,15 +26,14 @@ each piece stays easy to read.
 ## Three ways to have a Child
 
 You list Children in the Build, the way you list Workers, and they follow
-the same rules. `children` is a function: kabuki hands it `child`, and you
-make each Child with it, the Actor first.
+the same rules. You make each Child with `Actor.child`, the Actor first.
 
 ```ts
-children: (child) => ({
-  header: child(HeaderLive),                                   // always there
-  details: child(DetailsLive, { while: ({ model }) => model.open }),
-  songs: child(SongLive, { each: ({ model }) => model.ids }),
-}),
+children: {
+  header: Actor.child(HeaderLive), // always there
+  details: Actor.child(DetailsLive, { while: ({ model }) => model.open }),
+  songs: Actor.child(SongLive, { each: ({ model }) => model.ids }),
+},
 ```
 
 - With nothing else, a Child is **always** there, for the parent's whole
@@ -47,7 +46,7 @@ children: (child) => ({
 Written inside a State, a Child exists only while the parent is in that
 State.
 
-`child` knows the parent and the Child, so everything you write in it is
+`Actor.child` knows the parent and the Child, so everything you write in it is
 checked: the parent's data you read, and what you hand the Child. Inside a
 State's block it even knows which State you're in.
 
@@ -57,7 +56,7 @@ A new Song needs to know its title. The parent hands it an **Input** when
 the Child starts:
 
 ```ts
-songs: child(SongLive, {
+songs: Actor.child(SongLive, {
   each: ({ model }) => model.ids,
   input: (_, id) => SONGS[id],
 }),
@@ -104,7 +103,7 @@ the Child. The Child's key comes with it, so the Playlist knows which Song
 asked:
 
 ```ts
-songs: child(SongLive, {
+songs: Actor.child(SongLive, {
   each: ({ model }) => model.ids,
   emits: { Remove: (_, id) => ({ _tag: 'Removed', id }) },
 }),

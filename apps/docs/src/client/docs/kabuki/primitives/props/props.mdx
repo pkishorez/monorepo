@@ -20,7 +20,7 @@ changes, kabuki works its Props out again and hands them down.
 You write them beside the Child, as a function of the parent's data:
 
 ```ts
-songs: child(SongLive, {
+songs: Actor.child(SongLive, {
   each: ({ model }) => model.ids,
   input: (_, id) => SONGS[id],
   props: ({ model }, id) => ({ playing: model.playing === id }),

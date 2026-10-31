@@ -24,7 +24,7 @@ See the [top README](../../README.md). This subpath needs the optional peers `@k
 | `Replica.build`     | Says how each Instance of a Replica syncs: its Gate, its GC Time, and per Collection a Strategy, one per Window, or both.                                          |
 | `Replicas`          | The Capability `get` holds Instances through; what runs is in the Model of the actor `Replicas.actor` makes.                                                       |
 | `Replicas.layer`    | The Layer a page Provides, once, near the root.                                                                                                                    |
-| `Replicas.actor`    | The actor the same page places once, `child(Replicas.actor([…]))`, running the Builds it is given.                                                                 |
+| `Replicas.actor`    | The actor the same page places once, `Actor.child(Replicas.actor([…]))`, running the Builds it is given.                                                           |
 | `Query.make`        | Makes a Query: an actor whose Model is rows from Collections of the Instances its Props pick.                                                                      |
 | `Action.make`       | Defines an Action as a Kabuki Command that ends with one Message tagged with its name.                                                                             |
 | `Action.optimistic` | Makes Optimistic Changes inside an Action, across Instances and Replicas, rolled back if the Action fails.                                                         |
@@ -80,12 +80,12 @@ const PocketLive = Replica.build(Pocket, {
   },
 });
 
-const Root = Actor.build(Actor.define('Root', {}), {
+const Root = Actor.define('Root', {}).build({
   provides: () => Replicas.layer,
-  children: (child) => ({
-    replicas: child(Replicas.actor([PocketLive])),
-    page: child(PageLive),
-  }),
+  children: {
+    replicas: Actor.child(Replicas.actor([PocketLive])),
+    page: Actor.child(PageLive),
+  },
 });
 
 // The app's Layer: import { Store } from '@kestack/std-toolkit/replica/idb'
@@ -120,7 +120,7 @@ const WalletEntries = Query.make('WalletEntries', {
 });
 
 // In the page's Build:
-// children: (child) => ({ wallets: child(Wallets, { props: ({ model }) => ({ account: model.account }) }) })
+// children: { wallets: Actor.child(Wallets, { props: ({ model }) => ({ account: model.account }) }) }
 
 // Stored rows show at once; with none, a skeleton only until it first syncs here.
 const WalletsView = View.make(Wallets, ({ model, root }) =>

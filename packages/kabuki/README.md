@@ -94,28 +94,29 @@ pnpm add @kestack/kabuki effect react
 
 ### `@kestack/kabuki`
 
-| Export             | What it does                                                                                                                                                                |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Actor.define`     | Says what an Actor is: its name, Requires, Schemas and what it Emits, which fix every type; each Schema may be written as its fields or its cases. It runs nothing.         |
-| `Actor.build`      | Says how a defined Actor behaves, at the top and under `states` in one block per State, each Child made with `child`: the build is what runs and is drawn.                  |
-| `Command.make`     | Defines a Command from its name, the Schema of its args and the Effect it runs; an Update calls it with the args.                                                           |
-| `Runtime.start`    | Runs an Actor, or carries a History on, inside a Scope, with the app's Layer; gives back `send`, `start` and `stop`. Started from an Actor, its History keeps no Messages.  |
-| `running.changes`  | The live Snapshot as an Effect Stream: now, then whenever the app settles; a slow reader gets only the latest.                                                              |
-| `running.instance` | The root Instance, typed and live, for code outside the tree: reads any Instance's data, Children and Workers, asks its Queries, and Sends to it from outside under a name. |
-| `History.make`     | A new, empty History for an Actor, with the root's Input.                                                                                                                   |
-| `History.load`     | A History carrying on from one saved before, read with the Actor's code as it is now.                                                                                       |
-| `History.restored` | The lightest History an app can be saved as: one Restore of a Snapshot at a Time, right after init.                                                                         |
-| `history.changes`  | The History as plain JSON in an Effect Stream: now, then after every change, so saving it is `Stream.debounce` and `Stream.runForEach`.                                     |
-| `history.keep`     | Sets the History's Window, how many entries it keeps; older ones Compact into a Restore. Works while it runs.                                                               |
+| Export             | What it does                                                                                                                                                                                                                               |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Actor.define`     | Says what an Actor is: its name, Requires, Schemas, what it Emits and the Queries it answers, each with what it is asked with and answers; each Schema may be written as its fields or its cases. It runs nothing.                         |
+| `definition.build` | Says how a defined Actor behaves, at the top and under `states` in one block per State: its rules, Children, Workers, Provides and answers to its Queries. The build is what runs and is drawn.                                            |
+| `Actor.child`      | Makes one Child in a level's `children`: its Actor, then always, `while` a test holds, or one per key `each` names, with what it is handed and what the parent hears; every function in it is typed by the level it is written in.         |
+| `Command.make`     | Defines a Command from its name, the Schema of its args and the Effect it runs; an Update calls it with the args.                                                                                                                          |
+| `Runtime.start`    | Runs an Actor, or carries a History on, inside a Scope, with the app's Layer; gives back `send`, `start` and `stop`. Started from an Actor, its History keeps no Messages.                                                                 |
+| `running.changes`  | The live Snapshot as an Effect Stream: now, then whenever the app settles; a slow reader gets only the latest.                                                                                                                             |
+| `running.instance` | The root Instance, typed and live, for code outside the tree: reads any Instance's data, Children and Workers, asks its Queries, Sends to it under a name and learns what became of the Message, and waits `until` its data passes a test. |
+| `History.make`     | A new, empty History for an Actor, with the root's Input.                                                                                                                                                                                  |
+| `History.load`     | A History carrying on from one saved before, read with the Actor's code as it is now.                                                                                                                                                      |
+| `History.restored` | The lightest History an app can be saved as: one Restore of a Snapshot at a Time, right after init.                                                                                                                                        |
+| `history.changes`  | The History as plain JSON in an Effect Stream: now, then after every change, so saving it is `Stream.debounce` and `Stream.runForEach`.                                                                                                    |
+| `history.keep`     | Sets the History's Window, how many entries it keeps; older ones Compact into a Restore. Works while it runs.                                                                                                                              |
 
 ### `@kestack/kabuki/core/actor`
 
 `Actor`, as `@kestack/kabuki` gives it, with the types an Actor is named and written by: `ActorType`, `AnyActor`, `ActorDefinition`, `Self`, `Single`, `Types` and the rest.
 
-| Export         | What it does                                       |
-| -------------- | -------------------------------------------------- |
-| `Actor.define` | As in `@kestack/kabuki`: what an Actor is.         |
-| `Actor.build`  | As in `@kestack/kabuki`: how a defined Actor acts. |
+| Export         | What it does                                   |
+| -------------- | ---------------------------------------------- |
+| `Actor.define` | As in `@kestack/kabuki`: what an Actor is.     |
+| `Actor.child`  | As in `@kestack/kabuki`: one Child of a level. |
 
 ### `@kestack/kabuki/core/command`
 
@@ -137,10 +138,10 @@ pnpm add @kestack/kabuki effect react
 
 `Runtime`, with `Running`, `LiveInstance`, `Needs`, `Provided` and `WorkerStatus`.
 
-| Export          | What it does                                                                                        |
-| --------------- | --------------------------------------------------------------------------------------------------- |
-| `Runtime.start` | As in `@kestack/kabuki`.                                                                            |
-| `Stopped`       | What a Query asked from outside the tree fails with once its Instance, or the Runtime, has stopped. |
+| Export          | What it does                                                                                                                               |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Runtime.start` | As in `@kestack/kabuki`.                                                                                                                   |
+| `Stopped`       | What a Query asked from outside the tree, or an `until` waiting on an Instance, fails with once the Instance, or the Runtime, has stopped. |
 
 ### `@kestack/kabuki/core/snapshot`
 
@@ -177,8 +178,8 @@ The whole app as one value, read and stepped from outside the Runtime, as a devt
 
 | Export            | What it does                                                                                                                                                                                                                                                                                                                                                                 |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Page.define`     | Says what a page is: an Actor definition with a place in the URL, its params, query, data, Render Mode, Metadata and the definitions of the pages under it.                                                                                                                                                                                                                  |
-| `Page.build`      | Says how a page behaves, as `Actor.build` takes it, with the build of each page under it in `pages`; a page is drawn with `View.make`.                                                                                                                                                                                                                                       |
+| `Page.define`     | Says what a page is: an Actor definition with a place in the URL, its params, query, data, Render Mode, Metadata, the definitions of the pages under it, and its own Schemas and Queries.                                                                                                                                                                                    |
+| `page.build`      | Says how a page behaves, as an Actor's `build` takes it, with the build of each page under it in `pages`; a page is drawn with `View.make`.                                                                                                                                                                                                                                  |
 | `Page.notFound`   | What a Loader fails with when its place is not found.                                                                                                                                                                                                                                                                                                                        |
 | `Page.redirect`   | What a Loader fails with to send the app to another of its Routes, or to a whole URL outside it; `{ permanent: true }` makes a server answer `308` rather than `302`.                                                                                                                                                                                                        |
 | `Page.NotFound`   | The Schema of a Loader's not-found failure, to carry it over the wire.                                                                                                                                                                                                                                                                                                       |
@@ -313,7 +314,7 @@ export const Login = Actor.define('Login', {
   emits: { SignedIn: { user: Schema.String } },
 });
 
-export const LoginLive = Actor.build(Login, {
+export const LoginLive = Login.build({
   init: () => ({ model: { name: '' } }),
   on: {
     Typed: ({ name }) => ({ model: { name } }),
@@ -337,7 +338,7 @@ export const Auth = Actor.define('Auth', {
   },
 });
 
-export const AuthLive = Actor.build(Auth, {
+export const AuthLive = Auth.build({
   init: () => ({ state: { _tag: 'Checking' } }),
   states: {
     Checking: {
@@ -357,17 +358,17 @@ export const AuthLive = Actor.build(Auth, {
       },
     },
     Anonymous: {
-      children: (child) => ({
-        login: child(LoginLive, {
+      children: {
+        login: Actor.child(LoginLive, {
           emits: { SignedIn: ({ user }) => ({ _tag: 'LoggedIn', user }) },
         }),
-      }),
+      },
       on: {
         LoggedIn: ({ user }) => ({ state: { _tag: 'Authenticated', user } }),
       },
     },
     Authenticated: {
-      children: (child) => ({ todos: child(TodosLive) }),
+      children: { todos: Actor.child(TodosLive) },
       provides: (self) =>
         Layer.succeed(Session, {
           user: self.get.pipe(Effect.map(({ state }) => state.user)),
@@ -379,15 +380,16 @@ export const AuthLive = Actor.build(Auth, {
 });
 ```
 
-- `Actor.define` takes only the name, the Requires, the Schemas and what the Actor Emits, which fix every type, and imports nothing but other definitions. A struct is written as its fields, a tagged union as its cases by tag, as `Schema.TaggedUnion` takes them; a whole Schema works too. The Model is always a struct. `Actor.build` is checked against them: an Update that returns a State the Schema does not have, or a `state.user` read where there is none, does not compile. The definition is `Auth`, the build `AuthLive`, side by side in one file.
+- `Actor.define` takes only the name, the Requires, the Schemas and what the Actor Emits, which fix every type, and imports nothing but other definitions. A struct is written as its fields, a tagged union as its cases by tag, as `Schema.TaggedUnion` takes them; a whole Schema works too. The Model is always a struct. The definition's own `build` is checked against them: an Update that returns a State the Schema does not have, or a `state.user` read where there is none, does not compile. The definition is `Auth`, the build `AuthLive`, side by side in one file.
 - A build has two Levels. What is written at the top holds for as long as the Instance lives; what is written under `states`, in a State's block, holds while that State lasts. Each Level can hold `provides`, `children`, `on`, `workers` and `queries`.
 - An Update gives only the fields of the Model that change; the rest stay as they are, and a Model whose fields all stay the same is the same object. An Update that returns a different `_tag` is a Transition: the old State's Children, Workers and Capabilities stop, the new State's start. A Child written at the top lasts through it.
-- A level's `children` is a function handed `child`, which makes each Child: `child(LoginLive, { … })`, the Actor, then when it exists, what it is handed and what the parent hears. `child` is typed for its level, its State narrowed in a State's block, so every function in it is checked against the parent's data and the Child's Actor. A Child that needs no Input and no Props is `child(TodosLive)`.
+- A level's `children` names each Child, made with `Actor.child`: `Actor.child(LoginLive, { … })`, the Actor, then when it exists, what it is handed and what the parent hears. `Actor.child` is typed by the level it is written in, its State narrowed in a State's block, so every function in it is checked against the parent's data and the Child's Actor. A Child that needs no Input and no Props is `Actor.child(TodosLive)`.
 - What a Child tells its parent it Emits: its Update returns `emit`, checked against its `emits` Schema, and the slot's `emits` turns each into one of the parent's Messages, Sent to the parent right after. That Message is in the History as its own entry, Sent by the Child. An event the slot does not turn is not heard, so a Child fits any parent. Use Emits between a parent and its Child, and a Capability for what any Actor further down may need.
 - A Worker is a named, scoped Effect given `self`: `send` to its own Instance, `get` and `changes` for its current data, and `now` for the app's Time. Written in the `Checking` block, `check` runs while that State lasts.
 - Provides is one Layer per Level, built each time its Level starts. A Capability that reads the Model reads it through `self`, so it never goes stale. It cancels out what the Children below it need; a need nothing cancels bubbles up to the app's Layer.
 - Requires caps the Actor's own code: a Worker, Command or Provide that reaches for anything else does not compile. Update and init never see Capabilities.
-- A Query is a question code outside the tree asks an Instance, `queries: { peers: { run: (self, args) => Effect } }`: it reads `self` and the Actor's Requires, and never Sends. Written in a State's block it is askable only in that State, and the live Instance has it on its type only once `_tag` has narrowed to it. Asked of an Instance that has stopped or left the State, it fails with `Stopped`, from `@kestack/kabuki/core/runtime`.
+- A Query is a question code outside the tree asks an Instance. `define` declares it, with what it is asked with and what it answers, `queries: { peers: { args: { room: Schema.String }, result: Schema.Array(Schema.String) } }`, and `build` answers it, `queries: { peers: (self, { room }) => Effect }`: it reads `self` and the Actor's Requires, and never Sends. Its args and answer are checked against their Schemas, and a Query answered but not declared does not compile. Written in a State's block it is askable only in that State, and the live Instance has it on its type only once `_tag` has narrowed to it. Asked of an Instance that has stopped or left the State, it fails with `Stopped`, from `@kestack/kabuki/core/runtime`.
+- Outside code tells an Instance with `send`, which says what became of the Message: `handled`, `ignored` with no rule for it in that State, `queued` behind one being handled, or `refused`. It waits on one with `until`, `yield* session.until((s) => s._tag === 'Running')`, which answers with the Instance narrowed as the test narrows it, from data the History keeps, or fails with `Stopped`. A job that needs outside work and then a change asks a Query, then Sends.
 
 ### A list of Actors, a Command, and a Worker per key
 
@@ -412,16 +414,16 @@ const List = Actor.define('List', {
   },
 });
 
-const ListLive = Actor.build(List, {
+const ListLive = List.build({
   init: () => ({ model: { ids: [], uploading: [], next: 0 } }),
-  children: (child) => ({
-    rows: child(RowLive, {
+  children: {
+    rows: Actor.child(RowLive, {
       each: ({ model }) => model.ids,
       input: (_, id) => ({ text: `#${id}` }),
       props: ({ model }, id) => ({ uploading: model.uploading.includes(id) }),
       emits: { Remove: (_, id) => ({ _tag: 'Removed', id }) },
     }),
-  }),
+  },
   on: {
     Added: (_, { model }) => {
       const id = `${model.next}`;
@@ -457,7 +459,7 @@ const ListLive = Actor.build(List, {
 });
 ```
 
-- A Child is made as a Worker is written: `child` takes its Actor, then always, `while` a test is true, or `each` key a function names, one Instance per key. Its `input`, `props` and `emits` are worked out from the parent's data and the Child's key, `''` unless it is one of `each`, so the List knows which Row Emitted `Remove`. After every Update, a new key Invokes a Row, a key gone stops it, and a key kept keeps its Instance. From then on the Row owns its data. A Child written with `while` stops when its test turns false and comes back as a fresh Instance.
+- A Child is made as a Worker is written: `Actor.child` takes its Actor, then always, `while` a test is true, or `each` key a function names, one Instance per key. Its `input`, `props` and `emits` are worked out from the parent's data and the Child's key, `''` unless it is one of `each`, so the List knows which Row Emitted `Remove`. After every Update, a new key Invokes a Row, a key gone stops it, and a key kept keeps its Instance. From then on the Row owns its data. A Child written with `while` stops when its test turns false and comes back as a fresh Instance.
 - Props are what the parent says now, worked out again after each of its Updates: the Row declares them with `props` beside `input`, and its Update, its Workers' Conditions and its View read them. It never writes them, and a change runs none of its rules. Props equal to the last ones keep the Instance; new ones are not in the History, since Replay works them out again from the parent.
 - Instance IDs are deterministic: `List/rows[0]#1` is the first `rows` keyed `0`. A key Invoked again gets `#2`, so a Message meant for the old Instance is dropped.
 - A Command is an errand, made once with `Command.make`: a name, the Schema of its args and the Effect it runs from them, ending with at most one Message. The Update asks for it with its args, `save({ id })`, which is plain data a test can compare; the args are checked when it runs. Nothing stops it but its Instance stopping, and there is no cancel. An Update may return a list of Commands; they run concurrently.
