@@ -29,7 +29,7 @@ test and to read.
 
 `View.make` draws the Actor with React. It gets the Model and `send`, and
 nothing else: it cannot change the Model itself, only send a Message.
-`toReact` turns the Actor and its View into a component that runs the app.
+`View.app` turns the View into a component that runs the app.
 
 ```tsx file=./components/counter-app.tsx
 

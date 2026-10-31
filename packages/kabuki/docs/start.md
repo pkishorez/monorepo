@@ -133,7 +133,7 @@ move or as part of a client place. It is `null` outside a page Start served,
 as in a test or a story.
 
 `Start.useRuntime()` reads the running app from the Document, for devtools
-drawn around it: what `App.useRuntime()` gives an app drawn with `toReact`,
+drawn around it: what `App.useRuntime()` gives an app drawn with `View.app`,
 its History, the Step shown and how to show another. It is `null` on the
 server, which draws each request from a History of its own and runs none.
 
@@ -253,16 +253,19 @@ and Restore need every Actor.
 
 ```
 src/start/
-  common/      both sides: Start.app, the Document's parts, the Page, the Loader RPC's wire   @kestack/kabuki/start
+  app/         what src/app writes, on both sides: Start.app and the Document's parts         @kestack/kabuki/start
+    protocol/  what the server and the browser agree on: the Page, the Pages, the App Shell,
+               the Loader RPC's wire, the brand on Start.app
   server/      the handler, the Loaders' Layers (Start.server), the RPC's answer, the Cache  @kestack/kabuki/start/server
   client/      hydrating, and the Loading that asks the RPC                                  @kestack/kabuki/start/client
   platform/    the port each platform fills                                                  @kestack/kabuki/start/platform
     cloudflare/  Cloudflare Workers                                                          @kestack/kabuki/start/cloudflare
+    nitro/       any host Nitro has a preset for                                             @kestack/kabuki/start/nitro
   vite/        the plugin                                                                    @kestack/kabuki/start/vite
 ```
 
-`server` and `client` use `common`, never each other; `server` and `vite`
-use `platform`. An app imports `Start` from `@kestack/kabuki/start` in what
+`server`, `client` and `vite` use `app/protocol`, never each other; `server`
+and `vite` use `platform`. An app imports `Start` from `@kestack/kabuki/start` in what
 both sides run, and from `@kestack/kabuki/start/server` in
 `src/loaders.server`, so nothing of the server's reaches the browser's
 bundle.
