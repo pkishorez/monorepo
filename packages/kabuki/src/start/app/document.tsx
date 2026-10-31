@@ -1,7 +1,7 @@
 import { use, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import type { AppRuntime } from '../../react/index.ts';
-import { ID, PageContext, RuntimeContext, usePage } from './page.ts';
+import { ID, PageContext, RuntimeContext, usePage } from './protocol/index.ts';
 
 /*
  * The Document's two parts Start fills: `<Start.Head />` in its `<head>`,

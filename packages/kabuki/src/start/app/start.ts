@@ -1,8 +1,8 @@
 import { app } from './app.ts';
 import { Document, Head, Scripts, useDrawn, useRuntime } from './document.tsx';
 import type { DocumentProps as Props, Drawn as DrawnBy } from './document.tsx';
-import { PAGES } from './pages.ts';
-import type { PageInfo as Info, Pages as AllPages } from './pages.ts';
+import { PAGES } from './protocol/index.ts';
+import type { PageInfo as Info, Pages as AllPages } from './protocol/index.ts';
 import type { Attachment as Attached } from '../../react/index.ts';
 
 /*

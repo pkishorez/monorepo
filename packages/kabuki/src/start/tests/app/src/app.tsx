@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { View } from '../../../../react/index.ts';
 import type { Status } from '../../../../routing/index.ts';
-import { Start } from '../../../common/index.ts';
+import { Start } from '../../../app/index.ts';
 import Document from './document.tsx';
 import {
   AccountActivityLive,

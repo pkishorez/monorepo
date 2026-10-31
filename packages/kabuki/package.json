@@ -48,8 +48,8 @@
       "default": "./dist/routing/router/adapter/tanstack/index.js"
     },
     "./start": {
-      "types": "./dist/start/common/common.d.ts",
-      "default": "./dist/start/common/common.js"
+      "types": "./dist/start/app/index.d.ts",
+      "default": "./dist/start/app/index.js"
     },
     "./start/server": {
       "types": "./dist/start/server/index.d.ts",

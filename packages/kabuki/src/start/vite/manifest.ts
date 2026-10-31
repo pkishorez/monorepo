@@ -1,4 +1,4 @@
-import type { Assets } from '../common/index.ts';
+import type { Assets } from '../app/protocol/index.ts';
 import { ENTRY } from './entries.ts';
 
 /*

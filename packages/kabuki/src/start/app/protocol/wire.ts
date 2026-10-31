@@ -1,5 +1,9 @@
 import { Exit, Schema } from 'effect';
-import type { Codec, Outcome, PlaceSchema } from '../../routing/route/index.ts';
+import type {
+  Codec,
+  Outcome,
+  PlaceSchema,
+} from '../../../routing/route/index.ts';
 
 /*
  * The Loader RPC: how the browser asks the server for the data of the

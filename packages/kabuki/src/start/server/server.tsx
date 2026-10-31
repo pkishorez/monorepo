@@ -3,16 +3,10 @@ import { Loading, Router } from '../../routing/index.ts';
 import { knownOf } from '../../routing/page/index.ts';
 import type { Known } from '../../routing/page/index.ts';
 import type { Outcome, Place, RenderMode } from '../../routing/route/index.ts';
-import {
-  Document,
-  PAGES,
-  PATH,
-  SHELL,
-  appOf,
-  pagesOf,
-} from '../common/index.ts';
-import type { Build, StartApp, Wanted } from '../common/index.ts';
+import { PAGES, PATH, SHELL, appOf, pagesOf } from '../app/protocol/index.ts';
+import type { Build, StartApp, Wanted } from '../app/protocol/index.ts';
 import type { Handler, Host } from '../platform/index.ts';
+import { Start } from '../app/index.ts';
 import { kept } from './cache.ts';
 import { drawer } from './draw.tsx';
 import type { At } from './draw.tsx';
@@ -39,7 +33,7 @@ import {
  *
  * 1. Route    `POST /_kabuki/load` is the Loader RPC; `GET /_kabuki/pages`
  *             the Pages and `GET /_kabuki/shell` the App Shell, kept as a
- *             static page is; see `common/pages.ts`. A page is a `GET`.
+ *             static page is; see `app/protocol/pages.ts`. A page is a `GET`.
  * 2. Read     the URL; a redirect in the Routes, or a URL not written as its
  *             Route is, is a `308` to the Route's URL.
  * 3. Split    the Route's places into those drawn here, static and dynamic,
@@ -86,7 +80,7 @@ const pathOf = (url: string, base: URL) => new URL(url, base).pathname;
 
 export const handler = (options: HandlerOptions): Handler => {
   const { build } = options;
-  const { app, document = Document } = appOf(options.app);
+  const { app, document = Start.Document } = appOf(options.app);
   const { loaders, layers } = serverOf(options.server);
   const draw = drawer(app, document, build);
   const layerFor = lifetimes(layers);

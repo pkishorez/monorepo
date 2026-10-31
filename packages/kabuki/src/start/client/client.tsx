@@ -9,14 +9,14 @@ import type { AppRuntime } from '../../react/index.ts';
 import { Router } from '../../routing/index.ts';
 import { browser } from '../../routing/router/adapter/browser/index.ts';
 import {
-  Document as Plain,
   NOT_HERE,
   PageContext,
   RuntimeContext,
   appOf,
   readPage,
-} from '../common/index.ts';
-import type { StartApp } from '../common/index.ts';
+} from '../app/protocol/index.ts';
+import type { StartApp } from '../app/protocol/index.ts';
+import { Start } from '../app/index.ts';
 import { loading } from './rpc.ts';
 
 /*
@@ -64,7 +64,7 @@ export const client = async (exported: StartApp): Promise<Hydrated> => {
   const page = (next: StartApp) => {
     const {
       app,
-      document: Document = Plain,
+      document: Document = Start.Document,
       layer,
       name,
       attach,
