@@ -169,7 +169,10 @@ export function Rows({
   }, [from]);
   // What a batch drew above the view moves nothing in it: the turn at its
   // top stays where it was on the screen. Read as each batch is drawn,
-  // when the page is laid out for the screen anyway.
+  // when the page is laid out for the screen anyway. While more are to
+  // come, the list keeps at least its height, so turns drawn shorter than
+  // they stood in never shrink it under the view: the browser would clamp
+  // the scroll before the move here, and the two would add up.
   useLayoutEffect(() => {
     const element = list.current;
     if (element === null) return;
@@ -188,6 +191,8 @@ export function Rows({
         break;
       }
     }
+    element.style.minHeight = '';
+    if (from !== 0) element.style.minHeight = `${element.offsetHeight}px`;
     placed.current = from === 0 ? null : now;
   }, [from]);
   // How tall each drawn turn is, for the next time it stands in.
