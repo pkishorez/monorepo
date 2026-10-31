@@ -48,11 +48,11 @@
       "types": "./dist/routing/router/adapter/index.d.ts",
       "default": "./dist/routing/router/adapter/index.js"
     },
-    "./routing/adapter/browser": {
+    "./routing/browser": {
       "types": "./dist/routing/router/adapter/browser/index.d.ts",
       "default": "./dist/routing/router/adapter/browser/index.js"
     },
-    "./routing/adapter/tanstack": {
+    "./routing/tanstack": {
       "types": "./dist/routing/router/adapter/tanstack/index.d.ts",
       "default": "./dist/routing/router/adapter/tanstack/index.js"
     },
@@ -72,11 +72,11 @@
       "types": "./dist/start/platform/index.d.ts",
       "default": "./dist/start/platform/index.js"
     },
-    "./start/platform/cloudflare": {
+    "./start/cloudflare": {
       "types": "./dist/start/platform/cloudflare/index.d.ts",
       "default": "./dist/start/platform/cloudflare/index.js"
     },
-    "./start/platform/nitro": {
+    "./start/nitro": {
       "types": "./dist/start/platform/nitro/index.d.ts",
       "default": "./dist/start/platform/nitro/index.js"
     },

@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { connect } from 'node:net';
 import type { AddressInfo } from 'node:net';
 import type { Plugin } from 'vite';
-import { cloudflare } from '@kestack/kabuki/start/platform/cloudflare';
+import { cloudflare } from '@kestack/kabuki/start/cloudflare';
 import { describe, expect, it } from 'vitest';
 import { app } from '../index.ts';
 

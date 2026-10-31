@@ -1,6 +1,6 @@
 import { basename } from 'node:path';
 import mdx from '@mdx-js/rollup';
-import { cloudflare } from '@kestack/kabuki/start/platform/cloudflare';
+import { cloudflare } from '@kestack/kabuki/start/cloudflare';
 import rehypeShiki from '@shikijs/rehype';
 import { app } from '@kestack/web-platform/app/vite';
 import { defineConfig } from 'vite';
