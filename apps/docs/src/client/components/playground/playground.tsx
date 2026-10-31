@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import type { AppRuntime } from '@kestack/kabuki/react';
+import type { View } from '@kestack/kabuki/react';
 import { Inside } from './inside.tsx';
 import { Timeline } from './timeline.tsx';
 import { stepOf } from './steps.ts';
@@ -13,9 +13,9 @@ import { stepOf } from './steps.ts';
  * page.
  */
 
-/** What `toReact` makes: the app, and a way to read its Runtime. */
+/** What `View.app` makes: the app, and a way to read its Runtime. */
 export type PlaygroundApp = ComponentType & {
-  readonly useRuntime: () => AppRuntime;
+  readonly useRuntime: () => View.AppRuntime;
 };
 
 export function Playground({ app: App }: { readonly app: PlaygroundApp }) {

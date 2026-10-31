@@ -3,7 +3,7 @@ import { Document, Head, Scripts, useDrawn, useRuntime } from './document.tsx';
 import type { DocumentProps as Props, Drawn as DrawnBy } from './document.tsx';
 import { PAGES } from './protocol/index.ts';
 import type { PageInfo as Info, Pages as AllPages } from './protocol/index.ts';
-import type { Attachment as Attached } from '../../react/index.ts';
+import type { View } from '../../react/index.ts';
 
 /*
  * Start, as `src/app` writes it, on both sides: what `@kestack/kabuki/start`
@@ -44,5 +44,5 @@ export declare namespace Start {
   /** One page in the Pages. */
   export type PageInfo = Info;
   /** What `Start.app`'s `attach` takes: called with the running app, it returns how to stop. */
-  export type Attachment = Attached;
+  export type Attachment = View.Attachment;
 }

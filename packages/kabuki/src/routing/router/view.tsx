@@ -1,6 +1,5 @@
 import type { MouseEvent } from 'react';
 import { View } from '../../react/index.ts';
-import type { ViewOf } from '../../react/index.ts';
 import type { AnyActor } from '../../core/actor/index.ts';
 import type { AnyRoute } from '../capabilities/index.ts';
 import { linkOf, linkOptions } from './context.tsx';
@@ -17,7 +16,7 @@ import type { Urls } from './urls.ts';
  */
 export const viewOf = <Route extends AnyRoute>(
   built: AnyActor,
-  view: ViewOf<AnyActor>,
+  view: View.Of<AnyActor>,
   routes: RoutesLike<Route>,
   { href, inside }: Urls<Route>,
   { current, shown }: Moves<Route>,
@@ -102,7 +101,7 @@ export const viewOf = <Route extends AnyRoute>(
           loaded={model.loaded}
         >
           {(() => {
-            const RootView = view as unknown as ViewOf<AnyActor>;
+            const RootView = view as unknown as View.Of<AnyActor>;
             return (
               <RootView
                 instance={

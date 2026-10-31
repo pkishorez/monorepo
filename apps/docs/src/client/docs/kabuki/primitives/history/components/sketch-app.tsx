@@ -1,5 +1,5 @@
 import { Layer } from 'effect';
-import { View, toReact } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { SketchLive } from './sketch.ts';
 
 const COLOURS = {
@@ -37,6 +37,4 @@ const SketchView = View.make(SketchLive, ({ model, send, root }) => (
   </div>
 ));
 
-export const SketchApp = toReact(SketchLive, SketchView, Layer.empty, {
-  name: 'docs:history',
-});
+export const SketchApp = View.app(SketchView, { name: 'docs:history' });

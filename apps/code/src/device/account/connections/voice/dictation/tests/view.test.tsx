@@ -5,7 +5,7 @@ import { Effect, Layer, Queue, Schema, Stream } from 'effect';
 import type { Cause } from 'effect';
 import { CodeClients } from '@kestack/connect/code';
 import { Actor, Command } from '@kestack/kabuki';
-import { toReact, useChild, View } from '@kestack/kabuki/react';
+import { View, useChild } from '@kestack/kabuki/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Ask, Dictations } from '../../voice.ts';
 import { Preferences, nothing } from '../../../../../store.ts';
@@ -175,7 +175,8 @@ const wavebars = () =>
 beforeEach(async () => {
   pageDrawn = 0;
   canStart = false;
-  const App = toReact(OwnerLive, OwnerView, services(), {
+  const App = View.app(OwnerView, {
+    layer: services(),
     name: `dictation-view-test-${apps++}`,
   });
   root = createRoot(document.body.appendChild(document.createElement('div')));

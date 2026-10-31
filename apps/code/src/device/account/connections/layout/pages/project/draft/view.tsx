@@ -1,4 +1,4 @@
-import { View, type ViewProps } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { ArrowUpIcon, CircleAlertIcon } from 'lucide-react';
@@ -123,7 +123,7 @@ function useHandOn(
   );
 }
 
-function Drafting(self: ViewProps<typeof DraftLive>) {
+function Drafting(self: View.Props<typeof DraftLive>) {
   const { root, model, props, children, send } = self;
   const { connectionId, to } = props;
   const slots = use(Slots);
@@ -253,7 +253,7 @@ function Composer({
   last,
   held,
 }: {
-  readonly self: ViewProps<typeof DraftLive>;
+  readonly self: View.Props<typeof DraftLive>;
   readonly composing: Composing;
   /** Its Connection is out of reach: nothing is sent. */
   readonly offline: boolean;

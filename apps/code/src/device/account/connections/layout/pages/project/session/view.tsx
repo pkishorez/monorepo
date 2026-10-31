@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { useChild, useChildren, View } from '@kestack/kabuki/react';
+import { View, useChild, useChildren } from '@kestack/kabuki/react';
 import type { Session } from '@kestack/connect/code';
 import { Router, useElementScrollRestoration } from '@kestack/kabuki/routing';
 import { ArrowDownIcon, GitForkIcon, TriangleAlertIcon } from 'lucide-react';

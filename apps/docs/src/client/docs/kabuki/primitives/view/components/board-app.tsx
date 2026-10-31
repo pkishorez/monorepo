@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { Layer } from 'effect';
-import { View, toReact } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { BoardLive, CardLive } from './board.ts';
 
@@ -45,6 +45,4 @@ const BoardView = View.make(BoardLive, ({ children, root }) => {
   );
 });
 
-export const BoardApp = toReact(BoardLive, BoardView, Layer.empty, {
-  name: 'docs:view',
-});
+export const BoardApp = View.app(BoardView, { name: 'docs:view' });

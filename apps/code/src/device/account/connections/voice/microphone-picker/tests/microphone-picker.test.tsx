@@ -4,7 +4,7 @@ import { act, use, useRef } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import { toReact, View } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { keys } from '../../../layout/commands.ts';
 import { Preferences } from '../../../../../store.ts';
@@ -177,12 +177,10 @@ beforeEach(async () => {
     value: media,
     configurable: true,
   });
-  const App = toReact(
-    OwnerLive,
-    OwnerView,
-    Layer.mergeAll(preferencesMemory(), recorder),
-    { name: `microphone-picker-test-${apps++}` },
-  );
+  const App = View.app(OwnerView, {
+    layer: Layer.mergeAll(preferencesMemory(), recorder),
+    name: `microphone-picker-test-${apps++}`,
+  });
   root = createRoot(document.body.appendChild(document.createElement('div')));
   await act(async () => root!.render(<App />));
   for (let tries = 0; tries < 50 && owner.pings === 0; tries++) {

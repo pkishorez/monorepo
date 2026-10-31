@@ -4,7 +4,7 @@ import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { Layer, Schema } from 'effect';
 import { Branches } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
-import { toReact, View } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { keys } from '../../../../../../commands.ts';
 import * as Picker from '../../../../../../../../../../ui/controls/picker/index.ts';
@@ -183,9 +183,7 @@ const headings = () =>
   );
 
 const draw = async () => {
-  const App = toReact(PageLive, PageView, Layer.empty, {
-    name: `branch-picker-test-${apps++}`,
-  });
+  const App = View.app(PageView, { name: `branch-picker-test-${apps++}` });
   root = createRoot(document.body.appendChild(document.createElement('div')));
   await act(async () => root!.render(<App />));
   await flush();

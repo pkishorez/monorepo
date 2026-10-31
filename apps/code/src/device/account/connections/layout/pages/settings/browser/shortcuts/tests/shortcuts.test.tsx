@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { toReact } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { keys } from '../../../../../commands.ts';
 import { preferencesMemory } from '../../../../../../../../store.ts';
@@ -84,7 +84,8 @@ beforeAll(() => {
 
 beforeEach(async () => {
   toSettings = 0;
-  const App = toReact(ShortcutsLive, ShortcutsView, preferencesMemory(), {
+  const App = View.app(ShortcutsView, {
+    layer: preferencesMemory(),
     name: `shortcuts-test-${apps++}`,
   });
   root = createRoot(document.body.appendChild(document.createElement('div')));

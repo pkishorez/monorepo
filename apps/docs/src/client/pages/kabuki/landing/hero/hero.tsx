@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { MotionConfig, motion } from 'motion/react';
 import { Layer } from 'effect';
 import { Snapshot } from '@kestack/kabuki';
-import { View, toReact } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { CheckIcon, PlusIcon } from 'lucide-react';
 import { FILTERS, ROWS, TodoLive, TodosLive } from './todos.ts';
 
@@ -172,9 +172,7 @@ const TodosView = View.make(
   ),
 );
 
-const App = toReact(TodosLive, TodosView, Layer.empty, {
-  name: 'kabuki:todos',
-});
+const App = View.app(TodosView, { name: 'kabuki:todos' });
 
 // 2. Its Actors, read from the Snapshot
 

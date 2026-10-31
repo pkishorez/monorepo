@@ -4,8 +4,7 @@ import { hydrateRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
 import { Layer } from 'effect';
 import type { SavedHistory } from '../../core/history/index.ts';
-import { View, toReact } from '../../react/index.ts';
-import type { AppRuntime } from '../../react/index.ts';
+import { View } from '../../react/index.ts';
 import { Router } from '../../routing/index.ts';
 import { browser } from '../../routing/router/adapter/browser/index.ts';
 import {
@@ -48,7 +47,9 @@ export interface Hydrated {
 
 type DrawnApp = ComponentType<{ readonly saved?: SavedHistory }>;
 /** The App's own hook for the running app, which the Document reads through `Start.useRuntime()`. */
-type Runs = { readonly useRuntime: () => AppRuntime };
+type Runs = { readonly useRuntime: () => View.AppRuntime };
+/** `View.app`, for an app whose Actor Start only knows as any: its Layer was checked by `Start.app`. */
+type Untyped = (view: unknown, options: object) => unknown;
 
 /** Hydrates the page a server drew. */
 export const client = async (exported: StartApp): Promise<Hydrated> => {
@@ -69,16 +70,15 @@ export const client = async (exported: StartApp): Promise<Hydrated> => {
       name,
       attach,
     } = appOf(next);
-    const App = toReact(
-      app.actor as never,
-      app.view as never,
-      Layer.mergeAll(
+    const App = (View.app as Untyped)(app.view, {
+      layer: Layer.mergeAll(
         browser(),
         Router.cached(app.routes, loading(app.routes)),
         layer ?? (Layer.empty as unknown as Layer.Layer<any>),
       ) as never,
-      { ...(name && { name }), ...(attach && { attach }) },
-    ) as unknown as DrawnApp;
+      ...(name && { name }),
+      ...(attach && { attach }),
+    }) as unknown as DrawnApp;
     return (
       <PageContext value={drawn}>
         <RuntimeContext value={(App as unknown as Runs).useRuntime}>

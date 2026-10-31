@@ -1,5 +1,5 @@
 import { Layer } from 'effect';
-import { View, toReact } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { HeartIcon, XIcon } from 'lucide-react';
 import { PlaylistLive, SongLive } from './playlist.ts';
@@ -67,6 +67,4 @@ const PlaylistView = View.make(
   ),
 );
 
-export const PlaylistApp = toReact(PlaylistLive, PlaylistView, Layer.empty, {
-  name: 'docs:children',
-});
+export const PlaylistApp = View.app(PlaylistView, { name: 'docs:children' });

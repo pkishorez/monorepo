@@ -12,7 +12,6 @@ import {
   X,
 } from 'lucide-react';
 import { View, useChildren } from '@kestack/kabuki/react';
-import type { Handle, ViewProps } from '@kestack/kabuki/react';
 import { DURATION, DownloadLive, DownloadsLive, STEP } from '../story/index.ts';
 import { Button, EASE, Wide } from './parts.tsx';
 
@@ -95,7 +94,7 @@ export const DownloadsView = View.make(
 function Count({
   files,
 }: {
-  readonly files: ReadonlyArray<Handle<typeof DownloadLive>>;
+  readonly files: ReadonlyArray<View.Handle<typeof DownloadLive>>;
 }) {
   // Picks only whether each is done, so a tick of progress never redraws it.
   const downloads = useChildren(files, (file) => file._tag === 'Done');
@@ -119,9 +118,9 @@ function AllButtons({
   downloads,
   send,
 }: {
-  readonly files: ViewProps<typeof DownloadsLive>['model']['files'];
-  readonly downloads: ReadonlyArray<Handle<typeof DownloadLive>>;
-  readonly send: ViewProps<typeof DownloadsLive>['send'];
+  readonly files: View.Props<typeof DownloadsLive>['model']['files'];
+  readonly downloads: ReadonlyArray<View.Handle<typeof DownloadLive>>;
+  readonly send: View.Props<typeof DownloadsLive>['send'];
 }) {
   const done = new Set(
     useChildren(downloads, (file) => file._tag === 'Done' && file.model.id),
@@ -193,7 +192,7 @@ function Swap({
   );
 }
 
-function Row(self: ViewProps<typeof DownloadLive>) {
+function Row(self: View.Props<typeof DownloadLive>) {
   const { model, props, send } = self;
   const Icon =
     ICONS[model.name.split('.').at(-1) as keyof typeof ICONS] ?? FileText;

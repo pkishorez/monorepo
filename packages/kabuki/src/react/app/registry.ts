@@ -4,7 +4,7 @@ import type { History } from '../../core/history/index.ts';
  * Where an app's History outlives its module: a registry on `globalThis`,
  * keyed by the app's name. While an app is mounted its History is here;
  * when its last mount closes, the History stays. The next mount of an app
- * with that name carries on from it, whether it is the same `toReact`
+ * with that name carries on from it, whether it is the same `View.app`
  * mounted again or a fresh one from a module hot reload, whose new code
  * replays the old History. Nothing is ever written on a server, where no
  * mount happens.

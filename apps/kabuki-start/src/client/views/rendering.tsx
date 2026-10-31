@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { View } from '@kestack/kabuki/react';
-import type { Root } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
 import type { Status } from '@kestack/kabuki/routing';
 import { Button } from '@kestack/web-platform/ui/components/button';
@@ -132,7 +131,7 @@ function Live({
   children,
 }: {
   /** The View's root, when the layer is the whole View. */
-  readonly root?: Root;
+  readonly root?: View.Root;
   readonly mode: Mode;
   /** Whether a dynamic layer is drawn inside this one. */
   readonly mixed?: boolean;

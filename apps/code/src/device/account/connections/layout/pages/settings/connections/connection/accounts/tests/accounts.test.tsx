@@ -9,7 +9,7 @@ import {
   InvalidAccount,
 } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
-import { toReact, View } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -308,7 +308,8 @@ const answers = async (
 
 const mount = async () => {
   const services = Layer.mergeAll(connections(), clients);
-  const App = toReact(OwnerLive, OwnerView, services, {
+  const App = View.app(OwnerView, {
+    layer: services,
     name: `accounts-test-${apps++}`,
   });
   root = createRoot(document.body.appendChild(document.createElement('div')));

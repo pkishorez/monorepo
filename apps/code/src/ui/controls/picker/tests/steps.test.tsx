@@ -3,7 +3,7 @@ import { act, type ReactNode } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import { toReact, View } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import {
   afterAll,
   afterEach,
@@ -297,9 +297,7 @@ beforeEach(async () => {
     'data-keyboard',
     device === 'keyboard',
   );
-  const App = toReact(OwnerLive, OwnerView, Layer.empty, {
-    name: `steps-test-${apps++}`,
-  });
+  const App = View.app(OwnerView, { name: `steps-test-${apps++}` });
   root = createRoot(document.body.appendChild(document.createElement('div')));
   await act(async () => root!.render(<App />));
   for (let tries = 0; tries < 50 && pings === 0; tries++) {

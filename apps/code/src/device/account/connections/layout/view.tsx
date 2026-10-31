@@ -1,4 +1,4 @@
-import { useChild, View, type ViewProps } from '@kestack/kabuki/react';
+import { View, useChild } from '@kestack/kabuki/react';
 import { useRouter } from '@kestack/kabuki/routing';
 import { AppShell, useAppShell } from '@kestack/web-platform/recipes/frame';
 import { Button } from '@kestack/web-platform/ui/components/button';
@@ -71,7 +71,7 @@ export const Given = createContext<{
   accounts: null,
 });
 
-type Self = ViewProps<typeof LayoutLive>;
+type Self = View.Props<typeof LayoutLive>;
 
 export const LayoutView = View.make(
   LayoutLive,

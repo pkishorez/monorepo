@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import type { AppRuntime } from '@kestack/kabuki/react';
+import type { View } from '@kestack/kabuki/react';
 import type { Snapshot } from '@kestack/kabuki';
 
 /*
@@ -19,7 +19,7 @@ const MOST_FIELDS = 6;
 const ENTER = { duration: 0.25, ease: [0.23, 1, 0.32, 1] } as const;
 const EXIT = { duration: 0.15, ease: [0.4, 0, 1, 1] } as const;
 
-export function Inside({ runtime }: { readonly runtime: AppRuntime }) {
+export function Inside({ runtime }: { readonly runtime: View.AppRuntime }) {
   const { history, head, shown } = runtime;
   const snapshot = history.snapshotAt(
     shown === null ? head : shown === 'init' ? null : shown,
@@ -42,7 +42,7 @@ function Card({
   runtime,
 }: {
   readonly instance: Snapshot.Instance;
-  readonly runtime: AppRuntime;
+  readonly runtime: View.AppRuntime;
 }) {
   const workers =
     runtime.shown === null

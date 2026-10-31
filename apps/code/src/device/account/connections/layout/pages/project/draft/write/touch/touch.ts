@@ -11,7 +11,7 @@ import {
   type ContextType,
 } from 'react';
 import type { Availability } from '../../../../../../voice/index.ts';
-import type { ViewProps } from '@kestack/kabuki/react';
+import type { View } from '@kestack/kabuki/react';
 import { type Heard, isOpen, type TouchDraftLive } from './actor.ts';
 import type { Phase, Stop } from './controls/index.ts';
 
@@ -103,7 +103,7 @@ export const Touch = createContext<{
  * the card as it already is.
  */
 
-type Send = ViewProps<typeof TouchDraftLive>['send'];
+type Send = View.Props<typeof TouchDraftLive>['send'];
 type Slots = NonNullable<ContextType<typeof Touch>>;
 
 const heardOf = ({
@@ -190,7 +190,7 @@ const NUDGE = 2_400;
 
 export function useTouchDraft(
   slots: Slots,
-  { model, state }: Pick<ViewProps<typeof TouchDraftLive>, 'model' | 'state'>,
+  { model, state }: Pick<View.Props<typeof TouchDraftLive>, 'model' | 'state'>,
   send: Send,
   /**
    * What holds the card, drawn as a box: its foot is the card's, and it

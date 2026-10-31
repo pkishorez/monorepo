@@ -1,4 +1,4 @@
-import { useChildren, View } from '@kestack/kabuki/react';
+import { View, useChildren } from '@kestack/kabuki/react';
 import { useEffect } from 'react';
 import { Router } from '@kestack/kabuki/routing';
 import {

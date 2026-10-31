@@ -10,7 +10,7 @@ import {
   type SessionQuestions,
 } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
-import { toReact, useChild, View } from '@kestack/kabuki/react';
+import { View, useChild } from '@kestack/kabuki/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { keys } from '../../../../../commands.ts';
 import { type Answering, Connections } from '../../../../../../connections.ts';
@@ -350,7 +350,8 @@ beforeEach(async () => {
     SubscriptionRef.make<ReadonlyArray<SessionQuestions>>([]),
   );
   kept = {};
-  const App = toReact(OwnerLive, OwnerView, services, {
+  const App = View.app(OwnerView, {
+    layer: services,
     name: `question-test-${apps++}`,
   });
   root = createRoot(document.body.appendChild(document.createElement('div')));

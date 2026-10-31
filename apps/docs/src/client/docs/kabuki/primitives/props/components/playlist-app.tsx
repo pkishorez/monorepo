@@ -1,5 +1,5 @@
 import { Layer } from 'effect';
-import { View, toReact } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   HeartIcon,
@@ -110,6 +110,4 @@ const PlaylistView = View.make(
   ),
 );
 
-export const PlaylistApp = toReact(PlaylistLive, PlaylistView, Layer.empty, {
-  name: 'docs:props',
-});
+export const PlaylistApp = View.app(PlaylistView, { name: 'docs:props' });

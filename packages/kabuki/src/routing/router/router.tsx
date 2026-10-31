@@ -1,7 +1,7 @@
 import { Effect, Layer, Stream } from 'effect';
 import { Actor } from '../../core/actor/index.ts';
 import type { ActorType, AnyActor, Types } from '../../core/actor/index.ts';
-import type { ViewOf } from '../../react/index.ts';
+import type { View } from '../../react/index.ts';
 import { Navigation } from '../capabilities/index.ts';
 import type { AnyRoute } from '../capabilities/index.ts';
 import type { AnyPageBuild, Known } from '../page/index.ts';
@@ -43,7 +43,7 @@ import { workersOf } from './workers.ts';
  */
 export const app = <Route extends AnyRoute, A extends AnyActor>(
   routes: RoutesLike<Route>,
-  view: ViewOf<A>,
+  view: View.Of<A>,
 ) => {
   const { scroll: scrolling } = routes.options;
   const root = view.actor as unknown as AnyPageBuild;
@@ -132,7 +132,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
 
   const routerView = viewOf(
     built,
-    view as unknown as ViewOf<AnyActor>,
+    view as unknown as View.Of<AnyActor>,
     routes,
     urls,
     moves,
@@ -191,7 +191,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
 
   return {
     actor: built as unknown as RouterActor,
-    view: routerView as unknown as ViewOf<RouterActor>,
+    view: routerView as unknown as View.Of<RouterActor>,
     startAt,
     href,
     restoreScroll,

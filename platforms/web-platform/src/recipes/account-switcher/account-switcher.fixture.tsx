@@ -1,6 +1,6 @@
 import { Effect, Layer, SubscriptionRef } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import { View, toReact } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import {
   type Account,
   Accounts,
@@ -112,7 +112,7 @@ const HeaderView = View.make(Header, ({ root, children }) => (
 ));
 
 const app = (name: string, start: AccountsState) =>
-  toReact(Header, HeaderView, madeUp(start), { name, window: 0 });
+  View.app(HeaderView, { layer: madeUp(start), name, window: 0 });
 
 const SignedIn = app(
   'account-switcher-signed-in',

@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
 import type { Snapshot } from '@kestack/kabuki';
-import type { AppRuntime } from '@kestack/kabuki/react';
+import type { View } from '@kestack/kabuki/react';
 
 /*
  * The Actor tree at the Step shown: the Stage, and the Game under it
@@ -9,7 +9,7 @@ import type { AppRuntime } from '@kestack/kabuki/react';
  * the Game.
  */
 
-export function Tree({ runtime }: { readonly runtime: AppRuntime }) {
+export function Tree({ runtime }: { readonly runtime: View.AppRuntime }) {
   const { history, head, shown } = runtime;
   const stage = history.snapshotAt(
     shown === null ? head : shown === 'init' ? null : shown,

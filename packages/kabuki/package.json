@@ -34,6 +34,9 @@
       "types": "./dist/react/index.d.ts",
       "default": "./dist/react/index.js"
     },
+    "./react/namespaces/*": {
+      "types": "./dist/react/namespaces/*.d.ts"
+    },
     "./routing": {
       "types": "./dist/routing/index.d.ts",
       "default": "./dist/routing/index.js"

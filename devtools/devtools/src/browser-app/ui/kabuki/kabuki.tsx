@@ -1,6 +1,6 @@
 import { useRouter } from '@tanstack/react-router';
 import { Layer } from 'effect';
-import { View, toReact } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { Page, Router } from '@kestack/kabuki/routing';
 import { tanstack } from '@kestack/kabuki/routing/adapter/tanstack';
 import {
@@ -37,16 +37,15 @@ const routed = Router.app(Router.define(App), AppView);
 let made: ReturnType<typeof make> | undefined;
 
 const make = (history: ReturnType<typeof useRouter>['history']) =>
-  toReact(
-    routed.actor,
-    routed.view,
-    Layer.mergeAll(
+  View.app(routed.view, {
+    layer: Layer.mergeAll(
       // 1. Sessions
       devtools(location.origin),
       tanstack({ history: () => history }),
     ),
-    { name: '@kestack/devtools/kabuki', input: () => routed.startAt() },
-  );
+    name: '@kestack/devtools/kabuki',
+    input: () => routed.startAt(),
+  });
 
 /** The Kabuki Tool, filling the shell's main area. */
 export function Kabuki() {

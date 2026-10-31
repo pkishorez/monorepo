@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import type { Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { View, toReact } from '../../react/index.ts';
+import { View } from '../../react/index.ts';
 import { registry } from '../../react/app/index.ts';
 import { KEY } from '../router/adapter/index.ts';
 import { browser } from '../router/adapter/browser/index.ts';
@@ -207,10 +207,8 @@ const load = async () => {
   registry.clear();
   const routed = Router.define(App, options);
   const Root = Router.app(routed, AppView);
-  const Drawn = toReact(
-    Root.actor,
-    Root.view,
-    Layer.mergeAll(
+  const Drawn = View.app(Root.view, {
+    layer: Layer.mergeAll(
       browser(),
       Router.memory(routed, {
         Slow: () =>
@@ -219,8 +217,9 @@ const load = async () => {
           ).pipe(Effect.as({ text: 'slow, there' })),
       }),
     ) as Layer.Layer<never>,
-    { name: `scroll-${count++}`, input: Root.startAt },
-  );
+    name: `scroll-${count++}`,
+    input: Root.startAt,
+  });
   const Probe = () => {
     runtime = Drawn.useRuntime();
     return null;

@@ -47,7 +47,7 @@ export function AppWindow({
   site = false,
   keys,
 }: {
-  /** What `toReact` makes. */
+  /** What `View.app` makes. */
   readonly app: PlaygroundApp;
   /** The address in the title bar. */
   readonly url: string;

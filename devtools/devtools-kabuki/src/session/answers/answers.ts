@@ -1,6 +1,6 @@
 import { Cause, Effect, Queue, Stream } from 'effect';
 import type { History } from '@kestack/kabuki';
-import type { AppRuntime } from '@kestack/kabuki/react';
+import type { View } from '@kestack/kabuki/react';
 import {
   InstanceNotFound,
   KabukiSessionApi,
@@ -72,7 +72,7 @@ const played = <A>(history: History.History, step: Api.Step, work: () => A) =>
 const entryAt = (history: History.History, id: number) =>
   history.branch(id).find((entry) => entry.id === id);
 
-const nowOf = (runtime: AppRuntime, revision: number): Api.Now => ({
+const nowOf = (runtime: View.AppRuntime, revision: number): Api.Now => ({
   head: runtime.head,
   size: runtime.branch.length,
   shown: runtime.shown,
@@ -81,7 +81,7 @@ const nowOf = (runtime: AppRuntime, revision: number): Api.Now => ({
   revision,
 });
 
-export const answers = (runtime: AppRuntime, about: About) =>
+export const answers = (runtime: View.AppRuntime, about: About) =>
   KabukiSessionApi.toLayer({
     // 2. Read
     info: () =>

@@ -1,8 +1,7 @@
 // oxlint-disable-next-line no-restricted-imports -- the app's one mount effect: counting mounts starts and stops the Runtime, which lives outside React.
 import { Suspense, use, useEffect, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
-import { Cause, Effect, Exit, Fiber, Scope } from 'effect';
-import type { Layer } from 'effect';
+import { Cause, Effect, Exit, Fiber, Layer, Scope } from 'effect';
 import { History } from '../../core/history/index.ts';
 import type { Entry, SavedHistory } from '../../core/history/index.ts';
 import { Runtime } from '../../core/runtime/index.ts';
@@ -46,6 +45,11 @@ import { registry } from './registry.ts';
 type Unmet<A, Provided> = [Exclude<Needs<A>, Provided>] extends [never]
   ? []
   : [unmet: { readonly missingCapabilities: Exclude<Needs<A>, Provided> }];
+
+/** What `View.app` takes besides the View: its options, and the Layer that gives what the tree Requires. */
+export type AppSetup<Provided = never> = AppOptions & {
+  readonly layer?: Layer.Layer<Provided, never, never>;
+};
 
 /** A Step: right after an entry, or right after init. */
 type Step = number | 'init';
@@ -116,13 +120,20 @@ export interface AppRuntime<A = AnyActor> {
 
 const NO_WORKERS: ReadonlyArray<WorkerStatus> = [];
 
-export const toReact = <A extends AnyActor, Provided>(
-  actor: A,
+/**
+ * A View as the app: its Actor's tree run on one History, drawn as one
+ * React component, `<App />`. What the tree Requires comes from
+ * `setup.layer`; leaving out a Capability is a type error.
+ */
+export const app = <A extends AnyActor, Provided = never>(
   view: ViewOf<A>,
-  layer: Layer.Layer<Provided, never, never>,
-  options: AppOptions = {},
+  setup?: AppSetup<Provided>,
+  // A Capability the tree Requires and the Layer leaves out asks for this.
   ..._unmet: Unmet<A, Provided>
 ) => {
+  const options: AppOptions = setup ?? {};
+  const layer = (setup?.layer ?? Layer.empty) as Layer.Layer<any, never, never>;
+  const actor = view.actor;
   const RootView = view;
   const name = options.name ?? actor.definition.name;
   const root = { id: actor.definition.name };

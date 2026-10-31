@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { View } from '@kestack/kabuki/react';
-import type { Handle } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { CircleCheckIcon } from 'lucide-react';
 import type { CartLive } from './cart.ts';
@@ -62,8 +61,8 @@ function Shelves({
   cart,
   count,
 }: {
-  readonly products: ReadonlyArray<Handle<typeof ProductLive>>;
-  readonly cart: Handle<typeof CartLive>;
+  readonly products: ReadonlyArray<View.Handle<typeof ProductLive>>;
+  readonly cart: View.Handle<typeof CartLive>;
   readonly count: number;
 }) {
   const [tab, setTab] = useState<'products' | 'cart'>('products');

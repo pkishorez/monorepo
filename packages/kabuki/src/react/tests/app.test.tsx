@@ -3,12 +3,11 @@ import { StrictMode, act } from 'react';
 import { createRoot, hydrateRoot } from 'react-dom/client';
 import type { Root as ReactRoot } from 'react-dom/client';
 import { prerender } from 'react-dom/static';
-import { Cause, Effect, Layer, Schema } from 'effect';
+import { Cause, Context, Effect, Layer, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Replay } from '../../core/history/index.ts';
 import { Actor, History, Runtime } from '../../core/index.ts';
-import { View, toReact } from '../index.ts';
-import type { AppRuntime } from '../index.ts';
+import { View } from '../index.ts';
 import { registry } from '../app/index.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -79,9 +78,31 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
+describe('its Layer', () => {
+  class Clock extends Context.Service<
+    Clock,
+    { readonly now: Effect.Effect<number> }
+  >()('test/Clock') {}
+  const Timed = Actor.build(Actor.define('Timed', { requires: [Clock] }), {
+    workers: { tick: { run: () => Effect.flatMap(Clock, () => Effect.never) } },
+  });
+  const TimedView = View.make(Timed, () => null);
+  const clock = Layer.succeed(Clock, { now: Effect.succeed(0) });
+
+  it('is asked for once the tree Requires something, and only then', () => {
+    View.app(CounterView);
+    View.app(TimedView, { layer: clock });
+    // @ts-expect-error the tree Requires Clock: a Layer must give it
+    View.app(TimedView);
+    // @ts-expect-error a Layer that gives nothing leaves Clock missing
+    View.app(TimedView, { layer: Layer.empty });
+    expect(true).toBe(true);
+  });
+});
+
 describe('the first draw', () => {
   it('draws init on the first render, before the Runtime', async () => {
-    const App = toReact(Counter, CounterView, Layer.empty);
+    const App = View.app(CounterView);
     root = createRoot(host);
     act(() => root!.render(<App />));
     expect(host.textContent).toBe('0');
@@ -90,9 +111,7 @@ describe('the first draw', () => {
   });
 
   it('draws a saved History at its Head, through Suspense', async () => {
-    const App = toReact(Counter, CounterView, Layer.empty, {
-      saved: await bumped(3),
-    });
+    const App = View.app(CounterView, { saved: await bumped(3) });
     root = createRoot(host);
     await act(async () => root!.render(<App fallback="…" />));
     expect(host.textContent).toBe('3');
@@ -103,7 +122,7 @@ describe('the first draw', () => {
   it('draws a History of one Restore', async () => {
     const state = await bumped(5);
     const snapshot = Replay.fold(Counter.definition, state.entries);
-    const App = toReact(Counter, CounterView, Layer.empty, {
+    const App = View.app(CounterView, {
       saved: History.restored(Counter, snapshot, 500).save(),
     });
     root = createRoot(host);
@@ -113,7 +132,7 @@ describe('the first draw', () => {
   });
 
   it('drops a Send before the Runtime starts', () => {
-    const App = toReact(Counter, CounterView, Layer.empty);
+    const App = View.app(CounterView);
     root = createRoot(host);
     act(() => root!.render(<App />));
     act(() => sends['Counter']!({ _tag: 'Bumped' }));
@@ -135,14 +154,12 @@ describe('on a server', () => {
   };
 
   it('renders init with no History', async () => {
-    const App = toReact(Counter, CounterView, Layer.empty);
+    const App = View.app(CounterView);
     expect(await html(<App />)).toContain('<output>0</output>');
   });
 
   it('renders a saved History at its Head, and the client hydrates it', async () => {
-    const App = toReact(Counter, CounterView, Layer.empty, {
-      saved: await bumped(7),
-    });
+    const App = View.app(CounterView, { saved: await bumped(7) });
     const served = await html(<App />);
     expect(served).toContain('<output>7</output>');
 
@@ -181,7 +198,7 @@ describe('a History given when drawn', () => {
   };
 
   it('a server draws each request its own, at once, in one process', async () => {
-    const App = toReact(Counter, CounterView, Layer.empty);
+    const App = View.app(CounterView);
     const [three, seven] = await Promise.all([
       html(<App saved={await bumped(3)} />),
       html(<App saved={await restoredAt(7)} />),
@@ -195,7 +212,7 @@ describe('a History given when drawn', () => {
 
   it('a History of one Restore is drawn on the first render, without suspending', () => {
     return restoredAt(5).then((saved) => {
-      const App = toReact(Counter, CounterView, Layer.empty);
+      const App = View.app(CounterView);
       root = createRoot(host);
       act(() => root!.render(<App saved={saved} fallback="…" />));
       expect(host.textContent).toBe('5');
@@ -208,7 +225,7 @@ describe('a History given when drawn', () => {
   ])(
     'the browser hydrates %s as the server drew it, then the Runtime starts from it',
     async (_, make, count) => {
-      const App = toReact(Counter, CounterView, Layer.empty);
+      const App = View.app(CounterView);
       const saved = await make();
       const served = await html(<App saved={saved} />);
       expect(served).toContain(`<output>${count}</output>`);
@@ -234,7 +251,7 @@ describe('a History given when drawn', () => {
   );
 
   it('is not taken over a History the app already has, as after a hot reload', async () => {
-    const App = toReact(Counter, CounterView, Layer.empty);
+    const App = View.app(CounterView);
     root = createRoot(host);
     act(() => root!.render(<App />));
     await started(host);
@@ -248,9 +265,7 @@ describe('a History given when drawn', () => {
 
 describe('useRuntime before the Runtime', () => {
   it('reads the saved History on a server, drawn before the app', async () => {
-    const App = toReact(Counter, CounterView, Layer.empty, {
-      saved: await bumped(3),
-    });
+    const App = View.app(CounterView, { saved: await bumped(3) });
     const Probe = () => {
       const { branch, head, running } = App.useRuntime();
       return <i>{`${branch.length}/${head}/${running}`}</i>;
@@ -273,9 +288,7 @@ describe('useRuntime before the Runtime', () => {
   });
 
   it('reads the saved History', async () => {
-    const App = toReact(Counter, CounterView, Layer.empty, {
-      saved: await bumped(2),
-    });
+    const App = View.app(CounterView, { saved: await bumped(2) });
     let seen: ReturnType<typeof App.useRuntime> | undefined;
     const Probe = () => {
       seen = App.useRuntime();
@@ -302,9 +315,7 @@ describe('useRuntime before the Runtime', () => {
 
 describe('Time Travel', () => {
   it('shows any Step while the live app runs on, and drops a Send from the past', async () => {
-    const App = toReact(Counter, CounterView, Layer.empty, {
-      saved: await bumped(4),
-    });
+    const App = View.app(CounterView, { saved: await bumped(4) });
     let seen: ReturnType<typeof App.useRuntime> | undefined;
     const Probe = () => {
       seen = App.useRuntime();
@@ -335,9 +346,7 @@ describe('Time Travel', () => {
   });
 
   it('a Step Compacted away shows the oldest one left', async () => {
-    const App = toReact(Counter, CounterView, Layer.empty, {
-      saved: await bumped(4),
-    });
+    const App = View.app(CounterView, { saved: await bumped(4) });
     let seen: ReturnType<typeof App.useRuntime> | undefined;
     const Probe = () => {
       seen = App.useRuntime();
@@ -367,10 +376,7 @@ describe('Time Travel', () => {
 
 describe('the Window', () => {
   it('is remembered by name and outlasts a reload, over the one given in code', async () => {
-    const First = toReact(Counter, CounterView, Layer.empty, {
-      name: 'kept',
-      window: 10,
-    });
+    const First = View.app(CounterView, { name: 'kept', window: 10 });
     let seen: ReturnType<typeof First.useRuntime> | undefined;
     const Probe = () => {
       seen = First.useRuntime();
@@ -393,10 +399,7 @@ describe('the Window', () => {
 
     // A reload: nothing left in memory, only what the browser kept.
     registry.clear();
-    const Again = toReact(Counter, CounterView, Layer.empty, {
-      name: 'kept',
-      window: 10,
-    });
+    const Again = View.app(CounterView, { name: 'kept', window: 10 });
     let again: ReturnType<typeof Again.useRuntime> | undefined;
     const Read = () => {
       again = Again.useRuntime();
@@ -413,7 +416,7 @@ describe('the Window', () => {
 
 describe('across mounts and hot reloads', () => {
   it('a new app with the same name carries on from the History the last one left', async () => {
-    const First = toReact(Counter, CounterView, Layer.empty);
+    const First = View.app(CounterView);
     root = createRoot(host);
     act(() => root!.render(<First />));
     await started(host);
@@ -438,7 +441,7 @@ describe('across mounts and hot reloads', () => {
       sends[self.id] = self.send;
       return <output>{self.model.count}</output>;
     });
-    const Second = toReact(Reloaded, ReloadedView, Layer.empty);
+    const Second = View.app(ReloadedView);
     root = createRoot(host);
     // Drawn from the old History through the new code, before the Runtime.
     await act(async () => root!.render(<Second />));
@@ -448,7 +451,7 @@ describe('across mounts and hot reloads', () => {
   });
 
   it('mounted again, carries on as it was left', async () => {
-    const App = toReact(Counter, CounterView, Layer.empty);
+    const App = View.app(CounterView);
     root = createRoot(host);
     act(() => root!.render(<App />));
     await started(host);
@@ -481,7 +484,7 @@ describe('across mounts and hot reloads', () => {
       return <output>{self.model.count}</output>;
     });
     const input = vi.fn(() => ({ start: 5 }));
-    const First = toReact(From, FromView, Layer.empty, { input });
+    const First = View.app(FromView, { input });
     root = createRoot(host);
     act(() => root!.render(<First />));
     expect(host.textContent).toBe('5');
@@ -489,7 +492,7 @@ describe('across mounts and hot reloads', () => {
     await tick();
 
     // Not read again: the History left is played from the Input it was made with.
-    const Second = toReact(From, FromView, Layer.empty, { input });
+    const Second = View.app(FromView, { input });
     root = createRoot(host);
     await act(async () => root!.render(<Second />));
     expect(host.textContent).toBe('5');
@@ -498,7 +501,7 @@ describe('across mounts and hot reloads', () => {
     await act(async () => root!.unmount());
     await tick();
 
-    const Third = toReact(From, FromView, Layer.empty, { input });
+    const Third = View.app(FromView, { input });
     root = createRoot(host);
     await act(async () => root!.render(<Third />));
     expect(host.textContent).toBe('6');
@@ -507,10 +510,8 @@ describe('across mounts and hot reloads', () => {
 
   it('two apps with the same name mounted at once are an error, and the second keeps its own History', async () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const One = toReact(Counter, CounterView, Layer.empty);
-    const Two = toReact(Counter, CounterView, Layer.empty, {
-      saved: await bumped(5),
-    });
+    const One = View.app(CounterView);
+    const Two = View.app(CounterView, { saved: await bumped(5) });
     const second = document.createElement('div');
     document.body.append(second);
     const one = createRoot(host);
@@ -532,13 +533,13 @@ describe('across mounts and hot reloads', () => {
   });
 
   it('apps with their own names keep their own Logs', async () => {
-    const One = toReact(Counter, CounterView, Layer.empty, { name: 'one' });
+    const One = View.app(CounterView, { name: 'one' });
     root = createRoot(host);
     act(() => root!.render(<One />));
     await started(host);
     await act(async () => root!.unmount());
 
-    const Two = toReact(Counter, CounterView, Layer.empty, { name: 'two' });
+    const Two = View.app(CounterView, { name: 'two' });
     root = createRoot(host);
     act(() => root!.render(<Two />));
     expect(host.textContent).toBe('0');
@@ -555,7 +556,7 @@ const ours = (errors: {
 
 describe('mounting', () => {
   it('starts one Runtime under StrictMode', async () => {
-    const App = toReact(Counter, CounterView, Layer.empty);
+    const App = View.app(CounterView);
     root = createRoot(host);
     await act(async () =>
       root!.render(
@@ -573,14 +574,10 @@ describe('mounting', () => {
   it('unmounted while starting, stops the start quietly and leaves the History', async () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
     // A Layer that never finishes building: the start is still under way.
-    const App = toReact(
-      Counter,
-      CounterView,
-      Layer.effectDiscard(Effect.never),
-      {
-        saved: await bumped(2),
-      },
-    );
+    const App = View.app(CounterView, {
+      layer: Layer.effectDiscard(Effect.never),
+      saved: await bumped(2),
+    });
     root = createRoot(host);
     await act(async () => root!.render(<App />));
     await act(async () => root!.unmount());
@@ -594,9 +591,9 @@ describe('mounting', () => {
 describe('Attachments', () => {
   it('is called once with the running app, which it reads as it is now, and stopped at the last unmount', async () => {
     const stops: Array<string> = [];
-    let held: AppRuntime | undefined;
+    let held: View.AppRuntime | undefined;
     let heard = 0;
-    const App = toReact(Counter, CounterView, Layer.empty, {
+    const App = View.app(CounterView, {
       attach: [
         (runtime) => {
           held = runtime;
@@ -623,7 +620,7 @@ describe('Attachments', () => {
   it('one that throws, starting or stopping, is logged; the app and the others run on', async () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
     const stops: Array<string> = [];
-    const App = toReact(Counter, CounterView, Layer.empty, {
+    const App = View.app(CounterView, {
       attach: [
         () => {
           throw new Error('no');
@@ -650,7 +647,7 @@ describe('Attachments', () => {
 
 describe('useRuntime controls', () => {
   const probed = async (
-    App: ReturnType<typeof toReact<typeof Counter, never>>,
+    App: ReturnType<typeof View.app<typeof Counter, never>>,
   ) => {
     let seen: ReturnType<typeof App.useRuntime> | undefined;
     const Probe = () => {
@@ -670,7 +667,7 @@ describe('useRuntime controls', () => {
   };
 
   it('gives one object, read as it is now, and draws again on each change', async () => {
-    const App = toReact(Counter, CounterView, Layer.empty);
+    const App = View.app(CounterView);
     const each: Array<ReturnType<typeof App.useRuntime>> = [];
     const Probe = () => {
       const runtime = App.useRuntime();
@@ -695,9 +692,7 @@ describe('useRuntime controls', () => {
   });
 
   it('clear forgets the History and goes live from init', async () => {
-    const App = toReact(Counter, CounterView, Layer.empty, {
-      saved: await bumped(3),
-    });
+    const App = View.app(CounterView, { saved: await bumped(3) });
     const seen = await probed(App);
     await started(host);
     expect(host.textContent).toBe('4');
@@ -713,7 +708,7 @@ describe('useRuntime controls', () => {
 
   it('a start that fails is logged and kept as the failure', async () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const App = toReact(Counter, CounterView, Layer.empty);
+    const App = View.app(CounterView);
     const seen = await probed(App);
     await started(host);
     expect(seen().failure).toBe(null);
@@ -731,11 +726,9 @@ describe('useRuntime controls', () => {
 
   it('a Runtime that cannot start is logged and kept as the failure', async () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const App = toReact(
-      Counter,
-      CounterView,
-      Layer.effectDiscard(Effect.die(new Error('no server'))),
-    );
+    const App = View.app(CounterView, {
+      layer: Layer.effectDiscard(Effect.die(new Error('no server'))),
+    });
     const seen = await probed(App);
     await tick();
     expect(seen().running).toBe(false);

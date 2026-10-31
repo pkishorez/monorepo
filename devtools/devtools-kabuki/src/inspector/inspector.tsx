@@ -1,11 +1,10 @@
 import { useMemo } from 'react';
 import type { CSSProperties } from 'react';
 import { Layer } from 'effect';
-import { toReact } from '@kestack/kabuki/react';
-import type { AppRuntime } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { inMemory } from '../session/index.ts';
-import { InspectorLive, InspectorView } from './actor-inspector/index.ts';
+import { InspectorView } from './actor-inspector/index.ts';
 import { KabukiSession } from './kabuki-session/index.ts';
 
 /*
@@ -33,10 +32,10 @@ import { KabukiSession } from './kabuki-session/index.ts';
 const BLUR = 10;
 
 /** One Inspector app per running app inspected, kept across its mounts. */
-const apps = new WeakMap<AppRuntime, ReturnType<typeof inspectorOf>>();
+const apps = new WeakMap<View.AppRuntime, ReturnType<typeof inspectorOf>>();
 
 const inspectorOf = (
-  runtime: AppRuntime,
+  runtime: View.AppRuntime,
   input: {
     readonly travel: boolean;
     readonly look: {
@@ -45,18 +44,13 @@ const inspectorOf = (
     };
   },
 ) =>
-  toReact(
-    InspectorLive,
-    InspectorView,
-    Layer.effect(KabukiSession)(inMemory(runtime)),
-    {
-      // Its own, never the app's: two apps of one name cannot share a History.
-      name: `@kestack/devtools-kabuki/inspector:${runtime.name}`,
-      // Only as it is now: nothing of the Inspector's own is travelled.
-      window: 0,
-      input: () => input,
-    },
-  );
+  View.app(InspectorView, {
+    layer: Layer.effect(KabukiSession)(inMemory(runtime)), // Its own, never the app's: two apps of one name cannot share a History.
+    name: `@kestack/devtools-kabuki/inspector:${runtime.name}`,
+    // Only as it is now: nothing of the Inspector's own is travelled.
+    window: 0,
+    input: () => input,
+  });
 
 export function KabukiInspector({
   runtime,
@@ -68,7 +62,7 @@ export function KabukiInspector({
   className,
 }: {
   /** The running app: `App.useRuntime()`. */
-  readonly runtime: AppRuntime;
+  readonly runtime: View.AppRuntime;
   /** Whether a Step picked Time Travels the app at first; the reader switches it. */
   readonly defaultTravel?: boolean;
   /** Only the canvas, the whole tree kept in view as the app changes: no Timeline and no controls. */

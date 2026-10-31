@@ -1,5 +1,5 @@
 import type { Project, Session } from '@kestack/connect/code';
-import { useChild, type ViewProps } from '@kestack/kabuki/react';
+import { View, useChild } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
 import { ChevronRightIcon, GitForkIcon } from 'lucide-react';
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
@@ -98,7 +98,7 @@ function VimSwitch() {
 
 // 2. Header
 
-type Children = ViewProps<typeof LayoutLive>['children'];
+type Children = View.Props<typeof LayoutLive>['children'];
 type ProjectHandle = NonNullable<Children['project']>;
 type SessionHandle = NonNullable<Children['session']>;
 

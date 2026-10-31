@@ -3,7 +3,7 @@ import { act, type ReactNode } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import { toReact, View } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import {
   afterAll,
   afterEach,
@@ -272,9 +272,7 @@ beforeEach(async () => {
     device === 'keyboard',
   );
   // A History is kept under its app's name across mounts: one name each.
-  const App = toReact(OwnerLive, OwnerView, Layer.empty, {
-    name: `picker-test-${apps++}`,
-  });
+  const App = View.app(OwnerView, { name: `picker-test-${apps++}` });
   root = createRoot(document.body.appendChild(document.createElement('div')));
   await act(async () => root!.render(<App />));
   await started();

@@ -1,4 +1,4 @@
-import { View, type ViewProps } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { useRouter } from '@kestack/kabuki/routing';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { useDevice } from '@kestack/web-platform/ui/input';
@@ -21,7 +21,7 @@ import { ActionsLive, ListView } from './actor.ts';
  * closed, back where the user was.
  */
 
-type Self = ViewProps<typeof ActionsLive>;
+type Self = View.Props<typeof ActionsLive>;
 
 export const ActionsView = View.make(ActionsLive, (self) => {
   const route = useRouter<Route>().route;

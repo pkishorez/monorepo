@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import type { Scope } from 'effect';
 import { Actor, History, Runtime } from '@kestack/kabuki';
-import type { AppRuntime } from '@kestack/kabuki/react';
+import type { View } from '@kestack/kabuki/react';
 
 /* A small app the tests run, and its running app as Kabuki hands it to an Attachment. */
 
@@ -36,25 +36,25 @@ export const Diary = Actor.build(
 );
 
 export interface Started {
-  readonly runtime: AppRuntime;
+  readonly runtime: View.AppRuntime;
   readonly running: Runtime.Running<typeof Diary>;
   /** Write a note at a Time, in milliseconds. */
   readonly write: (text: string, at: number) => void;
 }
 
-/** The Diary running, read live as `toReact` hands it to an Attachment. */
+/** The Diary running, read live as `View.app` hands it to an Attachment. */
 export const started: Effect.Effect<Started, never, Scope.Scope> = Effect.gen(
   function* () {
     const history = History.make(Diary, { window: null });
     const running = yield* Runtime.start(history);
-    let shown: AppRuntime['shown'] = null;
+    let shown: View.AppRuntime['shown'] = null;
     const listeners = new Set<() => void>();
     const changed = () => {
       for (const listener of listeners) listener();
     };
     history.subscribe(changed);
     running.subscribe(changed);
-    const runtime: AppRuntime = {
+    const runtime: View.AppRuntime = {
       name: history.actor.definition.name,
       get history() {
         return history;
