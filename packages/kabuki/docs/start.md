@@ -97,7 +97,10 @@ static page has none: it is kept for everyone.
 
 ```tsx
 // src/document.tsx: any file app.tsx imports
-export default function Document({ children }: Start.DocumentProps) {
+import { Start } from '@kestack/kabuki/start';
+import type { DocumentProps } from '@kestack/kabuki/start/app';
+
+export default function Document({ children }: DocumentProps) {
   return (
     <html lang="en">
       <head>
