@@ -1,7 +1,5 @@
-import { Layer } from 'effect';
 import { View } from '@kestack/kabuki/react';
 import { AppView, PastContext } from './screens/index.ts';
-import { AppLive } from './story/index.ts';
 
 const App = View.app(AppView, { name: 'demo:opening-an-app' });
 

@@ -5,7 +5,6 @@ import { View } from '@kestack/kabuki/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { keys } from '../../../../../commands.ts';
 import { preferencesMemory } from '../../../../../../../../store.ts';
-import { ShortcutsLive } from '../actor.ts';
 import { ShortcutsView } from '../view.tsx';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });

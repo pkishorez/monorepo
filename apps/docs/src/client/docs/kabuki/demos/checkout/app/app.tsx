@@ -1,6 +1,4 @@
-import { Layer } from 'effect';
 import { View } from '@kestack/kabuki/react';
-import { CheckoutLive } from './checkout.ts';
 import { CheckoutView } from './checkout-view.tsx';
 
 // The Checkout and its View, as one React component: <CheckoutApp />.

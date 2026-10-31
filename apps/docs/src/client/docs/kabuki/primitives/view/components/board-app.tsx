@@ -1,5 +1,4 @@
 import { useRef } from 'react';
-import { Layer } from 'effect';
 import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { BoardLive, CardLive } from './board.ts';

@@ -45,7 +45,8 @@ const inspectorOf = (
   },
 ) =>
   View.app(InspectorView, {
-    layer: Layer.effect(KabukiSession)(inMemory(runtime)), // Its own, never the app's: two apps of one name cannot share a History.
+    layer: Layer.effect(KabukiSession)(inMemory(runtime)),
+    // Its own, never the app's: two apps of one name cannot share a History.
     name: `@kestack/devtools-kabuki/inspector:${runtime.name}`,
     // Only as it is now: nothing of the Inspector's own is travelled.
     window: 0,

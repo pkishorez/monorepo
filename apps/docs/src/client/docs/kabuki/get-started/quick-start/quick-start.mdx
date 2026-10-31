@@ -35,9 +35,8 @@ nothing else: it cannot change the Model itself, only send a Message.
 
 ```
 
-The last argument, `Layer.empty`, is where you would give the app what its
-Actors need from the outside world, such as an API client. The counter needs
-nothing.
+`View.app` also takes a `layer`: what the app's Actors need from the outside
+world, such as an API client. The counter needs nothing, so it gives none.
 
 ## Use it
 

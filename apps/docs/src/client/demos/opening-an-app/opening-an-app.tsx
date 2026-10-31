@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Layer } from 'effect';
 import { View } from '@kestack/kabuki/react';
 import { Monitor, Smartphone } from 'lucide-react';
 import { DevtoolsDock } from '@kestack/web-platform/recipes/devtools';
@@ -8,7 +7,6 @@ import { KabukiInspector } from '@kestack/devtools-kabuki/inspector';
 import { Browser } from './browser/index.ts';
 import type { Device } from './browser/index.ts';
 import { AppView, PastContext } from './screens/index.ts';
-import { AppLive } from './story/index.ts';
 
 const Demo = View.app(AppView, { name: 'opening-an-app' });
 

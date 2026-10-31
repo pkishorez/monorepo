@@ -1,6 +1,4 @@
-import { Layer } from 'effect';
 import { View } from '@kestack/kabuki/react';
-import { StopwatchLive } from './stopwatch.ts';
 import { StopwatchView } from './stopwatch-view.tsx';
 
 // The Stopwatch and its View, as one React component: <StopwatchApp />.

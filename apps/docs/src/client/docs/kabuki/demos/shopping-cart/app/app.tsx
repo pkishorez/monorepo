@@ -1,6 +1,4 @@
-import { Layer } from 'effect';
 import { View } from '@kestack/kabuki/react';
-import { ShopLive } from './shop.ts';
 import { ShopView } from './shop-view.tsx';
 
 // The Shop and its View, as one React component: <ShopApp />. The Shop

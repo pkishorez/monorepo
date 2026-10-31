@@ -1,4 +1,3 @@
-import { Layer } from 'effect';
 import { View } from '@kestack/kabuki/react';
 import { SketchLive } from './sketch.ts';
 
