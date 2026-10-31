@@ -487,11 +487,8 @@ With no Adapter in the Layer, the app routes in memory: Back and Forward are
 or a story runs the real router.
 
 ```ts
-const Root = Router.app(router, AppView);
-
-View.app(Root.view, {
+View.app(Router.app(router, AppView), {
   layer: Layer.mergeAll(AppLayer, tanstack()),
-  input: Root.startAt,
 });
 ```
 
@@ -551,7 +548,7 @@ A move says otherwise for itself, as TanStack's do:
 - `hash`: the element on the page it goes to, `href` ending `#part-5`.
   `hashScrollIntoView` says how it is scrolled into view; `false` leaves it.
 
-`useElementScrollRestoration({ id } | { getElement })` reads what is kept for
+`useElementScrollRestoration({ id } | { getElement })`, from `@kestack/kabuki/routing/router`, reads what is kept for
 an element, or the window, on the entry drawn: for a virtual list that puts
 itself back.
 

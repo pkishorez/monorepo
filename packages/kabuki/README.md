@@ -67,7 +67,7 @@ React; `@kestack/kabuki/react` draws them; `@kestack/kabuki/routing` gives
 pages a place in the URL; `@kestack/kabuki/start` serves a routed app. An
 app takes as many as it needs, from the bottom up. A layer's path gives
 only the values an app is made of: `Actor`, `Command`, `History` and
-`Runtime`; `View`; `Page`, `Router`, `Navigation` and `Loading`; `Start`.
+`Runtime`; `View`; `Page`, `Router` and `Navigation`; `Start`.
 Each folder in a layer is a path of its own that gives its value and every
 type that goes with it, so a type is imported from where it lives:
 `import type { Running } from '@kestack/kabuki/core/runtime'`.
@@ -121,21 +121,16 @@ pnpm add @kestack/kabuki effect react
 | Export         | What it does                                                                             |
 | -------------- | ---------------------------------------------------------------------------------------- |
 | `Command.make` | As in `@kestack/kabuki`: a Command from its name, the Schema of its args and its Effect. |
-| `RUN`          | The key a made Command keeps its Effect under, out of sight of a comparison.             |
 
 ### `@kestack/kabuki/core/history`
 
 `History`, with `SavedHistory`, `Entry` and `HistoryOptions`.
 
-| Export             | What it does                                                                                                |
-| ------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `History.make`     | As in `@kestack/kabuki`.                                                                                    |
-| `History.load`     | As in `@kestack/kabuki`.                                                                                    |
-| `History.restored` | As in `@kestack/kabuki`.                                                                                    |
-| `isHistory`        | Tells a History from an Actor, where either may be given.                                                   |
-| `Replay.make`      | Plays Branches of one app from init, remembering Snapshots so playing again starts from the nearest one.    |
-| `Replay.fold`      | The Snapshot right after a Branch, played now from init with the root's Input, with no yielding.            |
-| `outcomeOf`        | Works out what came of one Envelope on a Snapshot: handled, ignored or dropped. The History never keeps it. |
+| Export             | What it does             |
+| ------------------ | ------------------------ |
+| `History.make`     | As in `@kestack/kabuki`. |
+| `History.load`     | As in `@kestack/kabuki`. |
+| `History.restored` | As in `@kestack/kabuki`. |
 
 ### `@kestack/kabuki/core/runtime`
 
@@ -150,16 +145,11 @@ pnpm add @kestack/kabuki effect react
 
 The whole app as one value, read and stepped from outside the Runtime, as a devtool or a test does. With `Snapshot`, `Instance`, `Envelope`, `Handled` and `Source`.
 
-| Export                | What it does                                                                                                         |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `Snapshot.handle`     | Applies one Envelope to a Snapshot and gives the next one, purely.                                                   |
-| `Snapshot.instanceAt` | Finds the Instance with an ID in a Snapshot.                                                                         |
-| `Snapshot.isMany`     | Tells the list of an `each` Child from one Instance in an Instance's Children.                                       |
-| `init`                | The Snapshot right after init: the root and every Child its State Invokes.                                           |
-| `restore`             | The Restore Message: given to the root, it replaces the whole Snapshot with a saved one, checked against the Actors. |
-| `isRestore`           | Tells a Restore from any other Message.                                                                              |
-| `actorAt`             | Finds the Actor of the Instance with an ID, if it is in the Snapshot.                                                |
-| `within`              | Tells whether an Instance ID is the given one or under it.                                                           |
+| Export                | What it does                                                                   |
+| --------------------- | ------------------------------------------------------------------------------ |
+| `Snapshot.handle`     | Applies one Envelope to a Snapshot and gives the next one, purely.             |
+| `Snapshot.instanceAt` | Finds the Instance with an ID in a Snapshot.                                   |
+| `Snapshot.isMany`     | Tells the list of an `each` Child from one Instance in an Instance's Children. |
 
 ### `@kestack/kabuki/react`
 
@@ -171,49 +161,41 @@ The whole app as one value, read and stepped from outside the Runtime, as a devt
 | `View.preload` | Loads the lazy Views made with these ids, so a browser hydrating a page a server drew never waits on their code.                                                                                                                                                                                           |
 | `useChild`     | Reads one Child's Model, State and Props from its parent's View, to draw, or only what an optional selector picks; an escape hatch that can never Send.                                                                                                                                                    |
 | `useChildren`  | Reads the Instances of an `each` Child the same way, in order; only the component that calls it re-renders, as they change or as what the selector picks does.                                                                                                                                             |
-| `useLive`      | Says whether the app is drawn as it is now, not at a past Step, so an effect that touches the page around it can stay still under Time Travel.                                                                                                                                                             |
 
 ### `@kestack/kabuki/react/view`
 
-`View` and the hooks, as `@kestack/kabuki/react` gives them, with `ViewProps`, `ViewOf`, `Handle`, `Root`, `ChildData`, `LazyView`, `AppRuntime`, `Attachment`, `AppSetup`, `AppOptions` and `AppProps`.
+`View`, `useChild` and `useChildren`, as `@kestack/kabuki/react` gives them, and `useLive`, with `ViewProps`, `ViewOf`, `Handle`, `Root`, `ChildData`, `LazyView`, `AppRuntime`, `Attachment`, `AppSetup`, `AppOptions` and `AppProps`.
 
-| Export                                               | What it does                                                                             |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `View.make`, `View.lazy`, `View.preload`, `View.app` | As in `@kestack/kabuki/react`.                                                           |
-| `useChild`, `useChildren`, `useLive`                 | As in `@kestack/kabuki/react`.                                                           |
-| `lazyOf`                                             | Finds the lazy View made for an Actor, if one was, to load its code before it is drawn.  |
-| `LazyContext`                                        | Where a server is told of each lazy View it draws.                                       |
-| `makeDrawn`                                          | What Views read of one Snapshot, kept the same object while an Instance does not change. |
-| `registry`                                           | Where an app's History outlives its module, by the app's name, across a hot reload.      |
+| Export                                               | What it does                                                                                                                                   |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `View.make`, `View.lazy`, `View.preload`, `View.app` | As in `@kestack/kabuki/react`.                                                                                                                 |
+| `useChild`, `useChildren`                            | As in `@kestack/kabuki/react`.                                                                                                                 |
+| `useLive`                                            | Says whether the app is drawn as it is now, not at a past Step, so an effect that touches the page around it can stay still under Time Travel. |     |
 
 ### `@kestack/kabuki/routing`
 
-| Export                        | What it does                                                                                                                                                                                                                                                                                                                                                                 |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Page.define`                 | Says what a page is: an Actor definition with a place in the URL, its params, query, data, Render Mode, Metadata and the definitions of the pages under it.                                                                                                                                                                                                                  |
-| `Page.build`                  | Says how a page behaves, as `Actor.build` takes it, with the build of each page under it in `pages`; a page is drawn with `View.make`.                                                                                                                                                                                                                                       |
-| `Page.notFound`               | What a Loader fails with when its place is not found.                                                                                                                                                                                                                                                                                                                        |
-| `Page.redirect`               | What a Loader fails with to send the app to another of its Routes, or to a whole URL outside it; `{ permanent: true }` makes a server answer `308` rather than `302`.                                                                                                                                                                                                        |
-| `Page.NotFound`               | The Schema of a Loader's not-found failure, to carry it over the wire.                                                                                                                                                                                                                                                                                                       |
-| `Page.Redirect`               | The Schema of a Loader's Redirect, to carry it over the wire.                                                                                                                                                                                                                                                                                                                |
-| `Page.wholeQuery`             | A query field holding the whole query as written, every pair of it, a repeated or undeclared one too: for a page whose query is someone else's to say, as a signed request. Written back whole, the page's other fields over it.                                                                                                                                             |
-| `Router.define`               | Reads the app's router down from the root page's definition: a constructor per place, the URL both ways, each place's Metadata and Render Mode, every path, the typing of the Loaders, and how the Router behaves in the browser, such as how long a move waits for its data, `delay` (150 ms), and how long a loading screen stays at least once drawn, `minimum` (300 ms). |
-| `Router.app`                  | Puts the Router above the root page's View: it holds the history, every move and every page's data; gives the Actor, its View, `startAt` and `href`. With `scrollRestoration: true` on the router it restores scroll as TanStack Router does.                                                                                                                                |
-| `Router.Link`                 | Draws a plain `<a href>` to a Route, preloading it on hover, once in view, or never, going to an element on the page with `hash`, and leaving every scroll as it is with `resetScroll={false}`; the Router catches a plain click and moves the app.                                                                                                                          |
-| `Router.Retry`                | A button that loads every page on screen again, for a page whose Loader broke.                                                                                                                                                                                                                                                                                               |
-| `Router.push`                 | A Command that moves the app to a Route, as a new entry.                                                                                                                                                                                                                                                                                                                     |
-| `Router.replace`              | A Command that puts a Route in place of the current entry, so Back skips it.                                                                                                                                                                                                                                                                                                 |
-| `Router.back`                 | A Command that goes Back.                                                                                                                                                                                                                                                                                                                                                    |
-| `Router.forward`              | A Command that goes Forward.                                                                                                                                                                                                                                                                                                                                                 |
-| `Router.backTo`               | A Command that goes Back when the app came from a Route, and replaces the entry with it otherwise: closing a dialog with a Route of its own.                                                                                                                                                                                                                                 |
-| `Router.reload`               | A Command that loads every page on screen again, as after a save; the pages and their Models stay. `Router.reload({ anew: true })`, when what the data belongs to changed, as the signed-in account: the data shown goes, held and then loading as on a move; with `hold: true`, held until the new data comes, the Command ending once it lands.                            |
-| `Router.preload`              | A Command that warms the Data cache, and the code of the lazy Views, for a Route.                                                                                                                                                                                                                                                                                            |
-| `Navigation`                  | The Capability the Router Provides to every page, which an Actor under a page that moves the app lists in its Requires.                                                                                                                                                                                                                                                      |
-| `Loading`                     | The Capability the Router uses, if the Layer has it, to load the data of places.                                                                                                                                                                                                                                                                                             |
-| `Loading.memory`              | A `Loading` that runs the Loaders in place, for tests, stories and the server.                                                                                                                                                                                                                                                                                               |
-| `Loading.cached`              | Puts the Data cache in front of a `Loading`: the last data of each place, shown at once on Back, a link or a preload.                                                                                                                                                                                                                                                        |
-| `useRouter`                   | Reads the Router from a component drawn inside the app: the current Route and URL, the history, the move it holds while it loads as `pending`, the title, Back, Forward, reload and preload; `useRouter<Route>()` types its Routes as the app's.                                                                                                                             |
-| `useElementScrollRestoration` | Reads where an element, or the window, was scrolled on the entry drawn, as scroll restoration kept it: for a virtual list that puts itself back.                                                                                                                                                                                                                             |
+| Export            | What it does                                                                                                                                                                                                                                                                                                                                                                 |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Page.define`     | Says what a page is: an Actor definition with a place in the URL, its params, query, data, Render Mode, Metadata and the definitions of the pages under it.                                                                                                                                                                                                                  |
+| `Page.build`      | Says how a page behaves, as `Actor.build` takes it, with the build of each page under it in `pages`; a page is drawn with `View.make`.                                                                                                                                                                                                                                       |
+| `Page.notFound`   | What a Loader fails with when its place is not found.                                                                                                                                                                                                                                                                                                                        |
+| `Page.redirect`   | What a Loader fails with to send the app to another of its Routes, or to a whole URL outside it; `{ permanent: true }` makes a server answer `308` rather than `302`.                                                                                                                                                                                                        |
+| `Page.NotFound`   | The Schema of a Loader's not-found failure, to carry it over the wire.                                                                                                                                                                                                                                                                                                       |
+| `Page.Redirect`   | The Schema of a Loader's Redirect, to carry it over the wire.                                                                                                                                                                                                                                                                                                                |
+| `Page.wholeQuery` | A query field holding the whole query as written, every pair of it, a repeated or undeclared one too: for a page whose query is someone else's to say, as a signed request. Written back whole, the page's other fields over it.                                                                                                                                             |
+| `Router.define`   | Reads the app's router down from the root page's definition: a constructor per place, the URL both ways, each place's Metadata and Render Mode, every path, the typing of the Loaders, and how the Router behaves in the browser, such as how long a move waits for its data, `delay` (150 ms), and how long a loading screen stays at least once drawn, `minimum` (300 ms). |
+| `Router.app`      | Puts the Router above the root page's View: it holds the history, every move and every page's data. It gives the Router's View, which `View.app` starts at the browser's URL, with `startAt` and `href`. With `scrollRestoration: true` on the router it restores scroll as TanStack Router does.                                                                            |
+| `Router.Link`     | Draws a plain `<a href>` to a Route, preloading it on hover, once in view, or never, going to an element on the page with `hash`, and leaving every scroll as it is with `resetScroll={false}`; the Router catches a plain click and moves the app.                                                                                                                          |
+| `Router.Retry`    | A button that loads every page on screen again, for a page whose Loader broke.                                                                                                                                                                                                                                                                                               |
+| `Router.push`     | A Command that moves the app to a Route, as a new entry.                                                                                                                                                                                                                                                                                                                     |
+| `Router.replace`  | A Command that puts a Route in place of the current entry, so Back skips it.                                                                                                                                                                                                                                                                                                 |
+| `Router.back`     | A Command that goes Back.                                                                                                                                                                                                                                                                                                                                                    |
+| `Router.forward`  | A Command that goes Forward.                                                                                                                                                                                                                                                                                                                                                 |
+| `Router.backTo`   | A Command that goes Back when the app came from a Route, and replaces the entry with it otherwise: closing a dialog with a Route of its own.                                                                                                                                                                                                                                 |
+| `Router.reload`   | A Command that loads every page on screen again, as after a save; the pages and their Models stay. `Router.reload({ anew: true })`, when what the data belongs to changed, as the signed-in account: the data shown goes, held and then loading as on a move; with `hold: true`, held until the new data comes, the Command ending once it lands.                            |
+| `Router.preload`  | A Command that warms the Data cache, and the code of the lazy Views, for a Route.                                                                                                                                                                                                                                                                                            |
+| `Navigation`      | The Capability the Router Provides to every page, which an Actor under a page that moves the app lists in its Requires.                                                                                                                                                                                                                                                      |
+| `useRouter`       | Reads the Router from a component drawn inside the app: the current Route and URL, the history, the move it holds while it loads as `pending`, the title, Back, Forward, reload and preload; `useRouter<Route>()` types its Routes as the app's.                                                                                                                             |
 
 ### `@kestack/kabuki/routing/page`
 
@@ -221,11 +203,21 @@ The whole app as one value, read and stepped from outside the Runtime, as a devt
 
 ### `@kestack/kabuki/routing/router`
 
-`Router`, `useRouter` and `useElementScrollRestoration`, as `@kestack/kabuki/routing` gives them, with `RouterDefinition`, `RouterOptions`, `Preload`, `MoveOptions` and `ReloadOptions`.
+`Router` and `useRouter`, as `@kestack/kabuki/routing` gives them, and `useElementScrollRestoration`, with `RouterDefinition`, `RouterOptions`, `Preload`, `MoveOptions` and `ReloadOptions`.
+
+| Export                        | What it does                                                                                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `useElementScrollRestoration` | Reads where an element, or the window, was scrolled on the entry drawn, as scroll restoration kept it: for a virtual list that puts itself back. |
 
 ### `@kestack/kabuki/routing/capabilities`
 
-`Navigation` and `Loading`, as `@kestack/kabuki/routing` gives them, with `Answer`, `AnyRoute`, `MoveOptions` and `ReloadOptions`, and each move as a Command: `push`, `replace`, `back`, `forward`, `backTo`, `reload` and `preload`, which `Router` gives too.
+`Navigation`, as `@kestack/kabuki/routing` gives it, and `Loading`, with `Answer`, `AnyRoute`, `MoveOptions` and `ReloadOptions`.
+
+| Export           | What it does                                                                                                          |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `Loading`        | The Capability the Router uses, if the Layer has it, to load the data of places.                                      |
+| `Loading.memory` | A `Loading` that runs the Loaders in place, for tests, stories and the server.                                        |
+| `Loading.cached` | Puts the Data cache in front of a `Loading`: the last data of each place, shown at once on Back, a link or a preload. |
 
 ### `@kestack/kabuki/routing/adapter`
 
