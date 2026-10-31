@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Replay } from '../../core/history/replay.ts';
 import { Actor, History, Runtime } from '../../core/index.ts';
 import { View } from '../index.ts';
+import type { AppSetup } from '../view/index.ts';
 import type { SavedHistory } from '../../core/history/index.ts';
 import type { AppRuntime } from '../view/index.ts';
 import { registry } from '../view/registry.ts';
@@ -98,6 +99,9 @@ describe('its Layer', () => {
     View.app(TimedView);
     // @ts-expect-error a Layer that gives nothing leaves Clock missing
     View.app(TimedView, { layer: Layer.empty });
+    const promised: AppSetup<Clock> = {};
+    // @ts-expect-error a Layer that may be missing gives nothing for sure
+    View.app(TimedView, promised);
     expect(true).toBe(true);
   });
 });

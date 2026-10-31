@@ -51,6 +51,18 @@ export type AppSetup<Provided = never> = AppOptions & {
   readonly layer?: Layer.Layer<Provided, never, never>;
 };
 
+/** Any setup: every Layer is one, since the Layer of nothing is the widest. */
+type AnySetup = AppOptions & {
+  readonly layer?: Layer.Layer<never, never, never>;
+};
+
+/** What a setup's Layer gives for sure: nothing, unless the Layer is there. */
+type ProvidedBy<S> = S extends {
+  readonly layer: Layer.Layer<infer Provided, never, never>;
+}
+  ? Provided
+  : never;
+
 /** A Step: right after an entry, or right after init. */
 type Step = number | 'init';
 
@@ -125,11 +137,11 @@ const NO_WORKERS: ReadonlyArray<WorkerStatus> = [];
  * React component, `<App />`. What the tree Requires comes from
  * `setup.layer`; leaving out a Capability is a type error.
  */
-export const app = <A extends AnyActor, Provided = never>(
+export const app = <A extends AnyActor, S extends AnySetup = {}>(
   view: ViewOf<A>,
-  setup?: AppSetup<Provided>,
+  setup?: S & AnySetup,
   // A Capability the tree Requires and the Layer leaves out asks for this.
-  ..._unmet: Unmet<A, Provided>
+  ..._unmet: Unmet<A, ProvidedBy<S>>
 ) => {
   const options: AppOptions = setup ?? {};
   const layer = (setup?.layer ?? Layer.empty) as Layer.Layer<any, never, never>;
