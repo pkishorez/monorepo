@@ -7,7 +7,7 @@ import type { SavedHistory } from '../../core/index.ts';
 import { View, toReact } from '../../react/index.ts';
 import type { AppRuntime } from '../../react/index.ts';
 import { Router } from '../../routing/index.ts';
-import { browser } from '../../routing/adapter/browser/index.ts';
+import { browser } from '../../routing/router/adapter/browser/index.ts';
 import {
   Document as Plain,
   NOT_HERE,

@@ -8,7 +8,7 @@ import type {
   Tree,
 } from '../route/index.ts';
 import type { AnyPageDefinition, Rootless } from '../page/index.ts';
-import type { ScrollRestorationOptions } from '../scroll/index.ts';
+import type { ScrollRestorationOptions } from './scroll/index.ts';
 
 /*
  * The router of an app, as a definition: `Router.define(App, { … })`. It is

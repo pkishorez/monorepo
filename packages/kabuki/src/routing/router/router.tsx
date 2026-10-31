@@ -4,7 +4,7 @@ import { Actor, Command } from '../../core/index.ts';
 import type { ActorType, AnyActor, Types } from '../../core/index.ts';
 import { View, lazyOf } from '../../react/index.ts';
 import type { ViewOf } from '../../react/index.ts';
-import { Adapter, KEY } from '../adapter/index.ts';
+import { Adapter, KEY } from './adapter/index.ts';
 import {
   Loading,
   Navigation,
@@ -28,7 +28,7 @@ import type {
   Read,
   Value,
 } from '../route/index.ts';
-import { Scrolling, keyOf, restores, scriptFor } from '../scroll/index.ts';
+import { Scrolling, keyOf, restores, scriptFor } from './scroll/index.ts';
 import { linkOptions } from './context.tsx';
 import {
   anewOf,

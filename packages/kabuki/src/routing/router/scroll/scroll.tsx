@@ -1,6 +1,6 @@
 import { createContext, use, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useLive } from '../../react/index.ts';
+import { useLive } from '../../../react/index.ts';
 import { ID, WINDOW, elementOf, selectorOf } from './selector.ts';
 import type { Position, Positions } from './selector.ts';
 import * as session from './session.ts';

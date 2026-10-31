@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { Command, History, Runtime } from '../../core/index.ts';
 import type { Instance, Running, Types } from '../../core/index.ts';
 import { View } from '../../react/index.ts';
-import { Adapter } from '../adapter/index.ts';
+import { Adapter } from '../router/adapter/index.ts';
 import { Loading, Navigation, Page, Router } from '../index.ts';
 
 /*
