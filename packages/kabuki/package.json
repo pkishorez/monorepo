@@ -41,6 +41,9 @@
       "types": "./dist/routing/index.d.ts",
       "default": "./dist/routing/index.js"
     },
+    "./routing/namespaces/*": {
+      "types": "./dist/routing/namespaces/*.d.ts"
+    },
     "./routing/adapter": {
       "types": "./dist/routing/router/adapter/index.d.ts",
       "default": "./dist/routing/router/adapter/index.js"

@@ -9,7 +9,7 @@ import { View } from '../../react/index.ts';
 import { registry } from '../../react/app/index.ts';
 import { keyIn } from '../router/adapter/index.ts';
 import { browser } from '../router/adapter/browser/index.ts';
-import { Page, Router, useRouter } from '../index.ts';
+import { Loading, Page, Router, useRouter } from '../index.ts';
 
 /*
  * The router drawn in a document: link clicks, the browser Adapter, Back and
@@ -368,9 +368,9 @@ describe('a page with data', () => {
   let open: () => void = () => {};
   let broken = false;
   let calls: Array<number> = [];
-  const loading = Router.cached(
+  const loading = Loading.cached(
     Shop,
-    Router.memory(
+    Loading.memory(
       Shop,
       Shop.loaders({
         Item: ({ id }) =>

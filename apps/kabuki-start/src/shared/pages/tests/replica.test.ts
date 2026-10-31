@@ -3,7 +3,7 @@ import type { Scope } from 'effect';
 import { History, Runtime } from '@kestack/kabuki';
 import type { Snapshot } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
-import { Router } from '@kestack/kabuki/routing';
+import { Loading, Router } from '@kestack/kabuki/routing';
 import {
   type Account,
   Accounts,
@@ -286,7 +286,7 @@ const Root = Router.app(
   router,
   View.make(Pages.AppLive, () => null),
 );
-const loading = Router.memory(
+const loading = Loading.memory(
   router,
   router.loaders({
     Static: () => Effect.succeed({ at: 0 }),

@@ -3,11 +3,7 @@ import type { AnyActor } from '../../core/actor/index.ts';
 import type { Needs } from '../../core/runtime/index.ts';
 import type { View } from '../../react/index.ts';
 import { Router } from '../../routing/index.ts';
-import type {
-  Navigation,
-  PageBuild,
-  PageDefinition,
-} from '../../routing/index.ts';
+import type { Navigation, Page } from '../../routing/index.ts';
 import { APP } from './protocol/index.ts';
 import type { DocumentType, StartApp } from './protocol/index.ts';
 
@@ -27,7 +23,7 @@ type LayerOption<A> = [NeedsOf<A>] extends [never]
   : { readonly layer: Layer.Layer<NeedsOf<A>, never, never> };
 
 /** What `Start.app` takes. */
-export type AppOptions<G extends PageDefinition, A extends PageBuild<G>> = {
+export type AppOptions<G extends Page.Definition, A extends Page.Build<G>> = {
   /** Every Route of the app: `Router.define(() => App, { … })`. */
   readonly router: { readonly root: G };
   /** The View of the router's root page's build. */
@@ -54,7 +50,7 @@ export type AppOptions<G extends PageDefinition, A extends PageBuild<G>> = {
  * `view` draws the build of the router's root page. Leaving out a
  * Capability the app Requires is a type error.
  */
-export const app = <G extends PageDefinition, A extends PageBuild<G>>(
+export const app = <G extends Page.Definition, A extends Page.Build<G>>(
   options: AppOptions<G, A>,
 ): StartApp => {
   const { router, view, document, name, attach } = options;

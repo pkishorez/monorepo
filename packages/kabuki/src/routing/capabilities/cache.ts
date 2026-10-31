@@ -55,7 +55,7 @@ const reasonOf = (cause: Cause.Cause<unknown>) => {
 
 /**
  * A `Loading` that keeps what `inner` loads, for the places of `routes`:
- * `Router.cached(Routes, loading(Routes))`. `size` copies at most: the
+ * `Loading.cached(Routes, loading(Routes))`. `size` copies at most: the
  * router's `cacheSize` unless said, 50 unless it says.
  */
 export const cached = <E, R>(

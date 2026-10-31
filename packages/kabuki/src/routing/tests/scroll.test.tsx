@@ -8,7 +8,12 @@ import { View } from '../../react/index.ts';
 import { registry } from '../../react/app/index.ts';
 import { KEY } from '../router/adapter/index.ts';
 import { browser } from '../router/adapter/browser/index.ts';
-import { Page, Router, useElementScrollRestoration } from '../index.ts';
+import {
+  Loading,
+  Page,
+  Router,
+  useElementScrollRestoration,
+} from '../index.ts';
 import type { ScrollRestorationOptions } from '../router/scroll/index.ts';
 import { scriptFor } from '../router/scroll/index.ts';
 import { selectorOf } from '../router/scroll/selector.ts';
@@ -210,7 +215,7 @@ const load = async () => {
   const Drawn = View.app(Root.view, {
     layer: Layer.mergeAll(
       browser(),
-      Router.memory(routed, {
+      Loading.memory(routed, {
         Slow: () =>
           Effect.promise(
             () => new Promise<void>((done) => (letGo = done)),

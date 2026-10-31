@@ -1,5 +1,5 @@
 import { Context, Effect, Exit, Layer, Scope, Stream } from 'effect';
-import { Loading, Router } from '../../routing/index.ts';
+import { Loading } from '../../routing/index.ts';
 import { knownOf } from '../../routing/page/index.ts';
 import type { Known } from '../../routing/page/index.ts';
 import type { Outcome, Place, RenderMode } from '../../routing/route/index.ts';
@@ -96,7 +96,7 @@ export const handler = (options: HandlerOptions): Handler => {
     headers: Headers,
     wanted: ReadonlyArray<Wanted>,
   ) =>
-    Router.memory(app.routes, loaders as never, {
+    Loading.memory(app.routes, loaders as never, {
       request: () => request,
     }).pipe(
       Layer.provide(

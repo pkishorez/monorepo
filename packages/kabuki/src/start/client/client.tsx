@@ -5,7 +5,7 @@ import type { Root } from 'react-dom/client';
 import { Layer } from 'effect';
 import type { SavedHistory } from '../../core/history/index.ts';
 import { View } from '../../react/index.ts';
-import { Router } from '../../routing/index.ts';
+import { Loading } from '../../routing/index.ts';
 import { browser } from '../../routing/router/adapter/browser/index.ts';
 import {
   NOT_HERE,
@@ -73,7 +73,7 @@ export const client = async (exported: StartApp): Promise<Hydrated> => {
     const App = (View.app as Untyped)(app.view, {
       layer: Layer.mergeAll(
         browser(),
-        Router.cached(app.routes, loading(app.routes)),
+        Loading.cached(app.routes, loading(app.routes)),
         layer ?? (Layer.empty as unknown as Layer.Layer<any>),
       ) as never,
       ...(name && { name }),

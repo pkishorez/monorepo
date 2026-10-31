@@ -118,7 +118,7 @@ const loaders = Routes.loaders({
 
 const AppView = View.make(AppLive, () => null);
 const Root = Router.app(Routes, AppView);
-const loading = Router.cached(Routes, Router.memory(Routes, loaders));
+const loading = Loading.cached(Routes, Loading.memory(Routes, loaders));
 
 const wait = (ms: number) =>
   Effect.promise(() => new Promise((done) => setTimeout(done, ms)));
@@ -606,9 +606,9 @@ describe('two reloads in a row', () => {
     run(
       Effect.gen(function* () {
         let version = 0;
-        const counting = Router.cached(
+        const counting = Loading.cached(
           Routes,
-          Router.memory(
+          Loading.memory(
             Routes,
             Routes.loaders({
               ...loaders,
@@ -820,9 +820,9 @@ describe('a page with a Stale time', () => {
       () => null,
     ),
   );
-  const fresh = Router.cached(
+  const fresh = Loading.cached(
     Fresh,
-    Router.memory(
+    Loading.memory(
       Fresh,
       Fresh.loaders({
         Feed: () => counted('Feed').pipe(Effect.as({ items: 2 })),
@@ -981,7 +981,7 @@ describe("the router's cacheSize", () => {
         const Small = Router.define(App, { cacheSize: 1 });
         const app = yield* Runtime.start(
           Router.app(Small, AppView).actor,
-          Router.cached(Small, Router.memory(Small, loaders)),
+          Loading.cached(Small, Loading.memory(Small, loaders)),
         );
         push(app, Small.Blog.Post({ slug: 'hello' }));
         yield* settle;
@@ -1050,7 +1050,7 @@ describe("a Ready status's waited", () => {
 describe("the router's minimum", () => {
   const Quick = Router.define(App, { minimum: 40 });
   const QuickRoot = Router.app(Quick, AppView);
-  const quick = Router.cached(Quick, Router.memory(Quick, loaders));
+  const quick = Loading.cached(Quick, Loading.memory(Quick, loaders));
 
   it('is how long a loading screen stays at least: 300 unless said', () =>
     run(
@@ -1079,9 +1079,9 @@ describe("the router's minimum", () => {
 describe('a reload anew', () => {
   /** The Stats page's data counts its loads, so new data is told from old. */
   let version = 0;
-  const versioned = Router.cached(
+  const versioned = Loading.cached(
     Routes,
-    Router.memory(
+    Loading.memory(
       Routes,
       Routes.loaders({
         ...loaders,
@@ -1209,7 +1209,7 @@ describe('a reload anew', () => {
     const Top = Page.define({ pages: { Shown } });
     const Held = Router.define(Top);
     let visits = 0;
-    const heldLoading = Router.memory(
+    const heldLoading = Loading.memory(
       Held,
       Held.loaders({
         Shown: () =>
