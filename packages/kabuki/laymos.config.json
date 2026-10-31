@@ -15,7 +15,7 @@
     "src/routing": ["src/core", "src/react"],
     "src/routing/router": [
       "src/routing/route",
-      "src/routing/capability",
+      "src/routing/capabilities",
       "src/routing/page"
     ],
     "src/start/server": [
@@ -33,8 +33,8 @@
     ],
     "src/start/vite": ["src/start/common", "src/start/platform"],
     "src/start/common": ["src/core", "src/react", "src/routing"],
-    "src/routing/capability": ["src/routing/route"],
-    "src/routing/page": ["src/routing/route", "src/routing/capability"]
+    "src/routing/capabilities": ["src/routing/route"],
+    "src/routing/page": ["src/routing/route", "src/routing/capabilities"]
   },
   "exceptions": [
     {

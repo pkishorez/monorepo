@@ -13,7 +13,7 @@ import type {
   Tagged,
   Types,
 } from '../../core/index.ts';
-import { Navigation } from '../capability/index.ts';
+import { Navigation } from '../capabilities/index.ts';
 import { levelSchema, paramsKey, pick } from '../route/index.ts';
 import type {
   Children,
