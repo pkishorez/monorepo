@@ -9,7 +9,7 @@ import {
 } from '@kestack/connect/code';
 import { type Connection as ConnectionSchema } from '@kestack/connect/cloud';
 import { Actor } from '@kestack/kabuki';
-import { toReact, View } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { Navigation } from '@kestack/kabuki/routing';
 import { GestureProvider } from '@kestack/web-platform/ui/input';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
@@ -148,12 +148,10 @@ const tell = async (now: Partial<Known>) => {
 };
 
 const mount = async () => {
-  const App = toReact(
-    OwnerLive,
-    OwnerView,
-    Layer.mergeAll(connections(), clients, Layer.mock(Navigation)({})),
-    { name: `connection-settings-test-${apps++}` },
-  );
+  const App = View.app(OwnerView, {
+    layer: Layer.mergeAll(connections(), clients, Layer.mock(Navigation)({})),
+    name: `connection-settings-test-${apps++}`,
+  });
   root = createRoot(document.body.appendChild(document.createElement('div')));
   await act(async () => root!.render(<App />));
   for (let tries = 0; tries < 50 && pings === 0; tries++) {

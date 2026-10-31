@@ -3,7 +3,7 @@ import { act, useRef, type ReactNode } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import { toReact, useChild, View, type ViewProps } from '@kestack/kabuki/react';
+import { View, useChild } from '@kestack/kabuki/react';
 import { undoDepth } from '@codemirror/commands';
 import { EditorView } from '@codemirror/view';
 import { MotionGlobalConfig } from 'motion/react';
@@ -204,8 +204,8 @@ function OnPage({
   model,
   send,
   kids,
-}: Pick<ViewProps<typeof PageLive>, 'model' | 'send'> & {
-  readonly kids: ViewProps<typeof PageLive>['children'];
+}: Pick<View.Props<typeof PageLive>, 'model' | 'send'> & {
+  readonly kids: View.Props<typeof PageLive>['children'];
 }) {
   const touchState = useChild(kids.touch, ({ state }) => state._tag);
   const sending = useRef<(() => void) | null>(null);
@@ -336,7 +336,8 @@ beforeEach(async () => {
     read: Effect.sync(() => ({ ...nothing, smartInput: smart })),
     changes: Stream.never,
   });
-  const App = toReact(PageLive, PageView, device, {
+  const App = View.app(PageView, {
+    layer: device,
     name: `touch-draft-test-${apps++}`,
   });
   root = createRoot(document.body.appendChild(document.createElement('div')));

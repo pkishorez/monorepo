@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
-import type { AppRuntime } from '@kestack/kabuki/react';
+import type { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { ChevronLeftIcon, ChevronRightIcon, RotateCcwIcon } from 'lucide-react';
 import { carryOn, showStep, stepOf } from './steps.ts';
@@ -20,7 +20,7 @@ import { carryOn, showStep, stepOf } from './steps.ts';
 /** Past this many Messages the ticks would touch, so the track has none. */
 const MOST_TICKS = 60;
 
-export function Timeline({ runtime }: { readonly runtime: AppRuntime }) {
+export function Timeline({ runtime }: { readonly runtime: View.AppRuntime }) {
   const { branch, shown } = runtime;
   const at = stepOf(runtime);
   const last = branch.length;

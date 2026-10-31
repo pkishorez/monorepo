@@ -1,11 +1,9 @@
 import { Layer } from 'effect';
-import { toReact } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { AppView, PastContext } from './screens/index.ts';
 import { AppLive } from './story/index.ts';
 
-const App = toReact(AppLive, AppView, Layer.empty, {
-  name: 'demo:opening-an-app',
-});
+const App = View.app(AppView, { name: 'demo:opening-an-app' });
 
 function Shown() {
   const past = App.useRuntime().shown !== null;

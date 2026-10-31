@@ -1,5 +1,5 @@
 import { Layer } from 'effect';
-import { View, toReact } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { TimerLive } from './timer.ts';
 
@@ -44,6 +44,4 @@ const TimerView = View.make(TimerLive, ({ _tag, model, send, root }) => (
   </div>
 ));
 
-export const TimerApp = toReact(TimerLive, TimerView, Layer.empty, {
-  name: 'docs:workers',
-});
+export const TimerApp = View.app(TimerView, { name: 'docs:workers' });

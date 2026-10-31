@@ -8,7 +8,6 @@ import type {
   Only,
   Types,
 } from '../../core/actor/index.ts';
-import { lazy, preload } from './lazy.tsx';
 
 /** One Instance in the tree, to draw: its ID and, for a keyed Child, its key. Never changes. */
 export interface Handle<A> {
@@ -54,7 +53,7 @@ export type ViewProps<A> = {
 /** The Instance's part of what a View draws from; `root` is added when drawing. */
 export type Drawable = Omit<ViewProps<AnyActor>, 'root'>;
 
-/** What Views read the app through, provided by `toReact`. */
+/** What Views read the app through, provided by `View.app`. */
 export interface DrawnApp {
   readonly subscribe: (listener: () => void) => () => void;
   /** The Instance with this ID in the Snapshot drawn now, the same object while it does not change. */
@@ -94,7 +93,7 @@ export type ViewOf<A> = ((props: {
  * `style` counts as changed only when its values do: `motion.create` hands
  * the View a new `style` object on every render, with the same values.
  */
-const make = <A extends AnyActor>(
+export const make = <A extends AnyActor>(
   actor: A,
   draw: (self: ViewProps<A>) => ReactNode,
 ): ViewOf<A> => {
@@ -151,9 +150,3 @@ const same = (a: Shown, b: Shown): boolean => {
 
 const sameValues = (a: Shown | undefined, b: Shown | undefined) =>
   a !== undefined && b !== undefined && same(a, b);
-
-/**
- * `make` draws an Actor; `lazy` loads a View made with `make` when it is
- * first drawn; `preload` loads the lazy Views made with these ids.
- */
-export const View = { make, lazy, preload };

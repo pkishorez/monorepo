@@ -3,11 +3,9 @@ import { act } from 'react';
 import { createRoot, hydrateRoot } from 'react-dom/client';
 import type { Root as ReactRoot } from 'react-dom/client';
 import { prerender } from 'react-dom/static';
-import { Layer } from 'effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Actor } from '../../core/index.ts';
-import { View, toReact } from '../index.ts';
-import type { LazyView, ViewOf } from '../index.ts';
+import { View } from '../index.ts';
 import { registry } from '../app/index.ts';
 import { Ticker } from './lazy/ticker.ts';
 
@@ -32,7 +30,7 @@ const html = async (node: React.ReactNode) => {
 };
 
 /** A parent drawing the Ticker as its fixed Child, through whichever View it is given. */
-const pageWith = (TickerView: ViewOf<typeof Ticker>) => {
+const pageWith = (TickerView: View.Of<typeof Ticker>) => {
   const Page = Actor.build(Actor.define('Page', {}), {
     children: { ticker: { actor: Ticker } },
   });
@@ -41,7 +39,7 @@ const pageWith = (TickerView: ViewOf<typeof Ticker>) => {
       <TickerView instance={self.children.ticker} />
     </main>
   ));
-  return toReact(Page, PageView, Layer.empty);
+  return View.app(PageView);
 };
 
 let host: HTMLDivElement;
@@ -76,7 +74,7 @@ describe('a lazy View', () => {
   it('a server waits for it, and is told which lazy Views it drew', async () => {
     const TickerView = lazyTicker();
     const App = pageWith(TickerView);
-    const used = new Set<LazyView<Actor.Any>>();
+    const used = new Set<View.Lazy<Actor.Any>>();
     const served = await html(<App onLazyView={(view) => used.add(view)} />);
     expect(served).toContain('<output data-ticker="true">0</output>');
     expect([...used].map((view) => view.id)).toEqual([TickerView.id]);
@@ -126,7 +124,7 @@ describe('a lazy View', () => {
   });
 
   it('is the root View too', async () => {
-    const App = toReact(Ticker, lazyTicker(), Layer.empty);
+    const App = View.app(lazyTicker());
     expect(await html(<App />)).toContain(
       '<output data-ticker="true">0</output>',
     );

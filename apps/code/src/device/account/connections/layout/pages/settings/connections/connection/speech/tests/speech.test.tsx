@@ -8,7 +8,7 @@ import {
   SpeechToTextState,
 } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
-import { toReact, View } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { keys } from '../../../../../../commands.ts';
@@ -121,7 +121,8 @@ const keep = (speech: SpeechToTextState) => {
 };
 
 const mount = async () => {
-  const App = toReact(OwnerLive, OwnerView, clients, {
+  const App = View.app(OwnerView, {
+    layer: clients,
     name: `speech-test-${apps++}`,
   });
   root = createRoot(document.body.appendChild(document.createElement('div')));

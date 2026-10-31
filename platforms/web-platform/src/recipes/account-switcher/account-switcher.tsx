@@ -9,7 +9,6 @@ import {
 } from 'effect';
 import { Actor, Command } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
-import type { ViewOf } from '@kestack/kabuki/react';
 import { Accounts } from '@kestack/auth-toolkit/client';
 
 import { AccountList } from './list.tsx';
@@ -302,7 +301,7 @@ export const AccountSwitcherLive: Actor.Actor<
  * signed out, and glides between the two; see `Slot`. A server draws it
  * checking; the browser fills it in.
  */
-export const AccountSwitcherView: ViewOf<typeof AccountSwitcherLive> =
+export const AccountSwitcherView: View.Of<typeof AccountSwitcherLive> =
   View.make(AccountSwitcherLive, ({ root, model, send }) => {
     const { account, switching } = model;
     return (
@@ -343,7 +342,7 @@ export const AccountSwitcherView: ViewOf<typeof AccountSwitcherLive> =
  * Accounts and actions as the header's menu, from the same Instance.
  * Nothing unless signed in.
  */
-export const AccountSwitcherList: ViewOf<typeof AccountSwitcherLive> =
+export const AccountSwitcherList: View.Of<typeof AccountSwitcherLive> =
   View.make(AccountSwitcherLive, ({ model, send }) => {
     const { account, switching } = model;
     if (account._tag !== 'SignedIn') return null;

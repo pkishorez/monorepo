@@ -1,6 +1,6 @@
 import { createContext, use } from 'react';
 import type { SavedHistory } from '../../../core/history/index.ts';
-import type { AppRuntime } from '../../../react/index.ts';
+import type { View } from '../../../react/index.ts';
 import type { Tag } from '../../../routing/route/index.ts';
 
 /*
@@ -77,9 +77,9 @@ export const ID = 'kabuki-start';
 export const PageContext = createContext<Drawn | undefined>(undefined);
 
 /** How the Document reads the running app: the browser's App's `useRuntime`. A server has none. */
-export const RuntimeContext = createContext<(() => AppRuntime) | undefined>(
-  undefined,
-);
+export const RuntimeContext = createContext<
+  (() => View.AppRuntime) | undefined
+>(undefined);
 
 export const usePage = (what: string): Drawn => {
   const drawn = use(PageContext);

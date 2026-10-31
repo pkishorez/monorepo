@@ -1,6 +1,5 @@
 import { createContext, use } from 'react';
-import { useChild, useChildren, View } from '@kestack/kabuki/react';
-import type { ChildData, Handle } from '@kestack/kabuki/react';
+import { View, useChild, useChildren } from '@kestack/kabuki/react';
 import { Pages } from '../../../../shared/pages/index.ts';
 import { ReplicasAt, useNow } from '../accounts/index.ts';
 
@@ -201,7 +200,8 @@ const Instances = View.make(Pages.ReplicasLive, ({ model, children }) => {
 });
 
 /** The shown Pocket's wallets, for the Windows' names. */
-const walletRows = ({ model }: ChildData<typeof Pages.Wallets>) => model.rows;
+const walletRows = ({ model }: View.ChildData<typeof Pages.Wallets>) =>
+  model.rows;
 
 const Named = View.make(Pages.PocketLive, ({ children }) => {
   const rows = useChild(children.wallets, walletRows) ?? [];
@@ -218,7 +218,7 @@ export function SyncPanel({
   pocket,
 }: {
   readonly accounts: ReadonlyArray<Account>;
-  readonly pocket: Handle<typeof Pages.PocketLive>;
+  readonly pocket: View.Handle<typeof Pages.PocketLive>;
 }) {
   return (
     <section aria-labelledby="replica-sync" className="min-w-0 space-y-3">

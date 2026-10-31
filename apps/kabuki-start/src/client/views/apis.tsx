@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { View } from '@kestack/kabuki/react';
-import type { ViewProps } from '@kestack/kabuki/react';
 import { Badge } from '@kestack/web-platform/ui/components/badge';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { CircleCheckIcon, CircleXIcon } from 'lucide-react';
@@ -21,7 +20,7 @@ import { PageIntro } from '../components/index.ts';
  * are dimmed and still: what they show is the Account before's.
  */
 
-type Self = ViewProps<typeof Pages.ApisLive>;
+type Self = View.Props<typeof Pages.ApisLive>;
 type Model = Self['model'];
 type Call = Model['http']['public'];
 

@@ -1,5 +1,4 @@
-import { useChild, View } from '@kestack/kabuki/react';
-import type { ChildData } from '@kestack/kabuki/react';
+import { View, useChild } from '@kestack/kabuki/react';
 import { Pages, watchedBy } from '../../../../shared/pages/index.ts';
 import { EntriesView, Unwatched } from './activity.tsx';
 import { LedgerContext, newId } from './ledger.ts';
@@ -14,7 +13,8 @@ import { WalletsView } from './wallets.tsx';
  */
 
 /** The wallets' rows, for their names in the activity. */
-const walletRows = ({ model }: ChildData<typeof Pages.Wallets>) => model.rows;
+const walletRows = ({ model }: View.ChildData<typeof Pages.Wallets>) =>
+  model.rows;
 
 export const PocketView = View.make(
   Pages.PocketLive,

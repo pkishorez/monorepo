@@ -1,5 +1,5 @@
 import { Layer } from 'effect';
-import { View, toReact } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { DoorClosedIcon, DoorOpenIcon, LockIcon } from 'lucide-react';
 import { DoorLive } from './door.ts';
@@ -42,6 +42,4 @@ const DoorView = View.make(DoorLive, ({ _tag, model, send, root }) => {
   );
 });
 
-export const DoorApp = toReact(DoorLive, DoorView, Layer.empty, {
-  name: 'docs:state-machine',
-});
+export const DoorApp = View.app(DoorView, { name: 'docs:state-machine' });

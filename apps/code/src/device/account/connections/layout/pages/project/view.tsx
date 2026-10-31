@@ -1,4 +1,4 @@
-import { useChild, View, type ViewProps } from '@kestack/kabuki/react';
+import { View, useChild } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { FolderXIcon, Trash2Icon } from 'lucide-react';
@@ -127,7 +127,7 @@ function ProjectScreen({ root, model, props, children, send }: Self) {
   );
 }
 
-type Self = ViewProps<typeof ProjectLive>;
+type Self = View.Props<typeof ProjectLive>;
 
 /** No Instance: what a Hook reads while a Child is absent. */
 const NONE = { id: '' };

@@ -3,8 +3,7 @@
 // eslint-disable-next-line no-restricted-imports
 import { useEffect, useState } from 'react';
 import { Layer } from 'effect';
-import { toReact } from '@kestack/kabuki/react';
-import type { AppRuntime } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { HistoryIcon } from 'lucide-react';
 import {
@@ -37,15 +36,13 @@ import { Tree } from './tree.tsx';
 const param = (name: string) =>
   new URLSearchParams(window.location.search).get(name);
 
-const Recorded = toReact(
-  StageLive,
-  StageView,
-  Layer.mergeAll(
+const Recorded = View.app(StageView, {
+  layer: Layer.mergeAll(
     BrowserKeyboard,
     Layer.sync(Seed, () => ({ seed: param('seed') ?? 'kabuki' })),
   ),
-  { name: 'demo:snake-record' },
-);
+  name: 'demo:snake-record',
+});
 
 export function SnakeRecord() {
   const runtime = Recorded.useRuntime();
@@ -98,14 +95,14 @@ export function SnakeRecord() {
 }
 
 /** Goes live from the Step `ms` before the last Message, growing a new Branch. */
-const rewind = (runtime: AppRuntime, ms: number) => {
+const rewind = (runtime: View.AppRuntime, ms: number) => {
   const { branch } = runtime;
   const until = (branch.at(-1)?.at ?? 0) - ms;
   carryOn(runtime, branch.findLastIndex((entry) => entry.at <= until) + 1);
 };
 
 function useKeys(
-  runtime: AppRuntime,
+  runtime: View.AppRuntime,
   setSkips: (skip: (n: number) => number) => void,
 ) {
   const at = stepOf(runtime);

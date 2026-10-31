@@ -2,7 +2,7 @@
 // eslint-disable-next-line no-restricted-imports
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
-import type { AppRuntime } from '@kestack/kabuki/react';
+import type { View } from '@kestack/kabuki/react';
 import { KabukiInspector } from '@kestack/devtools-kabuki/inspector';
 
 /*
@@ -23,7 +23,7 @@ export function Stage({
   children,
 }: {
   /** The running app: `App.useRuntime()`. */
-  readonly runtime: AppRuntime;
+  readonly runtime: View.AppRuntime;
   /** A past Step is shown: the app cannot be pressed. */
   readonly past: boolean;
   /** The app itself. */
@@ -94,7 +94,7 @@ function History({
   runtime,
   at,
 }: {
-  readonly runtime: AppRuntime;
+  readonly runtime: View.AppRuntime;
   readonly at: number;
 }) {
   const { branch, shown } = runtime;

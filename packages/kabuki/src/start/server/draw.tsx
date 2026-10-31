@@ -1,12 +1,10 @@
 import { Suspense } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import { renderToReadableStream } from 'react-dom/server';
-import { Layer } from 'effect';
 import { History } from '../../core/history/index.ts';
 import type { SavedHistory } from '../../core/history/index.ts';
 import type { AnyActor } from '../../core/actor/index.ts';
-import { toReact } from '../../react/index.ts';
-import type { LazyView } from '../../react/index.ts';
+import { View } from '../../react/index.ts';
 import type { Known } from '../../routing/page/index.ts';
 import { tagsOf } from '../../routing/route/index.ts';
 import {
@@ -37,7 +35,7 @@ import type {
 
 type DrawnApp = ComponentType<{
   readonly saved?: SavedHistory;
-  readonly onLazyView?: (view: LazyView<AnyActor>) => void;
+  readonly onLazyView?: (view: View.Lazy<AnyActor>) => void;
 }>;
 
 /** What one drawing starts from: the Route and what its server-drawn places start from, by dotted name. */
@@ -97,10 +95,8 @@ export const drawer = (
   Document: DocumentType,
   build: Build,
 ) => {
-  const App = toReact(
-    app.actor as never,
-    app.view as never,
-    Layer.empty as never,
+  const App = (View.app as (view: unknown) => unknown)(
+    app.view,
   ) as unknown as DrawnApp;
 
   /** The Document around `inside`, drawn whole, and the ids of the lazy Views it drew. */

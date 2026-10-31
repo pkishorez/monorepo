@@ -11,7 +11,8 @@ const snippet = (
   server: string,
 ) => `import { connect } from '@kestack/devtools-kabuki/session';
 
-toReact(App, AppView, layer, {
+View.app(AppView, {
+  layer,
   // environment: optional; the page's host by default.
   attach: [connect({ url: '${server}' })],
 });`;

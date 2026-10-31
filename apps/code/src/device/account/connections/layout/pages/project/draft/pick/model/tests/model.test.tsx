@@ -3,7 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { Layer, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import { toReact, View } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import {
   afterAll,
   afterEach,
@@ -298,9 +298,7 @@ beforeAll(() => {
 
 beforeEach(async () => {
   document.documentElement.toggleAttribute('data-keyboard', !chip);
-  const App = toReact(PageLive, PageView, Layer.empty, {
-    name: `model-picker-test-${apps++}`,
-  });
+  const App = View.app(PageView, { name: `model-picker-test-${apps++}` });
   root = createRoot(document.body.appendChild(document.createElement('div')));
   await act(async () => root!.render(<App />));
   for (let tries = 0; tries < 50 && page.pings === 0; tries++) {
@@ -569,9 +567,7 @@ describe('ModelPicker, with a Harness Account beside the Default Accounts', () =
     document.body.innerHTML = '';
     chip = true;
     document.documentElement.toggleAttribute('data-keyboard', false);
-    const App = toReact(PageLive, PageView, Layer.empty, {
-      name: `model-picker-test-${apps++}`,
-    });
+    const App = View.app(PageView, { name: `model-picker-test-${apps++}` });
     root = createRoot(document.body.appendChild(document.createElement('div')));
     await act(async () => root!.render(<App />));
     await flush();

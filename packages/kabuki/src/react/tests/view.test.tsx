@@ -4,11 +4,10 @@ import type { ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root as ReactRoot } from 'react-dom/client';
 import { AnimatePresence, motion } from 'motion/react';
-import { Layer, Schema } from 'effect';
+import { Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Actor } from '../../core/index.ts';
-import { View, toReact, useChild, useChildren } from '../index.ts';
-import type { Handle, ViewProps } from '../index.ts';
+import { View, useChild, useChildren } from '../index.ts';
 import { registry } from '../app/index.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -208,7 +207,7 @@ describe('targeted rendering', () => {
       seen.push(self.children.rows);
       return null;
     });
-    const App = toReact(List, Watch, Layer.empty);
+    const App = View.app(Watch);
     await act(async () => root.render(<App />));
     await act(() => new Promise((done) => setTimeout(done, 0)));
     await send(LIST, { _tag: 'Retitled', title: 'Renamed' });
@@ -224,7 +223,7 @@ describe('targeted rendering', () => {
       keys = children.rows.map((kid) => kid.key);
       return null;
     });
-    const App = toReact(List, Keys, Layer.empty);
+    const App = View.app(Keys);
     await act(async () => root.render(<App />));
     await act(() => new Promise((done) => setTimeout(done, 0)));
     expect(keys).toEqual(['a', 'b', 'c']);
@@ -233,7 +232,7 @@ describe('targeted rendering', () => {
 
 /** A fresh Runtime for every test, so tests do not share an app. */
 const ListApp = () => {
-  const [App] = useState(() => toReact(List, ListView, Layer.empty));
+  const [App] = useState(() => View.app(ListView));
   return <App />;
 };
 
@@ -243,7 +242,7 @@ const ListApp = () => {
 const Bumps = ({
   rows,
 }: {
-  readonly rows: ReadonlyArray<Handle<typeof Row>>;
+  readonly rows: ReadonlyArray<View.Handle<typeof Row>>;
 }) => {
   const read = useChildren(rows);
   renders.Bumps = (renders.Bumps ?? 0) + 1;
@@ -255,7 +254,7 @@ const Bumps = ({
 const Selected = ({
   rows,
 }: {
-  readonly rows: ReadonlyArray<Handle<typeof Row>>;
+  readonly rows: ReadonlyArray<View.Handle<typeof Row>>;
 }) => {
   const selected = useChildren(rows, (kid) => kid.props.selected);
   renders.Selected = (renders.Selected ?? 0) + 1;
@@ -263,13 +262,17 @@ const Selected = ({
 };
 
 /** Whether the Header was clicked more than once: re-renders only as that changes. */
-const Busy = ({ header }: { readonly header: Handle<typeof Header> }) => {
+const Busy = ({ header }: { readonly header: View.Handle<typeof Header> }) => {
   const busy = useChild(header, (read) => read.model.clicks > 1);
   renders.Busy = (renders.Busy ?? 0) + 1;
   return <p>busy:{String(busy)}</p>;
 };
 
-const Clicks = ({ header }: { readonly header: Handle<typeof Header> }) => {
+const Clicks = ({
+  header,
+}: {
+  readonly header: View.Handle<typeof Header>;
+}) => {
   const read = useChild(header);
   return <p>clicks:{read?.model.clicks}</p>;
 };
@@ -296,7 +299,7 @@ const ReadingView = View.make(List, (self) => {
 });
 
 const ReadingApp = () => {
-  const [App] = useState(() => toReact(List, ReadingView, Layer.empty));
+  const [App] = useState(() => View.app(ReadingView));
   return <App />;
 };
 
@@ -405,7 +408,7 @@ const EditorView = View.make(Editor, (self) => {
 
 describe('one draw function', () => {
   it('keeps the DOM across a Transition', async () => {
-    const App = toReact(Editor, EditorView, Layer.empty);
+    const App = View.app(EditorView);
     await mount(<App />);
     const input = host.querySelector('input');
     await send('Editor', { _tag: 'Typed', text: 'hi' });
@@ -432,7 +435,7 @@ describe('root', () => {
         </ul>
       );
     });
-    const App = toReact(List, Parent, Layer.empty);
+    const App = View.app(Parent);
     await mount(<App />);
     await send(LIST, { _tag: 'Retitled', title: 'again' });
     expect(seen).toBeInstanceOf(HTMLLIElement);
@@ -445,7 +448,7 @@ describe('root', () => {
         <MotionRow instance={children.rows[0]!} initial={{ opacity: 0.25 }} />
       </ul>
     ));
-    const App = toReact(List, Parent, Layer.empty);
+    const App = View.app(Parent);
     await mount(<App />);
     expect(host.querySelector('li')?.style.opacity).toBe('0.25');
   });
@@ -474,7 +477,7 @@ const ExitView = View.make(List, (self) => {
 
 describe('exit', () => {
   it('draws a stopped Instance with its last data while it exits', async () => {
-    const App = toReact(List, ExitView, Layer.empty);
+    const App = View.app(ExitView);
     await mount(<App />);
     await send(row('b'), { _tag: 'Bumped' });
     await send(LIST, { _tag: 'Removed', id: 'b' });
@@ -483,7 +486,7 @@ describe('exit', () => {
   });
 
   it('draws nothing for a stopped Instance outside AnimatePresence', async () => {
-    const App = toReact(List, ListView, Layer.empty);
+    const App = View.app(ListView);
     await mount(<App />);
     await send(LIST, { _tag: 'Removed', id: 'b' });
     expect(host.querySelectorAll('li')).toHaveLength(2);
@@ -506,7 +509,7 @@ const SelectView = View.make(List, (self) => {
 
 describe('motion.create and memo', () => {
   it('does not draw the View again when only its parent renders', async () => {
-    const App = toReact(List, ExitView, Layer.empty);
+    const App = View.app(ExitView);
     await mount(<App />);
     renders = {};
     await send(LIST, { _tag: 'Retitled', title: 'Renamed' });
@@ -514,7 +517,7 @@ describe('motion.create and memo', () => {
   });
 
   it('draws it again when its Props change', async () => {
-    const App = toReact(List, SelectView, Layer.empty);
+    const App = View.app(SelectView);
     await mount(<App />);
     renders = {};
     await send(LIST, { _tag: 'Selected', id: 'b' });
@@ -533,7 +536,7 @@ describe('motion.create and memo', () => {
         </ul>
       );
     });
-    const App = toReact(List, Styled, Layer.empty);
+    const App = View.app(Styled);
     await mount(<App />);
     renders = {};
     await send(LIST, { _tag: 'Retitled', title: 'Lis' });
@@ -589,7 +592,7 @@ export const types = () => {
     // @ts-expect-error `shade` is there only while its test holds
     children.shade.id,
   ]);
-  const self = null! as ViewProps<typeof Row>;
+  const self = null! as View.Props<typeof Row>;
   return [
     self.root,
     <RowView instance={{ id: 'x' }} />,

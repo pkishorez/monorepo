@@ -4,7 +4,7 @@ import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { EditorView } from '@codemirror/view';
 import { Layer, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import { toReact, View, type ViewProps } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { keys } from '../../../../../commands.ts';
 import * as Picker from '../../../../../../../../../ui/controls/picker/index.ts';
@@ -213,8 +213,8 @@ function OnPage({
   model,
   send,
   picker,
-}: Pick<ViewProps<typeof PageLive>, 'model' | 'send'> & {
-  readonly picker: ViewProps<typeof PageLive>['children']['skills'];
+}: Pick<View.Props<typeof PageLive>, 'model' | 'send'> & {
+  readonly picker: View.Props<typeof PageLive>['children']['skills'];
 }) {
   const page = keys.useFocusSpot('content', 'page', { default: true });
   const side = model.doc === 'SideQuestion';
@@ -342,9 +342,7 @@ beforeAll(() => {
 beforeEach(async () => {
   // As the page marks it before the first paint.
   document.documentElement.toggleAttribute('data-keyboard', true);
-  const App = toReact(PageLive, PageView, Layer.empty, {
-    name: `draft-test-${apps++}`,
-  });
+  const App = View.app(PageView, { name: `draft-test-${apps++}` });
   root = createRoot(document.body.appendChild(document.createElement('div')));
   await act(async () => root!.render(<App />));
   for (let tries = 0; tries < 50 && page.pings === 0; tries++) {

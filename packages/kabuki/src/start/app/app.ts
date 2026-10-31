@@ -1,7 +1,7 @@
 import type { Layer } from 'effect';
 import type { AnyActor } from '../../core/actor/index.ts';
 import type { Needs } from '../../core/runtime/index.ts';
-import type { Attachment, ViewOf } from '../../react/index.ts';
+import type { View } from '../../react/index.ts';
 import { Router } from '../../routing/index.ts';
 import type {
   Navigation,
@@ -31,7 +31,7 @@ export type AppOptions<G extends PageDefinition, A extends PageBuild<G>> = {
   /** Every Route of the app: `Router.define(() => App, { … })`. */
   readonly router: { readonly root: G };
   /** The View of the router's root page's build. */
-  readonly view: ViewOf<A>;
+  readonly view: View.Of<A>;
   /** The HTML around the app; the plainest one if none. */
   readonly document?: DocumentType;
   /**
@@ -45,7 +45,7 @@ export type AppOptions<G extends PageDefinition, A extends PageBuild<G>> = {
    * called with the running app once its Runtime starts, and what it returns
    * when the app goes, as after a hot reload. Never on the server.
    */
-  readonly attach?: ReadonlyArray<Attachment>;
+  readonly attach?: ReadonlyArray<View.Attachment>;
 } & LayerOption<A>;
 
 /**
@@ -63,7 +63,7 @@ export const app = <G extends PageDefinition, A extends PageBuild<G>>(
   };
   return {
     [APP]: true,
-    app: Router.app(router as never, view as unknown as ViewOf<AnyActor>),
+    app: Router.app(router as never, view as unknown as View.Of<AnyActor>),
     ...(document && { document }),
     ...(name && { name }),
     ...(layer && { layer }),

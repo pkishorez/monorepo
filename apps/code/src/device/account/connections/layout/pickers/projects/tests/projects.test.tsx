@@ -4,7 +4,7 @@ import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema, Stream } from 'effect';
 import { CodeClients } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
-import { toReact, View } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { Navigation } from '@kestack/kabuki/routing';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -212,7 +212,8 @@ beforeAll(() => {
 
 const start = async () => {
   pushed = [];
-  const App = toReact(OwnerLive, OwnerView, services, {
+  const App = View.app(OwnerView, {
+    layer: services,
     name: `project-picker-test-${apps++}`,
   });
   root = createRoot(document.body.appendChild(document.createElement('div')));
