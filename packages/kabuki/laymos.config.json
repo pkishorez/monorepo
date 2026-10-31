@@ -15,10 +15,8 @@
     "src/routing": ["src/core", "src/react"],
     "src/routing/router": [
       "src/routing/route",
-      "src/routing/adapter",
       "src/routing/capability",
-      "src/routing/page",
-      "src/routing/scroll"
+      "src/routing/page"
     ],
     "src/start/server": [
       "src/core",
@@ -36,8 +34,7 @@
     "src/start/vite": ["src/start/common", "src/start/platform"],
     "src/start/common": ["src/core", "src/react", "src/routing"],
     "src/routing/capability": ["src/routing/route"],
-    "src/routing/page": ["src/routing/route", "src/routing/capability"],
-    "src/routing/scroll": []
+    "src/routing/page": ["src/routing/route", "src/routing/capability"]
   },
   "exceptions": [
     {
@@ -51,13 +48,13 @@
       "because": "An adapter implements the port its platform declares: it imports the Platform, Host and Handler types it fills, and nothing else of its parent."
     },
     {
-      "from": "src/routing/adapter/browser",
-      "to": "src/routing/adapter",
+      "from": "src/routing/router/adapter/browser",
+      "to": "src/routing/router/adapter",
       "because": "An adapter implements the port its parent declares: it imports the Adapter it fills, and nothing else of its parent."
     },
     {
-      "from": "src/routing/adapter/tanstack",
-      "to": "src/routing/adapter",
+      "from": "src/routing/router/adapter/tanstack",
+      "to": "src/routing/router/adapter",
       "because": "An adapter implements the port its parent declares: it imports the Adapter it fills, and nothing else of its parent."
     }
   ]

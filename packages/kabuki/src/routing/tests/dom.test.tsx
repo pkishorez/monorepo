@@ -7,8 +7,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { History, Runtime } from '../../core/index.ts';
 import { View, toReact } from '../../react/index.ts';
 import { registry } from '../../react/app/index.ts';
-import { keyIn } from '../adapter/index.ts';
-import { browser } from '../adapter/browser/index.ts';
+import { keyIn } from '../router/adapter/index.ts';
+import { browser } from '../router/adapter/browser/index.ts';
 import { Page, Router, useRouter } from '../index.ts';
 
 /*

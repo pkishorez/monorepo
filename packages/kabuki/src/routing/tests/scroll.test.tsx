@@ -6,12 +6,12 @@ import { Effect, Layer, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { View, toReact } from '../../react/index.ts';
 import { registry } from '../../react/app/index.ts';
-import { KEY } from '../adapter/index.ts';
-import { browser } from '../adapter/browser/index.ts';
+import { KEY } from '../router/adapter/index.ts';
+import { browser } from '../router/adapter/browser/index.ts';
 import { Page, Router, useElementScrollRestoration } from '../index.ts';
-import type { ScrollRestorationOptions } from '../scroll/index.ts';
-import { scriptFor } from '../scroll/index.ts';
-import { selectorOf } from '../scroll/selector.ts';
+import type { ScrollRestorationOptions } from '../router/scroll/index.ts';
+import { scriptFor } from '../router/scroll/index.ts';
+import { selectorOf } from '../router/scroll/selector.ts';
 
 /*
  * Scroll restoration as TanStack Router does it, drawn in a document on the

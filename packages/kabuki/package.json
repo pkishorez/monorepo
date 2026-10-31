@@ -36,16 +36,16 @@
       "default": "./dist/routing/index.js"
     },
     "./routing/adapter": {
-      "types": "./dist/routing/adapter/index.d.ts",
-      "default": "./dist/routing/adapter/index.js"
+      "types": "./dist/routing/router/adapter/index.d.ts",
+      "default": "./dist/routing/router/adapter/index.js"
     },
     "./routing/adapter/browser": {
-      "types": "./dist/routing/adapter/browser/index.d.ts",
-      "default": "./dist/routing/adapter/browser/index.js"
+      "types": "./dist/routing/router/adapter/browser/index.d.ts",
+      "default": "./dist/routing/router/adapter/browser/index.js"
     },
     "./routing/adapter/tanstack": {
-      "types": "./dist/routing/adapter/tanstack/index.d.ts",
-      "default": "./dist/routing/adapter/tanstack/index.js"
+      "types": "./dist/routing/router/adapter/tanstack/index.d.ts",
+      "default": "./dist/routing/router/adapter/tanstack/index.js"
     },
     "./start": {
       "types": "./dist/start/common/common.d.ts",
