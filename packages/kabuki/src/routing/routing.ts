@@ -8,8 +8,8 @@ import {
   push,
   reload,
   replace,
-} from './capability/index.ts';
-import type { AnyRoute } from './capability/index.ts';
+} from './capabilities/index.ts';
+import type { AnyRoute } from './capabilities/index.ts';
 import { Page as Pages } from './page/index.ts';
 import { NotFoundError, RedirectError, wholeQuery } from './route/index.ts';
 import type { RedirectTo } from './route/index.ts';

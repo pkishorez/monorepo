@@ -1,6 +1,6 @@
 import { Effect, Option, Schema } from 'effect';
-import { Loading } from '../capability/index.ts';
-import type { AnyRoute } from '../capability/index.ts';
+import { Loading } from '../capabilities/index.ts';
+import type { AnyRoute } from '../capabilities/index.ts';
 import type { DataInfo, Known, Status } from '../page/index.ts';
 import {
   DataInfoSchema,

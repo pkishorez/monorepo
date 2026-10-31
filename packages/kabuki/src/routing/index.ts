@@ -1,6 +1,6 @@
 export { Page, Router } from './routing.ts';
-export { Loading, Navigation } from './capability/index.ts';
-export type { Answer } from './capability/index.ts';
+export { Loading, Navigation } from './capabilities/index.ts';
+export type { Answer } from './capabilities/index.ts';
 export { useElementScrollRestoration, useRouter } from './router/index.ts';
 
 export type { Preload } from './router/index.ts';

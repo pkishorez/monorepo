@@ -10,12 +10,12 @@ import {
   Navigation,
   moveOptions,
   reloadOptions,
-} from '../capability/index.ts';
+} from '../capabilities/index.ts';
 import type {
   AnyRoute,
   MoveOptions,
   ReloadOptions,
-} from '../capability/index.ts';
+} from '../capabilities/index.ts';
 import { knownOf } from '../page/index.ts';
 import type { AnyPageBuild, AnyPageDefinition, Known } from '../page/index.ts';
 import type {

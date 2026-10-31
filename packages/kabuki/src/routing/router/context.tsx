@@ -12,7 +12,7 @@ import type {
   AnyRoute,
   MoveOptions,
   ReloadOptions,
-} from '../capability/index.ts';
+} from '../capabilities/index.ts';
 import type { Preload } from './define.ts';
 import { MANAGED, tagsOf } from '../route/index.ts';
 import type { How, Metadata } from '../route/index.ts';

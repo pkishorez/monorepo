@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import type { Answer } from '../capability/index.ts';
+import type { Answer } from '../capabilities/index.ts';
 import type { Codec, RenderMode, Value } from '../route/index.ts';
 
 /*
