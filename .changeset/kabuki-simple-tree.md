@@ -8,12 +8,14 @@
 '@kestack/std-toolkit': patch
 ---
 
-Kabuki's API is now namespaces, in Effect's way, with their types inside. This is a breaking change.
+Kabuki's paths are reorganized. This is a breaking change.
 
-- `@kestack/kabuki` gives `Actor`, `Command`, `History`, `Runtime` and `Snapshot`. `ActorType` is `Actor.Actor`, `AnyActor` is `Actor.Any`, `ActorDefinition` is `Actor.Definition`, `Self` is `Actor.Self`, `Running` is `Runtime.Running`, `LiveInstance` is `Runtime.Instance`, `Stopped` is `Runtime.Stopped`, `Instance` is `Snapshot.Instance`, the `History` type is `History.History`, `SavedHistory` is `History.Saved`, `Entry` is `History.Entry`, `CommandType` is `Command.Command`, `ActorOf` is `Actor.Of`, and `handle`, `instanceAt` and `isMany` are `Snapshot.handle`, `Snapshot.instanceAt` and `Snapshot.isMany`. `Replay`, `outcomeOf`, `init`, `restore` and `isRestore` are no longer exported: `history.seek`, `history.snapshotAt` and `history.outcome` cover them.
-- `toReact(actor, view, layer, options)` is `View.app(view, { layer, ...options })`. The Layer may be left out while the tree Requires nothing. `ViewProps`, `ViewOf`, `LazyView`, `Handle`, `Root`, `ChildData`, `AppRuntime` and `Attachment` are `View.Props`, `View.Of`, `View.Lazy`, `View.Handle`, `View.Root`, `View.ChildData`, `View.AppRuntime` and `View.Attachment`. `lazyOf` is no longer exported.
-- `PageDefinition`, `PageBuild`, `Status` and `Metadata` are `Page.Definition`, `Page.Build`, `Page.Status` and `Page.Metadata`. `Preload` is `Router.Preload`, and `Answer` is `Loading.Answer`. `Router.memory` and `Router.cached` are `Loading.memory` and `Loading.cached`.
+- A layer's path gives only the values an app is made of. `@kestack/kabuki` gives `Actor`, `Command`, `History` and `Runtime`. `@kestack/kabuki/react` gives `View`, `useChild`, `useChildren` and `useLive`. `@kestack/kabuki/routing` gives `Page`, `Router`, `Navigation`, `Loading`, `useRouter` and `useElementScrollRestoration`. `@kestack/kabuki/start` gives `Start`.
+- Types moved off the layer paths. Each folder is now a path of its own that gives its value and every type that goes with it: `@kestack/kabuki/core/actor`, `core/command`, `core/history`, `core/runtime`, `core/snapshot`, `react/view`, `routing/page`, `routing/router`, `routing/capabilities` and `start/app`. For example, `import type { Running } from '@kestack/kabuki/core/runtime'`.
+- `Stopped` comes from `@kestack/kabuki/core/runtime`. `handle`, `instanceAt` and `isMany` are `Snapshot.handle`, `Snapshot.instanceAt` and `Snapshot.isMany`, from `@kestack/kabuki/core/snapshot`. `Replay`, `outcomeOf`, `init`, `restore` and `isRestore` come only from their folder paths.
+- `toReact(actor, view, layer, options)` is now `View.app(view, { layer, ...options })`. The Layer may be left out while the tree Requires nothing. `lazyOf` comes from `@kestack/kabuki/react/view`.
+- `Router.memory` and `Router.cached` are now `Loading.memory` and `Loading.cached`. The `Page.NotFound` and `Page.Redirect` types are now `NotFoundError` and `RedirectTo`, and the `Start.DocumentProps` type is `DocumentProps` from `@kestack/kabuki/start/app`.
 - The adapters have shorter paths: `@kestack/kabuki/routing/browser`, `@kestack/kabuki/routing/tanstack`, `@kestack/kabuki/start/cloudflare` and `@kestack/kabuki/start/nitro`.
-- Inside, each layer is regrouped: React's files are `react/view` and `react/app`; the Router is split into one file per job, with the address adapter and scroll restoration under it; Start's shared part is `start/app`, with `start/app/protocol` for what the server and the browser agree on.
+- Inside, each layer is regrouped. React is `react/view`, with its drawing in `react/view/draw`. The Router is split into one file per job, with the address adapter and scroll restoration under it. Start's shared part is `start/app`, with `start/app/protocol` for what the server and the browser agree on. Command has a folder of its own.
 
-The other packages move to the new names. What they do does not change.
+The other packages move to the new paths. What they do does not change.

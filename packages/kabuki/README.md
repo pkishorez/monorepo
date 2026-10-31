@@ -65,9 +65,12 @@ Kabuki is four layers, each its own subpath and each using only the layers
 below it: core, `@kestack/kabuki`, defines and runs Actors and knows no
 React; `@kestack/kabuki/react` draws them; `@kestack/kabuki/routing` gives
 pages a place in the URL; `@kestack/kabuki/start` serves a routed app. An
-app takes as many as it needs, from the bottom up. Each layer gives
-namespaces in Effect's way, its types inside: `Actor.define` and
-`Actor.Any`, `View.make` and `View.Props`, `Page.build` and `Page.Status`.
+app takes as many as it needs, from the bottom up. A layer's path gives
+only the values an app is made of: `Actor`, `Command`, `History` and
+`Runtime`; `View`; `Page`, `Router`, `Navigation` and `Loading`; `Start`.
+Each folder in a layer is a path of its own that gives its value and every
+type that goes with it, so a type is imported from where it lives:
+`import type { Running } from '@kestack/kabuki/core/runtime'`.
 
 Read the language in [CONTEXT.md](./CONTEXT.md), the decisions in
 [docs/adr/](./docs/adr/), and how the History works in
@@ -90,23 +93,73 @@ pnpm add @kestack/kabuki effect react
 
 ### `@kestack/kabuki`
 
-| Export                | What it does                                                                                                                                                                |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Actor.define`        | Says what an Actor is: its name, Requires and Schemas, which fix every type. It runs nothing.                                                                               |
-| `Actor.build`         | Says how a defined Actor behaves, at the top and in one block per State: the build is what runs and is drawn.                                                               |
-| `Command.make`        | Defines a Command from its name, the Schema of its args and the Effect it runs; an Update calls it with the args.                                                           |
-| `Runtime.start`       | Runs an Actor, or carries a History on, inside a Scope, with the app's Layer; gives back `send`, `start` and `stop`. Started from an Actor, its History keeps no Messages.  |
-| `Runtime.Stopped`     | What a Query asked from outside the tree fails with once its Instance, or the Runtime, has stopped.                                                                         |
-| `running.changes`     | The live Snapshot as an Effect Stream: now, then whenever the app settles; a slow reader gets only the latest.                                                              |
-| `running.instance`    | The root Instance, typed and live, for code outside the tree: reads any Instance's data, Children and Workers, asks its Queries, and Sends to it from outside under a name. |
-| `History.make`        | A new, empty History for an Actor, with the root's Input.                                                                                                                   |
-| `History.load`        | A History carrying on from one saved before, read with the Actor's code as it is now.                                                                                       |
-| `History.restored`    | The lightest History an app can be saved as: one Restore of a Snapshot at a Time, right after init.                                                                         |
-| `history.changes`     | The History as plain JSON in an Effect Stream: now, then after every change, so saving it is `Stream.debounce` and `Stream.runForEach`.                                     |
-| `history.keep`        | Sets the History's Window, how many entries it keeps; older ones Compact into a Restore. Works while it runs.                                                               |
-| `Snapshot.handle`     | Applies one Envelope to a Snapshot and gives the next one, purely.                                                                                                          |
-| `Snapshot.instanceAt` | Finds the Instance with an ID in a Snapshot.                                                                                                                                |
-| `Snapshot.isMany`     | Tells the list of an `each` Child from one Instance in an Instance's Children.                                                                                              |
+| Export             | What it does                                                                                                                                                                |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Actor.define`     | Says what an Actor is: its name, Requires and Schemas, which fix every type. It runs nothing.                                                                               |
+| `Actor.build`      | Says how a defined Actor behaves, at the top and in one block per State: the build is what runs and is drawn.                                                               |
+| `Command.make`     | Defines a Command from its name, the Schema of its args and the Effect it runs; an Update calls it with the args.                                                           |
+| `Runtime.start`    | Runs an Actor, or carries a History on, inside a Scope, with the app's Layer; gives back `send`, `start` and `stop`. Started from an Actor, its History keeps no Messages.  |
+| `running.changes`  | The live Snapshot as an Effect Stream: now, then whenever the app settles; a slow reader gets only the latest.                                                              |
+| `running.instance` | The root Instance, typed and live, for code outside the tree: reads any Instance's data, Children and Workers, asks its Queries, and Sends to it from outside under a name. |
+| `History.make`     | A new, empty History for an Actor, with the root's Input.                                                                                                                   |
+| `History.load`     | A History carrying on from one saved before, read with the Actor's code as it is now.                                                                                       |
+| `History.restored` | The lightest History an app can be saved as: one Restore of a Snapshot at a Time, right after init.                                                                         |
+| `history.changes`  | The History as plain JSON in an Effect Stream: now, then after every change, so saving it is `Stream.debounce` and `Stream.runForEach`.                                     |
+| `history.keep`     | Sets the History's Window, how many entries it keeps; older ones Compact into a Restore. Works while it runs.                                                               |
+
+### `@kestack/kabuki/core/actor`
+
+`Actor`, as `@kestack/kabuki` gives it, with the types an Actor is named and written by: `ActorType`, `AnyActor`, `ActorDefinition`, `Self`, `Single`, `Types` and the rest.
+
+| Export         | What it does                                       |
+| -------------- | -------------------------------------------------- |
+| `Actor.define` | As in `@kestack/kabuki`: what an Actor is.         |
+| `Actor.build`  | As in `@kestack/kabuki`: how a defined Actor acts. |
+
+### `@kestack/kabuki/core/command`
+
+| Export         | What it does                                                                             |
+| -------------- | ---------------------------------------------------------------------------------------- |
+| `Command.make` | As in `@kestack/kabuki`: a Command from its name, the Schema of its args and its Effect. |
+| `RUN`          | The key a made Command keeps its Effect under, out of sight of a comparison.             |
+
+### `@kestack/kabuki/core/history`
+
+`History`, with `SavedHistory`, `Entry` and `HistoryOptions`.
+
+| Export             | What it does                                                                                                |
+| ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `History.make`     | As in `@kestack/kabuki`.                                                                                    |
+| `History.load`     | As in `@kestack/kabuki`.                                                                                    |
+| `History.restored` | As in `@kestack/kabuki`.                                                                                    |
+| `isHistory`        | Tells a History from an Actor, where either may be given.                                                   |
+| `Replay.make`      | Plays Branches of one app from init, remembering Snapshots so playing again starts from the nearest one.    |
+| `Replay.fold`      | The Snapshot right after a Branch, played now from init with the root's Input, with no yielding.            |
+| `outcomeOf`        | Works out what came of one Envelope on a Snapshot: handled, ignored or dropped. The History never keeps it. |
+
+### `@kestack/kabuki/core/runtime`
+
+`Runtime`, with `Running`, `LiveInstance`, `Needs`, `Provided` and `WorkerStatus`.
+
+| Export          | What it does                                                                                        |
+| --------------- | --------------------------------------------------------------------------------------------------- |
+| `Runtime.start` | As in `@kestack/kabuki`.                                                                            |
+| `Stopped`       | What a Query asked from outside the tree fails with once its Instance, or the Runtime, has stopped. |
+
+### `@kestack/kabuki/core/snapshot`
+
+The whole app as one value, read and stepped from outside the Runtime, as a devtool or a test does. With `Snapshot`, `Instance`, `Envelope`, `Handled` and `Source`.
+
+| Export                | What it does                                                                                                         |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `Snapshot.handle`     | Applies one Envelope to a Snapshot and gives the next one, purely.                                                   |
+| `Snapshot.instanceAt` | Finds the Instance with an ID in a Snapshot.                                                                         |
+| `Snapshot.isMany`     | Tells the list of an `each` Child from one Instance in an Instance's Children.                                       |
+| `init`                | The Snapshot right after init: the root and every Child its State Invokes.                                           |
+| `restore`             | The Restore Message: given to the root, it replaces the whole Snapshot with a saved one, checked against the Actors. |
+| `isRestore`           | Tells a Restore from any other Message.                                                                              |
+| `actorAt`             | Finds the Actor of the Instance with an ID, if it is in the Snapshot.                                                |
+| `within`              | Tells whether an Instance ID is the given one or under it.                                                           |
 
 ### `@kestack/kabuki/react`
 
@@ -119,6 +172,19 @@ pnpm add @kestack/kabuki effect react
 | `useChild`     | Reads one Child's Model, State and Props from its parent's View, to draw, or only what an optional selector picks; an escape hatch that can never Send.                                                                                                                                                    |
 | `useChildren`  | Reads the Instances of an `each` Child the same way, in order; only the component that calls it re-renders, as they change or as what the selector picks does.                                                                                                                                             |
 | `useLive`      | Says whether the app is drawn as it is now, not at a past Step, so an effect that touches the page around it can stay still under Time Travel.                                                                                                                                                             |
+
+### `@kestack/kabuki/react/view`
+
+`View` and the hooks, as `@kestack/kabuki/react` gives them, with `ViewProps`, `ViewOf`, `Handle`, `Root`, `ChildData`, `LazyView`, `AppRuntime`, `Attachment`, `AppSetup`, `AppOptions` and `AppProps`.
+
+| Export                                               | What it does                                                                             |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `View.make`, `View.lazy`, `View.preload`, `View.app` | As in `@kestack/kabuki/react`.                                                           |
+| `useChild`, `useChildren`, `useLive`                 | As in `@kestack/kabuki/react`.                                                           |
+| `lazyOf`                                             | Finds the lazy View made for an Actor, if one was, to load its code before it is drawn.  |
+| `LazyContext`                                        | Where a server is told of each lazy View it draws.                                       |
+| `makeDrawn`                                          | What Views read of one Snapshot, kept the same object while an Instance does not change. |
+| `registry`                                           | Where an app's History outlives its module, by the app's name, across a hot reload.      |
 
 ### `@kestack/kabuki/routing`
 
@@ -148,6 +214,18 @@ pnpm add @kestack/kabuki effect react
 | `Loading.cached`              | Puts the Data cache in front of a `Loading`: the last data of each place, shown at once on Back, a link or a preload.                                                                                                                                                                                                                                                        |
 | `useRouter`                   | Reads the Router from a component drawn inside the app: the current Route and URL, the history, the move it holds while it loads as `pending`, the title, Back, Forward, reload and preload; `useRouter<Route>()` types its Routes as the app's.                                                                                                                             |
 | `useElementScrollRestoration` | Reads where an element, or the window, was scrolled on the entry drawn, as scroll restoration kept it: for a virtual list that puts itself back.                                                                                                                                                                                                                             |
+
+### `@kestack/kabuki/routing/page`
+
+`Page`, as `@kestack/kabuki/routing` gives it, with `PageDefinition`, `PageBuild`, `Status`, `Metadata`, `RedirectTo` and the rest of what a page is typed by.
+
+### `@kestack/kabuki/routing/router`
+
+`Router`, `useRouter` and `useElementScrollRestoration`, as `@kestack/kabuki/routing` gives them, with `RouterDefinition`, `RouterOptions`, `Preload`, `MoveOptions` and `ReloadOptions`.
+
+### `@kestack/kabuki/routing/capabilities`
+
+`Navigation` and `Loading`, as `@kestack/kabuki/routing` gives them, with `Answer`, `AnyRoute`, `MoveOptions` and `ReloadOptions`, and each move as a Command: `push`, `replace`, `back`, `forward`, `backTo`, `reload` and `preload`, which `Router` gives too.
 
 ### `@kestack/kabuki/routing/adapter`
 
@@ -179,7 +257,11 @@ pnpm add @kestack/kabuki effect react
 | `Start.Scripts`    | Draws, at the end of the Document's `<body>`, the saved History as JSON and the script that hydrates the page.                                                                                          |
 | `Start.useDrawn`   | Reads when and by which build the server drew the page, and whether the component asking was in that drawing or drawn later by the browser.                                                             |
 | `Start.useRuntime` | Reads the running app from the Document, for devtools drawn around it; `null` on the server.                                                                                                            |
-| `Start.pages`      | Where the server answers the Pages as JSON (`Start.Pages`): the build, where the App Shell is, and every page with its path, whether it has params, and its Render Mode.                                |
+| `Start.pages`      | Where the server answers the Pages as JSON (`Pages`, from `@kestack/kabuki/start/app`): the build, where the App Shell is, and every page with its path, whether it has params, and its Render Mode.    |
+
+### `@kestack/kabuki/start/app`
+
+`Start`, as `@kestack/kabuki/start` gives it, with `DocumentProps`, `Drawn`, `Pages`, `PageInfo`, `StartApp`, `DocumentType` and `Attachment`.
 
 ### `@kestack/kabuki/start/platform`
 
@@ -293,7 +375,7 @@ export const AuthLive = Actor.build(Auth, {
 - A Worker is a named, scoped Effect given `self`: `send` to its own Instance, `get` and `changes` for its current data, and `now` for the app's Time. Written in the `Checking` block, `check` runs while that State lasts.
 - Provides is one Layer per Level, built each time its Level starts. A Capability that reads the Model reads it through `self`, so it never goes stale. It cancels out what the Children below it need; a need nothing cancels bubbles up to the app's Layer.
 - Requires caps the Actor's own code: a Worker, Command or Provide that reaches for anything else does not compile. Update and init never see Capabilities.
-- A Query is a question code outside the tree asks an Instance, `queries: { peers: { run: (self, args) => Effect } }`: it reads `self` and the Actor's Requires, and never Sends. Written in a State's block it is askable only in that State, and the live Instance has it on its type only once `_tag` has narrowed to it. Asked of an Instance that has stopped or left the State, it fails with `Runtime.Stopped`.
+- A Query is a question code outside the tree asks an Instance, `queries: { peers: { run: (self, args) => Effect } }`: it reads `self` and the Actor's Requires, and never Sends. Written in a State's block it is askable only in that State, and the live Instance has it on its type only once `_tag` has narrowed to it. Asked of an Instance that has stopped or left the State, it fails with `Stopped`, from `@kestack/kabuki/core/runtime`.
 
 ### A list of Actors, a Command, and a Worker per key
 

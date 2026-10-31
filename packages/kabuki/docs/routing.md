@@ -20,7 +20,6 @@ Data                         held by the Router                    loads each pa
 
 ```
 src/routing/
-  namespaces/     page.ts and router.ts: the Page and Router namespaces the door gives
   route/          Routes as data: node.ts (the types), values.ts, places.ts, url.ts,
                   metadata.ts, loader.ts; route.ts makes the Routes from the pages
   capabilities/   what pages and the Router share: Navigation, Loading, the Data cache
