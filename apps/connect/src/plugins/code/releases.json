@@ -28,6 +28,10 @@
     {
       "hash": "5dbcb944c7fef888a33998ea1f409fc60ca8a3a637eac0eed3f44fa699181c9e",
       "summary": "The code Plugin on Kabuki's Emits, Children made with child, and partial Models; its build changed only by the move to them."
+    },
+    {
+      "hash": "79d2d3a826224dd493e6d0b1acd0dcc672d2a1cee999e91ab2b9de192556a7bb",
+      "summary": "The code Plugin on Kabuki's definitions that build, Children made with Actor.child, and declared Queries; the Session's Queries now declare their args and answers."
     }
   ]
 }
