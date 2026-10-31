@@ -119,17 +119,16 @@ const Cli = Actor.build(
   }),
   {
     init: () => ({ model: { wanted: { hash, url: `${base}/a` } } }),
-    children: {
-      plugin: {
-        actor: ActorPlugin,
+    children: (child) => ({
+      plugin: child(ActorPlugin, {
         input: () => ({
           name: 'ping',
           folders: pluginFolders(cli, 'ping'),
           socket: socketPath(cli.runtime, connectionId, 'ping'),
         }),
         props: ({ model }) => ({ wanted: model.wanted }),
-      },
-    },
+      }),
+    }),
     on: { Want: ({ wanted }) => ({ model: { wanted } }) },
   },
 );

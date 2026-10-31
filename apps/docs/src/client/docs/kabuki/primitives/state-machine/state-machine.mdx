@@ -21,7 +21,7 @@ one is a State.
 You list the States in the Definition, beside the Model and the Messages:
 
 ```ts
-state: Schema.TaggedUnion({ Locked: {}, Closed: {}, Open: {} }),
+state: { Locked: {}, Closed: {}, Open: {} },
 ```
 
 The Model is still there. It's what the door keeps whatever State it is
@@ -30,11 +30,11 @@ own too, data that only makes sense in that situation.
 
 ## Each State decides what it listens to
 
-In the Build, each State gets its own block, with its own `on`. It lists
-only the Messages that make sense in that situation.
+In the Build, each State gets its own block under `states`, with its own
+`on`. It lists only the Messages that make sense in that situation.
 
 ```ts
-state: {
+states: {
   Locked: {
     on: { Unlocked: () => ({ state: { _tag: 'Closed' } }) },
   },

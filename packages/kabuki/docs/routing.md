@@ -12,7 +12,7 @@ and [ADR 0037](adr/0037-a-page-is-defined-apart-from-its-build-and-the-router-ho
 ```
 Your pages and Views         Page.define, Page.build, View.make     plain Kabuki Actors
 Router definition            Router.define(App, { … })             read down from the pages: Schemas, URL ⇄ Route, Metadata
-Router + Adapter             Router.app(router, AppView)           holds where the app is and every page's data; talks to the URL
+Router + Adapter             Router.view(router, AppView)          holds where the app is and every page's data; talks to the URL
 Data                         held by the Router                    loads each page's data, hands it down as `status`
 ```
 
@@ -25,7 +25,7 @@ src/routing/
   capabilities/   what pages and the Router share: Navigation, Loading, the Data cache
   page/           page.ts: Page.define and Page.build; status.ts: what a page is handed;
                   failures.ts: Page.notFound and Page.redirect
-  router/         router.tsx: the Router Actor, Router.app, put together from one file
+  router/         router.tsx: the Router Actor, Router.view, put together from one file
                   per job: model, urls, moves, loads, updates, workers, view and commands;
                   define.ts: Router.define; data.ts: the data of every place on screen;
                   context.tsx: links, hooks, the Metadata in the document;
@@ -49,13 +49,9 @@ export const Task = Page.define({
   params: { task: Schema.String },
   data: TaskData,
   metadata: ({ task }, data) => ({ title: data?.title ?? `Task ${task}` }),
-  model: Schema.Struct({ draft: Schema.NullOr(Schema.String) }),
-  state: Schema.TaggedUnion({ Reading: {}, Editing: {} }),
-  message: Schema.TaggedUnion({
-    Edit: {},
-    Typed: { text: Schema.String },
-    Saved: {},
-  }),
+  model: { draft: Schema.NullOr(Schema.String) },
+  state: { Reading: {}, Editing: {} },
+  message: { Edit: {}, Typed: { text: Schema.String }, Saved: {} },
 });
 
 export const TaskLive = Page.build(Task, {
@@ -88,7 +84,8 @@ export const TaskView = View.make(TaskLive, ({ props }) => {
 A page is made in the two steps any Actor is. `Page.define` is
 `Actor.define` with a place in the URL, and every field is optional: `path`,
 `params`, `query`, `data` (its Loader's Schema), `render`, `metadata` and
-`pages`, then the Actor's own `requires`, `model`, `state` and `message`.
+`pages`, then the Actor's own `requires`, `model`, `state` and `message`,
+each a Schema or what it is made of, as `Actor.define` takes them.
 `Page.build` takes how it behaves, at the top and per State, as
 `Actor.build` does. A page with nothing to do is still built,
 `Page.build(Home)`, as long as it has no pages, no State Schema and no init
@@ -365,7 +362,7 @@ the Timeline, Sent to the Router.
 
 ## The Router: one Actor above the app
 
-`Router.app(router, AppView)` makes the Router Actor from the router
+`Router.view(router, AppView)` makes the Router Actor from the router
 definition and the root page's View; `AppView` must draw a build of the
 router's root page, or it throws. Under Start an app writes
 `Start.app({ router, view: AppView, document, layer })`, which calls it. Its Model
@@ -487,7 +484,7 @@ With no Adapter in the Layer, the app routes in memory: Back and Forward are
 or a story runs the real router.
 
 ```ts
-View.app(Router.app(router, AppView), {
+View.app(Router.view(router, AppView), {
   layer: Layer.mergeAll(AppLayer, tanstack()),
 });
 ```

@@ -30,15 +30,17 @@ Making an Actor takes two steps: you define it, then you build it.
 ## 1. Define it
 
 The **Definition** says what the Actor is: its name, the shape of its
-Model, and the Messages it takes. Each shape is a Schema.
+Model, and the Messages it takes. Each shape is a Schema: the Model is
+written as its fields, the Messages as one entry per Message, each with its
+own fields.
 
 ```ts
 export const Counter = Actor.define('Counter', {
-  model: Schema.Struct({ count: Schema.Number }),
-  message: Schema.TaggedUnion({
+  model: { count: Schema.Number },
+  message: {
     Added: { amount: Schema.Number },
     Reset: {},
-  }),
+  },
 });
 ```
 
@@ -70,8 +72,8 @@ export const CounterLive = Actor.build(Counter, {
 });
 ```
 
-Each Update gets the Message and the current Model, and returns the next
-Model. It's a plain function. It doesn't fetch, wait, or touch anything
+Each Update gets the Message and the current Model, and returns the fields
+of the Model that change; the rest stay as they are. It's a plain function. It doesn't fetch, wait, or touch anything
 else, so it's easy to read and easy to test.
 
 By habit, the Build is named after the Actor with `Live`, and sits beside

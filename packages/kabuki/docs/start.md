@@ -60,7 +60,7 @@ export default Start.server({
 Start reads only these, so every one is checked: a default export that is
 not `Start.app(…)`, or not `Start.server(…)`, fails when the
 server starts. The bare `AppView` and `loaders` are exported too, for a test
-or a story to run with `Router.app(router, AppView)` and Layers of its own.
+or a story to run with `Router.view(router, AppView)` and Layers of its own.
 `AppView` draws the build of the router's root page; `Start.app` refuses any
 other. The browser Layer is imported on the
 server too, since `app.tsx` is, but never built there: a Layer is a value,

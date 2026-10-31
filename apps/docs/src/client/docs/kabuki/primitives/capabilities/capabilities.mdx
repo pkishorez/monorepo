@@ -1,9 +1,11 @@
 import { AskPicture } from './components/ask-picture.tsx';
 import { PlaylistApp } from './components/playlist-app.tsx';
 
-We left the Song with a wish: it wants to say "play me". But a Child can't
-change its parent, and it can't send its parent a Message either. It
-doesn't even know who its parent is.
+We left the Song with a wish: it wants to say "play me". The Song could
+Emit it to its parent, as on the Children page. But what plays the music
+might live much higher up, with many levels in between, and each level
+would have to pass the word on. The Song shouldn't care where the player
+is.
 
 In React, you'd solve this with context: a provider up the tree, and any
 component below can use what it offers. kabuki has the same idea, called

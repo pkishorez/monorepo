@@ -26,14 +26,15 @@ each piece stays easy to read.
 ## Three ways to have a Child
 
 You list Children in the Build, the way you list Workers, and they follow
-the same rules.
+the same rules. `children` is a function: kabuki hands it `child`, and you
+make each Child with it, the Actor first.
 
 ```ts
-children: {
-  header: { actor: HeaderLive },                       // always there
-  details: { actor: DetailsLive, while: ({ model }) => model.open },
-  songs: { actor: SongLive, each: ({ model }) => model.ids },
-},
+children: (child) => ({
+  header: child(HeaderLive),                                   // always there
+  details: child(DetailsLive, { while: ({ model }) => model.open }),
+  songs: child(SongLive, { each: ({ model }) => model.ids }),
+}),
 ```
 
 - With nothing else, a Child is **always** there, for the parent's whole
@@ -46,17 +47,20 @@ children: {
 Written inside a State, a Child exists only while the parent is in that
 State.
 
+`child` knows the parent and the Child, so everything you write in it is
+checked: the parent's data you read, and what you hand the Child. Inside a
+State's block it even knows which State you're in.
+
 ## Starting a Child with data
 
 A new Song needs to know its title. The parent hands it an **Input** when
 the Child starts:
 
 ```ts
-songs: {
-  actor: SongLive,
+songs: child(SongLive, {
   each: ({ model }) => model.ids,
   input: (_, id) => SONGS[id],
-},
+}),
 ```
 
 The Song reads its Input once, in its `init`. From then on the data is its
@@ -81,9 +85,38 @@ and watch the tree on the right.
 
 </Demo>
 
+## Telling the parent
+
+A Child can't Send to its parent. Instead it **Emits**: it says, in its
+Definition, what it may tell its parent, and an Update returns it.
+
+```ts
+const Song = Actor.define('Song', {
+  message: { Removing: {} },
+  emits: { Remove: {} },
+});
+// in Song's Build
+on: { Removing: () => ({ emit: { _tag: 'Remove' } }) },
+```
+
+The parent turns each one into a Message of its own, right where it makes
+the Child. The Child's key comes with it, so the Playlist knows which Song
+asked:
+
+```ts
+songs: child(SongLive, {
+  each: ({ model }) => model.ids,
+  emits: { Remove: (_, id) => ({ _tag: 'Removed', id }) },
+}),
+```
+
+That Message lands in the parent's History like any other. Something the
+parent doesn't turn is simply not heard, so a Song fits in any parent.
+
 <Callout title="Remember">
   A parent's State and Model decide which Children exist. Each Child is a full
-  Actor that owns its own data.
+  Actor that owns its own data, and tells its parent what happened by Emitting
+  it.
 </Callout>
 
 But what if the parent wants to tell its Children something that keeps

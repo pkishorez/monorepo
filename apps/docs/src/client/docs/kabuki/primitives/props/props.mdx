@@ -20,19 +20,18 @@ changes, kabuki works its Props out again and hands them down.
 You write them beside the Child, as a function of the parent's data:
 
 ```ts
-songs: {
-  actor: SongLive,
+songs: child(SongLive, {
   each: ({ model }) => model.ids,
   input: (_, id) => SONGS[id],
   props: ({ model }, id) => ({ playing: model.playing === id }),
-},
+}),
 ```
 
 The Child says what Props it takes in its Definition, so the parent can't
 hand it the wrong shape:
 
 ```ts
-props: Schema.Struct({ playing: Schema.Boolean }),
+props: { playing: Schema.Boolean },
 ```
 
 ## A Child reads them, and never writes them

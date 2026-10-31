@@ -15,7 +15,8 @@ Children are written the way Workers are: always, `while` a test holds, or
 one per key `each` names, so a list of items can be a list of Actors.
 It is declarative, as React is: a parent says what should be, never what to
 do. It controls its Children only by whether they exist and by their Props,
-and what it must control it owns, as React lifts state up.
+it hears from them only what they Emit, each turned into one of its own
+Messages, and what it must control it owns, as React lifts state up.
 
 The whole app is one immutable Snapshot, and handling a Message is a pure
 function from one Snapshot to the next. There is one mailbox, and a Message is
@@ -95,8 +96,8 @@ pnpm add @kestack/kabuki effect react
 
 | Export             | What it does                                                                                                                                                                |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Actor.define`     | Says what an Actor is: its name, Requires and Schemas, which fix every type. It runs nothing.                                                                               |
-| `Actor.build`      | Says how a defined Actor behaves, at the top and in one block per State: the build is what runs and is drawn.                                                               |
+| `Actor.define`     | Says what an Actor is: its name, Requires, Schemas and what it Emits, which fix every type; each Schema may be written as its fields or its cases. It runs nothing.         |
+| `Actor.build`      | Says how a defined Actor behaves, at the top and under `states` in one block per State, each Child made with `child`: the build is what runs and is drawn.                  |
 | `Command.make`     | Defines a Command from its name, the Schema of its args and the Effect it runs; an Update calls it with the args.                                                           |
 | `Runtime.start`    | Runs an Actor, or carries a History on, inside a Scope, with the app's Layer; gives back `send`, `start` and `stop`. Started from an Actor, its History keeps no Messages.  |
 | `running.changes`  | The live Snapshot as an Effect Stream: now, then whenever the app settles; a slow reader gets only the latest.                                                              |
@@ -159,7 +160,7 @@ The whole app as one value, read and stepped from outside the Runtime, as a devt
 | `View.app`     | Turns the root's View, with the Layer that gives what the tree Requires, into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its History, shows any Step, and stops and starts it. Drawn before it runs, on a server too, from a saved History if given one. |
 | `View.lazy`    | A View of the Actor it is given first, whose code is loaded the first time it is drawn, or on `preload()`; a server waits for it before it sends, and tells the App's `onLazyView`.                                                                                                                        |
 | `View.preload` | Loads the lazy Views made with these ids, so a browser hydrating a page a server drew never waits on their code.                                                                                                                                                                                           |
-| `useChild`     | Reads one Child's Model, State and Props from its parent's View, to draw, or only what an optional selector picks; an escape hatch that can never Send.                                                                                                                                                    |
+| `useChild`     | Reads one Child's Model, State and Props from its parent's View, to draw, or only what an optional selector picks; it can never Send.                                                                                                                                                                      |
 | `useChildren`  | Reads the Instances of an `each` Child the same way, in order; only the component that calls it re-renders, as they change or as what the selector picks does.                                                                                                                                             |
 
 ### `@kestack/kabuki/react/view`
@@ -184,7 +185,7 @@ The whole app as one value, read and stepped from outside the Runtime, as a devt
 | `Page.Redirect`   | The Schema of a Loader's Redirect, to carry it over the wire.                                                                                                                                                                                                                                                                                                                |
 | `Page.wholeQuery` | A query field holding the whole query as written, every pair of it, a repeated or undeclared one too: for a page whose query is someone else's to say, as a signed request. Written back whole, the page's other fields over it.                                                                                                                                             |
 | `Router.define`   | Reads the app's router down from the root page's definition: a constructor per place, the URL both ways, each place's Metadata and Render Mode, every path, the typing of the Loaders, and how the Router behaves in the browser, such as how long a move waits for its data, `delay` (150 ms), and how long a loading screen stays at least once drawn, `minimum` (300 ms). |
-| `Router.app`      | Puts the Router above the root page's View: it holds the history, every move and every page's data. It gives the Router's View, which `View.app` starts at the browser's URL, with `startAt` and `href`. With `scrollRestoration: true` on the router it restores scroll as TanStack Router does.                                                                            |
+| `Router.view`     | Puts the Router above the root page's View: it holds the history, every move and every page's data. It gives the Router's View, which `View.app` starts at the browser's URL, with `startAt` and `href`. With `scrollRestoration: true` on the router it restores scroll as TanStack Router does.                                                                            |
 | `Router.Link`     | Draws a plain `<a href>` to a Route, preloading it on hover, once in view, or never, going to an element on the page with `hash`, and leaving every scroll as it is with `resetScroll={false}`; the Router catches a plain click and moves the app.                                                                                                                          |
 | `Router.Retry`    | A button that loads every page on screen again, for a page whose Loader broke.                                                                                                                                                                                                                                                                                               |
 | `Router.push`     | A Command that moves the app to a Route, as a new entry.                                                                                                                                                                                                                                                                                                                     |
@@ -301,27 +302,44 @@ The port each platform's adapter fills, in types only: no runtime value.
 
 ### A gate whose States decide what exists
 
-This root signs a user in. While `Anonymous` it Provides `SignIn` and Invokes
-`login`; while `Authenticated` it Provides `Session` and Invokes `todos`.
+This root signs a user in. While `Anonymous` it Invokes `login`, which Emits
+`SignedIn` once the form is sent; while `Authenticated` it Provides `Session`
+and Invokes `todos`.
 
 ```ts
+export const Login = Actor.define('Login', {
+  model: { name: Schema.String },
+  message: { Typed: { name: Schema.String }, Submitted: {} },
+  emits: { SignedIn: { user: Schema.String } },
+});
+
+export const LoginLive = Actor.build(Login, {
+  init: () => ({ model: { name: '' } }),
+  on: {
+    Typed: ({ name }) => ({ model: { name } }),
+    Submitted: (_, { model }) => ({
+      emit: { _tag: 'SignedIn', user: model.name },
+    }),
+  },
+});
+
 export const Auth = Actor.define('Auth', {
   requires: [Server],
-  state: Schema.TaggedUnion({
+  state: {
     Checking: {},
     Anonymous: {},
     Authenticated: { user: Schema.String },
-  }),
-  message: Schema.TaggedUnion({
+  },
+  message: {
     CheckedSession: { user: Schema.optional(Schema.String) },
     LoggedIn: { user: Schema.String },
     LoggedOut: {},
-  }),
+  },
 });
 
 export const AuthLive = Actor.build(Auth, {
   init: () => ({ state: { _tag: 'Checking' } }),
-  state: {
+  states: {
     Checking: {
       workers: {
         check: {
@@ -339,17 +357,17 @@ export const AuthLive = Actor.build(Auth, {
       },
     },
     Anonymous: {
-      children: { login: { actor: LoginLive } },
-      provides: (self) =>
-        Layer.succeed(SignIn, {
-          complete: (user) => self.send({ _tag: 'LoggedIn', user }),
+      children: (child) => ({
+        login: child(LoginLive, {
+          emits: { SignedIn: ({ user }) => ({ _tag: 'LoggedIn', user }) },
         }),
+      }),
       on: {
         LoggedIn: ({ user }) => ({ state: { _tag: 'Authenticated', user } }),
       },
     },
     Authenticated: {
-      children: { todos: { actor: TodosLive } },
+      children: (child) => ({ todos: child(TodosLive) }),
       provides: (self) =>
         Layer.succeed(Session, {
           user: self.get.pipe(Effect.map(({ state }) => state.user)),
@@ -361,9 +379,11 @@ export const AuthLive = Actor.build(Auth, {
 });
 ```
 
-- `Actor.define` takes only the name, the Requires and the Schemas, which fix every type, and imports nothing but other definitions. `Actor.build` is checked against them: an Update that returns a State the Schema does not have, or a `state.user` read where there is none, does not compile. The definition is `Auth`, the build `AuthLive`, side by side in one file.
-- A build has two Levels. What is written at the top holds for as long as the Instance lives; what is written in a State's block holds while that State lasts. Each Level can hold `provides`, `children`, `on`, `workers` and `queries`.
-- An Update that returns a different `_tag` is a Transition: the old State's Children, Workers and Capabilities stop, the new State's start. A Child written at the top lasts through it.
+- `Actor.define` takes only the name, the Requires, the Schemas and what the Actor Emits, which fix every type, and imports nothing but other definitions. A struct is written as its fields, a tagged union as its cases by tag, as `Schema.TaggedUnion` takes them; a whole Schema works too. The Model is always a struct. `Actor.build` is checked against them: an Update that returns a State the Schema does not have, or a `state.user` read where there is none, does not compile. The definition is `Auth`, the build `AuthLive`, side by side in one file.
+- A build has two Levels. What is written at the top holds for as long as the Instance lives; what is written under `states`, in a State's block, holds while that State lasts. Each Level can hold `provides`, `children`, `on`, `workers` and `queries`.
+- An Update gives only the fields of the Model that change; the rest stay as they are, and a Model whose fields all stay the same is the same object. An Update that returns a different `_tag` is a Transition: the old State's Children, Workers and Capabilities stop, the new State's start. A Child written at the top lasts through it.
+- A level's `children` is a function handed `child`, which makes each Child: `child(LoginLive, { … })`, the Actor, then when it exists, what it is handed and what the parent hears. `child` is typed for its level, its State narrowed in a State's block, so every function in it is checked against the parent's data and the Child's Actor. A Child that needs no Input and no Props is `child(TodosLive)`.
+- What a Child tells its parent it Emits: its Update returns `emit`, checked against its `emits` Schema, and the slot's `emits` turns each into one of the parent's Messages, Sent to the parent right after. That Message is in the History as its own entry, Sent by the Child. An event the slot does not turn is not heard, so a Child fits any parent. Use Emits between a parent and its Child, and a Capability for what any Actor further down may need.
 - A Worker is a named, scoped Effect given `self`: `send` to its own Instance, `get` and `changes` for its current data, and `now` for the app's Time. Written in the `Checking` block, `check` runs while that State lasts.
 - Provides is one Layer per Level, built each time its Level starts. A Capability that reads the Model reads it through `self`, so it never goes stale. It cancels out what the Children below it need; a need nothing cancels bubbles up to the app's Layer.
 - Requires caps the Actor's own code: a Worker, Command or Provide that reaches for anything else does not compile. Update and init never see Capabilities.
@@ -379,29 +399,29 @@ const save = Command.make('save', {
 });
 
 const List = Actor.define('List', {
-  model: Schema.Struct({
+  model: {
     ids: Schema.Array(Schema.String),
     uploading: Schema.Array(Schema.String),
     next: Schema.Number,
-  }),
-  message: Schema.TaggedUnion({
+  },
+  message: {
     Added: {},
     Removed: { id: Schema.String },
     Saved: {},
     Uploaded: { id: Schema.String },
-  }),
+  },
 });
 
 const ListLive = Actor.build(List, {
   init: () => ({ model: { ids: [], uploading: [], next: 0 } }),
-  children: {
-    rows: {
-      actor: RowLive,
+  children: (child) => ({
+    rows: child(RowLive, {
       each: ({ model }) => model.ids,
       input: (_, id) => ({ text: `#${id}` }),
       props: ({ model }, id) => ({ uploading: model.uploading.includes(id) }),
-    },
-  },
+      emits: { Remove: (_, id) => ({ _tag: 'Removed', id }) },
+    }),
+  }),
   on: {
     Added: (_, { model }) => {
       const id = `${model.next}`;
@@ -416,14 +436,13 @@ const ListLive = Actor.build(List, {
     },
     Removed: ({ id }, { model }) => ({
       model: {
-        ...model,
         ids: model.ids.filter((kept) => kept !== id),
         uploading: model.uploading.filter((kept) => kept !== id),
       },
     }),
     Saved: () => ({}),
     Uploaded: ({ id }, { model }) => ({
-      model: { ...model, uploading: model.uploading.filter((k) => k !== id) },
+      model: { uploading: model.uploading.filter((k) => k !== id) },
     }),
   },
   workers: {
@@ -438,7 +457,7 @@ const ListLive = Actor.build(List, {
 });
 ```
 
-- A Child is written as a Worker is: its `actor`, then always, `while` a test is true, or `each` key a function names, one Instance per key. Its `input` and `props` are worked out from the parent's data and the Child's key, `''` unless it is one of `each`. After every Update, a new key Invokes a Row, a key gone stops it, and a key kept keeps its Instance. From then on the Row owns its data. A Child written with `while` stops when its test turns false and comes back as a fresh Instance.
+- A Child is made as a Worker is written: `child` takes its Actor, then always, `while` a test is true, or `each` key a function names, one Instance per key. Its `input`, `props` and `emits` are worked out from the parent's data and the Child's key, `''` unless it is one of `each`, so the List knows which Row Emitted `Remove`. After every Update, a new key Invokes a Row, a key gone stops it, and a key kept keeps its Instance. From then on the Row owns its data. A Child written with `while` stops when its test turns false and comes back as a fresh Instance.
 - Props are what the parent says now, worked out again after each of its Updates: the Row declares them with `props` beside `input`, and its Update, its Workers' Conditions and its View read them. It never writes them, and a change runs none of its rules. Props equal to the last ones keep the Instance; new ones are not in the History, since Replay works them out again from the parent.
 - Instance IDs are deterministic: `List/rows[0]#1` is the first `rows` keyed `0`. A key Invoked again gets `#2`, so a Message meant for the old Instance is dropped.
 - A Command is an errand, made once with `Command.make`: a name, the Schema of its args and the Effect it runs from them, ending with at most one Message. The Update asks for it with its args, `save({ id })`, which is plain data a test can compare; the args are checked when it runs. Nothing stops it but its Instance stopping, and there is no cancel. An Update may return a list of Commands; they run concurrently.
