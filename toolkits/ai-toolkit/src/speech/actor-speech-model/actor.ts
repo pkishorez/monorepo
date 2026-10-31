@@ -69,7 +69,7 @@ export const SpeechModel = Actor.build(
       Disable: (_, { state }) =>
         state._tag === 'Off' ? {} : { state: { _tag: 'Off' } },
     },
-    state: {
+    states: {
       Loading: {
         on: {
           Loaded: ({ on, installed }) => ({

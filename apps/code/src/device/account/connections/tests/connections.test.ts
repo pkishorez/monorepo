@@ -84,13 +84,12 @@ const unprepared = Layer.succeed(Prepared, { ready: () => Effect.void });
 
 const OwnerLive = Actor.build(Actor.define('Owner', {}), {
   provides: () => Layer.merge(connections, unprepared),
-  children: {
-    connections: {
-      actor: ConnectionsLive,
+  children: (child) => ({
+    connections: child(ConnectionsLive, {
       input: () => ({ accountId: 'a1' }),
       props: () => ({ email: 'me@example.com', drawn: true }),
-    },
-  },
+    }),
+  }),
 });
 
 type Api = CodeClient['Service'];
@@ -382,14 +381,13 @@ describe('Connections', () => {
     );
     const Both = Actor.build(Actor.define('Both', {}), {
       provides: () => Layer.merge(connections, unprepared),
-      children: {
-        connections: {
-          actor: ConnectionsLive,
+      children: (child) => ({
+        connections: child(ConnectionsLive, {
           input: () => ({ accountId: 'a1' }),
           props: () => ({ email: null, drawn: true }),
-        },
-        reader: { actor: OwnerReading },
-      },
+        }),
+        reader: child(OwnerReading),
+      }),
     });
     let listed: ReadonlyArray<Connection> = [connection('m1', 1, null)];
     const { layer } = world(Effect.sync(() => listed));
@@ -468,18 +466,17 @@ describe('Connections preparing', () => {
             ready: (accountId) => self.send({ _tag: 'Ready', accountId }),
           }),
         ),
-      children: {
-        connections: {
-          actor: ConnectionsLive,
+      children: (child) => ({
+        connections: child(ConnectionsLive, {
           each: ({ model }) => [...new Set([model.drawn, model.wanted])],
           input: (_, accountId) => ({ accountId }),
           props: ({ model }, accountId) => ({
             email: null,
             drawn: accountId === model.drawn,
           }),
-        },
-        watcher: { actor: Watcher },
-      },
+        }),
+        watcher: child(Watcher),
+      }),
       on: {
         Ready: ({ accountId }, { model }) => ({
           model: { ...model, ready: [...model.ready, accountId] },

@@ -100,9 +100,8 @@ export const HarnessAccountsLive = Actor.build(HarnessAccounts, {
     model: { connectionId, adding: null, open: null },
   }),
   // 2. Cards
-  children: {
-    cards: {
-      actor: Card.actor,
+  children: (child) => ({
+    cards: child(Card.actor, {
       each: ({ model, props }) => [
         ...(props.accounts ?? []).map(({ id }) => id),
         ...(model.adding === null ? [] : [newKeyOf(model.adding)]),
@@ -125,8 +124,8 @@ export const HarnessAccountsLive = Actor.build(HarnessAccounts, {
           ),
         };
       },
-    },
-  },
+    }),
+  }),
   provides: (self) =>
     Layer.succeed(AccountList, {
       closed: (key) => self.send({ _tag: 'Closed', key }),

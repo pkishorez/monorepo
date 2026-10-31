@@ -106,8 +106,8 @@ const Owner = Actor.define('PlaceOwner', {
   message: OwnerMessage,
 });
 
-const child = (which: 'first' | 'second') => ({
-  actor: Places.Live,
+/** One picker, there while its sheet is open, made again each time one opens. */
+const picker = (which: 'first' | 'second') => ({
   while: ({ model }: { readonly model: OwnerModel }) => model[which] !== null,
   key: ({ model }: { readonly model: OwnerModel }) => String(model.opened),
   input: ({ model }: { readonly model: OwnerModel }) => ({
@@ -129,7 +129,10 @@ const OwnerLive = Actor.build(Owner, {
       pings: 0,
     },
   }),
-  children: { first: child('first'), second: child('second') },
+  children: (child) => ({
+    first: child(Places.Live, picker('first')),
+    second: child(Places.Live, picker('second')),
+  }),
   provides: (self) =>
     Places.owner({
       done: (choices, step) =>

@@ -48,14 +48,13 @@ const Board = Actor.build(
   }),
   {
     init: () => ({ model: { ids: ['a', 'b'], open: false } }),
-    children: {
-      rows: {
-        actor: Row,
+    children: (child) => ({
+      rows: child(Row, {
         each: ({ model }) => model.ids,
         props: ({ model }, id) => ({ index: model.ids.indexOf(id) }),
-      },
-      detail: { actor: Detail, while: ({ model }) => model.open },
-    },
+      }),
+      detail: child(Detail, { while: ({ model }) => model.open }),
+    }),
     on: {
       Added: ({ id }, { model }) => ({
         model: { ...model, ids: [...model.ids, id] },

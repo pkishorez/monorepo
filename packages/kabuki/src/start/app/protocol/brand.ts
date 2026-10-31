@@ -14,7 +14,7 @@ import type {
  * so the server and the browser take only Start's own value from `src/app`.
  */
 
-/** What Start needs of the app the Router serves: what `Router.app(router, AppView)` gives. */
+/** What Start needs of the app the Router serves: what `Router.view(router, AppView)` gives. */
 export type ServedApp = ViewOf<any> & {
   /** The Router's Input at a URL, with what its places start from, by dotted name. */
   readonly startAt: (

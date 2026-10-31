@@ -45,9 +45,9 @@ const Owner = Actor.define('Owner', {
 
 const OwnerLive = Actor.build(Owner, {
   init: () => ({ model: { pings: 0 } }),
-  children: {
-    page: { actor: ConnectionSettingsLive },
-  },
+  children: (child) => ({
+    page: child(ConnectionSettingsLive),
+  }),
   on: { Ping: (_, { model }) => ({ model: { pings: model.pings + 1 } }) },
 });
 

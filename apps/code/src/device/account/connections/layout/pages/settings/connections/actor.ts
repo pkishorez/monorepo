@@ -146,9 +146,8 @@ export const ConnectionSettingsLive = Actor.build(ConnectionSettings, {
       asking: null,
     },
   }),
-  children: {
-    cards: {
-      actor: ConnectionCard.actor,
+  children: (child) => ({
+    cards: child(ConnectionCard.actor, {
       each: ({ model }) => readKeysOf(model),
       input: (_, key) => ({ connectionId: whoseOf(key).connectionId }),
       props: ({ model }, key) => {
@@ -162,8 +161,8 @@ export const ConnectionSettingsLive = Actor.build(ConnectionSettings, {
           problem: setup?.problem ?? null,
         };
       },
-    },
-  },
+    }),
+  }),
   // 2. Ask
   provides: (self) =>
     Layer.succeed(ConnectionCards, {

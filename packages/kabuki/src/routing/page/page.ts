@@ -3,14 +3,21 @@ import { Actor } from '../../core/actor/index.ts';
 import type {
   ActorType,
   AnyActor,
+  AnyChild,
+  AnyDefined,
   Behavior,
   Defined,
   KidsByState,
   OpenOfBehavior,
   ProvidedOf,
   QueriesByState,
+  Refused,
   Requires,
+  StructOf,
+  StructWritten,
   Tagged,
+  TaggedOf,
+  TaggedWritten,
   Types,
 } from '../../core/actor/index.ts';
 import { Navigation } from '../capabilities/index.ts';
@@ -64,9 +71,9 @@ export interface PageOptions<
   D,
   M extends RenderMode | undefined,
   C extends object,
-  Model,
-  State,
-  Msg,
+  MW extends StructWritten | undefined,
+  SW extends TaggedWritten | undefined,
+  GW extends TaggedWritten | undefined,
   R extends Requires,
 > {
   /** Its path under the page above: `/projects/:id`. None, or `/`, adds nothing. */
@@ -93,10 +100,17 @@ export interface PageOptions<
   readonly pages?: C;
   /** The Capabilities its own Workers, Commands and Provides use. `Navigation` is always among them. */
   readonly requires?: R;
-  readonly model?: Codec<Model>;
-  readonly state?: Codec<State>;
-  readonly message?: Codec<Msg>;
+  /** Always a struct, its Schema or its fields: an Update gives only the fields that change. */
+  readonly model?: MW;
+  /** Its States, as a tagged union's Schema or its cases by tag. */
+  readonly state?: SW;
+  /** Its Messages, as a tagged union's Schema or its cases by tag. */
+  readonly message?: GW;
 }
+
+type ModelOf<W> = [W] extends [undefined] ? {} : StructOf<W>;
+type StateOf<W> = [W] extends [undefined] ? Single : TaggedOf<W>;
+type MessageOf<W> = [W] extends [undefined] ? never : TaggedOf<W>;
 
 /** What a page is handed as Props. */
 export type PageProps<P extends Fields, Q extends Fields, D, C> = Simplify<
@@ -201,8 +215,8 @@ type RequiresOf<T extends PageTypes> = readonly [
   typeof Navigation,
 ];
 
-/** How the page `D` defines may be built, as written in `B`. */
-export type PageBehaviorOf<D, B> = D extends {
+/** How the page `D` defines may be built. */
+export type PageBehaviorOf<D> = D extends {
   readonly '~page'?: infer T extends PageTypes;
 }
   ? Behavior<
@@ -211,8 +225,7 @@ export type PageBehaviorOf<D, B> = D extends {
       T['model'],
       T['state'],
       T['message'],
-      RequiresOf<T>,
-      B
+      RequiresOf<T>
     > &
       WithPages<T['children']>
   : never;
@@ -284,13 +297,24 @@ const define = <
   D = never,
   M extends RenderMode | undefined = undefined,
   const C extends { readonly [name: string]: AnyPageDefinition } = {},
-  Model = {},
-  State extends Tagged = Single,
-  Msg extends Tagged = never,
+  const MW extends StructWritten | undefined = undefined,
+  const SW extends TaggedWritten | undefined = undefined,
+  const GW extends TaggedWritten | undefined = undefined,
   const R extends Requires = readonly [],
 >(
-  options: PageOptions<P, Q, D, M, C, Model, State, Msg, R>,
-): PageDefinition<P, Q, C, D, M, Model, State, Msg, R> => {
+  options: PageOptions<P, Q, D, M, C, MW, SW, GW, R> &
+    Refused<{ readonly model: MW; readonly state: SW }>,
+): PageDefinition<
+  P,
+  Q,
+  C,
+  D,
+  M,
+  ModelOf<MW>,
+  StateOf<SW>,
+  MessageOf<GW>,
+  R
+> => {
   const params = (options.params ?? {}) as Fields;
   const query = (options.query ?? {}) as Fields;
   const pages = (options.pages ?? {}) as Children;
@@ -302,15 +326,18 @@ const define = <
     ),
     ...(options.data ? { status: statusSchema(options.data) } : {}),
   });
+  const { shape } = (
+    Actor.define as (name: string, written: object) => AnyDefined
+  )('Page', {
+    props,
+    requires: [...(options.requires ?? []), Navigation],
+    ...(options.model ? { model: options.model } : {}),
+    ...(options.state ? { state: options.state } : {}),
+    ...(options.message ? { message: options.message } : {}),
+  });
   return {
     name: 'Page',
-    shape: {
-      props,
-      requires: [...(options.requires ?? []), Navigation],
-      ...(options.model ? { model: options.model } : {}),
-      ...(options.state ? { state: options.state } : {}),
-      ...(options.message ? { message: options.message } : {}),
-    },
+    shape,
     path: options.path ?? '/',
     params,
     query,
@@ -402,28 +429,35 @@ const pagesOf = (
     }),
   );
 
+/** A Child as `child` makes it, for reading a level's Children by name. */
+const made = (actor: AnyActor, options: object = {}): AnyChild => ({
+  ...options,
+  actor,
+});
+
 function build<D extends AnyPageDefinition>(
-  definition: D & ({} extends PageBehaviorOf<D, {}> ? unknown : never),
+  definition: D & ({} extends PageBehaviorOf<D> ? unknown : never),
 ): BuiltPage<D, {}>;
-function build<
-  D extends AnyPageDefinition,
-  const B extends PageBehaviorOf<D, B>,
->(definition: D, behavior: B): BuiltPage<D, B>;
+function build<D extends AnyPageDefinition, const B extends PageBehaviorOf<D>>(
+  definition: D,
+  behavior: B,
+): BuiltPage<D, B>;
 /**
  * A page built: how it behaves, as `Actor.build` takes it, and under
  * `pages` the build of each page its definition names.
  */
 function build(definition: AnyPageDefinition, behavior: any = {}): unknown {
+  type Made = (child: typeof made) => Readonly<Record<string, AnyChild>>;
   const { pages: builds = {}, ...written } = behavior as {
     readonly pages?: Readonly<Record<string, AnyPageBuild>>;
-    readonly children?: Record<string, unknown>;
-    readonly state?: Record<string, { readonly children?: object }>;
+    readonly children?: Made;
+    readonly states?: Record<string, { readonly children?: Made }>;
   };
   const pages = definition.children as Children;
   const own = [
-    ...Object.keys(written.children ?? {}),
-    ...Object.values(written.state ?? {}).flatMap((block) =>
-      Object.keys(block?.children ?? {}),
+    ...Object.keys(written.children?.(made) ?? {}),
+    ...Object.values(written.states ?? {}).flatMap((block) =>
+      Object.keys(block?.children?.(made) ?? {}),
     ),
   ];
   for (const name of own)
@@ -435,7 +469,10 @@ function build(definition: AnyPageDefinition, behavior: any = {}): unknown {
     Actor.build as (definition: unknown, behavior: unknown) => AnyActor
   )(definition, {
     ...written,
-    children: { ...written.children, ...pagesOf(pages, builds) },
+    children: (child: typeof made) => ({
+      ...written.children?.(child),
+      ...pagesOf(pages, builds),
+    }),
   });
   return Object.assign(actor, { page: definition, pages: builds });
 }

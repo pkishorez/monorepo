@@ -23,7 +23,7 @@ import {
 /*
  * Replicas: the one actor that runs the Instances in use, placed once near
  * the root as the Router holds pages. A page Provides `Replicas.layer` and
- * places `Replicas.child([...])` among its children; everything below it
+ * places `child(Replicas.actor([...]))` among its children; everything below it
  * gets Instances with `Replica.get`.
  *
  * 1. Hold     getting an Instance holds it until the holder's Scope closes:
@@ -79,7 +79,7 @@ const layer: Layer.Layer<Replicas | Hosting | Link> = Layer.effectContext(
         const known = yield* Deferred.await(replicas);
         if (!known.has(replica))
           return yield* new ReplicaError({
-            message: `Replica "${replica}" does not run here: put its Build in Replicas.child`,
+            message: `Replica "${replica}" does not run here: put its Build in Replicas.actor`,
           });
         const { holder, action } = yield* Holding;
         const where = { replica, key };
@@ -135,15 +135,15 @@ type ReplicasActor<B extends Build> = ActorType<
   Store | Hosting | Link | NeedsOf<B>
 >;
 
-const child = <const B extends ReadonlyArray<Build>>(
+const actor = <const B extends ReadonlyArray<Build>>(
   builds: B,
-): { readonly actor: ReplicasActor<B[number]> } => {
+): ReplicasActor<B[number]> => {
   const names = new Set(builds.map(({ shape }) => shape.name));
   const gcTimes = new Map(
     builds.map(({ shape, gcTime }) => [shape.name, gcTime]),
   );
   const gcTimeOf = (replica: string) => gcTimes.get(replica) ?? 0;
-  const actor = Actor.build(
+  const built = Actor.build(
     Actor.define('Replicas', {
       requires: [Link],
       model: Model,
@@ -151,19 +151,19 @@ const child = <const B extends ReadonlyArray<Build>>(
     }),
     {
       init: () => ({ model: { instances: [] } }),
-      children: Object.fromEntries(
-        builds.map(({ shape, actor }) => [
-          shape.name,
-          {
-            actor,
-            each: ({ model }: { readonly model: Model }) =>
-              model.instances
-                .filter((running) => running.replica === shape.name)
-                .map((running) => running.key),
-            input: (_: unknown, key: string) => ({ key }),
-          },
-        ]),
-      ),
+      children: (child) =>
+        Object.fromEntries(
+          builds.map(({ shape, actor }) => [
+            shape.name,
+            child(actor, {
+              each: ({ model }) =>
+                model.instances
+                  .filter((running) => running.replica === shape.name)
+                  .map((running) => running.key),
+              input: (_, key) => ({ key }),
+            }),
+          ]),
+        ),
       workers: {
         // What is asked comes in as this actor's own Messages.
         requests: {
@@ -220,12 +220,12 @@ const child = <const B extends ReadonlyArray<Build>>(
       },
     },
   );
-  return { actor: actor as unknown as ReplicasActor<B[number]> };
+  return built as unknown as ReplicasActor<B[number]>;
 };
 
 /**
  * The Instances in use here, as code gets them: through `Replica.get`. A
- * page Provides `Replicas.layer` and places `Replicas.child([...])` among
+ * page Provides `Replicas.layer` and places `child(Replicas.actor([...]))` among
  * its children, once, near the root; what runs is in that actor's Model.
  */
 export class Replicas extends Context.Service<
@@ -240,8 +240,8 @@ export class Replicas extends Context.Service<
 >()('@kestack/std-toolkit/replica/Replicas') {
   /** The Capability a page Provides. */
   static readonly layer = layer;
-  /** The actor the same page places among its children, once, running these Builds. */
-  static readonly child = child;
+  /** The actor the same page places among its children, once, running these Builds: `child(Replicas.actor([…]))`. */
+  static readonly actor = actor;
 }
 
 export type { Running };

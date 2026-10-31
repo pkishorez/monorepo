@@ -224,20 +224,18 @@ export const nextWalletName = (names: ReadonlyArray<string>) => {
 
 export const PocketLive = Actor.build(PocketSection, {
   init: () => ({ model: { writes: [], refused: [], watching: [] } }),
-  children: {
-    wallets: {
-      actor: Wallets,
+  children: (child) => ({
+    wallets: child(Wallets, {
       props: ({ props }) => ({ account: props.account }),
-    },
-    entries: {
-      actor: Entries,
+    }),
+    entries: child(Entries, {
       while: ({ model, props }) => watchedBy(model, props.account).length > 0,
       props: ({ model, props }) => ({
         account: props.account,
         wallets: watchedBy(model, props.account),
       }),
-    },
-  },
+    }),
+  }),
   on: {
     AddWallet: ({ id, name }, { model, props }) =>
       props.writable

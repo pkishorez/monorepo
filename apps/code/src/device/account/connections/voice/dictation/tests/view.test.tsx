@@ -41,12 +41,11 @@ const Owner = Actor.define('Owner', {
 
 const OwnerLive = Actor.build(Owner, {
   init: () => ({ model: { pings: 0 } }),
-  children: {
-    dictation: {
-      actor: DictationLive,
+  children: (child) => ({
+    dictation: child(DictationLive, {
       props: () => ({ drawn: true }),
-    },
-  },
+    }),
+  }),
   on: {
     Ping: (_, { model }) => ({ model: { pings: model.pings + 1 } }),
     Ask: ({ ask: asked }) => ({ command: ask(asked) }),

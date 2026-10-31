@@ -68,7 +68,7 @@ export const DownloadLive = Actor.build(Download, {
   on: {
     Cancel: (_, { model }) => ({ command: cancel({ id: model.id }) }),
   },
-  state: {
+  states: {
     Downloading: {
       workers: {
         download: {

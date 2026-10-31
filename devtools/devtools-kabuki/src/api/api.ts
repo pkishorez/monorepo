@@ -46,6 +46,11 @@ export const Source = Schema.Union([
   }),
   Schema.Struct({ kind: Schema.Literal('provide'), instance: Schema.String }),
   Schema.Struct({
+    kind: Schema.Literal('emit'),
+    instance: Schema.String,
+    name: Schema.String,
+  }),
+  Schema.Struct({
     kind: Schema.Literal('outside'),
     name: Schema.optionalKey(Schema.String),
   }),

@@ -176,9 +176,8 @@ export const ActorConnection = Actor.build(
           }),
         ),
       ),
-    children: {
-      plugins: {
-        actor: ActorPlugins,
+    children: (child) => ({
+      plugins: child(ActorPlugins, {
         input: ({ model }) => ({
           key: model.key,
           folders: model.folders,
@@ -190,8 +189,8 @@ export const ActorConnection = Actor.build(
           wanted: model.wanted,
           plugins: model.plugins,
         }),
-      },
-    },
+      }),
+    }),
     on: {
       Listening: ({ port }, { model }) => ({
         model: { ...model, listening: port },
@@ -207,17 +206,16 @@ export const ActorConnection = Actor.build(
       control: { run: control },
       remember: { run: rememberWanted },
     },
-    state: {
+    states: {
       Running: {
-        children: {
-          online: {
-            actor: ActorOnline,
+        children: (child) => ({
+          online: child(ActorOnline, {
             props: ({ model }) => ({
               port: model.listening,
               plugins: model.plugins,
             }),
-          },
-        },
+          }),
+        }),
         on: {
           Wanted: ({ versions }, { model }) => ({
             model: { ...model, wanted: wantedOf(model, versions) },

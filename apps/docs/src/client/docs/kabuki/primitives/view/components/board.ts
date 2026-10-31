@@ -17,12 +17,11 @@ export const CardLive = Actor.build(Card, {
 export const Board = Actor.define('Board', {});
 
 export const BoardLive = Actor.build(Board, {
-  children: {
+  children: (child) => ({
     // One Card per name, each its own Instance.
-    cards: {
-      actor: CardLive,
+    cards: child(CardLive, {
       each: () => ['Coffee', 'Tea', 'Cocoa'],
       input: (_, name) => ({ name }),
-    },
-  },
+    }),
+  }),
 });

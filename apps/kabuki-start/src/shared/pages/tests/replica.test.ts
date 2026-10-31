@@ -284,7 +284,7 @@ const workers = Layer.mergeAll(
   Layer.succeed(HelloRpc, {} as HelloRpc['Service']),
 );
 
-const Root = Router.app(
+const Root = Router.view(
   router,
   View.make(Pages.AppLive, () => null),
 );

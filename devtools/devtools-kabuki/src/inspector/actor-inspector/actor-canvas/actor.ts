@@ -61,14 +61,13 @@ const drawnOf = ({ at, revision }: typeof Props.Type) =>
 export const CanvasLive = Actor.build(Canvas, {
   init: () => ({ model: { graph: null, problem: null } }),
   // 2. Cards
-  children: {
-    card: {
-      actor: CardLive,
+  children: (child) => ({
+    card: child(CardLive, {
       each: ({ props }) => props.opened,
       input: (_, instance) => ({ instance }),
       props: ({ props }) => ({ at: props.at, revision: props.revision }),
-    },
-  },
+    }),
+  }),
   // 1. Graph
   workers: {
     draw: {

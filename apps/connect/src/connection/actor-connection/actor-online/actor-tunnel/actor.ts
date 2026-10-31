@@ -125,7 +125,7 @@ export const ActorTunnel = Actor.build(
     workers: {
       keep: { run: keep },
     },
-    state: {
+    states: {
       Opening: {},
       Installing: {},
       Up: {},

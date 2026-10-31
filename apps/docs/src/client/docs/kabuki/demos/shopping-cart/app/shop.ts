@@ -32,22 +32,20 @@ export const ShopLive = Actor.build(Shop, {
       change: (id, by) => self.send({ _tag: 'Changed', id, by }),
       checkout: () => self.send({ _tag: 'CheckedOut' }),
     }),
-  state: {
+  states: {
     Shopping: {
-      children: {
-        products: {
-          actor: ProductLive,
+      children: (child) => ({
+        products: child(ProductLive, {
           each: () => Object.keys(PRODUCTS),
           input: (_, id) => ({ id }),
           props: ({ model }, id) => ({
             inCart: model.lines.find((line) => line.id === id)?.quantity ?? 0,
           }),
-        },
-        cart: {
-          actor: CartLive,
+        }),
+        cart: child(CartLive, {
           props: ({ model }) => ({ lines: model.lines }),
-        },
-      },
+        }),
+      }),
       on: {
         Added: ({ id }, { model }) => ({
           model: {

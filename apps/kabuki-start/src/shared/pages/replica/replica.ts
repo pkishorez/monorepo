@@ -53,9 +53,8 @@ export const ReplicaLive = Page.build(Replica, {
         ),
     },
   },
-  children: {
-    pocket: {
-      actor: PocketLive,
+  children: (child) => ({
+    pocket: child(PocketLive, {
       while: ({ model }) => model.caller._tag === 'SignedIn',
       props: ({ model }) => ({
         account: shown(model) ?? '',
@@ -63,8 +62,8 @@ export const ReplicaLive = Page.build(Replica, {
           model.caller._tag === 'SignedIn' &&
           shown(model) === model.caller.active,
       }),
-    },
-  },
+    }),
+  }),
   on: {
     Changed: ({ caller }, { model }) => ({
       model: { ...model, ...follow(model, caller) },

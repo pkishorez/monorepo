@@ -29,7 +29,7 @@ const GoLive = Page.build(Go, {
       command: Router.push(router.Other()),
     }),
   },
-  state: {
+  states: {
     Busy: {
       on: { Clicked: () => ({ command: Router.replace(router.Go()) }) },
     },

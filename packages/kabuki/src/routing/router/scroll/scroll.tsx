@@ -51,7 +51,7 @@ export interface ScrollLocation<Route = { readonly _tag: string }> {
   readonly key: string;
 }
 
-/** Scroll restoration's options on `Router.app`, named as TanStack Router's. */
+/** Scroll restoration's options on `Router.view`, named as TanStack Router's. */
 export interface ScrollRestorationOptions<Route = { readonly _tag: string }> {
   /** Whether it restores scroll at all, or where: off unless said. */
   readonly scrollRestoration?:

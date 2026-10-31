@@ -208,7 +208,7 @@ const load = async () => {
   await act(async () => root?.unmount());
   registry.clear();
   const routed = Router.define(App, options);
-  const Root = Router.app(routed, AppView);
+  const Root = Router.view(routed, AppView);
   const Drawn = View.app(Root, {
     layer: Layer.mergeAll(
       browser(),
@@ -441,10 +441,10 @@ describe('a reload', () => {
   });
 
   it('is put back before the app hydrates by the script a server writes', () => {
-    expect(Router.app(Routes, AppView).restoreScroll(Routes.Settings())).toBe(
+    expect(Router.view(Routes, AppView).restoreScroll(Routes.Settings())).toBe(
       null,
     );
-    const script = Router.app(
+    const script = Router.view(
       Router.define(App, { scrollRestoration: true }),
       AppView,
     ).restoreScroll(Routes.Settings())!;

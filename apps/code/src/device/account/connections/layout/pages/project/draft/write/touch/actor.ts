@@ -182,7 +182,7 @@ export const TouchDraftLive = Actor.build(TouchDraft, {
         ),
     },
   },
-  state: {
+  states: {
     // 1. Collapsed
     Collapsed: {
       on: {

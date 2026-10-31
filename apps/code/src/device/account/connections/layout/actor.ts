@@ -150,35 +150,31 @@ export const LayoutLive = Actor.build(Layout, {
     model: { back: null, keyboard, shown: false },
   }),
   // 2. Children
-  children: {
-    sidebar: {
-      actor: Sidebar.actor,
+  children: (child) => ({
+    sidebar: child(Sidebar.actor, {
       props: ({ props }) => ({ accountId: props.accountId }),
-    },
-    pickers: {
-      actor: Pickers.actor,
+    }),
+    pickers: child(Pickers.actor, {
       props: ({ props, model }) => ({
         accountId: props.accountId,
         bindings: model.keyboard.bindings,
       }),
-    },
-    project: {
-      actor: ProjectRow,
+    }),
+    project: child(ProjectRow, {
       while: ({ props }) => props.place !== null,
       props: ({ props }) => ({
         connectionId: props.place?.connectionId ?? '',
         projectId: props.place?.projectId ?? '',
       }),
-    },
-    session: {
-      actor: SessionRow,
+    }),
+    session: child(SessionRow, {
       while: ({ props }) => props.place?.sessionId != null,
       props: ({ props }) => ({
         connectionId: props.place?.connectionId ?? '',
         sessionId: props.place?.sessionId ?? '',
       }),
-    },
-  },
+    }),
+  }),
   workers: {
     // 1. Keys: a change here or in another tab, or one since the root page
     // read it, is read again.

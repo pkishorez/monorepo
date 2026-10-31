@@ -104,9 +104,8 @@ export const ActorPlugins = Actor.build(
   }),
   {
     init: (input: Input) => ({ model: input }),
-    children: {
-      plugins: {
-        actor: ActorPlugin,
+    children: (child) => ({
+      plugins: child(ActorPlugin, {
         each: ({ props }) => Object.keys(props.wanted),
         input: ({ model }, name) => ({
           name,
@@ -114,8 +113,8 @@ export const ActorPlugins = Actor.build(
           socket: socketOf(model, name),
         }),
         props: ({ props }, name) => ({ wanted: props.wanted[name]! }),
-      },
-    },
+      }),
+    }),
     workers: {
       router: { run: route },
     },

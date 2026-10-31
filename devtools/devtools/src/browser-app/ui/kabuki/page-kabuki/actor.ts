@@ -133,17 +133,16 @@ export const KabukiLive = Page.build(Kabuki, {
     Addressed: ({ name }, { model, state }) =>
       name === nameOf(state) ? {} : { state: placed(name, model.sessions) },
   },
-  state: {
+  states: {
     Open: {
-      children: {
-        inspector: {
-          actor: RemoteInspectorLive,
+      children: (child) => ({
+        inspector: child(RemoteInspectorLive, {
           // Connected again under the same name, it is reached anew.
           key: ({ model, state }) =>
             `${state.name}@${model.sessions?.find((one) => one.name === state.name)?.connectedAt ?? 0}`,
           input: ({ state }) => ({ name: state.name }),
-        },
-      },
+        }),
+      }),
     },
   },
 });

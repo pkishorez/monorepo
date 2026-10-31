@@ -361,17 +361,17 @@ export const CodeReplica = Replica.make(replicaName(PROJECTION_VERSION), {
 });
 
 /**
- * A Replica Build, as `Replicas.child` takes it. std-toolkit does not export
+ * A Replica Build, as `Replicas.actor` takes it. std-toolkit does not export
  * its `Build` type, so this is as precisely as a published type can name
  * it: what it needs from the app's Layer (`CodeClients.layer`) is not checked.
  */
-export type CodeReplicaBuild = Parameters<typeof Replicas.child>[0][number];
+export type CodeReplicaBuild = Parameters<typeof Replicas.actor>[0][number];
 
 /**
  * How `CodeReplica` syncs: every project and session while the app runs, and the
  * messages of a session while a Query filters on its `sessionId`, each
  * Instance over its own Connection's socket, found by its Key. Place it with
- * `Replicas.child([CodeReplicaLive])`, and give the app `CodeClients`, which opens
+ * `child(Replicas.actor([CodeReplicaLive]))`, and give the app `CodeClients`, which opens
  * each Connection's socket at the address `ConnectionAddress` gives.
  */
 export const CodeReplicaLive: CodeReplicaBuild = Replica.build(CodeReplica, {

@@ -32,9 +32,9 @@ const Row = Actor.build(
   }),
   {
     init: ({ text }) => ({ model: { text, edits: 0, ticks: 0 } }),
-    children: {
-      cell: { actor: Cell, props: ({ props }) => ({ lit: props.selected }) },
-    },
+    children: (child) => ({
+      cell: child(Cell, { props: ({ props }) => ({ lit: props.selected }) }),
+    }),
     on: {
       Edited: (_, { model, props }) =>
         props.selected ? { model: { ...model, edits: model.edits + 1 } } : {},
@@ -70,14 +70,13 @@ const List = Actor.build(
   }),
   {
     init: () => ({ model: { ids: ['a', 'b', 'c'], selected: 'a', title: '' } }),
-    children: {
-      rows: {
-        actor: Row,
+    children: (child) => ({
+      rows: child(Row, {
         each: ({ model }) => model.ids,
         input: (_, id) => ({ text: id }),
         props: ({ model }, id) => ({ selected: id === model.selected }),
-      },
-    },
+      }),
+    }),
     on: {
       Selected: ({ id }, { model }) => ({ model: { ...model, selected: id } }),
       Retitled: ({ title }, { model }) => ({ model: { ...model, title } }),
@@ -191,13 +190,12 @@ describe('Props', () => {
 
   it('are checked against their Schema', () => {
     const Bad = Actor.build(Actor.define('Bad', {}), {
-      children: {
-        row: {
-          actor: Row,
+      children: (child) => ({
+        row: child(Row, {
           input: () => ({ text: 'x' }),
           props: () => ({ selected: 'yes' as never }),
-        },
-      },
+        }),
+      }),
     });
     expect(() => init(Bad.definition)).toThrow(
       /Row: the Props of Bad\/row#1 does not match its Schema/,
@@ -301,16 +299,16 @@ describe('the History', () => {
 
 export const types = () => [
   Actor.build(Actor.define('NeedsProps', {}), {
-    children: {
+    children: (child) => ({
       // @ts-expect-error a Child that declares Props must be handed them
-      rows: { actor: Row, each: () => ['a'], input: () => ({ text: 'a' }) },
-    },
+      rows: child(Row, { each: () => ['a'], input: () => ({ text: 'a' }) }),
+    }),
   }),
   Actor.build(Actor.define('WrongProps', {}), {
-    children: {
+    children: (child) => ({
       // @ts-expect-error its Props must be the ones its Actor declares
-      cell: { actor: Cell, props: () => ({ lit: 'yes' }) },
-    },
+      cell: child(Cell, { props: () => ({ lit: 'yes' }) }),
+    }),
   }),
   Actor.build(
     Actor.define('Reads', {

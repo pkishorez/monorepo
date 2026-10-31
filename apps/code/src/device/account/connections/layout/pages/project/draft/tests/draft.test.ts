@@ -95,9 +95,8 @@ const To = Schema.Literals(['NewSession', 'Session']);
 /** A page holding a Draft: a new session's, or a Session's that runs Claude. */
 const Owner = (to: typeof To.Type) =>
   Actor.build(Actor.define('Owner', {}), {
-    children: {
-      draft: {
-        actor: DraftLive,
+    children: (child) => ({
+      draft: child(DraftLive, {
         props: () => ({
           connectionId: 'm1',
           projectId: 'p1',
@@ -115,8 +114,8 @@ const Owner = (to: typeof To.Type) =>
                   running: false,
                 },
         }),
-      },
-    },
+      }),
+    }),
   });
 
 const accountOf = (id: string) => ({

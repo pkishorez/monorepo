@@ -41,15 +41,14 @@ const move = (
 
 export const PlaylistLive = Actor.build(Playlist, {
   init: () => ({ model: { ids: ['0', '1', '2', '3'], playing: null } }),
-  children: {
-    songs: {
-      actor: SongLive,
+  children: (child) => ({
+    songs: child(SongLive, {
       each: ({ model }) => model.ids,
       input: (_, id) => SONGS[id]!,
       // Worked out again after every Update of the Playlist.
       props: ({ model }, id) => ({ playing: model.playing === id }),
-    },
-  },
+    }),
+  }),
   on: {
     Next: (_, { model }) => ({
       model: { ...model, playing: move(model.ids, model.playing, 1) },

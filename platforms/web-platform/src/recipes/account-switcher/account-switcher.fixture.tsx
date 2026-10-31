@@ -92,12 +92,11 @@ const madeUp = (start: AccountsState) =>
 
 const Header = Actor.build(Actor.define('Header', {}), {
   provides: () => CurrentAccount.layer,
-  children: {
-    account: {
-      actor: AccountSwitcherLive,
+  children: (child) => ({
+    account: child(AccountSwitcherLive, {
       input: () => ({ maxAccounts: 5 }),
-    },
-  },
+    }),
+  }),
 });
 
 const HeaderView = View.make(Header, ({ root, children }) => (

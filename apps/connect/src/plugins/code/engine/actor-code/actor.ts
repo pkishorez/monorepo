@@ -81,7 +81,7 @@ export const Code = Actor.build(
       model: { projects: [], sessions: [], folderAsks: 0 },
       state: { _tag: 'Loading' },
     }),
-    state: {
+    states: {
       Loading: {
         on: {
           Loaded: (loaded, { model }) => ({
@@ -171,15 +171,14 @@ export const Code = Actor.build(
           },
           failures: { run: (self) => failures(self) },
         },
-        children: {
-          sessions: {
-            actor: Session,
+        children: (child) => ({
+          sessions: child(Session, {
             each: ({ model }) =>
               model.sessions.map(({ session }) => session.id),
             input: ({ model }, id) =>
               model.sessions.find(({ session }) => session.id === id)!,
-          },
-        },
+          }),
+        }),
       },
     },
   },

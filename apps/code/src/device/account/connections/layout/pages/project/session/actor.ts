@@ -192,34 +192,30 @@ export const SessionLive = Page.build(Session, {
       held: false,
     },
   }),
-  children: {
+  children: (child) => ({
     // 1. Read
-    session: {
-      actor: SessionRow,
+    session: child(SessionRow, {
       props: ({ props }) => ({
         connectionId: connectionIn(props.route.params),
         sessionId: props.params.sessionId,
       }),
-    },
-    messages: {
-      actor: Messages,
+    }),
+    messages: child(Messages, {
       props: ({ props }) => ({
         connectionId: connectionIn(props.route.params),
         sessionId: props.params.sessionId,
       }),
-    },
+    }),
     // A Fork is on its original's Connection.
-    earlier: {
-      actor: Messages,
+    earlier: child(Messages, {
       each: ({ model }) => model.lineage.map(({ id }) => id),
       props: ({ props }, sessionId) => ({
         connectionId: connectionIn(props.route.params),
         sessionId,
       }),
-    },
+    }),
     // 2. Draft: once its row is this session's, the agent it runs.
-    draft: {
-      actor: Draft.actor,
+    draft: child(Draft.actor, {
       key: ({ props }) => props.params.sessionId,
       props: ({ model, props }) => {
         const row = model.row?.id === props.params.sessionId ? model.row : null;
@@ -241,17 +237,16 @@ export const SessionLive = Page.build(Session, {
           },
         };
       },
-    },
+    }),
     // 7. Question
-    question: {
-      actor: Question.actor,
+    question: child(Question.actor, {
       key: ({ props }) => props.params.sessionId,
       props: ({ props }) => ({
         connectionId: connectionIn(props.route.params),
         sessionId: props.params.sessionId,
       }),
-    },
-  },
+    }),
+  }),
   workers: {
     // 1. Read
     row: {

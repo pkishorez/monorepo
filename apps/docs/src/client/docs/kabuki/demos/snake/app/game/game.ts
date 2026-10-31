@@ -170,7 +170,7 @@ export const GameLive = Actor.build(Game, {
       model: { ...model, food: { x, y } },
     }),
   },
-  state: {
+  states: {
     Running: {
       workers: {
         tick: {

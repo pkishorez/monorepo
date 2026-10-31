@@ -35,7 +35,9 @@ const draftOf = (leftOpen: boolean) =>
       owner(self.send({ _tag: 'SendAsked' }), (open) =>
         self.send({ _tag: 'Opened', open }),
       ),
-    children: { touch: { actor: TouchDraftLive, input: () => leftOpen } },
+    children: (child) => ({
+      touch: child(TouchDraftLive, { input: () => leftOpen }),
+    }),
     on: {
       SendAsked: (_, { model }) => ({
         model: { ...model, sent: model.sent + 1 },

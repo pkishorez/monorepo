@@ -600,7 +600,7 @@ const build = <
           model: reported(model, scope, { status: 'running', problem: null }),
         }),
       },
-      state: {
+      states: {
         Following: {
           on: {
             // Its own Strategies start now: none has answered yet.

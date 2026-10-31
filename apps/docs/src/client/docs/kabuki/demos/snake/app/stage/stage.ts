@@ -55,15 +55,14 @@ export const StageLive = Actor.build(Stage, {
         }),
     },
   },
-  state: {
+  states: {
     Ready: { on: { Start: (_, { model }) => start(model.best) } },
     Playing: {
-      children: {
-        game: {
-          actor: GameLive,
+      children: (child) => ({
+        game: child(GameLive, {
           props: ({ model }) => ({ lives: model.lives }),
-        },
-      },
+        }),
+      }),
       provides: (self) =>
         Layer.succeed(Referee, {
           scored: self.send({ _tag: 'Scored' }),

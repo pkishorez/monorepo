@@ -496,7 +496,7 @@ export const Session = Actor.build(
         run: (self) => fromAgent(self, (agent) => agent.contextUsage),
       },
     },
-    state: {
+    states: {
       Idle: {
         on: {
           Send: ({ prompt, at }, { model }) => ({

@@ -77,12 +77,11 @@ const OPUS = { id: 'opus', name: 'Opus', releaseDate: null };
 const m1 = { accountId: 'a1', connectionId: 'm1', projectId: null };
 
 const OwnerLive = Actor.build(Actor.define('Owner', {}), {
-  children: {
-    connection: {
-      actor: Connection.actor,
+  children: (child) => ({
+    connection: child(Connection.actor, {
       input: () => ({ accountId: 'a1', connectionId: 'm1' }),
-    },
-  },
+    }),
+  }),
 });
 
 /** The socket's own word for each Link. */

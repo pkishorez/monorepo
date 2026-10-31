@@ -20,7 +20,7 @@ export const Todo = Actor.define('Todo', {
 
 export const TodoLive = Actor.build(Todo, {
   init: ({ text }) => ({ state: { _tag: 'Active' }, model: { text } }),
-  state: {
+  states: {
     Active: { on: { Toggled: () => ({ state: { _tag: 'Done' } }) } },
     Done: { on: { Toggled: () => ({ state: { _tag: 'Active' } }) } },
   },
@@ -43,16 +43,15 @@ export const Todos = Actor.define('Todos', {
 
 export const TodosLive = Actor.build(Todos, {
   init: () => ({ state: { _tag: 'All' }, model: { items: [], next: 0 } }),
-  children: {
-    todos: {
-      actor: TodoLive,
+  children: (child) => ({
+    todos: child(TodoLive, {
       each: ({ model }) => model.items.map((item) => item.id),
       input: ({ model }, id) => ({
         text: model.items.find((item) => item.id === id)?.text ?? '',
       }),
       props: ({ state }) => ({ filter: state._tag }),
-    },
-  },
+    }),
+  }),
   on: {
     Added: ({ text }, { model }) => ({
       model: {

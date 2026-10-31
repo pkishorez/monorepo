@@ -69,7 +69,7 @@ export const ConsentLive = Page.build(Consent, {
       run: (self) => followPageAccounts(self),
     },
   },
-  state: {
+  states: {
     Asking: {
       on: {
         Chosen: ({ userId }) => ({ model: { chosen: userId } }),

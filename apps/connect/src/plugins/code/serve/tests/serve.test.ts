@@ -148,23 +148,22 @@ const Page = Actor.build(
   {
     init: () => ({ model: { sessionId: null } }),
     on: { Open: ({ sessionId }) => ({ model: { sessionId } }) },
-    children: {
-      projects: { actor: Projects, props: () => ({}) },
-      messages: {
-        actor: Messages,
+    children: (child) => ({
+      projects: child(Projects, { props: () => ({}) }),
+      messages: child(Messages, {
         while: ({ model }) => model.sessionId !== null,
         props: ({ model }) => ({ sessionId: model.sessionId ?? '' }),
-      },
-    },
+      }),
+    }),
   },
 );
 
 const Root = Actor.build(Actor.define('Root', {}), {
   provides: () => Replicas.layer,
-  children: {
-    replicas: Replicas.child([CodeReplicaLive]),
-    page: { actor: Page },
-  },
+  children: (child) => ({
+    replicas: child(Replicas.actor([CodeReplicaLive])),
+    page: child(Page),
+  }),
 });
 
 /** One Connection's projects, by its id. */
@@ -180,11 +179,11 @@ const ConnectionProjects = Query.make('ConnectionProjects', {
 /** An app on two Connections at once, each Instance syncing on its own. */
 const TwoConnections = Actor.build(Actor.define('TwoConnections', {}), {
   provides: () => Replicas.layer,
-  children: {
-    replicas: Replicas.child([CodeReplicaLive]),
-    one: { actor: ConnectionProjects, props: () => ({ connectionId: 'one' }) },
-    two: { actor: ConnectionProjects, props: () => ({ connectionId: 'two' }) },
-  },
+  children: (child) => ({
+    replicas: child(Replicas.actor([CodeReplicaLive])),
+    one: child(ConnectionProjects, { props: () => ({ connectionId: 'one' }) }),
+    two: child(ConnectionProjects, { props: () => ({ connectionId: 'two' }) }),
+  }),
 });
 
 type Rows = ReadonlyArray<{

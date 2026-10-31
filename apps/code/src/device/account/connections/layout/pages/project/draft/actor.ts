@@ -332,10 +332,9 @@ export const DraftLive = Actor.build(Draft, {
         }),
       ),
     ),
-  children: {
+  children: (child) => ({
     // 1. Write: one Child per Draft Mode, once its Saved Draft is read back.
-    modes: {
-      actor: DraftMode.actor,
+    modes: child(DraftMode.actor, {
       each: ({ model, props }) => (model.restored ? modesOf(props) : []),
       input: ({ model }, key) => ({
         written: model.opening[key as Mode],
@@ -354,17 +353,15 @@ export const DraftLive = Actor.build(Draft, {
               : null,
         };
       },
-    },
+    }),
     // 2. Pick
-    skills: {
-      actor: SkillPicker.Live,
+    skills: child(SkillPicker.Live, {
       while: ({ model }) => model.picking?._tag === 'Skills',
       key: ({ model }) => String(model.opened),
       input: ({ model }) => SkillPicker.opening(model.picking?.how ?? 'keys'),
       props: ({ model, props }) => skillsOf(model, props),
-    },
-    models: {
-      actor: ModelPicker.Live,
+    }),
+    models: child(ModelPicker.Live, {
       while: ({ model, props }) =>
         model.picking?._tag === 'Model' && current(model, props) !== null,
       key: ({ model }) => String(model.opened),
@@ -383,9 +380,8 @@ export const DraftLive = Actor.build(Draft, {
           model.picking?._tag === 'Model' &&
           (model.picking.at === 'agent' || model.picking.at === 'modelAlone'),
       }),
-    },
-    branches: {
-      actor: BranchPicker.Live,
+    }),
+    branches: child(BranchPicker.Live, {
       while: ({ model }) =>
         model.picking?._tag === 'Branch' && model.branches?._tag === 'Git',
       key: ({ model }) => String(model.opened),
@@ -394,8 +390,8 @@ export const DraftLive = Actor.build(Draft, {
         branches: model.branches ?? { _tag: 'NotGit' as const },
         picked: model.branch,
       }),
-    },
-  },
+    }),
+  }),
   workers: {
     // 4. Keep: read back once, under the Account signed in as it opens.
     restore: {

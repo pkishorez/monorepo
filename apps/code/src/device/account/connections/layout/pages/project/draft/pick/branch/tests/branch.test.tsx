@@ -103,9 +103,8 @@ const PageLive = Actor.build(Page, {
   init: () => ({
     model: { picked: null, newWorktree: false, how: null, opened: 0 },
   }),
-  children: {
-    branches: {
-      actor: BranchPicker.Live,
+  children: (child) => ({
+    branches: child(BranchPicker.Live, {
       while: ({ model }) => model.how !== null && shown?._tag === 'Git',
       key: ({ model }) => String(model.opened),
       input: ({ model }) => BranchPicker.opening(model.how ?? 'keys'),
@@ -113,8 +112,8 @@ const PageLive = Actor.build(Page, {
         branches: shown ?? { _tag: 'NotGit' as const },
         picked: model.picked,
       }),
-    },
-  },
+    }),
+  }),
   provides: (self) =>
     BranchPicker.owner((branch) => self.send({ _tag: 'Done', branch })),
   on: {

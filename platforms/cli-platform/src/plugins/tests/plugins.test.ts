@@ -101,9 +101,8 @@ const cliOf = (
     }),
     {
       init: () => ({ model: { wanted: first } }),
-      children: {
-        plugin: {
-          actor: ActorPlugin,
+      children: (child) => ({
+        plugin: child(ActorPlugin, {
           input: () => ({
             name: 'ping',
             folders: plugin.folders,
@@ -111,8 +110,8 @@ const cliOf = (
             pause: { first: 100, most: 400 },
           }),
           props: ({ model }) => ({ wanted: model.wanted }),
-        },
-      },
+        }),
+      }),
       on: { Want: ({ wanted }) => ({ model: { wanted } }) },
     },
   );

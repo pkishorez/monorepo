@@ -77,6 +77,8 @@ const sourceText = (source: Entry['source']) => {
       return `${source.kind} ${source.instance}`;
     case 'command':
       return `command ${source.instance}/${source.name}`;
+    case 'emit':
+      return `emit ${source.instance}/${source.name}`;
     case 'worker':
       return `worker ${source.instance}/${source.name}${source.key === undefined ? '' : `#${source.key}`}`;
     case 'outside':

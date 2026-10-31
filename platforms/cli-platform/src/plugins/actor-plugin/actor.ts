@@ -394,7 +394,7 @@ export const ActorPlugin = Actor.build(
         run: (_, key) => keepUsed(key),
       },
     },
-    state: {
+    states: {
       Fetching: {},
       Running: {
         on: {

@@ -107,9 +107,8 @@ export const MicrophonePickerLive = Actor.build(MicrophonePicker, {
       problem: null,
     },
   }),
-  children: {
-    picker: {
-      actor: Microphones.Live,
+  children: (child) => ({
+    picker: child(Microphones.Live, {
       while: ({ model }) => model.picking !== null,
       key: ({ model }) => String(model.opened),
       input: ({ model }) => ({
@@ -122,8 +121,8 @@ export const MicrophonePickerLive = Actor.build(MicrophonePicker, {
         chosen: model.chosen,
         problem: model.problem,
       }),
-    },
-  },
+    }),
+  }),
   provides: (self) =>
     Microphones.owner({
       done: (choices) => {

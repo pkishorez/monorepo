@@ -106,7 +106,7 @@ export const Auth = Actor.build(
   }),
   {
     init: () => ({ state: { _tag: 'Checking' } }),
-    state: {
+    states: {
       Checking: {
         workers: {
           check: {
@@ -126,7 +126,7 @@ export const Auth = Actor.build(
         },
       },
       Anonymous: {
-        children: { login: { actor: Login } },
+        children: (child) => ({ login: child(Login) }),
         provides: (self) =>
           Layer.succeed(SignIn, {
             complete: (user) => self.send({ _tag: 'LoggedIn', user }),
@@ -136,7 +136,7 @@ export const Auth = Actor.build(
         },
       },
       Authenticated: {
-        children: { todos: { actor: Todos } },
+        children: (child) => ({ todos: child(Todos) }),
         provides: (self) =>
           Layer.effect(
             Session,
@@ -206,7 +206,7 @@ export const Counter = Actor.build(
 );
 
 export const Board = Actor.build(Actor.define('Board', {}), {
-  children: { left: { actor: Counter }, right: { actor: Counter } },
+  children: (child) => ({ left: child(Counter), right: child(Counter) }),
 });
 
 /** What work did, seen from outside. */
@@ -292,7 +292,7 @@ export const Metronome = Actor.build(
           ),
       },
     },
-    state: {
+    states: {
       Running: {
         on: {
           Beat: (_, { model }) => ({ model: { beats: model.beats + 1 } }),

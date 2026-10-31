@@ -58,6 +58,13 @@ export type Source =
     }
   | { readonly kind: 'provide'; readonly instance: string }
   | {
+      readonly kind: 'emit';
+      /** The Child that Emitted it. */
+      readonly instance: string;
+      /** The tag of what it Emitted. */
+      readonly name: string;
+    }
+  | {
       readonly kind: 'outside';
       /** Who Sent it, as code reaching the app from outside named itself. */
       readonly name?: string;

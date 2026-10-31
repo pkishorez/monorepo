@@ -243,17 +243,16 @@ export const ActorOnline = Actor.build(
     workers: {
       address: { run: address },
     },
-    state: {
+    states: {
       SignedIn: {
-        children: {
-          tunnel: {
-            actor: ActorTunnel,
+        children: (child) => ({
+          tunnel: child(ActorTunnel, {
             while: ({ props }) => props.port !== null,
             key: ({ model }) => String(model.generation),
             input: ({ model }) => ({ generation: model.generation }),
             props: ({ props }) => ({ port: props.port ?? 0 }),
-          },
-        },
+          }),
+        }),
         on: {
           Installing: ({ generation }, { model }) =>
             ofTunnel(model, generation, { _tag: 'Installing' }),

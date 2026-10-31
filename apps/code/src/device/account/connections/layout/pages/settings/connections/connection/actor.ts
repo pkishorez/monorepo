@@ -36,21 +36,19 @@ const ConnectionCard = Actor.define('ConnectionCard', {
 export const ConnectionCardLive = Actor.build(ConnectionCard, {
   init: ({ connectionId }) => ({ model: { connectionId } }),
   // 1. Shown
-  children: {
-    accounts: {
-      actor: HarnessAccounts.actor,
+  children: (child) => ({
+    accounts: child(HarnessAccounts.actor, {
       input: ({ model }) => ({ connectionId: model.connectionId }),
       props: ({ props }) => ({
         accounts: props.accounts,
         problem: props.problem,
       }),
-    },
-    speech: {
-      actor: SpeechToText.actor,
+    }),
+    speech: child(SpeechToText.actor, {
       input: ({ model }) => ({ connectionId: model.connectionId }),
       props: ({ props }) => ({ speech: props.speech }),
-    },
-  },
+    }),
+  }),
   on: {
     // 2. Forget
     ForgetAsked: (_, { model }) => ({

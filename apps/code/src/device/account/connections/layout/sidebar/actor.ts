@@ -238,23 +238,20 @@ export const SidebarLive = Actor.build(Sidebar, {
       asking: {},
     },
   }),
-  children: {
-    projects: {
-      actor: Projects,
+  children: (child) => ({
+    projects: child(Projects, {
       each: ({ model }) => across.each(readOf(model)),
       props: (_, connectionId) => across.props(connectionId),
-    },
-    sessions: {
-      actor: Sessions,
+    }),
+    sessions: child(Sessions, {
       each: ({ model }) => across.each(readOf(model)),
       props: (_, connectionId) => across.props(connectionId),
-    },
+    }),
     // 7. Sync
-    sessionSync: {
-      actor: SessionSync.actor,
+    sessionSync: child(SessionSync.actor, {
       props: ({ model }) => ({ connectionIds: readOf(model) }),
-    },
-  },
+    }),
+  }),
   workers: {
     // 5. Move: where each Session put goes, and each refusal.
     moves: {
