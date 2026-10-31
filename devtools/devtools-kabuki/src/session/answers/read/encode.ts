@@ -1,10 +1,5 @@
-import { isMany } from '@kestack/kabuki';
-import type {
-  ActorDefinition,
-  Entry,
-  History,
-  Instance,
-} from '@kestack/kabuki';
+import { Snapshot } from '@kestack/kabuki';
+import type { Actor, History } from '@kestack/kabuki';
 
 /*
  * The app's values as they leave the tab: each through its own Actor's
@@ -29,12 +24,12 @@ export const encoded = (encode: Encode, value: unknown): unknown => {
 // 2. Instance
 /** An Instance as JSON: its State, Model, Props and Children; not how many times it Invoked each. */
 export const encodeInstance = (
-  instance: Instance,
-  definition: ActorDefinition,
+  instance: Snapshot.Instance,
+  definition: Actor.Definition,
 ): Readonly<Record<string, unknown>> => {
   const { encoding } = definition;
   const slots = definition.children[instance.state._tag] ?? {};
-  const child = (slot: string, held: Instance) => {
+  const child = (slot: string, held: Snapshot.Instance) => {
     const actor = slots[slot]?.definition;
     return actor ? encodeInstance(held, actor) : held;
   };
@@ -50,19 +45,21 @@ export const encodeInstance = (
     children: Object.fromEntries(
       Object.entries(instance.children).map(([slot, held]) => [
         slot,
-        isMany(held) ? held.map((one) => child(slot, one)) : child(slot, held),
+        Snapshot.isMany(held)
+          ? held.map((one) => child(slot, one))
+          : child(slot, held),
       ]),
     ),
   };
 };
 
 // 3. Entries
-const saved = new WeakMap<object, ReadonlyMap<number, Entry>>();
+const saved = new WeakMap<object, ReadonlyMap<number, History.Entry>>();
 
 /** Each entry the History keeps, by id, its Message encoded. */
 export const encodedEntries = (
-  history: History,
-): ReadonlyMap<number, Entry> => {
+  history: History.History,
+): ReadonlyMap<number, History.Entry> => {
   // The same object until the History changes.
   const save = history.save();
   const kept = saved.get(save);

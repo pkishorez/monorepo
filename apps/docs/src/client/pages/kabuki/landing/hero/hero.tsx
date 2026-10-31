@@ -2,8 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { MotionConfig, motion } from 'motion/react';
 import { Layer } from 'effect';
-import { isMany } from '@kestack/kabuki';
-import type { Instance } from '@kestack/kabuki';
+import { Snapshot } from '@kestack/kabuki';
 import { View, toReact } from '@kestack/kabuki/react';
 import { CheckIcon, PlusIcon } from 'lucide-react';
 import { FILTERS, ROWS, TodoLive, TodosLive } from './todos.ts';
@@ -180,7 +179,7 @@ const App = toReact(TodosLive, TodosView, Layer.empty, {
 // 2. Its Actors, read from the Snapshot
 
 /** Whether the list's filter shows a to-do, as the left column decides. */
-const showing = (list: Instance, todo: Instance) =>
+const showing = (list: Snapshot.Instance, todo: Snapshot.Instance) =>
   list.state._tag === 'All' || todo.state._tag === list.state._tag;
 
 function State({ children }: { readonly children: string }) {
@@ -202,8 +201,8 @@ function Actors({
   root,
   todos,
 }: {
-  readonly root: Instance;
-  readonly todos: ReadonlyArray<Instance>;
+  readonly root: Snapshot.Instance;
+  readonly todos: ReadonlyArray<Snapshot.Instance>;
 }) {
   return (
     <div className="hidden border-l border-border bg-muted/40 sm:block">
@@ -337,7 +336,7 @@ export function Hero() {
     shown === null ? head : shown === 'init' ? null : shown,
   );
   const held = drawn.children['todos'];
-  const todos = held !== undefined && isMany(held) ? held : [];
+  const todos = held !== undefined && Snapshot.isMany(held) ? held : [];
   // The row the Message at this step landed on: 0 for the list, then each to-do.
   const landed = at === 0 ? undefined : branch[at - 1];
   const band =

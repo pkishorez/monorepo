@@ -1,7 +1,7 @@
 import { Deferred, Effect, Layer, SubscriptionRef } from 'effect';
 import type { Scope } from 'effect';
 import { History, Runtime } from '@kestack/kabuki';
-import type { Instance, Running } from '@kestack/kabuki';
+import type { Snapshot } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
 import {
@@ -120,23 +120,25 @@ const wait = (ms: number) =>
 const run = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(effect));
 
-const walk = (at: Instance): ReadonlyArray<Instance> => [
+const walk = (at: Snapshot.Instance): ReadonlyArray<Snapshot.Instance> => [
   at,
   ...Object.values(at.children).flatMap((child) =>
-    ((Array.isArray(child) ? child : [child]) as Array<Instance>).flatMap(walk),
+    (
+      (Array.isArray(child) ? child : [child]) as Array<Snapshot.Instance>
+    ).flatMap(walk),
   ),
 ];
-const apis = (app: Running<unknown>) =>
+const apis = (app: Runtime.Running<unknown>) =>
   walk(app.snapshot()).find((each) => each.actor === 'Apis')!;
-const switcher = (app: Running<unknown>) =>
+const switcher = (app: Runtime.Running<unknown>) =>
   walk(app.snapshot()).find((each) => each.actor === 'AccountSwitcher')!;
-const model = (app: Running<unknown>) =>
+const model = (app: Runtime.Running<unknown>) =>
   apis(app).model as {
     readonly caller: { readonly _tag: string; readonly id?: string };
     readonly switching: boolean;
     readonly http: { readonly public: { readonly _tag: string } };
   };
-const switchTo = (app: Running<unknown>, id: string) =>
+const switchTo = (app: Runtime.Running<unknown>, id: string) =>
   app.send(switcher(app).id, { _tag: 'SwitchTo', id } as never);
 
 const opened = Effect.gen(function* () {

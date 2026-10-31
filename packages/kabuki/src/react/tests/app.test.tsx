@@ -5,8 +5,8 @@ import type { Root as ReactRoot } from 'react-dom/client';
 import { prerender } from 'react-dom/static';
 import { Cause, Effect, Layer, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Actor, History, Replay, Runtime } from '../../core/index.ts';
-import type { SavedHistory } from '../../core/index.ts';
+import { Replay } from '../../core/history/index.ts';
+import { Actor, History, Runtime } from '../../core/index.ts';
 import { View, toReact } from '../index.ts';
 import type { AppRuntime } from '../index.ts';
 import { registry } from '../app/index.ts';
@@ -37,7 +37,7 @@ const CounterView = View.make(Counter, (self) => {
 });
 
 /** A History of `n` Bumps, as a Runtime leaves it. */
-const bumped = (n: number): Promise<SavedHistory> =>
+const bumped = (n: number): Promise<History.Saved> =>
   Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
@@ -214,7 +214,7 @@ describe('a History given when drawn', () => {
       expect(served).toContain(`<output>${count}</output>`);
 
       // The browser reads its own copy, as Start's Scripts send it.
-      const sent = JSON.parse(JSON.stringify(saved)) as SavedHistory;
+      const sent = JSON.parse(JSON.stringify(saved)) as History.Saved;
       host.innerHTML = served;
       const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
       await act(async () => {

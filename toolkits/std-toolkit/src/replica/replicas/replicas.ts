@@ -1,5 +1,4 @@
 import { Actor } from '@kestack/kabuki';
-import type { ActorType } from '@kestack/kabuki';
 import { Clock, Context, Deferred, Effect, Layer, Queue, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { nameOf, partsOf, ReplicaError } from '../shape/index.js';
@@ -124,7 +123,7 @@ type KidsOf<B extends Build> = {
 };
 
 /** The actor Replicas places, written out: the type `Actor.build` infers names Kabuki's internals. */
-type ReplicasActor<B extends Build> = ActorType<
+type ReplicasActor<B extends Build> = Actor.Actor<
   'Replicas',
   void,
   void,

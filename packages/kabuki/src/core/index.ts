@@ -1,41 +1,5 @@
-export { Actor, Command } from './actor/index.ts';
-export type {
-  ActorOf,
-  ActorType,
-  CommandType,
-  AnyActor,
-  Behavior,
-  ChildAs,
-  Defined,
-  ActorDefinition,
-  KidsByState,
-  KidsIn,
-  Only,
-  OpenOfBehavior,
-  ProvidedOf,
-  QueriesByState,
-  Requires,
-  Self,
-  Single,
-  Tagged,
-  Types,
-} from './actor/index.ts';
-export {
-  handle,
-  init,
-  instanceAt,
-  isMany,
-  isRestore,
-  restore,
-} from './snapshot/index.ts';
-export type { Envelope, Instance, Snapshot, Source } from './snapshot/index.ts';
-export { History, Replay, outcomeOf } from './history/index.ts';
-export type { Entry, SavedHistory } from './history/index.ts';
-export { Runtime, Stopped } from './runtime/index.ts';
-export type {
-  LiveInstance,
-  Needs,
-  Running,
-  Provided,
-  WorkerStatus,
-} from './runtime/index.ts';
+export * as Actor from './namespaces/actor.ts';
+export * as Command from './namespaces/command.ts';
+export * as History from './namespaces/history.ts';
+export * as Runtime from './namespaces/runtime.ts';
+export * as Snapshot from './namespaces/snapshot.ts';

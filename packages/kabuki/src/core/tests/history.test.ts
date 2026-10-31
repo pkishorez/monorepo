@@ -2,17 +2,9 @@ import { Effect, Option, Schema } from 'effect';
 import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  Actor,
-  History,
-  Replay,
-  Runtime,
-  handle,
-  init,
-  instanceAt,
-  restore,
-} from '../index.ts';
-import type { SavedHistory, Snapshot } from '../index.ts';
+import { Replay } from '../history/index.ts';
+import { init, restore } from '../snapshot/index.ts';
+import { Actor, History, Runtime, Snapshot } from '../index.ts';
 
 /*
  * A saved History: what an app carries on from, and the Restore that puts a
@@ -54,7 +46,7 @@ const envelope = (message: { readonly _tag: string }, at = 0) => ({
 });
 
 /** A History of three Messages, as a Runtime leaves it. */
-const saved = (): Effect.Effect<SavedHistory, never, Scope.Scope> =>
+const saved = (): Effect.Effect<History.Saved, never, Scope.Scope> =>
   Effect.gen(function* () {
     const app = yield* Runtime.start(History.make(Counter));
     yield* TestClock.adjust('100 millis');
@@ -72,14 +64,18 @@ afterEach(() => {
 
 describe('Restore', () => {
   const first = init(Counter.definition);
-  const at42: Snapshot = {
+  const at42: Snapshot.Snapshot = {
     ...first,
     model: { count: 42 },
-    state: { _tag: 'Busy', since: 7 } as Snapshot['state'],
+    state: { _tag: 'Busy', since: 7 } as Snapshot.Snapshot['state'],
   };
 
   it('replaces the whole Snapshot, as a Message to the root', () => {
-    const handled = handle(Counter.definition, first, envelope(restore(at42)));
+    const handled = Snapshot.handle(
+      Counter.definition,
+      first,
+      envelope(restore(at42)),
+    );
     expect(handled.outcome).toBe('handled');
     expect(handled.from).toBe('Idle');
     expect(handled.to).toBe('Busy');
@@ -89,8 +85,8 @@ describe('Restore', () => {
   it('is ignored, with one warning, when the Snapshot no longer matches', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const stale = restore({ ...at42, state: { _tag: 'Gone' } });
-    const once = handle(Counter.definition, first, envelope(stale));
-    const twice = handle(Counter.definition, first, envelope(stale));
+    const once = Snapshot.handle(Counter.definition, first, envelope(stale));
+    const twice = Snapshot.handle(Counter.definition, first, envelope(stale));
     expect(once.outcome).toBe('ignored');
     expect(once.snapshot).toBe(first);
     expect(twice.outcome).toBe('ignored');
@@ -101,9 +97,9 @@ describe('Restore', () => {
   it('is ignored when a Model does not match its Schema', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const stale = restore({ ...at42, model: { count: 'many' } });
-    expect(handle(Counter.definition, first, envelope(stale)).outcome).toBe(
-      'ignored',
-    );
+    expect(
+      Snapshot.handle(Counter.definition, first, envelope(stale)).outcome,
+    ).toBe('ignored');
   });
 
   it('is ignored when a Child is ahead of what its parent has Invoked', () => {
@@ -126,13 +122,13 @@ describe('Restore', () => {
       },
     );
     const room = init(Room.definition);
-    const ahead: Snapshot = { ...room, invoked: {} };
-    const stale = handle(Room.definition, room, {
+    const ahead: Snapshot.Snapshot = { ...room, invoked: {} };
+    const stale = Snapshot.handle(Room.definition, room, {
       ...envelope(restore(ahead)),
       destination: 'Room',
     });
     expect(stale.outcome).toBe('ignored');
-    const fine = handle(Room.definition, room, {
+    const fine = Snapshot.handle(Room.definition, room, {
       ...envelope(restore({ ...room })),
       destination: 'Room',
     });
@@ -145,7 +141,7 @@ describe('Restore', () => {
       children: { counter: { actor: Counter } },
     });
     const shelf = init(Shelf.definition);
-    const handled = handle(Shelf.definition, shelf, {
+    const handled = Snapshot.handle(Shelf.definition, shelf, {
       ...envelope(restore({ ...shelf, children: {} })),
       destination: 'Shelf',
     });
@@ -154,7 +150,7 @@ describe('Restore', () => {
   });
 
   it('is dropped when sent to anything but the root', () => {
-    const handled = handle(Counter.definition, first, {
+    const handled = Snapshot.handle(Counter.definition, first, {
       ...envelope(restore(at42)),
       destination: 'Counter/child#1',
     });
@@ -252,7 +248,7 @@ describe('a saved History', () => {
         expect(app.running()).toBe(true);
         expect(app.history.head()).toBe(2);
         expect(app.now()).toBe(300);
-        expect(instanceAt(app.snapshot(), 'Counter')?.model).toEqual({
+        expect(Snapshot.instanceAt(app.snapshot(), 'Counter')?.model).toEqual({
           count: 2,
         });
         yield* TestClock.adjust('50 millis');
@@ -293,7 +289,7 @@ describe('a saved History', () => {
         },
       },
     );
-    const through = (saved: SavedHistory): SavedHistory =>
+    const through = (saved: History.Saved): History.Saved =>
       JSON.parse(JSON.stringify(saved));
 
     it('so a Date or an Option in a Message comes back through JSON', () =>
@@ -333,13 +329,13 @@ describe('a saved History', () => {
     it("so does a Restore's Snapshot", () =>
       timed(
         Effect.gen(function* () {
-          const snapshot: Snapshot = {
+          const snapshot: Snapshot.Snapshot = {
             ...init(Diary.definition),
             model: { notes: [{ at: new Date(7), text: Option.some('kept') }] },
           };
           const saved = through(History.restored(Diary, snapshot, 10).save());
           const message = saved.entries[0]!.message as unknown as {
-            readonly snapshot: Snapshot;
+            readonly snapshot: Snapshot.Snapshot;
           };
           expect(message.snapshot.model).toEqual({
             notes: [{ at: new Date(7).toISOString(), text: 'kept' }],
@@ -410,10 +406,10 @@ describe('the History lock', () => {
 });
 
 describe('a Window', () => {
-  const tags = (history: History) =>
+  const tags = (history: History.History) =>
     history.branch().map((entry) => `${entry.id} ${entry.message._tag}`);
-  const count = (history: History, entry: number | null) =>
-    instanceAt(history.snapshotAt(entry), 'Counter')?.model;
+  const count = (history: History.History, entry: number | null) =>
+    Snapshot.instanceAt(history.snapshotAt(entry), 'Counter')?.model;
 
   it('keeps that many entries on the Branch, the oldest a Restore of the Snapshot after it', () =>
     timed(
@@ -437,7 +433,7 @@ describe('a Window', () => {
         expect(count(app.history, 4)).toEqual({ count: 5 });
         expect(count(app.history, null)).toEqual({ count: 0 });
         expect(app.history.has(1)).toBe(false);
-        expect(instanceAt(app.snapshot(), 'Counter')?.model).toEqual({
+        expect(Snapshot.instanceAt(app.snapshot(), 'Counter')?.model).toEqual({
           count: 5,
         });
       }),
@@ -495,9 +491,11 @@ describe('a Window', () => {
         for (let at = 1; at <= 4; at++) app.send('Counter', { _tag: 'Bumped' });
         const state = app.history.save();
         const again = yield* Runtime.start(History.load(Counter, state));
-        expect(instanceAt(again.snapshot(), 'Counter')?.model).toEqual({
-          count: 4,
-        });
+        expect(Snapshot.instanceAt(again.snapshot(), 'Counter')?.model).toEqual(
+          {
+            count: 4,
+          },
+        );
         again.send('Counter', { _tag: 'Bumped' });
         expect(again.history.branch().at(-1)).toMatchObject({
           id: 4,
@@ -516,7 +514,7 @@ describe('a Window', () => {
         expect(count(app.history, 2)).toEqual({ count: 3 });
         yield* app.stop();
         yield* app.start();
-        expect(instanceAt(app.snapshot(), 'Counter')?.model).toEqual({
+        expect(Snapshot.instanceAt(app.snapshot(), 'Counter')?.model).toEqual({
           count: 3,
         });
         // Each start from init grows one entry, folded at once: none is left behind.

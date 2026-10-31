@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import type { AppRuntime } from '@kestack/kabuki/react';
-import type { Instance } from '@kestack/kabuki';
+import type { Snapshot } from '@kestack/kabuki';
 
 /*
  * What is inside the app at the step shown: every Actor, as a card with
@@ -41,7 +41,7 @@ function Card({
   instance,
   runtime,
 }: {
-  readonly instance: Instance;
+  readonly instance: Snapshot.Instance;
   readonly runtime: AppRuntime;
 }) {
   const workers =

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import type { Instance } from '@kestack/kabuki';
+import type { Snapshot } from '@kestack/kabuki';
 import type { AppRuntime } from '@kestack/kabuki/react';
 
 /*
@@ -15,7 +15,7 @@ export function Tree({ runtime }: { readonly runtime: AppRuntime }) {
     shown === null ? head : shown === 'init' ? null : shown,
   );
   const game = Object.values(stage.children).flat()[0];
-  const workers = (instance: Instance) =>
+  const workers = (instance: Snapshot.Instance) =>
     shown === null
       ? runtime
           .workers(instance.id)
@@ -62,7 +62,9 @@ export function Tree({ runtime }: { readonly runtime: AppRuntime }) {
   );
 }
 
-const gameFields = (game: Instance): ReadonlyArray<[string, unknown]> => {
+const gameFields = (
+  game: Snapshot.Instance,
+): ReadonlyArray<[string, unknown]> => {
   const model = game.model as {
     at: number;
     length: number;

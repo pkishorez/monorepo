@@ -2,7 +2,7 @@ import { Effect, Layer, Queue, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import { History, Runtime } from '@kestack/kabuki';
-import type { Instance, Running } from '@kestack/kabuki';
+import type { Snapshot } from '@kestack/kabuki';
 import { describe, expect, it } from 'vitest';
 import type * as Api from '../../../api/index.ts';
 import type { KabukiSessionClient } from '../../../api/index.ts';
@@ -119,14 +119,16 @@ const session = Effect.gen(function* () {
   return { layer, nows, asked };
 });
 
-const walk = (at: Instance): ReadonlyArray<Instance> => [
+const walk = (at: Snapshot.Instance): ReadonlyArray<Snapshot.Instance> => [
   at,
   ...Object.values(at.children).flatMap((child) =>
-    ((Array.isArray(child) ? child : [child]) as Array<Instance>).flatMap(walk),
+    (
+      (Array.isArray(child) ? child : [child]) as Array<Snapshot.Instance>
+    ).flatMap(walk),
   ),
 ];
 
-const find = (app: Running<unknown>, actor: string) =>
+const find = (app: Runtime.Running<unknown>, actor: string) =>
   walk(app.snapshot()).find((one) => one.actor === actor)!;
 
 const settle = Effect.gen(function* () {
@@ -148,7 +150,7 @@ const inspect = (travel: boolean) =>
         input: { travel, look: { presenting: false, place: 'bottom' } },
       }),
       layer,
-    )) as unknown as Running<unknown>;
+    )) as unknown as Runtime.Running<unknown>;
     yield* Queue.offer(nows, nowOf(1));
     yield* settle;
     const send = (actor: string, message: unknown) =>

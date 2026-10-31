@@ -10,7 +10,8 @@ import {
 } from 'effect';
 import type { Scope } from 'effect';
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { Actor, Runtime, Stopped, restore } from '../index.ts';
+import { restore } from '../snapshot/index.ts';
+import { Actor, Runtime } from '../index.ts';
 import { run as runNever, settle } from './fixtures.ts';
 
 /** The core's `run`, for a test whose Effect may fail: a failure fails the test. */
@@ -97,7 +98,7 @@ describe('a Query', () => {
         expect(yield* socket.queries.url()).toBe('wss://a');
 
         expectTypeOf(socket.queries.url).returns.toEqualTypeOf<
-          Effect.Effect<string, Stopped>
+          Effect.Effect<string, Runtime.Stopped>
         >();
         expectTypeOf(socket.queries.sentOver)
           .parameter(0)
@@ -130,10 +131,10 @@ describe('a Query', () => {
         expect(yield* open.queries.peers()).toEqual(['b', 'c']);
         expect(yield* open.queries.openFor()).toBeGreaterThanOrEqual(0);
         expectTypeOf(open.queries.openFor).returns.toEqualTypeOf<
-          Effect.Effect<number, Closed | Stopped>
+          Effect.Effect<number, Closed | Runtime.Stopped>
         >();
         expectTypeOf(open.queries.peers).returns.toEqualTypeOf<
-          Effect.Effect<ReadonlyArray<string>, Stopped>
+          Effect.Effect<ReadonlyArray<string>, Runtime.Stopped>
         >();
       }),
     ));
@@ -150,7 +151,7 @@ describe('a Query', () => {
         socket.send({ _tag: 'Dropped' });
         expect(open.stopped).toBe(false);
         const refused = yield* Effect.flip(peers());
-        expect(refused).toBeInstanceOf(Stopped);
+        expect(refused).toBeInstanceOf(Runtime.Stopped);
         expect(refused).toMatchObject({ instance: 'Socket', query: 'peers' });
         // Open again: the same Instance answers once more.
         socket.send({ _tag: 'Opened' });
@@ -261,7 +262,7 @@ describe('a Query', () => {
           const { hold, running, fiber } = yield* asking;
           yield* running.stop();
           yield* Deferred.succeed(hold, 'late');
-          expect(yield* Fiber.join(fiber)).toBeInstanceOf(Stopped);
+          expect(yield* Fiber.join(fiber)).toBeInstanceOf(Runtime.Stopped);
         }),
       ));
 
@@ -273,7 +274,7 @@ describe('a Query', () => {
           yield* settle;
           expect(running.snapshot().children).toEqual({});
           yield* Deferred.succeed(hold, 'late');
-          expect(yield* Fiber.join(fiber)).toBeInstanceOf(Stopped);
+          expect(yield* Fiber.join(fiber)).toBeInstanceOf(Runtime.Stopped);
         }),
       ));
   });

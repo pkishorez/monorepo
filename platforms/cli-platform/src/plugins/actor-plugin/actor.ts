@@ -1,6 +1,6 @@
 import { dirname, join } from 'node:path';
 import { Duration, Effect, Queue, Schema, Stream } from 'effect';
-import { Actor, type Self } from '@kestack/kabuki';
+import { Actor } from '@kestack/kabuki';
 import {
   type CacheError,
   type DownloadFailed,
@@ -125,7 +125,7 @@ const Message = Schema.TaggedUnion({
 });
 type Message = typeof Message.Type;
 
-type PluginSelf = Self<Model, State, Message, typeof Props.Type>;
+type PluginSelf = Actor.Self<Model, State, Message, typeof Props.Type>;
 
 /** The key of what is wanted: the hash, or the local file. */
 const keyOf = (wanted: Wanted) =>

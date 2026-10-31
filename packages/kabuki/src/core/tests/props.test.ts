@@ -2,16 +2,9 @@ import { Effect, Schema } from 'effect';
 import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  Actor,
-  History,
-  Replay,
-  Runtime,
-  init,
-  instanceAt,
-  outcomeOf,
-} from '../index.ts';
-import type { Instance, Running, SavedHistory } from '../index.ts';
+import { Replay, outcomeOf } from '../history/index.ts';
+import { init } from '../snapshot/index.ts';
+import { Actor, History, Runtime, Snapshot } from '../index.ts';
 
 // A list whose rows are handed whether they are selected --------------------------
 
@@ -90,8 +83,8 @@ const List = Actor.build(
 
 const row = (key: string) => `List/rows[${key}]#1`;
 
-const at = (app: Running<unknown>, id: string): Instance => {
-  const instance = instanceAt(app.snapshot(), id);
+const at = (app: Runtime.Running<unknown>, id: string): Snapshot.Instance => {
+  const instance = Snapshot.instanceAt(app.snapshot(), id);
   expect(instance, id).toBeDefined();
   return instance!;
 };
@@ -251,7 +244,7 @@ describe('the History', () => {
         live.send(row('b'), { _tag: 'Edited' });
         live.send('List', { _tag: 'Selected', id: 'b' });
         live.send(row('zzz'), { _tag: 'Edited' });
-        const outcomes = (app: Running<unknown>) =>
+        const outcomes = (app: Runtime.Running<unknown>) =>
           app.history.branch().map((entry) => app.history.outcome(entry.id));
         expect(outcomes(live)).toEqual([
           'handled',
@@ -268,7 +261,7 @@ describe('the History', () => {
 
   it('Replay warns of a Message that no longer fits, once, and skips it', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const entries: SavedHistory['entries'] = [
+    const entries: History.Saved['entries'] = [
       {
         id: 0,
         parent: null,
@@ -288,7 +281,9 @@ describe('the History', () => {
     ];
     const snapshot = Replay.fold(List.definition, entries);
     Replay.fold(List.definition, entries);
-    expect(instanceAt(snapshot, row('a'))!.model).toMatchObject({ edits: 1 });
+    expect(Snapshot.instanceAt(snapshot, row('a'))!.model).toMatchObject({
+      edits: 1,
+    });
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn.mock.calls[0]![0]).toContain('diverged at entry 0');
     // What came of it, worked out again, agrees with Replay: it changed nothing.

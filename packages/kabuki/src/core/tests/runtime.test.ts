@@ -1,8 +1,8 @@
 import { Effect, Schema, Stream } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, it } from 'vitest';
-import { Actor, History, Replay, Runtime, instanceAt } from '../index.ts';
-import type { Running } from '../index.ts';
+import { Replay } from '../history/index.ts';
+import { Actor, History, Runtime, Snapshot } from '../index.ts';
 import {
   Auth,
   settle,
@@ -72,7 +72,7 @@ describe('the mailbox', () => {
 });
 
 describe('the History as a tree', () => {
-  const tags = (app: Running<unknown>) =>
+  const tags = (app: Runtime.Running<unknown>) =>
     app.history.branch().map((e) => e.message._tag);
 
   it('grows the Branch with each Message, after the Head', () =>
@@ -233,16 +233,20 @@ describe('Replay', () => {
         const step = (n: number) =>
           replay.seek(app.history.branch().slice(0, n));
         expect((yield* step(0)).state._tag).toBe('Checking');
-        expect(instanceAt(yield* step(2), 'Auth/login#1')?.model).toMatchObject(
-          { name: 'ada' },
-        );
+        expect(
+          Snapshot.instanceAt(yield* step(2), 'Auth/login#1')?.model,
+        ).toMatchObject({ name: 'ada' });
         expect((yield* step(4)).state._tag).toBe('Authenticated');
-        expect(instanceAt(yield* step(5), 'Auth/todos#1')?.model).toEqual({
+        expect(
+          Snapshot.instanceAt(yield* step(5), 'Auth/todos#1')?.model,
+        ).toEqual({
           items: ['one'],
         });
         expect((yield* step(7)).state._tag).toBe('Anonymous');
         // Back again, from a saved Snapshot.
-        expect(instanceAt(yield* step(4), 'Auth/todos#1')?.model).toEqual({
+        expect(
+          Snapshot.instanceAt(yield* step(4), 'Auth/todos#1')?.model,
+        ).toEqual({
           items: [],
         });
         expect(yield* step(7)).toEqual(app.snapshot());

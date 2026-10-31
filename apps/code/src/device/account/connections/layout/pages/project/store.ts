@@ -18,7 +18,8 @@ import {
   Connections,
 } from '../../../connections.ts';
 import { reasonOf } from '../../../connection/link/index.ts';
-import { Command, type Self } from '@kestack/kabuki';
+import { Command } from '@kestack/kabuki';
+import type { Actor } from '@kestack/kabuki';
 import { refreshSetup } from '../../../connection/index.ts';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { arrival } from '../../../connection/records/index.ts';
@@ -374,7 +375,7 @@ const keep = <M extends Holds>(
 
 /** The catalog kept for the Connection and project `where` reads from Props. */
 export const keeping = <P>(where: (props: P) => Where) => {
-  type Keeping = Self<Holds, unknown, Message, P>;
+  type Keeping = Actor.Self<Holds, unknown, Message, P>;
   return {
     /** The catalog as it shares it, and how it is read again. */
     shares: (self: Keeping) => ({

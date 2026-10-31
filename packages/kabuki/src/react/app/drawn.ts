@@ -1,5 +1,6 @@
-import { instanceAt, isMany } from '../../core/index.ts';
-import type { AnyActor, Instance, Snapshot, Tagged } from '../../core/index.ts';
+import { instanceAt, isMany } from '../../core/snapshot/index.ts';
+import type { Instance, Snapshot } from '../../core/snapshot/index.ts';
+import type { AnyActor, Tagged } from '../../core/actor/index.ts';
 import type { Drawable, DrawnApp, Handle } from '../view/index.ts';
 
 /*

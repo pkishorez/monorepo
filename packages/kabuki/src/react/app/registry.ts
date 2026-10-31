@@ -1,4 +1,4 @@
-import type { History } from '../../core/index.ts';
+import type { History } from '../../core/history/index.ts';
 
 /*
  * Where an app's History outlives its module: a registry on `globalThis`,

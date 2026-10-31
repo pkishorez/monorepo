@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { Actor } from '../../core/index.ts';
+import { Actor } from '../../core/actor/index.ts';
 import type {
   ActorType,
   AnyActor,
@@ -12,7 +12,7 @@ import type {
   Requires,
   Tagged,
   Types,
-} from '../../core/index.ts';
+} from '../../core/actor/index.ts';
 import { Navigation } from '../capabilities/index.ts';
 import { levelSchema, paramsKey, pick } from '../route/index.ts';
 import type {

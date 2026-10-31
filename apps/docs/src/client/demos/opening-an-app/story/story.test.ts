@@ -1,8 +1,7 @@
 import { Effect } from 'effect';
 import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
-import { History, Runtime, instanceAt } from '@kestack/kabuki';
-import type { Running } from '@kestack/kabuki';
+import { History, Runtime, Snapshot } from '@kestack/kabuki';
 import { describe, expect, it } from 'vitest';
 import { AppLive, DURATION } from './index.ts';
 
@@ -11,14 +10,14 @@ const timed = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
     Effect.scoped(effect).pipe(Effect.provide(TestClock.layer())),
   );
 
-const at = (app: Running<unknown>, id: string) =>
-  instanceAt(app.snapshot(), id);
+const at = (app: Runtime.Running<unknown>, id: string) =>
+  Snapshot.instanceAt(app.snapshot(), id);
 
-const workers = (app: Running<unknown>, id: string) =>
+const workers = (app: Runtime.Running<unknown>, id: string) =>
   app.workers(id).map((worker) => worker.name);
 
 /** Every Message's tag, in order. */
-const tags = (app: Running<unknown>) =>
+const tags = (app: Runtime.Running<unknown>) =>
   app.history.branch().map((entry) => entry.message._tag);
 
 const signedIn = Effect.gen(function* () {

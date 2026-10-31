@@ -1,6 +1,5 @@
 import type { Collection } from '@tanstack/db';
 import { Actor } from '@kestack/kabuki';
-import type { ActorType } from '@kestack/kabuki';
 import { Clock, Context, Duration, Effect, Semaphore, Stream } from 'effect';
 import type { Entity } from '../../../core/index.js';
 import type { AnyEntityESchema } from '../../../eschema/index.js';
@@ -132,7 +131,7 @@ export interface Build<D extends AnyShape = AnyShape, R = any> {
   readonly shape: D;
   /** In milliseconds; `Infinity` never stops. */
   readonly gcTime: number;
-  readonly actor: ActorType<
+  readonly actor: Actor.Actor<
     D['name'],
     typeof Input.Type,
     void,
