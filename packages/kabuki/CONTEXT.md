@@ -11,11 +11,11 @@ One piece of the app: its Model and States, the Input and Props it takes, the Me
 _Avoid_: Node, component, machine
 
 **Definition**:
-What an Actor is: its name, its Schemas and its Requires, which fix every type. It runs nothing and imports only other Definitions, so anything may import it. Named after the Actor: `Counter`.
+What an Actor is: its name, its Schemas, what it Emits and its Requires, which fix every type. Each Schema is written whole, or as what it is made of: a struct as its fields, a tagged union as its cases by tag. It runs nothing and imports only other Definitions, so anything may import it. Named after the Actor: `Counter`.
 _Avoid_: spec, schema (on its own), type
 
 **Build**:
-How a defined Actor behaves: its init, its Updates, its Children, Workers and Provides, written at the top, for as long as the Instance lives, or in a State, for as long as that State lasts. It is what runs, what a parent Invokes and what a View draws. Named after the Actor with `Live`: `CounterLive`, beside its Definition.
+How a defined Actor behaves: its init, its Updates, its Children, Workers and Provides, written at the top, for as long as the Instance lives, or under `states`, in a State's block, for as long as that State lasts. It is what runs, what a parent Invokes and what a View draws. Named after the Actor with `Live`: `CounterLive`, beside its Definition.
 _Avoid_: implementation, instance (an Instance is a running Build)
 
 **Instance**:
@@ -27,7 +27,7 @@ Who an Instance is, made from its parent's ID, the Child's name, its key if it h
 _Avoid_: path, address, number
 
 **Child**:
-An Actor its parent Invokes, written as a Worker is: by name, with a Condition. Written at the top, a Child exists for as long as its parent and lasts through every Transition; written in a State's block, for as long as that State lasts. Within that it exists always, `while` a test on the parent's data holds, or once per key `each` names. A Child that may be absent is typed so in its parent's View. The State and the Model decide which Children exist, never the View. A parent controls a Child only by whether it exists and by its Props, and never Sends to it: what a parent must control, it owns.
+An Actor its parent Invokes, made with `child` in a level's `children`, by name, with a Condition, as a Worker is written: `child(RowLive, { each, input, props, emits })`. `child` is typed for its level, so every function in it is checked against the parent's data and the Child's Actor. Written at the top, a Child exists for as long as its parent and lasts through every Transition; written in a State's block, for as long as that State lasts. Within that it exists always, `while` a test on the parent's data holds, or once per key `each` names. A Child that may be absent is typed so in its parent's View. The State and the Model decide which Children exist, never the View. A parent controls a Child only by whether it exists and by its Props, and never Sends to it; it hears from it only what it Emits. What a parent must control, it owns.
 _Avoid_: slot, dependency, subcomponent
 
 **Input**:
@@ -45,7 +45,7 @@ _Avoid_: store, app state, actor system
 ### Data and change
 
 **Model**:
-The data an Actor keeps in every State. Always serializable, described with Schema. Every new Model, from init or an Update, is checked against its Schema, as is every State and Input; one that does not match changes nothing.
+The data an Actor keeps in every State. Always a struct and serializable, described with Schema. An Update gives only the fields that change. Every new Model, from init or an Update, is checked against its Schema, as is every State and Input; one that does not match changes nothing.
 _Avoid_: shared, store, context, props
 
 **Props**:
@@ -73,7 +73,7 @@ A Message with the Instance it is sent to, its Source and its Time: what a Send 
 _Avoid_: event, packet
 
 **Source**:
-Who Sent a Message: the Instance, and what in it Sent: its View, a Command by its name, a Worker by its name and key, or what it Provides. The same Instance the Message goes to, except for a Request, which comes from the Instance whose Command or Worker made it. A Message Sent from outside the tree, by a test, a tool or the server the app runs on, comes from outside, not from an Instance, named by whoever Sent it; a Restore no one Sent: it was given to the app. Kept with the Envelope to show who talked to whom; Replay never reads it.
+Who Sent a Message: the Instance, and what in it Sent: its View, a Command by its name, a Worker by its name and key, or what it Provides. The same Instance the Message goes to, except for a Request, which comes from the Instance whose Command or Worker made it, and an Emit, which comes from the Child that Emitted it, named by the tag of what it Emitted. A Message Sent from outside the tree, by a test, a tool or the server the app runs on, comes from outside, not from an Instance, named by whoever Sent it; a Restore no one Sent: it was given to the app. Kept with the Envelope to show who talked to whom; Replay never reads it.
 _Avoid_: sender, origin, caller
 
 **Time**:
@@ -81,8 +81,12 @@ When a Message arrived, in milliseconds: from 0 at init, carried on from the Hea
 _Avoid_: timestamp, now, clock (on its own), date
 
 **Update**:
-The pure rule that takes the current Model, State and Props, a Message and its Time and returns the next Model and State, and the Commands it asks for. It never sees Capabilities, so Replay can run it with nothing else. Written under `on`, at the top or in a State's block; the State's rule wins over the top one, and a Message with no rule in either is ignored. A Message with no rule anywhere, at the top or in any State, is always ignored, and making its Actor warns of it. The only thing that changes the Model, so whatever is running is readable from it.
+The pure rule that takes the current Model, State and Props, a Message and its Time and returns the fields of the Model that change, the next State, the Commands it asks for and what it Emits. It never sees Capabilities, so Replay can run it with nothing else. Written under `on`, at the top or in a State's block; the State's rule wins over the top one, and a Message with no rule in either is ignored. A Message with no rule anywhere, at the top or in any State, is always ignored, and making its Actor warns of it. The only thing that changes the Model, so whatever is running is readable from it.
 _Avoid_: reducer, handler
+
+**Emit**:
+What a Child tells its parent: a tagged value its Update returns under `emit`, checked against the `emits` its Definition names. The parent's slot for the Child turns each one into one of the parent's own Messages, given the Child's key, and the Runtime Sends it to the parent right after; it is in the History as its own entry, its Source the Child. One the slot does not turn is not heard, so a Child fits any parent. Between a parent and its own Child; what any Actor further down may need is a Capability.
+_Avoid_: output, event, callback
 
 **History**:
 Everything that happened to an app: a tree of entries, one per Message, each pointing to the entry before it and holding its Envelope, nothing else, and the Head the next one grows from. What came of a Message is worked out from the Snapshots before and after it. Replay needs only the Messages on the way to an entry. Saved and given back, it is where an app carries on from, on a server, at build time, after a reload, or after its code changed. Saved, every value in it is its Schema's encoded side, so that side must be JSON-safe. Keeps as much as its Window says.
