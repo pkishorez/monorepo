@@ -9,7 +9,7 @@ import { Actor, History, Replay, Runtime } from '../../core/index.ts';
 import type { SavedHistory } from '../../core/index.ts';
 import { View, toReact } from '../index.ts';
 import type { AppRuntime } from '../index.ts';
-import { registry } from '../registry.ts';
+import { registry } from '../app/index.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 

@@ -1,9 +1,11 @@
-export { toReact } from './app.tsx';
-export { View } from './view.tsx';
-export { useChild, useChildren } from './child.ts';
-export { useLive } from './live.ts';
-export type { Handle, Root, ViewOf, ViewProps } from './view.tsx';
-export type { ChildData } from './child.ts';
-export type { AppRuntime, Attachment } from './app.tsx';
-export { lazyOf } from './lazy.tsx';
-export type { LazyView } from './lazy.tsx';
+export { toReact } from './app/index.ts';
+export type { AppRuntime, Attachment } from './app/index.ts';
+export { View, useChild, useChildren, useLive, lazyOf } from './view/index.ts';
+export type {
+  ChildData,
+  Handle,
+  LazyView,
+  Root,
+  ViewOf,
+  ViewProps,
+} from './view/index.ts';

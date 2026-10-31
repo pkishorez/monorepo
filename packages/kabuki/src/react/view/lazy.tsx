@@ -1,5 +1,5 @@
 import { createContext, lazy as reactLazy, use } from 'react';
-import type { AnyActor } from '../core/index.ts';
+import type { AnyActor } from '../../core/index.ts';
 import type { ViewOf } from './view.tsx';
 
 /*

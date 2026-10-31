@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Actor } from '../../core/index.ts';
 import { View, toReact, useChild, useChildren } from '../index.ts';
 import type { Handle, ViewProps } from '../index.ts';
-import { registry } from '../registry.ts';
+import { registry } from '../app/index.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
