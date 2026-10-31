@@ -1,11 +1,14 @@
 import type { ActorDefinition } from '@kestack/kabuki/core/actor';
+import { schemaShape } from './schema.ts';
+import type { Shape } from './schema.ts';
 
 /*
  * The Blueprint: what an Actor is, read from its definition alone, so it is
  * the same every time and needs nothing running. Everything here is what
- * `Actor.build` keeps: its States, the Capabilities it requires, whether a
+ * `build` keeps: its States, the Capabilities it requires, whether a
  * level provides any, the Messages each level has a rule for, its Workers
- * and when they run, and its Children and when they exist. What it cannot
+ * and when they run, its Children and when they exist, and the Queries it
+ * answers, each with what it is asked with and answers. What it cannot
  * say: what a `provides` gives, what a Condition tests, a Model's fields.
  * Those are functions or Schemas `build` does not keep.
  */
@@ -26,13 +29,20 @@ export interface SlotPrint {
   readonly keyed: boolean;
 }
 
+/** One Query a level answers: what it is asked with, if anything, and what it answers. */
+export interface QueryPrint {
+  readonly name: string;
+  readonly args?: Shape;
+  readonly result: Shape;
+}
+
 /** One level: the top, for as long as the Instance lives, or one State's block. */
 export interface Level {
   /** The Messages it has a rule for. */
   readonly on: ReadonlyArray<string>;
   readonly workers: ReadonlyArray<WorkerPrint>;
   readonly children: ReadonlyArray<SlotPrint>;
-  readonly queries: ReadonlyArray<string>;
+  readonly queries: ReadonlyArray<QueryPrint>;
   /** Whether it provides Capabilities to everything below it. */
   readonly provides: boolean;
 }
@@ -66,10 +76,18 @@ export const blueprintOf = (definition: ActorDefinition): Blueprint => {
     Object.entries(definition.workers)
       .filter(([, worker]) => worker.state === state)
       .map(([name, worker]) => ({ name, condition: conditionOf(worker.kind) }));
-  const queriesIn = (state: string | undefined) =>
+  const queriesIn = (state: string | undefined): ReadonlyArray<QueryPrint> =>
     Object.entries(definition.queries)
       .filter(([, query]) => query.state === state)
-      .map(([name]) => name);
+      .map(([name]) => {
+        const schemas = definition.schemas.queries?.[name];
+        const args = schemaShape(schemas?.args);
+        return {
+          name,
+          ...(args ? { args } : {}),
+          result: schemaShape(schemas?.result) ?? { kind: 'leaf', text: '?' },
+        };
+      });
   const slotsIn = (state: string, names: (name: string) => boolean) =>
     Object.entries(definition.children[state] ?? {})
       .filter(([name]) => names(name))

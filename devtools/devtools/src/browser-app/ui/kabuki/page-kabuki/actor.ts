@@ -3,6 +3,7 @@ import { Page, Router } from '@kestack/kabuki/routing';
 import { KabukiSessionSummary } from '@kestack/devtools-kabuki/server';
 import { Sessions } from '../sessions/index.js';
 import { RemoteInspectorLive } from './actor-inspector/index.js';
+import { Actor } from '@kestack/kabuki';
 
 /*
  * `/kabuki`: every Kabuki Session connected to this DevTools, live, and
@@ -75,7 +76,7 @@ const placed = (
     : { _tag: 'Away', name };
 };
 
-export const KabukiLive = Page.build(Kabuki, {
+export const KabukiLive = Kabuki.build({
   init: () => ({
     model: { sessions: null, link: 'connecting' },
     state: { _tag: 'None' },
@@ -135,14 +136,14 @@ export const KabukiLive = Page.build(Kabuki, {
   },
   states: {
     Open: {
-      children: (child) => ({
-        inspector: child(RemoteInspectorLive, {
+      children: {
+        inspector: Actor.child(RemoteInspectorLive, {
           // Connected again under the same name, it is reached anew.
           key: ({ model, state }) =>
             `${state.name}@${model.sessions?.find((one) => one.name === state.name)?.connectedAt ?? 0}`,
           input: ({ state }) => ({ name: state.name }),
         }),
-      }),
+      },
     },
   },
 });

@@ -9,6 +9,6 @@ export const App = Page.define({
   pages: { Home, Kabuki },
 });
 
-export const AppLive = Page.build(App, {
+export const AppLive = App.build({
   pages: { Home: HomeLive, Kabuki: KabukiLive },
 });

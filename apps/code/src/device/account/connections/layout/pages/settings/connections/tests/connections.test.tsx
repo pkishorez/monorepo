@@ -43,11 +43,11 @@ const Owner = Actor.define('Owner', {
   message: Schema.TaggedUnion({ Ping: {} }),
 });
 
-const OwnerLive = Actor.build(Owner, {
+const OwnerLive = Owner.build({
   init: () => ({ model: { pings: 0 } }),
-  children: (child) => ({
-    page: child(ConnectionSettingsLive),
-  }),
+  children: {
+    page: Actor.child(ConnectionSettingsLive),
+  },
   on: { Ping: (_, { model }) => ({ model: { pings: model.pings + 1 } }) },
 });
 

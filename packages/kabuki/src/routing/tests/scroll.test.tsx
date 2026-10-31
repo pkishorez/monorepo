@@ -106,7 +106,7 @@ const App = Page.define({ pages: { Folder, Settings, Slow } });
 /** The Routes the pages link to; each test draws a router of its own, with its scroll options. */
 const Routes = Router.define(App);
 
-const MessageLive = Page.build(Message);
+const MessageLive = Message.build();
 /** What each message read of its pane's kept position, in each render, in order. */
 let readKept: Array<string> = [];
 const MessageView = View.make(MessageLive, ({ props }) => {
@@ -124,7 +124,7 @@ const Pane = ({ id }: { readonly id: string }) => (
   </article>
 );
 
-const FolderLive = Page.build(Folder, { pages: { Message: MessageLive } });
+const FolderLive = Folder.build({ pages: { Message: MessageLive } });
 const FolderView = View.make(FolderLive, (self) => (
   <section>
     <ul id="list" data-scroll-restoration-id="list">
@@ -138,14 +138,14 @@ const FolderView = View.make(FolderLive, (self) => (
   </section>
 ));
 
-const SlowLive = Page.build(Slow);
+const SlowLive = Slow.build();
 const SlowView = View.make(SlowLive, ({ props }) => (
   <p>{props.status._tag === 'Ready' ? props.status.data.text : 'loading'}</p>
 ));
 /** Holds the slow page's Loader until it is let go. */
 let letGo: () => void = () => {};
 
-const SettingsLive = Page.build(Settings, {
+const SettingsLive = Settings.build({
   on: {
     Tabbed: ({ keep }) => ({
       command: Router.replace(
@@ -176,7 +176,7 @@ const SettingsView = View.make(SettingsLive, ({ send }) => (
   </div>
 ));
 
-const AppLive = Page.build(App, {
+const AppLive = App.build({
   pages: { Folder: FolderLive, Settings: SettingsLive, Slow: SlowLive },
 });
 const AppView = View.make(AppLive, (self) => (

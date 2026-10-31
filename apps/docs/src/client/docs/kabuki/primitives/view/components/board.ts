@@ -7,7 +7,7 @@ export const Card = Actor.define('Card', {
   message: Schema.TaggedUnion({ Liked: {} }),
 });
 
-export const CardLive = Actor.build(Card, {
+export const CardLive = Card.build({
   init: ({ name }) => ({ model: { name, likes: 0 } }),
   on: {
     Liked: (_, { model }) => ({ model: { ...model, likes: model.likes + 1 } }),
@@ -16,12 +16,12 @@ export const CardLive = Actor.build(Card, {
 
 export const Board = Actor.define('Board', {});
 
-export const BoardLive = Actor.build(Board, {
-  children: (child) => ({
+export const BoardLive = Board.build({
+  children: {
     // One Card per name, each its own Instance.
-    cards: child(CardLive, {
+    cards: Actor.child(CardLive, {
       each: () => ['Coffee', 'Tea', 'Cocoa'],
       input: (_, name) => ({ name }),
     }),
-  }),
+  },
 });

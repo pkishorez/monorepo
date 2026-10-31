@@ -132,7 +132,7 @@ const readAll = (model: Model) =>
   (model.savedRead || model.connections !== null) &&
   keysOf(model).every((key) => setupOf(model, key) !== undefined);
 
-export const ConnectionSettingsLive = Actor.build(ConnectionSettings, {
+export const ConnectionSettingsLive = ConnectionSettings.build({
   init: () => ({
     model: {
       heard: false,
@@ -146,8 +146,8 @@ export const ConnectionSettingsLive = Actor.build(ConnectionSettings, {
       asking: null,
     },
   }),
-  children: (child) => ({
-    cards: child(ConnectionCard.actor, {
+  children: {
+    cards: Actor.child(ConnectionCard.actor, {
       each: ({ model }) => readKeysOf(model),
       input: (_, key) => ({ connectionId: whoseOf(key).connectionId }),
       props: ({ model }, key) => {
@@ -162,7 +162,7 @@ export const ConnectionSettingsLive = Actor.build(ConnectionSettings, {
         };
       },
     }),
-  }),
+  },
   // 2. Ask
   provides: (self) =>
     Layer.succeed(ConnectionCards, {

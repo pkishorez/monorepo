@@ -23,7 +23,7 @@ export const Kabuki = Page.define({
   pages: { Doc, Demo, TodosDemo, StageDemo, SnakeRecord },
 });
 
-export const KabukiLive = Page.build(Kabuki, {
+export const KabukiLive = Kabuki.build({
   pages: {
     Doc: DocLive,
     Demo: DemoLive,

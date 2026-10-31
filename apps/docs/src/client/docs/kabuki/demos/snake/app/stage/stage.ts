@@ -36,7 +36,7 @@ const start = (best: number) => ({
   state: { _tag: 'Playing' } as const,
 });
 
-export const StageLive = Actor.build(Stage, {
+export const StageLive = Stage.build({
   init: () => ({
     model: { lives: LIVES, score: 0, best: 0 },
     state: { _tag: 'Ready' },
@@ -58,11 +58,11 @@ export const StageLive = Actor.build(Stage, {
   states: {
     Ready: { on: { Start: (_, { model }) => start(model.best) } },
     Playing: {
-      children: (child) => ({
-        game: child(GameLive, {
+      children: {
+        game: Actor.child(GameLive, {
           props: ({ model }) => ({ lives: model.lives }),
         }),
-      }),
+      },
       provides: (self) =>
         Layer.succeed(Referee, {
           scored: self.send({ _tag: 'Scored' }),

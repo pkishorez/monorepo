@@ -95,28 +95,25 @@ const route = (self: PluginsSelf) =>
     );
   });
 
-export const ActorPlugins = Actor.build(
-  Actor.define('Plugins', {
-    requires: [Connection],
-    input: Input,
-    props: Props,
-    model: Input,
-  }),
-  {
-    init: (input: Input) => ({ model: input }),
-    children: (child) => ({
-      plugins: child(ActorPlugin, {
-        each: ({ props }) => Object.keys(props.wanted),
-        input: ({ model }, name) => ({
-          name,
-          folders: pluginFolders(model.folders, name),
-          socket: socketOf(model, name),
-        }),
-        props: ({ props }, name) => ({ wanted: props.wanted[name]! }),
+export const ActorPlugins = Actor.define('Plugins', {
+  requires: [Connection],
+  input: Input,
+  props: Props,
+  model: Input,
+}).build({
+  init: (input: Input) => ({ model: input }),
+  children: {
+    plugins: Actor.child(ActorPlugin, {
+      each: ({ props }) => Object.keys(props.wanted),
+      input: ({ model }, name) => ({
+        name,
+        folders: pluginFolders(model.folders, name),
+        socket: socketOf(model, name),
       }),
+      props: ({ props }, name) => ({ wanted: props.wanted[name]! }),
     }),
-    workers: {
-      router: { run: route },
-    },
   },
-);
+  workers: {
+    router: { run: route },
+  },
+});

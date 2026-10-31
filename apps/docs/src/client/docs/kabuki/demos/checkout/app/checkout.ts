@@ -46,7 +46,7 @@ const start = {
   model: { format: 'Paperback', address: '', card: '', promo: null },
 } as const;
 
-export const CheckoutLive = Actor.build(Checkout, {
+export const CheckoutLive = Checkout.build({
   init: () => start,
   states: {
     // Each step takes only the Messages that make sense on it.

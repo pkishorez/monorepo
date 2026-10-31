@@ -37,7 +37,7 @@ export const Todo = Actor.define('Todo', {
   message: Schema.TaggedUnion({ Toggled: {} }),
 });
 
-export const TodoLive = Actor.build(Todo, {
+export const TodoLive = Todo.build({
   init: ({ text }) => ({ state: { _tag: 'Active' }, model: { text } }),
   states: {
     Active: { on: { Toggled: () => ({ state: { _tag: 'Done' } }) } },
@@ -67,18 +67,18 @@ const added = (model: { ids: ReadonlyArray<string>; count: number }) => ({
   count: model.count + 1,
 });
 
-export const TodosLive = Actor.build(Todos, {
+export const TodosLive = Todos.build({
   init: () => ({
     state: { _tag: 'Active' },
     model: { ids: [], count: 0, auto: true },
   }),
-  children: (child) => ({
-    todos: child(TodoLive, {
+  children: {
+    todos: Actor.child(TodoLive, {
       each: ({ model }) => model.ids,
       input: (_, id) => ({ text: TEXTS[Number(id) % TEXTS.length]! }),
       props: ({ state }) => ({ filter: state._tag }),
     }),
-  }),
+  },
   workers: {
     // Adds the next to-do a moment later, until the visitor takes over.
     demo: {

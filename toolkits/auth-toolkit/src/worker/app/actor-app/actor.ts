@@ -140,7 +140,7 @@ const switched = (model: Model): Model =>
       )
     : model;
 
-export const AppLive = Page.build(App, {
+export const AppLive = App.build({
   pages: {
     Home: HomeLive,
     Login: LoginLive,

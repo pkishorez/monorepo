@@ -1,5 +1,5 @@
 import type { Effect } from 'effect';
-import type { BlockOf, KidsOf } from './behavior.ts';
+import type { BlockOf, Declared, KidsOf } from './behavior.ts';
 import type { Types } from './definition.ts';
 import type { Tagged } from './instance.ts';
 
@@ -49,21 +49,32 @@ export type ChildAs<C, N> = C extends { readonly each: Function }
     ? N | undefined
     : N;
 
-/** The Queries of a level, as written. */
+/** The Queries of a level, as written: their answers by name. */
 export type QueriesOf<L> = L extends { readonly queries: infer Q } ? Q : {};
 
-/** A Query as an Actor's type keeps it: its args, answer and failure, not what its `self` reads. */
-export type AskOf<Q> = Q extends {
-  readonly run: (...params: infer P) => Effect.Effect<infer A, infer E, any>;
-}
-  ? { readonly run: (self: never, ...args: ArgsOf<P>) => Effect.Effect<A, E> }
+/**
+ * A Query as an Actor's type keeps it: what it is asked with and answers,
+ * as `define` declares, and how it fails, as its answer does; not what its
+ * `self` reads.
+ */
+export type AskOf<F, Q> = F extends (
+  ...params: any
+) => Effect.Effect<any, infer E, any>
+  ? Q extends Declared
+    ? {
+        readonly args: Q['args'];
+        readonly result: Q['result'];
+        readonly error: E;
+      }
+    : never
   : never;
 
 /** The Queries per State tag, top-level ones in every State, for code outside the tree. */
-export type QueriesByState<State extends Tagged, B> = {
+export type QueriesByState<State extends Tagged, B, Qs> = {
   readonly [T in State['_tag']]: {
     readonly [K in keyof (QueriesOf<B> & QueriesOf<BlockOf<B, T>>)]: AskOf<
-      (QueriesOf<B> & QueriesOf<BlockOf<B, T>>)[K]
+      (QueriesOf<B> & QueriesOf<BlockOf<B, T>>)[K],
+      K extends keyof Qs ? Qs[K] : never
     >;
   };
 };
@@ -74,16 +85,17 @@ export type QueriesIn<A, T> = T extends keyof Types<A>['queries']
   : {};
 
 /**
- * A Query as code outside the tree asks it: its args, if its `run` takes
- * any, to an Effect with its answer, failing with its own failure or
- * `Stopped`, and needing nothing, since the Instance supplies its
- * Capabilities. `S` is the Runtime's `Stopped`.
+ * A Query as code outside the tree asks it: its args, if it declares any,
+ * to an Effect with its answer, failing with its own failure or `Stopped`,
+ * and needing nothing, since the Instance supplies its Capabilities. `S` is
+ * the Runtime's `Stopped`.
  */
 export type QueryAs<Q, S> = Q extends {
-  readonly run: (...params: infer P) => Effect.Effect<infer A, infer E, any>;
+  readonly args: infer X;
+  readonly result: infer Y;
+  readonly error: infer E;
 }
-  ? (...args: ArgsOf<P>) => Effect.Effect<A, E | S>
+  ? [X] extends [void]
+    ? () => Effect.Effect<Y, E | S>
+    : (args: X) => Effect.Effect<Y, E | S>
   : never;
-
-/** A Query's `run` parameters without `self`, optional ones kept so. */
-export type ArgsOf<P> = P extends [any, ...infer Args] ? Args : [];

@@ -29,7 +29,7 @@ const Project = Page.define({
   params: { id: Schema.FiniteFromString },
   metadata: ({ id }) => ({ title: `Project ${id}` }),
 });
-const ProjectLive = Page.build(Project);
+const ProjectLive = Project.build();
 const ProjectView = View.make(ProjectLive, ({ props }) => (
   <main>
     project {props.params.id}
@@ -43,7 +43,7 @@ const Projects = Page.define({
   metadata: { title: 'Projects' },
   pages: { Project },
 });
-const ProjectsLive = Page.build(Projects, { pages: { Project: ProjectLive } });
+const ProjectsLive = Projects.build({ pages: { Project: ProjectLive } });
 const ProjectsView = View.make(ProjectsLive, (self) =>
   self.children.Project ? (
     <ProjectView instance={self.children.Project} />
@@ -53,7 +53,7 @@ const ProjectsView = View.make(ProjectsLive, (self) =>
 );
 
 const Home = Page.define({ path: '/', metadata: { title: 'Home' } });
-const HomeLive = Page.build(Home);
+const HomeLive = Home.build();
 const HomeView = View.make(HomeLive, () => (
   <main>
     home
@@ -71,7 +71,7 @@ const HomeView = View.make(HomeLive, () => (
 ));
 
 const App = Page.define({ pages: { Home, Projects } });
-const AppLive = Page.build(App, {
+const AppLive = App.build({
   pages: { Home: HomeLive, Projects: ProjectsLive },
 });
 const AppView = View.make(AppLive, (self) => (
@@ -305,7 +305,7 @@ describe('a page with data', () => {
       ...(item ? { openGraph: { title: item.name } } : {}),
     }),
   });
-  const ItemLive = Page.build(Item);
+  const ItemLive = Item.build();
   const ItemView = View.make(ItemLive, ({ props }) => {
     switch (props.status._tag) {
       case 'Loading':
@@ -330,7 +330,7 @@ describe('a page with data', () => {
     path: '/',
     metadata: { title: 'Shop', description: 'Everything' },
   });
-  const FrontLive = Page.build(Front);
+  const FrontLive = Front.build();
   const FrontView = View.make(FrontLive, () => (
     <main>
       front
@@ -351,7 +351,7 @@ describe('a page with data', () => {
     return <p>from {move.from?._tag ?? 'nowhere'}</p>;
   }
   const ShopRoot = Page.define({ pages: { Front, Item } });
-  const ShopLive = Page.build(ShopRoot, {
+  const ShopLive = ShopRoot.build({
     pages: { Front: FrontLive, Item: ItemLive },
   });
   const ShopView = View.make(ShopLive, (self) => (

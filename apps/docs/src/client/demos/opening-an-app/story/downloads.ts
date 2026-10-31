@@ -31,10 +31,10 @@ export const Downloads = Actor.define('Downloads', {
   }),
 });
 
-export const DownloadsLive = Actor.build(Downloads, {
+export const DownloadsLive = Downloads.build({
   init: () => ({ model: { files: [], next: 0 } }),
-  children: (child) => ({
-    files: child(DownloadLive, {
+  children: {
+    files: Actor.child(DownloadLive, {
       each: ({ model }) => model.files.map(({ id }) => id),
       input: ({ model }, id) => {
         const { name } = model.files.find((file) => file.id === id)!;
@@ -44,7 +44,7 @@ export const DownloadsLive = Actor.build(Downloads, {
         paused: model.files.find((file) => file.id === id)!.paused,
       }),
     }),
-  }),
+  },
   provides: (self) =>
     Layer.succeed(Shelf, {
       remove: (id) => self.send({ _tag: 'Remove', id }),

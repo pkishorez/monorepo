@@ -499,7 +499,7 @@ describe('what an app writes', () => {
     const Home = Page.define({ path: '/' });
     const Greeter = Page.define({ requires: [Greeting], pages: { Home } });
     const GreeterView = View.make(
-      Page.build(Greeter, { pages: { Home: Page.build(Home) } }),
+      Greeter.build({ pages: { Home: Home.build() } }),
       () => null,
     );
     const greeter = Router.define(Greeter);

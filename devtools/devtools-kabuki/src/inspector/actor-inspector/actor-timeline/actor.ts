@@ -58,7 +58,7 @@ const travel = Command.make('travel', {
   run: ({ travel: on }) => Effect.flatMap(Steps, (steps) => steps.travel(on)),
 });
 
-export const TimelineLive = Actor.build(Timeline, {
+export const TimelineLive = Timeline.build({
   init: () => ({ model: { playing: false } }),
   // 2. Play
   workers: {

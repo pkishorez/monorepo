@@ -172,7 +172,7 @@ const minimised = (model: Model, on: boolean): Model => {
   };
 };
 
-export const QuestionLive = Actor.build(Question, {
+export const QuestionLive = Question.build({
   init: () => ({
     model: {
       questions: [],

@@ -7,4 +7,4 @@ export const Home = Page.define({
   metadata: about('/', 'Home', 'Everything I build, in one monorepo.'),
 });
 
-export const HomeLive = Page.build(Home);
+export const HomeLive = Home.build();

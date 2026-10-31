@@ -95,7 +95,7 @@ export const formOf = (model: Model, props: Props): Form =>
 
 const orNull = (value: string) => (value.trim() === '' ? null : value.trim());
 
-export const CardLive = Actor.build(Card, {
+export const CardLive = Card.build({
   init: ({ connectionId, key, harness }) => ({
     model: {
       connectionId,

@@ -583,7 +583,7 @@ export const build = <const Name extends string, P>(
         };
   };
 
-  const Live = Actor.build(Picker, {
+  const Live = Picker.build({
     // No row is highlighted until the View reports the first one shown.
     init: (opening) => ({
       model: {

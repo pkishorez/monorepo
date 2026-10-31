@@ -134,96 +134,93 @@ const control = (self: ConnectionSelf) =>
     return yield* Effect.never;
   });
 
-export const ActorConnection = Actor.build(
-  Actor.define('Connection', {
-    requires: [Control],
-    input: Input,
-    model: Model,
-    state: State,
-    message: Message,
-  }),
-  {
-    init: (input: Input) => {
-      const model: Model = {
-        ...input,
-        listening: null,
-        url: null,
-        wanted: {},
-        plugins: {},
-      };
-      return {
-        model: { ...model, wanted: wantedOf(model, input.lastWanted) },
-        state: { _tag: 'Running' },
-      };
-    },
-    provides: (self) =>
-      Layer.mergeAll(
-        Layer.succeed(
-          Plugins,
-          Plugins.of({
-            report: (name, state) =>
-              self.send({ _tag: 'PluginReported', name, state }),
-          }),
-        ),
-        Layer.succeed(
-          Connection,
-          Connection.of({
-            listening: (port) => self.send({ _tag: 'Listening', port }),
-            wanted: (versions) => self.send({ _tag: 'Wanted', versions }),
-            address: (url) => self.send({ _tag: 'Addressed', url }),
-            forgotten: self.send({ _tag: 'Forgotten' }),
-            stop: (reason) => self.send({ _tag: 'Stop', reason }),
-          }),
-        ),
+export const ActorConnection = Actor.define('Connection', {
+  requires: [Control],
+  input: Input,
+  model: Model,
+  state: State,
+  message: Message,
+}).build({
+  init: (input: Input) => {
+    const model: Model = {
+      ...input,
+      listening: null,
+      url: null,
+      wanted: {},
+      plugins: {},
+    };
+    return {
+      model: { ...model, wanted: wantedOf(model, input.lastWanted) },
+      state: { _tag: 'Running' },
+    };
+  },
+  provides: (self) =>
+    Layer.mergeAll(
+      Layer.succeed(
+        Plugins,
+        Plugins.of({
+          report: (name, state) =>
+            self.send({ _tag: 'PluginReported', name, state }),
+        }),
       ),
-    children: (child) => ({
-      plugins: child(ActorPlugins, {
-        input: ({ model }) => ({
-          key: model.key,
-          folders: model.folders,
-          socketId: model.socketId,
-          port: model.port,
-          origins: model.origins,
+      Layer.succeed(
+        Connection,
+        Connection.of({
+          listening: (port) => self.send({ _tag: 'Listening', port }),
+          wanted: (versions) => self.send({ _tag: 'Wanted', versions }),
+          address: (url) => self.send({ _tag: 'Addressed', url }),
+          forgotten: self.send({ _tag: 'Forgotten' }),
+          stop: (reason) => self.send({ _tag: 'Stop', reason }),
         }),
-        props: ({ model }) => ({
-          wanted: model.wanted,
-          plugins: model.plugins,
-        }),
+      ),
+    ),
+  children: {
+    plugins: Actor.child(ActorPlugins, {
+      input: ({ model }) => ({
+        key: model.key,
+        folders: model.folders,
+        socketId: model.socketId,
+        port: model.port,
+        origins: model.origins,
+      }),
+      props: ({ model }) => ({
+        wanted: model.wanted,
+        plugins: model.plugins,
       }),
     }),
-    on: {
-      Listening: ({ port }, { model }) => ({
-        model: { ...model, listening: port },
-      }),
-      Addressed: ({ url }, { model }) => ({ model: { ...model, url } }),
-      PluginReported: ({ name, state }, { model }) => ({
-        model: { ...model, plugins: { ...model.plugins, [name]: state } },
-      }),
-      Forgotten: () => ({ state: { _tag: 'Forgotten' } }),
-      Stop: ({ reason }) => ({ state: { _tag: 'Stopped', reason } }),
-    },
-    workers: {
-      control: { run: control },
-      remember: { run: rememberWanted },
-    },
-    states: {
-      Running: {
-        children: (child) => ({
-          online: child(ActorOnline, {
-            props: ({ model }) => ({
-              port: model.listening,
-              plugins: model.plugins,
-            }),
+  },
+  on: {
+    Listening: ({ port }, { model }) => ({
+      model: { ...model, listening: port },
+    }),
+    Addressed: ({ url }, { model }) => ({ model: { ...model, url } }),
+    PluginReported: ({ name, state }, { model }) => ({
+      model: { ...model, plugins: { ...model.plugins, [name]: state } },
+    }),
+    Forgotten: () => ({ state: { _tag: 'Forgotten' } }),
+    Stop: ({ reason }) => ({ state: { _tag: 'Stopped', reason } }),
+  },
+  workers: {
+    control: { run: control },
+    remember: { run: rememberWanted },
+  },
+  states: {
+    Running: {
+      children: {
+        online: Actor.child(ActorOnline, {
+          props: ({ model }) => ({
+            port: model.listening,
+            plugins: model.plugins,
           }),
         }),
-        on: {
-          Wanted: ({ versions }, { model }) => ({
-            model: { ...model, wanted: wantedOf(model, versions) },
-          }),
-        },
       },
-      Forgotten: {},
-      Stopped: {},
+      on: {
+        Wanted: ({ versions }, { model }) => ({
+          model: { ...model, wanted: wantedOf(model, versions) },
+        }),
+      },
     },
+    Forgotten: {},
+    Stopped: {},
   },
-);
+});

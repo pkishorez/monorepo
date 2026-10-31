@@ -1,5 +1,4 @@
 import { Effect, Layer, Stream } from 'effect';
-import { Actor } from '../../core/actor/index.ts';
 import type { ActorType, AnyActor, Types } from '../../core/actor/index.ts';
 import type { ViewOf } from '../../react/view/index.ts';
 import { Navigation } from '../capabilities/index.ts';
@@ -76,13 +75,16 @@ export const view = <Route extends AnyRoute, A extends AnyActor>(
   type Model = RouterModel<Route>;
 
   const built = (
-    Actor.build as (definition: unknown, behavior: unknown) => AnyActor
-  )(definitionOf(routes), {
+    definitionOf(routes) as unknown as {
+      readonly build: (behavior: object) => AnyActor;
+    }
+  ).build({
     init: (from: RouterInput<Route> | undefined) => ({
       model: moves.firstModel(from),
     }),
-    children: (child: (actor: AnyActor, options: object) => unknown) => ({
-      page: child(root, {
+    children: {
+      page: {
+        actor: root,
         props: ({ model }: { readonly model: Model }) => {
           const route = shown(model) as unknown as Value;
           const found = route._tag !== 'NotFound';
@@ -98,8 +100,8 @@ export const view = <Route extends AnyRoute, A extends AnyActor>(
             },
           };
         },
-      }),
-    }),
+      },
+    },
     provides: (self: {
       readonly send: Send<Route>;
       readonly changes: Stream.Stream<{ readonly model: Model }>;

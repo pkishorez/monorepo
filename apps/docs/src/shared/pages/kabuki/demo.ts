@@ -11,7 +11,7 @@ export const Demo = Page.define({
   ),
 });
 
-export const DemoLive = Page.build(Demo);
+export const DemoLive = Demo.build();
 
 /** To-dos, full screen: the smallest Kabuki app, with its devtools. */
 export const TodosDemo = Page.define({
@@ -23,7 +23,7 @@ export const TodosDemo = Page.define({
   ),
 });
 
-export const TodosDemoLive = Page.build(TodosDemo);
+export const TodosDemoLive = TodosDemo.build();
 
 /** A demo staged to be watched, picked by the URL's hash: `#todos` or `#opening-an-app`. */
 export const StageDemo = Page.define({
@@ -35,7 +35,7 @@ export const StageDemo = Page.define({
   ),
 });
 
-export const StageDemoLive = Page.build(StageDemo);
+export const StageDemoLive = StageDemo.build();
 
 /** Snake, staged to be recorded: exactly 1080 by 1080, with nothing of the site around it. */
 export const SnakeRecord = Page.define({
@@ -47,4 +47,4 @@ export const SnakeRecord = Page.define({
   ),
 });
 
-export const SnakeRecordLive = Page.build(SnakeRecord);
+export const SnakeRecordLive = SnakeRecord.build();

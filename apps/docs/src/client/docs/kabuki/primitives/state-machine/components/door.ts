@@ -14,7 +14,7 @@ export const Door = Actor.define('Door', {
   }),
 });
 
-export const DoorLive = Actor.build(Door, {
+export const DoorLive = Door.build({
   init: () => ({ state: { _tag: 'Locked' }, model: { opened: 0 } }),
   states: {
     // Each State lists only the Messages that make sense in it.

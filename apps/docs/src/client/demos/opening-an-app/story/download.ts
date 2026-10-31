@@ -60,7 +60,7 @@ export const Download = Actor.define('Download', {
   }),
 });
 
-export const DownloadLive = Actor.build(Download, {
+export const DownloadLive = Download.build({
   init: ({ id, name }) => ({
     model: { id, name, done: 0 },
     state: { _tag: 'Downloading' },

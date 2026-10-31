@@ -13,7 +13,7 @@ export const Song = Actor.define('Song', {
   message: Schema.TaggedUnion({ Liked: {} }),
 });
 
-export const SongLive = Actor.build(Song, {
+export const SongLive = Song.build({
   init: (song) => ({ model: { ...song, liked: false } }),
   on: {
     Liked: (_, { model }) => ({ model: { ...model, liked: !model.liked } }),
@@ -29,14 +29,14 @@ export const Playlist = Actor.define('Playlist', {
   }),
 });
 
-export const PlaylistLive = Actor.build(Playlist, {
+export const PlaylistLive = Playlist.build({
   init: () => ({ model: { ids: ['0', '1'] } }),
-  children: (child) => ({
-    songs: child(SongLive, {
+  children: {
+    songs: Actor.child(SongLive, {
       each: ({ model }) => model.ids,
       input: (_, id) => SONGS[id]!,
     }),
-  }),
+  },
   on: {
     Added: (_, { model }) => {
       const next = Object.keys(SONGS).find((id) => !model.ids.includes(id));

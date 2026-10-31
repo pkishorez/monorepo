@@ -226,7 +226,7 @@ const run = (action: string, open: Open) => {
   }
 };
 
-export const ActionsLive = Actor.build(Actions, {
+export const ActionsLive = Actions.build({
   init: () => ({
     model: {
       picking: null,
@@ -241,8 +241,8 @@ export const ActionsLive = Actor.build(Actions, {
       after: null,
     },
   }),
-  children: (child) => ({
-    picker: child(List.Live, {
+  children: {
+    picker: Actor.child(List.Live, {
       while: ({ model }) => model.picking !== null,
       key: ({ model }) => String(model.opened),
       input: ({ model }) => ({
@@ -259,7 +259,7 @@ export const ActionsLive = Actor.build(Actions, {
         keyboard: model.keyboard,
       }),
     }),
-  }),
+  },
   provides: (self) =>
     Layer.unwrap(
       Effect.map(Effect.context<CodeClients | Moves>(), (client) =>

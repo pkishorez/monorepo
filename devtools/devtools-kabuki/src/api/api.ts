@@ -186,7 +186,14 @@ export const Level = Schema.Struct({
       keyed: Schema.Boolean,
     }),
   ),
-  queries: Schema.Array(Schema.String),
+  /** The Queries it answers: what each is asked with, if anything, and what it answers. */
+  queries: Schema.Array(
+    Schema.Struct({
+      name: Schema.String,
+      args: Schema.optionalKey(Schema.suspend(() => Shape)),
+      result: Schema.suspend(() => Shape),
+    }),
+  ),
   provides: Schema.Boolean,
 });
 

@@ -215,7 +215,7 @@ const newlyStale = (before: Model, after: Model) => {
 const delayOf = (rechecks: number) =>
   rechecks < RECHECK.fastFor ? RECHECK.fast : RECHECK.slow;
 
-export const ConnectionsLive = Actor.build(Connections, {
+export const ConnectionsLive = Connections.build({
   init: ({ accountId }) => ({
     model: {
       accountId,
@@ -343,20 +343,20 @@ export const ConnectionsLive = Actor.build(Connections, {
         ),
     },
   },
-  children: (child) => ({
+  children: {
     // 7. Voice
-    voice: child(Voice.actor, {
+    voice: Actor.child(Voice.actor, {
       props: ({ props }) => ({ drawn: props.drawn }),
     }),
     // 3. Links: each listed Connection.
-    connection: child(ConnectionActor.actor, {
+    connection: Actor.child(ConnectionActor.actor, {
       each: ({ model }) => idsOf(model),
       input: ({ model }, connectionId) => ({
         accountId: model.accountId,
         connectionId,
       }),
     }),
-  }),
+  },
   on: {
     KeptRead: ({ connections }, { model }) => ({
       model: { ...model, list: copying.read(model.list, connections) },

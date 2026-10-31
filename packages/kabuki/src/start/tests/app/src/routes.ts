@@ -28,23 +28,23 @@ export const BlogPost = Page.define({
   metadata: (_params, post) =>
     post ? { title: post.title, openGraph: { title: post.title } } : {},
 });
-export const BlogPostLive = Page.build(BlogPost);
+export const BlogPostLive = BlogPost.build();
 export const Blog = Page.define({
   path: '/blog',
   data: Schema.Array(Summary),
   metadata: { title: 'Blog' },
   pages: { Post: BlogPost },
 });
-export const BlogLive = Page.build(Blog, { pages: { Post: BlogPostLive } });
+export const BlogLive = Blog.build({ pages: { Post: BlogPostLive } });
 
 export const Settings = Page.define({ path: '/settings', data: Prefs });
-export const SettingsLive = Page.build(Settings);
+export const SettingsLive = Settings.build();
 export const AccountActivity = Page.define({
   path: '/activity',
   render: 'client',
   data: Activity,
 });
-export const AccountActivityLive = Page.build(AccountActivity);
+export const AccountActivityLive = AccountActivity.build();
 export const Account = Page.define({
   path: '/account',
   render: 'dynamic',
@@ -52,7 +52,7 @@ export const Account = Page.define({
   metadata: { title: 'Account' },
   pages: { Settings, Activity: AccountActivity },
 });
-export const AccountLive = Page.build(Account, {
+export const AccountLive = Account.build({
   pages: { Settings: SettingsLive, Activity: AccountActivityLive },
 });
 
@@ -60,32 +60,32 @@ export const Home = Page.define({
   path: '/',
   metadata: { title: 'Home', description: 'Welcome' },
 });
-export const HomeLive = Page.build(Home);
+export const HomeLive = Home.build();
 export const Dashboard = Page.define({
   path: '/dashboard',
   render: 'client',
   data: Stats,
   metadata: { title: 'Dashboard' },
 });
-export const DashboardLive = Page.build(Dashboard);
+export const DashboardLive = Dashboard.build();
 export const Lab = Page.define({ path: '/lab', metadata: { title: 'Lab' } });
-export const LabLive = Page.build(Lab);
+export const LabLive = Lab.build();
 export const Gallery = Page.define({
   path: '/gallery',
   metadata: { title: 'Gallery' },
 });
-export const GalleryLive = Page.build(Gallery);
+export const GalleryLive = Gallery.build();
 export const SignIn = Page.define({
   path: '/sign-in',
   metadata: { title: 'Sign in' },
 });
-export const SignInLive = Page.build(SignIn);
+export const SignInLive = SignIn.build();
 export const Sketch = Page.define({
   path: '/sketch',
   render: 'client',
   metadata: { title: 'Sketch' },
 });
-export const SketchLive = Page.build(Sketch);
+export const SketchLive = Sketch.build();
 
 export const App = Page.define({
   pages: {
@@ -99,7 +99,7 @@ export const App = Page.define({
     Sketch,
   },
 });
-export const AppLive = Page.build(App, {
+export const AppLive = App.build({
   pages: {
     Home: HomeLive,
     Blog: BlogLive,

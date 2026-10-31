@@ -222,20 +222,20 @@ export const nextWalletName = (names: ReadonlyArray<string>) => {
   return `Wallet ${n}`;
 };
 
-export const PocketLive = Actor.build(PocketSection, {
+export const PocketLive = PocketSection.build({
   init: () => ({ model: { writes: [], refused: [], watching: [] } }),
-  children: (child) => ({
-    wallets: child(Wallets, {
+  children: {
+    wallets: Actor.child(Wallets, {
       props: ({ props }) => ({ account: props.account }),
     }),
-    entries: child(Entries, {
+    entries: Actor.child(Entries, {
       while: ({ model, props }) => watchedBy(model, props.account).length > 0,
       props: ({ model, props }) => ({
         account: props.account,
         wallets: watchedBy(model, props.account),
       }),
     }),
-  }),
+  },
   on: {
     AddWallet: ({ id, name }, { model, props }) =>
       props.writable

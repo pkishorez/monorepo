@@ -47,7 +47,7 @@ export const General = Actor.define('General', {
   }),
 });
 
-export const GeneralLive = Actor.build(General, {
+export const GeneralLive = General.build({
   init: () => ({ model: { device: null } }),
   workers: {
     // 1. Read

@@ -140,7 +140,7 @@ const Page = Actor.define('Page', {
   }),
 });
 
-const PageLive = Actor.build(Page, {
+const PageLive = Page.build({
   init: () => ({
     model: {
       current: { account: startAs, model: null, settings: {} },
@@ -149,8 +149,8 @@ const PageLive = Actor.build(Page, {
       pings: 0,
     },
   }),
-  children: (child) => ({
-    models: child(ModelPicker.Live, {
+  children: {
+    models: Actor.child(ModelPicker.Live, {
       while: ({ model }) => model.picking !== null,
       key: ({ model }) => String(model.opened),
       input: ({ model }) =>
@@ -168,7 +168,7 @@ const PageLive = Actor.build(Page, {
           model.picking?.at === 'agent' || model.picking?.at === 'modelAlone',
       }),
     }),
-  }),
+  },
   provides: (self) =>
     ModelPicker.owner((chosen) => self.send({ _tag: 'Done', chosen })),
   on: {

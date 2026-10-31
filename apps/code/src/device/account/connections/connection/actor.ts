@@ -169,7 +169,7 @@ const said = (connectionId: string) =>
     }),
   );
 
-export const ConnectionLive = Actor.build(Connection, {
+export const ConnectionLive = Connection.build({
   init: ({ accountId, connectionId }) => ({
     model: {
       accountId,
@@ -194,9 +194,9 @@ export const ConnectionLive = Actor.build(Connection, {
         );
       }),
     ),
-  children: (child) => ({
-    replicas: child(Replicas.actor([CodeReplicaLive])),
-  }),
+  children: {
+    replicas: Actor.child(Replicas.actor([CodeReplicaLive])),
+  },
   workers: {
     link: {
       run: (self) =>

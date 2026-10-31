@@ -21,7 +21,7 @@ export const ErrorPage = Page.define({
   requires: [Api],
 });
 
-export const ErrorPageLive = Page.build(ErrorPage, {
+export const ErrorPageLive = ErrorPage.build({
   workers: {
     // Another tab changed who is signed in: loaded anew once shown again.
     accounts: {

@@ -58,16 +58,16 @@ const open = Command.make('open', {
 const drawnOf = ({ at, revision }: typeof Props.Type) =>
   at === null ? `head#${revision}` : `${at}`;
 
-export const CanvasLive = Actor.build(Canvas, {
+export const CanvasLive = Canvas.build({
   init: () => ({ model: { graph: null, problem: null } }),
   // 2. Cards
-  children: (child) => ({
-    card: child(CardLive, {
+  children: {
+    card: Actor.child(CardLive, {
       each: ({ props }) => props.opened,
       input: (_, instance) => ({ instance }),
       props: ({ props }) => ({ at: props.at, revision: props.revision }),
     }),
-  }),
+  },
   // 1. Graph
   workers: {
     draw: {

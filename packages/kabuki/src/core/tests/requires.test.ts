@@ -37,62 +37,62 @@ const uses = <S extends Context.Key<any, any>>(service: S) => ({
   workers: { work: { run: () => Effect.flatMap(service, () => Effect.never) } },
 });
 
-const B = Actor.build(Actor.define('B', { requires: [SB] }), uses(SB));
-const D = Actor.build(Actor.define('D', { requires: [SD] }), uses(SD));
+const B = Actor.define('B', { requires: [SB] }).build(uses(SB));
+const D = Actor.define('D', { requires: [SD] }).build(uses(SD));
 
 const St = Schema.TaggedUnion({ On: {}, Off: {} });
 
 describe('requires, from A down to D', () => {
   it('1. nobody Provides: every need reaches the root', () => {
-    const C = Actor.build(Actor.define('C', { requires: [SC] }), {
+    const C = Actor.define('C', { requires: [SC] }).build({
       ...uses(SC),
-      children: (child) => ({ d: child(D) }),
+      children: { d: Actor.child(D) },
     });
-    const A = Actor.build(Actor.define('A', { requires: [SA] }), {
+    const A = Actor.define('A', { requires: [SA] }).build({
       ...uses(SA),
-      children: (child) => ({ b: child(B), c: child(C) }),
+      children: { b: Actor.child(B), c: Actor.child(C) },
     });
     same<Needs<typeof C>, SC | SD>(true);
     same<Needs<typeof A>, SA | SB | SC | SD>(true);
   });
 
   it('2. C Provides SD at its top: D is covered, and SD stops at C', () => {
-    const C = Actor.build(Actor.define('C', { requires: [SC] }), {
+    const C = Actor.define('C', { requires: [SC] }).build({
       ...uses(SC),
-      children: (child) => ({ d: child(D) }),
+      children: { d: Actor.child(D) },
       provides: () => sd,
     });
-    const A = Actor.build(Actor.define('A', { requires: [SA] }), {
+    const A = Actor.define('A', { requires: [SA] }).build({
       ...uses(SA),
-      children: (child) => ({ b: child(B), c: child(C) }),
+      children: { b: Actor.child(B), c: Actor.child(C) },
     });
     same<Needs<typeof C>, SC>(true);
     same<Needs<typeof A>, SA | SB | SC>(true);
   });
 
   it('3. A Provides SD at its top: it reaches its grandchild D', () => {
-    const C = Actor.build(Actor.define('C', { requires: [SC] }), {
+    const C = Actor.define('C', { requires: [SC] }).build({
       ...uses(SC),
-      children: (child) => ({ d: child(D) }),
+      children: { d: Actor.child(D) },
     });
-    const A = Actor.build(Actor.define('A', { requires: [SA] }), {
+    const A = Actor.define('A', { requires: [SA] }).build({
       ...uses(SA),
-      children: (child) => ({ b: child(B), c: child(C) }),
+      children: { b: Actor.child(B), c: Actor.child(C) },
       provides: () => sd,
     });
     same<Needs<typeof A>, SA | SB | SC>(true);
   });
 
   it('4. A Provides SB only in On: a B placed in On is covered, a B at the top is not', () => {
-    const InOn = Actor.build(Actor.define('A', { state: St }), {
+    const InOn = Actor.define('A', { state: St }).build({
       init: () => ({ state: { _tag: 'On' } }),
       states: {
-        On: { children: (child) => ({ b: child(B) }), provides: () => sb },
+        On: { children: { b: Actor.child(B) }, provides: () => sb },
       },
     });
-    const AtTop = Actor.build(Actor.define('A', { state: St }), {
+    const AtTop = Actor.define('A', { state: St }).build({
       init: () => ({ state: { _tag: 'On' } }),
-      children: (child) => ({ b: child(B) }),
+      children: { b: Actor.child(B) },
       states: { On: { provides: () => sb } },
     });
     same<Needs<typeof InOn>, never>(true);
@@ -100,25 +100,25 @@ describe('requires, from A down to D', () => {
   });
 
   it('5. A Provides SB in On but places B in Off: SB bubbles up', () => {
-    const A = Actor.build(Actor.define('A', { state: St }), {
+    const A = Actor.define('A', { state: St }).build({
       init: () => ({ state: { _tag: 'On' } }),
       states: {
         On: { provides: () => sb },
-        Off: { children: (child) => ({ b: child(B) }) },
+        Off: { children: { b: Actor.child(B) } },
       },
     });
     same<Needs<typeof A>, SB>(true);
   });
 
   it("6. A Provides SD, but A's own Worker cannot use it: Provides points down", () => {
-    const Wrong = Actor.build(Actor.define('A', {}), {
+    const Wrong = Actor.define('A', {}).build({
       provides: () => sd,
       workers: {
         // @ts-expect-error SD is not in A's requires
         work: { run: () => Effect.flatMap(SD, () => Effect.never) },
       },
     });
-    const Right = Actor.build(Actor.define('A', { requires: [SD] }), {
+    const Right = Actor.define('A', { requires: [SD] }).build({
       provides: () => sd,
       ...uses(SD),
     });
@@ -131,26 +131,26 @@ describe('requires, from A down to D', () => {
       SD,
       Effect.map(SA, () => ({ d: Effect.void })),
     );
-    const Wrong = Actor.build(Actor.define('A', {}), {
+    const Wrong = Actor.define('A', {}).build({
       // @ts-expect-error building SD needs SA, which A does not require
       provides: () => fromSA,
     });
-    const Right = Actor.build(Actor.define('A', { requires: [SA] }), {
+    const Right = Actor.define('A', { requires: [SA] }).build({
       provides: () => fromSA,
-      children: (child) => ({ d: child(D) }),
+      children: { d: Actor.child(D) },
     });
     same<Needs<typeof Right>, SA>(true);
     expect(Wrong).toBeDefined();
   });
 
   it('8. the root must get the rest from the Layer', () => {
-    const C = Actor.build(Actor.define('C', { requires: [SC] }), {
+    const C = Actor.define('C', { requires: [SC] }).build({
       ...uses(SC),
-      children: (child) => ({ d: child(D) }),
+      children: { d: Actor.child(D) },
     });
-    const A = Actor.build(Actor.define('A', { requires: [SA] }), {
+    const A = Actor.define('A', { requires: [SA] }).build({
       ...uses(SA),
-      children: (child) => ({ b: child(B), c: child(C) }),
+      children: { b: Actor.child(B), c: Actor.child(C) },
     });
     // @ts-expect-error SD is still needed by D, and nothing gives it
     const short: Effect.Effect<unknown, never, never> = Runtime.start(A).pipe(
@@ -170,7 +170,7 @@ describe('requires, from A down to D', () => {
 describe('Schemas', () => {
   it('a definition keeps the Schemas it was defined with, and no others', () => {
     const Model = Schema.Struct({ count: Schema.Number });
-    const Counted = Actor.build(Actor.define('Counted', { model: Model }), {
+    const Counted = Actor.define('Counted', { model: Model }).build({
       init: () => ({ model: { count: 0 } }),
     });
     expect(Counted.definition.schemas).toEqual({ model: Model });

@@ -122,10 +122,10 @@ type Model = {
 
 /** Layout's part: the sidebar, for the Account drawn. */
 const Owner = Actor.define('Owner', {});
-const OwnerLive = Actor.build(Owner, {
-  children: (child) => ({
-    sidebar: child(SidebarLive, { props: () => ({ accountId: 'a1' }) }),
-  }),
+const OwnerLive = Owner.build({
+  children: {
+    sidebar: Actor.child(SidebarLive, { props: () => ({ accountId: 'a1' }) }),
+  },
 });
 
 const start = (layer: Layer.Layer<any>) =>

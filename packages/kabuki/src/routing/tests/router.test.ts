@@ -32,7 +32,7 @@ const Post = Page.define({
   message: Schema.TaggedUnion({ Edit: {}, Typed: { text: Schema.String } }),
   metadata: (_, post) => ({ title: post?.title ?? 'A post' }),
 });
-const PostLive = Page.build(Post, {
+const PostLive = Post.build({
   init: () => ({ model: { draft: null } }),
   on: {
     Edit: (_, { props }) =>
@@ -48,7 +48,7 @@ const Blog = Page.define({
   data: Schema.Array(Summary),
   pages: { Post },
 });
-const BlogLive = Page.build(Blog, { pages: { Post: PostLive } });
+const BlogLive = Blog.build({ pages: { Post: PostLive } });
 const Home = Page.define({ path: '/', metadata: { title: 'Home' } });
 const Stats = Page.define({
   path: '/stats',
@@ -56,8 +56,8 @@ const Stats = Page.define({
   data: Schema.Struct({ visits: Schema.Number }),
 });
 const App = Page.define({ pages: { Home, Blog, Stats } });
-const AppLive = Page.build(App, {
-  pages: { Home: Page.build(Home), Blog: BlogLive, Stats: Page.build(Stats) },
+const AppLive = App.build({
+  pages: { Home: Home.build(), Blog: BlogLive, Stats: Stats.build() },
 });
 const Routes = Router.define(App, {
   redirect: { '/posts/:slug': (r, { slug }) => r.Blog.Post({ slug }) },
@@ -813,8 +813,8 @@ describe('a page with a Stale time', () => {
   const FreshRoot = Router.view(
     Fresh,
     View.make(
-      Page.build(Shell, {
-        pages: { Start: Page.build(Start), Feed: Page.build(Feed) },
+      Shell.build({
+        pages: { Start: Start.build(), Feed: Feed.build() },
       }),
       () => null,
     ),
@@ -1190,7 +1190,7 @@ describe('a reload anew', () => {
       model: Schema.Struct({ landed: Schema.Boolean }),
       message: Schema.TaggedUnion({ Renew: {}, Landed: {} }),
     });
-    const ShownLive = Page.build(Shown, {
+    const ShownLive = Shown.build({
       init: () => ({ model: { landed: false } }),
       on: {
         Renew: () => ({
@@ -1217,7 +1217,7 @@ describe('a reload anew', () => {
     );
     const HeldRoot = Router.view(
       Held,
-      View.make(Page.build(Top, { pages: { Shown: ShownLive } }), () => null),
+      View.make(Top.build({ pages: { Shown: ShownLive } }), () => null),
     );
     return run(
       Effect.gen(function* () {

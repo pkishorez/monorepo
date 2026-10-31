@@ -41,7 +41,7 @@ export const Home = Actor.define('Home', {
   }),
 });
 
-export const HomeLive = Actor.build(Home, {
+export const HomeLive = Home.build({
   init: () => ({
     model: { beats: 0, sync: false, synced: 0, last: null, signingOut: false },
   }),

@@ -21,7 +21,7 @@ export const Product = Actor.define('Product', {
   message: Schema.TaggedUnion({ Added: {} }),
 });
 
-export const ProductLive = Actor.build(Product, {
+export const ProductLive = Product.build({
   init: (product) => ({ model: product }),
   on: {
     Added: (_, { model }) => ({ command: add({ id: model.id }) }),

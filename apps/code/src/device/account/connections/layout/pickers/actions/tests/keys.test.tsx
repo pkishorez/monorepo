@@ -31,13 +31,13 @@ const Owner = Actor.define('Owner', {
   message: Schema.TaggedUnion({ Ping: {} }),
 });
 
-const OwnerLive = Actor.build(Owner, {
+const OwnerLive = Owner.build({
   init: () => ({ model: { pings: 0 } }),
-  children: (child) => ({
-    actions: child(ActionsLive, {
+  children: {
+    actions: Actor.child(ActionsLive, {
       props: () => ({ bindings: BINDINGS }),
     }),
-  }),
+  },
   on: {
     Ping: (_, { model }) => ({ model: { pings: model.pings + 1 } }),
   },

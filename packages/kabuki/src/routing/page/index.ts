@@ -11,6 +11,7 @@ export type {
   AnyPageBuild,
   AnyPageDefinition,
   PageBuild,
+  PageBuilder,
   PageDefinition,
   Rootless,
 } from './page.ts';

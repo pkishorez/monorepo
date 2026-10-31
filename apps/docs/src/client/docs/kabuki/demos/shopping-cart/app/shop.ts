@@ -23,7 +23,7 @@ export const Shop = Actor.define('Shop', {
   }),
 });
 
-export const ShopLive = Actor.build(Shop, {
+export const ShopLive = Shop.build({
   init: () => ({ state: { _tag: 'Shopping' }, model: { lines: [] } }),
   // Everything below can change the order. Each change is a Message to here.
   provides: (self) =>
@@ -34,18 +34,18 @@ export const ShopLive = Actor.build(Shop, {
     }),
   states: {
     Shopping: {
-      children: (child) => ({
-        products: child(ProductLive, {
+      children: {
+        products: Actor.child(ProductLive, {
           each: () => Object.keys(PRODUCTS),
           input: (_, id) => ({ id }),
           props: ({ model }, id) => ({
             inCart: model.lines.find((line) => line.id === id)?.quantity ?? 0,
           }),
         }),
-        cart: child(CartLive, {
+        cart: Actor.child(CartLive, {
           props: ({ model }) => ({ lines: model.lines }),
         }),
-      }),
+      },
       on: {
         Added: ({ id }, { model }) => ({
           model: {

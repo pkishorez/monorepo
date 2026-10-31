@@ -57,74 +57,76 @@ const download = (self: SpeechModelSelf) =>
     );
   });
 
-export const SpeechModel = Actor.build(
-  Actor.define('SpeechModel', {
-    requires: [SpeechHost],
-    state: State,
-    message: Message,
-  }),
-  {
-    init: () => ({ state: { _tag: 'Loading' } }),
-    on: {
-      Disable: (_, { state }) =>
-        state._tag === 'Off' ? {} : { state: { _tag: 'Off' } },
-    },
-    states: {
-      Loading: {
-        on: {
-          Loaded: ({ on, installed }) => ({
-            state: !on
-              ? { _tag: 'Off' }
-              : installed
-                ? { _tag: 'Ready' }
-                : downloading,
-          }),
-        },
-        workers: {
-          load: {
-            run: (self) =>
-              Effect.gen(function* () {
-                const host = yield* SpeechHost;
-                yield* self.send({
-                  _tag: 'Loaded',
-                  on: yield* host.wished,
-                  installed: yield* host.installed,
-                });
-              }),
-          },
-        },
-      },
-      Off: {
-        on: { Enable: () => ({ state: downloading }) },
-        workers: {
-          remove: {
-            run: () => Effect.flatMap(SpeechHost, (host) => host.remove),
-          },
-        },
-      },
-      Downloading: {
-        on: {
-          Fetched: ({ done, total }) => ({
-            state: { _tag: 'Downloading', done, total },
-          }),
-          Downloaded: () => ({ state: { _tag: 'Ready' } }),
-          DownloadFailed: ({ reason }) => ({
-            state: { _tag: 'Failed', reason },
-          }),
-        },
-        workers: { download: { run: download } },
-      },
-      Ready: {
-        queries: {
-          transcribe: {
-            run: (_, samples: Float32Array) =>
-              Effect.flatMap(SpeechHost, (host) => host.transcribe(samples)),
-          },
-        },
-      },
-      Failed: {
-        on: { Enable: () => ({ state: downloading }) },
-      },
+export const SpeechModel = Actor.define('SpeechModel', {
+  requires: [SpeechHost],
+  state: State,
+  message: Message,
+  queries: {
+    /** The words in 16 kHz mono samples; askable only while Ready. */
+    transcribe: {
+      args: Schema.instanceOf(Float32Array),
+      result: Schema.String,
     },
   },
-);
+}).build({
+  init: () => ({ state: { _tag: 'Loading' } }),
+  on: {
+    Disable: (_, { state }) =>
+      state._tag === 'Off' ? {} : { state: { _tag: 'Off' } },
+  },
+  states: {
+    Loading: {
+      on: {
+        Loaded: ({ on, installed }) => ({
+          state: !on
+            ? { _tag: 'Off' }
+            : installed
+              ? { _tag: 'Ready' }
+              : downloading,
+        }),
+      },
+      workers: {
+        load: {
+          run: (self) =>
+            Effect.gen(function* () {
+              const host = yield* SpeechHost;
+              yield* self.send({
+                _tag: 'Loaded',
+                on: yield* host.wished,
+                installed: yield* host.installed,
+              });
+            }),
+        },
+      },
+    },
+    Off: {
+      on: { Enable: () => ({ state: downloading }) },
+      workers: {
+        remove: {
+          run: () => Effect.flatMap(SpeechHost, (host) => host.remove),
+        },
+      },
+    },
+    Downloading: {
+      on: {
+        Fetched: ({ done, total }) => ({
+          state: { _tag: 'Downloading', done, total },
+        }),
+        Downloaded: () => ({ state: { _tag: 'Ready' } }),
+        DownloadFailed: ({ reason }) => ({
+          state: { _tag: 'Failed', reason },
+        }),
+      },
+      workers: { download: { run: download } },
+    },
+    Ready: {
+      queries: {
+        transcribe: (_, samples) =>
+          Effect.flatMap(SpeechHost, (host) => host.transcribe(samples)),
+      },
+    },
+    Failed: {
+      on: { Enable: () => ({ state: downloading }) },
+    },
+  },
+});

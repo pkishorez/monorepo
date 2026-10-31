@@ -18,7 +18,7 @@ export const Todo = Actor.define('Todo', {
   message: Schema.TaggedUnion({ Toggled: {} }),
 });
 
-export const TodoLive = Actor.build(Todo, {
+export const TodoLive = Todo.build({
   init: ({ text }) => ({ state: { _tag: 'Active' }, model: { text } }),
   states: {
     Active: { on: { Toggled: () => ({ state: { _tag: 'Done' } }) } },
@@ -41,17 +41,17 @@ export const Todos = Actor.define('Todos', {
   }),
 });
 
-export const TodosLive = Actor.build(Todos, {
+export const TodosLive = Todos.build({
   init: () => ({ state: { _tag: 'All' }, model: { items: [], next: 0 } }),
-  children: (child) => ({
-    todos: child(TodoLive, {
+  children: {
+    todos: Actor.child(TodoLive, {
       each: ({ model }) => model.items.map((item) => item.id),
       input: ({ model }, id) => ({
         text: model.items.find((item) => item.id === id)?.text ?? '',
       }),
       props: ({ state }) => ({ filter: state._tag }),
     }),
-  }),
+  },
   on: {
     Added: ({ text }, { model }) => ({
       model: {

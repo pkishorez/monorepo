@@ -240,94 +240,91 @@ export const makeWorld = (options: WorldOptions = {}) => {
       }),
   });
 
-  const Page = Actor.build(
-    Actor.define('Page', {
-      requires: [Replicas],
-      model: Schema.Struct({
-        mine: Schema.String,
-        theirs: Schema.String,
-        shown: Schema.Boolean,
-        /** The wallets of `mine` whose entries show; none shows no entries. */
-        wallets: Schema.Array(Schema.String),
-        ended: Schema.Array(Schema.NullOr(Schema.String)),
-        /** The wallet each ended Transfer was asked for, from its args. */
-        endedFor: Schema.Array(Schema.String),
-      }),
-      message: Schema.TaggedUnion({
-        Switched: { mine: Schema.String },
-        Shown: { shown: Schema.Boolean },
-        Picked: { wallets: Schema.Array(Schema.String) },
-        Asked: {
-          from: Schema.String,
-          to: Schema.String,
-          wallet: Schema.String,
-          into: Schema.String,
-          amount: Schema.Finite,
-        },
-        Transfer: Transfer.result,
-      }),
+  const Page = Actor.define('Page', {
+    requires: [Replicas],
+    model: Schema.Struct({
+      mine: Schema.String,
+      theirs: Schema.String,
+      shown: Schema.Boolean,
+      /** The wallets of `mine` whose entries show; none shows no entries. */
+      wallets: Schema.Array(Schema.String),
+      ended: Schema.Array(Schema.NullOr(Schema.String)),
+      /** The wallet each ended Transfer was asked for, from its args. */
+      endedFor: Schema.Array(Schema.String),
     }),
-    {
-      init: () => ({
-        model: {
-          mine: 'a',
-          theirs: 'b',
-          shown: true,
-          wallets: [],
-          ended: [],
-          endedFor: [],
-        },
-      }),
-      children: (child) => ({
-        mine: child(Wallets, {
-          while: ({ model }) => model.shown,
-          props: ({ model }) => ({ account: model.mine }),
-        }),
-        theirs: child(Wallets, {
-          while: ({ model }) => model.shown,
-          props: ({ model }) => ({ account: model.theirs }),
-        }),
-        entries: child(WalletEntries, {
-          while: ({ model }) => model.wallets.length > 0,
-          props: ({ model }) => ({
-            account: model.mine,
-            wallets: model.wallets,
-          }),
-        }),
-      }),
-      workers: {
-        // Lets a test hold Instances itself, as the code under this page would.
-        capture: {
-          run: () =>
-            Effect.flatMap(Replicas, (replicas) =>
-              Effect.sync(() => {
-                captured = replicas;
-              }),
-            ),
-        },
+    message: Schema.TaggedUnion({
+      Switched: { mine: Schema.String },
+      Shown: { shown: Schema.Boolean },
+      Picked: { wallets: Schema.Array(Schema.String) },
+      Asked: {
+        from: Schema.String,
+        to: Schema.String,
+        wallet: Schema.String,
+        into: Schema.String,
+        amount: Schema.Finite,
       },
-      on: {
-        Switched: ({ mine }, { model }) => ({ model: { ...model, mine } }),
-        Shown: ({ shown }, { model }) => ({ model: { ...model, shown } }),
-        Picked: ({ wallets }, { model }) => ({ model: { ...model, wallets } }),
-        Asked: ({ _tag, ...args }) => ({ command: Transfer(args) }),
-        Transfer: ({ args, failed }, { model }) => ({
-          model: {
-            ...model,
-            ended: [...model.ended, failed],
-            endedFor: [...model.endedFor, args.wallet],
-          },
+      Transfer: Transfer.result,
+    }),
+  }).build({
+    init: () => ({
+      model: {
+        mine: 'a',
+        theirs: 'b',
+        shown: true,
+        wallets: [],
+        ended: [],
+        endedFor: [],
+      },
+    }),
+    children: {
+      mine: Actor.child(Wallets, {
+        while: ({ model }) => model.shown,
+        props: ({ model }) => ({ account: model.mine }),
+      }),
+      theirs: Actor.child(Wallets, {
+        while: ({ model }) => model.shown,
+        props: ({ model }) => ({ account: model.theirs }),
+      }),
+      entries: Actor.child(WalletEntries, {
+        while: ({ model }) => model.wallets.length > 0,
+        props: ({ model }) => ({
+          account: model.mine,
+          wallets: model.wallets,
         }),
+      }),
+    },
+    workers: {
+      // Lets a test hold Instances itself, as the code under this page would.
+      capture: {
+        run: () =>
+          Effect.flatMap(Replicas, (replicas) =>
+            Effect.sync(() => {
+              captured = replicas;
+            }),
+          ),
       },
     },
-  );
+    on: {
+      Switched: ({ mine }, { model }) => ({ model: { ...model, mine } }),
+      Shown: ({ shown }, { model }) => ({ model: { ...model, shown } }),
+      Picked: ({ wallets }, { model }) => ({ model: { ...model, wallets } }),
+      Asked: ({ _tag, ...args }) => ({ command: Transfer(args) }),
+      Transfer: ({ args, failed }, { model }) => ({
+        model: {
+          ...model,
+          ended: [...model.ended, failed],
+          endedFor: [...model.endedFor, args.wallet],
+        },
+      }),
+    },
+  });
 
-  const Root = Actor.build(Actor.define('Root', {}), {
+  const Root = Actor.define('Root', {}).build({
     provides: () => Replicas.layer,
-    children: (child) => ({
-      replicas: child(Replicas.actor([PocketLive])),
-      page: child(Page),
-    }),
+    children: {
+      replicas: Actor.child(Replicas.actor([PocketLive])),
+      page: Actor.child(Page),
+    },
   });
 
   return {

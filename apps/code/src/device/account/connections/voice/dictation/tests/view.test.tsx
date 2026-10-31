@@ -39,13 +39,13 @@ const Owner = Actor.define('Owner', {
   message: Schema.TaggedUnion({ Ping: {}, Ask: { ask: Ask } }),
 });
 
-const OwnerLive = Actor.build(Owner, {
+const OwnerLive = Owner.build({
   init: () => ({ model: { pings: 0 } }),
-  children: (child) => ({
-    dictation: child(DictationLive, {
+  children: {
+    dictation: Actor.child(DictationLive, {
       props: () => ({ drawn: true }),
     }),
-  }),
+  },
   on: {
     Ping: (_, { model }) => ({ model: { pings: model.pings + 1 } }),
     Ask: ({ ask: asked }) => ({ command: ask(asked) }),

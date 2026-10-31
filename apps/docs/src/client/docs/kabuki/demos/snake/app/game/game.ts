@@ -120,7 +120,7 @@ const backTo = <
   return { ...model, at, direction, heading: direction };
 };
 
-export const GameLive = Actor.build(Game, {
+export const GameLive = Game.build({
   init: () => ({
     model: {
       track: START,

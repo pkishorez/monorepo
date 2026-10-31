@@ -94,27 +94,24 @@ const cliOf = (
   plugin: { folders: ReturnType<typeof setup>['folders']; socket: string },
   first: Wanted,
 ) =>
-  Actor.build(
-    Actor.define('Cli', {
-      model: Schema.Struct({ wanted: Wanted }),
-      message: Schema.TaggedUnion({ Want: { wanted: Wanted } }),
-    }),
-    {
-      init: () => ({ model: { wanted: first } }),
-      children: (child) => ({
-        plugin: child(ActorPlugin, {
-          input: () => ({
-            name: 'ping',
-            folders: plugin.folders,
-            socket: plugin.socket,
-            pause: { first: 100, most: 400 },
-          }),
-          props: ({ model }) => ({ wanted: model.wanted }),
+  Actor.define('Cli', {
+    model: Schema.Struct({ wanted: Wanted }),
+    message: Schema.TaggedUnion({ Want: { wanted: Wanted } }),
+  }).build({
+    init: () => ({ model: { wanted: first } }),
+    children: {
+      plugin: Actor.child(ActorPlugin, {
+        input: () => ({
+          name: 'ping',
+          folders: plugin.folders,
+          socket: plugin.socket,
+          pause: { first: 100, most: 400 },
         }),
+        props: ({ model }) => ({ wanted: model.wanted }),
       }),
-      on: { Want: ({ wanted }) => ({ model: { wanted } }) },
     },
-  );
+    on: { Want: ({ wanted }) => ({ model: { wanted } }) },
+  });
 
 /** A client to the Plugin's own group on its socket. */
 const pingAt = (socket: string) =>

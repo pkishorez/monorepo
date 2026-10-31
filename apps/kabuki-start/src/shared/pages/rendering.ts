@@ -44,10 +44,10 @@ export const Static = Page.define({
   ),
 });
 
-export const ClientLive = Page.build(Client);
-export const DynamicLive = Page.build(Dynamic, {
+export const ClientLive = Client.build();
+export const DynamicLive = Dynamic.build({
   pages: { Client: ClientLive },
 });
-export const StaticLive = Page.build(Static, {
+export const StaticLive = Static.build({
   pages: { Dynamic: DynamicLive },
 });

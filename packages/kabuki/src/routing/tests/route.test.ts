@@ -91,19 +91,19 @@ describe('a place', () => {
   });
 
   it('is drawn by a build named after its key, the root by `App`', () => {
-    const ProjectLive = Page.build(Project);
-    const ProjectsLive = Page.build(Projects, {
+    const ProjectLive = Project.build();
+    const ProjectsLive = Projects.build({
       pages: { Project: ProjectLive },
     });
-    const BillingLive = Page.build(Billing, {
-      pages: { Invoices: Page.build(Invoices) },
+    const BillingLive = Billing.build({
+      pages: { Invoices: Invoices.build() },
     });
-    const AppLive = Page.build(App, {
+    const AppLive = App.build({
       pages: {
-        Dashboard: Page.build(Dashboard),
+        Dashboard: Dashboard.build(),
         Projects: ProjectsLive,
-        Teams: Page.build(Teams, { pages: { Member: Page.build(Member) } }),
-        Settings: Page.build(Settings, { pages: { Billing: BillingLive } }),
+        Teams: Teams.build({ pages: { Member: Member.build() } }),
+        Settings: Settings.build({ pages: { Billing: BillingLive } }),
       },
     });
     expect(ProjectLive.name).toBe('Project');
@@ -350,9 +350,12 @@ describe('a place with data', () => {
 
 describe('a page with Queries', () => {
   it('carries them to its live Instance, typed', () => {
-    const Asked = Page.define({ path: '/asked' });
-    const AskedLive = Page.build(Asked, {
-      queries: { answer: { run: () => Effect.succeed(42) } },
+    const Asked = Page.define({
+      path: '/asked',
+      queries: { answer: { result: Schema.Number } },
+    });
+    const AskedLive = Asked.build({
+      queries: { answer: () => Effect.succeed(42) },
     });
     expectTypeOf<
       LiveInstance<typeof AskedLive>['queries']['answer']
@@ -604,13 +607,13 @@ describe("a page's Provides", () => {
       { readonly text: string }
     >()('Greeting') {}
     const Child = Page.define({ path: '/child', requires: [Greeting] });
-    const ChildLive = Page.build(Child, {
+    const ChildLive = Child.build({
       workers: {
         greet: { run: () => Effect.flatMap(Greeting, () => Effect.never) },
       },
     });
     const Parent = Page.define({ pages: { Child } });
-    const ParentLive = Page.build(Parent, {
+    const ParentLive = Parent.build({
       pages: { Child: ChildLive },
       provides: () => Layer.succeed(Greeting, { text: 'hi' }),
     });
@@ -676,7 +679,7 @@ describe('Page.define', () => {
     state: { Reading: {}, Editing: { since: Schema.Number } },
     message: { Edit: {}, Typed: { text: Schema.String } },
   });
-  const DraftLive = Page.build(Draft, {
+  const DraftLive = Draft.build({
     init: () => ({ model: { text: '', edits: 0 }, state: { _tag: 'Reading' } }),
     on: {
       Edit: () => ({ state: { _tag: 'Editing', since: 0 } }),

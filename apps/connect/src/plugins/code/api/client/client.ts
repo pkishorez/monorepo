@@ -371,8 +371,9 @@ export type CodeReplicaBuild = Parameters<typeof Replicas.actor>[0][number];
  * How `CodeReplica` syncs: every project and session while the app runs, and the
  * messages of a session while a Query filters on its `sessionId`, each
  * Instance over its own Connection's socket, found by its Key. Place it with
- * `child(Replicas.actor([CodeReplicaLive]))`, and give the app `CodeClients`, which opens
- * each Connection's socket at the address `ConnectionAddress` gives.
+ * `Actor.child(Replicas.actor([CodeReplicaLive]))`, and give the app
+ * `CodeClients`, which opens each Connection's socket at the address
+ * `ConnectionAddress` gives.
  */
 export const CodeReplicaLive: CodeReplicaBuild = Replica.build(CodeReplica, {
   gcTime: '30 seconds',

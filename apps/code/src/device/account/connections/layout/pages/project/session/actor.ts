@@ -21,6 +21,7 @@ import { Seen } from '../../../../connection/store/index.ts';
 import { Draft } from '../draft/index.ts';
 import { cancel, forkSession, markSeen } from './commands.ts';
 import { Question } from './question/index.ts';
+import { Actor } from '@kestack/kabuki';
 
 /*
  * A session: its row, its messages, its Draft (`draft/`), and the Question
@@ -179,7 +180,7 @@ export const Session = Page.define({
   }),
 });
 
-export const SessionLive = Page.build(Session, {
+export const SessionLive = Session.build({
   init: () => ({
     model: {
       stopping: false,
@@ -192,22 +193,22 @@ export const SessionLive = Page.build(Session, {
       held: false,
     },
   }),
-  children: (child) => ({
+  children: {
     // 1. Read
-    session: child(SessionRow, {
+    session: Actor.child(SessionRow, {
       props: ({ props }) => ({
         connectionId: connectionIn(props.route.params),
         sessionId: props.params.sessionId,
       }),
     }),
-    messages: child(Messages, {
+    messages: Actor.child(Messages, {
       props: ({ props }) => ({
         connectionId: connectionIn(props.route.params),
         sessionId: props.params.sessionId,
       }),
     }),
     // A Fork is on its original's Connection.
-    earlier: child(Messages, {
+    earlier: Actor.child(Messages, {
       each: ({ model }) => model.lineage.map(({ id }) => id),
       props: ({ props }, sessionId) => ({
         connectionId: connectionIn(props.route.params),
@@ -215,7 +216,7 @@ export const SessionLive = Page.build(Session, {
       }),
     }),
     // 2. Draft: once its row is this session's, the agent it runs.
-    draft: child(Draft.actor, {
+    draft: Actor.child(Draft.actor, {
       key: ({ props }) => props.params.sessionId,
       props: ({ model, props }) => {
         const row = model.row?.id === props.params.sessionId ? model.row : null;
@@ -239,14 +240,14 @@ export const SessionLive = Page.build(Session, {
       },
     }),
     // 7. Question
-    question: child(Question.actor, {
+    question: Actor.child(Question.actor, {
       key: ({ props }) => props.params.sessionId,
       props: ({ props }) => ({
         connectionId: connectionIn(props.route.params),
         sessionId: props.params.sessionId,
       }),
     }),
-  }),
+  },
   workers: {
     // 1. Read
     row: {

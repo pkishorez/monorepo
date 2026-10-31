@@ -4,6 +4,7 @@ import { CurrentAccount } from '@kestack/web-platform/recipes/account-switcher';
 import { about } from '../metadata/index.ts';
 import { Caller, follow, show, shown, signedIn } from './accounts/index.ts';
 import { PocketLive } from './pocket/index.ts';
+import { Actor } from '@kestack/kabuki';
 
 /*
  * The Replica page: a Pocket of wallets and entries per Account, kept on
@@ -39,7 +40,7 @@ export const Replica = Page.define({
   }),
 });
 
-export const ReplicaLive = Page.build(Replica, {
+export const ReplicaLive = Replica.build({
   init: () => ({
     model: { caller: { _tag: 'Checking' }, picked: null },
   }),
@@ -53,8 +54,8 @@ export const ReplicaLive = Page.build(Replica, {
         ),
     },
   },
-  children: (child) => ({
-    pocket: child(PocketLive, {
+  children: {
+    pocket: Actor.child(PocketLive, {
       while: ({ model }) => model.caller._tag === 'SignedIn',
       props: ({ model }) => ({
         account: shown(model) ?? '',
@@ -63,7 +64,7 @@ export const ReplicaLive = Page.build(Replica, {
           shown(model) === model.caller.active,
       }),
     }),
-  }),
+  },
   on: {
     Changed: ({ caller }, { model }) => ({
       model: { ...model, ...follow(model, caller) },

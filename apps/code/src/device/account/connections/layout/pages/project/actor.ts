@@ -19,6 +19,7 @@ import { Draft } from './draft/index.ts';
 import * as Catalog from './store.ts';
 import { Handover, SessionArrival, SharedCatalog } from './store.ts';
 import { Session } from './session/index.ts';
+import { Actor } from '@kestack/kabuki';
 
 /*
  * A project: a new session in it, and the session open under it, if the
@@ -163,7 +164,7 @@ const catalog = Catalog.keeping(
   ({ params }: { readonly params: Catalog.Where }) => params,
 );
 
-export const ProjectLive = Page.build(Project, {
+export const ProjectLive = Project.build({
   init: () => ({
     model: {
       gone: false,
@@ -229,8 +230,8 @@ export const ProjectLive = Page.build(Project, {
     // 1. Catalog
     ...catalog.workers,
   },
-  children: (child) => ({
-    project: child(ProjectRow, {
+  children: {
+    project: Actor.child(ProjectRow, {
       props: ({ props }) => ({
         connectionId: props.params.connectionId,
         projectId: props.params.projectId,
@@ -238,7 +239,7 @@ export const ProjectLive = Page.build(Project, {
     }),
     // 2. Draft, while no session is open over it, or the one it started
     // is not yet drawn whole.
-    draft: child(Draft.actor, {
+    draft: Actor.child(Draft.actor, {
       while: ({ model, props }) => drafting(props.route.page, model.handover),
       props: ({ props }) => ({
         connectionId: props.params.connectionId,
@@ -246,7 +247,7 @@ export const ProjectLive = Page.build(Project, {
         to: { _tag: 'NewSession' as const },
       }),
     }),
-  }),
+  },
   on: {
     ConnectionKnown: ({ gone, unlisted }, { model }) => ({
       model: { ...model, gone, unlisted },

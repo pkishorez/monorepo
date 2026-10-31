@@ -113,205 +113,199 @@ const make = <
     readonly props: P;
   }) => Effect.Effect<I, E, Scope.Scope>;
 
-  const actor = Actor.build(
-    Actor.define(name, {
-      props: options.props,
-      model: ModelSchema,
-      message: MessageSchema,
-    }),
-    {
-      init: () => ({ model: empty }),
-      workers: {
-        // One Worker per Props: new Props stop the old one, and let go of
-        // its Instances, before the next starts.
-        read: {
-          each: ({ props }) => [JSON.stringify(encodeProps(props))],
-          run: (self) =>
-            Effect.gen(function* () {
-              // 1. Open
-              yield* self.send({ _tag: 'Opened' });
-              const { props } = yield* self.get;
+  const actor = Actor.define(name, {
+    props: options.props,
+    model: ModelSchema,
+    message: MessageSchema,
+  }).build({
+    init: () => ({ model: empty }),
+    workers: {
+      // One Worker per Props: new Props stop the old one, and let go of
+      // its Instances, before the next starts.
+      read: {
+        each: ({ props }) => [JSON.stringify(encodeProps(props))],
+        run: (self) =>
+          Effect.gen(function* () {
+            // 1. Open
+            yield* self.send({ _tag: 'Opened' });
+            const { props } = yield* self.get;
 
-              // 2. Load
-              const instances = yield* from({ props }).pipe(
-                Effect.provideService(Holding, {
-                  holder: self.id,
-                  action: false,
-                }),
-              );
-              const read = Object.values(instances);
-              // What it reads of each Instance is named as the query is made.
-              // TanStack DB subscribes a query to its Collections only once
-              // it is preloaded, so the preload starts in the same call.
-              const {
-                made: { live, preloaded },
-                reads,
-              } = readsOf(() => {
-                const collection = createLiveQueryCollection({
-                  query: options.query({ props }, instances) as (
-                    q: InitialQueryBuilder,
-                  ) => QueryBuilder<any>,
-                  startSync: true,
-                  gcTime: 0,
-                });
-                return { live: collection, preloaded: collection.preload() };
+            // 2. Load
+            const instances = yield* from({ props }).pipe(
+              Effect.provideService(Holding, {
+                holder: self.id,
+                action: false,
+              }),
+            );
+            const read = Object.values(instances);
+            // What it reads of each Instance is named as the query is made.
+            // TanStack DB subscribes a query to its Collections only once
+            // it is preloaded, so the preload starts in the same call.
+            const {
+              made: { live, preloaded },
+              reads,
+            } = readsOf(() => {
+              const collection = createLiveQueryCollection({
+                query: options.query({ props }, instances) as (
+                  q: InitialQueryBuilder,
+                ) => QueryBuilder<any>,
+                startSync: true,
+                gcTime: 0,
               });
-              yield* Effect.addFinalizer(() =>
-                Effect.promise(() => live.cleanup()),
-              );
-              yield* Effect.promise(() => preloaded);
+              return { live: collection, preloaded: collection.preload() };
+            });
+            yield* Effect.addFinalizer(() =>
+              Effect.promise(() => live.cleanup()),
+            );
+            yield* Effect.promise(() => preloaded);
 
-              // 3. Follow: what it holds now, then every change after. A
-              // subscription is told of a row's update or removal only once
-              // it was given the row, so it starts from what it holds.
-              const changes =
-                yield* Queue.unbounded<
-                  ReadonlyArray<ChangeMessage<object, string | number>>
-                >();
-              let initial: Array<
-                ChangeMessage<object, string | number>
-              > | null = [];
-              const subscription = live.subscribeChanges(
-                (batch) => {
-                  if (initial) initial.push(...batch);
-                  else Queue.offerUnsafe(changes, batch);
-                },
-                { includeInitialState: true },
-              );
-              const rows = entriesOf<Row>(initial).added;
-              initial = null;
-              yield* Effect.addFinalizer(() =>
-                Effect.sync(() => subscription.unsubscribe()),
-              );
-              // With no Instance there is nothing to wait on.
-              const caughtUp = Stream.zipLatestAll(
-                Stream.succeed(true),
-                ...read.map(
-                  (instance) =>
-                    instance[CaughtUp]?.(
-                      reads.filter((each) => each.instance === instance.name),
-                    ) ?? Stream.succeed(true),
-                ),
-              ).pipe(
-                Stream.map((each) => each.every(Boolean)),
-                Stream.changes,
-              );
-              let last = Option.getOrElse(
-                yield* Stream.runHead(caughtUp),
-                () => true,
-              );
-              // The Instances holding a scope it reads that is Never Synced.
-              const neverSynced = Stream.zipLatestAll(
-                Stream.succeed(null),
-                ...read.map((instance) =>
-                  (
-                    instance[NeverSynced]?.(
-                      reads.filter((each) => each.instance === instance.name),
-                    ) ?? Stream.succeed(true)
-                  ).pipe(
-                    Stream.map((synced) => (synced ? null : instance.name)),
-                  ),
-                ),
-              ).pipe(
-                Stream.map((each) =>
-                  each.filter((name): name is string => name !== null),
-                ),
-                Stream.changesWith(sameNames),
-              );
-              let lastNever = Option.getOrElse(
-                yield* Stream.runHead(neverSynced),
-                (): ReadonlyArray<string> => [],
-              );
-              yield* self.send({
-                _tag: 'Loaded',
-                keys: read.map(({ name }) => name),
-                rows,
-                caughtUp: last,
-                neverSynced: lastNever,
-              });
-              const follow = Stream.fromQueue(changes).pipe(
-                Stream.map((batch) => entriesOf<Row>(batch)),
-                Stream.filter(
-                  ({ added, updated, removed }) =>
-                    added.length + updated.length + removed.length > 0,
-                ),
-                Stream.runForEach((change) =>
-                  self.send({ _tag: 'Changed', ...change }),
-                ),
-              );
-              const stopped = (
-                read.length === 0
-                  ? Effect.never
-                  : Effect.raceAll(
-                      read.map((instance) =>
-                        Effect.as(instance.stopped, instance.name),
-                      ),
-                    )
-              ).pipe(
-                Effect.flatMap((stopped) =>
-                  self.send({
-                    _tag: 'Failed',
-                    message: `Instance ${stopped} stopped`,
-                  }),
-                ),
-              );
-              const catching = Stream.runForEach(caughtUp, (now) => {
-                if (now === last) return Effect.void;
-                last = now;
-                return self.send({ _tag: 'CaughtUp', caughtUp: now });
-              });
-              const syncing = Stream.runForEach(neverSynced, (now) => {
-                if (sameNames(now, lastNever)) return Effect.void;
-                lastNever = now;
-                return self.send({ _tag: 'Synced', neverSynced: now });
-              });
-              yield* Effect.raceFirst(
-                Effect.all([follow, catching, syncing], {
-                  concurrency: 'unbounded',
-                  discard: true,
-                }),
-                stopped,
-              );
-            }).pipe(
-              Effect.catch((cause) =>
-                self.send({ _tag: 'Failed', message: messageOf(cause) }),
+            // 3. Follow: what it holds now, then every change after. A
+            // subscription is told of a row's update or removal only once
+            // it was given the row, so it starts from what it holds.
+            const changes =
+              yield* Queue.unbounded<
+                ReadonlyArray<ChangeMessage<object, string | number>>
+              >();
+            let initial: Array<ChangeMessage<object, string | number>> | null =
+              [];
+            const subscription = live.subscribeChanges(
+              (batch) => {
+                if (initial) initial.push(...batch);
+                else Queue.offerUnsafe(changes, batch);
+              },
+              { includeInitialState: true },
+            );
+            const rows = entriesOf<Row>(initial).added;
+            initial = null;
+            yield* Effect.addFinalizer(() =>
+              Effect.sync(() => subscription.unsubscribe()),
+            );
+            // With no Instance there is nothing to wait on.
+            const caughtUp = Stream.zipLatestAll(
+              Stream.succeed(true),
+              ...read.map(
+                (instance) =>
+                  instance[CaughtUp]?.(
+                    reads.filter((each) => each.instance === instance.name),
+                  ) ?? Stream.succeed(true),
               ),
+            ).pipe(
+              Stream.map((each) => each.every(Boolean)),
+              Stream.changes,
+            );
+            let last = Option.getOrElse(
+              yield* Stream.runHead(caughtUp),
+              () => true,
+            );
+            // The Instances holding a scope it reads that is Never Synced.
+            const neverSynced = Stream.zipLatestAll(
+              Stream.succeed(null),
+              ...read.map((instance) =>
+                (
+                  instance[NeverSynced]?.(
+                    reads.filter((each) => each.instance === instance.name),
+                  ) ?? Stream.succeed(true)
+                ).pipe(Stream.map((synced) => (synced ? null : instance.name))),
+              ),
+            ).pipe(
+              Stream.map((each) =>
+                each.filter((name): name is string => name !== null),
+              ),
+              Stream.changesWith(sameNames),
+            );
+            let lastNever = Option.getOrElse(
+              yield* Stream.runHead(neverSynced),
+              (): ReadonlyArray<string> => [],
+            );
+            yield* self.send({
+              _tag: 'Loaded',
+              keys: read.map(({ name }) => name),
+              rows,
+              caughtUp: last,
+              neverSynced: lastNever,
+            });
+            const follow = Stream.fromQueue(changes).pipe(
+              Stream.map((batch) => entriesOf<Row>(batch)),
+              Stream.filter(
+                ({ added, updated, removed }) =>
+                  added.length + updated.length + removed.length > 0,
+              ),
+              Stream.runForEach((change) =>
+                self.send({ _tag: 'Changed', ...change }),
+              ),
+            );
+            const stopped = (
+              read.length === 0
+                ? Effect.never
+                : Effect.raceAll(
+                    read.map((instance) =>
+                      Effect.as(instance.stopped, instance.name),
+                    ),
+                  )
+            ).pipe(
+              Effect.flatMap((stopped) =>
+                self.send({
+                  _tag: 'Failed',
+                  message: `Instance ${stopped} stopped`,
+                }),
+              ),
+            );
+            const catching = Stream.runForEach(caughtUp, (now) => {
+              if (now === last) return Effect.void;
+              last = now;
+              return self.send({ _tag: 'CaughtUp', caughtUp: now });
+            });
+            const syncing = Stream.runForEach(neverSynced, (now) => {
+              if (sameNames(now, lastNever)) return Effect.void;
+              lastNever = now;
+              return self.send({ _tag: 'Synced', neverSynced: now });
+            });
+            yield* Effect.raceFirst(
+              Effect.all([follow, catching, syncing], {
+                concurrency: 'unbounded',
+                discard: true,
+              }),
+              stopped,
+            );
+          }).pipe(
+            Effect.catch((cause) =>
+              self.send({ _tag: 'Failed', message: messageOf(cause) }),
             ),
-        },
-      },
-      on: {
-        Opened: () => ({ model: empty }),
-        Loaded: ({ keys, rows, caughtUp, neverSynced }) => ({
-          model: {
-            keys,
-            rows,
-            status: 'ready',
-            problem: null,
-            caughtUp,
-            neverSynced,
-          },
-        }),
-        Changed: (change, { model }) => ({
-          model: { ...model, rows: applied(model.rows, change) },
-        }),
-        CaughtUp: ({ caughtUp }, { model }) => ({
-          model: { ...model, caughtUp },
-        }),
-        Synced: ({ neverSynced }, { model }) => ({
-          model: { ...model, neverSynced },
-        }),
-        Failed: ({ message }, { model }) => ({
-          model: {
-            ...model,
-            rows: [],
-            status: 'failed',
-            problem: message,
-            caughtUp: false,
-          },
-        }),
+          ),
       },
     },
-  );
+    on: {
+      Opened: () => ({ model: empty }),
+      Loaded: ({ keys, rows, caughtUp, neverSynced }) => ({
+        model: {
+          keys,
+          rows,
+          status: 'ready',
+          problem: null,
+          caughtUp,
+          neverSynced,
+        },
+      }),
+      Changed: (change, { model }) => ({
+        model: { ...model, rows: applied(model.rows, change) },
+      }),
+      CaughtUp: ({ caughtUp }, { model }) => ({
+        model: { ...model, caughtUp },
+      }),
+      Synced: ({ neverSynced }, { model }) => ({
+        model: { ...model, neverSynced },
+      }),
+      Failed: ({ message }, { model }) => ({
+        model: {
+          ...model,
+          rows: [],
+          status: 'failed',
+          problem: message,
+          caughtUp: false,
+        },
+      }),
+    },
+  });
   // Its Schemas check rows as unknown; its type says what they are.
   return actor as unknown as QueryActor<Name, P, Row, R>;
 };

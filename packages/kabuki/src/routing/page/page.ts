@@ -6,11 +6,14 @@ import type {
   AnyChild,
   AnyDefined,
   Behavior,
+  DeclaredOf,
+  DeclaredQueries,
   Defined,
   KidsByState,
   OpenOfBehavior,
   ProvidedOf,
   QueriesByState,
+  QueryWritten,
   Refused,
   Requires,
   StructOf,
@@ -19,6 +22,7 @@ import type {
   TaggedOf,
   TaggedWritten,
   Types,
+  Undeclared,
 } from '../../core/actor/index.ts';
 import { Navigation } from '../capabilities/index.ts';
 import {
@@ -52,8 +56,8 @@ import type { Carried, Status, Where } from './status/index.ts';
  *            Actor's own Schemas. Its Props are worked out from them. A page
  *            definition is an Actor definition and a node of the Routes:
  *            `Router.define(App)` reads the tree of them down from the root.
- * 2. Build   `Page.build(Project, { pages, … })`: how it behaves, as
- *            `Actor.build` takes it, and the build of each page under it,
+ * 2. Build   `Project.build({ pages, … })`: how it behaves, as an
+ *            Actor's `build` takes it, and the build of each page under it,
  *            each made a Child: there while the URL names it, made again
  *            when its params change, handed its params, query, `status` and
  *            `route`.
@@ -75,6 +79,7 @@ export interface PageOptions<
   SW extends TaggedWritten | undefined,
   GW extends TaggedWritten | undefined,
   R extends Requires,
+  QW extends { readonly [name: string]: QueryWritten } = {},
 > {
   /** Its path under the page above: `/projects/:id`. None, or `/`, adds nothing. */
   readonly path?: string;
@@ -106,6 +111,8 @@ export interface PageOptions<
   readonly state?: SW;
   /** Its Messages, as a tagged union's Schema or its cases by tag. */
   readonly message?: GW;
+  /** The questions code outside the tree may ask it, by name: what each is asked with, and what it answers. */
+  readonly queries?: QW;
 }
 
 type ModelOf<W> = [W] extends [undefined] ? {} : StructOf<W>;
@@ -140,6 +147,7 @@ export interface PageDefinition<
   State extends Tagged = any,
   Msg extends Tagged = any,
   R extends Requires = any,
+  Qs extends DeclaredQueries = any,
 >
   extends
     Node<P, Q, C, D, M>,
@@ -150,7 +158,9 @@ export interface PageDefinition<
       Model,
       State,
       Msg,
-      readonly [...R, typeof Navigation]
+      readonly [...R, typeof Navigation],
+      never,
+      Qs
     > {
   /** Its types, as written: read by the types alone, never there. */
   readonly '~page'?: {
@@ -162,7 +172,50 @@ export interface PageDefinition<
     readonly state: State;
     readonly message: Msg;
     readonly requires: R;
+    readonly queries: Qs;
   };
+}
+
+/** What `Page.define` gives: the page's definition, and its own `build`. */
+export interface PageBuilder<
+  P extends Fields,
+  Q extends Fields,
+  C extends object,
+  D,
+  M extends RenderMode | undefined,
+  Model,
+  State extends Tagged,
+  Msg extends Tagged,
+  R extends Requires,
+  Qs extends DeclaredQueries,
+> {
+  /**
+   * How the page behaves, as an Actor's definition takes it, and under
+   * `pages` the build of each page this one names. A page with nothing to
+   * say about how it behaves is built with nothing.
+   */
+  build<
+    const B extends PageBehaviorOf<
+      PageDefinition<P, Q, C, D, M, Model, State, Msg, R, Qs>
+    >,
+  >(
+    behavior: B & Undeclared<B, Qs>,
+  ): BuiltPage<
+    PageDefinition<P, Q, C, D, M, Model, State, Msg, R, Qs> &
+      PageBuilder<P, Q, C, D, M, Model, State, Msg, R, Qs>,
+    B
+  >;
+  build(
+    ...nothing: {} extends PageBehaviorOf<
+      PageDefinition<P, Q, C, D, M, Model, State, Msg, R, Qs>
+    >
+      ? []
+      : [behavior: never]
+  ): BuiltPage<
+    PageDefinition<P, Q, C, D, M, Model, State, Msg, R, Qs> &
+      PageBuilder<P, Q, C, D, M, Model, State, Msg, R, Qs>,
+    {}
+  >;
 }
 
 export type AnyPageDefinition = PageDefinition;
@@ -186,7 +239,7 @@ type PagesOf<C> = {
   readonly [K in keyof C]: PageBuild<C[K], AnyActor, any>;
 };
 
-/** What `Page.build` takes besides the Actor's behavior: the builds of the pages under it, if it has any. */
+/** What a page's `build` takes besides the Actor's behavior: the builds of the pages under it, if it has any. */
 type WithPages<C> = [keyof C] extends [never]
   ? { readonly pages?: never }
   : { readonly pages: PagesOf<C> };
@@ -201,6 +254,7 @@ interface PageTypes {
   readonly state: Tagged;
   readonly message: Tagged;
   readonly requires: Requires;
+  readonly queries: DeclaredQueries;
 }
 
 type PropsOf<T extends PageTypes> = PageProps<
@@ -225,7 +279,9 @@ export type PageBehaviorOf<D> = D extends {
       T['model'],
       T['state'],
       T['message'],
-      RequiresOf<T>
+      RequiresOf<T>,
+      never,
+      T['queries']
     > &
       WithPages<T['children']>
   : never;
@@ -266,7 +322,11 @@ export type BuiltPage<D, B> = D extends {
         | OpenOfBehavior<RequiresOf<T>, B>
         | Exclude<PagesOpen<PagesIn<B>>, ProvidedOf<B>>,
         {
-          readonly [S in T['state']['_tag']]: QueriesByState<T['state'], B>[S];
+          readonly [S in T['state']['_tag']]: QueriesByState<
+            T['state'],
+            B,
+            T['queries']
+          >[S];
         }
       >,
       PagesIn<B>
@@ -301,8 +361,9 @@ const define = <
   const SW extends TaggedWritten | undefined = undefined,
   const GW extends TaggedWritten | undefined = undefined,
   const R extends Requires = readonly [],
+  const QW extends { readonly [name: string]: QueryWritten } = {},
 >(
-  options: PageOptions<P, Q, D, M, C, MW, SW, GW, R> &
+  options: PageOptions<P, Q, D, M, C, MW, SW, GW, R, QW> &
     Refused<{ readonly model: MW; readonly state: SW }>,
 ): PageDefinition<
   P,
@@ -313,8 +374,21 @@ const define = <
   ModelOf<MW>,
   StateOf<SW>,
   MessageOf<GW>,
-  R
-> => {
+  R,
+  DeclaredOf<{ readonly queries: QW }>
+> &
+  PageBuilder<
+    P,
+    Q,
+    C,
+    D,
+    M,
+    ModelOf<MW>,
+    StateOf<SW>,
+    MessageOf<GW>,
+    R,
+    DeclaredOf<{ readonly queries: QW }>
+  > => {
   const params = (options.params ?? {}) as Fields;
   const query = (options.query ?? {}) as Fields;
   const pages = (options.pages ?? {}) as Children;
@@ -326,18 +400,21 @@ const define = <
     ),
     ...(options.data ? { status: statusSchema(options.data) } : {}),
   });
-  const { shape } = (
-    Actor.define as (name: string, written: object) => AnyDefined
-  )('Page', {
-    props,
-    requires: [...(options.requires ?? []), Navigation],
-    ...(options.model ? { model: options.model } : {}),
-    ...(options.state ? { state: options.state } : {}),
-    ...(options.message ? { message: options.message } : {}),
-  });
-  return {
+  /** The page as an Actor: what its own `build` builds from. */
+  const actor = (Actor.define as (name: string, written: object) => Buildable)(
+    'Page',
+    {
+      props,
+      requires: [...(options.requires ?? []), Navigation],
+      ...(options.model ? { model: options.model } : {}),
+      ...(options.state ? { state: options.state } : {}),
+      ...(options.message ? { message: options.message } : {}),
+      ...(options.queries ? { queries: options.queries } : {}),
+    },
+  );
+  const definition = {
     name: 'Page',
-    shape,
+    shape: actor.shape,
     path: options.path ?? '/',
     params,
     query,
@@ -346,10 +423,18 @@ const define = <
     staleTime: options.staleTime,
     metadata: options.metadata,
     children: pages,
-  } as never;
+    build: (behavior?: object) =>
+      build(definition as unknown as AnyPageDefinition, actor, behavior),
+  };
+  return definition as never;
 };
 
 type Data = { readonly props: { readonly route: Carried } };
+
+/** An Actor's definition, loosely, with its own `build`. */
+type Buildable = AnyDefined & {
+  readonly build: (behavior: object) => AnyActor;
+};
 
 /** What the places below `name` start from: each level hands down only the statuses under it. */
 const belowOf = (
@@ -429,25 +514,17 @@ const pagesOf = (
     }),
   );
 
-/** A Child as `child` makes it, for reading a level's Children by name. */
-const made = (actor: AnyActor, options: object = {}): AnyChild => ({
-  ...options,
-  actor,
-});
-
-function build<D extends AnyPageDefinition>(
-  definition: D & ({} extends PageBehaviorOf<D> ? unknown : never),
-): BuiltPage<D, {}>;
-function build<D extends AnyPageDefinition, const B extends PageBehaviorOf<D>>(
-  definition: D,
-  behavior: B,
-): BuiltPage<D, B>;
 /**
- * A page built: how it behaves, as `Actor.build` takes it, and under
- * `pages` the build of each page its definition names.
+ * A page built: how it behaves, as an Actor's definition takes it, and
+ * under `pages` the build of each page its definition names. What a page
+ * definition's own `build` runs.
  */
-function build(definition: AnyPageDefinition, behavior: any = {}): unknown {
-  type Made = (child: typeof made) => Readonly<Record<string, AnyChild>>;
+function build(
+  definition: AnyPageDefinition,
+  page: Buildable,
+  behavior: any = {},
+): unknown {
+  type Made = Readonly<Record<string, AnyChild>>;
   const { pages: builds = {}, ...written } = behavior as {
     readonly pages?: Readonly<Record<string, AnyPageBuild>>;
     readonly children?: Made;
@@ -455,9 +532,9 @@ function build(definition: AnyPageDefinition, behavior: any = {}): unknown {
   };
   const pages = definition.children as Children;
   const own = [
-    ...Object.keys(written.children?.(made) ?? {}),
+    ...Object.keys(written.children ?? {}),
     ...Object.values(written.states ?? {}).flatMap((block) =>
-      Object.keys(block?.children?.(made) ?? {}),
+      Object.keys(block?.children ?? {}),
     ),
   ];
   for (const name of own)
@@ -465,28 +542,22 @@ function build(definition: AnyPageDefinition, behavior: any = {}): unknown {
       throw new Error(
         `[@kestack/kabuki/routing] a page's Child "${name}" has the name of one of its pages`,
       );
-  const actor = (
-    Actor.build as (definition: unknown, behavior: unknown) => AnyActor
-  )(definition, {
+  const actor = page.build({
     ...written,
-    children: (child: typeof made) => ({
-      ...written.children?.(child),
-      ...pagesOf(pages, builds),
-    }),
+    children: { ...written.children, ...pagesOf(pages, builds) },
   });
   return Object.assign(actor, { page: definition, pages: builds });
 }
 
 /**
  * Pages: `define` says what one is, an Actor with a place in the URL, and
- * the pages under it; `build` says how it behaves, with the build of each
- * page under it. A Loader fails with `notFound()` and `redirect(route or
+ * the pages under it; its own `build` says how it behaves, with the build of
+ * each page under it. A Loader fails with `notFound()` and `redirect(route or
  * URL)`, whose Schemas are `NotFound` and `Redirect`. `wholeQuery` is a
  * query field holding the whole query, every pair as written.
  */
 export const Page = {
   define,
-  build,
   notFound,
   redirect,
   wholeQuery,

@@ -127,12 +127,12 @@ describe('a Query across Instances', () => {
           q.from({ b: b.wallets }).select(({ b }) => ({ ...b, owner: 'b' })),
         ),
   });
-  const Root = Actor.build(Actor.define('Root', {}), {
+  const Root = Actor.define('Root', {}).build({
     provides: () => Replicas.layer,
-    children: (child) => ({
-      replicas: child(Replicas.actor([PocketLive])),
-      both: child(Both, { props: () => ({}) }),
-    }),
+    children: {
+      replicas: Actor.child(Replicas.actor([PocketLive])),
+      both: Actor.child(Both, { props: () => ({}) }),
+    },
   });
 
   it('says which Instance each row is from, and names the one Never Synced', () =>

@@ -257,7 +257,7 @@ const give = (model: Model, mode: Mode, text: string, replaces: boolean) => ({
   replaces,
 });
 
-export const DraftLive = Actor.build(Draft, {
+export const DraftLive = Draft.build({
   init: () => ({
     model: {
       restored: false,
@@ -332,9 +332,9 @@ export const DraftLive = Actor.build(Draft, {
         }),
       ),
     ),
-  children: (child) => ({
+  children: {
     // 1. Write: one Child per Draft Mode, once its Saved Draft is read back.
-    modes: child(DraftMode.actor, {
+    modes: Actor.child(DraftMode.actor, {
       each: ({ model, props }) => (model.restored ? modesOf(props) : []),
       input: ({ model }, key) => ({
         written: model.opening[key as Mode],
@@ -355,13 +355,13 @@ export const DraftLive = Actor.build(Draft, {
       },
     }),
     // 2. Pick
-    skills: child(SkillPicker.Live, {
+    skills: Actor.child(SkillPicker.Live, {
       while: ({ model }) => model.picking?._tag === 'Skills',
       key: ({ model }) => String(model.opened),
       input: ({ model }) => SkillPicker.opening(model.picking?.how ?? 'keys'),
       props: ({ model, props }) => skillsOf(model, props),
     }),
-    models: child(ModelPicker.Live, {
+    models: Actor.child(ModelPicker.Live, {
       while: ({ model, props }) =>
         model.picking?._tag === 'Model' && current(model, props) !== null,
       key: ({ model }) => String(model.opened),
@@ -381,7 +381,7 @@ export const DraftLive = Actor.build(Draft, {
           (model.picking.at === 'agent' || model.picking.at === 'modelAlone'),
       }),
     }),
-    branches: child(BranchPicker.Live, {
+    branches: Actor.child(BranchPicker.Live, {
       while: ({ model }) =>
         model.picking?._tag === 'Branch' && model.branches?._tag === 'Git',
       key: ({ model }) => String(model.opened),
@@ -391,7 +391,7 @@ export const DraftLive = Actor.build(Draft, {
         picked: model.branch,
       }),
     }),
-  }),
+  },
   workers: {
     // 4. Keep: read back once, under the Account signed in as it opens.
     restore: {

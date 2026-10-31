@@ -17,10 +17,10 @@ import { SidebarLive } from '../actor.ts';
  */
 
 const Owner = Actor.define('Owner', {});
-const OwnerLive = Actor.build(Owner, {
-  children: (child) => ({
-    sidebar: child(SidebarLive, { props: () => ({ accountId: 'a1' }) }),
-  }),
+const OwnerLive = Owner.build({
+  children: {
+    sidebar: Actor.child(SidebarLive, { props: () => ({ accountId: 'a1' }) }),
+  },
 });
 
 const layer = Layer.mergeAll(

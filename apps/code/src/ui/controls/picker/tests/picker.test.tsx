@@ -70,12 +70,12 @@ const Owner = Actor.define('Owner', {
   }),
 });
 
-const OwnerLive = Actor.build(Owner, {
+const OwnerLive = Owner.build({
   init: () => ({
     model: { picking: null, opened: 0, chosen: null, done: 0, pings: 0 },
   }),
-  children: (child) => ({
-    picker: child(Fruit.Live, {
+  children: {
+    picker: Actor.child(Fruit.Live, {
       while: ({ model }) => model.picking !== null,
       key: ({ model }) => String(model.opened),
       input: ({ model }) => ({
@@ -85,7 +85,7 @@ const OwnerLive = Actor.build(Owner, {
       }),
       props: () => ({ ripe: true }),
     }),
-  }),
+  },
   provides: (self) =>
     Fruit.owner({
       done: (choices) =>

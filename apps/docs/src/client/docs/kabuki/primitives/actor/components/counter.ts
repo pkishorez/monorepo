@@ -11,7 +11,7 @@ export const Counter = Actor.define('Counter', {
 });
 
 // 2. Build: where it starts, and what each Message does.
-export const CounterLive = Actor.build(Counter, {
+export const CounterLive = Counter.build({
   init: () => ({ model: { count: 0 } }),
   on: {
     Added: ({ amount }, { model }) => ({

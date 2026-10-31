@@ -33,22 +33,22 @@ const ConnectionCard = Actor.define('ConnectionCard', {
   message: Schema.TaggedUnion({ ForgetAsked: {} }),
 });
 
-export const ConnectionCardLive = Actor.build(ConnectionCard, {
+export const ConnectionCardLive = ConnectionCard.build({
   init: ({ connectionId }) => ({ model: { connectionId } }),
   // 1. Shown
-  children: (child) => ({
-    accounts: child(HarnessAccounts.actor, {
+  children: {
+    accounts: Actor.child(HarnessAccounts.actor, {
       input: ({ model }) => ({ connectionId: model.connectionId }),
       props: ({ props }) => ({
         accounts: props.accounts,
         problem: props.problem,
       }),
     }),
-    speech: child(SpeechToText.actor, {
+    speech: Actor.child(SpeechToText.actor, {
       input: ({ model }) => ({ connectionId: model.connectionId }),
       props: ({ props }) => ({ speech: props.speech }),
     }),
-  }),
+  },
   on: {
     // 2. Forget
     ForgetAsked: (_, { model }) => ({

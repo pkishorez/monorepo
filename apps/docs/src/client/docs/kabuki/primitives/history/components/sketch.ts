@@ -14,7 +14,7 @@ export const Sketch = Actor.define('Sketch', {
   }),
 });
 
-export const SketchLive = Actor.build(Sketch, {
+export const SketchLive = Sketch.build({
   init: () => ({
     model: { colour: 'ink', cells: Array.from({ length: 25 }, () => null) },
   }),

@@ -4,6 +4,7 @@ import * as routes from '../../../../../routes/index.ts';
 import { General } from './browser/general/index.ts';
 import { Shortcuts } from './browser/shortcuts/index.ts';
 import { ConnectionSettings } from './connections/index.ts';
+import { Actor } from '@kestack/kabuki';
 
 /*
  * Settings, on no Connection, at `/settings`, as four tabs:
@@ -34,13 +35,13 @@ export const Settings = Page.define({
   message: Schema.TaggedUnion({ TabChosen: { tab: Tab } }),
 });
 
-export const SettingsLive = Page.build(Settings, {
+export const SettingsLive = Settings.build({
   init: () => ({ model: { open: routes.settingsTabAsked() } }),
-  children: (child) => ({
-    general: child(General.actor),
-    shortcuts: child(Shortcuts.actor),
-    connections: child(ConnectionSettings.actor),
-  }),
+  children: {
+    general: Actor.child(General.actor),
+    shortcuts: Actor.child(Shortcuts.actor),
+    connections: Actor.child(ConnectionSettings.actor),
+  },
   on: {
     TabChosen: ({ tab }, { model }) =>
       tab === model.open ? {} : { model: { open: tab } },

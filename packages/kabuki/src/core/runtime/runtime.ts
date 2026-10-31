@@ -7,6 +7,7 @@ import { History } from '../history/index.ts';
 import { ActorInstance, Stopped } from './instance/index.ts';
 import type { Provided, WorkerStatus } from './instance/index.ts';
 import { makeMailbox } from './mailbox.ts';
+import type { Sent } from './mailbox.ts';
 import { reach } from './reach.ts';
 import type { LiveInstance } from './reach.ts';
 import { makeTime } from './time.ts';
@@ -47,12 +48,12 @@ export interface Running<A> {
   readonly now: () => number;
   /** The root Instance, typed and live, for code outside the tree: what it Sends comes from outside, named `from`. */
   readonly instance: (options: { readonly from: string }) => LiveInstance<A>;
-  /** Hand a Message to any Instance, from outside the tree unless said otherwise. Dropped while stopped. */
+  /** Hand a Message to any Instance, from outside the tree unless said otherwise; says what became of it. Refused while stopped. */
   readonly send: (
     instance: string,
     message: Tagged & { readonly [field: string]: unknown },
     source?: Source,
-  ) => void;
+  ) => Sent;
   /** Called once the Mailbox is empty, and on every start and stop. */
   readonly subscribe: (listener: () => void) => () => void;
   /** The live Snapshot now, then whenever `subscribe` is called; a slow reader gets only the latest. */
@@ -61,12 +62,6 @@ export interface Running<A> {
   readonly workers: (instance: string) => ReadonlyArray<WorkerStatus>;
   /** The Capabilities an Instance provides to everything under it now, by key. Empty while stopped. */
   readonly provided: (instance: string) => Provided;
-  /** Ask one of an Instance's Queries by name, untyped; `instance().queries` is the typed way. `Stopped` while stopped. */
-  readonly query: (
-    instance: string,
-    name: string,
-    args: unknown,
-  ) => Effect.Effect<unknown, unknown>;
   /** Start at the Head, or move the Head to an entry first (`null`: init). Stops first if running. */
   readonly start: (from?: number | null) => Effect.Effect<void>;
   readonly stop: () => Effect.Effect<void>;
@@ -113,18 +108,19 @@ const start = <A extends AnyActor>(
           snapshot = handled.snapshot;
         });
         history.append(envelope, handled);
+        return handled.outcome;
       },
       notify,
     );
 
     // 2. Send
-    const send = (id: string, message: Tagged, source: Source) => {
+    const send = (id: string, message: Tagged, source: Source): Sent => {
       if (!isRestore(message))
         actorAt(root, snapshot, id)?.check.message(
           message,
           `Message ${JSON.stringify(message._tag)}`,
         );
-      mailbox.send(id, message, source);
+      return mailbox.send(id, message, source);
     };
 
     // 1. Start
@@ -185,10 +181,18 @@ const start = <A extends AnyActor>(
       }),
     );
 
+    /** Asks one of an Instance's Queries by name, for the live Instance that types it. */
+    const query = (id: string, name: string, args: unknown) =>
+      Effect.suspend(
+        () =>
+          instance?.query(id, name, args) ??
+          Effect.fail(new Stopped({ instance: id, query: name })),
+      );
+
     const running: Running<A> = {
       history,
       instance: ({ from }) =>
-        reach<A>({ ...running, run: () => runs }, root, from),
+        reach<A>({ ...running, run: () => runs, query }, root, from),
       snapshot: () => snapshot,
       running: () => instance !== undefined,
       now: time.now,
@@ -208,12 +212,6 @@ const start = <A extends AnyActor>(
       ),
       workers: (id) => instance?.workers(id) ?? [],
       provided: (id) => instance?.provided(id) ?? { top: [], state: [] },
-      query: (id, name, args) =>
-        Effect.suspend(
-          () =>
-            instance?.query(id, name, args) ??
-            Effect.fail(new Stopped({ instance: id, query: name })),
-        ),
       start: (from) => latest(restart(from)),
       stop: () => latest(halt),
     };

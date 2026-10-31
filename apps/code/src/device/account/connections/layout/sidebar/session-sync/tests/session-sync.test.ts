@@ -107,13 +107,13 @@ const Owner = Actor.define('Owner', {
     Read: { connectionIds: Schema.Array(Schema.String) },
   }),
 });
-const OwnerLive = Actor.build(Owner, {
+const OwnerLive = Owner.build({
   init: () => ({ model: { connectionIds: ['m1'] } }),
-  children: (child) => ({
-    sessionSync: child(SessionSync.actor, {
+  children: {
+    sessionSync: Actor.child(SessionSync.actor, {
       props: ({ model }) => ({ connectionIds: model.connectionIds }),
     }),
-  }),
+  },
   on: { Read: ({ connectionIds }) => ({ model: { connectionIds } }) },
 });
 
