@@ -1,4 +1,4 @@
-import type { PlaceSchema, RenderMode } from '../../routing/route/index.ts';
+import type { PlaceSchema, RenderMode } from '../../../routing/route/index.ts';
 
 /*
  * What Start tells anything in front of the app about its pages, such as a

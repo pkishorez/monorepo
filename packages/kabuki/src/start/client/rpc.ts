@@ -1,13 +1,13 @@
 import { Cause, Effect, Layer, Stream } from 'effect';
 import { Loading } from '../../routing/index.ts';
 import type { Answer } from '../../routing/index.ts';
-import { PATH, loadable, readLine, writeAsk } from '../common/index.ts';
-import type { Line, RoutesOnWire } from '../common/index.ts';
+import { PATH, loadable, readLine, writeAsk } from '../app/protocol/index.ts';
+import type { Line, RoutesOnWire } from '../app/protocol/index.ts';
 
 /*
  * The Loader RPC, asked: the `Loading` behind the browser's Data cache, one
  * request for every place asked for at once, each answered as its line
- * comes. The protocol is `common/wire.ts`.
+ * comes. The protocol is `app/protocol/wire.ts`.
  */
 
 /**

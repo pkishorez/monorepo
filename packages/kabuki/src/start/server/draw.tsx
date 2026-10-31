@@ -8,7 +8,12 @@ import { toReact } from '../../react/index.ts';
 import type { LazyView } from '../../react/index.ts';
 import type { Known } from '../../routing/page/index.ts';
 import { tagsOf } from '../../routing/route/index.ts';
-import { NOT_HERE, NotHere, PageContext, serialize } from '../common/index.ts';
+import {
+  NOT_HERE,
+  NotHere,
+  PageContext,
+  serialize,
+} from '../app/protocol/index.ts';
 import type {
   Assets,
   Build,
@@ -16,7 +21,7 @@ import type {
   Drawn,
   Page,
   ServedApp,
-} from '../common/index.ts';
+} from '../app/protocol/index.ts';
 
 /*
  * Drawing one URL, purely: the Router's init at its Route with what the

@@ -1,6 +1,6 @@
 import { Context, Effect, Layer } from 'effect';
 import type { LoadError, StaticOf } from '../../routing/route/index.ts';
-import { branded, refused } from '../common/index.ts';
+import { branded, refused } from '../app/protocol/index.ts';
 
 /*
  * What `src/loaders.server` hands Start: the Loaders, and what they Require

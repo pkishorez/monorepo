@@ -1,4 +1,4 @@
-import { Start } from '../../../common/index.ts';
+import { Start } from '../../../app/index.ts';
 
 export default function Document({ children }: Start.DocumentProps) {
   return (

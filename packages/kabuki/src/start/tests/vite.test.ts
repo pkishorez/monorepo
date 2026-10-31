@@ -31,7 +31,7 @@ const config = (outDir: string, at = root): InlineConfig => ({
       },
       {
         find: /^@kestack\/kabuki\/start$/,
-        replacement: `${source}/start/common/common.ts`,
+        replacement: `${source}/start/app/index.ts`,
       },
     ],
   },

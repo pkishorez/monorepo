@@ -1,12 +1,12 @@
 import { Cause, Effect, Exit, Fiber, Stream } from 'effect';
 import type { Outcome } from '../../routing/route/index.ts';
-import { NDJSON, loadable, readAsk, writeLine } from '../common/index.ts';
-import type { RoutesOnWire, Wanted } from '../common/index.ts';
+import { NDJSON, loadable, readAsk, writeLine } from '../app/protocol/index.ts';
+import type { RoutesOnWire, Wanted } from '../app/protocol/index.ts';
 
 /*
  * The Loader RPC, answered: the places a request asks for read with their
  * Schemas, their Loaders run at once, and each line written as its place is
- * done. The protocol is `common/wire.ts`.
+ * done. The protocol is `app/protocol/wire.ts`.
  */
 
 const json = (body: unknown, status: number) =>

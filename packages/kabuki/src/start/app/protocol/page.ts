@@ -1,7 +1,7 @@
 import { createContext, use } from 'react';
-import type { SavedHistory } from '../../core/index.ts';
-import type { AppRuntime } from '../../react/index.ts';
-import type { Tag } from '../../routing/route/index.ts';
+import type { SavedHistory } from '../../../core/index.ts';
+import type { AppRuntime } from '../../../react/index.ts';
+import type { Tag } from '../../../routing/route/index.ts';
 
 /*
  * The Page: what one drawing of the Document holds, worked out by the server

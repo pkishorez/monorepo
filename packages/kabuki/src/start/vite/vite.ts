@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { isRunnableDevEnvironment } from 'vite';
 import type { Plugin, ViteDevServer } from 'vite';
-import type { Build } from '../common/index.ts';
+import type { Build } from '../app/protocol/index.ts';
 import type { Handler, Platform } from '../platform/index.ts';
 import { serveHandler } from './dev.ts';
 import {

@@ -1,4 +1,4 @@
-import type { Build, Script } from '../common/index.ts';
+import type { Build, Script } from '../app/protocol/index.ts';
 import type { Platform } from '../platform/index.ts';
 import type { Files } from './files.ts';
 

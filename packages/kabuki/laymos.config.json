@@ -22,17 +22,17 @@
       "src/core",
       "src/react",
       "src/routing",
-      "src/start/common",
+      "src/start/app",
       "src/start/platform"
     ],
     "src/start/client": [
       "src/core",
       "src/react",
       "src/routing",
-      "src/start/common"
+      "src/start/app"
     ],
-    "src/start/vite": ["src/start/common", "src/start/platform"],
-    "src/start/common": ["src/core", "src/react", "src/routing"],
+    "src/start/vite": ["src/start/app", "src/start/platform"],
+    "src/start/app": ["src/core", "src/react", "src/routing"],
     "src/routing/capabilities": ["src/routing/route"],
     "src/routing/page": ["src/routing/route", "src/routing/capabilities"]
   },
