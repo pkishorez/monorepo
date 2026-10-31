@@ -11,4 +11,4 @@ export const Kabuki = Page.define({
   metadata: { title: 'Kabuki · code', robots: 'noindex' },
 });
 
-export const KabukiLive = Page.build(Kabuki, {});
+export const KabukiLive = Kabuki.build({});

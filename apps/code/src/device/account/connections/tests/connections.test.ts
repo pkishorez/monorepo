@@ -82,14 +82,14 @@ const connection = (
 /** What the root page is told by Connections preparing: nothing, here. */
 const unprepared = Layer.succeed(Prepared, { ready: () => Effect.void });
 
-const OwnerLive = Actor.build(Actor.define('Owner', {}), {
+const OwnerLive = Actor.define('Owner', {}).build({
   provides: () => Layer.merge(connections, unprepared),
-  children: (child) => ({
-    connections: child(ConnectionsLive, {
+  children: {
+    connections: Actor.child(ConnectionsLive, {
       input: () => ({ accountId: 'a1' }),
       props: () => ({ email: 'me@example.com', drawn: true }),
     }),
-  }),
+  },
 });
 
 type Api = CodeClient['Service'];
@@ -356,38 +356,35 @@ describe('Connections', () => {
   });
 
   it('shares what it holds as `Connections`, which waits for an address', async () => {
-    const OwnerReading = Actor.build(
-      Actor.define('Reader', {
-        model: Schema.Struct({ reached: Schema.NullOr(Schema.String) }),
-        message: Schema.TaggedUnion({ Reached: { url: Schema.String } }),
-        requires: [Connections],
-      }),
-      {
-        init: () => ({ model: { reached: null } }),
-        workers: {
-          reach: {
-            run: (self) =>
-              Effect.flatMap(Connections, (connections) =>
-                connections.reachable('m1'),
-              ).pipe(
-                Effect.flatMap(({ tunnel }) =>
-                  self.send({ _tag: 'Reached', url: tunnel }),
-                ),
+    const OwnerReading = Actor.define('Reader', {
+      model: Schema.Struct({ reached: Schema.NullOr(Schema.String) }),
+      message: Schema.TaggedUnion({ Reached: { url: Schema.String } }),
+      requires: [Connections],
+    }).build({
+      init: () => ({ model: { reached: null } }),
+      workers: {
+        reach: {
+          run: (self) =>
+            Effect.flatMap(Connections, (connections) =>
+              connections.reachable('m1'),
+            ).pipe(
+              Effect.flatMap(({ tunnel }) =>
+                self.send({ _tag: 'Reached', url: tunnel }),
               ),
-          },
+            ),
         },
-        on: { Reached: ({ url }) => ({ model: { reached: url } }) },
       },
-    );
-    const Both = Actor.build(Actor.define('Both', {}), {
+      on: { Reached: ({ url }) => ({ model: { reached: url } }) },
+    });
+    const Both = Actor.define('Both', {}).build({
       provides: () => Layer.merge(connections, unprepared),
-      children: (child) => ({
-        connections: child(ConnectionsLive, {
+      children: {
+        connections: Actor.child(ConnectionsLive, {
           input: () => ({ accountId: 'a1' }),
           props: () => ({ email: null, drawn: true }),
         }),
-        reader: child(OwnerReading),
-      }),
+        reader: Actor.child(OwnerReading),
+      },
     });
     let listed: ReadonlyArray<Connection> = [connection('m1', 1, null)];
     const { layer } = world(Effect.sync(() => listed));
@@ -410,83 +407,77 @@ describe('Connections', () => {
 
 describe('Connections preparing', () => {
   /** Who `Connections` says the Connections are of, and which, as a reader hears it. */
-  const Watcher = Actor.build(
-    Actor.define('Watcher', {
-      requires: [Connections],
-      model: Schema.Struct({
+  const Watcher = Actor.define('Watcher', {
+    requires: [Connections],
+    model: Schema.Struct({
+      accountId: Schema.NullOr(Schema.String),
+      ids: Schema.NullOr(Schema.Array(Schema.String)),
+    }),
+    message: Schema.TaggedUnion({
+      Heard: {
         accountId: Schema.NullOr(Schema.String),
         ids: Schema.NullOr(Schema.Array(Schema.String)),
-      }),
-      message: Schema.TaggedUnion({
-        Heard: {
-          accountId: Schema.NullOr(Schema.String),
-          ids: Schema.NullOr(Schema.Array(Schema.String)),
-        },
-      }),
-    }),
-    {
-      init: () => ({ model: { accountId: null, ids: null } }),
-      workers: {
-        hear: {
-          run: (self) =>
-            Stream.runForEach(
-              Stream.unwrap(Effect.map(Connections, ({ state }) => state)),
-              ({ accountId, connections }) =>
-                self.send({
-                  _tag: 'Heard',
-                  accountId,
-                  ids: connections?.map(({ id }) => id) ?? null,
-                }),
-            ),
-        },
       },
-      on: { Heard: ({ accountId, ids }) => ({ model: { accountId, ids } }) },
+    }),
+  }).build({
+    init: () => ({ model: { accountId: null, ids: null } }),
+    workers: {
+      hear: {
+        run: (self) =>
+          Stream.runForEach(
+            Stream.unwrap(Effect.map(Connections, ({ state }) => state)),
+            ({ accountId, connections }) =>
+              self.send({
+                _tag: 'Heard',
+                accountId,
+                ids: connections?.map(({ id }) => id) ?? null,
+              }),
+          ),
+      },
     },
-  );
+    on: { Heard: ({ accountId, ids }) => ({ model: { accountId, ids } }) },
+  });
 
   /** The root page's part: `a1` drawn, `a2` preparing, until the test swaps them. */
-  const Root = Actor.build(
-    Actor.define('Root', {
-      model: Schema.Struct({
-        drawn: Schema.String,
-        wanted: Schema.String,
-        ready: Schema.Array(Schema.String),
-      }),
-      message: Schema.TaggedUnion({
-        Ready: { accountId: Schema.String },
-        Swapped: {},
-      }),
+  const Root = Actor.define('Root', {
+    model: Schema.Struct({
+      drawn: Schema.String,
+      wanted: Schema.String,
+      ready: Schema.Array(Schema.String),
     }),
-    {
-      init: () => ({ model: { drawn: 'a1', wanted: 'a2', ready: [] } }),
-      provides: (self) =>
-        Layer.merge(
-          connections,
-          Layer.succeed(Prepared, {
-            ready: (accountId) => self.send({ _tag: 'Ready', accountId }),
-          }),
-        ),
-      children: (child) => ({
-        connections: child(ConnectionsLive, {
-          each: ({ model }) => [...new Set([model.drawn, model.wanted])],
-          input: (_, accountId) => ({ accountId }),
-          props: ({ model }, accountId) => ({
-            email: null,
-            drawn: accountId === model.drawn,
-          }),
+    message: Schema.TaggedUnion({
+      Ready: { accountId: Schema.String },
+      Swapped: {},
+    }),
+  }).build({
+    init: () => ({ model: { drawn: 'a1', wanted: 'a2', ready: [] } }),
+    provides: (self) =>
+      Layer.merge(
+        connections,
+        Layer.succeed(Prepared, {
+          ready: (accountId) => self.send({ _tag: 'Ready', accountId }),
         }),
-        watcher: child(Watcher),
+      ),
+    children: {
+      connections: Actor.child(ConnectionsLive, {
+        each: ({ model }) => [...new Set([model.drawn, model.wanted])],
+        input: (_, accountId) => ({ accountId }),
+        props: ({ model }, accountId) => ({
+          email: null,
+          drawn: accountId === model.drawn,
+        }),
       }),
-      on: {
-        Ready: ({ accountId }, { model }) => ({
-          model: { ...model, ready: [...model.ready, accountId] },
-        }),
-        Swapped: (_, { model }) => ({
-          model: { ...model, drawn: model.wanted },
-        }),
-      },
+      watcher: Actor.child(Watcher),
     },
-  );
+    on: {
+      Ready: ({ accountId }, { model }) => ({
+        model: { ...model, ready: [...model.ready, accountId] },
+      }),
+      Swapped: (_, { model }) => ({
+        model: { ...model, drawn: model.wanted },
+      }),
+    },
+  });
 
   it('shares nothing until drawn, says once its kept list is read, and stays shared as the Account before goes', async () => {
     // Cloud Connect never answers: only what was kept shows.

@@ -12,10 +12,14 @@ import type { Own } from './self.ts';
  * at once, before any finalizer runs, and its asker learns it was Stopped.
  */
 
-/** The Instance a Query was asked of has stopped, or left the State the Query is written in, before or while answering. */
+/**
+ * The Instance has stopped, or left the State a Query is written in, before
+ * or while answering it, or while `until` waited on it. `query` names the
+ * Query asked, if one was.
+ */
 export class Stopped extends Data.TaggedError('Stopped')<{
   readonly instance: string;
-  readonly query: string;
+  readonly query?: string;
 }> {}
 
 /** The Queries being answered at one level, each as the way to cancel it. */
@@ -46,6 +50,7 @@ export const ask = (
     const refused = new Stopped({ instance: own.self.id, query: name });
     if (definition.state !== undefined && definition.state !== state._tag)
       return yield* refused;
+    definition.check.args(args, `the args of Query "${name}"`);
     const { send: _, ...self } = own.self;
     const cancelled = yield* Deferred.make<never, Stopped>();
     const cancel = () =>
@@ -54,7 +59,14 @@ export const ask = (
       Effect.scoped(
         (
           definition.run(self, args) as Effect.Effect<unknown, unknown, any>
-        ).pipe(Effect.provideContext(services)),
+        ).pipe(
+          Effect.tap((answer) =>
+            Effect.sync(() =>
+              definition.check.result(answer, `the answer of Query "${name}"`),
+            ),
+          ),
+          Effect.provideContext(services),
+        ),
       ),
     ) as Effect.Effect<unknown, unknown>;
     return yield* Effect.acquireUseRelease(

@@ -215,7 +215,7 @@ export const ProjectPicker = Actor.define('ProjectPicker', {
   }),
 });
 
-export const ProjectPickerLive = Actor.build(ProjectPicker, {
+export const ProjectPickerLive = ProjectPicker.build({
   init: () => ({
     model: {
       connections: [],
@@ -228,8 +228,8 @@ export const ProjectPickerLive = Actor.build(ProjectPicker, {
       warning: null,
     },
   }),
-  children: (child) => ({
-    picker: child(Projects.Live, {
+  children: {
+    picker: Actor.child(Projects.Live, {
       while: ({ model }) => model.picking !== null,
       key: ({ model }) => String(model.opened),
       input: ({ model }) => ({
@@ -242,7 +242,7 @@ export const ProjectPickerLive = Actor.build(ProjectPicker, {
         recent: model.recent,
       }),
     }),
-  }),
+  },
   // The folder Steps call each Connection through the clients this actor has.
   provides: (self) =>
     Layer.unwrap(

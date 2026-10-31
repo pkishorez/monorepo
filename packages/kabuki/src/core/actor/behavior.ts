@@ -12,8 +12,9 @@ import type {
 } from './instance.ts';
 
 /*
- * How an Actor is written in `Actor.build`: its Updates, Workers, Queries
- * and Children, level by level, and what its needs bubble up as.
+ * How an Actor is written in its definition's `build`: its Updates,
+ * Workers, answers to its Queries and Children, level by level, and what
+ * its needs bubble up as.
  */
 
 /** The Updates of one level, by Message tag. */
@@ -92,25 +93,39 @@ export type QuerySelf<Model, State, Props = void> = Omit<
   'send'
 >;
 
-/**
- * A question an Instance answers from what it holds and what its Services
- * know, without changing anything: it reads its Instance and the
- * Capabilities the Actor Requires, and never Sends. Written at the top it
- * is askable for as long as the Instance lives; in a State's block, only
- * while that State lasts. Its `args`, answer and failure are its own; the
- * Runtime adds `Stopped` to the failure for the caller outside the tree.
- */
-export type Query<Model, State, R extends Requires, Props = void> = {
-  readonly run: (
-    self: QuerySelf<Model, State, Props>,
-    args: any,
-  ) => Effect.Effect<unknown, unknown, IdsOf<R>>;
-};
+/** A Query as `define` declares it: what it is asked with, and what it answers. */
+export type Declared = { readonly args: unknown; readonly result: unknown };
 
-/** Every Query of one level, by name. */
-export type Queries<Model, State, R extends Requires, Props = void> = Readonly<
-  Record<string, Query<Model, State, R, Props>>
->;
+/** Every Query an Actor declares, by name. */
+export type DeclaredQueries = { readonly [name: string]: Declared };
+
+/**
+ * How an Instance answers a Query it declares: from what it holds and what
+ * its Services know, without changing anything. It reads its Instance and
+ * the Capabilities the Actor Requires, and never Sends. Written at the top
+ * it is askable for as long as the Instance lives; in a State's block, only
+ * while that State lasts. Its failure is its own; the Runtime adds `Stopped`
+ * for the caller outside the tree.
+ */
+export type Answer<
+  Model,
+  State,
+  R extends Requires,
+  Props,
+  Q extends Declared,
+> = (
+  self: QuerySelf<Model, State, Props>,
+  args: Q['args'],
+) => Effect.Effect<Q['result'], any, IdsOf<R>>;
+
+/** The answers of one level, by the name its Query is declared by. */
+export type Queries<
+  Model,
+  State,
+  R extends Requires,
+  Props,
+  Qs extends DeclaredQueries,
+> = { readonly [K in keyof Qs]?: Answer<Model, State, R, Props, Qs[K]> };
 
 // Children ------------------------------------------------------------------------
 
@@ -119,32 +134,12 @@ export type Queries<Model, State, R extends Requires, Props = void> = Readonly<
  * key, `''` unless it is one of `each`: its Input, read once, and its Props,
  * read live. Each is required once the Child declares it.
  */
-export type Given<A, Model, State, Props> = ([Types<A>['input']] extends [void]
-  ? {
-      readonly input?: (
-        data: Data<Model, State, Props>,
-        key: string,
-      ) => Types<A>['input'];
-    }
-  : {
-      readonly input: (
-        data: Data<Model, State, Props>,
-        key: string,
-      ) => Types<A>['input'];
-    }) &
+export type Given<A, D> = ([Types<A>['input']] extends [void]
+  ? { readonly input?: (data: D, key: string) => Types<A>['input'] }
+  : { readonly input: (data: D, key: string) => Types<A>['input'] }) &
   ([Types<A>['props']] extends [void]
-    ? {
-        readonly props?: (
-          data: Data<Model, State, Props>,
-          key: string,
-        ) => Types<A>['props'];
-      }
-    : {
-        readonly props: (
-          data: Data<Model, State, Props>,
-          key: string,
-        ) => Types<A>['props'];
-      });
+    ? { readonly props?: (data: D, key: string) => Types<A>['props'] }
+    : { readonly props: (data: D, key: string) => Types<A>['props'] });
 
 /**
  * What the parent hears from one Child: for each thing the Child Emits, the
@@ -162,27 +157,31 @@ export type Hears<A, Msg> = [Types<A>['emits']] extends [never]
       };
     };
 
-/** What `child` takes besides the Actor, but when it exists: what it is handed, and what the parent hears from it. */
-export type ChildOptions<A, Model, State, Props, Msg> = Given<
-  A,
-  Model,
-  State,
-  Props
-> &
-  Hears<A, Msg>;
+/** What `Actor.child` takes besides the Actor, but when it exists: what it is handed, and what the parent hears from it. */
+export type ChildOptions<A, D, Msg> = Given<A, D> & Hears<A, Msg>;
 
 declare const made: unique symbol;
 
-/** Anything `child` made: a level's Children are made with it, never written by hand. */
-export interface Made {
+/**
+ * Anything `Actor.child` made, for a level whose data is `D` and whose
+ * Messages are `Msg`: a level's Children are made with it, never written by
+ * hand. Both are read from where it is written, so its functions are typed
+ * by the level they sit in.
+ */
+export interface Made<D = any, Msg = any> {
   readonly actor: AnyActor;
-  readonly [made]: true;
+  readonly [made]?: (data: D, message: Msg) => void;
 }
 
-/** A Child as `child` makes it, as its parent's type keeps it: its Actor, and whether it is one of `each` or there `while` a test holds. */
-export type Slot<A, Kind extends 'always' | 'while' | 'each' = 'always'> = {
+/** A Child as `Actor.child` makes it, as its parent's type keeps it: its Actor, and whether it is one of `each` or there `while` a test holds. */
+export type Slot<
+  A,
+  Kind extends 'always' | 'while' | 'each' = 'always',
+  D = any,
+  Msg = any,
+> = {
   readonly actor: A;
-  readonly [made]: true;
+  readonly [made]?: (data: D, message: Msg) => void;
 } & (Kind extends 'each'
   ? { readonly each: Function }
   : Kind extends 'while'
@@ -197,9 +196,9 @@ type Bare<A> = [Types<A>['input'], Types<A>['props']] extends [void, void]
 /**
  * Makes one Child of a level: the Actor it is, then when it exists, what
  * it is handed and what the parent hears from it. Every function is typed
- * from the parent's data at this level, its State narrowed in a State's
- * block, and checked against the Actor: its Input, its Props, and what it
- * Emits, each turned into one of the parent's Messages.
+ * from the parent's data at the level it is written in, its State narrowed
+ * in a State's block, and checked against the Actor: its Input, its Props,
+ * and what it Emits, each turned into one of the parent's Messages.
  *
  * - Always, with neither `while` nor `each`: one Instance, for as long as
  *   its level lasts.
@@ -209,45 +208,39 @@ type Bare<A> = [Types<A>['input'], Types<A>['props']] extends [void, void]
  * One that is always or `while` may name a `key`: when it changes, the
  * Child is Invoked again, a fresh Instance.
  */
-export interface ChildOf<Model, State, Props, Msg> {
-  <A extends AnyActor>(
+export interface MakeChild {
+  <A extends AnyActor, D, Msg>(
     actor: A,
-    options: ChildOptions<A, Model, State, Props, Msg> & {
-      readonly each: (data: Data<Model, State, Props>) => ReadonlyArray<string>;
+    options: ChildOptions<A, NoInfer<D>, NoInfer<Msg>> & {
+      readonly each: (data: NoInfer<D>) => ReadonlyArray<string>;
       readonly while?: never;
       readonly key?: never;
     },
-  ): Slot<A, 'each'>;
-  <A extends AnyActor>(
+  ): Slot<A, 'each', D, Msg>;
+  <A extends AnyActor, D, Msg>(
     actor: A,
-    options: ChildOptions<A, Model, State, Props, Msg> & {
-      readonly while: (data: Data<Model, State, Props>) => boolean;
+    options: ChildOptions<A, NoInfer<D>, NoInfer<Msg>> & {
+      readonly while: (data: NoInfer<D>) => boolean;
       readonly each?: never;
-      readonly key?: (data: Data<Model, State, Props>) => string;
+      readonly key?: (data: NoInfer<D>) => string;
     },
-  ): Slot<A, 'while'>;
-  <A extends AnyActor>(
+  ): Slot<A, 'while', D, Msg>;
+  <A extends AnyActor, D, Msg>(
     actor: A,
     ...options: Bare<A> extends true
-      ? [options?: Always<A, Model, State, Props, Msg>]
-      : [options: Always<A, Model, State, Props, Msg>]
-  ): Slot<A>;
+      ? [options?: Always<A, NoInfer<D>, NoInfer<Msg>>]
+      : [options: Always<A, NoInfer<D>, NoInfer<Msg>>]
+  ): Slot<A, 'always', D, Msg>;
 }
 
 /** The options of a Child that is always there. */
-type Always<A, Model, State, Props, Msg> = ChildOptions<
-  A,
-  Model,
-  State,
-  Props,
-  Msg
-> & {
+type Always<A, D, Msg> = ChildOptions<A, D, Msg> & {
   readonly while?: never;
   readonly each?: never;
-  readonly key?: (data: Data<Model, State, Props>) => string;
+  readonly key?: (data: D) => string;
 };
 
-/** A Child as `child` makes it, loosely: what the engine and Views read it as. */
+/** A Child as `Actor.child` makes it, loosely: what the engine and Views read it as. */
 export interface AnyChild {
   readonly actor: AnyActor;
   readonly while?: Function;
@@ -262,12 +255,8 @@ export type ActorOf<C> = C extends { readonly actor: infer A } ? A : never;
 
 // The behavior ---------------------------------------------------------------------
 
-/** The Children of a level, as its `children` makes them. */
-export type KidsOf<L> = L extends {
-  readonly children: (...args: any) => infer C;
-}
-  ? C
-  : {};
+/** The Children of a level, as its `children` names them. */
+export type KidsOf<L> = L extends { readonly children: infer C } ? C : {};
 
 /**
  * One level of an Actor's behavior: the top, for as long as the Instance
@@ -281,20 +270,21 @@ export type Level<
   R extends Requires,
   Next,
   Emits extends Tagged = never,
+  Qs extends DeclaredQueries = {},
 > = {
   /** The Capabilities this level gives everything below it, as one Layer. */
   readonly provides?: (
     self: Self<Model, State, Msg, Props>,
   ) => Layer.Layer<any, never, IdsOf<R>>;
-  /** The Children of this level, each made with `child`, by name. */
-  readonly children?: (
-    child: ChildOf<Model, State, Props, Msg>,
-  ) => Readonly<Record<string, Made>>;
+  /** The Children of this level, each made with `Actor.child`, by name. */
+  readonly children?: Readonly<
+    Record<string, Made<Data<Model, State, Props>, Msg>>
+  >;
   /** The Updates: per Message, the Model's changes, the next State, the Commands and what to Emit. */
   readonly on?: Rules<Model, State, Props, Msg, R, Next, Emits>;
   readonly workers?: Workers<Model, State, Msg, R, Props>;
-  /** The questions this level answers from outside the tree, by name. */
-  readonly queries?: Queries<Model, State, R, Props>;
+  /** How this level answers the Queries `define` declares, by name. */
+  readonly queries?: Queries<Model, State, R, Props, Qs>;
 };
 
 export type ModelInit<Model> = {} extends Model
@@ -324,16 +314,17 @@ export type Behavior<
   Msg extends Tagged,
   R extends Requires,
   Emits extends Tagged = never,
+  Qs extends DeclaredQueries = {},
 > =
   IsSingle<State> extends true
-    ? Level<Model, Single, Props, Msg, R, never, Emits> & {
+    ? Level<Model, Single, Props, Msg, R, never, Emits, Qs> & {
         readonly states?: never;
       } & ([Input] extends [void]
           ? {} extends Model
             ? { readonly init?: (input: Input) => ModelInit<Model> }
             : { readonly init: (input: Input) => ModelInit<Model> }
           : { readonly init: (input: Input) => ModelInit<Model> })
-    : Level<Model, State, Props, Msg, R, State, Emits> & {
+    : Level<Model, State, Props, Msg, R, State, Emits, Qs> & {
         /** The first Model and State, from the Input. */
         readonly init: (
           input: Input,
@@ -347,10 +338,31 @@ export type Behavior<
             Msg,
             R,
             State,
-            Emits
+            Emits,
+            Qs
           >;
         };
       };
+
+/** The names a level answers that `define` does not declare. */
+type ExtraQueries<L, Qs> = L extends { readonly queries: infer Q }
+  ? Exclude<keyof Q, keyof Qs>
+  : never;
+
+/**
+ * Refuses a behavior that answers a Query `define` does not declare, at the
+ * top or in any State's block, naming it; nothing for one that does not.
+ */
+export type Undeclared<B, Qs> = [
+  | ExtraQueries<B, Qs>
+  | (B extends { readonly states: infer S }
+      ? { [T in keyof S]: ExtraQueries<S[T], Qs> }[keyof S]
+      : never),
+] extends [infer Extra]
+  ? [Extra] extends [never]
+    ? unknown
+    : { readonly 'answers a Query `define` does not declare': Extra }
+  : never;
 
 // What the Actor's type says -------------------------------------------------------
 

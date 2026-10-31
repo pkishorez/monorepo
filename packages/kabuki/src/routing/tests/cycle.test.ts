@@ -21,7 +21,7 @@ const Go = Page.define({
 });
 const Root = Page.define({ pages: { Other, Go } });
 
-const GoLive = Page.build(Go, {
+const GoLive = Go.build({
   init: () => ({ model: { clicks: 0 }, state: { _tag: 'Idle' } }),
   on: {
     Clicked: (_, { model }) => ({
@@ -35,8 +35,8 @@ const GoLive = Page.build(Go, {
     },
   },
 });
-const RootLive = Page.build(Root, {
-  pages: { Other: Page.build(Other), Go: GoLive },
+const RootLive = Root.build({
+  pages: { Other: Other.build(), Go: GoLive },
 });
 
 it('types the Routes a build moves the app with', () => {

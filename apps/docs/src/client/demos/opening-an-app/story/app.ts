@@ -39,7 +39,7 @@ export const App = Actor.define('App', {
   }),
 });
 
-export const AppLive = Actor.build(App, {
+export const AppLive = App.build({
   init: () => ({
     model: { attempts: 1 },
     state: { _tag: 'Booting', loaded: [] },
@@ -95,10 +95,12 @@ export const AppLive = Actor.build(App, {
       },
     },
     Inside: {
-      children: (child) => ({
-        home: child(HomeLive, { props: ({ state }) => ({ name: state.name }) }),
-        downloads: child(DownloadsLive),
-      }),
+      children: {
+        home: Actor.child(HomeLive, {
+          props: ({ state }) => ({ name: state.name }),
+        }),
+        downloads: Actor.child(DownloadsLive),
+      },
       provides: (self) =>
         Layer.succeed(Session, { signOut: self.send({ _tag: 'SignedOut' }) }),
       on: {

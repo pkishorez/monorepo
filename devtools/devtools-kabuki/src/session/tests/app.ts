@@ -8,33 +8,27 @@ import type { AppRuntime } from '@kestack/kabuki/react/view';
 
 const Note = Schema.Struct({ at: Schema.DateFromString, text: Schema.String });
 
-export const Counter = Actor.build(
-  Actor.define('Counter', {
-    model: Schema.Struct({ count: Schema.Number }),
-    message: Schema.TaggedUnion({ Bumped: {} }),
-  }),
-  {
-    init: () => ({ model: { count: 0 } }),
-    on: { Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }) },
-  },
-);
+export const Counter = Actor.define('Counter', {
+  model: Schema.Struct({ count: Schema.Number }),
+  message: Schema.TaggedUnion({ Bumped: {} }),
+}).build({
+  init: () => ({ model: { count: 0 } }),
+  on: { Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }) },
+});
 
 /** A Diary whose Model holds Dates: encoded, they are strings. */
-export const Diary = Actor.build(
-  Actor.define('Diary', {
-    model: Schema.Struct({ notes: Schema.Array(Note) }),
-    message: Schema.TaggedUnion({ Wrote: { note: Note } }),
-  }),
-  {
-    init: () => ({ model: { notes: [] } }),
-    children: (child) => ({ counter: child(Counter) }),
-    on: {
-      Wrote: ({ note }, { model }) => ({
-        model: { notes: [...model.notes, note] },
-      }),
-    },
+export const Diary = Actor.define('Diary', {
+  model: Schema.Struct({ notes: Schema.Array(Note) }),
+  message: Schema.TaggedUnion({ Wrote: { note: Note } }),
+}).build({
+  init: () => ({ model: { notes: [] } }),
+  children: { counter: Actor.child(Counter) },
+  on: {
+    Wrote: ({ note }, { model }) => ({
+      model: { notes: [...model.notes, note] },
+    }),
   },
-);
+});
 
 export interface Started {
   readonly runtime: AppRuntime;

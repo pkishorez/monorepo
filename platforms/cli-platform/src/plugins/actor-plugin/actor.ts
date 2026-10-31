@@ -308,149 +308,143 @@ const report = (self: PluginSelf) =>
     );
   });
 
-export const ActorPlugin = Actor.build(
-  Actor.define('Plugin', {
-    requires: [Downloads, Plugins],
-    input: Input,
-    props: Props,
-    model: Model,
-    state: State,
-    message: Message,
+export const ActorPlugin = Actor.define('Plugin', {
+  requires: [Downloads, Plugins],
+  input: Input,
+  props: Props,
+  model: Model,
+  state: State,
+  message: Message,
+}).build({
+  init: ({ name, folders, socket, pause }) => ({
+    model: {
+      name,
+      folders,
+      socket,
+      pause: pause ?? DEFAULT_PAUSE,
+      target: null,
+      ready: false,
+      readyAt: null,
+      progress: null,
+      crashes: 0,
+      fetchFailures: 0,
+      log: [],
+    },
+    state: { _tag: 'Fetching' },
   }),
-  {
-    init: ({ name, folders, socket, pause }) => ({
-      model: {
-        name,
-        folders,
-        socket,
-        pause: pause ?? DEFAULT_PAUSE,
-        target: null,
-        ready: false,
-        readyAt: null,
+  on: {
+    Progressed: ({ key, received, total }, { model, props }) =>
+      key === keyOf(props.wanted)
+        ? { model: { ...model, progress: { received, total } } }
+        : {},
+    Downloaded: ({ key, file }, { model, props }) =>
+      key === keyOf(props.wanted)
+        ? {
+            model: {
+              ...model,
+              target: { key, file, downloaded: 'hash' in props.wanted },
+              ready: false,
+              readyAt: null,
+              progress: null,
+              crashes: 0,
+              fetchFailures: 0,
+            },
+            state: { _tag: 'Running' },
+          }
+        : {},
+    DownloadFailed: ({ key, reason }, { model, state, props, at }) => {
+      if (key !== keyOf(props.wanted)) return {};
+      const failed = {
+        ...model,
         progress: null,
-        crashes: 0,
-        fetchFailures: 0,
-        log: [],
+        fetchFailures: model.fetchFailures + 1,
+        log: tail(model.log, [reason]),
+      };
+      // With a version running it keeps running, and the download is
+      // tried again after a pause; with none, it is Crashed.
+      return model.target === null && state._tag === 'Fetching'
+        ? {
+            model: failed,
+            state: {
+              _tag: 'Crashed',
+              retryAt: at + pauseAfter(model.pause, failed.fetchFailures),
+              log: failed.log,
+            },
+          }
+        : { model: failed };
+    },
+  },
+  workers: {
+    download: {
+      each: ({ model, state, props }) => {
+        const key = keyOf(props.wanted);
+        if (key === model.target?.key) return [];
+        if (state._tag === 'Crashed' && model.target === null) return [];
+        return [`${model.fetchFailures}:${key}`];
       },
-      state: { _tag: 'Fetching' },
-    }),
-    on: {
-      Progressed: ({ key, received, total }, { model, props }) =>
-        key === keyOf(props.wanted)
-          ? { model: { ...model, progress: { received, total } } }
-          : {},
-      Downloaded: ({ key, file }, { model, props }) =>
-        key === keyOf(props.wanted)
-          ? {
-              model: {
-                ...model,
-                target: { key, file, downloaded: 'hash' in props.wanted },
-                ready: false,
-                readyAt: null,
-                progress: null,
-                crashes: 0,
-                fetchFailures: 0,
-              },
-              state: { _tag: 'Running' },
-            }
-          : {},
-      DownloadFailed: ({ key, reason }, { model, state, props, at }) => {
-        if (key !== keyOf(props.wanted)) return {};
-        const failed = {
-          ...model,
-          progress: null,
-          fetchFailures: model.fetchFailures + 1,
-          log: tail(model.log, [reason]),
-        };
-        // With a version running it keeps running, and the download is
-        // tried again after a pause; with none, it is Crashed.
-        return model.target === null && state._tag === 'Fetching'
-          ? {
-              model: failed,
-              state: {
-                _tag: 'Crashed',
-                retryAt: at + pauseAfter(model.pause, failed.fetchFailures),
-                log: failed.log,
-              },
-            }
-          : { model: failed };
+      run: (self, each) => fetchWanted(self, each.slice(each.indexOf(':') + 1)),
+    },
+    report: { run: report },
+    keep: {
+      each: ({ model }) =>
+        model.target?.downloaded === true ? [model.target.key] : [],
+      run: (_, key) => keepUsed(key),
+    },
+  },
+  states: {
+    Fetching: {},
+    Running: {
+      on: {
+        Logged: ({ key, lines }, { model }) =>
+          key === model.target?.key
+            ? { model: { ...model, log: tail(model.log, lines) } }
+            : {},
+        Started: ({ key }, { model, at }) =>
+          key === model.target?.key
+            ? { model: { ...model, ready: true, readyAt: at } }
+            : {},
+        Exited: ({ key, log }, { model, at }) => {
+          if (key !== model.target?.key) return {};
+          const steady =
+            model.readyAt !== null &&
+            at - model.readyAt >= Duration.toMillis(STEADY);
+          const crashes = steady ? 1 : model.crashes + 1;
+          return {
+            model: { ...model, ready: false, readyAt: null, crashes },
+            state: {
+              _tag: 'Crashed',
+              retryAt: at + pauseAfter(model.pause, crashes),
+              log: log.length > 0 ? log : model.log,
+            },
+          };
+        },
+      },
+      workers: {
+        process: {
+          each: ({ model }) =>
+            model.target === null ? [] : [model.target.key],
+          run: runProcess,
+        },
       },
     },
-    workers: {
-      download: {
-        each: ({ model, state, props }) => {
-          const key = keyOf(props.wanted);
-          if (key === model.target?.key) return [];
-          if (state._tag === 'Crashed' && model.target === null) return [];
-          return [`${model.fetchFailures}:${key}`];
-        },
-        run: (self, each) =>
-          fetchWanted(self, each.slice(each.indexOf(':') + 1)),
+    Crashed: {
+      on: {
+        Retry: (_, { model }) => ({
+          state:
+            model.target === null ? { _tag: 'Fetching' } : { _tag: 'Running' },
+        }),
       },
-      report: { run: report },
-      keep: {
-        each: ({ model }) =>
-          model.target?.downloaded === true ? [model.target.key] : [],
-        run: (_, key) => keepUsed(key),
-      },
-    },
-    states: {
-      Fetching: {},
-      Running: {
-        on: {
-          Logged: ({ key, lines }, { model }) =>
-            key === model.target?.key
-              ? { model: { ...model, log: tail(model.log, lines) } }
-              : {},
-          Started: ({ key }, { model, at }) =>
-            key === model.target?.key
-              ? { model: { ...model, ready: true, readyAt: at } }
-              : {},
-          Exited: ({ key, log }, { model, at }) => {
-            if (key !== model.target?.key) return {};
-            const steady =
-              model.readyAt !== null &&
-              at - model.readyAt >= Duration.toMillis(STEADY);
-            const crashes = steady ? 1 : model.crashes + 1;
-            return {
-              model: { ...model, ready: false, readyAt: null, crashes },
-              state: {
-                _tag: 'Crashed',
-                retryAt: at + pauseAfter(model.pause, crashes),
-                log: log.length > 0 ? log : model.log,
-              },
-            };
-          },
-        },
-        workers: {
-          process: {
-            each: ({ model }) =>
-              model.target === null ? [] : [model.target.key],
-            run: runProcess,
-          },
-        },
-      },
-      Crashed: {
-        on: {
-          Retry: (_, { model }) => ({
-            state:
-              model.target === null
-                ? { _tag: 'Fetching' }
-                : { _tag: 'Running' },
-          }),
-        },
-        workers: {
-          retry: {
-            run: (self) =>
-              Effect.gen(function* () {
-                const { state } = yield* self.get;
-                const now = yield* self.now;
-                yield* Effect.sleep(Math.max(0, state.retryAt - now));
-                yield* self.send({ _tag: 'Retry' });
-              }),
-          },
+      workers: {
+        retry: {
+          run: (self) =>
+            Effect.gen(function* () {
+              const { state } = yield* self.get;
+              const now = yield* self.now;
+              yield* Effect.sleep(Math.max(0, state.retryAt - now));
+              yield* self.send({ _tag: 'Retry' });
+            }),
         },
       },
     },
   },
-);
+});

@@ -56,8 +56,8 @@ describe('Requires and Provides', () => {
   });
 
   it("a Child's needs bubble up until something Provides them", () => {
-    const Orphan = Actor.build(Actor.define('Orphan', {}), {
-      children: (child) => ({ todos: child(Todos) }),
+    const Orphan = Actor.define('Orphan', {}).build({
+      children: { todos: Actor.child(Todos) },
     });
     const SessionLive = Layer.effect(
       Session,
@@ -73,10 +73,10 @@ describe('Requires and Provides', () => {
   });
 
   it('a Capability Provided in one State does not reach Children of another', () => {
-    const Wrong = Actor.build(Actor.define('Wrong', { state: AuthState }), {
+    const Wrong = Actor.define('Wrong', { state: AuthState }).build({
       init: () => ({ state: { _tag: 'Checking' } }),
       states: {
-        Anonymous: { children: (child) => ({ todos: child(Todos) }) },
+        Anonymous: { children: { todos: Actor.child(Todos) } },
         Authenticated: {
           provides: (self) =>
             Layer.effect(
@@ -97,7 +97,7 @@ describe('Requires and Provides', () => {
   });
 
   it('a Capability Provided at the top reaches the Children of every State', () => {
-    const Top = Actor.build(Actor.define('Top', { state: AuthState }), {
+    const Top = Actor.define('Top', { state: AuthState }).build({
       init: () => ({ state: { _tag: 'Checking' } }),
       provides: () =>
         Layer.effect(
@@ -107,7 +107,7 @@ describe('Requires and Provides', () => {
             return { user, logOut: Effect.void };
           }),
         ),
-      states: { Anonymous: { children: (child) => ({ todos: child(Todos) }) } },
+      states: { Anonymous: { children: { todos: Actor.child(Todos) } } },
     });
     const covered: Effect.Effect<unknown, never, Scope.Scope> =
       Runtime.start(Top);
@@ -115,13 +115,13 @@ describe('Requires and Provides', () => {
   });
 
   it("an Actor's own code reaches only what it Requires", () => {
-    const Greedy = Actor.build(Actor.define('Greedy', {}), {
+    const Greedy = Actor.define('Greedy', {}).build({
       workers: {
         // @ts-expect-error Server is not in Requires
         check: { run: () => Effect.flatMap(Server, (s) => s.checkSession) },
       },
     });
-    const Asks = Actor.build(Actor.define('Asks', { requires: [Server] }), {
+    const Asks = Actor.define('Asks', { requires: [Server] }).build({
       workers: {
         check: { run: () => Effect.flatMap(Server, (s) => s.checkSession) },
       },
@@ -130,7 +130,7 @@ describe('Requires and Provides', () => {
   });
 
   it('a Provide in a State sees that State narrowed', () => {
-    const Narrow = Actor.build(Actor.define('Narrow', { state: AuthState }), {
+    const Narrow = Actor.define('Narrow', { state: AuthState }).build({
       init: () => ({ state: { _tag: 'Checking' } }),
       states: {
         Anonymous: {

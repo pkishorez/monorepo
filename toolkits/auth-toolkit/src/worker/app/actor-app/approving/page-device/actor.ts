@@ -191,7 +191,7 @@ const entered = (code: string, props: Props) =>
         },
       };
 
-export const DeviceLive = Page.build(Device, {
+export const DeviceLive = Device.build({
   init: () => ({
     state: { _tag: 'Asking', failure: null },
     model: { chosen: null, overrode: false },

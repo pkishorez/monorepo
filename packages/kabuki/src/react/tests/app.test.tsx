@@ -21,16 +21,13 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * hot reloads by the registry.
  */
 
-const Counter = Actor.build(
-  Actor.define('Counter', {
-    model: Schema.Struct({ count: Schema.Number }),
-    message: Schema.TaggedUnion({ Bumped: {} }),
-  }),
-  {
-    init: () => ({ model: { count: 0 } }),
-    on: { Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }) },
-  },
-);
+const Counter = Actor.define('Counter', {
+  model: Schema.Struct({ count: Schema.Number }),
+  message: Schema.TaggedUnion({ Bumped: {} }),
+}).build({
+  init: () => ({ model: { count: 0 } }),
+  on: { Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }) },
+});
 
 let sends: Record<string, (message: { _tag: 'Bumped' }) => void> = {};
 const CounterView = View.make(Counter, (self) => {
@@ -86,7 +83,7 @@ describe('its Layer', () => {
     Clock,
     { readonly now: Effect.Effect<number> }
   >()('test/Clock') {}
-  const Timed = Actor.build(Actor.define('Timed', { requires: [Clock] }), {
+  const Timed = Actor.define('Timed', { requires: [Clock] }).build({
     workers: { tick: { run: () => Effect.flatMap(Clock, () => Effect.never) } },
   });
   const TimedView = View.make(Timed, () => null);
@@ -431,18 +428,15 @@ describe('across mounts and hot reloads', () => {
     await act(async () => root!.unmount());
 
     // The module reloaded: a new Actor with a new rule, and a new View.app.
-    const Reloaded = Actor.build(
-      Actor.define('Counter', {
-        model: Schema.Struct({ count: Schema.Number }),
-        message: Schema.TaggedUnion({ Bumped: {} }),
-      }),
-      {
-        init: () => ({ model: { count: 0 } }),
-        on: {
-          Bumped: (_, { model }) => ({ model: { count: model.count + 10 } }),
-        },
+    const Reloaded = Actor.define('Counter', {
+      model: Schema.Struct({ count: Schema.Number }),
+      message: Schema.TaggedUnion({ Bumped: {} }),
+    }).build({
+      init: () => ({ model: { count: 0 } }),
+      on: {
+        Bumped: (_, { model }) => ({ model: { count: model.count + 10 } }),
       },
-    );
+    });
     const ReloadedView = View.make(Reloaded, (self) => {
       sends[self.id] = self.send;
       return <output>{self.model.count}</output>;
@@ -472,19 +466,16 @@ describe('across mounts and hot reloads', () => {
   });
 
   it('a new app with the same name carries on with the Input the History was made with', async () => {
-    const From = Actor.build(
-      Actor.define('From', {
-        input: Schema.Struct({ start: Schema.Number }),
-        model: Schema.Struct({ count: Schema.Number }),
-        message: Schema.TaggedUnion({ Bumped: {} }),
-      }),
-      {
-        init: ({ start }) => ({ model: { count: start } }),
-        on: {
-          Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }),
-        },
+    const From = Actor.define('From', {
+      input: Schema.Struct({ start: Schema.Number }),
+      model: Schema.Struct({ count: Schema.Number }),
+      message: Schema.TaggedUnion({ Bumped: {} }),
+    }).build({
+      init: ({ start }) => ({ model: { count: start } }),
+      on: {
+        Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }),
       },
-    );
+    });
     const FromView = View.make(From, (self) => {
       sends['Counter'] = self.send;
       return <output>{self.model.count}</output>;

@@ -12,7 +12,7 @@ export const Todo = Actor.define('Todo', {
   message: Schema.TaggedUnion({ Renamed: { text: Schema.String } }),
 });
 
-export const TodoLive = Actor.build(Todo, {
+export const TodoLive = Todo.build({
   init: ({ text }) => ({ model: { text } }),
   on: {
     Renamed: ({ text }) => ({ model: { text } }),
@@ -45,7 +45,7 @@ export const Todos = Actor.define('Todos', {
 
 const SEED = ['Water the plants', 'Reply to Sam', 'Book a dentist visit'];
 
-export const TodosLive = Actor.build(Todos, {
+export const TodosLive = Todos.build({
   init: () => ({
     state: { _tag: 'All' },
     model: {
@@ -54,8 +54,8 @@ export const TodosLive = Actor.build(Todos, {
     },
   }),
   // One Todo per item. Each one hears whether it is done, as a Prop.
-  children: (child) => ({
-    todos: child(TodoLive, {
+  children: {
+    todos: Actor.child(TodoLive, {
       each: ({ model }) => model.items.map((item) => item.id),
       input: ({ model }, id) => ({
         text: model.items.find((item) => item.id === id)?.text ?? '',
@@ -64,7 +64,7 @@ export const TodosLive = Actor.build(Todos, {
         done: model.items.some((item) => item.id === id && item.done),
       }),
     }),
-  }),
+  },
   on: {
     Added: ({ text }, { model }) => ({
       model: {

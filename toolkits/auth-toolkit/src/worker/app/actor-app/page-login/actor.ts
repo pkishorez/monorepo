@@ -109,7 +109,7 @@ export const Login = Page.define({
   }),
 });
 
-export const LoginLive = Page.build(Login, {
+export const LoginLive = Login.build({
   init: () => ({
     model: { leaving: false, testing: false, failure: null, testFailure: null },
   }),

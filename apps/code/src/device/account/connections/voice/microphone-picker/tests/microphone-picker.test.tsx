@@ -68,11 +68,11 @@ const Owner = Actor.define('Owner', {
 });
 
 /** Beside it, the microphone chosen, read again after every write, for the test to see. */
-const OwnerLive = Actor.build(Owner, {
+const OwnerLive = Owner.build({
   init: () => ({ model: { chosen: null, pings: 0 } }),
-  children: (child) => ({
-    microphones: child(MicrophonePickerLive),
-  }),
+  children: {
+    microphones: Actor.child(MicrophonePickerLive),
+  },
   workers: {
     device: {
       run: (self) =>

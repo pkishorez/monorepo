@@ -76,10 +76,10 @@ const choose = Command.make('ChooseMicrophone', {
     ).pipe(Effect.ignore),
 });
 
-const OwnerLive = Actor.build(Owner, {
-  children: (child) => ({
-    dictation: child(DictationLive, { props: () => ({ drawn: true }) }),
-  }),
+const OwnerLive = Owner.build({
+  children: {
+    dictation: Actor.child(DictationLive, { props: () => ({ drawn: true }) }),
+  },
   on: {
     Choose: ({ microphone }) => ({ command: choose({ microphone }) }),
     Ask: ({ ask: asked }) => ({ command: ask(asked) }),

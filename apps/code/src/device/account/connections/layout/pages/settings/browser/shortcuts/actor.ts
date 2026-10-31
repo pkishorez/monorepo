@@ -72,7 +72,7 @@ const save = (model: Model, bindings: typeof Bindings.Type) => ({
   command: setBindings({ bindings }),
 });
 
-export const ShortcutsLive = Actor.build(Shortcuts, {
+export const ShortcutsLive = Shortcuts.build({
   init: () => ({
     model: {
       bindings: null,

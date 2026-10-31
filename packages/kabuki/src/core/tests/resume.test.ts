@@ -15,28 +15,22 @@ const count = (snapshot: { readonly model: unknown }) =>
   (snapshot.model as { readonly count: number }).count;
 
 /** A Counter whose Model changed shape since it was saved. */
-const Renamed = Actor.build(
-  Actor.define('Counter', {
-    model: Schema.Struct({ total: Schema.Number }),
-    message: Schema.TaggedUnion({ Bumped: {} }),
-  }),
-  {
-    init: () => ({ model: { total: 0 } }),
-    on: { Bumped: (_, { model }) => ({ model: { total: model.total + 1 } }) },
-  },
-);
+const Renamed = Actor.define('Counter', {
+  model: Schema.Struct({ total: Schema.Number }),
+  message: Schema.TaggedUnion({ Bumped: {} }),
+}).build({
+  init: () => ({ model: { total: 0 } }),
+  on: { Bumped: (_, { model }) => ({ model: { total: model.total + 1 } }) },
+});
 
 /** A Counter that no longer takes the Message it was sent. */
-const Quiet = Actor.build(
-  Actor.define('Counter', {
-    model: Schema.Struct({ count: Schema.Number }),
-    message: Schema.TaggedUnion({ Reset: {} }),
-  }),
-  {
-    init: () => ({ model: { count: 0 } }),
-    on: { Reset: () => ({ model: { count: 0 } }) },
-  },
-);
+const Quiet = Actor.define('Counter', {
+  model: Schema.Struct({ count: Schema.Number }),
+  message: Schema.TaggedUnion({ Reset: {} }),
+}).build({
+  init: () => ({ model: { count: 0 } }),
+  on: { Reset: () => ({ model: { count: 0 } }) },
+});
 
 /** A History of `n` Bumps, saved. */
 const bumped = (n: number, window: number | null = 0) =>
@@ -115,32 +109,29 @@ describe('running.changes', () => {
 describe('an app saved as it changes', () => {
   it('carries on after its process starts over, its Workers started again', async () => {
     let disk: string | undefined;
-    const Ticking = Actor.build(
-      Actor.define('Ticking', {
-        model: Schema.Struct({ ticks: Schema.Number, on: Schema.Boolean }),
-        message: Schema.TaggedUnion({ Started: {}, Ticked: {} }),
-      }),
-      {
-        init: () => ({ model: { ticks: 0, on: false } }),
-        on: {
-          Started: (_, { model }) => ({ model: { ...model, on: true } }),
-          Ticked: (_, { model }) => ({
-            model: { ...model, ticks: model.ticks + 1 },
-          }),
-        },
-        workers: {
-          tick: {
-            while: ({ model }) => model.on,
-            run: (self) =>
-              Effect.forever(
-                Effect.sleep('1 second').pipe(
-                  Effect.andThen(self.send({ _tag: 'Ticked' })),
-                ),
+    const Ticking = Actor.define('Ticking', {
+      model: Schema.Struct({ ticks: Schema.Number, on: Schema.Boolean }),
+      message: Schema.TaggedUnion({ Started: {}, Ticked: {} }),
+    }).build({
+      init: () => ({ model: { ticks: 0, on: false } }),
+      on: {
+        Started: (_, { model }) => ({ model: { ...model, on: true } }),
+        Ticked: (_, { model }) => ({
+          model: { ...model, ticks: model.ticks + 1 },
+        }),
+      },
+      workers: {
+        tick: {
+          while: ({ model }) => model.on,
+          run: (self) =>
+            Effect.forever(
+              Effect.sleep('1 second').pipe(
+                Effect.andThen(self.send({ _tag: 'Ticked' })),
               ),
-          },
+            ),
         },
       },
-    );
+    });
 
     /** What a server does as it starts: load what it saved, keep saving. */
     const boot = Effect.gen(function* () {
@@ -221,16 +212,13 @@ describe('a saved History that no longer fits the code', () => {
 
   it('fails when a Message no longer decodes, though its decoded side would fit', async () => {
     const setter = (n: typeof Schema.Number | typeof Schema.NumberFromString) =>
-      Actor.build(
-        Actor.define('Setter', {
-          model: Schema.Struct({ n: Schema.Number }),
-          message: Schema.TaggedUnion({ Set: { n } }),
-        }),
-        {
-          init: () => ({ model: { n: 0 } }),
-          on: { Set: () => ({}) },
-        },
-      );
+      Actor.define('Setter', {
+        model: Schema.Struct({ n: Schema.Number }),
+        message: Schema.TaggedUnion({ Set: { n } }),
+      }).build({
+        init: () => ({ model: { n: 0 } }),
+        on: { Set: () => ({}) },
+      });
     const saved = await run(
       Effect.gen(function* () {
         const app = yield* Runtime.start(History.make(setter(Schema.Number)));
@@ -246,19 +234,16 @@ describe('a saved History that no longer fits the code', () => {
   });
 
   it("fails for a Branch other than the Head's too", async () => {
-    const Both = Actor.build(
-      Actor.define('Counter', {
-        model: Schema.Struct({ count: Schema.Number }),
-        message: Schema.TaggedUnion({ Bumped: {}, Reset: {} }),
-      }),
-      {
-        init: () => ({ model: { count: 0 } }),
-        on: {
-          Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }),
-          Reset: () => ({ model: { count: 0 } }),
-        },
+    const Both = Actor.define('Counter', {
+      model: Schema.Struct({ count: Schema.Number }),
+      message: Schema.TaggedUnion({ Bumped: {}, Reset: {} }),
+    }).build({
+      init: () => ({ model: { count: 0 } }),
+      on: {
+        Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }),
+        Reset: () => ({ model: { count: 0 } }),
       },
-    );
+    });
     const saved = await run(
       Effect.gen(function* () {
         const app = yield* Runtime.start(History.make(Both));
@@ -276,9 +261,8 @@ describe('a saved History that no longer fits the code', () => {
 
   it('fails for a Message to a slot the code no longer has, and loads one dropped live', async () => {
     const parent = (withChild: boolean) =>
-      Actor.build(
-        Actor.define('Parent', {}),
-        withChild ? { children: (child) => ({ child: child(Counter) }) } : {},
+      Actor.define('Parent', {}).build(
+        withChild ? { children: { child: Actor.child(Counter) } } : {},
       );
     const saved = await run(
       Effect.gen(function* () {
@@ -300,18 +284,15 @@ describe('a saved History that no longer fits the code', () => {
   });
 
   it("loads one whose root's name holds a `/`", async () => {
-    const Named = Actor.build(
-      Actor.define('app/Counter', {
-        model: Schema.Struct({ count: Schema.Number }),
-        message: Schema.TaggedUnion({ Bumped: {} }),
-      }),
-      {
-        init: () => ({ model: { count: 0 } }),
-        on: {
-          Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }),
-        },
+    const Named = Actor.define('app/Counter', {
+      model: Schema.Struct({ count: Schema.Number }),
+      message: Schema.TaggedUnion({ Bumped: {} }),
+    }).build({
+      init: () => ({ model: { count: 0 } }),
+      on: {
+        Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }),
       },
-    );
+    });
     const saved = await run(
       Effect.gen(function* () {
         const app = yield* Runtime.start(History.make(Named));

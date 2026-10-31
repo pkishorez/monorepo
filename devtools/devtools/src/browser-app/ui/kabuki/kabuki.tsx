@@ -25,7 +25,7 @@ import { devtools } from './sessions/index.js';
 // 2. Page
 const App = Page.define({ pages: { Kabuki: KabukiPage } });
 
-const AppLive = Page.build(App, { pages: { Kabuki: KabukiLive } });
+const AppLive = App.build({ pages: { Kabuki: KabukiLive } });
 
 const AppView = View.make(AppLive, ({ children }) =>
   children.Kabuki ? <KabukiView instance={children.Kabuki} /> : null,

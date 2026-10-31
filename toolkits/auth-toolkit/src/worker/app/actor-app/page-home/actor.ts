@@ -138,7 +138,7 @@ type Status = {
 const showing = (status: Status, userId: string) =>
   readyData(status)?.accounts.active === userId;
 
-export const HomeLive = Page.build(Home, {
+export const HomeLive = Home.build({
   init: () => ({ model: { pending: [], removed: [], confirming: false } }),
   workers: {
     // Another tab changed who is signed in: loaded anew once shown again.

@@ -23,8 +23,8 @@ import {
 /*
  * Replicas: the one actor that runs the Instances in use, placed once near
  * the root as the Router holds pages. A page Provides `Replicas.layer` and
- * places `child(Replicas.actor([...]))` among its children; everything below it
- * gets Instances with `Replica.get`.
+ * places `Actor.child(Replicas.actor([...]))` among its children; everything
+ * below it gets Instances with `Replica.get`.
  *
  * 1. Hold     getting an Instance holds it until the holder's Scope closes:
  *             the first holder starts it, as a Child keyed by its Key.
@@ -123,7 +123,7 @@ type KidsOf<B extends Build> = {
   };
 };
 
-/** The actor Replicas places, written out: the type `Actor.build` infers names Kabuki's internals. */
+/** The actor Replicas places, written out: the type `build` infers names Kabuki's internals. */
 type ReplicasActor<B extends Build> = ActorType<
   'Replicas',
   void,
@@ -143,90 +143,78 @@ const actor = <const B extends ReadonlyArray<Build>>(
     builds.map(({ shape, gcTime }) => [shape.name, gcTime]),
   );
   const gcTimeOf = (replica: string) => gcTimes.get(replica) ?? 0;
-  const built = Actor.build(
-    Actor.define('Replicas', {
-      requires: [Link],
-      model: Model,
-      message: Message,
-    }),
-    {
-      init: () => ({ model: { instances: [] } }),
-      children: (child) =>
-        Object.fromEntries(
-          builds.map(({ shape, actor }) => [
-            shape.name,
-            child(actor, {
-              each: ({ model }) =>
-                model.instances
-                  .filter((running) => running.replica === shape.name)
-                  .map((running) => running.key),
-              input: (_, key) => ({ key }),
-            }),
-          ]),
-        ),
-      workers: {
-        // What is asked comes in as this actor's own Messages.
-        requests: {
-          run: (self) =>
-            Effect.gen(function* () {
-              const link = yield* Link;
-              yield* Deferred.succeed(link.replicas, names);
-              yield* Stream.runForEach(Stream.fromQueue(link.asked), self.send);
-            }),
-        },
-        // 2. Collect
-        collect: {
-          each: ({ model }) =>
-            model.instances.flatMap((running) =>
-              running.gcAt === null
-                ? []
-                : [nameOf(running.replica, running.key)],
-            ),
-          run: (self, name) =>
-            Effect.gen(function* () {
-              const where = partsOf(name);
-              const { model } = yield* self.get;
-              const until = model.instances.find(
-                (running) =>
-                  running.replica === where.replica &&
-                  running.key === where.key,
-              )?.gcAt;
-              if (until == null) return;
-              const now = yield* Clock.currentTimeMillis;
-              yield* Effect.sleep(Math.max(0, until - now));
-              yield* self.send({ _tag: 'Collected', ...where, until });
-            }),
-        },
+  const built = Actor.define('Replicas', {
+    requires: [Link],
+    model: Model,
+    message: Message,
+  }).build({
+    init: () => ({ model: { instances: [] } }),
+    children: Object.fromEntries(
+      builds.map(({ shape, actor }) => [
+        shape.name,
+        Actor.child(actor, {
+          each: ({ model }: { readonly model: typeof Model.Type }) =>
+            model.instances
+              .filter((running) => running.replica === shape.name)
+              .map((running) => running.key),
+          input: (_, key) => ({ key }),
+        }),
+      ]),
+    ),
+    workers: {
+      // What is asked comes in as this actor's own Messages.
+      requests: {
+        run: (self) =>
+          Effect.gen(function* () {
+            const link = yield* Link;
+            yield* Deferred.succeed(link.replicas, names);
+            yield* Stream.runForEach(Stream.fromQueue(link.asked), self.send);
+          }),
       },
-      on: {
-        Held: ({ replica, key, holder }, { model }) => ({
-          model: held(model, { replica, key }, holder),
-        }),
-        Released: ({ replica, key, holder, at }, { model }) => ({
-          model: released(
-            model,
-            { replica, key },
-            holder,
-            at,
-            gcTimeOf(replica),
+      // 2. Collect
+      collect: {
+        each: ({ model }) =>
+          model.instances.flatMap((running) =>
+            running.gcAt === null ? [] : [nameOf(running.replica, running.key)],
           ),
-        }),
-        Collected: ({ replica, key, until }, { model }) => ({
-          model: collected(model, { replica, key }, until),
-        }),
-        Dropped: ({ replica, key }, { model }) => ({
-          model: dropped(model, { replica, key }),
-        }),
+        run: (self, name) =>
+          Effect.gen(function* () {
+            const where = partsOf(name);
+            const { model } = yield* self.get;
+            const until = model.instances.find(
+              (running) =>
+                running.replica === where.replica && running.key === where.key,
+            )?.gcAt;
+            if (until == null) return;
+            const now = yield* Clock.currentTimeMillis;
+            yield* Effect.sleep(Math.max(0, until - now));
+            yield* self.send({ _tag: 'Collected', ...where, until });
+          }),
       },
     },
-  );
+    on: {
+      Held: ({ replica, key, holder }, { model }) => ({
+        model: held(model, { replica, key }, holder),
+      }),
+      Released: ({ replica, key, holder, at }, { model }) => ({
+        model: released(model, { replica, key }, holder, at, gcTimeOf(replica)),
+      }),
+      Collected: ({ replica, key, until }, { model }) => ({
+        model: collected(model, { replica, key }, until),
+      }),
+      Dropped: ({ replica, key }, { model }) => ({
+        model: dropped(model, { replica, key }),
+      }),
+    },
+  });
   return built as unknown as ReplicasActor<B[number]>;
 };
 
 /**
  * The Instances in use here, as code gets them: through `Replica.get`. A
- * page Provides `Replicas.layer` and places `child(Replicas.actor([...]))` among
- * its children, once, near the root; what runs is in that actor's Model.
+ * page Provides `Replicas.layer` and places
+ * `Actor.child(Replicas.actor([...]))` among its children, once, near the
+ * root; what runs is in that actor's Model.
  */
 export class Replicas extends Context.Service<
   Replicas,
@@ -240,7 +228,7 @@ export class Replicas extends Context.Service<
 >()('@kestack/std-toolkit/replica/Replicas') {
   /** The Capability a page Provides. */
   static readonly layer = layer;
-  /** The actor the same page places among its children, once, running these Builds: `child(Replicas.actor([…]))`. */
+  /** The actor the same page places among its children, once, running these Builds: `Actor.child(Replicas.actor([…]))`. */
   static readonly actor = actor;
 }
 

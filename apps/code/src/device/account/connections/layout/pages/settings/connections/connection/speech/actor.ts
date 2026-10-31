@@ -37,7 +37,7 @@ const SpeechToText = Actor.define('SpeechToText', {
   }),
 });
 
-export const SpeechToTextLive = Actor.build(SpeechToText, {
+export const SpeechToTextLive = SpeechToText.build({
   init: ({ connectionId }) => ({
     model: { connectionId, switching: false, problem: null },
   }),

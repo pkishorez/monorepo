@@ -49,22 +49,19 @@ const mount = async (app: ReactNode) => {
 
 // A row, one per key ---------------------------------------------------------------
 
-const Row = Actor.build(
-  Actor.define('Row', {
-    input: Schema.Struct({ text: Schema.String }),
-    props: Schema.Struct({ selected: Schema.Boolean }),
-    model: Schema.Struct({ text: Schema.String, bumps: Schema.Number }),
-    message: Schema.TaggedUnion({ Bumped: {} }),
-  }),
-  {
-    init: ({ text }) => ({ model: { text, bumps: 0 } }),
-    on: {
-      Bumped: (_, { model }) => ({
-        model: { ...model, bumps: model.bumps + 1 },
-      }),
-    },
+const Row = Actor.define('Row', {
+  input: Schema.Struct({ text: Schema.String }),
+  props: Schema.Struct({ selected: Schema.Boolean }),
+  model: Schema.Struct({ text: Schema.String, bumps: Schema.Number }),
+  message: Schema.TaggedUnion({ Bumped: {} }),
+}).build({
+  init: ({ text }) => ({ model: { text, bumps: 0 } }),
+  on: {
+    Bumped: (_, { model }) => ({
+      model: { ...model, bumps: model.bumps + 1 },
+    }),
   },
-);
+});
 
 const RowView = View.make(Row, (self) => {
   drew(self);
@@ -75,18 +72,15 @@ const RowView = View.make(Row, (self) => {
   );
 });
 
-const Header = Actor.build(
-  Actor.define('Header', {
-    model: Schema.Struct({ clicks: Schema.Number }),
-    message: Schema.TaggedUnion({ Clicked: {} }),
-  }),
-  {
-    init: () => ({ model: { clicks: 0 } }),
-    on: {
-      Clicked: (_, { model }) => ({ model: { clicks: model.clicks + 1 } }),
-    },
+const Header = Actor.define('Header', {
+  model: Schema.Struct({ clicks: Schema.Number }),
+  message: Schema.TaggedUnion({ Clicked: {} }),
+}).build({
+  init: () => ({ model: { clicks: 0 } }),
+  on: {
+    Clicked: (_, { model }) => ({ model: { clicks: model.clicks + 1 } }),
   },
-);
+});
 
 const HeaderView = View.make(Header, (self) => {
   drew(self);
@@ -95,49 +89,46 @@ const HeaderView = View.make(Header, (self) => {
 
 // A list with a fixed Child and keyed Children ------------------------------------
 
-const List = Actor.build(
-  Actor.define('List', {
-    model: Schema.Struct({
-      ids: Schema.Array(Schema.String),
-      next: Schema.Number,
-      selected: Schema.String,
-      title: Schema.String,
-    }),
-    message: Schema.TaggedUnion({
-      Added: {},
-      Removed: { id: Schema.String },
-      Selected: { id: Schema.String },
-      Retitled: { title: Schema.String },
-    }),
+const List = Actor.define('List', {
+  model: Schema.Struct({
+    ids: Schema.Array(Schema.String),
+    next: Schema.Number,
+    selected: Schema.String,
+    title: Schema.String,
   }),
-  {
-    init: () => ({
-      model: { ids: ['a', 'b', 'c'], next: 0, selected: 'a', title: 'List' },
+  message: Schema.TaggedUnion({
+    Added: {},
+    Removed: { id: Schema.String },
+    Selected: { id: Schema.String },
+    Retitled: { title: Schema.String },
+  }),
+}).build({
+  init: () => ({
+    model: { ids: ['a', 'b', 'c'], next: 0, selected: 'a', title: 'List' },
+  }),
+  children: {
+    header: Actor.child(Header),
+    rows: Actor.child(Row, {
+      each: ({ model }) => model.ids,
+      input: (_, id) => ({ text: id }),
+      props: ({ model }, id) => ({ selected: id === model.selected }),
     }),
-    children: (child) => ({
-      header: child(Header),
-      rows: child(Row, {
-        each: ({ model }) => model.ids,
-        input: (_, id) => ({ text: id }),
-        props: ({ model }, id) => ({ selected: id === model.selected }),
-      }),
-    }),
-    on: {
-      Added: (_, { model }) => ({
-        model: {
-          ...model,
-          ids: [...model.ids, `n${model.next}`],
-          next: model.next + 1,
-        },
-      }),
-      Removed: ({ id }, { model }) => ({
-        model: { ...model, ids: model.ids.filter((kept) => kept !== id) },
-      }),
-      Selected: ({ id }, { model }) => ({ model: { ...model, selected: id } }),
-      Retitled: ({ title }, { model }) => ({ model: { ...model, title } }),
-    },
   },
-);
+  on: {
+    Added: (_, { model }) => ({
+      model: {
+        ...model,
+        ids: [...model.ids, `n${model.next}`],
+        next: model.next + 1,
+      },
+    }),
+    Removed: ({ id }, { model }) => ({
+      model: { ...model, ids: model.ids.filter((kept) => kept !== id) },
+    }),
+    Selected: ({ id }, { model }) => ({ model: { ...model, selected: id } }),
+    Retitled: ({ title }, { model }) => ({ model: { ...model, title } }),
+  },
+});
 
 const ListView = View.make(List, (self) => {
   drew(self);
@@ -366,30 +357,27 @@ describe('a parent View reading its Children', () => {
 
 // One draw function across States ---------------------------------------------------
 
-const Editor = Actor.build(
-  Actor.define('Editor', {
-    model: Schema.Struct({ draft: Schema.String }),
-    state: Schema.TaggedUnion({
-      Editing: {},
-      Saving: { since: Schema.Number },
-    }),
-    message: Schema.TaggedUnion({
-      Typed: { text: Schema.String },
-      Saved: {},
-    }),
+const Editor = Actor.define('Editor', {
+  model: Schema.Struct({ draft: Schema.String }),
+  state: Schema.TaggedUnion({
+    Editing: {},
+    Saving: { since: Schema.Number },
   }),
-  {
-    init: () => ({ model: { draft: '' }, state: { _tag: 'Editing' } }),
-    states: {
-      Editing: {
-        on: {
-          Typed: ({ text }) => ({ model: { draft: text } }),
-          Saved: (_, { at }) => ({ state: { _tag: 'Saving', since: at } }),
-        },
+  message: Schema.TaggedUnion({
+    Typed: { text: Schema.String },
+    Saved: {},
+  }),
+}).build({
+  init: () => ({ model: { draft: '' }, state: { _tag: 'Editing' } }),
+  states: {
+    Editing: {
+      on: {
+        Typed: ({ text }) => ({ model: { draft: text } }),
+        Saved: (_, { at }) => ({ state: { _tag: 'Saving', since: at } }),
       },
     },
   },
-);
+});
 
 const EditorView = View.make(Editor, (self) => {
   drew(self);
@@ -564,23 +552,20 @@ export const types = () => {
       props.title,
   );
   // A Child is always there, there or not `while` its test holds, or a list of `each`.
-  const Lamp = Actor.build(
-    Actor.define('Lamp', {
-      model: Schema.Struct({ on: Schema.Boolean }),
-    }),
-    {
-      init: () => ({ model: { on: false } }),
-      children: (child) => ({
-        header: child(Header),
-        shade: child(Header, { while: ({ model }) => model.on }),
-        rows: child(Row, {
-          each: () => ['a'],
-          input: (_, id) => ({ text: id }),
-          props: () => ({ selected: false }),
-        }),
+  const Lamp = Actor.define('Lamp', {
+    model: Schema.Struct({ on: Schema.Boolean }),
+  }).build({
+    init: () => ({ model: { on: false } }),
+    children: {
+      header: Actor.child(Header),
+      shade: Actor.child(Header, { while: ({ model }) => model.on }),
+      rows: Actor.child(Row, {
+        each: () => ['a'],
+        input: (_, id) => ({ text: id }),
+        props: () => ({ selected: false }),
       }),
     },
-  );
+  });
   View.make(Lamp, ({ children }) => [
     children.header.id,
     children.shade?.id,

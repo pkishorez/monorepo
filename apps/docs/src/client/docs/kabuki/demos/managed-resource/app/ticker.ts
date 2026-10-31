@@ -12,7 +12,7 @@ export const Quote = Actor.define('Quote', {
   message: Schema.TaggedUnion({ Priced: { price: Schema.Number } }),
 });
 
-export const QuoteLive = Actor.build(Quote, {
+export const QuoteLive = Quote.build({
   init: () => ({ model: { price: null, change: 0 } }),
   // Reads the feed every second and a half, for as long as the Quote lives.
   workers: {
@@ -46,7 +46,7 @@ export const Ticker = Actor.define('Ticker', {
   }),
 });
 
-export const TickerLive = Actor.build(Ticker, {
+export const TickerLive = Ticker.build({
   init: () => ({ state: { _tag: 'Off' }, model: { log: [] } }),
   // The feed reports here when it opens and closes, in either State.
   on: {
@@ -63,7 +63,7 @@ export const TickerLive = Actor.build(Ticker, {
       // Worker stop first, then the feed closes.
       provides: (self) =>
         priceFeed((text) => self.send({ _tag: 'Logged', text })),
-      children: (child) => ({ quote: child(QuoteLive) }),
+      children: { quote: Actor.child(QuoteLive) },
       on: { Switched: () => ({ state: { _tag: 'Off' } }) },
     },
   },

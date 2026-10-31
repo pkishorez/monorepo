@@ -58,11 +58,19 @@ export interface WorkerDefinition {
   readonly run: Function;
 }
 
-/** One Query, as the engine sees it: the State it is askable in, if not every one, and what answers. */
+/** One Query, as the engine sees it: the State it is askable in, if not every one, what answers, and the checks of its args and answer. */
 export interface QueryDefinition {
   /** The State whose block it is written in; none for a top-level Query. */
   readonly state?: string;
   readonly run: Function;
+  /** Throw unless the args, or the answer, match what `define` declares. */
+  readonly check: { readonly args: Check; readonly result: Check };
+}
+
+/** One Query's Schemas, as `define` declares them; one without args has none. */
+export interface QuerySchemas {
+  readonly args?: Schema.Top;
+  readonly result: Schema.Top;
 }
 
 /** The plain definition the engine works from; an Actor without States is keyed by its one State. */
@@ -88,6 +96,8 @@ export interface ActorDefinition {
     readonly state?: Schema.Top;
     readonly message?: Schema.Top;
     readonly emits?: Schema.Top;
+    /** Each Query's, by name. */
+    readonly queries?: Readonly<Record<string, QuerySchemas>>;
   };
   /** The Schemas a saved History is written and read with: what it holds of an Instance, and its Messages. */
   readonly encoding: {

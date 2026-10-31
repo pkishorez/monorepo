@@ -11,12 +11,25 @@ import type { Envelope, Source } from '../snapshot/index.ts';
  * Schemas changes nothing; the rest of the queue is still handled, then the
  * `send` that drained it throws.
  */
+/**
+ * What became of a Message Sent from outside: `handled` by a rule, `ignored`
+ * with none for it in its State, `queued` behind one being handled, or
+ * `refused`, with the app stopped, its Instance gone, or the Message not
+ * matching its Schema.
+ */
+export type Sent = 'handled' | 'ignored' | 'queued' | 'refused';
+
+interface Waiting {
+  readonly envelope: Envelope;
+  sent?: Sent;
+}
+
 export const makeMailbox = (
   now: () => number,
-  deliver: (envelope: Envelope) => void,
+  deliver: (envelope: Envelope) => 'handled' | 'ignored' | 'dropped',
   drained: () => void,
 ) => {
-  const waiting: Array<Envelope> = [];
+  const waiting: Array<Waiting> = [];
   let open = false;
   let busy = false;
 
@@ -27,7 +40,8 @@ export const makeMailbox = (
     try {
       for (let next = waiting.shift(); next; next = waiting.shift())
         try {
-          deliver(next);
+          const outcome = deliver(next.envelope);
+          next.sent = outcome === 'dropped' ? 'refused' : outcome;
         } catch (error) {
           failed ??= { error };
         }
@@ -46,10 +60,14 @@ export const makeMailbox = (
       open = false;
       waiting.length = 0;
     },
-    send: (destination: string, message: Tagged, source: Source) => {
-      if (!open) return;
-      waiting.push({ destination, message, source, at: now() });
+    send: (destination: string, message: Tagged, source: Source): Sent => {
+      if (!open) return 'refused';
+      const sent: Waiting = {
+        envelope: { destination, message, source, at: now() },
+      };
+      waiting.push(sent);
       drain();
+      return sent.sent ?? 'queued';
     },
     /** Run `f` without handling Messages, then handle what it sent. */
     hold: (f: () => void) => {

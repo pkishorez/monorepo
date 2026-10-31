@@ -197,125 +197,117 @@ const ofTunnel = (
     ? { model: { ...model, status, failures } }
     : {};
 
-export const ActorOnline = Actor.build(
-  Actor.define('Online', {
-    requires: [Cloud, Tunnels, Connection],
-    props: Props,
-    model: Model,
-    state: State,
-    message: Message,
-  }),
-  {
-    init: () => ({
-      model: {
-        generation: 0,
-        status: { _tag: 'Opening' },
-        failures: 0,
-        refusals: 0,
-      },
-      state: { _tag: 'SignedIn' },
-    }),
-    // The tunnel's word is Reported at once, but for losing it, which the
-    // next beat Reports with the new tunnel Opening.
-    provides: (self) =>
-      Layer.effect(
-        TunnelStatus,
-        Effect.map(Effect.context<Cloud | Connection>(), (context) => {
-          const told = (message: Message) =>
-            self
-              .send(message)
-              .pipe(
-                Effect.andThen(report(self)),
-                Effect.provideContext(context),
-              );
-          return TunnelStatus.of({
-            installing: (generation) =>
-              told({ _tag: 'Installing', generation }),
-            opening: (generation) => told({ _tag: 'Opening', generation }),
-            openFailed: (generation, at, problem) =>
-              told({ _tag: 'OpenFailed', generation, at, problem }),
-            up: (generation, url) =>
-              told({ _tag: 'TunnelUp', generation, url }),
-            lost: (generation) => self.send({ _tag: 'TunnelLost', generation }),
-          });
-        }),
-      ),
-    workers: {
-      address: { run: address },
+export const ActorOnline = Actor.define('Online', {
+  requires: [Cloud, Tunnels, Connection],
+  props: Props,
+  model: Model,
+  state: State,
+  message: Message,
+}).build({
+  init: () => ({
+    model: {
+      generation: 0,
+      status: { _tag: 'Opening' },
+      failures: 0,
+      refusals: 0,
     },
-    states: {
-      SignedIn: {
-        children: (child) => ({
-          tunnel: child(ActorTunnel, {
-            while: ({ props }) => props.port !== null,
-            key: ({ model }) => String(model.generation),
-            input: ({ model }) => ({ generation: model.generation }),
-            props: ({ props }) => ({ port: props.port ?? 0 }),
-          }),
+    state: { _tag: 'SignedIn' },
+  }),
+  // The tunnel's word is Reported at once, but for losing it, which the
+  // next beat Reports with the new tunnel Opening.
+  provides: (self) =>
+    Layer.effect(
+      TunnelStatus,
+      Effect.map(Effect.context<Cloud | Connection>(), (context) => {
+        const told = (message: Message) =>
+          self
+            .send(message)
+            .pipe(Effect.andThen(report(self)), Effect.provideContext(context));
+        return TunnelStatus.of({
+          installing: (generation) => told({ _tag: 'Installing', generation }),
+          opening: (generation) => told({ _tag: 'Opening', generation }),
+          openFailed: (generation, at, problem) =>
+            told({ _tag: 'OpenFailed', generation, at, problem }),
+          up: (generation, url) => told({ _tag: 'TunnelUp', generation, url }),
+          lost: (generation) => self.send({ _tag: 'TunnelLost', generation }),
+        });
+      }),
+    ),
+  workers: {
+    address: { run: address },
+  },
+  states: {
+    SignedIn: {
+      children: {
+        tunnel: Actor.child(ActorTunnel, {
+          while: ({ props }) => props.port !== null,
+          key: ({ model }) => String(model.generation),
+          input: ({ model }) => ({ generation: model.generation }),
+          props: ({ props }) => ({ port: props.port ?? 0 }),
         }),
-        on: {
-          Installing: ({ generation }, { model }) =>
-            ofTunnel(model, generation, { _tag: 'Installing' }),
-          Opening: ({ generation }, { model }) =>
-            ofTunnel(model, generation, { _tag: 'Opening' }),
-          OpenFailed: ({ generation, at, problem }, { model }) =>
-            ofTunnel(model, generation, { _tag: 'OpenFailed', at, problem }),
-          TunnelUp: ({ generation, url }, { model }) =>
-            ofTunnel(model, generation, { _tag: 'Unchecked', url }, 0),
-          TunnelLost: ({ generation }, { model }) =>
-            generation === model.generation ? { model: restarted(model) } : {},
-          Checked: ({ generation, check }, { model }) => {
-            const url = addressOf(model.status);
-            if (generation !== model.generation || url === null) return {};
-            const failures = check.ok ? 0 : model.failures + 1;
-            return {
-              model:
-                failures >= FAILURES_BEFORE_RESTART
-                  ? restarted(model)
-                  : { ...model, failures, status: checked(url, check) },
-            };
-          },
-          Reported: (_, { model }) => ({ model: { ...model, refusals: 0 } }),
-          SignedOut: (_, { model }) => ({
-            model: { ...restarted(model), refusals: model.refusals + 1 },
-            state: { _tag: 'SigningIn' },
-          }),
+      },
+      on: {
+        Installing: ({ generation }, { model }) =>
+          ofTunnel(model, generation, { _tag: 'Installing' }),
+        Opening: ({ generation }, { model }) =>
+          ofTunnel(model, generation, { _tag: 'Opening' }),
+        OpenFailed: ({ generation, at, problem }, { model }) =>
+          ofTunnel(model, generation, { _tag: 'OpenFailed', at, problem }),
+        TunnelUp: ({ generation, url }, { model }) =>
+          ofTunnel(model, generation, { _tag: 'Unchecked', url }, 0),
+        TunnelLost: ({ generation }, { model }) =>
+          generation === model.generation ? { model: restarted(model) } : {},
+        Checked: ({ generation, check }, { model }) => {
+          const url = addressOf(model.status);
+          if (generation !== model.generation || url === null) return {};
+          const failures = check.ok ? 0 : model.failures + 1;
+          return {
+            model:
+              failures >= FAILURES_BEFORE_RESTART
+                ? restarted(model)
+                : { ...model, failures, status: checked(url, check) },
+          };
         },
-        workers: {
-          beat: {
-            run: (self) =>
-              Effect.flatMap(Cloud, ({ every }) =>
-                Effect.repeat(beat(self), Schedule.spaced(every)),
-              ),
-          },
+        Reported: (_, { model }) => ({ model: { ...model, refusals: 0 } }),
+        SignedOut: (_, { model }) => ({
+          model: { ...restarted(model), refusals: model.refusals + 1 },
+          state: { _tag: 'SigningIn' },
+        }),
+      },
+      workers: {
+        beat: {
+          run: (self) =>
+            Effect.flatMap(Cloud, ({ every }) =>
+              Effect.repeat(beat(self), Schedule.spaced(every)),
+            ),
         },
       },
-      SigningIn: {
-        on: {
-          SignedIn: () => ({ state: { _tag: 'SignedIn' } }),
-        },
-        workers: {
-          signIn: {
-            run: (self) =>
-              Effect.gen(function* () {
-                const cloud = yield* Cloud;
-                const connection = yield* Connection;
-                const { model } = yield* self.get;
-                const wait = backoffAfter(model.refusals, cloud.backoff);
-                yield* Effect.logWarning(
-                  Duration.isZero(wait)
-                    ? 'The Sign-in was revoked: the tunnel is closed until you sign in again.'
-                    : `Cloud Connect refused the Sign-in again: signing in again in ${Duration.format(wait)}.`,
-                );
-                yield* Effect.sleep(wait);
-                yield* cloud.signInAgain.pipe(
-                  Effect.andThen(self.send({ _tag: 'SignedIn' })),
-                  Effect.catch(connection.stop),
-                );
-              }),
-          },
+    },
+    SigningIn: {
+      on: {
+        SignedIn: () => ({ state: { _tag: 'SignedIn' } }),
+      },
+      workers: {
+        signIn: {
+          run: (self) =>
+            Effect.gen(function* () {
+              const cloud = yield* Cloud;
+              const connection = yield* Connection;
+              const { model } = yield* self.get;
+              const wait = backoffAfter(model.refusals, cloud.backoff);
+              yield* Effect.logWarning(
+                Duration.isZero(wait)
+                  ? 'The Sign-in was revoked: the tunnel is closed until you sign in again.'
+                  : `Cloud Connect refused the Sign-in again: signing in again in ${Duration.format(wait)}.`,
+              );
+              yield* Effect.sleep(wait);
+              yield* cloud.signInAgain.pipe(
+                Effect.andThen(self.send({ _tag: 'SignedIn' })),
+                Effect.catch(connection.stop),
+              );
+            }),
         },
       },
     },
   },
-);
+});

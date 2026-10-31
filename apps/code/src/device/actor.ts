@@ -39,6 +39,7 @@ import { Storage } from './account/store/index.ts';
 import { Kabuki } from './kabuki/index.ts';
 import { home, type Route } from './routes/index.ts';
 import { nothing, Preferences } from './store.ts';
+import { Actor } from '@kestack/kabuki';
 
 /*
  * The Device: the root page, drawn only in the browser, the app on every
@@ -123,7 +124,7 @@ const draftAt = (route: Route | undefined) => {
     : null;
 };
 
-export const DeviceLive = Page.build(Device, {
+export const DeviceLive = Device.build({
   init: () => ({
     model: { signInProblem: null, drawn: null, keyboard: null },
     state: { _tag: 'Reading' },
@@ -157,12 +158,14 @@ export const DeviceLive = Page.build(Device, {
         ready: (accountId) => self.send({ _tag: 'Prepared', accountId }),
       }),
     ),
-  children: (child) => ({
+  children: {
     // 1. Account. The Auth Worker's `maxAccounts`: its default, 5.
-    account: child(AccountSwitcherLive, { input: () => ({ maxAccounts: 5 }) }),
+    account: Actor.child(AccountSwitcherLive, {
+      input: () => ({ maxAccounts: 5 }),
+    }),
     // 2. Connections: of the Account drawn, and of the one wanted while it
     // prepares, kept as the Account checked turns out to be the same.
-    connections: child(ConnectionsActor.actor, {
+    connections: Actor.child(ConnectionsActor.actor, {
       each: ({ state, model }) =>
         running(model.drawn, shownOf(state)).map(({ id }) => id),
       input: (_, accountId) => ({ accountId }),
@@ -175,7 +178,7 @@ export const DeviceLive = Page.build(Device, {
       }),
     }),
     // 3. Layout: one per Account drawn, once its keyboard is read.
-    layout: child(Layout.actor, {
+    layout: Actor.child(Layout.actor, {
       while: ({ model }) => model.drawn !== null && model.keyboard !== null,
       key: ({ model }) => model.drawn?.id ?? '',
       input: ({ model }) => ({
@@ -187,7 +190,7 @@ export const DeviceLive = Page.build(Device, {
         place: draftAt(props.route.page),
       }),
     }),
-  }),
+  },
   workers: {
     // 1. Account
     accounts: {

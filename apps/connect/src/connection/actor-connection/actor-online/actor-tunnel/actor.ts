@@ -101,47 +101,44 @@ const keep = (self: TunnelSelf) =>
     yield* self.send({ _tag: 'Closed' });
   }).pipe(Effect.scoped);
 
-export const ActorTunnel = Actor.build(
-  Actor.define('Tunnel', {
-    requires: [Tunnels, TunnelStatus],
-    input: Model,
-    props: Props,
-    model: Model,
-    state: State,
-    message: Message,
+export const ActorTunnel = Actor.define('Tunnel', {
+  requires: [Tunnels, TunnelStatus],
+  input: Model,
+  props: Props,
+  model: Model,
+  state: State,
+  message: Message,
+}).build({
+  init: ({ generation }) => ({
+    model: { generation },
+    state: { _tag: 'Opening' },
   }),
-  {
-    init: ({ generation }) => ({
-      model: { generation },
-      state: { _tag: 'Opening' },
-    }),
-    on: {
-      Installing: () => ({ state: { _tag: 'Installing' } }),
-      Installed: () => ({ state: { _tag: 'Opening' } }),
-      Opened: ({ url }) => ({ state: { _tag: 'Up', url } }),
-      OpenFailed: ({ problem }) => ({ state: { _tag: 'Lost', problem } }),
-      Closed: () => ({ state: { _tag: 'Lost', problem: null } }),
-    },
-    workers: {
-      keep: { run: keep },
-    },
-    states: {
-      Opening: {},
-      Installing: {},
-      Up: {},
-      Lost: {
-        workers: {
-          lost: {
-            run: (self) =>
-              Effect.gen(function* () {
-                const status = yield* TunnelStatus;
-                const { model, state } = yield* self.get;
-                if (state.problem !== null) yield* Effect.sleep(REOPEN_AFTER);
-                yield* status.lost(model.generation);
-              }),
-          },
+  on: {
+    Installing: () => ({ state: { _tag: 'Installing' } }),
+    Installed: () => ({ state: { _tag: 'Opening' } }),
+    Opened: ({ url }) => ({ state: { _tag: 'Up', url } }),
+    OpenFailed: ({ problem }) => ({ state: { _tag: 'Lost', problem } }),
+    Closed: () => ({ state: { _tag: 'Lost', problem: null } }),
+  },
+  workers: {
+    keep: { run: keep },
+  },
+  states: {
+    Opening: {},
+    Installing: {},
+    Up: {},
+    Lost: {
+      workers: {
+        lost: {
+          run: (self) =>
+            Effect.gen(function* () {
+              const status = yield* TunnelStatus;
+              const { model, state } = yield* self.get;
+              if (state.problem !== null) yield* Effect.sleep(REOPEN_AFTER);
+              yield* status.lost(model.generation);
+            }),
         },
       },
     },
   },
-);
+});

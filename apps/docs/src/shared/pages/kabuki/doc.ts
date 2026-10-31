@@ -16,4 +16,4 @@ export const Doc = Page.define({
   },
 });
 
-export const DocLive = Page.build(Doc);
+export const DocLive = Doc.build();

@@ -145,36 +145,36 @@ export const keyboard = Stream.concat(
   Stream.changesWith(sameKeys),
 );
 
-export const LayoutLive = Actor.build(Layout, {
+export const LayoutLive = Layout.build({
   init: ({ keyboard }) => ({
     model: { back: null, keyboard, shown: false },
   }),
   // 2. Children
-  children: (child) => ({
-    sidebar: child(Sidebar.actor, {
+  children: {
+    sidebar: Actor.child(Sidebar.actor, {
       props: ({ props }) => ({ accountId: props.accountId }),
     }),
-    pickers: child(Pickers.actor, {
+    pickers: Actor.child(Pickers.actor, {
       props: ({ props, model }) => ({
         accountId: props.accountId,
         bindings: model.keyboard.bindings,
       }),
     }),
-    project: child(ProjectRow, {
+    project: Actor.child(ProjectRow, {
       while: ({ props }) => props.place !== null,
       props: ({ props }) => ({
         connectionId: props.place?.connectionId ?? '',
         projectId: props.place?.projectId ?? '',
       }),
     }),
-    session: child(SessionRow, {
+    session: Actor.child(SessionRow, {
       while: ({ props }) => props.place?.sessionId != null,
       props: ({ props }) => ({
         connectionId: props.place?.connectionId ?? '',
         sessionId: props.place?.sessionId ?? '',
       }),
     }),
-  }),
+  },
   workers: {
     // 1. Keys: a change here or in another tab, or one since the root page
     // read it, is read again.

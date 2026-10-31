@@ -15,6 +15,7 @@ import { Snapshot } from '../snapshot/index.ts';
 import type { Instance, Source } from '../snapshot/index.ts';
 import { Stopped } from './instance/index.ts';
 import type { WorkerStatus } from './instance/index.ts';
+import type { Sent } from './mailbox.ts';
 
 /*
  * Reaching the app from outside its tree: the root Instance, typed by its
@@ -24,7 +25,8 @@ import type { WorkerStatus } from './instance/index.ts';
  * app last started over, by a start or a Restore, reads what it held when
  * last read. It can
  * Send, always from outside under the name it was reached with, ask the
- * Queries its Actor answers in its current State, and change nothing else.
+ * Queries its Actor answers in its current State, wait `until` its data
+ * passes a test, and change nothing else.
  */
 
 /**
@@ -69,11 +71,24 @@ type Typed<A> = {
     /** Whether it has stopped, or the app has started over since it was reached, by a start or a Restore: nothing Sent to it arrives. Reach the app again after either. */
     readonly stopped: boolean;
     /**
-     * Send it a Message from outside: `true` once a live Instance has it, or
-     * it waits its turn behind a Message being handled; `false` if it has
-     * stopped or the Message does not match its Schema.
+     * Send it a Message from outside, and say what became of it: `handled`
+     * by a rule, `ignored` with no rule for it in this State, `queued`
+     * behind a Message being handled, or `refused` once it has stopped or
+     * when the Message does not match its Schema.
      */
-    send(message: Types<A>['message']): boolean;
+    send(message: Types<A>['message']): Sent;
+    /**
+     * Wait until its data passes `test`, read now and after every Message:
+     * the Instance, narrowed as the test narrows it, or `Stopped` once it
+     * has stopped first. Send, then wait `until` what the Message started is
+     * done: the answer is read from data the History keeps.
+     */
+    until<N extends LiveInstance<A>>(
+      test: (instance: LiveInstance<A>) => instance is N,
+    ): Effect.Effect<N, Stopped>;
+    until(
+      test: (instance: LiveInstance<A>) => boolean,
+    ): Effect.Effect<LiveInstance<A>, Stopped>;
   };
 }[Types<A>['state']['_tag']];
 
@@ -91,14 +106,17 @@ interface Untyped {
     Record<string, (args?: unknown) => Effect.Effect<unknown, unknown>>
   >;
   readonly stopped: boolean;
-  send(message: Tagged): boolean;
+  send(message: Tagged): Sent;
+  until(test: (instance: Untyped) => boolean): Effect.Effect<Untyped, Stopped>;
 }
 
 /** What reaching needs of a Runtime. */
 export interface Reachable {
   readonly snapshot: () => Snapshot;
   readonly running: () => boolean;
-  readonly send: (id: string, message: Tagged, source: Source) => void;
+  readonly send: (id: string, message: Tagged, source: Source) => Sent;
+  /** Calls `listener` once the Mailbox is empty, and on every start and stop. */
+  readonly subscribe: (listener: () => void) => () => void;
   readonly workers: (id: string) => ReadonlyArray<WorkerStatus>;
   readonly query: (
     id: string,
@@ -137,7 +155,7 @@ const live = (
   const now = () => (last = found() ?? last);
   const stopped = () => !app.running() || found() === undefined;
 
-  return {
+  const self: Untyped = {
     id,
     ...(first.key === undefined ? {} : { key: first.key }),
     get _tag() {
@@ -188,17 +206,32 @@ const live = (
       return stopped();
     },
     send: (message: Tagged) => {
-      if (stopped()) return false;
+      if (stopped()) return 'refused';
       try {
         definition.check.message(
           message,
           `Message ${JSON.stringify(message._tag)}`,
         );
       } catch {
-        return false;
+        return 'refused';
       }
-      app.send(id, message, source);
-      return true;
+      return app.send(id, message, source);
     },
+    until: (test) =>
+      Effect.callback<Untyped, Stopped>((resume) => {
+        /** Settles once the test passes or the Instance has stopped. */
+        const settled = () => {
+          if (stopped()) resume(Effect.fail(new Stopped({ instance: id })));
+          else if (test(self)) resume(Effect.succeed(self));
+          else return false;
+          return true;
+        };
+        if (settled()) return;
+        const unsubscribe = app.subscribe(() => {
+          if (settled()) unsubscribe();
+        });
+        return Effect.sync(unsubscribe);
+      }),
   };
+  return self;
 };

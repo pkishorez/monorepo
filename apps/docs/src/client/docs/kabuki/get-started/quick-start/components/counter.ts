@@ -10,7 +10,7 @@ export const Counter = Actor.define('Counter', {
   }),
 });
 
-export const CounterLive = Actor.build(Counter, {
+export const CounterLive = Counter.build({
   init: () => ({ model: { count: 0 } }),
   on: {
     Incremented: (_, { model }) => ({ model: { count: model.count + 1 } }),

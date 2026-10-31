@@ -170,7 +170,7 @@ const AccountSwitcher = Actor.define('AccountSwitcher', {
   message: Message,
 });
 
-// Written out: the type `Actor.build` infers names Kabuki's internals.
+// Written out: the type `build` infers names Kabuki's internals.
 export const AccountSwitcherLive: ActorType<
   'AccountSwitcher',
   typeof Input.Type,
@@ -180,7 +180,7 @@ export const AccountSwitcherLive: ActorType<
   typeof Message.Type,
   { readonly Single: {} },
   Accounts | Link
-> = Actor.build(AccountSwitcher, {
+> = AccountSwitcher.build({
   init: ({ maxAccounts }) => ({
     model: {
       account: { _tag: 'Checking', last: null },

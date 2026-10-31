@@ -118,7 +118,7 @@ const picker = (which: 'first' | 'second') => ({
   props: () => ({}),
 });
 
-const OwnerLive = Actor.build(Owner, {
+const OwnerLive = Owner.build({
   init: () => ({
     model: {
       first: null,
@@ -129,10 +129,10 @@ const OwnerLive = Actor.build(Owner, {
       pings: 0,
     },
   }),
-  children: (child) => ({
-    first: child(Places.Live, picker('first')),
-    second: child(Places.Live, picker('second')),
-  }),
+  children: {
+    first: Actor.child(Places.Live, picker('first')),
+    second: Actor.child(Places.Live, picker('second')),
+  },
   provides: (self) =>
     Places.owner({
       done: (choices, step) =>

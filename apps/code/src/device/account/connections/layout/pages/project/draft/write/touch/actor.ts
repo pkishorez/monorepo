@@ -136,7 +136,7 @@ const atRest = (open: boolean) => ({
 
 const editing = { state: { _tag: 'Editing' as const } };
 
-export const TouchDraftLive = Actor.build(TouchDraft, {
+export const TouchDraftLive = TouchDraft.build({
   init: (open) => ({
     model: { smart: false, displace: false },
     state: open ? { _tag: 'Expanded' } : collapsed,

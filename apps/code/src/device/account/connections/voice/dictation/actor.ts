@@ -253,7 +253,7 @@ const start = (model: Model, at: number) => {
 };
 
 /** The Dictation Voice holds, and its asks. */
-export const DictationLive = Actor.build(Dictation, {
+export const DictationLive = Dictation.build({
   init: () => ({
     model: {
       count: 0,

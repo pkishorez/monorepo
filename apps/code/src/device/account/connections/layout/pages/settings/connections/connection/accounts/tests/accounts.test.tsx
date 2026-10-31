@@ -53,7 +53,7 @@ const Owner = Actor.define('Owner', {
   }),
 });
 
-const OwnerLive = Actor.build(Owner, {
+const OwnerLive = Owner.build({
   init: () => ({ model: { pings: 0, accounts: null, problem: null } }),
   workers: {
     setup: {
@@ -69,15 +69,15 @@ const OwnerLive = Actor.build(Owner, {
         ),
     },
   },
-  children: (child) => ({
-    accounts: child(HarnessAccountsLive, {
+  children: {
+    accounts: Actor.child(HarnessAccountsLive, {
       input: () => ({ connectionId: 'm1' }),
       props: ({ model }) => ({
         accounts: model.accounts,
         problem: model.problem,
       }),
     }),
-  }),
+  },
   on: {
     Ping: (_, { model }) => ({ model: { ...model, pings: model.pings + 1 } }),
     SetupShown: ({ accounts, problem }, { model }) => ({

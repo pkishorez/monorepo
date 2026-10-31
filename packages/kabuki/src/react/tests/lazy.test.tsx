@@ -33,8 +33,8 @@ const html = async (node: React.ReactNode) => {
 
 /** A parent drawing the Ticker as its fixed Child, through whichever View it is given. */
 const pageWith = (TickerView: ViewOf<typeof Ticker>) => {
-  const Page = Actor.build(Actor.define('Page', {}), {
-    children: (child) => ({ ticker: child(Ticker) }),
+  const Page = Actor.define('Page', {}).build({
+    children: { ticker: Actor.child(Ticker) },
   });
   const PageView = View.make(Page, (self) => (
     <main>

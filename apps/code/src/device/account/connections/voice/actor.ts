@@ -31,15 +31,15 @@ const Voice = Actor.define('Voice', {
   }),
 });
 
-export const VoiceLive = Actor.build(Voice, {
-  children: (child) => ({
+export const VoiceLive = Voice.build({
+  children: {
     // 1. Dictation
-    dictation: child(Dictation.actor, {
+    dictation: Actor.child(Dictation.actor, {
       props: ({ props }) => ({ drawn: props.drawn }),
     }),
     // 2. Microphone
-    microphonePicker: child(MicrophonePicker.actor),
-  }),
+    microphonePicker: Actor.child(MicrophonePicker.actor),
+  },
   on: {
     // 3. Ask
     DictationAsked: ({ ask }) => ({ command: askDictation(ask) }),

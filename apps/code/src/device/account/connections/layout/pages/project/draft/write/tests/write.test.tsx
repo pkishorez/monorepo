@@ -90,7 +90,7 @@ const Page = Actor.define('Page', {
   }),
 });
 
-const PageLive = Actor.build(Page, {
+const PageLive = Page.build({
   init: () => ({
     model: {
       text: initial,
@@ -107,8 +107,8 @@ const PageLive = Actor.build(Page, {
       retried: [],
     },
   }),
-  children: (child) => ({
-    skills: child(SkillPicker.Live, {
+  children: {
+    skills: Actor.child(SkillPicker.Live, {
       while: ({ model }) => model.picking !== null,
       key: ({ model }) => String(model.opened),
       input: ({ model }) => SkillPicker.opening(model.picking?.how ?? 'keys'),
@@ -119,7 +119,7 @@ const PageLive = Actor.build(Page, {
         problem: null,
       }),
     }),
-  }),
+  },
   provides: (self) =>
     SkillPicker.owner((name) => self.send({ _tag: 'Picked', name })),
   on: {

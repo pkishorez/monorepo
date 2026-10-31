@@ -25,17 +25,17 @@ const Pickers = Actor.define('Pickers', {
   }),
 });
 
-export const PickersLive = Actor.build(Pickers, {
-  children: (child) => ({
+export const PickersLive = Pickers.build({
+  children: {
     // 1. Projects
-    projects: child(Projects.actor, {
+    projects: Actor.child(Projects.actor, {
       props: ({ props }) => ({ accountId: props.accountId }),
     }),
     // 2. Sessions
-    sessions: child(Sessions.actor),
+    sessions: Actor.child(Sessions.actor),
     // 3. Actions
-    actions: child(Actions.actor, {
+    actions: Actor.child(Actions.actor, {
       props: ({ props }) => ({ bindings: props.bindings }),
     }),
-  }),
+  },
 });

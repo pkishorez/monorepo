@@ -2,7 +2,7 @@ import { Effect, Schema } from 'effect';
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { restore } from '../snapshot/engine/index.ts';
 import { Actor, History, Runtime } from '../index.ts';
-import type { LiveInstance } from '../runtime/index.ts';
+import type { LiveInstance, Sent } from '../runtime/index.ts';
 import { Auth, ServerLive, run, settle } from './fixtures.ts';
 
 /*
@@ -10,62 +10,56 @@ import { Auth, ServerLive, run, settle } from './fixtures.ts';
  * Actor and always live, and every Instance below it, narrowed by State.
  */
 
-const Row = Actor.build(
-  Actor.define('Row', {
-    props: Schema.Struct({ index: Schema.Number }),
-    model: Schema.Struct({ text: Schema.String }),
-    state: Schema.TaggedUnion({ Idle: {}, Failed: { reason: Schema.String } }),
-    message: Schema.TaggedUnion({
-      Broke: { reason: Schema.String },
-      Retried: {},
-      Edited: { text: Schema.String.check(Schema.isNonEmpty()) },
-    }),
+const Row = Actor.define('Row', {
+  props: Schema.Struct({ index: Schema.Number }),
+  model: Schema.Struct({ text: Schema.String }),
+  state: Schema.TaggedUnion({ Idle: {}, Failed: { reason: Schema.String } }),
+  message: Schema.TaggedUnion({
+    Broke: { reason: Schema.String },
+    Retried: {},
+    Edited: { text: Schema.String.check(Schema.isNonEmpty()) },
   }),
-  {
-    init: () => ({ model: { text: '' }, state: { _tag: 'Idle' } }),
-    on: {
-      Broke: ({ reason }) => ({ state: { _tag: 'Failed', reason } }),
-      Retried: () => ({ state: { _tag: 'Idle' } }),
-      Edited: ({ text }) => ({ model: { text } }),
-    },
-    workers: { sync: { run: () => Effect.never } },
+}).build({
+  init: () => ({ model: { text: '' }, state: { _tag: 'Idle' } }),
+  on: {
+    Broke: ({ reason }) => ({ state: { _tag: 'Failed', reason } }),
+    Retried: () => ({ state: { _tag: 'Idle' } }),
+    Edited: ({ text }) => ({ model: { text } }),
   },
-);
+  workers: { sync: { run: () => Effect.never } },
+});
 
-const Detail = Actor.build(Actor.define('Detail', {}), {});
+const Detail = Actor.define('Detail', {}).build({});
 
-const Board = Actor.build(
-  Actor.define('Board', {
-    model: Schema.Struct({
-      ids: Schema.Array(Schema.String),
-      open: Schema.Boolean,
-    }),
-    message: Schema.TaggedUnion({
-      Added: { id: Schema.String },
-      Removed: { id: Schema.String },
-      Toggled: {},
-    }),
+const Board = Actor.define('Board', {
+  model: Schema.Struct({
+    ids: Schema.Array(Schema.String),
+    open: Schema.Boolean,
   }),
-  {
-    init: () => ({ model: { ids: ['a', 'b'], open: false } }),
-    children: (child) => ({
-      rows: child(Row, {
-        each: ({ model }) => model.ids,
-        props: ({ model }, id) => ({ index: model.ids.indexOf(id) }),
-      }),
-      detail: child(Detail, { while: ({ model }) => model.open }),
+  message: Schema.TaggedUnion({
+    Added: { id: Schema.String },
+    Removed: { id: Schema.String },
+    Toggled: {},
+  }),
+}).build({
+  init: () => ({ model: { ids: ['a', 'b'], open: false } }),
+  children: {
+    rows: Actor.child(Row, {
+      each: ({ model }) => model.ids,
+      props: ({ model }, id) => ({ index: model.ids.indexOf(id) }),
     }),
-    on: {
-      Added: ({ id }, { model }) => ({
-        model: { ...model, ids: [...model.ids, id] },
-      }),
-      Removed: ({ id }, { model }) => ({
-        model: { ...model, ids: model.ids.filter((kept) => kept !== id) },
-      }),
-      Toggled: (_, { model }) => ({ model: { ...model, open: !model.open } }),
-    },
+    detail: Actor.child(Detail, { while: ({ model }) => model.open }),
   },
-);
+  on: {
+    Added: ({ id }, { model }) => ({
+      model: { ...model, ids: [...model.ids, id] },
+    }),
+    Removed: ({ id }, { model }) => ({
+      model: { ...model, ids: model.ids.filter((kept) => kept !== id) },
+    }),
+    Toggled: (_, { model }) => ({ model: { ...model, open: !model.open } }),
+  },
+});
 
 describe('an Instance reached from outside', () => {
   it('reads the app live: what it reads is what the app holds now', () =>
@@ -75,7 +69,7 @@ describe('an Instance reached from outside', () => {
         const board = running.instance({ from: 'test' });
         expect(board.id).toBe('Board');
         expect(board.model.ids).toEqual(['a', 'b']);
-        expect(board.send({ _tag: 'Added', id: 'c' })).toBe(true);
+        expect(board.send({ _tag: 'Added', id: 'c' })).toBe('handled');
         expect(board.model.ids).toEqual(['a', 'b', 'c']);
       }),
     ));
@@ -120,16 +114,16 @@ describe('an Instance reached from outside', () => {
       }),
     ));
 
-  it('Sends from outside, named, and says whether the Message arrived', () =>
+  it('Sends from outside, named, and says what became of the Message', () =>
     run(
       Effect.gen(function* () {
         const running = yield* Runtime.start(Board);
         const row = running.instance({ from: 'admin' }).children.rows[0]!;
-        expect(row.send({ _tag: 'Broke', reason: 'offline' })).toBe(true);
+        expect(row.send({ _tag: 'Broke', reason: 'offline' })).toBe('handled');
         expect(row.state).toEqual({ _tag: 'Failed', reason: 'offline' });
         expect(row._tag === 'Failed' && row.state.reason).toBe('offline');
         // Refused at the Send: it does not match the Schema.
-        expect(row.send({ _tag: 'Edited', text: '' })).toBe(false);
+        expect(row.send({ _tag: 'Edited', text: '' })).toBe('refused');
         expect(row.model.text).toBe('');
 
         // @ts-expect-error: not one of Row's Messages.
@@ -173,7 +167,7 @@ describe('an Instance reached from outside', () => {
         expect(row.stopped).toBe(true);
         expect(row.model.text).toBe('kept');
         expect(row.workers).toEqual([]);
-        expect(row.send({ _tag: 'Retried' })).toBe(false);
+        expect(row.send({ _tag: 'Retried' })).toBe('refused');
 
         // Back again, the key is a fresh Instance: the old one stays stopped.
         board.send({ _tag: 'Added', id: 'a' });
@@ -182,7 +176,7 @@ describe('an Instance reached from outside', () => {
 
         yield* running.stop();
         expect(board.stopped).toBe(true);
-        expect(board.send({ _tag: 'Toggled' })).toBe(false);
+        expect(board.send({ _tag: 'Toggled' })).toBe('refused');
         expect(board.model.ids).toEqual(['b', 'a']);
       }),
     ));
@@ -200,7 +194,7 @@ describe('an Instance reached from outside', () => {
           row.id,
         );
         expect(row.stopped).toBe(true);
-        expect(row.send({ _tag: 'Retried' })).toBe(false);
+        expect(row.send({ _tag: 'Retried' })).toBe('refused');
       }),
     ));
 
@@ -209,33 +203,30 @@ describe('an Instance reached from outside', () => {
       Effect.gen(function* () {
         let held: LiveInstance<typeof Lamp> | undefined;
         let armed = false;
-        const sent: Array<boolean> = [];
-        const Lamp = Actor.build(
-          Actor.define('Lamp', {
-            model: Schema.Struct({ on: Schema.Boolean, count: Schema.Number }),
-            message: Schema.TaggedUnion({ Switched: {}, Bumped: {} }),
-          }),
-          {
-            init: () => ({ model: { on: false, count: 0 } }),
-            on: {
-              Switched: (_, { model }) => ({
-                model: { ...model, on: !model.on },
-              }),
-              Bumped: (_, { model }) => ({
-                model: { ...model, count: model.count + 1 },
-              }),
-            },
-            workers: {
-              glow: {
-                while: ({ model }) => model.on,
-                run: () => {
-                  if (armed) sent.push(held!.send({ _tag: 'Bumped' }));
-                  return Effect.never;
-                },
+        const sent: Array<Sent> = [];
+        const Lamp = Actor.define('Lamp', {
+          model: Schema.Struct({ on: Schema.Boolean, count: Schema.Number }),
+          message: Schema.TaggedUnion({ Switched: {}, Bumped: {} }),
+        }).build({
+          init: () => ({ model: { on: false, count: 0 } }),
+          on: {
+            Switched: (_, { model }) => ({
+              model: { ...model, on: !model.on },
+            }),
+            Bumped: (_, { model }) => ({
+              model: { ...model, count: model.count + 1 },
+            }),
+          },
+          workers: {
+            glow: {
+              while: ({ model }) => model.on,
+              run: () => {
+                if (armed) sent.push(held!.send({ _tag: 'Bumped' }));
+                return Effect.never;
               },
             },
           },
-        );
+        });
         const running = yield* Runtime.start(Lamp);
         held = running.instance({ from: 'test' });
         held.send({ _tag: 'Switched' });
@@ -243,7 +234,7 @@ describe('an Instance reached from outside', () => {
         held.send({ _tag: 'Switched' });
         armed = true;
         running.send('Lamp', { ...restore(saved) });
-        expect(sent).toEqual([false]);
+        expect(sent).toEqual(['refused']);
         expect(running.instance({ from: 'test' }).model).toEqual({
           on: true,
           count: 0,
@@ -266,7 +257,7 @@ describe('an Instance reached from outside', () => {
         });
         warn.mockRestore();
         expect(row.stopped).toBe(false);
-        expect(row.send({ _tag: 'Retried' })).toBe(true);
+        expect(row.send({ _tag: 'Retried' })).toBe('handled');
       }),
     ));
 
@@ -286,7 +277,7 @@ describe('an Instance reached from outside', () => {
         );
         expect(row.stopped).toBe(true);
         expect(row.workers).toEqual([]);
-        expect(row.send({ _tag: 'Retried' })).toBe(false);
+        expect(row.send({ _tag: 'Retried' })).toBe('refused');
         expect(board.stopped).toBe(true);
         expect(board.model.ids).toEqual(['b']);
       }),

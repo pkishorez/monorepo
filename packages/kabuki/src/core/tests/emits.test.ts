@@ -17,7 +17,7 @@ const Login = Actor.define('Login', {
   emits: { SignedIn: { user: Schema.String }, Closed: {} },
 });
 
-const LoginLive = Actor.build(Login, {
+const LoginLive = Login.build({
   init: () => ({ model: { name: '' } }),
   on: {
     Typed: ({ name }) => ({ model: { name } }),
@@ -34,15 +34,15 @@ const Gate = Actor.define('Gate', {
   message: { LoggedIn: { user: Schema.String }, LoggedOut: {} },
 });
 
-const GateLive = Actor.build(Gate, {
+const GateLive = Gate.build({
   init: () => ({ model: { signIns: 0 }, state: { _tag: 'Anonymous' } }),
   states: {
     Anonymous: {
-      children: (child) => ({
-        login: child(LoginLive, {
+      children: {
+        login: Actor.child(LoginLive, {
           emits: { SignedIn: ({ user }) => ({ _tag: 'LoggedIn', user }) },
         }),
-      }),
+      },
       on: {
         LoggedIn: ({ user }, { model }) => ({
           model: { signIns: model.signIns + 1 },
@@ -58,38 +58,32 @@ const GateLive = Actor.build(Gate, {
 
 // A list whose rows each ask to be removed ----------------------------------------
 
-const Row = Actor.build(
-  Actor.define('Row', {
-    message: { Removing: {} },
-    emits: { Remove: {} },
-  }),
-  { on: { Removing: () => ({ emit: { _tag: 'Remove' } }) } },
-);
+const Row = Actor.define('Row', {
+  message: { Removing: {} },
+  emits: { Remove: {} },
+}).build({ on: { Removing: () => ({ emit: { _tag: 'Remove' } }) } });
 
-const List = Actor.build(
-  Actor.define('List', {
-    model: { ids: Schema.Array(Schema.String), title: Schema.String },
-    message: {
-      Removed: { id: Schema.String },
-      Retitled: { title: Schema.String },
-    },
-  }),
-  {
-    init: () => ({ model: { ids: ['a', 'b'], title: '' } }),
-    children: (child) => ({
-      rows: child(Row, {
-        each: ({ model }) => model.ids,
-        emits: { Remove: (_, id) => ({ _tag: 'Removed', id }) },
-      }),
-    }),
-    on: {
-      Removed: ({ id }, { model }) => ({
-        model: { ids: model.ids.filter((kept) => kept !== id) },
-      }),
-      Retitled: ({ title }) => ({ model: { title } }),
-    },
+const List = Actor.define('List', {
+  model: { ids: Schema.Array(Schema.String), title: Schema.String },
+  message: {
+    Removed: { id: Schema.String },
+    Retitled: { title: Schema.String },
   },
-);
+}).build({
+  init: () => ({ model: { ids: ['a', 'b'], title: '' } }),
+  children: {
+    rows: Actor.child(Row, {
+      each: ({ model }) => model.ids,
+      emits: { Remove: (_, id) => ({ _tag: 'Removed', id }) },
+    }),
+  },
+  on: {
+    Removed: ({ id }, { model }) => ({
+      model: { ids: model.ids.filter((kept) => kept !== id) },
+    }),
+    Retitled: ({ title }) => ({ model: { title } }),
+  },
+});
 
 const LOGIN = 'Gate/login#1';
 
@@ -160,7 +154,7 @@ describe('Emits', () => {
     ));
 
   it('are checked against their Schema', () => {
-    const Bad = Actor.build(Login, {
+    const Bad = Login.build({
       init: () => ({ model: { name: '' } }),
       on: { Submitted: () => ({ emit: { _tag: 'SignedIn' } as never }) },
     });
@@ -213,7 +207,7 @@ describe('Actor.define', () => {
 
   it('refuses the State blocks under `state`', () => {
     expect(() =>
-      Actor.build(Gate, {
+      Gate.build({
         init: () => ({ model: { signIns: 0 }, state: { _tag: 'Anonymous' } }),
         state: {},
       } as never),
@@ -228,17 +222,17 @@ export const types = () => {
     // @ts-expect-error the Model must be a struct
     model: Schema.Number,
   });
-  Actor.build(Gate, {
+  Gate.build({
     init: () => ({ model: { signIns: 0 }, state: { _tag: 'Anonymous' } }),
     on: {
       // @ts-expect-error a field the Model does not have
       LoggedOut: () => ({ model: { signOuts: 1 } }),
     },
   });
-  Actor.build(Gate, {
+  Gate.build({
     init: () => ({ model: { signIns: 0 }, state: { _tag: 'Anonymous' } }),
-    children: (child) => ({
-      login: child(LoginLive, {
+    children: {
+      login: Actor.child(LoginLive, {
         emits: {
           // The event is typed by the Child, the Message by the parent.
           SignedIn: ({ user }) => ({ _tag: 'LoggedIn', user }),
@@ -246,9 +240,9 @@ export const types = () => {
           Closed: () => ({ _tag: 'Closed' }),
         },
       }),
-    }),
+    },
   });
-  Actor.build(Login, {
+  Login.build({
     init: () => ({ model: { name: '' } }),
     on: {
       // @ts-expect-error Login Emits no `Gone`

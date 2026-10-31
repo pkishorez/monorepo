@@ -125,16 +125,16 @@ const DraftMode = Actor.define('DraftMode', {
   }),
 });
 
-export const DraftModeLive = Actor.build(DraftMode, {
+export const DraftModeLive = DraftMode.build({
   init: ({ written, open }) => ({ model: { written, open, took: 0 } }),
   // 3. Send: on touch, through the Touch Draft.
   provides: (self) =>
     TouchDraft.owner(self.send({ _tag: 'SendAsked' }), (open) =>
       self.send({ _tag: 'TouchOpened', open }),
     ),
-  children: (child) => ({
-    touch: child(TouchDraft.actor, { input: ({ model }) => model.open }),
-  }),
+  children: {
+    touch: Actor.child(TouchDraft.actor, { input: ({ model }) => model.open }),
+  },
   workers: {
     // 2. Write
     shows: {

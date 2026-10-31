@@ -16,6 +16,7 @@ import {
   Wallets,
 } from './replica/index.ts';
 import { PocketLive as PocketReplica } from '../../replicas/pocket/index.ts';
+import { Actor } from '@kestack/kabuki';
 
 /*
  * The root page, with the four pages under it, and the router read down
@@ -34,7 +35,7 @@ const App = Page.define({
 
 const ReplicasLive = Replicas.actor([PocketReplica]);
 
-const AppLive = Page.build(App, {
+const AppLive = App.build({
   pages: {
     Static: StaticLive,
     Items: ItemsLive,
@@ -42,11 +43,13 @@ const AppLive = Page.build(App, {
     Replica: ReplicaLive,
   },
   provides: () => Layer.mergeAll(CurrentAccount.layer, Replicas.layer),
-  children: (child) => ({
+  children: {
     // The Auth Worker's `maxAccounts`: its default, 5.
-    account: child(AccountSwitcherLive, { input: () => ({ maxAccounts: 5 }) }),
-    replicas: child(ReplicasLive),
-  }),
+    account: Actor.child(AccountSwitcherLive, {
+      input: () => ({ maxAccounts: 5 }),
+    }),
+    replicas: Actor.child(ReplicasLive),
+  },
 });
 
 export const router = Router.define(App, {

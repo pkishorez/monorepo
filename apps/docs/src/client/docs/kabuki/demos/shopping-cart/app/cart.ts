@@ -35,7 +35,7 @@ export const Cart = Actor.define('Cart', {
   }),
 });
 
-export const CartLive = Actor.build(Cart, {
+export const CartLive = Cart.build({
   on: {
     Increased: ({ id }) => ({ command: change({ id, by: 1 }) }),
     Decreased: ({ id }) => ({ command: change({ id, by: -1 }) }),

@@ -147,7 +147,7 @@ export const Apis = Page.define({
 const keyOf = (caller: Caller) =>
   caller._tag === 'SignedIn' ? caller.id : caller._tag;
 
-export const ApisLive = Page.build(Apis, {
+export const ApisLive = Apis.build({
   init: () => ({
     model: {
       caller: { _tag: 'Checking' },

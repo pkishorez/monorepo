@@ -4,7 +4,11 @@ import type { Self } from '@kestack/kabuki/core/actor';
 import { nextUlid } from '@kestack/std-toolkit/core';
 import {
   AgentQuestionSchema,
+  AskAnswerSchema,
   BackgroundJobSchema,
+  ContextUsageSchema,
+  JsonSchema,
+  McpServerStatusSchema,
   QuestionAnswerSchema,
   TURN_END_STATUSES,
   type Json,
@@ -372,203 +376,207 @@ const agentTurn = (self: SessionSelf) =>
     });
   });
 
-export const Session = Actor.build(
-  Actor.define('Session', {
-    requires: [
-      Agents,
-      Answers,
-      Git,
-      Harnesses,
-      HarnessAccounts,
-      OneShotPrompt,
-      Store,
-    ],
-    input: SessionInput,
-    model: Model,
-    state: State,
-    message: Message,
+export const Session = Actor.define('Session', {
+  requires: [
+    Agents,
+    Answers,
+    Git,
+    Harnesses,
+    HarnessAccounts,
+    OneShotPrompt,
+    Store,
+  ],
+  input: SessionInput,
+  model: Model,
+  state: State,
+  message: Message,
+  queries: {
+    /** A new Session from this one's context, after a Turn, else after its latest finished one. */
+    fork: {
+      args: Schema.NullOr(Schema.String),
+      result: SessionSchema.schema,
+    },
+    /** A question to the Agent's context, answered as text or as data shaped by `schema`. */
+    ask: {
+      args: { question: Schema.String, schema: Schema.NullOr(JsonSchema) },
+      result: AskAnswerSchema,
+    },
+    /** A Title written afresh from the latest messages, or null when none could be. */
+    retitle: { result: Schema.NullOr(Schema.String) },
+    mcpStatus: { result: Schema.Array(McpServerStatusSchema) },
+    contextUsage: { result: ContextUsageSchema },
+  },
+}).build({
+  init: ({ session, cwd, first }) => ({
+    model: {
+      session: Struct.omit(session, ['status']),
+      cwd,
+      // A Resumed Session has its title; only a first message asks for one.
+      untitled: first && !first.resumed ? first.text : null,
+      jobs: [],
+      refusedStops: [],
+      questions: [],
+    },
+    state: first ? running([first]) : idleOf(session.status),
   }),
-  {
-    init: ({ session, cwd, first }) => ({
-      model: {
-        session: Struct.omit(session, ['status']),
-        cwd,
-        // A Resumed Session has its title; only a first message asks for one.
-        untitled: first && !first.resumed ? first.text : null,
-        jobs: [],
-        refusedStops: [],
-        questions: [],
-      },
-      state: first ? running([first]) : idleOf(session.status),
+  on: {
+    NativeId: ({ nativeId }, { model }) => ({
+      model: { ...model, session: { ...model.session, nativeId } },
     }),
-    on: {
-      NativeId: ({ nativeId }, { model }) => ({
-        model: { ...model, session: { ...model.session, nativeId } },
-      }),
-      Jobs: ({ jobs }, { model }) => ({
-        model: {
-          ...model,
-          jobs,
-          refusedStops: model.refusedStops.filter((refused) =>
-            jobs.some((job) => job.id === refused.jobId),
-          ),
-        },
-      }),
-      StopJob: ({ jobId }, { model }) => ({
-        model: {
-          ...model,
-          refusedStops: model.refusedStops.filter((r) => r.jobId !== jobId),
-        },
-        command: StopJob({ sessionId: model.session.id, jobId }),
-      }),
-      // A refusal for a job the agent no longer lists is moot.
-      JobStopFailed: ({ jobId, reason }, { model }) =>
-        model.jobs.some((job) => job.id === jobId)
-          ? {
-              model: {
-                ...model,
-                refusedStops: [...model.refusedStops, { jobId, reason }],
-              },
-            }
-          : {},
-      Questions: ({ questions }, { model }) => ({
-        model: { ...model, questions },
-      }),
-      // One no longer asked is not given: the agent would refuse it anyway.
-      Answer: ({ answerId, questionId, answer }, { model }) => ({
-        command: model.questions.some((question) => question.id === questionId)
-          ? AnswerQuestion({
-              sessionId: model.session.id,
-              answerId,
-              questionId,
-              answer,
-            })
-          : AnswerNotAsked({ answerId }),
-      }),
-      Titled: ({ title }, { model }) => ({
-        model: {
-          ...model,
-          untitled: null,
-          session: { ...model.session, title },
-        },
-      }),
-      BranchFound: ({ branch }, { model }) =>
-        branch === model.session.branch
-          ? {}
-          : { model: { ...model, session: { ...model.session, branch } } },
-      Settle: ({ at }, { model }) =>
-        model.session.settledAt !== null
-          ? {}
-          : {
-              model: { ...model, session: { ...model.session, settledAt: at } },
-            },
-      Unsettle: (_, { model }) => ({ model: unsettled(model) }),
-    },
-    workers: {
-      agent: { run: (self) => agent(self) },
-      jobs: { run: (self) => jobs(self) },
-      questions: { run: (self) => questions(self) },
-      persist: { run: (self) => persist(self) },
-      title: {
-        while: ({ model }) => model.untitled !== null,
-        // Nothing is written, nor its branch renamed, until it has
-        // started: a start that fails takes back its branch by name.
-        run: (self) => Effect.andThen(started(self), title(self)),
+    Jobs: ({ jobs }, { model }) => ({
+      model: {
+        ...model,
+        jobs,
+        refusedStops: model.refusedStops.filter((refused) =>
+          jobs.some((job) => job.id === refused.jobId),
+        ),
       },
-      branch: {
-        while: ({ model }) => model.session.settledAt === null,
-        run: (self) => followBranch(self),
+    }),
+    StopJob: ({ jobId }, { model }) => ({
+      model: {
+        ...model,
+        refusedStops: model.refusedStops.filter((r) => r.jobId !== jobId),
       },
-    },
-    queries: {
-      fork: {
-        run: (self, afterTurnId: string | null) => forkFrom(self, afterTurnId),
-      },
-      ask: {
-        run: (
-          self,
-          args: { readonly question: string; readonly schema: Json | null },
-        ) => ask(self, args.question, args.schema),
-      },
-      retitle: { run: (self) => retitle(self) },
-      mcpStatus: { run: (self) => fromAgent(self, (agent) => agent.mcpStatus) },
-      contextUsage: {
-        run: (self) => fromAgent(self, (agent) => agent.contextUsage),
-      },
-    },
-    states: {
-      Idle: {
-        on: {
-          Send: ({ prompt, at }, { model }) => ({
-            model: active(unsettled(choose(model, prompt)), at),
-            state: running([prompt]),
-          }),
-          AgentTurn: ({ turnId, at }, { model }) => ({
-            model: active(model, at),
-            state: {
-              _tag: 'Running',
-              turnId,
-              prompt: null,
-              steers: [],
-              cancelling: false,
-              queued: [],
-            },
-          }),
-        },
-        workers: {
-          agentTurn: { run: (self) => agentTurn(self) },
-        },
-      },
-      Running: {
-        on: {
-          Send: ({ prompt }, { model, state }) => ({
-            model: unsettled(choose(model, prompt)),
-            state: state.cancelling
-              ? { ...state, queued: [...state.queued, prompt] }
-              : { ...state, steers: [...state.steers, prompt] },
-          }),
-          Cancel: (_, { state }) => ({ state: { ...state, cancelling: true } }),
-          Steered: ({ turnId, id }, { state }) =>
-            turnId !== state.turnId
-              ? {}
-              : {
-                  state: {
-                    ...state,
-                    steers: state.steers.filter((each) => each.id !== id),
-                  },
-                },
-          TurnEnded: ({ turnId, status, at }, { model, state }) => {
-            if (turnId !== state.turnId) return {};
-            const ended = {
+      command: StopJob({ sessionId: model.session.id, jobId }),
+    }),
+    // A refusal for a job the agent no longer lists is moot.
+    JobStopFailed: ({ jobId, reason }, { model }) =>
+      model.jobs.some((job) => job.id === jobId)
+        ? {
+            model: {
               ...model,
-              session: { ...model.session, endedAt: at },
-            };
-            const [next, ...rest] = [...state.steers, ...state.queued];
-            return next
-              ? { model: active(ended, at), state: running([next, ...rest]) }
-              : {
-                  model: ended,
-                  state: {
-                    _tag: 'Idle',
-                    ended: status === 'done' ? null : status,
-                  },
-                };
+              refusedStops: [...model.refusedStops, { jobId, reason }],
+            },
+          }
+        : {},
+    Questions: ({ questions }, { model }) => ({
+      model: { ...model, questions },
+    }),
+    // One no longer asked is not given: the agent would refuse it anyway.
+    Answer: ({ answerId, questionId, answer }, { model }) => ({
+      command: model.questions.some((question) => question.id === questionId)
+        ? AnswerQuestion({
+            sessionId: model.session.id,
+            answerId,
+            questionId,
+            answer,
+          })
+        : AnswerNotAsked({ answerId }),
+    }),
+    Titled: ({ title }, { model }) => ({
+      model: {
+        ...model,
+        untitled: null,
+        session: { ...model.session, title },
+      },
+    }),
+    BranchFound: ({ branch }, { model }) =>
+      branch === model.session.branch
+        ? {}
+        : { model: { ...model, session: { ...model.session, branch } } },
+    Settle: ({ at }, { model }) =>
+      model.session.settledAt !== null
+        ? {}
+        : {
+            model: { ...model, session: { ...model.session, settledAt: at } },
           },
+    Unsettle: (_, { model }) => ({ model: unsettled(model) }),
+  },
+  workers: {
+    agent: { run: (self) => agent(self) },
+    jobs: { run: (self) => jobs(self) },
+    questions: { run: (self) => questions(self) },
+    persist: { run: (self) => persist(self) },
+    title: {
+      while: ({ model }) => model.untitled !== null,
+      // Nothing is written, nor its branch renamed, until it has
+      // started: a start that fails takes back its branch by name.
+      run: (self) => Effect.andThen(started(self), title(self)),
+    },
+    branch: {
+      while: ({ model }) => model.session.settledAt === null,
+      run: (self) => followBranch(self),
+    },
+  },
+  queries: {
+    fork: (self, afterTurnId) => forkFrom(self, afterTurnId),
+    ask: (self, { question, schema }) => ask(self, question, schema),
+    retitle: (self) => retitle(self),
+    mcpStatus: (self) => fromAgent(self, (agent) => agent.mcpStatus),
+    contextUsage: (self) => fromAgent(self, (agent) => agent.contextUsage),
+  },
+  states: {
+    Idle: {
+      on: {
+        Send: ({ prompt, at }, { model }) => ({
+          model: active(unsettled(choose(model, prompt)), at),
+          state: running([prompt]),
+        }),
+        AgentTurn: ({ turnId, at }, { model }) => ({
+          model: active(model, at),
+          state: {
+            _tag: 'Running',
+            turnId,
+            prompt: null,
+            steers: [],
+            cancelling: false,
+            queued: [],
+          },
+        }),
+      },
+      workers: {
+        agentTurn: { run: (self) => agentTurn(self) },
+      },
+    },
+    Running: {
+      on: {
+        Send: ({ prompt }, { model, state }) => ({
+          model: unsettled(choose(model, prompt)),
+          state: state.cancelling
+            ? { ...state, queued: [...state.queued, prompt] }
+            : { ...state, steers: [...state.steers, prompt] },
+        }),
+        Cancel: (_, { state }) => ({ state: { ...state, cancelling: true } }),
+        Steered: ({ turnId, id }, { state }) =>
+          turnId !== state.turnId
+            ? {}
+            : {
+                state: {
+                  ...state,
+                  steers: state.steers.filter((each) => each.id !== id),
+                },
+              },
+        TurnEnded: ({ turnId, status, at }, { model, state }) => {
+          if (turnId !== state.turnId) return {};
+          const ended = {
+            ...model,
+            session: { ...model.session, endedAt: at },
+          };
+          const [next, ...rest] = [...state.steers, ...state.queued];
+          return next
+            ? { model: active(ended, at), state: running([next, ...rest]) }
+            : {
+                model: ended,
+                state: {
+                  _tag: 'Idle',
+                  ended: status === 'done' ? null : status,
+                },
+              };
         },
-        workers: {
-          turn: {
-            each: ({ state }) => [state.turnId],
-            run: (self, turnId) => run(self, turnId),
-          },
-          cancel: {
-            while: ({ state }) => state.cancelling,
-            run: (self) => cancel(self),
-          },
+      },
+      workers: {
+        turn: {
+          each: ({ state }) => [state.turnId],
+          run: (self, turnId) => run(self, turnId),
+        },
+        cancel: {
+          while: ({ state }) => state.cancelling,
+          run: (self) => cancel(self),
         },
       },
     },
   },
-);
+});
 
 export { Prompt };
 export { fallbackTitle } from './title.js';

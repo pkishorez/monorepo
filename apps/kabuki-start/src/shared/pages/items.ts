@@ -44,5 +44,5 @@ export const Items = Page.define({
   ),
 });
 
-export const ItemLive = Page.build(Item);
-export const ItemsLive = Page.build(Items, { pages: { Item: ItemLive } });
+export const ItemLive = Item.build();
+export const ItemsLive = Items.build({ pages: { Item: ItemLive } });

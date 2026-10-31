@@ -2,6 +2,7 @@ import { Effect, Schema, Stream } from 'effect';
 import { Page } from '@kestack/kabuki/routing';
 import { across, Projects } from '../../../connection/records/index.ts';
 import { Connections } from '../../../connections.ts';
+import { Actor } from '@kestack/kabuki';
 
 /*
  * The home page: every Connection's projects to pick from, and the way to the
@@ -85,7 +86,7 @@ export const readyOf = (
   projects.length >= (known.connectionIds?.length ?? 0) &&
   !projects.some(({ status }) => status === 'loading');
 
-export const HomeLive = Page.build(Home, {
+export const HomeLive = Home.build({
   init: () => ({
     model: { read: false, connectionIds: null, problem: null, ready: false },
   }),
@@ -108,12 +109,12 @@ export const HomeLive = Page.build(Home, {
         ),
     },
   },
-  children: (child) => ({
-    projects: child(Projects, {
+  children: {
+    projects: Actor.child(Projects, {
       each: ({ model }) => across.each(model.connectionIds ?? []),
       props: (_, key) => across.props(key),
     }),
-  }),
+  },
   on: {
     Known: ({ read, connectionIds, problem }, { model }) => ({
       model: { ...model, read, connectionIds, problem },

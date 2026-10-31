@@ -1,5 +1,12 @@
 import type { Data, Requires, Single, Tagged } from './instance.ts';
-import type { AnyChild, Behavior, OpenOfBehavior } from './behavior.ts';
+import type {
+  AnyChild,
+  Behavior,
+  DeclaredQueries,
+  MakeChild,
+  OpenOfBehavior,
+  Undeclared,
+} from './behavior.ts';
 import type { KidsByState, QueriesByState } from './kept.ts';
 import type {
   Actor as ActorOf,
@@ -8,6 +15,7 @@ import type {
   ActorDefinition,
   Encoding,
   QueryDefinition,
+  QuerySchemas,
   SlotDefinition,
   WorkerDefinition,
 } from './definition.ts';
@@ -23,8 +31,8 @@ import type {
 
 /**
  * What an Actor is, as `Actor.define` gives it: its name, and the Schemas
- * and Requires every type is fixed by. It runs nothing: `Actor.build` adds
- * how it behaves.
+ * and Requires every type is fixed by. It runs nothing: its own `build`
+ * adds how it behaves.
  */
 export interface Defined<
   Name extends string,
@@ -35,13 +43,51 @@ export interface Defined<
   Msg extends Tagged,
   R extends Requires,
   Emits extends Tagged = never,
+  Qs extends DeclaredQueries = {},
 > {
   readonly name: Name;
   readonly shape: Shape<Input, Props, Model, State, Msg, R, Emits>;
+  /** Its Queries' types, as declared: read by the types alone, never there. */
+  readonly '~queries'?: Qs;
+}
+
+/** What `Actor.define` gives: the definition, and its own `build`. */
+export interface Buildable<
+  Name extends string,
+  Input,
+  Props,
+  Model,
+  State extends Tagged,
+  Msg extends Tagged,
+  R extends Requires,
+  Emits extends Tagged,
+  Qs extends DeclaredQueries,
+> {
+  /**
+   * How it behaves, at the top for as long as the Instance lives and under
+   * `states` in one block per State for as long as that State lasts: its
+   * Provides, its Children, each made with `Actor.child`, its Updates under
+   * `on`, its Workers, and its answers to its Queries.
+   */
+  build<
+    const B extends Behavior<Input, Props, Model, State, Msg, R, Emits, Qs>,
+  >(
+    behavior: B & Undeclared<B, Qs>,
+  ): BuiltOf<Defined<Name, Input, Props, Model, State, Msg, R, Emits, Qs>, B>;
 }
 
 /** Any Actor's definition, loosely. */
-export type AnyDefined = Defined<string, any, any, any, any, any, any, any>;
+export type AnyDefined = Defined<
+  string,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any
+>;
 
 /**
  * An Actor's Schemas, each made from what `define` was written with. Every
@@ -70,6 +116,8 @@ export interface Shape<
   readonly state?: Codec<State>;
   /** What it tells its parent, which the parent's slot for it turns into the parent's own Messages. */
   readonly emits?: Codec<Emits>;
+  /** The questions code outside the tree may ask it, by name: what each is asked with, and what it answers. */
+  readonly queries?: Readonly<Record<string, QuerySchemas>>;
 }
 
 /**
@@ -86,6 +134,17 @@ export interface Written {
   readonly state?: TaggedWritten;
   readonly message?: TaggedWritten;
   readonly emits?: TaggedWritten;
+  /** The questions code outside the tree may ask it, by name. */
+  readonly queries?: { readonly [name: string]: QueryWritten };
+}
+
+/**
+ * A Query as `define` takes it: what it is asked with, a struct's fields or
+ * any Schema, none if it takes nothing; and the Schema of what it answers.
+ */
+export interface QueryWritten {
+  readonly args?: StructWritten;
+  readonly result: Schema.Top;
 }
 
 type Field<W, K extends string> = W extends { readonly [P in K]: infer X }
@@ -107,11 +166,26 @@ type StateOf<W> = [Field<W, 'state'>] extends [undefined]
 type TagsOf<W, K extends string> = [Field<W, K>] extends [undefined]
   ? never
   : TaggedOf<Field<W, K>>;
+/** The Queries `W` declares: each one's args, `void` if it takes none, and its answer. */
+export type DeclaredOf<W> = W extends { readonly queries: infer Q }
+  ? {
+      readonly [K in keyof Q]: {
+        readonly args: Q[K] extends { readonly args: infer X }
+          ? StructOf<X>
+          : void;
+        readonly result: Q[K] extends { readonly result: infer Y }
+          ? Y extends Schema.Top
+            ? Y['Type']
+            : never
+          : never;
+      };
+    }
+  : {};
 type RequiresOf<W> = W extends { readonly requires: infer R extends Requires }
   ? R
   : readonly [];
 
-/** The Actor `define` gives for what it was written with. */
+/** The Actor `define` gives for what it was written with, with its own `build`. */
 export type DefinedOf<Name extends string, W> = Defined<
   Name,
   InputOf<W>,
@@ -120,8 +194,20 @@ export type DefinedOf<Name extends string, W> = Defined<
   StateOf<W>,
   TagsOf<W, 'message'>,
   RequiresOf<W>,
-  TagsOf<W, 'emits'>
->;
+  TagsOf<W, 'emits'>,
+  DeclaredOf<W>
+> &
+  Buildable<
+    Name,
+    InputOf<W>,
+    PropsOf<W>,
+    ModelOf<W>,
+    StateOf<W>,
+    TagsOf<W, 'message'>,
+    RequiresOf<W>,
+    TagsOf<W, 'emits'>,
+    DeclaredOf<W>
+  >;
 
 /** Refuses a Model that is not a struct, and a State, Message or Emit that is not tagged. */
 export type Refused<W> = (ModelOf<W> extends ReadonlyArray<unknown>
@@ -147,6 +233,14 @@ export const shapeOf = (
     state: taggedOf(written.state),
     message: taggedOf(written.message),
     emits: taggedOf(written.emits),
+    queries:
+      written.queries &&
+      Object.fromEntries(
+        Object.entries(written.queries).map(([name, { args, result }]) => [
+          name,
+          args === undefined ? { result } : { args: structOf(args)!, result },
+        ]),
+      ),
   };
   return Object.fromEntries(
     Object.entries(shape).filter(([, value]) => value !== undefined),
@@ -157,7 +251,12 @@ function define<const Name extends string, const W extends Written = {}>(
   name: Name,
   written: W & Refused<W>,
 ): DefinedOf<Name, W> {
-  return { name, shape: shapeOf(written) } as DefinedOf<Name, W>;
+  const definition = {
+    name,
+    shape: shapeOf(written),
+    build: (behavior: unknown) => build(definition, behavior),
+  };
+  return definition as unknown as DefinedOf<Name, W>;
 }
 
 /** How the Actor `D` defines may be built. */
@@ -170,9 +269,10 @@ export type BehaviorOf<D> =
     infer State,
     infer Msg,
     infer R,
-    infer Emits
+    infer Emits,
+    infer Qs
   >
-    ? Behavior<Input, Props, Model, State, Msg, R, Emits>
+    ? Behavior<Input, Props, Model, State, Msg, R, Emits, Qs>
     : never;
 
 /** The Actor `D` defines, built with `B`. */
@@ -185,7 +285,8 @@ export type BuiltOf<D, B> =
     infer State,
     infer Msg,
     infer R,
-    infer Emits
+    infer Emits,
+    infer Qs
   >
     ? ActorOf<
         Name,
@@ -198,16 +299,20 @@ export type BuiltOf<D, B> =
         // shape, never as an alias of `B`.
         { readonly [T in State['_tag']]: KidsByState<State, B>[T] },
         OpenOfBehavior<R, B>,
-        { readonly [T in State['_tag']]: QueriesByState<State, B>[T] },
+        { readonly [T in State['_tag']]: QueriesByState<State, B, Qs>[T] },
         Emits
       >
     : never;
 
-function build<D extends AnyDefined, const B extends BehaviorOf<D>>(
-  definition: D,
-  behavior: B,
-): BuiltOf<D, B>;
-function build(definition: AnyDefined, behavior: any): AnyActor {
+/**
+ * The Actor a definition builds: what `definition.build(behavior)` runs.
+ * Code that builds from a definition it made itself, as the Router and pages
+ * do, calls it directly.
+ */
+function build(
+  definition: Pick<AnyDefined, 'name' | 'shape'>,
+  behavior: any,
+): AnyActor {
   return {
     name: definition.name,
     definition: definitionOf(definition.name, definition.shape, behavior),
@@ -216,12 +321,10 @@ function build(definition: AnyDefined, behavior: any): AnyActor {
 
 type Block = {
   readonly provides?: Function;
-  readonly children?: (
-    child: (actor: AnyActor, options?: object) => AnyChild,
-  ) => Record<string, AnyChild>;
+  readonly children?: Readonly<Record<string, AnyChild>>;
   readonly on?: Record<string, Function>;
   readonly workers?: Record<string, any>;
-  readonly queries?: Record<string, QueryDefinition>;
+  readonly queries?: Record<string, Function>;
 };
 
 /** The plain definition the engine works from, out of the Schemas and the levels. */
@@ -239,7 +342,7 @@ const definitionOf = (
     );
   const blocks = behavior.states ?? {};
   const states = statesOf(shape.state, blocks);
-  const top = slots(behavior.children);
+  const top = slots(name, behavior.children);
   const lasting = Object.keys(top);
 
   const children: Record<string, Record<string, SlotDefinition>> = {};
@@ -256,14 +359,29 @@ const definitionOf = (
     }
   };
 
+  const declared = shape.queries ?? {};
   const queries: Record<string, QueryDefinition> = {};
   const addQueries = (from: Block, state: string | undefined) => {
-    for (const [query, { run }] of Object.entries(from.queries ?? {})) {
+    for (const [query, run] of Object.entries(from.queries ?? {})) {
+      const schemas = declared[query];
+      if (!schemas)
+        throw new Error(
+          `[@kestack/kabuki] ${name}: Query "${query}" is answered but not declared in \`define\``,
+        );
+      if (typeof run !== 'function')
+        throw new Error(
+          `[@kestack/kabuki] ${name}: Query "${query}" is answered by a function \`(self, args) => Effect\``,
+        );
       if (queries[query])
         throw new Error(
           `[@kestack/kabuki] ${name}: Query "${query}" is written twice`,
         );
-      queries[query] = state === undefined ? { run } : { state, run };
+      const check = {
+        args: checkerOf(name)(schemas.args),
+        result: checkerOf(name)(schemas.result),
+      };
+      queries[query] =
+        state === undefined ? { run, check } : { state, run, check };
     }
   };
 
@@ -272,7 +390,7 @@ const definitionOf = (
   addQueries(behavior, undefined);
   for (const tag of states) {
     const block = blocks[tag] ?? {};
-    const own = slots(block.children);
+    const own = slots(name, block.children);
     for (const slot of Object.keys(own))
       if (slot in top)
         throw new Error(
@@ -293,6 +411,13 @@ const definitionOf = (
           `[@kestack/kabuki] ${name}: Message "${tag}" has no rule at the top or in any State, so it is always ignored`,
         ),
       );
+  for (const query of Object.keys(declared))
+    if (!queries[query])
+      Effect.runSync(
+        Effect.logWarning(
+          `[@kestack/kabuki] ${name}: Query "${query}" is declared but answered nowhere, so asking it always fails`,
+        ),
+      );
 
   return {
     name,
@@ -308,7 +433,15 @@ const definitionOf = (
     },
     schemas: Object.fromEntries(
       (
-        ['input', 'props', 'model', 'state', 'message', 'emits'] as const
+        [
+          'input',
+          'props',
+          'model',
+          'state',
+          'message',
+          'emits',
+          'queries',
+        ] as const
       ).flatMap((what) => (shape[what] ? [[what, shape[what]]] : [])),
     ),
     encoding: {
@@ -328,23 +461,28 @@ const definitionOf = (
   };
 };
 
-/** One Child, as `child` makes it: its Actor and its options, as written. */
-const child = (actor: AnyActor, options: object = {}): AnyChild => {
+/** One Child, as `Actor.child` makes it: its Actor and its options, as written. */
+const child = ((actor: AnyActor, options: object = {}): AnyChild => {
   if (!actor || typeof actor !== 'object' || !('definition' in actor))
     throw new Error(
-      '[@kestack/kabuki] `child` takes a built Actor first, then its options',
+      '[@kestack/kabuki] `Actor.child` takes a built Actor first, then its options',
     );
   return { ...options, actor };
-};
+}) as MakeChild;
 
-/** The Children a level's `children` makes, as the engine reads them. */
-const slots = (children: Block['children']): Record<string, SlotDefinition> =>
-  Object.fromEntries(
-    Object.entries(children?.(child) ?? {}).map(([slot, made]) => [
-      slot,
-      slotOf(made),
-    ]),
+/** The Children a level names, as the engine reads them. */
+const slots = (
+  name: string,
+  children: Block['children'],
+): Record<string, SlotDefinition> => {
+  if (typeof children === 'function')
+    throw new Error(
+      `[@kestack/kabuki] ${name}: \`children\` is an object of Children, each made with \`Actor.child\`, not a function`,
+    );
+  return Object.fromEntries(
+    Object.entries(children ?? {}).map(([slot, made]) => [slot, slotOf(made)]),
   );
+};
 
 const ONE: ReadonlyArray<string> = [''];
 const NONE: ReadonlyArray<string> = [];
@@ -460,10 +598,9 @@ const workerOf = (worker: any, state: string | undefined): WorkerDefinition => {
 
 /**
  * An Actor, in two steps. `define` takes what it is: its Schemas and
- * Requires, which fix every type, and what it Emits to its parent. `build`
- * takes a definition and how it behaves, at the top for as long as the
- * Instance lives and under `states` in one block per State for as long as
- * that State lasts: its Provides, Children, Updates under `on`, Workers, and
- * the Queries it answers from outside.
+ * Requires, which fix every type, what it Emits to its parent, and the
+ * Queries code outside the tree may ask it, each with what it is asked with
+ * and what it answers. The definition's own `build` takes how it behaves.
+ * `child` makes each Child a level names, typed by the level it is in.
  */
-export const Actor = { define, build };
+export const Actor = { define, child };

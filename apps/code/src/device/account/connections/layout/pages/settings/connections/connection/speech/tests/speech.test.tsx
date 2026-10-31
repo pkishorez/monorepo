@@ -38,14 +38,14 @@ const Owner = Actor.define('Owner', {
   }),
 });
 
-const OwnerLive = Actor.build(Owner, {
+const OwnerLive = Owner.build({
   init: () => ({ model: { pings: 0, speech: handed } }),
-  children: (child) => ({
-    speech: child(SpeechToTextLive, {
+  children: {
+    speech: Actor.child(SpeechToTextLive, {
       input: () => ({ connectionId: 'm1' }),
       props: ({ model }) => ({ speech: model.speech }),
     }),
-  }),
+  },
   on: {
     Ping: (_, { model }) => ({ model: { ...model, pings: model.pings + 1 } }),
     Said: ({ state }, { model }) => ({ model: { ...model, speech: state } }),

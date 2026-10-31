@@ -151,40 +151,34 @@ describe('a tree of Actors', () => {
     ));
 
   it('checks every Input, and the Model and State init and each Update give', () => {
-    const Row = Actor.build(
-      Actor.define('Row', {
-        input: Schema.Struct({ text: Schema.String }),
-        model: Schema.Struct({ text: Schema.String }),
+    const Row = Actor.define('Row', {
+      input: Schema.Struct({ text: Schema.String }),
+      model: Schema.Struct({ text: Schema.String }),
+    }).build({ init: ({ text }) => ({ model: { text } }) });
+    const Sheet = Actor.define('Sheet', {
+      model: Schema.Struct({ count: Schema.Number, row: Schema.Unknown }),
+      state: Schema.TaggedUnion({ Open: {}, Shut: {} }),
+      message: Schema.TaggedUnion({
+        Counted: { by: Schema.Number },
+        Shut: {},
       }),
-      { init: ({ text }) => ({ model: { text } }) },
-    );
-    const Sheet = Actor.build(
-      Actor.define('Sheet', {
-        model: Schema.Struct({ count: Schema.Number, row: Schema.Unknown }),
-        state: Schema.TaggedUnion({ Open: {}, Shut: {} }),
-        message: Schema.TaggedUnion({
-          Counted: { by: Schema.Number },
-          Shut: {},
-        }),
+    }).build({
+      init: () => ({
+        model: { count: 0, row: 'a' },
+        state: { _tag: 'Open' },
       }),
-      {
-        init: () => ({
-          model: { count: 0, row: 'a' },
-          state: { _tag: 'Open' },
+      children: {
+        row: Actor.child(Row, {
+          input: ({ model }) => ({ text: model.row as string }),
         }),
-        children: (child) => ({
-          row: child(Row, {
-            input: ({ model }) => ({ text: model.row as string }),
-          }),
-        }),
-        on: {
-          Counted: ({ by }, { model }) => ({
-            model: { ...model, count: by > 1 ? (String(by) as never) : by },
-          }),
-          Shut: () => ({ state: { _tag: 'Closed' } as never }),
-        },
       },
-    );
+      on: {
+        Counted: ({ by }, { model }) => ({
+          model: { ...model, count: by > 1 ? (String(by) as never) : by },
+        }),
+        Shut: () => ({ state: { _tag: 'Closed' } as never }),
+      },
+    });
     const first = init(Sheet.definition);
     const sent = (message: Types<typeof Sheet>['message']) =>
       Snapshot.handle(Sheet.definition, first, {
@@ -204,12 +198,9 @@ describe('a tree of Actors', () => {
     expect(() => init(Row.definition, { text: 7 })).toThrow(
       /Row: the Input of Row does not match its Schema/,
     );
-    const Bad = Actor.build(
-      Actor.define('Bad', {
-        state: Schema.TaggedUnion({ On: {} }),
-      }),
-      { init: () => ({ state: { _tag: 'Off' } as never }) },
-    );
+    const Bad = Actor.define('Bad', {
+      state: Schema.TaggedUnion({ On: {} }),
+    }).build({ init: () => ({ state: { _tag: 'Off' } as never }) });
     expect(() => init(Bad.definition)).toThrow(
       /Bad: the State init gave Bad does not match its Schema/,
     );
@@ -245,53 +236,47 @@ describe('a tree of Actors', () => {
 });
 
 describe('keyed Children', () => {
-  const Row = Actor.build(
-    Actor.define('Row', {
-      input: Schema.Struct({ text: Schema.String }),
-      model: Schema.Struct({ text: Schema.String, done: Schema.Boolean }),
-      message: Schema.TaggedUnion({ Toggled: {} }),
-    }),
-    {
-      init: ({ text }) => ({ model: { text, done: false } }),
-      on: {
-        Toggled: (_, { model }) => ({ model: { ...model, done: !model.done } }),
-      },
+  const Row = Actor.define('Row', {
+    input: Schema.Struct({ text: Schema.String }),
+    model: Schema.Struct({ text: Schema.String, done: Schema.Boolean }),
+    message: Schema.TaggedUnion({ Toggled: {} }),
+  }).build({
+    init: ({ text }) => ({ model: { text, done: false } }),
+    on: {
+      Toggled: (_, { model }) => ({ model: { ...model, done: !model.done } }),
     },
-  );
+  });
 
-  const List = Actor.build(
-    Actor.define('List', {
-      model: Schema.Struct({
-        ids: Schema.Array(Schema.String),
-        next: Schema.Number,
-      }),
-      message: Schema.TaggedUnion({
-        Added: { text: Schema.String },
-        Removed: { id: Schema.String },
-        Reversed: {},
-      }),
+  const List = Actor.define('List', {
+    model: Schema.Struct({
+      ids: Schema.Array(Schema.String),
+      next: Schema.Number,
     }),
-    {
-      init: () => ({ model: { ids: [], next: 0 } }),
-      children: (child) => ({
-        rows: child(Row, {
-          each: ({ model }) => model.ids,
-          input: (_, id) => ({ text: `#${id}` }),
-        }),
+    message: Schema.TaggedUnion({
+      Added: { text: Schema.String },
+      Removed: { id: Schema.String },
+      Reversed: {},
+    }),
+  }).build({
+    init: () => ({ model: { ids: [], next: 0 } }),
+    children: {
+      rows: Actor.child(Row, {
+        each: ({ model }) => model.ids,
+        input: (_, id) => ({ text: `#${id}` }),
       }),
-      on: {
-        Added: (_, { model }) => ({
-          model: { ids: [...model.ids, `${model.next}`], next: model.next + 1 },
-        }),
-        Removed: ({ id }, { model }) => ({
-          model: { ...model, ids: model.ids.filter((kept) => kept !== id) },
-        }),
-        Reversed: (_, { model }) => ({
-          model: { ...model, ids: [...model.ids].reverse() },
-        }),
-      },
     },
-  );
+    on: {
+      Added: (_, { model }) => ({
+        model: { ids: [...model.ids, `${model.next}`], next: model.next + 1 },
+      }),
+      Removed: ({ id }, { model }) => ({
+        model: { ...model, ids: model.ids.filter((kept) => kept !== id) },
+      }),
+      Reversed: (_, { model }) => ({
+        model: { ...model, ids: [...model.ids].reverse() },
+      }),
+    },
+  });
 
   const rows = (app: Running<unknown>) =>
     app.snapshot().children['rows'] as ReadonlyArray<Instance>;
@@ -331,9 +316,9 @@ describe('keyed Children', () => {
     ));
 
   it('a Child whose Actor takes Input must be handed it', () => {
-    const Forgot = Actor.build(Actor.define('Forgot', {}), {
+    const Forgot = Actor.define('Forgot', {}).build({
       // @ts-expect-error input is missing
-      children: (child) => ({ rows: child(Row, { each: () => ['a'] }) }),
+      children: { rows: Actor.child(Row, { each: () => ['a'] }) },
     });
     expect(Forgot).toBeDefined();
   });
@@ -341,7 +326,7 @@ describe('keyed Children', () => {
 
 describe('a Child written with `while`', () => {
   /** A Child whose work says when it stops. */
-  const Light = Actor.build(Actor.define('Light', {}), {
+  const Light = Actor.define('Light', {}).build({
     workers: {
       glow: {
         run: () =>
@@ -352,20 +337,17 @@ describe('a Child written with `while`', () => {
     },
   });
 
-  const Room = Actor.build(
-    Actor.define('Room', {
-      model: Schema.Struct({ lit: Schema.Boolean }),
-      message: Schema.TaggedUnion({ Switched: {} }),
-    }),
-    {
-      init: () => ({ model: { lit: false } }),
-      children: (child) => ({
-        light: child(Light, { while: ({ model }) => model.lit }),
-        counter: child(Counter, { while: ({ model }) => model.lit }),
-      }),
-      on: { Switched: (_, { model }) => ({ model: { lit: !model.lit } }) },
+  const Room = Actor.define('Room', {
+    model: Schema.Struct({ lit: Schema.Boolean }),
+    message: Schema.TaggedUnion({ Switched: {} }),
+  }).build({
+    init: () => ({ model: { lit: false } }),
+    children: {
+      light: Actor.child(Light, { while: ({ model }) => model.lit }),
+      counter: Actor.child(Counter, { while: ({ model }) => model.lit }),
     },
-  );
+    on: { Switched: (_, { model }) => ({ model: { lit: !model.lit } }) },
+  });
 
   const restored = (snapshot: Instance) =>
     Snapshot.handle(Room.definition, init(Room.definition), {
@@ -422,35 +404,32 @@ describe('a Child written with `while`', () => {
     ));
 
   it('is checked like any other Child', () => {
-    const Forgot = Actor.build(Actor.define('Forgot', {}), {
-      children: (child) => ({
+    const Forgot = Actor.define('Forgot', {}).build({
+      children: {
         // @ts-expect-error a Child is written with `while` or `each`, never both
-        light: child(Light, { while: () => true, each: () => ['a'] }),
-      }),
+        light: Actor.child(Light, { while: () => true, each: () => ['a'] }),
+      },
     });
     expect(Forgot).toBeDefined();
   });
 });
 
 describe('a single Child written with a `key`', () => {
-  const Tab = Actor.build(
-    Actor.define('Tab', {
-      model: Schema.Struct({ open: Schema.NullOr(Schema.String) }),
-      message: Schema.TaggedUnion({
-        Opened: { name: Schema.NullOr(Schema.String) },
-      }),
+  const Tab = Actor.define('Tab', {
+    model: Schema.Struct({ open: Schema.NullOr(Schema.String) }),
+    message: Schema.TaggedUnion({
+      Opened: { name: Schema.NullOr(Schema.String) },
     }),
-    {
-      init: () => ({ model: { open: null } }),
-      children: (child) => ({
-        page: child(Counter, {
-          while: ({ model }) => model.open !== null,
-          key: ({ model }) => model.open ?? '',
-        }),
+  }).build({
+    init: () => ({ model: { open: null } }),
+    children: {
+      page: Actor.child(Counter, {
+        while: ({ model }) => model.open !== null,
+        key: ({ model }) => model.open ?? '',
       }),
-      on: { Opened: ({ name }) => ({ model: { open: name } }) },
     },
-  );
+    on: { Opened: ({ name }) => ({ model: { open: name } }) },
+  });
 
   it('is one Instance, Invoked again when its key changes', () =>
     run(
@@ -487,61 +466,55 @@ describe('written at the top or in a State', () => {
   >()('test/Clock2') {}
 
   /** A Child that counts its own ticks, through the Capability from above. */
-  const Ticker = Actor.build(
-    Actor.define('Ticker', {
-      requires: [Clock2],
-      model: Schema.Struct({ ticks: Schema.Number }),
-      message: Schema.TaggedUnion({ Ticked: {} }),
-    }),
-    {
-      init: () => ({ model: { ticks: 0 } }),
-      on: { Ticked: (_, { model }) => ({ model: { ticks: model.ticks + 1 } }) },
-      workers: {
-        alive: {
-          run: () =>
-            Effect.addFinalizer(() =>
-              Effect.sync(() => heard.push('ticker gone')),
-            ).pipe(
-              Effect.andThen(Effect.flatMap(Clock2, (clock) => clock.tick)),
-              Effect.andThen(Effect.never),
-            ),
-        },
+  const Ticker = Actor.define('Ticker', {
+    requires: [Clock2],
+    model: Schema.Struct({ ticks: Schema.Number }),
+    message: Schema.TaggedUnion({ Ticked: {} }),
+  }).build({
+    init: () => ({ model: { ticks: 0 } }),
+    on: { Ticked: (_, { model }) => ({ model: { ticks: model.ticks + 1 } }) },
+    workers: {
+      alive: {
+        run: () =>
+          Effect.addFinalizer(() =>
+            Effect.sync(() => heard.push('ticker gone')),
+          ).pipe(
+            Effect.andThen(Effect.flatMap(Clock2, (clock) => clock.tick)),
+            Effect.andThen(Effect.never),
+          ),
       },
     },
-  );
+  });
 
-  const Door = Actor.build(
-    Actor.define('Door', {
-      state: Schema.TaggedUnion({ Open: {}, Shut: {} }),
-      model: Schema.Struct({ loud: Schema.Boolean }),
-      message: Schema.TaggedUnion({ Toggle: {}, Hush: {} }),
-    }),
-    {
-      init: () => ({ model: { loud: true }, state: { _tag: 'Open' } }),
-      provides: () =>
-        Layer.succeed(Clock2, {
-          tick: Effect.sync(() => heard.push('tick')),
-        }),
-      children: (child) => ({ ticker: child(Ticker) }),
-      on: { Hush: (_, { model }) => ({ model: { ...model, loud: false } }) },
-      states: {
-        Open: {
-          children: (child) => ({ guest: child(Counter) }),
-          on: { Toggle: () => ({ state: { _tag: 'Shut' } }) },
-          workers: {
-            creak: {
-              while: ({ model }) => model.loud,
-              run: () =>
-                Effect.addFinalizer(() =>
-                  Effect.sync(() => heard.push('creak stopped')),
-                ).pipe(Effect.andThen(Effect.never)),
-            },
+  const Door = Actor.define('Door', {
+    state: Schema.TaggedUnion({ Open: {}, Shut: {} }),
+    model: Schema.Struct({ loud: Schema.Boolean }),
+    message: Schema.TaggedUnion({ Toggle: {}, Hush: {} }),
+  }).build({
+    init: () => ({ model: { loud: true }, state: { _tag: 'Open' } }),
+    provides: () =>
+      Layer.succeed(Clock2, {
+        tick: Effect.sync(() => heard.push('tick')),
+      }),
+    children: { ticker: Actor.child(Ticker) },
+    on: { Hush: (_, { model }) => ({ model: { ...model, loud: false } }) },
+    states: {
+      Open: {
+        children: { guest: Actor.child(Counter) },
+        on: { Toggle: () => ({ state: { _tag: 'Shut' } }) },
+        workers: {
+          creak: {
+            while: ({ model }) => model.loud,
+            run: () =>
+              Effect.addFinalizer(() =>
+                Effect.sync(() => heard.push('creak stopped')),
+              ).pipe(Effect.andThen(Effect.never)),
           },
         },
-        Shut: { on: { Toggle: () => ({ state: { _tag: 'Open' } }) } },
       },
+      Shut: { on: { Toggle: () => ({ state: { _tag: 'Open' } }) } },
     },
-  );
+  });
 
   it('a Child written at the top lasts through Transitions, with its data and work', () =>
     run(
@@ -595,16 +568,13 @@ describe('written at the top or in a State', () => {
 
   it('a name written twice is an error', () => {
     expect(() =>
-      Actor.build(
-        Actor.define('Twice', {
-          state: Schema.TaggedUnion({ A: {} }),
-        }),
-        {
-          init: () => ({ state: { _tag: 'A' } }),
-          children: (child) => ({ kid: child(Counter) }),
-          states: { A: { children: (child) => ({ kid: child(Counter) }) } },
-        },
-      ),
+      Actor.define('Twice', {
+        state: Schema.TaggedUnion({ A: {} }),
+      }).build({
+        init: () => ({ state: { _tag: 'A' } }),
+        children: { kid: Actor.child(Counter) },
+        states: { A: { children: { kid: Actor.child(Counter) } } },
+      }),
     ).toThrow('Child "kid" is written at the top and in A');
   });
 
@@ -621,7 +591,7 @@ describe('written at the top or in a State', () => {
       logged.mock.calls.filter((call) =>
         call.join(' ').includes('Message "Forgot" has no rule'),
       ).length;
-    Actor.build(Actor.define('Forgetful', shape), {
+    Actor.define('Forgetful', shape).build({
       init: () => ({ state: { _tag: 'A' } }),
       states: {
         A: {
@@ -632,7 +602,7 @@ describe('written at the top or in a State', () => {
       },
     });
     expect(warned()).toBe(1);
-    Actor.build(Actor.define('Careful', shape), {
+    Actor.define('Careful', shape).build({
       init: () => ({ state: { _tag: 'A' } }),
       on: { Forgot: () => ({}) },
       states: { B: { on: { Went: () => ({}) } } },
@@ -647,7 +617,7 @@ describe('written at the top or in a State', () => {
       message: Schema.TaggedUnion({ Typed: {} }),
     });
     expect(() =>
-      Actor.build(Typo, {
+      Typo.build({
         init: () => ({ state: { _tag: 'Idle' } }),
         // @ts-expect-error: no Message is tagged Typd
         on: { Typed: () => ({}), Typd: () => ({}) },

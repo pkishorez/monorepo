@@ -37,7 +37,7 @@ export const Card = Actor.define('Card', {
 const readOf = ({ at, revision }: typeof Props.Type) =>
   at === null ? `head#${revision}` : `${at}`;
 
-export const CardLive = Actor.build(Card, {
+export const CardLive = Card.build({
   init: ({ instance }) => ({ model: { instance, node: null, problem: null } }),
   workers: {
     read: {

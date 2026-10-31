@@ -373,285 +373,279 @@ const build = <
     },
   };
 
-  const actor = Actor.build(
-    Actor.define(shape.name, {
-      requires: [Store, Hosting],
-      input: Input,
-      model: Model,
-      state: State,
-      message: Message,
+  const actor = Actor.define(shape.name, {
+    requires: [Store, Hosting],
+    input: Input,
+    model: Model,
+    state: State,
+    message: Message,
+  }).build({
+    init: ({ key }) => ({
+      model: {
+        key,
+        gate: gate === undefined,
+        pending: [],
+        caughtUp: [],
+        collections: written.map(({ collection, strategy }): Synced => ({
+          collection,
+          strategy: strategy ? { status: 'idle', problem: null } : null,
+          windows: [],
+        })),
+      },
+      state: { _tag: 'Following' },
     }),
-    {
-      init: ({ key }) => ({
-        model: {
-          key,
-          gate: gate === undefined,
-          pending: [],
-          caughtUp: [],
-          collections: written.map(({ collection, strategy }): Synced => ({
-            collection,
-            strategy: strategy ? { status: 'idle', problem: null } : null,
-            windows: [],
-          })),
-        },
-        state: { _tag: 'Following' },
-      }),
-      workers: {
-        // 1. Open
-        open: {
+    workers: {
+      // 1. Open
+      open: {
+        run: (self) =>
+          Effect.gen(function* () {
+            const data = yield* self.get;
+            const name = nameOfModel(data);
+            const hosting = yield* Hosting;
+            const space = yield* (yield* Store).open(name);
+            const instance = yield* openInstance(
+              shape,
+              keyOfModel(data),
+              space,
+              windowPaths,
+              whole,
+            );
+            yield* Effect.acquireRelease(hosting.up(instance), () =>
+              hosting.down(name),
+            );
+            // What another participant wrote, read again when it rings.
+            const follow = Stream.runForEach(space.changes, () =>
+              instance.refresh.pipe(
+                Effect.catch(warn(`${name}: could not read the Store again`)),
+              ),
+            );
+            yield* Effect.all(
+              [
+                follow,
+                Effect.andThen(space.removed, hosting.removed(name)),
+                Stream.runForEach(instance.messages, self.send),
+              ],
+              { concurrency: 'unbounded', discard: true },
+            );
+          }).pipe(
+            Effect.catch((error) =>
+              Effect.gen(function* () {
+                const hosting = yield* Hosting;
+                const name = nameOfModel(yield* self.get);
+                yield* Effect.acquireRelease(hosting.failed(name, error), () =>
+                  hosting.down(name),
+                );
+                yield* Effect.logError(
+                  '[@kestack/std-toolkit/replica] an Instance could not open',
+                  error,
+                );
+                yield* Effect.never;
+              }),
+            ),
+          ),
+      },
+      // 6. Caught Up: what the Model says, for the Queries that read it.
+      report: {
+        run: (self) =>
+          Effect.gen(function* () {
+            const opened = yield* spaceOf(yield* self.get);
+            yield* self.changes.pipe(
+              Stream.map(({ model }) => model.caughtUp),
+              Stream.changesWith(same),
+              Stream.runForEach(opened.report),
+            );
+          }).pipe(Effect.ignore),
+      },
+      // 2. Lead
+      lead: {
+        run: (self) =>
+          Effect.gen(function* () {
+            const { space } = yield* (yield* Hosting).opened(
+              nameOfModel(yield* self.get),
+            );
+            yield* space.lead(
+              Effect.andThen(self.send({ _tag: 'Led' }), Effect.never),
+            );
+          }).pipe(Effect.ignore),
+      },
+      // 3. Gate
+      ...(gate && {
+        gate: {
           run: (self) =>
             Effect.gen(function* () {
               const data = yield* self.get;
-              const name = nameOfModel(data);
-              const hosting = yield* Hosting;
-              const space = yield* (yield* Store).open(name);
-              const instance = yield* openInstance(
-                shape,
-                keyOfModel(data),
-                space,
-                windowPaths,
-                whole,
+              yield* gate({ key: keyOfModel(data) }).pipe(
+                Stream.changes,
+                Stream.runForEach((open) => self.send({ _tag: 'Gated', open })),
               );
-              yield* Effect.acquireRelease(hosting.up(instance), () =>
-                hosting.down(name),
-              );
-              // What another participant wrote, read again when it rings.
-              const follow = Stream.runForEach(space.changes, () =>
-                instance.refresh.pipe(
-                  Effect.catch(warn(`${name}: could not read the Store again`)),
-                ),
-              );
-              yield* Effect.all(
-                [
-                  follow,
-                  Effect.andThen(space.removed, hosting.removed(name)),
-                  Stream.runForEach(instance.messages, self.send),
-                ],
-                { concurrency: 'unbounded', discard: true },
-              );
-            }).pipe(
-              Effect.catch((error) =>
-                Effect.gen(function* () {
-                  const hosting = yield* Hosting;
-                  const name = nameOfModel(yield* self.get);
-                  yield* Effect.acquireRelease(
-                    hosting.failed(name, error),
-                    () => hosting.down(name),
-                  );
-                  yield* Effect.logError(
-                    '[@kestack/std-toolkit/replica] an Instance could not open',
-                    error,
-                  );
-                  yield* Effect.never;
-                }),
-              ),
-            ),
-        },
-        // 6. Caught Up: what the Model says, for the Queries that read it.
-        report: {
-          run: (self) =>
-            Effect.gen(function* () {
-              const opened = yield* spaceOf(yield* self.get);
-              yield* self.changes.pipe(
-                Stream.map(({ model }) => model.caughtUp),
-                Stream.changesWith(same),
-                Stream.runForEach(opened.report),
-              );
-            }).pipe(Effect.ignore),
-        },
-        // 2. Lead
-        lead: {
-          run: (self) =>
-            Effect.gen(function* () {
-              const { space } = yield* (yield* Hosting).opened(
-                nameOfModel(yield* self.get),
-              );
-              yield* space.lead(
-                Effect.andThen(self.send({ _tag: 'Led' }), Effect.never),
-              );
-            }).pipe(Effect.ignore),
-        },
-        // 3. Gate
-        ...(gate && {
-          gate: {
-            run: (self) =>
-              Effect.gen(function* () {
-                const data = yield* self.get;
-                yield* gate({ key: keyOfModel(data) }).pipe(
-                  Stream.changes,
-                  Stream.runForEach((open) =>
-                    self.send({ _tag: 'Gated', open }),
-                  ),
-                );
-              }),
-          },
-        }),
-        // 4. Window: one nothing here uses closes once its GC Time passes.
-        collect: {
-          each: ({ model }) =>
-            model.collections.flatMap((synced) =>
-              synced.windows
-                .filter((window) => window.gcAt !== null)
-                .map((window) => workerKey(synced.collection, window)),
-            ),
-          run: (self, key) =>
-            Effect.gen(function* () {
-              const { model } = yield* self.get;
-              const found = model.collections
-                .flatMap((synced) =>
-                  synced.windows.map((window) => ({
-                    collection: synced.collection,
-                    window,
-                  })),
-                )
-                .find(
-                  ({ collection, window }) =>
-                    workerKey(collection, window) === key,
-                );
-              const until = found?.window.gcAt;
-              if (!found || until == null) return;
-              const { path, value } = found.window;
-              const now = yield* Clock.currentTimeMillis;
-              yield* Effect.sleep(Math.max(0, until - now));
-              yield* self.send({
-                _tag: 'WindowClosed',
-                collection: found.collection,
-                path,
-                value,
-                until,
-              });
             }),
         },
-        // 4. Window: the ones open here, recorded for the Leader, and
-        // recorded again when a new Leader asks.
-        announce: {
-          run: (self) =>
-            Effect.gen(function* () {
-              if (Object.keys(windowPaths).length === 0) return;
-              const { space } = yield* spaceOf(yield* self.get);
-              const writing = yield* Semaphore.make(1);
-              let latest: ReadonlyArray<Opening> = [];
-              const record = writing.withPermit(
-                Effect.suspend(() => space.announce(latest)).pipe(
-                  Effect.catch(
-                    warn(`${space.name}: could not record its open Windows`),
-                  ),
-                ),
-              );
-              yield* Effect.all(
-                [
-                  self.changes.pipe(
-                    Stream.map(({ model }) => openHere(model)),
-                    Stream.changesWith(same),
-                    Stream.runForEach((windows) =>
-                      Effect.andThen(
-                        Effect.sync(() => {
-                          latest = windows;
-                        }),
-                        record,
-                      ),
-                    ),
-                  ),
-                  Stream.runForEach(space.recalled, () => record),
-                ],
-                { concurrency: 'unbounded', discard: true },
-              );
-            }).pipe(Effect.ignore),
-        },
-      },
-      on: {
-        Gated: ({ open }, data) => ({
-          model: whileLeading(
-            data,
-            resettled({ ...data.model, gate: open }, leading(data)),
+      }),
+      // 4. Window: one nothing here uses closes once its GC Time passes.
+      collect: {
+        each: ({ model }) =>
+          model.collections.flatMap((synced) =>
+            synced.windows
+              .filter((window) => window.gcAt !== null)
+              .map((window) => workerKey(synced.collection, window)),
           ),
-        }),
-        ActionBegan: ({ action }, { model }) => ({
-          model: { ...model, pending: [...model.pending, action] },
-        }),
-        ActionEnded: ({ action }, { model }) => ({
-          model: { ...model, pending: withoutOne(model.pending, action) },
-        }),
-        WindowOpened: ({ _tag, ...where }, data) => ({
-          model: opened(data.model, where, leading(data)),
-        }),
-        WindowReleased: ({ _tag, at, ...where }, { model }) => ({
-          model: released(model, where, at, gcTime),
-        }),
-        WindowClosed: ({ _tag, until, ...where }, data) => ({
-          model: whileLeading(data, closed(data.model, where, until)),
-        }),
-        Announced: ({ windows }, data) => ({
-          model: whileLeading(
-            data,
-            announced(data.model, windows, leading(data)),
-          ),
-        }),
-        Outdated: ({ _tag, ...scope }, { model }) => ({
-          model: reported(model, scope, { status: 'outdated', problem: null }),
-        }),
-        Failed: ({ _tag, message, ...scope }, { model }) => ({
-          model: reported(model, scope, {
-            status: 'failing',
-            problem: message,
+        run: (self, key) =>
+          Effect.gen(function* () {
+            const { model } = yield* self.get;
+            const found = model.collections
+              .flatMap((synced) =>
+                synced.windows.map((window) => ({
+                  collection: synced.collection,
+                  window,
+                })),
+              )
+              .find(
+                ({ collection, window }) =>
+                  workerKey(collection, window) === key,
+              );
+            const until = found?.window.gcAt;
+            if (!found || until == null) return;
+            const { path, value } = found.window;
+            const now = yield* Clock.currentTimeMillis;
+            yield* Effect.sleep(Math.max(0, until - now));
+            yield* self.send({
+              _tag: 'WindowClosed',
+              collection: found.collection,
+              path,
+              value,
+              until,
+            });
           }),
-        }),
-        Recovered: ({ _tag, ...scope }, { model }) => ({
-          model: reported(model, scope, { status: 'running', problem: null }),
-        }),
       },
-      states: {
-        Following: {
-          on: {
-            // Its own Strategies start now: none has answered yet.
-            Led: (_, { model }) => ({
-              model: { ...resettled(model, true), caughtUp: [] },
-              state: { _tag: 'Leading' },
-            }),
-            Told: ({ scopes }, { model }) => ({
-              model: { ...model, caughtUp: scopes },
-            }),
-          },
-          workers: {
-            // 6. Caught Up: what the Leader tells, once what it read shows here.
-            hear: {
-              run: (self) =>
-                Effect.gen(function* () {
-                  const opened = yield* spaceOf(yield* self.get);
-                  const { space } = opened;
-                  yield* Stream.runForEach(space.told, () =>
-                    Effect.gen(function* () {
-                      const scopes = yield* space.caughtUp;
-                      yield* opened.refresh;
-                      yield* self.send({ _tag: 'Told', scopes });
-                    }).pipe(
-                      Effect.catch(
-                        warn(`${space.name}: could not hear what is Caught Up`),
-                      ),
+      // 4. Window: the ones open here, recorded for the Leader, and
+      // recorded again when a new Leader asks.
+      announce: {
+        run: (self) =>
+          Effect.gen(function* () {
+            if (Object.keys(windowPaths).length === 0) return;
+            const { space } = yield* spaceOf(yield* self.get);
+            const writing = yield* Semaphore.make(1);
+            let latest: ReadonlyArray<Opening> = [];
+            const record = writing.withPermit(
+              Effect.suspend(() => space.announce(latest)).pipe(
+                Effect.catch(
+                  warn(`${space.name}: could not record its open Windows`),
+                ),
+              ),
+            );
+            yield* Effect.all(
+              [
+                self.changes.pipe(
+                  Stream.map(({ model }) => openHere(model)),
+                  Stream.changesWith(same),
+                  Stream.runForEach((windows) =>
+                    Effect.andThen(
+                      Effect.sync(() => {
+                        latest = windows;
+                      }),
+                      record,
                     ),
-                  );
-                }).pipe(Effect.ignore),
-            },
-          },
-        },
-        Leading: {
-          on: {
-            Answered: ({ _tag, ...scope }, { model }) => ({
-              model: answered(model, scope),
-            }),
-          },
-          workers:
-            Object.keys(windowPaths).length > 0
-              ? syncing
-              : { sync: syncing.sync, tell: syncing.tell },
-        },
+                  ),
+                ),
+                Stream.runForEach(space.recalled, () => record),
+              ],
+              { concurrency: 'unbounded', discard: true },
+            );
+          }).pipe(Effect.ignore),
       },
     },
-  );
+    on: {
+      Gated: ({ open }, data) => ({
+        model: whileLeading(
+          data,
+          resettled({ ...data.model, gate: open }, leading(data)),
+        ),
+      }),
+      ActionBegan: ({ action }, { model }) => ({
+        model: { ...model, pending: [...model.pending, action] },
+      }),
+      ActionEnded: ({ action }, { model }) => ({
+        model: { ...model, pending: withoutOne(model.pending, action) },
+      }),
+      WindowOpened: ({ _tag, ...where }, data) => ({
+        model: opened(data.model, where, leading(data)),
+      }),
+      WindowReleased: ({ _tag, at, ...where }, { model }) => ({
+        model: released(model, where, at, gcTime),
+      }),
+      WindowClosed: ({ _tag, until, ...where }, data) => ({
+        model: whileLeading(data, closed(data.model, where, until)),
+      }),
+      Announced: ({ windows }, data) => ({
+        model: whileLeading(
+          data,
+          announced(data.model, windows, leading(data)),
+        ),
+      }),
+      Outdated: ({ _tag, ...scope }, { model }) => ({
+        model: reported(model, scope, { status: 'outdated', problem: null }),
+      }),
+      Failed: ({ _tag, message, ...scope }, { model }) => ({
+        model: reported(model, scope, {
+          status: 'failing',
+          problem: message,
+        }),
+      }),
+      Recovered: ({ _tag, ...scope }, { model }) => ({
+        model: reported(model, scope, { status: 'running', problem: null }),
+      }),
+    },
+    states: {
+      Following: {
+        on: {
+          // Its own Strategies start now: none has answered yet.
+          Led: (_, { model }) => ({
+            model: { ...resettled(model, true), caughtUp: [] },
+            state: { _tag: 'Leading' },
+          }),
+          Told: ({ scopes }, { model }) => ({
+            model: { ...model, caughtUp: scopes },
+          }),
+        },
+        workers: {
+          // 6. Caught Up: what the Leader tells, once what it read shows here.
+          hear: {
+            run: (self) =>
+              Effect.gen(function* () {
+                const opened = yield* spaceOf(yield* self.get);
+                const { space } = opened;
+                yield* Stream.runForEach(space.told, () =>
+                  Effect.gen(function* () {
+                    const scopes = yield* space.caughtUp;
+                    yield* opened.refresh;
+                    yield* self.send({ _tag: 'Told', scopes });
+                  }).pipe(
+                    Effect.catch(
+                      warn(`${space.name}: could not hear what is Caught Up`),
+                    ),
+                  ),
+                );
+              }).pipe(Effect.ignore),
+          },
+        },
+      },
+      Leading: {
+        on: {
+          Answered: ({ _tag, ...scope }, { model }) => ({
+            model: answered(model, scope),
+          }),
+        },
+        workers:
+          Object.keys(windowPaths).length > 0
+            ? syncing
+            : { sync: syncing.sync, tell: syncing.tell },
+      },
+    },
+  });
   return {
     shape,
     gcTime,
-    // Written out: the type `Actor.build` infers names Kabuki's internals,
+    // Written out: the type `build` infers names Kabuki's internals,
     // and what it needs gains `R`, which the Gate and the Strategies use.
     actor: actor as Build<Shape<Name, K, C>, R>['actor'],
   };

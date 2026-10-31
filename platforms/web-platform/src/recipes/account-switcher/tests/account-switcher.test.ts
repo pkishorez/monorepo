@@ -120,7 +120,7 @@ const ask = Command.make('ask', {
   run: ({ id }) => Effect.flatMap(CurrentAccount, (a) => a.switchTo(id)),
 });
 
-const PageLive = Actor.build(Page, {
+const PageLive = Page.build({
   init: () => ({ model: { seen: [] } }),
   workers: {
     follow: {
@@ -143,14 +143,14 @@ const PageLive = Actor.build(Page, {
   },
 });
 
-const Root = Actor.build(Actor.define('Root', {}), {
+const Root = Actor.define('Root', {}).build({
   provides: () => CurrentAccount.layer,
-  children: (child) => ({
-    account: child(AccountSwitcherLive, {
+  children: {
+    account: Actor.child(AccountSwitcherLive, {
       input: () => ({ maxAccounts: 5 }),
     }),
-    page: child(PageLive),
-  }),
+    page: Actor.child(PageLive),
+  },
 });
 
 const wait = (ms: number) =>

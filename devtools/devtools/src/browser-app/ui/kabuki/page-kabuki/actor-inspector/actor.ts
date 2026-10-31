@@ -21,7 +21,7 @@ export const RemoteInspector = Actor.define('RemoteInspector', {
   model: Schema.Struct({ name: Schema.String }),
 });
 
-export const RemoteInspectorLive = Actor.build(RemoteInspector, {
+export const RemoteInspectorLive = RemoteInspector.build({
   init: ({ name }) => ({ model: { name } }),
   provides: (self) =>
     Layer.effect(KabukiSession)(
@@ -31,12 +31,12 @@ export const RemoteInspectorLive = Actor.build(RemoteInspector, {
         return yield* sessions.dial(model.name);
       }),
     ),
-  children: (child) => ({
-    inspector: child(InspectorLive, {
+  children: {
+    inspector: Actor.child(InspectorLive, {
       input: () => ({
         travel: true,
         look: { presenting: false, place: 'bottom' as const },
       }),
     }),
-  }),
+  },
 });

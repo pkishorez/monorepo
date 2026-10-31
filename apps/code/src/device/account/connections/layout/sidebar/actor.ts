@@ -219,7 +219,7 @@ const sameListed = Schema.toEquivalence(Model.fields.connections);
 const sameUnseen = Schema.toEquivalence(Model.fields.unseen);
 const sameAsking = Schema.toEquivalence(Model.fields.asking);
 
-export const SidebarLive = Actor.build(Sidebar, {
+export const SidebarLive = Sidebar.build({
   init: () => ({
     model: {
       listRead: false,
@@ -238,20 +238,20 @@ export const SidebarLive = Actor.build(Sidebar, {
       asking: {},
     },
   }),
-  children: (child) => ({
-    projects: child(Projects, {
+  children: {
+    projects: Actor.child(Projects, {
       each: ({ model }) => across.each(readOf(model)),
       props: (_, connectionId) => across.props(connectionId),
     }),
-    sessions: child(Sessions, {
+    sessions: Actor.child(Sessions, {
       each: ({ model }) => across.each(readOf(model)),
       props: (_, connectionId) => across.props(connectionId),
     }),
     // 7. Sync
-    sessionSync: child(SessionSync.actor, {
+    sessionSync: Actor.child(SessionSync.actor, {
       props: ({ model }) => ({ connectionIds: readOf(model) }),
     }),
-  }),
+  },
   workers: {
     // 5. Move: where each Session put goes, and each refusal.
     moves: {

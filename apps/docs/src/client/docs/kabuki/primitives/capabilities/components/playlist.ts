@@ -31,7 +31,7 @@ export const Song = Actor.define('Song', {
   message: Schema.TaggedUnion({ Liked: {}, Pressed: {} }),
 });
 
-export const SongLive = Actor.build(Song, {
+export const SongLive = Song.build({
   init: (song) => ({ model: { ...song, liked: false } }),
   on: {
     Liked: (_, { model }) => ({ model: { ...model, liked: !model.liked } }),
@@ -50,20 +50,20 @@ export const Playlist = Actor.define('Playlist', {
   }),
 });
 
-export const PlaylistLive = Actor.build(Playlist, {
+export const PlaylistLive = Playlist.build({
   init: () => ({ model: { ids: ['0', '1', '2', '3'], playing: null } }),
   // Everything below can ask for a song. Each ask is a Message to here.
   provides: (self) =>
     Layer.succeed(Player, {
       play: (id) => self.send({ _tag: 'Played', id }),
     }),
-  children: (child) => ({
-    songs: child(SongLive, {
+  children: {
+    songs: Actor.child(SongLive, {
       each: ({ model }) => model.ids,
       input: (_, id) => ({ id, ...SONGS[id]! }),
       props: ({ model }, id) => ({ playing: model.playing === id }),
     }),
-  }),
+  },
   on: {
     Played: ({ id }, { model }) => ({ model: { ...model, playing: id } }),
     Stopped: (_, { model }) => ({ model: { ...model, playing: null } }),

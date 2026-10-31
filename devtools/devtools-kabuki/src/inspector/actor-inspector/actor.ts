@@ -166,7 +166,7 @@ const fork = Command.make('fork', {
     ),
 });
 
-export const InspectorLive = Actor.build(Inspector, {
+export const InspectorLive = Inspector.build({
   init: (input) => ({
     model: {
       look: input.look,
@@ -190,9 +190,9 @@ export const InspectorLive = Actor.build(Inspector, {
         open: (id, open) => self.send({ _tag: 'Opened', id, open }),
       }),
     ),
-  children: (child) => ({
+  children: {
     // Once the Kabuki Session first says where the app is.
-    canvas: child(CanvasLive, {
+    canvas: Actor.child(CanvasLive, {
       while: ({ model }) => model.now !== null,
       props: ({ model }) => {
         const { at, followed, open } = shownOf(model);
@@ -208,7 +208,7 @@ export const InspectorLive = Actor.build(Inspector, {
         };
       },
     }),
-    timeline: child(TimelineLive, {
+    timeline: Actor.child(TimelineLive, {
       while: ({ model }) => model.now !== null && !model.look.presenting,
       props: ({ model }) => {
         const { shown, index } = shownOf(model);
@@ -220,7 +220,7 @@ export const InspectorLive = Actor.build(Inspector, {
         };
       },
     }),
-  }),
+  },
   // 1. Watch
   workers: {
     watch: {

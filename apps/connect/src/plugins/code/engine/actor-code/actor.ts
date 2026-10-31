@@ -69,117 +69,111 @@ const cwdOf = (
   return project ? (session.worktree ?? project.path) : null;
 };
 
-export const Code = Actor.build(
-  Actor.define('Code', {
-    requires: [Store],
-    model: Model,
-    state: State,
-    message: Message,
+export const Code = Actor.define('Code', {
+  requires: [Store],
+  model: Model,
+  state: State,
+  message: Message,
+}).build({
+  init: () => ({
+    model: { projects: [], sessions: [], folderAsks: 0 },
+    state: { _tag: 'Loading' },
   }),
-  {
-    init: () => ({
-      model: { projects: [], sessions: [], folderAsks: 0 },
-      state: { _tag: 'Loading' },
-    }),
-    states: {
-      Loading: {
-        on: {
-          Loaded: (loaded, { model }) => ({
-            model: {
-              ...model,
-              projects: loaded.projects,
-              sessions: loaded.sessions,
-            },
-            state: { _tag: 'Ready' },
-          }),
-        },
-        workers: {
-          load: {
-            run: (self) =>
-              Effect.flatMap(sweep, (loaded) =>
-                self.send({ _tag: 'Loaded', ...loaded }),
-              ),
+  states: {
+    Loading: {
+      on: {
+        Loaded: (loaded, { model }) => ({
+          model: {
+            ...model,
+            projects: loaded.projects,
+            sessions: loaded.sessions,
           },
+          state: { _tag: 'Ready' },
+        }),
+      },
+      workers: {
+        load: {
+          run: (self) =>
+            Effect.flatMap(sweep, (loaded) =>
+              self.send({ _tag: 'Loaded', ...loaded }),
+            ),
         },
       },
-      Ready: {
-        on: {
-          AddProject: ({ project }, { model }) => ({
-            model: { ...model, projects: [...model.projects, project] },
+    },
+    Ready: {
+      on: {
+        AddProject: ({ project }, { model }) => ({
+          model: { ...model, projects: [...model.projects, project] },
+          command: Save(project),
+        }),
+        RemoveProject: ({ id }, { model }) => ({
+          model: {
+            ...model,
+            projects: model.projects.filter((project) => project.id !== id),
+            sessions: model.sessions.filter(
+              ({ session }) => session.projectId !== id,
+            ),
+          },
+          command: Remove(id),
+        }),
+        StartSession: ({ session, first }, { model }) => {
+          const cwd = cwdOf(model, session);
+          if (cwd === null) return {};
+          return {
+            model: {
+              ...model,
+              sessions: [...model.sessions, { session, cwd, first }],
+            },
+          };
+        },
+        AddSession: ({ session }, { model }) => {
+          const cwd = cwdOf(model, session);
+          if (cwd === null) return {};
+          return {
+            model: {
+              ...model,
+              sessions: [...model.sessions, { session, cwd, first: null }],
+            },
+          };
+        },
+        DropSession: ({ id }, { model }) => ({
+          model: {
+            ...model,
+            sessions: model.sessions.filter(({ session }) => session.id !== id),
+          },
+        }),
+        FolderFound: ({ id, folder }, { model }) => {
+          const found = model.projects.find((project) => project.id === id);
+          if (found === undefined || found.folder === folder) return {};
+          const project = { ...found, folder };
+          return {
+            model: {
+              ...model,
+              projects: model.projects.map((each) =>
+                each.id === id ? project : each,
+              ),
+            },
             command: Save(project),
-          }),
-          RemoveProject: ({ id }, { model }) => ({
-            model: {
-              ...model,
-              projects: model.projects.filter((project) => project.id !== id),
-              sessions: model.sessions.filter(
-                ({ session }) => session.projectId !== id,
-              ),
-            },
-            command: Remove(id),
-          }),
-          StartSession: ({ session, first }, { model }) => {
-            const cwd = cwdOf(model, session);
-            if (cwd === null) return {};
-            return {
-              model: {
-                ...model,
-                sessions: [...model.sessions, { session, cwd, first }],
-              },
-            };
-          },
-          AddSession: ({ session }, { model }) => {
-            const cwd = cwdOf(model, session);
-            if (cwd === null) return {};
-            return {
-              model: {
-                ...model,
-                sessions: [...model.sessions, { session, cwd, first: null }],
-              },
-            };
-          },
-          DropSession: ({ id }, { model }) => ({
-            model: {
-              ...model,
-              sessions: model.sessions.filter(
-                ({ session }) => session.id !== id,
-              ),
-            },
-          }),
-          FolderFound: ({ id, folder }, { model }) => {
-            const found = model.projects.find((project) => project.id === id);
-            if (found === undefined || found.folder === folder) return {};
-            const project = { ...found, folder };
-            return {
-              model: {
-                ...model,
-                projects: model.projects.map((each) =>
-                  each.id === id ? project : each,
-                ),
-              },
-              command: Save(project),
-            };
-          },
-          FoldersAsked: (_, { model }) => ({
-            model: { ...model, folderAsks: model.folderAsks + 1 },
-          }),
+          };
         },
-        workers: {
-          check: {
-            each: ({ model }) => [String(model.folderAsks)],
-            run: (self) => check(self),
-          },
-          failures: { run: (self) => failures(self) },
+        FoldersAsked: (_, { model }) => ({
+          model: { ...model, folderAsks: model.folderAsks + 1 },
+        }),
+      },
+      workers: {
+        check: {
+          each: ({ model }) => [String(model.folderAsks)],
+          run: (self) => check(self),
         },
-        children: (child) => ({
-          sessions: child(Session, {
-            each: ({ model }) =>
-              model.sessions.map(({ session }) => session.id),
-            input: ({ model }, id) =>
-              model.sessions.find(({ session }) => session.id === id)!,
-          }),
+        failures: { run: (self) => failures(self) },
+      },
+      children: {
+        sessions: Actor.child(Session, {
+          each: ({ model }) => model.sessions.map(({ session }) => session.id),
+          input: ({ model }, id) =>
+            model.sessions.find(({ session }) => session.id === id)!,
         }),
       },
     },
   },
-);
+});

@@ -29,15 +29,15 @@ const Draft = Actor.define('Draft', {
 
 /** A Draft whose Touch Draft was left open, or not. */
 const draftOf = (leftOpen: boolean) =>
-  Actor.build(Draft, {
+  Draft.build({
     init: () => ({ model: { sent: 0, opened: [] } }),
     provides: (self) =>
       owner(self.send({ _tag: 'SendAsked' }), (open) =>
         self.send({ _tag: 'Opened', open }),
       ),
-    children: (child) => ({
-      touch: child(TouchDraftLive, { input: () => leftOpen }),
-    }),
+    children: {
+      touch: Actor.child(TouchDraftLive, { input: () => leftOpen }),
+    },
     on: {
       SendAsked: (_, { model }) => ({
         model: { ...model, sent: model.sent + 1 },

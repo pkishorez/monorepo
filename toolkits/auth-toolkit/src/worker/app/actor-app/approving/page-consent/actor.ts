@@ -58,7 +58,7 @@ export const Consent = Page.define({
   }),
 });
 
-export const ConsentLive = Page.build(Consent, {
+export const ConsentLive = Consent.build({
   init: () => ({
     state: { _tag: 'Asking', failure: null },
     model: { chosen: null },
