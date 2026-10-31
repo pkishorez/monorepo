@@ -156,13 +156,13 @@ pnpm add @kestack/kabuki effect react
 | `KEY`     | The key the Router keeps in a history entry's state, so Back and Forward land on an entry it knows.        |
 | `keyIn`   | Reads that key from a history entry's state, if the Router wrote one.                                      |
 
-### `@kestack/kabuki/routing/adapter/browser`
+### `@kestack/kabuki/routing/browser`
 
 | Export    | What it does                                                                                                                        |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `browser` | A Layer that puts the app's address in the browser's own history, for an app that owns the whole site or everything under its base. |
 
-### `@kestack/kabuki/routing/adapter/tanstack`
+### `@kestack/kabuki/routing/tanstack`
 
 | Export     | What it does                                                                                                                                                     |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -184,14 +184,14 @@ pnpm add @kestack/kabuki effect react
 
 The port each platform's adapter fills, in types only: no runtime value.
 
-### `@kestack/kabuki/start/platform/cloudflare`
+### `@kestack/kabuki/start/cloudflare`
 
 | Export       | What it does                                                                                                                      |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------- |
 | `cloudflare` | Cloudflare Workers, for `start({ platform: cloudflare() })`: the server built as one module in its edge form.                     |
 | `serve`      | Start's handler as a Worker's `fetch`, handed the Worker's env and the Cloudflare Cache: what the server's entry default-exports. |
 
-### `@kestack/kabuki/start/platform/nitro`
+### `@kestack/kabuki/start/nitro`
 
 | Export  | What it does                                                                                                                                                                                               |
 | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -257,7 +257,7 @@ src/start/
   server/      the handler, the Loaders' Layers (Start.server), the RPC's answer, the Cache  @kestack/kabuki/start/server
   client/      hydrating, and the Loading that asks the RPC                                  @kestack/kabuki/start/client
   platform/    the port each platform fills                                                  @kestack/kabuki/start/platform
-    cloudflare/  Cloudflare Workers                                                          @kestack/kabuki/start/platform/cloudflare
+    cloudflare/  Cloudflare Workers                                                          @kestack/kabuki/start/cloudflare
   vite/        the plugin                                                                    @kestack/kabuki/start/vite
 ```
 
@@ -276,9 +276,9 @@ under `src/start/platform`, imported from its own subpath, so a build
 carries only the adapter it names. Why is
 [ADR 0033](adr/0033-start-knows-no-platform.md).
 
-| Adapter        | Import                                      | Builds for                                   | Hands Start                           |
-| -------------- | ------------------------------------------- | -------------------------------------------- | ------------------------------------- |
-| `cloudflare()` | `@kestack/kabuki/start/platform/cloudflare` | one module in its edge form, `workerd` first | the Worker's env and `caches.default` |
+| Adapter        | Import                             | Builds for                                   | Hands Start                           |
+| -------------- | ---------------------------------- | -------------------------------------------- | ------------------------------------- |
+| `cloudflare()` | `@kestack/kabuki/start/cloudflare` | one module in its edge form, `workerd` first | the Worker's env and `caches.default` |
 
 An adapter is a `Platform` for the Vite plugin, the conditions the server
 build resolves with and the function its entry wraps the handler in, and

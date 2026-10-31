@@ -1,4 +1,4 @@
-import { cloudflare } from '@kestack/kabuki/start/platform/cloudflare';
+import { cloudflare } from '@kestack/kabuki/start/cloudflare';
 import { app } from '@kestack/web-platform/app/vite';
 import { defineConfig } from 'vite';
 import { pluginCode } from './scripts/plugin-code.ts';

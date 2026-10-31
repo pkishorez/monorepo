@@ -26,8 +26,12 @@ const config = (outDir: string, at = root): InlineConfig => ({
   resolve: {
     alias: [
       {
-        find: /^@kestack\/kabuki\/start\/(server|client|platform\/cloudflare)$/,
+        find: /^@kestack\/kabuki\/start\/(server|client)$/,
         replacement: `${source}/start/$1/index.ts`,
+      },
+      {
+        find: /^@kestack\/kabuki\/start\/cloudflare$/,
+        replacement: `${source}/start/platform/cloudflare/index.ts`,
       },
       {
         find: /^@kestack\/kabuki\/start$/,

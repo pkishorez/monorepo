@@ -29,8 +29,8 @@ src/routing/
                   the Metadata in the document; frame.tsx: what it draws around the app
   scroll/         scroll restoration, as TanStack Router's: kept per entry, put back after each move
   adapter/        the port: where the address lives            @kestack/kabuki/routing/adapter
-    browser/      the browser's own history                    @kestack/kabuki/routing/adapter/browser
-    tanstack/     TanStack Router's history                    @kestack/kabuki/routing/adapter/tanstack
+    browser/      the browser's own history                    @kestack/kabuki/routing/browser
+    tanstack/     TanStack Router's history                    @kestack/kabuki/routing/tanstack
 ```
 
 `route` is pure data and depends on nothing else here, so Start's shared code
