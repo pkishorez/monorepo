@@ -1,6 +1,6 @@
 {
   "name": "code",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "The app for running Claude Code and Codex sessions in project folders on any of your Connections, through Connect, at code.kishore.app.",
   "private": true,
   "type": "module",

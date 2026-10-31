@@ -1,6 +1,6 @@
 {
   "name": "@kestack/devtools-kabuki",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "private": true,
   "description": "Kabuki apps in DevTools: each running app serves its History, Snapshots and graph as a Kabuki Session over Effect RPC",
   "repository": {
