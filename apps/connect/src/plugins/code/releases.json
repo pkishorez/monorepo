@@ -24,6 +24,10 @@
     {
       "hash": "81d08891da0af67acaff1192a47660dd61161f076bbb982121abea7bce54839b",
       "summary": "Kabuki's trimmed doors: no change in what it does"
+    },
+    {
+      "hash": "5dbcb944c7fef888a33998ea1f409fc60ca8a3a637eac0eed3f44fa699181c9e",
+      "summary": "The code Plugin on Kabuki's Emits, Children made with child, and partial Models; its build changed only by the move to them."
     }
   ]
 }
