@@ -89,7 +89,7 @@ const Root = Actor.build(Actor.define('Root', {}), {
 });
 
 // The app's Layer: import { Store } from '@kestack/std-toolkit/replica/idb'
-const App = toReact(Root, RootView, Store.idb());
+const App = View.app(RootView, { layer: Store.idb() });
 ```
 
 - `fetch` gets the Key and the newest Entity kept so far, in encoded form, and returns Entities in encoded form. Whatever it and the Gate need from the app's Layer bubbles up to it, as a Child's needs do.

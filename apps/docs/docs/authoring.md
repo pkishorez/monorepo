@@ -157,7 +157,7 @@ whole idea. It works on a phone.
     A live example inside a tabbed Demo fills its height and scrolls inside
     itself, so pressing it never moves the page.
 
-  - `<Playground app={App} />` runs an app made with `toReact`: the app,
+  - `<Playground app={App} />` runs an app made with `View.app`: the app,
     what is inside it (every Actor, its State, Model and running Workers),
     and a timeline to drag through, like a video's, to show any step and
     carry on from it. Put it in a `<Demo>` with the app's files as tabs.
@@ -169,11 +169,11 @@ whole idea. It works on a phone.
 
 A demo is the page's own kabuki app, in its `components/` folder:
 
-- The Actor in a `.ts` file, the View and `toReact` in a `.tsx` file, so the
+- The Actor in a `.ts` file, the View and `View.app` in a `.tsx` file, so the
   page can show each with `file=`.
 - The MDX imports the app and hands it to `<Playground>`, which shows what
   is inside it. Anything more is rarely needed.
-- `toReact` takes a `name` unique on the site, such as `docs:introduction`,
+- `View.app` takes a `name` unique on the site, such as `docs:introduction`,
   when its root Actor's name could clash with another demo's.
 - It draws on the server first: nothing in it may read `window` while
   rendering.

@@ -71,12 +71,12 @@ don't move. You get this without writing a single `memo`.
 
 ## From Actor to app
 
-Last, `toReact` takes your root Actor, its View, and the Layer for the
-outside world. It gives back one plain React component, ready to render
+Last, `View.app` takes your root Actor's View, and the Layer for the
+outside world when it needs one. It gives back one plain React component, ready to render
 anywhere.
 
 ```tsx
-export const BoardApp = toReact(BoardLive, BoardView, Layer.empty);
+export const BoardApp = View.app(BoardView);
 ```
 
 ## Try it

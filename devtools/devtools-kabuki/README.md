@@ -132,10 +132,11 @@ Attach `connect` to the app. Each time Kabuki starts the app in a browser
 it dials DevTools and answers it until the app stops.
 
 ```ts
-import { toReact } from '@kestack/kabuki/react';
+import { View } from '@kestack/kabuki/react';
 import { connect } from '@kestack/devtools-kabuki/session';
 
-export const App = toReact(Shop, ShopView, ShopLive, {
+export const App = View.app(ShopView, {
+  layer: ShopLive,
   attach: import.meta.env.DEV ? [connect()] : [],
 });
 ```

@@ -20,22 +20,27 @@ Data                         held by the Router                    loads each pa
 
 ```
 src/routing/
+  namespaces/     page.ts and router.ts: the Page and Router namespaces the door gives
   route/          Routes as data: node.ts (the types), values.ts, places.ts, url.ts,
                   metadata.ts, loader.ts; route.ts makes the Routes from the pages
-  capability/     what the Router uses: Loading, the Data cache, Navigation
-  page/           page.ts: Page.define and Page.build; status.ts: what a page is handed
-  router/         define.ts: Router.define; data.ts: the data of every place on screen;
-                  router.tsx: the Router Actor, Router.app; context.tsx: links, hooks,
-                  the Metadata in the document; frame.tsx: what it draws around the app
-  scroll/         scroll restoration, as TanStack Router's: kept per entry, put back after each move
-  adapter/        the port: where the address lives            @kestack/kabuki/routing/adapter
-    browser/      the browser's own history                    @kestack/kabuki/routing/browser
-    tanstack/     TanStack Router's history                    @kestack/kabuki/routing/tanstack
+  capabilities/   what pages and the Router share: Navigation, Loading, the Data cache
+  page/           page.ts: Page.define and Page.build; status.ts: what a page is handed;
+                  failures.ts: Page.notFound and Page.redirect
+  router/         router.tsx: the Router Actor, Router.app, put together from one file
+                  per job: model, urls, moves, loads, updates, workers, view and commands;
+                  define.ts: Router.define; data.ts: the data of every place on screen;
+                  context.tsx: links, hooks, the Metadata in the document;
+                  frame.tsx: what it draws around the app
+    scroll/       scroll restoration, as TanStack Router's: kept per entry, put back after each move
+    adapter/      the port: where the address lives            @kestack/kabuki/routing/adapter
+      browser/    the browser's own history                    @kestack/kabuki/routing/browser
+      tanstack/   TanStack Router's history                    @kestack/kabuki/routing/tanstack
 ```
 
-`route` is pure data and depends on nothing else here, so Start's shared code
-reads it without the Router. `scroll` uses nothing else here. `page` uses
-`route` and `capability`; `router` uses all of them and `adapter`.
+`route` is pure data and depends on nothing else here, so Start reads it
+without the Router. `capabilities` uses `route`; `page` uses `route` and
+`capabilities`; `router` uses all three, and holds the Adapter and scroll
+restoration, which only it uses.
 
 ## A page
 
@@ -406,8 +411,8 @@ changes the 150ms.
 ### The Data cache
 
 The Router never loads data itself: it asks `Loading`, which a server or a
-test answers by running the Loaders, `Router.memory`, and Start's browser by
-calling the Loader RPC. `Router.cached(router, loading)` puts the Data cache
+test answers by running the Loaders, `Loading.memory`, and Start's browser by
+calling the Loader RPC. `Loading.cached(router, loading)` puts the Data cache
 in front of one; Start's browser does, a server never does, since a copy
 there would be shared by every visitor. It keeps the last data of each
 place, one copy per name and what its Loader is handed, the newest, up to
@@ -474,7 +479,7 @@ and nothing comes back: a place with a fresh copy is not loaded. A preload
 of the page shown, or of the move held, asks nothing. `Router.preload(route)`
 does the same from an Update. A move during a preload joins it, and one
 after it shows the copy as its Stale time says. With no Data cache, from
-`Router.cached`, only the code is preloaded.
+`Loading.cached`, only the code is preloaded.
 
 ### The Adapter: where the address lives
 
@@ -485,7 +490,8 @@ or a story runs the real router.
 ```ts
 const Root = Router.app(router, AppView);
 
-toReact(Root.actor, Root.view, Layer.mergeAll(AppLayer, tanstack()), {
+View.app(Root.view, {
+  layer: Layer.mergeAll(AppLayer, tanstack()),
   input: Root.startAt,
 });
 ```
