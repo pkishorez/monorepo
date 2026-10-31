@@ -5,13 +5,10 @@ import type { Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { View } from '../../react/index.ts';
-import {
-  Loading,
-  Page,
-  Router,
-  useElementScrollRestoration,
-} from '../index.ts';
-import { registry } from '../../react/view/index.ts';
+import { Page, Router } from '../index.ts';
+import { Loading } from '../capabilities/index.ts';
+import { useElementScrollRestoration } from '../router/index.ts';
+import { registry } from '../../react/view/registry.ts';
 import { KEY } from '../router/adapter/index.ts';
 import { browser } from '../router/adapter/browser/index.ts';
 import type { ScrollRestorationOptions } from '../router/scroll/index.ts';
@@ -212,7 +209,7 @@ const load = async () => {
   registry.clear();
   const routed = Router.define(App, options);
   const Root = Router.app(routed, AppView);
-  const Drawn = View.app(Root.view, {
+  const Drawn = View.app(Root, {
     layer: Layer.mergeAll(
       browser(),
       Loading.memory(routed, {
@@ -223,7 +220,6 @@ const load = async () => {
       }),
     ) as Layer.Layer<never>,
     name: `scroll-${count++}`,
-    input: Root.startAt,
   });
   const Probe = () => {
     runtime = Drawn.useRuntime();

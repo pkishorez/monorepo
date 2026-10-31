@@ -1,6 +1,7 @@
 import { Context, Deferred, Effect, Exit, Layer, Scope } from 'effect';
 import type { ActorDefinition, SlotDefinition } from '../../actor/index.ts';
-import { Snapshot, isRestore, within } from '../../snapshot/index.ts';
+import { Snapshot } from '../../snapshot/index.ts';
+import { isRestore, within } from '../../snapshot/engine/index.ts';
 import type { Envelope, Handled, Instance } from '../../snapshot/index.ts';
 import { runCommands } from './command.ts';
 import { Asked, ask, Stopped } from './query.ts';

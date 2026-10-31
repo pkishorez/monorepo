@@ -8,7 +8,7 @@ import { Actor } from '../../core/index.ts';
 import { View } from '../index.ts';
 import type { AnyActor } from '../../core/actor/index.ts';
 import type { LazyView, ViewOf } from '../view/index.ts';
-import { registry } from '../view/index.ts';
+import { registry } from '../view/registry.ts';
 import { Ticker } from './lazy/ticker.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });

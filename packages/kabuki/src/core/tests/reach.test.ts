@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { restore } from '../snapshot/index.ts';
+import { restore } from '../snapshot/engine/index.ts';
 import { Actor, History, Runtime } from '../index.ts';
 import type { LiveInstance } from '../runtime/index.ts';
 import { Auth, ServerLive, run, settle } from './fixtures.ts';

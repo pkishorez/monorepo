@@ -5,12 +5,12 @@ import type { Root as ReactRoot } from 'react-dom/client';
 import { prerender } from 'react-dom/static';
 import { Cause, Context, Effect, Layer, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Replay } from '../../core/history/index.ts';
+import { Replay } from '../../core/history/replay.ts';
 import { Actor, History, Runtime } from '../../core/index.ts';
 import { View } from '../index.ts';
 import type { SavedHistory } from '../../core/history/index.ts';
 import type { AppRuntime } from '../view/index.ts';
-import { registry } from '../view/index.ts';
+import { registry } from '../view/registry.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 

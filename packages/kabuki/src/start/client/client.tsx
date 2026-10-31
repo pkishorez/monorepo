@@ -5,7 +5,7 @@ import type { Root } from 'react-dom/client';
 import { Layer } from 'effect';
 import type { SavedHistory } from '../../core/history/index.ts';
 import { View } from '../../react/index.ts';
-import { Loading } from '../../routing/index.ts';
+import { Loading } from '../../routing/capabilities/index.ts';
 import { Start } from '../app/index.ts';
 import type { AppRuntime } from '../../react/view/index.ts';
 import { browser } from '../../routing/router/adapter/browser/index.ts';
@@ -71,7 +71,7 @@ export const client = async (exported: StartApp): Promise<Hydrated> => {
       name,
       attach,
     } = appOf(next);
-    const App = (View.app as Untyped)(app.view, {
+    const App = (View.app as Untyped)(app, {
       layer: Layer.mergeAll(
         browser(),
         Loading.cached(app.routes, loading(app.routes)),

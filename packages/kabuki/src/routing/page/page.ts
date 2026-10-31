@@ -34,8 +34,8 @@ import type {
   Simplify,
   Value,
 } from '../route/index.ts';
-import { statusSchema, whereSchema } from './status.ts';
-import type { Carried, Status, Where } from './status.ts';
+import { statusSchema, whereSchema } from './status/index.ts';
+import type { Carried, Status, Where } from './status/index.ts';
 
 /*
  * A page: an Actor with a place in the URL, in the same two steps as any.

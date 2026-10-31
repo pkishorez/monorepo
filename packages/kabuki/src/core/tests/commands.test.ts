@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, it, vi } from 'vitest';
-import { init } from '../snapshot/index.ts';
+import { init } from '../snapshot/engine/index.ts';
 import { Actor, Command, History, Runtime } from '../index.ts';
 import { Snapshot } from '../snapshot/index.ts';
 import { Login, timed, Timer } from './fixtures.ts';

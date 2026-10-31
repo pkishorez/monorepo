@@ -1,6 +1,6 @@
 import { Context, Schema } from 'effect';
 import type { Effect } from 'effect';
-import { Command } from '../../core/command/index.ts';
+import { Command } from '../../../core/command/index.ts';
 
 /** A Route of any app: what the router moves to. */
 export type AnyRoute = { readonly _tag: string };

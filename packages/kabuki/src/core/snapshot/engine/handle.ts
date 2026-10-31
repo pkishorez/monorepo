@@ -1,5 +1,5 @@
 import { Array as Arr } from 'effect';
-import type { ActorDefinition } from '../actor/index.ts';
+import type { ActorDefinition } from '../../actor/index.ts';
 import { enter, follow } from './invoke.ts';
 import { checkRestore, isRestore } from './restore.ts';
 import type { Envelope, Instance, Snapshot } from './snapshot.ts';

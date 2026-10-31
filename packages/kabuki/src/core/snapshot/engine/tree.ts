@@ -1,4 +1,4 @@
-import type { ActorDefinition } from '../actor/index.ts';
+import type { ActorDefinition } from '../../actor/index.ts';
 import type { Instance, Snapshot } from './snapshot.ts';
 
 /*

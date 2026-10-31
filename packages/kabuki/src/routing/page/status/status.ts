@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
-import type { Answer } from '../capabilities/index.ts';
-import type { Codec, RenderMode, Value } from '../route/index.ts';
+import type { Answer } from '../../capabilities/index.ts';
+import type { Codec, RenderMode, Value } from '../../route/index.ts';
 
 /*
  * What a Page is handed about its data and where it is: its `status`, and

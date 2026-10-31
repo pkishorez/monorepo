@@ -1,4 +1,5 @@
 import { Effect, Schema } from 'effect';
+import { RUN } from './run/index.ts';
 
 /*
  * A Command is made once, outside any Update, from a name, the Schema of its
@@ -11,9 +12,6 @@ import { Effect, Schema } from 'effect';
  * Command, never in the Update: a mismatch is a defect, reported like any
  * Command failure.
  */
-
-/** Where a Command keeps the Effect it runs, out of sight of a comparison. */
-export const RUN: unique symbol = Symbol.for('@kestack/kabuki/Command/run');
 
 /**
  * An errand an Update asks for, as `Command.make` makes it: its name and

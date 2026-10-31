@@ -15,6 +15,3 @@ export type {
   ViewOf,
   ViewProps,
 } from './draw/index.ts';
-export { LazyContext, lazyOf } from './draw/index.ts';
-export { makeDrawn } from './drawn.ts';
-export { registry } from './registry.ts';

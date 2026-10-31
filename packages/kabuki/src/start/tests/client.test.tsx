@@ -3,7 +3,7 @@ import { act } from 'react';
 import { renderToString } from 'react-dom/server';
 import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { registry } from '../../react/view/index.ts';
+import { registry } from '../../react/view/registry.ts';
 import { client } from '../client/index.ts';
 import type { Build } from '../app/protocol/index.ts';
 import { handler } from '../server/index.ts';

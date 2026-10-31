@@ -1,3 +1,2 @@
-export { History, isHistory } from './history.ts';
+export { History } from './history.ts';
 export type { Entry, HistoryOptions, SavedHistory } from './history.ts';
-export { Replay, outcomeOf } from './replay.ts';

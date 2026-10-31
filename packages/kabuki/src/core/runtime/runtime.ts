@@ -1,9 +1,9 @@
 import { Clock, Context, Effect, Fiber, Layer, Queue, Stream } from 'effect';
 import type { Scope } from 'effect';
 import type { AnyActor, Tagged, Types } from '../actor/index.ts';
-import { actorAt, isRestore } from '../snapshot/index.ts';
+import { actorAt, isRestore } from '../snapshot/engine/index.ts';
 import type { Snapshot, Source } from '../snapshot/index.ts';
-import { History, isHistory } from '../history/index.ts';
+import { History } from '../history/index.ts';
 import { ActorInstance, Stopped } from './instance/index.ts';
 import type { Provided, WorkerStatus } from './instance/index.ts';
 import { makeMailbox } from './mailbox.ts';
@@ -77,9 +77,8 @@ const start = <A extends AnyActor>(
   ...layer: LayerFor<A>
 ): Effect.Effect<Running<A>, never, Scope.Scope> =>
   Effect.gen(function* () {
-    const history = isHistory(from)
-      ? (from as History<A>)
-      : History.make(from, { window: 0 });
+    // A History holds its Actor; an Actor is started on a History of its own.
+    const history = 'actor' in from ? from : History.make(from, { window: 0 });
     const root = history.actor.definition;
     const scope = yield* Effect.scope;
     const clock = yield* Clock.Clock;

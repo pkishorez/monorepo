@@ -6,7 +6,7 @@ import type { SavedHistory } from '../../core/history/index.ts';
 import type { AnyActor } from '../../core/actor/index.ts';
 import { View } from '../../react/index.ts';
 import type { LazyView } from '../../react/view/index.ts';
-import type { Known } from '../../routing/page/index.ts';
+import type { Known } from '../../routing/page/status/index.ts';
 import { tagsOf } from '../../routing/route/index.ts';
 import {
   NOT_HERE,
@@ -97,7 +97,7 @@ export const drawer = (
   build: Build,
 ) => {
   const App = (View.app as (view: unknown) => unknown)(
-    app.view,
+    app,
   ) as unknown as DrawnApp;
 
   /** The Document around `inside`, drawn whole, and the ids of the lazy Views it drew. */

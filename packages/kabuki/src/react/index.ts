@@ -1,1 +1,1 @@
-export { View, useChild, useChildren, useLive } from './view/index.ts';
+export { View, useChild, useChildren } from './view/index.ts';

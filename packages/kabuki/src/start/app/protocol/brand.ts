@@ -1,6 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
 import type { Layer } from 'effect';
-import type { AnyActor } from '../../../core/actor/index.ts';
 import type { Attachment, ViewOf } from '../../../react/view/index.ts';
 import type {
   Codec,
@@ -16,9 +15,7 @@ import type {
  */
 
 /** What Start needs of the app the Router serves: what `Router.app(router, AppView)` gives. */
-export interface ServedApp {
-  readonly actor: AnyActor;
-  readonly view: ViewOf<any>;
+export type ServedApp = ViewOf<any> & {
   /** The Router's Input at a URL, with what its places start from, by dotted name. */
   readonly startAt: (
     url?: string,
@@ -36,7 +33,7 @@ export interface ServedApp {
     readonly places: (of: any) => ReadonlyArray<Place>;
     readonly every: ReadonlyArray<PlaceSchema>;
   };
-}
+};
 
 export type DocumentType = ComponentType<{ readonly children: ReactNode }>;
 

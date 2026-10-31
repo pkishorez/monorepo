@@ -1,6 +1,6 @@
 import type { AnyRoute } from '../capabilities/index.ts';
 import { holdingAt, anewOf } from './data.ts';
-import type { Known } from '../page/index.ts';
+import type { Known } from '../page/status/index.ts';
 import { forget, go, write } from './commands.ts';
 import { entryOf, scrollOf } from './model.ts';
 import type {

@@ -2,7 +2,8 @@ import { Deferred, Effect, Layer, SubscriptionRef } from 'effect';
 import type { Scope } from 'effect';
 import { History, Runtime } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
-import { Loading, Router } from '@kestack/kabuki/routing';
+import { Router } from '@kestack/kabuki/routing';
+import { Loading } from '@kestack/kabuki/routing/capabilities';
 import type { Running } from '@kestack/kabuki/core/runtime';
 import type { Instance } from '@kestack/kabuki/core/snapshot';
 import {

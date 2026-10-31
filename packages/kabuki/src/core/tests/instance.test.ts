@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Schema } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import { init, restore } from '../snapshot/index.ts';
+import { init, restore } from '../snapshot/engine/index.ts';
 import { Actor, History, Runtime } from '../index.ts';
 import type { Types } from '../actor/index.ts';
 import type { Running } from '../runtime/index.ts';

@@ -31,20 +31,19 @@ const AppView = View.make(AppLive, ({ children }) =>
   children.Kabuki ? <KabukiView instance={children.Kabuki} /> : null,
 );
 
-const routed = Router.app(Router.define(App), AppView);
+const Routed = Router.app(Router.define(App), AppView);
 
 /** The app, made once, on the shell's history. */
 let made: ReturnType<typeof make> | undefined;
 
 const make = (history: ReturnType<typeof useRouter>['history']) =>
-  View.app(routed.view, {
+  View.app(Routed, {
     layer: Layer.mergeAll(
       // 1. Sessions
       devtools(location.origin),
       tanstack({ history: () => history }),
     ),
     name: '@kestack/devtools/kabuki',
-    input: () => routed.startAt(),
   });
 
 /** The Kabuki Tool, filling the shell's main area. */

@@ -2,8 +2,8 @@ import { Effect, Layer, Stream } from 'effect';
 import { Actor } from '../../core/actor/index.ts';
 import type { ActorType, AnyActor, Types } from '../../core/actor/index.ts';
 import type { ViewOf } from '../../react/view/index.ts';
+import { Navigation } from '../capabilities/index.ts';
 import {
-  Navigation,
   back,
   backTo,
   forward,
@@ -11,9 +11,10 @@ import {
   push,
   reload,
   replace,
-} from '../capabilities/index.ts';
+} from '../capabilities/navigation/index.ts';
 import type { AnyRoute } from '../capabilities/index.ts';
-import type { AnyPageBuild, Known } from '../page/index.ts';
+import type { AnyPageBuild } from '../page/index.ts';
+import type { Known } from '../page/status/index.ts';
 import type { Value } from '../route/index.ts';
 import { KEY } from './adapter/index.ts';
 import { Link, Retry } from './context.tsx';
@@ -200,14 +201,24 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     return scriptFor(KEY, key === ENTRY ? undefined : key);
   };
 
-  return {
-    actor: built as unknown as RouterActor,
-    view: routerView as unknown as ViewOf<RouterActor>,
+  /*
+   * The Router's View, with what an app and Start read of it: `input`, so
+   * `View.app` starts it at the browser's URL; `startAt`, its Input at any
+   * URL; `href`, a Route's URL; `restoreScroll`, the script a server writes;
+   * and `routes`, what Start reads a URL and serves the Loaders with.
+   */
+  return Object.assign(routerView, {
+    input: () => startAt(),
     startAt,
     href,
     restoreScroll,
-    /** The Routes it serves: what Start reads a URL and serves the Loaders with. */
     routes,
+  }) as unknown as ViewOf<RouterActor> & {
+    readonly input: () => RouterInput<Route> | undefined;
+    readonly startAt: typeof startAt;
+    readonly href: typeof href;
+    readonly restoreScroll: typeof restoreScroll;
+    readonly routes: typeof routes;
   };
 };
 

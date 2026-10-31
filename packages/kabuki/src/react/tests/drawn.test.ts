@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Instance, Snapshot } from '../../core/snapshot/index.ts';
-import { makeDrawn } from '../view/index.ts';
+import { makeDrawn } from '../view/drawn.ts';
 
 /* What Views read lets go of an Instance once it is in no Snapshot drawn. */
 

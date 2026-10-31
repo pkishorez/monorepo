@@ -1,4 +1,4 @@
-import type { ActorDefinition } from '../actor/index.ts';
+import type { ActorDefinition } from '../../actor/index.ts';
 import { Equal } from 'effect';
 import { childId, counterOf, isMany } from './tree.ts';
 import type { Instance } from './snapshot.ts';

@@ -1,4 +1,4 @@
-import type { useElementScrollRestoration } from '@kestack/kabuki/routing';
+import type { useElementScrollRestoration } from '@kestack/kabuki/routing/router';
 import { useEffect, useRef, useState } from 'react';
 import { keys } from '../../../commands.ts';
 
