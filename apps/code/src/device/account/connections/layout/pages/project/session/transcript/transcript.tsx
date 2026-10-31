@@ -50,6 +50,13 @@ import { Work } from './turns/answer/work/work.tsx';
  * each stands in as an empty space as tall as it was when last drawn,
  * from any visit to it since the app started, or as a guess. Nothing drawn
  * is ever taken away again; `whole` draws every turn at once.
+ *
+ * Once a turn is drawn and laid out, the browser skips it while it is far
+ * from the view (`content-visibility`), as tall as it last was, so the
+ * sidebar sliding beside it, a resize or anything else that restyles the
+ * page touches only the turns in sight. A turn wholly above the view that
+ * grows or shrinks as it is laid out again, at a new width, moves the view
+ * by as much, so what is on the screen stays put.
  */
 
 const NONE: ReadonlyArray<never> = [];
@@ -71,6 +78,13 @@ const BATCH = 10;
 
 /** How tall a turn never drawn is guessed to be, in px. */
 const GUESS = 480;
+
+/**
+ * Room beside a turn for what it draws past its edges, such as a line's
+ * hover reaching into the margin, which a skippable turn's containment
+ * would clip; the margin takes it back, so nothing moves.
+ */
+const BLEED = '-mx-3 px-3';
 
 /** How many turns' heights are remembered. */
 const REMEMBERED = 5000;
@@ -195,19 +209,53 @@ export function Rows({
     if (from !== 0) element.style.minHeight = `${element.offsetHeight}px`;
     placed.current = from === 0 ? null : now;
   }, [from]);
-  // How tall each drawn turn is, for the next time it stands in.
-  const [measure] = useState(() =>
-    typeof ResizeObserver === 'undefined'
-      ? null
-      : new ResizeObserver((entries) => {
-          for (const entry of entries) {
-            const id = (entry.target as HTMLElement).dataset.turn;
-            const height =
-              entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
-            if (id !== undefined && height > 0) remember(id, height);
-          }
-        }),
-  );
+  const shiftNow = useRef(shift);
+  shiftNow.current = shift;
+  // How tall each drawn turn is, for the next time it stands in. Laid out
+  // once, it can be skipped, as tall as that; and one wholly above the
+  // view that changes height after moves the view by as much. A turn just
+  // drawn is the batch's to place, above.
+  const [measure] = useState(() => {
+    if (typeof ResizeObserver === 'undefined') return null;
+    const seen = new WeakMap<Element, number>();
+    return new ResizeObserver((entries) => {
+      const changed: Array<{ top: number; was: number; by: number }> = [];
+      for (const entry of entries) {
+        const id = (entry.target as HTMLElement).dataset.turn;
+        const height =
+          entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+        const was = seen.get(entry.target);
+        seen.set(entry.target, height);
+        if (id === undefined || height <= 0) continue;
+        remember(id, height);
+        if (was === undefined) {
+          const { style } = entry.target as HTMLElement;
+          style.containIntrinsicBlockSize = `auto ${height}px`;
+          style.contentVisibility = 'auto';
+        } else if (was !== height)
+          changed.push({
+            top: entry.target.getBoundingClientRect().top,
+            was,
+            by: height - was,
+          });
+      }
+      const outer = scroller.current;
+      if (changed.length === 0 || outer === null) return;
+      // Top down, each where it ended before those above it changed.
+      const view = outer.getBoundingClientRect().top;
+      let moved = 0;
+      for (const { top, was, by } of changed.sort((a, b) => a.top - b.top)) {
+        if (top - moved + was > view) break;
+        moved += by;
+      }
+      if (moved === 0) return;
+      if (shiftNow.current) shiftNow.current(moved);
+      else outer.scrollTop += moved;
+      // Made up for already: the next batch measures from here.
+      if (placed.current !== null && list.current !== null)
+        placed.current = placesOf(outer, list.current);
+    });
+  });
   useEffect(() => () => measure?.disconnect(), [measure]);
   return (
     <div ref={list} className="flex min-w-0 flex-col gap-10">
@@ -217,6 +265,7 @@ export function Rows({
             key={turn.id}
             data-turn={turn.id}
             aria-hidden
+            className={BLEED}
             style={{ height: heights.get(turn.id) ?? GUESS }}
           />
         ) : (
@@ -282,7 +331,7 @@ const TurnView = memo(
       <section
         ref={measured}
         data-turn={turn.id}
-        className="group/turn flex min-w-0 flex-col gap-4"
+        className={`group/turn flex min-w-0 flex-col gap-4 ${BLEED}`}
       >
         {turn.asks.map((ask) => (
           <Ask key={ask.id} row={ask} />

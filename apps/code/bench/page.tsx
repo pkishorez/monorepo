@@ -1,7 +1,8 @@
 import type { Message } from '@kestack/connect/code';
 import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { AppShell, useAppShell } from '@kestack/web-platform/recipes/frame';
 import { useFollow } from '../src/device/account/connections/layout/pages/project/session/follow.ts';
 import {
   Rows,
@@ -32,6 +33,9 @@ let root: Root | null = null;
 let made: ReturnType<typeof sessionOf> | null = null;
 let entries: ReadonlyArray<Entry> = [];
 let running = false;
+/** Whether the transcript is drawn as the app does, beside a sidebar. */
+let shelled = false;
+let toggleSidebar: (() => void) | null = null;
 
 const forking = { fork: () => {}, pending: null };
 
@@ -57,28 +61,65 @@ function Session({
   const opening = useOpening(open, toggle);
   toggleFold = opening.toggle;
   return (
-    <div className="relative flex h-dvh min-h-0 flex-col">
-      <div
-        ref={follow.scroller}
-        id="scroller"
-        className="relative min-h-0 flex-1 overflow-y-auto outline-none select-text [overflow-anchor:none]"
-      >
+    <Shell>
+      <div className="relative flex h-full min-h-0 flex-col">
         <div
-          ref={follow.content}
-          className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-4 pt-8 pb-10 sm:px-6"
+          ref={follow.scroller}
+          id="scroller"
+          className="relative min-h-0 flex-1 overflow-y-auto outline-none select-text [overflow-anchor:none]"
         >
-          <Rows
-            rows={rows}
-            opening={opening}
-            running={running}
-            forking={forking}
-            gradual
-            shift={follow.shift}
-          />
+          <div
+            ref={follow.content}
+            className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-4 pt-8 pb-10 sm:px-6"
+          >
+            <Rows
+              rows={rows}
+              opening={opening}
+              running={running}
+              forking={forking}
+              gradual
+              shift={follow.shift}
+            />
+          </div>
         </div>
       </div>
+    </Shell>
+  );
+}
+
+/** The transcript alone, or in the App Shell beside a sidebar of a few rows. */
+function Shell({ children }: { readonly children: ReactNode }) {
+  if (!shelled) return <div className="h-dvh">{children}</div>;
+  return (
+    <div className="flex h-dvh flex-col">
+      <AppShell
+        sidebar={{
+          content: (
+            <div className="flex flex-col gap-1 p-2 text-sm">
+              {Array.from({ length: 40 }, (_, at) => (
+                <a
+                  key={at}
+                  href="#"
+                  className="truncate rounded-md px-2 py-1.5"
+                >
+                  Session {at + 1}
+                </a>
+              ))}
+            </div>
+          ),
+        }}
+        header={{ title: 'Bench' }}
+      >
+        <Toggle />
+        {children}
+      </AppShell>
     </div>
   );
+}
+
+function Toggle() {
+  toggleSidebar = useAppShell().toggle;
+  return null;
 }
 
 const scroller = () => document.getElementById('scroller')!;
@@ -134,8 +175,9 @@ declare global {
 
 const bench = {
   /** Opens a session of `turns` turns: how long until drawn, and its long tasks until quiet. */
-  open: async (turns: number, live = false) => {
+  open: async (turns: number, live = false, shell = false) => {
     running = live;
+    shelled = shell;
     made = sessionOf({ turns, running: live });
     entries = made.messages.map((row) => ({ id: row.id, row }));
     longest = 0;
@@ -197,23 +239,36 @@ const bench = {
     await settled(500);
     return times;
   },
-  /** Scrolls from the bottom to the top a step a frame: each frame's length. */
+  /**
+   * Scrolls from the bottom to the top a step a frame: each frame's length,
+   * and how far the turn at the top of the view moved on the screen other
+   * than by the step, in all, as turns above it were laid out.
+   */
   scroll: async (step: number) => {
     const element = scroller();
     await settled(500);
     const frames: number[] = [];
+    let jumped = 0;
     let last = await frame();
     // At most a few thousand frames, however tall it is.
     for (let at = 0; element.scrollTop > 0 && at < 5000; at++) {
+      const view = element.getBoundingClientRect().top;
+      const turn = [
+        ...element.querySelectorAll<HTMLElement>('section[data-turn]'),
+      ].find((each) => each.getBoundingClientRect().bottom > view);
+      const before = turn?.getBoundingClientRect().top ?? 0;
+      const by = Math.min(step, element.scrollTop);
       // A reader's own scroll, so the transcript stops following.
       element.dispatchEvent(new WheelEvent('wheel', { deltaY: -step }));
       element.scrollTop -= step;
       const now = (await frame()) as number;
       frames.push(now - (last as number));
       last = now;
+      if (turn?.isConnected)
+        jumped += Math.abs(turn.getBoundingClientRect().top - before - by);
     }
     const busy = await settled(500);
-    return { frames, busy };
+    return { frames, busy, jumped };
   },
   /**
    * Opens a session and, while the turns above are still being drawn,
@@ -245,6 +300,26 @@ const bench = {
     const waiting = standing();
     await settled();
     return { moved: top() - before, waiting, left: standing() };
+  },
+  /**
+   * Shuts and opens the sidebar `count` times, waiting out each spring:
+   * each frame's length meanwhile.
+   */
+  sidebar: async (count: number) => {
+    await settled(500);
+    const frames: number[] = [];
+    for (let at = 0; at < count; at++) {
+      toggleSidebar!();
+      let last = (await frame()) as number;
+      const end = last + 600;
+      while (last < end) {
+        const now = (await frame()) as number;
+        frames.push(now - last);
+        last = now;
+      }
+    }
+    await settled(500);
+    return frames;
   },
   close: () => {
     root?.unmount();
