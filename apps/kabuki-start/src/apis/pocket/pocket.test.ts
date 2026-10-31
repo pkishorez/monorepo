@@ -13,6 +13,13 @@ import { PocketRpc, PocketRpcs, transferEntryIds } from './index.ts';
 import { pocketTable, wallets } from './storage/index.ts';
 import { serve } from './worker.server.ts';
 
+// A built StdTable is frozen; the ledger reads this copy, so a test can spy
+// on its `transact`.
+vi.mock('./storage/index.ts', async (original) => {
+  const storage = await original<typeof import('./storage/index.ts')>();
+  return { ...storage, pocketTable: { ...storage.pocketTable } };
+});
+
 /*
  * The Pocket Worker on a D1 database in Miniflare, called through the
  * browser's `PocketRpc`, with `fakeGuard.rpc({ as })` saying whose cookie each request
@@ -369,6 +376,7 @@ describe('the Pocket Worker', () => {
           { concurrency: 'unbounded' },
         ),
       );
+      expect(calls).toBeGreaterThanOrEqual(2);
       expect(await balances(ada)).toEqual({ w: 100 });
     } finally {
       spy.mockRestore();
@@ -483,12 +491,11 @@ describe('the Pocket Worker', () => {
     const before = StdTable.make('pocket')
       .primary('pk', 'sk')
       .lsi('LSI1', 'LSI1SK')
+      .entity(EntryV1, (e) =>
+        e.primary({ pk: ['userId'] }).index('LSI1', 'byUpdate', { sk: ['_u'] }),
+      )
       .build();
-    const entriesV1 = before
-      .entity(EntryV1)
-      .primary({ pk: ['userId'] })
-      .index('LSI1', 'byUpdate', { sk: ['_u'] })
-      .build();
+    const entriesV1 = before.Entry;
     await Effect.runPromise(
       Effect.forEach(
         [

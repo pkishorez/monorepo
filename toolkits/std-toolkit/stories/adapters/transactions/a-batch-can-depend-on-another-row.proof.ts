@@ -12,24 +12,20 @@ const Task = EntityESchema.make('Task', 'taskId', {
   title: Schema.String,
 }).build();
 
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const board = table
-  .entity(Board)
-  .primary({ pk: ['boardId'] })
-  .build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Board, (e) => e.primary({ pk: ['boardId'] }))
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 // Add a task only if its board exists and is not archived.
 const addTo = (boardId: string, taskId: string) =>
   Effect.gen(function* () {
-    const boardIsOpen = yield* board.getAndCheckOp(
+    const boardIsOpen = yield* table.Board.getAndCheckOp(
       { boardId },
       (current) => !current.archived,
     );
-    const add = yield* task.insertOp({ taskId, boardId, title: 'New' });
+    const add = yield* table.Task.insertOp({ taskId, boardId, title: 'New' });
     return yield* table.transact([boardIsOpen, add]).pipe(
       Effect.match({
         onFailure: (error) =>
@@ -49,8 +45,8 @@ export default Proof.make({
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
     const boards = yield* Effect.all([
-      board.insert({ boardId: 'work', archived: false }),
-      board.insert({ boardId: 'old', archived: true }),
+      table.Board.insert({ boardId: 'work', archived: false }),
+      table.Board.insert({ boardId: 'old', archived: true }),
     ]).pipe(Effect.provide(db.layer));
     yield* Proof.assert(
       'one open and one archived board exist; "gone" was never created',
@@ -65,9 +61,9 @@ export default Proof.make({
       const archived = yield* addTo('old', 't2');
       const missing = yield* addTo('gone', 't3');
       const stored = yield* Effect.all([
-        task.get({ boardId: 'work', taskId: 't1' }),
-        task.get({ boardId: 'old', taskId: 't2' }),
-        task.get({ boardId: 'gone', taskId: 't3' }),
+        table.Task.get({ boardId: 'work', taskId: 't1' }),
+        table.Task.get({ boardId: 'old', taskId: 't2' }),
+        table.Task.get({ boardId: 'gone', taskId: 't3' }),
       ]);
       return {
         open,

@@ -157,6 +157,19 @@ export const makeTableContract = (
           }),
         catch: nativeFailure,
       }),
+    estimateItemCount: () =>
+      Effect.tryPromise({
+        try: () =>
+          onConnection((connection) =>
+            requestPromise(
+              connection
+                .transaction(storeName, 'readonly')
+                .objectStore(storeName)
+                .count(),
+            ),
+          ),
+        catch: nativeFailure,
+      }),
     queryItems: (query) =>
       Effect.tryPromise({
         try: () =>

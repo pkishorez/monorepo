@@ -9,30 +9,32 @@ const Settings = ESchema.make('Settings', {
   weekStartsOn: Schema.Literals(['monday', 'sunday']),
 }).build();
 
-const table = StdTable.make('app').primary('pk', 'sk').build();
-const settings = table
-  .singleEntity(Settings)
-  .default({ theme: 'light', weekStartsOn: 'monday' });
+const table = StdTable.make('app')
+  .primary('pk', 'sk')
+  .singleEntity(Settings, {
+    default: { theme: 'light', weekStartsOn: 'monday' },
+  })
+  .build();
 
 export default Proof.make({
   title: 'Put saves the whole record and get reads it back',
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
-    const before = yield* settings.get().pipe(Effect.provide(db.layer));
+    const before = yield* table.Settings.get().pipe(Effect.provide(db.layer));
     yield* Proof.assert('settings start at the default', before.meta._u === '');
     return { db, before };
   }),
   act: ({ db }) =>
     Effect.gen(function* () {
-      const first = yield* settings.put({
+      const first = yield* table.Settings.put({
         theme: 'dark',
         weekStartsOn: 'sunday',
       });
-      const second = yield* settings.put({
+      const second = yield* table.Settings.put({
         theme: 'light',
         weekStartsOn: 'sunday',
       });
-      const read = yield* settings.get();
+      const read = yield* table.Settings.get();
       return { first, second, read };
     }).pipe(Effect.provide(db.layer)),
   verify: ({ first, second, read }) =>

@@ -25,15 +25,15 @@ export default Proof.make({
   description:
     'An access pattern must name a slot the table has, and every key path must end at a string or number.',
   prepare: Effect.gen(function* () {
-    const table = StdTable.make('board')
-      .primary('pk', 'sk')
-      .lsi('LSI1', 'LSI1SK')
-      .build();
     const fine = yield* refusal(() =>
-      table
-        .entity(Task)
-        .primary({ pk: ['boardId'] })
-        .index('LSI1', 'byTitle', { sk: ['title'] })
+      StdTable.make('board')
+        .primary('pk', 'sk')
+        .lsi('LSI1', 'LSI1SK')
+        .entity(Task, (e) =>
+          e
+            .primary({ pk: ['boardId'] })
+            .index('LSI1', 'byTitle', { sk: ['title'] }),
+        )
         .build(),
     );
     yield* Proof.assert(
@@ -44,29 +44,30 @@ export default Proof.make({
   }),
   act: () =>
     Effect.all({
-      missingSlot: refusal(() => {
-        const table = StdTable.make('board').primary('pk', 'sk').build();
-        // The cast stands in for a placement written against an older table definition.
-        return (table.entity(Task).primary({ pk: ['boardId'] }) as any)
-          .index('GSI9', 'byTitle', { pk: ['title'] })
-          .build();
-      }),
-      arrayKeyPath: refusal(() => {
-        const table = StdTable.make('board').primary('pk', 'sk').build();
-        return table
-          .entity(Task)
-          .primary({ pk: ['tags' as 'boardId'] })
-          .build();
-      }),
+      missingSlot: refusal(() =>
+        StdTable.make('board')
+          .primary('pk', 'sk')
+          // The cast stands in for a placement written against an older table definition.
+          .entity(Task, (e) =>
+            (e.primary({ pk: ['boardId'] }) as any).index('GSI9', 'byTitle', {
+              pk: ['title'],
+            }),
+          )
+          .build(),
+      ),
+      arrayKeyPath: refusal(() =>
+        StdTable.make('board')
+          .primary('pk', 'sk')
+          .entity(Task, (e) => e.primary({ pk: ['tags' as 'boardId'] }))
+          .build(),
+      ),
       entityTwice: refusal(() => {
-        const table = StdTable.make('board').primary('pk', 'sk').build();
-        table
-          .entity(Task)
-          .primary({ pk: ['boardId'] })
-          .build();
-        return table
-          .entity(Task)
-          .primary({ pk: ['boardId'] })
+        // The cast stands in for a second declaration the types already refuse.
+        const declared = StdTable.make('board')
+          .primary('pk', 'sk')
+          .entity(Task, (e) => e.primary({ pk: ['boardId'] })) as any;
+        return declared
+          .entity(Task, (e: any) => e.primary({ pk: ['boardId'] }))
           .build();
       }),
     }),

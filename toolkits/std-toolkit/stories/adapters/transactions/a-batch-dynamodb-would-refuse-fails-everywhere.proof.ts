@@ -9,15 +9,13 @@ const Task = EntityESchema.make('Task', 'taskId', {
   title: Schema.String,
 }).build();
 
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
-const otherTable = StdTable.make('archive').primary('pk', 'sk').build();
-const archivedTask = otherTable
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const otherTable = StdTable.make('archive')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 const reasonOf = <A, R>(
@@ -38,9 +36,11 @@ export default Proof.make({
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
     const archive = Memory.make(otherTable);
-    const t1 = yield* task
-      .insert({ taskId: 't1', boardId: 'work', title: 'Plan' })
-      .pipe(Effect.provide(db.layer));
+    const t1 = yield* table.Task.insert({
+      taskId: 't1',
+      boardId: 'work',
+      title: 'Plan',
+    }).pipe(Effect.provide(db.layer));
     yield* Proof.assert(
       't1 exists with its first title',
       t1.value.title === 'Plan',
@@ -52,8 +52,10 @@ export default Proof.make({
       const key = { boardId: 'work', taskId: 't1' };
       const sameItemTwice = yield* reasonOf(
         Effect.gen(function* () {
-          const rename = yield* task.getAndUpdateOp(key, { title: 'Renamed' });
-          const guard = yield* task.existsOp(key);
+          const rename = yield* table.Task.getAndUpdateOp(key, {
+            title: 'Renamed',
+          });
+          const guard = yield* table.Task.existsOp(key);
           return yield* table.transact([rename, guard]);
         }),
       );
@@ -62,21 +64,23 @@ export default Proof.make({
           const ops = yield* Effect.forEach(
             Array.from({ length: 101 }, (_, i) => `n${i}`),
             (taskId) =>
-              task.insertOp({ taskId, boardId: 'bulk', title: taskId }),
+              table.Task.insertOp({ taskId, boardId: 'bulk', title: taskId }),
           );
           return yield* table.transact(ops);
         }),
       );
       const foreign = yield* reasonOf(
         Effect.gen(function* () {
-          const op = yield* archivedTask
-            .insertOp({ taskId: 'a1', boardId: 'work', title: 'Old' })
-            .pipe(Effect.provide(archive.layer));
+          const op = yield* otherTable.Task.insertOp({
+            taskId: 'a1',
+            boardId: 'work',
+            title: 'Old',
+          }).pipe(Effect.provide(archive.layer));
           return yield* table.transact([op as never]);
         }),
       );
-      const stored = yield* task.get(key);
-      const bulk = yield* task.query('primary', {
+      const stored = yield* table.Task.get(key);
+      const bulk = yield* table.Task.query('primary', {
         pk: { boardId: 'bulk' },
         '>=': null,
       });

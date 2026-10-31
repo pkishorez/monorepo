@@ -59,11 +59,12 @@ export default Proof.browser({
     'The edit is optimistic: the task is crossed out and marked Saving the moment it is clicked, and turns Saved once the backend (an IndexedDB StdTable in the page, one second away) has stored it.',
   critical: true,
   page: (root) => {
-    const table = StdTable.make('board').primary('pk', 'sk').build();
-    const tasks = table
-      .entity(Task)
-      .primary({ pk: ['boardId'] })
+    const table = StdTable.make('board')
+      .primary('pk', 'sk')
+      .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
       .build();
+
+    const tasks = table.Task;
     const backend = IDB.make(table, {
       mode: 'disposable',
       database: IDB.database({ databaseName: 'backend' }),

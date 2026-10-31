@@ -25,11 +25,7 @@ describe('SQLite setup', () => {
         "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",
       ),
     );
-    expect(rows.map(({ name }) => name)).toEqual([
-      '_std_contract',
-      'orders',
-      'people',
-    ]);
+    expect(rows.map(({ name }) => name)).toEqual(['orders', 'people']);
   });
 
   it('additively creates missing index columns without backfilling', async () => {
@@ -57,7 +53,7 @@ describe('SQLite setup', () => {
         ],
       ),
     );
-    // The next deploy adds a GSI: requires-backfill, accepted, columns added.
+    // The next deploy adds a GSI no entity uses yet: safe, columns added.
     const table = StdTable.make('items')
       .primary('pk', 'sk')
       .gsi('GSI1', 'GSI1PK', 'GSI1SK')
@@ -96,6 +92,33 @@ describe('SQLite setup', () => {
         _tag: 'OperationFailure',
         cause: expect.objectContaining({
           message: 'SQLite table "items" has an incompatible base schema: data',
+        }),
+      },
+    });
+  });
+
+  it('rejects an existing table keyed by other columns', async () => {
+    const database = makeNodeSQLite({ path: ':memory:' });
+    await Effect.runPromise(
+      SQLite.setup(StdTable.make('items').primary('pk', 'sk').build(), {
+        mode: 'disposable',
+        database,
+      }),
+    );
+    const table = StdTable.make('items').primary('id', 'sort').build();
+
+    const result = await Effect.runPromise(
+      SQLite.setup(table, { mode: 'disposable', database }).pipe(Effect.result),
+    );
+
+    expect(result).toMatchObject({
+      _tag: 'Failure',
+      failure: {
+        _tag: 'OperationFailure',
+        cause: expect.objectContaining({
+          message: expect.stringContaining(
+            'SQLite table "items" has primary key (pk, sk), not the declared (id, sort)',
+          ),
         }),
       },
     });
@@ -186,7 +209,9 @@ describe('SQLite setup', () => {
     const database = makeNodeSQLite({ path: ':memory:' });
     const table = StdTable.make('items').primary('pk', 'sk').build();
     await Effect.runPromise(
-      SQLite.setup(table, { mode: 'persistent', database }),
+      database.run(
+        'CREATE TABLE items (pk TEXT NOT NULL, sk TEXT NOT NULL, _e TEXT NOT NULL, _v TEXT NOT NULL, _u TEXT NOT NULL, _d INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (pk, sk))',
+      ),
     );
     await Effect.runPromise(
       database.run('CREATE UNIQUE INDEX external_unique ON items (_e)'),

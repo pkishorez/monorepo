@@ -59,11 +59,12 @@ export default Proof.browser({
     'Two Tabs share one local copy in IndexedDB. Tab 1 reads the backend; Tab 2 never reads it, yet each Tab shows the task the other added.',
   critical: true,
   page: (root) => {
-    const table = StdTable.make('board').primary('pk', 'sk').build();
-    const tasks = table
-      .entity(Task)
-      .primary({ pk: ['boardId'] })
+    const table = StdTable.make('board')
+      .primary('pk', 'sk')
+      .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
       .build();
+
+    const tasks = table.Task;
     const backend = IDB.make(table, {
       mode: 'disposable',
       database: IDB.database({ databaseName: 'backend' }),

@@ -345,7 +345,8 @@ const resumable =
  * synced afresh. An app prunes its Store to `CodeReplica` alone, so the older ones
  * go without being named.
  */
-const replicaName = (version: number) => `ai-m${version}`;
+// `s2`: the Store's table started fresh, so a copy synced before it is not kept.
+const replicaName = (version: number) => `ai-s2-m${version}`;
 
 /**
  * The records of each Connection: `CodeReplica.get(connectionId)` is the Instance of one

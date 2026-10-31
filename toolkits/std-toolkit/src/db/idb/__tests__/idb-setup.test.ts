@@ -7,7 +7,7 @@ import { IDB } from '../index.js';
 import { makeTableContract } from '../table/index.js';
 import { reconcileIDBStore } from '../upgrade/index.js';
 
-// What a table does on its first open: create the store and its indexes.
+// The topology half of setup: the store and exactly its declared indexes.
 const setup = (
   table: Parameters<typeof reconcileIDBStore>[1] & { logicalName: string },
   database: ReturnType<typeof IDB.database>,
@@ -95,8 +95,10 @@ describe('IndexedDB setup', () => {
     const database = IDB.database({
       databaseName: `backfill-${crypto.randomUUID()}`,
     });
-    const base = StdTable.make('records').primary('pk', 'sk').build();
-    base.entity(personSchema).primary().build();
+    const base = StdTable.make('records')
+      .primary('pk', 'sk')
+      .entity(personSchema, (e) => e.primary())
+      .build();
     await Effect.runPromise(setup(base, database));
     const baseRuntime = makeTableContract(database, base, 'records');
     await Effect.runPromise(
@@ -118,11 +120,9 @@ describe('IndexedDB setup', () => {
     const indexed = StdTable.make('records')
       .primary('pk', 'sk')
       .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-      .build();
-    indexed
-      .entity(personSchema)
-      .primary()
-      .index('GSI1', 'byEmail', { pk: ['email'] })
+      .entity(personSchema, (e) =>
+        e.primary().index('GSI1', 'byEmail', { pk: ['email'] }),
+      )
       .build();
     await Effect.runPromise(setup(indexed, database));
 
@@ -141,18 +141,18 @@ describe('IndexedDB setup', () => {
     const database = IDB.database({
       databaseName: `renamed-primary-${crypto.randomUUID()}`,
     });
-    const table = StdTable.make('records')
-      .primary('PK', 'SK')
-      .lsi('LSI1', 'LSI1SK')
-      .build();
     const labelled = EntityESchema.make('Person', 'personId', {
       email: Schema.String,
       label: Schema.String,
     }).build();
-    const person = table
-      .entity(labelled)
-      .primary({ pk: ['email'] })
-      .index('LSI1', 'byLabel', { sk: ['label'] })
+    const table = StdTable.make('records')
+      .primary('PK', 'SK')
+      .lsi('LSI1', 'LSI1SK')
+      .entity(labelled, (e) =>
+        e
+          .primary({ pk: ['email'] })
+          .index('LSI1', 'byLabel', { sk: ['label'] }),
+      )
       .build();
     const layer = IDB.make(table, { mode: 'disposable', database }).layer;
     await Effect.runPromise(setup(table, database));
@@ -164,21 +164,17 @@ describe('IndexedDB setup', () => {
     ).toEqual(['pk', 'LSI1SK']);
 
     await Effect.runPromise(
-      person
-        .insert({
-          personId: 'person-1',
-          email: 'person@example.com',
-          label: 'b',
-        })
-        .pipe(Effect.provide(layer)),
+      table.Person.insert({
+        personId: 'person-1',
+        email: 'person@example.com',
+        label: 'b',
+      }).pipe(Effect.provide(layer)),
     );
     const page = await Effect.runPromise(
-      person
-        .query('byLabel', {
-          pk: { email: 'person@example.com' },
-          '>': { label: 'a' },
-        })
-        .pipe(Effect.provide(layer)),
+      table.Person.query('byLabel', {
+        pk: { email: 'person@example.com' },
+        '>': { label: 'a' },
+      }).pipe(Effect.provide(layer)),
     );
 
     expect(page.items).toHaveLength(1);
@@ -432,8 +428,8 @@ describe('IndexedDB setup', () => {
     expect(entityIndex.multiEntry).toBe(false);
   });
 
-  it('rejects an undeclared unique index', async () => {
-    const databaseName = `undeclared-unique-${crypto.randomUUID()}`;
+  it('removes an index the topology does not declare', async () => {
+    const databaseName = `undeclared-index-${crypto.randomUUID()}`;
     const seeded = await new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open(databaseName, 1);
       request.onerror = () => reject(request.error);
@@ -450,16 +446,12 @@ describe('IndexedDB setup', () => {
     const table = StdTable.make('records').primary('pk', 'sk').build();
     const database = IDB.database({ databaseName });
 
-    const result = await Effect.runPromise(
-      setup(table, database).pipe(Effect.result),
-    );
+    await Effect.runPromise(setup(table, database));
 
-    expect(result).toMatchObject({
-      _tag: 'Failure',
-      failure: Error(
-        'IndexedDB Store "records" has an undeclared unique index "externalUnique"',
-      ),
-    });
+    const connection = await database.open();
+    expect([
+      ...connection.transaction('records').objectStore('records').indexNames,
+    ]).toEqual(['_entity']);
   });
 
   it('removes matching entity items through the physical entity cursor', async () => {

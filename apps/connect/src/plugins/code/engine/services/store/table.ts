@@ -14,28 +14,23 @@ export const aiTable = StdTable.make('ai-toolkit')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .gsi('GSI2', 'GSI2PK', 'GSI2SK')
+  .entity(RawSchema, (e) =>
+    e
+      .primary({ pk: ['sessionId'] })
+      .index('GSI1', 'bySession', { pk: ['sessionId'], sk: ['_u'] }),
+  )
+  .entity(ProjectSchema, (e) =>
+    e.primary().index('GSI2', 'byUpdate', { pk: [], sk: ['_u'] }),
+  )
+  .entity(SessionSchema, (e) =>
+    e.primary().index('GSI2', 'byUpdate', { pk: [], sk: ['_u'] }),
+  )
+  .entity(HarnessAccountSchema, (e) =>
+    e.primary().index('GSI2', 'byUpdate', { pk: [], sk: ['_u'] }),
+  )
   .build();
 
-export const raws = aiTable
-  .entity(RawSchema)
-  .primary({ pk: ['sessionId'] })
-  .index('GSI1', 'bySession', { pk: ['sessionId'], sk: ['_u'] })
-  .build();
-
-export const projects = aiTable
-  .entity(ProjectSchema)
-  .primary()
-  .index('GSI2', 'byUpdate', { pk: [], sk: ['_u'] })
-  .build();
-
-export const sessions = aiTable
-  .entity(SessionSchema)
-  .primary()
-  .index('GSI2', 'byUpdate', { pk: [], sk: ['_u'] })
-  .build();
-
-export const harnessAccounts = aiTable
-  .entity(HarnessAccountSchema)
-  .primary()
-  .index('GSI2', 'byUpdate', { pk: [], sk: ['_u'] })
-  .build();
+export const raws = aiTable.AiRaw;
+export const projects = aiTable.AiProject;
+export const sessions = aiTable.AiSession;
+export const harnessAccounts = aiTable.AiHarnessConfig;

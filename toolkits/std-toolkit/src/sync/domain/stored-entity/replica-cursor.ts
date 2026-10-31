@@ -1,8 +1,7 @@
 import { Schema } from 'effect';
 import { EntityESchema } from '../../../eschema/index.js';
-import { syncStore } from './table.js';
 
-const storedReplicaCursorSchema = EntityESchema.make(
+export const storedReplicaCursorSchema = EntityESchema.make(
   'SyncStoredReplicaCursor',
   'key',
   {
@@ -10,8 +9,3 @@ const storedReplicaCursorSchema = EntityESchema.make(
     position: Schema.String,
   },
 ).build();
-
-export const storedReplicaCursorEntity = syncStore
-  .entity(storedReplicaCursorSchema)
-  .primary({ pk: ['collection'] })
-  .build();

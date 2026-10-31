@@ -31,15 +31,13 @@ const Task = EntityESchema.make('Task', 'taskId', {
   .build();
 
 // Two releases of the app over the same logical table.
-const release1 = StdTable.make('board').primary('pk', 'sk').build();
-const oldTask = release1
-  .entity(TaskV1)
-  .primary({ pk: ['boardId'] })
+const release1 = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(TaskV1, (e) => e.primary({ pk: ['boardId'] }))
   .build();
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 const key = { boardId: 'work', taskId: 't1' };
@@ -50,9 +48,11 @@ export default Proof.make({
   critical: true,
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
-    const written = yield* oldTask
-      .insert({ ...key, title: 'Plan', colour: 'blue' })
-      .pipe(Effect.provide(db.layer));
+    const written = yield* release1.Task.insert({
+      ...key,
+      title: 'Plan',
+      colour: 'blue',
+    }).pipe(Effect.provide(db.layer));
     const [stored] = yield* Stream.runCollect(table.scan()).pipe(
       Effect.provide(db.layer),
     );
@@ -64,7 +64,7 @@ export default Proof.make({
   }),
   act: ({ db }) =>
     Effect.gen(function* () {
-      const read = yield* task.get(key);
+      const read = yield* table.Task.get(key);
       const [storedAfter] = yield* Stream.runCollect(table.scan());
       return { read, storedAfter };
     }).pipe(Effect.provide(db.layer)),

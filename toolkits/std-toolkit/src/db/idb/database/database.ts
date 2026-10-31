@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { CONTRACT_STORE, makeIDBSetup } from '../upgrade/index.js';
+import { makeIDBSetup } from '../upgrade/index.js';
 
 export interface IDBDatabaseConfig {
   readonly databaseName: string;
@@ -11,49 +11,42 @@ export interface IDBIndexDefinition {
   readonly keyPath: string | readonly [string, string];
 }
 
-/** One table store's Stored contract, as the contract store keeps it. */
-export interface IDBStoredContract {
-  readonly mode: 'persistent' | 'disposable';
-  readonly hash: string;
-  readonly snapshot: unknown;
-}
-
 export interface IDBConnection {
+  /** The database's name, which names the lock its setups share across tabs. */
+  readonly databaseName: string;
   readonly compare: (left: IDBValidKey, right: IDBValidKey) => number;
+  /**
+   * The open database. After another connection changes the version, the
+   * next call opens the new one; a table layer checks its contract first.
+   */
   readonly open: () => Promise<IDBDatabase>;
+  /**
+   * How many times another connection, such as another tab's setup, has
+   * changed the version under this one.
+   */
+  readonly versionChanges: () => number;
+  /**
+   * Creates the store, with these indexes, only when it is missing, and
+   * answers whether it did.
+   */
+  readonly createStore: (
+    storeName: string,
+    indexes: readonly IDBIndexDefinition[],
+  ) => Effect.Effect<boolean, unknown>;
+  /** Creates the store when missing and makes its indexes exactly these. */
   readonly setup: (
     storeName: string,
     indexes: readonly IDBIndexDefinition[],
   ) => Effect.Effect<void, unknown>;
-  /** Reads a table store's Stored contract, creating the contract store when missing. */
-  readonly readContract: (
-    storeName: string,
-  ) => Effect.Effect<IDBStoredContract | undefined, unknown>;
   /**
-   * Records a table store's contract, and with `wipe` removes every record
-   * from it, in one transaction, only while the stored contract is still the
-   * one read (`undefined` for none). False when another setup moved it.
+   * Like `setup`, but always in a new version, so every other connection
+   * sees a version change: what a change to the Stored contract needs.
    */
-  readonly swapContract: (
+  readonly changeVersion: (
     storeName: string,
-    read: Pick<IDBStoredContract, 'mode' | 'hash'> | undefined,
-    contract: IDBStoredContract,
-    options: { readonly wipe: boolean },
-  ) => Effect.Effect<boolean, unknown>;
+    indexes: readonly IDBIndexDefinition[],
+  ) => Effect.Effect<void, unknown>;
 }
-
-const completed = (transaction: IDBTransaction) =>
-  new Promise<void>((resolve, reject) => {
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () => reject(transaction.error);
-  });
-
-const requested = <A>(request: IDBRequest<A>) =>
-  new Promise<A>((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
 
 const connections = new WeakMap<IDBFactory, Map<string, IDBConnection>>();
 const defaultConnections = new Map<string, IDBConnection>();
@@ -130,6 +123,7 @@ const isVersionError = (cause: unknown) =>
 const makeConnection = (configuration: IDBDatabaseConfig): IDBConnection => {
   let current: Promise<IDBDatabase> | undefined;
   let generation = 0;
+  let versionChanges = 0;
   const open = (
     version?: number,
     upgrade?: Parameters<typeof openDatabase>[3],
@@ -137,6 +131,7 @@ const makeConnection = (configuration: IDBDatabaseConfig): IDBConnection => {
     const factory = resolveFactory(configuration);
     const openedGeneration = ++generation;
     const invalidate = () => {
+      versionChanges++;
       if (generation === openedGeneration) current = undefined;
     };
     const opened = openDatabase(
@@ -170,55 +165,18 @@ const makeConnection = (configuration: IDBDatabaseConfig): IDBConnection => {
     Effect.tryPromise({ try: run, catch: (cause) => cause });
 
   return {
+    databaseName: configuration.databaseName,
     compare: (left, right) => resolveFactory(configuration).cmp(left, right),
     open: getCurrent,
+    versionChanges: () => versionChanges,
+    createStore: (storeName, indexes) =>
+      attempt(() => setup.createStore(storeName, indexes)),
     setup: (storeName, indexes) =>
-      attempt(() => setup.setup(storeName, indexes)),
-    readContract: (storeName) =>
-      attempt(async () => {
-        await setup.prepareContract();
-        const database = await getCurrent();
-        const record = (await requested(
-          database
-            .transaction(CONTRACT_STORE, 'readonly')
-            .objectStore(CONTRACT_STORE)
-            .get(storeName),
-        )) as (IDBStoredContract & { readonly store: string }) | undefined;
-        if (record === undefined) return undefined;
-        return {
-          mode: record.mode,
-          hash: record.hash,
-          snapshot: record.snapshot,
-        };
-      }),
-    swapContract: (storeName, read, contract, { wipe }) =>
-      attempt(async () => {
-        const database = await getCurrent();
-        const stores =
-          wipe && database.objectStoreNames.contains(storeName)
-            ? [CONTRACT_STORE, storeName]
-            : [CONTRACT_STORE];
-        const transaction = database.transaction(stores, 'readwrite');
-        const contracts = transaction.objectStore(CONTRACT_STORE);
-        let swapped = false;
-        // Decided inside the transaction, so no other tab writes in between.
-        const current = contracts.get(storeName);
-        current.onsuccess = () => {
-          const stored = current.result as IDBStoredContract | undefined;
-          const unmoved =
-            read === undefined
-              ? stored === undefined
-              : stored !== undefined &&
-                stored.mode === read.mode &&
-                stored.hash === read.hash;
-          if (!unmoved) return;
-          swapped = true;
-          if (stores.length === 2) transaction.objectStore(storeName).clear();
-          contracts.put({ store: storeName, ...contract });
-        };
-        await completed(transaction);
-        return swapped;
-      }),
+      attempt(() => setup.setup(storeName, indexes)).pipe(Effect.asVoid),
+    changeVersion: (storeName, indexes) =>
+      attempt(() => setup.changeVersion(storeName, indexes)).pipe(
+        Effect.asVoid,
+      ),
   };
 };
 

@@ -1,0 +1,17 @@
+Status: amended by [ADR 0022](0022-a-table-migrates-into-a-new-table-and-backfills-are-gone.md): there are no Backfill rows; a migrated table keeps one migration row instead.
+
+# The Stored contract is rows inside the table, the same on every adapter
+
+The Stored contract moves from each adapter's side table (`_std_contract` in SQLite and IndexedDB, nothing on DynamoDB) into the table itself, as reserved rows written through the same entity code as app data and hidden from `scan` and from app code: one row for the table (keys, indexes, mode and a hash of the rest), one per entity (its key paths and indexes), one per version of every ESchema the table reaches, nested ones included, and one per **Backfill** (status and cursor). Every adapter now keeps and checks its contract the same way, and DynamoDB gains one, set up at deploy inside `DynamoDB.table` as D1 is inside `D1.table`; the deploy guard stays only for tables whose setup runs later on a device or object.
+
+ADR 0012 rejected a baseline inside the table for two reasons that no longer hold. Setup no longer runs per request (ADR 0019): it runs at deploy or when a database opens. And the baseline no longer grows: an approved version is frozen, so its row is written when first shipped, rewritten only when an accepted change loosens it, and no row is bigger than one version's shape, well under DynamoDB's 400 KB item. Entity and version rows are written under a new generation that the table row names, and the table row is written last, so a commit that stops part-way leaves the committed contract readable as it was. An unchanged table is still one read, of the table row's hash.
+
+What an adapter cannot apply stays its own refusal inside one shared plan: DynamoDB changes an index only by adding a global secondary index. A wipe is deleting every row, on every adapter, so a disposable DynamoDB table can now be wiped.
+
+This is a clean break. No code converts an existing `_std_contract`, and the reserved `__std_toolkit_enforcement__` row and its scan filter are removed. A table holding rows but no Stored contract is refused if persistent and wiped if disposable; the way past is a new physical table name. A Stored contract that knows a version, entity or Backfill the running code does not, or is in a newer format, was written by newer code. A persistent table refuses it as `outdated-code`, since the diff would read as removals, and the way past is the newer code; a disposable table is wiped, as for any change that is not safe. A running old IndexedDB tab is still fenced: after another tab's version change it rereads the contract and fails with `Outdated`. A contract that cannot be read at all is refused if the table is persistent and wiped if disposable, by the stored mode or, when that cannot be read either, the current one.
+
+## Considered Options
+
+- **One contract row per table, or per entity**: rejected. Either grows with every version and reaches the item limit again, which is why ADR 0012 dropped the first try.
+- **Converting existing `_std_contract` data on first setup**: rejected. The packages are pre-release with one user, and conversion code would linger.
+- **Keeping the deploy guard on D1 and DynamoDB**: rejected. Setup at deploy checks the same contract against the data itself.

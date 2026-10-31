@@ -12,15 +12,11 @@ const Task = EntityESchema.make('Task', 'taskId', {
   title: Schema.String,
 }).build();
 
-// Both live under the board's partition key: one item collection per board.
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const board = table
-  .entity(Board)
-  .primary({ pk: ['boardId'] })
-  .build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+// Both live under the board's partition key: one item collection per table.Board.
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Board, (e) => e.primary({ pk: ['boardId'] }))
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 export default Proof.make({
@@ -29,20 +25,18 @@ export default Proof.make({
     'Each entity reads only its own rows, even when a board and its tasks share a partition key and an id.',
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
-    yield* board
-      .insert({ boardId: 'work', name: 'Work' })
-      .pipe(Effect.provide(db.layer));
+    yield* table.Board.insert({ boardId: 'work', name: 'Work' }).pipe(
+      Effect.provide(db.layer),
+    );
     yield* Effect.forEach(['t1', 't2'], (taskId) =>
-      task.insert({ taskId, boardId: 'work', title: `Task ${taskId}` }),
+      table.Task.insert({ taskId, boardId: 'work', title: `Task ${taskId}` }),
     ).pipe(Effect.provide(db.layer));
     // A task whose id happens to equal the board's id.
-    yield* task
-      .insert({
-        taskId: 'work',
-        boardId: 'work',
-        title: 'Same id as the board',
-      })
-      .pipe(Effect.provide(db.layer));
+    yield* table.Task.insert({
+      taskId: 'work',
+      boardId: 'work',
+      title: 'Same id as the board',
+    }).pipe(Effect.provide(db.layer));
     const rows = yield* Stream.runCollect(table.scan()).pipe(
       Effect.provide(db.layer),
     );
@@ -54,16 +48,19 @@ export default Proof.make({
   }),
   act: ({ db }) =>
     Effect.gen(function* () {
-      const tasks = yield* task.query('primary', {
+      const tasks = yield* table.Task.query('primary', {
         pk: { boardId: 'work' },
         '>=': null,
       });
-      const boards = yield* board.query('primary', {
+      const boards = yield* table.Board.query('primary', {
         pk: { boardId: 'work' },
         '>=': null,
       });
-      const theBoard = yield* board.get({ boardId: 'work' });
-      const theTask = yield* task.get({ boardId: 'work', taskId: 'work' });
+      const theBoard = yield* table.Board.get({ boardId: 'work' });
+      const theTask = yield* table.Task.get({
+        boardId: 'work',
+        taskId: 'work',
+      });
       return {
         tasks: tasks.items.map(({ value }) => value.taskId),
         boards: boards.items.map(({ value }) => value.name),

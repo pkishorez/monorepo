@@ -15,22 +15,19 @@ const Task = EntityESchema.make('Task', 'taskId', {
 const lastRelease = StdTable.make('board')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-  .build();
-const oldTask = lastRelease
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 const table = StdTable.make('board')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-  .build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
-  .index('GSI1', 'byStatus', { pk: ['status'], sk: ['title'] })
+  .entity(Task, (e) =>
+    e
+      .primary({ pk: ['boardId'] })
+      .index('GSI1', 'byStatus', { pk: ['status'], sk: ['title'] }),
+  )
   .build();
 
-const openTasks = task.query('byStatus', {
+const openTasks = table.Task.query('byStatus', {
   pk: { status: 'open' },
   '>=': null,
 });
@@ -43,9 +40,12 @@ export default Proof.make({
   critical: true,
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
-    const written = yield* oldTask
-      .insert({ taskId: 't1', boardId: 'work', title: 'Plan', status: 'open' })
-      .pipe(Effect.provide(db.layer));
+    const written = yield* lastRelease.Task.insert({
+      taskId: 't1',
+      boardId: 'work',
+      title: 'Plan',
+      status: 'open',
+    }).pipe(Effect.provide(db.layer));
     const before = yield* openTasks.pipe(Effect.provide(db.layer));
     yield* Proof.assert(
       'the new index cannot see the old task',
@@ -66,7 +66,7 @@ export default Proof.make({
       const rechecked = yield* table.drift(repaired!);
       const after = yield* openTasks;
       // The next real write is the first thing a subscriber hears.
-      const finished = yield* task.getAndUpdate(
+      const finished = yield* table.Task.getAndUpdate(
         { boardId: 'work', taskId: 't1' },
         { status: 'done' },
       );

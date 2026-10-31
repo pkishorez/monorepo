@@ -67,7 +67,7 @@ export type TableAccessPatternSnapshot =
   TableEntitySnapshot['accessPatterns'][number];
 
 export interface SnapshotChange {
-  readonly impact: 'safe' | 'requires-backfill' | 'breaking' | 'unverifiable';
+  readonly impact: 'safe' | 'requires-reindex' | 'breaking' | 'unverifiable';
   readonly subject: {
     readonly kind:
       | 'table'

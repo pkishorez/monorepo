@@ -13,10 +13,9 @@ const TaskV1 = EntityESchema.make('Task', 'taskId', {
   title: Schema.String,
   open: Schema.Boolean,
 }).build();
-const lastRelease = StdTable.make('board').primary('pk', 'sk').build();
-const oldTask = lastRelease
-  .entity(TaskV1)
-  .primary({ pk: ['boardId'] })
+const lastRelease = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(TaskV1, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 // This release: `open` became a status with room to grow.
@@ -35,10 +34,9 @@ const Task = EntityESchema.make('Task', 'taskId', {
   )
   .build();
 type Task = typeof Task.Type;
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 const until = (ready: () => boolean) =>
@@ -61,7 +59,7 @@ export default Proof.make({
         { boardId: 'work', taskId: 't1', title: 'Write the plan', open: true },
         { boardId: 'work', taskId: 't2', title: 'Book the room', open: false },
       ],
-      (value) => oldTask.insert(value),
+      (value) => lastRelease.Task.insert(value),
     ).pipe(Effect.provide(SQLite.make(lastRelease, { database }).layer));
     const backend = SQLite.make(table, { database });
     const storedBefore = yield* Stream.runCollect(table.scan()).pipe(
@@ -83,28 +81,26 @@ export default Proof.make({
         sync: {
           global: strategy.oldToNew({
             fetch: ({ after }: { after: Entity<Task> | null }) =>
-              task
-                .query('primary', { pk: { boardId: 'work' }, '>=': null })
-                .pipe(
-                  Effect.map((page) =>
-                    page.items
-                      .filter(
-                        (item) =>
-                          after === null || item.meta._u > after.meta._u,
-                      )
-                      .sort((a, b) => (a.meta._u < b.meta._u ? -1 : 1)),
-                  ),
-                  Effect.provide(backend.layer),
+              table.Task.query('primary', {
+                pk: { boardId: 'work' },
+                '>=': null,
+              }).pipe(
+                Effect.map((page) =>
+                  page.items
+                    .filter(
+                      (item) => after === null || item.meta._u > after.meta._u,
+                    )
+                    .sort((a, b) => (a.meta._u < b.meta._u ? -1 : 1)),
                 ),
+                Effect.provide(backend.layer),
+              ),
           }),
         },
         onUpdate: ({ current, updates }) =>
-          task
-            .getAndUpdate(
-              { boardId: current.boardId, taskId: current.taskId },
-              updates,
-            )
-            .pipe(Effect.provide(backend.layer)),
+          table.Task.getAndUpdate(
+            { boardId: current.boardId, taskId: current.taskId },
+            updates,
+          ).pipe(Effect.provide(backend.layer)),
       });
       yield* Effect.promise(() => tasks.preload());
       yield* until(() => tasks.size === 2);

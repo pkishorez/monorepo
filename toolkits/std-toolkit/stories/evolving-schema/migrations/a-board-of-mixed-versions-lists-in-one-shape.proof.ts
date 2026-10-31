@@ -18,15 +18,13 @@ const Task = EntityESchema.make('Task', 'taskId', {
   }))
   .build();
 
-const lastRelease = StdTable.make('board').primary('pk', 'sk').build();
-const oldTask = lastRelease
-  .entity(TaskV1)
-  .primary({ pk: ['boardId'] })
+const lastRelease = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(TaskV1, (e) => e.primary({ pk: ['boardId'] }))
   .build();
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 export default Proof.make({
@@ -38,17 +36,17 @@ export default Proof.make({
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
     yield* Effect.gen(function* () {
-      yield* oldTask.insert({
+      yield* lastRelease.Task.insert({
         taskId: 't1',
         boardId: 'work',
         title: 'Old one',
       });
-      yield* oldTask.insert({
+      yield* lastRelease.Task.insert({
         taskId: 't2',
         boardId: 'work',
         title: 'Old two',
       });
-      yield* task.insert({
+      yield* table.Task.insert({
         taskId: 't3',
         boardId: 'work',
         title: 'New',
@@ -66,7 +64,7 @@ export default Proof.make({
     return { db, storedVersions: versions };
   }),
   act: ({ db }) =>
-    task.query('primary', { pk: { boardId: 'work' }, '>=': null }).pipe(
+    table.Task.query('primary', { pk: { boardId: 'work' }, '>=': null }).pipe(
       Effect.map((page) => ({
         listed: page.items.map(({ value, meta }) => ({
           taskId: value.taskId,

@@ -103,8 +103,11 @@ describe('Encoding refuses what JSON cannot hold', () => {
     const Note = EntityESchema.make('Note', 'noteId', {
       body: ESchema.fromType<{} | null>(),
     }).build();
-    const table = StdTable.make('portable-notes').primary('pk', 'sk').build();
-    const notes = table.entity(Note).primary().build();
+    const table = StdTable.make('portable-notes')
+      .primary('pk', 'sk')
+      .entity(Note, (e) => e.primary())
+      .build();
+    const notes = table.Note;
     return Effect.gen(function* () {
       const error = yield* notes
         .insert({ noteId: 'n1', body: { score: NaN } })

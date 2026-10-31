@@ -35,7 +35,7 @@ _Avoid_: Editable latest version.
 The constant `v1` — the starting **version** for every new schema. The v1 shape is frozen once data exists.
 
 **Evolution**:
-One step in a schema's history: a `{ version, schema, migration }` record pairing a **version** with its shape and the function that reaches it. `ValueEvolution` is the **ValueESchema** variant.
+One step in a schema's history: a `{ version, schema, migration }` record pairing a **version** with its shape and the function that reaches it, or none for v1. Every later version has one. `ValueEvolution` is the **ValueESchema** variant.
 _Avoid_: Step, generation record.
 
 **transitive change**:
@@ -47,7 +47,7 @@ A total function transforming a **value** of the prior **version** into a value 
 _Avoid_: transform, upgrade, converter.
 
 **upgrade check**:
-A property test of an ESchema's **migrations** (`expectUpgradable`): for every **version** of the schema and of every ESchema it nests, it generates **values** valid at that version, stores each in that version's **encoded form**, and requires it to decode to the latest value with its id unchanged, then encode and decode again unchanged. Only rows the version could have stored are generated, and paths named `unchanged` must keep their value. It tests behavior a **table snapshot** cannot see, since a snapshot records shapes, not migrations. The table test `expectTableShippable` runs it over every schema a [[db]] **StdTable** reaches through its entities, with each keyed entity's partition-key paths `unchanged`, since a migration that moves one strands the row at its old key.
+A property test of an ESchema's **migrations** (`expectUpgradable`): for every **version** of the schema and of every ESchema it nests, it generates **values** valid at that version, stores each in that version's **encoded form**, and requires it to decode to the latest value with its id unchanged, then encode and decode again unchanged. Only rows the version could have stored are generated, and paths named `unchanged` must keep their value. It tests behavior a **table snapshot** cannot see, since a snapshot records shapes, not migrations. The table test `expectTableShippable`, in [[db]] (`@kestack/std-toolkit/db/testing`), runs it over every schema a [[db]] **StdTable** reaches through its entities, with each keyed entity's partition-key paths `unchanged`, since a migration that moves one strands the row at its old key.
 _Avoid_: Migration test, golden rows.
 
 **forward-read compatibility**:

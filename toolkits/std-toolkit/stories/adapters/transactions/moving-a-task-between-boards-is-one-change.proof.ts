@@ -9,10 +9,9 @@ const Task = EntityESchema.make('Task', 'taskId', {
   title: Schema.String,
 }).build();
 
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 export default Proof.make({
@@ -23,19 +22,27 @@ export default Proof.make({
   critical: true,
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
-    const onWork = yield* task
-      .insert({ taskId: 't1', boardId: 'work', title: 'Plan' })
-      .pipe(Effect.provide(db.layer));
+    const onWork = yield* table.Task.insert({
+      taskId: 't1',
+      boardId: 'work',
+      title: 'Plan',
+    }).pipe(Effect.provide(db.layer));
     yield* Proof.assert('the task is on work', onWork.meta._d === false);
     return { db, onWork };
   }),
   act: ({ db, onWork }) =>
     Effect.gen(function* () {
-      const arrive = yield* task.insertOp({ ...onWork.value, boardId: 'home' });
-      const leave = yield* task.deleteOp({ boardId: 'work', taskId: 't1' });
+      const arrive = yield* table.Task.insertOp({
+        ...onWork.value,
+        boardId: 'home',
+      });
+      const leave = yield* table.Task.deleteOp({
+        boardId: 'work',
+        taskId: 't1',
+      });
       const [arrived, left] = yield* table.transact([arrive, leave]);
-      const home = yield* task.get({ boardId: 'home', taskId: 't1' });
-      const work = yield* task.get({ boardId: 'work', taskId: 't1' });
+      const home = yield* table.Task.get({ boardId: 'home', taskId: 't1' });
+      const work = yield* table.Task.get({ boardId: 'work', taskId: 't1' });
       return { arrived, left, home, work };
     }).pipe(Effect.provide(db.layer)),
   verify: ({ arrived, left, home, work }) =>

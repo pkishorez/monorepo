@@ -244,7 +244,10 @@ const whoAmI = Effect.gen(function* () {
   Effect.provide(client(Api, { url: 'https://api.example.com/rpc' })),
 );
 
-await Effect.runPromise(SQLite.setup(deviceAccountsTable, { database }));
+// Remembered sign-ins: losing them costs a sign-in, never data.
+await Effect.runPromise(
+  SQLite.setup(deviceAccountsTable, { database, mode: 'disposable' }),
+);
 await Effect.runPromise(
   Effect.andThen(login, whoAmI).pipe(Effect.provide(accounts)),
 );

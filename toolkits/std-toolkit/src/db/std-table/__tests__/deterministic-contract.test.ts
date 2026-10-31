@@ -8,11 +8,13 @@ import { makeDeterministicContract } from './deterministic-contract.js';
 
 describe('portable optimistic retry', () => {
   it('re-reads and re-runs the callback after a condition conflict', async () => {
-    const table = StdTable.make('retry-test').primary('pk', 'sk').build();
     const schema = EntityESchema.make('Counter', 'counterId', {
       count: Schema.Finite,
     }).build();
-    const counter = table.entity(schema).primary().build();
+    const table = StdTable.make('retry-test')
+      .primary('pk', 'sk')
+      .entity(schema, (e) => e.primary())
+      .build();
     const deterministic = makeDeterministicContract(table.logicalName);
     let conflicts = 0;
     let callbacks = 0;
@@ -28,8 +30,8 @@ describe('portable optimistic retry', () => {
 
     const updated = await Effect.runPromise(
       Effect.gen(function* () {
-        yield* counter.insert({ counterId: 'one', count: 0 });
-        return yield* counter.getAndUpdate(
+        yield* table.Counter.insert({ counterId: 'one', count: 0 });
+        return yield* table.Counter.getAndUpdate(
           { counterId: 'one' },
           ({ count }) => {
             callbacks++;

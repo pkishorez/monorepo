@@ -11,9 +11,11 @@ const Counter = ESchema.make('Counter', {
   saves: Schema.Finite,
 }).build();
 
-const table = StdTable.make('app').primary('pk', 'sk').build();
-const settings = table.singleEntity(Settings).default({ theme: 'light' });
-const counter = table.singleEntity(Counter).default({ saves: 0 });
+const table = StdTable.make('app')
+  .primary('pk', 'sk')
+  .singleEntity(Settings, { default: { theme: 'light' } })
+  .singleEntity(Counter, { default: { saves: 0 } })
+  .build();
 
 export default Proof.make({
   title: 'A batch guarded by settings someone else changed does not commit',
@@ -21,16 +23,16 @@ export default Proof.make({
     '`unchangedOp` asserts the record still has the stamp that was read; if another write landed, the whole batch fails as stale.',
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
-    const counted = yield* counter
-      .put({ saves: 0 })
-      .pipe(Effect.provide(db.layer));
-    const seen = yield* settings
-      .put({ theme: 'dark' })
-      .pipe(Effect.provide(db.layer));
+    const counted = yield* table.Counter.put({ saves: 0 }).pipe(
+      Effect.provide(db.layer),
+    );
+    const seen = yield* table.Settings.put({ theme: 'dark' }).pipe(
+      Effect.provide(db.layer),
+    );
     // Someone else changes the settings after we read them.
-    const theirs = yield* settings
-      .put({ theme: 'light' })
-      .pipe(Effect.provide(db.layer));
+    const theirs = yield* table.Settings.put({ theme: 'light' }).pipe(
+      Effect.provide(db.layer),
+    );
     yield* Proof.assert(
       'the settings moved after our read',
       theirs.meta._u > seen.meta._u,
@@ -39,8 +41,8 @@ export default Proof.make({
   }),
   act: ({ db, seen }) =>
     Effect.gen(function* () {
-      const guard = yield* settings.unchangedOp(seen);
-      const bump = yield* counter.getAndUpdateOp((current) => ({
+      const guard = yield* table.Settings.unchangedOp(seen);
+      const bump = yield* table.Counter.getAndUpdateOp((current) => ({
         saves: current.saves + 1,
       }));
       const failure = yield* table.transact([guard, bump]).pipe(
@@ -52,7 +54,7 @@ export default Proof.make({
           onSuccess: () => null,
         }),
       );
-      const count = yield* counter.get();
+      const count = yield* table.Counter.get();
       return { statuses: failure, count };
     }).pipe(Effect.provide(db.layer)),
   verify: ({ statuses, count }, { counted }) =>

@@ -1,5 +1,9 @@
 /**
- * Earlier releases wrote a snapshot item under this Entity name. Keep it out
- * of table scans while existing physical tables can still contain that item.
+ * Entity names under this prefix belong to the toolkit: setup keeps the
+ * Stored contract as rows named so (ADR 0021). A table refuses an entity
+ * declared under one, and `scan` never returns them.
  */
-export const LEGACY_BASELINE_ENTITY = '__std_toolkit_enforcement__';
+export const RESERVED_ENTITY_PREFIX = '_std_';
+
+export const isReservedEntity = (name: string): boolean =>
+  name.startsWith(RESERVED_ENTITY_PREFIX);

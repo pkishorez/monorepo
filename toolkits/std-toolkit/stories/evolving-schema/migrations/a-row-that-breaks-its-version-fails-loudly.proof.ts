@@ -14,15 +14,13 @@ const ForeignTask = EntityESchema.make('Task', 'taskId', {
   title: Schema.Finite,
 }).build();
 
-const anotherTool = StdTable.make('board').primary('pk', 'sk').build();
-const foreignTask = anotherTool
-  .entity(ForeignTask)
-  .primary({ pk: ['boardId'] })
+const anotherTool = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(ForeignTask, (e) => e.primary({ pk: ['boardId'] }))
   .build();
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 export default Proof.make({
@@ -33,12 +31,16 @@ export default Proof.make({
   critical: true,
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
-    yield* foreignTask
-      .insert({ taskId: 't1', boardId: 'work', title: 7 })
-      .pipe(Effect.provide(db.layer));
-    const neighbour = yield* task
-      .insert({ taskId: 't2', boardId: 'work', title: 'Review' })
-      .pipe(Effect.provide(db.layer));
+    yield* anotherTool.Task.insert({
+      taskId: 't1',
+      boardId: 'work',
+      title: 7,
+    }).pipe(Effect.provide(db.layer));
+    const neighbour = yield* table.Task.insert({
+      taskId: 't2',
+      boardId: 'work',
+      title: 'Review',
+    }).pipe(Effect.provide(db.layer));
     yield* Proof.assert(
       'a bad row and a good row share the board',
       neighbour.value.title === 'Review',
@@ -61,13 +63,13 @@ export default Proof.make({
           }),
         );
       const badRow = yield* outcome(
-        task.get({ boardId: 'work', taskId: 't1' }),
+        table.Task.get({ boardId: 'work', taskId: 't1' }),
       );
       const neighbour = yield* outcome(
-        task.get({ boardId: 'work', taskId: 't2' }),
+        table.Task.get({ boardId: 'work', taskId: 't2' }),
       );
       const listing = yield* outcome(
-        task.query('primary', { pk: { boardId: 'work' }, '>=': null }),
+        table.Task.query('primary', { pk: { boardId: 'work' }, '>=': null }),
       );
       return { badRow, neighbour, listing };
     }).pipe(Effect.provide(db.layer)),

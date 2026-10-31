@@ -102,14 +102,17 @@ export class ConnectionFilter extends Context.Service<
 
 const TABLE = 'sidebar';
 
-const table = StdTable.make(TABLE).primary('pk', 'sk').build();
-
 const ShownSchema = ESchema.make('SidebarConnection', {
   /** The Connection whose Projects the sidebar lists; null for every Connection. */
   connectionId: Schema.NullOr(Schema.String),
 }).build();
 
-const shown = table.singleEntity(ShownSchema).default({ connectionId: null });
+const table = StdTable.make(TABLE)
+  .primary('pk', 'sk')
+  .singleEntity(ShownSchema, { default: { connectionId: null } })
+  .build();
+
+const shown = table.SidebarConnection;
 
 const CollapsedSchema = ESchema.make('SidebarCollapsed', {
   /** The Connections whose Projects the sidebar hides under their name. */

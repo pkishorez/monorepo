@@ -6,12 +6,13 @@ import type {
 import { keyPathRefusal } from './key-path-shape.js';
 import type {
   AccessPatternMap,
-  KeyedEntityBuilderStart,
-  KeyedEntityDefinition,
+  EntityDeclaration,
   GlobalSecondaryIndexMap,
+  KeyedEntityBuilderStart,
+  KeyedEntityDeclaration,
+  KeyedEntityDefinition,
   LocalSecondaryIndexMap,
-  PrimaryIndex,
-  SingleEntityBuilder,
+  SingleEntityDeclaration,
   SingleEntityDefinition,
   TableDefinition,
 } from './definition.js';
@@ -48,6 +49,7 @@ const sortPatterns = (patterns: AccessPatternMap): AccessPatternMap =>
   );
 
 interface KeyedEntityBuilderRuntime {
+  readonly declaration: KeyedEntityDeclaration;
   index(
     slot: string,
     name: string,
@@ -56,25 +58,28 @@ interface KeyedEntityBuilderRuntime {
       readonly sk?: readonly string[];
     },
   ): KeyedEntityBuilderRuntime;
-  build(): KeyedEntityDefinition;
 }
 
+type IndexSlots = Pick<
+  TableDefinition,
+  'localSecondaryIndexes' | 'globalSecondaryIndexes'
+>;
+
 const makeIndexesBuilder = (
-  table: TableDefinition,
-  schema: AnyEntityESchema,
-  primaryPk: readonly string[],
-  patterns: AccessPatternMap,
-  register: (entity: RegisteredEntity) => void,
+  slots: IndexSlots,
+  declaration: KeyedEntityDeclaration,
 ): KeyedEntityBuilderRuntime => ({
+  declaration,
   index(slot, name, derivation) {
+    const { schema, accessPatterns: patterns } = declaration;
     if (name === '') throw new Error('Access-pattern name must not be empty');
     if (Object.hasOwn(patterns, name)) {
       throw new Error(`Access pattern "${name}" is already defined`);
     }
     if (Object.values(patterns).some((pattern) => pattern.index === slot))
       throw new Error(`Index slot "${slot}" is already used by this Entity`);
-    const lsi = table.localSecondaryIndexes[slot];
-    const gsi = table.globalSecondaryIndexes[slot];
+    const lsi = slots.localSecondaryIndexes[slot];
+    const gsi = slots.globalSecondaryIndexes[slot];
     if (lsi === undefined && gsi === undefined) {
       throw new Error(`Index slot "${slot}" is not defined`);
     }
@@ -82,7 +87,7 @@ const makeIndexesBuilder = (
       readonly pk?: readonly string[];
       readonly sk?: readonly string[];
     };
-    const pk = lsi === undefined ? (source.pk ?? []) : primaryPk;
+    const pk = lsi === undefined ? (source.pk ?? []) : declaration.primary.pk;
     const sk = source.sk ?? ['_u'];
     if (lsi !== undefined && source.pk !== undefined) {
       throw new Error(
@@ -94,87 +99,73 @@ const makeIndexesBuilder = (
     }
     if (lsi === undefined) assertComponents(schema, pk, 'secondary');
     assertComponents(schema, sk, 'secondary');
-    const next = {
-      ...patterns,
-      [name]: Object.freeze({
-        index: slot,
-        kind: lsi === undefined ? 'gsi' : 'lsi',
-        pk: Object.freeze([...pk]),
-        sk: Object.freeze([...sk]),
-      }),
-    } as AccessPatternMap;
-    return makeIndexesBuilder(
-      table,
-      schema,
-      primaryPk,
-      next,
-      register,
-    ) as never;
-  },
-  build() {
-    assertComponents(schema, [schema.idField], 'primary');
-    const entity = Object.freeze({
-      kind: 'keyed' as const,
-      name: schema.name,
-      table,
-      schema,
-      primary: Object.freeze({
-        pk: Object.freeze([...primaryPk]),
-        sk: Object.freeze([schema.idField]),
-      }),
-      accessPatterns: sortPatterns(patterns),
+    return makeIndexesBuilder(slots, {
+      ...declaration,
+      accessPatterns: {
+        ...patterns,
+        [name]: Object.freeze({
+          index: slot,
+          kind: lsi === undefined ? 'gsi' : 'lsi',
+          pk: Object.freeze([...pk]),
+          sk: Object.freeze([...sk]),
+        }),
+      },
     });
-    register(entity);
-    return entity;
   },
 });
 
-export const makeKeyedEntityBuilder = <
-  Name extends string,
+/** The first step of declaring a keyed entity against a table's index slots. */
+export const startKeyedEntity = <
   TSchema extends AnyEntityESchema,
   Lsis extends LocalSecondaryIndexMap,
   Gsis extends GlobalSecondaryIndexMap,
 >(
-  table: TableDefinition<Name, PrimaryIndex, Lsis, Gsis>,
+  slots: IndexSlots,
   schema: TSchema,
-  register: (entity: RegisteredEntity) => void,
-): KeyedEntityBuilderStart<Name, TSchema, Lsis, Gsis> => ({
+): KeyedEntityBuilderStart<TSchema, Lsis, Gsis> => ({
   primary(derivation) {
     const pk = derivation?.pk ?? [];
     assertComponents(schema, pk, 'primary');
-    return makeIndexesBuilder(
-      table,
+    assertComponents(schema, [schema.idField], 'primary');
+    const primary = Object.freeze({
+      pk: Object.freeze([...pk]),
+      sk: Object.freeze([schema.idField] as const),
+    });
+    return makeIndexesBuilder(slots, {
+      kind: 'keyed',
       schema,
-      pk,
-      {
-        primary: Object.freeze({
-          kind: 'primary',
-          pk: Object.freeze([...pk]),
-          sk: Object.freeze([schema.idField]),
-        }),
+      primary,
+      accessPatterns: {
+        primary: Object.freeze({ kind: 'primary', ...primary }),
       },
-      register,
-    ) as never;
+    }) as never;
   },
 });
 
-export const makeSingleEntityBuilder = <
-  Name extends string,
-  TSchema extends AnyUnkeyedESchema,
->(
-  table: TableDefinition<Name>,
+export const declareSingleEntity = <TSchema extends AnyUnkeyedESchema>(
   schema: TSchema,
-  register: (entity: RegisteredEntity) => void,
-): SingleEntityBuilder<Name, TSchema> => ({
-  default(defaultValue: ESchemaType<TSchema>) {
-    const entity = Object.freeze({
-      kind: 'single' as const,
-      name: schema.name,
-      table,
-      schema,
-      defaultValue,
-    }) as SingleEntityDefinition<Name, TSchema>;
-    register(entity);
-    return entity;
-  },
-});
+  defaultValue: ESchemaType<TSchema>,
+): SingleEntityDeclaration<TSchema> =>
+  Object.freeze({ kind: 'single', schema, defaultValue });
+
+/** An entity's definition once its table exists. */
+export const defineEntity = (
+  table: TableDefinition,
+  declaration: EntityDeclaration,
+): RegisteredEntity =>
+  declaration.kind === 'keyed'
+    ? Object.freeze({
+        kind: 'keyed',
+        name: declaration.schema.name,
+        table,
+        schema: declaration.schema,
+        primary: declaration.primary,
+        accessPatterns: sortPatterns(declaration.accessPatterns),
+      })
+    : Object.freeze({
+        kind: 'single',
+        name: declaration.schema.name,
+        table,
+        schema: declaration.schema,
+        defaultValue: declaration.defaultValue,
+      });

@@ -12,20 +12,15 @@ const Task = EntityESchema.make('Task', 'taskId', {
   title: Schema.String,
 }).build();
 
-const shipped = StdTable.make('board').primary('pk', 'sk').build();
-shipped
-  .entity(Board)
-  .primary({ pk: ['boardId'] })
-  .build();
-shipped
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const shipped = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Board, (e) => e.primary({ pk: ['boardId'] }))
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 // A refactor forgot to register Board.
-const forgetful = StdTable.make('board').primary('pk', 'sk').build();
-forgetful
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const forgetful = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 export default Proof.make({

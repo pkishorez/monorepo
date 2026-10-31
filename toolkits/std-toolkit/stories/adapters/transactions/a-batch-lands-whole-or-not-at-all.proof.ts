@@ -10,10 +10,9 @@ const Task = EntityESchema.make('Task', 'taskId', {
   status: Schema.Literals(['open', 'done']),
 }).build();
 
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 export default Proof.make({
@@ -23,37 +22,39 @@ export default Proof.make({
   critical: true,
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
-    yield* task
-      .insert({ taskId: 't1', boardId: 'work', title: 'Plan', status: 'open' })
-      .pipe(Effect.provide(db.layer));
-    yield* task
-      .insert({
-        taskId: 't2',
-        boardId: 'work',
-        title: 'Review',
-        status: 'open',
-      })
-      .pipe(Effect.provide(db.layer));
-    const before = yield* task
-      .query('primary', { pk: { boardId: 'work' }, '>=': null })
-      .pipe(Effect.provide(db.layer));
+    yield* table.Task.insert({
+      taskId: 't1',
+      boardId: 'work',
+      title: 'Plan',
+      status: 'open',
+    }).pipe(Effect.provide(db.layer));
+    yield* table.Task.insert({
+      taskId: 't2',
+      boardId: 'work',
+      title: 'Review',
+      status: 'open',
+    }).pipe(Effect.provide(db.layer));
+    const before = yield* table.Task.query('primary', {
+      pk: { boardId: 'work' },
+      '>=': null,
+    }).pipe(Effect.provide(db.layer));
     yield* Proof.assert('two open tasks exist', before.items.length === 2);
     return { db, before: before.items.map(({ value }) => value) };
   }),
   act: ({ db }) =>
     Effect.gen(function* () {
-      const finish = yield* task.getAndUpdateOp(
+      const finish = yield* table.Task.getAndUpdateOp(
         { boardId: 'work', taskId: 't1' },
         { status: 'done' },
       );
-      const add = yield* task.insertOp({
+      const add = yield* table.Task.insertOp({
         taskId: 't3',
         boardId: 'work',
         title: 'Ship',
         status: 'open',
       });
       // t2 already exists: this op refuses.
-      const duplicate = yield* task.insertOp({
+      const duplicate = yield* table.Task.insertOp({
         taskId: 't2',
         boardId: 'work',
         title: 'Again',
@@ -70,7 +71,7 @@ export default Proof.make({
           onSuccess: () => null,
         }),
       );
-      const after = yield* task.query('primary', {
+      const after = yield* table.Task.query('primary', {
         pk: { boardId: 'work' },
         '>=': null,
       });

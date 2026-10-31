@@ -2,15 +2,17 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { Effect } from 'effect';
 import { expect } from 'vitest';
-import {
-  findUpgradeFailures,
-  type UpgradeCheckOptions,
-  type UpgradeRoot,
-} from '../../eschema/testing/index.js';
 import { TableSnapshot } from '../index.js';
 import type { SnapshotChange, TableSource } from '../index.js';
 
-export type ShippableOptions = UpgradeCheckOptions;
+export interface SnapshotFileOptions {
+  /**
+   * What else keeps the table from shipping, each a section of the failure.
+   * Any one fails the test, under `-u` as without it, and the file is not
+   * written.
+   */
+  readonly refusals?: readonly string[];
+}
 
 // A file the toolkit cannot read is never replaced, not even under `-u`: it is
 // the baseline breaking changes are judged against, so replacing it would
@@ -43,75 +45,40 @@ const serialize = (snapshot: TableSnapshot): Promise<string> =>
     ),
   );
 
-/**
- * Each entity's schema, with the key paths its rows are stored under: a
- * migration that changes one strands the row at a key it no longer derives.
- */
-const upgradeRoots = (table: TableSource): readonly UpgradeRoot[] =>
-  table.registeredEntities.map((entity) =>
-    entity.kind === 'keyed'
-      ? { schema: entity.schema, unchanged: [...entity.primary.pk] }
-      : { schema: entity.schema },
-  );
-
 const isBreaking = ({ impact }: SnapshotChange) =>
   impact === 'breaking' || impact === 'unverifiable';
 
-/** Why the table cannot ship, as sections of the failure; empty when it can. */
-const refusals = (
+const breakingSection = (
   file: string,
   changes: readonly SnapshotChange[],
-  upgrades: readonly string[],
 ): readonly string[] => {
   const blocked = changes.filter(isBreaking);
-  return [
-    ...(upgrades.length === 0
-      ? []
-      : [
-          [
-            'Stored versions that do not upgrade:',
-            '',
-            ...upgrades,
-            '',
-            'Fix the migration or the schema. Running vitest with -u does not change this.',
-          ].join('\n'),
-        ]),
-    ...(blocked.length === 0
-      ? []
-      : [
-          [
-            `Breaking changes against ${file}:`,
-            '',
-            TableSnapshot.renderChanges(blocked),
-            '',
-            'Running vitest with -u does not accept a breaking change, and nothing else does: setup and the deploy guard refuse it too. A stored version is frozen once shipped: undo the edit and add the change as a new version instead, or move the data to a new physical table name.',
-          ].join('\n'),
-        ]),
-  ];
+  return blocked.length === 0
+    ? []
+    : [
+        [
+          `Breaking changes against ${file}:`,
+          '',
+          TableSnapshot.renderChanges(blocked),
+          '',
+          'Running vitest with -u does not accept a breaking change, and nothing else does: setup and the deploy guard refuse it too. A stored version is frozen once shipped: undo the edit and add the change as a new version with a migration instead. A change no migration can make needs a new physical table, and a table migration that moves the data into it.',
+        ].join('\n'),
+      ];
 };
 
 /**
- * The one test a persistent table needs; a table kept only in disposable
- * physical tables needs none. It fails unless the table is safe to ship:
+ * Checks the table snapshot against the committed file: it fails on a
+ * breaking change, or on any of the caller's `refusals`, listing every reason
+ * at once, and otherwise requires the file to be up to date.
  *
- * - every stored version of every schema the table reaches upgrades to the
- *   latest, and a keyed row keeps its id and partition key;
- * - the table snapshot has no breaking change against the committed file;
- * - the committed file is up to date.
- *
- * `vitest -u` writes the file only for changes that are safe or need a
- * backfill. It never accepts a breaking change or a failing upgrade.
+ * `vitest -u` writes the file only when nothing refuses: for changes that are
+ * safe or need a reindex. It never accepts a breaking change.
  */
-export async function expectTableShippable(
+export async function expectSnapshotFile(
   table: TableSource,
   file: string,
-  options: ShippableOptions = {},
+  options: SnapshotFileOptions = {},
 ): Promise<void> {
-  if (table.registeredEntities.length === 0) {
-    throw new Error(
-      `Table "${table.logicalName}" has no registered entities; import the modules that define them before checking it.`,
-    );
-  }
   const state = expect.getState();
   const path =
     state.testPath === undefined
@@ -120,10 +87,12 @@ export async function expectTableShippable(
   const prior = await readPrior(path, file);
   const current = TableSnapshot.capture(table);
   const changes = prior === undefined ? [] : TableSnapshot.diff(prior, current);
-  const upgrades = await Effect.runPromise(
-    findUpgradeFailures(upgradeRoots(table), options),
-  );
-  const refused = refusals(file, changes, upgrades);
+  // Under -u, Vitest writes file snapshots when the test file finishes, so
+  // the refusal must come before toMatchFileSnapshot is called.
+  const refused = [
+    ...(options.refusals ?? []),
+    ...breakingSection(file, changes),
+  ];
   if (refused.length > 0) {
     throw new Error(
       [`Table "${table.logicalName}" is not safe to ship.`, ...refused].join(
@@ -140,7 +109,7 @@ export async function expectTableShippable(
           '',
           TableSnapshot.renderChanges(changes),
           '',
-          `These changes keep every stored row readable. Run vitest with -u to accept them into ${file}.`,
+          `Nothing refuses these changes. Run vitest with -u to accept them into ${file}.`,
         ].join('\n');
   await expect(await serialize(current), message).toMatchFileSnapshot(path);
 }

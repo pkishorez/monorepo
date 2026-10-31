@@ -9,8 +9,10 @@ const Settings = ESchema.make('Settings', {
   theme: Schema.Literals(['light', 'dark']),
 }).build();
 
-const table = StdTable.make('app').primary('pk', 'sk').build();
-const settings = table.singleEntity(Settings).default({ theme: 'light' });
+const table = StdTable.make('app')
+  .primary('pk', 'sk')
+  .singleEntity(Settings, { default: { theme: 'light' } })
+  .build();
 
 export default Proof.make({
   title: 'Reset saves the default as a real record that subscribers hear',
@@ -18,9 +20,9 @@ export default Proof.make({
     'A single entity is never deleted. Reset stores the default with a new update stamp, so get and the change notice agree.',
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
-    const changed = yield* settings
-      .put({ theme: 'dark' })
-      .pipe(Effect.provide(db.layer));
+    const changed = yield* table.Settings.put({ theme: 'dark' }).pipe(
+      Effect.provide(db.layer),
+    );
     yield* Proof.assert(
       'settings were changed from the default',
       changed.value.theme === 'dark',
@@ -30,11 +32,11 @@ export default Proof.make({
   act: ({ db }) =>
     Effect.gen(function* () {
       const listening = yield* Effect.forkChild(
-        Stream.runCollect(settings.subscribe().pipe(Stream.take(1))),
+        Stream.runCollect(table.Settings.subscribe().pipe(Stream.take(1))),
         { startImmediately: true },
       );
-      const reset = yield* settings.reset();
-      const read = yield* settings.get();
+      const reset = yield* table.Settings.reset();
+      const read = yield* table.Settings.get();
       const [notice] = yield* Fiber.join(listening);
       return { reset, read, notice };
     }).pipe(Effect.provide(db.layer), Effect.provide(defaultBroadcaster)),

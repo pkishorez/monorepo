@@ -105,6 +105,9 @@ export const queryItems = (
       ScanIndexForward: !request.descending,
       Limit: request.limit,
       ...(start === undefined ? {} : { ExclusiveStartKey: start }),
+      ...(request.consistent === undefined
+        ? {}
+        : { ConsistentRead: request.consistent }),
     })
     .pipe(
       Effect.mapError(contractFailure),

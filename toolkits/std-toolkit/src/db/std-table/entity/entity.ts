@@ -17,15 +17,9 @@ import type {
   TransactPut,
 } from '../contract/index.js';
 import type {
-  AccessPatternDefinition,
   AccessPatternMap,
-  GlobalSecondaryIndexMap,
-  IndexComponent,
   KeyedEntityDefinition,
   KeyRecord,
-  LocalSecondaryIndexMap,
-  PatternFor,
-  PrimaryComponent,
   SingleEntityDefinition,
 } from '../definition/index.js';
 
@@ -221,66 +215,6 @@ export interface SingleEntity<
   subscribe(
     filter?: Partial<S['Type']>,
   ): Stream.Stream<ChangeNotice<S['Type']>>;
-}
-
-export interface KeyedBuilderStart<
-  Name extends string,
-  S extends AnyEntityESchema,
-  Lsis extends LocalSecondaryIndexMap = LocalSecondaryIndexMap,
-  Gsis extends GlobalSecondaryIndexMap = GlobalSecondaryIndexMap,
-> {
-  primary<const Pk extends readonly PrimaryComponent<S>[] = []>(derivation?: {
-    readonly pk: Pk;
-  }): KeyedBuilder<
-    Name,
-    S,
-    Lsis,
-    Gsis,
-    Pk,
-    Record<
-      'primary',
-      AccessPatternDefinition<undefined, 'primary', Pk, readonly [S['idField']]>
-    >
-  >;
-}
-
-export interface KeyedBuilder<
-  Name extends string,
-  S extends AnyEntityESchema,
-  Lsis extends LocalSecondaryIndexMap,
-  Gsis extends GlobalSecondaryIndexMap,
-  Pk extends readonly string[],
-  Patterns extends AccessPatternMap,
-> {
-  index<
-    const Slot extends keyof (Lsis & Gsis) & string,
-    const Pattern extends string,
-    const D extends (Slot extends keyof Lsis
-      ? { readonly sk: readonly IndexComponent<S>[]; readonly pk?: never }
-      : {
-          readonly pk: readonly IndexComponent<S>[];
-          readonly sk?: readonly IndexComponent<S>[];
-        }),
-  >(
-    slot: Slot,
-    pattern: Pattern,
-    derivation: D,
-  ): KeyedBuilder<
-    Name,
-    S,
-    Lsis,
-    Gsis,
-    Pk,
-    Patterns & Record<Pattern, PatternFor<Slot, S, Lsis, Pk, D>>
-  >;
-  build(): KeyedEntity<Name, S, Pk, Patterns>;
-}
-
-export interface SingleBuilder<
-  Name extends string,
-  S extends AnyUnkeyedESchema,
-> {
-  default(value: S['Type']): SingleEntity<Name, S>;
 }
 
 export { makeKeyedEntity } from './keyed.js';

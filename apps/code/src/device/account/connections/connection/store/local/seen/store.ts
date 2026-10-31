@@ -46,9 +46,12 @@ const MarkSchema = EntityESchema.make('UnseenMark', 'sessionId', {
 const TABLE = 'seen';
 const CONFIRM = 'I KNOW WHAT I AM DOING';
 
-const table = StdTable.make(TABLE).primary('pk', 'sk').build();
+const table = StdTable.make(TABLE)
+  .primary('pk', 'sk')
+  .entity(MarkSchema, (e) => e.primary())
+  .build();
 
-const marks = table.entity(MarkSchema).primary().build();
+const marks = table.UnseenMark;
 
 const all = scan((options: QueryOptions<typeof MarkSchema.Type>) =>
   marks.query('primary', { pk: {}, '>=': null }, options),

@@ -1,7 +1,9 @@
-import { Effect, Exit, Schema } from 'effect';
+import { Effect, Exit, Schema, Stream } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { EntityESchema } from '../../../eschema/index.js';
 import { StdTable } from '../../index.js';
+import type { SQLiteDriver } from '../database/index.js';
+import { makeBetterSQLite3 } from '../drivers/better-sqlite3/index.js';
 import { makeNodeSQLite } from '../drivers/node/index.js';
 import { SetupRefused, SQLite, type TableMode } from '../index.js';
 
@@ -12,267 +14,320 @@ const TaskV1 = EntityESchema.make('Task', 'taskId', {
 const TaskEdited = EntityESchema.make('Task', 'taskId', {
   title: Schema.String.check(Schema.isMaxLength(3)),
 }).build();
+const TaskV2 = EntityESchema.make('Task', 'taskId', {
+  title: Schema.String,
+})
+  .evolve('v2', { owner: Schema.String }, (v1) => ({ ...v1, owner: 'ann' }))
+  .build();
 
-const tasks = (schema = TaskV1, indexed = false) => {
-  const table = StdTable.make('tasks')
+const plain = (schema: typeof TaskV1 = TaskV1) =>
+  StdTable.make('tasks')
     .primary('pk', 'sk')
     .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+    .entity(schema, (e) => e.primary())
     .build();
-  const task = table.entity(schema).primary();
-  return {
-    table,
-    task: (indexed
-      ? task.index('GSI1', 'byTitle', { pk: ['title'] })
-      : task
-    ).build(),
-  };
-};
 
-const setup = (
-  database: ReturnType<typeof makeNodeSQLite>,
-  table: ReturnType<typeof tasks>['table'],
-  mode: TableMode,
-) => Effect.runPromise(Effect.exit(SQLite.setup(table, { database, mode })));
+const indexed = () =>
+  StdTable.make('tasks')
+    .primary('pk', 'sk')
+    .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+    .entity(TaskV1, (e) =>
+      e.primary().index('GSI1', 'byTitle', { pk: ['title'] }),
+    )
+    .build();
 
-const insertTask = (
-  database: ReturnType<typeof makeNodeSQLite>,
-  { table, task }: ReturnType<typeof tasks>,
-) =>
-  Effect.runPromise(
-    task
-      .insert({ taskId: 't1', title: 'Write the ADR' })
-      .pipe(Effect.provide(SQLite.make(table, { database }).layer)),
-  );
+const withOwner = () =>
+  StdTable.make('tasks')
+    .primary('pk', 'sk')
+    .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+    .entity(TaskV2, (e) => e.primary())
+    .build();
 
-const rowCount = async (database: ReturnType<typeof makeNodeSQLite>) =>
-  Number(
-    (
-      await Effect.runPromise(database.all('SELECT count(*) AS n FROM tasks'))
-    )[0]?.n,
-  );
+type AnyTable = Parameters<typeof SQLite.setup>[0];
 
-const refusal = (exit: Exit.Exit<void, unknown>) =>
+const drivers: readonly [string, () => SQLiteDriver][] = [
+  ['node', () => makeNodeSQLite({ path: ':memory:' })],
+  ['better-sqlite3', () => makeBetterSQLite3({ path: ':memory:' })],
+];
+
+const refusal = (exit: Exit.Exit<unknown, unknown>) =>
   Exit.isFailure(exit)
     ? (exit.cause.reasons.find((reason) => reason._tag === 'Fail')
         ?.error as SetupRefused)
     : undefined;
 
-describe('a persistent SQLite table', () => {
-  it('refuses a breaking change and keeps every row', async () => {
-    const database = makeNodeSQLite({ path: ':memory:' });
-    const before = tasks();
-    expect(
-      Exit.isSuccess(await setup(database, before.table, 'persistent')),
-    ).toBe(true);
-    await insertTask(database, before);
-
-    const exit = await setup(database, tasks(TaskEdited).table, 'persistent');
-
-    expect(refusal(exit)).toBeInstanceOf(SetupRefused);
-    expect(refusal(exit)?.reason).toBe('breaking');
-    expect(refusal(exit)?.message).toMatch(/Task v1/);
-    expect(await rowCount(database)).toBe(1);
-    // The refusal changed nothing: the old contract still sets up cleanly.
-    expect(
-      Exit.isSuccess(await setup(database, before.table, 'persistent')),
-    ).toBe(true);
-  });
-
-  it('can never become disposable', async () => {
-    const database = makeNodeSQLite({ path: ':memory:' });
-    const before = tasks();
-    await setup(database, before.table, 'persistent');
-    await insertTask(database, before);
-
-    const exit = await setup(database, tasks().table, 'disposable');
-
-    expect(refusal(exit)?.reason).toBe('mode-change');
-    expect(await rowCount(database)).toBe(1);
-  });
-
-  it('accepts a change that needs a backfill and keeps every row', async () => {
-    const database = makeNodeSQLite({ path: ':memory:' });
-    const before = tasks();
-    await setup(database, before.table, 'persistent');
-    await insertTask(database, before);
-
-    const exit = await setup(database, tasks(TaskV1, true).table, 'persistent');
-
-    expect(Exit.isSuccess(exit)).toBe(true);
-    expect(await rowCount(database)).toBe(1);
-  });
-
-  it('adopts a table set up before it had a contract, keeping its rows', async () => {
-    const database = makeNodeSQLite({ path: ':memory:' });
-    const before = tasks();
-    await setup(database, before.table, 'persistent');
-    await insertTask(database, before);
-    await Effect.runPromise(database.run('DELETE FROM _std_contract'));
-
-    expect(
-      Exit.isSuccess(await setup(database, before.table, 'persistent')),
-    ).toBe(true);
-    expect(await rowCount(database)).toBe(1);
-  });
-
-  it('refuses a caller the types do not reach that declares no mode', async () => {
-    const database = makeNodeSQLite({ path: ':memory:' });
-    const exit = await Effect.runPromise(
-      Effect.exit(
-        SQLite.setup(tasks().table, {
-          database,
-          mode: undefined as unknown as TableMode,
-        }),
-      ),
-    );
-    expect(
-      Exit.isFailure(exit) && String(Exit.isFailure(exit) && exit.cause),
-    ).toMatch(/has no mode/);
-  });
-
-  it('is the same table under another letter case', async () => {
-    const database = makeNodeSQLite({ path: ':memory:' });
-    const before = tasks();
-    await setup(database, before.table, 'persistent');
-    await insertTask(database, before);
-
-    const exit = await Effect.runPromise(
-      Effect.exit(
-        SQLite.setup(tasks(TaskEdited).table, {
-          database,
-          mode: 'disposable',
-          tableName: 'TASKS',
-        }),
-      ),
-    );
-
-    expect(refusal(exit)?.reason).toBe('mode-change');
-    expect(await rowCount(database)).toBe(1);
-  });
-
-  it('reserves the contract table name', async () => {
-    const database = makeNodeSQLite({ path: ':memory:' });
-    const exit = await Effect.runPromise(
-      Effect.exit(
-        SQLite.setup(tasks().table, {
-          database,
-          mode: 'persistent',
-          tableName: '_std_contract',
-        }),
-      ),
-    );
-    expect(Exit.isFailure(exit)).toBe(true);
-  });
-});
-
-describe('setups that race', () => {
-  it('never wipe a table another setup made persistent meanwhile', async () => {
-    const database = makeNodeSQLite({ path: ':memory:' });
-    const before = tasks();
-    await setup(database, before.table, 'disposable');
-    await insertTask(database, before);
-
-    // Right after the stale setup reads the contract, a newer one promotes
-    // the table and writes a row the stale setup has never seen.
-    let raced = false;
-    const racing = {
-      ...database,
-      all: (sql: string, parameters?: Parameters<typeof database.all>[1]) =>
-        database.all(sql, parameters).pipe(
-          Effect.tap(() =>
-            raced || !sql.startsWith('SELECT mode, hash')
-              ? Effect.void
-              : Effect.promise(async () => {
-                  raced = true;
-                  await setup(database, before.table, 'persistent');
-                  await Effect.runPromise(
-                    before.task
-                      .insert({ taskId: 't2', title: 'Second' })
-                      .pipe(
-                        Effect.provide(
-                          SQLite.make(before.table, { database }).layer,
-                        ),
-                      ),
-                  );
-                }),
-          ),
+describe.each(drivers)('SQLite setup on %s', (_, open) => {
+  const harness = () => {
+    const database = open();
+    const setup = (table: AnyTable, mode: TableMode) =>
+      Effect.runPromise(Effect.exit(SQLite.setup(table, { database, mode })));
+    const outcome = async (table: AnyTable, mode: TableMode) => {
+      const exit = await setup(table, mode);
+      if (Exit.isFailure(exit)) throw new Error(String(exit.cause));
+      return exit.value.kind;
+    };
+    const insert = (taskId = 't1', table = plain()) =>
+      Effect.runPromise(
+        table.Task.insert({ taskId, title: 'Write' }).pipe(
+          Effect.provide(SQLite.make(table, { database }).layer),
         ),
+      );
+    const all = (sql: string) => Effect.runPromise(database.all(sql));
+    const reserved = "_e LIKE '\\_std\\_%' ESCAPE '\\'";
+    const dropContract = () =>
+      Effect.runPromise(database.run(`DELETE FROM tasks WHERE ${reserved}`));
+    const tasks = () =>
+      all("SELECT _v, data FROM tasks WHERE _e = 'Task' ORDER BY sk");
+    const contractRows = async () =>
+      Number(
+        (await all(`SELECT count(*) AS n FROM tasks WHERE ${reserved}`))[0]?.n,
+      );
+    const tables = async () =>
+      (
+        await all(
+          "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",
+        )
+      ).map(({ name }) => name);
+    return {
+      database,
+      setup,
+      outcome,
+      insert,
+      all,
+      dropContract,
+      tasks,
+      contractRows,
+      tables,
+    };
+  };
+
+  it('creates a fresh table and keeps its contract inside it', async () => {
+    const db = harness();
+    expect(await db.outcome(plain(), 'persistent')).toBe('created');
+    expect(await db.tables()).toEqual(['tasks']);
+    expect(await db.contractRows()).toBeGreaterThan(0);
+    // Reserved rows never reach a scan.
+    const table = plain();
+    const scanned = await Effect.runPromise(
+      Stream.runCollect(table.scan()).pipe(
+        Effect.provide(SQLite.make(table, { database: db.database }).layer),
+      ),
+    );
+    expect(Array.from(scanned)).toEqual([]);
+  });
+
+  it('leaves an unchanged table as it is', async () => {
+    const db = harness();
+    await db.outcome(plain(), 'persistent');
+    await db.insert();
+    expect(await db.outcome(plain(), 'persistent')).toBe('unchanged');
+    expect(await db.tasks()).toHaveLength(1);
+  });
+
+  it('takes a new version without rewriting the rows stored before it', async () => {
+    const db = harness();
+    await db.outcome(plain(), 'persistent');
+    await db.insert();
+    const exit = await db.setup(withOwner(), 'persistent');
+    expect(Exit.isSuccess(exit) && exit.value).toEqual({
+      kind: 'applied',
+      changes: expect.any(Array),
+      reindexed: [],
+    });
+    const [row] = await db.tasks();
+    expect(row?._v).toBe('v1');
+    expect(await db.outcome(withOwner(), 'persistent')).toBe('unchanged');
+  });
+
+  it('creates a new index and reindexes old rows into it', async () => {
+    const db = harness();
+    await db.outcome(plain(), 'persistent');
+    await db.insert();
+    const table = indexed();
+    expect(await db.outcome(table, 'persistent')).toBe('applied');
+    const indexes = await db.all('PRAGMA index_list("tasks")');
+    expect(indexes.map(({ name }) => name)).toContain('idx_tasks_GSI1');
+    const found = await Effect.runPromise(
+      table.Task.query('byTitle', { pk: { title: 'Write' }, '>=': null }).pipe(
+        Effect.provide(SQLite.make(table, { database: db.database }).layer),
+      ),
+    );
+    expect(found.items.map(({ value }) => value.taskId)).toEqual(['t1']);
+  });
+
+  it('drops the index setup made once the table no longer declares it', async () => {
+    const db = harness();
+    await db.outcome(indexed(), 'disposable');
+    expect(
+      (await db.all('PRAGMA index_list("tasks")')).map(({ name }) => name),
+    ).toContain('idx_tasks_GSI1');
+    const bare = StdTable.make('tasks')
+      .primary('pk', 'sk')
+      .entity(TaskV1, (e) => e.primary())
+      .build();
+    await db.outcome(bare, 'disposable');
+    expect(
+      (await db.all('PRAGMA index_list("tasks")')).map(({ name }) => name),
+    ).not.toContain('idx_tasks_GSI1');
+  });
+
+  describe('a persistent table', () => {
+    it('refuses a breaking change and keeps every row', async () => {
+      const db = harness();
+      await db.outcome(plain(), 'persistent');
+      await db.insert();
+      const exit = await db.setup(plain(TaskEdited), 'persistent');
+      expect(refusal(exit)).toBeInstanceOf(SetupRefused);
+      expect(refusal(exit)?.reason).toBe('breaking');
+      expect(refusal(exit)?.message).toMatch(/Task v1/);
+      expect(await db.tasks()).toHaveLength(1);
+      // The refusal changed nothing: the old contract is still the one stored.
+      expect(await db.outcome(plain(), 'persistent')).toBe('unchanged');
+    });
+
+    it('can never become disposable', async () => {
+      const db = harness();
+      await db.outcome(plain(), 'persistent');
+      await db.insert();
+      const exit = await db.setup(plain(), 'disposable');
+      expect(refusal(exit)?.reason).toBe('mode-change');
+      expect(await db.tasks()).toHaveLength(1);
+    });
+
+    it('refuses a table that holds rows but no contract', async () => {
+      const db = harness();
+      await db.outcome(plain(), 'persistent');
+      await db.insert();
+      await db.dropContract();
+      const exit = await db.setup(plain(), 'persistent');
+      expect(refusal(exit)?.reason).toBe('no-contract');
+      expect(await db.tasks()).toHaveLength(1);
+    });
+
+    it('is the same table under another letter case', async () => {
+      const db = harness();
+      await db.outcome(plain(), 'persistent');
+      await db.insert();
+      const exit = await Effect.runPromise(
+        Effect.exit(
+          SQLite.setup(plain(TaskEdited), {
+            database: db.database,
+            mode: 'disposable',
+            tableName: 'TASKS',
+          }),
+        ),
+      );
+      expect(refusal(exit)?.reason).toBe('mode-change');
+      expect(await db.tasks()).toHaveLength(1);
+    });
+
+    it('refuses a caller the types do not reach that declares no mode', async () => {
+      const db = harness();
+      const exit = await db.setup(plain(), undefined as unknown as TableMode);
+      expect(Exit.isFailure(exit) && String(exit.cause)).toMatch(/has no mode/);
+    });
+  });
+
+  describe('a disposable table', () => {
+    it('is wiped by an index change instead of reindexed', async () => {
+      const db = harness();
+      await db.outcome(plain(), 'disposable');
+      await db.insert();
+      expect(await db.outcome(indexed(), 'disposable')).toBe('wiped');
+      expect(await db.tasks()).toEqual([]);
+      // The new contract is recorded: what is written now is kept.
+      const after = indexed();
+      await Effect.runPromise(
+        after.Task.insert({ taskId: 't2', title: 'Write' }).pipe(
+          Effect.provide(SQLite.make(after, { database: db.database }).layer),
+        ),
+      );
+      expect(await db.outcome(indexed(), 'disposable')).toBe('unchanged');
+      expect(await db.tasks()).toHaveLength(1);
+    });
+
+    it('is wiped by a breaking change', async () => {
+      const db = harness();
+      await db.outcome(plain(), 'disposable');
+      await db.insert();
+      expect(await db.outcome(plain(TaskEdited), 'disposable')).toBe('wiped');
+      expect(await db.tasks()).toEqual([]);
+    });
+
+    it('is wiped when it holds rows but no contract', async () => {
+      const db = harness();
+      await db.outcome(plain(), 'disposable');
+      await db.insert();
+      await db.dropContract();
+      expect(await db.outcome(plain(), 'disposable')).toBe('wiped');
+      expect(await db.tasks()).toEqual([]);
+    });
+
+    it('may become persistent, and is then guarded', async () => {
+      const db = harness();
+      await db.outcome(plain(), 'disposable');
+      await db.insert();
+      expect(await db.outcome(plain(), 'persistent')).toBe('applied');
+      expect(await db.tasks()).toHaveLength(1);
+      const exit = await db.setup(plain(TaskEdited), 'persistent');
+      expect(refusal(exit)?.reason).toBe('breaking');
+      expect(await db.tasks()).toHaveLength(1);
+    });
+  });
+
+  describe('an old _std_contract table', () => {
+    const leaveOldContract = async (database: SQLiteDriver) => {
+      await Effect.runPromise(
+        database.run(
+          'CREATE TABLE _std_contract (table_name TEXT PRIMARY KEY NOT NULL COLLATE NOCASE, mode TEXT NOT NULL, hash TEXT NOT NULL, snapshot TEXT NOT NULL)',
+        ),
+      );
+      await Effect.runPromise(
+        database.run('INSERT INTO _std_contract VALUES (?, ?, ?, ?)', [
+          'tasks',
+          'persistent',
+          'old-hash',
+          '{}',
+        ]),
+      );
     };
 
-    const exit = await Effect.runPromise(
-      Effect.exit(
-        SQLite.setup(tasks(TaskEdited).table, {
-          database: racing,
-          mode: 'disposable',
-        }),
-      ),
-    );
+    it('is ignored when a fresh table is set up', async () => {
+      const db = harness();
+      await leaveOldContract(db.database);
+      expect(await db.outcome(plain(), 'disposable')).toBe('created');
+      expect(await db.all('SELECT * FROM _std_contract')).toEqual([
+        {
+          table_name: 'tasks',
+          mode: 'persistent',
+          hash: 'old-hash',
+          snapshot: '{}',
+        },
+      ]);
+    });
 
-    expect(raced).toBe(true);
-    expect(refusal(exit)?.reason).toBe('mode-change');
-    expect(await rowCount(database)).toBe(2);
-  });
-});
+    it('does not count as a contract for a table that holds rows', async () => {
+      const db = harness();
+      await db.outcome(plain(), 'persistent');
+      await db.insert();
+      await db.dropContract();
+      await leaveOldContract(db.database);
+      const exit = await db.setup(plain(), 'persistent');
+      expect(refusal(exit)?.reason).toBe('no-contract');
+    });
 
-describe('a disposable SQLite table', () => {
-  it('is wiped by a breaking change, then set up under the new contract', async () => {
-    const database = makeNodeSQLite({ path: ':memory:' });
-    const before = tasks();
-    await setup(database, before.table, 'disposable');
-    await insertTask(database, before);
-
-    const after = tasks(TaskEdited);
-    expect(
-      Exit.isSuccess(await setup(database, after.table, 'disposable')),
-    ).toBe(true);
-    expect(await rowCount(database)).toBe(0);
-
-    // The new contract is recorded: setting up again keeps what is written now.
-    await Effect.runPromise(
-      after.task
-        .insert({ taskId: 't2', title: 'ok' })
-        .pipe(Effect.provide(SQLite.make(after.table, { database }).layer)),
-    );
-    await setup(database, after.table, 'disposable');
-    expect(await rowCount(database)).toBe(1);
-  });
-
-  it('is wiped by a change that needs a backfill, since SQLite has none', async () => {
-    const database = makeNodeSQLite({ path: ':memory:' });
-    const before = tasks();
-    await setup(database, before.table, 'disposable');
-    await insertTask(database, before);
-
-    expect(
-      Exit.isSuccess(
-        await setup(database, tasks(TaskV1, true).table, 'disposable'),
-      ),
-    ).toBe(true);
-    expect(await rowCount(database)).toBe(0);
-  });
-
-  it('keeps its rows when nothing changed', async () => {
-    const database = makeNodeSQLite({ path: ':memory:' });
-    const before = tasks();
-    await setup(database, before.table, 'disposable');
-    await insertTask(database, before);
-
-    await setup(database, tasks().table, 'disposable');
-    expect(await rowCount(database)).toBe(1);
-  });
-
-  it('may become persistent, and is then guarded', async () => {
-    const database = makeNodeSQLite({ path: ':memory:' });
-    const before = tasks();
-    await setup(database, before.table, 'disposable');
-    await insertTask(database, before);
-
-    expect(
-      Exit.isSuccess(await setup(database, before.table, 'persistent')),
-    ).toBe(true);
-    expect(await rowCount(database)).toBe(1);
-    const exit = await setup(database, tasks(TaskEdited).table, 'persistent');
-    expect(refusal(exit)?.reason).toBe('breaking');
-    expect(await rowCount(database)).toBe(1);
+    it('may be a table name like any other', async () => {
+      const db = harness();
+      const exit = await Effect.runPromise(
+        Effect.exit(
+          SQLite.setup(plain(), {
+            database: db.database,
+            mode: 'persistent',
+            tableName: '_std_contract',
+          }),
+        ),
+      );
+      expect(Exit.isSuccess(exit)).toBe(true);
+    });
   });
 });

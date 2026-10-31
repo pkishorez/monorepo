@@ -1,6 +1,5 @@
 import { Stage } from 'alchemy';
 import * as Cloudflare from '@alchemy.run/cloudflare';
-import * as Output from 'alchemy/Output';
 import { Effect } from 'effect';
 import { backend, portlessPort } from '@kestack/web-platform/app/alchemy';
 import { D1 } from '@kestack/std-toolkit/alchemy';
@@ -12,9 +11,10 @@ import { where } from './stage.ts';
  * Cloud Connect's Worker, served at `connect.kishore.app` (Portless's
  * `connect.kishore.computer` under `alchemy dev`, with the branch in front
  * in a linked worktree), with a D1 database of its own holding the
- * `connections` std Table. The table goes through std-toolkit's deploy guard,
- * which refuses a deploy whose table would no longer read the rows
- * already stored, and the Worker is deployed only behind it. Under `pnpm
+ * `connections` std Table. std-toolkit sets the table up at deploy against
+ * the Stored contract inside it, refusing a deploy whose table would no
+ * longer read the rows already stored and reindexing any new index, and the
+ * Worker is deployed only behind it. Under `pnpm
  * dev` it signs in with auth-toolkit's Fake, as the Web Platform's
  * `backend` bundles it.
  *
@@ -24,10 +24,10 @@ import { where } from './stage.ts';
  */
 
 export const CloudConnectDatabase = Cloudflare.D1.Database(
-  'CloudConnectDatabase',
+  'CloudConnectDatabaseV2',
   Effect.gen(function* () {
     const stage = yield* Stage;
-    return { name: `cloud-connect-${stage}` };
+    return { name: `cloud-connect-v2-${stage}` };
   }),
 );
 
@@ -55,10 +55,11 @@ export const CloudConnect = Cloudflare.Worker(
         PLUGINS: yield* plugins,
         MIN_CONNECT: yield* minConnect,
         DB: CloudConnectDatabase,
+        // The table's name, from its resource: binding it keeps the
+        // Worker's deployment behind the table's setup and its reindex.
+        DB_TABLE: table.tableName,
         PLUGIN_FILES: PluginFiles,
       },
-      // Keep the Worker's deployment behind the table and its guard.
-      tag: Output.map(table.snapshot, () => 'connections'),
     };
   }),
 );

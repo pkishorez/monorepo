@@ -15,47 +15,47 @@ const Task = EntityESchema.make('Task', 'taskId', {
 const table = StdTable.make('board')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-  .build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
-  .index('GSI1', 'byAssignee', { pk: ['assignee'], sk: ['title'] })
+  .entity(Task, (e) =>
+    e
+      .primary({ pk: ['boardId'] })
+      .index('GSI1', 'byAssignee', { pk: ['assignee'], sk: ['title'] }),
+  )
   .build();
 
 // One program, written once against the StdTable surface.
 const program = Effect.gen(function* () {
-  yield* task.insert({
+  yield* table.Task.insert({
     taskId: 't1',
     boardId: 'work',
     title: 'Review',
     assignee: 'ana',
   });
-  yield* task.insert({
+  yield* table.Task.insert({
     taskId: 't2',
     boardId: 'work',
     title: 'Plan',
     assignee: 'ana',
   });
-  yield* task.insert({
+  yield* table.Task.insert({
     taskId: 't3',
     boardId: 'home',
     title: 'Cook',
     assignee: null,
   });
-  yield* task.getAndUpdate(
+  yield* table.Task.getAndUpdate(
     { boardId: 'work', taskId: 't1' },
     { title: 'Review it' },
   );
-  yield* task.delete({ boardId: 'home', taskId: 't3' });
-  const work = yield* task.query('primary', {
+  yield* table.Task.delete({ boardId: 'home', taskId: 't3' });
+  const work = yield* table.Task.query('primary', {
     pk: { boardId: 'work' },
     '>=': null,
   });
-  const ana = yield* task.query('byAssignee', {
+  const ana = yield* table.Task.query('byAssignee', {
     pk: { assignee: 'ana' },
     '>=': null,
   });
-  const home = yield* task.get({ boardId: 'home', taskId: 't3' });
+  const home = yield* table.Task.get({ boardId: 'home', taskId: 't3' });
   return {
     work: work.items.map(({ value }) => value.title),
     ana: ana.items.map(({ value }) => value.title),
