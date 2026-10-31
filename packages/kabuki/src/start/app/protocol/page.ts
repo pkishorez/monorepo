@@ -1,5 +1,5 @@
 import { createContext, use } from 'react';
-import type { SavedHistory } from '../../../core/index.ts';
+import type { SavedHistory } from '../../../core/history/index.ts';
 import type { AppRuntime } from '../../../react/index.ts';
 import type { Tag } from '../../../routing/route/index.ts';
 

@@ -6,7 +6,6 @@ import { prerender } from 'react-dom/static';
 import { Layer } from 'effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Actor } from '../../core/index.ts';
-import type { AnyActor } from '../../core/index.ts';
 import { View, toReact } from '../index.ts';
 import type { LazyView, ViewOf } from '../index.ts';
 import { registry } from '../app/index.ts';
@@ -77,7 +76,7 @@ describe('a lazy View', () => {
   it('a server waits for it, and is told which lazy Views it drew', async () => {
     const TickerView = lazyTicker();
     const App = pageWith(TickerView);
-    const used = new Set<LazyView<AnyActor>>();
+    const used = new Set<LazyView<Actor.Any>>();
     const served = await html(<App onLazyView={(view) => used.add(view)} />);
     expect(served).toContain('<output data-ticker="true">0</output>');
     expect([...used].map((view) => view.id)).toEqual([TickerView.id]);

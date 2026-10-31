@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
 import type { Layer } from 'effect';
-import type { AnyActor } from '../../../core/index.ts';
+import type { AnyActor } from '../../../core/actor/index.ts';
 import type { Attachment, ViewOf } from '../../../react/index.ts';
 import type {
   Codec,

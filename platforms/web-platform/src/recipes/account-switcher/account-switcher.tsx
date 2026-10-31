@@ -8,7 +8,6 @@ import {
   SubscriptionRef,
 } from 'effect';
 import { Actor, Command } from '@kestack/kabuki';
-import type { ActorType } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
 import type { ViewOf } from '@kestack/kabuki/react';
 import { Accounts } from '@kestack/auth-toolkit/client';
@@ -171,7 +170,7 @@ const AccountSwitcher = Actor.define('AccountSwitcher', {
 });
 
 // Written out: the type `Actor.build` infers names Kabuki's internals.
-export const AccountSwitcherLive: ActorType<
+export const AccountSwitcherLive: Actor.Actor<
   'AccountSwitcher',
   typeof Input.Type,
   void,

@@ -3,18 +3,18 @@ import { Suspense, use, useEffect, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import { Cause, Effect, Exit, Fiber, Scope } from 'effect';
 import type { Layer } from 'effect';
-import { History, Runtime } from '../../core/index.ts';
+import { History } from '../../core/history/index.ts';
+import type { Entry, SavedHistory } from '../../core/history/index.ts';
+import { Runtime } from '../../core/runtime/index.ts';
 import type {
-  AnyActor,
-  Entry,
   LiveInstance,
   Needs,
   Provided,
   Running,
-  SavedHistory,
-  Snapshot,
   WorkerStatus,
-} from '../../core/index.ts';
+} from '../../core/runtime/index.ts';
+import type { AnyActor } from '../../core/actor/index.ts';
+import type { Snapshot } from '../../core/snapshot/index.ts';
 import { makeDrawn } from './drawn.ts';
 import { AppContext, LazyContext } from '../view/index.ts';
 import type { DrawnApp, LazyView, ViewOf } from '../view/index.ts';

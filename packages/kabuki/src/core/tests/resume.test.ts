@@ -1,8 +1,7 @@
 import { Effect, Fiber, Schema, Stream } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, it, vi } from 'vitest';
-import { Actor, History, Runtime, instanceAt } from '../index.ts';
-import type { SavedHistory } from '../index.ts';
+import { Actor, History, Runtime, Snapshot } from '../index.ts';
 import { Counter, run, settle, timed } from './fixtures.ts';
 
 /*
@@ -52,7 +51,7 @@ describe('history.changes', () => {
     run(
       Effect.gen(function* () {
         const app = yield* Runtime.start(Counter);
-        const seen: Array<SavedHistory> = [];
+        const seen: Array<History.Saved> = [];
         const reading = yield* app.history.changes.pipe(
           Stream.runForEach((saved) => Effect.sync(() => seen.push(saved))),
           Effect.forkScoped,
@@ -146,11 +145,11 @@ describe('an app saved as it changes', () => {
       const history =
         disk === undefined
           ? History.make(Ticking, { window: 0 })
-          : History.load(Ticking, JSON.parse(disk) as SavedHistory, {
+          : History.load(Ticking, JSON.parse(disk) as History.Saved, {
               window: 0,
               onMismatch: 'fail',
             });
-      const write = (saved: SavedHistory) =>
+      const write = (saved: History.Saved) =>
         Effect.sync(() => {
           disk = JSON.stringify(saved);
         });
@@ -193,7 +192,7 @@ describe('a saved History that no longer fits the code', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const history = History.load(Renamed, saved);
     expect(
-      instanceAt(history.snapshotAt(history.head()), 'Counter')?.model,
+      Snapshot.instanceAt(history.snapshotAt(history.head()), 'Counter')?.model,
     ).toEqual({ total: 0 });
     warn.mockRestore();
   });

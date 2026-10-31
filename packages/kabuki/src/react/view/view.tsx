@@ -7,7 +7,7 @@ import type {
   KidsIn,
   Only,
   Types,
-} from '../../core/index.ts';
+} from '../../core/actor/index.ts';
 import { lazy, preload } from './lazy.tsx';
 
 /** One Instance in the tree, to draw: its ID and, for a keyed Child, its key. Never changes. */

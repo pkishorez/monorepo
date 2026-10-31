@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import type { Instance, Snapshot } from '../../core/index.ts';
+import type { Snapshot } from '../../core/index.ts';
 import { makeDrawn } from '../app/index.ts';
 
 /* What Views read lets go of an Instance once it is in no Snapshot drawn. */
 
 const instance = (
   id: string,
-  children: Instance['children'] = {},
-): Instance => ({
+  children: Snapshot.Instance['children'] = {},
+): Snapshot.Instance => ({
   id,
   actor: 'A',
   state: { _tag: 'Single' },
@@ -19,8 +19,8 @@ const instance = (
 describe('what Views read', () => {
   it('forgets a keyed Child once it is gone from the Snapshot', () => {
     const row = instance('List/rows[a]#1');
-    const full: Snapshot = instance('List', { rows: [row] });
-    const empty: Snapshot = instance('List', { rows: [] });
+    const full: Snapshot.Snapshot = instance('List', { rows: [row] });
+    const empty: Snapshot.Snapshot = instance('List', { rows: [] });
     let now = full;
     const drawn = makeDrawn(
       () => now,

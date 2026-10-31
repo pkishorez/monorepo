@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import type { Running } from '@kestack/kabuki';
+import type { Runtime } from '@kestack/kabuki';
 import { describe, expect, it } from 'vitest';
 import {
   find,
@@ -25,21 +25,21 @@ type Switching = {
   readonly step: string;
 } | null;
 
-const root = (app: Running<unknown>) =>
+const root = (app: Runtime.Running<unknown>) =>
   find(app, 'App')!.model as {
     readonly busy: string | null;
     readonly switching: Switching;
     readonly toasts: ReadonlyArray<{ readonly text: string }>;
   };
 
-const homeStatus = (app: Running<unknown>) =>
+const homeStatus = (app: Runtime.Running<unknown>) =>
   (
     find(app, 'Home')?.props as
       | { readonly status: { readonly _tag: string } }
       | undefined
   )?.status._tag;
 
-const choose = (app: Running<unknown>, userId: string) =>
+const choose = (app: Runtime.Running<unknown>, userId: string) =>
   sendTo(app, 'App', {
     _tag: 'SwitchChosen',
     userId,

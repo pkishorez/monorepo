@@ -1,5 +1,5 @@
 import { Effect, Layer, Schema, Stream } from 'effect';
-import { Actor, type Self } from '@kestack/kabuki';
+import { Actor } from '@kestack/kabuki';
 import { Plugins, PluginState } from '@kestack/cli-platform/plugins';
 import type { PluginVersion } from '../../cloud/contract/index.js';
 import { ActorOnline } from './actor-online/index.js';
@@ -91,7 +91,7 @@ const Message = Schema.TaggedUnion({
   Stop: { reason: Schema.NullOr(Schema.String) },
 });
 
-type ConnectionSelf = Self<Model, State, typeof Message.Type>;
+type ConnectionSelf = Actor.Self<Model, State, typeof Message.Type>;
 
 /** The Plugins to run: those run so far, with the Releases Cloud Connect wants over them. */
 const wantedOf = (

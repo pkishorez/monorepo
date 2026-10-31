@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Schema } from 'effect';
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import type { LiveInstance, Stopped, Types } from '../../core/index.ts';
+import type { Actor, Runtime } from '../../core/index.ts';
 import { View } from '../../react/index.ts';
 import { Navigation, Page, Router } from '../index.ts';
 import { tagsOf } from '../route/index.ts';
@@ -352,8 +352,8 @@ describe('a page with Queries', () => {
       queries: { answer: { run: () => Effect.succeed(42) } },
     });
     expectTypeOf<
-      LiveInstance<typeof AskedLive>['queries']['answer']
-    >().returns.toEqualTypeOf<Effect.Effect<number, Stopped>>();
+      Runtime.Instance<typeof AskedLive>['queries']['answer']
+    >().returns.toEqualTypeOf<Effect.Effect<number, Runtime.Stopped>>();
   });
 });
 
@@ -615,9 +615,12 @@ describe("a page's Provides", () => {
       (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2
         ? true
         : false;
-    const child: Same<Types<typeof ChildLive>['open'], Greeting | Navigation> =
+    const child: Same<
+      Actor.Types<typeof ChildLive>['open'],
+      Greeting | Navigation
+    > = true;
+    const parent: Same<Actor.Types<typeof ParentLive>['open'], Navigation> =
       true;
-    const parent: Same<Types<typeof ParentLive>['open'], Navigation> = true;
     expect([child, parent]).toEqual([true, true]);
   });
 });

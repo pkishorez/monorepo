@@ -1,7 +1,8 @@
 import { Effect, Schema } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, it, vi } from 'vitest';
-import { Actor, Command, History, Runtime, handle, init } from '../index.ts';
+import { init } from '../snapshot/index.ts';
+import { Actor, Command, History, Runtime, Snapshot } from '../index.ts';
 import { Login, timed, Timer } from './fixtures.ts';
 
 /* Commands: errands an Update asks for, each ending with at most one Message. */
@@ -66,7 +67,7 @@ describe('Commands', () => {
     ));
 
   it('what an Update asks for is data a test compares without running it', () => {
-    const asked = handle(Login.definition, init(Login.definition), {
+    const asked = Snapshot.handle(Login.definition, init(Login.definition), {
       destination: 'Login',
       message: { _tag: 'Submitted' },
       source: { kind: 'view', instance: 'Login' },

@@ -1,5 +1,6 @@
 import type { Layer } from 'effect';
-import type { AnyActor, Needs } from '../../core/index.ts';
+import type { AnyActor } from '../../core/actor/index.ts';
+import type { Needs } from '../../core/runtime/index.ts';
 import type { Attachment, ViewOf } from '../../react/index.ts';
 import { Router } from '../../routing/index.ts';
 import type {

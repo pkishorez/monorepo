@@ -1,6 +1,6 @@
 import { Effect, Layer, Stream } from 'effect';
-import { Actor } from '../../core/index.ts';
-import type { ActorType, AnyActor, Types } from '../../core/index.ts';
+import { Actor } from '../../core/actor/index.ts';
+import type { ActorType, AnyActor, Types } from '../../core/actor/index.ts';
 import type { ViewOf } from '../../react/index.ts';
 import { Navigation } from '../capabilities/index.ts';
 import type { AnyRoute } from '../capabilities/index.ts';

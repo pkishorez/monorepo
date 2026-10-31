@@ -16,7 +16,8 @@ import {
   PLUGIN_MISMATCH,
 } from '@kestack/connect/cloud';
 import { OnOutdated } from '@kestack/std-toolkit/replica';
-import { Actor, type Instance, Runtime, type Running } from '@kestack/kabuki';
+import { Actor, Runtime } from '@kestack/kabuki';
+import type { Snapshot } from '@kestack/kabuki';
 import {
   connection as RpcConnection,
   type SocketWatch,
@@ -214,7 +215,7 @@ const start = <A extends Parameters<typeof Runtime.start>[0]>(
       actor as never,
       Layer.merge(layer, Layer.succeed(Cache, kept)) as never,
     ),
-  ) as Effect.Effect<Running<unknown>, never, Scope.Scope | Cache>;
+  ) as Effect.Effect<Runtime.Running<unknown>, never, Scope.Scope | Cache>;
 
 const a1 = { accountId: 'a1', connectionId: null, projectId: null };
 const setupOf = (connectionId: string) => ({
@@ -229,21 +230,23 @@ const speechOff: SetupParts = {
   models: [],
 };
 
-const walk = (at: Instance): ReadonlyArray<Instance> => [
+const walk = (at: Snapshot.Instance): ReadonlyArray<Snapshot.Instance> => [
   at,
   ...Object.values(at.children).flatMap((child) =>
-    ((Array.isArray(child) ? child : [child]) as Array<Instance>).flatMap(walk),
+    (
+      (Array.isArray(child) ? child : [child]) as Array<Snapshot.Instance>
+    ).flatMap(walk),
   ),
 ];
 
-const list = (app: Running<unknown>) =>
+const list = (app: Runtime.Running<unknown>) =>
   walk(app.snapshot()).find((each) => each.actor === 'Connections')!;
 
 /** Whether the list's Last Seen is believed yet. */
-const checkedOf = (app: Running<unknown>) =>
+const checkedOf = (app: Runtime.Running<unknown>) =>
   (list(app).model as { readonly checked: boolean }).checked;
 
-const listModel = (app: Running<unknown>) => {
+const listModel = (app: Runtime.Running<unknown>) => {
   const { list: held, fetchedAt } = list(app).model as {
     readonly list: { readonly value: ReadonlyArray<Connection> | null };
     readonly fetchedAt: number | null;
@@ -692,7 +695,7 @@ describe('Connections mismatched', () => {
   const NEWER = 'c'.repeat(64);
 
   /** The Connections' Links and mismatches, as it holds them. */
-  const linksOf = (app: Running<unknown>) =>
+  const linksOf = (app: Runtime.Running<unknown>) =>
     list(app).model as {
       readonly links: Readonly<Record<string, string>>;
       readonly mismatched: Readonly<Record<string, unknown>>;

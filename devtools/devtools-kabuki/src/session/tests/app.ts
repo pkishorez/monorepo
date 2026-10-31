@@ -1,7 +1,6 @@
 import { Effect, Schema } from 'effect';
 import type { Scope } from 'effect';
 import { Actor, History, Runtime } from '@kestack/kabuki';
-import type { Running } from '@kestack/kabuki';
 import type { AppRuntime } from '@kestack/kabuki/react';
 
 /* A small app the tests run, and its running app as Kabuki hands it to an Attachment. */
@@ -38,7 +37,7 @@ export const Diary = Actor.build(
 
 export interface Started {
   readonly runtime: AppRuntime;
-  readonly running: Running<typeof Diary>;
+  readonly running: Runtime.Running<typeof Diary>;
   /** Write a note at a Time, in milliseconds. */
   readonly write: (text: string, at: number) => void;
 }

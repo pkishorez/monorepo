@@ -1,7 +1,7 @@
 import { Effect, Layer } from 'effect';
 import type { Scope } from 'effect';
 import { History, Runtime } from '@kestack/kabuki';
-import type { Instance, Running } from '@kestack/kabuki';
+import type { Snapshot } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
 import { Page, Router } from '@kestack/kabuki/routing';
 import {
@@ -340,18 +340,20 @@ export const settle = wait(400);
 export const run = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(effect));
 
-const walk = (at: Instance): ReadonlyArray<Instance> => [
+const walk = (at: Snapshot.Instance): ReadonlyArray<Snapshot.Instance> => [
   at,
   ...Object.values(at.children).flatMap((child) =>
-    ((Array.isArray(child) ? child : [child]) as Array<Instance>).flatMap(walk),
+    (
+      (Array.isArray(child) ? child : [child]) as Array<Snapshot.Instance>
+    ).flatMap(walk),
   ),
 ];
-export const find = (app: Running<unknown>, name: string) =>
+export const find = (app: Runtime.Running<unknown>, name: string) =>
   walk(app.snapshot()).find((each) => each.actor === name);
 
 /** The data the page `name` shows, if it is Ready. */
 export const shownData = <D = Record<string, any>>(
-  app: Running<unknown>,
+  app: Runtime.Running<unknown>,
   name: string,
 ) => {
   const status = (
@@ -364,13 +366,13 @@ export const shownData = <D = Record<string, any>>(
 
 /** Sends the page `name` a Message. */
 export const sendTo = (
-  app: Running<unknown>,
+  app: Runtime.Running<unknown>,
   name: string,
   message: { readonly _tag: string; readonly [field: string]: unknown },
 ) => app.send(find(app, name)!.id, message);
 
 /** Sends the Router a Message: `{ _tag: 'Pushed', route }`, `{ _tag: 'Went', by: -1 }`. */
 export const sendRouter = (
-  app: Running<unknown>,
+  app: Runtime.Running<unknown>,
   message: { readonly _tag: string; readonly [field: string]: unknown },
 ) => app.send('Router', message);

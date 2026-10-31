@@ -27,6 +27,9 @@
       "types": "./dist/core/index.d.ts",
       "default": "./dist/core/index.js"
     },
+    "./core/namespaces/*": {
+      "types": "./dist/core/namespaces/*.d.ts"
+    },
     "./react": {
       "types": "./dist/react/index.d.ts",
       "default": "./dist/react/index.js"

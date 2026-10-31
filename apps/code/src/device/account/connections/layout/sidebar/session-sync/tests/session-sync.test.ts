@@ -1,7 +1,8 @@
 import { createCollection } from '@tanstack/db';
 import { Effect, Layer, Schema, type Scope } from 'effect';
 import type { Session } from '@kestack/connect/code';
-import { Actor, type Instance, Runtime, type Running } from '@kestack/kabuki';
+import { Actor, Runtime } from '@kestack/kabuki';
+import type { Snapshot } from '@kestack/kabuki';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { describe, expect, it } from 'vitest';
 import { SessionSync } from '../index.ts';
@@ -124,19 +125,19 @@ const run = <A>(effect: Effect.Effect<A, unknown, Scope.Scope>) =>
 
 const start = (layer: Layer.Layer<any>) =>
   Runtime.start(OwnerLive as never, layer as never) as Effect.Effect<
-    Running<unknown>,
+    Runtime.Running<unknown>,
     never,
     Scope.Scope
   >;
 
 /** Each `MessageIds` Query held: its key, its Connection and session, and its Instance id. */
-const held = (app: Running<unknown>) => {
-  const sync = app.snapshot().children['sessionSync'] as Instance;
-  return ((sync.children['messages'] ?? []) as ReadonlyArray<Instance>).map(
-    ({ id, key, props }) => ({ id, key, props }),
-  );
+const held = (app: Runtime.Running<unknown>) => {
+  const sync = app.snapshot().children['sessionSync'] as Snapshot.Instance;
+  return (
+    (sync.children['messages'] ?? []) as ReadonlyArray<Snapshot.Instance>
+  ).map(({ id, key, props }) => ({ id, key, props }));
 };
-const keys = (app: Running<unknown>) =>
+const keys = (app: Runtime.Running<unknown>) =>
   held(app)
     .map(({ key }) => key)
     .sort();
@@ -255,8 +256,12 @@ describe('Session Sync', () => {
           value: message('c', 's1', 'again'),
         });
         yield* wait();
-        const sync = app.snapshot().children['sessionSync'] as Instance;
-        const [query] = sync.children['messages'] as ReadonlyArray<Instance>;
+        const sync = app.snapshot().children[
+          'sessionSync'
+        ] as Snapshot.Instance;
+        const [query] = sync.children[
+          'messages'
+        ] as ReadonlyArray<Snapshot.Instance>;
         const { rows } = query!.model as {
           rows: ReadonlyArray<{ row: Readonly<Record<string, unknown>> }>;
         };

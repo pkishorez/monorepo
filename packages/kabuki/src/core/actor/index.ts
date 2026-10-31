@@ -1,4 +1,5 @@
 export { Actor } from './actor.ts';
+export type { BehaviorOf, BuiltOf } from './actor.ts';
 export { Command } from './command.ts';
 export { RUN } from './command.ts';
 export type { Defined } from './actor.ts';

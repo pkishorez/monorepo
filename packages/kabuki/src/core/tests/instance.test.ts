@@ -1,15 +1,7 @@
 import { Context, Effect, Layer, Schema } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  Actor,
-  History,
-  Runtime,
-  handle,
-  init,
-  instanceAt,
-  restore,
-} from '../index.ts';
-import type { Instance, Running, Types } from '../index.ts';
+import { init, restore } from '../snapshot/index.ts';
+import { Actor, History, Runtime, Snapshot } from '../index.ts';
 import {
   Login,
   Auth,
@@ -53,7 +45,8 @@ describe('a tree of Actors', () => {
 
         // What came of each entry is worked out, never kept in the History.
         const tagAt = (entry: number | null, id: string) =>
-          instanceAt(app.history.snapshotAt(entry), id)?.state._tag ?? '';
+          Snapshot.instanceAt(app.history.snapshotAt(entry), id)?.state._tag ??
+          '';
         expect(
           app.history
             .branch()
@@ -190,8 +183,8 @@ describe('a tree of Actors', () => {
       },
     );
     const first = init(Sheet.definition);
-    const sent = (message: Types<typeof Sheet>['message']) =>
-      handle(Sheet.definition, first, {
+    const sent = (message: Actor.Types<typeof Sheet>['message']) =>
+      Snapshot.handle(Sheet.definition, first, {
         destination: 'Sheet',
         message,
         source: { kind: 'view', instance: 'Sheet' },
@@ -298,8 +291,8 @@ describe('keyed Children', () => {
     },
   );
 
-  const rows = (app: Running<unknown>) =>
-    app.snapshot().children['rows'] as ReadonlyArray<Instance>;
+  const rows = (app: Runtime.Running<unknown>) =>
+    app.snapshot().children['rows'] as ReadonlyArray<Snapshot.Instance>;
 
   it('follow the Model by key, each starting from its Input', () =>
     run(
@@ -372,8 +365,8 @@ describe('a Child written with `while`', () => {
     },
   );
 
-  const restored = (snapshot: Instance) =>
-    handle(Room.definition, init(Room.definition), {
+  const restored = (snapshot: Snapshot.Instance) =>
+    Snapshot.handle(Room.definition, init(Room.definition), {
       destination: 'Room',
       message: restore(snapshot),
       source: { kind: 'restore' },
@@ -474,7 +467,7 @@ describe('a single Child written with a `key`', () => {
 
         // A new key is a fresh Instance in its place.
         app.send('Tab', { _tag: 'Opened', name: 'b' });
-        const held = app.snapshot().children['page'] as Instance;
+        const held = app.snapshot().children['page'] as Snapshot.Instance;
         expect(held.id).toBe('Tab/page[b]#1');
         expect(held.model).toEqual({ count: 0 });
 
@@ -593,7 +586,7 @@ describe('written at the top or in a State', () => {
     ));
 
   it('a top-level Child is drawn in every State', () => {
-    const kids: Types<typeof Door>['children']['Shut'] = {
+    const kids: Actor.Types<typeof Door>['children']['Shut'] = {
       ticker: { actor: Ticker },
     };
     expect(kids).toBeDefined();

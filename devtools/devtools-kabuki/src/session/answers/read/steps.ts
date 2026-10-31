@@ -1,4 +1,4 @@
-import type { ActorDefinition, Instance, Snapshot } from '@kestack/kabuki';
+import type { Actor, Snapshot } from '@kestack/kabuki';
 
 /*
  * The app at one Step, read from its Snapshot and the definitions alone:
@@ -12,8 +12,8 @@ import type { ActorDefinition, Instance, Snapshot } from '@kestack/kabuki';
 
 /** One Instance and the definition it runs. */
 export interface LiveNode {
-  readonly instance: Instance;
-  readonly definition: ActorDefinition;
+  readonly instance: Snapshot.Instance;
+  readonly definition: Actor.Definition;
   /** The slot names that lead to it from the root, as the Blueprint's paths are. */
   readonly path: string;
   /** Its slot name; null for the root. */
@@ -25,14 +25,18 @@ const join = (path: string, slot: string) =>
   path === '' ? slot : `${path}/${slot}`;
 
 const instancesIn = (
-  held: Instance | ReadonlyArray<Instance> | undefined,
-): ReadonlyArray<Instance> =>
-  held === undefined ? [] : Array.isArray(held) ? held : [held as Instance];
+  held: Snapshot.Instance | ReadonlyArray<Snapshot.Instance> | undefined,
+): ReadonlyArray<Snapshot.Instance> =>
+  held === undefined
+    ? []
+    : Array.isArray(held)
+      ? held
+      : [held as Snapshot.Instance];
 
 // 1. Walk
 export const walk = (
-  instance: Instance,
-  definition: ActorDefinition,
+  instance: Snapshot.Instance,
+  definition: Actor.Definition,
   path = '',
   slot: string | null = null,
 ): LiveNode => {
@@ -67,8 +71,8 @@ export interface WorkerNow {
 }
 
 export const workersOf = (
-  instance: Instance,
-  definition: ActorDefinition,
+  instance: Snapshot.Instance,
+  definition: Actor.Definition,
 ): ReadonlyArray<WorkerNow> => {
   const data = {
     model: instance.model,
@@ -84,7 +88,7 @@ export const workersOf = (
   });
 };
 
-const running = (instance: Instance, definition: ActorDefinition) =>
+const running = (instance: Snapshot.Instance, definition: Actor.Definition) =>
   new Set(
     workersOf(instance, definition).flatMap(({ name, keys }) =>
       keys.map((key) => (key === '' ? name : `${name}#${key}`)),
@@ -152,9 +156,9 @@ export const pathsChanged = (
 };
 
 const changesIn = (
-  before: Instance | undefined,
-  after: Instance | undefined,
-  definition: ActorDefinition,
+  before: Snapshot.Instance | undefined,
+  after: Snapshot.Instance | undefined,
+  definition: Actor.Definition,
   out: Map<string, Change>,
 ) => {
   if (before === after) return;
@@ -237,9 +241,9 @@ const changesIn = (
 
 /** What changed from one Snapshot to the next, by Instance id. */
 export const changesOf = (
-  before: Snapshot | undefined,
-  after: Snapshot,
-  root: ActorDefinition,
+  before: Snapshot.Snapshot | undefined,
+  after: Snapshot.Snapshot,
+  root: Actor.Definition,
 ): ReadonlyMap<string, Change> => {
   const out = new Map<string, Change>();
   changesIn(before, after, root, out);
