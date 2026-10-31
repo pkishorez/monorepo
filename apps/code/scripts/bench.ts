@@ -134,14 +134,17 @@ const run = async (turns: number): Promise<Result> => {
     result['scroll: frames'] = scroll.frames.length;
     await close();
   }
-  for (const [name, by] of [
-    ['near', 0.02],
-    ['far', 0.5],
+  // Short turns draw shorter than they stood in, so the browser clamps the
+  // scroll as they draw; the reader's place must hold through that too.
+  for (const [name, by, short] of [
+    ['near', 0.02, false],
+    ['far', 0.5, false],
+    ['short', 0.02, true],
   ] as const) {
     const { page, close } = await opened();
     const drift = await page.evaluate(
-      ([turns, by]) => window.bench.drift(turns, by),
-      [turns, by] as const,
+      ([turns, by, short]) => window.bench.drift(turns, by, short),
+      [turns, by, short] as const,
     );
     // Scrolled while turns were still to be drawn, or there is nothing to tell.
     result[`drift ${name}: moved on screen (px)`] =

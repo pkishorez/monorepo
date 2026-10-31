@@ -116,10 +116,12 @@ export interface Shape {
   readonly turns: number;
   /** Whether its last turn still runs, its answer still arriving. */
   readonly running?: boolean;
+  /** Each turn a question and a line of answer, shorter than a turn's guessed height. */
+  readonly short?: boolean;
 }
 
 /** The Messages of one session, oldest first. */
-export const sessionOf = ({ turns, running = false }: Shape) => {
+export const sessionOf = ({ turns, running = false, short = false }: Shape) => {
   const next = random(42);
   const messages: Message[] = [];
   let id = 0;
@@ -235,7 +237,7 @@ export const sessionOf = ({ turns, running = false }: Shape) => {
       },
     ]);
     stream(turnId, 'reasoning', sentences(next, 3));
-    const runs = 2 + Math.floor(next() * 3);
+    const runs = short ? 0 : 2 + Math.floor(next() * 3);
     for (let run = 0; run < runs; run++) {
       const steps = 3 + Math.floor(next() * 6);
       for (let step = 0; step < steps; step++) tool(turnId);
@@ -271,7 +273,7 @@ export const sessionOf = ({ turns, running = false }: Shape) => {
       stream(turnId, 'text', answerOf(next, turn).slice(0, 400));
       break;
     }
-    stream(turnId, 'text', answerOf(next, turn));
+    stream(turnId, 'text', short ? sentences(next, 1) : answerOf(next, turn));
     total += 0.05 + next() * 0.3;
     push(turnId, 'assistant', [
       {

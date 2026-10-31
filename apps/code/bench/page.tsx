@@ -220,9 +220,9 @@ const bench = {
    * scrolls up by `by` of what it holds: how far the turn at the top of
    * the view moved on the screen by the time all are drawn, in px.
    */
-  drift: async (turns: number, by: number) => {
+  drift: async (turns: number, by: number, short = false) => {
     running = false;
-    made = sessionOf({ turns });
+    made = sessionOf({ turns, short });
     entries = made.messages.map((row) => ({ id: row.id, row }));
     mount();
     await frame();
