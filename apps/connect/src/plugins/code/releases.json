@@ -16,6 +16,10 @@
     {
       "hash": "0b6dc4d651d86726e338374e20bbfb12ee74d5a29da7859f70147fd1bbe6fd3c",
       "summary": "Kabuki's new namespaces: no change in what it does"
+    },
+    {
+      "hash": "c48848d5d7b5e399568107e2b647ae9f9a942a29b395712fc185521214782858",
+      "summary": "Kabuki's explicit doors: no change in what it does"
     }
   ]
 }
