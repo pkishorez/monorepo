@@ -8,10 +8,10 @@
     "src/core/runtime": [
       "src/core/actor",
       "src/core/snapshot",
-      "src/core/history"
+      "src/core/history",
+      "src/core/command"
     ],
     "src/react": ["src/core"],
-    "src/react/app": ["src/react/view"],
     "src/routing": ["src/core", "src/react"],
     "src/routing/router": [
       "src/routing/route",
@@ -34,7 +34,8 @@
     "src/start/vite": ["src/start/app", "src/start/platform"],
     "src/start/app": ["src/core", "src/react", "src/routing"],
     "src/routing/capabilities": ["src/routing/route"],
-    "src/routing/page": ["src/routing/route", "src/routing/capabilities"]
+    "src/routing/page": ["src/routing/route", "src/routing/capabilities"],
+    "src/core/actor": ["src/core/command"]
   },
   "exceptions": [
     {

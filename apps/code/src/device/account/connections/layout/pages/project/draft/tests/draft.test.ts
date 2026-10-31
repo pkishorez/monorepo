@@ -18,9 +18,10 @@ import {
   type StartStep,
 } from '@kestack/connect/code';
 import { Actor, Runtime } from '@kestack/kabuki';
-import type { Snapshot } from '@kestack/kabuki';
-import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { Navigation } from '@kestack/kabuki/routing';
+import type { Running } from '@kestack/kabuki/core/runtime';
+import type { Instance } from '@kestack/kabuki/core/snapshot';
+import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { Accounts, AccountsState } from '@kestack/auth-toolkit/client';
 import { describe, expect, it } from 'vitest';
 import { Preferences, nothing } from '../../../../../../../store.ts';
@@ -292,16 +293,14 @@ const wait = (ms = 20) =>
 const run = <A>(effect: Effect.Effect<A, unknown, Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(effect) as Effect.Effect<A>);
 
-const walk = (at: Snapshot.Instance): ReadonlyArray<Snapshot.Instance> => [
+const walk = (at: Instance): ReadonlyArray<Instance> => [
   at,
   ...Object.values(at.children).flatMap((child) =>
-    (
-      (Array.isArray(child) ? child : [child]) as Array<Snapshot.Instance>
-    ).flatMap(walk),
+    ((Array.isArray(child) ? child : [child]) as Array<Instance>).flatMap(walk),
   ),
 ];
 
-const draftOf = (app: Runtime.Running<unknown>) =>
+const draftOf = (app: Running<unknown>) =>
   walk(app.snapshot()).find((each) => each.actor === 'Draft')!;
 
 type Mode = 'Message' | 'SideQuestion';
@@ -312,7 +311,7 @@ type Written = {
   readonly head: number;
 };
 
-const modelOf = (app: Runtime.Running<unknown>) =>
+const modelOf = (app: Running<unknown>) =>
   draftOf(app).model as {
     readonly mode: Mode;
     readonly picking: unknown;
@@ -332,27 +331,21 @@ const modelOf = (app: Runtime.Running<unknown>) =>
   };
 
 /** Each Draft Mode Child, by mode, as it holds its text. */
-const modesOf = (app: Runtime.Running<unknown>) =>
+const modesOf = (app: Running<unknown>) =>
   Object.fromEntries(
     walk(draftOf(app))
       .filter((each) => each.actor === 'DraftMode')
       .map((each) => [(each.props as { readonly mode: string }).mode, each]),
   );
 
-const writtenOf = (app: Runtime.Running<unknown>, mode: Mode) =>
+const writtenOf = (app: Running<unknown>, mode: Mode) =>
   (modesOf(app)[mode]!.model as { readonly written: Written }).written;
 
-const textOf = (
-  app: Runtime.Running<unknown>,
-  mode: Mode = modelOf(app).mode,
-) => writtenOf(app, mode).text;
+const textOf = (app: Running<unknown>, mode: Mode = modelOf(app).mode) =>
+  writtenOf(app, mode).text;
 
 /** An edit in a mode, as the editor its View draws hands it. */
-const write = (
-  app: Runtime.Running<unknown>,
-  text: string,
-  mode = modelOf(app).mode,
-) =>
+const write = (app: Running<unknown>, text: string, mode = modelOf(app).mode) =>
   Effect.sync(() =>
     app.send(modesOf(app)[mode]!.id, {
       _tag: 'Edited',
@@ -362,10 +355,10 @@ const write = (
     }),
   );
 
-const ask = (app: Runtime.Running<unknown>, mode: Mode) =>
+const ask = (app: Running<unknown>, mode: Mode) =>
   Effect.sync(() => app.send(draftOf(app).id, { _tag: 'ModeAsked', mode }));
 
-const toDraft = (app: Runtime.Running<unknown>, message: unknown) =>
+const toDraft = (app: Running<unknown>, message: unknown) =>
   Effect.sync(() => app.send(draftOf(app).id, message as never));
 
 const start = (
@@ -373,13 +366,13 @@ const start = (
   layer: Layer.Layer<never> | Layer.Layer<any>,
 ) =>
   Runtime.start(Owner(to) as never, layer as never) as Effect.Effect<
-    Runtime.Running<unknown>,
+    Running<unknown>,
     never,
     Scope.Scope
   >;
 
 /** Writes in the mode open and sends it, as Enter does. */
-const say = (app: Runtime.Running<unknown>, text: string) =>
+const say = (app: Running<unknown>, text: string) =>
   Effect.andThen(
     Effect.andThen(
       write(app, text),
@@ -403,7 +396,7 @@ const GIT: Branches = {
 };
 
 /** Opens the Branch Picker and picks `branch`, as its owner hears it. */
-const pickBranch = (app: Runtime.Running<unknown>, branch: string) =>
+const pickBranch = (app: Running<unknown>, branch: string) =>
   Effect.andThen(
     toDraft(app, {
       _tag: 'PickerOpened',
@@ -861,7 +854,7 @@ describe('Draft', () => {
     ));
 
   describe('Saved Drafts', () => {
-    const effort = (app: Runtime.Running<unknown>, value: string) =>
+    const effort = (app: Running<unknown>, value: string) =>
       toDraft(app, { _tag: 'SettingChosen', key: 'effort', value });
 
     it('saves it a quarter of a second after the last change, not before', () =>

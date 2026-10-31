@@ -16,7 +16,8 @@ import {
   TranscriptionFailed,
 } from '@kestack/connect/code';
 import { Actor, Command, Runtime } from '@kestack/kabuki';
-import type { Snapshot } from '@kestack/kabuki';
+import type { Running } from '@kestack/kabuki/core/runtime';
+import type { Instance } from '@kestack/kabuki/core/snapshot';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { describe, expect, it } from 'vitest';
 import { Ask, Dictations } from '../../voice.ts';
@@ -252,22 +253,20 @@ const world = (options: {
     };
   });
 
-const walk = (at: Snapshot.Instance): ReadonlyArray<Snapshot.Instance> => [
+const walk = (at: Instance): ReadonlyArray<Instance> => [
   at,
   ...Object.values(at.children).flatMap((child) =>
-    (
-      (Array.isArray(child) ? child : [child]) as Array<Snapshot.Instance>
-    ).flatMap(walk),
+    ((Array.isArray(child) ? child : [child]) as Array<Instance>).flatMap(walk),
   ),
 ];
 
-const dictation = (app: Runtime.Running<unknown>) =>
+const dictation = (app: Running<unknown>) =>
   walk(app.snapshot()).find((each) => each.actor === 'Dictation')!;
 
-const stateOf = (app: Runtime.Running<unknown>) =>
+const stateOf = (app: Running<unknown>) =>
   Schema.decodeUnknownSync(State)(dictation(app).state);
 
-const noticeOf = (app: Runtime.Running<unknown>) =>
+const noticeOf = (app: Running<unknown>) =>
   Schema.decodeUnknownSync(
     Schema.Struct({
       notice: Schema.NullOr(Schema.Struct({ reason: Schema.String })),
@@ -287,7 +286,7 @@ const timed = <A>(effect: Effect.Effect<A, unknown, Scope.Scope>) =>
     ) as Effect.Effect<A>,
   );
 
-const textsOf = (app: Runtime.Running<unknown>) =>
+const textsOf = (app: Running<unknown>) =>
   Schema.decodeUnknownSync(
     Schema.Struct({
       texts: Schema.Array(
@@ -306,7 +305,7 @@ const start = (draft: Draft | null, layer: Layer.Layer<any>) =>
     const app = (yield* Runtime.start(
       OwnerLive as never,
       layer as never,
-    )) as Runtime.Running<unknown>;
+    )) as Running<unknown>;
     if (draft !== null)
       app.send(app.snapshot().id, {
         _tag: 'Ask',
@@ -316,25 +315,24 @@ const start = (draft: Draft | null, layer: Layer.Layer<any>) =>
   });
 
 /** Asks the Dictation as the app does: through the root's Command. */
-const askIt = (app: Runtime.Running<unknown>, asked: typeof Ask.Type) =>
+const askIt = (app: Running<unknown>, asked: typeof Ask.Type) =>
   Effect.andThen(
     Effect.sync(() => app.send(app.snapshot().id, { _tag: 'Ask', ask: asked })),
     settle,
   );
 
-const toggle = (app: Runtime.Running<unknown>) =>
-  askIt(app, { _tag: 'Toggle' });
+const toggle = (app: Running<unknown>) => askIt(app, { _tag: 'Toggle' });
 
 /** A Draft drawn, as its View says. */
-const drawn = (app: Runtime.Running<unknown>, draft: Draft) =>
+const drawn = (app: Running<unknown>, draft: Draft) =>
   askIt(app, { _tag: 'Register', ...draft });
 
 /** A Draft gone, as its View says. */
-const gone = (app: Runtime.Running<unknown>, draft: Draft) =>
+const gone = (app: Running<unknown>, draft: Draft) =>
   askIt(app, { _tag: 'Unregister', key: draft.key });
 
 const send = (
-  app: Runtime.Running<unknown>,
+  app: Running<unknown>,
   message: { readonly _tag: string; readonly [field: string]: unknown },
 ) =>
   Effect.andThen(

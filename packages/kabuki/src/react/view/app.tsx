@@ -15,8 +15,8 @@ import type {
 import type { AnyActor } from '../../core/actor/index.ts';
 import type { Snapshot } from '../../core/snapshot/index.ts';
 import { makeDrawn } from './drawn.ts';
-import { AppContext, LazyContext } from '../view/index.ts';
-import type { DrawnApp, LazyView, ViewOf } from '../view/index.ts';
+import { AppContext, LazyContext } from './draw/index.ts';
+import type { DrawnApp, LazyView, ViewOf } from './draw/index.ts';
 import { registry } from './registry.ts';
 
 /*

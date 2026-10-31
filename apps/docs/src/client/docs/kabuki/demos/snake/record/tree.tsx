@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
-import type { Snapshot } from '@kestack/kabuki';
-import type { View } from '@kestack/kabuki/react';
+import type { Instance } from '@kestack/kabuki/core/snapshot';
+import type { AppRuntime } from '@kestack/kabuki/react/view';
 
 /*
  * The Actor tree at the Step shown: the Stage, and the Game under it
@@ -9,13 +9,13 @@ import type { View } from '@kestack/kabuki/react';
  * the Game.
  */
 
-export function Tree({ runtime }: { readonly runtime: View.AppRuntime }) {
+export function Tree({ runtime }: { readonly runtime: AppRuntime }) {
   const { history, head, shown } = runtime;
   const stage = history.snapshotAt(
     shown === null ? head : shown === 'init' ? null : shown,
   );
   const game = Object.values(stage.children).flat()[0];
-  const workers = (instance: Snapshot.Instance) =>
+  const workers = (instance: Instance) =>
     shown === null
       ? runtime
           .workers(instance.id)
@@ -62,9 +62,7 @@ export function Tree({ runtime }: { readonly runtime: View.AppRuntime }) {
   );
 }
 
-const gameFields = (
-  game: Snapshot.Instance,
-): ReadonlyArray<[string, unknown]> => {
+const gameFields = (game: Instance): ReadonlyArray<[string, unknown]> => {
   const model = game.model as {
     at: number;
     length: number;

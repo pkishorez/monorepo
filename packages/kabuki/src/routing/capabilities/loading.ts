@@ -81,13 +81,6 @@ export class Loading extends Context.Service<
   }
 }
 
-type Answered = Answer;
-
-export declare namespace Loading {
-  /** What a place is answered with: its data, a failure, or a Redirect. */
-  export type Answer = Answered;
-}
-
 /** A Loader's Redirect as an outcome: to its Route or its URL, and permanent only if it said so. */
 const redirectOf = (error: RedirectError): Outcome => ({
   _tag: 'Redirect',

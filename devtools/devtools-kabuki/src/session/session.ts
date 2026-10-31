@@ -2,7 +2,7 @@ import { Cause, Effect, Layer } from 'effect';
 import { dual } from 'effect/Function';
 import { RpcTest } from 'effect/rpc';
 import type { Scope } from 'effect';
-import type { View } from '@kestack/kabuki/react';
+import type { AppRuntime, Attachment } from '@kestack/kabuki/react/view';
 import { DEFAULT_ENVIRONMENT, KabukiSessionApi } from '../api/index.ts';
 import type { KabukiSessionClient } from '../api/index.ts';
 import { answers } from './answers/index.ts';
@@ -41,17 +41,14 @@ const stopped = () => {};
 
 const pageOf = () => globalThis.location?.href ?? '';
 
-const appOf = (runtime: View.AppRuntime) => runtime.name;
+const appOf = (runtime: AppRuntime) => runtime.name;
 
 /** The Environment given, else the page's host, else `default`. */
 const environmentOf = (given: string | undefined) =>
   given || globalThis.location?.host || DEFAULT_ENVIRONMENT;
 
 // 1. Connect
-const start = (
-  runtime: View.AppRuntime,
-  options: ConnectOptions,
-): (() => void) => {
+const start = (runtime: AppRuntime, options: ConnectOptions): (() => void) => {
   if (typeof globalThis.WebSocket !== 'function') return stopped;
   try {
     const app = appOf(runtime);
@@ -105,12 +102,12 @@ const start = (
  * the app's `attach`.
  */
 export const connect: {
-  (options?: ConnectOptions): View.Attachment;
-  (runtime: View.AppRuntime, options?: ConnectOptions): () => void;
+  (options?: ConnectOptions): Attachment;
+  (runtime: AppRuntime, options?: ConnectOptions): () => void;
 } = dual(
   // A runtime first, options or none after; else options or none alone.
   (args) => typeof args[0]?.start === 'function',
-  (runtime: View.AppRuntime, options: ConnectOptions = {}) =>
+  (runtime: AppRuntime, options: ConnectOptions = {}) =>
     start(runtime, options),
 );
 
@@ -121,7 +118,7 @@ export const connect: {
  * as the page's URL asks, else after the app.
  */
 export const inMemory = (
-  runtime: View.AppRuntime,
+  runtime: AppRuntime,
 ): Effect.Effect<KabukiSessionClient, never, Scope.Scope> => {
   let name = askedIn(pageOf()) ?? appOf(runtime);
   return RpcTest.makeClient(KabukiSessionApi).pipe(

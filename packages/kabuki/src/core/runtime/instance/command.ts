@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import type { Scope } from 'effect';
-import { RUN } from '../../actor/index.ts';
-import type { Command } from '../../actor/index.ts';
+import { RUN } from '../../command/index.ts';
+import type { Command } from '../../command/index.ts';
 import type { Own } from './self.ts';
 
 /*

@@ -1,7 +1,7 @@
-import { instanceAt, isMany } from '../../core/snapshot/index.ts';
-import type { Instance, Snapshot } from '../../core/snapshot/index.ts';
+import { Snapshot } from '../../core/snapshot/index.ts';
+import type { Instance } from '../../core/snapshot/index.ts';
 import type { AnyActor, Tagged } from '../../core/actor/index.ts';
-import type { Drawable, DrawnApp, Handle } from '../view/index.ts';
+import type { Drawable, DrawnApp, Handle } from './draw/index.ts';
 
 /*
  * What Views read: what any Instance is drawn from, out of the Snapshot drawn
@@ -46,7 +46,7 @@ export const makeDrawn = (
     snapshot: Snapshot | undefined,
     id: string,
   ) => {
-    const instance = snapshot && instanceAt(snapshot, id);
+    const instance = snapshot && Snapshot.instanceAt(snapshot, id);
     const hit = cache.get(id);
     if (!instance) {
       cache.delete(id);
@@ -70,7 +70,7 @@ export const makeDrawn = (
           : Object.fromEntries(
               Object.entries(instance.children).map(([slot, held]) => [
                 slot,
-                isMany(held) ? held.map(handleOf) : handleOf(held),
+                Snapshot.isMany(held) ? held.map(handleOf) : handleOf(held),
               ]),
             ),
       send: sendTo(id),
@@ -115,7 +115,8 @@ const idsIn = (instance: Instance | undefined, ids: Set<string>) => {
   if (!instance) return;
   ids.add(instance.id);
   for (const held of Object.values(instance.children))
-    for (const child of isMany(held) ? held : [held]) idsIn(child, ids);
+    for (const child of Snapshot.isMany(held) ? held : [held])
+      idsIn(child, ids);
 };
 
 const same = (a: Instance, b: Instance) =>
@@ -132,8 +133,8 @@ const sameIds = (a: Instance, b: Instance) => {
     const was = a.children[slot];
     const is = b.children[slot]!;
     if (!was) return false;
-    if (!isMany(is) || !isMany(was))
-      return !isMany(is) && !isMany(was) && is.id === was.id;
+    if (!Snapshot.isMany(is) || !Snapshot.isMany(was))
+      return !Snapshot.isMany(is) && !Snapshot.isMany(was) && is.id === was.id;
     return (
       is.length === was.length &&
       is.every((kid, index) => kid.id === was[index]!.id)

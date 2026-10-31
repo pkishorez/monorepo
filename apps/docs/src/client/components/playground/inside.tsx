@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import type { View } from '@kestack/kabuki/react';
-import type { Snapshot } from '@kestack/kabuki';
+import type { AppRuntime } from '@kestack/kabuki/react/view';
+import type { Instance } from '@kestack/kabuki/core/snapshot';
 
 /*
  * What is inside the app at the step shown: every Actor, as a card with
@@ -19,7 +19,7 @@ const MOST_FIELDS = 6;
 const ENTER = { duration: 0.25, ease: [0.23, 1, 0.32, 1] } as const;
 const EXIT = { duration: 0.15, ease: [0.4, 0, 1, 1] } as const;
 
-export function Inside({ runtime }: { readonly runtime: View.AppRuntime }) {
+export function Inside({ runtime }: { readonly runtime: AppRuntime }) {
   const { history, head, shown } = runtime;
   const snapshot = history.snapshotAt(
     shown === null ? head : shown === 'init' ? null : shown,
@@ -41,8 +41,8 @@ function Card({
   instance,
   runtime,
 }: {
-  readonly instance: Snapshot.Instance;
-  readonly runtime: View.AppRuntime;
+  readonly instance: Instance;
+  readonly runtime: AppRuntime;
 }) {
   const workers =
     runtime.shown === null

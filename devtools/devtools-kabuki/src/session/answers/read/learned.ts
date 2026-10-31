@@ -1,4 +1,6 @@
-import type { Actor, History, Snapshot } from '@kestack/kabuki';
+import type { History } from '@kestack/kabuki';
+import type { ActorDefinition } from '@kestack/kabuki/core/actor';
+import type { Snapshot } from '@kestack/kabuki/core/snapshot';
 import { nameOf } from './blueprint.ts';
 import { changesOf, nodesOf, walk, workersOf, type Change } from './steps.ts';
 
@@ -45,7 +47,7 @@ export interface Known {
 }
 
 export interface Learned {
-  readonly of: (definition: Actor.Definition) => Known;
+  readonly of: (definition: ActorDefinition) => Known;
   readonly touched: (instance: string) => ReadonlyArray<Touch>;
 }
 
@@ -60,7 +62,7 @@ interface Kept {
   readonly learned: Learned;
 }
 
-const kept = new WeakMap<History.History, Kept>();
+const kept = new WeakMap<History, Kept>();
 
 /** What the running app says an Instance provides now, by Capability key; nothing when it is not running. */
 export type ProvidedBy = (instance: string) => {
@@ -69,8 +71,8 @@ export type ProvidedBy = (instance: string) => {
 };
 
 export const learn = (
-  history: History.History,
-  root: Actor.Definition,
+  history: History,
+  root: ActorDefinition,
   providedBy?: ProvidedBy,
 ): Learned => {
   const branch = history.branch();
@@ -78,16 +80,16 @@ export const learn = (
   const was = kept.get(history);
   if (was && was.last === last) return was.learned;
 
-  const moves = new Map<Actor.Definition, Map<string, Move>>();
-  const ran = new Map<Actor.Definition, Map<string, Set<string>>>();
+  const moves = new Map<ActorDefinition, Map<string, Move>>();
+  const ran = new Map<ActorDefinition, Map<string, Set<string>>>();
   const touched = new Map<string, Touch[]>();
   const gives = new Map<
-    Actor.Definition,
+    ActorDefinition,
     { top: Set<string>; state: Map<string, Set<string>> }
   >();
 
   // 2. Ran: every Instance's Workers, at one Snapshot.
-  const saw = (snapshot: Snapshot.Snapshot) => {
+  const saw = (snapshot: Snapshot) => {
     for (const node of nodesOf(walk(snapshot, root))) {
       const workers =
         ran.get(node.definition) ?? new Map<string, Set<string>>();
@@ -101,7 +103,7 @@ export const learn = (
     }
   };
 
-  let before: Snapshot.Snapshot | undefined;
+  let before: Snapshot | undefined;
   try {
     before = history.snapshotAt(branch[0]?.parent ?? null);
     saw(before);
@@ -109,7 +111,7 @@ export const learn = (
     before = undefined;
   }
   for (const entry of branch) {
-    let after: Snapshot.Snapshot;
+    let after: Snapshot;
     try {
       after = history.snapshotAt(entry.id);
     } catch {

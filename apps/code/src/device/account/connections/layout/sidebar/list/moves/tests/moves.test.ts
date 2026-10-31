@@ -1,8 +1,9 @@
 import { Effect, Layer, PubSub, Scope, Stream, SubscriptionRef } from 'effect';
 import type { Session } from '@kestack/connect/code';
 import { Actor, Runtime } from '@kestack/kabuki';
-import type { Snapshot } from '@kestack/kabuki';
 import { Navigation } from '@kestack/kabuki/routing';
+import type { Running } from '@kestack/kabuki/core/runtime';
+import type { Instance } from '@kestack/kabuki/core/snapshot';
 import { describe, expect, it } from 'vitest';
 import { ConnectionFilter } from '../../../../../store.ts';
 import { Preferences, nothing } from '../../../../../../../store.ts';
@@ -129,14 +130,14 @@ const OwnerLive = Actor.build(Owner, {
 
 const start = (layer: Layer.Layer<any>) =>
   Runtime.start(OwnerLive as never, layer as never) as Effect.Effect<
-    Runtime.Running<unknown>,
+    Running<unknown>,
     never,
     Scope.Scope
   >;
-const sidebar = (app: Runtime.Running<unknown>) =>
-  app.snapshot().children['sidebar'] as Snapshot.Instance;
-const model = (app: Runtime.Running<unknown>) => sidebar(app).model as Model;
-const send = (app: Runtime.Running<unknown>, message: object) =>
+const sidebar = (app: Running<unknown>) =>
+  app.snapshot().children['sidebar'] as Instance;
+const model = (app: Running<unknown>) => sidebar(app).model as Model;
+const send = (app: Running<unknown>, message: object) =>
   app.send(sidebar(app).id, message as never);
 const asked = (sessionId: string, settled: boolean, swiped: boolean) => ({
   _tag: 'MoveAsked',

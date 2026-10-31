@@ -1,4 +1,7 @@
-export * as Page from './namespaces/page.ts';
-export * as Router from './namespaces/router.ts';
+export { Page } from './page/index.ts';
+export {
+  Router,
+  useElementScrollRestoration,
+  useRouter,
+} from './router/index.ts';
 export { Loading, Navigation } from './capabilities/index.ts';
-export { useElementScrollRestoration, useRouter } from './router/index.ts';

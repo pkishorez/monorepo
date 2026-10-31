@@ -2,7 +2,8 @@ import { Effect, Schema } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, it, vi } from 'vitest';
 import { init } from '../snapshot/index.ts';
-import { Actor, Command, History, Runtime, Snapshot } from '../index.ts';
+import { Actor, Command, History, Runtime } from '../index.ts';
+import { Snapshot } from '../snapshot/index.ts';
 import { Login, timed, Timer } from './fixtures.ts';
 
 /* Commands: errands an Update asks for, each ending with at most one Message. */

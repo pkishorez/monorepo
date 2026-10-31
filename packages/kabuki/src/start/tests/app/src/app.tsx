@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { View } from '../../../../react/index.ts';
-import type { Page } from '../../../../routing/index.ts';
 import { Start } from '../../../app/index.ts';
+import type { Status } from '../../../../routing/page/index.ts';
 import Document from './document.tsx';
 import {
   AccountActivityLive,
@@ -32,7 +32,7 @@ function Stamp() {
 }
 
 /** A page's data, or what it says while there is none. */
-const loaded = <D,>(status: Page.Status<D>, ready: (data: D) => ReactNode) => {
+const loaded = <D,>(status: Status<D>, ready: (data: D) => ReactNode) => {
   switch (status._tag) {
     case 'Loading':
       return <p>loading…</p>;

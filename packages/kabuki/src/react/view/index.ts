@@ -1,14 +1,20 @@
-export { AppContext, make } from './view.tsx';
+export { View } from './view.ts';
 export type {
-  Drawable,
-  DrawnApp,
+  AppOptions,
+  AppProps,
+  AppRuntime,
+  AppSetup,
+  Attachment,
+} from './app.tsx';
+export { useChild, useChildren, useLive } from './draw/index.ts';
+export type {
+  ChildData,
   Handle,
+  LazyView,
   Root,
   ViewOf,
   ViewProps,
-} from './view.tsx';
-export { useChild, useChildren } from './child.ts';
-export type { ChildData } from './child.ts';
-export { useLive } from './live.ts';
-export { LazyContext, lazy, lazyOf, preload } from './lazy.tsx';
-export type { LazyView } from './lazy.tsx';
+} from './draw/index.ts';
+export { LazyContext, lazyOf } from './draw/index.ts';
+export { makeDrawn } from './drawn.ts';
+export { registry } from './registry.ts';

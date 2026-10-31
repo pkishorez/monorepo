@@ -1,7 +1,8 @@
 import { Effect, Layer, Schema, Stream, SubscriptionRef } from 'effect';
 import type { Scope } from 'effect';
 import { Actor, Runtime } from '@kestack/kabuki';
-import type { Snapshot } from '@kestack/kabuki';
+import type { Running } from '@kestack/kabuki/core/runtime';
+import type { Instance } from '@kestack/kabuki/core/snapshot';
 import { describe, expect, it } from 'vitest';
 import { Preferences, nothing } from '../../../../../../../../../store.ts';
 import { owner, State, TouchDraftLive } from '../actor.ts';
@@ -65,10 +66,10 @@ const worldOf = (leftOpen: boolean) =>
     const app = (yield* Runtime.start(
       draftOf(leftOpen) as never,
       device as never,
-    )) as Runtime.Running<unknown>;
+    )) as Running<unknown>;
     yield* settle;
-    const root = () => app.snapshot() as Snapshot.Instance;
-    const touch = () => (root().children as { touch: Snapshot.Instance }).touch;
+    const root = () => app.snapshot() as Instance;
+    const touch = () => (root().children as { touch: Instance }).touch;
     return {
       state: () => Schema.decodeUnknownSync(State)(touch().state)._tag,
       then: () => Schema.decodeUnknownSync(State)(touch().state),

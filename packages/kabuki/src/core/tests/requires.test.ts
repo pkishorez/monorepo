@@ -1,6 +1,7 @@
 import { Context, Effect, Layer, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { Actor, Runtime } from '../index.ts';
+import type { Types } from '../actor/index.ts';
 
 /*
  * Four Actors: A is the root, B and C are its Children, D is C's Child. Each
@@ -24,7 +25,7 @@ class SD extends Context.Service<SD, { readonly d: Effect.Effect<void> }>()(
 const sb = Layer.succeed(SB, { b: Effect.void });
 const sd = Layer.succeed(SD, { d: Effect.void });
 
-type Needs<A> = Actor.Types<A>['open'];
+type Needs<A> = Types<A>['open'];
 type Same<X, Y> =
   (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2
     ? true

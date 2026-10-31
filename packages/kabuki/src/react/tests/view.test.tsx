@@ -8,7 +8,8 @@ import { Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Actor } from '../../core/index.ts';
 import { View, useChild, useChildren } from '../index.ts';
-import { registry } from '../app/index.ts';
+import type { Handle, ViewProps } from '../view/index.ts';
+import { registry } from '../view/index.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -242,7 +243,7 @@ const ListApp = () => {
 const Bumps = ({
   rows,
 }: {
-  readonly rows: ReadonlyArray<View.Handle<typeof Row>>;
+  readonly rows: ReadonlyArray<Handle<typeof Row>>;
 }) => {
   const read = useChildren(rows);
   renders.Bumps = (renders.Bumps ?? 0) + 1;
@@ -254,7 +255,7 @@ const Bumps = ({
 const Selected = ({
   rows,
 }: {
-  readonly rows: ReadonlyArray<View.Handle<typeof Row>>;
+  readonly rows: ReadonlyArray<Handle<typeof Row>>;
 }) => {
   const selected = useChildren(rows, (kid) => kid.props.selected);
   renders.Selected = (renders.Selected ?? 0) + 1;
@@ -262,17 +263,13 @@ const Selected = ({
 };
 
 /** Whether the Header was clicked more than once: re-renders only as that changes. */
-const Busy = ({ header }: { readonly header: View.Handle<typeof Header> }) => {
+const Busy = ({ header }: { readonly header: Handle<typeof Header> }) => {
   const busy = useChild(header, (read) => read.model.clicks > 1);
   renders.Busy = (renders.Busy ?? 0) + 1;
   return <p>busy:{String(busy)}</p>;
 };
 
-const Clicks = ({
-  header,
-}: {
-  readonly header: View.Handle<typeof Header>;
-}) => {
+const Clicks = ({ header }: { readonly header: Handle<typeof Header> }) => {
   const read = useChild(header);
   return <p>clicks:{read?.model.clicks}</p>;
 };
@@ -592,7 +589,7 @@ export const types = () => {
     // @ts-expect-error `shade` is there only while its test holds
     children.shade.id,
   ]);
-  const self = null! as View.Props<typeof Row>;
+  const self = null! as ViewProps<typeof Row>;
   return [
     self.root,
     <RowView instance={{ id: 'x' }} />,

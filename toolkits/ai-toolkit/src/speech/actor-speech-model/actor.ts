@@ -1,5 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
+import type { Self } from '@kestack/kabuki/core/actor';
 import { SpeechHost, type Fetched } from '../capabilities/index.js';
 
 /*
@@ -35,10 +36,7 @@ const Message = Schema.TaggedUnion({
   DownloadFailed: { reason: Schema.String },
 });
 
-type SpeechModelSelf = Pick<
-  Actor.Self<unknown, State, typeof Message.Type>,
-  'send'
->;
+type SpeechModelSelf = Pick<Self<unknown, State, typeof Message.Type>, 'send'>;
 
 const downloading: State = { _tag: 'Downloading', done: 0, total: null };
 

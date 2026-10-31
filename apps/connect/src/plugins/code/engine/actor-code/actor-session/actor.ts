@@ -1,5 +1,6 @@
 import { Clock, Data, Effect, Schema, Stream, Struct } from 'effect';
 import { Actor } from '@kestack/kabuki';
+import type { Self } from '@kestack/kabuki/core/actor';
 import { nextUlid } from '@kestack/std-toolkit/core';
 import {
   AgentQuestionSchema,
@@ -179,7 +180,7 @@ const Message = Schema.TaggedUnion({
   Unsettle: {},
 });
 
-export type SessionSelf = Actor.Self<Model, State, typeof Message.Type>;
+export type SessionSelf = Self<Model, State, typeof Message.Type>;
 /** What a Query reads of the Session: its data, never a Send. */
 export type SessionQuerySelf = Pick<SessionSelf, 'get'>;
 

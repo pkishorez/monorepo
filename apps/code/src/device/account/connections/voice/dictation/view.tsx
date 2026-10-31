@@ -1,4 +1,5 @@
 import { View, useChild } from '@kestack/kabuki/react';
+import type { Handle } from '@kestack/kabuki/react/view';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { CircleAlertIcon, MicIcon } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
@@ -39,7 +40,7 @@ import { connectionFor, type Hearing } from './choose.ts';
  */
 
 type Asked = typeof Ask.Type;
-type Dictation = View.Handle<typeof DictationLive>;
+type Dictation = Handle<typeof DictationLive>;
 
 /**
  * The Dictation, how to ask it for something, the microphone's button, and

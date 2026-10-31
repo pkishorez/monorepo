@@ -8,7 +8,8 @@ import {
 } from 'effect';
 import type { Scope } from 'effect';
 import { Actor, Command, Runtime } from '@kestack/kabuki';
-import type { Snapshot } from '@kestack/kabuki';
+import type { Running } from '@kestack/kabuki/core/runtime';
+import type { Instance } from '@kestack/kabuki/core/snapshot';
 import {
   type Account,
   Accounts,
@@ -158,15 +159,13 @@ const wait = (ms: number) =>
 const run = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(effect));
 
-const walk = (at: Snapshot.Instance): ReadonlyArray<Snapshot.Instance> => [
+const walk = (at: Instance): ReadonlyArray<Instance> => [
   at,
   ...Object.values(at.children).flatMap((child) =>
-    (
-      (Array.isArray(child) ? child : [child]) as Array<Snapshot.Instance>
-    ).flatMap(walk),
+    ((Array.isArray(child) ? child : [child]) as Array<Instance>).flatMap(walk),
   ),
 ];
-const find = (app: Runtime.Running<unknown>, actor: string) =>
+const find = (app: Running<unknown>, actor: string) =>
   walk(app.snapshot()).find((each) => each.actor === actor)!;
 
 type Model = {
@@ -178,13 +177,13 @@ type Model = {
   readonly busy: string | null;
   readonly failed: string | null;
 };
-const model = (app: Runtime.Running<unknown>) =>
+const model = (app: Running<unknown>) =>
   find(app, 'AccountSwitcher').model as Model;
-const active = (app: Runtime.Running<unknown>) => {
+const active = (app: Running<unknown>) => {
   const { account } = model(app);
   return account.active?.id ?? account._tag;
 };
-const seen = (app: Runtime.Running<unknown>) =>
+const seen = (app: Running<unknown>) =>
   (find(app, 'Page').model as { seen: ReadonlyArray<string> }).seen;
 
 const opened = Effect.gen(function* () {

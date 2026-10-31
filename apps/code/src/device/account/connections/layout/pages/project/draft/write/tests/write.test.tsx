@@ -5,6 +5,7 @@ import { EditorView } from '@codemirror/view';
 import { Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
+import type { ViewProps } from '@kestack/kabuki/react/view';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { keys } from '../../../../../commands.ts';
 import * as Picker from '../../../../../../../../../ui/controls/picker/index.ts';
@@ -213,8 +214,8 @@ function OnPage({
   model,
   send,
   picker,
-}: Pick<View.Props<typeof PageLive>, 'model' | 'send'> & {
-  readonly picker: View.Props<typeof PageLive>['children']['skills'];
+}: Pick<ViewProps<typeof PageLive>, 'model' | 'send'> & {
+  readonly picker: ViewProps<typeof PageLive>['children']['skills'];
 }) {
   const page = keys.useFocusSpot('content', 'page', { default: true });
   const side = model.doc === 'SideQuestion';

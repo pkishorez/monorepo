@@ -6,6 +6,7 @@ import {
   type QueryResult,
 } from '@tanstack/db';
 import { Actor } from '@kestack/kabuki';
+import type { ActorType } from '@kestack/kabuki/core/actor';
 import { Effect, Option, Queue, Schema, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { CaughtUp, Holding, NeverSynced, readsOf } from '../replicas/index.js';
@@ -51,7 +52,7 @@ type Instances = Readonly<
   >
 >;
 
-type QueryActor<Name extends string, P, Row, R> = Actor.Actor<
+type QueryActor<Name extends string, P, Row, R> = ActorType<
   Name,
   void,
   P,

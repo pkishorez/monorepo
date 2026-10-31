@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { Layer } from 'effect';
 import { View } from '@kestack/kabuki/react';
+import type { AppRuntime } from '@kestack/kabuki/react/view';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { HistoryIcon } from 'lucide-react';
 import {
@@ -94,14 +95,14 @@ export function SnakeRecord() {
 }
 
 /** Goes live from the Step `ms` before the last Message, growing a new Branch. */
-const rewind = (runtime: View.AppRuntime, ms: number) => {
+const rewind = (runtime: AppRuntime, ms: number) => {
   const { branch } = runtime;
   const until = (branch.at(-1)?.at ?? 0) - ms;
   carryOn(runtime, branch.findLastIndex((entry) => entry.at <= until) + 1);
 };
 
 function useKeys(
-  runtime: View.AppRuntime,
+  runtime: AppRuntime,
   setSkips: (skip: (n: number) => number) => void,
 ) {
   const at = stepOf(runtime);

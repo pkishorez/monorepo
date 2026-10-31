@@ -1,9 +1,10 @@
 import { Deferred, Effect, Layer, SubscriptionRef } from 'effect';
 import type { Scope } from 'effect';
 import { History, Runtime } from '@kestack/kabuki';
-import type { Snapshot } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
 import { Loading, Router } from '@kestack/kabuki/routing';
+import type { Running } from '@kestack/kabuki/core/runtime';
+import type { Instance } from '@kestack/kabuki/core/snapshot';
 import {
   type Account,
   Accounts,
@@ -302,18 +303,15 @@ const run = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
 const eventually = (assertion: () => void, timeout = 3000) =>
   Effect.promise(() => vi.waitFor(assertion, { timeout, interval: 10 }));
 
-const walk = (at: Snapshot.Instance): ReadonlyArray<Snapshot.Instance> => [
+const walk = (at: Instance): ReadonlyArray<Instance> => [
   at,
   ...Object.values(at.children).flatMap((child) =>
-    (
-      (Array.isArray(child) ? child : [child]) as Array<Snapshot.Instance>
-    ).flatMap(walk),
+    ((Array.isArray(child) ? child : [child]) as Array<Instance>).flatMap(walk),
   ),
 ];
-const all = (app: Runtime.Running<unknown>, actor: string) =>
+const all = (app: Running<unknown>, actor: string) =>
   walk(app.snapshot()).filter((each) => each.actor === actor);
-const find = (app: Runtime.Running<unknown>, actor: string) =>
-  all(app, actor)[0];
+const find = (app: Running<unknown>, actor: string) => all(app, actor)[0];
 
 type Rows = {
   readonly keys: ReadonlyArray<string>;
@@ -326,14 +324,14 @@ type Rows = {
   }>;
 };
 /** The rows of the `Wallets` Query under `parent`. */
-const walletsUnder = (app: Runtime.Running<unknown>, parent: string) => {
+const walletsUnder = (app: Running<unknown>, parent: string) => {
   const query = all(app, 'Wallets').find((each) => each.id.includes(parent));
   return query?.model as Rows | undefined;
 };
 const names = (rows: Rows | undefined) =>
   (rows?.rows ?? []).map(({ row }) => row.name).sort();
 /** Each running Instance, as Replicas holds it, with its role and Gate from its own State and Model. */
-const instances = (app: Runtime.Running<unknown>) =>
+const instances = (app: Running<unknown>) =>
   (
     find(app, 'Replicas')!.model as {
       readonly instances: ReadonlyArray<{
@@ -361,7 +359,7 @@ type Window = {
   readonly status: string;
 };
 /** The Windows of `account`'s entries, as its Instance's Model has them. */
-const windows = (app: Runtime.Running<unknown>, account = 'ada') =>
+const windows = (app: Running<unknown>, account = 'ada') =>
   (
     all(app, 'pocket').find(
       (each) => (each.model as { readonly key: string }).key === account,
@@ -376,7 +374,7 @@ const windows = (app: Runtime.Running<unknown>, account = 'ada') =>
   )?.collections.find(({ collection }) => collection === 'entries')?.windows ??
   [];
 /** The ids of the entries the Activity shows, if it is placed. */
-const shownEntries = (app: Runtime.Running<unknown>) => {
+const shownEntries = (app: Running<unknown>) => {
   const query = find(app, 'Entries');
   return query === undefined
     ? undefined
@@ -405,14 +403,14 @@ const opened = (path = '/replica') =>
     return { app, worker, signOut: accounts.signOut };
   });
 
-const switchTo = (app: Runtime.Running<unknown>, id: string) =>
+const switchTo = (app: Running<unknown>, id: string) =>
   app.send(find(app, 'AccountSwitcher')!.id, { _tag: 'SwitchTo', id } as never);
-const pocket = (app: Runtime.Running<unknown>) => find(app, 'Pocket')!;
-const ask = (app: Runtime.Running<unknown>, message: object) =>
+const pocket = (app: Running<unknown>) => find(app, 'Pocket')!;
+const ask = (app: Running<unknown>, message: object) =>
   app.send(pocket(app).id, message as never);
-const show = (app: Runtime.Running<unknown>, account: string) =>
+const show = (app: Running<unknown>, account: string) =>
   app.send(find(app, 'Replica')!.id, { _tag: 'Show', account } as never);
-const balances = (app: Runtime.Running<unknown>) =>
+const balances = (app: Running<unknown>) =>
   Object.fromEntries(
     (walletsUnder(app, 'pocket')?.rows ?? []).map(({ row }) => [
       row.id,

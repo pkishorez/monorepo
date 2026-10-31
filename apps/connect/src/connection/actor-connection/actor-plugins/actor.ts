@@ -1,5 +1,6 @@
 import { Effect, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
+import type { Self, Single } from '@kestack/kabuki/core/actor';
 import {
   pluginFolders,
   socketPath,
@@ -52,7 +53,7 @@ const Props = Schema.Struct({
 });
 type Props = typeof Props.Type;
 
-type PluginsSelf = Actor.Self<Input, Actor.Single, never, Props>;
+type PluginsSelf = Self<Input, Single, never, Props>;
 
 /** The Release the Plugin `name` runs instead of `hash`, null while it runs none; undefined when it serves `hash`. */
 const otherThan = (props: Props, name: string, hash: string) => {

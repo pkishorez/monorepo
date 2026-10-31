@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
 import { expect, it } from 'vitest';
-import type { Actor } from '../../core/index.ts';
 import { Page, Router } from '../index.ts';
+import type { Types } from '../../core/actor/index.ts';
 
 /*
  * A page's build moves the app with the router read down from the pages'
@@ -43,7 +43,7 @@ it('types the Routes a build moves the app with', () => {
   const other: typeof router.route.Type = router.Other();
   // @ts-expect-error no such page
   const wrong = () => Router.push(router.Elsewhere());
-  const probe = (model: Actor.Types<typeof GoLive>['model']) => {
+  const probe = (model: Types<typeof GoLive>['model']) => {
     const clicks: number = model.clicks;
     return clicks;
   };

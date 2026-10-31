@@ -1,5 +1,5 @@
 import type { ActorDefinition, Encoding, Tagged } from '../actor/index.ts';
-import { isMany, isRestore, restore } from '../snapshot/index.ts';
+import { Snapshot, isRestore, restore } from '../snapshot/index.ts';
 import type { Instance } from '../snapshot/index.ts';
 import type { Entry, SavedHistory } from './history.ts';
 
@@ -84,7 +84,9 @@ const convert = (
     children: Object.fromEntries(
       Object.entries(instance.children).map(([slot, held]) => [
         slot,
-        isMany(held) ? held.map((one) => child(slot, one)) : child(slot, held),
+        Snapshot.isMany(held)
+          ? held.map((one) => child(slot, one))
+          : child(slot, held),
       ]),
     ),
   };

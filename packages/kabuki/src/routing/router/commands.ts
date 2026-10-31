@@ -1,5 +1,5 @@
 import { Effect, Option, Schema } from 'effect';
-import { Command } from '../../core/actor/index.ts';
+import { Command } from '../../core/command/index.ts';
 import { Loading } from '../capabilities/index.ts';
 import { Adapter } from './adapter/index.ts';
 

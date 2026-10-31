@@ -27,22 +27,49 @@
       "types": "./dist/core/index.d.ts",
       "default": "./dist/core/index.js"
     },
-    "./core/namespaces/*": {
-      "types": "./dist/core/namespaces/*.d.ts"
+    "./core/actor": {
+      "types": "./dist/core/actor/index.d.ts",
+      "default": "./dist/core/actor/index.js"
+    },
+    "./core/command": {
+      "types": "./dist/core/command/index.d.ts",
+      "default": "./dist/core/command/index.js"
+    },
+    "./core/history": {
+      "types": "./dist/core/history/index.d.ts",
+      "default": "./dist/core/history/index.js"
+    },
+    "./core/runtime": {
+      "types": "./dist/core/runtime/index.d.ts",
+      "default": "./dist/core/runtime/index.js"
+    },
+    "./core/snapshot": {
+      "types": "./dist/core/snapshot/index.d.ts",
+      "default": "./dist/core/snapshot/index.js"
     },
     "./react": {
       "types": "./dist/react/index.d.ts",
       "default": "./dist/react/index.js"
     },
-    "./react/namespaces/*": {
-      "types": "./dist/react/namespaces/*.d.ts"
+    "./react/view": {
+      "types": "./dist/react/view/index.d.ts",
+      "default": "./dist/react/view/index.js"
     },
     "./routing": {
       "types": "./dist/routing/index.d.ts",
       "default": "./dist/routing/index.js"
     },
-    "./routing/namespaces/*": {
-      "types": "./dist/routing/namespaces/*.d.ts"
+    "./routing/page": {
+      "types": "./dist/routing/page/index.d.ts",
+      "default": "./dist/routing/page/index.js"
+    },
+    "./routing/router": {
+      "types": "./dist/routing/router/index.d.ts",
+      "default": "./dist/routing/router/index.js"
+    },
+    "./routing/capabilities": {
+      "types": "./dist/routing/capabilities/index.d.ts",
+      "default": "./dist/routing/capabilities/index.js"
     },
     "./routing/adapter": {
       "types": "./dist/routing/router/adapter/index.d.ts",
@@ -57,6 +84,10 @@
       "default": "./dist/routing/router/adapter/tanstack/index.js"
     },
     "./start": {
+      "types": "./dist/start/index.d.ts",
+      "default": "./dist/start/index.js"
+    },
+    "./start/app": {
       "types": "./dist/start/app/index.d.ts",
       "default": "./dist/start/app/index.js"
     },

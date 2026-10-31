@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import type { Runtime } from '@kestack/kabuki';
+import type { Running } from '@kestack/kabuki/core/runtime';
 import { describe, expect, it } from 'vitest';
 import { router } from '../routes.ts';
 import {
@@ -17,7 +17,7 @@ import {
  * another code, or to none, starts the question again.
  */
 
-const state = (app: Runtime.Running<unknown>) => find(app, 'Device')!.state;
+const state = (app: Running<unknown>) => find(app, 'Device')!.state;
 
 const withCodes = () => {
   const server = twoAccounts();
@@ -28,7 +28,7 @@ const withCodes = () => {
   return server;
 };
 
-const approved = (app: Runtime.Running<unknown>) =>
+const approved = (app: Running<unknown>) =>
   Effect.gen(function* () {
     sendTo(app, 'Device', { _tag: 'Approved', userId: 'ada' });
     yield* settle;

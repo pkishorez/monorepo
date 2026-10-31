@@ -1,4 +1,5 @@
 import { View, useChildren } from '@kestack/kabuki/react';
+import type { Handle } from '@kestack/kabuki/react/view';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { PlusIcon, XIcon } from 'lucide-react';
 import { CounterView } from './counter-view.tsx';
@@ -9,7 +10,7 @@ import { CountersLive } from './counters.ts';
 function Total({
   counters,
 }: {
-  readonly counters: ReadonlyArray<View.Handle<typeof CounterLive>>;
+  readonly counters: ReadonlyArray<Handle<typeof CounterLive>>;
 }) {
   const counts = useChildren(counters, (counter) => counter.model.count);
   return (

@@ -2,9 +2,10 @@ import { Effect, Layer, Queue, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { History, Runtime } from '@kestack/kabuki';
-import type { Snapshot } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
 import { Page, Router } from '@kestack/kabuki/routing';
+import type { Running } from '@kestack/kabuki/core/runtime';
+import type { Instance } from '@kestack/kabuki/core/snapshot';
 import type { KabukiSessionClient } from '@kestack/devtools-kabuki/api';
 import type { KabukiSessionSummary } from '@kestack/devtools-kabuki/server';
 import { Sessions } from '../../sessions/index.js';
@@ -64,17 +65,15 @@ const settle = Effect.promise(
 const run = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(effect));
 
-const walk = (at: Snapshot.Instance): ReadonlyArray<Snapshot.Instance> => [
+const walk = (at: Instance): ReadonlyArray<Instance> => [
   at,
   ...Object.values(at.children).flatMap((child) =>
-    (
-      (Array.isArray(child) ? child : [child]) as Array<Snapshot.Instance>
-    ).flatMap(walk),
+    ((Array.isArray(child) ? child : [child]) as Array<Instance>).flatMap(walk),
   ),
 ];
-const page = (app: Runtime.Running<unknown>) =>
+const page = (app: Running<unknown>) =>
   walk(app.snapshot()).find((each) => each.actor === 'Kabuki')!;
-const inspected = (app: Runtime.Running<unknown>) =>
+const inspected = (app: Running<unknown>) =>
   walk(app.snapshot()).some((each) => each.actor === 'RemoteInspector');
 
 const start = (name: string | null, layer: Layer.Layer<Sessions>) =>

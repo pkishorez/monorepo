@@ -11,8 +11,8 @@ import type {
   Tagged,
   Types,
 } from '../actor/index.ts';
-import { instanceAt, isMany } from '../snapshot/index.ts';
-import type { Instance, Snapshot, Source } from '../snapshot/index.ts';
+import { Snapshot } from '../snapshot/index.ts';
+import type { Instance, Source } from '../snapshot/index.ts';
 import { Stopped } from './instance/index.ts';
 import type { WorkerStatus } from './instance/index.ts';
 
@@ -133,7 +133,7 @@ const live = (
   const { id } = first;
   let last = first;
   const found = () =>
-    app.run() === run ? instanceAt(app.snapshot(), id) : undefined;
+    app.run() === run ? Snapshot.instanceAt(app.snapshot(), id) : undefined;
   const now = () => (last = found() ?? last);
   const stopped = () => !app.running() || found() === undefined;
 
@@ -159,7 +159,7 @@ const live = (
         Object.entries(children).map(([slot, held]) => {
           const child = (instance: Instance) =>
             live(app, slots[slot]!.definition, instance, source, run);
-          return [slot, isMany(held) ? held.map(child) : child(held)];
+          return [slot, Snapshot.isMany(held) ? held.map(child) : child(held)];
         }),
       );
     },

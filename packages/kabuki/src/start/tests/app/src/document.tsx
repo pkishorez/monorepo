@@ -1,6 +1,7 @@
 import { Start } from '../../../app/index.ts';
+import type { DocumentProps } from '../../../app/index.ts';
 
-export default function Document({ children }: Start.DocumentProps) {
+export default function Document({ children }: DocumentProps) {
   return (
     <html lang="en">
       <head>

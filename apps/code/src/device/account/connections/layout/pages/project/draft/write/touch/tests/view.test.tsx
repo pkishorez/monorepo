@@ -4,6 +4,7 @@ import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { View, useChild } from '@kestack/kabuki/react';
+import type { ViewProps } from '@kestack/kabuki/react/view';
 import { undoDepth } from '@codemirror/commands';
 import { EditorView } from '@codemirror/view';
 import { MotionGlobalConfig } from 'motion/react';
@@ -204,8 +205,8 @@ function OnPage({
   model,
   send,
   kids,
-}: Pick<View.Props<typeof PageLive>, 'model' | 'send'> & {
-  readonly kids: View.Props<typeof PageLive>['children'];
+}: Pick<ViewProps<typeof PageLive>, 'model' | 'send'> & {
+  readonly kids: ViewProps<typeof PageLive>['children'];
 }) {
   const touchState = useChild(kids.touch, ({ state }) => state._tag);
   const sending = useRef<(() => void) | null>(null);

@@ -1,4 +1,4 @@
-import type { History } from '@kestack/kabuki';
+import type { SavedHistory } from '@kestack/kabuki/core/history';
 
 /*
  * A Story: what an agent tells to answer a question about an app, played
@@ -64,5 +64,5 @@ export interface Story {
   readonly question: string;
   readonly scenes: ReadonlyArray<Scene>;
   /** The History it plays on, saved; none for the app's own. */
-  readonly script?: History.Saved;
+  readonly script?: SavedHistory;
 }

@@ -2,6 +2,7 @@ import { Effect, Schema } from 'effect';
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { restore } from '../snapshot/index.ts';
 import { Actor, History, Runtime } from '../index.ts';
+import type { LiveInstance } from '../runtime/index.ts';
 import { Auth, ServerLive, run, settle } from './fixtures.ts';
 
 /*
@@ -207,7 +208,7 @@ describe('an Instance reached from outside', () => {
   it('is stopped by a Restore before anything the Restore starts runs', () =>
     run(
       Effect.gen(function* () {
-        let held: Runtime.Instance<typeof Lamp> | undefined;
+        let held: LiveInstance<typeof Lamp> | undefined;
         let armed = false;
         const sent: Array<boolean> = [];
         const Lamp = Actor.build(

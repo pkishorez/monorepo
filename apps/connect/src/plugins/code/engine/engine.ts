@@ -14,6 +14,7 @@ import {
   Stream,
 } from 'effect';
 import { Runtime } from '@kestack/kabuki';
+import { Stopped } from '@kestack/kabuki/core/runtime';
 import { nextUlid } from '@kestack/std-toolkit/core';
 import {
   HarnessAccount,
@@ -365,7 +366,7 @@ const sameJobs = (
 const sameQuestions = Schema.toEquivalence(Schema.Array(SessionQuestions));
 
 /** What a Query of the agent fails with, as one HarnessFailed. */
-const failed = (error: HarnessError | AgentClosed | Runtime.Stopped) =>
+const failed = (error: HarnessError | AgentClosed | Stopped) =>
   new HarnessFailed({
     message:
       error._tag === 'AgentClosed'

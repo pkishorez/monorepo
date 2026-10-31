@@ -4,7 +4,11 @@ import { TestClock } from 'effect/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Replay, outcomeOf } from '../history/index.ts';
 import { init } from '../snapshot/index.ts';
-import { Actor, History, Runtime, Snapshot } from '../index.ts';
+import { Actor, History, Runtime } from '../index.ts';
+import type { SavedHistory } from '../history/index.ts';
+import type { Running } from '../runtime/index.ts';
+import { Snapshot } from '../snapshot/index.ts';
+import type { Instance } from '../snapshot/index.ts';
 
 // A list whose rows are handed whether they are selected --------------------------
 
@@ -83,7 +87,7 @@ const List = Actor.build(
 
 const row = (key: string) => `List/rows[${key}]#1`;
 
-const at = (app: Runtime.Running<unknown>, id: string): Snapshot.Instance => {
+const at = (app: Running<unknown>, id: string): Instance => {
   const instance = Snapshot.instanceAt(app.snapshot(), id);
   expect(instance, id).toBeDefined();
   return instance!;
@@ -244,7 +248,7 @@ describe('the History', () => {
         live.send(row('b'), { _tag: 'Edited' });
         live.send('List', { _tag: 'Selected', id: 'b' });
         live.send(row('zzz'), { _tag: 'Edited' });
-        const outcomes = (app: Runtime.Running<unknown>) =>
+        const outcomes = (app: Running<unknown>) =>
           app.history.branch().map((entry) => app.history.outcome(entry.id));
         expect(outcomes(live)).toEqual([
           'handled',
@@ -261,7 +265,7 @@ describe('the History', () => {
 
   it('Replay warns of a Message that no longer fits, once, and skips it', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const entries: History.Saved['entries'] = [
+    const entries: SavedHistory['entries'] = [
       {
         id: 0,
         parent: null,

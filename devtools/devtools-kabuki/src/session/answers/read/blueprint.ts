@@ -1,4 +1,4 @@
-import type { Actor } from '@kestack/kabuki';
+import type { ActorDefinition } from '@kestack/kabuki/core/actor';
 
 /*
  * The Blueprint: what an Actor is, read from its definition alone, so it is
@@ -20,7 +20,7 @@ export interface WorkerPrint {
 
 export interface SlotPrint {
   readonly name: string;
-  readonly actor: Actor.Definition;
+  readonly actor: ActorDefinition;
   readonly condition: Condition;
   /** Made again, a fresh Instance, when its key changes. */
   readonly keyed: boolean;
@@ -57,9 +57,9 @@ export const nameOf = (key: unknown): string => {
 const conditionOf = (kind: string): Condition =>
   kind === 'each' ? 'each' : kind === 'while' ? 'while' : 'always';
 
-const prints = new WeakMap<Actor.Definition, Blueprint>();
+const prints = new WeakMap<ActorDefinition, Blueprint>();
 
-export const blueprintOf = (definition: Actor.Definition): Blueprint => {
+export const blueprintOf = (definition: ActorDefinition): Blueprint => {
   const kept = prints.get(definition);
   if (kept) return kept;
   const workersIn = (state: string | undefined) =>
@@ -117,18 +117,18 @@ export interface PrintNode {
   readonly slot: SlotPrint | null;
   /** The State of its parent it exists in, or null at the parent's top. */
   readonly in: string | null;
-  readonly definition: Actor.Definition;
+  readonly definition: ActorDefinition;
   readonly print: Blueprint;
   readonly children: ReadonlyArray<PrintNode>;
 }
 
 /** The whole tree an Actor can grow, each Actor once per branch, so a cycle stops. */
 export const treeOf = (
-  definition: Actor.Definition,
+  definition: ActorDefinition,
   path = '',
   slot: SlotPrint | null = null,
   within: string | null = null,
-  above: ReadonlySet<Actor.Definition> = new Set(),
+  above: ReadonlySet<ActorDefinition> = new Set(),
 ): PrintNode => {
   const print = blueprintOf(definition);
   const seen = new Set(above).add(definition);

@@ -1,18 +1,19 @@
 export { Actor } from './actor.ts';
-export type { BehaviorOf, BuiltOf } from './actor.ts';
-export { Command } from './command.ts';
-export { RUN } from './command.ts';
-export type { Defined } from './actor.ts';
+export type { BehaviorOf, BuiltOf, Defined } from './actor.ts';
 export type { Data, Only, Requires, Self, Single, Tagged } from './instance.ts';
 export type {
-  /** A Command, as a declaration file names it. */
-  Command as CommandType,
-} from './command.ts';
-export type {
   ActorOf,
+  AnyChild,
   Behavior,
+  Child,
+  Children,
   OpenOfBehavior,
   ProvidedOf,
+  Query,
+  Queries,
+  QuerySelf,
+  Worker,
+  Workers,
 } from './behavior.ts';
 export type {
   ChildAs,
@@ -23,10 +24,10 @@ export type {
   QueryAs,
 } from './kept.ts';
 export type {
-  /** The Actor interface, by a name that does not clash with the `Actor` value: for code that builds Actors on top of `Actor.build`, and what a declaration file names an Actor by. */
+  /** The Actor interface, by a name that does not clash with the `Actor` value. */
   Actor as ActorType,
-  AnyActor,
   ActorDefinition,
+  AnyActor,
   Encoding,
   QueryDefinition,
   SlotDefinition,

@@ -1,9 +1,10 @@
 import { Effect, Layer } from 'effect';
 import type { Scope } from 'effect';
 import { History, Runtime } from '@kestack/kabuki';
-import type { Snapshot } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
 import { Loading, Page, Router } from '@kestack/kabuki/routing';
+import type { Running } from '@kestack/kabuki/core/runtime';
+import type { Instance } from '@kestack/kabuki/core/snapshot';
 import {
   Api,
   ApiError,
@@ -340,20 +341,18 @@ export const settle = wait(400);
 export const run = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(effect));
 
-const walk = (at: Snapshot.Instance): ReadonlyArray<Snapshot.Instance> => [
+const walk = (at: Instance): ReadonlyArray<Instance> => [
   at,
   ...Object.values(at.children).flatMap((child) =>
-    (
-      (Array.isArray(child) ? child : [child]) as Array<Snapshot.Instance>
-    ).flatMap(walk),
+    ((Array.isArray(child) ? child : [child]) as Array<Instance>).flatMap(walk),
   ),
 ];
-export const find = (app: Runtime.Running<unknown>, name: string) =>
+export const find = (app: Running<unknown>, name: string) =>
   walk(app.snapshot()).find((each) => each.actor === name);
 
 /** The data the page `name` shows, if it is Ready. */
 export const shownData = <D = Record<string, any>>(
-  app: Runtime.Running<unknown>,
+  app: Running<unknown>,
   name: string,
 ) => {
   const status = (
@@ -366,13 +365,13 @@ export const shownData = <D = Record<string, any>>(
 
 /** Sends the page `name` a Message. */
 export const sendTo = (
-  app: Runtime.Running<unknown>,
+  app: Running<unknown>,
   name: string,
   message: { readonly _tag: string; readonly [field: string]: unknown },
 ) => app.send(find(app, name)!.id, message);
 
 /** Sends the Router a Message: `{ _tag: 'Pushed', route }`, `{ _tag: 'Went', by: -1 }`. */
 export const sendRouter = (
-  app: Runtime.Running<unknown>,
+  app: Running<unknown>,
   message: { readonly _tag: string; readonly [field: string]: unknown },
 ) => app.send('Router', message);

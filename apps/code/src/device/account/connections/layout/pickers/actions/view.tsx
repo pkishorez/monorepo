@@ -1,5 +1,6 @@
 import { View } from '@kestack/kabuki/react';
 import { useRouter } from '@kestack/kabuki/routing';
+import type { ViewProps } from '@kestack/kabuki/react/view';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import { EllipsisIcon } from 'lucide-react';
@@ -21,7 +22,7 @@ import { ActionsLive, ListView } from './actor.ts';
  * closed, back where the user was.
  */
 
-type Self = View.Props<typeof ActionsLive>;
+type Self = ViewProps<typeof ActionsLive>;
 
 export const ActionsView = View.make(ActionsLive, (self) => {
   const route = useRouter<Route>().route;

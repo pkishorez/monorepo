@@ -1,5 +1,5 @@
 import type { Effect, Layer, Scope } from 'effect';
-import type { Command } from './command.ts';
+import type { Command } from '../command/index.ts';
 import type { Actor, AnyActor, Types } from './definition.ts';
 import type {
   Data,

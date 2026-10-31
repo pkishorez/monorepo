@@ -9,6 +9,8 @@ import {
 } from 'effect';
 import { Actor, Command } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
+import type { ActorType } from '@kestack/kabuki/core/actor';
+import type { ViewOf } from '@kestack/kabuki/react/view';
 import { Accounts } from '@kestack/auth-toolkit/client';
 
 import { AccountList } from './list.tsx';
@@ -169,7 +171,7 @@ const AccountSwitcher = Actor.define('AccountSwitcher', {
 });
 
 // Written out: the type `Actor.build` infers names Kabuki's internals.
-export const AccountSwitcherLive: Actor.Actor<
+export const AccountSwitcherLive: ActorType<
   'AccountSwitcher',
   typeof Input.Type,
   void,
@@ -301,7 +303,7 @@ export const AccountSwitcherLive: Actor.Actor<
  * signed out, and glides between the two; see `Slot`. A server draws it
  * checking; the browser fills it in.
  */
-export const AccountSwitcherView: View.Of<typeof AccountSwitcherLive> =
+export const AccountSwitcherView: ViewOf<typeof AccountSwitcherLive> =
   View.make(AccountSwitcherLive, ({ root, model, send }) => {
     const { account, switching } = model;
     return (
@@ -342,7 +344,7 @@ export const AccountSwitcherView: View.Of<typeof AccountSwitcherLive> =
  * Accounts and actions as the header's menu, from the same Instance.
  * Nothing unless signed in.
  */
-export const AccountSwitcherList: View.Of<typeof AccountSwitcherLive> =
+export const AccountSwitcherList: ViewOf<typeof AccountSwitcherLive> =
   View.make(AccountSwitcherLive, ({ model, send }) => {
     const { account, switching } = model;
     if (account._tag !== 'SignedIn') return null;

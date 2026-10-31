@@ -34,7 +34,7 @@ export class RedirectError extends Schema.TaggedError<RedirectError>()(
 ) {}
 
 /** A Redirect to a Route of type `R`, or out of the app: what a Loader of an app whose Routes are `R` may fail with. */
-export type RedirectTo<R> = RedirectError & { readonly route?: R };
+export type RedirectTo<R = any> = RedirectError & { readonly route?: R };
 
 /** How a Loader fails: the place is not found, or the app goes elsewhere. */
 export type LoadError<R = unknown> = NotFoundError | RedirectTo<R>;

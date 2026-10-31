@@ -6,6 +6,8 @@ import { Layer } from 'effect';
 import type { SavedHistory } from '../../core/history/index.ts';
 import { View } from '../../react/index.ts';
 import { Loading } from '../../routing/index.ts';
+import { Start } from '../app/index.ts';
+import type { AppRuntime } from '../../react/view/index.ts';
 import { browser } from '../../routing/router/adapter/browser/index.ts';
 import {
   NOT_HERE,
@@ -15,7 +17,6 @@ import {
   readPage,
 } from '../app/protocol/index.ts';
 import type { StartApp } from '../app/protocol/index.ts';
-import { Start } from '../app/index.ts';
 import { loading } from './rpc.ts';
 
 /*
@@ -47,7 +48,7 @@ export interface Hydrated {
 
 type DrawnApp = ComponentType<{ readonly saved?: SavedHistory }>;
 /** The App's own hook for the running app, which the Document reads through `Start.useRuntime()`. */
-type Runs = { readonly useRuntime: () => View.AppRuntime };
+type Runs = { readonly useRuntime: () => AppRuntime };
 /** `View.app`, for an app whose Actor Start only knows as any: its Layer was checked by `Start.app`. */
 type Untyped = (view: unknown, options: object) => unknown;
 
