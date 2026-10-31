@@ -1,0 +1,41 @@
+/*
+ * The App Shell's own properties (`recipes/frame`), none inherited. They
+ * change every frame the sidebar moves, and a change to an inherited custom
+ * property restyles every element under it, a long page and all. The Frame
+ * sets them on the few elements drawn from them.
+ */
+@property --sidebar-open {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+@property --sidebar-mobile {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+@property --sidebar-lift {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+@property --sidebar-width {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 256px;
+}
+@property --sidebar-width-mobile {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 288px;
+}
+@property --sidebar-push {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --sidebar-gap {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
