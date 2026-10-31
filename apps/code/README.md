@@ -94,7 +94,9 @@ pnpm --filter code deploy:prod   # ALLOW_DEPLOY=true: code.kishore.app
   session (`bench/`) in Chrome at a phone's size, its CPU slowed four
   times: opening it, leaving and coming back, words streaming in, a fold
   opened, scrolling to the top, and whether what is drawn above the view
-  after it opens moves it. `--out` keeps the numbers and `--compare`
-  sets new ones beside them; `--profile <move>` lists where its time goes.
+  after it opens, or as it is scrolled to, moves it; and, on a laptop's
+  screen beside the App Shell's sidebar, the sidebar shut and opened.
+  `--out` keeps the numbers and `--compare` sets new ones beside them;
+  `--profile <move>` lists where its time goes.
 - `pnpm --filter code draw:install` redraws the iOS Splash and the
   manifest's screenshots into `public/`, after a build of the packages.

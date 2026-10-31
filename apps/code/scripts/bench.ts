@@ -17,7 +17,8 @@ import { chromium, type CDPSession, type Page } from 'playwright-core';
  * Moves: `open`, a session drawn the first time; `reopen`, left and come
  * back to, as a phone does through the sidebar; `stream`, words arriving
  * at the end of a running turn; `toggle`, folds of work opened and shut;
- * `scroll`, from the bottom to the top, a step a frame.
+ * `scroll`, from the bottom to the top, a step a frame; `sidebar`, on a
+ * laptop's screen beside the App Shell's sidebar, shut and opened.
  */
 
 const args = process.argv.slice(2);
@@ -81,14 +82,18 @@ const p95 = (values: ReadonlyArray<number>) => {
   );
 };
 
-/** A fresh phone-sized page with the bench loaded. */
-const opened = async () => {
-  const context = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    deviceScaleFactor: 3,
-    isMobile: true,
-    hasTouch: true,
-  });
+/** A fresh page with the bench loaded, phone-sized unless `wide`. */
+const opened = async (wide = false) => {
+  const context = await browser.newContext(
+    wide
+      ? { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }
+      : {
+          viewport: { width: 390, height: 844 },
+          deviceScaleFactor: 3,
+          isMobile: true,
+          hasTouch: true,
+        },
+  );
   const page = await context.newPage();
   await page.goto(`http://localhost:${port}/`);
   await page.waitForFunction(() => 'bench' in window);
@@ -132,6 +137,7 @@ const run = async (turns: number): Promise<Result> => {
       (each) => each > 50,
     ).length;
     result['scroll: frames'] = scroll.frames.length;
+    result['scroll: jumped on screen (px)'] = scroll.jumped;
     await close();
   }
   // Short turns draw shorter than they stood in, so the browser clamps the
@@ -153,6 +159,20 @@ const run = async (turns: number): Promise<Result> => {
     await close();
   }
   {
+    const { page, close } = await opened(true);
+    await page.evaluate(
+      (turns) => window.bench.open(turns, false, true),
+      turns,
+    );
+    const frames = await page.evaluate(() => window.bench.sidebar(4));
+    result['sidebar: p95 frame (ms)'] = p95(frames);
+    result['sidebar: worst frame (ms)'] = Math.max(...frames);
+    result['sidebar: frames over 50 ms'] = frames.filter(
+      (each) => each > 50,
+    ).length;
+    await close();
+  }
+  {
     const { page, close } = await opened();
     await page.evaluate((turns) => window.bench.open(turns, true), turns);
     const stream = await page.evaluate(() => window.bench.stream(30));
@@ -165,7 +185,7 @@ const run = async (turns: number): Promise<Result> => {
 
 /** Where the time of one move goes, by function, from a CPU profile. */
 const profiled = async (move: string, turns: number) => {
-  const { page, cdp, close } = await opened();
+  const { page, cdp, close } = await opened(move === 'sidebar');
   const before: Record<string, () => Promise<unknown>> = {
     open: async () => {},
     reopen: () => page.evaluate((turns) => window.bench.open(turns), turns),
@@ -173,6 +193,8 @@ const profiled = async (move: string, turns: number) => {
       page.evaluate((turns) => window.bench.open(turns, true), turns),
     toggle: () => page.evaluate((turns) => window.bench.open(turns), turns),
     scroll: () => page.evaluate((turns) => window.bench.open(turns), turns),
+    sidebar: () =>
+      page.evaluate((turns) => window.bench.open(turns, false, true), turns),
   };
   const moves: Record<string, (page: Page) => Promise<unknown>> = {
     open: (page) => page.evaluate((turns) => window.bench.open(turns), turns),
@@ -180,6 +202,7 @@ const profiled = async (move: string, turns: number) => {
     stream: (page) => page.evaluate(() => window.bench.stream(30)),
     toggle: (page) => page.evaluate(() => window.bench.toggle(4)),
     scroll: (page) => page.evaluate(() => window.bench.scroll(400)),
+    sidebar: (page) => page.evaluate(() => window.bench.sidebar(4)),
   };
   await before[move]!();
   await cdp.send('Profiler.enable');
