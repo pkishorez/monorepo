@@ -3,7 +3,7 @@ import { Suspense, use, useEffect, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import { Cause, Effect, Exit, Fiber, Scope } from 'effect';
 import type { Layer } from 'effect';
-import { History, Runtime } from '../core/index.ts';
+import { History, Runtime } from '../../core/index.ts';
 import type {
   AnyActor,
   Entry,
@@ -14,13 +14,11 @@ import type {
   SavedHistory,
   Snapshot,
   WorkerStatus,
-} from '../core/index.ts';
+} from '../../core/index.ts';
 import { makeDrawn } from './drawn.ts';
-import { LazyContext } from './lazy.tsx';
-import type { LazyView } from './lazy.tsx';
+import { AppContext, LazyContext } from '../view/index.ts';
+import type { DrawnApp, LazyView, ViewOf } from '../view/index.ts';
 import { registry } from './registry.ts';
-import { AppContext } from './view.tsx';
-import type { DrawnApp, ViewOf } from './view.tsx';
 
 /*
  * The App: an Actor tree with its Layer, as one React component. It draws

@@ -1,6 +1,6 @@
-import { instanceAt, isMany } from '../core/index.ts';
-import type { AnyActor, Instance, Snapshot, Tagged } from '../core/index.ts';
-import type { Drawable, DrawnApp, Handle } from './view.tsx';
+import { instanceAt, isMany } from '../../core/index.ts';
+import type { AnyActor, Instance, Snapshot, Tagged } from '../../core/index.ts';
+import type { Drawable, DrawnApp, Handle } from '../view/index.ts';
 
 /*
  * What Views read: what any Instance is drawn from, out of the Snapshot drawn

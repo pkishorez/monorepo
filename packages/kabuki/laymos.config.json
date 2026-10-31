@@ -11,6 +11,7 @@
       "src/core/history"
     ],
     "src/react": ["src/core"],
+    "src/react/app": ["src/react/view"],
     "src/routing": ["src/core", "src/react"],
     "src/routing/router": [
       "src/routing/route",

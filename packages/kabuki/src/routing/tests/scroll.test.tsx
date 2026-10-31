@@ -5,7 +5,7 @@ import type { Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { View, toReact } from '../../react/index.ts';
-import { registry } from '../../react/registry.ts';
+import { registry } from '../../react/app/index.ts';
 import { KEY } from '../adapter/index.ts';
 import { browser } from '../adapter/browser/index.ts';
 import { Page, Router, useElementScrollRestoration } from '../index.ts';
