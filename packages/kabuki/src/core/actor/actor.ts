@@ -1,22 +1,16 @@
+import type { Data, Requires, Single, Tagged } from './instance.ts';
+import type { AnyChild, Behavior, OpenOfBehavior } from './behavior.ts';
+import type { KidsByState, QueriesByState } from './kept.ts';
 import type {
   Actor as ActorOf,
   AnyActor,
-  AnyChild,
-  Behavior,
   Check,
-  Data,
   ActorDefinition,
   Encoding,
-  KidsByState,
-  OpenOfBehavior,
-  QueriesByState,
   QueryDefinition,
-  Requires,
-  Single,
   SlotDefinition,
-  Tagged,
   WorkerDefinition,
-} from './types.ts';
+} from './definition.ts';
 import { Effect, Schema, SchemaAST } from 'effect';
 
 /**

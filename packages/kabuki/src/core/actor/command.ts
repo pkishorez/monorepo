@@ -1,6 +1,4 @@
 import { Effect, Schema } from 'effect';
-import { RUN } from './types.ts';
-import type { Command as Made } from './types.ts';
 
 /*
  * A Command is made once, outside any Update, from a name, the Schema of its
@@ -13,6 +11,21 @@ import type { Command as Made } from './types.ts';
  * Command, never in the Update: a mismatch is a defect, reported like any
  * Command failure.
  */
+
+/** Where a Command keeps the Effect it runs, out of sight of a comparison. */
+export const RUN: unique symbol = Symbol.for('@kestack/kabuki/Command/run');
+
+/**
+ * An errand an Update asks for, as `Command.make` makes it: its name and
+ * args, and the Effect that ends with at most one Message, Sent to its
+ * Instance. Nothing stops it but its Instance stopping; work that must be
+ * stopped, show progress or survive a stop is a Worker.
+ */
+export interface Command<Out, Ids = never> {
+  readonly name: string;
+  readonly args: unknown;
+  readonly [RUN]: Effect.Effect<Out, never, Ids>;
+}
 
 /** A Schema Kabuki can read without Capabilities and at once. */
 type Codec<T> = Schema.Codec<T, unknown, never, never>;
@@ -39,14 +52,14 @@ const make: {
       readonly args: Codec<Args>;
       readonly run: (args: Args) => Effect.Effect<Out, never, Ids>;
     },
-  ): (args: Args) => Made<Out, Ids>;
+  ): (args: Args) => Command<Out, Ids>;
   <Out, Ids = never>(
     name: string,
     options: {
       readonly args?: never;
       readonly run: () => Effect.Effect<Out, never, Ids>;
     },
-  ): () => Made<Out, Ids>;
+  ): () => Command<Out, Ids>;
 } = (
   name: string,
   options: {
@@ -61,7 +74,7 @@ const make: {
         check(args);
         return options.run(args);
       }),
-    }) as Made<unknown, unknown>;
+    }) as Command<unknown, unknown>;
 };
 
 /**
@@ -70,4 +83,3 @@ const make: {
  * args: `{ command: Search({ query }) }`.
  */
 export const Command = { make };
-export type Command<Out, Ids = never> = Made<Out, Ids>;
