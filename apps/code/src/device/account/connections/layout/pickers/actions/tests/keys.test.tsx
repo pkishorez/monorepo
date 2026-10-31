@@ -33,12 +33,11 @@ const Owner = Actor.define('Owner', {
 
 const OwnerLive = Actor.build(Owner, {
   init: () => ({ model: { pings: 0 } }),
-  children: {
-    actions: {
-      actor: ActionsLive,
+  children: (child) => ({
+    actions: child(ActionsLive, {
       props: () => ({ bindings: BINDINGS }),
-    },
-  },
+    }),
+  }),
   on: {
     Ping: (_, { model }) => ({ model: { pings: model.pings + 1 } }),
   },

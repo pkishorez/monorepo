@@ -194,9 +194,9 @@ export const ConnectionLive = Actor.build(Connection, {
         );
       }),
     ),
-  children: {
-    replicas: Replicas.child([CodeReplicaLive]),
-  },
+  children: (child) => ({
+    replicas: child(Replicas.actor([CodeReplicaLive])),
+  }),
   workers: {
     link: {
       run: (self) =>
@@ -317,7 +317,7 @@ export const ConnectionLive = Actor.build(Connection, {
         }),
     },
   },
-  state: {
+  states: {
     // 1. Kept
     Reading: {
       workers: {

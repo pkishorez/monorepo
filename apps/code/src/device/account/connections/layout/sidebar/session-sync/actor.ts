@@ -56,10 +56,9 @@ const SessionSync = Actor.define('SessionSync', {
 
 export const SessionSyncLive = Actor.build(SessionSync, {
   init: () => ({ model: { shown: [] } }),
-  children: {
+  children: (child) => ({
     // 2. Hold
-    messages: {
-      actor: MessageIds,
+    messages: child(MessageIds, {
       each: ({ model }) => model.shown.map(({ sessionId }) => sessionId),
       props: ({ model }, sessionId) => ({
         connectionId:
@@ -67,8 +66,8 @@ export const SessionSyncLive = Actor.build(SessionSync, {
             ?.connectionId ?? '',
         sessionId,
       }),
-    },
-  },
+    }),
+  }),
   workers: {
     // 1. Shown: read again for each set of Connections read.
     shown: {

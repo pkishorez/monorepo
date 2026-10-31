@@ -66,8 +66,7 @@ interface UseChild {
  * Reads one fixed Child from its parent's View: its Model, State and Props,
  * at the Step drawn; `undefined` once the Child has stopped. The component
  * re-renders when they change, or, given a selector, only when what it picks
- * changes. An escape hatch for drawing only: what a parent must act on, it
- * owns.
+ * changes. For drawing only: what a parent must act on, it owns.
  */
 export const useChild: UseChild = (
   handle: Handle<unknown>,

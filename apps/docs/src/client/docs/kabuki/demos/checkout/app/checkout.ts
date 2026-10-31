@@ -48,7 +48,7 @@ const start = {
 
 export const CheckoutLive = Actor.build(Checkout, {
   init: () => start,
-  state: {
+  states: {
     // Each step takes only the Messages that make sense on it.
     Cart: {
       on: {

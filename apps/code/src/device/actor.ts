@@ -157,13 +157,12 @@ export const DeviceLive = Page.build(Device, {
         ready: (accountId) => self.send({ _tag: 'Prepared', accountId }),
       }),
     ),
-  children: {
+  children: (child) => ({
     // 1. Account. The Auth Worker's `maxAccounts`: its default, 5.
-    account: { actor: AccountSwitcherLive, input: () => ({ maxAccounts: 5 }) },
+    account: child(AccountSwitcherLive, { input: () => ({ maxAccounts: 5 }) }),
     // 2. Connections: of the Account drawn, and of the one wanted while it
     // prepares, kept as the Account checked turns out to be the same.
-    connections: {
-      actor: ConnectionsActor.actor,
+    connections: child(ConnectionsActor.actor, {
       each: ({ state, model }) =>
         running(model.drawn, shownOf(state)).map(({ id }) => id),
       input: (_, accountId) => ({ accountId }),
@@ -174,10 +173,9 @@ export const DeviceLive = Page.build(Device, {
           )?.email ?? null,
         drawn: model.drawn?.id === accountId,
       }),
-    },
+    }),
     // 3. Layout: one per Account drawn, once its keyboard is read.
-    layout: {
-      actor: Layout.actor,
+    layout: child(Layout.actor, {
       while: ({ model }) => model.drawn !== null && model.keyboard !== null,
       key: ({ model }) => model.drawn?.id ?? '',
       input: ({ model }) => ({
@@ -188,8 +186,8 @@ export const DeviceLive = Page.build(Device, {
         email: model.drawn?.email ?? '',
         place: draftAt(props.route.page),
       }),
-    },
-  },
+    }),
+  }),
   workers: {
     // 1. Account
     accounts: {

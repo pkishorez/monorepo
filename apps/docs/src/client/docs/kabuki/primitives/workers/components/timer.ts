@@ -14,7 +14,7 @@ export const Timer = Actor.define('Timer', {
 
 export const TimerLive = Actor.build(Timer, {
   init: () => ({ state: { _tag: 'Stopped' }, model: { seconds: 0 } }),
-  state: {
+  states: {
     Stopped: {
       on: {
         Started: () => ({ state: { _tag: 'Running' } }),

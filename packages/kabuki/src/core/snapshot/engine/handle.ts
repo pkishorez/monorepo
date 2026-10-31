@@ -1,9 +1,10 @@
 import { Array as Arr } from 'effect';
-import type { ActorDefinition } from '../../actor/index.ts';
+import type { ActorDefinition, Tagged } from '../../actor/index.ts';
 import { enter, follow } from './invoke.ts';
 import { checkRestore, isRestore } from './restore.ts';
 import type { Envelope, Instance, Snapshot } from './snapshot.ts';
 import { pathTo, replace } from './tree.ts';
+import type { Step } from './tree.ts';
 
 /*
  * Handle: an Envelope and a Snapshot give the next Snapshot. Pure.
@@ -11,15 +12,19 @@ import { pathTo, replace } from './tree.ts';
  * 1. Find     the Instance the Envelope is for. One that is gone drops it.
  * 2. Update   runs the rule for its State and the Message, with its Model,
  *             State and Props. No rule ignores it.
- *             A new Model or State it gives is checked against the Actor's
- *             Schemas, and one that does not match throws before anything
- *             changes.
+ *             The fields of the Model it gives go over the Model's own, and
+ *             the Model and any new State are checked against the Actor's
+ *             Schemas, as is what it Emits: one that does not match throws
+ *             before anything changes.
  * 3. Apply    the new data: a new State is a Transition and Invokes the
  *             State's Children fresh; the same State lets keyed Children
  *             follow the Model. Either way every Child is handed its Props
  *             again.
  * 4. Replace  the Instance in the Snapshot. Every Instance off its path stays
  *             the same object.
+ * 5. Emit     what the Update Emits becomes the parent's Message, as the
+ *             Child's slot turns it, for the Runtime to Send next. One the
+ *             slot does not turn, or the root's, is not heard.
  *
  * A Restore skips all four: it puts a whole saved Snapshot in place.
  */
@@ -33,13 +38,33 @@ export interface Handled {
   readonly snapshot: Snapshot;
   /** The Commands the Update asked for, to run in the Instance it was for. */
   readonly commands: ReadonlyArray<unknown>;
+  /** The parent's Messages what the Update Emitted became, to Send next. */
+  readonly emitted: ReadonlyArray<Emitted>;
+}
+
+/** One thing a Child Emitted, as the Message to its parent it became. */
+export interface Emitted {
+  /** The parent's ID. */
+  readonly destination: string;
+  readonly message: Tagged;
+  /** The Child that Emitted it, and the tag of what it Emitted. */
+  readonly instance: string;
+  readonly name: string;
 }
 
 const nothing = (
   snapshot: Snapshot,
   outcome: 'ignored' | 'dropped',
   tag = '',
-) => ({ outcome, from: tag, to: tag, snapshot, commands: [] }) as const;
+) =>
+  ({
+    outcome,
+    from: tag,
+    to: tag,
+    snapshot,
+    commands: [],
+    emitted: [],
+  }) as const;
 
 export const handle = (
   root: ActorDefinition,
@@ -67,13 +92,19 @@ export const handle = (
   });
 
   const by = `the Update for ${JSON.stringify(message._tag)} in ${from} gave ${id}`;
-  if (next.model !== undefined && next.model !== instance.model)
-    definition.check.model(next.model, `the Model ${by}`);
+  const model = merged(instance.model, next.model);
+  if (model !== instance.model)
+    definition.check.model(model, `the Model ${by}`);
   if (next.state !== undefined && next.state !== instance.state)
     definition.check.state(next.state, `the State ${by}`);
+  const emits = next.emit === undefined ? [] : Arr.ensure(next.emit);
+  for (const event of emits)
+    definition.check.emits(
+      event,
+      `what the Update for ${JSON.stringify(message._tag)} Emitted from ${id}`,
+    );
 
   // 3. Apply
-  const model = next.model ?? instance.model;
   const state = next.state ?? instance.state;
   const changed = model !== instance.model || state !== instance.state;
   const after = !changed
@@ -89,7 +120,46 @@ export const handle = (
     to: state._tag,
     snapshot: after === instance ? snapshot : replace(path, after),
     commands: next.command === undefined ? [] : Arr.ensure(next.command),
+    // 5. Emit
+    emitted: emittedOf(path, emits),
   };
+};
+
+/** The Model with the fields an Update gave over its own: the same object while none changes. */
+const merged = (model: unknown, fields: unknown): unknown => {
+  if (fields === undefined || fields === model) return model;
+  const own = model as Readonly<Record<string, unknown>>;
+  const given = fields as Readonly<Record<string, unknown>>;
+  return Object.keys(given).some(
+    (field) => !Object.is(own[field], given[field]),
+  )
+    ? { ...own, ...given }
+    : model;
+};
+
+/** What the Child at the end of `path` Emitted, as its parent's Messages. */
+const emittedOf = (
+  path: ReadonlyArray<Step>,
+  emits: ReadonlyArray<Tagged>,
+): ReadonlyArray<Emitted> => {
+  const child = path.at(-1)!;
+  const parent = path.at(-2);
+  if (!parent || emits.length === 0) return [];
+  const slot =
+    parent.definition.children[parent.instance.state._tag]?.[child.slot];
+  return emits.flatMap((event) => {
+    const turn = slot?.emits[event._tag];
+    return turn
+      ? [
+          {
+            destination: parent.instance.id,
+            message: turn(event, child.instance.key ?? ''),
+            instance: child.instance.id,
+            name: event._tag,
+          },
+        ]
+      : [];
+  });
 };
 
 const warned = new WeakSet<object>();
@@ -119,6 +189,7 @@ const restored = (
     to: after.state._tag,
     snapshot: after,
     commands: [],
+    emitted: [],
   };
 };
 
@@ -126,4 +197,5 @@ type Next = {
   readonly model?: unknown;
   readonly state?: Instance['state'];
   readonly command?: unknown;
+  readonly emit?: Tagged | ReadonlyArray<Tagged>;
 };

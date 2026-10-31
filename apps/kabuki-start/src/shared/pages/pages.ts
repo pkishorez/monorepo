@@ -32,7 +32,7 @@ const App = Page.define({
   pages: { Static, Items, Apis, Replica },
 });
 
-const ReplicasLive = Replicas.child([PocketReplica]);
+const ReplicasLive = Replicas.actor([PocketReplica]);
 
 const AppLive = Page.build(App, {
   pages: {
@@ -42,11 +42,11 @@ const AppLive = Page.build(App, {
     Replica: ReplicaLive,
   },
   provides: () => Layer.mergeAll(CurrentAccount.layer, Replicas.layer),
-  children: {
+  children: (child) => ({
     // The Auth Worker's `maxAccounts`: its default, 5.
-    account: { actor: AccountSwitcherLive, input: () => ({ maxAccounts: 5 }) },
-    replicas: ReplicasLive,
-  },
+    account: child(AccountSwitcherLive, { input: () => ({ maxAccounts: 5 }) }),
+    replicas: child(ReplicasLive),
+  }),
 });
 
 export const router = Router.define(App, {
@@ -57,7 +57,7 @@ export const router = Router.define(App, {
 /** Every page's build, and the actors the Replica page places and reads, for their Views. */
 export const Pages = {
   AppLive,
-  ReplicasLive: ReplicasLive.actor,
+  ReplicasLive,
   StaticLive,
   DynamicLive,
   ClientLive,

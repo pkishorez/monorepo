@@ -53,12 +53,12 @@ import { workersOf } from './workers.ts';
  * writes each move to the address with a Command, and hears the address
  * with a Worker.
  */
-export const app = <Route extends AnyRoute, A extends AnyActor>(
+export const view = <Route extends AnyRoute, A extends AnyActor>(
   routes: RoutesLike<Route>,
-  view: ViewOf<A>,
+  rootView: ViewOf<A>,
 ) => {
   const { scroll: scrolling } = routes.options;
-  const root = view.actor as unknown as AnyPageBuild;
+  const root = rootView.actor as unknown as AnyPageBuild;
   if (root.page !== routes.root)
     throw new Error(
       '[@kestack/kabuki/routing] the View handed to the Router does not draw a build of its root page',
@@ -81,9 +81,8 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     init: (from: RouterInput<Route> | undefined) => ({
       model: moves.firstModel(from),
     }),
-    children: {
-      page: {
-        actor: root,
+    children: (child: (actor: AnyActor, options: object) => unknown) => ({
+      page: child(root, {
         props: ({ model }: { readonly model: Model }) => {
           const route = shown(model) as unknown as Value;
           const found = route._tag !== 'NotFound';
@@ -99,8 +98,8 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
             },
           };
         },
-      },
-    },
+      }),
+    }),
     provides: (self: {
       readonly send: Send<Route>;
       readonly changes: Stream.Stream<{ readonly model: Model }>;
@@ -144,7 +143,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
 
   const routerView = viewOf(
     built,
-    view as unknown as ViewOf<AnyActor>,
+    rootView as unknown as ViewOf<AnyActor>,
     routes,
     urls,
     moves,
@@ -224,14 +223,14 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
 
 /**
  * The router: `define` reads an app's router down from its root page's
- * definition; `app` puts it above the root page's View, as `Start.app`
+ * definition; `view` puts it above the root page's View, as `Start.app`
  * does; `Link` and `Retry` draw inside it; `push`, `replace`, `back`,
  * `forward`, `backTo`, `reload` and `preload` are Commands an Update
  * returns.
  */
 export const Router = {
   define,
-  app,
+  view,
   Link,
   Retry,
   push,

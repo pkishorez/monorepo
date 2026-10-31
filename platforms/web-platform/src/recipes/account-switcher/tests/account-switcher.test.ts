@@ -145,13 +145,12 @@ const PageLive = Actor.build(Page, {
 
 const Root = Actor.build(Actor.define('Root', {}), {
   provides: () => CurrentAccount.layer,
-  children: {
-    account: {
-      actor: AccountSwitcherLive,
+  children: (child) => ({
+    account: child(AccountSwitcherLive, {
       input: () => ({ maxAccounts: 5 }),
-    },
-    page: { actor: PageLive },
-  },
+    }),
+    page: child(PageLive),
+  }),
 });
 
 const wait = (ms: number) =>

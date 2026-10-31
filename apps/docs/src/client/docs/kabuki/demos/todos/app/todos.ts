@@ -54,9 +54,8 @@ export const TodosLive = Actor.build(Todos, {
     },
   }),
   // One Todo per item. Each one hears whether it is done, as a Prop.
-  children: {
-    todos: {
-      actor: TodoLive,
+  children: (child) => ({
+    todos: child(TodoLive, {
       each: ({ model }) => model.items.map((item) => item.id),
       input: ({ model }, id) => ({
         text: model.items.find((item) => item.id === id)?.text ?? '',
@@ -64,8 +63,8 @@ export const TodosLive = Actor.build(Todos, {
       props: ({ model }, id) => ({
         done: model.items.some((item) => item.id === id && item.done),
       }),
-    },
-  },
+    }),
+  }),
   on: {
     Added: ({ text }, { model }) => ({
       model: {

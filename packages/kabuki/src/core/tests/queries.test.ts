@@ -63,7 +63,7 @@ const Socket = Actor.build(
           Effect.map(self.get, ({ model }) => model.sent >= than),
       },
     },
-    state: {
+    states: {
       Open: {
         queries: {
           peers: {
@@ -227,7 +227,7 @@ describe('a Query', () => {
       queries: { glow: { run: () => Effect.flatMap(Wait, (w) => w.answer) } },
     });
     const Lamp = Actor.build(Actor.define('Lamp', { requires: [Wait] }), {
-      children: { bulb: { actor: Bulb } },
+      children: (child) => ({ bulb: child(Bulb) }),
     });
     const Room = Actor.build(
       Actor.define('Room', {
@@ -237,7 +237,9 @@ describe('a Query', () => {
       }),
       {
         init: () => ({ model: { lit: true } }),
-        children: { lamp: { actor: Lamp, while: ({ model }) => model.lit } },
+        children: (child) => ({
+          lamp: child(Lamp, { while: ({ model }) => model.lit }),
+        }),
         on: { Switched: (_, { model }) => ({ model: { lit: !model.lit } }) },
       },
     );
@@ -307,7 +309,9 @@ describe('a Query', () => {
         {
           init: () => ({ state: { _tag: 'A' } }),
           queries: { same: { run: () => Effect.succeed(1) } },
-          state: { A: { queries: { same: { run: () => Effect.succeed(2) } } } },
+          states: {
+            A: { queries: { same: { run: () => Effect.succeed(2) } } },
+          },
         },
       ),
     ).toThrow('Query "same" is written twice');

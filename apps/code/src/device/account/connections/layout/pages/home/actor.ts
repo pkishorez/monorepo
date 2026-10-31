@@ -108,13 +108,12 @@ export const HomeLive = Page.build(Home, {
         ),
     },
   },
-  children: {
-    projects: {
-      actor: Projects,
+  children: (child) => ({
+    projects: child(Projects, {
       each: ({ model }) => across.each(model.connectionIds ?? []),
       props: (_, key) => across.props(key),
-    },
-  },
+    }),
+  }),
   on: {
     Known: ({ read, connectionIds, problem }, { model }) => ({
       model: { ...model, read, connectionIds, problem },

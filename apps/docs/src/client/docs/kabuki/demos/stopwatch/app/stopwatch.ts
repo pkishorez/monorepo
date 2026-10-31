@@ -29,7 +29,7 @@ const total = (elapsed: number, since: number, at: number) =>
 
 export const StopwatchLive = Actor.build(Stopwatch, {
   init: () => ({ state: { _tag: 'Idle' }, model: { elapsed: 0, laps: [] } }),
-  state: {
+  states: {
     Idle: {
       on: {
         Started: (_, { at }) => ({ state: { _tag: 'Running', since: at } }),

@@ -39,6 +39,10 @@ export interface SlotDefinition {
     data: Data<unknown, Tagged, unknown>,
     key: string,
   ) => unknown;
+  /** By the tag of what the Child Emits, the parent's Message it becomes, given the Child's key. */
+  readonly emits: Readonly<
+    Record<string, ((event: Tagged, key: string) => Tagged) | undefined>
+  >;
 }
 
 /** One Worker, as the engine sees it: which keys its Condition names, and what runs for each. */
@@ -74,6 +78,7 @@ export interface ActorDefinition {
     readonly model: Check;
     readonly state: Check;
     readonly message: Check;
+    readonly emits: Check;
   };
   /** The Schemas it was defined with, as written, for a tool that describes it; one it was not given is absent. */
   readonly schemas: {
@@ -82,6 +87,7 @@ export interface ActorDefinition {
     readonly model?: Schema.Top;
     readonly state?: Schema.Top;
     readonly message?: Schema.Top;
+    readonly emits?: Schema.Top;
   };
   /** The Schemas a saved History is written and read with: what it holds of an Instance, and its Messages. */
   readonly encoding: {
@@ -124,6 +130,7 @@ export interface Actor<
   out Kids,
   out Needs,
   out Qs = {},
+  out Emits = never,
 > {
   readonly name: Name;
   readonly definition: ActorDefinition;
@@ -136,10 +143,22 @@ export interface Actor<
     readonly children: Kids;
     readonly open: Needs;
     readonly queries: Qs;
+    readonly emits: Emits;
   };
 }
 
-export type AnyActor = Actor<string, any, any, any, any, any, any, any, any>;
+export type AnyActor = Actor<
+  string,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any
+>;
 
 /** Everything an Actor's types say, for the Runtime and Views. */
 export type Types<A> =
@@ -152,7 +171,8 @@ export type Types<A> =
     infer Msg,
     infer Kids,
     infer Needs,
-    infer Qs
+    infer Qs,
+    infer Emits
   >
     ? {
         input: Input;
@@ -165,5 +185,7 @@ export type Types<A> =
         open: Needs;
         /** Queries per State tag. */
         queries: Qs;
+        /** What it Emits to its parent. */
+        emits: Emits;
       }
     : never;

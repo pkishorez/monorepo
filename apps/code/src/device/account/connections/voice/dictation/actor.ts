@@ -404,7 +404,7 @@ export const DictationLive = Actor.build(Dictation, {
         }),
     },
   },
-  state: {
+  states: {
     Idle: {
       on: { Toggle: (_, { model, at }) => start(model, at) },
     },

@@ -285,6 +285,8 @@ const start = (
         all.cancel();
       root.follow(current);
       root.find(envelope.destination)?.command(handled.commands);
+      for (const { destination, message, instance, name } of handled.emitted)
+        host.send(destination, message, { kind: 'emit', instance, name });
       return handled;
     },
     workers: (id) => root.find(id)?.workers() ?? [],

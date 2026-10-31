@@ -114,15 +114,14 @@ const List = Actor.build(
     init: () => ({
       model: { ids: ['a', 'b', 'c'], next: 0, selected: 'a', title: 'List' },
     }),
-    children: {
-      header: { actor: Header },
-      rows: {
-        actor: Row,
+    children: (child) => ({
+      header: child(Header),
+      rows: child(Row, {
         each: ({ model }) => model.ids,
         input: (_, id) => ({ text: id }),
         props: ({ model }, id) => ({ selected: id === model.selected }),
-      },
-    },
+      }),
+    }),
     on: {
       Added: (_, { model }) => ({
         model: {
@@ -381,7 +380,7 @@ const Editor = Actor.build(
   }),
   {
     init: () => ({ model: { draft: '' }, state: { _tag: 'Editing' } }),
-    state: {
+    states: {
       Editing: {
         on: {
           Typed: ({ text }) => ({ model: { draft: text } }),
@@ -537,7 +536,8 @@ describe('motion.create and memo', () => {
     await mount(<App />);
     renders = {};
     await send(LIST, { _tag: 'Retitled', title: 'Lis' });
-    await send(LIST, { _tag: 'Retitled', title: 'Lis' });
+    // A new title of the same length: the List draws again, its `style` does not change.
+    await send(LIST, { _tag: 'Retitled', title: 'Lit' });
     expect(renders).toEqual({ [LIST]: 2, [row('a')]: 1 });
   });
 });
@@ -570,16 +570,15 @@ export const types = () => {
     }),
     {
       init: () => ({ model: { on: false } }),
-      children: {
-        header: { actor: Header },
-        shade: { actor: Header, while: ({ model }) => model.on },
-        rows: {
-          actor: Row,
+      children: (child) => ({
+        header: child(Header),
+        shade: child(Header, { while: ({ model }) => model.on }),
+        rows: child(Row, {
           each: () => ['a'],
           input: (_, id) => ({ text: id }),
           props: () => ({ selected: false }),
-        },
-      },
+        }),
+      }),
     },
   );
   View.make(Lamp, ({ children }) => [

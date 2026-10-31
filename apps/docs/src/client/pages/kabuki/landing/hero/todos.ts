@@ -39,7 +39,7 @@ export const Todo = Actor.define('Todo', {
 
 export const TodoLive = Actor.build(Todo, {
   init: ({ text }) => ({ state: { _tag: 'Active' }, model: { text } }),
-  state: {
+  states: {
     Active: { on: { Toggled: () => ({ state: { _tag: 'Done' } }) } },
     Done: { on: { Toggled: () => ({ state: { _tag: 'Active' } }) } },
   },
@@ -72,14 +72,13 @@ export const TodosLive = Actor.build(Todos, {
     state: { _tag: 'Active' },
     model: { ids: [], count: 0, auto: true },
   }),
-  children: {
-    todos: {
-      actor: TodoLive,
+  children: (child) => ({
+    todos: child(TodoLive, {
       each: ({ model }) => model.ids,
       input: (_, id) => ({ text: TEXTS[Number(id) % TEXTS.length]! }),
       props: ({ state }) => ({ filter: state._tag }),
-    },
-  },
+    }),
+  }),
   workers: {
     // Adds the next to-do a moment later, until the visitor takes over.
     demo: {

@@ -51,12 +51,11 @@ const Owner = Actor.define('Owner', {
 
 const OwnerLive = Actor.build(Owner, {
   init: () => ({ model: { pings: 0 } }),
-  children: {
-    projectPicker: {
-      actor: ProjectPickerLive,
+  children: (child) => ({
+    projectPicker: child(ProjectPickerLive, {
       props: () => ({ accountId: 'a1' }),
-    },
-  },
+    }),
+  }),
   on: {
     Ping: (_, { model }) => ({ model: { pings: model.pings + 1 } }),
   },

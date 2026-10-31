@@ -57,14 +57,13 @@ export const PlaylistLive = Actor.build(Playlist, {
     Layer.succeed(Player, {
       play: (id) => self.send({ _tag: 'Played', id }),
     }),
-  children: {
-    songs: {
-      actor: SongLive,
+  children: (child) => ({
+    songs: child(SongLive, {
       each: ({ model }) => model.ids,
       input: (_, id) => ({ id, ...SONGS[id]! }),
       props: ({ model }, id) => ({ playing: model.playing === id }),
-    },
-  },
+    }),
+  }),
   on: {
     Played: ({ id }, { model }) => ({ model: { ...model, playing: id } }),
     Stopped: (_, { model }) => ({ model: { ...model, playing: null } }),

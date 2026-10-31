@@ -172,12 +172,11 @@ describe('a tree of Actors', () => {
           model: { count: 0, row: 'a' },
           state: { _tag: 'Open' },
         }),
-        children: {
-          row: {
-            actor: Row,
+        children: (child) => ({
+          row: child(Row, {
             input: ({ model }) => ({ text: model.row as string }),
-          },
-        },
+          }),
+        }),
         on: {
           Counted: ({ by }, { model }) => ({
             model: { ...model, count: by > 1 ? (String(by) as never) : by },
@@ -274,13 +273,12 @@ describe('keyed Children', () => {
     }),
     {
       init: () => ({ model: { ids: [], next: 0 } }),
-      children: {
-        rows: {
-          actor: Row,
+      children: (child) => ({
+        rows: child(Row, {
           each: ({ model }) => model.ids,
           input: (_, id) => ({ text: `#${id}` }),
-        },
-      },
+        }),
+      }),
       on: {
         Added: (_, { model }) => ({
           model: { ids: [...model.ids, `${model.next}`], next: model.next + 1 },
@@ -335,7 +333,7 @@ describe('keyed Children', () => {
   it('a Child whose Actor takes Input must be handed it', () => {
     const Forgot = Actor.build(Actor.define('Forgot', {}), {
       // @ts-expect-error input is missing
-      children: { rows: { actor: Row, each: () => ['a'] } },
+      children: (child) => ({ rows: child(Row, { each: () => ['a'] }) }),
     });
     expect(Forgot).toBeDefined();
   });
@@ -361,10 +359,10 @@ describe('a Child written with `while`', () => {
     }),
     {
       init: () => ({ model: { lit: false } }),
-      children: {
-        light: { actor: Light, while: ({ model }) => model.lit },
-        counter: { actor: Counter, while: ({ model }) => model.lit },
-      },
+      children: (child) => ({
+        light: child(Light, { while: ({ model }) => model.lit }),
+        counter: child(Counter, { while: ({ model }) => model.lit }),
+      }),
       on: { Switched: (_, { model }) => ({ model: { lit: !model.lit } }) },
     },
   );
@@ -425,10 +423,10 @@ describe('a Child written with `while`', () => {
 
   it('is checked like any other Child', () => {
     const Forgot = Actor.build(Actor.define('Forgot', {}), {
-      children: {
+      children: (child) => ({
         // @ts-expect-error a Child is written with `while` or `each`, never both
-        light: { actor: Light, while: () => true, each: () => ['a'] },
-      },
+        light: child(Light, { while: () => true, each: () => ['a'] }),
+      }),
     });
     expect(Forgot).toBeDefined();
   });
@@ -444,13 +442,12 @@ describe('a single Child written with a `key`', () => {
     }),
     {
       init: () => ({ model: { open: null } }),
-      children: {
-        page: {
-          actor: Counter,
+      children: (child) => ({
+        page: child(Counter, {
           while: ({ model }) => model.open !== null,
           key: ({ model }) => model.open ?? '',
-        },
-      },
+        }),
+      }),
       on: { Opened: ({ name }) => ({ model: { open: name } }) },
     },
   );
@@ -525,11 +522,11 @@ describe('written at the top or in a State', () => {
         Layer.succeed(Clock2, {
           tick: Effect.sync(() => heard.push('tick')),
         }),
-      children: { ticker: { actor: Ticker } },
+      children: (child) => ({ ticker: child(Ticker) }),
       on: { Hush: (_, { model }) => ({ model: { ...model, loud: false } }) },
-      state: {
+      states: {
         Open: {
-          children: { guest: { actor: Counter } },
+          children: (child) => ({ guest: child(Counter) }),
           on: { Toggle: () => ({ state: { _tag: 'Shut' } }) },
           workers: {
             creak: {
@@ -604,8 +601,8 @@ describe('written at the top or in a State', () => {
         }),
         {
           init: () => ({ state: { _tag: 'A' } }),
-          children: { kid: { actor: Counter } },
-          state: { A: { children: { kid: { actor: Counter } } } },
+          children: (child) => ({ kid: child(Counter) }),
+          states: { A: { children: (child) => ({ kid: child(Counter) }) } },
         },
       ),
     ).toThrow('Child "kid" is written at the top and in A');
@@ -626,7 +623,7 @@ describe('written at the top or in a State', () => {
       ).length;
     Actor.build(Actor.define('Forgetful', shape), {
       init: () => ({ state: { _tag: 'A' } }),
-      state: {
+      states: {
         A: {
           on: {
             Went: ({ to }) => ({ state: to ? { _tag: 'B' } : { _tag: 'A' } }),
@@ -638,7 +635,7 @@ describe('written at the top or in a State', () => {
     Actor.build(Actor.define('Careful', shape), {
       init: () => ({ state: { _tag: 'A' } }),
       on: { Forgot: () => ({}) },
-      state: { B: { on: { Went: () => ({}) } } },
+      states: { B: { on: { Went: () => ({}) } } },
     });
     expect(warned()).toBe(1);
     logged.mockRestore();
@@ -655,7 +652,7 @@ describe('written at the top or in a State', () => {
         // @ts-expect-error: no Message is tagged Typd
         on: { Typed: () => ({}), Typd: () => ({}) },
         // @ts-expect-error: no State is tagged Lodaing
-        state: { Lodaing: {} },
+        states: { Lodaing: {} },
       }),
     ).not.toThrow();
   });

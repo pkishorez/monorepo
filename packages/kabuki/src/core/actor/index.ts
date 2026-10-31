@@ -1,17 +1,36 @@
 export { Actor } from './actor.ts';
-export type { BehaviorOf, BuiltOf, Defined } from './actor.ts';
+export type {
+  AnyDefined,
+  BehaviorOf,
+  BuiltOf,
+  Defined,
+  DefinedOf,
+  Refused,
+  Written,
+} from './actor.ts';
+export type {
+  Cases,
+  Fields,
+  StructOf,
+  StructWritten,
+  TaggedOf,
+  TaggedWritten,
+} from './schemas.ts';
 export type { Data, Only, Requires, Self, Single, Tagged } from './instance.ts';
 export type {
   ActorOf,
   AnyChild,
   Behavior,
-  Child,
-  Children,
+  ChildOf,
+  ChildOptions,
+  Hears,
+  Made,
   OpenOfBehavior,
   ProvidedOf,
   Query,
   Queries,
   QuerySelf,
+  Slot,
   Worker,
   Workers,
 } from './behavior.ts';

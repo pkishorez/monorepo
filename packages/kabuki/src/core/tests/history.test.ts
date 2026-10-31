@@ -24,7 +24,7 @@ const Counter = Actor.build(
     on: {
       Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }),
     },
-    state: {
+    states: {
       Idle: {
         on: {
           Started: (_, { at }) => ({ state: { _tag: 'Busy', since: at } }),
@@ -113,9 +113,9 @@ describe('Restore', () => {
       }),
       {
         init: () => ({ model: { guests: ['ada'] } }),
-        children: {
-          guest: { actor: Counter, each: ({ model }) => model.guests },
-        },
+        children: (child) => ({
+          guest: child(Counter, { each: ({ model }) => model.guests }),
+        }),
         on: {
           Came: ({ name }, { model }) => ({
             model: { guests: [...model.guests, name] },
@@ -140,7 +140,7 @@ describe('Restore', () => {
   it('is ignored when a fixed Child its State Invokes is missing', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const Shelf = Actor.build(Actor.define('Shelf', {}), {
-      children: { counter: { actor: Counter } },
+      children: (child) => ({ counter: child(Counter) }),
     });
     const shelf = init(Shelf.definition);
     const handled = Snapshot.handle(Shelf.definition, shelf, {

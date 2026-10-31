@@ -60,7 +60,7 @@ export const app = <G extends PageDefinition, A extends PageBuild<G>>(
   };
   return {
     [APP]: true,
-    app: Router.app(router as never, view as unknown as ViewOf<AnyActor>),
+    app: Router.view(router as never, view as unknown as ViewOf<AnyActor>),
     ...(document && { document }),
     ...(name && { name }),
     ...(layer && { layer }),

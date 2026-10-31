@@ -54,7 +54,7 @@ export const TickerLive = Actor.build(Ticker, {
       model: { log: [...model.log, { text, at }].slice(-3) },
     }),
   },
-  state: {
+  states: {
     Off: {
       on: { Switched: () => ({ state: { _tag: 'On' } }) },
     },
@@ -63,7 +63,7 @@ export const TickerLive = Actor.build(Ticker, {
       // Worker stop first, then the feed closes.
       provides: (self) =>
         priceFeed((text) => self.send({ _tag: 'Logged', text })),
-      children: { quote: { actor: QuoteLive } },
+      children: (child) => ({ quote: child(QuoteLive) }),
       on: { Switched: () => ({ state: { _tag: 'Off' } }) },
     },
   },

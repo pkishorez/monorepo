@@ -57,7 +57,7 @@ describe('Requires and Provides', () => {
 
   it("a Child's needs bubble up until something Provides them", () => {
     const Orphan = Actor.build(Actor.define('Orphan', {}), {
-      children: { todos: { actor: Todos } },
+      children: (child) => ({ todos: child(Todos) }),
     });
     const SessionLive = Layer.effect(
       Session,
@@ -75,8 +75,8 @@ describe('Requires and Provides', () => {
   it('a Capability Provided in one State does not reach Children of another', () => {
     const Wrong = Actor.build(Actor.define('Wrong', { state: AuthState }), {
       init: () => ({ state: { _tag: 'Checking' } }),
-      state: {
-        Anonymous: { children: { todos: { actor: Todos } } },
+      states: {
+        Anonymous: { children: (child) => ({ todos: child(Todos) }) },
         Authenticated: {
           provides: (self) =>
             Layer.effect(
@@ -107,7 +107,7 @@ describe('Requires and Provides', () => {
             return { user, logOut: Effect.void };
           }),
         ),
-      state: { Anonymous: { children: { todos: { actor: Todos } } } },
+      states: { Anonymous: { children: (child) => ({ todos: child(Todos) }) } },
     });
     const covered: Effect.Effect<unknown, never, Scope.Scope> =
       Runtime.start(Top);
@@ -132,7 +132,7 @@ describe('Requires and Provides', () => {
   it('a Provide in a State sees that State narrowed', () => {
     const Narrow = Actor.build(Actor.define('Narrow', { state: AuthState }), {
       init: () => ({ state: { _tag: 'Checking' } }),
-      state: {
+      states: {
         Anonymous: {
           provides: (self) =>
             Layer.effect(

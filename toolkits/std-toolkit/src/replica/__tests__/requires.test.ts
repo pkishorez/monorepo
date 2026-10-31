@@ -29,7 +29,7 @@ it("needs what the Gate and the Strategies use from the app's Layer", () => {
   });
   const Root = Actor.build(Actor.define('Root', {}), {
     provides: () => Replicas.layer,
-    children: { replicas: Replicas.child([PocketLive]) },
+    children: (child) => ({ replicas: child(Replicas.actor([PocketLive])) }),
   });
   const covered = Runtime.start(
     Root,

@@ -36,11 +36,11 @@ export const Settings = Page.define({
 
 export const SettingsLive = Page.build(Settings, {
   init: () => ({ model: { open: routes.settingsTabAsked() } }),
-  children: {
-    general: { actor: General.actor },
-    shortcuts: { actor: Shortcuts.actor },
-    connections: { actor: ConnectionSettings.actor },
-  },
+  children: (child) => ({
+    general: child(General.actor),
+    shortcuts: child(Shortcuts.actor),
+    connections: child(ConnectionSettings.actor),
+  }),
   on: {
     TabChosen: ({ tab }, { model }) =>
       tab === model.open ? {} : { model: { open: tab } },

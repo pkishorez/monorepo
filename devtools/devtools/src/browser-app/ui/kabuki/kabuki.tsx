@@ -31,7 +31,7 @@ const AppView = View.make(AppLive, ({ children }) =>
   children.Kabuki ? <KabukiView instance={children.Kabuki} /> : null,
 );
 
-const Routed = Router.app(Router.define(App), AppView);
+const Routed = Router.view(Router.define(App), AppView);
 
 /** The app, made once, on the shell's history. */
 let made: ReturnType<typeof make> | undefined;

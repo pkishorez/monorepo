@@ -111,7 +111,7 @@ describe('a place', () => {
     expect(BillingLive.pages.Invoices.name).toBe('Invoices');
     // The root has no key: the Router names it once it is given its View.
     expect(AppLive.name).toBe('Page');
-    Router.app(
+    Router.view(
       Routes,
       View.make(AppLive, () => null),
     );
@@ -666,5 +666,44 @@ describe('a whole query', () => {
     expect(place?.params).toEqual({ client_id: 'notes', search: SIGNED });
     const [other] = Signed.places('/authorize?client_id=notes&sig=s2');
     expect(other?.params).not.toEqual(place?.params);
+  });
+});
+
+describe('Page.define', () => {
+  const Draft = Page.define({
+    path: '/draft',
+    model: { text: Schema.String, edits: Schema.Number },
+    state: { Reading: {}, Editing: { since: Schema.Number } },
+    message: { Edit: {}, Typed: { text: Schema.String } },
+  });
+  const DraftLive = Page.build(Draft, {
+    init: () => ({ model: { text: '', edits: 0 }, state: { _tag: 'Reading' } }),
+    on: {
+      Edit: () => ({ state: { _tag: 'Editing', since: 0 } }),
+      Typed: ({ text }, { model }) => ({
+        model: { text, edits: model.edits + 1 },
+      }),
+    },
+  });
+
+  it('makes the Schemas from fields and cases, as Actor.define does', () => {
+    const { schemas, states } = DraftLive.definition;
+    expect(states).toEqual(['Reading', 'Editing']);
+    expect(Schema.is(schemas.model!)({ text: '', edits: 0 })).toBe(true);
+    expect(Schema.is(schemas.state!)({ _tag: 'Editing', since: 1 })).toBe(true);
+    expect(Schema.is(schemas.message!)({ _tag: 'Typed', text: 'a' })).toBe(
+      true,
+    );
+    expectTypeOf<Types<typeof DraftLive>['model']>().toEqualTypeOf<{
+      readonly text: string;
+      readonly edits: number;
+    }>();
+  });
+
+  it('refuses a Model that is not a struct', () => {
+    Page.define({
+      // @ts-expect-error the Model must be a struct
+      model: Schema.String,
+    });
   });
 });

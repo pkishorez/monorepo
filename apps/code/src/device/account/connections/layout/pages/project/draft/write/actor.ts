@@ -132,9 +132,9 @@ export const DraftModeLive = Actor.build(DraftMode, {
     TouchDraft.owner(self.send({ _tag: 'SendAsked' }), (open) =>
       self.send({ _tag: 'TouchOpened', open }),
     ),
-  children: {
-    touch: { actor: TouchDraft.actor, input: ({ model }) => model.open },
-  },
+  children: (child) => ({
+    touch: child(TouchDraft.actor, { input: ({ model }) => model.open }),
+  }),
   workers: {
     // 2. Write
     shows: {

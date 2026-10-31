@@ -118,7 +118,7 @@ const loaders = Routes.loaders({
 });
 
 const AppView = View.make(AppLive, () => null);
-const Root = Router.app(Routes, AppView);
+const Root = Router.view(Routes, AppView);
 const loading = Loading.cached(Routes, Loading.memory(Routes, loaders));
 
 const wait = (ms: number) =>
@@ -810,7 +810,7 @@ describe('a page with a Stale time', () => {
   const Start = Page.define({ path: '/' });
   const Shell = Page.define({ pages: { Start, Feed } });
   const Fresh = Router.define(Shell);
-  const FreshRoot = Router.app(
+  const FreshRoot = Router.view(
     Fresh,
     View.make(
       Page.build(Shell, {
@@ -979,7 +979,7 @@ describe("the router's cacheSize", () => {
       Effect.gen(function* () {
         const Small = Router.define(App, { cacheSize: 1 });
         const app = yield* Runtime.start(
-          Router.app(Small, AppView).actor,
+          Router.view(Small, AppView).actor,
           Loading.cached(Small, Loading.memory(Small, loaders)),
         );
         push(app, Small.Blog.Post({ slug: 'hello' }));
@@ -1048,7 +1048,7 @@ describe("a Ready status's waited", () => {
 
 describe("the router's minimum", () => {
   const Quick = Router.define(App, { minimum: 40 });
-  const QuickRoot = Router.app(Quick, AppView);
+  const QuickRoot = Router.view(Quick, AppView);
   const quick = Loading.cached(Quick, Loading.memory(Quick, loaders));
 
   it('is how long a loading screen stays at least: 300 unless said', () =>
@@ -1215,7 +1215,7 @@ describe('a reload anew', () => {
           counted('Shown').pipe(Effect.map(() => ({ visits: (visits += 1) }))),
       }),
     );
-    const HeldRoot = Router.app(
+    const HeldRoot = Router.view(
       Held,
       View.make(Page.build(Top, { pages: { Shown: ShownLive } }), () => null),
     );

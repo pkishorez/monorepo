@@ -69,16 +69,15 @@ const OwnerLive = Actor.build(Owner, {
         ),
     },
   },
-  children: {
-    accounts: {
-      actor: HarnessAccountsLive,
+  children: (child) => ({
+    accounts: child(HarnessAccountsLive, {
       input: () => ({ connectionId: 'm1' }),
       props: ({ model }) => ({
         accounts: model.accounts,
         problem: model.problem,
       }),
-    },
-  },
+    }),
+  }),
   on: {
     Ping: (_, { model }) => ({ model: { ...model, pings: model.pings + 1 } }),
     SetupShown: ({ accounts, problem }, { model }) => ({

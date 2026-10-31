@@ -19,7 +19,7 @@ import { Kabuki, KabukiLive, kabukiRoute } from '../index.js';
 
 const App = Page.define({ pages: { Kabuki } });
 const AppLive = Page.build(App, { pages: { Kabuki: KabukiLive } });
-const Root = Router.app(
+const Root = Router.view(
   Router.define(App),
   View.make(AppLive, () => null),
 );

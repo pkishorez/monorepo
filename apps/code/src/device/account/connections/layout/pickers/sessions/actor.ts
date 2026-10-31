@@ -156,9 +156,8 @@ export const SessionSwitcherLive = Actor.build(SessionSwitcher, {
       sessions: null,
     },
   }),
-  children: {
-    picker: {
-      actor: Sessions.Live,
+  children: (child) => ({
+    picker: child(Sessions.Live, {
       while: ({ model }) => model.picking !== null,
       key: ({ model }) => String(model.opened),
       input: ({ model }) => ({
@@ -167,8 +166,8 @@ export const SessionSwitcherLive = Actor.build(SessionSwitcher, {
         choices: [],
       }),
       props: ({ model }) => ({ sessions: model.sessions, open: model.open }),
-    },
-  },
+    }),
+  }),
   provides: (self) =>
     Sessions.owner({
       done: (choices) => {

@@ -116,7 +116,7 @@ afterEach(async () => {
 /** Draw the app, in memory or on the browser's history at `/app`. */
 const draw = async (adapter: 'memory' | 'browser', at = '/app') => {
   history.replaceState(null, '', at);
-  const Root = Router.app(Routes, AppView);
+  const Root = Router.view(Routes, AppView);
   const Drawn =
     adapter === 'memory'
       ? View.app(Root, { name: `memory-${count++}` })
@@ -257,7 +257,7 @@ describe('a reload', () => {
   const reload = async () => {
     await act(async () => root?.unmount());
     registry.clear();
-    const Root = Router.app(Routes, AppView);
+    const Root = Router.view(Routes, AppView);
     const Drawn = View.app(Root, {
       layer: browser(),
       name: `browser-${count++}`,
@@ -389,7 +389,7 @@ describe('a page with data', () => {
     history.replaceState(null, '', '/');
     broken = false;
     calls = [];
-    const Root = Router.app(Shop, ShopView);
+    const Root = Router.view(Shop, ShopView);
     const Drawn = View.app(Root, {
       layer: Layer.mergeAll(browser(), loading),
       name: `shop-${count++}`,
@@ -500,7 +500,7 @@ describe('a page with data', () => {
 
   it('a server draws a page without its data at its loading screen', async () => {
     const { renderToString } = await import('react-dom/server');
-    const Root = Router.app(Shop, ShopView);
+    const Root = Router.view(Shop, ShopView);
     const Drawn = View.app(Root, {
       name: `server-${count++}`,
       input: () => Root.startAt('/items/4'),
@@ -512,7 +512,7 @@ describe('a page with data', () => {
 describe('the Timeline', () => {
   it('holds one Message per move on an Adapter: the Router never hears its own write back', async () => {
     history.replaceState(null, '', '/app');
-    const Root = Router.app(Routes, AppView);
+    const Root = Router.view(Routes, AppView);
     const counts = await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {

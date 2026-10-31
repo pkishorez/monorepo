@@ -129,10 +129,10 @@ describe('a Query across Instances', () => {
   });
   const Root = Actor.build(Actor.define('Root', {}), {
     provides: () => Replicas.layer,
-    children: {
-      replicas: Replicas.child([PocketLive]),
-      both: { actor: Both, props: () => ({}) },
-    },
+    children: (child) => ({
+      replicas: child(Replicas.actor([PocketLive])),
+      both: child(Both, { props: () => ({}) }),
+    }),
   });
 
   it('says which Instance each row is from, and names the one Never Synced', () =>

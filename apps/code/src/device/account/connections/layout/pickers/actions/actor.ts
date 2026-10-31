@@ -241,9 +241,8 @@ export const ActionsLive = Actor.build(Actions, {
       after: null,
     },
   }),
-  children: {
-    picker: {
-      actor: List.Live,
+  children: (child) => ({
+    picker: child(List.Live, {
       while: ({ model }) => model.picking !== null,
       key: ({ model }) => String(model.opened),
       input: ({ model }) => ({
@@ -259,8 +258,8 @@ export const ActionsLive = Actor.build(Actions, {
         vim: model.vim,
         keyboard: model.keyboard,
       }),
-    },
-  },
+    }),
+  }),
   provides: (self) =>
     Layer.unwrap(
       Effect.map(Effect.context<CodeClients | Moves>(), (client) =>

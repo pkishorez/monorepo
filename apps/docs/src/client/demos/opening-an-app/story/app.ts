@@ -44,7 +44,7 @@ export const AppLive = Actor.build(App, {
     model: { attempts: 1 },
     state: { _tag: 'Booting', loaded: [] },
   }),
-  state: {
+  states: {
     Booting: {
       workers: {
         'load assets': {
@@ -95,10 +95,10 @@ export const AppLive = Actor.build(App, {
       },
     },
     Inside: {
-      children: {
-        home: { actor: HomeLive, props: ({ state }) => ({ name: state.name }) },
-        downloads: { actor: DownloadsLive },
-      },
+      children: (child) => ({
+        home: child(HomeLive, { props: ({ state }) => ({ name: state.name }) }),
+        downloads: child(DownloadsLive),
+      }),
       provides: (self) =>
         Layer.succeed(Session, { signOut: self.send({ _tag: 'SignedOut' }) }),
       on: {

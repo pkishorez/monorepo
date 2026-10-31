@@ -102,7 +102,7 @@ const workers = Layer.mergeAll(
   Store.memory(),
 );
 
-const Root = Router.app(
+const Root = Router.view(
   router,
   View.make(Pages.AppLive, () => null),
 );

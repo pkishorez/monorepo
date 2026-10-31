@@ -12,6 +12,14 @@ import type {
   WorkerDefinition,
 } from './definition.ts';
 import { Effect, Schema, SchemaAST } from 'effect';
+import { structOf, taggedOf } from './schemas.ts';
+import type {
+  Codec,
+  StructOf,
+  StructWritten,
+  TaggedOf,
+  TaggedWritten,
+} from './schemas.ts';
 
 /**
  * What an Actor is, as `Actor.define` gives it: its name, and the Schemas
@@ -26,26 +34,31 @@ export interface Defined<
   State extends Tagged,
   Msg extends Tagged,
   R extends Requires,
+  Emits extends Tagged = never,
 > {
   readonly name: Name;
-  readonly shape: Shape<Input, Props, Model, State, Msg, R>;
+  readonly shape: Shape<Input, Props, Model, State, Msg, R, Emits>;
 }
 
 /** Any Actor's definition, loosely. */
-export type AnyDefined = Defined<string, any, any, any, any, any, any>;
-
-/** A Schema Kabuki can read and write without Capabilities and at once. */
-type Codec<T> = Schema.Codec<T, unknown, never, never>;
+export type AnyDefined = Defined<string, any, any, any, any, any, any, any>;
 
 /**
- * What `define` takes: every type the behavior is checked against, as codecs,
- * and the Capabilities the Actor's own code may use. Every value is checked
- * against them too, as it is made: each Input and Props, each Model and
- * State from init or an Update, and each Message as it is Sent. A saved
- * History holds the encoded side of the Props, Model, State and Message
- * Schemas, so that side must be JSON-safe.
+ * An Actor's Schemas, each made from what `define` was written with. Every
+ * value is checked against them as it is made: each Input and Props, each
+ * Model and State from init or an Update, each Message as it is Sent, and
+ * each thing it Emits. A saved History holds the encoded side of the Props,
+ * Model, State and Message Schemas, so that side must be JSON-safe.
  */
-export interface Shape<Input, Props, Model, State, Msg, R extends Requires> {
+export interface Shape<
+  Input,
+  Props,
+  Model,
+  State,
+  Msg,
+  R extends Requires,
+  Emits = never,
+> {
   /** The Capabilities its own Workers, Commands and Provides use. Nothing else is in reach. */
   readonly requires?: R;
   /** What a parent hands this Actor when it Invokes it, which init starts from. */
@@ -55,25 +68,100 @@ export interface Shape<Input, Props, Model, State, Msg, R extends Requires> {
   readonly model?: Codec<Model>;
   readonly message?: Codec<Msg>;
   readonly state?: Codec<State>;
+  /** What it tells its parent, which the parent's slot for it turns into the parent's own Messages. */
+  readonly emits?: Codec<Emits>;
 }
 
-function define<
-  const Name extends string,
-  State extends Tagged = Single,
-  Model = {},
-  Msg extends Tagged = never,
-  const R extends Requires = readonly [],
-  Input = void,
-  Props = void,
->(
+/**
+ * What `define` takes: the Capabilities the Actor's own code may use, and
+ * every type its behavior is checked against. Each is a Schema, or what it
+ * is made of: a struct's fields, or a tagged union's cases by tag.
+ */
+export interface Written {
+  readonly requires?: Requires;
+  readonly input?: StructWritten;
+  readonly props?: StructWritten;
+  /** Always a struct: an Update gives only the fields that change. */
+  readonly model?: StructWritten;
+  readonly state?: TaggedWritten;
+  readonly message?: TaggedWritten;
+  readonly emits?: TaggedWritten;
+}
+
+type Field<W, K extends string> = W extends { readonly [P in K]: infer X }
+  ? X
+  : undefined;
+
+type InputOf<W> = [Field<W, 'input'>] extends [undefined]
+  ? void
+  : StructOf<Field<W, 'input'>>;
+type PropsOf<W> = [Field<W, 'props'>] extends [undefined]
+  ? void
+  : StructOf<Field<W, 'props'>>;
+type ModelOf<W> = [Field<W, 'model'>] extends [undefined]
+  ? {}
+  : StructOf<Field<W, 'model'>>;
+type StateOf<W> = [Field<W, 'state'>] extends [undefined]
+  ? Single
+  : TaggedOf<Field<W, 'state'>>;
+type TagsOf<W, K extends string> = [Field<W, K>] extends [undefined]
+  ? never
+  : TaggedOf<Field<W, K>>;
+type RequiresOf<W> = W extends { readonly requires: infer R extends Requires }
+  ? R
+  : readonly [];
+
+/** The Actor `define` gives for what it was written with. */
+export type DefinedOf<Name extends string, W> = Defined<
+  Name,
+  InputOf<W>,
+  PropsOf<W>,
+  ModelOf<W>,
+  StateOf<W>,
+  TagsOf<W, 'message'>,
+  RequiresOf<W>,
+  TagsOf<W, 'emits'>
+>;
+
+/** Refuses a Model that is not a struct, and a State, Message or Emit that is not tagged. */
+export type Refused<W> = (ModelOf<W> extends ReadonlyArray<unknown>
+  ? { readonly model: 'the Model must be a struct' }
+  : ModelOf<W> extends object
+    ? unknown
+    : { readonly model: 'the Model must be a struct' }) &
+  ([Field<W, 'state'>] extends [undefined]
+    ? unknown
+    : [StateOf<W>] extends [never]
+      ? { readonly state: 'every State must be tagged' }
+      : unknown);
+
+/** The Schemas of what `define` was written with. */
+export const shapeOf = (
+  written: Written,
+): Shape<unknown, unknown, unknown, Tagged, Tagged, Requires, Tagged> => {
+  const shape = {
+    requires: written.requires,
+    input: structOf(written.input),
+    props: structOf(written.props),
+    model: structOf(written.model),
+    state: taggedOf(written.state),
+    message: taggedOf(written.message),
+    emits: taggedOf(written.emits),
+  };
+  return Object.fromEntries(
+    Object.entries(shape).filter(([, value]) => value !== undefined),
+  );
+};
+
+function define<const Name extends string, const W extends Written = {}>(
   name: Name,
-  shape: Shape<Input, Props, Model, State, Msg, R>,
-): Defined<Name, Input, Props, Model, State, Msg, R> {
-  return { name, shape };
+  written: W & Refused<W>,
+): DefinedOf<Name, W> {
+  return { name, shape: shapeOf(written) } as DefinedOf<Name, W>;
 }
 
-/** How the Actor `D` defines may be built, as written in `B`. */
-export type BehaviorOf<D, B> =
+/** How the Actor `D` defines may be built. */
+export type BehaviorOf<D> =
   D extends Defined<
     any,
     infer Input,
@@ -81,9 +169,10 @@ export type BehaviorOf<D, B> =
     infer Model,
     infer State,
     infer Msg,
-    infer R
+    infer R,
+    infer Emits
   >
-    ? Behavior<Input, Props, Model, State, Msg, R, B>
+    ? Behavior<Input, Props, Model, State, Msg, R, Emits>
     : never;
 
 /** The Actor `D` defines, built with `B`. */
@@ -95,7 +184,8 @@ export type BuiltOf<D, B> =
     infer Model,
     infer State,
     infer Msg,
-    infer R
+    infer R,
+    infer Emits
   >
     ? ActorOf<
         Name,
@@ -108,11 +198,12 @@ export type BuiltOf<D, B> =
         // shape, never as an alias of `B`.
         { readonly [T in State['_tag']]: KidsByState<State, B>[T] },
         OpenOfBehavior<R, B>,
-        { readonly [T in State['_tag']]: QueriesByState<State, B>[T] }
+        { readonly [T in State['_tag']]: QueriesByState<State, B>[T] },
+        Emits
       >
     : never;
 
-function build<D extends AnyDefined, const B extends BehaviorOf<D, B>>(
+function build<D extends AnyDefined, const B extends BehaviorOf<D>>(
   definition: D,
   behavior: B,
 ): BuiltOf<D, B>;
@@ -125,7 +216,9 @@ function build(definition: AnyDefined, behavior: any): AnyActor {
 
 type Block = {
   readonly provides?: Function;
-  readonly children?: Record<string, AnyChild>;
+  readonly children?: (
+    child: (actor: AnyActor, options?: object) => AnyChild,
+  ) => Record<string, AnyChild>;
   readonly on?: Record<string, Function>;
   readonly workers?: Record<string, any>;
   readonly queries?: Record<string, QueryDefinition>;
@@ -134,13 +227,17 @@ type Block = {
 /** The plain definition the engine works from, out of the Schemas and the levels. */
 const definitionOf = (
   name: string,
-  shape: Shape<any, any, any, any, any, any>,
+  shape: Shape<any, any, any, any, any, any, any>,
   behavior: Block & {
     readonly init?: ActorDefinition['init'];
-    readonly state?: Record<string, Block | undefined>;
+    readonly states?: Record<string, Block | undefined>;
   },
 ): ActorDefinition => {
-  const blocks = behavior.state ?? {};
+  if ('state' in behavior)
+    throw new Error(
+      `[@kestack/kabuki] ${name}: the blocks of its States are written under \`states\`, not \`state\``,
+    );
+  const blocks = behavior.states ?? {};
   const states = statesOf(shape.state, blocks);
   const top = slots(behavior.children);
   const lasting = Object.keys(top);
@@ -207,11 +304,12 @@ const definitionOf = (
       model: checkerOf(name)(shape.model),
       state: checkerOf(name)(shape.state),
       message: checkerOf(name)(shape.message),
+      emits: checkerOf(name)(shape.emits),
     },
     schemas: Object.fromEntries(
-      (['input', 'props', 'model', 'state', 'message'] as const).flatMap(
-        (what) => (shape[what] ? [[what, shape[what]]] : []),
-      ),
+      (
+        ['input', 'props', 'model', 'state', 'message', 'emits'] as const
+      ).flatMap((what) => (shape[what] ? [[what, shape[what]]] : [])),
     ),
     encoding: {
       props: encodingOf(shape.props),
@@ -230,13 +328,21 @@ const definitionOf = (
   };
 };
 
-const slots = (
-  children: Record<string, AnyChild> | undefined,
-): Record<string, SlotDefinition> =>
+/** One Child, as `child` makes it: its Actor and its options, as written. */
+const child = (actor: AnyActor, options: object = {}): AnyChild => {
+  if (!actor || typeof actor !== 'object' || !('definition' in actor))
+    throw new Error(
+      '[@kestack/kabuki] `child` takes a built Actor first, then its options',
+    );
+  return { ...options, actor };
+};
+
+/** The Children a level's `children` makes, as the engine reads them. */
+const slots = (children: Block['children']): Record<string, SlotDefinition> =>
   Object.fromEntries(
-    Object.entries(children ?? {}).map(([slot, child]) => [
+    Object.entries(children?.(child) ?? {}).map(([slot, made]) => [
       slot,
-      slotOf(child),
+      slotOf(made),
     ]),
   );
 
@@ -263,6 +369,7 @@ const slotOf = (child: AnyChild): SlotDefinition => {
         : one,
     input: (child.input ?? NOTHING) as SlotDefinition['input'],
     props: (child.props ?? NOTHING) as SlotDefinition['props'],
+    emits: (child.emits ?? {}) as SlotDefinition['emits'],
   };
 };
 
@@ -353,9 +460,10 @@ const workerOf = (worker: any, state: string | undefined): WorkerDefinition => {
 
 /**
  * An Actor, in two steps. `define` takes what it is: its Schemas and
- * Requires, which fix every type. `build` takes a definition and how it
- * behaves, at the top for as long as the Instance lives and in one block per
- * State for as long as that State lasts: its Provides, Children, Updates
- * under `on`, Workers, and the Queries it answers from outside.
+ * Requires, which fix every type, and what it Emits to its parent. `build`
+ * takes a definition and how it behaves, at the top for as long as the
+ * Instance lives and under `states` in one block per State for as long as
+ * that State lasts: its Provides, Children, Updates under `on`, Workers, and
+ * the Queries it answers from outside.
  */
 export const Actor = { define, build };

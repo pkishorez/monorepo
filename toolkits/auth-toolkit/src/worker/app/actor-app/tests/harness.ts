@@ -288,7 +288,7 @@ export const harness = (
     },
   });
 
-  const Root = Router.app(
+  const Root = Router.view(
     router,
     View.make(AppLive, () => null),
   );

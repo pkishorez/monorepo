@@ -229,26 +229,24 @@ export const ProjectLive = Page.build(Project, {
     // 1. Catalog
     ...catalog.workers,
   },
-  children: {
-    project: {
-      actor: ProjectRow,
+  children: (child) => ({
+    project: child(ProjectRow, {
       props: ({ props }) => ({
         connectionId: props.params.connectionId,
         projectId: props.params.projectId,
       }),
-    },
+    }),
     // 2. Draft, while no session is open over it, or the one it started
     // is not yet drawn whole.
-    draft: {
-      actor: Draft.actor,
+    draft: child(Draft.actor, {
       while: ({ model, props }) => drafting(props.route.page, model.handover),
       props: ({ props }) => ({
         connectionId: props.params.connectionId,
         projectId: props.params.projectId,
         to: { _tag: 'NewSession' as const },
       }),
-    },
-  },
+    }),
+  }),
   on: {
     ConnectionKnown: ({ gone, unlisted }, { model }) => ({
       model: { ...model, gone, unlisted },

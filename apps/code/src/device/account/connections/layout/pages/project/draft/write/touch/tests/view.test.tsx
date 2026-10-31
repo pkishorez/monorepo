@@ -113,10 +113,9 @@ const PageLive = Actor.build(Page, {
       discarded: 0,
     },
   }),
-  children: {
-    touch: { actor: TouchDraft.actor, input: () => false },
-    skills: {
-      actor: SkillPicker.Live,
+  children: (child) => ({
+    touch: child(TouchDraft.actor, { input: () => false }),
+    skills: child(SkillPicker.Live, {
       while: ({ model }) => model.picking !== null,
       key: ({ model }) => String(model.opened),
       input: ({ model }) => SkillPicker.opening(model.picking?.how ?? 'keys'),
@@ -126,8 +125,8 @@ const PageLive = Actor.build(Page, {
         loading: false,
         problem: null,
       }),
-    },
-  },
+    }),
+  }),
   provides: (self) =>
     Layer.merge(
       SkillPicker.owner((name) => self.send({ _tag: 'Picked', name })),

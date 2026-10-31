@@ -212,7 +212,7 @@ export const DeviceLive = Page.build(Device, {
   on: {
     CodeChanged: () => ({ state: { _tag: 'Asking', failure: null } }),
   },
-  state: {
+  states: {
     Asking: {
       on: {
         CodeEntered: ({ code }, { props }) => entered(code, props),

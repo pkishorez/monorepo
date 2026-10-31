@@ -31,13 +31,12 @@ export const Playlist = Actor.define('Playlist', {
 
 export const PlaylistLive = Actor.build(Playlist, {
   init: () => ({ model: { ids: ['0', '1'] } }),
-  children: {
-    songs: {
-      actor: SongLive,
+  children: (child) => ({
+    songs: child(SongLive, {
       each: ({ model }) => model.ids,
       input: (_, id) => SONGS[id]!,
-    },
-  },
+    }),
+  }),
   on: {
     Added: (_, { model }) => {
       const next = Object.keys(SONGS).find((id) => !model.ids.includes(id));

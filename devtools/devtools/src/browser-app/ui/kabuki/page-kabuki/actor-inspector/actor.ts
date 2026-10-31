@@ -31,13 +31,12 @@ export const RemoteInspectorLive = Actor.build(RemoteInspector, {
         return yield* sessions.dial(model.name);
       }),
     ),
-  children: {
-    inspector: {
-      actor: InspectorLive,
+  children: (child) => ({
+    inspector: child(InspectorLive, {
       input: () => ({
         travel: true,
         look: { presenting: false, place: 'bottom' as const },
       }),
-    },
-  },
+    }),
+  }),
 });

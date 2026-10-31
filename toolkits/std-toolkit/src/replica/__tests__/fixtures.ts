@@ -278,26 +278,23 @@ export const makeWorld = (options: WorldOptions = {}) => {
           endedFor: [],
         },
       }),
-      children: {
-        mine: {
-          actor: Wallets,
+      children: (child) => ({
+        mine: child(Wallets, {
           while: ({ model }) => model.shown,
           props: ({ model }) => ({ account: model.mine }),
-        },
-        theirs: {
-          actor: Wallets,
+        }),
+        theirs: child(Wallets, {
           while: ({ model }) => model.shown,
           props: ({ model }) => ({ account: model.theirs }),
-        },
-        entries: {
-          actor: WalletEntries,
+        }),
+        entries: child(WalletEntries, {
           while: ({ model }) => model.wallets.length > 0,
           props: ({ model }) => ({
             account: model.mine,
             wallets: model.wallets,
           }),
-        },
-      },
+        }),
+      }),
       workers: {
         // Lets a test hold Instances itself, as the code under this page would.
         capture: {
@@ -327,10 +324,10 @@ export const makeWorld = (options: WorldOptions = {}) => {
 
   const Root = Actor.build(Actor.define('Root', {}), {
     provides: () => Replicas.layer,
-    children: {
-      replicas: Replicas.child([PocketLive]),
-      page: { actor: Page },
-    },
+    children: (child) => ({
+      replicas: child(Replicas.actor([PocketLive])),
+      page: child(Page),
+    }),
   });
 
   return {

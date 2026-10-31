@@ -278,7 +278,7 @@ describe('a saved History that no longer fits the code', () => {
     const parent = (withChild: boolean) =>
       Actor.build(
         Actor.define('Parent', {}),
-        withChild ? { children: { child: { actor: Counter } } } : {},
+        withChild ? { children: (child) => ({ child: child(Counter) }) } : {},
       );
     const saved = await run(
       Effect.gen(function* () {

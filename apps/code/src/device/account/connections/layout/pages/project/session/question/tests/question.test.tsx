@@ -117,16 +117,15 @@ const Owner = Actor.define('Owner', {
 /** The session's page: a Question Panel fresh for each session opened. */
 const OwnerLive = Actor.build(Owner, {
   init: () => ({ model: { pings: 0, sessionId: 's1' } }),
-  children: {
-    question: {
-      actor: Question.actor,
+  children: (child) => ({
+    question: child(Question.actor, {
       key: ({ model }) => model.sessionId,
       props: ({ model }) => ({
         connectionId: 'm1',
         sessionId: model.sessionId,
       }),
-    },
-  },
+    }),
+  }),
   on: {
     Ping: (_, { model }) => ({ model: { ...model, pings: model.pings + 1 } }),
     Opened: ({ sessionId }, { model }) => ({ model: { ...model, sessionId } }),

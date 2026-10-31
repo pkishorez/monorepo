@@ -27,7 +27,7 @@ export const Diary = Actor.build(
   }),
   {
     init: () => ({ model: { notes: [] } }),
-    children: { counter: { actor: Counter } },
+    children: (child) => ({ counter: child(Counter) }),
     on: {
       Wrote: ({ note }, { model }) => ({
         model: { notes: [...model.notes, note] },
