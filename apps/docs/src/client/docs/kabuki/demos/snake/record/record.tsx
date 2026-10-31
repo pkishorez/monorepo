@@ -15,7 +15,6 @@ import {
 import { Seed } from '../app/capabilities/seed.ts';
 import { BrowserKeyboard, keyLock } from '../app/browser/keyboard.ts';
 import { COLORS } from '../app/drawing/snake.tsx';
-import { StageLive } from '../app/stage/stage.ts';
 import { StageView } from '../app/stage/stage-view.tsx';
 import { Caption, cuesOf } from './caption.tsx';
 import { Tree } from './tree.tsx';

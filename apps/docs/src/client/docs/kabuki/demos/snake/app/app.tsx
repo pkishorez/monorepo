@@ -2,7 +2,6 @@ import { Layer } from 'effect';
 import { View } from '@kestack/kabuki/react';
 import { Seed } from './capabilities/seed.ts';
 import { BrowserKeyboard } from './browser/keyboard.ts';
-import { StageLive } from './stage/stage.ts';
 import { StageView } from './stage/stage-view.tsx';
 
 // The Stage and its View, as one React component: <SnakeApp />. The Layer

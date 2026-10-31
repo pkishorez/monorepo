@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
-import { Layer, Schema } from 'effect';
+import { Schema } from 'effect';
 import { Branches } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';

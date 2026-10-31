@@ -293,7 +293,7 @@ export const AuthLive = Actor.build(Auth, {
 - A Worker is a named, scoped Effect given `self`: `send` to its own Instance, `get` and `changes` for its current data, and `now` for the app's Time. Written in the `Checking` block, `check` runs while that State lasts.
 - Provides is one Layer per Level, built each time its Level starts. A Capability that reads the Model reads it through `self`, so it never goes stale. It cancels out what the Children below it need; a need nothing cancels bubbles up to the app's Layer.
 - Requires caps the Actor's own code: a Worker, Command or Provide that reaches for anything else does not compile. Update and init never see Capabilities.
-- A Query is a question code outside the tree asks an Instance, `queries: { peers: { run: (self, args) => Effect } }`: it reads `self` and the Actor's Requires, and never Sends. Written in a State's block it is askable only in that State, and the live Instance has it on its type only once `_tag` has narrowed to it. Asked of an Instance that has stopped or left the State, it fails with `Stopped`.
+- A Query is a question code outside the tree asks an Instance, `queries: { peers: { run: (self, args) => Effect } }`: it reads `self` and the Actor's Requires, and never Sends. Written in a State's block it is askable only in that State, and the live Instance has it on its type only once `_tag` has narrowed to it. Asked of an Instance that has stopped or left the State, it fails with `Runtime.Stopped`.
 
 ### A list of Actors, a Command, and a Worker per key
 

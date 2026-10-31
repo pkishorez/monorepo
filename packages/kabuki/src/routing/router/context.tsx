@@ -62,7 +62,6 @@ const RESET_SCROLL = 'data-reset-scroll';
 /** How a link says its hash's element is scrolled into view, as JSON. */
 const HASH_SCROLL = 'data-hash-scroll-into-view';
 
-/** What a link clicked says besides where it goes: its hash, and what its `Router.Link` said of scroll. */
 /** The link a plain click landed on, unless the click asks for something else: a new tab, a download, a full load. */
 export const linkOf = (event: MouseEvent): HTMLAnchorElement | undefined => {
   if (event.defaultPrevented || event.button !== 0) return undefined;
@@ -76,6 +75,7 @@ export const linkOf = (event: MouseEvent): HTMLAnchorElement | undefined => {
   return link;
 };
 
+/** What a link clicked says besides where it goes: its hash, and what its `Router.Link` said of scroll. */
 export const linkOptions = (link: Element, url: URL): MoveOptions => {
   const hash = decodeURIComponent(url.hash.slice(1));
   const said = link.getAttribute(HASH_SCROLL);

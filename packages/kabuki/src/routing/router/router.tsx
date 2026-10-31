@@ -140,7 +140,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
 
   /**
    * The Router's Input at a URL, with what its places already start from:
-   * for `toReact`'s `input`, so an app on an Adapter is drawn at the right
+   * for `View.app`'s `input`, so an app on an Adapter is drawn at the right
    * page from the first frame, and for a server, which draws a URL from what
    * its Loaders gave. With no URL, the browser's, if there is one. Places
    * that start from nothing load once the Runtime starts.

@@ -424,7 +424,7 @@ describe('across mounts and hot reloads', () => {
     expect(host.textContent).toBe('2');
     await act(async () => root!.unmount());
 
-    // The module reloaded: a new Actor with a new rule, and a new toReact.
+    // The module reloaded: a new Actor with a new rule, and a new View.app.
     const Reloaded = Actor.build(
       Actor.define('Counter', {
         model: Schema.Struct({ count: Schema.Number }),

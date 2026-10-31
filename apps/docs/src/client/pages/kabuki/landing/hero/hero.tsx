@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { MotionConfig, motion } from 'motion/react';
-import { Layer } from 'effect';
 import { Snapshot } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
 import { CheckIcon, PlusIcon } from 'lucide-react';

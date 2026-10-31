@@ -1,7 +1,5 @@
-import { Layer } from 'effect';
 import { View } from '@kestack/kabuki/react';
 import { Stage } from '../stage/index.ts';
-import { TodosLive } from './story.ts';
 import { TodosView } from './views.tsx';
 
 const Demo = View.app(TodosView, { name: 'todos-stage' });
