@@ -112,26 +112,23 @@ A CLI places `ActorPlugin` under one of its Actors, hands it the Plugin's folder
 
 ```ts
 const cli = folders({ app: 'connect', name: 'work' });
-const Cli = Actor.build(
-  Actor.define('Cli', {
-    model: Schema.Struct({ wanted: Wanted }),
-    message: Schema.TaggedUnion({ Want: { wanted: Wanted } }),
-  }),
-  {
-    init: () => ({ model: { wanted: { hash, url: `${base}/a` } } }),
-    children: (child) => ({
-      plugin: child(ActorPlugin, {
-        input: () => ({
-          name: 'ping',
-          folders: pluginFolders(cli, 'ping'),
-          socket: socketPath(cli.runtime, connectionId, 'ping'),
-        }),
-        props: ({ model }) => ({ wanted: model.wanted }),
+const Cli = Actor.define('Cli', {
+  model: Schema.Struct({ wanted: Wanted }),
+  message: Schema.TaggedUnion({ Want: { wanted: Wanted } }),
+}).build({
+  init: () => ({ model: { wanted: { hash, url: `${base}/a` } } }),
+  children: {
+    plugin: Actor.child(ActorPlugin, {
+      input: () => ({
+        name: 'ping',
+        folders: pluginFolders(cli, 'ping'),
+        socket: socketPath(cli.runtime, connectionId, 'ping'),
       }),
+      props: ({ model }) => ({ wanted: model.wanted }),
     }),
-    on: { Want: ({ wanted }) => ({ model: { wanted } }) },
   },
-);
+  on: { Want: ({ wanted }) => ({ model: { wanted } }) },
+});
 yield *
   Runtime.start(
     Cli,

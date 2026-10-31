@@ -15,7 +15,7 @@ for pages.
 
 ```
 src/
-  pages/              Page.define and Page.build per page, its data and Render Mode; Router.define(App, { … })
+  pages/              Page.define and its build per page, its data and Render Mode; Router.define(App, { … })
   app.tsx             default-exports Start.app({ router, view, document, layer })
   loaders.server.ts   default-exports Start.server(loaders), or Start.server({ layer, visitor }).loaders(loaders)
 vite.config.ts        plugins: [react(), start({ platform: cloudflare() })]

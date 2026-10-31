@@ -11,15 +11,15 @@ One piece of the app: its Model and States, the Input and Props it takes, the Me
 _Avoid_: Node, component, machine
 
 **Definition**:
-What an Actor is: its name, its Schemas, what it Emits and its Requires, which fix every type. Each Schema is written whole, or as what it is made of: a struct as its fields, a tagged union as its cases by tag. It runs nothing and imports only other Definitions, so anything may import it. Named after the Actor: `Counter`.
+What an Actor is: its name, its Schemas, what it Emits, the Queries it answers and its Requires, which fix every type. It is the Actor's whole surface: what it holds, hears, tells its parent and answers. Each Schema is written whole, or as what it is made of: a struct as its fields, a tagged union as its cases by tag. It runs nothing and imports only other Definitions, so anything may import it. It builds its Actor itself: `Counter.build({ … })`. Named after the Actor: `Counter`.
 _Avoid_: spec, schema (on its own), type
 
 **Build**:
-How a defined Actor behaves: its init, its Updates, its Children, Workers and Provides, written at the top, for as long as the Instance lives, or under `states`, in a State's block, for as long as that State lasts. It is what runs, what a parent Invokes and what a View draws. Named after the Actor with `Live`: `CounterLive`, beside its Definition.
+How a defined Actor behaves, made by its Definition's `build`: its init, its Updates, its Children, Workers and Provides, and its answers to its Queries, written at the top, for as long as the Instance lives, or under `states`, in a State's block, for as long as that State lasts. It is what runs, what a parent Invokes and what a View draws. Named after the Actor with `Live`: `CounterLive`, beside its Definition.
 _Avoid_: implementation, instance (an Instance is a running Build)
 
 **Instance**:
-One running Actor in the tree: its ID, its current Model, State and Props, and its Children. Called an "actor instance" where "Instance" alone is unclear. Views draw an Instance; Messages are sent to one. Code outside the tree reaches the root Instance through its Runtime, typed by its Actor and always live, and from it any Instance below: it reads their data and their Workers and Sends to them, and changes nothing else. An Instance that has stopped, or was reached before the app last started over, by a start or a Restore, reads as it was when last read, and nothing Sent to it arrives.
+One running Actor in the tree: its ID, its current Model, State and Props, and its Children. Called an "actor instance" where "Instance" alone is unclear. Views draw an Instance; Messages are sent to one. Code outside the tree reaches the root Instance through its Runtime, typed by its Actor and always live, and from it any Instance below: it reads their data and their Workers, Sends to them, asks their Queries and waits `until` their data passes a test, and changes nothing else. An Instance that has stopped, or was reached before the app last started over, by a start or a Restore, reads as it was when last read, and nothing Sent to it arrives.
 _Avoid_: ref, process, live node, store
 
 **Instance ID**:
@@ -27,7 +27,7 @@ Who an Instance is, made from its parent's ID, the Child's name, its key if it h
 _Avoid_: path, address, number
 
 **Child**:
-An Actor its parent Invokes, made with `child` in a level's `children`, by name, with a Condition, as a Worker is written: `child(RowLive, { each, input, props, emits })`. `child` is typed for its level, so every function in it is checked against the parent's data and the Child's Actor. Written at the top, a Child exists for as long as its parent and lasts through every Transition; written in a State's block, for as long as that State lasts. Within that it exists always, `while` a test on the parent's data holds, or once per key `each` names. A Child that may be absent is typed so in its parent's View. The State and the Model decide which Children exist, never the View. A parent controls a Child only by whether it exists and by its Props, and never Sends to it; it hears from it only what it Emits. What a parent must control, it owns.
+An Actor its parent Invokes, named in a level's `children` and made with `Actor.child`, with a Condition, as a Worker is written: `children: { rows: Actor.child(RowLive, { each, input, props, emits }) }`. `Actor.child` is typed by the level it is written in, so every function in it is checked against the parent's data and the Child's Actor. Written at the top, a Child exists for as long as its parent and lasts through every Transition; written in a State's block, for as long as that State lasts. Within that it exists always, `while` a test on the parent's data holds, or once per key `each` names. A Child that may be absent is typed so in its parent's View. The State and the Model decide which Children exist, never the View. A parent controls a Child only by whether it exists and by its Props, and never Sends to it; it hears from it only what it Emits. What a parent must control, it owns.
 _Avoid_: slot, dependency, subcomponent
 
 **Input**:
@@ -139,7 +139,7 @@ What a Worker does as its Scope closes, whether it finished or its Condition sto
 _Avoid_: cleanup hook, teardown, on exit
 
 **Query**:
-A question an Instance answers from what it holds and what its Services know, without changing anything: a named function written in an Actor's Build, at the top or in a State, given its Instance's Model, State and Props and the Capabilities the Actor Requires, and returning an Effect with a typed answer or failure. It never Sends and never changes the Model or the world, so asking twice with nothing in between answers the same. Written in a State, it exists only while that State lasts. Asked only from outside the tree, through a live Instance; a Parent, a View and a descendant never ask. Never in the History, never replayed, not checked against a Schema. Asked of an Instance that has stopped, it fails rather than answers.
+A question an Instance answers from what it holds and what its Services know, without changing the Actor: declared in its Definition with what it is asked with and what it answers, each a Schema, and answered by a function in its Build, at the top or in a State, given its Instance's Model, State and Props and the Capabilities the Actor Requires, and returning an Effect with the answer or a typed failure. It never Sends; it may ask the outside world to answer. Written in a State, it exists only while that State lasts. Asked only from outside the tree, through a live Instance; a Parent, a View and a descendant never ask. Never in the History and never replayed; its args and its answer are checked against their Schemas. Asked of an Instance that has stopped, it fails rather than answers. When outside code needs work done and then a change, it asks a Query, then Sends.
 _Avoid_: ask, probe, inquiry, request (Kabuki's Request is another thing), RPC, call, getter
 
 ### Capabilities
@@ -253,7 +253,7 @@ How one Build is drawn: a React component that reads the Model, State, Props and
 _Avoid_: render, template, component (on its own)
 
 **Send**:
-Hand a Message to an Instance, making an Envelope that is handled at once. The only thing a View can do besides drawing; Workers and Commands can Send only to their own Instance. Code outside the tree can Send to any live Instance, through its Runtime, and learns whether it arrived.
+Hand a Message to an Instance, making an Envelope that is handled at once. The only thing a View can do besides drawing; Workers and Commands can Send only to their own Instance. Code outside the tree can Send to any live Instance, through its Runtime, and learns what became of the Message: handled by a rule, ignored with none for it in that State, queued behind one being handled, or refused, the Instance gone or the Message not matching its Schema.
 _Avoid_: dispatch, emit, trigger
 
 **Host**:

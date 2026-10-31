@@ -198,12 +198,12 @@ const Projects = Query.make('Projects', {
       q.from({ p: code.projects }),
 });
 
-const Root = Actor.build(Actor.define('Root', {}), {
+const Root = Actor.define('Root', {}).build({
   provides: () => Replicas.layer,
-  children: (child) => ({
-    replicas: child(Replicas.actor([CodeReplicaLive])),
-    projects: child(Projects, { props: () => ({ connectionId: 'm1' }) }),
-  }),
+  children: {
+    replicas: Actor.child(Replicas.actor([CodeReplicaLive])),
+    projects: Actor.child(Projects, { props: () => ({ connectionId: 'm1' }) }),
+  },
 });
 
 Runtime.start(

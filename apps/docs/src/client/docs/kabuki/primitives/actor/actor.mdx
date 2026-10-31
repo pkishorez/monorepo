@@ -61,7 +61,7 @@ The **Build** says how the Actor behaves: where it starts, and what each
 Message does.
 
 ```ts
-export const CounterLive = Actor.build(Counter, {
+export const CounterLive = Counter.build({
   init: () => ({ model: { count: 0 } }),
   on: {
     Added: ({ amount }, { model }) => ({
