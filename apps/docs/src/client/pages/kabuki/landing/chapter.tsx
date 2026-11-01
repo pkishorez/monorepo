@@ -3,12 +3,14 @@ import { Stop } from '../../../field/index.ts';
 
 /*
  * One stop on the page, a Stop on the field as the home page's chapters
- * are: its number and label, its title, and its words. The shape always
- * takes the right half of a wide screen, the words the left.
+ * are: its number and label, its title, and its words. Its shape takes the
+ * half of a wide screen `side` names, the words the other. The shapes
+ * are small diagrams, so each takes less scroll than the home page's.
  */
 
 export function Chapter({
   shape,
+  side,
   number,
   label,
   id,
@@ -16,6 +18,7 @@ export function Chapter({
   children,
 }: {
   readonly shape: string;
+  readonly side: 'left' | 'right';
   /** Counted stops show their number before the label. */
   readonly number?: number;
   readonly label: string;
@@ -24,7 +27,7 @@ export function Chapter({
   readonly children: ReactNode;
 }) {
   return (
-    <Stop shape={shape} aria-labelledby={id}>
+    <Stop shape={shape} side={side} tight aria-labelledby={id}>
       <p className="flex items-center gap-3 font-mono text-xs text-muted-foreground">
         {number !== undefined && (
           <span className="tabular-nums">{`${number}`.padStart(2, '0')}</span>

@@ -41,8 +41,8 @@ const STEP = 0.004;
  * however long the path: a fling's long straight run is gone quickly,
  * while the slow circle round a shape keeps its tail.
  */
-const FRESH = 0.4;
-const OLDEST = 1.8;
+const FRESH = 0.6;
+const OLDEST = 2.4;
 
 const catmull = (a: number, b: number, c: number, d: number, u: number) =>
   0.5 *
@@ -124,7 +124,7 @@ export function comet(): Comet {
         kept.set([x, y, z, clock], n);
         written++;
       }
-      ribbon(Math.max(aspect, 1) * 1.05);
+      ribbon(Math.max(aspect, 1) * 1.4);
     },
   };
 

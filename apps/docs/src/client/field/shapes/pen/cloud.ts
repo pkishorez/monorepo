@@ -10,12 +10,8 @@ export type V3 = [number, number, number];
 /** What a point does over time; the shader reads the number. */
 export const Kind = {
   still: 0,
-  /** A bright spot runs along a path: `[s along it, laps per second, width]`. */
-  pulse: 1,
   /** The point travels from its place by `[dx, dy, dz]`, over and over. */
   flow: 2,
-  /** A span grows: `[u along it, when it starts, how long it takes]`, in one loop. */
-  grow: 3,
   /** The point turns round the shape's z axis: `[radians per second]`. */
   orbit: 4,
   /** The point glints: `[speed]`. */
@@ -27,21 +23,48 @@ export const Kind = {
    */
   cycle: 6,
   /**
-   * A satellite, its place the centre it circles: `[radius, start, length]`
-   * on the story clock. It gathers in when its turn starts and drifts off
-   * when it ends; its phase is where on the circle it rides.
-   */
-  satellite: 7,
-  /**
    * Drawn in along a path in its turn on the story clock, then dissolved:
    * `[u along it, start, length]`; its phase is how faintly it shows when
    * not drawn.
    */
   reveal: 8,
-  /** Slides by `dx` in its turn on the story clock, and back at the end: `[dx, start, length]`. */
-  slide: 9,
-  /** The shape breathes, a little larger and back: `[how much]`. */
-  breathe: 10,
+  /**
+   * A Message runs along a path, a bright head with a fading tail behind
+   * it: `[s along it, laps per second, width]`.
+   */
+  message: 11,
+  /**
+   * The point flares as a Message lands on it, then settles: `[s where it
+   * lands, laps per second, how long it glows, in laps]`.
+   */
+  arrive: 12,
+  /**
+   * A Message on its way: shown for its window on the story clock, it
+   * holds, then flies by `[dx, dy]` at the window's end, leaving fast and
+   * slowing into where it lands, arcing up when it goes right and down
+   * when it goes left. Build it with `moving` in clock.ts.
+   */
+  travel: 13,
+  /** As `travel`, in a straight line that eases out and brakes in: a marker. */
+  glide: 14,
+  /**
+   * Formed for its window on the story clock, `[length, how far]`: it
+   * gathers in fast from all round, a touch past its place and back, and
+   * scatters faster still when the window ends. Its phase is when.
+   */
+  gather: 15,
+  /**
+   * Pops, `repeats` times a loop from its phase: swells round `[x, y]`
+   * and brightens, up fast and down slowly. Build it with `popping`.
+   */
+  pop: 16,
+  /** A ring running out from `[x, y]` as a pop goes off. Build it with `rippling`. */
+  ripple: 17,
+  /**
+   * Light runs along a line, `[u along it, how long it takes, repeats]`
+   * on the story clock from its phase, easing in and out.
+   */
+  stream: 18,
 } as const;
 
 /** One loop of the story clock the kabuki shapes keep time by, in seconds. */

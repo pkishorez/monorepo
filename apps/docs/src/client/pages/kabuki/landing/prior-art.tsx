@@ -1,8 +1,8 @@
 import { Chapter } from './chapter.tsx';
-import { PRIOR_ART } from './story.ts';
+import { IDEAS, PRIOR_ART, sideOf } from './story.ts';
 
 /*
- * Where kabuki's ideas come from: each source named, linked where it has a
+ * What inspired kabuki: each source named, linked where it has a
  * home, with the one thing kabuki took from it.
  */
 
@@ -10,6 +10,7 @@ export function PriorArt() {
   return (
     <Chapter
       shape={PRIOR_ART.shape}
+      side={sideOf(IDEAS.length)}
       label={PRIOR_ART.label}
       id="prior-art"
       title={PRIOR_ART.title}

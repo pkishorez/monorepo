@@ -5,6 +5,7 @@ import { budget, governor } from './budget.ts';
 import {
   card,
   curtain,
+  compact,
   ending,
   halves,
   opening,
@@ -12,7 +13,7 @@ import {
   stretch,
 } from './card.ts';
 import { logger } from './debug.ts';
-import { measure, storyStart } from './chapters.ts';
+import { measure, storyEnd, storyStart } from './chapters.ts';
 import type { Chapter, Side } from './chapters.ts';
 import { ease, spring } from './damp.ts';
 import { comet } from './follower.ts';
@@ -21,7 +22,6 @@ import { watchMotion } from './motion.ts';
 import { painter } from './painter.ts';
 import { WIDE, place, room } from './placement.ts';
 import type { Spot } from './placement.ts';
-import { trackPointer } from './pointer.ts';
 import { progress } from './scroll.ts';
 import { smoothScroll } from './smooth.ts';
 import { DISTANCE, scene } from './stage.ts';
@@ -35,7 +35,7 @@ import { watchTheme } from './theme.ts';
  * Chapters with `shapeAt`, or tells them as Stops, which also lay out
  * their words where the shape leaves room. The canvas is
  * drawn on the server, empty and transparent; in the browser it bakes the
- * shapes in a Worker, watches the scroll, pointer and theme, and draws
+ * shapes in a Worker, watches the scroll and theme, and draws
  * every frame.
  * While it is mounted the page's scroll glides (smooth.ts), so the words
  * and the shapes move together.
@@ -76,10 +76,10 @@ export function Field({ follower }: { readonly follower: boolean }) {
   return (
     <>
       {/* On a phone the words rise out of a soft bottom edge and pass into
-          the stage's curtain, with the field drawn sharp above it. Shown
-          once the story's words have come up from the bottom. */}
-      <div ref={veil} aria-hidden data-on="false" className={curtain} />
-      <div ref={edge} aria-hidden data-on="false" className={rise} />
+          the stage's curtain, with the field drawn sharp above it. Both
+          come in with the scroll, once the story starts. */}
+      <div ref={veil} aria-hidden className={curtain} />
+      <div ref={edge} aria-hidden className={rise} />
       <div
         ref={stage}
         aria-hidden
@@ -105,13 +105,15 @@ export const shapeAt = (shape: string, side: Side = 'center') => ({
  * scroll up from below it, passing into its curtain as they go. `first`
  * opens a page: one screen less the header, its words low on a phone,
  * where they are read. `last` ends one, its words low on a phone too, so
- * they are read when the page can scroll no further.
+ * they are read when the page can scroll no further. `tight` takes less
+ * scroll, for small shapes.
  */
 export function Stop({
   shape,
   side = 'right',
   first = false,
   last = false,
+  tight = false,
   children,
   ...section
 }: {
@@ -119,12 +121,13 @@ export function Stop({
   readonly side?: Side;
   readonly first?: boolean;
   readonly last?: boolean;
+  readonly tight?: boolean;
 } & ComponentProps<'section'>) {
   return (
     <section
       {...section}
       {...shapeAt(shape, side)}
-      className={first ? opening : last ? ending : stretch}
+      className={first ? opening : last ? ending : tight ? compact : stretch}
     >
       <div className={halves}>
         <div data-field-words className={card(side, first)}>
@@ -181,6 +184,8 @@ function run(
   let alive = true;
   /** Where the story's words start, down the page. */
   let start: number | null = null;
+  /** Where the story ends, down the page, if the page marks it. */
+  let end: number | null = null;
   /**
    * The line being read, down the screen: its middle on a wide screen; on
    * a phone, the middle of what the stage leaves below it.
@@ -189,7 +194,26 @@ function run(
     cssWidth < WIDE
       ? (room(viewHeight).bottom + viewHeight) / 2
       : viewHeight / 2;
-  const words = labelLayer(canvas.parentElement ?? canvas, log.on);
+  const stage = canvas.parentElement;
+  const words = labelLayer(stage ?? canvas, log.on);
+  /**
+   * How far the field has handed the page over to what follows its story,
+   * 0..1, between when the end's first words are `from` and `to` of the
+   * way down the screen; never before the last Chapter has been read,
+   * held whole.
+   */
+  const left = (
+    all: readonly Chapter[],
+    at: number,
+    line: number,
+    [high, low]: readonly [number, number],
+  ) => {
+    const read = all[all.length - 1]!.middle - line;
+    const from = Math.max(at - viewHeight * high, read);
+    const to = Math.max(at - viewHeight * low, from + 1);
+    const x = Math.min(Math.max((window.scrollY - from) / (to - from), 0), 1);
+    return x * x * (3 - 2 * x);
+  };
   const remeasure = () => {
     if (!alive) return;
     words.remeasure();
@@ -204,6 +228,7 @@ function run(
     }
     chapters = measure();
     start = storyStart();
+    end = storyEnd();
     spots = chapters.map((c) => place(c.side, cssWidth, cssHeight));
   };
   remeasure();
@@ -250,19 +275,17 @@ function run(
     log,
   );
 
-  const pointer = trackPointer();
   const theme = watchTheme();
   const motion = watchMotion();
   const tail = comet();
   const sharpness = governor(plan.dpr);
 
   // The loop: everything eased, nothing read from the layout.
-  const t = spring(progress(chapters, window.scrollY, focus()), 0.06);
+  const t = spring(progress(chapters, window.scrollY, focus()), 0.12);
   let time = 0;
   let still = motion.calm() ? 0 : 1;
   let intro = motion.calm() ? 1 : 0;
   let dark = theme.dark() ? 1 : 0;
-  const reach = { x: 0, y: 0, strength: 0, yaw: 0, tilt: 0 };
   let shown = false;
   let lastDpr = plan.dpr;
   // Nothing on screen a while after mounting is the one failure a reader
@@ -294,29 +317,29 @@ function run(
       Math.sign(darkTarget - dark) *
       Math.min(Math.abs(darkTarget - dark), dt / 0.3);
     const at = t.step(progress(chapters, window.scrollY, focus()), dt);
-    // The curtain and the edge, once the story's words have come up.
-    const reading =
-      start !== null && window.scrollY + viewHeight > start + 48
-        ? 'true'
-        : 'false';
+    // The curtain and the edge come in with the scroll: as the story's
+    // first words rise from the bottom, or sooner, as the field starts to
+    // leave its first shape, so a shape gathers on a clean stage and not
+    // over the opening's words.
+    const rising =
+      start === null ? 0 : (window.scrollY + viewHeight - start) / 160;
+    // Past the last Chapter, where a page marks its story's end, the field
+    // fades away as the end's first words come up from the bottom, so the
+    // last Chapter's words leave as the end's arrive. On a phone the
+    // curtain goes after it, once the words it hid have scrolled away, so
+    // they never show through.
+    const gone = end === null ? 0 : left(chapters, end, focus(), [0.95, 0.6]);
+    const lifted = end === null ? 0 : left(chapters, end, focus(), [0.6, 0.4]);
+    const drawn = (
+      Math.min(1, Math.max(0, rising, at / 0.3)) *
+      (1 - lifted)
+    ).toFixed(3);
     for (const veil of veils)
-      if (veil && veil.dataset['on'] !== reading) veil.dataset['on'] = reading;
+      if (veil && veil.style.opacity !== drawn) veil.style.opacity = drawn;
+    const visible = (1 - gone).toFixed(3);
+    if (stage && stage.style.opacity !== visible) stage.style.opacity = visible;
 
-    // The pointer, in world units on screen; it fades in where it is.
     const aspect = cssWidth / Math.max(cssHeight, 1);
-    const px = ((pointer.x / Math.max(cssWidth, 1)) * 2 - 1) * aspect;
-    const py = 1 - (pointer.y / Math.max(cssHeight, 1)) * 2;
-    const present = calm ? 0 : pointer.target();
-    if (reach.strength < 0.01) {
-      reach.x = px;
-      reach.y = py;
-    }
-    reach.x = ease(reach.x, px, 0.12, dt);
-    reach.y = ease(reach.y, py, 0.12, dt);
-    reach.strength = ease(reach.strength, present, 0.35, dt);
-    const leans = !plan.small && cssWidth >= WIDE && !calm;
-    reach.yaw = ease(reach.yaw, leans ? (px / aspect) * 0.1 : 0, 0.8, dt);
-    reach.tilt = ease(reach.tilt, leans ? -py * 0.06 : 0, 0.8, dt);
 
     // The comet has room to travel only on a wide screen; on a phone's
     // stage it would cross the shape, so there the shape tells it alone.
@@ -352,7 +375,6 @@ function run(
       time,
       cast,
       ready,
-      lean: [reach.yaw, reach.tilt],
       comet: tail.head[3],
     });
     paint.paint({
@@ -368,7 +390,6 @@ function run(
       blend,
       a,
       b,
-      pointer: [reach.x, reach.y, reach.strength],
       comet: tail.head,
       ribbon: tail.ribbon,
       ribbonCount: tail.ribbonCount,
@@ -487,7 +508,6 @@ function run(
     window.removeEventListener('resize', remeasure);
     canvas.removeEventListener('webglcontextlost', lost);
     canvas.removeEventListener('webglcontextrestored', restored);
-    pointer.dispose();
     theme.dispose();
     motion.dispose();
     paint.dispose();

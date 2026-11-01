@@ -41,8 +41,6 @@ export type Picture = {
   readonly blend: number;
   readonly a: Pose;
   readonly b: Pose;
-  /** Screen x, y in world units, and strength. */
-  readonly pointer: V3;
   /** x, y, z and strength. */
   readonly comet: readonly [number, number, number, number];
   /** The comet's trail as a ribbon: see `Comet.ribbon`. */
@@ -83,7 +81,6 @@ const PARTICLE_UNIFORMS = [
   'uSize',
   'uAspect',
   'uDistance',
-  'uPointer',
   'uComet',
 ] as const;
 
@@ -113,7 +110,7 @@ export function painter(
   const aux = floatTexture(gl, width, rows * layers);
   const empty = gl.createVertexArray();
 
-  // The comet: a ribbon for its trail, two points for its head.
+  // The comet: a ribbon for its trail, three points for its head.
   const trail = program(gl, TRAIL_VERTEX, TRAIL_FRAGMENT);
   const tu = uniforms(gl, trail, COMET_UNIFORMS);
   const trailBuffer = gl.createBuffer();
@@ -131,7 +128,7 @@ export function painter(
   const hu = uniforms(gl, head, COMET_UNIFORMS);
   const headBuffer = gl.createBuffer();
   const headVao = gl.createVertexArray();
-  const headPoints = new Float32Array(8);
+  const headPoints = new Float32Array(12);
   gl.bindVertexArray(headVao);
   gl.bindBuffer(gl.ARRAY_BUFFER, headBuffer);
   const aHead = gl.getAttribLocation(head, 'aPoint');
@@ -207,7 +204,6 @@ export function painter(
       gl.uniform1f(pu.uSize, p.size);
       gl.uniform1f(pu.uAspect, p.aspect);
       gl.uniform1f(pu.uDistance, p.distance);
-      gl.uniform3fv(pu.uPointer, p.pointer);
       gl.uniform4fv(pu.uComet, p.comet);
       gl.bindVertexArray(empty);
       gl.drawArrays(gl.POINTS, 0, count);
@@ -228,11 +224,11 @@ export function painter(
         gl.useProgram(head);
         cometUniforms(hu, p);
         const [x, y, z] = p.comet;
-        headPoints.set([x, y, z, 2, x, y, z, 3]);
+        headPoints.set([x, y, z, 1, x, y, z, 2, x, y, z, 3]);
         gl.bindVertexArray(headVao);
         gl.bindBuffer(gl.ARRAY_BUFFER, headBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, headPoints, gl.DYNAMIC_DRAW);
-        gl.drawArrays(gl.POINTS, 0, 2);
+        gl.drawArrays(gl.POINTS, 0, 3);
       }
       gl.bindVertexArray(null);
     },

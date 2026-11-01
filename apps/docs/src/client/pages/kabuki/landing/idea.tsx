@@ -1,4 +1,5 @@
 import { Chapter } from './chapter.tsx';
+import { sideOf } from './story.ts';
 import type { Idea as Story } from './story.ts';
 
 /* One of kabuki's five ideas, numbered, its words beside its shape. */
@@ -13,6 +14,7 @@ export function Idea({
   return (
     <Chapter
       shape={idea.shape}
+      side={sideOf(index)}
       number={index + 1}
       label={idea.label}
       id={`idea-${idea.shape}`}

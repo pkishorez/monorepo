@@ -19,16 +19,28 @@ import type { Side } from './chapters.ts';
 export const stretch =
   'flex min-h-[75svh] flex-col justify-center lg:min-h-svh';
 
+/**
+ * A compact Stop, for a story whose shapes are small diagrams: less
+ * scroll between them, so the page keeps moving. Three fifths of a screen
+ * on a phone, a little over two thirds on a wide one.
+ */
+export const compact =
+  'flex min-h-[60svh] flex-col justify-center lg:min-h-[70svh]';
+
 /** The first Stop: one screen less the header, its words low on a phone, where they are read. */
 export const opening =
   'flex min-h-[calc(100svh-3.5rem)] flex-col justify-end lg:justify-center';
 
 /**
  * The last Stop: its words low on a phone too, so they come to rest where
- * words are read when the page can scroll no further.
+ * words are read when the page can scroll no further. On a wide screen
+ * the footer comes after it, so at the bottom of the page it can never
+ * reach the middle of the screen, where its shape is: it is a screen less
+ * twice the footer, 69px (components/footer.tsx), so its middle, where
+ * its words are, lands on the screen's when the page scrolls no further.
  */
 export const ending =
-  'flex min-h-[75svh] flex-col justify-end lg:min-h-svh lg:justify-center';
+  'flex min-h-[75svh] flex-col justify-end lg:min-h-[calc(100svh-138px)] lg:justify-center';
 
 /** The column inside a Stop: on a wide screen, two halves. */
 export const halves =
@@ -53,12 +65,13 @@ export const curtain = [
   'h-[calc(max(40svh,min(55svh,100svh_-_23.75rem))_+_3rem)]',
   'bg-background backdrop-blur-sm',
   '[mask-image:linear-gradient(to_bottom,black_calc(100%_-_3rem),transparent)]',
-  'opacity-0 transition-opacity duration-500 ease-out data-[on=true]:opacity-100 motion-reduce:transition-none',
+  // field.tsx sets its opacity as the page scrolls.
+  'opacity-0',
 ].join(' ');
 
 /** The screen's bottom edge on a phone, where words come up out of the page. */
 export const rise = [
   'pointer-events-none fixed inset-x-0 bottom-0 z-[2] h-10 lg:hidden',
   'bg-linear-to-t from-background to-transparent',
-  'opacity-0 transition-opacity duration-500 ease-out data-[on=true]:opacity-100 motion-reduce:transition-none',
+  'opacity-0',
 ].join(' ');
