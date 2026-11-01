@@ -3,22 +3,33 @@
 @import '@kestack/devtools-kabuki/inspector/sources.css';
 
 /*
- * The Web Platform's Theme as it is, the docs' own, plus one colour it does
- * not have: amber, for a Link that is down for now, and the fade of
- * streamed words.
+ * The Web Platform's Theme as it is, the docs' own, plus two colours it
+ * does not have: amber, for a Link that is down for now, and the fade of
+ * streamed words; and a quiet blue for By the way, so its Draft and its
+ * Drawer read at a glance as off to the side of the session, never as
+ * something wrong.
  */
 [data-theme='light'],
 :root {
   --warning: oklch(0.7 0.15 70);
+  --btw: oklch(0.55 0.13 245);
+  --btw-foreground: oklch(0.985 0 0);
+  /* A card tinted by it, as its Draft is. */
+  --btw-card: color-mix(in oklab, var(--btw) 5%, var(--card));
 }
 
 [data-theme='dark'],
 .dark {
   --warning: oklch(0.78 0.13 75);
+  --btw: oklch(0.72 0.11 240);
+  --btw-foreground: oklch(0.2 0.03 245);
+  --btw-card: color-mix(in oklab, var(--btw) 7%, var(--card));
 }
 
 @theme inline {
   --color-warning: var(--warning);
+  --color-btw: var(--btw);
+  --color-btw-foreground: var(--btw-foreground);
 }
 
 /*

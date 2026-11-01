@@ -55,7 +55,7 @@ checks who may import whom (`laymos.config.json`).
          - `draft/` keeps the text, files and choices, and the saved
            Draft. Its parts: `write/` (editor, attachments, touch mode),
            `pick/` (agent and model, Skills, and a new session's branch and
-           New Worktree toggle) and `send/` (message, side question, and a
+           New Worktree toggle) and `send/` (message, By the way and its drawer, and a
            new session's Starting: its steps, streamed by a Worker, drawn
            where the transcript will be). Started, the Draft hands the
            Session over to `project/`, which keeps the Draft drawn until

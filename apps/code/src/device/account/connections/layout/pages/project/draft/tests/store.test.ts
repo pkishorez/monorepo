@@ -53,7 +53,7 @@ describe('a Saved Draft, on touch', () => {
     where: null,
     started: false,
     mode: 'Message' as const,
-    opening: { Message: blank, SideQuestion: blank },
+    opening: { Message: blank, Btw: blank },
     attachments: [],
     chosen: { account: null, model: null, settings: {} },
     branch: null,

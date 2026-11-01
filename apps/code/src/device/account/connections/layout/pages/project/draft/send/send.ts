@@ -11,7 +11,7 @@ import {
 
 /*
  * What a mode's text handed up becomes, by where the Draft goes: a new
- * session started with it, a Side Question asked, or a Session's next
+ * session started with it, a Btw asked, or a Session's next
  * Message sent, its files with it. Each gives the Draft as it is after,
  * and the Command, or nothing when there is nothing to send now.
  */
@@ -67,7 +67,7 @@ export const start = (model: Model, props: Props, written: string) => {
   };
 };
 
-/** A Side Question, replacing the last. */
+/** A Btw, replacing the last, its Btw Drawer expanded to show it. */
 export const askOf = (model: Model, sessionId: string, text: string) => {
   const question = text.trim();
   if (question === '') return {};
@@ -76,7 +76,13 @@ export const askOf = (model: Model, sessionId: string, text: string) => {
     model: {
       ...model,
       problem: null,
-      asked: { id, question, answer: null, problem: null },
+      asked: {
+        id,
+        question,
+        answer: null,
+        problem: null,
+        drawer: 'Expanded' as const,
+      },
       asks: id,
     },
     command: ask({ id, sessionId, question }),

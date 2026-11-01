@@ -168,7 +168,7 @@ let page = {
 };
 /** Whether a Dictation could start, as the Dictation says. */
 let availability: Availability = { _tag: 'Ready' };
-/** Text only, as a Side Question: read as it is drawn. */
+/** Text only, as a Btw: read as it is drawn. */
 let textOnly = false;
 /** Smart Input, as Preferences keeps it. */
 let smart = false;
@@ -260,6 +260,7 @@ function OnPage({
       value={{
         draft,
         chip: null,
+        btw: null,
         label: 'Send',
         blocked: false,
         starting: false,
@@ -749,7 +750,7 @@ describe('Touch Draft', () => {
       expect(rows()).toEqual(['Skill', 'Paste', 'Attach a file', 'Photo']);
     });
 
-    it('has no Skill nor file when text only, as a Side Question', async () => {
+    it('has no Skill nor file when text only, as a Btw', async () => {
       textOnly = true;
       await act(async () => ping());
       await flush();

@@ -41,10 +41,12 @@ import { DraftLive } from '../actor.ts';
  * Draft sends its text and clears at once, and a refused one comes back;
  * a new session's Draft starts the session with the first agent that
  * runs, at its default model, and the app moves to it, or says what is
- * missing. In a Session it has a Side Question mode beside the Message,
+ * missing. In a Session it has a Btw mode beside the Message,
  * each the one owner of its text, switched to only by asking for it: a
  * `/btw` typed is a Message like any other. A question asked replaces the
- * last, and no file or Skill goes in. Its Saved Draft is what it shows, under the Account it opened with,
+ * last, its Btw Drawer expanded, minimised back to the Message and
+ * expanded into Btw mode again, closed only when asked; no file or Skill
+ * goes in. Its Saved Draft is what it shows, under the Account it opened with,
  * saved a quarter of a second after the last change and at once as it
  * goes; it comes back as it was left, and a new session's is deleted once
  * the session has started. Each round of review's way to lose or bring
@@ -302,7 +304,7 @@ const walk = (at: Instance): ReadonlyArray<Instance> => [
 const draftOf = (app: Running<unknown>) =>
   walk(app.snapshot()).find((each) => each.actor === 'Draft')!;
 
-type Mode = 'Message' | 'SideQuestion';
+type Mode = 'Message' | 'Btw';
 
 type Written = {
   readonly text: string;
@@ -326,6 +328,7 @@ const modelOf = (app: Running<unknown>) =>
     readonly asked: {
       readonly question: string;
       readonly answer: string | null;
+      readonly drawer: 'Expanded' | 'Minimised';
     } | null;
   };
 
@@ -438,8 +441,8 @@ describe('Draft', () => {
         const app = yield* start('Session', layer);
         yield* wait();
         yield* write(app, 'Half a message');
-        yield* ask(app, 'SideQuestion');
-        expect(modelOf(app).mode).toBe('SideQuestion');
+        yield* ask(app, 'Btw');
+        expect(modelOf(app).mode).toBe('Btw');
         yield* write(app, 'which file?');
         yield* ask(app, 'Message');
         expect(modelOf(app).mode).toBe('Message');
@@ -448,12 +451,12 @@ describe('Draft', () => {
           anchor: 14,
           head: 14,
         });
-        expect(textOf(app, 'SideQuestion')).toBe('which file?');
+        expect(textOf(app, 'Btw')).toBe('which file?');
         expect(draftOf(app).model).not.toHaveProperty('written');
       }),
     ));
 
-  it('sends a `/btw` typed as a Message: only asking switches to a Side Question', () =>
+  it('sends a `/btw` typed as a Message: only asking switches to a Btw', () =>
     run(
       Effect.gen(function* () {
         const { layer, sent, asked } = world();
@@ -466,13 +469,13 @@ describe('Draft', () => {
       }),
     ));
 
-  it('asks a Side Question of the session, sending nothing, and a new one replaces it', () =>
+  it('asks a Btw of the session, sending nothing, and a new one replaces it', () =>
     run(
       Effect.gen(function* () {
         const { layer, sent, asked } = world();
         const app = yield* start('Session', layer);
         yield* wait();
-        yield* ask(app, 'SideQuestion');
+        yield* ask(app, 'Btw');
         yield* say(app, 'is it done?');
         expect(sent).toEqual([]);
         expect(asked).toEqual([
@@ -481,24 +484,75 @@ describe('Draft', () => {
         expect(modelOf(app).asked).toMatchObject({
           question: 'is it done?',
           answer: 'It is fine',
+          drawer: 'Expanded',
         });
-        expect(textOf(app, 'SideQuestion')).toBe('');
+        expect(textOf(app, 'Btw')).toBe('');
         yield* say(app, 'and the tests?');
         expect(modelOf(app).asked).toMatchObject({
           question: 'and the tests?',
           answer: 'It is fine',
         });
-        expect(modelOf(app).mode).toBe('SideQuestion');
+        expect(modelOf(app).mode).toBe('Btw');
       }),
     ));
 
-  it('takes no file and no Skill in a Side Question', () =>
+  it('shows a Btw in its drawer, minimised back to the Message and expanded into Btw again', () =>
     run(
       Effect.gen(function* () {
         const { layer } = world();
         const app = yield* start('Session', layer);
         yield* wait();
-        yield* ask(app, 'SideQuestion');
+        yield* ask(app, 'Btw');
+        yield* say(app, 'is it done?');
+        expect(modelOf(app).asked?.drawer).toBe('Expanded');
+        yield* toDraft(app, { _tag: 'DrawerShown', drawer: 'Minimised' });
+        expect(modelOf(app).asked).toMatchObject({
+          question: 'is it done?',
+          drawer: 'Minimised',
+        });
+        expect(modelOf(app).mode).toBe('Btw');
+        yield* toDraft(app, { _tag: 'DrawerShown', drawer: 'Expanded' });
+        yield* ask(app, 'Message');
+        expect(modelOf(app).asked?.drawer).toBe('Minimised');
+        yield* ask(app, 'Btw');
+        expect(modelOf(app).asked?.drawer).toBe('Expanded');
+        // A new question expands the drawer, whatever it was.
+        yield* toDraft(app, { _tag: 'DrawerShown', drawer: 'Minimised' });
+        yield* say(app, 'and the tests?');
+        expect(modelOf(app).asked).toMatchObject({
+          question: 'and the tests?',
+          drawer: 'Expanded',
+        });
+      }),
+    ));
+
+  it('lets a Btw and its answer go once its drawer is closed', () =>
+    run(
+      Effect.gen(function* () {
+        const { layer } = world();
+        const app = yield* start('Session', layer);
+        yield* wait();
+        yield* ask(app, 'Btw');
+        yield* say(app, 'is it done?');
+        yield* toDraft(app, { _tag: 'DrawerClosed' });
+        expect(modelOf(app).asked).toBeNull();
+        expect(modelOf(app).mode).toBe('Btw');
+        // Nothing comes back with Btw mode, and nothing to show is no drawer.
+        yield* ask(app, 'Message');
+        yield* ask(app, 'Btw');
+        expect(modelOf(app).asked).toBeNull();
+        yield* toDraft(app, { _tag: 'DrawerShown', drawer: 'Expanded' });
+        expect(modelOf(app).asked).toBeNull();
+      }),
+    ));
+
+  it('takes no file and no Skill in a Btw', () =>
+    run(
+      Effect.gen(function* () {
+        const { layer } = world();
+        const app = yield* start('Session', layer);
+        yield* wait();
+        yield* ask(app, 'Btw');
         yield* toDraft(app, {
           _tag: 'PickerOpened',
           picking: { _tag: 'Skills', how: 'keys', typed: false },
@@ -512,14 +566,14 @@ describe('Draft', () => {
       }),
     ));
 
-  it('has no Side Question before there is a session', () =>
+  it('has no Btw before there is a session', () =>
     run(
       Effect.gen(function* () {
         const { layer } = world();
         const app = yield* start('NewSession', layer);
         yield* wait();
         expect(Object.keys(modesOf(app))).toEqual(['Message']);
-        yield* ask(app, 'SideQuestion');
+        yield* ask(app, 'Btw');
         expect(modelOf(app).mode).toBe('Message');
       }),
     ));
@@ -738,7 +792,7 @@ describe('Draft', () => {
             mode: 'Message',
             written: {
               Message: { text: '', anchor: 0, head: 0 },
-              SideQuestion: { text: '', anchor: 0, head: 0 },
+              Btw: { text: '', anchor: 0, head: 0 },
             },
             attachments: [],
             chosen: { account: null, model: null, settings: {} },
@@ -872,7 +926,7 @@ describe('Draft', () => {
             mode: 'Message',
             written: {
               Message: { text: 'Half a thought', anchor: 14, head: 14 },
-              SideQuestion: { text: '', anchor: 0, head: 0 },
+              Btw: { text: '', anchor: 0, head: 0 },
             },
             attachments: [],
             chosen: { account: null, model: null, settings: {} },
@@ -921,10 +975,10 @@ describe('Draft', () => {
         Effect.gen(function* () {
           const { layer, saved } = world();
           const draft: SavedDraft = {
-            mode: 'SideQuestion',
+            mode: 'Btw',
             written: {
               Message: { text: 'Fix the build', anchor: 4, head: 9 },
-              SideQuestion: { text: 'why red?', anchor: 3, head: 3 },
+              Btw: { text: 'why red?', anchor: 3, head: 3 },
             },
             attachments: [
               { name: 'a.txt', mime: 'text/plain', data: 'aGk=', size: 2 },
@@ -938,7 +992,7 @@ describe('Draft', () => {
           yield* writeIn(saved, draft);
           const app = yield* start('Session', layer);
           yield* wait();
-          expect(modelOf(app).mode).toBe('SideQuestion');
+          expect(modelOf(app).mode).toBe('Btw');
           expect(modelOf(app).attachments).toEqual(draft.attachments);
           expect(modelOf(app).chosen).toEqual(draft.chosen);
           expect(writtenOf(app, 'Message')).toEqual({
@@ -946,7 +1000,7 @@ describe('Draft', () => {
             anchor: 4,
             head: 9,
           });
-          expect(textOf(app, 'SideQuestion')).toBe('why red?');
+          expect(textOf(app, 'Btw')).toBe('why red?');
         }),
       ));
 
@@ -1003,7 +1057,7 @@ describe('Draft', () => {
             mode: 'Message',
             written: {
               Message: { text: 'Restored', anchor: 8, head: 8 },
-              SideQuestion: { text: '', anchor: 0, head: 0 },
+              Btw: { text: '', anchor: 0, head: 0 },
             },
             attachments: [],
             chosen: { account: null, model: null, settings: {} },
@@ -1016,14 +1070,14 @@ describe('Draft', () => {
         }),
       ));
 
-    it('saves what a send leaves, the Message emptied, the Side Question and the picks as shown', () =>
+    it('saves what a send leaves, the Message emptied, the Btw and the picks as shown', () =>
       run(
         Effect.gen(function* () {
           const { layer, saved } = world();
           const app = yield* start('Session', layer);
           yield* wait();
           yield* effort(app, 'low');
-          yield* ask(app, 'SideQuestion');
+          yield* ask(app, 'Btw');
           yield* write(app, 'a question too');
           yield* ask(app, 'Message');
           yield* say(app, 'Carry on');
@@ -1032,7 +1086,7 @@ describe('Draft', () => {
             mode: 'Message',
             written: {
               Message: { text: '', anchor: 0, head: 0 },
-              SideQuestion: { text: 'a question too', anchor: 14, head: 14 },
+              Btw: { text: 'a question too', anchor: 14, head: 14 },
             },
             attachments: [],
             chosen: { account: null, model: null, settings: { effort: 'low' } },
@@ -1097,9 +1151,9 @@ describe('Draft', () => {
           yield* write(app, 'From this tab');
           yield* wait(300);
           yield* writeIn(saved, {
-            mode: 'SideQuestion',
+            mode: 'Btw',
             written: {
-              SideQuestion: { text: 'From the other tab', anchor: 0, head: 0 },
+              Btw: { text: 'From the other tab', anchor: 0, head: 0 },
             },
             attachments: [],
             chosen: { account: null, model: 'haiku', settings: {} },
@@ -1110,7 +1164,7 @@ describe('Draft', () => {
             mode: 'Message',
             written: {
               Message: { text: 'From this tab, later', anchor: 20, head: 20 },
-              SideQuestion: { text: '', anchor: 0, head: 0 },
+              Btw: { text: '', anchor: 0, head: 0 },
             },
             attachments: [],
             chosen: { account: null, model: null, settings: {} },
@@ -1145,7 +1199,7 @@ describe('Draft', () => {
           const app = yield* start('Session', layer);
           yield* wait();
           yield* write(app, 'Carry on');
-          yield* ask(app, 'SideQuestion');
+          yield* ask(app, 'Btw');
           yield* write(app, 'and this?');
           yield* ask(app, 'Message');
           yield* Effect.sync(() =>
@@ -1154,7 +1208,7 @@ describe('Draft', () => {
           yield* wait(600);
           const kept = yield* keptIn(saved);
           expect(kept?.written['Message']?.text).toBe('');
-          expect(kept?.written['SideQuestion']?.text).toBe('and this?');
+          expect(kept?.written['Btw']?.text).toBe('and this?');
         }),
       ));
 

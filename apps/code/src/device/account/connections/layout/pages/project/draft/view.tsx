@@ -20,7 +20,8 @@ import { AttachmentStrip } from './write/attachments/index.ts';
 import { Card, PRIMARY, StatusLine, useDraft } from './write/write.tsx';
 import type { Held } from './write/editor/index.ts';
 import { DraftMode, type Composing, type Mode } from './write/view.tsx';
-import { SideQuestion, SideQuestionToggle } from './send/side-question.tsx';
+import { BtwMark, BtwToggle } from './send/btw/btw.tsx';
+import { BtwBar, BtwDrawer } from './send/btw/drawer.tsx';
 import { Chip, ModelPicker, Triggers } from './pick/model/index.ts';
 import {
   current,
@@ -42,16 +43,22 @@ import { Slots } from './draft.ts';
  * over the Draft, and says Start session; a
  * Session's says Send, or Steer while the agent runs. The card is drawn
  * by the Draft Mode open (`write/`), around its own text, which its edits
- * and sends go to; switched to, it takes focus as the one before had it. In a Session, the Side Question toggle beside
- * the model, or its keys, switches to Side Question mode and back, as do
- * Escape and the "Back to session" over it: text only, no model Picker,
- * and its send says Ask. The
- * question and its answer take the transcript's place, drawn where the
- * page says through `Slots`. What the page adds, such as a Session's
- * Stop, or that nothing can be sent, comes through `Slots` too. On a
- * device with no keyboard it is the Touch Draft (`write/touch/`), with
- * the toggle and the model chip in place of the triggers, and every send
- * goes through it.
+ * and sends go to; switched to, it takes focus as the one before had it.
+ *
+ * In a Session, the Btw toggle first on the Status Line switches to Btw
+ * mode and back: the card turns By the way's blue and says so, text only,
+ * no model Picker, and its send says Ask. Asked, the question and its
+ * answer show in the Btw Drawer (`send/btw/`), drawn over the card's top
+ * edge, the transcript staying where it was. Its keys bring it forward,
+ * `q` or Ctrl+Q: into Btw mode, its drawer expanded, then, the drawer
+ * minimised, expanded again, then back to the Message; Escape takes it
+ * back a step: the drawer minimised, then the Message.
+ *
+ * What the page adds, such as a Session's Stop, who answers a Btw, or
+ * that nothing can be sent, comes through `Slots`. On a device with no
+ * keyboard it is the Touch Draft (`write/touch/`), with the toggle and
+ * the model chip in place of the triggers, Btw mode in its Add too, and
+ * every send goes through it.
  */
 
 /**
@@ -70,19 +77,21 @@ type LastMode = RefObject<{
 
 /**
  * What the Draft is called, says while empty, and what its send says: a
- * new session's, a Side Question's, a running Session's, or a Session's.
+ * new session's, a Btw's, a running Session's, or a Session's.
  */
-const wordingOf = (fresh: boolean, side: boolean, running: boolean) =>
+const wordingOf = (fresh: boolean, btw: boolean, running: boolean) =>
   fresh
     ? {
         label: 'First message',
         placeholder: 'What should the agent do?',
         send: 'Start session',
       }
-    : side
+    : btw
       ? {
-          label: 'Side question',
-          placeholder: 'Ask about this session',
+          label: 'By the way',
+          placeholder: running
+            ? 'Ask without interrupting it'
+            : 'Ask about this session',
           send: 'Ask',
         }
       : running
@@ -133,14 +142,31 @@ function Drafting(self: ViewProps<typeof DraftLive>) {
   // nothing moves as it does; nothing is sent meanwhile all the same.
   const said = useOfflineSaid(connectionId) && offline !== null;
   const fresh = to._tag === 'NewSession';
-  const side = model.mode === 'SideQuestion';
-  const asking = modesOf(props).includes('SideQuestion');
-  const toggle = () =>
-    send({ _tag: 'ModeAsked', mode: side ? 'Message' : 'SideQuestion' });
-  const back = () => send({ _tag: 'ModeAsked', mode: 'Message' });
-  keys.useAction('content.side', toggle, { enabled: asking });
-  keys.useAction('content.sideAnywhere', toggle, { enabled: asking });
-  keys.useAction('content.close', back, { enabled: side });
+  const btw = model.mode === 'Btw';
+  const asking = modesOf(props).includes('Btw');
+  const expanded = model.asked?.drawer === 'Expanded';
+  const { keyboard } = useDevice();
+  const toMode = (mode: Mode) => send({ _tag: 'ModeAsked', mode });
+  const show = (drawer: 'Expanded' | 'Minimised') =>
+    send({ _tag: 'DrawerShown', drawer });
+  const toggle = () => toMode(btw ? 'Message' : 'Btw');
+  // Its keys bring By the way forward a step, and Escape takes it back.
+  const forward = () =>
+    !btw
+      ? toMode('Btw')
+      : model.asked !== null && !expanded
+        ? show('Expanded')
+        : toMode('Message');
+  const back = () => (expanded ? show('Minimised') : toMode('Message'));
+  keys.useAction('content.btw', forward, { enabled: asking });
+  keys.useAction('content.btwAnywhere', forward, { enabled: asking });
+  keys.useAction('content.close', back, { enabled: btw || expanded });
+  const drawer = {
+    asked: model.asked,
+    touch: !keyboard,
+    onShow: show,
+    onClose: () => send({ _tag: 'DrawerClosed' }),
+  };
   const last: LastMode = useRef(null);
   // Each mode's editor, as it was left: the card is drawn anew per mode.
   const held = useRef<Held>(new Map()).current;
@@ -176,12 +202,7 @@ function Drafting(self: ViewProps<typeof DraftLive>) {
 
   return (
     <div {...root} className="relative flex flex-col gap-2">
-      {side &&
-        slots.sideQuestion &&
-        createPortal(
-          <SideQuestion asked={model.asked} onBack={back} />,
-          slots.sideQuestion,
-        )}
+      {asking && <BtwBar {...drawer} />}
       {/* Out of reach: the header's pill says so; here, only to a screen
           reader, so the Draft never moves as the link drops and comes back. */}
       {said ? (
@@ -221,23 +242,27 @@ function Drafting(self: ViewProps<typeof DraftLive>) {
           </p>
         )
       )}
-      <DraftMode.Compose
-        value={(composing) => (
-          <Composer
-            self={self}
-            composing={composing}
-            offline={offline !== null}
-            describedBy={said ? describedBy : null}
-            unsendable={unsendable}
-            onBack={back}
-            onSide={asking ? toggle : null}
-            last={last}
-            held={held}
-          />
-        )}
-      >
-        {open && <DraftMode.view instance={open} />}
-      </DraftMode.Compose>
+      {/* The card's box: the drawer expanded rises from its top edge. */}
+      <div className="relative flex flex-col">
+        {asking && <BtwDrawer {...drawer} answerer={slots.answerer ?? null} />}
+        <DraftMode.Compose
+          value={(composing) => (
+            <Composer
+              self={self}
+              composing={composing}
+              offline={offline !== null}
+              describedBy={said ? describedBy : null}
+              unsendable={unsendable}
+              onBack={btw || expanded ? back : null}
+              onToggle={asking ? toggle : null}
+              last={last}
+              held={held}
+            />
+          )}
+        >
+          {open && <DraftMode.view instance={open} />}
+        </DraftMode.Compose>
+      </div>
     </div>
   );
 }
@@ -250,7 +275,7 @@ function Composer({
   describedBy,
   unsendable,
   onBack,
-  onSide,
+  onToggle,
   last,
   held,
 }: {
@@ -261,9 +286,10 @@ function Composer({
   /** The id of the line that says it is offline, while it says so. */
   readonly describedBy: string | null;
   readonly unsendable: boolean;
-  readonly onBack: () => void;
-  /** Switches Side Question mode on and off, in a Session's Draft only. */
-  readonly onSide: (() => void) | null;
+  /** Escape in the Composer out of Vim Mode, while By the way is forward. */
+  readonly onBack: (() => void) | null;
+  /** Switches Btw mode on and off, in a Session's Draft only. */
+  readonly onToggle: (() => void) | null;
   readonly last: LastMode;
   readonly held: Held;
 }) {
@@ -279,7 +305,7 @@ function Composer({
   const skills = skillsOf(model, props);
   const { picking } = model;
   const fresh = to._tag === 'NewSession';
-  const side = mode === 'SideQuestion';
+  const btw = mode === 'Btw';
   const takes = DraftMode.takes(mode);
   const edit = (text: string, selection: { anchor: number; head: number }) =>
     composing.onEdit({ text, ...selection });
@@ -287,7 +313,7 @@ function Composer({
   const { keyboard } = useDevice();
   // On touch, set by the Touch Draft's View: a send goes through it.
   const touchSend = useRef<(() => void) | null>(null);
-  const wording = wordingOf(fresh, side, running);
+  const wording = wordingOf(fresh, btw, running);
   const draft = useDraft({
     label: wording.label,
     placeholder: wording.placeholder,
@@ -300,9 +326,8 @@ function Composer({
       if (model.problem !== null) send({ _tag: 'Retyped' });
     },
     onSelect: edit,
-    ...(side
-      ? { title: 'Side question', textOnly: true, onEscape: onBack }
-      : {}),
+    ...(btw ? { title: 'By the way', textOnly: true, btw: true } : {}),
+    ...(onBack === null ? {} : { onEscape: onBack }),
     attachments: takes.files ? model.attachments : [],
     onAttachmentsChange: (attachments) => {
       if (takes.files) send({ _tag: 'AttachmentsChanged', attachments });
@@ -335,8 +360,8 @@ function Composer({
   const sendKeys = useBound('content.send');
   useHandOn(draft, mode, last, keyboard);
 
-  const sideToggle = onSide !== null && (
-    <SideQuestionToggle on={side} onToggle={onSide} />
+  const btwToggle = onToggle !== null && (
+    <BtwToggle on={btw} onToggle={onToggle} />
   );
   // A new session's branch, where the page says, over the Draft.
   const branch =
@@ -383,9 +408,10 @@ function Composer({
       onPaste: (text) =>
         send({ _tag: 'InsertAsked', what: { _tag: 'Text', text } }),
       sending: touchSend,
+      btw: onToggle === null ? null : { on: btw, onToggle, mark: <BtwMark /> },
       chip: (
         <>
-          {sideToggle}
+          {btwToggle}
           {takes.picks && (
             <Chip
               catalog={model.catalog}
@@ -434,7 +460,7 @@ function Composer({
           </Button>
         }
       >
-        {sideToggle}
+        {btwToggle}
         {takes.picks && (
           <Triggers
             catalog={model.catalog}

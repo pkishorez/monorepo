@@ -121,7 +121,7 @@ The Local Storage of this browser, what it keeps for itself and no other device 
 _Avoid_: device state, local settings, localStorage
 
 **Draft**:
-The open Session's next message, kept at the foot of the page with the Status Line while the transcript scrolls above it, always visible but while the Question Panel stands in for it. It is written in one Draft Mode at a time. With a keyboard and out of Vim Mode it is typed into as any text box is; in Vim Mode it can be read, scrolled and clicked to place a cursor or select, but not typed into until it is the Composer. On a device with no keyboard it is the Touch Draft. A Dictation, while it is turned into text, shows as transcribing where its text will go. Everything the user adds, such as a Dictation, a paste, a file or a Skill, goes in at the cursor of the Draft Mode open, replacing any selection, and the page brings that spot into view. Sending it makes it the Session's next message, or, in Side Question mode, asks the Side Question. Until it is sent it is kept on this device as its Saved Draft.
+The open Session's next message, kept at the foot of the page with the Status Line while the transcript scrolls above it, always visible but while the Question Panel stands in for it. It is written in one Draft Mode at a time. With a keyboard and out of Vim Mode it is typed into as any text box is; in Vim Mode it can be read, scrolled and clicked to place a cursor or select, but not typed into until it is the Composer. On a device with no keyboard it is the Touch Draft. A Dictation, while it is turned into text, shows as transcribing where its text will go. Everything the user adds, such as a Dictation, a paste, a file or a Skill, goes in at the cursor of the Draft Mode open, replacing any selection, and the page brings that spot into view. Sending it makes it the Session's next message, or, in Btw mode, asks the Btw. Until it is sent it is kept on this device as its Saved Draft.
 _Avoid_: input, insert bar, prompt box, composer (that is the Draft while editable)
 
 **Saved Draft**:
@@ -129,11 +129,16 @@ A Draft as it shows, kept on this device for its Session, or for its Project's n
 _Avoid_: autosave, local draft, cached draft
 
 **Draft Mode**:
-One way the Draft is written: a Message, the Session's next message with its files, Skills and the model picked, or, in a Session, a Side Question. Each keeps its own text, cursor and selection, so switching away and back finds it as it was left. The Side Question toggle in the Draft, or its keys, switches between them; Escape and "Back to session" return to the Message. Nothing typed switches it: only the toggle and its keys do. A new session's Draft has only the Message.
+One way the Draft is written: a Message, the Session's next message with its files, Skills and the model picked, or, in a Session, Btw mode, a Btw. Each keeps its own text, cursor and selection, so switching away and back finds it as it was left. The Btw toggle, first on the Status Line, or on touch the first row of Add, switches between them; so do its keys, Ctrl+Q or `q` in Vim Mode, which bring By the way forward a step: into Btw mode, its Btw Drawer expanded, then that drawer expanded again once minimised, then back to the Message. Escape takes it back a step: the drawer minimised, then the Message. Nothing typed switches it: only the toggle and its keys do. A new session's Draft has only the Message.
 _Avoid_: tab, composer mode, input mode
 
-**Side Question**:
-A question about the open Session, asked on the side and answered by the Session's own agent without interrupting it or entering its transcript. Text only: no file or Skill goes with it, and no model is picked. While the Draft is in Side Question mode, the question asked and how it stands, being answered, answered or failed, takes the transcript's place, and the answer can be copied. A new one replaces the last and its answer; nothing of it is kept.
+**Btw**:
+A question about the open Session, asked by the way and answered by the Session's own agent without interrupting it or entering its transcript, written in the Draft's Btw mode. Text only: no file or Skill goes with it, and no model is picked. In Btw mode the Draft wears By the way's blue and its `btw` mark, and its send says Ask. Asked, it shows in its Btw Drawer. A new one replaces the last and its answer; nothing of it is kept.
+_Avoid_: side question, aside, side chat
+
+**Btw Drawer**:
+Where the latest Btw and how it stands, being answered, answered or failed, are read, drawn by the Draft over its own top edge, never in the transcript's place: the transcript stays where it was, and is read and scrolled as ever. Expanded, as each Btw is asked, it rises from behind the Draft's card over the foot of the transcript, read only, with Copy once answered, Minimise and Close; on touch a sheet, edge to edge, which a swipe down its head minimises. Minimised, it is a bar on the Draft with the question and how it stands, which opens it again. Closed, the Btw and its answer go.
+_Avoid_: answer panel, side panel, modal
 _Avoid_: aside, ask, side chat
 
 **Question Panel**:
