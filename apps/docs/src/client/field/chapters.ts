@@ -4,8 +4,10 @@ import type { ShapeName } from './shapes/index.ts';
 /*
  * The page's Chapters, as the field sees them: every element marked with
  * `data-field-shape`, in document order, with the side its shape sits on and
- * where its middle is down the page. Read only when the layout may have
- * changed, never per frame.
+ * where its middle is down the page: the middle of its words, marked
+ * `data-field-words`, when it has them, so a shape is whole while its words
+ * are being read. Read only when the layout may have changed, never per
+ * frame.
  */
 
 export type Side = 'left' | 'right' | 'center';
@@ -25,7 +27,8 @@ export function measure(): Chapter[] {
     ...document.querySelectorAll<HTMLElement>('[data-field-shape]'),
   ];
   const chapters = found.map((el) => {
-    const box = el.getBoundingClientRect();
+    const words = el.querySelector<HTMLElement>('[data-field-words]') ?? el;
+    const box = words.getBoundingClientRect();
     return {
       shape: shapeOf(el.dataset.fieldShape),
       side: sideOf(el.dataset.fieldSide),
@@ -35,4 +38,10 @@ export function measure(): Chapter[] {
   return chapters.length > 0
     ? chapters
     : [{ shape: 'hero', side: 'center', middle: window.innerHeight / 2 }];
+}
+
+/** Where the story's first words start, down the page; none on a page with no story. */
+export function storyStart(): number | null {
+  const first = document.querySelector<HTMLElement>('[data-field-words]');
+  return first ? first.getBoundingClientRect().top + window.scrollY : null;
 }

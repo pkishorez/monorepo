@@ -1,11 +1,10 @@
 import { useEffect, useRef } from 'react';
 import type { ComponentProps } from 'react';
-import { column } from '../components/index.ts';
 import { startBaking } from './baker.ts';
 import { budget, governor } from './budget.ts';
-import { card, stretch, words } from './card.ts';
+import { card, glass, halves, opening, stretch } from './card.ts';
 import { logger } from './debug.ts';
-import { measure } from './chapters.ts';
+import { measure, storyStart } from './chapters.ts';
 import type { Chapter, Side } from './chapters.ts';
 import { ease, spring } from './damp.ts';
 import { comet } from './follower.ts';
@@ -38,6 +37,7 @@ import { watchTheme } from './theme.ts';
 
 export function Field({ follower }: { readonly follower: boolean }) {
   const stage = useRef<HTMLDivElement>(null);
+  const frost = useRef<HTMLDivElement>(null);
   const journey = useRef(follower);
   useEffect(() => {
     journey.current = follower;
@@ -53,7 +53,7 @@ export function Field({ follower }: { readonly follower: boolean }) {
     el.appendChild(canvas);
     // The scroll glides first, so each frame the field reads where it is.
     const unsmooth = smoothScroll();
-    const stop = run(canvas, () => journey.current);
+    const stop = run(canvas, () => journey.current, frost.current);
     return () => {
       unsmooth();
       stop();
@@ -61,11 +61,17 @@ export function Field({ follower }: { readonly follower: boolean }) {
     };
   }, []);
   return (
-    <div
-      ref={stage}
-      aria-hidden
-      className="pointer-events-none fixed inset-x-0 top-0 z-0 h-lvh w-full"
-    />
+    <>
+      {/* On a phone the words pass under the stage: under frosted glass,
+          with the field drawn sharp above it. Shown once the story's words
+          have come up from the bottom. */}
+      <div ref={frost} aria-hidden data-on="false" className={glass} />
+      <div
+        ref={stage}
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 top-0 z-[3] h-lvh w-full lg:z-0"
+      />
+    </>
   );
 }
 
@@ -79,33 +85,44 @@ export const shapeAt = (shape: string, side: Side = 'center') => ({
 });
 
 /**
- * One stop of a story told over the field: a tall stretch of page while
- * its shape forms and holds, and a card of words beside it. `side` is where
- * the shape sits on a wide screen; the card takes the other half.
+ * One stop of a story told over the field: a screen of scroll, its words
+ * in the middle of it, taking the half of a wide screen its shape leaves
+ * free. On a phone the shape holds the top of the screen and the words
+ * scroll up from below it, passing under its glass as they go. `first`
+ * opens a page: one screen less the header, its words low on a phone,
+ * where they are read.
  */
 export function Stop({
   shape,
   side = 'right',
+  first = false,
   children,
   ...section
 }: {
   readonly shape: string;
-  readonly side?: 'left' | 'right';
+  readonly side?: Side;
+  readonly first?: boolean;
 } & ComponentProps<'section'>) {
   return (
-    <section {...section} {...shapeAt(shape, side)} className={stretch}>
-      <div
-        className={`${column} sticky bottom-0 lg:static lg:grid lg:grid-cols-2 lg:gap-16`}
-      >
-        <div className={`${card} ${side === 'left' ? 'lg:col-start-2' : ''}`}>
-          <div className={words}>{children}</div>
+    <section
+      {...section}
+      {...shapeAt(shape, side)}
+      className={first ? opening : stretch}
+    >
+      <div className={halves}>
+        <div data-field-words className={card(side)}>
+          {children}
         </div>
       </div>
     </section>
   );
 }
 
-function run(canvas: HTMLCanvasElement, journey: () => boolean): () => void {
+function run(
+  canvas: HTMLCanvasElement,
+  journey: () => boolean,
+  frost: HTMLElement | null,
+): () => void {
   const log = logger();
   log.debug(
     'mount',
@@ -145,6 +162,16 @@ function run(canvas: HTMLCanvasElement, journey: () => boolean): () => void {
   let cssWidth = 0;
   let cssHeight = 0;
   let alive = true;
+  /** Where the story's words start, down the page. */
+  let start: number | null = null;
+  /**
+   * The line being read, down the screen: its middle on a wide screen; on
+   * a phone, the middle of what the stage leaves below it.
+   */
+  const focus = () =>
+    cssWidth < WIDE
+      ? (room(viewHeight).bottom + viewHeight) / 2
+      : viewHeight / 2;
   const words = labelLayer(canvas.parentElement ?? canvas, log.on);
   const remeasure = () => {
     if (!alive) return;
@@ -159,6 +186,7 @@ function run(canvas: HTMLCanvasElement, journey: () => boolean): () => void {
       viewHeight = window.innerHeight;
     }
     chapters = measure();
+    start = storyStart();
     spots = chapters.map((c) => place(c.side, cssWidth, cssHeight));
   };
   remeasure();
@@ -212,7 +240,7 @@ function run(canvas: HTMLCanvasElement, journey: () => boolean): () => void {
   const sharpness = governor(plan.dpr);
 
   // The loop: everything eased, nothing read from the layout.
-  const t = spring(progress(chapters, window.scrollY, viewHeight), 0.06);
+  const t = spring(progress(chapters, window.scrollY, focus()), 0.06);
   let time = 0;
   let still = motion.calm() ? 0 : 1;
   let intro = motion.calm() ? 1 : 0;
@@ -248,7 +276,13 @@ function run(canvas: HTMLCanvasElement, journey: () => boolean): () => void {
     dark +=
       Math.sign(darkTarget - dark) *
       Math.min(Math.abs(darkTarget - dark), dt / 0.3);
-    const at = t.step(progress(chapters, window.scrollY, viewHeight), dt);
+    const at = t.step(progress(chapters, window.scrollY, focus()), dt);
+    // The glass, once the story's words have come up from the bottom.
+    const reading =
+      start !== null && window.scrollY + viewHeight > start + 48
+        ? 'true'
+        : 'false';
+    if (frost && frost.dataset['on'] !== reading) frost.dataset['on'] = reading;
 
     // The pointer, in world units on screen; it fades in where it is.
     const aspect = cssWidth / Math.max(cssHeight, 1);

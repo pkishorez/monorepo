@@ -17,13 +17,14 @@ export const WIDE = 1024;
 
 /**
  * On a narrow screen, the room a shape has, in CSS pixels from the top:
- * between the header and the top of the words, which take about the same
- * height on any phone, so on a short one the shape gets less.
+ * between the header and where the words are read, the bottom of card.ts's
+ * `glass`: 55% down a tall screen, higher on a short one so the words keep
+ * 23.75rem, never above 40%.
  */
 export function room(height: number): { top: number; bottom: number } {
   return {
     top: 64,
-    bottom: Math.max(0.36 * height, Math.min(0.5 * height, height - 420)),
+    bottom: Math.max(0.4 * height, Math.min(0.55 * height, height - 380)),
   };
 }
 

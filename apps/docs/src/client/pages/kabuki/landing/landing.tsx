@@ -10,8 +10,9 @@ import { IDEAS } from './story.ts';
  * particles that takes a new shape for each stop. First the tagline beside
  * a real kabuki app, then the five ideas, then where they come from, and
  * last who makes it and where to go next. Every word after the first
- * screen is in story.ts. The field sits behind everything; the words sit
- * on transparent ground so it shows through.
+ * screen is in story.ts. On a wide screen the field sits behind the words;
+ * on a phone it holds the top of the screen and the words scroll up under
+ * its glass, once the opening screen has gone.
  */
 
 export function Landing() {

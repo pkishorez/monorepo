@@ -2,16 +2,16 @@ import type { Chapter } from './chapters.ts';
 
 /*
  * Where the reader is, as one number: the Chapter whose middle is nearest
- * the middle of the screen, and how far on towards the next. 2.5 is halfway
- * from the third Chapter to the fourth.
+ * the line being read, `focus` pixels down the screen, and how far on
+ * towards the next. 2.5 is halfway from the third Chapter to the fourth.
  */
 
 export function progress(
   chapters: readonly Chapter[],
   scrollY: number,
-  viewHeight: number,
+  focus: number,
 ): number {
-  const middle = scrollY + viewHeight / 2;
+  const middle = scrollY + focus;
   const last = chapters.length - 1;
   if (last <= 0 || middle <= chapters[0]!.middle) return 0;
   for (let k = 0; k < last; k++) {
