@@ -17,7 +17,7 @@ import { AnimatePresence } from 'motion/react';
  * The Settled List: every Settled Session, flat, the most recently Settled
  * first, each with its Project's name. A row opens its Session; its button
  * Un-settles it, which puts it back in the timeline. With no keyboard a row
- * swipes right to left to un-Settle instead, and its button is only heard,
+ * swipes left to right to un-Settle instead, and its button is only heard,
  * by a screen reader, which cannot swipe it. "Settled", last in the
  * timeline, opens it under itself, and closes it again.
  */

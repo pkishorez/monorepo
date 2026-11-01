@@ -5,9 +5,9 @@ import { createContext, type ReactNode, use } from 'react';
 import { notify } from '../../../../../../../../ui/controls/notice/index.ts';
 
 /*
- * On a touch screen a Session row swipes: an unsettled one left to right
- * to Settle it, a Settled one right to left to un-Settle it, with a quiet
- * "Settle" or "Keep" behind it as it goes. It slides out, the list closes the gap, and
+ * On a touch screen a Session row swipes left to right: an unsettled one
+ * to Settle it, a Settled one to un-Settle it, with a quiet "Settle" or
+ * "Keep" behind it as it goes. It slides out, the list closes the gap, and
  * a toast offers Undo for five seconds; its Connection is asked at once, and
  * Undo asks it back. A refusal brings its row back afresh (`SwipeBack`),
  * even one never taken out of its list, and no other. With no touch
@@ -55,7 +55,7 @@ export function SwipeToMove({
   return (
     <SwipeRow
       key={back}
-      direction={settled ? 'left' : 'right'}
+      direction="right"
       tone="quiet"
       sounds={false}
       className="rounded-md bg-sidebar"
