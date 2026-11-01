@@ -4,6 +4,12 @@ An app is one tree of Actors that lives outside React. Each Actor is a small sta
 
 ## Language
 
+### The package
+
+**Part**:
+One of the four pieces kabuki is learned and taken in, each its own subpath using only the ones below it: core, the Actors and how they run; react, drawing them; routing, giving them a place in the URL; start, serving them as one app. An app takes as many as it needs, from the bottom up.
+_Avoid_: layer (that is Effect's Layer), module, package (kabuki is one), door (a Part has several)
+
 ### The tree
 
 **Actor**:
