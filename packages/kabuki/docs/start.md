@@ -282,9 +282,10 @@ under `src/start/platform`, imported from its own subpath, so a build
 carries only the adapter it names. Why is
 [ADR 0033](adr/0033-start-knows-no-platform.md).
 
-| Adapter        | Import                             | Builds for                                   | Hands Start                           |
-| -------------- | ---------------------------------- | -------------------------------------------- | ------------------------------------- |
-| `cloudflare()` | `@kestack/kabuki/start/cloudflare` | one module in its edge form, `workerd` first | the Worker's env and `caches.default` |
+| Adapter             | Import                             | Builds for                                                                                                                                  | Hands Start                                                                                                                                                             |
+| ------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cloudflare()`      | `@kestack/kabuki/start/cloudflare` | one module in its edge form, `workerd` first                                                                                                | the Worker's env and `caches.default`                                                                                                                                   |
+| `nitro({ preset })` | `@kestack/kabuki/start/nitro`      | Nitro's SSR service, wrapped by Nitro's own plugin, `nitro()`, in the preset's server (Node, Bun, Vercel, Netlify, AWS Lambda, Cloudflare…) | the process's env, or the Worker's on a Cloudflare preset, and `caches.default` where there is one; with none, a static page is kept by the CDN, by its `Cache-Control` |
 
 An adapter is a `Platform` for the Vite plugin, the conditions the server
 build resolves with and the function its entry wraps the handler in, and
@@ -352,8 +353,6 @@ export type WorkerEnv = Cloudflare.InferEnv<typeof Site>;
 
 ## Not built yet
 
-- An adapter for any platform but Cloudflare: the port is shaped by one
-  adapter until a second proves it.
 - Caching the Loader RPC's answers for static places.
 - A custom `main` re-exporting `virtual:kabuki-start/worker` is not yet
   covered by a test.
