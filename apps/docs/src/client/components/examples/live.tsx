@@ -161,15 +161,7 @@ export function Live({
               )}
             </p>
           )}
-          <button
-            type="button"
-            aria-pressed={open}
-            onClick={() => setOpen((now) => !now)}
-            className="flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground transition-colors duration-150 hover:bg-background hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-pressed:bg-background aria-pressed:text-foreground"
-          >
-            <PanelBottomIcon className="size-3.5" />
-            Devtools
-          </button>
+          <DevtoolsToggle app={App} open={open} setOpen={setOpen} />
         </div>
         <div className={height}>
           <div
@@ -258,6 +250,37 @@ function Reload({ app: App }: { readonly app: LiveApp }) {
       className="-ml-2 grid size-10 shrink-0 place-items-center text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
     >
       <RotateCwIcon className="size-3" />
+    </button>
+  );
+}
+
+/**
+ * Opens and closes the devtools. Closing them goes back to the present:
+ * a past Step left on show would keep the app inert, with nothing on
+ * screen to bring it back.
+ */
+function DevtoolsToggle({
+  app: App,
+  open,
+  setOpen,
+}: {
+  readonly app: LiveApp;
+  readonly open: boolean;
+  readonly setOpen: (open: boolean) => void;
+}) {
+  const { shown, show } = App.useRuntime();
+  return (
+    <button
+      type="button"
+      aria-pressed={open}
+      onClick={() => {
+        if (open && shown !== null) show(null);
+        setOpen(!open);
+      }}
+      className="flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground transition-colors duration-150 hover:bg-background hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-pressed:bg-background aria-pressed:text-foreground"
+    >
+      <PanelBottomIcon className="size-3.5" />
+      Devtools
     </button>
   );
 }

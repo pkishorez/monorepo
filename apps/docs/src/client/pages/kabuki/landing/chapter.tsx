@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Stop } from '../../../field/index.ts';
+import type { ShapeName } from '../../../field/index.ts';
 
 /*
  * One stop on the page, a Stop on the field as the home page's chapters
@@ -17,7 +18,7 @@ export function Chapter({
   title,
   children,
 }: {
-  readonly shape: string;
+  readonly shape: ShapeName;
   readonly side: 'left' | 'right';
   /** Counted stops show their number before the label. */
   readonly number?: number;

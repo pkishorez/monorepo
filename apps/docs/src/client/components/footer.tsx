@@ -1,10 +1,15 @@
 import { ArrowUpRightIcon } from 'lucide-react';
 import { column } from './styles.ts';
 
-/** What it is built with, and who made it, as a link that reads as one. */
+/**
+ * What it is built with, and who made it, as a link that reads as one.
+ * It sits on its own ground above the particle field (field.tsx's stage
+ * and its phone curtain go up to z-[3]), so it reads the same on every
+ * page, whether the field there has faded out by the end or not.
+ */
 export function Footer() {
   return (
-    <footer className="border-t border-border">
+    <footer className="relative z-[4] border-t border-border bg-background">
       <div
         className={`${column} flex flex-wrap items-center justify-between gap-2 py-6 text-xs text-muted-foreground`}
       >

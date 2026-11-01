@@ -228,6 +228,8 @@ const load = async () => {
           ).pipe(Effect.as({ text: 'slow, there' })),
       }),
     ) as Layer.Layer<never>,
+    // A page load starts at the URL shown, as Start's client does.
+    input: () => Root.startAt(),
     name: `scroll-${count++}`,
   });
   const Probe = () => {

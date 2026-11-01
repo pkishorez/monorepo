@@ -1,6 +1,6 @@
 export { Layout } from './layout.tsx';
 export { Sidebar } from './sidebar.tsx';
-export { column, label, link, navRow } from './styles.ts';
+export { button, column, focus, label, link } from './styles.ts';
 export { Theme } from './theme.ts';
 export { ThemeToggle } from './theme-toggle.tsx';
 export { PackageLink, packageRoute } from './package-link.tsx';

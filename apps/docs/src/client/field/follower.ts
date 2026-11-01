@@ -121,73 +121,117 @@ export function comet(): Comet {
         Math.hypot(x - kept[o]!, y - kept[o + 1]!, z - kept[o + 2]!) > STEP
       ) {
         const n = (written % KEEP) * 4;
-        kept.set([x, y, z, clock], n);
+        kept[n] = x;
+        kept[n + 1] = y;
+        kept[n + 2] = z;
+        kept[n + 3] = clock;
         written++;
       }
       ribbon(Math.max(aspect, 1) * 1.4);
     },
   };
 
+  // Scratch for the trail, kept between frames so the loop makes no
+  // garbage: the smooth line grows as it must, the samples are fixed.
+  let line = new Float64Array(4096);
+  let lineLength = 0;
+  const samples = new Float64Array(SAMPLES * 4);
+  const points = [
+    new Float64Array(4),
+    new Float64Array(4),
+    new Float64Array(4),
+    new Float64Array(4),
+  ] as const;
+
+  const push = (x: number, y: number, z: number, age: number) => {
+    if (lineLength + 4 > line.length) {
+      const grown = new Float64Array(line.length * 2);
+      grown.set(line);
+      line = grown;
+    }
+    line[lineLength] = x;
+    line[lineLength + 1] = y;
+    line[lineLength + 2] = z;
+    line[lineLength + 3] = age;
+    lineLength += 4;
+  };
+
+  /** Reads place `i` behind the head (0 is the head) into `into`. */
+  const read = (i: number, held: number, into: Float64Array) => {
+    if (i <= 0) {
+      into[0] = self.head[0];
+      into[1] = self.head[1];
+      into[2] = self.head[2];
+      into[3] = clock;
+      return;
+    }
+    const o = place(Math.min(i - 1, held - 1));
+    into[0] = kept[o]!;
+    into[1] = kept[o + 1]!;
+    into[2] = kept[o + 2]!;
+    into[3] = kept[o + 3]!;
+  };
+
   /**
-   * The path behind the head as a smooth line: a Catmull-Rom curve through
-   * the places kept, so a fast fling's few far-apart places bend round
-   * instead of meeting in corners. Each point is x, y, z and its age in
-   * seconds; it stops at `length`, or where the path is too old to show.
+   * The path behind the head as a smooth line, into `line`: a Catmull-Rom
+   * curve through the places kept, so a fast fling's few far-apart places
+   * bend round instead of meeting in corners. Each point is x, y, z and
+   * its age in seconds; it stops at `length`, or where the path is too old
+   * to show.
    */
-  function smoothed(length: number): number[] {
+  function smoothed(length: number): void {
     const held = Math.min(written, KEEP);
-    const at = (i: number): readonly [number, number, number, number] => {
-      if (i <= 0) return [self.head[0], self.head[1], self.head[2], clock];
-      const o = place(Math.min(i - 1, held - 1));
-      return [kept[o]!, kept[o + 1]!, kept[o + 2]!, kept[o + 3]!];
-    };
-    const line: number[] = [self.head[0], self.head[1], self.head[2], 0];
+    const [p0, p1, p2, p3] = points;
+    lineLength = 0;
+    push(self.head[0], self.head[1], self.head[2], 0);
     let walked = 0;
     for (let j = 0; j < held && walked < length; j++) {
-      const [p0, p1, p2, p3] = [at(j - 1), at(j), at(j + 1), at(j + 2)];
-      if (clock - p2[3] > OLDEST + 0.2) break;
-      const d = Math.hypot(p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]);
+      read(j - 1, held, p0);
+      read(j, held, p1);
+      read(j + 1, held, p2);
+      read(j + 2, held, p3);
+      if (clock - p2[3]! > OLDEST + 0.2) break;
+      const d = Math.hypot(p2[0]! - p1[0]!, p2[1]! - p1[1]!, p2[2]! - p1[2]!);
       const steps = Math.min(16, Math.max(1, Math.ceil(d / 0.01)));
       for (let k = 1; k <= steps; k++) {
         const u = k / steps;
-        const x = catmull(p0[0], p1[0], p2[0], p3[0], u);
-        const y = catmull(p0[1], p1[1], p2[1], p3[1], u);
-        const z = catmull(p0[2], p1[2], p2[2], p3[2], u);
-        const n = line.length;
+        const x = catmull(p0[0]!, p1[0]!, p2[0]!, p3[0]!, u);
+        const y = catmull(p0[1]!, p1[1]!, p2[1]!, p3[1]!, u);
+        const z = catmull(p0[2]!, p1[2]!, p2[2]!, p3[2]!, u);
+        const n = lineLength;
         walked += Math.hypot(
           x - line[n - 4]!,
           y - line[n - 3]!,
           z - line[n - 2]!,
         );
-        line.push(x, y, z, clock - (p1[3] + (p2[3] - p1[3]) * u));
+        push(x, y, z, clock - (p1[3]! + (p2[3]! - p1[3]!) * u));
       }
     }
-    return line;
   }
 
   /** Resamples the smooth path, evenly by length, into the ribbon. */
   function ribbon(length: number): void {
-    const line = smoothed(length);
+    smoothed(length);
     const step = length / (SAMPLES - 1);
     // x, y, z, age 0..1: by length, or by time, whichever is older.
-    const samples: number[] = [line[0]!, line[1]!, line[2]!, 0];
+    samples[0] = line[0]!;
+    samples[1] = line[1]!;
+    samples[2] = line[2]!;
+    samples[3] = 0;
+    let filled = 4;
     let walked = 0;
     let want = step;
-    for (let i = 4; i < line.length && samples.length < SAMPLES * 4; i += 4) {
-      const [px, py, pz, pt] = [
-        line[i - 4]!,
-        line[i - 3]!,
-        line[i - 2]!,
-        line[i - 1]!,
-      ];
-      const [qx, qy, qz, qt] = [
-        line[i]!,
-        line[i + 1]!,
-        line[i + 2]!,
-        line[i + 3]!,
-      ];
+    for (let i = 4; i < lineLength && filled < SAMPLES * 4; i += 4) {
+      const px = line[i - 4]!;
+      const py = line[i - 3]!;
+      const pz = line[i - 2]!;
+      const pt = line[i - 1]!;
+      const qx = line[i]!;
+      const qy = line[i + 1]!;
+      const qz = line[i + 2]!;
+      const qt = line[i + 3]!;
       const d = Math.hypot(qx - px, qy - py, qz - pz);
-      while (d > 0 && walked + d >= want && samples.length < SAMPLES * 4) {
+      while (d > 0 && walked + d >= want && filled < SAMPLES * 4) {
         const f = (want - walked) / d;
         const seconds = pt + (qt - pt) * f;
         const byTime = Math.min(
@@ -195,19 +239,18 @@ export function comet(): Comet {
           1,
         );
         const age = Math.max(want / length, byTime);
-        samples.push(
-          px + (qx - px) * f,
-          py + (qy - py) * f,
-          pz + (qz - pz) * f,
-          age,
-        );
+        samples[filled] = px + (qx - px) * f;
+        samples[filled + 1] = py + (qy - py) * f;
+        samples[filled + 2] = pz + (qz - pz) * f;
+        samples[filled + 3] = age;
+        filled += 4;
         want += step;
         if (age >= 1) break;
       }
       walked += d;
-      if (samples[samples.length - 1]! >= 1) break;
+      if (samples[filled - 1]! >= 1) break;
     }
-    const count = samples.length / 4;
+    const count = filled / 4;
     if (count < 2) {
       self.ribbonCount = 0;
       return;
@@ -218,20 +261,16 @@ export function comet(): Comet {
       // so its sides swap to keep the strip untwisted.
       const back = s === count - 1;
       const nb = back ? s - 1 : s + 1;
-      for (const side of [-1, 1]) {
-        out.set(
-          [
-            samples[s * 4]!,
-            samples[s * 4 + 1]!,
-            samples[s * 4 + 2]!,
-            samples[s * 4 + 3]!,
-            samples[nb * 4]!,
-            samples[nb * 4 + 1]!,
-            samples[nb * 4 + 2]!,
-            back ? -side : side,
-          ],
-          (s * 2 + (side + 1) / 2) * 8,
-        );
+      for (let side = -1; side <= 1; side += 2) {
+        const o = (s * 2 + (side + 1) / 2) * 8;
+        out[o] = samples[s * 4]!;
+        out[o + 1] = samples[s * 4 + 1]!;
+        out[o + 2] = samples[s * 4 + 2]!;
+        out[o + 3] = samples[s * 4 + 3]!;
+        out[o + 4] = samples[nb * 4]!;
+        out[o + 5] = samples[nb * 4 + 1]!;
+        out[o + 6] = samples[nb * 4 + 2]!;
+        out[o + 7] = back ? -side : side;
       }
     }
     self.ribbonCount = count * 2;

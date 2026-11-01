@@ -33,7 +33,7 @@ import { smoothScroll } from './smooth.ts';
 import { DISTANCE, scene } from './stage.ts';
 import { formedOf, labelLayer } from './labels.ts';
 import { lookOf } from './shapes/index.ts';
-import type { Baked } from './shapes/index.ts';
+import type { Baked, ShapeName } from './shapes/index.ts';
 import { watchTheme } from './theme.ts';
 
 /*
@@ -112,7 +112,7 @@ export function Field({ follower }: { readonly follower: boolean }) {
  * Marks a part of the page with the shape the field takes while it is in
  * view, and the half of a wide screen that shape sits in.
  */
-export const shapeAt = (shape: string, side: Side = 'center') => ({
+export const shapeAt = (shape: ShapeName, side: Side = 'center') => ({
   'data-field-shape': shape,
   'data-field-side': side,
 });
@@ -136,7 +136,7 @@ export function Stop({
   children,
   ...section
 }: {
-  readonly shape: string;
+  readonly shape: ShapeName;
   readonly side?: Side;
   readonly first?: boolean;
   readonly last?: boolean;
@@ -244,10 +244,16 @@ function run(
     const x = Math.min(Math.max((window.scrollY - from) / (to - from), 0), 1);
     return x * x * (3 - 2 * x);
   };
+  /** The shapes baked for this page, by layer; set once, at mount. */
+  let cast: ShapeName[] = [];
+  let warnedCast = false;
   const remeasure = () => {
     if (!alive) return;
-    words.remeasure();
     const w = canvas.clientWidth;
+    // The words' sizes change only with the width (a breakpoint) or the
+    // fonts; measuring them again on every change of the page's height
+    // would force a layout for each of them in one frame.
+    if (w !== cssWidth) words.remeasure();
     const h = canvas.clientHeight;
     // A phone's toolbar sliding away changes only the height: ignore it.
     const heightOnly = plan.small && w === cssWidth && cssHeight > 0;
@@ -260,14 +266,29 @@ function run(
     start = storyStart();
     end = storyEnd();
     spots = chapters.map((c) => place(c.side, cssWidth, cssHeight));
+    // Shapes are baked once, for the Chapters there at mount: one that
+    // turns up later draws as the first shape. Say so, once.
+    if (
+      !warnedCast &&
+      cast.length > 0 &&
+      chapters.some((c) => !cast.includes(c.shape))
+    ) {
+      warnedCast = true;
+      log.warn(
+        'a Chapter appeared after the field mounted; its shape was not baked and draws as the first one',
+      );
+    }
   };
   remeasure();
   const resizes = new ResizeObserver(remeasure);
   resizes.observe(document.body);
   window.addEventListener('resize', remeasure);
-  void document.fonts?.ready.then(remeasure);
+  void document.fonts?.ready.then(() => {
+    words.remeasure();
+    remeasure();
+  });
 
-  const cast = [...new Set(chapters.map((c) => c.shape))];
+  cast = [...new Set(chapters.map((c) => c.shape))];
   const layers = cast.length;
 
   // Mount: as many particles as this device can carry. Shaders that will
@@ -438,7 +459,9 @@ function run(
       ['--grid-x', `${(((cx / aspect + 1) / 2) * cssWidth).toFixed(1)}px`],
       ['--grid-y', `${(((1 - cy) / 2) * cssHeight).toFixed(1)}px`],
       ['--grid-r', `${(scale * cssHeight * 0.85).toFixed(1)}px`],
-      ['opacity', shown ? under.toFixed(3) : '0'],
+      // Faded in with the field's first gathering, then following the
+      // shapes frame by frame, with no transition to lag behind them.
+      ['opacity', shown ? (under * intro).toFixed(3) : '0'],
     ]);
 
     // The words, pinned to the shapes by the same transform.
@@ -536,7 +559,15 @@ function run(
   };
   const restored = () => {
     log.debug('WebGL context restored');
-    paint = painter(gl, { ...plan, layers });
+    try {
+      paint = painter(gl, { ...plan, layers });
+    } catch (e) {
+      log.error(
+        'the field could not start again after its context came back; it is off.',
+        e,
+      );
+      return;
+    }
     baked.forEach((shape, index) => shape && paint.layer(index, shape));
     lastDrawn = '';
     frames.resume();

@@ -1,6 +1,6 @@
 {
   "name": "docs",
-  "description": "The docs for every ke stack toolkit, a kabuki start app published at docs.kishore.app.",
+  "description": "The docs for every ke stack package, a kabuki start app published at docs.kishore.app.",
   "private": true,
   "type": "module",
   "sideEffects": false,

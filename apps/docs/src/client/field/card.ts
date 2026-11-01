@@ -79,7 +79,7 @@ export const curtain = [
  * shape does. On a phone it all keeps to the stage, above the words.
  */
 export const backdrop = [
-  'absolute inset-0 opacity-0 transition-opacity duration-700 ease-out',
+  'absolute inset-0 opacity-0',
   'max-lg:bottom-auto max-lg:h-[max(40svh,min(55svh,100svh_-_23.75rem))]',
   'max-lg:[mask-image:linear-gradient(to_bottom,black_75%,transparent)]',
 ].join(' ');
