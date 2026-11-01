@@ -8,8 +8,8 @@ A kabuki start app, built the way
 [`apps/kabuki-start`](../kabuki-start/README.md) is: every page is an Actor,
 drawn by one Cloudflare Worker and hydrated in the browser. The home page
 tells the whole stack as one scroll story, a chapter per package, over a
-WebGL particle field that takes a shape for each; `?v=journey` adds a comet
-that follows the scroll. kabuki, the only toolkit with docs so far, has a
+WebGL particle field that takes a shape for each, with a comet that follows
+the scroll and a rail that counts the chapters. kabuki, the only toolkit with docs so far, has a
 landing page told the same way, and its docs under `/kabuki/<slug>`, with a
 sidebar, "On this page" and a pager.
 
