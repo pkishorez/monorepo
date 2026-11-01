@@ -51,6 +51,8 @@ export type Look = {
   readonly dust: number;
   /** How much of the field is dust, 0..1. */
   readonly haze: number;
+  /** How much it sits on the grid of dots behind it, 0..1. */
+  readonly grid: number;
 };
 
 type Shape = {
@@ -70,6 +72,7 @@ const look = (l: Partial<Look>): Look => ({
   tint: [1, 1, 1],
   dust: 0.2,
   haze: 0.12,
+  grid: 1,
   ...l,
 });
 
@@ -108,7 +111,7 @@ const SHAPES = {
   },
 
   // kabuki, one diagram per idea: held nearly flat, so its words read.
-  drift: { draw: drift, look: look({ sway: 0, tilt: 0, haze: 0 }) },
+  drift: { draw: drift, look: look({ sway: 0, tilt: 0, haze: 0, grid: 0 }) },
   actor: { draw: actor, labels: actorLabels, look: diagram },
   states: { draw: states, labels: statesLabels, look: diagram },
   compose: { draw: compose, labels: composeLabels, look: diagram },

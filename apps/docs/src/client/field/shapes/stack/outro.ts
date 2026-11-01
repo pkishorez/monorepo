@@ -1,14 +1,25 @@
-import { Kind } from '../pen/index.ts';
-import type { Cloud, Label, V3 } from '../pen/index.ts';
-import { box, lattice, sub3 } from '../pen/index.ts';
+import {
+  Kind,
+  WAIT,
+  ball,
+  box,
+  message,
+  popping,
+  rippling,
+  roundRect,
+  sec,
+  stroke,
+} from '../pen/index.ts';
+import type { Cloud, Label, Motion, V3 } from '../pen/index.ts';
 
 /*
- * The end: what is coming. Three packages in a row. The first is built,
- * kabuki: its outline bright, filled in. The next two are being built:
- * each one's outline draws itself in, in its turn on the story clock, its
- * inside filling after, then both dissolve back to a faint sketch and the
- * loop starts again. Between them, specks carry on from the built one to
- * the next, as work does.
+ * The end: more is coming. Three packages in a row, each a rounded box
+ * with a small grid of dots inside. The first is built: kabuki. The other
+ * two are faint sketches, waiting. Then one chain: kabuki pops and sends a
+ * Message to the next; it lands, that box draws its outline, its dots pop
+ * in one after the other, and a ring runs out from it. Then it sends one
+ * on to the last, which builds the same way. A while later both fall back
+ * to sketches, the last first, and the loop closes where it began.
  */
 
 const SIZE = 0.44;
@@ -18,50 +29,85 @@ const AT: readonly V3[] = [
   [0, 0, 0],
   [GAP, 0, 0],
 ];
+/** Dots across and down inside a package. */
+const DOTS = 4;
+const FLIGHT = 0.7;
 
-/** When each package being built draws in, on the story clock. */
-const TURNS = [
-  { outline: 0.08, fill: 0.3, length: 0.22 },
-  { outline: 0.46, fill: 0.68, length: 0.22 },
+/** When each package being built is sent its Message, and when it falls back, in seconds. */
+const BUILDS = [
+  { sent: 0.3, until: 7.7 },
+  { sent: 3.3, until: 7.5 },
 ] as const;
+/** From when it is sent to, how long its outline takes, when its dots start, and when it rings. */
+const DRAW = 0.5;
+const FILL = 0.35;
+const RING = 0.95;
+
+const lands = (sent: number) => sent + WAIT + FLIGHT;
+
+function dots(
+  c: Cloud,
+  at: V3,
+  motion: (i: number, j: number) => Motion | undefined,
+): void {
+  const inner = SIZE * 0.5;
+  for (let i = 0; i < DOTS; i++)
+    for (let j = 0; j < DOTS; j++)
+      ball(
+        c,
+        c.n * 0.0012,
+        [
+          at[0] + ((i + 0.5) / DOTS - 0.5) * inner,
+          at[1] - ((j + 0.5) / DOTS - 0.5) * inner,
+          0,
+        ],
+        0.006,
+        0.9,
+        motion(i, j),
+      );
+}
 
 export function outro(c: Cloud): void {
-  const { n, random } = c;
+  // Built: kabuki, popping as it sends the first Message.
+  const sends = popping(sec(BUILDS[0].sent), AT[0]!, 1, 0.1);
+  box(c, AT[0]!, SIZE, SIZE, 0.07, 1.1, () => sends);
+  dots(c, AT[0]!, () => sends);
 
-  // Built: a bright outline, filled with a fine even lattice.
-  box(c, AT[0]!, SIZE, SIZE, 0.07, 1.2);
-  lattice(c, n * 0.05, AT[0]!, SIZE * 0.7, SIZE * 0.7, 0.75);
+  BUILDS.forEach((build, k) => {
+    const at = AT[k + 1]!;
+    const from = AT[k]!;
+    const landed = lands(build.sent);
 
-  // Being built: each drawn in its turn, a faint sketch the rest of the loop.
-  TURNS.forEach((turn, index) => {
-    const at = AT[index + 1]!;
-    box(c, at, SIZE, SIZE, 0.07, 0.95, (u) => [
-      Kind.reveal,
-      0.14,
-      u,
-      turn.outline,
-      turn.length,
-    ]);
-    lattice(
+    // The sketch it is built over, always there.
+    box(c, at, SIZE, SIZE, 0.07, 0.22);
+
+    // Its outline, drawing itself round from where the Message lands.
+    box(c, at, SIZE, SIZE, 0.07, 1, (u): Motion => {
+      const start = landed + DRAW * u;
+      return [Kind.gather, sec(start), sec(build.until - start), 0.03, 0];
+    });
+    // Its dots, popping in one after the other.
+    dots(c, at, (i, j): Motion => {
+      const start = landed + FILL + (i + j) * 0.05;
+      return [Kind.gather, sec(start), sec(build.until - start), 0.08, 0];
+    });
+    const ring = rippling(sec(landed + RING), at, 1, 0.05);
+    stroke(
       c,
-      n * 0.04,
-      at,
-      SIZE * 0.7,
-      SIZE * 0.7,
-      0.6,
-      () => true,
-      (x, y) => [Kind.reveal, 0, (x + y) / 2, turn.fill, turn.length],
+      c.n * 0.03,
+      roundRect(at, SIZE + 0.04, SIZE + 0.04, 0.08),
+      0.8,
+      () => ring,
+    );
+
+    message(
+      c,
+      [from[0] + SIZE / 2 + 0.02, 0, 0],
+      [at[0] - from[0] - SIZE - 0.04, 0],
+      build.sent,
+      FLIGHT,
     );
   });
-
-  // Work carrying on: specks leaving each package for the next.
-  for (let k = 0; k < n * 0.005; k++) {
-    const from = Math.floor(random() * 2);
-    const y = (random() - 0.5) * SIZE * 0.6;
-    const start: V3 = [AT[from]![0] + SIZE / 2 + 0.02, y, 0];
-    const end: V3 = [AT[from + 1]![0] - SIZE / 2 - 0.02, y, 0];
-    c.add(start, 1, [Kind.flow, random(), ...sub3(end, start)]);
-  }
 }
 
 export const outroLabels: readonly Label[] = [

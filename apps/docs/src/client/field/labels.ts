@@ -18,10 +18,10 @@ import type { Clock, Label, ShapeName } from './shapes/index.ts';
 const BASE =
   'absolute left-0 top-0 whitespace-nowrap font-mono text-[11px] leading-[18px] lg:text-xs lg:leading-5 will-change-transform transition-colors duration-300';
 const KINDS = {
-  name: 'rounded bg-background/80 px-1 text-muted-foreground data-[lit]:text-foreground',
-  note: 'rounded bg-background/80 px-1 text-muted-foreground/80',
+  name: 'rounded bg-(--field-label) px-1 text-muted-foreground data-[lit]:text-(--field-accent)',
+  note: 'rounded bg-(--field-label) px-1 text-muted-foreground/80',
   message:
-    'rounded-full border border-border bg-background px-2 text-foreground',
+    'rounded-full border border-border bg-(--field-light) px-2 text-foreground dark:bg-background',
 } as const;
 
 const smooth = (a: number, b: number, x: number) => {

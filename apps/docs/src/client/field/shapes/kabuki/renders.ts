@@ -5,9 +5,11 @@ import {
   rippling,
   roundRect,
   stroke,
+  WAIT,
+  message,
+  sec,
 } from '../pen/index.ts';
 import type { Cloud, V3 } from '../pen/index.ts';
-import { WAIT, message, sec } from './beats.ts';
 
 /*
  * renders: only what changed draws again. A small app, its parts six

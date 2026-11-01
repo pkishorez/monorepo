@@ -6,9 +6,12 @@ import {
   popping,
   stroke,
   travelled,
+  WAIT,
+  message,
+  node,
+  sec,
 } from '../pen/index.ts';
 import type { Clock, Cloud, Label, Motion, V3 } from '../pen/index.ts';
-import { WAIT, message, node, sec } from './beats.ts';
 
 /*
  * actor: the building block. On the left a View, a card showing a count as

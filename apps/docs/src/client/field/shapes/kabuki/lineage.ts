@@ -1,6 +1,5 @@
-import { Kind, bend, stroke } from '../pen/index.ts';
+import { Kind, bend, stroke, node, sec } from '../pen/index.ts';
 import type { Cloud, Label, V3 } from '../pen/index.ts';
-import { node, sec } from './beats.ts';
 
 /*
  * lineage: what inspired kabuki. Six ideas down the left, Elm, Foldkit,

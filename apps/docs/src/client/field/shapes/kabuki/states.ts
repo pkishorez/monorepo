@@ -1,6 +1,5 @@
-import { Kind, ball, gathered, line } from '../pen/index.ts';
+import { Kind, ball, gathered, line, node, sec } from '../pen/index.ts';
 import type { Clock, Cloud, Label, Motion, V3 } from '../pen/index.ts';
-import { node, sec } from './beats.ts';
 import { marker, markerAt } from './marker.ts';
 import type { Place } from './marker.ts';
 
