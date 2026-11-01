@@ -4,10 +4,10 @@ import type { Side } from './chapters.ts';
  * How a story's words sit with the field. On a wide screen they take the
  * half its shape leaves free and scroll past it there. On a phone the
  * shape holds the top of the screen, a little more than half of it, and
- * the words scroll up from below: they are read under the shape, then
- * pass under the stage's frosted glass and blur away, while the field is
- * drawn sharp above the glass. The words never fade on their own; the
- * scroll and the glass do it all.
+ * the words scroll up from below: they rise out of a soft edge at the
+ * bottom, are read under the shape, then pass into the stage's curtain
+ * and fade away, while the field is drawn sharp above it. The words never
+ * fade on their own; the scroll and the curtain do it all.
  */
 
 /**
@@ -43,15 +43,22 @@ export const card = (side: Side, first: boolean) =>
   ].join(' ');
 
 /**
- * The stage's glass on a phone: frosted down to where the stage ends,
- * which placement.ts's `room` names too, then melting into the clear over
- * 2.5rem below it, so words blur as they rise rather than at a line, and
- * never while the shape is over them.
+ * The stage's curtain on a phone: the page's own ground, solid, down to
+ * where the stage ends, which placement.ts's `room` names too, so nothing
+ * shows through behind the shape; then a 3rem edge that fades, a little
+ * blurred, so words dissolve into it as they rise rather than meet a line.
  */
-export const glass = [
+export const curtain = [
   'pointer-events-none fixed inset-x-0 top-0 z-[2] lg:hidden',
-  'h-[calc(max(40svh,min(55svh,100svh_-_23.75rem))_+_2.5rem)]',
-  'bg-background/55 backdrop-blur-md',
-  '[mask-image:linear-gradient(to_bottom,black_calc(100%_-_2.5rem),transparent)]',
+  'h-[calc(max(40svh,min(55svh,100svh_-_23.75rem))_+_3rem)]',
+  'bg-background backdrop-blur-sm',
+  '[mask-image:linear-gradient(to_bottom,black_calc(100%_-_3rem),transparent)]',
+  'opacity-0 transition-opacity duration-500 ease-out data-[on=true]:opacity-100 motion-reduce:transition-none',
+].join(' ');
+
+/** The screen's bottom edge on a phone, where words come up out of the page. */
+export const rise = [
+  'pointer-events-none fixed inset-x-0 bottom-0 z-[2] h-10 lg:hidden',
+  'bg-linear-to-t from-background to-transparent',
   'opacity-0 transition-opacity duration-500 ease-out data-[on=true]:opacity-100 motion-reduce:transition-none',
 ].join(' ');

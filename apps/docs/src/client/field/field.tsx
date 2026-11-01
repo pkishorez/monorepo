@@ -2,7 +2,15 @@ import { useEffect, useRef } from 'react';
 import type { ComponentProps } from 'react';
 import { startBaking } from './baker.ts';
 import { budget, governor } from './budget.ts';
-import { card, ending, glass, halves, opening, stretch } from './card.ts';
+import {
+  card,
+  curtain,
+  ending,
+  halves,
+  opening,
+  rise,
+  stretch,
+} from './card.ts';
 import { logger } from './debug.ts';
 import { measure, storyStart } from './chapters.ts';
 import type { Chapter, Side } from './chapters.ts';
@@ -31,13 +39,15 @@ import { watchTheme } from './theme.ts';
  * every frame.
  * While it is mounted the page's scroll glides (smooth.ts), so the words
  * and the shapes move together.
- * With `follower`, a comet travels down the page with the reader.
+ * With `follower`, a comet travels down the page with the reader, on a
+ * wide screen.
  * Without WebGL2 it draws nothing and the page reads the same.
  */
 
 export function Field({ follower }: { readonly follower: boolean }) {
   const stage = useRef<HTMLDivElement>(null);
-  const frost = useRef<HTMLDivElement>(null);
+  const veil = useRef<HTMLDivElement>(null);
+  const edge = useRef<HTMLDivElement>(null);
   const journey = useRef(follower);
   useEffect(() => {
     journey.current = follower;
@@ -53,7 +63,10 @@ export function Field({ follower }: { readonly follower: boolean }) {
     el.appendChild(canvas);
     // The scroll glides first, so each frame the field reads where it is.
     const unsmooth = smoothScroll();
-    const stop = run(canvas, () => journey.current, frost.current);
+    const stop = run(canvas, () => journey.current, [
+      veil.current,
+      edge.current,
+    ]);
     return () => {
       unsmooth();
       stop();
@@ -62,10 +75,11 @@ export function Field({ follower }: { readonly follower: boolean }) {
   }, []);
   return (
     <>
-      {/* On a phone the words pass under the stage: under frosted glass,
-          with the field drawn sharp above it. Shown once the story's words
-          have come up from the bottom. */}
-      <div ref={frost} aria-hidden data-on="false" className={glass} />
+      {/* On a phone the words rise out of a soft bottom edge and pass into
+          the stage's curtain, with the field drawn sharp above it. Shown
+          once the story's words have come up from the bottom. */}
+      <div ref={veil} aria-hidden data-on="false" className={curtain} />
+      <div ref={edge} aria-hidden data-on="false" className={rise} />
       <div
         ref={stage}
         aria-hidden
@@ -88,7 +102,7 @@ export const shapeAt = (shape: string, side: Side = 'center') => ({
  * One stop of a story told over the field: a screen of scroll, its words
  * in the middle of it, taking the half of a wide screen its shape leaves
  * free. On a phone the shape holds the top of the screen and the words
- * scroll up from below it, passing under its glass as they go. `first`
+ * scroll up from below it, passing into its curtain as they go. `first`
  * opens a page: one screen less the header, its words low on a phone,
  * where they are read. `last` ends one, its words low on a phone too, so
  * they are read when the page can scroll no further.
@@ -124,7 +138,7 @@ export function Stop({
 function run(
   canvas: HTMLCanvasElement,
   journey: () => boolean,
-  frost: HTMLElement | null,
+  veils: ReadonlyArray<HTMLElement | null>,
 ): () => void {
   const log = logger();
   log.debug(
@@ -280,12 +294,13 @@ function run(
       Math.sign(darkTarget - dark) *
       Math.min(Math.abs(darkTarget - dark), dt / 0.3);
     const at = t.step(progress(chapters, window.scrollY, focus()), dt);
-    // The glass, once the story's words have come up from the bottom.
+    // The curtain and the edge, once the story's words have come up.
     const reading =
       start !== null && window.scrollY + viewHeight > start + 48
         ? 'true'
         : 'false';
-    if (frost && frost.dataset['on'] !== reading) frost.dataset['on'] = reading;
+    for (const veil of veils)
+      if (veil && veil.dataset['on'] !== reading) veil.dataset['on'] = reading;
 
     // The pointer, in world units on screen; it fades in where it is.
     const aspect = cssWidth / Math.max(cssHeight, 1);
@@ -303,7 +318,16 @@ function run(
     reach.yaw = ease(reach.yaw, leans ? (px / aspect) * 0.1 : 0, 0.8, dt);
     reach.tilt = ease(reach.tilt, leans ? -py * 0.06 : 0, 0.8, dt);
 
-    tail.step({ t: at, time, dt, spots, aspect, on: journey() });
+    // The comet has room to travel only on a wide screen; on a phone's
+    // stage it would cross the shape, so there the shape tells it alone.
+    tail.step({
+      t: at,
+      time,
+      dt,
+      spots,
+      aspect,
+      on: journey() && cssWidth >= WIDE,
+    });
 
     // A reader who asked for less motion: draw only when something changed.
     const dpr = sharpness(dt);
