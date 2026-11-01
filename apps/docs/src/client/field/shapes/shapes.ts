@@ -23,6 +23,7 @@ import {
   kabuki,
   kabukiLabels,
   outro,
+  outroLabels,
   std,
   stdLabels,
 } from './stack/index.ts';
@@ -100,7 +101,9 @@ const SHAPES = {
   },
   outro: {
     draw: outro,
-    look: look({ sway: 0.12, tilt: 0.3, dust: 0.1, haze: 0.3 }),
+    labels: outroLabels,
+    // Nearly flat, so the row reads as packages side by side.
+    look: look({ sway: 0.18, tilt: 0.1, dust: 0.12, haze: 0.2 }),
   },
 
   // kabuki, one diagram per idea: held nearly flat, so its words read.
