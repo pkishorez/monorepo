@@ -11,14 +11,16 @@ import { Kind, STORY } from './shapes/index.ts';
 
 const f = (n: number) => n.toFixed(1);
 
-/** Colour is premultiplied; `alpha * (1 - dark)` is 0 in the dark, which
- * adds light, and plain ink over paper in the light: one blend for both. */
+/** Colour is premultiplied, and its alpha always covers its colour, so
+ * what the canvas holds is a picture every browser shows the same way. In
+ * the dark the painter blends it additively, so light adds; in the light,
+ * it is ink laid over paper. */
 const COLOUR = /* glsl */ `
 vec4 colour(float alpha, vec3 tint) {
   vec3 light = vec3(0.97) * tint;
   vec3 ink = vec3(0.075) + (tint - vec3(1.0)) * 0.4;
   vec3 c = mix(ink, light, uDark);
-  return vec4(c * alpha, alpha * (1.0 - uDark));
+  return vec4(c * alpha, alpha * max(1.0, max(c.r, max(c.g, c.b))));
 }
 `;
 

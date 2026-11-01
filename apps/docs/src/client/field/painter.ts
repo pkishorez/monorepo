@@ -153,7 +153,18 @@ export function painter(
 
   gl.disable(gl.DEPTH_TEST);
   gl.enable(gl.BLEND);
-  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  /*
+   * In the dark, points of light add up, colour and coverage both, so the
+   * canvas ends each frame with its alpha covering its colour. Left at
+   * alpha 0 to add light, as it once was, the canvas holds colour with no
+   * coverage: Chrome often shows that as a glow, and a stricter compositor,
+   * Helium's, or Chrome's on some GPU paths, shows nothing at all. In the
+   * light, ink is laid over paper.
+   */
+  const blendFor = (dark: number) => {
+    if (dark >= 0.5) gl.blendFunc(gl.ONE, gl.ONE);
+    else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  };
 
   const pose = (p: Pose, side: 'A' | 'B') => {
     gl.uniform1i(pu[`uLayer${side}`], p.layer);
@@ -174,6 +185,7 @@ export function painter(
       gl.viewport(0, 0, p.width, p.height);
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
+      blendFor(p.dark);
 
       gl.useProgram(particles);
       gl.activeTexture(gl.TEXTURE0);
