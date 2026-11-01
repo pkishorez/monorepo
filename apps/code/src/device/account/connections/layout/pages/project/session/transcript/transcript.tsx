@@ -47,7 +47,8 @@ import { Work } from './turns/answer/work/work.tsx';
  * thing the agent said, each line of its work and the turn's end, is a
  * block of the scroller it is drawn in (`../scroller/`): a long session
  * draws its last blocks, and more above as the reader scrolls up, so it
- * opens as fast as a short one, however long its turns.
+ * opens as fast as a short one, however long its turns. Until all are, a
+ * line at its top says earlier ones are on their way.
  */
 
 const NONE: ReadonlyArray<never> = [];
@@ -156,6 +157,7 @@ export function Rows({
       data-more={more || undefined}
       className="flex min-w-0 flex-col gap-10"
     >
+      {more && <MoreAbove />}
       {turns.map((turn, at) => {
         const count = counts[at]!;
         const hidden = Math.min(count, Math.max(0, from - start));
@@ -174,6 +176,20 @@ export function Rows({
         );
       })}
     </div>
+  );
+}
+
+/**
+ * Above what is drawn, while earlier blocks are still to be: a glide that
+ * reaches the top finds it, not an empty page, and what it says comes in
+ * once the glide stops.
+ */
+function MoreAbove() {
+  return (
+    <p className="flex min-h-11 items-center justify-center gap-2 text-sm text-muted-foreground">
+      <Spinner aria-hidden className="size-3.5" />
+      Loading earlier messages
+    </p>
   );
 }
 

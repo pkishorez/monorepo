@@ -41,9 +41,11 @@ export { useScrollKeys } from './keys.ts';
  * long one opens as fast as a short one. While a finger moves it, and
  * after, while the glide it set off goes on, the page moves nothing: a
  * phone's glide takes no notice of the view being put back, so nothing is
- * drawn above, nor put back, until the glide settles. The anchor is kept
- * with the history entry: Back, Forward and a reload open where the
- * reader was, drawn from there down, and anywhere else at the bottom.
+ * drawn above, nor put back, until the glide settles; near the top, with
+ * more above, it does not bounce, so one that reaches it settles at once.
+ * The anchor is kept with the history entry: Back, Forward and a reload
+ * open where the reader was, drawn from there down, and anywhere else at
+ * the bottom.
  *
  * The list is drawn inside `Scrolled`, says which blocks it holds with
  * `useBlocks`, draws each in a `Block`, and may group them (`useGroup`).
@@ -157,7 +159,20 @@ export function useScroller(key: string, id: string) {
       touching = false;
       settleSoon();
     };
+    /**
+     * Within a view of the top, with more above still to be drawn: no
+     * bounce there. A glide that reaches it stops, rather than springing
+     * back for most of a second, and what is above is drawn once it does,
+     * as nothing can be while the bounce goes on.
+     */
+    const bounce = () => {
+      const stop =
+        outer.scrollTop < outer.clientHeight &&
+        inner.querySelector('[data-more]') !== null;
+      outer.style.overscrollBehaviorY = stop ? 'none' : '';
+    };
     const onScroll = () => {
+      bounce();
       // Moved by a finger, again after it rested: a glide until quiet.
       if (touching) scroll.gliding = true;
       if (scroll.gliding) settleSoon();

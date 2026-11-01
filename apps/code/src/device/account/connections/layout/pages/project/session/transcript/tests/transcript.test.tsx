@@ -144,6 +144,7 @@ describe('a long transcript', () => {
     expect(drawn()).toBe(10);
     expect(container.textContent).toContain('Answer 29');
     expect(container.textContent).not.toContain('Answer 0');
+    expect(container.textContent).toContain('Loading earlier messages');
     await settle();
     expect(drawn()).toBe(10);
   });
@@ -238,10 +239,39 @@ describe('a long transcript', () => {
     expect(drawn()).toBe(30 * 4);
   });
 
+  it('does not bounce within a view of the top while more is above, so a glide stops there', () => {
+    act(() => root.render(<Transcript rows={turns(30)} scrolled />));
+    const scroller = container.firstElementChild as HTMLElement;
+    let top = 2000;
+    Object.defineProperties(scroller, {
+      clientHeight: { configurable: true, get: () => 800 },
+      scrollTop: {
+        configurable: true,
+        get: () => top,
+        set: (to: number) => {
+          top = to;
+        },
+      },
+    });
+    const scrollTo = (to: number) =>
+      act(() => {
+        top = to;
+        scroller.dispatchEvent(new Event('scroll'));
+      });
+    scrollTo(1000);
+    expect(scroller.style.overscrollBehaviorY).toBe('');
+    scrollTo(300);
+    expect(scroller.style.overscrollBehaviorY).toBe('none');
+    act(() => toTop());
+    scrollTo(10);
+    expect(scroller.style.overscrollBehaviorY).toBe('');
+  });
+
   it('draws every block to go to the top', () => {
     act(() => root.render(<Transcript rows={turns(30)} scrolled />));
     act(() => toTop());
     expect(drawn()).toBe(30 * 4);
+    expect(container.textContent).not.toContain('Loading earlier messages');
   });
 
   it('opens on its own last blocks under what a fork carries on from, drawn whole', () => {
