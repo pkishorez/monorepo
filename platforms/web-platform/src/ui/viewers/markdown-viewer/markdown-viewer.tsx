@@ -1,10 +1,12 @@
 import {
   createContext,
+  Fragment,
   memo,
   useContext,
   useMemo,
   type ComponentProps,
   type MouseEvent,
+  type ReactNode,
 } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -17,7 +19,10 @@ import { cn } from '#kit/class-names';
 /*
  * Markdown, drawn again only when its text or its look changes, and then
  * a block at a time (`blocks.ts`): words streaming in at its end parse
- * and draw again only its last block, however long it is. Its plugins and
+ * and draw again only its last block, however long it is. What draws it
+ * may wrap each block (`block`), and leave its first ones out (`from`),
+ * as a list that draws only what is near the view does; the blocks are
+ * `blocksOf` its text. Its plugins and
  * components are the same on every draw: a component made anew each time
  * is a new kind of element to React, which would take down and build
  * again everything under it, its code blocks highlighted again from
@@ -78,19 +83,38 @@ export const MarkdownViewer = memo(function MarkdownViewer({
   children,
   className,
   onLinkClick,
+  block,
+  from = 0,
 }: {
   readonly children: string;
   readonly className?: string;
   // Return true to take over the navigation for that href.
   readonly onLinkClick?: OnLinkClick;
+  /** Wraps each block drawn, by its place among them all. */
+  readonly block?: (at: number, drawn: ReactNode) => ReactNode;
+  /** The first block drawn; those before it are left out. */
+  readonly from?: number;
 }) {
   const blocks = useMemo(() => blocksOf(children), [children]);
   return (
-    <div className={cn('prose dark:prose-invert max-w-none', className)}>
+    <div
+      className={cn(
+        'prose dark:prose-invert max-w-none',
+        // Wrapped, a block's first and last margins would reach out of it.
+        block &&
+          '[&>:first-child>:first-child]:mt-0 [&>:last-child>:last-child]:mb-0',
+        className,
+      )}
+    >
       <LinkClick.Provider value={onLinkClick}>
-        {blocks.map((block, at) => (
-          <Block key={at} text={block} />
-        ))}
+        {blocks.slice(from).map((text, each) => {
+          const drawn = <Block key={from + each} text={text} />;
+          return block ? (
+            <Fragment key={from + each}>{block(from + each, drawn)}</Fragment>
+          ) : (
+            drawn
+          );
+        })}
       </LinkClick.Provider>
     </div>
   );

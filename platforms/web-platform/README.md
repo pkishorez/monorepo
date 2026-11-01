@@ -167,9 +167,10 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kestack/web-plat
 
 ### `@kestack/web-platform/ui/viewers/markdown-viewer`
 
-| Export           | What it does                                                   |
-| ---------------- | -------------------------------------------------------------- |
-| `MarkdownViewer` | Renders Markdown, with GitHub tables and lists, as typography. |
+| Export           | What it does                                                                                                                                        |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MarkdownViewer` | Renders Markdown, with GitHub tables and lists, as typography, one top-level block at a time; it can wrap each block, and leave the first ones out. |
+| `blocksOf`       | Cuts Markdown into the top-level blocks `MarkdownViewer` draws, only where a block surely starts.                                                   |
 
 ### `@kestack/web-platform/ui/viewers/source-explorer`
 
