@@ -34,8 +34,7 @@ export function Hero() {
         </span>
       </h1>
       <p className="mt-6 max-w-lg text-lg text-pretty text-muted-foreground">
-        All open source. The first piece to read is kabuki: logic, composed as a
-        tree of Actors.
+        All open source, one package at a time.
       </p>
       <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
         <a
@@ -44,7 +43,7 @@ export function Hero() {
           rel="noreferrer"
           className="group inline-flex h-11 items-center gap-1.5 rounded-full border border-border bg-background px-5 text-sm font-medium transition-[border-color,transform] duration-150 ease-out hover:border-foreground/30 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
         >
-          The code on GitHub
+          GitHub
           <ArrowUpRightIcon className="size-4 transition-transform duration-150 ease-out group-hover:translate-x-0.5 group-hover:-translate-y-0.5 motion-reduce:transition-none" />
         </a>
         <p
