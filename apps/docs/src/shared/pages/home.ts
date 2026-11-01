@@ -1,7 +1,7 @@
 import { Page } from '@kestack/kabuki/routing';
 import { about } from '../content/index.ts';
 
-/** The stack's home: what it is, and the way into each toolkit. */
+/** The stack's home: what it is, and the way into each package. */
 export const Home = Page.define({
   path: '/',
   metadata: about('/', 'Home', 'Everything I build, in one monorepo.'),

@@ -2,7 +2,7 @@ import { shapeAt } from '../../../field/index.ts';
 import { Router } from '@kestack/kabuki/routing';
 import { buttonVariants } from '@kestack/web-platform/ui/components/button';
 import { ArrowRightIcon } from 'lucide-react';
-import { router, toolkitOf } from '../../../../shared/index.ts';
+import { router, packageOf } from '../../../../shared/index.ts';
 import { column } from '../../../components/index.ts';
 import { Hero } from './hero/hero.tsx';
 
@@ -13,7 +13,7 @@ import { Hero } from './hero/hero.tsx';
  */
 
 export function Opening() {
-  const kabuki = toolkitOf('kabuki');
+  const kabuki = packageOf('kabuki');
   return (
     <section
       {...shapeAt('drift')}

@@ -2,7 +2,12 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import type { MouseEvent } from 'react';
 import { useRouter } from '@kestack/kabuki/routing';
-import { MenuIcon, XIcon } from 'lucide-react';
+import {
+  ArrowRightIcon,
+  ArrowUpRightIcon,
+  MenuIcon,
+  XIcon,
+} from 'lucide-react';
 import {
   Drawer,
   DrawerClose,
@@ -11,16 +16,17 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@kestack/web-platform/ui/components/drawer';
-import { TOOLKITS } from '../../shared/index.ts';
+import { MONOREPO, PACKAGES } from '../../shared/index.ts';
 import type { Route } from '../../shared/index.ts';
-import { KabukiBrand } from './brand.tsx';
+import { KabukiBrand, KabukiMark, StackBrand } from './brand.tsx';
 import { Sidebar } from './sidebar.tsx';
-import { label, navRow } from './styles.ts';
-import { ToolkitLink, inToolkit } from './toolkit-link.tsx';
+import { PackageLink, inPackage } from './package-link.tsx';
 
 /*
  * The menu below the `lg` width, a drawer from the left: inside kabuki, its
- * sidebar under its name; on the stack's home, the toolkits. It opens from
+ * sidebar under its name; on the stack's home, under the stack's name,
+ * each package with docs, then the way through kabuki's docs, the only
+ * ones yet, and at the foot the code and who made it. It opens from
  * the button in the header, or by swiping right across the page. A phone
  * keeps the screen's very edge for its own Back, so a swipe from anywhere
  * opens it, once it is plainly sideways; where the edge does reach the
@@ -131,7 +137,7 @@ const openMenu = (set: (open: boolean) => void) => () => set(true);
 
 export function MobileNav() {
   const { route } = useRouter<Route>();
-  const kabuki = inToolkit(route, 'kabuki');
+  const kabuki = inPackage(route, 'kabuki');
   const [open, setOpen] = useState(false);
   const [onOpen] = useState(() => openMenu(setOpen));
   useSwipeToOpen(open, onOpen);
@@ -150,13 +156,9 @@ export function MobileNav() {
       <DrawerContent className="flex h-dvh w-[min(20rem,85vw)] flex-col border-border bg-background p-0 shadow-[0_0_0_1px_rgb(0_0_0/0.04),16px_0_48px_-12px_rgb(0_0_0/0.45)]">
         <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border pr-3 pl-5">
           <DrawerTitle className="text-[15px] font-semibold tracking-tight">
-            {kabuki ? (
-              <span onClick={() => setOpen(false)}>
-                <KabukiBrand />
-              </span>
-            ) : (
-              'Menu'
-            )}
+            <span onClick={() => setOpen(false)}>
+              {kabuki ? <KabukiBrand /> : <StackBrand />}
+            </span>
           </DrawerTitle>
           <DrawerClose
             aria-label="Close the menu"
@@ -173,20 +175,59 @@ export function MobileNav() {
           {kabuki ? (
             <Sidebar />
           ) : (
-            <section className="-mx-2 space-y-1.5">
-              <h2 className={`${label} px-2`}>Toolkits</h2>
-              <ul className="space-y-px">
-                {TOOLKITS.map((toolkit) => (
-                  <li key={toolkit.id}>
-                    <ToolkitLink id={toolkit.id} className={navRow}>
-                      {toolkit.name}
-                    </ToolkitLink>
+            <div className="space-y-6">
+              <ul className="space-y-2">
+                {PACKAGES.map((entry) => (
+                  <li key={entry.id}>
+                    <PackageLink
+                      id={entry.id}
+                      className="group flex items-center gap-3 rounded-xl border border-border bg-card/40 p-3 transition-colors duration-150 hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    >
+                      <KabukiMark className="size-9 shrink-0" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[15px] font-semibold tracking-tight">
+                          {entry.name}
+                        </span>
+                        <span className="block text-[13px] text-pretty text-muted-foreground">
+                          {entry.pitch}
+                        </span>
+                      </span>
+                      <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-hover:translate-x-0.5" />
+                    </PackageLink>
                   </li>
                 ))}
               </ul>
-            </section>
+              <div className="space-y-2">
+                <p className="px-2 text-xs font-medium text-muted-foreground">
+                  kabuki docs
+                </p>
+                <Sidebar back={false} />
+              </div>
+            </div>
           )}
         </div>
+        {!kabuki && (
+          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-sm">
+            <a
+              href={MONOREPO}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-10 items-center gap-1 text-muted-foreground transition-colors duration-150 hover:text-foreground"
+            >
+              GitHub
+              <ArrowUpRightIcon className="size-3.5" />
+            </a>
+            <a
+              href="https://kishore.app"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-10 items-center gap-1 font-medium text-foreground underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground"
+            >
+              kishore.app
+              <ArrowUpRightIcon className="size-3.5" />
+            </a>
+          </div>
+        )}
       </DrawerContent>
     </Drawer>
   );

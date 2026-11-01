@@ -9,7 +9,7 @@ import { NotFound } from './pages/not-found/index.ts';
 import './styles.css';
 
 /*
- * The root page's View: the one toolkit's place the URL names, in the
+ * The root page's View: the one package's place the URL names, in the
  * site's layout. The full-screen demos are drawn alone, with no layout. A URL
  * that names no page draws the not-found page.
  */

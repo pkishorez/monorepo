@@ -1,5 +1,5 @@
 import { Page } from '@kestack/kabuki/routing';
-import { about, toolkitOf } from '../../content/index.ts';
+import { about, packageOf } from '../../content/index.ts';
 import {
   Demo,
   DemoLive,
@@ -19,7 +19,7 @@ import { Doc, DocLive } from './doc.ts';
 
 export const Kabuki = Page.define({
   path: '/kabuki',
-  metadata: about('/kabuki', 'kabuki', toolkitOf('kabuki').pitch),
+  metadata: about('/kabuki', 'kabuki', packageOf('kabuki').pitch),
   pages: { Doc, Demo, TodosDemo, StageDemo, SnakeRecord },
 });
 

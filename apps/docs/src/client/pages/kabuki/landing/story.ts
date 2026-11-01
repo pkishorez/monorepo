@@ -1,3 +1,4 @@
+import { MONOREPO } from '../../../../shared/index.ts';
 /*
  * Every word on kabuki's landing page after its first screen, in the order
  * the page reads: the five ideas, where they come from, and who makes it.
@@ -102,7 +103,7 @@ export const AUTHOR = {
   avatar: 'https://github.com/pkishorez.png',
   github: { handle: '@pkishorez', href: 'https://github.com/pkishorez' },
   site: { label: 'kishore.app', href: 'https://kishore.app' },
-  monorepo: 'https://github.com/pkishorez/monorepo',
+  monorepo: MONOREPO,
   /** The words around the link to the monorepo. */
   line: {
     before: 'I build kabuki in the open, in the ',
