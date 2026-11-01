@@ -32,7 +32,10 @@ export const KabukiView = View.make(Pages.KabukiLive, (self) => {
   return (
     <div className={`${column} grid gap-10 lg:grid-cols-[15rem_minmax(0,1fr)]`}>
       <aside className="hidden lg:block">
-        <div className="sticky top-14 h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-contain border-r border-border py-8 pr-6">
+        <div
+          data-sidebar-scroll
+          className="sticky top-14 h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-contain border-r border-border py-8 pr-4 -ml-2"
+        >
           <Sidebar />
         </div>
       </aside>

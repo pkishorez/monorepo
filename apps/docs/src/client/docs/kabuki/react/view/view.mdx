@@ -65,15 +65,14 @@ And here's the nice part. Each View watches only its own Actor. When one
 Card changes, only that Card draws again. The Board and the other Cards
 don't move. You get this without writing a single `memo`.
 
-<Demo caption="A Liked Message reaches one Card. Its likes roll, then only its block on the page draws again. The Board and the other Cards stay still.">
+<Picture caption="A Liked Message reaches one Card. Its likes roll, then only its block on the page draws again. The Board and the other Cards stay still.">
   <DrawsPicture />
-</Demo>
+</Picture>
 
 ## From Actor to app
 
-Last, `View.app` takes your root Actor's View, and the Layer for the
-outside world when it needs one. It gives back one plain React component, ready to render
-anywhere.
+To put the whole tree on the page, `View.app` turns your root Actor's View
+into one plain React component. The next page is about it.
 
 ```tsx
 export const BoardApp = View.app(BoardView);
@@ -84,9 +83,7 @@ export const BoardApp = View.app(BoardView);
 Each card counts how many times it has drawn. Like one card a few times,
 and watch the counts.
 
-<Demo caption="Like Tea three times: only Tea's drawn count grows, and the board's stays at 1. Drag the timeline back: only the cards that differ draw again.">
-
-<Playground app={BoardApp} />
+<Live app={BoardApp} caption="Like Tea three times: only Tea's drawn count grows, and the board's stays at 1. Open Devtools and pick an earlier Step: only the cards that differ draw again.">
 
 ```ts file=./components/board.ts
 
@@ -96,12 +93,12 @@ and watch the counts.
 
 ```
 
-</Demo>
+</Live>
 
 <Callout title="Remember">
   A View draws its own Actor and sends it Messages. Nothing else. It draws again
   only when its own Actor changes.
 </Callout>
 
-There's one more thing kabuki gives you for free, because every change is
-a Message: [8. History](/kabuki/history).
+Next, the whole tree as one component that runs it: the
+[App](/kabuki/app).

@@ -88,26 +88,28 @@ export function Search() {
             <CommandEmpty>No page matches.</CommandEmpty>
             {SECTIONS.map((section) => (
               <CommandGroup key={section.title} heading={section.title}>
-                {section.docs.map((doc) => (
-                  <CommandItem
-                    key={doc.slug}
-                    value={doc.slug}
-                    keywords={[doc.title, doc.summary, section.title]}
-                    onSelect={() => choose(doc.slug)}
-                  >
-                    <Router.Link
-                      id={linkId(doc.slug)}
-                      to={router.Kabuki.Doc({ slug: doc.slug })}
-                      tabIndex={-1}
-                      className="pointer-events-none flex min-w-0 flex-1 flex-col"
+                {section.groups
+                  .flatMap((group) => group.docs)
+                  .map((doc) => (
+                    <CommandItem
+                      key={doc.slug}
+                      value={doc.slug}
+                      keywords={[doc.title, doc.summary, section.title]}
+                      onSelect={() => choose(doc.slug)}
                     >
-                      <span>{doc.title}</span>
-                      <span className="truncate text-xs text-muted-foreground">
-                        {doc.summary}
-                      </span>
-                    </Router.Link>
-                  </CommandItem>
-                ))}
+                      <Router.Link
+                        id={linkId(doc.slug)}
+                        to={router.Kabuki.Doc({ slug: doc.slug })}
+                        tabIndex={-1}
+                        className="pointer-events-none flex min-w-0 flex-1 flex-col"
+                      >
+                        <span>{doc.title}</span>
+                        <span className="truncate text-xs text-muted-foreground">
+                          {doc.summary}
+                        </span>
+                      </Router.Link>
+                    </CommandItem>
+                  ))}
               </CommandGroup>
             ))}
           </CommandList>

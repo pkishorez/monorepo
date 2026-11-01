@@ -2,9 +2,10 @@ import { StopwatchApp } from './app/app.tsx';
 
 A stopwatch: start it, take laps, pause, resume, reset. While it runs, a
 Worker sends a Tick once a second. When it stops running, so does the
-Worker. Start it, and watch the devtools under the app.
+Worker. Open the **Devtools** from the window's bar, start it, and watch
+the Worker come and go.
 
-<AppWindow app={StopwatchApp} url="stopwatch.app" />
+<Live app={StopwatchApp} url="stopwatch.app" />
 
 ## How it works
 
@@ -27,15 +28,18 @@ sees it, and it stands still when you look at a past Step.
 
 ## Things to try
 
+Open the **Devtools** from the window's bar first. They show the Timeline
+of every Step, and under it the Map of the app's Actors.
+
 - **Watch the Worker come and go.** Press Start. On the Map, the Stopwatch's
   card shows `tick` running, and a `Ticked` arrives each second. Press Pause,
   and the Worker is gone. Click the card to see the Model and State.
 - **Go back in time.** Take a few laps, pause, then click or drag along the
   Timeline. The time and laps show as they were at each Step, and the
   hundredths stop counting. Go live to come back.
-- **Change the past.** Pick a Step from before a lap, fork, and press
-  something else. The new Messages grow a new Branch, and the Worker starts
-  again if that Step was `Running`.
+- **Change the past.** Pick a Step from before a lap, press Fork, and
+  press something else. The new Messages grow a new Branch, and the Worker
+  starts again if that Step was `Running`.
 
 ## The code
 

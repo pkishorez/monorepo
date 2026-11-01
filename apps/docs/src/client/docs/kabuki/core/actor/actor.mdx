@@ -1,5 +1,6 @@
 import { CounterApp } from './components/counter-app.tsx';
 import { UpdatePicture } from './components/update-picture.tsx';
+import { program } from './run/counter.ts';
 
 In React, you build a UI out of components. In kabuki, you build your logic
 out of **Actors**. Everything else in these docs is something an Actor can
@@ -17,9 +18,9 @@ what happens. It has three parts:
 That's it. Nothing outside can reach in and change the Model. The only way
 to change an Actor is to send it a Message, and let it decide.
 
-<Demo caption="Messages arrive one at a time. Each Update makes the next Model. The last Message has a word where a number belongs, so it is refused at the door.">
+<Picture caption="Messages arrive one at a time. Each Update makes the next Model. The last Message has a word where a number belongs, so it is refused at the door.">
   <UpdatePicture />
-</Demo>
+</Picture>
 
 If you've used `useReducer`, this will feel familiar. The difference is that
 an Actor lives outside React, so your logic doesn't depend on what is on
@@ -79,14 +80,25 @@ else, so it's easy to read and easy to test.
 By habit, the Build is named after the Actor with `Live`, and sits beside
 its Definition.
 
+## Run it
+
+An Actor needs no screen. `Runtime.start` runs it, and `instance` hands you
+the running Counter to send Messages to and read from. Press Run.
+
+<Run program={program} caption="Each send says what became of its Message: handled, or refused when it does not fit the Schema. The Model only ever changes through an Update.">
+
+```ts file=./run/counter.ts
+
+```
+
+</Run>
+
 ## Try it
 
-Here is the Counter, running. Its code is in the tabs. On the right is what
-it holds; below is every Message it has been sent.
+Here is the Counter, running, with its code in the tabs. Open the
+Devtools to see what it holds, and every Message it has been sent.
 
-<Demo caption="Press +1, +5 and +10. Each press is one Message, with its amount. Drag the timeline back, and the count goes back with it.">
-
-<Playground app={CounterApp} />
+<Live app={CounterApp} caption="Press +1, +5 and +10. Each press is one Message, with its amount. In the Devtools, drag the timeline back, and the count goes back with it.">
 
 ```ts file=./components/counter.ts
 
@@ -96,7 +108,7 @@ it holds; below is every Message it has been sent.
 
 ```
 
-</Demo>
+</Live>
 
 <Callout title="Remember">
   An Actor changes only when it gets a Message. Its Update decides what that
@@ -104,4 +116,4 @@ it holds; below is every Message it has been sent.
 </Callout>
 
 Some logic depends on the situation an Actor is in. That's what a
-[2. State machine](/kabuki/state-machine) is for.
+[State machine](/kabuki/state-machine) is for.

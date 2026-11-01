@@ -1,0 +1,208 @@
+import { ShopApp } from '../shop/shop-app.tsx';
+
+So far your app has one place: the tree is whatever its State says. A real
+app has many places, and the URL says which one you're at. Routing gives
+an Actor a place in the URL. That Actor is a **Page**.
+
+A Page isn't a route component that wraps your logic. It's an Actor, with
+its own Model, States, Messages, Workers and Children, defined and built
+the way you already know. The URL only decides which Pages exist.
+
+## A Page is an Actor
+
+`Page.define` is `Actor.define` with a place in the URL. Every field is
+optional.
+
+```ts
+export const Product = Page.define({
+  path: '/:id',
+  params: { id: Schema.FiniteFromString },
+  data: Item,
+  render: 'dynamic',
+  staleTime: 10_000,
+  metadata: ({ id }, item) => ({ title: item?.name ?? `Product ${id}` }),
+  message: { Bought: {} },
+});
+```
+
+- `path` is where it sits, and `params` reads each `:param` with a Schema.
+  The URL holds the text `'2'`; the Page gets the number `2`.
+- `data` is the Schema of what its **Loader** loads. `staleTime` says how
+  long a copy stays fresh. Both are on the [Data](/kabuki/data) page.
+- `render` is its **Render Mode**: where its data is first loaded, on the
+  server for everyone (`static`, the default), on the server for each
+  request (`dynamic`), or in the browser (`client`).
+- `metadata` is what the Page says about itself to the browser and to
+  search: its title, description and sharing tags. It is worked out from
+  its params, and from its data once it is there.
+- Then its own `model`, `state` and `message`, as any Actor's.
+
+The query is read with Schemas too. A page that sorts its list:
+
+```ts
+query: { sort: Schema.optionalKey(Schema.Literals(['name', 'price'])) },
+```
+
+## Build it
+
+A Page is built like any Actor. Here, buying moves the app, with a
+Command you'll meet on the next page:
+
+```ts
+export const ProductLive = Product.build({
+  on: {
+    Bought: () => ({ command: Router.replace(router.Thanks()) }),
+  },
+});
+```
+
+A Page with nothing to do is still built: `Thanks.build()`.
+
+A Page takes no Input, because it exists before its data does. Instead it
+is handed Props:
+
+- `params` and `query`: its own, typed from its Schemas;
+- `status`: where its data is, loading, failed or ready, if it has `data`;
+- `route`: where it sits, and the Route one level down.
+
+## Pages under a page
+
+A Page can hold Pages. Its Definition names their Definitions; its Build
+names their Builds, under the same keys.
+
+```ts
+export const Products = Page.define({
+  path: '/products',
+  data: Schema.Struct({ items: Schema.Array(Item) }),
+  pages: { Product },
+});
+
+export const ProductsLive = Products.build({
+  pages: { Product: ProductLive },
+});
+```
+
+The paths join: the Product is at `/products/:id`.
+
+Each Page under it is a Child, there while the URL names it. Open product
+2 and a Product Child starts. Open product 3 and that one stops, and a new
+one starts with fresh state. Change only the query, and it's the same Page.
+
+The parent's View decides where its Page is drawn, as with any Child.
+When the URL ends at `/products`, there's no Product, so the parent draws
+what goes there. That's why there's no index page.
+
+```tsx
+const ProductsView = View.make(ProductsLive, ({ children, root }) => (
+  <div {...root}>
+    <List />
+    {children.Product ? (
+      <ProductView instance={children.Product} />
+    ) : (
+      <p>Pick a product.</p>
+    )}
+  </div>
+));
+```
+
+## The router, read down from the root
+
+At the top sits the root Page: no path, no data, every Page under it.
+`Router.define` reads the app's **router** down from it.
+
+```ts
+export const Shop = Page.define({ pages: { Products, Thanks } });
+
+export const router = Router.define(Shop, {
+  redirect: { '/': (r) => r.Products() },
+  notFound: { title: 'Not found' },
+});
+```
+
+It reads Definitions only. It never imports a Build or a View, so any
+Build can import it, as `ProductLive` does above to move the app.
+
+## Routes are typed values
+
+The router makes every **Route**, the typed value a URL means once it's
+read: one tagged level per Page.
+
+```ts
+router.Products.Product({ id: 2 });
+// { _tag: 'Products', page: { _tag: 'Product', id: 2 } }
+
+router.Products.Product({ id: 'two' }); // doesn't compile
+router.Products.Lamp(); // doesn't compile: no such page
+```
+
+The type of any Route of the app is `typeof router.route.Type`.
+
+If you've used TanStack Router, this is its typed route tree. The
+difference is that a Route here is plain data: the Router holds it in its
+Model, and every move to it is a Message you can replay.
+
+## The URL, both ways
+
+The same router reads a URL into a Route, and writes a Route back as a URL.
+They can't disagree.
+
+```ts
+router.read('/products/2').route; // router.Products.Product({ id: 2 })
+router.path(router.Products.Product({ id: 2 })); // '/products/2'
+```
+
+## Draw it
+
+`Router.view` puts the **Router**, one Actor, above the root Page's View.
+Then `View.app` makes the app, as for any tree.
+
+```tsx
+const ShopView = View.make(ShopLive, ({ children, props, root }) => (
+  <div {...root}>
+    {children.Products && <ProductsView instance={children.Products} />}
+    {children.Thanks && <ThanksView instance={children.Thanks} />}
+    {props.route.notFound !== null && <NotFound />}
+  </div>
+));
+
+export const ShopApp = View.app(Router.view(router, ShopView));
+```
+
+The Router is the only thing in your app that knows about URLs. It holds
+where the app is, and hands each Page its Props.
+
+## Redirects and not found
+
+A URL that names no Page isn't an error. It reads as the not-found Route,
+and the root Page gets its path as `props.route.notFound`, to draw what it
+likes. The router's `notFound` option is that Route's Metadata.
+
+A **Redirect** sends the app somewhere other than the URL asked for, so
+Back never returns to it. In the router, for a URL that is never a place,
+like an old path: above, `/` always goes to the list. A Loader can Redirect
+too, for one visitor; that's on the [Data](/kabuki/data) page.
+
+## Try it
+
+Here's the whole shop. The window's address never changes, so the shop
+draws its own bar, and under it the Route the Router holds.
+
+<Live app={ShopApp} url="shop.app" caption="Open the Lamp, then the Chair. The bar shows the URL, and the line at the bottom the Route, written as code makes it. Back and Forward walk the history.">
+
+```ts file=../shop/shop.ts
+
+```
+
+```tsx file=../shop/shop-app.tsx
+
+```
+
+</Live>
+
+<Callout title="Remember">
+  A Page is an Actor with a place in the URL. The router is read down from the
+  root Page, and makes every Route.
+</Callout>
+
+Next, how the app goes from one Page to another:
+[Moving](/kabuki/moving).

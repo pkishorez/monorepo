@@ -1,11 +1,11 @@
 import { Router } from '@kestack/kabuki/routing';
 import { ArrowRightIcon } from 'lucide-react';
-import { docOf, numberOf, router } from '../../../../../../shared/index.ts';
+import { docOf, router, sectionOf } from '../../../../../../shared/index.ts';
 import type { Slug } from '../../../../../../shared/index.ts';
 
 /*
- * Each React idea beside its kabuki twin, one row per primitive, in the
- * order the docs tell them. Each row is the way to its page.
+ * Each React idea beside its kabuki twin, one row per page, in the order
+ * the docs tell them, each named with the Part it is in. Each row is the way to its page.
  */
 
 const TWINS: ReadonlyArray<{ readonly react: string; readonly slug: Slug }> = [
@@ -15,8 +15,8 @@ const TWINS: ReadonlyArray<{ readonly react: string; readonly slug: Slug }> = [
   { react: 'Child components', slug: 'children' },
   { react: 'Props', slug: 'props' },
   { react: 'Context', slug: 'capabilities' },
-  { react: 'JSX', slug: 'view' },
   { react: 'Nothing quite like it', slug: 'history' },
+  { react: 'JSX', slug: 'view' },
 ];
 
 export function ReactTwins() {
@@ -43,8 +43,8 @@ export function ReactTwins() {
                 {react}
               </span>
               <span className="flex items-center gap-2.5 font-medium">
-                <span className="w-3 font-mono text-[11px] text-muted-foreground tabular-nums">
-                  {numberOf(slug)}
+                <span className="w-12 font-mono text-[11px] text-muted-foreground">
+                  {sectionOf(slug).title}
                 </span>
                 {docOf(slug).title}
                 <ArrowRightIcon className="ml-auto size-3.5 text-muted-foreground opacity-0 transition-opacity duration-150 group-hover:opacity-100" />

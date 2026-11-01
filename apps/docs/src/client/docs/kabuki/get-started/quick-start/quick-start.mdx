@@ -52,12 +52,11 @@ export function Page() {
 
 ## Try it
 
-This is that counter, running, with both its files beside it. On the right
-is what is inside it: the Counter and its Model.
+This is that counter, running, with both its files in the tabs beside it.
+Press **Devtools** in the window's bar to see what is inside it: the
+Counter, its Model, and a Timeline of every Message.
 
-<Demo caption="Press + a few times. Each press is a Message, and a tick on the timeline. Drag the timeline back to see the counter as it was then. Live brings you back.">
-
-<Playground app={CounterApp} />
+<Live app={CounterApp} url="counter.app" caption="Open the Devtools, then press + a few times. Each press is a Message, and a tick on the Timeline. Drag the Timeline back to see the counter as it was then. Press Go live to come back.">
 
 ```ts file=./components/counter.ts
 
@@ -67,7 +66,7 @@ is what is inside it: the Counter and its Model.
 
 ```
 
-</Demo>
+</Live>
 
 Nothing in the counter was written for this. Keeping every Message and
 showing any earlier step comes with every kabuki app.
@@ -76,4 +75,10 @@ showing any earlier step comes with every kabuki app.
 
 You just made an Actor and drew it with a View. Everything else in kabuki
 builds on those two. Read the story from the start with
-[1. Actor](/kabuki/actor).
+[Actor](/kabuki/actor), the first page of core.
+
+Your app grows a part at a time. Add routing to give it
+[pages](/kabuki/pages), each with a place in the URL. Then add start to
+[serve it](/kabuki/serving) as one app. To begin a whole app, copy
+[apps/kabuki-start](https://github.com/pkishorez/monorepo/tree/main/apps/kabuki-start):
+the smallest Kabuki Start app.

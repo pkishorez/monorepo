@@ -1,5 +1,5 @@
 import { View } from '@kestack/kabuki/react';
-import { Pages, docOf, numberOf, sectionOf } from '../../../shared/index.ts';
+import { Pages, docOf, groupOf, sectionOf } from '../../../shared/index.ts';
 import { label, prose } from '../../components/index.ts';
 import { KABUKI } from '../../docs/index.ts';
 import { Pager } from './pager.tsx';
@@ -8,14 +8,15 @@ import { FoldedToc, Toc } from './toc.tsx';
 /*
  * One docs page: its section and title, what it is about, its MDX, and the
  * pages before and after it. Its headings are listed beside it from the
- * `xl` width. A numbered page says its number above its title.
+ * `xl` width. Above its title, its section and group; a Part's page says
+ * its import path too.
  */
 
 export const DocView = View.make(Pages.DocLive, ({ props }) => {
   const { slug } = props.params;
   const doc = docOf(slug);
   const section = sectionOf(slug);
-  const number = numberOf(slug);
+  const group = groupOf(slug);
   const page = KABUKI[slug];
   const { headings } = page;
   return (
@@ -24,7 +25,12 @@ export const DocView = View.make(Pages.DocLive, ({ props }) => {
         <header className="space-y-3">
           <p className={label}>
             {section.title}
-            {number !== undefined && ` · ${number}`}
+            {group.title && ` · ${group.title}`}
+            {section.path && (
+              <code className="ml-2 font-mono text-[11px] font-normal">
+                {section.path}
+              </code>
+            )}
           </p>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
             {doc.title}

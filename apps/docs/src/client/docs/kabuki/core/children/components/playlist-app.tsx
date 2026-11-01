@@ -5,8 +5,8 @@ import { PlaylistLive, SongLive } from './playlist.ts';
 import { SONGS } from './songs.ts';
 
 const SongView = View.make(SongLive, ({ model, send, root }) => (
-  <div {...root} className="flex min-w-0 flex-1 items-center gap-3">
-    <span className="min-w-0 flex-1">
+  <div {...root} className="flex min-w-0 flex-1 items-center gap-1">
+    <span className="mr-2 min-w-0 flex-1">
       <span className="block truncate text-sm font-medium">{model.title}</span>
       <span className="block truncate text-xs text-muted-foreground">
         {model.artist}
@@ -20,6 +20,15 @@ const SongView = View.make(SongLive, ({ model, send, root }) => (
       onClick={() => send({ _tag: 'Liked' })}
     >
       <HeartIcon className={model.liked ? 'fill-rose-500 text-rose-500' : ''} />
+    </Button>
+    <Button
+      size="icon-sm"
+      variant="ghost"
+      aria-label="Remove"
+      className="text-muted-foreground"
+      onClick={() => send({ _tag: 'Removing' })}
+    >
+      <XIcon />
     </Button>
   </div>
 ));
@@ -35,15 +44,6 @@ const PlaylistView = View.make(
         {children.songs.map((song) => (
           <li key={song.key} className="flex items-center gap-1 py-2 pr-1 pl-3">
             <SongView instance={song} />
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              aria-label="Remove"
-              className="text-muted-foreground"
-              onClick={() => send({ _tag: 'Removed', id: song.key })}
-            >
-              <XIcon />
-            </Button>
           </li>
         ))}
         {children.songs.length === 0 && (

@@ -37,6 +37,7 @@
     "@vitejs/plugin-react": "catalog:",
     "alchemy": "catalog:",
     "laymos": "workspace:*",
+    "remark-gfm": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

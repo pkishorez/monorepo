@@ -17,8 +17,10 @@ The table of contents is TypeScript, in `src/shared/content`: the toolkits,
 and kabuki's sections and pages. Only written pages are in it. A page's slug
 is its URL and is checked by the router, so a URL not in the table of
 contents is a 404. A page's words are MDX, in `src/client/docs`, with its
-pictures and its live app beside it; the live app runs in the shared
-Playground, which shows what is inside it and a timeline of its Messages.
+pictures and its live app beside it. kabuki's pages are grouped by its four
+Parts, core, react, routing and start, and every example on them is one of
+three: a `Picture`, a `Live` app with the devtools a click away, or code that
+`Run`s into a console.
 How to write one is in [docs/authoring.md](./docs/authoring.md). The
 full-screen demo, Opening an app, is at `/kabuki/demos/opening-an-app`, and
 the sidebar opens it in a new tab; its drawing words are in
@@ -43,7 +45,7 @@ src/
     app.tsx       the root page's View, in the layout and the Web Platform's Document
     docs/         every page: its MDX, its pictures and its live app
     pages/        one View per page: home, kabuki's landing, a docs page, the demo
-    components/   the header, sidebar, theme, how MDX is drawn, the Playground and picture parts
+    components/   the header, sidebar, theme, how MDX is drawn; examples/ holds Picture, Live, Run and Files
     field/        the particle field behind the home and kabuki landing pages, and the Stops its stories are told in
     demos/        the full-screen demo
   infra/        the Worker and its domain, declared with Alchemy

@@ -2,10 +2,11 @@ import { OpeningAnAppApp } from '../../../../demos/opening-an-app/index.ts';
 
 A whole app, opening: it loads its assets, waits for you to sign in, then
 keeps a heartbeat, syncs and downloads files until you sign out. Every
-part of it is an Actor, and the devtools under it draw them as they come
-and go. The reload in the address bar starts it over.
+part of it is an Actor. Open the **Devtools** from the window's bar to
+see them drawn as they come and go. The reload in the address bar starts
+it over.
 
-<AppWindow app={OpeningAnAppApp} url="opening-an.app" tall site />
+<Live app={OpeningAnAppApp} url="opening-an.app" tall site />
 
 ## How it works
 
@@ -33,6 +34,9 @@ The same app runs full screen, with the devtools over it, in the
 [full-screen demo](/kabuki/demos/opening-an-app).
 
 ## Things to try
+
+Open the **Devtools** from the window's bar first. They show the Timeline
+of every Step, and under it the Map of the app's Actors.
 
 - **Watch it boot.** Reload it from the address bar. On the Map, `App` is
   `Booting` and runs `load assets`; when the last asset lands, the Worker

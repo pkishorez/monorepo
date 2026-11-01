@@ -1,10 +1,11 @@
 import { CounterApp } from './app/app.tsx';
 
 A number, a button to add one, a button to take one away, and a reset.
-Every press is a Message to one Actor. Press a few, and watch the devtools
-under the app: each Message arrives, and the count it left behind.
+Every press is a Message to one Actor. Open the **Devtools** from the
+window's bar and press a few: each Message arrives, and the count it left
+behind.
 
-<AppWindow app={CounterApp} url="counter.app" />
+<Live app={CounterApp} url="counter.app" />
 
 ## How it works
 
@@ -22,13 +23,17 @@ can put anywhere.
 
 ## Things to try
 
+Open the **Devtools** from the window's bar first. They show the Timeline
+of every Step, and under it the Map of the app's Actors.
+
 - **Watch a Message arrive.** Press `+`. The Counter's card on the Map
   flashes with the Message. Click the card to see its Model.
 - **Go back in time.** Press a few times, then click or drag along the
-  Timeline under the Map. The app shows the count as it was, read only. Go
-  live to come back. This is the Counter's [History](/kabuki/history).
-- **Change the past.** From an earlier Step, fork, and press something
-  else. The new presses grow a new Branch; the old one is still there.
+  Timeline. The app shows the count as it was, read only. Go live to
+  come back. This is the Counter's [History](/kabuki/history).
+- **Change the past.** From an earlier Step, press Fork, and press
+  something else. The new presses grow a new Branch; the old one is still
+  there.
 
 ## The code
 

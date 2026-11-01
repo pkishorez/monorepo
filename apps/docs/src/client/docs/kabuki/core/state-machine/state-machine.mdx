@@ -1,5 +1,6 @@
 import { DoorApp } from './components/door-app.tsx';
 import { StatesPicture } from './components/states-picture.tsx';
+import { program } from './run/door.ts';
 
 An Actor with a Model and an Update is already a tiny state machine. Every
 Message moves it from one Model to the next.
@@ -14,9 +15,9 @@ reach for **States**: conditional logic, written down once.
 Think of the door. It is always in exactly one of three situations. Each
 one is a State.
 
-<Demo caption="Messages move the door from State to State. Lock arrives while the door is open: there is no rule for it there, so nothing happens.">
+<Picture caption="Messages move the door from State to State. Lock arrives while the door is open: there is no rule for it there, so nothing happens.">
   <StatesPicture />
-</Demo>
+</Picture>
 
 You list the States in the Definition, beside the Model and the Messages:
 
@@ -61,14 +62,27 @@ locked door can't be opened, because `Locked` has no rule for `Opened`. A
 Message with no rule in the current State is simply ignored. The
 impossible cases can't happen, because you never wrote them.
 
+## Run it
+
+Send the door every Message, in an order that breaks the rules. Each
+`send` tells you what became of its Message: `handled` by a rule, or
+`ignored` when the current State has none for it.
+
+<Run program={program} caption="Opened while Locked, and Locked while Open, are ignored: the State stays where it was. The Model counts every opening, in whichever State it is.">
+
+```ts file=./run/door.ts
+
+```
+
+</Run>
+
 ## Try it
 
 Here is the door. All four buttons are always there. Press them in any
-order, and watch the State on the right.
+order. Open the Devtools to watch the State change, and to see the
+Messages that changed nothing.
 
-<Demo caption="Press Open while the door is locked: the Message is sent, but nothing changes. Unlock it first. Drag the timeline back to replay every move.">
-
-<Playground app={DoorApp} />
+<Live app={DoorApp} caption="Press Open while the door is locked: the Message is sent, but nothing changes. Unlock it first. In the Devtools, drag the timeline back to replay every move.">
 
 ```ts file=./components/door.ts
 
@@ -78,7 +92,7 @@ order, and watch the State on the right.
 
 ```
 
-</Demo>
+</Live>
 
 ## A State can own things
 
@@ -92,4 +106,4 @@ work.
   ignores the rest.
 </Callout>
 
-Next: [3. Workers](/kabuki/workers), where side effects live.
+Next: [Workers](/kabuki/workers), where side effects live.

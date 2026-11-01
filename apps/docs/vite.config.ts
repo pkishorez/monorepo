@@ -4,6 +4,7 @@ import { cloudflare } from '@kestack/kabuki/start/cloudflare';
 import rehypeShiki from '@shikijs/rehype';
 import { app } from '@kestack/web-platform/app/vite';
 import { defineConfig } from 'vite';
+import remarkGfm from 'remark-gfm';
 import { remarkDocs } from './mdx/remark-docs.ts';
 
 export default defineConfig({
@@ -16,7 +17,8 @@ export default defineConfig({
     {
       enforce: 'pre',
       ...mdx({
-        remarkPlugins: [remarkDocs],
+        // GitHub's Markdown: tables, above all.
+        remarkPlugins: [remarkGfm, remarkDocs],
         rehypePlugins: [
           [
             rehypeShiki,

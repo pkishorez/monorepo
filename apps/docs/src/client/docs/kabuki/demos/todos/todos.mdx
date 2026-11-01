@@ -2,10 +2,10 @@ import { TodosApp } from './app/app.tsx';
 
 A list of to-dos. Add one, check it off, rename it, delete it, filter the
 list, and clear the ones that are done. The list is one Actor, and every
-to-do is an Actor of its own. Watch the devtools under the app: a card for
-the list, and the to-dos' cards under it.
+to-do is an Actor of its own. Open the **Devtools** from the window's bar
+to see them: a card for the list, and the to-dos' cards under it.
 
-<AppWindow app={TodosApp} url="todos.app" />
+<Live app={TodosApp} url="todos.app" />
 
 ## How it works
 
@@ -28,14 +28,17 @@ become a Message.
 
 ## Things to try
 
+Open the **Devtools** from the window's bar first. They show the Timeline
+of every Step, and under it the Map of the app's Actors.
+
 - **One card per to-do.** Under the list on the Map is a stack of Todo
   cards, one per to-do; its arrows step through them. Add a to-do and the
   stack grows. Check one off, then click its card: its Prop says `done`.
   Rename it, and the Message lands on that card, not the list's.
 - **Go back in time.** Delete a to-do, then click or drag along the
   Timeline. It comes back, and its card with it. Go live to come back.
-- **Change the past.** From an earlier Step, fork, and do something else.
-  The new Messages grow a new Branch; the old one is still there.
+- **Change the past.** From an earlier Step, press Fork, and do something
+  else. The new Messages grow a new Branch; the old one is still there.
 
 ## The code
 

@@ -17,8 +17,7 @@ export const TOOLKITS: ReadonlyArray<Toolkit> = [
     id: 'kabuki',
     name: 'kabuki',
     kind: 'framework',
-    pitch:
-      'Model with actors and state machines. Run with Effect. Draw with React.',
+    pitch: 'An app is one tree of Actors, outside React.',
   },
 ];
 

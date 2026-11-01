@@ -1,5 +1,6 @@
 import { LanesPicture } from './components/lanes-picture.tsx';
 import { TimerApp } from './components/timer-app.tsx';
+import { program } from './run/timer.ts';
 
 Everything so far happens in an instant. A Message arrives, the Update
 runs, and the next Model is there. Updates are pure: they never wait,
@@ -38,9 +39,9 @@ Update does the counting, the same as for a click.
 You never start a Worker, and you never stop one. You only say where it
 lives, and kabuki keeps it running for exactly that long.
 
-<Demo caption="One clock, three Workers. Each runs only while the place it is written in lasts: the Actor's life, the Running State, or a test on the data.">
+<Picture caption="One clock, three Workers. Each runs only while the place it is written in lasts: the Actor's life, the Running State, or a test on the data.">
   <LanesPicture />
-</Demo>
+</Picture>
 
 - Written at the top of the Build, a Worker runs for the Actor's **whole
   life**.
@@ -53,14 +54,26 @@ lives, and kabuki keeps it running for exactly that long.
 That's what declarative means here. There's no cleanup function to forget,
 and no interval to clear. What you write down is what runs.
 
+## Run it
+
+The timer's `tick` Worker is written inside `Running`. Start the timer,
+wait for three ticks, then pause it. `until` waits for the Model to pass a
+test, so the program sees each tick as it lands.
+
+<Run program={program} caption="The Worker list is empty while Stopped, and holds tick while Running. After the pause, the program waits another second and a half: nothing ticks.">
+
+```ts file=./run/timer.ts
+
+```
+
+</Run>
+
 ## Try it
 
-The timer's `tick` Worker is written inside `Running`. Start it, and the
-Worker appears on the right. Pause it, and it's gone.
+Here is the same timer, drawn. Open the Devtools and start it: the `tick`
+Worker shows up on the timer's card. Pause it, and it's gone.
 
-<Demo caption="Start, let it tick, then pause. The tick Worker exists only while the timer is Running. Drag the timeline back: the seconds go back, and nothing ticks twice.">
-
-<Playground app={TimerApp} />
+<Live app={TimerApp} caption="Start, let it tick, then pause. The tick Worker exists only while the timer is Running. Drag the Devtools' timeline back: the seconds go back, and nothing ticks twice.">
 
 ```ts file=./components/timer.ts
 
@@ -70,7 +83,7 @@ Worker appears on the right. Pause it, and it's gone.
 
 ```
 
-</Demo>
+</Live>
 
 ## One-off errands: Commands
 
@@ -96,5 +109,5 @@ a Command for a quick errand.
   place they are written in lasts.
 </Callout>
 
-Next: [4. Children](/kabuki/children), to build bigger Actors out of small
+Next: [Children](/kabuki/children), to build bigger Actors out of small
 ones.
