@@ -71,3 +71,23 @@ describe('a Saved Draft, on touch', () => {
     expect(savedOf(shown(false), ['Message'], {})).toBeNull();
   });
 });
+
+describe('a Saved Draft from before By the way', () => {
+  it('opens its side question as the Btw, with its text', () => {
+    const question = { text: 'why this way?', anchor: 13, head: 13 };
+    const restored = restoredOf(
+      {
+        mode: 'SideQuestion',
+        written: {
+          Message: { text: '', anchor: 0, head: 0 },
+          SideQuestion: question,
+        },
+        attachments: [],
+        chosen: { account: null, model: null, settings: {} },
+      },
+      ['Message', 'Btw'],
+    );
+    expect(restored.mode).toBe('Btw');
+    expect(restored.opening.Btw).toEqual(question);
+  });
+});
