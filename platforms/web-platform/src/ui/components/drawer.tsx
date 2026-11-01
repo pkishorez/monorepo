@@ -92,6 +92,27 @@ function DrawerOverlay({
   )
 }
 
+/**
+ * An invisible strip along a screen edge that opens the Drawer when swiped
+ * away from that edge, as a side menu opens on a phone. Place it with
+ * `className`; it lets the page scroll the other way.
+ */
+function DrawerSwipeArea({
+  className,
+  ...props
+}: DrawerPrimitive.SwipeArea.Props) {
+  return (
+    <DrawerPrimitive.SwipeArea
+      data-slot="drawer-swipe-area"
+      className={cn(
+        "fixed z-40 data-[swipe-direction=left]:touch-pan-y data-[swipe-direction=right]:touch-pan-y data-[swipe-direction=down]:touch-pan-x data-[swipe-direction=up]:touch-pan-x data-disabled:pointer-events-none",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
 function DrawerSwipeHandle({
   className,
   ...props
@@ -238,6 +259,7 @@ export {
   Drawer,
   DrawerPortal,
   DrawerOverlay,
+  DrawerSwipeArea,
   DrawerSwipeHandle,
   DrawerTrigger,
   DrawerClose,
