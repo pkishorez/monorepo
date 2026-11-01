@@ -23,7 +23,7 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": [],
+  "ignore": ["code"],
   "privatePackages": {
     "version": true,
     "tag": false
