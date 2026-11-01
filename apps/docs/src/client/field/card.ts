@@ -23,15 +23,24 @@ export const stretch =
 export const opening =
   'flex min-h-[calc(100svh-3.5rem)] flex-col justify-end lg:justify-center';
 
+/**
+ * The last Stop: its words low on a phone too, so they come to rest where
+ * words are read when the page can scroll no further.
+ */
+export const ending =
+  'flex min-h-[75svh] flex-col justify-end lg:min-h-svh lg:justify-center';
+
 /** The column inside a Stop: on a wide screen, two halves. */
 export const halves =
   'mx-auto w-full max-w-7xl px-4 sm:px-6 lg:grid lg:grid-cols-2 lg:gap-16 lg:px-8';
 
-/** The words, in the half the shape leaves free. */
-export const card = (side: Side) =>
-  ['max-lg:pb-10 lg:max-w-md', side === 'left' ? 'lg:col-start-2' : ''].join(
-    ' ',
-  );
+/** The words, in the half the shape leaves free; an opening's headline gets all of it. */
+export const card = (side: Side, first: boolean) =>
+  [
+    'max-lg:pb-10',
+    first ? 'lg:max-w-none' : 'lg:max-w-md',
+    side === 'left' ? 'lg:col-start-2' : '',
+  ].join(' ');
 
 /**
  * The stage's glass on a phone: frosted down to where the stage ends,

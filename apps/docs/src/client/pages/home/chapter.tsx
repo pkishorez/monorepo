@@ -1,35 +1,20 @@
+import { Router } from '@kestack/kabuki/routing';
 import { ArrowRightIcon } from 'lucide-react';
-import { ToolkitLink } from '../../components/index.ts';
+import { PARTS, router } from '../../../shared/index.ts';
 import { Stop } from '../../field/index.ts';
 import type { Chapter as Story } from './chapters.ts';
 
 /*
- * One chapter of the story, a Stop on the field: its number and act, the
- * package's name and pitch, what it does, and whether it is out yet.
+ * One chapter of the story, a Stop on the field: its act, the package's
+ * name and pitch, its docs' four Parts in the order they are read, each a
+ * way straight to its first page, and the way into the docs. On a phone it
+ * fits the room under the stage: the Parts in one row, by name alone.
  */
 
-function Status({ status }: { readonly status: Story['status'] }) {
-  return (
-    <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-border px-2.5 font-mono text-[11px] text-muted-foreground">
-      {status === 'alpha' ? (
-        <>
-          <span aria-hidden className="size-1.5 rounded-full bg-foreground" />
-          live · alpha
-        </>
-      ) : (
-        'coming soon'
-      )}
-    </span>
-  );
-}
+const focus =
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 
-export function Chapter({
-  chapter,
-  index,
-}: {
-  readonly chapter: Story;
-  readonly index: number;
-}) {
+export function Chapter({ chapter }: { readonly chapter: Story }) {
   const id = `chapter-${chapter.shape}`;
   return (
     <Stop
@@ -39,7 +24,6 @@ export function Chapter({
       aria-labelledby={id}
     >
       <p className="flex items-center gap-3 font-mono text-xs text-muted-foreground">
-        <span className="tabular-nums">{`${index + 1}`.padStart(2, '0')}</span>
         <span aria-hidden className="h-px w-8 bg-border" />
         {chapter.act}
       </p>
@@ -52,25 +36,40 @@ export function Chapter({
       <p className="mt-3 text-pretty text-muted-foreground sm:mt-4 sm:text-lg">
         {chapter.pitch}
       </p>
-      <ul className="mt-5 text-sm text-muted-foreground sm:mt-6">
-        {chapter.specifics.map((specific) => (
-          <li key={specific} className="border-t border-border py-2 sm:py-2.5">
-            {specific}
-          </li>
-        ))}
-      </ul>
-      <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3">
-        <Status status={chapter.status} />
-        {chapter.status === 'alpha' && (
-          <ToolkitLink
-            id="kabuki"
-            className="group -my-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium"
-          >
-            Read the docs
-            <ArrowRightIcon className="size-4 transition-transform duration-150 ease-out group-hover:translate-x-0.5 motion-reduce:transition-none" />
-          </ToolkitLink>
-        )}
-      </div>
+      <ol
+        aria-label={`${chapter.name}'s four parts`}
+        className="mt-6 grid grid-cols-4 gap-px overflow-hidden rounded-2xl border border-border bg-border lg:grid-cols-2"
+      >
+        {PARTS.map((part, index) => {
+          const first = part.groups[0]!.docs[0]!;
+          return (
+            <li key={part.title} className="bg-background">
+              <Router.Link
+                to={router.Kabuki.Doc({ slug: first.slug })}
+                className={`group flex h-full flex-col gap-1 p-3 transition-colors duration-150 hover:bg-muted/50 lg:p-4 ${focus}`}
+              >
+                <span className="flex items-center justify-between font-mono text-[11px] text-muted-foreground tabular-nums">
+                  {`${index + 1}`.padStart(2, '0')}
+                  <ArrowRightIcon className="size-3.5 opacity-0 transition-[opacity,transform] duration-150 group-hover:translate-x-0.5 group-hover:opacity-100 motion-reduce:transition-none" />
+                </span>
+                <span className="font-semibold tracking-tight">
+                  {part.title}
+                </span>
+                <span className="truncate font-mono text-[11px] text-muted-foreground max-lg:hidden">
+                  {part.path}
+                </span>
+              </Router.Link>
+            </li>
+          );
+        })}
+      </ol>
+      <Router.Link
+        to={router.Kabuki.Doc({ slug: 'introduction' })}
+        className={`group mt-6 inline-flex h-11 items-center gap-1.5 rounded-full bg-foreground px-5 text-sm font-medium text-background transition-transform duration-150 ease-out active:scale-[0.97] motion-reduce:transition-none ${focus}`}
+      >
+        Read the docs
+        <ArrowRightIcon className="size-4 transition-transform duration-150 ease-out group-hover:translate-x-0.5 motion-reduce:transition-none" />
+      </Router.Link>
     </Stop>
   );
 }

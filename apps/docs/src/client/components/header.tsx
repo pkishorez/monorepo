@@ -37,12 +37,9 @@ export function Header() {
                 <ToolkitLink
                   key={toolkit.id}
                   id={toolkit.id}
-                  className="flex h-8 items-center gap-2 rounded-full px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="flex h-8 items-center rounded-full px-3 text-sm text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
                 >
                   <span className="font-medium">{toolkit.name}</span>
-                  <span className="font-mono text-[11px] text-muted-foreground">
-                    {toolkit.kind}
-                  </span>
                 </ToolkitLink>
               ))}
             </nav>
