@@ -24,9 +24,9 @@ import { PackageLink, inPackage } from './package-link.tsx';
 
 /*
  * The menu below the `lg` width, a drawer from the left: inside kabuki, its
- * sidebar under its name; on the stack's home, under the stack's name,
- * each package with docs, then the way through kabuki's docs, the only
- * ones yet, and at the foot the code and who made it. It opens from
+ * sidebar under its name; on the stack's home, the bird's eye view: under
+ * the stack's name, each package there is, and at the foot the code and
+ * who made it. A package's own docs are its own menu's. It opens from
  * the button in the header, or by swiping right across the page. A phone
  * keeps the screen's very edge for its own Back, so a swipe from anywhere
  * opens it, once it is plainly sideways; where the edge does reach the
@@ -175,35 +175,27 @@ export function MobileNav() {
           {kabuki ? (
             <Sidebar />
           ) : (
-            <div className="space-y-6">
-              <ul className="space-y-2">
-                {PACKAGES.map((entry) => (
-                  <li key={entry.id}>
-                    <PackageLink
-                      id={entry.id}
-                      className="group flex items-center gap-3 rounded-xl border border-border bg-card/40 p-3 transition-colors duration-150 hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                    >
-                      <KabukiMark className="size-9 shrink-0" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[15px] font-semibold tracking-tight">
-                          {entry.name}
-                        </span>
-                        <span className="block text-[13px] text-pretty text-muted-foreground">
-                          {entry.pitch}
-                        </span>
+            <ul className="space-y-2">
+              {PACKAGES.map((entry) => (
+                <li key={entry.id}>
+                  <PackageLink
+                    id={entry.id}
+                    className="group flex items-center gap-3 rounded-xl border border-border bg-card/40 p-3 transition-colors duration-150 hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                  >
+                    <KabukiMark className="size-9 shrink-0" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15px] font-semibold tracking-tight">
+                        {entry.name}
                       </span>
-                      <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-hover:translate-x-0.5" />
-                    </PackageLink>
-                  </li>
-                ))}
-              </ul>
-              <div className="space-y-2">
-                <p className="px-2 text-xs font-medium text-muted-foreground">
-                  kabuki docs
-                </p>
-                <Sidebar back={false} />
-              </div>
-            </div>
+                      <span className="block text-[13px] text-pretty text-muted-foreground">
+                        {entry.pitch}
+                      </span>
+                    </span>
+                    <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-hover:translate-x-0.5" />
+                  </PackageLink>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
         {!kabuki && (
