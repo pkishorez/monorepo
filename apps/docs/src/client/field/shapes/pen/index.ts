@@ -25,5 +25,14 @@ export {
   ring,
 } from './strokes.ts';
 export type { Path } from './strokes.ts';
-export { loopOf, revealed, slid, smooth, windowOf } from './clock.ts';
+export {
+  TIMING,
+  gathered,
+  loopOf,
+  moving,
+  popping,
+  rippling,
+  smooth,
+  travelled,
+} from './clock.ts';
 export type { Clock, Label } from './clock.ts';

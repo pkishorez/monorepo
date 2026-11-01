@@ -3,29 +3,21 @@ import { Stop } from '../../field/index.ts';
 import { MONOREPO } from '../../../shared/index.ts';
 
 /*
- * The end of the story: the rest of the stack is on its way, drawn as
- * packages being built beside the one that is. Its shape takes the right,
- * as the opening's did, so the sides alternate down the page; the way to
- * follow along is the code.
+ * The end of the story: more is coming, drawn as packages being built
+ * beside the one that is. Its shape takes the right, as the opening's
+ * did, so the sides alternate down the page; the way to follow along is
+ * the code.
  */
 
 export function Outro() {
   return (
     <Stop shape="outro" side="right" last data-chapter aria-labelledby="outro">
-      <p className="flex items-center gap-3 font-mono text-xs text-muted-foreground">
-        <span aria-hidden className="h-px w-8 bg-border" />
-        coming soon
-      </p>
       <h2
         id="outro"
-        className="mt-4 text-4xl font-semibold tracking-tight text-balance sm:mt-5 sm:text-5xl"
+        className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl"
       >
-        The rest is on its way.
+        Coming soon.
       </h2>
-      <p className="mt-3 max-w-md text-pretty text-muted-foreground sm:mt-4 sm:text-lg">
-        Each package joins this page once its docs are ready. Until then, it’s
-        all in the monorepo.
-      </p>
       <a
         href={MONOREPO}
         target="_blank"

@@ -4,8 +4,7 @@ import { Stop } from '../../field/index.ts';
 
 /*
  * The first Stop: one line for the whole stack, in two lines that never
- * break inside themselves, then what is in it so far and the way to its
- * code. The monorepo is linked twice: the word itself, and a button under
+ * break inside themselves, then the way to its code. The monorepo is linked twice: the word itself, and a button under
  * the words for whoever reads past it.
  */
 
@@ -32,9 +31,6 @@ export function Hero() {
           .
         </span>
       </h1>
-      <p className="mt-6 max-w-lg text-lg text-pretty text-muted-foreground">
-        All open source, one package at a time.
-      </p>
       <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
         <a
           href={MONOREPO}

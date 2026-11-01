@@ -57,12 +57,10 @@ export function scene(input: {
   readonly cast: readonly ShapeName[];
   /** Which layers are baked yet; others stand in as the first. */
   readonly ready: readonly boolean[];
-  /** Small turns from the pointer: [yaw, tilt]. */
-  readonly lean: readonly [number, number];
   /** How bright the comet is, 0..1. */
   readonly comet: number;
 }): Scene {
-  const { chapters, spots, t, time, cast, ready, lean, comet } = input;
+  const { chapters, spots, t, time, cast, ready, comet } = input;
   const last = chapters.length - 1;
   const from = Math.min(Math.floor(t), last);
   const to = Math.min(from + 1, last);
@@ -73,11 +71,10 @@ export function scene(input: {
     const spot = spots[k]!;
     const look = lookOf(chapter.shape);
     const index = cast.indexOf(chapter.shape);
-    const yaw =
-      look.spin * time + look.sway * Math.sin(time * 0.23 + k) + lean[0];
+    const yaw = look.spin * time + look.sway * Math.sin(time * 0.23 + k);
     return {
       layer: index >= 0 && ready[index] ? index : 0,
-      turn: turn(turns[slot], yaw, look.tilt + lean[1], look.roll),
+      turn: turn(turns[slot], yaw, look.tilt, look.roll),
       center: [spot.x, spot.y, 0],
       scale: spot.scale,
       tint: look.tint,

@@ -1,103 +1,103 @@
-import {
-  Kind,
-  STORY,
-  arrow,
-  ball,
-  bend,
-  loopOf,
-  ring,
-  windowOf,
-} from '../pen/index.ts';
+import { Kind, ball, gathered, line } from '../pen/index.ts';
 import type { Clock, Cloud, Label, Motion, V3 } from '../pen/index.ts';
+import { node, sec } from './beats.ts';
+import { marker, markerAt } from './marker.ts';
+import type { Place } from './marker.ts';
 
 /*
- * states: what runs is decided by the state. Idle, Loading and Ready in a
- * row; Open takes Idle to Loading, Loaded takes Loading to Ready, and Close
- * goes back round to Idle. Each takes its turn as the current state, bright
- * while the others dim. What a state runs exists only while it is current:
- * Loading's Workers and Ready's Profile child gather round it as it begins
- * and drift away as it ends.
+ * states: what runs is decided by the state. Idle, Loading and Ready are
+ * three quiet points on a line; the current state is one bright point that
+ * hops from each to the next, and at the end back round underneath to
+ * Idle. Each state pops as it lands, and what it runs pops into being
+ * right after, one by one: Loading's three Workers, Ready's Profile. Just
+ * before it leaves, they scatter, nothing left behind.
  */
 
 const X = [-0.64, 0, 0.64];
-const R = 0.15;
-const TURN = 1 / 3;
 const NAMES = ['Idle', 'Loading', 'Ready'];
 
-/** How current state `k` is now, 0..1: the same window the shader lights. */
-export const current = (clock: Clock, k: number): number =>
-  windowOf(loopOf(clock), k * TURN, TURN, 0.06);
+/** The current state's round, in seconds: when it lands at each, and how long the hop. */
+const LANDS = [8, 1.3, 4.4];
+const HOPS = [1, 0.8, 0.8];
+const ROUND: readonly Place[] = X.map((x, k) => ({
+  at: [x, 0, 0],
+  arrive: sec(LANDS[k]!),
+  move: sec(HOPS[k]!),
+}));
 
-const lit = (k: number): Motion => [Kind.cycle, 0, k * TURN, TURN, STORY];
+/** What each state runs: where, from when, until when, in seconds. */
+const WORKERS = { from: LANDS[1]! + 0.1, until: 3.4 } as const;
+const PROFILE = { from: LANDS[2]! + 0.1, until: 6.9 } as const;
+const WORKER_AT = [-0.12, 0, 0.12].map((dx): V3 => [X[1]! + dx, 0.26, 0]);
+const PROFILE_AT: V3 = [X[2]!, 0.28, 0];
+/** One after the other, this far apart, in seconds. */
+const STAGGER = 0.08;
 
-/** What a state runs: satellites, `count` of them, `size` each. */
-function runs(c: Cloud, k: number, count: number, size: number): void {
-  const { n, random } = c;
-  for (let s = 0; s < count; s++) {
-    const phase = s / count;
-    for (let p = 0; p < n * 0.004 * size; p++) {
-      const a = random() * Math.PI * 2;
-      const r = 0.016 * size * Math.sqrt(random());
-      c.add([X[k]! + Math.cos(a) * r, Math.sin(a) * r, 0], 1.3, [
-        Kind.satellite,
-        phase,
-        R + 0.1,
-        k * TURN,
-        TURN,
-      ]);
-    }
-  }
+/** Whether state `k` is the current one now. */
+const isCurrent = (clock: Clock, k: number): boolean =>
+  Math.abs(markerAt(clock, ROUND, Kind.travel)[0] - X[k]!) < 0.04;
+
+function runs(
+  c: Cloud,
+  from: V3,
+  to: V3,
+  size: number,
+  start: number,
+  until: number,
+): void {
+  const formed: Motion = [Kind.gather, sec(start), sec(until - start), 0.18, 0];
+  line(
+    c,
+    [from[0], from[1] + 0.05, 0],
+    [to[0], to[1] - 0.04, 0],
+    0.3,
+    () => formed,
+  );
+  ball(c, c.n * 0.003 * size, to, 0.014 * size, 1.3, formed);
 }
 
 export function states(c: Cloud): void {
-  const { n } = c;
-  X.forEach((x, k) => {
-    const at: V3 = [x, 0, 0];
-    ring(c, at, R, 1, () => lit(k));
-    ring(c, at, R * 0.55, 0.4, () => lit(k));
-    ball(c, n * 0.003, at, 0.016, 1.4, lit(k));
-  });
-  runs(c, 1, 3, 1);
-  runs(c, 2, 1, 1.8);
-
-  // Open and Loaded over the top, Close back underneath.
-  for (let k = 0; k < 2; k++) {
-    const from: V3 = [X[k]! + R + 0.03, 0.06, 0];
-    const to: V3 = [X[k + 1]! - R - 0.03, 0.06, 0];
-    arrow(
-      c,
-      bend(from, [(from[0] + to[0]) / 2, 0.28, 0], to),
-      0.4,
-      0.6,
-      (u) => [Kind.pulse, 0, (k + 1) * TURN - 0.05 + u * 0.05, 1 / STORY, 0.03],
-    );
-  }
-  arrow(
-    c,
-    bend([X[2]!, -R - 0.04, 0], [0, -0.72, 0], [X[0]!, -R - 0.04, 0]),
-    1.5,
-    0.45,
-    (u) => [Kind.pulse, 0, 0.95 + u * 0.05, 1 / STORY, 0.03],
+  line(c, [X[0]!, 0, 0], [X[2]!, 0, 0], 0.2);
+  X.forEach((x, k) =>
+    node(c, [x, 0, 0], 0.7, { at: LANDS[k]! }, undefined, 0.75),
   );
+
+  marker(
+    c,
+    ROUND,
+    (c, at, motion) => ball(c, c.n * 0.008, at, 0.03, 1.8, motion),
+    Kind.travel,
+  );
+
+  WORKER_AT.forEach((at, k) =>
+    runs(
+      c,
+      [X[1]!, 0, 0],
+      at,
+      1,
+      WORKERS.from + k * STAGGER,
+      WORKERS.until + k * STAGGER * 0.5,
+    ),
+  );
+  runs(c, [X[2]!, 0, 0], PROFILE_AT, 1.6, PROFILE.from, PROFILE.until);
 }
 
 export const statesLabels: readonly Label[] = [
   ...NAMES.map((text, k): Label => ({
     text,
-    at: [X[k]!, -R - 0.12, 0],
-    lit: (clock) => current(clock, k) > 0.5,
+    at: [X[k]!, -0.13, 0],
+    lit: (clock) => isCurrent(clock, k),
   })),
   {
-    text: 'Worker',
-    at: [X[1]!, R + 0.2, 0],
-    show: (clock) => current(clock, 1),
+    text: 'Workers',
+    at: [X[1]!, 0.4, 0],
+    show: (clock) =>
+      gathered(clock, sec(WORKERS.from), sec(WORKERS.until - WORKERS.from)),
   },
   {
     text: 'Profile',
-    at: [X[2]!, R + 0.2, 0],
-    show: (clock) => current(clock, 2),
+    at: [X[2]!, 0.42, 0],
+    show: (clock) =>
+      gathered(clock, sec(PROFILE.from), sec(PROFILE.until - PROFILE.from)),
   },
-  { text: 'Open', kind: 'message', at: [(X[0]! + X[1]!) / 2, 0.33, 0] },
-  { text: 'Loaded', kind: 'message', at: [(X[1]! + X[2]!) / 2, 0.33, 0] },
-  { text: 'Close', kind: 'message', at: [0, -0.56, 0] },
 ];

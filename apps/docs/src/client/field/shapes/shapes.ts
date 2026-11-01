@@ -8,9 +8,7 @@ import {
   drift,
   lineage,
   lineageLabels,
-  mark,
   renders,
-  rendersLabels,
   rewind,
   rewindLabels,
   states,
@@ -75,8 +73,11 @@ const look = (l: Partial<Look>): Look => ({
   ...l,
 });
 
-/** A diagram's look: barely turning, faint dust, so it reads flat-on. */
-const diagram = look({ sway: 0.12, tilt: 0.06, dust: 0.12, haze: 0.08 });
+/**
+ * A diagram's look: barely turning, so it reads flat-on, and a little
+ * room left in the haze, so its few lines and points stay fine.
+ */
+const diagram = look({ sway: 0.1, tilt: 0.05, dust: 0.1, haze: 0.3 });
 
 const SHAPES = {
   // The stack's home: the whole, then the packages it tells.
@@ -111,7 +112,7 @@ const SHAPES = {
   actor: { draw: actor, labels: actorLabels, look: diagram },
   states: { draw: states, labels: statesLabels, look: diagram },
   compose: { draw: compose, labels: composeLabels, look: diagram },
-  renders: { draw: renders, labels: rendersLabels, look: diagram },
+  renders: { draw: renders, look: diagram },
   rewind: { draw: rewind, labels: rewindLabels, look: diagram },
   lineage: {
     draw: lineage,
@@ -120,7 +121,6 @@ const SHAPES = {
     most: 7,
     look: diagram,
   },
-  mark: { draw: mark, look: look({ sway: 0.16, tilt: 0.05, haze: 0.1 }) },
 } as const satisfies Record<string, Shape>;
 
 export type ShapeName = keyof typeof SHAPES;

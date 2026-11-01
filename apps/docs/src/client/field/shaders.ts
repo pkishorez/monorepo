@@ -1,4 +1,4 @@
-import { Kind, STORY } from './shapes/index.ts';
+import { Kind, STORY, TIMING } from './shapes/index.ts';
 
 /*
  * The GLSL. One draw places every particle: it reads where the particle sits
@@ -10,6 +10,7 @@ import { Kind, STORY } from './shapes/index.ts';
  */
 
 const f = (n: number) => n.toFixed(1);
+const f3 = (n: number) => n.toFixed(3);
 
 /** Colour is premultiplied, and its alpha always covers its colour, so
  * what the canvas holds is a picture every browser shows the same way. In
@@ -56,7 +57,6 @@ uniform float uDark;
 uniform float uSize;
 uniform float uAspect;
 uniform float uDistance;
-uniform vec3 uPointer;
 uniform vec4 uComet;
 
 out vec4 vColour;
@@ -74,6 +74,35 @@ ${COLOUR}
 
 // 1 while loop is in the window from start for len, easing in and
 // out over soft, all in loops; the window may wrap past the loop's end.
+// Easings, as in shapes/pen/clock.ts.
+float outCubic(float x) { float k = 1.0 - x; return 1.0 - k * k * k; }
+float outQuart(float x) { float k = 1.0 - x; return 1.0 - k * k * k * k; }
+float inCubic(float x) { return x * x * x; }
+float inOutCubic(float x) {
+  return x < 0.5 ? 4.0 * x * x * x : 1.0 - pow(2.0 - 2.0 * x, 3.0) / 2.0;
+}
+float inOutQuart(float x) {
+  return x < 0.5 ? 8.0 * x * x * x * x : 1.0 - pow(2.0 - 2.0 * x, 4.0) / 2.0;
+}
+float outBack(float x) {
+  float k = x - 1.0;
+  return 1.0 + ${f3(TIMING.overshoot + 1)} * k * k * k + ${f3(TIMING.overshoot)} * k * k;
+}
+// A pop's swell, since seconds after it: up fast, down slowly.
+float swell(float since) {
+  if (since < ${f3(TIMING.rise)}) return outCubic(max(since, 0.0) / ${f3(TIMING.rise)});
+  return 1.0 - inOutCubic(clamp((since - ${f3(TIMING.rise)}) / ${f3(TIMING.fall)}, 0.0, 1.0));
+}
+
+// A direction of its own for each point, on a sphere flattened towards
+// the screen, so a scattered shape spreads as a round cloud.
+vec3 away(float seed) {
+  float a = seed * 6.2832 * 7.0;
+  float z = fract(seed * 13.0) * 2.0 - 1.0;
+  float r = sqrt(1.0 - z * z);
+  return vec3(cos(a) * r, sin(a) * r, 0.4 * z);
+}
+
 float window(float loop, float start, float len, float soft) {
   float x = fract(loop - start);
   return smoothstep(0.0, soft, x) * (1.0 - smoothstep(len - soft, len, x));
@@ -87,24 +116,11 @@ void motion(inout vec3 p, inout float bright, vec4 aux, float seed) {
   // The story clock; still, for a reader who asked for less motion, at a
   // moment where every story is told. As loopOf in shapes/pen/clock.ts.
   float story = mix(0.7, fract(t / ${f(STORY)}), uMotion);
-  if (kind == ${f(Kind.pulse)}) {
-    float head = fract(t * aux.z + phase);
-    float d = abs(aux.y - head);
-    d = min(d, 1.0 - d);
-    float boost = exp(-d * d / (aux.w * aux.w));
-    bright *= mix(0.85, 0.6 + 2.6 * boost, uMotion);
-  } else if (kind == ${f(Kind.flow)}) {
+  if (kind == ${f(Kind.flow)}) {
     float s = fract(t * 0.2 + phase);
     vec3 d = aux.yzw;
     p += d * s + vec3(0.0, sin(PI * s) * 0.22 * length(d), 0.0);
     bright *= smoothstep(0.0, 0.12, s) * (1.0 - smoothstep(0.86, 1.0, s));
-  } else if (kind == ${f(Kind.grow)}) {
-    float loop = mix(1.1, fract(t / 9.0) * 1.32, uMotion);
-    float g = clamp((loop - aux.z) / max(aux.w, 0.02), 0.0, 1.0);
-    float lit = 1.0 - smoothstep(g - 0.015, g, aux.y);
-    float fade = 1.0 - smoothstep(1.2, 1.3, loop);
-    float tip = exp(-pow((aux.y - g) / 0.025, 2.0)) * step(g, 0.999) * step(0.001, g);
-    bright *= mix(0.1, mix(0.1, 1.0, lit) + tip * 1.6, fade);
   } else if (kind == ${f(Kind.orbit)}) {
     float a = t * aux.y;
     float c = cos(a), s = sin(a);
@@ -122,27 +138,72 @@ void motion(inout vec3 p, inout float bright, vec4 aux, float seed) {
     } else {
       bright *= mix(1.0, 0.22, window(loop, aux.y, aux.z, 0.05));
     }
-  } else if (kind == ${f(Kind.satellite)}) {
-    float on = window(story, aux.z, aux.w, 0.06);
-    float r = aux.y * (1.0 + 1.6 * (1.0 - on));
-    float a = phase * 6.2832 + t * 0.9;
-    p += vec3(cos(a) * r, sin(a) * r * 0.55, sin(a) * r * 0.6);
-    bright *= on;
   } else if (kind == ${f(Kind.reveal)}) {
     float g = clamp((story - aux.z) / max(aux.w, 0.02), 0.0, 1.0);
     float lit = 1.0 - smoothstep(g - 0.02, g, aux.y);
     float fade = 1.0 - smoothstep(0.82, 0.95, story);
-    vec3 away = vec3(sin(seed * 41.0), cos(seed * 53.0), sin(seed * 67.0));
-    p += away * (1.0 - fade) * lit * 0.18;
+    p += away(seed) * (1.0 - fade) * lit * 0.18;
     bright *= mix(phase, 1.0, lit * fade);
-  } else if (kind == ${f(Kind.slide)}) {
-    float on = smoothstep(aux.z, aux.z + aux.w, story);
-    float back = smoothstep(0.88, 0.98, story);
-    p.x += aux.y * on * (1.0 - back);
-  } else if (kind == ${f(Kind.breathe)}) {
-    float b = sin(t * 0.8);
-    p *= 1.0 + aux.y * b * uMotion;
-    bright *= 1.0 + 0.12 * b * uMotion;
+  } else if (kind == ${f(Kind.message)}) {
+    // How far past this point the head is, in laps: ahead of it, the
+    // head's own bright edge; behind it, the tail it leaves.
+    float past = fract(t * aux.z + phase - aux.y + 0.5) - 0.5;
+    float w = aux.w;
+    float boost = past < 0.0 ? exp(-past * past / (w * w)) : exp(-past / (w * 3.0));
+    bright *= mix(0.85, 0.45 + 3.2 * boost, uMotion);
+  } else if (kind == ${f(Kind.arrive)}) {
+    float since = fract(t * aux.z + phase - aux.y);
+    float flare = exp(-since / aux.w) * smoothstep(0.0, 0.01, since);
+    bright *= mix(1.0, 0.8 + 2.2 * flare, uMotion);
+  } else if (kind == ${f(Kind.travel)} || kind == ${f(Kind.glide)}) {
+    // As travelled in shapes/pen/clock.ts: a Message leaves fast and
+    // slows into where it lands; a marker eases out and brakes in.
+    float len = fract(aux.w);
+    float move = floor(aux.w) / 1000.0;
+    float x = fract(story - phase);
+    float soft = ${f3(TIMING.handoff)};
+    float on = smoothstep(0.0, soft, x) * (1.0 - smoothstep(len, len + soft, x));
+    float u = clamp((x - (len - move)) / move, 0.0, 1.0);
+    float s = kind == ${f(Kind.travel)} ? outQuart(u) : inOutQuart(u);
+    p.xy += aux.yz * s;
+    if (kind == ${f(Kind.travel)}) p.y += aux.y * 0.3 * sin(PI * s);
+    bright *= on;
+  } else if (kind == ${f(Kind.gather)}) {
+    // As gathered in shapes/pen/clock.ts: in fast from all round, a touch
+    // past its place and back; out quicker, accelerating away.
+    float x = fract(story - phase);
+    float len = aux.y;
+    float enter = clamp(x / ${f3(TIMING.enter)}, 0.0, 1.0);
+    float leave = clamp((x - len) / ${f3(TIMING.leave)}, 0.0, 1.0);
+    float here = x < len ? outBack(enter) : 1.0 - inCubic(leave);
+    float lit = x < len ? outCubic(enter) : 1.0 - inCubic(leave);
+    p += away(seed) * aux.z * (0.3 + 0.7 * fract(seed * 29.0)) * (1.0 - here);
+    bright *= lit;
+  } else if (kind == ${f(Kind.pop)}) {
+    // As popped in shapes/pen/clock.ts: swells round its centre and
+    // brightens, quick in and slow out, repeats times a loop.
+    float repeats = floor(aux.w);
+    float since = mod(fract(story - phase), 1.0 / repeats) * ${f(STORY)};
+    float e = swell(since) * uMotion;
+    p.xy = aux.yz + (p.xy - aux.yz) * (1.0 + fract(aux.w) * e);
+    bright *= 1.0 + 1.8 * e;
+  } else if (kind == ${f(Kind.ripple)}) {
+    // A ring that runs out from its centre and fades, as a pop goes off.
+    float repeats = floor(aux.w);
+    float since = mod(fract(story - phase), 1.0 / repeats) * ${f(STORY)};
+    float u = since / ${f3(TIMING.ripple)};
+    p.xy = aux.yz + (p.xy - aux.yz) * (1.0 + fract(aux.w) * 4.0 * outCubic(min(u, 1.0)));
+    bright *= u < 1.0 ? (1.0 - u) * (1.0 - u) * smoothstep(0.0, 0.04, u) * uMotion : 0.0;
+  } else if (kind == ${f(Kind.stream)}) {
+    // Light runs the length of a line, easing in and out, repeats times
+    // a loop: a bright head, a tail behind it, then gone as it lands.
+    float cycle = 1.0 / aux.w;
+    float x = mod(fract(story - phase), cycle);
+    float g = inOutCubic(clamp(x / aux.z, 0.0, 1.0));
+    float d = g - aux.y;
+    float head = d < 0.0 ? exp(-d * d / 0.0016) : exp(-d / 0.12);
+    head *= 1.0 - smoothstep(aux.z, aux.z + 0.03, x);
+    bright *= mix(1.0, 0.45 + 3.0 * head, uMotion);
   }
 }
 
@@ -157,10 +218,11 @@ void main() {
   float seed2 = hash(uint(id) + 7919u);
 
   // Each particle's own moment in the morph: a sweep, loosened by chance.
-  // Kept tight, so a shape moves as one body, a gentle sweep across it,
-  // and no stragglers are left behind.
+  // Wide enough that a shape builds across as the page scrolls, some of
+  // it landing while the rest is still on its way, rather than all of it
+  // in flight at once as a fog; and every particle has landed at the end.
   float delay = 0.75 * (float(id) / uCount) + 0.25 * seed;
-  float spread = 0.22;
+  float spread = 0.42;
   float m = clamp((uBlend - delay * spread) / (1.0 - spread), 0.0, 1.0);
   m = m * m * (3.0 - 2.0 * m);
 
@@ -174,7 +236,7 @@ void main() {
   vec3 rb = uTurnB * lb;
   vec3 w = mix(uCenterA + ra * uScaleA, uCenterB + rb * uScaleB, m);
   float glow = mix(uGlowA, uGlowB, m);
-  float bright = mix(ba, bb, m) * (1.0 + 0.12 * glow);
+  float bright = mix(ba, bb, m) * (1.0 + 0.4 * glow);
   float depth = mix(ra.z, rb.z, m);
   vec3 tint = mix(uTintA, uTintB, m);
   float scale = mix(uScaleA, uScaleB, m);
@@ -202,23 +264,19 @@ void main() {
     bright *= k;
   }
 
-  // The pointer parts particles, gently, where it sits on screen.
-  float persp = uDistance / (uDistance - w.z);
-  vec2 dp = w.xy * persp - uPointer.xy;
-  float push = exp(-dot(dp, dp) / (0.06 * scale)) * uPointer.z;
-  w.xy += normalize(dp + 1e-5) * push * 0.08 * scale;
-
-  // The comet pulls those it passes in close, swirls them, and lights them.
+  // The comet pulls those it passes in close, swirls them, and lights
+  // them: brightly near its head, faintly a little further out.
   vec3 dc = uComet.xyz - w;
   float reach = length(dc);
   float near = exp(-reach * reach / 0.03) * uComet.w;
+  float wake = exp(-reach * reach / 0.12) * uComet.w;
   w += dc * near * 0.08 + cross(dc, vec3(0.0, 0.0, 1.0)) * near * 0.1;
-  bright += near * (0.5 + bright) * 0.9;
+  bright += near * (0.5 + bright) * 1.3 + wake * bright * 0.5;
   // While the comet holds at a shape, a soft ripple runs out from it
   // across the shape, every few seconds.
   float ripple = fract(uTime * 0.28);
   float front = (reach - ripple * 1.5 * scale) / (0.07 * scale);
-  bright *= 1.0 + 0.6 * exp(-front * front) * (1.0 - ripple) * glow * uMotion;
+  bright *= 1.0 + 1.1 * exp(-front * front) * (1.0 - ripple) * glow * uMotion;
 
   float wv = uDistance - w.z;
   gl_Position = vec4(w.x * uDistance / uAspect, w.y * uDistance, 0.0, wv);
@@ -247,7 +305,7 @@ void main() {
 }
 `;
 
-/** The comet's head: a soft halo, then a crisp core. */
+/** The comet's head: a wide bloom, a soft halo, then a crisp core. */
 export const HEAD_VERTEX = /* glsl */ `#version 300 es
 precision highp float;
 in vec4 aPoint;
@@ -266,10 +324,11 @@ void main() {
   gl_Position = vec4(w.x * uDistance / uAspect, w.y * uDistance, 0.0, wv);
   float persp = uDistance / wv;
   bool core = aPoint.w > 2.5;
-  float size = core ? 9.0 : 64.0;
+  bool bloom = aPoint.w < 1.5;
+  float size = core ? 11.0 : bloom ? 150.0 : 72.0;
   // Ink cannot glow on paper: there the halo is a faint shadow.
-  float alpha = core ? 1.0 : mix(0.16, 0.42, uDark);
-  vSharp = core ? 1.5 : 4.5;
+  float alpha = core ? 1.0 : bloom ? mix(0.05, 0.16, uDark) : mix(0.2, 0.55, uDark);
+  vSharp = core ? 1.5 : bloom ? 3.0 : 4.5;
   vCore = core ? 1.0 : 0.0;
   gl_PointSize = size * uSize * persp;
   vColour = colour(alpha * uStrength, vec3(1.0));
@@ -327,11 +386,11 @@ void main() {
   float persp = uDistance / here.w;
   float taper = pow(1.0 - age, 0.8);
   // Thick at the head, and never thinner than a hairline on its way out.
-  float width = (0.9 + 3.6 * taper) * uSize * persp;
+  float width = (1.0 + 5.0 * taper) * uSize * persp;
   vec2 offset = across * side * width * 0.5 / half_;
   gl_Position = vec4((here.xy / here.w + offset) * here.w, 0.0, here.w);
   vAcross = side;
-  float alpha = pow(1.0 - age, 1.6) * mix(0.85, 0.75, uDark);
+  float alpha = pow(1.0 - age, 1.3) * mix(0.9, 0.85, uDark);
   vColour = colour(alpha * uStrength, vec3(1.0));
 }
 `;

@@ -1,6 +1,6 @@
 /*
  * Whether the reader asked for less motion. Then the field keeps still:
- * no drift, no turning, no pulses, no parting round the pointer; it still
+ * no drift, no turning, no pulses; it still
  * changes shape as they scroll, only easing from one to the next.
  */
 

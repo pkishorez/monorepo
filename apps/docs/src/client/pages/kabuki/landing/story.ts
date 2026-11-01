@@ -1,11 +1,18 @@
-import { MONOREPO } from '../../../../shared/index.ts';
 /*
  * Every word on kabuki's landing page after its first screen, in the order
- * the page reads: the five ideas, where they come from, and who makes it.
+ * the page reads: the five ideas, what inspired them, and where to go next.
  * Each stop names the shape the particle field takes while it is read; on
- * a wide screen that shape takes the right half and the words the left.
+ * a wide screen the shapes take alternate halves, the words the other.
  * In a body, `backticks` mark code. Package names are lowercase, always.
  */
+
+/**
+ * Which half of a wide screen the shape of the stop `stop` places after
+ * the opening takes. The opening's app sits on the right, so the first
+ * shape takes the left, and every shape after crosses the screen.
+ */
+export const sideOf = (stop: number): 'left' | 'right' =>
+  stop % 2 === 0 ? 'left' : 'right';
 
 export type Idea = {
   readonly shape: string;
@@ -50,8 +57,8 @@ export const IDEAS: ReadonlyArray<Idea> = [
 
 export const PRIOR_ART = {
   shape: 'lineage',
-  label: 'prior art',
-  title: 'Where it comes from.',
+  label: 'inspiration',
+  title: 'Inspiration.',
   pitch:
     'kabuki is built from ideas that already work. Here is what it took from each.',
   sources: [
@@ -96,18 +103,9 @@ export const PRIOR_ART = {
   }>;
 };
 
-export const AUTHOR = {
-  shape: 'mark',
-  label: 'who makes it',
-  name: 'Kishore',
-  avatar: 'https://github.com/pkishorez.png',
-  github: { handle: '@pkishorez', href: 'https://github.com/pkishorez' },
-  site: { label: 'kishore.app', href: 'https://kishore.app' },
-  monorepo: MONOREPO,
-  /** The words around the link to the monorepo. */
-  line: {
-    before: 'I build kabuki in the open, in the ',
-    link: 'ke stack monorepo',
-    after: ', next to everything else I make. These docs are a kabuki app too.',
-  },
+/** The end of the page, past the story: where to go next. */
+export const ENDING = {
+  label: 'start here',
+  title: 'Start building.',
+  pitch: 'Four parts, read in order. Or jump straight in.',
 } as const;

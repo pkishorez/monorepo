@@ -40,6 +40,16 @@ export function measure(): Chapter[] {
     : [{ shape: 'hero', side: 'center', middle: window.innerHeight / 2 }];
 }
 
+/**
+ * Where the story ends, down the page: the top of what a page marks
+ * `data-field-end`, the first words after its last Chapter; none if it
+ * marks nothing.
+ */
+export function storyEnd(): number | null {
+  const end = document.querySelector<HTMLElement>('[data-field-end]');
+  return end ? end.getBoundingClientRect().top + window.scrollY : null;
+}
+
 /** Where the story's first words start, down the page; none on a page with no story. */
 export function storyStart(): number | null {
   const first = document.querySelector<HTMLElement>('[data-field-words]');
