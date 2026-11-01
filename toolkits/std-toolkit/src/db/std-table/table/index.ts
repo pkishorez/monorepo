@@ -1,1 +1,6 @@
-export { StdTable, type TableBuilder, type TopologyBuilder } from './table.js';
+export {
+  StdTable,
+  type EntitiesBuilder,
+  type TableBuilder,
+  type TopologyBuilder,
+} from './table.js';

@@ -10,8 +10,10 @@ const Person = EntityESchema.make('Person', 'personId', {
   address: Address.schema,
 }).build();
 
-const table = StdTable.make('people').primary('pk', 'sk').build();
-table.entity(Person).primary().build();
+const table = StdTable.make('people')
+  .primary('pk', 'sk')
+  .entity(Person, (e) => e.primary())
+  .build();
 
 export default Proof.make({
   title: 'A hand-edited snapshot that points at a missing schema is refused',

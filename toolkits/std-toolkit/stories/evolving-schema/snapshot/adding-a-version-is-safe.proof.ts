@@ -19,15 +19,13 @@ const TaskV2 = EntityESchema.make('Task', 'taskId', {
   .build();
 
 // Last deploy and this deploy of the same table.
-const shipped = StdTable.make('board').primary('pk', 'sk').build();
-shipped
-  .entity(TaskV1)
-  .primary({ pk: ['boardId'] })
+const shipped = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(TaskV1, (e) => e.primary({ pk: ['boardId'] }))
   .build();
-const next = StdTable.make('board').primary('pk', 'sk').build();
-next
-  .entity(TaskV2)
-  .primary({ pk: ['boardId'] })
+const next = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(TaskV2, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 export default Proof.make({

@@ -20,15 +20,14 @@ export type Stored = typeof Stored.Type;
  * unless given. */
 export const deviceAccountsTable = StdTable.make('auth-device-accounts')
   .primary('pk', 'sk')
+  .singleEntity(Stored, { default: { accounts: [], active: null } })
   .build();
 
 export type SignInStorage = Layer.Layer<
   StdTableService<typeof deviceAccountsTable.logicalName>
 >;
 
-const stored = deviceAccountsTable
-  .singleEntity(Stored)
-  .default({ accounts: [], active: null });
+const stored = deviceAccountsTable.DeviceAccounts;
 
 export const snapshotOf = ({ accounts, active }: Stored): Snapshot => ({
   active,

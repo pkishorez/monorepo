@@ -4,7 +4,7 @@ import { StdTable } from '@kestack/std-toolkit/db';
 import { Memory } from '@kestack/std-toolkit/db/memory';
 import { ESchema } from '@kestack/std-toolkit/eschema';
 
-// Last release: v1 settings. This release: v2 adds a font size.
+// Last release: v1 table.Settings. This release: v2 adds a font size.
 const SettingsV1 = ESchema.make('Settings', {
   theme: Schema.Literals(['light', 'dark']),
 }).build();
@@ -15,14 +15,14 @@ const Settings = ESchema.make('Settings', {
   .build();
 
 // Two builds of the app over the same logical table.
-const lastRelease = StdTable.make('app').primary('pk', 'sk').build();
-const oldSettings = lastRelease
-  .singleEntity(SettingsV1)
-  .default({ theme: 'light' });
-const table = StdTable.make('app').primary('pk', 'sk').build();
-const settings = table
-  .singleEntity(Settings)
-  .default({ theme: 'light', fontSize: 16 });
+const lastRelease = StdTable.make('app')
+  .primary('pk', 'sk')
+  .singleEntity(SettingsV1, { default: { theme: 'light' } })
+  .build();
+const table = StdTable.make('app')
+  .primary('pk', 'sk')
+  .singleEntity(Settings, { default: { theme: 'light', fontSize: 16 } })
+  .build();
 
 export default Proof.make({
   title:
@@ -32,9 +32,9 @@ export default Proof.make({
   critical: true,
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
-    const saved = yield* oldSettings
-      .put({ theme: 'dark' })
-      .pipe(Effect.provide(db.layer));
+    const saved = yield* lastRelease.Settings.put({ theme: 'dark' }).pipe(
+      Effect.provide(db.layer),
+    );
     yield* Proof.assert(
       'the last release stored v1 settings',
       saved.meta._v === 'v1',
@@ -43,8 +43,8 @@ export default Proof.make({
   }),
   act: ({ db }) =>
     Effect.gen(function* () {
-      const read = yield* settings.get();
-      const updated = yield* settings.getAndUpdate({ fontSize: 18 });
+      const read = yield* table.Settings.get();
+      const updated = yield* table.Settings.getAndUpdate({ fontSize: 18 });
       return { read, updated };
     }).pipe(Effect.provide(db.layer)),
   verify: ({ read, updated }, { saved }) =>

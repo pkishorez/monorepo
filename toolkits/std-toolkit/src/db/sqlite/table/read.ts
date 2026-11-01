@@ -70,3 +70,9 @@ export const deleteAllItems = (database: SQLiteDriver, tableName: string) => {
     Effect.mapError((cause) => new OperationFailure({ cause })),
   );
 };
+
+export const countItems = (database: SQLiteDriver, tableName: string) =>
+  database.all(Statement.count(tableName).sql).pipe(
+    Effect.map((rows) => Number(rows[0]?.count ?? 0)),
+    Effect.mapError((cause) => new OperationFailure({ cause })),
+  );

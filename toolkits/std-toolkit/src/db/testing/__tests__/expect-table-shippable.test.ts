@@ -1,9 +1,9 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { Effect, Schema } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
-import { StdTable } from '../../../db/index.js';
 import { EntityESchema, ESchema } from '../../../eschema/index.js';
-import { TableSnapshot } from '../../index.js';
+import { TableSnapshot } from '../../../snapshot/index.js';
+import { StdTable } from '../../std-table/table/index.js';
 import { expectTableShippable } from '../index.js';
 
 const Address = ESchema.make('Address', { city: Schema.String }).build();
@@ -26,11 +26,11 @@ const makeBoard = (title = Schema.String) => {
   const table = StdTable.make('board')
     .primary('pk', 'sk')
     .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-    .build();
-  table
-    .entity(Task)
-    .primary({ pk: ['boardId'] })
-    .index('GSI1', 'byTitle', { pk: ['title'], sk: ['taskId'] })
+    .entity(Task, (e) =>
+      e
+        .primary({ pk: ['boardId'] })
+        .index('GSI1', 'byTitle', { pk: ['title'], sk: ['taskId'] }),
+    )
     .build();
   return table;
 };
@@ -125,10 +125,9 @@ describe('expectTableShippable', () => {
         done: false,
       }))
       .build();
-    const table = StdTable.make('moving').primary('pk', 'sk').build();
-    table
-      .entity(Task)
-      .primary({ pk: ['boardId'] })
+    const table = StdTable.make('moving')
+      .primary('pk', 'sk')
+      .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
       .build();
     await asIfUpdating(() =>
       expect(
@@ -142,6 +141,35 @@ describe('expectTableShippable', () => {
         new URL('./fixtures/never-written.snapshot.json', import.meta.url),
       ),
     ).rejects.toThrow(/ENOENT/);
+  });
+
+  it('accepts an added access pattern, which setup reindexes', async () => {
+    const Task = EntityESchema.make('Task', 'taskId', {
+      boardId: Schema.String,
+      title: Schema.String,
+      address: Address.schema,
+    })
+      .evolve(
+        'v2',
+        { priority: Schema.Literals(['low', 'high']) },
+        (previous) => ({ ...previous, priority: 'low' as const }),
+      )
+      .build();
+    const withPattern = StdTable.make('board')
+      .primary('pk', 'sk')
+      .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+      .lsi('LSI1', 'LSI1SK')
+      .entity(Task, (e) =>
+        e
+          .primary({ pk: ['boardId'] })
+          .index('GSI1', 'byTitle', { pk: ['title'], sk: ['taskId'] })
+          .index('LSI1', 'byPriority', { sk: ['priority'] }),
+      )
+      .build();
+    await keepFixture();
+    await expect(expectTableShippable(withPattern, file)).rejects.toThrow(
+      /no longer matches its snapshot file[\s\S]*REINDEX[\s\S]*byPriority[\s\S]*Nothing refuses these changes/,
+    );
   });
 
   it('refuses a table with no registered entities', async () => {

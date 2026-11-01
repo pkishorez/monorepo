@@ -16,11 +16,6 @@ export const SPACE_TABLE = 'replica';
 /** JSON the toolkit stores as it is: an encoded Entity, a cursor. */
 type Opaque = {} | null;
 
-export const space = StdTable.make(SPACE_TABLE)
-  .primary('pk', 'sk')
-  .lsi('LSI1', 'LSI1SK')
-  .build();
-
 const RecordSchema = EntityESchema.make('ReplicaRecord', 'id', {
   collection: Schema.String,
   /** The order it was written in, among its Collection's records. */
@@ -29,22 +24,11 @@ const RecordSchema = EntityESchema.make('ReplicaRecord', 'id', {
   entity: ESchema.fromType<Opaque>(),
 }).build();
 
-export const records = space
-  .entity(RecordSchema)
-  .primary({ pk: ['collection'] })
-  .index('LSI1', 'bySequence', { sk: ['seq'] })
-  .build();
-
 const CollectionSchema = EntityESchema.make('ReplicaCollection', 'key', {
   collection: Schema.String,
   /** The last `seq` given in this Collection. */
   position: Schema.String,
 }).build();
-
-export const collections = space
-  .entity(CollectionSchema)
-  .primary({ pk: ['collection'] })
-  .build();
 
 /** The one row of each Collection, under its own key. */
 export const COLLECTION_ROW = 'collection';
@@ -57,22 +41,12 @@ const CursorSchema = EntityESchema.make('ReplicaCursor', 'scope', {
   cursor: ESchema.fromType<Opaque>(),
 }).build();
 
-export const cursors = space
-  .entity(CursorSchema)
-  .primary({ pk: ['collection'] })
-  .build();
-
 const OpeningSchema = EntityESchema.make('ReplicaOpening', 'participant', {
   /** Always `opening`: every participant's row sits in one partition. */
   kind: Schema.String,
   /** Its open Windows: `{ collection, path, value }` each. */
   windows: ESchema.fromType<Opaque>(),
 }).build();
-
-export const openings = space
-  .entity(OpeningSchema)
-  .primary({ pk: ['kind'] })
-  .build();
 
 export const OPENING = 'opening';
 
@@ -83,12 +57,27 @@ const ToldSchema = EntityESchema.make('ReplicaTold', 'of', {
   scopes: ESchema.fromType<Opaque>(),
 }).build();
 
-export const told = space
-  .entity(ToldSchema)
-  .primary({ pk: ['kind'] })
+export const TOLD = { kind: 'told', of: 'leader' } as const;
+
+export const space = StdTable.make(SPACE_TABLE)
+  .primary('pk', 'sk')
+  .lsi('LSI1', 'LSI1SK')
+  .entity(RecordSchema, (e) =>
+    e
+      .primary({ pk: ['collection'] })
+      .index('LSI1', 'bySequence', { sk: ['seq'] }),
+  )
+  .entity(CollectionSchema, (e) => e.primary({ pk: ['collection'] }))
+  .entity(CursorSchema, (e) => e.primary({ pk: ['collection'] }))
+  .entity(OpeningSchema, (e) => e.primary({ pk: ['kind'] }))
+  .entity(ToldSchema, (e) => e.primary({ pk: ['kind'] }))
   .build();
 
-export const TOLD = { kind: 'told', of: 'leader' } as const;
+export const records = space.ReplicaRecord;
+export const collections = space.ReplicaCollection;
+export const cursors = space.ReplicaCursor;
+export const openings = space.ReplicaOpening;
+export const told = space.ReplicaTold;
 
 const SEQUENCE_WIDTH = 16;
 

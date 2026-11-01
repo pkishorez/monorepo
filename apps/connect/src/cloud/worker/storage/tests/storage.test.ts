@@ -1,5 +1,5 @@
 import { it } from 'vitest';
-import { expectTableShippable } from '@kestack/std-toolkit/snapshot/vitest';
+import { expectTableShippable } from '@kestack/std-toolkit/db/testing';
 import { connectionsTable } from '../index.js';
 
 // The committed file is the connections table's contract: every entity and every

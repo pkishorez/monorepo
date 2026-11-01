@@ -227,4 +227,37 @@ describe('DynamoDB runtime query', () => {
 
     expect(result).toEqual({ items: [], hasMore: false });
   });
+
+  it('asks for a strongly consistent read only when the request does', async () => {
+    const inputs: QueryInput[] = [];
+    const runtime = makeTableContract(
+      capturingClient((input) => inputs.push(input)),
+      table,
+      'people',
+    );
+    await Effect.runPromise(
+      runtime.queryItems({ ...request(undefined), consistent: true }),
+    );
+    await Effect.runPromise(runtime.queryItems(request(undefined)));
+    expect(inputs[0]?.ConsistentRead).toBe(true);
+    expect(inputs[1]).not.toHaveProperty('ConsistentRead');
+  });
+
+  it('scans with a strongly consistent read only when the request asks', async () => {
+    const inputs: { ConsistentRead?: boolean }[] = [];
+    const client = new Proxy({} as DynamoDBClient, {
+      get: (_target, property) =>
+        property === 'scan'
+          ? (input: { ConsistentRead?: boolean }) => {
+              inputs.push(input);
+              return Effect.succeed({ Items: [] });
+            }
+          : undefined,
+    });
+    const runtime = makeTableContract(client, table, 'people');
+    await Effect.runPromise(runtime.scanItems({ limit: 10, consistent: true }));
+    await Effect.runPromise(runtime.scanItems({ limit: 10 }));
+    expect(inputs[0]?.ConsistentRead).toBe(true);
+    expect(inputs[1]).not.toHaveProperty('ConsistentRead');
+  });
 });

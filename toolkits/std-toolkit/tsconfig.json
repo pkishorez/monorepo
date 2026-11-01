@@ -32,6 +32,7 @@
       "@kestack/std-toolkit/db/idb": ["./src/db/idb/index.ts"],
       "@kestack/std-toolkit/db/memory": ["./src/db/memory/index.ts"],
       "@kestack/std-toolkit/db/sqlite": ["./src/db/sqlite/index.ts"],
+      "@kestack/std-toolkit/db/testing": ["./src/db/testing/index.ts"],
       "@kestack/std-toolkit/db/sqlite/better-sqlite3": [
         "./src/db/sqlite/drivers/better-sqlite3/index.ts"
       ],

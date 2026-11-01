@@ -2,7 +2,7 @@ import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { EntityESchema, ESchema } from '../../../../eschema/index.js';
 import { TableSnapshot } from '../../../../snapshot/index.js';
-import { Table } from '../index.js';
+import { StdTable } from '../../table/index.js';
 
 const addressSchema = EntityESchema.make('Address', 'addressId', {
   city: Schema.String,
@@ -20,27 +20,31 @@ const settingsSchema = ESchema.make('Settings', {
 }).build();
 
 const makeTable = () =>
-  Table.make('people')
+  StdTable.make('people')
     .primary('pk', 'sk')
     .lsi('LSI1', 'LSI1SK')
-    .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-    .build();
+    .gsi('GSI1', 'GSI1PK', 'GSI1SK');
 
 describe('portable Table definition', () => {
   it('defines keyed and single entities against one logical topology', () => {
-    const table = makeTable();
-    const people = table
-      .entity(personSchema)
-      .primary({ pk: ['organizationId'] })
-      .index('GSI1', 'byEmail', { pk: ['email'] })
-      .index('LSI1', 'byCreatedAt', { sk: ['createdAt'] })
+    const table = makeTable()
+      .entity(personSchema, (e) =>
+        e
+          .primary({ pk: ['organizationId'] })
+          .index('GSI1', 'byEmail', { pk: ['email'] })
+          .index('LSI1', 'byCreatedAt', { sk: ['createdAt'] }),
+      )
+      .singleEntity(settingsSchema, { default: { theme: 'light' } })
       .build();
-    const settings = table
-      .singleEntity(settingsSchema)
-      .default({ theme: 'light' });
+    const people = table.Person;
+    const settings = table.Settings;
 
     expect(people.table).toBe(table);
     expect(settings.table).toBe(table);
+    expect(table.registeredEntities.map(({ name }) => name)).toEqual([
+      'Person',
+      'Settings',
+    ]);
     expect(people.accessPatterns).toEqual({
       byCreatedAt: {
         index: 'LSI1',
@@ -64,23 +68,25 @@ describe('portable Table definition', () => {
 
   it('creates a deterministic adapter-independent snapshot', () => {
     const makeSnapshot = (reverse: boolean, theme: string) => {
-      const table = makeTable();
-      const keyed = () =>
-        table
-          .entity(personSchema)
-          .primary({ pk: ['organizationId'] })
-          .index('GSI1', 'byEmail', { pk: ['email'] })
-          .index('LSI1', 'byCreatedAt', { sk: ['createdAt'] })
-          .build();
-      const single = () =>
-        table.singleEntity(settingsSchema).default({ theme });
-      if (reverse) {
-        single();
-        keyed();
-      } else {
-        keyed();
-        single();
-      }
+      const table = reverse
+        ? makeTable()
+            .singleEntity(settingsSchema, { default: { theme } })
+            .entity(personSchema, (e) =>
+              e
+                .primary({ pk: ['organizationId'] })
+                .index('GSI1', 'byEmail', { pk: ['email'] })
+                .index('LSI1', 'byCreatedAt', { sk: ['createdAt'] }),
+            )
+            .build()
+        : makeTable()
+            .entity(personSchema, (e) =>
+              e
+                .primary({ pk: ['organizationId'] })
+                .index('GSI1', 'byEmail', { pk: ['email'] })
+                .index('LSI1', 'byCreatedAt', { sk: ['createdAt'] }),
+            )
+            .singleEntity(settingsSchema, { default: { theme } })
+            .build();
       return TableSnapshot.capture(table);
     };
 
@@ -143,75 +149,86 @@ describe('portable Table definition', () => {
   });
 
   it('rejects duplicate names without global mutable state', () => {
-    const duplicateSlot = Table.make('one')
+    const duplicateSlot = StdTable.make('one')
       .primary('pk', 'sk')
       .lsi('same', 'a');
     expect(() => duplicateSlot.gsi('same', 'b', 'c')).toThrow(
       'Index slot "same" is already defined',
     );
 
-    const table = makeTable();
-    table.entity(personSchema).primary().build();
-    expect(() => table.entity(personSchema).primary().build()).toThrow(
+    // The types refuse a second declaration, so it is cast past them here.
+    const declared = makeTable().entity(personSchema, (e) =>
+      e.primary(),
+    ) as unknown as ReturnType<typeof makeTable>;
+    expect(() => declared.entity(personSchema, (e) => e.primary())).toThrow(
       'Entity "Person" is already defined',
     );
 
-    const duplicatePattern = makeTable()
-      .entity(personSchema)
-      .primary()
-      .index('GSI1', 'same', { pk: ['email'] });
     expect(() =>
-      duplicatePattern.index('LSI1', 'same', { sk: ['createdAt'] }),
+      makeTable().entity(personSchema, (e) =>
+        e
+          .primary()
+          .index('GSI1', 'same', { pk: ['email'] })
+          .index('LSI1', 'same', { sk: ['createdAt'] }),
+      ),
     ).toThrow('Access pattern "same" is already defined');
 
+    expect(StdTable.make('independent').logicalName).toBe('independent');
+  });
+
+  it('refuses an entity named after a member of the table', () => {
+    const scan = EntityESchema.make('scan', 'id', {
+      value: Schema.String,
+    }).build();
+    // The types refuse this name, so it is cast past them here.
+    const builder = makeTable() as unknown as {
+      entity: (schema: unknown, configure: (e: never) => unknown) => unknown;
+    };
     expect(() =>
-      Table.assertUniqueNames([
-        makeTable(),
-        Table.make('people').primary('a', 'b').build(),
-      ]),
-    ).toThrow('Logical Table "people" is already defined');
-    expect(Table.make('independent').logicalName).toBe('independent');
+      builder.entity(scan, (e: { primary: () => unknown }) => e.primary()),
+    ).toThrow('Entity name "scan" is taken by the table\'s own "scan"');
   });
 
   it('reserves portable storage attribute names', () => {
-    expect(() => Table.make('people').primary('_e', 'sk')).toThrow(
+    expect(() => StdTable.make('people').primary('_e', 'sk')).toThrow(
       'Primary partition-key attribute "_e" is reserved for portable storage',
     );
     expect(() =>
-      Table.make('people').primary('pk', 'sk').gsi('GSI1', 'data', 'GSI1SK'),
+      StdTable.make('people').primary('pk', 'sk').gsi('GSI1', 'data', 'GSI1SK'),
     ).toThrow(
       'Index partition-key attribute "data" is reserved for portable storage',
     );
-    expect(() => Table.make('people').primary('key', 'key')).toThrow(
+    expect(() => StdTable.make('people').primary('key', 'key')).toThrow(
       'Primary partition-key and sort-key attributes must differ',
     );
     expect(() =>
-      Table.make('people')
+      StdTable.make('people')
         .primary('pk', 'sk')
         .gsi('GSI1', 'GSI1Key', 'GSI1Key'),
     ).toThrow('Index "GSI1" partition-key and sort-key attributes must differ');
     expect(() =>
-      Table.make('people').primary('pk', 'sk').gsi('_entity', 'gpk', 'gsk'),
+      StdTable.make('people').primary('pk', 'sk').gsi('_entity', 'gpk', 'gsk'),
     ).toThrow('Index slot name "_entity" is reserved');
   });
 
   it('rejects reused physical key attributes and Entity index slots', () => {
     expect(() =>
-      Table.make('people').primary('pk', 'sk').gsi('GSI1', 'pk', 'GSI1SK'),
+      StdTable.make('people').primary('pk', 'sk').gsi('GSI1', 'pk', 'GSI1SK'),
     ).toThrow('Index "GSI1" key attribute "pk" is already used');
     expect(() =>
-      Table.make('people')
+      StdTable.make('people')
         .primary('pk', 'sk')
         .gsi('GSI1', 'GSI1PK', 'GSI1SK')
         .lsi('LSI1', 'GSI1SK'),
     ).toThrow('Index "LSI1" key attribute "GSI1SK" is already used');
 
-    const entity = makeTable()
-      .entity(personSchema)
-      .primary()
-      .index('GSI1', 'byEmail', { pk: ['email'] });
     expect(() =>
-      entity.index('GSI1', 'byOrganization', { pk: ['organizationId'] }),
+      makeTable().entity(personSchema, (e) =>
+        e
+          .primary()
+          .index('GSI1', 'byEmail', { pk: ['email'] })
+          .index('GSI1', 'byOrganization', { pk: ['organizationId'] }),
+      ),
     ).toThrow('Index slot "GSI1" is already used by this Entity');
   });
 
@@ -231,20 +248,25 @@ describe('portable Table definition', () => {
     }).build();
 
     const doc = makeTable()
-      .entity(Doc)
-      .primary({ pk: ['boardId', 'owner.kind'] })
-      .index('LSI1', 'byRank', { sk: ['rank'] })
-      .index('GSI1', 'byTeam', { pk: ['owner.teamId'], sk: ['owner.seat'] })
-      .build();
+      .entity(Doc, (e) =>
+        e
+          .primary({ pk: ['boardId', 'owner.kind'] })
+          .index('LSI1', 'byRank', { sk: ['rank'] })
+          .index('GSI1', 'byTeam', {
+            pk: ['owner.teamId'],
+            sk: ['owner.seat'],
+          }),
+      )
+      .build().Doc;
     expect(doc.accessPatterns.byTeam).toMatchObject({
       pk: ['owner.teamId'],
       sk: ['owner.seat'],
     });
     expect(() =>
       makeTable()
-        .entity(Doc)
-        .primary()
-        .index('GSI1', 'byAssignee', { pk: ['assignee.id'] })
+        .entity(Doc, (e) =>
+          e.primary().index('GSI1', 'byAssignee', { pk: ['assignee.id'] }),
+        )
         .build(),
     ).not.toThrow();
   });
@@ -259,14 +281,12 @@ describe('portable Table definition', () => {
     }).build();
 
     expect(() =>
-      makeTable()
-        .entity(Doc)
-        .primary({ pk: ['owner.userId' as never] }),
+      makeTable().entity(Doc, (e) =>
+        e.primary({ pk: ['owner.userId' as never] }),
+      ),
     ).toThrow(/"owner.userId" is missing or null in some values/);
     expect(() =>
-      makeTable()
-        .entity(Doc)
-        .primary({ pk: ['label' as never] }),
+      makeTable().entity(Doc, (e) => e.primary({ pk: ['label' as never] })),
     ).toThrow(/"label" is missing or null in some values/);
   });
 
@@ -276,15 +296,13 @@ describe('portable Table definition', () => {
     }).build();
 
     expect(() =>
-      makeTable()
-        .entity(Doc)
-        .primary({ pk: ['owner.id' as never] }),
+      makeTable().entity(Doc, (e) => e.primary({ pk: ['owner.id' as never] })),
     ).toThrow(/"owner.id" is missing or null in some values/);
     expect(() =>
       makeTable()
-        .entity(Doc)
-        .primary()
-        .index('GSI1', 'byOwner', { pk: ['owner.id'] })
+        .entity(Doc, (e) =>
+          e.primary().index('GSI1', 'byOwner', { pk: ['owner.id'] }),
+        )
         .build(),
     ).not.toThrow();
   });
@@ -298,10 +316,9 @@ describe('portable Table definition', () => {
       mixed: Schema.Union([Schema.String, Schema.Finite]),
     }).build();
     const index = (component: string) => () =>
-      makeTable()
-        .entity(Doc)
-        .primary()
-        .index('GSI1', 'byIt', { pk: [component as never] });
+      makeTable().entity(Doc, (e) =>
+        e.primary().index('GSI1', 'byIt', { pk: [component as never] }),
+      );
 
     expect(index('dueAt')).toThrow(/"dueAt" ends at a Declaration/);
     expect(index('tags.name')).toThrow(/"tags.name" passes through an array/);
@@ -318,8 +335,7 @@ describe('portable Table definition', () => {
 
     expect(() =>
       makeTable()
-        .entity(annotated)
-        .primary({ pk: ['threadId'] })
+        .entity(annotated, (e) => e.primary({ pk: ['threadId'] }))
         .build(),
     ).not.toThrow();
   });
@@ -334,9 +350,10 @@ describe('portable Table definition', () => {
     const right = EntityESchema.make('Right', 'id', {
       shared: shared.schema,
     }).build();
-    const table = makeTable();
-    table.entity(left).primary().build();
-    table.entity(right).primary().build();
+    const table = makeTable()
+      .entity(left, (e) => e.primary())
+      .entity(right, (e) => e.primary())
+      .build();
     expect(
       TableSnapshot.capture(table).schemas.filter(
         ({ identity }) => identity === 'Shared',
@@ -349,14 +366,15 @@ describe('portable Table definition', () => {
     const two = EntityESchema.make('Conflict', 'id', {
       value: Schema.Finite,
     }).build();
-    const conflictTable = makeTable();
-    conflictTable
-      .entity(EntityESchema.make('One', 'id', { nested: one.schema }).build())
-      .primary()
-      .build();
-    conflictTable
-      .entity(EntityESchema.make('Two', 'id', { nested: two.schema }).build())
-      .primary()
+    const conflictTable = makeTable()
+      .entity(
+        EntityESchema.make('One', 'id', { nested: one.schema }).build(),
+        (e) => e.primary(),
+      )
+      .entity(
+        EntityESchema.make('Two', 'id', { nested: two.schema }).build(),
+        (e) => e.primary(),
+      )
       .build();
     expect(() => TableSnapshot.capture(conflictTable)).toThrow(
       'is claimed by different ESchemas',

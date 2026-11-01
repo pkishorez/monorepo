@@ -176,6 +176,7 @@ export const makeTableContract = (
       },
       catch: (cause) => new OperationFailure({ cause }),
     }),
+  estimateItemCount: () => Effect.succeed(items.size),
   scanItems: (request) =>
     Effect.try({
       try: () => {

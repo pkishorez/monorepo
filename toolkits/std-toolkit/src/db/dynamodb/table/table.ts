@@ -1,3 +1,4 @@
+import { Effect } from 'effect';
 import type { TableDefinition } from '../../std-table/definition/index.js';
 import type { StdTableContract } from '../../std-table/contract/index.js';
 import type { DynamoDBClient } from '../client/index.js';
@@ -7,6 +8,7 @@ import {
   hardDeleteEntityItems,
   hardDeleteItem,
 } from './delete.js';
+import { contractFailure } from './failure.js';
 import { queryItems } from './query.js';
 import { getItem } from './read.js';
 import { scanItems } from './scan.js';
@@ -36,5 +38,10 @@ export const makeTableContract = (
     hardDeleteEntityItems: (entity) =>
       hardDeleteEntityItems(client, table, tableName, entity),
     hardDeleteAllItems: () => hardDeleteAllItems(client, table, tableName),
+    estimateItemCount: () =>
+      client.describeTable({ TableName: tableName }).pipe(
+        Effect.map((output) => output.Table?.ItemCount ?? 0),
+        Effect.mapError(contractFailure),
+      ),
   };
 };

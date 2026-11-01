@@ -92,6 +92,10 @@ const makeDeleteEntityStatement = (tableName: string) => ({
   sql: `DELETE FROM ${quoteIdentifier(tableName)} WHERE _e = ?`,
 });
 
+const makeCountStatement = (tableName: string) => ({
+  sql: `SELECT COUNT(*) AS count FROM ${quoteIdentifier(tableName)}`,
+});
+
 const makeDeleteAllStatement = (tableName: string) => ({
   sql: `DELETE FROM ${quoteIdentifier(tableName)}`,
 });
@@ -176,60 +180,6 @@ const makeDropIndexStatement = (indexName: string) => ({
   sql: `DROP INDEX IF EXISTS ${quoteIdentifier(indexName)}`,
 });
 
-const makeDropTableStatement = (tableName: string) => ({
-  sql: `DROP TABLE IF EXISTS ${quoteIdentifier(tableName)}`,
-});
-
-/** The table holding each physical table's Stored contract, beside the data. */
-export const CONTRACT_TABLE = '_std_contract';
-
-const makeCreateContractTableStatement = () => ({
-  sql: `CREATE TABLE IF NOT EXISTS ${quoteIdentifier(CONTRACT_TABLE)} (table_name TEXT PRIMARY KEY NOT NULL COLLATE NOCASE, mode TEXT NOT NULL, hash TEXT NOT NULL, snapshot TEXT NOT NULL)`,
-});
-
-const makeReadContractStatement = (tableName: string) => ({
-  sql: `SELECT mode, hash FROM ${quoteIdentifier(CONTRACT_TABLE)} WHERE table_name = ?`,
-  parameters: [tableName] as const,
-});
-
-const makeReadContractSnapshotStatement = (tableName: string) => ({
-  sql: `SELECT snapshot FROM ${quoteIdentifier(CONTRACT_TABLE)} WHERE table_name = ?`,
-  parameters: [tableName] as const,
-});
-
-type ContractRow = { mode: string; hash: string; snapshot: string };
-
-/** Records a first contract; changes nothing when another setup got there first. */
-const makeInsertContractStatement = (
-  tableName: string,
-  contract: ContractRow,
-) => ({
-  sql: `INSERT INTO ${quoteIdentifier(CONTRACT_TABLE)} (table_name, mode, hash, snapshot) VALUES (?, ?, ?, ?) ON CONFLICT (table_name) DO NOTHING`,
-  parameters: [
-    tableName,
-    contract.mode,
-    contract.hash,
-    contract.snapshot,
-  ] as const,
-});
-
-/** Replaces the contract only while it is still the one setup read. */
-const makeSwapContractStatement = (
-  tableName: string,
-  read: { mode: string; hash: string },
-  contract: ContractRow,
-) => ({
-  sql: `UPDATE ${quoteIdentifier(CONTRACT_TABLE)} SET mode = ?, hash = ?, snapshot = ? WHERE table_name = ? AND mode = ? AND hash = ?`,
-  parameters: [
-    contract.mode,
-    contract.hash,
-    contract.snapshot,
-    tableName,
-    read.mode,
-    read.hash,
-  ] as const,
-});
-
 const findMissingColumnDefinitions = (
   table: SQLiteTable,
   rows: readonly SQLiteRow[],
@@ -261,8 +211,8 @@ export const Statement = {
   addColumn: makeAddColumnStatement,
   check: makeCheckStatement,
   createIndexes: makeCreateIndexStatements,
-  createContractTable: makeCreateContractTableStatement,
   createTable: makeCreateTableStatement,
+  count: makeCountStatement,
   deleteAll: makeDeleteAllStatement,
   deleteEntity: makeDeleteEntityStatement,
   findMissingColumns: findMissingColumnDefinitions,
@@ -275,11 +225,6 @@ export const Statement = {
   query: makeQueryStatement,
   scan: makeScanStatement,
   dropIndex: makeDropIndexStatement,
-  dropTable: makeDropTableStatement,
-  readContract: makeReadContractStatement,
-  insertContract: makeInsertContractStatement,
-  readContractSnapshot: makeReadContractSnapshotStatement,
-  swapContract: makeSwapContractStatement,
   tableInfo: makeTableInfoStatement,
   write: makeWriteStatement,
 } as const;

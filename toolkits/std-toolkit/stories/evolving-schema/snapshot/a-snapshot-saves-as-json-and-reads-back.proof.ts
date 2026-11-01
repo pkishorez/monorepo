@@ -18,11 +18,11 @@ const Task = EntityESchema.make('Task', 'taskId', {
 const table = StdTable.make('board')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-  .build();
-table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
-  .index('GSI1', 'byPriority', { pk: ['priority'], sk: ['title'] })
+  .entity(Task, (e) =>
+    e
+      .primary({ pk: ['boardId'] })
+      .index('GSI1', 'byPriority', { pk: ['priority'], sk: ['title'] }),
+  )
   .build();
 
 export default Proof.make({

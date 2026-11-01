@@ -10,4 +10,4 @@ export {
   type KeyPart,
   type KeyReader,
 } from './key.js';
-export { LEGACY_BASELINE_ENTITY } from './reserved-key.js';
+export { isReservedEntity, RESERVED_ENTITY_PREFIX } from './reserved-key.js';

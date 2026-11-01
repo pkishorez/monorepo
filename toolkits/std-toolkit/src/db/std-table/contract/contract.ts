@@ -135,6 +135,8 @@ export interface QueryRequest {
   readonly descending: boolean;
   readonly limit: number;
   readonly startAfter?: QueryPosition;
+  /** A strongly consistent read; only the primary index offers one on DynamoDB. */
+  readonly consistent?: boolean;
 }
 
 export interface QueryResult {
@@ -147,6 +149,8 @@ export interface ScanRequest {
   readonly startAfter?: StoredKey;
   readonly segment?: number;
   readonly totalSegments?: number;
+  /** A strongly consistent read, where the adapter has a weaker default (DynamoDB). */
+  readonly consistent?: boolean;
 }
 
 export interface ScanResult {
@@ -204,6 +208,12 @@ export interface StdTableContract {
     entity: string,
   ) => Effect.Effect<number, ContractFailure>;
   readonly hardDeleteAllItems: () => Effect.Effect<number, ContractFailure>;
+  /**
+   * About how many rows the table holds, the Stored contract's included,
+   * for a progress total: exact on SQLite, IndexedDB and Memory, and
+   * DynamoDB's own item count, refreshed about every six hours.
+   */
+  readonly estimateItemCount?: () => Effect.Effect<number, ContractFailure>;
 }
 
 declare const stdTableServiceType: unique symbol;

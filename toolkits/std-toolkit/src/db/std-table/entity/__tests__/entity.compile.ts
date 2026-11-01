@@ -3,17 +3,21 @@ import { EntityESchema, ESchema } from '../../../../eschema/index.js';
 import { StdTable } from '../../table/index.js';
 import type { CheckOp, TableEffect } from '../index.js';
 
-const table = StdTable.make('entity-compile').primary('pk', 'sk').build();
-
-const record = table
+const table = StdTable.make('entity-compile')
+  .primary('pk', 'sk')
   .entity(
     EntityESchema.make('Record', 'recordId', {
       category: Schema.String,
       value: Schema.Finite,
     }).build(),
+    (e) => e.primary({ pk: ['category'] }),
   )
-  .primary({ pk: ['category'] })
+  .singleEntity(ESchema.make('Settings', { enabled: Schema.Boolean }).build(), {
+    default: { enabled: true },
+  })
   .build();
+
+const record = table.Record;
 
 const check = record.getAndCheckOp(
   { recordId: 'record-1', category: 'documents' },
@@ -30,9 +34,7 @@ record.getAndCheckOp(
   () => 1,
 );
 
-const settings = table
-  .singleEntity(ESchema.make('Settings', { enabled: Schema.Boolean }).build())
-  .default({ enabled: true });
+const settings = table.Settings;
 
 // @ts-expect-error Single entities do not support get-and-check.
 settings.getAndCheckOp({}, () => true);

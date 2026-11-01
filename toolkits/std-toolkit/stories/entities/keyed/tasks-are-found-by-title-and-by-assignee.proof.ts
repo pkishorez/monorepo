@@ -15,12 +15,15 @@ const table = StdTable.make('board')
   .primary('pk', 'sk')
   .lsi('LSI1', 'LSI1SK')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-  .build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
-  .index('LSI1', 'byTitle', { sk: ['title'] })
-  .index('GSI1', 'byAssignee', { pk: ['assignee'], sk: ['boardId', 'title'] })
+  .entity(Task, (e) =>
+    e
+      .primary({ pk: ['boardId'] })
+      .index('LSI1', 'byTitle', { sk: ['title'] })
+      .index('GSI1', 'byAssignee', {
+        pk: ['assignee'],
+        sk: ['boardId', 'title'],
+      }),
+  )
   .build();
 
 export default Proof.make({
@@ -34,7 +37,7 @@ export default Proof.make({
       { taskId: 't3', boardId: 'work', title: 'Ship', assignee: 'ana' },
       { taskId: 't4', boardId: 'home', title: 'Cook', assignee: 'ana' },
     ];
-    yield* Effect.forEach(tasks, (value) => task.insert(value)).pipe(
+    yield* Effect.forEach(tasks, (value) => table.Task.insert(value)).pipe(
       Effect.provide(db.layer),
     );
     yield* Proof.assert('four tasks over two boards', tasks.length === 4);
@@ -42,15 +45,15 @@ export default Proof.make({
   }),
   act: ({ db }) =>
     Effect.gen(function* () {
-      const byTitle = yield* task.query('byTitle', {
+      const byTitle = yield* table.Task.query('byTitle', {
         pk: { boardId: 'work' },
         '>=': null,
       });
-      const anasTasks = yield* task.query('byAssignee', {
+      const anasTasks = yield* table.Task.query('byAssignee', {
         pk: { assignee: 'ana' },
         '>=': null,
       });
-      const anasWork = yield* task.query('byAssignee', {
+      const anasWork = yield* table.Task.query('byAssignee', {
         pk: { assignee: 'ana' },
         beginsWith: { boardId: 'work', title: '' },
       });

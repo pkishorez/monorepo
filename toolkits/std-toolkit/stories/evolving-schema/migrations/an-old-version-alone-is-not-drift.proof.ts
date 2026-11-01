@@ -18,15 +18,13 @@ const Task = EntityESchema.make('Task', 'taskId', {
   }))
   .build();
 
-const lastRelease = StdTable.make('board').primary('pk', 'sk').build();
-const oldTask = lastRelease
-  .entity(TaskV1)
-  .primary({ pk: ['boardId'] })
+const lastRelease = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(TaskV1, (e) => e.primary({ pk: ['boardId'] }))
   .build();
-const table = StdTable.make('board').primary('pk', 'sk').build();
-table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 export default Proof.make({
@@ -37,9 +35,11 @@ export default Proof.make({
   critical: true,
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
-    const written = yield* oldTask
-      .insert({ taskId: 't1', boardId: 'work', title: 'Plan' })
-      .pipe(Effect.provide(db.layer));
+    const written = yield* lastRelease.Task.insert({
+      taskId: 't1',
+      boardId: 'work',
+      title: 'Plan',
+    }).pipe(Effect.provide(db.layer));
     const [stored] = yield* Stream.runCollect(table.scan()).pipe(
       Effect.provide(db.layer),
     );

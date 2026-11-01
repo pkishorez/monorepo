@@ -49,26 +49,27 @@ export default Proof.browser({
   description:
     'Tasks sync per board through a Window on `boardId`: the Work board reads only Work tasks from the backend (an IndexedDB StdTable in the page holding two boards). Switching to Home opens a Window for Home, which then loads, and the screen shows only Home tasks.',
   page: (root) => {
-    const table = StdTable.make('board').primary('pk', 'sk').build();
-    const tasks = table
-      .entity(Task)
-      .primary({ pk: ['boardId'] })
+    const table = StdTable.make('board')
+      .primary('pk', 'sk')
+      .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
       .build();
     const backend = IDB.make(table, {
       mode: 'disposable',
       database: IDB.database({ databaseName: 'backend' }),
     });
     const onBoard = (boardId: string, after: Entity<Task> | null) =>
-      tasks
-        .query('primary', { pk: { boardId }, '>=': null }, { limit: 500 })
-        .pipe(
-          Effect.map((page) =>
-            page.items
-              .filter((item) => after === null || item.meta._u > after.meta._u)
-              .sort((a, b) => (a.meta._u < b.meta._u ? -1 : 1)),
-          ),
-          Effect.provide(backend.layer),
-        );
+      table.Task.query(
+        'primary',
+        { pk: { boardId }, '>=': null },
+        { limit: 500 },
+      ).pipe(
+        Effect.map((page) =>
+          page.items
+            .filter((item) => after === null || item.meta._u > after.meta._u)
+            .sort((a, b) => (a.meta._u < b.meta._u ? -1 : 1)),
+        ),
+        Effect.provide(backend.layer),
+      );
 
     // How often this tab read each board from the backend.
     const reads: Record<string, number> = { work: 0, home: 0 };
@@ -186,7 +187,7 @@ export default Proof.browser({
     style.textContent = css;
     document.head.append(style);
     const reactRoot = createRoot(root);
-    // The backend holds three Work tasks and two Home tasks.
+    // The backend holds three Work tasks and two Home table.Task.
     void Effect.runPromise(
       Effect.forEach(
         [
@@ -197,7 +198,9 @@ export default Proof.browser({
           { taskId: 'laundry', boardId: 'home', title: 'Do the laundry' },
         ],
         (task, position) =>
-          tasks.insert({ ...task, done: false, position }).pipe(Effect.ignore),
+          table.Task.insert({ ...task, done: false, position }).pipe(
+            Effect.ignore,
+          ),
       ).pipe(Effect.provide(backend.layer)),
     ).then(() => reactRoot.render(<Board />));
     return () => {

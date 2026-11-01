@@ -1,4 +1,11 @@
-export { fromStored, toStored, makeStoredItem } from './storage.js';
+export {
+  fromStored,
+  fromStoredSingle,
+  toStored,
+  toStoredSingle,
+  makeStoredItem,
+  singleKey,
+} from './storage.js';
 export {
   broadcast,
   changesOrEmpty,
@@ -12,12 +19,9 @@ export {
   type EntityKey,
   type EntityValue,
   type InsertValue,
-  type KeyedBuilder,
-  type KeyedBuilderStart,
   type KeyedEntity,
   type QueryOptions,
   type QueryPage,
-  type SingleBuilder,
   type SingleEntity,
   type SortCondition,
   type TableEffect,

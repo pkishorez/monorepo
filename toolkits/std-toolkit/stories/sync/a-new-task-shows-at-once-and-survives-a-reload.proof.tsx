@@ -60,11 +60,12 @@ export default Proof.browser({
     'One Tab adds a task. It appears at once, the backend (an IndexedDB StdTable in the page, one second away) stores it, and a reload opens with it from the IndexedDB Sync Store.',
   critical: true,
   page: (root) => {
-    const table = StdTable.make('board').primary('pk', 'sk').build();
-    const tasks = table
-      .entity(Task)
-      .primary({ pk: ['boardId'] })
+    const table = StdTable.make('board')
+      .primary('pk', 'sk')
+      .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
       .build();
+
+    const tasks = table.Task;
     const backend = IDB.make(table, {
       mode: 'disposable',
       database: IDB.database({ databaseName: 'backend' }),

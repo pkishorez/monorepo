@@ -6,13 +6,17 @@ import { StdTable } from '../../std-table/table/index.js';
 import { makeNodeSQLite } from '../drivers/node/index.js';
 import { SQLite } from '../index.js';
 
-const localTable = StdTable.make('mixed-local').primary('pk', 'sk').build();
-const remoteTable = StdTable.make('mixed-remote').primary('pk', 'sk').build();
 const schema = EntityESchema.make('Record', 'id', {
   label: Schema.String,
 }).build();
-const localRecord = localTable.entity(schema).primary().build();
-const remoteRecord = remoteTable.entity(schema).primary().build();
+const localTable = StdTable.make('mixed-local')
+  .primary('pk', 'sk')
+  .entity(schema, (e) => e.primary())
+  .build();
+const remoteTable = StdTable.make('mixed-remote')
+  .primary('pk', 'sk')
+  .entity(schema, (e) => e.primary())
+  .build();
 
 describe('mixed Table bindings', () => {
   it('composes distinct definitions backed by SQLite and another runtime', async () => {
@@ -25,8 +29,8 @@ describe('mixed Table bindings', () => {
 
     const result = await Effect.runPromise(
       Effect.all([
-        localRecord.insert({ id: 'local', label: 'SQLite' }),
-        remoteRecord.insert({ id: 'remote', label: 'deterministic' }),
+        localTable.Record.insert({ id: 'local', label: 'SQLite' }),
+        remoteTable.Record.insert({ id: 'remote', label: 'deterministic' }),
       ]).pipe(Effect.provide(Layer.merge(sqlite.layer, deterministic.layer))),
     );
 

@@ -4,27 +4,25 @@ import { EntityESchema, ESchema } from '../../../../eschema/index.js';
 import { Memory } from '../../../memory/index.js';
 import { StdTable } from '../../table/index.js';
 
-const table = StdTable.make('spans-test')
-  .primary('pk', 'sk')
-  .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-  .build();
-
 const taskSchema = EntityESchema.make('Task', 'taskId', {
   board: Schema.String,
   title: Schema.String,
 }).build();
 
-const task = table
-  .entity(taskSchema)
-  .primary({ pk: ['board'] })
-  .index('GSI1', 'byBoard', { pk: ['board'], sk: ['title'] })
-  .build();
-
 const settingsSchema = ESchema.make('Settings', {
   theme: Schema.String,
 }).build();
 
-const settings = table.singleEntity(settingsSchema).default({ theme: 'light' });
+const table = StdTable.make('spans-test')
+  .primary('pk', 'sk')
+  .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+  .entity(taskSchema, (e) =>
+    e
+      .primary({ pk: ['board'] })
+      .index('GSI1', 'byBoard', { pk: ['board'], sk: ['title'] }),
+  )
+  .singleEntity(settingsSchema, { default: { theme: 'light' } })
+  .build();
 
 const recording = () => {
   const spans: Tracer.NativeSpan[] = [];
@@ -53,8 +51,8 @@ describe('StdTable spans', () => {
 
     await run(
       Effect.gen(function* () {
-        yield* task.insert({ taskId: 't1', board: 'b1', title: 'first' });
-        yield* task.getAndUpdate(
+        yield* table.Task.insert({ taskId: 't1', board: 'b1', title: 'first' });
+        yield* table.Task.getAndUpdate(
           { taskId: 't1', board: 'b1' },
           { title: 'second' },
         );
@@ -83,16 +81,16 @@ describe('StdTable spans', () => {
 
     await run(
       Effect.gen(function* () {
-        yield* task.insert({ ...key, title: 'first' });
-        yield* task.get(key);
-        yield* task.query('byBoard', {
+        yield* table.Task.insert({ ...key, title: 'first' });
+        yield* table.Task.get(key);
+        yield* table.Task.query('byBoard', {
           pk: { board: 'b1' },
           beginsWith: { title: '' },
         });
-        yield* task.delete(key);
-        yield* task.restore(key);
-        yield* Stream.runDrain(task.subscribe());
-        yield* task.hardDelete(key, 'I KNOW WHAT I AM DOING');
+        yield* table.Task.delete(key);
+        yield* table.Task.restore(key);
+        yield* Stream.runDrain(table.Task.subscribe());
+        yield* table.Task.hardDelete(key, 'I KNOW WHAT I AM DOING');
       }).pipe(Effect.provide(layer)),
       tracer,
     );
@@ -117,10 +115,10 @@ describe('StdTable spans', () => {
 
     await run(
       Effect.gen(function* () {
-        yield* settings.get();
-        yield* settings.put({ theme: 'dark' });
-        yield* settings.getAndUpdate({ theme: 'blue' });
-        yield* settings.reset();
+        yield* table.Settings.get();
+        yield* table.Settings.put({ theme: 'dark' });
+        yield* table.Settings.getAndUpdate({ theme: 'blue' });
+        yield* table.Settings.reset();
       }).pipe(Effect.provide(layer)),
       tracer,
     );
@@ -142,7 +140,7 @@ describe('StdTable spans', () => {
 
     await run(
       Effect.gen(function* () {
-        const op = yield* task.insertOp({
+        const op = yield* table.Task.insertOp({
           taskId: 't1',
           board: 'b1',
           title: 'first',

@@ -60,11 +60,12 @@ export default Proof.browser({
     'The Device goes offline (Playwright setOffline). The board keeps showing its local copy; an edit cannot reach the backend, so it is rolled back with a message instead of pretending to be saved. Back online, the leader catches up on what changed meanwhile and new edits are confirmed. This version of Sync ships no Outbox: an offline edit is not queued.',
   critical: true,
   page: (root) => {
-    const table = StdTable.make('board').primary('pk', 'sk').build();
-    const tasks = table
-      .entity(Task)
-      .primary({ pk: ['boardId'] })
+    const table = StdTable.make('board')
+      .primary('pk', 'sk')
+      .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
       .build();
+
+    const tasks = table.Task;
     const backend = IDB.make(table, {
       mode: 'disposable',
       database: IDB.database({ databaseName: 'backend' }),

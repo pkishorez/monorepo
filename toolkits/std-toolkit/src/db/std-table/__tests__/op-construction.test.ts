@@ -6,18 +6,18 @@ import { StdTable } from '../table/index.js';
 import { OperationFailure, contractLayer } from '../contract/index.js';
 import { makeDeterministicContract } from './deterministic-contract.js';
 
-const table = StdTable.make('op-construction').primary('pk', 'sk').build();
 const schema = EntityESchema.make('Task', 'taskId', {
   bucket: Schema.String,
   label: Schema.String,
 }).build();
-const task = table
-  .entity(schema)
-  .primary({ pk: ['bucket'] })
+const table = StdTable.make('op-construction')
+  .primary('pk', 'sk')
+  .entity(schema, (e) => e.primary({ pk: ['bucket'] }))
+  .singleEntity(ESchema.make('Settings', { theme: Schema.String }).build(), {
+    default: { theme: 'light' },
+  })
   .build();
-const settings = table
-  .singleEntity(ESchema.make('Settings', { theme: Schema.String }).build())
-  .default({ theme: 'light' });
+const settings = table.Settings;
 
 const key = { taskId: 't1', bucket: 'inbox' };
 const value = { ...key, label: 'Write it down' };
@@ -52,20 +52,20 @@ describe('transact ops carry intent only', () => {
   it('builds every keyed op without a read', async () => {
     const ops = await run(
       Effect.all([
-        task.insertOp(value),
-        task.getAndUpdateOp(key, { label: 'changed' }),
-        task.getAndUpdateOp(key, (current) => ({ label: current.label })),
-        task.getAndUpdateOp(
+        table.Task.insertOp(value),
+        table.Task.getAndUpdateOp(key, { label: 'changed' }),
+        table.Task.getAndUpdateOp(key, (current) => ({ label: current.label })),
+        table.Task.getAndUpdateOp(
           key,
           { label: 'checked' },
           { check: (current) => current.label !== '' },
         ),
-        task.deleteOp(key),
-        task.restoreOp(key),
-        task.getAndCheckOp(key, (current) => current.label !== ''),
-        task.existsOp(key),
-        task.notExistsOp(key),
-        task.unchangedOp({
+        table.Task.deleteOp(key),
+        table.Task.restoreOp(key),
+        table.Task.getAndCheckOp(key, (current) => current.label !== ''),
+        table.Task.existsOp(key),
+        table.Task.notExistsOp(key),
+        table.Task.unchangedOp({
           value,
           meta: {
             _e: 'Task',

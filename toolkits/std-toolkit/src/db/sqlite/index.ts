@@ -1,5 +1,4 @@
 export {
-  setUpFromSnapshot,
   SQLite,
   type SQLiteTable,
   type SQLiteConfig,
@@ -8,6 +7,7 @@ export {
 } from './sqlite.js';
 export {
   SetupRefused,
+  type SetupOutcome,
   type SetupRefusedReason,
   type TableMode,
-} from '../stored-contract/index.js';
+} from '../setup/index.js';

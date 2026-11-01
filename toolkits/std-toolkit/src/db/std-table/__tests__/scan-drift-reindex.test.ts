@@ -4,31 +4,28 @@ import { defaultBroadcaster } from '../../../core/index.js';
 import { EntityESchema } from '../../../eschema/index.js';
 import { StdTable } from '../table/index.js';
 import { contractLayer } from '../contract/index.js';
-import { LEGACY_BASELINE_ENTITY } from '../key/index.js';
+import { RESERVED_ENTITY_PREFIX } from '../key/index.js';
 import { makeDeterministicContract } from './deterministic-contract.js';
 
 describe('scan, drift, and reindex', () => {
   it('detects index drift, repairs it without a new _u or broadcast, and clears on the next check', async () => {
-    const beforeTable = StdTable.make('drift-test')
-      .primary('pk', 'sk')
-      .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-      .build();
-    const afterTable = StdTable.make('drift-test')
-      .primary('pk', 'sk')
-      .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-      .build();
     const schema = EntityESchema.make('Note', 'noteId', {
       notebook: Schema.String,
       status: Schema.String,
     }).build();
-    const noteBefore = beforeTable
-      .entity(schema)
-      .primary({ pk: ['notebook'] })
+    const beforeTable = StdTable.make('drift-test')
+      .primary('pk', 'sk')
+      .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+      .entity(schema, (e) => e.primary({ pk: ['notebook'] }))
       .build();
-    const noteAfter = afterTable
-      .entity(schema)
-      .primary({ pk: ['notebook'] })
-      .index('GSI1', 'byStatus', { pk: ['notebook'], sk: ['status'] })
+    const afterTable = StdTable.make('drift-test')
+      .primary('pk', 'sk')
+      .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+      .entity(schema, (e) =>
+        e
+          .primary({ pk: ['notebook'] })
+          .index('GSI1', 'byStatus', { pk: ['notebook'], sk: ['status'] }),
+      )
       .build();
 
     const deterministic = makeDeterministicContract(beforeTable.logicalName);
@@ -39,16 +36,20 @@ describe('scan, drift, and reindex', () => {
 
     const notice = await Effect.runPromise(
       Effect.gen(function* () {
-        yield* noteBefore.insert({
+        yield* beforeTable.Note.insert({
           noteId: 'a1',
           notebook: 'news',
           status: 'open',
         });
         yield* deterministic.contract.writeItem({
           item: {
-            pk: 'legacy',
+            pk: 'reserved',
             sk: 'snapshot',
-            meta: { _e: LEGACY_BASELINE_ENTITY, _u: 'old', _d: false },
+            meta: {
+              _e: `${RESERVED_ENTITY_PREFIX}table`,
+              _u: 'old',
+              _d: false,
+            },
             data: { _v: 'v2' },
             keys: {},
           },
@@ -80,7 +81,7 @@ describe('scan, drift, and reindex', () => {
         const after = yield* afterTable.drift(repaired);
         expect(after.drifted).toBe(false);
 
-        yield* noteAfter.insert({
+        yield* afterTable.Note.insert({
           noteId: 'a2',
           notebook: 'news',
           status: 'open',
@@ -96,26 +97,23 @@ describe('scan, drift, and reindex', () => {
   });
 
   it('fails with ReindexConflict when the row changed since it was read', async () => {
-    const beforeTable = StdTable.make('drift-conflict-test')
-      .primary('pk', 'sk')
-      .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-      .build();
-    const afterTable = StdTable.make('drift-conflict-test')
-      .primary('pk', 'sk')
-      .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-      .build();
     const schema = EntityESchema.make('Note', 'noteId', {
       notebook: Schema.String,
       status: Schema.String,
     }).build();
-    const noteBefore = beforeTable
-      .entity(schema)
-      .primary({ pk: ['notebook'] })
+    const beforeTable = StdTable.make('drift-conflict-test')
+      .primary('pk', 'sk')
+      .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+      .entity(schema, (e) => e.primary({ pk: ['notebook'] }))
       .build();
-    const noteAfter = afterTable
-      .entity(schema)
-      .primary({ pk: ['notebook'] })
-      .index('GSI1', 'byStatus', { pk: ['notebook'], sk: ['status'] })
+    const afterTable = StdTable.make('drift-conflict-test')
+      .primary('pk', 'sk')
+      .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+      .entity(schema, (e) =>
+        e
+          .primary({ pk: ['notebook'] })
+          .index('GSI1', 'byStatus', { pk: ['notebook'], sk: ['status'] }),
+      )
       .build();
 
     const deterministic = makeDeterministicContract(beforeTable.logicalName);
@@ -126,7 +124,7 @@ describe('scan, drift, and reindex', () => {
 
     const outcome = await Effect.runPromise(
       Effect.gen(function* () {
-        yield* noteBefore.insert({
+        yield* beforeTable.Note.insert({
           noteId: 'b1',
           notebook: 'news',
           status: 'open',
@@ -134,7 +132,7 @@ describe('scan, drift, and reindex', () => {
         const scanned = Array.from(yield* Stream.runCollect(afterTable.scan()));
         const stored = scanned[0]!;
         const { currentForm } = yield* afterTable.drift(stored);
-        yield* noteAfter.getAndUpdate(
+        yield* afterTable.Note.getAndUpdate(
           { noteId: 'b1', notebook: 'news' },
           { status: 'closed' },
         );
@@ -148,23 +146,17 @@ describe('scan, drift, and reindex', () => {
   });
 
   it('fails with PrimaryKeyDrift when the current registration derives a different primary key', async () => {
-    const beforeTable = StdTable.make('primary-drift-test')
-      .primary('pk', 'sk')
-      .build();
-    const afterTable = StdTable.make('primary-drift-test')
-      .primary('pk', 'sk')
-      .build();
     const schema = EntityESchema.make('Note', 'noteId', {
       notebook: Schema.String,
       status: Schema.String,
     }).build();
-    const noteBefore = beforeTable
-      .entity(schema)
-      .primary({ pk: ['notebook'] })
+    const beforeTable = StdTable.make('primary-drift-test')
+      .primary('pk', 'sk')
+      .entity(schema, (e) => e.primary({ pk: ['notebook'] }))
       .build();
-    afterTable
-      .entity(schema)
-      .primary({ pk: ['status'] })
+    const afterTable = StdTable.make('primary-drift-test')
+      .primary('pk', 'sk')
+      .entity(schema, (e) => e.primary({ pk: ['status'] }))
       .build();
 
     const deterministic = makeDeterministicContract(beforeTable.logicalName);
@@ -175,7 +167,7 @@ describe('scan, drift, and reindex', () => {
 
     const outcome = await Effect.runPromise(
       Effect.gen(function* () {
-        yield* noteBefore.insert({
+        yield* beforeTable.Note.insert({
           noteId: 'c1',
           notebook: 'news',
           status: 'open',
@@ -204,14 +196,6 @@ describe('scan, drift, and reindex', () => {
   });
 
   it('persists an equivalent Read migration while reindexing', async () => {
-    const beforeTable = StdTable.make('migrated-drift-test')
-      .primary('pk', 'sk')
-      .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-      .build();
-    const afterTable = StdTable.make('migrated-drift-test')
-      .primary('pk', 'sk')
-      .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-      .build();
     const beforeSchema = EntityESchema.make('Note', 'noteId', {
       notebook: Schema.String,
       status: Schema.String,
@@ -225,14 +209,19 @@ describe('scan, drift, and reindex', () => {
         label: 'migrated',
       }))
       .build();
-    const noteBefore = beforeTable
-      .entity(beforeSchema)
-      .primary({ pk: ['notebook'] })
+    const beforeTable = StdTable.make('migrated-drift-test')
+      .primary('pk', 'sk')
+      .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+      .entity(beforeSchema, (e) => e.primary({ pk: ['notebook'] }))
       .build();
-    afterTable
-      .entity(afterSchema)
-      .primary({ pk: ['notebook'] })
-      .index('GSI1', 'byStatus', { pk: ['notebook'], sk: ['status'] })
+    const afterTable = StdTable.make('migrated-drift-test')
+      .primary('pk', 'sk')
+      .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+      .entity(afterSchema, (e) =>
+        e
+          .primary({ pk: ['notebook'] })
+          .index('GSI1', 'byStatus', { pk: ['notebook'], sk: ['status'] }),
+      )
       .build();
 
     const deterministic = makeDeterministicContract(beforeTable.logicalName);
@@ -243,7 +232,7 @@ describe('scan, drift, and reindex', () => {
 
     await Effect.runPromise(
       Effect.gen(function* () {
-        yield* noteBefore.insert({
+        yield* beforeTable.Note.insert({
           noteId: 'd1',
           notebook: 'news',
           status: 'open',

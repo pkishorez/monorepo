@@ -480,7 +480,7 @@ function diffEntity(
         change(
           accessPatternSubject(after.name, pattern),
           'added',
-          'requires-backfill',
+          'requires-reindex',
         ),
       );
       continue;
@@ -497,7 +497,7 @@ function diffEntity(
           'edited',
           pattern.kind === 'primary' && prior.kind === 'primary'
             ? 'breaking'
-            : 'requires-backfill',
+            : 'requires-reindex',
           edits,
         ),
       );
@@ -538,7 +538,7 @@ function diffSecondaryIndexes(
     const prior = before.get(index.name);
     if (prior === undefined) {
       changes.push(
-        change(indexSubject(segment, index.name), 'added', 'requires-backfill'),
+        change(indexSubject(segment, index.name), 'added', 'requires-reindex'),
       );
       continue;
     }
@@ -552,7 +552,7 @@ function diffSecondaryIndexes(
         change(
           indexSubject(segment, index.name),
           'edited',
-          'requires-backfill',
+          'requires-reindex',
           edits,
         ),
       );

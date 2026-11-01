@@ -5,7 +5,7 @@ import type {
   StoredKey,
   StdTableContract,
 } from '../contract/index.js';
-import { LEGACY_BASELINE_ENTITY } from '../key/index.js';
+import { isReservedEntity } from '../key/index.js';
 
 const SCAN_PAGE_SIZE = 200;
 
@@ -44,5 +44,5 @@ export const scanStream = (
       scanSegment(contract, segment, totalSegments),
     ),
     { concurrency: totalSegments },
-  ).pipe(Stream.filter((item) => item.meta._e !== LEGACY_BASELINE_ENTITY));
+  ).pipe(Stream.filter((item) => !isReservedEntity(item.meta._e)));
 };

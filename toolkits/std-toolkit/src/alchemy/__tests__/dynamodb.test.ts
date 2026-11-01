@@ -1,111 +1,125 @@
 import { Effect } from 'effect';
-import * as Output from 'alchemy/Output';
 import { expect, it, vi } from 'vitest';
 import { StdTable } from '../../db/index.js';
-import type { DeployGuard } from '../deploy-guard/deploy-guard.js';
+import { SetupRefused } from '../../db/setup/index.js';
 
-const { table, guard } = vi.hoisted(() => ({
-  table: vi.fn((_id: string, props: { tableName: unknown }) =>
-    Effect.succeed({ tableName: props.tableName }),
-  ),
-  guard: vi.fn(),
-}));
-vi.mock('@alchemy.run/aws/DynamoDB', () => ({ Table: table }));
-vi.mock('../deploy-guard/index.js', () => ({ guardContract: guard }));
-import { DynamoDB } from '../index.js';
+const { setup } = vi.hoisted(() => ({ setup: vi.fn() }));
+vi.mock('../../db/dynamodb/index.js', () => ({ DynamoDB: { setup } }));
+vi.mock('alchemy', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('alchemy')>();
+  const { Effect } = await import('effect');
+  return {
+    ...actual,
+    Resource: () => (id: string, props: unknown) =>
+      Effect.succeed({ LogicalId: id, Props: props }),
+  };
+});
+import {
+  diffDynamoDBTable,
+  DynamoDB,
+  setUpDynamoDBTable,
+} from '../dynamodb/dynamodb.js';
 
-const guardResource = {
-  FQN: 'TasksDeployGuard',
-  LogicalId: 'TasksDeployGuard',
-} as unknown as DeployGuard;
+type Props = Parameters<typeof setUpDynamoDBTable>[0];
 
-it('guards the table before projecting its topology onto the resource', async () => {
-  const hash = Output.map(Output.of(guardResource), () => 'hash');
-  guard.mockImplementation(() => Effect.succeed({ hash }));
-  const stdTable = StdTable.make('tasks')
-    .primary('pk', 'sk')
-    .lsi('byAlternate', 'alternate')
-    .gsi('byOther', 'otherPk', 'otherSk')
-    .build();
+const tasks = StdTable.make('tasks').primary('pk', 'sk').build();
+const credentials = { accessKeyId: 'key', secretAccessKey: 'secret' };
 
-  const deploy = DynamoDB.table('Tasks', {
-    table: stdTable,
+const declare = async (table = tasks, tableName = 'tasks-prod') =>
+  (
+    (await Effect.runPromise(
+      DynamoDB.table('Tasks', {
+        table,
+        tableName,
+        mode: 'persistent',
+        region: 'eu-west-1',
+        credentials,
+      }) as Effect.Effect<unknown>,
+    )) as { LogicalId: string; Props: Props }
+  ).Props;
+
+it('declares one resource that carries the table and its contract hash, not a deploy guard', async () => {
+  const props = await declare();
+  expect(props).toMatchObject({
     tableName: 'tasks-prod',
+    region: 'eu-west-1',
     mode: 'persistent',
-  }) as Effect.Effect<unknown>;
-  await Effect.runPromise(deploy);
-
-  expect(guard).toHaveBeenCalledWith(
-    'TasksDeployGuard',
-    stdTable,
-    'persistent',
-    {
-      target: 'tasks-prod',
-      inPlaceOnly: true,
-      localIndexOrder: ['byAlternate'],
-    },
-  );
-  expect(guard.mock.invocationCallOrder[0]).toBeLessThan(
-    table.mock.invocationCallOrder[0]!,
-  );
-  expect(table).toHaveBeenCalledWith('Tasks', {
-    tableName: expect.anything(),
-    partitionKey: 'pk',
-    sortKey: 'sk',
-    attributes: {
-      pk: 'S',
-      sk: 'S',
-      alternate: 'S',
-      otherPk: 'S',
-      otherSk: 'S',
-    },
-    billingMode: 'PAY_PER_REQUEST',
-    localSecondaryIndexes: [
-      {
-        indexName: 'byAlternate',
-        sortKey: 'alternate',
-        projection: { ProjectionType: 'ALL' },
-      },
-    ],
-    globalSecondaryIndexes: [
-      {
-        indexName: 'byOther',
-        partitionKey: 'otherPk',
-        sortKey: 'otherSk',
-        projection: { ProjectionType: 'ALL' },
-      },
-    ],
+    hash: expect.any(String),
   });
-  expect(Object.keys(Output.upstreamAny(table.mock.calls[0]![1]))).toEqual([
-    'TasksDeployGuard',
+  expect(props.table()).toBe(tasks);
+  expect(props.credentials()).toBe(credentials);
+  // Only the attributes reach state: the table and credentials are functions.
+  expect(Object.keys(JSON.parse(JSON.stringify(props))).sort()).toEqual([
+    'hash',
+    'mode',
+    'region',
+    'tableName',
   ]);
 });
 
-it('guards a disposable table in place only too', async () => {
-  table.mockClear();
-  const hash = Output.map(Output.of(guardResource), () => 'hash');
-  guard.mockImplementation(() => Effect.succeed({ hash }));
-  const stdTable = StdTable.make('prefs').primary('pk', 'sk').build();
+it('runs DynamoDB setup at deploy with the table itself', async () => {
+  setup.mockReset();
+  setup.mockImplementation(() => Effect.succeed({ kind: 'created' }));
+  const props = await declare();
 
-  await Effect.runPromise(
-    DynamoDB.table('Prefs', {
-      table: stdTable,
-      tableName: 'prefs-prod',
-      mode: 'disposable',
-    }) as Effect.Effect<unknown>,
+  const output = await Effect.runPromise(setUpDynamoDBTable(props, undefined));
+
+  expect(setup).toHaveBeenCalledWith(
+    tasks,
+    { tableName: 'tasks-prod', region: 'eu-west-1', credentials },
+    { mode: 'persistent' },
+  );
+  expect(output).toEqual({
+    tableName: 'tasks-prod',
+    region: 'eu-west-1',
+    mode: 'persistent',
+    hash: props.hash,
+  });
+});
+
+it('fails the deploy with the refusal setup gives', async () => {
+  const refused = new SetupRefused('tasks', 'replaces-table');
+  setup.mockReset();
+  setup.mockImplementation(() => Effect.fail(refused));
+  const props = await declare();
+
+  const error = await Effect.runPromise(
+    Effect.flip(setUpDynamoDBTable(props, undefined)),
   );
 
-  expect(guard).toHaveBeenCalledWith(
-    'PrefsDeployGuard',
-    stdTable,
-    'disposable',
-    {
-      target: 'prefs-prod',
-      inPlaceOnly: true,
-      localIndexOrder: [],
-    },
+  expect(error).toBe(refused);
+});
+
+it('refuses a new physical name under the same resource before setup runs', async () => {
+  setup.mockReset();
+  const before = await declare(tasks, 'tasks-a');
+  const after = await declare(tasks, 'tasks-b');
+
+  const error = await Effect.runPromise(
+    Effect.flip(
+      setUpDynamoDBTable(after, {
+        tableName: before.tableName,
+        region: before.region,
+        mode: before.mode,
+        hash: before.hash,
+      }),
+    ),
   );
-  expect(Object.keys(Output.upstreamAny(table.mock.calls[0]![1]))).toEqual([
-    'TasksDeployGuard',
-  ]);
+
+  expect((error as SetupRefused).reason).toBe('renames-table');
+  expect(setup).not.toHaveBeenCalled();
+});
+
+it('sets up again only when the contract changes', async () => {
+  const before = await declare();
+  const same = await declare();
+  const changed = await declare(
+    StdTable.make('tasks')
+      .primary('pk', 'sk')
+      .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+      .build(),
+  );
+
+  expect(diffDynamoDBTable(before, same)).toEqual({ action: 'noop' });
+  expect(diffDynamoDBTable(before, changed)).toEqual({ action: 'update' });
 });

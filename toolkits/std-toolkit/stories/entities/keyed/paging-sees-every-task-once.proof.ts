@@ -9,10 +9,9 @@ const Task = EntityESchema.make('Task', 'taskId', {
   title: Schema.String,
 }).build();
 
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 const wholeBoard = { pk: { boardId: 'work' }, '>=': null } as const;
@@ -28,14 +27,14 @@ export default Proof.make({
       (_, i) => `t${String(i + 1).padStart(3, '0')}`,
     );
     yield* Effect.forEach(ids, (taskId) =>
-      task.insert({ taskId, boardId: 'work', title: `Task ${taskId}` }),
+      table.Task.insert({ taskId, boardId: 'work', title: `Task ${taskId}` }),
     ).pipe(Effect.provide(db.layer));
-    yield* task
-      .delete({ boardId: 'work', taskId: 't002' })
-      .pipe(Effect.provide(db.layer));
-    const first = yield* task
-      .query('primary', wholeBoard)
-      .pipe(Effect.provide(db.layer));
+    yield* table.Task.delete({ boardId: 'work', taskId: 't002' }).pipe(
+      Effect.provide(db.layer),
+    );
+    const first = yield* table.Task.query('primary', wholeBoard).pipe(
+      Effect.provide(db.layer),
+    );
     yield* Proof.assert(
       'the default page holds 100 and says more remain',
       first.items.length === 100 && first.hasMore,
@@ -45,13 +44,13 @@ export default Proof.make({
   act: ({ db }) =>
     Effect.gen(function* () {
       const pages: string[][] = [];
-      let page = yield* task.query('primary', wholeBoard, {
+      let page = yield* table.Task.query('primary', wholeBoard, {
         limit: 40,
         excludeDeleted: true,
       });
       pages.push(page.items.map(({ value }) => value.taskId));
       while (page.hasMore) {
-        page = yield* task.query('primary', wholeBoard, {
+        page = yield* table.Task.query('primary', wholeBoard, {
           limit: 40,
           excludeDeleted: true,
           after: page.items.at(-1)!,

@@ -4,6 +4,7 @@ import type { SQLiteDriver } from '../database/index.js';
 import { itemSchema } from '../item-schema/index.js';
 import { queryItems } from './query.js';
 import {
+  countItems,
   deleteAllItems,
   deleteEntityItems,
   deleteItem,
@@ -34,6 +35,7 @@ export const makeTableContract = (
     hardDeleteEntityItems: (entity) =>
       deleteEntityItems(database, tableName, entity),
     hardDeleteAllItems: () => deleteAllItems(database, tableName),
+    estimateItemCount: () => countItems(database, tableName),
     queryItems: (request) =>
       queryItems(database, table, tableName, schema, request),
     scanItems: (request) =>

@@ -210,6 +210,18 @@ const inspectSQLiteTopology = (
       table,
       columns,
     ).map((definition) => Statement.addColumn(tableName, definition));
+    // Setup names every index it makes after the table, so one under that
+    // prefix and no longer declared is an index the snapshot dropped.
+    const ownPrefix = `idx_${tableName}_`.toLowerCase();
+    for (const listed of listedIndexes) {
+      if (
+        listed.origin === 'c' &&
+        typeof listed.name === 'string' &&
+        listed.name.toLowerCase().startsWith(ownPrefix) &&
+        !foldedNames.has(listed.name.toLowerCase())
+      )
+        mutations.push(Statement.dropIndex(listed.name));
+    }
     for (const expected of definitions) {
       const listed = listedByName.get(expected.name.toLowerCase());
       if (listed === undefined) {

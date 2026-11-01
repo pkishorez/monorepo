@@ -69,14 +69,14 @@ function inlineType(shape: SnapshotType, depth = 0): string {
 const impactOrder: readonly SnapshotImpact[] = [
   'breaking',
   'unverifiable',
-  'requires-backfill',
+  'requires-reindex',
   'safe',
 ];
 
 const impactLabels: Record<SnapshotImpact, string> = {
   breaking: 'BREAKING',
   unverifiable: 'UNVERIFIABLE',
-  'requires-backfill': 'BACKFILL',
+  'requires-reindex': 'REINDEX',
   safe: 'SAFE',
 };
 

@@ -9,10 +9,9 @@ const Task = EntityESchema.make('Task', 'taskId', {
   title: Schema.String,
 }).build();
 
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 export default Proof.make({
@@ -22,13 +21,16 @@ export default Proof.make({
     "`passed` means the op's condition held. A guard whose `_u` already moved never held, so the report must not say it passed.",
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
-    const seen = yield* task
-      .insert({ taskId: 't1', boardId: 'work', title: 'Plan' })
-      .pipe(Effect.provide(db.layer));
+    const seen = yield* table.Task.insert({
+      taskId: 't1',
+      boardId: 'work',
+      title: 'Plan',
+    }).pipe(Effect.provide(db.layer));
     // Someone else edits t1 after we read it.
-    const theirs = yield* task
-      .getAndUpdate({ boardId: 'work', taskId: 't1' }, { title: 'Plan it' })
-      .pipe(Effect.provide(db.layer));
+    const theirs = yield* table.Task.getAndUpdate(
+      { boardId: 'work', taskId: 't1' },
+      { title: 'Plan it' },
+    ).pipe(Effect.provide(db.layer));
     yield* Proof.assert(
       't1 moved after our read',
       theirs.meta._u > seen.meta._u,
@@ -37,9 +39,9 @@ export default Proof.make({
   }),
   act: ({ db, seen }) =>
     Effect.gen(function* () {
-      const guard = yield* task.unchangedOp(seen);
+      const guard = yield* table.Task.unchangedOp(seen);
       // t9 does not exist: this op refuses before anything is submitted.
-      const finish = yield* task.getAndUpdateOp(
+      const finish = yield* table.Task.getAndUpdateOp(
         { boardId: 'work', taskId: 't9' },
         { title: 'Done' },
       );

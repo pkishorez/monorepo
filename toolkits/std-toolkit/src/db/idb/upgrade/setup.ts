@@ -1,11 +1,6 @@
 import type { Effect } from 'effect';
 import type { TableDefinition } from '../../std-table/definition/index.js';
-import {
-  CONTRACT_STORE,
-  inspectContractStore,
-  inspectUpgrade,
-  upgradeDatabase,
-} from './upgrade.js';
+import { inspectUpgrade, nothingToChange, upgradeDatabase } from './upgrade.js';
 
 interface IDBIndexDefinition {
   readonly name: string;
@@ -17,7 +12,10 @@ type TableSource = Pick<
   'localSecondaryIndexes' | 'globalSecondaryIndexes'
 >;
 
-const tableIndexes = (table: TableSource): readonly IDBIndexDefinition[] => [
+/** The secondary indexes a table's topology declares, as IndexedDB indexes. */
+export const tableIndexes = (
+  table: TableSource,
+): readonly IDBIndexDefinition[] => [
   ...Object.values(table.localSecondaryIndexes).map((index) => ({
     name: index.name,
     keyPath: ['pk', index.sk] as const,
@@ -32,10 +30,10 @@ interface UpgradeableDatabase {
   readonly setup: (
     storeName: string,
     indexes: readonly IDBIndexDefinition[],
-  ) => Effect.Effect<void, unknown>;
+  ) => Effect.Effect<unknown, unknown>;
 }
 
-/** Creates the store when missing, then adds or replaces the secondary indexes the topology declares. */
+/** Makes the store and its indexes exactly what the topology declares. */
 export const reconcileIDBStore = (
   database: UpgradeableDatabase,
   table: TableSource,
@@ -51,15 +49,34 @@ export const makeIDBSetup = (connection: {
 }) => {
   let queue: Promise<void> = Promise.resolve();
 
-  // Upgrades run one at a time, each until its inspection finds nothing left.
+  // Upgrades run one at a time, each until its inspection finds nothing
+  // left. An index changes only in a versionchange transaction, so each
+  // round closes the connection and opens the next version, whose upgrade
+  // makes the change; a competing upgrade from another tab is inspected
+  // again on the next round. With `bump`, at least one round runs even when
+  // nothing is left, so every other connection sees a version change.
+  // Answers whether a round created the store.
   const upgradeUntil = (
-    inspect: (database: IDBDatabase) => ReturnType<typeof inspectUpgrade>,
-  ): Promise<void> => {
+    storeName: string,
+    indexes: readonly IDBIndexDefinition[],
+    exact: boolean,
+    bump: boolean,
+  ): Promise<boolean> => {
+    if (indexes.some(({ name }) => name === '_entity'))
+      return Promise.reject(
+        new Error('IndexedDB index slot name "_entity" is reserved'),
+      );
     const run = queue.then(async () => {
+      let created = false;
+      let bumped = !bump;
       for (;;) {
         const database = await connection.open();
-        const plan = inspect(database);
-        if (plan === null) return;
+        const plan =
+          inspectUpgrade(database, storeName, indexes, exact) ??
+          (bumped ? null : nothingToChange(storeName));
+        if (plan === null) return created;
+        created ||= plan.createStore;
+        bumped = true;
         const nextVersion = database.version + 1;
         database.close();
         await connection.upgrade(nextVersion, (next, transaction) =>
@@ -67,27 +84,28 @@ export const makeIDBSetup = (connection: {
         );
       }
     });
-    queue = run.catch(() => undefined);
+    queue = run.then(
+      () => undefined,
+      () => undefined,
+    );
     return run;
   };
 
   return {
+    /** Creates the store, with these indexes, only when it is missing. */
+    createStore: (
+      storeName: string,
+      indexes: readonly IDBIndexDefinition[],
+    ): Promise<boolean> => upgradeUntil(storeName, indexes, false, false),
+    /** Creates the store when missing and makes its indexes exactly these. */
     setup: (
       storeName: string,
       indexes: readonly IDBIndexDefinition[],
-    ): Promise<void> => {
-      if (indexes.some(({ name }) => name === '_entity'))
-        return Promise.reject(
-          new Error('IndexedDB index slot name "_entity" is reserved'),
-        );
-      if (storeName === CONTRACT_STORE)
-        return Promise.reject(
-          new Error(`IndexedDB Store name "${CONTRACT_STORE}" is reserved`),
-        );
-      return upgradeUntil((database) =>
-        inspectUpgrade(database, storeName, indexes),
-      );
-    },
-    prepareContract: (): Promise<void> => upgradeUntil(inspectContractStore),
+    ): Promise<boolean> => upgradeUntil(storeName, indexes, true, false),
+    /** Like `setup`, but in a new version even when nothing else changes. */
+    changeVersion: (
+      storeName: string,
+      indexes: readonly IDBIndexDefinition[],
+    ): Promise<boolean> => upgradeUntil(storeName, indexes, true, true),
   };
 };

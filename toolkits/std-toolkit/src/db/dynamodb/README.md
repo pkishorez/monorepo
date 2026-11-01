@@ -4,7 +4,7 @@ DynamoDB adapter for StdTable, with create and delete helpers for DynamoDB Local
 
 ## Big picture
 
-DynamoDB is the reference topology every other adapter mirrors. `DynamoDB.make` realizes a StdTable on one physical table through `aws4fetch`, so no AWS SDK is required. Its layer supplies the StdTable operations and nothing else: there are no native reads, expression updates, or batch writes, so every write goes through `insert`, `update`, or `getAndUpdate` and application code never handles DynamoDB attribute values ([ADR 0015](../../../docs/adr/0015-rich-values-encoded-storage-key-paths.md)). `make` returns only the layer and never touches the physical table. Deployed tables come from `DynamoDB.table` in [`@kestack/std-toolkit/alchemy`](../../../README.md#std-toolkitalchemy), which takes a required `mode` and creates every index. A DynamoDB table keeps no Stored contract, so that resource's deploy guard is its only check, and nothing replaces or wipes a DynamoDB table: in either mode, a breaking change, or any index change other than adding a global secondary index, fails the deploy, and the way past it is a new `DynamoDB.table` resource, with its own id and table name: renaming the table under the same resource would make Alchemy replace it and delete the old one, so that is refused too. For DynamoDB Local and tests, `DynamoDB.createTable` creates the table if it is missing and `DynamoDB.deleteTable` removes it. Divergences are in [CONTEXT.md](CONTEXT.md); shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md).
+DynamoDB is the reference topology every other adapter mirrors. `DynamoDB.make` realizes a StdTable on one physical table through `aws4fetch`, so no AWS SDK is required. Its layer supplies the StdTable operations and nothing else: there are no native reads, expression updates, or batch writes, so every write goes through `insert`, `update`, or `getAndUpdate` and application code never handles DynamoDB attribute values ([ADR 0015](../../../docs/adr/0015-rich-values-encoded-storage-key-paths.md)). `make` returns only the layer and never touches the physical table. `DynamoDB.setup` prepares a real table under its mode: it creates the table if it is missing, checks the Stored contract kept as reserved rows inside it, adds a new global secondary index in place, reindexes the rows it touches, and refuses every other index change in either mode, since DynamoDB makes those only by replacing the table. Deployed tables come from `DynamoDB.table` in [`@kestack/std-toolkit/alchemy`](../../../README.md#std-toolkitalchemy), which runs that setup at deploy. For DynamoDB Local and tests, `DynamoDB.createTable` creates the table if it is missing, with no contract, and `DynamoDB.deleteTable` removes it. Divergences are in [CONTEXT.md](CONTEXT.md); shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md).
 
 ## Install
 
@@ -14,19 +14,21 @@ See the [top README](../../../README.md).
 
 ### `@kestack/std-toolkit/db/dynamodb`
 
-| Export                        | What it does                                                                                |
-| ----------------------------- | ------------------------------------------------------------------------------------------- |
-| `DynamoDB.make`               | Realizes a StdTable on a DynamoDB table; returns `tableName` and `layer`.                   |
-| `DynamoDB.createTable`        | Creates the physical table and its indexes if missing, then waits until it is active.       |
-| `DynamoDB.deleteTable`        | Deletes the physical table.                                                                 |
-| `DynamoDB.getTableDefinition` | Projects a StdTable's topology into a `CreateTable`-shaped definition without credentials.  |
-| `DynamoDBNativeError`         | Tagged error wrapping a failed `createTable` or `deleteTable` with its operation and cause. |
+| Export                        | What it does                                                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `DynamoDB.make`               | Realizes a StdTable on a DynamoDB table; returns `tableName` and `layer`.                                     |
+| `DynamoDB.setup`              | Creates the table if missing, then sets it up under its mode against its Stored contract.                     |
+| `DynamoDB.createTable`        | Creates the physical table and its indexes if missing, then waits until it is active.                         |
+| `DynamoDB.deleteTable`        | Deletes the physical table.                                                                                   |
+| `DynamoDB.getTableDefinition` | Projects a StdTable's topology into a `CreateTable`-shaped definition without credentials.                    |
+| `DynamoDBNativeError`         | Tagged error wrapping a failed `createTable` or `deleteTable` with its operation and cause.                   |
+| `GlobalIndexNotReady`         | Error setup fails with when a new global secondary index is gone, deleting, or still creating after the wait. |
 
 ## Usage
 
 ### Create the table, run the program, delete the table
 
-Against DynamoDB Local, create the table first and delete it afterwards; in production the Alchemy target creates it.
+Against DynamoDB Local, create the table first and delete it afterwards; in production `DynamoDB.table` in the Alchemy stack runs `DynamoDB.setup` at deploy.
 
 ```ts
 import { Effect } from 'effect';

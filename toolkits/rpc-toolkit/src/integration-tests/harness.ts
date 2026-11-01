@@ -73,12 +73,16 @@ export const stores = [
       const { storage, database } = durableObjectStorage();
       return {
         store: () => websocket.sqliteStreamStore({ storage }),
-        /** Physical rows in the table, so a soft delete would still be counted. */
+        /** Physical rows in the table, so a soft delete would still be
+         * counted. The Stored contract's own rows (`_std_…`) are not the
+         * store's. */
         rows: () =>
           Number(
             (
               database
-                .prepare('SELECT count(*) AS n FROM rpc_stream_store')
+                .prepare(
+                  "SELECT count(*) AS n FROM rpc_stream_store WHERE _e NOT LIKE '\\_std\\_%' ESCAPE '\\'",
+                )
                 .get() as { n: number }
             ).n,
           ),
