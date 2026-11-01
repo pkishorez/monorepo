@@ -1,19 +1,15 @@
-import { shapeAt } from '../../field/index.ts';
-import { column } from '../../components/index.ts';
+import { Stop } from '../../field/index.ts';
 
 /*
- * The first screen: one line for the whole stack, its monorepo linked, and
- * a quiet note that the page goes on. On a phone the words sit low, under
- * the field; on a wide screen they sit level with it, in the left half.
+ * The first Stop: one line for the whole stack, its monorepo linked, and
+ * a quiet note that the page goes on. Its words are shown before the page
+ * runs, so the server's drawing opens on them.
  */
 
 export function Hero() {
   return (
-    <section
-      {...shapeAt('hero', 'right')}
-      className="flex min-h-[calc(100svh-3.5rem)] flex-col justify-end lg:justify-center"
-    >
-      <div className={`${column} pb-12 sm:pb-16 lg:pb-0`}>
+    <Stop shape="hero" side="right" first aria-label="ke stack">
+      <div>
         <p className="font-mono text-sm text-muted-foreground">ke stack</p>
         <h1 className="mt-5 text-[2.5rem] leading-[1.12] font-semibold tracking-tight sm:text-6xl lg:text-7xl">
           Everything I build,
@@ -40,12 +36,12 @@ export function Hero() {
         </p>
         <p
           aria-hidden
-          className="mt-14 flex items-center gap-3 font-mono text-xs text-muted-foreground"
+          className="mt-10 flex items-center gap-3 font-mono text-xs text-muted-foreground sm:mt-14"
         >
           <span className="h-px w-8 bg-border" />
           scroll
         </p>
       </div>
-    </section>
+    </Stop>
   );
 }

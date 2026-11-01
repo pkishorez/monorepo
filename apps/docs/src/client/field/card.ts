@@ -1,40 +1,48 @@
+import type { Side } from './chapters.ts';
+
 /*
- * How a Stop's words sit over the field. On a wide screen they take the
- * half its shape leaves free, on open ground. On a phone the shape is
- * always up top, so the card pins to the bottom of the screen on a soft
- * scrim while its Stop passes, as tall as the field leaves it room for
- * (see placement.ts).
- *
- * The scroll moves the words with the shapes: they rise in as they arrive
- * and fade as they leave, on a phone as soon as they rise into the shape's
- * half of the screen, so they never cross the next picture. Only a browser
- * that can drive an animation by scroll runs them; any other shows the
- * words still, never hidden.
+ * How a story's words sit with the field. On a wide screen they take the
+ * half its shape leaves free and scroll past it there. On a phone the
+ * shape holds the top of the screen, a little more than half of it, and
+ * the words scroll up from below: they are read under the shape, then
+ * pass under the stage's frosted glass and blur away, while the field is
+ * drawn sharp above the glass. The words never fade on their own; the
+ * scroll and the glass do it all.
  */
 
-const scrolled =
-  'supports-[animation-timeline:view()]:[animation-timing-function:linear] supports-[animation-timeline:view()]:[animation-fill-mode:both]';
-
-export const card = [
-  '-mx-4 px-4 pt-10 pb-[calc(2.5rem+env(safe-area-inset-bottom))]',
-  'bg-background/85 [mask-image:linear-gradient(to_bottom,transparent,black_2.5rem)]',
-  'sm:-mx-6 sm:px-6',
-  'lg:mx-0 lg:max-w-md lg:bg-transparent lg:px-0 lg:py-0 lg:[mask-image:none]',
-  scrolled,
-  'supports-[animation-timeline:view()]:[animation-name:exit]',
-  '[animation-timeline:view()] [animation-range:exit_15%_exit_75%]',
-  'max-lg:[animation-timeline:view(block_38%_0%)] max-lg:[animation-range:exit_0%_exit_35%]',
-  '[--tw-exit-opacity:0] [--tw-exit-translate-y:-1rem] max-lg:[--tw-exit-translate-y:-0.75rem] motion-reduce:[--tw-exit-translate-y:0]',
-].join(' ');
-
-/** The words inside a card, rising in as they arrive. */
-export const words = [
-  scrolled,
-  'supports-[animation-timeline:view()]:[animation-name:enter]',
-  '[animation-timeline:view()] [animation-range:entry_0%_entry_80%]',
-  '[--tw-enter-opacity:0] [--tw-enter-translate-y:1.5rem] motion-reduce:[--tw-enter-translate-y:0]',
-].join(' ');
-
-/** A Stop's height: long enough for its shape to form and hold. */
+/**
+ * A Stop: its words in the middle of a stretch of scroll long enough for
+ * the shape before it to become its own. On a phone, three quarters of a
+ * screen, so the place where words are read is never empty for long; on
+ * a wide screen, where the words have a half of their own, one screen.
+ */
 export const stretch =
-  'flex min-h-[120svh] flex-col justify-end lg:min-h-svh lg:justify-center';
+  'flex min-h-[75svh] flex-col justify-center lg:min-h-svh';
+
+/** The first Stop: one screen less the header, its words low on a phone, where they are read. */
+export const opening =
+  'flex min-h-[calc(100svh-3.5rem)] flex-col justify-end lg:justify-center';
+
+/** The column inside a Stop: on a wide screen, two halves. */
+export const halves =
+  'mx-auto w-full max-w-7xl px-4 sm:px-6 lg:grid lg:grid-cols-2 lg:gap-16 lg:px-8';
+
+/** The words, in the half the shape leaves free. */
+export const card = (side: Side) =>
+  ['max-lg:pb-10 lg:max-w-md', side === 'left' ? 'lg:col-start-2' : ''].join(
+    ' ',
+  );
+
+/**
+ * The stage's glass on a phone: frosted down to where the stage ends,
+ * which placement.ts's `room` names too, then melting into the clear over
+ * 2.5rem below it, so words blur as they rise rather than at a line, and
+ * never while the shape is over them.
+ */
+export const glass = [
+  'pointer-events-none fixed inset-x-0 top-0 z-[2] lg:hidden',
+  'h-[calc(max(40svh,min(55svh,100svh_-_23.75rem))_+_2.5rem)]',
+  'bg-background/55 backdrop-blur-md',
+  '[mask-image:linear-gradient(to_bottom,black_calc(100%_-_2.5rem),transparent)]',
+  'opacity-0 transition-opacity duration-500 ease-out data-[on=true]:opacity-100 motion-reduce:transition-none',
+].join(' ');

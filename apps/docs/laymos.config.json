@@ -12,7 +12,6 @@
       "src/client/docs",
       "src/client/field"
     ],
-    "src/client/field": ["src/client/components"],
     "src/client/demos/opening-an-app/screens": [
       "src/client/demos/opening-an-app/story"
     ],

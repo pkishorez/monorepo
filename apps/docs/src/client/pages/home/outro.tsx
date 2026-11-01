@@ -1,6 +1,6 @@
-import { shapeAt } from '../../field/index.ts';
 import { ArrowRightIcon } from 'lucide-react';
-import { ToolkitLink, column } from '../../components/index.ts';
+import { ToolkitLink } from '../../components/index.ts';
+import { Stop } from '../../field/index.ts';
 
 /*
  * The end of the story: where to begin today, which is kabuki, the one
@@ -9,12 +9,8 @@ import { ToolkitLink, column } from '../../components/index.ts';
 
 export function Outro() {
   return (
-    <section
-      {...shapeAt('outro')}
-      aria-labelledby="outro"
-      className="flex min-h-[110svh] flex-col justify-end"
-    >
-      <div className={`${column} pb-24 sm:pb-32`}>
+    <Stop shape="outro" side="left" aria-labelledby="outro">
+      <div>
         <p className="font-mono text-xs text-muted-foreground">
           that’s the stack
         </p>
@@ -42,6 +38,6 @@ export function Outro() {
           </a>
         </div>
       </div>
-    </section>
+    </Stop>
   );
 }

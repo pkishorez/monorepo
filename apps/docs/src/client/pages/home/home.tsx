@@ -12,9 +12,9 @@ import { Rail } from './rail.tsx';
  * new shape for each chapter, a journey down the page. First the one line
  * for the whole stack, then the packages in the order you would build an
  * app with them, then where to start. A comet follows the reader's scroll
- * through the field, and a rail counts the chapters. The field sits behind
- * everything; the words sit on top, on transparent ground so it shows
- * through.
+ * through the field, and a rail counts the chapters. On a wide screen the
+ * field sits behind the words, which keep a half of their own; on a phone
+ * it holds the top of the screen and the words scroll up under its glass.
  */
 
 function Home() {
