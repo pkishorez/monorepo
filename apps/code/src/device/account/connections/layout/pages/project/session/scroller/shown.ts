@@ -37,7 +37,7 @@ const BATCH = 10;
 /** How much is drawn above the view before it is shown, in views. */
 const AHEAD = 1.5;
 
-/** How much is kept drawn above the view after, in views: more than a flick usually goes. */
+/** How much is kept drawn above the view after, in views: past most flicks. */
 const FAR = 4;
 
 /** How many times more is drawn at once before the page is shown; React allows no more than 50. */

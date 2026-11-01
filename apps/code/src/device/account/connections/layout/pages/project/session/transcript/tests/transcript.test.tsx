@@ -11,7 +11,8 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 /*
  * A long transcript in its scroller: it opens on its last blocks, an
  * answer's words a block for each of their blocks, draws more above while
- * what is drawn there is not enough, and all of them to go to the top;
+ * what is drawn there is not enough, but not while a touch glides it, and
+ * all of them to go to the top;
  * outside a scroller it draws every one; and a fold opens by itself,
  * whatever else is drawn. jsdom lays nothing out: once `room` is, every
  * element is a view tall at the top, so what is drawn is never enough.
@@ -188,6 +189,53 @@ describe('a long transcript', () => {
       ),
     );
     expect(drawn()).toBeLessThan(10);
+  });
+
+  it('draws nothing above while a touch glides the view, and draws it once the glide settles', async () => {
+    act(() => root.render(<Transcript rows={turns(30)} scrolled />));
+    const scroller = container.firstElementChild as HTMLElement;
+    let top = 0;
+    Object.defineProperty(scroller, 'scrollTop', {
+      configurable: true,
+      get: () => top,
+      set: (to: number) => {
+        top = to;
+      },
+    });
+    const touch = (type: string) =>
+      act(() =>
+        scroller.dispatchEvent(
+          Object.assign(new Event(type), { touches: [] as Touch[] }),
+        ),
+      );
+    const glide = () =>
+      act(() => {
+        top += 40;
+        scroller.dispatchEvent(new Event('scroll'));
+      });
+    touch('touchstart');
+    room = true;
+    glide();
+    touch('touchend');
+    // Its glide goes on after the finger lifts.
+    glide();
+    await act(() => new Promise((resolve) => setTimeout(resolve, 100)));
+    glide();
+    expect(drawn()).toBe(10);
+    await act(() => new Promise((resolve) => setTimeout(resolve, 200)));
+    await settle();
+    expect(drawn()).toBe(30 * 4);
+  });
+
+  it('settles a touch whose end never comes, as when what it touched is taken away', async () => {
+    act(() => root.render(<Transcript rows={turns(30)} scrolled />));
+    const scroller = container.firstElementChild as HTMLElement;
+    act(() => scroller.dispatchEvent(new Event('touchstart')));
+    room = true;
+    expect(drawn()).toBe(10);
+    await act(() => new Promise((resolve) => setTimeout(resolve, 200)));
+    await settle();
+    expect(drawn()).toBe(30 * 4);
   });
 
   it('draws every block to go to the top', () => {

@@ -38,9 +38,12 @@ export { useScrollKeys } from './keys.ts';
  *
  * A list draws its last few blocks, enough to fill the view and some,
  * and more above as the reader nears the top of them (`shown.ts`), so a
- * long one opens as fast as a short one. The anchor is kept with the
- * history entry: Back, Forward and a reload open where the reader was,
- * drawn from there down, and anywhere else at the bottom.
+ * long one opens as fast as a short one. While a finger moves it, and
+ * after, while the glide it set off goes on, the page moves nothing: a
+ * phone's glide takes no notice of the view being put back, so nothing is
+ * drawn above, nor put back, until the glide settles. The anchor is kept
+ * with the history entry: Back, Forward and a reload open where the
+ * reader was, drawn from there down, and anywhere else at the bottom.
  *
  * The list is drawn inside `Scrolled`, says which blocks it holds with
  * `useBlocks`, draws each in a `Block`, and may group them (`useGroup`).
@@ -52,6 +55,14 @@ export { useScrollKeys } from './keys.ts';
  * the browser's momentum, for up to about a second after its last event.
  */
 const GESTURE_MS = 1000;
+
+/**
+ * How long without a scroll a touch's glide has settled, in ms: a glide
+ * scrolls every frame until it stops. Not the finger lifting alone: its
+ * end never comes when what it touched is taken away, as words streaming
+ * in may.
+ */
+const SETTLE_MS = 150;
 
 /** The scroll a list is drawn in; outside one, every block is drawn. */
 export const Scrolled = createContext<Scroll | null>(null);
@@ -86,7 +97,11 @@ export function useScroller(key: string, id: string) {
     /** Where the view was last put; a scroll that lands there is ours. */
     let put = Number.NaN;
     let gesture = -Infinity;
-    const theirs = () => performance.now() - gesture < GESTURE_MS;
+    const theirs = () =>
+      scroll.gliding || performance.now() - gesture < GESTURE_MS;
+    /** Whether a finger is on it. */
+    let touching = false;
+    let settling = 0;
     const blockOf = (id: string) =>
       outer.querySelector<HTMLElement>(`[data-block="${CSS.escape(id)}"]`) ??
       undefined;
@@ -97,6 +112,8 @@ export function useScroller(key: string, id: string) {
       keep(scroll.anchor);
     };
     const place = () => {
+      // Not while a glide goes on: it would take the view back.
+      if (scroll.gliding) return;
       // A scroll of the reader's whose event is yet to come moved the view
       // from the anchor by as much: what is put back is where they are now.
       // Not the browser's own, as it clamps the view to what it now holds.
@@ -119,7 +136,31 @@ export function useScroller(key: string, id: string) {
       put = outer.scrollTop;
       report();
     };
+    /** The glide has settled: back to the anchor, and what waited drawn. */
+    const settled = () => {
+      scroll.gliding = false;
+      place();
+      scroll.settle();
+    };
+    const settleSoon = () => {
+      clearTimeout(settling);
+      settling = window.setTimeout(settled, SETTLE_MS);
+    };
+    const onTouchStart = () => {
+      touching = true;
+      scroll.gliding = true;
+      settleSoon();
+      onGesture();
+    };
+    const onTouchEnd = (event: TouchEvent) => {
+      if (event.touches.length > 0) return;
+      touching = false;
+      settleSoon();
+    };
     const onScroll = () => {
+      // Moved by a finger, again after it rested: a glide until quiet.
+      if (touching) scroll.gliding = true;
+      if (scroll.gliding) settleSoon();
       // Nothing to read a place from before its list is drawn.
       if (!scroll.drawn || Math.abs(outer.scrollTop - put) < 1) return;
       put = outer.scrollTop;
@@ -161,6 +202,8 @@ export function useScroller(key: string, id: string) {
       },
       toTop: () => {
         onGesture();
+        clearTimeout(settling);
+        scroll.gliding = false;
         scroll.showAll();
         outer.scrollTop = 0;
         put = outer.scrollTop;
@@ -185,16 +228,24 @@ export function useScroller(key: string, id: string) {
     outer.addEventListener('scroll', onScroll, { passive: true });
     outer.addEventListener('wheel', onGesture, { passive: true });
     outer.addEventListener('touchmove', onGesture, { passive: true });
+    outer.addEventListener('touchstart', onTouchStart, { passive: true });
+    outer.addEventListener('touchend', onTouchEnd, { passive: true });
+    outer.addEventListener('touchcancel', onTouchEnd, { passive: true });
     outer.addEventListener('pointerdown', onGesture);
     // The browser's own keys, while the scroller itself has focus.
     outer.addEventListener('keydown', onGesture);
     inner.addEventListener('click', onClick, { capture: true });
     return () => {
       scroll.place = () => {};
+      clearTimeout(settling);
+      scroll.gliding = false;
       resized?.disconnect();
       outer.removeEventListener('scroll', onScroll);
       outer.removeEventListener('wheel', onGesture);
       outer.removeEventListener('touchmove', onGesture);
+      outer.removeEventListener('touchstart', onTouchStart);
+      outer.removeEventListener('touchend', onTouchEnd);
+      outer.removeEventListener('touchcancel', onTouchEnd);
       outer.removeEventListener('pointerdown', onGesture);
       outer.removeEventListener('keydown', onGesture);
       inner.removeEventListener('click', onClick, { capture: true });
