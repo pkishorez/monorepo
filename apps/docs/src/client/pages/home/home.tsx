@@ -9,10 +9,12 @@ import { Rail } from './rail.tsx';
 
 /*
  * The stack's home: a story told over a cloud of particles that takes a
- * new shape for each chapter, a journey down the page. First the one line
- * for the whole stack, then the packages in the order you would build an
- * app with them, then where to start. A comet follows the reader's scroll
- * through the field, and a rail counts the chapters. On a wide screen the
+ * new shape for each stop, a journey down the page. First the one line
+ * for the whole stack and its code, then the packages with docs to read,
+ * kabuki alone today, then word that more is coming. The shapes take
+ * alternate sides of a wide screen, so each change crosses it. A comet
+ * follows the reader's scroll through the field, and a rail counts the
+ * stops. On a wide screen the
  * field sits behind the words, which keep a half of their own; on a phone
  * it holds the top of the screen and the words scroll up under its glass.
  */
@@ -23,12 +25,13 @@ function Home() {
       <Field follower />
       <main className="relative z-[1]">
         <Hero />
-        {CHAPTERS.map((chapter, index) => (
-          <Chapter key={chapter.shape} chapter={chapter} index={index} />
+        {CHAPTERS.map((chapter) => (
+          <Chapter key={chapter.shape} chapter={chapter} />
         ))}
         <Outro />
       </main>
-      <Rail count={CHAPTERS.length} />
+      {/* The opening and the ending are stops on it too. */}
+      <Rail count={CHAPTERS.length + 2} />
     </>
   );
 }

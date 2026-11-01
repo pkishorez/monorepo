@@ -1,43 +1,39 @@
-import { ArrowRightIcon } from 'lucide-react';
-import { ToolkitLink } from '../../components/index.ts';
+import { ArrowUpRightIcon } from 'lucide-react';
 import { Stop } from '../../field/index.ts';
+import { MONOREPO } from './hero.tsx';
 
 /*
- * The end of the story: where to begin today, which is kabuki, the one
- * with docs, and where the code is.
+ * The end of the story: the rest of the stack is on its way. Its shape
+ * takes the right, as the opening's did, so the sides alternate down the
+ * page; the way to follow along is the code.
  */
 
 export function Outro() {
   return (
-    <Stop shape="outro" side="left" aria-labelledby="outro">
-      <div>
-        <p className="font-mono text-xs text-muted-foreground">
-          that’s the stack
-        </p>
-        <h2
-          id="outro"
-          className="mt-5 max-w-2xl text-4xl font-semibold tracking-tight text-balance sm:text-5xl"
-        >
-          Start with kabuki. It’s the one with docs today.
-        </h2>
-        <div className="mt-8 flex flex-wrap items-center gap-3">
-          <ToolkitLink
-            id="kabuki"
-            className="group inline-flex h-11 items-center gap-1.5 rounded-full bg-foreground px-5 text-sm font-medium text-background"
-          >
-            Read the kabuki docs
-            <ArrowRightIcon className="size-4 transition-transform duration-150 ease-out group-hover:translate-x-0.5 motion-reduce:transition-none" />
-          </ToolkitLink>
-          <a
-            href="https://github.com/pkishorez/monorepo"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex h-11 items-center rounded-full border border-border bg-background px-5 text-sm font-medium transition-colors hover:border-foreground/30"
-          >
-            The code on GitHub
-          </a>
-        </div>
-      </div>
+    <Stop shape="outro" side="right" last data-chapter aria-labelledby="outro">
+      <p className="flex items-center gap-3 font-mono text-xs text-muted-foreground">
+        <span aria-hidden className="h-px w-8 bg-border" />
+        coming soon
+      </p>
+      <h2
+        id="outro"
+        className="mt-4 text-4xl font-semibold tracking-tight text-balance sm:mt-5 sm:text-5xl"
+      >
+        More of the stack, soon.
+      </h2>
+      <p className="mt-3 max-w-md text-pretty text-muted-foreground sm:mt-4 sm:text-lg">
+        Each package joins this page once it has docs to read. Until then, it’s
+        all in the monorepo.
+      </p>
+      <a
+        href={MONOREPO}
+        target="_blank"
+        rel="noreferrer"
+        className="group mt-6 inline-flex h-11 items-center gap-1.5 rounded-full border border-border bg-background px-5 text-sm font-medium transition-[border-color,transform] duration-150 ease-out hover:border-foreground/30 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
+      >
+        Follow along on GitHub
+        <ArrowUpRightIcon className="size-4 transition-transform duration-150 ease-out group-hover:translate-x-0.5 group-hover:-translate-y-0.5 motion-reduce:transition-none" />
+      </a>
     </Stop>
   );
 }

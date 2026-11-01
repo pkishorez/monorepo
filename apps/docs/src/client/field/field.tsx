@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { ComponentProps } from 'react';
 import { startBaking } from './baker.ts';
 import { budget, governor } from './budget.ts';
-import { card, glass, halves, opening, stretch } from './card.ts';
+import { card, ending, glass, halves, opening, stretch } from './card.ts';
 import { logger } from './debug.ts';
 import { measure, storyStart } from './chapters.ts';
 import type { Chapter, Side } from './chapters.ts';
@@ -90,27 +90,30 @@ export const shapeAt = (shape: string, side: Side = 'center') => ({
  * free. On a phone the shape holds the top of the screen and the words
  * scroll up from below it, passing under its glass as they go. `first`
  * opens a page: one screen less the header, its words low on a phone,
- * where they are read.
+ * where they are read. `last` ends one, its words low on a phone too, so
+ * they are read when the page can scroll no further.
  */
 export function Stop({
   shape,
   side = 'right',
   first = false,
+  last = false,
   children,
   ...section
 }: {
   readonly shape: string;
   readonly side?: Side;
   readonly first?: boolean;
+  readonly last?: boolean;
 } & ComponentProps<'section'>) {
   return (
     <section
       {...section}
       {...shapeAt(shape, side)}
-      className={first ? opening : stretch}
+      className={first ? opening : last ? ending : stretch}
     >
       <div className={halves}>
-        <div data-field-words className={card(side)}>
+        <div data-field-words className={card(side, first)}>
           {children}
         </div>
       </div>
