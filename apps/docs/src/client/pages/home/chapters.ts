@@ -1,3 +1,5 @@
+import type { ShapeName } from '../../field/index.ts';
+
 /*
  * The story the home page tells between its opening and its ending, one
  * chapter per package with docs to read. Today that is kabuki alone; the
@@ -10,7 +12,7 @@
  */
 
 export type Chapter = {
-  readonly shape: string;
+  readonly shape: ShapeName;
   /** Where the shape sits on a wide screen; the words take the other half. */
   readonly side: 'left' | 'right';
   /** A word or two over the name, in mono. */

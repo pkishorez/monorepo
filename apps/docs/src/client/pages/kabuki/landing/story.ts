@@ -1,3 +1,5 @@
+import type { ShapeName } from '../../../field/index.ts';
+
 /*
  * Every word on kabuki's landing page after its first screen, in the order
  * the page reads: the five ideas, what inspired them, and where to go next.
@@ -15,7 +17,7 @@ export const sideOf = (stop: number): 'left' | 'right' =>
   stop % 2 === 0 ? 'left' : 'right';
 
 export type Idea = {
-  readonly shape: string;
+  readonly shape: ShapeName;
   /** A word or two after the number, in mono. */
   readonly label: string;
   readonly title: string;
@@ -92,7 +94,7 @@ export const PRIOR_ART = {
     },
   ],
 } as const satisfies {
-  readonly shape: string;
+  readonly shape: ShapeName;
   readonly label: string;
   readonly title: string;
   readonly pitch: string;

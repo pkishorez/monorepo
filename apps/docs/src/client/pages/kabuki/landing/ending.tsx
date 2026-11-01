@@ -1,7 +1,7 @@
 import { Router } from '@kestack/kabuki/routing';
 import { ArrowRightIcon } from 'lucide-react';
 import { router } from '../../../../shared/index.ts';
-import { PartLinks, column } from '../../../components/index.ts';
+import { PartLinks, button, column } from '../../../components/index.ts';
 import { ENDING } from './story.ts';
 
 /*
@@ -13,11 +13,6 @@ import { ENDING } from './story.ts';
  * components/footer.tsx), so at the bottom of the page its words sit in
  * the middle of what is left to see.
  */
-
-const focus =
-  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
-const press =
-  'group inline-flex h-11 items-center gap-1.5 rounded-full px-5 text-sm font-medium transition-[border-color,transform] duration-150 ease-out active:scale-[0.97] motion-reduce:transition-none';
 
 export function Ending() {
   return (
@@ -49,14 +44,14 @@ export function Ending() {
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Router.Link
             to={router.Kabuki.Doc({ slug: 'quick-start' })}
-            className={`${press} bg-foreground text-background ${focus}`}
+            className={button.solid}
           >
             Quick start
             <ArrowRightIcon className="size-4 transition-transform duration-150 ease-out group-hover:translate-x-0.5 motion-reduce:transition-none" />
           </Router.Link>
           <Router.Link
             to={router.Kabuki.Doc({ slug: 'introduction' })}
-            className={`${press} border border-border bg-background hover:border-foreground/30 ${focus}`}
+            className={button.outline}
           >
             Read the introduction
           </Router.Link>

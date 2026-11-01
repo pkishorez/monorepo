@@ -1,4 +1,5 @@
 import { ArrowUpRightIcon } from 'lucide-react';
+import { button } from '../../components/index.ts';
 import { Stop } from '../../field/index.ts';
 import { MONOREPO } from '../../../shared/index.ts';
 
@@ -23,7 +24,7 @@ export function Outro() {
         href={MONOREPO}
         target="_blank"
         rel="noreferrer"
-        className="group mt-6 inline-flex h-11 items-center gap-1.5 rounded-full border border-border bg-background px-5 text-sm font-medium transition-[border-color,transform] duration-150 ease-out hover:border-foreground/30 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
+        className={`mt-6 ${button.outline}`}
       >
         GitHub
         <ArrowUpRightIcon className="size-4 transition-transform duration-150 ease-out group-hover:translate-x-0.5 group-hover:-translate-y-0.5 motion-reduce:transition-none" />

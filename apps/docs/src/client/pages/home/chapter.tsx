@@ -1,7 +1,7 @@
 import { Router } from '@kestack/kabuki/routing';
 import { ArrowRightIcon } from 'lucide-react';
 import { router } from '../../../shared/index.ts';
-import { PartLinks } from '../../components/index.ts';
+import { PartLinks, button } from '../../components/index.ts';
 import { Stop } from '../../field/index.ts';
 import type { Chapter as Story } from './chapters.ts';
 
@@ -9,9 +9,6 @@ import type { Chapter as Story } from './chapters.ts';
  * One chapter of the story, a Stop on the field: its act, the package's
  * name and pitch, its docs' four Parts, and the way into the docs.
  */
-
-const focus =
-  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 
 export function Chapter({ chapter }: { readonly chapter: Story }) {
   const id = `chapter-${chapter.shape}`;
@@ -40,7 +37,7 @@ export function Chapter({ chapter }: { readonly chapter: Story }) {
       </div>
       <Router.Link
         to={router.Kabuki.Doc({ slug: 'introduction' })}
-        className={`group mt-6 inline-flex h-11 items-center gap-1.5 rounded-full bg-foreground px-5 text-sm font-medium text-background transition-transform duration-150 ease-out active:scale-[0.97] motion-reduce:transition-none ${focus}`}
+        className={`mt-6 ${button.solid}`}
       >
         Read the docs
         <ArrowRightIcon className="size-4 transition-transform duration-150 ease-out group-hover:translate-x-0.5 motion-reduce:transition-none" />

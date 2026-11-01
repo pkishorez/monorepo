@@ -15,6 +15,14 @@ export const link =
  */
 export const label = 'text-xs font-medium text-muted-foreground';
 
-/** A row in a nav list; the current one says `aria-current`. */
-export const navRow =
-  'flex min-h-8 items-center gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground aria-[current=page]:bg-muted aria-[current=page]:font-medium aria-[current=page]:text-foreground';
+/** The ring a control shows when the keyboard reaches it. */
+export const focus =
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
+
+const pill = `group inline-flex h-11 items-center gap-1.5 rounded-full px-5 text-sm font-medium transition-[border-color,transform] duration-150 ease-out active:scale-[0.97] motion-reduce:transition-none ${focus}`;
+
+/** A large rounded button: `solid` for the main way on, `outline` beside it. */
+export const button = {
+  solid: `${pill} bg-foreground text-background`,
+  outline: `${pill} border border-border bg-background hover:border-foreground/30`,
+} as const;

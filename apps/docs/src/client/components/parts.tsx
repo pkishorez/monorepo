@@ -1,6 +1,7 @@
 import { Router } from '@kestack/kabuki/routing';
 import { ArrowRightIcon } from 'lucide-react';
 import { PARTS, router } from '../../shared/index.ts';
+import { focus } from './styles.ts';
 
 /*
  * kabuki's docs as their four Parts, in the order they are read, each a
@@ -9,9 +10,6 @@ import { PARTS, router } from '../../shared/index.ts';
  * path. `wide`, with a row of its own: two by two on a phone, then four
  * across, always with the path.
  */
-
-const focus =
-  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 
 export function PartLinks({
   label,
