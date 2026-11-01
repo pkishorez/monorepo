@@ -9,11 +9,27 @@ import { Scrolled, useScroller } from '../../scroller/index.ts';
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 /*
- * A long transcript in its scroller: it opens on its last blocks and draws
- * the ones above after, a view's worth at a time; outside a scroller it
- * draws every one; and a fold opens by itself, whatever else is drawn.
- * jsdom lays nothing out, so a view is the window's height.
+ * A long transcript in its scroller: it opens on its last blocks, draws
+ * more above as the reader nears the top of them, and all of them to go
+ * to the top; outside a scroller it draws every one; and a fold opens by
+ * itself, whatever else is drawn. jsdom lays nothing out and has no
+ * IntersectionObserver: the one here says the mark is near once `near` is.
  */
+
+let near = false;
+class Near {
+  readonly #callback: IntersectionObserverCallback;
+  constructor(callback: IntersectionObserverCallback) {
+    this.#callback = callback;
+  }
+  observe(target: Element) {
+    this.#callback(
+      [{ isIntersecting: near, target } as IntersectionObserverEntry],
+      this as unknown as IntersectionObserver,
+    );
+  }
+  disconnect() {}
+}
 
 /** `count` turns, each named by its place after `prefix`. */
 const turns = (count: number, prefix = ''): ReadonlyArray<Row> =>
@@ -69,6 +85,7 @@ function Transcript({
   readonly earlier?: ReadonlyArray<Row>;
 }) {
   const scroll = useScroller('session', 'transcript');
+  toTop = scroll.toTop;
   const [open, setOpen] = useState<ReadonlyArray<string>>([]);
   const toggle = useCallback(
     (id: string) =>
@@ -90,7 +107,7 @@ function Transcript({
     <div ref={scroll.scroller} style={{ overflowY: 'auto' }}>
       <div ref={scroll.content}>
         {scrolled ? (
-          <Scrolled value={scroll.blocks}>{rowsOf}</Scrolled>
+          <Scrolled value={scroll.scroll}>{rowsOf}</Scrolled>
         ) : (
           rowsOf
         )}
@@ -101,8 +118,11 @@ function Transcript({
 
 let container: HTMLDivElement;
 let root: Root;
+let toTop: () => void = () => {};
 
 beforeEach(() => {
+  near = false;
+  Object.assign(globalThis, { IntersectionObserver: Near });
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -111,12 +131,11 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  delete (globalThis as { IntersectionObserver?: unknown })
+    .IntersectionObserver;
 });
 
-const drawn = () =>
-  container.querySelectorAll('[data-block]:not([aria-hidden])').length;
-const standing = () =>
-  container.querySelectorAll('[data-block][aria-hidden]').length;
+const drawn = () => container.querySelectorAll('[data-block]').length;
 
 const settle = async () => {
   for (let at = 0; at < 10; at++)
@@ -124,15 +143,28 @@ const settle = async () => {
 };
 
 describe('a long transcript', () => {
-  it('opens on its last blocks, the ones above standing in until drawn after', async () => {
+  // Each turn is four blocks: the ask, its work, what it said, its end.
+  it('opens on its last blocks, and draws no more while the reader is not near the top', async () => {
     act(() => root.render(<Transcript rows={turns(30)} scrolled />));
+    expect(drawn()).toBe(30);
     expect(container.textContent).toContain('Answer 29');
     expect(container.textContent).not.toContain('Answer 0');
-    expect(standing()).toBeGreaterThan(0);
     await settle();
-    expect(standing()).toBe(0);
+    expect(drawn()).toBe(30);
+  });
+
+  it('draws more above each time the reader nears the top of what is drawn', async () => {
+    near = true;
+    act(() => root.render(<Transcript rows={turns(30)} scrolled />));
+    await settle();
     expect(drawn()).toBe(30 * 4);
     expect(container.textContent).toContain('Answer 0');
+  });
+
+  it('draws every block to go to the top', () => {
+    act(() => root.render(<Transcript rows={turns(30)} scrolled />));
+    act(() => toTop());
+    expect(drawn()).toBe(30 * 4);
   });
 
   it('opens on its own last blocks under what a fork carries on from, drawn whole', () => {
@@ -141,24 +173,21 @@ describe('a long transcript', () => {
         <Transcript rows={turns(30)} earlier={turns(3, 'e')} scrolled />,
       ),
     );
-    expect(container.textContent).toContain('Answer e2');
-    expect(container.textContent).toContain('Answer 29');
+    expect(drawn()).toBe(3 * 4 + 30);
+    expect(container.textContent).toContain('Answer e0');
     expect(container.textContent).not.toContain('Answer 0');
-    expect(standing()).toBeGreaterThan(0);
   });
 
   it('draws every block at once outside a scroller', () => {
     act(() => root.render(<Transcript rows={turns(30)} />));
-    expect(standing()).toBe(0);
     expect(drawn()).toBe(30 * 4);
   });
 
-  it('draws a turn arriving at once, under the ones still standing in', () => {
+  it('draws a turn arriving, keeping what it drew above', () => {
     act(() => root.render(<Transcript rows={turns(30)} scrolled />));
-    const before = standing();
     act(() => root.render(<Transcript rows={turns(31)} scrolled />));
     expect(container.textContent).toContain('Answer 30');
-    expect(standing()).toBe(before);
+    expect(drawn()).toBe(30 + 4);
   });
 
   it('opens one fold, and only that one', () => {

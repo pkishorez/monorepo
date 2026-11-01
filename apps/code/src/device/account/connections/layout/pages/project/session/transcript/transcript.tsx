@@ -2,7 +2,7 @@ import type { Message } from '@kestack/connect/code';
 import { GitForkIcon } from 'lucide-react';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { memo, useMemo, useRef } from 'react';
-import { Block, type Planned, useBlocks } from '../scroller/index.ts';
+import { Block, useBlocks, useGroup } from '../scroller/index.ts';
 import { Chevron, type Opening, useOpen } from './words/index.ts';
 import {
   threaded,
@@ -10,7 +10,7 @@ import {
   type Earlier,
   type Row,
 } from './turns/rows/index.ts';
-import { Said, type SaidRow } from './turns/answer/said.tsx';
+import { Said } from './turns/answer/said.tsx';
 import { Ask } from './turns/ask/ask.tsx';
 import { Footer, type Forking, type Spend } from './turns/answer/footer.tsx';
 import {
@@ -44,9 +44,9 @@ import { Work } from './turns/answer/work/work.tsx';
  * a turn that did not change is not drawn again, so words streaming in
  * draw only the turn they are in. Each part of a turn, your words, each
  * thing the agent said, each line of its work and the turn's end, is a
- * block of the scroller it is drawn in (`../scroller/`), drawn as the
- * reader nears it, so a long session opens as fast as a short one, and a
- * long turn as fast as a short one.
+ * block of the scroller it is drawn in (`../scroller/`): a long session
+ * draws its last blocks, and more above as the reader scrolls up, so it
+ * opens as fast as a short one, however long its turns.
  */
 
 const NONE: ReadonlyArray<never> = [];
@@ -66,44 +66,27 @@ export const useRows = (messages: ReadonlyArray<Message>) => {
 
 /**
  * Room beside a block, and a turn, for what it draws past its edges, such
- * as a line's hover reaching into the margin, which a skippable block's
+ * as a line's hover reaching into the margin, which a skippable turn's
  * containment would clip; the margin takes it back, so nothing moves.
  */
 const BLEED = '-mx-3 px-3';
 
-/** How tall text may be before it was ever drawn, in px: a line for about every 90 characters, past `base`. */
-const tall = (text: string, base: number) =>
-  base + Math.ceil(text.length / 90) * 28;
+/** A turn's pieces, worked out once for each turn. */
+const pieces = new WeakMap<Turn, ReadonlyArray<Piece>>();
+const piecesIn = (turn: Turn) => {
+  let found = pieces.get(turn);
+  if (found === undefined) pieces.set(turn, (found = piecesOf(turn.rows)));
+  return found;
+};
 
-const askGuess = (row: { readonly text: string }) => tall(row.text, 56);
+const pieceId = (piece: Piece) =>
+  piece.kind === 'work' ? piece.id : piece.row.id;
 
-const saidGuess = (row: SaidRow) =>
-  row.kind === 'text'
-    ? tall(row.text, 8)
-    : row.kind === 'plan'
-      ? 48 + row.steps.length * 28
-      : row.kind === 'tool'
-        ? 120
-        : 48;
-
-/** A piece of a turn as a block: its id, and how tall it may be. */
-const plannedOf = (piece: Piece): Planned =>
-  piece.kind === 'work'
-    ? { id: piece.id, guess: 44 }
-    : {
-        id: piece.row.id,
-        guess:
-          piece.kind === 'ask' ? askGuess(piece.row) : saidGuess(piece.row),
-      };
-
-/** How tall a turn's end may be, in px. */
-const END = 44;
-
-/** A turn's blocks, in order. */
-const plannedIn = (turn: Turn): ReadonlyArray<Planned> => [
-  ...turn.asks.map((ask) => ({ id: ask.id, guess: askGuess(ask) })),
-  ...piecesOf(turn.rows).map(plannedOf),
-  ...(turn.ended === null ? NONE : [{ id: turn.ended.id, guess: END }]),
+/** A turn's blocks, by id, in order: your words, its pieces, its end. */
+const idsIn = (turn: Turn): ReadonlyArray<string> => [
+  ...turn.asks.map(({ id }) => id),
+  ...piecesIn(turn).map(pieceId),
+  ...(turn.ended === null ? NONE : [turn.ended.id]),
 ];
 
 export function Rows({
@@ -122,7 +105,7 @@ export function Rows({
   readonly forking?: Forking;
   /** A fork, whose first cost told holds what it was forked from. */
   readonly forked?: boolean;
-  /** Every block drawn at once, as what a fork carries on from, which is opened by hand. */
+  /** Every block drawn, as what a fork carries on from, which is opened by hand. */
   readonly whole?: boolean;
 }) {
   const before = useRef<ReadonlyArray<Turn>>(NONE);
@@ -131,26 +114,48 @@ export function Rows({
     [rows],
   );
   const spends = useMemo(() => spendsOf(turns, forked), [turns, forked]);
-  useBlocks(whole ? null : () => turns.flatMap(plannedIn));
+  const { order, counts } = useMemo(() => {
+    const ids = turns.map(idsIn);
+    return { order: ids.flat(), counts: ids.map(({ length }) => length) };
+  }, [turns]);
+  const { from, mark } = useBlocks(whole ? null : order);
+  let start = 0;
   return (
-    <div className="flex min-w-0 flex-col gap-10">
-      {turns.map((turn, at) => (
-        <TurnView
-          key={turn.id}
-          turn={turn}
-          opening={opening}
-          running={running && turn.ended === null && at === turns.length - 1}
-          sessionRunning={running}
-          forking={forking}
-          spend={spends.get(turn.id)}
+    <div className="relative flex min-w-0 flex-col gap-10">
+      {/* More above: drawn as the reader nears it. */}
+      {mark && (
+        <div
+          ref={mark}
+          data-more
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-px"
         />
-      ))}
+      )}
+      {turns.map((turn, at) => {
+        const count = counts[at]!;
+        const hidden = Math.min(count, Math.max(0, from - start));
+        start += count;
+        return hidden === count && count > 0 ? null : (
+          <TurnView
+            key={turn.id}
+            turn={turn}
+            hidden={hidden}
+            opening={opening}
+            running={running && turn.ended === null && at === turns.length - 1}
+            sessionRunning={running}
+            forking={forking}
+            spend={spends.get(turn.id)}
+          />
+        );
+      })}
     </div>
   );
 }
 
 interface TurnProps {
   readonly turn: Turn;
+  /** How many of its first blocks are not drawn yet. */
+  readonly hidden: number;
   readonly opening: Opening;
   /** Whether this turn is the one running now. */
   readonly running: boolean;
@@ -163,14 +168,16 @@ interface TurnProps {
 const TurnView = memo(
   function TurnView({
     turn,
+    hidden,
     opening,
     running,
     sessionRunning,
     forking,
     spend,
   }: TurnProps) {
-    const pieces = useMemo(() => piecesOf(turn.rows), [turn.rows]);
-    const last = pieces.at(-1);
+    const group = useGroup();
+    const all = piecesIn(turn);
+    const last = all.at(-1);
     // Running, with nothing on its way in sight: say it is working.
     const waiting =
       running &&
@@ -180,31 +187,29 @@ const TurnView = memo(
           !(last.row.kind === 'text' && last.row.writing) &&
           // A question says itself that it waits.
           last.row.kind !== 'tool'));
+    const asks = turn.asks.slice(hidden);
+    const shown = all.slice(Math.max(0, hidden - turn.asks.length));
+    const skipped = all.length - shown.length;
     return (
       <section
+        // Skipped as one, far from the view, once all of it is drawn.
+        ref={hidden === 0 ? group : undefined}
         data-turn={turn.id}
-        // Skipped as one once its blocks are all drawn.
         data-blocks
         className={`group/turn flex min-w-0 flex-col gap-4 ${BLEED}`}
       >
-        {turn.asks.map((ask) => (
-          <Block
-            key={ask.id}
-            id={ask.id}
-            guess={askGuess(ask)}
-            className={BLEED}
-          >
+        {asks.map((ask) => (
+          <Block key={ask.id} id={ask.id} className={BLEED}>
             <Ask row={ask} />
           </Block>
         ))}
         <div className="flex min-w-0 flex-col gap-3">
-          {pieces.map((piece, at) => {
-            const { id, guess } = plannedOf(piece);
+          {shown.map((piece, each) => {
+            const at = skipped + each;
             return (
               <Block
-                key={id}
-                id={id}
-                guess={guess}
+                key={pieceId(piece)}
+                id={pieceId(piece)}
                 // Sent while it worked, where it came in: as much room
                 // around it as between turns.
                 className={piece.kind === 'ask' ? `${BLEED} py-1` : BLEED}
@@ -219,7 +224,7 @@ const TurnView = memo(
                     running={sessionRunning}
                     live={
                       running &&
-                      (at === pieces.length - 1 ||
+                      (at === all.length - 1 ||
                         piece.rows.some(
                           (row) =>
                             (row.kind === 'tool' || row.kind === 'subagent') &&
@@ -243,7 +248,7 @@ const TurnView = memo(
             </span>
           )}
           {turn.ended && (
-            <Block id={turn.ended.id} guess={END} className={BLEED}>
+            <Block id={turn.ended.id} className={BLEED}>
               <Footer
                 ended={turn.ended}
                 said={saidIn(turn)}
@@ -258,6 +263,7 @@ const TurnView = memo(
   },
   (a, b) =>
     a.turn === b.turn &&
+    a.hidden === b.hidden &&
     a.opening === b.opening &&
     a.running === b.running &&
     a.sessionRunning === b.sessionRunning &&

@@ -6,7 +6,6 @@ import {
   createContext,
   type ReactNode,
   use,
-  useCallback,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -21,10 +20,9 @@ import {
   NEAR,
   putBack,
 } from './anchor.ts';
-import { blocksOf, type Blocks, type Planned } from './blocks.ts';
+import { type Scroll, scrollOf, useShown } from './shown.ts';
 
 export { useScrollKeys } from './keys.ts';
-export type { Planned } from './blocks.ts';
 
 /*
  * A scroller over a list of blocks that keeps the reader's place. Where
@@ -38,13 +36,14 @@ export type { Planned } from './blocks.ts';
  * opens or shuts something at the bottom keeps what is on the screen
  * still, and follows on only if that left it at the bottom.
  *
- * The list's blocks are drawn as the reader nears them (`blocks.ts`), so a
- * long one opens as fast as a short one. The anchor is kept with the
- * history entry: Back, Forward and a reload open where the reader was, its
- * blocks drawn around it, and anywhere else at the bottom.
+ * A list draws its last few blocks, and more above as the reader nears
+ * the top of them (`shown.ts`), so a long one opens as fast as a short
+ * one. The anchor is kept with the history entry: Back, Forward and a
+ * reload open where the reader was, drawn from there down, and anywhere
+ * else at the bottom.
  *
- * The list draws each block in a `Block`, says which there are with
- * `useBlocks`, and is drawn inside `Scrolled`.
+ * The list is drawn inside `Scrolled`, says which blocks it holds with
+ * `useBlocks`, draws each in a `Block`, and may group them (`useGroup`).
  */
 
 /**
@@ -54,8 +53,8 @@ export type { Planned } from './blocks.ts';
  */
 const GESTURE_MS = 1000;
 
-/** The blocks of the scroller a list is drawn in; none outside one, where every block is drawn. */
-export const Scrolled = createContext<Blocks | null>(null);
+/** The scroll a list is drawn in; outside one, every block is drawn. */
+export const Scrolled = createContext<Scroll | null>(null);
 
 /**
  * The scroller of one list, by its key, and its history entry's name: its
@@ -69,10 +68,10 @@ export function useScroller(key: string, id: string) {
   const keep = useKeepScrollAnchor({ id });
   // A new list, its own place.
   // oxlint-disable-next-line react-hooks/exhaustive-deps
-  const blocks = useMemo(() => blocksOf(BOTTOM), [key]);
-  // Until its blocks are told, it opens where the entry was left, as that
-  // is known: on a page load, only once the Router knows its entry.
-  if (!blocks.planned()) blocks.anchor = keptAnchor(kept?.anchor) ?? BOTTOM;
+  const scroll = useMemo(() => scrollOf(BOTTOM), [key]);
+  // Until its list is drawn, it opens where the entry was left, as that is
+  // known: on a page load, only once the Router knows its entry.
+  if (!scroll.drawn) scroll.anchor = keptAnchor(kept?.anchor) ?? BOTTOM;
   const [away, setAway] = useState(false);
   const moves = useRef({
     gesture: () => {},
@@ -83,56 +82,70 @@ export function useScroller(key: string, id: string) {
     const outer = scroller.current;
     const inner = content.current;
     if (!outer || !inner) return;
+    scroll.scroller = outer;
     /** Where the view was last put; a scroll that lands there is ours. */
     let put = Number.NaN;
     let gesture = -Infinity;
-    /** The anchor is read once a frame, however many scrolls it has. */
-    let reading = 0;
     const theirs = () => performance.now() - gesture < GESTURE_MS;
+    const blockOf = (id: string) =>
+      outer.querySelector<HTMLElement>(`[data-block="${CSS.escape(id)}"]`) ??
+      undefined;
     const report = () =>
-      setAway(blocks.anchor.at !== 'bottom' && gapOf(outer) >= NEAR);
+      setAway(scroll.anchor.at !== 'bottom' && gapOf(outer) >= NEAR);
     const read = () => {
-      blocks.anchor = anchorOf(outer);
-      keep(blocks.anchor);
+      scroll.anchor = anchorOf(outer);
+      keep(scroll.anchor);
     };
     const place = () => {
-      if (!putBack(outer, blocks.anchor, blocks.elementOf) && blocks.planned())
+      // A scroll of the reader's whose event is yet to come moved the view
+      // from the anchor by as much: what is put back is where they are now.
+      // Not the browser's own, as it clamps the view to what it now holds.
+      const pending = outer.scrollTop - put;
+      const clamped =
+        pending < 0 &&
+        outer.scrollTop >= outer.scrollHeight - outer.clientHeight - 1;
+      if (Math.abs(pending) >= 1 && theirs() && !clamped) {
+        if (scroll.anchor.at === 'block')
+          scroll.anchor = {
+            ...scroll.anchor,
+            offset: scroll.anchor.offset - pending,
+          };
+        else scroll.anchor = anchorOf(outer);
+        keep(scroll.anchor);
+      }
+      if (!putBack(outer, scroll.anchor, blockOf) && scroll.drawn)
         // Its block is not in the list: no place to go back to.
-        putBack(outer, (blocks.anchor = BOTTOM), blocks.elementOf);
+        putBack(outer, (scroll.anchor = BOTTOM), blockOf);
       put = outer.scrollTop;
       report();
     };
     const onScroll = () => {
-      // Nothing to read a place from before its blocks are there.
-      if (!blocks.planned() || Math.abs(outer.scrollTop - put) < 1) return;
-      blocks.moved();
+      // Nothing to read a place from before its list is drawn.
+      if (!scroll.drawn || Math.abs(outer.scrollTop - put) < 1) return;
       put = outer.scrollTop;
-      if (theirs() || blocks.anchor.at === 'block')
-        // Before the frame is laid out, so before anything is put back.
-        reading ||= requestAnimationFrame(() => {
-          reading = 0;
-          read();
-          report();
-        });
-      else report();
+      // Now, while the page is as the reader saw it: by the next frame,
+      // more may be drawn above, not yet put back.
+      if (theirs() || scroll.anchor.at === 'block') read();
+      report();
     };
     const onGesture = () => {
       gesture = performance.now();
     };
     // Before what it opens is drawn: what is on the screen stays still.
     const onClick = () => {
-      if (blocks.anchor.at !== 'bottom') return;
-      blocks.anchor = blockAt(outer);
+      if (scroll.anchor.at !== 'bottom') return;
+      scroll.anchor = blockAt(outer);
       requestAnimationFrame(() => {
-        if (gapOf(outer) < NEAR) blocks.anchor = BOTTOM;
-        keep(blocks.anchor);
+        if (gapOf(outer) < NEAR) scroll.anchor = BOTTOM;
+        keep(scroll.anchor);
         report();
       });
     };
+    scroll.place = place;
     moves.current = {
       gesture: onGesture,
       holdOn: (smooth = false) => {
-        blocks.anchor = BOTTOM;
+        scroll.anchor = BOTTOM;
         keep(BOTTOM);
         outer.scrollTo({
           top: outer.scrollHeight,
@@ -146,14 +159,18 @@ export function useScroller(key: string, id: string) {
       },
       toTop: () => {
         onGesture();
-        blocks.drawTop();
+        scroll.showAll();
         outer.scrollTop = 0;
         put = outer.scrollTop;
         read();
         report();
       },
     };
-    const disconnect = blocks.connect(outer, inner, place);
+    // After anything in it grows or shrinks, or it does, while laid out.
+    const resized =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place);
+    resized?.observe(inner);
+    resized?.observe(outer);
     place();
     outer.addEventListener('scroll', onScroll, { passive: true });
     outer.addEventListener('wheel', onGesture, { passive: true });
@@ -163,8 +180,8 @@ export function useScroller(key: string, id: string) {
     outer.addEventListener('keydown', onGesture);
     inner.addEventListener('click', onClick, { capture: true });
     return () => {
-      cancelAnimationFrame(reading);
-      disconnect();
+      scroll.place = () => {};
+      resized?.disconnect();
       outer.removeEventListener('scroll', onScroll);
       outer.removeEventListener('wheel', onGesture);
       outer.removeEventListener('touchmove', onGesture);
@@ -172,75 +189,51 @@ export function useScroller(key: string, id: string) {
       outer.removeEventListener('keydown', onGesture);
       inner.removeEventListener('click', onClick, { capture: true });
     };
-  }, [blocks, keep]);
+  }, [scroll, keep]);
   return useMemo(
     () => ({
       scroller,
       content,
-      blocks,
+      scroll,
       /** Away from the bottom, not following: show a way back down. */
       away,
       /** The reader moves the view, by a key of the app's own. */
       gesture: () => moves.current.gesture(),
       /** Back to the bottom, following again; `smooth` glides there. */
       holdOn: (smooth?: boolean) => moves.current.holdOn(smooth),
-      /** To the top, its first blocks drawn first. */
+      /** To the top, every block drawn first. */
       toTop: () => moves.current.toTop(),
     }),
-    [blocks, away],
+    [scroll, away],
   );
 }
 
 export type Scroller = ReturnType<typeof useScroller>;
 
 /**
- * Says which blocks a list holds, in order, as it is first drawn; with
- * none, its blocks are drawn at once, as a list inside the list is.
+ * Which of a list's blocks, by id in order, are drawn: from `from` on,
+ * with `mark` put above the first while more are above it. With no order,
+ * as for a list inside the list, every one is.
  */
-export const useBlocks = (order: (() => ReadonlyArray<Planned>) | null) => {
-  const blocks = use(Scrolled);
-  if (order !== null) blocks?.plan(order);
-};
+export const useBlocks = (order: ReadonlyArray<string> | null) =>
+  useShown(use(Scrolled), order);
 
-/**
- * One block of the list: drawn once it is near the view, standing in as
- * space until then. `guess` is how tall it may be, in px, before it was
- * ever drawn.
- */
+/** A group of blocks, as a turn: skipped far from the view once laid out. */
+export const useGroup = () => use(Scrolled)?.group;
+
+/** One block of the list, as its anchor finds it. */
 export function Block({
   id,
-  guess,
   className,
   children,
 }: {
   readonly id: string;
-  readonly guess: number;
   readonly className?: string;
   readonly children: ReactNode;
 }) {
-  const blocks = use(Scrolled);
-  const [drawn, setDrawn] = useState(() => blocks?.isDrawn(id) ?? true);
-  const ref = useCallback(
-    (element: HTMLDivElement | null) =>
-      element === null || blocks === null
-        ? undefined
-        : blocks.register(id, element, () => setDrawn(true)),
-    [blocks, id],
-  );
-  useLayoutEffect(() => {
-    if (drawn) blocks?.landed(id);
-  }, [blocks, id, drawn]);
-  return drawn ? (
-    <div ref={ref} data-block={id} className={className}>
+  return (
+    <div data-block={id} className={className}>
       {children}
     </div>
-  ) : (
-    <div
-      ref={ref}
-      data-block={id}
-      aria-hidden
-      className={className}
-      style={{ height: blocks?.heightOf(id) ?? guess }}
-    />
   );
 }

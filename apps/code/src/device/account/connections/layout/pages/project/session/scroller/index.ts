@@ -1,9 +1,9 @@
 export {
   Block,
-  type Planned,
   Scrolled,
   type Scroller,
   useBlocks,
+  useGroup,
   useScrollKeys,
   useScroller,
 } from './scroller.tsx';

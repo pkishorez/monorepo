@@ -121,7 +121,6 @@ const run = async (turns: number): Promise<Result> => {
     );
     result['open: drawn (ms)'] = open.draw;
     result['open: long tasks until quiet (ms)'] = open.busy;
-    result['open: every block drawn (ms)'] = open.whole;
     result['open: longest task after (ms)'] = open.longest;
     result['open: DOM nodes'] = open.nodes;
     result['open: JS heap (MB)'] = await heap(cdp);
@@ -139,25 +138,24 @@ const run = async (turns: number): Promise<Result> => {
     ).length;
     result['scroll: frames'] = scroll.frames.length;
     result['scroll: jumped on screen (px)'] = scroll.jumped;
-    result['scroll: frames showing a stand-in'] = scroll.blank;
+    result['scroll: waits at the top for more'] = scroll.waits;
+    result['scroll: waited at the top (ms)'] = scroll.waited;
     await close();
   }
-  // Short turns draw shorter than they stood in, so the browser clamps the
-  // scroll as they draw; the reader's place must hold through that too.
+  // Scrolled near, far, and among short turns, as blocks above are drawn;
+  // the reader's place must hold through each.
   for (const [name, by, short] of [
     ['near', 0.02, false],
-    ['far', 0.5, false],
-    ['short', 0.02, true],
+    ['far', 0.85, false],
+    ['short', 0.85, true],
   ] as const) {
     const { page, close } = await opened();
     const drift = await page.evaluate(
       ([turns, by, short]) => window.bench.drift(turns, by, short),
       [turns, by, short] as const,
     );
-    // Scrolled while turns were still to be drawn, or there is nothing to tell.
-    result[`drift ${name}: moved on screen (px)`] =
-      drift.waiting === 0 ? 0 : Math.abs(drift.moved);
-    result[`drift ${name}: still standing in (blocks)`] = drift.left;
+    result[`drift ${name}: moved on screen (px)`] = Math.abs(drift.moved);
+    result[`drift ${name}: blocks drawn above meanwhile`] = drift.drew;
     await close();
   }
   {

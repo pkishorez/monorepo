@@ -243,7 +243,7 @@ export const SessionView = View.make(
           // here and never makes the page around it scroll too.
           className={`relative min-h-0 flex-1 overflow-y-auto outline-none select-text [overflow-anchor:none] ${GUTTERED}`}
         >
-          <Scrolled value={scroll.blocks}>
+          <Scrolled value={scroll.scroll}>
             <Transcript
               key={props.params.sessionId}
               content={content}

@@ -71,7 +71,7 @@ function Session({
           id="scroller"
           className="relative min-h-0 flex-1 overflow-y-auto outline-none select-text [overflow-anchor:none]"
         >
-          <Scrolled value={scroll.blocks}>
+          <Scrolled value={scroll.scroll}>
             <div
               ref={scroll.content}
               className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-4 pt-8 pb-10 sm:px-6"
@@ -179,16 +179,11 @@ const settled = async (quiet = 1500, limit = 20_000) => {
   return longTasks - before;
 };
 
-/** Waits until no block stands in any more: how long it took, in ms. */
-const whole = async (limit = 60_000) => {
-  const start = performance.now();
-  while (
-    document.querySelector('#scroller [data-block][aria-hidden]') !== null &&
-    performance.now() - start < limit
-  )
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  return performance.now() - start;
-};
+/** Whether blocks above the top of what is drawn are still to be drawn. */
+const more = () => document.querySelector('#scroller [data-more]') !== null;
+
+/** How many blocks are drawn. */
+const blocks = () => document.querySelectorAll('#scroller [data-block]').length;
 
 const mount = () =>
   timed(() => {
@@ -203,24 +198,20 @@ declare global {
 }
 
 const bench = {
-  /** Opens a session of `turns` turns: how long until drawn, its long tasks until quiet, and how long until every block is drawn. */
+  /** Opens a session of `turns` turns: how long until drawn, and its long tasks until quiet. */
   open: async (turns: number, live = false, shell = false) => {
     running = live;
     shelled = shell;
     made = sessionOf({ turns, running: live });
     entries = made.messages.map((row) => ({ id: row.id, row }));
     longest = 0;
-    const start = performance.now();
     const draw = mount();
     since = performance.now();
     await frame();
     const busy = await settled();
-    await whole();
-    const drawnWhole = performance.now() - start;
     return {
       draw,
       busy,
-      whole: drawnWhole,
       longest,
       nodes: document.getElementsByTagName('*').length,
       messages: entries.length,
@@ -234,7 +225,6 @@ const bench = {
     since = performance.now();
     await frame();
     const busy = await settled();
-    await whole();
     return { draw, busy, longest };
   },
   /** `count` more chunks of the answer still arriving: how long each took to draw. */
@@ -274,50 +264,51 @@ const bench = {
     return times;
   },
   /**
-   * Scrolls from the bottom to the top a step a frame: each frame's length,
-   * how far the turn at the top of the view moved on the screen other than
-   * by the step, in all, as turns above it were laid out, and how many
-   * frames showed a block still standing in.
+   * Scrolls from the bottom to the top a step a frame, stopping at the top
+   * of what is drawn until more is drawn above it, as a reader's fling
+   * does: each frame's length, how far the block at the top of the view
+   * moved on the screen other than by the step, in all, as blocks above it
+   * were drawn, and how often and how long it waited at the top for more.
    */
   scroll: async (step: number) => {
     const element = scroller();
     await settled(500);
     const frames: number[] = [];
     let jumped = 0;
-    let blank = 0;
+    let waits = 0;
+    let waited = 0;
+    let waiting = false;
     let last = await frame();
-    // At most a few thousand frames, however tall it is.
-    for (let at = 0; element.scrollTop > 0 && at < 5000; at++) {
-      const view = element.getBoundingClientRect();
-      const turn = topBlock(element);
-      const before = turn?.getBoundingClientRect().top ?? 0;
+    // At most many thousand frames, however tall it is.
+    for (let at = 0; (element.scrollTop > 0 || more()) && at < 20_000; at++) {
+      const top = element.scrollTop === 0;
+      const block = topBlock(element);
+      const before = block?.getBoundingClientRect().top ?? 0;
       const by = Math.min(step, element.scrollTop);
-      // A reader's own scroll, so the transcript stops following.
-      element.dispatchEvent(new WheelEvent('wheel', { deltaY: -step }));
-      element.scrollTop -= step;
+      if (!top) {
+        // A reader's own scroll, so the transcript stops following.
+        element.dispatchEvent(new WheelEvent('wheel', { deltaY: -step }));
+        element.scrollTop -= step;
+      }
+      if (top && !waiting) waits++;
+      waiting = top;
+      // Waiting ten seconds at the top, more is not coming.
+      if (top && waited > 10_000) break;
       const now = (await frame()) as number;
       frames.push(now - (last as number));
+      if (top) waited += now - (last as number);
       last = now;
-      if (turn?.isConnected)
-        jumped += Math.abs(turn.getBoundingClientRect().top - before - by);
-      // A stand-in shows where a point down the middle of the view lands on one.
-      for (let y = view.top + 1; y < view.bottom; y += view.height / 8)
-        if (
-          document
-            .elementFromPoint(view.left + view.width / 2, y)
-            ?.closest('[data-block][aria-hidden]')
-        ) {
-          blank++;
-          break;
-        }
+      if (!top && block?.isConnected)
+        jumped += Math.abs(block.getBoundingClientRect().top - before - by);
     }
     const busy = await settled(500);
-    return { frames, busy, jumped, blank };
+    return { frames, busy, jumped, waits, waited };
   },
   /**
-   * Opens a session and, while the turns above are still being drawn,
-   * scrolls up by `by` of what it holds: how far the turn at the top of
-   * the view moved on the screen by the time all are drawn, in px.
+   * Opens a session and scrolls up by `by` of what it holds, so blocks
+   * above may be drawn as it nears their top: how far the block at the top
+   * of the view moved on the screen once all is quiet, in px, and how many
+   * blocks were drawn meanwhile.
    */
   drift: async (turns: number, by: number, short = false) => {
     running = false;
@@ -335,12 +326,10 @@ const bench = {
         .querySelector(`[data-block="${CSS.escape(id ?? '')}"]`)!
         .getBoundingClientRect().top;
     const before = top();
-    const standing = () =>
-      element.querySelectorAll('[data-block][aria-hidden]').length;
-    const waiting = standing();
-    await whole();
+    const drawn = blocks();
+    await new Promise((resolve) => setTimeout(resolve, 500));
     await settled();
-    return { moved: top() - before, waiting, left: standing() };
+    return { moved: top() - before, drew: blocks() - drawn };
   },
   /**
    * Shuts and opens the sidebar `count` times, waiting out each spring:
