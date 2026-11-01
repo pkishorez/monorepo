@@ -36,11 +36,11 @@ export { useScrollKeys } from './keys.ts';
  * opens or shuts something at the bottom keeps what is on the screen
  * still, and follows on only if that left it at the bottom.
  *
- * A list draws its last few blocks, and more above as the reader nears
- * the top of them (`shown.ts`), so a long one opens as fast as a short
- * one. The anchor is kept with the history entry: Back, Forward and a
- * reload open where the reader was, drawn from there down, and anywhere
- * else at the bottom.
+ * A list draws its last few blocks, enough to fill the view and some,
+ * and more above as the reader nears the top of them (`shown.ts`), so a
+ * long one opens as fast as a short one. The anchor is kept with the
+ * history entry: Back, Forward and a reload open where the reader was,
+ * drawn from there down, and anywhere else at the bottom.
  *
  * The list is drawn inside `Scrolled`, says which blocks it holds with
  * `useBlocks`, draws each in a `Block`, and may group them (`useGroup`).
@@ -127,6 +127,8 @@ export function useScroller(key: string, id: string) {
       // more may be drawn above, not yet put back.
       if (theirs() || scroll.anchor.at === 'block') read();
       report();
+      // Near the top of what is drawn: more above.
+      scroll.fill(false);
     };
     const onGesture = () => {
       gesture = performance.now();
@@ -166,12 +168,20 @@ export function useScroller(key: string, id: string) {
         report();
       },
     };
-    // After anything in it grows or shrinks, or it does, while laid out.
+    // After anything in it grows or shrinks, or it does, as when shown
+    // again or the window grows: back to the anchor, and enough drawn.
     const resized =
-      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place);
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(() => {
+            place();
+            scroll.fill(false);
+          });
     resized?.observe(inner);
     resized?.observe(outer);
     place();
+    // Now that it can be measured: enough drawn above, before it is shown.
+    scroll.fill(true);
     outer.addEventListener('scroll', onScroll, { passive: true });
     outer.addEventListener('wheel', onGesture, { passive: true });
     outer.addEventListener('touchmove', onGesture, { passive: true });
@@ -212,7 +222,7 @@ export type Scroller = ReturnType<typeof useScroller>;
 
 /**
  * Which of a list's blocks, by id in order, are drawn: from `from` on,
- * with `mark` put above the first while more are above it. With no order,
+ * with `list` the list's element, while `more` are above. With no order,
  * as for a list inside the list, every one is.
  */
 export const useBlocks = (order: ReadonlyArray<string> | null) =>

@@ -9,28 +9,16 @@ import { Scrolled, useScroller } from '../../scroller/index.ts';
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 /*
- * A long transcript in its scroller: it opens on its last blocks, draws
- * more above as the reader nears the top of them, and all of them to go
- * to the top; outside a scroller it draws every one; and a fold opens by
- * itself, whatever else is drawn. jsdom lays nothing out and has no
- * IntersectionObserver, nor `elementFromPoint`: the observer here says
- * the mark is near once `near` is.
+ * A long transcript in its scroller: it opens on its last blocks, an
+ * answer's words a block for each of their blocks, draws more above while
+ * what is drawn there is not enough, and all of them to go to the top;
+ * outside a scroller it draws every one; and a fold opens by itself,
+ * whatever else is drawn. jsdom lays nothing out: once `room` is, every
+ * element is a view tall at the top, so what is drawn is never enough.
  */
 
-let near = false;
-class Near {
-  readonly #callback: IntersectionObserverCallback;
-  constructor(callback: IntersectionObserverCallback) {
-    this.#callback = callback;
-  }
-  observe(target: Element) {
-    this.#callback(
-      [{ isIntersecting: near, target } as IntersectionObserverEntry],
-      this as unknown as IntersectionObserver,
-    );
-  }
-  disconnect() {}
-}
+let room = false;
+const laidOut = Element.prototype.getBoundingClientRect;
 
 /** `count` turns, each named by its place after `prefix`. */
 const turns = (count: number, prefix = ''): ReadonlyArray<Row> =>
@@ -122,8 +110,12 @@ let root: Root;
 let toTop: () => void = () => {};
 
 beforeEach(() => {
-  near = false;
-  Object.assign(globalThis, { IntersectionObserver: Near });
+  room = false;
+  Element.prototype.getBoundingClientRect = function () {
+    return room
+      ? DOMRect.fromRect({ x: 0, y: 0, width: 400, height: 800 })
+      : laidOut.call(this);
+  };
   // jsdom lays nothing out, so no point holds anything.
   document.elementFromPoint = () => null;
   container = document.createElement('div');
@@ -134,8 +126,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
-  delete (globalThis as { IntersectionObserver?: unknown })
-    .IntersectionObserver;
+  Element.prototype.getBoundingClientRect = laidOut;
 });
 
 const drawn = () => container.querySelectorAll('[data-block]').length;
@@ -147,21 +138,56 @@ const settle = async () => {
 
 describe('a long transcript', () => {
   // Each turn is four blocks: the ask, its work, what it said, its end.
-  it('opens on its last blocks, and draws no more while the reader is not near the top', async () => {
+  it('opens on its last ten blocks, while nothing says more is needed', async () => {
     act(() => root.render(<Transcript rows={turns(30)} scrolled />));
-    expect(drawn()).toBe(30);
+    expect(drawn()).toBe(10);
     expect(container.textContent).toContain('Answer 29');
     expect(container.textContent).not.toContain('Answer 0');
     await settle();
-    expect(drawn()).toBe(30);
+    expect(drawn()).toBe(10);
   });
 
-  it('draws more above each time the reader nears the top of what is drawn', async () => {
-    near = true;
+  it('draws ten more at a time while what is drawn above the view is not enough', () => {
+    room = true;
     act(() => root.render(<Transcript rows={turns(30)} scrolled />));
-    await settle();
     expect(drawn()).toBe(30 * 4);
     expect(container.textContent).toContain('Answer 0');
+  });
+
+  it('draws a long answer a block of its words at a time', () => {
+    const words = Array.from({ length: 40 }, (_, at) => `Paragraph ${at}.`);
+    const rows = turns(1).map((row) =>
+      row.kind === 'text' ? { ...row, text: words.join('\n\n') } : row,
+    );
+    act(() => root.render(<Transcript rows={rows} scrolled />));
+    // Its last nine blocks of words and the turn's end; its ask, its work
+    // and its first words not yet.
+    expect(drawn()).toBe(10);
+    expect(container.textContent).toContain('Paragraph 39.');
+    expect(container.textContent).not.toContain('Paragraph 30.');
+    expect(container.textContent).not.toContain('Ask 0');
+  });
+
+  it('keeps drawing from where it was when the blocks of an answer become one', () => {
+    const words = Array.from({ length: 40 }, (_, at) => `Paragraph ${at}.`);
+    const answer = (text: string) =>
+      [...turns(29, 'p'), ...turns(1)].map((row) =>
+        row.kind === 'text' && row.id === 't0:said' ? { ...row, text } : row,
+      );
+    act(() =>
+      root.render(<Transcript rows={answer(words.join('\n\n'))} scrolled />),
+    );
+    expect(drawn()).toBe(10);
+    // A footnote: its words reach across blocks, so they are one block.
+    act(() =>
+      root.render(
+        <Transcript
+          rows={answer(`${words.join('\n\n')}[^1]\n\n[^1]: A note.`)}
+          scrolled
+        />,
+      ),
+    );
+    expect(drawn()).toBeLessThan(10);
   });
 
   it('draws every block to go to the top', () => {
@@ -176,7 +202,7 @@ describe('a long transcript', () => {
         <Transcript rows={turns(30)} earlier={turns(3, 'e')} scrolled />,
       ),
     );
-    expect(drawn()).toBe(3 * 4 + 30);
+    expect(drawn()).toBe(3 * 4 + 10);
     expect(container.textContent).toContain('Answer e0');
     expect(container.textContent).not.toContain('Answer 0');
   });
@@ -190,7 +216,7 @@ describe('a long transcript', () => {
     act(() => root.render(<Transcript rows={turns(30)} scrolled />));
     act(() => root.render(<Transcript rows={turns(31)} scrolled />));
     expect(container.textContent).toContain('Answer 30');
-    expect(drawn()).toBe(30 + 4);
+    expect(drawn()).toBe(10 + 4);
   });
 
   it('opens one fold, and only that one', () => {

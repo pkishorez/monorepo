@@ -1,4 +1,5 @@
 import { MarkdownViewer } from '@kestack/web-platform/ui/viewers/markdown-viewer';
+import type { ComponentProps } from 'react';
 import { type Opening, useOpen } from './fold.tsx';
 
 /*
@@ -17,18 +18,26 @@ const onLinkClick = (href: string) => {
   return true;
 };
 
-/** Markdown in the transcript's prose. */
+type Viewer = ComponentProps<typeof MarkdownViewer>;
+
+/** Markdown in the transcript's prose; `block` and `from` as the viewer takes them. */
 export function Markdown({
   text,
   className = '',
+  block,
+  from,
 }: {
   readonly text: string;
   readonly className?: string;
+  readonly block?: Viewer['block'];
+  readonly from?: number;
 }) {
   return (
     <MarkdownViewer
       className={`${prose} ${className}`}
       onLinkClick={onLinkClick}
+      block={block}
+      from={from}
     >
       {text}
     </MarkdownViewer>

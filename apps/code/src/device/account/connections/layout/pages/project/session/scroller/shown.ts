@@ -1,20 +1,15 @@
-import {
-  startTransition,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
+import { startTransition, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import type { Anchor } from './anchor.ts';
 
 /*
- * Which of a list's blocks are drawn: its last few, or from where the
- * reader was, to its end; more above each time the reader nears the top
- * of what is drawn, a view and a half before they reach it, so scrolling
- * up seldom finds the end of what is drawn. A block arriving after is
- * drawn, at the end; nothing drawn is taken away. Going to the top draws
- * them all.
+ * Which of a list's blocks are drawn: from where the reader was, or its
+ * last few, to its end, and above that only as much as keeps a view and a
+ * half drawn above the view. It opens on a few, and draws a few more at a
+ * time until that much is drawn, before it is first shown; then a few
+ * more each time the reader scrolls up near the top of what is drawn. A
+ * block arriving after is drawn, at the end; nothing drawn is taken away.
+ * Going to the top draws them all.
  *
  * A group of blocks laid out once, such as a turn, may be skipped by the
  * browser while far from the view (`content-visibility`), as tall as it
@@ -22,11 +17,14 @@ import type { Anchor } from './anchor.ts';
  * in sight.
  */
 
-/** How many blocks are drawn on opening, and how many more each time. */
-const BATCH = 30;
+/** How many blocks are drawn at a time. */
+const BATCH = 10;
 
-/** How far above the view the top of what is drawn starts drawing more: a view and a half. */
-const NEAR_TOP = '150% 0px 0px 0px';
+/** How much is kept drawn above the view, in views. */
+const AHEAD = 1.5;
+
+/** How many times more is drawn at once before the page is shown; React allows no more than 50. */
+const MAX_NOW = 20;
 
 /** The scroll of one list, as what draws its blocks shares it. */
 export interface Scroll {
@@ -40,6 +38,8 @@ export interface Scroll {
   showAll: () => void;
   /** Puts the view back at the anchor now, as more is drawn above it. */
   place: () => void;
+  /** Draws more above, if what is drawn there is less than enough: `before` it is shown, or as a Transition. */
+  fill: (before: boolean) => void;
   /** A group's element, to be skipped far from the view once laid out. */
   readonly group: (element: HTMLElement | null) => (() => void) | undefined;
 }
@@ -64,6 +64,7 @@ export const scrollOf = (anchor: Anchor): Scroll => {
     drawn: false,
     showAll: () => {},
     place: () => {},
+    fill: () => {},
     group: (element) => {
       if (element === null || laidOut === null) return;
       laidOut.observe(element);
@@ -80,8 +81,8 @@ const firstOf = (order: ReadonlyArray<string>, anchor: Anchor) =>
 
 /**
  * Of a list's blocks, by id in order, the index of the first drawn, and
- * the mark to put above it, which draws more as the reader nears it. With
- * no scroll, or no order, every block is drawn.
+ * the list's element, whose top is the top of what is drawn. With no
+ * scroll, or no order, every block is drawn.
  */
 export function useShown(
   scroll: Scroll | null,
@@ -91,10 +92,13 @@ export function useShown(
   const [first, setFirst] = useState(() =>
     drawing ? firstOf(order, scroll.anchor) : null,
   );
-  const from =
-    first === null || order === null ? 0 : Math.max(0, order.indexOf(first));
   // As drawn, not as a render still on its way would draw it.
-  const latest = useRef({ order, from });
+  const latest = useRef({ order, from: 0 });
+  const at = first === null || order === null ? 0 : order.indexOf(first);
+  // A first block gone, as two blocks of words became one: where it was.
+  const from =
+    at === -1 ? Math.min(latest.current.from, order?.length ?? 0) : at;
+  const list = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     latest.current = { order, from };
   });
@@ -102,43 +106,50 @@ export function useShown(
     if (!drawing) return;
     scroll.drawn = true;
     scroll.showAll = () => flushSync(() => setFirst(null));
+    /** How many draws in a row were made before the page was shown. */
+    let now = 0;
+    let shown = 0;
+    scroll.fill = (before) => {
+      const { order, from } = latest.current;
+      const outer = scroll.scroller;
+      const element = list.current;
+      if (from === 0 || !order || !outer || !element) return;
+      const view = outer.getBoundingClientRect();
+      // Not laid out, as while hidden: nothing to measure enough by.
+      if (view.height === 0) return;
+      if (element.getBoundingClientRect().top < view.top - view.height * AHEAD)
+        return;
+      const next = order[Math.max(0, from - BATCH)] ?? null;
+      // Each before it is shown draws again at once; past a few, as when
+      // blocks add next to nothing, the rest wait their turn.
+      if (before && now < MAX_NOW) {
+        now++;
+        shown ||= requestAnimationFrame(() => {
+          now = 0;
+          shown = 0;
+        });
+        setFirst(next);
+      } else startTransition(() => setFirst(next));
+    };
     return () => {
+      cancelAnimationFrame(shown);
       scroll.showAll = () => {};
+      scroll.fill = () => {};
     };
   }, [scroll, drawing]);
-  // More drawn above: the view stays where it was before the next frame.
+  // More drawn above: the view stays where it was, and if that is still
+  // not enough, more again, before it is shown.
   useLayoutEffect(() => {
-    if (drawing) scroll.place();
+    if (!drawing) return;
+    scroll.place();
+    scroll.fill(true);
   }, [scroll, drawing, from]);
-  const mark = useRef<HTMLDivElement>(null);
-  const more = drawing && from > 0;
-  // Once the whole page is on it, its scroller too; anew for each first
-  // block drawn, as the mark is put anew above it.
-  useEffect(() => {
-    const element = mark.current;
-    if (
-      !more ||
-      element === null ||
-      scroll?.scroller == null ||
-      typeof IntersectionObserver === 'undefined'
-    )
-      return;
-    const seen = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry?.isIntersecting) return;
-        const { order, from } = latest.current;
-        const next = order?.[Math.max(0, from - BATCH)] ?? null;
-        startTransition(() => setFirst(next));
-      },
-      { root: scroll.scroller, rootMargin: NEAR_TOP },
-    );
-    seen.observe(element);
-    return () => seen.disconnect();
-  }, [scroll, first, more]);
   return {
     /** The index of the first block drawn. */
     from,
-    /** Put above the first block drawn, while there are more above it. */
-    mark: more ? mark : null,
+    /** The list's element: more is drawn above it as the view nears its top. */
+    list,
+    /** Whether blocks above the first drawn are still to be drawn. */
+    more: drawing && from > 0,
   };
 }

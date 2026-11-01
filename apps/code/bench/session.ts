@@ -118,10 +118,17 @@ export interface Shape {
   readonly running?: boolean;
   /** Each turn a question and a line of answer, shorter than a turn's guessed height. */
   readonly short?: boolean;
+  /** Its last answer forty answers long: headings, lists, tables and code. */
+  readonly long?: boolean;
 }
 
 /** The Messages of one session, oldest first. */
-export const sessionOf = ({ turns, running = false, short = false }: Shape) => {
+export const sessionOf = ({
+  turns,
+  running = false,
+  short = false,
+  long = false,
+}: Shape) => {
   const next = random(42);
   const messages: Message[] = [];
   let id = 0;
@@ -273,7 +280,17 @@ export const sessionOf = ({ turns, running = false, short = false }: Shape) => {
       stream(turnId, 'text', answerOf(next, turn).slice(0, 400));
       break;
     }
-    stream(turnId, 'text', short ? sentences(next, 1) : answerOf(next, turn));
+    stream(
+      turnId,
+      'text',
+      short
+        ? sentences(next, 1)
+        : long && last
+          ? Array.from({ length: 40 }, (_, at) => answerOf(next, at)).join(
+              '\n\n',
+            )
+          : answerOf(next, turn),
+    );
     total += 0.05 + next() * 0.3;
     push(turnId, 'assistant', [
       {

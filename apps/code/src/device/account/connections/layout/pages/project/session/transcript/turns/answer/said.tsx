@@ -1,5 +1,5 @@
 import { CircleAlertIcon, ListChecksIcon } from 'lucide-react';
-import { memo } from 'react';
+import { memo, type ReactNode, useCallback } from 'react';
 import type { Row } from '../rows/index.ts';
 import { Checklist, Markdown, progressOf, Writing } from '../../words/index.ts';
 import { Asked, stateOf } from '../../tool/index.ts';
@@ -34,6 +34,9 @@ export const isSaid = (row: Row): row is SaidRow =>
   row.kind === 'note' ||
   (row.kind === 'tool' && askedOf(row.call, row.answered) !== null);
 
+/** The id of the block of words `at` in a row. */
+export const blockIdOf = (rowId: string, at: number) => `${rowId}:${at}`;
+
 /** Drawn again only as its row changes: words already said are not read again. */
 export const Said = memo(SaidView);
 
@@ -41,13 +44,24 @@ function SaidView({
   row,
   running,
   nested = false,
+  wrap,
+  from,
 }: {
   readonly row: SaidRow;
   /** Whether its turn runs, so words still marked as arriving are. */
   readonly running: boolean;
   /** Inside a subagent. */
   readonly nested?: boolean;
+  /** Wraps each block of its words, by the block's id. */
+  readonly wrap?: (id: string, drawn: ReactNode) => ReactNode;
+  /** The first block of its words drawn. */
+  readonly from?: number;
 }) {
+  // The same while its row is, so its words are not drawn again.
+  const block = useCallback(
+    (at: number, drawn: ReactNode) => wrap?.(blockIdOf(row.id, at), drawn),
+    [wrap, row.id],
+  );
   switch (row.kind) {
     case 'text': {
       const writing = row.writing && running;
@@ -55,6 +69,8 @@ function SaidView({
         <div className="flex min-w-0 flex-col">
           <Markdown
             text={row.text}
+            from={from}
+            block={wrap && block}
             className={`${nested ? 'text-sm text-muted-foreground' : 'text-base'} ${writing ? '[&>:last-child]:animate-chunk-in motion-reduce:[&>:last-child]:animate-none' : ''}`}
           />
           {writing && <Writing />}

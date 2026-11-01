@@ -159,6 +159,18 @@ const run = async (turns: number): Promise<Result> => {
     await close();
   }
   {
+    const { page, close } = await opened();
+    const open = await page.evaluate(
+      (turns) => window.bench.open(turns, false, false, true),
+      turns,
+    );
+    result['long answer: drawn (ms)'] = open.draw;
+    result['long answer: long tasks until quiet (ms)'] = open.busy;
+    result['long answer: longest task after (ms)'] = open.longest;
+    result['long answer: DOM nodes'] = open.nodes;
+    await close();
+  }
+  {
     const { page, close } = await opened(true);
     await page.evaluate(
       (turns) => window.bench.open(turns, false, true),

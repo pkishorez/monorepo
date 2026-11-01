@@ -199,10 +199,10 @@ declare global {
 
 const bench = {
   /** Opens a session of `turns` turns: how long until drawn, and its long tasks until quiet. */
-  open: async (turns: number, live = false, shell = false) => {
+  open: async (turns: number, live = false, shell = false, long = false) => {
     running = live;
     shelled = shell;
-    made = sessionOf({ turns, running: live });
+    made = sessionOf({ turns, running: live, long });
     entries = made.messages.map((row) => ({ id: row.id, row }));
     longest = 0;
     const draw = mount();
