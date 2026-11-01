@@ -13,7 +13,8 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * more above as the reader nears the top of them, and all of them to go
  * to the top; outside a scroller it draws every one; and a fold opens by
  * itself, whatever else is drawn. jsdom lays nothing out and has no
- * IntersectionObserver: the one here says the mark is near once `near` is.
+ * IntersectionObserver, nor `elementFromPoint`: the observer here says
+ * the mark is near once `near` is.
  */
 
 let near = false;
@@ -123,6 +124,8 @@ let toTop: () => void = () => {};
 beforeEach(() => {
   near = false;
   Object.assign(globalThis, { IntersectionObserver: Near });
+  // jsdom lays nothing out, so no point holds anything.
+  document.elementFromPoint = () => null;
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
