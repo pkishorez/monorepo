@@ -1,6 +1,6 @@
 # docs
 
-The docs for every ke stack toolkit, a kabuki start app published at docs.kishore.app.
+The docs for every ke stack package, a kabuki start app published at docs.kishore.app.
 
 ## Big picture
 
@@ -10,11 +10,11 @@ drawn by one Cloudflare Worker and hydrated in the browser. The home page
 tells the stack as one scroll story over a WebGL particle field that takes a
 shape for each stop: the monorepo, kabuki and its four parts, then what is
 coming, the shapes alternating sides, with a comet that follows the scroll
-and a rail that counts the stops. kabuki, the only toolkit with docs so far, has a
+and a rail that counts the stops. kabuki, the only package with docs so far, has a
 landing page told the same way, and its docs under `/kabuki/<slug>`, with a
 sidebar, "On this page" and a pager.
 
-The table of contents is TypeScript, in `src/shared/content`: the toolkits,
+The table of contents is TypeScript, in `src/shared/content`: the packages,
 and kabuki's sections and pages. Only written pages are in it. A page's slug
 is its URL and is checked by the router, so a URL not in the table of
 contents is a 404. A page's words are MDX, in `src/client/docs`, with its
@@ -40,7 +40,7 @@ infrastructure is declared with Alchemy in `alchemy.run.ts` and `src/infra`.
 mdx/            the build step every page's MDX goes through
 src/
   shared/       both sides
-    content/      the toolkits, kabuki's table of contents, and each page's Metadata
+    content/      the packages, kabuki's table of contents, and each page's Metadata
     pages/        the page definitions; routes.ts reads them into the router
   client/       the Views: drawn by the server, then run by the browser
     app.tsx       the root page's View, in the layout and the Web Platform's Document

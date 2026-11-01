@@ -1,6 +1,6 @@
 import { ArrowUpRightIcon } from 'lucide-react';
 import { Stop } from '../../field/index.ts';
-import { MONOREPO } from './hero.tsx';
+import { MONOREPO } from '../../../shared/index.ts';
 
 /*
  * The end of the story: the rest of the stack is on its way, drawn as

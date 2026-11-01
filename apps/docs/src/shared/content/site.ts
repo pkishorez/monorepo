@@ -7,6 +7,9 @@ import type { Metadata } from '@kestack/kabuki/routing/page';
 /** Where the site is published: every canonical URL is under it. */
 const SITE = 'https://docs.kishore.app';
 
+/** The monorepo every package lives in. */
+export const MONOREPO = 'https://github.com/pkishorez/monorepo';
+
 /** The site's name, after every page's title. */
 export const NAME = 'ke stack';
 

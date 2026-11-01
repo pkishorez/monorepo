@@ -1,4 +1,5 @@
 import { ArrowUpRightIcon } from 'lucide-react';
+import { MONOREPO } from '../../../shared/index.ts';
 import { Stop } from '../../field/index.ts';
 
 /*
@@ -7,8 +8,6 @@ import { Stop } from '../../field/index.ts';
  * code. The monorepo is linked twice: the word itself, and a button under
  * the words for whoever reads past it.
  */
-
-export const MONOREPO = 'https://github.com/pkishorez/monorepo';
 
 export function Hero() {
   return (

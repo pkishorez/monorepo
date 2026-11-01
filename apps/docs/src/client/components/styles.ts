@@ -11,7 +11,7 @@ export const link =
 
 /**
  * A small label over a group: a section in the sidebar, a part of a page.
- * Never uppercase, so a toolkit's name keeps its lowercase.
+ * Never uppercase, so a package's name keeps its lowercase.
  */
 export const label = 'text-xs font-medium text-muted-foreground';
 

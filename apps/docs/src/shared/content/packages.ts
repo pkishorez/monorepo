@@ -1,10 +1,10 @@
 /*
- * Every toolkit the site documents, each with its one-sentence pitch. The
+ * Every package the site documents, each with its one-sentence pitch. The
  * stack's home page leads to them, and the header switches between them.
  * Names are written in lowercase, always: `kabuki`, never `Kabuki`.
  */
 
-export type Toolkit = {
+export type Package = {
   readonly id: 'kabuki';
   readonly name: string;
   /** One word for what it is. */
@@ -12,7 +12,7 @@ export type Toolkit = {
   readonly pitch: string;
 };
 
-export const TOOLKITS: ReadonlyArray<Toolkit> = [
+export const PACKAGES: ReadonlyArray<Package> = [
   {
     id: 'kabuki',
     name: 'kabuki',
@@ -21,5 +21,5 @@ export const TOOLKITS: ReadonlyArray<Toolkit> = [
   },
 ];
 
-export const toolkitOf = (id: Toolkit['id']): Toolkit =>
-  TOOLKITS.find((toolkit) => toolkit.id === id)!;
+export const packageOf = (id: Package['id']): Package =>
+  PACKAGES.find((entry) => entry.id === id)!;

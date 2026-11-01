@@ -1,9 +1,6 @@
+import { MONOREPO } from '../../shared/index.ts';
 /** Where the code is on GitHub, as its mark: the monorepo, or one folder of it. */
-export function GithubLink({
-  href = 'https://github.com/pkishorez/monorepo',
-}: {
-  readonly href?: string;
-}) {
+export function GithubLink({ href = MONOREPO }: { readonly href?: string }) {
   return (
     <a
       href={href}

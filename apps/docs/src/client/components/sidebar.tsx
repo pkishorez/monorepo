@@ -45,7 +45,8 @@ const focus =
 
 const row = `flex min-h-8 items-center rounded-r-md py-1 pr-2 pl-4 text-[13.5px] text-muted-foreground transition-colors duration-150 pointer-coarse:min-h-11 hover:bg-muted/60 hover:text-foreground aria-[current=page]:font-medium aria-[current=page]:text-foreground ${focus}`;
 
-export function Sidebar() {
+/** `back`: the way out to the stack's home, left off where that is the page. */
+export function Sidebar({ back = true }: { readonly back?: boolean } = {}) {
   const { route } = useRouter<Route>();
   const current = currentSlug(route);
   const home = current ? sectionOf(current).title : SECTIONS[0]!.title;
@@ -81,13 +82,15 @@ export function Sidebar() {
 
   return (
     <nav ref={nav} aria-label="kabuki docs" className="space-y-5">
-      <Router.Link
-        to={router.Home()}
-        className={`group ml-2 flex w-fit items-center gap-1.5 rounded-md text-[13px] text-muted-foreground transition-colors duration-150 hover:text-foreground ${focus}`}
-      >
-        <ArrowLeftIcon className="size-3.5 transition-transform duration-150 group-hover:-translate-x-0.5" />
-        ke stack
-      </Router.Link>
+      {back && (
+        <Router.Link
+          to={router.Home()}
+          className={`group ml-2 flex w-fit items-center gap-1.5 rounded-md text-[13px] text-muted-foreground transition-colors duration-150 hover:text-foreground ${focus}`}
+        >
+          <ArrowLeftIcon className="size-3.5 transition-transform duration-150 group-hover:-translate-x-0.5" />
+          ke stack
+        </Router.Link>
+      )}
       <div className="space-y-1">
         {SECTIONS.map((section) => (
           <SectionList

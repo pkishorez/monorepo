@@ -6,8 +6,8 @@ adding or changing any page under `src/client/docs`.
 ## The shape of the site
 
 ```
-ke stack                    the home page: one line, then a door per toolkit
-└── kabuki                  a toolkit: its landing page at /kabuki
+ke stack                    the home page: one line, then a door per package
+└── kabuki                  a package: its landing page at /kabuki
     ├── Get started         a section: a heading in the sidebar
     │   ├── Introduction    a page: /kabuki/introduction
     │   └── Quick start
@@ -19,25 +19,26 @@ ke stack                    the home page: one line, then a door per toolkit
     └── Demos               grouped Small, Apps, Showcase; the full-screen one opens in a new tab
 ```
 
-- **Toolkit.** One per package or group of packages. It is listed in
-  `src/shared/content/toolkits.ts` with one word for what it is (`kind`) and a
+- **Package.** A package of the stack with docs to read, kabuki today. It
+  is listed in
+  `src/shared/content/packages.ts` with one word for what it is (`kind`) and a
   one-sentence `pitch`. It gets a door on the home page, a landing page and a
-  sidebar. A toolkit is added only once it has pages to read: no "coming
-  soon" toolkits.
-- **Section.** A heading in a toolkit's sidebar. kabuki's are Get started,
+  sidebar. A package is added only once it has pages to read: no "coming
+  soon" packages.
+- **Section.** A heading in a package's sidebar. kabuki's are Get started,
   its four Parts in the order they are read (core, react, routing, start,
   each using only the ones before it), and Demos. A Part's section carries
   its import path, which its pages show above their title.
 - **Group.** The pages of a section read together, under a small title of
   their own or none: at most three, so the reader holds one group at a time.
-- **Page.** One URL, `/<toolkit>/<slug>`. A slug is unique in its toolkit, so
+- **Page.** One URL, `/<package>/<slug>`. A slug is unique in its package, so
   a page can move between sections without its URL changing.
 
 ## Names
 
 Every name we own is lowercase, everywhere, even at the start of a sentence
 or a title: `kabuki`, `ke stack`, `kabuki start`. Never `Kabuki`. Labels are
-never styled `uppercase` for the same reason. Terms of a toolkit's own
+never styled `uppercase` for the same reason. Terms of a package's own
 language keep their capital, as its code and `CONTEXT.md` write them: Actor,
 Message, State, Model, Worker.
 
