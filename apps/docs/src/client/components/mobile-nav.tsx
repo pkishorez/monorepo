@@ -147,7 +147,7 @@ export function MobileNav() {
         <MenuIcon className="size-4" />
       </DrawerTrigger>
       <EdgeSwipe />
-      <DrawerContent className="flex h-dvh w-[min(20rem,85vw)] flex-col p-0">
+      <DrawerContent className="flex h-dvh w-[min(20rem,85vw)] flex-col border-border bg-background p-0 shadow-[0_0_0_1px_rgb(0_0_0/0.04),16px_0_48px_-12px_rgb(0_0_0/0.45)]">
         <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border pr-3 pl-5">
           <DrawerTitle className="text-[15px] font-semibold tracking-tight">
             {kabuki ? (

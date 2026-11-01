@@ -25,6 +25,6 @@ export const CHAPTERS: ReadonlyArray<Chapter> = [
     side: 'left',
     act: 'the framework',
     name: 'kabuki',
-    pitch: 'An app is one tree of Actors, outside React.',
+    pitch: 'Logic, composed as a tree of Actors.',
   },
 ];

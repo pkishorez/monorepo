@@ -34,8 +34,8 @@ export function Hero() {
         </span>
       </h1>
       <p className="mt-6 max-w-lg text-lg text-pretty text-muted-foreground">
-        All open source. The first piece to read is kabuki, a UI framework where
-        an app is one tree of Actors.
+        All open source. The first piece to read is kabuki: logic, composed as a
+        tree of Actors.
       </p>
       <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
         <a
