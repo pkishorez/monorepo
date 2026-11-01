@@ -32,162 +32,170 @@ import { Around } from './question.ts';
  * answer is said in a toast; a refusal to stop, over the bar.
  */
 
-export const QuestionView = View.make(QuestionLive, ({ root, model, send }) => {
-  const { place, agent, harness, stop, problem } = use(Around);
-  const asker = { agent, harness };
-  const shown = shownOf(model);
-  const expanded = expandedOf(model);
-  const { keyboard } = useDevice();
-  const touch = !keyboard;
-  const keyboardNow = keys.useKeyboard();
-  const { enter } = keyboardNow;
-  /**
-   * Whether the user is in it now, as of the last draw: read when it goes,
-   * by a cleanup that would else see the draw it began in.
-   */
-  const inIt = useRef(false);
-  inIt.current = keyboardNow.active === 'question';
-  /**
-   * Who the user just handed focus to: the panel, by asking it to expand,
-   * until it takes it; the page, by minimising it, until it is minimised,
-   * so the page it hands the keys to is no way back into it. Else no one,
-   * and where focus is decides.
-   */
-  const handed = useRef<'panel' | 'page' | null>(null);
-  /** Back to the page, focus too, as the panel lets go of it. */
-  const toPage = () => {
-    const now = document.activeElement;
-    if (now instanceof HTMLElement && place?.contains(now) === true) now.blur();
-    enter('content');
-  };
-  const minimise = () => {
-    handed.current = 'page';
-    if (inIt.current) toPage();
-    send({ _tag: 'Minimised' });
-  };
-  const expand = () => {
-    handed.current = 'panel';
-    send({ _tag: 'Expanded' });
-  };
-  /** Focus is the page's, or nobody's: the panel may take it. */
-  const claim = () => {
-    const wanted = handed.current === 'panel';
-    if (wanted) handed.current = null;
-    const now = document.activeElement;
-    return (
-      wanted ||
-      now === null ||
-      now === document.body ||
-      place?.parentElement?.contains(now) === true
-    );
-  };
-  const toggle = () => (expanded ? minimise() : expand());
-  const on = { enabled: shown !== null };
-  keys.useAction('content.questionAnywhere', toggle, on);
-  // `m` and `i` open the question, never the model Picker or the Draft,
-  // which are not drawn while it stands in for them.
-  keys.useAction('content.model', toggle, on);
-  keys.useAction('content.write', expand, on);
-  // Back to the page while it covers the transcript, as by `l` or Ctrl+L
-  // from the sidebar: the keys go into it, never to the transcript under
-  // it, which takes no focus.
-  const onPage = keyboardNow.active === 'content';
-  useEffect(() => {
-    if (!expanded) {
-      if (handed.current === 'page') handed.current = null;
-    } else if (onPage && handed.current !== 'page') enter('question');
-  }, [onPage, expanded]);
-  // Answered, skipped or gone with focus in it: focus back to the page.
-  const id = shown?.id ?? null;
-  useEffect(
-    () => () => {
+export const QuestionView = View.make(
+  QuestionLive,
+  ({ root, props, model, send }) => {
+    const { place, agent, harness, stop, problem } = use(Around);
+    const asker = { agent, harness };
+    const shown = shownOf(model);
+    const expanded = expandedOf(model);
+    const { keyboard } = useDevice();
+    const touch = !keyboard;
+    const keyboardNow = keys.useKeyboard();
+    const { enter } = keyboardNow;
+    /**
+     * Whether the user is in it now, as of the last draw: read when it goes,
+     * by a cleanup that would else see the draw it began in.
+     */
+    const inIt = useRef(false);
+    inIt.current = keyboardNow.active === 'question';
+    /**
+     * Who the user just handed focus to: the panel, by asking it to expand,
+     * until it takes it; the page, by minimising it, until it is minimised,
+     * so the page it hands the keys to is no way back into it. Else no one,
+     * and where focus is decides.
+     */
+    const handed = useRef<'panel' | 'page' | null>(null);
+    /** Back to the page, focus too, as the panel lets go of it. */
+    const toPage = () => {
+      const now = document.activeElement;
+      if (now instanceof HTMLElement && place?.contains(now) === true)
+        now.blur();
+      enter('content');
+    };
+    const minimise = () => {
+      handed.current = 'page';
       if (inIt.current) toPage();
-    },
-    [id],
-  );
-  const { refused } = model;
-  useEffect(() => {
-    if (refused === null) return;
-    notify({ title: 'Your answer was not sent', description: refused.reason });
-  }, [refused?.n]);
-  // The keys that open it from where the user is: `m` in Vim Mode's
-  // Normal Mode, else Ctrl+Y.
-  const available = keys.useAvailableActions();
-  const openKeys = useBound(
-    available.some(({ id, shadowed }) => id === 'content.model' && !shadowed)
-      ? 'content.model'
-      : 'content.questionAnywhere',
-  );
-  if (shown === null) return <div {...root} hidden />;
-  const sending =
-    model.sending !== null && model.sending.questionId === shown.id
-      ? { declining: model.sending.declining }
-      : null;
-  const drafts = model.drafts[shown.id];
-  const answered = shown.items.filter((item) =>
-    isAnswered(item, draftOf(drafts, item)),
-  ).length;
-  return (
-    <div {...root}>
-      {/* Gone while expanded, so nothing of it shows behind the dialog. */}
-      <div
-        inert={expanded}
-        aria-hidden={expanded}
-        className="transition-opacity duration-150 ease-out data-[hidden]:opacity-0 motion-reduce:transition-none"
-        data-hidden={expanded ? '' : undefined}
-      >
-        {/* Why a stop was refused, where the Draft would have said it. */}
-        {problem !== null && (
-          <p
-            role="alert"
-            className="mb-2 flex items-center gap-1.5 text-xs text-destructive"
-          >
-            <CircleAlertIcon aria-hidden className="size-3.5 shrink-0" />
-            {problem}
-          </p>
-        )}
-        <Bar
-          question={shown}
-          answered={answered}
-          asker={asker}
-          sending={sending}
-          stop={stop}
-          touch={touch}
-          openKeys={keyboard ? openKeys : null}
-          onOpen={expand}
-          onDecline={() => send({ _tag: 'DeclineAsked' })}
-        />
-      </div>
-      {place !== null &&
-        createPortal(
-          <Dialog
-            key={shown.id}
+      send({ _tag: 'Minimised' });
+    };
+    const expand = () => {
+      handed.current = 'panel';
+      send({ _tag: 'Expanded' });
+    };
+    /** Focus is the page's, or nobody's: the panel may take it. */
+    const claim = () => {
+      const wanted = handed.current === 'panel';
+      if (wanted) handed.current = null;
+      const now = document.activeElement;
+      return (
+        wanted ||
+        now === null ||
+        now === document.body ||
+        place?.parentElement?.contains(now) === true
+      );
+    };
+    const toggle = () => (expanded ? minimise() : expand());
+    const on = { enabled: shown !== null };
+    keys.useAction('content.questionAnywhere', toggle, on);
+    // `m` and `i` open the question, never the model Picker or the Draft,
+    // which are not drawn while it stands in for them.
+    keys.useAction('content.model', toggle, on);
+    keys.useAction('content.write', expand, on);
+    // Back to the page while it covers the transcript, as by `l` or Ctrl+L
+    // from the sidebar: the keys go into it, never to the transcript under
+    // it, which takes no focus.
+    const onPage = keyboardNow.active === 'content';
+    useEffect(() => {
+      if (!expanded) {
+        if (handed.current === 'page') handed.current = null;
+      } else if (onPage && handed.current !== 'page') enter('question');
+    }, [onPage, expanded]);
+    // Answered, skipped or gone with focus in it: focus back to the page.
+    const id = shown?.id ?? null;
+    useEffect(
+      () => () => {
+        if (inIt.current) toPage();
+      },
+      [id],
+    );
+    const { refused } = model;
+    useEffect(() => {
+      if (refused === null) return;
+      notify({
+        title: 'Your answer was not sent',
+        description: refused.reason,
+      });
+    }, [refused?.n]);
+    // The keys that open it from where the user is: `m` in Vim Mode's
+    // Normal Mode, else Ctrl+Y.
+    const available = keys.useAvailableActions();
+    const openKeys = useBound(
+      available.some(({ id, shadowed }) => id === 'content.model' && !shadowed)
+        ? 'content.model'
+        : 'content.questionAnywhere',
+    );
+    if (shown === null) return <div {...root} hidden />;
+    const sending =
+      model.sending !== null && model.sending.questionId === shown.id
+        ? { declining: model.sending.declining }
+        : null;
+    const drafts = model.drafts[shown.id];
+    const answered = shown.items.filter((item) =>
+      isAnswered(item, draftOf(drafts, item)),
+    ).length;
+    return (
+      <div {...root}>
+        {/* Gone while expanded, so nothing of it shows behind the dialog. */}
+        <div
+          inert={expanded}
+          aria-hidden={expanded}
+          className="transition-opacity duration-150 ease-out data-[hidden]:opacity-0 motion-reduce:transition-none"
+          data-hidden={expanded ? '' : undefined}
+        >
+          {/* Why a stop was refused, where the Draft would have said it. */}
+          {problem !== null && (
+            <p
+              role="alert"
+              className="mb-2 flex items-center gap-1.5 text-xs text-destructive"
+            >
+              <CircleAlertIcon aria-hidden className="size-3.5 shrink-0" />
+              {problem}
+            </p>
+          )}
+          <Bar
             question={shown}
-            drafts={drafts}
-            tried={model.tried.includes(shown.id)}
-            sending={sending}
-            touch={touch}
+            answered={answered}
             asker={asker}
+            sending={sending}
             stop={stop}
-            expanded={expanded}
-            claim={claim}
-            onChoose={(itemId, label) =>
-              send({ _tag: 'Chose', questionId: shown.id, itemId, label })
-            }
-            onChooseOther={(itemId) =>
-              send({ _tag: 'ChoseOther', questionId: shown.id, itemId })
-            }
-            onType={(itemId, text) =>
-              send({ _tag: 'Typed', questionId: shown.id, itemId, text })
-            }
-            onSend={() => send({ _tag: 'SendAsked' })}
+            touch={touch}
+            openKeys={keyboard ? openKeys : null}
+            onOpen={expand}
             onDecline={() => send({ _tag: 'DeclineAsked' })}
-            onMinimise={minimise}
-          />,
-          place,
-        )}
-    </div>
-  );
-});
+          />
+        </div>
+        {place !== null &&
+          createPortal(
+            <Dialog
+              key={shown.id}
+              connectionId={props.connectionId}
+              question={shown}
+              drafts={drafts}
+              tried={model.tried.includes(shown.id)}
+              sending={sending}
+              touch={touch}
+              asker={asker}
+              stop={stop}
+              expanded={expanded}
+              claim={claim}
+              onChoose={(itemId, label) =>
+                send({ _tag: 'Chose', questionId: shown.id, itemId, label })
+              }
+              onChooseOther={(itemId) =>
+                send({ _tag: 'ChoseOther', questionId: shown.id, itemId })
+              }
+              onType={(itemId, text) =>
+                send({ _tag: 'Typed', questionId: shown.id, itemId, text })
+              }
+              onSend={() => send({ _tag: 'SendAsked' })}
+              onDecline={() => send({ _tag: 'DeclineAsked' })}
+              onMinimise={minimise}
+            />,
+            place,
+          )}
+      </div>
+    );
+  },
+);
 
 export default QuestionView;

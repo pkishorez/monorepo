@@ -39,20 +39,20 @@ const ask = Command.make('AskDictation', {
 /*
  * The Dictation with the microphone and every Connection stood in for. It
  * starts only with a Connection to transcribe on, and says why otherwise, for
- * a few seconds; records the level until it is asked to stop, or for five
- * minutes; transcribes the clip on the Connection of the Draft on screen when
- * that one can, else on another; and its text goes to the Draft on screen
- * as it stopped, the last one drawn, or into the list with none, where it
- * waits to be pasted. Refused, it retries from the same clip. It records
+ * a few seconds; records the level until it is asked to stop, from
+ * anywhere, or for five minutes; transcribes the clip on its Owner's
+ * Connection when that one can, else on another; and its text is kept for
+ * the field that started it, its Owner, until that field takes it.
+ * Refused, it retries from the same clip. It records
  * from the microphone chosen, the default when that one is not linked,
  * saying so, and another chosen while it records is switched to in the
  * same recording.
  */
 
-/** A Draft drawn: its key, as its View makes one, and its Connection. */
+/** A field that dictates: its key, and its Connection. */
 type Draft = { readonly key: string; readonly connectionId: string };
 
-/** Voice's part: the asks it hands on, Drafts drawn and gone among them. */
+/** Voice's part: the asks it hands on. */
 const Owner = Actor.define('Owner', {
   requires: [Dictations, Preferences],
   message: Schema.TaggedUnion({
@@ -292,25 +292,24 @@ const textsOf = (app: Running<unknown>) =>
       texts: Schema.Array(
         Schema.Struct({
           id: Schema.Finite,
-          target: Schema.NullOr(Schema.String),
+          owner: Schema.String,
           text: Schema.String,
         }),
       ),
     }),
   )(dictation(app).model).texts;
 
-/** The app, with `draft` drawn, if any. */
+/** The field each app's toggles start one for, unless told another. */
+const fields = new WeakMap<Running<unknown>, Draft | null>();
+
+/** The app, its toggles starting one for `draft`. */
 const start = (draft: Draft | null, layer: Layer.Layer<any>) =>
   Effect.gen(function* () {
     const app = (yield* Runtime.start(
       OwnerLive as never,
       layer as never,
     )) as Running<unknown>;
-    if (draft !== null)
-      app.send(app.snapshot().id, {
-        _tag: 'Ask',
-        ask: { _tag: 'Register', ...draft },
-      });
+    fields.set(app, draft);
     return app;
   });
 
@@ -321,15 +320,11 @@ const askIt = (app: Running<unknown>, asked: typeof Ask.Type) =>
     settle,
   );
 
-const toggle = (app: Running<unknown>) => askIt(app, { _tag: 'Toggle' });
-
-/** A Draft drawn, as its View says. */
-const drawn = (app: Running<unknown>, draft: Draft) =>
-  askIt(app, { _tag: 'Register', ...draft });
-
-/** A Draft gone, as its View says. */
-const gone = (app: Running<unknown>, draft: Draft) =>
-  askIt(app, { _tag: 'Unregister', key: draft.key });
+/** Start one for `owner`, or stop the one recording. */
+const toggle = (
+  app: Running<unknown>,
+  owner: Draft | null = fields.get(app) ?? null,
+) => askIt(app, { _tag: 'Toggle', owner });
 
 const send = (
   app: Running<unknown>,
@@ -372,7 +367,7 @@ describe('Dictation', () => {
         yield* settle;
         yield* toggle(app);
         yield* toggle(app);
-        expect(textsOf(app)).toEqual([{ id: 1, target: 's1', text: 'hello' }]);
+        expect(textsOf(app)).toEqual([{ id: 1, owner: 's1', text: 'hello' }]);
         yield* askIt(app, { _tag: 'Cancel' });
         expect(stateOf(app)._tag).toBe('Idle');
         expect(textsOf(app)).toEqual([]);
@@ -439,7 +434,11 @@ describe('Dictation', () => {
         const app = yield* start(session('m1', 's1'), layer);
         yield* settle;
         yield* toggle(app);
-        expect(stateOf(app)).toEqual({ _tag: 'Waiting', id: 1 });
+        expect(stateOf(app)).toEqual({
+          _tag: 'Waiting',
+          id: 1,
+          owner: session('m1', 's1'),
+        });
         expect(recording()).toBe(false);
         yield* Deferred.succeed(open, undefined);
         yield* settle;
@@ -464,7 +463,7 @@ describe('Dictation', () => {
       }),
     ));
 
-  it('records the level, carries on as the page changes, and gives its text to the Draft on screen as it stops', () =>
+  it('records the level, carries on as the page changes, and stopped from anywhere gives its text to the field that started it', () =>
     timed(
       Effect.gen(function* () {
         const { layer, levels, asked } = yield* world({
@@ -474,27 +473,27 @@ describe('Dictation', () => {
         const app = yield* start(session('m1', 's1'), layer);
         yield* settle;
         yield* toggle(app);
-        expect(stateOf(app)).toMatchObject({ _tag: 'Recording', level: 0 });
+        expect(stateOf(app)).toMatchObject({
+          _tag: 'Recording',
+          level: 0,
+          owner: session('m1', 's1'),
+        });
         yield* Queue.offer(levels, 0.5);
         yield* settle;
         expect(stateOf(app)).toMatchObject({ _tag: 'Recording', level: 0.5 });
-        // Started on page A, it carries on while the app moves to page B.
-        yield* send(app, { _tag: 'Level', level: 0.25 });
-        yield* gone(app, session('m1', 's1'));
-        yield* drawn(app, session('m2', 's2'));
-        expect(stateOf(app)._tag).toBe('Recording');
-        yield* toggle(app);
-        expect(asked).toEqual([{ connectionId: 'm2', audio: [1, 0, 2, 0] }]);
+        // Started in Session 1, stopped from Session 2's Draft on another Connection.
+        yield* toggle(app, session('m2', 's2'));
+        expect(asked).toEqual([{ connectionId: 'm1', audio: [1, 0, 2, 0] }]);
         expect(stateOf(app)._tag).toBe('Idle');
         expect(textsOf(app)).toEqual([
-          { id: 1, target: 's2', text: 'look here' },
+          { id: 1, owner: 's1', text: 'look here' },
         ]);
         yield* send(app, { _tag: 'Took', id: 1 });
         expect(textsOf(app)).toEqual([]);
       }),
     ));
 
-  it('transcribes on another Connection when the Draft’s cannot, and keeps the text in the list with no Draft on screen', () =>
+  it('transcribes on another Connection when its Owner’s cannot', () =>
     timed(
       Effect.gen(function* () {
         const { layer, asked } = yield* world({
@@ -503,86 +502,52 @@ describe('Dictation', () => {
         const app = yield* start(session('m2', 's2'), layer);
         yield* settle;
         yield* toggle(app);
-        yield* gone(app, session('m2', 's2'));
         yield* toggle(app);
         expect(asked.map(({ connectionId }) => connectionId)).toEqual(['m1']);
-        expect(stateOf(app)._tag).toBe('Idle');
-        expect(textsOf(app)).toEqual([{ id: 1, target: null, text: 'hello' }]);
+        expect(textsOf(app)).toEqual([{ id: 1, owner: 's2', text: 'hello' }]);
       }),
     ));
 
-  it('starts with no Draft drawn, as in Settings, and keeps the text in the list, to paste into a Draft drawn later or throw away', () =>
+  it('does not start with no field to dictate into, as in Settings, and says why', () =>
     timed(
       Effect.gen(function* () {
-        const { layer } = yield* world({
-          speech: { m1: 'Ready' },
-          said: ['first', 'second'],
-        });
+        const { layer, recordings } = yield* world({ speech: { m1: 'Ready' } });
         const app = yield* start(null, layer);
         yield* settle;
         yield* toggle(app);
-        expect(stateOf(app)._tag).toBe('Recording');
-        yield* toggle(app);
-        yield* toggle(app);
-        yield* toggle(app);
-        expect(textsOf(app)).toEqual([
-          { id: 1, target: null, text: 'first' },
-          { id: 2, target: null, text: 'second' },
-        ]);
-        // No Draft on screen: nowhere to paste.
-        yield* askIt(app, { _tag: 'Paste', id: 1 });
-        expect(textsOf(app)[0]!.target).toBeNull();
-        yield* drawn(app, session('m1', 's1'));
-        yield* askIt(app, { _tag: 'Paste', id: 1 });
-        yield* askIt(app, { _tag: 'Discard', id: 2 });
-        expect(textsOf(app)).toEqual([{ id: 1, target: 's1', text: 'first' }]);
+        expect(stateOf(app)._tag).toBe('Idle');
+        expect(noticeOf(app)).toBe('Open a Draft to dictate into');
+        expect(recordings()).toBe(0);
       }),
     ));
 
-  it('gives the text to the last Draft drawn of two', () =>
+  it('keeps each field’s text until it takes it, and a Cancel throws away only the last one’s', () =>
     timed(
       Effect.gen(function* () {
-        const { layer, asked } = yield* world({
-          speech: { m1: 'Ready', m2: 'Ready' },
-        });
-        const app = yield* start(session('m1', 's1'), layer);
-        yield* drawn(app, session('m2', 's2'));
-        yield* toggle(app);
-        yield* toggle(app);
-        expect(asked.map(({ connectionId }) => connectionId)).toEqual(['m2']);
-        expect(textsOf(app)).toEqual([{ id: 1, target: 's2', text: 'hello' }]);
-        // The one before is on screen again once the last one goes.
-        yield* gone(app, session('m2', 's2'));
-        yield* toggle(app);
-        yield* toggle(app);
-        expect(textsOf(app).map(({ target }) => target)).toEqual([null, 's1']);
-      }),
-    ));
-
-  it('keeps in the list what was on its way to a Draft that left before its text came', () =>
-    timed(
-      Effect.gen(function* () {
-        const gate = yield* Deferred.make<void>();
         const { layer } = yield* world({
           speech: { m1: 'Ready' },
-          gate: Deferred.await(gate),
+          said: ['first', 'second', 'third'],
         });
         const app = yield* start(session('m1', 's1'), layer);
         yield* settle;
         yield* toggle(app);
         yield* toggle(app);
-        expect(stateOf(app)).toMatchObject({
-          _tag: 'Transcribing',
-          target: 's1',
-        });
-        yield* gone(app, session('m1', 's1'));
-        expect(stateOf(app)).toMatchObject({
-          _tag: 'Transcribing',
-          target: null,
-        });
-        yield* Deferred.succeed(gate, undefined);
-        yield* settle;
-        expect(textsOf(app)).toEqual([{ id: 1, target: null, text: 'hello' }]);
+        const question = { key: 'q1', connectionId: 'm1' };
+        yield* toggle(app, question);
+        yield* toggle(app, question);
+        expect(textsOf(app)).toEqual([
+          { id: 1, owner: 's1', text: 'first' },
+          { id: 2, owner: 'q1', text: 'second' },
+        ]);
+        // Its next one, not yet taken, takes the place of the last.
+        yield* toggle(app, question);
+        yield* toggle(app, question);
+        expect(textsOf(app)).toEqual([
+          { id: 1, owner: 's1', text: 'first' },
+          { id: 3, owner: 'q1', text: 'third' },
+        ]);
+        yield* askIt(app, { _tag: 'Cancel' });
+        expect(textsOf(app)).toEqual([{ id: 1, owner: 's1', text: 'first' }]);
       }),
     ));
 
@@ -620,14 +585,14 @@ describe('Dictation', () => {
         expect(stateOf(app)).toEqual({
           _tag: 'Failed',
           id: 1,
-          target: 's1',
+          owner: session('m1', 's1'),
           reason: 'The model would not load',
         });
         yield* send(app, { _tag: 'Retry', id: 1 });
         expect(asked).toHaveLength(2);
         expect(asked[1]!.audio).toEqual(asked[0]!.audio);
         expect(textsOf(app)).toEqual([
-          { id: 1, target: 's1', text: 'second time' },
+          { id: 1, owner: 's1', text: 'second time' },
         ]);
       }),
     ));

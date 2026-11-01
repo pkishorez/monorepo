@@ -1,44 +1,46 @@
 import { useChild } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
-import { MicIcon, SquareIcon } from 'lucide-react';
+import { XIcon } from 'lucide-react';
 import { use, type ContextType } from 'react';
 import { Dictating } from './view.tsx';
 
 /*
- * The mic Layout draws in the header, on every page, Settings too: it
- * starts a Dictation, and stops the one recording, wherever it started.
- * It reads only whether one is starting or recording.
+ * What Layout draws in the header, on every page, Settings too: while a
+ * Dictation starts, records or is written out, wherever it was started,
+ * a button that throws it away. A Dictation is started from its field,
+ * so there is nothing here while none is going. It reads only whether one
+ * is going.
  */
 
-export function DictationButton({ keys }: { readonly keys: string | null }) {
+export function DictationButton() {
   const dictating = use(Dictating);
   if (dictating === null) return null;
-  return <Mic dictating={dictating} keys={keys} />;
+  return <Cancel dictating={dictating} />;
 }
 
-function Mic({
+function Cancel({
   dictating: { dictation, ask },
-  keys,
 }: {
   readonly dictating: NonNullable<ContextType<typeof Dictating>>;
-  readonly keys: string | null;
 }) {
-  const on = useChild(
+  const going = useChild(
     dictation,
-    ({ state }) => state._tag === 'Waiting' || state._tag === 'Recording',
+    ({ state }) =>
+      state._tag === 'Waiting' ||
+      state._tag === 'Recording' ||
+      state._tag === 'Transcribing',
   );
-  const label = on ? 'Stop the Dictation' : 'Dictate';
+  if (going !== true) return null;
   return (
     <Button
       variant="ghost"
       size="icon-sm"
-      onClick={() => ask({ _tag: 'Toggle' })}
-      aria-label={label}
-      aria-pressed={on === true}
-      title={keys === null ? label : `${label} (${keys})`}
-      className="size-8 shrink-0 text-muted-foreground aria-pressed:bg-destructive/10 aria-pressed:text-destructive"
+      onClick={() => ask({ _tag: 'Cancel' })}
+      aria-label="Cancel the Dictation"
+      title="Cancel the Dictation"
+      className="size-8 shrink-0 bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive"
     >
-      {on ? <SquareIcon className="fill-current" /> : <MicIcon />}
+      <XIcon />
     </Button>
   );
 }

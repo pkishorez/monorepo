@@ -64,7 +64,8 @@ import { useDrawn } from '../shape/shape.ts';
  * the middle. Only a Sheet has a search, and not for a Step that says it
  * has none; a row is tapped to go into it. The keyboard moves no focus
  * there: the search waits to be tapped, and the Sheet then rises over the
- * on-screen keyboard. With no
+ * on-screen keyboard; opened by typing, the keyboard already up, the
+ * search takes focus, so what is typed next searches it. With no
  * Mod+Enter to finish with, a Step that finishes on itself has a button
  * at the top that does, under where the Step is, such as a folder's path.
  */
@@ -87,14 +88,17 @@ export function List<P>({
   const shown = shownOf(spec, model, props);
   const { query, highlighted } = model.step;
   const { enter, leave } = keys.useKeyboard();
-  const { shape, label, held } = useDrawn();
+  const { shape, label, held, typing } = useDrawn();
   // Every Picker is the one Surface: one over this, leaving it, is no
   // closing of this while its owner holds it.
   const holding = useRef(held);
   holding.current = held;
   const touch = shape === 'drawer' || shape === 'sheet';
-  // Opened by touch, nothing takes focus on its own.
-  const search = keys.useFocusSpot('picker', 'search', { default: !touch });
+  // Opened by touch, nothing takes focus on its own, but where typing
+  // opened it: the keyboard is up already, and goes on to the search.
+  const search = keys.useFocusSpot('picker', 'search', {
+    default: !touch || typing,
+  });
   // A Drawer has no search: its rows are tapped through.
   const searched = !touch || (shape === 'sheet' && shown.search);
   const close = (choices: ReadonlyArray<Choice>) => {

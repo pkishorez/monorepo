@@ -14,8 +14,10 @@ import { SwipeZone, type Swipes } from './swipe.tsx';
  *               still selects it and drags out from it (`select.tsx`), so
  *               the next Dictation replaces it. With a selection, a tap
  *               leaves a cursor where it lands, and either end is dragged
- *               by its handle. Elsewhere a tap edits. An empty Draft's
- *               placeholder edits it. The caret is drawn, steady and lit,
+ *               by its handle. Elsewhere a tap edits. On one line, as the
+ *               Touch Draft collapsed, a tap anywhere opens it, the caret
+ *               or selection where it was. An empty Draft's placeholder
+ *               edits it. The caret is drawn, steady and lit,
  *               and kept in view (`caret.ts`), so text coming in shows; a
  *               selection, shaded the same blue over its lines' whole
  *               height, a handle at each end, its start's knob above and
@@ -101,6 +103,9 @@ export function Words({
     // A button in the words, such as Retry, is its own tap.
     if ((event.target as Element).closest('button') !== null) return;
     if (editor.empty) return onEdit();
+    // On one line, a tap anywhere only opens it: its caret, or its
+    // selection, stays as it was.
+    if (oneLine) return onEdit();
     const view = editor.view.current;
     const at =
       view?.posAtCoords({ x: event.clientX, y: event.clientY }) ?? null;

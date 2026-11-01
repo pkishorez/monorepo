@@ -1,42 +1,39 @@
 import { View, useChild } from '@kestack/kabuki/react';
 import type { Handle } from '@kestack/kabuki/react/view';
-import { Button } from '@kestack/web-platform/ui/components/button';
-import { CircleAlertIcon, MicIcon } from 'lucide-react';
+import { CircleAlertIcon } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import {
   createContext,
   use,
   useCallback,
   useEffect,
-  useId,
   useRef,
   useState,
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
-import type { Ask } from '../voice.ts';
-import { DictationLive, onScreen, State } from './actor.ts';
+import type { Ask, Owner } from '../voice.ts';
+import { DictationLive } from './actor.ts';
 import { connectionFor, type Hearing } from './choose.ts';
 
 /*
- * The Dictation as the app draws it. Each Draft on screen shows it in the
- * line over its text: while the microphone opens, that it is Waiting;
- * while it records, a red dot, the time, a level and the microphone; while
- * it is written out for that Draft, that it is coming. With no Draft on
- * screen, as at home or in Settings, a badge in the bottom right corner,
- * over everything, shows the same. The badge also says, for a few
- * seconds, why one could not start or what went wrong with the
- * microphone, wherever the app is, and lists the texts that came with no
- * Draft on screen: each can be pasted into the Draft drawn later, or
- * thrown away.
+ * The Dictation as the app draws it. Each field shows only its own, the
+ * one its Owner started: a Draft in the line over its text, while the
+ * microphone opens, that it is Waiting; while it records, a red dot, the
+ * time, a level and the microphone; while it is written out, that it is
+ * coming. One recording for another field is no field's but its own: the
+ * rest see only that they cannot start one now. A badge in the bottom
+ * right corner, over everything, says for a few seconds why one could not
+ * start or what went wrong with the microphone, wherever the app is.
  *
  * Voice hands down `Dictating`: the Dictation itself, how to ask it for
- * something, the button that chooses the microphone, and what it draws.
- * The level and the time change many times a second, so only the meter
- * and the clock read them: a Draft, and the page around it, draw again
- * only when a Dictation starts, stops, or changes microphone. A Draft
- * says only that it is drawn, so text comes to it, and takes the text
- * that comes; Layout binds the keys.
+ * something, the fields drawn, the button that chooses the microphone,
+ * and what it draws. The level and the time change many times a second,
+ * so only the meter and the clock read them: a field, and the page around
+ * it, draw again only when a Dictation starts, stops, or changes
+ * microphone. A field takes the text that comes for it, and says it is
+ * drawn, so the keys know what to start one for: the field focus is in,
+ * else the last Draft drawn. Layout binds the keys.
  */
 
 type Asked = typeof Ask.Type;
@@ -49,6 +46,8 @@ type Dictation = Handle<typeof DictationLive>;
 export const Dictating = createContext<{
   readonly dictation: Dictation;
   readonly ask: (ask: Asked) => void;
+  /** The fields drawn, for the keys. */
+  readonly owners: Owners;
   /** The button by the mic that opens the Microphone Picker by pointer, titled with its keys. */
   readonly microphones: (keys: string | null) => ReactNode;
   /** Opens the Microphone Picker: by keys, centred, or by a tap, in a Drawer. */
@@ -56,6 +55,41 @@ export const Dictating = createContext<{
   /** The Microphone Picker and the badge, for Layout to draw inside its keyboard. */
   readonly drawn: ReactNode;
 } | null>(null);
+
+/** A field drawn: what it is, what holds it, and whether the keys start one for it with focus elsewhere. */
+interface Shown {
+  readonly owner: Owner;
+  readonly within: () => Element | null;
+  readonly fallback: boolean;
+}
+
+export type Owners = ReturnType<typeof owners>;
+
+/** The fields drawn, in the order drawn, for the keys to start one for. */
+export const owners = () => {
+  const shown: Array<Shown> = [];
+  return {
+    /** Drawn: until what it returns is called. */
+    show: (field: Shown) => {
+      shown.push(field);
+      return () => {
+        const at = shown.indexOf(field);
+        if (at !== -1) shown.splice(at, 1);
+      };
+    },
+    /** Who the keys start one for: the field focus is in, else the last Draft drawn. */
+    focused: (): Owner | null => {
+      const now =
+        typeof document === 'undefined' ? null : document.activeElement;
+      const last = [...shown].reverse();
+      const within =
+        now === null
+          ? undefined
+          : last.find((field) => field.within()?.contains(now) === true);
+      return (within ?? last.find((field) => field.fallback))?.owner ?? null;
+    },
+  };
+};
 
 const useDictating = () => {
   const dictating = use(Dictating);
@@ -68,48 +102,66 @@ const useDictating = () => {
  * start or stop, open the Microphone Picker, and what Voice draws.
  */
 export const useVoice = () => {
-  const { ask, chooseMicrophone, drawn } = useDictating();
+  const { ask, owners, chooseMicrophone, drawn } = useDictating();
   return {
-    toggle: () => ask({ _tag: 'Toggle' }),
+    toggle: () => ask({ _tag: 'Toggle', owner: owners.focused() }),
     chooseMicrophone,
     drawn,
   };
 };
 
 /**
- * The Dictation as one Draft sees it: the one recording, if any, with its
- * clock and meter to draw; the one coming to it, if any; what it can ask;
- * and the microphone's button. `onShown`, called while the Draft is on
- * screen, makes it where text goes until what it returns is called; the
- * last one drawn wins. It reads only what changes as a Dictation starts,
- * stops or changes microphone, never the level, so the page does not draw
- * again as it moves.
+ * The Dictation as one field sees it, its Owner's: the one recording for
+ * it, if any, with its clock and meter to draw; the one coming to it, if
+ * any; whether one could start now; what it can ask; and the microphone's
+ * button. `onShown`, called while the field is drawn, tells the keys of
+ * it until what it returns is called: given what holds it, for while focus
+ * is in there, else as the page's Draft. It reads only what changes as a
+ * Dictation starts, stops or changes microphone, never the level, so the
+ * page does not draw again as it moves.
  */
-export const useDictation = (connectionId: string) => {
-  const { dictation, ask, microphones, chooseMicrophone } = useDictating();
-  const key = useId();
-  const phase = useChild(dictation, ({ state }) => state._tag);
+export const useDictation = (owner: Owner) => {
+  const { dictation, ask, owners, microphones, chooseMicrophone } =
+    useDictating();
+  const { key, connectionId } = owner;
+  // Its own, or one for another field, which only stops it starting one.
+  const phase = useChild(dictation, ({ state }) =>
+    state._tag === 'Idle'
+      ? 'Idle'
+      : state.owner.key === key
+        ? state._tag
+        : state._tag === 'Failed'
+          ? 'Idle'
+          : 'Elsewhere',
+  );
   const microphone = useChild(dictation, ({ state }) =>
-    state._tag === 'Recording' ? state.microphone : null,
+    state._tag === 'Recording' && state.owner.key === key
+      ? state.microphone
+      : null,
   );
   // A settled State, or a text, is one object until it moves on.
   const coming = useChild(dictation, ({ state }) =>
     (state._tag === 'Transcribing' || state._tag === 'Failed') &&
-    state.target === key
+    state.owner.key === key
       ? state
       : null,
   );
   const text = useChild(
     dictation,
-    ({ model }) => model.texts.find(({ target }) => target === key) ?? null,
+    ({ model }) => model.texts.find((each) => each.owner === key) ?? null,
   );
-  const availability = useAvailability(dictation);
-  const onShown = useCallback(() => {
-    ask({ _tag: 'Register', key, connectionId });
-    return () => ask({ _tag: 'Unregister', key });
-  }, [ask, key, connectionId]);
+  const available = useAvailability(dictation);
+  const onShown = useCallback(
+    (within?: () => Element | null) =>
+      owners.show({
+        owner: { key, connectionId },
+        within: within ?? (() => null),
+        fallback: within === undefined,
+      }),
+    [owners, key, connectionId],
+  );
   return {
-    availability,
+    availability: phase === 'Elsewhere' ? BUSY : available,
     recording:
       phase === 'Waiting'
         ? { _tag: 'Waiting' as const }
@@ -130,7 +182,8 @@ export const useDictation = (connectionId: string) => {
           : coming._tag === 'Failed'
             ? { _tag: 'Failed' as const, id: coming.id, reason: coming.reason }
             : { _tag: 'Transcribing' as const, id: coming.id },
-    onToggle: () => ask({ _tag: 'Toggle' }),
+    /** Start one for this field, or stop the one recording, whoever it is for. */
+    onToggle: () => ask({ _tag: 'Toggle', owner: { key, connectionId } }),
     /** Throws it away, wherever it is: a failed one's clip too. */
     onCancel: () => ask({ _tag: 'Cancel' }),
     onTook: (id: number) => ask({ _tag: 'Took', id }),
@@ -141,9 +194,42 @@ export const useDictation = (connectionId: string) => {
   };
 };
 
+export type Dictated = ReturnType<typeof useDictation>;
+
+/**
+ * A field's own Dictation, for any field that takes one, drawn by
+ * `children`: null with no Owner, as a secret's, or drawn without Voice,
+ * as in a test.
+ */
+export function DictationField({
+  owner,
+  children,
+}: {
+  readonly owner: Owner | null;
+  readonly children: (dictated: Dictated | null) => ReactNode;
+}) {
+  return use(Dictating) === null || owner === null ? (
+    children(null)
+  ) : (
+    <Owned owner={owner}>{children}</Owned>
+  );
+}
+
+function Owned({
+  owner,
+  children,
+}: {
+  readonly owner: Owner;
+  readonly children: (dictated: Dictated) => ReactNode;
+}) {
+  return children(useDictation(owner));
+}
+
 /** Whether a Dictation could start now, and if not why, from what each Connection says. */
 export type Availability =
   | { readonly _tag: 'Ready' }
+  /** Recording, or written out, for another field. */
+  | { readonly _tag: 'Busy' }
   | { readonly _tag: 'Downloading'; readonly progress: number }
   | { readonly _tag: 'Off'; readonly reason: string };
 
@@ -171,6 +257,7 @@ const availabilityOf = ({
 };
 
 const READY: Availability = { _tag: 'Ready' };
+const BUSY: Availability = { _tag: 'Busy' };
 
 const equal = (a: Availability, b: Availability) =>
   a._tag === b._tag &&
@@ -278,146 +365,29 @@ function Bars({ level }: { readonly level: number }) {
   );
 }
 
-/** The red dot of a Dictation recording: a slow breath, still under reduced motion. */
-function RecordingDot() {
-  return (
-    <span
-      aria-hidden
-      className="size-1.5 shrink-0 rounded-full bg-destructive animate-breathe motion-reduce:animate-none"
-    />
-  );
-}
-
 const PILL =
   'flex items-center gap-2 rounded-full border border-border bg-popover px-3 py-1.5 text-xs text-popover-foreground shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.08)]';
 
-/** Whether one is being written out, or failed, with no Draft on screen to show it. */
-const unseen = (state: typeof State.Type) =>
-  (state._tag === 'Transcribing' || state._tag === 'Failed') &&
-  state.target === null
-    ? state
-    : null;
-
 /**
- * The badge in the corner, over everything: the Dictation recording while
- * no Draft is on screen to show it; why something went wrong, for a few
- * seconds, anywhere; and the list of texts that came with no Draft on
- * screen, each to paste into the Draft drawn now, or throw away.
+ * The badge in the corner, over everything: why something went wrong, for
+ * a few seconds, anywhere.
  */
-export const DictationBadge = View.make(
-  DictationLive,
-  ({ root, model, state, send }) => {
-    if (typeof document === 'undefined') return null;
-    const target = onScreen(model);
-    const recording =
-      target !== null ? null : state._tag === 'Recording' ? (
-        <div className={PILL}>
-          <RecordingDot />
-          <span className="font-medium">Recording</span>
-          <span className="text-muted-foreground">
-            <Clock seconds={Math.floor((state.heard - state.started) / 1000)} />
-          </span>
-          <Bars level={state.level} />
-        </div>
-      ) : state._tag === 'Waiting' ? (
-        <div className={PILL}>
-          <MicIcon aria-hidden className="size-3.5 shrink-0" />
-          <span className="text-muted-foreground">
-            Waiting for the microphone
-          </span>
-        </div>
-      ) : null;
-    const away = unseen(state);
-    const writing =
-      away === null ? null : away._tag === 'Transcribing' ? (
-        <div className={PILL}>
-          <MicIcon aria-hidden className="size-3.5 shrink-0" />
-          <span className="text-muted-foreground">Writing it out…</span>
-        </div>
-      ) : (
-        <div className={`${PILL} pointer-events-auto`}>
-          <CircleAlertIcon
-            aria-hidden
-            className="size-3.5 shrink-0 text-destructive"
-          />
-          <span>{away.reason}</span>
-          <Button
-            size="xs"
-            variant="ghost"
-            onClick={() => send({ _tag: 'Retry', id: away.id })}
-          >
-            Retry
-          </Button>
-          <Button
-            size="xs"
-            variant="ghost"
-            onClick={() => send({ _tag: 'Cancel' })}
-          >
-            Discard
-          </Button>
-        </div>
-      );
-    const kept = model.texts.filter((each) => each.target === null);
-    const list =
-      kept.length === 0 ? null : (
-        <ul
-          aria-label="Dictations"
-          className="pointer-events-auto flex max-w-80 flex-col gap-2"
-        >
-          {kept.map(({ id, text }) => (
-            <li key={id} className={`${PILL} rounded-xl`}>
-              <span className="line-clamp-2 min-w-0 flex-1">{text}</span>
-              <Button
-                size="xs"
-                variant="ghost"
-                disabled={target === null}
-                title={
-                  target === null ? 'Open a Draft to paste into' : undefined
-                }
-                onClick={() => send({ _tag: 'Paste', id })}
-              >
-                Paste
-              </Button>
-              <Button
-                size="xs"
-                variant="ghost"
-                onClick={() => send({ _tag: 'Discard', id })}
-              >
-                Discard
-              </Button>
-            </li>
-          ))}
-        </ul>
-      );
-    const notice =
-      model.notice === null ? null : (
-        <div className={PILL}>
-          <CircleAlertIcon
-            aria-hidden
-            className="size-3.5 shrink-0 text-destructive"
-          />
-          <span>{model.notice.reason}</span>
-        </div>
-      );
-    if (
-      recording === null &&
-      notice === null &&
-      writing === null &&
-      list === null
-    )
-      return null;
-    return createPortal(
-      <div
-        {...root}
-        role="status"
-        className="pointer-events-none fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-100 max-md:bottom-[calc(env(safe-area-inset-bottom)+9rem)] flex flex-col items-end gap-2"
-      >
-        {notice}
-        {list}
-        {writing}
-        {recording}
-      </div>,
-      document.body,
-    );
-  },
-);
+export const DictationBadge = View.make(DictationLive, ({ root, model }) => {
+  if (typeof document === 'undefined' || model.notice === null) return null;
+  return createPortal(
+    <div
+      {...root}
+      role="status"
+      className="pointer-events-none fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-100 max-md:bottom-[calc(env(safe-area-inset-bottom)+9rem)] flex flex-col items-end gap-2"
+    >
+      <div className={PILL}>
+        <CircleAlertIcon
+          aria-hidden
+          className="size-3.5 shrink-0 text-destructive"
+        />
+        <span>{model.notice.reason}</span>
+      </div>
+    </div>,
+    document.body,
+  );
+});

@@ -17,9 +17,11 @@ import { keys, useBound } from '../../../../../commands.ts';
 import { AgentLogo } from '../../../../../../../../../ui/labels/agent/index.ts';
 import { draftOf, type Drafts, isAnswered, unanswered } from '../answer.ts';
 import { type Asker, type Stop, stopTitle } from '../question.ts';
+import { Voice } from '../../../../../../voice/index.ts';
 import { useStepKeys } from './keys.ts';
 import { SwipeHead } from './sheet.tsx';
-import { ROW, Step } from './step.tsx';
+import { ROW, Step } from './step/step.tsx';
+import { ownerOf, Taking } from './step/voice.tsx';
 
 /*
  * The Question Panel expanded: a dialog of steps, one Item each, in the
@@ -43,10 +45,13 @@ import { ROW, Step } from './step.tsx';
  * or nothing else has focus, as a step is gone to, and back from what was
  * drawn over it or from the sidebar, to the row it left. On touch the
  * sheet's rows are a finger tall, a swipe down its head minimises it, and
- * its foot stays over the on-screen keyboard.
+ * its foot stays over the on-screen keyboard. One's own answer can be
+ * dictated, by its mic, Space on its row, or Ctrl+Space anywhere in the
+ * step (`step/voice.tsx`).
  */
 
 export function Dialog({
+  connectionId,
   question,
   drafts,
   tried,
@@ -63,6 +68,8 @@ export function Dialog({
   onDecline,
   onMinimise,
 }: {
+  /** The Connection it was asked on, where its answers are best transcribed. */
+  readonly connectionId: string;
   readonly question: AgentQuestion;
   readonly drafts: Drafts | undefined;
   /** Sent once with an Item unanswered: the ones left are marked. */
@@ -101,6 +108,8 @@ export function Dialog({
   const item = question.items[step]!;
   const draft = draftOf(drafts, item);
   const last = step === count - 1;
+  /** The step's own answer's Dictation, started or stopped by Space on its row. */
+  const dictate = useRef<(() => void) | null>(null);
 
   /** The row the keys go back to: the chosen one, else the first. */
   const toRow = () => {
@@ -194,6 +203,7 @@ export function Dialog({
     minimise: onMinimise,
     onChoose: (label) => onChoose(item.id, label),
     onChooseOther: () => onChooseOther(item.id),
+    dictate,
   });
 
   const sendKeys = useBound('question.send');
@@ -226,6 +236,24 @@ export function Dialog({
         onClick={onMinimise}
         className="absolute inset-0 bg-black/10 opacity-0 transition-opacity duration-150 ease-in in-data-expanded:opacity-100 in-data-expanded:duration-200 in-data-expanded:ease-out supports-backdrop-filter:backdrop-blur-xs motion-reduce:transition-none dark:bg-black/60"
       />
+      {/* Each Item's dictated answer, taken as it comes, its step drawn or not. */}
+      {question.items.map((each) => (
+        <Voice.Field
+          key={each.id}
+          owner={ownerOf(connectionId, question.id, each)}
+        >
+          {(dictated) =>
+            dictated !== null && (
+              <Taking
+                dictated={dictated}
+                typed={draftOf(drafts, each).typed}
+                held={sending !== null}
+                onType={(text) => onType(each.id, text)}
+              />
+            )
+          }
+        </Voice.Field>
+      ))}
       {/* How it comes and goes, and follows a swipe: drawn here, so the
         Surface inside keeps the look the keys give it. */}
       <div
@@ -345,21 +373,28 @@ export function Dialog({
                   from > 0 ? 'slide-in-from-right-3' : 'slide-in-from-left-3',
                 )}
               >
-                <Step
-                  index={step}
-                  item={item}
-                  draft={draft}
-                  missing={tried && !isAnswered(item, draft)}
-                  last={last}
-                  touch={touch}
-                  editing={editing}
-                  onEditing={setEditing}
-                  onChoose={(label) => onChoose(item.id, label)}
-                  onChooseOther={() => onChooseOther(item.id)}
-                  onType={(text) => onType(item.id, text)}
-                  onNext={primary}
-                  onStep={(by) => goTo(step + by)}
-                />
+                <Voice.Field owner={ownerOf(connectionId, question.id, item)}>
+                  {(dictated) => (
+                    <Step
+                      index={step}
+                      item={item}
+                      draft={draft}
+                      missing={tried && !isAnswered(item, draft)}
+                      last={last}
+                      touch={touch}
+                      editing={editing}
+                      dictated={dictated}
+                      within={stepRef}
+                      dictate={dictate}
+                      onEditing={setEditing}
+                      onChoose={(label) => onChoose(item.id, label)}
+                      onChooseOther={() => onChooseOther(item.id)}
+                      onType={(text) => onType(item.id, text)}
+                      onNext={primary}
+                      onStep={(by) => goTo(step + by)}
+                    />
+                  )}
+                </Voice.Field>
               </div>
             </div>
             <div

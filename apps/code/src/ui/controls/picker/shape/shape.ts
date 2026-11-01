@@ -87,7 +87,9 @@ const Drawn = createContext<{
   readonly shape: Shape;
   readonly label: string;
   readonly held: boolean;
-}>({ shape: 'list', label: '', held: false });
+  /** Opened by typing in a field, its keyboard up: by touch too, its search takes focus. */
+  readonly typing: boolean;
+}>({ shape: 'list', label: '', held: false, typing: false });
 
 export const DrawnIn = Drawn.Provider;
 

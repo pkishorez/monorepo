@@ -2,7 +2,7 @@ import type { QuestionItem } from '@kestack/connect/code';
 import type { RefObject } from 'react';
 import { keys } from '../../../../../commands.ts';
 import type { ItemDraft } from '../answer.ts';
-import { OTHER, ROW } from './step.tsx';
+import { OTHER, ROW } from './step/step.tsx';
 
 /*
  * The `question` Surface's keys, over the step drawn in `step`, while the
@@ -13,9 +13,11 @@ import { OTHER, ROW } from './step.tsx';
  * - `j` and `k`, or the arrows, go from row to row; of one choice, the
  *   option reached is chosen, as a radio group's arrows choose.
  * - Space or `x` chooses, or lets go of one of several; on one's own
- *   answer with nothing typed, edits it.
+ *   answer with nothing typed, edits it. Where it can be dictated, Space
+ *   on it dictates it instead, or stops the one recording (`step/voice.tsx`).
  * - Enter, of one choice, chooses and goes on; of several, goes on; on
- *   one's own answer, edits it. On the last step, going on is sending.
+ *   one's own answer, edits it while nothing is typed, else takes it and
+ *   goes on. On the last step, going on is sending.
  * - 1 to 9 choose that option; `i` edits one's own answer.
  * - Ctrl+J and Ctrl+K, even while typing, `l` and `h`, Tab and Shift+Tab,
  *   and Right and Left go to the next and the last question.
@@ -37,6 +39,7 @@ export function useStepKeys({
   minimise,
   onChoose,
   onChooseOther,
+  dictate,
 }: {
   /** The step drawn: its rows are the keys'. */
   readonly step: RefObject<HTMLElement | null>;
@@ -55,6 +58,8 @@ export function useStepKeys({
   readonly minimise: () => void;
   readonly onChoose: (label: string) => void;
   readonly onChooseOther: () => void;
+  /** Starts or stops a Dictation of one's own answer, where it can be dictated. */
+  readonly dictate: RefObject<(() => void) | null>;
 }) {
   const rows = () => [
     ...(step.current?.querySelectorAll<HTMLElement>(ROW) ?? []),
@@ -101,10 +106,20 @@ export function useStepKeys({
     if (draft.typed === '' || item.options.length === 0) row.click();
     else if (item.multiSelect || !draft.other) onChooseOther();
   };
+  const space = () => {
+    const row = current();
+    if (row !== null && isOther(row) && dictate.current !== null)
+      return dictate.current();
+    toggle();
+  };
   const pick = () => {
     if (skipping) return skip(true);
     const row = current();
-    if (row !== null && isOther(row)) return row.click();
+    if (row !== null && isOther(row)) {
+      if (draft.typed.trim() === '') return row.click();
+      if (!draft.other) onChooseOther();
+      return primary();
+    }
     if (row !== null && !item.multiSelect) {
       const label = labelOf(row);
       if (label !== undefined) onChoose(label);
@@ -129,6 +144,7 @@ export function useStepKeys({
   keys.useAction('question.previousItem', () => go(-1), enabled);
   keys.useAction('question.right', () => go(1), enabled);
   keys.useAction('question.left', () => go(-1), enabled);
+  keys.useAction('question.space', space, enabled);
   keys.useAction('question.toggle', toggle, enabled);
   keys.useAction('question.pick', pick, enabled);
   keys.useAction('question.option1', option(1), enabled);

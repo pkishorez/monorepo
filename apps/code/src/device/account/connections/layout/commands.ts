@@ -54,7 +54,8 @@ import { useCallback, useRef } from 'react';
  * chosen as it is reached; Ctrl+J and Ctrl+K, `l` and `h`, Tab and
  * Shift+Tab, through its questions; Space or `x` chooses, Enter goes on,
  * or sends on the last; 1 to 9 choose an option; `i` types an answer of
- * one's own; Mod+Enter sends; `q`, then `q` or Enter, skips it; `m`
+ * one's own, and Space on its row dictates it, Ctrl+Space even while
+ * typing; Mod+Enter sends; `q`, then `q` or Enter, skips it; `m`
  * minimises it, and Escape stops typing, else minimises. Minimised, the
  * page's keys work on the transcript as ever.
  *
@@ -319,8 +320,13 @@ export const keys = createKeys({
                 label: 'Previous question',
                 always: true,
               },
+              space: {
+                keys: 'Space',
+                label: 'Choose, or let go; on your own answer, dictate it',
+                always: true,
+              },
               toggle: {
-                keys: ['Space', 'x'],
+                keys: 'x',
                 label: 'Choose, or let go',
                 always: true,
               },
@@ -600,7 +606,11 @@ export const keyTable: ReadonlyArray<{
         ],
         vim: [],
       },
-      { label: 'Choose, or let go', always: ['question.toggle'], vim: [] },
+      {
+        label: 'Choose, or let go; Space on your own answer dictates it',
+        always: ['question.space', 'question.toggle'],
+        vim: [],
+      },
       {
         label: 'Next, or send on the last',
         always: ['question.pick'],

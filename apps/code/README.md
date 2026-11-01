@@ -35,9 +35,9 @@ story, top down, each level with at most three parts: Device, then Account,
 then Connections, then `connection/`, `voice/` and `layout/`, then the sidebar,
 the Pickers and the pages. [docs/kabuki-tree.md](docs/kabuki-tree.md)
 walks it, with what each level keeps in storage. Voice is global: a
-Dictation starts anywhere, keeps going as you move, and its text goes into
-the Draft on screen when it stops, or into the dictation list to paste
-later. When an agent asks you something, as Claude's `AskUserQuestion` or
+Dictation starts from the field you dictate into, the Draft or a
+question's own answer, keeps going as you move, and its text goes back
+to that field wherever you stop it. When an agent asks you something, as Claude's `AskUserQuestion` or
 Codex's `request_user_input`, the Question Panel takes the Draft's place,
 one question a step, until you answer or skip it; you can minimise it to
 read the session, and the sidebar stays yours throughout. `src/ui/` holds

@@ -233,6 +233,7 @@ function OnPage({
     onSend: () => send({ _tag: 'Send' }),
     skills: {
       how: model.picking?.how ?? null,
+      typing: model.picking?.typed ?? false,
       offered: true,
       onOpen: (how, typed) => send({ _tag: 'Open', how, typed }),
       picker: picker && <SkillPicker.View instance={picker} />,
@@ -451,7 +452,7 @@ describe('Draft', () => {
     expect(atoms()).toEqual(['/review']);
   });
 
-  it('opens Skills by a `/` typed in the Composer as the input last used asks', async () => {
+  it('opens Skills by a `/` typed in the Composer as the input last used asks, its search taking the typing on', async () => {
     await key('i', 'KeyI');
     const view = EditorView.findFromDOM(editor())!;
     const typeSlash = () =>
@@ -468,7 +469,8 @@ describe('Draft', () => {
     expect(
       document.querySelector('[data-slot="touch-drawer"] [cmdk-input]'),
     ).not.toBeNull();
-    expect(document.activeElement).not.toBe(search());
+    // The on-screen keyboard is up already: what is typed next searches.
+    expect(document.activeElement).toBe(search());
   });
 
   it('opens Skills centred, search focused, by a `/` typed on the keys', async () => {

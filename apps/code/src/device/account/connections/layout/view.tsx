@@ -13,7 +13,7 @@ import {
   type ComponentProps,
   type ReactNode,
 } from 'react';
-import { keys, useBound } from './commands.ts';
+import { keys } from './commands.ts';
 import type { Route } from '../../../routes/index.ts';
 import { Theme, ThemeToggle } from '../../../../ui/page/theme/index.ts';
 import { Toasts } from '../../../../ui/controls/notice/index.ts';
@@ -214,7 +214,6 @@ function Signed({
 }) {
   const route = useRouter<Route>().route;
   const given = use(Given);
-  const dictateKeys = useBound('app.dictate');
   const { enter } = keys.useKeyboard();
   const inSettings = route._tag === 'Settings';
   const settings = () =>
@@ -289,7 +288,7 @@ function Signed({
                 <Notice connectionId={route.connectionId} />
               </>
             )}
-            <Voice.Button keys={dictateKeys} />
+            <Voice.Button />
             {/* A phone has these in the sidebar's foot. Set a little
                 apart from the page's own actions. */}
             <div className="ml-2 hidden items-center gap-1 md:flex">

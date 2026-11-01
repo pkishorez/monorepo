@@ -457,7 +457,7 @@ describe('the Question Panel, by keys', () => {
     ]);
   });
 
-  it('edits one’s own answer by `i`, leaves it by Escape, and goes on by Enter', async () => {
+  it('edits one’s own answer by `i`, leaves it by Escape, and takes it and goes on by Enter', async () => {
     await ask([QUESTION]);
     await key('j');
     expect(choice('Passkey').getAttribute('aria-checked')).toBe('true');
@@ -481,9 +481,7 @@ describe('the Question Panel, by keys', () => {
     expect(choice('Passkey').getAttribute('aria-checked')).toBe('true');
     await key('j');
     expect(own().getAttribute('aria-checked')).toBe('true');
-    // Enter on it edits it again; Enter in it goes on.
-    await key('Enter');
-    expect(document.activeElement).toBe(field());
+    // Typed, Enter on it takes it and goes on; `i` edits it again.
     await key('Enter');
     expect(field()).toBeNull();
     expect(shownStep()).toBe(1);

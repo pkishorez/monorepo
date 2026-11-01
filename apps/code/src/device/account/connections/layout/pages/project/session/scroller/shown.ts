@@ -1,15 +1,29 @@
-import { startTransition, useLayoutEffect, useRef, useState } from 'react';
+import {
+  startTransition,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 import { flushSync } from 'react-dom';
 import type { Anchor } from './anchor.ts';
 
 /*
  * Which of a list's blocks are drawn: from where the reader was, or its
- * last few, to its end, and above that only as much as keeps a view and a
- * half drawn above the view. It opens on a few, and draws a few more at a
- * time until that much is drawn, before it is first shown; then a few
- * more each time the reader scrolls up near the top of what is drawn. A
- * block arriving after is drawn, at the end; nothing drawn is taken away.
- * Going to the top draws them all.
+ * last few, to its end, and above that only as much as the reader may
+ * soon scroll to. It opens on a few, and draws a few more at a time until
+ * a view and a half is drawn above the view, before it is first shown;
+ * then a few more at a time, without holding up the page, until four
+ * views are, and again each time scrolling up leaves less. A block
+ * arriving after is drawn, at the end; nothing drawn is taken away. Going
+ * to the top draws them all.
+ *
+ * Nothing is drawn above while the reader's finger, or the glide it set
+ * off, moves the view (`gliding`): the view is put back by as much as was
+ * drawn above it, and a phone's glide takes no notice of that, so the
+ * view would leap back and forth, blank between. What waits is drawn once
+ * the glide settles (`settle`), so what is drawn ahead is what a flick
+ * may reach.
  *
  * A group of blocks laid out once, such as a turn, may be skipped by the
  * browser while far from the view (`content-visibility`), as tall as it
@@ -20,8 +34,11 @@ import type { Anchor } from './anchor.ts';
 /** How many blocks are drawn at a time. */
 const BATCH = 10;
 
-/** How much is kept drawn above the view, in views. */
+/** How much is drawn above the view before it is shown, in views. */
 const AHEAD = 1.5;
+
+/** How much is kept drawn above the view after, in views: more than a flick usually goes. */
+const FAR = 4;
 
 /** How many times more is drawn at once before the page is shown; React allows no more than 50. */
 const MAX_NOW = 20;
@@ -34,12 +51,16 @@ export interface Scroll {
   scroller: HTMLElement | null;
   /** Whether its list is drawn: a block it does not hold then is not in it. */
   drawn: boolean;
+  /** Whether the reader's finger, or the glide it set off, moves the view: nothing is drawn above, nor the view put back. */
+  gliding: boolean;
   /** Draws every block now, to go to the top. */
   showAll: () => void;
   /** Puts the view back at the anchor now, as more is drawn above it. */
   place: () => void;
   /** Draws more above, if what is drawn there is less than enough: `before` it is shown, or as a Transition. */
   fill: (before: boolean) => void;
+  /** Draws what waited for a glide to settle. */
+  settle: () => void;
   /** A group's element, to be skipped far from the view once laid out. */
   readonly group: (element: HTMLElement | null) => (() => void) | undefined;
 }
@@ -62,9 +83,11 @@ export const scrollOf = (anchor: Anchor): Scroll => {
     anchor,
     scroller: null,
     drawn: false,
+    gliding: false,
     showAll: () => {},
     place: () => {},
     fill: () => {},
+    settle: () => {},
     group: (element) => {
       if (element === null || laidOut === null) return;
       laidOut.observe(element);
@@ -94,10 +117,17 @@ export function useShown(
   );
   // As drawn, not as a render still on its way would draw it.
   const latest = useRef({ order, from: 0 });
+  // Drawn again once a glide settles, for what waited for it.
+  const [, redraw] = useReducer((count: number) => count + 1, 0);
   const at = first === null || order === null ? 0 : order.indexOf(first);
   // A first block gone, as two blocks of words became one: where it was.
-  const from =
+  const wanted =
     at === -1 ? Math.min(latest.current.from, order?.length ?? 0) : at;
+  // More above, on its way as a glide began, waits for it to settle.
+  const from =
+    drawing && scroll.gliding && wanted < latest.current.from
+      ? latest.current.from
+      : wanted;
   const list = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     latest.current = { order, from };
@@ -113,16 +143,17 @@ export function useShown(
       const { order, from } = latest.current;
       const outer = scroll.scroller;
       const element = list.current;
-      if (from === 0 || !order || !outer || !element) return;
+      if (scroll.gliding || from === 0 || !order || !outer || !element) return;
       const view = outer.getBoundingClientRect();
       // Not laid out, as while hidden: nothing to measure enough by.
       if (view.height === 0) return;
-      if (element.getBoundingClientRect().top < view.top - view.height * AHEAD)
-        return;
+      const top = element.getBoundingClientRect().top;
+      if (top < view.top - view.height * FAR) return;
       const next = order[Math.max(0, from - BATCH)] ?? null;
-      // Each before it is shown draws again at once; past a few, as when
-      // blocks add next to nothing, the rest wait their turn.
-      if (before && now < MAX_NOW) {
+      // Each, while less than must be is drawn before it is shown, draws
+      // again at once; past a few, as when blocks add next to nothing, and
+      // beyond that, the rest wait their turn.
+      if (before && top >= view.top - view.height * AHEAD && now < MAX_NOW) {
         now++;
         shown ||= requestAnimationFrame(() => {
           now = 0;
@@ -131,10 +162,15 @@ export function useShown(
         setFirst(next);
       } else startTransition(() => setFirst(next));
     };
+    scroll.settle = () => {
+      startTransition(redraw);
+      scroll.fill(false);
+    };
     return () => {
       cancelAnimationFrame(shown);
       scroll.showAll = () => {};
       scroll.fill = () => {};
+      scroll.settle = () => {};
     };
   }, [scroll, drawing]);
   // More drawn above: the view stays where it was, and if that is still

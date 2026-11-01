@@ -31,7 +31,10 @@ import { Touch } from './shape/touch.tsx';
  * mouse, a popover by its trigger; by a touch, as any click on its
  * trigger on a device with no keyboard and no mouse is, in the Picker
  * Mode its opener chose, a Drawer, or a Sheet, a tall Drawer with a
- * search, nothing focused: its search waits to be tapped. How
+ * search, nothing focused: its search waits to be tapped, but where it
+ * was opened by typing, as a `/` in the Composer, the on-screen keyboard
+ * already up, and its search takes focus, so what is typed next searches
+ * it. How
  * it was opened stays while it is open. The rest of the
  * screen dims behind it either way. Focus moves as the Surface says, and
  * a Picker closed by a tap or click outside, or a swipe, leaves the
@@ -83,6 +86,7 @@ export function Frame({
   className,
   tall = false,
   held = false,
+  typing = false,
   children,
 }: {
   readonly how: typeof How.Type | null;
@@ -109,6 +113,8 @@ export function Frame({
    * whichever has the keys, and takes them back once that is gone.
    */
   readonly held?: boolean;
+  /** Opened by typing in a field, its keyboard up: by touch too, its search takes focus. */
+  readonly typing?: boolean;
   /** The Picker's View. */
   readonly children: ReactNode;
 }) {
@@ -144,7 +150,7 @@ export function Frame({
   };
   const drawn = (as: typeof shape) => (shape === as ? children : null);
   return (
-    <DrawnIn value={{ shape: shape ?? 'list', label, held }}>
+    <DrawnIn value={{ shape: shape ?? 'list', label, held, typing }}>
       {trigger !== undefined && (
         <ByTrigger
           open={shape === 'popover' && active}

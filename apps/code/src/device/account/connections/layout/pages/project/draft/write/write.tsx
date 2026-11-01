@@ -100,6 +100,8 @@ interface DraftOptions {
   readonly skills: {
     /** How it is open, or null while it is not. */
     readonly how: typeof Picker.How.Type | null;
+    /** Opened by a `/` typed here: its search takes what is typed next, focus too. */
+    readonly typing: boolean;
     /** Whether it has anything to offer, or to say: loading, or why not. */
     readonly offered: boolean;
     /** Open it, to put a skill in at the cursor, on a `/` typed there or not. */
@@ -110,7 +112,7 @@ interface DraftOptions {
   /** The app's Dictation, as this Draft sees it. */
   readonly dictation: {
     /**
-     * The one recording now, if any, wherever its text goes: the
+     * The one recording for this Draft, if any: the
      * microphone opening, or recording, with the name of the one heard and
      * its clock and meter to draw, which draw again on their own.
      */
@@ -127,18 +129,18 @@ interface DraftOptions {
       | null;
     /** The one coming to this Draft, if any: on its way, refused, or its text. */
     readonly pending: Pending | null;
-    /** Start one, or stop the one recording. */
+    /** Start one for this Draft, or stop the one recording, whoever it is for. */
     readonly onToggle: () => void;
     /** Its text is in. */
     readonly onTook: (id: number) => void;
     readonly onRetry: (id: number) => void;
     /** Throws it away, wherever it is: a failed one's clip too. */
     readonly onCancel: () => void;
-    /** Whether a Dictation could start now, and if not why. */
+    /** Whether a Dictation could start now, and if not why: Busy, for another field. */
     readonly availability: Availability;
     /**
-     * Called while the Draft is on screen, so a Dictation's text comes to
-     * it; what it returns, once it is not.
+     * Called while the Draft is on screen, so the keys start one for it;
+     * what it returns, once it is not.
      */
     readonly onShown: () => () => void;
     /** The button beside the mic that chooses the microphone, titled with its keys. */
@@ -329,7 +331,7 @@ export function Card({
   readonly children?: ReactNode;
 }) {
   const { onShown, recording } = draft.dictation;
-  useEffect(onShown, [onShown]);
+  useEffect(() => onShown(), [onShown]);
   return (
     <div
       data-slot="draft"
@@ -513,16 +515,19 @@ export function StatusLine({
   const skillKeys = useBound('content.skills');
   const dictateKeys = useBound('app.dictate');
   const microphoneKeys = useBound('app.microphone');
-  const { recording, onToggle, microphones } = draft.dictation;
+  const { recording, onToggle, microphones, availability } = draft.dictation;
   const [tools, setTools] = useState(false);
-  const dictate =
-    recording === null
+  // One recording for another field: this one waits until it is done.
+  const busy = availability._tag === 'Busy';
+  const dictate = busy
+    ? 'Recording somewhere else'
+    : recording === null
       ? 'Dictate'
       : recording._tag === 'Waiting'
         ? 'Waiting for the microphone: cancel'
         : 'Stop the Dictation';
   const dictateTitle =
-    dictateKeys === null ? dictate : `${dictate} (${dictateKeys})`;
+    dictateKeys === null || busy ? dictate : `${dictate} (${dictateKeys})`;
   // The mic is the primary button while it would be the only thing to do.
   const micFirst = recording !== null || !draft.filled || send === undefined;
   return (
@@ -553,6 +558,7 @@ export function StatusLine({
         {!draft.textOnly && (
           <Picker.Frame
             how={draft.skills.how}
+            typing={draft.skills.typing}
             mode="sheet"
             label="Skills"
             onOpen={(how) => draft.skills.onOpen(how, false)}
@@ -592,6 +598,7 @@ export function StatusLine({
             size="icon-sm"
             aria-label={dictate}
             title={dictateTitle}
+            disabled={busy}
             onClick={onToggle}
             className="shrink-0 text-muted-foreground"
           >
@@ -615,6 +622,7 @@ export function StatusLine({
             size="icon"
             aria-label={dictate}
             title={dictateTitle}
+            disabled={busy}
             onClick={onToggle}
             data-slot="dictate"
             className={PRIMARY}

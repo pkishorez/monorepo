@@ -36,6 +36,8 @@ export interface Draft {
   readonly files: { readonly add: (files: ReadonlyArray<File>) => unknown };
   readonly skills: {
     readonly how: typeof Picker.How.Type | null;
+    /** Opened by a `/` typed here: its search takes focus, which is no leaving. */
+    readonly typing: boolean;
     readonly offered: boolean;
     readonly onOpen: (how: typeof Picker.How.Type, typed: boolean) => void;
     readonly picker: ReactNode;
@@ -127,9 +129,11 @@ const heardOf = ({
  * Taken by a press begun in the card, or in a layer it opened, such as a
  * tap on the model chip or Add, which iOS gives no focus at all: typing
  * ends, the keyboard goes down, and the card stays open, as Done, its
- * controls where the tap lands. Leaving it otherwise, by a press outside
- * or the keyboard put away, ends editing: with Smart Input it stays open,
- * as Done; without, it collapses.
+ * controls where the tap lands. Focus going to the skills Picker's search,
+ * as a `/` typed opens it, is no leaving: it goes on typing there, and
+ * comes back. Leaving it otherwise, by a press outside or the keyboard
+ * put away, ends editing: with Smart Input it stays open, as Done;
+ * without, it collapses.
  */
 export const leaving = ({
   editing,
@@ -200,7 +204,7 @@ export function useTouchDraft(
 ) {
   const { draft, sending } = slots;
   const { onShown, availability } = draft.dictation;
-  useEffect(onShown, [onShown]);
+  useEffect(() => onShown(), [onShown]);
 
   // The Dictation, as it stands for this Draft, told to the Touch Draft
   // with whether the Draft could be sent as it moves.
@@ -271,15 +275,11 @@ export function useTouchDraft(
     draft.write({ scroll: false });
     send({ _tag: 'Edit' });
   };
-  // Collapsed by hand, a selection goes: a cursor is left at its end, so a
-  // tap that opens it again starts from there. Left by a tap elsewhere, it
-  // stays, for a keyboard that turns up after.
+  // Collapsed, by hand or by a tap elsewhere, the caret or selection
+  // stays: a tap that opens it again, anywhere on its line, finds it as
+  // it was.
   const collapse = () => {
     blur();
-    const view = draft.view.current;
-    const main = view?.state.selection.main;
-    if (view && main && !main.empty)
-      view.dispatch({ selection: { anchor: main.head } });
     send({ _tag: 'Collapse' });
   };
   // Smart Input: stop typing, and stay open.
@@ -339,9 +339,11 @@ export function useTouchDraft(
     readonly currentTarget: Element;
     readonly relatedTarget: EventTarget | null;
   }) => {
+    // A `/` typed here opens the skills Picker, whose search goes on with
+    // the typing: the keyboard stays up, and it is still editing.
     const then = leaving({
       editing,
-      moving: moving.current,
+      moving: moving.current || draft.skills.typing,
       within: event.currentTarget.contains(event.relatedTarget as Node),
       pressing: press.pressing(),
       smart: model.smart,
@@ -381,7 +383,9 @@ export function useTouchDraft(
             said:
               availability._tag === 'Downloading'
                 ? `Voice is getting ready · ${Math.round(availability.progress * 100)}%`
-                : "Voice isn't on",
+                : availability._tag === 'Busy'
+                  ? 'Recording somewhere else'
+                  : "Voice isn't on",
           },
   } as const;
 }

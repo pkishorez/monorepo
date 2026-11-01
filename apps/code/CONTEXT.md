@@ -105,7 +105,7 @@ The keyboard-first way of working the app, off until turned on in this browser, 
 _Avoid_: keyboard mode, power mode
 
 **Layout**:
-What is drawn around every page for the Account drawn: the sidebar, the header with the mic, and the Pickers the keys open anywhere: the Project Picker, the Session Switcher and Actions. It reads the Preferences and holds the keys, Vim Mode, the Window and the Text Size, binds the keys that start a Dictation, and starts over when another Account is drawn.
+What is drawn around every page for the Account drawn: the sidebar, the header with a Dictation's cancel, and the Pickers the keys open anywhere: the Project Picker, the Session Switcher and Actions. It reads the Preferences and holds the keys, Vim Mode, the Window and the Text Size, binds the keys that start a Dictation, and starts over when another Account is drawn.
 _Avoid_: frame, chrome, app shell (that is the library's)
 
 **Window**:
@@ -157,12 +157,12 @@ The Draft while the user is editing it: the same place, now typed into. With a k
 _Avoid_: input, editor
 
 **Dictation**:
-Speech from the moment the user starts talking to the moment they stop, turned into text and put in at the Draft's cursor as if typed, replacing any selection. Once in, it is plain text like any other. It starts anywhere, Settings included, by its keys, the header's mic or a Draft's, and carries on while the user goes elsewhere in the app or switches Draft Mode. Each Draft on screen says it is where text goes, the last one drawn winning; the text goes to the Draft on screen when it stops, into the Draft Mode open, and with none, into the Dictation List. It is Waiting while the Microphone is asked for and not yet live, as while the browser asks for permission, said in a word where its recording will show, and Recording only once it is live; asked again while Waiting, it lets go. The sound itself is never sent to the agent, so a Dictation is not an Attachment.
+Speech from the moment the user starts talking to the moment they stop, turned into text and put in at its Dictation Owner's cursor as if typed, replacing any selection. Once in, it is plain text like any other. It is started from a field that takes one, by its mic or by its keys, Space or Ctrl+Space, and carries on while the user goes elsewhere in the app or switches Draft Mode. It is stopped from anywhere, by the same keys or its Owner's mic, and its text still goes to its Owner; the header shows a cancel while one is going, which throws it away. There is one at a time: every other field sees only that it cannot start one now. It is Waiting while the Microphone is asked for and not yet live, as while the browser asks for permission, said in a word where its recording will show, and Recording only once it is live; asked again while Waiting, it lets go. The sound itself is never sent to the agent, so a Dictation is not an Attachment.
 _Avoid_: voice message, voice note, recording, transcript
 
-**Dictation List**:
-The texts of Dictations that stopped with no Draft on screen, or whose Draft left before the text came, kept in the corner of the screen until each is pasted into the Draft on screen or thrown away. Not kept on this device.
-_Avoid_: inbox, clipboard, history
+**Dictation Owner**:
+The field a Dictation was started from, named as it starts: a Session's Draft, a Project's new session's Draft, or one Item's own answer in the Question Panel, but a secret's. Its text waits for it, and goes in once it is drawn again, as when the user went to another Session before it came. The keys start one for the field focus is in, else the Draft on screen; with neither, as in Settings, none starts, and the corner says why. Not kept on this device.
+_Avoid_: target, destination, Dictation List
 
 **Microphone**:
 The audio input of this browser a Dictation records from: the system default, or one chosen in the Microphone Picker and kept in Preferences. One chosen that is not connected leaves the default to record.

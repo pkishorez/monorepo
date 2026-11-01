@@ -6,24 +6,29 @@ import { Context, Effect, Layer, Queue, Schema } from 'effect';
  * Provides.
  */
 
+/**
+ * What a Dictation is for: the field that started it, which its text
+ * goes to wherever it is stopped. `key` names the field for as long as it
+ * lasts, a Session's Draft or one Item of a question, so the text waits
+ * for it while it is not drawn; `connectionId` is where it is best
+ * transcribed.
+ */
+export const Owner = Schema.Struct({
+  key: Schema.String,
+  connectionId: Schema.String,
+});
+export type Owner = typeof Owner.Type;
+
 /** What the app asks of the Dictation, through Voice. */
 export const Ask = Schema.TaggedUnion({
-  /** Start one, or stop the one recording. */
-  Toggle: {},
-  /** Throw away the one starting or recording: nothing is transcribed. */
+  /** Start one for `owner`, or stop the one recording, whoever it is for. */
+  Toggle: { owner: Schema.NullOr(Owner) },
+  /** Throw away the one starting, recording or being written out: nothing goes in. */
   Cancel: {},
   /** Transcribe the failed one again. */
   Retry: { id: Schema.Finite },
-  /** Its Draft put the text in. */
+  /** Its field put the text in. */
   Took: { id: Schema.Finite },
-  /** A Draft is drawn: text goes to it, the last one drawn first. */
-  Register: { key: Schema.String, connectionId: Schema.String },
-  /** That Draft is gone: what was coming to it is kept in the list. */
-  Unregister: { key: Schema.String },
-  /** A text kept in the list goes to the Draft drawn now. */
-  Paste: { id: Schema.Finite },
-  /** A text kept in the list is thrown away. */
-  Discard: { id: Schema.Finite },
 });
 
 /** The asks the Dictation has not yet taken. */

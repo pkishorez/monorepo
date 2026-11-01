@@ -235,7 +235,12 @@ export const TouchDraftView = View.make(
               />
               {/* Skills' Sheet, opened from Add. */}
               {!draft.textOnly && (
-                <Picker.Frame how={skills.how} mode="sheet" label="Skills">
+                <Picker.Frame
+                  how={skills.how}
+                  typing={skills.typing}
+                  mode="sheet"
+                  label="Skills"
+                >
                   {skills.picker}
                 </Picker.Frame>
               )}

@@ -10,11 +10,11 @@ import { MicrophonePicker } from './microphone-picker/index.ts';
  * while the user moves between pages, Settings too.
  *
  * 1. Dictation  the one Dictation, which records, has it written out, and
- *               hands the text to the Draft on screen as it stops, or
- *               keeps it in its list while none is.
+ *               keeps the text for the field that started it until that
+ *               field takes it.
  * 2. Microphone the Microphone Picker, which chooses what it records from.
- * 3. Ask        Space, Ctrl+Space, the header's mic, a Draft's mic, and
- *               every Draft saying it is drawn, ask here; each ask is
+ * 3. Ask        Space, Ctrl+Space, a field's mic and the header's cancel
+ *               ask here; each ask is
  *               handed on through `Dictations`, heard only while its
  *               Account is the one drawn.
  */
@@ -26,7 +26,7 @@ const Voice = Actor.define('Voice', {
     drawn: Schema.Boolean,
   }),
   message: Schema.TaggedUnion({
-    /** Space, Ctrl+Space, a mic, or a Draft: for the Dictation. */
+    /** Space, Ctrl+Space, a mic, or a cancel: for the Dictation. */
     DictationAsked: { ask: Ask },
   }),
 });

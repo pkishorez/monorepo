@@ -135,15 +135,16 @@ the browser is idle, so a move never waits on React's Suspense.
 
 Voice is a Child of Connections, so a recording keeps going across pages.
 
-- You start or stop it from anywhere: Space, Ctrl+Space, the mic in the
-  header, or a Draft's mic. Layout binds the keys and draws the mic.
-- A Draft on screen registers as where text goes, and unregisters when it
-  leaves. The last one drawn wins.
-- On stop, the text goes into the Draft on screen at that moment. With no
-  Draft on screen, it is kept in the dictation list, in the corner, to
-  paste into a Draft later or throw away.
-- The Draft holds no recording logic. It only says "paste here", takes the
-  text that comes, and shows the mic.
+- Each recording has an Owner, the field it was started from: a Draft, by
+  its Session, or a question's own answer, by its Item. A field's mic
+  starts one for itself; Space and Ctrl+Space start one for the field
+  focus is in, else the Draft on screen. Layout binds the keys.
+- You stop it from anywhere, and its text still goes to its Owner. Until
+  the Owner is drawn again, the text waits for it.
+- The header shows a cancel while one is going, which throws it away.
+- A field holds no recording logic. It asks `Voice.useDictation`, or
+  draws `Voice.Field`, for its own: it shows only the one recording for
+  it, and while one goes for another field its mic waits.
 
 ## Releases
 

@@ -224,6 +224,7 @@ function OnPage({
       sending.current !== null ? sending.current() : send({ _tag: 'Send' }),
     skills: {
       how: model.picking?.how ?? null,
+      typing: model.picking?.typed ?? false,
       offered: true,
       onOpen: (how, typed) => send({ _tag: 'Open', how, typed }),
       picker: null,
@@ -391,6 +392,19 @@ describe('Touch Draft', () => {
     expect(document.activeElement).not.toBe(editor());
     expect(editor().getAttribute('contenteditable')).toBe('false');
     expect(page.text).toBe('Please ');
+  });
+
+  it('keeps its selection through Collapse, and a tap on its words opens it as it was, to edit', async () => {
+    await tap(editor());
+    const view = EditorView.findFromDOM(editor())!;
+    await act(async () => view.dispatch({ selection: { anchor: 0, head: 6 } }));
+    await tap(button('Collapse')!);
+    expect(collapsed()).toBe(true);
+    expect(view.state.selection.main).toMatchObject({ anchor: 0, head: 6 });
+    await tap(editor());
+    expect(collapsed()).toBe(false);
+    expect(document.activeElement).toBe(editor());
+    expect(view.state.selection.main).toMatchObject({ anchor: 0, head: 6 });
   });
 
   it('opens from a tap anywhere on the line but its buttons', async () => {
@@ -600,6 +614,19 @@ describe('Touch Draft', () => {
       expect(card().dataset['writing']).toBeUndefined();
       expect(card().contains(document.activeElement)).toBe(false);
       expect(editor().getAttribute('contenteditable')).toBe('false');
+    });
+
+    it('keeps its selection through Collapse, and a tap anywhere on its line opens it as it was', async () => {
+      await tap(editor());
+      const view = EditorView.findFromDOM(editor())!;
+      await act(async () =>
+        view.dispatch({ selection: { anchor: 0, head: 6 } }),
+      );
+      await tap(button('Collapse')!);
+      expect(collapsed()).toBe(true);
+      await tap(editor());
+      expect(collapsed()).toBe(false);
+      expect(view.state.selection.main).toMatchObject({ anchor: 0, head: 6 });
     });
 
     it('places the caret on a tap in its words, without editing', async () => {

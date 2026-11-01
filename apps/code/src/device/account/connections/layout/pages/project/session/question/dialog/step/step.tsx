@@ -1,9 +1,18 @@
 import type { QuestionItem } from '@kestack/connect/code';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { CheckIcon, CircleAlertIcon } from 'lucide-react';
-import { type KeyboardEvent, useId, useLayoutEffect, useRef } from 'react';
+import {
+  type KeyboardEvent,
+  type RefObject,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+} from 'react';
 import { flushSync } from 'react-dom';
-import { type ItemDraft, typable } from '../answer.ts';
+import type { Dictated } from '../../../../../../../voice/index.ts';
+import { type ItemDraft, typable } from '../../answer.ts';
+import { Mic } from './voice.tsx';
 
 /*
  * One Item, the dialog's step: its header, its question, whether one or
@@ -22,7 +31,8 @@ import { type ItemDraft, typable } from '../answer.ts';
  * in it goes on, Tab and Shift+Tab to the next and the last question.
  * Its on-screen keyboard's action key says Go, or Send on the last step,
  * and sends Enter: Android's Next would only look for another field.
- * Typing chooses it, and, of one choice, lets the option go.
+ * Typing chooses it, and, of one choice, lets the option go. Beside it,
+ * row or field, its mic dictates it, but a secret's (`voice.tsx`).
  */
 
 export const ROW = '[data-question-row]';
@@ -36,6 +46,9 @@ export function Step({
   last,
   touch,
   editing,
+  dictated,
+  within,
+  dictate,
   onEditing,
   onChoose,
   onChooseOther,
@@ -53,6 +66,12 @@ export function Step({
   readonly touch: boolean;
   /** Whether its own answer is being typed. */
   readonly editing: boolean;
+  /** Its own answer's Dictation, where it can be dictated. */
+  readonly dictated: Dictated | null;
+  /** What holds the step: with focus in there, the keys dictate its own answer. */
+  readonly within: RefObject<HTMLElement | null>;
+  /** Set to what Space on its own answer's row does. */
+  readonly dictate: RefObject<(() => void) | null>;
   readonly onEditing: (on: boolean) => void;
   readonly onChoose: (label: string) => void;
   readonly onChooseOther: () => void;
@@ -64,6 +83,19 @@ export function Step({
 }) {
   const id = useId();
   const role = item.multiSelect ? 'checkbox' : 'radio';
+  // Space dictates where voice can be had, or stops the one going; with
+  // voice off it edits, as with no mic.
+  const off =
+    dictated === null ||
+    dictated.availability._tag === 'Off' ||
+    dictated.availability._tag === 'Downloading';
+  const toggle = off ? null : dictated.onToggle;
+  const onShown = dictated?.onShown ?? null;
+  useEffect(() => {
+    dictate.current = toggle;
+    return () => void (dictate.current = null);
+  });
+  useEffect(() => onShown?.(() => within.current) ?? undefined, [onShown]);
   const fieldOnly = item.options.length === 0;
   const hint = fieldOnly
     ? item.secret
@@ -146,6 +178,7 @@ export function Step({
             last={last}
             touch={touch}
             editing={editing}
+            dictated={dictated}
             labelledBy={`${id}-question`}
             onEditing={onEditing}
             onChooseOther={onChooseOther}
@@ -209,6 +242,7 @@ function Own({
   last,
   touch,
   editing,
+  dictated,
   labelledBy,
   onEditing,
   onChooseOther,
@@ -224,6 +258,7 @@ function Own({
   readonly last: boolean;
   readonly touch: boolean;
   readonly editing: boolean;
+  readonly dictated: Dictated | null;
   readonly labelledBy: string;
   readonly onEditing: (on: boolean) => void;
   readonly onChooseOther: () => void;
@@ -305,6 +340,7 @@ function Own({
             touch && 'h-9 text-base',
           )}
         />
+        {dictated !== null && <Mic dictated={dictated} touch={touch} />}
       </div>
     );
   const said =
@@ -313,7 +349,7 @@ function Own({
       : item.secret
         ? '•'.repeat(Math.min(12, typed.length))
         : typed;
-  return (
+  const own = (
     <button
       ref={row}
       type="button"
@@ -330,7 +366,7 @@ function Own({
       data-question-row
       data-other
       onClick={edit}
-      className={rowClass(touch)}
+      className={cn(rowClass(touch), dictated !== null && 'min-w-0 flex-1')}
     >
       {role !== null && <Mark kind={role} checked={checked} />}
       <span
@@ -343,6 +379,13 @@ function Own({
       </span>
       <Hint>i</Hint>
     </button>
+  );
+  if (dictated === null) return own;
+  return (
+    <div className="flex w-full items-center gap-1">
+      {own}
+      <Mic dictated={dictated} touch={touch} />
+    </div>
   );
 }
 

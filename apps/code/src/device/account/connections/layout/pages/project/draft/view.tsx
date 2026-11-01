@@ -267,10 +267,15 @@ function Composer({
   readonly last: LastMode;
   readonly held: Held;
 }) {
-  const { connectionId, to } = props;
+  const { connectionId, projectId, to } = props;
   const { mode, written } = composing;
   const slots = use(Slots);
-  const dictation = Voice.useDictation(connectionId);
+  // Its Session's, or its project's new one: a Dictation started here comes
+  // back here, wherever it is stopped.
+  const dictation = Voice.useDictation({
+    key: `draft ${connectionId} ${projectId} ${to._tag === 'Session' ? to.sessionId : 'new'}`,
+    connectionId,
+  });
   const skills = skillsOf(model, props);
   const { picking } = model;
   const fresh = to._tag === 'NewSession';
@@ -311,6 +316,7 @@ function Composer({
     },
     skills: {
       how: picking?._tag === 'Skills' ? picking.how : null,
+      typing: picking?._tag === 'Skills' && picking.typed,
       offered: takes.skills && SkillPicker.offers(skills),
       onOpen: (how, typed) =>
         send({
