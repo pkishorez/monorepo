@@ -2,6 +2,7 @@ import {
   createContext,
   memo,
   useContext,
+  useMemo,
   type ComponentProps,
   type MouseEvent,
 } from 'react';
@@ -9,15 +10,18 @@ import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { SourceViewer } from '../source-viewer/index';
+import { blocksOf } from './blocks';
 import { scrollbarStyles } from '#kit/scroll-styles';
 import { cn } from '#kit/class-names';
 
 /*
- * Markdown, drawn again only when its text or its look changes. Its
- * plugins and components are the same on every draw: a component made
- * anew each time is a new kind of element to React, which would take down
- * and build again everything under it, its code blocks highlighted again
- * from nothing. What a link click does reaches them through context.
+ * Markdown, drawn again only when its text or its look changes, and then
+ * a block at a time (`blocks.ts`): words streaming in at its end parse
+ * and draw again only its last block, however long it is. Its plugins and
+ * components are the same on every draw: a component made anew each time
+ * is a new kind of element to React, which would take down and build
+ * again everything under it, its code blocks highlighted again from
+ * nothing. What a link click does reaches them through context.
  */
 
 type OnLinkClick = (href: string) => boolean | void;
@@ -80,14 +84,24 @@ export const MarkdownViewer = memo(function MarkdownViewer({
   // Return true to take over the navigation for that href.
   readonly onLinkClick?: OnLinkClick;
 }) {
+  const blocks = useMemo(() => blocksOf(children), [children]);
   return (
     <div className={cn('prose dark:prose-invert max-w-none', className)}>
       <LinkClick.Provider value={onLinkClick}>
-        <ReactMarkdown remarkPlugins={remarkPlugins} components={components}>
-          {children}
-        </ReactMarkdown>
+        {blocks.map((block, at) => (
+          <Block key={at} text={block} />
+        ))}
       </LinkClick.Provider>
     </div>
+  );
+});
+
+/** One top-level block, parsed and drawn again only as its own text changes. */
+const Block = memo(function Block({ text }: { readonly text: string }) {
+  return (
+    <ReactMarkdown remarkPlugins={remarkPlugins} components={components}>
+      {text}
+    </ReactMarkdown>
   );
 });
 

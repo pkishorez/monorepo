@@ -1,13 +1,111 @@
 /**
- * Dual-theme Shiki support. CodeBlock tokenizes once with both light and dark
- * themes: each token span carries its light colour inline plus a `--shiki-dark`
- * custom property. Under the app's dark theme we swap the span colour to that
- * dark value. Scoped to `.shiki-token` so the surrounding gutter and layout
- * spans (which carry no `--shiki-dark`) keep their own colours.
+ * Shiki's colours, in one theme for light and dark (`source-viewer/theme.ts`):
+ * a source is highlighted once, each token coloured by a variable for its
+ * GitHub theme rule, and this says what each variable stands for in the
+ * light theme and in the dark one, as GitHub's themes have them
+ * (`theme.test.ts` checks).
  */
-.dark .shiki .shiki-token,
-[data-theme='dark'] .shiki .shiki-token {
-  color: var(--shiki-dark) !important;
+.shiki {
+  --shiki-0: #6a737d;
+  --shiki-1: #005cc5;
+  --shiki-2: #6f42c1;
+  --shiki-3: #24292e;
+  --shiki-4: #22863a;
+  --shiki-5: #d73a49;
+  --shiki-6: #d73a49;
+  --shiki-7: #24292e;
+  --shiki-8: #032f62;
+  --shiki-9: #005cc5;
+  --shiki-10: #005cc5;
+  --shiki-11: #e36209;
+  --shiki-12: #24292e;
+  --shiki-13: #b31d28;
+  --shiki-14: #b31d28;
+  --shiki-15: #b31d28;
+  --shiki-16: #b31d28;
+  --shiki-17: #fafbfc;
+  --shiki-17-bg: #d73a49;
+  --shiki-18: #b31d28;
+  --shiki-19: #005cc5;
+  --shiki-20: #032f62;
+  --shiki-21: #032f62;
+  --shiki-22: #22863a;
+  --shiki-23: #005cc5;
+  --shiki-24: #005cc5;
+  --shiki-25: #005cc5;
+  --shiki-26: #e36209;
+  --shiki-27: #005cc5;
+  --shiki-28: #22863a;
+  --shiki-29: #24292e;
+  --shiki-30: #24292e;
+  --shiki-33: #005cc5;
+  --shiki-34: #b31d28;
+  --shiki-34-bg: #ffeef0;
+  --shiki-35: #22863a;
+  --shiki-35-bg: #f0fff4;
+  --shiki-36: #e36209;
+  --shiki-36-bg: #ffebda;
+  --shiki-37: #f6f8fa;
+  --shiki-37-bg: #005cc5;
+  --shiki-38: #6f42c1;
+  --shiki-39: #005cc5;
+  --shiki-40: #005cc5;
+  --shiki-41: #005cc5;
+  --shiki-42: #586069;
+  --shiki-43: #b31d28;
+  --shiki-44: #032f62;
+}
+
+.dark .shiki,
+[data-theme='dark'] .shiki {
+  --shiki-0: #6a737d;
+  --shiki-1: #79b8ff;
+  --shiki-2: #b392f0;
+  --shiki-3: #e1e4e8;
+  --shiki-4: #85e89d;
+  --shiki-5: #f97583;
+  --shiki-6: #f97583;
+  --shiki-7: #e1e4e8;
+  --shiki-8: #9ecbff;
+  --shiki-9: #79b8ff;
+  --shiki-10: #79b8ff;
+  --shiki-11: #ffab70;
+  --shiki-12: #e1e4e8;
+  --shiki-13: #fdaeb7;
+  --shiki-14: #fdaeb7;
+  --shiki-15: #fdaeb7;
+  --shiki-16: #fdaeb7;
+  --shiki-17: #24292e;
+  --shiki-17-bg: #f97583;
+  --shiki-18: #fdaeb7;
+  --shiki-19: #79b8ff;
+  --shiki-20: #dbedff;
+  --shiki-21: #dbedff;
+  --shiki-22: #85e89d;
+  --shiki-23: #79b8ff;
+  --shiki-24: #79b8ff;
+  --shiki-25: #79b8ff;
+  --shiki-26: #ffab70;
+  --shiki-27: #79b8ff;
+  --shiki-28: #85e89d;
+  --shiki-29: #e1e4e8;
+  --shiki-30: #e1e4e8;
+  --shiki-33: #79b8ff;
+  --shiki-34: #fdaeb7;
+  --shiki-34-bg: #86181d;
+  --shiki-35: #85e89d;
+  --shiki-35-bg: #144620;
+  --shiki-36: #ffab70;
+  --shiki-36-bg: #c24e00;
+  --shiki-37: #2f363d;
+  --shiki-37-bg: #79b8ff;
+  --shiki-38: #b392f0;
+  --shiki-39: #79b8ff;
+  --shiki-40: #79b8ff;
+  --shiki-41: #79b8ff;
+  --shiki-42: #d1d5da;
+  --shiki-43: #fdaeb7;
+  --shiki-44: #dbedff;
 }
 
 /**

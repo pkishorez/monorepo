@@ -6,16 +6,15 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import githubDark from '@shikijs/themes/github-dark';
-import githubLight from '@shikijs/themes/github-light';
 import {
   createHighlighterCore,
   type HighlighterCore,
   type LanguageInput,
 } from 'shiki/core';
-import { createOnigurumaEngine } from 'shiki/engine/oniguruma';
+import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
 
 import { cn } from '#kit/class-names';
+import { THEME, theme } from './theme';
 import { scrollbarStyles } from '#kit/scroll-styles';
 
 export interface SourceViewerRange {
@@ -78,10 +77,12 @@ const languageByExtension: Readonly<Record<string, SourceLanguage>> = {
   yml: 'yaml',
 };
 
+// JavaScript's own regular expressions, not Oniguruma's WebAssembly: the
+// same colours for these languages, without a large download.
 const highlighter = createHighlighterCore({
-  themes: [githubLight, githubDark],
+  themes: [theme],
   langs: [],
-  engine: createOnigurumaEngine(import('shiki/wasm')),
+  engine: createJavaScriptRegexEngine(),
 });
 
 const languageLoaders: Record<
@@ -280,8 +281,7 @@ export function SourceViewer({
         if (!active) return null;
         return instance.codeToHtml(content, {
           lang: language,
-          themes: { light: 'github-light', dark: 'github-dark' },
-          defaultColor: false,
+          theme: THEME,
           transformers: [
             {
               span(node) {
