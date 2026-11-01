@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { MotionGlobalConfig } from 'motion/react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -106,5 +107,39 @@ describe('a tool that gave back an image', () => {
     expect(document.querySelector('[data-slot="dialog-content"] img')).toBe(
       null,
     );
+  });
+
+  it('closes on a finger swiped down past 80px, through its Gesture Zone', async () => {
+    MotionGlobalConfig.instantAnimations = true;
+    try {
+      act(() => root.render(<Output row={read('')} opening={opening} />));
+      act(() =>
+        container
+          .querySelector<HTMLButtonElement>(
+            'button[aria-label="Open image 1"]',
+          )!
+          .click(),
+      );
+      const image = () =>
+        document.querySelector('[data-slot="dialog-content"] img');
+      // jsdom has no PointerEvent: a MouseEvent with a pointer id stands in.
+      const finger = (type: string, y: number) => {
+        const event = new MouseEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          clientX: 100,
+          clientY: y,
+          button: 0,
+        });
+        Object.assign(event, { pointerId: 1, pointerType: 'touch' });
+        image()!.dispatchEvent(event);
+      };
+      act(() => finger('pointerdown', 100));
+      for (let y = 110; y <= 220; y += 10) act(() => finger('pointermove', y));
+      await act(async () => finger('pointerup', 220));
+      expect(image()).toBe(null);
+    } finally {
+      MotionGlobalConfig.instantAnimations = false;
+    }
   });
 });

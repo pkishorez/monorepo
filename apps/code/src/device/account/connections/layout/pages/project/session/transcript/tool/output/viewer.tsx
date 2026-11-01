@@ -389,7 +389,11 @@ function Touch({ image }: { readonly image: Touched }) {
     [...pointers.values()].filter((each) => each.end === undefined);
   const point = (finger: Pointer) => ({ x: finger.x.get(), y: finger.y.get() });
 
-  /** What the fingers down do, from where the image is now. */
+  /**
+   * What the fingers down do, from where the image is now. The last finger
+   * lifting is heard before the Gesture ends, with none down: what they did
+   * is kept, so the end can still tell a swipe away.
+   */
   const take = (pointers: Pointers) => {
     const [first, second] = down(pointers);
     if (first !== undefined && second !== undefined) {
@@ -406,7 +410,6 @@ function Touch({ image }: { readonly image: Touched }) {
       hold.current = image.zoomed()
         ? { as: 'move', from: image.now(), finger: first, at: point(first) }
         : { as: 'swipe', finger: first, at: first.y.get() - image.now().y };
-    else hold.current = null;
   };
 
   /** Every frame while fingers are down: the image where they put it. */

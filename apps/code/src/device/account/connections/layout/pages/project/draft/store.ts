@@ -66,16 +66,24 @@ export const read = (where: Where) =>
     saved.read(where.accountId, placeOf(where)),
   );
 
+/** Each mode renamed, by the name a Saved Draft from before may hold it under. */
+const formerly: Partial<Record<Mode, string>> = { Btw: 'SideQuestion' };
+
 /**
- * A Saved Draft as the Draft takes it back: a mode it no longer has is the
- * Message, and a cursor past the end of its text is at the end.
+ * A Saved Draft as the Draft takes it back: a mode under its former name
+ * is that mode, a mode it no longer has is the Message, and a cursor past
+ * the end of its text is at the end.
  */
 export const restoredOf = (
   { mode, written, attachments, chosen, branch, newWorktree, open }: SavedDraft,
   modes: ReadonlyArray<Mode>,
 ) => {
   const writtenIn = (each: Mode): Written => {
-    const kept = written[each] ?? DraftMode.blank;
+    const former = formerly[each];
+    const kept =
+      written[each] ??
+      (former === undefined ? undefined : written[former]) ??
+      DraftMode.blank;
     const end = kept.text.length;
     return {
       text: kept.text,
@@ -84,7 +92,9 @@ export const restoredOf = (
     };
   };
   return {
-    mode: modes.find((each) => each === mode) ?? 'Message',
+    mode:
+      modes.find((each) => each === mode || formerly[each] === mode) ??
+      'Message',
     attachments,
     chosen,
     branch: branch ?? null,
