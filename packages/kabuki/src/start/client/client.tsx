@@ -77,6 +77,8 @@ export const client = async (exported: StartApp): Promise<Hydrated> => {
         Loading.cached(app.routes, loading(app.routes)),
         layer ?? (Layer.empty as unknown as Layer.Layer<any>),
       ) as never,
+      // On the browser's Adapter, so it starts at the browser's address.
+      input: () => app.startAt(),
       ...(name && { name }),
       ...(attach && { attach }),
     }) as unknown as DrawnApp;

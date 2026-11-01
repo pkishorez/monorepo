@@ -7,7 +7,7 @@ is handed to it as Props. Core never imports it. Why it is built this way is
 in [ADR 0035](adr/0035-a-page-is-an-actor-and-its-place-loads-its-data.md)
 and [ADR 0037](adr/0037-a-page-is-defined-apart-from-its-build-and-the-router-holds-its-data.md).
 
-## Four parts
+## Four pieces
 
 ```
 Your pages and Views         Page.define, page.build, View.make     plain Kabuki Actors
@@ -478,13 +478,17 @@ after it shows the copy as its Stale time says. With no Data cache, from
 
 ### The Adapter: where the address lives
 
-With no Adapter in the Layer, the app routes in memory: Back and Forward are
-`Went` Messages and the URL is never touched. That is the default, so a test
-or a story runs the real router.
+With no Adapter in the Layer, the app routes in memory: it starts at its root,
+Back and Forward are `Went` Messages, and the URL is never read or touched.
+That is the default, so a test, a story or a demo inside another page runs
+the real router.
 
 ```ts
-View.app(Router.view(router, AppView), {
+const AppRoot = Router.view(router, AppView);
+
+View.app(AppRoot, {
   layer: Layer.mergeAll(AppLayer, tanstack()),
+  input: () => AppRoot.startAt(),
 });
 ```
 
@@ -493,7 +497,10 @@ stamping each history entry with a key, and a Worker hears the address: a
 Back lands on an entry the Router knows. A redirect, or a URL that is not how
 its Route is written, is replaced. `startAt(url, known)` is the Router's
 Input at a URL with what its pages start from: what a server draws from, and
-how an app is drawn at the right page from the first frame.
+how an app is drawn at the right page from the first frame. With no URL it
+is the browser's: an app on an Adapter gives it as `View.app`'s `input`, as
+Start's client does, since only an app whose Layer holds an Adapter owns the
+address.
 
 Commands never run during Time Travel, so the address stays live: a past
 Step is a drawing. Nothing fetches either: each page's data is in the
