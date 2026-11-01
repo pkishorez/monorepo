@@ -122,6 +122,7 @@ const draw = async (adapter: 'memory' | 'browser', at = '/app') => {
       ? View.app(Root, { name: `memory-${count++}` })
       : View.app(Root, {
           layer: browser(),
+          input: () => Root.startAt(),
           name: `browser-${count++}`,
         });
   root = createRoot(host);
@@ -151,6 +152,12 @@ describe('in memory', () => {
     expect(host.textContent).toContain('project 7');
     expect(location.pathname).toBe('/elsewhere');
     expect(document.title).toBe('');
+  });
+
+  it("starts at its root, never at the page's own URL", async () => {
+    await draw('memory', '/app/projects/3');
+    expect(host.textContent).toContain('home');
+    expect(host.textContent).not.toContain('project 3');
   });
 
   it('leaves a new tab, another site and an svg link to the browser', async () => {

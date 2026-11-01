@@ -203,19 +203,21 @@ export const view = <Route extends AnyRoute, A extends AnyActor>(
   };
 
   /*
-   * The Router's View, with what an app and Start read of it: `input`, so
-   * `View.app` starts it at the browser's URL; `startAt`, its Input at any
-   * URL; `href`, a Route's URL; `restoreScroll`, the script a server writes;
-   * and `routes`, what Start reads a URL and serves the Loaders with.
+   * The Router's View, with what an app and Start read of it: `startAt`,
+   * its Input at any URL, or at the browser's; `href`, a Route's URL;
+   * `restoreScroll`, the script a server writes; and `routes`, what Start
+   * reads a URL and serves the Loaders with. It has no Input of its own,
+   * so `View.app` starts it at its root, in memory: where the browser
+   * happens to be is not the app's to read unless its Layer holds an
+   * Adapter, and an app that gives one starts it there with
+   * `input: () => view.startAt()`, as Start's client does.
    */
   return Object.assign(routerView, {
-    input: () => startAt(),
     startAt,
     href,
     restoreScroll,
     routes,
   }) as unknown as ViewOf<RouterActor> & {
-    readonly input: () => RouterInput<Route> | undefined;
     readonly startAt: typeof startAt;
     readonly href: typeof href;
     readonly restoreScroll: typeof restoreScroll;
