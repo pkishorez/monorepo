@@ -548,6 +548,17 @@ A move says otherwise for itself, as TanStack's do:
 an element, or the window, on the entry drawn: for a virtual list that puts
 itself back.
 
+Such a list keeps an anchor with `useKeepScrollAnchor`, named the same way:
+where it is in its own terms, as the item at its top and how far into the
+view it is, anything JSON holds. Pixels go stale as items change height, or
+as a list draws only some of them; an anchor does not. The list keeps it as
+the reader scrolls, and reads it back with `useElementScrollRestoration` on
+Back, Forward or a reload, as `anchor`. Scroll restoration then leaves that
+element alone, neither putting it back nor sending it to the top: the list
+puts itself there, once it has drawn what it needs. A scroll of the user's
+keeps the anchor as it is; only the list changes it. A new entry starts
+without one, as it starts at the top.
+
 A page that lands still loading may be too short to reach where it was:
 what is drawn as the move lands is what is restored, as in TanStack, and a
 move held up to 150 ms for its data mostly lands drawn. Nothing scrolls

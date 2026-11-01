@@ -12,6 +12,12 @@ export const ID = 'data-scroll-restoration-id';
 export interface Position {
   readonly scrollX: number;
   readonly scrollY: number;
+  /**
+   * Where a list that puts itself back says it was, in its own terms, as
+   * the item at its top: anything JSON holds. Scroll restoration never
+   * scrolls an element, or the window, that kept one.
+   */
+  readonly anchor?: unknown;
 }
 
 /** Every saved position: by restoration key, then by element. */

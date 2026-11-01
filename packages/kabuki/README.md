@@ -205,11 +205,12 @@ The whole app as one value, read and stepped from outside the Runtime, as a devt
 
 ### `@kestack/kabuki/routing/router`
 
-`Router` and `useRouter`, as `@kestack/kabuki/routing` gives them, and `useElementScrollRestoration`, with `RouterDefinition`, `RouterOptions`, `Preload`, `MoveOptions` and `ReloadOptions`.
+`Router` and `useRouter`, as `@kestack/kabuki/routing` gives them, `useElementScrollRestoration` and `useKeepScrollAnchor`, with `RouterDefinition`, `RouterOptions`, `Preload`, `MoveOptions` and `ReloadOptions`.
 
-| Export                        | What it does                                                                                                                                     |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `useElementScrollRestoration` | Reads where an element, or the window, was scrolled on the entry drawn, as scroll restoration kept it: for a virtual list that puts itself back. |
+| Export                        | What it does                                                                                                                                                             |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `useElementScrollRestoration` | Reads where an element, or the window, was scrolled on the entry drawn, and the anchor it kept, as scroll restoration kept it: for a virtual list that puts itself back. |
+| `useKeepScrollAnchor`         | Keeps where a list that puts itself back is, in its own terms, under the entry drawn; scroll restoration then leaves that list to put itself back.                       |
 
 ### `@kestack/kabuki/routing/capabilities`
 

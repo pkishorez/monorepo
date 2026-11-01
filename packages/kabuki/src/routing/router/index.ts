@@ -6,5 +6,8 @@ export type {
   RouterOptions,
 } from './define.ts';
 export { useRouter } from './context.tsx';
-export { useElementScrollRestoration } from './scroll/index.ts';
+export {
+  useElementScrollRestoration,
+  useKeepScrollAnchor,
+} from './scroll/index.ts';
 export type { MoveOptions, ReloadOptions } from '../capabilities/index.ts';

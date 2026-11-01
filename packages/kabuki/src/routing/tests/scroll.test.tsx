@@ -7,7 +7,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { View } from '../../react/index.ts';
 import { Page, Router } from '../index.ts';
 import { Loading } from '../capabilities/index.ts';
-import { useElementScrollRestoration } from '../router/index.ts';
+import {
+  useElementScrollRestoration,
+  useKeepScrollAnchor,
+} from '../router/index.ts';
 import { registry } from '../../react/view/registry.ts';
 import { KEY } from '../router/adapter/index.ts';
 import { browser } from '../router/adapter/browser/index.ts';
@@ -21,7 +24,8 @@ import { selectorOf } from '../router/scroll/selector.ts';
  * and put back on Back; what stays on the page keeps where it was; what
  * `scrollToTopSelectors` names goes to the top; a move that says
  * `resetScroll: false`; a hash; a key per path; a reload, and the script a
- * server writes for it.
+ * server writes for it; and a list that keeps an anchor and puts itself
+ * back.
  *
  * jsdom lays nothing out, so every element and the window keep the position
  * they are given, and a user's scroll is a position and a `scroll` event.
@@ -107,11 +111,16 @@ const App = Page.define({ pages: { Folder, Settings, Slow } });
 const Routes = Router.define(App);
 
 const MessageLive = Message.build();
-/** What each message read of its pane's kept position, in each render, in order. */
+/** What each message read of its pane's kept position, and anchor, in each render, in order. */
 let readKept: Array<string> = [];
+/** Keeps the pane's anchor, as a list that puts itself back does. */
+let keepPane: (anchor: unknown) => void = () => {};
 const MessageView = View.make(MessageLive, ({ props }) => {
   const kept = useElementScrollRestoration({ id: 'pane' });
-  readKept.push(`${props.params.id} ${kept?.scrollY ?? 'none'}`);
+  keepPane = useKeepScrollAnchor({ id: 'pane' });
+  const anchor =
+    kept?.anchor === undefined ? '' : ` ${JSON.stringify(kept.anchor)}`;
+  readKept.push(`${props.params.id} ${kept?.scrollY ?? 'none'}${anchor}`);
   return <Pane id={props.params.id} />;
 });
 const Pane = ({ id }: { readonly id: string }) => (
@@ -400,6 +409,46 @@ describe('an element', () => {
     readKept = [];
     await back();
     expect(readKept[0]).toBe('a 200');
+  });
+
+  it('that keeps an anchor reads it back on Back, and is left to put itself there', async () => {
+    await open('/f/inbox/a', {
+      scrollRestoration: true,
+      scrollToTopSelectors: ['#pane'],
+    });
+    await scroll(host.querySelector('#pane')!, 200);
+    await act(async () => keepPane({ item: 'part-2', offset: 12 }));
+    // A scroll of the user's keeps the anchor as it is.
+    await scroll(host.querySelector('#pane')!, 210);
+    await click('b');
+    expect(top('#pane')).toBe(0);
+
+    readKept = [];
+    await back();
+    expect(readKept[0]).toBe('a 210 {"item":"part-2","offset":12}');
+    // Neither put back nor sent to the top: the list does it itself.
+    expect(top('#pane')).toBe(0);
+
+    // A reload starts from the anchor too, once its entry is known.
+    readKept = [];
+    await load();
+    expect(readKept.at(-1)).toBe('a 210 {"item":"part-2","offset":12}');
+  });
+
+  it('still on the page carries where it was to a new entry, not its anchor', async () => {
+    await open('/f/inbox/a');
+    await scroll(host.querySelector('#pane')!, 200);
+    await act(async () => keepPane({ item: 'part-2', offset: 12 }));
+    await click('b');
+    expect(top('#pane')).toBe(200);
+
+    readKept = [];
+    await back();
+    expect(readKept[0]).toBe('a 200 {"item":"part-2","offset":12}');
+    readKept = [];
+    await act(async () => history.forward());
+    await settle();
+    expect(readKept[0]).toBe('b 200');
   });
 
   it('is named by its data-scroll-restoration-id, else by its path', () => {
