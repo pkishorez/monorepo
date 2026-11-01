@@ -1,6 +1,12 @@
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { memo, useContext } from 'react';
-import { Chevron, type Opening, useOpen } from '../../../words/index.ts';
+import {
+  Chevron,
+  type Opening,
+  Under,
+  useOpen,
+  useSticky,
+} from '../../../words/index.ts';
 import { type Row, sameItems } from '../../rows/index.ts';
 import { Folder, KINDS, stateOf, summary } from '../../../tool/index.ts';
 import { Steps } from './steps.tsx';
@@ -12,7 +18,8 @@ import { kindsOf, tally } from './tally.ts';
  * the kinds of tool it used, how many steps failed, and whether any were
  * stopped. While it runs, it
  * says what the agent is doing now, a step at a time, so a long turn
- * never looks stuck. Open, every step in order.
+ * never looks stuck. The whole width of the line opens it; open, every
+ * step in order, the line stuck to the top while they scroll under it.
  */
 
 /** What the agent is doing now, in a few words, while the run is the live one. */
@@ -58,6 +65,7 @@ export const Work = memo(
 function WorkLine({ id, rows, opening, running, live }: WorkProps) {
   const folder = useContext(Folder);
   const open = useOpen(opening, id);
+  const sticky = useSticky(open, () => opening.toggle(id));
   const states = rows.flatMap((row) =>
     row.kind === 'tool' || row.kind === 'subagent'
       ? [stateOf(row.state, running)]
@@ -68,32 +76,40 @@ function WorkLine({ id, rows, opening, running, live }: WorkProps) {
   const said = live ? nowOf(rows, folder) : tally(rows);
   return (
     <div className="flex min-w-0 flex-col">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => opening.toggle(id)}
-        className="focus-ring -mx-2.5 flex min-h-11 max-w-[calc(100%+1.25rem)] items-center gap-2 self-start rounded-lg px-2.5 text-left text-sm text-muted-foreground transition-colors duration-150 hover:bg-muted/60 hover:text-foreground keyboard:min-h-9 motion-reduce:transition-none"
+      <div
+        ref={sticky.head}
+        style={open ? { top: sticky.top } : undefined}
+        className={`-mx-2.5 ${open ? 'sticky z-10 bg-background' : ''}`}
       >
-        {live ? (
-          <Spinner aria-hidden className="size-3.5 shrink-0" />
-        ) : (
-          <Icons rows={rows} />
-        )}
-        <span role={live ? 'status' : undefined} className="min-w-0 truncate">
-          {said}
-          {live && '…'}
-        </span>
-        {failed > 0 && (
-          <span className="shrink-0 font-medium text-destructive">
-            · {failed} failed
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={sticky.shut}
+          className="focus-ring flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 text-left text-sm text-muted-foreground transition-colors duration-150 hover:bg-muted/60 hover:text-foreground keyboard:min-h-9 motion-reduce:transition-none"
+        >
+          {live ? (
+            <Spinner aria-hidden className="size-3.5 shrink-0" />
+          ) : (
+            <Icons rows={rows} />
+          )}
+          <span role={live ? 'status' : undefined} className="min-w-0 truncate">
+            {said}
+            {live && '…'}
           </span>
-        )}
-        {stopped && <span className="shrink-0">· stopped</span>}
-        <Chevron open={open} />
-      </button>
+          {failed > 0 && (
+            <span className="shrink-0 font-medium text-destructive">
+              · {failed} failed
+            </span>
+          )}
+          {stopped && <span className="shrink-0">· stopped</span>}
+          <Chevron open={open} />
+        </button>
+      </div>
       {open && (
         <div className="mt-1 ml-[7px] min-w-0 border-l border-border pl-4">
-          <Steps rows={rows} opening={opening} running={running} />
+          <Under below={sticky.under}>
+            <Steps rows={rows} opening={opening} running={running} />
+          </Under>
         </div>
       )}
     </div>

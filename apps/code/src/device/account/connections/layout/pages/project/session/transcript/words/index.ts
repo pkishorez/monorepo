@@ -3,9 +3,12 @@ export {
   Chevron,
   Clamped,
   SHUT,
+  Under,
   unlessSelecting,
   useOpen,
   useOpening,
+  useShutInPlace,
+  useSticky,
   type Opening,
 } from './fold.tsx';
 export { Long, Markdown, Writing } from './words.tsx';

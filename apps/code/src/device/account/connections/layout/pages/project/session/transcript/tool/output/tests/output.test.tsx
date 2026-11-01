@@ -8,7 +8,7 @@ import { Output } from '../output.tsx';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
-/* What a tool gave back: its images as thumbnails, opened whole by a tap. */
+/* What a tool gave back: its images as thumbnails, opened whole by a tap, to zoom into. */
 
 type ToolRow = Extract<Row, { readonly kind: 'tool' }>;
 
@@ -73,5 +73,32 @@ describe('a tool that gave back an image', () => {
         .querySelector('[data-slot="dialog-content"] img')
         ?.getAttribute('src'),
     ).toBe('data:image/png;base64,iVBOR');
+  });
+
+  it('zooms in and out by its buttons, back to fit, then closes', () => {
+    act(() => root.render(<Output row={read('')} opening={opening} />));
+    act(() =>
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="Open image 1"]')!
+        .click(),
+    );
+    const button = (label: string) =>
+      document.querySelector<HTMLButtonElement>(
+        `[data-slot="dialog-content"] button[aria-label="${label}"]`,
+      )!;
+    const zoom = () => button('Fit to screen').textContent;
+    expect(zoom()).toBe('100%');
+    expect(button('Zoom out').disabled).toBe(true);
+    act(() => button('Zoom in').click());
+    expect(zoom()).toBe('150%');
+    act(() => button('Zoom out').click());
+    expect(zoom()).toBe('100%');
+    act(() => button('Zoom in').click());
+    act(() => button('Fit to screen').click());
+    expect(zoom()).toBe('100%');
+    act(() => button('Close').click());
+    expect(document.querySelector('[data-slot="dialog-content"] img')).toBe(
+      null,
+    );
   });
 });

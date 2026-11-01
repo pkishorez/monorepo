@@ -20,6 +20,7 @@ import {
 } from '../connection/link/index.ts';
 import { keys } from './commands.ts';
 import type { LayoutLive } from './actor.ts';
+import { Pickers } from './pickers/index.ts';
 
 /*
  * What Layout's View draws around the page besides its children.
@@ -268,12 +269,31 @@ export function Title({
               className="size-3.5 shrink-0 text-muted-foreground"
             />
           )}
-          <span className="min-w-0 truncate" title={session.title || undefined}>
-            {session.title || 'Untitled session'}
-          </span>
+          <SessionName connectionId={connectionId} session={session} />
           <SessionStatus status={session.status} />
         </>
       )}
+    </span>
+  );
+}
+
+/** A session's title, pulsing while Actions writes it again. */
+function SessionName({
+  connectionId,
+  session,
+}: {
+  readonly connectionId: string;
+  readonly session: Session;
+}) {
+  const retitling = Pickers.useRetitling(connectionId, session.id);
+  return (
+    <span
+      aria-busy={retitling || undefined}
+      title={session.title || undefined}
+      className={`min-w-0 truncate ${retitling ? 'animate-pulse motion-reduce:animate-none motion-reduce:opacity-60' : ''}`}
+    >
+      {session.title || 'Untitled session'}
+      {retitling && <span className="sr-only">, regenerating the title</span>}
     </span>
   );
 }

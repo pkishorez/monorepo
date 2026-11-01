@@ -141,6 +141,13 @@ export const SessionView = View.make(
     const stop = useCallback(() => send({ _tag: 'StopAsked' }), [send]);
     const canStop = running && !model.stopping && offline === null;
     useScrollKeys(scroll);
+    // A Message sent from the Draft, typed or dictated: back to the bottom,
+    // following, so it shows as it arrives.
+    const sends = useChild(children.draft, ({ model }) => model.sends);
+    useEffect(() => {
+      if (sends) scroll.holdOn(true);
+      // oxlint-disable-next-line react-hooks/exhaustive-deps
+    }, [sends]);
     keys.useAction('content.stop', stop, { enabled: canStop });
     const stopKeys = useBound('content.stop');
     // While its agent asks, the Question Panel stands in for the Draft.

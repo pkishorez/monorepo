@@ -5,6 +5,7 @@ import {
   ProjectButton,
   ProjectNotice,
   SessionActionsButton,
+  useRetitling,
 } from './view.tsx';
 
 export const Pickers = {
@@ -15,4 +16,6 @@ export const Pickers = {
   ProjectButton,
   ProjectNotice,
   SessionActionsButton,
+  /** Whether a Session's title is being written again, for the header. */
+  useRetitling,
 };

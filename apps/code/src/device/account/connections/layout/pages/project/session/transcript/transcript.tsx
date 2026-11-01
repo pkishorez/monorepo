@@ -241,7 +241,7 @@ const TurnView = memo(
       >
         {turn.asks.slice(hidden).map((ask) => (
           <Block key={ask.id} id={ask.id}>
-            <Ask row={ask} />
+            <Ask row={ask} opening={opening} />
           </Block>
         ))}
         <div className="flex min-w-0 flex-col gap-3">
@@ -269,7 +269,7 @@ const TurnView = memo(
                 className={piece.kind === 'ask' ? 'py-1' : undefined}
               >
                 {piece.kind === 'ask' ? (
-                  <Ask row={piece.row} />
+                  <Ask row={piece.row} opening={opening} />
                 ) : piece.kind === 'work' ? (
                   <Work
                     id={piece.id}

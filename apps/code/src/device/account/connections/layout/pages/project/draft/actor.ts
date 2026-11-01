@@ -195,6 +195,8 @@ const Model = Schema.Struct({
   asked: Schema.NullOr(Asked),
   /** The last question's id: a late answer to a dismissed one is told apart. */
   asks: Schema.Finite,
+  /** How many Messages were sent from it: the session follows each to the bottom. */
+  sends: Schema.Finite,
 });
 export type Model = typeof Model.Type;
 
@@ -298,6 +300,7 @@ export const DraftLive = Draft.build({
       starting: null,
       asked: null,
       asks: 0,
+      sends: 0,
     },
   }),
   provides: (self) =>

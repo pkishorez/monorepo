@@ -5,8 +5,10 @@ import type { ToolState, Row } from '../turns/rows/index.ts';
 import {
   Chevron,
   type Opening,
+  Under,
   unlessSelecting,
   useOpen,
+  useSticky,
 } from '../words/index.ts';
 import { Folder, groupTitle, reasonOf, summary } from './parse/index.ts';
 import { KINDS } from './kinds/kinds.ts';
@@ -15,7 +17,8 @@ import { KINDS } from './kinds/kinds.ts';
  * One tool call as one line: its kind's icon, what it did in the tense of
  * where it stands ("Reading", "Read"), what it did it to, an edit's lines
  * added and removed, and its state; why it failed under it. Clicked, or
- * from its chevron, it opens to what its kind shows. Tall enough to tap on
+ * from its chevron, it opens to what its kind shows, its line stuck to the
+ * top while what it opened scrolls under it. Tall enough to tap on
  * a touch screen, a row of text with a keyboard. A run of calls of one
  * kind is one such line too, that opens to each. Paths read short inside
  * the project's `Folder`; how a call is read is `parse/`'s, how each kind
@@ -84,37 +87,43 @@ export function StepLine({
   readonly children: ReactNode;
 }) {
   const open = useOpen(opening, id);
-  const toggle = () => opening.toggle(id);
+  const sticky = useSticky(open, () => opening.toggle(id));
   return (
     <li className="flex min-w-0 flex-col">
       <div
-        onClick={unlessSelecting(toggle)}
-        className="group -mx-2 flex min-h-11 cursor-pointer items-center gap-2 rounded-md px-2 text-sm transition-colors duration-150 hover:bg-muted/60 keyboard:min-h-8 motion-reduce:transition-none"
+        ref={sticky.head}
+        style={open ? { top: sticky.top } : undefined}
+        className={`-mx-2 ${open ? 'sticky z-10 bg-background' : ''}`}
       >
-        <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground [&_svg]:size-3.5">
-          {icon}
-        </span>
-        <span title={hint} className="min-w-0 flex-1 truncate">
-          {title}
-        </span>
-        {end}
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-label={`${open ? 'Hide' : 'Show'} ${hint}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            toggle();
-          }}
-          className="focus-ring -mr-1 flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 group-hover:text-foreground hover:bg-muted keyboard:size-6 motion-reduce:transition-none"
+        <div
+          onClick={unlessSelecting(sticky.shut)}
+          className="group flex min-h-11 cursor-pointer items-center gap-2 rounded-md px-2 text-sm transition-colors duration-150 hover:bg-muted/60 keyboard:min-h-8 motion-reduce:transition-none"
         >
-          <Chevron open={open} />
-        </button>
+          <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground [&_svg]:size-3.5">
+            {icon}
+          </span>
+          <span title={hint} className="min-w-0 flex-1 truncate">
+            {title}
+          </span>
+          {end}
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-label={`${open ? 'Hide' : 'Show'} ${hint}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              sticky.shut();
+            }}
+            className="focus-ring -mr-1 flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 group-hover:text-foreground hover:bg-muted keyboard:size-6 motion-reduce:transition-none"
+          >
+            <Chevron open={open} />
+          </button>
+        </div>
       </div>
       {below}
       {open && (
         <div className="mt-1 mb-3 flex min-w-0 flex-col gap-2 pl-6">
-          {children}
+          <Under below={sticky.under}>{children}</Under>
         </div>
       )}
     </li>
