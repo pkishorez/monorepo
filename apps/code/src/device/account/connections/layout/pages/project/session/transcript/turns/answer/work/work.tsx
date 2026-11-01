@@ -2,6 +2,7 @@ import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { memo, useContext } from 'react';
 import {
   Chevron,
+  Head,
   type Opening,
   Under,
   useOpen,
@@ -76,15 +77,11 @@ function WorkLine({ id, rows, opening, running, live }: WorkProps) {
   const said = live ? nowOf(rows, folder) : tally(rows);
   return (
     <div className="flex min-w-0 flex-col">
-      <div
-        ref={sticky.head}
-        style={open ? { top: sticky.top } : undefined}
-        className={`-mx-2.5 ${open ? 'sticky z-10 bg-background' : ''}`}
-      >
+      <Head sticky={sticky} className="-mx-2.5">
         <button
           type="button"
           aria-expanded={open}
-          onClick={sticky.shut}
+          onClick={sticky.toggle}
           className="focus-ring flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 text-left text-sm text-muted-foreground transition-colors duration-150 hover:bg-muted/60 hover:text-foreground keyboard:min-h-9 motion-reduce:transition-none"
         >
           {live ? (
@@ -104,10 +101,10 @@ function WorkLine({ id, rows, opening, running, live }: WorkProps) {
           {stopped && <span className="shrink-0">· stopped</span>}
           <Chevron open={open} />
         </button>
-      </div>
+      </Head>
       {open && (
         <div className="mt-1 ml-[7px] min-w-0 border-l border-border pl-4">
-          <Under below={sticky.under}>
+          <Under sticky={sticky}>
             <Steps rows={rows} opening={opening} running={running} />
           </Under>
         </div>

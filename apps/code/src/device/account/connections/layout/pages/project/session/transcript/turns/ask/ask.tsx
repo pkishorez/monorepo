@@ -5,10 +5,12 @@ import {
   RotateCcwIcon,
   ZapIcon,
 } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { notify } from '../../../../../../../../../../ui/controls/notice/index.ts';
 import {
   type Opening,
   unlessSelecting,
+  useHeight,
   useOpen,
   useShutInPlace,
 } from '../../words/index.ts';
@@ -106,7 +108,9 @@ function Bubble({
   readonly steered: boolean;
 }) {
   const words = useRef<HTMLDivElement>(null);
-  const [tall, setTall] = useState(false);
+  // Measured before it is first shown, so a tall one never draws unfolded
+  // first, and again as the column's width changes how it wraps.
+  const tall = useHeight(words) > TALL;
   const open = useOpen(opening, id);
   const inPlace = useShutInPlace();
   // Folded from below its top, out of sight: its foot stays where it was.
@@ -123,18 +127,6 @@ function Bubble({
       );
     opening.toggle(id);
   };
-  // Measured before it is first shown, so a tall one never draws unfolded
-  // first, and again as the column's width changes how it wraps.
-  useLayoutEffect(() => {
-    const element = words.current;
-    if (!element) return;
-    const measure = () => setTall(element.scrollHeight > TALL);
-    measure();
-    if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [text]);
   const folded = tall && !open;
   return (
     <>
@@ -183,7 +175,15 @@ function Copy({ text }: { readonly text: string }) {
       aria-label={copied ? 'Copied' : 'Copy the message'}
       title="Copy the message"
       onClick={() => {
-        void navigator.clipboard?.writeText(text).then(() => setCopied(true));
+        void (navigator.clipboard?.writeText(text) ?? Promise.reject()).then(
+          () => setCopied(true),
+          () =>
+            notify({
+              title: "Couldn't copy",
+              description: 'Allow Code to use the clipboard, then try again.',
+              seconds: 4,
+            }),
+        );
       }}
       className={`${BUTTON} -mr-1 ${copied ? 'opacity-100' : QUIET}`}
     >

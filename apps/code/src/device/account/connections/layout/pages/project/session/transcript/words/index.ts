@@ -2,10 +2,12 @@ export { Checklist, progressOf, type Step } from './checklist.tsx';
 export {
   Chevron,
   Clamped,
+  Head,
   SHUT,
   Under,
   unlessSelecting,
   useOpen,
+  useHeight,
   useOpening,
   useShutInPlace,
   useSticky,

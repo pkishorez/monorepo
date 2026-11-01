@@ -3,6 +3,7 @@ import {
   createContext,
   type MouseEvent,
   type ReactNode,
+  type RefObject,
   use,
   useLayoutEffect,
   useRef,
@@ -95,43 +96,94 @@ export const unlessSelecting =
     toggle();
   };
 
-/** How far below the transcript's top an open fold's head sticks, in px: under the heads of the open folds it is in. */
-const Stuck = createContext(0);
+/**
+ * Where an open fold's head sticks: how far below the transcript's top, in
+ * px, under the heads of the open folds it is in, and how deep it is in
+ * them, the outer heads drawn over the inner as they slide up.
+ */
+interface Place {
+  readonly top: number;
+  readonly depth: number;
+}
+
+const Stuck = createContext<Place>({ top: 0, depth: 0 });
+
+/** The most open folds deep a head is drawn over another's. */
+const DEEPEST = 10;
 
 /**
- * An open fold's head, stuck to the top while it is open: `head` on the
- * head, whose parent is the fold, `top` its place, `shut` in place of
- * toggling, and `Under` around what it opens, for the heads inside.
+ * An open fold's head, stuck to the top while it is open: drawn by `Head`,
+ * whose parent is the fold, `toggle` to open or shut it, and `Under`
+ * around what it opens, for the heads inside.
  */
 export function useSticky(open: boolean, toggle: () => void) {
-  const top = use(Stuck);
+  const place = use(Stuck);
   const head = useRef<HTMLDivElement>(null);
+  const height = useHeight(head, open);
+  const inPlace = useShutInPlace();
+  return {
+    head,
+    open,
+    style: open
+      ? { top: place.top, zIndex: DEEPEST - Math.min(place.depth, DEEPEST - 1) }
+      : undefined,
+    under: { top: place.top + height, depth: place.depth + 1 },
+    // Shut, the head stays where it had stuck down to, on the screen, as
+    // what it opened goes.
+    toggle: () => {
+      const element = head.current;
+      const fold = element?.parentElement;
+      if (open && element && fold)
+        inPlace(
+          element.getBoundingClientRect().top -
+            fold.getBoundingClientRect().top -
+            fold.clientTop,
+        );
+      toggle();
+    },
+  };
+}
+
+type Sticky = ReturnType<typeof useSticky>;
+
+/** An element's height, in px, measured while `measuring` and as it changes. */
+export function useHeight(
+  element: RefObject<HTMLElement | null>,
+  measuring = true,
+) {
   const [height, setHeight] = useState(0);
   useLayoutEffect(() => {
-    const element = head.current;
-    if (!open || !element) return;
-    const measure = () => setHeight(element.offsetHeight);
+    const at = element.current;
+    if (!measuring || !at) return;
+    const measure = () => setHeight(at.scrollHeight);
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
-    observer.observe(element);
+    observer.observe(at);
     return () => observer.disconnect();
-  }, [open]);
-  const inPlace = useShutInPlace();
-  // How far the head had stuck down from its place at the fold's top: it
-  // stays there on the screen as what it opened goes.
-  const shut = () => {
-    const element = head.current;
-    const fold = element?.parentElement;
-    if (open && element && fold)
-      inPlace(
-        element.getBoundingClientRect().top -
-          fold.getBoundingClientRect().top -
-          fold.clientTop,
-      );
-    toggle();
-  };
-  return { head, top, shut, under: top + height };
+  }, [element, measuring]);
+  return height;
+}
+
+/** An open fold's head, stuck to the top over what it opened. */
+export function Head({
+  sticky,
+  className = '',
+  children,
+}: {
+  readonly sticky: Sticky;
+  readonly className?: string;
+  readonly children: ReactNode;
+}) {
+  return (
+    <div
+      ref={sticky.head}
+      style={sticky.style}
+      className={`${className} ${sticky.open ? 'sticky bg-background' : ''}`}
+    >
+      {children}
+    </div>
+  );
 }
 
 /**
@@ -150,14 +202,13 @@ export function useShutInPlace() {
 
 /** What an open fold opens: the heads inside stick under its own. */
 export function Under({
-  below,
+  sticky,
   children,
 }: {
-  /** Where its head ends, `under` of `useSticky`. */
-  readonly below: number;
+  readonly sticky: Sticky;
   readonly children: ReactNode;
 }) {
-  return <Stuck value={below}>{children}</Stuck>;
+  return <Stuck value={sticky.under}>{children}</Stuck>;
 }
 
 /** Turns down as what it heads opens. */

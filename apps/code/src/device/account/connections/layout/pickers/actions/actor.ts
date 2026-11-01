@@ -27,7 +27,8 @@ import { isKey, rowsOf } from './keys.ts';
  *            it, then closes, and the app, and the keyboard, go to the
  *            Fork or the original for those two; a refusal is said in the
  *            Picker, which stays. Regenerate the title closes it at once:
- *            the header's title pulses until the new one is written, and
+ *            the header's title pulses until the session shows the new
+ *            one, and
  *            a refusal is said in a toast. Settle and Un-settle go through `Moves`,
  *            at once, as every Settle does, and the sidebar says a refusal.
  *            An Action of the keyboard is kept as the Picker closes, so the
@@ -165,6 +166,12 @@ const At = Schema.Struct({
   sessionId: Schema.String,
 });
 
+/** A Session whose title is being written again, and the title written, once it is. */
+const Retitle = Schema.Struct({
+  ...At.fields,
+  title: Schema.NullOr(Schema.String),
+});
+
 export const Actions = Actor.define('Actions', {
   requires: [CodeClients, Moves, Navigation, Replicas],
   props: Schema.Struct({ bindings: Bindings }),
@@ -185,8 +192,12 @@ export const Actions = Actor.define('Actions', {
     after: Schema.NullOr(
       Schema.Struct({ projectId: Schema.String, sessionId: Schema.String }),
     ),
-    /** The Sessions whose title is being written again. */
-    retitling: Schema.Array(At),
+    /**
+     * The Sessions whose title is being written again: with no title while
+     * the server writes it, then with the one it wrote, until the session
+     * shows it, for a few seconds at most.
+     */
+    retitling: Schema.Array(Retitle),
     /** Why the last title was not written again, numbered so each is said once. */
     refused: Schema.NullOr(
       Schema.Struct({ reason: Schema.String, n: Schema.Finite }),
@@ -217,24 +228,51 @@ export const Actions = Actor.define('Actions', {
     /** A title written again, or why not. */
     Retitled: {
       at: At,
+      title: Schema.NullOr(Schema.String),
       reason: Schema.NullOr(Schema.String),
     },
+    /** A title written long enough ago that the session shows it. */
+    RetitleShown: { at: At, title: Schema.String },
   }),
 });
 
 const sameAt = (a: typeof At.Type, b: typeof At.Type) =>
   a.connectionId === b.connectionId && a.sessionId === b.sessionId;
 
+/** Whether the session's title was written, not still being written. */
+const written = (
+  retitling: ReadonlyArray<typeof Retitle.Type>,
+  at: typeof At.Type,
+) => retitling.some((each) => sameAt(each, at) && each.title !== null);
+
 /** Writes a Session's title again, without the Picker waiting for it. */
 const retitle = Command.make('Retitle', {
   args: At,
   run: (at) =>
     CodeClients.on(at.connectionId, regenerateTitle(at.sessionId)).pipe(
-      Effect.as({ _tag: 'Retitled' as const, at, reason: null }),
+      Effect.map((title) => ({
+        _tag: 'Retitled' as const,
+        at,
+        title,
+        reason: null,
+      })),
       Effect.catch((reason) =>
-        Effect.succeed({ _tag: 'Retitled' as const, at, reason }),
+        Effect.succeed({ _tag: 'Retitled' as const, at, title: null, reason }),
       ),
     ),
+});
+
+/** How long a title written waits for the session to show it, at most. */
+const SHOWN_WITHIN = '5 seconds';
+
+/** Lets a title written go, once the session has had time to show it. */
+const shownSoon = Command.make('RetitleShownSoon', {
+  args: Schema.Struct({ at: At, title: Schema.String }),
+  run: (args) =>
+    Effect.as(Effect.sleep(SHOWN_WITHIN), {
+      _tag: 'RetitleShown' as const,
+      ...args,
+    }),
 });
 
 /** 2. Run: what an action does, ending where the app goes after, if anywhere. */
@@ -384,20 +422,43 @@ export const ActionsLive = Actions.build({
         connectionId: model.connectionId,
         sessionId: model.sessionId,
       };
-      if (model.retitling.some((each) => sameAt(each, at))) return {};
+      // Asked again only once the last is written.
+      const others = model.retitling.filter((each) => !sameAt(each, at));
+      if (
+        others.length < model.retitling.length &&
+        !written(model.retitling, at)
+      )
+        return {};
       return {
-        model: { ...model, retitling: [...model.retitling, at] },
+        model: { ...model, retitling: [...others, { ...at, title: null }] },
         command: retitle(at),
       };
     },
-    Retitled: ({ at, reason }, { model }) => ({
+    Retitled: ({ at, title, reason }, { model }) => {
+      const others = model.retitling.filter((each) => !sameAt(each, at));
+      if (title === null)
+        return {
+          model: {
+            ...model,
+            retitling: others,
+            refused:
+              reason === null
+                ? model.refused
+                : { reason, n: (model.refused?.n ?? 0) + 1 },
+          },
+        };
+      return {
+        model: { ...model, retitling: [...others, { ...at, title }] },
+        command: shownSoon({ at, title }),
+      };
+    },
+    // Unless it was asked again since.
+    RetitleShown: ({ at, title }, { model }) => ({
       model: {
         ...model,
-        retitling: model.retitling.filter((each) => !sameAt(each, at)),
-        refused:
-          reason === null
-            ? model.refused
-            : { reason, n: (model.refused?.n ?? 0) + 1 },
+        retitling: model.retitling.filter(
+          (each) => !sameAt(each, at) || each.title !== title,
+        ),
       },
     }),
     Closed: (_, { model }) => ({

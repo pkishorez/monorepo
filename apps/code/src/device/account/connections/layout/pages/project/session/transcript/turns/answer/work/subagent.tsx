@@ -2,6 +2,7 @@ import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { useContext } from 'react';
 import {
   Chevron,
+  Head,
   type Opening,
   Under,
   unlessSelecting,
@@ -66,13 +67,9 @@ export function Subagent({
   const report = row.result;
   return (
     <li className="my-1.5 flex min-w-0 flex-col rounded-xl border border-border">
-      <div
-        ref={sticky.head}
-        style={open ? { top: sticky.top } : undefined}
-        className={open ? 'sticky z-10 rounded-t-xl bg-background' : ''}
-      >
+      <Head sticky={sticky} className="rounded-t-xl">
         <div
-          onClick={unlessSelecting(sticky.shut)}
+          onClick={unlessSelecting(sticky.toggle)}
           className="group flex min-h-12 cursor-pointer items-center gap-2.5 rounded-xl px-3 text-sm transition-colors duration-150 hover:bg-muted/40 keyboard:min-h-10 motion-reduce:transition-none"
         >
           <KINDS.subagent.icon className="size-4 shrink-0 text-muted-foreground" />
@@ -100,14 +97,14 @@ export function Subagent({
             aria-label={open ? 'Hide the subagent' : 'Show the subagent'}
             onClick={(event) => {
               event.stopPropagation();
-              sticky.shut();
+              sticky.toggle();
             }}
             className="focus-ring -mr-1 flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 group-hover:text-foreground hover:bg-muted keyboard:size-6"
           >
             <Chevron open={open} />
           </button>
         </div>
-      </div>
+      </Head>
       {open && (
         <div className="flex min-w-0 flex-col gap-2 border-t border-border/70 px-3 py-2.5">
           {prompt?.kind === 'prompt' && (
@@ -120,7 +117,7 @@ export function Subagent({
               />
             </div>
           )}
-          <Under below={sticky.under}>
+          <Under sticky={sticky}>
             <Steps rows={rows} opening={opening} running={running} />
           </Under>
         </div>
