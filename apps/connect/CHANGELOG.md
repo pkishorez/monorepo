@@ -1,5 +1,25 @@
 # @kestack/connect
 
+## 0.0.6
+
+### Patch Changes
+
+- [#104](https://github.com/pkishorez/monorepo/pull/104) [`b8eac00`](https://github.com/pkishorez/monorepo/commit/b8eac00499dc3920c3cce10db1187537d459b45b) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A Session in a git Project starts on the branch you pick.
+
+  **New**
+
+  - If that branch is checked out somewhere, the Session runs there. If not, the Project's folder switches to it, or the Session gets a new Worktree on its own `ke-code/` branch, named after its first Title.
+  - The code Plugin lists a Project's branches and streams each step of a start.
+  - A start whose git step or Agent fails (`HarnessFailed`) keeps nothing: no Session, no messages, and no Worktree or branch made for it while that branch has no commits of its own.
+  - cli-platform: every Plugin gets a shared folder that outlives a Connection (`pluginShared`). New Worktrees live there.
+
+  **Known limits**
+
+  - A Project with no commits starts on its current branch and can't make a Worktree yet.
+  - If Connect stops between a new Session's first message and its save, that message is left without a Session.
+
+- [#105](https://github.com/pkishorez/monorepo/pull/105) [`eb52902`](https://github.com/pkishorez/monorepo/commit/eb5290287ce446387bececbce96c5002d41a3165) Thanks [@kishorenuma](https://github.com/kishorenuma)! - Images a tool returns, such as a file the agent reads, now come through whole instead of as `[image]`. A `toolResult` Part carries them in `images` (media type and base64 data), and its `output` is just the text.
+
 ## 0.0.5
 
 ### Patch Changes

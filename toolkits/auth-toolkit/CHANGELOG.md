@@ -1,5 +1,13 @@
 # @kestack/auth-toolkit
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies [[`30b99d1`](https://github.com/pkishorez/monorepo/commit/30b99d1a28c00bb614a0a5180d05cb4355720eed)]:
+  - @kestack/std-toolkit@0.0.6
+  - @kestack/rpc-toolkit@0.0.6
+
 ## 0.0.5
 
 ### Patch Changes

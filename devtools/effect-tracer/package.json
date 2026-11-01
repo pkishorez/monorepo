@@ -1,6 +1,6 @@
 {
   "name": "@kestack/effect-tracer",
-  "version": "0.0.16",
+  "version": "0.0.17",
   "private": false,
   "description": "Effect tracing tools for in-process recording and OTLP export",
   "repository": {

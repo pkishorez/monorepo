@@ -1,5 +1,28 @@
 # @kestack/std-toolkit
 
+## 0.0.6
+
+### Patch Changes
+
+- [#110](https://github.com/pkishorez/monorepo/pull/110) [`30b99d1`](https://github.com/pkishorez/monorepo/commit/30b99d1a28c00bb614a0a5180d05cb4355720eed) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A Child can tell its parent things (Emits), and an Update returns only what changed. **Breaking.**
+
+  **New**
+
+  - `emits` in a definition lists what an Actor may tell its parent. An Update returns `emit`, and the parent turns each into one of its own Messages:
+    `Actor.child(LoginLive, { emits: { SignedIn: ({ user }) => ({ _tag: 'LoggedIn', user }) } })`.
+    Use it instead of a Capability that exists only so a Child can call back. Each one shows in the History as its own entry.
+  - `define` takes a Schema's fields directly: `model: { count: Schema.Number }`, `message: { Added: {}, Removed: { id: Schema.String } }`.
+
+  **Breaking**
+
+  - The Model is always a struct, and an Update's `model` holds only the fields that change: `{ model: { draft: text } }`. When nothing changes, the Model stays the same object and its Views don't redraw.
+  - `state: { … }` → `states: { … }`.
+  - `Router.app` → `Router.view`: `View.app(Router.view(router, AppView), { layer })`.
+  - std-toolkit: `Replicas.child([…])` → `Actor.child(Replicas.actor([…]))`.
+
+- Updated dependencies [[`85d0632`](https://github.com/pkishorez/monorepo/commit/85d063272beee88e041d0fb0734af2e0a0ceeb68), [`30b99d1`](https://github.com/pkishorez/monorepo/commit/30b99d1a28c00bb614a0a5180d05cb4355720eed), [`daadcde`](https://github.com/pkishorez/monorepo/commit/daadcdebc5f79a7a8b92b4edbb31a6083ff3414a), [`3e336a0`](https://github.com/pkishorez/monorepo/commit/3e336a09571e36f3934f47935f5864690b959497)]:
+  - @kestack/kabuki@0.0.5
+
 ## 0.0.5
 
 ### Patch Changes
