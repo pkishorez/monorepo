@@ -8,6 +8,7 @@ import { useEffect, useRef } from 'react';
 import { keys, useBound } from '../../commands.ts';
 import type { Route } from '../../../../../routes/index.ts';
 import * as Picker from '../../../../../../ui/controls/picker/index.ts';
+import { notify } from '../../../../../../ui/controls/notice/index.ts';
 import { ActionsLive, ListView } from './actor.ts';
 
 /*
@@ -19,7 +20,8 @@ import { ActionsLive, ListView } from './actor.ts';
  * are listed, no keys named. The keyboard's Actions it lists are
  * what worked where it was opened from, as the keyboard said just before
  * the Picker took it, and the one chosen runs after the Picker has
- * closed, back where the user was.
+ * closed, back where the user was. A title not written again is said in
+ * a toast, the Picker long closed.
  */
 
 type Self = ViewProps<typeof ActionsLive>;
@@ -78,6 +80,11 @@ export function Opened({
   keys.useAction('app.actionsAnywhere', show, { enabled: at !== null });
   keys.useAction('app.help', show);
   keys.useAction('app.helpAnywhere', show);
+  const { refused } = model;
+  useEffect(() => {
+    if (refused === null) return;
+    notify({ title: 'Title not regenerated', description: refused.reason });
+  }, [refused?.n]);
   useEffect(() => {
     // Once the Picker is closed, the keyboard back where it was.
     if (model.chosen === null || model.picking !== null) return;

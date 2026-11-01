@@ -1,12 +1,15 @@
 import { ChevronDownIcon } from 'lucide-react';
 import {
+  createContext,
   type MouseEvent,
   type ReactNode,
+  use,
   useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
 } from 'react';
+import { Scrolled } from '../../scroller/index.ts';
 
 /*
  * What opens and closes in a transcript, and how: one set of open ids for
@@ -17,6 +20,11 @@ import {
  * The set is handed down as one Opening that stays the same while folds
  * open and shut, and each fold reads only whether it is open (`useOpen`):
  * opening one draws that one again, not the whole transcript.
+ *
+ * An open fold's head sticks to the top while what it opens scrolls under
+ * it, under the heads of the open folds around it, so it can be shut from
+ * there (`useSticky`). Shut from there, what is under it moves up by as
+ * much as the head had stuck down, so the head stays where it is.
  */
 
 /** Which folds are open, by id. */
@@ -86,6 +94,71 @@ export const unlessSelecting =
     if (window.getSelection()?.isCollapsed === false) return;
     toggle();
   };
+
+/** How far below the transcript's top an open fold's head sticks, in px: under the heads of the open folds it is in. */
+const Stuck = createContext(0);
+
+/**
+ * An open fold's head, stuck to the top while it is open: `head` on the
+ * head, whose parent is the fold, `top` its place, `shut` in place of
+ * toggling, and `Under` around what it opens, for the heads inside.
+ */
+export function useSticky(open: boolean, toggle: () => void) {
+  const top = use(Stuck);
+  const head = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState(0);
+  useLayoutEffect(() => {
+    const element = head.current;
+    if (!open || !element) return;
+    const measure = () => setHeight(element.offsetHeight);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [open]);
+  const inPlace = useShutInPlace();
+  // How far the head had stuck down from its place at the fold's top: it
+  // stays there on the screen as what it opened goes.
+  const shut = () => {
+    const element = head.current;
+    const fold = element?.parentElement;
+    if (open && element && fold)
+      inPlace(
+        element.getBoundingClientRect().top -
+          fold.getBoundingClientRect().top -
+          fold.clientTop,
+      );
+    toggle();
+  };
+  return { head, top, shut, under: top + height };
+}
+
+/**
+ * Before a fold shuts while its top is above the view: what is on the
+ * screen moves down by `by` px, as the view's anchor does, so what was
+ * clicked to shut it stays where it was rather than going up out of
+ * sight with what the fold hid.
+ */
+export function useShutInPlace() {
+  const scroll = use(Scrolled);
+  return (by: number) => {
+    if (by < 1 || scroll?.anchor.at !== 'block') return;
+    scroll.anchor = { ...scroll.anchor, offset: scroll.anchor.offset + by };
+  };
+}
+
+/** What an open fold opens: the heads inside stick under its own. */
+export function Under({
+  below,
+  children,
+}: {
+  /** Where its head ends, `under` of `useSticky`. */
+  readonly below: number;
+  readonly children: ReactNode;
+}) {
+  return <Stuck value={below}>{children}</Stuck>;
+}
 
 /** Turns down as what it heads opens. */
 export function Chevron({ open }: { readonly open: boolean }) {

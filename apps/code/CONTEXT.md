@@ -93,7 +93,7 @@ The Picker over Sessions to go back to one, the most recently active first.
 _Avoid_: session picker, quick open
 
 **Actions**:
-The Picker over what can be done where the user is, opened by `?` or the header's button: what can be done to the open Session, such as Settling it, un-Settling it or Forking it from its latest Turn, and every Action of the keyboard that works there. Each row shows its keys, out of Vim Mode and in it, and is searched by name or by key. Choosing a row does the Action, as pressing its keys would. Changing keys is Settings' business, not its.
+The Picker over what can be done where the user is, opened by `?` or the header's button: what can be done to the open Session, such as Settling it, un-Settling it, Forking it from its latest Turn or regenerating its title, each with a line on what it does, and every Action of the keyboard that works there. Each row shows its keys, out of Vim Mode and in it, and is searched by name or by key. Choosing a row does the Action, as pressing its keys would. Regenerating the title closes it at once, the header's title pulsing until the new one is written. Changing keys is Settings' business, not its.
 _Avoid_: command palette, session menu, keys picker, help sheet, cheat sheet
 
 **Unseen**:

@@ -3,8 +3,10 @@ import { useContext } from 'react';
 import {
   Chevron,
   type Opening,
+  Under,
   unlessSelecting,
   useOpen,
+  useSticky,
 } from '../../../words/index.ts';
 import type { Row } from '../../rows/index.ts';
 import {
@@ -21,7 +23,8 @@ import { Steps } from './steps.tsx';
  * A subagent as a card of its own: what it was asked to do, and where it
  * stands, as its title, how many steps it took, or what it is doing now
  * while it runs. Shut, its report shows under it, its start only. Open,
- * its prompt, each step it took, and its report in full.
+ * its prompt, each step it took, and its report in full, its head stuck
+ * to the top while they scroll under it.
  */
 
 type SubagentRow = Extract<Row, { readonly kind: 'subagent' }>;
@@ -38,7 +41,7 @@ export function Subagent({
   const folder = useContext(Folder);
   const id = `${row.id}:open`;
   const open = useOpen(opening, id);
-  const toggle = () => opening.toggle(id);
+  const sticky = useSticky(open, () => opening.toggle(id));
   const state = stateOf(row.state, running);
   const first = row.rows[0];
   const prompt = first?.kind === 'prompt' ? first : undefined;
@@ -64,40 +67,46 @@ export function Subagent({
   return (
     <li className="my-1.5 flex min-w-0 flex-col rounded-xl border border-border">
       <div
-        onClick={unlessSelecting(toggle)}
-        className="group flex min-h-12 cursor-pointer items-center gap-2.5 rounded-xl px-3 text-sm transition-colors duration-150 hover:bg-muted/40 keyboard:min-h-10 motion-reduce:transition-none"
+        ref={sticky.head}
+        style={open ? { top: sticky.top } : undefined}
+        className={open ? 'sticky z-10 rounded-t-xl bg-background' : ''}
       >
-        <KINDS.subagent.icon className="size-4 shrink-0 text-muted-foreground" />
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate font-medium" title={row.call.title}>
-            {row.call.title || 'Subagent'}
-          </span>
-          {doing && (
-            <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-              <Spinner className="size-3 shrink-0" />
-              <span className="truncate">{doing}</span>
-            </span>
-          )}
-        </span>
-        {state === 'running' ? null : state === 'done' ? (
-          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-            {steps === 1 ? 'One step' : `${steps} steps`}
-          </span>
-        ) : (
-          <StateMark state={state} />
-        )}
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-label={open ? 'Hide the subagent' : 'Show the subagent'}
-          onClick={(event) => {
-            event.stopPropagation();
-            toggle();
-          }}
-          className="focus-ring -mr-1 flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 group-hover:text-foreground hover:bg-muted keyboard:size-6"
+        <div
+          onClick={unlessSelecting(sticky.shut)}
+          className="group flex min-h-12 cursor-pointer items-center gap-2.5 rounded-xl px-3 text-sm transition-colors duration-150 hover:bg-muted/40 keyboard:min-h-10 motion-reduce:transition-none"
         >
-          <Chevron open={open} />
-        </button>
+          <KINDS.subagent.icon className="size-4 shrink-0 text-muted-foreground" />
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate font-medium" title={row.call.title}>
+              {row.call.title || 'Subagent'}
+            </span>
+            {doing && (
+              <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                <Spinner className="size-3 shrink-0" />
+                <span className="truncate">{doing}</span>
+              </span>
+            )}
+          </span>
+          {state === 'running' ? null : state === 'done' ? (
+            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+              {steps === 1 ? 'One step' : `${steps} steps`}
+            </span>
+          ) : (
+            <StateMark state={state} />
+          )}
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-label={open ? 'Hide the subagent' : 'Show the subagent'}
+            onClick={(event) => {
+              event.stopPropagation();
+              sticky.shut();
+            }}
+            className="focus-ring -mr-1 flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 group-hover:text-foreground hover:bg-muted keyboard:size-6"
+          >
+            <Chevron open={open} />
+          </button>
+        </div>
       </div>
       {open && (
         <div className="flex min-w-0 flex-col gap-2 border-t border-border/70 px-3 py-2.5">
@@ -111,7 +120,9 @@ export function Subagent({
               />
             </div>
           )}
-          <Steps rows={rows} opening={opening} running={running} />
+          <Under below={sticky.under}>
+            <Steps rows={rows} opening={opening} running={running} />
+          </Under>
         </div>
       )}
       {report && (

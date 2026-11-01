@@ -1,6 +1,6 @@
 import { Effect, Layer, Schema, Stream } from 'effect';
 import { CodeClients, type Session } from '@kestack/connect/code';
-import { Actor } from '@kestack/kabuki';
+import { Actor, Command } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { boundIn } from '../../commands.ts';
@@ -16,16 +16,19 @@ import { isKey, rowsOf } from './keys.ts';
  * Ctrl+? anywhere, and the Status Line's help.
  *
  * 1. Read    on a session, the Session, followed while open, for what
- *            applies to it, listed first: Settle or Un-settle; Fork from
- *            the latest Turn; Go to the original, for a Fork; Regenerate
- *            the title; Stop the Turn, while one runs. Then, with a
+ *            applies to it, listed first, each with a line on what it
+ *            does: Settle or Un-settle; Fork from the latest Turn; Go to
+ *            the original, for a Fork; Regenerate the title; Stop the
+ *            Turn, while one runs. Then, with a
  *            keyboard, every Action of it that worked where it was opened,
  *            with its keys in either Mode (`keys.ts`); on touch, only the
  *            session's, and no keys named.
  * 2. Run     a session's action: the Picker waits while the server does
  *            it, then closes, and the app, and the keyboard, go to the
  *            Fork or the original for those two; a refusal is said in the
- *            Picker, which stays. Settle and Un-settle go through `Moves`,
+ *            Picker, which stays. Regenerate the title closes it at once:
+ *            the header's title pulses until the new one is written, and
+ *            a refusal is said in a toast. Settle and Un-settle go through `Moves`,
  *            at once, as every Settle does, and the sidebar says a refusal.
  *            An Action of the keyboard is kept as the Picker closes, so the
  *            View runs it once the keyboard is back where the user was, as
@@ -102,15 +105,20 @@ const List = Picker.make('Actions', {
                       {
                         value: 'original',
                         label: 'Go to the original',
-                        detail: session.original.title || 'Untitled session',
+                        detail: `Forked from ${session.original.title || 'an untitled session'}`,
                       },
                     ]),
-                { value: 'retitle', label: 'Regenerate the title' },
+                {
+                  value: 'retitle',
+                  label: 'Regenerate the title',
+                  detail: 'Named again from its latest messages',
+                },
                 ...(session.running
                   ? [
                       {
                         value: 'stop',
                         label: 'Stop the turn',
+                        detail: 'The agent stops where it is',
                         ...(stopKeys === null ? {} : { hint: stopKeys }),
                       },
                     ]
@@ -177,6 +185,12 @@ export const Actions = Actor.define('Actions', {
     after: Schema.NullOr(
       Schema.Struct({ projectId: Schema.String, sessionId: Schema.String }),
     ),
+    /** The Sessions whose title is being written again. */
+    retitling: Schema.Array(At),
+    /** Why the last title was not written again, numbered so each is said once. */
+    refused: Schema.NullOr(
+      Schema.Struct({ reason: Schema.String, n: Schema.Finite }),
+    ),
   }),
   message: Schema.TaggedUnion({
     Open: {
@@ -198,7 +212,29 @@ export const Actions = Actor.define('Actions', {
     Chose: { id: Schema.String },
     /** The Action chosen was run. */
     KeyRan: {},
+    /** Regenerate the title chosen, for the session it was opened on. */
+    RetitleAsked: {},
+    /** A title written again, or why not. */
+    Retitled: {
+      at: At,
+      reason: Schema.NullOr(Schema.String),
+    },
   }),
+});
+
+const sameAt = (a: typeof At.Type, b: typeof At.Type) =>
+  a.connectionId === b.connectionId && a.sessionId === b.sessionId;
+
+/** Writes a Session's title again, without the Picker waiting for it. */
+const retitle = Command.make('Retitle', {
+  args: At,
+  run: (at) =>
+    CodeClients.on(at.connectionId, regenerateTitle(at.sessionId)).pipe(
+      Effect.as({ _tag: 'Retitled' as const, at, reason: null }),
+      Effect.catch((reason) =>
+        Effect.succeed({ _tag: 'Retitled' as const, at, reason }),
+      ),
+    ),
 });
 
 /** 2. Run: what an action does, ending where the app goes after, if anywhere. */
@@ -217,8 +253,6 @@ const run = (action: string, open: Open) => {
             projectId: open.projectId,
             sessionId: open.original.id,
           });
-    case 'retitle':
-      return Effect.as(regenerateTitle(open.id), null);
     case 'stop':
       return Effect.as(stop(open.id), null);
     default:
@@ -239,6 +273,8 @@ export const ActionsLive = Actions.build({
       keyboard: true,
       chosen: null,
       after: null,
+      retitling: [],
+      refused: null,
     },
   }),
   children: {
@@ -275,6 +311,11 @@ export const ActionsLive = Actions.build({
                 return null;
               }
               if (model.session === null) return 'This session is not found';
+              // Written behind, the Picker closed at once.
+              if (action === 'retitle') {
+                yield* self.send({ _tag: 'RetitleAsked' });
+                return null;
+              }
               const { connectionId, session } = model;
               const go =
                 action === 'settle' || action === 'unsettle'
@@ -316,6 +357,7 @@ export const ActionsLive = Actions.build({
       const sessionId = at?.sessionId ?? '';
       return {
         model: {
+          ...model,
           picking: how,
           opened: model.opened + 1,
           connectionId,
@@ -337,6 +379,27 @@ export const ActionsLive = Actions.build({
     Ran: ({ go }, { model }) => ({ model: { ...model, after: go } }),
     Chose: ({ id }, { model }) => ({ model: { ...model, chosen: id } }),
     KeyRan: (_, { model }) => ({ model: { ...model, chosen: null } }),
+    RetitleAsked: (_, { model }) => {
+      const at = {
+        connectionId: model.connectionId,
+        sessionId: model.sessionId,
+      };
+      if (model.retitling.some((each) => sameAt(each, at))) return {};
+      return {
+        model: { ...model, retitling: [...model.retitling, at] },
+        command: retitle(at),
+      };
+    },
+    Retitled: ({ at, reason }, { model }) => ({
+      model: {
+        ...model,
+        retitling: model.retitling.filter((each) => !sameAt(each, at)),
+        refused:
+          reason === null
+            ? model.refused
+            : { reason, n: (model.refused?.n ?? 0) + 1 },
+      },
+    }),
     Closed: (_, { model }) => ({
       model: { ...model, picking: null, after: null },
       ...(model.after === null

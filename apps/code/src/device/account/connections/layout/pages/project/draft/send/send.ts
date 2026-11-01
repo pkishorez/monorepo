@@ -95,7 +95,7 @@ export const sendTo = (model: Model, sessionId: string, written: string) => {
   if (text === '' && model.attachments.length === 0) return {};
   const { chosen } = model;
   return {
-    model: { ...model, attachments: [], problem: null },
+    model: { ...model, attachments: [], problem: null, sends: model.sends + 1 },
     command: send({
       sessionId,
       text,

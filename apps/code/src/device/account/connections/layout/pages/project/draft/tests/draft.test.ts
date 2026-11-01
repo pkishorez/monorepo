@@ -323,6 +323,7 @@ const modelOf = (app: Running<unknown>) =>
     readonly branch: string | null;
     readonly newWorktree: boolean;
     readonly attachments: ReadonlyArray<unknown>;
+    readonly sends: number;
     readonly chosen: unknown;
     readonly insert: { readonly what: unknown } | null;
     readonly asked: {
@@ -419,6 +420,7 @@ describe('Draft', () => {
           { sessionId: 's1', text: 'Carry on', attachments: [] },
         ]);
         expect(textOf(app, 'Message')).toBe('');
+        expect(modelOf(app).sends).toBe(1);
       }),
     ));
 
@@ -478,6 +480,7 @@ describe('Draft', () => {
         yield* ask(app, 'Btw');
         yield* say(app, 'is it done?');
         expect(sent).toEqual([]);
+        expect(modelOf(app).sends).toBe(0);
         expect(asked).toEqual([
           { sessionId: 's1', question: 'is it done?', schema: null },
         ]);

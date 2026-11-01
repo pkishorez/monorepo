@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
-import { Effect, Layer, Schema, Stream } from 'effect';
+import { Deferred, Effect, Layer, Schema, Stream } from 'effect';
 import { CodeClient, CodeClients } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
@@ -48,9 +48,13 @@ let pings = 0;
 let ping = () => {};
 let active = '';
 let read = () => {};
+let retitling: ReadonlyArray<unknown> = [];
+/** The title the server is writing, until a test gives it. */
+let title = Deferred.makeUnsafe<string>();
 
 /** Actions as the header draws them, opened by `a` on `s2`. */
 const Actions = View.make(ActionsLive, ({ model, children, send }) => {
+  retitling = model.retitling;
   const open = Picker.useOpen();
   keys.useAction('app.actions', () =>
     open(() =>
@@ -125,7 +129,12 @@ const services = Layer.mergeAll(
   ),
   CodeClients.make(() =>
     Layer.merge(
-      Layer.mock(CodeClient)({}),
+      Layer.mock(CodeClient)({
+        regenerateTitle: (() =>
+          Deferred.await(
+            title,
+          )) as unknown as CodeClient['Service']['regenerateTitle'],
+      }),
       Layer.mock(RpcConnection)({
         hooks: { onConnect: Effect.void, onDisconnect: Effect.void },
       }),
@@ -194,6 +203,7 @@ beforeAll(() => {
 beforeEach(async () => {
   pushed = [];
   settled = [];
+  title = Deferred.makeUnsafe<string>();
   const App = View.app(OwnerView, {
     layer: services,
     name: `actions-test-${apps++}`,
@@ -236,5 +246,22 @@ describe('Actions on a session', () => {
     expect(pushed).toEqual([]);
     expect(active).toBe('sidebar');
     expect(document.activeElement).toBe(row());
+  });
+
+  it('close at once on Regenerate the title, which is written behind', async () => {
+    await openFromSidebar();
+    // Settle, Fork, the original, then the title.
+    await key('ArrowDown');
+    await key('ArrowDown');
+    await key('ArrowDown');
+    await key('Enter');
+    await flush();
+    expect(search()).toBeNull();
+    expect(retitling).toEqual([{ connectionId: 'm1', sessionId: 's2' }]);
+    await act(async () => {
+      Deferred.doneUnsafe(title, Effect.succeed('A new title'));
+    });
+    await flush();
+    expect(retitling).toEqual([]);
   });
 });

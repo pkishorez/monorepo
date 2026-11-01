@@ -1,18 +1,15 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from '@kestack/web-platform/ui/components/dialog';
 import { type ReactNode, useState } from 'react';
 import { Clamped, type Opening } from '../../words/index.ts';
 import type { Row } from '../../turns/rows/index.ts';
+import { ImageViewer } from './viewer.tsx';
 
 /*
  * What every kind of tool shows when opened, drawn the same: text in a
  * quiet block of monospace that scrolls sideways rather than overflow;
  * a label over it; and what a finished call gave back, or why it failed,
  * its start only until asked for all, and the images it gave back, such as
- * a file read, as thumbnails, each opened whole over the page by a tap.
+ * a file read, as thumbnails, each opened whole over the page by a tap, to
+ * zoom into (`viewer.tsx`).
  */
 
 type ToolRow = Extract<Row, { readonly kind: 'tool' }>;
@@ -111,21 +108,10 @@ function Images({ images }: { readonly images: ReadonlyArray<Image> }) {
           </li>
         ))}
       </ul>
-      <Dialog
-        open={shown !== null && shown !== undefined}
-        onOpenChange={(next) => !next && setOpen(null)}
-      >
-        <DialogContent className="w-auto max-w-[calc(100vw-1rem)] p-2 sm:max-w-[calc(100vw-4rem)]">
-          <DialogTitle className="sr-only">Image</DialogTitle>
-          {shown && (
-            <img
-              src={src(shown)}
-              alt=""
-              className="max-h-[calc(100dvh-4rem)] max-w-full rounded-lg object-contain"
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      <ImageViewer
+        src={shown === null || shown === undefined ? null : src(shown)}
+        onClose={() => setOpen(null)}
+      />
     </>
   );
 }
