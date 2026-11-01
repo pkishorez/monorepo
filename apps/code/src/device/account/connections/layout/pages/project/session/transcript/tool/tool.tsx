@@ -4,6 +4,7 @@ import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import type { ToolState, Row } from '../turns/rows/index.ts';
 import {
   Chevron,
+  Head,
   type Opening,
   Under,
   unlessSelecting,
@@ -90,13 +91,9 @@ export function StepLine({
   const sticky = useSticky(open, () => opening.toggle(id));
   return (
     <li className="flex min-w-0 flex-col">
-      <div
-        ref={sticky.head}
-        style={open ? { top: sticky.top } : undefined}
-        className={`-mx-2 ${open ? 'sticky z-10 bg-background' : ''}`}
-      >
+      <Head sticky={sticky} className="-mx-2">
         <div
-          onClick={unlessSelecting(sticky.shut)}
+          onClick={unlessSelecting(sticky.toggle)}
           className="group flex min-h-11 cursor-pointer items-center gap-2 rounded-md px-2 text-sm transition-colors duration-150 hover:bg-muted/60 keyboard:min-h-8 motion-reduce:transition-none"
         >
           <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground [&_svg]:size-3.5">
@@ -112,18 +109,18 @@ export function StepLine({
             aria-label={`${open ? 'Hide' : 'Show'} ${hint}`}
             onClick={(event) => {
               event.stopPropagation();
-              sticky.shut();
+              sticky.toggle();
             }}
             className="focus-ring -mr-1 flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 group-hover:text-foreground hover:bg-muted keyboard:size-6 motion-reduce:transition-none"
           >
             <Chevron open={open} />
           </button>
         </div>
-      </div>
+      </Head>
       {below}
       {open && (
         <div className="mt-1 mb-3 flex min-w-0 flex-col gap-2 pl-6">
-          <Under below={sticky.under}>{children}</Under>
+          <Under sticky={sticky}>{children}</Under>
         </div>
       )}
     </li>

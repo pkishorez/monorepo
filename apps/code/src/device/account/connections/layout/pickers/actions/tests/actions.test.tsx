@@ -248,7 +248,7 @@ describe('Actions on a session', () => {
     expect(document.activeElement).toBe(row());
   });
 
-  it('close at once on Regenerate the title, which is written behind', async () => {
+  it('close at once on Regenerate the title, which is written behind, then shown', async () => {
     await openFromSidebar();
     // Settle, Fork, the original, then the title.
     await key('ArrowDown');
@@ -257,11 +257,16 @@ describe('Actions on a session', () => {
     await key('Enter');
     await flush();
     expect(search()).toBeNull();
-    expect(retitling).toEqual([{ connectionId: 'm1', sessionId: 's2' }]);
+    expect(retitling).toEqual([
+      { connectionId: 'm1', sessionId: 's2', title: null },
+    ]);
     await act(async () => {
       Deferred.doneUnsafe(title, Effect.succeed('A new title'));
     });
     await flush();
-    expect(retitling).toEqual([]);
+    // Kept, with the title written, until the session shows it.
+    expect(retitling).toEqual([
+      { connectionId: 'm1', sessionId: 's2', title: 'A new title' },
+    ]);
   });
 });

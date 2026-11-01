@@ -60,7 +60,7 @@ export function BtwToggle({
       onMouseDown={(event) => event.preventDefault()}
       onClick={onToggle}
       data-on={on || undefined}
-      className="group/btw shrink-0 gap-1.5 rounded-full px-1.5 text-muted-foreground pointer-coarse:h-10 pointer-coarse:px-2.5 data-on:bg-btw/12 data-on:pr-1 data-on:text-btw data-on:hover:bg-btw/18 data-on:hover:text-btw"
+      className="group/btw shrink-0 gap-1.5 rounded-full px-1.5 text-muted-foreground pointer-coarse:h-11 pointer-coarse:px-2.5 data-on:bg-btw/12 data-on:pr-1 data-on:text-btw data-on:hover:bg-btw/18 data-on:hover:text-btw"
     >
       <BtwMark
         className={

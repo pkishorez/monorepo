@@ -193,3 +193,11 @@
   ) {
   opacity: var(--surface-dim);
 }
+
+/*
+ * An image opened whole draws its own backdrop, which fades as it is
+ * swiped away: the dialog's own dimming, under it, would not.
+ */
+[data-slot='dialog-overlay']:has(~ [data-image-viewer]) {
+  display: none;
+}

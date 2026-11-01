@@ -74,6 +74,8 @@ export function ImageViewer({
   return (
     <Dialog open={src !== null} onOpenChange={(next) => !next && onClose()}>
       <DialogContent
+        // Its own backdrop fades as it is swiped away: not the dialog's.
+        data-image-viewer
         showCloseButton={false}
         className="inset-0 top-0 left-0 block h-dvh w-screen max-w-none translate-x-0 translate-y-0 gap-0 rounded-none bg-transparent p-0 ring-0 sm:max-w-none"
       >

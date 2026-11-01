@@ -73,6 +73,12 @@ describe('a tool that gave back an image', () => {
         .querySelector('[data-slot="dialog-content"] img')
         ?.getAttribute('src'),
     ).toBe('data:image/png;base64,iVBOR');
+    // Beside the dialog's own dimming, which the app's styles hide for it.
+    expect(
+      document.querySelector(
+        '[data-slot="dialog-overlay"] ~ [data-image-viewer]',
+      ),
+    ).not.toBeNull();
   });
 
   it('zooms in and out by its buttons, back to fit, then closes', () => {

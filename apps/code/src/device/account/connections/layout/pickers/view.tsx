@@ -21,9 +21,13 @@ const Placed = createContext<{
   readonly actions: ReactNode;
 }>({ project: null, notice: null, actions: null });
 
-/** The Sessions whose title is being written again, by Connection and id. */
+/** The Sessions whose title is being written again, and the title written, once it is. */
 const Retitling = createContext<
-  ReadonlyArray<{ readonly connectionId: string; readonly sessionId: string }>
+  ReadonlyArray<{
+    readonly connectionId: string;
+    readonly sessionId: string;
+    readonly title: string | null;
+  }>
 >([]);
 
 export const PickersView = View.make(PickersLive, ({ children }) => {
@@ -46,11 +50,17 @@ export const PickersView = View.make(PickersLive, ({ children }) => {
 
 const NONE: ReadonlyArray<never> = [];
 
-/** Whether the Session's title is being written again. */
-export const useRetitling = (connectionId: string, sessionId: string) =>
+/** Whether the Session's title is being written again: until it shows the one written. */
+export const useRetitling = (
+  connectionId: string,
+  sessionId: string,
+  shown: string,
+) =>
   use(Retitling).some(
     (each) =>
-      each.connectionId === connectionId && each.sessionId === sessionId,
+      each.connectionId === connectionId &&
+      each.sessionId === sessionId &&
+      each.title !== shown,
   );
 
 /** The Project Picker's button, where the screen places it. */

@@ -409,7 +409,7 @@ function Bar({
         }
         onClick={onOpen}
         aria-label="Open the answer"
-        className="gap-1 rounded-full text-muted-foreground keyboard:h-7 max-sm:w-9 max-sm:px-0 pointer-coarse:h-10 pointer-coarse:px-3 max-sm:pointer-coarse:w-10 max-sm:pointer-coarse:px-0"
+        className="gap-1 rounded-full text-muted-foreground keyboard:h-7 max-sm:w-9 max-sm:px-0 pointer-coarse:h-11 pointer-coarse:px-3 max-sm:pointer-coarse:w-11 max-sm:pointer-coarse:px-0"
       >
         <ChevronUpIcon aria-hidden />
         {/* On a phone's width the chevron alone, so the question has room. */}
@@ -422,7 +422,7 @@ function Bar({
         aria-label="Close"
         title="Close: the question and its answer go"
         onClick={onClose}
-        className="rounded-full text-muted-foreground keyboard:size-7 pointer-coarse:size-10"
+        className="rounded-full text-muted-foreground keyboard:size-7 pointer-coarse:size-11"
       >
         <XIcon aria-hidden />
       </Button>

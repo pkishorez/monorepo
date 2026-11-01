@@ -285,7 +285,11 @@ function SessionName({
   readonly connectionId: string;
   readonly session: Session;
 }) {
-  const retitling = Pickers.useRetitling(connectionId, session.id);
+  const retitling = Pickers.useRetitling(
+    connectionId,
+    session.id,
+    session.title,
+  );
   return (
     <span
       aria-busy={retitling || undefined}
