@@ -161,6 +161,32 @@ export function PictureFrame({ children }: { readonly children: ReactNode }) {
   );
 }
 
+/**
+ * A picture on a docs page: framed, with its loop's progress along the
+ * bottom edge and a replay button in the corner, and a line under it on
+ * what it shows.
+ */
+export function Picture({
+  caption,
+  children,
+}: {
+  readonly caption?: string;
+  readonly children: ReactNode;
+}) {
+  return (
+    <figure className="my-8">
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <PictureFrame>{children}</PictureFrame>
+      </div>
+      {caption && (
+        <figcaption className="mt-3 text-sm text-muted-foreground">
+          {caption}
+        </figcaption>
+      )}
+    </figure>
+  );
+}
+
 /** An Actor: its name, and its State or a fact beside it. */
 export function Box({
   name,

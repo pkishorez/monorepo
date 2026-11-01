@@ -10,13 +10,16 @@ export const Song = Actor.define('Song', {
     artist: Schema.String,
     liked: Schema.Boolean,
   }),
-  message: Schema.TaggedUnion({ Liked: {} }),
+  message: Schema.TaggedUnion({ Liked: {}, Removing: {} }),
+  // What a Song may tell its parent. It can't remove itself.
+  emits: { Remove: {} },
 });
 
 export const SongLive = Song.build({
   init: (song) => ({ model: { ...song, liked: false } }),
   on: {
     Liked: (_, { model }) => ({ model: { ...model, liked: !model.liked } }),
+    Removing: () => ({ emit: { _tag: 'Remove' } }),
   },
 });
 
@@ -35,6 +38,8 @@ export const PlaylistLive = Playlist.build({
     songs: Actor.child(SongLive, {
       each: ({ model }) => model.ids,
       input: (_, id) => SONGS[id]!,
+      // A Song's Remove becomes the Playlist's own Removed, with its key.
+      emits: { Remove: (_, id) => ({ _tag: 'Removed', id }) },
     }),
   },
   on: {

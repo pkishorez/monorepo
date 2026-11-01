@@ -1,5 +1,6 @@
 import { PlaylistApp } from './components/playlist-app.tsx';
 import { TreePicture } from './components/tree-picture.tsx';
+import { program } from './run/playlist.ts';
 
 One Actor can only hold so much. In React, when a component grows too big,
 you split it into child components. kabuki works the same way: a big Actor
@@ -14,9 +15,9 @@ Here's the part that makes Children powerful. A parent never creates or
 destroys a Child by hand. Its State and its Model decide which Children
 exist, and kabuki starts and stops them to match.
 
-<Demo caption="Signing in swaps the Login for a Playlist. The Playlist's ids decide its Songs: add an id and a Song arrives, remove one and only that Song leaves. Signing out takes the whole branch.">
+<Picture caption="Signing in swaps the Login for a Playlist. The Playlist's ids decide its Songs: add an id and a Song arrives, remove one and only that Song leaves. Signing out takes the whole branch.">
   <TreePicture />
-</Demo>
+</Picture>
 
 Put that together with the last two pages. A State can own Children, so
 signing out stops everything below. A Child can have States and Workers of
@@ -67,12 +68,11 @@ own. If you like a song, the Song keeps that, not the Playlist.
 
 ## Try it
 
-A Playlist, with one Song Child per id. Like a song, add one, remove one,
-and watch the tree on the right.
+A Playlist, with one Song Child per id. Like a song, add one, remove one.
+Open the Devtools to watch the tree: each Song is a card of its own under
+the Playlist.
 
-<Demo caption="Like a song, then remove the one above it. The liked song stays liked: it is the same Child, with its own data. Add a song and a new Child starts.">
-
-<Playground app={PlaylistApp} />
+<Live app={PlaylistApp} caption="Like a song, then remove the one above it. The liked song stays liked: it is the same Child, with its own data. Add a song and a new Child starts.">
 
 ```ts file=./components/playlist.ts
 
@@ -82,7 +82,7 @@ and watch the tree on the right.
 
 ```
 
-</Demo>
+</Live>
 
 ## Telling the parent
 
@@ -112,6 +112,19 @@ songs: Actor.child(SongLive, {
 That Message lands in the parent's History like any other. Something the
 parent doesn't turn is simply not heard, so a Song fits in any parent.
 
+## Run it
+
+The same Playlist, with no screen. Read its Songs from `children`, send
+one of them a Message directly, and let another Emit its way out.
+
+<Run program={program} caption="Added starts a third Song. The first Song Emits Remove, the Playlist drops its id, and that Song stops. The liked one is untouched.">
+
+```ts file=./run/playlist.ts
+
+```
+
+</Run>
+
 <Callout title="Remember">
   A parent's State and Model decide which Children exist. Each Child is a full
   Actor that owns its own data, and tells its parent what happened by Emitting
@@ -119,4 +132,4 @@ parent doesn't turn is simply not heard, so a Song fits in any parent.
 </Callout>
 
 But what if the parent wants to tell its Children something that keeps
-changing? That's [5. Props](/kabuki/props).
+changing? That's [Props](/kabuki/props).

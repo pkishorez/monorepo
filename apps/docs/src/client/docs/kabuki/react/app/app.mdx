@@ -1,0 +1,159 @@
+import { DiceWindow } from './components/dice-app.tsx';
+import { MountsPicture } from './components/mounts-picture.tsx';
+
+A View draws one Actor. To put the whole tree on the page, you need one
+more thing: a component that runs it. That's the **App**.
+
+## One component for the whole tree
+
+`View.app` takes your root Actor's View and gives back a plain React
+component.
+
+```tsx
+export const DiceApp = View.app(DiceView, {
+  layer: RandomLive,
+  name: 'docs:app',
+});
+```
+
+Render `<DiceApp />` and the app runs. The first mount starts its
+**Runtime**, which holds the History and hands every Message to the right
+Instance. When the last mount goes, the Runtime stops.
+
+`name` is where the History is kept when that happens. It's the root
+Actor's name unless you say otherwise. Mount an App of that name again,
+say after a hot reload, and it carries on where it was. Give two Apps
+their own names when they share a root Actor and must not share a
+History.
+
+## The Layer covers what the tree Requires
+
+An Actor names the Capabilities it Requires. What no ancestor Provides
+bubbles up to the top, and the App has to give it, as one Effect Layer.
+
+Here the Dice Requires `Random`. The App's Layer gives it, with
+`Math.random`:
+
+```tsx
+const RandomLive = Layer.succeed(Random, {
+  face: Effect.sync(() => 1 + Math.floor(Math.random() * 6)),
+});
+```
+
+Leave the `layer` out, or give one without `Random`, and `View.app` does
+not compile. A tree that Requires nothing needs no Layer at all.
+
+This is where the outside world comes in. A test, or a story, makes the
+same App with another Layer: dice that always land on 6.
+
+## Mount it anywhere
+
+The App is a component like any other. Put it in a route, a dialog, or a
+corner of a page you already have. There's no provider to wrap it in.
+
+You can even mount it twice. Both mounts draw the same app, from the same
+Runtime.
+
+<Picture caption="The first mount starts the Runtime and the second shares it. One Rolled Message lands in one History, and both mounts draw it. When the last mount goes, the History stays, and the next mount carries on from it.">
+  <MountsPicture />
+</Picture>
+
+While a long History is replayed for the first drawing, the App draws its
+`fallback`, as `<DiceApp fallback={<Spinner />} />`.
+
+## Reading the Runtime
+
+`DiceApp.useRuntime()` reads the running app. Call it from any component
+on the page, inside the app or not.
+
+```tsx
+const { branch, shown, show, running, stop, start } = DiceApp.useRuntime();
+```
+
+- `branch` is the History, from the first Message to the newest.
+- `show(id)` draws the app right after that Message, and `show(null)`
+  goes back to live.
+- `stop()` stops every Worker and Command. `start()` carries on, and
+  `start(id)` carries on from an earlier Message, on a new Branch.
+
+The devtools on this site are built on just that.
+
+A past Step is drawn read only. Every View draws the app as it was, and a
+Message sent from there is dropped. The live app keeps running
+underneath.
+
+Most Views need nothing more. But a View that touches the page around the
+app, say it scrolls to the newest row, should hold still while you look
+at the past. `useLive` tells it:
+
+```tsx
+const live = useLive();
+// Scroll to the newest row, but only while the app is live.
+useEffect(() => {
+  if (live) newest.current?.scrollIntoView();
+}, [live, model.rows.length]);
+```
+
+## Try it
+
+The bar under the dice isn't part of the app. It's a component beside it
+that reads `useRuntime`.
+
+<Live app={DiceWindow} caption="Press Roll, then Stop: the dice freeze, because stopping the app stops its Worker. Start, and it rolls on. Open Devtools and pick an earlier Step: the bar shows which, and the app is read only.">
+
+```ts file=./components/dice.ts
+
+```
+
+```tsx file=./components/dice-app.tsx
+
+```
+
+</Live>
+
+## Drawing it before it runs
+
+The App can be drawn before any Runtime exists. Give it a History saved
+before, and it's drawn at that History's Head:
+
+```tsx
+// Kept earlier, from the running app.
+const saved = runtime.history.save();
+
+// Drawn later, anywhere: at the saved Head.
+<DiceApp saved={saved} />;
+```
+
+`history.save()` is plain JSON, so you can keep it anywhere. Until the
+Runtime starts, a Message sent is dropped. Once the App mounts in a
+browser, the Runtime starts and carries on from the Head.
+
+That's how a server draws your app: no Runtime, just a History, drawn to
+HTML that the browser carries on from. [Serving](/kabuki/serving) shows
+the whole trip.
+
+## Lazy Views
+
+A big part of the app, like a chart, can load its View only when it's
+first drawn. `View.lazy` takes the Actor and a function that imports the
+View:
+
+```tsx
+const ChartView = View.lazy(ChartLive, () => import('./chart-view.tsx'));
+```
+
+You draw it like any View. Only the View waits for its code; the Actor is
+loaded with the rest of the app, since a Replay needs every Actor.
+
+To load the code early, call `ChartView.preload()`, say when the pointer
+is over a link. `View.preload(ids)` loads every lazy View made with those
+ids, so a browser picking up a page the server drew doesn't wait for
+them. Start's Vite plugin gives each lazy View its id for you.
+
+<Callout title="Remember">
+  `View.app` makes the whole tree one component. Its Layer gives what the tree
+  Requires, and `useRuntime` reads and steers the app from anywhere on the page.
+</Callout>
+
+Your app runs and draws. Next, give its parts a place in the URL:
+[Pages](/kabuki/pages).

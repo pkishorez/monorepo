@@ -1,0 +1,246 @@
+An app on Start is three files you write. Everything else, the server's
+entry, the browser's entry and the code that answers each request, the Vite
+plugin writes from them.
+
+```
+src/
+  pages/              your Pages and the router
+  app.tsx             the app: its Document, and what it needs in the browser
+  loaders.server.ts   the Loaders, and what they need on the server
+vite.config.ts        the plugin
+```
+
+There's no route table for the server, and no API to wire up. The router
+you already wrote is the only list of pages, and Start reads everything
+from it.
+
+## 1. The pages
+
+You wrote these in [Pages](/kabuki/pages): each Page's Definition and Build,
+its data Schema and Render Mode, and the router made from the root page.
+
+```ts
+export const router = Router.define(App, { scrollRestoration: true });
+```
+
+Both sides import this folder. The server needs the router to read URLs
+and to check your Loaders against it. The browser needs every page's
+Build to run the app.
+
+## 2. The app
+
+`src/app.tsx` says what to draw, and what it needs in the browser. It
+default-exports `Start.app`:
+
+```tsx
+// src/app.tsx: drawn on the server and in the browser
+import { Start } from '@kestack/kabuki/start';
+
+export const AppView = View.make(AppLive, (self) => …); // the root page
+
+export default Start.app({
+  router,
+  view: AppView,
+  document: Document,
+  layer: LiveUpdatesLive,
+});
+```
+
+- `router` and `view`: your router, and the View of its root page.
+- `layer`: what your Actors Require in the browser, checked against them.
+  Leave a Capability out, and it's a type error right here.
+- `document`: the HTML around the app. Leave it out, and you get a plain
+  one.
+
+The server imports this file too, but it never builds the `layer`. It runs
+no Runtime, so it has no use for one. A Layer is just a value until it is
+built. Only a module that touches the browser the moment it is imported
+needs to stay out of this file.
+
+### The Document
+
+The **Document** is the page's HTML around your app, written once. Start
+fills in the parts it owns:
+
+```tsx
+// src/document.tsx: any file app.tsx imports
+import { Start } from '@kestack/kabuki/start';
+import type { DocumentProps } from '@kestack/kabuki/start/app';
+
+export default function Document({ children }: DocumentProps) {
+  return (
+    <html lang="en">
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+        <Start.Head />
+      </head>
+      <body>
+        {children}
+        <Start.Scripts />
+      </body>
+    </html>
+  );
+}
+```
+
+`<Start.Head />` draws the title, the Metadata, and the styles and scripts
+the page needs. `<Start.Scripts />` draws the saved History, which holds the
+Snapshot, and the script that hydrates the page. Code that must run before the first paint, like
+setting a dark theme, is yours: write it inline in the head.
+
+The Document gets no data, so it's the same for every page and every Render
+Mode.
+
+## 3. The Loaders
+
+`src/loaders.server.ts` runs on the server only. It holds one Loader per
+page with data:
+
+```ts
+// src/loaders.server.ts: the server only
+import { Start } from '@kestack/kabuki/start/server';
+
+export const loaders = router.loaders({
+  Blog: () => Posts.list(),
+  'Blog.Post': ({ slug }) => Posts.get(slug), // or Page.notFound()
+});
+
+export default Start.server(loaders);
+```
+
+`router.loaders` checks the list against your router. A page with data and
+no Loader, or a Loader for a page that has none, is a type error.
+
+The `.server` in the name matters. If a module the browser loads imports a
+`*.server.*` file, the build fails. Your database code never reaches the
+browser by accident.
+
+### What the Loaders need
+
+Loaders usually Require something: a database, the signed-in user. You give
+it to them as two Layers:
+
+```ts
+export default Start.server({
+  layer: PostsLive, // made once: reads env.DB
+  visitor: CurrentUserLive, // made per request: reads the cookie
+}).loaders(loaders);
+```
+
+- `layer` is made once, at the first request. It can read the platform's
+  env. Database clients and config go here.
+- `visitor` is made for each request that needs it. It can read the
+  request, its headers, and what `layer` gives. Who is signed in goes
+  here.
+
+Read the platform's env with `yield* Start.env<WorkerEnv>()`, and the
+request with `yield* Start.Request`.
+
+Only dynamic and client Loaders get the visitor. A static page is kept for
+everyone, so a static Loader that asks who is signed in is a type error.
+And on a page that is all static, the visitor is never made.
+
+A dynamic Loader, or the visitor, can add headers to the response with
+`Start.ResponseHeaders`, like a refreshed session's `set-cookie`.
+
+## The Vite plugin
+
+Put `start` beside React's plugin, with the platform you serve from:
+
+```ts
+// vite.config.ts
+import react from '@vitejs/plugin-react';
+import { cloudflare } from '@kestack/kabuki/start/cloudflare';
+import { start } from '@kestack/kabuki/start/vite';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [react(), start({ platform: cloudflare() })],
+});
+```
+
+It finds your two files by name, `src/app` and `src/loaders.server`. Keep
+them elsewhere, and say where: `start({ platform, app: 'src/client/app' })`.
+From them it writes the code that answers each request, the server's entry,
+and the browser's entry. It also names every lazy View, so the server can
+tell the browser which ones to load.
+
+<Callout title="On the Web Platform">
+  `app()` from `@kestack/web-platform/app/vite` is `start()` with React,
+  Tailwind and a PWA added. kabuki-start and this docs site both use it.
+</Callout>
+
+## Dev, build and deploy
+
+- `vite dev` serves your pages from Vite's own server, in Node, with no
+  platform env.
+- `alchemy dev` does the same, but runs the server in workerd,
+  Cloudflare's runtime, with your Worker's bindings.
+- `vite build` builds the browser's code, then the server's, into
+  `dist/client` and `dist/ssr`.
+- `alchemy deploy` builds, then deploys the Worker with `dist/client` as
+  its assets.
+
+In dev, an edit anywhere is a hot reload. The page draws again with the new
+code, and the app carries on from its History, replayed with that code.
+You don't lose where you were.
+
+To deploy with Alchemy, declare the site in `alchemy.run.ts`:
+
+```ts
+// alchemy.run.ts
+export const Site = Cloudflare.Website.Vite('Site', {
+  compatibility: { date: '2025-07-04', flags: ['nodejs_compat'] },
+  bindings: { DB: Database },
+});
+export type WorkerEnv = Cloudflare.InferEnv<typeof Site>;
+```
+
+`WorkerEnv` is what `Start.env<WorkerEnv>()` reads, so your bindings are
+typed in your Loaders too.
+
+## Start from kabuki-start
+
+[kabuki-start](https://github.com/pkishorez/monorepo/tree/main/apps/kabuki-start)
+is the smallest Start app, the one to copy. Its first screen nests a
+static, a dynamic and a client page, so you can see all three Render Modes
+at once, each saying who drew it and when. It's live at
+[start.kishore.app](https://start.kishore.app).
+
+Here are its files, as they are. It keeps the pages in `src/shared`, since
+both sides import them, and its app and Loaders in `src/client` and
+`src/server`. Its `vite.config.ts` says where.
+
+<Files>
+
+```ts file=../../../../../../../kabuki-start/src/shared/pages/rendering.ts
+
+```
+
+```ts file=../../../../../../../kabuki-start/src/shared/pages/pages.ts
+
+```
+
+```tsx file=../../../../../../../kabuki-start/src/client/app.tsx
+
+```
+
+```ts file=../../../../../../../kabuki-start/src/server/loaders.server.ts
+
+```
+
+```ts file=../../../../../../../kabuki-start/vite.config.ts
+
+```
+
+</Files>
+
+This docs site is a Start app too. None of its pages has data, so it has
+no Loaders file at all.
+
+<Callout title="Remember">
+  Three files: the pages, the app, the Loaders. Each Layer is written beside
+  what Requires it. The plugin writes everything else.
+</Callout>
+
+Next, where it runs: [Platforms](/kabuki/platforms).

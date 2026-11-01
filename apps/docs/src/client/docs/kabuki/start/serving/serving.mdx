@@ -1,0 +1,153 @@
+import { RequestPicture } from './components/request-picture.tsx';
+
+Your app runs in the browser. But the first time someone opens a URL, they
+should see the page at once, with its data, before any JavaScript runs.
+That first drawing is what **Start** serves.
+
+Start does one thing per request. It reads the URL, runs the Loaders, works
+out the Snapshot, and sends the HTML with that Snapshot beside it. The
+browser picks it up from there, and every move after that happens in the
+browser.
+
+## One request
+
+Say someone opens `/blog/hello`. Here is everything that happens.
+
+<Picture caption="The URL is read as a Route. Both pages' Loaders run at the same time. Each page starts from what its Loader gave, and the HTML leaves with the Snapshot beside it. The Runtime starts only in the browser.">
+  <RequestPicture />
+</Picture>
+
+1. **Read.** Start reads the URL as a Route: `Blog › Post { slug: 'hello' }`.
+   A URL written another way, like `/blog/hello/`, is redirected to the
+   Route's own URL.
+2. **Load.** It runs the Loader of every place the Route names, all at
+   once. `Blog` doesn't wait for `Blog.Post`, or the other way round. No
+   waterfall.
+3. **Start.** Each page starts from what its Loader gave. Together they
+   make the Snapshot: the whole app, at its first Step.
+4. **Draw.** React draws your Document around the app, from that
+   Snapshot. Start sends it as HTML, with the Snapshot saved beside it.
+
+The browser draws the HTML right away. Then it reads the Snapshot,
+hydrates the page, and starts the Runtime from it. The app carries on
+exactly where the server left it. Nothing is loaded twice.
+
+## No Runtime on the server
+
+Here is the part that's different from most frameworks. The server never
+runs your app.
+
+It works out the Snapshot, draws it, and that's all. No Worker starts, no
+Command runs, no Message is sent. What the server draws is a picture of
+the app at its first Step, the same way the [App](/kabuki/app) draws a
+past Step on the Timeline.
+
+So you never ask "does this run on the server?" Your Actors run in one
+place: the browser. The server only needs your Loaders, and the
+Definitions and Builds to start from.
+
+<Callout title="Coming from Next.js or TanStack Start">
+  There, your components run on the server, and the browser runs them again. In
+  kabuki, the server only works out where the app starts. The Snapshot is one
+  plain value, so what the browser hydrates is exactly what the server drew.
+</Callout>
+
+## When a Loader says no
+
+A Loader can do more than return data. Its page is drawn from whatever it
+says, and the response's status says it too:
+
+- It returns data: the page is drawn ready, and the response is a `200`.
+- It fails with `Page.notFound()`: the page is drawn failed, with a `404`.
+- It redirects: nothing is drawn. The response is a `302`, or a `308` if
+  the Loader says the move is for good.
+- It breaks: the page is drawn failed, with a `500`, and the error is
+  logged.
+
+Only the page whose Loader failed is drawn failed. The pages above it are
+drawn as they are.
+
+## Render Modes
+
+Each page says where and when its data is first loaded. That's its
+**Render Mode**, and there are three:
+
+```ts
+export const Feed = Page.define({
+  path: '/feed',
+  render: 'dynamic', // 'static' unless you say
+  data: FeedData,
+});
+```
+
+- **static**, the default: its Loader runs on the server, once for
+  everyone. The page is the same for every visitor, and kept until the
+  next deploy.
+- **dynamic**: its Loader runs on the server for each request, and gets
+  the request. The page is drawn for this visitor.
+- **client**: the server sends the page with that place loading. The
+  browser loads its data once it starts.
+
+A static page is kept by the platform. On Cloudflare, it is drawn once per
+deploy in each data center, and every visitor after that gets the copy. A
+static Loader never sees the request, so it can't read who is asking. If
+the data depends on the visitor, make the page dynamic.
+
+A client page, and every page under it, is sent loading. The browser
+starts, then loads its data, like any move. That's for pages search engines
+don't need, or data that only makes sense in the browser.
+
+A Render Mode is inherited by the pages under it, and any mode can sit
+under any other. A static blog can have a dynamic comments page under a
+post.
+
+<Callout title="Only the first drawing">
+  The Render Mode decides how a page is first served. After that, every move
+  happens in the browser, and every page's data comes through Start the same
+  way, whatever its mode.
+</Callout>
+
+## After the first page
+
+Once the app runs, Start keeps serving one thing: your Loaders. When the
+Router moves to a page that needs data, the browser asks Start for it.
+Every place asked for at the same moment goes in one request, and each one
+comes back as soon as its own Loader is done.
+
+The data the server drew the first page with is kept in the Data cache
+too. So Back to the first page shows it at once, without asking again.
+
+## Metadata
+
+A page's title, description and sharing tags are its **Metadata**. You
+write it on the Page, from its params and data, as you saw in
+[Pages](/kabuki/pages). That's why Start can work it out before it draws:
+it already has the data.
+
+Start puts it in the `<head>` of the HTML, so search engines and link
+previews see the real title. A client page's Metadata says what it can
+without its data. In the browser, the Router writes it again after every
+move, and when a page's data arrives.
+
+## Lazy Views
+
+A large View can load its code only when it is first drawn:
+
+```tsx
+const ChartView = View.lazy(ChartLive, () => import('./chart-view.tsx'));
+```
+
+The server waits for every lazy View it draws, so the HTML it sends is
+whole. It names them in the head, and the browser loads exactly those
+before it hydrates. Nothing on the page flickers into place.
+
+A lazy View the server didn't draw starts loading with its page's data,
+when a move to that page starts. Its code and its data arrive together.
+
+<Callout title="Remember">
+  The server reads the URL, runs the Loaders at once, and draws the Snapshot. It
+  never runs your app. The browser hydrates that Snapshot and carries on.
+</Callout>
+
+That's what Start does. Next, what you write to use it:
+[Your app](/kabuki/your-app).

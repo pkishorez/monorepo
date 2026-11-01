@@ -2,10 +2,10 @@ import { ShopApp } from './app/app.tsx';
 
 A list of products, a cart, and a checkout. The list and the cart are two
 Children of one Shop, and they never talk to each other. Add a few things,
-change your mind, and check out. Watch the devtools under the app: every
-change climbs from a Child to the Shop as a Message.
+change your mind, and check out. Open the **Devtools** from the window's
+bar to watch every change climb from a Child to the Shop as a Message.
 
-<AppWindow app={ShopApp} url="shop.app" />
+<Live app={ShopApp} url="shop.app" />
 
 ## How it works
 
@@ -31,15 +31,18 @@ Actor that provides one, and they work the same.
 
 ## Things to try
 
+Open the **Devtools** from the window's bar first. They show the Timeline
+of every Step, and under it the Map of the app's Actors.
+
 - **Follow one press up the tree.** Add a mug. On the Map, the Product's
   card flashes with `Added`, then the Shop's card flashes with its own
   `Added`. Click the Shop's card to see the lines in its Model.
 - **Go back in time.** Add, change and check out, then click or drag along
-  the Timeline. The cart fills and empties as it was, read only. Go live to
-  come back.
-- **Change the past.** Go back to a Step before you checked out, fork, and
-  add something else. The new order grows a new Branch; the one you placed
-  is still there.
+  the Timeline. The cart fills and empties as it was, read only. Go live
+  to come back.
+- **Change the past.** Go back to a Step before you checked out, press
+  Fork, and add something else. The new order grows a new Branch; the one
+  you placed is still there.
 
 ## The code
 

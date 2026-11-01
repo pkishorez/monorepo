@@ -1,12 +1,13 @@
 import { SketchApp } from './components/sketch-app.tsx';
+import { program } from './run/sketch.ts';
 import {
   BranchPicture,
   TravelPicture,
 } from './components/timeline-pictures.tsx';
 
-You may have noticed the timeline under every demo on this site. You can
-drag it back, and the app goes back with it. This page is about how that
-works. The short answer: you get it for free.
+Every live app on this site has a Devtools button in its bar. Open it,
+and there's a timeline: drag it back, and the app goes back with it. This page is about
+how that works. The short answer: you get it for free.
 
 ## Every Message is kept
 
@@ -14,9 +15,9 @@ Remember the rule from the start: the only way anything changes is a
 Message. So if kabuki keeps every Message, in order, it has the whole story
 of your app. That story is the **History**.
 
-<Demo caption="Each Painted Message adds a dot. The ring goes back to Step 2, and the sketch is drawn as it was there.">
+<Picture caption="Each Painted Message adds a dot. The ring goes back to Step 2, and the sketch is drawn as it was there.">
   <TravelPicture />
-</Demo>
+</Picture>
 
 You don't write anything to get it. The sketch pad below is an Actor like
 any other, with a Model, two Messages and two Updates. kabuki keeps its
@@ -40,9 +41,23 @@ Updates, so no request is sent twice and no timer fires twice.
 You can also go back and carry on from there. The new Messages grow a new
 **Branch** beside the old one, like a branch in git. Nothing is lost.
 
-<Demo caption="Back at Step 2, the app carries on. A new line grows beside the old one, and the old one stays.">
+<Picture caption="Back at Step 2, the app carries on. A new line grows beside the old one, and the old one stays.">
   <BranchPicture />
-</Demo>
+</Picture>
+
+## Run it
+
+The History is a value you can hold. Make one with `History.make`, start
+the app on it, and send a few Messages. Then move back: `app.start(entry)`
+stops the app, moves the Head to that entry, and starts again there.
+
+<Run program={program} caption="Three Messages are kept. Starting again from the first replays it: the rose cell is gone. The new Painted grows beside the old Picked, and the History now holds four entries.">
+
+```ts file=./run/sketch.ts
+
+```
+
+</Run>
 
 ## Saving is easy, too
 
@@ -52,16 +67,15 @@ Since the app is its Messages, saving the app is saving its History.
 
 The History is yours to read, too. `App.useRuntime()` gives you the
 Messages, a way to show any moment, and a way to carry on from one. The
-timeline on this site is built on just that.
+Devtools on this site are built on just that.
 
 ## Try it
 
-Paint a few cells and pick another colour. Drag the timeline back, press
-"Carry on from here", and paint something different.
+The Devtools are open here from the start. Paint a few cells and pick
+another colour. Drag the timeline back, press Fork, and paint something
+different.
 
-<Demo caption="Paint, then drag the timeline back to see the sketch as it was. Carry on from there, and the new Messages grow a new Branch.">
-
-<Playground app={SketchApp} />
+<Live app={SketchApp} devtools caption="Paint, then drag the timeline back to see the sketch as it was. Fork there, and the new Messages grow a new Branch.">
 
 ```ts file=./components/sketch.ts
 
@@ -71,12 +85,12 @@ Paint a few cells and pick another colour. Drag the timeline back, press
 
 ```
 
-</Demo>
+</Live>
 
 <Callout title="Remember">
   Your app is its Messages. Keep them, and you can rebuild any moment.
 </Callout>
 
-That's all of kabuki: an Actor, its States, Workers, Children, Props,
-Capabilities, a View, and its History. To see them all at once, open the
-[full-screen demo](/kabuki/demos/opening-an-app).
+That's all of core: an Actor, its States and Workers, Children with their
+Props and Capabilities, and the History of it all. None of it needed a
+screen. Next, how React draws it: [View](/kabuki/view).

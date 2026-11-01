@@ -3,11 +3,11 @@ import { keyLock } from './app/browser/keyboard.ts';
 
 Snake, with three lives and no walls: off one edge, on at the other. Bite
 your own body with a life left, and the snake turns red, slides back three
-cells along its own path, and plays on. Then drag along the Timeline under
-the game: every move and every bite plays back, and you can carry on from
-any moment.
+cells along its own path, and plays on. Then drag along the Timeline in the
+devtools under the game: every move and every bite plays back, and you can
+carry on from any moment.
 
-<AppWindow app={SnakeApp} url="snake.app" tall keys={keyLock} />
+<Live app={SnakeApp} url="snake.app" tall devtools keys={keyLock} />
 
 ## How it works
 
@@ -63,6 +63,10 @@ edge, so a snake leaving one side slides in at the other.
 
 ## Things to try
 
+The devtools are open under the game: the Timeline of every Step, and
+under it the Map of the game's Actors. **Devtools** in the window's bar
+hides them.
+
 - **Watch the Workers.** Start a game with Space. On the Map, the Game
   runs `tick` and `steer`. Press Space to pause, and they are gone; only
   `controls` is left, waiting for Space.
@@ -76,9 +80,9 @@ edge, so a snake leaving one side slides in at the other.
   `Recovering`, and goes on.
 - **Rewind it.** Lose all three lives, then drag along the Timeline. The
   snake slides back and forth along its path, bites and all.
-- **Change the past.** Pick a Step a few seconds before the end, carry on
-  from there, and steer clear of your tail. The new moves grow a new
-  Branch beside the old game.
+- **Change the past.** Pick a Step a few seconds before the end, press
+  Fork to carry on from there, and steer clear of your tail. The new moves
+  grow a new Branch beside the old game.
 
 ## The code
 

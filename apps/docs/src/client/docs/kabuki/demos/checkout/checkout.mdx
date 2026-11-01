@@ -5,7 +5,7 @@ Each step is a State of one Actor, and each State takes only the Messages
 that make sense on it. Pick the e-book and the checkout skips Shipping,
 because there is nothing to ship.
 
-<AppWindow app={CheckoutApp} url="checkout.app" />
+<Live app={CheckoutApp} url="checkout.app" />
 
 ## How it works
 
@@ -30,14 +30,17 @@ sends one Message when you press Continue.
 
 ## Things to try
 
+Open the **Devtools** from the window's bar first. They show the Timeline
+of every Step, and under it the Map of the app's Actors.
+
 - **Follow the State.** Go through a step or two. The Checkout's card on
   the Map shows the State it is in. Click the card to see the order in its
   Model.
 - **Replay the steps.** Place an order, then click or drag along the
   Timeline. The app shows each step as it was, read only. Try `SAVE20`
   before `SAVE10` on Review, and find the turned-down code in the State.
-- **Take the other path.** Click the first Step on the Timeline, fork
-  there, press Back, and pick the other format. The new Steps grow a new
+- **Take the other path.** Click the first Step on the Timeline, press
+  Fork, press Back, and pick the other format. The new Steps grow a new
   Branch, with or without Shipping; the old one is still there.
 
 ## The code

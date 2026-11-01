@@ -1,0 +1,215 @@
+import { ShopApp } from '../shop/shop-app.tsx';
+import { MovePicture } from './components/move-picture.tsx';
+
+Your Pages each have a place. Now the app needs to go from one to another.
+In kabuki that's nothing new: the **Router** is an Actor, and every move
+is one Message to it. A click on a link, a Command from an Update, Back in
+the browser: each lands on the Timeline like any other Message.
+
+## Links
+
+`Router.Link` takes a Route and draws a plain `<a href>`.
+
+```tsx
+<Router.Link to={router.Products.Product({ id: 2 })}>Chair</Router.Link>
+// <a href="/products/2">Chair</a>
+```
+
+The Router catches a plain click on it and moves the app. A click with a
+modifier key, a link to another site or one that opens a new tab is left
+to the browser. Any other `<a>` inside the app with a URL of the app is
+caught too.
+
+A link also preloads where it goes, so the next Page's data is often
+there before you click:
+
+- `preload="intent"`, the default: on hover, focus or touch, after
+  `preloadDelay`, 50 ms;
+- `preload="viewport"`: once the link scrolls into view;
+- `preload={false}`: never.
+
+What a Preload does is on the [Data](/kabuki/data) page.
+
+## Moving from an Update
+
+When the move depends on logic, the Update returns a Command. A Route
+handed to one is typed, so a Page that doesn't exist, or a wrong param,
+doesn't compile.
+
+| Command                             | What it does                                                       |
+| ----------------------------------- | ------------------------------------------------------------------ |
+| `Router.push(route)`                | Moves to the Route, as a new Entry after the one shown.            |
+| `Router.replace(route)`             | Puts the Route in place of the Entry shown, so Back skips it.      |
+| `Router.back()`, `Router.forward()` | Go Back and Forward.                                               |
+| `Router.backTo(route)`              | Goes Back if the app came from the Route, else replaces the Entry. |
+
+The shop's Product page replaces itself once you buy, so Back doesn't
+return to a finished order:
+
+```ts
+Bought: () => ({ command: Router.replace(router.Thanks()) }),
+```
+
+`backTo` is for closing something that has a Route of its own, like a
+dialog: Back when the app came from under it, and the right place when you
+opened the dialog's URL directly.
+
+A Page never lists what these Commands need. The Router Provides it to
+every Page.
+
+## From an Actor below a page
+
+What they need is **Navigation**, a Capability the Router Provides to
+everything below it. A Page has it already. Any other Actor that moves the
+app says so in its Requires, as with any
+[Capability](/kabuki/capabilities):
+
+```ts
+// A box where you type a product's number, inside some Page.
+export const JumpTo = Actor.define('JumpTo', {
+  requires: [Navigation],
+  model: { id: Schema.Number },
+  message: { Typed: { id: Schema.Number }, Jumped: {} },
+});
+
+export const JumpToLive = JumpTo.build({
+  init: () => ({ model: { id: 1 } }),
+  on: {
+    Typed: ({ id }) => ({ model: { id } }),
+    Jumped: (_, { model }) => ({
+      command: Router.push(router.Products.Product({ id: model.id })),
+    }),
+  },
+});
+```
+
+Leave `Navigation` out, and the Command doesn't compile.
+
+## Each move is one Message
+
+The Router holds the app's history in its Model: its **Entries**, each a
+Route with a key, and where it is in them. Every move is a Message that
+changes it.
+
+| Message      | Sent by                                                   |
+| ------------ | --------------------------------------------------------- |
+| `Pushed`     | A click on a link, or `Router.push`                       |
+| `Replaced`   | `Router.replace`                                          |
+| `Went`       | `Router.back` and `Router.forward`                        |
+| `WentBackTo` | `Router.backTo`                                           |
+| `Arrived`    | The browser's Back and Forward, a typed URL, a fresh load |
+
+Then the tree follows, as it always does. The Router hands the new Route
+down as Props. A Page under a Page is a Child, there while the Route names
+it, so the old product stops and the new one starts. Nothing navigates: a
+Child comes and goes.
+
+<Picture caption="A click on the Chair is one Pushed Message to the Router. Its Route changes, the Lamp's page stops, and the Chair's starts. Back is one Message too, and undoes it the same way.">
+  <MovePicture />
+</Picture>
+
+Since a move is a Message, the History has it. Drag the Timeline back and
+the app is drawn at the page it was on. The address isn't touched: a past
+Step is only a drawing.
+
+## Reading the Router
+
+`useRouter()` reads the Router from any component drawn inside the app:
+the Route and its URL, the Entries, the title, the move it holds, and Back
+and Forward. The shop's bar is drawn with it.
+
+```tsx
+const { href, title, pending, canGoBack, back } = useRouter<Route>();
+```
+
+Name your app's Route, `useRouter<Route>()`, to get every Route typed.
+
+## A move is held, up to 150 ms
+
+A move to a Page whose data isn't there yet doesn't land at once. The
+Router holds it: the Page shown stays, and `pending` says where the app is
+going, while the new Page's data loads.
+
+- If it comes within 150 ms, the move lands with the data ready, and you
+  never see a loading screen.
+- If not, the move lands anyway, and the new Page draws its own loading
+  screen. That screen stays at least 300 ms, so it never flashes.
+
+Both are timed by the Router's Workers and land as Messages, so a replay
+draws them the same. Change them in the router. TanStack Router calls them
+`pendingMs` and `pendingMinMs`.
+
+```ts
+Router.define(Shop, { delay: 150, minimum: 300 });
+```
+
+## Scroll restoration
+
+Turn it on in the router:
+
+```ts
+Router.define(Shop, { scrollRestoration: true });
+```
+
+It works as TanStack Router's does. The window, and every element you
+scroll, is kept per Entry, and put back on Back and Forward. A new Entry
+starts at the top. Nothing on a Page has to say anything.
+
+A move can say otherwise for itself: `resetScroll={false}` on a link, or
+`{ resetScroll: false }` on `Router.push`, leaves every scroll as it is.
+`hash` goes to an element on the Page.
+
+## Where the address lives
+
+The Router doesn't care where the URL is. An **Adapter**, given in the
+app's Layer, keeps it:
+
+- None, the default: the app routes **in memory**. It starts at its root,
+  Back and Forward are Messages, and the browser's URL is never read or
+  touched. Good for tests, stories and the shop on this page.
+- `browser()`, from `@kestack/kabuki/routing/browser`: the browser's own
+  history, for an app that owns the site.
+- `tanstack()`, from `@kestack/kabuki/routing/tanstack`: TanStack Router's
+  history, for an app on a TanStack Start catch-all route.
+
+```tsx
+const Routed = Router.view(router, ShopView);
+
+export const ShopApp = View.app(Routed, {
+  layer: browser(),
+  input: () => Routed.startAt(),
+});
+```
+
+With an Adapter, `input` starts the app at the address it holds: `startAt`
+with no URL reads it. In memory there is no address to read, so the Router
+starts at its root, or wherever `startAt` names: the shop has no page at
+its root, so it starts with `input: () => Routed.startAt('/products')`.
+
+Your Pages, the router and every Actor are the same whichever it is.
+
+You rarely pick one yourself. Under start, the browser Adapter is already
+there: this docs site is a routed kabuki app, and every page you read is a
+Page.
+
+## Try it
+
+<Live app={ShopApp} url="shop.app" caption="Hover the Chair, then click it: it opens at once. Click the Kettle: the bar holds the move, then the page shows it is loading. Buy, then Back: Buy replaced the product, so Back skips it. Open the Devtools to see each move as one Message.">
+
+```tsx file=../shop/shop-app.tsx
+
+```
+
+```ts file=../shop/shop.ts
+
+```
+
+</Live>
+
+<Callout title="Remember">
+  A move is one Message to the Router. Its Route changes, and the Pages under it
+  come and go as Children.
+</Callout>
+
+The shop's products took a while to arrive. Where that data comes from is
+next: [Data](/kabuki/data).

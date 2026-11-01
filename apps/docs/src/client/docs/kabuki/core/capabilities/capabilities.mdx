@@ -1,5 +1,7 @@
 import { AskPicture } from './components/ask-picture.tsx';
 import { PlaylistApp } from './components/playlist-app.tsx';
+import { program as playlist } from './run/playlist.ts';
+import { program as shelf } from './run/shelf.ts';
 
 We left the Song with a wish: it wants to say "play me". The Song could
 Emit it to its parent, as on the Children page. But what plays the music
@@ -18,9 +20,9 @@ Children and so on, can use it. The Song doesn't ask "who is my parent?".
 It just asks for a Player, and the nearest Actor that provides one
 answers.
 
-<Demo caption="A Song is pressed and calls play. The call climbs up as a Message to the Playlist, which provides the Player. Its Update runs, and the answer comes back down as Props.">
+<Picture caption="A Song is pressed and calls play. The call climbs up as a Message to the Playlist, which provides the Player. Its Update runs, and the answer comes back down as Props.">
   <AskPicture />
-</Demo>
+</Picture>
 
 Look at how the answer comes back. The Playlist doesn't reach into the
 Song. Its Model changes, and the new Props flow down like before. Data
@@ -69,6 +71,19 @@ Requires are checked by TypeScript. Use a Capability you didn't list, and
 it doesn't compile. Put a Song somewhere nothing provides a Player, and
 that doesn't compile either.
 
+## Run it
+
+Press the third Song from outside. Its Command calls the Player, the
+Playlist gets `Played`, and its Props carry the answer down.
+
+<Run program={playlist} caption="Pressed is handled at once, and only asks for the Command. The Playlist's Model changes a moment later, when the Command's call arrives as a Message.">
+
+```ts file=./run/playlist.ts
+
+```
+
+</Run>
+
 ## For the outside world, too
 
 Not everything comes from an Actor. An API client, a clock, storage: these
@@ -76,14 +91,24 @@ come from outside the tree. You hand them to the whole app as a Layer, the
 `layer` of `View.app`. Any need that no Actor provides is covered
 there.
 
+Here the same Song sits on a Shelf that provides nothing. Its need for a
+Player climbs to the root, so `Runtime.start` must be given a Layer with
+one.
+
+<Run program={shelf} caption="The Song doesn't change: it asks for a Player the same way. This time the Player comes from the app's Layer, not from an Actor.">
+
+```ts file=./run/shelf.ts
+
+```
+
+</Run>
+
 ## Try it
 
 Tap a song. The Song doesn't know who plays it. It asks for the Player,
 and the Playlist answers.
 
-<Demo caption="Tap a song: a Played Message reaches the Playlist from the Song's Command. Tap another, then drag the timeline back through them.">
-
-<Playground app={PlaylistApp} />
+<Live app={PlaylistApp} caption="Tap a song, then open the Devtools: a Played Message reached the Playlist from the Song's Command. Tap another, then drag the timeline back through them.">
 
 ```ts file=./components/playlist.ts
 
@@ -97,12 +122,12 @@ and the Playlist answers.
 
 ```
 
-</Demo>
+</Live>
 
 <Callout title="Remember">
   Props flow down. To ask for something up the tree, a Child uses a Capability
   that an Actor above it provides.
 </Callout>
 
-That's the whole tree of logic. Next, how React draws it:
-[7. View](/kabuki/view).
+That's the whole tree of logic. Next, how it remembers everything that
+happened to it: [History](/kabuki/history).

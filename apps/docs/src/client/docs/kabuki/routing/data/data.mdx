@@ -1,0 +1,216 @@
+import { ShopApp } from '../shop/shop-app.tsx';
+
+Most Pages show something they have to load. In kabuki, a Page says what
+it loads, a **Loader** loads it, and the Router hands it down. The Page
+never fetches, and its View has no `useEffect`: it draws whatever has
+arrived.
+
+## A Page says what it loads
+
+`data` in its Definition is the Schema of what it loads.
+
+```ts
+export const Product = Page.define({
+  path: '/:id',
+  params: { id: Schema.FiniteFromString },
+  data: Item,
+});
+```
+
+A Page with `data` is handed one more Prop, `status`.
+
+## One Loader per Page
+
+The Loaders live apart from the Pages, written with `router.loaders`: one
+per Page with data, by its dotted name from the root. That name is the
+Page's **Place**.
+
+```ts
+export const loaders = router.loaders({
+  Products: () => Effect.succeed({ items: LISTED }),
+  'Products.Product': ({ id }) =>
+    Effect.gen(function* () {
+      const item = LISTED.find((each) => each.id === id);
+      if (!item) return yield* Page.notFound();
+      return item;
+    }),
+});
+```
+
+A Loader is an Effect. It's handed every path param down to its Page,
+typed, and its own query. A dynamic or client Page's Loader gets the
+request too. Forget a Loader, add one for a Page with no data, or return
+the wrong shape, and it doesn't compile.
+
+Loaders never wait on one another. The list and the product load side by
+side.
+
+Like TanStack Router's loaders, they start with the move, not once the
+Page is drawn. Unlike them, they sit in their own file, apart from the
+Pages. Your Pages ship to
+the browser; your Loaders can stay on the server.
+
+## Draw its status
+
+`status` is where the Page's data is. The View draws all three cases with
+a `switch`, as it draws States.
+
+```tsx
+const ProductView = View.make(ProductLive, ({ props }) => {
+  switch (props.status._tag) {
+    case 'Loading':
+      return <Spinner />;
+    case 'Failed':
+      return <p>{props.status.reason}</p>;
+    case 'Ready':
+      return <h2>{props.status.data.name}</h2>;
+  }
+});
+```
+
+- `Loading`: nothing has arrived yet.
+- `Failed`: its Loader failed, with `reason`, and `notFound` if it said
+  so.
+- `Ready`: here's `data`. `refreshing` is true while it loads again behind
+  what you see.
+
+Each case also has `info`, nice to know and never needed to draw: where
+the data came from, how long it took, when it goes stale.
+
+An Update reads `status` as a Prop too. To keep an editable copy, an
+Update copies it into the Model.
+
+## The Router holds it
+
+There's no Actor around a Page. The Router keeps the data of every Place
+on screen in its own Model, and hands each Page its own, down through the
+Pages above it.
+
+It loads before the move lands. As on the [Moving](/kabuki/moving) page,
+the Router holds a move up to 150 ms while the new Page's data loads, so a
+quick answer shows no loading screen at all. A Page whose name and path
+params didn't change keeps what it has.
+
+Every answer arrives as a Message to the Router, `PlaceLoaded` or
+`PlaceFailed`. So a past Step shows the data as it was then, and going back
+in time never fetches anything.
+
+## The Data cache
+
+The Router doesn't load anything itself. It asks a Capability, `Loading`.
+`Loading.memory` runs your Loaders in place, for tests, stories and the
+shop on this page. `Loading.cached` puts the **Data cache** in front of it:
+
+```ts
+export const loading = Loading.cached(router, Loading.memory(router, loaders));
+
+export const ShopApp = View.app(Router.view(router, ShopView), {
+  layer: loading,
+});
+```
+
+The Data cache keeps the last data each Place loaded, one copy per Place
+and params, up to 50, the least recently used dropped first. A move to a
+Page with a copy, by Back, a link or a Preload, shows it at once.
+
+Under start, the browser has a Data cache in front of the server's
+Loaders, and you write none of this. A server never keeps one: a copy
+there would be shared by every visitor.
+
+## Stale time
+
+How long a copy stays fresh is its Page's **Stale time**:
+
+```ts
+export const Product = Page.define({
+  path: '/:id',
+  data: Item,
+  render: 'dynamic',
+  staleTime: 10_000,
+});
+```
+
+- A fresh copy is shown, and nothing loads.
+- An older copy is shown, `refreshing`, and loaded again behind it.
+- A Page's own Stale time, else its parent's, else the router's, else 0:
+  every copy of a dynamic or client Page loads again when shown.
+- A static Page's copy is fresh until your next deploy, so it has none.
+
+## Preload
+
+A **Preload** asks the Router to warm the Data cache for a Route the app
+may move to. A `Router.Link` sends one on hover by default; an Update
+returns `Router.preload(route)`. Nothing comes back: the next move just
+finds a copy. A Page with a fresh copy isn't loaded again, and a move made
+during a Preload joins it.
+
+It also loads the code of the lazy Views on that Route, made with
+`View.lazy`.
+
+## Reload
+
+After a save, the data on screen is out of date. A **Reload** loads every
+Page on screen again:
+
+```ts
+Saved: () => ({ command: Router.reload() }),
+```
+
+The data stays shown, `refreshing`, and the Pages keep their Models and
+States. Every other copy in the Data cache is dropped. `useRouter().reload()`
+does the same from a component, and `<Router.Retry>` is a button for it,
+for a Page whose Loader broke.
+
+When what the data belongs to changed, like the signed-in account, use
+`Router.reload({ anew: true })`. The data shown is no one's any more, so
+it's never shown behind the load: the Router holds it as a move, then each
+Page shows it is loading. Add `hold: true` to keep the old data until the
+new data comes, however long.
+
+## When a Loader fails
+
+A Loader can fail in three ways, and only its own Page shows it.
+
+- **It breaks.** A defect fails its Page with `reason`. The Page draws it,
+  with a `Router.Retry`.
+- **Not found.** `Page.notFound()`: the Page gets `notFound`, and a server
+  answers `404`.
+- **Somewhere else.** `Page.redirect(route)` is a **Redirect** for this
+  visitor: the move goes on to the Route, and Back never returns to the
+  first one.
+
+```ts
+Page.redirect(router.SignIn()); // to a Route of the app
+Page.redirect(router.Blog.Post({ slug }), { permanent: true }); // 308 on a server
+Page.redirect('https://accounts.example.com/sign-in'); // out of the app
+```
+
+There's no route guard. Who may see a Page is its Loader's to say: write
+the check once, and have each Loader under a section call it.
+
+## Try it
+
+<Live app={ShopApp} url="shop.app" caption="Click the Clock: its Loader breaks, and only the product shows it. Press Retry. Click the Vase: not found. Open the Chair, wait ten seconds, open the Lamp and come back: the stale copy shows at once, and loads again behind it.">
+
+```ts file=../shop/loaders.ts
+
+```
+
+```ts file=../shop/shop.ts
+
+```
+
+```tsx file=../shop/shop-app.tsx
+
+```
+
+</Live>
+
+<Callout title="Remember">
+  A Page says what it loads, and its Loader loads it. The Router holds every
+  Page's data, and hands it down as `status`.
+</Callout>
+
+So far your Loaders ran in the page. In a real app they run on a server,
+and the first page arrives drawn with its data. That's start's job:
+[Serving](/kabuki/serving).

@@ -1,0 +1,129 @@
+Start's server knows no platform. It is one `fetch`: a request in, a
+response out. Each request comes with the platform's env and, if the
+platform has one, a cache to keep static pages in.
+
+A platform adapter fills those in for one host. Each adapter has its own
+import path, so your build carries only the one you name. You pick it in
+`vite.config.ts`, and nothing else in your app changes.
+
+## Cloudflare Workers
+
+```ts
+// vite.config.ts
+import { cloudflare } from '@kestack/kabuki/start/cloudflare';
+
+export default defineConfig({
+  plugins: [react(), start({ platform: cloudflare() })],
+});
+```
+
+- The server is built as one module, in the form workerd runs.
+- The env is your Worker's bindings, read with
+  `yield* Start.env<WorkerEnv>()`.
+- A static page is kept in Cloudflare's Cache. It is drawn once per deploy
+  in each data center, and every visitor after that gets the copy.
+
+You deploy it with Alchemy, as in [Your app](/kabuki/your-app). kabuki-start
+and this docs site both run this way.
+
+If your Worker must export more than the app, like a Durable Object, point
+its `main` at a module of your own that passes the app's on:
+
+```ts
+// src/worker.ts
+export { default } from 'virtual:kabuki-start/worker';
+export { Room } from './room.ts';
+```
+
+## Any host Nitro serves
+
+[Nitro](https://nitro.build) builds servers for many hosts, each by a
+preset. Start's `nitro` adapter puts your app behind any of them: Node,
+Bun, Vercel, Netlify, AWS Lambda, and the rest.
+
+```ts
+// vite.config.ts
+import { nitro as onNitro } from '@kestack/kabuki/start/nitro';
+import { nitro } from 'nitro/vite';
+
+export default defineConfig({
+  plugins: [
+    react(),
+    start({ platform: onNitro({ preset: 'vercel' }) }),
+    nitro(),
+  ],
+});
+```
+
+Put Nitro's own plugin beside Start's, with no options. The adapter hands
+it the preset. Nitro then builds the server for that host and serves the
+browser's files.
+
+- The env is the process's env, or the Worker's bindings on a Cloudflare
+  preset.
+- There is no cache of Start's own. A static page is sent with a
+  `Cache-Control` that lets the CDN in front keep it until the next
+  deploy, and every other page with one that keeps it nowhere.
+
+<Callout title="Which one?">
+  On Cloudflare, use `cloudflare()`: it keeps static pages in each data center,
+  and deploys with Alchemy. Anywhere else, use `nitro()` with the host's preset.
+</Callout>
+
+## In front of your app
+
+Something may stand in front of your app, like a service worker. To do its
+job, it needs to know your pages. Start tells it, from your router, so the
+two can never disagree.
+
+`GET /_kabuki/pages` answers the **Pages**: every page, with its path,
+whether the path has params, and how its first drawing is made.
+
+```ts
+{
+  "build": "…",
+  "shell": "/_kabuki/shell",
+  "pages": [
+    { "name": "Blog.Post", "path": "/blog/:slug", "params": true, "render": "static" },
+    …
+  ]
+}
+```
+
+A page's `render` is worked out from the Render Modes of the places on
+its path: `static` if every place the server draws is static, `client` if
+it draws none, and `dynamic` otherwise.
+
+`GET /_kabuki/shell` answers the **App Shell**: your Document with no app
+in it, the same for everyone until the next deploy. The browser draws the
+app into it, at its own URL, every place loading. A service worker can
+answer any page with it when it has nothing better, like offline. For a
+client page, the App Shell is exactly that page.
+
+## Start serves; the Web Platform decides
+
+Start knows nothing about how your app looks, whether it installs as an
+app, or how it works offline. It serves the app, and offers the Pages and
+the App Shell for whatever is built on top. That keeps it usable with any
+UI and any host.
+
+Those choices are made in the Web Platform, `@kestack/web-platform`. Every
+app on it is a PWA unless it says `pwa: false`, and its service worker
+treats each page by its Render Mode alone:
+
+- a static page is saved ahead of time;
+- a dynamic page goes to the network first, and falls back to its last
+  copy;
+- a client page is answered with the App Shell.
+
+So a page can't work one way offline and be served another. The reasons
+are in [ADR 0010](https://github.com/pkishorez/monorepo/blob/main/docs/adr/0010-kabuki-start-serves-the-web-platform-decides.md).
+
+<Callout title="Remember">
+  Your app doesn't change with the host: the adapter does. Start serves the app
+  and says what its pages are. The rest is up to what you put in front.
+</Callout>
+
+That's all four Parts of kabuki. See them work together in the demos,
+starting with the [Counter](/kabuki/counter), or go back to the
+[Introduction](/kabuki/introduction).

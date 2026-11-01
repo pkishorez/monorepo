@@ -25,7 +25,7 @@ export const CHAPTERS: ReadonlyArray<Chapter> = [
     side: 'right',
     act: 'the app',
     name: 'kabuki',
-    pitch: 'An app is one tree of Actors, and it lives outside React.',
+    pitch: 'An app is one tree of Actors, outside React.',
     specifics: [
       'Each Actor is a small state machine, moved by Messages',
       'One Snapshot holds the whole app',

@@ -1,20 +1,18 @@
-import { useState } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 import { Router } from '@kestack/kabuki/routing';
 import { ArrowUpRightIcon } from 'lucide-react';
 import type { MDXComponents } from 'mdx/types';
 import { DEMO, SLUGS, router } from '../../shared/index.ts';
 import type { Route, Slug } from '../../shared/index.ts';
-import { AppWindow } from './app-window.tsx';
-import { Files, split } from './files.tsx';
-import { PictureFrame } from './picture.tsx';
-import { Playground } from './playground/index.ts';
+import { Files, Live, Picture, Run } from './examples/index.ts';
 import { link } from './styles.ts';
 
 /*
  * How a docs page's MDX is drawn: every Markdown element, and the few
- * components any page uses without importing them: `<Callout>`, `<Demo>`,
- * `<Playground>`, and a demo page's `<AppWindow>` and `<Files>`. A link
+ * components any page uses without importing them: `<Callout>`, and the
+ * three ways a page shows something working, `<Picture>` for an animated
+ * picture, `<Live>` for an app running, `<Run>` for code that logs to a
+ * console, and `<Files>` for the code behind a demo. A link
  * to a place on the site is a Router link; a link to a page the site
  * does not have fails the page, so it is caught before it ships. A link to the full-screen demo opens it in a new tab.
  */
@@ -104,85 +102,6 @@ function Pre({ className, ...props }: ComponentProps<'pre'>) {
   );
 }
 
-const tab =
-  'flex h-10 shrink-0 items-center gap-2 border-b-2 border-transparent px-3 text-sm text-muted-foreground hover:text-foreground aria-selected:border-foreground aria-selected:text-foreground';
-
-/**
- * A live example on the page, and a line under it on what to try. Code
- * blocks written inside it that include a file become tabs beside its
- * Output, one per file, all the same height, so switching moves nothing.
- * The Output stays mounted under another tab, so the app keeps running.
- */
-export function Demo({
-  caption,
-  children,
-}: {
-  readonly caption?: string;
-  readonly children: ReactNode;
-}) {
-  const [shown, setShown] = useState<number | null>(null);
-  const { files, rest: output } = split(children);
-  return (
-    <figure className="my-8">
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        {files.length === 0 ? (
-          <PictureFrame>{output}</PictureFrame>
-        ) : (
-          <>
-            <div
-              role="tablist"
-              className="flex overflow-x-auto border-b border-border bg-muted/30 px-2"
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={shown === null}
-                onClick={() => setShown(null)}
-                className={tab}
-              >
-                <span className="size-1.5 rounded-full bg-emerald-500" />
-                Output
-              </button>
-              {files.map((file, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  role="tab"
-                  aria-selected={shown === index}
-                  onClick={() => setShown(index)}
-                  className={`${tab} font-mono text-xs`}
-                >
-                  {file.props['data-file']}
-                </button>
-              ))}
-            </div>
-            <div className="h-[34rem] sm:h-[26rem]">
-              <div role="tabpanel" hidden={shown !== null} className="h-full">
-                {output}
-              </div>
-              {files.map((file, index) => (
-                <div
-                  key={index}
-                  role="tabpanel"
-                  hidden={shown !== index}
-                  className="h-full [&>pre]:m-0 [&>pre]:h-full [&>pre]:overflow-auto [&>pre]:rounded-none [&>pre]:border-0"
-                >
-                  {file}
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-      {caption && (
-        <figcaption className="mt-3 text-sm text-muted-foreground">
-          {caption}
-        </figcaption>
-      )}
-    </figure>
-  );
-}
-
 export const prose: MDXComponents = {
   a: A,
   h2: H2,
@@ -196,6 +115,25 @@ export const prose: MDXComponents = {
   ),
   strong: (props) => <strong className="font-semibold" {...props} />,
   hr: () => <hr className="my-12 border-border" />,
+  // A table scrolls inside itself on a phone, never the page.
+  table: (props) => (
+    <div className="my-6 overflow-x-auto rounded-xl border border-border">
+      <table className="w-full border-collapse text-sm" {...props} />
+    </div>
+  ),
+  thead: (props) => <thead className="bg-muted/40" {...props} />,
+  th: (props) => (
+    <th
+      className="border-b border-border px-4 py-2.5 text-left text-xs font-medium whitespace-nowrap text-muted-foreground"
+      {...props}
+    />
+  ),
+  td: (props) => (
+    <td
+      className="border-b border-border px-4 py-2.5 align-top leading-6 [tr:last-child_&]:border-b-0"
+      {...props}
+    />
+  ),
   blockquote: (props) => (
     <blockquote
       className="my-6 border-l-2 border-border pl-4 text-muted-foreground"
@@ -211,8 +149,8 @@ export const prose: MDXComponents = {
     />
   ),
   Callout,
-  Demo,
-  Playground,
-  AppWindow,
+  Picture,
+  Live,
+  Run,
   Files,
 };

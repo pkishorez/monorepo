@@ -4,7 +4,7 @@ A list of Counters. Add one, remove one, and press each on its own. Every
 Counter is an Actor of its own, a Child of the list, with its own count.
 The total at the top adds them all up.
 
-<AppWindow app={CountersApp} url="counters.app" />
+<Live app={CountersApp} url="counters.app" />
 
 ## How it works
 
@@ -26,6 +26,9 @@ add them up, and can never change one.
 
 ## Things to try
 
+Open the **Devtools** from the window's bar first. They show the Timeline
+of every Step, and under it the Map of the app's Actors.
+
 - **See the tree.** Add a Counter. On the Map, the Counter card under the
   list now counts one more; step through them with its arrows. Click it to
   see that Counter's Model and Props.
@@ -33,8 +36,8 @@ add them up, and can never change one.
   Counter 1. Counter 2 becomes Counter 1 and keeps its count. Click its
   card: the place Prop changed, the Model didn't.
 - **Go back and fork.** Click or drag along the Timeline to a Step before a
-  Counter was removed. It's back, with its count. Fork from there and press
-  something else: a new Branch grows, and the old one is still there.
+  Counter was removed. It's back, with its count. Press Fork there and
+  press something else: a new Branch grows, and the old one is still there.
 
 ## The code
 
