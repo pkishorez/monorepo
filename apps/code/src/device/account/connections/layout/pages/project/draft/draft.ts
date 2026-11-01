@@ -1,6 +1,7 @@
 import { Schema } from 'effect';
 import { AttachmentSchema } from '@kestack/connect/code';
 import { createContext, type ReactNode } from 'react';
+import type { Agent } from '../../../../../../../ui/labels/agent/index.ts';
 import type { Stop } from './write/touch/index.ts';
 
 /*
@@ -42,6 +43,12 @@ export const Insert = {
   }),
 };
 
+/** Who answers a Btw: "Claude", and its logo's agent, or null while not known. */
+export type Answerer = {
+  readonly agent: string;
+  readonly harness: Agent | null;
+};
+
 /** What the page that holds the Draft adds to its foot. */
 export const Slots = createContext<{
   /** Beside the send button, such as Stop. */
@@ -52,8 +59,8 @@ export const Slots = createContext<{
   readonly problem?: string | null;
   /** Nothing can be sent, as the page says above it, such as in a Project whose folder is missing. */
   readonly blocked?: boolean;
-  /** Where Side Question mode is drawn, in place of the transcript. */
-  readonly sideQuestion?: HTMLElement | null;
+  /** Who answers a Btw: the Session's agent. */
+  readonly answerer?: Answerer | null;
   /** Where a new session's branch and New Worktree switch are drawn, over the Draft. */
   readonly where?: HTMLElement | null;
 }>({});

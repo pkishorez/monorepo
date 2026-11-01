@@ -31,8 +31,10 @@ export interface Draft {
   /** Something to send. */
   readonly filled: boolean;
   readonly disabled: boolean;
-  /** Text only: no file goes in, as in a Side Question. */
+  /** Text only: no file goes in, as in a Btw. */
   readonly textOnly?: boolean;
+  /** Asked by the way: the card wears By the way's blue. */
+  readonly btw?: boolean;
   readonly files: { readonly add: (files: ReadonlyArray<File>) => unknown };
   readonly skills: {
     readonly how: typeof Picker.How.Type | null;
@@ -78,6 +80,12 @@ export const Touch = createContext<{
   readonly attachments: ReactNode;
   /** The model chip. */
   readonly chip: ReactNode;
+  /** Btw mode, in a Session's Draft: whether it is on, its switch, and its mark. */
+  readonly btw: {
+    readonly on: boolean;
+    readonly onToggle: () => void;
+    readonly mark: ReactNode;
+  } | null;
   /** What sending is called: Send, Steer, Ask or Start session. */
   readonly label: string;
   /** Nothing can be sent now, such as while offline. */

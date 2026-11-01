@@ -46,8 +46,9 @@ import {
  * session the server stopped mid-turn says so under its transcript; a fork
  * names the session it came from over it, and draws what it carries on
  * from as one folded line before its own turns. Typing in the Draft draws
- * only the Draft. While the Draft is in Side Question mode, the question
- * takes the transcript's place, which keeps where it was scrolled to.
+ * only the Draft. A Btw asked from the Draft is read in its Btw Drawer,
+ * over the transcript's foot, the transcript staying as it was, its
+ * agent told to the Draft as who answers.
  * While its agent waits on an Agent Question, the Question Panel stands
  * in for the Draft (`question/`), with Stop; expanded, it covers the
  * transcript, which cannot be reached under it. Nothing of it is drawn until all of it is read from this device
@@ -182,18 +183,18 @@ export const SessionView = View.make(
         stopKeys,
       ],
     );
-    // Where the Draft draws Side Question mode, in the transcript's place.
-    const [sideQuestion, setSideQuestion] = useState<HTMLElement | null>(null);
-    const sideMode =
-      useChild(children.draft, ({ model }) => model.mode === 'SideQuestion') ===
-      true;
-    const side = sideMode && !asked;
+    // The Btw Drawer, expanded over the transcript's foot.
+    const btw =
+      useChild(
+        children.draft,
+        ({ model }) => model.asked?.drawer === 'Expanded',
+      ) === true && !asked;
     // What the session adds to its Draft's foot: Stop, and why a stop or a
     // fork was refused.
     const slots = useMemo(
       () => ({
         problem: model.problem,
-        sideQuestion,
+        answerer: { agent: around.agent, harness: around.harness },
         stop: around.stop,
         actions: running && (
           <Button
@@ -221,7 +222,8 @@ export const SessionView = View.make(
         offline,
         stopKeys,
         stop,
-        sideQuestion,
+        around.agent,
+        around.harness,
         around.stop,
       ],
     );
@@ -235,7 +237,6 @@ export const SessionView = View.make(
             return element === null ? undefined : page(element);
           }}
           tabIndex={-1}
-          hidden={side}
           inert={expanded}
           data-scroll-restoration-id={TRANSCRIPT}
           // Positioned, so what is placed absolutely inside it, such as
@@ -263,11 +264,6 @@ export const SessionView = View.make(
             />
           </Scrolled>
         </div>
-        <div
-          ref={setSideQuestion}
-          hidden={!side}
-          className={`relative min-h-0 flex-1 overflow-y-auto select-text ${GUTTERED}`}
-        />
         <div ref={setQuestionPlace} className="contents" />
         {/* A Draft only under a row held here, so none shows over a
             session its Connection then says is missing. */}
@@ -277,7 +273,7 @@ export const SessionView = View.make(
             className="relative shrink-0 bg-background pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent has-[[data-slot=draft][data-touch]]:pb-0"
           >
             <ToBottom
-              shown={scroll.away && !side && !expanded}
+              shown={scroll.away && !btw && !expanded}
               onClick={() => scroll.holdOn(true)}
             />
             <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 has-[[data-slot=draft][data-touch]]:px-0">

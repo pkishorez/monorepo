@@ -4,8 +4,10 @@ import {
 } from '@kestack/web-platform/recipes/touch-layers';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import {
+  ArrowLeftIcon,
   ClipboardPasteIcon,
   ImageIcon,
+  MessageCircleQuestionIcon,
   MicIcon,
   PaperclipIcon,
   PlusIcon,
@@ -16,7 +18,8 @@ import { notify } from '../../../../../../../../../../ui/controls/notice/index.t
 
 /*
  * Add: one button, and a Drawer of what else can go into the Draft, each
- * row its icon, what it does and one line more. A Skill, where Skills
+ * row its icon, what it does and one line more. In a Session, first, By
+ * the way, to ask about it on the side, or back to the message. A Skill, where Skills
  * go in; Paste, which reads the clipboard in the tap, as iOS
  * needs to show its own Paste bubble, and says so quietly when it may
  * not; a file and a photo, where files go in; and the Microphone Picker. The file fields stay
@@ -43,15 +46,18 @@ export function Add({
   onPaste,
   onFiles,
   onChooseMicrophone,
+  btw,
   className,
 }: {
   readonly disabled: boolean;
-  /** Opens the skills Picker; null where none go in, as a Side Question. */
+  /** Opens the skills Picker; null where none go in, as a Btw. */
   readonly onSkill: (() => void) | null;
   readonly onPaste: (text: string) => void;
-  /** Takes files; null where none go in, as a Side Question. */
+  /** Takes files; null where none go in, as a Btw. */
   readonly onFiles: ((files: ReadonlyArray<File>) => void) | null;
   readonly onChooseMicrophone: (() => void) | undefined;
+  /** Btw mode, in a Session's Draft: whether it is on, and its switch. */
+  readonly btw: { readonly on: boolean; readonly onToggle: () => void } | null;
   /** The trigger's look, as the row beside it draws its buttons. */
   readonly className: string;
 }) {
@@ -96,6 +102,22 @@ export function Add({
       <Drawer open={open} onOpenChange={(next) => setOpen(next)} label="Add">
         <LayerHeader title="Add" />
         <div className="flex flex-col pb-2">
+          {btw !== null && (
+            <Row
+              icon={btw.on ? <ArrowLeftIcon /> : <MessageCircleQuestionIcon />}
+              detail={
+                btw.on
+                  ? 'What you send goes to the session again'
+                  : 'Ask about this session without interrupting it'
+              }
+              onClick={() => {
+                setOpen(false);
+                btw.onToggle();
+              }}
+            >
+              {btw.on ? 'Back to the message' : 'By the way'}
+            </Row>
+          )}
           {onSkill !== null && (
             <Row
               icon={<SquareSlashIcon />}

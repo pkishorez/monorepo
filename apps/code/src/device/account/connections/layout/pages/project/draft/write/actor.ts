@@ -11,7 +11,7 @@ import { TouchDraft } from './touch/index.ts';
  * it Provides.
  *
  * 1. Modes   a Message, sent to the Session, with files and Skills; a
- *            Side Question, text only, asked of the Session on the side.
+ *            Btw, text only, asked of the Session on the side.
  *            A new session's Draft has only a Message: there is no
  *            Session to ask yet.
  * 2. Write   its View draws the Draft's card from its text
@@ -27,18 +27,18 @@ import { TouchDraft } from './touch/index.ts';
  */
 
 // 1. Modes
-export const Mode = Schema.Literals(['Message', 'SideQuestion']);
+export const Mode = Schema.Literals(['Message', 'Btw']);
 export type Mode = typeof Mode.Type;
 
-/** The modes a Draft has: a Side Question only where there is a Session to ask. */
+/** The modes a Draft has: a Btw only where there is a Session to ask. */
 export const modesOf = (session: boolean): ReadonlyArray<Mode> =>
-  session ? ['Message', 'SideQuestion'] : ['Message'];
+  session ? ['Message', 'Btw'] : ['Message'];
 
 /** What a mode takes besides text: files and Skills go only with a Message. */
 export const takes = (mode: Mode) => ({
   files: mode === 'Message',
   skills: mode === 'Message',
-  /** The model Picker: a Side Question is answered by the Session's own. */
+  /** The model Picker: a Btw is answered by the Session's own. */
   picks: mode === 'Message',
 });
 

@@ -97,6 +97,7 @@ export const TouchDraftView = View.make(
               }}
               data-slot="draft"
               data-touch=""
+              data-btw={draft.btw || undefined}
               data-collapsed={!t.expanded || undefined}
               data-writing={t.editing || undefined}
               data-recording={t.phase === 'recording' || undefined}
@@ -120,7 +121,8 @@ export const TouchDraftView = View.make(
                 'group/draft relative',
                 CELLS,
                 'rounded-t-[1.625rem] border-t border-border bg-card p-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] shadow-[0_-1px_2px_rgb(0_0_0/0.04),0_-8px_24px_rgb(0_0_0/0.08)] data-writing:pb-1',
-                'transition-[border-color,border-radius] duration-200 ease-out motion-reduce:transition-none data-recording:border-destructive/40',
+                'transition-[border-color,border-radius,background-color] duration-200 ease-out motion-reduce:transition-none data-recording:border-destructive/40',
+                'data-btw:border-btw/50 data-btw:bg-(--btw-card)',
                 'not-data-collapsed:rounded-t-[1.375rem] not-data-collapsed:px-2 not-data-collapsed:pt-1.5',
                 // In a Drawer, the Drawer is the card.
                 'in-data-[slot=touch-drawer]:rounded-none in-data-[slot=touch-drawer]:border-0 in-data-[slot=touch-drawer]:bg-transparent in-data-[slot=touch-drawer]:pb-1 in-data-[slot=touch-drawer]:shadow-none',
@@ -168,6 +170,12 @@ export const TouchDraftView = View.make(
                 data-words=""
                 className="relative flex min-w-0 [grid-area:words]"
               >
+                {/* Collapsed, the one line says it asks by the way. */}
+                {slots.btw?.on === true && (
+                  <span className="mt-1.5 mr-1 ml-0.5 flex group-not-data-collapsed/draft:hidden">
+                    {slots.btw.mark}
+                  </span>
+                )}
                 <Words
                   editor={draft}
                   editing={t.editing}
@@ -209,6 +217,7 @@ export const TouchDraftView = View.make(
                     ? null
                     : (files) => void draft.files.add(files),
                   onChooseMicrophone: draft.dictation.onChooseMicrophone,
+                  btw: slots.btw,
                 }}
                 send={
                   t.phase === 'recording'

@@ -26,7 +26,8 @@ import { useCallback, useRef } from 'react';
  * Actions; `m`, `p` and `e` the model Picker at the model, the permissions
  * and the effort; `shift+b` the Branch Picker. Space starts or stops a
  * Dictation, and `d` opens the Microphone Picker, to choose what it
- * records from; `t` switches the theme. The Ctrl keys above,
+ * records from; `t` switches the theme. `q`, or Ctrl+Q in either Mode,
+ * brings By the way forward a step, and Escape takes it back a step. The Ctrl keys above,
  * `Ctrl+,`, Settings and back, Mod+., stopping the turn, Ctrl+Space, a Dictation
  * again, Ctrl+H and Ctrl+L, the sidebar and the page, Ctrl+[ and Ctrl+],
  * the session before and after in the sidebar, Ctrl+O and Ctrl+I, Back and
@@ -245,10 +246,14 @@ export const keys = createKeys({
           },
           effort: { keys: 'e', label: 'Pick the effort' },
           branch: { keys: 'shift+b', label: 'Pick the branch' },
-          side: { keys: 'q', label: 'Ask on the side, or back' },
-          sideAnywhere: {
+          btw: {
+            keys: 'q',
+            label: 'By the way: ask, open its answer, or go back',
+          },
+          btwAnywhere: {
             keys: 'ctrl+q',
-            label: 'Ask on the side, or back, even while typing',
+            label:
+              'By the way: ask, open its answer, or go back, even while typing',
             always: true,
             inField: true,
           },
@@ -270,7 +275,7 @@ export const keys = createKeys({
           },
           close: {
             keys: 'Escape',
-            label: 'Close the answer, or leave Settings',
+            label: 'Minimise By the way, leave it, or leave Settings',
             always: true,
           },
           questionAnywhere: {
@@ -554,9 +559,9 @@ export const keyTable: ReadonlyArray<{
       },
       { label: 'Put a skill in', always: [], vim: ['content.skills'] },
       {
-        label: 'Ask on the side, or back',
-        always: ['content.sideAnywhere'],
-        vim: ['content.side'],
+        label: 'By the way: ask, open its answer, or go back',
+        always: ['content.btwAnywhere'],
+        vim: ['content.btw'],
       },
       {
         label: 'Pick the model, permissions, effort',
@@ -577,7 +582,7 @@ export const keyTable: ReadonlyArray<{
     rows: [
       { label: 'Stop the turn', always: ['content.stop'], vim: [] },
       {
-        label: 'Close the answer, or leave Settings',
+        label: 'Minimise By the way, leave it, or leave Settings',
         always: ['content.close'],
         vim: [],
       },

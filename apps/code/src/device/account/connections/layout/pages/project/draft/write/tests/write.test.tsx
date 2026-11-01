@@ -55,12 +55,12 @@ const SKILLS = [
   { name: 'deploy', description: 'Ship it' },
 ];
 
-const Doc = Schema.Literals(['Message', 'SideQuestion']);
+const Doc = Schema.Literals(['Message', 'Btw']);
 
 const Page = Actor.define('Page', {
   model: Schema.Struct({
     text: Schema.String,
-    /** The Draft Mode shown, and the Side Question's text. */
+    /** The Draft Mode shown, and the Btw's text. */
     doc: Doc,
     side: Schema.String,
     insert: Schema.NullOr(Insert.Schema),
@@ -217,7 +217,7 @@ function OnPage({
   readonly picker: ViewProps<typeof PageLive>['children']['skills'];
 }) {
   const page = keys.useFocusSpot('content', 'page', { default: true });
-  const side = model.doc === 'SideQuestion';
+  const side = model.doc === 'Btw';
   const draft = useDraft({
     label: 'Message',
     placeholder: 'Reply',
@@ -584,7 +584,7 @@ describe('Draft', () => {
 
     it('keeps each mode its own text and cursor', async () => {
       await act(async () => view().dispatch({ selection: { anchor: 2 } }));
-      await show('SideQuestion');
+      await show('Btw');
       expect(view().state.doc.toString()).toBe('');
       await paste(editor(), 'why?');
       expect(page.side).toBe('why?');
@@ -592,7 +592,7 @@ describe('Draft', () => {
       expect(view().state.doc.toString()).toBe('Please ');
       expect(view().state.selection.main.anchor).toBe(2);
       expect(page.text).toBe('Please ');
-      await show('SideQuestion');
+      await show('Btw');
       expect(view().state.doc.toString()).toBe('why?');
     });
 
@@ -602,7 +602,7 @@ describe('Draft', () => {
       await flush();
       await paste(editor(), 'more ');
       expect(page.text).toBe('Please more ');
-      await show('SideQuestion');
+      await show('Btw');
       await paste(editor(), 'why?');
       await show('Message');
       expect(view().state.doc.toString()).toBe('Please more ');
@@ -614,7 +614,7 @@ describe('Draft', () => {
     it('puts a Dictation into the mode open when its text comes', async () => {
       await act(async () => dictate({ _tag: 'Transcribing', id: 1 }));
       await flush();
-      await show('SideQuestion');
+      await show('Btw');
       expect(placeholder()?.textContent).toBe('transcribing…');
       await act(async () =>
         dictate({ _tag: 'Text', id: 1, text: 'what broke' }),
@@ -630,7 +630,7 @@ describe('Draft', () => {
       expect(
         document.querySelector('button[aria-label="Add a skill"]'),
       ).not.toBeNull();
-      await show('SideQuestion');
+      await show('Btw');
       expect(
         document.querySelector('button[aria-label="Add a skill"]'),
       ).toBeNull();

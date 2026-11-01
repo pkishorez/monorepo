@@ -92,7 +92,7 @@ export const restoredOf = (
     open: open ?? false,
     opening: {
       Message: writtenIn('Message'),
-      SideQuestion: writtenIn('SideQuestion'),
+      Btw: writtenIn('Btw'),
     },
   };
 };

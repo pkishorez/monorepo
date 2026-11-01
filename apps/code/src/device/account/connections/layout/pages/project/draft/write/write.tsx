@@ -21,6 +21,7 @@ import {
   useTransfers,
 } from './editor/index.ts';
 import type { Insert } from '../draft.ts';
+import { BtwMark } from '../send/btw/btw.tsx';
 
 /*
  * The Draft's card and its editing: the message as it will be sent, at
@@ -59,9 +60,9 @@ import type { Insert } from '../draft.ts';
  * 5. Undo     `u`, or Mod+Z in the Composer, takes the last step back.
  * 6. Modes    it shows the Draft Mode open, one text at a time, each with
  *             its own cursor and selection; one that is text only, as a
- *             Side Question, takes no file and no Skill.
+ *             Btw, takes no file and no Skill.
  *
- * Under it is its Status Line: in a Session the Side Question toggle,
+ * Under it is its Status Line: in a Session the Btw toggle,
  * the model and its settings, the skills, the paperclip and the mic, and
  * the send buttons.
  */
@@ -82,8 +83,10 @@ interface DraftOptions {
   readonly onSelect?: (text: string, selection: Selected) => void;
   /** What the Draft is called over it in place of Message or Draft. */
   readonly title?: string;
-  /** Text only: no file and no Skill goes in, as in a Side Question. */
+  /** Text only: no file and no Skill goes in, as in a Btw. */
   readonly textOnly?: boolean;
+  /** Asked by the way: the card wears By the way's blue and says so. */
+  readonly btw?: boolean;
   /** Escape in the Composer out of Vim Mode, where it leaves nothing else. */
   readonly onEscape?: () => void;
   readonly attachments: ReadonlyArray<Attachment>;
@@ -291,6 +294,7 @@ export function useDraft(options: DraftOptions) {
     mount: editor.mount,
     title: options.title,
     textOnly,
+    btw: options.btw ?? false,
     view: editor.view,
     vim: vim.on,
     /** No keyboard: it is drawn as the Touch Draft (`touch/`). */
@@ -335,12 +339,13 @@ export function Card({
   return (
     <div
       data-slot="draft"
+      data-btw={draft.btw || undefined}
       data-recording={recording !== null || undefined}
       data-writing={(draft.vim && draft.writing) || undefined}
       data-plain={!draft.vim || undefined}
       data-dragging={draft.dragging || undefined}
       data-disabled={draft.disabled || undefined}
-      className="group/draft relative flex flex-col rounded-xl border border-dashed border-border bg-muted/30 transition-[border-color,background-color,box-shadow] duration-150 ease-out motion-reduce:transition-none data-dragging:border-solid data-dragging:border-ring data-writing:border-solid data-writing:border-primary/60 data-writing:bg-card data-writing:shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.08),0_16px_40px_rgb(0_0_0/0.12)] data-writing:ring-4 data-writing:ring-primary/10 data-recording:not-data-writing:border-solid data-recording:not-data-writing:border-destructive/35 data-plain:border-solid data-plain:bg-card data-plain:focus-within:border-primary/60 data-plain:focus-within:ring-4 data-plain:focus-within:ring-primary/10"
+      className="group/draft relative flex flex-col rounded-xl border border-dashed border-border bg-muted/30 transition-[border-color,background-color,box-shadow] duration-150 ease-out motion-reduce:transition-none data-dragging:border-solid data-dragging:border-ring data-writing:border-solid data-writing:border-primary/60 data-writing:bg-card data-writing:shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.08),0_16px_40px_rgb(0_0_0/0.12)] data-writing:ring-4 data-writing:ring-primary/10 data-recording:not-data-writing:border-solid data-recording:not-data-writing:border-destructive/35 data-plain:border-solid data-plain:bg-card data-plain:focus-within:border-primary/60 data-plain:focus-within:ring-4 data-plain:focus-within:ring-primary/10 data-btw:border-solid data-btw:border-btw/40 data-btw:bg-(--btw-card) data-btw:data-plain:bg-(--btw-card) data-btw:data-writing:border-btw/70 data-btw:data-writing:bg-(--btw-card) data-btw:data-writing:ring-btw/15 data-btw:data-plain:focus-within:border-btw/70 data-btw:data-plain:focus-within:ring-btw/15"
     >
       <Heading draft={draft} />
       <div
@@ -451,6 +456,26 @@ export function Heading({ draft }: { readonly draft: Draft }) {
         />
         <span role="status" className="font-normal tracking-normal normal-case">
           Transcribing…
+        </span>
+      </div>
+    );
+  // By the way: what it is, and that it neither interrupts nor stays.
+  if (draft.btw)
+    return (
+      <div aria-hidden className={`${HEADING} text-btw`}>
+        <BtwMark />
+        <span>By the way</span>
+        <span className="truncate font-normal tracking-normal text-muted-foreground normal-case max-sm:hidden">
+          · answered on the side, not kept in the session
+        </span>
+        <span className={HINT}>
+          {!draft.vim
+            ? `${SEND_KEYS} to ask`
+            : draft.writing
+              ? 'Esc when done'
+              : writeKeys === null
+                ? null
+                : `${writeKeys} to edit`}
         </span>
       </div>
     );

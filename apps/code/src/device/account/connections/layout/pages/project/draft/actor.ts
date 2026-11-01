@@ -33,9 +33,9 @@ import { BranchPicker } from './pick/branch/index.ts';
  * into it, picking for it or dictating into it draws only it.
  *
  * 1. Write  in its Draft Mode, a Child each (`write/`): a Message, or, in
- *           a Session, a Side Question, each the one owner of its text,
+ *           a Session, a Btw, each the one owner of its text,
  *           cursor and selection. The Draft keeps the mode open, switched
- *           by its Side Question toggle or its keys, the Message's files
+ *           by its Btw toggle or its keys, the Message's files
  *           and every Insert, numbered, for the editor of the mode open to
  *           put in once at its cursor: a paste, a drop, a Dictation, a
  *           Skill.
@@ -63,9 +63,11 @@ import { BranchPicker } from './pick/branch/index.ts';
  *           text and picks as they were, and says why. A
  *           Session's Message goes to the server, which starts a turn or
  *           steers the running one; refused, its files and its text come
- *           back. Sent while the Side Question toggle is on, it is a Side
- *           Question, asked on the side, answered by the Session's own
- *           agent, a new one replacing the last.
+ *           back. Sent in Btw mode, it is a Btw, asked by the way,
+ *           answered by the Session's own agent, a new one replacing the
+ *           last. Its Btw Drawer expands to show it, and minimises or
+ *           closes as asked; into Btw mode it expands again, and back to
+ *           the Message it minimises.
  * 4. Keep   the Draft is saved on this device as it shows, its Saved Draft
  *           (`store.ts`), under the Account it opened with: read back
  *           before it is drawn, saved after each change and as the page is
@@ -130,13 +132,17 @@ const Chosen = Schema.Struct({
   settings: Schema.Record(Schema.String, Schema.String),
 });
 
-/** The Side Question asked, and how it stands. */
+/** The Btw Drawer as it shows: over the transcript, or a bar on the Draft. */
+export const Drawer = Schema.Literals(['Expanded', 'Minimised']);
+
+/** The Btw asked, how it stands, and how its Btw Drawer shows. */
 export const Asked = Schema.Struct({
   id: Schema.Finite,
   question: Schema.String,
   /** null while it is being answered, or when it failed. */
   answer: Schema.NullOr(Schema.String),
   problem: Schema.NullOr(Schema.String),
+  drawer: Drawer,
 });
 
 /** Text given back to a mode: a refused send's. */
@@ -155,7 +161,7 @@ const Model = Schema.Struct({
   /** The Draft Mode open. */
   mode: DraftMode.Mode,
   /** What each mode starts from, as read back; the mode owns it after. */
-  opening: Schema.Struct({ Message: Written, SideQuestion: Written }),
+  opening: Schema.Struct({ Message: Written, Btw: Written }),
   /** On touch, it is open: kept, and how it opens again. */
   open: Schema.Boolean,
   given: Schema.NullOr(Given),
@@ -185,6 +191,7 @@ const Model = Schema.Struct({
   problem: Schema.NullOr(Schema.String),
   /** A new session being started, or started; null while none is. */
   starting: Schema.NullOr(Starting),
+  /** The latest Btw, until its Btw Drawer is closed. */
   asked: Schema.NullOr(Asked),
   /** The last question's id: a late answer to a dismissed one is told apart. */
   asks: Schema.Finite,
@@ -224,6 +231,10 @@ const Message = Schema.TaggedUnion({
   },
   Answered: { id: Schema.Finite, answer: Schema.String },
   AskRefused: { id: Schema.Finite, reason: Schema.String },
+  /** The Btw Drawer expanded or minimised. */
+  DrawerShown: { drawer: Drawer },
+  /** The Btw Drawer closed: its Btw and answer go. */
+  DrawerClosed: {},
   Restored: { where: Schema.NullOr(Where), draft: Schema.NullOr(SavedDraft) },
   /** On touch, a mode's Touch Draft was opened or collapsed. */
   Opened: { mode: DraftMode.Mode, open: Schema.Boolean },
@@ -249,6 +260,10 @@ const Draft = Actor.define('Draft', {
 export const modesOf = ({ to }: Props) =>
   DraftMode.modesOf(to._tag === 'Session');
 
+/** The Btw as it was, its Btw Drawer shown as `drawer`. */
+const drawn = (asked: typeof Asked.Type | null, drawer: typeof Drawer.Type) =>
+  asked === null ? null : { ...asked, drawer };
+
 /** Text given back to a mode, the next after the last. */
 const give = (model: Model, mode: Mode, text: string, replaces: boolean) => ({
   mode,
@@ -264,7 +279,7 @@ export const DraftLive = Draft.build({
       where: null,
       started: false,
       mode: 'Message',
-      opening: { Message: DraftMode.blank, SideQuestion: DraftMode.blank },
+      opening: { Message: DraftMode.blank, Btw: DraftMode.blank },
       open: false,
       given: null,
       attachments: [],
@@ -474,10 +489,23 @@ export const DraftLive = Draft.build({
     // 1. Write
     CatalogRead: ({ catalog }, { model }) => ({ model: { ...model, catalog } }),
     CatalogRetryAsked: () => ({ command: retryCatalog() }),
+    // Into Btw mode, its Btw Drawer expands; back to the Message, it
+    // minimises, so the transcript is the page's again.
     ModeAsked: ({ mode }, { model, props }) =>
       !modesOf(props).includes(mode) || model.mode === mode
         ? {}
-        : { model: { ...model, mode, picking: null, problem: null } },
+        : {
+            model: {
+              ...model,
+              mode,
+              picking: null,
+              problem: null,
+              asked: drawn(
+                model.asked,
+                mode === 'Btw' ? 'Expanded' : 'Minimised',
+              ),
+            },
+          },
     AttachmentsChanged: ({ attachments }, { model }) => ({
       model: { ...model, attachments, problem: null },
     }),
@@ -586,7 +614,7 @@ export const DraftLive = Draft.build({
     SendAsked: ({ mode, text }, { model, props }) =>
       props.to._tag === 'NewSession'
         ? start(model, props, text)
-        : mode === 'SideQuestion'
+        : mode === 'Btw'
           ? askOf(model, props.to.sessionId, text)
           : sendTo(model, props.to.sessionId, text),
     StartNamed: ({ id }, { model }) =>
@@ -639,6 +667,10 @@ export const DraftLive = Draft.build({
       model.asked?.id === id
         ? { model: { ...model, asked: { ...model.asked, problem: reason } } }
         : {},
+    DrawerShown: ({ drawer }, { model }) => ({
+      model: { ...model, asked: drawn(model.asked, drawer) },
+    }),
+    DrawerClosed: (_, { model }) => ({ model: { ...model, asked: null } }),
     // 4. Keep
     // Only the mode on screen says: another's is out of sight.
     Opened: ({ mode, open }, { model }) =>
