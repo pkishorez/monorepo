@@ -236,7 +236,9 @@ function run(canvas: HTMLCanvasElement, journey: () => boolean): () => void {
   }, 3000);
   let lastDrawn = '';
 
+  let frameAt = performance.now();
   const frames = loop((_, dt) => {
+    frameAt = performance.now();
     if (!ready[0]) return;
     const calm = motion.calm();
     still = ease(still, calm ? 0 : 1, 0.5, dt);
@@ -336,7 +338,62 @@ function run(canvas: HTMLCanvasElement, journey: () => boolean): () => void {
         calm ? 'reduced motion' : '',
       );
     }
+    if (log.on) beat(width, height);
   });
+
+  // With ?debug, a timer the frame loop cannot stop says when frames stop
+  // coming while the tab is in view: the browser has stopped animating.
+  const watchdog = log.on
+    ? window.setInterval(() => {
+        const quiet = performance.now() - frameAt;
+        if (quiet > 1500 && !document.hidden)
+          log.warn(
+            `no frame for ${(quiet / 1000).toFixed(1)} s with the tab in view: the browser is not animating this page`,
+          );
+      }, 2000)
+    : 0;
+
+  // With ?debug, every 2 s: how many frames ran, how formed the shape is,
+  // and how many pixels this frame really lit, read back before the
+  // browser takes the frame, so a field that runs but shows nothing says
+  // which failed: the loop, the drawing, or what the browser is handed.
+  let beats = 0;
+  let beatAt = performance.now();
+  const beat = (width: number, height: number) => {
+    beats++;
+    const now = performance.now();
+    if (now - beatAt < 2000) return;
+    // The screen's own buffer, whatever the painter left bound.
+    const bound = gl.getParameter(
+      gl.FRAMEBUFFER_BINDING,
+    ) as WebGLFramebuffer | null;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    const pixels = new Uint8Array(width * height * 4);
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, bound);
+    // Lit: covered, so every browser shows it. Bare: colour with no
+    // coverage, which a strict compositor drops; it should stay 0.
+    let lit = 0;
+    let bare = 0;
+    for (let at = 0; at < pixels.length; at += 4) {
+      const colour = Math.max(pixels[at]!, pixels[at + 1]!, pixels[at + 2]!);
+      const alpha = pixels[at + 3]!;
+      if (alpha > 8) lit++;
+      if (colour > alpha + 8) bare++;
+    }
+    log.debug(
+      'heartbeat',
+      `${Math.round((beats * 1000) / (now - beatAt))} fps`,
+      `intro ${intro.toFixed(2)}`,
+      `lit ${lit} of ${width * height} pixels`,
+      bare > 0 ? `${bare} bare (colour, no alpha)` : 'none bare',
+      `canvas opacity ${getComputedStyle(canvas).opacity}`,
+      gl.isContextLost() ? 'CONTEXT LOST' : 'context ok',
+      document.hidden ? 'tab hidden' : '',
+    );
+    beats = 0;
+    beatAt = now;
+  };
 
   // A lost context comes back empty: rebuild, refill, carry on.
   let warnedLost = false;
@@ -363,6 +420,7 @@ function run(canvas: HTMLCanvasElement, journey: () => boolean): () => void {
     window.clearTimeout(late);
     alive = false;
     frames.dispose();
+    window.clearInterval(watchdog);
     stopBaking();
     resizes.disconnect();
     window.removeEventListener('resize', remeasure);
