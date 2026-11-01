@@ -1,23 +1,21 @@
 import type { Message } from '@kestack/connect/code';
 import { GitForkIcon } from 'lucide-react';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
-import {
-  memo,
-  startTransition,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { memo, useMemo, useRef } from 'react';
+import { Block, type Planned, useBlocks } from '../scroller/index.ts';
 import { Chevron, type Opening, useOpen } from './words/index.ts';
-import { kept, thread, type Earlier, type Row } from './turns/rows/index.ts';
-import { Said } from './turns/answer/said.tsx';
+import {
+  threaded,
+  UNTHREADED,
+  type Earlier,
+  type Row,
+} from './turns/rows/index.ts';
+import { Said, type SaidRow } from './turns/answer/said.tsx';
 import { Ask } from './turns/ask/ask.tsx';
 import { Footer, type Forking, type Spend } from './turns/answer/footer.tsx';
 import {
   keptTurns,
+  type Piece,
   piecesOf,
   saidIn,
   spendsOf,
@@ -44,91 +42,69 @@ import { Work } from './turns/answer/work/work.tsx';
  * However long it is, what changes is all that is drawn again: a row or a
  * turn stays the same object while nothing in it changes (`useRows`), and
  * a turn that did not change is not drawn again, so words streaming in
- * draw only the turn they are in. A long session opens on its last few
- * turns, drawn at once; the turns above them are drawn a batch at a time
- * after, nothing on the screen moving as they are (`gradual`). Until then
- * each stands in as an empty space as tall as it was when last drawn,
- * from any visit to it since the app started, or as a guess. Nothing drawn
- * is ever taken away again; `whole` draws every turn at once.
- *
- * Once a turn is drawn and laid out, the browser skips it while it is far
- * from the view (`content-visibility`), as tall as it last was, so the
- * sidebar sliding beside it, a resize or anything else that restyles the
- * page touches only the turns in sight. A turn wholly above the view that
- * grows or shrinks as it is laid out again, at a new width, moves the view
- * by as much, so what is on the screen stays put.
+ * draw only the turn they are in. Each part of a turn, your words, each
+ * thing the agent said, each line of its work and the turn's end, is a
+ * block of the scroller it is drawn in (`../scroller/`), drawn as the
+ * reader nears it, so a long session opens as fast as a short one, and a
+ * long turn as fast as a short one.
  */
 
 const NONE: ReadonlyArray<never> = [];
 
-/** A session's Messages as rows, each row the same object for as long as nothing in it changes. */
+/**
+ * A session's Messages as rows, each row the same object for as long as
+ * nothing in it changes; only the turns whose Messages changed are
+ * threaded again.
+ */
 export const useRows = (messages: ReadonlyArray<Message>) => {
-  const before = useRef<ReadonlyArray<Row>>(NONE);
+  const before = useRef(UNTHREADED);
   return useMemo(
-    () => (before.current = kept(before.current, thread(messages))),
+    () => (before.current = threaded(before.current, messages)).rows,
     [messages],
   );
 };
 
-/** Turns drawn at once on opening. */
-const FIRST = 6;
-
-/** Turns drawn above them in each step after. */
-const BATCH = 10;
-
-/** How tall a turn never drawn is guessed to be, in px. */
-const GUESS = 480;
-
 /**
- * Room beside a turn for what it draws past its edges, such as a line's
- * hover reaching into the margin, which a skippable turn's containment
- * would clip; the margin takes it back, so nothing moves.
+ * Room beside a block, and a turn, for what it draws past its edges, such
+ * as a line's hover reaching into the margin, which a skippable block's
+ * containment would clip; the margin takes it back, so nothing moves.
  */
 const BLEED = '-mx-3 px-3';
 
-/** How many turns' heights are remembered. */
-const REMEMBERED = 5000;
+/** How tall text may be before it was ever drawn, in px: a line for about every 90 characters, past `base`. */
+const tall = (text: string, base: number) =>
+  base + Math.ceil(text.length / 90) * 28;
 
-/** How tall each turn was when last drawn, by its id, for as long as the app runs. */
-const heights = new Map<string, number>();
+const askGuess = (row: { readonly text: string }) => tall(row.text, 56);
 
-const remember = (id: string, height: number) => {
-  heights.delete(id);
-  heights.set(id, height);
-  if (heights.size > REMEMBERED) heights.delete(heights.keys().next().value!);
-};
+const saidGuess = (row: SaidRow) =>
+  row.kind === 'text'
+    ? tall(row.text, 8)
+    : row.kind === 'plan'
+      ? 48 + row.steps.length * 28
+      : row.kind === 'tool'
+        ? 120
+        : 48;
 
-/** The element a transcript scrolls in. */
-const scrollerOf = (element: HTMLElement): HTMLElement | null => {
-  for (let at = element.parentElement; at; at = at.parentElement) {
-    const { overflowY } = getComputedStyle(at);
-    if (overflowY === 'auto' || overflowY === 'scroll') return at;
-  }
-  return null;
-};
+/** A piece of a turn as a block: its id, and how tall it may be. */
+const plannedOf = (piece: Piece): Planned =>
+  piece.kind === 'work'
+    ? { id: piece.id, guess: 44 }
+    : {
+        id: piece.row.id,
+        guess:
+          piece.kind === 'ask' ? askGuess(piece.row) : saidGuess(piece.row),
+      };
 
-interface Place {
-  /** How far down what its scroller holds it starts, however it is scrolled. */
-  readonly top: number;
-  readonly height: number;
-}
+/** How tall a turn's end may be, in px. */
+const END = 44;
 
-/** Where each turn in a list is, by its id, in order. */
-const placesOf = (scroller: HTMLElement, list: HTMLElement) => {
-  const base =
-    list.getBoundingClientRect().top -
-    scroller.getBoundingClientRect().top +
-    scroller.scrollTop -
-    list.offsetTop;
-  const places = new Map<string, Place>();
-  for (const child of list.children)
-    if (child instanceof HTMLElement && child.dataset.turn !== undefined)
-      places.set(child.dataset.turn, {
-        top: base + child.offsetTop,
-        height: child.offsetHeight,
-      });
-  return places;
-};
+/** A turn's blocks, in order. */
+const plannedIn = (turn: Turn): ReadonlyArray<Planned> => [
+  ...turn.asks.map((ask) => ({ id: ask.id, guess: askGuess(ask) })),
+  ...piecesOf(turn.rows).map(plannedOf),
+  ...(turn.ended === null ? NONE : [{ id: turn.ended.id, guess: END }]),
+];
 
 export function Rows({
   rows,
@@ -136,9 +112,7 @@ export function Rows({
   running,
   forking,
   forked = false,
-  gradual = false,
   whole = false,
-  shift,
 }: {
   readonly rows: ReadonlyArray<Row>;
   readonly opening: Opening;
@@ -148,12 +122,8 @@ export function Rows({
   readonly forking?: Forking;
   /** A fork, whose first cost told holds what it was forked from. */
   readonly forked?: boolean;
-  /** Opens on its last turns, and draws those above them after. */
-  readonly gradual?: boolean;
-  /** Every turn drawn now, as before going to the top. */
+  /** Every block drawn at once, as what a fork carries on from, which is opened by hand. */
   readonly whole?: boolean;
-  /** Moves the view by as much as was drawn above it; else it is scrolled here. */
-  readonly shift?: (by: number) => void;
 }) {
   const before = useRef<ReadonlyArray<Turn>>(NONE);
   const turns = useMemo(
@@ -161,126 +131,20 @@ export function Rows({
     [rows],
   );
   const spends = useMemo(() => spendsOf(turns, forked), [turns, forked]);
-  // The first turn drawn; those before it stand in as space until drawn.
-  const [start, setStart] = useState(() =>
-    gradual ? Math.max(0, turns.length - FIRST) : 0,
-  );
-  const from = whole ? 0 : start;
-  const list = useRef<HTMLDivElement>(null);
-  const scroller = useRef<HTMLElement | null>(null);
-  /** Where each turn was, by its id, as the last batch was drawn, while more are to come. */
-  const placed = useRef<ReadonlyMap<string, Place> | null>(null);
-  // A batch more, after each is drawn, as a Transition, so whatever the
-  // reader does goes first.
-  useEffect(() => {
-    if (from === 0) return;
-    const timer = setTimeout(
-      () =>
-        startTransition(() => setStart((start) => Math.max(0, start - BATCH))),
-      0,
-    );
-    return () => clearTimeout(timer);
-  }, [from]);
-  // What a batch drew above the view moves nothing in it: the turn at its
-  // top stays where it was on the screen. Read as each batch is drawn,
-  // when the page is laid out for the screen anyway. While more are to
-  // come, the list keeps at least its height, so turns drawn shorter than
-  // they stood in never shrink it under the view: the browser would clamp
-  // the scroll before the move here, and the two would add up.
-  useLayoutEffect(() => {
-    const element = list.current;
-    if (element === null) return;
-    scroller.current ??= scrollerOf(element);
-    const outer = scroller.current;
-    if (outer === null) return;
-    const before = placed.current;
-    const now = placesOf(outer, element);
-    if (before !== null) {
-      for (const [id, place] of before) {
-        if (place.top + place.height <= outer.scrollTop) continue;
-        const moved = (now.get(id)?.top ?? place.top) - place.top;
-        if (moved !== 0)
-          if (shift) shift(moved);
-          else outer.scrollTop += moved;
-        break;
-      }
-    }
-    element.style.minHeight = '';
-    if (from !== 0) element.style.minHeight = `${element.offsetHeight}px`;
-    placed.current = from === 0 ? null : now;
-  }, [from]);
-  const shiftNow = useRef(shift);
-  shiftNow.current = shift;
-  // How tall each drawn turn is, for the next time it stands in. Laid out
-  // once, it can be skipped, as tall as that; and one wholly above the
-  // view that changes height after moves the view by as much. A turn just
-  // drawn is the batch's to place, above.
-  const [measure] = useState(() => {
-    if (typeof ResizeObserver === 'undefined') return null;
-    const seen = new WeakMap<Element, number>();
-    return new ResizeObserver((entries) => {
-      const changed: Array<{ top: number; was: number; by: number }> = [];
-      for (const entry of entries) {
-        const id = (entry.target as HTMLElement).dataset.turn;
-        const height =
-          entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
-        const was = seen.get(entry.target);
-        seen.set(entry.target, height);
-        if (id === undefined || height <= 0) continue;
-        remember(id, height);
-        if (was === undefined) {
-          const { style } = entry.target as HTMLElement;
-          style.containIntrinsicBlockSize = `auto ${height}px`;
-          style.contentVisibility = 'auto';
-        } else if (was !== height)
-          changed.push({
-            top: entry.target.getBoundingClientRect().top,
-            was,
-            by: height - was,
-          });
-      }
-      const outer = scroller.current;
-      if (changed.length === 0 || outer === null) return;
-      // Top down, each where it ended before those above it changed.
-      const view = outer.getBoundingClientRect().top;
-      let moved = 0;
-      for (const { top, was, by } of changed.sort((a, b) => a.top - b.top)) {
-        if (top - moved + was > view) break;
-        moved += by;
-      }
-      if (moved === 0) return;
-      if (shiftNow.current) shiftNow.current(moved);
-      else outer.scrollTop += moved;
-      // Made up for already: the next batch measures from here.
-      if (placed.current !== null && list.current !== null)
-        placed.current = placesOf(outer, list.current);
-    });
-  });
-  useEffect(() => () => measure?.disconnect(), [measure]);
+  useBlocks(whole ? null : () => turns.flatMap(plannedIn));
   return (
-    <div ref={list} className="flex min-w-0 flex-col gap-10">
-      {turns.map((turn, at) =>
-        at < from ? (
-          <section
-            key={turn.id}
-            data-turn={turn.id}
-            aria-hidden
-            className={BLEED}
-            style={{ height: heights.get(turn.id) ?? GUESS }}
-          />
-        ) : (
-          <TurnView
-            key={turn.id}
-            turn={turn}
-            opening={opening}
-            running={running && turn.ended === null && at === turns.length - 1}
-            sessionRunning={running}
-            forking={forking}
-            spend={spends.get(turn.id)}
-            measure={measure}
-          />
-        ),
-      )}
+    <div className="flex min-w-0 flex-col gap-10">
+      {turns.map((turn, at) => (
+        <TurnView
+          key={turn.id}
+          turn={turn}
+          opening={opening}
+          running={running && turn.ended === null && at === turns.length - 1}
+          sessionRunning={running}
+          forking={forking}
+          spend={spends.get(turn.id)}
+        />
+      ))}
     </div>
   );
 }
@@ -293,8 +157,6 @@ interface TurnProps {
   readonly sessionRunning: boolean;
   readonly forking: Forking | undefined;
   readonly spend: Spend | undefined;
-  /** Told how tall it is as that changes. */
-  readonly measure: ResizeObserver | null;
 }
 
 /** A turn, drawn again only as what it shows changes. */
@@ -306,7 +168,6 @@ const TurnView = memo(
     sessionRunning,
     forking,
     spend,
-    measure,
   }: TurnProps) {
     const pieces = useMemo(() => piecesOf(turn.rows), [turn.rows]);
     const last = pieces.at(-1);
@@ -319,52 +180,59 @@ const TurnView = memo(
           !(last.row.kind === 'text' && last.row.writing) &&
           // A question says itself that it waits.
           last.row.kind !== 'tool'));
-    const measured = useCallback(
-      (element: HTMLElement | null) => {
-        if (element === null || measure === null) return;
-        measure.observe(element);
-        return () => measure.unobserve(element);
-      },
-      [measure],
-    );
     return (
       <section
-        ref={measured}
         data-turn={turn.id}
+        // Skipped as one once its blocks are all drawn.
+        data-blocks
         className={`group/turn flex min-w-0 flex-col gap-4 ${BLEED}`}
       >
         {turn.asks.map((ask) => (
-          <Ask key={ask.id} row={ask} />
+          <Block
+            key={ask.id}
+            id={ask.id}
+            guess={askGuess(ask)}
+            className={BLEED}
+          >
+            <Ask row={ask} />
+          </Block>
         ))}
         <div className="flex min-w-0 flex-col gap-3">
-          {pieces.map((piece, at) =>
-            piece.kind === 'ask' ? (
-              // Sent while it worked, where it came in: as much room around
-              // it as between turns.
-              <div key={piece.row.id} className="py-1">
-                <Ask row={piece.row} />
-              </div>
-            ) : piece.kind === 'work' ? (
-              <Work
-                key={piece.id}
-                id={piece.id}
-                rows={piece.rows}
-                opening={opening}
-                running={sessionRunning}
-                live={
-                  running &&
-                  (at === pieces.length - 1 ||
-                    piece.rows.some(
-                      (row) =>
-                        (row.kind === 'tool' || row.kind === 'subagent') &&
-                        row.state === 'running',
-                    ))
-                }
-              />
-            ) : (
-              <Said key={piece.row.id} row={piece.row} running={running} />
-            ),
-          )}
+          {pieces.map((piece, at) => {
+            const { id, guess } = plannedOf(piece);
+            return (
+              <Block
+                key={id}
+                id={id}
+                guess={guess}
+                // Sent while it worked, where it came in: as much room
+                // around it as between turns.
+                className={piece.kind === 'ask' ? `${BLEED} py-1` : BLEED}
+              >
+                {piece.kind === 'ask' ? (
+                  <Ask row={piece.row} />
+                ) : piece.kind === 'work' ? (
+                  <Work
+                    id={piece.id}
+                    rows={piece.rows}
+                    opening={opening}
+                    running={sessionRunning}
+                    live={
+                      running &&
+                      (at === pieces.length - 1 ||
+                        piece.rows.some(
+                          (row) =>
+                            (row.kind === 'tool' || row.kind === 'subagent') &&
+                            row.state === 'running',
+                        ))
+                    }
+                  />
+                ) : (
+                  <Said row={piece.row} running={running} />
+                )}
+              </Block>
+            );
+          })}
           {waiting && (
             <span
               role="status"
@@ -375,12 +243,14 @@ const TurnView = memo(
             </span>
           )}
           {turn.ended && (
-            <Footer
-              ended={turn.ended}
-              said={saidIn(turn)}
-              forking={forking}
-              spend={spend}
-            />
+            <Block id={turn.ended.id} guess={END} className={BLEED}>
+              <Footer
+                ended={turn.ended}
+                said={saidIn(turn)}
+                forking={forking}
+                spend={spend}
+              />
+            </Block>
           )}
         </div>
       </section>
@@ -392,7 +262,6 @@ const TurnView = memo(
     a.running === b.running &&
     a.sessionRunning === b.sessionRunning &&
     a.forking === b.forking &&
-    a.measure === b.measure &&
     a.spend?.turn === b.spend?.turn &&
     a.spend?.total === b.spend?.total,
 );
@@ -447,6 +316,7 @@ export function EarlierRows({
             opening={opening}
             running={false}
             forking={forking}
+            whole
           />
           <div
             role="separator"

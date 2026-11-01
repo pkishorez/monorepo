@@ -121,6 +121,7 @@ const run = async (turns: number): Promise<Result> => {
     );
     result['open: drawn (ms)'] = open.draw;
     result['open: long tasks until quiet (ms)'] = open.busy;
+    result['open: every block drawn (ms)'] = open.whole;
     result['open: longest task after (ms)'] = open.longest;
     result['open: DOM nodes'] = open.nodes;
     result['open: JS heap (MB)'] = await heap(cdp);
@@ -138,6 +139,7 @@ const run = async (turns: number): Promise<Result> => {
     ).length;
     result['scroll: frames'] = scroll.frames.length;
     result['scroll: jumped on screen (px)'] = scroll.jumped;
+    result['scroll: frames showing a stand-in'] = scroll.blank;
     await close();
   }
   // Short turns draw shorter than they stood in, so the browser clamps the
@@ -155,7 +157,7 @@ const run = async (turns: number): Promise<Result> => {
     // Scrolled while turns were still to be drawn, or there is nothing to tell.
     result[`drift ${name}: moved on screen (px)`] =
       drift.waiting === 0 ? 0 : Math.abs(drift.moved);
-    result[`drift ${name}: still standing in (turns)`] = drift.left;
+    result[`drift ${name}: still standing in (blocks)`] = drift.left;
     await close();
   }
   {

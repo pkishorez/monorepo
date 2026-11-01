@@ -67,6 +67,9 @@
     "src/device/account/connections/layout/pages/project/new-session": [
       "src/device/account/connections/layout/pages/project/draft"
     ],
+    "src/device/account/connections/layout/pages/project/session/transcript": [
+      "src/device/account/connections/layout/pages/project/session/scroller"
+    ],
     "src/device/account/connections/layout/pages/project/session/transcript/tool": [
       "src/device/account/connections/layout/pages/project/session/transcript/words",
       "src/device/account/connections/layout/pages/project/session/transcript/turns/rows"

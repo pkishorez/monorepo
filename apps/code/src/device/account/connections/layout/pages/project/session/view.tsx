@@ -1,8 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { flushSync } from 'react-dom';
 import { View, useChild, useChildren } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
-import { useElementScrollRestoration } from '@kestack/kabuki/routing/router';
 import type { Session } from '@kestack/connect/code';
 import { ArrowDownIcon, GitForkIcon, TriangleAlertIcon } from 'lucide-react';
 import { Button } from '@kestack/web-platform/ui/components/button';
@@ -21,7 +19,12 @@ import {
 import { agentName } from '../../../../../../../ui/labels/agent/index.ts';
 import { Draft } from '../draft/index.ts';
 import { readyOf, SessionLive } from './actor.ts';
-import { useFollow, useScrollKeys } from './follow.ts';
+import {
+  Scrolled,
+  type Scroller,
+  useScrollKeys,
+  useScroller,
+} from './scroller/index.ts';
 import { Question } from './question/index.ts';
 import {
   EarlierRows,
@@ -96,9 +99,8 @@ export const SessionView = View.make(
         [messages?.rows],
       ),
     );
-    const kept = useElementScrollRestoration({ id: TRANSCRIPT });
-    const follow = useFollow(props.params.sessionId, kept);
-    const { scroller, content, shift } = follow;
+    const scroll = useScroller(props.params.sessionId, TRANSCRIPT);
+    const { scroller, content } = scroll;
     const page = keys.useFocusSpot('content', 'page', { default: true });
     const offline = useOffline(connectionId);
     // The same while the transcript is drawn, folds opening and shutting
@@ -109,8 +111,6 @@ export const SessionView = View.make(
       [send],
     );
     const opening = useOpening(model.open, toggle);
-    // The session whose turns are all drawn, as before going to its top.
-    const [whole, setWhole] = useState<string | null>(null);
     const forking = useMemo(
       () => ({
         fork: (afterTurnId: string) => send({ _tag: 'ForkAsked', afterTurnId }),
@@ -139,9 +139,7 @@ export const SessionView = View.make(
       (messages?.rows.length === 0 && messages.neverSynced.length > 0);
     const stop = useCallback(() => send({ _tag: 'StopAsked' }), [send]);
     const canStop = running && !model.stopping && offline === null;
-    useScrollKeys(follow, {
-      beforeTop: () => flushSync(() => setWhole(props.params.sessionId)),
-    });
+    useScrollKeys(scroll);
     keys.useAction('content.stop', stop, { enabled: canStop });
     const stopKeys = useBound('content.stop');
     // While its agent asks, the Question Panel stands in for the Draft.
@@ -245,26 +243,25 @@ export const SessionView = View.make(
           // here and never makes the page around it scroll too.
           className={`relative min-h-0 flex-1 overflow-y-auto outline-none select-text [overflow-anchor:none] ${GUTTERED}`}
         >
-          <Transcript
-            key={props.params.sessionId}
-            content={content}
-            shift={shift}
-            gradual={kept?.scrollY == null}
-            whole={whole === props.params.sessionId}
-            connectionId={connectionId}
-            session={session}
-            original={original}
-            missing={missing}
-            reading={reading}
-            waiting={waiting}
-            earlier={earlier}
-            rows={rows}
-            opening={opening}
-            forking={forking}
-            running={running}
-            ready={messages?.status === 'ready'}
-            offline={offline}
-          />
+          <Scrolled value={scroll.blocks}>
+            <Transcript
+              key={props.params.sessionId}
+              content={content}
+              connectionId={connectionId}
+              session={session}
+              original={original}
+              missing={missing}
+              reading={reading}
+              waiting={waiting}
+              earlier={earlier}
+              rows={rows}
+              opening={opening}
+              forking={forking}
+              running={running}
+              ready={messages?.status === 'ready'}
+              offline={offline}
+            />
+          </Scrolled>
         </div>
         <div
           ref={setSideQuestion}
@@ -280,8 +277,8 @@ export const SessionView = View.make(
             className="relative shrink-0 bg-background pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent has-[[data-slot=draft][data-touch]]:pb-0"
           >
             <ToBottom
-              shown={follow.away && !side && !expanded}
-              onClick={() => follow.holdOn(true)}
+              shown={scroll.away && !side && !expanded}
+              onClick={() => scroll.holdOn(true)}
             />
             <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 has-[[data-slot=draft][data-touch]]:px-0">
               <Question.Around value={around}>
@@ -374,9 +371,6 @@ function ToBottom({
  */
 const Transcript = memo(function Transcript({
   content,
-  shift,
-  gradual,
-  whole,
   connectionId,
   session,
   original,
@@ -391,12 +385,7 @@ const Transcript = memo(function Transcript({
   ready,
   offline,
 }: {
-  readonly content: ReturnType<typeof useFollow>['content'];
-  readonly shift: (by: number) => void;
-  /** Opens on its last turns, and draws those above after: not when going back to where it was scrolled. */
-  readonly gradual: boolean;
-  /** Every turn drawn now. */
-  readonly whole: boolean;
+  readonly content: Scroller['content'];
   readonly connectionId: string;
   readonly session: Session | undefined;
   /** The title of the session it was forked from; null until its chain is read. */
@@ -463,9 +452,6 @@ const Transcript = memo(function Transcript({
             running={running}
             forking={forking}
             forked={session?.forkedFrom != null}
-            gradual={gradual}
-            whole={whole}
-            shift={shift}
           />
         </>
       )}

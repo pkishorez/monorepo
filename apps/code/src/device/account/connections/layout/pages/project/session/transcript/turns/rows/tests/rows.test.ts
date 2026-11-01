@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Message, Part } from '@kestack/connect/code';
-import { kept, thread } from '../rows.ts';
+import { kept, thread, threaded, UNTHREADED } from '../rows.ts';
 import { keptTurns, turnsOf } from '../../turns.ts';
 
 let n = 0;
@@ -406,5 +406,82 @@ describe('threaded again', () => {
     const after = keptTurns(before, turnsOf(rows));
     expect(after[0]).toBe(before[0]);
     expect(after[1]).not.toBe(before[1]);
+  });
+});
+
+describe('threaded', () => {
+  const chunk = (streamId: string, text: string): Part => ({
+    type: 'textChunk',
+    streamId,
+    channel: 'text',
+    text,
+  });
+  const session = () => [
+    message([{ type: 'turnStarted', text: 'one', steered: false }], {
+      role: 'user',
+    }),
+    message([call('a')]),
+    message([result('a')], { role: 'tool' }),
+    message([{ type: 'turnEnded', status: 'done' }]),
+    message([{ type: 'turnStarted', text: 'two', steered: false }], {
+      role: 'user',
+      turnId: 't2',
+    }),
+    message([call('b', 'subagent')], { turnId: 't2' }),
+    message([call('c')], { agentId: 'b', turnId: 't2' }),
+    message([{ type: 'turnStarted', text: 'and', steered: true }], {
+      role: 'user',
+      turnId: 't2',
+    }),
+    message([chunk('s', 'Half')], { turnId: 't2' }),
+  ];
+
+  it('threads a session a turn at a time as thread does it whole', () => {
+    const messages = session();
+    expect(threaded(UNTHREADED, messages).rows).toEqual(thread(messages));
+    expect(threaded(UNTHREADED, messages.toReversed()).rows).toEqual(
+      thread(messages),
+    );
+  });
+
+  it('says a turn cut off before its end, with a turn after it, is no longer writing, as thread does', () => {
+    const cut = [
+      message([{ type: 'turnStarted', text: 'one', steered: false }], {
+        role: 'user',
+      }),
+      message([chunk('s', 'Half')]),
+    ];
+    const before = threaded(UNTHREADED, cut);
+    expect(before.rows.at(-1)).toMatchObject({ writing: true });
+    const messages = [
+      ...cut,
+      message([{ type: 'turnStarted', text: 'two', steered: false }], {
+        role: 'user',
+        turnId: 't2',
+      }),
+    ];
+    const after = threaded(before, messages);
+    expect(after.rows).toEqual(thread(messages));
+    expect(after.rows[1]).toMatchObject({ writing: false });
+  });
+
+  it('is the same when no turn changed', () => {
+    const messages = session();
+    const before = threaded(UNTHREADED, messages);
+    expect(threaded(before, [...messages])).toBe(before);
+  });
+
+  it('threads again only the turn a new Message is in, keeping its rows that did not change', () => {
+    const messages = session();
+    const before = threaded(UNTHREADED, messages);
+    const after = threaded(before, [
+      ...messages,
+      message([chunk('s', ' done.')], { turnId: 't2' }),
+    ]);
+    expect(after.turns.get('t1')).toBe(before.turns.get('t1'));
+    const changed = after.rows.filter((row, at) => row !== before.rows[at]);
+    expect(changed.map((row) => row.kind === 'text' && row.text)).toEqual([
+      'Half done.',
+    ]);
   });
 });

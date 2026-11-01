@@ -26,6 +26,13 @@ import type { Message, Part, Usage } from '@kestack/connect/code';
  *   chunks of one stream join, in order, into one row where the first one
  *   is. It is being written while its turn runs and its agent has said
  *   nothing since; a stopped turn keeps what it got.
+ *
+ * Nothing pairs Messages of two turns, so a session is threaded a turn at
+ * a time (`threaded`): a turn whose Messages did not change, and that is
+ * still the last or still not, keeps its rows as they were, and words
+ * streaming into the last turn thread only that turn, however long the
+ * session. A turn with turns after it says so (`followed`): its main
+ * agent has said more since, so none of its words are still arriving.
  */
 
 type Of<T extends Part['type']> = Extract<Part, { readonly type: T }>;
@@ -133,9 +140,14 @@ const inOrder = (messages: ReadonlyArray<Message>) => {
   return messages;
 };
 
-/** Every row of the main agent, oldest first, each subagent nested in its call. */
+/**
+ * Every row of the main agent, oldest first, each subagent nested in its
+ * call. `followed`: Messages of later turns follow these, so the main
+ * agent has said more since any stream here.
+ */
 export const thread = (
   messages: ReadonlyArray<Message>,
+  followed = false,
 ): ReadonlyArray<Row> => {
   const sorted = inOrder(messages);
   const results = new Map<string, Of<'toolResult'>>();
@@ -199,7 +211,10 @@ export const thread = (
     agentId: string | null,
     turnId: string,
     last: string,
-  ): boolean => !ended.has(turnId) && byAgent.get(agentId)?.at(-1)?.id === last;
+  ): boolean =>
+    !ended.has(turnId) &&
+    !(followed && agentId === null) &&
+    byAgent.get(agentId)?.at(-1)?.id === last;
 
   const rowsOf = (agentId: string | null, seen: Set<string>): Row[] => {
     const drawn = new Set<string>();
@@ -379,4 +394,60 @@ export const kept = (
     return next;
   });
   return unchanged ? before : rows;
+};
+
+interface ThreadedTurn {
+  readonly messages: ReadonlyArray<Message>;
+  /** Whether later turns follow it. */
+  readonly followed: boolean;
+  readonly rows: ReadonlyArray<Row>;
+}
+
+/** A session threaded: its rows, and each turn's Messages and rows, by its id, in order. */
+export interface Threaded {
+  readonly rows: ReadonlyArray<Row>;
+  readonly turns: ReadonlyMap<string, ThreadedTurn>;
+}
+
+/** Nothing threaded yet. */
+export const UNTHREADED: Threaded = { rows: NONE, turns: new Map() };
+
+/**
+ * A session's Messages threaded again from what was threaded `before`:
+ * only the turns whose Messages changed, their rows `kept`; the same
+ * `Threaded` when no turn changed.
+ */
+export const threaded = (
+  before: Threaded,
+  messages: ReadonlyArray<Message>,
+): Threaded => {
+  const byTurn = new Map<string, Message[]>();
+  for (const message of inOrder(messages)) {
+    const list = byTurn.get(message.turnId);
+    if (list) list.push(message);
+    else byTurn.set(message.turnId, [message]);
+  }
+  let changed = byTurn.size !== before.turns.size;
+  const turns = new Map<string, ThreadedTurn>();
+  let left = byTurn.size;
+  for (const [turnId, list] of byTurn) {
+    const followed = --left > 0;
+    const was = before.turns.get(turnId);
+    if (
+      was !== undefined &&
+      was.followed === followed &&
+      sameItems(was.messages, list)
+    ) {
+      turns.set(turnId, was);
+      continue;
+    }
+    changed = true;
+    turns.set(turnId, {
+      messages: list,
+      followed,
+      rows: kept(was?.rows ?? NONE, thread(list, followed)),
+    });
+  }
+  if (!changed) return before;
+  return { rows: [...turns.values()].flatMap(({ rows }) => rows), turns };
 };

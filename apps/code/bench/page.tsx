@@ -3,7 +3,10 @@ import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { AppShell, useAppShell } from '@kestack/web-platform/recipes/frame';
-import { useFollow } from '../src/device/account/connections/layout/pages/project/session/follow.ts';
+import {
+  Scrolled,
+  useScroller,
+} from '../src/device/account/connections/layout/pages/project/session/scroller/index.ts';
 import {
   Rows,
   useOpening,
@@ -50,7 +53,7 @@ function Session({
   setEntries = set;
   const [open, setOpen] = useState<ReadonlyArray<string>>([]);
   const rows = useRows(useMemo(() => rowsOf.map(({ row }) => row), [rowsOf]));
-  const follow = useFollow('bench', undefined);
+  const scroll = useScroller('bench', 'transcript');
   const toggle = useCallback(
     (id: string) =>
       setOpen((open) =>
@@ -64,23 +67,23 @@ function Session({
     <Shell>
       <div className="relative flex h-full min-h-0 flex-col">
         <div
-          ref={follow.scroller}
+          ref={scroll.scroller}
           id="scroller"
           className="relative min-h-0 flex-1 overflow-y-auto outline-none select-text [overflow-anchor:none]"
         >
-          <div
-            ref={follow.content}
-            className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-4 pt-8 pb-10 sm:px-6"
-          >
-            <Rows
-              rows={rows}
-              opening={opening}
-              running={running}
-              forking={forking}
-              gradual
-              shift={follow.shift}
-            />
-          </div>
+          <Scrolled value={scroll.blocks}>
+            <div
+              ref={scroll.content}
+              className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-4 pt-8 pb-10 sm:px-6"
+            >
+              <Rows
+                rows={rows}
+                opening={opening}
+                running={running}
+                forking={forking}
+              />
+            </div>
+          </Scrolled>
         </div>
       </div>
     </Shell>
@@ -124,6 +127,21 @@ function Toggle() {
 
 const scroller = () => document.getElementById('scroller')!;
 
+/** The block at the top of the view: the first not wholly above it. */
+const topBlock = (element: HTMLElement) => {
+  const view = element.getBoundingClientRect().top;
+  const blocks = element.querySelectorAll<HTMLElement>('[data-block]');
+  let low = 0;
+  let high = blocks.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if (blocks[middle]!.getBoundingClientRect().bottom <= view)
+      low = middle + 1;
+    else high = middle;
+  }
+  return blocks[low] ?? null;
+};
+
 /** Runs a change, and times it drawn and laid out. */
 const timed = (change: () => void) => {
   const start = performance.now();
@@ -161,6 +179,17 @@ const settled = async (quiet = 1500, limit = 20_000) => {
   return longTasks - before;
 };
 
+/** Waits until no block stands in any more: how long it took, in ms. */
+const whole = async (limit = 60_000) => {
+  const start = performance.now();
+  while (
+    document.querySelector('#scroller [data-block][aria-hidden]') !== null &&
+    performance.now() - start < limit
+  )
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  return performance.now() - start;
+};
+
 const mount = () =>
   timed(() => {
     root = createRoot(document.getElementById('root')!);
@@ -174,20 +203,24 @@ declare global {
 }
 
 const bench = {
-  /** Opens a session of `turns` turns: how long until drawn, and its long tasks until quiet. */
+  /** Opens a session of `turns` turns: how long until drawn, its long tasks until quiet, and how long until every block is drawn. */
   open: async (turns: number, live = false, shell = false) => {
     running = live;
     shelled = shell;
     made = sessionOf({ turns, running: live });
     entries = made.messages.map((row) => ({ id: row.id, row }));
     longest = 0;
+    const start = performance.now();
     const draw = mount();
     since = performance.now();
     await frame();
     const busy = await settled();
+    await whole();
+    const drawnWhole = performance.now() - start;
     return {
       draw,
       busy,
+      whole: drawnWhole,
       longest,
       nodes: document.getElementsByTagName('*').length,
       messages: entries.length,
@@ -201,6 +234,7 @@ const bench = {
     since = performance.now();
     await frame();
     const busy = await settled();
+    await whole();
     return { draw, busy, longest };
   },
   /** `count` more chunks of the answer still arriving: how long each took to draw. */
@@ -241,21 +275,21 @@ const bench = {
   },
   /**
    * Scrolls from the bottom to the top a step a frame: each frame's length,
-   * and how far the turn at the top of the view moved on the screen other
-   * than by the step, in all, as turns above it were laid out.
+   * how far the turn at the top of the view moved on the screen other than
+   * by the step, in all, as turns above it were laid out, and how many
+   * frames showed a block still standing in.
    */
   scroll: async (step: number) => {
     const element = scroller();
     await settled(500);
     const frames: number[] = [];
     let jumped = 0;
+    let blank = 0;
     let last = await frame();
     // At most a few thousand frames, however tall it is.
     for (let at = 0; element.scrollTop > 0 && at < 5000; at++) {
-      const view = element.getBoundingClientRect().top;
-      const turn = [
-        ...element.querySelectorAll<HTMLElement>('section[data-turn]'),
-      ].find((each) => each.getBoundingClientRect().bottom > view);
+      const view = element.getBoundingClientRect();
+      const turn = topBlock(element);
       const before = turn?.getBoundingClientRect().top ?? 0;
       const by = Math.min(step, element.scrollTop);
       // A reader's own scroll, so the transcript stops following.
@@ -266,9 +300,19 @@ const bench = {
       last = now;
       if (turn?.isConnected)
         jumped += Math.abs(turn.getBoundingClientRect().top - before - by);
+      // A stand-in shows where a point down the middle of the view lands on one.
+      for (let y = view.top + 1; y < view.bottom; y += view.height / 8)
+        if (
+          document
+            .elementFromPoint(view.left + view.width / 2, y)
+            ?.closest('[data-block][aria-hidden]')
+        ) {
+          blank++;
+          break;
+        }
     }
     const busy = await settled(500);
-    return { frames, busy, jumped };
+    return { frames, busy, jumped, blank };
   },
   /**
    * Opens a session and, while the turns above are still being drawn,
@@ -285,19 +329,16 @@ const bench = {
     element.dispatchEvent(new WheelEvent('wheel', { deltaY: -1 }));
     element.scrollTop -= element.scrollHeight * by;
     await frame();
-    const view = element.getBoundingClientRect();
-    const at = document
-      .elementFromPoint(view.left + view.width / 2, view.top + 4)
-      ?.closest<HTMLElement>('section[data-turn]');
-    const id = at?.dataset.turn;
+    const id = topBlock(element)?.dataset.block;
     const top = () =>
       element
-        .querySelector(`section[data-turn="${id}"]`)!
+        .querySelector(`[data-block="${CSS.escape(id ?? '')}"]`)!
         .getBoundingClientRect().top;
     const before = top();
     const standing = () =>
-      element.querySelectorAll('section[data-turn][aria-hidden]').length;
+      element.querySelectorAll('[data-block][aria-hidden]').length;
     const waiting = standing();
+    await whole();
     await settled();
     return { moved: top() - before, waiting, left: standing() };
   },
