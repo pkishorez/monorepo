@@ -7,9 +7,11 @@ import {
   line,
   segment,
   stroke,
+  node,
+  ripples,
+  sec,
 } from '../pen/index.ts';
 import type { Cloud, Label, Motion, Path, V3 } from '../pen/index.ts';
-import { node, ring, sec } from './beats.ts';
 import { marker, markerAt } from './marker.ts';
 import type { Place } from './marker.ts';
 
@@ -88,7 +90,7 @@ export function rewind(c: Cloud): void {
         k > BACK_TO ? LATER : undefined,
       );
   });
-  ring(c, NEWEST, 0.02, { at: 8.3 });
+  ripples(c, NEWEST, 0.02, { at: 8.3 });
 
   // The branch, from the commit stepped back to: up the curve, then
   // along to the first new commit, drawn at one speed.
@@ -109,7 +111,7 @@ export function rewind(c: Cloud): void {
       0.12,
       0,
     ]);
-    ring(c, at, 0.02, { at: k === 0 ? 3 : 4.3 });
+    ripples(c, at, 0.02, { at: k === 0 ? 3 : 4.3 });
   });
 
   // The playhead.

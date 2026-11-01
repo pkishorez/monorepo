@@ -12,15 +12,28 @@ import { Kind, STORY, TIMING } from './shapes/index.ts';
 const f = (n: number) => n.toFixed(1);
 const f3 = (n: number) => n.toFixed(3);
 
+/**
+ * The one colour the field has: vermilion, for whatever moves or reacts,
+ * a Message, a pop, its ring, light running down a line. Everything else
+ * is grey, so the eye goes where things happen. Deep on paper; in the
+ * dark, where points add up towards white, deeper still.
+ */
+const ACCENT = { ink: [0.82, 0.25, 0.12], light: [1, 0.36, 0.18] } as const;
+const v3 = ([r, g, b]: readonly number[]) =>
+  `vec3(${r!.toFixed(3)}, ${g!.toFixed(3)}, ${b!.toFixed(3)})`;
+
 /** Colour is premultiplied, and its alpha always covers its colour, so
  * what the canvas holds is a picture every browser shows the same way. In
  * the dark the painter blends it additively, so light adds; in the light,
- * it is ink laid over paper. */
+ * it is ink laid over paper. `signal`, 0..1, is how much of it is the
+ * accent. */
 const COLOUR = /* glsl */ `
-vec4 colour(float alpha, vec3 tint) {
+vec4 colour(float alpha, vec3 tint, float signal) {
   vec3 light = vec3(0.97) * tint;
-  vec3 ink = vec3(0.075) + (tint - vec3(1.0)) * 0.4;
-  vec3 c = mix(ink, light, uDark);
+  // Warm graphite, printed on the paper rather than pasted on it.
+  vec3 ink = vec3(0.1, 0.085, 0.07) + (tint - vec3(1.0)) * 0.4;
+  vec3 accent = mix(${v3(ACCENT.ink)}, ${v3(ACCENT.light)}, uDark);
+  vec3 c = mix(mix(ink, light, uDark), accent, clamp(signal, 0.0, 1.0));
   return vec4(c * alpha, alpha * max(1.0, max(c.r, max(c.g, c.b))));
 }
 `;
@@ -108,8 +121,9 @@ float window(float loop, float start, float len, float soft) {
   return smoothstep(0.0, soft, x) * (1.0 - smoothstep(len - soft, len, x));
 }
 
-// Moves a point of a formed shape as its Motion says; may change brightness.
-void motion(inout vec3 p, inout float bright, vec4 aux, float seed) {
+// Moves a point of a formed shape as its Motion says; may change its
+// brightness, and say how much of it is signal, drawn in the accent.
+void motion(inout vec3 p, inout float bright, inout float signal, vec4 aux, float seed) {
   float kind = floor(aux.x);
   float phase = fract(aux.x);
   float t = uTime;
@@ -151,10 +165,12 @@ void motion(inout vec3 p, inout float bright, vec4 aux, float seed) {
     float w = aux.w;
     float boost = past < 0.0 ? exp(-past * past / (w * w)) : exp(-past / (w * 3.0));
     bright *= mix(0.85, 0.45 + 3.2 * boost, uMotion);
+    signal = boost * uMotion;
   } else if (kind == ${f(Kind.arrive)}) {
     float since = fract(t * aux.z + phase - aux.y);
     float flare = exp(-since / aux.w) * smoothstep(0.0, 0.01, since);
     bright *= mix(1.0, 0.8 + 2.2 * flare, uMotion);
+    signal = flare * uMotion;
   } else if (kind == ${f(Kind.travel)} || kind == ${f(Kind.glide)}) {
     // As travelled in shapes/pen/clock.ts: a Message leaves fast and
     // slows into where it lands; a marker eases out and brakes in.
@@ -168,6 +184,7 @@ void motion(inout vec3 p, inout float bright, vec4 aux, float seed) {
     p.xy += aux.yz * s;
     if (kind == ${f(Kind.travel)}) p.y += aux.y * 0.3 * sin(PI * s);
     bright *= on;
+    signal = 1.0;
   } else if (kind == ${f(Kind.gather)}) {
     // As gathered in shapes/pen/clock.ts: in fast from all round, a touch
     // past its place and back; out quicker, accelerating away.
@@ -185,8 +202,10 @@ void motion(inout vec3 p, inout float bright, vec4 aux, float seed) {
     float repeats = floor(aux.w);
     float since = mod(fract(story - phase), 1.0 / repeats) * ${f(STORY)};
     float e = swell(since) * uMotion;
-    p.xy = aux.yz + (p.xy - aux.yz) * (1.0 + fract(aux.w) * e);
-    bright *= 1.0 + 1.8 * e;
+    // Ink cannot glow on paper: there it swells further and darkens less.
+    p.xy = aux.yz + (p.xy - aux.yz) * (1.0 + fract(aux.w) * mix(1.35, 1.0, uDark) * e);
+    bright *= 1.0 + mix(0.6, 1.8, uDark) * e;
+    signal = e;
   } else if (kind == ${f(Kind.ripple)}) {
     // A ring that runs out from its centre and fades, as a pop goes off.
     float repeats = floor(aux.w);
@@ -194,6 +213,7 @@ void motion(inout vec3 p, inout float bright, vec4 aux, float seed) {
     float u = since / ${f3(TIMING.ripple)};
     p.xy = aux.yz + (p.xy - aux.yz) * (1.0 + fract(aux.w) * 4.0 * outCubic(min(u, 1.0)));
     bright *= u < 1.0 ? (1.0 - u) * (1.0 - u) * smoothstep(0.0, 0.04, u) * uMotion : 0.0;
+    signal = 1.0;
   } else if (kind == ${f(Kind.stream)}) {
     // Light runs the length of a line, easing in and out, repeats times
     // a loop: a bright head, a tail behind it, then gone as it lands.
@@ -204,6 +224,7 @@ void motion(inout vec3 p, inout float bright, vec4 aux, float seed) {
     float head = d < 0.0 ? exp(-d * d / 0.0016) : exp(-d / 0.12);
     head *= 1.0 - smoothstep(aux.z, aux.z + 0.03, x);
     bright *= mix(1.0, 0.45 + 3.0 * head, uMotion);
+    signal = head * uMotion;
   }
 }
 
@@ -228,10 +249,13 @@ void main() {
 
   vec3 la = pa.xyz;
   float ba = pa.w;
-  motion(la, ba, xa, seed);
+  float sa = 0.0;
+  motion(la, ba, sa, xa, seed);
   vec3 lb = pb.xyz;
   float bb = pb.w;
-  motion(lb, bb, xb, seed);
+  float sb = 0.0;
+  motion(lb, bb, sb, xb, seed);
+  float signal = mix(sa, sb, m);
   vec3 ra = uTurnA * la;
   vec3 rb = uTurnB * lb;
   vec3 w = mix(uCenterA + ra * uScaleA, uCenterB + rb * uScaleB, m);
@@ -283,12 +307,15 @@ void main() {
   if (wv < 0.3) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 
   float fade = mix(0.5, 1.12, smoothstep(-1.0, 1.0, depth));
-  float size = uSize * (uDistance / wv) * (0.7 + 0.3 * min(bright, 3.0));
+  // On paper, points a little larger and softer, so a line reads as a
+  // stroke and not as grain, and faint ones lifted so they hold on white.
+  float size = uSize * (uDistance / wv) * (0.7 + 0.3 * min(bright, 3.0)) * mix(1.25, 1.0, uDark);
   // Below a pixel a point flickers: keep it a pixel, and fainter instead.
   float sub = clamp(size, 0.0, 1.0);
   gl_PointSize = clamp(size, 1.0, 40.0);
   float alpha = clamp(0.5 * bright * fade * sub, 0.0, 1.0);
-  vColour = colour(alpha, tint);
+  alpha = mix(pow(alpha, 0.8) * 0.8, alpha, uDark);
+  vColour = colour(alpha, tint, signal);
 }
 `;
 
@@ -331,7 +358,7 @@ void main() {
   vSharp = core ? 1.5 : bloom ? 3.0 : 4.5;
   vCore = core ? 1.0 : 0.0;
   gl_PointSize = size * uSize * persp;
-  vColour = colour(alpha * uStrength, vec3(1.0));
+  vColour = colour(alpha * uStrength, vec3(1.0), 0.0);
 }
 `;
 
@@ -391,7 +418,7 @@ void main() {
   gl_Position = vec4((here.xy / here.w + offset) * here.w, 0.0, here.w);
   vAcross = side;
   float alpha = pow(1.0 - age, 1.3) * mix(0.9, 0.85, uDark);
-  vColour = colour(alpha * uStrength, vec3(1.0));
+  vColour = colour(alpha * uStrength, vec3(1.0), 0.0);
 }
 `;
 

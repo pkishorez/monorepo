@@ -36,3 +36,5 @@ export {
   travelled,
 } from './clock.ts';
 export type { Clock, Label } from './clock.ts';
+export { WAIT, message, node, ripples, sec } from './beats.ts';
+export type { Pops } from './beats.ts';

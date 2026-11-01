@@ -1,6 +1,13 @@
-import { Kind, gathered, line } from '../pen/index.ts';
+import {
+  Kind,
+  gathered,
+  line,
+  WAIT,
+  message,
+  node,
+  sec,
+} from '../pen/index.ts';
 import type { Cloud, Label, Motion, V3 } from '../pen/index.ts';
-import { WAIT, message, node, sec } from './beats.ts';
 
 /*
  * compose: Actors made of Actors. App holds Session, Cart and Search, each

@@ -6,8 +6,14 @@ import {
   card,
   curtain,
   compact,
+  backdrop,
   ending,
+  GRAIN,
+  POOL,
+  grain,
+  grid,
   halves,
+  pool,
   opening,
   rise,
   stretch,
@@ -26,6 +32,7 @@ import { progress } from './scroll.ts';
 import { smoothScroll } from './smooth.ts';
 import { DISTANCE, scene } from './stage.ts';
 import { formedOf, labelLayer } from './labels.ts';
+import { lookOf } from './shapes/index.ts';
 import type { Baked } from './shapes/index.ts';
 import { watchTheme } from './theme.ts';
 
@@ -57,13 +64,23 @@ export function Field({ follower }: { readonly follower: boolean }) {
     // back when it goes, so moving between pages leaves nothing behind.
     const el = stage.current;
     if (!el) return;
+    const paper = document.createElement('div');
+    paper.className = backdrop;
+    for (const className of [pool, grain, grid]) {
+      const layer = document.createElement('div');
+      layer.className = className;
+      if (className === grain) layer.style.backgroundImage = GRAIN;
+      if (className === pool) layer.style.backgroundImage = POOL;
+      paper.appendChild(layer);
+    }
+    el.appendChild(paper);
     const canvas = document.createElement('canvas');
     canvas.className =
-      'block h-full w-full opacity-0 transition-opacity duration-700 ease-out';
+      'relative block h-full w-full opacity-0 transition-opacity duration-700 ease-out';
     el.appendChild(canvas);
     // The scroll glides first, so each frame the field reads where it is.
     const unsmooth = smoothScroll();
-    const stop = run(canvas, () => journey.current, [
+    const stop = run(canvas, paper, () => journey.current, [
       veil.current,
       edge.current,
     ]);
@@ -71,6 +88,7 @@ export function Field({ follower }: { readonly follower: boolean }) {
       unsmooth();
       stop();
       canvas.remove();
+      paper.remove();
     };
   }, []);
   return (
@@ -83,6 +101,7 @@ export function Field({ follower }: { readonly follower: boolean }) {
       <div
         ref={stage}
         aria-hidden
+        data-field-stage
         className="pointer-events-none fixed inset-x-0 top-0 z-[3] h-lvh w-full lg:z-0"
       />
     </>
@@ -138,8 +157,19 @@ export function Stop({
   );
 }
 
+/** Sets each of an element's styles that changed, and no others. */
+const restyle = (
+  el: HTMLElement,
+  styles: ReadonlyArray<readonly [string, string]>,
+) => {
+  for (const [name, value] of styles)
+    if (el.style.getPropertyValue(name) !== value)
+      el.style.setProperty(name, value);
+};
+
 function run(
   canvas: HTMLCanvasElement,
+  paper: HTMLElement,
   journey: () => boolean,
   veils: ReadonlyArray<HTMLElement | null>,
 ): () => void {
@@ -394,6 +424,23 @@ function run(
       ribbon: tail.ribbon,
       ribbonCount: tail.ribbonCount,
     });
+    // What the shape sits on: round where it is now, as large as it, as
+    // much as its Look asks for.
+    const [cx, cy] = [
+      a.center[0] + (b.center[0] - a.center[0]) * blend,
+      a.center[1] + (b.center[1] - a.center[1]) * blend,
+    ];
+    const scale = a.scale + (b.scale - a.scale) * blend;
+    const under =
+      lookOf(shapes[0]).grid +
+      (lookOf(shapes[1]).grid - lookOf(shapes[0]).grid) * blend;
+    restyle(paper, [
+      ['--grid-x', `${(((cx / aspect + 1) / 2) * cssWidth).toFixed(1)}px`],
+      ['--grid-y', `${(((1 - cy) / 2) * cssHeight).toFixed(1)}px`],
+      ['--grid-r', `${(scale * cssHeight * 0.85).toFixed(1)}px`],
+      ['opacity', shown ? under.toFixed(3) : '0'],
+    ]);
+
     // The words, pinned to the shapes by the same transform.
     const [leaving, reaching] = formedOf(blend);
     words.draw({

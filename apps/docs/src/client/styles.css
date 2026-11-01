@@ -2,6 +2,59 @@
 @import '@kestack/web-platform/ui/theme/font-inter.css';
 @import '@kestack/devtools-kabuki/inspector/sources.css';
 
+/*
+ * The light theme on paper, not on white: the faintest warm tone, with its
+ * muted ground and borders warmed to match. Cards stay white, so they lift
+ * off it. Dark is left as it is.
+ */
+:root:not(.dark) {
+  --background: oklch(0.982 0.006 85);
+  --muted: oklch(0.96 0.007 85);
+  --border: oklch(0.912 0.008 85);
+}
+/* The Web Platform's theme writes a plain white straight onto <html> and
+   <body> (ui/theme/document.ts), so only an important rule takes them. */
+:root:not(.dark),
+:root:not(.dark) body {
+  background-color: var(--background) !important;
+}
+
+/*
+ * The field's accent, for whatever moves or reacts, the same vermilion
+ * field/shaders.ts draws in (ACCENT); the dots of the grid the shapes sit
+ * on, clear on paper and faint in the dark; the pool of light under them;
+ * and how much grain the paper has.
+ */
+:root {
+  --field-accent: rgb(209 64 31);
+  --field-grid: oklch(0.3 0.02 60 / 0.3);
+  --field-light: oklch(0.995 0.004 85);
+  --field-grain: 0.4;
+  /* Behind the words pinned to a shape: the lamp's light, so they sit in it. */
+  --field-label: color-mix(in oklab, var(--field-light) 85%, transparent);
+}
+
+/*
+ * A page told over the field, in the light, is a dim room with a lamp
+ * over each shape: its ground a warm stone, darker than the paper, so the
+ * light under the shape (--field-light) stands out from it. Its cards are
+ * a touch lighter than the stone. Set from the stage being on the page,
+ * so it is right from the first paint.
+ */
+:root:not(.dark):has([data-field-stage]) {
+  --background: oklch(0.922 0.01 78);
+  --muted: oklch(0.898 0.011 78);
+  --border: oklch(0.855 0.013 78);
+  --card: oklch(0.955 0.007 82);
+}
+.dark {
+  --field-label: color-mix(in oklab, var(--background) 80%, transparent);
+  --field-accent: rgb(255 120 82);
+  --field-grid: oklch(1 0 0 / 0.06);
+  --field-light: oklch(1 0 0 / 0.025);
+  --field-grain: 0;
+}
+
 @layer base {
   body {
     @apply bg-background font-sans text-foreground antialiased;

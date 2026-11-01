@@ -1,17 +1,10 @@
-import {
-  Kind,
-  STORY,
-  ball,
-  circle,
-  moving,
-  popping,
-  rippling,
-  stroke,
-} from '../pen/index.ts';
-import type { Cloud, Motion, V3 } from '../pen/index.ts';
+import { Kind, STORY } from './cloud.ts';
+import type { Cloud, Motion, V3 } from './cloud.ts';
+import { moving, popping, rippling } from './clock.ts';
+import { ball, circle, stroke } from './strokes.ts';
 
 /*
- * The beats every kabuki diagram is told in, so each reads as one chain:
+ * The beats the field's diagrams are told in, so each reads as one chain:
  * a Message flies, it lands, and what it lands on pops at once, a ring
  * running out from it; and the next thing starts as the pop settles.
  */
@@ -46,11 +39,11 @@ export function node(
     bright,
     pops ? popping(sec(pops.at), at, repeats, 0.6) : motion,
   );
-  if (pops) ring(c, at, 0.03 * size, pops);
+  if (pops) ripples(c, at, 0.03 * size, pops);
 }
 
 /** A ring running out from `at` when it pops. */
-export function ring(c: Cloud, at: V3, r: number, pops: Pops): void {
+export function ripples(c: Cloud, at: V3, r: number, pops: Pops): void {
   const ripple = rippling(sec(pops.at), at, pops.repeats ?? 1, 0.6);
   stroke(c, c.n * 0.012, circle(at, r, 'xy'), 0.9, () => ripple);
 }
