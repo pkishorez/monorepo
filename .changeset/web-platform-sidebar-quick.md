@@ -1,6 +1,5 @@
 ---
 '@kestack/web-platform': patch
-'code': patch
 ---
 
-The App Shell's sidebar opens and shuts smoothly beside a long page. Its values no longer pass down to the page, so moving it restyles only the sidebar, the page and the page's dim, not every element in the page; the theme registers them as not inherited (`ui/theme/css/frame.css`, in `global.css`). The open state is `data-sidebar` on the shell and each of those, in place of `data-state`, which other rules read on ancestors, so a change to it restyled the whole page. Dragging the sidebar's edge gains the same.
+The App Shell's sidebar opens and closes smoothly beside a long page, because moving it no longer restyles the whole page. **Breaking** for custom CSS: the shell's open state is `data-sidebar`, not `data-state`. The theme registers the sidebar's values as not inherited in `ui/theme/css/frame.css`, included by `global.css`.

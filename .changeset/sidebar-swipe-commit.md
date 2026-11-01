@@ -2,4 +2,4 @@
 '@kestack/web-platform': patch
 ---
 
-The Sidebar opens or closes once a Swipe, carried by its momentum, travels 30% of its width rather than half, so a relaxed drag does it on a phone.
+The Sidebar now opens or closes when a swipe carries it 30% of its width, not half, so a relaxed drag works on a phone.
