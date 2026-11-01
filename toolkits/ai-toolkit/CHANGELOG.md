@@ -1,5 +1,16 @@
 # @kestack/ai-toolkit
 
+## 0.0.6
+
+### Patch Changes
+
+- [#104](https://github.com/pkishorez/monorepo/pull/104) [`2415978`](https://github.com/pkishorez/monorepo/commit/24159786902051e8ef07399c0f30b26b7212f2b5) Thanks [@kishorenuma](https://github.com/kishorenuma)! - **Fixed:** Claude Code's `open` now waits until Claude Code has initialized, as Codex's already did. A Harness Binary that exits at once fails the `open` with the reason, instead of failing the first Turn.
+
+- [#105](https://github.com/pkishorez/monorepo/pull/105) [`eb52902`](https://github.com/pkishorez/monorepo/commit/eb5290287ce446387bececbce96c5002d41a3165) Thanks [@kishorenuma](https://github.com/kishorenuma)! - Images a tool returns, such as a file the agent reads, now come through whole instead of as `[image]`. A `toolResult` Part carries them in `images` (media type and base64 data), and its `output` is just the text.
+- Updated dependencies [[`85d0632`](https://github.com/pkishorez/monorepo/commit/85d063272beee88e041d0fb0734af2e0a0ceeb68), [`30b99d1`](https://github.com/pkishorez/monorepo/commit/30b99d1a28c00bb614a0a5180d05cb4355720eed), [`daadcde`](https://github.com/pkishorez/monorepo/commit/daadcdebc5f79a7a8b92b4edbb31a6083ff3414a), [`3e336a0`](https://github.com/pkishorez/monorepo/commit/3e336a09571e36f3934f47935f5864690b959497)]:
+  - @kestack/kabuki@0.0.5
+  - @kestack/std-toolkit@0.0.6
+
 ## 0.0.5
 
 ### Patch Changes

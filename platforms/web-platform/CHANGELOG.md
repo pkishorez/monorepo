@@ -1,5 +1,35 @@
 # @kestack/ui-toolkit
 
+## 0.0.6
+
+### Patch Changes
+
+- [#105](https://github.com/pkishorez/monorepo/pull/105) [`b9743d7`](https://github.com/pkishorez/monorepo/commit/b9743d7e3b0940f20c83c1e97f335ff4c61c7a79) Thanks [@kishorenuma](https://github.com/kishorenuma)! - **New:** the Devtools Dock takes `onPhones`. Set it to `false` to hide the corner button and keep devtools closed on phones.
+
+- [#104](https://github.com/pkishorez/monorepo/pull/104) [`0346a01`](https://github.com/pkishorez/monorepo/commit/0346a012e50c4c35fabfc9b7a831f91f1469650a) Thanks [@kishorenuma](https://github.com/kishorenuma)! - The Sidebar now opens or closes when a swipe carries it 30% of its width, not half, so a relaxed drag works on a phone.
+
+- [#106](https://github.com/pkishorez/monorepo/pull/106) [`58b7d35`](https://github.com/pkishorez/monorepo/commit/58b7d354746d54cbea5dcd123ed3f7e7b8cbe321) Thanks [@kishorenuma](https://github.com/kishorenuma)! - Faster viewers.
+
+  - `MarkdownViewer` redraws only when its text or look changes, and no longer rebuilds and re-highlights its code blocks on every draw.
+  - `SourceViewer` shows plain source at its final height until highlighting is done, highlights one source per task, and caches the last few hundred results.
+
+- [`3944cfc`](https://github.com/pkishorez/monorepo/commit/3944cfc821de6202a60dda1b8c9ed40e18ab7de0) Thanks [@pkishorez](https://github.com/pkishorez)! - Markdown and code draw faster. **Breaking** for custom Shiki styles: `--shiki-dark` is gone.
+
+  **New**
+
+  - `MarkdownViewer` parses and draws one top-level block at a time. Streamed text re-parses only the last block.
+  - `MarkdownViewer` takes `block` (wrap each block) and `from` (skip earlier blocks), for drawing long text in parts. `blocksOf` is exported.
+  - `SourceViewer` uses Shiki's JavaScript regex engine, so the ~230 KB WebAssembly file is no longer downloaded.
+  - One highlight pass covers both themes: colours are CSS variables, with light and dark values in `shiki.css`. Highlighting is 2 to 6 times faster.
+
+- [#112](https://github.com/pkishorez/monorepo/pull/112) [`db868c4`](https://github.com/pkishorez/monorepo/commit/db868c49075e09bf97c3e35bee7a335d5eb359fb) Thanks [@kishorenuma](https://github.com/kishorenuma)! - The App Shell's sidebar opens and closes smoothly beside a long page, because moving it no longer restyles the whole page. **Breaking** for custom CSS: the shell's open state is `data-sidebar`, not `data-state`. The theme registers the sidebar's values as not inherited in `ui/theme/css/frame.css`, included by `global.css`.
+- Updated dependencies [[`85d0632`](https://github.com/pkishorez/monorepo/commit/85d063272beee88e041d0fb0734af2e0a0ceeb68), [`30b99d1`](https://github.com/pkishorez/monorepo/commit/30b99d1a28c00bb614a0a5180d05cb4355720eed), [`daadcde`](https://github.com/pkishorez/monorepo/commit/daadcdebc5f79a7a8b92b4edbb31a6083ff3414a), [`3e336a0`](https://github.com/pkishorez/monorepo/commit/3e336a09571e36f3934f47935f5864690b959497)]:
+  - @kestack/kabuki@0.0.5
+  - @kestack/auth-toolkit@0.0.6
+  - laymos@0.0.17
+  - @kestack/use-gesture@0.0.2
+  - @kestack/use-keys@0.0.2
+
 ## 0.0.5
 
 ### Patch Changes
