@@ -7,7 +7,13 @@ import {
   useGesture,
 } from '../../ui/input/index.ts';
 import { SWIPE_DISMISS } from '../touch-layers/index.ts';
-import { MinusIcon, PlusIcon, XIcon } from 'lucide-react';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  MinusIcon,
+  PlusIcon,
+  XIcon,
+} from 'lucide-react';
 import {
   animate,
   motion,
@@ -26,15 +32,22 @@ import {
 import { createPortal } from 'react-dom';
 
 /*
- * An image opened whole: over the page, on a dark backdrop, fitted to the
- * screen, then zoomed and moved about.
+ * An image opened whole: over the page, on a dimmed and blurred backdrop,
+ * fitted inside a margin and framed, so where it ends is plain, then
+ * zoomed and moved about. Opened among others, as the images of one tool
+ * call, it says which of them it is, "2 of 5", and moves to the one before
+ * or after: by a swipe left or right on touch, the image following the
+ * finger and the next sliding in; by the arrows at its sides or the arrow
+ * keys otherwise. Its buttons and count show while it is being used, and
+ * fade once it is left alone.
  *
  * On touch, two fingers pinch it, about the point between them, and move
  * it as they go; a double tap zooms in on where it lands, or back out; one
- * finger moves it while zoomed. Not zoomed, one finger takes it down: it
- * follows the finger and the backdrop fades, and let go past the Touch
+ * finger moves it while zoomed. Not zoomed, one finger takes it up or down:
+ * it follows the finger and the backdrop fades, and let go past the Touch
  * Layers' `SWIPE_DISMISS`, 80px or a flick of 500px/s, it closes; let go
- * short, it springs back. The touches are a Gesture Zone's, as a Drawer's
+ * short, it springs back. Sideways, among others, the same distance or
+ * flick moves to the next one; alone, it only gives a little. The touches are a Gesture Zone's, as a Drawer's
  * are.
  *
  * With a mouse or a trackpad, the wheel or a pinch zooms about the
@@ -64,6 +77,8 @@ const DOUBLE_MS = 300;
 const DOUBLE_PX = 24;
 /** Moved less than this many px, a touch is a tap. */
 const TAP_PX = 8;
+/** Left alone this long, in ms, its buttons and count fade. */
+const IDLE_MS = 2500;
 
 const clamp = (value: number, low: number, high: number) =>
   Math.min(high, Math.max(low, value));
@@ -75,12 +90,30 @@ const clamp = (value: number, low: number, high: number) =>
 export function ImageViewer({
   src,
   onClose,
+  images,
+  onShow,
 }: {
   /** The image shown, or null while none is. */
   readonly src: string | null;
   readonly onClose: () => void;
+  /** Every image it moves between, `src` among them, in order; omitted, it shows `src` alone. */
+  readonly images?: ReadonlyArray<string>;
+  /** Shows another of `images`, as the reader moves to it. */
+  readonly onShow?: (src: string) => void;
 }) {
   const reduced = useReducedMotion() === true;
+  const at = src === null || images === undefined ? -1 : images.indexOf(src);
+  const total = images?.length ?? 0;
+  const among = at >= 0 && total > 1 && onShow !== undefined;
+  // Which side the image shown came in from, as it slides into place.
+  const [from, setFrom] = useState<-1 | 0 | 1>(0);
+  const step = (by: -1 | 1) => {
+    if (!among || images === undefined) return;
+    const next = images[(at + by + total) % total];
+    if (next === undefined) return;
+    setFrom(by);
+    onShow(next);
+  };
   // The image swiped away, sliding off from where the finger left it.
   const [leaving, setLeaving] = useState<Leave | null>(null);
   const swiped = (place: Place) => {
@@ -102,7 +135,15 @@ export function ImageViewer({
           >
             <Dialog.Title className="sr-only">Image</Dialog.Title>
             {src !== null && (
-              <Canvas src={src} onClose={onClose} onSwiped={swiped} />
+              <Canvas
+                key={src}
+                src={src}
+                from={reduced ? 0 : from}
+                count={among ? { at: at + 1, total } : null}
+                onStep={among ? step : null}
+                onClose={onClose}
+                onSwiped={swiped}
+              />
             )}
           </Dialog.Popup>
         </Dialog.Portal>
@@ -194,10 +235,19 @@ type Place = { readonly scale: number; readonly x: number; readonly y: number };
 /** The image on its backdrop, with its buttons: zoomed and moved, or taken away. */
 function Canvas({
   src,
+  from,
+  count,
+  onStep,
   onClose,
   onSwiped,
 }: {
   readonly src: string;
+  /** The side it slides in from: the next one's, the one before's, or none. */
+  readonly from: -1 | 0 | 1;
+  /** Which of the images it is, among more than one. */
+  readonly count: { readonly at: number; readonly total: number } | null;
+  /** Moves to the image before or after; null when it is alone. */
+  readonly onStep: ((by: -1 | 1) => void) | null;
   readonly onClose: () => void;
   /** Swiped away: closed, the image left to slide off from where it is. */
   readonly onSwiped: (place: Place) => void;
@@ -206,7 +256,7 @@ function Canvas({
   const stage = useRef<HTMLDivElement>(null);
   const image = useRef<HTMLImageElement>(null);
   const scale = useMotionValue(1);
-  const x = useMotionValue(0);
+  const x = useMotionValue(from === 0 ? 0 : from * innerWidth * 0.6);
   const y = useMotionValue(0);
   const backdrop = useMotionValue(1);
   // How far it is zoomed, or is going to be once it settles, as said.
@@ -271,6 +321,36 @@ function Canvas({
     scale.get() > 1.01 ? settle({ scale: 1, x: 0, y: 0 }) : zoomTo(DOUBLE, at);
   /** Closed now, the image left to slide off the rest of the way. */
   const dismiss = () => onSwiped(now());
+  /** To the image before or after: this one slides off its way first. */
+  const step = (by: -1 | 1) => {
+    if (onStep === null) return settle();
+    if (reduced) return onStep(by);
+    void animate(x, -by * innerWidth, {
+      type: 'tween',
+      duration: 0.18,
+      ease: [0.4, 0, 1, 1],
+    }).then(() => onStep(by));
+  };
+  // Slid in from the side it came from.
+  useEffect(() => {
+    if (from !== 0) void glide(x, 0);
+    // Once, as it comes in.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 3. Its buttons and count, while it is being used.
+  const [shown, setShown] = useState(true);
+  const idle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const wake = () => {
+    setShown(true);
+    clearTimeout(idle.current);
+    idle.current = setTimeout(() => setShown(false), IDLE_MS);
+  };
+  useEffect(() => {
+    wake();
+    return () => clearTimeout(idle.current);
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const touched: Touched = {
     zoomed: () => scale.get() > 1.01,
@@ -284,6 +364,9 @@ function Canvas({
       y.jump(offset);
       backdrop.jump(1 - Math.min(1, Math.abs(offset) / 400));
     },
+    slid: (offset) => x.jump(onStep === null ? offset / 4 : offset),
+    step,
+    wake,
   };
 
   // The wheel, or a trackpad's pinch, which comes as a wheel with Ctrl:
@@ -338,7 +421,10 @@ function Canvas({
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
-    if (event.key === '+' || event.key === '=') zoomTo(scale.get() * STEP);
+    wake();
+    if (event.key === 'ArrowRight' && onStep !== null) step(1);
+    else if (event.key === 'ArrowLeft' && onStep !== null) step(-1);
+    else if (event.key === '+' || event.key === '=') zoomTo(scale.get() * STEP);
     else if (event.key === '-' || event.key === '_') zoomTo(scale.get() / STEP);
     else if (event.key === '0') settle({ scale: 1, x: 0, y: 0 });
     else return;
@@ -350,11 +436,15 @@ function Canvas({
       <GestureZone
         className="relative h-full w-full touch-none overflow-hidden select-none"
         onKeyDown={onKeyDown}
+        onPointerMove={(event) => {
+          if (event.pointerType === 'mouse') wake();
+        }}
+        onPointerDown={wake}
       >
         <Touch image={touched} />
         <motion.div
           aria-hidden
-          className="absolute inset-0 bg-black/90"
+          className="absolute inset-0 bg-black/70 backdrop-blur-xl"
           style={{ opacity: backdrop }}
         />
         <div
@@ -367,7 +457,7 @@ function Canvas({
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
-          className={`absolute inset-0 grid place-items-center ${zoom > 1.01 ? 'cursor-grab active:cursor-grabbing' : ''}`}
+          className={`absolute inset-0 grid place-items-center p-4 [padding-top:max(1rem,env(safe-area-inset-top))] [padding-bottom:max(1rem,env(safe-area-inset-bottom))] sm:p-14 ${zoom > 1.01 ? 'cursor-grab active:cursor-grabbing' : ''}`}
         >
           <motion.img
             ref={image}
@@ -380,13 +470,30 @@ function Canvas({
               toggle({ x: event.clientX, y: event.clientY });
             }}
             style={{ scale, x, y }}
-            className={`max-h-dvh max-w-full object-contain ${zoom > 1.01 ? '' : 'cursor-zoom-in'}`}
+            className={`max-h-[calc(100dvh-2rem)] max-w-full rounded-lg object-contain sm:max-h-[calc(100dvh-7rem)] shadow-[0_0_0_1px_rgb(255_255_255/0.12),0_12px_48px_rgb(0_0_0/0.5)] ${zoom > 1.01 ? '' : 'cursor-zoom-in'}`}
           />
         </div>
+        {count !== null && (
+          <div
+            aria-live="polite"
+            data-shown={shown ? '' : undefined}
+            className="pointer-events-none absolute top-3 left-3 rounded-full bg-black/60 px-3 py-1.5 text-xs text-white/90 tabular-nums opacity-0 transition-opacity duration-200 [margin-top:env(safe-area-inset-top)] data-shown:opacity-100 motion-reduce:transition-none"
+          >
+            {count.at} of {count.total}
+          </div>
+        )}
+        {onStep !== null && (
+          <>
+            <Side side="left" shown={shown} onClick={() => step(-1)} />
+            <Side side="right" shown={shown} onClick={() => step(1)} />
+          </>
+        )}
         <div
           // Its buttons are tapped, never part of a Gesture.
           data-zone-gesture="disabled"
-          className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-black/60 p-1 text-white/90 [padding-top:max(0.25rem,env(safe-area-inset-top))]"
+          data-shown={shown ? '' : undefined}
+          onFocus={wake}
+          className="pointer-events-none absolute top-3 right-3 flex items-center gap-1 rounded-full bg-black/60 p-1 text-white/90 opacity-0 transition-opacity duration-200 [margin-top:env(safe-area-inset-top)] focus-within:pointer-events-auto focus-within:opacity-100 data-shown:pointer-events-auto data-shown:opacity-100 motion-reduce:transition-none"
         >
           <Tool
             label="Zoom out"
@@ -417,6 +524,33 @@ function Canvas({
         </div>
       </GestureZone>
     </GestureProvider>
+  );
+}
+
+/** The arrow to the image before or after, at its side, while it is being used. */
+function Side({
+  side,
+  shown,
+  onClick,
+}: {
+  readonly side: 'left' | 'right';
+  readonly shown: boolean;
+  readonly onClick: () => void;
+}) {
+  const Icon = side === 'left' ? ChevronLeftIcon : ChevronRightIcon;
+  const label = side === 'left' ? 'Previous image' : 'Next image';
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      data-zone-gesture="disabled"
+      data-shown={shown ? '' : undefined}
+      onClick={onClick}
+      className={`focus-ring pointer-events-none absolute top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-black/60 text-white/90 opacity-0 transition-[opacity,background-color] duration-200 hover:bg-black/75 focus-visible:pointer-events-auto focus-visible:opacity-100 data-shown:pointer-events-auto data-shown:opacity-100 max-sm:hidden motion-reduce:transition-none [&_svg]:size-5 ${side === 'left' ? 'left-3' : 'right-3'}`}
+    >
+      <Icon aria-hidden />
+    </button>
   );
 }
 
@@ -459,6 +593,12 @@ type Touched = {
   readonly toggle: (at: { x: number; y: number }) => void;
   readonly dismiss: () => void;
   readonly swiped: (offset: number) => void;
+  /** Followed sideways by `offset` px: towards the next image, or a little, alone. */
+  readonly slid: (offset: number) => void;
+  /** To the image before or after. */
+  readonly step: (by: -1 | 1) => void;
+  /** Its buttons and count show again. */
+  readonly wake: () => void;
 };
 
 /**
@@ -483,7 +623,13 @@ function Touch({ image }: { readonly image: Touched }) {
         readonly finger: Pointer;
         readonly at: { x: number; y: number };
       }
-    | { readonly as: 'swipe'; readonly finger: Pointer; readonly at: number };
+    | {
+        readonly as: 'swipe';
+        readonly finger: Pointer;
+        readonly at: { x: number; y: number };
+        /** Which way it goes, once the finger has moved enough to tell. */
+        axis: 'x' | 'y' | null;
+      };
   const hold = useRef<Hold | null>(null);
   const frame = useRef(0);
   const lastTap = useRef<{ t: number; x: number; y: number } | null>(null);
@@ -512,7 +658,15 @@ function Touch({ image }: { readonly image: Touched }) {
     } else if (first !== undefined)
       hold.current = image.zoomed()
         ? { as: 'move', from: image.now(), finger: first, at: point(first) }
-        : { as: 'swipe', finger: first, at: first.y.get() - image.now().y };
+        : {
+            as: 'swipe',
+            finger: first,
+            at: {
+              x: first.x.get() - image.now().x,
+              y: first.y.get() - image.now().y,
+            },
+            axis: null,
+          };
   };
 
   /** Every frame while fingers are down: the image where they put it. */
@@ -542,7 +696,14 @@ function Touch({ image }: { readonly image: Touched }) {
         x: now.from.x + at.x - now.at.x,
         y: now.from.y + at.y - now.at.y,
       });
-    } else if (now?.as === 'swipe') image.swiped(now.finger.y.get() - now.at);
+    } else if (now?.as === 'swipe') {
+      const dx = now.finger.x.get() - now.at.x;
+      const dy = now.finger.y.get() - now.at.y;
+      if (now.axis === null && Math.hypot(dx, dy) >= TAP_PX)
+        now.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      if (now.axis === 'x') image.slid(dx);
+      else if (now.axis === 'y') image.swiped(dy);
+    }
     frame.current = requestAnimationFrame(follow);
   };
 
@@ -562,7 +723,20 @@ function Touch({ image }: { readonly image: Touched }) {
       const all = [...pointers.values()];
       const [only] = all;
       if (interrupted || only === undefined) return image.settle();
-      // 1. A swipe down, or up, far or fast enough: away.
+      image.wake();
+      // 1. A swipe sideways, far or fast enough: the image before or after.
+      if (was?.as === 'swipe' && was.axis === 'x' && all.length === 1) {
+        const moved = only.dx.get();
+        const speed = only.dx.getVelocity();
+        preventClick();
+        if (
+          Math.abs(moved) >= SWIPE_DISMISS.distance ||
+          Math.abs(speed) >= SWIPE_DISMISS.velocity
+        )
+          return image.step(moved < 0 ? 1 : -1);
+        return image.settle();
+      }
+      // 2. A swipe down, or up, far or fast enough: away.
       if (was?.as === 'swipe' && all.length === 1) {
         const moved = Math.abs(only.dy.get());
         const speed = Math.abs(only.dy.getVelocity());
@@ -574,7 +748,7 @@ function Touch({ image }: { readonly image: Touched }) {
           return image.dismiss();
         }
       }
-      // 2. A tap, the second of two close together: zoom in there, or out.
+      // 3. A tap, the second of two close together: zoom in there, or out.
       const tapped =
         all.length === 1 &&
         Math.hypot(only.dx.get(), only.dy.get()) < TAP_PX &&

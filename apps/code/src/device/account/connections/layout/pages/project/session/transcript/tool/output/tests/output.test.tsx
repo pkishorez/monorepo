@@ -186,4 +186,39 @@ describe('a tool that gave back an image', () => {
     expect(leaving()?.className).toContain('pointer-events-none');
     await vi.waitFor(() => expect(leaving()).toBe(null), { timeout: 3000 });
   });
+
+  it("says which of a run's images it shows, and moves to the next", async () => {
+    const two: ToolRow = {
+      ...read(''),
+      result: {
+        ...read('').result!,
+        images: [
+          { mediaType: 'image/png', data: 'ONE' },
+          { mediaType: 'image/jpeg', data: 'TWO' },
+        ],
+      },
+    };
+    act(() => root.render(<Output row={two} opening={opening} />));
+    act(() =>
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="Open image 1"]')!
+        .click(),
+    );
+    const viewer = () => document.querySelector('[data-slot="image-viewer"]');
+    expect(viewer()?.textContent).toContain('1 of 2');
+    expect(viewer()?.querySelector('img')?.getAttribute('src')).toBe(
+      'data:image/png;base64,ONE',
+    );
+    act(() =>
+      document
+        .querySelector<HTMLButtonElement>('button[aria-label="Next image"]')!
+        .click(),
+    );
+    await vi.waitFor(() => {
+      expect(viewer()?.querySelector('img')?.getAttribute('src')).toBe(
+        'data:image/jpeg;base64,TWO',
+      );
+      expect(viewer()?.textContent).toContain('2 of 2');
+    });
+  });
 });

@@ -369,10 +369,10 @@ The Dock devtools sit in. Kabuki's Inspector is in [`@kestack/devtools-kabuki/in
 
 ### `@kestack/web-platform/recipes/image-viewer`
 
-| Export        | What it does                                                                                                                                                                                          |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ImageViewer` | Shows an image whole over the page to zoom into: pinch, double tap, the wheel, buttons or `+`, `-`, `0` zoom it, a drag moves it, and a swipe down, Escape or a tap on the backdrop close it at once. |
-| `ImageButton` | A thumbnail, or anything given, that opens `ImageViewer` on its image when pressed.                                                                                                                   |
+| Export        | What it does                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ImageViewer` | Shows an image whole over the page, framed on a blurred backdrop, to zoom into: pinch, double tap, the wheel, buttons or `+`, `-`, `0` zoom it, a drag moves it, and a swipe up or down, Escape or a tap on the backdrop close it at once. Given `images` and `onShow`, it says which it shows, "2 of 5", and moves between them by a swipe sideways, its arrows or the arrow keys. Its buttons fade once it is left alone. |
+| `ImageButton` | A thumbnail, or anything given, that opens `ImageViewer` on its image when pressed.                                                                                                                                                                                                                                                                                                                                         |
 
 ### `@kestack/web-platform/recipes/touch-layers`
 
