@@ -2,12 +2,17 @@ import { useMemo, useState } from 'react';
 import { ImageViewer } from '@kestack/web-platform/recipes/image-viewer';
 
 /*
- * Images a tool gave back, such as a screenshot or an image read: a row of
- * framed previews, each on a quiet tile with a hairline, so it reads as an
- * image at a glance, the last counting any not shown. A tap opens it whole
- * in the Web Platform's image viewer, to zoom into and to move through
- * every image of the same run, one to the next.
+ * Images a tool gave back, such as a screenshot or an image read: one row
+ * of framed previews that never wraps, each on a quiet tile with a
+ * hairline, so it reads as an image at a glance; a row wider than its
+ * column scrolls sideways, snapping to each. After the first few, one tile
+ * counts the rest, "+3". A tap opens it whole in the Web Platform's image
+ * viewer, to zoom into and to move through every image of the same run,
+ * the count's included, from the first to the last.
  */
+
+/** Previews shown before one tile counts the rest. */
+const SHOWN = 4;
 
 export type Image = { readonly mediaType: string; readonly data: string };
 
@@ -22,7 +27,7 @@ const BOX = {
 /** Previews, at most `max`, the rest counted on the last; each opens the viewer. */
 export function Thumbnails({
   images,
-  max = images.length,
+  max = SHOWN,
   size = 'md',
   onOpen,
 }: {
@@ -31,15 +36,23 @@ export function Thumbnails({
   readonly size?: keyof typeof BOX;
   readonly onOpen: (at: number) => void;
 }) {
-  const shown = images.slice(0, max);
+  // A count stands in for at least two: one more is simply shown.
+  const shown = images.length > max + 1 ? images.slice(0, max) : images;
   const more = images.length - shown.length;
   return (
-    <ul aria-label="Images" className="flex flex-wrap gap-2">
+    <ul
+      aria-label="Images"
+      className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:thin]"
+    >
       {shown.map((image, at) => (
-        <li key={at}>
+        <li key={at} className="shrink-0 snap-start">
           <button
             type="button"
-            aria-label={`Open image ${at + 1}`}
+            aria-label={
+              more > 0 && at === shown.length - 1
+                ? `Open image ${at + 1}, and ${more} more`
+                : `Open image ${at + 1}`
+            }
             onClick={() => onOpen(at)}
             className="focus-ring group relative block cursor-zoom-in rounded-lg border border-border bg-muted/50 p-1 transition-colors duration-150 hover:border-foreground/20 hover:bg-muted motion-reduce:transition-none"
           >

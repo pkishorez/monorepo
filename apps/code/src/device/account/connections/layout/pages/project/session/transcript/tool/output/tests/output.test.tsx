@@ -221,4 +221,57 @@ describe('a tool that gave back an image', () => {
       expect(viewer()?.textContent).toContain('2 of 2');
     });
   });
+
+  it('stops at the last image, with no way on past it', async () => {
+    const two: ToolRow = {
+      ...read(''),
+      result: {
+        ...read('').result!,
+        images: [
+          { mediaType: 'image/png', data: 'ONE' },
+          { mediaType: 'image/png', data: 'TWO' },
+        ],
+      },
+    };
+    act(() => root.render(<Output row={two} opening={opening} />));
+    act(() =>
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="Open image 1"]')!
+        .click(),
+    );
+    const viewer = () => document.querySelector('[data-slot="image-viewer"]');
+    expect(viewer()?.querySelector('button[aria-label="Previous image"]')).toBe(
+      null,
+    );
+    act(() =>
+      viewer()!
+        .querySelector<HTMLButtonElement>('button[aria-label="Next image"]')!
+        .click(),
+    );
+    await vi.waitFor(() => expect(viewer()?.textContent).toContain('2 of 2'));
+    expect(viewer()?.querySelector('button[aria-label="Next image"]')).toBe(
+      null,
+    );
+  });
+
+  it('shows four previews in one row, the last counting the rest', () => {
+    const six: ToolRow = {
+      ...read(''),
+      result: {
+        ...read('').result!,
+        images: Array.from({ length: 6 }, (_, at) => ({
+          mediaType: 'image/png',
+          data: `I${at}`,
+        })),
+      },
+    };
+    act(() => root.render(<Output row={six} opening={opening} />));
+    expect(
+      container.querySelectorAll('ul[aria-label="Images"] li'),
+    ).toHaveLength(4);
+    expect(container.textContent).toContain('+2');
+    expect(
+      container.querySelector('button[aria-label="Open image 4, and 2 more"]'),
+    ).not.toBe(null);
+  });
 });

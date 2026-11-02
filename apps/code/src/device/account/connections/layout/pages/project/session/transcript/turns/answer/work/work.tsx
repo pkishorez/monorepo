@@ -40,9 +40,6 @@ const imagesOf = (rows: ReadonlyArray<Row>): ReadonlyArray<Image> =>
     row.kind === 'tool' ? (row.result?.images ?? []) : [],
   );
 
-/** At most this many thumbnails under the line; the last counts the rest. */
-const THUMBNAILS = 4;
-
 /** What the agent is doing now, in a few words, while the run is the live one. */
 const nowOf = (rows: ReadonlyArray<Row>, folder: string | null): string => {
   const last = rows.at(-1);
@@ -144,7 +141,7 @@ function WorkLine({ id, rows, opening, running, live }: WorkProps) {
       </Head>
       {images.length > 0 && (
         <div className="mt-1 mb-1">
-          <Images images={images} max={THUMBNAILS} size="sm" />
+          <Images images={images} size="sm" />
         </div>
       )}
       <Folded

@@ -79,6 +79,19 @@ const DOUBLE_PX = 24;
 const TAP_PX = 8;
 /** Left alone this long, in ms, its buttons and count fade. */
 const IDLE_MS = 2500;
+/**
+ * Moving to the next image: the one shown carries on off the screen, as
+ * the swipe that sent it was going, in 120ms; the next comes in from a
+ * third of the way across, easing out, in 200ms. Fast enough to keep up
+ * with a finger, never a slide to wait on.
+ */
+const OUT = {
+  type: 'tween',
+  duration: 0.12,
+  ease: [0.23, 1, 0.32, 1],
+} as const;
+const IN = { type: 'tween', duration: 0.2, ease: [0.23, 1, 0.32, 1] } as const;
+const SLIDE_IN = 0.33;
 
 const clamp = (value: number, low: number, high: number) =>
   Math.min(high, Math.max(low, value));
@@ -105,26 +118,37 @@ export function ImageViewer({
   const at = src === null || images === undefined ? -1 : images.indexOf(src);
   const total = images?.length ?? 0;
   const among = at >= 0 && total > 1 && onShow !== undefined;
-  // Which side the image shown came in from, as it slides into place.
-  const [from, setFrom] = useState<-1 | 0 | 1>(0);
+  // The image moved to, and from which side: it slides in from there.
+  // Opened afresh, it is none, and the image is simply there.
+  const [arrived, setArrived] = useState<{
+    readonly src: string;
+    readonly by: -1 | 1;
+  } | null>(null);
+  const from = arrived !== null && arrived.src === src ? arrived.by : 0;
+  // The first and the last are the ends: nothing past them.
+  const edges = { before: among && at > 0, after: among && at < total - 1 };
   const step = (by: -1 | 1) => {
     if (!among || images === undefined) return;
-    const next = images[(at + by + total) % total];
+    const next = images[at + by];
     if (next === undefined) return;
-    setFrom(by);
+    setArrived({ src: next, by });
     onShow(next);
+  };
+  const close = () => {
+    setArrived(null);
+    onClose();
   };
   // The image swiped away, sliding off from where the finger left it.
   const [leaving, setLeaving] = useState<Leave | null>(null);
   const swiped = (place: Place) => {
     if (src !== null && !reduced) setLeaving({ src, ...place });
-    onClose();
+    close();
   };
   return (
     <>
       <Dialog.Root
         open={src !== null}
-        onOpenChange={(next) => !next && onClose()}
+        onOpenChange={(next) => !next && close()}
       >
         {/* No dialog backdrop: its own fades as it is swiped away. */}
         <Dialog.Portal>
@@ -140,8 +164,9 @@ export function ImageViewer({
                 src={src}
                 from={reduced ? 0 : from}
                 count={among ? { at: at + 1, total } : null}
+                edges={edges}
                 onStep={among ? step : null}
-                onClose={onClose}
+                onClose={close}
                 onSwiped={swiped}
               />
             )}
@@ -237,6 +262,7 @@ function Canvas({
   src,
   from,
   count,
+  edges,
   onStep,
   onClose,
   onSwiped,
@@ -246,6 +272,8 @@ function Canvas({
   readonly from: -1 | 0 | 1;
   /** Which of the images it is, among more than one. */
   readonly count: { readonly at: number; readonly total: number } | null;
+  /** Whether there is an image before it, and after it. */
+  readonly edges: { readonly before: boolean; readonly after: boolean };
   /** Moves to the image before or after; null when it is alone. */
   readonly onStep: ((by: -1 | 1) => void) | null;
   readonly onClose: () => void;
@@ -256,7 +284,7 @@ function Canvas({
   const stage = useRef<HTMLDivElement>(null);
   const image = useRef<HTMLImageElement>(null);
   const scale = useMotionValue(1);
-  const x = useMotionValue(from === 0 ? 0 : from * innerWidth * 0.6);
+  const x = useMotionValue(from === 0 ? 0 : from * innerWidth * SLIDE_IN);
   const y = useMotionValue(0);
   const backdrop = useMotionValue(1);
   // How far it is zoomed, or is going to be once it settles, as said.
@@ -321,19 +349,22 @@ function Canvas({
     scale.get() > 1.01 ? settle({ scale: 1, x: 0, y: 0 }) : zoomTo(DOUBLE, at);
   /** Closed now, the image left to slide off the rest of the way. */
   const dismiss = () => onSwiped(now());
-  /** To the image before or after: this one slides off its way first. */
+  /** Whether there is an image that way: -1 the one before, 1 the one after. */
+  const can = (by: -1 | 1) =>
+    onStep !== null && (by < 0 ? edges.before : edges.after);
+  /**
+   * To the image before or after: this one carries on the way it was
+   * going, off the screen, then the next one comes in. Past the first or
+   * the last, it springs back where it was.
+   */
   const step = (by: -1 | 1) => {
-    if (onStep === null) return settle();
+    if (onStep === null || !can(by)) return settle();
     if (reduced) return onStep(by);
-    void animate(x, -by * innerWidth, {
-      type: 'tween',
-      duration: 0.18,
-      ease: [0.4, 0, 1, 1],
-    }).then(() => onStep(by));
+    void animate(x, -by * innerWidth, OUT).then(() => onStep(by));
   };
   // Slid in from the side it came from.
   useEffect(() => {
-    if (from !== 0) void glide(x, 0);
+    if (from !== 0 && !reduced) void animate(x, 0, IN);
     // Once, as it comes in.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -364,7 +395,8 @@ function Canvas({
       y.jump(offset);
       backdrop.jump(1 - Math.min(1, Math.abs(offset) / 400));
     },
-    slid: (offset) => x.jump(onStep === null ? offset / 4 : offset),
+    // Towards an image there is, it follows the finger; past an end, it gives a little.
+    slid: (offset) => x.jump(can(offset < 0 ? 1 : -1) ? offset : offset / 4),
     step,
     wake,
   };
@@ -422,8 +454,8 @@ function Canvas({
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     wake();
-    if (event.key === 'ArrowRight' && onStep !== null) step(1);
-    else if (event.key === 'ArrowLeft' && onStep !== null) step(-1);
+    if (event.key === 'ArrowRight' && can(1)) step(1);
+    else if (event.key === 'ArrowLeft' && can(-1)) step(-1);
     else if (event.key === '+' || event.key === '=') zoomTo(scale.get() * STEP);
     else if (event.key === '-' || event.key === '_') zoomTo(scale.get() / STEP);
     else if (event.key === '0') settle({ scale: 1, x: 0, y: 0 });
@@ -482,12 +514,8 @@ function Canvas({
             {count.at} of {count.total}
           </div>
         )}
-        {onStep !== null && (
-          <>
-            <Side side="left" shown={shown} onClick={() => step(-1)} />
-            <Side side="right" shown={shown} onClick={() => step(1)} />
-          </>
-        )}
+        {can(-1) && <Side side="left" shown={shown} onClick={() => step(-1)} />}
+        {can(1) && <Side side="right" shown={shown} onClick={() => step(1)} />}
         <div
           // Its buttons are tapped, never part of a Gesture.
           data-zone-gesture="disabled"
