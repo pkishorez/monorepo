@@ -9,7 +9,6 @@ export {
   useOpen,
   useHeight,
   useOpening,
-  useShutInPlace,
   useSticky,
   type Opening,
 } from './fold.tsx';

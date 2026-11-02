@@ -30,11 +30,17 @@ export { useScrollKeys } from './keys.ts';
  * the top of the view. The reader's own scroll moves it; after anything in
  * the list grows or shrinks, the view is put back there, so what is on the
  * screen never moves by itself, and a reader at the bottom stays there as
- * words arrive. Only the reader scrolling up lets go of the bottom: a
- * scroll with no wheel, touch, drag or key of theirs just before, as when
- * what it holds shrinks for a moment, is the page's own. A click that
- * opens or shuts something at the bottom keeps what is on the screen
- * still, and follows on only if that left it at the bottom.
+ * words arrive. Only the reader scrolling up lets go of the bottom, and
+ * at once, however little, so words arriving never pull back a reader
+ * who has started up; scrolling down to near the bottom follows again. A
+ * scroll with no wheel, touch, key or pointer of theirs held or just
+ * before, as when what it holds shrinks for a moment, is the page's own.
+ * A click that opens or shuts something keeps what is on the screen
+ * still, and never takes what was clicked up with what shut above it, as
+ * shutting from a head stuck at the top would; at the bottom,
+ * it follows on only if that left it at the bottom. A block the view was
+ * kept by that is gone, as when an answer's words are split again as more
+ * come, leaves the view where it is.
  *
  * A list draws its last few blocks, enough to fill the view and some,
  * and more above as the reader nears the top of them (`shown.ts`), so a
@@ -99,8 +105,16 @@ export function useScroller(key: string, id: string) {
     /** Where the view was last put; a scroll that lands there is ours. */
     let put = Number.NaN;
     let gesture = -Infinity;
+    /** Whether a pointer is held down on it, as on its scrollbar. */
+    let holding = false;
     const theirs = () =>
-      scroll.gliding || performance.now() - gesture < GESTURE_MS;
+      scroll.gliding || holding || performance.now() - gesture < GESTURE_MS;
+    /** Whether the view has been put in place since its list was drawn. */
+    let placed = false;
+    /** What was just clicked, and where it was on the screen. */
+    let clicked: { readonly element: Element; readonly y: number } | null =
+      null;
+    let clicks = 0;
     /** Whether a finger is on it. */
     let touching = false;
     let settling = 0;
@@ -111,6 +125,12 @@ export function useScroller(key: string, id: string) {
       setAway(scroll.anchor.at !== 'bottom' && gapOf(outer) >= NEAR);
     const read = () => {
       scroll.anchor = anchorOf(outer);
+      keep(scroll.anchor);
+    };
+    /** The reader moved the view from `from`: up lets go of the bottom. */
+    const follow = (from: number) => {
+      const up = outer.scrollTop < from - 0.5 && gapOf(outer) >= 1;
+      scroll.anchor = up ? blockAt(outer) : anchorOf(outer);
       keep(scroll.anchor);
     };
     const place = () => {
@@ -124,17 +144,32 @@ export function useScroller(key: string, id: string) {
         pending < 0 &&
         outer.scrollTop >= outer.scrollHeight - outer.clientHeight - 1;
       if (Math.abs(pending) >= 1 && theirs() && !clamped) {
-        if (scroll.anchor.at === 'block')
+        if (scroll.anchor.at === 'block') {
           scroll.anchor = {
             ...scroll.anchor,
             offset: scroll.anchor.offset - pending,
           };
-        else scroll.anchor = anchorOf(outer);
+          keep(scroll.anchor);
+        } else follow(put);
+      }
+      if (!putBack(outer, scroll.anchor, blockOf) && scroll.drawn) {
+        // Its block is not in the list: the view stays where it is, or,
+        // never put in place, as when a kept place is gone, is at the end.
+        scroll.anchor = placed ? anchorOf(outer) : BOTTOM;
+        putBack(outer, scroll.anchor, blockOf);
         keep(scroll.anchor);
       }
-      if (!putBack(outer, scroll.anchor, blockOf) && scroll.drawn)
-        // Its block is not in the list: no place to go back to.
-        putBack(outer, (scroll.anchor = BOTTOM), blockOf);
+      // What was just clicked, gone up as what was above it shut, as from
+      // a head stuck at the top, goes back to where it was on the screen.
+      if (clicked?.element.isConnected) {
+        const now = clicked.element.getBoundingClientRect().top;
+        if (now < clicked.y - 0.5) {
+          outer.scrollTop += now - clicked.y;
+          scroll.anchor = blockAt(outer);
+          keep(scroll.anchor);
+        }
+      }
+      if (scroll.drawn) placed = true;
       put = outer.scrollTop;
       report();
     };
@@ -178,10 +213,12 @@ export function useScroller(key: string, id: string) {
       if (scroll.gliding) settleSoon();
       // Nothing to read a place from before its list is drawn.
       if (!scroll.drawn || Math.abs(outer.scrollTop - put) < 1) return;
+      const from = put;
       put = outer.scrollTop;
       // Now, while the page is as the reader saw it: by the next frame,
       // more may be drawn above, not yet put back.
-      if (theirs() || scroll.anchor.at === 'block') read();
+      if (theirs()) follow(from);
+      else if (scroll.anchor.at === 'block') read();
       report();
       // Near the top of what is drawn: more above.
       scroll.fill(false);
@@ -189,20 +226,52 @@ export function useScroller(key: string, id: string) {
     const onGesture = () => {
       gesture = performance.now();
     };
-    // Before what it opens is drawn: what is on the screen stays still.
-    const onClick = () => {
-      if (scroll.anchor.at !== 'bottom') return;
-      scroll.anchor = blockAt(outer);
-      requestAnimationFrame(() => {
-        if (gapOf(outer) < NEAR) scroll.anchor = BOTTOM;
-        keep(scroll.anchor);
-        report();
-      });
+    const onHold = () => {
+      holding = true;
+      onGesture();
+    };
+    // Let go: a scroll its momentum goes on with is still theirs.
+    const onRelease = () => {
+      if (!holding) return;
+      holding = false;
+      onGesture();
+    };
+    // Before what it opens is drawn: what is on the screen stays still,
+    // and what was clicked on it, for the two frames it takes to be drawn
+    // and put back.
+    const onClick = (event: MouseEvent) => {
+      // A tap is a finger that never moved the view: not a glide, so what
+      // it opens or shuts is put in place now, not once a glide settles.
+      if (scroll.gliding) {
+        clearTimeout(settling);
+        scroll.gliding = false;
+        scroll.settle();
+      }
+      const target = event.target instanceof Element ? event.target : null;
+      clicked = target && {
+        element: target,
+        y: target.getBoundingClientRect().top,
+      };
+      const following = scroll.anchor.at === 'bottom';
+      if (following) scroll.anchor = blockAt(outer);
+      const click = ++clicks;
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (click !== clicks) return;
+          clicked = null;
+          if (following && gapOf(outer) < NEAR) scroll.anchor = BOTTOM;
+          keep(scroll.anchor);
+          report();
+        }),
+      );
     };
     scroll.place = place;
     moves.current = {
       gesture: onGesture,
       holdOn: (smooth = false) => {
+        // Its glide down is the page's, not a scroll of the reader's just
+        // before going on.
+        gesture = -Infinity;
         scroll.anchor = BOTTOM;
         keep(BOTTOM);
         outer.scrollTo({
@@ -246,7 +315,9 @@ export function useScroller(key: string, id: string) {
     outer.addEventListener('touchstart', onTouchStart, { passive: true });
     outer.addEventListener('touchend', onTouchEnd, { passive: true });
     outer.addEventListener('touchcancel', onTouchEnd, { passive: true });
-    outer.addEventListener('pointerdown', onGesture);
+    outer.addEventListener('pointerdown', onHold);
+    window.addEventListener('pointerup', onRelease);
+    window.addEventListener('pointercancel', onRelease);
     // The browser's own keys, while the scroller itself has focus.
     outer.addEventListener('keydown', onGesture);
     inner.addEventListener('click', onClick, { capture: true });
@@ -261,7 +332,9 @@ export function useScroller(key: string, id: string) {
       outer.removeEventListener('touchstart', onTouchStart);
       outer.removeEventListener('touchend', onTouchEnd);
       outer.removeEventListener('touchcancel', onTouchEnd);
-      outer.removeEventListener('pointerdown', onGesture);
+      outer.removeEventListener('pointerdown', onHold);
+      window.removeEventListener('pointerup', onRelease);
+      window.removeEventListener('pointercancel', onRelease);
       outer.removeEventListener('keydown', onGesture);
       inner.removeEventListener('click', onClick, { capture: true });
     };
