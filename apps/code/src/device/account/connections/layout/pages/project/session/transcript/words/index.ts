@@ -7,7 +7,7 @@ export {
   SHUT,
   Under,
   unlessSelecting,
-  useOnScreen,
+  useFoldInPlace,
   useOpen,
   useHeight,
   useOpening,

@@ -59,7 +59,7 @@ export interface Scroll {
   /** Puts the view back at the anchor now, as more is drawn above it. */
   place: () => void;
   /** Keeps what is on the screen still, at the bottom too, as something in it opens or shuts. */
-  still: () => void;
+  keepStill: () => void;
   /** Draws more above, if what is drawn there is less than enough: `before` it is shown, or as a Transition. */
   fill: (before: boolean) => void;
   /** Draws what waited for a glide to settle. */
@@ -94,7 +94,7 @@ export const scrollOf = (anchor: Anchor): Scroll => {
     gliding: false,
     showAll: () => {},
     place: () => {},
-    still: () => {},
+    keepStill: () => {},
     fill: () => {},
     settle: () => {},
     glide: () => {},
