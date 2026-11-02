@@ -87,7 +87,11 @@ function List({ sidebarOpen }: { readonly sidebarOpen: boolean }) {
   const { toasts } = useToastManager<{ readonly sidebar: boolean }>();
   useEffect(() => {
     if (sidebarOpen) return;
-    for (const each of toasts) if (each.data?.sidebar) manager.close(each.id);
+    // One already going stays listed while it fades, and closing it again
+    // lists the toasts afresh, which would run this again without end.
+    for (const each of toasts)
+      if (each.data?.sidebar && each.transitionStatus !== 'ending')
+        manager.close(each.id);
   }, [sidebarOpen, toasts]);
   return toasts.map((each) => (
     <Toast key={each.id} toast={each}>
