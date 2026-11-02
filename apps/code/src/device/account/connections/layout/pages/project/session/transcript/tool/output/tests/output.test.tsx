@@ -70,15 +70,11 @@ describe('a tool that gave back an image', () => {
     );
     expect(
       document
-        .querySelector('[data-slot="dialog-content"] img')
+        .querySelector('[data-slot="image-viewer"] img')
         ?.getAttribute('src'),
     ).toBe('data:image/png;base64,iVBOR');
-    // Beside the dialog's own dimming, which the app's styles hide for it.
-    expect(
-      document.querySelector(
-        '[data-slot="dialog-overlay"] ~ [data-image-viewer]',
-      ),
-    ).not.toBeNull();
+    // Its own backdrop only, no dialog's dimming under it.
+    expect(document.querySelector('[data-slot="dialog-overlay"]')).toBe(null);
   });
 
   it('zooms in and out by its buttons, back to fit, then closes', () => {
@@ -90,7 +86,7 @@ describe('a tool that gave back an image', () => {
     );
     const button = (label: string) =>
       document.querySelector<HTMLButtonElement>(
-        `[data-slot="dialog-content"] button[aria-label="${label}"]`,
+        `[data-slot="image-viewer"] button[aria-label="${label}"]`,
       )!;
     const zoom = () => button('Fit to screen').textContent;
     expect(zoom()).toBe('100%');
@@ -103,15 +99,13 @@ describe('a tool that gave back an image', () => {
     act(() => button('Fit to screen').click());
     expect(zoom()).toBe('100%');
     act(() => button('Close').click());
-    expect(document.querySelector('[data-slot="dialog-content"] img')).toBe(
-      null,
-    );
+    expect(document.querySelector('[data-slot="image-viewer"] img')).toBe(null);
   });
 
   // Its buttons, its backdrop, the dialog itself: none left to fade out.
   const gone = () => {
     expect(document.querySelector('button[aria-label="Zoom in"]')).toBe(null);
-    expect(document.querySelector('[data-slot="dialog-content"]')).toBe(null);
+    expect(document.querySelector('[data-slot="image-viewer"]')).toBe(null);
   };
   const opened = () => {
     act(() => root.render(<Output row={read('')} opening={opening} />));
@@ -149,7 +143,7 @@ describe('a tool that gave back an image', () => {
     opened();
     act(() =>
       document
-        .querySelector<HTMLElement>('[data-slot="dialog-content"] img')!
+        .querySelector<HTMLElement>('[data-slot="image-viewer"] img')!
         .parentElement!.click(),
     );
     gone();
@@ -163,7 +157,7 @@ describe('a tool that gave back an image', () => {
         .click(),
     );
     const image = () =>
-      document.querySelector('[data-slot="dialog-content"] img');
+      document.querySelector('[data-slot="image-viewer"] img');
     // jsdom has no PointerEvent: a MouseEvent with a pointer id stands in.
     const finger = (type: string, y: number) => {
       const event = new MouseEvent(type, {

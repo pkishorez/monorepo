@@ -7,6 +7,7 @@ import {
   AttachmentMedia,
   AttachmentTitle,
 } from '@kestack/web-platform/ui/components/attachment';
+import { ImageButton } from '@kestack/web-platform/recipes/image-viewer';
 import {
   FileAudioIcon,
   FileIcon,
@@ -16,8 +17,9 @@ import {
 } from 'lucide-react';
 import { formatSize, type Attachment } from './read.ts';
 
-/* One attached file: a thumbnail for an image, else an icon for its kind,
- * then its name and size, and a button that takes it off. */
+/* One attached file: a thumbnail for an image, opened whole by a tap to
+ * zoom into, else an icon for its kind, then its name and size, and a
+ * button that takes it off. */
 
 export function Chip({
   attachment: { name, mime, data, size },
@@ -33,7 +35,17 @@ export function Chip({
     <Frame size="sm" className="max-w-56 min-w-0 pr-1">
       <AttachmentMedia variant={image ? 'image' : 'icon'}>
         {image ? (
-          <img src={`data:${mime};base64,${data}`} alt="" />
+          <ImageButton
+            src={`data:${mime};base64,${data}`}
+            label={`Open ${name}`}
+            className="size-full"
+          >
+            <img
+              src={`data:${mime};base64,${data}`}
+              alt=""
+              className="aspect-square w-full object-cover"
+            />
+          </ImageButton>
         ) : (
           <KindIcon mime={mime} />
         )}

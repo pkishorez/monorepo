@@ -10,7 +10,7 @@ It has four modules, each depending only on the ones before it:
 
 - `ui`: what the user sees and touches: `ui/theme`, `ui/components/*`, `ui/viewers/*`, `ui/form` and `ui/input` (device, gestures, keys, sounds).
 - `pwa`: the app installable, working offline and updated in place. `pwa/vite` builds the worker and manifest, `pwa/worker` runs in it, `pwa/rpc/*` talks to it, and `pwa` is the page's side: `PwaHead`, `Pwa`, the Update and Install Prompts and the extras.
-- `recipes/*`: whole features built from `ui` and `pwa`: the Frame, the Account Switcher, the Vim status line, Local sign-in, Kabuki's Devtools, the Thumb Picker, swipe rows, and the touch layers that keep a Drawer and its field above the on-screen keyboard.
+- `recipes/*`: whole features built from `ui` and `pwa`: the Frame, the Account Switcher, the Vim status line, Local sign-in, Kabuki's Devtools, the Thumb Picker, swipe rows, an image viewer, and the touch layers that keep a Drawer and its field above the on-screen keyboard.
 - `app`: putting it together: `app/vite` is the one Vite plugin an app lists, `app/document` the Document it passes to `Start.app`, and `app/alchemy` how it is deployed on its Stages.
 
 Why the Web Platform may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md). It ships built `dist/` (from `vp pack`). Terms are in [CONTEXT.md](./CONTEXT.md); the PWA's decisions are in [docs/adr/](./docs/adr/).
@@ -366,6 +366,13 @@ The Dock devtools sit in. Kabuki's Inspector is in [`@kestack/devtools-kabuki/in
 | Export     | What it does                                                                                                                                                                 |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `SwipeRow` | A row one finger swipes aside, left or right, showing what it does behind it; past 40% of its width or on a flick it slides out and closes its gap. A mouse never swipes it. |
+
+### `@kestack/web-platform/recipes/image-viewer`
+
+| Export        | What it does                                                                                                                                                                                          |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ImageViewer` | Shows an image whole over the page to zoom into: pinch, double tap, the wheel, buttons or `+`, `-`, `0` zoom it, a drag moves it, and a swipe down, Escape or a tap on the backdrop close it at once. |
+| `ImageButton` | A thumbnail, or anything given, that opens `ImageViewer` on its image when pressed.                                                                                                                   |
 
 ### `@kestack/web-platform/recipes/touch-layers`
 

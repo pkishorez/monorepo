@@ -5,6 +5,7 @@ import {
   AttachmentMedia,
   AttachmentTitle,
 } from '@kestack/web-platform/ui/components/attachment';
+import { ImageButton } from '@kestack/web-platform/recipes/image-viewer';
 import {
   FileAudioIcon,
   FileIcon,
@@ -14,9 +15,10 @@ import {
 import type { TurnAttachment } from '../rows/index.ts';
 
 /*
- * The files sent with a turn, over your words and lined up with them: an image the agent saw as
- * a thumbnail; any other file as a chip with its name and size, the path
- * it was saved at on hover.
+ * The files sent with a turn, over your words and lined up with them: an
+ * image the agent saw as a thumbnail, opened whole by a tap to zoom into;
+ * any other file as a chip with its name and size, the path it was saved
+ * at on hover.
  */
 
 const KB = 1024;
@@ -50,16 +52,25 @@ export function Attachments({
     <div className="flex flex-col items-end gap-2">
       {images.length > 0 && (
         <ul aria-label="Images" className="flex flex-wrap justify-end gap-2">
-          {images.map(({ name, mime, data }, at) => (
-            <li key={`${at}-${name}`}>
-              <img
-                src={`data:${mime};base64,${data}`}
-                alt={name}
-                title={name}
-                className="size-24 rounded-md object-cover outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
-              />
-            </li>
-          ))}
+          {images.map(({ name, mime, data }, at) => {
+            const src = `data:${mime};base64,${data}`;
+            return (
+              <li key={`${at}-${name}`}>
+                <ImageButton
+                  src={src}
+                  label={`Open ${name}`}
+                  className="rounded-md"
+                >
+                  <img
+                    src={src}
+                    alt={name}
+                    title={name}
+                    className="size-24 rounded-md object-cover outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
+                  />
+                </ImageButton>
+              </li>
+            );
+          })}
         </ul>
       )}
       {files.length > 0 && (
