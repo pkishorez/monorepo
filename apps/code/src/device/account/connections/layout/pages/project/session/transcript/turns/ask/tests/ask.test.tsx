@@ -126,4 +126,36 @@ describe('a message you sent', () => {
     expect(bubble().dataset.folded).toBe('true');
     tall.mockRestore();
   });
+
+  it('opens an image sent with it whole, to zoom into', () => {
+    const [row] = thread([
+      {
+        id: 'm3',
+        sessionId: 's',
+        turnId: 't3',
+        agentId: null,
+        role: 'user',
+        parts: [
+          {
+            type: 'turnStarted',
+            text: 'Look',
+            steered: false,
+            resumed: false,
+            attachments: [
+              { name: 'shot.png', mime: 'image/png', size: 5, data: 'iVBOR' },
+            ],
+          },
+        ],
+        at: 1,
+      },
+    ]);
+    if (row?.kind !== 'turn') throw new Error('expected a turn row');
+    act(() => root.render(<Ask row={row} opening={folds()} />));
+    act(() => button('Open shot.png')!.click());
+    expect(
+      document
+        .querySelector('[data-slot="image-viewer"] img')
+        ?.getAttribute('src'),
+    ).toBe('data:image/png;base64,iVBOR');
+  });
 });

@@ -1,16 +1,12 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from '@kestack/web-platform/ui/components/dialog';
-import { SWIPE_DISMISS } from '@kestack/web-platform/recipes/touch-layers';
+import { Dialog } from '@base-ui/react/dialog';
 import {
   GestureProvider,
   GestureZone,
   type Pointer,
   type Pointers,
   useGesture,
-} from '@kestack/web-platform/ui/input';
+} from '../../ui/input/index.ts';
+import { SWIPE_DISMISS } from '../touch-layers/index.ts';
 import { MinusIcon, PlusIcon, XIcon } from 'lucide-react';
 import {
   animate,
@@ -52,6 +48,9 @@ import { createPortal } from 'react-dom';
  * it, and the page under is the page's again. Swiped away, only the image
  * goes on sliding off, over the page and out of its way, unless motion is
  * reduced.
+ *
+ * `ImageViewer` is the viewer, opened on an image by its caller;
+ * `ImageButton` is a thumbnail, or anything, that opens it on a tap.
  */
 
 /** As far in as it zooms: eight times its fitted size. */
@@ -86,23 +85,58 @@ export function ImageViewer({
   };
   return (
     <>
-      <Dialog open={src !== null} onOpenChange={(next) => !next && onClose()}>
-        <DialogContent
-          // Its own backdrop fades as it is swiped away: not the dialog's.
-          data-image-viewer
-          showCloseButton={false}
-          // Closed, it goes at once, with no fade for its buttons to linger in.
-          className="inset-0 top-0 left-0 block h-dvh w-screen max-w-none translate-x-0 translate-y-0 gap-0 rounded-none bg-transparent p-0 ring-0 data-closed:hidden sm:max-w-none"
-        >
-          <DialogTitle className="sr-only">Image</DialogTitle>
-          {src !== null && (
-            <Stage src={src} onClose={onClose} onSwiped={swiped} />
-          )}
-        </DialogContent>
-      </Dialog>
+      <Dialog.Root
+        open={src !== null}
+        onOpenChange={(next) => !next && onClose()}
+      >
+        {/* No dialog backdrop: its own fades as it is swiped away. */}
+        <Dialog.Portal>
+          <Dialog.Popup
+            data-slot="image-viewer"
+            // Closed, it goes at once, with no fade for its buttons to linger in.
+            className="fixed inset-0 z-50 h-dvh w-screen outline-none data-closed:hidden"
+          >
+            <Dialog.Title className="sr-only">Image</Dialog.Title>
+            {src !== null && (
+              <Stage src={src} onClose={onClose} onSwiped={swiped} />
+            )}
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
       {leaving !== null && src === null && (
         <Leaving leave={leaving} onGone={() => setLeaving(null)} />
       )}
+    </>
+  );
+}
+
+/**
+ * Opens the viewer on `src` when pressed, as a thumbnail does: its
+ * children are what is pressed, `label` what it says to a screen reader.
+ */
+export function ImageButton({
+  src,
+  label,
+  className = '',
+  children,
+}: {
+  readonly src: string;
+  readonly label: string;
+  readonly className?: string;
+  readonly children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={label}
+        onClick={() => setOpen(true)}
+        className={`focus-ring block cursor-zoom-in ${className}`}
+      >
+        {children}
+      </button>
+      <ImageViewer src={open ? src : null} onClose={() => setOpen(false)} />
     </>
   );
 }
