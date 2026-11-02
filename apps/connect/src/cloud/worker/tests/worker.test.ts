@@ -129,7 +129,42 @@ describe('Cloud Connect', () => {
     const second = await as(ada, (m) => m.Report(reportOf('m1', 'renamed')));
     expect(second.name).toBe('renamed');
     expect(second.lastSeen).toBeGreaterThanOrEqual(first.lastSeen);
-    expect(await as(ada, (m) => m.List({}))).toEqual([second]);
+    expect(await as(ada, (m) => m.List({}))).toEqual([
+      { ...second, displayName: null },
+    ]);
+  });
+
+  it('renames a Connection: listed by its Display Name, which a Report keeps, and a blank one goes back to none', async () => {
+    const ada = signIn('ada');
+    await as(ada, (m) => m.Report(reportOf('named', 'Ada-MacBook')));
+    const listed = () =>
+      as(ada, (m) => m.List({})).then((all) =>
+        all.map(({ name, displayName }) => ({ name, displayName })),
+      );
+    await as(ada, (m) => m.Rename({ id: 'named', displayName: '  Work  ' }));
+    expect(await listed()).toEqual([
+      { name: 'Ada-MacBook', displayName: 'Work' },
+    ]);
+    // The Connection's own name moves on; the Display Name stays.
+    const answer = await as(ada, (m) => m.Report(reportOf('named', 'Ada-Mac')));
+    expect(answer).not.toHaveProperty('displayName');
+    expect(await listed()).toEqual([{ name: 'Ada-Mac', displayName: 'Work' }]);
+    await as(ada, (m) => m.Rename({ id: 'named', displayName: '   ' }));
+    expect(await listed()).toEqual([{ name: 'Ada-Mac', displayName: null }]);
+  });
+
+  it("leaves another User's Connection, or a forgotten one, alone when asked to rename it", async () => {
+    const ada = signIn('ada');
+    const bob = signIn('bob');
+    await as(ada, (m) => m.Report(reportOf('mine')));
+    await as(bob, (m) => m.Rename({ id: 'mine', displayName: 'Bob’s' }));
+    await as(ada, (m) => m.Rename({ id: 'nowhere', displayName: 'Ghost' }));
+    expect(
+      (await as(ada, (m) => m.List({}))).map(({ displayName }) => displayName),
+    ).toEqual([null]);
+    await as(ada, (m) => m.Forget({ id: 'mine' }));
+    await as(ada, (m) => m.Rename({ id: 'mine', displayName: 'Back' }));
+    expect(await as(ada, (m) => m.List({}))).toEqual([]);
   });
 
   it('answers a Report with the Plugins wanted, and keeps where each stands', async () => {

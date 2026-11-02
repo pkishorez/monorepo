@@ -143,6 +143,7 @@ const services = () =>
                 plugins: {},
                 wanted: {},
                 minConnect: null,
+                displayName: null,
               },
             ],
             links: { m1: 'linked' },

@@ -126,7 +126,7 @@ export const ConnectionSettingsView = View.make(
         )}
         <Confirm.Dialog
           open={asked !== undefined}
-          title={`Forget ${asked?.name ?? 'this Connection'}?`}
+          title={`Forget ${asked?.displayName ?? asked?.name ?? 'this Connection'}?`}
           description={
             asked === undefined
               ? ''

@@ -32,6 +32,7 @@ const connection = (
   plugins,
   wanted: {},
   minConnect,
+  displayName: null,
 });
 
 const updating = connection({

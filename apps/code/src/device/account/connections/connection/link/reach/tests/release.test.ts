@@ -24,6 +24,7 @@ const wanting = (
   wanted:
     wanted === null ? {} : { code: { hash: wanted, url: `file:///${wanted}` } },
   minConnect: null,
+  displayName: null,
 });
 
 describe('who is behind', () => {

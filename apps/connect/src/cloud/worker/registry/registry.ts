@@ -7,6 +7,7 @@ import {
   type ConnectionReport,
   ConnectionTaken,
   type PluginVersion,
+  type ReportAnswer,
 } from '../../contract/index.js';
 import { type ConnectionRecord, connections } from '../storage/index.js';
 
@@ -16,7 +17,8 @@ import { type ConnectionRecord, connections } from '../storage/index.js';
  * refused ConnectionTaken. A forgotten Connection stays forgotten (ADR 0016): a
  * Report from its id, or from the Sign-in it last reported with, is refused
  * ConnectionForgotten, so a Connection that comes back under a new id on the same
- * Sign-in is refused too. Every Connection is told the same Deployment:
+ * Sign-in is refused too. A Report keeps the Connection's Display Name as
+ * its User gave it; only its User renames it. Every Connection is told the same Deployment:
  * the latest Release of each Plugin, and the Minimum Connect, both those
  * Cloud Connect was deployed with. Storage failing is a defect.
  */
@@ -36,11 +38,11 @@ const callerOf = (principal: Principal) => ({
   signInId: principal.kind === 'session' ? principal.session.id : null,
 });
 
-/** A stored Connection as its User sees it, told the `deployment`. */
-const toConnection = (
+/** A stored Connection as Cloud Connect answers its Report, told the `deployment`. */
+const toAnswer = (
   record: ConnectionRecord,
   deployment: Deployment,
-): Connection => ({
+): ReportAnswer => ({
   id: record.id,
   name: record.name,
   key: record.key,
@@ -50,6 +52,15 @@ const toConnection = (
   lastSeen: record.lastSeen,
   wanted: deployment.plugins,
   minConnect: deployment.minConnect,
+});
+
+/** A stored Connection as its User sees it, told the `deployment`. */
+const toConnection = (
+  record: ConnectionRecord,
+  deployment: Deployment,
+): Connection => ({
+  ...toAnswer(record, deployment),
+  displayName: record.displayName,
 });
 
 /** Every Connection `userId` ever reported, forgotten ones included. */
@@ -109,6 +120,7 @@ const report = (
             lastSeen,
             signInId,
             forgottenAt: null,
+            displayName: null,
           })
         : yield* connections.getAndUpdate({ id: input.id }, (current) => ({
             ...input,
@@ -116,7 +128,7 @@ const report = (
             // A Report signed by an Access Token keeps the Sign-in last seen.
             signInId: signInId ?? current.signInId,
           }));
-    return toConnection(stored.value, deployment);
+    return toAnswer(stored.value, deployment);
   }).pipe(
     // Two first Reports of one id at once: the loser reads the winner's.
     Effect.retry({ times: 2, while: raced }),
@@ -150,5 +162,24 @@ const forget = (principal: Principal, id: string) =>
     );
   }).pipe(Effect.orDie);
 
+/**
+ * Gives the caller's Connection `id` its Display Name, trimmed, or none,
+ * for `displayName` null or blank. Another User's Connection, or one
+ * forgotten or gone, is left as it is.
+ */
+const rename = (principal: Principal, id: string, displayName: string | null) =>
+  Effect.gen(function* () {
+    const { userId } = callerOf(principal);
+    const existing = yield* connections.get({ id });
+    if (
+      existing === null ||
+      existing.value.userId !== userId ||
+      existing.value.forgottenAt !== null
+    )
+      return;
+    const named = displayName?.trim() || null;
+    yield* connections.getAndUpdate({ id }, () => ({ displayName: named }));
+  }).pipe(Effect.orDie);
+
 /** What each call does, for the caller `principal`, over storage. */
-export const Registry = { report, list, forget };
+export const Registry = { report, list, forget, rename };

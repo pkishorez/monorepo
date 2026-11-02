@@ -52,6 +52,14 @@ _Avoid_: workspace, repo
 One running Connect on a computer, signed in as one User to one Cloud Connect, with its own tunnel, folders and Plugins. A computer can run several Connections, each by a name of its own there, and each name runs once. It keeps the same id across restarts. One that signed in before starts while Cloud Connect cannot be reached, and reports once it can.
 _Avoid_: machine, server, host, device, instance
 
+**Computer Name**:
+The name a Connection gives itself and reports on every Heartbeat: its computer's host name, with the name it was served as unless that is `main`, as in `Ada-MacBook (work)`. An App shows it only beside the Display Name, so two Connections given the same Display Name can be told apart.
+_Avoid_: machine name, hostname (only part of it), device name
+
+**Display Name**:
+The name a User gives a Connection in an App, kept by Cloud Connect, never by the Connection, so a Heartbeat never changes it and a Connection out of reach can be renamed. Every App names a Connection by it, else by its Computer Name. Two Connections may share one.
+_Avoid_: label, alias, nickname, custom name
+
 **Link**:
 The socket from an App to one Connection, and how it stands: linking, linked or relinking.
 _Avoid_: connection (the Connection itself)

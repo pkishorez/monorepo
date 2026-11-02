@@ -125,6 +125,7 @@ const world = (options: {
         plugins: {},
         wanted: {},
         minConnect: null,
+        displayName: null,
       })),
       links: { m1: 'linked', m2: 'linked' },
       setups: Object.fromEntries(
