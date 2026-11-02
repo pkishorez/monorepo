@@ -27,6 +27,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 
 /*
  * An image opened whole: over the page, on a dark backdrop, fitted to the
@@ -46,6 +47,11 @@ import {
  * is zoomed), and in, as `-`, `0` and `+` do; Escape, the close button or
  * a click on the backdrop close it. Zoomed out past fit, or moved past its
  * edges, it settles back once let go.
+ *
+ * However it closes, it is gone at once, its buttons and backdrop with
+ * it, and the page under is the page's again. Swiped away, only the image
+ * goes on sliding off, over the page and out of its way, unless motion is
+ * reduced.
  */
 
 /** As far in as it zooms: eight times its fitted size. */
@@ -71,18 +77,76 @@ export function ImageViewer({
   readonly src: string | null;
   readonly onClose: () => void;
 }) {
+  const reduced = useReducedMotion() === true;
+  // The image swiped away, sliding off from where the finger left it.
+  const [leaving, setLeaving] = useState<Leave | null>(null);
+  const swiped = (place: Place) => {
+    if (src !== null && !reduced) setLeaving({ src, ...place });
+    onClose();
+  };
   return (
-    <Dialog open={src !== null} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent
-        // Its own backdrop fades as it is swiped away: not the dialog's.
-        data-image-viewer
-        showCloseButton={false}
-        className="inset-0 top-0 left-0 block h-dvh w-screen max-w-none translate-x-0 translate-y-0 gap-0 rounded-none bg-transparent p-0 ring-0 sm:max-w-none"
-      >
-        <DialogTitle className="sr-only">Image</DialogTitle>
-        {src !== null && <Stage src={src} onClose={onClose} />}
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={src !== null} onOpenChange={(next) => !next && onClose()}>
+        <DialogContent
+          // Its own backdrop fades as it is swiped away: not the dialog's.
+          data-image-viewer
+          showCloseButton={false}
+          // Closed, it goes at once, with no fade for its buttons to linger in.
+          className="inset-0 top-0 left-0 block h-dvh w-screen max-w-none translate-x-0 translate-y-0 gap-0 rounded-none bg-transparent p-0 ring-0 data-closed:hidden sm:max-w-none"
+        >
+          <DialogTitle className="sr-only">Image</DialogTitle>
+          {src !== null && (
+            <Stage src={src} onClose={onClose} onSwiped={swiped} />
+          )}
+        </DialogContent>
+      </Dialog>
+      {leaving !== null && src === null && (
+        <Leaving leave={leaving} onGone={() => setLeaving(null)} />
+      )}
+    </>
+  );
+}
+
+/** An image swiped away: what it is, and where it was let go. */
+type Leave = Place & { readonly src: string };
+
+/**
+ * The image swiped away, sliding the rest of the way off once the viewer
+ * has closed: over the page, but never in the way of a touch or a click.
+ */
+function Leaving({
+  leave,
+  onGone,
+}: {
+  readonly leave: Leave;
+  readonly onGone: () => void;
+}) {
+  const y = useMotionValue(leave.y);
+  useEffect(() => {
+    const away = animate(y, leave.y >= 0 ? innerHeight : -innerHeight, {
+      type: 'spring',
+      stiffness: 400,
+      damping: 40,
+    });
+    void away.then(onGone);
+    return () => away.stop();
+    // Once, from where it was let go.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return createPortal(
+    <div
+      aria-hidden
+      data-image-leaving
+      className="pointer-events-none fixed top-0 left-0 z-50 grid h-dvh w-screen place-items-center"
+    >
+      <motion.img
+        src={leave.src}
+        alt=""
+        style={{ scale: leave.scale, x: leave.x, y }}
+        className="max-h-dvh max-w-full object-contain"
+      />
+    </div>,
+    document.body,
   );
 }
 
@@ -92,9 +156,12 @@ type Place = { readonly scale: number; readonly x: number; readonly y: number };
 function Stage({
   src,
   onClose,
+  onSwiped,
 }: {
   readonly src: string;
   readonly onClose: () => void;
+  /** Swiped away: closed, the image left to slide off from where it is. */
+  readonly onSwiped: (place: Place) => void;
 }) {
   const reduced = useReducedMotion() === true;
   const stage = useRef<HTMLDivElement>(null);
@@ -163,11 +230,8 @@ function Stage({
   /** In on `at`, or back to fit when zoomed. */
   const toggle = (at: { x: number; y: number }) =>
     scale.get() > 1.01 ? settle({ scale: 1, x: 0, y: 0 }) : zoomTo(DOUBLE, at);
-  /** Down and out, the backdrop with it, then closed. */
-  const dismiss = () => {
-    void glide(backdrop, 0);
-    void glide(y, y.get() >= 0 ? innerHeight : -innerHeight).then(onClose);
-  };
+  /** Closed now, the image left to slide off the rest of the way. */
+  const dismiss = () => onSwiped(now());
 
   const touched: Touched = {
     zoomed: () => scale.get() > 1.01,
