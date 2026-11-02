@@ -49,6 +49,8 @@ let ping = () => {};
 let active = '';
 let read = () => {};
 let retitling: ReadonlyArray<unknown> = [];
+/** The Actions of the keyboard that worked where Actions is opened. */
+let available: ReadonlyArray<string> = [];
 /** The title the server is writing, until a test gives it. */
 let title = Deferred.makeUnsafe<string>();
 
@@ -62,7 +64,7 @@ const Actions = View.make(ActionsLive, ({ model, children, send }) => {
         _tag: 'Open',
         how: 'keys',
         at: { connectionId: 'm1', sessionId: 's2' },
-        available: [],
+        available: [...available],
         vim: true,
         keyboard: true,
       }),
@@ -203,6 +205,7 @@ beforeAll(() => {
 beforeEach(async () => {
   pushed = [];
   settled = [];
+  available = [];
   title = Deferred.makeUnsafe<string>();
   const App = View.app(OwnerView, {
     layer: services,
@@ -268,5 +271,22 @@ describe('Actions on a session', () => {
     expect(retitling).toEqual([
       { connectionId: 'm1', sessionId: 's2', title: 'A new title' },
     ]);
+  });
+
+  it("list Session details once, with the session's, where the page opens them", async () => {
+    available = ['content.details', 'content.stop'];
+    await openFromSidebar();
+    const named = (label: string) =>
+      [...document.querySelectorAll('[cmdk-item]')].filter((item) =>
+        item.textContent?.includes(label),
+      );
+    expect(named('Session details')).toHaveLength(1);
+    // The keys' own rows still list what the session's do not.
+    expect(named('Stop the turn')).toHaveLength(1);
+  });
+
+  it('list no Session details where the page has none', async () => {
+    await openFromSidebar();
+    expect(document.body.textContent).not.toContain('Session details');
   });
 });

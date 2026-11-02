@@ -19,6 +19,10 @@ export const TOOL_KINDS = [
 ] as const;
 export type ToolKind = (typeof TOOL_KINDS)[number];
 
+/**
+ * Tokens as every harness counts them: `inputTokens` only what was sent
+ * fresh, apart from what was read from the cache or written to it.
+ */
 export const UsageSchema = Schema.Struct({
   inputTokens: Schema.Finite,
   outputTokens: Schema.Finite,
@@ -268,7 +272,7 @@ export type Message = typeof MessageSchema.Type;
  * harness's projection changes what it makes, so devices that kept
  * Messages throw them away and sync afresh.
  */
-export const PROJECTION_VERSION = 7;
+export const PROJECTION_VERSION = 8;
 
 /** What a harness's `project` decides; the engine adds the ids and time. */
 export type Projected = Pick<Message, 'agentId' | 'role' | 'parts'>;

@@ -33,6 +33,7 @@ import {
 import { SkillPicker } from './pick/skills.ts';
 import { BranchPicker, BranchSettings } from './pick/branch/index.ts';
 import { Slots } from './draft.ts';
+import { Reading, Row as ContextRow } from './send/context.tsx';
 
 /*
  * The Draft at the page's foot: the line that says why nothing can be
@@ -387,6 +388,7 @@ function Composer({
     );
   const label = wording.send;
   const title = sendKeys === null ? label : `${label} (${sendKeys})`;
+  const context = slots.context ?? null;
   const blocked = unsendable || !draft.filled;
 
   const drawn = draft.touch ? (
@@ -396,6 +398,7 @@ function Composer({
       blocked: unsendable,
       starting: model.starting !== null,
       stop: slots.stop ?? null,
+      context: context === null ? null : <Reading context={context} />,
       attachments:
         draft.attachments.length > 0 || draft.files.refused.length > 0 ? (
           <AttachmentStrip
@@ -427,6 +430,18 @@ function Composer({
               onSet={(key, value) =>
                 send({ _tag: 'SettingChosen', key, value })
               }
+              context={
+                context === null ? null : (
+                  <ContextRow
+                    context={{
+                      ...context,
+                      // Once the Drawer it is in has slid away, so the tap
+                      // that chose it does not land on what opens.
+                      onOpen: () => setTimeout(context.onOpen, AFTER_DRAWER),
+                    }}
+                  />
+                )
+              }
             >
               {children.models && (
                 <ModelPicker.View instance={children.models} />
@@ -440,6 +455,7 @@ function Composer({
     <Card draft={draft}>
       <StatusLine
         draft={draft}
+        context={context === null ? null : <Reading context={context} />}
         actions={slots.actions}
         send={
           <Button
@@ -487,5 +503,8 @@ function Composer({
     </>
   );
 }
+
+/** How long a Drawer takes to slide away, in ms, before what a tap in it opens. */
+const AFTER_DRAWER = 400;
 
 export default DraftView;

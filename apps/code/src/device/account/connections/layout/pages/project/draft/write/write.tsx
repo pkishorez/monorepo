@@ -527,12 +527,15 @@ const SEND_KEYS =
 export function StatusLine({
   draft,
   children,
+  context,
   actions,
   send,
 }: {
   readonly draft: Draft;
   /** The model and its settings: they share what width is left. */
   readonly children?: ReactNode;
+  /** How full the session's context is, first of what is by the send button. */
+  readonly context?: ReactNode;
   readonly actions?: ReactNode;
   /** The send button, drawn once there is something to send. */
   readonly send?: ReactNode;
@@ -633,6 +636,7 @@ export function StatusLine({
         {microphones?.(microphoneKeys)}
       </div>
       <div className="col-start-3 row-start-2 flex shrink-0 items-center gap-1.5 justify-self-end @md/status:col-start-4 @md/status:row-start-1">
+        {context}
         {actions}
         {micFirst ? (
           <Button

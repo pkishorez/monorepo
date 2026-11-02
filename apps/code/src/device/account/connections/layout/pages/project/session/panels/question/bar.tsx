@@ -7,7 +7,7 @@ import {
   MessageCircleQuestionMarkIcon,
   SquareIcon,
 } from 'lucide-react';
-import { AgentLogo } from '../../../../../../../../ui/labels/agent/index.ts';
+import { AgentLogo } from '../../../../../../../../../ui/labels/agent/index.ts';
 import { type Asker, type Stop, stopTitle } from './question.ts';
 
 /*

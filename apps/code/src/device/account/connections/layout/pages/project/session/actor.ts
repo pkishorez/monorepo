@@ -2,6 +2,7 @@ import { Effect, Schema, Stream } from 'effect';
 import {
   BackgroundJobSchema,
   CodeClient,
+  ContextUsageSchema,
   type Session as SessionRecord,
 } from '@kestack/connect/code';
 import { Page, Router } from '@kestack/kabuki/routing';
@@ -18,6 +19,7 @@ import {
   SessionRow,
 } from '../../../../connection/records/index.ts';
 import { Connections } from '../../../../connections.ts';
+import { ContextShown, Preferences } from '../../../../../../store.ts';
 import { Seen } from '../../../../connection/store/index.ts';
 import { Draft } from '../draft/index.ts';
 import {
@@ -27,14 +29,14 @@ import {
   openAfterDrawer,
   stopJob,
 } from './commands.ts';
-import { Question } from './question/index.ts';
+import { Question } from './panels/question/index.ts';
 import * as Picker from '../../../../../../../ui/controls/picker/index.ts';
 import { since } from '../../../../../../../ui/labels/status/index.ts';
 import { Actor } from '@kestack/kabuki';
 
 /*
  * A session: its row, its messages, its Draft (`draft/`), and the Question
- * Panel that stands in for it while its agent asks (`question/`).
+ * Panel that stands in for it while its agent asks (`panels/question/`).
  *
  * 1. Read     the row says whether it runs; its messages sync while the
  *             page is open, through the session's Window. A Worker follows
@@ -66,6 +68,12 @@ import { Actor } from '@kestack/kabuki';
  *              drawn whole only with its row (`held`).
  * 7. Question  the Agent Questions its agent waits on, answered in the
  *              Question Panel, a Child of its own, fresh for each session.
+ * 9. Context   how full its agent's context is, and the plan's limits, as
+ *              the agent says, asked as the page opens, as each turn ends,
+ *              every so often while one runs, and as its details open;
+ *              none while the agent is not open to ask. When the Draft
+ *              shows it is a Preference, followed as it changes. Its
+ *              details are open or not here, so they are asked afresh.
  */
 
 // 8. Running: the Running Picker, kept here rather than with the
@@ -293,8 +301,17 @@ const Model = Schema.Struct({
   picking: Schema.NullOr(Picker.How),
   /** How many times it was opened, so each opening is a fresh Picker. */
   opened: Schema.Finite,
+  /** How full its agent's context is, as last asked; null while not known (9. Context). */
+  context: Schema.NullOr(ContextUsageSchema),
+  /** When the Draft shows the context, as Preferences say. */
+  contextShown: ContextShown,
+  /** Whether the session's details are open. */
+  details: Schema.Boolean,
 });
 type Model = typeof Model.Type;
+
+/** How often a running turn's context is asked again. */
+const CONTEXT_EVERY = '15 seconds';
 
 /** A Query as the page reads it: whether it is read from this device yet. */
 interface Reading {
@@ -342,7 +359,7 @@ export const Session = Page.define({
   path: '/s/:sessionId',
   params: { sessionId: Schema.String },
   metadata: { title: 'Session · code' },
-  requires: [CodeClient, Replicas, Seen, Connections],
+  requires: [CodeClient, Replicas, Seen, Connections, Preferences],
   model: Model,
   message: Schema.TaggedUnion({
     Read: Read.fields,
@@ -365,6 +382,13 @@ export const Session = Page.define({
     Refused,
     /** All it draws is read from this device: it can be drawn whole, its row held or not. */
     Ready: { held: Schema.Boolean },
+    /** How full the session's context is, as its agent said; null when it could not. */
+    ContextRead: {
+      sessionId: Schema.String,
+      context: Schema.NullOr(ContextUsageSchema),
+    },
+    ContextShownRead: { shown: ContextShown },
+    DetailsToggled: { open: Schema.Boolean },
   }),
 });
 
@@ -385,6 +409,9 @@ export const SessionLive = Session.build({
       running: [],
       picking: null,
       opened: 0,
+      context: null,
+      contextShown: 'always',
+      details: false,
     },
   }),
   // 8. Running
@@ -453,6 +480,50 @@ export const SessionLive = Session.build({
     }),
   },
   workers: {
+    // 9. Context: asked again as a turn ends or starts, and as its details open.
+    context: {
+      each: ({ model, props }) =>
+        model.row?.id === props.params.sessionId
+          ? [
+              [
+                props.params.sessionId,
+                model.row.endedAt ?? 0,
+                model.row.running,
+                model.details,
+              ].join(' '),
+            ]
+          : [],
+      run: (self) =>
+        Effect.gen(function* () {
+          const { model, props } = yield* self.get;
+          const { sessionId } = props.params;
+          const ask = CodeClient.use((api) =>
+            api.contextUsage({ sessionId }),
+          ).pipe(
+            Effect.map((context) => context as typeof model.context),
+            Effect.orElseSucceed(() => null),
+            Effect.flatMap((context) =>
+              self.send({ _tag: 'ContextRead', sessionId, context }),
+            ),
+          );
+          yield* ask;
+          // While a turn runs, it fills: asked again every so often.
+          if (model.row?.running === true)
+            yield* Effect.forever(
+              Effect.andThen(Effect.sleep(CONTEXT_EVERY), ask),
+            );
+        }),
+    },
+    contextShown: {
+      run: (self) =>
+        Stream.runForEach(
+          Stream.concat(Stream.make(undefined), Preferences.changes),
+          () =>
+            Effect.flatMap(Preferences.read, ({ context }) =>
+              self.send({ _tag: 'ContextShownRead', shown: context }),
+            ),
+        ),
+    },
     // 4. Stop: its jobs, live.
     jobs: {
       each: ({ props }) => [props.params.sessionId],
@@ -487,8 +558,27 @@ export const SessionLive = Session.build({
     },
   },
   on: {
+    // 9. Context
+    ContextRead: ({ sessionId, context }, { model, props }) =>
+      sessionId === props.params.sessionId
+        ? { model: { ...model, context } }
+        : {},
+    ContextShownRead: ({ shown }, { model }) =>
+      model.contextShown === shown
+        ? {}
+        : { model: { ...model, contextShown: shown } },
+    DetailsToggled: ({ open }, { model }) =>
+      model.details === open ? {} : { model: { ...model, details: open } },
     Read: ({ row, lineage }, { model, props }) => ({
-      model: { ...model, row, lineage },
+      model: {
+        ...model,
+        row,
+        lineage,
+        // Another session's context is not this one's.
+        ...(model.row !== null && model.row.id !== row.id
+          ? { context: null, details: false }
+          : {}),
+      },
       // Seen up to the end of its last turn: on opening, and as each ends.
       ...(model.row?.id === row.id && model.row.endedAt === row.endedAt
         ? {}

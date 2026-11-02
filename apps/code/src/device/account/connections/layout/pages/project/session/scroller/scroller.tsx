@@ -42,6 +42,9 @@ export { useScrollKeys } from './keys.ts';
  *            glide there, not the reader's scroll unless it goes up, and
  *            once it is quiet, the rest of the way at once if the bottom
  *            moved while it went.
+ * 6. Go      `toBlock` puts a block near the top of the view, every block
+ *            drawn first: the anchor is it, so rule 2 keeps it there as
+ *            what is drawn above it comes in.
  *
  * What opens and shuts in the list keeps itself on the screen with
  * `keepStill` (`../transcript/words/fold.tsx`); this needs nothing else.
@@ -73,6 +76,9 @@ export const Scrolled = createContext<Scroll | null>(null);
  * element and its content's, whether the reader is away from the bottom,
  * and how to go back to it or to the top.
  */
+/** How far below the view's top a block gone to sits, in px. */
+const GO_OFFSET = 16;
+
 export function useScroller(key: string, id: string) {
   const scroller = useRef<HTMLDivElement | null>(null);
   const content = useRef<HTMLDivElement | null>(null);
@@ -88,6 +94,7 @@ export function useScroller(key: string, id: string) {
   const moves = useRef({
     holdOn: (_smooth?: boolean) => {},
     toTop: () => {},
+    toBlock: (_id: string) => {},
   });
   useLayoutEffect(() => {
     const outer = scroller.current;
@@ -243,6 +250,17 @@ export function useScroller(key: string, id: string) {
         read();
         report();
       },
+      // Rule 6: a little below the top, so what is over it shows it starts there.
+      toBlock: (id) => {
+        clearTimeout(settling);
+        scroll.gliding = false;
+        stopDescending();
+        scroll.showAll();
+        set({ at: 'block', id, offset: GO_OFFSET });
+        // Drawn already, it goes now; else once it is, as it grows the list.
+        if (blockOf(id) !== undefined) place();
+        report();
+      },
     };
     // After anything in it grows or shrinks, or it does, as when shown
     // again or the window grows: back to the anchor, and enough drawn.
@@ -286,6 +304,8 @@ export function useScroller(key: string, id: string) {
       holdOn: (smooth?: boolean) => moves.current.holdOn(smooth),
       /** To the top, every block drawn first. */
       toTop: () => moves.current.toTop(),
+      /** A block near the top of the view, every block drawn first. */
+      toBlock: (id: string) => moves.current.toBlock(id),
     }),
     [scroll, away],
   );

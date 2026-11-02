@@ -519,7 +519,8 @@ const shortName = (name: string, agent: string) => {
  * agent, while the session has not started, and the model open the Picker
  * in a Sheet over it, the two a stack: the Sheet closes alone, on a choice,
  * a swipe or a tap outside it, back to the Drawer. Each setting changes in
- * place.
+ * place. In a session, how full its context is heads it, a tap closing the
+ * Drawer for the session's details.
  */
 export function Chip({
   catalog,
@@ -528,12 +529,15 @@ export function Chip({
   how,
   onOpen,
   onSet,
+  context = null,
   children,
 }: {
   readonly catalog: Catalog;
   readonly current: Current | null;
   /** The session has started, so its agent is kept. */
   readonly started: boolean;
+  /** How full the session's context is, the Drawer's first row; null for none. */
+  readonly context?: ReactNode;
   /** How the Picker is open; null while it is not. */
   readonly how: typeof Picker.How.Type | null;
   /** Opens the Picker at the agent, or at the model alone. */
@@ -597,6 +601,10 @@ export function Chip({
       >
         <LayerHeader title="Model and settings" />
         <div className="flex flex-col overflow-y-auto overscroll-contain pb-2">
+          {context !== null && (
+            // Its details open over the page once this Drawer is gone.
+            <div onClickCapture={() => setOpen(false)}>{context}</div>
+          )}
           {!started && (
             <OpenRow
               label="Agent"

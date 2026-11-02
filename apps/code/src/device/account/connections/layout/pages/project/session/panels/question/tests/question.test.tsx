@@ -12,9 +12,12 @@ import {
 import { Actor } from '@kestack/kabuki';
 import { View, useChild } from '@kestack/kabuki/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { keys } from '../../../../../commands.ts';
-import { type Answering, Connections } from '../../../../../../connections.ts';
-import { answeringAsked } from '../../../../../../connection/records/index.ts';
+import { keys } from '../../../../../../commands.ts';
+import {
+  type Answering,
+  Connections,
+} from '../../../../../../../connections.ts';
+import { answeringAsked } from '../../../../../../../connection/records/index.ts';
 import { Question } from '../index.ts';
 import QuestionView from '../view.tsx';
 

@@ -464,9 +464,9 @@ describe('project: single records', () => {
     ).toEqual([{ type: 'error', message: readable }]);
   });
 
-  it("shows each token usage update as the last model call's usage", () => {
+  it("shows each token usage update as the last model call's usage, its input without what the cache holds", () => {
     const usage = {
-      totalTokens: 0,
+      totalTokens: 127,
       inputTokens: 120,
       cachedInputTokens: 20,
       cacheWriteInputTokens: 0,
@@ -485,10 +485,38 @@ describe('project: single records', () => {
       parts: [
         {
           type: 'usage',
-          usage: { inputTokens: 120, outputTokens: 7, cacheReadTokens: 20 },
+          usage: { inputTokens: 100, outputTokens: 7, cacheReadTokens: 20 },
         },
       ],
     });
+  });
+
+  it('counts what Codex wrote to the cache apart from what it sent fresh', () => {
+    const usage = {
+      totalTokens: 1_010,
+      inputTokens: 1_000,
+      cachedInputTokens: 600,
+      cacheWriteInputTokens: 300,
+      outputTokens: 10,
+      reasoningOutputTokens: 4,
+    };
+    expect(
+      one('thread/tokenUsage/updated', {
+        threadId: 'main',
+        turnId: 't',
+        tokenUsage: { total: usage, last: usage, modelContextWindow: 1 },
+      })?.parts,
+    ).toEqual([
+      {
+        type: 'usage',
+        usage: {
+          inputTokens: 100,
+          outputTokens: 10,
+          cacheReadTokens: 600,
+          cacheWriteTokens: 300,
+        },
+      },
+    ]);
   });
 
   it('shows an Agent Question as a question call, its result, and what was answered by Item id', () => {

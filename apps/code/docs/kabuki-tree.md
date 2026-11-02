@@ -221,7 +221,7 @@ An agent's question is followed once, by its Connection, and read twice.
   session's address with `?question=single`, `mixed`, `secret` or `long`
   adds a sample, answered in the browser (`samples.ts`).
 - **Sidebar** reads which Sessions ask, for their "Question" pill.
-- **Question Panel** (`pages/project/session/question/`), a Child of the
+- **Question Panel** (`pages/project/session/panels/question/`), a Child of the
   Session, reads its own Session's, reads back from the Connection how they
   were being answered as it opens and gives it each change, so leaving
   the session or the page and coming back finds each question as it was

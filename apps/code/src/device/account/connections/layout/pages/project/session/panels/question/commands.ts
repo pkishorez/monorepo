@@ -1,8 +1,8 @@
 import { Effect, Schema } from 'effect';
 import { QuestionAnswerSchema } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
-import { orRefused } from '../../../../../connection/link/index.ts';
-import { answerQuestion } from '../../../../../connection/records/index.ts';
+import { orRefused } from '../../../../../../connection/link/index.ts';
+import { answerQuestion } from '../../../../../../connection/records/index.ts';
 
 /*
  * What the Question Panel asks of the session's Connection: the answer to an

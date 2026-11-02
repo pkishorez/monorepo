@@ -13,6 +13,7 @@ import { ArrowDownIcon, GitForkIcon, TriangleAlertIcon } from 'lucide-react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
+import { useDevice } from '@kestack/web-platform/ui/input';
 import {
   GUTTERED,
   useGutter,
@@ -33,7 +34,13 @@ import {
   useScrollKeys,
   useScroller,
 } from './scroller/index.ts';
-import { Question } from './question/index.ts';
+import { Question } from './panels/question/index.ts';
+import {
+  exactly,
+  levelOf,
+  SessionDetails,
+  tokens,
+} from './panels/details/index.ts';
 import {
   EarlierRows,
   Folder,
@@ -45,7 +52,9 @@ import {
   LiveContext,
   type Opening,
   Rows,
+  SessionOpener,
   SubagentDrawers,
+  useFacts,
   useOpening,
   useRows,
 } from './transcript/index.ts';
@@ -71,8 +80,12 @@ import {
  * only the Draft. A Btw asked from the Draft is read in its Btw Drawer,
  * over the transcript's foot, the transcript staying as it was, its
  * agent told to the Draft as who answers.
+ * Its details open over it (`panels/details/`): from Actions, Ctrl+G, a turn's
+ * details, or how full its context is, which the Draft shows by its send
+ * button as the Context Preference says; each turn in them opens where it
+ * is in the transcript.
  * While its agent waits on an Agent Question, the Question Panel stands
- * in for the Draft (`question/`), with Stop; expanded, it covers the
+ * in for the Draft (`panels/question/`), with Stop; expanded, it covers the
  * transcript, which cannot be reached under it. Nothing of it is drawn until all of it is read from this device
  * (`readyOf`), then the transcript and the Draft in one step;
  * `SessionReady` says so once, before Layout is first drawn.
@@ -211,6 +224,41 @@ export const SessionView = View.make(
     }, [sends]);
     keys.useAction('content.stop', stop, { enabled: canStop });
     const stopKeys = useBound('content.stop');
+    // 9. Context, and the session's details.
+    const openDetails = useCallback(
+      () => send({ _tag: 'DetailsToggled', open: true }),
+      [send],
+    );
+    keys.useAction('content.details', openDetails, {
+      enabled: session !== undefined && !reading,
+    });
+    const detailsKeys = useBound('content.details');
+    const { touch, keyboard } = useDevice();
+    // From a turn's details, on touch, once its Drawer has slid away, so
+    // the tap that chose it does not land on what opens.
+    const openFromTurn = useCallback(() => {
+      if (touch && !keyboard) setTimeout(openDetails, AFTER_DRAWER);
+      else openDetails();
+    }, [touch, keyboard, openDetails]);
+    const facts = useFacts(rows, forkedFrom !== null, model.details);
+    const used = model.context?.usedTokens;
+    const max = model.context?.maxTokens;
+    const context = useMemo(() => {
+      if (used === undefined || max === undefined || max <= 0) return null;
+      if (model.contextShown === 'off') return null;
+      if (model.contextShown === 'nearlyFull' && levelOf(used, max) === 'fine')
+        return null;
+      const level = levelOf(used, max);
+      const state = { fine: '', filling: ' Filling.', full: ' Full.' }[level];
+      return {
+        used: tokens(used),
+        max: tokens(max),
+        title: `Context: ${exactly(used)} of ${exactly(max)} tokens.${state} Session details${detailsKeys === null ? '' : ` (${detailsKeys})`}`,
+        fraction: Math.min(1, used / max),
+        level,
+        onOpen: openDetails,
+      };
+    }, [used, max, model.contextShown, openDetails, detailsKeys]);
     // While its agent asks, the Question Panel stands in for the Draft.
     const asked =
       useChild(
@@ -264,6 +312,7 @@ export const SessionView = View.make(
         problem: model.problem,
         answerer: { agent: around.agent, harness: around.harness },
         stop: around.stop,
+        context,
         actions: working && (
           <Button
             type="button"
@@ -293,6 +342,7 @@ export const SessionView = View.make(
         around.agent,
         around.harness,
         around.stop,
+        context,
       ],
     );
     // The Draft sits under the transcript, inset by the room its scrollbar keeps.
@@ -339,25 +389,27 @@ export const SessionView = View.make(
           className={`relative min-h-0 flex-1 overflow-y-auto outline-none select-text [overflow-anchor:none] ${GUTTERED}`}
         >
           <Scrolled value={scroll.scroll}>
-            <LiveContext.Provider value={live}>
-              <Transcript
-                key={props.params.sessionId}
-                content={content}
-                connectionId={connectionId}
-                session={session}
-                original={original}
-                missing={missing}
-                reading={reading}
-                waiting={waiting}
-                earlier={earlier}
-                rows={rows}
-                opening={opening}
-                forking={forking}
-                running={running}
-                ready={messages?.status === 'ready'}
-                offline={offline}
-              />
-            </LiveContext.Provider>
+            <SessionOpener value={openFromTurn}>
+              <LiveContext.Provider value={live}>
+                <Transcript
+                  key={props.params.sessionId}
+                  content={content}
+                  connectionId={connectionId}
+                  session={session}
+                  original={original}
+                  missing={missing}
+                  reading={reading}
+                  waiting={waiting}
+                  earlier={earlier}
+                  rows={rows}
+                  opening={opening}
+                  forking={forking}
+                  running={running}
+                  ready={messages?.status === 'ready'}
+                  offline={offline}
+                />
+              </LiveContext.Provider>
+            </SessionOpener>
           </Scrolled>
         </div>
         <div ref={setQuestionPlace} className="contents" />
@@ -394,10 +446,24 @@ export const SessionView = View.make(
           live={live}
           close={closeDrawers}
         />
+        {session !== undefined && (
+          <SessionDetails
+            open={model.details}
+            onOpenChange={(open) => send({ _tag: 'DetailsToggled', open })}
+            title={session.title}
+            about={`${agentName(session.harness)} · ${session.model}`}
+            facts={facts}
+            context={model.context}
+            onGo={scroll.toBlock}
+          />
+        )}
       </div>
     );
   },
 );
+
+/** How long a Drawer takes to slide away, in ms, before what a tap in it opens. */
+const AFTER_DRAWER = 400;
 
 /**
  * Draws nothing: says once that the session can be drawn whole, all of it

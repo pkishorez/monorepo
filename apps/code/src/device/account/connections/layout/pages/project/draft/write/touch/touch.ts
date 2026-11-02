@@ -94,6 +94,8 @@ export const Touch = createContext<{
   readonly starting: boolean;
   /** The turn running, to stop, or null. */
   readonly stop: Stop | null;
+  /** How full the session's context is, by the microphone and Send; null for none. */
+  readonly context: ReactNode;
   readonly onPaste: (text: string) => void;
   /** Where the View says how the Draft is sent on touch: through it. */
   readonly sending: RefObject<(() => void) | null>;

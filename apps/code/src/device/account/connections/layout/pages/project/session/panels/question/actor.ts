@@ -5,13 +5,13 @@ import {
   type QuestionItem,
 } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
-import { Answering, Connections } from '../../../../../connections.ts';
-import { Refused } from '../../../../../connection/link/index.ts';
+import { Answering, Connections } from '../../../../../../connections.ts';
+import { Refused } from '../../../../../../connection/link/index.ts';
 import {
   fresh,
   sameAnswering,
   stillAsked,
-} from '../../../../../connection/records/index.ts';
+} from '../../../../../../connection/records/index.ts';
 import {
   answerFor,
   choose,

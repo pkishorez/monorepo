@@ -1,5 +1,5 @@
 import { createContext } from 'react';
-import type { Agent } from '../../../../../../../../ui/labels/agent/index.ts';
+import type { Agent } from '../../../../../../../../../ui/labels/agent/index.ts';
 
 /*
  * What the session's page hands the Question Panel: where to draw it

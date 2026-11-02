@@ -21,6 +21,7 @@ import { GeneralLive } from './actor.ts';
  * wide screen. Keyboard: Vim Mode, which a touch screen with no keyboard
  * leaves out. Voice: the Microphone, chosen in the Microphone Picker.
  * Touch: Smart Input and Smart Displacement, which a keyboard leaves out.
+ * Sessions: when the Draft shows how full the context is.
  * Each says what it does in a line; a Row of one switch, and the theme's,
  * is clicked anywhere to flip it.
  */
@@ -209,6 +210,30 @@ export const GeneralView = View.make(GeneralLive, ({ root, model, send }) => {
           ) : (
             'The one chosen here, or the system default while it is away.'
           )}
+        </Row>
+      </Section>
+      <Section name="Sessions">
+        <Row
+          id="context"
+          name="Context"
+          control={
+            device === null ? (
+              <Skeleton className="h-8 w-56 rounded-lg" />
+            ) : (
+              <Choice
+                label="Context"
+                value={device.context}
+                onChange={(shown) => send({ _tag: 'ContextChosen', shown })}
+                options={[
+                  { value: 'always', label: 'Always' },
+                  { value: 'nearlyFull', label: 'Nearly full' },
+                  { value: 'off', label: 'Off' },
+                ]}
+              />
+            )
+          }
+        >
+          How full it is, by the message box.
         </Row>
       </Section>
       <Section name="Touch" className="keyboard:hidden">

@@ -40,6 +40,10 @@
     {
       "hash": "0dd4387b2aee3175d11196a2c4c7da04d80ffd662e0cf2cb6df795f8cefe4c1f",
       "summary": "A tool result says when its call went on in the background, so an async subagent reads as running"
+    },
+    {
+      "hash": "a8b9adece4a2c69ff05ee1acaee51e7487a0e5e5bedb8206e1fd4960bf4449bd",
+      "summary": "Codex usage counts its input as Claude Code's does, apart from what the cache read and wrote"
     }
   ]
 }

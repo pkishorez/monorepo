@@ -30,8 +30,8 @@ import {
  *                 user's own Bindings, whether Vim Mode is on, whether the
  *                 app floats as a window, the text size, the microphone a
  *                 Dictation records from, whether the Touch Draft takes
- *                 Smart Input and Smart Displacement, and the sidebar's
- *                 width. The store is the truth; an actor that shows it
+ *                 Smart Input and Smart Displacement, the sidebar's
+ *                 width, and when the Draft shows how full the context is. The store is the truth; an actor that shows it
  *                 reads it again after every write, from this tab or
  *                 another. The Connection the sidebar shows is its Account's
  *                 (`account/connections/store.ts`).
@@ -52,11 +52,16 @@ export const device = 'code:device';
  * default; whether the Touch Draft takes Smart Input: a tap opens it,
  * and another places the caret, typing only from Edit; whether it takes
  * Smart Displacement: a caret or an end dragged sits above the finger; the
- * sidebar's width on a wide screen, in px.
+ * sidebar's width on a wide screen, in px; when the Draft shows how full
+ * the session's context is.
  */
 /** How big text and spacing are, with a keyboard on a wide screen. */
 export const TextSize = Schema.Literals(['small', 'medium', 'large']);
 export type TextSize = typeof TextSize.Type;
+
+/** When the Draft shows how full the context is: always, only nearly full, or never. */
+export const ContextShown = Schema.Literals(['always', 'nearlyFull', 'off']);
+export type ContextShown = typeof ContextShown.Type;
 
 export const PreferencesRead = Schema.Struct({
   bindings: Schema.Record(Schema.String, Schema.Array(Schema.String)),
@@ -67,10 +72,11 @@ export const PreferencesRead = Schema.Struct({
   smartInput: Schema.Boolean,
   smartDisplacement: Schema.Boolean,
   sidebarWidth: Schema.Finite,
+  context: ContextShown,
 });
 export type PreferencesRead = typeof PreferencesRead.Type;
 
-/** What a browser that keeps nothing reads: the default keys, Vim Mode off, no window, medium text, the default microphone, no Smart Input nor Displacement, a sidebar 260 px wide. */
+/** What a browser that keeps nothing reads: the default keys, Vim Mode off, no window, medium text, the default microphone, no Smart Input nor Displacement, a sidebar 260 px wide, the context always shown. */
 export const nothing: PreferencesRead = {
   bindings: {},
   vim: false,
@@ -80,6 +86,7 @@ export const nothing: PreferencesRead = {
   smartInput: false,
   smartDisplacement: false,
   sidebarWidth: 260,
+  context: 'always',
 };
 
 /** The Capability that reads and writes Preferences, and says when it changed. */
@@ -105,6 +112,9 @@ export class Preferences extends Context.Service<
     readonly setSidebarWidth: (
       width: number,
     ) => Effect.Effect<void, DatabaseError>;
+    readonly setContext: (
+      shown: ContextShown,
+    ) => Effect.Effect<void, DatabaseError>;
     /** Once per write, here or in another tab; rings while busy fold into one. */
     readonly changes: Stream.Stream<void>;
   }
@@ -126,7 +136,8 @@ export class Preferences extends Context.Service<
  * is turned on; one for the text size, medium until chosen; one for the
  * microphone a Dictation records from; one each for whether the Touch
  * Draft takes Smart Input and Smart Displacement, off until turned on;
- * one for the sidebar's width. The Unseen marks are each Connection's own.
+ * one for the sidebar's width; one for when the Draft shows the context,
+ * always until chosen. The Unseen marks are each Connection's own.
  *
  * How the Touch Draft was written before Smart Input (`DeviceTouch`, text
  * or voice) is no longer read.
@@ -197,6 +208,13 @@ const SidebarWidthSchema = ESchema.make('DeviceSidebarWidth', {
 const sidebarWidth = table
   .singleEntity(SidebarWidthSchema)
   .default({ width: 260 });
+
+const ContextSchema = ESchema.make('DeviceContext', {
+  /** When the Draft shows how full the session's context is. */
+  shown: ContextShown,
+}).build();
+
+const context = table.singleEntity(ContextSchema).default({ shown: 'always' });
 
 /** Bindings by Action id, as kept. */
 type Bindings = Readonly<Record<string, ReadonlyArray<string>>>;
@@ -269,6 +287,7 @@ const make = (
       smartInput: (yield* kept(smartInput)).on,
       smartDisplacement: (yield* kept(smartDisplacement)).on,
       sidebarWidth: (yield* kept(sidebarWidth)).width,
+      context: (yield* kept(context)).shown,
     };
   }).pipe(Effect.provide(layer));
 
@@ -295,6 +314,8 @@ const make = (
       ),
     setSidebarWidth: (width) =>
       write(sidebarWidth.getAndUpdate(() => ({ width }), { retries: RETRIES })),
+    setContext: (shown) =>
+      write(context.getAndUpdate(() => ({ shown }), { retries: RETRIES })),
     // 3. Follow
     changes: doorbell.rings,
   });

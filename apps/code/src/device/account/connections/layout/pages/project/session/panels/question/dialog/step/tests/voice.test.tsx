@@ -3,8 +3,8 @@ import { act, useRef } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import type { QuestionItem } from '@kestack/connect/code';
 import { afterEach, describe, expect, it } from 'vitest';
-import { keys } from '../../../../../../../commands.ts';
-import type { Dictated } from '../../../../../../../../voice/index.ts';
+import { keys } from '../../../../../../../../commands.ts';
+import type { Dictated } from '../../../../../../../../../voice/index.ts';
 import { Step } from '../step.tsx';
 import { joined, ownerOf, Taking } from '../voice.tsx';
 

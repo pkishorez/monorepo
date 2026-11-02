@@ -18,8 +18,9 @@ import { isKey, rowsOf } from './keys.ts';
  * 1. Read    on a session, the Session, followed while open, for what
  *            applies to it, listed first, each with a line on what it
  *            does: Settle or Un-settle; Fork from the latest Turn; Go to
- *            the original, for a Fork; Regenerate the title; Stop the
- *            Turn, while one runs. Then, with a
+ *            the original, for a Fork; Regenerate the title; Session
+ *            details, where the page opens them; Stop the Turn, while one
+ *            runs. Then, with a
  *            keyboard, every Action of it that worked where it was opened,
  *            with its keys in either Mode (`keys.ts`); on touch, only the
  *            session's, and no keys named.
@@ -31,6 +32,7 @@ import { isKey, rowsOf } from './keys.ts';
  *            one, and
  *            a refusal is said in a toast. Settle and Un-settle go through `Moves`,
  *            at once, as every Settle does, and the sidebar says a refusal.
+ *            Session details is the page's own Action of the keyboard.
  *            An Action of the keyboard is kept as the Picker closes, so the
  *            View runs it once the keyboard is back where the user was, as
  *            its keys would there.
@@ -49,6 +51,9 @@ const Open = Schema.Struct({
 type Open = typeof Open.Type;
 
 const Bindings = Schema.Record(Schema.String, Schema.Array(Schema.String));
+
+/** Session details: the page's own Action of the keyboard, listed for the session. */
+const DETAILS = 'content.details';
 
 /** The actions that go to another Session, where the keyboard goes too. */
 const GOES = new Set(['fork', 'original']);
@@ -80,6 +85,7 @@ const List = Picker.make('Actions', {
         const stopKeys = props.keyboard
           ? boundIn(bindings, 'content.stop')
           : null;
+        const detailsKeys = props.keyboard ? boundIn(bindings, DETAILS) : null;
         const sessionRows =
           session === null
             ? []
@@ -114,6 +120,16 @@ const List = Picker.make('Actions', {
                   label: 'Regenerate the title',
                   detail: 'Named again from its latest messages',
                 },
+                ...(props.available.includes(DETAILS)
+                  ? [
+                      {
+                        value: DETAILS,
+                        label: 'Session details',
+                        detail: 'Context, cost and tokens',
+                        ...(detailsKeys === null ? {} : { hint: detailsKeys }),
+                      },
+                    ]
+                  : []),
                 ...(session.running
                   ? [
                       {
@@ -125,8 +141,15 @@ const List = Picker.make('Actions', {
                     ]
                   : []),
               ].map((row) => ({ ...row, group: 'This session' }));
+        // An Action listed for the session is not listed again by its keys.
+        const listed = new Set<string>(sessionRows.map(({ value }) => value));
         return {
-          rows: [...sessionRows, ...(props.keyboard ? rowsOf(props) : [])],
+          rows: [
+            ...sessionRows,
+            ...(props.keyboard
+              ? rowsOf(props).filter(({ value }) => !listed.has(value))
+              : []),
+          ],
           loading: props.here && session === null,
         };
       },

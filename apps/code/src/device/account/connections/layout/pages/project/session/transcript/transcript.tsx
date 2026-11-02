@@ -2,7 +2,7 @@ import type { Message } from '@kestack/connect/code';
 import { GitForkIcon } from 'lucide-react';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { blocksOf } from '@kestack/web-platform/ui/viewers/markdown-viewer';
-import { memo, type ReactNode, useMemo, useRef } from 'react';
+import { memo, type ReactNode, use, useMemo, useRef } from 'react';
 import { Block, useBlocks, useGroup } from '../scroller/index.ts';
 import { Chevron, type Opening, useOpen } from './words/index.ts';
 import {
@@ -13,13 +13,19 @@ import {
 } from './turns/rows/index.ts';
 import { blockIdOf, Said } from './turns/answer/said.tsx';
 import { Ask } from './turns/ask/ask.tsx';
-import { Footer, type Forking, type Spend } from './turns/answer/footer.tsx';
+import { factsOf } from '../panels/details/index.ts';
+import {
+  Footer,
+  type Forking,
+  SessionOpener,
+  Told,
+} from './turns/answer/footer.tsx';
 import {
   keptTurns,
   type Piece,
   piecesOf,
   saidIn,
-  spendsOf,
+  toldOf,
   type Turn,
   turnsOf,
 } from './turns/turns.ts';
@@ -33,10 +39,11 @@ import { Subagent } from './turns/answer/work/live/subagent.tsx';
  * (`turns/answer/`). Everything it did between two things it said folds
  * into one quiet line that counts it up and opens to each step
  * (`turns/answer/work/`), each kind of tool drawn its own way (`tool/`);
- * while it runs, that line says what it is doing now. A turn ends with how
- * long it took, and a way to copy the answer or fork there, quiet until
- * you point at it. Text, folds and checklists are drawn alike throughout
- * (`words/`).
+ * while it runs, that line says what it is doing now. A turn ends with a
+ * quiet line saying how long it took, which opens its details: what it
+ * cost and its tokens, as its agent told them, and ways to copy the answer
+ * or fork there (`../panels/details/`). Text, folds and checklists are drawn
+ * alike throughout (`words/`).
  *
  * Every word can be selected: a line opens on a click that selected
  * nothing, or from its chevron, which is the button a keyboard reaches.
@@ -65,6 +72,21 @@ export const useRows = (messages: ReadonlyArray<Message>) => {
     () => (before.current = threaded(before.current, messages)).rows,
     [messages],
   );
+};
+
+/** What a session's own turns took, worked out only while `wanted`, as for its details. */
+export const useFacts = (
+  rows: ReadonlyArray<Row>,
+  forked: boolean,
+  wanted: boolean,
+) => {
+  const told = useMemo(
+    () => (wanted ? toldOf(turnsOf(rows), forked) : NONE),
+    [rows, forked, wanted],
+  );
+  const key = JSON.stringify(told);
+  // oxlint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => factsOf(told), [key]);
 };
 
 /**
@@ -144,7 +166,13 @@ export function Rows({
     () => (before.current = keptTurns(before.current, turnsOf(rows))),
     [rows],
   );
-  const spends = useMemo(() => spendsOf(turns, forked), [turns, forked]);
+  // What every turn's details read, worked out again only as it changes.
+  const told = useMemo(() => toldOf(turns, forked), [turns, forked]);
+  const toldKey = JSON.stringify(told);
+  // oxlint-disable-next-line react-hooks/exhaustive-deps
+  const facts = useMemo(() => factsOf(told), [toldKey]);
+  const session = use(SessionOpener);
+  const details = useMemo(() => ({ facts, session }), [facts, session]);
   const { order, counts } = useMemo(() => {
     const ids = turns.map((turn) => layoutOf(turn).ids);
     return { order: ids.flat(), counts: ids.map(({ length }) => length) };
@@ -152,31 +180,34 @@ export function Rows({
   const { from, list, more } = useBlocks(whole ? null : order);
   let start = 0;
   return (
-    <div
-      ref={list}
-      // More above, drawn as the reader nears it.
-      data-more={more || undefined}
-      className="flex min-w-0 flex-col gap-10"
-    >
-      {more && <MoreAbove />}
-      {turns.map((turn, at) => {
-        const count = counts[at]!;
-        const hidden = Math.min(count, Math.max(0, from - start));
-        start += count;
-        return hidden === count && count > 0 ? null : (
-          <TurnView
-            key={turn.id}
-            turn={turn}
-            hidden={hidden}
-            opening={opening}
-            running={running && turn.ended === null && at === turns.length - 1}
-            sessionRunning={running}
-            forking={forking}
-            spend={spends.get(turn.id)}
-          />
-        );
-      })}
-    </div>
+    <Told value={details}>
+      <div
+        ref={list}
+        // More above, drawn as the reader nears it.
+        data-more={more || undefined}
+        className="flex min-w-0 flex-col gap-10"
+      >
+        {more && <MoreAbove />}
+        {turns.map((turn, at) => {
+          const count = counts[at]!;
+          const hidden = Math.min(count, Math.max(0, from - start));
+          start += count;
+          return hidden === count && count > 0 ? null : (
+            <TurnView
+              key={turn.id}
+              turn={turn}
+              hidden={hidden}
+              opening={opening}
+              running={
+                running && turn.ended === null && at === turns.length - 1
+              }
+              sessionRunning={running}
+              forking={forking}
+            />
+          );
+        })}
+      </div>
+    </Told>
   );
 }
 
@@ -203,7 +234,6 @@ interface TurnProps {
   readonly running: boolean;
   readonly sessionRunning: boolean;
   readonly forking: Forking | undefined;
-  readonly spend: Spend | undefined;
 }
 
 /** A turn, drawn again only as what it shows changes. */
@@ -215,7 +245,6 @@ const TurnView = memo(
     running,
     sessionRunning,
     forking,
-    spend,
   }: TurnProps) {
     const group = useGroup();
     const { pieces } = layoutOf(turn);
@@ -309,10 +338,10 @@ const TurnView = memo(
           {turn.ended && (
             <Block id={turn.ended.id}>
               <Footer
+                turn={turn.id}
                 ended={turn.ended}
                 said={saidIn(turn)}
                 forking={forking}
-                spend={spend}
               />
             </Block>
           )}
@@ -326,9 +355,7 @@ const TurnView = memo(
     a.opening === b.opening &&
     a.running === b.running &&
     a.sessionRunning === b.sessionRunning &&
-    a.forking === b.forking &&
-    a.spend?.turn === b.spend?.turn &&
-    a.spend?.total === b.spend?.total,
+    a.forking === b.forking,
 );
 
 /** What a Fork carries on from, folded into one line until opened. */

@@ -2,6 +2,7 @@ import { Effect, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { Preferences, PreferencesRead } from '../../../../../../../store.ts';
 import {
+  setContext,
   setFloating,
   setSmartDisplacement,
   setSmartInput,
@@ -13,13 +14,14 @@ import {
  * sets, from Preferences.
  *
  * 1. Read    whether the app floats as a window, the text size, the
- *            Microphone chosen
- *            and whether the Touch Draft takes Smart Input and Smart
- *            Displacement, and again after every write, here or in
+ *            Microphone chosen, whether the Touch Draft takes Smart Input
+ *            and Smart Displacement, and when the Draft shows how full the
+ *            context is, and again after every write, here or in
  *            another tab. Vim Mode is the keyboard's, which Layout
  *            keeps; Layout follows the window too, once kept.
  * 2. Choose  the window, Smart Input, or Smart Displacement, on or off,
- *            or a text size, shown at once and kept.
+ *            a text size, or when the context shows, shown at once and
+ *            kept.
  *            The Microphone is chosen in the Microphone Picker, which
  *            keeps it itself.
  */
@@ -30,6 +32,7 @@ const Device = Schema.Struct({
   microphone: PreferencesRead.fields.microphone,
   smartInput: PreferencesRead.fields.smartInput,
   smartDisplacement: PreferencesRead.fields.smartDisplacement,
+  context: PreferencesRead.fields.context,
 });
 
 export const General = Actor.define('General', {
@@ -44,6 +47,7 @@ export const General = Actor.define('General', {
     TextSizeChosen: { size: PreferencesRead.fields.textSize },
     SmartInputChosen: { on: Schema.Boolean },
     SmartDisplacementChosen: { on: Schema.Boolean },
+    ContextChosen: { shown: PreferencesRead.fields.context },
   }),
 });
 
@@ -64,6 +68,7 @@ export const GeneralLive = General.build({
                 microphone,
                 smartInput,
                 smartDisplacement,
+                context,
               }) =>
                 self.send({
                   _tag: 'Read',
@@ -73,6 +78,7 @@ export const GeneralLive = General.build({
                     microphone,
                     smartInput,
                     smartDisplacement,
+                    context,
                   },
                 }),
             ),
@@ -109,6 +115,13 @@ export const GeneralLive = General.build({
         : {
             model: { device: { ...model.device, smartDisplacement: on } },
             command: setSmartDisplacement({ on }),
+          },
+    ContextChosen: ({ shown }, { model }) =>
+      model.device === null || model.device.context === shown
+        ? {}
+        : {
+            model: { device: { ...model.device, context: shown } },
+            command: setContext({ shown }),
           },
   },
 });

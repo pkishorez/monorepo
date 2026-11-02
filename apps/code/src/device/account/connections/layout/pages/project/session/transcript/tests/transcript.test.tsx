@@ -307,8 +307,8 @@ describe('a long transcript', () => {
 
   it('opens one fold, and only that one', async () => {
     act(() => root.render(<Transcript rows={turns(3)} />));
-    // The work lines', not the info under each turn.
-    const FOLD = 'button[aria-expanded]:not([aria-label="About this turn"])';
+    // A fold, not a turn's line, which opens its details.
+    const FOLD = 'button[aria-expanded]:not([aria-haspopup="dialog"])';
     const folds = () =>
       [...container.querySelectorAll(FOLD)].map((fold) =>
         fold.getAttribute('aria-expanded'),
@@ -323,5 +323,26 @@ describe('a long transcript', () => {
     for (let at = 0; at < 50 && folds().length > 3; at++)
       await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
     expect(folds()).toEqual(['false', 'false', 'false']);
+  });
+
+  it("opens a turn's details from the line under it, the agent's turn id another", async () => {
+    // As Connect names them: the turn by its first message, its end by the agent's turn.
+    const rows = turns(2).map((row) =>
+      row.kind === 'ended'
+        ? {
+            ...row,
+            turnId: `agent-${row.turnId}`,
+            usage: { inputTokens: 10, outputTokens: 20, cacheReadTokens: 70 },
+          }
+        : row,
+    );
+    act(() => root.render(<Transcript rows={rows} />));
+    const lines = container.querySelectorAll<HTMLButtonElement>(
+      'button[aria-haspopup="dialog"]',
+    );
+    expect([...lines].map((line) => line.textContent)).toEqual(['1s', '1s']);
+    await act(async () => lines[1]!.click());
+    expect(document.body.textContent).toContain('Turn 2 of 2');
+    expect(document.body.textContent).toContain('88% cached');
   });
 });

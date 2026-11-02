@@ -10,7 +10,7 @@ import {
   useRef,
 } from 'react';
 import { flushSync } from 'react-dom';
-import type { Dictated } from '../../../../../../../voice/index.ts';
+import type { Dictated } from '../../../../../../../../voice/index.ts';
 import { type ItemDraft, typable } from '../../answer.ts';
 import { Mic } from './voice.tsx';
 

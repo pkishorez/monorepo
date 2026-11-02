@@ -37,3 +37,12 @@ export const setTextSize = Command.make('SetTextSize', {
       Effect.ignore,
     ),
 });
+
+/** Keeps when the Draft shows how full the context is in Preferences; a write that fails is lost. */
+export const setContext = Command.make('SetContext', {
+  args: Schema.Struct({ shown: PreferencesRead.fields.context }),
+  run: ({ shown }) =>
+    Effect.flatMap(Preferences, (store) => store.setContext(shown)).pipe(
+      Effect.ignore,
+    ),
+});

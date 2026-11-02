@@ -267,6 +267,7 @@ function OnPage({
         blocked: false,
         starting: false,
         stop: null,
+        context: null,
         attachments: null,
         onPaste: (text) =>
           send({ _tag: 'Insert', what: { _tag: 'Text', text } }),

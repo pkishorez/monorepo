@@ -29,6 +29,8 @@ import { Slot } from './slot.tsx';
  * failed        Discard  (the words, with Retry)   Try again, Send
  *
  * Send shows once there is something to send, or while one records.
+ * While idle, how full the session's context is stands first on the
+ * right, collapsed or not, when the page tells it.
  * While a turn runs and nothing records, Stop stands where Send would be,
  * filled while there is nothing to send, quiet beside Send once there is.
  */
@@ -82,12 +84,15 @@ export function Controls({
   add,
   send,
   stop,
+  context,
   onDictate,
   onTake,
   onRetry,
   onCancel,
 }: {
   readonly phase: Phase;
+  /** How full the session's context is; null for none. */
+  readonly context: ReactNode;
   readonly disabled: boolean;
   readonly recording: Recording | null;
   readonly add: Omit<Parameters<typeof Add>[0], 'disabled' | 'className'>;
@@ -166,6 +171,7 @@ export function Controls({
       )}
       {/* Right */}
       <div className="flex items-center gap-1 [grid-area:right]">
+        {phase === 'idle' && context}
         {phase === 'idle' &&
           quiet('Dictate', <MicIcon aria-hidden />, onDictate)}
         {phase === 'recording' && (

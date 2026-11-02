@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Part } from '@kestack/connect/code';
 import type { Row } from '../rows/index.ts';
 import { isSaid } from '../answer/said.tsx';
-import { piecesOf, spendsOf, turnsOf, type Turn } from '../turns.ts';
+import { piecesOf, spendsOf, toldOf, turnsOf, type Turn } from '../turns.ts';
 
 const turn = (id: string, costUsd?: number): Turn => ({
   id,
@@ -55,6 +55,50 @@ describe("a turn's cost", () => {
     expect(
       at(spendsOf([turn('a', 0.1), turn('b'), turn('c', 0.3)], false)),
     ).toEqual({ a: [0.1, 0.1], c: [0.2, 0.3] });
+  });
+});
+
+describe('a turn as its details read it', () => {
+  type Ask = Turn['asks'][number];
+  const ask = (id: string, over: Partial<Ask> = {}): Ask => ({
+    kind: 'turn',
+    id,
+    text: 'Fix the build\nand rerun it',
+    steered: false,
+    attachments: [],
+    agentStarted: false,
+    resumed: false,
+    cutOff: null,
+    ...over,
+  });
+
+  it('is named by the first line of what you asked, with its own cost', () => {
+    const told = toldOf(
+      [
+        { ...turn('a', 0.1), asks: [ask('a')] },
+        { ...turn('b', 0.4), asks: [ask('b', { agentStarted: true })] },
+      ],
+      false,
+    );
+    expect(told.map(({ prompt }) => prompt)).toEqual([
+      'Fix the build',
+      'Started by the agent',
+    ]);
+    expect(told[1]?.spend?.turn).toBeCloseTo(0.3);
+    expect(told[1]?.status).toBe('done');
+  });
+
+  it("leaves out rows that came before any turn, as a subagent's", () => {
+    expect(toldOf([turn('a', 0.1)], false)).toEqual([]);
+  });
+
+  it('runs until it ends', () => {
+    const [running] = toldOf(
+      [{ ...turn('a'), asks: [ask('a')], ended: null }],
+      false,
+    );
+    expect(running?.status).toBeNull();
+    expect(running?.usage).toBeNull();
   });
 });
 

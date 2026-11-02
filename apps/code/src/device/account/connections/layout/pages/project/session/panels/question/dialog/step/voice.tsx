@@ -4,8 +4,8 @@ import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { CircleAlertIcon, MicIcon, SquareIcon } from 'lucide-react';
 import { useEffect, useRef, type PointerEvent } from 'react';
-import { useBound } from '../../../../../../commands.ts';
-import type { Dictated, Owner } from '../../../../../../../voice/index.ts';
+import { useBound } from '../../../../../../../commands.ts';
+import type { Dictated, Owner } from '../../../../../../../../voice/index.ts';
 import { typable } from '../../answer.ts';
 
 /*

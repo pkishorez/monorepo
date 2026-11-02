@@ -1,12 +1,13 @@
 import { type Row, sameItems } from './rows/index.ts';
 import { isSaid, type SaidRow } from './answer/said.tsx';
-import type { Spend } from './answer/footer.tsx';
+import type { Told } from '../../panels/details/index.ts';
 
 /*
  * Rows as a conversation reads them: in turns, each your words, what the
  * agent did, and how it ended; and each turn cut into what the agent said,
  * the runs of work between, each subagent on its own, and what you added
- * while it worked, where you sent it.
+ * while it worked, where you sent it. Each turn is told to its details as
+ * what it took (`toldOf`).
  */
 
 type TurnRow = Extract<Row, { readonly kind: 'turn' }>;
@@ -106,6 +107,12 @@ export const saidIn = (turn: Turn) =>
     .flatMap((row) => (row.kind === 'text' ? [row.text] : []))
     .join('\n\n');
 
+/** What a turn cost, by itself and for the session so far, in USD; null when not told. */
+export type Spend = {
+  readonly turn: number | null;
+  readonly total: number | null;
+};
+
 /**
  * Each turn's cost, by itself and so far. Claude reports a running total
  * for the session, carried on across restarts, not what each turn cost:
@@ -130,4 +137,31 @@ export const spendsOf = (
     before = total;
   }
   return spends;
+};
+
+/** What started a turn, as its details name it. */
+const promptOf = (turn: Turn) => {
+  const ask = turn.asks[0];
+  if (ask === undefined) return '';
+  if (ask.resumed) return 'Carried on after a restart';
+  if (ask.agentStarted) return 'Started by the agent';
+  return ask.text.trim().split('\n')[0] ?? '';
+};
+
+/** The turns as their details read them, each with its cost by itself where it is told. */
+export const toldOf = (
+  turns: ReadonlyArray<Turn>,
+  forked: boolean,
+): ReadonlyArray<Told> => {
+  const spends = spendsOf(turns, forked);
+  return turns
+    .filter((turn) => turn.asks.length > 0)
+    .map((turn) => ({
+      id: turn.id,
+      prompt: promptOf(turn),
+      status: turn.ended?.status ?? null,
+      duration: turn.ended?.duration ?? null,
+      usage: turn.ended?.usage ?? null,
+      spend: spends.get(turn.id) ?? null,
+    }));
 };

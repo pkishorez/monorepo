@@ -4,11 +4,13 @@ import type {
   Projected,
   Role,
   ToolKind,
+  Usage,
 } from '../../../contract/projection/index.js';
 import type { Raw } from '../../../contract/raw/index.js';
 import type {
   Notifications,
   ThreadItem,
+  TokenUsageBreakdown,
   UserInputRequest,
 } from '../app-server/index.js';
 import {
@@ -30,6 +32,22 @@ const TITLE_LIMIT = 80;
 type Payload<M extends keyof Notifications> = Notifications[M];
 
 const json = (value: unknown): Schema.Json => (value ?? null) as Schema.Json;
+
+/**
+ * One model call's tokens as every harness counts them. Codex counts what
+ * it read from and wrote to the cache inside its input, its total being
+ * input and output alone; a Usage's input is only what was sent fresh.
+ */
+const usageOf = (tokens: TokenUsageBreakdown): Usage => {
+  const cached = tokens.cachedInputTokens;
+  const written = tokens.cacheWriteInputTokens;
+  return {
+    inputTokens: Math.max(0, tokens.inputTokens - cached - written),
+    outputTokens: tokens.outputTokens,
+    cacheReadTokens: cached,
+    ...(written > 0 ? { cacheWriteTokens: written } : {}),
+  };
+};
 
 const firstLine = (value: string): string => {
   const line = value.trim().split('\n')[0] ?? '';
@@ -415,16 +433,7 @@ export const project = (raw: Raw): Projected | null => {
       const { last } = (
         raw.payload as unknown as Payload<'thread/tokenUsage/updated'>
       ).tokenUsage;
-      return message(raw, 'system', [
-        {
-          type: 'usage',
-          usage: {
-            inputTokens: last.inputTokens,
-            outputTokens: last.outputTokens,
-            cacheReadTokens: last.cachedInputTokens,
-          },
-        },
-      ]);
+      return message(raw, 'system', [{ type: 'usage', usage: usageOf(last) }]);
     }
     default:
       // Anything newer: kept in Raw, not shown.

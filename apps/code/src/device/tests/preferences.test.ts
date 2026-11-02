@@ -42,7 +42,19 @@ describe('Preferences', () => {
       smartInput: false,
       smartDisplacement: false,
       sidebarWidth: 260,
+      context: 'always',
     });
+  });
+
+  it('keeps when the Draft shows the context', async () => {
+    const read = await run(
+      Effect.gen(function* () {
+        const device = yield* store;
+        yield* device.setContext('nearlyFull');
+        return (yield* device.read).context;
+      }),
+    );
+    expect(read).toBe('nearlyFull');
   });
 
   it('keeps the microphone chosen, and the system default again', async () => {
@@ -159,6 +171,7 @@ describe('Preferences in IndexedDB', () => {
         yield* device.setVim(true);
         yield* device.setTextSize('large');
         yield* device.setSidebarWidth(320);
+        yield* device.setContext('off');
         // The database and its contract are opened by now.
         yield* device.read;
         opened.mockClear();
@@ -171,6 +184,7 @@ describe('Preferences in IndexedDB', () => {
       vim: true,
       textSize: 'large',
       sidebarWidth: 320,
+      context: 'off',
     });
     expect(transactions).toBe(1);
   });

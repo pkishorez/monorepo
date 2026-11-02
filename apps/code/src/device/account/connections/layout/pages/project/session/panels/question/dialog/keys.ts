@@ -1,6 +1,6 @@
 import type { QuestionItem } from '@kestack/connect/code';
 import type { RefObject } from 'react';
-import { keys } from '../../../../../commands.ts';
+import { keys } from '../../../../../../commands.ts';
 import type { ItemDraft } from '../answer.ts';
 import { OTHER, ROW } from './step/step.tsx';
 

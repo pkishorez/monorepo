@@ -240,6 +240,7 @@ export const TouchDraftView = View.make(
                       }
                 }
                 stop={slots.stop}
+                context={slots.context}
                 onDictate={t.dictate}
                 onTake={t.take}
                 onRetry={t.retry}

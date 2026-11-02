@@ -27,7 +27,8 @@ import { useCallback, useRef } from 'react';
  * and the effort; `shift+b` the Branch Picker. Space starts or stops a
  * Dictation, and `d` opens the Microphone Picker, to choose what it
  * records from; `t` switches the theme. `q`, or Ctrl+Q in either Mode,
- * brings By the way forward a step, and Escape takes it back a step. The Ctrl keys above,
+ * brings By the way forward a step, and Escape takes it back a step.
+ * Ctrl+G opens Session details, in either Mode, even while typing. The Ctrl keys above,
  * `Ctrl+,`, Settings and back, Mod+., stopping the turn, Ctrl+Space, a Dictation
  * again, Ctrl+H and Ctrl+L, the sidebar and the page, Ctrl+[ and Ctrl+],
  * the session before and after in the sidebar, Ctrl+O and Ctrl+I, Back and
@@ -285,6 +286,12 @@ export const keys = createKeys({
             always: true,
             inField: true,
           },
+          details: {
+            keys: 'ctrl+g',
+            label: 'Session details',
+            always: true,
+            inField: true,
+          },
         },
         surfaces: {
           record: { label: 'recording a key', isolated: true },
@@ -479,6 +486,11 @@ export const keyTable: ReadonlyArray<{
         label: 'What the session runs now',
         always: [],
         vim: ['app.running'],
+      },
+      {
+        label: 'Session details',
+        always: ['content.details'],
+        vim: [],
       },
       {
         label: 'New session in this project',

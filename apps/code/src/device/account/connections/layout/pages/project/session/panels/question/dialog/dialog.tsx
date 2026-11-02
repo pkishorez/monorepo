@@ -13,11 +13,11 @@ import {
   useRef,
   useState,
 } from 'react';
-import { keys, useBound } from '../../../../../commands.ts';
-import { AgentLogo } from '../../../../../../../../../ui/labels/agent/index.ts';
+import { keys, useBound } from '../../../../../../commands.ts';
+import { AgentLogo } from '../../../../../../../../../../ui/labels/agent/index.ts';
 import { draftOf, type Drafts, isAnswered, unanswered } from '../answer.ts';
 import { type Asker, type Stop, stopTitle } from '../question.ts';
-import { Voice } from '../../../../../../voice/index.ts';
+import { Voice } from '../../../../../../../voice/index.ts';
 import { useStepKeys } from './keys.ts';
 import { SwipeHead } from './sheet.tsx';
 import { ROW, Step } from './step/step.tsx';
