@@ -1,0 +1,109 @@
+import { describe, expect, it } from 'vitest';
+import type { Row } from '../turns/rows/index.ts';
+import {
+  choiceOf,
+  itemsOf,
+  STOP,
+  STOP_ALL,
+} from '../turns/answer/work/live/running.tsx';
+
+/* What runs, as the Running Picker lists it, and what each choice does. */
+
+type SubagentRow = Extract<Row, { readonly kind: 'subagent' }>;
+
+const subagent = (
+  id: string,
+  more: Partial<SubagentRow> = {},
+): SubagentRow => ({
+  kind: 'subagent',
+  id,
+  call: {
+    type: 'toolCall',
+    id: `call-${id}`,
+    tool: 'subagent',
+    name: 'Agent',
+    title: `Subagent ${id}`,
+    input: {},
+  },
+  result: null,
+  background: false,
+  state: 'running',
+  rows: [],
+  ...more,
+});
+
+describe('itemsOf', () => {
+  it('lists running subagents, nested ones too, with their job, then jobs no row stands for', () => {
+    const inner = subagent('inner');
+    const rows: ReadonlyArray<Row> = [
+      subagent('bg', { background: true, rows: [inner] }),
+      subagent('done', { state: 'done' }),
+    ];
+    const jobs = [
+      {
+        id: 'j1',
+        kind: 'agent' as const,
+        title: 'bg',
+        toolCallId: 'call-bg',
+        startedAt: 5,
+      },
+      { id: 'j2', kind: 'shell' as const, title: 'pnpm dev', startedAt: 6 },
+    ];
+    expect(itemsOf(rows, jobs, false, null)).toEqual([
+      expect.objectContaining({
+        id: 'bg',
+        kind: 'agent',
+        rowId: 'bg',
+        jobId: 'j1',
+        startedAt: 5,
+      }),
+      expect.objectContaining({
+        id: 'j2',
+        kind: 'shell',
+        rowId: null,
+        jobId: 'j2',
+        title: 'pnpm dev',
+      }),
+    ]);
+    // The turn running, its own subagents run too.
+    expect(itemsOf(rows, jobs, true, null).map(({ id }) => id)).toEqual([
+      'bg',
+      'inner',
+      'j2',
+    ]);
+  });
+});
+
+describe('choiceOf', () => {
+  const items = itemsOf(
+    [subagent('a', { background: true })],
+    [
+      { id: 'j1', kind: 'agent', title: 'a', toolCallId: 'call-a' },
+      { id: 'j2', kind: 'shell', title: 'pnpm dev' },
+    ],
+    false,
+    null,
+  );
+
+  it('opens a subagent, stops a command, or stops everything', () => {
+    expect(choiceOf({ step: 'running', key: '', value: 'a' }, items)).toEqual({
+      _tag: 'Open',
+      rowId: 'a',
+    });
+    expect(
+      choiceOf({ step: 'command', key: 'j2', value: STOP }, items),
+    ).toEqual({
+      _tag: 'Stop',
+      jobId: 'j2',
+    });
+    expect(
+      choiceOf({ step: 'running', key: '', value: STOP_ALL }, items),
+    ).toEqual({ _tag: 'StopAll' });
+  });
+
+  it('does nothing for what has stopped since', () => {
+    expect(
+      choiceOf({ step: 'running', key: '', value: 'gone' }, items),
+    ).toBeNull();
+  });
+});

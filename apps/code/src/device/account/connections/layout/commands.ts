@@ -147,6 +147,7 @@ export const keys = createKeys({
         inField: true,
       },
       actions: { keys: 'a', label: 'Session actions' },
+      running: { keys: 'r', label: 'What the session runs now' },
       actionsAnywhere: {
         keys: 'ctrl+k',
         label: 'Session actions, even while typing',
@@ -473,6 +474,11 @@ export const keyTable: ReadonlyArray<{
         label: 'Session actions',
         always: ['app.actionsAnywhere'],
         vim: ['app.actions'],
+      },
+      {
+        label: 'What the session runs now',
+        always: [],
+        vim: ['app.running'],
       },
       {
         label: 'New session in this project',

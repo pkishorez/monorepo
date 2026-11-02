@@ -1,4 +1,11 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { View, useChild, useChildren } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
 import type { Session } from '@kestack/connect/code';
@@ -17,6 +24,7 @@ import {
   useOffline,
 } from '../../../../connection/link/index.ts';
 import { agentName } from '../../../../../../../ui/labels/agent/index.ts';
+import * as Picker from '../../../../../../../ui/controls/picker/index.ts';
 import { Draft } from '../draft/index.ts';
 import { readyOf, SessionLive } from './actor.ts';
 import {
@@ -27,8 +35,11 @@ import {
 } from './scroller/index.ts';
 import { Question } from './question/index.ts';
 import {
-  Activity,
   EarlierRows,
+  Folder,
+  itemsOf,
+  RunningButton,
+  RunningPicker,
   earlierOf,
   type Forking,
   type Live,
@@ -36,7 +47,6 @@ import {
   type Opening,
   Rows,
   SubagentDrawers,
-  subagentOf,
   useOpening,
   useRows,
 } from './transcript/index.ts';
@@ -45,10 +55,15 @@ import {
  * A session: the transcript in a centred column that follows new messages
  * while you are at its bottom, and under it, pinned to the page's foot,
  * its Draft (`draft/`), with Stop beside its send button while it works:
- * while a turn runs, or only its Background Jobs do. Over the Draft, a
- * line says it works, and opens to its jobs (`transcript/turns/answer/work/live/activity.tsx`). A subagent
- * opens whole in a drawer over the page, and one it asked in a drawer
- * over that (`transcript/turns/answer/work/live/drawers.tsx`). Its title, agent and model are in the header. Its words can be
+ * while a turn runs, or only its Background Jobs do. Over the
+ * transcript's top right, a floating button counts the subagents and
+ * commands it runs, and opens the Running Picker: in place by a click,
+ * centred by `r`, as a Drawer by a touch
+ * (`transcript/turns/answer/work/live/running.tsx`). A subagent
+ * opens whole: with a keyboard or a mouse in one dialog, one it asked in
+ * its place with a way back; on a touch screen in a drawer, and one it
+ * asked in a drawer over that
+ * (`transcript/turns/answer/work/live/drawers.tsx`). Its title, agent and model are in the header. Its words can be
  * selected, though the App Shell turns selection off for its swipes. While the server is out of
  * reach, nothing can be sent, and a running turn's progress is unknown. A
  * session the server stopped mid-turn says so under its transcript; a fork
@@ -167,6 +182,26 @@ export const SessionView = View.make(
     );
     // Another session's drawers do not carry over.
     useEffect(() => closeDrawers(0), [props.params.sessionId, closeDrawers]);
+    // 8. Running: what runs, read from its rows and jobs, told to its page.
+    const folder = useContext(Folder);
+    const runningItems = useMemo(
+      () => itemsOf(rows, jobs, running, folder),
+      [rows, jobs, running, folder],
+    );
+    const runningKey = JSON.stringify(runningItems);
+    useEffect(() => {
+      send({ _tag: 'RunningRead', items: runningItems });
+    }, [runningKey]);
+    const openPicker = Picker.useOpen();
+    const openRunning = useCallback(
+      (how: typeof Picker.How.Type) =>
+        openPicker(() => send({ _tag: 'RunningOpened', how })),
+      [openPicker, send],
+    );
+    keys.useAction('app.running', () => openRunning('keys'), {
+      enabled: runningItems.length > 0,
+    });
+    const runningKeys = useBound('app.running');
     useScrollKeys(scroll);
     // A Message sent from the Draft, typed or dictated: back to the bottom,
     // following, so it shows as it arrives.
@@ -261,21 +296,36 @@ export const SessionView = View.make(
         around.stop,
       ],
     );
-    const openJob = useCallback(
-      (job: { readonly toolCallId?: string }) => {
-        const row =
-          job.toolCallId === undefined
-            ? undefined
-            : subagentOf(rows, job.toolCallId);
-        if (row !== undefined)
-          send({ _tag: 'DrawerOpened', id: row.id, under: 0 });
-      },
-      [rows, send],
-    );
     // The Draft sits under the transcript, inset by the room its scrollbar keeps.
     const gutter = useGutter();
     return (
       <div {...root} className="relative flex min-h-0 flex-1 flex-col">
+        {/* Over the transcript's top right, in its column, while anything runs. */}
+        {(runningItems.length > 0 || model.picking !== null) && !reading && (
+          <div
+            style={{ paddingInline: gutter }}
+            className="pointer-events-none absolute inset-x-0 top-3 z-20"
+          >
+            <div className="mx-auto flex w-full max-w-4xl justify-end px-4 sm:px-6">
+              <div className="pointer-events-auto">
+                <RunningButton
+                  items={runningItems}
+                  how={model.picking}
+                  onOpen={openRunning}
+                  title={
+                    runningKeys === null
+                      ? 'Running now'
+                      : `Running now (${runningKeys})`
+                  }
+                >
+                  {children.running && (
+                    <RunningPicker.View instance={children.running} />
+                  )}
+                </RunningButton>
+              </div>
+            </div>
+          </div>
+        )}
         <div
           ref={(element) => {
             scroller.current = element;
@@ -324,18 +374,6 @@ export const SessionView = View.make(
               onClick={() => scroll.holdOn(true)}
             />
             <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 has-[[data-slot=draft][data-touch]]:px-0">
-              <Activity
-                running={running}
-                jobs={jobs}
-                stopping={model.stoppingJobs}
-                disabled={offline !== null}
-                openable={(job) =>
-                  job.toolCallId !== undefined &&
-                  subagentOf(rows, job.toolCallId) !== undefined
-                }
-                onOpen={openJob}
-                onStop={(job) => live.stop(job.id)}
-              />
               <Question.Around value={around}>
                 <Question.view instance={children.question} />
               </Question.Around>
@@ -467,7 +505,7 @@ const Transcript = memo(function Transcript({
   return (
     <div
       ref={content}
-      className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-4 pt-8 pb-10 sm:px-6"
+      className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-4 pt-14 pb-10 sm:px-6"
     >
       {!reading &&
         original !== null &&

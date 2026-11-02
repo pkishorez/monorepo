@@ -22,6 +22,13 @@ import { Seen } from '../../../../connection/store/index.ts';
 import { Draft } from '../draft/index.ts';
 import { cancel, forkSession, markSeen, stopJob } from './commands.ts';
 import { Question } from './question/index.ts';
+import {
+  choiceOf,
+  RunningChosen,
+  RunningItem,
+  RunningPicker,
+} from './transcript/index.ts';
+import * as Picker from '../../../../../../../ui/controls/picker/index.ts';
 import { Actor } from '@kestack/kabuki';
 
 /*
@@ -44,8 +51,12 @@ import { Actor } from '@kestack/kabuki';
  *             which it follows live, so it shows as working while only
  *             its jobs run; or one job on its own.
  * 5. Open     which tool calls and thoughts are shown open, and the
- *             subagents opened over the page, each in a drawer over the
- *             one before, deepest last.
+ *             subagents opened over the page, outermost first: on a
+ *             desktop one dialog shows the deepest, with a way back; on
+ *             a phone each is a drawer over the one before.
+ * 8. Running  what it runs now, as its View reads it from its rows and
+ *             jobs, and the Running Picker over it: a subagent chosen
+ *             opens, a command chosen stops, and the last row stops all.
  * 6. Ready     it is drawn whole, transcript and Draft in one step, once
  *              all of it is read from this device (`readyOf`): its row, its
  *              messages, those it carries on from, and its Saved Draft.
@@ -128,6 +139,12 @@ const Model = Schema.Struct({
   stoppingJobs: Schema.Array(Schema.String),
   /** The subagents open over the page, by row id, outermost first (5. Open). */
   drawers: Schema.Array(Schema.String),
+  /** What it runs now, as its View read it (8. Running). */
+  running: Schema.Array(RunningItem),
+  /** How the Running Picker is open; null while it is not. */
+  picking: Schema.NullOr(Picker.How),
+  /** How many times it was opened, so each opening is a fresh Picker. */
+  opened: Schema.Finite,
 });
 type Model = typeof Model.Type;
 
@@ -191,6 +208,10 @@ export const Session = Page.define({
     DrawerOpened: { id: Schema.String, under: Schema.Finite },
     /** The drawers from `depth` on closed: 0 closes them all. */
     DrawersClosed: { depth: Schema.Finite },
+    RunningRead: { items: Schema.Array(RunningItem) },
+    RunningOpened: { how: Picker.How },
+    /** The Running Picker finished: on its last choice, or with none. */
+    RunningDone: { last: Schema.NullOr(RunningChosen) },
     ForkAsked: { afterTurnId: Schema.String },
     Forked: { projectId: Schema.String, sessionId: Schema.String },
     Refused,
@@ -213,8 +234,14 @@ export const SessionLive = Session.build({
       jobs: [],
       stoppingJobs: [],
       drawers: [],
+      running: [],
+      picking: null,
+      opened: 0,
     },
   }),
+  // 8. Running
+  provides: (self) =>
+    RunningPicker.owner((last) => self.send({ _tag: 'RunningDone', last })),
   children: {
     // 1. Read
     session: Actor.child(SessionRow, {
@@ -260,6 +287,13 @@ export const SessionLive = Session.build({
           },
         };
       },
+    }),
+    // 8. Running
+    running: Actor.child(RunningPicker.Live, {
+      while: ({ model }) => model.picking !== null,
+      key: ({ model }) => String(model.opened),
+      input: ({ model }) => RunningPicker.opening(model.picking ?? 'keys'),
+      props: ({ model }) => ({ items: model.running }),
     }),
     // 7. Question
     question: Actor.child(Question.actor, {
@@ -381,6 +415,44 @@ export const SessionLive = Session.build({
       return kept.at(-1) === id
         ? { model: { ...model, drawers: kept } }
         : { model: { ...model, drawers: [...kept, id] } };
+    },
+    // 8. Running: an open Picker stays until it is closed, whatever ends
+    // meanwhile, so the keys never wait on one that is gone.
+    RunningRead: ({ items }, { model }) => ({
+      model: { ...model, running: items },
+    }),
+    RunningOpened: ({ how }, { model }) =>
+      model.picking !== null
+        ? {}
+        : { model: { ...model, picking: how, opened: model.opened + 1 } },
+    RunningDone: ({ last }, { model, props }) => {
+      const closed = { ...model, picking: null };
+      const choice = last === null ? null : choiceOf(last, model.running);
+      if (choice === null) return { model: closed };
+      switch (choice._tag) {
+        case 'Open':
+          return { model: { ...closed, drawers: [choice.rowId] } };
+        case 'Stop':
+          return model.stoppingJobs.includes(choice.jobId)
+            ? { model: closed }
+            : {
+                model: {
+                  ...closed,
+                  stoppingJobs: [...model.stoppingJobs, choice.jobId],
+                },
+                command: stopJob({
+                  sessionId: props.params.sessionId,
+                  jobId: choice.jobId,
+                }),
+              };
+        case 'StopAll':
+          return model.stopping
+            ? { model: closed }
+            : {
+                model: { ...closed, stopping: true, problem: null },
+                command: cancel({ sessionId: props.params.sessionId }),
+              };
+      }
     },
     DrawersClosed: ({ depth }, { model }) =>
       model.drawers.length <= depth

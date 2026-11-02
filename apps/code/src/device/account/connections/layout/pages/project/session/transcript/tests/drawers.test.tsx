@@ -12,7 +12,7 @@ import { SubagentDrawers } from '../turns/answer/work/live/drawers.tsx';
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 MotionGlobalConfig.skipAnimations = true;
 
-/* A subagent is one line, opened whole in a drawer, and its own in one over it. */
+/* A subagent is one line, opened whole: in a dialog with a keyboard or a mouse, in drawers on a touch screen. */
 
 type SubagentRow = Extract<Row, { readonly kind: 'subagent' }>;
 
@@ -98,7 +98,29 @@ describe('a subagent', () => {
     expect(now.open).toHaveBeenCalledWith('outer', 2);
   });
 
-  it('opens whole in a drawer, and its own subagent in one over it', () => {
+  it('opens whole in a dialog with a keyboard or a mouse', () => {
+    act(() =>
+      root.render(
+        <SubagentDrawers
+          rows={[outer]}
+          ids={['outer']}
+          running={false}
+          opening={SHUT}
+          live={live()}
+          close={() => {}}
+        />,
+      ),
+    );
+    expect(
+      document.querySelectorAll('[data-slot="drawer-popup"]'),
+    ).toHaveLength(0);
+    const dialog = document.querySelector('[data-slot="dialog-content"]');
+    expect(dialog?.textContent).toContain('Look it over');
+    expect(dialog?.textContent).toContain('All good.');
+  });
+
+  it('shows a subagent it asked in its place, with a way back', () => {
+    const close = vi.fn();
     act(() =>
       root.render(
         <SubagentDrawers
@@ -107,19 +129,25 @@ describe('a subagent', () => {
           running={false}
           opening={SHUT}
           live={live()}
-          close={() => {}}
+          close={close}
         />,
       ),
     );
-    const drawers = document.querySelectorAll('[data-slot="drawer-popup"]');
-    expect(drawers).toHaveLength(2);
-    expect(drawers[0]!.textContent).toContain('Look it over');
-    expect(drawers[0]!.textContent).toContain('All good.');
-    expect(drawers[1]!.textContent).toContain('Check the tests');
-    expect(drawers[1]!.textContent).toContain('Run them');
+    const dialogs = document.querySelectorAll('[data-slot="dialog-content"]');
+    expect(dialogs).toHaveLength(1);
+    expect(dialogs[0]!.textContent).toContain('Check the tests');
+    expect(dialogs[0]!.textContent).not.toContain('Look it over');
+    act(() =>
+      document
+        .querySelector<HTMLButtonElement>(
+          'button[aria-label="Back to the subagent that asked it"]',
+        )!
+        .click(),
+    );
+    expect(close).toHaveBeenCalledWith(1);
   });
 
-  it('can be stopped from its drawer while its job runs', () => {
+  it('can be stopped from where it is opened while its job runs', () => {
     const running = subagent('bg', 'Watch the build', [], {
       background: true,
       state: 'running',
