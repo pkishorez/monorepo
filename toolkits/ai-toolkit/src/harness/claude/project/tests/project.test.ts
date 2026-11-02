@@ -275,6 +275,27 @@ describe('project, on hand-made records', () => {
     );
   });
 
+  it('marks a result that went on in the background, asked or not', () => {
+    const result = (toolUseResult: Raw['payload']) =>
+      of({
+        type: 'user',
+        tool_use_result: toolUseResult,
+        message: {
+          role: 'user',
+          content: [
+            { type: 'tool_result', tool_use_id: 't1', content: 'Started.' },
+          ],
+        },
+      })?.parts[0];
+    expect(
+      result({ isAsync: true, status: 'async_launched', agentId: 'a1' }),
+    ).toMatchObject({ type: 'toolResult', background: true });
+    expect(result({ stdout: '', backgroundTaskId: 'b1' })).toMatchObject({
+      background: true,
+    });
+    expect(result({ stdout: 'done' })).not.toHaveProperty('background');
+  });
+
   it('keeps the images a tool gave back, whole, beside its text', () => {
     const projected = of({
       type: 'user',

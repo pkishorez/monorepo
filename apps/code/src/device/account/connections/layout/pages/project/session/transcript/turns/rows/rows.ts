@@ -10,8 +10,9 @@ import type { Message, Part, Usage } from '@kestack/connect/code';
  *   reporting the interrupt (Claude does), so it was stopped too. A call
  *   that asked an Agent Question also takes the questionAnswered with its
  *   id: what the user answered;
- * - a background toolCall started a Background Job: its toolResult only
- *   says so. It runs until a jobEnded with its id says how it ended, and a
+ * - a background toolCall started a Background Job, asked to in its call
+ *   or, as Claude Code may do on its own, said so by its toolResult, which
+ *   only says it started. It runs until a jobEnded with its id says how it ended, and a
  *   background subagent's report is its last words then, or else the
  *   end's summary. Whether one not ended still runs is the live job list's
  *   to say, where it is drawn. So are the steps of a background subagent,
@@ -229,13 +230,17 @@ export const thread = (
     }
   }
 
+  /** Whether a call went on as a Background Job: as it asked, or as its result says. */
+  const inBackground = (call: Of<'toolCall'>) =>
+    call.background === true || results.get(call.id)?.background === true;
+
   const stateOf = (
     call: Of<'toolCall'>,
     turnId: string,
     job: string | null,
   ): ToolState => {
     const result = results.get(call.id);
-    if (call.background === true && !result?.isError) {
+    if (inBackground(call) && !result?.isError) {
       const end = jobEnds.get(call.id);
       return end === undefined ? 'running' : JOB_STATES[end.status];
     }
@@ -314,7 +319,7 @@ export const thread = (
                 ];
           }
           case 'toolCall': {
-            const background = part.background === true;
+            const background = inBackground(part);
             const job = background ? part.id : under;
             const launched = results.get(part.id) ?? null;
             const state = stateOf(part, message.turnId, under);

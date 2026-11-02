@@ -123,23 +123,39 @@ const imagesOf = (
       })
     : [];
 
-const toolResultParts = (payload: Obj): ReadonlyArray<Part> =>
-  blocks(payload['message']).flatMap((block): ReadonlyArray<Part> => {
-    if (block['type'] !== 'tool_result') return [];
+/**
+ * Whether a tool's result says it went on in the background: a subagent
+ * launched async, as Claude Code may do with no `run_in_background`
+ * asked, or a command given a background task.
+ */
+const wentToBackground = (result: unknown): boolean =>
+  isObj(result) &&
+  (result['isAsync'] === true ||
+    result['status'] === 'async_launched' ||
+    typeof result['backgroundTaskId'] === 'string');
+
+const toolResultParts = (payload: Obj): ReadonlyArray<Part> => {
+  const results = blocks(payload['message']).filter(
+    (block) => block['type'] === 'tool_result',
+  );
+  // `tool_use_result` speaks for the record's one result.
+  const background =
+    results.length === 1 && wentToBackground(payload['tool_use_result']);
+  return results.map((block): Part => {
     const output = outputText(block['content']);
     const truncated = output.length > TOOL_OUTPUT_MAX;
     const images = imagesOf(block['content']);
-    return [
-      {
-        type: 'toolResult',
-        toolCallId: str(block['tool_use_id']) ?? '',
-        output: truncated ? output.slice(0, TOOL_OUTPUT_MAX) : output,
-        truncated,
-        isError: block['is_error'] === true,
-        ...(images.length > 0 ? { images } : {}),
-      },
-    ];
+    return {
+      type: 'toolResult',
+      toolCallId: str(block['tool_use_id']) ?? '',
+      output: truncated ? output.slice(0, TOOL_OUTPUT_MAX) : output,
+      truncated,
+      isError: block['is_error'] === true,
+      ...(images.length > 0 ? { images } : {}),
+      ...(background ? { background } : {}),
+    };
   });
+};
 
 const CANCELLED_REASONS = new Set(['aborted_streaming', 'aborted_tools']);
 

@@ -91,6 +91,11 @@ const ToolResult = Schema.Struct({
   truncated: Schema.Boolean,
   isError: Schema.Boolean,
   images: Schema.optionalKey(Schema.Array(ToolImage)),
+  /**
+   * The call went on as a Background Job, whether or not it asked to: this
+   * result only says it started, and a jobEnded says how it ended.
+   */
+  background: Schema.optionalKey(Schema.Boolean),
 });
 /**
  * What the user answered to an Agent Question the call asked, by Item id,
@@ -263,7 +268,7 @@ export type Message = typeof MessageSchema.Type;
  * harness's projection changes what it makes, so devices that kept
  * Messages throw them away and sync afresh.
  */
-export const PROJECTION_VERSION = 6;
+export const PROJECTION_VERSION = 7;
 
 /** What a harness's `project` decides; the engine adds the ids and time. */
 export type Projected = Pick<Message, 'agentId' | 'role' | 'parts'>;

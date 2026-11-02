@@ -570,6 +570,24 @@ describe('threaded', () => {
       ).toMatchObject({ state: 'stopped' });
     });
 
+    it('runs in the background when its result says so, though its call never asked', () => {
+      const asked: Part = { ...launch, input: { prompt: 'Review it' } };
+      delete (asked as { background?: boolean }).background;
+      const async: Part = { ...launched, background: true } as Part;
+      const subagent = threaded(UNTHREADED, [
+        start('t1', 'go'),
+        message([asked]),
+        message([async], { role: 'tool' }),
+        done('t1'),
+      ]).rows.find((row) => row.kind === 'subagent');
+      expect(subagent).toMatchObject({
+        background: true,
+        job: 'bg',
+        state: 'running',
+        result: null,
+      });
+    });
+
     it('ends as its jobEnded says, its last words its report', () => {
       const messages = [
         start('t1', 'go'),

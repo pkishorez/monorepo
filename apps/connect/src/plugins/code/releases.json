@@ -36,6 +36,10 @@
     {
       "hash": "8f3499a2c438f19535f3a7750d8f4e56848d8eee2ce6a1c78b7fd85428cc0b48",
       "summary": "Background work is kept as it comes, a cancel stops every job, and a restart tells the agent what it cut off"
+    },
+    {
+      "hash": "0dd4387b2aee3175d11196a2c4c7da04d80ffd662e0cf2cb6df795f8cefe4c1f",
+      "summary": "A tool result says when its call went on in the background, so an async subagent reads as running"
     }
   ]
 }
