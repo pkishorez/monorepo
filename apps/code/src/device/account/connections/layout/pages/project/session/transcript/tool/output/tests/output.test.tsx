@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
-import { MotionGlobalConfig } from 'motion/react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Row } from '../../../turns/rows/index.ts';
 import { SHUT } from '../../../words/index.ts';
 import { Output } from '../output.tsx';
@@ -109,37 +108,86 @@ describe('a tool that gave back an image', () => {
     );
   });
 
-  it('closes on a finger swiped down past 80px, through its Gesture Zone', async () => {
-    MotionGlobalConfig.instantAnimations = true;
-    try {
-      act(() => root.render(<Output row={read('')} opening={opening} />));
-      act(() =>
-        container
-          .querySelector<HTMLButtonElement>(
-            'button[aria-label="Open image 1"]',
-          )!
-          .click(),
+  // Its buttons, its backdrop, the dialog itself: none left to fade out.
+  const gone = () => {
+    expect(document.querySelector('button[aria-label="Zoom in"]')).toBe(null);
+    expect(document.querySelector('[data-slot="dialog-content"]')).toBe(null);
+  };
+  const opened = () => {
+    act(() => root.render(<Output row={read('')} opening={opening} />));
+    act(() =>
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="Open image 1"]')!
+        .click(),
+    );
+    expect(
+      document.querySelector('button[aria-label="Zoom in"]'),
+    ).not.toBeNull();
+  };
+
+  it('is gone at once, its buttons with it, by its close button', () => {
+    opened();
+    act(() =>
+      document
+        .querySelector<HTMLButtonElement>('button[aria-label="Close"]')!
+        .click(),
+    );
+    gone();
+  });
+
+  it('is gone at once on Escape', () => {
+    opened();
+    act(() => {
+      document.activeElement?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
       );
-      const image = () =>
-        document.querySelector('[data-slot="dialog-content"] img');
-      // jsdom has no PointerEvent: a MouseEvent with a pointer id stands in.
-      const finger = (type: string, y: number) => {
-        const event = new MouseEvent(type, {
-          bubbles: true,
-          cancelable: true,
-          clientX: 100,
-          clientY: y,
-          button: 0,
-        });
-        Object.assign(event, { pointerId: 1, pointerType: 'touch' });
-        image()!.dispatchEvent(event);
-      };
-      act(() => finger('pointerdown', 100));
-      for (let y = 110; y <= 220; y += 10) act(() => finger('pointermove', y));
-      await act(async () => finger('pointerup', 220));
-      expect(image()).toBe(null);
-    } finally {
-      MotionGlobalConfig.instantAnimations = false;
-    }
+    });
+    gone();
+  });
+
+  it('is gone at once on a click on its backdrop', () => {
+    opened();
+    act(() =>
+      document
+        .querySelector<HTMLElement>('[data-slot="dialog-content"] img')!
+        .parentElement!.click(),
+    );
+    gone();
+  });
+
+  it('closes at once on a finger swiped down past 80px, through its Gesture Zone, the image sliding on', async () => {
+    act(() => root.render(<Output row={read('')} opening={opening} />));
+    act(() =>
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="Open image 1"]')!
+        .click(),
+    );
+    const image = () =>
+      document.querySelector('[data-slot="dialog-content"] img');
+    // jsdom has no PointerEvent: a MouseEvent with a pointer id stands in.
+    const finger = (type: string, y: number) => {
+      const event = new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        clientX: 100,
+        clientY: y,
+        button: 0,
+      });
+      Object.assign(event, { pointerId: 1, pointerType: 'touch' });
+      image()!.dispatchEvent(event);
+    };
+    act(() => finger('pointerdown', 100));
+    for (let y = 110; y <= 220; y += 10) act(() => finger('pointermove', y));
+    act(() => finger('pointerup', 220));
+    // Past the threshold, it is closed at once: only the image slides on,
+    // out of the way of the page under.
+    gone();
+    const leaving = () =>
+      document.querySelector<HTMLElement>('[data-image-leaving]');
+    expect(leaving()?.querySelector('img')?.getAttribute('src')).toBe(
+      'data:image/png;base64,iVBOR',
+    );
+    expect(leaving()?.className).toContain('pointer-events-none');
+    await vi.waitFor(() => expect(leaving()).toBe(null), { timeout: 3000 });
   });
 });
