@@ -2,6 +2,7 @@ import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { memo, useContext } from 'react';
 import {
   Chevron,
+  Folded,
   Head,
   type Opening,
   Under,
@@ -102,13 +103,14 @@ function WorkLine({ id, rows, opening, running, live }: WorkProps) {
           <Chevron open={open} />
         </button>
       </Head>
-      {open && (
-        <div className="mt-1 ml-[7px] min-w-0 border-l border-border pl-4">
-          <Under sticky={sticky}>
-            <Steps rows={rows} opening={opening} running={running} />
-          </Under>
-        </div>
-      )}
+      <Folded
+        open={open}
+        className="mt-1 ml-[7px] min-w-0 border-l border-border pl-4"
+      >
+        <Under sticky={sticky}>
+          <Steps rows={rows} opening={opening} running={running} />
+        </Under>
+      </Folded>
     </div>
   );
 }

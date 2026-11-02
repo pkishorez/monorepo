@@ -21,9 +21,10 @@ import type { Anchor } from './anchor.ts';
  * Nothing is drawn above while the reader's finger, or the glide it set
  * off, moves the view (`gliding`): the view is put back by as much as was
  * drawn above it, and a phone's glide takes no notice of that, so the
- * view would leap back and forth, blank between. What waits is drawn once
- * the glide settles (`settle`), so what is drawn ahead is what a flick
- * may reach.
+ * view would leap back and forth, blank between. A draw under way in the
+ * background as a glide begins starts over (`glide`), and so holds back
+ * too. What waits is drawn once the glide settles (`settle`), so what is
+ * drawn ahead is what a flick may reach.
  *
  * A group of blocks laid out once, such as a turn, may be skipped by the
  * browser while far from the view (`content-visibility`), as tall as it
@@ -57,10 +58,17 @@ export interface Scroll {
   showAll: () => void;
   /** Puts the view back at the anchor now, as more is drawn above it. */
   place: () => void;
+  /** Keeps what is on the screen still, at the bottom too, as something in it opens or shuts. */
+  still: () => void;
   /** Draws more above, if what is drawn there is less than enough: `before` it is shown, or as a Transition. */
   fill: (before: boolean) => void;
   /** Draws what waited for a glide to settle. */
   settle: () => void;
+  /**
+   * A glide began: what is being drawn above in the background starts
+   * over, so it waits for the glide to settle rather than land during it.
+   */
+  glide: () => void;
   /** A group's element, to be skipped far from the view once laid out. */
   readonly group: (element: HTMLElement | null) => (() => void) | undefined;
 }
@@ -86,8 +94,10 @@ export const scrollOf = (anchor: Anchor): Scroll => {
     gliding: false,
     showAll: () => {},
     place: () => {},
+    still: () => {},
     fill: () => {},
     settle: () => {},
+    glide: () => {},
     group: (element) => {
       if (element === null || laidOut === null) return;
       laidOut.observe(element);
@@ -166,11 +176,15 @@ export function useShown(
       startTransition(redraw);
       scroll.fill(false);
     };
+    // Drawn at once, it puts aside any draw still under way in the
+    // background, which is drawn again, holding back while gliding.
+    scroll.glide = redraw;
     return () => {
       cancelAnimationFrame(shown);
       scroll.showAll = () => {};
       scroll.fill = () => {};
       scroll.settle = () => {};
+      scroll.glide = () => {};
     };
   }, [scroll, drawing]);
   // More drawn above: the view stays where it was, and if that is still

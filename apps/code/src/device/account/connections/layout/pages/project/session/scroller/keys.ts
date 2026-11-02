@@ -17,14 +17,11 @@ const LINE = 48;
 
 export function useScrollKeys(scroll: {
   readonly scroller: RefObject<HTMLElement | null>;
-  readonly gesture: () => void;
   readonly toTop: () => void;
   readonly holdOn: () => void;
 }) {
-  const by = (top: number) => {
-    scroll.gesture();
+  const by = (top: number) =>
     scroll.scroller.current?.scrollBy({ top, behavior: 'instant' });
-  };
   const page = (share: number) =>
     (scroll.scroller.current?.clientHeight ?? 0) * share;
   keys.useAction('content.down', () => by(LINE));

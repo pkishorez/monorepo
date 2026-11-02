@@ -12,19 +12,22 @@ export type Anchor =
 export const BOTTOM: Anchor = { at: 'bottom' };
 
 /**
- * Closer than this to the bottom is at the bottom, in px: a glide that ends
- * a little short, or a block drawn a few px taller, still follows. No more
- * than a line, so one `k` up from the bottom is away from it.
+ * This close to the bottom is at the bottom, in px: a glide that ends a
+ * fraction short, or a page zoomed so the view rounds a pixel short, still
+ * follows; a scroll up of more leaves it.
  */
-export const NEAR = 48;
+export const AT_BOTTOM = 1;
 
 /** How far the view is above the bottom of what it holds, in px. */
 export const gapOf = (scroller: HTMLElement) =>
   scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
 
+/** Whether the view is at the bottom of what it holds. */
+export const atBottom = (scroller: HTMLElement) => gapOf(scroller) <= AT_BOTTOM;
+
 /** Where the view is now: the bottom, or the first block not wholly above it. */
 export const anchorOf = (scroller: HTMLElement): Anchor =>
-  gapOf(scroller) < NEAR ? BOTTOM : blockAt(scroller);
+  atBottom(scroller) ? BOTTOM : blockAt(scroller);
 
 /** The first block not wholly above the view, however near the bottom; the bottom with none. */
 export const blockAt = (scroller: HTMLElement): Anchor => {

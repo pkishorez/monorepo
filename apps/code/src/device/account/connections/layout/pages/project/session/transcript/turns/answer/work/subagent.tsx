@@ -2,6 +2,7 @@ import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { useContext } from 'react';
 import {
   Chevron,
+  Folded,
   Head,
   type Opening,
   Under,
@@ -105,23 +106,24 @@ export function Subagent({
           </button>
         </div>
       </Head>
-      {open && (
-        <div className="flex min-w-0 flex-col gap-2 border-t border-border/70 px-3 py-2.5">
-          {prompt?.kind === 'prompt' && (
-            <div className="border-l-2 border-border pl-3 text-muted-foreground">
-              <Long
-                id={`${row.id}:prompt`}
-                opening={opening}
-                text={prompt.text}
-                className="text-sm"
-              />
-            </div>
-          )}
-          <Under sticky={sticky}>
-            <Steps rows={rows} opening={opening} running={running} />
-          </Under>
-        </div>
-      )}
+      <Folded
+        open={open}
+        className="flex min-w-0 flex-col gap-2 border-t border-border/70 px-3 py-2.5"
+      >
+        {prompt?.kind === 'prompt' && (
+          <div className="border-l-2 border-border pl-3 text-muted-foreground">
+            <Long
+              id={`${row.id}:prompt`}
+              opening={opening}
+              text={prompt.text}
+              className="text-sm"
+            />
+          </div>
+        )}
+        <Under sticky={sticky}>
+          <Steps rows={rows} opening={opening} running={running} />
+        </Under>
+      </Folded>
       {report && (
         <div
           className={`min-w-0 px-3 py-2.5 ${open ? 'pt-0' : 'border-t border-border/70'}`}

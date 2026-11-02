@@ -7,8 +7,8 @@ import { Block, Scrolled, useBlocks, useScroller } from '../index.ts';
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 /*
- * The scroller keeps the reader's place as what it holds changes. jsdom
- * lays nothing out, so here every block is BLOCK tall, one under another,
+ * The scroller's five rules, each as the reader meets it. jsdom lays
+ * nothing out, so here every block is BLOCK tall, one under another,
  * the view VIEW tall at the top of the page, the scroll clamped to what
  * it holds, and words arriving grow the last block and tell the
  * scroller's ResizeObservers, as a browser would.
@@ -28,6 +28,7 @@ let ids: Array<string> = [];
 let observers: Array<() => void> = [];
 let setIds: (ids: Array<string>) => void = () => {};
 let holdOn: (smooth?: boolean) => void = () => {};
+let still: () => void = () => {};
 const laidOut = Element.prototype.getBoundingClientRect;
 
 const total = () => ids.length * BLOCK + grown;
@@ -52,6 +53,7 @@ function Blocks() {
 function List() {
   const scroll = useScroller('list', 'transcript');
   holdOn = scroll.holdOn;
+  still = () => scroll.scroll.still();
   return (
     <div
       ref={(element) => {
@@ -76,19 +78,19 @@ const grow = (px: number) =>
     for (const each of observers) each();
   });
 
-/** The reader's own scroll by `by` px, as after a wheel's turn. */
-const wheel = (by: number) =>
+/** A scroll by `by` px the scroller did not make: the reader's. */
+const scrolled = (by: number) =>
   act(() => {
-    scroller.dispatchEvent(new Event('wheel'));
     top = clamp(top + by);
     scroller.dispatchEvent(new Event('scroll'));
   });
 
-/** A scroll by `by` px with nothing of the reader's before it. */
-const moved = (by: number) =>
+/** A touch on it, with no scroll, as a tap's; `lift` ends it. */
+const touch = (type: 'touchstart' | 'touchend') =>
   act(() => {
-    top = clamp(top + by);
-    scroller.dispatchEvent(new Event('scroll'));
+    const event = new Event(type);
+    Object.defineProperty(event, 'touches', { value: [] });
+    scroller.dispatchEvent(event);
   });
 
 const atBottom = () => top === total() - VIEW;
@@ -150,59 +152,43 @@ afterEach(() => {
 });
 
 describe('the scroller', () => {
-  it('follows words arriving while the reader is at the bottom', async () => {
-    expect(atBottom()).toBe(true);
+  it('1. follows what arrives while the reader is at the bottom', async () => {
     await grow(40);
     await grow(40);
     expect(atBottom()).toBe(true);
   });
 
-  it('lets go of the bottom as soon as the reader scrolls up, however little', async () => {
-    await wheel(-10);
-    const was = top;
-    await grow(40);
-    await grow(40);
-    expect(top).toBe(was);
-  });
-
-  it('follows again once the reader scrolls back down near the bottom', async () => {
-    await wheel(-300);
-    await wheel(290);
-    await grow(40);
-    expect(atBottom()).toBe(true);
-  });
-
-  it('keeps a held pointer’s slow drag up, as on the scrollbar, past a second', async () => {
-    const now = vi.spyOn(performance, 'now').mockReturnValue(1000);
+  it('1. follows on as what it holds shrinks at the bottom', async () => {
+    await grow(200);
     await act(() => {
-      scroller.dispatchEvent(new Event('pointerdown'));
+      grown -= 150;
+      top = clamp(top);
+      scroller.dispatchEvent(new Event('scroll'));
     });
-    now.mockReturnValue(4000);
-    await moved(-10);
-    const was = top;
-    await grow(40);
-    expect(top).toBe(was);
-    await act(() => {
-      window.dispatchEvent(new Event('pointerup'));
-    });
-  });
-
-  it('puts back a scroll up that was not the reader’s, as what it holds shrinks', async () => {
-    vi.spyOn(performance, 'now').mockReturnValue(10_000);
-    await moved(-10);
     await grow(40);
     expect(atBottom()).toBe(true);
   });
 
-  it('keeps what is on the screen still as words arrive below a reader up the page', async () => {
-    await wheel(-1000);
+  it('2. keeps what is on the screen still as words arrive below a reader up the page', async () => {
+    await scrolled(-1000);
     const was = top;
     for (let at = 0; at < 10; at++) await grow(30);
     expect(top).toBe(was);
   });
 
-  it('leaves the view where it is when the block it was kept by goes', async () => {
-    await wheel(-250);
+  it('2. keeps what is on the screen still as more is drawn above it', async () => {
+    await scrolled(-250);
+    const shown = [
+      ...container.querySelectorAll<HTMLElement>('[data-block]'),
+    ].find((each) => each.getBoundingClientRect().bottom > 0)!;
+    const was = shown.getBoundingClientRect().top;
+    await act(async () => setIds([...['a0', 'a1', 'a2'], ...ids]));
+    await grow(0);
+    expect(shown.getBoundingClientRect().top).toBe(was);
+  });
+
+  it('2. leaves the view where it is when the block it was kept by goes', async () => {
+    await scrolled(-250);
     const was = top;
     // The block at the view's top, gone, as an answer's words split again.
     const kept = [
@@ -214,47 +200,94 @@ describe('the scroller', () => {
     expect(Math.abs(top - was)).toBeLessThanOrEqual(BLOCK);
   });
 
-  /** Clicks `id`'s block, after a tap's touch when `tapped`, then what is above it goes. */
-  const shutAbove = async (id: string, above: string, tapped: boolean) => {
-    const clicked = container.querySelector<HTMLElement>(
-      `[data-block="${id}"]`,
-    )!;
-    const was = clicked.getBoundingClientRect().top;
-    await act(() => {
-      if (tapped)
-        for (const type of ['touchstart', 'touchend']) {
-          const touch = new Event(type);
-          Object.defineProperty(touch, 'touches', { value: [] });
-          scroller.dispatchEvent(touch);
-        }
-      clicked.dispatchEvent(
-        new MouseEvent('click', { bubbles: true, detail: 1 }),
-      );
-    });
-    await act(async () => setIds(ids.filter((each) => each !== above)));
+  it('3. lets go of the bottom as the reader scrolls up a pixel or two', async () => {
+    await scrolled(-2);
+    const was = top;
+    await grow(40);
+    await grow(40);
+    expect(top).toBe(was);
+  });
+
+  it('3. follows again once the reader is back at the bottom', async () => {
+    await scrolled(-300);
+    await scrolled(300);
+    await grow(40);
+    expect(atBottom()).toBe(true);
+  });
+
+  it('3. puts in place at once what changes under a tap, which moves nothing', async () => {
+    await scrolled(-250);
+    await touch('touchstart');
+    await touch('touchend');
+    const shown = [
+      ...container.querySelectorAll<HTMLElement>('[data-block]'),
+    ].find((each) => each.getBoundingClientRect().top >= 0)!;
+    const was = shown.getBoundingClientRect().top;
+    await act(async () => setIds(['a0', ...ids]));
     await grow(0);
-    return { was, now: clicked.getBoundingClientRect().top };
-  };
-
-  it('keeps what was clicked where it was as what is above it shuts', async () => {
-    await wheel(-250);
-    const { was, now } = await shutAbove('b27', 'b26', false);
-    expect(now).toBe(was);
+    expect(shown.getBoundingClientRect().top).toBe(was);
   });
 
-  it('does so at once after a tap, which is not a glide', async () => {
-    await wheel(-250);
-    const { was, now } = await shutAbove('b27', 'b26', true);
-    expect(now).toBe(was);
-  });
-
-  it('glides back to the bottom on a send, though the reader scrolled up just before', async () => {
-    await wheel(-300);
+  it('5. glides back to the bottom, its glide not the reader’s, and follows', async () => {
+    await scrolled(-300);
     // A smooth scroll, under way: the view moves on its own, a step at a time.
     scroller.scrollTo = (() => {}) as typeof scroller.scrollTo;
     await act(() => holdOn(true));
-    await moved(100);
+    await scrolled(100);
+    await grow(40);
+    await scrolled(1000);
     await grow(40);
     expect(atBottom()).toBe(true);
+  });
+
+  it('5. lets the reader scroll up out of that glide', async () => {
+    await scrolled(-300);
+    scroller.scrollTo = (() => {}) as typeof scroller.scrollTo;
+    await act(() => holdOn(true));
+    await scrolled(100);
+    await scrolled(-20);
+    const was = top;
+    await grow(40);
+    expect(top).toBe(was);
+  });
+
+  it('keeps what is on the screen still, at the bottom too, as a fold there opens', async () => {
+    await act(() => still());
+    const was = top;
+    await grow(300);
+    expect(top).toBe(was);
+  });
+
+  it('follows on once a fold shut at the bottom leaves the view there', async () => {
+    await act(() => still());
+    // It shrinks, and the browser keeps the view in what it holds.
+    await act(() => {
+      ids = ids.slice(0, -2);
+      top = clamp(top);
+      for (const each of observers) each();
+      scroller.dispatchEvent(new Event('scroll'));
+    });
+    await grow(40);
+    expect(atBottom()).toBe(true);
+  });
+
+  it('1. follows with a finger resting on it, its own scrolls no glide', async () => {
+    await touch('touchstart');
+    await grow(40);
+    await act(() => scroller.dispatchEvent(new Event('scroll')));
+    await grow(40);
+    expect(atBottom()).toBe(true);
+  });
+
+  it('5. goes on gliding as words arrive, never jumping to the bottom', async () => {
+    await scrolled(-300);
+    const glides: Array<ScrollToOptions> = [];
+    scroller.scrollTo = ((options: ScrollToOptions) =>
+      void glides.push(options)) as typeof scroller.scrollTo;
+    await act(() => holdOn(true));
+    const was = top;
+    await grow(40);
+    expect(top).toBe(was);
+    expect(glides.at(-1)).toMatchObject({ behavior: 'smooth' });
   });
 });
