@@ -10,6 +10,11 @@ import type { Message, Part, Usage } from '@kestack/connect/code';
  *   reporting the interrupt (Claude does), so it was stopped too. A call
  *   that asked an Agent Question also takes the questionAnswered with its
  *   id: what the user answered;
+ * - a background toolCall started a Background Job: its toolResult only
+ *   says so. It runs until a jobEnded with its id says how it ended, and a
+ *   background subagent's report is its last words then, or else the
+ *   end's summary. Whether one not ended still runs is the live job list's
+ *   to say, where it is drawn;
  * - a toolCall to a subagent holds the Messages whose `agentId` is its id,
  *   drawn the same way, so subagents nest. Its prompt comes first: the
  *   subagent's own user words (Codex sends them), or else the call's
@@ -27,8 +32,10 @@ import type { Message, Part, Usage } from '@kestack/connect/code';
  *   is. It is being written while its turn runs and its agent has said
  *   nothing since; a stopped turn keeps what it got.
  *
- * Nothing pairs Messages of two turns, so a session is threaded a turn at
- * a time (`threaded`): a turn whose Messages did not change, and that is
+ * A session is threaded a turn at a time (`threaded`). A subagent's
+ * Messages, and a job's end, join the turn of the toolCall they belong to,
+ * whatever turn they were written in: a background subagent writes on
+ * after its turn ends. Nothing else pairs Messages of two turns. A turn whose Messages did not change, and that is
  * still the last or still not, keeps its rows as they were, and words
  * streaming into the last turn thread only that turn, however long the
  * session. A turn with turns after it says so (`followed`): its main
@@ -38,6 +45,9 @@ import type { Message, Part, Usage } from '@kestack/connect/code';
 type Of<T extends Part['type']> = Extract<Part, { readonly type: T }>;
 
 export type ToolState = 'running' | 'done' | 'failed' | 'stopped';
+
+/** What a stop cut off before a turn: the turn before it, and Background Jobs. */
+export type CutOff = NonNullable<Of<'turnStarted'>['cutOff']>;
 
 export type TurnAttachment = NonNullable<
   Of<'turnStarted'>['attachments']
@@ -54,6 +64,8 @@ export type Row =
       readonly agentStarted: boolean;
       /** Begun by Connect, to continue a turn a restart cut off. */
       readonly resumed: boolean;
+      /** What a stop cut off before it, which the agent was told of. */
+      readonly cutOff: CutOff | null;
     }
   /** A user's words inside a subagent: the prompt it was given. */
   | { readonly kind: 'prompt'; readonly id: string; readonly text: string }
@@ -71,13 +83,18 @@ export type Row =
       readonly result: Of<'toolResult'> | null;
       /** What the user answered, when the call asked an Agent Question. */
       readonly answered: Of<'questionAnswered'> | null;
+      /** A Background Job: `running` until it ends says only that it has not ended. */
+      readonly background: boolean;
       readonly state: ToolState;
     }
   | {
       readonly kind: 'subagent';
       readonly id: string;
       readonly call: Of<'toolCall'>;
+      /** Its report: what it said last, or, for a background one, once it ended. */
       readonly result: Of<'toolResult'> | null;
+      /** A Background Job: `running` until it ends says only that it has not ended. */
+      readonly background: boolean;
       readonly state: ToolState;
       readonly rows: ReadonlyArray<Row>;
     }
@@ -128,6 +145,12 @@ const promptOf = (call: Of<'toolCall'>): string | null => {
 
 const NONE: ReadonlyArray<never> = [];
 
+const JOB_STATES: Record<Of<'jobEnded'>['status'], ToolState> = {
+  done: 'done',
+  failed: 'failed',
+  stopped: 'stopped',
+};
+
 /** Message ids are ULIDs, which sort as plain strings. */
 const byId = (a: Message, b: Message) =>
   a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
@@ -160,7 +183,11 @@ export const thread = (
   const summed = new Map<string, Usage>();
   const streams = new Map<string, { text: string; last: string }>();
   const startedAt = new Map<string, number>();
+  const jobEnds = new Map<string, Of<'jobEnded'>>();
+  /** The turns the main agent ran here: a stream of another is written already. */
+  const own = new Set<string>();
   for (const message of sorted) {
+    if (message.agentId === null) own.add(message.turnId);
     const list = byAgent.get(message.agentId) ?? [];
     list.push(message);
     byAgent.set(message.agentId, list);
@@ -171,6 +198,8 @@ export const thread = (
         resultAt.set(part.toolCallId, message.id);
       } else if (part.type === 'questionAnswered') {
         answered.set(part.toolCallId, part);
+      } else if (part.type === 'jobEnded' && part.toolCallId !== undefined) {
+        jobEnds.set(part.toolCallId, part);
       } else if (part.type === 'turnStarted' && !part.steered) {
         if (!startedAt.has(message.turnId))
           startedAt.set(message.turnId, message.at);
@@ -196,6 +225,10 @@ export const thread = (
 
   const stateOf = (call: Of<'toolCall'>, turnId: string): ToolState => {
     const result = results.get(call.id);
+    if (call.background === true && !result?.isError) {
+      const end = jobEnds.get(call.id);
+      return end === undefined ? 'running' : JOB_STATES[end.status];
+    }
     if (result && !result.isError) return 'done';
     if (result) {
       const interrupted =
@@ -213,6 +246,7 @@ export const thread = (
     last: string,
   ): boolean =>
     !ended.has(turnId) &&
+    own.has(turnId) &&
     !(followed && agentId === null) &&
     byAgent.get(agentId)?.at(-1)?.id === last;
 
@@ -232,6 +266,7 @@ export const thread = (
                 attachments: part.attachments ?? NONE,
                 agentStarted: part.agentStarted ?? false,
                 resumed: part.resumed ?? false,
+                cutOff: part.cutOff ?? null,
               },
             ];
           case 'text':
@@ -263,7 +298,8 @@ export const thread = (
                 ];
           }
           case 'toolCall': {
-            const result = results.get(part.id) ?? null;
+            const background = part.background === true;
+            const launched = results.get(part.id) ?? null;
             const state = stateOf(part, message.turnId);
             if (part.tool !== 'subagent' || seen.has(part.id))
               return [
@@ -271,13 +307,30 @@ export const thread = (
                   kind: 'tool',
                   id,
                   call: part,
-                  result,
+                  result: launched,
                   answered: answered.get(part.id) ?? null,
+                  background,
                   state,
                 },
               ];
             const all = rowsOf(part.id, new Set(seen).add(part.id));
             const last = all.at(-1);
+            const end = jobEnds.get(part.id);
+            // A background one's result only says it started: its report
+            // is what it said last once it ended, or else the end's summary.
+            const result: Of<'toolResult'> | null = !background
+              ? launched
+              : launched?.isError
+                ? launched
+                : end === undefined
+                  ? null
+                  : {
+                      type: 'toolResult',
+                      toolCallId: part.id,
+                      output: last?.kind === 'text' ? last.text : end.summary,
+                      truncated: false,
+                      isError: end.status === 'failed',
+                    };
             const own =
               last?.kind === 'text' &&
               result !== null &&
@@ -292,7 +345,17 @@ export const thread = (
                     { kind: 'prompt', id: `${id}:prompt`, text: prompt },
                     ...own,
                   ];
-            return [{ kind: 'subagent', id, call: part, result, state, rows }];
+            return [
+              {
+                kind: 'subagent',
+                id,
+                call: part,
+                result,
+                background,
+                state,
+                rows,
+              },
+            ];
           }
           case 'turnEnded':
             return [
@@ -318,6 +381,7 @@ export const thread = (
             return [{ kind: 'note', id, label: part.label }];
           case 'toolResult':
           case 'questionAnswered':
+          case 'jobEnded':
           case 'usage':
             return [];
           default:
@@ -396,6 +460,40 @@ export const kept = (
   return unchanged ? before : rows;
 };
 
+/** The tool call a Message belongs to apart from its turn: its subagent's, or the job it ends. */
+const linkOf = (message: Message): string | undefined => {
+  if (message.agentId !== null) return message.agentId;
+  for (const part of message.parts)
+    if (part.type === 'jobEnded') return part.toolCallId;
+  return undefined;
+};
+
+/**
+ * The turn each Message is drawn in: its own, or, for a subagent's or a
+ * job's end, the turn of the toolCall it belongs to, through any subagents
+ * it is nested in.
+ */
+const ownerTurns = (messages: ReadonlyArray<Message>) => {
+  const callIn = new Map<string, Message>();
+  for (const message of messages)
+    for (const part of message.parts)
+      if (part.type === 'toolCall') callIn.set(part.id, message);
+  const owner = new Map<string, string>();
+  const turnOf = (message: Message, depth = 0): string => {
+    const known = owner.get(message.id);
+    if (known !== undefined) return known;
+    const link = linkOf(message);
+    const call = link === undefined ? undefined : callIn.get(link);
+    const turnId =
+      call === undefined || call === message || depth > 32
+        ? message.turnId
+        : turnOf(call, depth + 1);
+    owner.set(message.id, turnId);
+    return turnId;
+  };
+  return turnOf;
+};
+
 interface ThreadedTurn {
   readonly messages: ReadonlyArray<Message>;
   /** Whether later turns follow it. */
@@ -422,10 +520,12 @@ export const threaded = (
   messages: ReadonlyArray<Message>,
 ): Threaded => {
   const byTurn = new Map<string, Message[]>();
+  const turnOf = ownerTurns(messages);
   for (const message of inOrder(messages)) {
-    const list = byTurn.get(message.turnId);
+    const turnId = turnOf(message);
+    const list = byTurn.get(turnId);
     if (list) list.push(message);
-    else byTurn.set(message.turnId, [message]);
+    else byTurn.set(turnId, [message]);
   }
   let changed = byTurn.size !== before.turns.size;
   const turns = new Map<string, ThreadedTurn>();

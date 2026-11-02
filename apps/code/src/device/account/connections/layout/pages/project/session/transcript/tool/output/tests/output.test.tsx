@@ -34,6 +34,7 @@ const read = (output: string): ToolRow => ({
     images: [{ mediaType: 'image/png', data: 'iVBOR' }],
   },
   answered: null,
+  background: false,
   state: 'done',
 });
 

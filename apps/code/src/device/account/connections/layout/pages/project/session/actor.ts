@@ -1,5 +1,6 @@
 import { Effect, Schema, Stream } from 'effect';
 import {
+  BackgroundJobSchema,
   CodeClient,
   type Session as SessionRecord,
 } from '@kestack/connect/code';
@@ -19,7 +20,7 @@ import {
 import { Connections } from '../../../../connections.ts';
 import { Seen } from '../../../../connection/store/index.ts';
 import { Draft } from '../draft/index.ts';
-import { cancel, forkSession, markSeen } from './commands.ts';
+import { cancel, forkSession, markSeen, stopJob } from './commands.ts';
 import { Question } from './question/index.ts';
 import { Actor } from '@kestack/kabuki';
 
@@ -39,8 +40,12 @@ import { Actor } from '@kestack/kabuki';
  *             handed the session's agent and whether it runs.
  * 3. Fork     a new session from this one's context up to a turn's end;
  *             the app moves to it.
- * 4. Stop     cancels the running turn.
- * 5. Open     which tool calls, thoughts and subagents are shown open.
+ * 4. Stop     stops everything it runs: its turn and its Background Jobs,
+ *             which it follows live, so it shows as working while only
+ *             its jobs run; or one job on its own.
+ * 5. Open     which tool calls and thoughts are shown open, and the
+ *             subagents opened over the page, each in a drawer over the
+ *             one before, deepest last.
  * 6. Ready     it is drawn whole, transcript and Draft in one step, once
  *              all of it is read from this device (`readyOf`): its row, its
  *              messages, those it carries on from, and its Saved Draft.
@@ -79,6 +84,7 @@ const Ancestor = Schema.Struct({
 
 const Read = Schema.Struct({ row: Row, lineage: Schema.Array(Ancestor) });
 const sameRead = Schema.toEquivalence(Read);
+const sameJobs = Schema.toEquivalence(Schema.Array(BackgroundJobSchema));
 
 /** 1. Read: the row and the sessions up its chain, nearest first. */
 const readOf = ([own, ...up]: ReadonlyArray<SessionRecord>) =>
@@ -116,6 +122,12 @@ const Model = Schema.Struct({
   ready: Schema.Boolean,
   /** Whether it was drawn whole with its row held here, not as missing (6. Ready). */
   held: Schema.Boolean,
+  /** Its agent's Background Jobs, live (4. Stop). */
+  jobs: Schema.Array(BackgroundJobSchema),
+  /** The jobs asked to stop, until the feed drops them or the stop is refused. */
+  stoppingJobs: Schema.Array(Schema.String),
+  /** The subagents open over the page, by row id, outermost first (5. Open). */
+  drawers: Schema.Array(Schema.String),
 });
 type Model = typeof Model.Type;
 
@@ -172,6 +184,13 @@ export const Session = Page.define({
     StopAsked: {},
     Stopped: {},
     Toggled: { id: Schema.String },
+    JobsHeard: { jobs: Schema.Array(BackgroundJobSchema) },
+    JobStopAsked: { jobId: Schema.String },
+    JobStopped: { jobId: Schema.String },
+    /** A subagent opened over the drawers open, or, `under` that many, in place of those above. */
+    DrawerOpened: { id: Schema.String, under: Schema.Finite },
+    /** The drawers from `depth` on closed: 0 closes them all. */
+    DrawersClosed: { depth: Schema.Finite },
     ForkAsked: { afterTurnId: Schema.String },
     Forked: { projectId: Schema.String, sessionId: Schema.String },
     Refused,
@@ -191,6 +210,9 @@ export const SessionLive = Session.build({
       forking: null,
       ready: false,
       held: false,
+      jobs: [],
+      stoppingJobs: [],
+      drawers: [],
     },
   }),
   children: {
@@ -249,6 +271,25 @@ export const SessionLive = Session.build({
     }),
   },
   workers: {
+    // 4. Stop: its jobs, live.
+    jobs: {
+      each: ({ props }) => [props.params.sessionId],
+      run: (self, sessionId) =>
+        Effect.gen(function* () {
+          const { props } = yield* self.get;
+          const connections = yield* Connections;
+          yield* connections.jobs(connectionIn(props.route.params)).pipe(
+            Stream.map(
+              (all) =>
+                all.find((each) => each.sessionId === sessionId)?.jobs ?? [],
+            ),
+            Stream.changesWith(sameJobs),
+            Stream.runForEach((jobs) =>
+              self.send({ _tag: 'JobsHeard', jobs: [...jobs] }),
+            ),
+          );
+        }),
+    },
     // 1. Read
     row: {
       each: ({ props }) => [props.params.sessionId],
@@ -304,9 +345,47 @@ export const SessionLive = Session.build({
             command: cancel({ sessionId: props.params.sessionId }),
           },
     Stopped: (_, { model }) => ({ model: { ...model, stopping: false } }),
-    Refused: ({ reason }, { model }) => ({
-      model: { ...model, problem: reason, stopping: false, forking: null },
+    JobsHeard: ({ jobs }, { model }) => ({
+      model: {
+        ...model,
+        jobs,
+        stoppingJobs: model.stoppingJobs.filter((id) =>
+          jobs.some((job) => job.id === id),
+        ),
+      },
     }),
+    JobStopAsked: ({ jobId }, { model, props }) =>
+      model.stoppingJobs.includes(jobId)
+        ? {}
+        : {
+            model: {
+              ...model,
+              stoppingJobs: [...model.stoppingJobs, jobId],
+              problem: null,
+            },
+            command: stopJob({ sessionId: props.params.sessionId, jobId }),
+          },
+    // Stopped: the feed drops it.
+    JobStopped: () => ({}),
+    Refused: ({ reason }, { model }) => ({
+      model: {
+        ...model,
+        problem: reason,
+        stopping: false,
+        forking: null,
+        stoppingJobs: [],
+      },
+    }),
+    DrawerOpened: ({ id, under }, { model }) => {
+      const kept = model.drawers.slice(0, under);
+      return kept.at(-1) === id
+        ? { model: { ...model, drawers: kept } }
+        : { model: { ...model, drawers: [...kept, id] } };
+    },
+    DrawersClosed: ({ depth }, { model }) =>
+      model.drawers.length <= depth
+        ? {}
+        : { model: { ...model, drawers: model.drawers.slice(0, depth) } },
     // 6. Ready, once, and once more when its row is held.
     Ready: ({ held }, { model }) =>
       model.ready && (model.held || !held)

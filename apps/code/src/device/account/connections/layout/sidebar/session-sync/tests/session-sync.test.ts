@@ -54,6 +54,7 @@ const shown = <T extends { readonly id: string }>() => {
 
 const session = (id: string, at: Partial<Session> = {}): Session => ({
   id,
+  jobs: [],
   projectId: 'p1',
   harness: 'claude',
   account: 'claude',

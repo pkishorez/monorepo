@@ -1,5 +1,5 @@
-import { ImageButton } from '@kestack/web-platform/recipes/image-viewer';
 import type { ReactNode } from 'react';
+import { Images } from './images.tsx';
 import { Clamped, type Opening } from '../../words/index.ts';
 import type { Row } from '../../turns/rows/index.ts';
 
@@ -9,7 +9,7 @@ import type { Row } from '../../turns/rows/index.ts';
  * a label over it; and what a finished call gave back, or why it failed,
  * its start only until asked for all, and the images it gave back, such as
  * a file read, as thumbnails, each opened whole over the page by a tap, to
- * zoom into (the Web Platform's image viewer).
+ * zoom into (`images.tsx`, with the Web Platform's image viewer).
  */
 
 type ToolRow = Extract<Row, { readonly kind: 'tool' }>;
@@ -77,34 +77,6 @@ export function Output({
         <span className="text-xs text-muted-foreground">Output cut short</span>
       )}
     </Labelled>
-  );
-}
-
-type Image = NonNullable<NonNullable<ToolRow['result']>['images']>[number];
-
-/** Images a tool gave back: thumbnails, each opened whole by a tap. */
-function Images({ images }: { readonly images: ReadonlyArray<Image> }) {
-  return (
-    <ul aria-label="Images" className="flex flex-wrap gap-2">
-      {images.map(({ mediaType, data }, at) => {
-        const src = `data:${mediaType};base64,${data}`;
-        return (
-          <li key={at}>
-            <ImageButton
-              src={src}
-              label={`Open image ${at + 1}`}
-              className="rounded-md"
-            >
-              <img
-                src={src}
-                alt=""
-                className="max-h-48 max-w-full rounded-md object-contain outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
-              />
-            </ImageButton>
-          </li>
-        );
-      })}
-    </ul>
   );
 }
 

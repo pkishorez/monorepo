@@ -116,6 +116,7 @@ describe('the Connections the sidebar reads', () => {
     refused: null,
     refusals: {},
     asking: {},
+    working: {},
     ready: false,
   };
 

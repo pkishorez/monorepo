@@ -4,12 +4,12 @@ import type { Row } from '../../rows/index.ts';
 import { isSaid, Said } from '../said.tsx';
 import { grouped, StepLine, ToolGroup, ToolStep } from '../../../tool/index.ts';
 import { Writing } from '../../../words/index.ts';
-import { Subagent } from './subagent.tsx';
+import { Subagent } from './live/subagent.tsx';
 
 /*
  * The steps a run of work took, in order, as lines: each tool call, a run
- * of calls of one kind folded into one, a thought, a subagent as a card of
- * its own, and, inside a subagent, what it said. A run that is nothing but
+ * of calls with one aim folded into one, a thought, a subagent as a line
+ * that opens it in a drawer, and, inside a subagent, what it said. A run that is nothing but
  * calls of one kind is not folded again: the line that opened it already
  * says "Ran 3 commands", so its calls show at once.
  */
@@ -56,14 +56,7 @@ export function Steps({
             />
           );
         if (row.kind === 'subagent')
-          return (
-            <Subagent
-              key={row.id}
-              row={row}
-              opening={opening}
-              running={running}
-            />
-          );
+          return <Subagent key={row.id} row={row} running={running} />;
         if (row.kind === 'reasoning') {
           const thinking = row.writing && running;
           return (

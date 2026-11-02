@@ -1,5 +1,5 @@
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
-import { memo, useContext } from 'react';
+import { memo, useContext, useMemo } from 'react';
 import {
   Chevron,
   Folded,
@@ -10,7 +10,15 @@ import {
   useSticky,
 } from '../../../words/index.ts';
 import { type Row, sameItems } from '../../rows/index.ts';
-import { Folder, KINDS, stateOf, summary } from '../../../tool/index.ts';
+import {
+  Folder,
+  type Image,
+  Images,
+  KINDS,
+  Lines,
+  summary,
+} from '../../../tool/index.ts';
+import { stateNow, useLive } from '../../rows/index.ts';
 import { Steps } from './steps.tsx';
 import { kindsOf, tally } from './tally.ts';
 
@@ -22,7 +30,18 @@ import { kindsOf, tally } from './tally.ts';
  * says what the agent is doing now, a step at a time, so a long turn
  * never looks stuck. The whole width of the line opens it; open, every
  * step in order, the line stuck to the top while they scroll under it.
+ * The images its tools gave back, such as screenshots, show under it at
+ * once, not folded away with their steps.
  */
+
+/** The images a run's tools gave back, in order. */
+const imagesOf = (rows: ReadonlyArray<Row>): ReadonlyArray<Image> =>
+  rows.flatMap((row) =>
+    row.kind === 'tool' ? (row.result?.images ?? []) : [],
+  );
+
+/** At most this many thumbnails under the line; the last counts the rest. */
+const THUMBNAILS = 4;
 
 /** What the agent is doing now, in a few words, while the run is the live one. */
 const nowOf = (rows: ReadonlyArray<Row>, folder: string | null): string => {
@@ -66,16 +85,35 @@ export const Work = memo(
 
 function WorkLine({ id, rows, opening, running, live }: WorkProps) {
   const folder = useContext(Folder);
+  const jobs = useLive();
   const open = useOpen(opening, id);
   const sticky = useSticky(open, () => opening.toggle(id));
   const states = rows.flatMap((row) =>
     row.kind === 'tool' || row.kind === 'subagent'
-      ? [stateOf(row.state, running)]
+      ? [stateNow(row, running, jobs)]
       : [],
   );
   const failed = states.filter((state) => state === 'failed').length;
   const stopped = !live && states.includes('stopped');
   const said = live ? nowOf(rows, folder) : tally(rows);
+  const images = useMemo(() => imagesOf(rows), [rows]);
+  const lines = useMemo(
+    () =>
+      rows.reduce(
+        (sum, row) => {
+          if (row.kind !== 'tool') return sum;
+          const counted = summary(row.call, 'done', folder).lines;
+          return counted === null
+            ? sum
+            : {
+                added: sum.added + counted.added,
+                removed: sum.removed + counted.removed,
+              };
+        },
+        { added: 0, removed: 0 },
+      ),
+    [rows, folder],
+  );
   return (
     <div className="flex min-w-0 flex-col">
       <Head sticky={sticky} className="-mx-2.5">
@@ -100,9 +138,15 @@ function WorkLine({ id, rows, opening, running, live }: WorkProps) {
             </span>
           )}
           {stopped && <span className="shrink-0">· stopped</span>}
+          {!live && <Lines lines={lines} />}
           <Chevron open={open} />
         </button>
       </Head>
+      {images.length > 0 && (
+        <div className="mt-1 mb-1">
+          <Images images={images} max={THUMBNAILS} size="sm" />
+        </div>
+      )}
       <Folded
         open={open}
         className="mt-1 ml-[7px] min-w-0 border-l border-border pl-4"

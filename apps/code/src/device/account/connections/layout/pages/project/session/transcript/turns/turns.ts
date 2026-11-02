@@ -5,11 +5,12 @@ import type { Spend } from './answer/footer.tsx';
 /*
  * Rows as a conversation reads them: in turns, each your words, what the
  * agent did, and how it ended; and each turn cut into what the agent said,
- * the runs of work between, and what you added while it worked, where you
- * sent it.
+ * the runs of work between, each subagent on its own, and what you added
+ * while it worked, where you sent it.
  */
 
 type TurnRow = Extract<Row, { readonly kind: 'turn' }>;
+type SubagentRow = Extract<Row, { readonly kind: 'subagent' }>;
 type EndedRow = Extract<Row, { readonly kind: 'ended' }>;
 
 export type Turn = {
@@ -69,6 +70,8 @@ export type Piece =
   | { readonly kind: 'said'; readonly row: SaidRow }
   /** Words you sent while it worked. */
   | { readonly kind: 'ask'; readonly row: TurnRow }
+  /** A subagent, never folded into the work around it. */
+  | { readonly kind: 'subagent'; readonly row: SubagentRow }
   | {
       readonly kind: 'work';
       readonly id: string;
@@ -84,6 +87,10 @@ export const piecesOf = (rows: ReadonlyArray<Row>): ReadonlyArray<Piece> => {
     }
     if (row.kind === 'turn') {
       pieces.push({ kind: 'ask', row });
+      continue;
+    }
+    if (row.kind === 'subagent') {
+      pieces.push({ kind: 'subagent', row });
       continue;
     }
     const last = pieces.at(-1);

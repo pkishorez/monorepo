@@ -101,6 +101,7 @@ describe('tools', () => {
       call: call(kind, id, {}),
       result: null,
       answered: null,
+      background: false,
       state: 'done',
     });
     const items = grouped([
@@ -121,6 +122,44 @@ describe('tools', () => {
     expect(first?.kind === 'group' && groupTitle(first.rows)).toBe(
       'Read 3 files',
     );
+  });
+
+  it('folds calls with one aim, and never a failed or a background call', () => {
+    const tool = (
+      id: string,
+      kind: Call['tool'],
+      more: Partial<Extract<Row, { kind: 'tool' }>> = {},
+    ): Row => ({
+      kind: 'tool',
+      id,
+      call: call(kind, id, {}),
+      result: null,
+      answered: null,
+      background: false,
+      state: 'done',
+      ...more,
+    });
+    const items = grouped([
+      tool('a', 'read'),
+      tool('b', 'search'),
+      tool('c', 'read'),
+      tool('d', 'read', { state: 'failed' }),
+      tool('e', 'edit'),
+      tool('f', 'write'),
+      tool('g', 'bash', { background: true }),
+      tool('h', 'bash'),
+    ]);
+    expect(
+      items.map((item) =>
+        item.kind === 'group' ? groupTitle(item.rows) : item.row.id,
+      ),
+    ).toEqual([
+      'Explored 2 files and 1 search',
+      'd',
+      'Changed 2 files',
+      'g',
+      'h',
+    ]);
   });
 
   it("gives a failed call's reason in one line", () => {

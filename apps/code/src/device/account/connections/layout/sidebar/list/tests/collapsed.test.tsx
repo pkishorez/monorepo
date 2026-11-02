@@ -93,6 +93,7 @@ describe('the sidebar, its Connections collapsed', () => {
             onCollapse={() => {}}
             isUnseen={() => false}
             isAsking={() => false}
+            isWorking={() => false}
             onOpenSession={() => {}}
             onUnsettle={() => {}}
             onMove={() => {}}

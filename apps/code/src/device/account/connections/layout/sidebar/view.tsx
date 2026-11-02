@@ -169,6 +169,9 @@ export const SidebarView = View.make(
             isAsking={(each) =>
               model.asking[each.connectionId]?.includes(each.id) === true
             }
+            isWorking={(each) =>
+              model.working[each.connectionId]?.includes(each.id) === true
+            }
             onOpenSession={(connectionId, projectId, sessionId) =>
               send({
                 _tag: 'SessionOpened',

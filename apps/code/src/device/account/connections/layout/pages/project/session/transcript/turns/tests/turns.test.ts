@@ -66,6 +66,7 @@ describe('a question the agent asked', () => {
     call: { type: 'toolCall', id, tool, name: id, title: '', input },
     result: null,
     answered: null,
+    background: false,
     state: 'done',
   });
   const read = tool('r', 'read', { file_path: 'a.ts' });
@@ -96,6 +97,7 @@ describe('words sent while it worked', () => {
     attachments: [],
     agentStarted: false,
     resumed: false,
+    cutOff: null,
   });
   const read: Row = {
     kind: 'tool',
@@ -110,6 +112,7 @@ describe('words sent while it worked', () => {
     },
     result: null,
     answered: null,
+    background: false,
     state: 'done',
   };
 

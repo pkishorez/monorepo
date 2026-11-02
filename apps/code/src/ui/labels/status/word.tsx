@@ -38,6 +38,7 @@ export function StatusWord({
   unseen,
   at,
   asking = false,
+  working = false,
 }: {
   readonly status: Session['status'];
   /** Whether its last Turn ended since it was last open here. */
@@ -46,6 +47,8 @@ export function StatusWord({
   readonly at: number;
   /** Whether its agent waits on an Agent Question. */
   readonly asking?: boolean;
+  /** Whether its agent runs Background Jobs, its turn ended or not. */
+  readonly working?: boolean;
 }) {
   if (asking)
     return (
@@ -56,16 +59,19 @@ export function StatusWord({
         </span>
       </span>
     );
-  if (status === 'running')
+  if (status === 'running' || working) {
+    const label =
+      status === 'running' ? 'Running' : 'Working in the background';
     return (
-      <span title="Running" className={cn(mark, 'text-muted-foreground')}>
+      <span title={label} className={cn(mark, 'text-muted-foreground')}>
         <LoaderCircleIcon
           aria-hidden
           className="size-3.5 animate-spin motion-reduce:animate-none"
         />
-        <span className="sr-only">Running</span>
+        <span className="sr-only">{label}</span>
       </span>
     );
+  }
   if (status === 'failed')
     return <Dot tone="bg-destructive" label="Last turn failed" />;
   if (status === 'interrupted')

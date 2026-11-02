@@ -27,6 +27,7 @@ const model = {
   refused: null,
   refusals: {},
   asking: {},
+  working: {},
   ready: false,
 };
 

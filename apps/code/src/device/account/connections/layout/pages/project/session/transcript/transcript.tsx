@@ -24,6 +24,7 @@ import {
   turnsOf,
 } from './turns/turns.ts';
 import { Work } from './turns/answer/work/work.tsx';
+import { Subagent } from './turns/answer/work/live/subagent.tsx';
 
 /*
  * A session as a conversation, outcome first, its turns built from the
@@ -270,6 +271,10 @@ const TurnView = memo(
               >
                 {piece.kind === 'ask' ? (
                   <Ask row={piece.row} opening={opening} />
+                ) : piece.kind === 'subagent' ? (
+                  <ol className="flex min-w-0 flex-col">
+                    <Subagent row={piece.row} running={sessionRunning} />
+                  </ol>
                 ) : piece.kind === 'work' ? (
                   <Work
                     id={piece.id}

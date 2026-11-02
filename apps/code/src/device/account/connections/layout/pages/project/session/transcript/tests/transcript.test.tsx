@@ -34,6 +34,7 @@ const turns = (count: number, prefix = ''): ReadonlyArray<Row> =>
         attachments: [],
         agentStarted: false,
         resumed: false,
+        cutOff: null,
       },
       {
         kind: 'tool',
@@ -48,6 +49,7 @@ const turns = (count: number, prefix = ''): ReadonlyArray<Row> =>
         },
         result: null,
         answered: null,
+        background: false,
         state: 'done',
       },
       { kind: 'text', id: `t${at}:said`, text: `Answer ${at}`, writing: false },

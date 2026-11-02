@@ -14,6 +14,7 @@ import {
   HarnessAccountInfo,
   HarnessInfo,
   ModelInfo,
+  type SessionJobs,
   type SessionQuestions,
   SpeechToTextState,
 } from '@kestack/connect/code';
@@ -186,6 +187,8 @@ export interface Known {
   readonly answering: Readonly<
     Record<string, Readonly<Record<string, Answering>>>
   >;
+  /** Each listed Connection's Background Jobs, by id, as it last said them, while it lives. */
+  readonly jobs: Readonly<Record<string, ReadonlyArray<SessionJobs>>>;
 }
 
 export const nobody: Known = {
@@ -201,6 +204,7 @@ export const nobody: Known = {
   seen: {},
   questions: {},
   answering: {},
+  jobs: {},
 };
 
 /** What another Actor may ask for, as the Messages it becomes. */
@@ -253,6 +257,8 @@ export class Connections extends Context.Service<
     readonly questions: (
       id: string,
     ) => Stream.Stream<ReadonlyArray<SessionQuestions>>;
+    /** Every Session's Background Jobs on the Connection now, then each change; none while it says none. */
+    readonly jobs: (id: string) => Stream.Stream<ReadonlyArray<SessionJobs>>;
     /**
      * How the Session's Agent Questions are being answered here, as its
      * Connection keeps them while each is asked; null when nothing is kept.
@@ -289,6 +295,7 @@ export class Connections extends Context.Service<
 >()('code/Connections') {}
 
 const none: ReadonlyArray<SessionQuestions> = [];
+const noJobs: ReadonlyArray<SessionJobs> = [];
 
 /** The Connections, as the Connections Actor and each Connection publish them. */
 export const connectionsLayer: Layer.Layer<Connections | ConnectionsChannel> =
@@ -367,6 +374,11 @@ export const connectionsLayer: Layer.Layer<Connections | ConnectionsChannel> =
           questions: (id) =>
             state.pipe(
               Stream.map(({ questions }) => questions[id] ?? none),
+              Stream.changes,
+            ),
+          jobs: (id) =>
+            state.pipe(
+              Stream.map(({ jobs }) => jobs[id] ?? noJobs),
               Stream.changes,
             ),
           answering: (id, sessionId) =>

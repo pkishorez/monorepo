@@ -484,4 +484,94 @@ describe('threaded', () => {
       'Half done.',
     ]);
   });
+
+  describe('a background subagent', () => {
+    const launch: Part = {
+      type: 'toolCall',
+      id: 'bg',
+      tool: 'subagent',
+      name: 'Agent',
+      title: 'Review the diff',
+      input: { prompt: 'Review it', run_in_background: true },
+      background: true,
+    };
+    const launched: Part = {
+      type: 'toolResult',
+      toolCallId: 'bg',
+      output: 'Async agent launched successfully. agentId: a1',
+      truncated: false,
+      isError: false,
+    };
+    const ended: Part = {
+      type: 'jobEnded',
+      jobId: 'a1',
+      toolCallId: 'bg',
+      status: 'done',
+      summary: 'Agent "Review the diff" finished',
+    };
+    const start = (turnId: string, text: string) =>
+      message([{ type: 'turnStarted', text, steered: false }], {
+        role: 'user',
+        turnId,
+      });
+    const done = (turnId: string) =>
+      message([{ type: 'turnEnded', status: 'done' }], {
+        role: 'system',
+        turnId,
+      });
+
+    it('runs past its turn, and draws what it writes later in the turn that started it', () => {
+      const messages = [
+        start('t1', 'go'),
+        message([launch]),
+        message([launched], { role: 'tool' }),
+        message([call('r')], { agentId: 'bg' }),
+        done('t1'),
+        start('t2', 'next'),
+        message([result('r')], { role: 'tool', agentId: 'bg', turnId: 't2' }),
+        message([{ type: 'text', text: 'Looks good.' }], {
+          agentId: 'bg',
+          turnId: 't2',
+        }),
+      ];
+      const { rows } = threaded(UNTHREADED, messages);
+      const subagent = rows.find((row) => row.kind === 'subagent');
+      expect(subagent).toMatchObject({
+        background: true,
+        state: 'running',
+        result: null,
+      });
+      expect(
+        subagent?.kind === 'subagent' &&
+          subagent.rows.map((row) =>
+            row.kind === 'tool' ? row.state : row.kind,
+          ),
+      ).toEqual(['prompt', 'done', 'text']);
+      expect(rows.filter((row) => row.kind === 'turn')).toHaveLength(2);
+    });
+
+    it('ends as its jobEnded says, its last words its report', () => {
+      const messages = [
+        start('t1', 'go'),
+        message([launch]),
+        message([launched], { role: 'tool' }),
+        done('t1'),
+        message([{ type: 'text', text: 'Looks good.' }], {
+          agentId: 'bg',
+          turnId: 't1',
+        }),
+        message([ended], { role: 'system', turnId: 't2' }),
+      ];
+      const subagent = threaded(UNTHREADED, messages).rows.find(
+        (row) => row.kind === 'subagent',
+      );
+      expect(subagent).toMatchObject({
+        state: 'done',
+        result: { output: 'Looks good.', isError: false },
+      });
+      expect(
+        subagent?.kind === 'subagent' && subagent.rows.map((row) => row.kind),
+      ).toEqual(['prompt']);
+    });
+  });
 });

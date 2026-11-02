@@ -6,8 +6,9 @@ import { Seen } from '../../../../connection/store/index.ts';
 import { orRefused } from '../../../../connection/link/index.ts';
 
 /*
- * What a session's page asks of the server: stop the turn, fork after a
- * turn; and what it keeps on this device: how far it was seen.
+ * What a session's page asks of the server: stop everything it runs, stop
+ * one Background Job, fork after a turn; and what it keeps on this device:
+ * how far it was seen.
  */
 
 export const cancel = Command.make('Cancel', {
@@ -18,6 +19,16 @@ export const cancel = Command.make('Cancel', {
       () => ({
         _tag: 'Stopped' as const,
       }),
+    ),
+});
+
+/** Stops one Background Job; the feed drops it once the agent says it stopped. */
+export const stopJob = Command.make('StopJob', {
+  args: Schema.Struct({ sessionId: Schema.String, jobId: Schema.String }),
+  run: (args) =>
+    orRefused(
+      CodeClient.use((api) => api.stopBackgroundJob(args)),
+      () => ({ _tag: 'JobStopped' as const, jobId: args.jobId }),
     ),
 });
 

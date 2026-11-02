@@ -112,6 +112,8 @@ const Model = Schema.Struct({
   ready: Schema.Boolean,
   /** The Sessions whose agent waits on an Agent Question, by Connection id. */
   asking: Schema.Record(Schema.String, Schema.Array(Schema.String)),
+  /** The Sessions whose agent runs Background Jobs, by Connection id. */
+  working: Schema.Record(Schema.String, Schema.Array(Schema.String)),
 });
 
 /** A Session's key among the refusals: its Connection's and its own id. */
@@ -138,6 +140,7 @@ const Sidebar = Actor.define('Sidebar', {
     /** A Connection's name clicked, or Enter on it: its Projects hidden, or shown again. */
     CollapseToggled: { connectionId: Schema.String },
     AskingKnown: { asking: Model.fields.asking },
+    WorkingKnown: { working: Model.fields.working },
     WidthRead: { width: Schema.Finite },
     /** Dragged to a new width, once the drag rests. */
     Resized: { width: Schema.Finite },
@@ -236,6 +239,7 @@ export const SidebarLive = Sidebar.build({
       refusals: {},
       ready: false,
       asking: {},
+      working: {},
     },
   }),
   children: {
@@ -319,6 +323,29 @@ export const SidebarLive = Sidebar.build({
           ),
         ),
     },
+    // 4c. Working: only which Sessions' agents run Background Jobs, so a
+    // Session whose Turn ended still shows as working.
+    working: {
+      run: (self) =>
+        Effect.flatMap(Connections, ({ state }) =>
+          state.pipe(
+            Stream.map(({ jobs }) =>
+              Object.fromEntries(
+                Object.entries(jobs).map(([connectionId, all]) => [
+                  connectionId,
+                  all
+                    .filter(({ jobs }) => jobs.length > 0)
+                    .map(({ sessionId }) => sessionId),
+                ]),
+              ),
+            ),
+            Stream.changesWith(sameAsking),
+            Stream.runForEach((working) =>
+              self.send({ _tag: 'WorkingKnown', working }),
+            ),
+          ),
+        ),
+    },
     // 2. Choose
     filter: {
       run: (self) =>
@@ -392,6 +419,9 @@ export const SidebarLive = Sidebar.build({
       model: { ...model, listRead: read, connections, problem, unseen },
     }),
     AskingKnown: ({ asking }, { model }) => ({ model: { ...model, asking } }),
+    WorkingKnown: ({ working }, { model }) => ({
+      model: { ...model, working },
+    }),
     FilterRead: ({ chosen }, { model }) => ({
       model: { ...model, filterRead: true, chosen },
     }),

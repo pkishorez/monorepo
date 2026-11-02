@@ -132,6 +132,7 @@ describe("an Agent Question's call", () => {
       call: { ...call(id, {}), id },
       result: null,
       answered: null,
+      background: false,
       state: 'done',
     });
     expect(grouped([tool('a'), tool('b')]).map(({ kind }) => kind)).toEqual([

@@ -340,10 +340,58 @@ const NOUNS: Record<Call['tool'], readonly [one: string, many: string]> = {
   other: ['tool', 'tools'],
 };
 
-/** A run of calls of one kind: "Read 3 files", "Ran 2 commands". */
+/**
+ * What a call is for, so calls with one aim fold together: looking around
+ * (reading, searching, the web), changing files, running commands, and
+ * other tools. A question and a subagent are read on their own.
+ */
+type Aim = 'explore' | 'change' | 'run' | 'use' | 'todo';
+
+const AIMS: Record<Call['tool'], Aim | null> = {
+  read: 'explore',
+  search: 'explore',
+  web: 'explore',
+  edit: 'change',
+  write: 'change',
+  delete: 'change',
+  bash: 'run',
+  mcp: 'use',
+  other: 'use',
+  todo: 'todo',
+  question: null,
+  subagent: null,
+};
+
+const many = (n: number, [one, more]: readonly [string, string]) =>
+  `${n} ${n === 1 ? one : more}`;
+
+const listed = (parts: ReadonlyArray<string>) =>
+  parts.length <= 1
+    ? (parts[0] ?? '')
+    : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`;
+
+/**
+ * A run of calls with one aim: "Read 3 files", "Ran 2 commands", and for
+ * calls of more than one kind, what they were for: "Explored 3 files and
+ * 2 searches", "Changed 4 files".
+ */
 export const groupTitle = (rows: ReadonlyArray<ToolRow>): string => {
   const tool = rows[0]?.call.tool ?? 'other';
   const running = rows.some((row) => row.state === 'running');
+  const kinds = new Set(rows.map((row) => row.call.tool));
+  const aim = AIMS[tool];
+  if (kinds.size > 1 && aim === 'explore') {
+    const of = (kind: Call['tool']) =>
+      rows.filter((row) => row.call.tool === kind).length;
+    const parts = [
+      of('read') > 0 && many(of('read'), NOUNS.read),
+      of('search') > 0 && many(of('search'), NOUNS.search),
+      of('web') > 0 && many(of('web'), NOUNS.web),
+    ].filter((part): part is string => typeof part === 'string');
+    return `${running ? 'Exploring' : 'Explored'} ${listed(parts)}`;
+  }
+  if (kinds.size > 1 && aim === 'change')
+    return `${running ? 'Changing' : 'Changed'} ${many(rows.length, NOUNS.edit)}`;
   const verb =
     tool === 'search'
       ? running
@@ -365,7 +413,11 @@ export type Item =
       readonly rows: ReadonlyArray<ToolRow>;
     };
 
-/** Rows with each run of two or more tool calls of one kind folded into a group; an Agent Question never is. */
+/**
+ * Rows with each run of two or more tool calls with one aim folded into a
+ * group. What must be seen never folds: a failed call, a background one,
+ * which runs on, an Agent Question, and anything that is not a call.
+ */
 export const grouped = (rows: ReadonlyArray<Row>): ReadonlyArray<Item> => {
   const items: Item[] = [];
   let run: ToolRow[] = [];
@@ -376,9 +428,13 @@ export const grouped = (rows: ReadonlyArray<Row>): ReadonlyArray<Item> => {
     run = [];
   };
   for (const row of rows) {
-    // An Agent Question is read on its own, never folded.
-    const folds = row.kind === 'tool' && row.call.tool !== 'question';
-    if (folds && (run.length === 0 || run[0]!.call.tool === row.call.tool)) {
+    const aim = row.kind === 'tool' ? AIMS[row.call.tool] : null;
+    const folds =
+      row.kind === 'tool' &&
+      aim !== null &&
+      row.state !== 'failed' &&
+      !row.background;
+    if (folds && (run.length === 0 || AIMS[run[0]!.call.tool] === aim)) {
       run.push(row);
       continue;
     }

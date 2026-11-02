@@ -27,11 +27,16 @@ import {
 } from './scroller/index.ts';
 import { Question } from './question/index.ts';
 import {
+  Activity,
   EarlierRows,
   earlierOf,
   type Forking,
+  type Live,
+  LiveContext,
   type Opening,
   Rows,
+  SubagentDrawers,
+  subagentOf,
   useOpening,
   useRows,
 } from './transcript/index.ts';
@@ -39,8 +44,11 @@ import {
 /*
  * A session: the transcript in a centred column that follows new messages
  * while you are at its bottom, and under it, pinned to the page's foot,
- * its Draft (`draft/`), with Stop beside its send button while a turn
- * runs. Its title, agent and model are in the header. Its words can be
+ * its Draft (`draft/`), with Stop beside its send button while it works:
+ * while a turn runs, or only its Background Jobs do. Over the Draft, a
+ * line says it works, and opens to its jobs (`transcript/turns/answer/work/live/activity.tsx`). A subagent
+ * opens whole in a drawer over the page, and one it asked in a drawer
+ * over that (`transcript/turns/answer/work/live/drawers.tsx`). Its title, agent and model are in the header. Its words can be
  * selected, though the App Shell turns selection off for its swipes. While the server is out of
  * reach, nothing can be sent, and a running turn's progress is unknown. A
  * session the server stopped mid-turn says so under its transcript; a fork
@@ -94,6 +102,9 @@ export const SessionView = View.make(
         : model.lineage.find(({ id }) => id === forkedFrom?.sessionId)?.title ||
           'Untitled session';
     const running = session?.status === 'running';
+    const jobs = model.jobs;
+    // It works while its turn runs, or only its Background Jobs do.
+    const working = running || jobs.length > 0;
     const rows = useRows(
       useMemo(
         () => (messages?.rows ?? []).map(({ row }) => row),
@@ -139,7 +150,23 @@ export const SessionView = View.make(
       session === undefined ||
       (messages?.rows.length === 0 && messages.neverSynced.length > 0);
     const stop = useCallback(() => send({ _tag: 'StopAsked' }), [send]);
-    const canStop = running && !model.stopping && offline === null;
+    const canStop = working && !model.stopping && offline === null;
+    const live = useMemo(
+      (): Live => ({
+        jobs,
+        stopping: model.stoppingJobs,
+        depth: 0,
+        open: (id, depth) => send({ _tag: 'DrawerOpened', id, under: depth }),
+        stop: (jobId) => send({ _tag: 'JobStopAsked', jobId }),
+      }),
+      [jobs, model.stoppingJobs, send],
+    );
+    const closeDrawers = useCallback(
+      (depth: number) => send({ _tag: 'DrawersClosed', depth }),
+      [send],
+    );
+    // Another session's drawers do not carry over.
+    useEffect(() => closeDrawers(0), [props.params.sessionId, closeDrawers]);
     useScrollKeys(scroll);
     // A Message sent from the Draft, typed or dictated: back to the bottom,
     // following, so it shows as it arrives.
@@ -203,7 +230,7 @@ export const SessionView = View.make(
         problem: model.problem,
         answerer: { agent: around.agent, harness: around.harness },
         stop: around.stop,
-        actions: running && (
+        actions: working && (
           <Button
             type="button"
             variant="outline"
@@ -212,8 +239,8 @@ export const SessionView = View.make(
             disabled={model.stopping || offline !== null}
             title={
               stopKeys === null
-                ? 'Stop the turn'
-                : `Stop the turn (${stopKeys})`
+                ? 'Stop everything it runs'
+                : `Stop everything it runs (${stopKeys})`
             }
             onClick={stop}
           >
@@ -225,7 +252,7 @@ export const SessionView = View.make(
       [
         model.problem,
         model.stopping,
-        running,
+        working,
         offline,
         stopKeys,
         stop,
@@ -233,6 +260,17 @@ export const SessionView = View.make(
         around.harness,
         around.stop,
       ],
+    );
+    const openJob = useCallback(
+      (job: { readonly toolCallId?: string }) => {
+        const row =
+          job.toolCallId === undefined
+            ? undefined
+            : subagentOf(rows, job.toolCallId);
+        if (row !== undefined)
+          send({ _tag: 'DrawerOpened', id: row.id, under: 0 });
+      },
+      [rows, send],
     );
     // The Draft sits under the transcript, inset by the room its scrollbar keeps.
     const gutter = useGutter();
@@ -252,23 +290,25 @@ export const SessionView = View.make(
           className={`relative min-h-0 flex-1 overflow-y-auto outline-none select-text [overflow-anchor:none] ${GUTTERED}`}
         >
           <Scrolled value={scroll.scroll}>
-            <Transcript
-              key={props.params.sessionId}
-              content={content}
-              connectionId={connectionId}
-              session={session}
-              original={original}
-              missing={missing}
-              reading={reading}
-              waiting={waiting}
-              earlier={earlier}
-              rows={rows}
-              opening={opening}
-              forking={forking}
-              running={running}
-              ready={messages?.status === 'ready'}
-              offline={offline}
-            />
+            <LiveContext.Provider value={live}>
+              <Transcript
+                key={props.params.sessionId}
+                content={content}
+                connectionId={connectionId}
+                session={session}
+                original={original}
+                missing={missing}
+                reading={reading}
+                waiting={waiting}
+                earlier={earlier}
+                rows={rows}
+                opening={opening}
+                forking={forking}
+                running={running}
+                ready={messages?.status === 'ready'}
+                offline={offline}
+              />
+            </LiveContext.Provider>
           </Scrolled>
         </div>
         <div ref={setQuestionPlace} className="contents" />
@@ -284,6 +324,18 @@ export const SessionView = View.make(
               onClick={() => scroll.holdOn(true)}
             />
             <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 has-[[data-slot=draft][data-touch]]:px-0">
+              <Activity
+                running={running}
+                jobs={jobs}
+                stopping={model.stoppingJobs}
+                disabled={offline !== null}
+                openable={(job) =>
+                  job.toolCallId !== undefined &&
+                  subagentOf(rows, job.toolCallId) !== undefined
+                }
+                onOpen={openJob}
+                onStop={(job) => live.stop(job.id)}
+              />
               <Question.Around value={around}>
                 <Question.view instance={children.question} />
               </Question.Around>
@@ -297,6 +349,14 @@ export const SessionView = View.make(
             </div>
           </div>
         )}
+        <SubagentDrawers
+          rows={rows}
+          ids={model.drawers}
+          running={running}
+          opening={opening}
+          live={live}
+          close={closeDrawers}
+        />
       </div>
     );
   },

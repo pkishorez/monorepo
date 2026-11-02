@@ -4,6 +4,7 @@ import {
   CodeReplicaLive,
   HarnessAccountInfo,
   HarnessInfo,
+  SessionJobs,
   SessionQuestions,
   SpeechToTextState,
 } from '@kestack/connect/code';
@@ -20,7 +21,7 @@ import {
   SetupParts,
 } from '../connections.ts';
 import { ask, speechOn } from './commands.ts';
-import { answeringAsked, questionsOn } from './records/index.ts';
+import { answeringAsked, jobsOn, questionsOn } from './records/index.ts';
 import { keepSetup, SetupShelf } from './commands.ts';
 
 /*
@@ -56,6 +57,10 @@ import { keepSetup, SetupShelf } from './commands.ts';
  *            change (`records/questions/`), shared in `Connections` too, for
  *            the sidebar's marks and the open session's Question Panel.
  *            Never kept: they live only while their Turn runs.
+ * 10. Jobs   the Background Jobs its Sessions' agents run, whole on each
+ *            change (`records/jobs/`), shared in `Connections` too, so a
+ *            Session whose Turn has ended still shows as working while its
+ *            jobs run. Never kept: they live only while their agent does.
  * 9. Answering how each is being answered here, as the Question Panel
  *            gives it: each Item's answer so far, minimised or not, tried
  *            or sent, so leaving the session or the page loses nothing.
@@ -78,6 +83,8 @@ const Model = Schema.Struct({
   questions: Schema.Array(SessionQuestions.schema),
   /** How each Session's questions are being answered here, by Session id. */
   answering: Schema.Record(Schema.String, Answering),
+  /** Its Sessions' Background Jobs, as it last said them. */
+  jobs: Schema.Array(SessionJobs.schema),
 });
 type Model = typeof Model.Type;
 
@@ -105,8 +112,11 @@ const Connection = Actor.define('Connection', {
     SeenRead: { marks: Marks },
     QuestionsHeard: { questions: Schema.Array(SessionQuestions.schema) },
     AnsweringKept: { sessionId: Schema.String, answering: Answering },
+    JobsHeard: { jobs: Schema.Array(SessionJobs.schema) },
   }),
 });
+
+const sameJobs = Schema.toEquivalence(Schema.Array(SessionJobs.schema));
 
 const sameQuestions = Schema.toEquivalence(
   Schema.Array(SessionQuestions.schema),
@@ -179,6 +189,7 @@ export const ConnectionLive = Connection.build({
       seen: null,
       questions: [],
       answering: {},
+      jobs: [],
     },
     state: { _tag: 'Reading' },
   }),
@@ -258,6 +269,18 @@ export const ConnectionLive = Connection.build({
           ),
         ),
     },
+    // 10. Jobs
+    jobs: {
+      run: (self) =>
+        Effect.flatMap(self.get, ({ model }) =>
+          jobsOn(model.connectionId).pipe(
+            Stream.changesWith(sameJobs),
+            Stream.runForEach((jobs) =>
+              self.send({ _tag: 'JobsHeard', jobs: [...jobs] }),
+            ),
+          ),
+        ),
+    },
     // 9. Answering
     answering: {
       run: (self) =>
@@ -287,9 +310,10 @@ export const ConnectionLive = Connection.build({
               seen: model.seen,
               questions: model.questions,
               answering: model.answering,
+              jobs: model.jobs,
             })),
             Stream.changes,
-            Stream.runForEach(({ setup, seen, questions, answering }) =>
+            Stream.runForEach(({ setup, seen, questions, answering, jobs }) =>
               SubscriptionRef.update(known, (now) => ({
                 ...now,
                 setups: { ...now.setups, [id]: setup },
@@ -302,6 +326,10 @@ export const ConnectionLive = Connection.build({
                   now.answering[id] === answering
                     ? now.answering
                     : { ...now.answering, [id]: answering },
+                jobs:
+                  now.jobs[id] === jobs
+                    ? now.jobs
+                    : { ...now.jobs, [id]: jobs },
               })),
             ),
             Effect.ensuring(
@@ -310,7 +338,8 @@ export const ConnectionLive = Connection.build({
                 const { [id]: _seen, ...seen } = now.seen;
                 const { [id]: _questions, ...questions } = now.questions;
                 const { [id]: _answering, ...answering } = now.answering;
-                return { ...now, setups, seen, questions, answering };
+                const { [id]: _jobs, ...jobs } = now.jobs;
+                return { ...now, setups, seen, questions, answering, jobs };
               }),
             ),
           );
@@ -434,6 +463,8 @@ export const ConnectionLive = Connection.build({
         answering: answeringAsked(model.answering, questions),
       },
     }),
+    // 10. Jobs
+    JobsHeard: ({ jobs }, { model }) => ({ model: { ...model, jobs } }),
     // 9. Answering: only what the feed still asks is kept.
     AnsweringKept: ({ sessionId, answering }, { model }) => ({
       model: {

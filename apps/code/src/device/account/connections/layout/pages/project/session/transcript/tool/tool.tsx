@@ -14,6 +14,7 @@ import {
 } from '../words/index.ts';
 import { Folder, groupTitle, reasonOf, summary } from './parse/index.ts';
 import { KINDS } from './kinds/kinds.ts';
+import { stateNow, useLive } from '../turns/rows/index.ts';
 
 /*
  * One tool call as one line: its kind's icon, what it did in the tense of
@@ -130,7 +131,7 @@ export function StepLine({
 }
 
 /** An edit's lines added and removed, green and red. */
-function Lines({
+export function Lines({
   lines,
 }: {
   readonly lines: { readonly added: number; readonly removed: number };
@@ -157,8 +158,9 @@ export function ToolStep({
   readonly running: boolean;
 }) {
   const folder = useContext(Folder);
+  const live = useLive();
   const kind = KINDS[row.call.tool];
-  const state = stateOf(row.state, running);
+  const state = stateNow(row, running, live);
   const { verb, target, code, lines } = summary(row.call, state, folder);
   const reason =
     state === 'failed' && row.result ? reasonOf(row.result.output) : '';
@@ -193,7 +195,7 @@ export function ToolStep({
   );
 }
 
-/** A run of calls of one kind as one line, "Read 3 files · a.ts, b.ts", that opens to each. */
+/** A run of calls with one aim as one line, "Read 3 files · a.ts, b.ts", with what edits added and removed, that opens to each. */
 export function ToolGroup({
   id,
   rows,
@@ -207,11 +209,21 @@ export function ToolGroup({
 }) {
   const folder = useContext(Folder);
   const kind = KINDS[rows[0]!.call.tool];
-  const states = rows.map((row) => stateOf(row.state, running));
+  const live = useLive();
+  const states = rows.map((row) => stateNow(row, running, live));
   const failed = states.filter((state) => state === 'failed').length;
-  const targets = rows
-    .map((row) => summary(row.call, 'done', folder).target)
-    .join(', ');
+  const summaries = rows.map((row) => summary(row.call, 'done', folder));
+  const targets = summaries.map(({ target }) => target).join(', ');
+  const lines = summaries.reduce(
+    (sum, { lines }) =>
+      lines === null
+        ? sum
+        : {
+            added: sum.added + lines.added,
+            removed: sum.removed + lines.removed,
+          },
+    { added: 0, removed: 0 },
+  );
   return (
     <StepLine
       id={id}
@@ -225,18 +237,21 @@ export function ToolGroup({
         </>
       }
       end={
-        states.includes('running') ? (
-          <StateMark state="running" />
-        ) : failed > 0 ? (
-          <span className="flex shrink-0 items-center gap-1 text-xs text-destructive">
-            <XIcon aria-hidden className="size-3.5" />
-            {failed} failed
-          </span>
-        ) : states.includes('stopped') ? (
-          <StateMark state="stopped" />
-        ) : (
-          <StateMark state="done" />
-        )
+        <>
+          <Lines lines={lines} />
+          {states.includes('running') ? (
+            <StateMark state="running" />
+          ) : failed > 0 ? (
+            <span className="flex shrink-0 items-center gap-1 text-xs text-destructive">
+              <XIcon aria-hidden className="size-3.5" />
+              {failed} failed
+            </span>
+          ) : states.includes('stopped') ? (
+            <StateMark state="stopped" />
+          ) : (
+            <StateMark state="done" />
+          )}
+        </>
       }
     >
       <ul className="-mt-1 flex flex-col">

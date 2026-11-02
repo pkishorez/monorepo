@@ -15,3 +15,4 @@ export {
   type Opening,
 } from './fold.tsx';
 export { Long, Markdown, Writing } from './words.tsx';
+export { Count } from './count.tsx';

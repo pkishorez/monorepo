@@ -21,3 +21,4 @@ export {
   questionsOn,
   sameAnswering,
 } from './questions/index.ts';
+export { jobsOn, stopJob } from './jobs/index.ts';

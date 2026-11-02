@@ -114,6 +114,7 @@ export function Places({
   onCollapse,
   isUnseen,
   isAsking,
+  isWorking,
   onOpenSession,
   onUnsettle,
   onMove,
@@ -144,6 +145,8 @@ export function Places({
   readonly isUnseen: (session: OnConnection<Session>) => boolean;
   /** Whether its agent waits on an Agent Question. */
   readonly isAsking: (session: OnConnection<Session>) => boolean;
+  /** Whether its agent runs Background Jobs. */
+  readonly isWorking: (session: OnConnection<Session>) => boolean;
   /** Moves the app to a session, as its link would. */
   readonly onOpenSession: (
     connectionId: string,
@@ -303,6 +306,7 @@ export function Places({
                           titles={titles}
                           isUnseen={isUnseen}
                           isAsking={isAsking}
+                          isWorking={isWorking}
                           onMove={onMove}
                         />
                       )),
@@ -553,6 +557,7 @@ function SessionRow({
   titles,
   isUnseen,
   isAsking,
+  isWorking,
   onMove,
 }: {
   readonly entry: Entry;
@@ -567,6 +572,8 @@ function SessionRow({
   readonly isUnseen: (session: OnConnection<Session>) => boolean;
   /** Whether its agent waits on an Agent Question. */
   readonly isAsking: (session: OnConnection<Session>) => boolean;
+  /** Whether its agent runs Background Jobs. */
+  readonly isWorking: (session: OnConnection<Session>) => boolean;
   readonly onMove: (session: OnConnection<Session>, settled: boolean) => void;
 }) {
   const original =
@@ -639,6 +646,7 @@ function SessionRow({
             status={session.status}
             unseen={unseen}
             asking={isAsking(session)}
+            working={isWorking(session)}
             at={session.activeAt}
           />
         </SidebarMenuButton>

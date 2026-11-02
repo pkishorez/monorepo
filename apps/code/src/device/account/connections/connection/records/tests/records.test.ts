@@ -57,6 +57,7 @@ const project = (id: string, at: Partial<Project> = {}): Project => ({
 
 const session = (id: string, at: Partial<Session> = {}): Session => ({
   id,
+  jobs: [],
   projectId: 'p1',
   harness: 'claude',
   account: 'claude',
