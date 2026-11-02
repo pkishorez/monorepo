@@ -1,5 +1,13 @@
 # @kestack/devtools-kabuki
 
+## 0.0.17
+
+### Patch Changes
+
+- Updated dependencies [[`df76ba6`](https://github.com/pkishorez/monorepo/commit/df76ba60280fdb5405ca85b29fe67f8604de18bf), [`2b2e5e5`](https://github.com/pkishorez/monorepo/commit/2b2e5e5d5e8ec705ed0b2fbec34587806030391d)]:
+  - @kestack/kabuki@0.0.6
+  - @kestack/web-platform@0.0.7
+
 ## 0.0.16
 
 ### Patch Changes
