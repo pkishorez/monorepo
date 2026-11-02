@@ -114,7 +114,9 @@ const PageLive = Page.build({
     },
   }),
   children: {
-    touch: Actor.child(TouchDraft.actor, { input: () => false }),
+    touch: Actor.child(TouchDraft.actor, {
+      input: () => ({ open: false, collapses: true }),
+    }),
     skills: Actor.child(SkillPicker.Live, {
       while: ({ model }) => model.picking !== null,
       key: ({ model }) => String(model.opened),

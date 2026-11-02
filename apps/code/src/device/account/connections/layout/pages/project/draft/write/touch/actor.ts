@@ -14,7 +14,9 @@ import { Preferences } from '../../../../../../../../store.ts';
  * Smart Input, and Smart Displacement, is its Model, kept in Preferences.
  * Whether it is open is told to its owner as it changes, which keeps it
  * with the Saved Draft, and it starts open, as Expanded, when it was left
- * open: never typing, as the keyboard only rises for a tap.
+ * open: never typing, as the keyboard only rises for a tap. A new
+ * session's never collapses: it is always open, its model chip in reach,
+ * and a Collapse only ends its typing, as Done.
  *
  * 1. Collapsed     one line, read only. Opened, it is Editing; with Smart
  *                  Input, Expanded.
@@ -35,7 +37,8 @@ import { Preferences } from '../../../../../../../../store.ts';
  *                  Failing, or with nothing heard, nothing is sent, the
  *                  Dictation's Retry in the Draft. A cancel throws it
  *                  away.
- * 6. Sending       its owner, the Draft, is asked to send, then Collapsed.
+ * 6. Sending       its owner, the Draft, is asked to send, then Collapsed,
+ *                  or Expanded if it never collapses.
  */
 
 /** What is done with a Dictation's text once in: kept, or sent with the Draft. */
@@ -85,9 +88,17 @@ const send = Command.make('TouchDraftSends', {
 
 export const TouchDraft = Actor.define('TouchDraft', {
   requires: [Preferences, Owner],
-  /** It was left open. */
-  input: Schema.Boolean,
-  model: Schema.Struct({ smart: Schema.Boolean, displace: Schema.Boolean }),
+  input: Schema.Struct({
+    /** It was left open. */
+    open: Schema.Boolean,
+    /** It can collapse: false in a new session's Draft, always open. */
+    collapses: Schema.Boolean,
+  }),
+  model: Schema.Struct({
+    smart: Schema.Boolean,
+    displace: Schema.Boolean,
+    collapses: Schema.Boolean,
+  }),
   state: State,
   message: Schema.TaggedUnion({
     /** While it records, as its View stops it: take it, and send the Draft once it is text if `send`. */
@@ -113,9 +124,9 @@ export const TouchDraft = Actor.define('TouchDraft', {
 });
 
 const collapsed = { _tag: 'Collapsed' as const };
+const expanded = { _tag: 'Expanded' as const };
 const sending = { state: { _tag: 'Sending' as const }, command: send() };
-const back = (open: boolean) =>
-  open ? { _tag: 'Expanded' as const } : collapsed;
+const back = (open: boolean) => (open ? expanded : collapsed);
 const transcribing = (open: boolean, then: 'take' | 'send' = 'take') => ({
   _tag: 'Transcribing' as const,
   then,
@@ -137,9 +148,9 @@ const atRest = (open: boolean) => ({
 const editing = { state: { _tag: 'Editing' as const } };
 
 export const TouchDraftLive = TouchDraft.build({
-  init: (open) => ({
-    model: { smart: false, displace: false },
-    state: open ? { _tag: 'Expanded' } : collapsed,
+  init: ({ open, collapses }) => ({
+    model: { smart: false, displace: false, collapses },
+    state: open || !collapses ? expanded : collapsed,
   }),
   workers: {
     // Whether it is open, told as it changes.
@@ -197,15 +208,18 @@ export const TouchDraftLive = TouchDraft.build({
       on: {
         ...atRest(true),
         Edit: () => editing,
-        Collapse: () => ({ state: collapsed }),
+        Collapse: (_, { model }) =>
+          model.collapses ? { state: collapsed } : {},
       },
     },
     // 3. Editing
     Editing: {
       on: {
         ...atRest(true),
-        Done: () => ({ state: { _tag: 'Expanded' } }),
-        Collapse: () => ({ state: collapsed }),
+        Done: () => ({ state: expanded }),
+        Collapse: (_, { model }) => ({
+          state: model.collapses ? collapsed : expanded,
+        }),
       },
     },
     // 4. Recording
@@ -216,7 +230,8 @@ export const TouchDraftLive = TouchDraft.build({
         }),
         Cancel: (_, { state }) => ({ state: back(state.open) }),
         Open: (_, { state }) => ({ state: { ...state, open: true } }),
-        Collapse: (_, { state }) => ({ state: { ...state, open: false } }),
+        Collapse: (_, { model, state }) =>
+          model.collapses ? { state: { ...state, open: false } } : {},
         Heard: ({ dictation }, { state }) =>
           dictation === 'transcribing'
             ? { state: transcribing(state.open) }
@@ -230,7 +245,8 @@ export const TouchDraftLive = TouchDraft.build({
       on: {
         Cancel: (_, { state }) => ({ state: back(state.open) }),
         Open: (_, { state }) => ({ state: { ...state, open: true } }),
-        Collapse: (_, { state }) => ({ state: { ...state, open: false } }),
+        Collapse: (_, { model, state }) =>
+          model.collapses ? { state: { ...state, open: false } } : {},
         Heard: ({ dictation, sendable }, { state }) => {
           if (dictation === 'text') return { state: { ...state, said: true } };
           if (dictation === 'failed') return { state: back(state.open) };
@@ -243,7 +259,11 @@ export const TouchDraftLive = TouchDraft.build({
     },
     // 6. Sending
     Sending: {
-      on: { Sent: () => ({ state: collapsed }) },
+      on: {
+        Sent: (_, { model }) => ({
+          state: model.collapses ? collapsed : expanded,
+        }),
+      },
     },
   },
   on: {

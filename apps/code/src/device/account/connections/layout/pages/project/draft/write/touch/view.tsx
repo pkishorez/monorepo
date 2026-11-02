@@ -36,7 +36,8 @@ import { Words } from './words/index.ts';
  *               it: to edit, or with Smart Input only open.
  * 2. Open       the model chip, with Smart Input Edit or Done, and
  *               Collapse on top, the words under them, and the same
- *               controls under those. Collapse and open is one control;
+ *               controls under those; a new session's, never collapsed,
+ *               has no Collapse. Collapse and open is one control;
  *               typing and not, another. Open but not editing, a tap in the words places
  *               the caret with Smart Input, and edits without; while a
  *               Dictation records, it places the caret either way.
@@ -153,17 +154,19 @@ export const TouchDraftView = View.make(
                       {t.editing ? 'Done' : 'Edit'}
                     </Button>
                   )}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Collapse"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={t.collapse}
-                  className="size-11 shrink-0 rounded-full text-muted-foreground [&_svg]:size-5"
-                >
-                  <ChevronDownIcon aria-hidden />
-                </Button>
+                {model.collapses && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Collapse"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={t.collapse}
+                    className="size-11 shrink-0 rounded-full text-muted-foreground [&_svg]:size-5"
+                  >
+                    <ChevronDownIcon aria-hidden />
+                  </Button>
+                )}
               </div>
               {/* The words: one cell, whichever way it is drawn. */}
               <div

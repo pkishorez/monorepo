@@ -354,9 +354,10 @@ export const DraftLive = Draft.build({
     // 1. Write: one Child per Draft Mode, once its Saved Draft is read back.
     modes: Actor.child(DraftMode.actor, {
       each: ({ model, props }) => (model.restored ? modesOf(props) : []),
-      input: ({ model }, key) => ({
+      input: ({ model, props }, key) => ({
         written: model.opening[key as Mode],
         open: model.open,
+        collapses: props.to._tag === 'Session',
       }),
       props: ({ model, props }, key) => {
         const mode = key as Mode;

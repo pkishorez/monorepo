@@ -27,8 +27,8 @@ const Draft = Actor.define('Draft', {
   }),
 });
 
-/** A Draft whose Touch Draft was left open, or not. */
-const draftOf = (leftOpen: boolean) =>
+/** A Draft whose Touch Draft was left open, or not, and can collapse, or not. */
+const draftOf = (leftOpen: boolean, collapses: boolean) =>
   Draft.build({
     init: () => ({ model: { sent: 0, opened: [] } }),
     provides: (self) =>
@@ -36,7 +36,9 @@ const draftOf = (leftOpen: boolean) =>
         self.send({ _tag: 'Opened', open }),
       ),
     children: {
-      touch: Actor.child(TouchDraftLive, { input: () => leftOpen }),
+      touch: Actor.child(TouchDraftLive, {
+        input: () => ({ open: leftOpen, collapses }),
+      }),
     },
     on: {
       SendAsked: (_, { model }) => ({
@@ -52,7 +54,7 @@ const settle = Effect.gen(function* () {
   for (let at = 0; at < 30; at++) yield* Effect.yieldNow;
 });
 
-const worldOf = (leftOpen: boolean) =>
+const worldOf = (leftOpen: boolean, collapses = true) =>
   Effect.gen(function* () {
     const kept = yield* SubscriptionRef.make(nothing.smartInput);
     const device = Layer.mock(Preferences)({
@@ -66,7 +68,7 @@ const worldOf = (leftOpen: boolean) =>
       ),
     });
     const app = (yield* Runtime.start(
-      draftOf(leftOpen) as never,
+      draftOf(leftOpen, collapses) as never,
       device as never,
     )) as Running<unknown>;
     yield* settle;
@@ -344,4 +346,43 @@ describe('Touch Draft', () => {
         expect(t.then()).toMatchObject({ _tag: 'Transcribing', open: true });
       }),
     ));
+
+  describe("in a new session's Draft, never collapsed", () => {
+    const always = worldOf(false, false);
+
+    it('starts open, though it was left collapsed', () =>
+      run(
+        Effect.gen(function* () {
+          const t = yield* always;
+          expect(t.state()).toBe('Expanded');
+        }),
+      ));
+
+    it('ends typing on a Collapse, and stays open', () =>
+      run(
+        Effect.gen(function* () {
+          const t = yield* always;
+          yield* t.send({ _tag: 'Edit' });
+          expect(t.state()).toBe('Editing');
+          yield* t.send({ _tag: 'Collapse' });
+          expect(t.state()).toBe('Expanded');
+          yield* t.send({ _tag: 'Collapse' });
+          expect(t.state()).toBe('Expanded');
+        }),
+      ));
+
+    it('stays open while a Dictation records, and once it is sent', () =>
+      run(
+        Effect.gen(function* () {
+          const t = yield* always;
+          yield* t.heard('recording');
+          yield* t.send({ _tag: 'Collapse' });
+          expect(t.then()).toEqual({ _tag: 'Recording', open: true });
+          yield* t.send({ _tag: 'Cancel' });
+          yield* t.send({ _tag: 'Send' });
+          expect(t.sent()).toBe(1);
+          expect(t.state()).toBe('Expanded');
+        }),
+      ));
+  });
 });

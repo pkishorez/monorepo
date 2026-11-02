@@ -23,7 +23,8 @@ import { TouchDraft } from './touch/index.ts';
  * 3. Send    its text goes up to the Draft, to send or ask. In a Session
  *            it empties at once. On a device with no keyboard it holds
  *            the Touch Draft, which has it sent the same way, and whose
- *            being open goes up to the Draft too, to be kept.
+ *            being open goes up to the Draft too, to be kept. A new
+ *            session's Touch Draft never collapses.
  */
 
 // 1. Modes
@@ -97,16 +98,20 @@ const Props = Schema.Struct({
   given: Schema.NullOr(Given),
 });
 
-/** What a mode starts from: its text, and whether its Touch Draft was left open. */
+/** What a mode starts from: its text, and whether its Touch Draft was left open, and can collapse. */
 export const Opening = Schema.Struct({
   written: Written,
   open: Schema.Boolean,
+  /** False in a new session's Draft: its Touch Draft is always open. */
+  collapses: Schema.Boolean,
 });
 
 const Model = Schema.Struct({
   written: Written,
   /** Its Touch Draft was left open. */
   open: Schema.Boolean,
+  /** Its Touch Draft can collapse. */
+  collapses: Schema.Boolean,
   /** The last text given it that it took. */
   took: Schema.Finite,
 });
@@ -126,14 +131,18 @@ const DraftMode = Actor.define('DraftMode', {
 });
 
 export const DraftModeLive = DraftMode.build({
-  init: ({ written, open }) => ({ model: { written, open, took: 0 } }),
+  init: ({ written, open, collapses }) => ({
+    model: { written, open, collapses, took: 0 },
+  }),
   // 3. Send: on touch, through the Touch Draft.
   provides: (self) =>
     TouchDraft.owner(self.send({ _tag: 'SendAsked' }), (open) =>
       self.send({ _tag: 'TouchOpened', open }),
     ),
   children: {
-    touch: Actor.child(TouchDraft.actor, { input: ({ model }) => model.open }),
+    touch: Actor.child(TouchDraft.actor, {
+      input: ({ model }) => ({ open: model.open, collapses: model.collapses }),
+    }),
   },
   workers: {
     // 2. Write
