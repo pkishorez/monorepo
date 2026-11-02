@@ -10,7 +10,6 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { Scrolled } from '../../scroller/index.ts';
 
 /*
  * What opens and closes in a transcript, and how: one set of open ids for
@@ -24,8 +23,8 @@ import { Scrolled } from '../../scroller/index.ts';
  *
  * An open fold's head sticks to the top while what it opens scrolls under
  * it, under the heads of the open folds around it, so it can be shut from
- * there (`useSticky`). Shut from there, what is under it moves up by as
- * much as the head had stuck down, so the head stays where it is.
+ * there (`useSticky`). Shut from there, the head stays where it is, as
+ * the scroller keeps what was clicked where it was.
  */
 
 /** Which folds are open, by id. */
@@ -120,7 +119,6 @@ export function useSticky(open: boolean, toggle: () => void) {
   const place = use(Stuck);
   const head = useRef<HTMLDivElement>(null);
   const height = useHeight(head, open);
-  const inPlace = useShutInPlace();
   return {
     head,
     open,
@@ -128,19 +126,9 @@ export function useSticky(open: boolean, toggle: () => void) {
       ? { top: place.top, zIndex: DEEPEST - Math.min(place.depth, DEEPEST - 1) }
       : undefined,
     under: { top: place.top + height, depth: place.depth + 1 },
-    // Shut, the head stays where it had stuck down to, on the screen, as
-    // what it opened goes.
-    toggle: () => {
-      const element = head.current;
-      const fold = element?.parentElement;
-      if (open && element && fold)
-        inPlace(
-          element.getBoundingClientRect().top -
-            fold.getBoundingClientRect().top -
-            fold.clientTop,
-        );
-      toggle();
-    },
+    // Shut from where it is stuck, it stays there: the scroller keeps
+    // what was clicked where it was.
+    toggle,
   };
 }
 
@@ -184,20 +172,6 @@ export function Head({
       {children}
     </div>
   );
-}
-
-/**
- * Before a fold shuts while its top is above the view: what is on the
- * screen moves down by `by` px, as the view's anchor does, so what was
- * clicked to shut it stays where it was rather than going up out of
- * sight with what the fold hid.
- */
-export function useShutInPlace() {
-  const scroll = use(Scrolled);
-  return (by: number) => {
-    if (by < 1 || scroll?.anchor.at !== 'block') return;
-    scroll.anchor = { ...scroll.anchor, offset: scroll.anchor.offset + by };
-  };
 }
 
 /** What an open fold opens: the heads inside stick under its own. */

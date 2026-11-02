@@ -12,7 +12,6 @@ import {
   unlessSelecting,
   useHeight,
   useOpen,
-  useShutInPlace,
 } from '../../words/index.ts';
 import type { Row } from '../rows/index.ts';
 import { Attachments } from './attachments.tsx';
@@ -112,21 +111,9 @@ function Bubble({
   // first, and again as the column's width changes how it wraps.
   const tall = useHeight(words) > TALL;
   const open = useOpen(opening, id);
-  const inPlace = useShutInPlace();
-  // Folded from below its top, out of sight: its foot stays where it was.
-  const toggle = () => {
-    const element = words.current;
-    const view = element?.closest('[data-scroll-restoration-id]');
-    if (open && element && view)
-      inPlace(
-        Math.min(
-          element.offsetHeight - FOLDED,
-          view.getBoundingClientRect().top -
-            element.getBoundingClientRect().top,
-        ),
-      );
-    opening.toggle(id);
-  };
+  // Folded from its foot, the foot stays where it was: the scroller keeps
+  // what was clicked where it was.
+  const toggle = () => opening.toggle(id);
   const folded = tall && !open;
   return (
     <>
