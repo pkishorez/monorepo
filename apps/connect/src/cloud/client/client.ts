@@ -25,6 +25,7 @@ export {
   addressOf,
   Connection,
   ConnectionStatus,
+  DISPLAY_NAME_MAX,
   isOutdated,
   mismatchOf,
   PLUGIN_MISMATCH,

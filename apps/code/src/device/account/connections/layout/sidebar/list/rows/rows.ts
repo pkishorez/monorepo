@@ -3,7 +3,6 @@ import type {
   Session as SessionRecord,
 } from '@kestack/connect/code';
 import type { OnConnection } from '../../../../connection/records/index.ts';
-import { shortNameOf } from '../../../../connection/link/index.ts';
 
 type Project = OnConnection<ProjectRecord>;
 type Session = OnConnection<SessionRecord>;
@@ -63,15 +62,16 @@ export interface Group {
 }
 
 /**
- * The Connections' short names, by id, to draw the Projects under: null
- * while the Connection Filter shows one Connection, or only one is listed.
+ * The Connections' names, by id, as the app names them (`nameOf`), to draw
+ * the Projects under: null while the Connection Filter shows one
+ * Connection, or only one is listed.
  */
 export const namesOf = (
   connections: ReadonlyArray<{ readonly id: string; readonly name: string }>,
   shown: string | null,
 ): ReadonlyMap<string, string> | null =>
   shown === null && connections.length > 1
-    ? new Map(connections.map(({ id, name }) => [id, shortNameOf(name)]))
+    ? new Map(connections.map(({ id, name }) => [id, name]))
     : null;
 
 /** The prefix of the branches Code makes for a new Worktree. */

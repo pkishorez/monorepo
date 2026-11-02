@@ -3,6 +3,7 @@ import { Actor } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
 import { ConnectionFilter } from '../../store.ts';
 import { Connections } from '../../connections.ts';
+import { nameOf } from '../../connection/link/index.ts';
 import { Preferences } from '../../../../store.ts';
 import { session } from '../../../../routes/index.ts';
 import {
@@ -283,7 +284,10 @@ export const SidebarLive = Sidebar.build({
             Stream.map(({ savedRead, connections, problem, seen }) => ({
               read: savedRead,
               connections:
-                connections?.map(({ id, name }) => ({ id, name })) ?? null,
+                connections?.map((each) => ({
+                  id: each.id,
+                  name: nameOf(each),
+                })) ?? null,
               problem: connections === null ? problem : null,
               unseen: seen,
             })),

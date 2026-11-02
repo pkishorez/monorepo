@@ -77,6 +77,7 @@ const connection = (
   plugins: {},
   wanted: {},
   minConnect: null,
+  displayName: null,
 });
 
 /** What the root page is told by Connections preparing: nothing, here. */
@@ -351,6 +352,59 @@ describe('Connections', () => {
         expect(yield* saved.read(SetupShelf, setupOf('m2'))).not.toBeNull();
         expect(kept).toHaveLength(1);
         expect(listModel(app).connections?.map(({ id }) => id)).toEqual(['m2']);
+      }),
+    );
+  });
+
+  it('takes a rename into the list at once, keeps it, and drops an answer asked before it', async () => {
+    const stale = await Effect.runPromise(
+      Deferred.make<ReadonlyArray<Connection>>(),
+    );
+    const before = [connection('m1', 1), connection('m2', 2)];
+    // The first ask, then one that answers late, then Cloud Connect renamed.
+    const answers = [
+      Effect.succeed(before),
+      Deferred.await(stale),
+      Effect.succeed([
+        { ...connection('m1', 1), displayName: 'Work' },
+        connection('m2', 2),
+      ]),
+    ];
+    let asked = 0;
+    const { layer } = world(
+      Effect.suspend(() => answers[Math.min(asked++, answers.length - 1)]!),
+    );
+    await run(
+      Effect.gen(function* () {
+        const saved = yield* Cache;
+        const app = yield* start(OwnerLive, layer);
+        yield* wait();
+        // Asked before the rename, answered after it, with the old name.
+        app.send(list(app).id, { _tag: 'ReloadAsked' });
+        yield* wait();
+        app.send(list(app).id, {
+          _tag: 'Renamed',
+          id: 'm1',
+          displayName: 'Work',
+        });
+        yield* wait();
+        const names = (connections: ReadonlyArray<Connection> | null) =>
+          connections?.map(({ id, displayName }) => [id, displayName]);
+        expect(names(listModel(app).connections)).toEqual([
+          ['m1', 'Work'],
+          ['m2', null],
+        ]);
+        expect(names(yield* saved.read(ListShelf, a1))).toEqual([
+          ['m1', 'Work'],
+          ['m2', null],
+        ]);
+        yield* Deferred.succeed(stale, before);
+        yield* wait();
+        expect(asked).toBe(3);
+        expect(names(listModel(app).connections)).toEqual([
+          ['m1', 'Work'],
+          ['m2', null],
+        ]);
       }),
     );
   });

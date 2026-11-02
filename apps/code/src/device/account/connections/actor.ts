@@ -75,14 +75,18 @@ import { Prepared } from './connections.ts';
  *             Instance any more, and an answer asked before never brings
  *             it back; then its database goes, and no other's: another tab
  *             may list a Connection this one has not heard of yet.
- * 6. Share    what it holds is what `Connections` says to every Actor, and
+ * 6. Rename   a Connection renamed from Settings, once Cloud Connect has
+ *             it: its Display Name changes in the list at once, and is kept,
+ *             so every name of it shows the new one; an answer asked before
+ *             never brings the old one back.
+ * 7. Share    what it holds is what `Connections` says to every Actor, and
  *             what they ask through it comes here, once the app is drawn
  *             for its Account. Until then it prepares: it reads its kept
  *             list, starts a Connection each and asks Cloud Connect, sharing
  *             nothing, and tells the root page once the kept list is read
  *             (`Prepared`), so the Account drawn before stays on screen
  *             until this one can be drawn whole.
- * 7. Voice     recording from anywhere (`voice/`): one Dictation for the
+ * 8. Voice     recording from anywhere (`voice/`): one Dictation for the
  *              Account, which hears asks only while it is drawn, so it
  *              carries on across every page and hands its text to the
  *              Draft on screen as it stops.
@@ -192,6 +196,7 @@ export const Connections = Actor.define('Connections', {
     Forgot: { id: Schema.String },
     ForgetFailed: { id: Schema.String, problem: Schema.String },
     ForgetDismissed: {},
+    Renamed: { id: Schema.String, displayName: Schema.NullOr(Schema.String) },
   }),
 });
 
@@ -291,7 +296,7 @@ export const ConnectionsLive = Connections.build({
           Effect.andThen(self.send({ _tag: 'CheckWaited' })),
         ),
     },
-    // 6. Share, once drawn.
+    // 7. Share, once drawn.
     publish: {
       while: ({ props }) => props.drawn,
       run: (self) =>
@@ -344,7 +349,7 @@ export const ConnectionsLive = Connections.build({
     },
   },
   children: {
-    // 7. Voice
+    // 8. Voice
     voice: Actor.child(Voice.actor, {
       props: ({ props }) => ({ drawn: props.drawn }),
     }),
@@ -465,5 +470,15 @@ export const ConnectionsLive = Connections.build({
     ForgetDismissed: (_, { model }) => ({
       model: { ...model, forgetting: null },
     }),
+    // 6. Rename
+    Renamed: ({ id, displayName }, { model }) => {
+      const connections = (model.list.value ?? []).map((each) =>
+        each.id === id ? { ...each, displayName } : each,
+      );
+      return {
+        model: { ...model, list: copying.changed(model.list, connections) },
+        command: keepList({ accountId: model.accountId, connections }),
+      };
+    },
   },
 });

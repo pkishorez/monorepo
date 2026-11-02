@@ -1,7 +1,7 @@
 import type { Project, Session } from '@kestack/connect/code';
 import { describe, expect, it } from 'vitest';
 import type { OnConnection } from '../../../../../connection/records/index.ts';
-import { shortNameOf } from '../../../../../connection/link/index.ts';
+import { nameOf, shortNameOf } from '../../../../../connection/link/index.ts';
 import {
   branchOf,
   branchShown,
@@ -104,8 +104,20 @@ describe('the sidebar by Project', () => {
 
   it('groups by Connection while every one is shown and there are several, each named once', () => {
     const listed = [
-      { id: 'm1', name: 'Kishores-MacBook-Pro-2 (dev-code-worktrees)' },
-      { id: 'm2', name: 'Kishores-MacBook-Pro-2 (demo-studio)' },
+      {
+        id: 'm1',
+        name: nameOf({
+          name: 'Kishores-MacBook-Pro-2 (dev-code-worktrees)',
+          displayName: null,
+        }),
+      },
+      {
+        id: 'm2',
+        name: nameOf({
+          name: 'Kishores-MacBook-Pro-2 (demo-studio)',
+          displayName: 'Studio (demo)',
+        }),
+      },
     ];
     const drawn = (names: ReadonlyMap<string, string> | null) =>
       groupedOf(
@@ -121,7 +133,7 @@ describe('the sidebar by Project', () => {
     expect(drawn(namesOf(listed, null))).toEqual([
       ['dev-code-worktrees', 'Project b'],
       [null, 'Project a'],
-      ['demo-studio', 'Project c'],
+      ['Studio (demo)', 'Project c'],
     ]);
     expect(namesOf(listed, 'm2')).toBeNull();
     expect(namesOf(listed.slice(0, 1), null)).toBeNull();
@@ -161,6 +173,14 @@ describe('the sidebar by Project', () => {
     expect(shortNameOf('Kishores-MacBook-Pro-2')).toBe(
       'Kishores-MacBook-Pro-2',
     );
+  });
+
+  it('names a Connection by its Display Name, in full, else by its Computer Name as it was served', () => {
+    const name = 'Kishores-MacBook-Pro-2 (demo-studio)';
+    expect(nameOf({ name, displayName: 'Work (laptop)' })).toBe(
+      'Work (laptop)',
+    );
+    expect(nameOf({ name, displayName: null })).toBe('demo-studio');
   });
 
   it("says a branch Code made for a Worktree without Code's prefix", () => {

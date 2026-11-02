@@ -77,6 +77,7 @@ describe('the socket of every Connection', () => {
     plugins: {},
     wanted: {},
     minConnect: null,
+    displayName: null,
   });
 
   it('is built with the latest Release in the code Plugin’s Release Log', () => {

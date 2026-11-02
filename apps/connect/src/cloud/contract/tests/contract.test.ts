@@ -3,7 +3,7 @@ import { Rpc, RpcGroup } from 'effect/rpc';
 import { describe, expect, it } from 'vitest';
 import { ESchema } from '@kestack/std-toolkit/eschema';
 import { expectUpgradable } from '@kestack/std-toolkit/eschema/testing';
-import { CloudApi } from '../index.js';
+import { CloudApi, Connection, ReportAnswer } from '../index.js';
 import { versionedValuesOf } from './versioned.js';
 
 /*
@@ -25,6 +25,27 @@ describe('Cloud Connect contract', () => {
       await expectUpgradable(eschema);
     },
   );
+
+  it('answers a Report as v1 of Connection, so every ke-connect reads it', () => {
+    const answer: ReportAnswer = {
+      id: 'c1',
+      name: 'laptop',
+      key: 'k',
+      version: '0.0.6',
+      status: { _tag: 'Opening' },
+      plugins: {},
+      lastSeen: 1,
+      wanted: {},
+      minConnect: null,
+    };
+    const sent = Schema.encodeSync(ReportAnswer.schema)(answer);
+    expect(sent).toMatchObject({ _v: 'v1' });
+    expect(sent).not.toHaveProperty('displayName');
+    expect(Schema.decodeUnknownSync(Connection.schema)(sent)).toEqual({
+      ...answer,
+      displayName: null,
+    });
+  });
 
   it('names the Rpc and field of a plain struct or union', () => {
     const Note = ESchema.make('Note', { text: Schema.String }).build();

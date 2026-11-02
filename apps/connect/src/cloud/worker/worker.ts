@@ -90,6 +90,10 @@ const handlers = (deployment: Deployment) =>
       ),
     Forget: ({ id }) =>
       Effect.flatMap(Authz.User, (principal) => Registry.forget(principal, id)),
+    Rename: ({ id, displayName }) =>
+      Effect.flatMap(Authz.User, (principal) =>
+        Registry.rename(principal, id, displayName),
+      ),
   });
 
 /** The CORS headers for a request from `origin`, an allowed one. */

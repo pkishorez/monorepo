@@ -14,7 +14,7 @@ import { EntityESchema } from '@kestack/std-toolkit/eschema';
 
 /**
  * One Connection as stored: its last Report (see `ConnectionReport`), its owner,
- * Last Seen, and whether it was forgotten. Its own fields, not the
+ * Last Seen, its Display Name, and whether it was forgotten. Its own fields, not the
  * contract's, so a change to the contract never silently changes the rows.
  * Where each of its Plugins stands is a versioned Plugin State of its own.
  */
@@ -55,7 +55,14 @@ export const ConnectionRecord = EntityESchema.make('Connection', 'id', {
   signInId: Schema.NullOr(Schema.String),
   /** When its User forgot it, epoch ms; null while it is not forgotten. */
   forgottenAt: Schema.NullOr(Schema.Finite),
-}).build();
+})
+  // v2: its Display Name, which its User gives it and a Report never
+  // changes; null until one is given.
+  .evolve('v2', { displayName: Schema.NullOr(Schema.String) }, (v1) => ({
+    ...v1,
+    displayName: null,
+  }))
+  .build();
 
 export type ConnectionRecord = typeof ConnectionRecord.Type;
 

@@ -76,6 +76,7 @@ describe('the Minimum Connect', () => {
     plugins: {},
     wanted: {},
     minConnect,
+    displayName: null,
   });
 
   it('makes a Connection below it Outdated, and none when there is none', () => {

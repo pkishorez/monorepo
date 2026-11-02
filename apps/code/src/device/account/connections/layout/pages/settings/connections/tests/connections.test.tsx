@@ -7,7 +7,10 @@ import {
   CodeClients,
   type HarnessAccountInfo,
 } from '@kestack/connect/code';
-import { type Connection as ConnectionSchema } from '@kestack/connect/cloud';
+import {
+  CloudClient,
+  type Connection as ConnectionSchema,
+} from '@kestack/connect/cloud';
 import { Actor } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
 import { Navigation } from '@kestack/kabuki/routing';
@@ -31,8 +34,10 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * Settings → Connections draws once: nothing while the list kept on this
  * device, or any listed Connection's setup, is still being read, and then every
  * card whole, with what its setup holds, no skeleton. With nothing kept at
- * all, a skeleton until Cloud Connect answers. Forget sits beside each
- * Connection's name, a bin that asks first. A card shows its Agents
+ * all, a skeleton until Cloud Connect answers. Rename and Forget sit beside
+ * each Connection's name: Rename turns it into a field, saved to Cloud
+ * Connect and told to the list; Forget, a bin, asks first. A Display Name
+ * shows over the Computer Name. A card shows its Agents
  * alone, with no tabs: its Projects are never managed here.
  */
 
@@ -80,6 +85,7 @@ const M1: Connection = {
   plugins: {},
   wanted: {},
   minConnect: null,
+  displayName: null,
 };
 
 const CLAUDE: HarnessAccountInfo = {
@@ -100,6 +106,11 @@ const CLAUDE: HarnessAccountInfo = {
 
 let known: SubscriptionRef.SubscriptionRef<Known>;
 let forgot: Array<string>;
+/** What Cloud Connect was asked to rename, and what the list was told. */
+let renames: Array<{ id: string; displayName: string | null }>;
+let told: Array<{ id: string; displayName: string | null }>;
+/** Why Cloud Connect refuses a Rename; null while it takes one. */
+let refusal: string | null;
 
 const setup = (parts: Partial<Setup>): Setup => ({
   accounts: null,
@@ -115,6 +126,16 @@ const connections = () =>
   Layer.mock(Connections)({
     state: Stream.unwrap(Effect.sync(() => SubscriptionRef.changes(known))),
     forget: (id: string) => Effect.sync(() => void forgot.push(id)),
+    renamed: (id: string, displayName: string | null) =>
+      Effect.sync(() => void told.push({ id, displayName })),
+  });
+
+const cloud = () =>
+  Layer.mock(CloudClient)({
+    Rename: ({ id, displayName }) =>
+      refusal === null
+        ? Effect.sync(() => void renames.push({ id, displayName }))
+        : Effect.fail(new Error(refusal) as never),
   });
 
 const clients = CodeClients.make(() =>
@@ -149,7 +170,12 @@ const tell = async (now: Partial<Known>) => {
 
 const mount = async () => {
   const App = View.app(OwnerView, {
-    layer: Layer.mergeAll(connections(), clients, Layer.mock(Navigation)({})),
+    layer: Layer.mergeAll(
+      connections(),
+      cloud(),
+      clients,
+      Layer.mock(Navigation)({}),
+    ),
     name: `connection-settings-test-${apps++}`,
   });
   root = createRoot(document.body.appendChild(document.createElement('div')));
@@ -188,6 +214,9 @@ beforeAll(() => {
 beforeEach(() => {
   pings = 0;
   forgot = [];
+  renames = [];
+  told = [];
+  refusal = null;
   known = Effect.runSync(SubscriptionRef.make<Known>(nobody));
 });
 
@@ -286,5 +315,129 @@ describe('Settings → Connections, Forget', () => {
     await act(async () => confirm.click());
     await settle();
     expect(forgot).toEqual(['m1']);
+  });
+});
+
+const field = () =>
+  document.querySelector<HTMLInputElement>('input[id$="-display-name"]');
+
+const type = async (text: string) => {
+  const input = field()!;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    )!.set!.call(input, text);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await settle();
+};
+
+const button = (name: string) =>
+  [...document.querySelectorAll<HTMLElement>('button')].find(
+    (each) => each.textContent === name,
+  )!;
+
+const startRenaming = async () => {
+  await act(async () =>
+    document
+      .querySelector<HTMLElement>('[aria-label="Rename Studio"]')!
+      .click(),
+  );
+  await settle();
+};
+
+describe('Settings → Connections, Rename', () => {
+  it('names a Connection by its Display Name, its Computer Name under it', async () => {
+    await mount();
+    await tell({
+      accountId: 'a1',
+      savedRead: true,
+      connections: [{ ...M1, displayName: 'Work' }],
+      setups: { m1: setup({}) },
+    });
+    expect(document.querySelector('h3')?.textContent).toBe('Work');
+    expect(
+      document.querySelector('[aria-label="Computer Name"]')?.parentElement
+        ?.textContent,
+    ).toBe('Studio');
+    expect(document.querySelector('[aria-label="Forget Work"]')).not.toBeNull();
+  });
+
+  it('shows no Computer Name line while it has no Display Name', async () => {
+    await mount();
+    await shown();
+    expect(document.querySelector('h3')?.textContent).toBe('Studio');
+    expect(document.querySelector('[aria-label="Computer Name"]')).toBeNull();
+  });
+
+  it('renames in place: saved trimmed to Cloud Connect, and told to the list', async () => {
+    await mount();
+    await shown();
+    await startRenaming();
+    expect(field()?.value).toBe('');
+    expect(field()?.placeholder).toBe('Studio');
+    await type('  Work  ');
+    await act(async () => button('Save').click());
+    await settle();
+    expect(renames).toEqual([{ id: 'm1', displayName: 'Work' }]);
+    expect(told).toEqual([{ id: 'm1', displayName: 'Work' }]);
+    expect(field()).toBeNull();
+  });
+
+  it('goes back to the Computer Name when left empty', async () => {
+    await mount();
+    await tell({
+      accountId: 'a1',
+      savedRead: true,
+      connections: [{ ...M1, displayName: 'Work' }],
+      setups: { m1: setup({}) },
+    });
+    await act(async () =>
+      document
+        .querySelector<HTMLElement>('[aria-label="Rename Work"]')!
+        .click(),
+    );
+    await settle();
+    expect(field()?.value).toBe('Work');
+    await type('   ');
+    await act(async () => button('Save').click());
+    await settle();
+    expect(renames).toEqual([{ id: 'm1', displayName: null }]);
+  });
+
+  it('asks nothing when the name is unchanged, and Escape leaves it as it was', async () => {
+    await mount();
+    await shown();
+    await startRenaming();
+    await act(async () => button('Save').click());
+    await settle();
+    expect(field()).toBeNull();
+    await startRenaming();
+    await type('Typed');
+    await act(async () =>
+      field()!.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      ),
+    );
+    await settle();
+    expect(field()).toBeNull();
+    expect(renames).toEqual([]);
+    expect(document.querySelector('h3')?.textContent).toBe('Studio');
+  });
+
+  it('says why Cloud Connect refused it, and keeps what was typed', async () => {
+    refusal = 'Cloud Connect could not be reached';
+    await mount();
+    await shown();
+    await startRenaming();
+    await type('Work');
+    await act(async () => button('Save').click());
+    await settle();
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain(
+      'Cloud Connect could not be reached',
+    );
+    expect(field()?.value).toBe('Work');
+    expect(told).toEqual([]);
   });
 });

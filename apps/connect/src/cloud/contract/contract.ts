@@ -9,7 +9,7 @@ import { belowMinimum } from './plugins.js';
  * What Cloud Connect answers, shared by Cloud Connect, `ke-connect serve`
  * and every App. Every call is the signed-in caller's own: nothing
  * names a User. A Connection reports itself on every Heartbeat; an App lists
- * the caller's Connections and forgets one. A Connection forgotten stays
+ * the caller's Connections, renames one and forgets one. A Connection forgotten stays
  * forgotten: its Sign-in may never report it again (ADR 0016).
  *
  * Besides the RPC, Cloud Connect answers `GET /auth` with how a Connection signs
@@ -148,24 +148,49 @@ export const ConnectionReport = ESchema.make(
 export type ConnectionReport = typeof ConnectionReport.Type;
 
 /**
- * A Connection as its User sees it, and as Cloud Connect answers its
- * Report: what it last reported, its Last Seen, `wanted`: the latest
- * Release of each Plugin, which the Connection should run, and
- * `minConnect`, the Minimum Connect: the oldest `ke-connect` let run the
- * Plugins, null when Cloud Connect names none.
+ * What Cloud Connect answers a Connection's Report, and what a Connection
+ * is besides its Display Name: what it last reported, its Last Seen,
+ * `wanted`: the latest Release of each Plugin, which the Connection should
+ * run, and `minConnect`, the Minimum Connect: the oldest `ke-connect` let
+ * run the Plugins, null when Cloud Connect names none.
  */
-export const Connection = ESchema.make('Connection', {
+const reportedFields = {
   ...reportFields,
   /** Its Last Seen: when it last reported, epoch ms, by Cloud Connect's clock. */
   lastSeen: Schema.Finite,
   wanted: Schema.Record(Schema.String, PluginVersion),
   minConnect: Schema.NullOr(Version),
-}).build();
+};
+
+/**
+ * The answer to a Report. On the wire it is v1 of `Connection` as it is,
+ * so every `ke-connect` reads it, however old: a Connection never needs
+ * its Display Name.
+ */
+export const ReportAnswer = ESchema.make(
+  'ReportAnswer',
+  reportedFields,
+).build();
+export type ReportAnswer = typeof ReportAnswer.Type;
+
+/**
+ * A Connection as its User sees it: its Report's answer, and v2 adds its
+ * Display Name, the name its User gave it, null until one is given. Its
+ * `name` is its Computer Name, which the Connection reports.
+ */
+export const Connection = ESchema.make('Connection', reportedFields)
+  .evolve('v2', { displayName: Schema.NullOr(Schema.String) }, (v1) => ({
+    ...v1,
+    displayName: null,
+  }))
+  .build();
 export type Connection = typeof Connection.Type;
 
 /** Whether a Connection is Outdated: it runs a `ke-connect` older than the Minimum Connect. */
-export const isOutdated = (connection: Connection) =>
-  belowMinimum(connection.version, connection.minConnect);
+export const isOutdated = (connection: {
+  readonly version: string;
+  readonly minConnect: string | null;
+}) => belowMinimum(connection.version, connection.minConnect);
 
 /** The Connection was forgotten by its User; it must sign out and stop. */
 export class ConnectionForgotten extends Schema.TaggedError<ConnectionForgotten>()(
@@ -187,10 +212,25 @@ const ForgetPayload = ESchema.make('ForgetPayload', {
   id: Schema.NonEmptyString,
 }).build();
 
+/** The longest Display Name, as long as the longest Computer Name. */
+export const DISPLAY_NAME_MAX = 64;
+
+/**
+ * What `Rename` takes: the Connection, and its Display Name, or null to
+ * go back to its Computer Name. Cloud Connect trims it, and keeps one left
+ * empty as null.
+ */
+const RenamePayload = ESchema.make('RenamePayload', {
+  id: Schema.NonEmptyString,
+  displayName: Schema.NullOr(
+    Schema.String.check(Schema.isMaxLength(DISPLAY_NAME_MAX)),
+  ),
+}).build();
+
 const Rpcs = RpcGroup.make(
   Rpc.make('Report', {
     payload: ConnectionReport.schema,
-    success: Connection.schema,
+    success: ReportAnswer.schema,
     error: Schema.Union([ConnectionForgotten, ConnectionTaken]),
   }),
   Rpc.make('List', {
@@ -199,6 +239,10 @@ const Rpcs = RpcGroup.make(
   }),
   Rpc.make('Forget', {
     payload: ForgetPayload.schema,
+    success: Schema.Void,
+  }),
+  Rpc.make('Rename', {
+    payload: RenamePayload.schema,
     success: Schema.Void,
   }),
 );

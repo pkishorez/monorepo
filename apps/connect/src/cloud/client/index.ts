@@ -4,6 +4,7 @@ export {
   CloudClient,
   Connection,
   ConnectionStatus,
+  DISPLAY_NAME_MAX,
   isOutdated,
   mismatchOf,
   PLUGIN_MISMATCH,

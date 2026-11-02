@@ -7,6 +7,7 @@ export {
   useLock,
   useConnectionId,
   useConnections,
+  nameOf,
   useConnectionName,
   useNoticeClock,
   useNoticePill,

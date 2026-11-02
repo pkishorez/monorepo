@@ -4,6 +4,7 @@ import { Actor } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { Connections } from '../../../connections.ts';
+import { nameOf } from '../../../connection/link/index.ts';
 import { session } from '../../../../../routes/index.ts';
 import {
   everything,
@@ -187,7 +188,10 @@ export const SessionSwitcherLive = SessionSwitcher.build({
         Effect.flatMap(Connections, ({ state }) =>
           state.pipe(
             Stream.map(({ connections }) =>
-              (connections ?? []).map(({ id, name }) => ({ id, name })),
+              (connections ?? []).map((each) => ({
+                id: each.id,
+                name: nameOf(each),
+              })),
             ),
             Stream.changesWith(sameConnections),
             Stream.runForEach((connections) =>

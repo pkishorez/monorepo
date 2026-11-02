@@ -211,7 +211,12 @@ export const nobody: Known = {
 export type Request =
   | { readonly _tag: 'ReloadAsked' }
   | { readonly _tag: 'ForgetAsked'; readonly id: string }
-  | { readonly _tag: 'ForgetDismissed' };
+  | { readonly _tag: 'ForgetDismissed' }
+  | {
+      readonly _tag: 'Renamed';
+      readonly id: string;
+      readonly displayName: string | null;
+    };
 
 /** How a Session's Agent Questions are being answered, for its Connection to keep. */
 export interface AnsweringKept {
@@ -291,6 +296,11 @@ export class Connections extends Context.Service<
     readonly forget: (id: string) => Effect.Effect<void>;
     /** Done with a Forget that failed. */
     readonly keepForgetting: Effect.Effect<void>;
+    /** Tells the list Cloud Connect renamed the Connection, for every name of it to show at once. */
+    readonly renamed: (
+      id: string,
+      displayName: string | null,
+    ) => Effect.Effect<void>;
   }
 >()('code/Connections') {}
 
@@ -421,6 +431,8 @@ export const connectionsLayer: Layer.Layer<Connections | ConnectionsChannel> =
           ),
           forget: (id) => ask({ _tag: 'ForgetAsked', id }),
           keepForgetting: ask({ _tag: 'ForgetDismissed' }),
+          renamed: (id, displayName) =>
+            ask({ _tag: 'Renamed', id, displayName }),
         }),
       );
     }),
