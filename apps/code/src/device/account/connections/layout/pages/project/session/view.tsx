@@ -26,7 +26,7 @@ import {
 import { agentName } from '../../../../../../../ui/labels/agent/index.ts';
 import * as Picker from '../../../../../../../ui/controls/picker/index.ts';
 import { Draft } from '../draft/index.ts';
-import { readyOf, SessionLive } from './actor.ts';
+import { readyOf, RunningPicker, SessionLive } from './actor.ts';
 import {
   Scrolled,
   type Scroller,
@@ -39,7 +39,6 @@ import {
   Folder,
   itemsOf,
   RunningButton,
-  RunningPicker,
   earlierOf,
   type Forking,
   type Live,

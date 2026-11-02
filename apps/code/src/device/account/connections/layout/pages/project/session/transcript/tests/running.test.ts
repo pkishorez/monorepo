@@ -1,13 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Row } from '../turns/rows/index.ts';
-import {
-  choiceOf,
-  itemsOf,
-  STOP,
-  STOP_ALL,
-} from '../turns/answer/work/live/running.tsx';
+import { itemsOf } from '../turns/answer/work/live/running.tsx';
 
-/* What runs, as the Running Picker lists it, and what each choice does. */
+/* What runs, as the Running Picker lists it. */
 
 type SubagentRow = Extract<Row, { readonly kind: 'subagent' }>;
 
@@ -71,39 +66,5 @@ describe('itemsOf', () => {
       'inner',
       'j2',
     ]);
-  });
-});
-
-describe('choiceOf', () => {
-  const items = itemsOf(
-    [subagent('a', { background: true })],
-    [
-      { id: 'j1', kind: 'agent', title: 'a', toolCallId: 'call-a' },
-      { id: 'j2', kind: 'shell', title: 'pnpm dev' },
-    ],
-    false,
-    null,
-  );
-
-  it('opens a subagent, stops a command, or stops everything', () => {
-    expect(choiceOf({ step: 'running', key: '', value: 'a' }, items)).toEqual({
-      _tag: 'Open',
-      rowId: 'a',
-    });
-    expect(
-      choiceOf({ step: 'command', key: 'j2', value: STOP }, items),
-    ).toEqual({
-      _tag: 'Stop',
-      jobId: 'j2',
-    });
-    expect(
-      choiceOf({ step: 'running', key: '', value: STOP_ALL }, items),
-    ).toEqual({ _tag: 'StopAll' });
-  });
-
-  it('does nothing for what has stopped since', () => {
-    expect(
-      choiceOf({ step: 'running', key: '', value: 'gone' }, items),
-    ).toBeNull();
   });
 });

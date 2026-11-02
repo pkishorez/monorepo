@@ -22,13 +22,8 @@ import { Seen } from '../../../../connection/store/index.ts';
 import { Draft } from '../draft/index.ts';
 import { cancel, forkSession, markSeen, stopJob } from './commands.ts';
 import { Question } from './question/index.ts';
-import {
-  choiceOf,
-  RunningChosen,
-  RunningItem,
-  RunningPicker,
-} from './transcript/index.ts';
 import * as Picker from '../../../../../../../ui/controls/picker/index.ts';
+import { since } from '../../../../../../../ui/labels/status/index.ts';
 import { Actor } from '@kestack/kabuki';
 
 /*
@@ -66,6 +61,153 @@ import { Actor } from '@kestack/kabuki';
  * 7. Question  the Agent Questions its agent waits on, answered in the
  *              Question Panel, a Child of its own, fresh for each session.
  */
+
+// 8. Running: the Running Picker, kept here rather than with the
+// transcript, so the page's first load never carries the transcript.
+
+/** One thing that runs, as the View reads it from rows and jobs. */
+export const RunningItem = Schema.Struct({
+  /** Its subagent's row id, or its job's id when it has no row. */
+  id: Schema.String,
+  kind: Schema.Literals(['agent', 'shell']),
+  title: Schema.String,
+  /** What a subagent is doing now. */
+  doing: Schema.NullOr(Schema.String),
+  /** How many steps a subagent has taken. */
+  steps: Schema.NullOr(Schema.Finite),
+  startedAt: Schema.NullOr(Schema.Finite),
+  /** The subagent's row, to open it. */
+  rowId: Schema.NullOr(Schema.String),
+  /** Its Background Job, to stop it. */
+  jobId: Schema.NullOr(Schema.String),
+});
+type RunningItem = typeof RunningItem.Type;
+
+const Props = Schema.Struct({ items: Schema.Array(RunningItem) });
+
+/** The last row: stops the turn and every job. */
+export const STOP_ALL = 'stop-all';
+/** A command's one action. */
+export const STOP = 'stop';
+
+const hintOf = (item: RunningItem, now: number) =>
+  [
+    item.steps !== null && item.steps > 0
+      ? `${item.steps} ${item.steps === 1 ? 'step' : 'steps'}`
+      : null,
+    item.startedAt === null ? null : since(item.startedAt, now),
+  ]
+    .filter((each) => each !== null)
+    .join(' · ');
+
+const Running = Picker.make('RunningPicker', {
+  props: Props,
+  steps: {
+    running: {
+      placeholder: () => 'Find running work',
+      empty: () => 'Nothing running by that name',
+      rows: ({ props }) => {
+        const now = Date.now();
+        return {
+          rows: props.items.map((item) => {
+            const hint = hintOf(item, now);
+            return {
+              value: item.id,
+              label: item.title,
+              detail:
+                item.kind === 'agent'
+                  ? `${item.doing ?? 'Working'}…`
+                  : 'Running',
+              group: item.kind === 'agent' ? 'Subagents' : 'Commands',
+              ...(hint === '' ? {} : { hint }),
+              ...(item.kind === 'agent' && item.rowId === null
+                ? {
+                    unavailable:
+                      'Started before this session was drawn: stop it from the command row',
+                  }
+                : {}),
+            };
+          }),
+        };
+      },
+      pinned: () => [{ value: STOP_ALL, label: 'Stop everything' }],
+      // A command opens what it can do; a subagent opens whole.
+      next: (row, { props }) =>
+        props.items.find((item) => item.id === row.value)?.kind === 'shell'
+          ? { id: 'command', key: row.value }
+          : null,
+    },
+    command: {
+      placeholder: () => 'What to do',
+      search: false,
+      rows: ({ props, key }) => {
+        const item = props.items.find((each) => each.id === key);
+        return {
+          rows:
+            item === undefined
+              ? []
+              : [
+                  {
+                    value: STOP,
+                    label: 'Stop this command',
+                    detail: item.title,
+                  },
+                ],
+        };
+      },
+    },
+  },
+});
+
+/** What was chosen in the Running Picker: a subagent to open, a job to stop, or all of it. */
+export type RunningChoice =
+  | { readonly _tag: 'Open'; readonly rowId: string }
+  | { readonly _tag: 'Stop'; readonly jobId: string }
+  | { readonly _tag: 'StopAll' };
+
+/** The last choice made in the Running Picker: its Step, which one, and its row. */
+export const RunningChosen = Schema.Struct({
+  step: Schema.String,
+  key: Schema.String,
+  value: Schema.String,
+});
+export type RunningChosen = typeof RunningChosen.Type;
+
+/** What the last choice asks, from the items listed now; null when it is gone. */
+export const choiceOf = (
+  last: RunningChosen,
+  items: ReadonlyArray<RunningItem>,
+): RunningChoice | null => {
+  if (last.value === STOP_ALL) return { _tag: 'StopAll' };
+  const id = last.step === 'command' ? last.key : last.value;
+  const item = items.find((each) => each.id === id);
+  if (item === undefined) return null;
+  if (last.step === 'command')
+    return item.jobId === null ? null : { _tag: 'Stop', jobId: item.jobId };
+  return item.rowId === null ? null : { _tag: 'Open', rowId: item.rowId };
+};
+
+/** The Running Picker the session page keeps while it is open. */
+export const RunningPicker = {
+  Live: Running.Live,
+  View: Running.View,
+  opening: (how: typeof Picker.How.Type) => ({
+    how,
+    step: { id: 'running', key: '' },
+    choices: [],
+  }),
+  owner: (done: (last: RunningChosen | null) => Effect.Effect<void>) =>
+    Running.owner({
+      done: (choices) => {
+        const last = choices?.at(-1);
+        return done(
+          last === undefined
+            ? null
+            : { step: last.step, key: last.key, value: last.value },
+        );
+      },
+    }),
+};
 
 const ForkedFrom = Schema.NullOr(
   Schema.Struct({ sessionId: Schema.String, turnId: Schema.String }),
