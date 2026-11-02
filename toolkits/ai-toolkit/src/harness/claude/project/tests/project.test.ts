@@ -161,9 +161,22 @@ describe('project, on a captured turn with a subagent inside a subagent', () => 
   });
 
   it('shows nothing for task progress frames', () => {
-    for (const r of turn.filter((r) => r.kind.startsWith('system/task'))) {
+    for (const r of turn.filter(
+      (r) =>
+        r.kind.startsWith('system/task') &&
+        r.kind !== 'system/task_notification',
+    )) {
       expect(r.projected).toBeNull();
     }
+  });
+
+  it("shows a task's end as a jobEnded with its tool call", () => {
+    const ends = turn
+      .flatMap((r) => partsOf(r.projected))
+      .filter((p) => p.type === 'jobEnded');
+    expect(ends.length).toBeGreaterThan(0);
+    for (const end of ends)
+      expect(end.type === 'jobEnded' && end.toolCallId).toBeTruthy();
   });
 });
 

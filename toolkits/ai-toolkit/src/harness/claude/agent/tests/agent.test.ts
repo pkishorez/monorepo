@@ -195,6 +195,34 @@ describe('openSdkAgent', () => {
       }),
     ));
 
+  it("keeps a background subagent's records and a job's end between turns, as they come", () =>
+    withSession((session) =>
+      Effect.gen(function* () {
+        const between = yield* Effect.forkChild(
+          Stream.runCollect(Stream.take(session.between, 2)),
+        );
+        live.emit({
+          type: 'assistant',
+          parent_tool_use_id: 'toolu_bg',
+          message: { content: [{ type: 'text', text: 'working' }] },
+        });
+        live.emit({ type: 'system', subtype: 'thinking_tokens' });
+        live.emit({
+          type: 'system',
+          subtype: 'task_notification',
+          task_id: 'a1',
+          tool_use_id: 'toolu_bg',
+          status: 'completed',
+          summary: 'Done',
+        });
+        const outs = yield* Fiber.join(between);
+        expect([...outs].map((out) => [out.kind, out.agentId])).toEqual([
+          ['assistant', 'toolu_bg'],
+          ['system/task_notification', undefined],
+        ]);
+      }),
+    ));
+
   it('holds a steer sent before its turn has started, then joins it', () =>
     withSession((session) =>
       Effect.gen(function* () {

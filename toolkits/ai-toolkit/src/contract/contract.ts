@@ -16,6 +16,7 @@ export {
   type RawSource,
 } from './raw/index.js';
 export {
+  CutOffSchema,
   MessageSchema,
   PartSchema,
   PROJECTION_VERSION,
@@ -23,6 +24,7 @@ export {
   TOOL_KINDS,
   TURN_END_STATUSES,
   UsageSchema,
+  type CutOff,
   type Message,
   type Part,
   type Projected,

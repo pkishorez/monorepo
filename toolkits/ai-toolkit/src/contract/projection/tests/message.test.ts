@@ -10,7 +10,7 @@ describe('MessageSchema', () => {
     await expectUpgradable(MessageSchema);
   });
 
-  it('reads a v1 turnStarted as it was, and writes a Resumed one as v2', async () => {
+  it('reads a v1 turnStarted as it was, and writes a Resumed one as the latest', async () => {
     const v1 = {
       _v: 'v1',
       id: 'm1',
@@ -36,8 +36,36 @@ describe('MessageSchema', () => {
       }),
     );
     expect(written).toMatchObject({
-      _v: 'v2',
+      _v: 'v3',
       parts: [{ type: 'turnStarted', resumed: true }],
     });
+  });
+
+  it("reads a v2 Message as it was, and writes a Background Job's end as v3", async () => {
+    const v2 = {
+      _v: 'v2',
+      id: 'm1',
+      sessionId: 's1',
+      turnId: 't1',
+      agentId: null,
+      role: 'user',
+      parts: [
+        { type: 'turnStarted', text: 'go on', steered: false, resumed: true },
+      ],
+      at: 1,
+    };
+    const read = await Effect.runPromise(
+      Schema.decodeUnknownEffect(MessageSchema.schema)(v2),
+    );
+    expect(read.parts).toEqual(v2.parts);
+    const written = await Effect.runPromise(
+      Schema.encodeEffect(MessageSchema.schema)({
+        ...read,
+        parts: [
+          { type: 'jobEnded', jobId: 'a1', status: 'done', summary: 'Done' },
+        ],
+      }),
+    );
+    expect(written).toMatchObject({ _v: 'v3', parts: [{ type: 'jobEnded' }] });
   });
 });

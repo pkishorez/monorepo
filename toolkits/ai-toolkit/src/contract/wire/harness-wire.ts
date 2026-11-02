@@ -45,6 +45,8 @@ export const BackgroundJobSchema = Schema.Struct({
   title: Schema.String,
   /** Epoch ms, when the harness says. */
   startedAt: Schema.optionalKey(Schema.Finite),
+  /** The tool call that started it, when the harness says: its row in the transcript. */
+  toolCallId: Schema.optionalKey(Schema.String),
 });
 export type BackgroundJob = typeof BackgroundJobSchema.Type;
 

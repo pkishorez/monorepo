@@ -71,6 +71,11 @@ const ToolCall = Schema.Struct({
   /** One line a person reads: `src/auth/login.ts`, `pnpm test`. */
   title: Schema.String,
   input: JsonSchema,
+  /**
+   * Started as a Background Job: its toolResult only says it started, and
+   * a jobEnded with its id says how it ended.
+   */
+  background: Schema.optionalKey(Schema.Boolean),
 });
 /** An image a tool gave back, such as a file read: whole, in base64. */
 const ToolImage = Schema.Struct({
@@ -118,13 +123,31 @@ const TurnStartedV1 = Schema.Struct({
   /** An Agent-started Turn: the agent began it, so `text` is empty. */
   agentStarted: Schema.optionalKey(Schema.Boolean),
 });
-const TurnStarted = Schema.Struct({
+const TurnStartedV2 = Schema.Struct({
   ...TurnStartedV1.fields,
   /**
    * A Resumed Turn: the engine started it to continue one a stop cut off,
    * and `text` is the prompt it sent the agent, not words of yours.
    */
   resumed: Schema.optionalKey(Schema.Boolean),
+});
+/** Work that was running when a stop cut it off, as the Turn after it was told. */
+export const CutOffSchema = Schema.Struct({
+  /** A Turn cut off by the server stopping. */
+  turn: Schema.Boolean,
+  /** Background Jobs that died with the agent. */
+  jobs: Schema.Array(
+    Schema.Struct({
+      kind: Schema.Literals(['shell', 'agent']),
+      title: Schema.String,
+    }),
+  ),
+});
+export type CutOff = typeof CutOffSchema.Type;
+const TurnStarted = Schema.Struct({
+  ...TurnStartedV2.fields,
+  /** What a stop cut off before this Turn, which it was told of. */
+  cutOff: Schema.optionalKey(CutOffSchema),
 });
 const TurnEnded = Schema.Struct({
   type: Schema.Literal('turnEnded'),
@@ -151,6 +174,18 @@ const CodexPlan = Schema.Struct({
     Schema.Struct({ step: Schema.String, status: Schema.String }),
   ),
 });
+/**
+ * A Background Job ended: done, failed, or stopped. Its report is what its
+ * subagent said last, or else `summary`.
+ */
+const JobEnded = Schema.Struct({
+  type: Schema.Literal('jobEnded'),
+  jobId: Schema.String,
+  /** The tool call that started it, when the harness says. */
+  toolCallId: Schema.optionalKey(Schema.String),
+  status: Schema.Literals(['done', 'failed', 'stopped']),
+  summary: Schema.String,
+});
 /** Understood, but not modelled yet: shown as one plain row. */
 const Other = Schema.Struct({
   type: Schema.Literal('other'),
@@ -158,7 +193,7 @@ const Other = Schema.Struct({
 });
 
 /** Every kind of Part, with the turnStarted of one Message version. */
-const partsWith = <S extends typeof TurnStartedV1 | typeof TurnStarted>(
+const partsV2 = <S extends typeof TurnStartedV1 | typeof TurnStartedV2>(
   turnStarted: S,
 ) =>
   Schema.Union([
@@ -174,6 +209,25 @@ const partsWith = <S extends typeof TurnStartedV1 | typeof TurnStarted>(
     ErrorPart,
     ClaudeCompaction,
     CodexPlan,
+    Other,
+  ]);
+
+/** Every kind of Part, as v3 Messages have them. */
+const partsWith = <S extends typeof TurnStarted>(turnStarted: S) =>
+  Schema.Union([
+    Text,
+    Reasoning,
+    TextChunk,
+    ToolCall,
+    ToolResult,
+    QuestionAnswered,
+    turnStarted,
+    TurnEnded,
+    UsagePart,
+    ErrorPart,
+    ClaudeCompaction,
+    CodexPlan,
+    JobEnded,
     Other,
   ]);
 
@@ -193,11 +247,13 @@ export const MessageSchema = EntityESchema.make('AiMessage', 'id', {
   /** null for the main agent; else the id of the toolCall that spawned this subagent. */
   agentId: Schema.NullOr(Schema.String),
   role: Schema.Literals(ROLES),
-  parts: Schema.Array(partsWith(TurnStartedV1)),
+  parts: Schema.Array(partsV2(TurnStartedV1)),
   at: Schema.Finite,
 })
   // A turnStarted may say it was Resumed; every v1 part reads as it was.
-  .evolve('v2', { parts: Schema.Array(PartSchema) }, (v1) => v1)
+  .evolve('v2', { parts: Schema.Array(partsV2(TurnStartedV2)) }, (v1) => v1)
+  // A Background Job's end, and what a stop cut off before a Turn.
+  .evolve('v3', { parts: Schema.Array(PartSchema) }, (v2) => v2)
   .build();
 
 export type Message = typeof MessageSchema.Type;
@@ -207,7 +263,7 @@ export type Message = typeof MessageSchema.Type;
  * harness's projection changes what it makes, so devices that kept
  * Messages throw them away and sync afresh.
  */
-export const PROJECTION_VERSION = 5;
+export const PROJECTION_VERSION = 6;
 
 /** What a harness's `project` decides; the engine adds the ids and time. */
 export type Projected = Pick<Message, 'agentId' | 'role' | 'parts'>;

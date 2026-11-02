@@ -646,6 +646,7 @@ export const openSession = (
       turn,
       cancel,
       agentTurns: Stream.never,
+      between: Stream.never,
       backgroundJobs: SubscriptionRef.changes(jobs),
       stopBackgroundJob,
       questions: questions.changes,

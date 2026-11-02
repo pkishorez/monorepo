@@ -66,6 +66,7 @@ const assistantParts = (payload: Obj): ReadonlyArray<Part> =>
       case 'server_tool_use': {
         const name = str(block['name']) ?? 'unknown';
         const input = block['input'] ?? null;
+        const background = isObj(input) && input['run_in_background'] === true;
         return [
           {
             type: 'toolCall',
@@ -74,6 +75,7 @@ const assistantParts = (payload: Obj): ReadonlyArray<Part> =>
             name,
             title: toolTitle(name, input),
             input,
+            ...(background ? { background } : {}),
           },
         ];
       }
@@ -190,7 +192,33 @@ const turnEnded = (payload: Obj): Part => {
   };
 };
 
+const JOB_ENDS = {
+  completed: 'done',
+  failed: 'failed',
+  stopped: 'stopped',
+  killed: 'stopped',
+} as const;
+
+/** A Background Job's end, as `system/task_notification` says. */
+const jobEnded = (payload: Obj): ReadonlyArray<Part> => {
+  const jobId = str(payload['task_id']);
+  const status = str(payload['status']);
+  if (jobId === undefined || status === undefined || !(status in JOB_ENDS))
+    return [];
+  const toolCallId = str(payload['tool_use_id']);
+  return [
+    {
+      type: 'jobEnded',
+      jobId,
+      ...(toolCallId === undefined ? {} : { toolCallId }),
+      status: JOB_ENDS[status as keyof typeof JOB_ENDS],
+      summary: str(payload['summary']) ?? '',
+    },
+  ];
+};
+
 const systemParts = (payload: Obj): ReadonlyArray<Part> => {
+  if (payload['subtype'] === 'task_notification') return jobEnded(payload);
   if (payload['subtype'] !== 'compact_boundary') return [];
   const metadata = payload['compact_metadata'];
   const trigger = isObj(metadata) ? str(metadata['trigger']) : undefined;

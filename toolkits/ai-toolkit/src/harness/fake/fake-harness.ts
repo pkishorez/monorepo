@@ -71,6 +71,7 @@ interface FakeTurn {
 interface FakeAgent {
   readonly jobs: SubscriptionRef.SubscriptionRef<ReadonlyArray<BackgroundJob>>;
   readonly agentTurns: Queue.Queue<TurnHandle>;
+  readonly between: Queue.Queue<RawOut>;
   readonly questions: SubscriptionRef.SubscriptionRef<
     ReadonlyArray<AgentQuestion>
   >;
@@ -111,6 +112,8 @@ export interface FakeHarness {
   /** Emits a record into the running turn, as the agent would. */
   readonly emit: (out: RawOut) => Effect.Effect<void>;
   /** Sets the Background Jobs of the agent opened as `nativeId`. */
+  /** Writes a record as the agent does while no Turn runs. */
+  readonly emitBetween: (nativeId: string, out: RawOut) => Effect.Effect<void>;
   readonly setJobs: (
     nativeId: string,
     jobs: ReadonlyArray<BackgroundJob>,
@@ -279,6 +282,7 @@ export const makeFakeHarness = (
         const agent: FakeAgent = {
           jobs: yield* SubscriptionRef.make<ReadonlyArray<BackgroundJob>>([]),
           agentTurns: yield* Queue.unbounded<TurnHandle>(),
+          between: yield* Queue.unbounded<RawOut>(),
           questions: yield* SubscriptionRef.make<ReadonlyArray<AgentQuestion>>(
             [],
           ),
@@ -304,6 +308,7 @@ export const makeFakeHarness = (
             } else Deferred.doneUnsafe(running.gate, Effect.succeed(false));
           }),
           agentTurns: Stream.fromQueue(agent.agentTurns),
+          between: Stream.fromQueue(agent.between),
           backgroundJobs: SubscriptionRef.changes(agent.jobs),
           questions: SubscriptionRef.changes(agent.questions),
           answer: (id, answer) =>
@@ -451,6 +456,12 @@ export const makeFakeHarness = (
         if (running?.queue && !running.ended)
           Queue.offerUnsafe(running.queue, out);
       }),
+    emitBetween: (nativeId, out) =>
+      Effect.flatMap(agentOf(nativeId), (agent) =>
+        agent
+          ? Queue.offer(agent.between, out).pipe(Effect.asVoid)
+          : Effect.void,
+      ),
     setJobs: (nativeId, jobs) =>
       Effect.flatMap(agentOf(nativeId), (agent) =>
         agent ? SubscriptionRef.set(agent.jobs, jobs) : Effect.void,

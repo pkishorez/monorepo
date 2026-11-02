@@ -73,7 +73,7 @@ A prompt a Coding Harness answers with no Agent behind it and nothing kept, such
 _Avoid_: titler, completion, Ask (that reads an Agent)
 
 **Background Job**:
-Work an open Agent started that runs beyond the Turn that started it, such as a shell process or a subagent. Background Jobs live only while the Agent is open and are never kept.
+Work an open Agent started that runs beyond the Turn that started it, such as a shell process or a subagent. Background Jobs live only while the Agent is open; what one writes is kept as it comes, and its end is a `jobEnded` Part.
 _Avoid_: task, process, daemon
 
 **Agent Question**:

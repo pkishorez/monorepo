@@ -14,6 +14,21 @@ const kindOf = (taskType: string): BackgroundJob['kind'] =>
   SHELL_TASKS.has(taskType) ? 'shell' : 'agent';
 
 /**
+ * The tool call that started each task, by task id: `task_started` names
+ * it, and a snapshot does not, so it is kept apart, as either may come
+ * first.
+ */
+export type Links = Map<string, string>;
+
+/** A job with its tool call, when one is known. */
+const linked = (job: BackgroundJob, links: Links): BackgroundJob => {
+  const toolCallId = links.get(job.id);
+  return toolCallId === undefined || job.toolCallId === toolCallId
+    ? job
+    : { ...job, toolCallId };
+};
+
+/**
  * The job list after a `background_tasks_changed` snapshot: it replaces the
  * list. Housekeeping (`ambient`) tasks are not jobs. A job keeps the time it
  * was first listed; a new one starts `now`.
@@ -22,16 +37,22 @@ export const fromSnapshot = (
   previous: ReadonlyArray<BackgroundJob>,
   tasks: ReadonlyArray<ListedTask>,
   now: number,
+  links: Links = new Map(),
 ): ReadonlyArray<BackgroundJob> =>
   tasks
     .filter((task) => task.ambient !== true)
-    .map((task) => ({
-      id: task.task_id,
-      kind: kindOf(task.task_type),
-      title: task.description,
-      startedAt:
-        previous.find((job) => job.id === task.task_id)?.startedAt ?? now,
-    }));
+    .map((task) =>
+      linked(
+        {
+          id: task.task_id,
+          kind: kindOf(task.task_type),
+          title: task.description,
+          startedAt:
+            previous.find((job) => job.id === task.task_id)?.startedAt ?? now,
+        },
+        links,
+      ),
+    );
 
 /** The job list once a task has ended, before the next snapshot says so. */
 export const ended = (
@@ -53,20 +74,39 @@ const isListedTask = (value: unknown): value is ListedTask =>
 
 const ENDED = new Set(['completed', 'failed', 'killed', 'stopped']);
 
-/** The job list after one record the query yields; unchanged for most. */
+/**
+ * The job list after one record the query yields; unchanged for most.
+ * `links` learns each task's tool call from `task_started`.
+ */
 export const next = (
   previous: ReadonlyArray<BackgroundJob>,
   record: Readonly<Record<string, unknown>>,
   now: number,
+  links: Links = new Map(),
 ): ReadonlyArray<BackgroundJob> => {
   if (record['type'] !== 'system') return previous;
   const taskId = record['task_id'];
   switch (record['subtype']) {
     case 'background_tasks_changed':
       return Array.isArray(record['tasks'])
-        ? fromSnapshot(previous, record['tasks'].filter(isListedTask), now)
+        ? fromSnapshot(
+            previous,
+            record['tasks'].filter(isListedTask),
+            now,
+            links,
+          )
         : previous;
+    case 'task_started': {
+      const toolUseId = record['tool_use_id'];
+      if (typeof taskId !== 'string' || typeof toolUseId !== 'string')
+        return previous;
+      links.set(taskId, toolUseId);
+      return previous.some((job) => job.id === taskId)
+        ? previous.map((job) => (job.id === taskId ? linked(job, links) : job))
+        : previous;
+    }
     case 'task_notification':
+      if (typeof taskId === 'string') links.delete(taskId);
       return typeof taskId === 'string' ? ended(previous, taskId) : previous;
     case 'task_updated': {
       const patch = record['patch'];

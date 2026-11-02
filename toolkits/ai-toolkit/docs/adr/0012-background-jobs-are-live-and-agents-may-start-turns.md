@@ -17,3 +17,7 @@ When a job finishes, Claude Code may start a Turn on its own. The harness report
 - A client that reconnects gets the whole current set at once; there is no history of jobs.
 - Codex keeps background terminals and sub-agents as jobs but starts no Turns of its own; its `agentTurns` never emits.
 - An agent turn that arrives while a user Turn runs is the harness's bug, not the engine's case to handle.
+
+## Amended: a job's records and its end are kept as they come
+
+What a background subagent writes, and a job's end, used to wait in memory for the next Turn and were lost if the server stopped first. The harness now gives them on `Agent.between` as they come, and the engine stores them at once; a job's end projects to a `jobEnded` Part, linked to the tool call that started it. The job list itself is still live, and Connect keeps only which jobs were alive, so a restart can tell the agent what it cut off (Connect's ADR 0007).

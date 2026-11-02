@@ -1,6 +1,6 @@
 import { Effect, Stream, SubscriptionRef } from 'effect';
 import { HarnessError, type BackgroundJob } from '../../../contract/index.js';
-import { next } from './job-list.js';
+import { next, type Links } from './job-list.js';
 
 export interface BackgroundJobs {
   /** Reads one record the query yielded. */
@@ -24,11 +24,17 @@ export const makeBackgroundJobs = (
 ): Effect.Effect<BackgroundJobs> =>
   Effect.gen(function* () {
     const jobs = yield* SubscriptionRef.make<ReadonlyArray<BackgroundJob>>([]);
+    const links: Links = new Map();
     return {
       observe: (record) =>
-        SubscriptionRef.update(jobs, (list) => next(list, record, Date.now())),
+        SubscriptionRef.update(jobs, (list) =>
+          next(list, record, Date.now(), links),
+        ),
       changes: SubscriptionRef.changes(jobs),
-      clear: SubscriptionRef.set(jobs, []),
+      clear: Effect.andThen(
+        Effect.sync(() => links.clear()),
+        SubscriptionRef.set(jobs, []),
+      ),
       stop: (id) =>
         Effect.tryPromise({
           try: () => stopTask(id),

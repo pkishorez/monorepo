@@ -67,10 +67,11 @@ Message {
 Part =
   | { type: 'text', text }
   | { type: 'reasoning', text }
-  | { type: 'toolCall', id, tool: ToolKind, name, title, input }
+  | { type: 'toolCall', id, tool: ToolKind, name, title, input, background? }
   | { type: 'toolResult', toolCallId, output, truncated, isError }
   | { type: 'questionAnswered', toolCallId, answers } // by Item id; null: declined
-  | { type: 'turnStarted', text, steered }      // engine
+  | { type: 'turnStarted', text, steered, cutOff? } // engine
+  | { type: 'jobEnded', jobId, toolCallId?, status, summary } // done|failed|stopped
   | { type: 'turnEnded', status, usage?, error? } // status: done|failed|cancelled
   | { type: 'usage', usage }                    // one model call, as reported
   | { type: 'error', message }
@@ -85,7 +86,10 @@ Usage = { inputTokens, outputTokens, cacheReadTokens?, cacheWriteTokens?, costUs
 
 A toolCall whose tool is `subagent` is a subagent: its children are the
 Messages whose `agentId` equals that toolCall's `id`. A toolCall without a
-matching toolResult is running. Tool output is trimmed in the projection
+matching toolResult is running. A `background` toolCall started a Background
+Job: its toolResult only says so, and a `jobEnded` with its id says how it
+ended. A subagent's Messages may come in a later Turn than its toolCall, as a
+background one writes on after its Turn ends. Tool output is trimmed in the projection
 (`truncated: true`); Raw keeps all of it.
 
 The Message schema is one ESchema. Clients keep Messages in memory only (the

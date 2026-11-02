@@ -120,8 +120,8 @@ export const openSdkAgent = (
     let turn: Turn | undefined;
     let stopped: HarnessError | undefined;
     // What a background subagent wrote, and task notifications, while no
-    // turn ran: the next turn opens with them.
-    let idle: RawOut[] = [];
+    // turn runs: kept as they come, on `between`.
+    const between = yield* Queue.unbounded<RawOut>();
     const chunks = makeStreamChunks();
     let timerSet = false;
 
@@ -129,22 +129,19 @@ export const openSdkAgent = (
       Effect.suspend(() => {
         if (outs.length === 0) return Effect.void;
         if (turn !== undefined) return Queue.offerAll(turn.out, outs);
-        idle.push(...outs);
-        return Effect.void;
+        return Queue.offerAll(between, outs).pipe(Effect.asVoid);
       });
 
     /**
-     * Makes a turn the running one, its stream opening with what came while
-     * no turn ran, and runs `then`, such as sending its message. Synchronous,
-     * so nothing runs between a check that no turn runs and this.
+     * Makes a turn the running one and runs `then`, such as sending its
+     * message. Synchronous, so nothing runs between a check that no turn
+     * runs and this.
      */
-    const begin = (current: Turn, then?: () => void): Effect.Effect<void> => {
-      turn = current;
-      then?.();
-      const waiting = idle;
-      idle = [];
-      return Queue.offerAll(current.out, waiting).pipe(Effect.asVoid);
-    };
+    const begin = (current: Turn, then?: () => void): Effect.Effect<void> =>
+      Effect.sync(() => {
+        turn = current;
+        then?.();
+      });
 
     // Text left waiting in a slow stream is sent once it is due, even when
     // no record arrives to send it with.
@@ -261,7 +258,7 @@ export const openSdkAgent = (
     /**
      * The turn a record joins: the running one, or one the agent starts.
      * Between turns only a background subagent's records and task
-     * notifications are kept, for the next turn; the rest is bookkeeping.
+     * notifications are kept, on `between`; the rest is bookkeeping.
      */
     const turnFor = (record: SdkRecord) =>
       Effect.suspend((): Effect.Effect<Turn | 'idle' | undefined> => {
@@ -517,6 +514,7 @@ export const openSdkAgent = (
         );
       }),
       agentTurns: Stream.fromQueue(agentTurns),
+      between: Stream.fromQueue(between),
       backgroundJobs: jobs.changes,
       stopBackgroundJob: jobs.stop,
       questions: questions.changes,

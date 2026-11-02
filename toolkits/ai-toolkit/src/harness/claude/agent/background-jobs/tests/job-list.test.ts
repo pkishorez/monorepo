@@ -34,6 +34,37 @@ describe('job list', () => {
     ]);
   });
 
+  it('links a job to the tool call that started it, whichever comes first', () => {
+    const started = {
+      type: 'system',
+      subtype: 'task_started',
+      task_id: 'a1',
+      tool_use_id: 'toolu_1',
+    };
+    const after = new Map<string, string>();
+    const listed = next([], changed([agent]), 5, after);
+    expect(next(listed, started, 6, after)).toEqual([
+      {
+        id: 'a1',
+        kind: 'agent',
+        title: 'Review the diff',
+        startedAt: 5,
+        toolCallId: 'toolu_1',
+      },
+    ]);
+    const before = new Map<string, string>();
+    const told = next([], started, 5, before);
+    expect(next(told, changed([agent]), 6, before)).toEqual([
+      {
+        id: 'a1',
+        kind: 'agent',
+        title: 'Review the diff',
+        startedAt: 6,
+        toolCallId: 'toolu_1',
+      },
+    ]);
+  });
+
   it('leaves out housekeeping tasks', () => {
     expect(next([], changed([{ ...bash, ambient: true }]), 5)).toEqual([]);
   });

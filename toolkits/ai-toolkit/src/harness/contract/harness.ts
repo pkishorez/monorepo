@@ -147,6 +147,11 @@ export interface Agent {
    * only while no user Turn runs.
    */
   readonly agentTurns: Stream.Stream<TurnHandle>;
+  /**
+   * What the agent writes while no Turn runs, as it comes: a background
+   * subagent's records and a Background Job's end. Read by one reader.
+   */
+  readonly between: Stream.Stream<RawOut>;
   /** The agent's Background Jobs, the current list first, then each change. */
   readonly backgroundJobs: Stream.Stream<ReadonlyArray<BackgroundJob>>;
   readonly stopBackgroundJob: (id: string) => Effect.Effect<void, HarnessError>;
