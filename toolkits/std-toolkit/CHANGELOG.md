@@ -1,5 +1,12 @@
 # @kestack/std-toolkit
 
+## 0.0.7
+
+### Patch Changes
+
+- Updated dependencies [[`df76ba6`](https://github.com/pkishorez/monorepo/commit/df76ba60280fdb5405ca85b29fe67f8604de18bf)]:
+  - @kestack/kabuki@0.0.6
+
 ## 0.0.6
 
 ### Patch Changes

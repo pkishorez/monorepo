@@ -1,5 +1,14 @@
 # @kestack/ui-toolkit
 
+## 0.0.7
+
+### Patch Changes
+
+- [#79](https://github.com/pkishorez/monorepo/pull/79) [`2b2e5e5`](https://github.com/pkishorez/monorepo/commit/2b2e5e5d5e8ec705ed0b2fbec34587806030391d) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A Drawer can be swiped open from the edge of the screen: `DrawerSwipeArea`, from `@kestack/web-platform/ui/components/drawer`, is an invisible strip you place along an edge, and swiping away from it pulls the Drawer out under the finger, the way a side menu opens on a phone. The page still scrolls the other way through it.
+- Updated dependencies [[`df76ba6`](https://github.com/pkishorez/monorepo/commit/df76ba60280fdb5405ca85b29fe67f8604de18bf)]:
+  - @kestack/kabuki@0.0.6
+  - @kestack/auth-toolkit@0.0.7
+
 ## 0.0.6
 
 ### Patch Changes

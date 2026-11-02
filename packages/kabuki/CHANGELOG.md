@@ -1,5 +1,11 @@
 # @kestack/kabuki
 
+## 0.0.6
+
+### Patch Changes
+
+- [#79](https://github.com/pkishorez/monorepo/pull/79) [`df76ba6`](https://github.com/pkishorez/monorepo/commit/df76ba60280fdb5405ca85b29fe67f8604de18bf) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A Router that routes in memory starts at its root, not at whatever page the browser is on, so a routed demo can sit inside another app's page. `Router.view` no longer gives `View.app` an `input` that reads the browser's address: only an app whose Layer holds an Adapter owns the address, and it starts there with `input: () => view.startAt()`. Start's client does this for you; an app that gives `browser()` or `tanstack()` to `View.app` itself adds that line.
+
 ## 0.0.5
 
 ### Patch Changes
