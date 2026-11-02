@@ -170,6 +170,8 @@ export const forkFrom = (self: SessionQuerySelf, afterTurnId: string | null) =>
       settledAt: null,
       activeAt: now,
       endedAt: null,
+      // Its jobs ran in the Session forked.
+      jobs: [],
     };
     return fork;
   });

@@ -4,7 +4,11 @@ import { type Raw, TURN_END_STATUSES } from '@kestack/ai-toolkit/contract';
 import type { Session } from '../../../records/index.js';
 import { Store } from '../../capabilities/index.js';
 import { EngineRaw } from '../../engine-raw/index.js';
-import type { Prompt } from '../actor-session/index.js';
+import {
+  cutOffJobs,
+  resumePrompt,
+  type Prompt,
+} from '../actor-session/index.js';
 
 /*
  * The Bootstrap Sweep, run by the root while Loading: every project and
@@ -17,19 +21,17 @@ import type { Prompt } from '../actor-session/index.js';
  * A session still `running` was cut off when the server last stopped,
  * cleanly or not: a stop writes nothing, so this is the one place that
  * finds it. Its turn gets `turn.ended { interrupted }` and the session is
- * `interrupted`.
+ * `interrupted`. So were the Background Jobs its record still keeps, as
+ * the server stopping killed them with its Agent.
  *
- * Then it is Resumed, once: the Session is handed a Prompt, as a new
- * Session is handed its first message, and starts a Turn with it once the
- * root is Ready. A Turn that was itself Resumed is not Resumed again, and
- * neither is one whose agent never gave its native id, as there is nothing
- * to continue. A Turn cancelled or failed was not left running, so it is
- * never Resumed.
+ * Then it is Resumed, once: the Session is handed a Prompt that says all
+ * that was cut off, as a new Session is handed its first message, and
+ * starts a Turn with it once the root is Ready. A Turn that was itself
+ * Resumed is not Resumed again, and neither is one whose agent never gave
+ * its native id, as there is nothing to continue. A Turn cancelled or
+ * failed was not left running, so it is never Resumed for itself. Jobs
+ * not Resumed stay in the record, and the next message tells of them.
  */
-
-/** What a Resumed Turn asks the agent; Code shows a marker in its place. */
-export const RESUME_PROMPT =
-  'Connect restarted and cut off your last turn, possibly in the middle of a tool call. Check the state of anything you were changing before you repeat it, then continue.';
 
 const TurnEnded = Schema.Struct({ status: Schema.Literals(TURN_END_STATUSES) });
 
@@ -52,49 +54,66 @@ interface Swept {
 
 const swept = (session: Session): Effect.Effect<Swept, never, Store> =>
   Effect.gen(function* () {
-    if (session.status !== 'running') return { session, first: null };
+    const { jobs } = session;
+    if (session.status !== 'running' && jobs.length === 0)
+      return { session, first: null };
     const store = yield* Store;
     const turn = yield* store.lastTurn(session.id);
     const last = turn.at(-1) ?? null;
-    // Ended already, and stopped before the session was saved idle.
-    const ended = endedBy(last);
-    if (last !== null && ended !== null) {
-      const saved: Session = {
-        ...session,
-        status: ended === 'done' ? 'idle' : ended,
-        endedAt: last.at,
-      };
-      yield* store.saveSession(saved);
-      return { session: saved, first: null };
-    }
-    const raw =
-      last === null
-        ? null
-        : yield* EngineRaw.stamp(
-            { sessionId: session.id, turnId: last.turnId, harness: 'engine' },
-            EngineRaw.turnEnded('interrupted'),
-          );
-    if (raw !== null) yield* store.appendRaw(raw);
     const now = yield* Clock.currentTimeMillis;
-    const saved: Session = {
-      ...session,
-      status: 'interrupted',
-      endedAt: raw?.at ?? now,
-    };
-    yield* store.saveSession(saved);
+    let saved = session;
+    let turnCut = false;
+    if (session.status === 'running') {
+      // Ended already, and stopped before the session was saved idle.
+      const ended = endedBy(last);
+      if (last !== null && ended !== null)
+        saved = {
+          ...session,
+          status: ended === 'done' ? 'idle' : ended,
+          endedAt: last.at,
+        };
+      else {
+        const raw =
+          last === null
+            ? null
+            : yield* EngineRaw.stamp(
+                {
+                  sessionId: session.id,
+                  turnId: last.turnId,
+                  harness: 'engine',
+                },
+                EngineRaw.turnEnded('interrupted'),
+              );
+        if (raw !== null) yield* store.appendRaw(raw);
+        saved = {
+          ...session,
+          status: 'interrupted',
+          endedAt: raw?.at ?? now,
+        };
+        turnCut = last !== null;
+      }
+    }
+    const cutOff = { turn: turnCut, jobs: cutOffJobs(jobs) };
     const resume =
-      last !== null && session.nativeId !== null && !wasResumed(turn);
-    yield* Effect.logWarning(
-      `Session ${session.id} was cut off by the server stopping; marked interrupted${resume ? ' and resumed' : ''}`,
-    );
+      (turnCut || jobs.length > 0) &&
+      last !== null &&
+      session.nativeId !== null &&
+      !wasResumed(turn);
+    if (resume) saved = { ...saved, jobs: [] };
+    yield* store.saveSession(saved);
+    if (turnCut || jobs.length > 0)
+      yield* Effect.logWarning(
+        `Session ${session.id} was cut off by the server stopping (${turnCut ? 'its turn, ' : ''}${jobs.length} background jobs)${resume ? '; resumed' : ''}`,
+      );
     if (!resume) return { session: saved, first: null };
     return {
       session: { ...saved, activeAt: now },
       first: {
         id: yield* nextUlid,
-        text: RESUME_PROMPT,
+        text: resumePrompt(cutOff),
         attachments: [],
         resumed: true,
+        cutOff,
       },
     };
   });

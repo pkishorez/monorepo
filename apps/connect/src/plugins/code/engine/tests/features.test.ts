@@ -414,6 +414,7 @@ describe('a Fork', () => {
             endedAt: null,
             worktree: null,
             branch: null,
+            jobs: [],
           });
           return { sessionId: 's1' };
         }),
@@ -716,6 +717,143 @@ describe('Background Jobs', () => {
         yield* eventually(async () => expect(await now()).toEqual([]));
       }),
       fake,
+    );
+  });
+});
+
+describe('Background Jobs, cut off', () => {
+  const build = { id: 'j1', kind: 'shell' as const, title: 'pnpm dev' };
+  const review = { id: 'j2', kind: 'agent' as const, title: 'Review the diff' };
+
+  it('store what the agent writes between Turns, in its latest Turn, as it comes', async () => {
+    const fake = makeFakeHarness();
+    await run(
+      Effect.gen(function* () {
+        const { raws, idle } = yield* started();
+        yield* idle();
+        const before = yield* Effect.promise(() => raws());
+        yield* fake.emitBetween('native-1', {
+          kind: 'assistant',
+          payload: { text: 'still working' },
+          agentId: 'toolu_bg',
+        });
+        yield* eventually(async () =>
+          expect(await raws()).toHaveLength(before.length + 1),
+        );
+        const last = (yield* Effect.promise(() => raws())).at(-1)!;
+        expect(last).toMatchObject({
+          harness: 'claude',
+          kind: 'assistant',
+          agentId: 'toolu_bg',
+          turnId: before[0]!.turnId,
+        });
+      }),
+      fake,
+    );
+  });
+
+  it('a Cancel stops every job, a Turn running or not', async () => {
+    const fake = makeFakeHarness();
+    await run(
+      Effect.gen(function* () {
+        const { engine, session, idle } = yield* started();
+        yield* idle();
+        yield* fake.setJobs('native-1', [build, review]);
+        yield* eventually(async () =>
+          expect(
+            (await Effect.runPromise(Stream.runHead(engine.backgroundJobs)))
+              .pipe(Option.getOrThrow)
+              .at(0)?.jobs,
+          ).toHaveLength(2),
+        );
+        yield* engine.cancel(session.id);
+        yield* eventually(() =>
+          expect([...fake.stoppedJobs].sort()).toEqual(['j1', 'j2']),
+        );
+      }),
+      fake,
+    );
+  });
+
+  it('are kept in the record, and the next message tells the agent once its Agent closed with them', async () => {
+    const fake = makeFakeHarness({ hold: true });
+    await run(
+      Effect.gen(function* () {
+        const { engine, session, raws, saved } = yield* started();
+        yield* eventually(async () => expect(await raws()).toHaveLength(2));
+        yield* fake.setJobs('native-1', [build, review]);
+        yield* eventually(async () =>
+          expect((await saved())?.jobs).toEqual([build, review]),
+        );
+        yield* fake.fail('boom');
+        yield* eventually(async () =>
+          expect((await saved())?.status).toBe('failed'),
+        );
+        expect((yield* Effect.promise(() => saved()))?.jobs).toEqual([
+          build,
+          review,
+        ]);
+        yield* engine.send(session.id, say('carry on'));
+        yield* eventually(() => expect(fake.inputs).toHaveLength(2));
+        const text = fake.inputs[1]!.text;
+        expect(text).toContain('Review the diff');
+        expect(text).toContain('pnpm dev');
+        expect(text.endsWith('\n\ncarry on')).toBe(true);
+        const started2 = (yield* Effect.promise(() => raws())).find(
+          (raw) =>
+            raw.kind === 'turn.started' &&
+            (raw.payload as { text?: string }).text === 'carry on',
+        );
+        expect(started2?.payload).toMatchObject({
+          cutOff: {
+            turn: false,
+            jobs: [
+              { kind: 'shell', title: 'pnpm dev' },
+              { kind: 'agent', title: 'Review the diff' },
+            ],
+          },
+        });
+        yield* eventually(async () =>
+          expect((await saved())?.jobs).toEqual([]),
+        );
+      }),
+      fake,
+    );
+  });
+
+  it('a restart Resumes a Session whose jobs were running, saying which', async () => {
+    const path = join(folder(), 'ai.db');
+    const fake = makeFakeHarness();
+    const sessionId = await run(
+      Effect.gen(function* () {
+        const { session, saved, idle } = yield* started();
+        yield* idle();
+        yield* fake.setJobs('native-1', [build, review]);
+        yield* eventually(async () =>
+          expect((await saved())?.jobs).toHaveLength(2),
+        );
+        return session.id;
+      }),
+      fake,
+      { path },
+    );
+    await run(
+      Effect.gen(function* () {
+        const store = yield* Store;
+        yield* eventually(() => expect(fake.inputs).toHaveLength(2));
+        const text = fake.inputs[1]!.text;
+        expect(text).toContain('Connect restarted');
+        expect(text).not.toContain('Your last turn was cut off');
+        expect(text).toContain('Review the diff');
+        expect(text).toContain('pnpm dev');
+        yield* eventually(async () =>
+          expect(
+            (await Effect.runPromise(store.session(sessionId)))?.jobs,
+          ).toEqual([]),
+        );
+      }),
+      fake,
+      { path },
     );
   });
 });

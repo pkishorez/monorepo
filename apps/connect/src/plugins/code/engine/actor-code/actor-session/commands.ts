@@ -34,6 +34,36 @@ export const StopJob = Command.make('StopJob', {
 });
 
 /**
+ * Tells the agent to stop each of its Background Jobs, as a Cancel does.
+ * A stop the harness refuses is logged: the job stays listed, with its own
+ * stop.
+ */
+export const StopJobs = Command.make('StopJobs', {
+  args: Schema.Struct({
+    sessionId: Schema.String,
+    jobIds: Schema.Array(Schema.String),
+  }),
+  run: ({ sessionId, jobIds }) =>
+    Effect.gen(function* () {
+      const kept = yield* (yield* Agents).of(sessionId);
+      const agent = yield* kept.opened;
+      if (!agent) return;
+      yield* Effect.forEach(
+        jobIds,
+        (jobId) =>
+          agent
+            .stopBackgroundJob(jobId)
+            .pipe(
+              Effect.catch((error) =>
+                Effect.logWarning(`Could not stop job ${jobId}`, error),
+              ),
+            ),
+        { concurrency: 'unbounded', discard: true },
+      );
+    }),
+});
+
+/**
  * Gives the agent the user's answer to one of its Agent Questions, or
  * declines it with null, and tells the caller waiting on `answerId` how it
  * went: taken, refused with the harness's reason, or not asked when the

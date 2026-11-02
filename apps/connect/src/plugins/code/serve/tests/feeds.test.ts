@@ -220,6 +220,7 @@ describe('the sessions feed', () => {
           endedAt: null,
           worktree: null,
           branch: null,
+          jobs: [],
         });
         const { got } = yield* collect(sessions(null));
         yield* eventually(() => expect(got).toHaveLength(1));

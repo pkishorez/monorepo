@@ -32,6 +32,10 @@
     {
       "hash": "79d2d3a826224dd493e6d0b1acd0dcc672d2a1cee999e91ab2b9de192556a7bb",
       "summary": "The code Plugin on Kabuki's definitions that build, Children made with Actor.child, and declared Queries; the Session's Queries now declare their args and answers."
+    },
+    {
+      "hash": "8f3499a2c438f19535f3a7750d8f4e56848d8eee2ce6a1c78b7fd85428cc0b48",
+      "summary": "Background work is kept as it comes, a cancel stops every job, and a restart tells the agent what it cut off"
     }
   ]
 }

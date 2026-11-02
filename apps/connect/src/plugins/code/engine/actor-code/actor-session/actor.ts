@@ -33,7 +33,14 @@ import {
   Store,
 } from '../../capabilities/index.js';
 import { followBranch } from './branch.js';
-import { AnswerNotAsked, AnswerQuestion, StopJob } from './commands.js';
+import { between } from './between.js';
+import {
+  AnswerNotAsked,
+  AnswerQuestion,
+  StopJob,
+  StopJobs,
+} from './commands.js';
+import { cutOffJobs } from './cut-off.js';
 import { forkFrom } from './fork.js';
 import { Prompt } from './prompt.js';
 import { title, retitle } from './title.js';
@@ -55,8 +62,11 @@ import { cancel, run } from './turn.js';
  *
  * Across both it keeps one Agent for its Turns in Agents (the agent
  * Worker), where its other Workers, its Commands and its Queries find it;
- * follows the Background Jobs the Agent reports, stops one on a StopJob
- * (see commands.ts) and keeps the reason when the harness refuses; follows
+ * stores what the Agent writes between Turns as it comes (see between.ts);
+ * follows the Background Jobs the Agent reports, and keeps them in its
+ * record, so a stop that cuts them off can tell the agent; stops one on a
+ * StopJob (see commands.ts), and every one on a Cancel, so a stopped
+ * Session runs nothing; keeps the reason when the harness refuses; follows
  * the Agent Questions its running Turn waits on, and gives the agent an
  * Answer, its Commands telling the caller in Answers how it went; saves
  * itself whenever its record changes, a new one only once its Agent has
@@ -65,7 +75,9 @@ import { cancel, run } from './turn.js';
  * message (see title.ts); and, while not Settled, keeps the branch its
  * Worktree is on (see branch.ts). Each Turn that starts marks it active, and each
  * that ends marks when; Settling it changes nothing else, and any message
- * un-settles it.
+ * un-settles it. A message sent once its Agent has closed with jobs
+ * running, as a failed Turn closes it, tells the agent they were cut off
+ * (see cut-off.ts).
  *
  * What code outside the tree asks of it is a Query: a Fork (see fork.ts),
  * an Ask, a new Title, and what the Agent says of itself, its MCP Server
@@ -104,6 +116,8 @@ const Model = Schema.Struct({
   untitled: Schema.NullOr(Schema.String),
   /** The agent's Background Jobs as it last listed them; in memory only. */
   jobs: Schema.Array(BackgroundJobSchema),
+  /** Whether its Agent is open; in memory only. */
+  agentOpen: Schema.Boolean,
   /** Stops the harness refused, for jobs still listed; in memory only. */
   refusedStops: Schema.Array(
     Schema.Struct({ jobId: Schema.String, reason: Schema.String }),
@@ -162,7 +176,7 @@ const Message = Schema.TaggedUnion({
   Steered: { turnId: Schema.String, id: Schema.String },
   /** The agent started a Turn on its own. */
   AgentTurn: { turnId: Schema.String, at: Schema.Finite },
-  Jobs: { jobs: Schema.Array(BackgroundJobSchema) },
+  Jobs: { jobs: Schema.Array(BackgroundJobSchema), open: Schema.Boolean },
   /** Stop one of the agent's Background Jobs. */
   StopJob: { jobId: Schema.String },
   /** The harness refused to stop a job. */
@@ -204,6 +218,32 @@ const active = (model: Model, at: number): Model => ({
   ...model,
   session: { ...model.session, activeAt: at },
 });
+
+/**
+ * A user message to an Agent that closed with jobs running tells it they
+ * were cut off, once.
+ */
+const told = (model: Model, prompt: Prompt): [Model, Prompt] =>
+  model.agentOpen || model.session.jobs.length === 0
+    ? [model, prompt]
+    : [
+        { ...model, session: { ...model.session, jobs: [] } },
+        {
+          ...prompt,
+          cutOff: { turn: false, jobs: cutOffJobs(model.session.jobs) },
+        },
+      ];
+
+/** Stops every Background Job the agent runs: a Cancel stops all it does. */
+const stopAll = (model: Model) =>
+  model.jobs.length === 0
+    ? {}
+    : {
+        command: StopJobs({
+          sessionId: model.session.id,
+          jobIds: model.jobs.map((job) => job.id),
+        }),
+      };
 
 /** A user message un-settles the Session. */
 const unsettled = (model: Model): Model =>
@@ -303,8 +343,8 @@ const jobs = (self: SessionSelf) =>
   Effect.gen(function* () {
     const { model } = yield* self.get;
     const kept = yield* (yield* Agents).of(model.session.id);
-    yield* Stream.runForEach(kept.jobs, (jobs) =>
-      self.send({ _tag: 'Jobs', jobs }),
+    yield* Stream.runForEach(kept.jobs, ({ jobs, open }) =>
+      self.send({ _tag: 'Jobs', jobs, open }),
     );
   });
 
@@ -414,6 +454,7 @@ export const Session = Actor.define('Session', {
       // A Resumed Session has its title; only a first message asks for one.
       untitled: first && !first.resumed ? first.text : null,
       jobs: [],
+      agentOpen: false,
       refusedStops: [],
       questions: [],
     },
@@ -423,10 +464,13 @@ export const Session = Actor.define('Session', {
     NativeId: ({ nativeId }, { model }) => ({
       model: { ...model, session: { ...model.session, nativeId } },
     }),
-    Jobs: ({ jobs }, { model }) => ({
+    // Closed, its jobs died with it: the record keeps them as cut off.
+    Jobs: ({ jobs, open }, { model }) => ({
       model: {
         ...model,
         jobs,
+        agentOpen: open,
+        session: open ? { ...model.session, jobs } : model.session,
         refusedStops: model.refusedStops.filter((refused) =>
           jobs.some((job) => job.id === refused.jobId),
         ),
@@ -484,6 +528,7 @@ export const Session = Actor.define('Session', {
   },
   workers: {
     agent: { run: (self) => agent(self) },
+    between: { run: (self) => between(self) },
     jobs: { run: (self) => jobs(self) },
     questions: { run: (self) => questions(self) },
     persist: { run: (self) => persist(self) },
@@ -508,10 +553,14 @@ export const Session = Actor.define('Session', {
   states: {
     Idle: {
       on: {
-        Send: ({ prompt, at }, { model }) => ({
-          model: active(unsettled(choose(model, prompt)), at),
-          state: running([prompt]),
-        }),
+        Send: ({ prompt, at }, { model }) => {
+          const [next, sent] = told(model, prompt);
+          return {
+            model: active(unsettled(choose(next, sent)), at),
+            state: running([sent]),
+          };
+        },
+        Cancel: (_, { model }) => stopAll(model),
         AgentTurn: ({ turnId, at }, { model }) => ({
           model: active(model, at),
           state: {
@@ -536,7 +585,10 @@ export const Session = Actor.define('Session', {
             ? { ...state, queued: [...state.queued, prompt] }
             : { ...state, steers: [...state.steers, prompt] },
         }),
-        Cancel: (_, { state }) => ({ state: { ...state, cancelling: true } }),
+        Cancel: (_, { model, state }) => ({
+          state: { ...state, cancelling: true },
+          ...stopAll(model),
+        }),
         Steered: ({ turnId, id }, { state }) =>
           turnId !== state.turnId
             ? {}

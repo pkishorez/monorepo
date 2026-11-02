@@ -611,6 +611,7 @@ const make = (options: EngineOptions) =>
                     endedAt: null,
                     worktree: placed.worktree,
                     branch: placed.branch,
+                    jobs: [],
                   };
                   const first = yield* promptOf(session.id, {
                     text: input.text,

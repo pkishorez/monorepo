@@ -74,8 +74,12 @@ const started = Effect.gen(function* () {
 });
 
 /** What a Bootstrap Sweep sends to Resume a cut-off Turn. */
-const RESUME_PROMPT =
-  'Connect restarted and cut off your last turn, possibly in the middle of a tool call. Check the state of anything you were changing before you repeat it, then continue.';
+const RESUME_PROMPT = [
+  'Connect restarted and stopped everything this session had running:',
+  '- Your last turn was cut off, possibly in the middle of a tool call.',
+  '',
+  'None of it is running now. Check what each one changed before you repeat it, start again the ones still needed, then continue.',
+].join('\n');
 
 /** A session left running mid-turn, its native id saved, as a stop leaves it. */
 const cutOff = Effect.gen(function* () {
@@ -603,7 +607,7 @@ describe('Engine', () => {
           'engine turn.started {"text":"hello there\\nsecond line","steered":false}',
           'claude text {"text":"echo:hello there\\nsecond line"}',
           'engine turn.ended {"status":"interrupted"}',
-          `engine turn.started ${JSON.stringify({ text: RESUME_PROMPT, steered: false, resumed: true })}`,
+          `engine turn.started ${JSON.stringify({ text: RESUME_PROMPT, steered: false, resumed: true, cutOff: { turn: true, jobs: [] } })}`,
           `claude text ${JSON.stringify({ text: `echo:${RESUME_PROMPT}` })}`,
         ]);
         expect(all[2]?.turnId).toBe(all[0]?.turnId);
@@ -649,7 +653,7 @@ describe('Engine', () => {
         expect((yield* store.session(cut.id))?.status).toBe('interrupted');
         const all = yield* Effect.promise(() => rawsOf(store, cut.id));
         expect(all.map(brief).slice(3)).toEqual([
-          `engine turn.started ${JSON.stringify({ text: RESUME_PROMPT, steered: false, resumed: true })}`,
+          `engine turn.started ${JSON.stringify({ text: RESUME_PROMPT, steered: false, resumed: true, cutOff: { turn: true, jobs: [] } })}`,
           `claude text ${JSON.stringify({ text: `echo:${RESUME_PROMPT}` })}`,
           'engine turn.ended {"status":"interrupted"}',
         ]);
@@ -692,6 +696,7 @@ describe('Engine', () => {
             endedAt: null,
             worktree: null,
             branch: null,
+            jobs: [],
           });
           yield* store.appendRaw({
             id: 'r1',
@@ -802,6 +807,7 @@ describe('Engine', () => {
       endedAt: null,
       worktree: null,
       branch: null,
+      jobs: [],
     };
     /** Each removed Session's id and when it was last written. */
     const removed = (store: Store['Service']) =>

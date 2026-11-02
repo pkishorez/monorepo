@@ -58,6 +58,7 @@ const started = (prompt: Prompt | null) =>
         steered: false,
         attachments: prompt.attachments,
         ...(prompt.resumed ? { resumed: true } : {}),
+        ...(prompt.cutOff === undefined ? {} : { cutOff: prompt.cutOff }),
       });
 
 /** An agent turn that is gone before it was taken: nothing to run. */

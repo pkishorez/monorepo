@@ -2,6 +2,7 @@ import { Clock, Effect, Option, Schema } from 'effect';
 import { nextUlid } from '@kestack/std-toolkit/core';
 import type { RawOut } from '@kestack/ai-toolkit/harness';
 import {
+  CutOffSchema,
   type Projected,
   type Raw,
   type RawSource,
@@ -37,6 +38,8 @@ const TurnStarted = Schema.Struct({
   agentStarted: Schema.optionalKey(Schema.Boolean),
   /** A Resumed Turn: `text` is the engine's own prompt to continue. */
   resumed: Schema.optionalKey(Schema.Boolean),
+  /** What a stop cut off before this Turn, which the agent was told of. */
+  cutOff: Schema.optionalKey(CutOffSchema),
 });
 type TurnStarted = typeof TurnStarted.Type;
 
@@ -57,6 +60,7 @@ const turnStarted = ({
   attachments = [],
   agentStarted = false,
   resumed = false,
+  cutOff,
 }: TurnStarted): RawOut => ({
   kind: 'turn.started',
   payload: {
@@ -65,6 +69,7 @@ const turnStarted = ({
     ...(attachments.length === 0 ? {} : { attachments }),
     ...(agentStarted ? { agentStarted } : {}),
     ...(resumed ? { resumed } : {}),
+    ...(cutOff === undefined ? {} : { cutOff }),
   },
 });
 
@@ -114,7 +119,14 @@ const project = (raw: Raw): Projected | null => {
     case 'turn.started':
       return Option.match(read(TurnStarted, raw.payload), {
         onNone: () => null,
-        onSome: ({ text, steered, attachments, agentStarted, resumed }) => ({
+        onSome: ({
+          text,
+          steered,
+          attachments,
+          agentStarted,
+          resumed,
+          cutOff,
+        }) => ({
           agentId: null,
           role: 'user',
           parts: [
@@ -125,6 +137,7 @@ const project = (raw: Raw): Projected | null => {
               ...(attachments === undefined ? {} : { attachments }),
               ...(agentStarted === undefined ? {} : { agentStarted }),
               ...(resumed === undefined ? {} : { resumed }),
+              ...(cutOff === undefined ? {} : { cutOff }),
             },
           ],
         }),

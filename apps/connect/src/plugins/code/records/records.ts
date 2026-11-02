@@ -1,6 +1,9 @@
 import { Schema } from 'effect';
 import { EntityESchema } from '@kestack/std-toolkit/eschema';
-import { HARNESS_NAMES } from '@kestack/ai-toolkit/contract';
+import {
+  BackgroundJobSchema,
+  HARNESS_NAMES,
+} from '@kestack/ai-toolkit/contract';
 
 /**
  * - present  the folder is there.
@@ -86,6 +89,19 @@ export const SessionSchema = EntityESchema.make('AiSession', 'id', {
     },
     // A v1 Session ran in its Project's folder; the Folder Check finds its branch.
     (previous) => ({ ...previous, worktree: null, branch: null }),
+  )
+  .evolve(
+    'v3',
+    {
+      /**
+       * The Background Jobs alive as its Agent last listed them. Once the
+       * Agent has closed, or the server stopped, these are the ones cut
+       * off, until a Turn tells the agent of them and empties it.
+       */
+      jobs: Schema.Array(BackgroundJobSchema),
+    },
+    // A v2 Session kept no jobs.
+    (previous) => ({ ...previous, jobs: [] }),
   )
   .build();
 

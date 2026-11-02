@@ -8,6 +8,7 @@ import {
 import type {
   Agent,
   HarnessError,
+  RawOut,
   TurnHandle,
 } from '@kestack/ai-toolkit/harness';
 import type {
@@ -32,6 +33,12 @@ export interface Milestone {
   readonly fail: (error: HarnessError) => Effect.Effect<void>;
 }
 
+/** A Session's Agent's Background Jobs, and whether the Agent is open. */
+export interface AgentJobs {
+  readonly jobs: ReadonlyArray<BackgroundJob>;
+  readonly open: boolean;
+}
+
 /** A Session's Agent, as the Session's Workers, Commands and Queries share it. */
 export interface SessionAgent {
   /** The Agent, opened now if it is not open. */
@@ -53,8 +60,13 @@ export interface SessionAgent {
   readonly opened: Effect.Effect<Agent | undefined>;
   /** Closes the Agent; the next Turn opens it again, resumed by its Native Id. */
   readonly reset: Effect.Effect<void>;
-  /** The Agent's Background Jobs now, then each change; none while it is closed. */
-  readonly jobs: Stream.Stream<ReadonlyArray<BackgroundJob>>;
+  /**
+   * The Agent's Background Jobs now, then each change, and whether it is
+   * open: closed, it has none, as its jobs died with it.
+   */
+  readonly jobs: Stream.Stream<AgentJobs>;
+  /** What the Agent writes while no Turn runs, as it comes; one reader. */
+  readonly between: Stream.Stream<RawOut>;
   /** The Agent Questions its running Turn waits on now, then each change; none while it is closed. */
   readonly questions: Stream.Stream<ReadonlyArray<AgentQuestion>>;
   /** Waits until the Agent has started a Turn of its own that has not run. */

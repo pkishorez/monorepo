@@ -38,6 +38,7 @@ const session: Session = {
   endedAt: null,
   worktree: null,
   branch: null,
+  jobs: [],
 };
 
 describe('a Session record', () => {

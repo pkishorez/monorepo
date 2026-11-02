@@ -199,8 +199,12 @@ type Rows = ReadonlyArray<{
 
 /** A message as one line: its first part, and its text if it has one. */
 /** What the Bootstrap Sweep sends to Resume a cut-off Turn. */
-const RESUME_PROMPT =
-  'Connect restarted and cut off your last turn, possibly in the middle of a tool call. Check the state of anything you were changing before you repeat it, then continue.';
+const RESUME_PROMPT = [
+  'Connect restarted and stopped everything this session had running:',
+  '- Your last turn was cut off, possibly in the middle of a tool call.',
+  '',
+  'None of it is running now. Check what each one changed before you repeat it, start again the ones still needed, then continue.',
+].join('\n');
 
 const line = ({ row }: Rows[number]) => {
   const part = row.parts[0]!;

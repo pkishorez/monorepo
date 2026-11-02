@@ -1,12 +1,16 @@
 import { Schema } from 'effect';
+import { CutOffSchema } from '@kestack/ai-toolkit/contract';
 import type { TurnInput } from '@kestack/ai-toolkit/harness';
 import { EngineRaw } from '../../engine-raw/index.js';
+import { cutOffNote } from './cut-off.js';
 
 /*
  * A user message as a Session keeps it: its text, its Attachments as Raw
  * records them (an image's data, or the path a file was saved at), and any
  * change of model or settings it carries. The Bootstrap Sweep makes one
- * too, `resumed`, to Resume a Turn a stop cut off.
+ * too, `resumed`, to Resume what a stop cut off. Either may carry what was
+ * cut off (`cutOff`): a Resumed one says it as its text, and a user's
+ * message is sent to the agent after a note that says it.
  */
 
 export const Prompt = Schema.Struct({
@@ -18,6 +22,8 @@ export const Prompt = Schema.Struct({
   settings: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
   /** The engine's own, Resuming a cut-off Turn; never a user's. */
   resumed: Schema.optionalKey(Schema.Boolean),
+  /** What a stop cut off before it, which it tells the agent. */
+  cutOff: Schema.optionalKey(CutOffSchema),
 });
 export type Prompt = typeof Prompt.Type;
 
@@ -28,8 +34,12 @@ export const toTurnInput = (prompt: Prompt): TurnInput => {
       ? []
       : [`Attached file: ${each.path} (${each.mime})`],
   );
+  const text = [prompt.text, ...lines].filter((line) => line !== '').join('\n');
   return {
-    text: [prompt.text, ...lines].filter((line) => line !== '').join('\n'),
+    text:
+      prompt.cutOff === undefined || prompt.resumed
+        ? text
+        : `${cutOffNote(prompt.cutOff)}\n\n${text}`,
     images: prompt.attachments.flatMap(({ name, mime, data }) =>
       data === undefined ? [] : [{ name, mime, data }],
     ),
