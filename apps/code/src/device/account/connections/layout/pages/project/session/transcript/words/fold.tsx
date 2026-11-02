@@ -1,4 +1,5 @@
 import { ChevronDownIcon } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   createContext,
   type MouseEvent,
@@ -10,6 +11,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
+import { Scrolled } from '../../scroller/index.ts';
 
 /*
  * What opens and closes in a transcript, and how: one set of open ids for
@@ -23,8 +25,11 @@ import {
  *
  * An open fold's head sticks to the top while what it opens scrolls under
  * it, under the heads of the open folds around it, so it can be shut from
- * there (`useSticky`). Shut from there, the head stays where it is, as
- * the scroller keeps what was clicked where it was.
+ * there (`useSticky`). What it opens grows in and shuts away by its height
+ * (`Folded`). Opening or shutting, a fold keeps itself on the screen
+ * (`useOnScreen`): what is on the screen stays still, and one shut from a
+ * head stuck at the top first goes back to its own top, under that head,
+ * so the head stays where it is and what it opened folds up into it.
  */
 
 /** Which folds are open, by id. */
@@ -119,6 +124,7 @@ export function useSticky(open: boolean, toggle: () => void) {
   const place = use(Stuck);
   const head = useRef<HTMLDivElement>(null);
   const height = useHeight(head, open);
+  const onScreen = useOnScreen();
   return {
     head,
     open,
@@ -126,10 +132,68 @@ export function useSticky(open: boolean, toggle: () => void) {
       ? { top: place.top, zIndex: DEEPEST - Math.min(place.depth, DEEPEST - 1) }
       : undefined,
     under: { top: place.top + height, depth: place.depth + 1 },
-    // Shut from where it is stuck, it stays there: the scroller keeps
-    // what was clicked where it was.
-    toggle,
+    toggle: () => {
+      onScreen(head.current?.parentElement ?? null, open);
+      toggle();
+    },
   };
+}
+
+/**
+ * Before a fold opens or shuts, it keeps itself on the screen: what is on
+ * the screen stays still, at the bottom too, so it opens and shuts where
+ * it was clicked. Shutting with its top gone up out of sight, the view
+ * first goes back to its top, under the heads stuck above it.
+ */
+export function useOnScreen() {
+  const scroll = use(Scrolled);
+  const { top } = use(Stuck);
+  return (fold: Element | null, shutting: boolean) => {
+    const scroller = scroll?.scroller;
+    if (!scroll || !scroller || !fold) return;
+    scroll.still();
+    if (!shutting) return;
+    const by =
+      scroller.getBoundingClientRect().top +
+      top -
+      (fold.getBoundingClientRect().top + fold.clientTop);
+    if (by > 0.5) scroller.scrollTop -= by;
+  };
+}
+
+/** How what a fold opens grows in and shuts away. */
+const FOLDING = { duration: 0.2, ease: [0.2, 0, 0, 1] } as const;
+
+/**
+ * What an open fold opens, grown in and shut away by its height, at once
+ * with reduced motion; drawn only while open or shutting. It clips only
+ * up and down: heads inside still stick, and hovers reach past its sides.
+ */
+export function Folded({
+  open,
+  className,
+  children,
+}: {
+  readonly open: boolean;
+  readonly className?: string;
+  readonly children: ReactNode;
+}) {
+  const reduced = useReducedMotion() === true;
+  return (
+    <AnimatePresence initial={false}>
+      {open && (
+        <motion.div
+          initial={{ height: 0 }}
+          animate={{ height: 'auto' }}
+          exit={{ height: 0 }}
+          transition={reduced ? { duration: 0 } : FOLDING}
+          className="overflow-y-clip"
+        >
+          <div className={className}>{children}</div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 }
 
 type Sticky = ReturnType<typeof useSticky>;

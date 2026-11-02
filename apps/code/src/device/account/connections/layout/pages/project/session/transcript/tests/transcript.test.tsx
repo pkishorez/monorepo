@@ -231,7 +231,12 @@ describe('a long transcript', () => {
   it('settles a touch whose end never comes, as when what it touched is taken away', async () => {
     act(() => root.render(<Transcript rows={turns(30)} scrolled />));
     const scroller = container.firstElementChild as HTMLElement;
-    act(() => scroller.dispatchEvent(new Event('touchstart')));
+    // A finger that moves the view: a glide, until it is quiet.
+    act(() => {
+      scroller.dispatchEvent(new Event('touchstart'));
+      Object.defineProperty(scroller, 'scrollTop', { get: () => 50 });
+      scroller.dispatchEvent(new Event('scroll'));
+    });
     room = true;
     expect(drawn()).toBe(10);
     await act(() => new Promise((resolve) => setTimeout(resolve, 200)));
@@ -297,7 +302,7 @@ describe('a long transcript', () => {
     expect(drawn()).toBe(10 + 4);
   });
 
-  it('opens one fold, and only that one', () => {
+  it('opens one fold, and only that one', async () => {
     act(() => root.render(<Transcript rows={turns(3)} />));
     // The work lines', not the info under each turn.
     const FOLD = 'button[aria-expanded]:not([aria-label="About this turn"])';
@@ -311,6 +316,9 @@ describe('a long transcript', () => {
     // Open, it shows its step, a fold of its own, shut.
     expect(folds()).toEqual(['false', 'true', 'false', 'false']);
     act(() => second.click());
+    // Shut, what it opened goes once it has folded away.
+    for (let at = 0; at < 50 && folds().length > 3; at++)
+      await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
     expect(folds()).toEqual(['false', 'false', 'false']);
   });
 });

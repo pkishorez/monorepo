@@ -4,6 +4,7 @@ import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import type { ToolState, Row } from '../turns/rows/index.ts';
 import {
   Chevron,
+  Folded,
   Head,
   type Opening,
   Under,
@@ -118,11 +119,12 @@ export function StepLine({
         </div>
       </Head>
       {below}
-      {open && (
-        <div className="mt-1 mb-3 flex min-w-0 flex-col gap-2 pl-6">
-          <Under sticky={sticky}>{children}</Under>
-        </div>
-      )}
+      <Folded
+        open={open}
+        className="mt-1 mb-3 flex min-w-0 flex-col gap-2 pl-6"
+      >
+        <Under sticky={sticky}>{children}</Under>
+      </Folded>
     </li>
   );
 }
