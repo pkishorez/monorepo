@@ -31,17 +31,19 @@ export function Chip({
   readonly onRemove: () => void;
 }) {
   const image = mime.startsWith('image/');
+  const src = `data:${mime};base64,${data}`;
   return (
     <Frame size="sm" className="max-w-56 min-w-0 pr-1">
       <AttachmentMedia variant={image ? 'image' : 'icon'}>
         {image ? (
           <ImageButton
-            src={`data:${mime};base64,${data}`}
+            src={src}
             label={`Open ${name}`}
-            className="size-full"
+            // A finger wide, past the small thumbnail.
+            className="relative size-full after:absolute after:-inset-1.5 after:content-['']"
           >
             <img
-              src={`data:${mime};base64,${data}`}
+              src={src}
               alt=""
               className="aspect-square w-full object-cover"
             />

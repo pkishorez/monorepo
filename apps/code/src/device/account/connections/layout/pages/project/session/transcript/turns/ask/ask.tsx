@@ -11,7 +11,7 @@ import {
   type Opening,
   unlessSelecting,
   useHeight,
-  useOnScreen,
+  useFoldInPlace,
   useOpen,
 } from '../../words/index.ts';
 import type { Row } from '../rows/index.ts';
@@ -112,10 +112,10 @@ function Bubble({
   // first, and again as the column's width changes how it wraps.
   const tall = useHeight(words) > TALL;
   const open = useOpen(opening, id);
-  const onScreen = useOnScreen();
+  const inPlace = useFoldInPlace();
   // Folded with its top gone up out of sight, it is folded where it shows.
   const toggle = () => {
-    onScreen(words.current, open);
+    inPlace(words.current, open);
     opening.toggle(id);
   };
   const folded = tall && !open;

@@ -53,7 +53,7 @@ function Blocks() {
 function List() {
   const scroll = useScroller('list', 'transcript');
   holdOn = scroll.holdOn;
-  still = () => scroll.scroll.still();
+  still = () => scroll.scroll.keepStill();
   return (
     <div
       ref={(element) => {
@@ -228,14 +228,16 @@ describe('the scroller', () => {
     expect(shown.getBoundingClientRect().top).toBe(was);
   });
 
-  it('5. glides back to the bottom, its glide not the reader’s, and follows', async () => {
+  it('5. glides back to the bottom, lands there once quiet, and follows', async () => {
     await scrolled(-300);
     // A smooth scroll, under way: the view moves on its own, a step at a time.
     scroller.scrollTo = (() => {}) as typeof scroller.scrollTo;
     await act(() => holdOn(true));
     await scrolled(100);
     await grow(40);
-    await scrolled(1000);
+    // Quiet: the rest of the way, the bottom having moved, at once.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 200)));
+    expect(atBottom()).toBe(true);
     await grow(40);
     expect(atBottom()).toBe(true);
   });
@@ -279,7 +281,7 @@ describe('the scroller', () => {
     expect(atBottom()).toBe(true);
   });
 
-  it('5. goes on gliding as words arrive, never jumping to the bottom', async () => {
+  it('5. goes on gliding as words arrive, never jumping nor starting over', async () => {
     await scrolled(-300);
     const glides: Array<ScrollToOptions> = [];
     scroller.scrollTo = ((options: ScrollToOptions) =>
@@ -287,7 +289,8 @@ describe('the scroller', () => {
     await act(() => holdOn(true));
     const was = top;
     await grow(40);
+    await grow(40);
     expect(top).toBe(was);
-    expect(glides.at(-1)).toMatchObject({ behavior: 'smooth' });
+    expect(glides).toEqual([{ top: total() - 80, behavior: 'smooth' }]);
   });
 });

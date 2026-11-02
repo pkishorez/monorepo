@@ -27,7 +27,7 @@ import { Scrolled } from '../../scroller/index.ts';
  * it, under the heads of the open folds around it, so it can be shut from
  * there (`useSticky`). What it opens grows in and shuts away by its height
  * (`Folded`). Opening or shutting, a fold keeps itself on the screen
- * (`useOnScreen`): what is on the screen stays still, and one shut from a
+ * (`useFoldInPlace`): what is on the screen stays still, and one shut from a
  * head stuck at the top first goes back to its own top, under that head,
  * so the head stays where it is and what it opened folds up into it.
  */
@@ -124,7 +124,7 @@ export function useSticky(open: boolean, toggle: () => void) {
   const place = use(Stuck);
   const head = useRef<HTMLDivElement>(null);
   const height = useHeight(head, open);
-  const onScreen = useOnScreen();
+  const inPlace = useFoldInPlace();
   return {
     head,
     open,
@@ -133,26 +133,27 @@ export function useSticky(open: boolean, toggle: () => void) {
       : undefined,
     under: { top: place.top + height, depth: place.depth + 1 },
     toggle: () => {
-      onScreen(head.current?.parentElement ?? null, open);
+      inPlace(head.current?.parentElement ?? null, open);
       toggle();
     },
   };
 }
 
 /**
- * Before a fold opens or shuts, it keeps itself on the screen: what is on
- * the screen stays still, at the bottom too, so it opens and shuts where
- * it was clicked. Shutting with its top gone up out of sight, the view
- * first goes back to its top, under the heads stuck above it.
+ * Keeps a fold in place as it opens or shuts, called just before: what is
+ * on the screen stays still, at the bottom too, so it opens and shuts
+ * where it was clicked; and one about to shut, `open` now, with its top
+ * gone up out of sight, as under a head stuck at the top, first has the
+ * view go back to its top, under the heads stuck above it.
  */
-export function useOnScreen() {
+export function useFoldInPlace() {
   const scroll = use(Scrolled);
   const { top } = use(Stuck);
-  return (fold: Element | null, shutting: boolean) => {
+  return (fold: Element | null, open: boolean) => {
     const scroller = scroll?.scroller;
     if (!scroll || !scroller || !fold) return;
-    scroll.still();
-    if (!shutting) return;
+    scroll.keepStill();
+    if (!open) return;
     const by =
       scroller.getBoundingClientRect().top +
       top -
@@ -278,13 +279,20 @@ export function Clamped({
   const all = text.replace(/\n+$/, '').split('\n');
   const whole = useOpen(opening, id) || all.length <= SHOWN_LINES + 2;
   const shown = whole ? all.join('\n') : all.slice(0, SHOWN_LINES).join('\n');
+  const button = useRef<HTMLButtonElement>(null);
+  const inPlace = useFoldInPlace();
   return (
     <>
       {children ? children(shown) : shown}
       {all.length > SHOWN_LINES + 2 && (
         <button
+          ref={button}
           type="button"
-          onClick={() => opening.toggle(id)}
+          // What it is in, as the text's top.
+          onClick={() => {
+            inPlace(button.current?.parentElement ?? null, whole);
+            opening.toggle(id);
+          }}
           className="focus-ring mt-1.5 block min-h-11 cursor-pointer rounded-sm font-sans text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground hover:decoration-foreground keyboard:min-h-0"
         >
           {whole ? 'Show less' : `Show all ${all.length} lines`}

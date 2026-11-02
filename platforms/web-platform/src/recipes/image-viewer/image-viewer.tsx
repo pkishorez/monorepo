@@ -68,6 +68,10 @@ const TAP_PX = 8;
 const clamp = (value: number, low: number, high: number) =>
   Math.min(high, Math.max(low, value));
 
+/**
+ * The viewer, over the page while `src` is an image and gone at once when
+ * it is null; `onClose` is called as the reader closes it.
+ */
 export function ImageViewer({
   src,
   onClose,
@@ -98,7 +102,7 @@ export function ImageViewer({
           >
             <Dialog.Title className="sr-only">Image</Dialog.Title>
             {src !== null && (
-              <Stage src={src} onClose={onClose} onSwiped={swiped} />
+              <Canvas src={src} onClose={onClose} onSwiped={swiped} />
             )}
           </Dialog.Popup>
         </Dialog.Portal>
@@ -187,7 +191,8 @@ function Leaving({
 /** Where the image is: scaled from its fitted size, and moved from the centre. */
 type Place = { readonly scale: number; readonly x: number; readonly y: number };
 
-function Stage({
+/** The image on its backdrop, with its buttons: zoomed and moved, or taken away. */
+function Canvas({
   src,
   onClose,
   onSwiped,

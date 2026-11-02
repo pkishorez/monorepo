@@ -24,9 +24,10 @@ import { Steps } from './steps.tsx';
 /*
  * A subagent as a card of its own: what it was asked to do, and where it
  * stands, as its title, how many steps it took, or what it is doing now
- * while it runs. Shut, its report shows under it, its start only. Open,
- * its prompt, each step it took, and its report in full, its head stuck
- * to the top while they scroll under it.
+ * while it runs. Its report shows under it, its start until asked for
+ * all, the same open or shut. Open, its prompt and each step it took grow
+ * in above the report, its head stuck to the top while they scroll under
+ * it.
  */
 
 type SubagentRow = Extract<Row, { readonly kind: 'subagent' }>;
@@ -125,21 +126,19 @@ export function Subagent({
         </Under>
       </Folded>
       {report && (
-        <div
-          className={`min-w-0 px-3 py-2.5 ${open ? 'pt-0' : 'border-t border-border/70'}`}
-        >
-          {open && (
-            <span
-              className={`mb-1 block text-xs font-medium ${report.isError ? 'text-destructive' : 'text-muted-foreground'}`}
-            >
-              {report.isError ? 'It failed' : 'Its report'}
-            </span>
-          )}
+        // The same open or shut, so nothing under the steps moves as they
+        // grow in or fold away.
+        <div className="min-w-0 border-t border-border/70 px-3 py-2.5">
+          <span
+            className={`mb-1 block text-xs font-medium ${report.isError ? 'text-destructive' : 'text-muted-foreground'}`}
+          >
+            {report.isError ? 'It failed' : 'Its report'}
+          </span>
           <Long
             id={`${row.id}:report`}
             opening={opening}
             text={report.output}
-            className={`text-sm ${open ? '' : 'text-muted-foreground [&_p]:my-0'} ${report.isError ? 'text-destructive' : ''}`}
+            className={`text-sm ${report.isError ? 'text-destructive' : ''}`}
           />
           {report.truncated && (
             <span className="text-xs text-muted-foreground">

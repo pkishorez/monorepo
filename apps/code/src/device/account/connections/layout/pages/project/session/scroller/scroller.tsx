@@ -38,12 +38,13 @@ export { useScrollKeys } from './keys.ts';
  *            follows; scrolled up even a pixel, it stays.
  * 4. More    near the top of what is drawn, more is drawn above
  *            (`shown.ts`), and rule 2 keeps the view where it was.
- * 5. Down    `holdOn` goes back to the bottom, as a message is sent: a
- *            glide there, on to the bottom as it moves, is not the
- *            reader's scroll, unless it goes up.
+ * 5. Down    `holdOn` goes back to the bottom, as a message is sent: one
+ *            glide there, not the reader's scroll unless it goes up, and
+ *            once it is quiet, the rest of the way at once if the bottom
+ *            moved while it went.
  *
  * What opens and shuts in the list keeps itself on the screen with
- * `still` (`../transcript/words/fold.tsx`); this needs nothing else.
+ * `keepStill` (`../transcript/words/fold.tsx`); this needs nothing else.
  *
  * A phone takes no notice of the view being put back while a finger moves
  * it, or while the glide it set off goes on: then nothing is put back nor
@@ -97,8 +98,9 @@ export function useScroller(key: string, id: string) {
     let put = Number.NaN;
     /** Whether the view has been put in place since its list was drawn. */
     let placed = false;
-    /** Whether it glides to the bottom on its own (rule 5). */
-    let down = false;
+    /** Whether it glides down to the bottom on its own (rule 5). */
+    let descending = false;
+    let landing = 0;
     /** Whether a finger is on it. */
     let touching = false;
     let settling = 0;
@@ -112,33 +114,41 @@ export function useScroller(key: string, id: string) {
     };
     /** Rule 3: where the reader is now. */
     const read = () => set(anchorOf(outer));
+    const stopDescending = () => {
+      descending = false;
+      clearTimeout(landing);
+    };
+    /** Its glide down, quiet now: what the bottom moved by since, at once. */
+    const landSoon = () => {
+      clearTimeout(landing);
+      landing = window.setTimeout(() => {
+        descending = false;
+        place();
+      }, SETTLE_MS);
+    };
     const place = () => {
       // Not while a glide goes on: it would take the view back.
       if (scroll.gliding) return;
       const moved = outer.scrollTop - put;
-      // Rule 5: the reader going up ends its glide down.
-      if (down && moved <= -1) down = false;
-      if (down) {
-        // On down to the bottom as it moves, smoothly still.
-        if (atBottom(outer)) down = false;
-        else outer.scrollTo({ top: outer.scrollHeight, behavior: 'smooth' });
-      } else {
-        // Rule 3, for a scroll whose event is yet to come: the reader, or
-        // the browser keeping the view in what it holds, moved it.
-        if (Math.abs(moved) >= 1) {
-          if (atBottom(outer)) set(BOTTOM);
-          else if (scroll.anchor.at === 'block')
-            set({ ...scroll.anchor, offset: scroll.anchor.offset - moved });
-          else read();
-        }
-        // Rule 2, or rule 1.
-        if (!putBack(outer, scroll.anchor, blockOf) && scroll.drawn) {
-          // Its block is gone, as when an answer's words were split again:
-          // the view stays where it is, or, never put in place, as when a
-          // kept place is gone, is at the end.
-          set(placed ? anchorOf(outer) : BOTTOM);
-          putBack(outer, scroll.anchor, blockOf);
-        }
+      // Rule 5: its glide down goes on undisturbed, unless the reader goes
+      // up out of it; it lands once quiet.
+      if (descending && moved > -1) return;
+      stopDescending();
+      // Rule 3, for a scroll whose event is yet to come: the reader, or
+      // the browser keeping the view in what it holds, moved it.
+      if (Math.abs(moved) >= 1) {
+        if (atBottom(outer)) set(BOTTOM);
+        else if (scroll.anchor.at === 'block')
+          set({ ...scroll.anchor, offset: scroll.anchor.offset - moved });
+        else read();
+      }
+      // Rule 2, or rule 1.
+      if (!putBack(outer, scroll.anchor, blockOf) && scroll.drawn) {
+        // Its block is gone, as when an answer's words were split again:
+        // the view stays where it is, or, never put in place, as when a
+        // kept place is gone, is at the end.
+        set(placed ? anchorOf(outer) : BOTTOM);
+        putBack(outer, scroll.anchor, blockOf);
       }
       if (scroll.drawn) placed = true;
       put = outer.scrollTop;
@@ -189,10 +199,10 @@ export function useScroller(key: string, id: string) {
       if (!scroll.drawn) return;
       const up = outer.scrollTop < put;
       put = outer.scrollTop;
-      // Rule 5: its own glide down, until there, or the reader going up.
-      if (down && !up) down = !atBottom(outer);
+      // Rule 5: its own glide down, landing once quiet, unless it goes up.
+      if (descending && !up) landSoon();
       else {
-        down = false;
+        stopDescending();
         read();
       }
       report();
@@ -200,26 +210,33 @@ export function useScroller(key: string, id: string) {
       scroll.fill(false);
     };
     scroll.place = place;
-    scroll.still = () => {
+    scroll.keepStill = () => {
+      stopDescending();
       if (scroll.anchor.at === 'bottom') set(blockAt(outer));
-      down = false;
     };
     moves.current = {
       holdOn: (smooth = false) => {
         set(BOTTOM);
-        down =
-          smooth && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+        stopDescending();
+        const glide =
+          smooth &&
+          !atBottom(outer) &&
+          !matchMedia('(prefers-reduced-motion: reduce)').matches;
         outer.scrollTo({
           top: outer.scrollHeight,
-          behavior: down ? 'smooth' : 'instant',
+          behavior: glide ? 'smooth' : 'instant',
         });
+        if (glide) {
+          descending = true;
+          landSoon();
+        }
         put = outer.scrollTop;
         report();
       },
       toTop: () => {
         clearTimeout(settling);
         scroll.gliding = false;
-        down = false;
+        stopDescending();
         scroll.showAll();
         outer.scrollTop = 0;
         put = outer.scrollTop;
@@ -247,8 +264,9 @@ export function useScroller(key: string, id: string) {
     outer.addEventListener('touchcancel', onTouchEnd, { passive: true });
     return () => {
       scroll.place = () => {};
-      scroll.still = () => {};
+      scroll.keepStill = () => {};
       clearTimeout(settling);
+      clearTimeout(landing);
       scroll.gliding = false;
       resized?.disconnect();
       outer.removeEventListener('scroll', onScroll);

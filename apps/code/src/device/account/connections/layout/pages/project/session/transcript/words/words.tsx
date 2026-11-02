@@ -1,10 +1,11 @@
 import { MarkdownViewer } from '@kestack/web-platform/ui/viewers/markdown-viewer';
-import type { ComponentProps } from 'react';
-import { type Opening, useOpen } from './fold.tsx';
+import { type ComponentProps, useRef } from 'react';
+import { type Opening, useFoldInPlace, useOpen } from './fold.tsx';
 
 /*
  * The agent's words: markdown, inline code as a quiet chip without the
- * backticks prose adds; long words show their start until asked for all;
+ * backticks prose adds; long words show their start until asked for all,
+ * shown less again where they can be seen;
  * and a breathing dot while more are on their way.
  */
 
@@ -58,8 +59,10 @@ export function Long({
 }) {
   const long = text.length > 700 || text.split('\n').length > 10;
   const whole = useOpen(opening, id) || !long;
+  const words = useRef<HTMLDivElement>(null);
+  const inPlace = useFoldInPlace();
   return (
-    <div className="flex flex-col items-start">
+    <div ref={words} className="flex flex-col items-start">
       <div
         className={
           whole
@@ -72,7 +75,10 @@ export function Long({
       {long && (
         <button
           type="button"
-          onClick={() => opening.toggle(id)}
+          onClick={() => {
+            inPlace(words.current, whole);
+            opening.toggle(id);
+          }}
           className="focus-ring mt-1 min-h-11 cursor-pointer rounded-sm text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground hover:decoration-foreground keyboard:min-h-0"
         >
           {whole ? 'Show less' : 'Show all'}
