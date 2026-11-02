@@ -6,6 +6,8 @@ import type { TurnOptions } from './turn-options.js';
 export interface SdkAgentConfig extends TurnOptions {
   readonly cwd: string;
   readonly nativeId?: string;
+  /** Added to Claude Code's own system prompt; omitted adds nothing. */
+  readonly instructions?: string;
   /** The Claude Code to run, and the environment it runs in. */
   readonly executable: {
     readonly path: string;
@@ -37,6 +39,15 @@ export const queryOptions = (
   // A later Turn may switch to bypass, which must be allowed from the start.
   allowDangerouslySkipPermissions: true,
   ...(config.nativeId === undefined ? {} : { resume: config.nativeId }),
+  // Claude Code's own system prompt, not the SDK's bare default, with the
+  // caller's instructions after it.
+  systemPrompt: {
+    type: 'preset',
+    preset: 'claude_code',
+    ...(config.instructions === undefined
+      ? {}
+      : { append: config.instructions }),
+  },
   // Background Jobs get their own stop button, so cancelling a Turn spares
   // them.
   perTaskStopAffordance: true,

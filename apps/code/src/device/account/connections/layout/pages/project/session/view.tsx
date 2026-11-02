@@ -42,9 +42,16 @@ import {
   tokens,
 } from './panels/details/index.ts';
 import {
+  drawEmbed,
+  type Embeds,
+  EmbedsContext,
+  FileViewer,
+} from './panels/files/index.ts';
+import {
   EarlierRows,
   Folder,
   itemsOf,
+  MarkdownImages,
   RunningButton,
   earlierOf,
   type Forking,
@@ -89,6 +96,10 @@ import {
  * transcript, which cannot be reached under it. Nothing of it is drawn until all of it is read from this device
  * (`readyOf`), then the transcript and the Draft in one step;
  * `SessionReady` says so once, before Layout is first drawn.
+ * A File Embed in anything its agent wrote, the transcript, a subagent or
+ * a markdown file opened, is drawn where it was written, its path read
+ * from the session's Worktree, or its Project's folder, and opens in the
+ * viewer over it (`panels/files/`).
  */
 
 /** The transcript's name, under which its scroll is kept per history entry. */
@@ -194,8 +205,29 @@ export const SessionView = View.make(
     );
     // Another session's drawers do not carry over.
     useEffect(() => closeDrawers(0), [props.params.sessionId, closeDrawers]);
+    // Nor does a file it had open.
+    useEffect(
+      () => send({ _tag: 'FileClosed' }),
+      [props.params.sessionId, send],
+    );
     // 8. Running: what runs, read from its rows and jobs, told to its page.
     const folder = useContext(Folder);
+    // 10. Files: read from its Worktree, or its Project's folder.
+    const base = session?.worktree ?? folder;
+    const tickets = model.files.tickets;
+    const embeds = useMemo(
+      (): Embeds => ({
+        connectionId,
+        base,
+        tickets,
+        want: (embed, at) => send({ _tag: 'FileWanted', ...embed, at }),
+        broke: (embed, url) =>
+          send({ _tag: 'FileBroke', ...embed, url, at: Date.now() }),
+        open: (embed, caption) =>
+          send({ _tag: 'FileOpened', ...embed, caption, at: Date.now() }),
+      }),
+      [connectionId, base, tickets, send],
+    );
     const runningItems = useMemo(
       () => itemsOf(rows, jobs, running, folder),
       [rows, jobs, running, folder],
@@ -348,116 +380,125 @@ export const SessionView = View.make(
     // The Draft sits under the transcript, inset by the room its scrollbar keeps.
     const gutter = useGutter();
     return (
-      <div {...root} className="relative flex min-h-0 flex-1 flex-col">
-        {/* Over the transcript's top right, in its column, while anything runs. */}
-        {(runningItems.length > 0 || model.picking !== null) && !reading && (
-          <div
-            style={{ paddingInline: gutter }}
-            className="pointer-events-none absolute inset-x-0 top-3 z-20"
-          >
-            <div className="mx-auto flex w-full max-w-4xl justify-end px-4 sm:px-6">
-              <div className="pointer-events-auto">
-                <RunningButton
-                  items={runningItems}
-                  how={model.picking}
-                  onOpen={openRunning}
-                  title={
-                    runningKeys === null
-                      ? 'Running now'
-                      : `Running now (${runningKeys})`
-                  }
+      <EmbedsContext value={embeds}>
+        <MarkdownImages value={drawEmbed}>
+          <div {...root} className="relative flex min-h-0 flex-1 flex-col">
+            {/* Over the transcript's top right, in its column, while anything runs. */}
+            {(runningItems.length > 0 || model.picking !== null) &&
+              !reading && (
+                <div
+                  style={{ paddingInline: gutter }}
+                  className="pointer-events-none absolute inset-x-0 top-3 z-20"
                 >
-                  {children.running && (
-                    <RunningPicker.View instance={children.running} />
-                  )}
-                </RunningButton>
-              </div>
-            </div>
-          </div>
-        )}
-        <div
-          ref={(element) => {
-            scroller.current = element;
-            return element === null ? undefined : page(element);
-          }}
-          tabIndex={-1}
-          inert={expanded}
-          data-scroll-restoration-id={TRANSCRIPT}
-          // Positioned, so what is placed absolutely inside it, such as
-          // markdown's screen-reader-only footnotes heading, is measured
-          // here and never makes the page around it scroll too.
-          className={`relative min-h-0 flex-1 overflow-y-auto outline-none select-text [overflow-anchor:none] ${GUTTERED}`}
-        >
-          <Scrolled value={scroll.scroll}>
-            <SessionOpener value={openFromTurn}>
-              <LiveContext.Provider value={live}>
-                <Transcript
-                  key={props.params.sessionId}
-                  content={content}
-                  connectionId={connectionId}
-                  session={session}
-                  original={original}
-                  missing={missing}
-                  reading={reading}
-                  waiting={waiting}
-                  earlier={earlier}
-                  rows={rows}
-                  opening={opening}
-                  forking={forking}
-                  running={running}
-                  ready={messages?.status === 'ready'}
-                  offline={offline}
-                />
-              </LiveContext.Provider>
-            </SessionOpener>
-          </Scrolled>
-        </div>
-        <div ref={setQuestionPlace} className="contents" />
-        {/* A Draft only under a row held here, so none shows over a
-            session its Connection then says is missing. */}
-        {session !== undefined && !reading && (
-          <div
-            style={{ paddingInline: gutter }}
-            className="relative shrink-0 bg-background pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent has-[[data-slot=draft][data-touch]]:pb-0"
-          >
-            <ToBottom
-              shown={scroll.away && !btw && !expanded}
-              onClick={() => scroll.holdOn(true)}
-            />
-            <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 has-[[data-slot=draft][data-touch]]:px-0">
-              <Question.Around value={around}>
-                <Question.view instance={children.question} />
-              </Question.Around>
-              {/* Not drawn while a question stands in for it, so no click,
-                  tap, key or focus reaches it; its Saved Draft waits. */}
-              {!asked && (
-                <Draft.Slots value={slots}>
-                  <Draft.view instance={children.draft} />
-                </Draft.Slots>
+                  <div className="mx-auto flex w-full max-w-4xl justify-end px-4 sm:px-6">
+                    <div className="pointer-events-auto">
+                      <RunningButton
+                        items={runningItems}
+                        how={model.picking}
+                        onOpen={openRunning}
+                        title={
+                          runningKeys === null
+                            ? 'Running now'
+                            : `Running now (${runningKeys})`
+                        }
+                      >
+                        {children.running && (
+                          <RunningPicker.View instance={children.running} />
+                        )}
+                      </RunningButton>
+                    </div>
+                  </div>
+                </div>
               )}
+            <div
+              ref={(element) => {
+                scroller.current = element;
+                return element === null ? undefined : page(element);
+              }}
+              tabIndex={-1}
+              inert={expanded}
+              data-scroll-restoration-id={TRANSCRIPT}
+              // Positioned, so what is placed absolutely inside it, such as
+              // markdown's screen-reader-only footnotes heading, is measured
+              // here and never makes the page around it scroll too.
+              className={`relative min-h-0 flex-1 overflow-y-auto outline-none select-text [overflow-anchor:none] ${GUTTERED}`}
+            >
+              <Scrolled value={scroll.scroll}>
+                <SessionOpener value={openFromTurn}>
+                  <LiveContext.Provider value={live}>
+                    <Transcript
+                      key={props.params.sessionId}
+                      content={content}
+                      connectionId={connectionId}
+                      session={session}
+                      original={original}
+                      missing={missing}
+                      reading={reading}
+                      waiting={waiting}
+                      earlier={earlier}
+                      rows={rows}
+                      opening={opening}
+                      forking={forking}
+                      running={running}
+                      ready={messages?.status === 'ready'}
+                      offline={offline}
+                    />
+                  </LiveContext.Provider>
+                </SessionOpener>
+              </Scrolled>
             </div>
+            <div ref={setQuestionPlace} className="contents" />
+            {/* A Draft only under a row held here, so none shows over a
+            session its Connection then says is missing. */}
+            {session !== undefined && !reading && (
+              <div
+                style={{ paddingInline: gutter }}
+                className="relative shrink-0 bg-background pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent has-[[data-slot=draft][data-touch]]:pb-0"
+              >
+                <ToBottom
+                  shown={scroll.away && !btw && !expanded}
+                  onClick={() => scroll.holdOn(true)}
+                />
+                <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 has-[[data-slot=draft][data-touch]]:px-0">
+                  <Question.Around value={around}>
+                    <Question.view instance={children.question} />
+                  </Question.Around>
+                  {/* Not drawn while a question stands in for it, so no click,
+                  tap, key or focus reaches it; its Saved Draft waits. */}
+                  {!asked && (
+                    <Draft.Slots value={slots}>
+                      <Draft.view instance={children.draft} />
+                    </Draft.Slots>
+                  )}
+                </div>
+              </div>
+            )}
+            <SubagentDrawers
+              rows={rows}
+              ids={model.drawers}
+              running={running}
+              opening={opening}
+              live={live}
+              close={closeDrawers}
+            />
+            {session !== undefined && (
+              <SessionDetails
+                open={model.details}
+                onOpenChange={(open) => send({ _tag: 'DetailsToggled', open })}
+                title={session.title}
+                about={`${agentName(session.harness)} · ${session.model}`}
+                facts={facts}
+                context={model.context}
+                onGo={scroll.toBlock}
+              />
+            )}
+            <FileViewer
+              viewing={model.files.viewing}
+              onClose={() => send({ _tag: 'FileClosed' })}
+            />
           </div>
-        )}
-        <SubagentDrawers
-          rows={rows}
-          ids={model.drawers}
-          running={running}
-          opening={opening}
-          live={live}
-          close={closeDrawers}
-        />
-        {session !== undefined && (
-          <SessionDetails
-            open={model.details}
-            onOpenChange={(open) => send({ _tag: 'DetailsToggled', open })}
-            title={session.title}
-            about={`${agentName(session.harness)} · ${session.model}`}
-            facts={facts}
-            context={model.context}
-            onGo={scroll.toBlock}
-          />
-        )}
-      </div>
+        </MarkdownImages>
+      </EmbedsContext>
     );
   },
 );

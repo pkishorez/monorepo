@@ -5,6 +5,7 @@ import {
   ContextUsageSchema,
   type Session as SessionRecord,
 } from '@kestack/connect/code';
+import { FilesAddress, FilesClients } from '@kestack/connect/files';
 import { Page, Router } from '@kestack/kabuki/routing';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import {
@@ -30,6 +31,7 @@ import {
   stopJob,
 } from './commands.ts';
 import { Question } from './panels/question/index.ts';
+import { Files } from './panels/files/index.ts';
 import * as Picker from '../../../../../../../ui/controls/picker/index.ts';
 import { since } from '../../../../../../../ui/labels/status/index.ts';
 import { Actor } from '@kestack/kabuki';
@@ -74,6 +76,10 @@ import { Actor } from '@kestack/kabuki';
  *              none while the agent is not open to ask. When the Draft
  *              shows it is a Preference, followed as it changes. Its
  *              details are open or not here, so they are asked afresh.
+ * 10. Files   the File Tickets for the File Embeds its agent wrote, asked
+ *              of its Connection's files Plugin as each comes into view and
+ *              kept until near their end, and the one open in the viewer
+ *              (`panels/files/`).
  */
 
 // 8. Running: the Running Picker, kept here rather than with the
@@ -307,6 +313,8 @@ const Model = Schema.Struct({
   contextShown: ContextShown,
   /** Whether the session's details are open. */
   details: Schema.Boolean,
+  /** The File Tickets of its File Embeds, and the one open (10. Files). */
+  files: Files.Kept,
 });
 type Model = typeof Model.Type;
 
@@ -359,7 +367,15 @@ export const Session = Page.define({
   path: '/s/:sessionId',
   params: { sessionId: Schema.String },
   metadata: { title: 'Session · code' },
-  requires: [CodeClient, Replicas, Seen, Connections, Preferences],
+  requires: [
+    CodeClient,
+    Replicas,
+    Seen,
+    Connections,
+    Preferences,
+    FilesClients,
+    FilesAddress,
+  ],
   model: Model,
   message: Schema.TaggedUnion({
     Read: Read.fields,
@@ -389,6 +405,8 @@ export const Session = Page.define({
     },
     ContextShownRead: { shown: ContextShown },
     DetailsToggled: { open: Schema.Boolean },
+    // 10. Files
+    ...Files.messages,
   }),
 });
 
@@ -412,6 +430,7 @@ export const SessionLive = Session.build({
       context: null,
       contextShown: 'always',
       details: false,
+      files: Files.none,
     },
   }),
   // 8. Running
@@ -480,6 +499,8 @@ export const SessionLive = Session.build({
     }),
   },
   workers: {
+    // 10. Files: one ask per ticket being asked for.
+    ...Files.keeping.workers,
     // 9. Context: asked again as a turn ends or starts, and as its details open.
     context: {
       each: ({ model, props }) =>
@@ -558,6 +579,8 @@ export const SessionLive = Session.build({
     },
   },
   on: {
+    // 10. Files
+    ...Files.keeping.on,
     // 9. Context
     ContextRead: ({ sessionId, context }, { model, props }) =>
       sessionId === props.params.sessionId

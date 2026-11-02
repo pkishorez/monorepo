@@ -9,18 +9,18 @@ The branch is the name Portless gives this checkout. `portless get connect.kisho
 - In the main checkout it is `https://connect.kishore.computer`, and the branch is `main`.
 - In a linked git worktree Portless adds a prefix, `https://<prefix>.connect.kishore.computer`, and the branch is `<prefix>`.
 
-The branch's Connection is `dev-<branch>`: the dev script runs this checkout's own `ke-connect serve dev-<branch>` as a process of its own, named `<host> (dev-<branch>)` in Code, so each branch's Connection is told apart there. The `dev-` keeps it clear of `main`, the Connection `ke-connect serve` makes by default, so the main checkout's development Connection (`dev-main`) never takes a real one's name. It runs the code Plugin the way a deployed Connection does: before `alchemy dev` starts, the dev script runs `pnpm build:plugin`; Cloud Connect under `alchemy dev` names that bundle without asking the Release Log, puts it on the folder Shelf and names its `file:` URL in `PLUGINS`; and the Connection fetches that Release from the Shelf, checks its hash, and runs it. Code calls it at `/code/<sha256>/rpc`.
+The branch's Connection is `dev-<branch>`: the dev script runs this checkout's own `ke-connect serve dev-<branch>` as a process of its own, named `<host> (dev-<branch>)` in Code, so each branch's Connection is told apart there. The `dev-` keeps it clear of `main`, the Connection `ke-connect serve` makes by default, so the main checkout's development Connection (`dev-main`) never takes a real one's name. It runs both Plugins, `code` and `files`, the way a deployed Connection does: before `alchemy dev` starts, the dev script runs `pnpm build:plugin`; Cloud Connect under `alchemy dev` names each bundle without asking its Release Log, puts it on the folder Shelf and names its `file:` URL in `PLUGINS`; and the Connection fetches each Release from the Shelf, checks its hash, and runs it. Code calls them at `/code/<sha256>/rpc` and `/files/<sha256>/rpc`, and shows File Tickets from `/files/public/…`.
 
 ## Folders
 
 | What                                                                                   | Where                                                      |
 | -------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
 | Data: `connection.json`, the Sign-in and `auth.json`, `wanted.json`, the code Plugin's | `~/.local/share/kestack/connect/connections/dev-<branch>/` |
-| State: `connect.log`, `plugins/code.log`                                               | `~/.local/state/kestack/connect/connections/dev-<branch>/` |
+| State: `connect.log`, `plugins/code.log`, `plugins/files.log`                          | `~/.local/state/kestack/connect/connections/dev-<branch>/` |
 | The branch's dev folder                                                                | `~/.local/state/kestack/connect/dev/<branch>/`             |
 | The folder Shelf, every branch's                                                       | `~/.cache/kestack/connect/shelf/<name>/<sha256>.mjs`       |
 
-`$XDG_DATA_HOME` and `$XDG_STATE_HOME` replace `~/.local/share` and `~/.local/state` when set. The cache (cloudflared, models, Speech to Text) is shared by every Connection. `ke-connect list` shows every branch's Connection, and whether it runs.
+`$XDG_DATA_HOME`, `$XDG_STATE_HOME` and `$XDG_CACHE_HOME` replace `~/.local/share`, `~/.local/state` and `~/.cache` when set. The folder Shelf is in the cache folder, so with `$XDG_CACHE_HOME` set it is `$XDG_CACHE_HOME/kestack/connect/shelf/`, not under `~/.cache`. The cache (cloudflared, models, Speech to Text) is shared by every Connection. `ke-connect list` shows every branch's Connection, and whether it runs.
 
 The dev folder holds:
 
@@ -57,8 +57,8 @@ If a Connect already runs for the branch, it attaches instead: it takes a lease,
 - **"Connect stopped before it was ready"**: read `connect.log` in the branch's `dev/` folder.
 - **TLS errors reaching `*.kishore.computer`**: Node needs Portless's CA. Set `NODE_EXTRA_CA_CERTS=~/.portless/ca.pem`.
 - **A Connect that will not stop**: `pgrep -fl supervisor.js` finds it. Kill it and delete `connect.json`.
-- **The code Plugin is Crashed**: its output is in `plugins/code.log` in the Connection's state folder. `pnpm dev` builds it first; after changing it, stop and start `pnpm dev` again.
-- **"code <sha256> isn't on the shelf; run the build"**: the Connection was told of a Release that is not in the folder Shelf. Stop and start `pnpm dev`, which builds it and puts it there.
+- **A Plugin is Crashed**: its output is in `plugins/<name>.log` (`code.log`, `files.log`) in the Connection's state folder. `pnpm dev` builds them first; after changing one, stop and start `pnpm dev` again.
+- **"<name> <sha256> isn't on the shelf; run the build"**: the Connection was told of a Release that is not in the folder Shelf. Stop and start `pnpm dev`, which builds it and puts it there.
 
 ## Resetting a branch
 

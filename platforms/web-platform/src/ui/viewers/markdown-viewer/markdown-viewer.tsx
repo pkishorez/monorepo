@@ -8,7 +8,11 @@ import {
   type MouseEvent,
   type ReactNode,
 } from 'react';
-import ReactMarkdown, { type Components } from 'react-markdown';
+import ReactMarkdown, {
+  type Components,
+  defaultUrlTransform,
+  type UrlTransform,
+} from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { SourceViewer } from '../source-viewer/index';
@@ -26,14 +30,34 @@ import { cn } from '#kit/class-names';
  * components are the same on every draw: a component made anew each time
  * is a new kind of element to React, which would take down and build
  * again everything under it, its code blocks highlighted again from
- * nothing. What a link click does reaches them through context.
+ * nothing. What a link click does, and how an image is drawn, reach them
+ * through context.
+ *
+ * An image's address reaches `image` as it was written, whatever its
+ * scheme, so what draws it may read one of its own, such as `files:`;
+ * an image it leaves is drawn as any other, its address made safe first.
  */
 
 type OnLinkClick = (href: string) => boolean | void;
 
+/** An image as written: `![alt](src "title")`. */
+export interface MarkdownImage {
+  readonly src: string;
+  readonly alt: string;
+  readonly title?: string | undefined;
+}
+
+/** Draws an image itself, or leaves it, with undefined, to be drawn as written. */
+type DrawImage = (image: MarkdownImage) => ReactNode | undefined;
+
 const LinkClick = createContext<OnLinkClick | undefined>(undefined);
+const ImageDraw = createContext<DrawImage | undefined>(undefined);
 
 const remarkPlugins = [remarkGfm];
+
+/** An image's address as written, for `image` to read; every other address made safe. */
+const urlTransform: UrlTransform = (url, key, node) =>
+  node.tagName === 'img' && key === 'src' ? url : defaultUrlTransform(url);
 
 const components: Components = {
   a: function MarkdownLink({ href, children, node: _node, ...rest }) {
@@ -50,6 +74,20 @@ const components: Components = {
       >
         {children}
       </a>
+    );
+  },
+  img: function MarkdownImg({ src, alt, title, node: _node, ...rest }) {
+    const draw = useContext(ImageDraw);
+    const written = typeof src === 'string' ? src : '';
+    const drawn = draw?.({ src: written, alt: alt ?? '', title });
+    if (drawn !== undefined) return <>{drawn}</>;
+    return (
+      <img
+        {...rest}
+        src={defaultUrlTransform(written)}
+        alt={alt}
+        title={title}
+      />
     );
   },
   pre: function MarkdownPre({ children }) {
@@ -83,6 +121,7 @@ export const MarkdownViewer = memo(function MarkdownViewer({
   children,
   className,
   onLinkClick,
+  image,
   block,
   from = 0,
 }: {
@@ -90,6 +129,8 @@ export const MarkdownViewer = memo(function MarkdownViewer({
   readonly className?: string;
   // Return true to take over the navigation for that href.
   readonly onLinkClick?: OnLinkClick;
+  /** Draws an image itself, given as written; undefined leaves it as markdown draws it. */
+  readonly image?: DrawImage;
   /** Wraps each block drawn, by its place among them all. */
   readonly block?: (at: number, drawn: ReactNode) => ReactNode;
   /** The first block drawn; those before it are left out. */
@@ -107,14 +148,16 @@ export const MarkdownViewer = memo(function MarkdownViewer({
       )}
     >
       <LinkClick.Provider value={onLinkClick}>
-        {blocks.slice(from).map((text, each) => {
-          const drawn = <Block key={from + each} text={text} />;
-          return block ? (
-            <Fragment key={from + each}>{block(from + each, drawn)}</Fragment>
-          ) : (
-            drawn
-          );
-        })}
+        <ImageDraw.Provider value={image}>
+          {blocks.slice(from).map((text, each) => {
+            const drawn = <Block key={from + each} text={text} />;
+            return block ? (
+              <Fragment key={from + each}>{block(from + each, drawn)}</Fragment>
+            ) : (
+              drawn
+            );
+          })}
+        </ImageDraw.Provider>
       </LinkClick.Provider>
     </div>
   );
@@ -123,7 +166,11 @@ export const MarkdownViewer = memo(function MarkdownViewer({
 /** One top-level block, parsed and drawn again only as its own text changes. */
 const Block = memo(function Block({ text }: { readonly text: string }) {
   return (
-    <ReactMarkdown remarkPlugins={remarkPlugins} components={components}>
+    <ReactMarkdown
+      remarkPlugins={remarkPlugins}
+      components={components}
+      urlTransform={urlTransform}
+    >
       {text}
     </ReactMarkdown>
   );

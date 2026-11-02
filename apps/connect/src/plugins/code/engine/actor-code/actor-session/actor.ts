@@ -42,6 +42,7 @@ import {
 } from './commands.js';
 import { cutOffJobs } from './cut-off.js';
 import { forkFrom } from './fork.js';
+import { INSTRUCTIONS } from './instructions.js';
 import { Prompt } from './prompt.js';
 import { title, retitle } from './title.js';
 import { cancel, run } from './turn.js';
@@ -310,7 +311,8 @@ const persist = (self: SessionSelf) =>
 /**
  * The agent Worker: keeps the Session's Agent in Agents for as long as the
  * Session lives. It opens on first use, with the Session's model and
- * settings as they are then.
+ * settings as they are then, and the instructions every Session's agent
+ * gets.
  */
 const agent = (self: SessionSelf) =>
   Effect.gen(function* () {
@@ -328,6 +330,7 @@ const agent = (self: SessionSelf) =>
             cwd: model.cwd,
             model: model.session.model,
             settings: model.session.settings,
+            instructions: INSTRUCTIONS,
             ...(model.session.nativeId === null
               ? {}
               : { nativeId: model.session.nativeId }),

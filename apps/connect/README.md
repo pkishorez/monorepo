@@ -1,12 +1,12 @@
 # @kestack/connect
 
-Connects a computer to the cloud as a Connection its User reaches from anywhere: the ke-connect command, Cloud Connect on a Cloudflare Worker, and the code Plugin Code talks to
+Connects a computer to the cloud as a Connection its User reaches from anywhere: the ke-connect command, Cloud Connect on a Cloudflare Worker, and the code and files Plugins Code talks to
 
 ## Big picture
 
-A coding agent runs on a computer, but its User wants to reach it from a phone or another laptop. Connect makes the computer a Connection: `ke-connect serve` signs it in to Cloud Connect as its User, opens a tunnel, and reports a Heartbeat with its address and Connection Key. An App lists its User's Connections from Cloud Connect, a Worker with a D1 database at `connect.kishore.app`, then talks to each Connection straight through its tunnel, at `/<plugin>/<sha256>/rpc`.
+A coding agent runs on a computer, but its User wants to reach it from a phone or another laptop. Connect makes the computer a Connection: `ke-connect serve` signs it in to Cloud Connect as its User, opens a tunnel, and reports a Heartbeat with its address and Connection Key. An App lists its User's Connections from Cloud Connect, a Worker with a D1 database at `connect.kishore.app`, then talks to each Connection straight through its tunnel, at `/<plugin>/<sha256>/…` with its Connection Key; only a Plugin's Public Area, `/<plugin>/public/…`, is reached without it ([ADR 0008](docs/adr/0008-a-plugin-has-one-public-area-outside-the-key.md)).
 
-`ke-connect` itself stays small and rarely changes. What a Connection serves comes in Plugins: separate programs it runs, each downloaded at the version Cloud Connect names in its answer to every Heartbeat, and swapped for a new one while the tunnel stays up, through [`@kestack/cli-platform`](../../platforms/cli-platform/README.md). The Connection checks the Connection Key and passes each Plugin's requests to that Plugin's own socket without reading them. The `code` Plugin keeps Projects and Sessions for [Code](../code/README.md): it runs each Session's Agent through [`@kestack/ai-toolkit`](../../toolkits/ai-toolkit/README.md), with the Claude Code or Codex installed on the computer and as one of its Harness Accounts, orders its Turns, stores its Raw records, and sends them to the browser through a [std-toolkit](../../toolkits/std-toolkit/README.md) Replica over [rpc-toolkit](../../toolkits/rpc-toolkit/README.md). Sign-in comes from [auth-toolkit](../../toolkits/auth-toolkit/README.md). Why Connect owns this and ai-toolkit stops at the harness is [root ADR 0011](../../docs/adr/0011-ai-toolkit-stops-at-the-harness-connect-owns-the-rest.md).
+`ke-connect` itself stays small and rarely changes. What a Connection serves comes in Plugins: separate programs it runs, each downloaded at the version Cloud Connect names in its answer to every Heartbeat, and swapped for a new one while the tunnel stays up, through [`@kestack/cli-platform`](../../platforms/cli-platform/README.md). The Connection checks the Connection Key and passes each Plugin's requests to that Plugin's own socket without reading them. The `code` Plugin keeps Projects and Sessions for [Code](../code/README.md): it runs each Session's Agent through [`@kestack/ai-toolkit`](../../toolkits/ai-toolkit/README.md), with the Claude Code or Codex installed on the computer and as one of its Harness Accounts, orders its Turns, stores its Raw records, and sends them to the browser through a [std-toolkit](../../toolkits/std-toolkit/README.md) Replica over [rpc-toolkit](../../toolkits/rpc-toolkit/README.md). The `files` Plugin knows nothing of Sessions: given a base folder and a path, it gives a File Ticket, a URL in its Public Area that serves the file, if it is an image, video, audio, PDF, HTML or markdown, to whoever holds it for an hour; Code shows a file only where a Session's agent wrote a File Embed for it ([ADR 0009](docs/adr/0009-files-are-shown-through-a-files-plugin-and-file-embeds.md)). Sign-in comes from [auth-toolkit](../../toolkits/auth-toolkit/README.md). Why Connect owns this and ai-toolkit stops at the harness is [root ADR 0011](../../docs/adr/0011-ai-toolkit-stops-at-the-harness-connect-owns-the-rest.md).
 
 Each Connection has a name on its computer, `main` unless given, and keeps its files in its own folders, as cli-platform lays them out; one name runs as one process. In development each branch has its own Connection, `dev-<branch>`, and its own Cloud Connect, and every App's `pnpm dev` starts or reuses them: see [docs/dev.md](docs/dev.md).
 
@@ -45,6 +45,8 @@ Every value an RPC sends is an ESchema, so the newer side reads what an older on
 | `CodeClients`            | Service holding every Connection's client by Connection id, one socket each, shared by whatever holds it.                                            |
 | `CodeClients.layer`      | Layer of `CodeClients` opening each Connection's socket at the address `ConnectionAddress` gives.                                                    |
 | `CodeClients.make`       | Layer of `CodeClients` opening each Connection with a given Layer, for one server or a test.                                                         |
+| `CodeClients.at`         | Layer of `CodeClients` opening each Connection's socket at the address a given function gives for its id.                                            |
+| `CodeClients.mismatch`   | Stream of the Release a Connection last said it runs as it refused the socket, until one is answered; null while none did.                           |
 | `CodeClients.connection` | Layer of one Connection's `CodeClient` and its socket, for everything under it.                                                                      |
 | `CodeClients.on`         | Runs an Effect that needs `CodeClient` against one Connection, by its id.                                                                            |
 | `CodeClients.stream`     | Runs a Stream that needs `CodeClient` against one Connection, its socket held while it runs.                                                         |
@@ -103,6 +105,45 @@ Every value an RPC sends is an ESchema, so the newer side reads what an older on
 | `SpeechToTextNotReady`   | Error: Speech to Text is off, still downloading, or failed on this Connection.                                                                       |
 | `TranscriptionFailed`    | Error: the model would not load, or the audio is not 16-bit PCM.                                                                                     |
 
+### `./files`
+
+What an App imports to show files from its Connections: the `files` Plugin's API, the kinds of file it shows, File Embeds, and the client that reaches it on each Connection, beside the `code` Plugin's ([ADR 0009](docs/adr/0009-files-are-shown-through-a-files-plugin-and-file-embeds.md)).
+
+| Export                    | What it does                                                                                                               |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `FilesApi`                | The RPC group of the `files` Plugin: `requestFile`, a File Ticket to the file at a path read from a base folder.           |
+| `FilesClient`             | Service holding one Connection's `FilesApi` client over its reconnecting WebSocket.                                        |
+| `FilesClient.layer`       | Layer of `FilesClient` for a `ws(s)://…/files/<sha256>/rpc` URL, or a path in a browser, with the Connection Key if given. |
+| `FilesAddress`            | Service the App gives: where a Connection's `files` Plugin is, by Connection id, and its Connection Key, on each connect.  |
+| `FilesAddress.ticketUrl`  | A File Ticket's `url` on one Connection, as a browser opens it from anywhere.                                              |
+| `FilesClients`            | Service holding every Connection's `files` client by Connection id, one socket each, shared by whatever holds it.          |
+| `FilesClients.layer`      | Layer of `FilesClients` opening each Connection's socket at the address `FilesAddress` gives.                              |
+| `FilesClients.at`         | Layer of `FilesClients` opening each Connection's socket at the address a given function gives for its id.                 |
+| `FilesClients.make`       | Layer of `FilesClients` opening each Connection with a given Layer, for one server or a test.                              |
+| `FilesClients.connection` | Layer of one Connection's `FilesClient` and its socket, for everything under it.                                           |
+| `FilesClients.on`         | Runs an Effect that needs `FilesClient` against one Connection, by its id.                                                 |
+| `FilesClients.stream`     | Runs a Stream that needs `FilesClient` against one Connection, its socket held while it runs.                              |
+| `FilesClients.link`       | Stream of one Connection's Link to its `files` Plugin now and on each change.                                              |
+| `FilesClients.mismatch`   | Stream of the Release a Connection last said it runs as it refused the socket, until one is answered; null while none did. |
+| `ticketUrlAt`             | A File Ticket's `url` at the address of a Connection's socket: `wss://host/…` gives `https://host/files/public/…`.         |
+| `FileTicket`              | ESchema of a `requestFile` answer: the resolved path, name, kind, MIME type, size, ticket URL and when it ends.            |
+| `RequestFilePayload`      | ESchema of what `requestFile` asks: a base folder, and a path absolute or relative to it.                                  |
+| `RequestFileError`        | Schema of every reason `requestFile` fails with.                                                                           |
+| `FileMissing`             | Error: nothing is at the path.                                                                                             |
+| `NotAFile`                | Error: what is at the path is a folder or something else that is not a file.                                               |
+| `UnsupportedFile`         | Error: the Plugin does not show files with this extension, which it names.                                                 |
+| `FileUnreadable`          | Error: the file could not be read.                                                                                         |
+| `FILE_KINDS`              | Tuple of the kinds of file the Plugin shows: `image`, `video`, `audio`, `pdf`, `html`, `markdown`.                         |
+| `FILE_TYPES`              | Each extension the Plugin shows, and its kind and the MIME type it is sent with.                                           |
+| `FILE_EXTENSIONS`         | Every extension the Plugin shows, lowercase without its dot.                                                               |
+| `fileTypeOf`              | The kind and MIME type of a file by its name or path, or null when the Plugin does not show it.                            |
+| `extensionOf`             | The extension of a file's name or path, lowercase without its dot, or empty.                                               |
+| `FILE_EMBED_SCHEME`       | The scheme of a File Embed's link: `files:`.                                                                               |
+| `embedPath`               | The path a File Embed's link names, `files:<path>`, or null for any other link.                                            |
+| `FILES_PLUGIN`            | The Plugin's name, `files`, as its paths and Release Log name it.                                                          |
+| `FILE_TICKET_LIFETIME_MS` | How long a File Ticket lasts once given: an hour, in milliseconds.                                                         |
+| `ticketPath`              | The path a Connection serves a File Ticket at: `/files/public/<token>/<filename>`.                                         |
+
 ### `./cloud`
 
 What an App imports to reach Cloud Connect: its client, and the Connections it lists.
@@ -116,10 +157,11 @@ What an App imports to reach Cloud Connect: its client, and the Connections it l
 | `addressOf`         | The public address a Connection Status is up at, or null.                                                                           |
 | `isOutdated`        | Whether a Connection runs a `ke-connect` older than the Minimum Connect, and so should be updated.                                  |
 | `pluginPath`        | The path a Connection serves a Plugin at one Release: `/<name>/<sha256>/rpc`.                                                       |
+| `publicPath`        | The path a Connection serves a file from a Plugin's Public Area at, without the key: `/<name>/public/<rest>`.                       |
 | `PLUGIN_MISMATCH`   | The close code, 4409, of a socket that asked for a Release the Connection does not run.                                             |
 | `PluginMismatch`    | ESchema of that close's reason: the hash the Connection runs, or null.                                                              |
 | `mismatchOf`        | What a socket's close code and reason say of the Release asked for: a `PluginMismatch`, or null for any other close.                |
-| `VersionGap`        | Error of every `CodeClient` and `CloudClient` call that failed because one side is older: `client` or `server`.                     |
+| `VersionGap`        | Error of every `CodeClient`, `FilesClient` and `CloudClient` call that failed because one side is older: `client` or `server`.      |
 | `authInfo`          | How a Connection signs in to the Cloud Connect at a base URL, from its `/auth`; fails when it cannot be asked.                      |
 
 ### `./worker`
@@ -154,7 +196,7 @@ ke-connect remove work           # stops it, forgets it in Cloud Connect, signs 
 ```
 
 - It signs in through the Auth Worker that Cloud Connect's `/auth` names, and keeps the Connection's id, Connection Key and Cloud Connect in `connection.json`; serving it against another Cloud Connect is refused. It keeps what `/auth` said in `auth.json`, so a Connection that signed in before starts while Cloud Connect cannot be reached, or does not answer in five seconds: it signs in as last time, runs its Plugins at the Releases it last wanted, and keeps sending its Heartbeat until Cloud Connect answers. A first Sign-in needs Cloud Connect. Signing in again, once Cloud Connect refuses the Sign-in, asks `/auth` first, so an Auth Worker it moved to is the one used, and kept.
-- It runs each Plugin at the Release Cloud Connect names, or the one it last named while Cloud Connect cannot be reached, passes `/<plugin>/<sha256>/rpc` to it while it runs that Release and closes any other with 4409, asks every caller for the Connection Key, and opens a cloudflared tunnel to its port; any other path is 404.
+- It runs each Plugin at the Release Cloud Connect names, or the one it last named while Cloud Connect cannot be reached, passes `/<plugin>/<sha256>/<rest>` to it as `/<rest>` while it runs that Release and refuses any other with 4409 (409 for plain HTTP), passes `/<plugin>/public/<rest>`, spelled exactly and never as a WebSocket, as `/public/<rest>`, asks every other caller for the Connection Key, tells the Plugin in `x-ke-connect-access` whether a request came in with the key or to its Public Area, and starts it with `KESTACK_PLUGIN_ACCESS` set so it answers nothing to a request without that header, and opens a cloudflared tunnel to its port; any other path is 404.
 - Its Heartbeat reports the tunnel's address and each Plugin State every 15 seconds. A forgotten Connection signs out and stops; one below the Minimum Connect stops, saying how to update.
 
 ### Talk to a Connection from a browser
@@ -254,8 +296,8 @@ export default {
 ```
 
 - `ALLOWED_ORIGINS` takes comma-separated patterns such as `https://*.kishore.app`.
-- `PLUGINS` is `{"code":{"hash":"<sha256>","url":"<where to read it>"}}`, the latest Release of each Plugin; `pnpm build:plugin` makes `dist/plugin/code.mjs` and prints its sha256, and whether it is the latest Release in `src/plugins/code/releases.json`.
+- `PLUGINS` is `{"code":{"hash":"<sha256>","url":"<where to read it>"},"files":{…}}`, the latest Release of each Plugin; `pnpm build:plugin` makes `dist/plugin/code.mjs` and `dist/plugin/files.mjs` and prints the sha256 of each, and whether it is the latest Release in its `src/plugins/<name>/releases.json`.
 - `GET /plugins/<name>/<sha256>.mjs` answers that file from `files`, cached for good; anything else there is 404.
 - `MIN_CONNECT` is the Minimum Connect, the oldest `ke-connect` let run the Plugins; a Connection below it is Outdated.
 - Set the D1 table up from `connectionsTable` before the first request.
-- In this monorepo, a change to the code Plugin is released with `pnpm -F @kestack/connect release:plugin code "<what changed>"`, which builds it and appends its hash to its Release Log. `pnpm -F @kestack/connect build:plugin && pnpm -F @kestack/connect deploy:prod` deploys it to `connect.kishore.app`: the deploy refuses a build that is not the latest Release, uploads `code.mjs` to the Stage's R2 bucket unless it is there, then points `PLUGINS` at it, and sets `MIN_CONNECT` from `minConnect` in `package.json` (ADR 0006). A personal Stage, `alchemy deploy --stage <name>`, has no URL its Connections could read the Shelf at, so it refuses to deploy; develop under `alchemy dev`.
+- In this monorepo, a change to a Plugin is released with `pnpm -F @kestack/connect release:plugin <code|files> "<what changed>"`, which builds it and appends its hash to its Release Log. `pnpm -F @kestack/connect build:plugin && pnpm -F @kestack/connect deploy:prod` deploys them to `connect.kishore.app`: the deploy refuses a build that is not the latest Release, uploads each file to the Stage's R2 bucket unless it is there, then points `PLUGINS` at them, and sets `MIN_CONNECT` from `minConnect` in `package.json` (ADR 0006). A personal Stage, `alchemy deploy --stage <name>`, has no URL its Connections could read the Shelf at, so it refuses to deploy; develop under `alchemy dev`.

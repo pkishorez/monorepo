@@ -17,8 +17,12 @@ One UI on Connect, such as Code, reaching the Connections Cloud Connect lists.
 _Avoid_: client, frontend, product
 
 **Plugin**:
-A program a Connection runs beside itself and keeps at the Release Cloud Connect names latest, or, while Cloud Connect cannot be reached, the one it last named, serving one RPC group. An App calls it at the Release it was built with, `<tunnel>/<name>/<sha256>/rpc`; a Connection running another closes the socket with 4409, naming the one it runs. `code` is the first.
+A program a Connection runs beside itself and keeps at the Release Cloud Connect names latest, or, while Cloud Connect cannot be reached, the one it last named, serving one RPC group and any routes of its own. An App calls it at the Release it was built with, `<tunnel>/<name>/<sha256>/rpc`; a Connection running another closes the socket with 4409, naming the one it runs. What it serves under `<tunnel>/<name>/public/` is its Public Area. `code` is the first; `files`, which knows nothing of Sessions, is the second.
 _Avoid_: App Group, module, feature
+
+**Public Area**:
+The one part of a Plugin reached without the Connection Key, at `<tunnel>/<name>/public/`, at whatever Release it runs. `ke-connect` lets anyone in without the key, though a `fetch` from a page not on the Connection's list of origins is still refused; the Plugin alone decides what it answers there.
+_Avoid_: open routes, unauthenticated paths, static server
 
 **Release**:
 One build of a Plugin, named by the sha256 of its file, with one line on what changed. Every change to the file is a new Release. Which `ke-connect` may run it is not the Release's to say: that is the Minimum Connect.
@@ -65,7 +69,7 @@ The socket from an App to one Connection, and how it stands: linking, linked or 
 _Avoid_: connection (the Connection itself)
 
 **Connection Key**:
-The secret a Connection asks of anyone who connects to it. It is made once and never changes; whoever holds it can reach the Connection.
+The secret a Connection asks of anyone who connects to it, anywhere but a Plugin's Public Area. It is made once and never changes; whoever holds it can reach the Connection.
 _Avoid_: token (that proves a Sign-in), password, API key
 
 **Heartbeat**:
@@ -113,3 +117,13 @@ _Avoid_: recovery, orphan reaper
 **Resumed**:
 A Turn the Connection started on its own to continue one a stop cut off. A Resumed Turn that is cut off again is not Resumed again.
 _Avoid_: retried, restarted, replayed
+
+### The files Plugin
+
+**File Ticket**:
+A URL to one file on a Connection, in the `files` Plugin's Public Area, which the Plugin gives for a path and serves to whoever holds it, without the Connection Key, until an hour after it was given. It names the file as it was when given, and only of a kind the Plugin can show: an image, video, audio, PDF, HTML or markdown.
+_Avoid_: signed URL, share link, file link, file URL
+
+**File Embed**:
+A file the agent shows the user by writing `![caption](files:<path>)` in its text, a relative path read from the folder its Session runs in. Code shows it where it is written, through a File Ticket it asks for when the File Embed comes into view; any other path in the text is left as it is.
+_Avoid_: inline file, preview, attachment (a file the user sends)

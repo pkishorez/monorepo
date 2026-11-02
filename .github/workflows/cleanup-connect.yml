@@ -63,9 +63,9 @@ jobs:
       - name: Build
         run: pnpm --filter '@kestack/connect^...' run build
 
-      # alchemy.run.ts reads the code Plugin's build for every Stage with a
-      # domain, a pull request's prN included, so a destroy needs it too.
-      - name: Build the code Plugin
+      # alchemy.run.ts reads each Plugin's build for every Stage with a
+      # domain, a pull request's prN included, so a destroy needs them too.
+      - name: Build the Plugins
         run: pnpm --filter @kestack/connect build:plugin
 
       - name: Look for the stage

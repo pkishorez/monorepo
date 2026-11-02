@@ -60,6 +60,9 @@ export const claude: Harness = {
         executable: yield* executable,
         ...readSettings(config.settings),
         ...(config.nativeId === undefined ? {} : { nativeId: config.nativeId }),
+        ...(config.instructions === undefined
+          ? {}
+          : { instructions: config.instructions }),
       });
       const handleOf = (handle: SdkTurnHandle): TurnHandle => ({
         out: handle.out,

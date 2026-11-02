@@ -366,6 +366,7 @@ function Body({
             <Section label={report.isError ? 'Why it failed' : 'Report'}>
               <Markdown
                 text={report.output}
+                message={`${row.id}:report`}
                 className={`text-sm ${report.isError ? 'text-destructive' : ''}`}
               />
               {report.truncated && (

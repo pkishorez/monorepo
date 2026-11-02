@@ -71,6 +71,9 @@
       "src/device/account/connections/layout/pages/project/session/scroller",
       "src/device/account/connections/layout/pages/project/session/panels/details"
     ],
+    "src/device/account/connections/layout/pages/project/session/panels/files": [
+      "src/device/account/connections/layout/pages/project/session/transcript/words"
+    ],
     "src/device/account/connections/layout/pages/project/session/transcript/tool": [
       "src/device/account/connections/layout/pages/project/session/transcript/words",
       "src/device/account/connections/layout/pages/project/session/transcript/turns/rows"

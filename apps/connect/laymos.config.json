@@ -16,17 +16,30 @@
     "src/connection/actor-connection/actor-plugins": [
       "src/connection/actor-connection/capabilities"
     ],
-    "src/plugins/code/api": ["src/plugins/code/records", "src/cloud/contract"],
+    "src/plugins/code/api": ["src/plugins/code/records"],
     "src/plugins/code/serve": [
       "src/plugins/code/api",
       "src/plugins/code/engine",
       "src/plugins/code/records"
     ],
-    "src/plugins/code/api/client": ["src/plugins/code/api/contract"],
+    "src/plugins/code/api/client": [
+      "src/plugins/code/api/contract",
+      "src/plugins/link"
+    ],
+    "src/plugins/files/api": ["src/cloud/contract"],
+    "src/plugins/files/serve": ["src/plugins/files/api"],
+    "src/plugins/files/api/client": [
+      "src/plugins/files/api/contract",
+      "src/plugins/link"
+    ],
+    "src/plugins/link": ["src/cloud/contract"],
     "src/plugins/code/engine": ["src/plugins/code/records"],
     "src/plugins/code/engine/actor-code": [
       "src/plugins/code/engine/capabilities",
       "src/plugins/code/engine/engine-raw"
+    ],
+    "src/plugins/code/engine/actor-code/actor-session": [
+      "src/plugins/files/api/contract"
     ],
     "src/plugins/code/engine/actor-code/checks": [
       "src/plugins/code/engine/actor-code/actor-session"

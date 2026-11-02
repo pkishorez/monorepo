@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { AlchemyContext, Stage } from 'alchemy';
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { builtHash } from '../release-log/index.ts';
+import { builtHash, PLUGIN_NAMES } from '../release-log/index.ts';
 import { minConnect, minConnectOf, plugins } from '../index.ts';
 
 /*
@@ -18,21 +18,22 @@ import { minConnect, minConnectOf, plugins } from '../index.ts';
 
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 
-/** The code Plugin built into a folder of its own: its hash. */
+/** Every Plugin built into a folder of its own: the hash of each. */
 const build = () => {
   const out = mkdtempSync(join(tmpdir(), 'connect-pack-'));
   execFileSync('vp', ['pack', '--out-dir', out, '--logLevel', 'error'], {
     cwd: ROOT,
     stdio: 'pipe',
   });
-  return builtHash(join(out, 'code.mjs'));
+  return PLUGIN_NAMES.map((name) => builtHash(join(out, `${name}.mjs`)));
 };
 
 describe("a Stage's Plugins", () => {
-  it('builds the code Plugin the same twice, so its hash is its Release', () => {
+  it('builds every Plugin the same twice, so its hash is its Release', () => {
     const first = build();
-    expect(first).toMatch(/^[a-f0-9]{64}$/);
-    expect(build()).toBe(first);
+    expect(first).toHaveLength(PLUGIN_NAMES.length);
+    for (const hash of first) expect(hash).toMatch(/^[a-f0-9]{64}$/);
+    expect(build()).toEqual(first);
   }, 120_000);
 
   it('names the Minimum Connect package.json names, never newer than this Connect', async () => {

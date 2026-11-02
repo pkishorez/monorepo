@@ -47,6 +47,8 @@ export interface SessionConfig {
   readonly nativeId?: string | undefined;
   /** Keep the thread out of Codex's saved history (One-shot Prompts). */
   readonly ephemeral?: boolean;
+  /** Added to Codex's own instructions, on start and on resume alike. */
+  readonly instructions?: string | undefined;
 }
 
 /** How long `cancel` waits for Codex to confirm before it ends the turn itself. */
@@ -236,14 +238,19 @@ const stored = (
   return notification;
 };
 
-const startThread = (server: AppServer, config: SessionConfig) =>
-  config.nativeId === undefined
+const startThread = (server: AppServer, config: SessionConfig) => {
+  const instructions =
+    config.instructions === undefined
+      ? {}
+      : { developerInstructions: config.instructions };
+  return config.nativeId === undefined
     ? server.request('thread/start', {
         model: config.model,
         cwd: config.cwd,
         sandbox: config.sandbox,
         approvalPolicy: 'never',
         ...(config.ephemeral === true ? { ephemeral: true } : {}),
+        ...instructions,
       })
     : server.request('thread/resume', {
         threadId: config.nativeId,
@@ -252,7 +259,9 @@ const startThread = (server: AppServer, config: SessionConfig) =>
         sandbox: config.sandbox,
         approvalPolicy: 'never',
         excludeTurns: true,
+        ...instructions,
       });
+};
 
 /** Lists every page of a paged Codex request. */
 const allPages = <A>(

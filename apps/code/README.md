@@ -40,7 +40,11 @@ question's own answer, keeps going as you move, and its text goes back
 to that field wherever you stop it. When an agent asks you something, as Claude's `AskUserQuestion` or
 Codex's `request_user_input`, the Question Panel takes the Draft's place,
 one question a step, until you answer or skip it; you can minimise it to
-read the session, and the sidebar stays yours throughout. `src/ui/` holds
+read the session, and the sidebar stays yours throughout. A file the agent
+shows you, written as a File Embed, `![caption](files:<path>)`, is drawn
+where it wrote it, asked of the Connection's `files` Plugin as it comes into
+view, and opens in the File Viewer
+([ADR 0009](../connect/docs/adr/0009-files-are-shown-through-a-files-plugin-and-file-embeds.md)). `src/ui/` holds
 plain parts with no data.
 
 The words the app uses, such as Draft, Dictation, Picker and Connection List,

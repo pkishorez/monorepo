@@ -28,6 +28,13 @@ type Connection = typeof ConnectionSchema.Type;
 /** The sha256 of the code Plugin's Release this Code was built with, and calls. */
 export const PLUGIN_CODE: string = import.meta.env.PLUGIN_CODE;
 
+/**
+ * The sha256 of the files Plugin's Release this Code was built with, and
+ * calls for File Tickets. A Connection running another refuses them: each
+ * File Embed says it could not reach the files Plugin, and nothing else.
+ */
+export const PLUGIN_FILES: string = import.meta.env.PLUGIN_FILES;
+
 /** The Plugin Code talks to. */
 const CODE = 'code';
 

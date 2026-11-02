@@ -8,26 +8,39 @@ import {
 } from 'node:http';
 import { connect, type Socket } from 'node:net';
 import { Effect } from 'effect';
+import { PluginAccess } from '@kestack/cli-platform/plugins/contract';
 import {
   mismatchReason,
   PLUGIN_MISMATCH,
   pluginOfPath,
+  publicOfPath,
 } from '../../../cloud/contract/index.js';
 import { guard, HEALTH, pathOf, type Refusal, withoutKey } from './guard.js';
 
 /*
  * The Connection's one public port, which its tunnel points at. After the
- * guard, `GET /health` answers here, and `/<plugin>/<sha256>/rpc` is passed
- * to that Plugin's socket as `/rpc` when the Plugin runs that Release: a
- * WebSocket as raw bytes, once its upgrade request is written on, and any
- * other request through an HTTP request of its own. A Release it does not
- * run is refused with what it runs: a WebSocket is taken and closed at
- * once with 4409, its reason saying so, since a browser reads nothing else
- * of it; any other request answers 409 with the same JSON. The router
- * never reads what passes: Code and the Plugin type it end to end. A
- * Plugin not listening yet answers 503; a name that is no Plugin, and any
- * other path, 404.
+ * guard, `GET /health` answers here, and the rest is passed by Plugin name
+ * to that Plugin's socket, its query kept: a WebSocket as raw bytes, once
+ * its upgrade request is written on, and any other request through an
+ * HTTP request of its own. `/<plugin>/<sha256>/<rest>` is passed as
+ * `/<rest>` when the Plugin runs that Release. A Release it does not run
+ * is refused with what it runs: a WebSocket is taken and closed at once
+ * with 4409, its reason saying so, since a browser reads nothing else of
+ * it; any other request answers 409 with the same JSON. The Plugin's
+ * Public Area, `/<plugin>/public/<rest>`, is passed as `/public/<rest>` at
+ * whatever Release runs, and takes no WebSocket (ADR 0008). Every request
+ * reaches the Plugin with `x-ke-connect-access` (PluginAccess) saying how it came in,
+ * `key` or `public`, whatever the caller sent in its place: the Plugin
+ * trusts that header alone to say which of its routes it may reach. The
+ * router never reads what passes: Code and the Plugin type it end to end.
+ * A Plugin not listening yet answers 503; a name that is no Plugin, and
+ * any other path, 404.
  */
+
+/** How a request came in, as a Plugin reads it in PluginAccess's header: with the key, or to its Public Area. */
+type Access = typeof PluginAccess.key | typeof PluginAccess.public;
+
+const ACCESS = PluginAccess.header;
 
 export interface RouterOptions {
   /** The port to listen on; 0 for any free one. */
@@ -49,25 +62,44 @@ interface Mismatch {
   readonly running: string | null;
 }
 
-type Target =
-  | { readonly socket: string; readonly path: string }
-  | Refusal
-  | Mismatch;
+/** A Plugin's socket, the path on it, and how the request came in. */
+interface Pass {
+  readonly socket: string;
+  readonly path: string;
+  readonly access: Access;
+}
+
+type Target = Pass | Refusal | Mismatch;
+
+const noPlugin = (name: string): Refusal => ({
+  status: 404,
+  text: `This Connection runs no Plugin ${name}`,
+});
 
 /** Where a request goes: a Plugin's socket and the path on it, or why it goes nowhere. */
 const targetOf = (url: string | undefined, options: RouterOptions): Target => {
   const path = pathOf(url) ?? '';
   const query = (url ?? '').slice(path.length);
+  const open = publicOfPath(path);
+  if (open !== null) {
+    const socket = options.socketOf(open.name);
+    return socket === null
+      ? noPlugin(open.name)
+      : { socket, path: `${open.path}${query}`, access: PluginAccess.public };
+  }
   const release = pluginOfPath(path);
   if (release === null) return { status: 404, text: 'Not found' };
   const socket = options.socketOf(release.name);
-  if (socket === null)
-    return {
-      status: 404,
-      text: `This Connection runs no Plugin ${release.name}`,
-    };
+  if (socket === null) return noPlugin(release.name);
   const running = options.otherThan(release.name, release.hash);
-  return running === undefined ? { socket, path: `/rpc${query}` } : { running };
+  return running === undefined
+    ? { socket, path: `${release.path}${query}`, access: PluginAccess.key }
+    : { running };
+};
+
+const NO_WEBSOCKET: Refusal = {
+  status: 400,
+  text: 'A Public Area takes no WebSocket',
 };
 
 const STARTING: Refusal = {
@@ -135,28 +167,32 @@ const closeMismatch = (
   socket.end(close);
 };
 
-/** The request's headers to pass on: its subprotocols without the key. */
-const passedHeaders = (request: IncomingMessage) => {
+/** The request's headers to pass on: its subprotocols without the key, and how it came in. */
+const passedHeaders = (request: IncomingMessage, access: Access) => {
   const headers = { ...request.headers };
   const protocols = withoutKey(headers['sec-websocket-protocol']);
   if (protocols === undefined) delete headers['sec-websocket-protocol'];
   else headers['sec-websocket-protocol'] = protocols;
+  headers[ACCESS] = access;
   return headers;
 };
 
-/** The upgrade request's head, as the Plugin is to read it: at `path`, without the key. */
-const headOf = (request: IncomingMessage, path: string) => {
+/** The upgrade request's head, as the Plugin is to read it: at `path`, without the key, saying how it came in. */
+const headOf = (request: IncomingMessage, { path, access }: Pass) => {
   const lines = [`${request.method} ${path} HTTP/${request.httpVersion}`];
   const raw = request.rawHeaders;
   for (let at = 0; at < raw.length; at += 2) {
     const name = raw[at]!;
-    if (name.toLowerCase() !== 'sec-websocket-protocol') {
+    const lower = name.toLowerCase();
+    if (lower === ACCESS) continue;
+    if (lower !== 'sec-websocket-protocol') {
       lines.push(`${name}: ${raw[at + 1]}`);
       continue;
     }
     const protocols = withoutKey(raw[at + 1]);
     if (protocols !== undefined) lines.push(`${name}: ${protocols}`);
   }
+  lines.push(`${ACCESS}: ${access}`);
   return `${lines.join('\r\n')}\r\n\r\n`;
 };
 
@@ -164,14 +200,14 @@ const headOf = (request: IncomingMessage, path: string) => {
 const pass = (
   request: IncomingMessage,
   response: ServerResponse,
-  target: { readonly socket: string; readonly path: string },
+  target: Pass,
 ) => {
   const upstream = httpRequest(
     {
       socketPath: target.socket,
       path: target.path,
       method: request.method,
-      headers: passedHeaders(request),
+      headers: passedHeaders(request, target.access),
     },
     (answered) => {
       response.writeHead(answered.statusCode ?? 502, answered.headers);
@@ -190,7 +226,7 @@ const passUpgrade = (
   request: IncomingMessage,
   socket: Socket,
   head: Buffer,
-  target: { readonly socket: string; readonly path: string },
+  target: Pass,
   open: Set<Socket>,
 ) => {
   const upstream = connect({ path: target.socket });
@@ -198,7 +234,7 @@ const passUpgrade = (
   let connected = false;
   upstream.once('connect', () => {
     connected = true;
-    upstream.write(headOf(request, target.path));
+    upstream.write(headOf(request, target));
     if (head.length > 0) upstream.write(head);
     socket.pipe(upstream).pipe(socket);
   });
@@ -233,6 +269,11 @@ export const router = (options: RouterOptions) =>
         const target = targetOf(request.url, options);
         if ('status' in target) return answer(response, target);
         if ('running' in target) return answerMismatch(response, target);
+        if (
+          target.access === PluginAccess.public &&
+          request.headers.upgrade !== undefined
+        )
+          return answer(response, NO_WEBSOCKET);
         pass(request, response, target);
       });
       server.on('upgrade', (request: IncomingMessage, socket: Socket, head) => {
@@ -243,6 +284,8 @@ export const router = (options: RouterOptions) =>
         const target = targetOf(request.url, options);
         if ('status' in target) return answerRaw(socket, target);
         if ('running' in target) return closeMismatch(request, socket, target);
+        if (target.access === PluginAccess.public)
+          return answerRaw(socket, NO_WEBSOCKET);
         passUpgrade(request, socket, head, target, open);
       });
       server.once('error', (error) =>

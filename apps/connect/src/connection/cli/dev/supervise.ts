@@ -15,11 +15,11 @@ import {
 } from './record.js';
 
 /*
- * Running this branch's Connect: the code Plugin built first, `pnpm
+ * Running this branch's Connect: the Plugins built first, `pnpm
  * build:plugin`, so its Cloud Connect under `alchemy dev` behind Portless
- * puts it on the folder Shelf and names it; then the branch's own
+ * puts them on the folder Shelf and names them; then the branch's own
  * Connection, `ke-connect serve` as a process of its own, against it,
- * fetching that Release from the Shelf as a deployed Connection does,
+ * fetching those Releases from the Shelf as a deployed Connection does,
  * ready once its router answers `/health` and `connect.json` says so. Meanwhile the development Connections of branches with no checkout
  * any more are removed. A shared Connect stops 3 s after its last lease is
  * gone, unless an App leased it as it decided, watching from the moment it
@@ -52,7 +52,7 @@ const exitOf = (child: ChildProcess) =>
     else child.once('exit', () => resolve());
   });
 
-/** `pnpm build:plugin` in `root`: the code Plugin's one file, which `alchemy dev` puts on the Shelf. Stopped with the Scope. */
+/** `pnpm build:plugin` in `root`: each Plugin's one file, which `alchemy dev` puts on the Shelf. Stopped with the Scope. */
 const buildPlugin = (root: string) =>
   Effect.acquireUseRelease(
     Effect.sync(() =>
@@ -191,7 +191,7 @@ export const supervise = (options: Supervised) =>
     const { root, dir, slug, cloud, mode, version, auth } = options;
     const startedAt = new Date().toISOString();
     yield* removeGoneConnections(root);
-    yield* Effect.log('Building the code Plugin');
+    yield* Effect.log('Building the Plugins');
     yield* buildPlugin(root);
     const alchemy = yield* alchemyDev(root);
     const running = Effect.gen(function* () {

@@ -2,7 +2,7 @@
   "name": "@kestack/connect",
   "version": "0.0.6",
   "minConnect": "0.0.4",
-  "description": "Connects a computer to the cloud as a Connection its User reaches from anywhere: the ke-connect command, Cloud Connect on a Cloudflare Worker, and the code Plugin Code talks to",
+  "description": "Connects a computer to the cloud as a Connection its User reaches from anywhere: the ke-connect command, Cloud Connect on a Cloudflare Worker, and the code and files Plugins Code talks to",
   "repository": {
     "type": "git",
     "url": "https://github.com/pkishorez/monorepo",
@@ -23,6 +23,10 @@
     "./code": {
       "types": "./dist/plugins/code/api/index.d.ts",
       "default": "./dist/plugins/code/api/index.js"
+    },
+    "./files": {
+      "types": "./dist/plugins/files/api/index.d.ts",
+      "default": "./dist/plugins/files/api/index.js"
     },
     "./cloud": {
       "types": "./dist/cloud/client/index.d.ts",

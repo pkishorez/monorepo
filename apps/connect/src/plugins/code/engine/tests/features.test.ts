@@ -264,6 +264,9 @@ describe('a Fork', () => {
         yield* eventually(() =>
           expect(fake.opens.at(-1)?.nativeId).toBe('native-1-fork'),
         );
+        expect(fake.opens.at(-1)?.instructions).toBe(
+          fake.opens[0]?.instructions,
+        );
       }),
       fake,
     );

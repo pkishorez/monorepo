@@ -14,5 +14,11 @@ export {
   useSticky,
   type Opening,
 } from './fold.tsx';
-export { Long, Markdown, Writing } from './words.tsx';
+export {
+  Long,
+  Markdown,
+  MarkdownImages,
+  MarkdownMessage,
+  Writing,
+} from './words.tsx';
 export { Count } from './count.tsx';

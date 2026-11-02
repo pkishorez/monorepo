@@ -1,2 +1,2 @@
 export { blocksOf } from './blocks';
-export { MarkdownViewer } from './markdown-viewer';
+export { type MarkdownImage, MarkdownViewer } from './markdown-viewer';

@@ -44,6 +44,10 @@
     {
       "hash": "a8b9adece4a2c69ff05ee1acaee51e7487a0e5e5bedb8206e1fd4960bf4449bd",
       "summary": "Codex usage counts its input as Claude Code's does, apart from what the cache read and wrote"
+    },
+    {
+      "hash": "4198ee04e206eacf038cb74976cae2831988ce5b74edd0fad7c0a5503c267424",
+      "summary": "Every Session's agent is told how to show a file with a File Embed, and the Plugin serves behind the access header"
     }
   ]
 }

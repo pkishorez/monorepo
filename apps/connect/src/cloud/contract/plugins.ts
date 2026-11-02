@@ -4,10 +4,14 @@ import { ESchema } from '@kestack/std-toolkit/eschema';
 /*
  * How every side names one Release of a Plugin: by the Plugin's name and
  * the sha256 of its file. Code calls a Connection's Plugin at the Release
- * it was built with, `<tunnel>/<name>/<sha256>/rpc`. When the Connection
- * runs another, its router takes the socket and closes it at once with
- * `PLUGIN_MISMATCH`, the reason saying which hash runs: a browser cannot
- * read the status of a refused WebSocket, only how it closed. The file
+ * it was built with, `<tunnel>/<name>/<sha256>/<rest>`, its RPC at
+ * `rpc`. When the Connection runs another, its router takes the socket and
+ * closes it at once with `PLUGIN_MISMATCH`, the reason saying which hash
+ * runs: a browser cannot read the status of a refused WebSocket, only how
+ * it closed. A Plugin's Public Area, `<tunnel>/<name>/public/<rest>`,
+ * names no Release and needs no Connection Key (ADR 0008), so its path is
+ * matched exactly: no spelling of it becomes another path in the Plugin.
+ * The file
  * itself is on the Shelf as `<name>/<sha256>.mjs`, under whichever root
  * holds it: Cloud Connect's `/plugins`, R2's `plugins/`, or a folder.
  *
@@ -34,16 +38,63 @@ export interface PluginAt {
   readonly hash: string;
 }
 
-const PATH = new RegExp(`^/(${NAME})/(${HASH})/rpc$`);
+/** A request to a Release of a Plugin: the Plugin, the hash, and the path on its socket. */
+export interface PluginRequest extends PluginAt {
+  /** `/<rest>`, as asked. */
+  readonly path: string;
+}
+
+/** A request to a Plugin's Public Area: the Plugin, and the path on its socket. */
+export interface PublicRequest {
+  readonly name: string;
+  /** `/public/<rest>`, as asked. */
+  readonly path: string;
+}
+
+const PATH = new RegExp(`^/(${NAME})/(${HASH})(/.+)$`);
+
+/**
+ * One segment of a Public Area path: only what RFC 3986 lets a segment
+ * carry, so never a backslash, and no percent-encoded `.`, `/` or `\`,
+ * which a URL parser in the Plugin could read as another path.
+ */
+const SEGMENT = `(?:[A-Za-z0-9._~!$&'()*+,;=:@-]|%(?!2[eEfF]|5[cC])[0-9A-Fa-f]{2})+`;
+
+const PUBLIC = new RegExp(`^/(${NAME})(/public(?:/${SEGMENT})+)$`);
 
 /** Where a Connection serves the Plugin `name` at the Release `hash`: `/<name>/<sha256>/rpc`, after its address. */
 export const pluginPath = (name: string, hash: string) =>
   `/${name}/${hash}/rpc`;
 
-/** The Plugin and hash a request's path asks for; null for any other path. */
-export const pluginOfPath = (path: string): PluginAt | null => {
+/**
+ * Where a Connection serves `rest` from the Plugin `name`'s Public Area, at
+ * whatever Release it runs: `/<name>/public/<rest>`, after its address.
+ * `rest` has no leading `/`, and each of its segments is URL-encoded.
+ */
+export const publicPath = (name: string, rest: string) =>
+  `/${name}/public/${rest}`;
+
+/** The Release a request's path asks for, and the path on the Plugin; null for any other path. */
+export const pluginOfPath = (path: string): PluginRequest | null => {
   const found = PATH.exec(path);
-  return found === null ? null : { name: found[1]!, hash: found[2]! };
+  return found === null
+    ? null
+    : { name: found[1]!, hash: found[2]!, path: found[3]! };
+};
+
+/**
+ * The Plugin whose Public Area a request's path asks for, and the path on
+ * it; null for any other path, and for any spelling of one that is not
+ * exact: an empty, `.` or `..` segment, a backslash, an encoded `.`, `/`
+ * or `\`.
+ */
+export const publicOfPath = (path: string): PublicRequest | null => {
+  const found = PUBLIC.exec(path);
+  if (found === null) return null;
+  const rest = found[2]!;
+  return rest.split('/').some((each) => each === '.' || each === '..')
+    ? null
+    : { name: found[1]!, path: rest };
 };
 
 /** Where Cloud Connect serves the Shelf: `<cloud>/plugins/<name>/<sha256>.mjs`. R2 keeps each file at the same path. */

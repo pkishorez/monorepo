@@ -183,3 +183,7 @@ _Avoid_: footer, toolbar
 **Settled List**:
 Where the sidebar keeps Settled Sessions, the most recently Settled first, opened under "Settled", last in the timeline, and closed by it again.
 _Avoid_: archive, trash
+
+**File Viewer**:
+Where a File Embed, written by a Session's agent as [[connect]] says, opens whole when clicked, over its Session, as the Web Platform's image viewer opens an image, on a keyboard or a touch screen alike: no frame, the Session dimmed and blurred behind, its caption at the top left and, at the top right, a way to open it in a new tab and to close it; an image opens in the image viewer itself, to zoom into. A markdown file read in it shows its own File Embeds, read from its own folder. Each embed asks for its File Ticket only once it comes into view, and the Session's page keeps the answer until shortly before it ends.
+_Avoid_: preview, lightbox, attachment

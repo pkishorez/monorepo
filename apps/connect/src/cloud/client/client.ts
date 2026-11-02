@@ -30,6 +30,7 @@ export {
   mismatchOf,
   PLUGIN_MISMATCH,
   pluginPath,
+  publicPath,
   PluginMismatch,
   VersionGap,
 } from '../contract/index.js';

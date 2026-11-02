@@ -1,4 +1,4 @@
-export { type Opening, useOpening } from './words/index.ts';
+export { MarkdownImages, type Opening, useOpening } from './words/index.ts';
 export { earlierOf, thread } from './turns/rows/index.ts';
 export { Folder } from './tool/index.ts';
 export { EarlierRows, Rows, useFacts, useRows } from './transcript.tsx';

@@ -69,6 +69,7 @@ function SaidView({
         <div className="flex min-w-0 flex-col">
           <Markdown
             text={row.text}
+            message={row.id}
             from={from}
             block={wrap && block}
             className={`${nested ? 'text-sm text-muted-foreground' : 'text-base'} ${writing ? '[&>:last-child]:animate-chunk-in motion-reduce:[&>:last-child]:animate-none' : ''}`}

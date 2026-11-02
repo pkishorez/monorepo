@@ -34,6 +34,8 @@ export {
   PLUGIN_MISMATCH,
   pluginOfPath,
   pluginPath,
+  publicOfPath,
+  publicPath,
   PluginMismatch,
   SHELF_PATH,
   shelfKey,

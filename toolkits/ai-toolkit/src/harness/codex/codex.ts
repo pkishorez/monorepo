@@ -35,6 +35,7 @@ export const codex: Harness = {
         model: config.model,
         ...threadOptions(config.settings),
         nativeId: config.nativeId,
+        instructions: config.instructions,
       });
     }),
   skills,

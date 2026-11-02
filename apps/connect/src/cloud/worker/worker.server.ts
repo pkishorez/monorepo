@@ -6,7 +6,7 @@ import { serve } from './worker.ts';
  * signing in through the Auth Worker at `AUTH_URL`, letting pages on the
  * origins `ALLOWED_ORIGINS` names (comma-separated patterns, see
  * cloud/contract) call with credentials, telling every Connection to run
- * the Plugins `PLUGINS` names (JSON, `{"code":{"hash":"…","url":"…"}}`,
+ * the Plugins `PLUGINS` names (JSON, `{"code":{"hash":"…","url":"…"},"files":{…}}`,
  * the latest Release of each; none when it is empty) and that the Minimum
  * Connect is `MIN_CONNECT`, and serving the Shelf from the R2 bucket
  * `PLUGIN_FILES`.

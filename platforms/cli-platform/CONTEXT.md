@@ -17,8 +17,12 @@ One process per name on a computer. The process that holds the name serves its c
 _Avoid_: lock, pid file, daemon
 
 **Plugin**:
-A separate Node program a CLI runs, one file named by its sha256, downloaded and kept at the version the CLI asks for. It serves one RPC group, and the CLI's control calls, on a socket of its own. The CLI starts it, stops it, swaps it for a new version, and starts it again after a pause when it dies.
+A separate Node program a CLI runs, one file named by its sha256, downloaded and kept at the version the CLI asks for. It serves one RPC group, the CLI's control calls, and any routes of its own, on a socket of its own. The CLI starts it, stops it, swaps it for a new version, and starts it again after a pause when it dies.
 _Avoid_: extension, add-on, worker, service
+
+**Public Area**:
+What a Plugin serves under `/public/` on its socket: the one part of it a caller without its CLI's key may reach. The CLI lets anyone in; the Plugin alone decides what it answers there.
+_Avoid_: open routes, unauthenticated paths, static server
 
 **Plugin State**:
 Where a Plugin stands, as its CLI reports it upward: Downloading its file, Starting, Running, or Crashed with its last lines and when it is tried again.

@@ -5,6 +5,7 @@ import {
   builtHash,
   bundleFile,
   logFile,
+  PLUGIN_NAMES,
   readLog,
   writeLog,
 } from '../infra/plugins/release-log/index.ts';
@@ -19,6 +20,12 @@ import {
 const [name, summary] = process.argv.slice(2);
 if (name === undefined || summary === undefined || summary.trim() === '') {
   process.stderr.write('Usage: pnpm release:plugin <name> "<what changed>"\n');
+  process.exit(1);
+}
+if (!(PLUGIN_NAMES as ReadonlyArray<string>).includes(name)) {
+  process.stderr.write(
+    `No Plugin ${name}: it is one of ${PLUGIN_NAMES.join(', ')}\n`,
+  );
   process.exit(1);
 }
 

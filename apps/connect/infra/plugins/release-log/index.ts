@@ -6,6 +6,7 @@ export {
   checkBuild,
   logFile,
   NotLatest,
+  PLUGIN_NAMES,
   readLog,
   type Release,
   type ReleaseLog,

@@ -25,9 +25,13 @@ const fakeServer = () => {
   const responses = new Map<number, UserInputResponse>();
   const steers: Array<(ok: boolean) => void> = [];
   const starts: Array<Record<string, unknown>> = [];
+  /** Each thread opened, by its method: started or resumed. */
+  const threads: Array<{ method: string; params: Record<string, unknown> }> =
+    [];
   const skills: Array<() => void> = [];
   const answers: Record<string, unknown> = {
     'thread/start': { thread: { id: 'main' } },
+    'thread/resume': { thread: { id: 'main' } },
     'turn/start': { turn: { id: 't1' } },
     'turn/interrupt': {},
     'thread/backgroundTerminals/list': { data: [], nextCursor: null },
@@ -35,6 +39,8 @@ const fakeServer = () => {
   const request = ((method: string, params: Record<string, unknown>) =>
     Effect.callback<unknown>((resume) => {
       if (method === 'turn/start') starts.push(params);
+      if (method === 'thread/start' || method === 'thread/resume')
+        threads.push({ method, params });
       // Skills are listed when the test says: a steer naming one waits.
       if (method === 'skills/list')
         return void skills.push(() => resume(Effect.succeed({ data: [] })));
@@ -59,6 +65,7 @@ const fakeServer = () => {
     server,
     steers,
     starts,
+    threads,
     skills,
     responses,
     notify: (method: string, params: unknown) => {
@@ -419,4 +426,41 @@ describe('an Agent Question', () => {
         yield* listed(session, 0);
       }),
     ));
+});
+
+describe("an Agent's instructions", () => {
+  const opened = (config: { nativeId?: string; instructions?: string }) =>
+    Effect.gen(function* () {
+      const fake = fakeServer();
+      yield* Effect.scoped(
+        openSession(fake.server, {
+          cwd: '/tmp',
+          model: 'gpt-test',
+          sandbox: 'read-only',
+          effort: 'low',
+          ...config,
+        }),
+      );
+      return fake.threads;
+    }).pipe(Effect.runPromise);
+
+  it('go to Codex as developer instructions when a thread starts', async () => {
+    const [thread] = await opened({ instructions: 'Show files.' });
+    expect(thread?.method).toBe('thread/start');
+    expect(thread?.params['developerInstructions']).toBe('Show files.');
+  });
+
+  it('go to Codex again when a thread is resumed', async () => {
+    const [thread] = await opened({
+      nativeId: 'main',
+      instructions: 'Show files.',
+    });
+    expect(thread?.method).toBe('thread/resume');
+    expect(thread?.params['developerInstructions']).toBe('Show files.');
+  });
+
+  it('leave Codex its own when none are given', async () => {
+    const [thread] = await opened({});
+    expect(thread?.params).not.toHaveProperty('developerInstructions');
+  });
 });

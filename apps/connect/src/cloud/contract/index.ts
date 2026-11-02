@@ -18,6 +18,8 @@ export {
   PLUGIN_MISMATCH,
   pluginOfPath,
   pluginPath,
+  publicOfPath,
+  publicPath,
   PluginMismatch,
   ReportAnswer,
   RPC_PATH,

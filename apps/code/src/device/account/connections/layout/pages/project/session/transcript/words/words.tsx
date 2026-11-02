@@ -1,12 +1,16 @@
 import { MarkdownViewer } from '@kestack/web-platform/ui/viewers/markdown-viewer';
-import { type ComponentProps, useRef } from 'react';
+import { type ComponentProps, createContext, use, useRef } from 'react';
 import { type Opening, useFoldInPlace, useOpen } from './fold.tsx';
 
 /*
  * The agent's words: markdown, inline code as a quiet chip without the
  * backticks prose adds; long words show their start until asked for all,
  * shown less again where they can be seen;
- * and a breathing dot while more are on their way.
+ * and a breathing dot while more are on their way. An image in them is
+ * drawn as the page around says (`MarkdownImages`), as a session's page
+ * draws a File Embed; with none, as markdown draws it. Words that are one
+ * Message's say which (`MarkdownMessage`), so what draws an image in them
+ * can tell the same image in two Messages apart.
  */
 
 const prose =
@@ -21,27 +25,44 @@ const onLinkClick = (href: string) => {
 
 type Viewer = ComponentProps<typeof MarkdownViewer>;
 
-/** Markdown in the transcript's prose; `block` and `from` as the viewer takes them. */
+/** How the markdown under it draws an image it is given; none leaves each as markdown draws it. */
+export const MarkdownImages = createContext<Viewer['image']>(undefined);
+
+/** The Message the markdown under it is in, by id; empty outside one. */
+export const MarkdownMessage = createContext('');
+
+/**
+ * Markdown in the transcript's prose; `block` and `from` as the viewer
+ * takes them, and `message`, the Message it is in, when it is one's.
+ */
 export function Markdown({
   text,
   className = '',
   block,
   from,
+  message,
 }: {
   readonly text: string;
   readonly className?: string;
   readonly block?: Viewer['block'];
   readonly from?: number;
+  readonly message?: string;
 }) {
-  return (
+  const drawn = (
     <MarkdownViewer
       className={`${prose} ${className}`}
       onLinkClick={onLinkClick}
+      image={use(MarkdownImages)}
       block={block}
       from={from}
     >
       {text}
     </MarkdownViewer>
+  );
+  return message === undefined ? (
+    drawn
+  ) : (
+    <MarkdownMessage value={message}>{drawn}</MarkdownMessage>
   );
 }
 
@@ -70,7 +91,7 @@ export function Long({
             : 'max-h-44 w-full overflow-hidden [mask-image:linear-gradient(to_bottom,black_60%,transparent)]'
         }
       >
-        <Markdown text={text} className={className} />
+        <Markdown text={text} className={className} message={id} />
       </div>
       {long && (
         <button

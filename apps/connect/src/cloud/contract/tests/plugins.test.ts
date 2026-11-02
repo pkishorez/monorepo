@@ -10,32 +10,76 @@ import {
   pluginOfPath,
   pluginPath,
   PluginMismatch,
+  publicOfPath,
+  publicPath,
   shelfKey,
 } from '../index.js';
 
 /*
  * How every side names a Release of a Plugin: the path Code calls it at,
- * its file on the Shelf, and the close that says the Connection runs
- * another; and when a Connection is Outdated.
+ * its Public Area, its file on the Shelf, and the close that says the
+ * Connection runs another; and when a Connection is Outdated.
  */
 
 const HASH = 'a'.repeat(64);
 
 describe('a Release of a Plugin', () => {
-  it('is called at `/<name>/<sha256>/rpc`, and only that path names one', () => {
+  it('is called at `/<name>/<sha256>/<rest>`, its RPC at `rpc`, and only that path names one', () => {
     expect(pluginPath('code', HASH)).toBe(`/code/${HASH}/rpc`);
     expect(pluginOfPath(pluginPath('code', HASH))).toEqual({
       name: 'code',
       hash: HASH,
+      path: '/rpc',
+    });
+    expect(pluginOfPath(`/files/${HASH}/ticket/a.png`)).toEqual({
+      name: 'files',
+      hash: HASH,
+      path: '/ticket/a.png',
     });
     for (const path of [
       '/code/rpc',
-      `/code/${HASH}/rpc/`,
+      `/code/${HASH}`,
+      `/code/${HASH}/`,
       `/CODE/${HASH}/rpc`,
       `/code/${'A'.repeat(64)}/rpc`,
       `//code/${HASH}/rpc`,
+      '/code/public/rpc',
     ])
       expect(pluginOfPath(path)).toBeNull();
+  });
+
+  it('serves its Public Area at `/<name>/public/<rest>`, spelled exactly', () => {
+    const path = publicPath('files', 'ticket/t0k3n/a%20b.png');
+    expect(path).toBe('/files/public/ticket/t0k3n/a%20b.png');
+    expect(publicOfPath(path)).toEqual({
+      name: 'files',
+      path: '/public/ticket/t0k3n/a%20b.png',
+    });
+    expect(publicOfPath('/files/public/x.tar.gz')).toEqual({
+      name: 'files',
+      path: '/public/x.tar.gz',
+    });
+    for (const path of [
+      '/files/public',
+      '/files/public/',
+      '/files/public//x',
+      '/files/public/x/',
+      '//files/public/x',
+      '/FILES/public/x',
+      '/files/PUBLIC/x',
+      '/files/%70ublic/x',
+      '/files/public/..',
+      '/files/public/x/./y',
+      '/files/public/%2e%2e/rpc',
+      '/files/public/%2E./rpc',
+      '/files/public/x%2Frpc',
+      '/files/public/x%5crpc',
+      '/files/public/x\\rpc',
+      '/files/public/x y',
+      '/files/public/x#y',
+      `/files/${HASH}/public/x`,
+    ])
+      expect(publicOfPath(path)).toBeNull();
   });
 
   it('is on the Shelf as `<name>/<sha256>.mjs`', () => {

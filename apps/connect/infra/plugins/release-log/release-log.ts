@@ -32,6 +32,9 @@ export type ReleaseLog = typeof ReleaseLog.Type;
 const root = (path: string) =>
   fileURLToPath(new URL(`../../../${path}`, import.meta.url));
 
+/** Every Plugin a Connection runs, by name: each has a Release Log, and is built to `dist/plugin/<name>.mjs`. */
+export const PLUGIN_NAMES = ['code', 'files'] as const;
+
 /** Where the Release Log of the Plugin `name` is kept. */
 export const logFile = (name: string) =>
   root(`src/plugins/${name}/releases.json`);

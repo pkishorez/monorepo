@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { Effect, Fiber, Layer, SubscriptionRef } from 'effect';
 import type { Connection } from '@kestack/connect/cloud';
 import { ConnectionAddress } from '@kestack/connect/code';
+import { FilesAddress } from '@kestack/connect/files';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { describe, expect, it } from 'vitest';
 import {
@@ -9,14 +10,14 @@ import {
   connectionsLayer as connections,
   nobody,
 } from '../../../../connections.ts';
-import { addressAt, byConnection } from '../reach.ts';
-import { PLUGIN_CODE } from '../release.ts';
+import { addressAt, byConnection, filesAddressAt } from '../reach.ts';
+import { PLUGIN_CODE, PLUGIN_FILES } from '../release.ts';
 
 /*
  * A Connection's Instance is held by that Connection's own Replicas, and opens
  * nothing until the Connection runs here: an address naming a Connection not
- * running, such as another Account's, waits. Its socket dials the code
- * Plugin at the Release this Code was built with.
+ * running, such as another Account's, waits. Its sockets dial the code
+ * and files Plugins at the Releases this Code was built with.
  */
 
 const wait = (ms = 20) =>
@@ -112,6 +113,38 @@ describe('the socket of every Connection', () => {
     );
     expect(address).toEqual({
       url: `wss://m1.trycloudflare.com/code/${PLUGIN_CODE}/rpc`,
+      key: 'key-m1',
+    });
+  });
+
+  it('dials the files Plugin at the Release in its Release Log, with its Connection Key', async () => {
+    const log = JSON.parse(
+      readFileSync(
+        new URL(
+          '../../../../../../../../node_modules/@kestack/connect/src/plugins/files/releases.json',
+          import.meta.url,
+        ),
+        'utf8',
+      ),
+    ) as { readonly releases: ReadonlyArray<{ readonly hash: string }> };
+    expect(PLUGIN_FILES).toBe(log.releases.at(-1)?.hash);
+    const address = await Effect.runPromise(
+      Effect.gen(function* () {
+        const { known } = yield* ConnectionsChannel;
+        yield* SubscriptionRef.set(known, {
+          ...nobody,
+          accountId: 'a1',
+          connections: [listed('https://m1.trycloudflare.com/')],
+        });
+        return yield* (yield* FilesAddress).of('m1');
+      }).pipe(
+        Effect.provide(
+          filesAddressAt(PLUGIN_FILES).pipe(Layer.provideMerge(connections)),
+        ),
+      ),
+    );
+    expect(address).toEqual({
+      url: `wss://m1.trycloudflare.com/files/${PLUGIN_FILES}/rpc`,
       key: 'key-m1',
     });
   });

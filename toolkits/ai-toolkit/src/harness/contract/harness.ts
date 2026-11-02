@@ -66,6 +66,13 @@ export interface AgentConfig {
   readonly settings: Readonly<Record<string, string>>;
   /** The Agent's Native Id, to resume its context. */
   readonly nativeId?: string;
+  /**
+   * Instructions for every Turn of the Agent, Resumed and Forked ones
+   * included, added to the harness's own and never replacing them. A
+   * harness that keeps its system prompt with the Agent's context, as
+   * Claude Code does, may hold one resumed Agent to what it opened with.
+   */
+  readonly instructions?: string;
 }
 
 /** What one user message carries into a Turn. */

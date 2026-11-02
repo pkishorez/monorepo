@@ -1,11 +1,12 @@
 /*
- * `vp pack`: two self-contained, minified ESM files, every JavaScript
+ * `vp pack`: three self-contained, minified ESM files, every JavaScript
  * dependency inlined and Node's own modules left as imports, so installing
  * one needs no other package.
  *
- * - `dist/plugin/code.mjs` (pnpm build:plugin): the code Plugin as
- *   Connect downloads it. sherpa-onnx is loaded at run time from the
- *   Speech to Text folder, never bundled.
+ * - `dist/plugin/code.mjs` and `dist/plugin/files.mjs` (pnpm
+ *   build:plugin): the code and files Plugins as Connect downloads them.
+ *   sherpa-onnx is loaded at run time from the Speech to Text folder,
+ *   never bundled.
  * - `dist/cli/ke-connect.mjs`: the `ke-connect` command, as `bin/` runs it.
  *   It sits two folders down, as `dist/connection/` does, so it finds
  *   `package.json` where `tsc`'s build does. `shims` gives it `__dirname`,
@@ -27,6 +28,11 @@ export default {
     {
       ...bundled,
       entry: { code: 'src/plugins/code/serve/main.ts' },
+      outDir: 'dist/plugin',
+    },
+    {
+      ...bundled,
+      entry: { files: 'src/plugins/files/serve/main.ts' },
       outDir: 'dist/plugin',
     },
     {

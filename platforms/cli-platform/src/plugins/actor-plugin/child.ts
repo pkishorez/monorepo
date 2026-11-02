@@ -3,11 +3,12 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { connect } from 'node:net';
 import { dirname } from 'node:path';
 import { Duration, Effect, Queue, Schedule } from 'effect';
-import { PluginEnv } from '../contract/index.js';
+import { PluginAccess, PluginEnv } from '../contract/index.js';
 
 /*
  * One Plugin process, for the Scope: Node running its file, with its socket
- * and folders in the environment. What it prints is split into lines and
+ * and folders in the environment, and word that every request passed on
+ * to it is marked with PluginAccess. What it prints is split into lines and
  * kept in its log file; what happens to it arrives as Events. Closing the
  * Scope stops it: SIGTERM, then SIGKILL if it is still there after ten
  * seconds, and waits until it is gone. Kabuki does not wait for a stopped
@@ -153,6 +154,9 @@ export const child = (options: ChildOptions) =>
             [PluginEnv.state]: options.folders.state,
             [PluginEnv.cache]: options.folders.cache,
             [PluginEnv.shared]: options.folders.shared,
+            // Whatever passes requests on to a Plugin this starts marks
+            // every one of them with PluginAccess's header.
+            [PluginEnv.access]: PluginAccess.header,
           },
         });
         started.set(options.socket, process_);

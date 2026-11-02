@@ -1,0 +1,9 @@
+{
+  "plugin": "files",
+  "releases": [
+    {
+      "hash": "37a2a67230a622d6591a7b96bff538f70fdfbf614c42f2e09ee564675a488f38",
+      "summary": "First release: File Tickets for images, video, audio, PDF, HTML and markdown"
+    }
+  ]
+}

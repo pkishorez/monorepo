@@ -10,6 +10,7 @@ import {
   bundleFile,
   checkBuild,
   logFile,
+  PLUGIN_NAMES,
   readLog,
 } from './release-log/index.ts';
 import { folderShelf, PluginFiles, r2Shelf } from './shelf/index.ts';
@@ -17,13 +18,13 @@ import { folderShelf, PluginFiles, r2Shelf } from './shelf/index.ts';
 /*
  * What a Stage tells every Connection about its Plugins: which Release of
  * each to run, on the Shelf, and the Minimum Connect, the oldest
- * `ke-connect` let run them. There is one Plugin, `code`.
+ * `ke-connect` let run them. There are two Plugins, `code` and `files`.
  *
  * A deployed Stage names the latest Release in the Plugin's Release Log,
  * and refuses to deploy unless the build is that Release; its file goes
- * on the R2 Shelf. Under `alchemy dev` the Log is not asked: the build is
+ * on the R2 Shelf. Under `alchemy dev` the Log is not asked: each build is
  * named as it is, and without one none is, on the folder Shelf, so
- * development reads its Plugin the way a deployed Connection does. A
+ * development reads its Plugins the way a deployed Connection does. A
  * personal Stage, `alchemy deploy --stage alice`, has no domain, so no URL
  * a Connection could read its Shelf at before its Worker is made: it
  * refuses to deploy. The Worker waits on the Shelf, so no Connection is
@@ -71,12 +72,30 @@ const releaseOf = (name: string) =>
     return Output.map(url, (url) => ({ hash, url }));
   });
 
-/** The Worker's `PLUGINS`, `{"code":{"hash","url"}}`, once its file is on the Shelf; empty when it names none. */
+/** A Plugin's Release as `PLUGINS` names it. */
+interface Version {
+  readonly hash: string;
+  readonly url: string;
+}
+
+/** The Worker's `PLUGINS`, `{"code":{"hash","url"},"files":{…}}`, once each file is on the Shelf; empty when it names none. */
 export const plugins = Effect.gen(function* () {
-  const code = yield* releaseOf('code');
-  return code === null
+  let named: Output.Output<Record<string, Version>> | undefined;
+  for (const name of PLUGIN_NAMES) {
+    const release = yield* releaseOf(name);
+    if (release === null) continue;
+    const one = Output.map(release, (version) => ({ [name]: version }));
+    named =
+      named === undefined
+        ? one
+        : Output.map(Output.all(named, one), ([before, next]) => ({
+            ...before,
+            ...next,
+          }));
+  }
+  return named === undefined
     ? ''
-    : Output.map(code, (version) => JSON.stringify({ code: version }));
+    : Output.map(named, (versions) => JSON.stringify(versions));
 });
 
 /** What `package.json` says of this Connect. */

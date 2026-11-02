@@ -1,13 +1,16 @@
 import { cloudflare } from '@kestack/kabuki/start/cloudflare';
 import { app } from '@kestack/web-platform/app/vite';
 import { defineConfig } from 'vite';
-import { pluginCode } from './scripts/plugin-code.ts';
+import { pluginRelease } from './scripts/plugin-release.ts';
 
 export default defineConfig(({ command }) => ({
-  // The Release of the code Plugin Code calls, read as it is built.
+  // The Releases of the code and files Plugins Code calls, read as it is built.
   define: {
     'import.meta.env.PLUGIN_CODE': JSON.stringify(
-      pluginCode(command === 'serve'),
+      pluginRelease('code', command === 'serve'),
+    ),
+    'import.meta.env.PLUGIN_FILES': JSON.stringify(
+      pluginRelease('files', command === 'serve'),
     ),
   },
   server: {

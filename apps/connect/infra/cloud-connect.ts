@@ -51,7 +51,7 @@ export const CloudConnect = Cloudflare.Worker(
       env: {
         AUTH_URL: at.authUrl,
         ALLOWED_ORIGINS: at.origins,
-        // The Plugins every Connection runs, `{"code":{"hash","url"}}`.
+        // The Plugins every Connection runs, `{"code":{"hash","url"},"files":{…}}`.
         PLUGINS: yield* plugins,
         MIN_CONNECT: yield* minConnect,
         DB: CloudConnectDatabase,

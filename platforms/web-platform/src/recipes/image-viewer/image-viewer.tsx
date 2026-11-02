@@ -30,6 +30,13 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import {
+  BACKDROP,
+  Chrome,
+  POPUP,
+  VIEWER_SURFACE,
+  ViewerTool,
+} from './viewer.tsx';
 
 /*
  * An image opened whole: over the page, on a dimmed and blurred backdrop,
@@ -39,7 +46,10 @@ import { createPortal } from 'react-dom';
  * or after: by a swipe left or right on touch, the image following the
  * finger and the next sliding in; by the arrows at its sides or the arrow
  * keys otherwise. Its buttons and count show while it is being used, and
- * fade once it is left alone.
+ * fade once it is left alone. Given a `caption`, it shows it at the top
+ * left, a quieter `detail` beside it; given `tools`, they join its
+ * buttons, before Close. Its backdrop, buttons and caption are
+ * `Viewer`'s too, so anything else opened whole looks the same.
  *
  * On touch, two fingers pinch it, about the point between them, and move
  * it as they go; a double tap zooms in on where it lands, or back out; one
@@ -57,7 +67,7 @@ import { createPortal } from 'react-dom';
  * a click on the backdrop close it. Zoomed out past fit, or moved past its
  * edges, it settles back once let go.
  *
- * However it closes, it is gone at once, its buttons and backdrop with
+ * It fades in as it opens. However it closes, it is gone at once, its buttons and backdrop with
  * it, and the page under is the page's again. Swiped away, only the image
  * goes on sliding off, over the page and out of its way, unless motion is
  * reduced.
@@ -105,10 +115,19 @@ export function ImageViewer({
   onClose,
   images,
   onShow,
+  caption,
+  detail,
+  tools,
 }: {
   /** The image shown, or null while none is. */
   readonly src: string | null;
   readonly onClose: () => void;
+  /** Shown at the top left, and what it is called to a screen reader. */
+  readonly caption?: string;
+  /** A quieter line beside the caption, such as its name and size. */
+  readonly detail?: string;
+  /** `ViewerTool`s, among its buttons before Close. */
+  readonly tools?: ReactNode;
   /** Every image it moves between, `src` among them, in order; omitted, it shows `src` alone. */
   readonly images?: ReadonlyArray<string>;
   /** Shows another of `images`, as the reader moves to it. */
@@ -155,9 +174,11 @@ export function ImageViewer({
           <Dialog.Popup
             data-slot="image-viewer"
             // Closed, it goes at once, with no fade for its buttons to linger in.
-            className="fixed inset-0 z-50 h-dvh w-screen outline-none data-closed:hidden"
+            className={POPUP}
           >
-            <Dialog.Title className="sr-only">Image</Dialog.Title>
+            <Dialog.Title className="sr-only">
+              {caption ?? 'Image'}
+            </Dialog.Title>
             {src !== null && (
               <Canvas
                 key={src}
@@ -168,6 +189,9 @@ export function ImageViewer({
                 onStep={among ? step : null}
                 onClose={close}
                 onSwiped={swiped}
+                caption={caption}
+                detail={detail}
+                tools={tools}
               />
             )}
           </Dialog.Popup>
@@ -266,6 +290,9 @@ function Canvas({
   onStep,
   onClose,
   onSwiped,
+  caption,
+  detail,
+  tools,
 }: {
   readonly src: string;
   /** The side it slides in from: the next one's, the one before's, or none. */
@@ -279,6 +306,9 @@ function Canvas({
   readonly onClose: () => void;
   /** Swiped away: closed, the image left to slide off from where it is. */
   readonly onSwiped: (place: Place) => void;
+  readonly caption: string | undefined;
+  readonly detail: string | undefined;
+  readonly tools: ReactNode;
 }) {
   const reduced = useReducedMotion() === true;
   const stage = useRef<HTMLDivElement>(null);
@@ -476,7 +506,7 @@ function Canvas({
         <Touch image={touched} />
         <motion.div
           aria-hidden
-          className="absolute inset-0 bg-black/70 backdrop-blur-xl"
+          className={BACKDROP}
           style={{ opacity: backdrop }}
         />
         <div
@@ -502,34 +532,25 @@ function Canvas({
               toggle({ x: event.clientX, y: event.clientY });
             }}
             style={{ scale, x, y }}
-            className={`max-h-[calc(100dvh-2rem)] max-w-full rounded-lg object-contain sm:max-h-[calc(100dvh-7rem)] shadow-[0_0_0_1px_rgb(255_255_255/0.12),0_12px_48px_rgb(0_0_0/0.5)] ${zoom > 1.01 ? '' : 'cursor-zoom-in'}`}
+            className={`max-h-[calc(100dvh-2rem)] max-w-full object-contain sm:max-h-[calc(100dvh-7rem)] ${VIEWER_SURFACE} ${zoom > 1.01 ? '' : 'cursor-zoom-in'}`}
           />
         </div>
-        {count !== null && (
-          <div
-            aria-live="polite"
-            data-shown={shown ? '' : undefined}
-            className="pointer-events-none absolute top-3 left-3 rounded-full bg-black/60 px-3 py-1.5 text-xs text-white/90 tabular-nums opacity-0 transition-opacity duration-200 [margin-top:env(safe-area-inset-top)] data-shown:opacity-100 motion-reduce:transition-none"
-          >
-            {count.at} of {count.total}
-          </div>
-        )}
         {can(-1) && <Side side="left" shown={shown} onClick={() => step(-1)} />}
         {can(1) && <Side side="right" shown={shown} onClick={() => step(1)} />}
-        <div
-          // Its buttons are tapped, never part of a Gesture.
-          data-zone-gesture="disabled"
-          data-shown={shown ? '' : undefined}
+        <Chrome
+          caption={caption}
+          detail={detail}
+          count={count}
+          shown={shown}
           onFocus={wake}
-          className="pointer-events-none absolute top-3 right-3 flex items-center gap-1 rounded-full bg-black/60 p-1 text-white/90 opacity-0 transition-opacity duration-200 [margin-top:env(safe-area-inset-top)] focus-within:pointer-events-auto focus-within:opacity-100 data-shown:pointer-events-auto data-shown:opacity-100 motion-reduce:transition-none"
         >
-          <Tool
+          <ViewerTool
             label="Zoom out"
             disabled={zoom <= 1}
             onClick={() => zoomTo(scale.get() / STEP)}
           >
             <MinusIcon />
-          </Tool>
+          </ViewerTool>
           <button
             type="button"
             aria-label="Fit to screen"
@@ -539,17 +560,18 @@ function Canvas({
           >
             {Math.round(zoom * 100)}%
           </button>
-          <Tool
+          <ViewerTool
             label="Zoom in"
             disabled={zoom >= MAX}
             onClick={() => zoomTo(scale.get() * STEP)}
           >
             <PlusIcon />
-          </Tool>
-          <Tool label="Close" onClick={onClose}>
+          </ViewerTool>
+          {tools}
+          <ViewerTool label="Close" onClick={onClose}>
             <XIcon />
-          </Tool>
-        </div>
+          </ViewerTool>
+        </Chrome>
       </GestureZone>
     </GestureProvider>
   );
@@ -578,31 +600,6 @@ function Side({
       className={`focus-ring pointer-events-none absolute top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-black/60 text-white/90 opacity-0 transition-[opacity,background-color] duration-200 hover:bg-black/75 focus-visible:pointer-events-auto focus-visible:opacity-100 data-shown:pointer-events-auto data-shown:opacity-100 max-sm:hidden motion-reduce:transition-none [&_svg]:size-5 ${side === 'left' ? 'left-3' : 'right-3'}`}
     >
       <Icon aria-hidden />
-    </button>
-  );
-}
-
-function Tool({
-  label,
-  disabled,
-  onClick,
-  children,
-}: {
-  readonly label: string;
-  readonly disabled?: boolean;
-  readonly onClick: () => void;
-  readonly children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="focus-ring grid size-11 place-items-center rounded-full transition-colors duration-150 hover:bg-white/15 disabled:opacity-40 disabled:hover:bg-transparent keyboard:size-8 [&_svg]:size-4"
-    >
-      {children}
     </button>
   );
 }

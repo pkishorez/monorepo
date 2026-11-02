@@ -365,6 +365,7 @@ export interface Requests {
       readonly cwd: string;
       readonly sandbox: SandboxMode;
       readonly approvalPolicy: 'never';
+      readonly developerInstructions?: string;
       readonly excludeTurns: boolean;
     };
     readonly result: { readonly thread: { readonly id: string } };

@@ -114,7 +114,12 @@ describe('Engine', () => {
         ]);
         expect(new Set(all.map((raw) => raw.turnId)).size).toBe(1);
         expect(fake.opens).toMatchObject([
-          { model: 'claude-test', settings: { effort: 'high' } },
+          {
+            model: 'claude-test',
+            settings: { effort: 'high' },
+            // Every Session's agent is told how to show a file.
+            instructions: expect.stringContaining('![caption](files:<path>)'),
+          },
         ]);
         // It keeps when its last Turn ended, once its end is written.
         expect(session.endedAt).toBeNull();
@@ -409,6 +414,7 @@ describe('Engine', () => {
         yield* engine.send(session.id, say('retry'));
         yield* eventually(() => expect(fake.opens).toHaveLength(2));
         expect(fake.opens[1]?.nativeId).toBe('native-1');
+        expect(fake.opens[1]?.instructions).toBe(fake.opens[0]?.instructions);
       }),
       fake,
     );

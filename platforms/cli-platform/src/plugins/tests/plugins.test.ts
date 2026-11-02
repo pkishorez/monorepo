@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
-import { createServer } from 'node:http';
+import { createServer, request } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -20,6 +20,7 @@ import {
 } from '../../files/index.js';
 import { ActorPlugin } from '../actor-plugin/index.js';
 import {
+  PluginAccess,
   PluginControl,
   PluginEnv,
   PluginPaths,
@@ -113,13 +114,18 @@ const cliOf = (
     on: { Want: ({ wanted }) => ({ model: { wanted } }) },
   });
 
+/** What a CLI passing a request on says of a caller with its key. */
+const KEY = { [PluginAccess.header]: PluginAccess.key };
+
 /** A client to the Plugin's own group on its socket. */
 const pingAt = (socket: string) =>
   Effect.gen(function* () {
     const protocol = yield* Layer.build(
       RpcClient.layerProtocolSocket({ retryTransientErrors: false }).pipe(
         Layer.provide(
-          Socket.layerWebSocket(`ws+unix://${socket}:${PluginPaths.rpc}`),
+          Socket.layerWebSocket(`ws+unix://${socket}:${PluginPaths.rpc}`, {
+            headers: KEY,
+          }),
         ),
         Layer.provide(NodeSocket.layerWebSocketConstructorWS),
         Layer.provide(RpcSerialization.layerJson),
@@ -133,7 +139,9 @@ const controlAt = (socket: string) =>
     const protocol = yield* Layer.build(
       RpcClient.layerProtocolSocket({ retryTransientErrors: false }).pipe(
         Layer.provide(
-          Socket.layerWebSocket(`ws+unix://${socket}:${PluginPaths.control}`),
+          Socket.layerWebSocket(`ws+unix://${socket}:${PluginPaths.control}`, {
+            headers: KEY,
+          }),
         ),
         Layer.provide(NodeSocket.layerWebSocketConstructorWS),
         Layer.provide(RpcSerialization.layerJson),
@@ -141,6 +149,24 @@ const controlAt = (socket: string) =>
     );
     return yield* RpcClient.make(PluginControl).pipe(Effect.provide(protocol));
   });
+
+/** The status a plain GET of `path` on `socket` is answered with. */
+const statusAt = (
+  socket: string,
+  path: string,
+  headers: Record<string, string>,
+) =>
+  Effect.promise(
+    () =>
+      new Promise<number>((done, failed) => {
+        const asked = request({ socketPath: socket, path, headers }, (r) => {
+          r.resume();
+          done(r.statusCode ?? 0);
+        });
+        asked.on('error', failed);
+        asked.end();
+      }),
+  );
 
 const eventually = (assertion: () => void, timeout = 20_000) =>
   Effect.promise(() => vi.waitFor(assertion, { timeout, interval: 50 }));
@@ -170,6 +196,14 @@ describe('a Plugin kept running by its CLI', () => {
             expect(yield* ping.ping()).toBe('pong a');
             const control = yield* controlAt(plugin.socket);
             expect(yield* control.status()).toMatchObject({ name: 'ping' });
+            // It is told every request is marked, so one that is not
+            // reaches nothing.
+            expect(yield* statusAt(plugin.socket, PluginPaths.rpc, {})).toBe(
+              404,
+            );
+            expect(
+              yield* statusAt(plugin.socket, PluginPaths.rpc, KEY),
+            ).not.toBe(404);
             expect(
               readFileSync(
                 join(plugin.folders.state, '..', 'ping.log'),

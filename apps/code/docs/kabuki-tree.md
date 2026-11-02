@@ -148,12 +148,15 @@ Voice is a Child of Connections, so a recording keeps going across pages.
 
 ## Releases
 
-Code is built with one Release of the code Plugin, `PLUGIN_CODE`, which
-Vite inlines as `import.meta.env.PLUGIN_CODE` (`scripts/plugin-code.ts`):
-the latest in the Plugin's Release Log, and the build fails without one;
-under `pnpm dev`, the sha256 of Connect's own `dist/plugin/code.mjs` when
-it is built, as the dev Worker names it. Each Connection's socket dials
-`<tunnel>/code/<sha256>/rpc` (`connection/link/reach/`).
+Code is built with one Release of the code Plugin, `PLUGIN_CODE`, and
+one of the files Plugin, `PLUGIN_FILES`, which Vite inlines as
+`import.meta.env.PLUGIN_CODE` and `PLUGIN_FILES`
+(`scripts/plugin-release.ts`): the latest in each Plugin's Release Log,
+and the build fails without one; under `pnpm dev`, the sha256 of
+Connect's own `dist/plugin/<name>.mjs` when it is built, as the dev
+Worker names it. Each Connection's socket dials
+`<tunnel>/code/<sha256>/rpc`, and, once a File Embed asks, a second
+dials `<tunnel>/files/<sha256>/rpc` (`connection/link/reach/`).
 
 A Connection running another Release closes the socket at once with
 `PLUGIN_MISMATCH`. Connect's client keeps what it said until a socket to it

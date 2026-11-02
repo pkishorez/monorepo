@@ -6,7 +6,7 @@ What every kestack CLI needs on a computer: its folders, one shared copy of each
 
 A kestack CLI, such as `ke-connect`, runs on a user's computer for a long time. It needs the same few things whatever it does: folders that follow the platform's rules, downloads kept once for every CLI and checked against their hash, a guarantee that one name runs as one process, and a way to run separate programs, its Plugins, at the version it is told and start them again when they die. This package holds those parts and nothing about what a CLI is for: no sign-in, no cloud, no tunnels.
 
-A Plugin is one Node file named by its sha256. On the CLI's side, `ActorPlugin` is a [Kabuki](../../packages/kabuki/README.md) Actor that downloads it, runs it, swaps it when the wanted version changes, and reports its Plugin State upward through the `Plugins` Capability. On the Plugin's side, `Plugin.make` serves its RPC group on the socket the CLI gave it. The values they pass are [std-toolkit ESchemas](../../toolkits/std-toolkit/src/eschema/README.md), so a newer side reads an older one.
+A Plugin is one Node file named by its sha256. On the CLI's side, `ActorPlugin` is a [Kabuki](../../packages/kabuki/README.md) Actor that downloads it, runs it, swaps it when the wanted version changes, and reports its Plugin State upward through the `Plugins` Capability. On the Plugin's side, `Plugin.make` serves its RPC group, and any HTTP routes of its own, on the socket the CLI gave it; what it serves under `/public/` is its Public Area, the one part a caller without the CLI's key may reach. The values they pass are [std-toolkit ESchemas](../../toolkits/std-toolkit/src/eschema/README.md), so a newer side reads an older one.
 
 The words are in [CONTEXT.md](./CONTEXT.md), which also says how the folders are laid out.
 
@@ -49,19 +49,20 @@ pnpm add @kestack/cli-platform effect @kestack/kabuki @kestack/std-toolkit
 | `PluginStatus`  | The ESchema of what a running Plugin says about itself.                                            |
 | `PluginControl` | The RPC group a CLI asks a Plugin with: `status` and `health`.                                     |
 | `PluginEnv`     | The names of the environment variables a Plugin is started with.                                   |
-| `PluginPaths`   | Where on its socket a Plugin serves its own group and PluginControl.                               |
+| `PluginPaths`   | Where on its socket a Plugin serves its own group, PluginControl and its Public Area.              |
+| `PluginAccess`  | The header a CLI sets on each request it passes on, saying whether the caller holds its key.       |
 | `READY`         | The Node IPC message a Plugin sends once it listens.                                               |
 
 ### `@kestack/cli-platform/plugins/contract`
 
-The same `Plugins`, `PluginState`, `PluginStatus`, `PluginControl`, `PluginEnv`, `PluginPaths` and `READY` as `./plugins`, without `ActorPlugin`: nothing in it needs Node, so a browser or a Worker may import it, such as a contract that carries a Plugin State.
+The same `Plugins`, `PluginState`, `PluginStatus`, `PluginControl`, `PluginEnv`, `PluginPaths`, `PluginAccess` and `READY` as `./plugins`, without `ActorPlugin`: nothing in it needs Node, so a browser or a Worker may import it, such as a contract that carries a Plugin State.
 
 ### `@kestack/cli-platform/plugins/plugin`
 
-| Export          | What it does                                                                                              |
-| --------------- | --------------------------------------------------------------------------------------------------------- |
-| `Plugin.make`   | Makes the `main` a Plugin's file calls: serves its group where the CLI said, until SIGTERM, then exits 0. |
-| `PluginFolders` | The service a Plugin's handlers read their data, state, cache and shared folders from.                    |
+| Export          | What it does                                                                                                                                    |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Plugin.make`   | Makes the `main` a Plugin's file calls: serves its group, and its `routes` and `publicRoutes`, where the CLI said, until SIGTERM, then exits 0. |
+| `PluginFolders` | The service a Plugin's handlers read their data, state, cache and shared folders from.                                                          |
 
 ### `@kestack/cli-platform/single`
 
@@ -145,6 +146,7 @@ yield *
 - A new `wanted` downloads while the old Plugin runs; then the old one gets SIGTERM, SIGKILL after ten seconds, and the new one starts once the old process has exited, its finalizers done, and the socket is free. Two never run at once on one Plugin's folders.
 - A Plugin that exits is Crashed and started again after 1 s, 2 s, 4 s, up to 60 s; its last 50 lines are in the report and all of them in `<state>/plugins/<name>.log`.
 - While a downloaded file runs, it is marked used every day, so `Downloads.prune` from any CLI on the computer keeps it.
+- It starts the Plugin with `KESTACK_PLUGIN_ACCESS` set, saying every request passed on to its socket carries `x-ke-connect-access`: a CLI using it marks each one, `key` or `public`.
 
 ### Writing a Plugin
 
@@ -169,5 +171,7 @@ Plugin.make({
 ```
 
 - It listens on the socket in `KESTACK_PLUGIN_SOCKET`: its group at `/rpc`, PluginControl at `/control`, both over WebSocket.
+- Given `routes`, HttpRouter routes, it serves them beside `/rpc`; given `publicRoutes`, it serves them in its Public Area, a route at `/a` at `/public/a`. Both are handed the services its `layer` makes, built once and shared with its handlers, and may stream a file with any status and headers; HEAD is answered from GET.
+- A request whose `x-ke-connect-access` header is `public` never reaches `/rpc`, `/control` or `routes`, and one with any value but `key` or none is answered 404 there. A request with no header reaches nothing when the CLI started the Plugin with `KESTACK_PLUGIN_ACCESS` (`PluginEnv.access`) set, as `ActorPlugin` does, saying it marks every request; without it, the request comes from a CLI older than the Public Area, which passed on only what held its key, and is taken as holding it. A path under `/public/` reaches `publicRoutes` whoever sends it, but not with a `.`, `..` or empty segment, nor an encoded `/`, `\` or `.`.
 - It sends `{ ready: true }` over Node IPC once it listens.
 - SIGTERM, or its CLI going away, closes it: the finalizers run and it exits 0.
