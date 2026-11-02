@@ -8,10 +8,10 @@ import { notify } from '../../../../../../../../ui/controls/notice/index.ts';
  * On a touch screen a Session row swipes left to right: an unsettled one
  * to Settle it, a Settled one to un-Settle it, with a quiet "Settle" or
  * "Keep" behind it as it goes. It slides out, the list closes the gap, and
- * a toast offers Undo for five seconds; its Connection is asked at once, and
- * Undo asks it back. A refusal brings its row back afresh (`SwipeBack`),
- * even one never taken out of its list, and no other. With no touch
- * screen the row is drawn as it is.
+ * a toast offers Undo for five seconds, or until the sidebar shuts; its
+ * Connection is asked at once, and Undo asks it back. A refusal brings its
+ * row back afresh (`SwipeBack`), even one never taken out of its list, and
+ * no other. With no touch screen the row is drawn as it is.
  */
 
 /** How many of a Session's Moves were refused: each brings its row back, drawn afresh. */
@@ -31,6 +31,7 @@ export const sayMoved = (
     description: title,
     seconds,
     action: { label: 'Undo', onClick: undo },
+    sidebar: true,
   });
 
 export function SwipeToMove({

@@ -51,7 +51,7 @@ let host: HTMLDivElement;
 let root: Root;
 let moves: Array<boolean>;
 
-const render = (settled: boolean) =>
+const render = (settled: boolean, sidebarOpen = true) =>
   act(() =>
     root.render(
       <GestureProvider>
@@ -68,7 +68,7 @@ const render = (settled: boolean) =>
             <div data-testid="row">A session</div>
           </SwipeToMove>
         </GestureZone>
-        <Toasts />
+        <Toasts sidebar={{ open: sidebarOpen, whole: true }} />
       </GestureProvider>,
     ),
   );
@@ -106,6 +106,15 @@ describe('a Session row swiped on a touch screen', () => {
     expect(document.body.textContent).toContain('Settled');
     act(() => undo()?.click());
     expect(moves).toEqual([true, false]);
+  });
+
+  it('takes its toast away once the sidebar shuts', async () => {
+    render(false);
+    await swipe(320);
+    expect(undo()).toBeDefined();
+    render(false, false);
+    await act(async () => vi.advanceTimersByTimeAsync(500));
+    expect(undo()).toBeUndefined();
   });
 
   it('un-Settles a Settled one swiped left to right, and Undo Settles it again', async () => {

@@ -108,7 +108,6 @@ export const LayoutView = View.make(
             <Pickers.view instance={children.pickers} />
           </Pickers.Around>
           <Spoken />
-          <Toasts />
         </Keyboard>
       </>
     );
@@ -392,8 +391,15 @@ function Screen({
       >
         {children}
       </div>
+      <ShellToasts />
     </AppShell>
   );
+}
+
+/** The toasts, told whether the sidebar is open, and the whole screen. */
+function ShellToasts() {
+  const { open, isMobile } = useAppShell();
+  return <Toasts sidebar={{ open, whole: isMobile }} />;
 }
 
 /**

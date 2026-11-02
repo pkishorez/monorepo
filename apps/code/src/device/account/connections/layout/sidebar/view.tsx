@@ -111,6 +111,7 @@ export const SidebarView = View.make(
       notify({
         title: refused.settled ? 'Not Settled' : 'Still Settled',
         description: refused.reason,
+        sidebar: true,
       });
     }, [refused?.n]);
     // The Connections shown whose Projects never synced here, each said as it
