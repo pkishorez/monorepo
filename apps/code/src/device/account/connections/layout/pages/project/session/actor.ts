@@ -20,7 +20,13 @@ import {
 import { Connections } from '../../../../connections.ts';
 import { Seen } from '../../../../connection/store/index.ts';
 import { Draft } from '../draft/index.ts';
-import { cancel, forkSession, markSeen, stopJob } from './commands.ts';
+import {
+  cancel,
+  forkSession,
+  markSeen,
+  openAfterDrawer,
+  stopJob,
+} from './commands.ts';
 import { Question } from './question/index.ts';
 import * as Picker from '../../../../../../../ui/controls/picker/index.ts';
 import { since } from '../../../../../../../ui/labels/status/index.ts';
@@ -572,8 +578,14 @@ export const SessionLive = Session.build({
       const choice = last === null ? null : choiceOf(last, model.running);
       if (choice === null) return { model: closed };
       switch (choice._tag) {
+        // Chosen in a Drawer, by touch: once it has slid away.
         case 'Open':
-          return { model: { ...closed, drawers: [choice.rowId] } };
+          return model.picking === 'touch'
+            ? {
+                model: { ...closed, drawers: [] },
+                command: openAfterDrawer({ id: choice.rowId }),
+              }
+            : { model: { ...closed, drawers: [choice.rowId] } };
         case 'Stop':
           return model.stoppingJobs.includes(choice.jobId)
             ? { model: closed }

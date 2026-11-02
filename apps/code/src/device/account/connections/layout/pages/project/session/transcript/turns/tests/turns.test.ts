@@ -67,6 +67,7 @@ describe('a question the agent asked', () => {
     result: null,
     answered: null,
     background: false,
+    job: null,
     state: 'done',
   });
   const read = tool('r', 'read', { file_path: 'a.ts' });
@@ -113,6 +114,7 @@ describe('words sent while it worked', () => {
     result: null,
     answered: null,
     background: false,
+    job: null,
     state: 'done',
   };
 

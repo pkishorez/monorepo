@@ -34,6 +34,7 @@ const subagent = (
   },
   result: null,
   background: false,
+  job: null,
   state: 'done',
   rows,
   ...more,
@@ -150,6 +151,7 @@ describe('a subagent', () => {
   it('can be stopped from where it is opened while its job runs', () => {
     const running = subagent('bg', 'Watch the build', [], {
       background: true,
+      job: 'call-bg',
       state: 'running',
     });
     const now = live({

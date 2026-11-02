@@ -10,12 +10,11 @@ import {
 } from '@kestack/web-platform/ui/components/dialog';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import {
-  Drawer,
   DrawerClose,
-  DrawerContent,
   DrawerDescription,
   DrawerTitle,
 } from '@kestack/web-platform/ui/components/drawer';
+import { Drawer } from '@kestack/web-platform/recipes/touch-layers';
 import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import type { Row } from '../../../rows/index.ts';
 import { Folder, KINDS, StateMark } from '../../../../tool/index.ts';
@@ -43,9 +42,10 @@ import { doingOf, stepsOf } from './subagent.tsx';
  * With a keyboard or a mouse, one dialog shows the deepest one open: a
  * subagent it asked opens in its place, and a back arrow, or Escape, goes
  * back to the one before; a click outside or its close button shuts them
- * all. On a touch screen with no keyboard each is a drawer, and a subagent
- * it asked opens in a drawer over it, so they stack as deep as they nest;
- * a swipe down, a tap outside or its close button shuts the top one.
+ * all. On a touch screen with no keyboard each is a drawer, the Touch
+ * Layers' own, as every Picker's is, and a subagent it asked opens in a
+ * drawer over it, so they stack as deep as they nest; a swipe down, a tap
+ * outside or its close button shuts the top one.
  */
 
 type SubagentRow = Extract<Row, { readonly kind: 'subagent' }>;
@@ -126,8 +126,10 @@ function Level({
     <Drawer
       open={found !== undefined}
       onOpenChange={(open) => !open && close(at)}
+      label={row?.call.title || 'Subagent'}
+      tall
     >
-      <DrawerContent className="data-[swipe-axis=y]:[--drawer-content-max-height:calc(100dvh-2.5rem)]">
+      <>
         {row !== undefined && (
           <LiveContext.Provider value={inside}>
             <Body
@@ -149,7 +151,7 @@ function Level({
             />
           </LiveContext.Provider>
         )}
-      </DrawerContent>
+      </>
     </Drawer>
   );
 }
@@ -285,7 +287,7 @@ function Body({
               {state === 'running' ? (
                 <>
                   <Spinner aria-hidden className="size-3 shrink-0" />
-                  <span className="truncate">{doingOf(row, folder)}…</span>
+                  <span title={`${doingOf(row, folder)}…`}>Running</span>
                 </>
               ) : (
                 <>

@@ -14,7 +14,9 @@ import type { Message, Part, Usage } from '@kestack/connect/code';
  *   says so. It runs until a jobEnded with its id says how it ended, and a
  *   background subagent's report is its last words then, or else the
  *   end's summary. Whether one not ended still runs is the live job list's
- *   to say, where it is drawn;
+ *   to say, where it is drawn. So are the steps of a background subagent,
+ *   each with its `job`: one without a result runs on after its turn has
+ *   ended, while its job does;
  * - a toolCall to a subagent holds the Messages whose `agentId` is its id,
  *   drawn the same way, so subagents nest. Its prompt comes first: the
  *   subagent's own user words (Codex sends them), or else the call's
@@ -85,6 +87,8 @@ export type Row =
       readonly answered: Of<'questionAnswered'> | null;
       /** A Background Job: `running` until it ends says only that it has not ended. */
       readonly background: boolean;
+      /** The Background Job it runs under, by its toolCall's id: its own, or its subagent's. */
+      readonly job: string | null;
       readonly state: ToolState;
     }
   | {
@@ -95,6 +99,8 @@ export type Row =
       readonly result: Of<'toolResult'> | null;
       /** A Background Job: `running` until it ends says only that it has not ended. */
       readonly background: boolean;
+      /** The Background Job it runs under, by its toolCall's id: its own, or its subagent's. */
+      readonly job: string | null;
       readonly state: ToolState;
       readonly rows: ReadonlyArray<Row>;
     }
@@ -223,7 +229,11 @@ export const thread = (
     }
   }
 
-  const stateOf = (call: Of<'toolCall'>, turnId: string): ToolState => {
+  const stateOf = (
+    call: Of<'toolCall'>,
+    turnId: string,
+    job: string | null,
+  ): ToolState => {
     const result = results.get(call.id);
     if (call.background === true && !result?.isError) {
       const end = jobEnds.get(call.id);
@@ -236,6 +246,8 @@ export const thread = (
         (resultAt.get(call.id) ?? '') > (lastWord.get(turnId) ?? '');
       return interrupted ? 'stopped' : 'failed';
     }
+    // A step of a background subagent runs on past its turn, until its job ends.
+    if (job !== null && !jobEnds.has(job)) return 'running';
     return ended.has(turnId) ? 'stopped' : 'running';
   };
 
@@ -250,7 +262,11 @@ export const thread = (
     !(followed && agentId === null) &&
     byAgent.get(agentId)?.at(-1)?.id === last;
 
-  const rowsOf = (agentId: string | null, seen: Set<string>): Row[] => {
+  const rowsOf = (
+    agentId: string | null,
+    seen: Set<string>,
+    under: string | null,
+  ): Row[] => {
     const drawn = new Set<string>();
     return (byAgent.get(agentId) ?? []).flatMap((message) =>
       message.parts.flatMap((part, at): Row[] => {
@@ -299,8 +315,9 @@ export const thread = (
           }
           case 'toolCall': {
             const background = part.background === true;
+            const job = background ? part.id : under;
             const launched = results.get(part.id) ?? null;
-            const state = stateOf(part, message.turnId);
+            const state = stateOf(part, message.turnId, under);
             if (part.tool !== 'subagent' || seen.has(part.id))
               return [
                 {
@@ -310,10 +327,11 @@ export const thread = (
                   result: launched,
                   answered: answered.get(part.id) ?? null,
                   background,
+                  job,
                   state,
                 },
               ];
-            const all = rowsOf(part.id, new Set(seen).add(part.id));
+            const all = rowsOf(part.id, new Set(seen).add(part.id), job);
             const last = all.at(-1);
             const end = jobEnds.get(part.id);
             // A background one's result only says it started: its report
@@ -352,6 +370,7 @@ export const thread = (
                 call: part,
                 result,
                 background,
+                job,
                 state,
                 rows,
               },
@@ -393,7 +412,7 @@ export const thread = (
     );
   };
 
-  return rowsOf(null, new Set());
+  return rowsOf(null, new Set(), null);
 };
 
 /** Lists holding the same items, in order. */

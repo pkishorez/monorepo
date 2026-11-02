@@ -35,6 +35,7 @@ const read = (output: string): ToolRow => ({
   },
   answered: null,
   background: false,
+  job: null,
   state: 'done',
 });
 

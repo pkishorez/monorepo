@@ -32,6 +32,21 @@ export const stopJob = Command.make('StopJob', {
     ),
 });
 
+/**
+ * Opens a subagent once a Drawer it was chosen in has slid away: opened at
+ * once, the tap that chose it would land on the new one's backdrop and
+ * shut it.
+ */
+export const openAfterDrawer = Command.make('OpenAfterDrawer', {
+  args: Schema.Struct({ id: Schema.String }),
+  run: ({ id }) =>
+    Effect.as(Effect.sleep('400 millis'), {
+      _tag: 'DrawerOpened' as const,
+      id,
+      under: 0,
+    }),
+});
+
 /** A new Session from this one's context, up to a Turn's end. */
 export const forkSession = Command.make('ForkSession', {
   args: Schema.Struct({

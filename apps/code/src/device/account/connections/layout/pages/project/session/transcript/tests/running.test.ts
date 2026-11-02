@@ -22,6 +22,7 @@ const subagent = (
   },
   result: null,
   background: false,
+  job: null,
   state: 'running',
   rows: [],
   ...more,
@@ -31,7 +32,7 @@ describe('itemsOf', () => {
   it('lists running subagents, nested ones too, with their job, then jobs no row stands for', () => {
     const inner = subagent('inner');
     const rows: ReadonlyArray<Row> = [
-      subagent('bg', { background: true, rows: [inner] }),
+      subagent('bg', { background: true, job: 'call-bg', rows: [inner] }),
       subagent('done', { state: 'done' }),
     ];
     const jobs = [

@@ -41,14 +41,15 @@ export const jobOf = (
   live: Pick<Live, 'jobs'>,
   row: Called,
 ): BackgroundJob | undefined =>
-  row.background
-    ? live.jobs.find((job) => job.toolCallId === row.call.id)
-    : undefined;
+  row.job === null
+    ? undefined
+    : live.jobs.find((job) => job.toolCallId === row.job);
 
 /**
  * Where a call stands now. One left running in a session whose turn has
- * ended was stopped; a background one runs on while its job is listed, or
- * while the harness lists jobs without saying which call started them.
+ * ended was stopped, unless it runs under a Background Job: then it runs
+ * on while that job is listed, or while the harness lists jobs without
+ * saying which call started them.
  */
 export const stateNow = (
   row: Called,
@@ -57,9 +58,9 @@ export const stateNow = (
 ): ToolState => {
   if (row.state !== 'running') return row.state;
   if (running) return 'running';
-  if (!row.background) return 'stopped';
+  if (row.job === null) return 'stopped';
   return live.jobs.some(
-    (job) => job.toolCallId === row.call.id || job.toolCallId === undefined,
+    (job) => job.toolCallId === row.job || job.toolCallId === undefined,
   )
     ? 'running'
     : 'stopped';

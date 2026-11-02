@@ -550,6 +550,26 @@ describe('threaded', () => {
       expect(rows.filter((row) => row.kind === 'turn')).toHaveLength(2);
     });
 
+    it('keeps a step it has not finished running after its turn ends, until its job does', () => {
+      const before = [
+        start('t1', 'go'),
+        message([launch]),
+        message([launched], { role: 'tool' }),
+        done('t1'),
+        message([call('r')], { agentId: 'bg' }),
+      ];
+      const step = (messages: ReadonlyArray<Message>) => {
+        const row = threaded(UNTHREADED, messages).rows.find(
+          (each) => each.kind === 'subagent',
+        );
+        return row?.kind === 'subagent' ? row.rows.at(-1) : undefined;
+      };
+      expect(step(before)).toMatchObject({ state: 'running', job: 'bg' });
+      expect(
+        step([...before, message([ended], { role: 'system', turnId: 't2' })]),
+      ).toMatchObject({ state: 'stopped' });
+    });
+
     it('ends as its jobEnded says, its last words its report', () => {
       const messages = [
         start('t1', 'go'),

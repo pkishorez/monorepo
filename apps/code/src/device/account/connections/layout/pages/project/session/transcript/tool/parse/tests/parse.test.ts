@@ -102,6 +102,7 @@ describe('tools', () => {
       result: null,
       answered: null,
       background: false,
+      job: null,
       state: 'done',
     });
     const items = grouped([
@@ -136,6 +137,7 @@ describe('tools', () => {
       result: null,
       answered: null,
       background: false,
+      job: null,
       state: 'done',
       ...more,
     });

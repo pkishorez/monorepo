@@ -50,6 +50,7 @@ const turns = (count: number, prefix = ''): ReadonlyArray<Row> =>
         result: null,
         answered: null,
         background: false,
+        job: null,
         state: 'done',
       },
       { kind: 'text', id: `t${at}:said`, text: `Answer ${at}`, writing: false },
