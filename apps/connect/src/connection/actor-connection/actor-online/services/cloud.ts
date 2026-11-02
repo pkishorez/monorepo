@@ -10,8 +10,9 @@ import {
  * What Cloud stands on: Cloud Connect's client, signed in as the Connection's
  * User. A Report is answered with the version of each Plugin to run, or
  * with why it was not taken; one that says this `ke-connect` is below the
- * Minimum Connect is Outdated. Signing in again must come back as the same
- * User.
+ * Minimum Connect is Outdated. A Report that crashed, on either side, is
+ * Unsent like any other that was not taken, so the next Heartbeat tries
+ * again. Signing in again must come back as the same User.
  */
 
 /** Wait before signing in again once a new Sign-in was refused too; it doubles after, up to a minute. */
@@ -65,6 +66,15 @@ const outcomeOf = (error: unknown) => {
   }
 };
 
+/** Why a Report crashed: its name and message, as a crash from Cloud Connect arrives with no more. */
+const crashOf = (defect: unknown) => {
+  const why =
+    defect instanceof Error
+      ? [defect.name, defect.message].filter(Boolean).join(': ')
+      : String(defect);
+  return { _tag: 'Unsent', problem: `the Report crashed (${why})` } as const;
+};
+
 /** Cloud for the Connection `options` names: its Heartbeat's interval, a Report, and signing in again. */
 export const cloud = (options: CloudOptions) => {
   const { client, connection, version, user } = options;
@@ -97,6 +107,7 @@ export const cloud = (options: CloudOptions) => {
               : ({ _tag: 'Reported', wanted: answer.wanted } as const),
           ),
           Effect.catch((error) => Effect.succeed(outcomeOf(error))),
+          Effect.catchDefect((defect) => Effect.succeed(crashOf(defect))),
           Effect.timeoutOrElse({
             duration: ANSWER,
             orElse: () =>
