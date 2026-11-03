@@ -75,6 +75,8 @@ interface FakeAgent {
   readonly questions: SubscriptionRef.SubscriptionRef<
     ReadonlyArray<AgentQuestion>
   >;
+  /** What each Background Job wrote, by its id. */
+  readonly written: Map<string, Array<string>>;
 }
 
 export interface FakeHarness {
@@ -117,6 +119,12 @@ export interface FakeHarness {
   readonly setJobs: (
     nativeId: string,
     jobs: ReadonlyArray<BackgroundJob>,
+  ) => Effect.Effect<void>;
+  /** Has a Background Job of the agent opened as `nativeId` write `text`: its output, to those who follow it after. */
+  readonly writeJob: (
+    nativeId: string,
+    jobId: string,
+    text: string,
   ) => Effect.Effect<void>;
   /**
    * Starts an Agent-started Turn on the agent opened as `nativeId`: it emits
@@ -286,6 +294,7 @@ export const makeFakeHarness = (
           questions: yield* SubscriptionRef.make<ReadonlyArray<AgentQuestion>>(
             [],
           ),
+          written: new Map(),
         };
         agents.set(nativeId, agent);
         yield* Effect.addFinalizer(() =>
@@ -310,6 +319,21 @@ export const makeFakeHarness = (
           agentTurns: Stream.fromQueue(agent.agentTurns),
           between: Stream.fromQueue(agent.between),
           backgroundJobs: SubscriptionRef.changes(agent.jobs),
+          // What it wrote so far, then nothing more, until it is gone.
+          backgroundJobOutput: (id) =>
+            Stream.concat(
+              Stream.suspend(() =>
+                Stream.fromIterable([...(agent.written.get(id) ?? [])]),
+              ),
+              Stream.never,
+            ).pipe(
+              Stream.interruptWhen(
+                SubscriptionRef.changes(agent.jobs).pipe(
+                  Stream.filter((jobs) => !jobs.some((job) => job.id === id)),
+                  Stream.runHead,
+                ),
+              ),
+            ),
           questions: SubscriptionRef.changes(agent.questions),
           answer: (id, answer) =>
             options.refuseAnswers
@@ -466,6 +490,11 @@ export const makeFakeHarness = (
       Effect.flatMap(agentOf(nativeId), (agent) =>
         agent ? SubscriptionRef.set(agent.jobs, jobs) : Effect.void,
       ),
+    writeJob: (nativeId, jobId, text) =>
+      Effect.map(agentOf(nativeId), (agent) => {
+        if (!agent) return;
+        agent.written.set(jobId, [...(agent.written.get(jobId) ?? []), text]);
+      }),
     startAgentTurn: (nativeId, text) =>
       Effect.flatMap(agentOf(nativeId), (agent) =>
         agent

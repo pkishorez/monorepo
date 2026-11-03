@@ -451,6 +451,13 @@ export interface Notifications {
     readonly turnId: string;
     readonly item: ThreadItem;
   };
+  /** What a command wrote, as it comes, a background terminal's too. */
+  readonly 'item/commandExecution/outputDelta': {
+    readonly threadId: string;
+    readonly turnId: string;
+    readonly itemId: string;
+    readonly delta: string;
+  };
   readonly 'turn/plan/updated': {
     readonly threadId: string;
     readonly turnId: string;
@@ -515,12 +522,12 @@ export const isNotification = <M extends keyof Notifications>(
 
 /**
  * Deltas this harness never reads; the server is asked not to send them.
- * Message and reasoning text deltas are read, to stream text in chunks.
+ * Message and reasoning text deltas are read, to stream text in chunks,
+ * and a command's output, so a Background Job's can be shown live.
  */
 export const DELTA_METHODS = [
   'item/plan/delta',
   'item/reasoning/summaryPartAdded',
-  'item/commandExecution/outputDelta',
   'item/fileChange/outputDelta',
   'command/exec/outputDelta',
   'process/outputDelta',

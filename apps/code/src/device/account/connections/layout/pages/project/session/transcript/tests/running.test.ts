@@ -25,6 +25,8 @@ const subagent = (
   job: null,
   state: 'running',
   rows: [],
+  startedAt: 0,
+  endedAt: null,
   ...more,
 });
 

@@ -104,6 +104,10 @@ export type Row =
       readonly job: string | null;
       readonly state: ToolState;
       readonly rows: ReadonlyArray<Row>;
+      /** When it was asked, in epoch ms. */
+      readonly startedAt: number;
+      /** When it ended: its result, or for a background one its job's end; null until then. */
+      readonly endedAt: number | null;
     }
   | {
       readonly kind: 'ended';
@@ -191,6 +195,9 @@ export const thread = (
   const streams = new Map<string, { text: string; last: string }>();
   const startedAt = new Map<string, number>();
   const jobEnds = new Map<string, Of<'jobEnded'>>();
+  /** When each call's result came, and each job's end, by toolCall id. */
+  const resultTimes = new Map<string, number>();
+  const jobEndTimes = new Map<string, number>();
   /** The turns the main agent ran here: a stream of another is written already. */
   const own = new Set<string>();
   for (const message of sorted) {
@@ -203,10 +210,12 @@ export const thread = (
       if (part.type === 'toolResult') {
         results.set(part.toolCallId, part);
         resultAt.set(part.toolCallId, message.id);
+        resultTimes.set(part.toolCallId, message.at);
       } else if (part.type === 'questionAnswered') {
         answered.set(part.toolCallId, part);
       } else if (part.type === 'jobEnded' && part.toolCallId !== undefined) {
         jobEnds.set(part.toolCallId, part);
+        jobEndTimes.set(part.toolCallId, message.at);
       } else if (part.type === 'turnStarted' && !part.steered) {
         if (!startedAt.has(message.turnId))
           startedAt.set(message.turnId, message.at);
@@ -378,6 +387,11 @@ export const thread = (
                 job,
                 state,
                 rows,
+                startedAt: message.at,
+                endedAt:
+                  (background
+                    ? jobEndTimes.get(part.id)
+                    : resultTimes.get(part.id)) ?? null,
               },
             ];
           }

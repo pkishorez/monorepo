@@ -107,3 +107,33 @@ describe('job list', () => {
     ).toBe(jobs);
   });
 });
+
+describe('job tokens', () => {
+  const progress = (taskId: string, tokens: number) => ({
+    type: 'system',
+    subtype: 'task_progress',
+    task_id: taskId,
+    description: 'Review the diff',
+    usage: { total_tokens: tokens, tool_uses: 3, duration_ms: 900 },
+  });
+
+  it('takes a subagent’s tokens from its progress, and keeps them through a snapshot', () => {
+    const listed = next([], changed([agent]), 5);
+    const counted = next(listed, progress('a1', 1200), 6);
+    expect(counted).toEqual([
+      {
+        id: 'a1',
+        kind: 'agent',
+        title: 'Review the diff',
+        startedAt: 5,
+        tokens: 1200,
+      },
+    ]);
+    expect(next(counted, changed([agent, bash]), 7)[0]?.tokens).toBe(1200);
+  });
+
+  it('leaves the list as it is for a task it does not list', () => {
+    const listed = next([], changed([agent]), 5);
+    expect(next(listed, progress('gone', 10), 6)).toBe(listed);
+  });
+});

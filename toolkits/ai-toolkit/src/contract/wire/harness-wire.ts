@@ -47,6 +47,8 @@ export const BackgroundJobSchema = Schema.Struct({
   startedAt: Schema.optionalKey(Schema.Finite),
   /** The tool call that started it, when the harness says: its row in the transcript. */
   toolCallId: Schema.optionalKey(Schema.String),
+  /** How many tokens a subagent has used so far, when the harness says. */
+  tokens: Schema.optionalKey(Schema.Finite),
 });
 export type BackgroundJob = typeof BackgroundJobSchema.Type;
 

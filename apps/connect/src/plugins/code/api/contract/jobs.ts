@@ -27,4 +27,18 @@ export const JobsRpc = RpcGroup.make(
     }).build().schema,
     error: Schema.Union([SessionNotFound, HarnessFailed]),
   }),
+  /**
+   * What one of a Session's Background Jobs writes: the last of it at
+   * once, then each piece as it comes, until the job ends. Nothing for a
+   * job whose output its harness does not show.
+   */
+  Rpc.make('backgroundJobOutput', {
+    payload: ESchema.make('BackgroundJobOutputPayload', {
+      sessionId: Schema.String,
+      jobId: Schema.String,
+    }).build().schema,
+    success: Schema.String,
+    error: SessionNotFound,
+    stream: true,
+  }),
 );

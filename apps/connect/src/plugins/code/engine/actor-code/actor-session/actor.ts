@@ -6,6 +6,7 @@ import {
   AgentQuestionSchema,
   AskAnswerSchema,
   BackgroundJobSchema,
+  type BackgroundJob,
   ContextUsageSchema,
   JsonSchema,
   McpServerStatusSchema,
@@ -218,6 +219,20 @@ const active = (model: Model, at: number): Model => ({
   ...model,
   session: { ...model.session, activeAt: at },
 });
+
+/** A job as the record keeps it: what it is, not how far it has got. */
+type KeptJob = Omit<BackgroundJob, 'tokens'>;
+
+/** The record with the jobs listed now, what each is; the same record when that has not changed. */
+const withJobs = <S extends { readonly jobs: ReadonlyArray<KeptJob> }>(
+  session: S,
+  jobs: ReadonlyArray<BackgroundJob>,
+): S => {
+  const kept = jobs.map((job) => Struct.omit(job, ['tokens']));
+  return JSON.stringify(kept) === JSON.stringify(session.jobs)
+    ? session
+    : { ...session, jobs: kept };
+};
 
 /**
  * A user message to an Agent that closed with jobs running tells it they
@@ -465,12 +480,13 @@ export const Session = Actor.define('Session', {
       model: { ...model, session: { ...model.session, nativeId } },
     }),
     // Closed, its jobs died with it: the record keeps them as cut off.
+    // It keeps what each job is, so a subagent's tokens never rewrite it.
     Jobs: ({ jobs, open }, { model }) => ({
       model: {
         ...model,
         jobs,
         agentOpen: open,
-        session: open ? { ...model.session, jobs } : model.session,
+        session: open ? withJobs(model.session, jobs) : model.session,
         refusedStops: model.refusedStops.filter((refused) =>
           jobs.some((job) => job.id === refused.jobId),
         ),

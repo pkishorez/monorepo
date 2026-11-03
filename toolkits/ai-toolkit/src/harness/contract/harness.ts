@@ -156,6 +156,12 @@ export interface Agent {
   readonly backgroundJobs: Stream.Stream<ReadonlyArray<BackgroundJob>>;
   readonly stopBackgroundJob: (id: string) => Effect.Effect<void, HarnessError>;
   /**
+   * What a Background Job writes, as text: the last of what it wrote so
+   * far at once, then each piece as it comes, until it ends. Nothing for a
+   * job whose output the harness does not show, such as a subagent's.
+   */
+  readonly backgroundJobOutput: (id: string) => Stream.Stream<string>;
+  /**
    * The Agent Questions the running Turn waits on, the current list first,
    * then each change. One goes once answered or declined, and every one
    * goes when its Turn ends.

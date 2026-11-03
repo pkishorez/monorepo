@@ -47,6 +47,16 @@ export const openAfterDrawer = Command.make('OpenAfterDrawer', {
     }),
 });
 
+/** Opens a background command once a Drawer it was chosen in has slid away, as `openAfterDrawer` does a subagent. */
+export const openCommandAfterDrawer = Command.make('OpenCommandAfterDrawer', {
+  args: Schema.Struct({ jobId: Schema.String }),
+  run: ({ jobId }) =>
+    Effect.as(Effect.sleep('400 millis'), {
+      _tag: 'CommandOpened' as const,
+      jobId,
+    }),
+});
+
 /** A new Session from this one's context, up to a Turn's end. */
 export const forkSession = Command.make('ForkSession', {
   args: Schema.Struct({

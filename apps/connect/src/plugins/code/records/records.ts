@@ -1,4 +1,4 @@
-import { Schema } from 'effect';
+import { Schema, Struct } from 'effect';
 import { EntityESchema } from '@kestack/std-toolkit/eschema';
 import {
   BackgroundJobSchema,
@@ -45,6 +45,14 @@ const ForkedFrom = Schema.Struct({
   sessionId: Schema.String,
   turnId: Schema.String,
 });
+
+/**
+ * A Background Job as a Session's record keeps it: what it is, not how far
+ * it has got, such as a subagent's tokens, which change as it runs.
+ */
+const KeptJobSchema = Schema.Struct(
+  Struct.omit(BackgroundJobSchema.fields, ['tokens']),
+);
 
 /**
  * One conversation with a Coding Harness in a Project's folder, or in one of
@@ -94,11 +102,12 @@ export const SessionSchema = EntityESchema.make('AiSession', 'id', {
     'v3',
     {
       /**
-       * The Background Jobs alive as its Agent last listed them. Once the
-       * Agent has closed, or the server stopped, these are the ones cut
-       * off, until a Turn tells the agent of them and empties it.
+       * The Background Jobs alive as its Agent last listed them, what each
+       * is but not how far it has got. Once the Agent has closed, or the
+       * server stopped, these are the ones cut off, until a Turn tells the
+       * agent of them and empties it.
        */
-      jobs: Schema.Array(BackgroundJobSchema),
+      jobs: Schema.Array(KeptJobSchema),
     },
     // A v2 Session kept no jobs.
     (previous) => ({ ...previous, jobs: [] }),

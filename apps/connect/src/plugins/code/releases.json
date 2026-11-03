@@ -44,6 +44,10 @@
     {
       "hash": "a8b9adece4a2c69ff05ee1acaee51e7487a0e5e5bedb8206e1fd4960bf4449bd",
       "summary": "Codex usage counts its input as Claude Code's does, apart from what the cache read and wrote"
+    },
+    {
+      "hash": "9d2a88f6fc7b9937a949bf01bf75db106093e73e50dc9a3ea4aad4333baa2d8c",
+      "summary": "A Background Job's output can be followed live (backgroundJobOutput); a subagent job says its tokens so far, which a Session's record does not keep"
     }
   ]
 }

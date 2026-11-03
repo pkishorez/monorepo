@@ -1,4 +1,4 @@
-import { Effect, Schema, Stream } from 'effect';
+import { Effect, Schedule, Schema, Stream } from 'effect';
 import {
   BackgroundJobSchema,
   CodeClient,
@@ -27,6 +27,7 @@ import {
   forkSession,
   markSeen,
   openAfterDrawer,
+  openCommandAfterDrawer,
   stopJob,
 } from './commands.ts';
 import { Question } from './panels/question/index.ts';
@@ -58,8 +59,8 @@ import { Actor } from '@kestack/kabuki';
  *             desktop one dialog shows the deepest, with a way back; on
  *             a phone each is a drawer over the one before.
  * 8. Running  what it runs now, as its View reads it from its rows and
- *             jobs, and the Running Picker over it: a subagent chosen
- *             opens, a command chosen stops, and the last row stops all.
+ *             jobs, and the Running Picker over it: a subagent or a
+ *             command chosen opens, and the last row stops all.
  * 6. Ready     it is drawn whole, transcript and Draft in one step, once
  *              all of it is read from this device (`readyOf`): its row, its
  *              messages, those it carries on from, and its Saved Draft.
@@ -74,6 +75,10 @@ import { Actor } from '@kestack/kabuki';
  *              none while the agent is not open to ask. When the Draft
  *              shows it is a Preference, followed as it changes. Its
  *              details are open or not here, so they are asked afresh.
+ * 10. Output   the background command open over the page, and what it
+ *              writes, followed while it is open: the last of it first,
+ *              then each piece as it comes. It stays drawn once the
+ *              command ends, until it is closed.
  */
 
 // 8. Running: the Running Picker, kept here rather than with the
@@ -101,8 +106,6 @@ const Props = Schema.Struct({ items: Schema.Array(RunningItem) });
 
 /** The last row: stops the turn and every job. */
 export const STOP_ALL = 'stop-all';
-/** A command's one action. */
-export const STOP = 'stop';
 
 const hintOf = (item: RunningItem, now: number) =>
   [
@@ -145,38 +148,14 @@ const Running = Picker.make('RunningPicker', {
         };
       },
       pinned: () => [{ value: STOP_ALL, label: 'Stop everything' }],
-      // A command opens what it can do; a subagent opens whole.
-      next: (row, { props }) =>
-        props.items.find((item) => item.id === row.value)?.kind === 'shell'
-          ? { id: 'command', key: row.value }
-          : null,
-    },
-    command: {
-      placeholder: () => 'What to do',
-      search: false,
-      rows: ({ props, key }) => {
-        const item = props.items.find((each) => each.id === key);
-        return {
-          rows:
-            item === undefined
-              ? []
-              : [
-                  {
-                    value: STOP,
-                    label: 'Stop this command',
-                    detail: item.title,
-                  },
-                ],
-        };
-      },
     },
   },
 });
 
-/** What was chosen in the Running Picker: a subagent to open, a job to stop, or all of it. */
+/** What was chosen in the Running Picker: a subagent or a command to open, or all of it to stop. */
 export type RunningChoice =
   | { readonly _tag: 'Open'; readonly rowId: string }
-  | { readonly _tag: 'Stop'; readonly jobId: string }
+  | { readonly _tag: 'OpenCommand'; readonly jobId: string }
   | { readonly _tag: 'StopAll' };
 
 /** The last choice made in the Running Picker: its Step, which one, and its row. */
@@ -193,11 +172,12 @@ export const choiceOf = (
   items: ReadonlyArray<RunningItem>,
 ): RunningChoice | null => {
   if (last.value === STOP_ALL) return { _tag: 'StopAll' };
-  const id = last.step === 'command' ? last.key : last.value;
-  const item = items.find((each) => each.id === id);
+  const item = items.find((each) => each.id === last.value);
   if (item === undefined) return null;
-  if (last.step === 'command')
-    return item.jobId === null ? null : { _tag: 'Stop', jobId: item.jobId };
+  if (item.kind === 'shell')
+    return item.jobId === null
+      ? null
+      : { _tag: 'OpenCommand', jobId: item.jobId };
   return item.rowId === null ? null : { _tag: 'Open', rowId: item.rowId };
 };
 
@@ -226,6 +206,56 @@ export const RunningPicker = {
 const ForkedFrom = Schema.NullOr(
   Schema.Struct({ sessionId: Schema.String, turnId: Schema.String }),
 );
+
+// 10. Output
+
+/** How much of what a command wrote is kept, from its end. */
+const OUTPUT_CHARS = 256 * 1024;
+
+/** The background command open over the page, and what it wrote. */
+const OpenCommand = Schema.Struct({
+  jobId: Schema.String,
+  /** Its job as last listed, so it stays drawn once it has ended. */
+  job: BackgroundJobSchema,
+  /** What it wrote, piece by piece, the oldest dropped past `OUTPUT_CHARS`. */
+  output: Schema.Array(Schema.String),
+  /** How many pieces were dropped before the first kept. */
+  dropped: Schema.Finite,
+  /** Whether it was asked to stop from here. */
+  stopped: Schema.Boolean,
+  /**
+   * Which read of its output the pieces are from, counted from 1. A new
+   * one, after the socket was lost, starts again from the last of it, so
+   * its first piece replaces the pieces of the one before.
+   */
+  run: Schema.Finite,
+});
+type OpenCommand = typeof OpenCommand.Type;
+
+/**
+ * The command with one more piece of what it wrote, its oldest dropped
+ * past `OUTPUT_CHARS`; the first of a new read in place of all before.
+ */
+export const written = (
+  command: OpenCommand,
+  run: number,
+  text: string,
+): OpenCommand => {
+  if (run !== command.run)
+    return { ...command, run, output: [text], dropped: 0 };
+  const output = [...command.output, text];
+  let size = output.reduce((sum, each) => sum + each.length, 0);
+  let drop = 0;
+  while (output.length - drop > 1 && size > OUTPUT_CHARS) {
+    size -= output[drop]!.length;
+    drop += 1;
+  }
+  return {
+    ...command,
+    output: output.slice(drop),
+    dropped: command.dropped + drop,
+  };
+};
 
 /** What the page acts on of its session's row. */
 const Row = Schema.Struct({
@@ -295,6 +325,8 @@ const Model = Schema.Struct({
   stoppingJobs: Schema.Array(Schema.String),
   /** The subagents open over the page, by row id, outermost first (5. Open). */
   drawers: Schema.Array(Schema.String),
+  /** The background command open over the page (10. Output). */
+  command: Schema.NullOr(OpenCommand),
   /** What it runs now, as its View read it (8. Running). */
   running: Schema.Array(RunningItem),
   /** How the Running Picker is open; null while it is not. */
@@ -309,6 +341,31 @@ const Model = Schema.Struct({
   details: Schema.Boolean,
 });
 type Model = typeof Model.Type;
+
+/** How long what a command writes is gathered before the page is told. */
+const OUTPUT_EVERY = '200 millis';
+
+/** How long after a read of a command's output is cut off it is read again. */
+const OUTPUT_AGAIN = '2 seconds';
+
+/** The page with a command opened over it, in place of what was open; nothing for a job no longer listed. */
+const opened = (model: Model, jobId: string): Model => {
+  const job = model.jobs.find((each) => each.id === jobId);
+  if (job === undefined) return model;
+  if (model.command?.jobId === jobId) return { ...model, drawers: [] };
+  return {
+    ...model,
+    drawers: [],
+    command: {
+      jobId,
+      job,
+      output: [],
+      dropped: 0,
+      stopped: model.stoppingJobs.includes(jobId),
+      run: 0,
+    },
+  };
+};
 
 /** How often a running turn's context is asked again. */
 const CONTEXT_EVERY = '15 seconds';
@@ -374,6 +431,15 @@ export const Session = Page.define({
     /** The drawers from `depth` on closed: 0 closes them all. */
     DrawersClosed: { depth: Schema.Finite },
     RunningRead: { items: Schema.Array(RunningItem) },
+    /** A background command opened over the page, in place of what was open. */
+    CommandOpened: { jobId: Schema.String },
+    CommandClosed: {},
+    /** What the open command wrote since. */
+    OutputHeard: {
+      jobId: Schema.String,
+      run: Schema.Finite,
+      text: Schema.String,
+    },
     RunningOpened: { how: Picker.How },
     /** The Running Picker finished: on its last choice, or with none. */
     RunningDone: { last: Schema.NullOr(RunningChosen) },
@@ -406,6 +472,7 @@ export const SessionLive = Session.build({
       jobs: [],
       stoppingJobs: [],
       drawers: [],
+      command: null,
       running: [],
       picking: null,
       opened: 0,
@@ -524,6 +591,38 @@ export const SessionLive = Session.build({
             ),
         ),
     },
+    // 10. Output: the open command's, while it is open, a few pieces at a
+    // time. A read the socket cut off is read again, from the last of it.
+    output: {
+      each: ({ model }) =>
+        model.command === null ? [] : [model.command.jobId],
+      run: (self, jobId) =>
+        Effect.gen(function* () {
+          const { props } = yield* self.get;
+          const { sessionId } = props.params;
+          let run = 0;
+          const read = Effect.suspend(() => {
+            run += 1;
+            const now = run;
+            return Stream.unwrap(
+              Effect.map(CodeClient, (api) =>
+                api.backgroundJobOutput({ sessionId, jobId }),
+              ),
+            ).pipe(
+              Stream.groupedWithin(256, OUTPUT_EVERY),
+              Stream.map((pieces) => pieces.join('')),
+              Stream.runForEach((text) =>
+                self.send({ _tag: 'OutputHeard', jobId, run: now, text }),
+              ),
+            );
+          });
+          // Its output is only shown: one that cannot be read shows none.
+          yield* read.pipe(
+            Effect.retry(Schedule.spaced(OUTPUT_AGAIN)),
+            Effect.ignore,
+          );
+        }),
+    },
     // 4. Stop: its jobs, live.
     jobs: {
       each: ({ props }) => [props.params.sessionId],
@@ -621,6 +720,16 @@ export const SessionLive = Session.build({
       model: {
         ...model,
         jobs,
+        // The open command keeps its job as last listed.
+        command:
+          model.command === null
+            ? null
+            : {
+                ...model.command,
+                job:
+                  jobs.find((job) => job.id === model.command?.jobId) ??
+                  model.command.job,
+              },
         stoppingJobs: model.stoppingJobs.filter((id) =>
           jobs.some((job) => job.id === id),
         ),
@@ -634,6 +743,10 @@ export const SessionLive = Session.build({
               ...model,
               stoppingJobs: [...model.stoppingJobs, jobId],
               problem: null,
+              command:
+                model.command?.jobId === jobId
+                  ? { ...model.command, stopped: true }
+                  : model.command,
             },
             command: stopJob({ sessionId: props.params.sessionId, jobId }),
           },
@@ -646,14 +759,27 @@ export const SessionLive = Session.build({
         stopping: false,
         forking: null,
         stoppingJobs: [],
+        // A stop refused did not stop it: it may yet end on its own.
+        command:
+          model.command === null ? null : { ...model.command, stopped: false },
       },
     }),
     DrawerOpened: ({ id, under }, { model }) => {
       const kept = model.drawers.slice(0, under);
       return kept.at(-1) === id
-        ? { model: { ...model, drawers: kept } }
-        : { model: { ...model, drawers: [...kept, id] } };
+        ? { model: { ...model, drawers: kept, command: null } }
+        : { model: { ...model, drawers: [...kept, id], command: null } };
     },
+    // 10. Output
+    CommandOpened: ({ jobId }, { model }) => ({
+      model: opened(model, jobId),
+    }),
+    CommandClosed: (_, { model }) =>
+      model.command === null ? {} : { model: { ...model, command: null } },
+    OutputHeard: ({ jobId, run, text }, { model }) =>
+      model.command?.jobId !== jobId
+        ? {}
+        : { model: { ...model, command: written(model.command, run, text) } },
     // 8. Running: an open Picker stays until it is closed, whatever ends
     // meanwhile, so the keys never wait on one that is gone.
     RunningRead: ({ items }, { model }) => ({
@@ -676,19 +802,13 @@ export const SessionLive = Session.build({
                 command: openAfterDrawer({ id: choice.rowId }),
               }
             : { model: { ...closed, drawers: [choice.rowId] } };
-        case 'Stop':
-          return model.stoppingJobs.includes(choice.jobId)
-            ? { model: closed }
-            : {
-                model: {
-                  ...closed,
-                  stoppingJobs: [...model.stoppingJobs, choice.jobId],
-                },
-                command: stopJob({
-                  sessionId: props.params.sessionId,
-                  jobId: choice.jobId,
-                }),
-              };
+        case 'OpenCommand':
+          return model.picking === 'touch'
+            ? {
+                model: { ...closed, command: null },
+                command: openCommandAfterDrawer({ jobId: choice.jobId }),
+              }
+            : { model: opened(closed, choice.jobId) };
         case 'StopAll':
           return model.stopping
             ? { model: closed }

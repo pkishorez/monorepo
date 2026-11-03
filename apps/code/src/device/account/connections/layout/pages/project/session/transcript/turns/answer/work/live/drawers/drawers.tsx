@@ -1,43 +1,39 @@
-import { type ReactNode, useContext, useRef } from 'react';
-import { ArrowLeftIcon, XIcon } from 'lucide-react';
+import { type ReactNode, useRef } from 'react';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import {
   Dialog,
-  DialogClose,
   DialogContent,
-  DialogDescription,
-  DialogTitle,
 } from '@kestack/web-platform/ui/components/dialog';
-import { Button } from '@kestack/web-platform/ui/components/button';
-import {
-  DrawerClose,
-  DrawerDescription,
-  DrawerTitle,
-} from '@kestack/web-platform/ui/components/drawer';
 import { Drawer } from '@kestack/web-platform/recipes/touch-layers';
-import { Spinner } from '@kestack/web-platform/ui/components/spinner';
-import type { Row } from '../../../rows/index.ts';
-import { Folder, KINDS, StateMark } from '../../../../tool/index.ts';
+import type { Row } from '../../../../rows/index.ts';
+import { KINDS } from '../../../../../tool/index.ts';
 import {
   jobOf,
   type Live,
   LiveContext,
   stateNow,
   subagentIn,
-} from '../../../rows/index.ts';
+  useLive,
+} from '../../../../rows/index.ts';
+import { Long, Markdown, type Opening } from '../../../../../words/index.ts';
+import { Steps } from '../../steps.tsx';
+import { stepsOf } from '../subagent.tsx';
+import { tokens } from '../../../../../../panels/details/index.ts';
 import {
-  Count,
-  Long,
-  Markdown,
-  type Opening,
-} from '../../../../words/index.ts';
-import { Steps } from '../steps.tsx';
-import { doingOf, stepsOf } from './subagent.tsx';
+  Foot,
+  Head,
+  type Layer,
+  said,
+  type Standing,
+  useKept,
+} from './frame.tsx';
 
 /*
  * The subagents opened over the page, each whole: what it was asked,
- * every step it took, and its report. Nothing in one can be changed; a
- * running one can be stopped from its head.
+ * every step it took, and its report. Nothing in one can be changed. Its
+ * foot says where it stands and for how long, its model and kind, its
+ * steps and the tokens it has used, and a running one can be stopped
+ * from there (`frame.tsx`).
  *
  * With a keyboard or a mouse, one dialog shows the deepest one open: a
  * subagent it asked opens in its place, and a back arrow, or Escape, goes
@@ -56,6 +52,7 @@ export function SubagentDrawers({
   running,
   opening,
   live,
+  model,
   close,
 }: {
   /** The transcript's rows, where each open subagent is found. */
@@ -66,6 +63,8 @@ export function SubagentDrawers({
   readonly running: boolean;
   readonly opening: Opening;
   readonly live: Live;
+  /** The session's model, which a subagent runs unless it names its own. */
+  readonly model: string | null;
   /** Closes the drawers from `depth` on. */
   readonly close: (depth: number) => void;
 }) {
@@ -78,6 +77,7 @@ export function SubagentDrawers({
         running={running}
         opening={opening}
         live={live}
+        model={model}
         close={close}
       />
     );
@@ -89,17 +89,11 @@ export function SubagentDrawers({
       running={running}
       opening={opening}
       live={live}
+      model={model}
       close={close}
     />
   );
 }
-
-/** The last value that was not undefined: what a drawer shows as it closes. */
-const useKept = <A,>(value: A | undefined): A | undefined => {
-  const kept = useRef(value);
-  if (value !== undefined) kept.current = value;
-  return value ?? kept.current;
-};
 
 function Level({
   at,
@@ -108,6 +102,7 @@ function Level({
   running,
   opening,
   live,
+  model,
   close,
 }: {
   readonly at: number;
@@ -116,6 +111,7 @@ function Level({
   readonly running: boolean;
   readonly opening: Opening;
   readonly live: Live;
+  readonly model: string | null;
   readonly close: (depth: number) => void;
 }) {
   const id = ids[at];
@@ -136,7 +132,8 @@ function Level({
               row={row}
               running={running}
               opening={opening}
-              frame={DRAWER}
+              layer="drawer"
+              model={model}
               back={null}
             />
             {/* Its own subagents open over it, inside it, so they stack. */}
@@ -147,6 +144,7 @@ function Level({
               running={running}
               opening={opening}
               live={live}
+              model={model}
               close={close}
             />
           </LiveContext.Provider>
@@ -163,6 +161,7 @@ function Stack({
   running,
   opening,
   live,
+  model,
   close,
 }: {
   readonly rows: ReadonlyArray<Row>;
@@ -170,12 +169,15 @@ function Stack({
   readonly running: boolean;
   readonly opening: Opening;
   readonly live: Live;
+  readonly model: string | null;
   readonly close: (depth: number) => void;
 }) {
   const id = ids.at(-1);
   const found = id === undefined ? undefined : subagentIn(rows, id);
   const row = useKept(found);
   const back = ids.length > 1 ? () => close(ids.length - 1) : null;
+  // Focus goes to the dialog itself, not its first button.
+  const popup = useRef<HTMLDivElement>(null);
   return (
     <Dialog
       open={found !== undefined}
@@ -187,6 +189,8 @@ function Stack({
       }}
     >
       <DialogContent
+        ref={popup}
+        initialFocus={popup}
         showCloseButton={false}
         className="flex max-h-[min(85dvh,48rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl"
       >
@@ -197,7 +201,8 @@ function Stack({
               row={row}
               running={running}
               opening={opening}
-              frame={DIALOG}
+              layer="dialog"
+              model={model}
               back={back}
             />
           </LiveContext.Provider>
@@ -207,47 +212,23 @@ function Stack({
   );
 }
 
-/** What a subagent's head is drawn with, in a drawer or a dialog. */
-interface Frame {
-  readonly Title: typeof DrawerTitle | typeof DialogTitle;
-  readonly Description: typeof DrawerDescription | typeof DialogDescription;
-  readonly Close: typeof DrawerClose | typeof DialogClose;
-}
-
-const DRAWER: Frame = {
-  Title: DrawerTitle,
-  Description: DrawerDescription,
-  Close: DrawerClose,
-};
-
-const DIALOG: Frame = {
-  Title: DialogTitle,
-  Description: DialogDescription,
-  Close: DialogClose,
-};
-
-const STATE_WORD = {
-  done: 'Done',
-  failed: 'Failed',
-  stopped: 'Stopped',
-} as const;
-
 function Body({
   row,
   running,
   opening,
-  frame: { Title, Description, Close },
+  layer,
+  model,
   back,
 }: {
   readonly row: SubagentRow;
   readonly running: boolean;
   readonly opening: Opening;
-  readonly frame: Frame;
+  readonly layer: Layer;
+  readonly model: string | null;
   /** Goes back to the subagent that asked this one, in a dialog. */
   readonly back: (() => void) | null;
 }) {
-  const folder = useContext(Folder);
-  const live = useContext(LiveContext);
+  const live = useLive();
   const state = stateNow(row, running, live);
   const job = jobOf(live, row);
   const stopping = job !== undefined && live.stopping.includes(job.id);
@@ -256,91 +237,24 @@ function Body({
   const steps = prompt === undefined ? row.rows : row.rows.slice(1);
   const count = stepsOf(row);
   const report = row.result;
+  const standing: Standing =
+    state === 'running' && stopping ? 'stopping' : state;
+  const details = [
+    said(row.call.input, 'model') ?? model,
+    said(row.call.input, 'subagent_type'),
+    `${count} ${count === 1 ? 'step' : 'steps'}`,
+    job?.tokens === undefined ? null : `${tokens(job.tokens)} tokens`,
+  ].filter((each) => each !== null);
   return (
     <>
-      <header className="shrink-0 border-b border-border/70">
-        <div className="mx-auto flex w-full max-w-3xl items-start gap-3 px-4 pt-4 pb-3 sm:px-6">
-          {back !== null && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Back to the subagent that asked it"
-              title="Back (Esc)"
-              onClick={back}
-              className="-ml-2 shrink-0 pointer-coarse:size-11"
-            >
-              <ArrowLeftIcon aria-hidden className="size-4" />
-            </Button>
-          )}
-          <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground [&_svg]:size-4">
-            <KINDS.subagent.icon />
-          </span>
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <Title className="truncate text-base leading-6">
-              {row.call.title || 'Subagent'}
-            </Title>
-            <Description
-              render={<div />}
-              className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground"
-            >
-              {state === 'running' ? (
-                <>
-                  <Spinner aria-hidden className="size-3 shrink-0" />
-                  <span title={`${doingOf(row, folder)}…`}>Running</span>
-                </>
-              ) : (
-                <>
-                  <StateMark state={state} />
-                  <span
-                    className={state === 'failed' ? 'text-destructive' : ''}
-                  >
-                    {STATE_WORD[state]}
-                  </span>
-                </>
-              )}
-              <span aria-hidden>·</span>
-              <span className="shrink-0">
-                <Count value={count} /> {count === 1 ? 'step' : 'steps'}
-              </span>
-              {row.background && (
-                <>
-                  <span aria-hidden>·</span>
-                  <span className="shrink-0">In the background</span>
-                </>
-              )}
-            </Description>
-          </div>
-          {state === 'running' && job !== undefined && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={stopping}
-              onClick={() => live.stop(job.id)}
-              className="shrink-0 rounded-full pointer-coarse:h-10"
-            >
-              {stopping && <Spinner />}
-              Stop
-            </Button>
-          )}
-          <Close
-            render={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label="Close"
-                className="-mr-2 shrink-0 pointer-coarse:size-11"
-              />
-            }
-          >
-            <XIcon aria-hidden className="size-4" />
-          </Close>
-        </div>
-      </header>
+      <Head
+        layer={layer}
+        icon={<KINDS.subagent.icon />}
+        title={row.call.title || 'Subagent'}
+        back={back}
+      />
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 pt-4 pb-6 sm:px-6">
           {prompt !== undefined && (
             <Section label="Asked">
               <div className="border-l-2 border-border pl-3 text-muted-foreground">
@@ -383,6 +297,14 @@ function Body({
           ) : null}
         </div>
       </div>
+      <Foot
+        standing={standing}
+        since={row.startedAt}
+        until={state === 'running' ? null : row.endedAt}
+        background={row.background}
+        details={details}
+        onStop={job === undefined ? null : () => live.stop(job.id)}
+      />
     </>
   );
 }

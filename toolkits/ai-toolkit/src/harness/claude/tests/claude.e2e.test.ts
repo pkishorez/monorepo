@@ -692,6 +692,38 @@ describe.skipIf(!enabled)(
       expect(seen[0]?.title).not.toBe('');
     }, 180_000);
 
+    it('follows what a background command writes, live, to its end', async () => {
+      const text = await run(
+        Effect.gen(function* () {
+          const session = yield* open();
+          const listed = yield* session.backgroundJobs.pipe(
+            Stream.filter((jobs) => jobs.some((job) => job.kind === 'shell')),
+            Stream.runHead,
+            Effect.forkChild,
+          );
+          yield* runTurn(
+            session,
+            'Run the Bash command `for i in 1 2 3 4 5 6; do echo tick-$i; sleep 1; done` ' +
+              'with run_in_background set to true. Do not wait for it; reply STARTED right away.',
+          );
+          const jobs = Option.getOrThrow(
+            yield* Fiber.join(listed).pipe(
+              Effect.timeout(Duration.seconds(30)),
+            ),
+          );
+          const job = jobs.find((each) => each.kind === 'shell')!;
+          const pieces = yield* session
+            .backgroundJobOutput(job.id)
+            .pipe(Stream.runCollect, Effect.timeout(Duration.seconds(60)));
+          // Read as it ran: more than one piece.
+          expect(pieces.length).toBeGreaterThan(1);
+          return pieces.join('');
+        }),
+      );
+      expect(text).toContain('tick-1');
+      expect(text).toContain('tick-6');
+    }, 180_000);
+
     it('streams the turn the agent starts when a background job ends', async () => {
       const { user, agent, agentEnd } = await run(
         Effect.gen(function* () {

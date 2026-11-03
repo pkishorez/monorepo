@@ -517,6 +517,7 @@ export const openSdkAgent = (
       between: Stream.fromQueue(between),
       backgroundJobs: jobs.changes,
       stopBackgroundJob: jobs.stop,
+      backgroundJobOutput: jobs.output,
       questions: questions.changes,
       answer: questions.answer,
       mcpStatus: mcpStatus(live),

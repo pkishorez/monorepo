@@ -672,6 +672,30 @@ describe('Background Jobs', () => {
     );
   });
 
+  it('give what a job wrote, then end with it', async () => {
+    const fake = makeFakeHarness();
+    await run(
+      Effect.gen(function* () {
+        const { engine, session, idle } = yield* started();
+        yield* idle();
+        const dev = { id: 'j1', kind: 'shell' as const, title: 'pnpm dev' };
+        yield* fake.setJobs('native-1', [dev]);
+        yield* fake.writeJob('native-1', 'j1', 'ready in 612 ms\n');
+        const reading = yield* Effect.forkScoped(
+          Stream.runCollect(engine.backgroundJobOutput(session.id, 'j1')),
+        );
+        yield* Effect.sleep('20 millis');
+        yield* fake.setJobs('native-1', []);
+        expect(yield* Fiber.join(reading)).toEqual(['ready in 612 ms\n']);
+        const missing = yield* Effect.flip(
+          Stream.runDrain(engine.backgroundJobOutput('nope', 'j1')),
+        );
+        expect(missing._tag).toBe('SessionNotFound');
+      }),
+      fake,
+    );
+  });
+
   it('report a stop the harness refuses, and keep the job', async () => {
     const fake = makeFakeHarness({ refuseStops: true });
     await run(

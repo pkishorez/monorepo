@@ -310,6 +310,14 @@ export interface EngineService {
     sessionId: string,
     jobId: string,
   ) => Effect.Effect<void, SessionNotFound | HarnessFailed>;
+  /**
+   * What one of a Session's Background Jobs writes, the last of it first,
+   * until it ends; nothing for a job whose output its harness does not show.
+   */
+  readonly backgroundJobOutput: (
+    sessionId: string,
+    jobId: string,
+  ) => Stream.Stream<string, SessionNotFound>;
   /** Every Session with Agent Questions, now, then again on each change. */
   readonly agentQuestions: Stream.Stream<ReadonlyArray<SessionQuestions>>;
   /**
@@ -787,6 +795,20 @@ const make = (options: EngineOptions) =>
           if (reason !== null)
             return yield* new HarnessFailed({ message: reason });
         }),
+
+      backgroundJobOutput: (sessionId, jobId) =>
+        Stream.unwrap(
+          Effect.gen(function* () {
+            yield* toSession(sessionId);
+            const kept = yield* Effect.flatMap(Agents, (agents) =>
+              agents.of(sessionId),
+            ).pipe(withServices);
+            const agent = yield* kept.opened;
+            // Closed, its jobs died with it.
+            if (!agent) return Stream.empty;
+            return agent.backgroundJobOutput(jobId);
+          }),
+        ),
 
       agentQuestions: running.changes.pipe(
         Stream.map(() =>

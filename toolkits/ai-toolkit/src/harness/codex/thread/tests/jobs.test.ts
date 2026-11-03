@@ -114,7 +114,13 @@ describe('terminalJobs', () => {
   it('keeps the time each terminal was first seen, and forgets gone ones', () => {
     const seen = new Map<string, number>();
     expect(terminalJobs([terminal('1', 'sleep 30')], seen, 10)).toEqual([
-      { id: '1', kind: 'shell', title: 'sleep 30', startedAt: 10 },
+      {
+        id: '1',
+        kind: 'shell',
+        title: 'sleep 30',
+        startedAt: 10,
+        toolCallId: 'item-1',
+      },
     ]);
     expect(
       terminalJobs(
@@ -123,8 +129,20 @@ describe('terminalJobs', () => {
         20,
       ),
     ).toEqual([
-      { id: '1', kind: 'shell', title: 'sleep 30', startedAt: 10 },
-      { id: '2', kind: 'shell', title: 'npm run dev', startedAt: 20 },
+      {
+        id: '1',
+        kind: 'shell',
+        title: 'sleep 30',
+        startedAt: 10,
+        toolCallId: 'item-1',
+      },
+      {
+        id: '2',
+        kind: 'shell',
+        title: 'npm run dev',
+        startedAt: 20,
+        toolCallId: 'item-2',
+      },
     ]);
     expect(terminalJobs([], seen, 30)).toEqual([]);
     expect(seen.size).toBe(0);

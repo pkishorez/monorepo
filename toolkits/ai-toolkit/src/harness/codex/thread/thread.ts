@@ -31,6 +31,7 @@ import {
 import { listSkills } from '../catalog/index.js';
 import { mayNameSkill, toUserInput } from './input.js';
 import { makeSubAgents, terminalJobs, touchesTerminals } from './jobs.js';
+import { makeOutputs } from './output.js';
 import { makeLineage, type Lineage } from './lineage.js';
 import { makeQuestions } from './questions.js';
 import { toRawOut } from './records.js';
@@ -300,6 +301,7 @@ export const openSession = (
     let skills: ReadonlyArray<SkillMetadata> | undefined;
     let terminals: ReadonlyArray<BackgroundTerminal> = [];
     const terminalsSeen = new Map<string, number>();
+    const outputs = makeOutputs();
     const jobs = yield* SubscriptionRef.make<ReadonlyArray<BackgroundJob>>([]);
     const jobChanges = yield* Queue.sliding<'terminals' | 'agents'>(1);
     const questions = yield* makeQuestions(
@@ -322,6 +324,7 @@ export const openSession = (
         questions.observe(notification);
         const params = (notification.params ?? {}) as { threadId?: string };
         if (params.threadId !== threadId) return;
+        outputs.observe(notification);
         if (touchesTerminals(notification))
           Queue.offerUnsafe(jobChanges, 'terminals');
         if (isNotification(notification, 'thread/tokenUsage/updated'))
@@ -349,7 +352,10 @@ export const openSession = (
               ),
             )
           : yield* Queue.take(jobChanges);
-      if (change === 'terminals') terminals = yield* listTerminals;
+      if (change === 'terminals') {
+        terminals = yield* listTerminals;
+        outputs.prune(terminals);
+      }
       const next = [
         ...terminalJobs(terminals, terminalsSeen, Date.now()),
         ...subAgents.jobs(),
@@ -619,6 +625,21 @@ export const openSession = (
         yield* interrupt(agentTurnId, id);
       });
 
+    /** A background terminal's output, from its start, while it is listed. */
+    const backgroundJobOutput = (id: string) =>
+      Stream.unwrap(
+        Effect.sync(() => {
+          const terminal = terminals.find((each) => each.processId === id);
+          if (terminal === undefined) return Stream.empty;
+          const ended = SubscriptionRef.changes(jobs).pipe(
+            Stream.filter((list) => !list.some((job) => job.id === id)),
+            Stream.runHead,
+            Effect.asVoid,
+          );
+          return outputs.follow(terminal.itemId, ended);
+        }),
+      );
+
     const mcpStatus: Effect.Effect<
       ReadonlyArray<McpServerStatus>,
       HarnessError
@@ -649,6 +670,7 @@ export const openSession = (
       between: Stream.never,
       backgroundJobs: SubscriptionRef.changes(jobs),
       stopBackgroundJob,
+      backgroundJobOutput,
       questions: questions.changes,
       answer: questions.answer,
       mcpStatus,

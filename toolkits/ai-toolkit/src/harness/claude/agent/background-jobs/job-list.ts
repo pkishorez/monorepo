@@ -20,6 +20,13 @@ const kindOf = (taskType: string): BackgroundJob['kind'] =>
  */
 export type Links = Map<string, string>;
 
+/** A job with what it had: its tokens so far, until a progress says more. */
+const kept = (
+  job: BackgroundJob,
+  previous: BackgroundJob | undefined,
+): BackgroundJob =>
+  previous?.tokens === undefined ? job : { ...job, tokens: previous.tokens };
+
 /** A job with its tool call, when one is known. */
 const linked = (job: BackgroundJob, links: Links): BackgroundJob => {
   const toolCallId = links.get(job.id);
@@ -31,7 +38,7 @@ const linked = (job: BackgroundJob, links: Links): BackgroundJob => {
 /**
  * The job list after a `background_tasks_changed` snapshot: it replaces the
  * list. Housekeeping (`ambient`) tasks are not jobs. A job keeps the time it
- * was first listed; a new one starts `now`.
+ * was first listed, and its tokens so far; a new one starts `now`.
  */
 export const fromSnapshot = (
   previous: ReadonlyArray<BackgroundJob>,
@@ -41,18 +48,21 @@ export const fromSnapshot = (
 ): ReadonlyArray<BackgroundJob> =>
   tasks
     .filter((task) => task.ambient !== true)
-    .map((task) =>
-      linked(
-        {
-          id: task.task_id,
-          kind: kindOf(task.task_type),
-          title: task.description,
-          startedAt:
-            previous.find((job) => job.id === task.task_id)?.startedAt ?? now,
-        },
+    .map((task) => {
+      const was = previous.find((job) => job.id === task.task_id);
+      return linked(
+        kept(
+          {
+            id: task.task_id,
+            kind: kindOf(task.task_type),
+            title: task.description,
+            startedAt: was?.startedAt ?? now,
+          },
+          was,
+        ),
         links,
-      ),
-    );
+      );
+    });
 
 /** The job list once a task has ended, before the next snapshot says so. */
 export const ended = (
@@ -103,6 +113,15 @@ export const next = (
       links.set(taskId, toolUseId);
       return previous.some((job) => job.id === taskId)
         ? previous.map((job) => (job.id === taskId ? linked(job, links) : job))
+        : previous;
+    }
+    case 'task_progress': {
+      const usage = record['usage'];
+      const tokens = isObj(usage) ? usage['total_tokens'] : undefined;
+      return typeof taskId === 'string' &&
+        typeof tokens === 'number' &&
+        previous.some((job) => job.id === taskId && job.tokens !== tokens)
+        ? previous.map((job) => (job.id === taskId ? { ...job, tokens } : job))
         : previous;
     }
     case 'task_notification':

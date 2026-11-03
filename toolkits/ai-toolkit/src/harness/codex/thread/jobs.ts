@@ -157,6 +157,8 @@ export const terminalJobs = (
       kind: 'shell',
       title: oneLine(terminal.command) ?? terminal.command,
       startedAt: seen.get(terminal.processId)!,
+      // The command's item is its tool call.
+      toolCallId: terminal.itemId,
     };
   });
 };

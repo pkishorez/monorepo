@@ -54,6 +54,7 @@ import {
   Rows,
   SessionOpener,
   SubagentDrawers,
+  CommandDrawer,
   useFacts,
   useOpening,
   useRows,
@@ -71,7 +72,9 @@ import {
  * opens whole: with a keyboard or a mouse in one dialog, one it asked in
  * its place with a way back; on a touch screen in a drawer, and one it
  * asked in a drawer over that
- * (`transcript/turns/answer/work/live/drawers.tsx`). Its title, agent and model are in the header. Its words can be
+ * (`transcript/turns/answer/work/live/drawers/drawers.tsx`). A command
+ * opens the same way, with what it writes, live
+ * (`transcript/turns/answer/work/live/drawers/command/`). Its title, agent and model are in the header. Its words can be
  * selected, though the App Shell turns selection off for its swipes. While the server is out of
  * reach, nothing can be sent, and a running turn's progress is unknown. A
  * session the server stopped mid-turn says so under its transcript; a fork
@@ -192,8 +195,15 @@ export const SessionView = View.make(
       (depth: number) => send({ _tag: 'DrawersClosed', depth }),
       [send],
     );
+    const closeCommand = useCallback(
+      () => send({ _tag: 'CommandClosed' }),
+      [send],
+    );
     // Another session's drawers do not carry over.
-    useEffect(() => closeDrawers(0), [props.params.sessionId, closeDrawers]);
+    useEffect(() => {
+      closeDrawers(0);
+      closeCommand();
+    }, [props.params.sessionId, closeDrawers, closeCommand]);
     // 8. Running: what runs, read from its rows and jobs, told to its page.
     const folder = useContext(Folder);
     const runningItems = useMemo(
@@ -444,8 +454,16 @@ export const SessionView = View.make(
           running={running}
           opening={opening}
           live={live}
+          model={session?.model ?? null}
           close={closeDrawers}
         />
+        <LiveContext.Provider value={live}>
+          <CommandDrawer
+            command={model.command}
+            rows={rows}
+            onClose={closeCommand}
+          />
+        </LiveContext.Provider>
         {session !== undefined && (
           <SessionDetails
             open={model.details}

@@ -812,6 +812,40 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
     );
 
     it(
+      'follows what a background terminal writes, after its turn, to its end',
+      async () => {
+        await run(
+          Effect.gen(function* () {
+            const session = yield* open();
+            const appeared = yield* jobsUntil(session, (jobs) =>
+              jobs.some((job) => job.kind === 'shell'),
+            ).pipe(Effect.forkChild);
+            yield* collect(
+              session,
+              'Call your exec_command tool once with cmd `for i in $(seq 1 12); do echo tick-$i; sleep 1; done` (no `&`, no nohup) and yield_time_ms 1000, so the tool returns while the process keeps running in its session. Do not poll it, wait for it, write to it, or kill it. Then reply with one word: started.',
+              'background',
+            );
+            const jobs = yield* Fiber.join(appeared);
+            const shell =
+              jobs._tag === 'Some'
+                ? jobs.value.find((job) => job.kind === 'shell')
+                : undefined;
+            expect(shell?.toolCallId).toBeTypeOf('string');
+            const pieces = yield* session
+              .backgroundJobOutput(shell!.id)
+              .pipe(Stream.runCollect, Effect.timeout(Duration.seconds(60)));
+            const text = pieces.join('');
+            // From its start, though asked for after its turn, to its end.
+            expect(text).toContain('tick-1');
+            expect(text).toContain('tick-12');
+            expect(pieces.length).toBeGreaterThan(1);
+          }),
+        );
+      },
+      TIMEOUT,
+    );
+
+    it(
       'changes model and settings for a turn and the ones after it',
       async () => {
         await run(

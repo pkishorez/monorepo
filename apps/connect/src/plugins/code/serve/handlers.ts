@@ -252,6 +252,10 @@ export const CodeApiLive = CodeApi.toLayer(
                 : wire.HarnessFailed(error),
             ),
           ),
+      backgroundJobOutput: ({ sessionId, jobId }) =>
+        engine
+          .backgroundJobOutput(sessionId, jobId)
+          .pipe(Stream.mapError(wire.SessionNotFound)),
       agentQuestions: () => engine.agentQuestions,
       answerQuestion: ({ sessionId, questionId, answer }) =>
         engine
