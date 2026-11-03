@@ -52,8 +52,8 @@ import { Actor } from '@kestack/kabuki';
  * 3. Fork     a new session from this one's context up to a turn's end;
  *             the app moves to it.
  * 4. Stop     stops everything it runs: its turn and its Background Jobs,
- *             which it follows live, so it shows as working while only
- *             its jobs run; or one job on its own.
+ *             which it follows live, so it shows as In the Background
+ *             while only its jobs run; or one job on its own.
  * 5. Open     which tool calls and thoughts are shown open, and the
  *             subagents opened over the page, outermost first: on a
  *             desktop one dialog shows the deepest, with a way back; on

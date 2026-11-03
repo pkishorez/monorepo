@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import type { BackgroundJob } from '@kestack/connect/code';
 import { BotIcon, SquareTerminalIcon } from 'lucide-react';
-import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import * as Picker from '../../../../../../../../../../../../ui/controls/picker/index.ts';
+import { BackgroundDot } from '../../../../../../../../../../../../ui/labels/status/index.ts';
 import { type Row, stateNow } from '../../../rows/index.ts';
 import { Count } from '../../../../words/index.ts';
 import { doingOf, stepsOf } from './subagent.tsx';
@@ -11,9 +11,11 @@ import { doingOf, stepsOf } from './subagent.tsx';
  * What a session runs now, apart from its turn: its subagents that run,
  * the turn's own and those in the background, and its background
  * commands. A floating button over the transcript's top right counts them
- * while any run, and opens the Running Picker, which the session page
- * keeps: by a click, in place under it; by `r`, centred, as every Picker
- * the keys open; by a touch, as a Drawer.
+ * while any run, beside a dot pulsing softly, never a turning circle,
+ * which says only that the turn runs; once the turn has ended and only
+ * they do, it says "In background" too. It opens the Running Picker,
+ * which the session page keeps: by a click, in place under it; by `r`,
+ * centred, as every Picker the keys open; by a touch, as a Drawer.
  */
 
 /** One thing that runs, as the Running Picker lists it. */
@@ -101,17 +103,21 @@ export const itemsOf = (
 
 /**
  * The floating button over the transcript's top right while anything
- * runs: a spinner, then how many subagents and commands. It opens the
- * Running Picker around it.
+ * runs: a dot pulsing softly, "In background" once the turn has ended,
+ * then how many subagents and commands. It opens the Running Picker
+ * around it.
  */
 export function RunningButton({
   items,
+  background,
   how,
   onOpen,
   title,
   children,
 }: {
   readonly items: ReadonlyArray<RunningItem>;
+  /** Whether its session is In the Background: its turn ended, its jobs run. */
+  readonly background: boolean;
   /** How the Picker is open; null while it is not. */
   readonly how: typeof Picker.How.Type | null;
   readonly onOpen: (how: typeof Picker.How.Type) => void;
@@ -140,11 +146,14 @@ export function RunningButton({
       trigger={
         <button
           type="button"
-          aria-label={`${said} running`}
+          aria-label={`${said} running${background ? ' in the background' : ''}`}
           title={title}
           className="focus-ring flex h-9 cursor-pointer items-center gap-2.5 rounded-full border border-border bg-card/85 px-3 text-xs text-muted-foreground shadow-[0_1px_2px_rgb(0_0_0/0.06),0_6px_16px_rgb(0_0_0/0.1)] backdrop-blur-md transition-[color,scale] duration-150 hover:text-foreground active:scale-[0.97] aria-expanded:text-foreground pointer-coarse:h-10 motion-reduce:transition-none dark:shadow-[0_1px_2px_rgb(0_0_0/0.2),0_6px_16px_rgb(0_0_0/0.3)]"
         >
-          <Spinner aria-hidden className="size-3 shrink-0" />
+          <span className="flex items-center gap-1.5">
+            <BackgroundDot />
+            {background && 'In background'}
+          </span>
           {agents > 0 && (
             <span className="flex items-center gap-1">
               <BotIcon aria-hidden className="size-3.5" />

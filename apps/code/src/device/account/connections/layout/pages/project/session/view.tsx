@@ -25,6 +25,7 @@ import {
   useOffline,
 } from '../../../../connection/link/index.ts';
 import { agentName } from '../../../../../../../ui/labels/agent/index.ts';
+import { activityOf } from '../../../../../../../ui/labels/status/index.ts';
 import * as Picker from '../../../../../../../ui/controls/picker/index.ts';
 import { Draft } from '../draft/index.ts';
 import { readyOf, RunningPicker, SessionLive } from './actor.ts';
@@ -64,9 +65,10 @@ import {
  * A session: the transcript in a centred column that follows new messages
  * while you are at its bottom, and under it, pinned to the page's foot,
  * its Draft (`draft/`), with Stop beside its send button while it works:
- * while a turn runs, or only its Background Jobs do. Over the
+ * while it is Running, or In the Background (`activityOf`). Over the
  * transcript's top right, a floating button counts the subagents and
- * commands it runs, and opens the Running Picker: in place by a click,
+ * commands it runs, saying when they run In the Background, and opens
+ * the Running Picker: in place by a click,
  * centred by `r`, as a Drawer by a touch
  * (`transcript/turns/answer/work/live/running.tsx`). A subagent
  * opens whole: with a keyboard or a mouse in one dialog, one it asked in
@@ -131,10 +133,11 @@ export const SessionView = View.make(
         ? null
         : model.lineage.find(({ id }) => id === forkedFrom?.sessionId)?.title ||
           'Untitled session';
-    const running = session?.status === 'running';
     const jobs = model.jobs;
-    // It works while its turn runs, or only its Background Jobs do.
-    const working = running || jobs.length > 0;
+    const activity = activityOf(session?.status, jobs.length > 0);
+    const running = activity === 'running';
+    // It works while it is Running, or In the Background.
+    const working = activity !== 'idle';
     const rows = useRows(
       useMemo(
         () => (messages?.rows ?? []).map(({ row }) => row),
@@ -369,6 +372,7 @@ export const SessionView = View.make(
               <div className="pointer-events-auto">
                 <RunningButton
                   items={runningItems}
+                  background={activity === 'background'}
                   how={model.picking}
                   onOpen={openRunning}
                   title={

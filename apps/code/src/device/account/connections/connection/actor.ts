@@ -59,8 +59,8 @@ import { keepSetup, SetupShelf } from './commands.ts';
  *            Never kept: they live only while their Turn runs.
  * 10. Jobs   the Background Jobs its Sessions' agents run, whole on each
  *            change (`records/jobs/`), shared in `Connections` too, so a
- *            Session whose Turn has ended still shows as working while its
- *            jobs run. Never kept: they live only while their agent does.
+ *            Session whose Turn has ended shows as In the Background while
+ *            its jobs run. Never kept: they live only while their agent does.
  * 9. Answering how each is being answered here, as the Question Panel
  *            gives it: each Item's answer so far, minimised or not, tried
  *            or sent, so leaving the session or the page loses nothing.

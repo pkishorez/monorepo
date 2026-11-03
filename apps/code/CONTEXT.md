@@ -100,6 +100,14 @@ _Avoid_: command palette, session menu, keys picker, help sheet, cheat sheet
 A Session whose last Turn ended since it was last open on this device; opening it clears that. The device keeps an Unseen mark for each Session opened on it, per Connection, the end time of the last Turn it saw, so a Session never opened here is never Unseen. The sidebar draws it bold.
 _Avoid_: unread, new, notification
 
+**Running**:
+A Session whose Turn runs: its agent is answering, with any subagents of the Turn. A small turning circle says so in its sidebar row and under the Turn in its transcript; the floating button that counts its subagents and commands never turns, so a turning circle for a Session always means its agent is answering. Stop stops it.
+_Avoid_: loading, busy, working
+
+**In the Background**:
+A Session whose Turn has ended while its agent's Background Jobs still run, such as a subagent or a command it left going. A dot pulsing softly says so in its sidebar row, "Working in the background" on hover. On its page, the floating button that counts its subagents and commands shows the same dot whenever any run, never a turning circle, and says "In background" beside it once the Turn has ended. Stop stops its jobs.
+_Avoid_: running, working, idle
+
 **Vim Mode**:
 The keyboard-first way of working the app, off until turned on in this browser, and off with its status line on a device with no keyboard, however wide its screen: plain keys are shortcuts in the page's Normal Mode, the Draft is read until `i` makes it the Composer, or, while the Question Panel stands in for it, `i` or `m` expands that, and the keys' status line is at the app's foot. Off, the Draft is a text box as any other, and only keys holding Ctrl, Alt or Cmd are shortcuts.
 _Avoid_: keyboard mode, power mode

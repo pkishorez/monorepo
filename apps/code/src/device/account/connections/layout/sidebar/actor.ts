@@ -328,7 +328,7 @@ export const SidebarLive = Sidebar.build({
         ),
     },
     // 4c. Working: only which Sessions' agents run Background Jobs, so a
-    // Session whose Turn ended still shows as working.
+    // Session whose Turn ended shows as In the Background.
     working: {
       run: (self) =>
         Effect.flatMap(Connections, ({ state }) =>
