@@ -5,4 +5,5 @@
 export * from './status/index.js';
 export * from './extras/index.js';
 export { Pwa, PwaHead } from './prompts.tsx';
+export type { PwaPrompts } from './prompts.tsx';
 export { splashHead, splashScreens } from './splash/index.ts';

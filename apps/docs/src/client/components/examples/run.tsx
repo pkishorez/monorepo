@@ -1,3 +1,4 @@
+import { OwnTouch } from './own-touch.tsx';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Cause, Console, Effect, Exit, Fiber } from 'effect';
@@ -161,92 +162,94 @@ export function Run({
 
   const running = status._tag === 'Running';
   return (
-    <figure className="my-8">
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <div className="flex items-center border-b border-border bg-muted/40 pr-1.5">
-          <div
-            role="tablist"
-            aria-label="The code"
-            className="flex min-w-0 flex-1 overflow-x-auto px-2"
-          >
-            {files.map((file, index) => (
+    <OwnTouch>
+      <figure className="my-8">
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <div className="flex items-center border-b border-border bg-muted/40 pr-1.5">
+            <div
+              role="tablist"
+              aria-label="The code"
+              className="flex min-w-0 flex-1 overflow-x-auto px-2"
+            >
+              {files.map((file, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  role="tab"
+                  aria-selected={shown === index}
+                  onClick={() => setShown(index)}
+                  className="flex h-10 shrink-0 items-center border-b-2 border-transparent px-3 font-mono text-xs text-muted-foreground transition-colors duration-150 hover:text-foreground aria-selected:border-foreground aria-selected:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+                >
+                  {file.props['data-file']}
+                </button>
+              ))}
+            </div>
+            {running ? (
               <button
-                key={index}
                 type="button"
-                role="tab"
-                aria-selected={shown === index}
-                onClick={() => setShown(index)}
-                className="flex h-10 shrink-0 items-center border-b-2 border-transparent px-3 font-mono text-xs text-muted-foreground transition-colors duration-150 hover:text-foreground aria-selected:border-foreground aria-selected:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+                onClick={stop}
+                className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs font-medium transition-[background-color,transform] duration-150 hover:bg-muted active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-ring"
               >
-                {file.props['data-file']}
+                <SquareIcon className="size-3 fill-current" />
+                Stop
               </button>
-            ))}
-          </div>
-          {running ? (
-            <button
-              type="button"
-              onClick={stop}
-              className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs font-medium transition-[background-color,transform] duration-150 hover:bg-muted active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-ring"
-            >
-              <SquareIcon className="size-3 fill-current" />
-              Stop
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={run}
-              className="flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-foreground px-2.5 text-xs font-medium text-background transition-[opacity,transform] duration-150 hover:opacity-90 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            >
-              {status._tag === 'Idle' ? (
-                <PlayIcon className="size-3 fill-current" />
-              ) : (
-                <RotateCcwIcon className="size-3" />
-              )}
-              {status._tag === 'Idle' ? 'Run' : 'Run again'}
-            </button>
-          )}
-        </div>
-        {files.map((file, index) => (
-          <div
-            key={index}
-            role="tabpanel"
-            hidden={shown !== index}
-            className="max-h-[26rem] overflow-auto [&>pre]:m-0 [&>pre]:rounded-none [&>pre]:border-0"
-          >
-            {file}
-          </div>
-        ))}
-        <div className="border-t border-border bg-muted/20">
-          <div className="flex h-8 items-center justify-between px-4 text-xs text-muted-foreground">
-            <span className="font-medium">Console</span>
-            <StatusLine status={status} />
-          </div>
-          <ol
-            ref={output}
-            aria-live="polite"
-            className="max-h-72 min-h-24 overflow-auto border-t border-border/60 font-mono text-[12.5px] leading-5"
-          >
-            {lines.length === 0 && (
-              <li className="px-4 py-3 font-sans text-sm text-muted-foreground">
-                {status._tag === 'Idle'
-                  ? 'Press Run, and what the program logs shows here.'
-                  : running
-                    ? 'Nothing logged yet.'
-                    : 'Nothing was logged.'}
-              </li>
+            ) : (
+              <button
+                type="button"
+                onClick={run}
+                className="flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-foreground px-2.5 text-xs font-medium text-background transition-[opacity,transform] duration-150 hover:opacity-90 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                {status._tag === 'Idle' ? (
+                  <PlayIcon className="size-3 fill-current" />
+                ) : (
+                  <RotateCcwIcon className="size-3" />
+                )}
+                {status._tag === 'Idle' ? 'Run' : 'Run again'}
+              </button>
             )}
-            {lines.map((line) => (
-              <LineRow key={line.id} line={line} />
-            ))}
-          </ol>
+          </div>
+          {files.map((file, index) => (
+            <div
+              key={index}
+              role="tabpanel"
+              hidden={shown !== index}
+              className="max-h-[26rem] overflow-auto [&>pre]:m-0 [&>pre]:rounded-none [&>pre]:border-0"
+            >
+              {file}
+            </div>
+          ))}
+          <div className="border-t border-border bg-muted/20">
+            <div className="flex h-8 items-center justify-between px-4 text-xs text-muted-foreground">
+              <span className="font-medium">Console</span>
+              <StatusLine status={status} />
+            </div>
+            <ol
+              ref={output}
+              aria-live="polite"
+              className="max-h-72 min-h-24 overflow-auto border-t border-border/60 font-mono text-[12.5px] leading-5"
+            >
+              {lines.length === 0 && (
+                <li className="px-4 py-3 font-sans text-sm text-muted-foreground">
+                  {status._tag === 'Idle'
+                    ? 'Press Run, and what the program logs shows here.'
+                    : running
+                      ? 'Nothing logged yet.'
+                      : 'Nothing was logged.'}
+                </li>
+              )}
+              {lines.map((line) => (
+                <LineRow key={line.id} line={line} />
+              ))}
+            </ol>
+          </div>
         </div>
-      </div>
-      {caption && (
-        <figcaption className="mt-3 text-sm text-muted-foreground">
-          {caption}
-        </figcaption>
-      )}
-    </figure>
+        {caption && (
+          <figcaption className="mt-3 text-sm text-muted-foreground">
+            {caption}
+          </figcaption>
+        )}
+      </figure>
+    </OwnTouch>
   );
 }
 

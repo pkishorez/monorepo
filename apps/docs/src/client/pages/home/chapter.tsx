@@ -1,13 +1,14 @@
 import { Router } from '@kestack/kabuki/routing';
 import { ArrowRightIcon } from 'lucide-react';
 import { packageOf } from '../../../shared/index.ts';
-import { PartLinks, button, docRoute } from '../../components/index.ts';
+import { PartLinks, button, packageRoute } from '../../components/index.ts';
 import { Stop } from '../../field/index.ts';
 import type { Chapter as Story } from './chapters.ts';
 
 /*
  * One chapter of the story, a Stop on the field: its act, the package's
- * name and pitch, its docs' Parts, and the way into the docs.
+ * name and pitch, its docs' Parts, each straight to its first page, and
+ * the way to its landing page.
  */
 
 export function Chapter({ chapter }: { readonly chapter: Story }) {
@@ -36,11 +37,8 @@ export function Chapter({ chapter }: { readonly chapter: Story }) {
       <div className="mt-6">
         <PartLinks id={pkg.id} label={`${pkg.name}'s parts`} />
       </div>
-      <Router.Link
-        to={docRoute(pkg.id, pkg.contents.docs[0]!.slug)}
-        className={`mt-6 ${button.solid}`}
-      >
-        Read the docs
+      <Router.Link to={packageRoute(pkg.id)} className={`mt-6 ${button.solid}`}>
+        Explore {pkg.name}
         <ArrowRightIcon className="size-4 transition-transform duration-150 ease-out group-hover:translate-x-0.5 motion-reduce:transition-none" />
       </Router.Link>
     </Stop>

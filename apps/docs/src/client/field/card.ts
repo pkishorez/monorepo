@@ -73,7 +73,7 @@ export const curtain = [
  * What the shapes sit on, drawn behind the canvas: a soft pool of light on
  * the paper, like a lamp over a drawing (barely there in the dark, where
  * the points are the light); a fine grain over it; and a grid of dots,
- * like drafting paper. The pool and the grid are seen only in a soft
+ * like drafting paper, plain in the light. The pool and the grid are seen only in a soft
  * circle round the shape, which field.tsx moves with it through
  * `--grid-x`, `--grid-y` and `--grid-r`, so they cross the screen as the
  * shape does. On a phone it all keeps to the stage, above the words.
@@ -123,7 +123,7 @@ export const GRAIN = `url("data:image/svg+xml,${encodeURIComponent(
 export const grid = [
   'absolute inset-0',
   'bg-[radial-gradient(circle,var(--field-grid)_1px,transparent_1.5px)] bg-size-[22px_22px]',
-  '[mask-image:radial-gradient(var(--grid-r)_var(--grid-r)_at_var(--grid-x)_var(--grid-y),black_15%,transparent_100%)]',
+  '[mask-image:radial-gradient(var(--grid-r)_var(--grid-r)_at_var(--grid-x)_var(--grid-y),black_40%,transparent_100%)]',
 ].join(' ');
 
 /** The screen's bottom edge on a phone, where words come up out of the page. */
