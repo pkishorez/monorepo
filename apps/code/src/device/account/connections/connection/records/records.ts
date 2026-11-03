@@ -15,8 +15,10 @@ import { Query } from '@kestack/std-toolkit/replica';
  * session's Window; `MessageIds` opens it the same way and keeps only the
  * ids, for a Window held open with nothing drawn. `everything` follows every project and session for a
  * Worker, which hands them to a Picker while it is open, `lineage` one
- * session and the ones it was forked from, for a page's Worker, and
- * `arrival` waits for one session to be held. Where the user moves a
+ * session and the ones it was forked from, for a page's Worker,
+ * `arrival` waits for one session to be held, and `unsettled` follows
+ * which sessions of a Connection are not Settled, for the Worker that keeps
+ * only their messages. Where the user moves a
  * session, on its way to its Connection, is `moves/`.
  */
 
@@ -209,6 +211,45 @@ export const everything = (connectionIds: ReadonlyArray<string>) =>
       ),
     ),
   ).pipe(Stream.orDie);
+
+const sameIds = Schema.toEquivalence(Schema.Array(Schema.String));
+
+/**
+ * The ids of a Connection's sessions not Settled, as the device holds them,
+ * sorted, once its sessions are first Caught Up, so a list read before
+ * the Connection answered never stands for it, then again each time which
+ * they are changes, for a Worker.
+ */
+export const unsettled = (connectionId: string) =>
+  Stream.unwrap(
+    Effect.map(CodeReplica.get(connectionId), (ai) =>
+      ai.caughtUp('sessions').pipe(
+        Stream.filter((caughtUp) => caughtUp),
+        Stream.take(1),
+        Stream.flatMap(() =>
+          Stream.callback<ReadonlyArray<string>>(
+            (queue) =>
+              Effect.acquireRelease(
+                Effect.sync(() => {
+                  const offer = () =>
+                    Queue.offerUnsafe(
+                      queue,
+                      [...ai.sessions.values()]
+                        .filter(({ settledAt }) => settledAt === null)
+                        .map(({ id }) => id)
+                        .sort(),
+                    );
+                  offer();
+                  return onChange(ai.sessions, offer);
+                }),
+                (subscription) => Effect.sync(() => subscription.unsubscribe()),
+              ),
+            { bufferSize: 1, strategy: 'sliding' },
+          ),
+        ),
+      ),
+    ),
+  ).pipe(Stream.changesWith(sameIds), Stream.orDie);
 
 /** Ends once the device holds the Session of one Connection with this id. */
 export const arrival = (connectionId: string, sessionId: string) =>

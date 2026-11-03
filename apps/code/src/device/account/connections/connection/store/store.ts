@@ -26,7 +26,11 @@ import { type Gone, placed } from '../../../store/rows/index.ts';
  *             it places; each Store is kept to its own Instance of
  *             `CodeReplica`, so one of an older projection goes, in every
  *             tab; a Connection forgotten has its Instance stopped here and
- *             in every other tab, then deleted.
+ *             in every other tab, then deleted. Of its Sessions' messages,
+ *             only those of the Sessions it is told to keep stay: every
+ *             other Session's Window is pruned, its messages and its
+ *             cursor, unless a tab has it open, so opened again it syncs
+ *             whole.
  * 2. Gone     what the user asked to go, told to every store, then, for a
  *             Connection, its database deleted.
  * 3. Storage  the databases in this browser's IndexedDB, by each level's
@@ -63,6 +67,15 @@ export class Sync extends Context.Service<
       connectionIds: ReadonlyArray<string>,
     ) => Effect.Effect<void>;
     /**
+     * Keeps the messages of these Sessions of one Connection and deletes
+     * every other Session's, but those a tab has open, best effort.
+     */
+    readonly pruneMessages: (
+      accountId: string,
+      connectionId: string,
+      sessionIds: ReadonlyArray<string>,
+    ) => Effect.Effect<void>;
+    /**
      * A Connection forgotten: its Instance is stopped here and in every other
      * tab, and its records deleted, best effort; its database goes after
      * (`Storage`). A Project has none of its own.
@@ -96,7 +109,18 @@ const make = (storeOf: (prefix: string) => Layer.Layer<Store>) => {
           ),
         { discard: true },
       ),
-    // 3. Drop
+    // 3. Messages
+    pruneMessages: (accountId, connectionId, sessionIds) =>
+      Effect.flatMap(Store, (each) =>
+        each.pruneWindows(CodeReplica, connectionId, {
+          messages: { sessionId: sessionIds },
+        }),
+      ).pipe(
+        Effect.provide(store(accountId, connectionId)),
+        Effect.catch(warn(`prune the messages of Connection ${connectionId}`)),
+        Effect.asVoid,
+      ),
+    // 4. Drop
     drop: (gone) =>
       gone._tag === 'Project'
         ? Effect.void

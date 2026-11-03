@@ -29,7 +29,7 @@ What the app keeps of how one Connection in the Connection List is set up: its H
 _Avoid_: machine kit, kit, machine cache, machine settings (as a store), catalog (for the per-Connection part)
 
 **Storage**:
-What this device keeps, in databases named by their place: the device's own, `code:device`; each Account's, `code:account:<accountId>`; and each of its Connections', under the Account's. The database says whose it is, the table what it is, and it is one of three kinds: Local, Cache or Sync. Whoever checks a level deletes the children it no longer lists, never itself, and only on a real answer: once the Auth Worker answers, every Account not signed in on this device goes, with all under it; once Cloud Connect first answers, every Connection of the Account it does not list goes, with all under it; a check that fails deletes nothing, and a later answer neither, since another tab may already list a Connection this one has not heard of. A Project removed and a Connection forgotten go at once, as the user asked.
+What this device keeps, in databases named by their place: the device's own, `code:device`; each Account's, `code:account:<accountId>`; and each of its Connections', under the Account's. The database says whose it is, the table what it is, and it is one of three kinds: Local, Cache or Sync. Whoever checks a level deletes the children it no longer lists, never itself, and only on a real answer: once the Auth Worker answers, every Account not signed in on this device goes, with all under it; once Cloud Connect first answers, every Connection of the Account it does not list goes, with all under it; a check that fails deletes nothing, and a later answer neither, since another tab may already list a Connection this one has not heard of. Once a Connection's sessions first answer, the messages of every Session not listed unsettled go, Settled ones and ones gone alike, but those a tab has open. A Project removed and a Connection forgotten go at once, as the user asked.
 _Avoid_: persistence, IndexedDB (for the idea), local storage
 
 **Local**:
@@ -41,7 +41,7 @@ Storage of what Cloud Connect or a Connection last said, such as a Connection Li
 _Avoid_: kept copy, saved copy, snapshot
 
 **Sync**:
-Storage of a copy the backend keeps up to date, live: each Connection's Projects, Sessions and Turns, as its Replicas hold them, in a Store of its own.
+Storage of a copy the backend keeps up to date, live: each Connection's Projects, Sessions and Turns, as its Replicas hold them, in a Store of its own. A Session's messages stay only while it is not Settled: a Settled one's are pruned, and synced whole again from its Connection when it is opened, so while that Connection is out of reach it shows none.
 _Avoid_: replica store (for the idea), account replicas, mirror
 
 **Shelf**:

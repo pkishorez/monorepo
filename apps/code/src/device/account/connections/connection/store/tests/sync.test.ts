@@ -10,8 +10,9 @@ import { sync, Sync, syncIdb } from '../index.ts';
  * Each Connection's records in its own Store, under its database's sync
  * prefix: one Connection's never shows another's, of its Account or another;
  * pruning keeps each Connection's own Instance and drops an older
- * projection's; and a Connection forgotten is stopped in another tab still
- * reading it, then deleted, and no other.
+ * projection's; only the messages of the Sessions kept stay; and a
+ * Connection forgotten is stopped in another tab still reading it, then
+ * deleted, and no other.
  */
 
 /** The database of a Connection's Instance of a Replica. */
@@ -106,5 +107,53 @@ describe('Sync', () => {
     const left = await databases();
     expect(left).not.toContain(at('a7', 'm7'));
     expect(left).toContain(at('a7', 'm8'));
+  });
+
+  it('keeps the messages of the Sessions it is told to keep, and deletes the rest', async () => {
+    const name = CodeReplica.instanceName('m9');
+    const message = (id: string, sessionId: string) => ({
+      id,
+      entity: {
+        value: { id, sessionId },
+        meta: { _e: 'Message', _v: 'v1', _d: false, _u: id },
+      },
+      window: `sessionId=${JSON.stringify(sessionId)}`,
+    });
+    type Space = Effect.Success<ReturnType<Store['Service']['open']>>;
+    const space = (
+      effect: (opened: Space) => Effect.Effect<unknown, unknown>,
+    ) =>
+      run(
+        Effect.flatMap(Sync, (sync) =>
+          Effect.scoped(
+            Effect.flatMap(
+              Effect.flatMap(Store, (store) => store.open(name)),
+              effect,
+            ),
+          ).pipe(Effect.provide(sync.store('a9', 'm9'))),
+        ),
+      );
+    await space((opened) =>
+      opened.write([
+        {
+          collection: 'messages',
+          records: [
+            message('x1', 's1'),
+            message('x2', 's1'),
+            message('y1', 's2'),
+          ],
+        },
+      ]),
+    );
+    await run(
+      Effect.flatMap(Sync, (sync) => sync.pruneMessages('a9', 'm9', ['s2'])),
+    );
+    let left: ReadonlyArray<string> = [];
+    await space((opened) =>
+      Effect.map(opened.read('messages', null), ({ records }) => {
+        left = records.map(({ id }) => id);
+      }),
+    );
+    expect(left).toEqual(['y1']);
   });
 });
