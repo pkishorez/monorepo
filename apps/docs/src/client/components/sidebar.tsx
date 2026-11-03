@@ -8,7 +8,7 @@ import { docRoute, slugAt } from './package-link.tsx';
 /*
  * A package's docs, section by section, as its table of contents says.
  * First a way out, back to the stack's home. Then every section, open: a
- * heading in full-strength text, a Part's import path under it in mono,
+ * heading in the site's accent, a Part's import path under it in mono,
  * and its pages hanging off one line below. A heading is a heading, not a
  * button: the whole map of the docs is in view at once, and the reader
  * finds their place by it.
@@ -79,7 +79,7 @@ function SectionList({
   return (
     <section aria-labelledby={heading}>
       <h2 id={heading} className="px-2">
-        <span className="block text-[14px] leading-5 font-semibold tracking-tight text-foreground">
+        <span className="block text-[14px] leading-5 font-semibold tracking-tight text-(--field-accent)">
           {section.title}
         </span>
         {section.path && (
