@@ -1,78 +1,96 @@
 import { LiveTable } from '../../live-table/index.ts';
+import { program } from './run/drift.ts';
 import { driftAndReindex } from './components/lab.ts';
 import { DriftPicture } from './components/drift-picture.tsx';
 
-You add an index, and new tasks show up in it. The tasks saved last month
-don't. By the end of this page you'll find those rows and bring them in,
-without touching their values.
+The last page added `byPriority`. New tasks show up in it. The tasks
+saved last month don't. This page finds those rows and brings them in,
+without changing a single value.
 
 ## Why old rows go missing
 
 An index key is written when a row is saved. A task saved before
-`byStatus` existed was saved without a `byStatus` key, so a `byStatus`
-query can't see it.
+`byPriority` existed was saved without a `byPriority` key. So a
+`byPriority` query never sees it.
 
-A schema change heals itself on read, as [Adding a
-version](/std-toolkit/adding-a-version) showed. An index can't: the query
-never reaches the row to read it. Those rows need their keys written.
+You might expect this to heal itself, the way an old shape does. A row
+saved at v1 is upgraded when it's read, as [Reading and
+writing](/std-toolkit/reading-and-writing) showed. But an index can't
+work that way: the query never reaches the row, so there's nothing to
+upgrade. Those rows need their keys written.
 
-<Picture caption="old-1 was saved before byStatus, so its index key is empty and the query misses it. drift points at the gap; reindex fills it; the query finds both.">
+<Picture caption="old-1 was saved before byPriority, so its index key is empty and the query misses it. drift points at the gap, reindex fills it, and the query finds both.">
   <DriftPicture />
 </Picture>
 
-## Drift
+## Drift: finding the gap
 
 **Drift** is the gap between the keys a row has and the keys this release
 would give it. `table.drift(item)` checks one stored row:
 
 ```ts
-const { drifted, currentForm } = yield * table.drift(item);
+table.drift(item); // an Effect of { drifted, currentForm }
 ```
 
 `drifted` says whether the keys differ. `currentForm` is the row as this
-release would store it.
+release would store it, with every index key filled in.
 
-A row that only has an older `_v` has not drifted. Its keys are the same,
-and a read upgrades it anyway.
+An older `_v` alone isn't drift. The row's keys are the same, and a read
+upgrades it anyway.
 
-## Reindex
+## Reindex: filling it
 
-`table.reindex(currentForm)` writes that current form back. It changes
-the row's index keys, and nothing else that matters:
+`table.reindex(currentForm)` writes that current form back. It's careful
+about what it touches:
 
-- it keeps the row's update stamp, `_u`, because the value didn't change;
-- it sends no Change Notice, so subscribers aren't told about a non-event;
-- if someone saved the row since you read it, it fails with
-  `ReindexConflict` instead of overwriting the newer write.
+- It keeps the row's update stamp, `_u`. The value didn't change, so
+  nothing that syncs should think it did.
+- It tells no subscriber. To them, nothing happened.
+- If someone saved the row since you read it, it fails with
+  `ReindexConflict` rather than overwrite the newer write.
 
-Put together, a backfill is a walk over the table:
+A whole backfill is a walk over the table: check each row, repair the
+ones that drifted.
 
 ```ts file=./components/tasks.ts
 
 ```
 
-`table.scan()` streams every row of every kind, untyped. Drift is only
-for keyed entities: a single entity has no indexes to drift.
+`table.scan()` streams every row of every kind, as it is stored. You'll
+meet it again on [Transactions and scan](/std-toolkit/transactions).
+
+## See it run
+
+One task from the last release, one from this one. Open each line to see
+the index keys each row has stored, beside the ones this release would
+give it.
+
+<Run program={program} caption="Before, byPriority finds only new-1. old-1 has drifted: its stored keys lack GSI1PK and GSI1SK. After the backfill, both are found.">
+
+```ts file=./run/drift.ts
+
+```
+
+</Run>
 
 ## Try it
 
-The last release saved tasks with no `byStatus`. This release added it.
-Save some of each, then reindex.
+Save some tasks with each release, then reindex. Each stored row on the
+left shows its keys, so you can watch `GSI1PK` appear.
 
 <LiveTable
   lab={driftAndReindex}
-  caption="Before reindexing, byStatus finds only the tasks this release saved. After, it finds every open task, and a second press changes nothing."
+  caption="Before reindexing, byPriority finds only the tasks this release saved. After, it finds every high-priority task. A second press changes nothing."
 />
 
-You don't usually run this by hand. A snapshot sees a new index as a
-change that needs a backfill, and on IndexedDB setup reindexes for you.
-The rest of this Part covers that.
+You won't usually run this by hand. A [snapshot](/std-toolkit/snapshot)
+flags a new index as needing a backfill, and on IndexedDB, setup runs the
+reindex for you.
 
 <Callout title="Remember">
-  A new index only knows rows saved after it. drift finds the rest, and reindex
-  writes their keys without changing their value or their stamp.
+  A new index only knows the rows saved after it. drift finds the rest, and
+  reindex writes their keys without changing their value or their stamp.
 </Callout>
 
-Whether a change can be healed, or should throw the data away, depends
-on the table. Next, [Table mode](/std-toolkit/table-mode): persistent or
-disposable.
+A new index can be healed. Some changes can't, and then what should
+happen to the data? Next, [Table mode](/std-toolkit/table-mode).

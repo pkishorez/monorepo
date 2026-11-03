@@ -8,19 +8,19 @@ import {
 } from '../../../../../components/index.ts';
 
 /*
- * A task with a versioned status inside it. Each carries its own version.
- * Status gets a v2; a read upgrades only the status, from 'todo' at v1 to
- * 'open' at v2, and the task around it stays v1. The task's shape still
- * changed: what it reads as is a transitive change.
+ * Settings with a versioned theme inside it. Each carries its own version.
+ * Theme gets a v2; a read upgrades only the theme, from 'night' at v1 to
+ * 'dark' at v2, and the settings around it stay v1. What the settings read
+ * as still changed: a transitive change.
  */
 
 type Step = { readonly upgraded: boolean; readonly rule: string };
 
 const STEPS: ReadonlyArray<Step> = [
-  { upgraded: false, rule: 'Task v1, holding a Status at v1' },
-  { upgraded: false, rule: "Status gets v2: 'todo' is now 'open'" },
-  { upgraded: true, rule: 'a read upgrades the status on its own' },
-  { upgraded: true, rule: 'Task is still v1: a transitive change' },
+  { upgraded: false, rule: 'Settings v1, holding a Theme at v1' },
+  { upgraded: false, rule: 'Theme gets v2: only two words now' },
+  { upgraded: true, rule: 'a read upgrades the theme on its own' },
+  { upgraded: true, rule: 'Settings is still v1: a transitive change' },
 ];
 const DURATIONS = [1600, 1800, 1800, 2200];
 
@@ -41,18 +41,18 @@ export function NestedPicture() {
         className={`relative w-full max-w-64 rounded-lg border bg-background px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors duration-300 ${step === 3 ? 'border-foreground/40' : 'border-border'}`}
       >
         <p className="mb-2 flex items-center gap-1.5 text-[12px]">
-          <span className="font-medium">Task</span>
+          <span className="font-medium">Settings</span>
           <Badge value="v1" />
         </p>
         <dl className="space-y-1.5 font-mono text-[11px]">
           <div className="flex gap-2">
-            <dt className="text-muted-foreground">title</dt>
-            <dd>'Plan the week'</dd>
+            <dt className="text-muted-foreground">language</dt>
+            <dd>'en'</dd>
           </div>
           <div className="flex items-center gap-2">
-            <dt className="text-muted-foreground">status</dt>
+            <dt className="text-muted-foreground">theme</dt>
             <dd className="relative flex items-center gap-1.5 rounded-md border border-border px-1.5 py-0.5">
-              <Roll value={now.upgraded ? "'open'" : "'todo'"} />
+              <Roll value={now.upgraded ? "'dark'" : "'night'"} />
               <Badge value={now.upgraded ? 'v2' : 'v1'} />
               <Flash {...(now.upgraded ? { at: round * 10 + 2 } : {})} />
             </dd>

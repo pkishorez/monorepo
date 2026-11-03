@@ -1,7 +1,11 @@
 import { DriversPicture } from './components/drivers-picture.tsx';
 
-Your server needs a table too. SQLite runs nearly everywhere a server does,
-so this page puts the same table in SQLite, on whichever runtime you have.
+The browser has its table. Now the server needs one, the copy every
+screen syncs from. SQLite runs nearly everywhere a server does, so this
+page puts the same table in SQLite, on whichever runtime you have.
+
+Like IndexedDB, it needs a real database, so the code here is shown, not
+run.
 
 ## One adapter, many runtimes
 
@@ -35,8 +39,9 @@ a request never pays for setup.
 
 ```
 
-Setup takes the same **Table mode** IndexedDB does. It compares the table
-with the **Stored contract**, kept in a reserved `_std_contract` table:
+Setup takes the same mode IndexedDB does. It compares the table with the
+**Stored contract**, the record of the shape last set up, kept in a
+reserved `_std_contract` table:
 
 - `persistent`: a breaking change fails with `SetupRefused`, and the table
   is never wiped.

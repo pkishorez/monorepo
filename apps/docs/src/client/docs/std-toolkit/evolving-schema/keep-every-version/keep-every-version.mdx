@@ -1,0 +1,77 @@
+import { VersionsPicture } from './components/versions-picture.tsx';
+import { program } from './run/mixed-board.ts';
+
+The last page ended with a January row that March's code could not read.
+This page is the one idea std-toolkit uses to fix that. Everything else in
+this Part builds on it.
+
+## The usual fixes
+
+Most apps reach for one of three fixes, and each one hurts.
+
+- **Rewrite every row.** A script adds the new field to every saved row on
+  each deploy. It's slow on a big table, and for a while old code and new
+  code disagree about what a row looks like.
+- **Patch every read.** You write `task.priority ?? 'low'` wherever a task
+  is read, forever, with nothing to say why.
+- **Stop changing.** The shape is left as it is, because changing it is
+  too scary.
+
+## Keep every version
+
+std-toolkit does something else. Instead of one shape, you keep the whole
+history: **v1**, then **v2**, then **v3**, each step written down next to
+the last. Between two versions sits a small function, a **migration**, that
+turns a value of the old version into one of the new.
+
+Three rules follow from that:
+
+1. **Every saved value carries its version**, in a field called `_v`. A row
+   saved in January says `_v: 'v1'`.
+2. **A read upgrades.** It reads the row at its own version, then runs each
+   migration after it, until the value is in the latest shape.
+3. **A write uses the latest.** Whatever your code saves is stamped with the
+   newest version.
+
+<Picture caption="Three rows saved by three releases. Each is read at its own version and upgraded to v3 on the way to your code; the rows in the database never change. A new save goes in at v3.">
+  <VersionsPicture />
+</Picture>
+
+## Nothing is rewritten in bulk
+
+Notice what the database does in all this: nothing. The January row stays
+a v1 row until your app happens to save that task again. No script runs on
+deploy, and no two releases ever disagree about the table.
+
+Your code, meanwhile, only ever sees the latest shape. It never checks a
+version, and never writes `?? 'low'`. The history lives in one place: the
+shape's own declaration.
+
+## See it run
+
+Here is a task's shape with three versions, and three rows saved by three
+releases. The program reads each row, then saves a new task.
+
+<Run program={program} caption="Each line shows a stored row and what reading it gives back: every task comes out with a priority and a done flag. The last line shows a new save stamped v3.">
+
+```ts file=./run/mixed-board.ts
+
+```
+
+```ts file=./components/task.ts
+
+```
+
+</Run>
+
+Don't worry about the code yet. The next pages explain each piece: the
+shape, the `evolve` steps, and what `Schema.decodeUnknownEffect` and
+`Schema.encodeEffect` do.
+
+<Callout title="Remember">
+  Every saved value carries its version. Reads upgrade it to the latest shape;
+  writes always use the latest. Nothing is ever rewritten in bulk.
+</Callout>
+
+Where does a shape's history live? Next, [ESchema](/std-toolkit/eschema):
+a shape with a name and a version stamp.

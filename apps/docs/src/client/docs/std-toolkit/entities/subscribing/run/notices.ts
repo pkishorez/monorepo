@@ -1,32 +1,23 @@
-import { Console, Effect, Fiber, Layer, Schema, Stream } from 'effect';
+import { Console, Effect, Fiber, Layer, Stream } from 'effect';
 import { defaultBroadcaster } from '@kestack/std-toolkit/core';
-import { StdTable } from '@kestack/std-toolkit/db';
 import { Memory } from '@kestack/std-toolkit/db/memory';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { table, task } from '../../board/board.ts';
 
-const Task = EntityESchema.make('Task', 'taskId', {
-  boardId: Schema.String,
-  title: Schema.String,
-}).build();
+const t1 = { boardId: 'work', taskId: 't1' };
+const fields = { priority: 'low', done: false } as const;
 
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
-  .build();
-
-const save = Effect.gen(function* () {
-  yield* task.insert({ taskId: 't1', boardId: 'work', title: 'Plan' });
-  yield* task.insert({ taskId: 't2', boardId: 'home', title: 'Cook' });
+const writes = Effect.gen(function* () {
+  yield* task.insert({ ...t1, title: 'Plan the week', ...fields });
+  yield* task.insert({
+    boardId: 'home',
+    taskId: 't2',
+    title: 'Call home',
+    ...fields,
+  });
   // Refused: t1 exists. A refused write is never announced.
-  yield* task
-    .insert({ taskId: 't1', boardId: 'work', title: 'Again' })
-    .pipe(Effect.ignore);
-  yield* task.getAndUpdate(
-    { boardId: 'work', taskId: 't1' },
-    { title: 'Plan it' },
-  );
-  yield* task.delete({ boardId: 'work', taskId: 't1' });
+  yield* task.insert({ ...t1, title: 'Again', ...fields }).pipe(Effect.ignore);
+  yield* task.getAndUpdate(t1, { done: true });
+  yield* task.delete(t1);
 });
 
 export const program = Effect.gen(function* () {
@@ -34,18 +25,13 @@ export const program = Effect.gen(function* () {
   const listening = yield* Effect.forkChild(
     task.subscribe({ boardId: 'work' }).pipe(
       Stream.take(3),
-      Stream.runForEach(({ value, meta }) =>
-        Console.log(
-          `heard ${value.taskId}: '${value.title}'`,
-          meta._d ? 'deleted' : '',
-        ),
-      ),
+      Stream.runForEach((notice) => Console.log('heard', notice)),
     ),
     { startImmediately: true },
   );
-  yield* save;
+  yield* writes;
   yield* Fiber.join(listening);
-  return 'heard every saved change on work';
+  return 'every saved change on work, and nothing else';
 }).pipe(
   // A fresh table each run, and the Broadcaster subscribers listen on.
   Effect.provide(Layer.suspend(() => Memory.make(table).layer)),

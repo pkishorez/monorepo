@@ -1,87 +1,81 @@
-import { AdapterPicture } from './components/adapter-picture.tsx';
-import { program } from './run/board.ts';
+import { LayersPicture } from './components/layers-picture.tsx';
+import { program } from './run/outlives.ts';
 
-std-toolkit is for the data your app saves. You describe each kind of
-thing once. Then you save it, change its shape as the app grows, keep it on
-any database, and keep every screen in sync, all from that one description.
+std-toolkit is for the data your app saves. This page is the whole story
+in one read: the problem, the idea behind the answer, and the five Parts
+that build it. No API yet, just the shape of things.
 
-## Three jobs, usually written by hand
+## Data outlives code
 
-Every app that saves data ends up doing three jobs:
+Think about an API first. You change what a call takes or returns, you
+update the code that calls it, and you ship both. The change happens at
+one moment, and after that moment everyone agrees again.
 
-- a data layer, tied to one database;
-- scripts that upgrade old rows when the shape changes;
-- a loop that keeps the browser's copy fresh.
+Saved data doesn't work like that. A task saved in January sits in the
+database in January's shape. Your code changes in March, and the task is
+still there, in the old shape, long after the code that wrote it is gone.
+Change the shape of a task, and every task already saved no longer fits.
 
-Each one repeats what the others already know: what a task looks like.
-std-toolkit makes that knowledge one thing, and builds the three jobs on
-top of it.
+The usual fixes all hurt. A script rewrites every row on each deploy. Or
+a `task.priority ?? 'low'` hides at every place that reads a task, forever.
+Or you stop changing the shape at all.
 
-## The story, in five Parts
+## The idea: keep every version
 
-The docs follow your data from the first line you write about it to the
-screen that shows it. Each Part builds on the ones before.
+std-toolkit takes another way. You describe a task once, and you keep
+every version of that description. Each saved task carries the version it
+was saved in. When your code reads an old task, it's upgraded on the way
+in, one small step at a time, to today's shape. Writes always use today's
+shape. Nothing is rewritten in bulk.
 
-### 1. A shape that can change
+Here it is in one run. Release 1 saves a task. Release 2 adds a priority,
+and reads the same task. Press Run, then open each line.
 
-You start with the shape of a task: its fields and its id. That shape is an
-**ESchema**, a schema that remembers every version of itself. When a task
-needs a new field, you add a version, and tasks saved in the old shape
-still read in the new one. That's [Evolving
-schema](/std-toolkit/entity-eschema).
+<Run program={program} caption="Release 1 saved the task at v1, with no priority. Release 2 reads it as v2, with priority 'low', and nothing in storage was touched.">
 
-### 2. Things you save
-
-An **entity** is one kind of thing your app saves, bound to a key. Most
-come many of a kind, like tasks on a board. Some exist once, like your
-app's settings. That's [Entities](/std-toolkit/keyed-entity).
-
-### 3. One table for all of them
-
-Every entity lives in one table, told apart by its key. Indexes find
-things by more than their key, and a test stops a breaking change before
-it ships. That's [StdTable](/std-toolkit/single-table-design).
-
-### 4. Any database
-
-An **adapter** puts the table on a database: memory, IndexedDB, SQLite or
-DynamoDB. Your code never names the database. It asks for the table, and
-the adapter answers. That's [Adapters](/std-toolkit/memory).
-
-<Picture caption="The adapter is the only line that changes. The table, its rows and every call that reads or writes them stay the same.">
-  <AdapterPicture />
-</Picture>
-
-### 5. Kept in sync
-
-Last, **sync** keeps your app's copy of the table fresh, shares it across
-tabs, opens offline and sends edits back. It uses the same shape, so a task
-saved in an old shape arrives in today's. That's [Sync](/std-toolkit/std-sync).
-
-## See it run
-
-Here's the whole idea in two short files: a shape, a table, a task bound to it,
-and an adapter that keeps it in memory. Press Run.
-
-<Run program={program} caption="Two tasks are saved, then read back by their board. Each one says the version it was saved at: v1, the first.">
-
-```ts file=./run/board.ts
+```ts file=./run/outlives.ts
 
 ```
 
-```ts file=./components/tasks.ts
+```ts file=./components/releases.ts
 
 ```
 
 </Run>
 
-The program never says where the tasks are kept. `Effect.provide(board.layer)`
-decides that, at the very end.
+## Five Parts, one on the next
+
+Everything else in std-toolkit builds on that idea, one layer at a time.
+The docs follow the same order.
+
+<Picture caption="A task travels down the five layers. Each one adds one thing: versions, a key, a place in one table, a database, and a copy on every screen.">
+  <LayersPicture />
+</Picture>
+
+1. **[Evolving schema](/std-toolkit/why-evolving-schema).** A shape that
+   remembers every version of itself, and upgrades old data as it's read.
+   Everything else is built on it.
+2. **[Entities](/std-toolkit/what-is-an-entity).** A shape, plus a key and
+   a place to live, becomes something you can save, find, change and
+   delete. Many of a kind, like tasks, or exactly one, like settings.
+3. **[StdTable](/std-toolkit/single-table-design).** Tasks, boards and
+   settings all share one table, told apart by their keys. A snapshot
+   catches a breaking change in a test, before it reaches real data.
+4. **[Adapters](/std-toolkit/what-is-an-adapter).** The same table runs in
+   memory, in the browser's IndexedDB, in SQLite or in DynamoDB. Your code
+   never names a database; one line picks it.
+5. **[Sync](/std-toolkit/how-sync-works).** The server keeps the table, and
+   each screen keeps a fresh copy: shared across tabs, usable offline, and
+   always in today's shape.
+
+You can stop after any Part and have something useful. Most apps start
+with the first two.
 
 <Callout title="Remember">
-  Describe a kind of thing once. Storage, upgrades and sync all work from that
-  one description.
+  Data outlives code. std-toolkit keeps every version of a shape, so old data
+  reads in today's shape, and builds storage, one table, any database and sync
+  on top of that one description.
 </Callout>
 
 Next, the [Quick start](/std-toolkit/quick-start): a task list of your own,
-saved, changed and read back in a few minutes.
+saved, read back and given a new field, in a few minutes.

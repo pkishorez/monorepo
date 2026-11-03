@@ -1,0 +1,96 @@
+import { EntityPicture } from './components/entity-picture.tsx';
+import { program } from './run/envelope.ts';
+
+You now have a shape for a task, with every version it has had. But a
+shape alone saves nothing. This Part turns it into something you can save,
+find, change and delete: an **entity**.
+
+## Three pieces make an entity
+
+To save a task and find it again, std-toolkit needs three things:
+
+- **a shape**: what a task is. That's your `Task`, from the last Part.
+- **a key**: how to find one task. A board and a task id will do.
+- **a table**: where tasks are kept.
+
+Put the three together and you get an entity, `task`, with the calls a
+list needs.
+
+<Picture caption="A shape, a key and a table join into one entity. Its calls appear, and a save gives back the task with the toolkit's notes beside it.">
+  <EntityPicture />
+</Picture>
+
+Here's how that looks in code:
+
+```ts file=../board/board.ts
+
+```
+
+`table.entity(Task)` starts from the shape. `.primary({ pk: ['boardId'] })`
+gives the key: tasks on the same board sit together, and the id field,
+`taskId`, finishes it.
+
+The table line is new, and it's simple on purpose for now. The
+[StdTable](/std-toolkit/single-table-design) Part is all about it.
+
+## What you get back: value and meta
+
+Every call hands you an **Entity**, never a bare object. An Entity has two
+halves:
+
+- `value`: your task, in today's shape, typed by `Task`.
+- `meta`: four small notes the toolkit keeps beside it.
+
+The notes are how the rest of std-toolkit works:
+
+- `_e` says which kind of thing it is, here `'Task'`.
+- `_v` says which version of the shape the value is in.
+- `_u` is an update stamp. Every write gets a newer one, so two copies of
+  a task can always tell which is fresher.
+- `_d` says whether it was deleted.
+
+You'll rarely touch the meta. But you'll see it everywhere, so it's worth
+watching once.
+
+## Watch it change
+
+This program saves a task, finishes it, then deletes it, and logs the
+Entity each call gives back. Press Run, then open each line to look
+inside.
+
+<Run program={program} caption="Open 'saved', 'updated' and 'deleted'. The value changes on update; _u moves forward on every write; delete sets _d and keeps the value.">
+
+```ts file=./run/envelope.ts
+
+```
+
+</Run>
+
+Notice the delete. The task isn't gone: it's marked `_d: true`, with its
+value kept. Other screens and devices need to hear that it went away, and
+this marker is how they do.
+
+## Two kinds of entity
+
+Most things come many at a time: tasks on a board, messages in a chat.
+Each needs a key. That's a **keyed entity**, like `task`.
+
+Some things exist exactly once: your app's settings. There's no key to
+pass, and they should have a value even before anyone saves one. That's a
+**single entity**.
+
+The rest of this Part takes them in turn:
+
+1. [Keyed entity](/std-toolkit/keyed-entity): every call, on many tasks.
+2. [Single entity](/std-toolkit/single-entity): one record with a default.
+3. [Subscribing](/std-toolkit/subscribing): hearing every save as it
+   happens.
+
+<Callout title="Remember">
+  An entity is a shape, a key and a table. Every call gives back an Entity: your
+  value, and the meta that says what it is, which version, how fresh, and
+  whether it was deleted.
+</Callout>
+
+Next, the [Keyed entity](/std-toolkit/keyed-entity): what each call does,
+and how you find a task again.

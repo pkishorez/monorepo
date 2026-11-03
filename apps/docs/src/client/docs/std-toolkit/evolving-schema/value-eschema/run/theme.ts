@@ -5,15 +5,17 @@ const read = Schema.decodeUnknownEffect(Theme.schema);
 const write = Schema.encodeEffect(Theme.schema);
 
 export const program = Effect.gen(function* () {
-  // Saved by v1, in an envelope: the value and its version.
-  yield* Console.log(
-    'v1 envelope reads as',
-    yield* read({ _v: 'v1', _value: 'night' }),
-  );
+  // A save writes the latest version, in an envelope.
+  yield* Console.log({ saving: 'dark', stores: yield* write('dark') });
 
-  // Saved before versioning at all: a bare value reads as v1.
-  yield* Console.log('bare value reads as', yield* read('sunset'));
+  // An envelope saved by v1, read now: the migration runs.
+  const old = { _v: 'v1', _value: 'night' };
+  yield* Console.log({ stored: old, readsAs: yield* read(old) });
 
-  // A save always writes the latest version, in an envelope.
-  return yield* write('dark');
+  // Saved before it was versioned at all: a bare value reads as v1.
+  yield* Console.log({ stored: 'sunset', readsAs: yield* read('sunset') });
+
+  // A word v2 doesn't allow is refused on save, before it is stored.
+  const refused = yield* write('blue' as 'dark').pipe(Effect.flip);
+  return refused.message;
 });

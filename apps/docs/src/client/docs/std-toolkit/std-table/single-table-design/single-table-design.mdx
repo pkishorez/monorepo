@@ -1,47 +1,57 @@
 import { LiveTable } from '../../live-table/index.ts';
+import { program } from './run/rows.ts';
 import { singleTableDesign } from './components/lab.ts';
 import { TablePicture } from './components/table-picture.tsx';
 
-Every entity so far went into a `table` you didn't look at. By the end of
-this page you'll know what that table is, and why one is enough for your
-whole app.
+So far you've saved Tasks, a Board and your Settings into a `table` you
+were handed and never looked at. This Part opens it up. By the end of it,
+you'll know what that table is, how to find things in it, and how to
+change it safely once it holds real data.
 
-## One table, every kind
+## The problem with a table per kind
 
-The usual way is a table per kind of thing: one for boards, one for
-tasks, one for settings. std-toolkit keeps them all in **one** table.
-That's called **single-table design**, and it's how DynamoDB is meant to
-be used.
+The usual way is a table for each kind of thing: one for boards, one for
+tasks, one for settings.
 
-It works because every row is found by its key, not by which table it is
-in. A row has two keys:
+Each of those tables is one more thing to set up, deploy, back up and
+keep in step with your code. Each needs its own checks when a shape
+changes. And a screen that shows a board with its tasks reads from two
+places.
 
-- the **partition key** (`pk`) groups rows that belong together;
-- the **sort key** (`sk`) orders them inside that group.
+## One table for everything
+
+std-toolkit keeps every kind of thing in **one** table. That's called
+**single-table design**. It's how DynamoDB is meant to be used, and it
+works just as well on SQLite or in the browser.
+
+There's one place to set up, one place to check when a shape changes, and
+one stream of changes to sync. The rest of this page answers the obvious
+question: if everything is in one table, how do the kinds stay apart?
+
+## Keys tell the kinds apart
+
+Every row is found by two keys, not by which table it sits in:
+
+- the **partition key**, `pk`, groups rows that belong together;
+- the **sort key**, `sk`, orders the rows inside that group.
 
 <Picture caption="Each row lands in its place by key. Its kind starts the partition key, so kinds never mix, and two tasks on one board sit side by side.">
   <TablePicture />
 </Picture>
 
-## A StdTable
-
-A **StdTable** is that one table, described once. You give it a name and
-the names of its two key columns:
+You never write a key by hand. Each kind, bound to the table, says which
+of its fields make its keys, and std-toolkit writes them:
 
 ```ts file=./components/app.ts
 
 ```
 
-`'app'` is its logical name. It's unique in your app, and it is how an
-adapter's layer finds this table.
+The table's name, `'board'`, is how an adapter finds it later. Then each
+kind is bound to it, as you saw in the Entities Part.
 
-Then each kind is bound to it. You've seen `table.entity(...)` and
-`table.singleEntity(...)` already. Each binding says which value fields
-build the keys; you never write a `pk` or `sk` by hand.
+## What the keys look like
 
-## How keys are made
-
-std-toolkit derives the physical keys from your value:
+Here's where each row lands:
 
 | Kind     | pk          | sk       |
 | -------- | ----------- | -------- |
@@ -49,31 +59,61 @@ std-toolkit derives the physical keys from your value:
 | Task     | `Task#work` | `t1`     |
 | Settings | `Settings`  | `single` |
 
-The partition key starts with the kind's name. A task's partition adds
-its `boardId`, because the task said `.primary({ pk: ['boardId'] })`. The
-sort key is the entity's id. A single entity has one fixed sort key.
+The partition key starts with the kind's name. A Task adds its `boardId`,
+because it was bound with `.primary({ pk: ['boardId'] })`. The sort key is
+the entity's id, and a single entity has one fixed sort key.
 
-All the rows with one partition key are an **item collection**: all the
-tasks on one board. A `query` reads one item collection, in sort key
+All the rows that share a partition key are an **item collection**: every
+task on one board. A `query` reads one item collection, in sort key
 order. That's why listing a board is one fast read.
 
-Every stored row also carries its kind in `_e`, its **type tag**. So
-reading a row back, std-toolkit knows which shape to decode it with.
+Each stored row also carries its kind in `meta._e`. Reading a row back,
+std-toolkit knows which shape to decode it with.
+
+## See it run
+
+Save one of each kind, then look at the table itself. Open a row in the
+console to see its `pk`, its `sk`, its `meta` and the stored `data`, with
+its version in `_v`.
+
+<Run program={program} caption="Four rows in one table. Each kind sits in its own partition; the two tasks share theirs, and the last line is that partition read back.">
+
+```ts file=./run/rows.ts
+
+```
+
+</Run>
 
 ## Try it
 
-One real table, three kinds of thing. Add some of each and watch where
-each row goes.
+The same three kinds, saved by hand. Add some of each and watch where
+each row lands.
 
 <LiveTable
   lab={singleTableDesign}
-  caption="Every row on the left says what kind it is. On the right, its keys: each kind has its own partition, and tasks on one board share theirs."
+  caption="Every row on the left says what kind it is and shows its keys. On the right, just the keys: each kind has its own partition, and tasks on one board share theirs."
 />
 
+## What the rest of this Part covers
+
+One table raises a few more questions, and each page after this one
+answers one:
+
+- [Indexes](/std-toolkit/indexes): finding tasks by something other than
+  their board and id.
+- [Drift and reindex](/std-toolkit/drift-and-reindex): bringing rows saved
+  before an index existed into it.
+- [Table mode](/std-toolkit/table-mode): which tables must never lose a
+  row, and which may start over.
+- [Snapshot](/std-toolkit/snapshot): a test that fails before a breaking
+  change ships.
+- [Transactions and scan](/std-toolkit/transactions): several writes as
+  one, and every row at once.
+
 <Callout title="Remember">
-  One StdTable holds every kind of thing. Each row's kind starts its partition
-  key, and the keys come from your values.
+  One table holds every kind of thing. The keys come from your values, and each
+  row's kind starts its partition key, so kinds never mix.
 </Callout>
 
-A board lists its tasks by id. But what if you want them by title, or by
-who they're assigned to? Next, [Indexes](/std-toolkit/indexes).
+A board lists its tasks by id. But what if a screen wants every
+high-priority task, on any board? Next, [Indexes](/std-toolkit/indexes).

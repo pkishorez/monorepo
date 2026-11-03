@@ -1,77 +1,79 @@
-import { LiveTable } from '../../live-table/index.ts';
-import { addingAVersion } from './components/lab.ts';
 import { ReadPicture } from './components/read-picture.tsx';
+import { program } from './run/two-releases.ts';
 
-Your app is live, and people have saved tasks. Now a task needs a
-priority. By the end of this page you'll add it in one line, and every task
-saved before still reads.
+Your task shape has one version, and people have saved tasks with it. Now
+tasks need a priority. This page adds it as a second version, so every
+task saved before still reads.
 
-## The problem with old rows
+## Release 2 wants a priority
 
-Data outlives code. A task saved in January sits in the table in the shape
-January's code gave it. When March's code expects a `priority`, that
-January row doesn't have one.
+Release 1 of your app saves tasks as `{ boardId, title }`. Release 2 wants
+`{ boardId, title, priority }`. The tasks release 1 saved will still be in
+the database when release 2 ships, with no priority at all.
 
-The usual fixes all hurt. A backfill script rewrites the table on every
-deploy. A `task.priority ?? 'low'` at every read site never goes away.
-Or you stop changing anything at all.
+You can't ask those rows to change. What you can do is tell the shape what
+a missing priority should be.
 
-std-toolkit does something else: it keeps every **version** of the shape,
-and upgrades old rows as they are read.
-
-<Picture caption="A task saved at v1 is read by release 2. It arrives at v1, the migration makes it v2, and the row in the table never moves. Only a save writes it again, at the latest version.">
+<Picture caption="A task saved at v1 is read by release 2. It arrives at v1, the migration makes it v2, and the row in the database never moves. Only a save writes it again, at v2.">
   <ReadPicture />
 </Picture>
 
 ## One evolve step
 
-You add a version with `evolve`. It takes three things: the version's
-name, what changed in the shape, and a **migration** that turns the old
-value into the new one.
+You add a version with `evolve`, between `make` and `build`. Here are both
+releases' shapes side by side:
 
 ```ts file=./components/tasks.ts
 
 ```
 
-The second argument is a delta. `{ priority: … }` says one field was
-added; every other field carries over. The migration gets the v1 value and
-returns the v2 one, so a task saved without a priority reads as `'low'`.
+`evolve` takes three things:
 
-Your code only ever sees the latest shape. `typeof Task.Type` has
-`priority`, so TypeScript makes you handle it, and nothing else needs to
-know a v1 ever existed.
+1. **The version's name**, `'v2'`. Versions go in order: after v1 comes v2,
+   and TypeScript won't let you skip one.
+2. **What changed**, `{ priority: … }`. This is a **delta**: only the fields
+   that are new or different. Every other field carries over as it was.
+3. **The migration**, `(v1) => ({ ...v1, priority: 'low' })`. It gets a
+   task in v1's shape and returns it in v2's.
 
-## How a read works
+So a task saved without a priority reads as `'low'`. Your code sees one
+shape, `typeof Task.Type`, with `priority` in it. It never needs to know a
+v1 ever existed.
 
-Every stored row carries its version in `_v`. When a row is read, three
-things happen in order:
+## What a migration should be
 
-1. It is decoded with the shape of **its own** version, v1 here.
-2. Each migration after that runs, in turn, up to the latest.
-3. Your code gets the result, typed as the latest shape.
+A migration runs every time an old row is read, maybe on many machines,
+for years. So keep it simple:
 
-A read never writes. The row stays at v1 until your app saves that task
-again; a save always writes the latest version. So there's no backfill, no
-downtime, and no moment where two releases disagree about the table.
+- **The same input gives the same output.** No clock, no random numbers,
+  no network. The same old row must read the same way everywhere.
+- **It handles every old value.** It gets anything v1 could have stored.
+  If it throws, the read fails.
 
-## Try it
+## See it run
 
-Here both releases share one real table, in memory. Save a few tasks with
-release 1, then a few with release 2.
+Release 1 saves two tasks. Release 2 reads them, then saves one of its own.
 
-<LiveTable
-  lab={addingAVersion}
-  caption="Old rows keep v1 in the table, yet release 2 reads every task with a priority. Only the rows release 2 saved are stored at v2."
-/>
+<Run program={program} caption="Release 1's rows are stored at v1 with no priority. Release 2 reads them as 'low'. Its own task is stored at v2, with the priority it was given.">
 
-Look at the left column: the release 1 rows are stamped `v1` and have no
-`priority`. On the right, release 2 reads all of them in its own shape.
+```ts file=./run/two-releases.ts
+
+```
+
+```ts file=./components/tasks.ts
+
+```
+
+</Run>
+
+Open the first line: both rows still say `_v: 'v1'`. Reading them changed
+nothing in the database. Only the last task, saved by release 2, is stored
+at v2.
 
 <Callout title="Remember">
-  Add a version; never edit one. Old rows are upgraded when they are read, and
-  written in the latest shape only when they are saved.
+  Add a version; never edit one you have shipped. Old rows are upgraded when
+  they are read, and written in the latest shape only when they are saved.
 </Callout>
 
-Adding a field is the easy change. Next, [Rename and
-remove](/std-toolkit/rename-and-remove): what happens when a field goes
-away, or gets a new name.
+How exactly does a read get from v1 to v2, and what if there are three
+versions? Next, [Reading and writing](/std-toolkit/reading-and-writing).

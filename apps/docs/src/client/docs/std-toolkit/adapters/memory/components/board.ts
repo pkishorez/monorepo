@@ -1,6 +1,5 @@
 import { Effect, Schema } from 'effect';
 import { StdTable } from '@kestack/std-toolkit/db';
-import { Memory } from '@kestack/std-toolkit/db/memory';
 import { EntityESchema } from '@kestack/std-toolkit/eschema';
 
 const Task = EntityESchema.make('Task', 'taskId', {
@@ -14,17 +13,11 @@ export const task = table
   .primary({ pk: ['boardId'] })
   .build();
 
-// The program names no database: it needs the 'board' table, nothing more.
+// The titles on the 'work' board, leaving out deleted tasks.
 export const titles = task
-  .query('primary', { pk: { boardId: 'work' }, '>=': null })
+  .query(
+    'primary',
+    { pk: { boardId: 'work' }, '>=': null },
+    { excludeDeleted: true },
+  )
   .pipe(Effect.map((page) => page.items.map((item) => item.value.title)));
-
-// Memory.make gives that table a home in memory. Its layer is the answer.
-export const run = () => {
-  const memory = Memory.make(table);
-  return Effect.runPromise(
-    task
-      .insert({ boardId: 'work', taskId: 't1', title: 'Plan the week' })
-      .pipe(Effect.andThen(titles), Effect.provide(memory.layer)),
-  );
-};

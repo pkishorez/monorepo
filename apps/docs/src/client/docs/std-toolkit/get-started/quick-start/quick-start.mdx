@@ -1,9 +1,10 @@
 import { LiveTable } from '../../live-table/index.ts';
 import { quickStart } from './components/lab.ts';
+import { program } from './run/upgrade.ts';
 
-By the end of this page you'll have a task list that saves, updates and
-deletes tasks, running on a real table. It takes three steps and no
-database.
+You've seen the big picture. Now build the smallest real thing: a task
+list that saves, renames and deletes tasks, then learns a new field
+without losing a single saved task. Four steps, and no database to set up.
 
 ## Install
 
@@ -15,62 +16,80 @@ pnpm add @kestack/std-toolkit effect
 
 ## 1. Describe a task
 
-A task has a title, a status and the board it's on. You write that once, as
-an **EntityESchema**: a name, the field that is its id, and its fields.
+A task has a board and a title. You write that once, as an
+**EntityESchema**: a name, the field that holds its id, and its fields.
 
 ```ts file=./components/task.ts
 
 ```
 
-This one line is what everything else reads from. The table checks every
-save against it, and every read hands you a value typed by it.
+This is the description everything else reads from. Every save is checked
+against it, and every read hands you a value typed by it.
 
 ## 2. Give it a table
 
-A **StdTable** is where your entities live. You name it and its two key
-columns. Then you bind `Task` to it, and say which field fills the
-partition key.
+A task needs somewhere to live. You make a table, then bind `Task` to it
+and say which field groups tasks together.
 
 ```ts file=./components/table.ts
 
 ```
 
-Tasks on the same board share a partition, so finding a board's tasks is
-one query. The sort key is always the id, so you don't name it.
+That binding, `task`, is an **entity**: a shape with a key and a place to
+live. Tasks on the same board sit together, so listing a board is one
+query. The [Entities](/std-toolkit/what-is-an-entity) Part explains every
+piece.
 
 ## 3. Save and read
 
-`task` now has everything a list needs: `insert`, `get`, `query`,
-`getAndUpdate` and `delete`. Each one is an Effect that needs the table to
-run against. In the docs, that table is kept in memory.
+`task` has the calls a list needs: `insert`, `get`, `query`,
+`getAndUpdate` and `delete`. Each is an Effect that runs against a table.
+Here, the table is kept in memory.
 
-Try it: add a few tasks, finish `t1`, then delete it.
+Add a few tasks, rename t1, then delete it.
 
 <LiveTable
   lab={quickStart}
-  caption="Every button calls one method on task. The left column is the raw table, the right is what a query of the 'work' board gives back."
+  caption="Every button calls one method on task. The left column is the table as it stores each row; the right is what a query of the 'work' board gives back."
 />
 
-Two things to notice. Each stored row carries `_v`, the version of the
-shape it was saved in. And a deleted task stays in the table as a
-**tombstone**, marked deleted, so other copies of it can learn it's gone.
-A query returns tombstones too, unless you pass `{ excludeDeleted: true }`,
-as this one does.
+Look at the left column: every stored row carries `v1`, the version of the
+shape it was saved in. Keep that in mind for step 4.
+
+A deleted task stays in the table, marked deleted, so other copies can
+hear it's gone. This query hides it with `{ excludeDeleted: true }`:
 
 ```ts file=./components/board.ts
 
 ```
 
-## 4. Change the shape
+## 4. Give it a new field
 
-Say a task needs a priority. You don't edit `Task`. You add a version to
-it, and every task saved before reads with a priority too. That's the
-first thing the next Part teaches.
+A week later, tasks need a priority. You don't edit `Task`, and you don't
+touch the saved tasks. You add a version, and say what an old task gets:
+
+```ts file=./components/task-v2.ts
+
+```
+
+Now run yesterday's app and today's against the same table. Yesterday's
+saves two tasks; today's lists the board. Press Run and open the result.
+
+<Run program={program} caption="Both tasks were saved without a priority, yet today's app lists them with priority 'low', at v2. Nothing rewrote the table.">
+
+```ts file=./run/upgrade.ts
+
+```
+
+</Run>
+
+That's the heart of std-toolkit: old data reads in today's shape, and no
+script ever had to run.
 
 <Callout title="Remember">
-  A shape, a table, and the shape bound to the table. Every save and read goes
-  through that binding, and the adapter decides where it lands.
+  A shape, a table, and the shape bound to the table. Change the shape by adding
+  a version, and every task already saved reads in the new one.
 </Callout>
 
-Next, [EntityESchema](/std-toolkit/entity-eschema): what a shape really is,
-and the two forms every task takes.
+Next, [Why schemas evolve](/std-toolkit/why-evolving-schema): the first
+Part, and the idea that step 4 rests on.

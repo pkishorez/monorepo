@@ -19,7 +19,7 @@ export const driftAndReindex = lab({
           boardId: 'work',
           taskId: `old-${n + 1}`,
           title: TITLES[n % TITLES.length]!,
-          status: 'open',
+          priority: 'high',
         }),
     },
     {
@@ -29,15 +29,15 @@ export const driftAndReindex = lab({
           boardId: 'work',
           taskId: `new-${n + 1}`,
           title: TITLES[(n + 2) % TITLES.length]!,
-          status: 'open',
+          priority: 'high',
         }),
     },
     { label: 'Reindex', run: () => reindexAll },
   ],
   read: {
-    label: "what byStatus finds for 'open'",
+    label: "what byPriority finds for 'high'",
     effect: task
-      .query('byStatus', { pk: { status: 'open' }, '>=': null })
+      .query('byPriority', { pk: { priority: 'high' }, '>=': null })
       .pipe(Effect.map((page) => page.items.map((item) => item.value))),
   },
 });

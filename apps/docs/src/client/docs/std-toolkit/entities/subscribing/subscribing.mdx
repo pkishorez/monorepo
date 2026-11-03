@@ -1,17 +1,18 @@
 import { program } from './run/notices.ts';
 import { NoticePicture } from './components/notice-picture.tsx';
 
-A screen showing a board should change when the board does. By the end of
-this page you'll listen to an entity and hear every save, as it is saved.
+You can save, find and change tasks and settings. But a screen showing the
+work board doesn't know when a task changes. This page closes that gap:
+you listen to an entity, and hear every save as it's saved.
 
 ## Hearing about saves
 
-In React, you'd keep a list in state and remember to update it after
-every write. Miss one call site, and the screen is stale.
+Without help, you'd keep the list in state and remember to refresh it after
+every write. Miss one place that writes, and the screen is stale.
 
-With std-toolkit you **subscribe** instead. Each saved write sends a
-**Change Notice** to everyone listening. A notice is the same Entity
-the write returned: the `value`, and its `meta`.
+So you **subscribe** instead. Each saved write sends a **Change Notice** to
+everyone listening. A notice is the same Entity the write gave back: the
+`value`, and its `meta`.
 
 <Picture caption="The subscriber listens to the work board. It hears saves on work, not on home, and never a write that was refused.">
   <NoticePicture />
@@ -56,10 +57,10 @@ starts late doesn't get the ones it missed.
 
 ## Try it
 
-This program listens to the work board, then saves five writes. Press Run
-and read what it hears.
+This program listens to the work board, then makes five writes. Press Run,
+then open each notice it heard.
 
-<Run program={program} caption="Five writes, three notices: the home task and the refused insert are never heard. The delete arrives last, marked deleted.">
+<Run program={program} caption="Five writes, three notices: the home task and the refused insert are never heard. Open the last one: the delete, with meta._d true.">
 
 ```ts file=./run/notices.ts
 
@@ -72,6 +73,7 @@ and read what it hears.
   Broadcaster, or subscribers hear nothing.
 </Callout>
 
-So far, every entity sat in a table you didn't look at. Next, the
-[StdTable](/std-toolkit/single-table-design) Part: one table for every
-kind of thing you save.
+That's the whole Entities Part: a shape, a key and a table, saved and
+heard. But every entity sat in a table you haven't looked at yet. Next,
+the [StdTable](/std-toolkit/single-table-design) Part: why tasks, boards
+and settings all share one table.

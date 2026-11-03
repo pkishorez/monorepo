@@ -50,7 +50,7 @@ export function Sidebar({ id }: { readonly id: Package['id'] }) {
 
   return (
     <nav ref={nav} aria-label={`${pkg.name} docs`} className="space-y-7">
-      <div className="sticky top-0 z-10 -mx-1 bg-background px-1 pt-1 pb-1 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-5 after:bg-linear-to-b after:from-background after:to-transparent">
+      <div className="sticky top-0 z-10 -mx-1 bg-background px-1 pt-4 pb-1 lg:pt-8 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-5 after:bg-linear-to-b after:from-background after:to-transparent">
         <PackageSwitcher id={id} />
       </div>
       {pkg.contents.sections.map((section) => (

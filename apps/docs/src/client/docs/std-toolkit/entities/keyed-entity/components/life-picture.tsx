@@ -17,26 +17,26 @@ import {
 
 type Step = {
   readonly call?: string;
-  readonly status: 'open' | 'done';
+  readonly done: boolean;
   readonly u: string;
   readonly deleted: boolean;
   readonly writes: number;
 };
 
 const STEPS: ReadonlyArray<Step> = [
-  { call: 'insert', status: 'open', u: '01J8…A1', deleted: false, writes: 1 },
+  { call: 'insert', done: false, u: '01J8…A1', deleted: false, writes: 1 },
   {
-    call: "getAndUpdate { status: 'done' }",
-    status: 'open',
+    call: 'getAndUpdate { done: true }',
+    done: false,
     u: '01J8…A1',
     deleted: false,
     writes: 1,
   },
-  { status: 'done', u: '01J8…B7', deleted: false, writes: 2 },
-  { call: 'delete', status: 'done', u: '01J8…B7', deleted: false, writes: 2 },
-  { status: 'done', u: '01J8…C2', deleted: true, writes: 3 },
-  { call: 'restore', status: 'done', u: '01J8…C2', deleted: true, writes: 3 },
-  { status: 'done', u: '01J8…D9', deleted: false, writes: 4 },
+  { done: true, u: '01J8…B7', deleted: false, writes: 2 },
+  { call: 'delete', done: true, u: '01J8…B7', deleted: false, writes: 2 },
+  { done: true, u: '01J8…C2', deleted: true, writes: 3 },
+  { call: 'restore', done: true, u: '01J8…C2', deleted: true, writes: 3 },
+  { done: true, u: '01J8…D9', deleted: false, writes: 4 },
 ];
 const DURATIONS = [1300, 900, 1500, 900, 1700, 900, 1700];
 
@@ -73,8 +73,8 @@ export function LifePicture() {
             <span className="text-muted-foreground">title </span>'Plan the week'
           </p>
           <p>
-            <span className="text-muted-foreground">status </span>'
-            <Roll value={now.status} />'
+            <span className="text-muted-foreground">done </span>
+            <Roll value={String(now.done)} />
           </p>
           <p className="mt-3 mb-1 font-sans text-[11px] font-medium text-muted-foreground">
             meta

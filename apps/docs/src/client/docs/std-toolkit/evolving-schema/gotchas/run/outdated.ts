@@ -15,16 +15,17 @@ export const program = Effect.gen(function* () {
   const error = yield* Schema.decodeUnknownEffect(TaskV1.schema)(
     fromTheFuture,
   ).pipe(Effect.flip);
+  yield* Console.log('the read failed:', error.message);
 
   // Somewhere inside the failure is an OutdatedVersion. Find it.
   const outdated = findOutdatedVersion(error);
-  if (outdated === undefined) return 'bad data';
-  yield* Console.log(
-    outdated.schema,
-    'met',
-    outdated.version,
-    'but knows up to',
-    outdated.latestVersion,
-  );
-  return 'this release is out of date: time to reload';
+  yield* Console.log('found inside it:', {
+    schema: outdated?.schema,
+    version: outdated?.version,
+    latestVersion: outdated?.latestVersion,
+  });
+
+  return outdated === undefined
+    ? 'bad data'
+    : 'this release is out of date: time to reload';
 });

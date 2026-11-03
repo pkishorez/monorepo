@@ -18,9 +18,9 @@ const TABLE = [
         docs: [
           {
             slug: 'introduction',
-            title: 'Introduction',
+            title: 'The big picture',
             summary:
-              'Describe your data once, change its shape freely, store it anywhere, keep it in sync.',
+              'Data outlives code. What std-toolkit does about it, in five parts.',
           },
           {
             slug: 'quick-start',
@@ -36,29 +36,28 @@ const TABLE = [
     path: '@kestack/std-toolkit/eschema',
     groups: [
       {
-        title: 'A shape',
+        title: 'Why',
         docs: [
           {
-            slug: 'entity-eschema',
-            title: 'EntityESchema',
-            summary: 'The shape of one kind of thing you save, with its id.',
+            slug: 'why-evolving-schema',
+            title: 'Why schemas evolve',
+            summary: 'An API change is a moment; a saved row lives on.',
           },
           {
-            slug: 'value-eschema',
-            title: 'ValueESchema',
-            summary: 'A versioned shape with no id, for a value inside a row.',
-          },
-          {
-            slug: 'shapes-inside-shapes',
-            title: 'Shapes inside shapes',
-            summary:
-              'A ValueESchema as a field of an entity, each upgrading on its own.',
+            slug: 'keep-every-version',
+            title: 'Keep every version',
+            summary: 'The one idea: stamp each row, upgrade it as it is read.',
           },
         ],
       },
       {
-        title: 'Changing it',
+        title: 'ESchema',
         docs: [
+          {
+            slug: 'eschema',
+            title: 'ESchema',
+            summary: 'A shape with a name and a version stamp.',
+          },
           {
             slug: 'adding-a-version',
             title: 'Adding a version',
@@ -66,10 +65,41 @@ const TABLE = [
               'One evolve step, and every old row reads in the new shape.',
           },
           {
+            slug: 'reading-and-writing',
+            title: 'Reading and writing',
+            summary:
+              'Reads upgrade, writes use the latest: what happens at each step.',
+          },
+        ],
+      },
+      {
+        title: 'More shapes',
+        docs: [
+          {
+            slug: 'entity-eschema',
+            title: 'EntityESchema',
+            summary: 'An ESchema that also carries an id.',
+          },
+          {
+            slug: 'value-eschema',
+            title: 'ValueESchema',
+            summary: 'A versioned value that is not an object.',
+          },
+          {
+            slug: 'shapes-inside-shapes',
+            title: 'Shapes inside shapes',
+            summary: 'A versioned value inside a row, upgrading on its own.',
+          },
+        ],
+      },
+      {
+        title: 'Changing a shape',
+        docs: [
+          {
             slug: 'rename-and-remove',
             title: 'Rename and remove',
             summary:
-              'Take a field away or give it a new name, keeping its value.',
+              'Take a field away, or give it a new name, keeping its value.',
           },
           {
             slug: 'adopting-existing-data',
@@ -90,7 +120,7 @@ const TABLE = [
             slug: 'gotchas',
             title: 'Gotchas',
             summary:
-              'A row too new for an old release, migrations that fail, and what to avoid.',
+              'A row too new for an old release, a migration that fails, and what to avoid.',
           },
         ],
       },
@@ -103,10 +133,20 @@ const TABLE = [
       {
         docs: [
           {
+            slug: 'what-is-an-entity',
+            title: 'What an entity is',
+            summary:
+              'A shape, a key and a table: something you can save and find.',
+          },
+        ],
+      },
+      {
+        title: 'Two kinds',
+        docs: [
+          {
             slug: 'keyed-entity',
             title: 'Keyed entity',
-            summary:
-              'Many of a kind, each found by its key: insert, get, query, update, delete.',
+            summary: 'Many of a kind, each found by its key.',
           },
           {
             slug: 'single-entity',
@@ -114,6 +154,11 @@ const TABLE = [
             summary:
               'A thing there is exactly one of, with a default until saved.',
           },
+        ],
+      },
+      {
+        title: 'Watching',
+        docs: [
           {
             slug: 'subscribing',
             title: 'Subscribing',
@@ -132,7 +177,7 @@ const TABLE = [
         docs: [
           {
             slug: 'single-table-design',
-            title: 'Single-table design',
+            title: 'Why one table',
             summary: 'Every kind of thing in one table, told apart by its key.',
           },
           {
@@ -177,6 +222,16 @@ const TABLE = [
     path: '@kestack/std-toolkit/db/*',
     groups: [
       {
+        docs: [
+          {
+            slug: 'what-is-an-adapter',
+            title: 'What an adapter is',
+            summary:
+              'One program, any database: the layer decides where it runs.',
+          },
+        ],
+      },
+      {
         title: 'In the browser',
         docs: [
           {
@@ -220,6 +275,16 @@ const TABLE = [
     title: 'Sync',
     path: '@kestack/std-toolkit/sync',
     groups: [
+      {
+        docs: [
+          {
+            slug: 'how-sync-works',
+            title: 'How sync works',
+            summary:
+              'The server keeps the table; each screen keeps a fresh copy.',
+          },
+        ],
+      },
       {
         title: 'Std Sync',
         docs: [

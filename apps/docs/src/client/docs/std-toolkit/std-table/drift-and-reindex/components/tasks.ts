@@ -2,13 +2,18 @@ import { Effect, Schema, Stream } from 'effect';
 import { StdTable } from '@kestack/std-toolkit/db';
 import { EntityESchema } from '@kestack/std-toolkit/eschema';
 
+// Task at v2, the same in both releases: only the index is new.
 const Task = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,
   title: Schema.String,
-  status: Schema.Literals(['open', 'done']),
-}).build();
+})
+  .evolve('v2', { priority: Schema.Literals(['low', 'high']) }, (v1) => ({
+    ...v1,
+    priority: 'low' as const,
+  }))
+  .build();
 
-// The last release: a GSI slot on the table, but no pattern using it.
+// The last release: the table had a GSI slot, but Task used none.
 const lastRelease = StdTable.make('board')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
@@ -18,7 +23,7 @@ export const oldTask = lastRelease
   .primary({ pk: ['boardId'] })
   .build();
 
-// This release adds byStatus on GSI1.
+// This release names byPriority on that slot.
 export const table = StdTable.make('board')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
@@ -26,10 +31,10 @@ export const table = StdTable.make('board')
 export const task = table
   .entity(Task)
   .primary({ pk: ['boardId'] })
-  .index('GSI1', 'byStatus', { pk: ['status'], sk: ['title'] })
+  .index('GSI1', 'byPriority', { pk: ['priority'], sk: ['boardId', 'title'] })
   .build();
 
-// Every row the table holds: drift checks each, reindex repairs those that drifted.
+// The backfill: check every row, and repair the ones that drifted.
 export const reindexAll = Stream.runForEach(table.scan(), (item) =>
   Effect.gen(function* () {
     const { drifted, currentForm } = yield* table.drift(item);

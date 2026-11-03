@@ -3,8 +3,8 @@ import { Pill, useSteps } from '../../../../../components/index.ts';
 
 /*
  * The same tasks, read three ways. The primary key lists a board by id;
- * byTitle lists the same board by title; byAssignee gathers one person's
- * tasks from every board. The rows glide into each order; a task the
+ * byTitle lists the same board by title; byPriority gathers the
+ * high-priority tasks from every board. The rows glide into each order; a task the
  * index does not hold fades back.
  */
 
@@ -12,14 +12,14 @@ type Task = {
   readonly id: string;
   readonly board: string;
   readonly title: string;
-  readonly assignee: string;
+  readonly priority: string;
 };
 
 const TASKS: ReadonlyArray<Task> = [
-  { id: 't1', board: 'work', title: 'Review', assignee: 'ana' },
-  { id: 't2', board: 'work', title: 'Plan', assignee: 'ben' },
-  { id: 't3', board: 'work', title: 'Ship', assignee: 'ana' },
-  { id: 't4', board: 'home', title: 'Cook', assignee: 'ana' },
+  { id: 't1', board: 'work', title: 'Water', priority: 'high' },
+  { id: 't2', board: 'work', title: 'Plan', priority: 'low' },
+  { id: 't3', board: 'work', title: 'Call', priority: 'high' },
+  { id: 't4', board: 'home', title: 'Fix', priority: 'high' },
 ];
 
 type View = {
@@ -43,9 +43,9 @@ const VIEWS: ReadonlyArray<View> = [
     by: (task) => task.title,
   },
   {
-    name: 'byAssignee',
-    query: "{ assignee: 'ana' }",
-    keep: (task) => task.assignee === 'ana',
+    name: 'byPriority',
+    query: "{ priority: 'high' }",
+    keep: (task) => task.priority === 'high',
     by: (task) => `${task.board}#${task.title}`,
   },
 ];
@@ -82,7 +82,7 @@ export function OrderPicture() {
                 {task.title}
               </span>
               <span className="text-muted-foreground">
-                {task.board} · {task.assignee}
+                {task.board} · {task.priority}
               </span>
             </motion.li>
           ))}

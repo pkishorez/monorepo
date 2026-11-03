@@ -40,7 +40,7 @@ export function DocsPage({
       <aside className="hidden lg:block">
         <div
           data-sidebar-scroll
-          className="sticky top-14 -ml-2 h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-contain border-r border-border py-8 pr-4"
+          className="sticky top-14 -ml-2 h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-contain border-r border-border pb-8 pr-4"
         >
           <Sidebar id={id} />
         </div>

@@ -8,7 +8,7 @@ import {
 
 /*
  * A task saved by release 1 meets release 2. On the left, the row as the
- * table keeps it; on the right, the task as the app holds it. A read
+ * database keeps it; on the right, the task as the app holds it. A read
  * carries the row across at its own version, v1. Then the one migration
  * runs, and the task becomes v2 with its new field; the row on the left
  * has not moved. Last, the app saves the task, and only then is the row
@@ -119,7 +119,7 @@ export function ReadPicture() {
     <div ref={ref} className="px-4 py-8 sm:px-8">
       <div className="mx-auto grid max-w-md grid-cols-[1fr_4rem_1fr] items-start gap-2 sm:grid-cols-[1fr_6rem_1fr]">
         <p className="text-[11px] font-medium text-muted-foreground">
-          In the table
+          In the database
         </p>
         <span />
         <p className="text-[11px] font-medium text-muted-foreground">

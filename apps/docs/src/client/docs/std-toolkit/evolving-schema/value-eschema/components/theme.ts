@@ -5,6 +5,6 @@ import { ValueESchema } from '@kestack/std-toolkit/eschema';
 // migration maps every old text onto one of them.
 export const Theme = ValueESchema.make('Theme', Schema.String)
   .evolve('v2', Schema.Literals(['light', 'dark']), (text) =>
-    text === 'night' ? 'dark' : 'light',
+    text === 'night' || text === 'dark' ? 'dark' : 'light',
   )
   .build();

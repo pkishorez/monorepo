@@ -46,19 +46,19 @@ addedAnIndex
   .index('GSI1', 'byTitle', { pk: ['boardId'], sk: ['title'] })
   .build();
 
+// The snapshot of what you shipped.
 const accepted = TableSnapshot.capture(shipped);
 
-export const program = Effect.forEach(
-  [
+export const program = Effect.gen(function* () {
+  yield* Console.log('what you shipped', accepted);
+  for (const [change, next] of [
     ['priority added as v2', addedAVersion],
     ['priority written into v1', editedV1],
     ['a byTitle index added', addedAnIndex],
-  ] as const,
-  ([change, table]) =>
-    Console.log(
-      `${change}:\n${TableSnapshot.renderChanges(
-        TableSnapshot.diff(accepted, TableSnapshot.capture(table)),
-      )}`,
-    ),
-  { discard: true },
-);
+  ] as const) {
+    // Each difference, with its verdict in `impact`.
+    const changes = TableSnapshot.diff(accepted, TableSnapshot.capture(next));
+    yield* Console.log(change, changes);
+    yield* Console.log(TableSnapshot.renderChanges(changes));
+  }
+});

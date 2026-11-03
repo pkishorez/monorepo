@@ -1,14 +1,14 @@
 import { CoalescePicture } from './components/coalesce-picture.tsx';
 
-Someone types a task's title, one key at a time. You want every key on
-screen at once, but not a request per key. This page shows how to pace
-those updates.
+An edit through a Collection shows at once, then goes to the Backend
+through its Mutation Callback. That's right for a click. Now someone types a
+task's title, one key at a time.
 
 ## Too many updates
 
-An edit through a Collection goes to the Backend straight away. That's
-right for a click. For typing, it means a request per keystroke: wasted
-work, and answers that can arrive out of order.
+A request per keystroke is wasted work, and the answers can arrive out of
+order: an older title could land after a newer one. You want every key on
+screen at once, but far fewer requests.
 
 A **pacer** decides when the changes reach the Backend. The screen still
 updates on every change; only the requests are paced.
@@ -73,5 +73,6 @@ change sends it. The pacer itself never retries.
   decides when the Backend hears about it.
 </Callout>
 
-All of this is for a React app. Next, [With kabuki](/std-toolkit/replica):
-the same ideas, built from Actors, for a kabuki app.
+Everything so far is for a React app. Next, [With
+kabuki](/std-toolkit/replica): the same copy, built from Actors, for a kabuki
+app.

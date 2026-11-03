@@ -1,11 +1,11 @@
 import { Effect } from 'effect';
 import { lab } from '../../../live-table/index.ts';
-import { table, task } from './tasks.ts';
+import { table, task } from '../../board/board.ts';
 
 const TITLES = ['Plan the week', 'Water the plants', 'Call home'];
 
-// The task each button works on: the first one, t1.
-const first = { boardId: 'work', taskId: 't1' };
+// The task the other buttons work on: the first one, t1.
+const t1 = { boardId: 'work', taskId: 't1' };
 
 export const keyedEntity = lab({
   table,
@@ -17,18 +17,16 @@ export const keyedEntity = lab({
           boardId: 'work',
           taskId: `t${n + 1}`,
           title: TITLES[n % TITLES.length]!,
-          status: 'open',
+          priority: 'low',
+          done: false,
         }),
     },
-    {
-      label: 'Mark t1 done',
-      run: () => task.getAndUpdate(first, { status: 'done' }),
-    },
-    { label: 'Delete t1', run: () => task.delete(first) },
-    { label: 'Restore t1', run: () => task.restore(first) },
+    { label: 'Finish t1', run: () => task.getAndUpdate(t1, { done: true }) },
+    { label: 'Delete t1', run: () => task.delete(t1) },
+    { label: 'Restore t1', run: () => task.restore(t1) },
   ],
   read: {
-    label: 'the board, deleted tasks hidden',
+    label: 'the work board, deleted tasks hidden',
     effect: task
       .query(
         'primary',

@@ -1,58 +1,68 @@
-import { LiveTable } from '../../live-table/index.ts';
 import { RenamePicture } from './components/rename-picture.tsx';
-import { renameAndRemove } from './components/lab.ts';
+import { program } from './run/rename.ts';
 
-Adding a field is the easy change. This page covers the other three:
-removing a field, renaming one, and changing what type a field holds.
-Each is still one `evolve` step.
+So far every new version has added a field: a priority, then `done`. Adding
+is the easy change, because nothing old is lost. This page covers the
+others: taking a field away, giving one a new name, and changing what a
+field holds. Each is still one `evolve` step.
 
-## The delta says what changed
+## The delta names what changed
 
-The second argument to `evolve` is a **delta**: only the fields that
-changed. A field you don't mention carries over. There are three moves:
+The second argument of `evolve` is the **delta**: only the fields that
+changed. A field you don't mention carries over as it was. A delta can do
+three things:
 
-- **Add**: name a new field with its Schema.
-- **Remove**: name the field with `null`.
-- **Change**: name an existing field with a new Schema.
+- **Add** a field: name it with its Schema.
+- **Remove** a field: name it with `null`.
+- **Change** a field: name an existing one with a new Schema.
 
-A rename is a remove and an add in the same step. The migration is what
-moves the value from the old name to the new one.
+There's no fourth move for a rename. A rename is a remove and an add in
+the same step, and the migration moves the value from one to the other.
 
-```ts file=./components/tasks.ts
+## Two more releases
+
+Your task has had three versions: v1 with a title, v2 with a priority, v3
+with `done`. Two more releases now change it, and each adds a version on
+top.
+
+```ts file=./components/task.ts
 
 ```
 
-Here release 2 drops `notes` and renames `colour` to `color`. The
-migration takes the v1 value apart, leaves `notes` behind, and puts
-`colour`'s value under its new name.
+Release 4 renames `title` to `name`. The delta removes `title` and adds
+`name`; the migration takes `title` out of the v3 value and puts it back
+as `name`.
 
-<Picture caption="Release 2 reads a v1 task. notes is removed, colour is renamed and keeps its value, and the task reads as v2.">
+Release 5 removes `done`, and a `status` takes its place, with room for
+more states later. The migration turns `true` into `'done'` and `false`
+into `'open'`, so no task loses what it said.
+
+<Picture caption="A v3 task, read by release 5. v4 renames title and keeps its value. v5 removes done, and status carries what it said. The stored row never moves.">
   <RenamePicture />
 </Picture>
 
-## Nothing is lost in storage
+## Nothing is lost until a save
 
-A read never writes, so a v1 row still holds `notes` and `colour` in the
-table. Release 2 just never sees them. They're dropped from storage only
-when that task is saved again, in the v2 shape.
+A read never writes. So a task saved at v3 still holds `title` and `done`
+in the table, after release 5 has read it many times. Release 5 just never
+sees them. They're gone from storage only when that task is saved again,
+in the v5 shape.
 
-That's worth knowing before you remove a field you might want back. Until
-a row is saved again, its old value is still there. After, it's gone.
+Keep that in mind before you remove a field you might want back. Until a
+row is saved again, its old value is still there. After, it isn't.
 
-## Try it
+<Run program={program} caption="The v3 row reads as v5: name in place of title, status in place of done. The stored row is unchanged after the read. Only the save at the end writes v5, without title or done.">
 
-Save a few tasks with each release. Then save `old-1` again with release
-2 and watch its stored row change.
+```ts file=./run/rename.ts
 
-<LiveTable
-  lab={renameAndRemove}
-  caption="Release 1 rows keep colour and notes in the table, but read as color with no notes. Saving old-1 again writes it at v2, and its notes are gone."
-/>
+```
 
-## Changing a field's type
+</Run>
 
-To change what a field holds, name it again with a new Schema. Say an
-estimate was text, and should be a number:
+## Changing what a field holds
+
+To change a field's type, name it again with its new Schema. Say an early
+release kept an estimate as text, and now it should be a number:
 
 ```ts
 .evolve('v2', { estimate: Schema.Finite }, (v1) => ({
@@ -61,15 +71,18 @@ estimate was text, and should be a number:
 }))
 ```
 
-Careful: the migration must work for **every** value v1 could hold. What
-does `Number('a while')` give? `NaN`, which v2 refuses, so that row fails
-to read. The [Upgrade check](/std-toolkit/upgrade-check) finds rows like
-that for you.
+This one needs care. The migration must work for **every** text v1 could
+have held, not only the ones you have in mind. What is `Number('a
+while')`? It's `NaN`, which v2 refuses, so that task would fail to read.
+The [Upgrade check](/std-toolkit/upgrade-check) finds rows like that before
+you ship.
 
 <Callout title="Remember">
-  `null` in the delta removes a field. A rename is a remove plus an add, and the
-  migration carries the value across.
+  `null` in a delta removes a field. A rename is a remove plus an add, and the
+  migration carries the value across. Old values stay in storage until a row is
+  saved again.
 </Callout>
 
-Next, [Adopting existing data](/std-toolkit/adopting-existing-data): what
-about rows saved before you used versions at all?
+Every change so far has started from rows that already had a version. But
+what about rows saved before you used std-toolkit at all? Next, [Adopting
+existing data](/std-toolkit/adopting-existing-data).

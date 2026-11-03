@@ -1,19 +1,24 @@
 import { ModePicture } from './components/mode-picture.tsx';
 
-Some data must never be lost. Some can be fetched again any time. By the
-end of this page you'll tell std-toolkit which is which, and know what it
-does when a change can't keep your rows readable.
+A new index can be healed with a backfill. Some changes can't be healed
+at all. If you edit a version that rows were saved under, those rows no
+longer read. What should happen then depends on the data. This page is
+where you say.
 
-## Two kinds of table
+## Some data is precious, some is a copy
 
-Your server's tasks are the only copy. Losing them is a disaster. The
-copy in a browser, though, is a cache: the server still has it all.
+Your server's tasks are the only copy. Losing them is a disaster.
 
-So every physical table declares a **table mode**:
+The tasks a browser keeps are different. They're a copy of the server's,
+kept so the app opens fast. If that copy can't be read any more, the
+browser can throw it away and fetch it again.
 
-- A **persistent table** keeps its data, always. A change that would
-  strand its rows is refused before it reaches them.
-- A **disposable table** may throw its rows away when a change isn't
+So every table that stores data declares which kind it is. That's its
+**table mode**:
+
+- A **persistent** table keeps its data, always. A change that would
+  strand its rows is refused before it touches them.
+- A **disposable** table may throw its rows away when a change isn't
   safe, and start fresh.
 
 <Picture caption="The same breaking change reaches two tables. The persistent one refuses it and keeps every row. The disposable one is wiped and set up again.">
@@ -22,18 +27,19 @@ So every physical table declares a **table mode**:
 
 ## Where you say it
 
-The mode belongs to a physical table, not to the StdTable. One StdTable
-can be persistent on your server and disposable in a browser.
+The mode isn't part of the StdTable. It belongs to one stored copy of it,
+because the same StdTable can be persistent on your server and disposable
+in a browser.
 
-You say it where the adapter prepares the table. On SQLite, that's
-`SQLite.setup`:
+So you say it where an adapter prepares the stored copy. On SQLite, that's
+setup:
 
 ```ts
-yield * SQLite.setup(table, { database, mode: 'persistent' });
+SQLite.setup(table, { database, mode: 'persistent' }); // an Effect
 ```
 
-On IndexedDB, it's part of `IDB.make`, since the browser prepares a store
-when it first opens:
+On IndexedDB, it's part of `IDB.make`, because the browser prepares its
+store as it opens:
 
 ```ts
 const idb = IDB.make(table, {
@@ -42,32 +48,31 @@ const idb = IDB.make(table, {
 });
 ```
 
-The [Adapters](/std-toolkit/memory) Part shows each one in full. Memory
-takes no mode: nothing outlives a Memory table, so there's nothing to
-keep.
+The [Adapters](/std-toolkit/what-is-an-adapter) Part shows each in full.
+Memory takes no mode: nothing outlives a Memory table, so there's nothing
+to protect.
 
-## The Stored contract
+## How setup knows a change is breaking
 
-How does setup know a change is breaking? Each physical table keeps a
-**Stored contract** beside its data: a snapshot of the table it was last
-set up under, and its mode.
+Each stored table keeps a note of the table it was last set up for: its
+keys, its indexes, and every version of every shape bound to it. That
+note is its **Stored contract**, and it lives beside the data.
 
-On every setup, std-toolkit compares your table now with that contract.
-Each difference is one of four kinds:
+Every time setup runs, it compares your table now with that note. Each
+difference gets one of four verdicts:
 
-- **safe**, like adding a version: setup goes ahead.
+- **safe**, like a new version: go ahead.
 - **requires-backfill**, like a new index: old rows need their keys
   written.
-- **breaking**, like editing a version that has rows: those rows would no
-  longer read.
-- **unverifiable**: std-toolkit can't tell, so it treats it as breaking.
+- **breaking**, like an edited version: some stored rows would no longer
+  read.
+- **unverifiable**: std-toolkit can't tell, so it's treated as breaking.
 
-Because the contract lives with the data, a phone that skipped three
+Because the note lives with the data, a phone that skipped three
 releases is compared from where its own data really is.
 
-DynamoDB is the exception: it keeps no Stored contract and has no setup.
-Its check happens at deploy instead, as [Deploying](/std-toolkit/deploying)
-shows.
+DynamoDB is the one exception: it keeps no Stored contract. Its check
+runs at deploy instead, as [Deploying](/std-toolkit/deploying) shows.
 
 ## What each mode does
 
@@ -82,21 +87,19 @@ A refused persistent table is left exactly as it was. There's no
 override. The way forward is to undo the edit and [add a
 version](/std-toolkit/adding-a-version) instead.
 
-On a persistent IndexedDB store, setup also runs the
-[reindex](/std-toolkit/drift-and-reindex) for you. A disposable one does
-the same by default, or wipes, as `onBackfill: 'reindex' | 'wipe'` says.
-
-### One way only
+On IndexedDB, a needed backfill is run for you: a persistent store always
+reindexes, and a disposable one does too unless you pass
+`onBackfill: 'wipe'`.
 
 A disposable table may become persistent later. A persistent table can
 never become disposable: setup refuses that too. If you really mean to
-start over, give it a new physical table name.
+start over, give it a new table name.
 
 <Callout title="Remember">
-  Persistent tables refuse a breaking change and keep every row. Disposable
-  tables start fresh. Each physical table says which it is.
+  Each stored table says whether its data is precious. A persistent one refuses
+  a breaking change and keeps every row; a disposable one starts fresh.
 </Callout>
 
-Setup is the last line of defence. You'd rather hear about a breaking
-change in a test. Next, [Snapshot](/std-toolkit/snapshot): catching it
-before you ship.
+Setup is the last line of defence: it only meets a breaking change once
+it reaches the data. You'd rather hear about it in a test. Next,
+[Snapshot](/std-toolkit/snapshot).
