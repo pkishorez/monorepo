@@ -52,6 +52,10 @@
     {
       "hash": "5c7d611797a27e7bd1b8ca201c4aff316f3ff9cd9c8afcfb351d6216f498fd3d",
       "summary": "A Project inside a git repository, as a package of a monorepo, is a git Project: it lists the branches, and its Sessions run in the same folder of each Worktree"
+    },
+    {
+      "hash": "05bf55ec7b4be7fd93fed9291d04cfe3d9c799efd078218700e0e305dcc34e06",
+      "summary": "A Session Resumed on start is active from after its cut-off Turn ended"
     }
   ]
 }

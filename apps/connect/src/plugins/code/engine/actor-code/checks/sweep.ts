@@ -107,7 +107,8 @@ const swept = (session: Session): Effect.Effect<Swept, never, Store> =>
       );
     if (!resume) return { session: saved, first: null };
     return {
-      session: { ...saved, activeAt: now },
+      // Read again: `now` is from before its Turn's end was stamped.
+      session: { ...saved, activeAt: yield* Clock.currentTimeMillis },
       first: {
         id: yield* nextUlid,
         text: resumePrompt(cutOff),
