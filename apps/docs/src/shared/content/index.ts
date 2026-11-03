@@ -5,5 +5,5 @@ export type { KabukiSlug } from './kabuki.ts';
 export { STD_TOOLKIT_CONTENTS } from './std-toolkit.ts';
 export type { StdToolkitSlug } from './std-toolkit.ts';
 export { MONOREPO, NAME, about } from './site.ts';
-export { PACKAGES, packageOf } from './packages.ts';
-export type { Package } from './packages.ts';
+export { PACKAGES, SHELVES, packageOf, shelved } from './packages.ts';
+export type { Package, Shelf } from './packages.ts';

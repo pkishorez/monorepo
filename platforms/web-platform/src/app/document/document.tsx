@@ -1,7 +1,7 @@
 import type { ComponentType, ReactNode } from 'react';
 import { Start } from '@kestack/kabuki/start';
 import type { DocumentProps } from '@kestack/kabuki/start/app';
-import { Pwa, PwaHead } from '../../pwa/prompts/index.ts';
+import { Pwa, PwaHead, type PwaPrompts } from '../../pwa/prompts/index.ts';
 import { DEVICE_SCRIPT } from '../../ui/input/device/index.ts';
 import { FontPreload, type createTheme } from '../../ui/theme/index.ts';
 
@@ -29,8 +29,9 @@ const NO_ZOOM_SCRIPT = `for(const t of['gesturestart','gesturechange'])addEventL
  *            App Shell pads for, and never zoomed: no pinch, no double
  *            tap, no zoom into a field it focuses, iOS's included.
  * 5. PWA     the manifest and the Build ID in the head, and around the
- *            app the worker, the Update Prompt and the Install Prompt;
- *            nothing in a build `app({ pwa: false })` made.
+ *            app the worker, the Update Prompt and the Install Prompt,
+ *            unless `prompts` turns them off; nothing in a build
+ *            `app({ pwa: false })` made.
  *
  * Start's own parts sit where Start wants them: `<Start.Head />` first in
  * the head, `<Start.Scripts />` last in the body.
@@ -45,6 +46,8 @@ export interface DocumentOptions {
   readonly lang?: string;
   /** What sits around every page, inside the PWA, such as devtools. */
   readonly around?: (app: ReactNode) => ReactNode;
+  /** Whether the PWA asks before reloading into a new version, and offers install. Both by default. */
+  readonly prompts?: PwaPrompts;
 }
 
 /**
@@ -56,6 +59,7 @@ export const document = ({
   head,
   lang = 'en',
   around = (app) => app,
+  prompts,
 }: DocumentOptions): ComponentType<DocumentProps> =>
   function Document({ children }) {
     return (
@@ -70,7 +74,7 @@ export const document = ({
           {head}
         </head>
         <body>
-          <Pwa>{around(children)}</Pwa>
+          <Pwa {...(prompts ? { prompts } : {})}>{around(children)}</Pwa>
           <Start.Scripts />
         </body>
       </html>

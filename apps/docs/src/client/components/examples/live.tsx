@@ -1,3 +1,4 @@
+import { OwnTouch } from './own-touch.tsx';
 import {
   Suspense,
   lazy,
@@ -111,110 +112,112 @@ export function Live({
   );
   const height = tall ? 'h-[38rem]' : 'h-[20rem]';
   return (
-    <figure className="my-8">
-      <div className="relative overflow-hidden rounded-xl border border-border bg-card shadow-[0_1px_2px_rgb(0_0_0/0.04),0_12px_40px_-12px_rgb(0_0_0/0.18)]">
-        <div className="flex items-center border-b border-border bg-muted/40 pr-1.5">
-          <div
-            role="tablist"
-            aria-label="The app and its code"
-            className="flex min-w-0 flex-1 overflow-x-auto px-2"
-          >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={shown === null}
-              onClick={() => setShown(null)}
-              className={tab}
+    <OwnTouch>
+      <figure className="my-8">
+        <div className="relative overflow-hidden rounded-xl border border-border bg-card shadow-[0_1px_2px_rgb(0_0_0/0.04),0_12px_40px_-12px_rgb(0_0_0/0.18)]">
+          <div className="flex items-center border-b border-border bg-muted/40 pr-1.5">
+            <div
+              role="tablist"
+              aria-label="The app and its code"
+              className="flex min-w-0 flex-1 overflow-x-auto px-2"
             >
-              <span className="size-1.5 rounded-full bg-emerald-500" />
-              {url ? (
-                <span className="font-mono text-xs">{url}</span>
-              ) : (
-                'Output'
-              )}
-            </button>
-            {site && <Reload app={App} />}
-            {files.map((file, index) => (
               <button
-                key={index}
                 type="button"
                 role="tab"
-                aria-selected={shown === index}
-                onClick={() => setShown(index)}
-                className={`${tab} font-mono text-xs`}
+                aria-selected={shown === null}
+                onClick={() => setShown(null)}
+                className={tab}
               >
-                {file.props['data-file']}
+                <span className="size-1.5 rounded-full bg-emerald-500" />
+                {url ? (
+                  <span className="font-mono text-xs">{url}</span>
+                ) : (
+                  'Output'
+                )}
               </button>
+              {site && <Reload app={App} />}
+              {files.map((file, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  role="tab"
+                  aria-selected={shown === index}
+                  onClick={() => setShown(index)}
+                  className={`${tab} font-mono text-xs`}
+                >
+                  {file.props['data-file']}
+                </button>
+              ))}
+            </div>
+            {keys && (
+              <p
+                aria-live="polite"
+                className={`hidden items-center gap-1.5 px-2 text-xs whitespace-nowrap text-muted-foreground transition-opacity duration-200 sm:flex ${locked ? 'opacity-100' : 'opacity-0'}`}
+              >
+                <KeyboardIcon className="size-3.5" />
+                {locked && (
+                  <>
+                    Keys locked to the app
+                    <Kbd>Esc</Kbd>
+                  </>
+                )}
+              </p>
+            )}
+            <DevtoolsToggle app={App} open={open} setOpen={setOpen} />
+          </div>
+          <div className={height}>
+            <div
+              role="tabpanel"
+              hidden={shown !== null}
+              ref={watch}
+              onPointerDown={() => keys?.set(true)}
+              className="h-full"
+            >
+              <ReadOnlyInPast
+                app={App}
+                className={`h-full ${site ? '@container relative' : 'grid place-items-center overflow-auto p-6'}`}
+              >
+                <App />
+              </ReadOnlyInPast>
+            </div>
+            {files.map((file, index) => (
+              <div
+                key={index}
+                role="tabpanel"
+                hidden={shown !== index}
+                className="h-full [&>pre]:m-0 [&>pre]:h-full [&>pre]:overflow-auto [&>pre]:rounded-none [&>pre]:border-0"
+              >
+                {file}
+              </div>
             ))}
           </div>
-          {keys && (
-            <p
-              aria-live="polite"
-              className={`hidden items-center gap-1.5 px-2 text-xs whitespace-nowrap text-muted-foreground transition-opacity duration-200 sm:flex ${locked ? 'opacity-100' : 'opacity-0'}`}
-            >
-              <KeyboardIcon className="size-3.5" />
-              {locked && (
-                <>
-                  Keys locked to the app
-                  <Kbd>Esc</Kbd>
-                </>
-              )}
-            </p>
-          )}
-          <DevtoolsToggle app={App} open={open} setOpen={setOpen} />
-        </div>
-        <div className={height}>
-          <div
-            role="tabpanel"
-            hidden={shown !== null}
-            ref={watch}
-            onPointerDown={() => keys?.set(true)}
-            className="h-full"
-          >
-            <ReadOnlyInPast
-              app={App}
-              className={`h-full ${site ? '@container relative' : 'grid place-items-center overflow-auto p-6'}`}
-            >
-              <App />
-            </ReadOnlyInPast>
-          </div>
-          {files.map((file, index) => (
-            <div
-              key={index}
-              role="tabpanel"
-              hidden={shown !== index}
-              className="h-full [&>pre]:m-0 [&>pre]:h-full [&>pre]:overflow-auto [&>pre]:rounded-none [&>pre]:border-0"
-            >
-              {file}
+          {open && (
+            <div className="h-[26rem] border-t border-border">
+              <Suspense
+                fallback={
+                  <p className="grid h-full place-items-center text-sm text-muted-foreground">
+                    Opening the devtools…
+                  </p>
+                }
+              >
+                <Devtools app={App} />
+              </Suspense>
             </div>
-          ))}
+          )}
+          {keys && (
+            <span
+              aria-hidden
+              className={`pointer-events-none absolute inset-0 rounded-xl ring-2 ring-primary/70 ring-inset transition-opacity duration-200 ${locked ? 'opacity-100' : 'opacity-0'}`}
+            />
+          )}
         </div>
-        {open && (
-          <div className="h-[26rem] border-t border-border">
-            <Suspense
-              fallback={
-                <p className="grid h-full place-items-center text-sm text-muted-foreground">
-                  Opening the devtools…
-                </p>
-              }
-            >
-              <Devtools app={App} />
-            </Suspense>
-          </div>
+        {caption && (
+          <figcaption className="mt-3 text-sm text-muted-foreground">
+            {caption}
+          </figcaption>
         )}
-        {keys && (
-          <span
-            aria-hidden
-            className={`pointer-events-none absolute inset-0 rounded-xl ring-2 ring-primary/70 ring-inset transition-opacity duration-200 ${locked ? 'opacity-100' : 'opacity-0'}`}
-          />
-        )}
-      </div>
-      {caption && (
-        <figcaption className="mt-3 text-sm text-muted-foreground">
-          {caption}
-        </figcaption>
-      )}
-    </figure>
+      </figure>
+    </OwnTouch>
   );
 }
 

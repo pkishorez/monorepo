@@ -1,3 +1,4 @@
+import { OwnTouch } from './own-touch.tsx';
 import { Children, Fragment, isValidElement, useRef, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import {
@@ -107,87 +108,89 @@ export function Files({ children }: { readonly children: ReactNode }) {
     setTimeout(() => setCopied(false), 1500);
   };
   return (
-    <figure className="my-8 overflow-hidden rounded-xl border border-border bg-card">
-      <div className="grid sm:grid-cols-[13rem_minmax(0,1fr)]">
-        <div
-          role="tablist"
-          aria-label="Files"
-          aria-orientation="vertical"
-          className="hidden border-r border-border bg-muted/30 py-2 sm:block"
-        >
-          {rows.map((row) =>
-            row.kind === 'folder' ? (
-              <div
-                key={`folder:${row.depth}:${row.name}`}
-                className="flex h-8 items-center gap-2 pr-3 text-[13px] text-muted-foreground"
-                style={{ paddingLeft: `${12 + row.depth * 14}px` }}
-              >
-                <FolderOpenIcon className="size-3.5 shrink-0" />
-                <span className="truncate">{row.name}</span>
-              </div>
-            ) : (
-              <button
-                key={row.index}
-                type="button"
-                role="tab"
-                aria-selected={shown === row.index}
-                onClick={() => setShown(row.index)}
-                className="flex h-8 w-full items-center gap-2 pr-3 text-left font-mono text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-selected:bg-muted aria-selected:font-medium aria-selected:text-foreground"
-                style={{ paddingLeft: `${12 + row.depth * 14}px` }}
-              >
-                <FileCodeIcon className="size-3.5 shrink-0" />
-                <span className="truncate">{row.name}</span>
-              </button>
-            ),
-          )}
-        </div>
-        <div className="min-w-0">
+    <OwnTouch>
+      <figure className="my-8 overflow-hidden rounded-xl border border-border bg-card">
+        <div className="grid sm:grid-cols-[13rem_minmax(0,1fr)]">
           <div
             role="tablist"
             aria-label="Files"
-            className="flex overflow-x-auto border-b border-border bg-muted/30 px-1 sm:hidden"
+            aria-orientation="vertical"
+            className="hidden border-r border-border bg-muted/30 py-2 sm:block"
           >
-            {paths.map((parts, index) => (
-              <button
-                key={index}
-                type="button"
-                role="tab"
-                aria-selected={shown === index}
-                onClick={() => setShown(index)}
-                className={tab}
-              >
-                {parts.at(-1)}
-              </button>
-            ))}
+            {rows.map((row) =>
+              row.kind === 'folder' ? (
+                <div
+                  key={`folder:${row.depth}:${row.name}`}
+                  className="flex h-8 items-center gap-2 pr-3 text-[13px] text-muted-foreground"
+                  style={{ paddingLeft: `${12 + row.depth * 14}px` }}
+                >
+                  <FolderOpenIcon className="size-3.5 shrink-0" />
+                  <span className="truncate">{row.name}</span>
+                </div>
+              ) : (
+                <button
+                  key={row.index}
+                  type="button"
+                  role="tab"
+                  aria-selected={shown === row.index}
+                  onClick={() => setShown(row.index)}
+                  className="flex h-8 w-full items-center gap-2 pr-3 text-left font-mono text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-selected:bg-muted aria-selected:font-medium aria-selected:text-foreground"
+                  style={{ paddingLeft: `${12 + row.depth * 14}px` }}
+                >
+                  <FileCodeIcon className="size-3.5 shrink-0" />
+                  <span className="truncate">{row.name}</span>
+                </button>
+              ),
+            )}
           </div>
-          <div className="flex h-10 items-center gap-3 border-b border-border px-4 max-sm:hidden">
-            <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
-              {paths[shown]?.join('/')}
-            </span>
-            <button
-              type="button"
-              onClick={copy}
-              aria-label={copied ? 'Copied' : 'Copy the file'}
-              title="Copy the file"
-              className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&_svg]:size-3.5"
+          <div className="min-w-0">
+            <div
+              role="tablist"
+              aria-label="Files"
+              className="flex overflow-x-auto border-b border-border bg-muted/30 px-1 sm:hidden"
             >
-              {copied ? <CheckIcon /> : <CopyIcon />}
-            </button>
-          </div>
-          <div ref={code} className="h-[26rem]">
-            {files.map((file, index) => (
-              <div
-                key={index}
-                role="tabpanel"
-                hidden={shown !== index}
-                className="h-full [&>pre]:m-0 [&>pre]:h-full [&>pre]:overflow-auto [&>pre]:rounded-none [&>pre]:border-0"
+              {paths.map((parts, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  role="tab"
+                  aria-selected={shown === index}
+                  onClick={() => setShown(index)}
+                  className={tab}
+                >
+                  {parts.at(-1)}
+                </button>
+              ))}
+            </div>
+            <div className="flex h-10 items-center gap-3 border-b border-border px-4 max-sm:hidden">
+              <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
+                {paths[shown]?.join('/')}
+              </span>
+              <button
+                type="button"
+                onClick={copy}
+                aria-label={copied ? 'Copied' : 'Copy the file'}
+                title="Copy the file"
+                className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&_svg]:size-3.5"
               >
-                {file}
-              </div>
-            ))}
+                {copied ? <CheckIcon /> : <CopyIcon />}
+              </button>
+            </div>
+            <div ref={code} className="h-[26rem]">
+              {files.map((file, index) => (
+                <div
+                  key={index}
+                  role="tabpanel"
+                  hidden={shown !== index}
+                  className="h-full [&>pre]:m-0 [&>pre]:h-full [&>pre]:overflow-auto [&>pre]:rounded-none [&>pre]:border-0"
+                >
+                  {file}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-    </figure>
+      </figure>
+    </OwnTouch>
   );
 }

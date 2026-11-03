@@ -46,8 +46,11 @@ export default Start.app({
   router,
   view: AppView,
   // The Web Platform's Document, with the site's favicons.
+  // A docs site asks nothing: a new version is taken as soon as it is
+  // ready, and install is never offered.
   document: document({
     theme: Theme,
+    prompts: { update: 'reload', install: 'off' },
     head: (
       <>
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />

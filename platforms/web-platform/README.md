@@ -444,7 +444,7 @@ export default Stack('Code', { providers, state: State }, Site({ host: 'code', z
 
 ### What the Document puts before the first paint
 
-`document({ theme })` draws Start's head and scripts with the Web Platform's look, and `around` wraps every page, as `apps/kabuki-start` wraps it in Kabuki's devtools.
+`document({ theme })` draws Start's head and scripts with the Web Platform's look, and `around` wraps every page, as `apps/kabuki-start` wraps it in Kabuki's devtools. `prompts: { update: 'reload', install: 'off' }` reloads into a new version as soon as it is ready and never offers install, as `apps/docs` does.
 
 ```css
 /* src/styles.css */

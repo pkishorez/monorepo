@@ -6,6 +6,7 @@ import { PACKAGES, router } from '../../shared/index.ts';
 import type { Route } from '../../shared/index.ts';
 import { docRoute, packageRoute } from './package-link.tsx';
 import { Files, Live, Picture, Run } from './examples/index.ts';
+import { OwnTouch } from './examples/index.ts';
 import { link } from './styles.ts';
 
 /*
@@ -108,10 +109,12 @@ export function Callout({
 
 function Pre({ className, ...props }: ComponentProps<'pre'>) {
   return (
-    <pre
-      className={`${className ?? ''} my-6 overflow-x-auto rounded-xl border border-border p-4 text-[13px] leading-6`}
-      {...props}
-    />
+    <OwnTouch className="my-6">
+      <pre
+        className={`${className ?? ''} overflow-x-auto rounded-xl border border-border p-4 text-[13px] leading-6`}
+        {...props}
+      />
+    </OwnTouch>
   );
 }
 

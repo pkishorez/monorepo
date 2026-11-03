@@ -1,15 +1,18 @@
 import { useEffect, useId, useLayoutEffect, useRef } from 'react';
 import { Router, useRouter } from '@kestack/kabuki/routing';
-import { ArrowLeftIcon, ArrowUpRightIcon } from 'lucide-react';
-import { packageOf, router } from '../../shared/index.ts';
+import { ArrowUpRightIcon } from 'lucide-react';
+import { packageOf } from '../../shared/index.ts';
 import type { Package, Route, Section } from '../../shared/index.ts';
 import { docRoute, slugAt } from './package-link.tsx';
+import { PackageSwitcher } from './package-switcher.tsx';
 
 /*
  * A package's docs, section by section, as its table of contents says.
- * First a way out, back to the stack's home. Then every section, open: a
- * heading in the site's accent, a Part's import path under it in mono,
- * and its pages hanging off one line below. A heading is a heading, not a
+ * First, held at the top as the list scrolls, which package this is and
+ * the way to any other, or back to the stack's home. Then every section,
+ * open: a heading in full-strength text, a Part's import path under it in
+ * mono, and its pages hanging off one line below, in groups whose titles
+ * are in the site's accent. A heading is a heading, not a
  * button: the whole map of the docs is in view at once, and the reader
  * finds their place by it.
  *
@@ -47,13 +50,9 @@ export function Sidebar({ id }: { readonly id: Package['id'] }) {
 
   return (
     <nav ref={nav} aria-label={`${pkg.name} docs`} className="space-y-7">
-      <Router.Link
-        to={router.Home()}
-        className={`group ml-2 flex w-fit items-center gap-1.5 rounded-md text-[13px] text-muted-foreground transition-colors duration-150 hover:text-foreground ${focus}`}
-      >
-        <ArrowLeftIcon className="size-3.5 transition-transform duration-150 group-hover:-translate-x-0.5" />
-        ke stack
-      </Router.Link>
+      <div className="sticky top-0 z-10 -mx-1 bg-background px-1 pt-1 pb-1 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-5 after:bg-linear-to-b after:from-background after:to-transparent">
+        <PackageSwitcher id={id} />
+      </div>
       {pkg.contents.sections.map((section) => (
         <SectionList
           key={section.title}
@@ -79,7 +78,7 @@ function SectionList({
   return (
     <section aria-labelledby={heading}>
       <h2 id={heading} className="px-2">
-        <span className="block text-[14px] leading-5 font-semibold tracking-tight text-(--field-accent)">
+        <span className="block text-[14px] leading-5 font-semibold tracking-tight text-foreground">
           {section.title}
         </span>
         {section.path && (
@@ -140,7 +139,7 @@ function Rail({
         <li key={group.title ?? index}>
           {group.title && (
             <p
-              className={`pr-2 pb-1 pl-4 text-[11px] font-medium text-muted-foreground ${index === 0 ? 'pt-1' : 'pt-3'}`}
+              className={`pr-2 pb-1 pl-4 text-[12px] leading-5 font-semibold text-(--field-accent) ${index === 0 ? 'pt-1.5' : 'pt-4'}`}
             >
               {group.title}
             </p>
