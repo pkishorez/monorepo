@@ -1,13 +1,13 @@
 import { useRouter } from '@kestack/kabuki/routing';
-import { PACKAGES } from '../../shared/index.ts';
-import { KabukiBrand, StackBrand } from './brand.tsx';
+import { MONOREPO, PACKAGES, packageOf } from '../../shared/index.ts';
+import { PackageBrand, StackBrand } from './brand.tsx';
 import type { Route } from '../../shared/index.ts';
 import { GithubLink } from './github-link.tsx';
 import { MobileNav } from './mobile-nav.tsx';
 import { Search } from './search.tsx';
 import { column } from './styles.ts';
 import { ThemeToggle } from './theme-toggle.tsx';
-import { PackageLink, inPackage } from './package-link.tsx';
+import { PackageLink, packageAt } from './package-link.tsx';
 
 /*
  * The bar over every page: the menu on a phone, then whose place it is.
@@ -18,13 +18,13 @@ import { PackageLink, inPackage } from './package-link.tsx';
 
 export function Header() {
   const { route } = useRouter<Route>();
-  const kabuki = inPackage(route, 'kabuki');
+  const here = packageAt(route);
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-sm">
       <div className={`${column} flex h-14 items-center gap-3`}>
         <MobileNav />
-        {kabuki ? (
-          <KabukiBrand />
+        {here ? (
+          <PackageBrand id={here} />
         ) : (
           <>
             <StackBrand />
@@ -48,10 +48,8 @@ export function Header() {
         <div className="ml-auto flex items-center gap-1">
           <Search />
           <GithubLink
-            {...(kabuki
-              ? {
-                  href: 'https://github.com/pkishorez/monorepo/tree/main/packages/kabuki',
-                }
+            {...(here
+              ? { href: `${MONOREPO}/tree/main/${packageOf(here).code}` }
               : {})}
           />
           <ThemeToggle />

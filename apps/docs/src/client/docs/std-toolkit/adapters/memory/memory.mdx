@@ -1,0 +1,66 @@
+import { LiveTable } from '../../live-table/index.ts';
+import { LayersPicture } from './components/layers-picture.tsx';
+import { memoryLab } from './components/lab.ts';
+
+So far your table has been an idea: a name, its keys, the entities bound to
+it. An **adapter** is what puts it on a real database. This page shows how
+any adapter plugs in, using the simplest one: Memory.
+
+## A table needs a home
+
+Every operation you've written, `task.insert`, `task.query`, needs the
+table it was bound to. It doesn't say which database. In Effect's words,
+it requires the table's **StdTable service**, named after the table.
+
+An adapter answers that requirement. You hand it your table, and it gives
+back a **layer**. Provide the layer, and the same program runs on that
+database.
+
+<Picture caption="One program, four adapters. Only the layer changes; the program and its answer stay the same.">
+  <LayersPicture />
+</Picture>
+
+There are four: Memory and IndexedDB in the browser, SQLite and DynamoDB on
+a server. They all keep to the same contract, so a program that works on
+one works on the others.
+
+## Memory
+
+Memory is the adapter with nothing to set up. `Memory.make(table)` gives
+you an empty table, ready at once. It needs no config, no database name,
+and no mode.
+
+```ts file=./components/board.ts
+
+```
+
+Each `Memory.make` call is a new, empty table. Reuse its layer and you
+share its rows; call it again and you start over. When nothing holds it any
+more, its rows are gone.
+
+That makes it the adapter for tests, for stories, and for demos like the
+ones on these pages. It is also where a [Std Sync](/std-toolkit/std-sync)
+keeps its copy unless you ask for something else.
+
+## Try it
+
+This table is a `Memory.make` of its own. Insert a few tasks, rename `t1`,
+then delete it.
+
+<LiveTable
+  lab={memoryLab}
+  caption="A delete leaves the row in the table, marked deleted. Reset makes a new Memory table: empty, as every Memory table starts."
+/>
+
+Notice the delete. The row stays in the table, marked deleted: a
+**tombstone**. A query returns tombstones too, unless you pass
+`excludeDeleted`, as this one does. Every adapter keeps them, so a sync can
+tell other copies the task is gone.
+
+<Callout title="Remember">
+  Your program never names a database. An adapter turns your table into a layer,
+  and providing that layer decides where the program runs.
+</Callout>
+
+Memory forgets everything on reload. Next, [IndexedDB](/std-toolkit/indexeddb):
+the same table in the browser, kept across reloads.

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { Stop } from '../../../field/index.ts';
-import type { ShapeName } from '../../../field/index.ts';
+import { Stop } from '../../field/index.ts';
+import type { ShapeName } from '../../field/index.ts';
 
 /*
  * One stop on the page, a Stop on the field as the home page's chapters

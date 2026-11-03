@@ -1,5 +1,5 @@
-import { Chapter } from './chapter.tsx';
-import { IDEAS, PRIOR_ART, sideOf } from './story.ts';
+import { Chapter, sideOf } from '../../landing/index.ts';
+import { IDEAS, PRIOR_ART } from './story.ts';
 
 /*
  * What inspired kabuki: each source named, linked where it has a

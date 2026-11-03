@@ -1,0 +1,80 @@
+import { DriversPicture } from './components/drivers-picture.tsx';
+
+Your server needs a table too. SQLite runs nearly everywhere a server does,
+so this page puts the same table in SQLite, on whichever runtime you have.
+
+## One adapter, many runtimes
+
+SQLite is one database, but each runtime opens it its own way. Node has
+`node:sqlite`, Bun has `bun:sqlite`, Cloudflare has D1 and Durable Objects.
+So the SQLite adapter takes a **driver**: a small binding that speaks to
+SQLite on one runtime.
+
+<Picture caption="Your program talks to the SQLite adapter. Under it, a driver speaks to SQLite on one runtime. Swap the driver and nothing above it changes.">
+  <DriversPicture />
+</Picture>
+
+Each driver has a door of its own, so a Worker never loads Node's SQLite,
+and Node never loads D1's:
+
+| Driver                    | Import from                                     | Runs on                          |
+| ------------------------- | ----------------------------------------------- | -------------------------------- |
+| `makeNodeSQLite`          | `@kestack/std-toolkit/db/sqlite/node`           | Node's `node:sqlite`             |
+| `makeBunSQLite`           | `@kestack/std-toolkit/db/sqlite/bun`            | Bun's `bun:sqlite`               |
+| `makeBetterSQLite3`       | `@kestack/std-toolkit/db/sqlite/better-sqlite3` | Node, with `better-sqlite3`      |
+| `makeD1SQLite`            | `@kestack/std-toolkit/db/sqlite/d1`             | A Worker's D1 binding            |
+| `makeDurableObjectSQLite` | `@kestack/std-toolkit/db/sqlite/durable-object` | A Durable Object's `storage.sql` |
+
+## Setup, then the layer
+
+SQLite splits the work in two. `SQLite.setup` prepares the physical table,
+and `SQLite.make` gives you the layer. `make` never changes the schema, so
+a request never pays for setup.
+
+```ts file=./components/node.ts
+
+```
+
+Setup takes the same **Table mode** IndexedDB does. It compares the table
+with the **Stored contract**, kept in a reserved `_std_contract` table:
+
+- `persistent`: a breaking change fails with `SetupRefused`, and the table
+  is never wiped.
+- `disposable`: a change the rows can't take drops the table and makes it
+  again. SQLite can't backfill, so that includes a change that needs one.
+
+Then setup creates the table if it's missing, adds index columns and
+indexes, and records the new contract.
+
+## Where setup runs
+
+Run setup once, where no request waits on it:
+
+- On Node or Bun, when the process starts, as above.
+- In a Durable Object, on the object's first access.
+- On D1, at deploy. `D1.table` does it for you; see
+  [Deploying](/std-toolkit/deploying).
+
+So in a Worker, the table already exists. The Worker only makes the layer:
+
+```ts
+import { SQLite } from '@kestack/std-toolkit/db/sqlite';
+import { makeD1SQLite } from '@kestack/std-toolkit/db/sqlite/d1';
+
+// env.DB is the Worker's D1 binding.
+const database = makeD1SQLite({ database: env.DB });
+const board = SQLite.make(table, { database });
+
+program.pipe(Effect.provide(board.layer));
+```
+
+On D1, a write guarded by a condition runs as one batch. If the condition
+fails, the whole batch rolls back.
+
+<Callout title="Remember">
+  Pick the driver for your runtime, run `SQLite.setup` once where no request
+  waits on it, and give every request the layer from `SQLite.make`.
+</Callout>
+
+SQLite mirrors a table shape it didn't invent. Next,
+[DynamoDB](/std-toolkit/dynamodb): the database that shape comes from.

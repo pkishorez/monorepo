@@ -8,20 +8,23 @@ A kabuki start app, built the way
 [`apps/kabuki-start`](../kabuki-start/README.md) is: every page is an Actor,
 drawn by one Cloudflare Worker and hydrated in the browser. The home page
 tells the stack as one scroll story over a WebGL particle field that takes a
-shape for each stop: the monorepo, kabuki and its four parts, then what is
+shape for each stop: the monorepo, kabuki, std-toolkit, then what is
 coming, the shapes alternating sides, with a comet that follows the scroll
-and a rail that counts the stops. kabuki, the only package with docs so far, has a
-landing page told the same way, and its docs under `/kabuki/<slug>`, with a
-sidebar, "On this page" and a pager.
+and a rail that counts the stops. Each package with docs, kabuki and
+std-toolkit, has a landing page told the same way, and its docs under
+`/<package>/<slug>`, with one shared sidebar, "On this page" and pager.
+The site's words are in [CONTEXT.md](./CONTEXT.md).
 
 The table of contents is TypeScript, in `src/shared/content`: the packages,
-and kabuki's sections and pages. Only written pages are in it. A page's slug
+and each one's sections and pages. Only written pages are in it. A page's slug
 is its URL and is checked by the router, so a URL not in the table of
 contents is a 404. A page's words are MDX, in `src/client/docs`, with its
 pictures and its live app beside it. kabuki's pages are grouped by its four
 Parts, core, react, routing and start, and every example on them is one of
 three: a `Picture`, a `Live` app with the devtools a click away, or code that
-`Run`s into a console.
+`Run`s into a console. std-toolkit's are grouped by its five Parts,
+Evolving schema, Entities, StdTable, Adapters and Sync, and add a fourth:
+a `LiveTable`, a real table on the Memory adapter that keeps nothing.
 How to write one is in [docs/authoring.md](./docs/authoring.md). The
 full-screen demo, Opening an app, is at `/kabuki/demos/opening-an-app`, and
 the sidebar opens it in a new tab; its drawing words are in
@@ -40,14 +43,14 @@ infrastructure is declared with Alchemy in `alchemy.run.ts` and `src/infra`.
 mdx/            the build step every page's MDX goes through
 src/
   shared/       both sides
-    content/      the packages, kabuki's table of contents, and each page's Metadata
+    content/      the packages, each one's table of contents, and each page's Metadata
     pages/        the page definitions; routes.ts reads them into the router
   client/       the Views: drawn by the server, then run by the browser
     app.tsx       the root page's View, in the layout and the Web Platform's Document
     docs/         every page: its MDX, its pictures and its live app
-    pages/        one View per page: home, kabuki's landing, a docs page, the demo
+    pages/        one View per page: home, each package's landing, a docs page, the demo
     components/   the header, sidebar, theme, how MDX is drawn; examples/ holds Picture, Live, Run and Files
-    field/        the particle field behind the home and kabuki landing pages, and the Stops its stories are told in
+    field/        the particle field behind the home and landing pages, and the Stops its stories are told in
     demos/        the full-screen demo
   infra/        the Worker and its domain, declared with Alchemy
 ```

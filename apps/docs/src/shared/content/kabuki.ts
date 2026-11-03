@@ -8,38 +8,8 @@
  * MDX file, which the client's `docs` registers by slug.
  */
 
-export type Doc = {
-  readonly slug: Slug;
-  readonly title: string;
-  readonly summary: string;
-};
-
-/** Pages that are read together, under a title of their own or none. */
-export type Group = {
-  readonly title?: string;
-  readonly docs: ReadonlyArray<Doc>;
-};
-
-export type Section = {
-  readonly title: string;
-  /** A Part's import path, said at the top of its pages. */
-  readonly path?: string;
-  readonly groups: ReadonlyArray<Group>;
-};
-
-/** The shape the table is written in, before its slugs are known. */
-type Written = ReadonlyArray<{
-  readonly title: string;
-  readonly path?: string;
-  readonly groups: ReadonlyArray<{
-    readonly title?: string;
-    readonly docs: ReadonlyArray<{
-      readonly slug: string;
-      readonly title: string;
-      readonly summary: string;
-    }>;
-  }>;
-}>;
+import { contents } from './contents.ts';
+import type { SlugOf, Written } from './contents.ts';
 
 const TABLE = [
   {
@@ -260,52 +230,13 @@ const TABLE = [
   },
 ] as const satisfies Written;
 
-/** Every section, in the order the sidebar shows them. */
-export const SECTIONS: ReadonlyArray<Section> = TABLE;
-
-/** The four Parts, in the order they are read: each uses the ones before it. */
-export const PARTS = SECTIONS.filter((section) => section.path !== undefined);
-
-/** The full-screen demo: every primitive in one app, opened in a new tab, after the demos on pages. */
-export const DEMO = {
+/** kabuki's docs: the table, and the full-screen demo after the demos on pages. */
+export const KABUKI_CONTENTS = contents(TABLE, {
   title: 'Opening an app',
   summary: 'Every primitive at once, drawn as the tree of Actors.',
   href: '/kabuki/demos/opening-an-app',
-} as const;
+  after: 'opening-an-app',
+});
 
-/** Every docs page, in reading order. */
-export const DOCS: ReadonlyArray<Doc> = SECTIONS.flatMap((section) =>
-  section.groups.flatMap((group) => group.docs),
-);
-
-/** A docs page's slug: what its URL ends with. */
-export type Slug =
-  (typeof TABLE)[number]['groups'][number]['docs'][number]['slug'];
-
-export const SLUGS = DOCS.map((doc) => doc.slug) as unknown as readonly [
-  Slug,
-  ...Array<Slug>,
-];
-
-/** The docs page with this slug. */
-export const docOf = (slug: Slug): Doc =>
-  DOCS.find((doc) => doc.slug === slug)!;
-
-/** The section a docs page is in. */
-export const sectionOf = (slug: Slug): Section =>
-  SECTIONS.find((section) =>
-    section.groups.some((group) => group.docs.some((doc) => doc.slug === slug)),
-  )!;
-
-/** The group a docs page is in, inside its section. */
-export const groupOf = (slug: Slug): Group =>
-  sectionOf(slug).groups.find((group) =>
-    group.docs.some((doc) => doc.slug === slug),
-  )!;
-
-/** A heading's id, for its anchor. */
-export const anchor = (heading: string): string =>
-  heading
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
+/** A kabuki docs page's slug: what its URL ends with. */
+export type KabukiSlug = SlugOf<typeof TABLE>;

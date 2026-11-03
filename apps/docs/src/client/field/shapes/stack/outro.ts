@@ -14,12 +14,11 @@ import type { Cloud, Label, Motion, V3 } from '../pen/index.ts';
 
 /*
  * The end: more is coming. Three packages in a row, each a rounded box
- * with a small grid of dots inside. The first is built: kabuki. The other
- * two are faint sketches, waiting. Then one chain: kabuki pops and sends a
- * Message to the next; it lands, that box draws its outline, its dots pop
- * in one after the other, and a ring runs out from it. Then it sends one
- * on to the last, which builds the same way. A while later both fall back
- * to sketches, the last first, and the loop closes where it began.
+ * with a small grid of dots inside. The first two are built: kabuki and
+ * std-toolkit. The last is a faint sketch, waiting. Then std-toolkit pops
+ * and sends a Message to it; it lands, that box draws its outline, its
+ * dots pop in one after the other, and a ring runs out from it. A while
+ * later it falls back to a sketch, and the loop closes where it began.
  */
 
 const SIZE = 0.44;
@@ -33,11 +32,10 @@ const AT: readonly V3[] = [
 const DOTS = 4;
 const FLIGHT = 0.7;
 
-/** When each package being built is sent its Message, and when it falls back, in seconds. */
-const BUILDS = [
-  { sent: 0.3, until: 7.7 },
-  { sent: 3.3, until: 7.5 },
-] as const;
+/** When the package being built is sent its Message, and when it falls back, in seconds. */
+const BUILDS = [{ sent: 0.8, until: 7.6 }] as const;
+/** How many are built already. */
+const BUILT = 2;
 /** From when it is sent to, how long its outline takes, when its dots start, and when it rings. */
 const DRAW = 0.5;
 const FILL = 0.35;
@@ -68,14 +66,17 @@ function dots(
 }
 
 export function outro(c: Cloud): void {
-  // Built: kabuki, popping as it sends the first Message.
-  const sends = popping(sec(BUILDS[0].sent), AT[0]!, 1, 0.1);
-  box(c, AT[0]!, SIZE, SIZE, 0.07, 1.1, () => sends);
-  dots(c, AT[0]!, () => sends);
+  // Built: kabuki, and std-toolkit, popping as it sends the Message.
+  const sends = popping(sec(BUILDS[0].sent), AT[BUILT - 1]!, 1, 0.1);
+  for (let k = 0; k < BUILT; k++) {
+    const pops = k === BUILT - 1 ? () => sends : undefined;
+    box(c, AT[k]!, SIZE, SIZE, 0.07, 1.1, pops);
+    dots(c, AT[k]!, () => (k === BUILT - 1 ? sends : undefined));
+  }
 
   BUILDS.forEach((build, k) => {
-    const at = AT[k + 1]!;
-    const from = AT[k]!;
+    const at = AT[k + BUILT]!;
+    const from = AT[k + BUILT - 1]!;
     const landed = lands(build.sent);
 
     // The sketch it is built over, always there.
@@ -112,4 +113,5 @@ export function outro(c: Cloud): void {
 
 export const outroLabels: readonly Label[] = [
   { text: 'kabuki', at: [AT[0]![0], SIZE / 2 + 0.1, 0] },
+  { text: 'std-toolkit', at: [AT[1]![0], SIZE / 2 + 0.1, 0] },
 ];

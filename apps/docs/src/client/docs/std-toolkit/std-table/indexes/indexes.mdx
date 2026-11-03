@@ -1,0 +1,107 @@
+import { program } from './run/indexes.ts';
+import { OrderPicture } from './components/order-picture.tsx';
+
+A board lists its tasks by id, because that's its sort key. But one
+screen wants them by title, and another wants every task assigned to
+Ana. By the end of this page you'll have both, from the same table.
+
+## One table, more orders
+
+A query reads one partition in sort key order. To read the same rows in
+another order, or grouped another way, you add an index. An index keeps
+the rows a second time under other keys, and the database keeps it up to
+date on every write.
+
+<Picture caption="The same four tasks, read three ways. byTitle orders one board by title; byAssignee gathers Ana's tasks from every board.">
+  <OrderPicture />
+</Picture>
+
+There are two kinds:
+
+- An **LSI**, a local secondary index, keeps the same partition key and
+  sorts by something else. "This board, by title."
+- A **GSI**, a global secondary index, has a partition key of its own. It
+  reaches across partitions. "Ana's tasks, on every board."
+
+## Declare the slots
+
+Indexes start on the table, as numbered slots with the names of their key
+columns:
+
+```ts
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .lsi('LSI1', 'LSI1SK')
+  .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+  .build();
+```
+
+The slot names are generic on purpose. `LSI1` says nothing about titles.
+That's because many kinds of thing share one table, and each can use a
+slot its own way.
+
+## Name an access pattern
+
+Each entity then gives a slot a name of its own, an **access pattern**,
+and says which value fields build its keys:
+
+```ts
+const task = table
+  .entity(Task)
+  .primary({ pk: ['boardId'] })
+  .index('LSI1', 'byTitle', { sk: ['title'] })
+  .index('GSI1', 'byAssignee', { pk: ['assignee'], sk: ['boardId', 'title'] })
+  .build();
+```
+
+`byTitle` uses the LSI, so it only names a sort key: the partition is
+still the board. `byAssignee` uses the GSI, so it names both. Its sort key
+has two fields, so Ana's tasks come back by board, then by title.
+
+You query an access pattern by its name, just like `'primary'`:
+
+```ts
+task.query('byAssignee', { pk: { assignee: 'ana' }, '>=': null });
+```
+
+The types follow the pattern. `byAssignee` wants `assignee` in `pk`, and
+TypeScript says so if you pass `boardId`.
+
+## Narrowing with the sort key
+
+A sort key with two fields lets you narrow by the first one.
+`beginsWith` matches a prefix:
+
+```ts
+task.query('byAssignee', {
+  pk: { assignee: 'ana' },
+  beginsWith: { boardId: 'work', title: '' },
+});
+```
+
+That's "Ana's tasks on the work board". The empty `title` means any title.
+
+## Try it
+
+Four tasks on two boards, and four queries. Press Run.
+
+<Run program={program} caption="One table, four answers. by id and by title read the same board in two orders; byAssignee crosses boards.">
+
+```ts file=./run/indexes.ts
+
+```
+
+</Run>
+
+One thing to know when you pick an adapter: on DynamoDB, a GSI read is
+always eventually consistent. A task you just saved may take a moment to
+show up there. Memory, SQLite and IndexedDB see it at once.
+
+<Callout title="Remember">
+  The table declares index slots; each entity names its own access patterns on
+  them. An LSI reorders a partition; a GSI regroups the table.
+</Callout>
+
+An index only knows the rows saved after it existed. Next, [Drift and
+reindex](/std-toolkit/drift-and-reindex): bringing old rows into a new
+index.

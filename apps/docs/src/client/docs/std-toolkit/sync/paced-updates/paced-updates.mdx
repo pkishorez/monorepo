@@ -1,0 +1,77 @@
+import { CoalescePicture } from './components/coalesce-picture.tsx';
+
+Someone types a task's title, one key at a time. You want every key on
+screen at once, but not a request per key. This page shows how to pace
+those updates.
+
+## Too many updates
+
+An edit through a Collection goes to the Backend straight away. That's
+right for a click. For typing, it means a request per keystroke: wasted
+work, and answers that can arrive out of order.
+
+A **pacer** decides when the changes reach the Backend. The screen still
+updates on every change; only the requests are paced.
+
+<Picture caption="Every keystroke shows at once. The first is sent; while it's in flight, the rest wait as one change, and go together when it's done.">
+  <CoalescePicture />
+</Picture>
+
+## Four pacers
+
+`@kestack/std-toolkit/sync/paced` has four, in `paceStrategy`:
+
+- `coalesce`: send the first change at once. While it's in flight, merge
+  the rest into one, and send that when it's done. Paced by the request,
+  not a clock.
+- `debounce`: wait until the changes stop for a while, then send.
+- `throttle`: send at most once in each stretch of time.
+- `queue`: send every change, one after another, in order.
+
+`coalesce` is std-toolkit's own. The other three are TanStack DB's.
+For typing, `coalesce` is usually the one: the first key is saved without
+delay, and a slow Backend gets fewer requests, not more.
+
+## A paced update
+
+`buildPacedUpdate` takes a pacer and two functions. `optimistic` changes
+the screen. `commit` sends the merged changes to the Backend.
+
+```ts
+import { Effect } from 'effect';
+import {
+  buildPacedUpdate,
+  paceStrategy,
+} from '@kestack/std-toolkit/sync/paced';
+
+const pace = paceStrategy.coalesce();
+
+const renameTask = (taskId: string) =>
+  buildPacedUpdate<{ title: string }>({
+    strategy: pace(),
+    optimistic: (changes) =>
+      tasks.update(taskId, (draft) => {
+        draft.title = changes.title;
+      }),
+    commit: (changes) => Effect.runPromise(api.updateTask(taskId, changes)),
+  });
+
+const rename = renameTask('t1');
+rename({ title: 'P' });
+rename({ title: 'Pl' });
+rename({ title: 'Plan' });
+```
+
+Each `paceStrategy` entry gives a factory, so you make a fresh pacer for
+each thing you edit. Two tasks typed at once never wait on each other.
+
+If a coalesced request fails, what was waiting is kept, and the next
+change sends it. The pacer itself never retries.
+
+<Callout title="Remember">
+  Pace the requests, not the screen. Every change shows at once; the pacer
+  decides when the Backend hears about it.
+</Callout>
+
+All of this is for a React app. Next, [With kabuki](/std-toolkit/replica):
+the same ideas, built from Actors, for a kabuki app.

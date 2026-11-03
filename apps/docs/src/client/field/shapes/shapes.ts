@@ -25,11 +25,21 @@ import {
   std,
   stdLabels,
 } from './stack/index.ts';
+import {
+  adapters,
+  adaptersLabels,
+  entities,
+  entitiesLabels,
+  oneTable,
+  oneTableLabels,
+  versions,
+  versionsLabels,
+} from './std-toolkit/index.ts';
 import { dust } from './pen/index.ts';
 
 /*
- * Every named shape, in two families: the stack's, for the home page, and
- * kabuki's, for its own landing page. And how to bake one: draw it into a Cloud of exactly
+ * Every named shape, in three families: the stack's, for the home page,
+ * and kabuki's and std-toolkit's, for their own landing pages. And how to bake one: draw it into a Cloud of exactly
  * the field's point count, fill what it left with dust, then order its
  * points by where they sit, so point i of one shape and point i of the next
  * are near each other and a morph flows across instead of scrambling.
@@ -124,6 +134,12 @@ const SHAPES = {
     most: 7,
     look: diagram,
   },
+
+  // std-toolkit, one diagram per idea; its Sync is the stack's `std`.
+  versions: { draw: versions, labels: versionsLabels, look: diagram },
+  entities: { draw: entities, labels: entitiesLabels, look: diagram },
+  oneTable: { draw: oneTable, labels: oneTableLabels, look: diagram },
+  adapters: { draw: adapters, labels: adaptersLabels, look: diagram },
 } as const satisfies Record<string, Shape>;
 
 export type ShapeName = keyof typeof SHAPES;

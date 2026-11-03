@@ -1,0 +1,75 @@
+import { LiveTable } from '../../live-table/index.ts';
+import { RenamePicture } from './components/rename-picture.tsx';
+import { renameAndRemove } from './components/lab.ts';
+
+Adding a field is the easy change. This page covers the other three:
+removing a field, renaming one, and changing what type a field holds.
+Each is still one `evolve` step.
+
+## The delta says what changed
+
+The second argument to `evolve` is a **delta**: only the fields that
+changed. A field you don't mention carries over. There are three moves:
+
+- **Add**: name a new field with its Schema.
+- **Remove**: name the field with `null`.
+- **Change**: name an existing field with a new Schema.
+
+A rename is a remove and an add in the same step. The migration is what
+moves the value from the old name to the new one.
+
+```ts file=./components/tasks.ts
+
+```
+
+Here release 2 drops `notes` and renames `colour` to `color`. The
+migration takes the v1 value apart, leaves `notes` behind, and puts
+`colour`'s value under its new name.
+
+<Picture caption="Release 2 reads a v1 task. notes is removed, colour is renamed and keeps its value, and the task reads as v2.">
+  <RenamePicture />
+</Picture>
+
+## Nothing is lost in storage
+
+A read never writes, so a v1 row still holds `notes` and `colour` in the
+table. Release 2 just never sees them. They're dropped from storage only
+when that task is saved again, in the v2 shape.
+
+That's worth knowing before you remove a field you might want back. Until
+a row is saved again, its old value is still there. After, it's gone.
+
+## Try it
+
+Save a few tasks with each release. Then save `old-1` again with release
+2 and watch its stored row change.
+
+<LiveTable
+  lab={renameAndRemove}
+  caption="Release 1 rows keep colour and notes in the table, but read as color with no notes. Saving old-1 again writes it at v2, and its notes are gone."
+/>
+
+## Changing a field's type
+
+To change what a field holds, name it again with a new Schema. Say an
+estimate was text, and should be a number:
+
+```ts
+.evolve('v2', { estimate: Schema.Finite }, (v1) => ({
+  ...v1,
+  estimate: Number(v1.estimate),
+}))
+```
+
+Careful: the migration must work for **every** value v1 could hold. What
+does `Number('a while')` give? `NaN`, which v2 refuses, so that row fails
+to read. The [Upgrade check](/std-toolkit/upgrade-check) finds rows like
+that for you.
+
+<Callout title="Remember">
+  `null` in the delta removes a field. A rename is a remove plus an add, and the
+  migration carries the value across.
+</Callout>
+
+Next, [Adopting existing data](/std-toolkit/adopting-existing-data): what
+about rows saved before you used versions at all?

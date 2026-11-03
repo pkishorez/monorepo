@@ -1,0 +1,77 @@
+import { program } from './run/notices.ts';
+import { NoticePicture } from './components/notice-picture.tsx';
+
+A screen showing a board should change when the board does. By the end of
+this page you'll listen to an entity and hear every save, as it is saved.
+
+## Hearing about saves
+
+In React, you'd keep a list in state and remember to update it after
+every write. Miss one call site, and the screen is stale.
+
+With std-toolkit you **subscribe** instead. Each saved write sends a
+**Change Notice** to everyone listening. A notice is the same Entity
+the write returned: the `value`, and its `meta`.
+
+<Picture caption="The subscriber listens to the work board. It hears saves on work, not on home, and never a write that was refused.">
+  <NoticePicture />
+</Picture>
+
+Notices come only from writes that were saved. A refused insert is never
+announced, so a subscriber never sees something that didn't happen.
+
+## subscribe
+
+Every entity has `subscribe`. It returns an Effect `Stream` of notices:
+
+```ts
+task.subscribe({ boardId: 'work' });
+```
+
+The filter is optional. It matches fields exactly, typed to your shape,
+so `{ boardId: 'work' }` hears only that board. Leave it out to hear every
+task.
+
+A delete is a notice too. It arrives with `meta._d` set to `true`, since a
+delete is a tombstone, not a gone row. A single entity's `subscribe` works
+the same way, for its one record.
+
+## The Broadcaster
+
+Notices travel through a **Broadcaster**. You provide one beside your
+table's layer:
+
+```ts
+program.pipe(Effect.provide(memory.layer), Effect.provide(defaultBroadcaster));
+```
+
+`defaultBroadcaster`, from `@kestack/std-toolkit/core`, delivers notices
+inside one process. When several participants write to the same storage,
+like every tab on one IndexedDB database, `sharedBroadcaster` lets each
+hear the others' writes.
+
+It's optional. Without one, writes still save, and `subscribe` gives a
+stream that never yields. Notices are fire and forget: a subscriber that
+starts late doesn't get the ones it missed.
+
+## Try it
+
+This program listens to the work board, then saves five writes. Press Run
+and read what it hears.
+
+<Run program={program} caption="Five writes, three notices: the home task and the refused insert are never heard. The delete arrives last, marked deleted.">
+
+```ts file=./run/notices.ts
+
+```
+
+</Run>
+
+<Callout title="Remember">
+  Every saved write sends one Change Notice, and only saved writes do. Provide a
+  Broadcaster, or subscribers hear nothing.
+</Callout>
+
+So far, every entity sat in a table you didn't look at. Next, the
+[StdTable](/std-toolkit/single-table-design) Part: one table for every
+kind of thing you save.

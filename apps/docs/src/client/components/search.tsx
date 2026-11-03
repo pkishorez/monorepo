@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Router } from '@kestack/kabuki/routing';
+import { Router, useRouter } from '@kestack/kabuki/routing';
 import {
   Command,
   CommandDialog,
@@ -11,15 +11,18 @@ import {
 } from '@kestack/web-platform/ui/components/command';
 import { Kbd } from '@kestack/web-platform/ui/components/kbd';
 import { SearchIcon } from 'lucide-react';
-import { SECTIONS, router } from '../../shared/index.ts';
+import { PACKAGES } from '../../shared/index.ts';
+import type { Route } from '../../shared/index.ts';
+import { docRoute, packageAt } from './package-link.tsx';
 
 /*
- * Search: every docs page by its title, summary and section, in a dialog
+ * Search: every docs page of every package by its title, summary and
+ * section, the package being read first, in a dialog
  * that ⌘K or Ctrl+K opens from anywhere. Choosing a page follows its link,
  * which the Router catches as it does any click.
  */
 
-const linkId = (slug: string) => `search:${slug}`;
+const linkId = (key: string) => `search:${key}`;
 
 /**
  * Every word typed must be in the page's title, summary or section; a page
@@ -41,6 +44,11 @@ const score = (
 };
 
 export function Search() {
+  const { route } = useRouter<Route>();
+  const here = packageAt(route);
+  const packages = [...PACKAGES].sort(
+    (a, b) => Number(b.id === here) - Number(a.id === here),
+  );
   const [open, setOpen] = useState(false);
   // A key the whole page listens for, added once and taken away on unmount.
   useEffect(() => {
@@ -53,9 +61,9 @@ export function Search() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
-  const choose = (slug: string) => {
+  const choose = (key: string) => {
     setOpen(false);
-    document.getElementById(linkId(slug))?.click();
+    document.getElementById(linkId(key))?.click();
   };
   return (
     <>
@@ -83,35 +91,48 @@ export function Search() {
         description="Find a page by its title or what it is about."
       >
         <Command filter={score}>
-          <CommandInput placeholder="Search kabuki's docs…" />
+          <CommandInput placeholder="Search the docs…" />
           <CommandList className="max-h-[min(24rem,60dvh)]">
             <CommandEmpty>No page matches.</CommandEmpty>
-            {SECTIONS.map((section) => (
-              <CommandGroup key={section.title} heading={section.title}>
-                {section.groups
-                  .flatMap((group) => group.docs)
-                  .map((doc) => (
-                    <CommandItem
-                      key={doc.slug}
-                      value={doc.slug}
-                      keywords={[doc.title, doc.summary, section.title]}
-                      onSelect={() => choose(doc.slug)}
-                    >
-                      <Router.Link
-                        id={linkId(doc.slug)}
-                        to={router.Kabuki.Doc({ slug: doc.slug })}
-                        tabIndex={-1}
-                        className="pointer-events-none flex min-w-0 flex-1 flex-col"
-                      >
-                        <span>{doc.title}</span>
-                        <span className="truncate text-xs text-muted-foreground">
-                          {doc.summary}
-                        </span>
-                      </Router.Link>
-                    </CommandItem>
-                  ))}
-              </CommandGroup>
-            ))}
+            {packages.flatMap((pkg) =>
+              pkg.contents.sections.map((section) => (
+                <CommandGroup
+                  key={`${pkg.id}:${section.title}`}
+                  heading={`${pkg.name} · ${section.title}`}
+                >
+                  {section.groups
+                    .flatMap((group) => group.docs)
+                    .map((doc) => {
+                      const key = `${pkg.id}:${doc.slug}`;
+                      return (
+                        <CommandItem
+                          key={key}
+                          value={key}
+                          keywords={[
+                            doc.title,
+                            doc.summary,
+                            section.title,
+                            pkg.name,
+                          ]}
+                          onSelect={() => choose(key)}
+                        >
+                          <Router.Link
+                            id={linkId(key)}
+                            to={docRoute(pkg.id, doc.slug)}
+                            tabIndex={-1}
+                            className="pointer-events-none flex min-w-0 flex-1 flex-col"
+                          >
+                            <span>{doc.title}</span>
+                            <span className="truncate text-xs text-muted-foreground">
+                              {doc.summary}
+                            </span>
+                          </Router.Link>
+                        </CommandItem>
+                      );
+                    })}
+                </CommandGroup>
+              )),
+            )}
           </CommandList>
         </Command>
       </CommandDialog>

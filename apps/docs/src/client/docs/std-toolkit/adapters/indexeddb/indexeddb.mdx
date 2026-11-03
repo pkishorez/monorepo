@@ -1,0 +1,83 @@
+import { ReloadPicture } from './components/reload-picture.tsx';
+
+Memory is gone on reload. IndexedDB is the browser's own database, and it
+isn't. This page puts your table there, so a web app opens with its data,
+even offline.
+
+## The same table, kept
+
+The IndexedDB adapter takes the same table and gives it a home in the
+browser. Each table becomes one **Store** in an IndexedDB database. Its
+rows outlive a reload, a closed tab, a restart.
+
+<Picture caption="The page reloads and its list goes blank, but the Store keeps every row. On the next open, setup checks the table against the contract the Store holds, and the tasks read back.">
+  <ReloadPicture />
+</Picture>
+
+## Making one
+
+You need two things: a connection to a database, and a mode.
+
+```ts file=./components/idb.ts
+
+```
+
+`IDB.database` opens a database by name, once, and every table that uses it
+shares the connection. `IDB.make` gives the table its Store, named after
+the table unless you pass `storeName`.
+
+The program at the bottom is the one from the Memory page. Only the layer
+changed.
+
+## Mode is required
+
+Memory needs no mode because nothing outlives it. IndexedDB does, so you
+must say what a change to the table's shape may cost its rows. That is its
+**Table mode**:
+
+- `persistent`: these rows must never be lost. A change that would break
+  them is refused, and the Store is never wiped.
+- `disposable`: these rows can be fetched again. A breaking change throws
+  them away and starts over.
+
+A local copy of server data, like the tasks above, is disposable. Data that
+lives only in this browser, like a draft nobody else has, is persistent.
+[Table mode](/std-toolkit/table-mode) has the whole story.
+
+## Setup happens on open
+
+The first time a table opens its database, the adapter prepares the Store.
+It compares the table with the **Stored contract**, kept in a reserved
+`_std_contract` store, and decides what the change means under the mode.
+Then it creates what's missing and records the new contract.
+
+IndexedDB makes a version change wait for other open tabs. If you'd rather
+choose that moment, call `IDB.setup(table, config)` yourself, and handle a
+persistent Store's `SetupRefused` there.
+
+The adapter owns the database's version number. Give it a database name no
+other code opens with its own version.
+
+## Many tabs, one Store
+
+Every tab of your app opens the same Store. Two tabs can edit one task at
+once, so a read-then-write checks that `_u`, the task's update key, hasn't
+moved since it read. If another tab got there first, the write fails, and
+you can try again.
+
+## Cleaning up
+
+Databases you no longer use stay in the browser.
+`IDB.prune({ prefix, keep })` deletes every database under a prefix except
+the ones you name. You
+say what you keep, never what you drop, so a database you forgot about
+still goes.
+
+<Callout title="Remember">
+  IndexedDB keeps your table across reloads, and it asks for a mode:
+  `disposable` for a copy you can fetch again, `persistent` for data that lives
+  only here.
+</Callout>
+
+That's the browser. Next, [SQLite](/std-toolkit/sqlite): the same table on
+a server, on Node, Bun, D1 or a Durable Object.

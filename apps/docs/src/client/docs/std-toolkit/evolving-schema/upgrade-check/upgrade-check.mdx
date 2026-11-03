@@ -1,0 +1,87 @@
+import { CheckPicture } from './components/check-picture.tsx';
+import { program } from './run/check.ts';
+
+A migration is a promise: every row the old version could have stored will
+read in the new one. This page shows the test that checks that promise,
+before a user finds the row that breaks it.
+
+## The row you didn't think of
+
+Say v1 kept a task's estimate as text, and v2 makes it a number. You write
+the migration with `'3'` and `'0.5'` in mind. It works on every row you
+tried.
+
+Then a user who once typed `a` opens their board, and that task fails to
+read. Your migration was never wrong for the rows you thought of. It was
+wrong for one you didn't.
+
+## The upgrade check
+
+The **upgrade check** doesn't wait for that user. For every version of a
+schema, it generates many values that version could have stored, stores
+each one in that version's encoded form, and reads it at the latest
+version.
+
+<Picture caption="Each generated v1 row goes through the migration. Numbers read fine. The first row that fails stops the check, which names the version and the smallest stored row that shows it.">
+  <CheckPicture />
+</Picture>
+
+A row fails the check when:
+
+- its migration throws, or returns a value the latest version refuses;
+- its id changes on the way;
+- it doesn't read back the same after it's saved again.
+
+It also checks every shape nested inside, each at every one of its
+versions.
+
+## Run it
+
+Here are the two migrations: the one that expects digits, and a fix that
+turns other text into `null`.
+
+```ts file=./components/tasks.ts
+
+```
+
+`findUpgradeFailures` is the check as an Effect. It takes the schemas to
+check and gives back one report per failing version. Press Run.
+
+<Run program={program} caption="The forgetful migration fails, and the report shows a stored v1 row that breaks it. The fixed one has no failures.">
+
+```ts file=./run/check.ts
+
+```
+
+</Run>
+
+Look at the row it found: an estimate that is a single odd character. No
+one would write that test by hand, and that's the point. The check tries
+the rows you wouldn't, then shrinks a failure to the smallest one.
+
+## In your tests
+
+In a test file, you'd use `expectUpgradable`. It runs the same check and
+fails the test with the same report. It works in any test runner:
+
+```ts
+import { expectUpgradable } from '@kestack/std-toolkit/eschema/testing';
+
+it('reads every stored task', () =>
+  expectUpgradable(Task, { unchanged: ['boardId'] }));
+```
+
+`unchanged` names fields no migration may change. A task's `boardId` puts
+it in a partition, so a migration that changed it would strand the row at
+its old key.
+
+You'll rarely write this by hand, though. The [Snapshot](/std-toolkit/snapshot)
+test of a table runs it for every entity in that table.
+
+<Callout title="Remember">
+  A migration must work for every value the old version could hold, not just the
+  ones you tried. Let the upgrade check find the rest.
+</Callout>
+
+Next, [Gotchas](/std-toolkit/gotchas): a row too new for an old release,
+and the few rules that keep migrations safe.

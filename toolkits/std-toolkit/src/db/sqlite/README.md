@@ -55,7 +55,7 @@ See the [top README](../../../README.md). Install the driver's own dependency wh
 
 ### Run a program on SQLite in Node
 
-The same program on Memory and SQLite is compared in [the-same-program-runs-on-sqlite.story.ts](../../../stories/std-table/the-same-program-runs-on-sqlite.story.ts).
+The same program on Memory and SQLite is compared in [the-same-code-runs-on-memory-and-sqlite.proof.ts](../../../stories/adapters/the-same-code-runs-on-memory-and-sqlite.proof.ts).
 
 ```ts
 import { Effect } from 'effect';

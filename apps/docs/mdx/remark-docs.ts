@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { anchor } from '../src/shared/content/kabuki.ts';
+import { anchor } from '../src/shared/content/contents.ts';
 
 /*
  * What every docs page's MDX goes through before it is compiled:

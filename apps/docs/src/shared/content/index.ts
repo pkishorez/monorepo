@@ -1,15 +1,9 @@
-export {
-  DEMO,
-  DOCS,
-  PARTS,
-  SECTIONS,
-  SLUGS,
-  anchor,
-  docOf,
-  groupOf,
-  sectionOf,
-} from './kabuki.ts';
-export type { Doc, Group, Section, Slug } from './kabuki.ts';
+export { anchor, contents } from './contents.ts';
+export type { Contents, Doc, FullScreen, Group, Section } from './contents.ts';
+export { KABUKI_CONTENTS } from './kabuki.ts';
+export type { KabukiSlug } from './kabuki.ts';
+export { STD_TOOLKIT_CONTENTS } from './std-toolkit.ts';
+export type { StdToolkitSlug } from './std-toolkit.ts';
 export { MONOREPO, NAME, about } from './site.ts';
 export { PACKAGES, packageOf } from './packages.ts';
 export type { Package } from './packages.ts';

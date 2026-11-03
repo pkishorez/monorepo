@@ -1,0 +1,81 @@
+import { LiveTable } from '../../live-table/index.ts';
+import { singleEntity } from './components/lab.ts';
+import { DefaultPicture } from './components/default-picture.tsx';
+
+Some things exist exactly once: your app's settings, a profile, a set of
+preferences. By the end of this page you'll keep one, and read it before
+it was ever saved.
+
+## One record, always there
+
+A keyed entity starts empty. You insert, and then you can read. Settings
+don't work that way: code everywhere wants to read them on the first run,
+without checking first whether they exist.
+
+A **single entity** solves that with a default. Until you save one, a
+read gives you the default, and nothing is written to the table.
+
+<Picture caption="Before anything is saved, a read gives the default and the table is empty. An update merges into it and saves. Reset saves the default back as a real record.">
+  <DefaultPicture />
+</Picture>
+
+## Binding it
+
+Settings have no id, so the shape is a plain `ESchema`: versioned like an
+`EntityESchema`, with a name and no id field. You bind it with
+`singleEntity` and give its default:
+
+```ts file=./components/settings.ts
+
+```
+
+There's no key to pass, since there is only one. Every call works on that
+one record.
+
+## The calls
+
+### get
+
+`settings.get()` always gives you a value: the saved one, or the default.
+You never get `null`.
+
+### put and getAndUpdate
+
+`put` saves the whole record, every field. `getAndUpdate` saves only the
+fields you name, merged into what is there now. When nothing is saved yet,
+"what is there now" is the default:
+
+```ts
+yield * settings.getAndUpdate({ theme: 'dark' });
+// { theme: 'dark', weekStartsOn: 'monday' }, now saved
+```
+
+Like a keyed entity, it also takes a function that gets the current value.
+
+### reset
+
+There is no delete. A record that always has a value can't go away.
+`reset` saves the default instead, as a real record. That matters for
+sync: other devices hear about a reset, just as they hear about any save.
+
+## Try it
+
+A real table in memory, holding nothing yet. The right column reads the
+settings anyway.
+
+<LiveTable
+  lab={singleEntity}
+  caption="Before any press, the left is empty and the right still has light and monday: the default. Reset settings leaves a stored row behind."
+/>
+
+Switch to dark first. The stored row keeps `weekStartsOn: 'monday'`,
+taken from the default it merged into.
+
+<Callout title="Remember">
+  A single entity always has a value: its default until you save one. Reset
+  saves the default; nothing deletes it.
+</Callout>
+
+Your app also needs to know when things change. Next,
+[Subscribing](/std-toolkit/subscribing): hearing about every save as it
+happens.

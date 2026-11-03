@@ -1,0 +1,78 @@
+import { LiveTable } from '../../live-table/index.ts';
+import { driftAndReindex } from './components/lab.ts';
+import { DriftPicture } from './components/drift-picture.tsx';
+
+You add an index, and new tasks show up in it. The tasks saved last month
+don't. By the end of this page you'll find those rows and bring them in,
+without touching their values.
+
+## Why old rows go missing
+
+An index key is written when a row is saved. A task saved before
+`byStatus` existed was saved without a `byStatus` key, so a `byStatus`
+query can't see it.
+
+A schema change heals itself on read, as [Adding a
+version](/std-toolkit/adding-a-version) showed. An index can't: the query
+never reaches the row to read it. Those rows need their keys written.
+
+<Picture caption="old-1 was saved before byStatus, so its index key is empty and the query misses it. drift points at the gap; reindex fills it; the query finds both.">
+  <DriftPicture />
+</Picture>
+
+## Drift
+
+**Drift** is the gap between the keys a row has and the keys this release
+would give it. `table.drift(item)` checks one stored row:
+
+```ts
+const { drifted, currentForm } = yield * table.drift(item);
+```
+
+`drifted` says whether the keys differ. `currentForm` is the row as this
+release would store it.
+
+A row that only has an older `_v` has not drifted. Its keys are the same,
+and a read upgrades it anyway.
+
+## Reindex
+
+`table.reindex(currentForm)` writes that current form back. It changes
+the row's index keys, and nothing else that matters:
+
+- it keeps the row's update stamp, `_u`, because the value didn't change;
+- it sends no Change Notice, so subscribers aren't told about a non-event;
+- if someone saved the row since you read it, it fails with
+  `ReindexConflict` instead of overwriting the newer write.
+
+Put together, a backfill is a walk over the table:
+
+```ts file=./components/tasks.ts
+
+```
+
+`table.scan()` streams every row of every kind, untyped. Drift is only
+for keyed entities: a single entity has no indexes to drift.
+
+## Try it
+
+The last release saved tasks with no `byStatus`. This release added it.
+Save some of each, then reindex.
+
+<LiveTable
+  lab={driftAndReindex}
+  caption="Before reindexing, byStatus finds only the tasks this release saved. After, it finds every open task, and a second press changes nothing."
+/>
+
+You don't usually run this by hand. A snapshot sees a new index as a
+change that needs a backfill, and on IndexedDB setup reindexes for you.
+The rest of this Part covers that.
+
+<Callout title="Remember">
+  A new index only knows rows saved after it. drift finds the rest, and reindex
+  writes their keys without changing their value or their stamp.
+</Callout>
+
+Whether a change can be healed, or should throw the data away, depends
+on the table. Next, [Table mode](/std-toolkit/table-mode): persistent or
+disposable.

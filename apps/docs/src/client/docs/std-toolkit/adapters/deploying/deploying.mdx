@@ -1,0 +1,107 @@
+import { GuardPicture } from './components/guard-picture.tsx';
+
+A table on a server has to be made before anything can use it. This page
+shows how std-toolkit makes it as part of your deploy, with Alchemy, and how
+it stops a deploy that would break the rows already there.
+
+## A table is infrastructure
+
+Your server's database is made when you deploy, the same as your Worker and
+your domain. `@kestack/std-toolkit/alchemy` gives you Alchemy resources for
+your tables:
+
+- `D1.table` sets up a table in a Cloudflare D1 database.
+- `DynamoDB.table` creates a DynamoDB table and every index.
+- `DeployGuard.table` guards a table Alchemy doesn't create, such as one in
+  IndexedDB or a Durable Object.
+- `providers()` gives your stack what these resources need.
+
+Each table resource takes a required `mode`, the same **Table mode** the
+adapters take.
+
+## The Deploy guard
+
+A persistent table gets a **Deploy guard**. Every deploy, it compares your
+table with the one you last shipped, kept in Alchemy's state. If the new
+table would break rows already stored, the deploy fails, before the table
+is touched.
+
+<Picture caption="Adding a version passes the guard, and the table is set up. Editing a version that already shipped stops the deploy, and the table is never touched.">
+  <GuardPicture />
+</Picture>
+
+There's no override. The way past a breaking change is to undo it and add a
+new version, or to move the data to a table with a new name.
+
+## A D1 table
+
+Here a Worker's D1 table is set up at deploy. On D1, `D1.table` also runs
+`SQLite.setup` for you, so the Worker never does.
+
+```ts
+import * as Cloudflare from '@alchemy.run/cloudflare';
+import { Stack, Stage } from 'alchemy';
+import * as Effect from 'effect/Effect';
+import * as Layer from 'effect/Layer';
+import { D1, providers } from '@kestack/std-toolkit/alchemy';
+import { boardTable } from './src/table.ts';
+
+export const Database = Cloudflare.D1.Database(
+  'Database',
+  Effect.gen(function* () {
+    return { name: `board-${yield* Stage}` };
+  }),
+);
+
+export const Worker = Cloudflare.Website.Vite(
+  'Worker',
+  Effect.gen(function* () {
+    const database = yield* Database;
+    yield* D1.table('BoardTable', {
+      table: boardTable,
+      database,
+      mode: 'persistent',
+    });
+    return { env: { DB: Database } };
+  }),
+);
+
+export default Stack(
+  'Board',
+  {
+    providers: providers().pipe(Layer.provideMerge(Cloudflare.providers())),
+    state: Cloudflare.state(),
+  },
+  Worker,
+);
+```
+
+Entities add themselves to a table as their modules load. So import every
+module that binds an entity before the table resource runs, or the guard
+won't see them.
+
+## The other two
+
+`DynamoDB.table` takes the table, a `tableName` and a mode. DynamoDB keeps
+no **Stored contract**, so its guard is the only check. It never replaces a
+table: a change only a new table could make fails, and so does renaming the
+table under the same resource.
+
+`DeployGuard.table(table)` is for a persistent table your deploy doesn't
+create, like one in your users' browsers. Declaring it makes the table
+persistent, and one guard covers every place that table lives.
+
+## More than one check
+
+The guard isn't the only check. Setup compares the table with the Stored
+contract kept beside the data, on D1, SQLite and IndexedDB. And the
+[Snapshot](/std-toolkit/snapshot) test catches a breaking change before you
+even deploy. Each catches what the one before might miss.
+
+<Callout title="Remember">
+  Declare each server table with its mode. A persistent table is guarded on
+  every deploy, and a change that would break its rows never reaches them.
+</Callout>
+
+Your tables now live somewhere real. Next, [Collections](/std-toolkit/std-sync):
+getting their rows onto a screen, and keeping them fresh.

@@ -1,8 +1,24 @@
+import type { ShapeName } from '../../field/index.ts';
 import { Chapter } from './chapter.tsx';
-import { sideOf } from './story.ts';
-import type { Idea as Story } from './story.ts';
 
-/* One of kabuki's five ideas, numbered, its words beside its shape. */
+/* One of a package's ideas, numbered, its words beside its shape. */
+
+export type Story = {
+  readonly shape: ShapeName;
+  /** A word or two after the number, in mono. */
+  readonly label: string;
+  readonly title: string;
+  /** In it, `backticks` mark code. */
+  readonly body: string;
+};
+
+/**
+ * Which half of a wide screen the shape of the stop `stop` places after
+ * the opening takes. The opening's demo sits on the right, so the first
+ * shape takes the left, and every shape after crosses the screen.
+ */
+export const sideOf = (stop: number): 'left' | 'right' =>
+  stop % 2 === 0 ? 'left' : 'right';
 
 export function Idea({
   idea,

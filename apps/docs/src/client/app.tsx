@@ -5,17 +5,18 @@ import { Pages, router } from '../shared/index.ts';
 import { Layout, Theme } from './components/index.ts';
 import { HomeView } from './pages/home/index.ts';
 import { KabukiView } from './pages/kabuki/index.ts';
+import { StdToolkitView } from './pages/std-toolkit/index.ts';
 import { NotFound } from './pages/not-found/index.ts';
 import './styles.css';
 
 /*
- * The root page's View: the one package's place the URL names, in the
+ * The root page's View: the package's place the URL names, in the
  * site's layout. The full-screen demos are drawn alone, with no layout. A URL
  * that names no page draws the not-found page.
  */
 
 const AppView = View.make(Pages.AppLive, (self) => {
-  const { Home, Kabuki } = self.children;
+  const { Home, Kabuki, StdToolkit } = self.children;
   const { route } = self.props;
   if (
     Kabuki &&
@@ -33,7 +34,8 @@ const AppView = View.make(Pages.AppLive, (self) => {
           <NotFound path={route.notFound} />
         ) : (
           ((Home && <HomeView instance={Home} />) ??
-          (Kabuki && <KabukiView instance={Kabuki} />))
+          (Kabuki && <KabukiView instance={Kabuki} />) ??
+          (StdToolkit && <StdToolkitView instance={StdToolkit} />))
         )}
       </Layout>
     </div>

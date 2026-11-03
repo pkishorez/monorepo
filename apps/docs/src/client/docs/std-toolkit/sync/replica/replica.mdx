@@ -1,0 +1,157 @@
+import { InstancePicture } from './components/instance-picture.tsx';
+
+Std Sync is for a React app. In a [kabuki](/kabuki) app, your logic is a
+tree of Actors, and sync should be too. This page shows the **Replica**:
+the same local copy, where every piece is an Actor or a Command.
+
+## Why a second one?
+
+A kabuki app keeps everything that happens as Messages, so you can travel
+back through it and see it in the Inspector. Sync that runs off to the side
+would be invisible there. So in a Replica, fetching, holding and writing
+are Actors and Commands like the rest of your app.
+
+The ideas carry over from the pages before: a Backend that's the authority,
+a copy on the device, strategies, Windows, one tab reading for all. The
+words are a little different, and it shares no code with Std Sync.
+
+## A Replica, in two steps
+
+A Replica is one domain's local copy, like one table's worth of things.
+You write it as kabuki writes everything: `make` says what it is, `build`
+says how it behaves.
+
+```ts
+import { Replica, oldToNew } from '@kestack/std-toolkit/replica';
+
+const Pocket = Replica.make('pocket', {
+  key: Schema.String,
+  collections: { wallets: Wallet, entries: Entry },
+});
+
+const PocketLive = Replica.build(Pocket, {
+  gate: ({ key }) => signedIn(key),
+  gcTime: '5 seconds',
+  collections: {
+    wallets: {
+      strategy: oldToNew({
+        fetch: ({ key, after }) => api.wallets(key, after),
+        pollEvery: '2 seconds',
+      }),
+    },
+    entries: {
+      windows: {
+        walletId: (walletId) =>
+          oldToNew({
+            fetch: ({ key, after }) => api.entries(key, walletId, after),
+            pollEvery: '2 seconds',
+          }),
+      },
+    },
+  },
+});
+```
+
+The **Key** tells one copy from another: here, an account id. Each Key gets
+its own **Instance**, such as `pocket·acct-1`, an Actor holding that
+account's wallets and entries.
+
+The **Gate** says whether an Instance may fetch now, per Key. While it's
+shut, the Instance stays readable and nothing fetches. **GC Time** is how
+long an Instance keeps running after the last thing using it lets go.
+
+## Running it
+
+One `Replicas` Actor, near the root, runs the Instances in use. The root
+provides its layer and places it once:
+
+```ts
+import { Replicas } from '@kestack/std-toolkit/replica';
+import { Store } from '@kestack/std-toolkit/replica/idb';
+
+const Root = Actor.define('Root', {}).build({
+  provides: () => Replicas.layer,
+  children: {
+    replicas: Actor.child(Replicas.actor([PocketLive])),
+    page: Actor.child(PageLive),
+  },
+});
+
+const App = View.app(RootView, { layer: Store.idb() });
+```
+
+The **Store** is where Instances are kept on the device. `Store.idb()`
+keeps each in IndexedDB, shared by every tab, with one tab leading.
+`Store.memory()` is for tests.
+
+<Picture caption="A Query asks for an account, so Replicas starts its Instance. Stored rows show at once; a fetch brings it Caught Up. When the Query goes, the Instance runs on for its GC Time, then stops. The Store keeps everything.">
+  <InstancePicture />
+</Picture>
+
+## Reading: a Query
+
+A Query is an Actor whose Model is rows. You place it as a Child, give it
+Props, and draw it with `View.make` like any other.
+
+```ts
+import { Query } from '@kestack/std-toolkit/replica';
+
+const Wallets = Query.make('Wallets', {
+  props: Schema.Struct({ account: Schema.String }),
+  from: ({ props }) => Effect.all({ pocket: Pocket.get(props.account) }),
+  query:
+    (_, { pocket }) =>
+    (q) =>
+      q.from({ w: pocket.wallets }),
+});
+```
+
+Its Model says more than the rows. `caughtUp` is true once every Strategy
+it reads has answered at least once. Until then, an empty list may only
+mean "not read yet". `neverSynced` names the Instances that have never
+synced on this device, so you draw a skeleton only for those.
+
+A Query whose `where` filters on a Window's field, like `walletId`, opens
+that Window, and its Strategy runs while the Query is there.
+
+## Writing: an Action
+
+An Action is a Command. It makes **Optimistic Changes**, calls the Backend,
+and confirms what came back:
+
+```ts
+import { Action } from '@kestack/std-toolkit/replica';
+
+const Rename = Action.make('Rename', {
+  args: Schema.Struct({
+    account: Schema.String,
+    wallet: Schema.String,
+    name: Schema.String,
+  }),
+  run: (args) =>
+    Effect.gen(function* () {
+      const pocket = yield* Pocket.get(args.account);
+      yield* Action.optimistic(() =>
+        pocket.wallets.update(args.wallet, (draft) => {
+          draft.name = args.name;
+        }),
+      );
+      const saved = yield* api.renameWallet(args);
+      yield* pocket.confirm(saved);
+    }),
+});
+```
+
+Confirm stores the Backend's answer before the optimistic change goes, so
+nothing flickers. If anything fails, every change is rolled back, across
+Instances.
+
+<Callout title="Remember">
+  In a kabuki app, sync is part of the tree. A Replica's Instances, its Queries
+  and its Actions are Actors and Commands, so time travel and the Inspector see
+  them like everything else.
+</Callout>
+
+That's std-toolkit, from a shape to a screen. Go back to the
+[Introduction](/std-toolkit/introduction) for the whole map, or start
+building with the [Quick start](/std-toolkit/quick-start).

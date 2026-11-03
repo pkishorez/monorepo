@@ -1,0 +1,67 @@
+import { LimitsPicture } from './components/limits-picture.tsx';
+
+The one table, its partition and sort keys, its indexes: all of that comes
+from DynamoDB. This page shows the adapter for the database the design was
+made for, and why its limits are everyone's.
+
+## The shape everyone keeps
+
+**Single-table design** is DynamoDB's way of working, so DynamoDB is the
+reference every other adapter mirrors. SQLite, IndexedDB and Memory copy its
+topology: a **partition key**, a **sort key**, local and global secondary
+indexes.
+
+That has a rule hidden in it. If any table could hold what DynamoDB can't,
+it would work in your tests and fail on your server. So every StdTable keeps
+to what DynamoDB can hold, on every adapter, and a shape it couldn't hold
+is refused as soon as you define it.
+
+<Picture caption="Table shapes, tried in turn. The one DynamoDB could hold is accepted. The others are refused when they are defined, with the reason, before any data exists.">
+  <LimitsPicture />
+</Picture>
+
+## Making one
+
+`DynamoDB.make` takes your table and the physical table's name, region and
+credentials. It needs no AWS SDK. Like every adapter, it gives back a
+layer.
+
+```ts file=./components/local.ts
+
+```
+
+`make` never touches the physical table. For DynamoDB Local and tests,
+`DynamoDB.createTable` makes the table if it's missing and waits until it's
+ready. `DynamoDB.deleteTable` removes it.
+
+## In production
+
+Your deployed table comes from `DynamoDB.table` in
+`@kestack/std-toolkit/alchemy`, which creates it and every index. See
+[Deploying](/std-toolkit/deploying).
+
+DynamoDB keeps no **Stored contract** of its own, so the check that runs at
+deploy is the only one. And nothing ever replaces or wipes a DynamoDB
+table, in either mode:
+
+- Adding a global secondary index is fine.
+- Any other index change, or a breaking change to a stored shape, fails the
+  deploy.
+
+The way past a change like that is a new table, under a new name.
+
+## What to expect
+
+- Every write goes through `insert`, `update` or `getAndUpdate`. Your code
+  never handles DynamoDB's attribute values.
+- Reads on the primary index and local indexes can be strongly consistent.
+  Reads on a global index are always eventually consistent.
+
+<Callout title="Remember">
+  DynamoDB sets the limits for every adapter. A table shape it couldn't hold is
+  refused when you define it, so what runs in your tests runs on your server.
+</Callout>
+
+You've seen four homes for one table. Next, [Deploying](/std-toolkit/deploying):
+how a table gets made on a real server, and how a breaking change is
+stopped before it ships.

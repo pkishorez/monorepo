@@ -551,6 +551,9 @@ importers:
       '@kestack/kabuki':
         specifier: workspace:*
         version: link:../../packages/kabuki
+      '@kestack/std-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/std-toolkit
       '@kestack/web-platform':
         specifier: workspace:*
         version: link:../../platforms/web-platform

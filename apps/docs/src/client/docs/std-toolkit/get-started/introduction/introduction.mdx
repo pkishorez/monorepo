@@ -1,0 +1,87 @@
+import { AdapterPicture } from './components/adapter-picture.tsx';
+import { program } from './run/board.ts';
+
+std-toolkit is for the data your app saves. You describe each kind of
+thing once. Then you save it, change its shape as the app grows, keep it on
+any database, and keep every screen in sync, all from that one description.
+
+## Three jobs, usually written by hand
+
+Every app that saves data ends up doing three jobs:
+
+- a data layer, tied to one database;
+- scripts that upgrade old rows when the shape changes;
+- a loop that keeps the browser's copy fresh.
+
+Each one repeats what the others already know: what a task looks like.
+std-toolkit makes that knowledge one thing, and builds the three jobs on
+top of it.
+
+## The story, in five Parts
+
+The docs follow your data from the first line you write about it to the
+screen that shows it. Each Part builds on the ones before.
+
+### 1. A shape that can change
+
+You start with the shape of a task: its fields and its id. That shape is an
+**ESchema**, a schema that remembers every version of itself. When a task
+needs a new field, you add a version, and tasks saved in the old shape
+still read in the new one. That's [Evolving
+schema](/std-toolkit/entity-eschema).
+
+### 2. Things you save
+
+An **entity** is one kind of thing your app saves, bound to a key. Most
+come many of a kind, like tasks on a board. Some exist once, like your
+app's settings. That's [Entities](/std-toolkit/keyed-entity).
+
+### 3. One table for all of them
+
+Every entity lives in one table, told apart by its key. Indexes find
+things by more than their key, and a test stops a breaking change before
+it ships. That's [StdTable](/std-toolkit/single-table-design).
+
+### 4. Any database
+
+An **adapter** puts the table on a database: memory, IndexedDB, SQLite or
+DynamoDB. Your code never names the database. It asks for the table, and
+the adapter answers. That's [Adapters](/std-toolkit/memory).
+
+<Picture caption="The adapter is the only line that changes. The table, its rows and every call that reads or writes them stay the same.">
+  <AdapterPicture />
+</Picture>
+
+### 5. Kept in sync
+
+Last, **sync** keeps your app's copy of the table fresh, shares it across
+tabs, opens offline and sends edits back. It uses the same shape, so a task
+saved in an old shape arrives in today's. That's [Sync](/std-toolkit/std-sync).
+
+## See it run
+
+Here's the whole idea in two short files: a shape, a table, a task bound to it,
+and an adapter that keeps it in memory. Press Run.
+
+<Run program={program} caption="Two tasks are saved, then read back by their board. Each one says the version it was saved at: v1, the first.">
+
+```ts file=./run/board.ts
+
+```
+
+```ts file=./components/tasks.ts
+
+```
+
+</Run>
+
+The program never says where the tasks are kept. `Effect.provide(board.layer)`
+decides that, at the very end.
+
+<Callout title="Remember">
+  Describe a kind of thing once. Storage, upgrades and sync all work from that
+  one description.
+</Callout>
+
+Next, the [Quick start](/std-toolkit/quick-start): a task list of your own,
+saved, changed and read back in a few minutes.

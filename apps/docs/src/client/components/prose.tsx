@@ -2,8 +2,9 @@ import type { ComponentProps, ReactNode } from 'react';
 import { Router } from '@kestack/kabuki/routing';
 import { ArrowUpRightIcon } from 'lucide-react';
 import type { MDXComponents } from 'mdx/types';
-import { DEMO, SLUGS, router } from '../../shared/index.ts';
-import type { Route, Slug } from '../../shared/index.ts';
+import { PACKAGES, router } from '../../shared/index.ts';
+import type { Route } from '../../shared/index.ts';
+import { docRoute, packageRoute } from './package-link.tsx';
 import { Files, Live, Picture, Run } from './examples/index.ts';
 import { link } from './styles.ts';
 
@@ -21,16 +22,28 @@ import { link } from './styles.ts';
 const routeOf = (href: string): Route => {
   const path = href.split('#')[0]!.replace(/\/$/, '');
   if (path === '') return router.Home();
-  if (path === '/kabuki') return router.Kabuki();
-  const slug = path.match(/^\/kabuki\/([^/]+)$/)?.[1];
-  if (slug && (SLUGS as ReadonlyArray<string>).includes(slug))
-    return router.Kabuki.Doc({ slug: slug as Slug });
+  for (const pkg of PACKAGES) {
+    if (path === `/${pkg.id}`) return packageRoute(pkg.id);
+    const slug = path.slice(pkg.id.length + 2);
+    if (
+      path.startsWith(`/${pkg.id}/`) &&
+      (pkg.contents.slugs as ReadonlyArray<string>).includes(slug)
+    )
+      return docRoute(pkg.id, slug);
+  }
   throw new Error(`A docs page links to ${href}, which is not on the site.`);
 };
 
+/** The pages that open full screen, each in a tab of its own. */
+const FULL_SCREEN = new Set(
+  PACKAGES.flatMap((pkg) =>
+    pkg.contents.fullScreen ? [pkg.contents.fullScreen.href] : [],
+  ),
+);
+
 function A({ href = '', children }: ComponentProps<'a'>) {
   // The demo is full screen, so it opens in a tab of its own.
-  if (href === DEMO.href)
+  if (FULL_SCREEN.has(href))
     return (
       <a href={href} target="_blank" rel="noreferrer" className={link}>
         {children}
