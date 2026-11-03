@@ -32,11 +32,13 @@ export {
   statusOf,
 } from './health/index.ts';
 export {
+  askStanding,
   type Behind,
-  behindAll,
-  behindOf,
+  behindAt,
+  behindEach,
   PLUGIN_CODE,
   reach,
+  CodeStanding,
   toNewest,
 } from './reach/index.ts';
 export { orRefused, reasonOf, Refused } from './refusal/index.ts';

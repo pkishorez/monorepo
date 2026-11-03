@@ -49,10 +49,12 @@ import { ProjectSchema, SessionSchema } from '../../records/index.js';
  * 2. Open     `CodeClients` opens one socket per Connection the first time
  *             anything holds it, an Instance's Strategies or a call, and
  *             shares it with every other holder; it closes a while after
- *             the last lets go. A Connection running another Release
+ *             the last lets go. A Connection serving another Release
  *             closes the socket at once with `PLUGIN_MISMATCH`: until a
  *             socket to it is answered again, its Link is not linked, and
- *             `CodeClients.mismatch` says which Release it runs.
+ *             `CodeClients.mismatch` says which Release it serves, once
+ *             for each such close, so the app can ask Cloud Connect again
+ *             each time. Which side is behind is the app's to ask.
  * 3. Sync     `CodeReplicaLive` finds each Instance's socket by its Key, the
  *             Connection id: no Connection's socket ever feeds another's records.
  *
@@ -162,7 +164,7 @@ export class CodeClients extends Context.Service<
     readonly hold: (
       connectionId: string,
     ) => Effect.Effect<ConnectionClient, never, Scope.Scope>;
-    /** Which Release the Connection last closed its socket saying it runs, until a socket to it is answered; null while none did. */
+    /** Which Release the Connection said it serves, each time it closed a socket with a mismatch, then null once a socket is answered or closes another way. */
     readonly mismatch: (
       connectionId: string,
     ) => Stream.Stream<PluginMismatch | null>;
@@ -205,11 +207,8 @@ export class CodeClients extends Context.Service<
             Stream.unwrap(
               Effect.map(mismatchesOf(connectionId), (each) =>
                 SubscriptionRef.changes(each).pipe(
-                  Stream.changesWith(
-                    (a, b) =>
-                      a === b ||
-                      (a !== null && b !== null && a.running === b.running),
-                  ),
+                  // Each mismatch is told, the same one again too; none once.
+                  Stream.changesWith((a, b) => a === null && b === null),
                 ),
               ),
             ),
@@ -278,7 +277,7 @@ export class CodeClients extends Context.Service<
       ),
     );
 
-  /** Which Release the Connection last closed its socket saying it runs, until a socket to it is answered; null while none did. */
+  /** Which Release the Connection said it serves, each time it closed a socket with a mismatch, then null once a socket is answered or closes another way. */
   static readonly mismatch = (
     connectionId: string,
   ): Stream.Stream<PluginMismatch | null, never, CodeClients> =>

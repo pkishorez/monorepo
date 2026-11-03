@@ -119,6 +119,7 @@ What an App imports to reach Cloud Connect: its client, and the Connections it l
 | `PLUGIN_MISMATCH`   | The close code, 4409, of a socket that asked for a Release the Connection does not run.                                             |
 | `PluginMismatch`    | ESchema of that close's reason: the hash the Connection runs, or null.                                                              |
 | `mismatchOf`        | What a socket's close code and reason say of the Release asked for: a `PluginMismatch`, or null for any other close.                |
+| `ReleaseStanding`   | ESchema of where a Release stands, as `Standing` answers: `Latest`, `Older`, or `Unknown` to Cloud Connect.                         |
 | `VersionGap`        | Error of every `CodeClient` and `CloudClient` call that failed because one side is older: `client` or `server`.                     |
 | `authInfo`          | How a Connection signs in to the Cloud Connect at a base URL, from its `/auth`; fails when it cannot be asked.                      |
 
@@ -154,7 +155,7 @@ ke-connect remove work           # stops it, forgets it in Cloud Connect, signs 
 ```
 
 - It signs in through the Auth Worker that Cloud Connect's `/auth` names, and keeps the Connection's id, Connection Key and Cloud Connect in `connection.json`; serving it against another Cloud Connect is refused. It keeps what `/auth` said in `auth.json`, so a Connection that signed in before starts while Cloud Connect cannot be reached, or does not answer in five seconds: it signs in as last time, runs its Plugins at the Releases it last wanted, and keeps sending its Heartbeat until Cloud Connect answers. A first Sign-in needs Cloud Connect. Signing in again, once Cloud Connect refuses the Sign-in, asks `/auth` first, so an Auth Worker it moved to is the one used, and kept.
-- It runs each Plugin at the Release Cloud Connect names, or the one it last named while Cloud Connect cannot be reached, passes `/<plugin>/<sha256>/rpc` to it while it runs that Release and closes any other with 4409, asks every caller for the Connection Key, and opens a cloudflared tunnel to its port; any other path is 404.
+- It runs each Plugin at the Release Cloud Connect names, or the one it last named while Cloud Connect cannot be reached, passes `/<plugin>/<sha256>/rpc` to it while it serves that Release, the one before included while the next downloads, and closes any other with 4409, asks every caller for the Connection Key, and opens a cloudflared tunnel to its port; any other path is 404. Which side is behind after a 4409 is Cloud Connect's to say, through `Standing` (ADR 0006).
 - Its Heartbeat reports the tunnel's address and each Plugin State every 15 seconds. A forgotten Connection signs out and stops; one below the Minimum Connect stops, saying how to update.
 
 ### Talk to a Connection from a browser
@@ -224,7 +225,7 @@ Runtime.start(
 
 ### Run Cloud Connect on a Worker
 
-`serve` from `./worker` is Cloud Connect over a D1 database, signing in through an Auth Worker, letting the listed origins call with credentials, telling every Connection the latest Release of each Plugin and the Minimum Connect, and serving the Shelf. Shaped after `src/cloud/worker/worker.server.ts`, which `alchemy.run.ts` deploys.
+`serve` from `./worker` is Cloud Connect over a D1 database, signing in through an Auth Worker, letting the listed origins call with credentials, telling every Connection the latest Release of each Plugin and the Minimum Connect, saying where any Release stands, and serving the Shelf. Shaped after `src/cloud/worker/worker.server.ts`, which `alchemy.run.ts` deploys.
 
 ```ts
 import { serve } from '@kestack/connect/worker';
@@ -255,7 +256,9 @@ export default {
 
 - `ALLOWED_ORIGINS` takes comma-separated patterns such as `https://*.kishore.app`.
 - `PLUGINS` is `{"code":{"hash":"<sha256>","url":"<where to read it>"}}`, the latest Release of each Plugin; `pnpm build:plugin` makes `dist/plugin/code.mjs` and prints its sha256, and whether it is the latest Release in `src/plugins/code/releases.json`.
+- `Standing` answers `Latest` for the Release `PLUGINS` names, `Older` for another whose file is in `files`, and `Unknown` for any other, or for any but the latest without `files`. A Stage only ever puts its latest Release on its Shelf and never takes one off, so a file there it does not name is an older one.
 - `GET /plugins/<name>/<sha256>.mjs` answers that file from `files`, cached for good; anything else there is 404.
 - `MIN_CONNECT` is the Minimum Connect, the oldest `ke-connect` let run the Plugins; a Connection below it is Outdated.
 - Set the D1 table up from `connectionsTable` before the first request.
 - In this monorepo, a change to the code Plugin is released with `pnpm -F @kestack/connect release:plugin code "<what changed>"`, which builds it and appends its hash to its Release Log. `pnpm -F @kestack/connect build:plugin && pnpm -F @kestack/connect deploy:prod` deploys it to `connect.kishore.app`: the deploy refuses a build that is not the latest Release, uploads `code.mjs` to the Stage's R2 bucket unless it is there, then points `PLUGINS` at it, and sets `MIN_CONNECT` from `minConnect` in `package.json` (ADR 0006). A personal Stage, `alchemy deploy --stage <name>`, has no URL its Connections could read the Shelf at, so it refuses to deploy; develop under `alchemy dev`.
+- In CI, `deploy:connect` (`.github/workflows/deploy-connect.yml`) deploys as one chain, each step only once the one before it succeeded: on prod, nothing deploys while `@kestack/connect` has pending changesets, until the release PR is merged; every Plugin's build must be its latest Release; Cloud Connect deploys, whenever anything does, changed or not; then each front end that talks to it and changed, such as Code. A pull request deploys its own `pr<N>` the same way, without the release check.

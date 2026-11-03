@@ -64,10 +64,21 @@ const MIN_CONNECT = '0.0.9';
 const PLUGIN_KEY = `plugins/code/${'b'.repeat(64)}.mjs`;
 const PLUGIN_FILE = 'export {};\n';
 
-/** R2 as Cloud Connect reads it: one Plugin file. */
+/** A key R2 fails to look up. */
+const FAILING_KEY = `plugins/code/${'f'.repeat(64)}.mjs`;
+
+/** Every key the Shelf was asked whether it holds. */
+const headed: Array<string> = [];
+
+/** R2 as Cloud Connect reads it: one Plugin file, and one key it fails on. */
 const files = {
   get: async (key: string) =>
     key === PLUGIN_KEY ? { body: new Response(PLUGIN_FILE).body } : null,
+  head: async (key: string) => {
+    headed.push(key);
+    if (key === FAILING_KEY) throw new Error('R2 is down');
+    return key === PLUGIN_KEY ? { key } : null;
+  },
 };
 
 const answerAs = (principal: Principal | null) =>
@@ -205,6 +216,54 @@ describe('Cloud Connect', () => {
     );
     expect(listed).toMatchObject([{ id: 'v1', minConnect: null }]);
     expect(listed.map(isOutdated)).toEqual([false]);
+  });
+
+  it('says where a Release stands: the one it names Latest, another on the Shelf Older, any other Unknown', async () => {
+    const ada = signIn('ada');
+    const standing = (plugin: string, hash: string) =>
+      as(ada, (m) => m.Standing({ plugin, hash })).then(({ _tag }) => _tag);
+    expect(await standing('code', 'a'.repeat(64))).toBe('Latest');
+    expect(await standing('code', 'b'.repeat(64))).toBe('Older');
+    expect(headed).toEqual([PLUGIN_KEY]);
+    expect(await standing('code', 'e'.repeat(64))).toBe('Unknown');
+    expect(await standing('other', 'b'.repeat(64))).toBe('Unknown');
+    expect(await standing('constructor', 'a'.repeat(64))).toBe('Unknown');
+    // A Shelf that cannot be asked holds nothing.
+    expect(await standing('code', 'f'.repeat(64))).toBe('Unknown');
+    // A hash or name no Shelf key could hold is never looked for.
+    headed.length = 0;
+    expect(await standing('code', 'B'.repeat(64))).toBe('Unknown');
+    expect(await standing('code', '../x')).toBe('Unknown');
+    expect(await standing('Code', 'b'.repeat(64))).toBe('Unknown');
+    expect(headed).toEqual([]);
+    // With no Shelf, as under `alchemy dev`, it knows the one it names alone.
+    const dev = serveOver({
+      guard: fakeGuard.rpc({ as: ada.principal }),
+      authInfo: AUTH_INFO,
+      origins: ORIGINS,
+      driver,
+      plugins: WANTED,
+    });
+    const onDev = (hash: string) =>
+      Effect.runPromise(
+        Effect.flatMap(CloudClient, (cloud) =>
+          cloud.Standing({ plugin: 'code', hash }),
+        ).pipe(
+          Effect.provide(CloudClient.layer(CLOUD)),
+          Effect.provideService(FetchHttpClient.Fetch, ((
+            input: RequestInfo | URL,
+            init?: RequestInit,
+          ) => dev(new Request(input, init))) as typeof globalThis.fetch),
+        ),
+      );
+    expect(await onDev('a'.repeat(64))).toEqual({ _tag: 'Latest' });
+    expect(await onDev('b'.repeat(64))).toEqual({ _tag: 'Unknown' });
+    // Only a signed-in caller is answered, as for listing Connections.
+    expect(
+      await as(null, (m) =>
+        Effect.flip(m.Standing({ plugin: 'code', hash: 'a'.repeat(64) })),
+      ),
+    ).toMatchObject({ _tag: 'Unauthenticated' });
   });
 
   it('serves a Plugin file by its hash, cached for good, and nothing else', async () => {

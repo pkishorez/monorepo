@@ -126,25 +126,45 @@ describe('a Connection’s code Plugin', () => {
     expect(pluginNotice(null, now)).toBeNull();
   });
 
-  it('is Updating while its socket says it runs an older Release, with no report needed', () => {
+  it('is Updating while Cloud Connect says the Connection is behind, with no report needed', () => {
     const updating = { _tag: 'Updating', progress: null };
     expect(
-      pluginNotice(withPlugin({ _tag: 'Running', hash }), now, 'Updating'),
+      pluginNotice(withPlugin({ _tag: 'Running', hash }), now, 'Connection'),
     ).toEqual(updating);
-    expect(pluginNotice(null, now, 'Updating')).toEqual(updating);
+    expect(pluginNotice(null, now, 'Connection')).toEqual(updating);
     // What its report says of the download is said instead.
     expect(
       pluginNotice(
         withPlugin({ _tag: 'Downloading', hash, received: 1, total: 2 }),
         now,
-        'Updating',
+        'Connection',
       ),
     ).toEqual({ _tag: 'Updating', progress: { received: 1, total: 2 } });
   });
 
-  it('is Stale when its socket says this Code is the older side', () => {
+  it('cannot update when the Connection is behind but stopped reporting to Cloud Connect', () => {
     expect(
-      pluginNotice(withPlugin({ _tag: 'Running', hash }), now, 'Stale'),
+      pluginNotice(
+        withPlugin({ _tag: 'Running', hash }, now - 60_000),
+        now,
+        'Connection',
+      ),
+    ).toEqual({ _tag: 'CannotUpdate', lastSeen: now - 60_000 });
+  });
+
+  it('is Updating while Cloud Connect is behind, whatever the report says', () => {
+    expect(
+      pluginNotice(
+        withPlugin({ _tag: 'Running', hash }, now - 60_000),
+        now,
+        'Cloud',
+      ),
+    ).toEqual({ _tag: 'Updating', progress: null });
+  });
+
+  it('is Stale when Cloud Connect says this Code is behind', () => {
+    expect(
+      pluginNotice(withPlugin({ _tag: 'Running', hash }), now, 'Code'),
     ).toEqual({ _tag: 'Stale' });
   });
 });

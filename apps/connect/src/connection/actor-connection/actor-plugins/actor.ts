@@ -6,19 +6,21 @@ import {
   socketPath,
   type Folders,
 } from '@kestack/cli-platform/files';
-import { ActorPlugin, PluginState } from '@kestack/cli-platform/plugins';
+import { ActorPlugin } from '@kestack/cli-platform/plugins';
 import { Connection } from '../capabilities/index.js';
 import { router } from './router.js';
 
 /*
  * What a Connection serves. Always, the router Worker listens on the
  * Connection's public port and passes `/<plugin>/<sha256>/rpc` to each
- * Plugin's socket while the Plugin runs that Release, once it has checked
- * the Connection Key, and tells the Connection the port it got. Which
- * Release runs it reads from each Plugin State, as the Connection hands
- * them down. One ActorPlugin
- * Child per Plugin wanted keeps it running at that version, and reports
- * where it stands up through Plugins, which the Connection Provides.
+ * Plugin's socket while the Plugin serves that Release, once it has
+ * checked the Connection Key, and tells the Connection the port it got.
+ * Which Release each serves it reads from what each Plugin said it
+ * serves, as the Connection hands it down, never from its Plugin State:
+ * while a new Release downloads the State says Downloading it, and the
+ * one before is still served. One ActorPlugin Child per Plugin wanted
+ * keeps it running at that version, and reports where it stands and what
+ * it serves up through Plugins, which the Connection Provides.
  */
 
 const FoldersSchema = Schema.Struct({
@@ -48,18 +50,19 @@ type Input = typeof Input.Type;
 const Props = Schema.Struct({
   /** The version of each Plugin to run, by name. */
   wanted: Schema.Record(Schema.String, Wanted),
-  /** Where each Plugin stands, as it last reported. */
-  plugins: Schema.Record(Schema.String, PluginState.schema),
+  /** The Release each Plugin serves, as it last said; null while none listens. */
+  serving: Schema.Record(Schema.String, Schema.NullOr(Schema.String)),
 });
 type Props = typeof Props.Type;
 
 type PluginsSelf = Self<Input, Single, never, Props>;
 
-/** The Release the Plugin `name` runs instead of `hash`, null while it runs none; undefined when it serves `hash`. */
-const otherThan = (props: Props, name: string, hash: string) => {
-  const state = props.plugins[name];
-  const running = state?._tag === 'Running' ? state.hash : null;
-  return running === hash ? undefined : running;
+/** The Release the Plugin `name` serves instead of `hash`, null while it serves none; undefined when it serves `hash`. */
+export const otherThan = (props: Props, name: string, hash: string) => {
+  const served = Object.hasOwn(props.serving, name)
+    ? (props.serving[name] ?? null)
+    : null;
+  return served === hash ? undefined : served;
 };
 
 /** The socket of the Plugin `name`. */

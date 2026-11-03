@@ -174,6 +174,8 @@ export interface Known {
   } | null;
   /** Each listed Connection's link, by id; one not followed yet is linking. */
   readonly links: Readonly<Record<string, Link>>;
+  /** The Connections whose Link waits to relink, after a mismatch, until Cloud Connect says it may. */
+  readonly held: ReadonlyArray<string>;
   /** Each listed Connection's setup, by id, while it lives. */
   readonly setups: Readonly<Record<string, Setup>>;
   /** Each listed Connection's Unseen marks (`Marks`), by id, once read, while it lives. */
@@ -200,6 +202,7 @@ export const nobody: Known = {
   problem: null,
   forgetting: null,
   links: {},
+  held: [],
   setups: {},
   seen: {},
   questions: {},
@@ -286,7 +289,7 @@ export class Connections extends Context.Service<
     readonly listed: (id: string) => Effect.Effect<void>;
     /** The Connection's Replicas, over its own sync Store; waits until the Connection runs here. */
     readonly replicas: (id: string) => Effect.Effect<Replicas['Service']>;
-    /** Where the Connection's sockets go, `wss://…` (`tunnelOf`), and its Key, once it is listed at an `https://` address; waits until it is. */
+    /** Where the Connection's sockets go, `wss://…` (`tunnelOf`), and its Key, once it is listed at an `https://` address and its Link is not held; waits until then. */
     readonly reachable: (
       id: string,
     ) => Effect.Effect<{ readonly tunnel: string; readonly key: string }>;
@@ -421,10 +424,22 @@ export const connectionsLayer: Layer.Layer<Connections | ConnectionsChannel> =
               ),
             ),
           reachable: (id) =>
-            first(id, ({ status, key }) => {
-              const tunnel = tunnelOf(addressOf(status));
-              return tunnel === null ? null : { tunnel, key };
-            }),
+            state.pipe(
+              Stream.map(({ connections, held }) => {
+                const listed = connections?.find((each) => each.id === id);
+                if (listed === undefined || held.includes(id)) return null;
+                const tunnel = tunnelOf(addressOf(listed.status));
+                return tunnel === null ? null : { tunnel, key: listed.key };
+              }),
+              Stream.filter((each) => each !== null),
+              Stream.runHead,
+              Effect.flatMap(
+                Option.match({
+                  onNone: () => Effect.never,
+                  onSome: Effect.succeed,
+                }),
+              ),
+            ),
           reload: Effect.andThen(
             ask({ _tag: 'ReloadAsked' }),
             askSetups({ connectionId: null, ask: { _tag: 'Asked' } }),

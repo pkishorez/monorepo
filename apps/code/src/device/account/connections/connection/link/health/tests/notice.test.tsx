@@ -54,14 +54,14 @@ const crashed = connection({
 const older = connection({ code: { _tag: 'Running', hash: HASH } }, '0.0.4');
 
 describe('the notice pill', () => {
-  it('says Connect is Updating, with how far it downloaded', () => {
-    expect(noticePillOf(updating, NOW)?.[0]).toBe('Updating Connect… 50%');
+  it('says the backend is updating, with how far it downloaded', () => {
+    expect(noticePillOf(updating, NOW)?.[0]).toBe('Backend updating 50%');
     expect(
       noticePillOf(
         connection({ code: { _tag: 'Starting', hash: HASH } }),
         NOW,
       )?.[0],
-    ).toBe('Updating Connect…');
+    ).toBe('Backend updating');
   });
 
   it('says the code Plugin stopped, and when it is tried again', () => {
@@ -87,16 +87,27 @@ describe('the notice pill', () => {
     ).toBeNull();
   });
 
-  it('says the Connection is Updating while its socket says it runs an older Release', () => {
+  it('says the backend is updating while the Connection or Cloud Connect is behind', () => {
     const running = connection({ code: { _tag: 'Running', hash: HASH } });
-    expect(noticePillOf(running, NOW, 'Updating')?.[0]).toBe(
-      'Updating Connect…',
+    expect(noticePillOf(running, NOW, 'Connection')?.[0]).toBe(
+      'Backend updating',
     );
+    expect(noticePillOf(running, NOW, 'Cloud')?.[0]).toBe('Backend updating');
   });
 
-  it('says Code is updating when it is the older side', () => {
+  it("says the backend can't update when the Connection behind stopped reporting", () => {
+    const quiet = {
+      ...connection({ code: { _tag: 'Running', hash: HASH } }),
+      lastSeen: NOW - 60_000,
+    };
+    const [label, title] = noticePillOf(quiet, NOW, 'Connection')!;
+    expect(label).toBe("Backend can't update");
+    expect(title).toContain("can't reach Cloud Connect");
+  });
+
+  it('says a Code update is ready when this Code is behind', () => {
     const running = connection({ code: { _tag: 'Running', hash: HASH } });
-    expect(noticePillOf(running, NOW, 'Stale')?.[0]).toBe('Updating Code…');
+    expect(noticePillOf(running, NOW, 'Code')?.[0]).toBe('Code update ready');
   });
 
   it('says nothing while the Plugin runs on the latest ke-connect', () => {
@@ -127,7 +138,7 @@ describe('the notice in Settings', () => {
 
   it('shows the update’s progress', () => {
     render(updating);
-    expect(host.textContent).toContain('Updating Connect: 1.5 MB of 3.0 MB');
+    expect(host.textContent).toContain('Backend updating: 1.5 MB of 3.0 MB');
     expect(host.querySelector('[role="progressbar"]')).not.toBeNull();
   });
 

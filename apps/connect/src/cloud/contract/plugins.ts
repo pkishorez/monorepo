@@ -1,15 +1,18 @@
 import { Option, Schema } from 'effect';
-import { ESchema } from '@kestack/std-toolkit/eschema';
+import { ESchema, ValueESchema } from '@kestack/std-toolkit/eschema';
 
 /*
  * How every side names one Release of a Plugin: by the Plugin's name and
  * the sha256 of its file. Code calls a Connection's Plugin at the Release
  * it was built with, `<tunnel>/<name>/<sha256>/rpc`. When the Connection
- * runs another, its router takes the socket and closes it at once with
- * `PLUGIN_MISMATCH`, the reason saying which hash runs: a browser cannot
- * read the status of a refused WebSocket, only how it closed. The file
- * itself is on the Shelf as `<name>/<sha256>.mjs`, under whichever root
- * holds it: Cloud Connect's `/plugins`, R2's `plugins/`, or a folder.
+ * serves another, its router takes the socket and closes it at once with
+ * `PLUGIN_MISMATCH`, the reason saying which hash it serves: a browser
+ * cannot read the status of a refused WebSocket, only how it closed. Which
+ * side is behind then is Cloud Connect's alone to say, as a Release
+ * Standing: hashes have no order, and only Cloud Connect knows every
+ * Release in each Plugin's Release Log. The file itself is on the Shelf
+ * as `<name>/<sha256>.mjs`, under whichever root holds it: Cloud
+ * Connect's `/plugins`, R2's `plugins/`, or a folder.
  *
  * Which `ke-connect` may run them is one value for every Plugin, the
  * Minimum Connect. A Connection below it is Outdated: it reports once, so
@@ -94,6 +97,22 @@ export const mismatchOf = (close: {
         Schema.decodeUnknownOption(MismatchJson)(close.reason),
         () => ({ running: null }),
       );
+
+/**
+ * Where one Release of a Plugin stands, as Cloud Connect answers it: the
+ * Release it names now (`Latest`), one in the Plugin's Release Log before
+ * it (`Older`), or one it has never heard of (`Unknown`), so newer than
+ * what it runs: its deploy is pending, or failed.
+ */
+export const ReleaseStanding = ValueESchema.make(
+  'ReleaseStanding',
+  Schema.Union([
+    Schema.Struct({ _tag: Schema.Literal('Latest') }),
+    Schema.Struct({ _tag: Schema.Literal('Older') }),
+    Schema.Struct({ _tag: Schema.Literal('Unknown') }),
+  ]),
+).build();
+export type ReleaseStanding = typeof ReleaseStanding.Type;
 
 /** A version's numbers, and whether it is a pre-release. */
 const partsOf = (version: string) => {

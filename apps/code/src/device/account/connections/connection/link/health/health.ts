@@ -17,7 +17,8 @@ type Connection = typeof ConnectionSchema.Type;
  * downloading, the tunnel opening or failed to open, or up and whether its
  * last check reached it. It also says where its code Plugin stands, which
  * the app shows while it is Updating or Crashed, linked or not, as it
- * does when its socket says it runs another Release (`Behind`); and the
+ * does once its socket said it serves another Release and Cloud Connect
+ * said who is behind (`Behind`); and the
  * version of `ke-connect` it runs, which the app asks to update once it is
  * Outdated, older than Cloud Connect accepts. A record only as this device kept it is old by
  * nature, so it says nothing until it is checked: Cloud Connect answered,
@@ -101,10 +102,12 @@ const CODE = 'code';
 
 /**
  * How the code Plugin stands when the app should say so: Updating while a
- * new version downloads (how far, when known) or starts, or while its
- * socket says it runs a Release older than this Code calls; Crashed with
- * its last lines and when it is tried again; or Stale, when its socket
- * says this Code is the older side, which is moving to its newest build.
+ * new version downloads (how far, when known) or starts, or while the
+ * Connection or Cloud Connect is behind this Code; CannotUpdate when the
+ * Connection is behind but has stopped reporting to Cloud Connect, so it
+ * cannot be told to update, though its tunnel answers; Crashed with its
+ * last lines and when it is tried again; or Stale, when this Code is the
+ * one behind, and moving to its newest build.
  */
 export type PluginNotice =
   | {
@@ -115,6 +118,7 @@ export type PluginNotice =
         readonly total: number | null;
       } | null;
     }
+  | { readonly _tag: 'CannotUpdate'; readonly lastSeen: number }
   | {
       readonly _tag: 'Crashed';
       readonly log: ReadonlyArray<string>;
@@ -124,18 +128,24 @@ export type PluginNotice =
 
 /**
  * How the code Plugin stands, while it is not simply running; null too
- * while the Connection is down, its report stale, unless its socket said
- * who is behind (`behind`), which it says without a report.
+ * while the Connection is down, its report stale, unless Cloud Connect
+ * said who is behind (`behind`), which says it without a report: this
+ * Code, Stale; Cloud Connect, Updating; or the Connection, Updating while
+ * it reports, else CannotUpdate.
  */
 export const pluginNotice = (
   connection: Connection | null,
   now: number,
   behind: Behind | null = null,
 ): PluginNotice | null => {
-  if (behind === 'Stale') return { _tag: 'Stale' };
-  const updating = behind === 'Updating' ? UPDATING : null;
-  if (connection === null || now - connection.lastSeen > DOWN_AFTER)
-    return updating;
+  if (behind === 'Code') return { _tag: 'Stale' };
+  if (behind === 'Cloud') return UPDATING;
+  const updating = behind === 'Connection' ? UPDATING : null;
+  if (connection === null) return updating;
+  if (now - connection.lastSeen > DOWN_AFTER)
+    return updating === null
+      ? null
+      : { _tag: 'CannotUpdate', lastSeen: connection.lastSeen };
   const state = connection.plugins[CODE];
   switch (state?._tag) {
     case 'Downloading':

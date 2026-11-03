@@ -18,12 +18,14 @@ import { guard, HEALTH, pathOf, type Refusal, withoutKey } from './guard.js';
 /*
  * The Connection's one public port, which its tunnel points at. After the
  * guard, `GET /health` answers here, and `/<plugin>/<sha256>/rpc` is passed
- * to that Plugin's socket as `/rpc` when the Plugin runs that Release: a
- * WebSocket as raw bytes, once its upgrade request is written on, and any
- * other request through an HTTP request of its own. A Release it does not
- * run is refused with what it runs: a WebSocket is taken and closed at
- * once with 4409, its reason saying so, since a browser reads nothing else
- * of it; any other request answers 409 with the same JSON. The router
+ * to that Plugin's socket as `/rpc` while the Plugin serves that Release,
+ * the one before included while a new one downloads: a WebSocket as raw
+ * bytes, once its upgrade request is written on, and any other request
+ * through an HTTP request of its own. A Release it does not serve is
+ * refused with what it serves, none while it serves none: a WebSocket is
+ * taken and closed at once with 4409, its reason saying so, since a
+ * browser reads nothing else of it; any other request answers 409 with
+ * the same JSON. The router
  * never reads what passes: Code and the Plugin type it end to end. A
  * Plugin not listening yet answers 503; a name that is no Plugin, and any
  * other path, 404.
@@ -38,13 +40,13 @@ export interface RouterOptions {
   readonly origins: ReadonlyArray<string>;
   /** The socket of the Plugin `name`; null when there is no such Plugin. */
   readonly socketOf: (name: string) => string | null;
-  /** The Release the Plugin `name` runs instead of `hash`, null while it runs none; undefined when it serves `hash`. */
+  /** The Release the Plugin `name` serves instead of `hash`, null while it serves none; undefined when it serves `hash`. */
   readonly otherThan: (name: string, hash: string) => string | null | undefined;
 }
 
 const HOST = '127.0.0.1';
 
-/** A request for a Release the Plugin does not run: the one it runs, null when none. */
+/** A request for a Release the Plugin does not serve: the one it serves, null when none. */
 interface Mismatch {
   readonly running: string | null;
 }

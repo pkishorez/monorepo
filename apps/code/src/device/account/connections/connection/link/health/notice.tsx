@@ -15,13 +15,13 @@ type Connection = typeof ConnectionSchema.Type;
 
 /*
  * What the app says of a Connection's own programs, linked or not: its
- * code Plugin Updating, with how far it downloaded, or Crashed, with its
- * last lines to read and copy and when it is tried again; this Code moving
- * to its newest build, when the Connection runs a newer Release than it
- * calls; and, when the Connection is Outdated, its `ke-connect` older than
- * Cloud Connect accepts, how to update it. A running Plugin on a
- * `ke-connect` Cloud Connect accepts says nothing. The header's pill says
- * it in a few words, and Settings in full.
+ * code Plugin Updating, with how far it downloaded, or unable to, cut off
+ * from Cloud Connect, or Crashed, with its last lines to read and copy and
+ * when it is tried again; a newer Code ready, when Cloud Connect says this
+ * one is behind; and, when the Connection is Outdated, its `ke-connect`
+ * older than Cloud Connect accepts, how to update it. A running Plugin on
+ * a `ke-connect` Cloud Connect accepts says nothing. The header's pill
+ * says it in a few words, and Settings in full.
  */
 
 type Pill = readonly [label: string, title: string, tone: string];
@@ -46,25 +46,28 @@ export const retryIn = (retryAt: number, now: number) => {
 export const noticePillOf = (
   connection: Connection | null,
   now: number,
-  /** Who is behind, when the Connection closed a socket running another Release. */
+  /** Who is behind, as Cloud Connect said once the Connection closed a socket serving another Release. */
   behind: Behind | null = null,
 ): Pill | null => {
   const notice = pluginNotice(connection, now, behind);
   if (notice?._tag === 'Updating') {
     const percent = percentOf(notice.progress);
     return [
-      `Updating Connect…${percent === null ? '' : ` ${percent}%`}`,
+      `Backend updating${percent === null ? '' : ` ${percent}%`}`,
       'The Connection is updating its code Plugin. Its tunnel stays up; a session may pause for a moment.',
       'bg-warning',
     ];
   }
+  if (notice?._tag === 'CannotUpdate')
+    return ["Backend can't update", CANNOT_UPDATE, 'bg-warning'];
   if (notice?._tag === 'Crashed')
     return [
       'The code Plugin stopped',
       `The Connection's code Plugin stopped; trying again ${retryIn(notice.retryAt, now)}. Its last lines are in Settings.`,
       'bg-destructive',
     ];
-  if (notice?._tag === 'Stale') return ['Updating Code…', STALE, 'bg-warning'];
+  if (notice?._tag === 'Stale')
+    return ['Code update ready', STALE, 'bg-warning'];
   if (connection !== null && outdated(connection))
     return [
       'Update ke-connect',
@@ -74,9 +77,12 @@ export const noticePillOf = (
   return null;
 };
 
-/** What is said of this Code while it moves to its newest build. */
-const STALE =
-  'This Connection runs a newer code Plugin than this Code calls: Code is moving to its newest version.';
+/** What is said of this Code once Cloud Connect says it is behind. */
+const STALE = 'A newer Code is out. Reload to use it.';
+
+/** What is said of a Connection behind that cannot reach Cloud Connect to update. */
+const CANNOT_UPDATE =
+  "This Connection runs an older code Plugin and can't reach Cloud Connect to update it, though its tunnel answers.";
 
 /** What is said of an Outdated Connection's `ke-connect`. */
 const outdatedOf = (version: string) =>
@@ -119,13 +125,13 @@ function Updating({
     <div role="status" className="flex flex-col gap-1.5">
       <p className="text-xs text-muted-foreground tabular-nums">
         {progress === null
-          ? 'Updating Connect: starting the new version'
+          ? 'Backend updating'
           : progress.total === null
-            ? `Updating Connect: ${megabytes(progress.received)} so far`
-            : `Updating Connect: ${megabytes(progress.received)} of ${megabytes(progress.total)}`}
+            ? `Backend updating: ${megabytes(progress.received)} so far`
+            : `Backend updating: ${megabytes(progress.received)} of ${megabytes(progress.total)}`}
         . The tunnel stays up.
       </p>
-      <Progress aria-label="Updating Connect" value={percent} />
+      <Progress aria-label="Backend updating" value={percent} />
     </div>
   );
 }
@@ -191,7 +197,7 @@ export function ConnectionNotice({
 }: {
   readonly connection: Connection;
   readonly now: number;
-  /** Who is behind, when the Connection closed a socket running another Release. */
+  /** Who is behind, as Cloud Connect said once the Connection closed a socket serving another Release. */
   readonly behind?: Behind | null;
 }) {
   const notice = pluginNotice(connection, now, behind);
@@ -201,6 +207,11 @@ export function ConnectionNotice({
     <div className="flex flex-col gap-3">
       {notice?._tag === 'Updating' && <Updating notice={notice} />}
       {notice?._tag === 'Crashed' && <Crashed notice={notice} now={now} />}
+      {notice?._tag === 'CannotUpdate' && (
+        <p role="status" className="text-xs text-muted-foreground">
+          {CANNOT_UPDATE}
+        </p>
+      )}
       {notice?._tag === 'Stale' && (
         <p role="status" className="text-xs text-muted-foreground">
           {STALE}

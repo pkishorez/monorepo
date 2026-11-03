@@ -48,10 +48,18 @@ const bundle = (variant: string) => {
   return { content, hash: createHash('sha256').update(content).digest('hex') };
 };
 
+/** Ends every download held at `/held/<variant>`, which sends half its file until then. */
+let letGo: () => void = () => {};
+let held = new Promise<void>((done) => (letGo = done));
+
 let base = '';
 const server = createServer((request, response) => {
-  const variant = request.url?.slice(1) ?? '';
-  response.end(bundle(variant).content);
+  const path = request.url?.slice(1) ?? '';
+  if (!path.startsWith('held/')) return void response.end(bundle(path).content);
+  const { content } = bundle(path.slice('held/'.length));
+  response.writeHead(200, { 'content-length': Buffer.byteLength(content) });
+  response.write(content.slice(0, 10));
+  void held.then(() => response.end(content.slice(10)));
 });
 beforeAll(
   () =>
@@ -75,16 +83,19 @@ const setup = () => {
     tmp: home,
   });
   const reports: Array<PluginState> = [];
+  const served: Array<string | null> = [];
   const layer = Layer.mergeAll(
     Downloads.layer(cli.cache),
     Layer.succeed(Plugins, {
       report: (_name, state) => Effect.sync(() => void reports.push(state)),
+      serves: (_name, hash) => Effect.sync(() => void served.push(hash)),
     }),
   );
   return {
     folders: pluginFolders(cli, 'ping'),
     socket: socketPath(cli.runtime, 'abcdef0123', 'ping'),
     reports,
+    served,
     layer,
   };
 };
@@ -299,6 +310,53 @@ describe('a Plugin kept running by its CLI', () => {
     30_000,
   );
 
+  it(
+    'serves the old Release while the new one downloads, and none between them',
+    () =>
+      Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const plugin = setup();
+            const a = bundle('a');
+            const b = bundle('b');
+            const running = yield* Runtime.start(
+              cliOf(plugin, { hash: a.hash, url: `${base}/a` }),
+              plugin.layer,
+            );
+            yield* eventually(() => expect(plugin.served.at(-1)).toBe(a.hash));
+            expect(plugin.served).toEqual([null, a.hash]);
+            running.send('Cli', {
+              _tag: 'Want',
+              wanted: { hash: b.hash, url: `${base}/held/b` },
+            });
+            // Its State says the new one downloads; the old one serves.
+            yield* eventually(() =>
+              expect(last(plugin.reports)).toMatchObject({
+                _tag: 'Downloading',
+                hash: b.hash,
+                received: 10,
+              }),
+            );
+            expect(plugin.served.at(-1)).toBe(a.hash);
+            const ping = yield* pingAt(plugin.socket);
+            expect(yield* ping.ping()).toBe('pong a');
+            letGo();
+            yield* eventually(() =>
+              expect(last(plugin.reports)).toEqual({
+                _tag: 'Running',
+                hash: b.hash,
+              }),
+            );
+            // Stopping the old one, nothing is served until the new one listens.
+            expect(plugin.served).toEqual([null, a.hash, null, b.hash]);
+          }),
+        ),
+      ).finally(() => {
+        held = new Promise<void>((done) => (letGo = done));
+      }),
+    30_000,
+  );
+
   it('says a file: URL with no file is not on the shelf', () =>
     Effect.runPromise(
       Effect.scoped(
@@ -337,6 +395,7 @@ describe('a Plugin kept running by its CLI', () => {
                     if (state._tag === 'Starting') startedAt.push(Date.now());
                     reports.push(state);
                   }),
+                serves: () => Effect.void,
               }),
             );
             yield* Runtime.start(

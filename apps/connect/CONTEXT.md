@@ -17,12 +17,16 @@ One UI on Connect, such as Code, reaching the Connections Cloud Connect lists.
 _Avoid_: client, frontend, product
 
 **Plugin**:
-A program a Connection runs beside itself and keeps at the Release Cloud Connect names latest, or, while Cloud Connect cannot be reached, the one it last named, serving one RPC group. An App calls it at the Release it was built with, `<tunnel>/<name>/<sha256>/rpc`; a Connection running another closes the socket with 4409, naming the one it runs. `code` is the first.
+A program a Connection runs beside itself and keeps at the Release Cloud Connect names latest, or, while Cloud Connect cannot be reached, the one it last named, serving one RPC group. An App calls it at the Release it was built with, `<tunnel>/<name>/<sha256>/rpc`; a Connection serving another closes the socket with 4409, naming the one it serves, or none while it serves none. While the next Release downloads, the one before is still served. Who is behind then is the Release Standing's to say. `code` is the first.
 _Avoid_: App Group, module, feature
 
 **Release**:
 One build of a Plugin, named by the sha256 of its file, with one line on what changed. Every change to the file is a new Release. Which `ke-connect` may run it is not the Release's to say: that is the Minimum Connect.
 _Avoid_: version (a Plugin has no version number), build (one that may not be a Release yet), deploy
+
+**Release Standing**:
+Where one Release of a Plugin stands, as Cloud Connect answers it: Latest, the Release it names now; Older, one whose file is on its Shelf but is not the latest, since a Stage only ever puts its latest Release there and never takes one off; or Unknown, any other, one it has never heard of, so newer than what it runs, its deploy pending or failed. Only Cloud Connect can say: Releases are named by hashes, which have no order. Under `alchemy dev` it reads no Shelf, so the build is the only Release it knows.
+_Avoid_: version check, compatibility, behind (who is behind is what an App makes of it)
 
 **Release Log**:
 Every Release of one Plugin in order, the latest last, kept in git as `src/plugins/<name>/releases.json`. `pnpm release:plugin <name> "<what changed>"` appends one; a deployed Stage names the latest, and refuses to deploy a build that is not it.
@@ -37,7 +41,7 @@ The oldest `ke-connect` Cloud Connect lets run its Plugins, one for all of them,
 _Avoid_: latest version (a newer `ke-connect` is no reason to update), required version, compatibility range
 
 **Plugin State**:
-Where one of a Connection's Plugins stands, as its Heartbeat reports it: Downloading its file, Starting, Running, or Crashed with its last lines and when it is tried again.
+Where one of a Connection's Plugins stands, as its Heartbeat reports it: Downloading its file, Starting, Running, or Crashed with its last lines and when it is tried again. While a new Release downloads it says Downloading that one, though the one before is still served.
 _Avoid_: status (a Plugin's own answer about itself), health
 
 **Updating**:
