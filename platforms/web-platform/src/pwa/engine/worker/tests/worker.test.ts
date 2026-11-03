@@ -150,6 +150,27 @@ describe('install', () => {
     expect(fake.calls.skipWaiting).toBe(1);
   });
 
+  it('replaces a page the last install of this Build ID saved from an older deploy', async () => {
+    const fake = start();
+    fake.caches.seed(PRECACHE, {
+      '/': 'body:/ k0',
+      '/_kabuki/shell': 'body:/_kabuki/shell k1',
+    });
+    fake.setNetwork(startNetwork);
+    await settle(fake.dispatch('install'));
+    const saved = await (await fake.caches.open(PRECACHE)).match('/');
+    expect(await saved?.text()).toBe('body:/ k1');
+    expect(fake.requests.filter((r) => r.url === '/_kabuki/shell')).toEqual([]);
+  });
+
+  it("deletes a held page that is still an older deploy's, leaving it to the network", async () => {
+    const fake = start();
+    fake.caches.seed(PRECACHE, { '/': 'body:/ k0' });
+    fake.setNetwork(staleAt('/', 2));
+    await settle(fake.dispatch('install'));
+    expect(fake.caches.urls(PRECACHE)).not.toContain('/');
+  });
+
   it("fails install when the App Shell is still an older deploy's", async () => {
     const fake = start();
     fake.setNetwork(staleAt('/_kabuki/shell', 2));
