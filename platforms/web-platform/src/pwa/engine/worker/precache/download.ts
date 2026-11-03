@@ -1,4 +1,5 @@
 import * as Effect from 'effect/Effect';
+import * as Option from 'effect/Option';
 import {
   attempt,
   fetchNetwork,
@@ -36,3 +37,58 @@ const withoutRedirect = (response: Response): Response =>
         headers: response.headers,
       })
     : response;
+
+/**
+ * Saves one page that `build` drew, unless the cache already holds it. A
+ * browser can answer even a `reload` fetch with a copy an older deploy drew
+ * (iOS Safari did), and that copy points at hashed assets the deploys since
+ * have deleted: kept, it would load unstyled for the whole life of this
+ * build. So such a page is asked for once more, past every cache, and fails
+ * if it is still another build's. No `build` (Start in dev) is no check.
+ */
+export const downloadPage = (
+  cache: Cache,
+  url: string,
+  build: string | undefined,
+): Effect.Effect<void, Error, GlobalScope> =>
+  Effect.gen(function* () {
+    if ((yield* attempt(() => cache.match(url))) !== undefined) return;
+    const first = yield* drawnBy(url, { cache: 'reload' }, build);
+    const page = Option.isSome(first)
+      ? first
+      : yield* drawnBy(
+          url,
+          { cache: 'no-store', headers: { 'cache-control': 'no-cache' } },
+          build,
+        );
+    if (Option.isNone(page)) {
+      return yield* Effect.fail(
+        new Error(`Precache download failed: ${url} is another build's page`),
+      );
+    }
+    yield* attempt(() => cache.put(url, page.value));
+  });
+
+/** The page at `url` as a fresh Response, if `build` drew it. */
+const drawnBy = (
+  url: string,
+  init: RequestInit,
+  build: string | undefined,
+): Effect.Effect<Option.Option<Response>, Error, GlobalScope> =>
+  Effect.gen(function* () {
+    const response = yield* fetchNetwork(url, init);
+    if (!response.ok) {
+      return yield* Effect.fail(
+        new Error(`Precache download failed: ${url} (${response.status})`),
+      );
+    }
+    const body = yield* attempt(() => response.text());
+    if (build !== undefined && !body.includes(build)) return Option.none();
+    return Option.some(
+      new Response(body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      }),
+    );
+  });

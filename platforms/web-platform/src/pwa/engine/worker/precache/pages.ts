@@ -8,7 +8,7 @@ import {
   GlobalScope,
   openCache,
 } from '../global-scope/index.js';
-import { downloadEntry } from './download.js';
+import { downloadPage } from './download.js';
 import { matchPrecache } from './precache.js';
 
 /*
@@ -34,6 +34,8 @@ const Page = Schema.Struct({
 type Page = typeof Page.Type;
 
 export const Pages = Schema.Struct({
+  /** The server build that drew them; every saved page must be its. */
+  build: Schema.optional(Schema.String),
   shell: Schema.String,
   pages: Schema.Array(Page),
 });
@@ -66,12 +68,13 @@ export const installPages = (
     if (Option.isNone(pages)) return;
     const cache = yield* openCache(precacheCacheName(buildId));
     const url = (path: string) => new URL(path, scope.origin).href;
-    yield* downloadEntry(cache, url(pages.value.shell));
+    const { build } = pages.value;
+    yield* downloadPage(cache, url(pages.value.shell), build);
     yield* Effect.forEach(
       pages.value.pages.filter(
         (page) => page.render === 'static' && !page.params,
       ),
-      (page) => downloadEntry(cache, url(page.path)).pipe(Effect.ignore),
+      (page) => downloadPage(cache, url(page.path), build).pipe(Effect.ignore),
       { discard: true, concurrency: 8 },
     );
     yield* attempt(() =>
