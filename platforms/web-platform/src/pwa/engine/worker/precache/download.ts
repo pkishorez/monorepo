@@ -39,12 +39,15 @@ const withoutRedirect = (response: Response): Response =>
     : response;
 
 /**
- * Saves one page that `build` drew, unless the cache already holds it. A
- * browser can answer even a `reload` fetch with a copy an older deploy drew
- * (iOS Safari did), and that copy points at hashed assets the deploys since
- * have deleted: kept, it would load unstyled for the whole life of this
- * build. So such a page is asked for once more, past every cache, and fails
- * if it is still another build's. No `build` (Start in dev) is no check.
+ * Saves one page that `build` drew, unless the cache already holds `build`'s
+ * copy. A browser can answer even a `reload` fetch with a copy an older
+ * deploy drew (iOS Safari did), and that copy points at hashed assets the
+ * deploys since have deleted: kept, it would load unstyled for the whole
+ * life of this build. So such a page is asked for once more, past every
+ * cache, and fails if it is still another build's, its old copy deleted so
+ * the network answers it. A copy already held is checked too: a deploy that
+ * changes no asset keeps the Build ID, and so this cache, from the last
+ * install. No `build` (Start in dev) is no check.
  */
 export const downloadPage = (
   cache: Cache,
@@ -52,7 +55,8 @@ export const downloadPage = (
   build: string | undefined,
 ): Effect.Effect<void, Error, GlobalScope> =>
   Effect.gen(function* () {
-    if ((yield* attempt(() => cache.match(url))) !== undefined) return;
+    const held = yield* attempt(() => cache.match(url));
+    if (held !== undefined && (yield* isDrawnBy(held, build))) return;
     const first = yield* drawnBy(url, { cache: 'reload' }, build);
     const page = Option.isSome(first)
       ? first
@@ -62,6 +66,7 @@ export const downloadPage = (
           build,
         );
     if (Option.isNone(page)) {
+      yield* attempt(() => cache.delete(url));
       return yield* Effect.fail(
         new Error(`Precache download failed: ${url} is another build's page`),
       );
@@ -92,3 +97,15 @@ const drawnBy = (
       }),
     );
   });
+
+/** Whether a saved page is `build`'s. */
+const isDrawnBy = (
+  page: Response,
+  build: string | undefined,
+): Effect.Effect<boolean, Error> =>
+  build === undefined
+    ? Effect.succeed(true)
+    : Effect.map(
+        attempt(() => page.text()),
+        (body) => body.includes(build),
+      );
