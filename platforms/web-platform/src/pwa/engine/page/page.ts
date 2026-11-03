@@ -9,9 +9,10 @@ import { makeStatus, type StatusService } from './status/index.js';
 export { PwaStatus } from './status/index.js';
 
 /**
- * The PWA as the page sees it: one `status` stream, and the two things the
- * page can do about updates. Never reloads unasked; `applyUpdate` activates
- * the waiting build and every open page reloads into it.
+ * The PWA as the page sees it: one `status` stream, and what the page can
+ * do about updates. Never reloads unasked; `applyUpdate` activates the
+ * waiting build and every open page reloads into it, and `reloadToNewest`
+ * does so once a newer build is downloaded, checking until it is.
  */
 export class Pwa extends Context.Service<
   Pwa,

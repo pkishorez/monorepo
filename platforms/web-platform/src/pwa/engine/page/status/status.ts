@@ -1,9 +1,9 @@
 import * as Data from 'effect/Data';
+import * as Deferred from 'effect/Deferred';
 import * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import * as Schedule from 'effect/Schedule';
-import * as Stream from 'effect/Stream';
 import * as SubscriptionRef from 'effect/SubscriptionRef';
 import { listen } from '../../contract/dom-events.js';
 import type { UpdateConfig } from '../../contract/config/index.js';
@@ -28,23 +28,38 @@ export const PwaStatus = Data.taggedEnum<PwaStatus>();
 
 export interface StatusService {
   readonly status: SubscriptionRef.SubscriptionRef<PwaStatus>;
-  readonly checkForUpdate: Effect.Effect<void>;
+  /**
+   * Asks the server for a newer build and, if one starts installing, waits
+   * until it is downloaded (at most `INSTALL_WAIT`). Succeeds with whether
+   * a newer build is now downloaded and waiting. One check runs at a time:
+   * a caller that asks during one waits for it.
+   */
+  readonly checkForUpdate: Effect.Effect<boolean>;
   readonly applyUpdate: Effect.Effect<void>;
   /**
-   * Moves the page to the newest build, once per page load: checks for one
-   * and applies it as soon as it is downloaded, so every open page reloads
-   * into it. For an app that finds it is older than what it talks to.
+   * Reloads the page into the newest build: applies the one downloaded,
+   * else checks every `RETRY_EVERY` until one is, then applies it, and
+   * every open page reloads into it. With no worker controlling the page,
+   * it reloads the page itself, which loads the newest build.
    */
-  readonly updateToNewest: Effect.Effect<void>;
+  readonly reloadToNewest: Effect.Effect<void>;
 }
+
+/** How long a check waits for a newer build that started installing. */
+export const INSTALL_WAIT = Duration.seconds(60);
+
+/** How often `reloadToNewest` checks while no newer build is downloaded. */
+export const RETRY_EVERY = Duration.seconds(12);
+
+const reloadPage = Effect.sync(() => window.location.reload());
 
 const unsupported = Effect.map(
   SubscriptionRef.make<PwaStatus>(PwaStatus.Unsupported()),
   (status): StatusService => ({
     status,
-    checkForUpdate: Effect.void,
+    checkForUpdate: Effect.succeed(false),
     applyUpdate: Effect.void,
-    updateToNewest: Effect.void,
+    reloadToNewest: reloadPage,
   }),
 );
 
@@ -96,16 +111,53 @@ const makeRegisteredStatus = Effect.fnUntraced(function* (
       }
     });
 
-  let checking = false;
-  const checkForUpdate = Effect.gen(function* () {
-    const current = yield* SubscriptionRef.get(status);
-    if (checking || current._tag !== 'Ready') return;
-    checking = true;
-    yield* Effect.tryPromise(() => registration.update()).pipe(
-      Effect.ignore,
-      Effect.ensuring(Effect.sync(() => (checking = false))),
-    );
+  // `update()` resolves once a newer worker starts installing, before it
+  // has downloaded the build; it is done once installed, or redundant.
+  const installed = (worker: ServiceWorker) =>
+    Effect.callback<void>((resume) => {
+      const settled = () => {
+        if (worker.state !== 'parsed' && worker.state !== 'installing') {
+          worker.removeEventListener('statechange', settled);
+          resume(Effect.void);
+        }
+      };
+      worker.addEventListener('statechange', settled);
+      settled();
+      return Effect.sync(() =>
+        worker.removeEventListener('statechange', settled),
+      );
+    });
+
+  const check = Effect.gen(function* () {
+    yield* Effect.tryPromise(() => registration.update()).pipe(Effect.ignore);
+    const installing = registration.installing;
+    if (installing !== null) {
+      yield* installed(installing).pipe(Effect.timeoutOption(INSTALL_WAIT));
+    }
     if (hasUpdate()) set(PwaStatus.UpdateReady());
+    return hasUpdate();
+  });
+
+  // The check runs in the status's own scope, so a caller that stops
+  // waiting never cuts it short for the others.
+  const scope = yield* Effect.scope;
+  let running: Deferred.Deferred<boolean> | null = null;
+  const checkForUpdate = Effect.suspend((): Effect.Effect<boolean> => {
+    if (running !== null) return Deferred.await(running);
+    if (SubscriptionRef.getUnsafe(status)._tag !== 'Ready') {
+      return Effect.sync(hasUpdate);
+    }
+    const done = Deferred.makeUnsafe<boolean>();
+    running = done;
+    return check.pipe(
+      Effect.onExit((exit) =>
+        Effect.sync(() => (running = null)).pipe(
+          Effect.andThen(Deferred.done(done, exit)),
+        ),
+      ),
+      Effect.forkIn(scope),
+      Effect.andThen(Deferred.await(done)),
+    );
   });
 
   const applyUpdate = Effect.gen(function* () {
@@ -126,20 +178,20 @@ const makeRegisteredStatus = Effect.fnUntraced(function* (
     }
   });
 
-  let toNewest = false;
-  const updateToNewest = Effect.suspend(() => {
-    if (toNewest) return Effect.void;
-    toNewest = true;
-    return checkForUpdate.pipe(
-      Effect.andThen(
-        SubscriptionRef.changes(status).pipe(
-          Stream.filter((now) => now._tag === 'UpdateReady'),
-          Stream.take(1),
-          Stream.runDrain,
-        ),
-      ),
-      Effect.andThen(applyUpdate),
-    );
+  const reloadToNewest = Effect.gen(function* () {
+    // No worker to move through: first install, a failed one, or a hard reload.
+    if (
+      container.controller === null ||
+      SubscriptionRef.getUnsafe(status)._tag === 'Unsupported'
+    ) {
+      return yield* reloadPage;
+    }
+    while (true) {
+      if (yield* checkForUpdate) yield* applyUpdate;
+      // Accepted: `controllerchange` reloads every page.
+      if ((yield* SubscriptionRef.get(status))._tag === 'Updating') return;
+      yield* Effect.sleep(RETRY_EVERY);
+    }
   });
 
   // First install takes control of a page with no previous controller: Ready, no reload.
@@ -179,6 +231,6 @@ const makeRegisteredStatus = Effect.fnUntraced(function* (
     status,
     checkForUpdate,
     applyUpdate,
-    updateToNewest,
+    reloadToNewest,
   } satisfies StatusService;
 });

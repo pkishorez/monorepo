@@ -253,31 +253,32 @@ How a person drives the app: the device, touch gestures, keys and sounds.
 
 The PWA on the page.
 
-| Export                  | What it does                                                                                                                        |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `PwaHead`               | The PWA's head tags for a Kabuki Start Document's `head`: the manifest link, the Apple icon and title, the Splash and the Build ID. |
-| `Pwa`                   | Around the app in the Document: registers the worker, shows the Update Prompt while a new version waits, and offers install once.   |
-| `PwaProvider`           | Registers the worker after mount and gives `usePwa` its Status; `Pwa` renders it.                                                   |
-| `pwaHead`               | Head tags: manifest link, Apple icon, and meta tags for the Build ID, build time and commit.                                        |
-| `usePwa`                | The Status with `checkForUpdate` and `applyUpdate` (`Unsupported` before mount), and the page's `version`.                          |
-| `updateToNewest`        | Once per page load, from anywhere: checks for a newer build and applies it once downloaded, so every page reloads into it.          |
-| `clearRuntimeCache`     | Deletes every Runtime Cache; works outside `PwaProvider`, for example in sign-out.                                                  |
-| `UpdatePrompt`          | Persistent toast while an update is ready; accepting it reloads every page into it.                                                 |
-| `splashHead`            | The iOS startup image tags, one per screen iOS matches.                                                                             |
-| `splashScreens`         | Each splash image's size, its `/splash/<w>x<h>.png` path, and the screen it is for, for an app to draw them.                        |
-| `useInstall`            | Install state with `prompt` and `dismiss` (remembered 30 days); call it in the root to catch the browser's offer.                   |
-| `InstallPrompt`         | Bottom sheet on small screens, corner card on larger ones, manual steps on iOS Safari.                                              |
-| `Install`               | The Effect service behind `useInstall`, with its `layer`.                                                                           |
-| `InstallState`          | Tagged enum `Unsupported`, `Available`, `ManualIos`, `Installed`, `Dismissed`.                                                      |
-| `IosSteps`              | The Share, then Add to Home Screen steps `InstallPrompt` shows on iOS Safari, for an app's own install screen.                      |
-| `isIosSafari`           | Whether a `navigator` is Safari on iOS or iPadOS, where install has no API and only those steps work.                               |
-| `useOnline`             | Whether the browser is online; `true` before mount.                                                                                 |
-| `OfflineIndicator`      | "You're offline" pill in a live region, stacked above sheets.                                                                       |
-| `Online`                | The Effect service behind `useOnline`, with its `layer`.                                                                            |
-| `useDisplayMode`        | The display mode, such as `browser` or `standalone`; `browser` before mount.                                                        |
-| `DisplayMode`           | The Effect service behind `useDisplayMode`, with its `layer`.                                                                       |
-| `useStoragePersistence` | Persisted flag with `persist` and `estimate`; `null` while unknown.                                                                 |
-| `StoragePersistence`    | The Effect service behind `useStoragePersistence`, with its `layer`.                                                                |
+| Export                  | What it does                                                                                                                                                                                       |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PwaHead`               | The PWA's head tags for a Kabuki Start Document's `head`: the manifest link, the Apple icon and title, the Splash and the Build ID.                                                                |
+| `Pwa`                   | Around the app in the Document: registers the worker, shows the Update Prompt while a new version waits, offers install once, and opens the Reload Prompt when asked.                              |
+| `PwaProvider`           | Registers the worker after mount and gives `usePwa` its Status; `Pwa` renders it.                                                                                                                  |
+| `pwaHead`               | Head tags: manifest link, Apple icon, and meta tags for the Build ID, build time and commit.                                                                                                       |
+| `usePwa`                | The Status with `checkForUpdate`, which resolves once a newer build it found is downloaded, saying whether it found one, and `applyUpdate` (`Unsupported` before mount), and the page's `version`. |
+| `updateToNewest`        | From anywhere, for an app older than what it talks to: opens the Reload Prompt, once per page load.                                                                                                |
+| `clearRuntimeCache`     | Deletes every Runtime Cache; works outside `PwaProvider`, for example in sign-out.                                                                                                                 |
+| `UpdatePrompt`          | Persistent toast while an update is ready; accepting it reloads every page into it.                                                                                                                |
+| `ReloadPrompt`          | The dialog `updateToNewest` opens, with no way to dismiss it: Reload applies the newer build once downloaded, checking every 12 seconds until then, and with no service worker reloads the page.   |
+| `splashHead`            | The iOS startup image tags, one per screen iOS matches.                                                                                                                                            |
+| `splashScreens`         | Each splash image's size, its `/splash/<w>x<h>.png` path, and the screen it is for, for an app to draw them.                                                                                       |
+| `useInstall`            | Install state with `prompt` and `dismiss` (remembered 30 days); call it in the root to catch the browser's offer.                                                                                  |
+| `InstallPrompt`         | Bottom sheet on small screens, corner card on larger ones, manual steps on iOS Safari.                                                                                                             |
+| `Install`               | The Effect service behind `useInstall`, with its `layer`.                                                                                                                                          |
+| `InstallState`          | Tagged enum `Unsupported`, `Available`, `ManualIos`, `Installed`, `Dismissed`.                                                                                                                     |
+| `IosSteps`              | The Share, then Add to Home Screen steps `InstallPrompt` shows on iOS Safari, for an app's own install screen.                                                                                     |
+| `isIosSafari`           | Whether a `navigator` is Safari on iOS or iPadOS, where install has no API and only those steps work.                                                                                              |
+| `useOnline`             | Whether the browser is online; `true` before mount.                                                                                                                                                |
+| `OfflineIndicator`      | "You're offline" pill in a live region, stacked above sheets.                                                                                                                                      |
+| `Online`                | The Effect service behind `useOnline`, with its `layer`.                                                                                                                                           |
+| `useDisplayMode`        | The display mode, such as `browser` or `standalone`; `browser` before mount.                                                                                                                       |
+| `DisplayMode`           | The Effect service behind `useDisplayMode`, with its `layer`.                                                                                                                                      |
+| `useStoragePersistence` | Persisted flag with `persist` and `estimate`; `null` while unknown.                                                                                                                                |
+| `StoragePersistence`    | The Effect service behind `useStoragePersistence`, with its `layer`.                                                                                                                               |
 
 ### `@kestack/web-platform/pwa/splash`
 
@@ -439,6 +440,7 @@ export default Stack('Code', { providers, state: State }, Site({ host: 'code', z
 - `pwa: { splash: true }` lists the iOS startup images, `/splash/<w>x<h>.png` for each of `splashScreens`, which the app draws into `public/`. It turns on `apple-mobile-web-app-capable`, which iOS shows them only with; the Status Bar Surface keeps the status bar on the Theme.
 - How each page works offline follows from its Render Mode, as Kabuki Start's Pages (`/_kabuki/pages`) say. On install the worker saves the Pages, the App Shell and every static page that is one URL ([ADR 0010](../../docs/adr/0010-kabuki-start-serves-the-web-platform-decides.md)). Each page it saves, or finds saved by an earlier install of the same Build ID, must carry the server build the Pages name: a copy an older deploy drew, as iOS Safari can answer even a `reload` fetch with, is asked for once more past every cache, then left to the network, or fails install if it is the App Shell. A client page is the App Shell, at once. A static page is this build's copy, saved on install or on first visit. A dynamic page, or one Start does not name, is the network within `navigation.networkTimeoutMs`, kept per Build ID; offline, the copy kept last, else the App Shell. With no Pages (an app not on Start), every page is dynamic and there is no App Shell.
 - In `vite dev` the worker is off unless `pwa: { dev: true }`. `pwa: { enabled: false }` builds the Kill Switch, and `pwa: false` makes the app no PWA at all. Paths under `neverCache` (default `/api/auth/`), non-GET requests and `navigation.denylist` never reach the caches.
+- The page checks for a newer build on load, on focus, and every `update.checkIntervalMinutes` (default 5). A check ends once a newer build it found is downloaded, or after 60 seconds.
 - While an update waits, this build's copy of a page, else its App Shell, answers navigations, so every page stays on one Build ID until the user accepts ([ADR 0006](./docs/adr/0006-pending-update-pins-navigations-to-the-active-build.md)).
 - `Site` takes what the app adds, such as `env`, from a function given where the Stage serves; app-specific Workers stay in the app.
 

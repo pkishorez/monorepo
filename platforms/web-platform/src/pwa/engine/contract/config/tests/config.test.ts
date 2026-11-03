@@ -58,7 +58,7 @@ describe('resolvePwaConfig', () => {
       precache: { include: [], exclude: [], warnAboveBytes: 5 * 1024 * 1024 },
       navigation: { networkTimeoutMs: 3000, denylist: [] },
       neverCache: ['/api/auth/'],
-      update: { checkIntervalMinutes: 60 },
+      update: { checkIntervalMinutes: 5 },
       worker: null,
       swUrl: '/sw.js',
       splash: false,
@@ -105,7 +105,7 @@ describe('resolvePwaConfig', () => {
             cacheName: 'api',
           },
         ],
-        update: { checkIntervalMinutes: 5 },
+        update: { checkIntervalMinutes: 30 },
       }),
     );
     expect(config.navigation.networkTimeoutMs).toBe(500);
@@ -113,7 +113,7 @@ describe('resolvePwaConfig', () => {
       'api',
       'images',
     ]);
-    expect(config.update).toEqual({ checkIntervalMinutes: 5 });
+    expect(config.update).toEqual({ checkIntervalMinutes: 30 });
   });
 
   it('rejects invalid options', () => {

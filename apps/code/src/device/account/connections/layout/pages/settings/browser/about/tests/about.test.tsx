@@ -14,7 +14,7 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 const pwa = vi.hoisted(() => ({
   status: { _tag: 'Ready' } as { _tag: string },
-  checkForUpdate: vi.fn(() => Promise.resolve()),
+  checkForUpdate: vi.fn(() => Promise.resolve(false)),
   applyUpdate: vi.fn(() => Promise.resolve()),
 }));
 const cleared = vi.hoisted(() => vi.fn(() => Promise.resolve()));
@@ -92,6 +92,17 @@ describe('About', () => {
     await flush();
     expect(pwa.checkForUpdate).toHaveBeenCalledOnce();
     expect(byText('Up to date')).toBeDefined();
+  });
+
+  it('offers the update the check found, never saying it is up to date', async () => {
+    pwa.checkForUpdate.mockResolvedValueOnce(true);
+    await render();
+    await act(async () => byText('Check for updates')!.click());
+    await flush();
+    expect(byText('Up to date')).toBeUndefined();
+    expect(text()).toContain('A new version is ready.');
+    await act(async () => byText('Update now')!.click());
+    expect(pwa.applyUpdate).toHaveBeenCalledOnce();
   });
 
   it('updates once a newer build is ready', async () => {

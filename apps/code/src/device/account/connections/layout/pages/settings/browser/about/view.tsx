@@ -70,50 +70,60 @@ function useBuilt(builtAt: string | null) {
 function VersionRow() {
   const { status, version, checkForUpdate, applyUpdate } = usePwa();
   const built = useBuilt(version.builtAt);
-  const [check, setCheck] = useState<'idle' | 'checking' | 'newest'>('idle');
+  const [check, setCheck] = useState<'idle' | 'checking' | 'found' | 'newest'>(
+    'idle',
+  );
 
+  // The check is done only once a newer build it found is downloaded, so
+  // "Up to date" is said only when it found none.
   const checkNow = async () => {
     setCheck('checking');
-    await checkForUpdate();
-    setCheck('newest');
+    setCheck((await checkForUpdate()) ? 'found' : 'newest');
   };
 
-  const control =
-    status._tag === 'UpdateReady' || status._tag === 'Updating' ? (
-      <Button
-        type="button"
-        size="sm"
-        className={BUTTON}
-        disabled={status._tag === 'Updating'}
-        onClick={() => void applyUpdate()}
-      >
-        {status._tag === 'Updating' && <Spinner />}
-        Update now
-      </Button>
-    ) : status._tag === 'Ready' ? (
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className={BUTTON}
-        disabled={check === 'checking'}
-        onClick={() => void checkNow()}
-      >
-        {check === 'checking' ? (
-          <Spinner />
-        ) : check === 'newest' ? (
-          <CheckIcon aria-hidden className="text-positive" />
-        ) : null}
-        {check === 'newest' ? 'Up to date' : 'Check for updates'}
-      </Button>
-    ) : undefined;
+  const ready =
+    status._tag === 'UpdateReady' ||
+    status._tag === 'Updating' ||
+    check === 'found';
 
-  const words =
-    status._tag === 'UpdateReady' || status._tag === 'Updating'
-      ? 'A new version is ready.'
-      : version.builtAt === null && version.commit === null
-        ? 'Development build.'
-        : null;
+  const control = ready ? (
+    <Button
+      type="button"
+      size="sm"
+      className={BUTTON}
+      disabled={status._tag === 'Updating'}
+      onClick={() => void applyUpdate()}
+    >
+      {status._tag === 'Updating' && <Spinner />}
+      Update now
+    </Button>
+  ) : status._tag === 'Ready' ? (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className={BUTTON}
+      disabled={check === 'checking'}
+      onClick={() => void checkNow()}
+    >
+      {check === 'checking' ? (
+        <Spinner />
+      ) : check === 'newest' ? (
+        <CheckIcon aria-hidden className="text-positive" />
+      ) : null}
+      {check === 'checking'
+        ? 'Checking…'
+        : check === 'newest'
+          ? 'Up to date'
+          : 'Check for updates'}
+    </Button>
+  ) : undefined;
+
+  const words = ready
+    ? 'A new version is ready.'
+    : version.builtAt === null && version.commit === null
+      ? 'Development build.'
+      : null;
 
   return (
     <Row id="version" name="Code app" control={control} className={STACKED}>
