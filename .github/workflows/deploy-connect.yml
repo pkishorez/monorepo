@@ -1,11 +1,30 @@
 name: 🚀 deploy:connect
 
+# One chain deploys Cloud Connect and the front ends that talk to it, each
+# step only once the one before it succeeded:
+#
+# 1. Release check: on prod, the chain stops, as a skip, while
+#    `@kestack/connect` has pending changesets, so no front end ships ahead
+#    of the plugin and `ke-connect` it needs. A preview or demo skips it.
+# 2. Plugins: every Plugin's build must be the latest Release in its
+#    `releases.json`.
+# 3. Cloud Connect: alchemy puts each Plugin on the Shelf, then deploys the
+#    Worker that names them. It runs when it changed and whenever a front
+#    end deploys, so a front end never ships ahead of its Plugin, even after
+#    an earlier run was cancelled or failed.
+# 4. Front ends: each one that changed deploys, only after Cloud Connect.
+#
+# What changed comes from pnpm's graph of the workspace, in
+# .github/scripts/deploy-chain.mjs: a change to a package changes every app
+# that bundles it.
+
 on:
   push:
     branches: [main]
   pull_request:
     types: [opened, reopened, synchronize]
-    # The changeset release PR changes only these, so it starts no run.
+    # The changeset release PR changes only these, so it starts no run. Its
+    # merge to main still does: a push has no paths-ignore.
     paths-ignore:
       - '.changeset/**'
       - '**/CHANGELOG.md'
@@ -24,13 +43,34 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  STAGE: ${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || 'prod' }}
+  # The front ends that talk to Cloud Connect, deployed after it. Each is
+  # `apps/<name>`, its package `<name>`, served at `<name>.kishore.app` and
+  # labelled `preview:<name>` on its pull request.
+  FRONT_ENDS: code
+
 jobs:
   detect:
+    name: Affected
     if: (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && !startsWith(github.head_ref, 'changeset-release/')
     runs-on: ubuntu-latest
     outputs:
-      affected: ${{ steps.affected.outputs.affected }}
+      stage: ${{ env.STAGE }}
+      connect: ${{ steps.affected.outputs.connect }}
+      frontends: ${{ steps.affected.outputs.frontends }}
     steps:
+      - name: Validate stage
+        run: |
+          if ! printf '%s' "$STAGE" | grep -qxE 'prod|demo|pr[0-9]+'; then
+            echo "::error::Stage must be 'prod', 'demo' or 'pr<N>', got '$STAGE'." >&2
+            exit 1
+          fi
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "::error::Unexpected ref '${{ github.ref }}' — pushes deploy only from main." >&2
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v7
         with:
@@ -44,51 +84,104 @@ jobs:
         with:
           node-version: 24.18.0
 
-      # Only the package, ai-toolkit and cli-platform (which its code Plugin
-      # runs) and this workflow deploy Cloud Connect; a change to another
-      # workspace package does not. Run it by hand to ship one.
-      - name: Check connect affected
+      # Run by hand, there is no base, so every app deploys.
+      - name: Check what changed
         id: affected
         env:
-          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo 'affected=true' >> "$GITHUB_OUTPUT"
-          elif [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            echo "Base '$BASE' unknown; deploying to be safe."
-            echo 'affected=true' >> "$GITHUB_OUTPUT"
-          elif git diff --name-only "$(git merge-base "$BASE" HEAD)" HEAD \
-            | grep -E '^(apps/connect/|toolkits/ai-toolkit/|platforms/cli-platform/|\.github/workflows/deploy-connect\.yml$)'; then
-            echo 'affected=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'affected=false' >> "$GITHUB_OUTPUT"
-          fi
+          BASE: ${{ github.event_name != 'workflow_dispatch' && (github.event.pull_request.base.sha || github.event.before) || '' }}
+        run: node .github/scripts/deploy-chain.mjs affected "$BASE" $FRONT_ENDS
 
-  deploy:
-    needs: detect
-    if: needs.detect.outputs.affected == 'true'
+  release:
+    name: Release check
+    if: (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && !startsWith(github.head_ref, 'changeset-release/')
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready || steps.preview.outputs.ready }}
+    steps:
+      # A pull request carries its own changeset, so a preview never waits.
+      - name: Not prod
+        id: preview
+        if: env.STAGE != 'prod'
+        run: echo 'ready=true' >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        if: env.STAGE == 'prod'
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        if: env.STAGE == 'prod'
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        if: env.STAGE == 'prod'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+
+      - name: Install dependencies
+        if: env.STAGE == 'prod'
+        run: pnpm install --frozen-lockfile --filter public-monorepo
+
+      # changeset status compares with main, which a run by hand from
+      # another branch has only as origin/main.
+      - name: Check @kestack/connect is released
+        id: check
+        if: env.STAGE == 'prod'
+        run: |
+          git show-ref --verify --quiet refs/heads/main || git branch main origin/main
+          node .github/scripts/deploy-chain.mjs release
+
+  # Connect runs whenever anything deploys, not only when it changed: a
+  # front end is built for the latest Release in releases.json, and a Connect
+  # deploy an earlier run never finished (cancelled while pending, or failed)
+  # must go out before it. With nothing changed, its deploy does nothing.
+  plugins:
+    name: Plugins
+    needs: [detect, release]
+    if: needs.release.outputs.ready == 'true' && (needs.detect.outputs.connect == 'true' || needs.detect.outputs.frontends != '[]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter @kestack/connect...
+
+      - name: Build workspace dependencies
+        run: pnpm --filter '@kestack/connect^...' run build
+
+      - name: Build the Plugins
+        run: pnpm --filter @kestack/connect build:plugin
+
+      # The deploy refuses such a build too, but only once it has started.
+      - name: Check each Plugin is its latest Release
+        run: node apps/connect/scripts/plugin-hash.ts --check
+
+  connect:
+    name: Cloud Connect
+    needs: [detect, release, plugins]
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       # Opt-in required by the accident guard in @kestack/web-platform/app/alchemy.
       ALLOW_DEPLOY: 'true'
-      STAGE: ${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || 'prod' }}
     permissions:
       contents: read
       pull-requests: write
     steps:
-      - name: Validate stage
-        run: |
-          if ! printf '%s' "$STAGE" | grep -qxE 'prod|demo|pr[0-9]+'; then
-            echo "::error::Stage must be 'prod', 'demo' or 'pr<N>', got '$STAGE'." >&2
-            exit 1
-          fi
-          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" != "refs/heads/main" ]; then
-            echo "::error::Unexpected ref '${{ github.ref }}' — pushes deploy only from main." >&2
-            exit 1
-          fi
-
       - name: Checkout
         uses: actions/checkout@v7
 
@@ -108,9 +201,9 @@ jobs:
       - name: Build workspace dependencies
         run: pnpm --filter '@kestack/connect^...' run build
 
-      # The code Plugin the deploy uploads to R2 and names in PLUGINS, by its
-      # sha256; alchemy.run.ts refuses a deployed Stage without it.
-      - name: Build the code Plugin
+      # The Plugins the deploy puts on the Shelf and names in PLUGINS, by
+      # their sha256; alchemy.run.ts refuses a deployed Stage without them.
+      - name: Build the Plugins
         run: pnpm --filter @kestack/connect build:plugin
 
       - name: Bootstrap Alchemy state store
@@ -131,32 +224,95 @@ jobs:
         if: always()
         run: pnpm -C apps/connect exec alchemy state list --recursive || true
 
+  # Only after Cloud Connect has deployed; never when the release check
+  # stopped the chain or a step before failed.
+  front-end:
+    name: Front end (${{ matrix.app }})
+    needs: [detect, release, connect]
+    if: |
+      !cancelled()
+      && needs.detect.result == 'success'
+      && needs.release.outputs.ready == 'true'
+      && needs.detect.outputs.frontends != '[]'
+      && needs.connect.result == 'success'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.detect.outputs.frontends) }}
+    # Its own group too, which cleanup-<app>.yml shares, so a preview is not
+    # destroyed while it deploys.
+    concurrency:
+      group: ${{ matrix.app }}-${{ needs.detect.outputs.stage }}
+      cancel-in-progress: false
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Opt-in required by the accident guard in @kestack/web-platform/app/alchemy.
+      ALLOW_DEPLOY: 'true'
+      APP: ${{ matrix.app }}
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter "$APP..."
+
+      # Build the app's workspace dependencies; Alchemy builds the app itself.
+      - name: Build workspace dependencies
+        run: pnpm --filter "$APP^..." run build
+
+      - name: Bootstrap Alchemy state store
+        run: pnpm -C "apps/$APP" exec alchemy state bootstrap --backend cloudflare
+
+      - name: Deploy ${{ matrix.app }}
+        run: pnpm -C "apps/$APP" exec alchemy deploy --stage "$STAGE" --yes
+
+      - name: Mark PR as having a preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          case "$STAGE" in
+            pr[0-9]*) gh api -X POST "repos/${{ github.repository }}/issues/${STAGE#pr}/labels" -f "labels[]=preview:$APP" --silent ;;
+          esac
+
+      - name: State tree
+        if: always()
+        run: pnpm -C "apps/$APP" exec alchemy state list --recursive || true
+
   summary:
-    needs: [detect, deploy]
+    needs: [detect, release, plugins, connect, front-end]
     if: always() && !startsWith(github.head_ref, 'changeset-release/')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # To read each front end's job from the run.
+      actions: read
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+
       - name: Job summary
         env:
-          STAGE: ${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || 'prod' }}
-          AFFECTED: ${{ needs.detect.outputs.affected }}
-          RESULT: ${{ needs.deploy.result }}
-        run: |
-          if [ "$STAGE" = "prod" ]; then
-            url="https://connect.kishore.app"
-          else
-            url="https://$STAGE-connect.kishore.app"
-          fi
-          case "$RESULT" in
-            success) status="✅ deployed" ;;
-            failure) status="❌ failed" ;;
-            skipped) if [ "$AFFECTED" = false ]; then status="⏭️ unchanged, skipped"; else status="⏭️ not eligible"; fi ;;
-            *) status="$RESULT" ;;
-          esac
-          {
-            echo "## Deploy — \`$STAGE\`"
-            echo ""
-            echo "| App | Status | URL |"
-            echo "| --- | --- | --- |"
-            echo "| Cloud Connect | $status | $url |"
-          } >> "$GITHUB_STEP_SUMMARY"
+          GH_TOKEN: ${{ github.token }}
+          READY: ${{ needs.release.outputs.ready }}
+          CONNECT_AFFECTED: ${{ needs.detect.outputs.connect }}
+          FRONTENDS_AFFECTED: ${{ needs.detect.outputs.frontends }}
+          PLUGINS_RESULT: ${{ needs.plugins.result }}
+          CONNECT_RESULT: ${{ needs.connect.result }}
+          FRONTEND_RESULT: ${{ needs.front-end.result }}
+        run: node .github/scripts/deploy-chain.mjs summary
