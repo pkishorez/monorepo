@@ -73,15 +73,25 @@ const runExit = <A, E>(effect: (git: Git['Service']) => Effect.Effect<A, E>) =>
   );
 
 describe('git', () => {
-  it('reads a folder that is not a repository, or inside one, as not git', async () => {
+  it('reads a folder that is not in a repository as not git', async () => {
     const plain = temp();
-    const repo = clone();
-    const inside = join(repo, 'sub');
-    mkdirSync(inside);
-    for (const path of [plain, inside, join(plain, 'gone')]) {
+    for (const path of [plain, join(plain, 'gone')]) {
+      expect(await run((git) => git.top(path))).toBeNull();
       expect(await run((git) => git.branches(path))).toBeNull();
       expect(await run((git) => git.branchAt(path))).toBeNull();
     }
+  });
+
+  it('reads a folder inside a repository as its repository, from its top', async () => {
+    const repo = clone();
+    const inside = join(repo, 'packages', 'one');
+    mkdirSync(inside, { recursive: true });
+    expect(await run((git) => git.top(inside))).toBe(repo);
+    expect(await run((git) => git.top(repo))).toBe(repo);
+    expect(await run((git) => git.branches(inside))).toEqual(
+      await run((git) => git.branches(repo)),
+    );
+    expect(await run((git) => git.branchAt(inside))).toBe('main');
   });
 
   it('lists local branches with what they track, Origin branches, and the Worktrees', async () => {

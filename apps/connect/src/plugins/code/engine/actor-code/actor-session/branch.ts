@@ -11,9 +11,9 @@ import type { SessionSelf } from './actor.js';
  *    and Sends BranchFound when it changed. Git missing or failing reads
  *    as on no branch.
  * 2. On the first Title, a Worktree made for the Session, still on its
- *    branch `ke-code/<its folder's name>` and never pushed, has that
- *    branch renamed for the Title, `ke-code/<title-in-words>`, with `-2`,
- *    `-3` and on when that is taken; BranchFound says so at once.
+ *    branch `ke-code/<its Worktree's folder name>` and never pushed, has
+ *    that branch renamed for the Title, `ke-code/<title-in-words>`, with
+ *    `-2`, `-3` and on when that is taken; BranchFound says so at once.
  */
 
 export const EVERY = Duration.minutes(1);
@@ -56,7 +56,10 @@ export const renameFor = (self: SessionSelf, title: string) =>
     const slug = slugOf(title);
     if (worktree === null || slug === '') return;
     const git = yield* Git;
-    const from = `${BRANCH_PREFIX}${basename(worktree)}`;
+    // It may run in a folder inside its Worktree: the name is its top's.
+    const top = yield* git.top(worktree);
+    if (top === null) return;
+    const from = `${BRANCH_PREFIX}${basename(top)}`;
     if ((yield* git.branchAt(worktree)) !== from) return;
     if (yield* git.pushed(worktree, from)) return;
     const branch = yield* git.rename(worktree, from, `${BRANCH_PREFIX}${slug}`);

@@ -62,12 +62,11 @@ const real = (path: string) =>
 
 const lines = (output: string) => output.split('\n').filter((line) => line);
 
-/** Whether `path` is the top of a Worktree, not a folder inside one. */
-const isTop = (path: string) =>
-  Effect.gen(function* () {
-    const top = yield* run(path, ['rev-parse', '--show-toplevel']);
-    return (yield* real(top.trim())) === (yield* real(path));
-  });
+/** The top of the Worktree `path` is in, itself or a folder inside it. */
+const topOf = (path: string) =>
+  Effect.flatMap(run(path, ['rev-parse', '--show-toplevel']), (top) =>
+    real(top.trim()),
+  );
 
 /** `git worktree list --porcelain -z`, each Worktree that is there. */
 const worktreesOf = (path: string) =>
@@ -96,8 +95,7 @@ const worktreesOf = (path: string) =>
 const branches = (path: string) =>
   asked(
     Effect.gen(function* () {
-      if (!(yield* isTop(path))) return null;
-      const here = yield* real(path);
+      const here = yield* topOf(path);
       const worktrees = yield* worktreesOf(path);
       const heads = yield* run(path, [
         'for-each-ref',
@@ -142,17 +140,16 @@ const branches = (path: string) =>
         origin,
       } satisfies GitBranches;
     }),
-  ).pipe(Effect.map((found) => found ?? null));
+  );
 
 const branchAt = (path: string) =>
   asked(
     Effect.gen(function* () {
-      if (!(yield* isTop(path))) return null;
       const head = yield* run(path, ['symbolic-ref', '--quiet', 'HEAD']);
       const ref = head.trim();
       return ref.startsWith('refs/heads/') ? ref.slice(11) : null;
     }),
-  ).pipe(Effect.map((found) => found ?? null));
+  );
 
 /** Each local branch, with the Origin branch it tracks: `refs/remotes/...` or ''. */
 const localBranches = (path: string) =>
@@ -376,6 +373,7 @@ const make = Effect.gen(function* () {
       );
     });
   return {
+    top: (path) => asked(topOf(path)),
     branches,
     branchAt,
     fetch,

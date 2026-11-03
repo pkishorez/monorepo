@@ -1,5 +1,5 @@
 import { realpath } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { Data, Effect } from 'effect';
 import type { Project } from '../records/index.js';
 import {
@@ -13,7 +13,10 @@ import {
  * Where a new Session runs, and the git step that puts it there, run
  * before the front door Sends StartSession. In a Project that is not a git
  * repository, or where git is missing or fails to list its branches, it
- * runs in the folder and no step runs. Else, for the branch picked:
+ * runs in the folder and no step runs. Else, for the branch picked, in the
+ * same folder of its Worktree as the Project's folder is of its own: the
+ * top for a Project at its repository's top, `apps/code` in each for one
+ * in `apps/code`.
  *
  * - a new Worktree  is made in `<worktrees>/<projectId>/<id>`, on the new
  *                   branch `ke-code/<id>` from the branch picked, `<id>`
@@ -57,12 +60,13 @@ export class GitFailed extends Data.TaggedError('GitFailed')<{
   readonly message: string;
 }> {}
 
-/** Where a Session runs, and whether its Worktree was made for it. */
+/** Where a Session runs, and the Worktree made for it, if any. */
 export interface Placed {
-  /** Null in a Project that is not a git repository. */
+  /** The folder it runs in; null in a Project that is not a git repository. */
   readonly worktree: string | null;
   readonly branch: string | null;
-  readonly made: boolean;
+  /** The top of the Worktree made for it; null when none was. */
+  readonly madeWorktree: string | null;
   /** The branch made for it: its Worktree's, or one made to track Origin's. */
   readonly madeBranch?: MadeBranch | null;
 }
@@ -100,7 +104,15 @@ export const place = (
     const git = yield* Git;
     const { project, branch: picked } = input;
     const found = yield* git.branches(project.path);
-    if (found === null) return { worktree: null, branch: null, made: false };
+    if (found === null)
+      return { worktree: null, branch: null, madeWorktree: null };
+    // The Project's folder within its Worktree: '' at its top.
+    const top = yield* git.top(project.path);
+    const here = yield* Effect.promise(() =>
+      realpath(project.path).catch(() => project.path),
+    );
+    const within = top === null ? '' : relative(top, here);
+    const inside = (worktree: string) => join(worktree, within);
     // Only a branch the Project lists reaches git; the one its folder is on
     // is listed even before its first commit.
     if (
@@ -135,15 +147,28 @@ export const place = (
       const worktree = yield* Effect.promise(() =>
         realpath(at).catch(() => at),
       );
-      return { worktree, branch, made: true, madeBranch };
+      return {
+        worktree: inside(worktree),
+        branch,
+        madeWorktree: worktree,
+        madeBranch,
+      };
     }
     if (picked === null || picked === found.current)
-      return { worktree: project.path, branch: found.current, made: false };
+      return {
+        worktree: project.path,
+        branch: found.current,
+        madeWorktree: null,
+      };
     const local =
       found.local.find((each) => each.name === picked) ??
       found.local.find((each) => each.upstream === picked);
     if (local?.worktree)
-      return { worktree: local.worktree, branch: local.name, made: false };
+      return {
+        worktree: inside(local.worktree),
+        branch: local.name,
+        madeWorktree: null,
+      };
     const switched = yield* step(
       report,
       'switchingBranch',
@@ -154,7 +179,7 @@ export const place = (
     return {
       worktree: project.path,
       branch: yield* git.branchAt(project.path),
-      made: false,
+      madeWorktree: null,
       madeBranch: switched.made,
     };
   });
@@ -163,8 +188,8 @@ export const place = (
 export const unplace = (project: Project, placed: Placed) =>
   Effect.gen(function* () {
     const git = yield* Git;
-    if (placed.made && placed.worktree !== null)
-      yield* git.removeWorktree(project.path, placed.worktree);
+    if (placed.madeWorktree !== null)
+      yield* git.removeWorktree(project.path, placed.madeWorktree);
     if (placed.madeBranch)
       yield* git.dropBranch(project.path, placed.madeBranch);
   });

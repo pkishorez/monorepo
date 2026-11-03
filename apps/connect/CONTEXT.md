@@ -83,7 +83,7 @@ One Agent kept on a Connection, in one of its Projects and, when that Project is
 _Avoid_: thread, chat, Agent (what a Session keeps), conversation
 
 **Worktree**:
-One working copy of a Project's git repository, on one branch: the main worktree, which is the Project's own folder, or a linked one the Connection makes in kestack's own data folder, outside any one Connection's, so forgetting a Connection never deletes one. A Project whose folder is not a git repository has none, and its Sessions run in its folder.
+One working copy of a Project's git repository, on one branch: the main worktree, which holds the Project's own folder, or a linked one the Connection makes in kestack's own data folder, outside any one Connection's, so forgetting a Connection never deletes one. A Project's folder may be the repository's top or a folder inside it, as a package of a monorepo; its Sessions run in the same folder of whichever Worktree they are in. A Project whose folder is not in a git repository has none, and its Sessions run in its folder.
 _Avoid_: checkout, workspace, environment
 
 **Default Account**:

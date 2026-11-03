@@ -298,6 +298,87 @@ describe('a Session in a git Project', () => {
     );
   });
 
+  describe('in a Project inside its repository, as a package of a monorepo', () => {
+    /** A clone with the committed folder `packages/one`, and that folder. */
+    const monorepo = () => {
+      const repo = clone();
+      const one = join(repo, 'packages', 'one');
+      mkdirSync(one, { recursive: true });
+      writeFileSync(join(one, 'README.md'), 'one\n');
+      sh(repo, 'add', '.');
+      sh(repo, 'commit', '-q', '-m', 'one');
+      return { repo, one };
+    };
+
+    it('lists the branches and runs in the same folder of each Worktree', async () => {
+      const { repo, one } = monorepo();
+      const fake = makeFakeHarness({ oneShot: 'Fix the login bug' });
+      await run(
+        (worktrees) =>
+          Effect.gen(function* () {
+            const engine = yield* Engine;
+            const store = yield* Store;
+            const project = yield* engine.addProject(one);
+            expect(yield* engine.branches(project.id)).toMatchObject({
+              _tag: 'Git',
+              current: 'main',
+              worktrees: [{ path: repo, branch: 'main' }],
+            });
+
+            const here = yield* start(project.id, { branch: 'main' });
+            expect(here.session).toMatchObject({
+              worktree: one,
+              branch: 'main',
+            });
+
+            const { session } = yield* start(project.id, { newWorktree: true });
+            const at = join(worktrees, project.id, session.id.toLowerCase());
+            const folder = join(at, 'packages', 'one');
+            expect(session.worktree).toBe(folder);
+            yield* eventually(() =>
+              expect(fake.opens.map((open) => open.cwd)).toContain(folder),
+            );
+            // Its branch is named for its first Title, as at the top.
+            yield* eventually(async () =>
+              expect(await saved(store, session.id)).toMatchObject({
+                branch: 'ke-code/fix-the-login-bug',
+              }),
+            );
+
+            // A branch out in another Worktree: the same folder there.
+            const other = join(temp(), 'other');
+            sh(repo, 'worktree', 'add', '-q', '-b', 'side', other);
+            const there = yield* start(project.id, { branch: 'side' });
+            expect(there.session.worktree).toBe(
+              join(realpathSync(other), 'packages', 'one'),
+            );
+          }),
+        { fake },
+      );
+    });
+
+    it('takes back the Worktree it made when the Agent fails to open', async () => {
+      const { repo, one } = monorepo();
+      await run(
+        (worktrees) =>
+          Effect.gen(function* () {
+            const engine = yield* Engine;
+            const project = yield* engine.addProject(one);
+            const exit = yield* Effect.exit(
+              start(project.id, { newWorktree: true }),
+            );
+            expect(Exit.isFailure(exit)).toBe(true);
+            expect(inside(join(worktrees, project.id))).toEqual([]);
+            expect(sh(repo, 'branch', '--list', 'ke-code/*')).toBe('');
+            expect(sh(repo, 'worktree', 'list', '--porcelain')).not.toContain(
+              worktrees,
+            );
+          }),
+        { refuseOpen: true },
+      );
+    });
+  });
+
   it('starts nothing when a git step fails, and leaves no Worktree behind', async () => {
     const repo = clone();
     await run((worktrees) =>

@@ -48,6 +48,10 @@
     {
       "hash": "9d2a88f6fc7b9937a949bf01bf75db106093e73e50dc9a3ea4aad4333baa2d8c",
       "summary": "A Background Job's output can be followed live (backgroundJobOutput); a subagent job says its tokens so far, which a Session's record does not keep"
+    },
+    {
+      "hash": "5c7d611797a27e7bd1b8ca201c4aff316f3ff9cd9c8afcfb351d6216f498fd3d",
+      "summary": "A Project inside a git repository, as a package of a monorepo, is a git Project: it lists the branches, and its Sessions run in the same folder of each Worktree"
     }
   ]
 }

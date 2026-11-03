@@ -37,7 +37,10 @@ export interface MadeBranch {
   readonly at: string;
 }
 
-/** A repository's branches, as seen from one of its Worktrees. */
+/**
+ * A repository's branches, as seen from one of its Worktrees. Each path is
+ * a Worktree's top, even when asked from a folder inside one.
+ */
 export interface GitBranches {
   /** The branch the Worktree asked from is on; null when on none. */
   readonly current: string | null;
@@ -52,11 +55,17 @@ export class Git extends Context.Service<
   Git,
   {
     /**
-     * The branches of the repository whose Worktree is the folder `path`
-     * itself; null when it is not one, or git is missing or fails.
+     * The top of the Worktree the folder `path` is in, itself or a folder
+     * inside it; null when it is in none, or git is missing or fails.
+     */
+    readonly top: (path: string) => Effect.Effect<string | null>;
+    /**
+     * The branches of the repository the folder `path` is in, at its top
+     * or anywhere inside it, as seen from its Worktree; null when it is in
+     * none, or git is missing or fails.
      */
     readonly branches: (path: string) => Effect.Effect<GitBranches | null>;
-    /** The branch the Worktree at `path` is on; null when on none, or not one. */
+    /** The branch the Worktree `path` is in is on; null when on none, or in none. */
     readonly branchAt: (path: string) => Effect.Effect<string | null>;
     /**
      * Starts one fetch from Origin at `path` in the background, unless one
