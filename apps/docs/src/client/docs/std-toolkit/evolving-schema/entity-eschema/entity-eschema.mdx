@@ -1,0 +1,76 @@
+import { FormsPicture } from './components/forms-picture.tsx';
+import { program } from './run/two-forms.ts';
+
+Everything in std-toolkit starts with a shape. This page shows how you
+write one for a thing you save, and the two forms every saved thing takes.
+
+## A shape with an id
+
+An **EntityESchema** is the shape of one kind of thing you save, like a
+task. It's an [Effect Schema](https://effect.website/docs/schema/introduction)
+with three more facts: a name, the field that is its id, and every
+**version** it has had.
+
+```ts file=./components/task.ts
+
+```
+
+`'Task'` is the name. It tags every stored task, so a table can hold tasks
+beside boards and people. `'taskId'` is the id field. You don't list it:
+the builder adds it as a string to every version, and no later version may
+touch it.
+
+The rest are ordinary Schema fields. `typeof Task.Type` is the type your
+code uses, with `taskId` included.
+
+## Two forms
+
+A task has two forms, and only one of them is yours.
+
+The **value** is what your code holds. Here, `dueAt` is a real `Date`. The
+**encoded form** is what the table keeps: plain JSON, in whatever version
+it was written, with that version in `_v`.
+
+<Picture caption="A save converts each field and stamps the version. A read takes the stored row at its version and gives back a value. Your code only ever touches the left side.">
+  <FormsPicture />
+</Picture>
+
+The toolkit converts at every boundary: the table, the network, the sync
+store. You never build or read an encoded form yourself. `Task.schema` is
+the Effect Schema that does it, if you ever need it by hand.
+
+<Run program={program} caption="The stored form has dueAt as a string and _v beside it. Reading it back gives a Date again. The last row has a word where a number belongs, and is refused.">
+
+```ts file=./run/two-forms.ts
+
+```
+
+</Run>
+
+## The field rules
+
+Every field must be something JSON can hold unchanged, because the encoded
+form is stored as JSON. So the builder refuses a few things when you write
+the schema, not when a row breaks:
+
+- **No optional fields.** Write `Schema.NullOr(...)`. Every version then has
+  one exact shape, and a migration never has to guess if a key is there.
+- **No names starting with `_`.** Those belong to the toolkit, like `_v`.
+- **Numbers must be finite.** Use `Schema.Finite` or `Schema.Int`. A plain
+  `Schema.Number` is refused, since JSON has no `NaN` or `Infinity`.
+
+## Without an id: ESchema
+
+Some things have no id, like an app's settings, of which there is one.
+For those you write an `ESchema` instead: `ESchema.make('Settings', { … })`.
+It works the same way, minus the id field. You'll save one as a [single
+entity](/std-toolkit/single-entity).
+
+<Callout title="Remember">
+  Your code holds values in the latest shape. The table holds encoded forms,
+  each with its version. The schema converts between them, both ways.
+</Callout>
+
+Not everything you version is an object with fields. Next,
+[ValueESchema](/std-toolkit/value-eschema): a versioned enum, number or
+list.

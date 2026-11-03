@@ -11,7 +11,7 @@ import { Rail } from './rail.tsx';
  * The stack's home: a story told over a cloud of particles that takes a
  * new shape for each stop, a journey down the page. First the one line
  * for the whole stack and its code, then the packages with docs to read,
- * kabuki alone today, then word that more is coming. The shapes take
+ * kabuki and std-toolkit, then word that more is coming. The shapes take
  * alternate sides of a wide screen, so each change crosses it. A comet
  * follows the reader's scroll through the field, and a rail counts the
  * stops. On a wide screen the

@@ -1,17 +1,18 @@
 import { Router } from '@kestack/kabuki/routing';
 import { ArrowRightIcon } from 'lucide-react';
-import { router } from '../../../shared/index.ts';
-import { PartLinks, button } from '../../components/index.ts';
+import { packageOf } from '../../../shared/index.ts';
+import { PartLinks, button, docRoute } from '../../components/index.ts';
 import { Stop } from '../../field/index.ts';
 import type { Chapter as Story } from './chapters.ts';
 
 /*
  * One chapter of the story, a Stop on the field: its act, the package's
- * name and pitch, its docs' four Parts, and the way into the docs.
+ * name and pitch, its docs' Parts, and the way into the docs.
  */
 
 export function Chapter({ chapter }: { readonly chapter: Story }) {
   const id = `chapter-${chapter.shape}`;
+  const pkg = packageOf(chapter.id);
   return (
     <Stop
       shape={chapter.shape}
@@ -27,16 +28,16 @@ export function Chapter({ chapter }: { readonly chapter: Story }) {
         id={id}
         className="mt-4 text-4xl font-semibold tracking-tight text-balance sm:mt-5 sm:text-5xl"
       >
-        {chapter.name}
+        {pkg.name}
       </h2>
       <p className="mt-3 text-pretty text-muted-foreground sm:mt-4 sm:text-lg">
-        {chapter.pitch}
+        {pkg.pitch}
       </p>
       <div className="mt-6">
-        <PartLinks label={`${chapter.name}'s four parts`} />
+        <PartLinks id={pkg.id} label={`${pkg.name}'s parts`} />
       </div>
       <Router.Link
-        to={router.Kabuki.Doc({ slug: 'introduction' })}
+        to={docRoute(pkg.id, pkg.contents.docs[0]!.slug)}
         className={`mt-6 ${button.solid}`}
       >
         Read the docs

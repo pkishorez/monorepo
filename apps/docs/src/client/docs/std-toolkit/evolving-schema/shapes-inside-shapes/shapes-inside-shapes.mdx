@@ -1,0 +1,71 @@
+import { LiveTable } from '../../live-table/index.ts';
+import { NestedPicture } from './components/nested-picture.tsx';
+import { shapesInsideShapes } from './components/lab.ts';
+import { program } from './run/nested.ts';
+
+Real data is nested. A task has a status, and a checklist of items. This
+page shows how you put one versioned shape inside another, and what
+happens when only the inner one changes.
+
+## Nesting a shape
+
+Every ESchema, of any kind, has a `schema`: a plain Effect Schema you can
+use anywhere a Schema goes. To nest a shape, you use its `schema` as a
+field, even inside `Schema.Array`.
+
+```ts file=./components/tasks.ts
+
+```
+
+Here `Task` holds a `Status`, which is a ValueESchema, and a list of
+`Item`s, which are ESchemas. Release 2 gives `Status` a v2 that renames
+`'todo'` to `'open'`. Look closely: `Task` itself gets no new version.
+
+## Each level keeps its own version
+
+When a task is stored, every nested shape is stored with its own `_v`:
+the task, the status envelope and each checklist item. A read upgrades
+each one through its own migrations, on its own.
+
+<Picture caption="Only Status changed, so only the status is upgraded. The task around it still says v1, yet what it reads as has changed.">
+  <NestedPicture />
+</Picture>
+
+That last point has a name: a **transitive change**. When a nested shape
+evolves, every shape that holds it reads differently, even though their
+own versions didn't move. It's what you want, since old statuses read as
+new ones everywhere. But it means you can't change a shape without
+thinking about who holds it.
+
+## Try it
+
+Save a few tasks with each release. Then look at the `status` field on the
+left: release 1 rows hold a v1 envelope with `'todo'`.
+
+<LiveTable
+  lab={shapesInsideShapes}
+  caption="Every task is stored as Task v1. The status inside each one has its own version, and release 2 reads every 'todo' as 'open'."
+/>
+
+## Which fields are shapes
+
+Sometimes code needs to know if a field is a versioned shape, say to show
+it in a tool. `eschemaOf` takes any Schema and gives back the ESchema it
+is the `schema` of, or `undefined`.
+
+<Run program={program} caption="The nested status upgrades on read. eschemaOf finds Status behind the status field, and nothing behind title. Saved again, every level has its own _v.">
+
+```ts file=./run/nested.ts
+
+```
+
+</Run>
+
+<Callout title="Remember">
+  A nested shape upgrades on its own. When you add a version to it, every shape
+  that holds it reads differently: check them all.
+</Callout>
+
+You've now seen `evolve` in passing. Next, [Adding a
+version](/std-toolkit/adding-a-version): what one evolve step does, and
+how old rows read in the new shape.

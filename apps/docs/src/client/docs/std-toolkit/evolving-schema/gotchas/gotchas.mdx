@@ -1,0 +1,82 @@
+import { LiveTable } from '../../live-table/index.ts';
+import { gotchas } from './components/lab.ts';
+import { program } from './run/outdated.ts';
+
+Versions move your migrations from deploy time to read time. That trade
+has a few sharp edges. This page shows the one you'll meet first, then
+the rules that keep you clear of the rest.
+
+## A row from the future
+
+Upgrades only go forward. New code reads every old row, but old code
+can't read a row that new code wrote. That guarantee has a name:
+**forward-read compatibility**.
+
+You'll meet this in a browser. A user keeps a tab open from last week. You
+ship a v2, and a v2 task arrives in that tab. The old code knows nothing
+past v1.
+
+<LiveTable
+  lab={gotchas}
+  caption="The old release reads its own rows fine. Save one task with the new release and the whole read fails: the old code meets a version it doesn't know."
+/>
+
+The read doesn't guess, and it doesn't call the row bad data. It fails
+with **OutdatedVersion**, which names the version it met and the latest it
+knows. That's how old code can tell it is out of date.
+
+## Telling outdated from broken
+
+An OutdatedVersion is often wrapped inside another error, like a Schema
+parse failure. `findOutdatedVersion` looks through any failure and gives
+you the OutdatedVersion inside, or `undefined`.
+
+<Run program={program} caption="The decode fails, and findOutdatedVersion finds why: Task met v2 but knows up to v1. Your app can ask the user to reload, instead of showing an error.">
+
+```ts file=./run/outdated.ts
+
+```
+
+</Run>
+
+Every other failure to read or write is an **ESchemaError**. That
+includes a migration that throws: the whole read fails, and the error
+says which migration and why.
+
+## The rules
+
+Most of these are enforced for you. The ones that aren't are caught by the
+[Snapshot](/std-toolkit/snapshot) test of your table, as long as you have
+one.
+
+- **A shipped version is forever.** Never edit v1's fields or its
+  migration once rows exist. Add a version instead. The types can't tell
+  that you changed history.
+- **Never delete a migration.** Unread v1 rows are still v1 on disk. Without
+  the v1 → v2 step, they stop reading.
+- **Migrations are pure.** No clock, no random numbers, no requests. The
+  same row must read the same today, tomorrow and on every device.
+- **One step per version.** Each migration handles only the version just
+  before it. The chain does the rest.
+- **Checks only loosen on a shipped version.** Widening a bound is safe.
+  Tightening one makes stored rows fail it, so it goes in a new version,
+  with a migration that makes old values pass.
+- **A field's conversion is part of its version.** Changing how a shipped
+  field converts, say from a string to a `Date`, belongs in a new version
+  too. No snapshot can see a conversion, so nothing catches this one.
+
+## Trying things out
+
+Nothing freezes a version until it's shipped. While you build a feature,
+keep editing the newest version as much as you like. Just do it against
+the Memory adapter, so a reload starts empty and a dropped version leaves
+no rows behind.
+
+<Callout title="Remember">
+  New code reads every old row; old code fails with OutdatedVersion on a new
+  one. Never edit or delete a version once rows exist.
+</Callout>
+
+That's the whole of Evolving schema. Next, [Keyed
+entity](/std-toolkit/keyed-entity): saving many tasks, each found by its
+key.

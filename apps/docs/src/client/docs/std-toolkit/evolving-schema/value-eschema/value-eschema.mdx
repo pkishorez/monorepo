@@ -1,0 +1,64 @@
+import { EnvelopePicture } from './components/envelope-picture.tsx';
+import { program } from './run/theme.ts';
+
+Not everything you version has fields. A theme is one word. A rating is
+one number. A list of tags is just a list. This page shows how you version
+a single value like that.
+
+## One value, many versions
+
+A **ValueESchema** versions a single value: a string, a number, an enum, a
+list, a map or a union. You make it from any Schema, and evolve it the same
+way as an entity.
+
+```ts file=./components/theme.ts
+
+```
+
+There's one difference from an EntityESchema. An entity's version changes
+fields: add one, drop one. A value's version replaces the **whole**
+schema. Here v1 is any string, and v2 is one of two words. The migration
+gets the old value and returns the new one.
+
+## The envelope
+
+An object has room for a `_v` field. A bare string doesn't. So a stored
+value travels in a **value envelope**: `{ _v, _value }`, the value with its
+version beside it.
+
+<Picture caption="A v1 theme was free text. Reading it runs the migration, so 'night' becomes 'dark'. Saving wraps it in an envelope stamped with the latest version.">
+  <EnvelopePicture />
+</Picture>
+
+A value with no envelope at all reads as v1. That's how data saved before
+you used a ValueESchema keeps working: there's nothing to backfill.
+
+<Run program={program} caption="An old envelope and a bare value both read as v2 words. Saving gives a v2 envelope.">
+
+```ts file=./run/theme.ts
+
+```
+
+</Run>
+
+## When to use which
+
+| You're versioning                           | Use             |
+| ------------------------------------------- | --------------- |
+| A thing you save, found by an id            | `EntityESchema` |
+| An object with named fields, with no id     | `ESchema`       |
+| A scalar, an enum, a list, a map or a union | `ValueESchema`  |
+| An existing object that has optional fields | `ValueESchema`  |
+
+The last row is a way out. ESchema refuses optional fields, but a
+ValueESchema wraps any Schema, so an older object with optional keys can
+still be versioned as a whole.
+
+<Callout title="Remember">
+  A ValueESchema's version replaces the whole value, and the value is stored in
+  an envelope that carries its version.
+</Callout>
+
+A ValueESchema rarely lives alone. Next, [Shapes inside
+shapes](/std-toolkit/shapes-inside-shapes): a versioned value as a field of
+a task.

@@ -1,6 +1,6 @@
 import { Field } from '../../../field/index.ts';
 import { Ending } from './ending.tsx';
-import { Idea } from './idea.tsx';
+import { Idea } from '../../landing/index.ts';
 import { Opening } from './opening.tsx';
 import { PriorArt } from './prior-art.tsx';
 import { IDEAS } from './story.ts';

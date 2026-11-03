@@ -15,6 +15,7 @@
   "dependencies": {
     "@kestack/devtools-kabuki": "workspace:*",
     "@kestack/kabuki": "workspace:*",
+    "@kestack/std-toolkit": "workspace:*",
     "@kestack/web-platform": "workspace:*",
     "effect": "catalog:",
     "lenis": "catalog:",

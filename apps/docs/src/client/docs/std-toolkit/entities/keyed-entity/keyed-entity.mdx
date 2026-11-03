@@ -1,0 +1,119 @@
+import { LiveTable } from '../../live-table/index.ts';
+import { keyedEntity } from './components/lab.ts';
+import { LifePicture } from './components/life-picture.tsx';
+
+You have a shape for a task. Now you want to save tasks, find them again,
+change them and delete them. By the end of this page you'll do all five,
+on a real table.
+
+## Many of a kind
+
+Most things in an app come many at a time: tasks on a board, messages in
+a chat, people on a team. Each one needs a key you can find it by.
+
+That is a **keyed entity**. You bind your `EntityESchema` to a table and
+say which fields make up the key:
+
+```ts file=./components/tasks.ts
+
+```
+
+The table line is new. The next Part, [StdTable](/std-toolkit/single-table-design),
+is all about it; for now, it is where your tasks live.
+
+`.primary({ pk: ['boardId'] })` says every task on one board is kept
+together. The id field, `taskId`, finishes the key. So a task's **entity
+key** is `{ boardId, taskId }`, and that is all you pass to find it.
+
+## Value and meta
+
+Everything you get back is an **Entity**: your `value`, and a `meta` the
+toolkit keeps beside it.
+
+<Picture caption="Each write moves the update stamp _u forward. A delete sets _d and keeps the value, so restore can bring it back.">
+  <LifePicture />
+</Picture>
+
+The meta fields you'll meet most:
+
+- `_v`: the version the value was saved at.
+- `_u`: the update stamp. Every write gets a newer one.
+- `_d`: whether the entity is deleted.
+
+## The five calls
+
+```ts
+yield *
+  task.insert({ boardId: 'work', taskId: 't1', title: 'Plan', status: 'open' });
+yield * task.get({ boardId: 'work', taskId: 't1' });
+yield * task.query('primary', { pk: { boardId: 'work' }, '>=': null });
+yield *
+  task.getAndUpdate({ boardId: 'work', taskId: 't1' }, { status: 'done' });
+yield * task.delete({ boardId: 'work', taskId: 't1' });
+```
+
+Each one is an Effect. It runs once you provide a table's layer, which
+the [Adapters](/std-toolkit/memory) Part covers.
+
+### insert
+
+`insert` saves a new task. If one with the same key exists, it fails and
+keeps the first. Nothing is overwritten by accident.
+
+### get and query
+
+`get` finds one task by its key, or gives you `null`. `query` lists the
+tasks under one partition, `{ boardId: 'work' }`, in key order.
+`'>=': null` means "from the start". You can also narrow with `<`, `>`,
+`between` or `beginsWith`.
+
+A query returns a page of up to 100 entities by default. Pass a `limit`
+to change it.
+
+### getAndUpdate
+
+`getAndUpdate` reads the task, then saves only the fields you name. Pass a
+function instead, and it gets the current value:
+
+```ts
+yield * task.getAndUpdate(key, (current) => ({ title: `${current.title}!` }));
+```
+
+The key can't change in an update. To move a task to another board, you
+delete it and insert it again; [Transactions](/std-toolkit/transactions)
+makes that one step.
+
+### delete
+
+`delete` doesn't erase the row. It leaves a **tombstone**: the same task,
+with `_d: true`. Other devices need to hear that it went away, and a
+tombstone is how they do.
+
+So `get` and `query` return deleted tasks too, unless you pass
+`{ excludeDeleted: true }`. And `restore` brings a deleted task back.
+
+When you really mean it, `hardDelete` removes the row for good. It asks
+you to type `'I KNOW WHAT I AM DOING'`, on purpose.
+
+## Try it
+
+A real table in memory, and Task bound to it. Insert a few tasks, then
+work on t1.
+
+<LiveTable
+  lab={keyedEntity}
+  caption="Delete t1 and it leaves the board on the right, but stays on the left, marked deleted. Restore brings it back."
+/>
+
+Press "Mark t1 done" before inserting anything, and it fails: there is no
+t1 to update. And watch the left column after a delete: the row is still
+there, marked deleted, with its value kept.
+
+<Callout title="Remember">
+  A keyed entity is found by its key: the fields you named, plus its id. Delete
+  leaves a tombstone, so every device can hear about it.
+</Callout>
+
+Some things exist exactly once, like your app's settings. Next, a
+[Single entity](/std-toolkit/single-entity): one record, with a value
+before you ever save it.

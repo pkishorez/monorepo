@@ -1,12 +1,20 @@
 import { Router } from '@kestack/kabuki/routing';
-import { DOCS, router } from '../../../shared/index.ts';
-import type { Slug } from '../../../shared/index.ts';
+import { packageOf } from '../../shared/index.ts';
+import type { Package } from '../../shared/index.ts';
+import { docRoute } from './package-link.tsx';
 
-/** The pages before and after this one, in reading order. */
-export function Pager({ slug }: { readonly slug: Slug }) {
-  const at = DOCS.findIndex((doc) => doc.slug === slug);
-  const before = DOCS[at - 1];
-  const after = DOCS[at + 1];
+/** The pages before and after this one, in its package's reading order. */
+export function Pager({
+  id,
+  slug,
+}: {
+  readonly id: Package['id'];
+  readonly slug: string;
+}) {
+  const { docs } = packageOf(id).contents;
+  const at = docs.findIndex((doc) => doc.slug === slug);
+  const before = docs[at - 1];
+  const after = docs[at + 1];
   return (
     <nav
       aria-label="More docs"
@@ -14,7 +22,7 @@ export function Pager({ slug }: { readonly slug: Slug }) {
     >
       {before ? (
         <Router.Link
-          to={router.Kabuki.Doc({ slug: before.slug as Slug })}
+          to={docRoute(id, before.slug)}
           className="rounded-lg border border-border p-4 hover:bg-muted/40"
         >
           <span className="block text-xs text-muted-foreground">Previous</span>
@@ -25,7 +33,7 @@ export function Pager({ slug }: { readonly slug: Slug }) {
       )}
       {after && (
         <Router.Link
-          to={router.Kabuki.Doc({ slug: after.slug as Slug })}
+          to={docRoute(id, after.slug)}
           className="rounded-lg border border-border p-4 text-right hover:bg-muted/40"
         >
           <span className="block text-xs text-muted-foreground">Next</span>

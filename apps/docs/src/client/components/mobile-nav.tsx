@@ -18,12 +18,12 @@ import {
 } from '@kestack/web-platform/ui/components/drawer';
 import { MONOREPO, PACKAGES } from '../../shared/index.ts';
 import type { Route } from '../../shared/index.ts';
-import { KabukiBrand, KabukiMark, StackBrand } from './brand.tsx';
+import { PackageBrand, PackageMark, StackBrand } from './brand.tsx';
 import { Sidebar } from './sidebar.tsx';
-import { PackageLink, inPackage } from './package-link.tsx';
+import { PackageLink, packageAt } from './package-link.tsx';
 
 /*
- * The menu below the `lg` width, a drawer from the left: inside kabuki, its
+ * The menu below the `lg` width, a drawer from the left: inside a package, its
  * sidebar under its name; on the stack's home, the bird's eye view: under
  * the stack's name, each package there is, and at the foot the code and
  * who made it. A package's own docs are its own menu's. It opens from
@@ -137,7 +137,7 @@ const openMenu = (set: (open: boolean) => void) => () => set(true);
 
 export function MobileNav() {
   const { route } = useRouter<Route>();
-  const kabuki = inPackage(route, 'kabuki');
+  const here = packageAt(route);
   const [open, setOpen] = useState(false);
   const [onOpen] = useState(() => openMenu(setOpen));
   useSwipeToOpen(open, onOpen);
@@ -157,7 +157,7 @@ export function MobileNav() {
         <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border pr-3 pl-5">
           <DrawerTitle className="text-[15px] font-semibold tracking-tight">
             <span onClick={() => setOpen(false)}>
-              {kabuki ? <KabukiBrand /> : <StackBrand />}
+              {here ? <PackageBrand id={here} /> : <StackBrand />}
             </span>
           </DrawerTitle>
           <DrawerClose
@@ -172,8 +172,8 @@ export function MobileNav() {
           onClick={closeOnLink}
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]"
         >
-          {kabuki ? (
-            <Sidebar />
+          {here ? (
+            <Sidebar id={here} />
           ) : (
             <ul className="space-y-2">
               {PACKAGES.map((entry) => (
@@ -182,7 +182,7 @@ export function MobileNav() {
                     id={entry.id}
                     className="group flex items-center gap-3 rounded-xl border border-border bg-card/40 p-3 transition-colors duration-150 hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                   >
-                    <KabukiMark className="size-9 shrink-0" />
+                    <PackageMark id={entry.id} className="size-9 shrink-0" />
                     <span className="min-w-0 flex-1">
                       <span className="block text-[15px] font-semibold tracking-tight">
                         {entry.name}
@@ -198,7 +198,7 @@ export function MobileNav() {
             </ul>
           )}
         </div>
-        {!kabuki && (
+        {!here && (
           <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-sm">
             <a
               href={MONOREPO}

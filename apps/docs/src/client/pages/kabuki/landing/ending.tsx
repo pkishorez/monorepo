@@ -39,7 +39,7 @@ export function Ending() {
           {ENDING.pitch}
         </p>
         <div className="mt-10 w-full max-w-4xl">
-          <PartLinks label="kabuki's four parts" wide />
+          <PartLinks id="kabuki" label="kabuki's four parts" wide />
         </div>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Router.Link

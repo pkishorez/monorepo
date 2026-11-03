@@ -1,6 +1,12 @@
 import { ChevronDownIcon } from 'lucide-react';
-import { label } from '../../components/index.ts';
-import type { Heading } from '../../docs/index.ts';
+import { label } from './styles.ts';
+
+/** One `##` or `###` heading of a page, and the id it is linked by. */
+export type Heading = {
+  readonly id: string;
+  readonly title: string;
+  readonly depth: 2 | 3;
+};
 
 /*
  * "On this page": the page's headings, as links to them. Beside the page

@@ -1,0 +1,76 @@
+import { LiveTable } from '../../live-table/index.ts';
+import { quickStart } from './components/lab.ts';
+
+By the end of this page you'll have a task list that saves, updates and
+deletes tasks, running on a real table. It takes three steps and no
+database.
+
+## Install
+
+std-toolkit is built on [Effect](https://effect.website), so you add both:
+
+```sh
+pnpm add @kestack/std-toolkit effect
+```
+
+## 1. Describe a task
+
+A task has a title, a status and the board it's on. You write that once, as
+an **EntityESchema**: a name, the field that is its id, and its fields.
+
+```ts file=./components/task.ts
+
+```
+
+This one line is what everything else reads from. The table checks every
+save against it, and every read hands you a value typed by it.
+
+## 2. Give it a table
+
+A **StdTable** is where your entities live. You name it and its two key
+columns. Then you bind `Task` to it, and say which field fills the
+partition key.
+
+```ts file=./components/table.ts
+
+```
+
+Tasks on the same board share a partition, so finding a board's tasks is
+one query. The sort key is always the id, so you don't name it.
+
+## 3. Save and read
+
+`task` now has everything a list needs: `insert`, `get`, `query`,
+`getAndUpdate` and `delete`. Each one is an Effect that needs the table to
+run against. In the docs, that table is kept in memory.
+
+Try it: add a few tasks, finish `t1`, then delete it.
+
+<LiveTable
+  lab={quickStart}
+  caption="Every button calls one method on task. The left column is the raw table, the right is what a query of the 'work' board gives back."
+/>
+
+Two things to notice. Each stored row carries `_v`, the version of the
+shape it was saved in. And a deleted task stays in the table as a
+**tombstone**, marked deleted, so other copies of it can learn it's gone.
+A query returns tombstones too, unless you pass `{ excludeDeleted: true }`,
+as this one does.
+
+```ts file=./components/board.ts
+
+```
+
+## 4. Change the shape
+
+Say a task needs a priority. You don't edit `Task`. You add a version to
+it, and every task saved before reads with a priority too. That's the
+first thing the next Part teaches.
+
+<Callout title="Remember">
+  A shape, a table, and the shape bound to the table. Every save and read goes
+  through that binding, and the adapter decides where it lands.
+</Callout>
+
+Next, [EntityESchema](/std-toolkit/entity-eschema): what a shape really is,
+and the two forms every task takes.

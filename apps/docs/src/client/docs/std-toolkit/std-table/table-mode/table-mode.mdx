@@ -1,0 +1,102 @@
+import { ModePicture } from './components/mode-picture.tsx';
+
+Some data must never be lost. Some can be fetched again any time. By the
+end of this page you'll tell std-toolkit which is which, and know what it
+does when a change can't keep your rows readable.
+
+## Two kinds of table
+
+Your server's tasks are the only copy. Losing them is a disaster. The
+copy in a browser, though, is a cache: the server still has it all.
+
+So every physical table declares a **table mode**:
+
+- A **persistent table** keeps its data, always. A change that would
+  strand its rows is refused before it reaches them.
+- A **disposable table** may throw its rows away when a change isn't
+  safe, and start fresh.
+
+<Picture caption="The same breaking change reaches two tables. The persistent one refuses it and keeps every row. The disposable one is wiped and set up again.">
+  <ModePicture />
+</Picture>
+
+## Where you say it
+
+The mode belongs to a physical table, not to the StdTable. One StdTable
+can be persistent on your server and disposable in a browser.
+
+You say it where the adapter prepares the table. On SQLite, that's
+`SQLite.setup`:
+
+```ts
+yield * SQLite.setup(table, { database, mode: 'persistent' });
+```
+
+On IndexedDB, it's part of `IDB.make`, since the browser prepares a store
+when it first opens:
+
+```ts
+const idb = IDB.make(table, {
+  database: IDB.database({ databaseName: 'board' }),
+  mode: 'disposable',
+});
+```
+
+The [Adapters](/std-toolkit/memory) Part shows each one in full. Memory
+takes no mode: nothing outlives a Memory table, so there's nothing to
+keep.
+
+## The Stored contract
+
+How does setup know a change is breaking? Each physical table keeps a
+**Stored contract** beside its data: a snapshot of the table it was last
+set up under, and its mode.
+
+On every setup, std-toolkit compares your table now with that contract.
+Each difference is one of four kinds:
+
+- **safe**, like adding a version: setup goes ahead.
+- **requires-backfill**, like a new index: old rows need their keys
+  written.
+- **breaking**, like editing a version that has rows: those rows would no
+  longer read.
+- **unverifiable**: std-toolkit can't tell, so it treats it as breaking.
+
+Because the contract lives with the data, a phone that skipped three
+releases is compared from where its own data really is.
+
+DynamoDB is the exception: it keeps no Stored contract and has no setup.
+Its check happens at deploy instead, as [Deploying](/std-toolkit/deploying)
+shows.
+
+## What each mode does
+
+| The change        | Persistent                  | Disposable                     |
+| ----------------- | --------------------------- | ------------------------------ |
+| safe              | set up                      | set up                         |
+| requires-backfill | set up, with a warning      | reindexed or wiped, by adapter |
+| breaking          | refused with `SetupRefused` | wiped, then set up             |
+| unverifiable      | refused with `SetupRefused` | wiped, then set up             |
+
+A refused persistent table is left exactly as it was. There's no
+override. The way forward is to undo the edit and [add a
+version](/std-toolkit/adding-a-version) instead.
+
+On a persistent IndexedDB store, setup also runs the
+[reindex](/std-toolkit/drift-and-reindex) for you. A disposable one does
+the same by default, or wipes, as `onBackfill: 'reindex' | 'wipe'` says.
+
+### One way only
+
+A disposable table may become persistent later. A persistent table can
+never become disposable: setup refuses that too. If you really mean to
+start over, give it a new physical table name.
+
+<Callout title="Remember">
+  Persistent tables refuse a breaking change and keep every row. Disposable
+  tables start fresh. Each physical table says which it is.
+</Callout>
+
+Setup is the last line of defence. You'd rather hear about a breaking
+change in a test. Next, [Snapshot](/std-toolkit/snapshot): catching it
+before you ship.

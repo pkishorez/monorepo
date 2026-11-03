@@ -1,0 +1,63 @@
+import { program } from './run/adopt.ts';
+
+You rarely start with versions. You start with a plain Schema and a
+database full of rows. This page shows how to bring those rows along,
+with no backfill and no risk.
+
+## Rows with no version
+
+Rows saved before you used std-toolkit have no `_v`. What should a read do
+with them? The rule is simple: **a row with no version is read as v1**.
+
+Not the latest version: the first. That's the safe guess, because v1 is
+the shape your old code was writing.
+
+## Adopt in two releases
+
+First, ship your existing shape as v1, and change nothing else:
+
+```ts file=./components/settings.ts
+
+```
+
+`SettingsAdopted` is that first release. It has one version, so every old
+row reads exactly as it did. That release is safe to ship on its own.
+
+Later, `Settings` adds a v2. Now the rule earns its keep: an old row with
+no `_v` is read as v1, and the migration brings it up to v2, like any
+other v1 row.
+
+<Run program={program} caption="The same unversioned row reads as it was, then with a fontSize once v2 exists. A row that never had v1's shape is refused.">
+
+```ts file=./run/adopt.ts
+
+```
+
+</Run>
+
+## v1 must match the real rows
+
+There's one thing you have to get right: v1's fields must be the fields
+your old rows really have. std-toolkit can't check that ahead of time. If
+an old row doesn't fit v1, its read fails loudly, with the field that's
+wrong. It never guesses another shape.
+
+So look at real rows before you write v1. If some old rows lack a key,
+an ESchema can't describe them, since it has no optional fields. Version
+the whole object as a ValueESchema instead: it takes any Schema, optional
+keys included.
+
+## Values too
+
+A [ValueESchema](/std-toolkit/value-eschema) works the same way. A bare
+value, with no envelope, is read as v1. So a setting that was saved as the
+plain string `'dark'` keeps reading once you version it.
+
+<Callout title="Remember">
+  A row with no version reads as v1. Ship your existing shape as v1 first, and
+  make sure it matches the rows you really have.
+</Callout>
+
+You can add, rename and remove fields now. Next, the [Upgrade
+check](/std-toolkit/upgrade-check): how to know every old row still reads,
+before you ship.

@@ -1,4 +1,4 @@
-import type { Slug } from '../../../shared/index.ts';
+import type { KabukiSlug as Slug } from '../../../shared/index.ts';
 import { page } from '../page.ts';
 import type { Page } from '../page.ts';
 import * as introduction from './get-started/introduction/introduction.mdx';

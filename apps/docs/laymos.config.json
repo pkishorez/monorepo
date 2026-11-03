@@ -15,11 +15,14 @@
     "src/client/demos/opening-an-app/screens": [
       "src/client/demos/opening-an-app/story"
     ],
+    "src/client/pages/kabuki": ["src/client/pages/landing"],
+    "src/client/pages/std-toolkit": ["src/client/pages/landing"],
     "src/shared/pages": ["src/shared/content"],
     "src/client/docs": ["src/client/components"],
     "src/client/demos/todos": ["src/client/demos/stage"],
     "src/client/demos/opening-an-app": ["src/client/demos/stage"],
     "src/client/field/shapes/stack": ["src/client/field/shapes/pen"],
-    "src/client/field/shapes/kabuki": ["src/client/field/shapes/pen"]
+    "src/client/field/shapes/kabuki": ["src/client/field/shapes/pen"],
+    "src/client/field/shapes/std-toolkit": ["src/client/field/shapes/pen"]
   }
 }

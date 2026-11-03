@@ -1,0 +1,115 @@
+import { OrderPicture } from './components/order-picture.tsx';
+
+A Collection reads the Backend through a **Sync Strategy**. This page shows
+the two built in, how to load only what's on screen, and the one rule every
+fetch must keep.
+
+## Oldest first, or newest first
+
+`strategy.oldToNew` reads from the oldest change forward, a page at a time,
+then keeps asking for anything newer. `strategy.newToOld` shows the newest
+page first, then fills in older pages behind it, while keeping the top
+fresh.
+
+<Picture caption="The same eight changes, read two ways. oldToNew fills in from the oldest; newToOld shows the newest page first. Both pick up a change that arrives later.">
+  <OrderPicture />
+</Picture>
+
+Pick oldToNew when you need everything, like a board's tasks. Pick
+newToOld when the newest matters most and the rest can wait, like a feed or
+a chat.
+
+## Pulling, or being pushed
+
+`oldToNew` can read three ways:
+
+```ts
+// Pull: catch up page by page, then ask again every five seconds.
+strategy.oldToNew({ fetch, pollEvery: '5 seconds' });
+
+// Pushed: the Backend replays everything after the cursor, then streams.
+strategy.oldToNew({ subscribe });
+
+// Both: catch up by pulling, then stay live on the feed.
+strategy.oldToNew({ fetch, subscribe });
+```
+
+Without `pollEvery`, a `fetch` catches up once and stops. If a feed drops,
+it opens again from the saved cursor, so nothing is missed.
+
+`newToOld` takes `fetch` or `subscribe` for the top, and
+`fetchOlder({ before })` for the pages below it.
+
+## The cursor rule
+
+`fetch` gets `after`: the newest Entity read so far, or `null` the first
+time. Return only what comes strictly after it. Filter with `>`, never
+`>=`.
+
+```ts
+const fetch = ({ after }) =>
+  api.tasksChangedAfter(after === null ? null : after.meta._u);
+```
+
+Why so strict? An inclusive fetch serves the cursor's own Entity again on
+every page. Sync notices the cursor isn't moving and stops, but you've
+paid for the last page twice. `before`, for older pages, is exclusive the
+same way.
+
+## Only what's on screen
+
+A strategy under `global` covers the whole Collection while it's mounted.
+You can also give one per **Window**: the rows whose key reads one value,
+like the tasks of one board.
+
+```ts
+const tasks = app.collection(Task, {
+  sync: {
+    windows: {
+      boardId: (boardId) =>
+        strategy.oldToNew({
+          fetch: ({ after }) => api.changesOn(boardId, after),
+          pollEvery: '5 seconds',
+        }),
+    },
+  },
+});
+```
+
+A Window opens when a query filters on its key with `eq`, and its strategy
+runs while that query is there. When the last one leaves, the strategy
+stops, and the rows stay. So a board you opened once still shows offline.
+
+What you configure decides how a Collection loads:
+
+| You give  | It is           | It loads                                    |
+| --------- | --------------- | ------------------------------------------- |
+| `global`  | **Eager**       | Everything, once the Collection mounts.     |
+| `windows` | **On-demand**   | Only what a query looks at.                 |
+| both      | **Progressive** | What a query looks at first, then the rest. |
+
+## A Backend that's a little late
+
+Some Backends make a write readable a moment after its `_u`, from replica
+lag or parallel writers. A cursor that already moved past it would skip it
+for good.
+
+Set `settleWindow: '5 seconds'` on the Collection. The built-in strategies
+then never save their cursor past the newest `_u` read, minus five seconds,
+so each poll reads the last five seconds again. Repeats are ignored. It's
+off unless you set it; a Backend that pushes in order doesn't need it.
+
+## Your own
+
+`strategy.make` builds a strategy from a name, a state schema, a starting
+state, and a `run` that yields Entities with the next state. Each yield is
+stored in one write, so a reload resumes where it stopped. The built-in
+ones are made the same way.
+
+<Callout title="Remember">
+  Return only what's strictly after the cursor. Use `global` for everything,
+  `windows` for what's on screen, or both.
+</Callout>
+
+So far it's been one tab. Next, [Across tabs and offline](/std-toolkit/across-tabs):
+one copy for every tab, and what happens when the network goes.

@@ -1,4 +1,5 @@
 import type { ShapeName } from '../../../field/index.ts';
+import type { Story } from '../../landing/index.ts';
 
 /*
  * Every word on kabuki's landing page after its first screen, in the order
@@ -8,23 +9,7 @@ import type { ShapeName } from '../../../field/index.ts';
  * In a body, `backticks` mark code. Package names are lowercase, always.
  */
 
-/**
- * Which half of a wide screen the shape of the stop `stop` places after
- * the opening takes. The opening's app sits on the right, so the first
- * shape takes the left, and every shape after crosses the screen.
- */
-export const sideOf = (stop: number): 'left' | 'right' =>
-  stop % 2 === 0 ? 'left' : 'right';
-
-export type Idea = {
-  readonly shape: ShapeName;
-  /** A word or two after the number, in mono. */
-  readonly label: string;
-  readonly title: string;
-  readonly body: string;
-};
-
-export const IDEAS: ReadonlyArray<Idea> = [
+export const IDEAS: ReadonlyArray<Story> = [
   {
     shape: 'actor',
     label: 'actors',

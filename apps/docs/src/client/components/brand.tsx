@@ -1,11 +1,12 @@
 import { Router, useRouter } from '@kestack/kabuki/routing';
 import { Badge } from '@kestack/web-platform/ui/components/badge';
-import { router } from '../../shared/index.ts';
-import type { Route } from '../../shared/index.ts';
+import { packageOf, router } from '../../shared/index.ts';
+import type { Package, Route } from '../../shared/index.ts';
+import { inPackage, packageRoute, slugAt } from './package-link.tsx';
 
 /*
  * Whose place a page is in, at the start of the header: the stack's logo on
- * its home, kabuki's own in kabuki's docs.
+ * its home, a package's own in its docs.
  */
 
 export function StackBrand() {
@@ -49,22 +50,71 @@ export function KabukiMark({ className }: { readonly className?: string }) {
   );
 }
 
+/** std-toolkit's mark: a table of three rows, its key column solid, as the theme is. */
+export function StdToolkitMark({ className }: { readonly className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      aria-hidden
+      className={`shrink-0 rounded-[5px] bg-foreground text-background ${className ?? ''}`}
+    >
+      {[5, 9, 13].map((y) => (
+        <g key={y}>
+          <rect
+            x={4.5}
+            y={y}
+            width={3}
+            height={2.4}
+            rx={0.6}
+            fill="currentColor"
+          />
+          <rect
+            x={9}
+            y={y}
+            width={6.5}
+            height={2.4}
+            rx={0.6}
+            fill="currentColor"
+            opacity={0.5}
+          />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/** A package's mark, by its id. */
+export function PackageMark({
+  id,
+  className,
+}: {
+  readonly id: Package['id'];
+  readonly className?: string;
+}) {
+  return id === 'kabuki' ? (
+    <KabukiMark {...(className ? { className } : {})} />
+  ) : (
+    <StdToolkitMark {...(className ? { className } : {})} />
+  );
+}
+
 /**
- * kabuki's logo in its header, marked alpha while it is this early: from a
- * docs page it leads to kabuki's landing page, and from there out to the
- * stack's home.
+ * A package's logo in its header, marked alpha while it is this early:
+ * from a docs page it leads to the package's landing page, and from there
+ * out to the stack's home.
  */
-export function KabukiBrand() {
+export function PackageBrand({ id }: { readonly id: Package['id'] }) {
   const { route } = useRouter<Route>();
-  const atLanding = route._tag === 'Kabuki' && !route.page;
+  const atLanding = inPackage(route, id) && slugAt(route) === undefined;
+  const { name } = packageOf(id);
   return (
     <Router.Link
-      to={atLanding ? router.Home() : router.Kabuki()}
-      title={atLanding ? 'Back to ke stack' : 'kabuki home'}
+      to={atLanding ? router.Home() : packageRoute(id)}
+      title={atLanding ? 'Back to ke stack' : `${name} home`}
       className="flex shrink-0 items-center gap-2 text-[15px] font-semibold tracking-tight"
     >
-      <KabukiMark className="size-5" />
-      kabuki
+      <PackageMark id={id} className="size-5" />
+      {name}
       <Badge
         variant="outline"
         className="h-4 px-1.5 font-mono text-[10px] font-normal tracking-normal text-muted-foreground"

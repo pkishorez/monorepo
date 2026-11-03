@@ -1,7 +1,9 @@
 import { Router } from '@kestack/kabuki/routing';
 import { ArrowRightIcon } from 'lucide-react';
-import { docOf, router, sectionOf } from '../../../../../../shared/index.ts';
-import type { Slug } from '../../../../../../shared/index.ts';
+import { KABUKI_CONTENTS, router } from '../../../../../../shared/index.ts';
+import type { KabukiSlug as Slug } from '../../../../../../shared/index.ts';
+
+const { docOf, sectionOf } = KABUKI_CONTENTS;
 
 /*
  * Each React idea beside its kabuki twin, one row per page, in the order

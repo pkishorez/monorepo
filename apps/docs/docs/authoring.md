@@ -6,28 +6,34 @@ adding or changing any page under `src/client/docs`.
 ## The shape of the site
 
 ```
-ke stack                    the home page: one line, then a door per package
-└── kabuki                  a package: its landing page at /kabuki
-    ├── Get started         a section: a heading in the sidebar
-    │   ├── Introduction    a page: /kabuki/introduction
-    │   └── Quick start
-    ├── core                a Part: a section named and pathed as its package is
-    │   ├── One Actor       a group: a small title over at most three pages
-    │   ├── Many Actors
-    │   └── Over time
-    ├── react · routing · start
-    └── Demos               grouped Small, Apps, Showcase; the full-screen one opens in a new tab
+ke stack                    the home page: one line, then a chapter per package
+├── kabuki                  a package: its landing page at /kabuki
+│   ├── Get started         a section: a heading in the sidebar
+│   │   ├── Introduction    a page: /kabuki/introduction
+│   │   └── Quick start
+│   ├── core                a Part: a section named and pathed as its package is
+│   │   ├── One Actor       a group: a small title over at most three pages
+│   │   ├── Many Actors
+│   │   └── Over time
+│   ├── react · routing · start
+│   └── Demos               grouped Small, Apps, Showcase; the full-screen one opens in a new tab
+└── std-toolkit             /std-toolkit
+    ├── Get started
+    └── Evolving schema · Entities · StdTable · Adapters · Sync
 ```
 
-- **Package.** A package of the stack with docs to read, kabuki today. It
-  is listed in
-  `src/shared/content/packages.ts` with one word for what it is (`kind`) and a
-  one-sentence `pitch`. It gets a door on the home page, a landing page and a
-  sidebar. A package is added only once it has pages to read: no "coming
+- **Package.** A package of the stack with docs to read: kabuki and
+  std-toolkit. It is listed in `src/shared/content/packages.ts` with one
+  word for what it is (`kind`), a one-sentence `pitch` and its table of
+  contents. It gets a chapter on the home page, a landing page and a
+  sidebar; the sidebar, search, pager and page view are shared, and read
+  the package's table. A package is added only once it has pages to read: no "coming
   soon" packages.
-- **Section.** A heading in a package's sidebar. kabuki's are Get started,
-  its four Parts in the order they are read (core, react, routing, start,
-  each using only the ones before it), and Demos. A Part's section carries
+- **Section.** A heading in a package's sidebar, always open. kabuki's are
+  Get started, its four Parts in the order they are read (core, react,
+  routing, start, each using only the ones before it), and Demos.
+  std-toolkit's are Get started and its five Parts: Evolving schema,
+  Entities, StdTable, Adapters, Sync. A Part's section carries
   its import path, which its pages show above their title.
 - **Group.** The pages of a section read together, under a small title of
   their own or none: at most three, so the reader holds one group at a time.
@@ -44,7 +50,8 @@ Message, State, Model, Worker.
 
 ## Where a page lives
 
-The table of contents is TypeScript; the words are MDX.
+The table of contents is TypeScript; the words are MDX. kabuki's is shown;
+std-toolkit's is the same under `std-toolkit`.
 
 ```
 src/shared/content/kabuki.ts           the table of contents: sections, pages, titles, summaries
@@ -65,7 +72,9 @@ src/client/docs/
   folder for everything only it uses. Nothing in `components/` is imported by
   another page. A demo the pages of one Part share lives in a folder named
   for it under that Part, beside its pages, as routing's `shop/` does. A
-  component pages of different Parts need moves to `src/client/components`.
+  component pages of different Parts need moves to `src/client/components`,
+  unless only one package uses it: then it lives in that package's folder,
+  as std-toolkit's `live-table/` does.
 - The title and the one-line summary are in the table of contents, not in the
   MDX. The page draws them above its words, and the server uses them for the
   page's metadata.
@@ -75,11 +84,32 @@ src/client/docs/
 
 ## Adding a page
 
-1. Add it to its section and group in `src/shared/content/kabuki.ts`:
-   `slug`, `title`, `summary`.
-2. Make its folder, `src/client/docs/kabuki/<section>/<slug>/`, with
+1. Add it to its section and group in the package's table,
+   `src/shared/content/<package>.ts`: `slug`, `title`, `summary`.
+2. Make its folder, `src/client/docs/<package>/<section>/<slug>/`, with
    `<slug>.mdx`.
-3. Register it in `src/client/docs/kabuki/kabuki.ts`.
+3. Register it in `src/client/docs/<package>/<package>.ts`.
+
+## An std-toolkit page
+
+The five Parts are one story: the shape your data has and how it changes,
+the entities that save it, the one table they share, the adapter that puts
+the table on a database, and the sync that keeps an app's copy fresh.
+Entities come before StdTable: an entity page uses a ready-made table and
+says the next Part explains it. A page follows a kabuki page's order:
+the idea, a Picture early, the code, then a Live Table where pressing
+buttons teaches something, a Remember and a Next.
+
+- **Live Table.** `<LiveTable lab={…} caption="…">`, imported from
+  `../../live-table/index.ts`: a real table on the Memory adapter, the rows
+  as stored beside the values as read, driven by the buttons its lab names.
+  It keeps nothing: the docs never store data in the reader's browser.
+- **One entity name per table.** A table binds each entity once. Two
+  releases of one shape need two `StdTable.make` calls with the same
+  logical name, as `adding-a-version/components/tasks.ts` does; both run
+  against the one table in memory.
+- **Code that cannot run here.** A server adapter's code is a hand-written
+  block: nothing that needs Node is imported into a page.
 
 ## A Part's page
 

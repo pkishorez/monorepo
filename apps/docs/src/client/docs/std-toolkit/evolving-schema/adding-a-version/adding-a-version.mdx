@@ -1,0 +1,77 @@
+import { LiveTable } from '../../live-table/index.ts';
+import { addingAVersion } from './components/lab.ts';
+import { ReadPicture } from './components/read-picture.tsx';
+
+Your app is live, and people have saved tasks. Now a task needs a
+priority. By the end of this page you'll add it in one line, and every task
+saved before still reads.
+
+## The problem with old rows
+
+Data outlives code. A task saved in January sits in the table in the shape
+January's code gave it. When March's code expects a `priority`, that
+January row doesn't have one.
+
+The usual fixes all hurt. A backfill script rewrites the table on every
+deploy. A `task.priority ?? 'low'` at every read site never goes away.
+Or you stop changing anything at all.
+
+std-toolkit does something else: it keeps every **version** of the shape,
+and upgrades old rows as they are read.
+
+<Picture caption="A task saved at v1 is read by release 2. It arrives at v1, the migration makes it v2, and the row in the table never moves. Only a save writes it again, at the latest version.">
+  <ReadPicture />
+</Picture>
+
+## One evolve step
+
+You add a version with `evolve`. It takes three things: the version's
+name, what changed in the shape, and a **migration** that turns the old
+value into the new one.
+
+```ts file=./components/tasks.ts
+
+```
+
+The second argument is a delta. `{ priority: … }` says one field was
+added; every other field carries over. The migration gets the v1 value and
+returns the v2 one, so a task saved without a priority reads as `'low'`.
+
+Your code only ever sees the latest shape. `typeof Task.Type` has
+`priority`, so TypeScript makes you handle it, and nothing else needs to
+know a v1 ever existed.
+
+## How a read works
+
+Every stored row carries its version in `_v`. When a row is read, three
+things happen in order:
+
+1. It is decoded with the shape of **its own** version, v1 here.
+2. Each migration after that runs, in turn, up to the latest.
+3. Your code gets the result, typed as the latest shape.
+
+A read never writes. The row stays at v1 until your app saves that task
+again; a save always writes the latest version. So there's no backfill, no
+downtime, and no moment where two releases disagree about the table.
+
+## Try it
+
+Here both releases share one real table, in memory. Save a few tasks with
+release 1, then a few with release 2.
+
+<LiveTable
+  lab={addingAVersion}
+  caption="Old rows keep v1 in the table, yet release 2 reads every task with a priority. Only the rows release 2 saved are stored at v2."
+/>
+
+Look at the left column: the release 1 rows are stamped `v1` and have no
+`priority`. On the right, release 2 reads all of them in its own shape.
+
+<Callout title="Remember">
+  Add a version; never edit one. Old rows are upgraded when they are read, and
+  written in the latest shape only when they are saved.
+</Callout>
+
+Adding a field is the easy change. Next, [Rename and
+remove](/std-toolkit/rename-and-remove): what happens when a field goes
+away, or gets a new name.

@@ -14,5 +14,11 @@ export {
   TodosDemo,
   TodosDemoLive,
 } from './kabuki/index.ts';
+export {
+  StdToolkit,
+  StdToolkitDoc,
+  StdToolkitDocLive,
+  StdToolkitLive,
+} from './std-toolkit/index.ts';
 export { router } from './routes.ts';
 export type { Route } from './routes.ts';
