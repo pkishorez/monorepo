@@ -22,3 +22,4 @@ export { Run } from './run.tsx';
 export type { Program } from './run.tsx';
 export { Files } from './files.tsx';
 export { OwnTouch } from './own-touch.tsx';
+export { Inspect } from './inspect.tsx';

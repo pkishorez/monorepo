@@ -1,76 +1,87 @@
 import { LiveTable } from '../../live-table/index.ts';
+import { program } from './run/move.ts';
 import { transactions } from './components/lab.ts';
 import { BatchPicture } from './components/batch-picture.tsx';
 
-Moving a task to another board takes two writes: add it there, remove it
-here. If only one lands, the task is lost or doubled. By the end of this
-page you'll save both as one change.
+Someone drags "Plan the week" from the work board to home. A task's board
+is part of its key, and a key can't change in an update, as [Keyed
+entity](/std-toolkit/keyed-entity) said. So a move is two writes: add the
+task on home, delete it from work.
+
+If only one of them lands, the task is doubled or lost. This page saves
+both as one.
 
 ## All or nothing
 
-A key can't change in an update, as [Keyed
-entity](/std-toolkit/keyed-entity) said. So a move is an insert on the
-new board and a delete on the old one.
+A **transaction** saves several writes together. Either every one lands,
+or none of them does.
 
-A **transaction** saves them together. Either every write lands, or none
-of them does.
-
-<Picture caption="The first move lands whole: t1 is on home, and work keeps a tombstone. The second is refused, because home already has a t2, and the delete beside it doesn't land either.">
+<Picture caption="The first move lands whole: t1 is on home, and work keeps a tombstone. The second is refused, because home already has a t2, so the delete beside it doesn't land either.">
   <BatchPicture />
 </Picture>
 
-## Ops, then transact
+## Prepare, then commit
 
-Every write you've used has an `Op` twin: `insertOp`, `getAndUpdateOp`,
-`deleteOp`, `restoreOp`. An op prepares the write without saving it.
-Then `table.transact` saves the list:
+Every write you've used has a twin that prepares it without saving it:
+`insertOp`, `getAndUpdateOp`, `deleteOp` and `restoreOp`. Each gives back
+an **op**. `table.transact` then saves a list of ops as one:
 
 ```ts file=./components/tasks.ts
 
 ```
 
-Every write in a transaction gets the same update stamp, `_u`. So a
-device that syncs later sees the move as one change, not two.
+Every write in a transaction gets the same update stamp, `_u`. So a device
+that syncs later sees the move as one change, not two.
 
-When a transaction is refused, it fails with `TransactFailed`, and says
-which op refused and why. Nothing is written.
+When a transaction is refused, it fails with a `TransactFailed` reason
+that says which op refused, and why. Nothing is written.
+
+## See it run
+
+One move that lands, and one that's refused. Open the rows after the
+first move: both carry the same `_u`, and the one on work is a tombstone,
+with `_d: true`. Then open the refusal to see which op said no.
+
+<Run program={program} caption="The landed move leaves two rows under one stamp. The refused one names the insert that failed, and t2 is still on work.">
+
+```ts file=./run/move.ts
+
+```
+
+</Run>
 
 ## Checks
 
 Sometimes a batch depends on a row it doesn't change: "add this task, but
 only if its board isn't archived". A check op asserts something without
-writing:
+writing anything:
 
-- `getAndCheckOp(key, (current) => …)` holds when your function says so;
-- `existsOp` and `notExistsOp` hold when the row is there, or isn't;
+- `getAndCheckOp(key, (current) => …)` holds when your function says so.
+- `existsOp` and `notExistsOp` hold when the row is there, or isn't.
 - `unchangedOp(entity)` holds when nobody saved that row since you read
   it.
 
 If a check fails, the whole batch is refused, just like a refused write.
 
-## Limits
+## The same limits everywhere
 
-A transaction follows DynamoDB's rules on every adapter:
-
-- at most 100 ops;
-- each row at most once;
-- every op from the same table.
-
-Break one, and it's refused before anything is written, even on Memory.
-So a batch that works in your tests works in production too.
+A transaction follows DynamoDB's rules, on every adapter: at most 100
+ops, each row at most once, and every op from the same table. Break one,
+and it's refused before anything is written, even on Memory. So a batch
+that works in your tests works in production too.
 
 ## scan
 
-One more table-wide call. `table.scan()` streams every row in the table,
-of every kind, as it is stored. The rows are untyped, since no one shape
-fits them all. It's what a backfill walks, as [Drift and
-reindex](/std-toolkit/drift-and-reindex) showed, and it's how the Live
+One more call that works on the whole table. `table.scan()` streams every
+row it holds, of every kind, exactly as stored. The rows are untyped,
+since no one shape fits them all. It's what a backfill walks, as [Drift
+and reindex](/std-toolkit/drift-and-reindex) showed, and it's how the Live
 Tables on these pages draw their left column.
 
 ## Try it
 
-Add t1 to work, then move it. Then press Reset, and try again with a t1
-already on home.
+Add t1 to work, then move it. Then press Reset and try again, this time
+with a t1 already on home.
 
 <LiveTable
   lab={transactions}
@@ -82,5 +93,6 @@ already on home.
   update stamp, or not at all.
 </Callout>
 
-That's the table. Next, the Adapters Part puts it on a real database,
-starting with [Memory](/std-toolkit/memory).
+That's the table, from the inside. It has run in memory the whole time.
+Next, the Adapters Part puts it on a real database, starting with [What
+an adapter is](/std-toolkit/what-is-an-adapter).

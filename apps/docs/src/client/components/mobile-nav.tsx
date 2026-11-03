@@ -154,7 +154,7 @@ export function MobileNav() {
               <div
                 data-sidebar-scroll
                 onClick={closeOnLink}
-                className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+                className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))]"
               >
                 {here ? (
                   <Sidebar id={here} />

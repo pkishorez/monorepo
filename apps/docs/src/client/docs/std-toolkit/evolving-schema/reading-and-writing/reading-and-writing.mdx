@@ -1,0 +1,99 @@
+import { PipelinePicture } from './components/pipeline-picture.tsx';
+import { program as read } from './run/read.ts';
+import { program as write } from './run/write.ts';
+import { program as dates } from './run/dates.ts';
+
+You've added a version, and old tasks read in the new shape. This page
+slows that down: what a read does step by step, what a write does, and why
+the two are not mirror images.
+
+## A read, step by step
+
+Say a task has three versions: v2 added `priority`, v3 added `done`. A row
+saved at v1 is read. Four things happen, in order:
+
+1. **Read the stamp.** The row's `_v` says which version wrote it. A row
+   with no `_v` at all is read as v1.
+2. **Decode at that version.** The row is checked against v1's fields, not
+   the latest's. A v1 row is a perfectly good v1 task.
+3. **Run each migration after it**, one at a time: v1 → v2 adds a priority,
+   then v2 → v3 adds done.
+4. **Hand over the latest value.** Your code gets a v3 task, and never sees
+   which version it came from.
+
+<Picture caption="A row stamped v1 is decoded at v1, then passes through each migration in turn, gaining a field at each, until your code gets a v3 task.">
+  <PipelinePicture />
+</Picture>
+
+A row saved at v2 skips the first migration and runs only the second. A v3
+row runs none. Here are three rows, saved three ways:
+
+<Run program={read} caption="The v1 row runs both migrations; the v2 row keeps its 'high' priority and runs one; the row with no _v is read as v1. Open any line to compare the stored row with what was read.">
+
+```ts file=./run/read.ts
+
+```
+
+```ts file=./components/task.ts
+
+```
+
+</Run>
+
+## A write always uses the latest
+
+Writing has no steps to speak of. Your code holds a latest value, so
+encoding it stamps the latest version, `_v: 'v3'`. No migration ever runs on
+a write.
+
+That's how an old row moves forward: when your app reads it and saves it
+again. Here a v1 task is read, marked done and saved:
+
+<Run program={write} caption="The row goes in at v1 and comes back out at v3. Nothing else touched it: the next save is what upgrades a row in the database.">
+
+```ts file=./run/write.ts
+
+```
+
+</Run>
+
+So reading looks back, through every version, and writing looks forward,
+to the latest only. Keeping all the history on the read side is what lets
+the write side stay this simple.
+
+## Two forms, field by field
+
+The value and the encoded form can differ by more than `_v`. A field can
+hold one thing in your code and another when stored.
+`Schema.DateFromString` is a `Date` in the value and a plain string when
+stored:
+
+<Run program={dates} caption="The value holds a Date; the stored form holds its ISO string; reading it back gives a Date again. Open each line to see the field.">
+
+```ts file=./run/dates.ts
+
+```
+
+```ts file=./components/reminder.ts
+
+```
+
+</Run>
+
+Encoding and decoding convert each such field for you, so your code never
+handles the string. Migrations work on values too, so a migration can build
+a `Date` from an old string field.
+
+## When a read cannot work
+
+One row can't be read: one stamped with a version newer than your code
+knows. That happens when an older release meets data a newer one saved.
+[Gotchas](/std-toolkit/gotchas) covers it, and what to do.
+
+<Callout title="Remember">
+  A read decodes at the row's own version and migrates forward to the latest. A
+  write always stamps the latest. Migrations never run on a write.
+</Callout>
+
+So far every shape has been a plain object. What about a task that needs an
+id to be found by? Next, [EntityESchema](/std-toolkit/entity-eschema).

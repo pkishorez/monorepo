@@ -1,0 +1,91 @@
+import { LayersPicture } from './components/layers-picture.tsx';
+import { program } from './run/one-program.ts';
+
+You have a shape that keeps every version, entities that save it, and one
+table they all share. Every example so far ran, yet none of them said
+where the rows went. This Part answers that: where does the table live?
+
+## The problem
+
+A real app keeps its data in more than one place. Your server keeps it in
+DynamoDB or SQLite. Your tests keep it in memory. Your web app keeps a
+copy in the browser, in IndexedDB.
+
+Usually that means writing the data layer once per database: the same
+insert, the same query, the same upgrade of old rows, four times over. And
+four copies drift apart.
+
+## The idea
+
+std-toolkit splits _what your program does_ from _where the table lives_.
+
+Look at the type of a program that saves and lists tasks. It never names a
+database. It says one thing: it needs the table called `'board'`. In
+Effect's words, it requires the table's **StdTable service**.
+
+```ts file=./components/board.ts
+
+```
+
+An **adapter** answers that requirement. You hand it your table, and it
+gives back a **layer**: Effect's way of saying "here is that service".
+Provide the layer, and the program runs on that database.
+
+<Picture caption="One program, four adapters. Only the layer under it changes; the program, and the answer it gets, stay the same.">
+  <LayersPicture />
+</Picture>
+
+So moving a table to another database changes one line: the layer you
+provide. The program, the shapes and their versions all stay as they are.
+
+## See it run
+
+Here the program runs on Memory, the adapter with nothing to set up. Open
+the logged values to look inside.
+
+<Run program={program} caption="The program reads back two tasks, each a value and its meta. Underneath, the adapter stored two rows: the keys it made (pk, sk), the data with its version stamp, and the meta.">
+
+```ts file=./run/one-program.ts
+
+```
+
+</Run>
+
+The first log is what your code sees: values in today's shape. The second
+is what the adapter keeps: `pk` and `sk` built from your keys, and the data
+stamped with `_v`. Every adapter stores those same rows, in its own way.
+
+## What every adapter keeps
+
+Because every adapter keeps one contract, a program that works on one
+works on all of them:
+
+- **The same answers.** The same writes and queries give the same results
+  on Memory as on SQLite, old rows upgraded the same way on read.
+- **DynamoDB's limits.** Every table keeps to what DynamoDB can hold, so a
+  table shape that would fail on your server is refused in your tests too,
+  as soon as you define it.
+- **Deletes as tombstones.** A deleted row stays, marked deleted, so a copy
+  elsewhere can learn it is gone.
+
+## The four adapters
+
+| Adapter   | Where the table lives                     | Set up                   | Mode     |
+| --------- | ----------------------------------------- | ------------------------ | -------- |
+| Memory    | the running page or process               | nothing                  | none     |
+| IndexedDB | the browser, across reloads               | when it first opens      | required |
+| SQLite    | a server: Node, Bun, D1, a Durable Object | once, at start or deploy | required |
+| DynamoDB  | AWS                                       | at deploy                | required |
+
+A **mode** says what a change to the table's shape may cost the rows already
+in it. Memory needs none, since nothing outlives it. The others keep data,
+so they ask. The pages ahead take each adapter in turn, then
+[Deploying](/std-toolkit/deploying) shows how a server table gets made.
+
+<Callout title="Remember">
+  Your program never names a database. An adapter turns your table into a layer,
+  and the layer you provide decides where the program runs.
+</Callout>
+
+Start with the simplest home. Next, [Memory](/std-toolkit/memory): a table
+that needs nothing at all, and lasts as long as the page.

@@ -1,55 +1,59 @@
 import { program } from './run/changes.ts';
 import { DiffPicture } from './components/diff-picture.tsx';
 
-Setup refuses a breaking change, but only once it meets the data. You'd
-rather know in a test, before anyone reviews the change. By the end of
-this page you'll have that test.
+Setup refuses a breaking change, but only when it finally meets the data:
+on a server after a deploy, or on a reader's phone. You'd rather find out
+in a test, before anyone merges the change. This page gives you that
+test.
 
-## Why types can't catch it
+## Why the types can't catch it
 
-Say you shipped Task at v1, and rows were saved. Now you write a
-`priority` straight into v1, instead of adding a v2. It compiles. Your
-tests pass. And every row saved at v1 no longer reads, because none of
-them has a priority.
+Say you shipped Task at v1, and people saved tasks. Now, instead of
+[adding a version](/std-toolkit/adding-a-version), you write `priority`
+straight into v1.
 
-The types only know today's code. They don't know what you shipped.
+It compiles. Your tests pass. And every task saved at v1 no longer reads,
+because none of them has a priority.
 
-## A picture of the table
+TypeScript only knows today's code. It doesn't know what you shipped.
+
+## A snapshot remembers what you shipped
 
 A **table snapshot** is that missing memory. It's plain JSON describing
 your table: its keys and indexes, the entities bound to it, and every
 version of every shape they use.
 
 Compare the snapshot you shipped with the one you're about to ship, and
-each difference gets a verdict.
+every difference gets a verdict. They're the four you met on [Table
+mode](/std-toolkit/table-mode): safe, requires-backfill, breaking and
+unverifiable.
 
 <Picture caption="A new version is safe. An edited version is breaking. A new index needs a backfill. Only the line that changed moves.">
   <DiffPicture />
 </Picture>
 
-The verdicts are the same four that setup uses, as [Table
-mode](/std-toolkit/table-mode) explained: safe, requires-backfill,
-breaking and unverifiable.
-
 ## capture and diff
 
-`TableSnapshot` comes from `@kestack/std-toolkit/snapshot`:
+`TableSnapshot` comes from `@kestack/std-toolkit/snapshot`. Three calls do
+the work:
 
 ```ts
-const changes = TableSnapshot.diff(accepted, TableSnapshot.capture(table));
+const changes = TableSnapshot.diff(shipped, TableSnapshot.capture(table));
 console.log(TableSnapshot.renderChanges(changes));
 ```
 
-`capture` reads a table and every entity bound to it. `diff` compares two
-snapshots and returns one change per difference. `renderChanges` writes
-them out for a person to read.
+`capture` reads a table and every entity bound to it into a snapshot.
+`diff` compares two snapshots and returns one change per difference, each
+with its verdict in `impact`. `renderChanges` writes them out for a
+person.
 
-## Try it
+## See it run
 
-One shipped table, and three ways the next release could change it.
-Press Run to see what the diff says about each.
+One table you shipped, and three ways the next release could change it.
+Open the first line to see what a snapshot holds. Then open each change
+to see what the diff found and why.
 
-<Run program={program} caption="Adding v2 is SAFE. Writing priority into v1 is BREAKING. A new index needs a BACKFILL.">
+<Run program={program} caption="Adding v2 is safe. Writing priority into v1 is breaking: v1 changed after rows were saved under it. A new index needs a backfill.">
 
 ```ts file=./run/changes.ts
 
@@ -72,25 +76,24 @@ it('keeps the table safe to ship', async () => {
 });
 ```
 
-The test fails, listing every reason, when:
+It fails, listing every reason, when a change is breaking against the
+file, when a stored version no longer upgrades to the latest, when a
+migration would move a row to another key, or when the file is out of
+date.
 
-- a change is breaking against the file;
-- a stored version of a shape no longer upgrades to the latest;
-- a migration would move a row to another key;
-- the file is out of date.
-
-Run `vitest -u` to write the new snapshot. It only writes it when the
-change keeps stored rows readable. Nothing accepts a breaking change:
-undo the edit and add a version, or move the data to a new table name.
+`vitest -u` writes the new snapshot, but only for a change that keeps
+stored rows readable. Nothing accepts a breaking change. Undo the edit
+and add a version, or move the data to a new table name.
 
 A test can be skipped, so it isn't the only check. Setup compares against
-the Stored contract, and a deploy guard compares against what you last
-deployed. The test is just the earliest.
+the Stored contract, and a deploy compares against what you last
+deployed. The test is just the earliest, and the cheapest place to find
+out.
 
 <Callout title="Remember">
-  Commit a snapshot and test against it. A breaking change fails in CI, long
-  before it can strand a single row.
+  Commit a snapshot and test against it. A breaking change then fails in CI,
+  long before it can strand a single row.
 </Callout>
 
-One more thing a table does: save several changes as one. Next,
+One last thing a table can do: save several changes as one. Next,
 [Transactions and scan](/std-toolkit/transactions).

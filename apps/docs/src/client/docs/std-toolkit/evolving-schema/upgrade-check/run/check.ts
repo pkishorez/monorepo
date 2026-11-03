@@ -3,16 +3,13 @@ import { findUpgradeFailures } from '@kestack/std-toolkit/eschema/testing';
 import { Fixed, Forgetful } from '../components/tasks.ts';
 
 export const program = Effect.gen(function* () {
-  // Rows v1 could have stored, generated and read at the latest version.
+  // Generate rows v1 could have stored, and read each at the latest version.
   const forgetful = yield* findUpgradeFailures([{ schema: Forgetful }]);
-  yield* Console.log(
-    'forgetful migration:',
-    forgetful.length,
-    'failing version',
-  );
-  for (const report of forgetful) yield* Console.log(report);
+  yield* Console.log('the forgetful migration:', forgetful);
 
+  // The same check on the fix: no reports means every row reads.
   const fixed = yield* findUpgradeFailures([{ schema: Fixed }]);
-  yield* Console.log('fixed migration:', fixed.length, 'failing versions');
-  return fixed;
+  yield* Console.log('the fixed migration:', fixed);
+
+  return `${forgetful.length} failing version before the fix, ${fixed.length} after`;
 });

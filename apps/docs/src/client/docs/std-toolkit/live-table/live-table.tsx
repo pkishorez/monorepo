@@ -8,6 +8,7 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { RotateCcwIcon } from 'lucide-react';
 import { Memory } from '@kestack/std-toolkit/db/memory';
 import type { MemoryTable } from '@kestack/std-toolkit/db/memory';
+import { Inspect } from '../../../components/index.ts';
 import type { Lab } from './lab.ts';
 
 /*
@@ -37,9 +38,6 @@ type Seen = {
 };
 
 const EMPTY: Seen = { stored: [], read: [] };
-
-const show = (value: unknown): string =>
-  typeof value === 'string' ? `'${value}'` : JSON.stringify(value);
 
 const fieldsOf = (value: unknown): ReadonlyArray<readonly [string, unknown]> =>
   value !== null && typeof value === 'object'
@@ -324,7 +322,9 @@ function Fields({
       {fields.map(([name, value]) => (
         <div key={name} className="contents">
           <dt className="text-muted-foreground">{name}</dt>
-          <dd className="truncate">{show(value)}</dd>
+          <dd className="min-w-0">
+            <Inspect value={value} />
+          </dd>
         </div>
       ))}
     </dl>

@@ -1,32 +1,34 @@
 import { program } from './run/indexes.ts';
 import { OrderPicture } from './components/order-picture.tsx';
 
-A board lists its tasks by id, because that's its sort key. But one
-screen wants them by title, and another wants every task assigned to
-Ana. By the end of this page you'll have both, from the same table.
+A query reads one partition, in sort key order. For tasks, that's one
+board, by id. But your app has other screens: the board sorted by title,
+and a "today" list of every high-priority task, on any board. This page
+gives you both, from the same table.
 
-## One table, more orders
+## What an index is
 
-A query reads one partition in sort key order. To read the same rows in
-another order, or grouped another way, you add an index. An index keeps
-the rows a second time under other keys, and the database keeps it up to
-date on every write.
+An **index** keeps the same rows a second time, under other keys. The
+database updates it on every write, so it's never out of date for rows
+you save from now on.
 
-<Picture caption="The same four tasks, read three ways. byTitle orders one board by title; byAssignee gathers Ana's tasks from every board.">
+<Picture caption="The same four tasks, read three ways. byTitle orders one board by title; byPriority gathers the high-priority tasks from every board.">
   <OrderPicture />
 </Picture>
 
-There are two kinds:
+There are two kinds, and the difference is the partition:
 
-- An **LSI**, a local secondary index, keeps the same partition key and
-  sorts by something else. "This board, by title."
-- A **GSI**, a global secondary index, has a partition key of its own. It
-  reaches across partitions. "Ana's tasks, on every board."
+- A **local secondary index**, or LSI, keeps the partition and sorts by
+  something else. "This board, by title."
+- A **global secondary index**, or GSI, has a partition of its own, so it
+  reaches across boards. "Every high-priority task."
 
-## Declare the slots
+## Two steps: slots, then names
 
-Indexes start on the table, as numbered slots with the names of their key
-columns:
+Adding an index takes two steps, on two different things.
+
+First, **the table declares slots**: numbered places for indexes, with the
+names of their key columns.
 
 ```ts
 const table = StdTable.make('board')
@@ -36,56 +38,54 @@ const table = StdTable.make('board')
   .build();
 ```
 
-The slot names are generic on purpose. `LSI1` says nothing about titles.
-That's because many kinds of thing share one table, and each can use a
-slot its own way.
+The names are generic on purpose. `LSI1` says nothing about titles,
+because many kinds share the table, and each uses a slot its own way.
 
-## Name an access pattern
-
-Each entity then gives a slot a name of its own, an **access pattern**,
-and says which value fields build its keys:
+Then **each entity names what a slot means for it**. That name is an
+**access pattern**, and it says which of the entity's fields make the
+keys:
 
 ```ts
 const task = table
   .entity(Task)
   .primary({ pk: ['boardId'] })
   .index('LSI1', 'byTitle', { sk: ['title'] })
-  .index('GSI1', 'byAssignee', { pk: ['assignee'], sk: ['boardId', 'title'] })
+  .index('GSI1', 'byPriority', { pk: ['priority'], sk: ['boardId', 'title'] })
   .build();
 ```
 
 `byTitle` uses the LSI, so it only names a sort key: the partition is
-still the board. `byAssignee` uses the GSI, so it names both. Its sort key
-has two fields, so Ana's tasks come back by board, then by title.
+still the board. `byPriority` uses the GSI, so it names both. Its sort key
+has two fields, so the tasks come back by board, then by title.
 
-You query an access pattern by its name, just like `'primary'`:
+## Querying by name
+
+You query an access pattern by its name, just as you did `'primary'`:
 
 ```ts
-task.query('byAssignee', { pk: { assignee: 'ana' }, '>=': null });
+task.query('byPriority', { pk: { priority: 'high' }, '>=': null });
 ```
 
-The types follow the pattern. `byAssignee` wants `assignee` in `pk`, and
-TypeScript says so if you pass `boardId`.
+The types follow the pattern. `byPriority` wants a `priority` in `pk`,
+and TypeScript tells you if you pass a `boardId` instead.
 
-## Narrowing with the sort key
-
-A sort key with two fields lets you narrow by the first one.
-`beginsWith` matches a prefix:
+A sort key made of several fields can be narrowed by its first ones.
+`beginsWith` matches a prefix, so this is "high priority, on the work
+board". The empty title means any title:
 
 ```ts
-task.query('byAssignee', {
-  pk: { assignee: 'ana' },
+task.query('byPriority', {
+  pk: { priority: 'high' },
   beginsWith: { boardId: 'work', title: '' },
 });
 ```
 
-That's "Ana's tasks on the work board". The empty `title` means any title.
+## See it run
 
-## Try it
+Four tasks on two boards, then four queries. Open each line in the
+console to see the tasks it found, in its order.
 
-Four tasks on two boards, and four queries. Press Run.
-
-<Run program={program} caption="One table, four answers. by id and by title read the same board in two orders; byAssignee crosses boards.">
+<Run program={program} caption="One table, four answers. By id and by title read the same board in two orders; byPriority crosses boards, and beginsWith narrows it to one.">
 
 ```ts file=./run/indexes.ts
 
@@ -93,15 +93,15 @@ Four tasks on two boards, and four queries. Press Run.
 
 </Run>
 
-One thing to know when you pick an adapter: on DynamoDB, a GSI read is
-always eventually consistent. A task you just saved may take a moment to
-show up there. Memory, SQLite and IndexedDB see it at once.
+One thing to know when you pick a database: on DynamoDB, a GSI read is
+eventually consistent. A task you just saved may take a moment to show up
+in `byPriority`. Memory, SQLite and IndexedDB see it at once.
 
 <Callout title="Remember">
   The table declares index slots; each entity names its own access patterns on
-  them. An LSI reorders a partition; a GSI regroups the table.
+  them. An LSI reorders a partition; a GSI regroups the whole table.
 </Callout>
 
-An index only knows the rows saved after it existed. Next, [Drift and
-reindex](/std-toolkit/drift-and-reindex): bringing old rows into a new
-index.
+An index only holds the rows saved after it existed. What about the
+tasks saved last month? Next, [Drift and
+reindex](/std-toolkit/drift-and-reindex).

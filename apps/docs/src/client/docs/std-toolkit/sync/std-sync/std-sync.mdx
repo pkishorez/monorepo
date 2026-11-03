@@ -1,27 +1,14 @@
 import { FlowPicture } from './components/flow-picture.tsx';
+import { program } from './run/on-insert.ts';
 
-Your tasks live in a table on the server. Your screen is in a browser. This
-page connects the two: a Collection you query like any TanStack DB
-Collection, kept fresh from the server, with a copy on the device.
-
-## Why not just fetch?
-
-Fetching on every screen works, until it doesn't. The page is blank while
-it loads. It goes empty offline. Two tabs show two different answers. And
-every edit waits for the server before it shows.
-
-Sync fixes those with a local copy. The server stays the **Backend**: the
-one authority. The device keeps a **Sync Replica**, a copy of what the
-Backend confirmed, and the screen reads from that.
-
-<Picture caption="A fetch fills the Sync Replica, and the Collection shows it. An edit shows at once, goes to the Backend, and the Backend's answer replaces it.">
-  <FlowPicture />
-</Picture>
+You've seen the idea by hand: a copy on the device that asks for what
+changed after its cursor. **Std Sync** does that work for you, and gives
+your screen the copy as something it can query.
 
 ## A Std Sync and its Collections
 
-You start with a **Std Sync**: one named group of Collections, kept in one
-place.
+You start with a Std Sync: one named group of Collections, kept in one place
+on the device.
 
 ```ts
 import { createStdSync, strategy } from '@kestack/std-toolkit/sync';
@@ -30,7 +17,8 @@ const app = createStdSync({ name: 'board' });
 ```
 
 Then you add a **Collection** for each kind of thing, with the same schema
-your table uses. The schema comes first, so the rest is typed from it.
+your table uses. The schema comes first, so everything else is typed from
+it.
 
 ```ts
 const tasks = app.collection(Task, {
@@ -46,45 +34,67 @@ const tasks = app.collection(Task, {
 });
 ```
 
-`tasks` is a TanStack DB Collection. You query it the way you'd query any
-other, and its rows are your schema's latest values.
+`tasks` is a TanStack DB Collection. You query it like any other, and its
+rows are your schema's latest values. Behind it, the device keeps its copy,
+the **Sync Replica**: what the Backend confirmed, and nothing else.
 
-## Reading: a strategy
+That config has two halves. `sync` says how the copy reads the Backend.
+`onInsert`, `onUpdate` and `onDelete` say how edits get back to it.
 
-`sync` says how the Collection reads the Backend. Here, one **Sync
-Strategy** reads everything changed after the newest task it has, then asks
-again every five seconds. [Strategies](/std-toolkit/strategies) covers the
-choices.
+<Picture caption="A fetch fills the Sync Replica, and the Collection shows it. An edit shows at once, goes to the Backend, and the Backend's answer replaces it.">
+  <FlowPicture />
+</Picture>
 
-Rows arrive in their stored shape, at whatever version they were saved in.
-The Collection shows them at the latest version, migrated as they're read,
-just like a table read. Your screen never sees an old shape.
+## Reading
 
-## Writing: Mutation Callbacks
+`sync` holds a **Sync Strategy**. This one asks the Backend for everything
+changed after the newest task it has, then asks again every five seconds:
+the question from [How sync works](/std-toolkit/how-sync-works), on a timer.
+[Strategies](/std-toolkit/strategies) shows the other choices.
 
-`onInsert`, `onUpdate` and `onDelete` are **Mutation Callbacks**. When your
-screen changes the Collection, the change shows at once, as an **Optimistic
-Entity**. The callback sends it to the Backend and returns what the Backend
-saved.
+## Writing
 
-That answer goes into the Sync Replica, so the row doesn't flicker back
-while it waits for the next fetch. If the callback fails, the change is
-rolled back.
+When your screen adds, edits or deletes a row, the change shows at once, as
+an **Optimistic Entity**. It isn't in the Sync Replica yet: the Backend
+hasn't confirmed it.
 
-## Two copies, one winner
+Then Sync calls your **Mutation Callback**. It gets plain values, in today's
+shape, sends them to the Backend, and returns what the Backend saved. That
+answer goes into the Sync Replica, and the optimistic row is dropped. Since
+the saved row is already there, nothing flickers.
 
-Every Entity carries `_u`, its update key, and a newer `_u` wins. A stale
-or repeated Entity is ignored. So it doesn't matter whether a task arrives
-from a fetch, a callback, or another tab: the copies end up the same.
+If the callback fails, the change is rolled back. The screen never shows as
+saved what wasn't.
 
-When you're done with a Std Sync, `await app.dispose()` stops it. Writes on
-their way get a few seconds to land, and its stored data is kept.
+## See a callback run
+
+A Mutation Callback is plain Effect code against your Backend. Here the
+Backend is a table in memory, and the callback is the `onInsert` you'd pass.
+Open what it logs: the value goes in, and a whole Entity comes back, with a
+`_u` of its own.
+
+<Run program={program} caption="The screen hands over a plain value; the Backend returns an Entity whose meta carries _v and _u. That Entity is what the copy keeps.">
+
+```ts file=./run/on-insert.ts
+
+```
+
+</Run>
+
+Because the copy keeps whichever `_u` is newer, it doesn't matter whether a
+task arrives from a fetch, a callback or another tab. The copies end up the
+same.
+
+## When you're done
+
+`await app.dispose()` stops a Std Sync. Writes on their way get a few
+seconds to land, and its stored data is kept for next time.
 
 <Callout title="Remember">
-  The Backend is the authority. A Collection shows the device's copy of what it
-  confirmed, plus your edits on top until the Backend confirms them too.
+  A Collection shows the device's copy of what the Backend confirmed, plus your
+  edits on top until the Backend confirms them too. A Mutation Callback takes
+  values and returns the saved Entity.
 </Callout>
 
-How the Collection reads the Backend is up to its strategy. Next,
-[Strategies](/std-toolkit/strategies): oldest first, newest first, or
-only what's on screen.
+How often should a Collection ask, and in what order? Next,
+[Strategies](/std-toolkit/strategies).

@@ -1,0 +1,73 @@
+import { MomentPicture } from './components/moment-picture.tsx';
+import { program } from './run/old-row.ts';
+
+Every app changes the shape of its data sooner or later. A task gets a
+priority, a name gets split in two. This Part is about making that change
+safely, and it starts with why it is hard at all.
+
+## An API change is a moment
+
+Say your server answers `GET /tasks`, and you add a `priority` to each task.
+You change the server, you change the app that calls it, and you ship both.
+From then on, every request and every response has the new shape.
+
+The old shape is gone the moment the deploy finishes. Nothing that used it
+is left anywhere. That's why changing an API feels easy: both sides move
+together, at one point in time.
+
+## Saved data stays
+
+Data you save is different. A task saved in January sits in the database in
+January's shape. In March your code expects a `priority`, but that row has
+none. It wasn't there when the row was written, and nothing went back to add
+it.
+
+<Picture caption="Above, an API: both sides move to v2 together, and nothing in v1 is left. Below, saved data: the code moves to v2, but the row saved last month is still v1.">
+  <MomentPicture />
+</Picture>
+
+So the code changed and the data didn't. The next time March's code reads
+that January row, the shapes don't match. Press Run to see it happen, with a
+plain Effect Schema and no std-toolkit at all:
+
+<Run program={program} caption="January saves a task with no priority. March reads the same row with March's shape, and the read fails: priority is missing. Open the saved row to see exactly what is stored.">
+
+```ts file=./run/old-row.ts
+
+```
+
+</Run>
+
+## Why this needs its own answer
+
+Nothing is wrong with either shape. Each was right for the code of its day.
+The trouble is that a database holds data from every day your app has ever
+run, all at once.
+
+An **evolving schema** is the answer std-toolkit gives: a shape that knows
+every version it has ever had, and can read data saved under any of them.
+
+## What this Part covers
+
+The pages that follow build it up one step at a time:
+
+1. [Keep every version](/std-toolkit/keep-every-version): the one idea
+   behind it all.
+2. [ESchema](/std-toolkit/eschema): a shape with a name and a version
+   stamp.
+3. [Adding a version](/std-toolkit/adding-a-version): changing the shape
+   without losing a row.
+4. [Reading and writing](/std-toolkit/reading-and-writing): what happens at
+   each step.
+
+Then two more kinds of shape ([EntityESchema](/std-toolkit/entity-eschema)
+and [ValueESchema](/std-toolkit/value-eschema)), how to rename and remove
+fields, and how to stay safe before you ship.
+
+<Callout title="Remember">
+  An API change is a moment; saved data outlives the code that wrote it. Any
+  change to a saved shape must still read what is already saved.
+</Callout>
+
+So how do you read a row saved under a shape your code no longer has? Next,
+[Keep every version](/std-toolkit/keep-every-version).

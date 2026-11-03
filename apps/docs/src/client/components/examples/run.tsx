@@ -1,3 +1,4 @@
+import { Inspect } from './inspect.tsx';
 import { OwnTouch } from './own-touch.tsx';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -305,7 +306,7 @@ function LineRow({ line }: { readonly line: Line }) {
             {typeof arg === 'string' && line.kind !== 'result' ? (
               arg
             ) : (
-              <Value value={arg} depth={0} />
+              <Inspect value={arg} />
             )}
           </span>
         ))}
@@ -315,75 +316,4 @@ function LineRow({ line }: { readonly line: Line }) {
       </span>
     </li>
   );
-}
-
-const string = 'text-[#0a3069] dark:text-[#a5d6ff]';
-const literal = 'text-[#0550ae] dark:text-[#79c0ff]';
-const muted = 'text-muted-foreground';
-
-/** A value as it reads in code, a tagged one as its tag and its fields. */
-function Value({
-  value,
-  depth,
-}: {
-  readonly value: unknown;
-  readonly depth: number;
-}): ReactNode {
-  if (typeof value === 'string')
-    return <span className={string}>'{value}'</span>;
-  if (
-    typeof value === 'number' ||
-    typeof value === 'boolean' ||
-    typeof value === 'bigint'
-  )
-    return <span className={literal}>{String(value)}</span>;
-  if (value === null || value === undefined)
-    return <span className={muted}>{String(value)}</span>;
-  if (typeof value === 'function')
-    return <span className={muted}>ƒ {value.name || 'anonymous'}</span>;
-  if (value instanceof Error)
-    return (
-      <span>
-        {value.name}: {value.message}
-      </span>
-    );
-  if (depth > 3) return <span className={muted}>…</span>;
-  if (Array.isArray(value))
-    return (
-      <span>
-        [
-        {value.map((item, index) => (
-          <span key={index}>
-            {index > 0 && ', '}
-            <Value value={item} depth={depth + 1} />
-          </span>
-        ))}
-        ]
-      </span>
-    );
-  if (typeof value === 'object') {
-    const { _tag, ...fields } = value as Record<string, unknown>;
-    const entries = Object.entries(_tag === undefined ? value : fields);
-    const tag =
-      typeof _tag === 'string' ? (
-        <span className="font-semibold text-foreground">{_tag}</span>
-      ) : null;
-    if (tag && entries.length === 0) return tag;
-    return (
-      <span>
-        {tag}
-        {tag && ' '}
-        {'{ '}
-        {entries.map(([key, item], index) => (
-          <span key={key}>
-            {index > 0 && ', '}
-            <span className={muted}>{key}: </span>
-            <Value value={item} depth={depth + 1} />
-          </span>
-        ))}
-        {' }'}
-      </span>
-    );
-  }
-  return <span>{String(value)}</span>;
 }

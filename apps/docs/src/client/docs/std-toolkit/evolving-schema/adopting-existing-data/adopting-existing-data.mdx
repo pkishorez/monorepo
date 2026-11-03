@@ -1,33 +1,43 @@
 import { program } from './run/adopt.ts';
 
-You rarely start with versions. You start with a plain Schema and a
-database full of rows. This page shows how to bring those rows along,
-with no backfill and no risk.
+Everything so far assumed your rows carry a version. But you rarely start
+with std-toolkit. More often you start with an app that already works, and
+a database full of rows saved with no `_v` at all. This page brings those
+rows along, with no backfill and nothing to rewrite.
 
-## Rows with no version
+## A row with no version
 
-Rows saved before you used std-toolkit have no `_v`. What should a read do
-with them? The rule is simple: **a row with no version is read as v1**.
+What should a read do with a row that has no `_v`? std-toolkit's answer
+is one rule: **a row with no version reads as v1**.
 
-Not the latest version: the first. That's the safe guess, because v1 is
-the shape your old code was writing.
+Not the latest version: the first. That's the only safe guess, because v1
+is the shape your old code was writing. From v1, the row upgrades through
+every migration, like any other v1 row.
 
 ## Adopt in two releases
 
-First, ship your existing shape as v1, and change nothing else:
+So adopting is two steps, shipped one after the other. First, write down
+the shape your rows already have as v1, and change nothing else:
 
-```ts file=./components/settings.ts
+```ts file=./components/task.ts
 
 ```
 
-`SettingsAdopted` is that first release. It has one version, so every old
-row reads exactly as it did. That release is safe to ship on its own.
+`TaskAdopted` is that first release. It has one version, so every old row
+reads exactly as it did before. It changes nothing for your users, so it's
+safe to ship alone.
 
-Later, `Settings` adds a v2. Now the rule earns its keep: an old row with
-no `_v` is read as v1, and the migration brings it up to v2, like any
-other v1 row.
+Later releases add versions as usual: `Task` adds a priority, then
+`done`. An old row with no `_v` reads as v1, and both migrations bring it
+up to v3.
 
-<Run program={program} caption="The same unversioned row reads as it was, then with a fontSize once v2 exists. A row that never had v1's shape is refused.">
+## See it run
+
+The program reads one row saved before std-toolkit, first as the adopted
+release reads it, then as v3 does, then saves it again. Last, it reads a
+row that never had v1's shape.
+
+<Run program={program} caption="The unversioned row reads as it was, then as v3 with priority 'low' and done false. Saved again, it gets _v: 'v3'. The row with text in place of title is refused: the read fails rather than guess.">
 
 ```ts file=./run/adopt.ts
 
@@ -35,29 +45,25 @@ other v1 row.
 
 </Run>
 
-## v1 must match the real rows
+## v1 must match the rows you have
 
-There's one thing you have to get right: v1's fields must be the fields
-your old rows really have. std-toolkit can't check that ahead of time. If
-an old row doesn't fit v1, its read fails loudly, with the field that's
-wrong. It never guesses another shape.
+One thing is on you: v1's fields must be the fields your old rows really
+have. std-toolkit can't check that ahead of time. If an old row doesn't
+fit v1, its read fails loudly. It never guesses another shape.
 
-So look at real rows before you write v1. If some old rows lack a key,
-an ESchema can't describe them, since it has no optional fields. Version
-the whole object as a ValueESchema instead: it takes any Schema, optional
-keys included.
+So look at real rows before you write v1. If some lack a key, an ESchema
+can't describe them, since it has no optional fields. Version the whole
+object as a [ValueESchema](/std-toolkit/value-eschema) instead: it wraps
+any Schema, optional keys included.
 
-## Values too
-
-A [ValueESchema](/std-toolkit/value-eschema) works the same way. A bare
-value, with no envelope, is read as v1. So a setting that was saved as the
-plain string `'dark'` keeps reading once you version it.
+The rule holds for values too. A bare value with no envelope reads as v1,
+so a theme saved as plain text keeps working once you version it.
 
 <Callout title="Remember">
-  A row with no version reads as v1. Ship your existing shape as v1 first, and
-  make sure it matches the rows you really have.
+  A row with no version reads as v1. Ship the shape you already have as v1
+  first, and make sure it matches the rows you really have.
 </Callout>
 
-You can add, rename and remove fields now. Next, the [Upgrade
-check](/std-toolkit/upgrade-check): how to know every old row still reads,
-before you ship.
+You can now add, rename and remove fields, and adopt old rows. Each change
+is a promise that every old row still reads. How do you know you kept it?
+Next, the [Upgrade check](/std-toolkit/upgrade-check).

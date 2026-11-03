@@ -1,13 +1,15 @@
 import { TabsPicture } from './components/tabs-picture.tsx';
+import { program } from './run/outdated.ts';
 
-People open your app in three tabs, close the laptop, and come back on a
-train with no signal. This page shows how one copy serves every tab, how
-it opens offline, and what happens to an edit that can't be saved.
+People open your board in three tabs, close the laptop, and come back on a
+train with no signal. So far the copy has lived in one tab's memory: gone on
+reload, and each tab fetching for itself. This page moves it somewhere every
+tab can share, and shows what happens offline.
 
 ## Where the copy lives
 
-By default a Std Sync keeps its copy in memory: gone on reload, and each
-tab reads on its own. Give it a **Sync adapter** to choose a better place.
+A Std Sync keeps its copy wherever its **Sync adapter** says. By default
+that's memory. Give it `Sync.idb()` instead:
 
 ```ts
 import { createStdSync } from '@kestack/std-toolkit/sync';
@@ -16,8 +18,8 @@ import { Sync } from '@kestack/std-toolkit/sync/idb';
 const app = createStdSync({ name: 'board', store: Sync.idb() });
 ```
 
-`Sync.idb()` keeps the copy in IndexedDB, shared by every tab of your app
-in this browser. Now the copy outlives a reload, and the tabs agree.
+Now the copy is in IndexedDB, shared by every tab of your app in this
+browser. It outlives a reload, and the tabs agree.
 
 <Picture caption="Tab 1 leads, so only it reads the Backend. Tab 2's new task shows at once, is confirmed, and the Doorbell tells Tab 1. Offline, the board stays, and an edit that can't be saved is undone.">
   <TabsPicture />
@@ -25,46 +27,57 @@ in this browser. Now the copy outlives a reload, and the tabs agree.
 
 ## One tab reads for all
 
-If every tab polled the Backend, three tabs would cost three times as
-much. So each reading job, the global strategy or one Window's, has its
-own **Leadership**: one tab holds it, and the others wait.
+If every tab polled the Backend, three tabs would cost three times as much.
+So each reading job, the global strategy or one Window's, has a
+**Leadership**: one tab holds it, and the others wait.
 
-The tab that leads stores what it reads in the shared store, then rings
-the **Doorbell**. Every tab hears it and reads that Collection again from
-the store. The Doorbell carries no rows; it only says "look again".
+The leading tab stores what it reads in the shared copy, then rings the
+**Doorbell**. Every tab hears it and reads that Collection again from the
+copy. The Doorbell carries no rows; it only says "look again".
 
-When the leading tab closes, another takes over from the saved cursor. And
-different tabs may lead different Windows.
+When the leading tab closes, another takes over from the saved cursor.
+Different tabs may lead different Windows.
 
 `Sync.idb` uses Web Locks for Leadership and a BroadcastChannel for the
-Doorbell. Where a browser lacks one, it falls back to none, and every tab
-reads for itself.
+Doorbell. Where a browser lacks one, every tab simply reads for itself.
 
 ## Offline
 
 A Collection opens from its copy before any network call, so the board is
-there at once, even with no signal. Each strategy resumes from its saved
-cursor.
+there at once, even with no signal. Each strategy then resumes from its
+saved cursor.
 
-When a fetch fails, it tries again after a growing delay, and the copy
-stays on screen. Once the network is back, reading picks up where it
-stopped.
+When a fetch fails, it tries again after a growing delay, and the copy stays
+on screen. Once the network is back, reading picks up where it stopped.
 
-An edit is different. A Mutation Callback calls the Backend directly. If
-it can't, the edit is rolled back, rather than shown as saved when it
-isn't. Writes that wait offline and send later aren't in this version.
+An edit is different. A Mutation Callback calls the Backend directly. If it
+can't, the edit is rolled back, rather than shown as saved when it isn't.
+Edits that wait offline and send later aren't in this version.
 
-## An app newer than this tab
+## A tab older than the data
 
-Say you ship a v3 of `Task` while an old tab is still open. That tab reads
-a v3 task it doesn't know how to read. That's an **Outdated Application**:
-not an error. Sync skips the task, reports it once, and stops reading that
+You ship release 3 of `Task`, which adds `done`. A tab opened yesterday is
+still on release 2. The new release saves a task at v3, and the old tab's
+copy receives it.
+
+The old tab can't read a version it has never heard of. That is the
+[`OutdatedVersion`](/std-toolkit/gotchas) you met in Evolving schema, and
+here it has a name: an **Outdated Application**. It isn't bad data; the tab
+is behind. So Sync skips that task, reports it once, and stops reading that
 scope until a reload brings the new code.
+
+<Run program={program} caption="The new release stores the task at v3. The old tab, which knows only v1 and v2, finds an OutdatedVersion: open it to see which version it met and the latest it knows.">
+
+```ts file=./run/outdated.ts
+
+```
+
+</Run>
 
 ## Signing out
 
-Nothing is deleted on its own. Put the user's id in the Std Sync's name,
-so one person never sees another's rows. On sign-out:
+Nothing is deleted on its own. Put the user's id in the Std Sync's name, so
+one person never sees another's rows. On sign-out:
 
 ```ts
 await app.dispose();
@@ -76,10 +89,10 @@ or sensitive device, use `Sync.memory()`, and nothing touches the disk.
 
 <Callout title="Remember">
   `Sync.idb()` gives every tab one copy that survives a reload. One tab reads
-  for all, the board opens offline, and an edit the Backend never confirmed is
-  undone.
+  for all, the board opens offline, an edit the Backend never confirmed is
+  undone, and a tab too old for the data waits for a reload.
 </Callout>
 
-Edits that come quickly, like typing a title, need one more thing. Next,
-[Paced updates](/std-toolkit/paced-updates): many changes, drawn at once,
-sent at a pace the Backend can keep.
+Some edits come many a second, like typing a title. Next, [Paced
+updates](/std-toolkit/paced-updates): every keystroke on screen, but not a
+request for each.

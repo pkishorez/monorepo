@@ -1,19 +1,29 @@
 import { InstancePicture } from './components/instance-picture.tsx';
 
 Std Sync is for a React app. In a [kabuki](/kabuki) app, your logic is a
-tree of Actors, and sync should be too. This page shows the **Replica**:
-the same local copy, where every piece is an Actor or a Command.
+tree of Actors, and sync should be too. This last page shows the
+**Replica**: the same copy on the device, where every piece is an Actor or a
+Command.
 
 ## Why a second one?
 
 A kabuki app keeps everything that happens as Messages, so you can travel
-back through it and see it in the Inspector. Sync that runs off to the side
-would be invisible there. So in a Replica, fetching, holding and writing
-are Actors and Commands like the rest of your app.
+back through it and see it in the Inspector. Sync running off to the side
+would be invisible there. So in a Replica, fetching, holding and writing are
+Actors and Commands like the rest of your app.
 
-The ideas carry over from the pages before: a Backend that's the authority,
-a copy on the device, strategies, Windows, one tab reading for all. The
-words are a little different, and it shares no code with Std Sync.
+The ideas are the ones you've met; some names change:
+
+| In Std Sync             | In a Replica             |
+| ----------------------- | ------------------------ |
+| a Std Sync              | a Replica                |
+| a Collection            | a collection in it       |
+| a Sync Strategy         | a Strategy               |
+| a query on a Collection | a **Query**, an Actor    |
+| a Mutation Callback     | an **Action**, a Command |
+| a Sync adapter          | a **Store**              |
+
+It shares no code with Std Sync; you use one or the other.
 
 ## A Replica, in two steps
 
@@ -152,6 +162,7 @@ Instances.
   them like everything else.
 </Callout>
 
-That's std-toolkit, from a shape to a screen. Go back to the
-[Introduction](/std-toolkit/introduction) for the whole map, or start
-building with the [Quick start](/std-toolkit/quick-start).
+That's std-toolkit, from a shape to a screen: a schema that keeps every
+version, entities in one table, any database underneath, and a fresh copy on
+every device. Go back to [The big picture](/std-toolkit/introduction) for the
+whole map, or start building with the [Quick start](/std-toolkit/quick-start).

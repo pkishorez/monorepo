@@ -1,14 +1,19 @@
 import { ReloadPicture } from './components/reload-picture.tsx';
 
-Memory is gone on reload. IndexedDB is the browser's own database, and it
-isn't. This page puts your table there, so a web app opens with its data,
-even offline.
+A Memory table is gone when the page reloads. That's fine for a demo, but
+a web app should open with its data, even offline. The browser has a
+database of its own for that, IndexedDB, and this page puts your table in
+it.
 
 ## The same table, kept
 
 The IndexedDB adapter takes the same table and gives it a home in the
 browser. Each table becomes one **Store** in an IndexedDB database. Its
 rows outlive a reload, a closed tab, a restart.
+
+These docs keep nothing in your browser, so this page shows the code and a
+picture rather than a live table. The program is the one you ran on
+[Memory](/std-toolkit/memory).
 
 <Picture caption="The page reloads and its list goes blank, but the Store keeps every row. On the next open, setup checks the table against the contract the Store holds, and the tasks read back.">
   <ReloadPicture />
@@ -26,14 +31,14 @@ You need two things: a connection to a database, and a mode.
 shares the connection. `IDB.make` gives the table its Store, named after
 the table unless you pass `storeName`.
 
-The program at the bottom is the one from the Memory page. Only the layer
+The query at the bottom is the one from the Memory page. Only the layer
 changed.
 
 ## Mode is required
 
-Memory needs no mode because nothing outlives it. IndexedDB does, so you
-must say what a change to the table's shape may cost its rows. That is its
-**Table mode**:
+Memory needs no mode because nothing outlives it. IndexedDB keeps rows, so
+you must say what a change to the table's shape may cost them. That is the
+**Table mode** you met in [Table mode](/std-toolkit/table-mode):
 
 - `persistent`: these rows must never be lost. A change that would break
   them is refused, and the Store is never wiped.
@@ -42,7 +47,6 @@ must say what a change to the table's shape may cost its rows. That is its
 
 A local copy of server data, like the tasks above, is disposable. Data that
 lives only in this browser, like a draft nobody else has, is persistent.
-[Table mode](/std-toolkit/table-mode) has the whole story.
 
 ## Setup happens on open
 

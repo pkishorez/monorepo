@@ -1,0 +1,93 @@
+import { CursorPicture } from './components/cursor-picture.tsx';
+import { program } from './run/by-hand.ts';
+
+Your tasks now live in one table, on a server, behind an adapter. But the
+people using your board are in a browser. This Part is about the last step:
+getting those tasks onto a screen, and keeping them fresh.
+
+## Why not just fetch?
+
+The obvious way is to fetch the tasks every time a screen opens. It works,
+until it doesn't:
+
+- the screen is blank while it loads;
+- with no signal, it is empty;
+- two open tabs can show two different answers;
+- an edit waits for the server before it shows.
+
+Each of these has the same cure: keep a copy on the device, and show that.
+
+## The big picture
+
+The server keeps the table. It is the **Backend**: the one authority on what
+is saved. Each device keeps a **copy** of what the Backend confirmed, and
+the screen reads from the copy. So the screen opens at once, even offline.
+
+The hard part is keeping the copy fresh without fetching everything again.
+std-toolkit already has what it needs. Every save stamps an entity with
+`_u`, its **update key**: a ULID, which sorts by the time it was made. So
+the newest save always has the largest `_u`.
+
+That gives the copy one simple question to ask the Backend: "what changed
+after the newest `_u` I have?" That `_u` is the copy's **cursor**.
+
+<Picture caption="The first pull gets everything, and the cursor moves to u3. An edit gives t1 a larger _u, so the next pull gets only t1. An old copy of t1 turns up later; its _u is smaller, so it is ignored.">
+  <CursorPicture />
+</Picture>
+
+## Newer wins
+
+A task can reach the copy more than once, or out of order. A pull may repeat
+one, another tab may pass on what it read, and your own edit comes back from
+the Backend. One rule makes all of that safe: **a newer `_u` wins**. An
+entity whose `_u` is older than, or the same as, the one already held
+changes nothing.
+
+So it never matters where a task came from, or in what order. Every copy
+ends up the same.
+
+## Old rows arrive in today's shape
+
+The copy reads with the same schema as the table. So a task saved long ago,
+at v1, reaches the screen in today's shape, upgraded on the way, just as a
+table read upgrades it. Your screen never sees an old shape.
+
+## See it by hand
+
+Here is the whole idea, written by hand against a real table in memory: a
+Backend that answers "changed after this `_u`", and a copy that keeps the
+newer one. Press Run, then open the logged tasks to see their `_u`.
+
+<Run program={program} caption="t1 was saved by release 1, yet the copy holds it with a priority. The second pull brings only the edited t1. The old copy of t1 that turns up last is ignored.">
+
+```ts file=./run/by-hand.ts
+
+```
+
+</Run>
+
+You won't write this yourself. Std Sync does it for you, and more: it keeps
+the copy in TanStack DB Collections, shares it between tabs, keeps it across
+reloads, and sends your edits back.
+
+## The map
+
+The rest of this Part builds on that one question:
+
+- [Collections](/std-toolkit/std-sync): a Std Sync and its Collections, the
+  copy you query, and how edits go back.
+- [Strategies](/std-toolkit/strategies): which changes to fetch first, and
+  how often.
+- [Across tabs and offline](/std-toolkit/across-tabs): one copy for every
+  tab, and what happens with no signal.
+- [Paced updates](/std-toolkit/paced-updates): fast edits, like typing,
+  sent at a pace the Backend can keep.
+- [With kabuki](/std-toolkit/replica): the same copy, built from Actors.
+
+<Callout title="Remember">
+  The Backend is the authority; the device shows its copy. The copy asks for
+  what changed after the newest `_u` it has, and a newer `_u` always wins.
+</Callout>
+
+So how does a screen read the copy, and send an edit back? Next,
+[Collections](/std-toolkit/std-sync).

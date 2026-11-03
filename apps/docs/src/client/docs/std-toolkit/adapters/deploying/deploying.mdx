@@ -1,8 +1,9 @@
 import { GuardPicture } from './components/guard-picture.tsx';
 
-A table on a server has to be made before anything can use it. This page
-shows how std-toolkit makes it as part of your deploy, with Alchemy, and how
-it stops a deploy that would break the rows already there.
+SQLite and DynamoDB need their table to exist before a request can use
+it. Someone has to make it, and has to make sure a new release doesn't
+break the rows already in it. This page shows how std-toolkit does both as
+part of your deploy, with Alchemy.
 
 ## A table is infrastructure
 
@@ -103,5 +104,6 @@ even deploy. Each catches what the one before might miss.
   every deploy, and a change that would break its rows never reaches them.
 </Callout>
 
-Your tables now live somewhere real. Next, [Collections](/std-toolkit/std-sync):
-getting their rows onto a screen, and keeping them fresh.
+Your tables now live somewhere real, and a release can't break them. One
+question is left: how does a screen get those rows, and stay current? Next,
+[How sync works](/std-toolkit/how-sync-works).

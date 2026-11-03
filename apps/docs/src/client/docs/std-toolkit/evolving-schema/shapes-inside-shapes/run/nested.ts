@@ -1,24 +1,29 @@
 import { Console, Effect, Schema } from 'effect';
 import { eschemaOf } from '@kestack/std-toolkit/eschema';
-import { Task } from '../components/tasks.ts';
+import { Settings } from '../components/settings.ts';
 
 export const program = Effect.gen(function* () {
-  // A task saved by release 1: Task at v1, its status at v1 too.
+  // Saved back when the theme was free text: Settings v1, Theme v1.
   const stored = {
     _v: 'v1',
-    taskId: 't1',
-    boardId: 'work',
-    title: 'Plan the week',
-    status: { _v: 'v1', _value: 'todo' },
-    checklist: [{ _v: 'v1', text: 'Look at the calendar', checked: false }],
+    language: 'en',
+    theme: { _v: 'v1', _value: 'night' },
   };
-  const read = yield* Schema.decodeUnknownEffect(Task.schema)(stored);
-  yield* Console.log('status reads as', read.status);
+  yield* Console.log('stored:', stored);
 
-  // Each field knows which shape, if any, it is.
-  yield* Console.log('status is', eschemaOf(Task.fields.status)?.name);
-  yield* Console.log('title is', eschemaOf(Task.fields.title)?.name);
+  // Read now: Settings has nothing to upgrade, its theme does.
+  const read = yield* Schema.decodeUnknownEffect(Settings.schema)(stored);
+  yield* Console.log('reads as:', read);
 
-  // Saved again: every level carries its own version.
-  return yield* Schema.encodeEffect(Task.schema)(read);
+  // Saved again: each level carries its own version.
+  yield* Console.log(
+    'saved again:',
+    yield* Schema.encodeEffect(Settings.schema)(read),
+  );
+
+  // Which fields are versioned shapes of their own?
+  return {
+    theme: eschemaOf(Settings.fields.theme)?.name,
+    language: eschemaOf(Settings.fields.language)?.name,
+  };
 });

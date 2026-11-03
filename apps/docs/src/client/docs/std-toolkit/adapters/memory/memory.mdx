@@ -1,66 +1,61 @@
 import { LiveTable } from '../../live-table/index.ts';
-import { LayersPicture } from './components/layers-picture.tsx';
 import { memoryLab } from './components/lab.ts';
+import { program } from './run/two-tables.ts';
 
-So far your table has been an idea: a name, its keys, the entities bound to
-it. An **adapter** is what puts it on a real database. This page shows how
-any adapter plugs in, using the simplest one: Memory.
+Every demo in these docs has quietly run on one adapter: Memory. It is the
+simplest home a table can have, and the right one for tests, stories and
+demos. This page shows what it promises, and what it doesn't.
 
-## A table needs a home
+## Nothing to set up
 
-Every operation you've written, `task.insert`, `task.query`, needs the
-table it was bound to. It doesn't say which database. In Effect's words,
-it requires the table's **StdTable service**, named after the table.
-
-An adapter answers that requirement. You hand it your table, and it gives
-back a **layer**. Provide the layer, and the same program runs on that
-database.
-
-<Picture caption="One program, four adapters. Only the layer changes; the program and its answer stay the same.">
-  <LayersPicture />
-</Picture>
-
-There are four: Memory and IndexedDB in the browser, SQLite and DynamoDB on
-a server. They all keep to the same contract, so a program that works on
-one works on the others.
-
-## Memory
-
-Memory is the adapter with nothing to set up. `Memory.make(table)` gives
-you an empty table, ready at once. It needs no config, no database name,
-and no mode.
+`Memory.make(table)` gives you an empty table, ready at once. It takes no
+config, no database name and no mode: nothing outlives it, so there is
+nothing a change could break.
 
 ```ts file=./components/board.ts
 
 ```
 
-Each `Memory.make` call is a new, empty table. Reuse its layer and you
-share its rows; call it again and you start over. When nothing holds it any
-more, its rows are gone.
+That's all the code a Memory table needs. The query at the bottom runs on
+whatever layer you provide; on this page, a Memory one.
 
-That makes it the adapter for tests, for stories, and for demos like the
-ones on these pages. It is also where a [Std Sync](/std-toolkit/std-sync)
-keeps its copy unless you ask for something else.
+## One call, one table
 
-## Try it
+Each `Memory.make` call is a new table of its own. Reuse its layer and you
+share its rows; call `Memory.make` again and you start from empty. When
+nothing holds the table any more, its rows are gone.
 
-This table is a `Memory.make` of its own. Insert a few tasks, rename `t1`,
-then delete it.
+<Run program={program} caption="The task saved through the first table is there when the first table is read again, and nowhere in the second.">
+
+```ts file=./run/two-tables.ts
+
+```
+
+</Run>
+
+That is why each test can make its own table and never see another test's
+rows. It is also why a reload empties every demo on this site: the page
+made a new Memory table when it loaded.
+
+## Deletes leave a mark
+
+Try the table below. Insert a few tasks, rename `t1`, then delete it.
 
 <LiveTable
   lab={memoryLab}
-  caption="A delete leaves the row in the table, marked deleted. Reset makes a new Memory table: empty, as every Memory table starts."
+  caption="After Delete t1, its row is still on the left, marked deleted, but gone from the read on the right. Reset makes a new Memory table: empty, as every one starts."
 />
 
-Notice the delete. The row stays in the table, marked deleted: a
-**tombstone**. A query returns tombstones too, unless you pass
-`excludeDeleted`, as this one does. Every adapter keeps them, so a sync can
-tell other copies the task is gone.
+A delete keeps the row, marked deleted: a **tombstone**. A query returns
+tombstones too, unless you pass `excludeDeleted`, as this one does. Every
+adapter keeps them, so that when you [sync](/std-toolkit/how-sync-works),
+other copies can learn the task is gone.
 
 <Callout title="Remember">
-  Your program never names a database. An adapter turns your table into a layer,
-  and providing that layer decides where the program runs.
+  `Memory.make(table)` is a fresh, empty table that needs nothing and keeps
+  nothing. Share its layer to share its rows; make another for a clean start.
 </Callout>
 
-Memory forgets everything on reload. Next, [IndexedDB](/std-toolkit/indexeddb):
-the same table in the browser, kept across reloads.
+Memory forgets everything when the page goes. Next,
+[IndexedDB](/std-toolkit/indexeddb): the same table in the browser, kept
+across reloads.

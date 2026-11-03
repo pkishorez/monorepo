@@ -1,17 +1,16 @@
 import { Schema } from 'effect';
-import { StdTable } from '@kestack/std-toolkit/db';
 import { ESchema } from '@kestack/std-toolkit/eschema';
+import { table } from '../../board/board.ts';
 
-// One record with no id: there is only ever one.
+// Settings have no id, since there is only one: a plain ESchema.
 export const Settings = ESchema.make('Settings', {
   theme: Schema.Literals(['light', 'dark']),
   weekStartsOn: Schema.Literals(['monday', 'sunday']),
 }).build();
 
-// A table to keep it in, as on the last page.
-export const table = StdTable.make('app').primary('pk', 'sk').build();
-
-// Bound with the value it has until something is saved.
+// Kept in the same table as the tasks, with the value it has until saved.
 export const settings = table
   .singleEntity(Settings)
   .default({ theme: 'light', weekStartsOn: 'monday' });
+
+export { table };

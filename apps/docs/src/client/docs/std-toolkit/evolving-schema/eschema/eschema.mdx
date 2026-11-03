@@ -1,0 +1,84 @@
+import { FormsPicture } from './components/forms-picture.tsx';
+import { program } from './run/two-forms.ts';
+
+To keep every version of a shape, the shape needs somewhere to keep them.
+That place is an **ESchema**: a shape with a name, its fields, and a version
+stamp on everything it saves. This page makes one with a single version;
+the next one adds a second.
+
+## Make one
+
+You make an ESchema from a name and its fields. The fields are ordinary
+Effect Schemas:
+
+```ts file=./components/task.ts
+
+```
+
+`ESchema.make` starts the shape, and `.build()` finishes it. Between the
+two, later, go the versions you add with `evolve`. A shape with no `evolve`
+has one version, **v1**.
+
+The **name**, `'Task'` here, is what the shape is called everywhere
+std-toolkit talks about it: in an error that says which shape refused a
+row, and in the snapshot of what you shipped. When you save tasks in a
+table, it is also how the table tells tasks apart from everything else.
+
+## Two forms of one task
+
+A task has two forms, and an ESchema converts between them.
+
+- The **value** is what your code holds: `{ boardId, title }`. Its type is
+  `typeof Task.Type`, and it never has a version in it.
+- The **encoded form** is what gets stored: the same fields, plus `_v`, the
+  version it was written at.
+
+**Encoding** turns a value into its encoded form, stamping the version on.
+**Decoding** reads an encoded form back into a value, at whatever version
+its `_v` says.
+
+<Picture caption="Saving stamps _v: 'v1' onto the task. Reading takes it off again, so the version never reaches your code.">
+  <FormsPicture />
+</Picture>
+
+`Task.schema` is the Effect Schema that does both. Hand it to
+`Schema.encodeEffect` to encode, and to `Schema.decodeUnknownEffect` to
+decode, as you would any Effect Schema.
+
+## See it run
+
+Run this to watch one task go out and come back. Each line in the console
+opens: click the stored form to see its `_v`.
+
+<Run program={program} caption="The value has no version; the stored form has _v: 'v1'; reading it back gives the value again. The last row says v1 but has no title, so it does not fit v1 and is refused.">
+
+```ts file=./run/two-forms.ts
+
+```
+
+```ts file=./components/task.ts
+
+```
+
+</Run>
+
+## The fields an ESchema takes
+
+An ESchema keeps its stored form plain JSON, with one shape per version. So
+a few field types are refused, each for a reason:
+
+- **A name that starts with `_`.** Those names belong to std-toolkit, like
+  `_v`. TypeScript refuses the field.
+- **An optional field.** A version should have exactly one shape. Write a
+  field that may be absent as `Schema.NullOr(…)` instead; TypeScript refuses
+  `Schema.optional`.
+- **`Schema.Number`.** JSON cannot store `NaN` or `Infinity`. Use
+  `Schema.Finite` or `Schema.Int`; `build()` refuses a plain number.
+
+<Callout title="Remember">
+  An ESchema is a named shape. Your code only handles its value; what is stored
+  is the encoded form, stamped with the version it was written at.
+</Callout>
+
+This task has one version. What happens when it needs a second? Next,
+[Adding a version](/std-toolkit/adding-a-version).

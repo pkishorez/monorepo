@@ -31,5 +31,5 @@ export {
   useSteps,
   useTargets,
 } from './examples/index.ts';
-export { Files, Live, Picture, Run } from './examples/index.ts';
+export { Files, Inspect, Live, Picture, Run } from './examples/index.ts';
 export type { KeyLock, LiveApp, Program } from './examples/index.ts';

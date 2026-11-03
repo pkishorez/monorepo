@@ -1,59 +1,50 @@
-import { LiveTable } from '../../live-table/index.ts';
 import { NestedPicture } from './components/nested-picture.tsx';
-import { shapesInsideShapes } from './components/lab.ts';
 import { program } from './run/nested.ts';
 
-Real data is nested. A task has a status, and a checklist of items. This
-page shows how you put one versioned shape inside another, and what
-happens when only the inner one changes.
+You now have two kinds of shape: objects with fields, and single values
+like the theme. Real data mixes them. Your settings are an object, and the
+theme is one of their fields. This page puts one versioned shape inside
+another, and shows what happens when only the inner one changes.
 
 ## Nesting a shape
 
-Every ESchema, of any kind, has a `schema`: a plain Effect Schema you can
-use anywhere a Schema goes. To nest a shape, you use its `schema` as a
-field, even inside `Schema.Array`.
+Every ESchema, of any kind, has a `schema`: the plain Effect Schema that
+reads and writes it. To nest a shape, use its `schema` as a field.
 
-```ts file=./components/tasks.ts
+```ts file=./components/settings.ts
 
 ```
 
-Here `Task` holds a `Status`, which is a ValueESchema, and a list of
-`Item`s, which are ESchemas. Release 2 gives `Status` a v2 that renames
-`'todo'` to `'open'`. Look closely: `Task` itself gets no new version.
+`Settings` holds a `language` and a `theme`. The theme is the ValueESchema
+from the last page. Look at the versions: `Theme` has a v2, but `Settings`
+has only ever had v1. Settings never changed; its theme did.
+
+The same works anywhere a Schema goes. A task's checklist could be
+`Schema.Array(Item.schema)`, a list of versioned items.
 
 ## Each level keeps its own version
 
-When a task is stored, every nested shape is stored with its own `_v`:
-the task, the status envelope and each checklist item. A read upgrades
-each one through its own migrations, on its own.
+When settings are saved, each shape is stored with its own `_v`: the
+settings object, and the theme's envelope inside it. A read upgrades each
+one through its own migrations, on its own.
 
-<Picture caption="Only Status changed, so only the status is upgraded. The task around it still says v1, yet what it reads as has changed.">
+<Picture caption="Only Theme changed, so only the theme is upgraded. Settings still says v1, yet what it reads as has changed.">
   <NestedPicture />
 </Picture>
 
 That last point has a name: a **transitive change**. When a nested shape
-evolves, every shape that holds it reads differently, even though their
-own versions didn't move. It's what you want, since old statuses read as
-new ones everywhere. But it means you can't change a shape without
-thinking about who holds it.
+gets a new version, every shape that holds it reads differently, though
+their own versions never moved. Usually that's what you want: old themes
+read as new ones everywhere. But it means a change to a small shape can
+reach far. Before you add a version to it, look at who holds it.
 
-## Try it
+## See it run
 
-Save a few tasks with each release. Then look at the `status` field on the
-left: release 1 rows hold a v1 envelope with `'todo'`.
+The program reads settings saved back when the theme was free text, then
+saves them again. Open the stored object and the saved one, and find the
+`_v` at each level.
 
-<LiveTable
-  lab={shapesInsideShapes}
-  caption="Every task is stored as Task v1. The status inside each one has its own version, and release 2 reads every 'todo' as 'open'."
-/>
-
-## Which fields are shapes
-
-Sometimes code needs to know if a field is a versioned shape, say to show
-it in a tool. `eschemaOf` takes any Schema and gives back the ESchema it
-is the `schema` of, or `undefined`.
-
-<Run program={program} caption="The nested status upgrades on read. eschemaOf finds Status behind the status field, and nothing behind title. Saved again, every level has its own _v.">
+<Run program={program} caption="Only the theme upgrades: 'night' reads as 'dark'. Saved again, the settings say v1 and their theme's envelope says v2. eschemaOf finds Theme behind the theme field, and nothing behind language.">
 
 ```ts file=./run/nested.ts
 
@@ -61,11 +52,16 @@ is the `schema` of, or `undefined`.
 
 </Run>
 
+The last lines use `eschemaOf`. It takes any Schema and gives back the
+ESchema it is the `schema` of, or `undefined`. Tools use it to tell a
+versioned field from a plain one.
+
 <Callout title="Remember">
-  A nested shape upgrades on its own. When you add a version to it, every shape
-  that holds it reads differently: check them all.
+  A nested shape keeps its own version and upgrades on its own. Changing it
+  changes what every shape around it reads as.
 </Callout>
 
-You've now seen `evolve` in passing. Next, [Adding a
-version](/std-toolkit/adding-a-version): what one evolve step does, and
-how old rows read in the new shape.
+You can now build any shape you need. Shapes keep changing, though, and
+adding a field is the easy change. Next, [Rename and
+remove](/std-toolkit/rename-and-remove): taking a field away, or giving it
+a new name.

@@ -18,7 +18,11 @@ export const transactions = lab({
     {
       label: 'Add t1 to home',
       run: () =>
-        task.insert({ boardId: 'home', taskId: 't1', title: 'Cook dinner' }),
+        task.insert({
+          boardId: 'home',
+          taskId: 't1',
+          title: 'Water the plants',
+        }),
     },
     { label: 'Move t1 to home', run: () => moveToHome('t1') },
   ],
