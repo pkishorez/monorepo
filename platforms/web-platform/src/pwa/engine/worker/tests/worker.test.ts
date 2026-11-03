@@ -75,11 +75,23 @@ const withPrecache = (fake: ReturnType<typeof makeFakeGlobal>) =>
     '/': 'home',
   });
 
-/** Start's answers as the network gives them: its Pages, and each path's body. */
-const startNetwork = (request: Request) =>
+/** Start's answers, each page drawn by the server build `drawnBy`. */
+const drawn = (request: Request, drawnBy: string) =>
   new URL(request.url).pathname === '/_kabuki/pages'
     ? Response.json(PAGES)
-    : new Response(`body:${new URL(request.url).pathname}`);
+    : new Response(`body:${new URL(request.url).pathname} ${drawnBy}`);
+
+/** Start's answers as the network gives them: its Pages, and each path's body. */
+const startNetwork = (request: Request) => drawn(request, PAGES.build);
+
+/** The network, but `path` answers with an older deploy's copy the first `stale` times it is asked. */
+const staleAt = (path: string, stale: number) => {
+  let asked = 0;
+  return (request: Request) =>
+    new URL(request.url).pathname === path && asked++ < stale
+      ? drawn(request, 'k0')
+      : startNetwork(request);
+};
 
 const navigate = (fake: ReturnType<typeof makeFakeGlobal>, path: string) =>
   text(fake.fetchEvent(path, { mode: 'navigate' }));
@@ -118,6 +130,34 @@ describe('install', () => {
     ]);
     expect(fake.requests.every((r) => r.init?.cache === 'reload')).toBe(true);
     expect(fake.calls.skipWaiting).toBe(1);
+  });
+
+  it("asks once more, past every cache, for a page an older deploy drew, and saves Start's own", async () => {
+    const fake = start();
+    fake.setNetwork(staleAt('/', 1));
+    await settle(fake.dispatch('install'));
+    const saved = await (await fake.caches.open(PRECACHE)).match('/');
+    expect(await saved?.text()).toBe('body:/ k1');
+    const asked = fake.requests.filter((r) => r.url === '/');
+    expect(asked.map((r) => r.init?.cache)).toEqual(['reload', 'no-store']);
+  });
+
+  it("leaves to the network a static page that is still an older deploy's", async () => {
+    const fake = start();
+    fake.setNetwork(staleAt('/', 2));
+    await settle(fake.dispatch('install'));
+    expect(fake.caches.urls(PRECACHE)).not.toContain('/');
+    expect(fake.calls.skipWaiting).toBe(1);
+  });
+
+  it("fails install when the App Shell is still an older deploy's", async () => {
+    const fake = start();
+    fake.setNetwork(staleAt('/_kabuki/shell', 2));
+    const event = fake.dispatch('install');
+    await expect(Promise.all(event.lifetimes)).rejects.toThrow(
+      '/_kabuki/shell',
+    );
+    expect(fake.calls.skipWaiting).toBe(0);
   });
 
   it('installs with the assets alone when Start answers no Pages', async () => {
