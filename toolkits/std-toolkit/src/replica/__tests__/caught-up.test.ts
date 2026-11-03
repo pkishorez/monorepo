@@ -1,9 +1,10 @@
-import { Effect, Scope } from 'effect';
+import { Effect, Scope, Stream } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { Store as Kept } from '../index.js';
 import { Store } from '../store/memory/index.js';
 import {
   Entry,
+  Pocket,
   Wallet,
   balances,
   eventually,
@@ -197,6 +198,36 @@ describe('Caught Up', () => {
         yield* Effect.sleep('60 millis');
         expect(seen.mine()).toMatchObject({ status: 'ready', caughtUp: false });
         expect(seen.reached('a')?.model.caughtUp).toEqual([]);
+      }),
+    ));
+
+  it("tells a Worker whether a Collection's whole Strategy is Caught Up", () =>
+    run(
+      Effect.gen(function* () {
+        const world = makeWorld({ gate: false, entries: 'windows' });
+        const app = yield* start(world, Store.memory());
+        yield* eventually(() =>
+          expect(read(app).instance('a')?.role).toBe('leading'),
+        );
+        const now = (collection: 'wallets' | 'entries') =>
+          world.under(
+            Effect.flatMap(Pocket.get('a'), (pocket) =>
+              Stream.runHead(pocket.caughtUp(collection)),
+            ),
+          );
+        expect(yield* now('wallets')).toMatchObject({ value: false });
+        // Entries sync by Windows alone: nothing whole to wait on.
+        expect(yield* now('entries')).toMatchObject({ value: true });
+
+        yield* world.setGate(true);
+        const answered = yield* world.under(
+          Effect.flatMap(Pocket.get('a'), (pocket) =>
+            pocket
+              .caughtUp('wallets')
+              .pipe(Stream.filter(Boolean), Stream.runHead),
+          ),
+        );
+        expect(answered).toMatchObject({ value: true });
       }),
     ));
 });

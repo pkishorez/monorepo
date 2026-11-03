@@ -1,7 +1,11 @@
 import { parseLoadSubsetOptions, type LoadSubsetOptions } from '@tanstack/db';
 import type { KeyPathValue, TotalKeyPath } from '../../../db/index.js';
 import type { AnyEntityESchema } from '../../../eschema/index.js';
-import type { WindowValue } from './model.js';
+import {
+  scopeOf,
+  WHOLE,
+  type WindowValue,
+} from '../../store/contract/index.js';
 import type { Strategy } from './strategy/index.js';
 
 /*
@@ -68,13 +72,8 @@ export const windowsOf = (
   return [];
 };
 
-// 2. Name
-/** The whole Collection's scope. */
-export const WHOLE = 'strategy';
-
-/** A Strategy's scope: the whole Collection's, or one Window's. */
-export const scopeOf = (window: WindowAt | null) =>
-  window === null ? WHOLE : `${window.path}=${JSON.stringify(window.value)}`;
+// 2. Name: a scope is named as the Store names it.
+export { scopeOf, WHOLE };
 
 /** A Strategy's Worker key, as `entries/walletId="7"`. */
 export const workerKey = (collection: string, window: WindowAt | null) =>

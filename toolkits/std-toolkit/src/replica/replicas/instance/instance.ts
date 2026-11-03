@@ -32,7 +32,12 @@ import {
 } from './model.js';
 import { openInstance, type Live, type Opened } from './opened.js';
 import { runStrategy } from './syncing.js';
-import { workerKey, type WindowAt, type WindowMap } from './windows.js';
+import {
+  scopeOf,
+  workerKey,
+  type WindowAt,
+  type WindowMap,
+} from './windows.js';
 
 /*
  * An Instance: one Replica for one Key, as a Kabuki actor. It is Invoked by
@@ -46,10 +51,13 @@ import { workerKey, type WindowAt, type WindowMap } from './windows.js';
  * 4. Window   a Query's `where` opens Windows and its end lets them go, as
  *             Messages; one nothing uses closes once its GC Time passes.
  *             Each participant records the Windows it has open, so the
- *             Leader runs them all.
+ *             Leader runs them all, and holds each in the Store while it
+ *             is open, so no Window Prune deletes it.
  * 5. Sync     one Worker per Strategy: the whole Collection's, and each
  *             open Window's, only while Leading and the Gate is open. A
- *             closed Gate stops fetching, never reading.
+ *             closed Gate stops fetching, never reading. A Window's holds
+ *             it in the Store as it runs, so it never writes into one
+ *             being pruned: it waits, then reads the Window whole.
  * 6. Caught Up a scope is, once its Strategy answered, until it stops. The
  *             Leader tells the others through the Store; each tells the
  *             Queries that read it.
@@ -81,6 +89,14 @@ export type Instance<D extends AnyShape> = {
   ) => Effect.Effect<void, ReplicaError>;
   /** Waits until the Instance stops: no one holds it any more, or the Store removed it. */
   readonly stopped: Effect.Effect<void>;
+  /**
+   * Whether a Collection's whole Strategy is Caught Up here, now and each
+   * time that changes, for a Worker that acts only on a real answer; one
+   * with no whole Strategy is at once. A Query has its own `caughtUp`.
+   */
+  readonly caughtUp: (
+    collection: keyof D['collections'] & string,
+  ) => Stream.Stream<boolean>;
 } & {
   readonly [N in keyof D['collections']]: Collection<
     Row<D['collections'][N]>,
@@ -290,13 +306,17 @@ const build = <
           );
           const strategy = scope && strategyOf(scope.collection, scope.window);
           if (!scope || !strategy) return;
-          yield* runStrategy({
+          const opened = yield* openedOf(data);
+          const run = runStrategy({
             ...scope,
             strategy,
             key: keyOfModel(data),
-            opened: yield* openedOf(data),
+            opened,
             send: self.send,
           });
+          yield* scope.window === null
+            ? run
+            : opened.space.hold(scope.collection, scopeOf(scope.window), run);
         }),
     },
     // 6. Caught Up: what it is, told to the others whenever it changes, and
@@ -516,6 +536,28 @@ const build = <
               until,
             });
           }),
+      },
+      // 4. Window: each open here held in the Store, until it closes here.
+      hold: {
+        each: ({ model }) =>
+          openHere(model).map(({ collection, path, value }) =>
+            workerKey(collection, { path, value }),
+          ),
+        run: (self, key) =>
+          Effect.gen(function* () {
+            const data = yield* self.get;
+            const found = openHere(data.model).find(
+              ({ collection, path, value }) =>
+                workerKey(collection, { path, value }) === key,
+            );
+            if (found === undefined) return;
+            const { space } = yield* spaceOf(data);
+            yield* space.hold(
+              found.collection,
+              scopeOf({ path: found.path, value: found.value }),
+              Effect.never,
+            );
+          }).pipe(Effect.ignore),
       },
       // 4. Window: the ones open here, recorded for the Leader, and
       // recorded again when a new Leader asks.

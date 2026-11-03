@@ -13,6 +13,9 @@ import {
   START,
   TOLD,
   told,
+  OUTSIDE,
+  UNNAMED,
+  WHOLE,
   type SPACE_TABLE,
 } from './layout.js';
 
@@ -21,13 +24,29 @@ import {
  * Entity and gives each record it keeps the next number in its Collection,
  * so a reader asks only for what was written after the number it last read.
  * A cursor is written with the last records of its batch, never before them,
- * and each Strategy scope keeps its own. Each participant's open Windows are
- * one row of their own, which the participant alone writes; what the Leader
- * tells is Caught Up is one row, which only the Leader writes.
+ * and each Strategy scope keeps its own. Each record names the Window it is
+ * in, so one Window's records are found without reading the others. Each
+ * participant's open Windows are one row of their own, which the
+ * participant alone writes; what the Leader tells is Caught Up is one row,
+ * which only the Leader writes.
+ *
+ * A Window pruned goes cursor first, then its records, then its
+ * Collection's generation is raised: stopped part way, it is Never Synced,
+ * so its next Strategy reads it whole, and what is left of it goes with the
+ * next prune. A reader that finds the generation raised reads the
+ * Collection afresh, since reading on from a number never shows a record
+ * gone.
  */
 
 /** An Entity in encoded form, as the Store keeps it. */
 export type Wire = Entity<unknown>;
+
+/** A record as read back: its id, its Entity, and the Window it is named in. */
+export interface Stored {
+  readonly id: string;
+  readonly entity: Wire;
+  readonly window: string;
+}
 
 /** A Strategy's cursor, as it was saved. */
 export interface Cursor {
@@ -35,13 +54,10 @@ export interface Cursor {
   readonly state: unknown;
 }
 
-/** One Collection's part of a write: its records by id, and the cursor of the scope that read them. */
+/** One Collection's part of a write: its records by id, each with its Window, and the cursor of the scope that read them. */
 export interface Written {
   readonly collection: string;
-  readonly records: ReadonlyArray<{
-    readonly id: string;
-    readonly entity: Wire;
-  }>;
+  readonly records: ReadonlyArray<Stored>;
   readonly cursor?: Cursor & { readonly scope: string };
 }
 
@@ -118,13 +134,18 @@ const writeCollection = (written: Written) =>
           id: record.id,
           seq: position,
           entity: record.entity,
+          window: record.window,
         };
         ops.push(
           record.observed === null
             ? yield* records.insertOp(value)
             : yield* records.getAndUpdateOp(
                 { collection, id: record.id },
-                { seq: position, entity: record.entity },
+                {
+                  seq: position,
+                  entity: record.entity,
+                  window: record.window,
+                },
                 { check: (current) => current.seq === record.observed },
               ),
         );
@@ -148,7 +169,11 @@ const writeCollection = (written: Written) =>
               { position },
               { check: (current) => current.position === observed },
             )
-          : yield* collections.insertOp({ ...rowKey(collection), position }),
+          : yield* collections.insertOp({
+              ...rowKey(collection),
+              position,
+              generation: 0,
+            }),
       );
       yield* space.transact(ops);
       exists = true;
@@ -171,7 +196,7 @@ export const write = (written: ReadonlyArray<Written>) =>
 /** Every record of a Collection written after `after`, in the order written, and the number of the last one. */
 export const readAfter = (collection: string, after: string | null) =>
   Effect.gen(function* () {
-    const read: Wire[] = [];
+    const read: Stored[] = [];
     let position = after ?? START;
     while (true) {
       const found = yield* records.query(
@@ -181,12 +206,119 @@ export const readAfter = (collection: string, after: string | null) =>
       );
       for (const item of found.items) {
         // The Store wrote it, so it is an Entity in encoded form.
-        read.push(item.value.entity as Wire);
+        read.push({
+          id: item.value.id,
+          entity: item.value.entity as Wire,
+          window: item.value.window,
+        });
         position = item.value.seq;
       }
       if (!found.hasMore || found.items.length === 0)
         return { records: read, position };
     }
+  });
+
+/** How many times Windows were pruned from a Collection: 0 before the first. */
+export const generationOf = (collection: string) =>
+  collections
+    .get(rowKey(collection))
+    .pipe(Effect.map((row) => row?.value.generation ?? 0));
+
+const isGone = (error: DatabaseError) => error.reason._tag === 'NoItemToUpdate';
+
+/**
+ * Names the Window of each record given, as its Instance reads it. Only the
+ * Window changes: no number, so no reader reads it again. A record gone or
+ * named so already is passed over.
+ */
+export const rename = (
+  collection: string,
+  named: ReadonlyArray<{ readonly id: string; readonly window: string }>,
+) =>
+  Effect.forEach(
+    named,
+    ({ id, window }) =>
+      Effect.gen(function* () {
+        const row = yield* records.get({ collection, id });
+        if (row === null || row.value.window === window) return;
+        yield* records.getAndUpdate(
+          { collection, id },
+          { window },
+          { retries: RETRIES },
+        );
+      }).pipe(Effect.catchIf(isGone, () => Effect.void)),
+    { concurrency: READS, discard: true },
+  );
+
+/** Every Window scope a Collection keeps records or a cursor of: never `OUTSIDE`, `UNNAMED` or the whole Collection's. */
+export const windowsIn = (collection: string) =>
+  Effect.gen(function* () {
+    const found = new Set<string>();
+    // One read per Window: each asks for the first record named after the
+    // last Window found.
+    let after = OUTSIDE;
+    while (true) {
+      const next = yield* records.query(
+        'byWindow',
+        { pk: { collection }, '>': { window: after } },
+        { limit: 1 },
+      );
+      const item = next.items[0];
+      if (item === undefined) break;
+      after = item.value.window;
+      found.add(after);
+    }
+    let page = yield* cursors.query(
+      'primary',
+      { pk: { collection }, '>=': null },
+      { limit: PAGE },
+    );
+    while (true) {
+      for (const item of page.items) found.add(item.value.scope);
+      if (!page.hasMore || page.items.length === 0) break;
+      page = yield* cursors.query(
+        'primary',
+        { pk: { collection }, '>=': null },
+        { limit: PAGE, after: page.items.at(-1)! },
+      );
+    }
+    found.delete(UNNAMED);
+    found.delete(WHOLE);
+    return [...found];
+  });
+
+/** Deletes one Window of a Collection: its cursor, then its records, then raises the Collection's generation. */
+export const dropWindow = (collection: string, scope: string) =>
+  Effect.gen(function* () {
+    yield* cursors
+      .hardDelete({ collection, scope }, 'I KNOW WHAT I AM DOING')
+      .pipe(Effect.catchIf(isGone, () => Effect.void));
+    while (true) {
+      const found = yield* records.query(
+        'byWindow',
+        { pk: { collection }, '=': { window: scope } },
+        { limit: PAGE },
+      );
+      if (found.items.length === 0) break;
+      yield* Effect.forEach(
+        found.items,
+        (item) =>
+          records
+            .hardDelete(
+              { collection, id: item.value.id },
+              'I KNOW WHAT I AM DOING',
+            )
+            .pipe(Effect.catchIf(isGone, () => Effect.void)),
+        { concurrency: READS, discard: true },
+      );
+    }
+    const row = yield* collections.get(rowKey(collection));
+    if (row !== null)
+      yield* collections.getAndUpdate(
+        rowKey(collection),
+        { generation: row.value.generation + 1 },
+        { retries: RETRIES },
+      );
   });
 
 /** The cursor a scope's Strategy saved, if it saved one. */

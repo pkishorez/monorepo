@@ -79,7 +79,10 @@ describe('Store', () => {
                       ) {
                         wrote = true;
                         yield* space.write([
-                          { collection, records: [{ id: 'w1', entity }] },
+                          {
+                            collection,
+                            records: [{ id: 'w1', entity, window: '' }],
+                          },
                         ]);
                       }
                       return snapshot;
@@ -109,7 +112,7 @@ describe('Store', () => {
             name: id,
             balance: index,
           });
-          return { id, entity };
+          return { id, entity, window: '' };
         });
         const space = yield* Effect.flatMap(Store, (kept) =>
           kept.open('pocket·a'),

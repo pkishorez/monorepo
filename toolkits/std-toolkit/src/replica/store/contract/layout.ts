@@ -4,11 +4,12 @@ import { EntityESchema, ESchema } from '../../../eschema/index.js';
 
 /*
  * How one Instance's space is laid out, as a StdTable: one row per Entity a
- * Collection holds, numbered in the order it was written; one row per
- * Collection holding the last number given; one row per Strategy scope, the
- * whole Collection or one Window, holding its cursor; one row per
- * participant naming the Windows it has open; and one row of the scopes the
- * Leader last told are Caught Up.
+ * Collection holds, numbered in the order it was written and naming the
+ * Window it is in; one row per Collection holding the last number given
+ * and how many times Windows were pruned from it; one row per Strategy
+ * scope, the whole Collection or one Window, holding its cursor; one row
+ * per participant naming the Windows it has open; and one row of the
+ * scopes the Leader last told are Caught Up.
  */
 
 export const SPACE_TABLE = 'replica';
@@ -16,9 +17,34 @@ export const SPACE_TABLE = 'replica';
 /** JSON the toolkit stores as it is: an encoded Entity, a cursor. */
 type Opaque = {} | null;
 
+/** What a Window's field reads. */
+export const WindowValue = Schema.Union([
+  Schema.String,
+  Schema.Number,
+  Schema.Boolean,
+]);
+
+export type WindowValue = typeof WindowValue.Type;
+
+/** The whole Collection's scope. */
+export const WHOLE = 'strategy';
+
+/** A Strategy's scope: the whole Collection's, or one Window's, as `walletId="7"`. */
+export const scopeOf = (
+  window: { readonly path: string; readonly value: WindowValue } | null,
+) =>
+  window === null ? WHOLE : `${window.path}=${JSON.stringify(window.value)}`;
+
+/** The Window of a record in none: its Collection syncs whole, or by more than one field. */
+export const OUTSIDE = '';
+
+/** The Window of a record kept before records named theirs, until its Instance names it. */
+export const UNNAMED = '?';
+
 export const space = StdTable.make(SPACE_TABLE)
   .primary('pk', 'sk')
   .lsi('LSI1', 'LSI1SK')
+  .lsi('LSI2', 'LSI2SK')
   .build();
 
 const RecordSchema = EntityESchema.make('ReplicaRecord', 'id', {
@@ -27,19 +53,38 @@ const RecordSchema = EntityESchema.make('ReplicaRecord', 'id', {
   seq: Schema.String,
   /** The Entity, in encoded form. */
   entity: ESchema.fromType<Opaque>(),
-}).build();
+})
+  .evolve(
+    'v2',
+    {
+      /** The scope of the Window it is in, `OUTSIDE` if none. */
+      window: Schema.String,
+    },
+    (prev) => ({ ...prev, window: UNNAMED }),
+  )
+  .build();
 
 export const records = space
   .entity(RecordSchema)
   .primary({ pk: ['collection'] })
   .index('LSI1', 'bySequence', { sk: ['seq'] })
+  .index('LSI2', 'byWindow', { sk: ['window'] })
   .build();
 
 const CollectionSchema = EntityESchema.make('ReplicaCollection', 'key', {
   collection: Schema.String,
   /** The last `seq` given in this Collection. */
   position: Schema.String,
-}).build();
+})
+  .evolve(
+    'v2',
+    {
+      /** Raised each time Windows are pruned from it, so every reader reads it afresh. */
+      generation: Schema.Finite,
+    },
+    (prev) => ({ ...prev, generation: 0 }),
+  )
+  .build();
 
 export const collections = space
   .entity(CollectionSchema)

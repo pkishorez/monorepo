@@ -41,7 +41,9 @@ _Avoid_: Source, Feed, Reader.
 **Window**:
 The records of one Collection whose field reads one value, such as the
 entries of wallet 7. A Query that filters on that field opens it, and its
-Strategy runs while it is open; its records stay in the Store after it closes.
+Strategy runs while it is open; its records stay in the Store after it
+closes, until a Window Prune deletes them. A record is in a Window only when
+its Collection syncs by the Windows of one field alone.
 _Avoid_: Partition (a [[db]] word for a physical slice of a table).
 
 **Caught Up**:
@@ -60,7 +62,7 @@ _Avoid_: Empty, Unloaded, First Load.
 
 **GC Time**:
 How long an Instance or a Window keeps running after the last thing using it
-lets go. Its stored records stay.
+lets go. Its stored records stay, until pruned.
 _Avoid_: Linger, keep-alive.
 
 **Settle Window**:
@@ -75,9 +77,9 @@ _Avoid_: Guard, Condition.
 
 **Store**:
 Where Instances are kept on this device (IndexedDB, SQLite, memory): the only
-truth there. It lists and deletes Instances, and keeps tabs in agreement. An
-app may keep one Store per Account, each holding only that Account's
-Instances.
+truth there. It lists and deletes Instances and their Windows, and keeps
+tabs in agreement. An app may keep one Store per Account, each holding only
+that Account's Instances.
 _Avoid_: Sync Store, cache, persistence.
 
 **Prune**:
@@ -86,6 +88,16 @@ deleting every other Instance it holds. What it keeps is declared, never what
 it drops, so a Replica renamed or a Key gone is deleted without anyone
 naming it.
 _Avoid_: retire, garbage-collect, cleanup, sweep.
+
+**Window Prune**:
+A Store told which Windows of one Instance's Collections it keeps, by the
+field each opens on, deleting the cursor and then the records of every other
+Window of those fields, unless a participant holds it: each holds the
+Windows it has open, and the Leader each it syncs. What it keeps is declared,
+as for a Prune. A Window pruned is Never Synced, so it syncs whole when it
+opens again, and every participant's Collections let go of what went. Where
+nothing can tell a Window is held, nothing is pruned.
+_Avoid_: evict, window cleanup, garbage-collect, sweep.
 
 **Leader**:
 The one participant that runs an Instance's Strategies, those of the Windows

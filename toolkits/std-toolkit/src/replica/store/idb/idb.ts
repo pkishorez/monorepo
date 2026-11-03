@@ -3,20 +3,28 @@ import { IDB } from '../../../db/idb/index.js';
 import {
   makeStore,
   spaceTable,
+  type Claim,
   type Doorbell,
   type Leader,
+  type Share,
 } from '../contract/index.js';
 import {
   broadcastChannelDoorbell,
   type BroadcastChannelConstructor,
 } from './doorbell.js';
-import { webLocksLeader, type BrowserLockManager } from './web-locks.js';
+import {
+  webLocksClaim,
+  webLocksLeader,
+  webLocksShare,
+  type BrowserLockManager,
+} from './web-locks.js';
 
 /*
  * The Store in IndexedDB, shared by a browser's tabs: one database per
  * Instance, named under the Store's prefix, a Web Lock per Instance for its
- * Leader, and a BroadcastChannel for its Doorbell. A browser without one of
- * them goes without: every tab leads, or no tab hears the others.
+ * Leader and one per Window for who holds it, and a BroadcastChannel for its
+ * Doorbell. A browser without one of them goes without: every tab leads and
+ * no Window is pruned, or no tab hears the others.
  *
  * Two Stores with different prefixes, such as one per Account, never meet:
  * their databases, locks and Doorbell topics are all named under their own.
@@ -49,6 +57,11 @@ const factory = (): IDBFactory => {
 
 const everyoneLeads: Leader = (_name, effect) => effect;
 
+const everyoneShares: Share = (_name, effect) => effect;
+
+// With no lock to say a Window is held, none is taken as free.
+const noneFree: Claim = () => Effect.succeedNone;
+
 // It hears no one, yet still rings once at first when asked: a Space waits
 // for that ring before it is handed out.
 const noDoorbell: Doorbell = {
@@ -63,9 +76,10 @@ const noDoorbell: Doorbell = {
 const idb = (options: IdbOptions = {}) => {
   const prefix = options.prefix ?? 'replica:';
   const { navigator, BroadcastChannel } = globalThis as Globals;
-  const leader = navigator?.locks
-    ? webLocksLeader(navigator.locks)
-    : everyoneLeads;
+  const locks = navigator?.locks;
+  const leader = locks ? webLocksLeader(locks) : everyoneLeads;
+  const share = locks ? webLocksShare(locks) : everyoneShares;
+  const claim = locks ? webLocksClaim(locks) : noneFree;
   const doorbell = BroadcastChannel
     ? broadcastChannelDoorbell(BroadcastChannel)
     : noDoorbell;
@@ -92,6 +106,8 @@ const idb = (options: IdbOptions = {}) => {
         request.onerror = () => resume(Effect.fail(request.error));
       }),
     leader: (name, effect) => leader(`${prefix}${name}`, effect),
+    share: (name, effect) => share(`${prefix}${name}`, effect),
+    claim: (name, effect) => claim(`${prefix}${name}`, effect),
     doorbell: {
       ring: (topic) => doorbell.ring(`${prefix}${topic}`),
       listen: (topic, initial) => doorbell.listen(`${prefix}${topic}`, initial),

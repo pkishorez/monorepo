@@ -1,4 +1,5 @@
 import { Schema } from 'effect';
+import { WindowValue } from '../../store/contract/index.js';
 import { workerKey } from './windows.js';
 
 /*
@@ -14,14 +15,7 @@ export const Input = Schema.Struct({
   key: Schema.String,
 });
 
-/** What a Window's field reads. */
-export const WindowValue = Schema.Union([
-  Schema.String,
-  Schema.Number,
-  Schema.Boolean,
-]);
-
-export type WindowValue = typeof WindowValue.Type;
+export { WindowValue };
 
 /**
  * How one Strategy is doing: `idle` while another participant leads,
