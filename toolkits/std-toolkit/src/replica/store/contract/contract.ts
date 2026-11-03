@@ -132,7 +132,12 @@ export interface Space {
   /** Names the Window of records kept before records named theirs, or named otherwise. */
   readonly rename: (
     collection: string,
-    named: ReadonlyArray<{ readonly id: string; readonly window: string }>,
+    named: ReadonlyArray<{
+      readonly id: string;
+      readonly window: string;
+      /** The `_u` of the Entity it was named from: one written since is passed over. */
+      readonly _u: Wire['meta']['_u'];
+    }>,
   ) => Effect.Effect<void, ReplicaError>;
   /** Every Window scope of a Collection it keeps a cursor or records of. */
   readonly windows: (
@@ -376,8 +381,12 @@ export const makeStore = (adapter: Adapter): Layer.Layer<Store> => {
               ),
             )
             .pipe(
-              Effect.tap((done) =>
-                Option.isSome(done) ? changed : Effect.void,
+              // Rung once it began, even when stopped part way: what went
+              // is gone whether or not the rest follows.
+              Effect.onExit((exit) =>
+                Exit.isSuccess(exit) && Option.isNone(exit.value)
+                  ? Effect.void
+                  : changed,
               ),
               Effect.map(Option.isSome),
             ),

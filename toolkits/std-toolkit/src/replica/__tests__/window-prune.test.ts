@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { Effect, Layer, Schema } from 'effect';
+import { Effect, Fiber, Layer, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { IDB } from '../../db/idb/index.js';
 import { StdTable } from '../../db/index.js';
@@ -356,6 +356,77 @@ describe('Window Prune', () => {
           e1,
         ]);
         expect(yield* pruneKeeping(store, [])).toEqual(['entries/wallet="w1"']);
+      }),
+    ));
+
+  it('leaves a record written since it was read named as that write named it', () =>
+    run(
+      Effect.gen(function* () {
+        const backend = makeBackend();
+        const store = Memory.memory();
+        const old = backend.put(Entry, entry('e1', 'w1', 1));
+        yield* seed(store, 'pocket·a', 'entries', [
+          { id: 'e1', entity: old, window: UNNAMED },
+        ]);
+        // Another participant writes it, moved to w2, before the rename lands.
+        const moved = backend.put(Entry, entry('e1', 'w2', 1));
+        yield* seed(store, 'pocket·a', 'entries', [
+          { id: 'e1', entity: moved, window: 'wallet="w2"' },
+        ]);
+        yield* Effect.flatMap(Store, (kept) =>
+          Effect.scoped(
+            Effect.flatMap(kept.open('pocket·a'), (space) =>
+              space.rename('entries', [
+                { id: 'e1', window: 'wallet="w1"', _u: old.meta._u },
+              ]),
+            ),
+          ),
+        ).pipe(Effect.provide(store));
+
+        expect((yield* stored(store, 'pocket·a', 'entries')).windows).toEqual({
+          e1: 'wallet="w2"',
+        });
+      }),
+    ));
+
+  it("raises the generation of a Window's Collection when its prune stops among its records", () =>
+    run(
+      Effect.gen(function* () {
+        const backend = makeBackend();
+        const store = Memory.memory();
+        const records = Array.from({ length: 2000 }, (_, index) => {
+          const id = `e${index}`;
+          return {
+            id,
+            entity: backend.put(Entry, entry(id, 'w1', index)),
+            window: 'wallet="w1"',
+          };
+        });
+        yield* seed(store, 'pocket·a', 'entries', records);
+
+        const left = yield* Effect.flatMap(Store, (kept) =>
+          Effect.scoped(
+            Effect.gen(function* () {
+              const space = yield* kept.open('pocket·a');
+              const count = Effect.map(
+                space.read('entries', null),
+                ({ records }) => records.length,
+              );
+              const dropping = yield* Effect.forkChild(
+                space.dropWindow('entries', 'wallet="w1"'),
+              );
+              while ((yield* count) === records.length) yield* Effect.yieldNow;
+              yield* Fiber.interrupt(dropping);
+              return {
+                records: yield* count,
+                generation: yield* space.generation('entries'),
+              };
+            }),
+          ),
+        ).pipe(Effect.provide(store));
+
+        expect(left.records).toBeGreaterThan(0);
+        expect(left.generation).toBe(1);
       }),
     ));
 

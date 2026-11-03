@@ -228,12 +228,16 @@ export const openInstance = (
             shown.show(collection, read, afresh);
             positions.set(collection, position);
             generations.set(collection, generation);
-            const misnamed = records.flatMap(({ id, window }, index) => {
-              const each = read[index]!;
-              if (each._tag !== 'Read') return [];
-              const own = windowOf(collection, each.value);
-              return own === window ? [] : [{ id, window: own }];
-            });
+            const misnamed = records.flatMap(
+              ({ id, window, entity }, index) => {
+                const each = read[index]!;
+                if (each._tag !== 'Read') return [];
+                const own = windowOf(collection, each.value);
+                return own === window
+                  ? []
+                  : [{ id, window: own, _u: entity.meta._u }];
+              },
+            );
             if (misnamed.length > 0)
               yield* Effect.forkIn(
                 naming.withPermit(

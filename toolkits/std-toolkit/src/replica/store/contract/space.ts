@@ -226,27 +226,47 @@ export const generationOf = (collection: string) =>
 
 const isGone = (error: DatabaseError) => error.reason._tag === 'NoItemToUpdate';
 
+// Another participant wrote the record since it was read: refused by the
+// check, or raced to the write.
+const isChanged = (error: DatabaseError) =>
+  error.reason._tag === 'CheckRefused' ||
+  error.reason._tag === 'ConditionFailed';
+
 /**
- * Names the Window of each record given, as its Instance reads it. Only the
- * Window changes: no number, so no reader reads it again. A record gone or
- * named so already is passed over.
+ * Names the Window of each record given, as its Instance reads it from the
+ * Entity at `_u`. Only the Window changes: no number, so no reader reads it
+ * again. A record gone, named so already, or written since, which named its
+ * own, is passed over.
  */
 export const rename = (
   collection: string,
-  named: ReadonlyArray<{ readonly id: string; readonly window: string }>,
+  named: ReadonlyArray<{
+    readonly id: string;
+    readonly window: string;
+    readonly _u: Wire['meta']['_u'];
+  }>,
 ) =>
   Effect.forEach(
     named,
-    ({ id, window }) =>
+    ({ id, window, _u }) =>
       Effect.gen(function* () {
         const row = yield* records.get({ collection, id });
         if (row === null || row.value.window === window) return;
         yield* records.getAndUpdate(
           { collection, id },
           { window },
-          { retries: RETRIES },
+          {
+            // The Store wrote it, so it is an Entity in encoded form.
+            check: (current) => (current.entity as Wire).meta._u === _u,
+            retries: 0,
+          },
         );
-      }).pipe(Effect.catchIf(isGone, () => Effect.void)),
+      }).pipe(
+        Effect.catchIf(
+          (error) => isGone(error) || isChanged(error),
+          () => Effect.void,
+        ),
+      ),
     { concurrency: READS, discard: true },
   );
 
@@ -287,12 +307,39 @@ export const windowsIn = (collection: string) =>
     return [...found];
   });
 
-/** Deletes one Window of a Collection: its cursor, then its records, then raises the Collection's generation. */
+/**
+ * Raises a Collection's generation, so every reader reads it afresh: from
+ * the row as each try reads it, so two raised at once both count.
+ */
+const raise = (collection: string) =>
+  collections
+    .getAndUpdate(
+      rowKey(collection),
+      (current) => ({ generation: current.generation + 1 }),
+      { retries: RETRIES },
+    )
+    .pipe(
+      Effect.catchIf(isGone, () => Effect.void),
+      Effect.asVoid,
+    );
+
+/**
+ * Deletes one Window of a Collection: its cursor, then its records, then
+ * raises the Collection's generation, even when stopped among its records,
+ * so no reader keeps showing what went.
+ */
 export const dropWindow = (collection: string, scope: string) =>
   Effect.gen(function* () {
     yield* cursors
       .hardDelete({ collection, scope }, 'I KNOW WHAT I AM DOING')
       .pipe(Effect.catchIf(isGone, () => Effect.void));
+    yield* dropRecords(collection, scope).pipe(
+      Effect.ensuring(Effect.ignore(raise(collection))),
+    );
+  });
+
+const dropRecords = (collection: string, scope: string) =>
+  Effect.gen(function* () {
     while (true) {
       const found = yield* records.query(
         'byWindow',
@@ -312,13 +359,6 @@ export const dropWindow = (collection: string, scope: string) =>
         { concurrency: READS, discard: true },
       );
     }
-    const row = yield* collections.get(rowKey(collection));
-    if (row !== null)
-      yield* collections.getAndUpdate(
-        rowKey(collection),
-        { generation: row.value.generation + 1 },
-        { retries: RETRIES },
-      );
   });
 
 /** The cursor a scope's Strategy saved, if it saved one. */
