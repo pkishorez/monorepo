@@ -12,7 +12,6 @@ import { TestClock } from 'effect/testing';
 import {
   CodeClient,
   CodeClients,
-  type SpeechToTextState,
   TranscriptionFailed,
 } from '@kestack/connect/code';
 import { Actor, Command, Runtime } from '@kestack/kabuki';
@@ -22,7 +21,6 @@ import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket'
 import { describe, expect, it } from 'vitest';
 import { Ask, Dictations } from '../../voice.ts';
 import { Preferences, nothing } from '../../../../../store.ts';
-import { type Known, Connections, nobody } from '../../../connections.ts';
 import { MicrophoneUnavailable, Recorder } from '../../recorder/index.ts';
 import { dictations } from '../../voice.ts';
 import { DictationLive, LIMIT, State } from '../actor.ts';
@@ -38,12 +36,12 @@ const ask = Command.make('AskDictation', {
 
 /*
  * The Dictation with the microphone and every Connection stood in for. It
- * starts only with a Connection to transcribe on, and says why otherwise, for
- * a few seconds; records the level until it is asked to stop, from
- * anywhere, or for five minutes; transcribes the clip on its Owner's
- * Connection when that one can, else on another; and its text is kept for
- * the field that started it, its Owner, until that field takes it.
- * Refused, it retries from the same clip. It records
+ * starts for any field, whatever its Connection says; records the level
+ * until it is asked to stop, from anywhere, or for five minutes; sends the
+ * audio to its Owner's Connection as a Take while it records, showing the
+ * model's download or the text so far; and its text is kept for the field
+ * that started it, its Owner, until that field takes it. Refused, it
+ * retries from the same clip, as a new Take. It records
  * from the microphone chosen, the default when that one is not linked,
  * saying so, and another chosen while it records is switched to in the
  * same recording.
@@ -88,60 +86,30 @@ const OwnerLive = Owner.build({
 
 type Api = CodeClient['Service'];
 
-const speechOf = (tag: SpeechToTextState['_tag']): SpeechToTextState =>
-  tag === 'Downloading'
-    ? { _tag: 'Downloading', done: 1, total: 2 }
-    : tag === 'Failed'
-      ? { _tag: 'Failed', reason: 'No network' }
-      : { _tag: tag };
-
 /** The stand-ins, and what they were asked. */
 const world = (options: {
-  readonly speech: Readonly<Record<string, SpeechToTextState['_tag']>>;
-  readonly microphone?: 'denied';
-  /** What each `transcribe` answers, in turn; the last one again after. */
+  readonly microphone?: 'denied' | 'missing';
+  /** What each Take is heard as once it ends, in turn; the last one again after. */
   readonly said?: ReadonlyArray<string | TranscriptionFailed>;
+  /** What a Take says first, while it records: the model downloading, or the text so far. */
+  readonly first?: ReadonlyArray<
+    | {
+        readonly _tag: 'Downloading';
+        readonly done: number;
+        readonly total: number;
+      }
+    | { readonly _tag: 'Heard'; readonly text: string }
+  >;
   /** The microphones connected, by `deviceId`, besides the default. */
   readonly connected?: ReadonlyArray<string>;
   /** The microphone chosen in Preferences at the start. */
   readonly chosen?: string | null;
-  /** What each `transcribe` waits for before it answers. */
+  /** What a Take waits for, once ended, before it is heard. */
   readonly gate?: Effect.Effect<void>;
   /** What the microphone waits for before it opens, as a browser asking for permission does. */
   readonly opening?: Effect.Effect<void>;
 }) =>
   Effect.gen(function* () {
-    // Two Connections listed, each answering, each with its Speech to Text.
-    const known: Known = {
-      ...nobody,
-      accountId: 'a1',
-      connections: ['m1', 'm2'].map((id) => ({
-        id,
-        name: id,
-        key: `key-${id}`,
-        version: '0.0.1',
-        status: { _tag: 'Opening' } as const,
-        lastSeen: 1,
-        plugins: {},
-        wanted: {},
-        minConnect: null,
-        displayName: null,
-      })),
-      links: { m1: 'linked', m2: 'linked' },
-      setups: Object.fromEntries(
-        Object.entries(options.speech).map(([id, tag]) => [
-          id,
-          {
-            accounts: null,
-            speech: speechOf(tag),
-            harnesses: null,
-            models: [],
-            savedRead: true,
-            problem: null,
-          },
-        ]),
-      ),
-    };
     const chosen = yield* SubscriptionRef.make(options.chosen ?? null);
     const device = Layer.succeed(Preferences, {
       read: Effect.map(SubscriptionRef.get(chosen), (microphone) => ({
@@ -163,12 +131,16 @@ const world = (options: {
       ),
     });
     const levels = yield* Queue.unbounded<number, Cause.Done>();
+    /** Each Take ended, in turn: its Connection and its whole audio. */
     const asked: Array<{ connectionId: string; audio: ReadonlyArray<number> }> =
       [];
     let recordings = 0;
     /** The microphones asked for, in turn: to record, then each switch. */
     const opened: Array<string | null> = [];
     let recording = false;
+    // The last recording's end: its audio ends with it.
+    let ended = Deferred.makeUnsafe<void>();
+    Deferred.doneUnsafe(ended, Effect.void);
     const connected = new Set(options.connected ?? []);
     const heard = (microphone: string | null) => {
       opened.push(microphone);
@@ -179,29 +151,83 @@ const world = (options: {
       };
     };
     const said = [...(options.said ?? ['hello'])];
+    /** Each Take's stretches, and what it is heard as once it ends. */
+    const takes = new Map<
+      string,
+      {
+        readonly stretches: Map<number, ReadonlyArray<number>>;
+        readonly done: Deferred.Deferred<string, TranscriptionFailed>;
+      }
+    >();
+    const takeOf = (id: string) => {
+      const found = takes.get(id);
+      if (found !== undefined) return found;
+      const made = {
+        stretches: new Map<number, ReadonlyArray<number>>(),
+        done: Deferred.makeUnsafe<string, TranscriptionFailed>(),
+      };
+      takes.set(id, made);
+      return made;
+    };
     const connection = (connectionId: string) =>
       Layer.merge(
         // An RPC client's procedures are generic over how they are called;
         // a stand-in answers the one way the app calls them.
         Layer.mock(CodeClient)({
-          watchSpeechToText: (() =>
-            Stream.make(
-              speechOf(options.speech[connectionId] ?? 'Off'),
-            )) as unknown as Api['watchSpeechToText'],
-          transcribe: (({ audio }: { readonly audio: Uint8Array }) =>
-            Effect.suspend(() => {
-              asked.push({ connectionId, audio: [...audio] });
-              return options.gate ?? Effect.void;
+          addTakeAudio: (({
+            id,
+            at,
+            audio,
+          }: {
+            readonly id: string;
+            readonly at: number;
+            readonly audio: Uint8Array;
+          }) =>
+            Effect.sync(
+              () => void takeOf(id).stretches.set(at, [...audio]),
+            )) as unknown as Api['addTakeAudio'],
+          endTake: (({
+            id,
+            count,
+          }: {
+            readonly id: string;
+            readonly count: number;
+          }) =>
+            Effect.sync(() => {
+              const take = takeOf(id);
+              asked.push({
+                connectionId,
+                audio: Array.from({ length: count }, (_, at) => [
+                  ...(take.stretches.get(at) ?? []),
+                ]).flat(),
+              });
+              return take;
             }).pipe(
-              Effect.andThen(
-                Effect.suspend(() => {
-                  const next = said.length > 1 ? said.shift()! : said[0]!;
-                  return typeof next === 'string'
-                    ? Effect.succeed(next)
-                    : Effect.fail(next);
-                }),
+              Effect.tap((take) =>
+                Effect.forkDetach(
+                  Effect.andThen(
+                    options.gate ?? Effect.void,
+                    Effect.suspend(() => {
+                      const next = said.length > 1 ? said.shift()! : said[0]!;
+                      return typeof next === 'string'
+                        ? Deferred.succeed(take.done, next)
+                        : Deferred.fail(take.done, next);
+                    }),
+                  ),
+                ),
               ),
-            )) as unknown as Api['transcribe'],
+              Effect.asVoid,
+            )) as unknown as Api['endTake'],
+          watchTake: (({ id }: { readonly id: string }) =>
+            Stream.concat(
+              Stream.fromIterable(options.first ?? []),
+              Stream.fromEffect(
+                Effect.map(Deferred.await(takeOf(id).done), (text) => ({
+                  _tag: 'Done' as const,
+                  text,
+                })),
+              ),
+            )) as unknown as Api['watchTake'],
         }),
         Layer.mock(RpcConnection)({
           connectionStatus: Stream.concat(
@@ -215,15 +241,19 @@ const world = (options: {
     const layer = Layer.mergeAll(
       dictations,
       device,
-      Layer.mock(Connections)({ state: Stream.make(known) }),
       CodeClients.make(connection),
       Layer.succeed(Recorder, {
         record: (microphone) =>
-          options.microphone === 'denied'
+          options.microphone !== undefined
             ? Effect.fail(
-                new MicrophoneUnavailable({
-                  reason: 'The microphone is blocked for this site',
-                }),
+                options.microphone === 'denied'
+                  ? new MicrophoneUnavailable({
+                      reason: 'The microphone is blocked for this site',
+                      blocked: true,
+                    })
+                  : new MicrophoneUnavailable({
+                      reason: 'No microphone found',
+                    }),
               )
             : Effect.andThen(
                 options.opening ?? Effect.void,
@@ -231,17 +261,31 @@ const world = (options: {
                   Effect.sync(() => {
                     recordings++;
                     recording = true;
+                    ended = Deferred.makeUnsafe<void>();
                     return {
                       heard: heard(microphone),
                       levels: Stream.fromQueue(levels),
                     };
                   }),
-                  () => Effect.sync(() => void (recording = false)),
+                  () =>
+                    Effect.sync(() => {
+                      recording = false;
+                      Deferred.doneUnsafe(ended, Effect.void);
+                    }),
                 ),
               ),
         switchTo: (microphone) =>
           Effect.sync(() => (recording ? heard(microphone) : null)),
         clip: Effect.succeed(Uint8Array.of(1, 0, 2, 0)),
+        // One chunk, then nothing more until the recording ends.
+        audio: Stream.unwrap(
+          Effect.sync(() =>
+            Stream.concat(
+              Stream.make(Int16Array.of(1, 2)),
+              Stream.drain(Stream.fromEffect(Deferred.await(ended))),
+            ),
+          ),
+        ),
         inputs: Stream.empty,
       }),
     );
@@ -274,6 +318,11 @@ const noticeOf = (app: Running<unknown>) =>
       notice: Schema.NullOr(Schema.Struct({ reason: Schema.String })),
     }),
   )(dictation(app).model).notice?.reason ?? null;
+
+const blockedOf = (app: Running<unknown>) =>
+  Schema.decodeUnknownSync(Schema.Struct({ blocked: Schema.Boolean }))(
+    dictation(app).model,
+  ).blocked;
 
 const settle = Effect.gen(function* () {
   for (let at = 0; at < 20; at++) yield* Effect.yieldNow;
@@ -343,7 +392,6 @@ describe('Dictation', () => {
       Effect.gen(function* () {
         const gate = yield* Deferred.make<void>();
         const { layer, asked } = yield* world({
-          speech: { m1: 'Ready' },
           said: ['too late'],
           gate: Deferred.await(gate),
         });
@@ -364,7 +412,7 @@ describe('Dictation', () => {
   it('throws away text not yet taken on Cancel', () =>
     timed(
       Effect.gen(function* () {
-        const { layer } = yield* world({ speech: { m1: 'Ready' } });
+        const { layer } = yield* world({});
         const app = yield* start(session('m1', 's1'), layer);
         yield* settle;
         yield* toggle(app);
@@ -379,9 +427,7 @@ describe('Dictation', () => {
   it('throws away the one recording on Cancel: the microphone lets go and nothing is transcribed', () =>
     timed(
       Effect.gen(function* () {
-        const { layer, asked, recording } = yield* world({
-          speech: { m1: 'Ready' },
-        });
+        const { layer, asked, recording } = yield* world({});
         const app = yield* start(session('m1', 's1'), layer);
         yield* settle;
         yield* toggle(app);
@@ -394,34 +440,73 @@ describe('Dictation', () => {
       }),
     ));
 
-  it('does not start without a Connection to transcribe on, and says why for a few seconds', () =>
+  it('starts whatever its Connection says, and while it records shows the model downloading, then what is heard so far', () =>
     timed(
       Effect.gen(function* () {
-        const { layer, recordings } = yield* world({ speech: { m1: 'Off' } });
+        const { layer, asked } = yield* world({
+          first: [
+            { _tag: 'Downloading', done: 1, total: 4 },
+            { _tag: 'Heard', text: 'look' },
+          ],
+          said: ['look here'],
+        });
         const app = yield* start(session('m1', 's1'), layer);
         yield* settle;
         yield* toggle(app);
-        expect(stateOf(app)._tag).toBe('Idle');
-        expect(noticeOf(app)).toBe('Turn on Speech to Text in Settings');
-        expect(recordings()).toBe(0);
-        yield* TestClock.adjust('4 seconds');
+        expect(stateOf(app)).toMatchObject({
+          _tag: 'Recording',
+          text: 'look',
+          downloading: null,
+        });
+        yield* toggle(app);
+        expect(asked).toEqual([{ connectionId: 'm1', audio: [1, 0, 2, 0] }]);
+        expect(textsOf(app)).toEqual([
+          { id: 1, owner: 's1', text: 'look here' },
+        ]);
+      }),
+    ));
+
+  it('shows how far the model has downloaded while it records', () =>
+    timed(
+      Effect.gen(function* () {
+        const { layer } = yield* world({
+          first: [{ _tag: 'Downloading', done: 1, total: 4 }],
+        });
+        const app = yield* start(session('m1', 's1'), layer);
         yield* settle;
-        expect(noticeOf(app)).toBeNull();
+        yield* toggle(app);
+        expect(stateOf(app)).toMatchObject({
+          _tag: 'Recording',
+          downloading: { done: 1, total: 4 },
+        });
       }),
     ));
 
   it('says why the microphone would not open', () =>
     timed(
       Effect.gen(function* () {
-        const { layer } = yield* world({
-          speech: { m1: 'Ready' },
-          microphone: 'denied',
-        });
+        const { layer } = yield* world({ microphone: 'missing' });
         const app = yield* start(session('m1', 's1'), layer);
         yield* settle;
         yield* toggle(app);
         expect(stateOf(app)._tag).toBe('Idle');
-        expect(noticeOf(app)).toBe('The microphone is blocked for this site');
+        expect(noticeOf(app)).toBe('No microphone found');
+        expect(blockedOf(app)).toBe(false);
+      }),
+    ));
+
+  it('asks for a reload when the browser blocked the microphone, until dismissed', () =>
+    timed(
+      Effect.gen(function* () {
+        const { layer } = yield* world({ microphone: 'denied' });
+        const app = yield* start(session('m1', 's1'), layer);
+        yield* settle;
+        yield* toggle(app);
+        expect(stateOf(app)._tag).toBe('Idle');
+        expect(blockedOf(app)).toBe(true);
+        expect(noticeOf(app)).toBeNull();
+        yield* send(app, { _tag: 'BlockedDismissed' });
+        expect(blockedOf(app)).toBe(false);
       }),
     ));
 
@@ -430,7 +515,6 @@ describe('Dictation', () => {
       Effect.gen(function* () {
         const open = yield* Deferred.make<void>();
         const { layer, levels, recording } = yield* world({
-          speech: { m1: 'Ready' },
           opening: Deferred.await(open),
         });
         const app = yield* start(session('m1', 's1'), layer);
@@ -452,7 +536,6 @@ describe('Dictation', () => {
         expect(stateOf(app)._tag).toBe('Idle');
 
         const { layer: blocked, recordings } = yield* world({
-          speech: { m1: 'Ready' },
           opening: Effect.never,
         });
         const again = yield* start(session('m1', 's1'), blocked);
@@ -469,7 +552,6 @@ describe('Dictation', () => {
     timed(
       Effect.gen(function* () {
         const { layer, levels, asked } = yield* world({
-          speech: { m1: 'Ready', m2: 'Ready' },
           said: ['  look here '],
         });
         const app = yield* start(session('m1', 's1'), layer);
@@ -495,25 +577,10 @@ describe('Dictation', () => {
       }),
     ));
 
-  it('transcribes on another Connection when its Owner’s cannot', () =>
-    timed(
-      Effect.gen(function* () {
-        const { layer, asked } = yield* world({
-          speech: { m1: 'Ready', m2: 'Downloading' },
-        });
-        const app = yield* start(session('m2', 's2'), layer);
-        yield* settle;
-        yield* toggle(app);
-        yield* toggle(app);
-        expect(asked.map(({ connectionId }) => connectionId)).toEqual(['m1']);
-        expect(textsOf(app)).toEqual([{ id: 1, owner: 's2', text: 'hello' }]);
-      }),
-    ));
-
   it('does not start with no field to dictate into, as in Settings, and says why', () =>
     timed(
       Effect.gen(function* () {
-        const { layer, recordings } = yield* world({ speech: { m1: 'Ready' } });
+        const { layer, recordings } = yield* world({});
         const app = yield* start(null, layer);
         yield* settle;
         yield* toggle(app);
@@ -527,7 +594,6 @@ describe('Dictation', () => {
     timed(
       Effect.gen(function* () {
         const { layer } = yield* world({
-          speech: { m1: 'Ready' },
           said: ['first', 'second', 'third'],
         });
         const app = yield* start(session('m1', 's1'), layer);
@@ -556,7 +622,7 @@ describe('Dictation', () => {
   it('stops itself at five minutes', () =>
     timed(
       Effect.gen(function* () {
-        const { layer, asked } = yield* world({ speech: { m1: 'Ready' } });
+        const { layer, asked } = yield* world({});
         const app = yield* start(session('m1', 's1'), layer);
         yield* settle;
         yield* toggle(app);
@@ -574,7 +640,6 @@ describe('Dictation', () => {
     timed(
       Effect.gen(function* () {
         const { layer, asked } = yield* world({
-          speech: { m1: 'Ready' },
           said: [
             new TranscriptionFailed({ message: 'The model would not load' }),
             'second time',
@@ -584,7 +649,7 @@ describe('Dictation', () => {
         yield* settle;
         yield* toggle(app);
         yield* toggle(app);
-        expect(stateOf(app)).toEqual({
+        expect(stateOf(app)).toMatchObject({
           _tag: 'Failed',
           id: 1,
           owner: session('m1', 's1'),
@@ -603,7 +668,6 @@ describe('Dictation', () => {
     timed(
       Effect.gen(function* () {
         const { layer, opened, recordings, asked } = yield* world({
-          speech: { m1: 'Ready' },
           connected: ['usb', 'desk'],
           chosen: 'usb',
         });
@@ -634,7 +698,6 @@ describe('Dictation', () => {
     timed(
       Effect.gen(function* () {
         const { layer, opened } = yield* world({
-          speech: { m1: 'Ready' },
           chosen: 'gone',
         });
         const app = yield* start(session('m1', 's1'), layer);
@@ -655,7 +718,6 @@ describe('Dictation', () => {
     timed(
       Effect.gen(function* () {
         const { layer } = yield* world({
-          speech: { m1: 'Ready' },
           said: ['   '],
         });
         const app = yield* start(session('m1', 's1'), layer);

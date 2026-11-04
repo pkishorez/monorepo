@@ -5,7 +5,7 @@ import { MicIcon, PlusIcon, SquareIcon, SquareSlashIcon } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { keys, useBound, useTypingKeys } from '../../../../commands.ts';
 import * as Picker from '../../../../../../../../ui/controls/picker/index.ts';
-import type { Availability } from '../../../../../voice/index.ts';
+import { type Availability, Voice } from '../../../../../voice/index.ts';
 import {
   AttachButton,
   AttachmentStrip,
@@ -128,10 +128,22 @@ interface DraftOptions {
           readonly level: ReactNode;
           /** The level as a waveform, for the Touch Draft. */
           readonly wave: ReactNode;
+          /** What is heard so far, or how far voice has downloaded. */
+          readonly heard?: ReactNode;
         }
       | null;
     /** The one coming to this Draft, if any: on its way, refused, or its text. */
     readonly pending: Pending | null;
+    /**
+     * While one records or is written out for this Draft: what is heard so
+     * far, shown as ghost text where it will go, and whether its
+     * Connection is still getting voice ready.
+     */
+    readonly live?: {
+      readonly id: number;
+      readonly text: string;
+      readonly downloading: boolean;
+    } | null;
     /** Start one for this Draft, or stop the one recording, whoever it is for. */
     readonly onToggle: () => void;
     /** Its text is in. */
@@ -264,6 +276,7 @@ export function useDraft(options: DraftOptions) {
   useDictated(
     editor,
     dictation.pending,
+    dictation.live ?? null,
     (id) => latest.current.onTook(id),
     disabled,
   );
@@ -301,7 +314,10 @@ export function useDraft(options: DraftOptions) {
     touch: !keyboard,
     placeholder,
     /** Nothing in it yet, nor a Dictation coming: its placeholder shows. */
-    empty: text === '' && dictation.pending === null,
+    empty:
+      text === '' &&
+      dictation.pending === null &&
+      (dictation.live ?? null) === null,
     writing,
     dragging,
     disabled,
@@ -347,6 +363,16 @@ export function Card({
       data-disabled={draft.disabled || undefined}
       className="group/draft relative flex flex-col rounded-xl border border-dashed border-border bg-muted/30 transition-[border-color,background-color,box-shadow] duration-150 ease-out motion-reduce:transition-none data-dragging:border-solid data-dragging:border-ring data-writing:border-solid data-writing:border-primary/60 data-writing:bg-card data-writing:shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.08),0_16px_40px_rgb(0_0_0/0.12)] data-writing:ring-4 data-writing:ring-primary/10 data-recording:not-data-writing:border-solid data-recording:not-data-writing:border-destructive/35 data-plain:border-solid data-plain:bg-card data-plain:focus-within:border-primary/60 data-plain:focus-within:ring-4 data-plain:focus-within:ring-primary/10 data-btw:border-solid data-btw:border-btw/40 data-btw:bg-(--btw-card) data-btw:data-plain:bg-(--btw-card) data-btw:data-writing:border-btw/70 data-btw:data-writing:bg-(--btw-card) data-btw:data-writing:ring-btw/15 data-btw:data-plain:focus-within:border-btw/70 data-btw:data-plain:focus-within:ring-btw/15"
     >
+      {/* Its words show as ghost text; how far voice has come peeks above. */}
+      <Voice.Peek>
+        {draft.dictation.live?.downloading === true
+          ? recording?._tag === 'Recording'
+            ? recording.heard
+            : draft.dictation.pending?._tag === 'Transcribing'
+              ? draft.dictation.pending.heard
+              : null
+          : null}
+      </Voice.Peek>
       <Heading draft={draft} />
       <div
         // A tap has no `i` to press: on a touch screen it writes.
@@ -408,56 +434,63 @@ export function Heading({ draft }: { readonly draft: Draft }) {
   const { recording, pending } = draft.dictation;
   if (recording !== null)
     return (
-      <div data-slot="dictation" className={HEADING}>
-        <span
-          aria-hidden
-          data-waiting={recording._tag === 'Waiting' || undefined}
-          className="size-1.5 shrink-0 animate-breathe rounded-full bg-destructive motion-reduce:animate-none data-waiting:bg-muted-foreground"
-        />
-        {recording._tag === 'Waiting' ? (
-          <span role="status" title="Waiting for the microphone">
-            Waiting
+      <>
+        <div data-slot="dictation" className={HEADING}>
+          <span
+            aria-hidden
+            data-waiting={recording._tag === 'Waiting' || undefined}
+            className="size-1.5 shrink-0 animate-breathe rounded-full bg-destructive motion-reduce:animate-none data-waiting:bg-muted-foreground"
+          />
+          {recording._tag === 'Waiting' ? (
+            <span role="status" title="Waiting for the microphone">
+              Waiting
+            </span>
+          ) : (
+            <>
+              <span role="status" className="text-foreground">
+                Recording
+              </span>
+              <span className="font-normal tracking-normal text-foreground">
+                {recording.elapsed}
+              </span>
+              {recording.level}
+              <span
+                title={recording.microphone}
+                className="min-w-0 truncate font-normal tracking-normal normal-case"
+              >
+                {recording.microphone}
+              </span>
+            </>
+          )}
+          <span aria-hidden className={HINT}>
+            {[
+              dictateKeys === null
+                ? null
+                : `${dictateKeys} to ${recording._tag === 'Waiting' ? 'cancel' : 'stop'}`,
+              microphoneKeys === null ? null : `${microphoneKeys} microphone`,
+            ]
+              .filter((hint) => hint !== null)
+              .join(' · ')}
           </span>
-        ) : (
-          <>
-            <span role="status" className="text-foreground">
-              Recording
-            </span>
-            <span className="font-normal tracking-normal text-foreground">
-              {recording.elapsed}
-            </span>
-            {recording.level}
-            <span
-              title={recording.microphone}
-              className="min-w-0 truncate font-normal tracking-normal normal-case"
-            >
-              {recording.microphone}
-            </span>
-          </>
-        )}
-        <span aria-hidden className={HINT}>
-          {[
-            dictateKeys === null
-              ? null
-              : `${dictateKeys} to ${recording._tag === 'Waiting' ? 'cancel' : 'stop'}`,
-            microphoneKeys === null ? null : `${microphoneKeys} microphone`,
-          ]
-            .filter((hint) => hint !== null)
-            .join(' · ')}
-        </span>
-      </div>
+        </div>
+      </>
     );
   if (pending?._tag === 'Transcribing')
     return (
-      <div data-slot="dictation" className={HEADING}>
-        <span
-          aria-hidden
-          className="size-1.5 shrink-0 rounded-full bg-muted-foreground/40"
-        />
-        <span role="status" className="font-normal tracking-normal normal-case">
-          Transcribing…
-        </span>
-      </div>
+      <>
+        <div data-slot="dictation" className={HEADING}>
+          <span
+            aria-hidden
+            className="size-1.5 shrink-0 rounded-full bg-muted-foreground/40"
+          />
+          <span
+            role="status"
+            className="font-normal tracking-normal normal-case"
+          >
+            Transcribing…
+          </span>
+        </div>
+      </>
     );
   // By the way: what it is, and that it neither interrupts nor stays.
   if (draft.btw)

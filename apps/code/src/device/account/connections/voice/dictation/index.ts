@@ -1,5 +1,6 @@
 import { DictationLive } from './actor.ts';
 import { DictationButton } from './button.tsx';
+import { Afloat } from './peek.tsx';
 import {
   Dictating,
   DictationBadge,
@@ -20,4 +21,5 @@ export const Dictation = {
   useDictation,
   Field: DictationField,
   useVoice,
+  Afloat,
 };

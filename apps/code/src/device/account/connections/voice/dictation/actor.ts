@@ -1,12 +1,9 @@
 import { Effect, Schema, Stream } from 'effect';
-import { CodeClients } from '@kestack/connect/code';
 import { Actor } from '@kestack/kabuki';
 import { Preferences } from '../../../../store.ts';
 import { Dictations, Owner } from '../voice.ts';
-import { type Known, Connections } from '../../connections.ts';
 import { Recorder } from '../recorder/index.ts';
-import { transcribe } from './api.ts';
-import { connectionFor } from './choose.ts';
+import { TakeLive } from './take/index.ts';
 
 /*
  * The Dictation: the one the app has, a Child of Voice for as long as the
@@ -17,30 +14,31 @@ import { connectionFor } from './choose.ts';
  * text goes there, wherever the user is as it stops, and every other
  * field sees only that one is recording, not for it.
  *
- * 1. Hear     each listed Connection, as `Connections` says it: whether its
- *             Speech to Text is Ready, as its setup holds it, and
- *             whether it answers, so a Dictation knows where it can be
- *             transcribed before it starts.
- * 2. Start    for its Owner; with no Owner, as Space in Settings, or no
- *             Connection to transcribe on, it does not start, and says
- *             why for a few seconds; else it is Waiting while the
- *             microphone chosen in Preferences opens, and denied or
- *             missing, says why the same way. One chosen that is not there
- *             falls back to the default, and says so. Asked again while it
- *             waits, it lets go.
- * 3. Record   once the microphone is live: the level, for the meter, an eighth of a second at a time; at
- *             five minutes it stops itself. Another microphone chosen
- *             while it records is recorded from for the rest of it, into
- *             the same clip.
- *             Cancelled, the microphone lets go and nothing goes into a
- *             field, even once it is being transcribed.
- * 4. Stop     from anywhere: transcribed on its Owner's Connection, if it
- *             can, else any that can. While it transcribes, its Owner
- *             shows it is coming.
- * 5. Text     kept for its Owner until it takes it and says so; one not
- *             drawn now takes it once it is drawn again. Nothing heard, it
- *             says so. Refused, its Owner offers a retry, from the clip
- *             the Recorder keeps until the next Dictation.
+ * 1. Start   for its Owner; with no Owner, as Space in Settings, it does
+ *            not start, and says why for a few seconds. Else it is
+ *            Waiting while the microphone chosen in Preferences opens,
+ *            whatever its Connection says: missing, it says why the same
+ *            way; blocked, as iOS Safari at times does on its own, a
+ *            dialog asks to load the page again. One chosen that is not
+ *            there falls back to the default, and says so. Asked again
+ *            while it waits, it lets go.
+ * 2. Record  once the microphone is live: the level, for the meter, an
+ *            eighth of a second at a time; at five minutes it stops
+ *            itself. Another microphone chosen while it records is
+ *            recorded from for the rest of it, into the same clip.
+ * 3. Hear    its Take, a Child from the microphone opening to the text,
+ *            sends the audio to its Owner's Connection as it is recorded,
+ *            and says what is heard there: while the model downloads, how
+ *            far; then the text so far.
+ *            Cancelled, the microphone lets go and nothing goes into a
+ *            field, even once it is being written out.
+ * 4. Stop    from anywhere: the rest of the audio goes, and its Owner
+ *            shows the text is coming.
+ * 5. Text    the whole of it, once the Take is Done, kept for its Owner
+ *            until it takes it and says so; one not drawn now takes it
+ *            once it is drawn again. Nothing heard, it says so. Failed,
+ *            its Owner offers a retry: a new Take from the clip the
+ *            Recorder keeps until the next Dictation.
  */
 
 /** A Dictation's text, kept until its Owner, by key, takes it. */
@@ -56,46 +54,9 @@ export const LIMIT = 5 * 60_000;
 /** How long why it could not start is shown, in ms. */
 const NOTICE = 4_000;
 
-const Hearing = Schema.Struct({
-  ready: Schema.Boolean,
-  answering: Schema.Boolean,
-  /** How far its Speech to Text has downloaded, 0 to 1, while it does. */
-  downloading: Schema.NullOr(Schema.Number),
-});
-
-/** How far a download has come, in whole percent so its progress draws rarely. */
-const progressOf = (done: number, total: number | null) =>
-  total === null || total === 0 ? 0 : Math.floor((done / total) * 100) / 100;
-
-/** What `Connections` says, as far as a Dictation needs it. */
-const heardOf = ({ connections, links, setups }: Known) => {
-  const listed = (connections ?? []).map(({ id }) => id);
-  return {
-    listed,
-    connections: Object.fromEntries(
-      listed.map((id) => {
-        const speech = setups[id]?.speech;
-        return [
-          id,
-          {
-            ready: speech?._tag === 'Ready',
-            answering: links[id] === 'linked',
-            downloading:
-              speech?._tag === 'Downloading'
-                ? progressOf(speech.done, speech.total)
-                : null,
-          },
-        ];
-      }),
-    ),
-  };
-};
-
-const sameHeard = Schema.toEquivalence(
-  Schema.Struct({
-    listed: Schema.Array(Schema.String),
-    connections: Schema.Record(Schema.String, Hearing),
-  }),
+/** How far the model has downloaded on its Connection, while it does. */
+const Downloading = Schema.NullOr(
+  Schema.Struct({ done: Schema.Number, total: Schema.NullOr(Schema.Number) }),
 );
 
 const Props = Schema.Struct({
@@ -106,14 +67,15 @@ const Props = Schema.Struct({
 const Model = Schema.Struct({
   /** How many have started, so each has its own id. */
   count: Schema.Finite,
-  /** The listed Connections' ids, in the list's order. */
-  listed: Schema.Array(Schema.String),
-  /** What each Connection can do for it, by id. */
-  connections: Schema.Record(Schema.String, Hearing),
   /** The microphone chosen in Preferences, by `deviceId`; null for the default. */
   microphone: Schema.NullOr(Schema.String),
   /** Text not yet in its field. */
   texts: Schema.Array(Text),
+  /**
+   * The browser refused the microphone: iOS Safari at times does so on its
+   * own, and only loading the page again lets it go. Shown until dismissed.
+   */
+  blocked: Schema.Boolean,
   /** Why the last one could not start or came to nothing, while it shows; `at` tells one from the next. */
   notice: Schema.NullOr(
     Schema.Struct({ reason: Schema.String, at: Schema.Number }),
@@ -128,7 +90,8 @@ export const State = Schema.TaggedUnion({
   Waiting: { id: Schema.Finite, owner: Owner },
   /**
    * `heard`: the Time of the level last heard; `microphone`: the name of
-   * the one heard; `using`: the one chosen it was opened for, by `deviceId`.
+   * the one heard; `using`: the one chosen it was opened for, by
+   * `deviceId`; `take`: its Take's id; `text`: what is heard so far.
    */
   Recording: {
     id: Schema.Finite,
@@ -138,21 +101,27 @@ export const State = Schema.TaggedUnion({
     heard: Schema.Number,
     microphone: Schema.String,
     using: Schema.NullOr(Schema.String),
+    take: Schema.String,
+    text: Schema.String,
+    downloading: Downloading,
   },
   Transcribing: {
     id: Schema.Finite,
     owner: Owner,
-    connectionId: Schema.String,
+    take: Schema.String,
+    text: Schema.String,
+    downloading: Downloading,
   },
   Failed: {
     id: Schema.Finite,
     owner: Owner,
+    take: Schema.String,
     reason: Schema.String,
   },
 });
 
 export const Dictation = Actor.define('Dictation', {
-  requires: [CodeClients, Connections, Preferences, Recorder, Dictations],
+  requires: [Preferences, Recorder, Dictations],
   props: Props,
   model: Model,
   state: State,
@@ -166,6 +135,7 @@ export const Dictation = Actor.define('Dictation', {
       microphone: Schema.String,
       fellBack: Schema.Boolean,
       using: Schema.NullOr(Schema.String),
+      take: Schema.String,
     },
     /** Opened `using` while it records: the one heard now, or why not. */
     Switched: {
@@ -175,15 +145,20 @@ export const Dictation = Actor.define('Dictation', {
       ),
       reason: Schema.NullOr(Schema.String),
     },
-    Unable: { reason: Schema.String },
+    Unable: { reason: Schema.String, blocked: Schema.Boolean },
+    /** The blocked microphone's dialog put away. */
+    BlockedDismissed: {},
     Level: { level: Schema.Number },
     Stop: {},
-    Said: { id: Schema.Finite, text: Schema.String },
-    NotSaid: { id: Schema.Finite, reason: Schema.String },
-    ConnectionsHeard: {
-      listed: Schema.Array(Schema.String),
-      connections: Schema.Record(Schema.String, Hearing),
+    // What its Take says, by the Take's id.
+    TakeDownloading: {
+      take: Schema.String,
+      done: Schema.Number,
+      total: Schema.NullOr(Schema.Number),
     },
+    TakeHeard: { take: Schema.String, text: Schema.String },
+    TakeDone: { take: Schema.String, text: Schema.String },
+    TakeFailed: { take: Schema.String, reason: Schema.String },
     MicrophoneRead: { microphone: Schema.NullOr(Schema.String) },
     Dismiss: { at: Schema.Number },
   }),
@@ -200,40 +175,56 @@ const FELL_BACK =
 
 const NO_OWNER = 'Open a Draft to dictate into';
 
-/** Where it is transcribed: on its Owner's Connection, if it can. */
-const transcribing = (model: Model, id: number, owner: Owner) => {
-  const choice = connectionFor(
-    model.connections,
-    model.listed,
-    owner.connectionId,
-  );
-  return choice._tag === 'On'
-    ? {
-        state: {
-          _tag: 'Transcribing' as const,
-          id,
-          owner,
-          connectionId: choice.connectionId,
-        },
-      }
-    : {
-        state: { _tag: 'Failed' as const, id, owner, reason: choice.reason },
-      };
+/** A new Take for the same clip: its id, once more. */
+const again = (take: string) => {
+  const [base, tries] = take.split('#');
+  return `${base}#${Number(tries ?? 0) + 1}`;
 };
 
-// 2. Start
+// 1. Start
 const start = (model: Model, owner: Owner | null, at: number) => {
   if (owner === null) return noticed(model, NO_OWNER, at);
-  const choice = connectionFor(
-    model.connections,
-    model.listed,
-    owner.connectionId,
-  );
-  if (choice._tag === 'None') return noticed(model, choice.reason, at);
   return {
     model: { ...model, count: model.count + 1, notice: null },
     state: { _tag: 'Waiting' as const, id: model.count + 1, owner },
   };
+};
+
+/** Recording or written out, and what its Take says. */
+type Hearing = Extract<
+  typeof State.Type,
+  { readonly _tag: 'Recording' | 'Transcribing' }
+>;
+
+/** What its Take has heard so far, or how far its model has come. */
+const hearing = {
+  TakeDownloading: (
+    { take, done, total }: { take: string; done: number; total: number | null },
+    { state }: { state: Hearing },
+  ) =>
+    take !== state.take
+      ? {}
+      : { state: { ...state, downloading: { done, total } } },
+  TakeHeard: (
+    { take, text }: { take: string; text: string },
+    { state }: { state: Hearing },
+  ) =>
+    take !== state.take ? {} : { state: { ...state, text, downloading: null } },
+  TakeFailed: (
+    { take, reason }: { take: string; reason: string },
+    { state }: { state: Hearing },
+  ) =>
+    take !== state.take
+      ? {}
+      : {
+          state: {
+            _tag: 'Failed' as const,
+            id: state.id,
+            owner: state.owner,
+            take: state.take,
+            reason,
+          },
+        },
 };
 
 /** The Dictation Voice holds, and its asks. */
@@ -241,31 +232,43 @@ export const DictationLive = Dictation.build({
   init: () => ({
     model: {
       count: 0,
-      listed: [],
-      connections: {},
       microphone: null,
+      blocked: false,
       texts: [],
       notice: null,
     },
     state: idle,
   }),
+  children: {
+    // 3. Hear: one Take for as long as it records and is written out.
+    take: Actor.child(TakeLive, {
+      each: ({ state }) =>
+        state._tag === 'Recording' || state._tag === 'Transcribing'
+          ? [state.take]
+          : [],
+      input: ({ state }, take) => ({
+        id: take,
+        connectionId:
+          state._tag === 'Recording' || state._tag === 'Transcribing'
+            ? state.owner.connectionId
+            : '',
+      }),
+      props: ({ state }) => ({ stopped: state._tag === 'Transcribing' }),
+      emits: {
+        Downloading: ({ done, total }, take) => ({
+          _tag: 'TakeDownloading',
+          take,
+          done,
+          total,
+        }),
+        Heard: ({ text }, take) => ({ _tag: 'TakeHeard', take, text }),
+        Done: ({ text }, take) => ({ _tag: 'TakeDone', take, text }),
+        Failed: ({ reason }, take) => ({ _tag: 'TakeFailed', take, reason }),
+      },
+    }),
+  },
   workers: {
-    // 1. Hear: what `Connections` says of each, only as far as it matters
-    // here, so a Heartbeat changes nothing, and a download's progress
-    // only by the percent.
-    connections: {
-      run: (self) =>
-        Effect.flatMap(Connections, ({ state }) =>
-          state.pipe(
-            Stream.map(heardOf),
-            Stream.changesWith(sameHeard),
-            Stream.runForEach((heard) =>
-              self.send({ _tag: 'ConnectionsHeard', ...heard }),
-            ),
-          ),
-        ),
-    },
-    // 2. Start: the microphone chosen, read again after every write.
+    // 1. Start: the microphone chosen, read again after every write.
     microphone: {
       run: (self) =>
         Stream.concat(Stream.make(undefined), Preferences.changes).pipe(
@@ -285,7 +288,7 @@ export const DictationLive = Dictation.build({
           Stream.runForEach(Stream.fromQueue(asked), self.send),
         ),
     },
-    // 3. Record: one Worker from the microphone opening to the stop, so
+    // 2. Record: one Worker from the microphone opening to the stop, so
     // the clip is one.
     record: {
       each: ({ state }) =>
@@ -304,6 +307,7 @@ export const DictationLive = Dictation.build({
               microphone: heard.name,
               fellBack: heard.fellBack,
               using,
+              take: crypto.randomUUID(),
             });
           const now = yield* self.now;
           const { state: recording } = yield* self.get;
@@ -319,10 +323,12 @@ export const DictationLive = Dictation.build({
             ),
           );
         }).pipe(
-          Effect.catch(({ reason }) => self.send({ _tag: 'Unable', reason })),
+          Effect.catch(({ reason, blocked }) =>
+            self.send({ _tag: 'Unable', reason, blocked: blocked === true }),
+          ),
         ),
     },
-    // 3. Record: another microphone chosen, switched to in the same clip.
+    // 2. Record: another microphone chosen, switched to in the same clip.
     switch: {
       each: ({ state, model }) =>
         state._tag === 'Recording' && state.using !== model.microphone
@@ -357,23 +363,6 @@ export const DictationLive = Dictation.build({
           );
         }),
     },
-    // 4. Stop: the clip, once the microphone has let go of it.
-    transcribe: {
-      each: ({ state }) =>
-        state._tag === 'Transcribing' ? [String(state.id)] : [],
-      run: (self) =>
-        Effect.gen(function* () {
-          const { state } = yield* self.get;
-          if (state._tag !== 'Transcribing') return;
-          const clip = yield* (yield* Recorder).clip;
-          const result = yield* transcribe(state.connectionId, clip);
-          yield* self.send(
-            result._tag === 'Said'
-              ? { _tag: 'Said', id: state.id, text: result.text }
-              : { _tag: 'NotSaid', id: state.id, reason: result.reason },
-          );
-        }),
-    },
     notice: {
       each: ({ model }) =>
         model.notice === null ? [] : [String(model.notice.at)],
@@ -397,7 +386,10 @@ export const DictationLive = Dictation.build({
       on: {
         // Asked again before the microphone opened: nothing to keep.
         Toggle: () => ({ state: idle }),
-        Opened: ({ microphone, fellBack, using }, { model, state, at }) => ({
+        Opened: (
+          { microphone, fellBack, using, take },
+          { model, state, at },
+        ) => ({
           ...(fellBack ? noticed(model, FELL_BACK, at) : {}),
           state: {
             _tag: 'Recording',
@@ -408,10 +400,16 @@ export const DictationLive = Dictation.build({
             heard: at,
             microphone,
             using,
+            take,
+            text: '',
+            downloading: null,
           },
         }),
-        Unable: ({ reason }, { model, at }) => ({
-          ...noticed(model, reason, at),
+        // Blocked, a dialog asks for a reload; anything else is a notice.
+        Unable: ({ reason, blocked }, { model, at }) => ({
+          ...(blocked
+            ? { model: { ...model, blocked: true } }
+            : noticed(model, reason, at)),
           state: idle,
         }),
       },
@@ -434,20 +432,20 @@ export const DictationLive = Dictation.build({
             ...(heard === null ? {} : { microphone: heard.microphone }),
           },
         }),
+        ...hearing,
         // 4. Stop: from anywhere, for its Owner.
-        Toggle: (_, { model, state }) =>
-          transcribing(model, state.id, state.owner),
-        Stop: (_, { model, state }) =>
-          transcribing(model, state.id, state.owner),
+        Toggle: (_, { state }) => ({ state: writingOut(state) }),
+        Stop: (_, { state }) => ({ state: writingOut(state) }),
       },
     },
     Transcribing: {
       on: {
         Toggle: (_, { model, at }) =>
           noticed(model, 'Still writing out the last Dictation', at),
+        ...hearing,
         // 5. Text: kept for its Owner, the last one for it.
-        Said: ({ id, text }, { model, state, at }) => {
-          if (id !== state.id) return {};
+        TakeDone: ({ take, text }, { model, state, at }) => {
+          if (take !== state.take) return {};
           const said = text.trim();
           if (said === '')
             return {
@@ -460,30 +458,30 @@ export const DictationLive = Dictation.build({
               ...model,
               texts: [
                 ...model.texts.filter((each) => each.owner !== owner),
-                { id, owner, text: said },
+                { id: state.id, owner, text: said },
               ],
             },
             state: idle,
           };
         },
-        NotSaid: ({ id, reason }, { state }) =>
-          id !== state.id
-            ? {}
-            : {
-                state: {
-                  _tag: 'Failed',
-                  id,
-                  owner: state.owner,
-                  reason,
-                },
-              },
       },
     },
     Failed: {
       on: {
         Toggle: ({ owner }, { model, at }) => start(model, owner, at),
-        Retry: ({ id }, { model, state }) =>
-          id !== state.id ? {} : transcribing(model, state.id, state.owner),
+        Retry: ({ id }, { state }) =>
+          id !== state.id
+            ? {}
+            : {
+                state: {
+                  _tag: 'Transcribing',
+                  id: state.id,
+                  owner: state.owner,
+                  take: again(state.take),
+                  text: '',
+                  downloading: null,
+                },
+              },
       },
     },
   },
@@ -502,8 +500,8 @@ export const DictationLive = Dictation.build({
     Took: ({ id }, { model }) => ({
       model: { ...model, texts: model.texts.filter((each) => each.id !== id) },
     }),
-    ConnectionsHeard: ({ listed, connections }, { model }) => ({
-      model: { ...model, listed, connections },
+    BlockedDismissed: (_, { model }) => ({
+      model: { ...model, blocked: false },
     }),
     MicrophoneRead: ({ microphone }, { model }) => ({
       model: { ...model, microphone },
@@ -512,3 +510,15 @@ export const DictationLive = Dictation.build({
       model.notice?.at === at ? { model: { ...model, notice: null } } : {},
   },
 });
+
+/** Recording stopped: what is heard so far stays while the rest comes. */
+function writingOut(state: Extract<Hearing, { _tag: 'Recording' }>) {
+  return {
+    _tag: 'Transcribing' as const,
+    id: state.id,
+    owner: state.owner,
+    take: state.take,
+    text: state.text,
+    downloading: state.downloading,
+  };
+}

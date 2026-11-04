@@ -1,4 +1,3 @@
-import { Router } from '@kestack/kabuki/routing';
 import { View } from '@kestack/kabuki/react';
 import {
   animate,
@@ -13,13 +12,13 @@ import { Button } from '@kestack/web-platform/ui/components/button';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import { GestureZone } from '@kestack/web-platform/ui/input';
 import { type Ref, type RefObject, use, useEffect, useRef } from 'react';
-import * as routes from '../../../../../../../../routes/index.ts';
 import { TouchDraftLive } from './actor.ts';
 import * as Picker from '../../../../../../../../../ui/controls/picker/index.ts';
 import { Controls } from './controls/index.ts';
 import { useMorph } from './morph.ts';
 import { Touch, useTouchDraft } from './touch.ts';
 import { Words } from './words/index.ts';
+import { Voice } from '../../../../../../voice/index.ts';
 
 /*
  * The Touch Draft as drawn, from its State; the Draft around it hands the
@@ -77,14 +76,27 @@ export const TouchDraftView = View.make(
     }, [t.nudge?.key]);
     const recording = draft.dictation.recording;
     const { skills } = draft;
+    // What a Dictation has heard so far peeks above the card while it is
+    // collapsed; open, its words show it as ghost text. While voice is got
+    // ready on its Connection, that peeks above it either way.
+    const pending = draft.dictation.pending;
+    const said =
+      recording?._tag === 'Recording'
+        ? recording.heard
+        : pending?._tag === 'Transcribing'
+          ? pending.heard
+          : null;
+    const peek =
+      !t.expanded || draft.dictation.live?.downloading === true ? said : null;
 
     return (
       <MotionConfig reducedMotion="user">
         <div
           {...root}
           ref={(element) => both(holder, root.ref, element)}
-          className="flex flex-col gap-2"
+          className="relative flex flex-col gap-2"
         >
+          <Voice.Peek>{peek}</Voice.Peek>
           {/* Trapped: no swipe that starts on it reaches the sidebar. */}
           <GestureZone trapped className="contents">
             <motion.div
@@ -277,7 +289,7 @@ const both = (
   else if (ref !== undefined && ref !== null) ref.current = element;
 };
 
-/** Why voice can't be had, over the words for a moment, with the way to Settings. */
+/** Why voice can't be had now, over the words for a moment. */
 function Nudge({ said }: { readonly said: string }) {
   return (
     <motion.p
@@ -297,12 +309,6 @@ function Nudge({ said }: { readonly said: string }) {
       className="absolute inset-x-0 top-0.5 flex items-center justify-center gap-2 rounded-full bg-popover/95 px-4 py-2 text-sm text-popover-foreground shadow-md backdrop-blur-sm"
     >
       {said}
-      <Router.Link
-        to={routes.settings()}
-        className="focus-ring rounded-sm font-medium underline decoration-border underline-offset-4"
-      >
-        Settings
-      </Router.Link>
     </motion.p>
   );
 }

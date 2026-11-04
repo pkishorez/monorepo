@@ -1,4 +1,14 @@
 import { View, useChild } from '@kestack/kabuki/react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@kestack/web-platform/ui/components/alert-dialog';
 import type { Handle } from '@kestack/kabuki/react/view';
 import { CircleAlertIcon } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
@@ -7,21 +17,20 @@ import {
   use,
   useCallback,
   useEffect,
-  useRef,
   useState,
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
 import type { Ask, Owner } from '../voice.ts';
 import { DictationLive } from './actor.ts';
-import { connectionFor, type Hearing } from './choose.ts';
+import { Peek } from './peek.tsx';
 
 /*
  * The Dictation as the app draws it. Each field shows only its own, the
  * one its Owner started: a Draft in the line over its text, while the
  * microphone opens, that it is Waiting; while it records, a red dot, the
- * time, a level and the microphone; while it is written out, that it is
- * coming. One recording for another field is no field's but its own: the
+ * time, a level, the microphone and what is heard so far, or how far the
+ * model has downloaded; while it is written out, that it is coming. One recording for another field is no field's but its own: the
  * rest see only that they cannot start one now. A badge in the bottom
  * right corner, over everything, says for a few seconds why one could not
  * start or what went wrong with the microphone, wherever the app is.
@@ -150,7 +159,24 @@ export const useDictation = (owner: Owner) => {
     dictation,
     ({ model }) => model.texts.find((each) => each.owner === key) ?? null,
   );
-  const available = useAvailability(dictation);
+  // What is heard so far for this field, as plain text, for its editor's
+  // ghost: it changes every second or two, not with the level.
+  const heard = useChild(dictation, ({ state }) =>
+    (state._tag === 'Recording' || state._tag === 'Transcribing') &&
+    state.owner.key === key
+      ? state.text
+      : null,
+  );
+  const heardId = useChild(dictation, ({ state }) =>
+    state._tag === 'Recording' || state._tag === 'Transcribing' ? state.id : 0,
+  );
+  const downloading = useChild(
+    dictation,
+    ({ state }) =>
+      (state._tag === 'Recording' || state._tag === 'Transcribing') &&
+      state.owner.key === key &&
+      state.downloading !== null,
+  );
   const onShown = useCallback(
     (within?: () => Element | null) =>
       owners.show({
@@ -161,7 +187,7 @@ export const useDictation = (owner: Owner) => {
     [owners, key, connectionId],
   );
   return {
-    availability: phase === 'Elsewhere' ? BUSY : available,
+    availability: phase === 'Elsewhere' ? BUSY : READY,
     recording:
       phase === 'Waiting'
         ? { _tag: 'Waiting' as const }
@@ -172,6 +198,7 @@ export const useDictation = (owner: Owner) => {
               elapsed: <Elapsed dictation={dictation} />,
               level: <Level dictation={dictation} />,
               wave: <Wave dictation={dictation} />,
+              heard: <Peek dictation={dictation} />,
             }
           : null,
     pending:
@@ -181,7 +208,23 @@ export const useDictation = (owner: Owner) => {
           ? null
           : coming._tag === 'Failed'
             ? { _tag: 'Failed' as const, id: coming.id, reason: coming.reason }
-            : { _tag: 'Transcribing' as const, id: coming.id },
+            : {
+                _tag: 'Transcribing' as const,
+                id: coming.id,
+                heard: <Peek dictation={dictation} />,
+              },
+    /**
+     * While one records or is written out for this field: what is heard so
+     * far, and whether its Connection is still getting voice ready.
+     */
+    live:
+      heard === null || heard === undefined
+        ? null
+        : {
+            id: heardId ?? 0,
+            text: heard,
+            downloading: downloading === true,
+          },
     /** Start one for this field, or stop the one recording, whoever it is for. */
     onToggle: () => ask({ _tag: 'Toggle', owner: { key, connectionId } }),
     /** Throws it away, wherever it is: a failed one's clip too. */
@@ -225,58 +268,17 @@ function Owned({
   return children(useDictation(owner));
 }
 
-/** Whether a Dictation could start now, and if not why, from what each Connection says. */
+/**
+ * Whether a Dictation could start now: always, unless one records or is
+ * written out for another field.
+ */
 export type Availability =
   | { readonly _tag: 'Ready' }
   /** Recording, or written out, for another field. */
-  | { readonly _tag: 'Busy' }
-  | { readonly _tag: 'Downloading'; readonly progress: number }
-  | { readonly _tag: 'Off'; readonly reason: string };
-
-/**
- * Whether a Dictation could start now: ready on the Connection it would
- * choose; else downloading, the furthest along; else off, and why.
- */
-const availabilityOf = ({
-  connections,
-  listed,
-}: {
-  readonly connections: Readonly<
-    Record<string, Hearing & { readonly downloading: number | null }>
-  >;
-  readonly listed: ReadonlyArray<string>;
-}): Availability => {
-  const choice = connectionFor(connections, listed, null);
-  if (choice._tag === 'On') return READY;
-  const downloading = listed
-    .map((id) => connections[id]?.downloading ?? null)
-    .filter((progress) => progress !== null);
-  return downloading.length > 0
-    ? { _tag: 'Downloading', progress: Math.max(...downloading) }
-    : { _tag: 'Off', reason: choice.reason };
-};
+  | { readonly _tag: 'Busy' };
 
 const READY: Availability = { _tag: 'Ready' };
 const BUSY: Availability = { _tag: 'Busy' };
-
-const equal = (a: Availability, b: Availability) =>
-  a._tag === b._tag &&
-  (a._tag !== 'Downloading' || a.progress === (b as typeof a).progress) &&
-  (a._tag !== 'Off' || a.reason === (b as typeof a).reason);
-
-/**
- * Availability, the same object while it is equal, so the page draws
- * again only as it changes, not as the level moves.
- */
-const useAvailability = (dictation: Dictation): Availability => {
-  const last = useRef<Availability>(READY);
-  return (
-    useChild(dictation, ({ model }) => {
-      const next = availabilityOf(model);
-      return equal(next, last.current) ? last.current : (last.current = next);
-    }) ?? last.current
-  );
-};
 
 const clock = (seconds: number) =>
   `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
@@ -370,24 +372,56 @@ const PILL =
 
 /**
  * The badge in the corner, over everything: why something went wrong, for
- * a few seconds, anywhere.
+ * a few seconds, anywhere. And, when the browser blocked the microphone,
+ * as iOS Safari at times does on its own, a dialog that offers to load
+ * the page again, which is the only thing that lets it go.
  */
-export const DictationBadge = View.make(DictationLive, ({ root, model }) => {
-  if (typeof document === 'undefined' || model.notice === null) return null;
-  return createPortal(
-    <div
-      {...root}
-      role="status"
-      className="pointer-events-none fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-100 max-md:bottom-[calc(env(safe-area-inset-bottom)+9rem)] flex flex-col items-end gap-2"
-    >
-      <div className={PILL}>
-        <CircleAlertIcon
-          aria-hidden
-          className="size-3.5 shrink-0 text-destructive"
-        />
-        <span>{model.notice.reason}</span>
-      </div>
-    </div>,
-    document.body,
-  );
-});
+export const DictationBadge = View.make(
+  DictationLive,
+  ({ root, model, send }) => {
+    if (typeof document === 'undefined') return null;
+    return (
+      <>
+        <AlertDialog
+          open={model.blocked}
+          onOpenChange={(open) => {
+            if (!open) send({ _tag: 'BlockedDismissed' });
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>The microphone is blocked</AlertDialogTitle>
+              <AlertDialogDescription>
+                The browser stopped letting this page use the microphone. Reload
+                the page to dictate again; your Draft is kept.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Not now</AlertDialogCancel>
+              <AlertDialogAction onClick={() => location.reload()}>
+                Reload
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        {model.notice !== null &&
+          createPortal(
+            <div
+              {...root}
+              role="status"
+              className="pointer-events-none fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-100 max-md:bottom-[calc(env(safe-area-inset-bottom)+9rem)] flex flex-col items-end gap-2"
+            >
+              <div className={PILL}>
+                <CircleAlertIcon
+                  aria-hidden
+                  className="size-3.5 shrink-0 text-destructive"
+                />
+                <span>{model.notice.reason}</span>
+              </div>
+            </div>,
+            document.body,
+          )}
+      </>
+    );
+  },
+);
