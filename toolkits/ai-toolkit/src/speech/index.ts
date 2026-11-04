@@ -8,4 +8,5 @@ export {
   type SpeechOptions,
   type SpeechService,
   type SpeechToTextStatus,
+  type TakeHeard,
 } from './speech.js';
