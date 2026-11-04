@@ -48,10 +48,11 @@ vi.mock(import('@kestack/kabuki/routing'), async (actual) => {
 /*
  * The Touch Draft on a page that keeps the Draft's text and its Inserts,
  * as the session page does, on a device with no keyboard. It is one
- * line, read only, until a tap on it opens it into the Composer, focus
- * held in the card in the same tap and given to the words once it is
- * open, until Collapse, focus leaving, or a send. With Smart Input a tap
- * only opens it; a tap in its words places the caret, and Edit types. Its microphone asks the Dictation, and can't while no Connection
+ * line, read only, until a tap on it opens it, still read only, the
+ * keyboard down. A tap in its words then makes it the Composer, the
+ * words focused in the same tap, until Collapse, focus leaving, or a
+ * send. With Smart Input a tap in its words places the caret, and Edit
+ * types. Its microphone asks the Dictation, and can't while no Connection
  * can transcribe. A Dictation's placeholder and text go in at the cursor
  * of the last edit, else at the end. Add pastes from the clipboard, at
  * the cursor.
@@ -367,15 +368,20 @@ const collapsed = () => card().dataset['collapsed'] === 'true';
 const status = () => card().querySelector<HTMLElement>('[role="status"]');
 
 describe('Touch Draft', () => {
-  it('is one line, read only, and a tap opens it to edit, the words taking focus once open, until Collapse', async () => {
+  it('is one line, read only, and a tap opens it, read only, then a tap in its words edits, the words taking focus in that tap, until Collapse', async () => {
     expect(collapsed()).toBe(true);
+    expect(editor().getAttribute('contenteditable')).toBe('false');
+    await tap(editor());
+    expect(collapsed()).toBe(false);
+    expect(card().dataset['writing']).toBeUndefined();
+    expect(card().contains(document.activeElement)).toBe(false);
     expect(editor().getAttribute('contenteditable')).toBe('false');
     let held = false;
     await act(async () => {
       editor().click();
-      // In the tap, drawn open first, then the words focused: iOS raises
-      // its keyboard only for focus given in the tap.
-      held = !collapsed() && document.activeElement === editor();
+      // In the tap, the words focused: iOS raises its keyboard only for
+      // focus given in the tap.
+      held = document.activeElement === editor();
     });
     expect(held).toBe(true);
     await flush();
@@ -398,7 +404,8 @@ describe('Touch Draft', () => {
     expect(page.text).toBe('Please ');
   });
 
-  it('keeps its selection through Collapse, and a tap on its words opens it as it was, to edit', async () => {
+  it('keeps its selection through Collapse, and a tap on its words opens it as it was', async () => {
+    await tap(editor());
     await tap(editor());
     const view = EditorView.findFromDOM(editor())!;
     await act(async () => view.dispatch({ selection: { anchor: 0, head: 6 } }));
@@ -407,17 +414,19 @@ describe('Touch Draft', () => {
     expect(view.state.selection.main).toMatchObject({ anchor: 0, head: 6 });
     await tap(editor());
     expect(collapsed()).toBe(false);
-    expect(document.activeElement).toBe(editor());
+    expect(document.activeElement).not.toBe(editor());
     expect(view.state.selection.main).toMatchObject({ anchor: 0, head: 6 });
   });
 
-  it('opens from a tap anywhere on the line but its buttons', async () => {
+  it('opens from a tap anywhere on the line but its buttons, read only', async () => {
     await tap(card());
     expect(collapsed()).toBe(false);
-    expect(document.activeElement).toBe(editor());
+    expect(card().dataset['writing']).toBeUndefined();
+    expect(document.activeElement).not.toBe(editor());
   });
 
   it('collapses once focus leaves the Composer', async () => {
+    await tap(editor());
     await tap(editor());
     await leave();
     expect(collapsed()).toBe(true);
@@ -432,6 +441,7 @@ describe('Touch Draft', () => {
 
   it('stays open, typing done, when a press on its own button takes focus from the words, as iOS gives the button none', async () => {
     await tap(editor());
+    await tap(editor());
     await press(button('Add')!);
     await act(async () => editor().blur());
     expect(collapsed()).toBe(false);
@@ -441,6 +451,7 @@ describe('Touch Draft', () => {
   });
 
   it('collapses when the words lose focus after a press in it has ended, as the keyboard put away', async () => {
+    await tap(editor());
     await press(editor());
     await tap(editor());
     // Its press ended with its click: the keyboard's own Done is no press.
@@ -450,6 +461,7 @@ describe('Touch Draft', () => {
 
   it('collapses for a press outside it, though one in it came just before', async () => {
     await tap(editor());
+    await tap(editor());
     await press(button('Add')!);
     // Ended without a click, as a finger dragged off; a press outside begins.
     await press(document.body);
@@ -458,6 +470,7 @@ describe('Touch Draft', () => {
   });
 
   it('collapses on a send from the Composer', async () => {
+    await tap(editor());
     await tap(editor());
     await tap(button('Send')!);
     expect(page.sent).toBe(1);
@@ -506,9 +519,13 @@ describe('Touch Draft', () => {
     expect(asks()).toEqual(['Cancel']);
   });
 
-  it('opens to edit from its placeholder while empty', async () => {
+  it('opens from its placeholder while empty, and a second tap there edits', async () => {
     await tap(button('Send')!);
     await flush();
+    await tap(card().querySelector<HTMLElement>('p[aria-hidden]')!);
+    expect(collapsed()).toBe(false);
+    expect(card().dataset['writing']).toBeUndefined();
+    expect(document.activeElement).not.toBe(editor());
     await tap(card().querySelector<HTMLElement>('p[aria-hidden]')!);
     expect(card().dataset['writing']).toBe('true');
     expect(document.activeElement).toBe(editor());
@@ -705,17 +722,17 @@ describe('Touch Draft', () => {
     });
   });
 
-  describe('while no Connection can transcribe', () => {
+  describe('while one records for another field', () => {
     beforeAll(() => {
-      availability = { _tag: 'Off', reason: 'Turn on Speech to Text' };
+      availability = { _tag: 'Busy' };
     });
     afterAll(() => {
       availability = { _tag: 'Ready' };
     });
 
-    it('says why on the microphone, asking nothing', async () => {
+    it('says so on the microphone, asking nothing', async () => {
       await tap(button('Dictate')!);
-      expect(card().textContent).toContain("Voice isn't on");
+      expect(card().textContent).toContain('Recording somewhere else');
       expect(asks()).toEqual([]);
     });
 

@@ -18,8 +18,9 @@ import { Preferences } from '../../../../../../../../store.ts';
  * session's never collapses: it is always open, its model chip in reach,
  * and a Collapse only ends its typing, as Done.
  *
- * 1. Collapsed     one line, read only. Opened, it is Editing; with Smart
- *                  Input, Expanded.
+ * 1. Collapsed     one line, read only. Opened, it is Expanded, never
+ *                  Editing at once: what is around the words, such as the
+ *                  model chip, can be changed without the keyboard.
  * 2. Expanded      open and read only, the keyboard down: a tap in its
  *                  words places the caret, for the next Dictation. Edit
  *                  makes it Editing.
@@ -30,7 +31,10 @@ import { Preferences } from '../../../../../../../../store.ts';
  *                  A Dictation that stops on its own is taken. `open`:
  *                  started open, and goes back to Expanded; collapsed,
  *                  it goes on, on one line, and a tap opens it again, so
- *                  its words can be read and selected as it records.
+ *                  its words can be read and selected as it records. It
+ *                  starts with the keyboard down, its words not focused;
+ *                  `typing` once Edit, a tap in its words, makes it the
+ *                  Composer while it records, until Done or Collapse.
  * 5. Transcribing  until its text is in, then back, or Sending when it
  *                  was taken to send and the Draft can be sent then; if
  *                  it cannot, as offline, the text stays in the Draft.
@@ -48,7 +52,7 @@ export const State = Schema.TaggedUnion({
   Collapsed: {},
   Expanded: {},
   Editing: {},
-  Recording: { open: Schema.Boolean },
+  Recording: { open: Schema.Boolean, typing: Schema.Boolean },
   /** `said`: its text has come, to go in. */
   Transcribing: { then: Then, said: Schema.Boolean, open: Schema.Boolean },
   Sending: {},
@@ -139,7 +143,7 @@ const atRest = (open: boolean) => ({
   Send: () => sending,
   Heard: ({ dictation }: { readonly dictation: typeof Heard.Type }) =>
     dictation === 'recording'
-      ? { state: { _tag: 'Recording' as const, open } }
+      ? { state: { _tag: 'Recording' as const, open, typing: false } }
       : dictation === 'transcribing'
         ? { state: transcribing(open) }
         : {},
@@ -198,8 +202,7 @@ export const TouchDraftLive = TouchDraft.build({
     Collapsed: {
       on: {
         ...atRest(false),
-        Open: (_, { model }) =>
-          model.smart ? { state: { _tag: 'Expanded' } } : editing,
+        Open: () => ({ state: expanded }),
         Edit: () => editing,
       },
     },
@@ -230,8 +233,13 @@ export const TouchDraftLive = TouchDraft.build({
         }),
         Cancel: (_, { state }) => ({ state: back(state.open) }),
         Open: (_, { state }) => ({ state: { ...state, open: true } }),
-        Collapse: (_, { model, state }) =>
-          model.collapses ? { state: { ...state, open: false } } : {},
+        // Open, a tap in its words types in them while it records.
+        Edit: (_, { state }) =>
+          state.open ? { state: { ...state, typing: true } } : {},
+        Done: (_, { state }) => ({ state: { ...state, typing: false } }),
+        Collapse: (_, { model, state }) => ({
+          state: { ...state, typing: false, open: !model.collapses },
+        }),
         Heard: ({ dictation }, { state }) =>
           dictation === 'transcribing'
             ? { state: transcribing(state.open) }

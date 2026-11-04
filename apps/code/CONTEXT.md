@@ -168,6 +168,10 @@ _Avoid_: voice message, voice note, recording, transcript
 The field a Dictation was started from, named as it starts: a Session's Draft, a Project's new session's Draft, or one Item's own answer in the Question Panel, but a secret's. Its text waits for it, and goes in once it is drawn again, as when the user went to another Session before it came. The keys start one for the field focus is in, else the Draft on screen; with neither, as in Settings, none starts, and the corner says why. Not kept on this device.
 _Avoid_: target, destination, Dictation List
 
+**Take**:
+One Dictation's audio as its Dictation Owner's Connection hears it, sent in stretches of about two seconds while it records, so nothing large goes at the end. The Connection says what it has heard so far as it comes, or, while its Speech to Text downloads, how far; once the Dictation stops and every stretch is in, the whole text. A retry sends the same recording again as a new Take.
+_Avoid_: upload, stream, session
+
 **Microphone**:
 The audio input of this browser a Dictation records from: the system default, or one chosen in the Microphone Picker and kept in Preferences. One chosen that is not connected leaves the default to record.
 _Avoid_: input device, audio device, mic setting

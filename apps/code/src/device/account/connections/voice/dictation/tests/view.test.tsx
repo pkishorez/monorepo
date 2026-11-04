@@ -9,7 +9,6 @@ import { View, useChild } from '@kestack/kabuki/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Ask, Dictations } from '../../voice.ts';
 import { Preferences, nothing } from '../../../../../store.ts';
-import { Connections, nobody } from '../../../connections.ts';
 import { Recorder } from '../../recorder/index.ts';
 import { dictations } from '../../voice.ts';
 import { DictationLive } from '../actor.ts';
@@ -66,10 +65,7 @@ const OwnerView = View.make(OwnerLive, ({ model, children, send }) => {
   pings = model.pings;
   ping = () => send({ _tag: 'Ping' });
   canStart =
-    useChild(children.dictation, ({ model }) => {
-      const m1 = model.connections['m1'];
-      return m1?.ready === true && m1.answering;
-    }) === true;
+    useChild(children.dictation, ({ state }) => state._tag === 'Idle') === true;
   return (
     <Dictating
       value={{
@@ -127,38 +123,6 @@ const services = () =>
       levels = queue;
       return Layer.mergeAll(
         dictations,
-        // One Connection, answering, its Speech to Text Ready.
-        Layer.mock(Connections)({
-          state: Stream.make({
-            ...nobody,
-            accountId: 'a1',
-            connections: [
-              {
-                id: 'm1',
-                name: 'm1',
-                key: 'key-m1',
-                version: '0.0.1',
-                status: { _tag: 'Opening' },
-                lastSeen: 1,
-                plugins: {},
-                wanted: {},
-                minConnect: null,
-                displayName: null,
-              },
-            ],
-            links: { m1: 'linked' },
-            setups: {
-              m1: {
-                accounts: null,
-                speech: { _tag: 'Ready' },
-                harnesses: null,
-                models: [],
-                savedRead: true,
-                problem: null,
-              },
-            },
-          }),
-        }),
         Layer.mock(Preferences)({
           read: Effect.succeed(nothing),
           changes: Stream.never,
@@ -172,6 +136,7 @@ const services = () =>
             }),
           switchTo: () => Effect.succeed(null),
           clip: Effect.never,
+          audio: Stream.never,
           inputs: Stream.empty,
         }),
       );
