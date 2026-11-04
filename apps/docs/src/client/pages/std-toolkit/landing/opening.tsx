@@ -4,12 +4,14 @@ import { ArrowRightIcon } from 'lucide-react';
 import { packageOf, router } from '../../../../shared/index.ts';
 import { column } from '../../../components/index.ts';
 import { shapeAt } from '../../../field/index.ts';
+import { Databases } from './databases.tsx';
 import { Hero } from './hero/hero.tsx';
 
 /*
- * The first screen: std-toolkit's tagline and pitch beside a real table
- * that three releases of an app share. Behind it the field is only a
- * faint dust, which gathers into the first idea as the page scrolls.
+ * The first screen: what std-toolkit is, with the databases it runs on
+ * taking turns under its title, beside a real table that three releases of
+ * an app share. Behind it the field is only a faint dust, which gathers
+ * into the first idea as the page scrolls.
  */
 
 export function Opening() {
@@ -26,13 +28,11 @@ export function Opening() {
           <p className="font-mono text-xs text-muted-foreground">
             std-toolkit · {std.kind}
           </p>
-          <h1 className="text-[2.25rem] leading-[1.05] font-semibold tracking-tight min-[400px]:text-[2.5rem] sm:text-6xl lg:text-[3.5rem] xl:text-6xl">
-            <span className="whitespace-nowrap">Change its shape.</span>
-            <br />
-            <span className="whitespace-nowrap">Keep every row.</span>
+          <h1 className="text-[2.25rem] leading-[1.05] font-semibold tracking-tight text-balance min-[400px]:text-[2.5rem] sm:text-6xl lg:text-[3.5rem] xl:text-6xl">
+            Sync engine built for single-table design
           </h1>
           <p className="text-lg text-pretty text-muted-foreground">
-            {std.pitch}
+            Works on <Databases />. Built on TanStack DB.
           </p>
           <div className="flex flex-wrap gap-3 pt-2">
             <Router.Link

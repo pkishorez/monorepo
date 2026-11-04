@@ -49,7 +49,7 @@ export const PACKAGES: ReadonlyArray<Package> = [
     shelf: 'library',
     name: 'std-toolkit',
     kind: 'data',
-    pitch: 'Describe your data once, change its shape freely, keep it in sync.',
+    pitch: 'Sync engine built for single-table design.',
     code: 'toolkits/std-toolkit',
     contents: STD_TOOLKIT_CONTENTS,
   },
