@@ -56,6 +56,7 @@ export {
   SkillsUnavailable,
   SpeechToTextNotReady,
   SpeechToTextState,
+  TakeHeard,
   START_STEPS,
   StartStep,
   TranscriptionFailed,
