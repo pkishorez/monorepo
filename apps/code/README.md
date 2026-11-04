@@ -15,10 +15,19 @@ you, and the app is on all of them at once
 ([ADR 0018](../../toolkits/ai-toolkit/docs/adr/0018-an-app-is-on-every-connection-at-once.md)).
 
 It is a Kabuki Start app, every page drawn in the browser
-([routing](../../packages/kabuki/docs/routing.md)). `/` picks a Project on
-any Connection, `/settings` holds this device's settings, your keys and one
-card per Connection, `/m/:connectionId/p/:projectId` is a new Session in a
-Project and `…/s/:sessionId` is a Session. Records arrive only through the
+([routing](../../packages/kabuki/docs/routing.md)). Every page is one
+Account's, under `/a/:accountId`, so a link says whose it is: the Account's
+home picks a Project on any Connection, `…/settings` holds this device's
+settings, your keys and one card per Connection,
+`…/m/:connectionId/p/:projectId` is a new Session in a Project and
+`…/s/:sessionId` is a Session. A tab acts only as the Account active in
+this browser, and never switches by itself: a page whose Account is not
+the one active says why, signed out, switched elsewhere or not signed in
+here, on the one sign-in screen, with the Accounts signed in here to
+switch to. Its "Continue with Google" goes to Google at once, from Code's
+own screen. `/`, and an address from before, go to the same page under
+the Account active. Each Connection's socket is its own, open only while
+its Account is the one active. Records arrive only through the
 `CodeReplica` Replica
 ([`@kestack/std-toolkit/replica`](../../toolkits/std-toolkit/src/replica/README.md)),
 one Instance per Connection over its own socket, kept in IndexedDB, so a
@@ -30,11 +39,12 @@ Cloud Connect names, a pill in the header of a page on it says so and
 opens Settings, whose card for it shows how far the update got, the
 stopped Plugin's last lines to copy, or the command that updates it.
 
-The app is one tree of Kabuki Actors, and `src/device/` tells it as one
-story, top down, each level with at most three parts: Device, then Account,
-then Connections, then `connection/`, `voice/` and `layout/`, then the sidebar,
-the Pickers and the pages. [docs/kabuki-tree.md](docs/kabuki-tree.md)
-walks it, with what each level keeps in storage. Voice is global: a
+The app is one tree of Kabuki Actors, and `src/app/` tells it as one
+story, top down, each level with at most three parts: the root page, with
+`storage/`, `sign-in/` and the Account's page; then the Account's
+`connection/` for each Connection, its `frame/` (the sidebar, the header
+with Voice, and the Pickers) and its `pages/`. [docs/kabuki-tree.md](docs/kabuki-tree.md)
+walks it, with the addresses and what each level keeps in storage. Voice is global: a
 Dictation starts from the field you dictate into, the Draft or a
 question's own answer, keeps going as you move, and its text goes back
 to that field wherever you stop it. When an agent asks you something, as Claude's `AskUserQuestion` or
@@ -88,8 +98,8 @@ pnpm --filter code deploy:prod   # ALLOW_DEPLOY=true: code.kishore.app
   tests. Videos recorded under `qa/` stay local.
 - `pnpm --filter code size` builds the app and fails if its first load,
   the entry chunk and every chunk it imports, gzipped, is over its budget
-  in `scripts/size.ts`. Settings, the project and session pages, the
-  Draft and the Kabuki page load apart, through `View.lazy`.
+  in `scripts/size.ts`. Settings, the project and session pages and the
+  Draft load apart, through `View.lazy`.
 - `pnpm --filter code bench` times the transcript of a long made-up
   session (`bench/`) in Chrome at a phone's size, its CPU slowed four
   times: opening it, leaving and coming back, words streaming in, a fold

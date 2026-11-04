@@ -1,0 +1,511 @@
+import { View } from '@kestack/kabuki/react';
+import { Router } from '@kestack/kabuki/routing';
+import type { ViewProps } from '@kestack/kabuki/react/view';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { ArrowUpIcon, CircleAlertIcon } from 'lucide-react';
+import { Spinner } from '@kestack/web-platform/ui/components/spinner';
+import { useDevice } from '@kestack/web-platform/ui/input';
+import { type RefObject, use, useEffect, useLayoutEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { keys, useBound } from '../../../frame/commands.ts';
+import { Voice } from '../../../frame/header/voice/index.ts';
+import { useOffline, useOfflineSaid } from '../../../connection/link/index.ts';
+import * as routes from '../../../../app.ts';
+import * as Catalog from '../store.ts';
+import { DraftLive, modesOf } from './actor.ts';
+import { AttachmentStrip } from './write/attachments/index.ts';
+import { Card, PRIMARY, StatusLine, useDraft } from './write/write.tsx';
+import type { Held } from './write/editor/index.ts';
+import { Write, type Composing, type Mode } from './write/view.tsx';
+import { BtwMark, BtwToggle } from './send/btw/btw.tsx';
+import { BtwBar, BtwDrawer } from './send/btw/drawer.tsx';
+import {
+  BranchSettings,
+  Chip,
+  current,
+  Choose,
+  pickedBranch,
+  pickedHarness,
+  pickedModel,
+  SkillPicker,
+  skillsOf,
+  Triggers,
+} from './choose/index.ts';
+import { Slots } from './draft.ts';
+import { Reading, Row as ContextRow } from './send/context.tsx';
+
+/*
+ * The Draft at the page's foot: the line that says why nothing can be
+ * sent or what went wrong, the Draft's card, and under it the Status Line
+ * with the model Picker's triggers and the send button, which takes the
+ * mic's place once there is something to send. A new session's draws its
+ * Branch row and New Worktree switch where the page says through `Slots`,
+ * over the Draft, and says Start session; a
+ * Session's says Send, or Steer while the agent runs. The card is drawn
+ * by the Draft Mode open (`write/`), around its own text, which its edits
+ * and sends go to; switched to, it takes focus as the one before had it.
+ *
+ * In a Session, the Btw toggle first on the Status Line switches to Btw
+ * mode and back: the card turns By the way's blue and says so, text only,
+ * no model Picker, and its send says Ask. Asked, the question and its
+ * answer show in the Btw Drawer (`send/btw/`), drawn over the card's top
+ * edge, the transcript staying where it was. Its keys bring it forward,
+ * `q` or Ctrl+Q: into Btw mode, its drawer expanded, then, the drawer
+ * minimised, expanded again, then back to the Message; Escape takes it
+ * back a step: the drawer minimised, then the Message.
+ *
+ * What the page adds, such as a Session's Stop, who answers a Btw, or
+ * that nothing can be sent, comes through `Slots`. On a device with no
+ * keyboard it is the Touch Draft (`write/touch/`), with the toggle and
+ * the model chip in place of the triggers, Btw mode in its Add too, and
+ * every send goes through it.
+ */
+
+/**
+ * Nothing until its Saved Draft is read back, so it never shows empty
+ * before its text comes; then the Draft, drawn by `Drafting` inside its
+ * Pickers (`choose/`), which hand it the one open to place.
+ */
+export const DraftView = View.make(DraftLive, (self) =>
+  self.model.restored ? (
+    <Choose.Around value={<Drafting {...self} />}>
+      <Choose.view instance={self.children.choose} />
+    </Choose.Around>
+  ) : (
+    <div {...self.root} />
+  ),
+);
+
+/** The mode last drawn, and whether it was being written in, with focus. */
+type LastMode = RefObject<{
+  readonly mode: Mode;
+  readonly writing: boolean;
+} | null>;
+
+/**
+ * What the Draft is called, says while empty, and what its send says: a
+ * new session's, a Btw's, a running Session's, or a Session's.
+ */
+const wordingOf = (fresh: boolean, btw: boolean, running: boolean) =>
+  fresh
+    ? {
+        label: 'First message',
+        placeholder: 'What should the agent do?',
+        send: 'Start session',
+      }
+    : btw
+      ? {
+          label: 'By the way',
+          placeholder: running
+            ? 'Ask without interrupting it'
+            : 'Ask about this session',
+          send: 'Ask',
+        }
+      : running
+        ? {
+            label: 'Steer the agent',
+            placeholder: 'Steer the agent while it works',
+            send: 'Steer',
+          }
+        : { label: 'Message', placeholder: 'Reply to the agent', send: 'Send' };
+
+/**
+ * Switched to with a keyboard, the mode takes focus, and is written in if
+ * the one before was; as it goes, it says so in `last`, while its editor
+ * is still on the page.
+ */
+function useHandOn(
+  draft: ReturnType<typeof useDraft>,
+  mode: Mode,
+  last: LastMode,
+  keyboard: boolean,
+) {
+  const latest = useRef(draft);
+  latest.current = draft;
+  useEffect(() => {
+    const before = last.current;
+    if (!keyboard || before === null || before.mode === mode) return;
+    if (before.writing || !draft.vim) draft.write();
+    else draft.view.current?.focus();
+  }, []);
+  useLayoutEffect(
+    () => () => {
+      const { view, writing } = latest.current;
+      last.current = {
+        mode,
+        writing: writing && (view.current?.hasFocus ?? false),
+      };
+    },
+    [],
+  );
+}
+
+function Drafting(self: ViewProps<typeof DraftLive>) {
+  const { root, model, props, children, send } = self;
+  const { connectionId, to } = props;
+  const slots = use(Slots);
+  const offline = useOffline(connectionId);
+  // Said only once out of reach, never as its line first comes up, so
+  // nothing moves as it does; nothing is sent meanwhile all the same.
+  const said = useOfflineSaid(connectionId) && offline !== null;
+  const fresh = to._tag === 'NewSession';
+  const btw = model.mode === 'Btw';
+  const asking = modesOf(props).includes('Btw');
+  const expanded = model.asked?.drawer === 'Expanded';
+  const { keyboard } = useDevice();
+  const toMode = (mode: Mode) => send({ _tag: 'ModeAsked', mode });
+  const show = (drawer: 'Expanded' | 'Minimised') =>
+    send({ _tag: 'DrawerShown', drawer });
+  const toggle = () => toMode(btw ? 'Message' : 'Btw');
+  // Its keys bring By the way forward a step, and Escape takes it back.
+  const forward = () =>
+    !btw
+      ? toMode('Btw')
+      : model.asked !== null && !expanded
+        ? show('Expanded')
+        : toMode('Message');
+  const back = () => (expanded ? show('Minimised') : toMode('Message'));
+  keys.useAction('content.btw', forward, { enabled: asking });
+  keys.useAction('content.btwAnywhere', forward, { enabled: asking });
+  keys.useAction('content.close', back, { enabled: btw || expanded });
+  const drawer = {
+    asked: model.asked,
+    touch: !keyboard,
+    onShow: show,
+    onClose: () => send({ _tag: 'DrawerClosed' }),
+  };
+  const last: LastMode = useRef(null);
+  // Each mode's editor, as it was left: the card is drawn anew per mode.
+  const held = useRef<Held>(new Map()).current;
+  const describedBy = fresh ? 'new-session-offline' : 'draft-offline';
+
+  // A new session's agent cannot run, or its catalog cannot be read.
+  const harness = fresh ? pickedHarness(model) : null;
+  const models = fresh
+    ? Catalog.modelsOf(model.catalog, harness?.account ?? null)
+    : undefined;
+  const unavailable =
+    harness?.available === false
+      ? (harness.unavailableReason ??
+        'This agent cannot run on this connection')
+      : null;
+  const unread = fresh && (model.catalog.problem !== null || !!models?.problem);
+  const problem =
+    model.problem ??
+    slots.problem ??
+    (fresh
+      ? (model.catalog.problem ?? models?.problem ?? unavailable ?? null)
+      : null);
+  // Nothing could be sent now, whatever the Draft holds.
+  const unsendable =
+    offline !== null ||
+    slots.blocked === true ||
+    (fresh &&
+      (model.starting !== null ||
+        pickedModel(model) === null ||
+        pickedBranch(model) === null ||
+        unavailable !== null));
+  const open = children.modes.find((each) => each.key === model.mode);
+
+  return (
+    <div {...root} className="relative flex flex-col gap-2">
+      {asking && <BtwBar {...drawer} />}
+      {/* Out of reach: the header's pill says so; here, only to a screen
+          reader, so the Draft never moves as the link drops and comes back. */}
+      {said ? (
+        <p id={describedBy} className="sr-only">
+          {offline} to the server.{' '}
+          {fresh
+            ? 'You can start once it is back.'
+            : 'Sending is paused until it is back.'}
+        </p>
+      ) : (
+        problem !== null && (
+          <p
+            role="alert"
+            className="flex items-center gap-2 px-1 text-sm text-destructive"
+          >
+            <CircleAlertIcon aria-hidden className="size-3.5 shrink-0" />
+            {problem}
+            {problem === unavailable && (
+              <Router.Link
+                to={routes.settings(props.accountId)}
+                onClick={() => routes.openSettingsOn('Connections')}
+                className="focus-ring shrink-0 rounded-sm text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+              >
+                Open Settings
+              </Router.Link>
+            )}
+            {unread && (
+              <Button
+                variant="link"
+                size="xs"
+                type="button"
+                onClick={() => send({ _tag: 'CatalogRetryAsked' })}
+              >
+                Try again
+              </Button>
+            )}
+          </p>
+        )
+      )}
+      {/* The card's box: the drawer expanded rises from its top edge. */}
+      <div className="relative flex flex-col">
+        {asking && <BtwDrawer {...drawer} answerer={slots.answerer ?? null} />}
+        <Write.Compose
+          value={(composing) => (
+            <Composer
+              self={self}
+              composing={composing}
+              offline={offline !== null}
+              describedBy={said ? describedBy : null}
+              unsendable={unsendable}
+              onBack={btw || expanded ? back : null}
+              onToggle={asking ? toggle : null}
+              last={last}
+              held={held}
+            />
+          )}
+        >
+          {open && <Write.view instance={open} />}
+        </Write.Compose>
+      </div>
+    </div>
+  );
+}
+
+/** The card of the mode open, around its own text, and its Status Line. */
+function Composer({
+  self: { model, props, send },
+  composing,
+  offline,
+  describedBy,
+  unsendable,
+  onBack,
+  onToggle,
+  last,
+  held,
+}: {
+  readonly self: ViewProps<typeof DraftLive>;
+  readonly composing: Composing;
+  /** Its Connection is out of reach: nothing is sent. */
+  readonly offline: boolean;
+  /** The id of the line that says it is offline, while it says so. */
+  readonly describedBy: string | null;
+  readonly unsendable: boolean;
+  /** Escape in the Composer out of Vim Mode, while By the way is forward. */
+  readonly onBack: (() => void) | null;
+  /** Switches Btw mode on and off, in a Session's Draft only. */
+  readonly onToggle: (() => void) | null;
+  readonly last: LastMode;
+  readonly held: Held;
+}) {
+  const { connectionId, projectId, to } = props;
+  const { mode, written } = composing;
+  const slots = use(Slots);
+  // Its Session's, or its project's new one: a Dictation started here comes
+  // back here, wherever it is stopped.
+  const dictation = Voice.useDictation({
+    key: `draft ${connectionId} ${projectId} ${to._tag === 'Session' ? to.sessionId : 'new'}`,
+    connectionId,
+  });
+  const skills = skillsOf(model, props);
+  const placed = Choose.usePlaced();
+  const { picking } = model;
+  const fresh = to._tag === 'NewSession';
+  const btw = mode === 'Btw';
+  const takes = Write.takes(mode);
+  const edit = (text: string, selection: { anchor: number; head: number }) =>
+    composing.onEdit({ text, ...selection });
+  const running = to._tag === 'Session' && to.running;
+  const { keyboard } = useDevice();
+  // On touch, set by the Touch Draft's View: a send goes through it.
+  const touchSend = useRef<(() => void) | null>(null);
+  const wording = wordingOf(fresh, btw, running);
+  const draft = useDraft({
+    label: wording.label,
+    placeholder: wording.placeholder,
+    text: written.text,
+    doc: mode,
+    held,
+    selection: written,
+    onTextChange: (text, selection) => {
+      edit(text, selection);
+      if (model.problem !== null) send({ _tag: 'Retyped' });
+    },
+    onSelect: edit,
+    ...(btw ? { title: 'By the way', textOnly: true, btw: true } : {}),
+    ...(onBack === null ? {} : { onEscape: onBack }),
+    attachments: takes.files ? model.attachments : [],
+    onAttachmentsChange: (attachments) => {
+      if (takes.files) send({ _tag: 'AttachmentsChanged', attachments });
+    },
+    insert: model.insert,
+    onInsert: (what) => send({ _tag: 'InsertAsked', what }),
+    onSend: () => {
+      if (offline || slots.blocked === true) return;
+      if (!keyboard && touchSend.current !== null) touchSend.current();
+      else composing.onSend();
+    },
+    skills: {
+      how: picking?._tag === 'Skills' ? picking.how : null,
+      typing: picking?._tag === 'Skills' && picking.typed,
+      offered: takes.skills && SkillPicker.offers(skills),
+      onOpen: (how, typed) =>
+        send({
+          _tag: 'PickerOpened',
+          picking: { _tag: 'Skills', how, typed },
+        }),
+      picker: placed.skills,
+    },
+    dictation,
+    disabled: model.starting !== null,
+    editing: composing.editing,
+    ...(describedBy === null ? {} : { describedBy }),
+  });
+  const sendKeys = useBound('content.send');
+  useHandOn(draft, mode, last, keyboard);
+
+  const btwToggle = onToggle !== null && (
+    <BtwToggle on={btw} onToggle={onToggle} />
+  );
+  // A new session's branch, where the page says, over the Draft.
+  const branch =
+    fresh &&
+    takes.picks &&
+    slots.where &&
+    createPortal(
+      <BranchSettings
+        branches={model.branches}
+        picked={model.branch}
+        newWorktree={model.newWorktree}
+        how={picking?._tag === 'Branch' ? picking.how : null}
+        onOpen={(how) =>
+          send({ _tag: 'PickerOpened', picking: { _tag: 'Branch', how } })
+        }
+        onToggle={() => send({ _tag: 'NewWorktreeToggled' })}
+      >
+        {placed.branches}
+      </BranchSettings>,
+      slots.where,
+    );
+  const label = wording.send;
+  const title = sendKeys === null ? label : `${label} (${sendKeys})`;
+  const context = slots.context ?? null;
+  const blocked = unsendable || !draft.filled;
+
+  const drawn = draft.touch ? (
+    composing.touch({
+      draft,
+      label,
+      blocked: unsendable,
+      starting: model.starting !== null,
+      stop: slots.stop ?? null,
+      context: context === null ? null : <Reading context={context} />,
+      attachments:
+        draft.attachments.length > 0 || draft.files.refused.length > 0 ? (
+          <AttachmentStrip
+            attachments={draft.attachments}
+            refused={draft.files.refused}
+            disabled={draft.disabled}
+            onRemove={draft.files.remove}
+          />
+        ) : null,
+      onPaste: (text) =>
+        send({ _tag: 'InsertAsked', what: { _tag: 'Text', text } }),
+      sending: touchSend,
+      btw: onToggle === null ? null : { on: btw, onToggle, mark: <BtwMark /> },
+      chip: (
+        <>
+          {btwToggle}
+          {takes.picks && (
+            <Chip
+              catalog={model.catalog}
+              current={current(model, props)}
+              started={!fresh}
+              how={picking?._tag === 'Model' ? picking.how : null}
+              onOpen={(at) =>
+                send({
+                  _tag: 'PickerOpened',
+                  picking: { _tag: 'Model', how: 'touch', at },
+                })
+              }
+              onSet={(key, value) =>
+                send({ _tag: 'SettingChosen', key, value })
+              }
+              context={
+                context === null ? null : (
+                  <ContextRow
+                    context={{
+                      ...context,
+                      // Once the Drawer it is in has slid away, so the tap
+                      // that chose it does not land on what opens.
+                      onOpen: () => setTimeout(context.onOpen, AFTER_DRAWER),
+                    }}
+                  />
+                )
+              }
+            >
+              {placed.models}
+            </Chip>
+          )}
+        </>
+      ),
+    })
+  ) : (
+    <Card draft={draft}>
+      <StatusLine
+        draft={draft}
+        context={context === null ? null : <Reading context={context} />}
+        actions={slots.actions}
+        send={
+          <Button
+            type="button"
+            size="icon"
+            aria-label={label}
+            title={title}
+            disabled={blocked}
+            onClick={draft.send}
+            className={`${PRIMARY} @sm/status:w-auto @sm/status:px-3.5 pointer-coarse:@sm/status:w-auto`}
+          >
+            {model.starting !== null ? (
+              <Spinner />
+            ) : (
+              <ArrowUpIcon aria-hidden />
+            )}
+            <span className="hidden @sm/status:inline">{label}</span>
+          </Button>
+        }
+      >
+        {btwToggle}
+        {takes.picks && (
+          <Triggers
+            catalog={model.catalog}
+            current={current(model, props)}
+            started={!fresh}
+            how={picking?._tag === 'Model' ? picking : null}
+            onOpen={(at, how) =>
+              send({
+                _tag: 'PickerOpened',
+                picking: { _tag: 'Model', how, at },
+              })
+            }
+          >
+            {placed.models}
+          </Triggers>
+        )}
+      </StatusLine>
+    </Card>
+  );
+  return (
+    <>
+      {drawn}
+      {branch}
+    </>
+  );
+}
+
+/** How long a Drawer takes to slide away, in ms, before what a tap in it opens. */
+const AFTER_DRAWER = 400;
+
+export default DraftView;
