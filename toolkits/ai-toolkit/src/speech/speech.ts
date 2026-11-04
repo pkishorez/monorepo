@@ -5,6 +5,9 @@ import { Runtime } from '@kestack/kabuki';
 import { SpeechToText, type Recognizer } from './contract/index.js';
 import { SpeechModel } from './actor-speech-model/index.js';
 import { SpeechHost } from './capabilities/index.js';
+import { makeTakes, type TakeHeard } from './takes/index.js';
+
+export type { TakeHeard } from './takes/index.js';
 
 // What a program gives Speech: a SpeechToText, sherpa-onnx's unless a fake.
 export { SpeechToText, type Recognizer } from './contract/index.js';
@@ -59,6 +62,25 @@ export interface SpeechService {
   readonly transcribe: (
     pcm: Uint8Array,
   ) => Effect.Effect<string, SpeechToTextNotReady | TranscriptionFailed>;
+  /**
+   * What Take `id`, a Dictation sent as it is recorded, has heard now,
+   * then each change, ending with Done. Speech to Text off, it is
+   * switched on, and the download's progress comes first.
+   */
+  readonly watchTake: (
+    id: string,
+  ) => Stream.Stream<TakeHeard, TranscriptionFailed>;
+  /** Stretch `at`, from 0, of Take `id`: 16 kHz mono PCM, as `transcribe` takes. */
+  readonly addTakeAudio: (
+    id: string,
+    at: number,
+    pcm: Uint8Array,
+  ) => Effect.Effect<void, TranscriptionFailed>;
+  /** Take `id` has `count` stretches; once all are in, it is Done. */
+  readonly endTake: (
+    id: string,
+    count: number,
+  ) => Effect.Effect<void, TranscriptionFailed>;
 }
 
 export interface SpeechOptions {
@@ -161,14 +183,35 @@ const make = (options: SpeechOptions) =>
             : 'Off',
       });
 
+    const enable = Effect.sync(() => void root.send({ _tag: 'Enable' }));
+    const watch = running.changes.pipe(
+      Stream.map(status),
+      Stream.filter((now) => now !== null),
+      Stream.changesWith((a, b) => JSON.stringify(a) === JSON.stringify(b)),
+    );
+    const takes = yield* makeTakes({
+      now: watch,
+      enable,
+      transcribe: (samples) =>
+        root._tag === 'Ready'
+          ? root.queries
+              .transcribe(samples)
+              .pipe(
+                Effect.mapError((error) =>
+                  typeof error === 'string'
+                    ? error
+                    : 'Speech to Text stopped while it was hearing',
+                ),
+              )
+          : Effect.fail('Speech to Text stopped while it was hearing'),
+    });
+    const failed = (error: { readonly message: string }) =>
+      new TranscriptionFailed({ message: error.message });
+
     const service: SpeechService = {
-      enable: Effect.sync(() => void root.send({ _tag: 'Enable' })),
+      enable,
       disable: Effect.sync(() => void root.send({ _tag: 'Disable' })),
-      watch: running.changes.pipe(
-        Stream.map(status),
-        Stream.filter((now) => now !== null),
-        Stream.changesWith((a, b) => JSON.stringify(a) === JSON.stringify(b)),
-      ),
+      watch,
       transcribe: (pcm) =>
         Effect.suspend(() => {
           if (pcm.byteLength % 2 !== 0)
@@ -188,6 +231,16 @@ const make = (options: SpeechOptions) =>
               ),
             );
         }),
+      watchTake: (id) => Stream.mapError(takes.watch(id), failed),
+      addTakeAudio: (id, at, pcm) =>
+        pcm.byteLength % 2 !== 0
+          ? Effect.fail(
+              new TranscriptionFailed({
+                message: 'The audio is not 16-bit PCM: its length is odd',
+              }),
+            )
+          : Effect.mapError(takes.add(id, at, samplesOf(pcm)), failed),
+      endTake: (id, count) => Effect.mapError(takes.end(id, count), failed),
     };
     return service;
   });
