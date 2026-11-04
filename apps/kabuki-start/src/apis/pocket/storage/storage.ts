@@ -11,16 +11,13 @@ import { Entry, Wallet } from '../domain/index.ts';
 export const pocketTable = StdTable.make('pocket')
   .primary('pk', 'sk')
   .lsi('LSI1', 'LSI1SK')
+  .entity(Wallet, (e) =>
+    e.primary({ pk: ['userId'] }).index('LSI1', 'byUpdate', { sk: ['_u'] }),
+  )
+  .entity(Entry, (e) =>
+    e.primary({ pk: ['userId'] }).index('LSI1', 'byUpdate', { sk: ['_u'] }),
+  )
   .build();
 
-export const wallets = pocketTable
-  .entity(Wallet)
-  .primary({ pk: ['userId'] })
-  .index('LSI1', 'byUpdate', { sk: ['_u'] })
-  .build();
-
-export const entries = pocketTable
-  .entity(Entry)
-  .primary({ pk: ['userId'] })
-  .index('LSI1', 'byUpdate', { sk: ['_u'] })
-  .build();
+export const wallets = pocketTable.Wallet;
+export const entries = pocketTable.Entry;

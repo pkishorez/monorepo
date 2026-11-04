@@ -5,7 +5,7 @@ import {
   type RpcClientError,
   type RpcGroup,
 } from 'effect/rpc';
-import { findOutdatedVersion } from '@kestack/std-toolkit/eschema';
+import { findOutdatedVersion } from '@kestack/std-toolkit/schema';
 import { OnOutdated } from '@kestack/std-toolkit/replica';
 
 /*

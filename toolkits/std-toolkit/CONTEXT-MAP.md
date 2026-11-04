@@ -4,32 +4,34 @@ std-toolkit is a cluster of bounded contexts. Each context owns its own ubiquito
 
 ## Contexts
 
-- [core](./src/core/CONTEXT.md) — the shared spine: the **Entity** model, **Entity Meta**, **Broadcaster**, **Change Notice**, and the base error. Every other context builds on these terms.
-- [eschema](./src/eschema/CONTEXT.md) — versioned, self-migrating schemas (schema evolution).
-- [snapshot](./src/snapshot/CONTEXT.md) — semantic contract capture, inspection, comparison, and rendering for ESchemas and database tables.
-- [db](./src/db/CONTEXT.md) — the single-table storage kernel shared by the database adapters.
-  - [db/dynamodb](./src/db/dynamodb/CONTEXT.md) — DynamoDB adapter specifics.
-  - [db/sqlite](./src/db/sqlite/CONTEXT.md) — SQLite adapter specifics.
-  - [db/idb](./src/db/idb/CONTEXT.md) — in-browser IndexedDB adapter specifics.
-  - [db/memory](./src/db/memory/CONTEXT.md) — ephemeral, runtime-independent Memory adapter specifics.
-- [sync](./src/sync/CONTEXT.md) — the sync engine, its TanStack DB integration, Sync Strategies, and Sync adapters.
-- [replica](./src/replica/CONTEXT.md) — Kabuki-native sync: Replicas, their Instances, Queries and Actions.
+The package is a tree of five parts; each part uses only the ones above it in this list.
+
+- **schema**: what a row is.
+  - [entity](./src/schema/entity/CONTEXT.md) — the shared spine: the **Entity** model, **Entity Meta**, ids, and the base error. Every other context builds on these terms.
+  - [eschema](./src/schema/eschema/CONTEXT.md) — versioned, self-migrating schemas (schema evolution).
+  - [snapshot](./src/schema/snapshot/CONTEXT.md) — semantic contract capture, inspection, comparison, and rendering for ESchemas and database tables.
+- [db](./src/db/CONTEXT.md) — where rows live: the single-table storage kernel, **Adapter setup**, the **Broadcaster**, and the adapters.
+  - [db/dynamodb](./src/db/adapters/dynamodb/CONTEXT.md) — DynamoDB adapter specifics.
+  - [db/sqlite](./src/db/adapters/sqlite/CONTEXT.md) — SQLite adapter specifics.
+  - [db/idb](./src/db/adapters/idb/CONTEXT.md) — in-browser IndexedDB adapter specifics.
+  - [db/memory](./src/db/adapters/memory/CONTEXT.md) — ephemeral, runtime-independent Memory adapter specifics.
+- [sync](./src/sync/CONTEXT.md) — how rows reach a React app: the sync engine, its TanStack DB integration, Sync Strategies, and Sync adapters.
+- [replica](./src/replica/CONTEXT.md) — how rows reach a Kabuki app: Kabuki-native sync, with Replicas, their Instances, Queries and Actions.
+- **deploy** — how tables ship: Alchemy resources that run **Adapter setup** at deploy, and the **Deploy guard**.
 
 ## Relationships
 
-- **core** is the shared kernel for the whole toolkit. eschema, db (dynamodb/sqlite), and sync all speak its **Entity** / **Entity Meta** vocabulary.
-- **eschema → core**: an **Entity**'s meta carries eschema's `_v` **version**; an ESchema's **entity schema** (`X.entity`) converts a whole Entity, migrating its value to the latest version. eschema uses core's Entity and Entity Meta; core does not depend on eschema.
+- **entity** is the shared kernel for the whole toolkit. eschema, db, sync, and replica all speak its **Entity** / **Entity Meta** vocabulary.
+- **eschema → entity**: an **Entity**'s meta carries eschema's `_v` **version**; an ESchema's **entity schema** (`X.entity`) converts a whole Entity, migrating its value to the latest version. eschema uses entity's Entity and Entity Meta; entity does not depend on eschema.
 - **snapshot → eschema**: snapshot consumes ESchema's public introspection, including eschema's **snapshot type** description of each version's encoded side, to describe every schema a table reaches, and the table snapshot document is itself an ESchema so a stored document migrates forward like any row; eschema does not depend on snapshot.
-- **db → core, eschema**: the adapters persist core **Entities** whose `value` is validated by an eschema schema.
-- **db → snapshot**: `TableSnapshot.capture` reads a table's topology and registered entities through a structural type, so snapshot never imports db. db imports snapshot for **Adapter setup** alone: setup captures the table snapshot and compares it with the **Stored contract** kept with the data. No layer and no request runs snapshot. The per-table Vitest test lives in snapshot and never touches a database.
-- **alchemy → db, snapshot**: `@kestack/std-toolkit/alchemy` makes deployed tables exist and keeps each persistent table's **Deployed contract** in Alchemy state, through its **Deploy guard**, refusing a deploy that is not upgradable before setup runs. Nothing depends on alchemy.
+- **db → schema**: the adapters persist **Entities** whose `value` is validated by an ESchema. `TableSnapshot.capture` reads a table's topology and registered entities through a structural type, so snapshot never imports db. db imports snapshot for **Adapter setup** and the per-table test: setup captures the table snapshot and compares it with the **Stored contract** kept with the data. No layer and no request runs snapshot.
 - **db (dynamodb ↔ sqlite ↔ idb ↔ memory)**: a **Shared Kernel**. The single-table topology — **partition key**, **sort key**, **item collection**, `IndexDefinition`, **Table** — is defined once in [db](./src/db/CONTEXT.md); sqlite, idb, and memory mirror dynamodb's topology and each child context records only its divergences.
-- **sync → core**: accepts [[core]] **Entities**, ignores an Entity from a newer version as an **Outdated Application**, exposes their latest values in Collections and to Mutation Callbacks, and interprets `_u` for convergence and the Settle Window.
+- **sync → schema**: accepts **Entities**, ignores an Entity from a newer version as an **Outdated Application**, exposes their latest values in Collections and to Mutation Callbacks, and interprets `_u` for convergence and the Settle Window.
 - **sync → db**: realizes its **Sync Store** through a compatible database adapter; the Sync adapter chooses which (Memory, IndexedDB, or SQLite), changing durability, not Sync behavior.
-
-- **replica → core, eschema, db**: like sync, it carries core **Entities**, reads them through each ESchema's **entity schema**, and keeps them through a db adapter. It shares no code with sync; sync stays for React apps.
+- **replica → schema, db**: like sync, it carries **Entities**, reads them through each ESchema's **entity schema**, and keeps them through a db adapter. It shares no code with sync; sync stays for React apps.
+- **deploy → schema, db**: `@kestack/std-toolkit/deploy` makes deployed tables exist and runs db's **Adapter setup** inside each table resource at deploy (D1, DynamoDB), so a refusal fails the deploy. For a persistent table whose setup runs later on a device or object (IndexedDB, Durable Objects), its **Deploy guard** keeps the **Deployed contract** in Alchemy state and refuses, by setup's rules, a change setup would refuse. Nothing depends on deploy.
 
 ## Term collisions (same word, different context)
 
-- **Partition** is a [db](./src/db/CONTEXT.md) word only: a physical single-table slice (an **item collection** sharing one **partition key**). Sync's lazily loaded subset is a **Window** in [sync](./src/sync/CONTEXT.md).
+- **Partition** is a [db](./src/db/CONTEXT.md) word only: a physical single-table slice (an **item collection** sharing one **partition key**). Sync's lazily loaded subset is a **Window** in [sync](./src/sync/CONTEXT.md), and Replica's in [replica](./src/replica/CONTEXT.md).
 - **Collection**, **Strategy**, **Leadership**/**Leader** and **Doorbell** mean the same idea in [sync](./src/sync/CONTEXT.md) and [replica](./src/replica/CONTEXT.md), but each context owns its own definition. **Std Sync** is a sync word only; replica says **Replica** and **Instance**.

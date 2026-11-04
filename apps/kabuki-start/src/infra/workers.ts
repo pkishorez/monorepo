@@ -1,8 +1,7 @@
 import { Stage } from 'alchemy';
 import * as Cloudflare from '@alchemy.run/cloudflare';
-import * as Output from 'alchemy/Output';
 import { Effect } from 'effect';
-import { D1 } from '@kestack/std-toolkit/alchemy';
+import { D1 } from '@kestack/std-toolkit/deploy';
 import { backend } from '@kestack/web-platform/app/alchemy';
 import { pocketTable } from '../apis/pocket/storage/index.ts';
 import { where } from './stage.ts';
@@ -17,9 +16,9 @@ import { where } from './stage.ts';
  * with auth-toolkit's Fake, as the Web Platform's `backend` bundles it.
  *
  * The Pocket Worker keeps its records in a D1 database of its own, in the
- * `pocket` std Table. The table goes through std-toolkit's deploy guard,
- * which refuses a deploy whose table would no longer read the rows already
- * stored, and the Worker is deployed only behind it.
+ * `pocket` std Table. std-toolkit sets the table up at deploy against the
+ * Stored contract inside it, refusing a deploy whose table would no longer
+ * read the rows already stored, and the Worker is deployed only behind it.
  */
 
 const api = <const Id extends string>(id: Id, name: string, port: number) =>
@@ -69,9 +68,10 @@ export const PocketWorker = Cloudflare.Worker(
         AUTH_URL: at.auth,
         SITE_ORIGIN: at.url() ?? '',
         DB: PocketDatabase,
+        // The table's name, from its resource: binding it keeps the
+        // Worker's deployment behind the table's setup and its reindex.
+        DB_TABLE: table.tableName,
       },
-      // Keep the Worker's deployment behind the table and its guard.
-      tag: Output.map(table.snapshot, () => 'pocket'),
     };
   }),
 );

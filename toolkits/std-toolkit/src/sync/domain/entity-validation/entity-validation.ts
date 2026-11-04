@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { EntityMetaSchema, type Entity } from '../../../core/index.js';
+import { EntityMetaSchema, type Entity } from '../../../schema/entity/index.js';
 
 const isMeta = Schema.is(EntityMetaSchema);
 

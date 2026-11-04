@@ -10,21 +10,22 @@ const table = StdTable.make('lotel')
   .gsi('timeline', 'timelinePk', 'timelineSk')
   .gsi('span-trace', 'spanTracePk', 'spanTraceSk')
   .gsi('trace', 'tracePk', 'traceSk')
+  .entity(SpanEntitySchema, (e) =>
+    e
+      .primary({ pk: ['traceId'] })
+      .index('timeline', 'timeline', { pk: [] })
+      .index('span-trace', 'byTrace', { pk: ['traceId'] }),
+  )
+  .entity(LogEntitySchema, (e) =>
+    e
+      .primary()
+      .index('timeline', 'timeline', { pk: [] })
+      .index('trace', 'byTrace', { pk: ['traceId'] }),
+  )
   .build();
 
-const spans = table
-  .entity(SpanEntitySchema)
-  .primary({ pk: ['traceId'] })
-  .index('timeline', 'timeline', { pk: [] })
-  .index('span-trace', 'byTrace', { pk: ['traceId'] })
-  .build();
-
-const logs = table
-  .entity(LogEntitySchema)
-  .primary()
-  .index('timeline', 'timeline', { pk: [] })
-  .index('trace', 'byTrace', { pk: ['traceId'] })
-  .build();
+const spans = table.Span;
+const logs = table.LogRecord;
 
 /** @internal */
 export const makeSqliteEntities = (database: SQLiteDriver) => {

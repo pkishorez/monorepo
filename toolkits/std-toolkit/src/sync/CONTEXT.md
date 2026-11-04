@@ -3,8 +3,8 @@
 Sync keeps TanStack DB Collections fresh from an authoritative Backend and
 keeps a local copy, so an application opens with its data offline and resumes
 where it stopped. Shared Entity vocabulary is defined by
-[core](../core/CONTEXT.md). Every edge Sync shares with a Backend or a store
-carries [[core]] **Entities**, and every Collection shows their latest eschema
+[entity](../schema/entity/CONTEXT.md). Every edge Sync shares with a Backend or a store
+carries [[entity]] **Entities**, and every Collection shows their latest eschema
 **values**.
 
 ## Language
@@ -156,7 +156,7 @@ _Avoid_: primary tab, query lock, fetch mutex.
 The signal a Session's leader sends after storing Entities, so other
 participants re-read that Collection from the Sync Store. It carries no
 Entities.
-_Avoid_: Peer Sync, Peer Message, Change Notice (a [[core]] in-process write
+_Avoid_: Peer Sync, Peer Message, Change Notice (a [[entity]] in-process write
 notification).
 
 ### Reporting

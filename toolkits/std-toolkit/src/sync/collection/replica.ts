@@ -1,7 +1,10 @@
 import { Effect, Schema } from 'effect';
-import type { Entity } from '../../core/index.js';
+import type { Entity } from '../../schema/entity/index.js';
 import { DatabaseError, type StdTableService } from '../../db/index.js';
-import { ESchemaError, type AnyEntityESchema } from '../../eschema/index.js';
+import {
+  ESchemaError,
+  type AnyEntityESchema,
+} from '../../schema/eschema/index.js';
 import { isEntity } from '../domain/entity-validation/index.js';
 import {
   storedReplicaCursorEntity,

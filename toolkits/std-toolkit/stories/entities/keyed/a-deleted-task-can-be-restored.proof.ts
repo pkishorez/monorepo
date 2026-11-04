@@ -2,17 +2,16 @@ import { Effect, Schema } from 'effect';
 import { Proof } from 'laymos/story';
 import { StdTable } from '@kestack/std-toolkit/db';
 import { Memory } from '@kestack/std-toolkit/db/memory';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 
 const Task = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,
   title: Schema.String,
 }).build();
 
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 const key = { boardId: 'work', taskId: 't1' };
@@ -23,27 +22,28 @@ export default Proof.make({
     'Deletion is sync data: get and query return tombstones unless asked to exclude them, and restore brings the task back.',
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
-    const live = yield* task
-      .insert({ ...key, title: 'Write the plan' })
-      .pipe(Effect.provide(db.layer));
+    const live = yield* table.Task.insert({
+      ...key,
+      title: 'Write the plan',
+    }).pipe(Effect.provide(db.layer));
     yield* Proof.assert('the task starts live', live.meta._d === false);
     return { db, live };
   }),
   act: ({ db }) =>
     Effect.gen(function* () {
-      const deleted = yield* task.delete(key);
-      const tombstone = yield* task.get(key);
-      const hidden = yield* task.get(key, { excludeDeleted: true });
-      const listed = yield* task.query('primary', {
+      const deleted = yield* table.Task.delete(key);
+      const tombstone = yield* table.Task.get(key);
+      const hidden = yield* table.Task.get(key, { excludeDeleted: true });
+      const listed = yield* table.Task.query('primary', {
         pk: { boardId: 'work' },
         '>=': null,
       });
-      const listedLive = yield* task.query(
+      const listedLive = yield* table.Task.query(
         'primary',
         { pk: { boardId: 'work' }, '>=': null },
         { excludeDeleted: true },
       );
-      const restored = yield* task.restore(key);
+      const restored = yield* table.Task.restore(key);
       return {
         deleted,
         tombstone,

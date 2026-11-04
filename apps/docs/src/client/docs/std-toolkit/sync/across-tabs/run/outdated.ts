@@ -2,7 +2,7 @@ import { Console, Effect, Schema } from 'effect';
 import {
   EntityESchema,
   findOutdatedVersion,
-} from '@kestack/std-toolkit/eschema';
+} from '@kestack/std-toolkit/schema';
 
 const fields = { boardId: Schema.String, title: Schema.String };
 const withPriority = EntityESchema.make('Task', 'taskId', fields).evolve(

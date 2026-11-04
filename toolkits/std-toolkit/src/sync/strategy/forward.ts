@@ -1,5 +1,5 @@
 import { Duration, Effect, Option, Schedule, Stream } from 'effect';
-import type { Entity } from '../../core/index.js';
+import type { Entity } from '../../schema/entity/index.js';
 import { newestOf } from './definition.js';
 
 export type Fetch<TItem, R> = (input: {

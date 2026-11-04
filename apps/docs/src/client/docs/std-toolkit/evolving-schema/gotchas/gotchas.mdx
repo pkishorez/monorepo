@@ -61,7 +61,10 @@ Most of these the builder enforces. The rest are caught by your table's
 - **Never delete a migration.** Rows saved at v1 are still v1 on disk.
   Without the v1 → v2 step, they stop reading.
 - **Migrations are pure.** No clock, no random numbers, no requests. The
-  same row must read the same today, tomorrow and on every device.
+  same row must read the same today, tomorrow and on every device. A change
+  that needs more than the row itself, like a value from another entity,
+  moves the data to a new table with a [table
+  migration](/std-toolkit/table-mode).
 - **One step per version.** Each migration handles only the version just
   before it. The chain does the rest.
 - **A check only loosens on a shipped version.** Widening a bound is safe.

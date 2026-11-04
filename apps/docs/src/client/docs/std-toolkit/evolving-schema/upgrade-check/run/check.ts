@@ -1,5 +1,5 @@
 import { Console, Effect } from 'effect';
-import { findUpgradeFailures } from '@kestack/std-toolkit/eschema/testing';
+import { findUpgradeFailures } from '@kestack/std-toolkit/schema/testing';
 import { Fixed, Forgetful } from '../components/tasks.ts';
 
 export const program = Effect.gen(function* () {

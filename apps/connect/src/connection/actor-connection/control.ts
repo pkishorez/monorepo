@@ -2,7 +2,7 @@ import { Context, Deferred, Effect, Option, Ref, Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { PluginState } from '@kestack/cli-platform/plugins/contract';
 import { single } from '@kestack/cli-platform/single';
-import { ESchema } from '@kestack/std-toolkit/eschema';
+import { ESchema } from '@kestack/std-toolkit/schema';
 
 /*
  * How `ke-connect` asks a running Connection on this computer about itself,

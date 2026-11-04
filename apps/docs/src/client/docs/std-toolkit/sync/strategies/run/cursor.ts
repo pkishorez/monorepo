@@ -1,18 +1,18 @@
 import { Console, Effect, Schema } from 'effect';
 import { StdTable } from '@kestack/std-toolkit/db';
 import { Memory } from '@kestack/std-toolkit/db/memory';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 
 const Task = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,
   title: Schema.String,
 }).build();
 
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
+const task = table.Task;
 
 const PAGE = 2;
 

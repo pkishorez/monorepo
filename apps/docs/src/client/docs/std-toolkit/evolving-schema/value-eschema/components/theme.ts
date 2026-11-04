@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { ValueESchema } from '@kestack/std-toolkit/eschema';
+import { ValueESchema } from '@kestack/std-toolkit/schema';
 
 // v1 kept the theme as free text. v2 allows only two words, and the
 // migration maps every old text onto one of them.

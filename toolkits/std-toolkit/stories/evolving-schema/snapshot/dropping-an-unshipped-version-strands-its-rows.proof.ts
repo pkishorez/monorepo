@@ -2,7 +2,7 @@ import { Effect, Schema } from 'effect';
 import { Proof } from 'laymos/story';
 import { StdTable } from '@kestack/std-toolkit/db';
 import { Memory } from '@kestack/std-toolkit/db/memory';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 
 // While deciding, the app tried a v2 with a due date, then dropped the idea.
 const TaskTryingDueDate = EntityESchema.make('Task', 'taskId', {
@@ -20,15 +20,13 @@ const TaskWithoutDueDate = EntityESchema.make('Task', 'taskId', {
 }).build();
 
 // Two builds of the app over the same logical table.
-const trialTable = StdTable.make('board').primary('pk', 'sk').build();
-const trialTask = trialTable
-  .entity(TaskTryingDueDate)
-  .primary({ pk: ['boardId'] })
+const trialTable = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(TaskTryingDueDate, (e) => e.primary({ pk: ['boardId'] }))
   .build();
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(TaskWithoutDueDate)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(TaskWithoutDueDate, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 export default Proof.make({
@@ -38,9 +36,12 @@ export default Proof.make({
   prepare: Effect.gen(function* () {
     const db = Memory.make(table);
     // The trial build saves a task while v2 exists.
-    const saved = yield* trialTask
-      .insert({ taskId: 't1', boardId: 'work', title: 'Plan', dueDate: null })
-      .pipe(Effect.provide(db.layer));
+    const saved = yield* trialTable.Task.insert({
+      taskId: 't1',
+      boardId: 'work',
+      title: 'Plan',
+      dueDate: null,
+    }).pipe(Effect.provide(db.layer));
     yield* Proof.assert(
       'the trial build stored it at v2',
       saved.meta._v === 'v2',
@@ -48,7 +49,7 @@ export default Proof.make({
     return { db, saved };
   }),
   act: ({ db }) =>
-    task.get({ boardId: 'work', taskId: 't1' }).pipe(
+    table.Task.get({ boardId: 'work', taskId: 't1' }).pipe(
       Effect.provide(db.layer),
       Effect.match({
         onFailure: (error) => ({ read: null, reason: error.reason._tag }),

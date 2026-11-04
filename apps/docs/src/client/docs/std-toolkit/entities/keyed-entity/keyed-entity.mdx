@@ -12,12 +12,12 @@ delete them.
 Tasks come many at a time, so each needs a key you can find it by. That's
 what makes `task` a **keyed entity**.
 
-You chose the key when you bound the shape:
+You chose the key when you declared the shape on the table:
 
 ```ts
-table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 ```
 
@@ -76,7 +76,7 @@ type `'I KNOW WHAT I AM DOING'`, on purpose.
 
 ## Try it
 
-A real table in memory, and `task` bound to it. Insert a few tasks, then
+A real table in memory, with `task` declared on it. Insert a few tasks, then
 work on t1.
 
 <LiveTable

@@ -62,15 +62,16 @@ These keep their own names and versions.
 is a published package containing a set of composable modules for
 database-agnostic single-table design:
 
-| Entry point                        | Purpose                                                                                |
-| ---------------------------------- | -------------------------------------------------------------------------------------- |
-| `@kestack/std-toolkit/core`        | Shared entity, metadata, broadcasting, and error primitives.                           |
-| `@kestack/std-toolkit/eschema`     | Versioned, self-migrating schemas built on Effect Schema, including the `eschema` CLI. |
-| `@kestack/std-toolkit/db`          | Portable Table and Entity definitions and operations.                                  |
-| `@kestack/std-toolkit/db/dynamodb` | DynamoDB binding, setup, expressions, and native operations.                           |
-| `@kestack/std-toolkit/db/sqlite`   | SQLite binding and setup, with separate runtime driver entrypoints.                    |
-| `@kestack/std-toolkit/db/idb`      | IndexedDB binding and explicit Store setup.                                            |
-| `@kestack/std-toolkit/sync`        | TanStack DB synchronization with local replicas, paced writes, and Peer Sync.          |
+| Entry point                        | Purpose                                                                              |
+| ---------------------------------- | ------------------------------------------------------------------------------------ |
+| `@kestack/std-toolkit/schema`      | The Entity envelope, ids, and versioned schemas that read old rows in today's shape. |
+| `@kestack/std-toolkit/db`          | Portable Table and Entity definitions, operations, and Change Notices.               |
+| `@kestack/std-toolkit/db/dynamodb` | DynamoDB binding, setup, expressions, and native operations.                         |
+| `@kestack/std-toolkit/db/sqlite`   | SQLite binding and setup, with separate runtime driver entrypoints.                  |
+| `@kestack/std-toolkit/db/idb`      | IndexedDB binding and explicit Store setup.                                          |
+| `@kestack/std-toolkit/sync`        | TanStack DB sync for React apps: local copies, paced writes, and Peer Sync.          |
+| `@kestack/std-toolkit/replica`     | Kabuki-native sync: local copies of the backend kept fresh on the device.            |
+| `@kestack/std-toolkit/deploy`      | Alchemy resources that run table setup at deploy and guard a table's contract.       |
 
 See the [std-toolkit README](./toolkits/std-toolkit/README.md) for installation and
 entry-point documentation.

@@ -1,0 +1,132 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec';
+import { Cause, Effect, Option, Schema } from 'effect';
+import type {
+  ESchemaDescriptor,
+  Evolution,
+  ForbidEmptyName,
+  ForbidOptionalFields,
+  ForbidUnderscorePrefix,
+  EntitySchemaOf,
+  Prettify,
+  SingleEntitySchemaOf,
+  StructFieldsType,
+  StructFieldsEncoded,
+  StructFieldsSchema,
+  VersionedCodec,
+} from '../../model/schema-model/index.js';
+import {
+  fromType,
+  id,
+  INITIAL_VERSION,
+} from '../../model/schema-model/index.js';
+import { ESchemaError } from '../../model/eschema-error/index.js';
+import { makeObjectSchemaRuntime } from '../../codec/object-schema-runtime/index.js';
+import { latestSchema } from '../../model/introspection/index.js';
+import { versionedSchema } from '../../codec/versioned-schema/index.js';
+import {
+  entitySchema,
+  singleEntitySchema,
+} from '../../codec/entity-schema/index.js';
+import { ESchemaBuilder } from './eschema-builder.js';
+
+function assertName(name: string): void {
+  if (name === '') throw new Error('Schema name must not be empty.');
+}
+
+const constructionToken = Symbol();
+
+type LatestType<TLatest extends StructFieldsSchema> = Prettify<
+  StructFieldsType<TLatest>
+>;
+
+export class ESchema<
+  TVersion extends string,
+  TLatest extends StructFieldsSchema,
+  TName extends string = string,
+> implements StandardSchemaV1<unknown, LatestType<TLatest>> {
+  readonly #runtime;
+
+  private constructor(
+    token: typeof constructionToken,
+    readonly name: TName,
+    readonly latestVersion: TVersion,
+    evolutions: readonly Evolution[],
+  ) {
+    if (token !== constructionToken) throw new TypeError('Invalid ESchema');
+    this.#runtime = makeObjectSchemaRuntime<TVersion, TLatest>({
+      owner: this,
+      name,
+      kind: 'struct',
+      idField: null,
+      latestVersion,
+      evolutions,
+    });
+  }
+
+  static readonly id = id;
+  static readonly fromType = fromType;
+
+  static make<N extends string, I extends StructFieldsSchema>(
+    name: N & ForbidEmptyName<N>,
+    schema: I & ForbidUnderscorePrefix<I> & ForbidOptionalFields<I>,
+  ) {
+    assertName(name);
+    return new ESchemaBuilder<N, 'v1', I>(
+      name,
+      [{ version: INITIAL_VERSION, schema, migration: null }],
+      INITIAL_VERSION,
+      <V extends string, S extends StructFieldsSchema>(
+        version: V,
+        evolutions: readonly Evolution[],
+      ) => new ESchema<V, S, N>(constructionToken, name, version, evolutions),
+    );
+  }
+
+  Type = null as unknown as LatestType<TLatest>;
+  Encoded = null as unknown as Prettify<StructFieldsEncoded<TLatest>> & {
+    readonly _v: TVersion;
+  };
+
+  get fields(): TLatest {
+    return this.#runtime.fields();
+  }
+
+  get schema(): VersionedCodec<this['Type'], this['Encoded']> {
+    return versionedSchema(this);
+  }
+
+  get entity(): EntitySchemaOf<this['Type'], this['Encoded']> {
+    return entitySchema(this);
+  }
+
+  get singleEntity(): SingleEntitySchemaOf<this['Type'], this['Encoded']> {
+    return singleEntitySchema(this);
+  }
+
+  getDescriptor(): ESchemaDescriptor {
+    return this.#runtime.descriptor();
+  }
+
+  '~standard' = {
+    version: 1 as const,
+    vendor: '@kestack/std-toolkit/schema',
+    types: {
+      input: null as unknown as LatestType<TLatest>,
+      output: null as unknown as LatestType<TLatest>,
+    },
+    validate: (value: unknown) => {
+      const result = Effect.runSyncExit(
+        Schema.decodeUnknownEffect(Schema.toType(latestSchema(this)))(value),
+      );
+      if (result._tag === 'Success') {
+        return { value: result.value as LatestType<TLatest> };
+      }
+      const error = Cause.findErrorOption(result.cause);
+      return Option.isSome(error)
+        ? { issues: [{ message: error.value.message }] }
+        : { issues: [{ message: 'Unknown error' }] };
+    },
+  };
+}
+
+export type { ESchemaError };

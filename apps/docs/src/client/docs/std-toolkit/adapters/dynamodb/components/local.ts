@@ -1,18 +1,18 @@
 import { Effect, Schema } from 'effect';
 import { StdTable } from '@kestack/std-toolkit/db';
 import { DynamoDB } from '@kestack/std-toolkit/db/dynamodb';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 
 const Task = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,
   title: Schema.String,
 }).build();
 
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
+const task = table.Task;
 
 // DynamoDB Local on your machine. For a real region, drop `endpoint`.
 const config = {

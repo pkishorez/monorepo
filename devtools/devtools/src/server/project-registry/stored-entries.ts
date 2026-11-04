@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 import { StdTable } from '@kestack/std-toolkit/db';
 
 /**
@@ -22,12 +22,11 @@ export const ProjectEntryEntitySchema = EntityESchema.make(
 export const table = StdTable.make('project-registry')
   .primary('pk', 'sk')
   .gsi('tool', 'toolPk', 'toolSk')
+  .entity(ProjectEntryEntitySchema, (e) =>
+    e.primary().index('tool', 'byTool', { pk: ['tool'] }),
+  )
   .build();
 
-export const entries = table
-  .entity(ProjectEntryEntitySchema)
-  .primary()
-  .index('tool', 'byTool', { pk: ['tool'] })
-  .build();
+export const entries = table.ProjectEntry;
 
 export const tableName = 'project_registry_data';

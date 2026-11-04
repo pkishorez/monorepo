@@ -1,0 +1,179 @@
+import { Effect } from 'effect';
+import type { Entity } from '../../../schema/entity/index.js';
+import type { AnyEntityESchema } from '../../../schema/eschema/index.js';
+import { InvalidQuery } from '../model/error/index.js';
+import {
+  deriveSortKey,
+  deriveStorageKey,
+  encodeCompositeKey,
+  encodeKeyPart,
+  recordReader,
+  valueReader,
+} from '../model/key/index.js';
+import {
+  StdTableService,
+  type JsonObject,
+  type ContractFailure,
+  type StoredItem,
+  type QueryPosition,
+  type QueryRequest,
+} from '../model/contract/index.js';
+import type { KeyedEntityDefinition } from '../model/definition/index.js';
+import type {
+  TableEffect,
+  EntityValue,
+  QueryOptions,
+  QueryPage,
+} from './entity.js';
+import { dbError, failReason } from './effects.js';
+import { fromStored } from './storage.js';
+
+export const queryEntity = <Name extends string, S extends AnyEntityESchema>(
+  definition: KeyedEntityDefinition<Name, S>,
+  patternName: string,
+  input: JsonObject,
+  options?: QueryOptions<EntityValue<S>>,
+): TableEffect<QueryPage<Entity<EntityValue<S>>>, Name> =>
+  Effect.gen(function* () {
+    const pattern = Object.hasOwn(definition.accessPatterns, patternName)
+      ? definition.accessPatterns[patternName]
+      : undefined;
+    if (pattern === undefined)
+      return yield* failReason(
+        new InvalidQuery({
+          message: `Unknown access pattern "${patternName}"`,
+        }),
+      );
+    const operators = [
+      '=',
+      '<',
+      '<=',
+      '>',
+      '>=',
+      'between',
+      'beginsWith',
+    ].filter((key) => key in input);
+    if (operators.length !== 1)
+      return yield* failReason(
+        new InvalidQuery({ message: 'Exactly one sort condition is required' }),
+      );
+    const operator = operators[0] as
+      | '='
+      | '<'
+      | '<='
+      | '>'
+      | '>='
+      | 'between'
+      | 'beginsWith';
+    const pkValue = input.pk as JsonObject;
+    const sortValue = input[operator] as
+      | JsonObject
+      | readonly [JsonObject, JsonObject]
+      | null;
+    const readPk = recordReader(pkValue);
+    const missing = pattern.pk.filter(
+      (component) => readPk(component) === undefined,
+    );
+    if (missing.length > 0)
+      return yield* failReason(
+        new InvalidQuery({
+          message: `Missing partition-key component "${missing[0]}"`,
+        }),
+      );
+    const pk = encodeCompositeKey([
+      definition.name,
+      ...pattern.pk.map((component) => encodeKeyPart(readPk(component)!)),
+    ]);
+    const encodeSort = (value: JsonObject) =>
+      deriveSortKey(recordReader(value), pattern.sk);
+    const sort =
+      sortValue === null
+        ? undefined
+        : operator === 'between'
+          ? {
+              operator,
+              value: [
+                encodeSort((sortValue as readonly JsonObject[])[0]!),
+                encodeSort((sortValue as readonly JsonObject[])[1]!),
+              ] as const,
+            }
+          : {
+              operator,
+              value: encodeSort(sortValue as JsonObject),
+            };
+    const limit = options?.limit ?? 100;
+    if (!Number.isInteger(limit) || limit <= 0)
+      return yield* failReason(
+        new InvalidQuery({ message: 'Limit must be a positive integer' }),
+      );
+    const indexSkAttribute =
+      pattern.index === undefined
+        ? undefined
+        : pattern.kind === 'lsi'
+          ? definition.table.localSecondaryIndexes[pattern.index]?.sk
+          : definition.table.globalSecondaryIndexes[pattern.index]?.sk;
+    const positionOf = (item: StoredItem): QueryPosition | null => {
+      if (indexSkAttribute === undefined) return { pk: item.pk, sk: item.sk };
+      const indexSk = item.keys[indexSkAttribute];
+      return indexSk === undefined
+        ? null
+        : { pk: item.pk, sk: item.sk, indexSk };
+    };
+    let startAfter: QueryPosition | undefined;
+    if (options?.after !== undefined) {
+      const read = valueReader(options.after.value, options.after.meta._u);
+      const primary = deriveStorageKey(
+        definition.name,
+        read,
+        definition.primary,
+      );
+      startAfter =
+        pattern.index === undefined
+          ? primary
+          : { ...primary, indexSk: deriveSortKey(read, pattern.sk) };
+    }
+    const contract = (yield* StdTableService(definition.table.logicalName))
+      .contract;
+    const items: Entity<EntityValue<S>>[] = [];
+    let hasMore = false;
+    let exhausted = false;
+    while (items.length < limit && !exhausted) {
+      const request: QueryRequest = {
+        ...(pattern.index === undefined ? {} : { index: pattern.index }),
+        pk,
+        ...(sort === undefined ? {} : { sort }),
+        descending: operator === '<' || operator === '<=',
+        limit: Math.max(1, limit - items.length),
+        ...(startAfter === undefined ? {} : { startAfter }),
+      };
+      const page = yield* contract
+        .queryItems(request)
+        .pipe(
+          Effect.mapError((error) =>
+            dbError('query', error as ContractFailure, definition.name),
+          ),
+        );
+      let truncated = false;
+      for (const stored of page.items) {
+        if (
+          stored.meta._e !== definition.name ||
+          (options?.excludeDeleted && stored.meta._d)
+        )
+          continue;
+        if (items.length === limit) {
+          truncated = true;
+          break;
+        }
+        const entity = yield* fromStored(definition.schema, stored);
+        items.push(entity as Entity<EntityValue<S>>);
+      }
+      hasMore = page.hasMore || truncated;
+      exhausted = !hasMore;
+      const lastItem = page.items.at(-1);
+      if (lastItem === undefined) break;
+      const next = positionOf(lastItem);
+      if (next === null) break;
+      startAfter = next;
+    }
+    return { items, hasMore };
+  }) as TableEffect<QueryPage<Entity<EntityValue<S>>>, Name>;

@@ -1,5 +1,5 @@
 import type { SyncConfig } from '@tanstack/react-db';
-import type { Entity } from '../../core/index.js';
+import type { Entity } from '../../schema/entity/index.js';
 import type { CollectionItem } from '../domain/collection-item/index.js';
 
 /**

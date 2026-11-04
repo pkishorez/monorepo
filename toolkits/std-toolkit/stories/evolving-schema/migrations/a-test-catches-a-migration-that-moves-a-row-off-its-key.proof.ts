@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { Proof } from 'laymos/story';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
-import { expectUpgradable } from '@kestack/std-toolkit/eschema/testing';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
+import { expectUpgradable } from '@kestack/std-toolkit/schema/testing';
 
 // Board ids became lowercase in v2, and the migration lowercased old ones too.
 // Every old task still decodes, but under a partition key it was never saved at.

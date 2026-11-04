@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { StdTable } from '@kestack/std-toolkit/db';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 
 // Task, given a second version: v2 adds a priority, and says what tasks
 // saved at v1 get when they're read.
@@ -14,9 +14,9 @@ export const Task = EntityESchema.make('Task', 'taskId', {
   }))
   .build();
 
-// The same table, 'board', bound to the new Task.
-export const table = StdTable.make('board').primary('pk', 'sk').build();
-export const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+// The same table, 'board', declared with the new Task.
+export const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
+export const task = table.Task;

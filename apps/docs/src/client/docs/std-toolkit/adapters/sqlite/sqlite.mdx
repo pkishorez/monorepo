@@ -40,16 +40,17 @@ a request never pays for setup.
 ```
 
 Setup takes the same mode IndexedDB does. It compares the table with the
-**Stored contract**, the record of the shape last set up, kept in a
-reserved `_std_contract` table:
+**Stored contract**, the record of the shape last set up, kept as
+reserved rows inside the table:
 
 - `persistent`: a breaking change fails with `SetupRefused`, and the table
   is never wiped.
-- `disposable`: a change the rows can't take drops the table and makes it
-  again. SQLite can't backfill, so that includes a change that needs one.
+- `disposable`: a change the rows can't take deletes every row. That
+  includes a new index.
 
 Then setup creates the table if it's missing, adds index columns and
-indexes, and records the new contract.
+indexes, reindexes the rows an index change touches, and records the new
+contract.
 
 ## Where setup runs
 
@@ -66,9 +67,9 @@ So in a Worker, the table already exists. The Worker only makes the layer:
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeD1SQLite } from '@kestack/std-toolkit/db/sqlite/d1';
 
-// env.DB is the Worker's D1 binding.
+// env.DB is the Worker's D1 binding; env.DB_TABLE names the table setup made.
 const database = makeD1SQLite({ database: env.DB });
-const board = SQLite.make(table, { database });
+const board = SQLite.make(table, { database, tableName: env.DB_TABLE });
 
 program.pipe(Effect.provide(board.layer));
 ```

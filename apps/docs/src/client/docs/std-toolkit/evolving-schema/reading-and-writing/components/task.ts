@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { ESchema } from '@kestack/std-toolkit/eschema';
+import { ESchema } from '@kestack/std-toolkit/schema';
 
 // One shape, every version it has ever had.
 export const Task = ESchema.make('Task', {

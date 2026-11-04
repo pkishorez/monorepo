@@ -1,4 +1,4 @@
-import { IDB } from '../../../db/idb/index.js';
+import { IDB } from '../../../db/adapters/idb/index.js';
 import { stdSyncName } from '../../domain/identity/index.js';
 import { syncStore } from '../../domain/stored-entity/index.js';
 import {

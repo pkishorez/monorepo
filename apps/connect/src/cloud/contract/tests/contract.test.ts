@@ -1,8 +1,8 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { describe, expect, it } from 'vitest';
-import { ESchema } from '@kestack/std-toolkit/eschema';
-import { expectUpgradable } from '@kestack/std-toolkit/eschema/testing';
+import { ESchema } from '@kestack/std-toolkit/schema';
+import { expectUpgradable } from '@kestack/std-toolkit/schema/testing';
 import { CloudApi, Connection, ReportAnswer } from '../index.js';
 import { versionedValuesOf } from './versioned.js';
 

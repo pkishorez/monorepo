@@ -1,8 +1,8 @@
 import { Effect, Schema } from 'effect';
 import { Proof } from 'laymos/story';
 import { StdTable } from '@kestack/std-toolkit/db';
-import { EntityESchema, ESchema } from '@kestack/std-toolkit/eschema';
-import { TableSnapshot } from '@kestack/std-toolkit/snapshot';
+import { EntityESchema, ESchema } from '@kestack/std-toolkit/schema';
+import { TableSnapshot } from '@kestack/std-toolkit/schema/snapshot';
 
 const Address = ESchema.make('Address', { city: Schema.String }).build();
 const Person = EntityESchema.make('Person', 'personId', {
@@ -10,8 +10,10 @@ const Person = EntityESchema.make('Person', 'personId', {
   address: Address.schema,
 }).build();
 
-const table = StdTable.make('people').primary('pk', 'sk').build();
-table.entity(Person).primary().build();
+const table = StdTable.make('people')
+  .primary('pk', 'sk')
+  .entity(Person, (e) => e.primary())
+  .build();
 
 export default Proof.make({
   title: 'A hand-edited snapshot that points at a missing schema is refused',

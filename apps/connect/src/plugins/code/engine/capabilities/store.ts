@@ -1,5 +1,5 @@
 import { Context, type Effect, type Scope, type Stream } from 'effect';
-import type { Entity } from '@kestack/std-toolkit/core';
+import type { Entity } from '@kestack/std-toolkit/schema';
 import type { Raw } from '@kestack/ai-toolkit/contract';
 import type {
   HarnessAccountRecord,

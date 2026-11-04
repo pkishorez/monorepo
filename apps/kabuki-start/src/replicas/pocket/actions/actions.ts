@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Action } from '@kestack/std-toolkit/replica';
-import type { Entity } from '@kestack/std-toolkit/core';
+import type { Entity } from '@kestack/std-toolkit/schema';
 import {
   Entry,
   PocketRpc,

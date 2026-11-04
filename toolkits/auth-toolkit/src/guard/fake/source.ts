@@ -1,6 +1,6 @@
 import { Effect, type Layer, Schema } from 'effect';
 import { StdTable, type StdTableService } from '@kestack/std-toolkit/db';
-import { ESchema } from '@kestack/std-toolkit/eschema';
+import { ESchema } from '@kestack/std-toolkit/schema';
 import type { SignInOptions } from '../client/accounts/index.js';
 import type { Snapshot } from '../client/engine/index.js';
 import type { FakeChoice } from './chooser.js';
@@ -25,15 +25,14 @@ const LocalAccounts = ESchema.make('LocalAccounts', {
  * (the default), IDB to keep them across reloads and tabs. */
 export const fakeAccountsTable = StdTable.make('auth-local-accounts')
   .primary('pk', 'sk')
+  .singleEntity(LocalAccounts, { default: { users: [], active: null } })
   .build();
 
 export type FakeStorage = Layer.Layer<
   StdTableService<typeof fakeAccountsTable.logicalName>
 >;
 
-const stored = fakeAccountsTable
-  .singleEntity(LocalAccounts)
-  .default({ users: [], active: null });
+const stored = fakeAccountsTable.LocalAccounts;
 
 type Stored = typeof LocalAccounts.Type;
 

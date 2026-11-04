@@ -1,9 +1,6 @@
 import { Schema, SchemaAST } from 'effect';
 import { RpcSchema, type Rpc } from 'effect/rpc';
-import {
-  eschemaOf,
-  type AnyEvolvingSchema,
-} from '@kestack/std-toolkit/eschema';
+import { eschemaOf, type AnyEvolvingSchema } from '@kestack/std-toolkit/schema';
 
 /*
  * The guard both contracts' tests run: every value an Rpc sends, its

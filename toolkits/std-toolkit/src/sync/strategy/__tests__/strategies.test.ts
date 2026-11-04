@@ -1,6 +1,6 @@
 import { Effect, Stream } from 'effect';
 import { describe, expect, it } from 'vitest';
-import type { Entity } from '../../../core/index.js';
+import type { Entity } from '../../../schema/entity/index.js';
 import { backend, todo, type Todo } from '../../__tests__/support.js';
 import { settledCursor, strategy, type SyncStrategy } from '../index.js';
 

@@ -56,8 +56,8 @@ it('keeps the rpc and http-api doors free of Cloudflare and Alchemy at runtime',
 
 it('keeps the ordinary DynamoDB entry point independent of Alchemy', () => {
   expect(
-    [...externalImports('std-toolkit/src/db/dynamodb/index.ts')].filter(
-      (name) => /^alchemy(\/|$)/.test(name),
-    ),
+    [
+      ...externalImports('std-toolkit/src/db/adapters/dynamodb/index.ts'),
+    ].filter((name) => /^alchemy(\/|$)/.test(name)),
   ).toEqual([]);
 });

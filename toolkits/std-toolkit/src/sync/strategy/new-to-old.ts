@@ -1,5 +1,5 @@
 import { Effect, Queue, Schema, Stream, SynchronizedRef } from 'effect';
-import type { Entity } from '../../core/index.js';
+import type { Entity } from '../../schema/entity/index.js';
 import {
   make,
   newestOf,

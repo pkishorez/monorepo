@@ -4,8 +4,10 @@ import { driftAndReindex } from './components/lab.ts';
 import { DriftPicture } from './components/drift-picture.tsx';
 
 The last page added `byPriority`. New tasks show up in it. The tasks
-saved last month don't. This page finds those rows and brings them in,
-without changing a single value.
+saved last month don't, until something writes their keys. On a
+persistent table, setup does that for you, before the new code opens the
+table. This page shows why those rows go missing, and what setup does
+underneath.
 
 ## Why old rows go missing
 
@@ -22,6 +24,30 @@ upgrade. Those rows need their keys written.
 <Picture caption="old-1 was saved before byPriority, so its index key is empty and the query misses it. drift points at the gap, reindex fills it, and the query finds both.">
   <DriftPicture />
 </Picture>
+
+## Setup writes them
+
+You don't declare anything for this. When setup compares your table with
+its [Stored contract](/std-toolkit/table-mode), a new or changed index
+shows up as a change that requires a reindex. On a persistent table,
+setup then scans the table and rewrites each row whose index keys are
+out of date, all before the table opens:
+
+```ts
+yield * SQLite.setup(table, { database, mode: 'persistent' });
+// { kind: 'applied', reindexed: ['Task'], changes: [...] }
+```
+
+It keeps no progress. The new contract is recorded only after the scan,
+so a setup that stops part-way leaves the old one, and the next setup
+reindexes again. That's safe, because writing the same keys twice
+changes nothing.
+
+On DynamoDB, setup adds the new global secondary index first, then
+reindexes. A disposable table skips all this: setup wipes it and starts
+fresh.
+
+The rest of this page is what that reindex does, one row at a time.
 
 ## Drift: finding the gap
 
@@ -40,17 +66,19 @@ upgrades it anyway.
 
 ## Reindex: filling it
 
-`table.reindex(currentForm)` writes that current form back. It's careful
-about what it touches:
+`table.reindex(row)` writes a row back with the keys you give it. Setup
+gives it the stored row with only its keys replaced, so the value and its
+version stay as they were. It's careful about what it touches:
 
 - It keeps the row's update stamp, `_u`. The value didn't change, so
   nothing that syncs should think it did.
 - It tells no subscriber. To them, nothing happened.
-- If someone saved the row since you read it, it fails with
-  `ReindexConflict` rather than overwrite the newer write.
+- If someone saved the row since it was read, it fails with
+  `ReindexConflict` rather than overwrite the newer write. Setup reads the
+  row again and retries.
 
-A whole backfill is a walk over the table: check each row, repair the
-ones that drifted.
+Setup's reindex is a walk over the table: check each row, repair the ones
+that drifted. Written out, it looks like this:
 
 ```ts file=./components/tasks.ts
 
@@ -65,7 +93,7 @@ One task from the last release, one from this one. Open each line to see
 the index keys each row has stored, beside the ones this release would
 give it.
 
-<Run program={program} caption="Before, byPriority finds only new-1. old-1 has drifted: its stored keys lack GSI1PK and GSI1SK. After the backfill, both are found.">
+<Run program={program} caption="Before, byPriority finds only new-1. old-1 has drifted: its stored keys lack GSI1PK and GSI1SK. After the reindex, both are found.">
 
 ```ts file=./run/drift.ts
 
@@ -75,21 +103,24 @@ give it.
 
 ## Try it
 
-Save some tasks with each release, then reindex. Each stored row on the
-left shows its keys, so you can watch `GSI1PK` appear.
+Save some tasks with each release, then reindex. A Memory table has no
+setup, since nothing outlives it, so here a button runs setup's walk for
+you. Each stored row on the left shows its keys, so you can watch
+`GSI1PK` appear.
 
 <LiveTable
   lab={driftAndReindex}
   caption="Before reindexing, byPriority finds only the tasks this release saved. After, it finds every high-priority task. A second press changes nothing."
 />
 
-You won't usually run this by hand. A [snapshot](/std-toolkit/snapshot)
-flags a new index as needing a backfill, and on IndexedDB, setup runs the
-reindex for you.
+You never run this by hand on a real table. Setup runs it whenever an
+index changes, and a [snapshot](/std-toolkit/snapshot) marks that change
+`requires-reindex` so you see it coming.
 
 <Callout title="Remember">
-  A new index only knows the rows saved after it. drift finds the rest, and
-  reindex writes their keys without changing their value or their stamp.
+  A new index only knows the rows saved after it. On a persistent table, setup
+  finds the rest with drift and writes their keys with reindex, before the table
+  opens, without changing their value or their stamp.
 </Callout>
 
 A new index can be healed. Some changes can't, and then what should

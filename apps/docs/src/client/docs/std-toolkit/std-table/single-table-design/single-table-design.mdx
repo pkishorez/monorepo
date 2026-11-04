@@ -39,7 +39,7 @@ Every row is found by two keys, not by which table it sits in:
   <TablePicture />
 </Picture>
 
-You never write a key by hand. Each kind, bound to the table, says which
+You never write a key by hand. Each kind, declared on the table, says which
 of its fields make its keys, and std-toolkit writes them:
 
 ```ts file=./components/app.ts
@@ -47,7 +47,9 @@ of its fields make its keys, and std-toolkit writes them:
 ```
 
 The table's name, `'board'`, is how an adapter finds it later. Then each
-kind is bound to it, as you saw in the Entities Part.
+kind is declared on it, as you saw in the Entities Part. The table is
+declared in one place, with every kind it holds, and the built table
+carries each one under its name: `table.Task`.
 
 ## What the keys look like
 
@@ -60,7 +62,7 @@ Here's where each row lands:
 | Settings | `Settings`  | `single` |
 
 The partition key starts with the kind's name. A Task adds its `boardId`,
-because it was bound with `.primary({ pk: ['boardId'] })`. The sort key is
+because it was declared with `e.primary({ pk: ['boardId'] })`. The sort key is
 the entity's id, and a single entity has one fixed sort key.
 
 All the rows that share a partition key are an **item collection**: every

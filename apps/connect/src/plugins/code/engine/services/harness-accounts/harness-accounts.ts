@@ -16,7 +16,7 @@ import type {
   ConfigFolderInfo,
   HarnessName,
 } from '@kestack/ai-toolkit/contract';
-import { nextUlid } from '@kestack/std-toolkit/core';
+import { nextUlid } from '@kestack/std-toolkit/schema';
 import {
   defaultAccount,
   isDefaultAccount,

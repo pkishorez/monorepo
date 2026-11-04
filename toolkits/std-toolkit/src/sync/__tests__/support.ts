@@ -1,7 +1,7 @@
 import { Cause, Effect, Queue, Schema, Semaphore, Stream } from 'effect';
-import type { Entity } from '../../core/index.js';
-import { Memory } from '../../db/memory/index.js';
-import { EntityESchema } from '../../eschema/index.js';
+import type { Entity } from '../../schema/entity/index.js';
+import { Memory } from '../../db/adapters/memory/index.js';
+import { EntityESchema } from '../../schema/eschema/index.js';
 import { syncStore } from '../domain/stored-entity/index.js';
 import type {
   Doorbell,

@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
-import type { EntityMeta } from '../../core/index.js';
-import type { AnyEntityESchema } from '../../eschema/index.js';
+import type { EntityMeta } from '../../schema/entity/index.js';
+import type { AnyEntityESchema } from '../../schema/eschema/index.js';
 
 /*
  * A Replica's Shape: its name, its Key and its Collections, and nothing

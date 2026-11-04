@@ -1,18 +1,18 @@
 import { Effect, Schema } from 'effect';
 import { StdTable } from '@kestack/std-toolkit/db';
 import { IDB } from '@kestack/std-toolkit/db/idb';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 
 const Task = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,
   title: Schema.String,
 }).build();
 
-export const table = StdTable.make('board').primary('pk', 'sk').build();
-export const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+export const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
+export const task = table.Task;
 
 // One connection to one IndexedDB database. Several tables can share it;
 // each gets a store of its own.

@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Proof } from 'laymos/story';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 
 // v1 shipped with three fields; v2 adds `priority`, filled in for every v1 value.
 const Task = EntityESchema.make('Task', 'taskId', {

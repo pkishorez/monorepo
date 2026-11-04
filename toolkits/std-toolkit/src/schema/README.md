@@ -1,0 +1,140 @@
+# @kestack/std-toolkit/eschema
+
+Versioned, self-migrating schemas built on Effect Schema; data written at any past version decodes to the current shape.
+
+## Big picture
+
+A schema is a chain of versions `v1 ... latest`. A written value is always the latest version, stamped with `_v`; decoding takes `_v`, reads the data with that version's fields, and folds it forward through each migration into the latest value. A field may hold a rich value in code (a `Date`) and a plain one in storage (its ISO string). Data with no `_v` reads as `v1`, so adopting eschema over existing rows is non-breaking. A version newer than the schema knows fails with `OutdatedVersion`. Application code only sees the latest value, typed `typeof X.Type`; the encoded form, which carries the version, stays inside the toolkit. The full history of a shape lives in one declaration under version control, and the database never has to change. Vocabulary is in [CONTEXT.md](CONTEXT.md); the motivation and the rules the builder enforces are in [docs/evolving-schema.md](../../docs/evolving-schema.md). Contract snapshots of these schemas are produced by `@kestack/std-toolkit/schema/snapshot`, and the per-table test is `expectTableShippable` from `@kestack/std-toolkit/db/testing` (see the [top README](../../README.md#kestackstd-toolkitdbtesting)).
+
+Pick the construct by what you are versioning. `EntityESchema` is for a table row keyed by an id field. `ESchema` is for any other object with named fields that follows the field rules, including a singleton declared with `.singleEntity()` on a table. `ValueESchema` is for everything else: a scalar, an enum, a list, a map, a union of different objects, or an existing object with optional fields. In every kind, a top-level field starting with `_` is reserved for the toolkit and refused. The full guide is in [docs/evolving-schema.md](../../docs/evolving-schema.md#which-one-do-i-pick).
+
+## Install
+
+See the [top README](../../README.md).
+
+## Exports
+
+### `@kestack/std-toolkit/eschema`
+
+| Export                | What it does                                                                                       |
+| --------------------- | -------------------------------------------------------------------------------------------------- |
+| `ESchema.make`        | Starts a builder for a named object schema; chain `evolve`, then `build`.                          |
+| `EntityESchema.make`  | Starts a builder for a keyed entity schema with a name and an id field.                            |
+| `ValueESchema.make`   | Starts a builder for a versioned single value.                                                     |
+| `ESchema.fromType`    | Declares a field typed as `T` with no runtime check; use only for values eschema cannot describe.  |
+| `ESchema.id`          | Marks a `Schema.String` field with an identifier annotation.                                       |
+| `ESchemaError`        | Tagged error raised when a value cannot be read or written.                                        |
+| `OutdatedVersion`     | Tagged error raised when a value carries a version newer than the schema knows.                    |
+| `findOutdatedVersion` | Finds the `OutdatedVersion` inside any failure, such as an Effect Schema error.                    |
+| `eschemaOf`           | The ESchema whose `schema` a schema is, or undefined; tells a versioned boundary from a plain one. |
+| `checkAnnotation`     | Names a check the built-in catalogue does not know, so a snapshot can list it.                     |
+| `SnapshotTypeSchema`  | Effect Schema for the snapshot type language that describes a field's stored shape.                |
+
+### `@kestack/std-toolkit/eschema/testing`
+
+Test helpers, for any test runner.
+
+| Export                | What it does                                                                                                                                                               |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `expectUpgradable`    | Generates rows every version of a schema and its nested schemas could store, and fails if any does not read at the latest version, or a path named in `unchanged` changes. |
+| `findUpgradeFailures` | The same check as an Effect over several schemas, returning one report entry per failing version.                                                                          |
+
+Every built schema exposes `name`, `latestVersion`, `schema`, `getDescriptor`, the `Type` and `Encoded` type carriers, and the Standard Schema `~standard` interface, which checks a latest value. `schema` is the Effect Schema that reads any known version, migrates it, and writes the latest with `_v`; nest it inside another schema or use it at a boundary. `ESchema` and `EntityESchema` add `fields` and `entity`, the Effect Schema for a whole `{ value, meta }` Entity with `_v` in its meta. `EntityESchema` adds `idField`; `ESchema` adds `singleEntity`, the same for a singleton Entity.
+
+## Usage
+
+### Add a field to rows that already exist
+
+Adding `priority` is one `evolve` step. The migration fills it in for every stored `v1` row on read. Lifted from [an-old-task-gets-the-new-field.proof.ts](../../stories/evolving-schema/migrations/an-old-task-gets-the-new-field.proof.ts).
+
+```ts
+import { Effect, Schema } from 'effect';
+import { EntityESchema } from '@kestack/std-toolkit/eschema';
+
+const Task = EntityESchema.make('Task', 'taskId', {
+  boardId: Schema.String,
+  title: Schema.String,
+  status: Schema.Literals(['open', 'done']),
+})
+  .evolve('v2', { priority: Schema.Literals(['low', 'high']) }, (v1) => ({
+    ...v1,
+    priority: 'low' as const,
+  }))
+  .build();
+
+// A row written by the v1 code, exactly as storage holds it.
+const januaryRow = {
+  _v: 'v1',
+  taskId: 't1',
+  boardId: 'work',
+  title: 'Plan',
+  status: 'open',
+};
+
+const stored = Task.schema;
+
+const task = await Effect.runPromise(
+  Schema.decodeUnknownEffect(stored)(januaryRow),
+);
+// { taskId: 't1', boardId: 'work', title: 'Plan', status: 'open', priority: 'low' }
+
+const written = await Effect.runPromise(Schema.encodeEffect(stored)(task));
+// { _v: 'v2', ..., priority: 'low' }
+```
+
+- Versions must be appended in sequence (`v2` after `v1`); the type system rejects a skipped number, and every version after `v1` needs a migration.
+- Removing a field is `evolve('v3', { colour: null }, ...)`; renaming is a remove plus an add in the same step.
+- A field may convert between a rich value and what is stored, such as `Schema.DateFromString`: code gets a `Date`, storage keeps the ISO string, and migrations receive values. Only the stored side is versioned and captured by a snapshot.
+- Optional fields, `_`-prefixed keys, constructor defaults, and fields whose stored side is not plain JSON (such as `Schema.Date`, or a plain `Schema.Number` that allows `NaN`; use `Schema.Finite` or `Schema.Int`) are refused at build time, so a snapshot can always describe what is stored. Every encode also refuses a value JSON cannot hold unchanged, naming the field.
+- `await expectUpgradable(Task)` in a test generates rows each version could have stored and reads them at the latest version, so a migration that throws, breaks a check, or changes the id fails in CI instead of on a user's row.
+- A check from the built-in catalogue (`isMinLength`, `isPattern`, `isInt`, `isBetween`, …) is recorded by itself. Any other filter needs `checkAnnotation({ name })`. On a shipped version a check may be removed or loosened, never added or tightened, since a stored row that fails it would stop reading. Add a check in a new version instead, with a migration that satisfies it. A check on the value side of a conversion belongs to the conversion: neither is recorded, so never change either on a shipped version.
+
+### Try a new field before committing to a version
+
+There is no trial mechanism: append the next `evolve` step and edit it freely until it is approved by a snapshot. Develop against the Memory adapter, on the server and in the browser alike, so a dropped step leaves no rows behind; a durable database keeps rows stamped with the trial version, and code that no longer has that version cannot read them. The risk is shown in [dropping-an-unshipped-version-strands-its-rows.proof.ts](../../stories/evolving-schema/snapshot/dropping-an-unshipped-version-strands-its-rows.proof.ts).
+
+```ts
+const TaskTryingDueDate = EntityESchema.make('Task', 'taskId', {
+  boardId: Schema.String,
+  title: Schema.String,
+})
+  .evolve('v2', { dueDate: Schema.NullOr(Schema.String) }, (v1) => ({
+    ...v1,
+    dueDate: null,
+  }))
+  .build();
+```
+
+- Dropping the idea is deleting the `evolve('v2', ...)` line.
+- Keeping it is approving the snapshot; from then on v2 is frozen like any shipped version.
+
+### Version a value that is not an object
+
+A theme was free text and becomes one of two words. There is no object to hold `_v`, so `ValueESchema` stores the value in an envelope. Lifted from [a-versioned-value-inside-a-row-upgrades-on-its-own.proof.ts](../../stories/evolving-schema/a-versioned-value-inside-a-row-upgrades-on-its-own.proof.ts).
+
+```ts
+import { Effect, Schema } from 'effect';
+import { ValueESchema } from '@kestack/std-toolkit/eschema';
+
+const Theme = ValueESchema.make('Theme', Schema.String)
+  .evolve('v2', Schema.Literals(['light', 'dark']), (text) =>
+    text === 'night' ? 'dark' : 'light',
+  )
+  .build();
+
+const stored = Theme.schema;
+const read = Schema.decodeUnknownEffect(stored);
+
+const seen = await Effect.runPromise(read({ _v: 'v1', _value: 'night' }));
+// 'dark'
+
+const written = await Effect.runPromise(Schema.encodeEffect(stored)(seen));
+// { _v: 'v2', _value: 'dark' }
+
+const legacy = await Effect.runPromise(read('night'));
+// 'dark': a bare value is read as v1
+```
+
+- The envelope is `{ _v, _value }`. The `_value` key marks it, so stored data shows it belongs to a value schema. No schema kind may declare a top-level field starting with `_`, so no stored value can look like an envelope.
+- An envelope must hold exactly `_v` (a string) and `_value`. Anything else fails with `ESchemaError`.
+- A value without `_value` is read as v1, so adopting existing data needs no backfill. Once adopted, always write through the schema: a bare value is migrated from v1 again on every read.

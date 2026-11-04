@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { StdTable } from '@kestack/std-toolkit/db';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 
 // Release 1 of the app: a task has a title.
 const TaskV1 = EntityESchema.make('Task', 'taskId', {
@@ -19,15 +19,13 @@ const Task = EntityESchema.make('Task', 'taskId', {
   }))
   .build();
 
-// Each release binds its Task to the same table, 'board'.
-export const table = StdTable.make('board').primary('pk', 'sk').build();
+// Each release declares its Task on the same table, 'board'.
 export const release1 = StdTable.make('board')
   .primary('pk', 'sk')
-  .build()
-  .entity(TaskV1)
-  .primary({ pk: ['boardId'] })
+  .entity(TaskV1, (e) => e.primary({ pk: ['boardId'] }))
+  .build().Task;
+export const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
-export const release2 = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
-  .build();
+export const release2 = table.Task;

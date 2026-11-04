@@ -1,0 +1,94 @@
+import { readEncoded } from '../codec/encoded/index.js';
+import { it, describe, expect } from '@effect/vitest';
+
+import { Effect, Schema } from 'effect';
+import { EntityESchema, OutdatedVersion } from '../index.js';
+
+describe('ESchema', () => {
+  describe('Decoding', () => {
+    describe('Decode', () => {
+      it.effect('decodes v1 data without migration', () =>
+        Effect.gen(function* () {
+          const schema = EntityESchema.make('Test', 'id', {
+            name: Schema.String,
+            count: Schema.Finite,
+          }).build();
+
+          const decoded = yield* readEncoded(schema, {
+            _v: 'v1',
+            id: 't1',
+            name: 'foo',
+            count: 10,
+          });
+          expect(decoded).toEqual({ id: 't1', name: 'foo', count: 10 });
+        }),
+      );
+
+      it.effect('decodes and migrates v1 to v2', () =>
+        Effect.gen(function* () {
+          const schema = EntityESchema.make('Test', 'id', {
+            a: Schema.Finite,
+          })
+            .evolve('v2', { b: Schema.String }, (v) => ({ ...v, b: 'added' }))
+            .build();
+
+          const decoded = yield* readEncoded(schema, {
+            _v: 'v1',
+            id: 't1',
+            a: 42,
+          });
+          expect(decoded).toEqual({ id: 't1', a: 42, b: 'added' });
+        }),
+      );
+
+      it.effect('decodes latest version without running migrations', () =>
+        Effect.gen(function* () {
+          const schema = EntityESchema.make('Test', 'id', {
+            a: Schema.String,
+          })
+            .evolve('v2', { b: Schema.String }, (v) => ({
+              ...v,
+              b: 'should not appear',
+            }))
+            .build();
+
+          const decoded = yield* readEncoded(schema, {
+            _v: 'v2',
+            id: 't1',
+            a: 'hello',
+            b: 'world',
+          });
+          expect(decoded).toEqual({ id: 't1', a: 'hello', b: 'world' });
+        }),
+      );
+
+      it.effect('fails with OutdatedVersion on a newer version', () =>
+        Effect.gen(function* () {
+          const schema = EntityESchema.make('Test', 'id', {
+            a: Schema.String,
+          }).build();
+
+          const error = yield* Effect.flip(
+            readEncoded(schema, { _v: 'v99', id: 't1', a: 'hello' }),
+          );
+          expect(error).toBeInstanceOf(OutdatedVersion);
+          expect(error.message).toBe('Unknown schema version: v99');
+        }),
+      );
+
+      it.effect('treats missing _v as the earliest version (v1)', () =>
+        Effect.gen(function* () {
+          const schema = EntityESchema.make('Test', 'id', {
+            a: Schema.String,
+          }).build();
+
+          const decoded = yield* readEncoded(schema, {
+            id: 't1',
+            a: 'hello',
+          });
+          expect(decoded).toEqual({ id: 't1', a: 'hello' });
+        }),
+      );
+    });
+  });
+});

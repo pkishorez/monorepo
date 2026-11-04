@@ -6,7 +6,7 @@ import {
   type StartStepName,
 } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
-import { nextUlid } from '@kestack/std-toolkit/core';
+import { nextUlid } from '@kestack/std-toolkit/schema';
 import { reasonOf } from '../../../../../connection/link/index.ts';
 import { Handover, SessionArrival, SharedCatalog } from '../../store.ts';
 import { Attached, wire } from '../draft.ts';

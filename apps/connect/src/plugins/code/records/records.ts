@@ -1,5 +1,5 @@
 import { Schema, Struct } from 'effect';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 import {
   BackgroundJobSchema,
   HARNESS_NAMES,

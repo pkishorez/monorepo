@@ -3,7 +3,7 @@
 Detailed behaviour of `@kestack/std-toolkit/sync`. The README covers setup and the
 common shapes; this page covers the rules you need once a Collection is live.
 Vocabulary is in [src/sync/CONTEXT.md](../src/sync/CONTEXT.md). Decisions are
-in [src/sync/docs/adr/](../src/sync/docs/adr/).
+in [docs/adr/](adr/), 0032 to 0042.
 
 ## Instance options
 

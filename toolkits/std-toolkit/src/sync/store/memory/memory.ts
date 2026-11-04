@@ -1,4 +1,4 @@
-import { Memory } from '../../../db/memory/index.js';
+import { Memory } from '../../../db/adapters/memory/index.js';
 import { syncStore } from '../../domain/stored-entity/index.js';
 import { noDoorbell, noLeadership, type SyncStore } from '../contract/index.js';
 

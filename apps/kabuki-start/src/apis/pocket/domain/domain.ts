@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 
 /*
  * Pocket's records, the same on the Worker and in the browser: an Account's

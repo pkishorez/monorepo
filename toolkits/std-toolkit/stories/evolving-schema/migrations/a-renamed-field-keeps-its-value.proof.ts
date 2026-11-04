@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Proof } from 'laymos/story';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 
 // v2 renames `colour` to `color`: remove the old field and add the new one in one step.
 const Task = EntityESchema.make('Task', 'taskId', {

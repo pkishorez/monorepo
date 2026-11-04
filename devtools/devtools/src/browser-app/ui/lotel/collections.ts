@@ -5,7 +5,7 @@ import {
   SpanEntitySchema,
 } from '../../../lotel/telemetry-schema/index.js';
 import type { Rpc, RpcGroup } from 'effect/rpc';
-import type { Entity } from '@kestack/std-toolkit/core';
+import type { Entity } from '@kestack/std-toolkit/schema';
 import { createStdSync, strategy } from '@kestack/std-toolkit/sync';
 import {
   DevtoolsClient,

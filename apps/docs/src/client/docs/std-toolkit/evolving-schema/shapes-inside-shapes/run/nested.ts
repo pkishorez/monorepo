@@ -1,5 +1,5 @@
 import { Console, Effect, Schema } from 'effect';
-import { eschemaOf } from '@kestack/std-toolkit/eschema';
+import { eschemaOf } from '@kestack/std-toolkit/schema';
 import { Settings } from '../components/settings.ts';
 
 export const program = Effect.gen(function* () {

@@ -1,5 +1,5 @@
 import { Duration, Effect, Option, Stream } from 'effect';
-import type { Entity } from '@kestack/std-toolkit/core';
+import type { Entity } from '@kestack/std-toolkit/schema';
 import type { Feed } from '../engine/index.js';
 
 /** How many live changes go out together, and how long the first waits for company. */

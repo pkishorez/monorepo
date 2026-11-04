@@ -11,7 +11,7 @@ import {
   Accounts,
   AccountsState,
 } from '@kestack/auth-toolkit/client';
-import type { Entity } from '@kestack/std-toolkit/core';
+import type { Entity } from '@kestack/std-toolkit/schema';
 import { Store } from '@kestack/std-toolkit/replica/memory';
 import { describe, expect, it, vi } from 'vitest';
 import { HelloHttp } from '../../../apis/hello-http/index.ts';

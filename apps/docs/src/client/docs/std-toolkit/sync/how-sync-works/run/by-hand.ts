@@ -1,7 +1,7 @@
 import { Console, Effect, Schema } from 'effect';
 import { StdTable } from '@kestack/std-toolkit/db';
 import { Memory } from '@kestack/std-toolkit/db/memory';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 
 // Release 1 saved tasks with a title. Today's release adds a priority.
 const TaskV1 = EntityESchema.make('Task', 'taskId', {
@@ -18,16 +18,15 @@ const Task = EntityESchema.make('Task', 'taskId', {
   }))
   .build();
 
-const releaseOne = StdTable.make('board').primary('pk', 'sk').build();
-const oldTask = releaseOne
-  .entity(TaskV1)
-  .primary({ pk: ['boardId'] })
+const oldTask = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(TaskV1, (e) => e.primary({ pk: ['boardId'] }))
+  .build().Task;
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
-  .build();
+const task = table.Task;
 
 type Saved = Effect.Success<ReturnType<typeof task.insert>>;
 

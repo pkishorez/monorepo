@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 
 const v1 = {
   boardId: Schema.String,

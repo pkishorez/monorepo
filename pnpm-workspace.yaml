@@ -101,8 +101,8 @@ catalog:
   # The one @tanstack/react-db brings: std-toolkit's Replica uses it without React.
   '@tanstack/db': 0.15.2
   # Brings @tanstack/db 0.15.2 (verified 2026-10-24). Before upgrading, run
-  # toolkits/std-toolkit/src/sync/__tests__/tanstack-rollback.test.ts, the
-  # std-toolkit Replica tests (caught-up, never-synced) and pnpm stories.
+  # the std-toolkit Replica tests (actions for rollback, caught-up,
+  # never-synced) and pnpm stories.
   # DB 0.8.1–0.8.7 failed the rollback test; from 0.15 a live query subscribes
   # its sources only on preload, which std-toolkit's Query relies on.
   '@tanstack/react-db': 0.5.12

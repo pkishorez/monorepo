@@ -1,8 +1,8 @@
 import { createLiveQueryCollection, eq } from '@tanstack/react-db';
 import { Effect, Schema } from 'effect';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Entity } from '../../core/index.js';
-import { EntityESchema } from '../../eschema/index.js';
+import type { Entity } from '../../schema/entity/index.js';
+import { EntityESchema } from '../../schema/eschema/index.js';
 import { storedReplicaEntity } from '../domain/stored-entity/index.js';
 import { makeStoreRuntime } from '../store/store-runtime/index.js';
 import type { SyncEvent } from '../domain/sync-event/index.js';

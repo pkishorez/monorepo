@@ -4,7 +4,7 @@ Replica keeps local copies of the Backend on the device and keeps them fresh,
 as part of a Kabuki app: every Instance, Query and Action is an actor or a
 Command, so time travel and the Inspector see sync. It replaces [[sync]] for
 Kabuki apps; [[sync]] stays the React way. Every edge it shares with a
-Backend or a Store carries [[core]] **Entities**.
+Backend or a Store carries [[entity]] **Entities**.
 
 ## Language
 

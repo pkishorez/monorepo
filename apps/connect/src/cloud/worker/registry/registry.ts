@@ -1,6 +1,6 @@
 import { Clock, Effect } from 'effect';
 import type { Principal } from '@kestack/auth-toolkit';
-import type { Entity } from '@kestack/std-toolkit/core';
+import type { Entity } from '@kestack/std-toolkit/schema';
 import {
   type Connection,
   ConnectionForgotten,

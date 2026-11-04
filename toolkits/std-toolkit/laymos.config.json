@@ -2,25 +2,26 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "ignoredPaths": [
-    "src/alchemy/__tests__",
-    "src/core/__tests__",
+    "src/deploy/__tests__",
+    "src/schema/entity/__tests__",
     "src/db/__tests__",
-    "src/db/dynamodb/__tests__",
-    "src/db/dynamodb/expression/__tests__",
-    "src/db/dynamodb/table/__tests__",
-    "src/db/idb/__tests__",
-    "src/db/memory/__tests__",
-    "src/db/sqlite/__tests__",
-    "src/db/std-table/__tests__",
-    "src/db/std-table/definition/__tests__",
-    "src/db/std-table/entity/__tests__",
-    "src/db/std-table/key/__tests__",
-    "src/eschema/__tests__",
-    "src/eschema/play.ts",
-    "src/eschema/tutorial",
+    "src/db/adapters/dynamodb/__tests__",
+    "src/db/adapters/dynamodb/expression/__tests__",
+    "src/db/adapters/dynamodb/table/__tests__",
+    "src/db/adapters/idb/__tests__",
+    "src/db/adapters/memory/__tests__",
+    "src/db/adapters/sqlite/__tests__",
+    "src/db/setup/__tests__",
+    "src/db/table/__tests__",
+    "src/db/table/broadcaster/__tests__",
+    "src/db/table/entity/__tests__",
+    "src/db/table/model/definition/__tests__",
+    "src/db/table/model/key/__tests__",
+    "src/db/testing/__tests__",
+    "src/schema/eschema/__tests__",
+    "src/schema/eschema/tutorial",
     "src/replica/__tests__",
-    "src/snapshot/__tests__",
-    "src/snapshot/vitest/__tests__",
+    "src/schema/snapshot/__tests__",
     "src/sync/__tests__",
     "src/sync/domain/collection-item/__tests__",
     "src/sync/domain/identity/__tests__",
@@ -30,154 +31,213 @@
     "src/sync/strategy/__tests__"
   ],
   "storiesPath": "stories",
-  "fileModules": ["src/core/error.ts", "src/core/ulid.ts"],
+  "fileModules": ["src/schema/entity/error.ts", "src/schema/entity/ulid.ts"],
   "rules": {
-    "src/core/broadcaster": ["src/core/entity"],
-    "src/eschema/domain/encoded": [
-      "src/eschema/domain/eschema-error",
-      "src/eschema/domain/schema-model"
+    "src/schema/eschema": ["src/schema/entity"],
+    "src/schema/snapshot": ["src/schema/eschema"],
+    "src/db/table/entity": [
+      "src/db/table/model",
+      "src/db/table/broadcaster",
+      "src/schema/entity",
+      "src/schema/eschema"
     ],
-    "src/eschema/domain/entity-schema": [
-      "src/eschema/domain/encoded",
-      "src/eschema/domain/eschema-error",
-      "src/eschema/domain/introspection",
-      "src/eschema/domain/schema-model",
-      "src/core"
+    "src/db/table/std-table": [
+      "src/db/table/model",
+      "src/db/table/entity",
+      "src/db/table/broadcaster",
+      "src/schema/entity",
+      "src/schema/eschema"
     ],
-    "src/eschema/domain/object-schema-runtime": [
-      "src/eschema/domain/encoded",
-      "src/eschema/domain/eschema-error",
-      "src/eschema/domain/introspection",
-      "src/eschema/domain/portable-value",
-      "src/eschema/domain/schema-model",
-      "src/eschema/domain/snapshot-type"
+    "src/schema/eschema/codec/encoded": [
+      "src/schema/eschema/model/eschema-error",
+      "src/schema/eschema/model/schema-model"
     ],
-    "src/eschema/domain/snapshot-type": ["src/eschema/domain/introspection"],
-    "src/eschema/domain/versioned-schema": [
-      "src/eschema/domain/encoded",
-      "src/eschema/domain/eschema-error",
-      "src/eschema/domain/introspection",
-      "src/eschema/domain/schema-model"
+    "src/schema/eschema/codec/entity-schema": [
+      "src/schema/eschema/codec/encoded",
+      "src/schema/eschema/model/eschema-error",
+      "src/schema/eschema/model/introspection",
+      "src/schema/eschema/model/schema-model"
     ],
-    "src/eschema/eschema": ["src/eschema/domain"],
-    "src/eschema/entity-eschema": ["src/eschema/domain"],
-    "src/eschema/value-eschema": ["src/eschema/domain"],
-    "src/eschema/testing": ["src/eschema/domain"],
-    "src/snapshot/domain": ["src/eschema"],
-    "src/snapshot/capture": ["src/snapshot/domain"],
-    "src/snapshot/capture/eschema-capture": [
-      "src/eschema/domain/introspection",
-      "src/eschema/domain/snapshot-type"
+    "src/schema/eschema/codec/object-schema-runtime": [
+      "src/schema/eschema/codec/encoded",
+      "src/schema/eschema/model/eschema-error",
+      "src/schema/eschema/model/introspection",
+      "src/schema/eschema/codec/portable-value",
+      "src/schema/eschema/model/schema-model",
+      "src/schema/eschema/model/snapshot-type"
     ],
-    "src/snapshot/capture/table-capture": [
-      "src/eschema",
-      "src/snapshot/capture/eschema-capture"
+    "src/schema/eschema/model/snapshot-type": [
+      "src/schema/eschema/model/introspection"
     ],
-    "src/snapshot/snapshot": [
-      "src/snapshot/capture/table-capture",
-      "src/snapshot/domain"
+    "src/schema/eschema/codec/versioned-schema": [
+      "src/schema/eschema/codec/encoded",
+      "src/schema/eschema/model/eschema-error",
+      "src/schema/eschema/model/introspection",
+      "src/schema/eschema/model/schema-model"
     ],
-    "src/snapshot/snapshot/snapshot-decoder": ["src/eschema/domain/encoded"],
-    "src/snapshot/snapshot/snapshot-diff": [
-      "src/eschema",
-      "src/snapshot/snapshot/snapshot-decoder"
+    "src/schema/eschema/makers/eschema": [
+      "src/schema/eschema/model",
+      "src/schema/eschema/codec"
     ],
-    "src/snapshot/snapshot/snapshot-renderer": ["src/eschema"],
-    "src/snapshot/vitest": ["src/eschema/testing"],
-    "src/db/std-table/definition": ["src/eschema"],
-    "src/db/std-table/key": ["src/db/std-table/contract"],
-    "src/db/std-table/entity": [
-      "src/db/std-table/contract",
-      "src/db/std-table/definition",
-      "src/db/std-table/error",
-      "src/db/std-table/key",
-      "src/eschema",
-      "src/core"
+    "src/schema/eschema/makers/entity-eschema": [
+      "src/schema/eschema/model",
+      "src/schema/eschema/codec"
     ],
-    "src/db/std-table/table": [
-      "src/db/std-table/contract",
-      "src/db/std-table/definition",
-      "src/db/std-table/entity",
-      "src/db/std-table/error",
-      "src/db/std-table/key",
-      "src/eschema",
-      "src/core"
+    "src/schema/eschema/makers/value-eschema": [
+      "src/schema/eschema/model",
+      "src/schema/eschema/codec"
     ],
-    "src/db/dynamodb": [
-      "src/db/std-table/contract",
-      "src/db/std-table/definition"
+    "src/schema/eschema/testing": [
+      "src/schema/eschema/model",
+      "src/schema/eschema/codec"
     ],
-    "src/db/dynamodb/expression": ["src/db/dynamodb/attribute-value"],
-    "src/db/dynamodb/item-schema": ["src/db/dynamodb/attribute-value"],
-    "src/db/dynamodb/setup": ["src/db/dynamodb/client"],
-    "src/db/dynamodb/table": [
-      "src/db/dynamodb/client",
-      "src/db/dynamodb/expression",
-      "src/db/dynamodb/item-schema"
+    "src/schema/snapshot/capture": ["src/schema/snapshot/document"],
+    "src/schema/snapshot/capture/table-capture": [
+      "src/schema/snapshot/capture/eschema-capture"
     ],
-    "src/db/stored-contract": ["src/snapshot"],
-    "src/db/idb": [
-      "src/db/std-table/contract",
-      "src/db/std-table/definition",
-      "src/db/stored-contract",
-      "src/snapshot"
+    "src/schema/snapshot/compare/snapshot-diff": ["src/schema/snapshot/codec"],
+    "src/db/table/model/key": ["src/db/table/model/contract"],
+    "src/db/adapters/dynamodb/expression": [
+      "src/db/adapters/dynamodb/attribute-value"
     ],
-    "src/db/idb/database": ["src/db/idb/upgrade"],
-    "src/db/idb/table": ["src/db/idb/database", "src/db/idb/item-schema"],
-    "src/db/memory": [
-      "src/db/std-table/contract",
-      "src/db/std-table/definition"
+    "src/db/adapters/dynamodb/item-schema": [
+      "src/db/adapters/dynamodb/attribute-value"
     ],
-    "src/db/sqlite": [
-      "src/db/std-table/contract",
-      "src/db/std-table/definition",
-      "src/db/stored-contract",
-      "src/snapshot"
+    "src/db/adapters/dynamodb/setup": [
+      "src/db/adapters/dynamodb/client",
+      "src/schema/snapshot"
     ],
-    "src/db/sqlite/database": ["src/db/sqlite/item-schema"],
-    "src/db/sqlite/drivers": ["src/db/sqlite/database"],
-    "src/db/sqlite/setup": [
-      "src/db/sqlite/database",
-      "src/db/sqlite/statement"
+    "src/db/adapters/dynamodb/table": [
+      "src/db/adapters/dynamodb/client",
+      "src/db/adapters/dynamodb/expression",
+      "src/db/adapters/dynamodb/item-schema"
     ],
-    "src/db/sqlite/statement": ["src/db/sqlite/item-schema"],
-    "src/db/sqlite/table": [
-      "src/db/sqlite/database",
-      "src/db/sqlite/item-schema",
-      "src/db/sqlite/statement"
+    "src/db/setup/migrate": [
+      "src/db/setup/contract",
+      "src/db/table/entity",
+      "src/db/table/model/key",
+      "src/schema/entity",
+      "src/schema/eschema"
     ],
-    "src/alchemy/deploy-guard": ["src/db/stored-contract", "src/snapshot"],
-    "src/alchemy/d1": [
-      "src/alchemy/deploy-guard",
-      "src/db/sqlite",
-      "src/snapshot"
+    "src/db/adapters/idb/database": ["src/db/adapters/idb/upgrade"],
+    "src/db/adapters/idb/table": [
+      "src/db/adapters/idb/database",
+      "src/db/adapters/idb/item-schema",
+      "src/db/table/model/definition"
     ],
-    "src/alchemy/dynamodb": ["src/alchemy/deploy-guard", "src/db"],
-    "src/sync/domain/collection-item": ["src/eschema", "src/core"],
-    "src/sync/domain/stored-entity": ["src/db", "src/eschema"],
-    "src/sync/store": ["src/sync/domain/stored-entity"],
-    "src/sync/store/contract": ["src/db"],
-    "src/sync/store/idb": [
-      "src/db/idb",
-      "src/sync/domain/identity",
-      "src/sync/store/contract"
+    "src/db/adapters/sqlite/database": ["src/db/adapters/sqlite/item-schema"],
+    "src/db/adapters/sqlite/drivers": ["src/db/adapters/sqlite/database"],
+    "src/db/adapters/sqlite/setup": [
+      "src/db/adapters/sqlite/database",
+      "src/db/adapters/sqlite/statement"
     ],
-    "src/sync/store/memory": ["src/db/memory", "src/sync/store/contract"],
-    "src/sync/store/store-runtime": ["src/db", "src/sync/store/contract"],
-    "src/sync/session": ["src/sync/store/contract", "src/sync/strategy"],
+    "src/db/adapters/sqlite/statement": ["src/db/adapters/sqlite/item-schema"],
+    "src/db/adapters/sqlite/table": [
+      "src/db/adapters/sqlite/database",
+      "src/db/adapters/sqlite/item-schema",
+      "src/db/adapters/sqlite/statement"
+    ],
+    "src/deploy/d1": [
+      "src/deploy/deploy-guard",
+      "src/db/adapters/sqlite",
+      "src/db/setup",
+      "src/db/table/model/contract",
+      "src/db/table/std-table",
+      "src/schema/snapshot"
+    ],
+    "src/deploy/dynamodb": [
+      "src/deploy/deploy-guard",
+      "src/db/adapters/dynamodb",
+      "src/db/setup",
+      "src/db/table/model/contract"
+    ],
+    "src/replica/store/contract": [
+      "src/replica/shape",
+      "src/db",
+      "src/schema/entity",
+      "src/schema/eschema"
+    ],
+    "src/replica/store/idb": [
+      "src/replica/store/contract",
+      "src/db/adapters/idb"
+    ],
+    "src/replica/store/memory": [
+      "src/replica/store/contract",
+      "src/db/adapters/memory"
+    ],
+    "src/replica/replicas": ["src/replica/shape", "src/replica/store/contract"],
+    "src/replica/query": ["src/replica/replicas"],
+    "src/replica/action": ["src/replica/shape", "src/replica/replicas"],
+    "src/schema/snapshot/codec": ["src/schema/snapshot/document"],
+    "src/schema/snapshot/compare": ["src/schema/snapshot/document"],
+    "src/db/adapters/dynamodb": [
+      "src/db/setup",
+      "src/db/table/model/contract",
+      "src/db/table/model/definition",
+      "src/db/table/model/error"
+    ],
+    "src/db/adapters/idb": [
+      "src/db/setup",
+      "src/db/table/model/contract",
+      "src/db/table/std-table"
+    ],
+    "src/db/adapters/idb/item-schema": ["src/db/table/model/definition"],
+    "src/db/adapters/idb/upgrade": ["src/db/table/model/definition"],
+    "src/db/adapters/memory": [
+      "src/db/table/model/contract",
+      "src/db/table/model/definition"
+    ],
+    "src/db/adapters/sqlite": [
+      "src/db/setup",
+      "src/db/table/model/contract",
+      "src/db/table/model/definition",
+      "src/db/table/model/error",
+      "src/db/table/std-table"
+    ],
+    "src/db/setup": [
+      "src/db/table/model/contract",
+      "src/db/table/model/error",
+      "src/db/table/std-table",
+      "src/schema/snapshot"
+    ],
+    "src/db/setup/contract": [
+      "src/db/table/model/key",
+      "src/schema/entity",
+      "src/schema/eschema"
+    ],
+    "src/db/table/broadcaster": ["src/schema/entity"],
+    "src/db/table/model/definition": ["src/schema/eschema"],
+    "src/db/testing": ["src/db/table/std-table", "src/schema/eschema/testing"],
+    "src/db/testing/snapshot-file": ["src/schema/snapshot"],
+    "src/deploy/deploy-guard": ["src/db/setup", "src/schema/snapshot"],
+    "src/replica/replicas/instance": [
+      "src/db",
+      "src/schema/entity",
+      "src/schema/eschema"
+    ],
+    "src/replica/shape": ["src/schema/entity", "src/schema/eschema"],
+    "src/sync": [
+      "src/db/adapters/memory",
+      "src/schema/entity",
+      "src/schema/eschema"
+    ],
     "src/sync/collection": [
       "src/db",
-      "src/eschema",
-      "src/sync/domain",
+      "src/sync/domain/collection-item",
+      "src/sync/domain/identity",
+      "src/sync/domain/sync-error",
+      "src/sync/domain/sync-event",
       "src/sync/session",
       "src/sync/store/contract",
       "src/sync/store/effect-runner",
       "src/sync/store/store-runtime",
       "src/sync/strategy",
-      "src/core"
+      "src/sync/domain/entity-validation",
+      "src/sync/domain/stored-entity"
     ],
+    "src/sync/domain/stored-entity": ["src/db"],
+    "src/sync/session": ["src/sync/store/contract", "src/sync/strategy"],
     "src/sync/std-sync": [
-      "src/eschema",
       "src/sync/collection",
       "src/sync/domain/collection-item",
       "src/sync/domain/identity",
@@ -187,28 +247,27 @@
       "src/sync/store/memory",
       "src/sync/store/store-runtime"
     ],
-    "src/eschema/domain/schema-model": ["src/core"],
-    "src/sync/domain/entity-validation": ["src/core"],
-    "src/sync/strategy": ["src/core"],
-    "src/replica/shape": ["src/eschema", "src/core"],
-    "src/replica/store/contract": [
-      "src/db",
-      "src/eschema",
-      "src/core",
-      "src/replica/shape"
+    "src/sync/store/contract": ["src/db", "src/sync/domain/stored-entity"],
+    "src/sync/store/idb": [
+      "src/sync/store/contract",
+      "src/db/adapters/idb",
+      "src/sync/domain/identity",
+      "src/sync/domain/stored-entity"
     ],
-    "src/replica/store/idb": ["src/db/idb", "src/replica/store/contract"],
-    "src/replica/store/memory": ["src/db/memory", "src/replica/store/contract"],
-    "src/replica/replicas": ["src/replica/shape", "src/replica/store/contract"],
-    "src/replica/replicas/instance": ["src/core", "src/eschema", "src/db"],
-    "src/replica/query": ["src/replica/replicas"],
-    "src/replica/action": ["src/replica/shape", "src/replica/replicas"]
+    "src/sync/store/memory": [
+      "src/sync/domain/stored-entity",
+      "src/sync/store/contract"
+    ],
+    "src/sync/store/store-runtime": [
+      "src/db",
+      "src/sync/domain/stored-entity",
+      "src/sync/store/contract"
+    ],
+    "src/db/setup/reindex": [
+      "src/db/setup/contract",
+      "src/db/table/entity",
+      "src/db/table/model/key"
+    ]
   },
-  "exceptions": [
-    {
-      "from": "src/snapshot/vitest",
-      "to": "src/snapshot",
-      "because": "the Vitest binding wraps the snapshot facade it sits in, and ships as its own entry point"
-    }
-  ]
+  "exceptions": []
 }

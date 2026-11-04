@@ -25,17 +25,16 @@ There are two kinds, and the difference is the partition:
 
 ## Two steps: slots, then names
 
-Adding an index takes two steps, on two different things.
+Adding an index takes two steps, both in the table's one declaration.
 
 First, **the table declares slots**: numbered places for indexes, with the
-names of their key columns.
+names of their key columns. Slots come before any entity.
 
 ```ts
-const table = StdTable.make('board')
+StdTable.make('board')
   .primary('pk', 'sk')
   .lsi('LSI1', 'LSI1SK')
-  .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-  .build();
+  .gsi('GSI1', 'GSI1PK', 'GSI1SK');
 ```
 
 The names are generic on purpose. `LSI1` says nothing about titles,
@@ -46,12 +45,21 @@ Then **each entity names what a slot means for it**. That name is an
 keys:
 
 ```ts
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
-  .index('LSI1', 'byTitle', { sk: ['title'] })
-  .index('GSI1', 'byPriority', { pk: ['priority'], sk: ['boardId', 'title'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .lsi('LSI1', 'LSI1SK')
+  .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+  .entity(Task, (e) =>
+    e
+      .primary({ pk: ['boardId'] })
+      .index('LSI1', 'byTitle', { sk: ['title'] })
+      .index('GSI1', 'byPriority', {
+        pk: ['priority'],
+        sk: ['boardId', 'title'],
+      }),
+  )
   .build();
+const task = table.Task;
 ```
 
 `byTitle` uses the LSI, so it only names a sort key: the partition is
@@ -102,6 +110,6 @@ in `byPriority`. Memory, SQLite and IndexedDB see it at once.
   them. An LSI reorders a partition; a GSI regroups the whole table.
 </Callout>
 
-An index only holds the rows saved after it existed. What about the
-tasks saved last month? Next, [Drift and
+A new index only gets keys from the rows saved after it existed. What
+about the tasks saved last month? Next, [Drift and
 reindex](/std-toolkit/drift-and-reindex).

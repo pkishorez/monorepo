@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 
 // The same task as an EntityESchema: one more argument, the id field.
 export const Task = EntityESchema.make('Task', 'taskId', {

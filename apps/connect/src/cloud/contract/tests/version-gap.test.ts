@@ -6,7 +6,7 @@ import { Rpc, RpcGroup, RpcSerialization, RpcServer } from 'effect/rpc';
 import { NodeHttpServer } from '@effect/platform-node';
 import { describe, expect, it } from 'vitest';
 import { client } from '@kestack/rpc-toolkit/rpc/websocket';
-import { ESchema } from '@kestack/std-toolkit/eschema';
+import { ESchema } from '@kestack/std-toolkit/schema';
 import { OnOutdated } from '@kestack/std-toolkit/replica';
 import { versionedClient, VersionGap } from '../index.js';
 

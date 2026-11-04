@@ -1,0 +1,139 @@
+import { readEncoded, writeEncoded } from '../codec/encoded/index.js';
+import { it, describe, expect } from '@effect/vitest';
+
+import { Effect, Schema } from 'effect';
+import { EntityESchema } from '../index.js';
+
+describe('ESchema', () => {
+  describe('Entity', () => {
+    describe('Make', () => {
+      it.effect('creates a v1 schema with name and id field', () =>
+        Effect.gen(function* () {
+          const schema = EntityESchema.make('User', 'id', {
+            name: Schema.String,
+          }).build();
+
+          expect(schema.idField).toBe('id');
+          const encoded = yield* writeEncoded(schema, {
+            id: 'u1',
+            name: 'Alice',
+          });
+          expect(encoded).toEqual({ _v: 'v1', id: 'u1', name: 'Alice' });
+        }),
+      );
+
+      it.effect('supports complex field types', () =>
+        Effect.gen(function* () {
+          const schema = EntityESchema.make('Complex', 'id', {
+            count: Schema.Finite,
+            tag: Schema.Literals(['a', 'b']),
+            nullable: Schema.NullOr(Schema.String),
+          }).build();
+
+          const decoded = yield* readEncoded(schema, {
+            _v: 'v1',
+            id: 'c1',
+            count: 42,
+            tag: 'a',
+            nullable: null,
+          });
+          expect(decoded).toEqual({
+            id: 'c1',
+            count: 42,
+            tag: 'a',
+            nullable: null,
+          });
+        }),
+      );
+
+      it('supports custom id field names', () => {
+        const schema = EntityESchema.make('User', 'userId', {
+          name: Schema.String,
+        }).build();
+
+        expect(schema.idField).toBe('userId');
+      });
+    });
+
+    describe('Fields', () => {
+      it('returns the latest schema fields including id', () => {
+        const schema = EntityESchema.make('Test', 'id', {
+          a: Schema.String,
+        }).build();
+
+        expect(Object.keys(schema.fields)).toEqual(['a', 'id']);
+      });
+
+      it('returns evolved schema fields after evolution', () => {
+        const schema = EntityESchema.make('Test', 'id', {
+          a: Schema.String,
+        })
+          .evolve('v2', { b: Schema.Finite }, (v) => ({ ...v, b: 0 }))
+          .build();
+
+        expect(Object.keys(schema.fields).sort()).toEqual(['a', 'b', 'id']);
+      });
+    });
+
+    describe('Schema', () => {
+      it('returns the versioned Effect Schema, ID field included', () => {
+        const eschema = EntityESchema.make('Test', 'id', {
+          a: Schema.String,
+        }).build();
+
+        expect(Schema.encodeSync(eschema.schema)({ a: 'x', id: '1' })).toEqual({
+          a: 'x',
+          id: '1',
+          _v: 'v1',
+        });
+      });
+    });
+
+    describe('ForbidIdField enforcement', () => {
+      it('id field is auto-added and cannot be in user schema', () => {
+        const schema = EntityESchema.make('Test', 'testId', {
+          name: Schema.String,
+        }).build();
+
+        expect(schema.idField).toBe('testId');
+        expect(Object.keys(schema.fields)).toContain('testId');
+      });
+    });
+
+    describe('ID handling', () => {
+      it.effect('decoded id is a plain string', () =>
+        Effect.gen(function* () {
+          const userSchema = EntityESchema.make('User', 'id', {
+            name: Schema.String,
+          }).build();
+
+          const decoded = yield* readEncoded(userSchema, {
+            id: 'u1',
+            name: 'Alice',
+          });
+          expect(decoded.id).toBe('u1');
+        }),
+      );
+
+      it.effect('encoded id is a plain string', () =>
+        Effect.gen(function* () {
+          const userSchema = EntityESchema.make('User', 'id', {
+            name: Schema.String,
+          }).build();
+
+          const encoded = yield* writeEncoded(userSchema, {
+            id: 'u1',
+            name: 'Alice',
+          });
+          expect(encoded.id).toBe('u1');
+
+          const reEncoded = yield* writeEncoded(userSchema, {
+            id: encoded.id,
+            name: 'Bob',
+          });
+          expect(reEncoded.id).toBe('u1');
+        }),
+      );
+    });
+  });
+});

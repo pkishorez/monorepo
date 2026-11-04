@@ -24,6 +24,8 @@ interface Env {
   readonly AUTH_URL: string;
   readonly SITE_ORIGIN: string;
   readonly DB: D1Database;
+  /** The physical name `D1.table` set the table up under. */
+  readonly DB_TABLE: string;
 }
 
 const Handlers = PocketRpcs.toLayer({
@@ -62,15 +64,18 @@ const corsFor = (request: Request, site: string): Record<string, string> =>
 /**
  * Answers requests over the `pocket` table on `database`, with `guard`
  * telling who calls, letting `site` call with credentials: `auth.rpc({ url })`
- * in the Worker, `fakeGuard.rpc({ as })` in a test.
+ * in the Worker, `fakeGuard.rpc({ as })` in a test. `tableName` is the
+ * physical name the table was set up under, its logical name by default.
  */
 export const serve = (
   guard: ReturnType<typeof auth.rpc>,
   site: string,
   database: D1Database,
+  tableName?: string,
 ) => {
   const table = SQLite.make(pocketTable, {
     database: makeD1SQLite({ database }),
+    ...(tableName === undefined ? {} : { tableName }),
   });
   const answer = server(
     PocketRpcs,
@@ -95,5 +100,6 @@ export default {
       auth.rpc({ url: env.AUTH_URL }),
       env.SITE_ORIGIN,
       env.DB,
+      env.DB_TABLE,
     ))(request),
 };

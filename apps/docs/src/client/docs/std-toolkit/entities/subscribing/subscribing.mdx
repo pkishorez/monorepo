@@ -46,7 +46,7 @@ table's layer:
 program.pipe(Effect.provide(memory.layer), Effect.provide(defaultBroadcaster));
 ```
 
-`defaultBroadcaster`, from `@kestack/std-toolkit/core`, delivers notices
+`defaultBroadcaster`, from `@kestack/std-toolkit/db`, delivers notices
 inside one process. When several participants write to the same storage,
 like every tab on one IndexedDB database, `sharedBroadcaster` lets each
 hear the others' writes.

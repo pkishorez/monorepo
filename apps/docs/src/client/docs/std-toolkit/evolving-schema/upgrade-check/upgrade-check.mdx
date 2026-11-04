@@ -65,7 +65,7 @@ In a test file, write `expectUpgradable`. It runs the same check and fails
 the test with the same report, in any test runner:
 
 ```ts
-import { expectUpgradable } from '@kestack/std-toolkit/eschema/testing';
+import { expectUpgradable } from '@kestack/std-toolkit/schema/testing';
 
 it('reads every stored task', () =>
   expectUpgradable(Task, { unchanged: ['boardId'] }));

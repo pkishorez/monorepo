@@ -19,6 +19,8 @@ interface Env {
   readonly PLUGINS?: string;
   readonly MIN_CONNECT?: string;
   readonly DB: D1Database;
+  /** The physical name `D1.table` set the table up under. */
+  readonly DB_TABLE: string;
   readonly PLUGIN_FILES?: R2Bucket;
 }
 
@@ -39,6 +41,7 @@ const make = (env: Env) => {
     auth: { url: env.AUTH_URL },
     origins: env.ALLOWED_ORIGINS.split(','),
     database: env.DB,
+    tableName: env.DB_TABLE,
     plugins: env.PLUGINS ? Schema.decodeUnknownSync(Plugins)(env.PLUGINS) : {},
     ...(env.MIN_CONNECT ? { minConnect: env.MIN_CONNECT } : {}),
     ...(env.PLUGIN_FILES === undefined ? {} : { files: env.PLUGIN_FILES }),

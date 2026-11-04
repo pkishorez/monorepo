@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { ESchema, ValueESchema } from '@kestack/std-toolkit/eschema';
+import { ESchema, ValueESchema } from '@kestack/std-toolkit/schema';
 
 /*
  * The values a CLI and its Plugins pass, as ESchemas: each is written with

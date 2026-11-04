@@ -95,7 +95,7 @@ export function ReloadPicture() {
               </span>
             </p>
             <p className="mt-1 flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
-              _std_contract
+              Stored contract
               <motion.span
                 initial={false}
                 animate={

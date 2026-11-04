@@ -1,0 +1,103 @@
+import { Effect, Schema, SchemaIssue, SchemaTransformation } from 'effect';
+import {
+  StoredItemSchema,
+  type StoredItem,
+  type StoredKey,
+  type JsonObject,
+} from '../../../table/model/contract/index.js';
+import type { TableDefinition } from '../../../table/model/definition/index.js';
+import {
+  isAttributeValueRecord,
+  marshall,
+  unmarshall,
+  type MarshalledOutput,
+} from '../attribute-value/index.js';
+
+export type NativeItem = MarshalledOutput;
+
+type TableIndexes = Pick<
+  TableDefinition,
+  'primary' | 'localSecondaryIndexes' | 'globalSecondaryIndexes'
+>;
+
+const indexAttributeNames = (table: TableIndexes) => [
+  ...Object.values(table.localSecondaryIndexes).map((index) => index.sk),
+  ...Object.values(table.globalSecondaryIndexes).flatMap((index) => [
+    index.pk,
+    index.sk,
+  ]),
+];
+
+export const toNativeKey = (table: TableIndexes, key: StoredKey): NativeItem =>
+  marshall({ [table.primary.pk]: key.pk, [table.primary.sk]: key.sk });
+
+export const itemKey = (table: TableIndexes, item: NativeItem): NativeItem => {
+  const pk = item[table.primary.pk];
+  const sk = item[table.primary.sk];
+  if (pk === undefined || sk === undefined)
+    throw new Error('DynamoDB item does not contain its primary key');
+  return { [table.primary.pk]: pk, [table.primary.sk]: sk };
+};
+
+const NativeItemSchema = Schema.declare<NativeItem>(isAttributeValueRecord);
+
+const toNative = (table: TableIndexes, item: StoredItem): NativeItem =>
+  marshall({
+    [table.primary.pk]: item.pk,
+    [table.primary.sk]: item.sk,
+    _e: item.meta._e,
+    _v: item.data._v,
+    _u: item.meta._u,
+    _d: item.meta._d,
+    data: item.data,
+    ...item.keys,
+  });
+
+const fromNative = (table: TableIndexes, decoded: NativeItem): StoredItem => {
+  const value = unmarshall(decoded);
+  const data = value.data as JsonObject;
+  if (value._v !== data._v) {
+    throw new Error('Physical _v does not match encoded data._v');
+  }
+  const keys: Record<string, string> = {};
+  for (const name of indexAttributeNames(table)) {
+    const attribute = value[name];
+    if (typeof attribute === 'string') keys[name] = attribute;
+  }
+  return {
+    pk: value[table.primary.pk],
+    sk: value[table.primary.sk],
+    meta: { _e: value._e, _u: value._u, _d: value._d },
+    data,
+    keys,
+  } as StoredItem;
+};
+
+const invalid = (input: unknown, cause: unknown) =>
+  new SchemaIssue.InvalidValue(
+    {
+      message: cause instanceof Error ? cause.message : String(cause),
+    },
+    input,
+  );
+
+export type ItemSchema = Schema.Codec<NativeItem, StoredItem>;
+
+export const itemSchema = (table: TableIndexes): ItemSchema =>
+  StoredItemSchema.pipe(
+    Schema.decodeTo(
+      NativeItemSchema,
+      SchemaTransformation.transformEffect({
+        decode: (item: StoredItem) =>
+          Effect.try({
+            try: () => toNative(table, item),
+            catch: (cause) => invalid(item, cause),
+          }),
+        encode: (decoded: NativeItem) =>
+          Effect.try({
+            try: () => fromNative(table, decoded),
+            catch: (cause) => invalid(decoded, cause),
+          }),
+      }),
+    ),
+  );

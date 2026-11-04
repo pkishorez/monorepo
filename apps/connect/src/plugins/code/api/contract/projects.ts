@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { ESchema, ValueESchema } from '@kestack/std-toolkit/eschema';
+import { ESchema, ValueESchema } from '@kestack/std-toolkit/schema';
 import { ProjectSchema } from '../../records/index.js';
 import { FolderNotFound, ProjectNotFound } from './errors.js';
 import { Batch, Cursor, tagged } from './wire.js';

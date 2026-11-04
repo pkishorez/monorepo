@@ -4,8 +4,8 @@ import type {
   UpdateMutationFnParams,
 } from '@tanstack/react-db';
 import { Effect } from 'effect';
-import type { Entity } from '../../core/index.js';
-import type { AnyEntityESchema } from '../../eschema/index.js';
+import type { Entity } from '../../schema/entity/index.js';
+import type { AnyEntityESchema } from '../../schema/eschema/index.js';
 import {
   changedFields,
   stripMeta,

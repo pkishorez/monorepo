@@ -1,5 +1,5 @@
 import { Clock, Effect, Schema } from 'effect';
-import { nextUlid } from '@kestack/std-toolkit/core';
+import { nextUlid } from '@kestack/std-toolkit/schema';
 import { type Raw, TURN_END_STATUSES } from '@kestack/ai-toolkit/contract';
 import type { Session } from '../../../records/index.js';
 import { Store } from '../../capabilities/index.js';
