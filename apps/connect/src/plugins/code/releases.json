@@ -56,6 +56,10 @@
     {
       "hash": "05bf55ec7b4be7fd93fed9291d04cfe3d9c799efd078218700e0e305dcc34e06",
       "summary": "A Session Resumed on start is active from after its cut-off Turn ended"
+    },
+    {
+      "hash": "3acbe43b590cce9cd996f9db01e5906ae6fcbe48444304c65b10c925bd3fb1fd",
+      "summary": "A Take is heard as its audio comes in, and survives a reconnect: watchTake, addTakeAudio and endTake, with TakeHeard Downloading, Heard or Done; a Take watched is never dropped, and one dropped or broken fails its watchers"
     }
   ]
 }
