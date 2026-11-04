@@ -9,7 +9,7 @@ import { serve } from './worker.ts';
  * the Plugins `PLUGINS` names (JSON, `{"code":{"hash":"…","url":"…"}}`,
  * the latest Release of each; none when it is empty) and that the Minimum
  * Connect is `MIN_CONNECT`, and serving the Shelf from the R2 bucket
- * `PLUGIN_FILES`.
+ * `PLUGIN_FILES`, where a Release that is not the latest is looked for.
  */
 
 /** What this Worker is handed by Alchemy. */

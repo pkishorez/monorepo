@@ -72,6 +72,10 @@ _Avoid_: dynamic cache, API cache
 The in-app message telling the user a new version is ready and offering to reload into it. The new version activates only when the app calls for it, normally when the user accepts.
 _Avoid_: notification, update toast, reload banner
 
+**Reload Prompt**:
+The dialog an app opens when it finds it is older than what it talks to: the app cannot go on until it reloads, so it offers only Reload, which moves every open Client to the newest version once it is downloaded.
+_Avoid_: outdated dialog, force update
+
 **Build ID**:
 The identity of one build of the app. Every Client, the Precache, and the service worker each belong to exactly one Build ID.
 _Avoid_: version number, hash, release

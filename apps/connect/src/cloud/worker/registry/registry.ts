@@ -7,7 +7,11 @@ import {
   type ConnectionReport,
   ConnectionTaken,
   type PluginVersion,
+  type ReleaseStanding,
   type ReportAnswer,
+  SHELF_PATH,
+  fromShelfKey,
+  shelfKey,
 } from '../../contract/index.js';
 import { type ConnectionRecord, connections } from '../storage/index.js';
 
@@ -20,7 +24,11 @@ import { type ConnectionRecord, connections } from '../storage/index.js';
  * Sign-in is refused too. A Report keeps the Connection's Display Name as
  * its User gave it; only its User renames it. Every Connection is told the same Deployment:
  * the latest Release of each Plugin, and the Minimum Connect, both those
- * Cloud Connect was deployed with. Storage failing is a defect.
+ * Cloud Connect was deployed with. Where a Release stands is told by the
+ * Deployment and the Shelf: the latest Release is `Latest`, any other on
+ * the Shelf `Older`, since a Stage only ever puts its latest Release there
+ * and never takes one off, and any other `Unknown`. Storage failing is a
+ * defect.
  */
 
 /** The latest Release of each Plugin, which every Connection should run, by name. */
@@ -31,6 +39,9 @@ export interface Deployment {
   readonly plugins: Wanted;
   readonly minConnect: string | null;
 }
+
+/** Whether the Shelf holds a file at `key`, `plugins/<name>/<sha256>.mjs`. */
+export type OnShelf = (key: string) => Effect.Effect<boolean>;
 
 /** Who is calling: their User id, and their Sign-in when they have one. */
 const callerOf = (principal: Principal) => ({
@@ -181,5 +192,28 @@ const rename = (principal: Principal, id: string, displayName: string | null) =>
     yield* connections.getAndUpdate({ id }, () => ({ displayName: named }));
   }).pipe(Effect.orDie);
 
+/**
+ * Where the Release `hash` of the Plugin `plugin` stands: `Latest` when the
+ * `deployment` names it, `Older` when `onShelf` holds its file, else
+ * `Unknown`, as is a name or hash no Shelf key could hold.
+ */
+const standing = (
+  deployment: Deployment,
+  onShelf: OnShelf,
+  plugin: string,
+  hash: string,
+): Effect.Effect<ReleaseStanding> => {
+  const named = Object.hasOwn(deployment.plugins, plugin)
+    ? deployment.plugins[plugin]
+    : undefined;
+  if (named?.hash === hash) return Effect.succeed({ _tag: 'Latest' });
+  const key = shelfKey(plugin, hash);
+  if (fromShelfKey(key) === null) return Effect.succeed({ _tag: 'Unknown' });
+  return Effect.map(
+    onShelf(`${SHELF_PATH.slice(1)}/${key}`),
+    (found): ReleaseStanding => ({ _tag: found ? 'Older' : 'Unknown' }),
+  );
+};
+
 /** What each call does, for the caller `principal`, over storage. */
-export const Registry = { report, list, forget, rename };
+export const Registry = { report, list, forget, rename, standing };

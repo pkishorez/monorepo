@@ -21,7 +21,9 @@ import { folderShelf, PluginFiles, r2Shelf } from './shelf/index.ts';
  *
  * A deployed Stage names the latest Release in the Plugin's Release Log,
  * and refuses to deploy unless the build is that Release; its file goes
- * on the R2 Shelf. Under `alchemy dev` the Log is not asked: the build is
+ * on the R2 Shelf. Only that Release is ever put there, and none taken
+ * off, so Cloud Connect reads a file there it does not name as an older
+ * Release. Under `alchemy dev` the Log is not asked: the build is
  * named as it is, and without one none is, on the folder Shelf, so
  * development reads its Plugin the way a deployed Connection does. A
  * personal Stage, `alchemy deploy --stage alice`, has no domain, so no URL

@@ -5,6 +5,7 @@ import {
   pwaHead,
   pwaIncluded,
   pwaName,
+  ReloadPrompt,
   UpdatePrompt,
   usePwa,
 } from './status/index.js';
@@ -13,10 +14,11 @@ import {
  * The PWA in a Kabuki Start app's Document: `PwaHead` in its `head`, and
  * `Pwa` around the app. Together they put the manifest, the Apple icon and
  * the Build ID in every page's head, register the worker after mount, show
- * the Update Prompt while a new version waits, and offer install once.
+ * the Update Prompt while a new version waits, offer install once, and
+ * open the Reload Prompt when the app calls `updateToNewest`.
  * An app may reload into a new version as soon as it is ready instead of
- * asking, and offer no install. In a build with `noPwa()` both draw
- * nothing of their own.
+ * asking, and offer no install. In a build with `noPwa()` they draw only
+ * the Reload Prompt, whose Reload then reloads the page.
  */
 
 /** What the PWA asks of the reader: whether to take a new version, whether to install. */
@@ -43,12 +45,19 @@ export function PwaHead() {
   );
 }
 
-/** Around the app: the worker, the Update Prompt and the Install Prompt, titled with the manifest's name. */
+/** Around the app: the worker, the Update, Install and Reload Prompts, titled with the manifest's name. */
 export function Pwa(props: {
   readonly children: ReactNode;
   readonly prompts?: PwaPrompts;
 }) {
-  if (!pwaIncluded()) return props.children;
+  if (!pwaIncluded()) {
+    return (
+      <>
+        {props.children}
+        <ReloadPrompt />
+      </>
+    );
+  }
   return <PwaOn prompts={props.prompts ?? {}}>{props.children}</PwaOn>;
 }
 
@@ -69,6 +78,7 @@ function PwaOn(props: {
       {props.prompts.install !== 'off' && (
         <InstallPrompt title={`Install ${pwaName()}`} />
       )}
+      <ReloadPrompt title={`${pwaName()} was updated`} />
     </PwaProvider>
   );
 }

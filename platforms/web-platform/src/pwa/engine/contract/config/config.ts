@@ -21,7 +21,7 @@ export const NavigationConfig = Schema.Struct({
 });
 export type NavigationConfig = typeof NavigationConfig.Type;
 
-/** The page never reloads unasked; it only checks for a newer build this often. */
+/** The page never reloads unasked; it only checks for a newer build this often (default 5 minutes). */
 export const UpdateConfig = Schema.Struct({
   checkIntervalMinutes: PositiveInt,
 });
@@ -148,7 +148,7 @@ export const resolvePwaConfig = (
     },
     neverCache: options.neverCache ?? ['/api/auth/'],
     update: {
-      checkIntervalMinutes: options.update?.checkIntervalMinutes ?? 60,
+      checkIntervalMinutes: options.update?.checkIntervalMinutes ?? 5,
     },
     worker: options.worker ?? null,
     swUrl: options.swUrl ?? '/sw.js',

@@ -23,26 +23,24 @@ import {
   type PwaVersion,
 } from './head.js';
 
-/** `null` outside `PwaProvider`, during SSR, and until the service is built. */
-const PwaContext = createContext<Pwa['Service'] | null>(null);
+/**
+ * The service `PwaProvider` built: `pwa` is `null` outside it, during SSR,
+ * and until it is built. `started` is false only inside it, until the
+ * service is built or has failed to, so there is nothing more to wait for.
+ */
+interface PwaService {
+  readonly pwa: Pwa['Service'] | null;
+  readonly started: boolean;
+}
+
+const OUTSIDE: PwaService = { pwa: null, started: true };
+const STARTING: PwaService = { pwa: null, started: false };
+const PwaContext = createContext<PwaService>(OUTSIDE);
+
+/** The service, for the Web Platform's own prompts. */
+export const usePwaService = (): PwaService => useContext(PwaContext);
 
 const UNSUPPORTED = PwaStatus.Unsupported();
-
-/** The service `PwaProvider` built, for `updateToNewest`; null until then. */
-let built: Pwa['Service'] | null = null;
-let toNewest = false;
-
-/**
- * Moves the page to the newest build, once per page load, from anywhere: an
- * app calls it when it finds it is older than what it talks to. It checks
- * for a newer build and applies it once it is downloaded, and every open
- * page reloads into it; asked before `PwaProvider` has started, it waits for
- * it. Without a service worker, as in development, it does nothing.
- */
-export const updateToNewest = (): void => {
-  toNewest = true;
-  if (built !== null) Effect.runFork(built.updateToNewest);
-};
 
 /**
  * Registers the service worker after mount (never during SSR) and gives
@@ -51,46 +49,47 @@ export const updateToNewest = (): void => {
 export const PwaProvider = (props: {
   readonly children?: ReactNode;
 }): ReactNode => {
-  const [pwa, setPwa] = useState<Pwa['Service'] | null>(null);
+  const [service, setService] = useState<PwaService>(STARTING);
 
   useEffect(() => {
     const runtime = ManagedRuntime.make(Pwa.layer(info));
     let mounted = true;
     runtime.context().then(
       (context) => {
-        if (!mounted) return;
-        built = Context.get(context, Pwa);
-        setPwa(built);
-        if (toNewest) Effect.runFork(built.updateToNewest);
+        if (mounted)
+          setService({ pwa: Context.get(context, Pwa), started: true });
       },
-      (error: unknown) =>
-        console.error('pwa-toolkit: client failed to start', error),
+      (error: unknown) => {
+        console.error('pwa-toolkit: client failed to start', error);
+        if (mounted) setService(OUTSIDE);
+      },
     );
     return () => {
       mounted = false;
-      built = null;
-      setPwa(null);
+      setService(STARTING);
       void runtime.dispose();
     };
   }, []);
 
   return (
-    <PwaContext.Provider value={pwa}>{props.children}</PwaContext.Provider>
+    <PwaContext.Provider value={service}>{props.children}</PwaContext.Provider>
   );
 };
 
 /**
  * The PWA's status with `checkForUpdate` and `applyUpdate`, and the
- * `version` this page runs. `status` is `Unsupported` during SSR and until
+ * `version` this page runs. `checkForUpdate` resolves only once a newer
+ * build it found is downloaded, so `UpdateReady` is known by then. `status` is `Unsupported` during SSR and until
  * `PwaProvider` has started; `version` is known from the first render.
  */
 export const usePwa = (): {
   readonly status: PwaStatus;
   readonly version: PwaVersion;
-  readonly checkForUpdate: () => Promise<void>;
+  /** Resolves once the check is done: `true` when a newer build is downloaded and waiting. */
+  readonly checkForUpdate: () => Promise<boolean>;
   readonly applyUpdate: () => Promise<void>;
 } => {
-  const pwa = useContext(PwaContext);
+  const { pwa } = useContext(PwaContext);
   const status = useSubscriptionRef(pwa?.status, UNSUPPORTED);
   const version = useMemo(() => pageVersion(info), []);
   return useMemo(
@@ -99,7 +98,7 @@ export const usePwa = (): {
       version,
       checkForUpdate: () =>
         pwa === null
-          ? Promise.resolve()
+          ? Promise.resolve(false)
           : Effect.runPromise(pwa.checkForUpdate),
       applyUpdate: () =>
         pwa === null ? Promise.resolve() : Effect.runPromise(pwa.applyUpdate),

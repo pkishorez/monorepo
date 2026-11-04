@@ -1,1 +1,6 @@
-export { Registry, type Deployment, type Wanted } from './registry.js';
+export {
+  Registry,
+  type Deployment,
+  type OnShelf,
+  type Wanted,
+} from './registry.js';

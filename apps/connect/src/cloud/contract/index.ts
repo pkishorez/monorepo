@@ -19,6 +19,7 @@ export {
   pluginOfPath,
   pluginPath,
   PluginMismatch,
+  ReleaseStanding,
   ReportAnswer,
   RPC_PATH,
   SHELF_PATH,

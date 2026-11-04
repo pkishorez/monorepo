@@ -22,9 +22,12 @@ import { child, LOG_LINES, previousGone, socketFree } from './child.js';
  * exited, its finalizers done or it killed. A process that exits goes Crashed, and is tried
  * again after a pause that doubles each time, up to a minute; one that ran
  * a minute or more before it exited starts the count over. Every change in
- * where it stands is reported up through Plugins. While a downloaded file
- * is what runs, it is marked used every day, so a prune by this or another
- * CLI never deletes it.
+ * where it stands is reported up through Plugins, and apart from it which
+ * Release it serves: the process running, once it listens, until it is
+ * stopped or exits. While a new version downloads its Plugin State says
+ * Downloading it, and the old one is served all the while. While a
+ * downloaded file is what runs, it is marked used every day, so a prune by
+ * this or another CLI never deletes it.
  */
 
 /** How long a Plugin must run before its crashes no longer count. */
@@ -269,15 +272,18 @@ const stateOf = (
   now: number,
 ): PluginState => {
   const hash = model.target?.key ?? keyOf(props.wanted);
+  const downloading = (hash: string): PluginState => ({
+    _tag: 'Downloading',
+    hash,
+    received: model.progress?.received ?? 0,
+    total: model.progress?.total ?? null,
+  });
   switch (state._tag) {
     case 'Fetching':
-      return {
-        _tag: 'Downloading',
-        hash,
-        received: model.progress?.received ?? 0,
-        total: model.progress?.total ?? null,
-      };
+      return downloading(hash);
     case 'Running':
+      // A new version downloading, the old one served meanwhile.
+      if (keyOf(props.wanted) !== hash) return downloading(keyOf(props.wanted));
       return { _tag: model.ready ? 'Running' : 'Starting', hash };
     case 'Crashed':
       return {
@@ -288,6 +294,24 @@ const stateOf = (
       };
   }
 };
+
+/** The Release the Plugin serves: the process running, once it listens; null while none does. */
+const servedOf = ({ model, state }: { model: Model; state: State }) =>
+  state._tag === 'Running' && model.ready && model.target !== null
+    ? model.target.key
+    : null;
+
+/** Reports every change in which Release the Plugin serves, through Plugins. */
+const serves = (self: PluginSelf) =>
+  Effect.gen(function* () {
+    const plugins = yield* Plugins;
+    const { model } = yield* self.get;
+    yield* self.changes.pipe(
+      Stream.map(servedOf),
+      Stream.changes,
+      Stream.runForEach((hash) => plugins.serves(model.name, hash)),
+    );
+  });
 
 /** Reports every change in where the Plugin stands, through Plugins. */
 const report = (self: PluginSelf) =>
@@ -385,6 +409,7 @@ export const ActorPlugin = Actor.define('Plugin', {
       run: (self, each) => fetchWanted(self, each.slice(each.indexOf(':') + 1)),
     },
     report: { run: report },
+    serves: { run: serves },
     keep: {
       each: ({ model }) =>
         model.target?.downloaded === true ? [model.target.key] : [],

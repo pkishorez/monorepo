@@ -18,7 +18,8 @@ import {
  * Connect. With it, what an App needs to read its answers: a Connection,
  * where its status says it is, whether it is Outdated, and `VersionGap`,
  * which every call may fail with; and how to reach its Plugin at the
- * Release the App was built with, and what a close for another means.
+ * Release the App was built with, what a close for another means, and
+ * where Cloud Connect says that Release stands.
  */
 
 export {
@@ -31,6 +32,7 @@ export {
   PLUGIN_MISMATCH,
   pluginPath,
   PluginMismatch,
+  ReleaseStanding,
   VersionGap,
 } from '../contract/index.js';
 

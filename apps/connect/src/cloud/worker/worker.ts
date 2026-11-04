@@ -17,7 +17,12 @@ import {
   RPC_PATH,
   SHELF_PATH,
 } from '../contract/index.js';
-import { Registry, type Deployment, type Wanted } from './registry/index.js';
+import {
+  Registry,
+  type Deployment,
+  type OnShelf,
+  type Wanted,
+} from './registry/index.js';
 import { connectionsTable } from './storage/index.js';
 
 /*
@@ -30,7 +35,10 @@ import { connectionsTable } from './storage/index.js';
  *   asking the Auth Worker; a call with no Sign-in is refused
  *   Unauthenticated. Every Connection is told `plugins`, the latest
  *   Release of each Plugin, none unless given, and `minConnect`, the
- *   Minimum Connect, null unless given.
+ *   Minimum Connect, null unless given. `Standing` says a Release is
+ *   `Latest` when `plugins` names it, `Older` when its file is on the
+ *   Shelf, `files`, and `Unknown` otherwise: with no `files`, any but the
+ *   latest. A Shelf that cannot be asked holds nothing.
  * - `GET /plugins/<name>/<sha256>.mjs` answers that Release's file from
  *   `files`, the Shelf in R2, to anyone, cached for good: a file is named
  *   by its hash, so it never changes. Anything else there, or no `files`,
@@ -48,12 +56,25 @@ import { connectionsTable } from './storage/index.js';
  * `D1.table(connectionsTable)`.
  */
 
-/** The Shelf, where the Plugins' files are kept: an R2 bucket, or anything that answers `get` alike, by the path it is served at. */
+/** The Shelf, where the Plugins' files are kept: an R2 bucket, or anything that answers `get` and `head` alike, by the path it is served at. */
 export interface PluginFiles {
   readonly get: (
     key: string,
   ) => Promise<{ readonly body: ReadableStream | null } | null>;
+  /** Something, when a file is at `key`; null when none is. */
+  readonly head: (key: string) => Promise<unknown>;
 }
+
+/** Whether `files` holds a file at a key; never without `files`, nor when it cannot be asked. */
+const onShelfOf =
+  (files: PluginFiles | undefined): OnShelf =>
+  (key) =>
+    files === undefined
+      ? Effect.succeed(false)
+      : Effect.tryPromise(() => files.head(key)).pipe(
+          Effect.map((found) => found !== null),
+          Effect.orElseSucceed(() => false),
+        );
 
 /** A Plugin's file never changes: its name is its hash. */
 const IMMUTABLE = 'public, max-age=31536000, immutable';
@@ -77,8 +98,8 @@ const pluginFile = async (
   });
 };
 
-/** The calls' handlers, telling every Connection the `deployment`. */
-const handlers = (deployment: Deployment) =>
+/** The calls' handlers, telling every Connection the `deployment`, and where a Release stands by it and `onShelf`. */
+const handlers = (deployment: Deployment, onShelf: OnShelf) =>
   CloudApi.toLayer({
     Report: (input) =>
       Effect.flatMap(Authz.User, (principal) =>
@@ -93,6 +114,11 @@ const handlers = (deployment: Deployment) =>
     Rename: ({ id, displayName }) =>
       Effect.flatMap(Authz.User, (principal) =>
         Registry.rename(principal, id, displayName),
+      ),
+    // Signed in, as every call is; whose call it is changes nothing.
+    Standing: ({ plugin, hash }) =>
+      Effect.flatMap(Authz.User, () =>
+        Registry.standing(deployment, onShelf, plugin, hash),
       ),
   });
 
@@ -131,7 +157,9 @@ export const serveOver = (options: {
   const answer = server(
     CloudApi,
     Layer.mergeAll(
-      handlers(deployment).pipe(Layer.provide(table.layer)),
+      handlers(deployment, onShelfOf(options.files)).pipe(
+        Layer.provide(table.layer),
+      ),
       options.guard,
     ),
   );
@@ -174,7 +202,8 @@ export const serveOver = (options: {
  * Cloud Connect on a Worker's D1 binding `database`: callers sign in
  * through the Auth Worker `auth` names, pages on `origins` may call with
  * credentials, every Connection is told to run `plugins` and the Minimum
- * Connect `minConnect`, and the Plugins' files are served from `files`.
+ * Connect `minConnect`, and the Plugins' files are served from `files`,
+ * where a Release that is not the latest is looked for.
  */
 export const serve = <Statement extends D1Statement<Statement>>(options: {
   readonly auth: AuthOptions;

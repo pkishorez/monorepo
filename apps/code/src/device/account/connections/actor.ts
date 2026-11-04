@@ -25,8 +25,9 @@ import {
   pruneUnlisted,
 } from './commands.ts';
 import {
-  behindAll,
+  askStanding,
   Connection as ConnectionActor,
+  CodeStanding,
   toNewest,
 } from './connection/index.ts';
 import { Voice } from './voice/index.ts';
@@ -52,11 +53,18 @@ import { Prepared } from './connections.ts';
  * 3. Links    one socket per listed Connection, followed, and one Connection
  *             each (connection/), which opens its own database and sync Store.
  *             A socket the Connection closed with `PLUGIN_MISMATCH`, as it
- *             runs another Release of the code Plugin than this Code calls,
- *             is kept as Mismatched until one is answered; who is behind
- *             is what Cloud Connect wants it to run (`link/reach/`): the
- *             Connection, Updating, while its Link keeps relinking; or
- *             this Code, Stale, which moves to its newest build.
+ *             serves another Release of the code Plugin than this Code
+ *             calls, is kept as Mismatched until one is answered. Each such
+ *             close holds its Link, which waits to relink, and asks Cloud
+ *             Connect afresh where this Code's Release stands
+ *             (`link/reach/`); nothing kept is read for it. Latest: the
+ *             Connection is Updating, and its Link relinks at once. Older:
+ *             this Code is Stale, moves to its newest build, and the Link
+ *             is held for good, as nothing changes until a reload.
+ *             Unknown: Cloud Connect is behind, and the Link relinks after
+ *             `RELINK_SLOWLY`, to be asked again. Cloud Connect out of
+ *             reach decides nothing: the same slow relink. A socket that
+ *             closes any other way relinks as ever, and asks nothing.
  * 4. Recheck  while a listed Connection's link is not up, Cloud Connect is asked
  *             again: every few seconds for the first minute, then every
  *             half a minute, so one on its way, whose tunnel is opening,
@@ -127,10 +135,28 @@ const back: Stream.Stream<void> =
         ),
       );
 
+/** How long a Link waits to relink once Cloud Connect said it is behind, or could not be asked. */
+export const RELINK_SLOWLY = 30_000;
+
 /** How long to wait before asking Cloud Connect again, while a link is not up. */
 export const RECHECK = { fast: 3_000, slow: 30_000, fastFor: 20 } as const;
 
 const Link = Schema.Literals(['linking', 'linked', 'relinking']);
+
+/** A Connection that closed a socket with a mismatch, and what Cloud Connect said of it. */
+const Mismatch = Schema.Struct({
+  /** The Release it said it serves; null for none. */
+  running: Schema.NullOr(Schema.String),
+  /** Where Cloud Connect last said this Code's Release stands; null until it answered. */
+  standing: Schema.NullOr(CodeStanding),
+  /** Whether Cloud Connect is being asked now. */
+  asking: Schema.Boolean,
+  /** Whether its Link waits to relink. */
+  held: Schema.Boolean,
+  /** How many times Cloud Connect was asked for it: what names each ask. */
+  asks: Schema.Finite,
+});
+type Mismatch = typeof Mismatch.Type;
 
 const Model = Schema.Struct({
   accountId: Schema.String,
@@ -147,8 +173,8 @@ const Model = Schema.Struct({
   ),
   /** Each listed Connection's link, by id. */
   links: Schema.Record(Schema.String, Link),
-  /** Each listed Connection that closed its socket running another Release of the code Plugin, by id, until a socket to it is answered. */
-  mismatched: Schema.Record(Schema.String, PluginMismatch.schema),
+  /** Each listed Connection that closed its socket serving another Release of the code Plugin, by id, until a socket to it is answered. */
+  mismatched: Schema.Record(Schema.String, Mismatch),
   /** How many times Cloud Connect was asked again since every link was last up. */
   rechecks: Schema.Finite,
 });
@@ -192,6 +218,14 @@ export const Connections = Actor.define('Connections', {
       connectionId: Schema.String,
       mismatch: Schema.NullOr(PluginMismatch.schema),
     },
+    /** Cloud Connect's answer to the ask `asks`; null when it could not be asked. */
+    StandingAnswered: {
+      connectionId: Schema.String,
+      asks: Schema.Finite,
+      standing: Schema.NullOr(CodeStanding),
+    },
+    /** A Link held after the ask `asks` may relink. */
+    RelinkDue: { connectionId: Schema.String, asks: Schema.Finite },
     ForgetAsked: { id: Schema.String },
     Forgot: { id: Schema.String },
     ForgetFailed: { id: Schema.String, problem: Schema.String },
@@ -209,12 +243,38 @@ export const fetching = (model: Model) => copying.asking(model.list).length > 0;
 export const anyDown = (model: Model) =>
   idsOf(model).some((id) => model.links[id] !== 'linked');
 
-/** Whether `after` finds this Code Stale on a Connection `before` did not: it moves to its newest build. */
-const newlyStale = (before: Model, after: Model) => {
-  const was = behindAll(before.list.value, before.mismatched);
-  return Object.entries(behindAll(after.list.value, after.mismatched)).some(
-    ([id, behind]) => behind === 'Stale' && was[id] !== 'Stale',
-  );
+/** Each Connection's ask, `<asks>:<id>`, for which `pick` holds. */
+const asksWhere = (model: Model, pick: (mismatch: Mismatch) => boolean) =>
+  Object.entries(model.mismatched)
+    .filter(([, mismatch]) => pick(mismatch))
+    .map(([id, { asks }]) => `${asks}:${id}`);
+
+/** The ask and the Connection an `asksWhere` key names. */
+const askOf = (key: string) => {
+  const at = key.indexOf(':');
+  return { asks: Number(key.slice(0, at)), connectionId: key.slice(at + 1) };
+};
+
+/** The Connections whose Link waits to relink. */
+const heldOf = (model: Model) =>
+  Object.entries(model.mismatched)
+    .filter(([, { held }]) => held)
+    .map(([id]) => id);
+
+/** `model` with the mismatch of `connectionId` changed by `change`, when it is still the ask `asks`. */
+const answering = (
+  model: Model,
+  connectionId: string,
+  asks: number,
+  change: (mismatch: Mismatch) => Mismatch,
+): Model | null => {
+  const was = model.mismatched[connectionId];
+  return was === undefined || was.asks !== asks
+    ? null
+    : {
+        ...model,
+        mismatched: { ...model.mismatched, [connectionId]: change(was) },
+      };
 };
 
 const delayOf = (rechecks: number) =>
@@ -273,6 +333,29 @@ export const ConnectionsLive = Connections.build({
           self.send,
         ),
     },
+    // 3. Links: Cloud Connect asked where this Code's Release stands, for
+    // each Connection that closed a socket with a mismatch.
+    standing: {
+      each: ({ model }) => asksWhere(model, ({ asking }) => asking),
+      run: (self, key) =>
+        Effect.flatMap(askStanding(), (standing) =>
+          self.send({ _tag: 'StandingAnswered', ...askOf(key), standing }),
+        ),
+    },
+    // 3. Links: a Link held after Cloud Connect was behind, or out of
+    // reach, relinks a while later.
+    slowly: {
+      each: ({ model }) =>
+        asksWhere(
+          model,
+          ({ asking, held, standing }) =>
+            held && !asking && standing !== 'Older',
+        ),
+      run: (self, key) =>
+        Effect.sleep(RELINK_SLOWLY).pipe(
+          Effect.andThen(self.send({ _tag: 'RelinkDue', ...askOf(key) })),
+        ),
+    },
     // 4. Recheck
     recheck: {
       while: ({ model }) => !fetching(model) && anyDown(model),
@@ -313,6 +396,7 @@ export const ConnectionsLive = Connections.build({
               problem: model.list.problem,
               forgetting: model.forgetting,
               links: model.links,
+              held: heldOf(model),
             })),
             Stream.changes,
             // Its Connections share their own beside it.
@@ -379,9 +463,6 @@ export const ConnectionsLive = Connections.build({
         model: next,
         command: [
           keepList({ accountId: model.accountId, connections }),
-          // 3. Links: Cloud Connect now wants another Release than this
-          // Code calls, of a Connection that refused it.
-          ...(newlyStale(model, next) ? [toNewest({})] : []),
           ...(model.fetchedAt === null
             ? [
                 pruneUnlisted({
@@ -423,19 +504,56 @@ export const ConnectionsLive = Connections.build({
       };
       return { model: anyDown(next) ? next : { ...next, rechecks: 0 } };
     },
-    // 3. Links: a mismatch kept until a socket is answered; this Code
-    // found Stale moves to its newest build.
+    // 3. Links: each mismatch holds the Link and asks Cloud Connect, kept
+    // until a socket is answered; one this Code is Stale on, for good.
     Mismatched: ({ connectionId, mismatch }, { model }) => {
-      const { [connectionId]: _was, ...rest } = model.mismatched;
-      const next = {
-        ...model,
-        mismatched:
-          mismatch === null ? rest : { ...rest, [connectionId]: mismatch },
+      const { [connectionId]: was, ...rest } = model.mismatched;
+      if (was?.standing === 'Older') return {};
+      if (mismatch === null) return { model: { ...model, mismatched: rest } };
+      if (was?.asking === true) return {};
+      return {
+        model: {
+          ...model,
+          mismatched: {
+            ...rest,
+            [connectionId]: {
+              running: mismatch.running,
+              standing: was?.standing ?? null,
+              asking: true,
+              held: true,
+              asks: (was?.asks ?? 0) + 1,
+            },
+          },
+        },
       };
+    },
+    // 3. Links: what Cloud Connect answered decides; out of reach, it
+    // decides nothing, and the Link relinks slowly.
+    StandingAnswered: ({ connectionId, asks, standing }, { model }) => {
+      const next = answering(model, connectionId, asks, (was) => ({
+        ...was,
+        standing: standing ?? was.standing,
+        asking: false,
+        held: standing !== 'Latest',
+      }));
+      if (next === null) return {};
+      const stale = (each: Model) =>
+        Object.values(each.mismatched).some(
+          ({ standing }) => standing === 'Older',
+        );
       return {
         model: next,
-        ...(newlyStale(model, next) ? { command: toNewest({}) } : {}),
+        ...(standing === 'Older' && !stale(model)
+          ? { command: toNewest({}) }
+          : {}),
       };
+    },
+    RelinkDue: ({ connectionId, asks }, { model }) => {
+      const next = answering(model, connectionId, asks, (was) => ({
+        ...was,
+        held: false,
+      }));
+      return next === null ? {} : { model: next };
     },
     // 5. Forget
     ForgetAsked: ({ id }, { model }) =>

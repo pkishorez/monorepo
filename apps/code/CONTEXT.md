@@ -57,7 +57,7 @@ The app's socket to one Connection, as it stands: linking, linked, or relinking.
 _Avoid_: line, socket status
 
 **Mismatched**:
-A Connection that closed its Link's socket at once, as it runs another Release of the code Plugin than this Code calls, until a socket to it is answered. What Cloud Connect wants it to run says who is behind: this Code's Release, or none, and the Connection is Updating, so the Link keeps relinking and the app says "Updating Connect…"; another, and this Code is Stale, so it moves to its newest build and says "Updating Code…".
+A Connection that closed its Link's socket at once, as it serves another Release of the code Plugin than this Code calls, until a socket to it is answered. Each time, its Link waits to relink while Cloud Connect is asked afresh for this Code's Release Standing, which alone says who is behind; nothing kept on this device is. Latest: the Connection, which is Updating, so the Link relinks at once and the app says "Backend updating", or, once the Connection has stopped reporting to Cloud Connect, that it can't update. Older: this Code, which is Stale, so it moves to its newest build, says "Code update ready", and never relinks that Connection until a reload. Unknown: Cloud Connect itself, its deploy pending or failed, so the app says "Backend updating" and relinks every half a minute, asking again each time. Cloud Connect out of reach decides nothing, and the Link relinks as slowly.
 _Avoid_: version mismatch, incompatible, refused (a refused call is a Message)
 
 **Outdated**:

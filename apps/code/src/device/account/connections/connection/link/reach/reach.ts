@@ -19,9 +19,11 @@ import { PLUGIN_CODE } from './release.ts';
  *             `/code/<sha256>/rpc` (`release.ts`), offering its Connection
  *             Key as listed on each connect, so a Connection that comes
  *             back at a new address, as a quick tunnel does, is reached
- *             there. Until it is listed with one, its socket waits. A
- *             Connection running another Release closes it at once; who is
- *             behind is `release.ts`'s to say.
+ *             there. Until it is listed with one, its socket waits, and
+ *             so it does while its Link is held: a Connection serving
+ *             another Release closes it at once, and Cloud Connect is
+ *             asked who is behind (`release.ts`) before it is dialled
+ *             again.
  */
 
 /** 1. Records: each Connection's Instance, held by that Connection's Replicas once it runs, waiting until it does. */
@@ -35,7 +37,7 @@ export const byConnection = Layer.effect(
   ),
 );
 
-/** 2. Socket: where each Connection's code Plugin is, at `release`, as listed, once it is. */
+/** 2. Socket: where each Connection's code Plugin is, at `release`, as listed, once it is and its Link is not held. */
 export const addressAt = (release: string) =>
   Layer.effect(
     ConnectionAddress,

@@ -1,8 +1,10 @@
 export { addressAt, byConnection, reach } from './reach.ts';
 export {
+  askStanding,
   type Behind,
-  behindAll,
-  behindOf,
+  behindAt,
+  behindEach,
   PLUGIN_CODE,
+  CodeStanding,
   toNewest,
 } from './release.ts';

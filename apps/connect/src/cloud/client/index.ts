@@ -10,5 +10,6 @@ export {
   PLUGIN_MISMATCH,
   pluginPath,
   PluginMismatch,
+  ReleaseStanding,
   VersionGap,
 } from './client.js';

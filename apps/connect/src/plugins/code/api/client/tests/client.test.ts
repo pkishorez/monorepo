@@ -14,7 +14,7 @@ import { CodeClient, CodeClients, type LinkStatus } from '../client.js';
  * A Connection running another Release of the code Plugin closes the
  * socket at once with `PLUGIN_MISMATCH`: until a socket to it is answered,
  * its Link is not linked, though the socket opened, and `mismatch` says
- * which Release it runs.
+ * which Release it serves, each time it closes so.
  */
 
 const HASH = 'b'.repeat(64);
@@ -69,6 +69,14 @@ describe('a Connection running another Release', () => {
             reason: mismatchReason(HASH),
           });
           yield* wait();
+          // Closed so again, it is told again: the app asks Cloud Connect each time.
+          watch.closed!({
+            code: PLUGIN_MISMATCH,
+            reason: mismatchReason(HASH),
+          });
+          yield* wait();
+          watch.answered!();
+          yield* wait();
           watch.answered!();
           yield* wait();
           // A reason it cannot read is a mismatch all the same.
@@ -91,6 +99,7 @@ describe('a Connection running another Release', () => {
     ]);
     expect(seen.mismatches).toEqual([
       null,
+      { running: HASH },
       { running: HASH },
       null,
       { running: null },

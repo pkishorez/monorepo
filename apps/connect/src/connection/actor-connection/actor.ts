@@ -16,7 +16,8 @@ import { remember } from './remember.js';
  * is what it serves, its router and its Plugins. Each tells the Connection
  * what it learned, and the Connection hands it to the other as Props: Cloud
  * Connect's answer becomes the Plugins wanted; each Plugin's State and the
- * router's port go to the next Heartbeat and the tunnel.
+ * router's port go to the next Heartbeat and the tunnel, and the Release
+ * each Plugin serves to the router.
  *
  * A Plugin Cloud Connect names is started, and a new version swaps it; one
  * no longer named keeps running. Until Cloud Connect answers, the Plugins
@@ -72,6 +73,8 @@ const Model = Schema.Struct({
   wanted: Schema.Record(Schema.String, Version),
   /** Where each Plugin stands, as it last reported. */
   plugins: Schema.Record(Schema.String, PluginState.schema),
+  /** The Release each Plugin serves, as it last said; null while none listens. */
+  serving: Schema.Record(Schema.String, Schema.NullOr(Schema.String)),
 });
 type Model = typeof Model.Type;
 
@@ -88,6 +91,7 @@ const Message = Schema.TaggedUnion({
   Wanted: { versions: Schema.Record(Schema.String, Version) },
   Addressed: { url: Schema.NullOr(Schema.String) },
   PluginReported: { name: Schema.String, state: PluginState.schema },
+  PluginServes: { name: Schema.String, hash: Schema.NullOr(Schema.String) },
   Forgotten: {},
   Stop: { reason: Schema.NullOr(Schema.String) },
 });
@@ -148,6 +152,7 @@ export const ActorConnection = Actor.define('Connection', {
       url: null,
       wanted: {},
       plugins: {},
+      serving: {},
     };
     return {
       model: { ...model, wanted: wantedOf(model, input.lastWanted) },
@@ -161,6 +166,8 @@ export const ActorConnection = Actor.define('Connection', {
         Plugins.of({
           report: (name, state) =>
             self.send({ _tag: 'PluginReported', name, state }),
+          serves: (name, hash) =>
+            self.send({ _tag: 'PluginServes', name, hash }),
         }),
       ),
       Layer.succeed(
@@ -185,7 +192,7 @@ export const ActorConnection = Actor.define('Connection', {
       }),
       props: ({ model }) => ({
         wanted: model.wanted,
-        plugins: model.plugins,
+        serving: model.serving,
       }),
     }),
   },
@@ -196,6 +203,9 @@ export const ActorConnection = Actor.define('Connection', {
     Addressed: ({ url }, { model }) => ({ model: { ...model, url } }),
     PluginReported: ({ name, state }, { model }) => ({
       model: { ...model, plugins: { ...model.plugins, [name]: state } },
+    }),
+    PluginServes: ({ name, hash }, { model }) => ({
+      model: { ...model, serving: { ...model.serving, [name]: hash } },
     }),
     Forgotten: () => ({ state: { _tag: 'Forgotten' } }),
     Stop: ({ reason }) => ({ state: { _tag: 'Stopped', reason } }),
