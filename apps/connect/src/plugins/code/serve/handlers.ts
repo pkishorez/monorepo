@@ -309,6 +309,30 @@ export const CodeApiLive = CodeApi.toLayer(
                 : new TranscriptionFailed({ message: error.message }),
             ),
           ),
+      watchTake: ({ id }) =>
+        speech
+          .watchTake(id)
+          .pipe(
+            Stream.mapError(
+              ({ message }) => new TranscriptionFailed({ message }),
+            ),
+          ),
+      addTakeAudio: ({ id, at, audio }) =>
+        speech
+          .addTakeAudio(id, at, audio)
+          .pipe(
+            Effect.mapError(
+              ({ message }) => new TranscriptionFailed({ message }),
+            ),
+          ),
+      endTake: ({ id, count }) =>
+        speech
+          .endTake(id, count)
+          .pipe(
+            Effect.mapError(
+              ({ message }) => new TranscriptionFailed({ message }),
+            ),
+          ),
       projects: ({ after }) => Read.projects(after),
       sessions: ({ after }) => Read.sessions(after),
       messages: ({ sessionId, after }) => Read.messages(sessionId, after),

@@ -49,7 +49,7 @@ export {
   StartStep,
   type StartStepName,
 } from './sessions.js';
-export { SpeechToTextState } from './speech.js';
+export { SpeechToTextState, TakeHeard } from './speech.js';
 export { Harness, WireEntity } from './wire.js';
 
 // The records the API speaks of, as clients read them.

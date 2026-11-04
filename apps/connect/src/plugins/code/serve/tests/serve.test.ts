@@ -212,6 +212,51 @@ const line = ({ row }: Rows[number]) => {
 };
 
 describe('the code Plugin, through the client and Replica', () => {
+  it('hears a Take as its audio comes in, switching Speech to Text on first', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const port = yield* Effect.promise(freePort);
+          const db = join(folder(), 'ai.db');
+          yield* Layer.build(
+            server({
+              port,
+              db,
+              harnesses: makeFakeHarness().layer,
+              speech: makeFakeSpeech().layer,
+            }),
+          );
+          const client = yield* Layer.build(
+            CodeClient.layer(`ws://127.0.0.1:${port}/rpc`),
+          );
+          const api = Context.get(client, CodeClient);
+          const heard: Array<{ readonly _tag: string }> = [];
+          const watching = yield* Effect.forkScoped(
+            Stream.runForEach(api.watchTake({ id: 't1' }), (each) =>
+              Effect.sync(() => void heard.push(each)),
+            ),
+          );
+          // Two seconds of 16 kHz 16-bit PCM, twice, the second sent twice.
+          const audio = new Uint8Array(64_000);
+          yield* api.addTakeAudio({ id: 't1', at: 0, audio });
+          yield* api.addTakeAudio({ id: 't1', at: 1, audio });
+          yield* api.addTakeAudio({ id: 't1', at: 1, audio });
+          yield* api.endTake({ id: 't1', count: 2 });
+          yield* Fiber.join(watching);
+          expect(heard.some(({ _tag }) => _tag === 'Downloading')).toBe(true);
+          expect(heard.at(-1)).toEqual({
+            _tag: 'Done',
+            text: 'heard 64000 samples',
+          });
+          expect(
+            yield* Effect.flip(
+              api.addTakeAudio({ id: 't1', at: 2, audio: new Uint8Array(3) }),
+            ),
+          ).toMatchObject({ _tag: 'TranscriptionFailed' });
+        }),
+      ),
+    ));
+
   it('switches Speech to Text on, streams how it stands, transcribes PCM and switches it off', () =>
     Effect.runPromise(
       Effect.scoped(
