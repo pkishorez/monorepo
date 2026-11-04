@@ -4,11 +4,11 @@ import {
   type SyncConfig,
 } from '@tanstack/db';
 import { Effect, Result, Schema } from 'effect';
-import type { EntityMeta } from '../../../core/index.js';
+import type { EntityMeta } from '../../../schema/entity/index.js';
 import {
   findOutdatedVersion,
   type AnyEntityESchema,
-} from '../../../eschema/index.js';
+} from '../../../schema/eschema/index.js';
 import type { AnyShape } from '../../shape/index.js';
 import type { Wire } from '../../store/contract/index.js';
 import { windowsOf, type WindowAt } from './windows.js';

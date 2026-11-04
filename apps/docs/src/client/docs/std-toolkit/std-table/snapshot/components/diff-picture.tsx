@@ -12,7 +12,7 @@ import {
  * start the same. Then, one at a time, a change is made to the next one:
  * the changed line slides in, lit, and a beat later the diff gives its
  * verdict under them. A new version is safe, an edited version is
- * breaking, a new index needs a backfill. Both cards keep room for five
+ * breaking, a new index needs a reindex. Both cards keep room for five
  * lines, so a change never makes them taller; on a phone they stack.
  */
 
@@ -20,7 +20,7 @@ type Change = {
   readonly lines: ReadonlyArray<string>;
   /** Which line is new or edited. */
   readonly changed?: number;
-  readonly impact?: 'safe' | 'breaking' | 'requires-backfill';
+  readonly impact?: 'safe' | 'breaking' | 'requires-reindex';
   readonly caption: string;
 };
 
@@ -61,9 +61,9 @@ const CHANGES: ReadonlyArray<Change> = [
       '  byTitle',
     ],
     changed: 4,
-    impact: 'requires-backfill',
+    impact: 'requires-reindex',
     caption:
-      'Add an index, byTitle. Rows saved before it have no key there, so it requires a backfill.',
+      'Add an index, byTitle. Rows saved before it have no key there, so it requires a reindex, which setup runs.',
   },
 ];
 const CAPTIONS = CHANGES.map((each) => each.caption);

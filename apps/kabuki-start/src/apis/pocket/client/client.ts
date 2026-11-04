@@ -1,7 +1,7 @@
 import { Context, Effect, Layer } from 'effect';
 import { RpcClient } from 'effect/rpc';
 import { client } from '@kestack/rpc-toolkit/rpc/http';
-import type { Entity } from '@kestack/std-toolkit/core';
+import type { Entity } from '@kestack/std-toolkit/schema';
 import { PocketRpcs } from '../contract/index.ts';
 import type { Entry, Wallet } from '../domain/index.ts';
 

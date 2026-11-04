@@ -4,7 +4,7 @@ import {
   makeDurableObjectSQLite,
   type DurableObjectSQLiteStorage,
 } from '@kestack/std-toolkit/db/sqlite/durable-object';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 import { Effect, Option, Schema, Stream } from 'effect';
 import type { StreamStore } from './stream-store.ts';
 
@@ -45,16 +45,18 @@ const define = () => {
     checkpoint: Box,
   }).build();
 
-  const table = StdTable.make('rpc_stream_store').primary('pk', 'sk').build();
-  const sockets = table
-    .entity(SocketRow)
-    .primary({ pk: ['clientId'] })
+  const table = StdTable.make('rpc_stream_store')
+    .primary('pk', 'sk')
+    .entity(SocketRow, (e) => e.primary({ pk: ['clientId'] }))
+    .entity(StreamRow, (e) => e.primary({ pk: ['clientId'] }))
     .build();
-  const streams = table
-    .entity(StreamRow)
-    .primary({ pk: ['clientId'] })
-    .build();
-  return { SocketRow, StreamRow, table, sockets, streams };
+  return {
+    SocketRow,
+    StreamRow,
+    table,
+    sockets: table.RpcSocket,
+    streams: table.RpcStream,
+  };
 };
 let schema: ReturnType<typeof define> | undefined;
 

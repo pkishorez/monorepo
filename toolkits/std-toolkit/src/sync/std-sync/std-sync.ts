@@ -4,7 +4,7 @@ import {
   type NonSingleResult,
 } from '@tanstack/react-db';
 import { Duration, Effect, Exit, Scope, Stream } from 'effect';
-import type { AnyEntityESchema } from '../../eschema/index.js';
+import type { AnyEntityESchema } from '../../schema/eschema/index.js';
 import { buildCollection, type CollectionConfig } from '../collection/index.js';
 import type {
   CollectionItem,

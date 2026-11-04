@@ -1,0 +1,66 @@
+# db/dynamodb — Ubiquitous Language
+
+The DynamoDB adapter. Inherits the single-table topology — **partition key**, **sort key**, **item collection**, `IndexDefinition`, **StdTable**, **entity surface** — from [[db]]. This glossary defines only the DynamoDB-specific vocabulary. See the root `CONTEXT-MAP.md`.
+
+## Language
+
+**DynamoDB client**:
+The table-independent, type-safe request interface to the complete DynamoDB API. It knows how to reach DynamoDB but has no **StdTable**, adapter table, **entity surface**, or ESchema semantics.
+_Avoid_: Table client.
+
+**DynamoDB adapter table**:
+The result of `DynamoDB.make` (`DynamoDBTable`): a StdTable layer and physical table name. The physical name never defaults from the StdTable's logical name.
+_Avoid_: Configured DynamoDB Table (retired term), binding, Table client.
+
+**DynamoDB table definition**:
+The pure AWS `CreateTableInput` topology derived from a shared [[db]] **StdTable**, excluding client configuration and the physical table name. Infrastructure code can obtain it without a configured **DynamoDB adapter table**.
+_Avoid_: Setup result, bound table definition.
+
+**DynamoDB item**:
+The adapter's **native item**: the physical representation of a **stored item**. The configured primary and secondary key attributes, `_e`, `_u`, `_d`, `_v`, and `data` are top-level DynamoDB attributes; `data` contains the encoded value. Secondary attributes retain the exact names declared by `IndexDefinition`.
+
+**DynamoDB item schema**:
+The adapter's **item schema**: one table-parameterized two-way Effect Schema between a **stored item** and a **DynamoDB item** (`itemSchema(table): Schema<NativeItem, StoredItem>`). Writes run the decode direction, reads the encode direction, and malformed items fail as parse errors. It performs no I/O.
+_Avoid_: item codec, encodeItem/decodeItem pairs.
+
+**DynamoDB setup**:
+`DynamoDB.setup`, this adapter's [[db]] **Adapter setup**. It creates a missing table with its full topology, then runs the shared setup against the **Stored contract** kept as reserved rows inside the table, read with strongly consistent reads. Its topology step adds each new global secondary index in place (`UpdateTable`, one at a time) and waits until it is ACTIVE before the reindex, failing at once with `GlobalIndexNotReady` if the index is missing or in a state other than CREATING or ACTIVE, and after 30 minutes (`indexWait`) if it is still creating; it refuses every other index change in either **Table mode** (removing or changing a global secondary index, any local secondary index change, a primary key change), since DynamoDB makes those only by replacing the table. A wipe deletes every row, so a disposable table can be wiped. `DynamoDB.table` in `@kestack/std-toolkit/deploy` runs it at deploy, inside its own resource, with no deploy guard, and the Worker binds that resource's `tableName`, which keeps its deployment behind setup; that resource also refuses a new physical name, and removing it leaves the table and its data. The way past a refusal is a new `DynamoDB.table` resource with its own id and table name.
+_Avoid_: Deploy guard (for this adapter), enforcement baseline.
+
+**Create-if-missing setup**:
+`DynamoDB.createTable`, an adapter-native operation for DynamoDB Local and tests: `CreateTable` from the declared topology when the table is missing, then a wait until it is active. An existing table is left as it is, and no Stored contract is read or written.
+_Avoid_: Create-only setup.
+
+**Primary index**:
+The main table index, defined by its **partition key** and **sort key**. Secondary indexes use the shared [[db]] **LSI** / **GSI** vocabulary.
+
+**DynamoDB read consistency**:
+Primary-index and LSI reads can be strongly consistent; GSI reads are always eventually consistent. This is a DynamoDB adapter constraint, not a guarantee of the shared [[db]] **StdTable surface**.
+
+**IndexDerivation**:
+The rules mapping an entity's fields onto **partition key** + **sort key** values for a given index.
+_Avoid_: key mapping, key builder.
+
+**Expression** (`exprCondition` / `exprFilter`):
+The adapter's internal builders for DynamoDB expressions — a **condition** (predicate for conditional writes) and a **filter** (post-query predicate on results). `buildExpr` / `keyConditionExpr` compile them to DynamoDB expression strings and attribute maps. They are not exported; there are no expression updates.
+_Avoid_: query builder (these are expression builders).
+
+**ValidPaths**:
+Type-safe dot/bracket paths into an entity (e.g. `user.email`, `tags[0]`) used by expressions.
+
+**marshall** / **unmarshall**:
+Conversion between JS values and DynamoDB `AttributeValue` format.
+_Avoid_: serialize/deserialize (reserve those for eschema encode/decode).
+
+**DynamoDBNativeError**:
+The error for creating or deleting the physical table (`DynamoDB.setup`, `createTable`, `deleteTable`). It names the operation (`setup` or `teardown`) and retains the original client failure in `cause`. Portable operations fail with [[db]] `DatabaseError`.
+
+## Composition
+
+The dependency direction is `door → table/setup → client + domain (attribute-value, expression, item-schema)`; `domain/` is pure. Portable operations depend only on the shared **StdTable contract**.
+
+`DynamoDB.make(stdTable, config)` owns client construction and exposes the adapter table's layer. Callers supply an adapter config, not a constructed client. Config never mutates a StdTable; StdTable requirements use the logical name at the Effect boundary.
+
+## TODO
+
+- Encode binary `AttributeValue` inputs (`B` and `BS`) supplied as `Uint8Array` into Base64 strings before serializing DynamoDB JSON requests.

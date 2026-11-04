@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import type { Entity } from '@kestack/std-toolkit/core';
+import type { Entity } from '@kestack/std-toolkit/schema';
 import { type DatabaseError } from '@kestack/std-toolkit/db';
 import { Invalid, NotFound, Overdraft, PAGE } from '../contract/index.ts';
 import { Entry, transferEntryIds, Wallet } from '../domain/index.ts';

@@ -1,12 +1,12 @@
 import type { CollectionConfig, VirtualRowProps } from '@tanstack/react-db';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { Equal, Schema } from 'effect';
-import type { EntityMetaSchema } from '../../../core/index.js';
+import type { EntityMetaSchema } from '../../../schema/entity/index.js';
 import type {
   AnyESchema,
   AnyEntityESchema,
   ESchemaIdField,
-} from '../../../eschema/index.js';
+} from '../../../schema/eschema/index.js';
 
 /**
  * TanStack DB row form of an entity: value fields hoisted to the top level with

@@ -1,8 +1,8 @@
 import { Effect, Schema } from 'effect';
 import { Proof } from 'laymos/story';
 import { StdTable } from '@kestack/std-toolkit/db';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
-import { TableSnapshot } from '@kestack/std-toolkit/snapshot';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
+import { TableSnapshot } from '@kestack/std-toolkit/schema/snapshot';
 
 const Task = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,
@@ -10,16 +10,14 @@ const Task = EntityESchema.make('Task', 'taskId', {
   title: Schema.String,
 }).build();
 
-const shipped = StdTable.make('board').primary('pk', 'sk').build();
-shipped
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const shipped = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 // Tasks now partitioned by owner: every stored row sits under a key this table never looks up.
-const rekeyed = StdTable.make('board').primary('pk', 'sk').build();
-rekeyed
-  .entity(Task)
-  .primary({ pk: ['ownerId'] })
+const rekeyed = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['ownerId'] }))
   .build();
 
 export default Proof.make({

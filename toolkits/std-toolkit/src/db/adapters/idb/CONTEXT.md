@@ -1,0 +1,45 @@
+# db/idb — Ubiquitous Language
+
+The in-browser IndexedDB adapter. Mirrors the single-table topology defined in [[db]] — **partition key**, **sort key**, **item collection**, `IndexDefinition`, **StdTable**, **entity surface** — over an IndexedDB object store. It is the browser sibling of [[sqlite]]: a sync-compatible local store, not a DynamoDB emulator. This glossary defines only where IndexedDB diverges from the shared kernel. See the root `CONTEXT-MAP.md`.
+
+## Language
+
+**IDB adapter table**:
+The result of `IDB.make` (`IDBTable`): the IndexedDB implementation of the shared [[db]] **StdTable contract**. Its optional physical **Store** name defaults to the StdTable's logical name; the **partition key** and **sort key** together form the Store's composite key path.
+_Avoid_: IndexedDB Table runtime (retired term), Table binding.
+
+**Record**:
+The adapter's **native item**: the physical representation of a **stored item** as a structured-clone object. It has `pk`, `sk`, `_e`, `_u`, `_d`, `_v`, and `data` at the top level. Secondary key properties use the attribute names declared by `IndexDefinition` without adapter-specific renaming.
+_Avoid_: row, document.
+
+**IndexedDB item schema**:
+The adapter's **item schema**: one table-parameterized two-way Effect Schema between a **stored item** and an IndexedDB **Record** (`itemSchema(table): Schema<NativeItem, StoredItem>`). Writes run the decode direction, reads the encode direction, and malformed Records fail as parse errors. It performs no I/O.
+_Avoid_: item codec, encodeItem/decodeItem pairs.
+
+**Store**:
+The real IndexedDB object store selected by `IDB.make(...)` for one StdTable. One database can hold multiple stores; the database is app-scoped and each store is table-scoped.
+_Avoid_: logical name, alias, collection.
+
+**Sparse index**:
+A secondary index that simply skips **Records** missing its key fields — IndexedDB's native index behavior, matching DynamoDB's sparse-GSI semantics.
+
+**IndexedDB read consistency**:
+Primary, LSI, and GSI access patterns observe the latest committed IndexedDB state available to the transaction.
+
+**Auto-versioned setup**:
+The setup discipline where the adapter owns the database's version number, bumping it when a declared **Store** or **Sparse index** is missing, incompatible or no longer declared, and for every change to a Store's **Stored contract**, so every other tab's connection sees the change before any row is reindexed. An index changes only inside the upgrade of a new version, whose transaction closes as soon as it waits on anything else, so the shared [[db]] **Adapter setup** runs on ordinary transactions and its topology step closes the connection and opens the next version to create or delete indexes; the reindex runs after it. A missing Store holds nothing, so it is created whole before setup reads its **Stored contract** from it. Setups of one database run one at a time across tabs under a Web Lock when the browser has one. A database name given to this adapter belongs to it; no other code may version that database. A `_std_contract` store an older version of the toolkit left is ignored.
+_Avoid_: migration, manual upgrade.
+
+**Outdated**:
+What an **IDB adapter table** fails every operation with once its code is older than the database: another tab changed the version and the Store's **Stored contract** is no longer the one this layer set up, or setup found a persistent Store set up by newer code (a disposable one is wiped instead). After any version change from another connection, the layer's next operation rereads the contract under the setup lock; if it still matches, the layer carries on, so a tab adding another Store stops nothing. Once Outdated, the layer never reopens: the page must reload.
+_Avoid_: stale tab, blocked.
+
+**Buffered transaction**:
+The atomicity model for `transact()`: operations are validated into plain descriptors first, then applied together in one native IndexedDB transaction. There is no interactive begin/commit — IndexedDB transactions cannot span foreign async work.
+_Avoid_: begin/commit/rollback, session.
+
+**Optimistic update**:
+The concurrency stance for read-modify-write: the write re-checks the **Record**'s `_u` inside the **Buffered transaction** and fails if another writer (e.g. a second browser tab) got there first. The caller retries.
+_Avoid_: locking, last-write-wins.
+
+IndexedDB failures are normalized into the shared [[db]] `DatabaseError` as an `OperationFailed` reason whose `cause` retains the browser error, or the **Outdated** error.

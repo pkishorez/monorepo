@@ -1,0 +1,47 @@
+import { Effect } from 'effect';
+import type { TableDefinition } from '../../../table/model/definition/index.js';
+import type { StdTableContract } from '../../../table/model/contract/index.js';
+import type { DynamoDBClient } from '../client/index.js';
+import { itemSchema } from '../item-schema/index.js';
+import {
+  hardDeleteAllItems,
+  hardDeleteEntityItems,
+  hardDeleteItem,
+} from './delete.js';
+import { contractFailure } from './failure.js';
+import { queryItems } from './query.js';
+import { getItem } from './read.js';
+import { scanItems } from './scan.js';
+import { transactWriteItems, writeItem } from './write.js';
+
+export const makeTableContract = (
+  client: DynamoDBClient,
+  table: Pick<
+    TableDefinition,
+    'primary' | 'localSecondaryIndexes' | 'globalSecondaryIndexes'
+  >,
+  tableName: string,
+): StdTableContract => {
+  const schema = itemSchema(table);
+  return {
+    getItem: (key, options) =>
+      getItem(client, table, tableName, schema, key, options),
+    queryItems: (request) =>
+      queryItems(client, table, tableName, schema, request),
+    scanItems: (request) =>
+      scanItems(client, table, tableName, schema, request),
+    writeItem: (request) =>
+      writeItem(client, table, tableName, schema, request),
+    transactWriteItems: (requests) =>
+      transactWriteItems(client, table, tableName, schema, requests),
+    hardDeleteItem: (key) => hardDeleteItem(client, table, tableName, key),
+    hardDeleteEntityItems: (entity) =>
+      hardDeleteEntityItems(client, table, tableName, entity),
+    hardDeleteAllItems: () => hardDeleteAllItems(client, table, tableName),
+    estimateItemCount: () =>
+      client.describeTable({ TableName: tableName }).pipe(
+        Effect.map((output) => output.Table?.ItemCount ?? 0),
+        Effect.mapError(contractFailure),
+      ),
+  };
+};

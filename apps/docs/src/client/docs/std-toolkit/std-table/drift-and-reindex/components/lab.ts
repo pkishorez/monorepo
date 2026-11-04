@@ -32,7 +32,7 @@ export const driftAndReindex = lab({
           priority: 'high',
         }),
     },
-    { label: 'Reindex', run: () => reindexAll },
+    { label: 'Reindex, as setup does', run: () => reindexAll },
   ],
   read: {
     label: "what byPriority finds for 'high'",

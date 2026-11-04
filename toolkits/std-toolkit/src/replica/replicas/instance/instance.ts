@@ -2,8 +2,8 @@ import type { Collection } from '@tanstack/db';
 import { Actor } from '@kestack/kabuki';
 import type { ActorType } from '@kestack/kabuki/core/actor';
 import { Clock, Context, Duration, Effect, Semaphore, Stream } from 'effect';
-import type { Entity } from '../../../core/index.js';
-import type { AnyEntityESchema } from '../../../eschema/index.js';
+import type { Entity } from '../../../schema/entity/index.js';
+import type { AnyEntityESchema } from '../../../schema/eschema/index.js';
 import {
   nameOf,
   type AnyShape,

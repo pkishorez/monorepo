@@ -2,12 +2,12 @@ import { Effect, Exit, Schema, Stream } from 'effect';
 import { StdTable } from '@kestack/std-toolkit/db';
 import { Memory } from '@kestack/std-toolkit/db/memory';
 import type { MemoryTable } from '@kestack/std-toolkit/db/memory';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 
 /*
  * The hero's data: a task, as three releases of an app shape it. Release 1
  * has a title; release 2 adds a priority; release 3 adds done. Each release
- * binds its Task to its own definition of the same table, 'board', and
+ * declares its Task on its own definition of the same table, 'board', and
  * all three run against one table in memory, so each reads what the
  * others saved: older rows upgraded, newer ones refused as too new.
  */
@@ -29,22 +29,19 @@ const V3 = EntityESchema.make('Task', 'taskId', fields)
   .evolve('v3', { done: Schema.Boolean }, (v2) => ({ ...v2, done: false }))
   .build();
 
-const tableOf = () => StdTable.make('board').primary('pk', 'sk').build();
-const table = tableOf();
-const tasks = [
-  tableOf()
-    .entity(V1)
-    .primary({ pk: ['boardId'] })
-    .build(),
-  tableOf()
-    .entity(V2)
-    .primary({ pk: ['boardId'] })
-    .build(),
-  table
-    .entity(V3)
-    .primary({ pk: ['boardId'] })
-    .build(),
-] as const;
+const board1 = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(V1, (e) => e.primary({ pk: ['boardId'] }))
+  .build();
+const board2 = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(V2, (e) => e.primary({ pk: ['boardId'] }))
+  .build();
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(V3, (e) => e.primary({ pk: ['boardId'] }))
+  .build();
+const tasks = [board1.Task, board2.Task, table.Task] as const;
 
 export type Release = 1 | 2 | 3;
 

@@ -1,7 +1,7 @@
 import { Console, Effect, Layer, Schema } from 'effect';
 import { StdTable } from '@kestack/std-toolkit/db';
 import { Memory } from '@kestack/std-toolkit/db/memory';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 
 // Task at v2: it has a priority.
 const Task = EntityESchema.make('Task', 'taskId', {
@@ -14,20 +14,23 @@ const Task = EntityESchema.make('Task', 'taskId', {
   }))
   .build();
 
-// The table declares two index slots: an LSI and a GSI.
+// The table declares two index slots, an LSI and a GSI, then Task names
+// what each slot means for it.
 const table = StdTable.make('board')
   .primary('pk', 'sk')
   .lsi('LSI1', 'LSI1SK')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+  .entity(Task, (e) =>
+    e
+      .primary({ pk: ['boardId'] })
+      .index('LSI1', 'byTitle', { sk: ['title'] })
+      .index('GSI1', 'byPriority', {
+        pk: ['priority'],
+        sk: ['boardId', 'title'],
+      }),
+  )
   .build();
-
-// Task names what each slot means for it.
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
-  .index('LSI1', 'byTitle', { sk: ['title'] })
-  .index('GSI1', 'byPriority', { pk: ['priority'], sk: ['boardId', 'title'] })
-  .build();
+const task = table.Task;
 
 // The titles, in the order the query gave them, then the tasks themselves.
 const found = (page: {

@@ -5,8 +5,11 @@ import { Deferred, Effect, Layer, Schema, SubscriptionRef } from 'effect';
 import type { Duration } from 'effect';
 import type { Scope } from 'effect';
 import { expect, vi } from 'vitest';
-import type { Entity } from '../../core/index.js';
-import { EntityESchema, type AnyEntityESchema } from '../../eschema/index.js';
+import type { Entity } from '../../schema/entity/index.js';
+import {
+  EntityESchema,
+  type AnyEntityESchema,
+} from '../../schema/eschema/index.js';
 import { Action, oldToNew, Query, Replica, Replicas, Store } from '../index.js';
 
 /*

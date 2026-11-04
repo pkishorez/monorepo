@@ -1,6 +1,6 @@
 import { parseLoadSubsetOptions, type LoadSubsetOptions } from '@tanstack/db';
 import type { KeyPathValue, TotalKeyPath } from '../../../db/index.js';
-import type { AnyEntityESchema } from '../../../eschema/index.js';
+import type { AnyEntityESchema } from '../../../schema/eschema/index.js';
 import type { WindowValue } from './model.js';
 import type { Strategy } from './strategy/index.js';
 

@@ -1,5 +1,5 @@
 import { Console, Effect, Fiber, Layer, Stream } from 'effect';
-import { defaultBroadcaster } from '@kestack/std-toolkit/core';
+import { defaultBroadcaster } from '@kestack/std-toolkit/db';
 import { Memory } from '@kestack/std-toolkit/db/memory';
 import { table, task } from '../../board/board.ts';
 

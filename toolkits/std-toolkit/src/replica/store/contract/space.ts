@@ -1,5 +1,5 @@
 import { Effect, type Layer } from 'effect';
-import type { Entity } from '../../../core/index.js';
+import type { Entity } from '../../../schema/entity/index.js';
 import { DatabaseError, type StdTableService } from '../../../db/index.js';
 import {
   COLLECTION_ROW,

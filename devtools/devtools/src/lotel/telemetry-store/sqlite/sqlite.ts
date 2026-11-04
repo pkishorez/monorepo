@@ -5,7 +5,7 @@ import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import type { TelemetryStoreShape } from '../telemetry-store.js';
 import { TelemetryStoreError } from '../telemetry-store.js';
 import { makeSqliteEntities } from './entities.js';
-import type { Entity } from '@kestack/std-toolkit/core';
+import type { Entity } from '@kestack/std-toolkit/schema';
 import type { SpanRecord, UpdateCursor } from '../../telemetry-schema/index.js';
 
 /** Spans read per page while walking the timeline for recent Traces. */

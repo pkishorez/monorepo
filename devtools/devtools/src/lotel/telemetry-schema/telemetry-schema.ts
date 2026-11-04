@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { EntityESchema, ESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema, ESchema } from '@kestack/std-toolkit/schema';
 import type {
   ExportLogsServiceRequest,
   ExportTraceServiceRequest,

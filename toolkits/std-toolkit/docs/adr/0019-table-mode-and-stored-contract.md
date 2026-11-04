@@ -1,3 +1,5 @@
+Status: amended by [ADR 0021](0021-the-stored-contract-is-rows-inside-the-table.md): the Stored contract is rows inside the table on every adapter, DynamoDB included, and `_std_contract` is gone.
+
 # Every physical table has a mode, and setup checks a contract stored with the data
 
 Every physical table is declared `persistent` or `disposable`, and adapter setup compares the table's contract with the **Stored contract** kept beside the data before it changes anything. This supersedes ADR 0012's "nothing is stored inside the table" and "setup never checks a snapshot", and ADR 0018's `acceptBreaking`.

@@ -33,7 +33,7 @@ const TABLE = [
   },
   {
     title: 'Evolving schema',
-    path: '@kestack/std-toolkit/eschema',
+    path: '@kestack/std-toolkit/schema',
     groups: [
       {
         title: 'Why',
@@ -189,7 +189,7 @@ const TABLE = [
             slug: 'drift-and-reindex',
             title: 'Drift and reindex',
             summary:
-              'A new index, the old rows missing from it, and how they get in.',
+              'A new index, the old rows missing from it, and how setup brings them in.',
           },
         ],
       },

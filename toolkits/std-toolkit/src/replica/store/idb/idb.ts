@@ -1,5 +1,5 @@
 import { Effect, Stream } from 'effect';
-import { IDB } from '../../../db/idb/index.js';
+import { IDB } from '../../../db/adapters/idb/index.js';
 import {
   makeStore,
   spaceTable,

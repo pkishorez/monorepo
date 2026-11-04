@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { EntityESchema } from '../../../../eschema/index.js';
+import { EntityESchema } from '../../../../schema/eschema/index.js';
 import { changedFields, makeCollectionItemSchema } from '../index.js';
 
 const schema = EntityESchema.make('Todo', 'id', {

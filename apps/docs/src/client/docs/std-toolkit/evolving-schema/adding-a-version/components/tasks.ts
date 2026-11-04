@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { ESchema } from '@kestack/std-toolkit/eschema';
+import { ESchema } from '@kestack/std-toolkit/schema';
 
 // Release 1 of the app: a task has a title.
 export const TaskV1 = ESchema.make('Task', {

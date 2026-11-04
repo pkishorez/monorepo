@@ -33,23 +33,27 @@ layer.
 
 `make` never touches the physical table. For DynamoDB Local and tests,
 `DynamoDB.createTable` makes the table if it's missing and waits until it's
-ready. `DynamoDB.deleteTable` removes it.
+ready, with no contract. `DynamoDB.deleteTable` removes it.
 
 ## In production
 
 Your deployed table comes from `DynamoDB.table` in
-`@kestack/std-toolkit/alchemy`, which creates it and every index. See
-[Deploying](/std-toolkit/deploying).
+`@kestack/std-toolkit/deploy`, which creates it and runs its setup at
+deploy. See [Deploying](/std-toolkit/deploying).
 
-DynamoDB keeps no **Stored contract** of its own, so the check that runs at
-deploy is the only one. And nothing ever replaces or wipes a DynamoDB
-table, in either mode:
+Like every adapter, DynamoDB keeps its **Stored contract** as reserved
+rows inside the table, and setup checks it. A disposable table may have
+its rows wiped, but nothing ever replaces a DynamoDB table, in either
+mode:
 
-- Adding a global secondary index is fine.
-- Any other index change, or a breaking change to a stored shape, fails the
-  deploy.
+- Adding a global secondary index is fine. Setup adds it in place, waits
+  for it, then reindexes the rows it touches.
+- Any other index change fails the deploy, in either mode, since DynamoDB
+  could only make it by replacing the table.
+- A breaking change to a stored shape fails it on a persistent table.
 
-The way past a change like that is a new table, under a new name.
+The way past a change like that is a new table, under a new name, and a
+[table migration](/std-toolkit/table-mode) into it.
 
 ## What to expect
 

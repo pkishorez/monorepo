@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 import { JsonSchema } from '../raw/index.js';
 import { QuestionAnswerSchema } from '../wire/index.js';
 

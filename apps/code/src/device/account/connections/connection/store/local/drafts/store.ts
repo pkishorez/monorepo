@@ -6,7 +6,7 @@ import {
 } from '@kestack/std-toolkit/db';
 import { IDB } from '@kestack/std-toolkit/db/idb';
 import { Memory } from '@kestack/std-toolkit/db/memory';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 import { connection } from '../../../../store.ts';
 import {
   type Gone,
@@ -53,9 +53,12 @@ const TABLE = 'drafts';
 
 const CONFIRM = 'I KNOW WHAT I AM DOING';
 
-const table = StdTable.make(TABLE).primary('pk', 'sk').build();
+const table = StdTable.make(TABLE)
+  .primary('pk', 'sk')
+  .entity(DraftSchema, (e) => e.primary())
+  .build();
 
-const rows = table.entity(DraftSchema).primary().build();
+const rows = table.SavedDraft;
 
 /** A row's id in its Connection's table: its Session's, or its Project's. */
 const placeOf = ({ projectId, sessionId }: Place) =>

@@ -20,21 +20,21 @@ TypeScript only knows today's code. It doesn't know what you shipped.
 ## A snapshot remembers what you shipped
 
 A **table snapshot** is that missing memory. It's plain JSON describing
-your table: its keys and indexes, the entities bound to it, and every
+your table: its keys and indexes, the entities declared on it, and every
 version of every shape they use.
 
 Compare the snapshot you shipped with the one you're about to ship, and
 every difference gets a verdict. They're the four you met on [Table
-mode](/std-toolkit/table-mode): safe, requires-backfill, breaking and
+mode](/std-toolkit/table-mode): safe, requires-reindex, breaking and
 unverifiable.
 
-<Picture caption="A new version is safe. An edited version is breaking. A new index needs a backfill. Only the line that changed moves.">
+<Picture caption="A new version is safe. An edited version is breaking. A new index needs a reindex. Only the line that changed moves.">
   <DiffPicture />
 </Picture>
 
 ## capture and diff
 
-`TableSnapshot` comes from `@kestack/std-toolkit/snapshot`. Three calls do
+`TableSnapshot` comes from `@kestack/std-toolkit/schema/snapshot`. Three calls do
 the work:
 
 ```ts
@@ -42,7 +42,7 @@ const changes = TableSnapshot.diff(shipped, TableSnapshot.capture(table));
 console.log(TableSnapshot.renderChanges(changes));
 ```
 
-`capture` reads a table and every entity bound to it into a snapshot.
+`capture` reads a table and every entity declared on it into a snapshot.
 `diff` compares two snapshots and returns one change per difference, each
 with its verdict in `impact`. `renderChanges` writes them out for a
 person.
@@ -53,7 +53,7 @@ One table you shipped, and three ways the next release could change it.
 Open the first line to see what a snapshot holds. Then open each change
 to see what the diff found and why.
 
-<Run program={program} caption="Adding v2 is safe. Writing priority into v1 is breaking: v1 changed after rows were saved under it. A new index needs a backfill.">
+<Run program={program} caption="Adding v2 is safe. Writing priority into v1 is breaking: v1 changed after rows were saved under it. A new index needs a reindex.">
 
 ```ts file=./run/changes.ts
 
@@ -64,10 +64,11 @@ to see what the diff found and why.
 ## The test that ships with your table
 
 You don't call `diff` by hand. You keep the shipped snapshot as a file in
-your repo, and one test compares against it:
+your repo, and one test compares against it. `expectTableShippable` comes
+from `@kestack/std-toolkit/db/testing`, and needs `vitest`:
 
 ```ts
-import { expectTableShippable } from '@kestack/std-toolkit/snapshot/vitest';
+import { expectTableShippable } from '@kestack/std-toolkit/db/testing';
 import { it } from 'vitest';
 import { table } from '../src/table.js';
 
@@ -76,14 +77,19 @@ it('keeps the table safe to ship', async () => {
 });
 ```
 
-It fails, listing every reason, when a change is breaking against the
-file, when a stored version no longer upgrades to the latest, when a
-migration would move a row to another key, or when the file is out of
-date.
+It takes the table, the path of the snapshot file, and optionally how many
+rows to generate for the upgrade check. It fails, listing every reason,
+when a change is breaking against the file, when a stored version no
+longer upgrades to the latest, when a migration would change a row's id
+or partition key, or when the file is out of date.
 
-`vitest -u` writes the new snapshot, but only for a change that keeps
-stored rows readable. Nothing accepts a breaking change. Undo the edit
-and add a version, or move the data to a new table name.
+`vitest -u` writes the new snapshot, but only for a change that is safe
+or needs a reindex, which setup runs itself. Nothing accepts a breaking
+change. Undo the edit and add a version, or move the data to a new table
+with a [table migration](/std-toolkit/table-mode).
+
+You only need this test for a persistent table. A table kept only in
+disposable storage may change freely, so it needs none.
 
 A test can be skipped, so it isn't the only check. Setup compares against
 the Stored contract, and a deploy compares against what you last

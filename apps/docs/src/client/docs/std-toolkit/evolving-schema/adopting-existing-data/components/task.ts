@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 
 // The shape your rows already have, written down as v1. Nothing else.
 const v1 = { boardId: Schema.String, title: Schema.String };

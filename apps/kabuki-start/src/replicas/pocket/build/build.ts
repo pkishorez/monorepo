@@ -1,5 +1,5 @@
 import { Effect, Schema, Stream } from 'effect';
-import type { Entity } from '@kestack/std-toolkit/core';
+import type { Entity } from '@kestack/std-toolkit/schema';
 import { oldToNew, Replica } from '@kestack/std-toolkit/replica';
 import { CurrentAccount } from '@kestack/web-platform/recipes/account-switcher';
 import { Entry, PocketRpc, Wallet } from '../../../apis/pocket/index.ts';

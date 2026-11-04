@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
-import type { AnyEntityESchema } from '../../eschema/index.js';
-import { findOutdatedVersion } from '../../eschema/index.js';
+import type { AnyEntityESchema } from '../../schema/eschema/index.js';
+import { findOutdatedVersion } from '../../schema/eschema/index.js';
 import { storedSyncStateEntity } from '../domain/stored-entity/index.js';
 import { storageError, type WriteError } from '../domain/sync-error/index.js';
 import type { StoreRuntime } from '../store/store-runtime/index.js';

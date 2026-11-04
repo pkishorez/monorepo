@@ -6,7 +6,7 @@ import {
 } from '@kestack/std-toolkit/db';
 import { IDB } from '@kestack/std-toolkit/db/idb';
 import { Memory } from '@kestack/std-toolkit/db/memory';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 import { connection } from '../../../../store.ts';
 import { Seen } from './seen.ts';
 import {
@@ -46,9 +46,12 @@ const MarkSchema = EntityESchema.make('UnseenMark', 'sessionId', {
 const TABLE = 'seen';
 const CONFIRM = 'I KNOW WHAT I AM DOING';
 
-const table = StdTable.make(TABLE).primary('pk', 'sk').build();
+const table = StdTable.make(TABLE)
+  .primary('pk', 'sk')
+  .entity(MarkSchema, (e) => e.primary())
+  .build();
 
-const marks = table.entity(MarkSchema).primary().build();
+const marks = table.UnseenMark;
 
 const all = scan((options: QueryOptions<typeof MarkSchema.Type>) =>
   marks.query('primary', { pk: {}, '>=': null }, options),

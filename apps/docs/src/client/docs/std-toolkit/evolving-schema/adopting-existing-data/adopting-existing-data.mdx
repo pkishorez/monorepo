@@ -3,7 +3,7 @@ import { program } from './run/adopt.ts';
 Everything so far assumed your rows carry a version. But you rarely start
 with std-toolkit. More often you start with an app that already works, and
 a database full of rows saved with no `_v` at all. This page brings those
-rows along, with no backfill and nothing to rewrite.
+rows along, with nothing to rewrite.
 
 ## A row with no version
 
@@ -58,6 +58,21 @@ any Schema, optional keys included.
 
 The rule holds for values too. A bare value with no envelope reads as v1,
 so a theme saved as plain text keeps working once you version it.
+
+## Rows already in a table
+
+The no-version rule is about reading a value with an ESchema. A
+[StdTable](/std-toolkit/single-table-design) is stricter: it writes `_v`
+on every row it saves, and expects it on every row it reads.
+
+A persistent table can still hold rows but no
+[Stored contract](/std-toolkit/table-mode), say one set up before the
+contract existed. Its first setup adopts it, once. It reads every row, and
+each must be an entity the table declares and read under its ESchema. It
+writes each row's index keys as it goes, then records the contract. A row
+that doesn't fit stops setup with the reason `unadoptable`, naming the
+row, and nothing is recorded. A disposable table in that state is wiped
+instead.
 
 <Callout title="Remember">
   A row with no version reads as v1. Ship the shape you already have as v1

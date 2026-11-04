@@ -1,5 +1,5 @@
 import { Effect, Queue, Semaphore, Stream, type Cause } from 'effect';
-import { Memory } from '../../../db/memory/index.js';
+import { Memory } from '../../../db/adapters/memory/index.js';
 import {
   makeStore,
   spaceTable,

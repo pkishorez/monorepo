@@ -15,7 +15,7 @@ import {
 } from 'effect';
 import { Runtime } from '@kestack/kabuki';
 import { Stopped } from '@kestack/kabuki/core/runtime';
-import { nextUlid } from '@kestack/std-toolkit/core';
+import { nextUlid } from '@kestack/std-toolkit/schema';
 import {
   HarnessAccount,
   Harnesses,

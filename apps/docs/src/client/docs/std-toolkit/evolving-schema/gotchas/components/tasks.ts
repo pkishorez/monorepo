@@ -3,7 +3,7 @@ import { StdTable } from '@kestack/std-toolkit/db';
 import {
   EntityESchema,
   findOutdatedVersion,
-} from '@kestack/std-toolkit/eschema';
+} from '@kestack/std-toolkit/schema';
 
 const fields = { boardId: Schema.String, title: Schema.String };
 
@@ -18,18 +18,17 @@ export const Task = EntityESchema.make('Task', 'taskId', fields)
   }))
   .build();
 
-// Both work against the one 'board' table.
-export const table = StdTable.make('board').primary('pk', 'sk').build();
-export const oldRelease = table
-  .entity(TaskV1)
-  .primary({ pk: ['boardId'] })
+// Each release declares its Task on the one 'board' table.
+export const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(TaskV1, (e) => e.primary({ pk: ['boardId'] }))
   .build();
+export const oldRelease = table.Task;
 
-const newReleaseTable = StdTable.make('board').primary('pk', 'sk').build();
-export const newRelease = newReleaseTable
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
-  .build();
+export const newRelease = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
+  .build().Task;
 
 // The board, as the old release reads it: a row too new says so.
 export const oldBoard = oldRelease

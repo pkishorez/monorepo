@@ -6,7 +6,7 @@ import {
 } from '@kestack/std-toolkit/db';
 import { IDB } from '@kestack/std-toolkit/db/idb';
 import { Memory } from '@kestack/std-toolkit/db/memory';
-import { ESchema } from '@kestack/std-toolkit/eschema';
+import { ESchema } from '@kestack/std-toolkit/schema';
 import { account } from '../store/index.ts';
 import { broadcast, placed, RETRIES } from '../store/rows/index.ts';
 
@@ -102,23 +102,24 @@ export class ConnectionFilter extends Context.Service<
 
 const TABLE = 'sidebar';
 
-const table = StdTable.make(TABLE).primary('pk', 'sk').build();
-
 const ShownSchema = ESchema.make('SidebarConnection', {
   /** The Connection whose Projects the sidebar lists; null for every Connection. */
   connectionId: Schema.NullOr(Schema.String),
 }).build();
-
-const shown = table.singleEntity(ShownSchema).default({ connectionId: null });
 
 const CollapsedSchema = ESchema.make('SidebarCollapsed', {
   /** The Connections whose Projects the sidebar hides under their name. */
   connectionIds: Schema.Array(Schema.String),
 }).build();
 
-const collapsed = table
-  .singleEntity(CollapsedSchema)
-  .default({ connectionIds: [] });
+const table = StdTable.make(TABLE)
+  .primary('pk', 'sk')
+  .singleEntity(ShownSchema, { default: { connectionId: null } })
+  .singleEntity(CollapsedSchema, { default: { connectionIds: [] } })
+  .build();
+
+const shown = table.SidebarConnection;
+const collapsed = table.SidebarCollapsed;
 
 const make = (
   layerOf: (database: string) => Layer.Layer<StdTableService<typeof TABLE>>,

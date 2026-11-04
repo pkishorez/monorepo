@@ -1,5 +1,5 @@
 import { Effect, Schema, Stream } from 'effect';
-import type { Entity } from '@kestack/std-toolkit/core';
+import type { Entity } from '@kestack/std-toolkit/schema';
 import type { WireEntity } from '../api/contract/index.js';
 import { projectEngineRaw, Store } from '../engine/index.js';
 import {

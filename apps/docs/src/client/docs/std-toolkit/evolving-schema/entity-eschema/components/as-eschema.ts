@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { ESchema } from '@kestack/std-toolkit/eschema';
+import { ESchema } from '@kestack/std-toolkit/schema';
 
 // The task as you know it so far: a name, its fields, its versions.
 export const TaskShape = ESchema.make('Task', {

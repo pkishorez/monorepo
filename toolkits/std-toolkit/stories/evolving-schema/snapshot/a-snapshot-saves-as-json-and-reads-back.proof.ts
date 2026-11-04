@@ -1,8 +1,8 @@
 import { Effect, Schema } from 'effect';
 import { Proof } from 'laymos/story';
 import { StdTable } from '@kestack/std-toolkit/db';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
-import { TableSnapshot } from '@kestack/std-toolkit/snapshot';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
+import { TableSnapshot } from '@kestack/std-toolkit/schema/snapshot';
 
 const Task = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,
@@ -18,11 +18,11 @@ const Task = EntityESchema.make('Task', 'taskId', {
 const table = StdTable.make('board')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
-  .build();
-table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
-  .index('GSI1', 'byPriority', { pk: ['priority'], sk: ['title'] })
+  .entity(Task, (e) =>
+    e
+      .primary({ pk: ['boardId'] })
+      .index('GSI1', 'byPriority', { pk: ['priority'], sk: ['title'] }),
+  )
   .build();
 
 export default Proof.make({

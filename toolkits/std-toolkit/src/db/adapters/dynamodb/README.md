@@ -1,0 +1,59 @@
+# @kestack/std-toolkit/db/dynamodb
+
+DynamoDB adapter for StdTable, with create and delete helpers for DynamoDB Local.
+
+## Big picture
+
+DynamoDB is the reference topology every other adapter mirrors. `DynamoDB.make` realizes a StdTable on one physical table through `aws4fetch`, so no AWS SDK is required. Its layer supplies the StdTable operations and nothing else: there are no native reads, expression updates, or batch writes, so every write goes through `insert`, `update`, or `getAndUpdate` and application code never handles DynamoDB attribute values ([ADR 0015](../../../../docs/adr/0015-rich-values-encoded-storage-key-paths.md)). `make` returns only the layer and never touches the physical table. `DynamoDB.setup` prepares a real table under its mode: it creates the table if it is missing, checks the Stored contract kept as reserved rows inside it, adds a new global secondary index in place, reindexes the rows it touches, and refuses every other index change in either mode, since DynamoDB makes those only by replacing the table. Deployed tables come from `DynamoDB.table` in [`@kestack/std-toolkit/deploy`](../../../../README.md#kestackstd-toolkitdeploy), which runs that setup at deploy. For DynamoDB Local and tests, `DynamoDB.createTable` creates the table if it is missing, with no contract, and `DynamoDB.deleteTable` removes it. Divergences are in [CONTEXT.md](CONTEXT.md); shared vocabulary is in [db/CONTEXT.md](../../CONTEXT.md).
+
+## Install
+
+See the [top README](../../../../README.md).
+
+## Exports
+
+### `@kestack/std-toolkit/db/dynamodb`
+
+| Export                        | What it does                                                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `DynamoDB.make`               | Realizes a StdTable on a DynamoDB table; returns `tableName` and `layer`.                                     |
+| `DynamoDB.setup`              | Creates the table if missing, then sets it up under its mode against its Stored contract.                     |
+| `DynamoDB.createTable`        | Creates the physical table and its indexes if missing, then waits until it is active.                         |
+| `DynamoDB.deleteTable`        | Deletes the physical table.                                                                                   |
+| `DynamoDB.getTableDefinition` | Projects a StdTable's topology into a `CreateTable`-shaped definition without credentials.                    |
+| `DynamoDBNativeError`         | Tagged error wrapping a failed `createTable` or `deleteTable` with its operation and cause.                   |
+| `GlobalIndexNotReady`         | Error setup fails with when a new global secondary index is gone, deleting, or still creating after the wait. |
+
+## Usage
+
+### Create the table, run the program, delete the table
+
+Against DynamoDB Local, create the table first and delete it afterwards; in production `DynamoDB.table` in the Alchemy stack runs `DynamoDB.setup` at deploy.
+
+```ts
+import { Effect } from 'effect';
+import { StdTable } from '@kestack/std-toolkit/db';
+import { DynamoDB } from '@kestack/std-toolkit/db/dynamodb';
+
+const table = StdTable.make('board').primary('pk', 'sk').build();
+
+const config = {
+  tableName: 'board',
+  region: 'local',
+  endpoint: 'http://localhost:8090',
+  credentials: { accessKeyId: 'local', secretAccessKey: 'local' },
+};
+const dynamodb = DynamoDB.make(table, config);
+
+const program = Effect.gen(function* () {
+  yield* DynamoDB.createTable(table, config);
+  return yield* saveAndRead.pipe(
+    Effect.provide(dynamodb.layer),
+    Effect.ensuring(Effect.orDie(DynamoDB.deleteTable(config))),
+  );
+});
+```
+
+- `endpoint` is optional; omit it for a real region.
+- `credentials` accepts static keys or a provider; see `DynamoDBCredentialsInput`.
+- `pnpm dynamodb:local` starts DynamoDB Local on port 8090 for the test suite.

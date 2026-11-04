@@ -1,6 +1,5 @@
 import { Schema } from 'effect';
-import { EntityMetaSchema } from '@kestack/std-toolkit/core';
-import { ESchema } from '@kestack/std-toolkit/eschema';
+import { EntityMetaSchema, ESchema } from '@kestack/std-toolkit/schema';
 import { HARNESS_NAMES } from '@kestack/ai-toolkit/contract';
 
 /*

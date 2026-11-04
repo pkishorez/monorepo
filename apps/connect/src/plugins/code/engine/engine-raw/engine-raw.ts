@@ -1,5 +1,5 @@
 import { Clock, Effect, Option, Schema } from 'effect';
-import { nextUlid } from '@kestack/std-toolkit/core';
+import { nextUlid } from '@kestack/std-toolkit/schema';
 import type { RawOut } from '@kestack/ai-toolkit/harness';
 import {
   CutOffSchema,

@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { ESchema, ValueESchema } from '@kestack/std-toolkit/eschema';
+import { ESchema, ValueESchema } from '@kestack/std-toolkit/schema';
 
 // The theme from the last page: free text in v1, one of two words in v2.
 export const Theme = ValueESchema.make('Theme', Schema.String)

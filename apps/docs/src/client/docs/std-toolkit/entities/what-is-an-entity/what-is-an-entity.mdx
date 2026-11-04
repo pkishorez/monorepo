@@ -26,12 +26,13 @@ Here's how that looks in code:
 
 ```
 
-`table.entity(Task)` starts from the shape. `.primary({ pk: ['boardId'] })`
-gives the key: tasks on the same board sit together, and the id field,
-`taskId`, finishes it.
+`.entity(Task, ...)` declares the shape on the table.
+`e.primary({ pk: ['boardId'] })` gives the key: tasks on the same board
+sit together, and the id field, `taskId`, finishes it. The built table
+carries the entity under the shape's name, `table.Task`.
 
-The table line is new, and it's simple on purpose for now. The
-[StdTable](/std-toolkit/single-table-design) Part is all about it.
+The table lines are new, and they're simple on purpose for now. The
+[StdTable](/std-toolkit/single-table-design) Part is all about them.
 
 ## What you get back: value and meta
 

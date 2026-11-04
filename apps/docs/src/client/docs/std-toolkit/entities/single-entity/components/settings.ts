@@ -1,6 +1,7 @@
 import { Schema } from 'effect';
-import { ESchema } from '@kestack/std-toolkit/eschema';
-import { table } from '../../board/board.ts';
+import { StdTable } from '@kestack/std-toolkit/db';
+import { ESchema } from '@kestack/std-toolkit/schema';
+import { Task } from '../../board/board.ts';
 
 // Settings have no id, since there is only one: a plain ESchema.
 export const Settings = ESchema.make('Settings', {
@@ -8,9 +9,13 @@ export const Settings = ESchema.make('Settings', {
   weekStartsOn: Schema.Literals(['monday', 'sunday']),
 }).build();
 
-// Kept in the same table as the tasks, with the value it has until saved.
-export const settings = table
-  .singleEntity(Settings)
-  .default({ theme: 'light', weekStartsOn: 'monday' });
+// Declared in the same table as the tasks, with the value it has until saved.
+export const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
+  .singleEntity(Settings, {
+    default: { theme: 'light', weekStartsOn: 'monday' },
+  })
+  .build();
 
-export { table };
+export const settings = table.Settings;

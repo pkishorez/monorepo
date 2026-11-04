@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import type { Entity } from '../../core/index.js';
+import type { Entity } from '../../schema/entity/index.js';
 import type { StateEntitySchema } from './definition.js';
 
 /** A stretch of the Backend, from `low` to `high` by `_u`, read completely. */

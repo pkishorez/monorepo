@@ -1,5 +1,5 @@
 import { Console, Effect, Schema } from 'effect';
-import { findOutdatedVersion } from '@kestack/std-toolkit/eschema';
+import { findOutdatedVersion } from '@kestack/std-toolkit/schema';
 import { TaskV1 } from '../components/tasks.ts';
 
 // A row the new release wrote, read by code that only knows v1.

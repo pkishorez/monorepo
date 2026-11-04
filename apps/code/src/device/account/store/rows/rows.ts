@@ -1,5 +1,5 @@
 import { Effect, type Layer } from 'effect';
-import type { Entity } from '@kestack/std-toolkit/core';
+import type { Entity } from '@kestack/std-toolkit/schema';
 import type { QueryOptions, QueryPage } from '@kestack/std-toolkit/db';
 
 /*

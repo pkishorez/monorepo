@@ -1,7 +1,7 @@
 import { Console, Effect, Schema } from 'effect';
 import { StdTable } from '@kestack/std-toolkit/db';
 import { Memory } from '@kestack/std-toolkit/db/memory';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 
 const Task = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,
@@ -14,11 +14,11 @@ const Task = EntityESchema.make('Task', 'taskId', {
   .build();
 
 // The Backend: here, a table in memory.
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
+const task = table.Task;
 
 // The onInsert you give a Collection: it gets plain values, in today's
 // shape, and returns what the Backend saved.

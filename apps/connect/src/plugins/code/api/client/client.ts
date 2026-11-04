@@ -17,7 +17,7 @@ import {
   type ConnectionStatus,
   type SocketWatch,
 } from '@kestack/rpc-toolkit/rpc/websocket';
-import type { Entity } from '@kestack/std-toolkit/core';
+import type { Entity } from '@kestack/std-toolkit/schema';
 import { oldToNew, Replica, Replicas } from '@kestack/std-toolkit/replica';
 import { CodeApi, type WireEntity } from '../contract/index.js';
 import {

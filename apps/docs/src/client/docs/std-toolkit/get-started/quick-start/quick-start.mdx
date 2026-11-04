@@ -28,17 +28,17 @@ against it, and every read hands you a value typed by it.
 
 ## 2. Give it a table
 
-A task needs somewhere to live. You make a table, then bind `Task` to it
+A task needs somewhere to live. You make a table, declare `Task` on it,
 and say which field groups tasks together.
 
 ```ts file=./components/table.ts
 
 ```
 
-That binding, `task`, is an **entity**: a shape with a key and a place to
-live. Tasks on the same board sit together, so listing a board is one
-query. The [Entities](/std-toolkit/what-is-an-entity) Part explains every
-piece.
+The table carries `Task` as `table.Task`. That, `task`, is an **entity**:
+a shape with a key and a place to live. Tasks on the same board sit
+together, so listing a board is one query. The
+[Entities](/std-toolkit/what-is-an-entity) Part explains every piece.
 
 ## 3. Save and read
 
@@ -87,8 +87,8 @@ That's the heart of std-toolkit: old data reads in today's shape, and no
 script ever had to run.
 
 <Callout title="Remember">
-  A shape, a table, and the shape bound to the table. Change the shape by adding
-  a version, and every task already saved reads in the new one.
+  A shape, a table, and the shape declared on the table. Change the shape by
+  adding a version, and every task already saved reads in the new one.
 </Callout>
 
 Next, [Why schemas evolve](/std-toolkit/why-evolving-schema): the first

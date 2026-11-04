@@ -1,5 +1,5 @@
 import type { Schema, Stream } from 'effect';
-import { uTime, type Entity } from '../../core/index.js';
+import { uTime, type Entity } from '../../schema/entity/index.js';
 
 /**
  * The Collection's Entity codec. A state schema uses it for every Entity it

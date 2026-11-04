@@ -3,10 +3,10 @@ import type {
   LoadSubsetOptions,
 } from '@tanstack/react-db';
 import { Duration, Effect, Exit, Scope, Semaphore, Stream } from 'effect';
-import { findOutdatedVersion } from '../../eschema/index.js';
-import type { Entity } from '../../core/index.js';
+import { findOutdatedVersion } from '../../schema/eschema/index.js';
+import type { Entity } from '../../schema/entity/index.js';
 import type { KeyPathValue, TotalKeyPath } from '../../db/index.js';
-import type { AnyEntityESchema } from '../../eschema/index.js';
+import type { AnyEntityESchema } from '../../schema/eschema/index.js';
 import {
   makeCollectionItemSchema,
   type CollectionItem,

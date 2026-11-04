@@ -1,5 +1,5 @@
 import { Clock, Data, Effect } from 'effect';
-import { nextUlid } from '@kestack/std-toolkit/core';
+import { nextUlid } from '@kestack/std-toolkit/schema';
 import { HarnessAccount, Harnesses } from '@kestack/ai-toolkit/harness';
 import type { Raw } from '@kestack/ai-toolkit/contract';
 import type { Session } from '../../../records/index.js';

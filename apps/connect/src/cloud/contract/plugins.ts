@@ -1,5 +1,5 @@
 import { Option, Schema } from 'effect';
-import { ESchema } from '@kestack/std-toolkit/eschema';
+import { ESchema } from '@kestack/std-toolkit/schema';
 
 /*
  * How every side names one Release of a Plugin: by the Plugin's name and

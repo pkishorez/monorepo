@@ -3,10 +3,10 @@ import { Effect, Schema } from 'effect';
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Proof } from 'laymos/story';
-import type { Entity } from '@kestack/std-toolkit/core';
+import type { Entity } from '@kestack/std-toolkit/schema';
 import { StdTable } from '@kestack/std-toolkit/db';
 import { IDB } from '@kestack/std-toolkit/db/idb';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
 import {
   createStdSync,
   strategy,
@@ -59,11 +59,12 @@ export default Proof.browser({
   description:
     'Two Tabs on one Device: only Tab 1 reads the backend. When Tab 1 goes away, Tab 2 takes over, starts reading, and picks up a task someone else stored on the backend.',
   page: (root) => {
-    const table = StdTable.make('board').primary('pk', 'sk').build();
-    const tasks = table
-      .entity(Task)
-      .primary({ pk: ['boardId'] })
+    const table = StdTable.make('board')
+      .primary('pk', 'sk')
+      .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
       .build();
+
+    const tasks = table.Task;
     const backend = IDB.make(table, {
       mode: 'disposable',
       database: IDB.database({ databaseName: 'backend' }),

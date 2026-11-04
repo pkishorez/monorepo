@@ -8,8 +8,7 @@ export function generateDynamoDBTypes(outputPath?: string) {
 
     // Default output path
     const output =
-      outputPath ||
-      'src/db/dynamodb/clients/dynamodb-client/generated/types.ts';
+      outputPath || 'src/db/adapters/dynamodb/client/generated/types.ts';
 
     // Load manifest from GitHub (returns both manifest and raw JSON)
     const { manifest, rawJson } = yield* loadManifest();

@@ -1,5 +1,5 @@
 import { Effect, Layer } from 'effect';
-import { nextUlid } from '@kestack/std-toolkit/core';
+import { nextUlid } from '@kestack/std-toolkit/schema';
 import { HttpApi, HttpApiBuilder } from 'effect/http-api';
 import {
   logRecordsFromRequest,

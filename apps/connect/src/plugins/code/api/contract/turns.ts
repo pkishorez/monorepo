@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { ESchema, ValueESchema } from '@kestack/std-toolkit/eschema';
+import { ESchema, ValueESchema } from '@kestack/std-toolkit/schema';
 import { AttachmentSchema } from '@kestack/ai-toolkit/contract';
 import { SessionNotFound } from './errors.js';
 import { Batch, Cursor } from './wire.js';

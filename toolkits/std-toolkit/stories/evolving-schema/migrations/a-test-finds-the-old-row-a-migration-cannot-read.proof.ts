@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { Proof } from 'laymos/story';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
-import { expectUpgradable } from '@kestack/std-toolkit/eschema/testing';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
+import { expectUpgradable } from '@kestack/std-toolkit/schema/testing';
 
 // The same migration that forgot a legacy case: it only parses numbers.
 const Task = EntityESchema.make('Task', 'taskId', {

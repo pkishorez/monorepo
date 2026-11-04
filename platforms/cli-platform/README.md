@@ -6,7 +6,7 @@ What every kestack CLI needs on a computer: its folders, one shared copy of each
 
 A kestack CLI, such as `ke-connect`, runs on a user's computer for a long time. It needs the same few things whatever it does: folders that follow the platform's rules, downloads kept once for every CLI and checked against their hash, a guarantee that one name runs as one process, and a way to run separate programs, its Plugins, at the version it is told and start them again when they die. This package holds those parts and nothing about what a CLI is for: no sign-in, no cloud, no tunnels.
 
-A Plugin is one Node file named by its sha256. On the CLI's side, `ActorPlugin` is a [Kabuki](../../packages/kabuki/README.md) Actor that downloads it, runs it, swaps it when the wanted version changes, and reports its Plugin State upward through the `Plugins` Capability. On the Plugin's side, `Plugin.make` serves its RPC group on the socket the CLI gave it. The values they pass are [std-toolkit ESchemas](../../toolkits/std-toolkit/src/eschema/README.md), so a newer side reads an older one.
+A Plugin is one Node file named by its sha256. On the CLI's side, `ActorPlugin` is a [Kabuki](../../packages/kabuki/README.md) Actor that downloads it, runs it, swaps it when the wanted version changes, and reports its Plugin State upward through the `Plugins` Capability. On the Plugin's side, `Plugin.make` serves its RPC group on the socket the CLI gave it. The values they pass are [std-toolkit ESchemas](../../toolkits/std-toolkit/src/schema/README.md), so a newer side reads an older one.
 
 The words are in [CONTEXT.md](./CONTEXT.md), which also says how the folders are laid out.
 

@@ -3,18 +3,17 @@ import { Proof } from 'laymos/story';
 import { StdTable } from '@kestack/std-toolkit/db';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
-import { EntityESchema } from '@kestack/std-toolkit/eschema';
-import { TableSnapshot } from '@kestack/std-toolkit/snapshot';
+import { EntityESchema } from '@kestack/std-toolkit/schema';
+import { TableSnapshot } from '@kestack/std-toolkit/schema/snapshot';
 
 // Last release: a task has a title.
 const TaskV1 = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,
   title: Schema.String,
 }).build();
-const lastRelease = StdTable.make('board').primary('pk', 'sk').build();
-const oldTask = lastRelease
-  .entity(TaskV1)
-  .primary({ pk: ['boardId'] })
+const lastRelease = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(TaskV1, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 // This release: the same task, one version on, with a priority.
@@ -25,13 +24,15 @@ const Task = EntityESchema.make('Task', 'taskId', {
   .evolve(
     'v2',
     { priority: Schema.Literals(['low', 'normal', 'high']) },
-    (v1) => ({ ...v1, priority: 'normal' as const }),
+    (v1) => ({
+      ...v1,
+      priority: 'normal' as const,
+    }),
   )
   .build();
-const table = StdTable.make('board').primary('pk', 'sk').build();
-const task = table
-  .entity(Task)
-  .primary({ pk: ['boardId'] })
+const table = StdTable.make('board')
+  .primary('pk', 'sk')
+  .entity(Task, (e) => e.primary({ pk: ['boardId'] }))
   .build();
 
 export default Proof.make({
@@ -50,7 +51,7 @@ export default Proof.make({
         { boardId: 'work', taskId: 't1', title: 'Write the plan' },
         { boardId: 'work', taskId: 't2', title: 'Review it' },
       ],
-      (value) => oldTask.insert(value),
+      (value) => lastRelease.Task.insert(value),
     ).pipe(Effect.provide(lastReleaseDb.layer));
     const storedBefore = yield* Stream.runCollect(lastRelease.scan()).pipe(
       Effect.provide(lastReleaseDb.layer),
@@ -72,11 +73,11 @@ export default Proof.make({
         accepted,
         TableSnapshot.capture(table),
       );
-      const board = yield* task.query('primary', {
+      const board = yield* table.Task.query('primary', {
         pk: { boardId: 'work' },
         '>=': null,
       });
-      yield* task.getAndUpdate(
+      yield* table.Task.getAndUpdate(
         { boardId: 'work', taskId: 't1' },
         { priority: 'high' },
       );

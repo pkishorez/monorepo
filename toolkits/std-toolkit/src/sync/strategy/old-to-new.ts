@@ -1,5 +1,5 @@
 import { Schema, Stream } from 'effect';
-import type { Entity } from '../../core/index.js';
+import type { Entity } from '../../schema/entity/index.js';
 import { make, type SyncStrategy } from './definition.js';
 import { readForward, type ForwardOptions } from './forward.js';
 

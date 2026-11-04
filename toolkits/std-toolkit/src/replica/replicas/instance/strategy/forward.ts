@@ -1,5 +1,5 @@
 import { Duration, Effect, Option, Schedule, Stream } from 'effect';
-import { uTime, type Entity } from '../../../../core/index.js';
+import { uTime, type Entity } from '../../../../schema/entity/index.js';
 
 /** An Entity as the Backend sends it: its value in encoded form. */
 export type Wire = Entity<unknown>;

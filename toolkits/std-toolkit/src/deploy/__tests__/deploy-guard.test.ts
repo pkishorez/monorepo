@@ -1,0 +1,166 @@
+import { Effect, Exit, Schema } from 'effect';
+import { describe, expect, it } from 'vitest';
+import { StdTable } from '../../db/index.js';
+import { SetupRefused } from '../../db/setup/index.js';
+import {
+  type AnyEntityESchema,
+  EntityESchema,
+} from '../../schema/eschema/index.js';
+import { TableSnapshot } from '../../schema/snapshot/index.js';
+import { checkDeploy } from '../deploy-guard/deploy-guard.js';
+
+const stored = (schema: AnyEntityESchema) => {
+  const table = StdTable.make('tasks')
+    .primary('pk', 'sk')
+    .entity(schema, (e) => e.primary())
+    .build();
+  return Effect.runSync(TableSnapshot.serialize(TableSnapshot.capture(table)));
+};
+
+const Task = EntityESchema.make('Task', 'id', { title: Schema.String }).build();
+
+const Indexed = EntityESchema.make('Task', 'id', {
+  title: Schema.String,
+}).build();
+
+const indexedTable = () =>
+  Effect.runSync(
+    TableSnapshot.serialize(
+      TableSnapshot.capture(
+        StdTable.make('tasks')
+          .primary('pk', 'sk')
+          .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+          .entity(Indexed, (e) =>
+            e.primary().index('GSI1', 'byTitle', { pk: ['title'] }),
+          )
+          .build(),
+      ),
+    ),
+  );
+
+const v1 = stored(
+  EntityESchema.make('Task', 'id', { title: Schema.String }).build(),
+);
+const appended = stored(
+  EntityESchema.make('Task', 'id', { title: Schema.String })
+    .evolve('v2', { title: Schema.String, done: Schema.Boolean }, (task) => ({
+      ...task,
+      done: false,
+    }))
+    .build(),
+);
+const edited = stored(
+  EntityESchema.make('Task', 'id', { title: Schema.Finite }).build(),
+);
+
+const deploy = (
+  previous: Parameters<typeof checkDeploy>[0],
+  current: Parameters<typeof checkDeploy>[1],
+) => Effect.runSync(Effect.exit(checkDeploy(previous, current)));
+
+const deployed = (current: Parameters<typeof checkDeploy>[1]) => {
+  const exit = deploy(undefined, current);
+  if (!Exit.isSuccess(exit)) throw new Error('first deploy failed');
+  return exit.value;
+};
+
+const refusal = (exit: ReturnType<typeof deploy>) =>
+  Exit.isFailure(exit)
+    ? exit.cause.reasons.find((reason) => reason._tag === 'Fail')?.error
+    : undefined;
+
+describe('deploy guard', () => {
+  it('records the first contract', () => {
+    expect(deployed({ mode: 'persistent', snapshot: v1 }).snapshot).toBe(v1);
+  });
+
+  it('accepts an appended version', () => {
+    const exit = deploy(deployed({ mode: 'persistent', snapshot: v1 }), {
+      mode: 'persistent',
+      snapshot: appended,
+    });
+    expect(Exit.isSuccess(exit)).toBe(true);
+  });
+
+  it('refuses a persistent table an edited version and names the change', () => {
+    const error = refusal(
+      deploy(deployed({ mode: 'persistent', snapshot: v1 }), {
+        mode: 'persistent',
+        snapshot: edited,
+      }),
+    );
+    expect(error).toBeInstanceOf(SetupRefused);
+    expect((error as SetupRefused).reason).toBe('breaking');
+    expect((error as SetupRefused).changes.length).toBeGreaterThan(0);
+  });
+
+  it('refuses a persistent table becoming disposable', () => {
+    const error = refusal(
+      deploy(deployed({ mode: 'persistent', snapshot: v1 }), {
+        mode: 'disposable',
+        snapshot: v1,
+      }),
+    );
+    expect((error as SetupRefused).reason).toBe('mode-change');
+  });
+
+  it('lets a disposable table with its own setup take an edited version', () => {
+    const exit = deploy(deployed({ mode: 'disposable', snapshot: v1 }), {
+      mode: 'disposable',
+      snapshot: edited,
+    });
+    expect(Exit.isSuccess(exit)).toBe(true);
+  });
+
+  it('lets a disposable table become persistent', () => {
+    const exit = deploy(deployed({ mode: 'disposable', snapshot: v1 }), {
+      mode: 'persistent',
+      snapshot: v1,
+    });
+    expect(Exit.isSuccess(exit) && exit.value.mode).toBe('persistent');
+  });
+
+  it('starts a fresh contract for a new physical table', () => {
+    const exit = deploy(
+      deployed({ mode: 'persistent', snapshot: v1, target: 'db-1/tasks' }),
+      { mode: 'persistent', snapshot: edited, target: 'db-2/tasks' },
+    );
+    expect(Exit.isSuccess(exit)).toBe(true);
+  });
+});
+
+describe('deploy guard, by setup rules', () => {
+  it('accepts an index change, which setup reindexes', () => {
+    const exit = deploy(deployed({ mode: 'persistent', snapshot: v1 }), {
+      mode: 'persistent',
+      snapshot: indexedTable(),
+    });
+    expect(Exit.isSuccess(exit)).toBe(true);
+  });
+
+  it('accepts the same contract again once it has shipped', () => {
+    const shipped = deployed({ mode: 'persistent', snapshot: indexedTable() });
+    expect(
+      Exit.isSuccess(
+        deploy(shipped, { mode: 'persistent', snapshot: indexedTable() }),
+      ),
+    ).toBe(true);
+  });
+
+  it('still checks a table against its own contract after a move that never finished', () => {
+    const atA = deployed({ mode: 'persistent', snapshot: v1, target: 'A' });
+    // A deploy to B is accepted, then stops before the table moves.
+    const toB = deploy(atA, {
+      mode: 'persistent',
+      snapshot: edited,
+      target: 'B',
+    });
+    if (!Exit.isSuccess(toB)) throw new Error('the move to B failed');
+    const backToA = deploy(toB.value, {
+      mode: 'persistent',
+      snapshot: edited,
+      target: 'A',
+    });
+    expect((refusal(backToA) as SetupRefused).reason).toBe('breaking');
+  });
+});

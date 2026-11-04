@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { expectUpgradable } from '@kestack/std-toolkit/eschema/testing';
+import { expectUpgradable } from '@kestack/std-toolkit/schema/testing';
 import { describe, expect, it } from 'vitest';
 import { MessageSchema } from '../index.js';
 

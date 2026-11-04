@@ -7,7 +7,12 @@ Settings, a profile, a set of preferences: there is exactly one, and code everyw
 You give the shape a default:
 
 ```ts
-const settings = table.singleEntity(Settings).default({ theme: 'light' });
+const table = StdTable.make('app')
+  .primary('pk', 'sk')
+  .singleEntity(Settings, { default: { theme: 'light' } })
+  .build();
+
+table.Settings.get();
 ```
 
 [A record never saved reads as its default](std-toolkit/entities/single/an-unsaved-record-reads-as-its-default), and nothing is written until you save. [Put saves the whole record](std-toolkit/entities/single/put-saves-the-whole-record), while [an update merges into the current one](std-toolkit/entities/single/an-update-merges-into-the-current-record). There is no delete: [reset saves the default](std-toolkit/entities/single/reset-saves-the-default) as a real record that subscribers hear.

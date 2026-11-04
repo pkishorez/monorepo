@@ -1,9 +1,9 @@
 import { ModePicture } from './components/mode-picture.tsx';
 
-A new index can be healed with a backfill. Some changes can't be healed
-at all. If you edit a version that rows were saved under, those rows no
-longer read. What should happen then depends on the data. This page is
-where you say.
+A new index can be healed: setup writes the missing keys. Some changes
+can't be healed at all. If you edit a version that rows were saved under,
+those rows no longer read. What should happen then depends on the data.
+This page is where you say.
 
 ## Some data is precious, some is a copy
 
@@ -55,14 +55,16 @@ to protect.
 ## How setup knows a change is breaking
 
 Each stored table keeps a note of the table it was last set up for: its
-keys, its indexes, and every version of every shape bound to it. That
-note is its **Stored contract**, and it lives beside the data.
+keys, its indexes, and every version of every shape declared on it. That
+note is its **Stored contract**. It lives inside the table, as a few
+reserved rows that `scan` and your code never see, so it is kept exactly
+as long as the data is.
 
 Every time setup runs, it compares your table now with that note. Each
 difference gets one of four verdicts:
 
 - **safe**, like a new version: go ahead.
-- **requires-backfill**, like a new index: old rows need their keys
+- **requires-reindex**, like a new index: old rows need their keys
   written.
 - **breaking**, like an edited version: some stored rows would no longer
   read.
@@ -71,29 +73,65 @@ difference gets one of four verdicts:
 Because the note lives with the data, a phone that skipped three
 releases is compared from where its own data really is.
 
-DynamoDB is the one exception: it keeps no Stored contract. Its check
-runs at deploy instead, as [Deploying](/std-toolkit/deploying) shows.
+Every adapter keeps it the same way, DynamoDB included. On D1 and
+DynamoDB, setup runs at deploy, as [Deploying](/std-toolkit/deploying)
+shows.
 
 ## What each mode does
 
-| The change        | Persistent                  | Disposable                     |
-| ----------------- | --------------------------- | ------------------------------ |
-| safe              | set up                      | set up                         |
-| requires-backfill | set up, with a warning      | reindexed or wiped, by adapter |
-| breaking          | refused with `SetupRefused` | wiped, then set up             |
-| unverifiable      | refused with `SetupRefused` | wiped, then set up             |
+| The change       | Persistent                  | Disposable         |
+| ---------------- | --------------------------- | ------------------ |
+| safe             | set up                      | set up             |
+| requires-reindex | reindexed, then set up      | wiped, then set up |
+| breaking         | refused with `SetupRefused` | wiped, then set up |
+| unverifiable     | refused with `SetupRefused` | wiped, then set up |
 
 A refused persistent table is left exactly as it was. There's no
 override. The way forward is to undo the edit and [add a
 version](/std-toolkit/adding-a-version) instead.
 
-On IndexedDB, a needed backfill is run for you: a persistent store always
-reindexes, and a disposable one does too unless you pass
-`onBackfill: 'wipe'`.
+A reindex needs nothing from you. Setup rewrites the rows that need new
+keys before the table opens, as [Drift and
+reindex](/std-toolkit/drift-and-reindex) shows. A disposable table skips
+that work and starts fresh instead.
 
 A disposable table may become persistent later. A persistent table can
 never become disposable: setup refuses that too. If you really mean to
 start over, give it a new table name.
+
+## A table that holds rows but no contract
+
+A table can hold rows but no note: say it was set up by an older
+std-toolkit, before the note existed. A persistent one is **adopted**,
+once. Setup reads every row, and each must be an entity the table
+declares, readable under its ESchema. It writes each row's index keys as
+it goes, then records the contract.
+
+If a row doesn't fit, setup refuses with the reason `unadoptable`, and
+the error names the row. Nothing is recorded, so the next setup reads
+every row again. A disposable table holding rows but no contract is
+wiped.
+
+## A change no migration can make
+
+Some changes can't be a version. A migration sees one row, so it can't
+give every task the owner of its project. For that, you declare a new
+StdTable on a new physical table, its shapes starting again at v1, and
+move every row once with `StdTable.migrate`:
+
+```ts
+StdTable.migrate(oldBoard, board, {
+  Project: (project, { next }) => next.Project.insert(project.value),
+  Task: (task, { old, next }) => ...,
+});
+```
+
+It takes one handler per entity of the old table. Each handler gets one
+old row, can read the old table, and writes to the new one. The new
+table remembers when the move is done, so running it again does nothing.
+On D1 and DynamoDB, `D1.migration` and `DynamoDB.migration` run it at
+deploy, before the Worker that serves the new table. Once every database
+has moved, you delete the old table and the call.
 
 <Callout title="Remember">
   Each stored table says whether its data is precious. A persistent one refuses

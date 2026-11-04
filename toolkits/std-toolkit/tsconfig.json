@@ -8,15 +8,35 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "paths": {
-      "@kestack/std-toolkit/alchemy": ["./src/alchemy/index.ts"],
-      "@kestack/std-toolkit/core": ["./src/core/index.ts"],
-      "@kestack/std-toolkit/eschema": ["./src/eschema/index.ts"],
-      "@kestack/std-toolkit/eschema/testing": [
-        "./src/eschema/testing/index.ts"
+      "@kestack/std-toolkit/schema": ["./src/schema/index.ts"],
+      "@kestack/std-toolkit/schema/snapshot": [
+        "./src/schema/snapshot/index.ts"
       ],
-      "@kestack/std-toolkit/snapshot": ["./src/snapshot/index.ts"],
-      "@kestack/std-toolkit/snapshot/vitest": [
-        "./src/snapshot/vitest/index.ts"
+      "@kestack/std-toolkit/schema/testing": [
+        "./src/schema/eschema/testing/index.ts"
+      ],
+      "@kestack/std-toolkit/db": ["./src/db/index.ts"],
+      "@kestack/std-toolkit/db/testing": ["./src/db/testing/index.ts"],
+      "@kestack/std-toolkit/db/dynamodb": [
+        "./src/db/adapters/dynamodb/index.ts"
+      ],
+      "@kestack/std-toolkit/db/idb": ["./src/db/adapters/idb/index.ts"],
+      "@kestack/std-toolkit/db/memory": ["./src/db/adapters/memory/index.ts"],
+      "@kestack/std-toolkit/db/sqlite": ["./src/db/adapters/sqlite/index.ts"],
+      "@kestack/std-toolkit/db/sqlite/better-sqlite3": [
+        "./src/db/adapters/sqlite/drivers/better-sqlite3/index.ts"
+      ],
+      "@kestack/std-toolkit/db/sqlite/bun": [
+        "./src/db/adapters/sqlite/drivers/bun/index.ts"
+      ],
+      "@kestack/std-toolkit/db/sqlite/d1": [
+        "./src/db/adapters/sqlite/drivers/d1/index.ts"
+      ],
+      "@kestack/std-toolkit/db/sqlite/durable-object": [
+        "./src/db/adapters/sqlite/drivers/durable-object/index.ts"
+      ],
+      "@kestack/std-toolkit/db/sqlite/node": [
+        "./src/db/adapters/sqlite/drivers/node/index.ts"
       ],
       "@kestack/std-toolkit/sync": ["./src/sync/index.ts"],
       "@kestack/std-toolkit/sync/paced": ["./src/sync/paced/index.ts"],
@@ -27,26 +47,7 @@
       "@kestack/std-toolkit/replica/memory": [
         "./src/replica/store/memory/index.ts"
       ],
-      "@kestack/std-toolkit/db": ["./src/db/index.ts"],
-      "@kestack/std-toolkit/db/dynamodb": ["./src/db/dynamodb/index.ts"],
-      "@kestack/std-toolkit/db/idb": ["./src/db/idb/index.ts"],
-      "@kestack/std-toolkit/db/memory": ["./src/db/memory/index.ts"],
-      "@kestack/std-toolkit/db/sqlite": ["./src/db/sqlite/index.ts"],
-      "@kestack/std-toolkit/db/sqlite/better-sqlite3": [
-        "./src/db/sqlite/drivers/better-sqlite3/index.ts"
-      ],
-      "@kestack/std-toolkit/db/sqlite/bun": [
-        "./src/db/sqlite/drivers/bun/index.ts"
-      ],
-      "@kestack/std-toolkit/db/sqlite/d1": [
-        "./src/db/sqlite/drivers/d1/index.ts"
-      ],
-      "@kestack/std-toolkit/db/sqlite/durable-object": [
-        "./src/db/sqlite/drivers/durable-object/index.ts"
-      ],
-      "@kestack/std-toolkit/db/sqlite/node": [
-        "./src/db/sqlite/drivers/node/index.ts"
-      ]
+      "@kestack/std-toolkit/deploy": ["./src/deploy/index.ts"]
     },
     "rootDir": ".",
     "isolatedModules": true,
@@ -57,13 +58,5 @@
     "skipLibCheck": true
   },
   "include": ["src/**/*", "laymos/**/*", "stories/**/*"],
-  "exclude": [
-    "dist",
-    "node_modules",
-    "src/db/sqlite/sql/adapters/bun",
-    "src/db/sqlite/sql/adapters/__tests__/bun.bun.test.ts",
-    "src/db/sqlite/sql/adapters/__tests__/compat.bun.test.ts",
-    "src/db/sqlite/sql/adapters/__tests__/compat-read-better-sqlite3.ts",
-    "src/db/sqlite/sql/adapters/__tests__/compat-seed-better-sqlite3.ts"
-  ]
+  "exclude": ["dist", "node_modules"]
 }

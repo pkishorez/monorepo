@@ -42,8 +42,8 @@ you must say what a change to the table's shape may cost them. That is the
 
 - `persistent`: these rows must never be lost. A change that would break
   them is refused, and the Store is never wiped.
-- `disposable`: these rows can be fetched again. A breaking change throws
-  them away and starts over.
+- `disposable`: these rows can be fetched again. A change they can't take,
+  a new index included, throws them away and starts over.
 
 A local copy of server data, like the tasks above, is disposable. Data that
 lives only in this browser, like a draft nobody else has, is persistent.
@@ -51,9 +51,10 @@ lives only in this browser, like a draft nobody else has, is persistent.
 ## Setup happens on open
 
 The first time a table opens its database, the adapter prepares the Store.
-It compares the table with the **Stored contract**, kept in a reserved
-`_std_contract` store, and decides what the change means under the mode.
-Then it creates what's missing and records the new contract.
+It compares the table with the **Stored contract**, kept as reserved rows
+inside the Store, and decides what the change means under the mode. Then
+it makes the indexes match in a version change, reindexes the rows an
+index change touches, and records the new contract.
 
 IndexedDB makes a version change wait for other open tabs. If you'd rather
 choose that moment, call `IDB.setup(table, config)` yourself, and handle a

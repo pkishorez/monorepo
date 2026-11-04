@@ -2,7 +2,7 @@ import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { Authz, type Guarded } from '@kestack/auth-toolkit';
 import { PluginState } from '@kestack/cli-platform/plugins/contract';
-import { ESchema, ValueESchema } from '@kestack/std-toolkit/eschema';
+import { ESchema, ValueESchema } from '@kestack/std-toolkit/schema';
 import { belowMinimum } from './plugins.js';
 
 /*

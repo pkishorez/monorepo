@@ -8,8 +8,9 @@ import {
 /*
  * Two high-priority tasks in the table, one saved before byPriority
  * existed. Its index key is empty, so a byPriority query finds only the
- * other, lit in the accent. drift points at the empty key; reindex writes
- * it, keeping the row's update stamp; then the same query finds both.
+ * other, lit in the accent. Setup's drift points at the empty key; its
+ * reindex writes it, keeping the row's update stamp; then the same query
+ * finds both.
  * The rows never move or grow: only borders and the one key change.
  */
 
@@ -40,14 +41,14 @@ const STEPS: ReadonlyArray<Step> = [
     drifted: true,
     repaired: false,
     caption:
-      'drift compares old-1 with the keys this release would give it, and points at the gap.',
+      'Setup runs drift: it compares old-1 with the keys this release would give it, and points at the gap.',
   },
   {
     found: [],
     drifted: false,
     repaired: true,
     caption:
-      'reindex writes the missing key. The values and the update stamp stay as they were.',
+      'Setup runs reindex: it writes the missing key. The values and the update stamp stay as they were.',
   },
   {
     found: ['old-1', 'new-1'],
