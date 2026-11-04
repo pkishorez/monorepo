@@ -7,7 +7,7 @@ import { DeviceLive, pendingRequest } from './actor.ts';
 import { Button, Notice, Skeleton } from '../../../ui/index.ts';
 import { AccountPicker, PickerPlaceholder } from '../account-picker.tsx';
 import { Frame } from '../../frame/frame.tsx';
-import { GoogleButton } from '../../frame/google-button.tsx';
+import { GoogleSignIn } from '../../frame/google-sign-in.tsx';
 import { TaskHeading, TaskHeadingPlaceholder } from '../../frame/heading.tsx';
 import { useRoot } from '../../root.ts';
 import { Unready } from '../../frame/unready.tsx';
@@ -202,11 +202,22 @@ export const DeviceView = View.make(DeviceLive, (self) => {
               {none ? (
                 <>
                   <p className="text-muted-fg text-pretty">
-                    Sign in to approve. You'll come back here to finish.
+                    {missing ? (
+                      <>
+                        Sign in as{' '}
+                        <strong className="font-medium text-fg">
+                          {missing}
+                        </strong>{' '}
+                        to approve.
+                      </>
+                    ) : (
+                      'Sign in to approve.'
+                    )}{' '}
+                    You'll come back here to finish.
                   </p>
-                  <GoogleButton
+                  <GoogleSignIn
                     label={
-                      missing ? `Sign in as ${missing}` : 'Continue with Google'
+                      missing ? 'Sign in with Google' : 'Continue with Google'
                     }
                     leaving={signingIn}
                     onClick={() =>
@@ -218,10 +229,10 @@ export const DeviceView = View.make(DeviceLive, (self) => {
                 <>
                   <Notice tone="warning">
                     <strong className="font-medium">{missing}</strong> isn't
-                    signed in on this browser.
+                    signed in on this browser. Sign in with it to approve.
                   </Notice>
-                  <GoogleButton
-                    label={`Sign in as ${missing}`}
+                  <GoogleSignIn
+                    label="Sign in with Google"
                     leaving={signingIn}
                     onClick={() =>
                       send({ _tag: 'SignInAsChosen', email: missing })

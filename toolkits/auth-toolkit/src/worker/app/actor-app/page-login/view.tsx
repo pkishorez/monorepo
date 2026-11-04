@@ -5,7 +5,7 @@ import { LoginLive } from './actor.ts';
 import { LinkButton, Notice, Skeleton, SkeletonText } from '../../ui/index.ts';
 import { Frame } from '../frame/frame.tsx';
 import { TaskHeading, TaskHeadingPlaceholder } from '../frame/heading.tsx';
-import { GoogleButton } from '../frame/google-button.tsx';
+import { GoogleSignIn } from '../frame/google-sign-in.tsx';
 import { useRoot } from '../root.ts';
 import { TestSignInForm } from './test-sign-in-form.tsx';
 import { Unready } from '../frame/unready.tsx';
@@ -24,7 +24,7 @@ function LoginPlaceholder() {
         title={`Sign in to ${last?.brand.name ?? 'continue'}`}
         lead="Use your Google account."
       />
-      <Skeleton className="mt-8 h-11 rounded-lg" />
+      <Skeleton className="mt-8 h-10 rounded-sm" />
       <p className="mt-8 text-sm text-pretty">
         <SkeletonText>
           Google shares your name, email address and picture with{' '}
@@ -89,7 +89,7 @@ export const LoginView = View.make(LoginLive, ({ props, model, send }) => {
             </Notice>
           ) : (
             <>
-              <GoogleButton
+              <GoogleSignIn
                 leaving={model.leaving}
                 onClick={() => send({ _tag: 'GoogleChosen' })}
               />

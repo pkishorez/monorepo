@@ -1,1 +1,5 @@
-export { browser, browserAccountsTable } from './browser.js';
+export {
+  browser,
+  browserAccountsTable,
+  rememberedAccounts,
+} from './browser.js';

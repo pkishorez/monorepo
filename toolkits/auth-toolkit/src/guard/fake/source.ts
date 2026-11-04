@@ -42,10 +42,26 @@ const snapshotOf = ({ users, active }: Stored): Snapshot => ({
   accounts: users.map((user) => ({ ...user, image: null })),
 });
 
+/** Where a fake sign-in comes back to, as the real one would: the page it
+ * leaves for, unless it is the page it is on. */
+const leaving = (returnTo: string | undefined) =>
+  returnTo === undefined ||
+  typeof window === 'undefined' ||
+  new URL(returnTo, window.location.href).href === window.location.href
+    ? null
+    : returnTo;
+
 /** Fake Accounts in a table: signing in asks `choose` who, unless it names a
  * Test User (`test`, no key asked), and nothing else is asked. An email not
- * at `FAKE_DOMAIN` signs nobody in. Never fails. */
-export const makeFakeSource = (choose: Effect.Effect<FakeChoice | null>) =>
+ * at `FAKE_DOMAIN` signs nobody in. Never fails. One chosen, the sign-in
+ * comes back where the real one would, its own `returnTo`, else
+ * `returnTo` here: on another page, the page leaves for it, as the real one
+ * leaves for the provider, and the Account is read there; on this one, it
+ * is signed in in place. A Test User is always signed in in place. */
+export const makeFakeSource = (
+  choose: Effect.Effect<FakeChoice | null>,
+  returnTo?: string,
+) =>
   Effect.gen(function* () {
     const table =
       yield* Effect.context<
@@ -71,10 +87,20 @@ export const makeFakeSource = (choose: Effect.Effect<FakeChoice | null>) =>
           (choice) => {
             const user = choice === null ? null : fakeUser(choice);
             if (user === null) return read;
-            return update(({ users }) => ({
+            const signedIn = update(({ users }) => ({
               users: [...users.filter(({ id }) => id !== user.id), user],
               active: user.id,
             }));
+            const to = options.test
+              ? null
+              : leaving(options.returnTo ?? returnTo);
+            return to === null
+              ? signedIn
+              : signedIn.pipe(
+                  Effect.andThen(Effect.sync(() => window.location.assign(to))),
+                  // The page is leaving, as the real sign-in's does.
+                  Effect.andThen(Effect.never),
+                );
           },
         ),
       switchTo: (userId: string) =>

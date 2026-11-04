@@ -17,7 +17,8 @@
       "@kestack/auth-toolkit/client/device": [
         "./src/guard/client/device/index.ts"
       ],
-      "@kestack/auth-toolkit/fake": ["./src/guard/fake/index.ts"]
+      "@kestack/auth-toolkit/fake": ["./src/guard/fake/index.ts"],
+      "@kestack/auth-toolkit/google-button": ["./src/google-button/index.ts"]
     },
     "rootDir": ".",
     "strict": true,

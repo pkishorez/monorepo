@@ -69,7 +69,7 @@ Peer dependencies, all optional; install the ones your doors need:
 - `@kestack/std-toolkit`: `client/browser`, `client/device` and `fake` keep Accounts in its StdTable adapters.
 - `better-sqlite3`: `worker/memory` runs SQLite in-process for tests.
 - `alchemy` and `@alchemy.run/cloudflare`: `worker/alchemy` declares the D1 database in `alchemy.run.ts`.
-- `react`: the pages are React. The `worker` door carries its own bundled copy, so a deployment does not need it installed.
+- `react`: the pages and `GoogleButton` are React. The `worker` door carries its own bundled copy, so a deployment does not need it installed.
 
 ## Exports
 
@@ -135,8 +135,9 @@ Peer dependencies, all optional; install the ones your doors need:
 
 | Export                 | What it does                                                                                                                                                                                                           |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `browser`              | `Accounts` over the Auth Worker's cookie, plus the signing of every guarded call.                                                                                                                                      |
+| `browser`              | `Accounts` over the Auth Worker's cookie, plus the signing of every guarded call; `returnTo` says where a sign-in that names none comes back to, `maxAccounts` how many it may hold.                                   |
 | `browserAccountsTable` | The StdTable the optional `cache` remembers the Accounts last signed in in, without tokens, so `state` starts `Checking { last }`; forgotten only by a sign-out asked here or a signed-out answer to that first check. |
+| `rememberedAccounts`   | The Accounts that `cache` remembers as last signed in, without tokens; none when it remembers none. Provide it the same Layer of `browserAccountsTable`.                                                               |
 
 ### `@kestack/auth-toolkit/client/device`
 
@@ -147,13 +148,21 @@ Peer dependencies, all optional; install the ones your doors need:
 
 ### `@kestack/auth-toolkit/fake`
 
-| Export              | What it does                                                                                                               |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `fakeAccounts`      | `Accounts` for the browser environment, with no Auth Worker, plus the signing of every guarded call.                       |
-| `fakeChooser`       | A `choose` for `fakeAccounts` that a sign-in dialog answers.                                                               |
-| `fakeAccountsTable` | The StdTable `fakeAccounts` keeps Fake Accounts in.                                                                        |
-| `fakeGuard.rpc`     | The Guard's server half for Effect RPC that reads each call's Fake Token, or puts `as` behind every call, and asks no one. |
-| `fakeGuard.http`    | The same for Effect HttpApi.                                                                                               |
+| Export              | What it does                                                                                                                                                            |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fakeAccounts`      | `Accounts` for the browser environment, with no Auth Worker, plus the signing of every guarded call; given `returnTo`, a sign-in comes back there as the real one does. |
+| `fakeChooser`       | A `choose` for `fakeAccounts` that a sign-in dialog answers.                                                                                                            |
+| `fakeAccountsTable` | The StdTable `fakeAccounts` keeps Fake Accounts in.                                                                                                                     |
+| `fakeGuard.rpc`     | The Guard's server half for Effect RPC that reads each call's Fake Token, or puts `as` behind every call, and asks no one.                                              |
+| `fakeGuard.http`    | The same for Effect HttpApi.                                                                                                                                            |
+
+### `@kestack/auth-toolkit/google-button`
+
+| Export         | What it does                                                                                                            |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `GoogleButton` | Google's own sign-in button, as its branding guidelines draw it, with Google Sans fetched only on a page that draws it. |
+
+Its font file is imported with a `?url` suffix, so the app's bundler must resolve such imports, as Vite does.
 
 ## Usage
 
@@ -203,7 +212,7 @@ const whoAmI = Effect.gen(function* () {
 - `browser` sends the cookie (`credentials: 'include'`) and an `expect-user` header naming the Active Account on every guarded call; the transport needs no options.
 - When another tab switched Accounts, the backend fails the call `AccountChanged` before the handler runs, and `Accounts` checks again by itself.
 - A Batched RPC Request is verified once, and the cookies the Auth Worker refreshed go on its response.
-- `signIn()` leaves the page for the Login Screen and never completes in place.
+- `signIn()` leaves the page for the Login Screen and never completes in place; `signIn({ provider: 'google', returnTo })` leaves for Google at once, from the app's own screen, as the Login Screen's button does, a failure landing on the Login Screen, and past `browser({ maxAccounts })` (5 unless given) fails `AccountLimitReached`.
 - With `testUsers` on the Auth Worker, `signIn({ test: { email: 'tess@example.test', key } })` signs a Test User in without leaving the page, and the backend admits them only as `auth.rpc({ url, testUsers: true })`; `Authz.User`'s `test` says which Users they are.
 - In the browser environment, `fakeAccounts({ choose })` replaces `browser({ url })` and `fakeGuard.rpc()` replaces `auth.rpc({ url })`; the contract and the app's calls stay the same.
 - `switchTo(userId)` is a round trip: until it is confirmed the state is `SignedIn` with `switchingTo`, and calls still act as the Account before; one that fails leaves the state as it was and fails ([ADR 0021](./docs/adr/0021-an-account-switch-under-way-is-state.md)).

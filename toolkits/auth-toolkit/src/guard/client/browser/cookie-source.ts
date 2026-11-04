@@ -1,5 +1,6 @@
 import { Effect, Schema } from 'effect';
 import {
+  AccountLimitReached,
   type AccountsError,
   type AccountsState,
   type SignInOptions,
@@ -10,6 +11,9 @@ import { signedOut, type Snapshot, SnapshotSchema } from '../engine/index.js';
 import { authWorkerApi } from '../auth-worker-api/index.js';
 
 const Active = Schema.Struct({ active: Schema.NullOr(Schema.String) });
+
+/** better-auth's answer to a social sign-in: where the provider is. */
+const Redirect = Schema.Struct({ url: Schema.String });
 
 /** Where the Login Screen is, coming back to `returnTo`. */
 export const loginUrl = (
@@ -41,9 +45,18 @@ const testRefusal = ({
 
 /** The Accounts the Auth Worker keeps for this browser's cookie (a Direct
  * Sign-in Check): listed without tokens, each action answered by listing
- * them again. A Test User sign-in is one more such action; any other
- * sign-in leaves for the Login Screen. */
-export const makeCookieSource = (url: string) =>
+ * them again. A Test User sign-in is one more such action; a sign-in with
+ * a `provider` asks the Auth Worker where that provider is, as its Login
+ * Screen does, and leaves for it, a failure landing on the Login Screen;
+ * any other sign-in leaves for the Login Screen. Each comes back to its
+ * own `returnTo`, else `returnTo` here, else the page it left from. Signed
+ * in already to `maxAccounts`, no provider sign-in is asked: one more
+ * would pass the Auth Worker's limit. */
+export const makeCookieSource = (
+  url: string,
+  returnTo?: string,
+  maxAccounts = 5,
+) =>
   Effect.map(authWorkerApi(url, { credentials: 'include' }), (worker) => {
     const read: Effect.Effect<Snapshot, AccountsError> = worker.get(
       '/accounts',
@@ -67,24 +80,50 @@ export const makeCookieSource = (url: string) =>
           ),
       );
 
-    const leaveForLogin = (options: SignInOptions, state: AccountsState) =>
-      Effect.sync(() =>
-        window.location.assign(
-          loginUrl(
-            url,
-            options.returnTo ?? window.location.href,
-            state._tag === 'SignedIn',
-          ),
-        ),
-      ).pipe(
-        // The page is leaving for the Login Screen.
+    const backTo = (options: SignInOptions) =>
+      options.returnTo ?? returnTo ?? window.location.href;
+
+    // The page is leaving: the sign-in never completes here.
+    const leave = (to: string) =>
+      Effect.sync(() => window.location.assign(to)).pipe(
         Effect.andThen(Effect.never),
       );
+
+    const leaveForLogin = (options: SignInOptions, state: AccountsState) =>
+      leave(loginUrl(url, backTo(options), state._tag === 'SignedIn'));
+
+    // As the Login Screen's own button does, from the app's page: the
+    // cookie goes with it, and an Account added is added beside the rest.
+    const leaveFor = (
+      provider: 'google',
+      options: SignInOptions,
+      state: AccountsState,
+    ) => {
+      const adding = state._tag === 'SignedIn';
+      if (adding && state.accounts.length >= maxAccounts)
+        return Effect.fail(new AccountLimitReached({ limit: maxAccounts }));
+      const back = backTo(options);
+      return worker
+        .post(
+          '/sign-in/social',
+          {
+            provider,
+            callbackURL: back,
+            errorCallbackURL: loginUrl(url, back, adding),
+          },
+          Redirect,
+        )
+        .pipe(Effect.flatMap(({ url: to }) => leave(to)));
+    };
 
     return {
       read,
       signIn: (options: SignInOptions, state: AccountsState) =>
-        options.test ? signInTest(options.test) : leaveForLogin(options, state),
+        options.test
+          ? signInTest(options.test)
+          : options.provider
+            ? leaveFor(options.provider, options, state)
+            : leaveForLogin(options, state),
       switchTo: (userId: string) =>
         then(worker.post('/accounts/switch', { userId }, Active)),
       signOut: (userId: string) =>

@@ -113,9 +113,14 @@ Is it the one next step of the page?
 ```
 
 On task pages, actions are `size="lg"`, stacked, primary first. Signing in
-is always `GoogleButton`: Google's neutral look, never the accent, even when
-it is the page's next step. Where an action is a link (`/`, `/login`), use
-`LinkButton`, not a button that navigates.
+is always `GoogleSignIn` (`frame/google-sign-in.tsx`): the official
+`GoogleButton` from the `google-button` door, never the accent, even when it
+is the page's next step. Its words are only Google's ("Continue with
+Google", "Sign in with Google"); which account to use is said in the text
+above it. It is Google's 40px, not 44px, and has no busy look: while the
+page leaves for Google it disables and the line under it says "Opening
+Google…". Where an action is a link (`/`, `/login`), use `LinkButton`, not
+a button that navigates.
 
 ```tsx
 // Correct: the answer's two halves, the second still an answer
@@ -161,7 +166,8 @@ first ("Keep them"), the confirm is `primary` and says the count ("Sign out
   `Skeleton`s sized like what they stand for (68px rows, 44px tiles, 44px
   buttons) and `SkeletonText` for words, which takes the very lines the
   text will, so nothing moves when it arrives; the page then fades in once,
-  through the Frame's `waited`. Spinners only inside busy buttons.
+  through the Frame's `waited`. Spinners only inside busy buttons, and beside
+  `GoogleSignIn` while it leaves.
 - **Errors**: say what happened and the specific way on. "Try signing in
   again" is primary when it is the fix; when the fix is elsewhere ("go back
   to the app"), the way out (`Go to your account`) is secondary.

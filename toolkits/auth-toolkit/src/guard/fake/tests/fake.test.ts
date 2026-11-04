@@ -10,7 +10,7 @@ import {
   HttpApiTest,
 } from 'effect/http-api';
 import { Rpc, RpcGroup, RpcTest } from 'effect/rpc';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Authz } from '../../authz/index.js';
 import { Accounts, AccountsState } from '../../client/accounts/index.js';
 import {
@@ -41,6 +41,10 @@ const listed = Effect.flatMap(Accounts, ({ current }) =>
       : [],
   ),
 );
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('fakeAccounts', () => {
   it('signs in whoever was chosen and makes them the Active Account', async () => {
@@ -201,6 +205,66 @@ describe('fakeAccounts', () => {
       name: 'ada',
     });
     expect(fakeToken.read('real-session-token')).toBeNull();
+  });
+
+  it('comes back where a sign-in asks, else where it was made to, as the real one does', async () => {
+    const assign = vi.fn();
+    const here = 'https://app.example.com/a/ada';
+    vi.stubGlobal('window', { location: { href: here, assign } });
+    const storage = Memory.make(fakeAccountsTable).layer;
+    /** Signs in as the next chosen, and says whether it completed here. */
+    const signIn = (options?: { readonly returnTo: string }) =>
+      Effect.gen(function* () {
+        const accounts = yield* Accounts;
+        const fiber = yield* Effect.forkChild(accounts.signIn(options), {
+          startImmediately: true,
+        });
+        yield* Effect.sleep(5);
+        const done = fiber.pollUnsafe() !== undefined;
+        yield* Fiber.interrupt(fiber);
+        return done;
+      });
+    const layer = fakeAccounts({
+      choose: queue(
+        { email: 'ada@kestack.test' },
+        { email: 'bob@kestack.test' },
+        { email: 'cy@kestack.test' },
+      ),
+      storage,
+      returnTo: 'https://app.example.com/',
+    });
+    const done = await run(
+      Effect.gen(function* () {
+        // On this page: signed in in place.
+        const inPlace = yield* signIn({ returnTo: here });
+        // Elsewhere, as the Layer says: the page leaves, as the real one's.
+        const home = yield* signIn();
+        // Elsewhere, as the sign-in says.
+        const asked = yield* signIn({
+          returnTo: 'https://app.example.com/a/cy',
+        });
+        // A Test User, always in place.
+        yield* (yield* Accounts).signIn({
+          test: { email: 'tess@kestack.test' },
+        });
+        return [inPlace, home, asked];
+      }),
+      layer,
+    );
+    expect(done).toEqual([true, false, false]);
+    expect(assign.mock.calls.map(([to]) => to)).toEqual([
+      'https://app.example.com/',
+      'https://app.example.com/a/cy',
+    ]);
+    // Each is kept, for the page it left for to read.
+    expect(
+      await run(listed, fakeAccounts({ choose: queue(), storage })),
+    ).toEqual([
+      ['ada@kestack.test', 'ada', false],
+      ['bob@kestack.test', 'bob', false],
+      ['cy@kestack.test', 'cy', false],
+      ['tess@kestack.test', 'tess', true],
+    ]);
   });
 
   it('signs nobody in at an email outside kestack.test', async () => {
