@@ -4,10 +4,12 @@ import { keepSubscribed } from '@kestack/rpc-toolkit/rpc/websocket';
 
 /*
  * What a Take asks of its Connection, over its own socket: its audio, a
- * stretch at a time, its end, and what it has heard. A call the socket
- * drops is made again until it is answered, which is harmless: the
- * Connection takes each stretch once. Only the Connection saying it cannot
- * hear the Take fails one, with why.
+ * stretch at a time, its end, and what it has heard. Each time the socket
+ * comes back, the audio and the end are sent again from the first stretch:
+ * a Connection that restarted has lost the Take, and one that did not
+ * takes each stretch once. A call the socket drops is made again until it
+ * is answered. Only the Connection saying it cannot hear the Take fails
+ * one, with why; how long to wait for an answer is the Take's to say.
  */
 
 /** How long it waits to try again while the socket is down. */
@@ -34,26 +36,26 @@ const answered = <A, R>(
     ),
   );
 
-/** Stretch `at` of Take `id`. */
-export const addAudio = (
-  connectionId: string,
-  id: string,
-  at: number,
-  audio: Uint8Array,
-) =>
-  answered(
-    CodeClients.on(
-      connectionId,
-      CodeClient.use((api) => api.addTakeAudio({ id, at, audio })),
-    ),
-  );
+/** Stretch `at` of Take `id`, over the socket `sending` holds. */
+export const addAudio = (id: string, at: number, audio: Uint8Array) =>
+  answered(CodeClient.use((api) => api.addTakeAudio({ id, at, audio })));
 
-/** Take `id` has `count` stretches. */
-export const endTake = (connectionId: string, id: string, count: number) =>
-  answered(
-    CodeClients.on(
+/** Take `id` has `count` stretches, over the socket `sending` holds. */
+export const endTake = (id: string, count: number) =>
+  answered(CodeClient.use((api) => api.endTake({ id, count })));
+
+/**
+ * `send` over the Connection's socket while it is up, from the start again
+ * each time it comes back; `send` never ends but by failing, with why.
+ */
+export const sending = (
+  connectionId: string,
+  send: Effect.Effect<never, string, CodeClient>,
+) =>
+  Stream.runDrain(
+    CodeClients.stream(
       connectionId,
-      CodeClient.use((api) => api.endTake({ id, count })),
+      keepSubscribed(() => Stream.fromEffect(send)),
     ),
   );
 
@@ -78,3 +80,13 @@ export const watchTake = (connectionId: string, id: string) =>
       ),
     ),
   ).pipe(Stream.retry(AGAIN), Stream.orDie);
+
+/**
+ * Whether the Connection's socket is up, on the Release this Code dials,
+ * now and on each change; nothing while the Connection does not run here.
+ */
+export const linked = (connectionId: string) =>
+  CodeClients.link(connectionId).pipe(
+    Stream.map((now) => now === 'linked'),
+    Stream.changes,
+  );

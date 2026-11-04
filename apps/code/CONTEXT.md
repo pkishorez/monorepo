@@ -177,7 +177,7 @@ The field a Dictation was started from, named as it starts: a Session's Draft, a
 _Avoid_: target, destination, Dictation List
 
 **Take**:
-One Dictation's audio as its Dictation Owner's Connection hears it, sent in stretches of about two seconds while it records, so nothing large goes at the end. The Connection says what it has heard so far as it comes, or, while its Speech to Text downloads, how far; once the Dictation stops and every stretch is in, the whole text. A retry sends the same recording again as a new Take.
+One Dictation's audio as its Dictation Owner's Connection hears it, sent in stretches of about two seconds while it records, so nothing large goes at the end. The Connection says what it has heard so far as it comes, or, while its Speech to Text downloads, how far; once the Dictation stops and every stretch is in, the whole text. Each time the socket to the Connection comes back, the recording is sent again from its start, since a Connection that restarted has lost it. Once the Dictation stops, the Take fails when its Connection is out of reach for 30 seconds, or says nothing for a minute, five while its Speech to Text downloads. A retry sends the same recording again as a new Take.
 _Avoid_: upload, stream, session
 
 **Microphone**:

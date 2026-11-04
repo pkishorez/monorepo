@@ -7,7 +7,7 @@ import {
   Stream,
   SubscriptionRef,
 } from 'effect';
-import type { Cause, Scope } from 'effect';
+import type { Cause, Context, Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import {
   CodeClient,
@@ -19,11 +19,13 @@ import type { Running } from '@kestack/kabuki/core/runtime';
 import type { Instance } from '@kestack/kabuki/core/snapshot';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { describe, expect, it } from 'vitest';
+import { Connections } from '../../../../../account.ts';
 import { Ask, Voice } from '../../voice.ts';
 import { Preferences, nothing } from '../../../../../../storage/index.ts';
 import { MicrophoneUnavailable, Recorder } from '../../recorder/index.ts';
 import { voice } from '../../voice.ts';
 import { DictationLive, LIMIT, State } from '../actor.ts';
+import { ANSWER, DOWNLOAD, REACH } from '../take/index.ts';
 
 /** Hands an ask to the Dictation, as Voice does. */
 const ask = Command.make('AskDictation', {
@@ -41,7 +43,9 @@ const ask = Command.make('AskDictation', {
  * audio to its Owner's Connection as a Take while it records, showing the
  * model's download or the text so far; and its text is kept for the field
  * that started it, its Owner, until that field takes it. Refused, it
- * retries from the same clip, as a new Take. It records
+ * retries from the same clip, as a new Take. Its Connection restarted, it
+ * sends the clip again; its Connection out of reach or silent for too long
+ * once it stopped, it fails, to be retried. It records
  * from the microphone chosen, the default when that one is not linked,
  * saying so, and another chosen while it records is switched to in the
  * same recording.
@@ -86,6 +90,9 @@ const OwnerLive = Owner.build({
 
 type Api = CodeClient['Service'];
 
+/** A subscription's end, as the stand-in socket keeps it. */
+const END: unique symbol = Symbol('end');
+
 /** The stand-ins, and what they were asked. */
 const world = (options: {
   readonly microphone?: 'denied' | 'missing';
@@ -108,6 +115,8 @@ const world = (options: {
   readonly gate?: Effect.Effect<void>;
   /** What the microphone waits for before it opens, as a browser asking for permission does. */
   readonly opening?: Effect.Effect<void>;
+  /** Every Connection's socket never opens, as one asleep does. */
+  readonly unreachable?: boolean;
 }) =>
   Effect.gen(function* () {
     const chosen = yield* SubscriptionRef.make(options.chosen ?? null);
@@ -151,6 +160,8 @@ const world = (options: {
       };
     };
     const said = [...(options.said ?? ['hello'])];
+    /** How many times the socket has come up: each time, what it keeps subscribed runs again. */
+    const generation = yield* SubscriptionRef.make(0);
     /** Each Take's stretches, and what it is heard as once it ends. */
     const takes = new Map<
       string,
@@ -186,6 +197,7 @@ const world = (options: {
             Effect.sync(
               () => void takeOf(id).stretches.set(at, [...audio]),
             )) as unknown as Api['addTakeAudio'],
+          // Heard once every stretch it counts is in, as the Connection does.
           endTake: (({
             id,
             count,
@@ -193,17 +205,16 @@ const world = (options: {
             readonly id: string;
             readonly count: number;
           }) =>
-            Effect.sync(() => {
+            Effect.suspend(() => {
               const take = takeOf(id);
+              if (take.stretches.size < count) return Effect.void;
               asked.push({
                 connectionId,
                 audio: Array.from({ length: count }, (_, at) => [
                   ...(take.stretches.get(at) ?? []),
                 ]).flat(),
               });
-              return take;
-            }).pipe(
-              Effect.tap((take) =>
+              return Effect.asVoid(
                 Effect.forkDetach(
                   Effect.andThen(
                     options.gate ?? Effect.void,
@@ -215,9 +226,8 @@ const world = (options: {
                     }),
                   ),
                 ),
-              ),
-              Effect.asVoid,
-            )) as unknown as Api['endTake'],
+              );
+            })) as unknown as Api['endTake'],
           watchTake: (({ id }: { readonly id: string }) =>
             Stream.concat(
               Stream.fromIterable(options.first ?? []),
@@ -234,14 +244,34 @@ const world = (options: {
             Stream.make('connected' as const),
             Stream.never,
           ),
-          keepSubscribed: (subscribe) => subscribe(),
+          // Run again each time the socket comes up; done once it ends.
+          keepSubscribed: <A, E, R>(subscribe: () => Stream.Stream<A, E, R>) =>
+            SubscriptionRef.changes(generation).pipe(
+              Stream.switchMap(() =>
+                Stream.concat(subscribe(), Stream.make(END)),
+              ),
+              Stream.takeWhile((each): each is A => each !== END),
+            ),
           hooks: { onConnect: Effect.void, onDisconnect: Effect.void },
         }),
       );
     const layer = Layer.mergeAll(
       voice,
       device,
-      CodeClients.make(connection),
+      CodeClients.make(
+        options.unreachable === true
+          ? () =>
+              Layer.effectContext(
+                Effect.never as Effect.Effect<
+                  Context.Context<CodeClient | RpcConnection>
+                >,
+              )
+          : connection,
+      ),
+      Layer.mock(Connections)({
+        connection: () =>
+          Stream.make({ name: 'mac.local', displayName: 'Studio' } as never),
+      }),
       Layer.succeed(Recorder, {
         record: (microphone) =>
           options.microphone !== undefined
@@ -293,6 +323,11 @@ const world = (options: {
       layer,
       levels,
       asked,
+      /** The Connection restarts, losing every Take, and the socket comes up again. */
+      restart: Effect.andThen(
+        Effect.sync(() => takes.clear()),
+        SubscriptionRef.update(generation, (count) => count + 1),
+      ),
       recordings: () => recordings,
       recording: () => recording,
       opened,
@@ -711,6 +746,114 @@ describe('Dictation', () => {
         expect(noticeOf(app)).toBe(
           "The microphone chosen isn't connected, so the default one is recording",
         );
+      }),
+    ));
+
+  it('sends its clip again from the start when the socket comes back, as after its Connection restarted, and is heard', () =>
+    timed(
+      Effect.gen(function* () {
+        const gate = yield* Deferred.make<void>();
+        const { layer, asked, restart } = yield* world({
+          said: ['still here'],
+          gate: Deferred.await(gate),
+        });
+        const app = yield* start(session('m1', 's1'), layer);
+        yield* settle;
+        yield* toggle(app);
+        yield* toggle(app);
+        expect(stateOf(app)._tag).toBe('Transcribing');
+        expect(asked).toHaveLength(1);
+        // Restarted, the Connection has none of it.
+        yield* restart;
+        yield* settle;
+        expect(asked).toHaveLength(2);
+        expect(asked[1]!.audio).toEqual(asked[0]!.audio);
+        yield* Deferred.succeed(gate, undefined);
+        yield* settle;
+        expect(textsOf(app)).toEqual([
+          { id: 1, owner: 's1', text: 'still here' },
+        ]);
+      }),
+    ));
+
+  it('fails with a retry once stopped when its Connection is out of reach for long, naming it', () =>
+    timed(
+      Effect.gen(function* () {
+        const { layer } = yield* world({ unreachable: true });
+        const app = yield* start(session('m1', 's1'), layer);
+        yield* settle;
+        yield* toggle(app);
+        // While it records, it waits as long as it records.
+        yield* TestClock.adjust(REACH * 2);
+        yield* settle;
+        expect(stateOf(app)._tag).toBe('Recording');
+        yield* toggle(app);
+        yield* TestClock.adjust(REACH - 1_000);
+        yield* settle;
+        expect(stateOf(app)._tag).toBe('Transcribing');
+        yield* TestClock.adjust('1 second');
+        yield* settle;
+        expect(stateOf(app)).toMatchObject({
+          _tag: 'Failed',
+          id: 1,
+          reason: "Couldn't reach Studio",
+        });
+      }),
+    ));
+
+  it('fails with a retry once voice says nothing for a minute, and the retry sends the clip again', () =>
+    timed(
+      Effect.gen(function* () {
+        const gate = yield* Deferred.make<void>();
+        const { layer, asked } = yield* world({
+          said: ['at last'],
+          gate: Deferred.await(gate),
+        });
+        const app = yield* start(session('m1', 's1'), layer);
+        yield* settle;
+        yield* toggle(app);
+        yield* toggle(app);
+        yield* TestClock.adjust(ANSWER - 1_000);
+        yield* settle;
+        expect(stateOf(app)._tag).toBe('Transcribing');
+        yield* TestClock.adjust('1 second');
+        yield* settle;
+        expect(stateOf(app)).toMatchObject({
+          _tag: 'Failed',
+          id: 1,
+          reason: 'Voice stopped answering',
+        });
+        yield* Deferred.succeed(gate, undefined);
+        yield* send(app, { _tag: 'Retry', id: 1 });
+        expect(asked).toHaveLength(2);
+        expect(asked[1]!.audio).toEqual(asked[0]!.audio);
+        expect(textsOf(app)).toEqual([{ id: 1, owner: 's1', text: 'at last' }]);
+      }),
+    ));
+
+  it('waits five minutes between words while the model downloads', () =>
+    timed(
+      Effect.gen(function* () {
+        const { layer } = yield* world({
+          first: [{ _tag: 'Downloading', done: 1, total: 4 }],
+          gate: Effect.never,
+        });
+        const app = yield* start(session('m1', 's1'), layer);
+        yield* settle;
+        yield* toggle(app);
+        yield* toggle(app);
+        yield* TestClock.adjust(DOWNLOAD - 1_000);
+        yield* settle;
+        expect(stateOf(app)).toMatchObject({
+          _tag: 'Transcribing',
+          downloading: { done: 1, total: 4 },
+        });
+        yield* TestClock.adjust('1 second');
+        yield* settle;
+        expect(stateOf(app)).toMatchObject({
+          _tag: 'Failed',
+          reason: 'Voice stopped answering',
+        });
       }),
     ));
 

@@ -257,6 +257,76 @@ describe('the code Plugin, through the client and Replica', () => {
       ),
     ));
 
+  it(
+    'hears a Take whole after a restart, its stretches all sent again',
+    () =>
+      Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const port = yield* Effect.promise(freePort);
+            const options = {
+              port,
+              db: join(folder(), 'ai.db'),
+              harnesses: makeFakeHarness().layer,
+              speech: makeFakeSpeech().layer,
+            };
+            let running = yield* Scope.make();
+            yield* Layer.buildWithScope(server(options), running);
+            const client = yield* Layer.build(
+              CodeClient.layer(`ws://127.0.0.1:${port}/rpc`),
+            );
+            const api = Context.get(client, CodeClient);
+            const status = yield* SubscriptionRef.make<LinkStatus>('linking');
+            yield* Effect.forkScoped(
+              Stream.runForEach(Stream.provideContext(link, client), (now) =>
+                SubscriptionRef.set(status, now),
+              ),
+            );
+            const audio = new Uint8Array(64_000);
+            yield* api.addTakeAudio({ id: 't1', at: 0, audio });
+            yield* api.addTakeAudio({ id: 't1', at: 1, audio });
+
+            // Restarted, the Plugin has lost the Take.
+            yield* stop(running);
+            yield* eventually(() =>
+              expect(SubscriptionRef.getUnsafe(status)).toBe('relinking'),
+            );
+            running = yield* Scope.make();
+            yield* Layer.buildWithScope(server(options), running);
+            yield* eventually(() =>
+              expect(SubscriptionRef.getUnsafe(status)).toBe('linked'),
+            );
+            const heard: Array<{ readonly _tag: string }> = [];
+            const watching = yield* Effect.forkScoped(
+              Stream.runForEach(api.watchTake({ id: 't1' }), (each) =>
+                Effect.sync(() => void heard.push(each)),
+              ),
+            );
+            // Ended, it hears none of the audio sent before, and waits for it.
+            yield* api.endTake({ id: 't1', count: 2 });
+            yield* eventually(() =>
+              expect(heard.at(-1)).toEqual({
+                _tag: 'Heard',
+                text: 'heard 0 samples',
+              }),
+            );
+
+            // Sent again from its first stretch, as Code does on a reconnect.
+            yield* api.addTakeAudio({ id: 't1', at: 0, audio });
+            yield* api.addTakeAudio({ id: 't1', at: 1, audio });
+            yield* api.endTake({ id: 't1', count: 2 });
+            yield* Fiber.join(watching);
+            expect(heard.at(-1)).toEqual({
+              _tag: 'Done',
+              text: 'heard 64000 samples',
+            });
+            yield* stop(running);
+          }),
+        ),
+      ),
+    30_000,
+  );
+
   it('switches Speech to Text on, streams how it stands, transcribes PCM and switches it off', () =>
     Effect.runPromise(
       Effect.scoped(

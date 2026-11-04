@@ -37,7 +37,8 @@ import { TakeLive } from './take/index.ts';
  * 5. Text    the whole of it, once the Take is Done, kept for its Owner
  *            until it takes it and says so; one not drawn now takes it
  *            once it is drawn again. Nothing heard, it says so. Failed,
- *            its Owner offers a retry: a new Take from the clip the
+ *            as when its Connection is out of reach or silent for too
+ *            long, its Owner offers a retry: a new Take from the clip the
  *            Recorder keeps until the next Dictation.
  */
 

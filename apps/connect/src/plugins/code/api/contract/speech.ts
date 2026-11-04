@@ -75,6 +75,8 @@ export const SpeechRpc = RpcGroup.make(
    * What Take `id` has heard now, then each change, ending with Done. Any
    * of the three calls may come first. Speech to Text off, it is switched
    * on, and the download shows until the model is Ready; the audio waits.
+   * A Take watched is never dropped; one dropped, as by a restart, starts
+   * afresh, and one broken fails with why.
    */
   Rpc.make('watchTake', {
     payload: ESchema.make('WatchTakePayload', { id: Schema.String }).build()

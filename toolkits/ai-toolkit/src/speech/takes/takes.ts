@@ -2,9 +2,11 @@ import {
   Clock,
   Data,
   Effect,
+  Exit,
   Fiber,
   Queue,
   type Scope,
+  Semaphore,
   Stream,
   SubscriptionRef,
 } from 'effect';
@@ -25,10 +27,13 @@ import {
  * 3. End     once every stretch its end counted is in, the tail is
  *            transcribed once more, and the Take is Done with the whole
  *            text.
- * 4. Forget  a Take nobody has touched for IDLE is dropped.
+ * 4. Forget  a Take nobody has watched or touched for IDLE is dropped;
+ *            one watched never is, however long its model downloads.
  *
  * Watching again, as after a reconnect, starts from what is heard now. A
- * stretch sent again is ignored.
+ * stretch sent again is ignored, so a sender that lost track, as after a
+ * reconnect, sends them all again. A Take that stops before it is Done,
+ * dropped or broken, fails whoever watches it.
  */
 
 /** What a Take has heard so far. */
@@ -139,8 +144,9 @@ interface Take {
   /** The text settled, and where the tail starts. */
   settled: string;
   from: number;
-  /** When it was last touched, in ms. */
+  /** When it was last touched, in ms, and how many watch it now. */
   touched: number;
+  watchers: number;
   readonly now: SubscriptionRef.SubscriptionRef<Now>;
   readonly wake: Queue.Queue<void>;
   fiber?: Fiber.Fiber<void>;
@@ -221,6 +227,12 @@ export const makeTakes = (
             take.settled = joined(take.settled, settled);
             take.from = cut;
           }
+          // What settled is let go: the tail moves to the front.
+          if (take.from > 0) {
+            take.audio.copyWithin(0, take.from, take.length);
+            take.length -= take.from;
+            take.from = 0;
+          }
           const done = take.count !== null && take.next >= take.count;
           const tail = yield* model.transcribe(
             take.audio.slice(take.from, take.length),
@@ -238,6 +250,8 @@ export const makeTakes = (
         ),
       );
 
+    // One at a time, so two that reach a new Take together start one.
+    const one = yield* Semaphore.make(1);
     const touch = (id: string) =>
       Effect.gen(function* () {
         const at = yield* Clock.currentTimeMillis;
@@ -255,13 +269,38 @@ export const makeTakes = (
           settled: '',
           from: 0,
           touched: at,
+          watchers: 0,
           now: yield* SubscriptionRef.make<Now>({ _tag: 'Heard', text: '' }),
           wake: yield* Queue.sliding<void>(1),
         };
         takes.set(id, take);
-        take.fiber = yield* Effect.forkIn(hear(take), scope);
+        // Stopped before Done, dropped or broken, it fails its watchers.
+        take.fiber = yield* Effect.forkIn(
+          hear(take).pipe(
+            Effect.onExit((exit) =>
+              Exit.isSuccess(exit)
+                ? Effect.void
+                : SubscriptionRef.set(take.now, {
+                    _tag: 'Failed',
+                    message: 'Speech to Text stopped hearing this Take',
+                  }),
+            ),
+          ),
+          scope,
+        );
         return take;
-      });
+      }).pipe(one.withPermit);
+
+    /** One more watches `take` while the Scope lasts; the last to go touches it. */
+    const watching = (take: Take) =>
+      Effect.acquireRelease(
+        Effect.sync(() => void take.watchers++),
+        () =>
+          Effect.map(Clock.currentTimeMillis, (at) => {
+            take.watchers--;
+            take.touched = at;
+          }),
+      );
 
     const wake = (take: Take) => Queue.offer(take.wake, undefined);
 
@@ -269,7 +308,7 @@ export const makeTakes = (
     yield* Effect.gen(function* () {
       const at = yield* Clock.currentTimeMillis;
       for (const [id, take] of takes)
-        if (at - take.touched > IDLE) {
+        if (take.watchers === 0 && at - take.touched > IDLE) {
           takes.delete(id);
           if (take.fiber !== undefined) yield* Fiber.interrupt(take.fiber);
         }
@@ -278,7 +317,7 @@ export const makeTakes = (
     return {
       watch: (id) =>
         Stream.unwrap(
-          Effect.map(touch(id), (take) =>
+          Effect.map(Effect.tap(touch(id), watching), (take) =>
             SubscriptionRef.changes(take.now).pipe(
               Stream.takeUntil((now) => now._tag === 'Done'),
               Stream.mapEffect((now) =>
