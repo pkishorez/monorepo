@@ -34,6 +34,7 @@ const dictated = (over: Partial<Dictated> = {}): Dictated => ({
   availability: { _tag: 'Ready' },
   recording: null,
   pending: null,
+  live: null,
   onToggle: () => void asked.push('Toggle'),
   onCancel: () => void asked.push('Cancel'),
   onTook: (id) => void asked.push(`Took ${id}`),
@@ -133,6 +134,7 @@ describe('one’s own answer, dictated', () => {
                 elapsed: <span>0:03</span>,
                 level: <span />,
                 wave: <span />,
+                heard: <span />,
               },
             })}
           />
@@ -187,46 +189,5 @@ describe('one’s own answer, dictated', () => {
     await act(async () => root!.render(take(false)));
     expect(typed).toEqual(['later']);
     expect(asked).toEqual(['Took 5']);
-  });
-
-  it('edits on Space, not dictates, while voice is off', async () => {
-    let dictate: (() => void) | null = () => {};
-    function Off() {
-      const within = useRef<HTMLElement>(null);
-      const ref = useRef<(() => void) | null>(null);
-      dictate = ref.current;
-      return (
-        <Step
-          index={0}
-          item={ITEM}
-          draft={{ chosen: [], typed: '', other: false }}
-          missing={false}
-          last
-          touch={false}
-          editing={false}
-          dictated={dictated({
-            availability: { _tag: 'Off', reason: 'Turn on Speech to Text' },
-          })}
-          within={within}
-          dictate={ref}
-          onEditing={() => {}}
-          onChoose={() => {}}
-          onChooseOther={() => {}}
-          onType={() => {}}
-          onNext={() => {}}
-          onStep={() => {}}
-        />
-      );
-    }
-    await draw(<Off />);
-    await act(async () =>
-      root!.render(
-        <keys.Provider>
-          <Off />
-        </keys.Provider>,
-      ),
-    );
-    expect(dictate).toBeNull();
-    expect(mic('Turn on Speech to Text')!.disabled).toBe(true);
   });
 });

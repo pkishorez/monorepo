@@ -151,7 +151,7 @@
   display: none;
 }
 
-[data-slot='draft'][data-touch] .cm-dictation:not([data-failed]) {
+[data-slot='draft'][data-touch] .cm-dictation:not([data-failed], [data-ghost]) {
   display: inline-block;
   font-style: normal;
   text-transform: capitalize;
@@ -162,10 +162,24 @@
   animation: none;
 }
 
+/* A word of a Dictation's ghost text, as it is heard: it fades in from a blur. */
+.cm-ghost-new {
+  animation: ghost-in 350ms ease-out;
+}
+
+@keyframes ghost-in {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cm-inserted,
   [data-slot='draft'][data-touch] .cm-inserted,
-  [data-slot='draft'][data-touch] .cm-dictation:not([data-failed]) {
+  [data-slot='draft'][data-touch]
+    .cm-dictation:not([data-failed], [data-ghost]),
+  .cm-ghost-new {
     animation: none;
   }
 

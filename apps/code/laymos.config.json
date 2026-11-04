@@ -23,11 +23,7 @@
       "src/device/account/connections/connections.ts",
       "src/device/account/connections/store.ts"
     ],
-    "src/device/account/connections/voice": [
-      "src/device/store.ts",
-      "src/device/account/connections/connections.ts",
-      "src/device/account/connections/connection/link"
-    ],
+    "src/device/account/connections/voice": ["src/device/store.ts"],
     "src/device/account/connections/layout": [
       "src/device/routes",
       "src/device/store.ts",

@@ -137,14 +137,7 @@ export function Mic({
         <CircleAlertIcon aria-hidden />
       </Button>
     );
-  const why =
-    availability._tag === 'Ready'
-      ? null
-      : availability._tag === 'Busy'
-        ? 'Recording somewhere else'
-        : availability._tag === 'Downloading'
-          ? `Voice is getting ready · ${Math.round(availability.progress * 100)}%`
-          : availability.reason;
+  const why = availability._tag === 'Busy' ? 'Recording somewhere else' : null;
   const label = why ?? 'Dictate your answer';
   return (
     <Button

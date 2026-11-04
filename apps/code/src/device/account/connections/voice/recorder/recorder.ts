@@ -9,6 +9,7 @@ import {
   Ref,
   type Scope,
   Stream,
+  SubscriptionRef,
 } from 'effect';
 import { inputsOf } from './inputs.ts';
 import { clipOf, type Chunk } from './pcm.ts';
@@ -31,7 +32,8 @@ import { addProcessor, PROCESSOR } from './worklet.ts';
  *            the old one's place in front of the same AudioWorklet, so the
  *            clip carries on in one piece, and the old one is let go.
  * 4. Keep    as the recording's Scope closes, the microphone and the audio
- *            are let go and the clip is whole, for `clip` to give.
+ *            are let go and the clip is whole, for `clip` to give. While
+ *            it records, and after, `audio` gives it as it comes.
  *
  * It also lists the browser's microphones to choose from (`inputs.ts`).
  */
@@ -42,10 +44,14 @@ export interface Input {
   readonly label: string;
 }
 
-/** Why the microphone could not be recorded, as a person reads it. */
+/**
+ * Why the microphone could not be recorded, as a person reads it; `blocked`
+ * when the browser refused it, as iOS Safari at times does on its own
+ * until the page is loaded again.
+ */
 export class MicrophoneUnavailable extends Data.TaggedError(
   'MicrophoneUnavailable',
-)<{ readonly reason: string }> {}
+)<{ readonly reason: string; readonly blocked?: boolean }> {}
 
 /**
  * The microphone a recording hears: its name, and whether the one chosen
@@ -84,12 +90,40 @@ export class Recorder extends Context.Service<
     /** The last clip, once its recording has ended; waits until then. */
     readonly clip: Effect.Effect<Uint8Array>;
     /**
+     * The last recording's audio, in chunks as the clip keeps them: those
+     * kept so far at once, then each as it comes, ending as it ends.
+     */
+    readonly audio: Stream.Stream<Int16Array>;
+    /**
      * The browser's microphones, the system default first, now and on each
      * change; it asks to use one first, so they are named.
      */
     readonly inputs: Stream.Stream<ReadonlyArray<Input>, MicrophoneUnavailable>;
   }
 >()('code/Recorder') {}
+
+/** One recording's chunks, kept in order, and how far it has come. */
+interface Tape {
+  readonly chunks: Array<Int16Array>;
+  readonly now: SubscriptionRef.SubscriptionRef<{
+    readonly count: number;
+    readonly ended: boolean;
+  }>;
+}
+
+/** Each chunk of `tape`, from the first, until it ends. */
+const played = ({ chunks, now }: Tape) => {
+  let sent = 0;
+  return SubscriptionRef.changes(now).pipe(
+    Stream.takeUntil(({ ended }) => ended),
+    Stream.map(({ count }) => {
+      const next = chunks.slice(sent, count);
+      sent = Math.max(sent, count);
+      return next;
+    }),
+    Stream.flattenIterable,
+  );
+};
 
 type SwitchTo = (
   microphone: string | null,
@@ -100,6 +134,10 @@ export const browser: Layer.Layer<Recorder> = Layer.effect(
   Recorder,
   Effect.gen(function* () {
     const last = yield* Ref.make(yield* Deferred.make<Uint8Array>());
+    const tape = yield* Ref.make<Tape>({
+      chunks: [],
+      now: yield* SubscriptionRef.make({ count: 0, ended: true }),
+    });
     // 3. Switch: how the recording now changes microphone, while one does.
     const now = yield* Ref.make<SwitchTo | null>(null);
     return {
@@ -108,11 +146,29 @@ export const browser: Layer.Layer<Recorder> = Layer.effect(
           const kept = yield* Deferred.make<Uint8Array>();
           yield* Ref.set(last, kept);
           const chunks: Array<Int16Array> = [];
+          const taped = yield* SubscriptionRef.make({
+            count: 0,
+            ended: false,
+          });
+          yield* Ref.set(tape, { chunks, now: taped });
           // 4. Keep: added first, so it runs once the audio is let go.
           yield* Effect.addFinalizer(() =>
-            Deferred.succeed(kept, clipOf(chunks)),
+            Effect.andThen(
+              Deferred.succeed(kept, clipOf(chunks)),
+              SubscriptionRef.set(taped, {
+                count: chunks.length,
+                ended: true,
+              }),
+            ),
           );
-          const recording = yield* hear(chunks, microphone);
+          const recording = yield* hear(chunks, microphone, () =>
+            Effect.runSync(
+              SubscriptionRef.set(taped, {
+                count: chunks.length,
+                ended: false,
+              }),
+            ),
+          );
           yield* Ref.set(now, recording.switchTo);
           yield* Effect.addFinalizer(() => Ref.set(now, null));
           return { heard: recording.heard, levels: recording.levels };
@@ -122,6 +178,7 @@ export const browser: Layer.Layer<Recorder> = Layer.effect(
           switchTo === null ? Effect.succeed(null) : switchTo(microphone),
         ),
       clip: Effect.flatMap(Ref.get(last), Deferred.await),
+      audio: Stream.unwrap(Effect.map(Ref.get(tape), played)),
       inputs: Stream.unwrap(Effect.map(media, inputsOf)).pipe(
         Stream.mapError(unavailable),
       ),
@@ -140,8 +197,16 @@ const reasonOf = (cause: unknown) => {
   return `Couldn't open the microphone${cause instanceof Error && cause.message ? `: ${cause.message}` : ''}`;
 };
 
+/** Whether the browser refused the microphone, rather than lacked one. */
+const isBlocked = (cause: unknown) =>
+  cause instanceof Error &&
+  (cause.name === 'NotAllowedError' || cause.name === 'SecurityError');
+
 const unavailable = (cause: unknown) =>
-  new MicrophoneUnavailable({ reason: reasonOf(cause) });
+  new MicrophoneUnavailable({
+    reason: reasonOf(cause),
+    blocked: isBlocked(cause),
+  });
 
 /** The browser's media devices, where the page can reach them. */
 const media = Effect.suspend(() =>
@@ -195,7 +260,11 @@ const audio = Effect.acquireRelease(
 );
 
 // 2. Hear
-const hear = (chunks: Array<Int16Array>, microphone: string | null) =>
+const hear = (
+  chunks: Array<Int16Array>,
+  microphone: string | null,
+  added: () => void,
+) =>
   Effect.gen(function* () {
     // Stopping a track twice is nothing: the one switched to is stopped
     // below, this one here even when the audio never started.
@@ -217,6 +286,7 @@ const hear = (chunks: Array<Int16Array>, microphone: string | null) =>
     });
     node.port.onmessage = ({ data }: MessageEvent<Chunk>) => {
       chunks.push(data.samples);
+      added();
       Queue.offerUnsafe(levels, data.level);
     };
     const gone = () => Queue.endUnsafe(levels);

@@ -5,3 +5,4 @@ export {
   MicrophoneUnavailable,
   Recorder,
 } from './recorder.ts';
+export { clipOf } from './pcm.ts';

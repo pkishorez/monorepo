@@ -83,13 +83,8 @@ export function Step({
 }) {
   const id = useId();
   const role = item.multiSelect ? 'checkbox' : 'radio';
-  // Space dictates where voice can be had, or stops the one going; with
-  // voice off it edits, as with no mic.
-  const off =
-    dictated === null ||
-    dictated.availability._tag === 'Off' ||
-    dictated.availability._tag === 'Downloading';
-  const toggle = off ? null : dictated.onToggle;
+  // Space dictates, or stops the one going; with no mic it edits.
+  const toggle = dictated === null ? null : dictated.onToggle;
   const onShown = dictated?.onShown ?? null;
   useEffect(() => {
     dictate.current = toggle;

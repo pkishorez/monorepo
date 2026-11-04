@@ -15,6 +15,8 @@ export const Voice = {
   Field: Dictation.Field,
   /** For Layout: start or stop, open the Microphone Picker, and what Voice draws. */
   useVoice: Dictation.useVoice,
+  /** For a Draft: what a Dictation has heard, floating just above its card. */
+  Peek: Dictation.Afloat,
   /** For Layout's header: cancels the Dictation going, on every page. */
   Button: Dictation.button,
   /** For a tap elsewhere, such as Settings: opens the Microphone Picker. */

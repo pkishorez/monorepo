@@ -51,12 +51,18 @@ export interface Draft {
           readonly _tag: 'Recording';
           readonly elapsed: ReactNode;
           readonly wave: ReactNode;
+          /** What is heard so far, or how far voice has downloaded. */
+          readonly heard?: ReactNode;
         }
       | null;
     readonly pending: {
       readonly _tag: 'Transcribing' | 'Failed' | 'Text';
       readonly id: number;
+      /** While it is written out, what is heard so far. */
+      readonly heard?: ReactNode;
     } | null;
+    /** While one records or is written out for it: whether voice is still being got ready. */
+    readonly live?: { readonly downloading: boolean } | null;
     /** Whether a Dictation could start now, and if not why. */
     readonly availability: Availability;
     /** Start one, or stop the one recording. */
@@ -228,7 +234,9 @@ export function useTouchDraft(
   });
 
   const expanded = isOpen(state);
-  const editing = state._tag === 'Editing';
+  // Typing in it while a Dictation records counts: the keyboard is up.
+  const editing =
+    state._tag === 'Editing' || (state._tag === 'Recording' && state.typing);
 
   // The card, drawn open by hand in a tap that opens it to edit.
   const card = useRef<HTMLDivElement>(null);
@@ -253,9 +261,9 @@ export function useTouchDraft(
     return () => cancelAnimationFrame(frame);
   }, [editing]);
 
-  // A tap on it collapsed: open, or draw it open and then edit. While a
-  // Dictation records or is written out, only open: its words to read
-  // and select, the keyboard down.
+  // A tap on it collapsed only opens it, the keyboard down: a tap in its
+  // words then edits. So what is around them, as the model chip, can be
+  // changed without typing.
   const open = () => {
     if (
       (state._tag === 'Recording' || state._tag === 'Transcribing') &&
@@ -263,12 +271,6 @@ export function useTouchDraft(
     )
       return send({ _tag: 'Open' });
     if (draft.disabled || state._tag !== 'Collapsed') return;
-    if (!model.smart && card.current !== null) {
-      card.current.removeAttribute('data-collapsed');
-      // Laid out open before the focus, which iOS slides into view.
-      void card.current.offsetHeight;
-      draft.write();
-    }
     send({ _tag: 'Open' });
   };
   // Open already, the card keeps its size: the words take focus in the tap.
@@ -280,7 +282,11 @@ export function useTouchDraft(
         !state.open)
     )
       return open();
-    if (state._tag !== 'Expanded') return;
+    if (
+      state._tag !== 'Expanded' &&
+      !(state._tag === 'Recording' && state.open && !state.typing)
+    )
+      return;
     // Its words stay where they were scrolled to, as the keyboard rises.
     draft.write({ scroll: false });
     send({ _tag: 'Edit' });
@@ -363,8 +369,11 @@ export function useTouchDraft(
   return {
     expanded,
     editing,
-    /** A Dictation records or is written out: a tap in the words selects, never edits. */
-    dictating: state._tag === 'Recording' || state._tag === 'Transcribing',
+    /**
+     * A Dictation is written out: a tap in the words selects, never edits.
+     * While one records, a tap edits, its ghost moving with the cursor.
+     */
+    dictating: state._tag === 'Transcribing',
     smart: model.smart,
     displace: model.displace,
     card,
@@ -390,12 +399,7 @@ export function useTouchDraft(
         ? null
         : {
             key: nudged,
-            said:
-              availability._tag === 'Downloading'
-                ? `Voice is getting ready · ${Math.round(availability.progress * 100)}%`
-                : availability._tag === 'Busy'
-                  ? 'Recording somewhere else'
-                  : "Voice isn't on",
+            said: 'Recording somewhere else',
           },
   } as const;
 }

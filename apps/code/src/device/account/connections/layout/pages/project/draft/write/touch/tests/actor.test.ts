@@ -236,15 +236,18 @@ describe('Touch Draft', () => {
       }),
     ));
 
-  it('is the Composer once opened, until collapsed, and sending from it collapses it', () =>
+  it('only opens, is the Composer from Edit until collapsed, and sending from it collapses it', () =>
     run(
       Effect.gen(function* () {
         const t = yield* world;
         yield* t.send({ _tag: 'Open' });
+        expect(t.state()).toBe('Expanded');
+        yield* t.send({ _tag: 'Edit' });
         expect(t.state()).toBe('Editing');
         yield* t.send({ _tag: 'Collapse' });
         expect(t.state()).toBe('Collapsed');
         yield* t.send({ _tag: 'Open' });
+        yield* t.send({ _tag: 'Edit' });
         yield* t.send({ _tag: 'Send' });
         expect(t.sent()).toBe(1);
         expect(t.state()).toBe('Collapsed');
@@ -271,7 +274,11 @@ describe('Touch Draft', () => {
         const t = yield* world;
         yield* t.send({ _tag: 'Open' });
         yield* t.heard('recording');
-        expect(t.then()).toEqual({ _tag: 'Recording', open: true });
+        expect(t.then()).toEqual({
+          _tag: 'Recording',
+          open: true,
+          typing: false,
+        });
         yield* t.send({ _tag: 'Take', send: false });
         yield* t.heard('transcribing');
         yield* t.heard('text');
@@ -291,7 +298,11 @@ describe('Touch Draft', () => {
         yield* t.send({ _tag: 'Open' });
         yield* t.heard('recording');
         yield* t.send({ _tag: 'Collapse' });
-        expect(t.then()).toEqual({ _tag: 'Recording', open: false });
+        expect(t.then()).toEqual({
+          _tag: 'Recording',
+          open: false,
+          typing: false,
+        });
         yield* t.send({ _tag: 'Take', send: false });
         yield* t.send({ _tag: 'Collapse' });
         expect(t.then()).toMatchObject({ _tag: 'Transcribing', open: false });
@@ -326,9 +337,46 @@ describe('Touch Draft', () => {
       Effect.gen(function* () {
         const t = yield* world;
         yield* t.send({ _tag: 'Open' });
-        expect(t.state()).toBe('Editing');
+        expect(t.state()).toBe('Expanded');
+        yield* t.send({ _tag: 'Edit' });
         yield* t.send({ _tag: 'Collapse' });
         expect(t.opened()).toEqual([true, false]);
+      }),
+    ));
+
+  it('drops the keyboard as a Dictation starts, and types while it records once its words are tapped', () =>
+    run(
+      Effect.gen(function* () {
+        const t = yield* world;
+        yield* t.send({ _tag: 'Open' });
+        yield* t.send({ _tag: 'Edit' });
+        expect(t.state()).toBe('Editing');
+        yield* t.heard('recording');
+        expect(t.then()).toEqual({
+          _tag: 'Recording',
+          open: true,
+          typing: false,
+        });
+        yield* t.send({ _tag: 'Edit' });
+        expect(t.then()).toEqual({
+          _tag: 'Recording',
+          open: true,
+          typing: true,
+        });
+        yield* t.send({ _tag: 'Done' });
+        expect(t.then()).toEqual({
+          _tag: 'Recording',
+          open: true,
+          typing: false,
+        });
+        // Collapsed, a tap in its words only opens it.
+        yield* t.send({ _tag: 'Collapse' });
+        yield* t.send({ _tag: 'Edit' });
+        expect(t.then()).toEqual({
+          _tag: 'Recording',
+          open: false,
+          typing: false,
+        });
       }),
     ));
 
@@ -337,9 +385,17 @@ describe('Touch Draft', () => {
       Effect.gen(function* () {
         const t = yield* world;
         yield* t.heard('recording');
-        expect(t.then()).toEqual({ _tag: 'Recording', open: false });
+        expect(t.then()).toEqual({
+          _tag: 'Recording',
+          open: false,
+          typing: false,
+        });
         yield* t.send({ _tag: 'Open' });
-        expect(t.then()).toEqual({ _tag: 'Recording', open: true });
+        expect(t.then()).toEqual({
+          _tag: 'Recording',
+          open: true,
+          typing: false,
+        });
         yield* t.send({ _tag: 'Collapse' });
         yield* t.heard('transcribing');
         yield* t.send({ _tag: 'Open' });
@@ -377,7 +433,11 @@ describe('Touch Draft', () => {
           const t = yield* always;
           yield* t.heard('recording');
           yield* t.send({ _tag: 'Collapse' });
-          expect(t.then()).toEqual({ _tag: 'Recording', open: true });
+          expect(t.then()).toEqual({
+            _tag: 'Recording',
+            open: true,
+            typing: false,
+          });
           yield* t.send({ _tag: 'Cancel' });
           yield* t.send({ _tag: 'Send' });
           expect(t.sent()).toBe(1);

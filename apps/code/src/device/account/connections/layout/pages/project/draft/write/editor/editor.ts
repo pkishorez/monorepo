@@ -379,7 +379,9 @@ export function useEditor(options: EditorOptions): {
           : now !== null &&
             now.id === awaited.id &&
             now.failed === awaited.failed &&
-            now.reason === awaited.reason
+            now.reason === awaited.reason &&
+            now.ghost === awaited.ghost &&
+            now.follows === awaited.follows
       )
         return;
       current.dispatch({ effects: awaiting.of(awaited) });
@@ -551,10 +553,19 @@ const theme = EditorView.theme({
     fontSize: '0.9375em',
   },
   '.cm-dictation': {
+    userSelect: 'none',
+    WebkitUserSelect: 'none',
     color: 'var(--muted-foreground)',
     fontStyle: 'italic',
     fontSize: '0.9375em',
     padding: '0 0.125rem',
+  },
+  // Ghost text: the words heard, where they will go, never selected.
+  '.cm-dictation[data-ghost]': {
+    fontStyle: 'normal',
+    fontSize: 'inherit',
+    padding: '0',
+    color: 'color-mix(in oklch, var(--foreground) 45%, transparent)',
   },
   '.cm-dictation[data-failed] button': {
     color: 'var(--destructive)',

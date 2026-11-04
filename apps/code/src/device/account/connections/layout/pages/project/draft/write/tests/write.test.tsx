@@ -72,6 +72,9 @@ const Page = Actor.define('Page', {
     pings: Schema.Finite,
     pending: Schema.NullOr(Pending),
     recording: Schema.NullOr(Recording),
+    live: Schema.NullOr(
+      Schema.Struct({ id: Schema.Finite, text: Schema.String }),
+    ),
     took: Schema.Array(Schema.Finite),
     retried: Schema.Array(Schema.Finite),
   }),
@@ -79,6 +82,11 @@ const Page = Actor.define('Page', {
     Ping: {},
     Dictation: { pending: Schema.NullOr(Pending) },
     Record: { recording: Schema.NullOr(Recording) },
+    Live: {
+      live: Schema.NullOr(
+        Schema.Struct({ id: Schema.Finite, text: Schema.String }),
+      ),
+    },
     Took: { id: Schema.Finite },
     Retry: { id: Schema.Finite },
     Typed: { text: Schema.String },
@@ -103,6 +111,7 @@ const PageLive = Page.build({
       pings: 0,
       pending: null,
       recording: null,
+      live: null,
       took: [],
       retried: [],
     },
@@ -126,6 +135,7 @@ const PageLive = Page.build({
     Ping: (_, { model }) => ({ model: { ...model, pings: model.pings + 1 } }),
     Dictation: ({ pending }, { model }) => ({ model: { ...model, pending } }),
     Record: ({ recording }, { model }) => ({ model: { ...model, recording } }),
+    Live: ({ live }, { model }) => ({ model: { ...model, live } }),
     // Taken, the Dictation is done, as the app's own says.
     Took: ({ id }, { model }) => ({
       model: { ...model, pending: null, took: [...model.took, id] },
@@ -176,6 +186,7 @@ let switchTo: (doc: typeof Doc.Type) => void = () => {};
 let ping = () => {};
 let dictate: (pending: typeof Pending.Type | null) => void = () => {};
 let record: (recording: typeof Recording.Type | null) => void = () => {};
+let hear: (live: { id: number; text: string } | null) => void = () => {};
 let shown = 0;
 /** The card drawn anew for each mode, as the Draft's modes draw it, over one `held`. */
 let anew: Held | null = null;
@@ -193,6 +204,7 @@ const PageView = View.make(PageLive, ({ model, children, send }) => {
   ping = () => send({ _tag: 'Ping' });
   dictate = (pending) => send({ _tag: 'Dictation', pending });
   record = (recording) => send({ _tag: 'Record', recording });
+  hear = (live) => send({ _tag: 'Live', live });
   switchTo = (doc) => send({ _tag: 'Switch', doc });
   return (
     <keys.Provider vim>
@@ -249,6 +261,7 @@ function OnPage({
             }
           : model.recording,
       pending: model.pending,
+      live: model.live === null ? null : { ...model.live, downloading: false },
       onToggle: () => void toggled++,
       onTook: (id) => send({ _tag: 'Took', id }),
       onRetry: (id) => send({ _tag: 'Retry', id }),
@@ -552,6 +565,35 @@ describe('Draft', () => {
     expect(marked()?.textContent).toBe('look here');
     await key('u', 'KeyU');
     expect(page.text).toBe('Please ');
+    expect(placeholder()).toBeNull();
+  });
+
+  it('shows what is heard as ghost text at the cursor, following it while it records, and puts the text there', async () => {
+    const view = () => EditorView.findFromDOM(editor())!;
+    const content = () => view().contentDOM.textContent;
+    await act(async () => view().dispatch({ selection: { anchor: 0 } }));
+    await act(async () => hear({ id: 4, text: '' }));
+    await flush();
+    expect(placeholder()?.textContent).toBe('listening…');
+    await act(async () => hear({ id: 4, text: 'Look' }));
+    await flush();
+    expect(placeholder()?.dataset['ghost']).toBe('');
+    expect(content()).toBe('LookPlease ');
+    // Recording, it goes where the cursor goes; it is never the text.
+    await act(async () => view().dispatch({ selection: { anchor: 7 } }));
+    await act(async () => hear({ id: 4, text: 'Look here' }));
+    await flush();
+    expect(content()).toBe('Please Look here');
+    expect(page.text).toBe('Please ');
+    // Stopped, it stays where it was as the cursor moves.
+    await act(async () => dictate({ _tag: 'Transcribing', id: 4 }));
+    await act(async () => view().dispatch({ selection: { anchor: 0 } }));
+    await flush();
+    expect(content()).toBe('Please Look here');
+    await act(async () => dictate({ _tag: 'Text', id: 4, text: 'Look here' }));
+    await act(async () => hear(null));
+    await flush();
+    expect(page.text).toBe('Please Look here');
     expect(placeholder()).toBeNull();
   });
 
