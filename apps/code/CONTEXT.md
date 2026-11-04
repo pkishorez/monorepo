@@ -20,6 +20,14 @@ _Avoid_: page, screen, level
 The Picker for where to work next: first the Connection, a Step shown only while the Connection Filter shows every Connection and there is more than one, else skipped for the Connection it shows or the only one, then that Connection's recent Projects and the folders under its home, in a tall Drawer on touch. Choosing a Project opens its new Session's page, on a phone as on a wide screen, and a folder not yet added becomes a Project. A Project whose folder is missing shows so, as a row that cannot be chosen; its own page says so above its Draft, with Remove beside it, the only place a Project is removed, and starts no new Session there, while its Sessions stay readable. A new Session once started is shown on its own page, with nothing left over it, the sidebar on a phone included.
 _Avoid_: add project, open project
 
+**Account Page**:
+Everything of one Account, under its own address, `/a/:accountId`: home, Settings, and a Project of one Connection, `…/m/:connectionId/p/:projectId`, and its Sessions, `…/s/:sessionId`. So a link names whose it is. A tab acts only as the Account active in this browser, so the page is in one of two States: Away, the Account is not the one active, and Active, the app itself, its Frame around the page the address names. Away draws one screen, the Sign-in Screen, with a line saying why: the Account is signed out, here or in another tab; another tab or app switched to another Account, or added one; the link is for an Account signed in here while another is active; or for one not signed in on this browser. The page never switches, nor moves, by itself: only a switch asked in this tab moves it, to the new Account's home, from the header's Account Switcher or by choosing another Account on the Sign-in Screen; choosing its own Account switches and stays. While it is Active, every socket to its Connections is open, each its Connection's own; once it is Away, none is. `/`, and an address from before Accounts had their own, go to the same page under the Account active; placed so while the Auth Worker was still asked, under the Account this device kept, the guess is corrected, quietly, once it answers another. An address that names no page says "Nothing lives at this address", whoever is signed in, with Go home.
+_Avoid_: account route, workspace, tenant
+
+**Sign-in Screen**:
+The one screen to sign in from, drawn by Code itself: "Continue with Google" leaves for Google at once, without the Auth Worker's Login Screen, and comes back to the page it was asked from; a sign-in that fails lands on the Login Screen, which says why. Signed out entirely, it is all there is; on an Account Page that is Away, it says why first, and lists the Accounts signed in on this browser to switch to. Under the dev Fake, the same button asks for an `@kestack.test` email.
+_Avoid_: login page, switch screen
+
 **Connection List**:
 The signed-in Account's Connections as this device last had them, kept per Account so the app opens with all of them even while Cloud Connect is out of reach, then asked again once, on Reload, and on each Recheck. The app holds a Link to every Connection in it at once, and the Setup of each, and shows their Projects and Sessions together. A Connection that stops answering keeps what was last synced, marked by its Last Seen; a Last Seen only as this device kept it is believed once Cloud Connect answers, or after a while without, and until then the Connection is only Linking.
 _Avoid_: machine registry, device list, machine switcher
@@ -29,7 +37,7 @@ What the app keeps of how one Connection in the Connection List is set up: its H
 _Avoid_: machine kit, kit, machine cache, machine settings (as a store), catalog (for the per-Connection part)
 
 **Storage**:
-What this device keeps, in databases named by their place: the device's own, `code:device`; each Account's, `code:account:<accountId>`; and each of its Connections', under the Account's. The database says whose it is, the table what it is, and it is one of three kinds: Local, Cache or Sync. Whoever checks a level deletes the children it no longer lists, never itself, and only on a real answer: once the Auth Worker answers, every Account not signed in on this device goes, with all under it; once Cloud Connect first answers, every Connection of the Account it does not list goes, with all under it; a check that fails deletes nothing, and a later answer neither, since another tab may already list a Connection this one has not heard of. A Project removed and a Connection forgotten go at once, as the user asked.
+What this device keeps, in databases named by their place: the device's own, `code:device`; each Account's, `code:account:<accountId>`; and each of its Connections', under the Account's. The database says whose it is, the table what it is, and it is one of three kinds: Local, Cache or Sync. Whoever checks a level deletes the children it no longer lists, never itself, and only on a real answer: once the Auth Worker answers, every Account not signed in on this device goes, with all under it; once Cloud Connect first answers, every Connection of the Account it does not list goes, with all under it; a check that fails deletes nothing, and a later answer neither, since another tab may already list a Connection this one has not heard of. A Project removed and a Connection forgotten go at once, as the user asked. The app reaches all of it through one Storage, but for the Preferences, which are their own.
 _Avoid_: persistence, IndexedDB (for the idea), local storage
 
 **Local**:
@@ -73,7 +81,7 @@ The sidebar's choice of whose sessions it lists: every Connection, or one, each 
 _Avoid_: machine switcher, machine picker
 
 **Settings**:
-What the user sets, on no Connection, at one address, in four tabs side by side, chosen by name, or on touch by a sideways swipe the tabs follow, the one beside showing as it comes: General, the parts of Preferences a user sets; Shortcuts, the Bindings; Connections, every Connection in the Connection List standing by its Line and Last Seen as the sidebar says them, with its own settings as its Setup holds them, changed only while its Line is connected, each change sent to the Connection and then shown by its Setup. Each Connection is forgotten from a bin beside its name, which asks first, and shows its Agents: its Harness Accounts and its Speech to Text. And About: the Code app's build, by date and commit, with a check for a newer one and, once one is downloaded, an update that reloads every open page into it; and how much this browser holds for the app, with Clear all data, which asks first, then deletes every database, storage, cache and service worker the app keeps here and reloads, the sign-in, a cookie, staying. Projects are not set here: they are never managed. Its Harness Accounts are listed under each agent, each with the config folder it really uses, marked when Connect's environment chose it, as for a Default Account with none set; each opened to change it, one at a time, under its row, on touch as with keys, what is set there kept apart from what it resolves to. Which tab is open is Settings' own and has no address: they open on General, unless a link to them asks for another, as the Draft's for an agent that cannot run asks for Connections.
+What the user sets, on no Connection, at one address of the Account Page, `/a/:accountId/settings`, in four tabs side by side, chosen by name, or on touch by a sideways swipe the tabs follow, the one beside showing as it comes: General, the parts of Preferences a user sets; Shortcuts, the Bindings; Connections, every Connection in the Connection List standing by its Line and Last Seen as the sidebar says them, with its own settings as its Setup holds them, changed only while its Line is connected, each change sent to the Connection and then shown by its Setup. Each Connection is forgotten from a bin beside its name, which asks first, and shows its Agents: its Harness Accounts and its Speech to Text. And About: the Code app's build, by date and commit, with a check for a newer one and, once one is downloaded, an update that reloads every open page into it; and how much this browser holds for the app, with Clear all data, which asks first, then deletes every database, storage, cache and service worker the app keeps here and reloads, the sign-in, a cookie, staying. Projects are not set here: they are never managed. Its Harness Accounts are listed under each agent, each with the config folder it really uses, marked when Connect's environment chose it, as for a Default Account with none set; each opened to change it, one at a time, under its row, on touch as with keys, what is set there kept apart from what it resolves to. Which tab is open is Settings' own and has no address: they open on General, unless a link to them asks for another, as the Draft's for an agent that cannot run asks for Connections.
 _Avoid_: options, config
 
 **Sidebar**:
@@ -104,13 +112,13 @@ _Avoid_: unread, new, notification
 The keyboard-first way of working the app, off until turned on in this browser, and off with its status line on a device with no keyboard, however wide its screen: plain keys are shortcuts in the page's Normal Mode, the Draft is read until `i` makes it the Composer, or, while the Question Panel stands in for it, `i` or `m` expands that, and the keys' status line is at the app's foot. Off, the Draft is a text box as any other, and only keys holding Ctrl, Alt or Cmd are shortcuts.
 _Avoid_: keyboard mode, power mode
 
-**Layout**:
-What is drawn around every page for the Account drawn: the sidebar, the header with a Dictation's cancel, and the Pickers the keys open anywhere: the Project Picker, the Session Switcher and Actions. It reads the Preferences and holds the keys, Vim Mode, the Window and the Text Size, binds the keys that start a Dictation, and starts over when another Account is drawn.
-_Avoid_: frame, chrome, app shell (that is the library's)
+**Frame**:
+What is drawn around every page of the Account Page while it is Active: the sidebar, the header with a Dictation's cancel, and the Pickers the keys open anywhere: the Project Picker, the Session Switcher and Actions. It reads the Preferences and holds the keys, Vim Mode, the Window and the Text Size, binds the keys that start a Dictation, and keeps the Connection Filter. Each Account Page has its own.
+_Avoid_: layout, chrome, app shell (that is the library's)
 
 **Window**:
 The app floating as a window over a backdrop of its own on a screen wider than it can be, off until turned on in Settings in this browser, for demos. Off, the app fills the screen at every width.
-_Avoid_: portal, inset, layout (that is what is drawn around every page)
+_Avoid_: portal, inset, frame (that is what is drawn around every page)
 
 **Text Size**:
 How big the text and spacing are with a keyboard on a wide screen: small, medium, a little under the browser's own and the default, or large, the browser's own. Chosen in Settings in this browser. A touch screen keeps the browser's size.
@@ -183,6 +191,10 @@ _Avoid_: device picker, mic menu
 **Status Line**:
 The one line at the foot of the page: the model and permissions in effect, and the ways to add to the Draft and send it. Wherever the app says which agent runs, here, on the model chip, in the model Picker and beside a Session's title, the agent is its logo, then its Harness Account's name unless it is the Default Account: the Claude logo, then "Work · Opus 5.5". Where only words go, it is one: "Claude", or "Claude-Work".
 _Avoid_: footer, toolbar
+
+**Move**:
+A Session the user put Settled or un-Settled, from a swipe, its Undo, the Settled List's Un-settle or Actions, on its way to its Connection: asked of it at once, one call at a time per Session, and the Session drawn where it was put until the Session as synced agrees, or a moment after its last call returns. One refused says why, and the Session goes back.
+_Avoid_: pending settle, optimistic row
 
 **Settled List**:
 Where the sidebar keeps Settled Sessions, the most recently Settled first, opened under "Settled", last in the timeline, and closed by it again.

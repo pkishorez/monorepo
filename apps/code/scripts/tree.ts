@@ -18,7 +18,7 @@ import { basename, extname, join, relative } from 'node:path';
 const LIMIT = 3;
 const OWN = new Set(['index', 'actor', 'store', 'view', 'commands']);
 // What the app is started and styled with, at the top of `src/`.
-const ROOT = new Set(['app.tsx', 'env.d.ts', 'styles.css']);
+const ROOT = new Set(['start.tsx', 'env.d.ts', 'styles.css']);
 
 const src = join(import.meta.dirname, '..', 'src');
 const breaks: Array<string> = [];

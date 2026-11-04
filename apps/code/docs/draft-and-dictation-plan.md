@@ -110,10 +110,11 @@ keys inside the `picker` Surface stay as they are.
   alone and draws at once. Each Connection has its own settings (its Harness
   Accounts, its Speech to Text switch), each loading on its own; one that
   does not answer says so in its own row.
-- Screens draw from the local copy at once. A loading state, a quiet
-  skeleton shaped like the content and never a spinner, shows only for data
-  this device has never synced, and the Replica reports that, not an empty
-  list.
+- Screens draw from the local copy at once. A loading state shows only for
+  data this device has never synced, and the Replica reports that, not an
+  empty list: a page with nothing yet to draw says so in one quiet line, a
+  small spinner and "Loading session…", once the wait is long enough to
+  see; a part of a page, a quiet skeleton shaped like it.
 
 ### Speech to Text (ai-toolkit)
 

@@ -6,12 +6,12 @@ import { AppShell, useAppShell } from '@kestack/web-platform/recipes/frame';
 import {
   Scrolled,
   useScroller,
-} from '../src/device/account/connections/layout/pages/project/session/scroller/index.ts';
+} from '../src/app/account/pages/project/session/scroller/index.ts';
 import {
   Rows,
   useOpening,
   useRows,
-} from '../src/device/account/connections/layout/pages/project/session/transcript/index.ts';
+} from '../src/app/account/pages/project/session/transcript/index.ts';
 import { chunkOf, sessionOf } from './session.ts';
 import './styles.css';
 

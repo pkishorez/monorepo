@@ -21,7 +21,7 @@ export default defineConfig(({ command }) => ({
     app({
       name: 'Code',
       platform: cloudflare(),
-      app: 'src/app',
+      app: 'src/start',
       pwa: {
         splash: true,
         manifest: {

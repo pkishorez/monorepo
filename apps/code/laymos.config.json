@@ -3,91 +3,84 @@
   "sourceRoots": ["src"],
   "ignoredPaths": ["src/styles.css", "src/env.d.ts"],
   "fileModules": [
-    "src/app.tsx",
-    "src/device/account/connections/layout/commands.ts",
-    "src/device/store.ts",
-    "src/device/account/connections/store.ts",
-    "src/device/account/connections/connections.ts",
-    "src/device/account/connections/voice/voice.ts",
-    "src/device/account/connections/layout/pages/project/store.ts",
-    "src/device/account/connections/layout/pages/settings/connections/store.ts",
-    "src/device/account/connections/layout/pages/settings/connections/connection/accounts/store.ts"
+    "src/start.tsx",
+    "src/app/app.ts",
+    "src/app/account/account.ts",
+    "src/app/account/frame/commands.ts",
+    "src/app/account/frame/store.ts",
+    "src/app/account/frame/header/voice/voice.ts",
+    "src/app/account/pages/project/store.ts",
+    "src/app/account/pages/settings/cards/store.ts",
+    "src/app/account/pages/settings/cards/card/agents/store.ts"
   ],
   "rules": {
-    "src/app.tsx": ["src/device", "src/ui/page/devtools", "src/ui/page/theme"],
-    "src/device": ["src/ui"],
-    "src/device/kabuki": ["src/device/routes"],
-    "src/device/store.ts": ["src/device/account/store"],
-    "src/device/account/connections": ["src/device/account/store"],
-    "src/device/account/connections/connection": [
-      "src/device/account/connections/connections.ts",
-      "src/device/account/connections/store.ts"
+    "src/start.tsx": ["src/app", "src/ui/page/devtools", "src/ui/page/theme"],
+    "src/app": ["src/ui"],
+    "src/app/storage/local": ["src/app/storage/database"],
+    "src/app/storage/cache": ["src/app/storage/database"],
+    "src/app/account": ["src/app/app.ts", "src/app/storage", "src/app/sign-in"],
+    "src/app/account/connection": ["src/app/account/account.ts"],
+    "src/app/account/frame": [
+      "src/app/account/account.ts",
+      "src/app/account/connection"
     ],
-    "src/device/account/connections/voice": ["src/device/store.ts"],
-    "src/device/account/connections/layout": [
-      "src/device/routes",
-      "src/device/store.ts",
-      "src/device/account/connections/store.ts",
-      "src/device/account/connections/connections.ts",
-      "src/device/account/connections/connection",
-      "src/device/account/connections/voice"
+    "src/app/account/frame/sidebar": [
+      "src/app/account/frame/commands.ts",
+      "src/app/account/frame/store.ts"
     ],
-    "src/device/account/connections/layout/pages/project/draft": [
-      "src/device/account/connections/layout/pages/project/store.ts"
+    "src/app/account/frame/header": ["src/app/account/frame/pickers"],
+    "src/app/account/frame/pickers": [
+      "src/app/account/frame/commands.ts",
+      "src/app/account/frame/store.ts"
     ],
-    "src/device/account/connections/layout/pages/project/session": [
-      "src/device/account/connections/layout/pages/project/draft"
+    "src/app/account/frame/header/voice/dictation": [
+      "src/app/account/frame/header/voice/recorder",
+      "src/app/account/frame/header/voice/voice.ts"
     ],
-    "src/device/account/connections/voice/dictation": [
-      "src/device/account/connections/voice/recorder",
-      "src/device/account/connections/voice/voice.ts"
+    "src/app/account/frame/header/voice/microphone": [
+      "src/app/account/frame/header/voice/recorder"
     ],
-    "src/device/account/connections/voice/microphone-picker": [
-      "src/device/account/connections/voice/recorder"
+    "src/app/account/connection/records": ["src/app/account/connection/link"],
+    "src/app/account/connection/link/health": [
+      "src/app/account/connection/link/reach"
     ],
-    "src/device/account/connections/connection/records": [
-      "src/device/account/connections/connection/link"
+    "src/app/account/pages": [
+      "src/app/account/account.ts",
+      "src/app/account/connection",
+      "src/app/account/frame/commands.ts",
+      "src/app/account/frame/header/voice"
     ],
-    "src/device/account/connections/connection/link/health": [
-      "src/device/account/connections/connection/link/reach"
+    "src/app/account/pages/project/draft": [
+      "src/app/account/pages/project/store.ts"
     ],
-    "src/device/account/connections/layout/pages": [
-      "src/device/account/connections/layout/commands.ts"
+    "src/app/account/pages/project/session": [
+      "src/app/account/pages/project/draft"
     ],
-    "src/device/account/connections/layout/sidebar": [
-      "src/device/account/connections/layout/commands.ts"
+    "src/app/account/pages/project/session/transcript": [
+      "src/app/account/pages/project/session/scroller",
+      "src/app/account/pages/project/session/panels/details"
     ],
-    "src/device/account/connections/layout/pickers": [
-      "src/device/account/connections/layout/commands.ts"
+    "src/app/account/pages/project/session/transcript/tool": [
+      "src/app/account/pages/project/session/transcript/words",
+      "src/app/account/pages/project/session/transcript/turns/rows"
     ],
-    "src/device/account/connections/layout/pages/project/new-session": [
-      "src/device/account/connections/layout/pages/project/draft"
+    "src/app/account/pages/settings/cards/card": [
+      "src/app/account/pages/settings/cards/store.ts"
     ],
-    "src/device/account/connections/layout/pages/project/session/transcript": [
-      "src/device/account/connections/layout/pages/project/session/scroller",
-      "src/device/account/connections/layout/pages/project/session/panels/details"
-    ],
-    "src/device/account/connections/layout/pages/project/session/transcript/tool": [
-      "src/device/account/connections/layout/pages/project/session/transcript/words",
-      "src/device/account/connections/layout/pages/project/session/transcript/turns/rows"
-    ],
-    "src/device/account/connections/layout/pages/settings/connections/connection": [
-      "src/device/account/connections/layout/pages/settings/connections/store.ts"
-    ],
-    "src/device/account/connections/layout/pages/settings/connections/connection/accounts/card": [
-      "src/device/account/connections/layout/pages/settings/connections/connection/accounts/store.ts"
+    "src/app/account/pages/settings/cards/card/agents/card": [
+      "src/app/account/pages/settings/cards/card/agents/store.ts"
     ]
   },
   "exceptions": [
     {
       "from": "src/ui/controls/picker",
-      "to": "src/device/account/connections/layout/commands.ts",
-      "because": "the Picker binds the app's own keyboard Actions (picker.*), defined with every other Action in Layout's keys, which imports nothing back"
+      "to": "src/app/account/frame/commands.ts",
+      "because": "the Picker binds the app's own keyboard Actions (picker.*), defined with every other Action in the frame's keys, which imports nothing back"
     },
     {
       "from": "src/ui/controls/notice",
-      "to": "src/device/account/connections/layout/commands.ts",
-      "because": "Confirm, in the notices, binds the app's own keyboard Actions, defined with every other Action in Layout's keys, which imports nothing back"
+      "to": "src/app/account/frame/commands.ts",
+      "because": "Confirm, in the notices, binds the app's own keyboard Actions, defined with every other Action in the frame's keys, which imports nothing back"
     }
   ]
 }
