@@ -31,9 +31,15 @@ export function Opening() {
           <h1 className="text-[2.25rem] leading-[1.05] font-semibold tracking-tight text-balance min-[400px]:text-[2.5rem] sm:text-6xl lg:text-[3.5rem] xl:text-6xl">
             Sync engine built for single-table design
           </h1>
-          <p className="text-lg text-pretty text-muted-foreground">
-            Works on <Databases />. Built on TanStack DB.
-          </p>
+          <div className="space-y-2">
+            <p className="text-2xl font-medium tracking-tight sm:text-3xl">
+              <span className="text-muted-foreground">Works on</span>{' '}
+              <Databases />
+            </p>
+            <p className="text-lg text-muted-foreground">
+              Built on TanStack DB.
+            </p>
+          </div>
           <div className="flex flex-wrap gap-3 pt-2">
             <Router.Link
               to={router.StdToolkit.Doc({ slug: 'quick-start' })}
