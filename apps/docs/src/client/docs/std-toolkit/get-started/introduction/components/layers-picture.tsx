@@ -1,12 +1,17 @@
 import { motion } from 'motion/react';
-import { Flash, SPRING, useSteps } from '../../../../../components/index.ts';
+import {
+  Flash,
+  SPRING,
+  Walkthrough,
+  useWalkthrough,
+} from '../../../../../components/index.ts';
 
 /*
  * std-toolkit as five layers, one on the next, and a task travelling down
- * through them, one at a time. Beside each layer, what the task is there:
- * a shape with versions, an entity found by its key, a row in the one
+ * through them, one a step. Beside each layer, what the task is there: a
+ * shape with versions, an entity found by its key, a row in the one
  * table, the same row on any database, and a fresh copy on a screen. The
- * layer the task is in is lit; the rest wait.
+ * layer the task is in is lit, a dot sliding down to it; the rest wait.
  */
 
 const LAYERS = [
@@ -16,40 +21,50 @@ const LAYERS = [
   { part: 'Adapters', task: 'Memory · IndexedDB · SQLite · DynamoDB' },
   { part: 'Sync', task: 'a fresh copy on every screen' },
 ] as const;
-const DURATIONS = [1700, 1700, 1700, 1700, 2200];
+
+const CAPTIONS = [
+  'Evolving schema: a task is a shape that keeps every version it has had.',
+  'Entities: the shape gets a key, so one task is found by its board and id.',
+  'StdTable: the task becomes a row in the one table, beside every other kind.',
+  'Adapters: that same row can live in Memory, IndexedDB, SQLite or DynamoDB.',
+  'Sync: every screen keeps a fresh copy of the task, and hears when it changes.',
+];
 
 export function LayersPicture() {
-  const [ref, step, round] = useSteps(DURATIONS, 4);
+  const walk = useWalkthrough(CAPTIONS);
+  const { step, round } = walk;
   return (
-    <div ref={ref} className="px-4 py-8 sm:px-8">
-      <ol className="mx-auto grid max-w-lg gap-2">
-        {LAYERS.map((layer, index) => {
-          const lit = index === step;
-          return (
-            <li
-              key={layer.part}
-              className={`relative grid grid-cols-[1.5rem_8.5rem_minmax(0,1fr)] items-center gap-2 rounded-lg border px-3 py-2.5 transition-[border-color,opacity] duration-300 ${lit ? 'border-foreground/70 opacity-100' : 'border-border opacity-55'}`}
-            >
-              <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                {index + 1}
-              </span>
-              <span className="text-[13px] font-medium">{layer.part}</span>
-              <span className="truncate font-mono text-[11px] text-muted-foreground">
-                {layer.task}
-              </span>
-              {lit && (
-                <motion.span
-                  layoutId={`layers-${round}`}
-                  transition={SPRING}
-                  aria-hidden
-                  className="absolute top-1/2 -left-1.5 size-3 -translate-y-1/2 rounded-full bg-(--field-accent)"
-                />
-              )}
-              {lit && <Flash at={round * 10 + index + 1} />}
-            </li>
-          );
-        })}
-      </ol>
-    </div>
+    <Walkthrough walk={walk}>
+      <div className="px-4 py-8 sm:px-8">
+        <ol className="mx-auto grid max-w-lg gap-2">
+          {LAYERS.map((layer, index) => {
+            const lit = index === step;
+            return (
+              <li
+                key={layer.part}
+                className={`relative grid grid-cols-[1rem_minmax(0,1fr)] items-center gap-x-2 gap-y-0.5 rounded-lg border px-3 py-2 sm:py-2.5 transition-[border-color,opacity] duration-300 sm:grid-cols-[1.5rem_8.5rem_minmax(0,1fr)] ${lit ? 'border-foreground/70 opacity-100' : 'border-border opacity-55'}`}
+              >
+                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                  {index + 1}
+                </span>
+                <span className="text-[13px] font-medium">{layer.part}</span>
+                <span className="col-start-2 truncate font-mono text-[11px] text-muted-foreground sm:col-start-auto">
+                  {layer.task}
+                </span>
+                {lit && (
+                  <motion.span
+                    layoutId={`layers-${round}`}
+                    transition={SPRING}
+                    aria-hidden
+                    className="absolute top-1/2 -left-1.5 size-3 -translate-y-1/2 rounded-full bg-(--field-accent)"
+                  />
+                )}
+                {lit && <Flash at={round * 10 + index + 1} />}
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    </Walkthrough>
   );
 }

@@ -46,6 +46,13 @@ type Host = {
 const HostContext = createContext<Host | null>(null);
 
 /**
+ * Whether a `Flash` inside lights in the field's accent rather than the
+ * foreground: true inside a walkthrough, where it marks what each step
+ * changed.
+ */
+export const FlashAccent = createContext(false);
+
+/**
  * The step a picture is at, looping through steps held this many
  * milliseconds each, and how many times it has looped. Runs only while on
  * screen; with less motion asked for, stays at `still`. Inside a
@@ -219,7 +226,10 @@ export function Box({
  * render highlighted in React's devtools. Nothing before the first change.
  */
 export function Flash({ at }: { readonly at?: number }) {
-  if (!at) return null;
+  const accent = useContext(FlashAccent);
+  // Inside a walkthrough it keeps its place while unlit, so a list spaced
+  // by `space-y` never finds a new last child, and never grows a margin.
+  if (!at) return accent ? <span aria-hidden className="hidden" /> : null;
   return (
     <motion.span
       key={at}
@@ -227,7 +237,7 @@ export function Flash({ at }: { readonly at?: number }) {
       initial={{ opacity: 1 }}
       animate={{ opacity: 0 }}
       transition={{ duration: 0.8, ease: 'easeOut' }}
-      className="pointer-events-none absolute -inset-px rounded-[inherit] border-2 border-foreground"
+      className={`pointer-events-none absolute -inset-px rounded-[inherit] border-2 ${accent ? 'border-(--field-accent)' : 'border-foreground'}`}
     />
   );
 }

@@ -28,8 +28,10 @@ export {
   Pill,
   Roll,
   SPRING,
+  Walkthrough,
   useSteps,
   useTargets,
+  useWalkthrough,
 } from './examples/index.ts';
 export { Files, Inspect, Live, Picture, Run } from './examples/index.ts';
 export type { KeyLock, LiveApp, Program } from './examples/index.ts';
