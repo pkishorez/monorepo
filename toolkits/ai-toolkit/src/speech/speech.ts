@@ -65,7 +65,9 @@ export interface SpeechService {
   /**
    * What Take `id`, a Dictation sent as it is recorded, has heard now,
    * then each change, ending with Done. Speech to Text off, it is
-   * switched on, and the download's progress comes first.
+   * switched on, and the download's progress comes first. A Take watched
+   * is never dropped; one dropped or broken before Done fails its
+   * watchers.
    */
   readonly watchTake: (
     id: string,

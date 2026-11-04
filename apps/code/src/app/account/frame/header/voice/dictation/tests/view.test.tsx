@@ -7,6 +7,7 @@ import { CodeClients } from '@kestack/connect/code';
 import { Actor, Command } from '@kestack/kabuki';
 import { View, useChild } from '@kestack/kabuki/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { Connections } from '../../../../../account.ts';
 import { Ask, Voice } from '../../voice.ts';
 import { Preferences, nothing } from '../../../../../../storage/index.ts';
 import { Recorder } from '../../recorder/index.ts';
@@ -126,6 +127,7 @@ const services = () =>
           changes: Stream.never,
         }),
         Layer.mock(CodeClients)({}),
+        Layer.mock(Connections)({}),
         Layer.succeed(Recorder, {
           record: () =>
             Effect.succeed({

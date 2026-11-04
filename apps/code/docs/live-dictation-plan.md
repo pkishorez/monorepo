@@ -39,7 +39,9 @@ again, as after a reconnect, starts from what is heard now.
   A tail past about 12 s is cut at its quietest moment, and the part before
   the cut settles, so each pass stays short. At the end, the tail is
   transcribed once more and settles.
-- A Take nobody touches for 10 minutes is dropped.
+- A Take nobody watches or touches for 10 minutes is dropped. One watched
+  never is, however long its model downloads. One dropped or broken
+  before it is Done fails whoever watches it.
 - A streaming model, such as NVIDIA's Nemotron Speech Streaming in
   sherpa-onnx 1.13.4 and later, could take Parakeet's place behind the same
   three calls.
@@ -58,6 +60,19 @@ again, as after a reconnect, starts from what is heard now.
   kept recording again as a new Take.
 - Availability is Ready, or Busy while another field records. Nothing else
   stops a Dictation starting.
+
+## Recovery
+
+- The Connection keeps a Take in memory only, so a restart loses it. Each
+  time the Take's socket comes back, it sends the whole recording again
+  from stretch 0, and its end once stopped. A Connection that kept the
+  Take ignores the stretches it has. The Recorder keeps the recording
+  until the next Dictation, so this and Retry always have it.
+- Once stopped, a Take waits only so long for a word from its Connection,
+  an answer or anything heard: 30 s while the socket is down or on another
+  Release, then "Couldn't reach <Connection>"; 60 s while it is up, or
+  5 minutes while the model downloads, then "Voice stopped answering".
+  Either ends in Failed, with Retry.
 
 ## What it looks like
 
@@ -86,5 +101,8 @@ again, as after a reconnect, starts from what is heard now.
 
 - Choosing another Connection when the Owner's is not there, and moving a
   Take to it.
-- Keeping a Take's audio on disk so a Connection restart loses nothing.
+- Asking the Connection for how far a Take has come, so a reconnect sends
+  only what it lacks.
+- Telling the Connection to drop a cancelled Take, rather than leaving it
+  for 10 minutes.
 - Retiring `transcribe`, once nothing calls it.
