@@ -5,93 +5,100 @@ import {
   Flash,
   Message,
   Roll,
-  useSteps,
+  Walkthrough,
+  useWalkthrough,
 } from '../../../../../components/index.ts';
 
 /*
- * A subscriber on the work board, and writes arriving one at a time. A
- * write on work is saved, and the subscriber hears it: its count rolls
- * and it flashes. A write on another board is saved, but not for it. A
- * refused write is never saved, so nobody hears it.
+ * A subscriber on the work board, and writes arriving one a step, each in
+ * a slot of its own height above it. A write on work is saved, and the
+ * subscriber hears it: its count rolls and it lights. A write on another
+ * board is saved, but not for it. A refused write is struck through and
+ * never saved, so nobody hears it.
  */
 
 type Write = {
   readonly call: string;
   readonly outcome: 'heard' | 'other board' | 'refused';
+  readonly caption: string;
 };
 
 const WRITES: ReadonlyArray<Write> = [
-  { call: 'insert t1 · work', outcome: 'heard' },
-  { call: 'insert t2 · home', outcome: 'other board' },
-  { call: 'insert t1 · work, again', outcome: 'refused' },
-  { call: 'delete t1 · work', outcome: 'heard' },
+  {
+    call: 'insert t1 · work',
+    outcome: 'heard',
+    caption:
+      'A task is saved on the work board. The subscriber hears it as a Change Notice.',
+  },
+  {
+    call: 'insert t2 · home',
+    outcome: 'other board',
+    caption:
+      'A task is saved on home. It is not on work, so this subscriber hears nothing.',
+  },
+  {
+    call: 'insert t1 · work, again',
+    outcome: 'refused',
+    caption:
+      'Inserting t1 again is refused. Nothing was saved, so there is nothing to hear.',
+  },
+  {
+    call: 'delete t1 · work',
+    outcome: 'heard',
+    caption:
+      'A delete on work is saved too, and heard as a notice with _d set to true.',
+  },
 ];
-
-/** Each write takes two steps: it arrives, then what came of it shows. */
-const DURATIONS = WRITES.flatMap(() => [900, 1500]);
+const CAPTIONS = WRITES.map((each) => each.caption);
 
 export function NoticePicture() {
-  const [ref, step, round] = useSteps(DURATIONS, 7);
-  const at = Math.floor(step / 2);
-  const settled = step % 2 === 1;
-  const write = WRITES[at]!;
-  const heard = WRITES.slice(0, at + (settled ? 1 : 0)).filter(
+  const walk = useWalkthrough(CAPTIONS);
+  const { step, round } = walk;
+  const write = WRITES[step]!;
+  const refused = write.outcome === 'refused';
+  const heard = WRITES.slice(0, step + 1).filter(
     (one) => one.outcome === 'heard',
   ).length;
   return (
-    <div ref={ref} className="grid place-items-center px-4 py-8">
-      <div className="w-full max-w-80">
-        <div className="flex h-9 items-end justify-center">
-          <AnimatePresence mode="popLayout">
-            <motion.span
-              key={`${round}-${at}`}
-              initial={{ opacity: 0, y: -10 }}
-              animate={{
-                opacity: settled && write.outcome === 'refused' ? 0.5 : 1,
-                y: 0,
-                transition: ENTER,
-              }}
-              exit={{ opacity: 0, y: 14, transition: EXIT }}
-            >
-              <Message
-                className={
-                  settled && write.outcome === 'refused' ? 'line-through' : ''
-                }
-              >
-                {write.call}
-              </Message>
-            </motion.span>
-          </AnimatePresence>
-        </div>
-        <p className="mt-2 h-4 text-center font-mono text-[11px] text-muted-foreground">
-          <AnimatePresence mode="wait">
-            {settled && (
+    <Walkthrough walk={walk}>
+      <div className="grid place-items-center px-4 py-8">
+        <div className="w-full max-w-80">
+          <div className="grid h-9 place-items-end justify-center">
+            <AnimatePresence mode="popLayout" initial={false}>
               <motion.span
-                key={`${round}-${at}`}
-                className="inline-block"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1, transition: ENTER }}
+                key={`${round}-${step}`}
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0, transition: ENTER }}
                 exit={{ opacity: 0, transition: EXIT }}
               >
-                {write.outcome === 'heard'
-                  ? 'saved, and heard'
-                  : write.outcome === 'other board'
-                    ? 'saved, on another board'
-                    : 'refused: nothing to hear'}
+                <Message
+                  className={
+                    refused
+                      ? 'border-red-500 text-red-600 line-through dark:text-red-400'
+                      : ''
+                  }
+                >
+                  {write.call}
+                </Message>
               </motion.span>
-            )}
-          </AnimatePresence>
-        </p>
-        <div className="relative mt-3 flex items-center justify-between gap-4 rounded-xl border border-border bg-background px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <span className="font-mono text-[11.5px]">
-            subscribe({'{'} boardId: 'work' {'}'})
-          </span>
-          <span className="font-mono text-[11px] text-muted-foreground">
-            heard <Roll value={heard} className="text-foreground" />
-          </span>
-          <Flash at={heard === 0 ? 0 : round * 10 + heard} />
+            </AnimatePresence>
+          </div>
+          <div className="mx-auto h-5 w-px bg-border" />
+          <div className="relative flex items-center justify-between gap-4 rounded-xl border border-border bg-background px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <span className="font-mono text-[11.5px] whitespace-nowrap">
+              subscribe({'{'} boardId: 'work' {'}'})
+            </span>
+            <span className="font-mono text-[11px] whitespace-nowrap text-muted-foreground">
+              heard <Roll value={heard} className="text-foreground" />
+            </span>
+            <Flash
+              {...(write.outcome === 'heard'
+                ? { at: round * 10 + step + 1 }
+                : {})}
+            />
+          </div>
         </div>
       </div>
-    </div>
+    </Walkthrough>
   );
 }

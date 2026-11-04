@@ -16,6 +16,8 @@ export {
   useSteps,
   useTargets,
 } from './picture.tsx';
+export { Walkthrough, useWalkthrough } from './walkthrough.tsx';
+export type { Walk } from './walkthrough.tsx';
 export { Live } from './live.tsx';
 export type { KeyLock, LiveApp } from './live.tsx';
 export { Run } from './run.tsx';

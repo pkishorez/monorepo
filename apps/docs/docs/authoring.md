@@ -155,6 +155,15 @@ picture parts: `useSteps` to loop through still steps, `Box`, `Pill`,
 what it changes. With reduced motion it holds one step that tells the
 whole idea. It works on a phone.
 
+An std-toolkit picture is a walkthrough: `useWalkthrough(captions)` steps
+through it and `<Walkthrough walk={…}>` draws it, under a strip that
+names the step, says in one plain sentence what it shows, and lets the
+reader pause or go to any step. Each step holds long enough to read its
+sentence. What a step changed lights once in the accent; a `Flash` inside
+does so already. The box never changes height: lay out the fullest step
+from the start and show or hide things in place, never by growing a row.
+With reduced motion it starts paused at step 1.
+
 ## Writing the MDX
 
 - **Start with the point.** No `#` title; the page has one. Open with a

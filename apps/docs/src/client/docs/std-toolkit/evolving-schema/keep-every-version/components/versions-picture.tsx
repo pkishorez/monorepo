@@ -3,15 +3,17 @@ import {
   ENTER,
   EXIT,
   Flash,
-  useSteps,
+  Walkthrough,
+  useWalkthrough,
 } from '../../../../../components/index.ts';
 
 /*
  * Three rows saved by three releases, each stamped with its version, on
  * the left. One by one they are read: each crosses to the right in
  * today's shape, the fields it never had filled in by the migrations it
- * passes. The rows on the left never change. Last, a new save goes in at
- * the latest version.
+ * passes, and lights as it lands. The rows on the left never change.
+ * Last, a new save goes in at the latest version. Every row has its slot
+ * from the start, so nothing below moves as rows arrive.
  */
 
 type Row = {
@@ -29,13 +31,36 @@ const ROWS: ReadonlyArray<Row> = [
 
 /** At each step: how many rows have been read, and whether the save has happened. */
 const STEPS = [
-  { read: 0, saved: false, rule: 'rows saved by three releases' },
-  { read: 1, saved: false, rule: 'v1 → v2 → v3: two migrations' },
-  { read: 2, saved: false, rule: 'v2 → v3: one migration' },
-  { read: 3, saved: false, rule: 'v3: nothing to do' },
-  { read: 3, saved: true, rule: 'a save always writes v3' },
+  {
+    read: 0,
+    saved: false,
+    caption:
+      'Three releases saved these rows. Each row says the version it was saved at.',
+  },
+  {
+    read: 1,
+    saved: false,
+    caption:
+      'Reading the v1 row runs two migrations, v1 → v2 → v3, filling in priority and done.',
+  },
+  {
+    read: 2,
+    saved: false,
+    caption: 'The v2 row needs one migration, v2 → v3, which adds done.',
+  },
+  {
+    read: 3,
+    saved: false,
+    caption: 'The v3 row is already the latest shape, so it reads as it is.',
+  },
+  {
+    read: 3,
+    saved: true,
+    caption:
+      'The rows on the left never changed. A new save goes in at v3, the latest.',
+  },
 ] as const;
-const DURATIONS = [1500, 1900, 1700, 1500, 2300];
+const CAPTIONS = STEPS.map((each) => each.caption);
 
 function Stamp({ version }: { readonly version: string }) {
   return (
@@ -46,81 +71,75 @@ function Stamp({ version }: { readonly version: string }) {
 }
 
 export function VersionsPicture() {
-  const [ref, step, round] = useSteps(DURATIONS, 4);
+  const walk = useWalkthrough(CAPTIONS);
+  const { step, round } = walk;
   const now = STEPS[step]!;
   return (
-    <div ref={ref} className="px-4 py-8 sm:px-8">
-      <div className="mx-auto grid max-w-lg grid-cols-2 gap-x-6 gap-y-2">
-        <p className="text-[11px] font-medium text-muted-foreground">
-          In the database
-        </p>
-        <p className="text-[11px] font-medium text-muted-foreground">
-          What your code reads
-        </p>
-        {[...ROWS, null].map((row, index) => {
-          const stored = row ?? {
-            title: 'Fix the bike',
-            version: 'v3' as const,
-            added: '',
-          };
-          const there = row ? true : now.saved;
-          return (
-            <div key={index} className="contents">
-              <div className="h-9">
-                <AnimatePresence initial={false}>
-                  {there && (
-                    <motion.div
-                      key={`${round}-stored-${index}`}
-                      initial={{ opacity: 0, x: 12 }}
-                      animate={{ opacity: 1, x: 0, transition: ENTER }}
-                      exit={{ opacity: 0, transition: EXIT }}
-                      className="relative flex h-9 items-center justify-between gap-2 rounded-lg border border-border bg-background px-2.5 text-[12px]"
-                    >
-                      <span className="truncate">{stored.title}</span>
-                      <Stamp version={stored.version} />
-                      {!row && <Flash at={round + 1} />}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-              <div className="h-9">
-                <AnimatePresence initial={false}>
-                  {row && now.read > index && (
-                    <motion.div
-                      key={`${round}-read-${index}`}
-                      initial={{ opacity: 0, x: -12 }}
-                      animate={{ opacity: 1, x: 0, transition: ENTER }}
-                      exit={{ opacity: 0, transition: EXIT }}
-                      className="flex h-9 items-center justify-between gap-2 rounded-lg border border-border bg-background px-2.5 text-[12px]"
-                    >
-                      <span className="truncate">{row.title}</span>
-                      <span className="flex shrink-0 items-center gap-1.5">
-                        <span className="font-mono text-[10px] text-muted-foreground">
-                          {row.added}
+    <Walkthrough walk={walk}>
+      <div className="px-4 py-8 sm:px-8">
+        <div className="mx-auto grid max-w-lg grid-cols-2 gap-x-3 gap-y-2 sm:gap-x-6">
+          <p className="text-[11px] font-medium text-muted-foreground">
+            In the database
+          </p>
+          <p className="text-[11px] font-medium text-muted-foreground">
+            What your code reads
+          </p>
+          {[...ROWS, null].map((row, index) => {
+            const stored = row ?? {
+              title: 'Fix the bike',
+              version: 'v3' as const,
+              added: '',
+            };
+            const there = row ? true : now.saved;
+            const landed = row !== null && !now.saved && now.read === index + 1;
+            return (
+              <div key={index} className="contents">
+                <div className="h-9">
+                  <AnimatePresence initial={false}>
+                    {there && (
+                      <motion.div
+                        key={`${round}-stored-${index}`}
+                        initial={{ opacity: 0, x: 12 }}
+                        animate={{ opacity: 1, x: 0, transition: ENTER }}
+                        exit={{ opacity: 0, transition: EXIT }}
+                        className="relative flex h-9 items-center justify-between gap-2 rounded-lg border border-border bg-background px-2.5 text-[12px]"
+                      >
+                        <span className="truncate">{stored.title}</span>
+                        <Stamp version={stored.version} />
+                        {!row && <Flash at={round + 1} />}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+                <div className="h-9">
+                  <AnimatePresence initial={false}>
+                    {row && now.read > index && (
+                      <motion.div
+                        key={`${round}-read-${index}`}
+                        initial={{ opacity: 0, x: -12 }}
+                        animate={{ opacity: 1, x: 0, transition: ENTER }}
+                        exit={{ opacity: 0, transition: EXIT }}
+                        className="relative flex h-9 items-center justify-between gap-2 rounded-lg border border-border bg-background px-2.5 text-[12px]"
+                      >
+                        <span className="truncate">{row.title}</span>
+                        <span className="flex shrink-0 items-center gap-1.5">
+                          <span className="hidden font-mono text-[10px] text-muted-foreground sm:inline">
+                            {row.added}
+                          </span>
+                          <Stamp version="v3" />
                         </span>
-                        <Stamp version="v3" />
-                      </span>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                        <Flash
+                          {...(landed ? { at: round * 10 + index + 1 } : {})}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
-      <p className="mt-6 h-4 text-center font-mono text-[11px] text-muted-foreground">
-        <AnimatePresence mode="wait">
-          <motion.span
-            key={`${round}-${step}`}
-            className="inline-block"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1, transition: ENTER }}
-            exit={{ opacity: 0, transition: EXIT }}
-          >
-            {now.rule}
-          </motion.span>
-        </AnimatePresence>
-      </p>
-    </div>
+    </Walkthrough>
   );
 }

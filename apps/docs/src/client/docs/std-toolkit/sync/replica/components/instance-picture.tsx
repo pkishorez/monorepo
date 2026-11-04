@@ -1,10 +1,12 @@
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import {
   Box,
   ENTER,
   EXIT,
+  Flash,
   Pill,
-  useSteps,
+  Walkthrough,
+  useWalkthrough,
 } from '../../../../../components/index.ts';
 
 /*
@@ -12,7 +14,9 @@ import {
  * for one account's Instance, so Replicas starts it. The Instance shows
  * what the Store already holds at once, then its Strategy fetches and the
  * Query is Caught Up. The Query goes; the Instance runs on for its GC
- * Time, then stops. The Store keeps every row.
+ * Time, then stops. The Store keeps every row. The Instance, the Query and
+ * its three wallets keep their places from the start, faded until they
+ * are there, so nothing grows; on a phone the tree sits over the Query.
  */
 
 type Step = {
@@ -20,126 +24,128 @@ type Step = {
   readonly instance?: string;
   readonly rows: number;
   readonly caughtUp?: boolean;
-  readonly line: string;
+  readonly stored: number;
+  readonly caption: string;
 };
 
 const STEPS: ReadonlyArray<Step> = [
-  { query: false, rows: 0, line: 'two wallets in the Store, from last time' },
+  {
+    query: false,
+    rows: 0,
+    stored: 2,
+    caption:
+      'Replicas sits near the root. The Store holds two wallets from last time.',
+  },
   {
     query: true,
     instance: 'starting',
     rows: 0,
-    line: 'a Query asks for pocket·acct-1',
+    stored: 2,
+    caption:
+      'A Query asks for one account’s wallets, so Replicas starts its Instance.',
   },
   {
     query: true,
     instance: 'running',
     rows: 2,
-    line: 'what the Store holds shows at once',
+    stored: 2,
+    caption: 'The Instance shows what the Store already holds, at once.',
   },
   {
     query: true,
     instance: 'running',
     rows: 3,
     caughtUp: true,
-    line: 'its Strategy fetches: Caught Up',
+    stored: 3,
+    caption:
+      'Its Strategy fetches what changed. A third wallet arrives, and the Query is Caught Up.',
   },
   {
     query: false,
     instance: 'GC Time: 5s',
     rows: 0,
-    line: 'the Query goes; the Instance runs on a while',
+    stored: 3,
+    caption:
+      'The Query goes. The Instance runs on for its GC Time, in case it is asked again.',
   },
-  { query: false, rows: 0, line: 'then stops. The Store keeps all three' },
+  {
+    query: false,
+    rows: 0,
+    stored: 3,
+    caption: 'Then the Instance stops. The Store keeps all three wallets.',
+  },
 ];
-const DURATIONS = [1400, 1200, 1600, 2000, 1800, 1800];
+const CAPTIONS = STEPS.map((each) => each.caption);
 
 const WALLETS = ['Cash', 'Bank', 'Travel'];
 
+/** Shown, or faded out in its place. */
+const reveal = (there: boolean) => ({
+  initial: false as const,
+  animate: there ? { opacity: 1, y: 0 } : { opacity: 0, y: 3 },
+  transition: there ? ENTER : EXIT,
+  'aria-hidden': !there,
+});
+
 export function InstancePicture() {
-  const [ref, step, round] = useSteps(DURATIONS, 3);
+  const walk = useWalkthrough(CAPTIONS);
+  const { step, round } = walk;
   const now = STEPS[step]!;
-  const stored = step >= 3 ? 3 : 2;
+  const flash = (when: number) =>
+    step === when ? round * 10 + when : undefined;
   return (
-    <div ref={ref} className="px-4 py-8 sm:px-8">
-      <div className="mx-auto grid max-w-md grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Box name="Root" compact />
-          <div className="ml-4 space-y-2 border-l border-border pl-3">
-            <Box name="Replicas" compact />
-            <div className="ml-4 min-h-8 border-l border-border pl-3">
-              <AnimatePresence initial={false}>
-                {now.instance && (
-                  <motion.div
-                    key={`instance-${round}`}
-                    initial={{ opacity: 0, x: -6 }}
-                    animate={{ opacity: 1, x: 0, transition: ENTER }}
-                    exit={{ opacity: 0, transition: EXIT }}
-                  >
-                    <Box name="acct-1" compact>
-                      <Pill>{now.instance}</Pill>
-                    </Box>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+    <Walkthrough walk={walk}>
+      <div className="px-4 py-8 sm:px-8">
+        <div className="mx-auto grid max-w-md gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Box name="Root" compact />
+            <div className="ml-4 space-y-2 border-l border-border pl-3">
+              <Box name="Replicas" compact />
+              <div className="ml-4 border-l border-border pl-3">
+                <motion.div {...reveal(now.instance !== undefined)}>
+                  <Box name="acct-1" compact flash={flash(1) ?? flash(4)}>
+                    <Pill className="whitespace-nowrap">
+                      {now.instance ?? 'GC Time: 5s'}
+                    </Pill>
+                  </Box>
+                </motion.div>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="min-h-[7.5rem]">
-          <AnimatePresence initial={false}>
-            {now.query && (
-              <motion.div
-                key={`query-${round}`}
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0, transition: ENTER }}
-                exit={{ opacity: 0, transition: EXIT }}
-                className="rounded-lg border border-border bg-background p-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
-              >
-                <p className="mb-1.5 flex items-center justify-between text-[12px]">
-                  <span className="font-medium">Wallets</span>
-                  <span className="font-mono text-[10px] text-muted-foreground">
-                    caughtUp: {now.caughtUp ? 'true' : 'false'}
-                  </span>
-                </p>
-                <ul className="min-h-[3.75rem] space-y-1">
-                  <AnimatePresence initial={false}>
-                    {WALLETS.slice(0, now.rows).map((wallet) => (
-                      <motion.li
-                        key={wallet}
-                        initial={{ opacity: 0, y: 3 }}
-                        animate={{ opacity: 1, y: 0, transition: ENTER }}
-                        exit={{ opacity: 0, transition: EXIT }}
-                        className="rounded border border-border px-1.5 text-[10.5px] leading-[18px]"
-                      >
-                        {wallet}
-                      </motion.li>
-                    ))}
-                  </AnimatePresence>
-                </ul>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
-      <div className="mx-auto mt-4 flex max-w-md items-center justify-between rounded-lg border border-dashed border-border px-3 py-2 text-[11px]">
-        <span className="font-medium">Store</span>
-        <span className="font-mono text-[10px] text-muted-foreground">
-          IndexedDB · {stored} wallets
-        </span>
-      </div>
-      <p className="mt-6 h-4 text-center font-mono text-[11px] text-muted-foreground">
-        <AnimatePresence mode="wait">
-          <motion.span
-            key={`${round}-${step}`}
-            className="inline-block"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1, transition: ENTER }}
-            exit={{ opacity: 0, transition: EXIT }}
+          <motion.div
+            {...reveal(now.query)}
+            className="relative rounded-lg border border-border bg-background p-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
           >
-            {now.line}
-          </motion.span>
-        </AnimatePresence>
-      </p>
-    </div>
+            <p className="mb-1.5 flex items-center justify-between gap-2 text-[12px]">
+              <span className="font-medium">Wallets</span>
+              <span
+                className={`font-mono text-[10px] transition-colors duration-300 ${step === 3 ? 'text-(--field-accent)' : 'text-muted-foreground'}`}
+              >
+                caughtUp: {now.caughtUp ? 'true' : 'false'}
+              </span>
+            </p>
+            <ul className="space-y-1">
+              {WALLETS.map((wallet, index) => (
+                <motion.li
+                  key={wallet}
+                  {...reveal(index < now.rows)}
+                  className="rounded border border-border px-1.5 text-[10.5px] leading-[18px]"
+                >
+                  {wallet}
+                </motion.li>
+              ))}
+            </ul>
+            <Flash at={flash(2)} />
+          </motion.div>
+        </div>
+        <div className="relative mx-auto mt-4 flex max-w-md items-center justify-between rounded-lg border border-dashed border-border px-3 py-2 text-[11px]">
+          <span className="font-medium">Store</span>
+          <span className="font-mono text-[10px] text-muted-foreground">
+            IndexedDB · {now.stored} wallets
+          </span>
+          <Flash at={flash(5)} />
+        </div>
+      </div>
+    </Walkthrough>
   );
 }

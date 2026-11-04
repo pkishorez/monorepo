@@ -1,12 +1,19 @@
 import { motion } from 'motion/react';
-import { ENTER, useSteps } from '../../../../../components/index.ts';
+import {
+  ENTER,
+  EXIT,
+  Walkthrough,
+  useWalkthrough,
+} from '../../../../../components/index.ts';
 
 /*
  * The same eight changes on the Backend, oldest on the left, read by two
  * strategies side by side. oldToNew fills them in pages from the left;
  * newToOld fills the newest page first, then older ones. Last, a ninth
  * change arrives, and both pick it up: oldToNew by polling past its
- * cursor, newToOld by keeping its top fresh.
+ * cursor, newToOld by keeping its top fresh. What a step reads lights in
+ * the accent, then settles to read. The ninth slot is there from the
+ * start, empty, so nothing moves when it fills.
  */
 
 /** Which changes each strategy has read, by step. The ninth arrives last. */
@@ -18,27 +25,28 @@ const NEW_TO_OLD: ReadonlyArray<ReadonlyArray<number>> = [
   [1, 2, 3, 4, 5, 6, 7, 8],
   [1, 2, 3, 4, 5, 6, 7, 8, 9],
 ];
-const LINES = [
-  'eight changes on the Backend, oldest first',
-  'the first page',
-  'the next page',
-  'caught up',
-  'a new change: both pick it up',
+const CAPTIONS = [
+  'Eight changes on the Backend, oldest on the left. Neither strategy has read any yet.',
+  'The first page: oldToNew reads the three oldest, newToOld the three newest.',
+  'The next page: oldToNew moves forward, while newToOld fills in older changes behind.',
+  'Both are caught up. Every change is in the copy, read in a different order.',
+  'A ninth change arrives. oldToNew polls past its cursor, newToOld keeps its top fresh.',
 ];
-const DURATIONS = [1200, 1300, 1300, 1600, 2000];
+const CHANGES = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 function Lane({
   name,
   note,
   read,
+  readBefore,
   arrived,
 }: {
   readonly name: string;
   readonly note: string;
   readonly read: (change: number) => boolean;
+  readonly readBefore: (change: number) => boolean;
   readonly arrived: boolean;
 }) {
-  const changes = arrived ? 9 : 8;
   return (
     <div>
       <p className="mb-1.5 flex items-baseline gap-2 text-[11px]">
@@ -46,45 +54,61 @@ function Lane({
         <span className="text-muted-foreground">{note}</span>
       </p>
       <ol className="grid grid-cols-9 gap-1">
-        {Array.from({ length: changes }, (_, index) => index + 1).map(
-          (change) => (
+        {CHANGES.map((change) => {
+          const there = change < 9 || arrived;
+          const fresh = read(change) && !readBefore(change);
+          return (
             <motion.li
               key={change}
-              initial={change === 9 ? { opacity: 0, scale: 0.8 } : false}
-              animate={{ opacity: 1, scale: 1, transition: ENTER }}
-              className={`grid h-7 place-items-center rounded border font-mono text-[10px] transition-colors duration-300 ${read(change) ? 'border-foreground bg-foreground text-background' : 'border-border text-muted-foreground'}`}
+              initial={false}
+              animate={
+                there ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.9 }
+              }
+              transition={there ? ENTER : EXIT}
+              aria-hidden={!there}
+              className={`grid h-7 place-items-center rounded border font-mono text-[10px] transition-colors duration-300 ${
+                fresh
+                  ? 'border-(--field-accent) bg-(--field-accent) text-background'
+                  : read(change)
+                    ? 'border-foreground bg-foreground text-background'
+                    : 'border-border text-muted-foreground'
+              }`}
             >
               {change}
             </motion.li>
-          ),
-        )}
+          );
+        })}
       </ol>
     </div>
   );
 }
 
 export function OrderPicture() {
-  const [ref, step] = useSteps(DURATIONS, 2);
-  const arrived = step === 4;
+  const walk = useWalkthrough(CAPTIONS);
+  const { step } = walk;
+  const before = Math.max(0, step - 1);
   return (
-    <div ref={ref} className="px-4 py-8 sm:px-8">
-      <div className="mx-auto max-w-md space-y-5">
-        <Lane
-          name="oldToNew"
-          note="oldest first"
-          read={(change) => change <= OLD_TO_NEW[step]!}
-          arrived={arrived}
-        />
-        <Lane
-          name="newToOld"
-          note="newest first"
-          read={(change) => NEW_TO_OLD[step]!.includes(change)}
-          arrived={arrived}
-        />
+    <Walkthrough walk={walk}>
+      <div className="px-4 py-8 sm:px-8">
+        <div className="mx-auto max-w-md space-y-5">
+          <Lane
+            name="oldToNew"
+            note="oldest first"
+            read={(change) => change <= OLD_TO_NEW[step]!}
+            readBefore={(change) => step > 0 && change <= OLD_TO_NEW[before]!}
+            arrived={step === 4}
+          />
+          <Lane
+            name="newToOld"
+            note="newest first"
+            read={(change) => NEW_TO_OLD[step]!.includes(change)}
+            readBefore={(change) =>
+              step > 0 && NEW_TO_OLD[before]!.includes(change)
+            }
+            arrived={step === 4}
+          />
+        </div>
       </div>
-      <p className="mt-6 text-center font-mono text-[11px] text-muted-foreground">
-        {LINES[step]}
-      </p>
-    </div>
+    </Walkthrough>
   );
 }
