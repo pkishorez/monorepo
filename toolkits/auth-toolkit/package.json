@@ -62,6 +62,10 @@
     "./fake": {
       "types": "./dist/guard/fake/index.d.ts",
       "default": "./dist/guard/fake/index.js"
+    },
+    "./google-button": {
+      "types": "./dist/google-button/index.d.ts",
+      "default": "./dist/google-button/index.js"
     }
   },
   "scripts": {
@@ -78,6 +82,7 @@
     "@better-auth/infra": "catalog:",
     "@better-auth/oauth-provider": "catalog:",
     "@cloudflare/workers-types": "catalog:",
+    "@fontsource/google-sans": "catalog:",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:"
   },

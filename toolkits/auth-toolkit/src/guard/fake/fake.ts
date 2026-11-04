@@ -57,16 +57,21 @@ const warn = Effect.suspend(() => {
 export const fakeAccounts = ({
   choose,
   storage,
+  returnTo,
 }: {
   /** Asks who signs in; null when nobody was chosen. */
   readonly choose: Effect.Effect<FakeChoice | null>;
   /** Where fake Accounts live; in memory unless given. */
   readonly storage?: FakeStorage | undefined;
+  /** Where a sign-in that names no `returnTo` comes back to, as `browser`'s
+   * does: once one is chosen, the page goes there, unless it is there
+   * already. Unless given, it stays where it is. */
+  readonly returnTo?: string | undefined;
 }): AccountsLayer =>
   Layer.unwrap(
     Effect.gen(function* () {
       yield* warn;
-      const source = yield* makeFakeSource(choose);
+      const source = yield* makeFakeSource(choose, returnTo);
       const made = yield* makeAccounts({
         source,
         last: yield* source.read,

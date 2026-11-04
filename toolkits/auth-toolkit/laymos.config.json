@@ -39,6 +39,7 @@
     ],
     "src/worker/service": ["src/contract", "src/worker/database/d1/database"],
     "src/worker/app/api": ["src/contract"],
+    "src/worker/app/ui": ["src/google-button"],
     "src/worker/app/actor-app": ["src/worker/app/api", "src/worker/app/ui"]
   }
 }

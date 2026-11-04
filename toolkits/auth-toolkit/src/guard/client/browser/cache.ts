@@ -23,6 +23,19 @@ const known = browserAccountsTable
   .singleEntity(KnownAccounts)
   .default({ active: null, accounts: [] });
 
+/** The Accounts the `cache` remembers as last signed in, without tokens, in
+ * sign-in order: none when it remembers none or cannot be read. For an app
+ * that shows them before the first check answers, as `Checking { last }`
+ * names only the Active Account. */
+export const rememberedAccounts: Effect.Effect<
+  Snapshot['accounts'],
+  never,
+  StdTableService<typeof browserAccountsTable.logicalName>
+> = known.get().pipe(
+  Effect.map(({ value }) => value.accounts),
+  Effect.catchCause(() => Effect.succeed([])),
+);
+
 /** The Snapshot last signed in, null when none is remembered, and keeping a
  * new one: one signed in, or one signed out to forget it (the engine says
  * which, see its `keep`). A cache that fails is a cache that missed, and

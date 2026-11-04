@@ -5,12 +5,16 @@ import { fakeAccounts } from '../fake.js';
 import { fakeAccountsTable } from '../source.js';
 import { FAKE_DOMAIN, isFakeEmail } from '../token.js';
 
-export { browserAccountsTable } from '../../client/browser/index.js';
+export {
+  browserAccountsTable,
+  rememberedAccounts,
+} from '../../client/browser/index.js';
 
 /*
  * `client/browser` as the `kestack-fake-auth` condition resolves it, which
  * only a development server sets: the same `browser`, signing in fake
- * Accounts with no Auth Worker. Its `url` and `cache` are not used.
+ * Accounts with no Auth Worker. Its `url`, `cache` and `maxAccounts` are
+ * not used; a sign-in's `provider` asks who as any other does.
  */
 
 const SUGGESTED = `dev@${FAKE_DOMAIN}`;
@@ -27,10 +31,12 @@ const ask = Effect.sync(() => {
   return null;
 });
 
-/** `browser`, faked: fake Accounts kept in IndexedDB across reloads. */
-export const browser: typeof realBrowser = () =>
+/** `browser`, faked: fake Accounts kept in IndexedDB across reloads, a
+ * sign-in coming back to `returnTo` as the real one does. */
+export const browser: typeof realBrowser = ({ returnTo }) =>
   fakeAccounts({
     choose: ask,
+    returnTo,
     storage: IDB.make(fakeAccountsTable, {
       database: IDB.database({ databaseName: 'kestack:fake-accounts' }),
       mode: 'disposable',

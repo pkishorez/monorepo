@@ -26,7 +26,7 @@ import {
   AccountChanged,
 } from '../../../authz/middleware/index.js';
 import { Accounts, AccountsState } from '../../accounts/index.js';
-import { browser, browserAccountsTable } from '../index.js';
+import { browser, browserAccountsTable, rememberedAccounts } from '../index.js';
 
 const url = 'https://auth.example.com';
 const ada = {
@@ -138,6 +138,11 @@ const fakeAuthWorker = (
         }
         return json({ active: cookie.active });
       }
+      case 'POST /sign-in/social':
+        return json({
+          url: 'https://accounts.google.com/o/oauth2/auth?state=s',
+          redirect: true,
+        });
       case 'POST /sign-out':
         cookie.accounts = [];
         cookie.active = null;
@@ -400,6 +405,135 @@ describe('browser', () => {
     expect(assign.mock.calls.map(([to]) => to)).toEqual([
       `${url}/login?return_to=${encodeURIComponent('https://app.example.com/notes?id=1')}&add_account=1`,
       `${url}/login?return_to=${encodeURIComponent('https://app.example.com/notes?id=1')}`,
+    ]);
+  });
+
+  it('comes back where the Layer says, unless a sign-in names its own place', async () => {
+    const assign = vi.fn();
+    vi.stubGlobal('window', {
+      location: { href: 'https://app.example.com/notes?id=1', assign },
+    });
+    const home = 'https://app.example.com/';
+    const leave = (options?: { readonly returnTo: string }) =>
+      Effect.gen(function* () {
+        const accounts = yield* Accounts;
+        yield* settled;
+        const fiber = yield* Effect.forkChild(accounts.signIn(options), {
+          startImmediately: true,
+        });
+        yield* Effect.sleep(1);
+        yield* Fiber.interrupt(fiber);
+      });
+    const layer = browser({ url, returnTo: home }).pipe(
+      Layer.provide(
+        Layer.succeed(FetchHttpClient.Fetch, fakeAuthWorker().fetch),
+      ),
+    );
+    for (const signIn of [
+      leave(),
+      leave({ returnTo: 'https://app.example.com/a/ada' }),
+    ])
+      await Effect.runPromise(
+        Effect.scoped(signIn).pipe(Effect.provide(layer)),
+      );
+
+    expect(assign.mock.calls.map(([to]) => to)).toEqual([
+      `${url}/login?return_to=${encodeURIComponent(home)}&add_account=1`,
+      `${url}/login?return_to=${encodeURIComponent('https://app.example.com/a/ada')}&add_account=1`,
+    ]);
+  });
+
+  it('signs in with Google at once, from the app’s page, as the Login Screen does, adding an Account when signed in', async () => {
+    const assign = vi.fn();
+    vi.stubGlobal('window', {
+      location: { href: 'https://app.example.com/a/ada', assign },
+    });
+    const back = 'https://app.example.com/a/ada';
+    const signIn = Effect.gen(function* () {
+      const accounts = yield* Accounts;
+      yield* settled;
+      const fiber = yield* Effect.forkChild(
+        accounts.signIn({ provider: 'google', returnTo: back }),
+        { startImmediately: true },
+      );
+      yield* Effect.sleep(5);
+      // The page is leaving for Google, so sign-in never completes.
+      expect(fiber.pollUnsafe()).toBeUndefined();
+      yield* Fiber.interrupt(fiber);
+    });
+    const signedIn = fakeAuthWorker();
+    const signedOut = fakeAuthWorker([], null);
+    await run(signedIn, signIn);
+    await run(signedOut, signIn);
+
+    const login = `${url}/login?return_to=${encodeURIComponent(back)}`;
+    const asked = (worker: Worker) =>
+      worker.calls.filter(({ path }) => path === '/sign-in/social');
+    expect(asked(signedIn)).toEqual([
+      {
+        method: 'POST',
+        path: '/sign-in/social',
+        body: {
+          provider: 'google',
+          callbackURL: back,
+          errorCallbackURL: `${login}&add_account=1`,
+        },
+        credentials: 'include',
+      },
+    ]);
+    expect(asked(signedOut)[0]?.body).toEqual({
+      provider: 'google',
+      callbackURL: back,
+      errorCallbackURL: login,
+    });
+    expect(assign.mock.calls.map(([to]) => to)).toEqual([
+      'https://accounts.google.com/o/oauth2/auth?state=s',
+      'https://accounts.google.com/o/oauth2/auth?state=s',
+    ]);
+  });
+
+  it('asks Google for no Account past the most the Auth Worker holds', async () => {
+    const assign = vi.fn();
+    vi.stubGlobal('window', {
+      location: { href: 'https://app.example.com/', assign },
+    });
+    const worker = fakeAuthWorker();
+    const exit = await Effect.runPromiseExit(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const accounts = yield* Accounts;
+          yield* settled;
+          yield* accounts.signIn({ provider: 'google' });
+        }),
+      ).pipe(
+        Effect.provide(
+          browser({ url, maxAccounts: 2 }).pipe(
+            Layer.provide(Layer.succeed(FetchHttpClient.Fetch, worker.fetch)),
+          ),
+        ),
+      ),
+    );
+    expect(exit).toMatchObject(
+      Exit.fail({ _tag: 'AccountLimitReached', limit: 2 }),
+    );
+    expect(worker.calls.some(({ path }) => path === '/sign-in/social')).toBe(
+      false,
+    );
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it('reads the Accounts the cache remembers, and none from a cache that has none', async () => {
+    const cache = Memory.make(browserAccountsTable).layer;
+    const read = Effect.runPromise(
+      rememberedAccounts.pipe(Effect.provide(cache)),
+    );
+    expect(await read).toEqual([]);
+    await run(fakeAuthWorker(), settled, cache);
+    expect(
+      await Effect.runPromise(rememberedAccounts.pipe(Effect.provide(cache))),
+    ).toEqual([
+      { id: 'ada', email: 'ada@x.com', name: 'Ada', image: null },
+      { id: 'bob', email: 'bob@x.com', name: 'Bob', image: 'b.png' },
     ]);
   });
 
