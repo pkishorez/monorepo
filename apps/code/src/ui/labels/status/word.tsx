@@ -1,18 +1,21 @@
 import type { Session } from '@kestack/connect/code';
 import { LoaderCircleIcon, MessageCircleQuestionMarkIcon } from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
+import { activityOf, BACKGROUND, BackgroundDot } from './activity.tsx';
 import { ago, since } from './time.ts';
 
 /*
  * How a Session stands, at the right of its row, as quietly as it can say
- * it, so the titles keep the sidebar: a small turning circle while it
- * runs, still when motion is reduced; a dot when it needs a look, blue
- * when it finished since you last looked, red when its last Turn failed,
- * amber when the server's stopping cut it off; and otherwise how long ago
- * it was last active, in a letter or two (`5m`, `3h`). Stopped by you
- * needs no mark: you know. Only one thing is said louder: a "Question"
- * pill while its agent waits on your answer, since nothing goes on until
- * it is given. Each says what it means on hover and to a screen reader.
+ * it, so the titles keep the sidebar: a small turning circle while it is
+ * Running, still when motion is reduced, and only then; a dot pulsing
+ * softly while it is In the Background (`activity.tsx`); a dot when it
+ * needs a look, blue when it finished since you last looked, red when its
+ * last Turn failed, amber when the server's stopping cut it off; and
+ * otherwise how long ago it was last active, in a letter or two (`5m`,
+ * `3h`). Stopped by you needs no mark: you know. Only one thing is said
+ * louder: a "Question" pill while its agent waits on your answer, since
+ * nothing goes on until it is given. Each says what it means on hover and
+ * to a screen reader.
  */
 
 // A title's line tall, so beside one it sits level with it.
@@ -38,7 +41,7 @@ export function StatusWord({
   unseen,
   at,
   asking = false,
-  working = false,
+  jobs = false,
 }: {
   readonly status: Session['status'];
   /** Whether its last Turn ended since it was last open here. */
@@ -48,7 +51,7 @@ export function StatusWord({
   /** Whether its agent waits on an Agent Question. */
   readonly asking?: boolean;
   /** Whether its agent runs Background Jobs, its turn ended or not. */
-  readonly working?: boolean;
+  readonly jobs?: boolean;
 }) {
   if (asking)
     return (
@@ -59,19 +62,24 @@ export function StatusWord({
         </span>
       </span>
     );
-  if (status === 'running' || working) {
-    const label =
-      status === 'running' ? 'Running' : 'Working in the background';
+  const activity = activityOf(status, jobs);
+  if (activity === 'running')
     return (
-      <span title={label} className={cn(mark, 'text-muted-foreground')}>
+      <span title="Running" className={cn(mark, 'text-muted-foreground')}>
         <LoaderCircleIcon
           aria-hidden
           className="size-3.5 animate-spin motion-reduce:animate-none"
         />
-        <span className="sr-only">{label}</span>
+        <span className="sr-only">Running</span>
       </span>
     );
-  }
+  if (activity === 'background')
+    return (
+      <span title={BACKGROUND} className={cn(mark, 'w-3.5 justify-center')}>
+        <BackgroundDot />
+        <span className="sr-only">{BACKGROUND}</span>
+      </span>
+    );
   if (status === 'failed')
     return <Dot tone="bg-destructive" label="Last turn failed" />;
   if (status === 'interrupted')

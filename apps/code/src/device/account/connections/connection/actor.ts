@@ -1,4 +1,11 @@
-import { Effect, Layer, Schema, Stream, SubscriptionRef } from 'effect';
+import {
+  Duration,
+  Effect,
+  Layer,
+  Schema,
+  Stream,
+  SubscriptionRef,
+} from 'effect';
 import {
   CodeClients,
   CodeReplicaLive,
@@ -21,7 +28,12 @@ import {
   SetupParts,
 } from '../connections.ts';
 import { ask, speechOn } from './commands.ts';
-import { answeringAsked, jobsOn, questionsOn } from './records/index.ts';
+import {
+  answeringAsked,
+  jobsOn,
+  questionsOn,
+  unsettled,
+} from './records/index.ts';
 import { keepSetup, SetupShelf } from './commands.ts';
 
 /*
@@ -59,8 +71,8 @@ import { keepSetup, SetupShelf } from './commands.ts';
  *            Never kept: they live only while their Turn runs.
  * 10. Jobs   the Background Jobs its Sessions' agents run, whole on each
  *            change (`records/jobs/`), shared in `Connections` too, so a
- *            Session whose Turn has ended still shows as working while its
- *            jobs run. Never kept: they live only while their agent does.
+ *            Session whose Turn has ended shows as In the Background while
+ *            its jobs run. Never kept: they live only while their agent does.
  * 9. Answering how each is being answered here, as the Question Panel
  *            gives it: each Item's answer so far, minimised or not, tried
  *            or sent, so leaving the session or the page loses nothing.
@@ -68,6 +80,12 @@ import { keepSetup, SetupShelf } from './commands.ts';
  *            shared in `Connections`; a question gone from the feed takes
  *            its part with it. Never written to storage: an answer may be
  *            a secret.
+ * 11. Messages only the messages of its Sessions not Settled stay on this
+ *            device: once its sessions are first Caught Up, every other
+ *            Session's are pruned (`store/`), a moment after which they are
+ *            changes, so a burst of changes prunes once, and again every
+ *            few minutes, for one a tab still had open. A Settled Session
+ *            opened again syncs its messages whole.
  */
 
 const Link = Schema.Literals(['linking', 'linked', 'relinking']);
@@ -85,11 +103,19 @@ const Model = Schema.Struct({
   answering: Schema.Record(Schema.String, Answering),
   /** Its Sessions' Background Jobs, as it last said them. */
   jobs: Schema.Array(SessionJobs.schema),
+  /** Its Sessions not Settled, whose messages stay; null until its sessions are first Caught Up. */
+  unsettled: Schema.NullOr(Schema.Array(Schema.String)),
 });
 type Model = typeof Model.Type;
 
+/** 11. Messages: how long which Sessions are unsettled stays the same before their messages are pruned. */
+const SETTLE = Duration.seconds(2);
+
+/** 11. Messages: how often they are pruned again, for a Session a tab had open. */
+const REPRUNE = Duration.minutes(5);
+
 const Connection = Actor.define('Connection', {
-  requires: [CodeClients, Cache, Seen, Sync, ConnectionsChannel],
+  requires: [CodeClients, Cache, Seen, Sync, ConnectionsChannel, Replicas],
   input: Schema.Struct({
     accountId: Schema.String,
     connectionId: Schema.String,
@@ -113,6 +139,7 @@ const Connection = Actor.define('Connection', {
     QuestionsHeard: { questions: Schema.Array(SessionQuestions.schema) },
     AnsweringKept: { sessionId: Schema.String, answering: Answering },
     JobsHeard: { jobs: Schema.Array(SessionJobs.schema) },
+    UnsettledRead: { sessionIds: Schema.Array(Schema.String) },
   }),
 });
 
@@ -190,6 +217,7 @@ export const ConnectionLive = Connection.build({
       questions: [],
       answering: {},
       jobs: [],
+      unsettled: null,
     },
     state: { _tag: 'Reading' },
   }),
@@ -280,6 +308,33 @@ export const ConnectionLive = Connection.build({
             ),
           ),
         ),
+    },
+    // 11. Messages: which Sessions are unsettled, once a real answer says.
+    unsettled: {
+      run: (self) =>
+        Effect.flatMap(self.get, ({ model }) =>
+          Stream.runForEach(unsettled(model.connectionId), (sessionIds) =>
+            self.send({ _tag: 'UnsettledRead', sessionIds: [...sessionIds] }),
+          ),
+        ),
+    },
+    // 11. Messages: kept for those, started over as they change.
+    prune: {
+      each: ({ model }) =>
+        model.unsettled === null ? [] : [model.unsettled.join(' ')],
+      run: (self, ids) =>
+        Effect.gen(function* () {
+          const { model } = yield* self.get;
+          const sync = yield* Sync;
+          const kept = ids === '' ? [] : ids.split(' ');
+          yield* Effect.sleep(SETTLE);
+          yield* Effect.forever(
+            Effect.andThen(
+              sync.pruneMessages(model.accountId, model.connectionId, kept),
+              Effect.sleep(REPRUNE),
+            ),
+          );
+        }),
     },
     // 9. Answering
     answering: {
@@ -465,6 +520,9 @@ export const ConnectionLive = Connection.build({
     }),
     // 10. Jobs
     JobsHeard: ({ jobs }, { model }) => ({ model: { ...model, jobs } }),
+    UnsettledRead: ({ sessionIds }, { model }) => ({
+      model: { ...model, unsettled: sessionIds },
+    }),
     // 9. Answering: only what the feed still asks is kept.
     AnsweringKept: ({ sessionId, answering }, { model }) => ({
       model: {

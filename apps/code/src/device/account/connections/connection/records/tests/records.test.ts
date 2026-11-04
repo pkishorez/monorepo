@@ -1,15 +1,22 @@
 import { createCollection } from '@tanstack/db';
-import { Effect, Fiber, Layer, Stream } from 'effect';
+import { Effect, Fiber, Layer, Stream, SubscriptionRef } from 'effect';
 import type { Project, Session } from '@kestack/connect/code';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { describe, expect, it } from 'vitest';
-import { arrival, type Everything, everything, lineage } from '../records.ts';
+import {
+  arrival,
+  type Everything,
+  everything,
+  lineage,
+  unsettled,
+} from '../records.ts';
 
 /*
  * What a Worker follows of the Connections, as the Replica shows it: a
  * Project or Session taken away, removed on this device or another, goes
  * from what it reads at once, as one added or changed comes, with no
- * reload.
+ * reload. Which Sessions are not Settled is said only once the Connection's
+ * sessions are Caught Up, and again only when which they are changes.
  */
 
 /** A Collection as an Instance shows the Store: rows written by its sync. */
@@ -81,6 +88,7 @@ const connection = () => {
   const projects = shown<Project>();
   const sessions = shown<Session>();
   const messages = shown<{ readonly id: string }>();
+  const caughtUp = Effect.runSync(SubscriptionRef.make(false));
   const replicas = Layer.succeed(Replicas, {
     hold: (_replica, key) =>
       Effect.succeed({
@@ -91,9 +99,10 @@ const connection = () => {
           sessions: sessions.collection,
           messages: messages.collection,
         },
+        caughtUp: () => SubscriptionRef.changes(caughtUp),
       } as never),
   });
-  return { projects, sessions, replicas };
+  return { projects, sessions, caughtUp, replicas };
 };
 
 /** Lets every change written reach the Worker. */
@@ -231,6 +240,58 @@ describe('every Project and Session of a Connection, followed', () => {
           yield* tick;
           yield* Fiber.interrupt(never);
           expect(listening).toBe(0);
+        }),
+      ).pipe(Effect.provide(replicas)),
+    );
+  });
+});
+
+describe('the Sessions of a Connection not Settled, followed', () => {
+  it('says them once its sessions are Caught Up, then only as which they are changes', async () => {
+    const { sessions, caughtUp, replicas } = connection();
+    sessions.write({ type: 'insert', value: session('s2') });
+    sessions.write({ type: 'insert', value: session('s1') });
+    sessions.write({
+      type: 'insert',
+      value: session('s3', { settledAt: 5 }),
+    });
+    const seen: Array<ReadonlyArray<string>> = [];
+
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const reading = yield* Effect.forkScoped(
+            Stream.runForEach(unsettled('m1'), (each) =>
+              Effect.sync(() => void seen.push(each)),
+            ),
+          );
+          yield* tick;
+          // Read before the Connection answered: it stands for nothing yet.
+          expect(seen).toEqual([]);
+
+          yield* SubscriptionRef.set(caughtUp, true);
+          yield* tick;
+          expect(seen).toEqual([['s1', 's2']]);
+
+          // A change to one, not to which are unsettled, says nothing.
+          sessions.write({
+            type: 'update',
+            value: session('s1', { status: 'running' }),
+          });
+          yield* tick;
+          expect(seen).toHaveLength(1);
+
+          sessions.write({
+            type: 'update',
+            value: session('s2', { settledAt: 9 }),
+          });
+          sessions.write({
+            type: 'update',
+            value: session('s3', { settledAt: null }),
+          });
+          yield* tick;
+          expect(seen.at(-1)).toEqual(['s1', 's3']);
+          yield* Fiber.interrupt(reading);
         }),
       ).pipe(Effect.provide(replicas)),
     );

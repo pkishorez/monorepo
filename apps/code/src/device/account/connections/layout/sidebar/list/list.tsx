@@ -646,7 +646,7 @@ function SessionRow({
             status={session.status}
             unseen={unseen}
             asking={isAsking(session)}
-            working={isWorking(session)}
+            jobs={isWorking(session)}
             at={session.activeAt}
           />
         </SidebarMenuButton>

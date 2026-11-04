@@ -10,7 +10,12 @@ import {
 } from 'effect';
 import type { Scope } from 'effect';
 import { ReplicaError, type AnyShape } from '../../shape/index.js';
-import type { Space, Wire, Written } from '../../store/contract/index.js';
+import {
+  OUTSIDE,
+  type Space,
+  type Wire,
+  type Written,
+} from '../../store/contract/index.js';
 import {
   reader,
   showCollections,
@@ -27,9 +32,18 @@ import { scopeOf, workerKey, type WindowAt } from './windows.js';
  *
  * 1. Load     the space into the Collections before anyone reads them.
  * 2. Refresh  what changed since, in the order it was written: after this
- *             participant writes, and each time the Doorbell rings.
+ *             participant writes, and each time the Doorbell rings. A
+ *             Collection whose generation was raised, as Windows were
+ *             pruned from it, is read afresh, and what it no longer holds
+ *             leaves its Collection. A record named in a Window other than
+ *             its own, as one kept before records named theirs, is named
+ *             again behind.
  * 3. Keep     what a Strategy read or the Backend confirmed: checked
- *             against the ESchemas, written to the Store, then shown.
+ *             against the ESchemas, written to the Store with the Window
+ *             each is in, then shown. A record is in a Window when its
+ *             Collection syncs by the Windows of one field alone; in a
+ *             Collection that syncs whole too, or by two fields, it is in
+ *             none, so no Window Prune ever takes it.
  * 4. Say      what its own work tells the Instance actor: Actions under
  *             way, and Windows a Query opened and let go of.
  * 5. Hear     which scopes the Instance actor says are Caught Up, for the
@@ -85,6 +99,23 @@ export interface Opened {
   readonly report: (caughtUp: ReadonlyArray<string>) => Effect.Effect<void>;
 }
 
+const isValue = (value: unknown): value is WindowAt['value'] =>
+  typeof value === 'string' ||
+  typeof value === 'number' ||
+  typeof value === 'boolean';
+
+/** The value at a dotted key path. */
+const at = (value: object, path: string): unknown =>
+  path
+    .split('.')
+    .reduce<unknown>(
+      (current, part) =>
+        typeof current === 'object' && current !== null
+          ? (current as Record<string, unknown>)[part]
+          : undefined,
+      value,
+    );
+
 const warn = (name: string, read: ReadonlyArray<Read>) =>
   Effect.forEach(
     read,
@@ -121,6 +152,21 @@ export const openInstance = (
 ): Effect.Effect<Opened, ReplicaError, Scope.Scope> =>
   Effect.gen(function* () {
     const { name } = space;
+    const scope = yield* Effect.scope;
+    // 3. Keep: the one field each Collection's records are in Windows of.
+    const fieldOf = new Map(
+      Object.entries(windowPaths).flatMap(([collection, paths]) =>
+        paths.length === 1 && !whole.has(collection)
+          ? [[collection, paths[0]!] as const]
+          : [],
+      ),
+    );
+    const windowOf = (collection: string, value: object) => {
+      const path = fieldOf.get(collection);
+      if (path === undefined) return OUTSIDE;
+      const read = at(value, path);
+      return isValue(read) ? scopeOf({ path, value: read }) : OUTSIDE;
+    };
     const readers = Object.fromEntries(
       Object.entries(shape.collections).map(([collection, schema]) => [
         collection,
@@ -155,6 +201,8 @@ export const openInstance = (
       ),
     );
     const positions = new Map<string, string>();
+    const generations = new Map<string, number>();
+    const naming = yield* Semaphore.make(1);
     const reading = yield* Semaphore.make(1);
     const stopped = yield* Deferred.make<void>();
     yield* Effect.addFinalizer(() =>
@@ -167,12 +215,45 @@ export const openInstance = (
         Object.keys(shape.collections),
         (collection) =>
           Effect.gen(function* () {
-            const after = positions.get(collection) ?? null;
+            // Read before the records: a prune that ends while they are read
+            // raises it after, so the next refresh reads afresh.
+            const generation = yield* space.generation(collection);
+            const afresh = generations.get(collection) !== generation;
+            const after = afresh ? null : (positions.get(collection) ?? null);
             const { records, position } = yield* space.read(collection, after);
-            const read = records.map(readers[collection]!);
+            const read = records.map(({ entity }) =>
+              readers[collection]!(entity),
+            );
             yield* warn(name, read);
-            shown.show(collection, read);
+            shown.show(collection, read, afresh);
             positions.set(collection, position);
+            generations.set(collection, generation);
+            const misnamed = records.flatMap(
+              ({ id, window, entity }, index) => {
+                const each = read[index]!;
+                if (each._tag !== 'Read') return [];
+                const own = windowOf(collection, each.value);
+                return own === window
+                  ? []
+                  : [{ id, window: own, _u: entity.meta._u }];
+              },
+            );
+            if (misnamed.length > 0)
+              yield* Effect.forkIn(
+                naming.withPermit(
+                  space
+                    .rename(collection, misnamed)
+                    .pipe(
+                      Effect.catch((error) =>
+                        Effect.logWarning(
+                          `[@kestack/std-toolkit/replica] ${name}: could not name the Windows of its records`,
+                          error,
+                        ),
+                      ),
+                    ),
+                ),
+                scope,
+              );
           }),
         { discard: true },
       ),
@@ -193,7 +274,15 @@ export const openInstance = (
         // cannot read: newer code reads it again after a reload.
         if (read.some((each) => each._tag === 'Outdated')) return 'outdated';
         const records = read.flatMap((each) =>
-          each._tag === 'Read' ? [{ id: each.id, entity: each.entity }] : [],
+          each._tag === 'Read'
+            ? [
+                {
+                  id: each.id,
+                  entity: each.entity,
+                  window: windowOf(collection, each.value),
+                },
+              ]
+            : [],
         );
         yield* write([{ collection, records, cursor }]);
         return 'kept';
@@ -222,7 +311,7 @@ export const openInstance = (
             });
           parts.set(collection, [
             ...(parts.get(collection) ?? []),
-            { id: read.id, entity },
+            { id: read.id, entity, window: windowOf(collection, read.value) },
           ]);
         }
         yield* write(

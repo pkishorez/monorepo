@@ -3,8 +3,10 @@ import { Memory } from '../../../db/memory/index.js';
 import {
   makeStore,
   spaceTable,
+  type Claim,
   type Doorbell,
   type Leader,
+  type Share,
   type SpaceTable,
 } from '../contract/index.js';
 
@@ -27,6 +29,33 @@ const inProcessLeader = (): Leader => {
       }
       return lock.withPermit(effect);
     });
+};
+
+// As many as can share a lock; one alone takes them all.
+const ALL = 2 ** 30;
+
+/** Locks many may hold together, or one alone, by name. */
+const inProcessWindows = (): {
+  readonly share: Share;
+  readonly claim: Claim;
+} => {
+  const locks = new Map<string, Semaphore.Semaphore>();
+  const lockOf = (name: string) => {
+    let lock = locks.get(name);
+    if (lock === undefined) {
+      lock = Semaphore.makeUnsafe(ALL);
+      locks.set(name, lock);
+    }
+    return lock;
+  };
+  return {
+    share: (name, effect) =>
+      Effect.suspend(() => lockOf(name).withPermits(1)(effect)),
+    claim: (name, effect) =>
+      Effect.suspend(() =>
+        Semaphore.withPermitsIfAvailable(lockOf(name), ALL)(effect),
+      ),
+  };
 };
 
 /** Rings reach every listener of the topic in this process, its ringer's too. */
@@ -70,6 +99,7 @@ const memory = () => {
     names: Effect.sync(() => [...spaces.keys()]),
     destroy: (name) => Effect.sync(() => spaces.delete(name)),
     leader: inProcessLeader(),
+    ...inProcessWindows(),
     doorbell: inProcessDoorbell(),
   });
 };

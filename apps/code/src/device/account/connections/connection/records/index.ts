@@ -11,6 +11,7 @@ export {
   Projects,
   SessionRow,
   Sessions,
+  unsettled,
 } from './records.ts';
 export { Intent, moves, Moves } from './moves/index.ts';
 export {

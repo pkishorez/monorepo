@@ -29,7 +29,7 @@ What the app keeps of how one Connection in the Connection List is set up: its H
 _Avoid_: machine kit, kit, machine cache, machine settings (as a store), catalog (for the per-Connection part)
 
 **Storage**:
-What this device keeps, in databases named by their place: the device's own, `code:device`; each Account's, `code:account:<accountId>`; and each of its Connections', under the Account's. The database says whose it is, the table what it is, and it is one of three kinds: Local, Cache or Sync. Whoever checks a level deletes the children it no longer lists, never itself, and only on a real answer: once the Auth Worker answers, every Account not signed in on this device goes, with all under it; once Cloud Connect first answers, every Connection of the Account it does not list goes, with all under it; a check that fails deletes nothing, and a later answer neither, since another tab may already list a Connection this one has not heard of. A Project removed and a Connection forgotten go at once, as the user asked.
+What this device keeps, in databases named by their place: the device's own, `code:device`; each Account's, `code:account:<accountId>`; and each of its Connections', under the Account's. The database says whose it is, the table what it is, and it is one of three kinds: Local, Cache or Sync. Whoever checks a level deletes the children it no longer lists, never itself, and only on a real answer: once the Auth Worker answers, every Account not signed in on this device goes, with all under it; once Cloud Connect first answers, every Connection of the Account it does not list goes, with all under it; a check that fails deletes nothing, and a later answer neither, since another tab may already list a Connection this one has not heard of. Once a Connection's sessions first answer, the messages of every Session not listed unsettled go, Settled ones and ones gone alike, but those a tab has open. A Project removed and a Connection forgotten go at once, as the user asked.
 _Avoid_: persistence, IndexedDB (for the idea), local storage
 
 **Local**:
@@ -41,7 +41,7 @@ Storage of what Cloud Connect or a Connection last said, such as a Connection Li
 _Avoid_: kept copy, saved copy, snapshot
 
 **Sync**:
-Storage of a copy the backend keeps up to date, live: each Connection's Projects, Sessions and Turns, as its Replicas hold them, in a Store of its own.
+Storage of a copy the backend keeps up to date, live: each Connection's Projects, Sessions and Turns, as its Replicas hold them, in a Store of its own. A Session's messages stay only while it is not Settled: a Settled one's are pruned, and synced whole again from its Connection when it is opened, so while that Connection is out of reach it shows none.
 _Avoid_: replica store (for the idea), account replicas, mirror
 
 **Shelf**:
@@ -99,6 +99,14 @@ _Avoid_: command palette, session menu, keys picker, help sheet, cheat sheet
 **Unseen**:
 A Session whose last Turn ended since it was last open on this device; opening it clears that. The device keeps an Unseen mark for each Session opened on it, per Connection, the end time of the last Turn it saw, so a Session never opened here is never Unseen. The sidebar draws it bold.
 _Avoid_: unread, new, notification
+
+**Running**:
+A Session whose Turn runs: its agent is answering, with any subagents of the Turn. A small turning circle says so in its sidebar row and under the Turn in its transcript; the floating button that counts its subagents and commands never turns, so a turning circle for a Session always means its agent is answering. Stop stops it.
+_Avoid_: loading, busy, working
+
+**In the Background**:
+A Session whose Turn has ended while its agent's Background Jobs still run, such as a subagent or a command it left going. A dot pulsing softly says so in its sidebar row, "Working in the background" on hover. On its page, the floating button that counts its subagents and commands shows the same dot whenever any run, never a turning circle, and says "In background" beside it once the Turn has ended. Stop stops its jobs.
+_Avoid_: running, working, idle
 
 **Vim Mode**:
 The keyboard-first way of working the app, off until turned on in this browser, and off with its status line on a device with no keyboard, however wide its screen: plain keys are shortcuts in the page's Normal Mode, the Draft is read until `i` makes it the Composer, or, while the Question Panel stands in for it, `i` or `m` expands that, and the keys' status line is at the app's foot. Off, the Draft is a text box as any other, and only keys holding Ctrl, Alt or Cmd are shortcuts.

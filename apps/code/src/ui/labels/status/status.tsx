@@ -1,6 +1,6 @@
 import type { Session } from '@kestack/connect/code';
 import { CircleAlertIcon, SquareIcon, TriangleAlertIcon } from 'lucide-react';
-import { RunningDot } from './running-dot.tsx';
+import { RunningDot } from './activity.tsx';
 
 /*
  * How a session stands, as one small mark beside its title, each in the

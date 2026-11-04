@@ -81,6 +81,8 @@ function make(
               key: live.key,
               confirm: live.confirm,
               stopped: live.stopped,
+              caughtUp: (collection: string) =>
+                live.caughtUp([{ collection, window: null }]),
               [CaughtUp]: live.caughtUp,
               [NeverSynced]: live.synced,
             }) as unknown as Instance<

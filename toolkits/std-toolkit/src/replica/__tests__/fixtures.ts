@@ -8,6 +8,7 @@ import { expect, vi } from 'vitest';
 import type { Entity } from '../../core/index.js';
 import { EntityESchema, type AnyEntityESchema } from '../../eschema/index.js';
 import { Action, oldToNew, Query, Replica, Replicas, Store } from '../index.js';
+import { OUTSIDE } from '../store/contract/index.js';
 
 /*
  * One small world to test Replica in: a Pocket of wallets and entries per
@@ -490,17 +491,34 @@ export const messagesAt = (app: RunningApp<World['Root']>, prefix: string) =>
 export const run = <A, E>(effect: Effect.Effect<A, E, Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(effect));
 
-/** Writes Entities straight into an Instance's space, as another participant would have. */
+/**
+ * Writes Entities straight into an Instance's space, as another participant
+ * would have: in no Window unless one is given, as one kept before records
+ * named theirs would be `UNNAMED`.
+ */
 export const seed = (
   store: Layer.Layer<Store>,
   name: string,
   collection: string,
-  entities: ReadonlyArray<{ readonly id: string; readonly entity: Wire }>,
+  entities: ReadonlyArray<{
+    readonly id: string;
+    readonly entity: Wire;
+    readonly window?: string;
+  }>,
 ) =>
   Effect.flatMap(Store, (kept) =>
     Effect.scoped(
       Effect.flatMap(kept.open(name), (space) =>
-        space.write([{ collection, records: entities }]),
+        space.write([
+          {
+            collection,
+            records: entities.map(({ id, entity, window = OUTSIDE }) => ({
+              id,
+              entity,
+              window,
+            })),
+          },
+        ]),
       ),
     ),
   ).pipe(Effect.provide(store));
@@ -516,9 +534,11 @@ export const stored = (
     Effect.scoped(
       Effect.flatMap(kept.open(name), (space) =>
         Effect.all({
-          records: Effect.map(
-            space.read(collection, null),
-            ({ records }) => records,
+          records: Effect.map(space.read(collection, null), ({ records }) =>
+            records.map(({ entity }) => entity),
+          ),
+          windows: Effect.map(space.read(collection, null), ({ records }) =>
+            Object.fromEntries(records.map(({ id, window }) => [id, window])),
           ),
           cursor: space.cursor(collection, scope),
         }),

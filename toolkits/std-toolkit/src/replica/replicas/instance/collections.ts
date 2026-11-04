@@ -145,12 +145,29 @@ export const showCollections = (
     });
   }
 
-  /** Shows what was read from the Store; a tombstone takes its row away. */
-  const show = (collection: string, read: ReadonlyArray<Read>) => {
+  /**
+   * Shows what was read from the Store; a tombstone takes its row away.
+   * Read `afresh`, it is all the Store holds, so a row it lacks goes too.
+   */
+  const show = (
+    collection: string,
+    read: ReadonlyArray<Read>,
+    afresh = false,
+  ) => {
     const sync = syncs.get(collection);
     const rows = shown.get(collection);
     if (!sync || !rows) return;
     sync.begin();
+    if (afresh) {
+      const held = new Set(
+        read.flatMap((each) => (each._tag === 'Read' ? [each.id] : [])),
+      );
+      for (const id of rows)
+        if (!held.has(id)) {
+          rows.delete(id);
+          sync.write({ type: 'delete', key: id });
+        }
+    }
     for (const each of read) {
       if (each._tag !== 'Read') continue;
       if (each.meta._d) {

@@ -1,23 +1,39 @@
-import { Context, Deferred, Effect, Exit, Layer, Stream } from 'effect';
+import { Context, Deferred, Effect, Exit, Layer, Option, Stream } from 'effect';
 import type { Scope } from 'effect';
-import type { StdTableService } from '../../../db/index.js';
+import type {
+  KeyPathValue,
+  StdTableService,
+  TotalKeyPath,
+} from '../../../db/index.js';
 import {
   partsOf,
   ReplicaError,
   type AnyShape,
   type Shape,
 } from '../../shape/index.js';
-import type { SPACE_TABLE } from './layout.js';
+import {
+  OUTSIDE,
+  scopeOf,
+  UNNAMED,
+  WHOLE,
+  WindowValue,
+  type SPACE_TABLE,
+} from './layout.js';
 import {
   announce,
   cursorOf,
+  dropWindow,
   forget,
+  generationOf,
   openingsOf,
   readAfter,
+  rename,
   tell,
   toldOf,
+  windowsIn,
   write,
   type Cursor,
+  type Stored,
   type Opening,
   type SpaceTable,
   type Wire,
@@ -25,7 +41,8 @@ import {
 } from './space.js';
 
 export { SPACE_TABLE, space as spaceTable } from './layout.js';
-export type { Cursor, Opening, SpaceTable, Wire, Written };
+export { OUTSIDE, scopeOf, UNNAMED, WHOLE, WindowValue };
+export type { Cursor, Opening, SpaceTable, Stored, Wire, Written };
 
 /*
  * The Store: where Instances are kept on this device, the only truth there.
@@ -47,6 +64,13 @@ export type { Cursor, Opening, SpaceTable, Wire, Written };
  * 3. Prune   told the whole list of what it keeps, every other Instance it
  *            holds is removed, as in 2, so a Replica renamed or a Key gone
  *            goes without anyone naming it.
+ * 4. Window Prune  told which Windows of one Instance's Collections it
+ *            keeps, every other Window's cursor and records are deleted,
+ *            one at a time, each only while no participant holds it: every
+ *            participant holds each Window it has open, and the Leader each
+ *            it syncs, so a Window in use anywhere is passed over, and one
+ *            opened while it is deleted waits, then syncs afresh. Where
+ *            nothing can tell it is held, nothing is pruned.
  *
  * An adapter says where the spaces live and how participants share them.
  */
@@ -64,6 +88,18 @@ export interface Doorbell {
   readonly listen: (topic: string, initial?: boolean) => Stream.Stream<void>;
 }
 
+/** Runs an effect holding a lock others may hold alongside, waiting while one holds it alone. */
+export type Share = <A, E, R>(
+  name: string,
+  effect: Effect.Effect<A, E, R>,
+) => Effect.Effect<A, E, R>;
+
+/** Runs an effect holding a lock alone, only if no one holds it now: `None`, not run, if someone does. */
+export type Claim = <A, E, R>(
+  name: string,
+  effect: Effect.Effect<A, E, R>,
+) => Effect.Effect<Option.Option<A>, E, R>;
+
 /** Where an adapter keeps spaces, and how participants share them. */
 export interface Adapter {
   readonly table: (name: string) => SpaceTable;
@@ -71,6 +107,10 @@ export interface Adapter {
   readonly names: Effect.Effect<ReadonlyArray<string>, unknown>;
   readonly destroy: (name: string) => Effect.Effect<void, unknown>;
   readonly leader: Leader;
+  /** Holds a Window while it is in use. */
+  readonly share: Share;
+  /** Holds a Window alone while it is pruned. */
+  readonly claim: Claim;
   readonly doorbell: Doorbell;
 }
 
@@ -82,9 +122,41 @@ export interface Space {
     collection: string,
     after: string | null,
   ) => Effect.Effect<
-    { readonly records: ReadonlyArray<Wire>; readonly position: string },
+    { readonly records: ReadonlyArray<Stored>; readonly position: string },
     ReplicaError
   >;
+  /** How many times Windows were pruned from a Collection: a reader that finds it changed reads the Collection afresh. */
+  readonly generation: (
+    collection: string,
+  ) => Effect.Effect<number, ReplicaError>;
+  /** Names the Window of records kept before records named theirs, or named otherwise. */
+  readonly rename: (
+    collection: string,
+    named: ReadonlyArray<{
+      readonly id: string;
+      readonly window: string;
+      /** The `_u` of the Entity it was named from: one written since is passed over. */
+      readonly _u: Wire['meta']['_u'];
+    }>,
+  ) => Effect.Effect<void, ReplicaError>;
+  /** Every Window scope of a Collection it keeps a cursor or records of. */
+  readonly windows: (
+    collection: string,
+  ) => Effect.Effect<ReadonlyArray<string>, ReplicaError>;
+  /**
+   * Deletes one Window of a Collection, its cursor, then its records, if no
+   * participant holds it, and rings the Doorbell: whether it did.
+   */
+  readonly dropWindow: (
+    collection: string,
+    scope: string,
+  ) => Effect.Effect<boolean, ReplicaError>;
+  /** Runs an effect holding one Window, so no prune deletes it meanwhile; waits while one does. */
+  readonly hold: <A, E, R>(
+    collection: string,
+    scope: string,
+    effect: Effect.Effect<A, E, R>,
+  ) => Effect.Effect<A, E, R>;
   /** Who opened it: unique to this open, so its record of open Windows is its own. */
   readonly participant: string;
   /** The cursor of one scope of a Collection: the whole Collection, or one Window. */
@@ -132,6 +204,23 @@ type KeyArgs<K> = [K] extends [void] ? [] : [key: K];
 
 type KeyOf<S> = S extends Shape<string, infer K, any> ? K : never;
 
+type CollectionsOf<S> = S extends Shape<string, any, infer C> ? C : never;
+
+/**
+ * The Windows of one Instance kept, per Collection, by the field it opens
+ * them on: the values whose Windows stay. A field not named keeps all its
+ * Windows; one named with `[]` keeps none.
+ */
+export type KeptWindows<S extends AnyShape> = {
+  readonly [N in keyof CollectionsOf<S>]?: {
+    readonly [
+      P in TotalKeyPath<CollectionsOf<S>[N]['Type'], WindowValue>
+    ]?: ReadonlyArray<
+      KeyPathValue<CollectionsOf<S>[N]['Type'], P, WindowValue>
+    >;
+  };
+};
+
 /** One Replica kept, and which of its Keys: none to give for a Replica without one. */
 export type Kept<S extends AnyShape> = [KeyOf<S>] extends [void]
   ? readonly [replica: S]
@@ -157,6 +246,18 @@ export interface StoreShape {
   readonly prune: <const S extends ReadonlyArray<AnyShape>>(keep: {
     readonly [I in keyof S]: Kept<S[I]>;
   }) => Effect.Effect<ReadonlyArray<string>, ReplicaError>;
+  /**
+   * Keeps exactly these Windows of one Instance's Collections and deletes
+   * every other Window of the fields named, its cursor and its records,
+   * unless a participant holds it; answers the Windows deleted, as
+   * `messages/sessionId="s1"`. A record of a Collection that syncs whole
+   * is in no Window, so it never goes. One Window that cannot go does not
+   * keep the rest: every one is tried.
+   */
+  readonly pruneWindows: <S extends AnyShape>(
+    replica: S,
+    ...args: [...KeyArgs<KeyOf<S>>, keep: KeptWindows<S>]
+  ) => Effect.Effect<ReadonlyArray<string>, ReplicaError>;
 }
 
 /** Where Instances are kept on this device. Give it in the app's Layer: `Store.idb()` or `Store.memory()`. */
@@ -174,6 +275,8 @@ const announcedTopic = (name: string) => `${name}#announced`;
 const recalledTopic = (name: string) => `${name}#recalled`;
 const toldTopic = (name: string) => `${name}#told`;
 const askedTopic = (name: string) => `${name}#asked`;
+const windowLock = (name: string, collection: string, scope: string) =>
+  `${name}#window:${collection}/${scope}`;
 
 /** Someone who opened a space here: told when it is removed, and done once their Scope closes. */
 interface Opener {
@@ -253,6 +356,42 @@ export const makeStore = (adapter: Adapter): Layer.Layer<Store> => {
           inTable(`read ${name}`, readAfter(collection, after)),
         cursor: (collection, scope) =>
           inTable(`read a cursor of ${name}`, cursorOf(collection, scope)),
+        generation: (collection) =>
+          inTable(
+            `read the generation of ${name}/${collection}`,
+            generationOf(collection),
+          ),
+        rename: (collection, named) =>
+          inTable(
+            `name the Windows of ${name}/${collection}`,
+            rename(collection, named),
+          ),
+        windows: (collection) =>
+          inTable(
+            `list the Windows of ${name}/${collection}`,
+            windowsIn(collection),
+          ),
+        dropWindow: (collection, scope) =>
+          adapter
+            .claim(
+              windowLock(name, collection, scope),
+              inTable(
+                `delete Window ${scope} of ${name}/${collection}`,
+                dropWindow(collection, scope),
+              ),
+            )
+            .pipe(
+              // Rung once it began, even when stopped part way: what went
+              // is gone whether or not the rest follows.
+              Effect.onExit((exit) =>
+                Exit.isSuccess(exit) && Option.isNone(exit.value)
+                  ? Effect.void
+                  : changed,
+              ),
+              Effect.map(Option.isSome),
+            ),
+        hold: (collection, scope, effect) =>
+          adapter.share(windowLock(name, collection, scope), effect),
         write: (written) =>
           inTable(`write ${name}`, write(written)).pipe(
             Effect.flatMap((wrote) => (wrote ? changed : Effect.void)),
@@ -359,6 +498,59 @@ export const makeStore = (adapter: Adapter): Layer.Layer<Store> => {
       );
     });
 
+  // 4. Window Prune
+  const pruneWindows: StoreShape['pruneWindows'] = (replica, ...args) =>
+    Effect.gen(function* () {
+      const key = args.length === 2 ? args[0] : undefined;
+      const keep = args.at(-1) as Readonly<
+        Record<
+          string,
+          | Readonly<Record<string, ReadonlyArray<WindowValue> | undefined>>
+          | undefined
+        >
+      >;
+      const name = replica.instanceName(
+        key as Parameters<typeof replica.instanceName>[0],
+      );
+      // An Instance never kept here has nothing to prune: it is not made.
+      const stored = yield* adapter.names.pipe(
+        Effect.mapError(failed('list what it keeps')),
+      );
+      if (!stored.includes(name) && !(openers.get(name)?.size ?? 0)) return [];
+      return yield* Effect.scoped(
+        Effect.gen(function* () {
+          const space = yield* open(name);
+          const exits: Array<Exit.Exit<string | null, ReplicaError>> = [];
+          for (const [collection, fields] of Object.entries(keep)) {
+            if (fields === undefined) continue;
+            const scopes = yield* space.windows(collection);
+            for (const [path, values] of Object.entries(fields)) {
+              if (values === undefined) continue;
+              const kept = new Set(
+                values.map((value) => scopeOf({ path, value })),
+              );
+              for (const scope of scopes) {
+                if (!scope.startsWith(`${path}=`) || kept.has(scope)) continue;
+                exits.push(
+                  yield* Effect.exit(
+                    Effect.map(space.dropWindow(collection, scope), (done) =>
+                      done ? `${collection}/${scope}` : null,
+                    ),
+                  ),
+                );
+              }
+            }
+          }
+          const failure = exits.find(Exit.isFailure);
+          if (failure !== undefined)
+            return yield* Effect.failCause(failure.cause);
+          return exits.flatMap((exit) =>
+            Exit.isSuccess(exit) && exit.value !== null ? [exit.value] : [],
+          );
+        }),
+      );
+    });
+
   const store: StoreShape = {
     open,
     list,
@@ -370,6 +562,7 @@ export const makeStore = (adapter: Adapter): Layer.Layer<Store> => {
         ),
       ),
     prune,
+    pruneWindows,
   };
 
   return Layer.succeed(Store, store);
