@@ -197,7 +197,7 @@ function Signed({
   const route = useRouter<Route>().route;
   const here = pageOf(route);
   const given = use(Given);
-  const { enter } = keys.useKeyboard();
+  const { enter } = keys.useMoves();
   const inSettings = here?._tag === 'Settings';
   const settings = () =>
     send(
@@ -317,11 +317,7 @@ function Screen({
   readonly header: ComponentProps<typeof AppShell>['header'];
   readonly children: ReactNode;
 }) {
-  const { vim } = keys.useKeyboard();
-  // Its help opens the Actions list, as Ctrl+? does.
-  const help = keys
-    .useAvailableActions()
-    .find(({ id }) => id === 'app.helpAnywhere');
+  const vim = keys.useVim();
   // A touch screen with no keyboard has no use for the keys' status line.
   const { keyboard } = useDevice();
   return (
@@ -332,7 +328,7 @@ function Screen({
       // saying the Mode and where the keys are.
       vim={{
         on: vim.on && keyboard,
-        statusLine: <KeysStatusBar keys={keys} onHelp={help?.run} />,
+        statusLine: <StatusLine />,
       }}
       // On a phone the sidebar is a page of its own: home.
       sidebarMode="fullscreen"
@@ -371,6 +367,18 @@ function Screen({
       <ShellToasts />
     </AppShell>
   );
+}
+
+/**
+ * The keys' status line. Its help opens the Actions list, as Ctrl+? does.
+ * It reads what works now on its own, so the App Shell is not drawn again
+ * each time the user moves.
+ */
+function StatusLine() {
+  const help = keys
+    .useAvailableActions()
+    .find(({ id }) => id === 'app.helpAnywhere');
+  return <KeysStatusBar keys={keys} onHelp={help?.run} />;
 }
 
 /** The toasts, told whether the sidebar is open, and the whole screen. */

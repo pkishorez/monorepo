@@ -159,7 +159,7 @@ export function Dialog({
   // Expanded, focus goes to the row it was on, else the step's: when the
   // user asked for it, or when nothing else has it.
   const lastRow = useRef<HTMLElement | null>(null);
-  const { enter } = keys.useKeyboard();
+  const { enter } = keys.useMoves();
   const back = () => {
     if (lastRow.current?.isConnected === true)
       lastRow.current.focus({ preventScroll: true });

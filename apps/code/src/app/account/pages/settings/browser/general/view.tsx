@@ -54,7 +54,7 @@ function Key({ children }: { readonly children: string }) {
 
 /** Vim Mode, kept in this browser: off, the app is worked as any other is. */
 function VimSetting() {
-  const { vim } = keys.useKeyboard();
+  const vim = keys.useVim();
   const help = useBound('app.help');
   const toggle = useBound('app.vim');
   return (

@@ -24,7 +24,7 @@ import { keys } from '../../../app/account/frame/commands.ts';
 
 /** Opens a confirmation: `open` tells its owner, then the Surface is entered, in the same handler. */
 export const useOpen = () => {
-  const { enter } = keys.useKeyboard();
+  const { enter } = keys.useMoves();
   return (open: () => void) => {
     open();
     enter('confirm');
@@ -83,7 +83,7 @@ function Asked({
   onConfirm,
 }: Omit<Parameters<typeof Dialog>[0], 'open'>) {
   const { active } = keys.useSurface('confirm');
-  const { leave } = keys.useKeyboard();
+  const { leave } = keys.useMoves();
   const spot = keys.useFocusSpot('confirm', 'keep', { default: true });
   // Closed by its owner, as once it is done, it still leaves its Surface.
   useEffect(() => () => leave('confirm'), [leave]);

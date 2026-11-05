@@ -5,6 +5,7 @@ import {
   createContext,
   memo,
   use,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -12,7 +13,11 @@ import {
   type ReactNode,
 } from 'react';
 import { notify } from '../../../../ui/controls/notice/index.ts';
-import { instanceOf } from '../../connection/records/index.ts';
+import type { Session } from '@kestack/connect/code';
+import {
+  instanceOf,
+  type OnConnection,
+} from '../../connection/records/index.ts';
 import type { Route } from '../../../app.ts';
 import {
   chosenRead,
@@ -125,6 +130,29 @@ export const SidebarView = View.make(
               (shown === null || id === shown) &&
               neverSynced.has(instanceOf(id)),
           );
+    // The same while the sidebar lives, so a row is drawn again only for
+    // what it shows.
+    const { refusals } = model;
+    const refusalsOf = useCallback(
+      (connectionId: string, sessionId: string) =>
+        refusals[refusedKey(connectionId, sessionId)] ?? 0,
+      [refusals],
+    );
+    const onCollapse = useCallback(
+      (connectionId: string) => send({ _tag: 'CollapseToggled', connectionId }),
+      [send],
+    );
+    const onMove = useCallback(
+      ({ connectionId, id, title }: OnConnection<Session>, settled: boolean) =>
+        send({
+          _tag: 'MoveAsked',
+          connectionId,
+          sessionId: id,
+          settled,
+          title: title || 'Untitled session',
+        }),
+      [send],
+    );
     const header = (
       <ConnectionHeader
         read={drawn !== null}
@@ -144,11 +172,7 @@ export const SidebarView = View.make(
       <>
         {header}
         {/* A refusal brings its row swiped away back, drawn afresh. */}
-        <SwipeBack
-          value={(connectionId, sessionId) =>
-            model.refusals[refusedKey(connectionId, sessionId)] ?? 0
-          }
-        >
+        <SwipeBack value={refusalsOf}>
           <Places
             read={drawn.key}
             route={route}
@@ -156,9 +180,7 @@ export const SidebarView = View.make(
             sessions={movedOf(synced, model.moving)}
             connections={namesOf(model.connections ?? [], shown)}
             collapsed={model.collapsed ?? []}
-            onCollapse={(connectionId) =>
-              send({ _tag: 'CollapseToggled', connectionId })
-            }
+            onCollapse={onCollapse}
             isUnseen={(each) =>
               isUnseen(
                 model.unseen[each.connectionId] ?? {},
@@ -189,15 +211,7 @@ export const SidebarView = View.make(
                 title: null,
               })
             }
-            onMove={({ connectionId, id, title }, settled) =>
-              send({
-                _tag: 'MoveAsked',
-                connectionId,
-                sessionId: id,
-                settled,
-                title: title || 'Untitled session',
-              })
-            }
+            onMove={onMove}
           />
         </SwipeBack>
       </>

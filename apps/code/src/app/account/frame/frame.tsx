@@ -57,7 +57,7 @@ export function useVoiceKeys(voice: {
 }
 
 function VimSwitch() {
-  const { vim } = keys.useKeyboard();
+  const vim = keys.useVim();
   keys.useAction('app.vim', vim.toggle);
   return null;
 }

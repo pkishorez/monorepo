@@ -19,7 +19,15 @@ import { cn } from '@kestack/web-platform/ui/components/utils';
 import { BindingKeys } from '@kestack/web-platform/ui/input';
 import { bindingOf, describe } from '@kestack/use-keys';
 import { revealInView } from '@kestack/use-keys/surfaces';
-import { Fragment, useEffect, useLayoutEffect, useRef } from 'react';
+import {
+  Fragment,
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import { keys } from '../../../../app/account/frame/commands.ts';
 import {
   finishedOn,
@@ -85,9 +93,26 @@ export function List<P>({
   props,
   send,
 }: Self<P> & { readonly spec: Spec<P> }) {
-  const shown = shownOf(spec, model, props);
+  // Ranked again only for a new Model or Props: the keyboard moving around
+  // it draws the list again, never works its rows out again.
+  const shown = useMemo(
+    () => shownOf(spec, model, props),
+    [spec, model, props],
+  );
   const { query, highlighted } = model.step;
-  const { enter, leave } = keys.useKeyboard();
+  // The row highlighted as drawn: the one the actor holds while it is
+  // shown, else the best one.
+  const values = shown.groups
+    .flatMap(({ rows }) => rows)
+    .filter(({ entry }) => entry.unavailable === undefined)
+    .map(({ entry }) => entry.value);
+  const first = values[0] ?? '';
+  const wasFirst = useRef(first);
+  const current =
+    values.includes(highlighted) && highlighted !== wasFirst.current
+      ? highlighted
+      : first;
+  const { enter, leave } = keys.useMoves();
   const { shape, label, held, typing } = useDrawn();
   // Every Picker is the one Surface: one over this, leaving it, is no
   // closing of this while its owner holds it.
@@ -118,6 +143,10 @@ export function List<P>({
     if (outcome._tag === 'Finish' && !waits)
       close([...model.choices, outcome.choice]);
   };
+  // The same for every draw, so a row is drawn again only for what it shows.
+  const picking = useRef(pick);
+  picking.current = pick;
+  const onPick = useCallback((value: string) => picking.current(value), []);
   // On the row `on`, or with null on the Step itself.
   const finish = (on: string | null) => {
     const ended = finishedOn(spec, model, props, on);
@@ -133,8 +162,8 @@ export function List<P>({
     if (spec.lands?.(model.choices) === true) enter('content');
   }, [model.taken, model.choices, spec, leave, enter]);
   const into = () => {
-    if (outcomeOf(spec, model, props, highlighted)._tag === 'Next')
-      send({ _tag: 'Picked', value: highlighted });
+    if (outcomeOf(spec, model, props, current)._tag === 'Next')
+      send({ _tag: 'Picked', value: current });
   };
   keys.useAction('picker.clear', () => send({ _tag: 'Typed', query: '' }), {
     enabled: query !== '',
@@ -142,9 +171,9 @@ export function List<P>({
   keys.useAction('picker.back', () => send({ _tag: 'Back' }), {
     enabled: canBack,
   });
-  keys.useAction('picker.pick', () => pick(highlighted));
+  keys.useAction('picker.pick', () => pick(current));
   keys.useAction('picker.into', into);
-  keys.useAction('picker.finish', () => finish(highlighted || null));
+  keys.useAction('picker.finish', () => finish(current || null));
   keys.useAction('picker.next', () => send({ _tag: 'Moved', by: 1 }));
   keys.useAction('picker.previous', () => send({ _tag: 'Moved', by: -1 }));
   const hint = useHints();
@@ -165,30 +194,30 @@ export function List<P>({
   );
 
   // Rows from the Props change with no Message: a highlight on the best
-  // row, or on one no longer shown, moves to the best one.
-  const values = shown.groups
-    .flatMap(({ rows }) => rows)
-    .filter(({ entry }) => entry.unavailable === undefined)
-    .map(({ entry }) => entry.value);
-  const first = values[0] ?? '';
-  const wasFirst = useRef(first);
-  const best =
-    values.includes(highlighted) && highlighted !== wasFirst.current
-      ? highlighted
-      : first;
+  // row, or on one no longer shown, moves to the best one. None yet, as
+  // just opened, is the best one already, drawn so at once, never drawn
+  // again only to say it.
   useEffect(() => {
     wasFirst.current = first;
-    if (best !== highlighted) send({ _tag: 'Highlighted', value: best });
-  }, [first, best, highlighted, send]);
+    if (highlighted !== '' && current !== highlighted)
+      send({ _tag: 'Highlighted', value: current });
+  }, [first, current, highlighted, send]);
 
   const list = useRef<HTMLDivElement>(null);
+  // In the next frame, as it is laid out anyway: at once, it would lay the
+  // page out again inside the key that opened or moved it.
+  // None highlighted yet is the first, at the top already.
   useEffect(() => {
-    revealInView(
-      [...(list.current?.querySelectorAll('[cmdk-item]') ?? [])].find(
-        (item) => item.getAttribute('data-value') === highlighted,
+    if (highlighted === '') return;
+    const frame = requestAnimationFrame(() =>
+      revealInView(
+        [...(list.current?.querySelectorAll('[cmdk-item]') ?? [])].find(
+          (item) => item.getAttribute('data-value') === current,
+        ),
       ),
     );
-  }, [highlighted]);
+    return () => cancelAnimationFrame(frame);
+  }, [current, highlighted]);
 
   const { groups } = shown;
   const keyed = shown.rows.find((row) => row.keys !== undefined)?.keys;
@@ -210,7 +239,7 @@ export function List<P>({
         data-keys="enabled"
         shouldFilter={false}
         vimBindings={false}
-        value={highlighted}
+        value={current}
         onValueChange={(value) => send({ _tag: 'Highlighted', value })}
         // What the Actions left, cmdk would still pick or move with.
         onKeyDown={(event) => {
@@ -358,76 +387,16 @@ export function List<P>({
           {groups.map(({ heading, rows }) => (
             <CommandGroup key={heading} heading={heading || undefined}>
               {rows.map(({ entry, matched }) => (
-                <CommandItem
+                <PickerRow
                   key={entry.value}
-                  value={entry.value}
-                  disabled={entry.unavailable !== undefined}
-                  data-checked={entry.checked === true}
-                  data-quiet={entry.quiet === true || undefined}
-                  data-nested={
-                    (query === '' && entry.nested === true) || undefined
-                  }
-                  title={entry.unavailable}
-                  onSelect={() => pick(entry.value)}
-                  className={cn(
-                    'items-start data-quiet:opacity-60',
-                    // One step in, with a rule in the margin that ties it to the row above.
-                    'data-nested:ml-5 data-nested:before:absolute data-nested:before:inset-y-0 data-nested:before:-left-2.5 data-nested:before:w-px data-nested:before:bg-border',
-                    entry.keys !== undefined && 'max-sm:flex-wrap',
-                    // No room kept for a check a row does not have.
-                    touch && 'data-[checked=false]:[&>svg:last-child]:hidden',
-                  )}
-                >
-                  {entry.mark !== undefined && shown.mark !== null
-                    ? shown.mark(
-                        entry.mark,
-                        cn('self-center', touch ? 'size-5!' : 'size-4!'),
-                      )
-                    : touch &&
-                      (entry.icon ?? shown.icon) !== null && (
-                        <RowIcon icon={entry.icon ?? shown.icon!} />
-                      )}
-                  <span
-                    className={cn(
-                      'flex min-w-0 flex-1 flex-col',
-                      touch ? 'gap-1' : 'gap-0.5',
-                      entry.keys !== undefined && 'max-sm:basis-full',
-                    )}
-                  >
-                    <span className="flex min-w-0 items-baseline gap-2">
-                      <span className="max-w-full shrink-0 truncate font-medium">
-                        <Highlighted text={entry.label} matched={matched} />
-                      </span>
-                      {entry.hint !== undefined && (
-                        <span className="ml-auto min-w-0 truncate text-xs text-muted-foreground tabular-nums">
-                          {entry.hint}
-                        </span>
-                      )}
-                    </span>
-                    {(entry.unavailable ?? entry.detail) !== undefined && (
-                      <span
-                        className={cn(
-                          'truncate text-muted-foreground',
-                          touch ? 'text-sm' : 'text-xs',
-                        )}
-                      >
-                        {entry.unavailable ?? entry.detail}
-                      </span>
-                    )}
-                  </span>
-                  {entry.keys !== undefined && (
-                    <span className="flex shrink-0 gap-3 self-center max-sm:self-start">
-                      <Keys
-                        written={entry.keys.out}
-                        lit={entry.keys.on === 'out'}
-                      />
-                      <Keys
-                        written={entry.keys.vim}
-                        lit={entry.keys.on === 'vim'}
-                      />
-                    </span>
-                  )}
-                </CommandItem>
+                  entry={entry}
+                  matched={matched}
+                  nested={query === '' && entry.nested === true}
+                  touch={touch}
+                  mark={shown.mark}
+                  icon={shown.icon}
+                  onPick={onPick}
+                />
               ))}
             </CommandGroup>
           ))}
@@ -474,6 +443,89 @@ function useHints() {
     return first === undefined ? null : describe(first);
   };
 }
+
+type Shown = ReturnType<typeof shownOf>;
+
+/** One row, drawn again only when what it shows changes. */
+const PickerRow = memo(function PickerRow({
+  entry,
+  matched,
+  nested,
+  touch,
+  mark,
+  icon,
+  onPick,
+}: {
+  readonly entry: Shown['rows'][number];
+  readonly matched: Shown['groups'][number]['rows'][number]['matched'];
+  /** One step in, under the row it belongs to; only while nothing is typed. */
+  readonly nested: boolean;
+  readonly touch: boolean;
+  readonly mark: Shown['mark'];
+  readonly icon: Shown['icon'];
+  readonly onPick: (value: string) => void;
+}) {
+  return (
+    <CommandItem
+      value={entry.value}
+      disabled={entry.unavailable !== undefined}
+      data-checked={entry.checked === true}
+      data-quiet={entry.quiet === true || undefined}
+      data-nested={nested || undefined}
+      title={entry.unavailable}
+      onSelect={() => onPick(entry.value)}
+      className={cn(
+        'items-start data-quiet:opacity-60',
+        // One step in, with a rule in the margin that ties it to the row above.
+        'data-nested:ml-5 data-nested:before:absolute data-nested:before:inset-y-0 data-nested:before:-left-2.5 data-nested:before:w-px data-nested:before:bg-border',
+        entry.keys !== undefined && 'max-sm:flex-wrap',
+        // No room kept for a check a row does not have.
+        touch && 'data-[checked=false]:[&>svg:last-child]:hidden',
+      )}
+    >
+      {entry.mark !== undefined && mark !== null
+        ? mark(entry.mark, cn('self-center', touch ? 'size-5!' : 'size-4!'))
+        : touch &&
+          (entry.icon ?? icon) !== null && (
+            <RowIcon icon={entry.icon ?? icon!} />
+          )}
+      <span
+        className={cn(
+          'flex min-w-0 flex-1 flex-col',
+          touch ? 'gap-1' : 'gap-0.5',
+          entry.keys !== undefined && 'max-sm:basis-full',
+        )}
+      >
+        <span className="flex min-w-0 items-baseline gap-2">
+          <span className="max-w-full shrink-0 truncate font-medium">
+            <Highlighted text={entry.label} matched={matched} />
+          </span>
+          {entry.hint !== undefined && (
+            <span className="ml-auto min-w-0 truncate text-xs text-muted-foreground tabular-nums">
+              {entry.hint}
+            </span>
+          )}
+        </span>
+        {(entry.unavailable ?? entry.detail) !== undefined && (
+          <span
+            className={cn(
+              'truncate text-muted-foreground',
+              touch ? 'text-sm' : 'text-xs',
+            )}
+          >
+            {entry.unavailable ?? entry.detail}
+          </span>
+        )}
+      </span>
+      {entry.keys !== undefined && (
+        <span className="flex shrink-0 gap-3 self-center max-sm:self-start">
+          <Keys written={entry.keys.out} lit={entry.keys.on === 'out'} />
+          <Keys written={entry.keys.vim} lit={entry.keys.on === 'vim'} />
+        </span>
+      )}
+    </CommandItem>
+  );
+});
 
 /** One column of a row's keys, as written; a dash for none. */
 function Keys({
