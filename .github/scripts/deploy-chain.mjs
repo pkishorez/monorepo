@@ -134,32 +134,34 @@ function status({ result, affected, after }) {
 }
 
 /**
- * The job summary. `chain` is what each job of the chain gave: `ready`
- * from the release check, whether Connect is affected, the results of
- * plugins and connect, and each front end's affected and result.
+ * The job summary. `ready` is the release check's; `connect` whether Connect is
+ * affected and its job's result; `frontEnds` each one's. A pull request's
+ * preview deploys its front ends alone, so it has no row for Connect Cloud, and
+ * they wait for nothing.
  */
-export function summary({ stage, ready, connect, plugins, frontEnds }) {
+export function summary({ stage, ready, connect, frontEnds }) {
+  const preview = stage !== 'prod' && stage !== 'demo';
   const blocked = ready === false ? 'release pending' : undefined;
   // Connect Cloud deploys whenever anything does, changed or not.
   const frontEndChanged = frontEnds.some(({ affected }) => affected);
-  const connectStatus = status({
-    ...connect,
-    affected: frontEndChanged || connect.affected,
-    after:
-      blocked ??
-      (plugins.result === 'failure' ? 'the Plugins check failed' : undefined),
-  });
   const connectStopped =
-    (frontEndChanged || connect.affected) && connect.result !== 'success'
+    !preview &&
+    (frontEndChanged || connect.affected) &&
+    connect.result !== 'success'
       ? 'Connect Cloud did not deploy'
       : undefined;
+  const connectRow = `| Connect Cloud | ${status({
+    ...connect,
+    affected: frontEndChanged || connect.affected,
+    after: blocked,
+  })} | ${url(stage, 'connect')} |`;
   return [
     `## Deploy — \`${stage}\``,
     '',
     ...(ready === false ? [BLOCKED, ''] : []),
     '| App | Status | URL |',
     '| --- | --- | --- |',
-    `| Connect Cloud | ${connectStatus} | ${url(stage, 'connect')} |`,
+    ...(preview ? [] : [connectRow]),
     ...frontEnds.map(
       (app) =>
         `| ${app.name} | ${status({ ...app, after: blocked ?? connectStopped })} | ${url(stage, app.name)} |`,
@@ -225,7 +227,6 @@ const commands = {
     const text = summary({
       stage: env.STAGE,
       ready: env.READY === '' ? undefined : env.READY === 'true',
-      plugins: { result: env.PLUGINS_RESULT },
       connect: {
         affected:
           env.CONNECT_AFFECTED === ''
