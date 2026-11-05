@@ -100,6 +100,12 @@ export type Keyboard<D> = {
   };
 };
 
+/** How to move the user between Surfaces: the same functions for as long as the Provider lives. */
+export type Moves<D> = Pick<Keyboard<D>, 'enter' | 'leave'>;
+
+/** Vim Mode, and how to turn it on or off. */
+export type VimMode = Keyboard<never>['vim'];
+
 /** An Action that works where the user is, for a help sheet or a palette. */
 export type AvailableAction<D> = {
   readonly id: ActionId<D>;
@@ -208,9 +214,26 @@ export type Keys<D extends Definition> = {
     run: () => void,
     options?: { readonly enabled?: boolean },
   ) => void;
-  readonly useSurface: (name: SurfaceName<D>) => SurfaceView;
+  /**
+   * Says whether a Surface is Active, its state for styling, and its Mode.
+   * With `enabled: false` it reads as Off and never Active, and the component
+   * is not drawn again as the user moves: for one that only needs to know
+   * while it is open, such as one of many popups sharing a Surface.
+   */
+  readonly useSurface: (
+    name: SurfaceName<D>,
+    options?: { readonly enabled?: boolean },
+  ) => SurfaceView;
   readonly useActive: () => SurfaceName<D>;
   readonly useKeyboard: () => Keyboard<D>;
+  /**
+   * `enter` and `leave` alone, the same functions on every render. Unlike
+   * `useKeyboard`, the component is never drawn again as the user moves,
+   * so a component that only moves the user draws nothing extra.
+   */
+  readonly useMoves: () => Moves<D>;
+  /** Vim Mode alone: drawn again only as it turns on or off. */
+  readonly useVim: () => VimMode;
   readonly useAvailableActions: () => ReadonlyArray<AvailableAction<D>>;
   /**
    * An Action's keys as bound now, the user's Bindings over its defaults,
@@ -247,8 +270,11 @@ const NO_BINDINGS = {};
 // Warned once each: an Active Surface drawn inside an Inactive one.
 const warned = new Set<string>();
 
-const useView = (store: Store, name: string): SurfaceView => {
-  const read = () => store.view(name);
+// What a Surface read with `enabled: false` shows: never Active, Off.
+const UNREAD = 'false off normal';
+
+const useView = (store: Store, name: string, enabled = true): SurfaceView => {
+  const read = () => (enabled ? store.view(name) : UNREAD);
   const shown = useSyncExternalStore(store.subscribe, read, read);
   return useMemo(() => {
     const [active, state, mode] = shown.split(' ') as [string, State, Mode];
@@ -434,15 +460,35 @@ function make(definition: Definition): Keys<Definition> {
       handler.current = { run, enabled };
     });
     useLayoutEffect(() => store.handle(id, handler), [store, id]);
-    useLayoutEffect(() => store.handlersChanged(), [store, enabled]);
+    // Only a change: `handle` has just told the store of the first.
+    const told = useRef(enabled);
+    useLayoutEffect(() => {
+      if (told.current === enabled) return;
+      told.current = enabled;
+      store.handlersChanged();
+    }, [store, enabled]);
   };
 
-  const useSurface: Keys<Definition>['useSurface'] = (name) =>
-    useView(useStore('keys.useSurface'), name);
+  const useSurface: Keys<Definition>['useSurface'] = (name, options = {}) =>
+    useView(useStore('keys.useSurface'), name, options.enabled !== false);
 
   const useActive: Keys<Definition>['useActive'] = () => {
     const store = useStore('keys.useActive');
     return useSyncExternalStore(store.subscribe, store.active, store.active);
+  };
+
+  const useVim: Keys<Definition>['useVim'] = () => {
+    const vim = useVimMode('keys.useVim');
+    const on = useSyncExternalStore(vim.subscribe, vim.on, vim.on);
+    return useMemo(
+      () => ({ on, set: vim.set, toggle: () => vim.set(!vim.on()) }),
+      [on, vim],
+    );
+  };
+
+  const useMoves: Keys<Definition>['useMoves'] = () => {
+    const store = useStore('keys.useMoves');
+    return useMemo(() => ({ enter: store.enter, leave: store.leave }), [store]);
   };
 
   const useKeyboard: Keys<Definition>['useKeyboard'] = () => {
@@ -452,16 +498,10 @@ function make(definition: Definition): Keys<Definition> {
       store.status,
       store.status,
     );
-    const vim = useVimMode('keys.useKeyboard');
-    const on = useSyncExternalStore(vim.subscribe, vim.on, vim.on);
+    const vim = useVim();
     return useMemo(
-      () => ({
-        ...status,
-        enter: store.enter,
-        leave: store.leave,
-        vim: { on, set: vim.set, toggle: () => vim.set(!vim.on()) },
-      }),
-      [status, store, on, vim],
+      () => ({ ...status, enter: store.enter, leave: store.leave, vim }),
+      [status, store, vim],
     );
   };
 
@@ -516,6 +556,8 @@ function make(definition: Definition): Keys<Definition> {
     useSurface,
     useActive,
     useKeyboard,
+    useMoves,
+    useVim,
     useAvailableActions,
     useKeysOf,
     useFocusSpot,

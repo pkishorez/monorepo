@@ -11,6 +11,7 @@ export type {
   Keyboard,
   Keys,
   Mode,
+  Moves,
   ProviderProps,
   State,
   SurfaceDefinition,
@@ -18,4 +19,5 @@ export type {
   SurfaceProps,
   SurfaceView,
   Timing,
+  VimMode,
 } from './surfaces.tsx';

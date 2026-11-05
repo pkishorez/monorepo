@@ -131,8 +131,19 @@ const describeStep = (step: Shortcut) => {
 };
 
 /** A Binding as people write it: `mod+k`, `g g`. */
-export const describe = (binding: Binding) =>
-  stepsOf(binding).map(describeStep).join(' ');
+// A Binding is never changed once made, so its words are worked out once:
+// the keys tree describes every Binding each time what works changes.
+const described = new WeakMap<Binding, string>();
+
+export const describe = (binding: Binding) => {
+  let words = described.get(binding);
+  if (words === undefined)
+    described.set(
+      binding,
+      (words = stepsOf(binding).map(describeStep).join(' ')),
+    );
+  return words;
+};
 
 export { conflicts, exact, type Exact } from './exact.ts';
 export { shortcutOf } from './record.ts';

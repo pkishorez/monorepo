@@ -69,20 +69,22 @@ pnpm add @kestack/use-keys react react-dom
 
 ### `@kestack/use-keys/surfaces`
 
-| Export                     | What it does                                                                                                               |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `createKeys`               | Makes an app's keyboard from one typed definition of its Surfaces and Actions, and gives the parts below, typed by it.     |
-| `keys.Provider`            | Holds the Active Surface and Vim Mode, the timing, the appearance and the user's own keys, and makes the Active keys work. |
-| `keys.Surface`             | Draws a Surface: a `div`, or its one child with `asChild`, carrying its state and the class names for it.                  |
-| `keys.useAction`           | Says what an Action does while the calling component is mounted.                                                           |
-| `keys.useSurface`          | Says whether a Surface is Active, its state for styling, and its Mode.                                                     |
-| `keys.useActive`           | Gives the Active Surface's name.                                                                                           |
-| `keys.useKeyboard`         | Gives the path to the Active Surface, the Mode and the Sequence under way, `enter`, `leave`, and Vim Mode.                 |
-| `keys.useAvailableActions` | Lists every Action that works now, nearest Surface first, and whether each is Shadowed.                                    |
-| `keys.useKeysOf`           | Gives an Action's keys as bound now, the user's own over its defaults, wherever the user is, such as for a button's title. |
-| `keys.useFocusSpot`        | Marks an element as a named Focus Spot of a Surface, where focus goes back when the user comes back to it.                 |
-| `keys.checkBindings`       | Says, without throwing, which Actions the user's own keys would make Conflict and which they would leave Shadowed.         |
-| `revealInView`             | Scrolls an element just into view at once, for a cursor moved from the keyboard.                                           |
+| Export                     | What it does                                                                                                                 |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `createKeys`               | Makes an app's keyboard from one typed definition of its Surfaces and Actions, and gives the parts below, typed by it.       |
+| `keys.Provider`            | Holds the Active Surface and Vim Mode, the timing, the appearance and the user's own keys, and makes the Active keys work.   |
+| `keys.Surface`             | Draws a Surface: a `div`, or its one child with `asChild`, carrying its state and the class names for it.                    |
+| `keys.useAction`           | Says what an Action does while the calling component is mounted.                                                             |
+| `keys.useSurface`          | Says whether a Surface is Active, its state for styling, and its Mode; with `enabled: false` it reads Off and never redraws. |
+| `keys.useActive`           | Gives the Active Surface's name.                                                                                             |
+| `keys.useKeyboard`         | Gives the path to the Active Surface, the Mode and the Sequence under way, `enter`, `leave`, and Vim Mode.                   |
+| `keys.useMoves`            | Gives `enter` and `leave` alone, so a component that only moves the user is never drawn again as the user moves.             |
+| `keys.useVim`              | Gives Vim Mode and how to turn it on or off, drawn again only as it turns on or off.                                         |
+| `keys.useAvailableActions` | Lists every Action that works now, nearest Surface first, and whether each is Shadowed.                                      |
+| `keys.useKeysOf`           | Gives an Action's keys as bound now, the user's own over its defaults, wherever the user is, such as for a button's title.   |
+| `keys.useFocusSpot`        | Marks an element as a named Focus Spot of a Surface, where focus goes back when the user comes back to it.                   |
+| `keys.checkBindings`       | Says, without throwing, which Actions the user's own keys would make Conflict and which they would leave Shadowed.           |
+| `revealInView`             | Scrolls an element just into view at once, for a cursor moved from the keyboard.                                             |
 
 ## Usage
 
@@ -220,7 +222,9 @@ function Composer() {
   replaces an Action's keys with the user's own.
 - `useKeyboard` gives a status bar the path, the Mode, the Sequence under
   way and Vim Mode; `useAvailableActions` fills a help sheet or a palette,
-  each with its `run`.
+  each with its `run`, the same list while what works stays the same. A
+  component that only moves the user takes `useMoves`, and one that only
+  reads Vim Mode takes `useVim`: neither is drawn again as the user moves.
 - The editor is the session's default Focus Spot. Closing the palette,
   coming back from another Surface, or remounting the editor while the
   session is Active puts focus back in the spot focus was last in, by name,
