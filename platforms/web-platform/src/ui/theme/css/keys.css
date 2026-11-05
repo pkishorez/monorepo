@@ -141,12 +141,23 @@
 }
 
 /* With Vim Mode on, dialogs, popovers, menus and the frame open and close
-   at once, and Surfaces change at once but for their 100ms light and dim.
-   Spinners keep turning. The Vim window itself is not here: turning Vim
-   Mode on and off is the one thing that eases. */
+   at once, and Surfaces change at once, their light and dim too: a key
+   shows what it did in the next frame. What dims behind an open one is not
+   blurred, so nothing is drawn again frame after frame under it. Spinners
+   keep turning. The Vim window itself is not here: turning Vim Mode on and
+   off is the one thing that eases. */
+[data-vim] {
+  --surface-fade: 0ms;
+}
+
 [data-vim] [data-surface] {
   animation: none !important;
-  transition: opacity var(--surface-fade) ease-out !important;
+  transition: none !important;
+}
+
+[data-vim] [data-slot$='-overlay'],
+[data-vim] [data-slot$='-backdrop'] {
+  backdrop-filter: none !important;
 }
 
 [data-vim]
