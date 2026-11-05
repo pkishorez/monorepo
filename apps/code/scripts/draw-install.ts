@@ -123,7 +123,7 @@ try {
     const width = each.width / each.scale;
     const height = each.height / each.scale;
     await draw(
-      screen(each.tablet, each.tablet ? 280 : 264),
+      screen(each.tablet, each.tablet ? 266 : 264),
       { width, height, scale: each.scale },
       join(pub, each.href),
     );
