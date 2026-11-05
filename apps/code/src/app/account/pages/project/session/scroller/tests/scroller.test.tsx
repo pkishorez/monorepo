@@ -99,6 +99,12 @@ const touch = (type: 'touchstart' | 'touchend') =>
 
 const atBottom = () => top === total() - VIEW;
 
+const frames = (count: number) =>
+  act(async () => {
+    for (let at = 0; at < count; at++)
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+  });
+
 /** Long enough with no scroll for the view to count as still. */
 const quiet = () =>
   act(() => new Promise((resolve) => setTimeout(resolve, 200)));
@@ -206,6 +212,46 @@ describe('the scroller', () => {
     await grow(0);
     expect(shown.getBoundingClientRect().top).toBe(was);
     expect(top).toBe(3 * BLOCK);
+  });
+
+  it('2. lands back where the reader was, though the phone takes the view back', async () => {
+    await scrolled(-total());
+    await quiet();
+    await act(async () => setIds(['a0', 'a1', 'a2', ...ids]));
+    await grow(0);
+    const landed = top;
+    expect(landed).toBeGreaterThan(0);
+    // The phone says, late, that the view is where it was before.
+    await act(() => {
+      top = 0;
+      scroller.dispatchEvent(new Event('scroll'));
+    });
+    await frames(3);
+    expect(top).toBe(landed);
+  });
+
+  it('2. stops landing once the view stays, and lets the reader scroll', async () => {
+    await scrolled(-total());
+    await quiet();
+    await act(async () => setIds(['a0', 'a1', 'a2', ...ids]));
+    await grow(0);
+    await act(() => new Promise((resolve) => setTimeout(resolve, 700)));
+    await scrolled(-50);
+    const was = top;
+    await frames(3);
+    expect(top).toBe(was);
+  });
+
+  it('2. lets a finger take over from landing at once', async () => {
+    await scrolled(-total());
+    await quiet();
+    await act(async () => setIds(['a0', 'a1', 'a2', ...ids]));
+    await grow(0);
+    await touch('touchstart');
+    await scrolled(-50);
+    const was = top;
+    await frames(3);
+    expect(top).toBe(was);
   });
 
   it('2. leaves the view where it is when the block it was kept by goes', async () => {

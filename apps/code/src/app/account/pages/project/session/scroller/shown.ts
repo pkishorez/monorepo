@@ -37,6 +37,8 @@ export interface Scroll {
   gliding: boolean;
   /** Whether a finger is on it. */
   touching: boolean;
+  /** Whether more is being drawn above: where the reader is stays as it was until the view is back there and stays. */
+  landing: boolean;
   /** Draws every block now, to go to the top. */
   showAll: () => void;
   /** Puts the view back at the anchor now; `drew` more above it, wherever it is. */
@@ -69,6 +71,7 @@ export const scrollOf = (anchor: Anchor): Scroll => {
     drawn: false,
     gliding: false,
     touching: false,
+    landing: false,
     showAll: () => {},
     place: () => {},
     keepStill: () => {},
@@ -138,7 +141,13 @@ export function useShown(
           shown = 0;
         });
         setFirst(next);
-      } else if (outer.scrollTop <= 0 && !scroll.gliding && !scroll.touching) {
+      } else if (
+        outer.scrollTop <= 0 &&
+        !scroll.gliding &&
+        !scroll.touching &&
+        !scroll.landing
+      ) {
+        scroll.landing = true;
         setFirst(next);
       }
     };

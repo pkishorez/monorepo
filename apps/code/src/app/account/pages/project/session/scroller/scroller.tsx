@@ -33,7 +33,8 @@ export { useScrollKeys } from './keys.ts';
  * 2. Stay    anywhere else, what is on the screen never moves by itself:
  *            the browser keeps it so as anything in the list grows or
  *            shrinks (`overflow-anchor`); only as more is drawn above is
- *            the view put back at the anchor.
+ *            the view put back at the anchor, again each frame until it
+ *            stays there, or a finger takes over.
  * 3. Read    every scroll it did not make itself is the reader's, and
  *            sets the anchor where the view is now: at the bottom, it
  *            follows; scrolled up even a pixel, it stays.
@@ -68,6 +69,12 @@ export { useScrollKeys } from './keys.ts';
  * in may.
  */
 const SETTLE_MS = 150;
+
+/** How many frames in a row the view stays at its anchor for it to have landed. */
+const LANDED_FRAMES = 12;
+
+/** How long the view is held at its anchor at most, in ms, however it is moved. */
+const LANDING_MS = 600;
 
 /** The scroll a list is drawn in; outside one, every block is drawn. */
 export const Scrolled = createContext<Scroll | null>(null);
@@ -135,9 +142,34 @@ export function useScroller(key: string, id: string) {
         place();
       }, SETTLE_MS);
     };
+    let landingFrame = 0;
+    const stopLanding = () => {
+      scroll.landing = false;
+      cancelAnimationFrame(landingFrame);
+    };
+    /** More was drawn above: back at the anchor, each frame until it stays. */
+    const land = () => {
+      cancelAnimationFrame(landingFrame);
+      scroll.landing = true;
+      const until = performance.now() + LANDING_MS;
+      let stayed = 0;
+      const step = () => {
+        const was = outer.scrollTop;
+        const there = putBack(outer, scroll.anchor, blockOf);
+        put = outer.scrollTop;
+        stayed = Math.abs(put - was) < 1 ? stayed + 1 : 0;
+        if (!there || stayed >= LANDED_FRAMES || performance.now() > until)
+          stopLanding();
+        else landingFrame = requestAnimationFrame(step);
+      };
+      step();
+    };
     const place = (drew = false) => {
-      // Not while a glide goes on: it would take the view back.
-      if (scroll.gliding) return;
+      // Not while it lands: where the reader was is kept as it was.
+      if (scroll.landing && !drew) return;
+      // Not while a glide goes on: it would take the view back. What was
+      // just drawn above it is put back all the same.
+      if (scroll.gliding && !drew) return;
       const moved = outer.scrollTop - put;
       // Rule 5: its glide down goes on undisturbed, unless the reader goes
       // up out of it; it lands once quiet.
@@ -145,7 +177,7 @@ export function useScroller(key: string, id: string) {
       stopDescending();
       // Rule 3, for a scroll whose event is yet to come: the reader, or
       // the browser keeping the view in what it holds, moved it.
-      if (Math.abs(moved) >= 1) {
+      if (Math.abs(moved) >= 1 && !scroll.landing) {
         if (atBottom(outer)) set(BOTTOM);
         else if (scroll.anchor.at === 'block')
           set({ ...scroll.anchor, offset: scroll.anchor.offset - moved });
@@ -171,6 +203,17 @@ export function useScroller(key: string, id: string) {
       }
       put = outer.scrollTop;
       report();
+      if (drew) {
+        if (
+          scroll.anchor.at === 'block' &&
+          scroll.drawn &&
+          !placing &&
+          !scroll.touching &&
+          !scroll.gliding
+        )
+          land();
+        else stopLanding();
+      }
     };
     /** The glide has settled: back to the anchor, and what waited drawn. */
     const settled = () => {
@@ -184,6 +227,7 @@ export function useScroller(key: string, id: string) {
     };
     const onTouchStart = () => {
       scroll.touching = true;
+      stopLanding();
     };
     const onTouchEnd = (event: TouchEvent) => {
       if (event.touches.length > 0) return;
@@ -205,6 +249,8 @@ export function useScroller(key: string, id: string) {
     };
     const onScroll = () => {
       bounce();
+      // As it lands, what a scroll says of where it was is not the reader's.
+      if (scroll.landing) return;
       // Where it put the view itself: nothing of the reader's.
       if (Math.abs(outer.scrollTop - put) < 1) return;
       // A finger moving it: a glide, until it is quiet. A tap moves
@@ -229,11 +275,13 @@ export function useScroller(key: string, id: string) {
     };
     scroll.place = place;
     scroll.keepStill = () => {
+      stopLanding();
       stopDescending();
       if (scroll.anchor.at === 'bottom') set(blockAt(outer));
     };
     moves.current = {
       holdOn: (smooth = false) => {
+        stopLanding();
         set(BOTTOM);
         stopDescending();
         const glide =
@@ -256,6 +304,7 @@ export function useScroller(key: string, id: string) {
         scroll.gliding = false;
         stopDescending();
         scroll.showAll();
+        stopLanding();
         outer.scrollTop = 0;
         put = outer.scrollTop;
         read();
@@ -267,6 +316,7 @@ export function useScroller(key: string, id: string) {
         scroll.gliding = false;
         stopDescending();
         scroll.showAll();
+        stopLanding();
         set({ at: 'block', id, offset: GO_OFFSET });
         placing = true;
         // Drawn already, it goes now; else once it is, as it grows the list.
@@ -289,6 +339,7 @@ export function useScroller(key: string, id: string) {
     // Now that it can be measured: enough drawn above, before it is shown.
     scroll.fill(true);
     outer.addEventListener('scroll', onScroll, { passive: true });
+    outer.addEventListener('wheel', stopLanding, { passive: true });
     outer.addEventListener('touchstart', onTouchStart, { passive: true });
     outer.addEventListener('touchend', onTouchEnd, { passive: true });
     outer.addEventListener('touchcancel', onTouchEnd, { passive: true });
@@ -298,10 +349,12 @@ export function useScroller(key: string, id: string) {
       clearTimeout(settling);
       clearTimeout(landing);
       cancelAnimationFrame(placingEnds);
+      stopLanding();
       scroll.gliding = false;
       scroll.touching = false;
       resized?.disconnect();
       outer.removeEventListener('scroll', onScroll);
+      outer.removeEventListener('wheel', stopLanding);
       outer.removeEventListener('touchstart', onTouchStart);
       outer.removeEventListener('touchend', onTouchEnd);
       outer.removeEventListener('touchcancel', onTouchEnd);
