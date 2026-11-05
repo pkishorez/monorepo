@@ -907,3 +907,67 @@ describe('hooks', () => {
     );
   });
 });
+
+describe('drawing', () => {
+  it('lists the same Actions object while what works stays the same', () => {
+    render(<Mail>{handle('app.j')}</Mail>);
+    const before = available;
+    render(
+      <Mail>
+        {handle('app.j', 'app.e')}
+        {null}
+      </Mail>,
+    );
+    expect(available).not.toBe(before);
+    const now = available;
+    // A Handler for an Action that already works changes nothing listed.
+    render(
+      <Mail>
+        {handle('app.j', 'app.e')}
+        <Handle key="again" id="app.j" />
+      </Mail>,
+    );
+    expect(available).toBe(now);
+    expect(available.find(({ id }) => id === 'app.j')?.run).toBe(
+      now.find(({ id }) => id === 'app.j')?.run,
+    );
+  });
+
+  it('draws a component that only moves, or only reads Vim Mode, as nothing changes for it', () => {
+    let moves = 0;
+    let vims = 0; // Vim Mode is given here, and stays on.
+    let surfaces = 0;
+    let latest: ReturnType<typeof keys.useMoves> | undefined;
+    function Mover() {
+      latest = keys.useMoves();
+      moves += 1;
+      return null;
+    }
+    function Vim() {
+      keys.useVim();
+      vims += 1;
+      return null;
+    }
+    function Closed() {
+      const { active, state } = keys.useSurface('palette', { enabled: false });
+      surfaces += 1;
+      return <p data-closed={`${active} ${state}`} />;
+    }
+    render(
+      <Mail>
+        <Mover />
+        <Vim />
+        <Closed />
+      </Mail>,
+    );
+    const first = latest;
+    [moves, vims, surfaces] = [0, 0, 0];
+    act(() => keyboard.enter('palette'));
+    act(() => keyboard.enter('list'));
+    expect([moves, vims, surfaces]).toEqual([0, 0, 0]);
+    expect(latest).toBe(first);
+    expect(
+      host.querySelector('[data-closed]')?.getAttribute('data-closed'),
+    ).toBe('false off');
+  });
+});
