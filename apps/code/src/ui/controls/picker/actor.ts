@@ -357,7 +357,9 @@ const groupsOf = (ranked: ReadonlyArray<Ranked<Row>>) => {
   const groups = new Map<string, Array<Ranked<Row>>>();
   for (const each of ranked) {
     const heading = each.entry.group ?? '';
-    groups.set(heading, [...(groups.get(heading) ?? []), each]);
+    const group = groups.get(heading);
+    if (group === undefined) groups.set(heading, [each]);
+    else group.push(each);
   }
   return [...groups].map(([heading, rows]) => ({ heading, rows }));
 };
@@ -429,7 +431,9 @@ const highlightedIn = <P>(
 const movedFrom = <P>(spec: Spec<P>, model: Model, props: P, by: number) => {
   const values = choosable(spec, model, props);
   if (values.length === 0) return model.step.highlighted;
-  const at = values.indexOf(model.step.highlighted);
+  // None highlighted yet is the first, as drawn.
+  const at =
+    model.step.highlighted === '' ? 0 : values.indexOf(model.step.highlighted);
   const from = at === -1 ? (by > 0 ? -1 : 0) : at;
   const next = (((from + by) % values.length) + values.length) % values.length;
   return values[next] ?? model.step.highlighted;

@@ -61,7 +61,7 @@ export { How };
  * Surface is entered, in the same handler.
  */
 export const useOpen = () => {
-  const { enter } = keys.useKeyboard();
+  const { enter } = keys.useMoves();
   return (open: () => void) => {
     opened();
     open();
@@ -118,13 +118,15 @@ export function Frame({
   /** The Picker's View. */
   readonly children: ReactNode;
 }) {
-  const { active } = keys.useSurface('picker');
+  // Only an open Picker reads the Surface: every closed one on the page is
+  // drawn again by nothing as another opens.
+  const { active } = keys.useSurface('picker', { enabled: how !== null });
   const { touch, keyboard } = useDevice();
   const shape = shapeOf(how, mode);
   // Once drawn by touch, its layer stays, closed, so a Drawer can slide away.
   const touched = useRef(false);
   if (shape === mode) touched.current = true;
-  const { leave, enter } = keys.useKeyboard();
+  const { leave, enter } = keys.useMoves();
   // Back from what was over it, it has the keys again.
   const wasHeld = useRef(held);
   useEffect(() => {

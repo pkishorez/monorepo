@@ -197,7 +197,7 @@ export function useDraft(options: DraftOptions) {
   // Out of Vim Mode it is always the Composer, as any text box is, but
   // where there is no keyboard: there it is one only while the Touch
   // Draft is edited.
-  const { vim } = keys.useKeyboard();
+  const vim = keys.useVim();
   const { keyboard } = useDevice();
   const writing = keyboard
     ? composing || !vim.on

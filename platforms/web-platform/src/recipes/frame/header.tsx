@@ -28,21 +28,28 @@ const useScrolledUnder = (header: RefObject<HTMLElement | null>) => {
     const column = header.current?.parentElement;
     if (column === null || column === undefined) return;
     let last: Element | null = null;
-    const check = () =>
-      setUnder(last !== null && last.isConnected && last.scrollTop > 0);
     const scrolled = (event: Event) => {
       const target = event.target;
       // Only what scrolls up and down: a wide code block moving sideways is not the page.
       if (!(target instanceof Element)) return;
       if (target.scrollHeight <= target.clientHeight + 1) return;
       last = target;
-      check();
+      setUnder(target.scrollTop > 0);
     };
     column.addEventListener('scroll', scrolled, {
       capture: true,
       passive: true,
     });
-    const pages = new MutationObserver(check);
+    // A page drawn anew may take the scroller away. Only whether it is still
+    // there is read here, never its scroll: reading that after each change
+    // to the page would lay the page out again at once, every time. A
+    // scroller whose content changes so it moves says so by scrolling.
+    const pages = new MutationObserver(() => {
+      if (last !== null && !last.isConnected) {
+        last = null;
+        setUnder(false);
+      }
+    });
     pages.observe(column, { childList: true, subtree: true });
     return () => {
       column.removeEventListener('scroll', scrolled, { capture: true });

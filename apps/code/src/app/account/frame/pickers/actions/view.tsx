@@ -60,7 +60,7 @@ export function Opened({
   const available = keys.useAvailableActions();
   const latest = useRef(available);
   latest.current = available;
-  const { vim } = keys.useKeyboard();
+  const vim = keys.useVim();
   const { keyboard } = useDevice();
   /** What worked where it is opened, as the keyboard says just before. */
   const working = () =>
