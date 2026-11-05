@@ -22,9 +22,8 @@ export { hostName } from './connection-file/index.js';
  * (folders.ts), the one Connection its connection.json is
  * (connection-file/), and the User it is signed in as (sign-in/).
  *
- * `identify` comes first, since the router needs the Connection Key before
- * it listens: it signs in, finds the Connection, and gives Connect Cloud's
- * client signed as that User. `forget` undoes both; `kept` reads the
+ * `identify` comes first: it signs in, finds the Connection, and gives Connect
+ * Cloud's client signed as that User. `forget` undoes both; `kept` reads the
  * Connection without signing in, for `list` and `remove`.
  */
 
@@ -58,9 +57,8 @@ const ownDb = (db: string) =>
 
 /**
  * Signs in and finds which Connection this is, making it on the first run,
- * named `firstName`, for as long as the Scope: the Connection (its id, name
- * and key), the User, the Sign-in, and Connect Cloud's client signed with
- * it.
+ * named `firstName`, for as long as the Scope: the Connection (its id and
+ * name), the User, the Sign-in, and Connect Cloud's client signed with it.
  */
 export const identify = (
   options: Where & { readonly firstName: string; readonly startedAt: number },

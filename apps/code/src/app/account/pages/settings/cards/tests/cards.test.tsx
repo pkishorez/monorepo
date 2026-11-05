@@ -80,7 +80,11 @@ const M1: Connection = {
   name: 'Studio',
   key: 'key-m1',
   version: '0.0.4',
-  status: { _tag: 'Reachable', url: 'https://m1.trycloudflare.com', at: 0 },
+  status: {
+    _tag: 'Ready',
+    url: 'https://m1.trycloudflare.com',
+    check: { _tag: 'Reachable', at: 0 },
+  },
   lastSeen: Date.now(),
   wanted: {},
   minConnect: null,

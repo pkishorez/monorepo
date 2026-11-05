@@ -70,7 +70,11 @@ afterEach(() => {
 });
 
 describe('the offline mark', () => {
-  const reachable = { _tag: 'Reachable', url: 'https://a.example', at: 0 };
+  const reachable = {
+    _tag: 'Ready',
+    url: 'https://a.example',
+    check: { _tag: 'Reachable', at: 0 },
+  };
 
   it('is not drawn while the Connection is in reach', () => {
     render(Date.now(), reachable, 'linked');
@@ -87,10 +91,13 @@ describe('the offline mark', () => {
     render(
       Date.now() - 5_000,
       {
-        _tag: 'Unreachable',
+        _tag: 'Ready',
         url: 'https://a.example',
-        problem: 'no route',
-        at: Date.now() - 5_000,
+        check: {
+          _tag: 'Unreachable',
+          problem: 'no route',
+          at: Date.now() - 5_000,
+        },
       },
       'relinking',
     );

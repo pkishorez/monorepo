@@ -47,3 +47,10 @@ export const elapsed = (ms: number) => {
   if (minutes < 60) return `${minutes}m ${pad(seconds % 60)}s`;
   return `${Math.floor(minutes / 60)}h ${pad(minutes % 60)}m`;
 };
+/** A size in bytes as a person reads it: `52 KB`, `18.4 MB`, `2.1 GB`. */
+export const size = (bytes: number) =>
+  bytes >= 1e9
+    ? `${(bytes / 1e9).toFixed(1)} GB`
+    : bytes >= 1e6
+      ? `${(bytes / 1e6).toFixed(1)} MB`
+      : `${Math.max(1, Math.round(bytes / 1e3))} KB`;

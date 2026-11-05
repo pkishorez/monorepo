@@ -5,7 +5,6 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -29,9 +28,9 @@ import { CLOUDFLARED_KEY } from '../actor-identity/actor-connection/index.js';
  * `serve e2e` signs in with auth-toolkit's Fake to a Connect Cloud in this
  * process, opens a tunnel through a fake cloudflared, and runs the code
  * Plugin at the Release Connect Cloud names, on a fake harness, from a
- * folder. Code's client reaches the Plugin through the router at
- * `/code/<sha256>/rpc` with the Connection Key. A second
- * `serve e2e` finds it running; `list` shows it; `remove e2e` stops it and
+ * folder. Code's client reaches the Plugin through the server at
+ * `/code/<sha256>/rpc` with the Connection Key, read as Connect Cloud heard
+ * it in a Report. A second `serve e2e` finds it running; `list` shows it; `remove e2e` stops it and
  * deletes its folders.
  */
 
@@ -48,6 +47,8 @@ let home: string;
 let code: { readonly hash: string; readonly url: string };
 let cloud: Server;
 let cloudUrl: string;
+/** The Connection Key the last Report carried; null until one does. */
+let reportedKey: string | null = null;
 const children: Array<ChildProcess> = [];
 
 const env = () => ({
@@ -85,8 +86,12 @@ const fakeRelease = () => {
   return { hash, url: pathToFileURL(file).href };
 };
 
-/** Connect Cloud over an in-memory database, signing in with the Fake, on a port of its own. */
-const startCloud = async () => {
+/** The Connection Key a request carries, if it is a Report. */
+const keyInReport = (body: Buffer) =>
+  /"key":"([\w-]+)"/.exec(body.toString())?.[1] ?? null;
+
+/** Connect Cloud over an in-memory database, signing in with the Fake, on `port`, else a port of its own. */
+const startCloud = async (port = 0) => {
   const driver = makeNodeSQLite({ path: ':memory:' });
   await Effect.runPromise(
     SQLite.setup(connectionsTable, { database: driver, mode: 'persistent' }),
@@ -101,6 +106,7 @@ const startCloud = async () => {
   const server = createServer(async (request, response) => {
     const chunks: Array<Buffer> = [];
     for await (const chunk of request) chunks.push(chunk as Buffer);
+    reportedKey = keyInReport(Buffer.concat(chunks)) ?? reportedKey;
     const answered = await answer(
       new Request(`http://127.0.0.1${request.url}`, {
         method: request.method ?? 'GET',
@@ -118,11 +124,33 @@ const startCloud = async () => {
     response.end(Buffer.from(await answered.arrayBuffer()));
   });
   await new Promise<void>((resolve) =>
-    server.listen(0, '127.0.0.1', () => resolve()),
+    server.listen(port, '127.0.0.1', () => resolve()),
   );
   const address = server.address() as { port: number };
   return { server, url: `http://127.0.0.1:${address.port}` };
 };
+
+/** The harnesses of the code Plugin on `port`, through the server with the key Connect Cloud last heard, once it answers. */
+const harnessesAt = (port: number, timeout = 60_000) =>
+  vi.waitFor(
+    () =>
+      Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const key = reportedKey;
+            if (key === null) return yield* Effect.die(new Error('no key yet'));
+            const context = yield* Layer.build(
+              CodeClient.layer(
+                `ws://127.0.0.1:${port}${pluginPath('code', code.hash)}`,
+                { key },
+              ),
+            );
+            return yield* Context.get(context, CodeClient).harnesses();
+          }),
+        ).pipe(Effect.timeout('10 seconds')),
+      ),
+    { timeout, interval: 500 },
+  );
 
 const freePort = () =>
   new Promise<number>((resolve) => {
@@ -171,8 +199,9 @@ afterAll(async () => {
 });
 
 describe('ke-connect', () => {
-  it('serves a Connection whose code Plugin answers through the router, once per name, and removes it', async () => {
+  it('serves a Connection whose code Plugin answers through its server, once per name, and removes it', async () => {
     const port = await freePort();
+    reportedKey = null;
     const serving = keConnect([
       'serve',
       'e2e',
@@ -203,30 +232,9 @@ describe('ke-connect', () => {
         },
         { timeout: 60_000, interval: 200 },
       );
-      const { key } = JSON.parse(
-        readFileSync(join(data, 'connection.json'), 'utf8'),
-      ) as { readonly key: string };
-
-      // Code's client, through the router, to the code Plugin, once it
+      // Code's client, through the server, to the code Plugin, once it
       // runs the Release: until then the socket closes with 4409.
-      const harnesses = await vi.waitFor(
-        () =>
-          Effect.runPromise(
-            Effect.scoped(
-              Effect.gen(function* () {
-                const context = yield* Layer.build(
-                  CodeClient.layer(
-                    `ws://127.0.0.1:${port}${pluginPath('code', code.hash)}`,
-                    { key },
-                  ),
-                );
-                return yield* Context.get(context, CodeClient).harnesses();
-              }),
-            ).pipe(Effect.timeout('10 seconds')),
-          ),
-        { timeout: 60_000, interval: 500 },
-      );
-      expect(harnesses).toMatchObject([{ harness: 'claude' }]);
+      expect(await harnessesAt(port)).toMatchObject([{ harness: 'claude' }]);
 
       // Once its tunnel is up, `list` and a second `serve` say so.
       await vi.waitFor(
@@ -262,16 +270,19 @@ describe('ke-connect', () => {
   }, 180_000);
 
   /**
-   * Serves the Connection `name` with Connect Cloud up until Code reaches
-   * its code Plugin, stops both, has `down` stand where Connect Cloud was,
-   * and serves it again: Code reaches the Plugin all the same.
+   * Serves the Connection `name` with Connect Cloud up until Code reaches its
+   * code Plugin, stops both, has `down` stand where Connect Cloud was, and
+   * serves it again: it signs in from what it kept and opens its port, with a
+   * new key and no Plugin, until Connect Cloud comes back and names one.
    */
   const startsAgainWith = async (
     name: string,
     down: (port: number) => Promise<() => void>,
     expectations: (output: string) => void,
   ) => {
+    reportedKey = null;
     const online = await startCloud();
+    const cloudPort = Number(new URL(online.url).port);
     const port = await freePort();
     const args = [
       'serve',
@@ -283,55 +294,43 @@ describe('ke-connect', () => {
       '--heartbeat',
       '1',
     ];
-    const harnessesAt = () =>
-      vi.waitFor(
-        () =>
-          Effect.runPromise(
-            Effect.scoped(
-              Effect.gen(function* () {
-                const { key } = JSON.parse(
-                  readFileSync(
-                    join(
-                      home,
-                      'data',
-                      'kestack',
-                      'connect',
-                      'connections',
-                      name,
-                      'connection.json',
-                    ),
-                    'utf8',
-                  ),
-                ) as { readonly key: string };
-                const context = yield* Layer.build(
-                  CodeClient.layer(
-                    `ws://127.0.0.1:${port}${pluginPath('code', code.hash)}`,
-                    { key },
-                  ),
-                );
-                return yield* Context.get(context, CodeClient).harnesses();
-              }),
-            ).pipe(Effect.timeout('10 seconds')),
-          ),
-        { timeout: 30_000, interval: 500 },
-      );
     const first = keConnect(args);
     let again: ReturnType<typeof keConnect> | undefined;
     let up = () => {};
+    let back: Server | undefined;
     try {
-      expect(await harnessesAt()).toMatchObject([{ harness: 'claude' }]);
+      expect(await harnessesAt(port, 30_000)).toMatchObject([
+        { harness: 'claude' },
+      ]);
+      const firstKey = reportedKey;
       first.child.kill('SIGTERM');
       await first.exited;
       online.server.closeAllConnections();
       await new Promise((resolve) => online.server.close(resolve));
-      up = await down(Number(new URL(online.url).port));
+      up = await down(cloudPort);
+      reportedKey = null;
       again = keConnect(args);
-      expect(await harnessesAt()).toMatchObject([{ harness: 'claude' }]);
-      await vi.waitFor(() => expectations(again!.output()), {
-        timeout: 20_000,
-        interval: 200,
-      });
+      await vi.waitFor(
+        async () => {
+          if (again?.child.exitCode !== null) throw new Error('serve exited');
+          expect((await fetch(`http://127.0.0.1:${port}/health`)).status).toBe(
+            200,
+          );
+          expectations(again.output());
+        },
+        { timeout: 30_000, interval: 200 },
+      );
       expect(again.child.exitCode).toBeNull();
+      // Nothing it kept can reach a Plugin: the key is new, and none runs.
+      expect(reportedKey).toBeNull();
+
+      up();
+      up = () => {};
+      back = (await startCloud(cloudPort)).server;
+      expect(await harnessesAt(port, 30_000)).toMatchObject([
+        { harness: 'claude' },
+      ]);
+      expect(reportedKey).not.toBe(firstKey);
     } catch (error) {
       throw new Error(
         `${String(error)}\n--- first serve said:\n${first.output()}\n--- second serve said:\n${again?.output() ?? ''}`,
@@ -341,11 +340,13 @@ describe('ke-connect', () => {
       again?.child.kill('SIGTERM');
       if (again) await again.exited;
       up();
+      back?.closeAllConnections();
+      back?.close();
     }
   };
 
   it(
-    'starts again with Connect Cloud down, from its stored Sign-in and the Releases it last wanted',
+    'starts again with Connect Cloud down, from its stored Sign-in, and runs its Plugins once it is back',
     () =>
       // Connect Cloud cannot be asked how to sign in, nor told anything: the
       // Connection runs all the same, and keeps trying.
@@ -361,7 +362,7 @@ describe('ke-connect', () => {
   );
 
   it(
-    'starts again with a Connect Cloud that takes calls and never answers',
+    'starts again with a Connect Cloud that takes calls and never answers, and runs its Plugins once it does',
     () =>
       startsAgainWith(
         'stalled',

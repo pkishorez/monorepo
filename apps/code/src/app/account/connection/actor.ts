@@ -57,8 +57,9 @@ import { keepSetup, SetupShelf } from './commands.ts';
  *            closed as it stops, as its Account leaves `Active` or the list
  *            leaves it out. Its Replicas sync over it, and the pages and
  *            Pickers borrow it through `Connections` while it runs.
- * 7. Share   its Link, and the Release it runs once it refused this
- *            Code's, its setup and marks, said to its Account's page
+ * 7. Share   its Link, the Release it runs once it refused this Code's,
+ *            whether it refused its key, its setup and marks, said to its
+ *            Account's page
  *            through `Connections`, for Settings, the Dictation, the
  *            sidebar and each Project; what others ask of it is heard
  *            there too.
@@ -88,6 +89,8 @@ const Model = Schema.Struct({
   link: Link,
   /** The Release it said it runs as it closed a socket with a mismatch, until one is answered. */
   mismatch: Schema.NullOr(PluginMismatch.schema),
+  /** Whether it closed a socket for offering a key it no longer holds, until one is answered. */
+  expired: Schema.Boolean,
   /** Its Unseen marks; null until read. */
   seen: Schema.NullOr(Marks),
   /** Its Sessions' Agent Questions, as it last said them. */
@@ -111,6 +114,7 @@ const Connection = Actor.define('Connection', {
     KeptRead: { parts: Schema.NullOr(SetupParts) },
     LinkChanged: { link: Link },
     Mismatched: { mismatch: Schema.NullOr(PluginMismatch.schema) },
+    Expired: { expired: Schema.Boolean },
     Asked: {},
     Changed: { change: SetupChange },
     Answered: {
@@ -200,6 +204,7 @@ export const ConnectionLive = Connection.build({
       setup: copying.empty,
       link: 'linking',
       mismatch: null,
+      expired: false,
       seen: null,
       questions: [],
       answering: {},
@@ -229,8 +234,8 @@ export const ConnectionLive = Connection.build({
     replicas: Actor.child(Replicas.actor([CodeReplicaLive])),
   },
   workers: {
-    // 7. Share: its Link, and the Release it said it runs when it closed a
-    // socket with a mismatch.
+    // 7. Share: its Link, the Release it said it runs when it closed a socket
+    // with a mismatch, and whether it closed one for its key.
     link: {
       run: (self) =>
         Effect.flatMap(self.get, ({ model }) =>
@@ -245,6 +250,15 @@ export const ConnectionLive = Connection.build({
           Stream.runForEach(
             CodeClients.mismatch(model.connectionId),
             (mismatch) => self.send({ _tag: 'Mismatched', mismatch }),
+          ),
+        ),
+    },
+    expired: {
+      run: (self) =>
+        Effect.flatMap(self.get, ({ model }) =>
+          Stream.runForEach(
+            CodeClients.expired(model.connectionId),
+            (expired) => self.send({ _tag: 'Expired', expired }),
           ),
         ),
     },
@@ -321,6 +335,7 @@ export const ConnectionLive = Connection.build({
             Stream.map(({ model, state }) => ({
               link: model.link,
               mismatch: model.mismatch,
+              expired: model.expired,
               setup: sharedOf(model, state._tag === 'Shown'),
               seen: model.seen,
               questions: model.questions,
@@ -401,6 +416,7 @@ export const ConnectionLive = Connection.build({
     Mismatched: ({ mismatch }, { model }) => ({
       model: { ...model, mismatch },
     }),
+    Expired: ({ expired }, { model }) => ({ model: { ...model, expired } }),
     Asked: (_, { model }) => ({
       model: { ...model, setup: copying.ask(model.setup) },
     }),

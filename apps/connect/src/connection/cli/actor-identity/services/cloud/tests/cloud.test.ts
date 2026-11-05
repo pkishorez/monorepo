@@ -6,14 +6,22 @@ import { cloud, type CloudOptions } from '../cloud.js';
 /* How Connect Cloud's answer to a Report reads, against a fake client. */
 
 /** A Report, sent to a client whose `Report` answers with `answer`. */
-const sent = (answer: Effect.Effect<unknown, unknown>) =>
+const sent = (
+  answer: Effect.Effect<unknown, unknown>,
+  told: (report: unknown) => void = () => {},
+) =>
   cloud({
-    client: { Report: () => answer } as unknown as CloudOptions['client'],
-    connection: { id: 'c', name: 'n', key: 'k' },
+    client: {
+      Report: (report: unknown) => {
+        told(report);
+        return answer;
+      },
+    } as unknown as CloudOptions['client'],
+    connection: { id: 'c', name: 'n' },
     version: '0.0.3',
     user: { id: 'u', email: 'u@test' },
     signInAgain: Effect.die('unused'),
-  }).report({ _tag: 'Opening' });
+  }).report({ _tag: 'SettingUp', step: { _tag: 'Opening' } }, 'k3y');
 
 const answered = (minConnect: ReportAnswer['minConnect']) =>
   sent(
@@ -22,6 +30,28 @@ const answered = (minConnect: ReportAnswer['minConnect']) =>
       minConnect,
     }),
   );
+
+describe('a Report', () => {
+  it('carries the status and the key it is given', () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const reports: Array<unknown> = [];
+        yield* sent(
+          Effect.succeed({ wanted: {}, minConnect: null }),
+          (report) => reports.push(report),
+        );
+        expect(reports).toEqual([
+          {
+            id: 'c',
+            name: 'n',
+            key: 'k3y',
+            version: '0.0.3',
+            status: { _tag: 'SettingUp', step: { _tag: 'Opening' } },
+          },
+        ]);
+      }),
+    ));
+});
 
 describe('a Report’s answer', () => {
   it('is the Plugins to run, or Outdated below the Minimum Connect', () =>

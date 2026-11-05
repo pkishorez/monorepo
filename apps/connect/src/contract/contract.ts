@@ -30,6 +30,8 @@ export { allowsOrigin } from './origins.js';
 export {
   belowMinimum,
   fromReleaseKey,
+  KEY_EXPIRED,
+  keyExpired,
   mismatchOf,
   mismatchReason,
   PLUGIN_MISMATCH,
@@ -79,10 +81,32 @@ const tagged = <const Tag extends string, Fields extends Schema.Struct.Fields>(
 /** A Connection's public address, `https://…` alone. */
 const Address = Bounded(256).check(Schema.isPattern(/^https:\/\/[^/?#\s]+/));
 
+/** How far a tunnel being set up has come. */
+export const SetupStep = Schema.Union([
+  /** cloudflared is downloading: for how long, in ms, and how much has arrived, in bytes. */
+  tagged('Downloading', { elapsed: Schema.Finite, received: Schema.Finite }),
+  /** cloudflared is starting and connecting to Cloudflare. */
+  tagged('Opening', {}),
+  /** The tunnel could not open; another is tried shortly. */
+  tagged('Failed', { at: Schema.Finite, problem: Schema.String }),
+]);
+export type SetupStep = typeof SetupStep.Type;
+
+/** What the last Tunnel Check found at a tunnel's address. */
+export const CheckResult = Schema.Union([
+  /** None has run yet. */
+  tagged('Unchecked', {}),
+  /** It reached the address. */
+  tagged('Reachable', { at: Schema.Finite }),
+  /** It did not reach the address. */
+  tagged('Unreachable', { at: Schema.Finite, problem: Schema.String }),
+]);
+export type CheckResult = typeof CheckResult.Type;
+
 /**
- * Where a Connection's tunnel stands, as its last Heartbeat said: on its way
- * (Installing, then Opening), failed to open and about to try again, or up
- * at an address, with what its last Tunnel Check found there.
+ * Where a Connection's tunnel stands, as its last Heartbeat said: the Tunnel's
+ * own State, SettingUp at some step or Ready at an address. An App keeps these
+ * on its device, so v1, which had one flat case for each, still reads.
  */
 export const ConnectionStatus = ValueESchema.make(
   'ConnectionStatus',
@@ -104,12 +128,56 @@ export const ConnectionStatus = ValueESchema.make(
       problem: Schema.String,
     }),
   ]),
-).build();
+)
+  .evolve(
+    'v2',
+    Schema.Union([
+      /** On its way, or failed to open and about to try again. */
+      tagged('SettingUp', { step: SetupStep }),
+      /** Up at `url`. */
+      tagged('Ready', { url: Address, check: CheckResult }),
+    ]),
+    (v1) => {
+      switch (v1._tag) {
+        case 'Installing':
+          return {
+            _tag: 'SettingUp',
+            step: { _tag: 'Downloading', elapsed: 0, received: 0 },
+          } as const;
+        case 'Opening':
+          return { _tag: 'SettingUp', step: { _tag: 'Opening' } } as const;
+        case 'OpenFailed':
+          return {
+            _tag: 'SettingUp',
+            step: { _tag: 'Failed', at: v1.at, problem: v1.problem },
+          } as const;
+        case 'Unchecked':
+          return {
+            _tag: 'Ready',
+            url: v1.url,
+            check: { _tag: 'Unchecked' },
+          } as const;
+        case 'Reachable':
+          return {
+            _tag: 'Ready',
+            url: v1.url,
+            check: { _tag: 'Reachable', at: v1.at },
+          } as const;
+        case 'Unreachable':
+          return {
+            _tag: 'Ready',
+            url: v1.url,
+            check: { _tag: 'Unreachable', at: v1.at, problem: v1.problem },
+          } as const;
+      }
+    },
+  )
+  .build();
 export type ConnectionStatus = typeof ConnectionStatus.Type;
 
 /** The address a status is up at; null while there is none. */
 export const addressOf = (status: ConnectionStatus) =>
-  'url' in status ? status.url : null;
+  status._tag === 'Ready' ? status.url : null;
 
 /** A version of Connect, as a Report names it. */
 const Version = Schema.String.check(Schema.isMaxLength(32));
@@ -134,7 +202,7 @@ const PluginStates = Schema.Record(Schema.String, PluginState.schema);
 const reportFields = {
   id: Bounded(64),
   name: Bounded(64),
-  /** Its Connection Key (ADR 0003). */
+  /** Its Connection Key now (ADR 0009). */
   key: Bounded(128),
   /** The version of Connect it runs. */
   version: Version,

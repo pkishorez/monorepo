@@ -119,7 +119,11 @@ const reportOf = (id: string, name = 'laptop'): ConnectionReport => ({
   name,
   key: `key-${id}`,
   version: '0.0.2',
-  status: { _tag: 'Reachable', url: `https://${id}.tunnel.test`, at: 1 },
+  status: {
+    _tag: 'Ready',
+    url: `https://${id}.tunnel.test`,
+    check: { _tag: 'Reachable', at: 1 },
+  },
 });
 
 describe('Connect Cloud', () => {
@@ -327,9 +331,14 @@ describe('Connect Cloud', () => {
     expect(valid(base)).toBe(true);
     const at = (url: string) => ({
       ...base,
-      status: { _tag: 'Unchecked', url },
+      status: { _tag: 'Ready', url, check: { _tag: 'Unchecked' } },
     });
-    expect(valid({ ...base, status: { _tag: 'Opening' } })).toBe(true);
+    expect(
+      valid({
+        ...base,
+        status: { _tag: 'SettingUp', step: { _tag: 'Opening' } },
+      }),
+    ).toBe(true);
     expect(valid(at('http://bounded.tunnel.test'))).toBe(false);
     expect(valid(at('wss://bounded.tunnel.test'))).toBe(false);
     expect(valid(at('https://'))).toBe(false);
@@ -338,14 +347,43 @@ describe('Connect Cloud', () => {
     expect(valid({ ...base, version: 'v'.repeat(33) })).toBe(false);
     expect(valid({ ...base, key: 'k'.repeat(129) })).toBe(false);
     const ada = signIn('ada');
+    const downloading = {
+      _tag: 'SettingUp',
+      step: { _tag: 'Downloading', elapsed: 40_000, received: 12_400_000 },
+    } as const;
     expect(
-      await as(ada, (m) =>
-        m.Report({ ...base, status: { _tag: 'Installing' } }),
-      ),
+      await as(ada, (m) => m.Report({ ...base, status: downloading })),
     ).toMatchObject({ wanted: WANTED });
     expect(await as(ada, (m) => m.List({}))).toMatchObject([
-      { id: 'bounded', status: { _tag: 'Installing' } },
+      { id: 'bounded', status: downloading },
     ]);
+  });
+
+  it('keeps every step and check a Report can say', async () => {
+    const ada = signIn('ada');
+    const url = 'https://steps.tunnel.test';
+    for (const status of [
+      { _tag: 'SettingUp', step: { _tag: 'Opening' } },
+      { _tag: 'SettingUp', step: { _tag: 'Failed', at: 2, problem: 'no' } },
+      { _tag: 'Ready', url, check: { _tag: 'Unchecked' } },
+      { _tag: 'Ready', url, check: { _tag: 'Reachable', at: 3 } },
+      {
+        _tag: 'Ready',
+        url,
+        check: { _tag: 'Unreachable', at: 4, problem: 'no' },
+      },
+    ] as const) {
+      await as(ada, (m) => m.Report({ ...reportOf('steps'), status }));
+      expect((await as(ada, (m) => m.List({})))[0]?.status).toEqual(status);
+    }
+  });
+
+  it('lists the key a Connection last reported, so a rotated key is read', async () => {
+    const ada = signIn('ada');
+    await as(ada, (m) => m.Report({ ...reportOf('rotates'), key: 'first' }));
+    expect((await as(ada, (m) => m.List({})))[0]?.key).toBe('first');
+    await as(ada, (m) => m.Report({ ...reportOf('rotates'), key: 'second' }));
+    expect((await as(ada, (m) => m.List({})))[0]?.key).toBe('second');
   });
 
   it('answers /auth with how a Connection signs in, to anyone', async () => {

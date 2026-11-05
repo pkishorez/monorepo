@@ -5,6 +5,7 @@ import {
 } from '@kestack/rpc-toolkit/rpc/websocket';
 import { describe, expect, it } from 'vitest';
 import {
+  KEY_EXPIRED,
   mismatchReason,
   PLUGIN_MISMATCH,
 } from '../../../../../../contract/index.js';
@@ -14,7 +15,8 @@ import { CodeClient, CodeClients, type LinkStatus } from '../client.js';
  * A Connection running another Release of the code Plugin closes the
  * socket at once with `PLUGIN_MISMATCH`: until a socket to it is answered,
  * its Link is not linked, though the socket opened, and `mismatch` says
- * which Release it runs.
+ * which Release it runs. One that no longer holds the key offered closes it
+ * with `KEY_EXPIRED`: the same, and `expired` says so.
  */
 
 const HASH = 'b'.repeat(64);
@@ -96,5 +98,60 @@ describe('a Connection running another Release', () => {
       { running: null },
       null,
     ]);
+  });
+});
+
+describe('a Connection whose key expired', () => {
+  it('is relinking, its key said to be expired, until a socket to it is answered', async () => {
+    const { watches, layer } = opened();
+    const seen = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const links: Array<LinkStatus> = [];
+          const expired: Array<boolean> = [];
+          const mismatches: Array<unknown> = [];
+          yield* Effect.forkScoped(
+            Stream.runForEach(CodeClients.link('m1'), (link) =>
+              Effect.sync(() => void links.push(link)),
+            ),
+          );
+          yield* Effect.forkScoped(
+            Stream.runForEach(CodeClients.expired('m1'), (now) =>
+              Effect.sync(() => void expired.push(now)),
+            ),
+          );
+          yield* Effect.forkScoped(
+            Stream.runForEach(CodeClients.mismatch('m1'), (now) =>
+              Effect.sync(() => void mismatches.push(now)),
+            ),
+          );
+          yield* wait();
+          const watch = watches.get('m1');
+          const close = { code: KEY_EXPIRED, reason: 'key expired' };
+          watch?.closed?.(close);
+          yield* wait();
+          // Refused again before any answer: nothing new to say.
+          watch?.closed?.(close);
+          yield* wait();
+          watch?.answered?.();
+          yield* wait();
+          watch?.closed?.(close);
+          yield* wait();
+          // Closed another way, it is no longer said to be expired.
+          watch?.closed?.({ code: 1006, reason: '' });
+          yield* wait();
+          return { links, expired, mismatches };
+        }),
+      ).pipe(Effect.provide(layer)),
+    );
+    expect(seen.links).toEqual([
+      'linked',
+      'relinking',
+      'linked',
+      'relinking',
+      'linked',
+    ]);
+    expect(seen.expired).toEqual([false, true, false, true, false]);
+    expect(seen.mismatches).toEqual([null]);
   });
 });

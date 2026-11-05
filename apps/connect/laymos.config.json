@@ -9,8 +9,8 @@
     "src/connection/cli/actor-identity/actor-connection": [
       "src/connection/cli/actor-identity/capabilities"
     ],
-    "src/connection/cli/actor-identity/actor-connection/actor-tunnel": [
-      "src/connection/cli/actor-identity/actor-connection/capabilities"
+    "src/connection/cli/actor-identity/services/control": [
+      "src/connection/cli/actor-identity/capabilities"
     ],
     "src/connection/plugins/code/api": ["src/connection/plugins/code/records"],
     "src/connection/plugins/code/serve": [

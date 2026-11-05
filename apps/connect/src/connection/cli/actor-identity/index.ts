@@ -2,24 +2,21 @@ export { ActorIdentity } from './actor.js';
 export {
   Cloud,
   CloudAccount,
-  Identity,
+  Control,
   type Reported,
 } from './capabilities/index.js';
-export {
-  ConnectionControl,
-  Control,
-  hold,
-  type RunningConnection,
-} from './actor-connection/index.js';
 export { run } from './run.js';
 export {
   account,
   belongsTo,
+  ConnectionControl,
   type ConnectionFolders,
   connectionFolders,
   connectionNames,
   deleteFolders,
   forget,
+  hold,
   hostName,
   kept,
+  RunningConnection,
 } from './services/index.js';

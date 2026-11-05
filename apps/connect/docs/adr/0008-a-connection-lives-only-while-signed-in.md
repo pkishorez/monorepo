@@ -2,7 +2,7 @@
 
 Status: accepted.
 
-Connect is tied to its User's login. `actor-identity` is the root of the Connect CLI's tree, and the Connection is its Child in SignedIn, so one rule holds: signed in, everything runs; signed out, nothing does. This replaces keeping the Plugins outside the login, which let them run on with a revoked Sign-in, at the cost of a tree with a second, hidden lifetime to reason about.
+Connect is tied to its User's login. `actor-identity` is the root of the Connect CLI's tree, and the Connection is its Child in SignedIn, so one rule holds: signed in, everything runs, its Plugins once Connect Cloud names them (ADR 0010); signed out, nothing does. This replaces keeping the Plugins outside the login, which let them run on with a revoked Sign-in, at the cost of a tree with a second, hidden lifetime to reason about.
 
 Only Connect Cloud saying the Sign-in names nobody, `Unauthenticated`, counts as logged out, and every Report is how that is found. A Report that could not be sent, or an Auth Worker that could not be asked, changes nothing, so a passing outage never stops a running Turn.
 
@@ -15,4 +15,4 @@ Only Connect Cloud saying the Sign-in names nobody, `Unauthenticated`, counts as
 
 - A confirmed logout cuts off running Turns and kills Background Jobs. Each Turn cut off Resumes once, when signed in again and the Plugins start.
 - Until someone approves a new Sign-in at the terminal, the computer runs nothing.
-- Which Plugin States exist stays on the computer: a Report carries only the Connection Status, so an App cannot show a crash or a download's progress, and reads a crashed Plugin as Updating.
+- Which Plugin States exist stays on the computer: a Report carries only the Connection Status, so an App cannot show a crash or a Plugin's download progress, and reads a crashed Plugin as Updating.

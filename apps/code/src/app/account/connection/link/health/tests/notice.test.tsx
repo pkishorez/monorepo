@@ -25,7 +25,11 @@ const connection = (
   name: 'Laptop',
   key: 'k',
   version,
-  status: { _tag: 'Reachable', url: 'https://a.example', at: NOW },
+  status: {
+    _tag: 'Ready',
+    url: 'https://a.example',
+    check: { _tag: 'Reachable', at: NOW },
+  },
   lastSeen: NOW,
   wanted: {},
   minConnect,

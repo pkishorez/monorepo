@@ -1,16 +1,9 @@
-import {
-  Context,
-  Deferred,
-  Effect,
-  Option,
-  Ref,
-  Schema,
-  type Scope,
-} from 'effect';
+import { Deferred, Effect, Option, Ref, Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { PluginState } from '@kestack/cli-platform/plugins/contract';
 import { single } from '@kestack/cli-platform/single';
 import { ESchema } from '@kestack/std-toolkit/eschema';
+import { type Answers, Control } from '../../capabilities/index.js';
 
 /*
  * How `ke-connect` asks a running Connection on this computer about itself,
@@ -20,13 +13,17 @@ import { ESchema } from '@kestack/std-toolkit/eschema';
  * reads a Connection an older one started.
  *
  * `serve` holds the socket before it signs in, so of two serves at once
- * only one signs in or starts a Plugin. While no Connection runs, signing
- * in first or again, the socket answers for it: starting, with no id or
- * address yet, and `stop` ends the program. While one runs, it answers,
- * through Control.
+ * only one signs in or starts a Plugin. Until the Actor tree answers, as
+ * while the program is getting ready, the socket answers for it: starting,
+ * with no id or address yet, and `stop` ends the program. Once it runs,
+ * Identity answers, through Control.
  */
 
-/** A running Connection as it says of itself. */
+/**
+ * A running Connection as it says of itself. v2 dropped where each Plugin
+ * stands, which nothing read but this answer; a newer `ke-connect` still reads
+ * an older Connection that says so.
+ */
 export const RunningConnection = ESchema.make('RunningConnection', {
   /** Its name on this computer. */
   name: Schema.String,
@@ -35,7 +32,9 @@ export const RunningConnection = ESchema.make('RunningConnection', {
   url: Schema.NullOr(Schema.String),
   /** Where each of its Plugins stands, by name. */
   plugins: Schema.Record(Schema.String, PluginState.schema),
-}).build();
+})
+  .evolve('v2', { plugins: null }, ({ plugins: _, ...v1 }) => v1)
+  .build();
 export type RunningConnection = typeof RunningConnection.Type;
 
 export const ConnectionControl = RpcGroup.make(
@@ -44,27 +43,11 @@ export const ConnectionControl = RpcGroup.make(
   Rpc.make('stop'),
 );
 
-/** What a running Connection answers on its control socket. */
-export interface Answers {
-  readonly status: Effect.Effect<RunningConnection>;
-  readonly stop: Effect.Effect<void>;
-}
-
-/** The control socket `serve` holds: the Connection answers there for as long as the Scope. */
-export class Control extends Context.Service<
-  Control,
-  {
-    readonly answer: (
-      answers: Answers,
-    ) => Effect.Effect<void, never, Scope.Scope>;
-  }
->()('@kestack/connect/Control') {}
-
 /**
  * Holds the control socket at `path` for the Connection `name`, for the
- * Scope: Held, with the Control it answers through and `stopping`, done
- * once `stop` is asked before it runs; or AlreadyRunning, with a client to
- * the process that holds it.
+ * Scope: Held, with the Control Identity answers through and `stopping`,
+ * done once `stop` is asked before it answers; or AlreadyRunning, with a
+ * client to the process that holds it.
  */
 export const hold = (path: string, name: string) =>
   Effect.gen(function* () {
@@ -82,7 +65,6 @@ export const hold = (path: string, name: string) =>
                   name,
                   id: '',
                   url: null,
-                  plugins: {},
                 }),
               onSome: ({ status }) => status,
             }),

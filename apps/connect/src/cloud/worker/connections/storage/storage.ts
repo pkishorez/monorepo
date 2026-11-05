@@ -12,6 +12,64 @@ import { EntityESchema } from '@kestack/std-toolkit/eschema';
  * with (ADR 0004).
  */
 
+/** A status as v3 and before stored it, flat. */
+type FlatStatus =
+  | { readonly _tag: 'Installing' }
+  | { readonly _tag: 'Opening' }
+  | {
+      readonly _tag: 'OpenFailed';
+      readonly at: number;
+      readonly problem: string;
+    }
+  | { readonly _tag: 'Unchecked'; readonly url: string }
+  | { readonly _tag: 'Reachable'; readonly url: string; readonly at: number }
+  | {
+      readonly _tag: 'Unreachable';
+      readonly url: string;
+      readonly at: number;
+      readonly problem: string;
+    };
+
+/** A status v3 stored, as v4 stores it. */
+const statusOfV3 = (status: FlatStatus) => {
+  switch (status._tag) {
+    case 'Installing':
+      return {
+        _tag: 'SettingUp',
+        step: { _tag: 'Downloading', elapsed: 0, received: 0 },
+      } as const;
+    case 'Opening':
+      return { _tag: 'SettingUp', step: { _tag: 'Opening' } } as const;
+    case 'OpenFailed':
+      return {
+        _tag: 'SettingUp',
+        step: { _tag: 'Failed', at: status.at, problem: status.problem },
+      } as const;
+    case 'Unchecked':
+      return {
+        _tag: 'Ready',
+        url: status.url,
+        check: { _tag: 'Unchecked' },
+      } as const;
+    case 'Reachable':
+      return {
+        _tag: 'Ready',
+        url: status.url,
+        check: { _tag: 'Reachable', at: status.at },
+      } as const;
+    case 'Unreachable':
+      return {
+        _tag: 'Ready',
+        url: status.url,
+        check: {
+          _tag: 'Unreachable',
+          at: status.at,
+          problem: status.problem,
+        },
+      } as const;
+  }
+};
+
 /**
  * One Connection as stored: its last Report (see `ConnectionReport`), its owner,
  * Last Seen, its Display Name, and whether it was forgotten. Its own fields, not the
@@ -63,6 +121,48 @@ export const ConnectionRecord = EntityESchema.make('Connection', 'id', {
   }))
   // v3: where each Plugin stands is the Connection's own, never Reported.
   .evolve('v3', { plugins: null }, ({ plugins: _, ...v2 }) => v2)
+  // v4: the status is the Tunnel's State, SettingUp at a step or Ready at an
+  // address with how its last check went.
+  .evolve(
+    'v4',
+    {
+      status: Schema.Union([
+        Schema.Struct({
+          _tag: Schema.Literal('SettingUp'),
+          step: Schema.Union([
+            Schema.Struct({
+              _tag: Schema.Literal('Downloading'),
+              elapsed: Schema.Finite,
+              received: Schema.Finite,
+            }),
+            Schema.Struct({ _tag: Schema.Literal('Opening') }),
+            Schema.Struct({
+              _tag: Schema.Literal('Failed'),
+              at: Schema.Finite,
+              problem: Schema.String,
+            }),
+          ]),
+        }),
+        Schema.Struct({
+          _tag: Schema.Literal('Ready'),
+          url: Schema.String,
+          check: Schema.Union([
+            Schema.Struct({ _tag: Schema.Literal('Unchecked') }),
+            Schema.Struct({
+              _tag: Schema.Literal('Reachable'),
+              at: Schema.Finite,
+            }),
+            Schema.Struct({
+              _tag: Schema.Literal('Unreachable'),
+              at: Schema.Finite,
+              problem: Schema.String,
+            }),
+          ]),
+        }),
+      ]),
+    },
+    ({ status, ...v3 }) => ({ ...v3, status: statusOfV3(status) }),
+  )
   .build();
 
 export type ConnectionRecord = typeof ConnectionRecord.Type;

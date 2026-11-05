@@ -1,7 +1,7 @@
 import { Effect, type Layer } from 'effect';
 import { use } from 'cloudflared';
 import type { Downloads } from '@kestack/cli-platform/files';
-import { CLOUDFLARED_KEY, cloudflared } from './binary.js';
+import { CLOUDFLARED_KEY, cloudflared, DOWNLOAD_EVERY } from './binary.js';
 import { checkTunnel } from './check.js';
 import { quickTunnel } from './quick-tunnel.js';
 
@@ -28,7 +28,9 @@ const openTunnel = (port: number, binary: string) =>
 
 /** What Tunnels stands on: cloudflared, kept in `downloads`; opening a quick tunnel; and the Tunnel Check. */
 export const tunnels = (downloads: Layer.Layer<Downloads>) => ({
-  cloudflared: Effect.provide(cloudflared, downloads),
+  cloudflared: (received: (bytes: number) => Effect.Effect<void>) =>
+    Effect.provide(cloudflared(received), downloads),
+  downloadEvery: DOWNLOAD_EVERY,
   open: openTunnel,
   check: checkTunnel,
 });

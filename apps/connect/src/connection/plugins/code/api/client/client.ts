@@ -15,12 +15,14 @@ import {
   keepSubscribed,
   status,
   type ConnectionStatus,
+  type SocketClose,
   type SocketWatch,
 } from '@kestack/rpc-toolkit/rpc/websocket';
 import type { Entity } from '@kestack/std-toolkit/core';
 import { oldToNew, Replica, Replicas } from '@kestack/std-toolkit/replica';
 import { CodeApi, type WireEntity } from '../contract/index.js';
 import {
+  keyExpired,
   mismatchOf,
   type PluginMismatch,
   versionedClient,
@@ -50,9 +52,12 @@ import { ProjectSchema, SessionSchema } from '../../records/index.js';
  *             anything holds it, an Instance's Strategies or a call, and
  *             shares it with every other holder; it closes a while after
  *             the last lets go. A Connection running another Release
- *             closes the socket at once with `PLUGIN_MISMATCH`: until a
- *             socket to it is answered again, its Link is not linked, and
- *             `CodeClients.mismatch` says which Release it runs.
+ *             closes the socket at once with `PLUGIN_MISMATCH`, and one that
+ *             no longer holds the Connection Key offered closes it with
+ *             `KEY_EXPIRED`: until a socket to it is answered again, its Link
+ *             is not linked, `CodeClients.mismatch` says which Release it
+ *             runs, and `CodeClients.expired` that its key expired, so the
+ *             app can ask for the key as listed now.
  * 3. Sync     `CodeReplicaLive` finds each Instance's socket by its Key, the
  *             Connection id: no Connection's socket ever feeds another's records.
  *
@@ -131,19 +136,25 @@ const socketTo = (of: Effect.Effect<Address>, watch: SocketWatch) =>
   );
 
 /**
- * Which Release a Connection said it runs as it closed its socket with
- * `PLUGIN_MISMATCH`, kept until a socket to it is answered, or closes
- * another way: null then.
+ * Why a Connection last refused a socket as it closed it: the Release it said
+ * it runs, with `PLUGIN_MISMATCH`, or its key expired, with `KEY_EXPIRED`. Null
+ * once a socket to it is answered, or closes another way.
  */
-type Mismatches = SubscriptionRef.SubscriptionRef<PluginMismatch | null>;
+type Refusal = PluginMismatch | 'KeyExpired' | null;
 
-/** What a Connection's sockets tell its `mismatches`. */
-const watchOf = (mismatches: Mismatches): SocketWatch => {
-  const set = (mismatch: PluginMismatch | null) =>
-    Effect.runSync(SubscriptionRef.set(mismatches, mismatch));
+/** What a socket's close says of why it was refused. */
+const refusalOf = (close: SocketClose): Refusal =>
+  keyExpired(close) ? 'KeyExpired' : mismatchOf(close);
+
+/** What a Connection's sockets tell its `refusal`. */
+const watchOf = (
+  refusal: SubscriptionRef.SubscriptionRef<Refusal>,
+): SocketWatch => {
+  const set = (now: Refusal) =>
+    Effect.runSync(SubscriptionRef.set(refusal, now));
   return {
     answered: () => set(null),
-    closed: (close) => set(mismatchOf(close)),
+    closed: (close) => set(refusalOf(close)),
   };
 };
 
@@ -166,12 +177,14 @@ export class CodeClients extends Context.Service<
     readonly mismatch: (
       connectionId: string,
     ) => Stream.Stream<PluginMismatch | null>;
+    /** Whether the Connection last closed its socket with `KEY_EXPIRED`, until a socket to it is answered. */
+    readonly expired: (connectionId: string) => Stream.Stream<boolean>;
   }
 >()('@kestack/connect/CodeClients') {
   /**
    * Each Connection's socket opened with `open`: one server, or a test.
    * Each socket `open` makes tells `watch` how it answers and closes, for
-   * `mismatch`; one that tells it nothing never mismatches.
+   * `mismatch` and `expired`; one that tells it nothing is never refused.
    */
   static readonly make = (
     open: (
@@ -182,19 +195,25 @@ export class CodeClients extends Context.Service<
     Layer.effect(
       CodeClients,
       Effect.gen(function* () {
-        const mismatches = new Map<string, Mismatches>();
-        const mismatchesOf = (connectionId: string) =>
+        const refusals = new Map<
+          string,
+          SubscriptionRef.SubscriptionRef<Refusal>
+        >();
+        const refusalIn = (connectionId: string) =>
           Effect.suspend(() => {
-            const kept = mismatches.get(connectionId);
+            const kept = refusals.get(connectionId);
             if (kept !== undefined) return Effect.succeed(kept);
-            return Effect.tap(
-              SubscriptionRef.make<PluginMismatch | null>(null),
-              (made) => Effect.sync(() => mismatches.set(connectionId, made)),
+            return Effect.tap(SubscriptionRef.make<Refusal>(null), (made) =>
+              Effect.sync(() => refusals.set(connectionId, made)),
             );
           });
+        const refusalOn = (connectionId: string) =>
+          Stream.unwrap(
+            Effect.map(refusalIn(connectionId), SubscriptionRef.changes),
+          );
         const sockets = yield* RcMap.make({
           lookup: (connectionId: string) =>
-            Effect.flatMap(mismatchesOf(connectionId), (each) =>
+            Effect.flatMap(refusalIn(connectionId), (each) =>
               Layer.build(open(connectionId, watchOf(each))),
             ),
           idleTimeToLive: IDLE,
@@ -202,16 +221,18 @@ export class CodeClients extends Context.Service<
         return CodeClients.of({
           hold: (connectionId) => RcMap.get(sockets, connectionId),
           mismatch: (connectionId) =>
-            Stream.unwrap(
-              Effect.map(mismatchesOf(connectionId), (each) =>
-                SubscriptionRef.changes(each).pipe(
-                  Stream.changesWith(
-                    (a, b) =>
-                      a === b ||
-                      (a !== null && b !== null && a.running === b.running),
-                  ),
-                ),
+            refusalOn(connectionId).pipe(
+              Stream.map((now) => (now === 'KeyExpired' ? null : now)),
+              Stream.changesWith(
+                (a, b) =>
+                  a === b ||
+                  (a !== null && b !== null && a.running === b.running),
               ),
+            ),
+          expired: (connectionId) =>
+            refusalOn(connectionId).pipe(
+              Stream.map((now) => now === 'KeyExpired'),
+              Stream.changes,
             ),
         });
       }),
@@ -261,19 +282,24 @@ export class CodeClients extends Context.Service<
 
   /**
    * One Connection's Link now, then each change, its socket held while it
-   * is read. A socket the Connection closed with `PLUGIN_MISMATCH` and
-   * none answered since is not linked, though it opened: it is relinking.
+   * is read. A socket the Connection closed with `PLUGIN_MISMATCH` or
+   * `KEY_EXPIRED` and none answered since is not linked, though it opened:
+   * it is relinking.
    */
   static readonly link = (
     connectionId: string,
   ): Stream.Stream<LinkStatus, never, CodeClients> =>
     Stream.unwrap(
-      Effect.map(CodeClients, ({ mismatch }) =>
+      Effect.map(CodeClients, ({ mismatch, expired }) =>
         Stream.zipLatestWith(
           CodeClients.stream(connectionId, link),
-          mismatch(connectionId),
-          (now, mismatched): LinkStatus =>
-            now === 'linked' && mismatched !== null ? 'relinking' : now,
+          Stream.zipLatestWith(
+            mismatch(connectionId),
+            expired(connectionId),
+            (mismatched, keyGone) => mismatched !== null || keyGone,
+          ),
+          (now, refused): LinkStatus =>
+            now === 'linked' && refused ? 'relinking' : now,
         ).pipe(Stream.changes),
       ),
     );
@@ -284,6 +310,14 @@ export class CodeClients extends Context.Service<
   ): Stream.Stream<PluginMismatch | null, never, CodeClients> =>
     Stream.unwrap(
       Effect.map(CodeClients, ({ mismatch }) => mismatch(connectionId)),
+    );
+
+  /** Whether the Connection last closed its socket with `KEY_EXPIRED`, until a socket to it is answered. */
+  static readonly expired = (
+    connectionId: string,
+  ): Stream.Stream<boolean, never, CodeClients> =>
+    Stream.unwrap(
+      Effect.map(CodeClients, ({ expired }) => expired(connectionId)),
     );
 }
 

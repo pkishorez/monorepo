@@ -116,7 +116,7 @@ const connection = (id: string, name: string) => ({
   name,
   key: `key-${id}`,
   version: '0.0.1',
-  status: { _tag: 'Opening' as const },
+  status: { _tag: 'SettingUp' as const, step: { _tag: 'Opening' as const } },
   lastSeen: 1,
   wanted: {},
   minConnect: null,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ago, elapsed, since } from '../time.ts';
+import { ago, elapsed, since } from '../measure.ts';
 
 describe('elapsed', () => {
   it('counts seconds, then minutes and seconds, then hours and minutes', () => {

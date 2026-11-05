@@ -30,7 +30,6 @@ export interface CloudOptions {
   readonly connection: {
     readonly id: string;
     readonly name: string;
-    readonly key: string;
   };
   /** This `ke-connect`'s version. */
   readonly version: string;
@@ -75,12 +74,12 @@ const crashOf = (defect: unknown) => {
 export const cloud = (options: CloudOptions) => {
   const { client, connection, version, user } = options;
   return {
-    report: (status: ConnectionStatus) =>
+    report: (status: ConnectionStatus, key: string) =>
       client
         .Report({
           id: connection.id,
           name: connection.name,
-          key: connection.key,
+          key,
           version,
           status,
         })

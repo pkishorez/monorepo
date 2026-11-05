@@ -6,6 +6,8 @@ export {
   ConnectionStatus,
   DISPLAY_NAME_MAX,
   isOutdated,
+  KEY_EXPIRED,
+  keyExpired,
   mismatchOf,
   PLUGIN_MISMATCH,
   pluginPath,

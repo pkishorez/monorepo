@@ -1,7 +1,7 @@
 import type { Session } from '@kestack/connect/code';
 import { LoaderCircleIcon, MessageCircleQuestionMarkIcon } from 'lucide-react';
 import { cn } from '@kestack/web-platform/ui/components/utils';
-import { ago, since } from './time.ts';
+import { ago, since } from './measure.ts';
 
 /*
  * How a Session stands, at the right of its row, as quietly as it can say
