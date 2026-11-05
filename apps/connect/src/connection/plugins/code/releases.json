@@ -72,6 +72,10 @@
     {
       "hash": "81633f94c1ec3720838a062b223378beb6da3e248ba8a69f8974b5e77177733f",
       "summary": "Moves to Kabuki Start's new render modes: the build writes the App Shell and static pages"
+    },
+    {
+      "hash": "e494aa91f40d26695ebb8ce53abad002ed0d60c7230414270c7c2e74f4aa040c",
+      "summary": "The code Plugin as Connect is one simple tree: built from its new folders, its Connection Key checked by the server"
     }
   ]
 }
