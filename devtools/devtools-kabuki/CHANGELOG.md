@@ -1,5 +1,13 @@
 # @kestack/devtools-kabuki
 
+## 0.0.17
+
+### Patch Changes
+
+- Updated dependencies [[`e6bff3f`](https://github.com/pkishorez/monorepo/commit/e6bff3f08491006cbcfa392a68f913a4a0238348), [`5f58fb2`](https://github.com/pkishorez/monorepo/commit/5f58fb2c3a7749326a07fe8c474f532a775c3280), [`aa238be`](https://github.com/pkishorez/monorepo/commit/aa238be43c331c2400846ff49fdd12a0fb199fdf), [`df76ba6`](https://github.com/pkishorez/monorepo/commit/df76ba60280fdb5405ca85b29fe67f8604de18bf), [`4ed2c1a`](https://github.com/pkishorez/monorepo/commit/4ed2c1a126382b68b60392c8aef71c7b0a042046), [`75f0a0b`](https://github.com/pkishorez/monorepo/commit/75f0a0bab4f116611a8c3988e26997b98b7b4e78), [`2678376`](https://github.com/pkishorez/monorepo/commit/2678376efd3ce396d3f491c63c615169112eccd9), [`32c3798`](https://github.com/pkishorez/monorepo/commit/32c379829a355b88722e35efe8eb5f2ffc57fd95), [`2b2e5e5`](https://github.com/pkishorez/monorepo/commit/2b2e5e5d5e8ec705ed0b2fbec34587806030391d), [`d5a56b3`](https://github.com/pkishorez/monorepo/commit/d5a56b3119b67926410d5d8bedf6c2127573e6f3), [`9daf71c`](https://github.com/pkishorez/monorepo/commit/9daf71c79cd51ac7aff2e1e18c71869f2e8bde2f)]:
+  - @kestack/web-platform@0.0.7
+  - @kestack/kabuki@0.0.6
+
 ## 0.0.16
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @kestack/cli-platform
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies [[`df76ba6`](https://github.com/pkishorez/monorepo/commit/df76ba60280fdb5405ca85b29fe67f8604de18bf), [`2678376`](https://github.com/pkishorez/monorepo/commit/2678376efd3ce396d3f491c63c615169112eccd9), [`6cf1d7f`](https://github.com/pkishorez/monorepo/commit/6cf1d7fb87f1b98311e1d6ab9b86b8f233e0c707)]:
+  - @kestack/kabuki@0.0.6
+  - @kestack/std-toolkit@0.0.7
+
 ## 0.0.5
 
 ### Patch Changes
