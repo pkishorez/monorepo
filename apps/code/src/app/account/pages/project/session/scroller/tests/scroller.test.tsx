@@ -182,15 +182,17 @@ describe('the scroller', () => {
     expect(top).toBe(was);
   });
 
-  it('2. leaves what is drawn above to the browser, away from the very top', async () => {
+  it('2. leaves what grows above to the browser', async () => {
     await scrolled(-250);
     const was = top;
-    await act(async () => setIds(['a0', 'a1', 'a2', ...ids]));
-    await grow(0);
+    await act(() => {
+      grown += 300;
+      for (const each of observers) each();
+    });
     expect(top).toBe(was);
   });
 
-  it('2. puts the view back at the very top, where the browser does not', async () => {
+  it('2. puts the view back as more is drawn above it', async () => {
     await scrolled(-total());
     expect(top).toBe(0);
     const shown = container.querySelector<HTMLElement>('[data-block="b20"]')!;
@@ -273,8 +275,7 @@ describe('the scroller', () => {
     expect(top).toBe(5 * BLOCK - 16);
     await act(() => new Promise((resolve) => requestAnimationFrame(resolve)));
     const was = top;
-    await act(async () => setIds(['a0', ...ids]));
-    await grow(0);
+    await grow(40);
     expect(top).toBe(was);
   });
 

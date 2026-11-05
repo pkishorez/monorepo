@@ -195,7 +195,7 @@ describe('a long transcript', () => {
     expect(drawn()).toBeLessThan(10);
   });
 
-  it('draws above while a touch glides the view, the browser keeping it in place', async () => {
+  it('draws nothing above away from the very top, however little is drawn there', async () => {
     act(() => root.render(<Transcript rows={turns(30)} scrolled />));
     const scroller = container.firstElementChild as HTMLElement;
     Object.defineProperty(scroller, 'scrollTop', {
@@ -203,12 +203,9 @@ describe('a long transcript', () => {
       get: () => 40,
     });
     room = true;
-    act(() => {
-      scroller.dispatchEvent(new Event('touchstart'));
-      scroller.dispatchEvent(new Event('scroll'));
-    });
+    act(() => scroller.dispatchEvent(new Event('scroll')));
     await settle();
-    expect(drawn()).toBe(30 * 4);
+    expect(drawn()).toBe(10);
   });
 
   it('at the very top, draws above only once the finger has lifted', async () => {
@@ -238,22 +235,6 @@ describe('a long transcript', () => {
         Object.assign(new Event('touchend'), { touches: [] as Touch[] }),
       ),
     );
-    await settle();
-    expect(drawn()).toBe(30 * 4);
-  });
-
-  it('settles a touch whose end never comes, as when what it touched is taken away', async () => {
-    act(() => root.render(<Transcript rows={turns(30)} scrolled />));
-    const scroller = container.firstElementChild as HTMLElement;
-    // A finger that moves the view: a glide, until it is quiet.
-    act(() => {
-      scroller.dispatchEvent(new Event('touchstart'));
-      Object.defineProperty(scroller, 'scrollTop', { get: () => 50 });
-      scroller.dispatchEvent(new Event('scroll'));
-    });
-    room = true;
-    expect(drawn()).toBe(10);
-    await act(() => new Promise((resolve) => setTimeout(resolve, 200)));
     await settle();
     expect(drawn()).toBe(30 * 4);
   });
