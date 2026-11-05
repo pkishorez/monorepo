@@ -1,7 +1,6 @@
 import { mkdir, realpath } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { Context, Data, Duration, Effect, Layer } from 'effect';
-import { Git } from '../../capabilities/index.js';
 import {
   expand,
   isDenied,
@@ -16,7 +15,7 @@ import { whyNotFolderName } from './name.js';
  * The folders a user may open as Projects: the home folder and everything
  * below it, never anything above. `list` reads one folder's sub-folders
  * the way a picker walks them; `create` makes one new folder in a folder
- * that exists, never its parents, and starts a git repository in it.
+ * that exists, never its parents.
  * Every path is checked inside home with its symlinks resolved.
  */
 
@@ -78,14 +77,13 @@ interface FoldersService {
     FolderNotFound | PermissionDenied | OutsideHome | FolderUnreadable
   >;
   /**
-   * Makes the folder `name` in `parent` and runs `git init` in it. A git
-   * failure keeps the folder and says why in `gitInitError`.
+   * Makes the folder `name` in `parent`.
    */
   readonly create: (input: {
     readonly parent: string;
     readonly name: string;
   }) => Effect.Effect<
-    { readonly path: string; readonly gitInitError: string | null },
+    { readonly path: string },
     | FolderNotFound
     | PermissionDenied
     | OutsideHome
@@ -96,7 +94,6 @@ interface FoldersService {
 
 const make = (options: FoldersOptions) =>
   Effect.gen(function* () {
-    const git = yield* Git;
     const home = yield* Effect.promise(() =>
       realpath(options.home).catch(() => resolve(options.home)),
     );
@@ -168,8 +165,7 @@ const make = (options: FoldersOptions) =>
             return yield* new PermissionDenied({ path });
           return yield* Effect.die(failed.error);
         }
-        const gitInitError = yield* git.init(path);
-        return { path, gitInitError };
+        return { path };
       });
 
     return { list, create } satisfies FoldersService;
@@ -179,7 +175,6 @@ const make = (options: FoldersOptions) =>
 export class Folders extends Context.Service<Folders, FoldersService>()(
   '@kestack/connect/Folders',
 ) {
-  static readonly layer = (
-    options: FoldersOptions,
-  ): Layer.Layer<Folders, never, Git> => Layer.effect(Folders, make(options));
+  static readonly layer = (options: FoldersOptions): Layer.Layer<Folders> =>
+    Layer.effect(Folders, make(options));
 }

@@ -31,8 +31,7 @@ import { FolderPicker } from './folders/index.ts';
  *             names no Project, then Enter, looks for it under the
  *             Connection's home.
  * 4. Folder   a folder chosen, or created, becomes a Project while the
- *             Picker waits, and opens as it closes; one whose `git init`
- *             failed opens with a warning.
+ *             Picker waits, and opens as it closes.
  * Either way the keyboard goes on to the page, to write the first message,
  * wherever the Picker was opened from, and by touch as by keys: a Project
  * picked opens its new session's page.
@@ -192,10 +191,6 @@ export const Projects = Actor.define('Projects', {
     added: Schema.NullOr(
       Schema.Struct({ connectionId: Schema.String, projectId: Schema.String }),
     ),
-    /** A folder made whose `git init` failed, until dismissed. */
-    warning: Schema.NullOr(
-      Schema.Struct({ path: Schema.String, reason: Schema.String }),
-    ),
   }),
   message: Schema.TaggedUnion({
     ConnectionsKnown: { connections: Schema.Array(Listed) },
@@ -209,10 +204,7 @@ export const Projects = Actor.define('Projects', {
     Added: {
       connectionId: Schema.String,
       projectId: Schema.String,
-      path: Schema.String,
-      gitInitError: Schema.NullOr(Schema.String),
     },
-    Dismiss: {},
   }),
 });
 
@@ -226,7 +218,6 @@ export const ProjectsLive = Projects.build({
       opened: 0,
       recent: null,
       added: null,
-      warning: null,
     },
   }),
   children: {
@@ -334,7 +325,6 @@ export const ProjectsLive = Projects.build({
               byButton: byButton === true,
               opened: model.opened + 1,
               added: null,
-              warning: null,
             },
           },
     Read: ({ recent }, { model }) => ({ model: { ...model, recent } }),
@@ -346,11 +336,10 @@ export const ProjectsLive = Projects.build({
     }),
     // 3. Folder
     // Opened once the Picker has closed, so focus goes on to the new page.
-    Added: ({ connectionId, projectId, path, gitInitError }, { model }) => ({
+    Added: ({ connectionId, projectId }, { model }) => ({
       model: {
         ...model,
         added: { connectionId, projectId },
-        warning: gitInitError === null ? null : { path, reason: gitInitError },
       },
     }),
     Opened: (_, { model, props }) => ({
@@ -367,7 +356,6 @@ export const ProjectsLive = Projects.build({
             ),
           }),
     }),
-    Dismiss: (_, { model }) => ({ model: { ...model, warning: null } }),
   },
 });
 

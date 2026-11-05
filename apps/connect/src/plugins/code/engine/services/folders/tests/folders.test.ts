@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import {
   chmodSync,
   existsSync,
@@ -11,9 +10,8 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Effect, Layer } from 'effect';
+import { Effect } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
-import { git } from '../../git/index.js';
 import { Folders } from '../index.js';
 
 /*
@@ -44,11 +42,7 @@ const homeWith = (names: ReadonlyArray<string> = []) => {
 };
 
 const run = <A, E>(home: string, effect: Effect.Effect<A, E, Folders>) =>
-  Effect.runPromise(
-    effect.pipe(
-      Effect.provide(Folders.layer({ home }).pipe(Layer.provide(git))),
-    ),
-  );
+  Effect.runPromise(effect.pipe(Effect.provide(Folders.layer({ home }))));
 
 const list = (home: string, path: string, query?: string) =>
   run(
@@ -154,21 +148,12 @@ describe('creating a folder', () => {
   const create = (home: string, parent: string, name: string) =>
     Effect.flatMap(Folders, (folders) => folders.create({ parent, name }));
 
-  it('makes the folder and starts a git repository in it', async () => {
+  it('makes the folder, and no git repository in it', async () => {
     const home = homeWith();
     const created = await run(home, create(home, '~/code', 'fresh'));
-    expect(created).toEqual({
-      path: join(home, 'code', 'fresh'),
-      gitInitError: null,
-    });
-    expect(existsSync(join(home, 'code', 'fresh', '.git'))).toBe(true);
-    expect(
-      execFileSync('git', ['rev-parse', '--is-inside-work-tree'], {
-        cwd: created.path,
-      })
-        .toString()
-        .trim(),
-    ).toBe('true');
+    expect(created).toEqual({ path: join(home, 'code', 'fresh') });
+    expect(existsSync(created.path)).toBe(true);
+    expect(existsSync(join(created.path, '.git'))).toBe(false);
   });
 
   it('refuses bad names, a folder already there, a missing parent and one outside home', async () => {

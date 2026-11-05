@@ -4,7 +4,7 @@ import { reasonOf } from '../../../../connection/link/index.ts';
 
 /*
  * What the folder Steps ask of a Connection, over its own socket: a folder's
- * sub-folders, a new folder with `git init`, and a folder added as a
+ * sub-folders, a new folder, and a folder added as a
  * Project, the one it already is, if it is. Each refusal is a sentence to
  * show in the Step.
  */
@@ -18,7 +18,7 @@ export const listFolder = (connectionId: string, path: string, query: string) =>
     ),
   ).pipe(Effect.mapError(reasonOf));
 
-/** Makes the folder `name` in `parent`, with `git init`. */
+/** Makes the folder `name` in `parent`. */
 export const createFolder = (
   connectionId: string,
   parent: string,

@@ -60,6 +60,10 @@
     {
       "hash": "3acbe43b590cce9cd996f9db01e5906ae6fcbe48444304c65b10c925bd3fb1fd",
       "summary": "A Take is heard as its audio comes in, and survives a reconnect: watchTake, addTakeAudio and endTake, with TakeHeard Downloading, Heard or Done; a Take watched is never dropped, and one dropped or broken fails its watchers"
+    },
+    {
+      "hash": "b9bcb15fecc73414301f307e156a1dc3d75ec498f5fa66ef8ee389e373b98c32",
+      "summary": "A new folder is only a folder: createFolder starts no git repository, and CreatedFolder has no gitInitError"
     }
   ]
 }

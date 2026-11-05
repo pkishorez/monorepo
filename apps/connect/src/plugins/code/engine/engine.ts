@@ -225,7 +225,7 @@ export interface EngineOptions {
 export interface EngineService {
   /** The sub-folders of a folder under home; with a query, only the names holding it. */
   readonly listFolder: Folders['Service']['list'];
-  /** Makes one new folder under home, with `git init`, to add as a Project. */
+  /** Makes one new folder under home, to add as a Project. */
   readonly createFolder: Folders['Service']['create'];
   /**
    * Adds a folder as a Project, its symlinks resolved so one folder is one
@@ -885,7 +885,7 @@ export class Engine extends Context.Service<Engine, EngineService>()(
           agents,
           answers,
           git,
-          Folders.layer({ home: options.home }).pipe(Layer.provide(git)),
+          Folders.layer({ home: options.home }),
         ),
       ),
     );

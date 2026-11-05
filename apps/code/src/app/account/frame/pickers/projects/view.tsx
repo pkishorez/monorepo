@@ -1,6 +1,6 @@
 import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
-import { PlusIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
+import { PlusIcon } from 'lucide-react';
 import { keys, useBound } from '../../commands.ts';
 import * as Picker from '../../../../../ui/controls/picker/index.ts';
 import { ProjectsLive, ListView } from './actor.ts';
@@ -12,8 +12,7 @@ import { ProjectsLive, ListView } from './actor.ts';
  * the Button, the round plus at the right of the sidebar's foot, opens it
  * by pointer as a popover above it, and by a tap in a tall Drawer, its
  * folders too, each tapped into. A Project picked there opens its new
- * session's page, as it does by keys. A folder made without its git
- * repository says so over the page until dismissed.
+ * session's page, as it does by keys.
  */
 
 export const ProjectsView = View.make(
@@ -69,35 +68,4 @@ export const ProjectsButton = View.make(
       </Picker.Frame>
     );
   },
-);
-
-/** Why the folder just made has no git repository, until dismissed. */
-export const ProjectsNotice = View.make(
-  ProjectsLive,
-  ({ model, send }) =>
-    model.warning && (
-      <p
-        role="status"
-        className="mx-auto mt-3 flex w-[calc(100%-2rem)] max-w-4xl items-start gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm"
-      >
-        <TriangleAlertIcon
-          aria-hidden
-          className="mt-0.5 size-3.5 shrink-0 text-warning"
-        />
-        <span className="min-w-0 flex-1">
-          Made <span className="font-mono text-xs">{model.warning.path}</span>,
-          but <span className="font-mono text-xs">git init</span> failed:{' '}
-          {model.warning.reason}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          aria-label="Dismiss"
-          className="text-muted-foreground"
-          onClick={() => send({ _tag: 'Dismiss' })}
-        >
-          <XIcon aria-hidden />
-        </Button>
-      </p>
-    ),
 );

@@ -346,12 +346,6 @@ const rename = (path: string, from: string, to: string) =>
     return yield* new GitError({ message: `Every name for ${to} is taken` });
   });
 
-const init = (path: string) =>
-  run(path, ['init']).pipe(
-    Effect.as(null),
-    Effect.catch((error) => Effect.succeed(error.message)),
-  );
-
 const make = Effect.gen(function* () {
   const scope = yield* Effect.scope;
   // Git's own renames in one repository trip over each other, and two at
@@ -383,7 +377,6 @@ const make = Effect.gen(function* () {
     removeWorktree: dropWorktree,
     pushed,
     rename: (path, from, to) => renaming.withPermits(1)(rename(path, from, to)),
-    init,
   } satisfies Git['Service'];
 });
 

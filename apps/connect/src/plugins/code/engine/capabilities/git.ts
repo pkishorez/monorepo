@@ -114,7 +114,5 @@ export class Git extends Context.Service<
       from: string,
       to: string,
     ) => Effect.Effect<string, GitError>;
-    /** Starts a repository in `path`; why it failed, or null when it did. */
-    readonly init: (path: string) => Effect.Effect<string | null>;
   }
 >()('@kestack/connect/engine/Git') {}

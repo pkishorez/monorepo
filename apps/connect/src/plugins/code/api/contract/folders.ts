@@ -40,8 +40,6 @@ export type FolderListing = typeof FolderListing.Type;
 
 export const CreatedFolder = ESchema.make('CreatedFolder', {
   path: Schema.String,
-  /** Why `git init` failed; null when it ran. The folder is kept either way. */
-  gitInitError: Schema.NullOr(Schema.String),
 }).build();
 export type CreatedFolder = typeof CreatedFolder.Type;
 
@@ -67,8 +65,8 @@ export const FoldersRpc = RpcGroup.make(
     ]),
   }),
   /**
-   * Makes the folder `name` in the folder `parent`, never its parents, and
-   * runs `git init` in it. It is not added as a Project.
+   * Makes the folder `name` in the folder `parent`, never its parents. It is
+   * not added as a Project.
    */
   Rpc.make('createFolder', {
     payload: ESchema.make('CreateFolderPayload', {
