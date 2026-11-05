@@ -44,7 +44,6 @@ test('@kestack/connect is pending when the plan bumps it', () => {
 const deployed = {
   stage: 'prod',
   ready: true,
-  plugins: { result: 'success' },
   connect: { affected: true, result: 'success' },
   frontEnds: [{ name: 'code', affected: true, result: 'success' }],
 };
@@ -65,7 +64,6 @@ test('a pending release says so and deploys nothing', () => {
   const text = summary({
     ...deployed,
     ready: false,
-    plugins: { result: 'skipped' },
     connect: { affected: true, result: 'skipped' },
     frontEnds: [{ name: 'code', affected: true, result: undefined }],
   });
@@ -76,11 +74,11 @@ test('a pending release says so and deploys nothing', () => {
 test('a front end waits for a Connect Cloud that failed', () => {
   const text = summary({
     ...deployed,
-    stage: 'pr7',
+    stage: 'demo',
     connect: { affected: true, result: 'failure' },
     frontEnds: [{ name: 'code', affected: true, result: undefined }],
   });
-  assert.match(text, /\| Connect Cloud \| ❌ failed \| https:\/\/pr7-connect/);
+  assert.match(text, /\| Connect Cloud \| ❌ failed \| https:\/\/demo-connect/);
   assert.match(
     text,
     /\| code \| ⏭️ not deployed: Connect Cloud did not deploy \|/,
@@ -96,27 +94,40 @@ test('Connect Cloud deploys before a front end even when it did not change', () 
   assert.match(text, /\| code \| ✅ deployed \|/);
 });
 
-test('a change to a front end alone says what stopped the chain', () => {
+test('a change to a front end alone says Connect Cloud stopped it', () => {
   const text = summary({
     ...deployed,
-    plugins: { result: 'failure' },
-    connect: { affected: false, result: 'skipped' },
+    connect: { affected: false, result: 'failure' },
     frontEnds: [{ name: 'code', affected: true, result: undefined }],
   });
-  assert.match(
-    text,
-    /\| Connect Cloud \| ⏭️ not deployed: the Plugins check failed \|/,
-  );
+  assert.match(text, /\| Connect Cloud \| ❌ failed \|/);
   assert.match(
     text,
     /\| code \| ⏭️ not deployed: Connect Cloud did not deploy \|/,
   );
 });
 
+test('prod and demo are no preview: each has its Connect Cloud row', () => {
+  for (const stage of ['prod', 'demo'])
+    assert.match(summary({ ...deployed, stage }), /\| Connect Cloud \|/);
+});
+
+test('a preview is its front ends alone, waiting for nothing', () => {
+  const text = summary({
+    ...deployed,
+    stage: 'pr7',
+    connect: { affected: true, result: 'skipped' },
+  });
+  assert.doesNotMatch(text, /Connect Cloud/);
+  assert.match(
+    text,
+    /\| code \| ✅ deployed \| https:\/\/pr7-code\.kishore\.app \|/,
+  );
+});
+
 test('nothing changed says so', () => {
   const text = summary({
     ...deployed,
-    plugins: { result: 'skipped' },
     connect: { affected: false, result: 'skipped' },
     frontEnds: [{ name: 'code', affected: false, result: undefined }],
   });

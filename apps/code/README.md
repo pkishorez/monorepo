@@ -95,7 +95,8 @@ pnpm --filter code deploy:prod   # ALLOW_DEPLOY=true: code.kishore.app
   keeps its state in Cloudflare; a personal stage keeps it in `.alchemy/`.
 - CI deploys it in `deploy:connect`, after Connect Cloud
   (`.github/workflows/deploy-connect.yml`), and never on prod while
-  `@kestack/connect` waits for its release.
+  `@kestack/connect` waits for its release. A pull request's preview deploys
+  Code alone, against production Connect Cloud.
 - `pnpm --filter code lint` checks types, the Laymos Rules and the tree's
   shape (`pnpm --filter code tree`); `pnpm --filter code test` runs the
   tests. Videos recorded under `qa/` stay local.
