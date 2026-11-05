@@ -41,14 +41,14 @@ export const QuestionView = View.make(
     const expanded = expandedOf(model);
     const { keyboard } = useDevice();
     const touch = !keyboard;
-    const keyboardNow = keys.useKeyboard();
-    const { enter } = keyboardNow;
+    const active = keys.useActive();
+    const { enter } = keys.useMoves();
     /**
      * Whether the user is in it now, as of the last draw: read when it goes,
      * by a cleanup that would else see the draw it began in.
      */
     const inIt = useRef(false);
-    inIt.current = keyboardNow.active === 'question';
+    inIt.current = active === 'question';
     /**
      * Who the user just handed focus to: the panel, by asking it to expand,
      * until it takes it; the page, by minimising it, until it is minimised,
@@ -94,7 +94,7 @@ export const QuestionView = View.make(
     // Back to the page while it covers the transcript, as by `l` or Ctrl+L
     // from the sidebar: the keys go into it, never to the transcript under
     // it, which takes no focus.
-    const onPage = keyboardNow.active === 'content';
+    const onPage = active === 'content';
     useEffect(() => {
       if (!expanded) {
         if (handed.current === 'page') handed.current = null;
