@@ -58,7 +58,7 @@ are in [CONTEXT.md](CONTEXT.md). Plans in progress are in
 [docs/draft-and-dictation-plan.md](docs/draft-and-dictation-plan.md) and
 [docs/mobile-plan.md](docs/mobile-plan.md). The app is a PWA
 ([`@kestack/web-platform/pwa`](../../platforms/web-platform/README.md)):
-it installs as "Code", works offline as each page's Render Mode says, and
+it installs as "Code", opens from its App Shell with or without a network, and
 waits for "Reload" before taking a new version.
 
 ## Usage

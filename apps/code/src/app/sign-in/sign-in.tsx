@@ -6,19 +6,20 @@ import { Mark } from '../../ui/page/theme/index.ts';
 import { type Away, AccountList, wordsOf } from './away.tsx';
 
 /*
- * What is drawn in place of the app: one screen in three steps, the mark
- * at the same place in each, so going from one to the next never moves
- * it. The root page draws it while no Account is active, and an
- * Account's page while it is not the one active.
+ * What is drawn in place of the app: one screen in three steps. While the
+ * app starts, the mark stays where the iOS Splash drew it; to sign in, all
+ * of it is centred, as what is under the mark makes it tall. The App Shell
+ * paints it before any script runs, the root page draws it while no Account
+ * is active, and an Account's page while it is not the one active.
  *
  * 1. Reading   the app starts and this device is read: the mark and the
- *              name under it, with nothing else to say what this is, and
- *              only once the start is slow enough to see, so a reload that
- *              opens from what this device kept shows nothing.
+ *              name under it, with nothing else to say what this is, from
+ *              the first paint, so nothing moves or blinks as the app takes
+ *              over from the App Shell.
  * 2. Checking  the Auth Worker is asked who is signed in, and nothing kept
- *              says: it says so, as quietly, after the same wait from when
- *              it is asked, so a quick answer goes from the mark, or from
- *              nothing, straight to signing in or to the app.
+ *              says: it says so quietly, once the wait is long enough to
+ *              see, so a quick answer goes from the mark straight to signing
+ *              in or to the app.
  * 3. Sign in   the one screen to sign in from: "Continue with Google",
  *              which leaves for Google at once (under the dev Fake, it
  *              asks for an email), and why it failed, if it did. On an
@@ -33,25 +34,25 @@ import { type Away, AccountList, wordsOf } from './away.tsx';
 export type Start = 'reading' | 'checking' | 'signed-out';
 
 /**
- * The mark, where every step draws it, and what the step says under it.
- * Always the same elements, so the mark already shown stays as it is when
- * the step changes. It sits where the iOS Splash draws it
- * (`scripts/draw-install.ts`), which centres a block 174 points tall on a
- * phone and 218 on a tablet, so the app opens without it moving.
+ * The mark and what the step says under it. Always the same elements, so
+ * the mark already shown stays as it is when a wait's step changes. A wait
+ * draws it where the iOS Splash does (`scripts/draw-install.ts`), which
+ * centres a block 174 points tall on a phone and 218 on a tablet, so the app
+ * opens without it moving; anything else is centred whole.
  */
 export function Screen({
   waits,
   children,
 }: {
-  /** Shown only once the wait is long enough to see. */
+  /** Whether the app is still starting: the mark holds the Splash's place, rather than the whole being centred. */
   readonly waits: boolean;
   readonly children?: ReactNode;
 }) {
   return (
-    <main className="flex min-h-dvh flex-col items-center px-6 pt-[max(2rem,calc(50dvh-87px))] pb-8 min-[744px]:pt-[max(2rem,calc(50dvh-109px))]">
-      <div
-        className={`flex w-full max-w-xs flex-col items-center gap-6 text-center ${waits ? 'animate-arrive' : ''}`}
-      >
+    <main
+      className={`flex min-h-dvh flex-col items-center px-6 pb-8 ${waits ? 'pt-[max(2rem,calc(50dvh-87px))] min-[744px]:pt-[max(2rem,calc(50dvh-109px))]' : 'justify-center pt-8'}`}
+    >
+      <div className="flex w-full max-w-xs flex-col items-center gap-6 text-center">
         <Mark className="size-14 min-[744px]:size-18" />
         {children}
       </div>
