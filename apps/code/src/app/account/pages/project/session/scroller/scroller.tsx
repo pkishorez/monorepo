@@ -24,35 +24,38 @@ import { type Scroll, scrollOf, useShown } from './shown.ts';
 export { useScrollKeys } from './keys.ts';
 
 /*
- * A scroller over a list of blocks that keeps the reader's place, by five
+ * A scroller over a list of blocks that keeps the reader's place, by six
  * rules. Where the reader is, is one anchor (`anchor.ts`): the bottom, or
  * the block at the top of the view and how far down it is.
  *
  * 1. Follow  at the bottom, a pixel from it or less, it stays at the
  *            bottom as what it holds grows.
  * 2. Stay    anywhere else, what is on the screen never moves by itself:
- *            after anything in the list grows or shrinks, below the view
- *            or above it, the view is put back at the anchor.
+ *            the browser keeps it so as anything in the list grows or
+ *            shrinks (`overflow-anchor`). At the very top it does not, by
+ *            the standard's own rule, so there the view is put back at the
+ *            anchor.
  * 3. Read    every scroll it did not make itself is the reader's, and
  *            sets the anchor where the view is now: at the bottom, it
  *            follows; scrolled up even a pixel, it stays.
- * 4. More    near the top of what is drawn, more is drawn above
- *            (`shown.ts`), and rule 2 keeps the view where it was.
+ * 4. More    near the top of what is drawn, more is drawn above, as the
+ *            view moves too (`shown.ts`), and rule 2 keeps it where it was.
  * 5. Down    `holdOn` goes back to the bottom, as a message is sent: one
  *            glide there, not the reader's scroll unless it goes up, and
  *            once it is quiet, the rest of the way at once if the bottom
  *            moved while it went.
  * 6. Go      `toBlock` puts a block near the top of the view, every block
- *            drawn first: the anchor is it, so rule 2 keeps it there as
- *            what is drawn above it comes in.
+ *            drawn first, as opening at a kept place does: the only times
+ *            the view is put at a block anywhere but the very top.
  *
  * What opens and shuts in the list keeps itself on the screen with
  * `keepStill` (`../transcript/words/fold.tsx`); this needs nothing else.
  *
  * A phone takes no notice of the view being put back while a finger moves
- * it, or while the glide it set off goes on: then nothing is put back nor
- * drawn above, until the glide settles. Near the top, with more above, it
- * does not bounce, so a glide that reaches it settles at once. The anchor
+ * it, or while the glide it set off goes on: then it is not put back, until
+ * the glide settles, and at the very top nothing is drawn above until then.
+ * Near the top, with more above, it does not bounce, so a glide that reaches
+ * it settles at once. The anchor
  * is kept with the history entry: Back, Forward and a reload open where
  * the reader was, drawn from there down, and anywhere else at the bottom.
  *
@@ -108,8 +111,9 @@ export function useScroller(key: string, id: string) {
     /** Whether it glides down to the bottom on its own (rule 5). */
     let descending = false;
     let landing = 0;
-    /** Whether a finger is on it. */
-    let touching = false;
+    /** Whether it still goes to its anchor's block, as on opening at a kept place or by `toBlock`. */
+    let placing = true;
+    let placingEnds = 0;
     let settling = 0;
     const blockOf = (id: string) =>
       outer.querySelector<HTMLElement>(`[data-block="${CSS.escape(id)}"]`) ??
@@ -149,15 +153,25 @@ export function useScroller(key: string, id: string) {
           set({ ...scroll.anchor, offset: scroll.anchor.offset - moved });
         else read();
       }
-      // Rule 2, or rule 1.
-      if (!putBack(outer, scroll.anchor, blockOf) && scroll.drawn) {
+      // Rule 1, rule 6, or rule 2 at the very top; elsewhere the browser's.
+      const putting =
+        placing || scroll.anchor.at === 'bottom' || outer.scrollTop <= 0;
+      if (putting && !putBack(outer, scroll.anchor, blockOf) && scroll.drawn) {
         // Its block is gone, as when an answer's words were split again:
         // the view stays where it is, or, never put in place, as when a
         // kept place is gone, is at the end.
         set(placed ? anchorOf(outer) : BOTTOM);
         putBack(outer, scroll.anchor, blockOf);
       }
-      if (scroll.drawn) placed = true;
+      if (scroll.drawn) {
+        placed = true;
+        // Everything drawn before it is shown is drawn in this frame.
+        if (placing)
+          placingEnds ||= requestAnimationFrame(() => {
+            placing = false;
+            placingEnds = 0;
+          });
+      }
       put = outer.scrollTop;
       report();
     };
@@ -165,19 +179,20 @@ export function useScroller(key: string, id: string) {
     const settled = () => {
       scroll.gliding = false;
       place();
-      scroll.settle();
+      scroll.fill(false);
     };
     const settleSoon = () => {
       clearTimeout(settling);
       settling = window.setTimeout(settled, SETTLE_MS);
     };
     const onTouchStart = () => {
-      touching = true;
+      scroll.touching = true;
     };
     const onTouchEnd = (event: TouchEvent) => {
       if (event.touches.length > 0) return;
-      touching = false;
+      scroll.touching = false;
       if (scroll.gliding) settleSoon();
+      else scroll.fill(false);
     };
     /**
      * Within a view of the top, with more above still to be drawn: no
@@ -197,10 +212,7 @@ export function useScroller(key: string, id: string) {
       if (Math.abs(outer.scrollTop - put) < 1) return;
       // A finger moving it: a glide, until it is quiet. A tap moves
       // nothing, so what it opens or shuts is put in place at once.
-      if (touching && !scroll.gliding) {
-        scroll.gliding = true;
-        scroll.glide();
-      }
+      if (scroll.touching) scroll.gliding = true;
       if (scroll.gliding) settleSoon();
       // Nothing to read a place from before its list is drawn.
       if (!scroll.drawn) return;
@@ -257,6 +269,7 @@ export function useScroller(key: string, id: string) {
         stopDescending();
         scroll.showAll();
         set({ at: 'block', id, offset: GO_OFFSET });
+        placing = true;
         // Drawn already, it goes now; else once it is, as it grows the list.
         if (blockOf(id) !== undefined) place();
         report();
@@ -285,7 +298,9 @@ export function useScroller(key: string, id: string) {
       scroll.keepStill = () => {};
       clearTimeout(settling);
       clearTimeout(landing);
+      cancelAnimationFrame(placingEnds);
       scroll.gliding = false;
+      scroll.touching = false;
       resized?.disconnect();
       outer.removeEventListener('scroll', onScroll);
       outer.removeEventListener('touchstart', onTouchStart);

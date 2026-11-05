@@ -1,10 +1,4 @@
-import {
-  startTransition,
-  useLayoutEffect,
-  useReducer,
-  useRef,
-  useState,
-} from 'react';
+import { startTransition, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import type { Anchor } from './anchor.ts';
 
@@ -18,13 +12,10 @@ import type { Anchor } from './anchor.ts';
  * arriving after is drawn, at the end; nothing drawn is taken away. Going
  * to the top draws them all.
  *
- * Nothing is drawn above while the reader's finger, or the glide it set
- * off, moves the view (`gliding`): the view is put back by as much as was
- * drawn above it, and a phone's glide takes no notice of that, so the
- * view would leap back and forth, blank between. A draw under way in the
- * background as a glide begins starts over (`glide`), and so holds back
- * too. What waits is drawn once the glide settles (`settle`), so what is
- * drawn ahead is what a flick may reach.
+ * What is drawn above is drawn as the view moves too: the browser keeps
+ * the view where it was (`overflow-anchor`). Only at the very top does it
+ * not, by the standard's own rule, so there it waits for the view to be
+ * still, and the scroller puts it back once.
  *
  * A group of blocks laid out once, such as a turn, may be skipped by the
  * browser while far from the view (`content-visibility`), as tall as it
@@ -52,8 +43,10 @@ export interface Scroll {
   scroller: HTMLElement | null;
   /** Whether its list is drawn: a block it does not hold then is not in it. */
   drawn: boolean;
-  /** Whether the reader's finger, or the glide it set off, moves the view: nothing is drawn above, nor the view put back. */
+  /** Whether the reader's finger, or the glide it set off, moves the view: the view is not put back. */
   gliding: boolean;
+  /** Whether a finger is on it. */
+  touching: boolean;
   /** Draws every block now, to go to the top. */
   showAll: () => void;
   /** Puts the view back at the anchor now, as more is drawn above it. */
@@ -62,13 +55,6 @@ export interface Scroll {
   keepStill: () => void;
   /** Draws more above, if what is drawn there is less than enough: `before` it is shown, or as a Transition. */
   fill: (before: boolean) => void;
-  /** Draws what waited for a glide to settle. */
-  settle: () => void;
-  /**
-   * A glide began: what is being drawn above in the background starts
-   * over, so it waits for the glide to settle rather than land during it.
-   */
-  glide: () => void;
   /** A group's element, to be skipped far from the view once laid out. */
   readonly group: (element: HTMLElement | null) => (() => void) | undefined;
 }
@@ -92,12 +78,11 @@ export const scrollOf = (anchor: Anchor): Scroll => {
     scroller: null,
     drawn: false,
     gliding: false,
+    touching: false,
     showAll: () => {},
     place: () => {},
     keepStill: () => {},
     fill: () => {},
-    settle: () => {},
-    glide: () => {},
     group: (element) => {
       if (element === null || laidOut === null) return;
       laidOut.observe(element);
@@ -127,17 +112,10 @@ export function useShown(
   );
   // As drawn, not as a render still on its way would draw it.
   const latest = useRef({ order, from: 0 });
-  // Drawn again once a glide settles, for what waited for it.
-  const [, redraw] = useReducer((count: number) => count + 1, 0);
   const at = first === null || order === null ? 0 : order.indexOf(first);
   // A first block gone, as two blocks of words became one: where it was.
-  const wanted =
-    at === -1 ? Math.min(latest.current.from, order?.length ?? 0) : at;
-  // More above, on its way as a glide began, waits for it to settle.
   const from =
-    drawing && scroll.gliding && wanted < latest.current.from
-      ? latest.current.from
-      : wanted;
+    at === -1 ? Math.min(latest.current.from, order?.length ?? 0) : at;
   const list = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     latest.current = { order, from };
@@ -153,7 +131,9 @@ export function useShown(
       const { order, from } = latest.current;
       const outer = scroll.scroller;
       const element = list.current;
-      if (scroll.gliding || from === 0 || !order || !outer || !element) return;
+      if (from === 0 || !order || !outer || !element) return;
+      // At the very top the browser keeps nothing in place: not until still.
+      if (outer.scrollTop <= 0 && (scroll.gliding || scroll.touching)) return;
       const view = outer.getBoundingClientRect();
       // Not laid out, as while hidden: nothing to measure enough by.
       if (view.height === 0) return;
@@ -172,19 +152,10 @@ export function useShown(
         setFirst(next);
       } else startTransition(() => setFirst(next));
     };
-    scroll.settle = () => {
-      startTransition(redraw);
-      scroll.fill(false);
-    };
-    // Drawn at once, it puts aside any draw still under way in the
-    // background, which is drawn again, holding back while gliding.
-    scroll.glide = redraw;
     return () => {
       cancelAnimationFrame(shown);
       scroll.showAll = () => {};
       scroll.fill = () => {};
-      scroll.settle = () => {};
-      scroll.glide = () => {};
     };
   }, [scroll, drawing]);
   // More drawn above: the view stays where it was, and if that is still
