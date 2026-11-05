@@ -1,8 +1,10 @@
-import { connect } from 'node:net';
+import { connect, createServer } from 'node:net';
 import { Effect } from 'effect';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { socketPath } from '@kestack/cli-platform/files';
+import { reach } from '@kestack/cli-platform/single';
 import { addressOf } from '../../../../contract/index.js';
+import { ConnectionControl } from '../services/index.js';
 import {
   eventually,
   fake,
@@ -74,6 +76,141 @@ describe('a Sign-in that dies', () => {
           reason: 'disk full',
         });
       }),
+    ));
+});
+
+describe('a port that cannot be opened', () => {
+  it('ends it Stopped, saying why', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const taken = createServer();
+          yield* Effect.acquireRelease(
+            Effect.promise(
+              () =>
+                new Promise<void>((resolve) =>
+                  taken.listen(0, '127.0.0.1', resolve),
+                ),
+            ),
+            () => Effect.sync(() => void taken.close()),
+          );
+          const address = taken.address();
+          if (address === null || typeof address === 'string')
+            return expect.fail('no port');
+          const host = fake({});
+          const { ended, now } = yield* start(host, address.port);
+          const why = yield* ended;
+          expect(why).toEqual({
+            _tag: 'Stopped',
+            reason: expect.stringContaining(
+              `Could not listen on 127.0.0.1:${address.port}`,
+            ),
+          });
+          expect(now().state).toEqual({ _tag: 'Ended', why });
+          expect(host.opened).toEqual([]);
+        }),
+      ),
+    ));
+});
+
+describe('its control socket', () => {
+  it('says no id and no address before signing in, and stopping ends it', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const host = fake({ identify: Effect.never });
+          const { ended, input } = yield* start(host);
+          const control = yield* reach(input.control, ConnectionControl);
+          // Until Identity answers, the socket stops the program, not the tree.
+          yield* Effect.sleep('50 millis');
+          expect(yield* control.status()).toEqual({
+            name: 'test',
+            id: '',
+            url: null,
+          });
+          yield* Effect.forkScoped(control.stop());
+          expect(yield* ended).toEqual({ _tag: 'Stopped', reason: null });
+        }),
+      ),
+    ));
+
+  it('says the id once signed in, and the address once Reported', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const host = fake({});
+          const { ended, input } = yield* start(host);
+          const control = yield* reach(input.control, ConnectionControl);
+          yield* Effect.promise(() =>
+            vi.waitFor(
+              async () =>
+                expect(await Effect.runPromise(control.status())).toEqual({
+                  name: 'test',
+                  id: 'connection-1',
+                  url: 'https://t1.example',
+                }),
+              { timeout: 5_000, interval: 20 },
+            ),
+          );
+          yield* Effect.forkScoped(control.stop());
+          expect(yield* ended).toEqual({ _tag: 'Stopped', reason: null });
+        }),
+      ),
+    ));
+
+  it('stops saying an address once signed out', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          let loggedOut = false;
+          const host = fake({
+            answer: () =>
+              loggedOut
+                ? { _tag: 'SignedOut' }
+                : { _tag: 'Reported', wanted: {} },
+            signInAgain: Effect.never,
+          });
+          const { now, input } = yield* start(host);
+          const control = yield* reach(input.control, ConnectionControl);
+          yield* eventually(() =>
+            expect(now().model.url).toBe('https://t1.example'),
+          );
+          loggedOut = true;
+          yield* eventually(() => expect(now().state._tag).toBe('SigningIn'));
+          expect(yield* control.status()).toEqual({
+            name: 'test',
+            id: '',
+            url: null,
+          });
+        }),
+      ),
+    ));
+});
+
+describe('a Report', () => {
+  it('carries the Connection’s key, a new one for each sign-in', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          let loggedOut = false;
+          const host = fake({
+            answer: (status) => {
+              if (reportedFrom(status, 1) && !loggedOut) {
+                loggedOut = true;
+                return { _tag: 'SignedOut' };
+              }
+              return { _tag: 'Reported', wanted: {} };
+            },
+          });
+          yield* start(host);
+          yield* eventually(() =>
+            expect(host.reports.some((status) => reportedFrom(status, 2))).toBe(
+              true,
+            ),
+          );
+          expect(new Set(host.keys).size).toBe(2);
+        }),
+      ),
     ));
 });
 

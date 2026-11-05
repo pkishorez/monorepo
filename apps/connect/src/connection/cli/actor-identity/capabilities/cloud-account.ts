@@ -10,8 +10,6 @@ import type { ConnectionStatus, Release } from '../../../../contract/index.js';
 /** Who the Connection is, once signed in. */
 export interface Identified {
   readonly id: string;
-  /** The Connection Key. */
-  readonly key: string;
 }
 
 /** How Connect Cloud took a Report. */
@@ -47,7 +45,10 @@ export class CloudAccount extends Context.Service<
     readonly backoff: Duration.Input;
     /** How long between Heartbeats. */
     readonly every: Duration.Input;
-    /** Reports where the tunnel stands, once identified. */
-    readonly report: (status: ConnectionStatus) => Effect.Effect<Reported>;
+    /** Reports where the tunnel stands and the Connection Key, once identified. */
+    readonly report: (
+      status: ConnectionStatus,
+      key: string,
+    ) => Effect.Effect<Reported>;
   }
 >()('@kestack/connect/CloudAccount') {}

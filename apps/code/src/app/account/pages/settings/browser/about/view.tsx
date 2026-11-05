@@ -6,6 +6,7 @@ import { usePwa, useStoragePersistence } from '@kestack/web-platform/pwa';
 import { CheckIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import * as Confirm from '../../../../../../ui/controls/notice/index.ts';
+import { size } from '../../../../../../ui/labels/status/index.ts';
 import {
   Row,
   Section,
@@ -27,14 +28,6 @@ const BUTTON = 'h-11 keyboard:h-8 max-sm:w-full';
 
 /** A Row whose button, on a phone, goes under its words. */
 const STACKED = 'max-sm:flex-col max-sm:items-stretch max-sm:gap-3';
-
-/** A size in bytes as a person reads it. */
-export const size = (bytes: number) =>
-  bytes >= 1e9
-    ? `${(bytes / 1e9).toFixed(1)} GB`
-    : bytes >= 1e6
-      ? `${(bytes / 1e6).toFixed(1)} MB`
-      : `${Math.max(1, Math.round(bytes / 1e3))} KB`;
 
 /** How much this browser holds for the app: undefined while asked, null where it won't say. */
 function useUsage() {

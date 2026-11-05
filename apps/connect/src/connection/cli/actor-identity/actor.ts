@@ -1,9 +1,9 @@
 import { Duration, Effect, Layer, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import type { Self } from '@kestack/kabuki/core/actor';
-import { Release } from '../../../contract/index.js';
-import { ActorConnection, remembered } from './actor-connection/index.js';
-import { Cloud, CloudAccount, Identity } from './capabilities/index.js';
+import { addressOf } from '../../../contract/index.js';
+import { ActorConnection, ROTATE_EVERY } from './actor-connection/index.js';
+import { Cloud, CloudAccount, Control } from './capabilities/index.js';
 
 /*
  * The root: Connect is tied to the User's login. While SigningIn nothing
@@ -15,11 +15,16 @@ import { Cloud, CloudAccount, Identity } from './capabilities/index.js';
  * removes the Connection, its tunnel and its Plugins, until signed in again.
  * A Report that could not be sent says nothing of the login, so everything
  * goes on running, and the next Heartbeat asks again. A forgotten, refused or
- * Outdated Connection ends the program, and so does a Sign-in that fails.
+ * Outdated Connection ends the program, and so does a Sign-in that fails, or a
+ * port that cannot be opened: each is Ended, saying why.
  *
  * A Connect Cloud that refuses Sign-in after Sign-in would have it sign in
  * over and over: from the second refusal in a row it waits before signing in
  * again, twice as long each time, up to a minute. A Report taken ends the run.
+ *
+ * The answerLocal Worker answers `status` and `stop` on the control socket
+ * `serve` holds, for as long as the tree runs, signed in or not. Each Report
+ * says the address it carries, which is how Identity knows what to answer.
  */
 
 /** The longest wait before signing in again. */
@@ -60,39 +65,43 @@ const Input = Schema.Struct({
   port: Schema.Finite,
   /** The origins a browser page may call from. */
   origins: Schema.Array(Schema.String),
+  /** How long a Connection Key lasts, in ms; an hour unless given. */
+  rotateEvery: Schema.optional(Schema.Finite),
 });
 type Input = typeof Input.Type;
 
 /** Where the tree runs, as `serve` gives it. */
 export type IdentityInput = Input;
 
-const Who = Schema.Struct({ id: Schema.String, key: Schema.String });
+const Who = Schema.Struct({ id: Schema.String });
 
 const Model = Schema.Struct({
   ...Input.fields,
-  /** Who the Connection is; null until first signed in. */
-  who: Schema.NullOr(Who),
-  /** The Release of each Plugin it last wanted, read as it signs in. */
-  lastWanted: Schema.Record(Schema.String, Release),
+  rotateEvery: Schema.Finite,
+  /** The tunnel's address, as the last Report said it; null while there is none. */
+  url: Schema.NullOr(Schema.String),
   /** Sign-ins Connect Cloud refused in a row, since a Report was last taken. */
   refusals: Schema.Number,
 });
 type Model = typeof Model.Type;
 
 const State = Schema.TaggedUnion({
-  SigningIn: {},
-  SignedIn: {},
-  Forgotten: {},
-  /** It must stop: why, or null when it was asked to. */
-  Stopped: { reason: Schema.NullOr(Schema.String) },
+  /** Signing in: `who` it was when signed in before, or null the first time. */
+  SigningIn: { who: Schema.NullOr(Who) },
+  SignedIn: { who: Who },
+  /** It must stop, and why: forgotten, or stopped for a reason, null when it was asked to. */
+  Ended: {
+    why: Schema.TaggedUnion({
+      Forgotten: {},
+      Stopped: { reason: Schema.NullOr(Schema.String) },
+    }),
+  },
 });
 type State = typeof State.Type;
 
 const Message = Schema.TaggedUnion({
-  SignedIn: {
-    who: Who,
-    lastWanted: Schema.Record(Schema.String, Release),
-  },
+  SignedIn: { who: Who },
+  Addressed: { url: Schema.NullOr(Schema.String) },
   Reported: {},
   SignedOut: {},
   Forgotten: {},
@@ -101,30 +110,30 @@ const Message = Schema.TaggedUnion({
 type Message = typeof Message.Type;
 
 type IdentitySelf = Self<Model, State, Message>;
+type SigningInSelf = Self<
+  Model,
+  Extract<State, { readonly _tag: 'SigningIn' }>,
+  Message
+>;
 
 /** Signs in, first or again, and tells it; a Sign-in that fails stops everything. */
-const signIn = (self: IdentitySelf) =>
+const signIn = (self: SigningInSelf) =>
   Effect.gen(function* () {
     const account = yield* CloudAccount;
-    const { model } = yield* self.get;
-    const first = model.who === null;
-    if (!first) {
-      const wait = backoffAfter(model.refusals, account.backoff);
-      yield* Effect.logWarning(
-        Duration.isZero(wait)
-          ? 'The Sign-in was revoked: the Connection and its Plugins are stopped until you sign in again.'
-          : `Connect Cloud refused the Sign-in again: signing in again in ${Duration.format(wait)}.`,
-      );
-      yield* Effect.sleep(wait);
+    const { model, state } = yield* self.get;
+    if (state.who === null) {
+      const who = yield* account.identify;
+      return yield* self.send({ _tag: 'SignedIn', who: { id: who.id } });
     }
-    const who = yield* first
-      ? account.identify
-      : Effect.as(account.signInAgain, model.who!);
-    yield* self.send({
-      _tag: 'SignedIn',
-      who,
-      lastWanted: yield* remembered(model.folders.data),
-    });
+    const wait = backoffAfter(model.refusals, account.backoff);
+    yield* Effect.logWarning(
+      Duration.isZero(wait)
+        ? 'The Sign-in was revoked: the Connection and its Plugins are stopped until you sign in again.'
+        : `Connect Cloud refused the Sign-in again: signing in again in ${Duration.format(wait)}.`,
+    );
+    yield* Effect.sleep(wait);
+    yield* account.signInAgain;
+    yield* self.send({ _tag: 'SignedIn', who: state.who });
   }).pipe(
     Effect.catch((reason) => self.send({ _tag: 'Stop', reason })),
     // A Worker that dies only logs it: without this, `serve` would hang here,
@@ -140,74 +149,95 @@ const signIn = (self: IdentitySelf) =>
 /** Reports for what runs below, keeping what the answer means for the login here. */
 const reportFor =
   (self: IdentitySelf, account: CloudAccount['Service']) =>
-  (status: Parameters<CloudAccount['Service']['report']>[0]) =>
-    Effect.flatMap(account.report(status), (answer) => {
-      switch (answer._tag) {
-        case 'Reported':
-          return Effect.as(self.send({ _tag: 'Reported' }), answer.wanted);
-        case 'Unsent':
-          return Effect.as(
-            Effect.logWarning(`Heartbeat not sent: ${answer.problem}`),
-            null,
-          );
-        case 'Outdated':
-          return Effect.as(
-            self.send({
-              _tag: 'Stop',
-              reason: outdatedReason(answer.version, answer.minConnect),
-            }),
-            null,
-          );
-        case 'Forgotten':
-          return Effect.as(self.send({ _tag: 'Forgotten' }), null);
-        case 'SignedOut':
-          return Effect.as(self.send({ _tag: 'SignedOut' }), null);
-        case 'Refused':
-          return Effect.as(
-            self.send({ _tag: 'Stop', reason: answer.reason }),
-            null,
-          );
-      }
+  (...[status, key]: Parameters<CloudAccount['Service']['report']>) =>
+    Effect.andThen(
+      self.send({ _tag: 'Addressed', url: addressOf(status) }),
+      Effect.flatMap(account.report(status, key), (answer) => {
+        switch (answer._tag) {
+          case 'Reported':
+            return Effect.as(self.send({ _tag: 'Reported' }), answer.wanted);
+          case 'Unsent':
+            return Effect.as(
+              Effect.logWarning(`Heartbeat not sent: ${answer.problem}`),
+              null,
+            );
+          case 'Outdated':
+            return Effect.as(
+              self.send({
+                _tag: 'Stop',
+                reason: outdatedReason(answer.version, answer.minConnect),
+              }),
+              null,
+            );
+          case 'Forgotten':
+            return Effect.as(self.send({ _tag: 'Forgotten' }), null);
+          case 'SignedOut':
+            return Effect.as(self.send({ _tag: 'SignedOut' }), null);
+          case 'Refused':
+            return Effect.as(
+              self.send({ _tag: 'Stop', reason: answer.reason }),
+              null,
+            );
+        }
+      }),
+    );
+
+/** Answers `status` and `stop` on the control socket `serve` holds, until the Worker stops. */
+const answerLocal = (self: IdentitySelf) =>
+  Effect.gen(function* () {
+    const held = yield* Control;
+    yield* held.answer({
+      status: Effect.map(self.get, ({ model, state }) => ({
+        name: model.name,
+        id: state._tag === 'SignedIn' ? state.who.id : '',
+        url: model.url,
+      })),
+      stop: self.send({ _tag: 'Stop', reason: null }),
     });
+    return yield* Effect.never;
+  }).pipe(Effect.scoped);
 
 export const ActorIdentity = Actor.define('Identity', {
-  requires: [CloudAccount],
+  requires: [CloudAccount, Control],
   input: Input,
   model: Model,
   state: State,
   message: Message,
 }).build({
   init: (input: Input) => ({
-    model: { ...input, who: null, lastWanted: {}, refusals: 0 },
-    state: { _tag: 'SigningIn' },
+    model: {
+      ...input,
+      rotateEvery: input.rotateEvery ?? ROTATE_EVERY,
+      url: null,
+      refusals: 0,
+    },
+    state: { _tag: 'SigningIn', who: null },
   }),
   provides: (self) =>
-    Layer.mergeAll(
-      Layer.succeed(
-        Identity,
-        Identity.of({ stop: (reason) => self.send({ _tag: 'Stop', reason }) }),
-      ),
-      Layer.effect(
-        Cloud,
-        Effect.map(CloudAccount, (account) =>
-          Cloud.of({
-            every: account.every,
-            report: reportFor(self, account),
-          }),
-        ),
+    Layer.effect(
+      Cloud,
+      Effect.map(CloudAccount, (account) =>
+        Cloud.of({
+          every: account.every,
+          report: reportFor(self, account),
+        }),
       ),
     ),
   on: {
-    Forgotten: () => ({ state: { _tag: 'Forgotten' } }),
-    Stop: ({ reason }) => ({ state: { _tag: 'Stopped', reason } }),
+    Forgotten: () => ({
+      state: { _tag: 'Ended', why: { _tag: 'Forgotten' } },
+    }),
+    Stop: ({ reason }) => ({
+      state: { _tag: 'Ended', why: { _tag: 'Stopped', reason } },
+    }),
+  },
+  workers: {
+    answerLocal: { run: answerLocal },
   },
   states: {
     SigningIn: {
       on: {
-        SignedIn: ({ who, lastWanted }, { model }) => ({
-          model: { ...model, who, lastWanted },
-          state: { _tag: 'SignedIn' },
-        }),
+        SignedIn: ({ who }) => ({ state: { _tag: 'SignedIn', who } }),
       },
       workers: {
         signIn: { run: signIn },
@@ -215,30 +245,31 @@ export const ActorIdentity = Actor.define('Identity', {
     },
     SignedIn: {
       on: {
+        Addressed: ({ url }, { model }) =>
+          url === model.url ? {} : { model: { ...model, url } },
         Reported: (_, { model }) =>
           model.refusals === 0 ? {} : { model: { ...model, refusals: 0 } },
-        SignedOut: (_, { model }) => ({
-          model: { ...model, refusals: model.refusals + 1 },
-          state: { _tag: 'SigningIn' },
+        SignedOut: (_, { model, state }) => ({
+          model: { ...model, url: null, refusals: model.refusals + 1 },
+          state: { _tag: 'SigningIn', who: state.who },
         }),
       },
       children: {
         connection: Actor.child(ActorConnection, {
           input: ({ model }) => ({
-            id: model.who!.id,
-            key: model.who!.key,
-            name: model.name,
             folders: model.folders,
             socketId: model.socketId,
             control: model.control,
             port: model.port,
             origins: model.origins,
-            lastWanted: model.lastWanted,
+            rotateEvery: model.rotateEvery,
           }),
+          emits: {
+            ServerFailed: ({ reason }) => ({ _tag: 'Stop', reason }),
+          },
         }),
       },
     },
-    Forgotten: {},
-    Stopped: {},
+    Ended: {},
   },
 });

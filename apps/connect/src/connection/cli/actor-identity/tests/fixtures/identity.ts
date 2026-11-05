@@ -11,9 +11,14 @@ import {
   addressOf,
   type ConnectionStatus,
 } from '../../../../../contract/index.js';
-import { Control, hold, Tunnels } from '../../actor-connection/index.js';
+import { Tunnels } from '../../actor-connection/index.js';
 import { ActorIdentity } from '../../actor.js';
-import { CloudAccount, type Reported } from '../../capabilities/index.js';
+import {
+  CloudAccount,
+  Control,
+  type Reported,
+} from '../../capabilities/index.js';
+import { hold } from '../../services/index.js';
 
 /*
  * The whole tree, against a fake account on Connect Cloud that records each
@@ -50,7 +55,7 @@ export const fake = (options: {
   /** What a Report is answered with; taken, with nothing to run, unless given. */
   readonly answer?: (status: ConnectionStatus, count: number) => Reported;
   /** How the first Sign-in goes. */
-  readonly identify?: Effect.Effect<{ id: string; key: string }, string>;
+  readonly identify?: Effect.Effect<{ id: string }, string>;
   /** How signing in again goes. */
   readonly signInAgain?: Effect.Effect<void, string>;
   readonly backoff?: Duration.Input;
@@ -58,19 +63,20 @@ export const fake = (options: {
   const opened: Array<string> = [];
   const closed: Array<string> = [];
   const reports: Array<ConnectionStatus> = [];
+  const keys: Array<string> = [];
   const signIns: Array<number> = [];
   const account = CloudAccount.of({
-    identify:
-      options.identify ?? Effect.succeed({ id: 'connection-1', key: 'k3y' }),
+    identify: options.identify ?? Effect.succeed({ id: 'connection-1' }),
     signInAgain: Effect.suspend(() => {
       signIns.push(Date.now());
       return options.signInAgain ?? Effect.void;
     }),
     backoff: options.backoff ?? '10 millis',
     every: '10 millis',
-    report: (status) =>
+    report: (status, key) =>
       Effect.sync(() => {
         reports.push(status);
+        keys.push(key);
         return (
           options.answer?.(status, reports.length) ?? {
             _tag: 'Reported',
@@ -80,7 +86,8 @@ export const fake = (options: {
       }),
   });
   const tunnels = Tunnels.of({
-    cloudflared: Effect.succeed('/bin/cloudflared'),
+    cloudflared: () => Effect.succeed('/bin/cloudflared'),
+    downloadEvery: '10 millis',
     open: () =>
       Effect.acquireRelease(
         Effect.sync(() => {
@@ -98,6 +105,7 @@ export const fake = (options: {
     opened,
     closed,
     reports,
+    keys,
     signIns: () => signIns.length,
     signedInAt: signIns,
   };
@@ -107,8 +115,8 @@ export const fake = (options: {
 export const reportedFrom = (status: ConnectionStatus, n: number) =>
   addressOf(status) === `https://t${n}.example`;
 
-/** Runs the tree on `host`, for as long as the Scope: how it ended, its root, and its folders. */
-export const start = (host: ReturnType<typeof fake>) =>
+/** Runs the tree on `host`, for as long as the Scope, listening on `port` unless any will do: why it ended, its root, and its folders. */
+export const start = (host: ReturnType<typeof fake>, port = 0) =>
   Effect.gen(function* () {
     const root = folder();
     const runtime = folder();
@@ -124,7 +132,7 @@ export const start = (host: ReturnType<typeof fake>) =>
       },
       socketId,
       control: socketPath(runtime, socketId, 'connect'),
-      port: 0,
+      port,
       origins: [],
     };
     const held = yield* hold(input.control, input.name);
@@ -143,16 +151,15 @@ export const start = (host: ReturnType<typeof fake>) =>
     const ended = running.changes.pipe(
       Stream.map(() => now().state),
       Stream.merge(Stream.sync(() => now().state)),
-      Stream.filter(
-        (state) => state._tag === 'Forgotten' || state._tag === 'Stopped',
-      ),
+      Stream.filter((state) => state._tag === 'Ended'),
       Stream.runHead,
       Effect.map(Option.getOrThrow),
+      Effect.map(({ why }) => why),
     );
     return { ended, now, input };
   });
 
-/** Runs the tree on `host` until it ends: how it ended. */
+/** Runs the tree on `host` until it is Ended: why. */
 export const runToEnd = (host: ReturnType<typeof fake>) =>
   Effect.scoped(Effect.flatMap(start(host), ({ ended }) => ended));
 

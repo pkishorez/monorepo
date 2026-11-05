@@ -4,7 +4,7 @@ import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { Deferred, Effect, Layer } from 'effect';
+import { type Duration, Effect, Layer } from 'effect';
 import { afterEach, vi } from 'vitest';
 import { History, Runtime } from '@kestack/kabuki';
 import { Downloads, socketPath } from '@kestack/cli-platform/files';
@@ -12,19 +12,17 @@ import type {
   ConnectionStatus,
   Release,
 } from '../../../../../../contract/index.js';
-import { Cloud, Identity } from '../../../capabilities/index.js';
-import { ActorConnection, Control, hold, Tunnels } from '../../index.js';
+import { Cloud } from '../../../capabilities/index.js';
+import { ActorConnection, ROTATE_EVERY, Tunnels } from '../../index.js';
 
 /*
- * A Connection under a fake Identity, against a fake tunnel, whose addresses
- * are numbered by how many times one was opened, and a fake Connect Cloud that
- * records each Report. Its router and control socket are real, on a port and a
- * runtime folder of the test's own, and so are its Plugins: a tiny one that
- * answers `ping`.
+ * A Connection, against a fake tunnel, whose addresses are numbered by how many
+ * times one was opened, and a fake Connect Cloud that records each Report. Its
+ * server is real, on a port of the test's own, and so are its Plugins: a tiny
+ * one that answers `ping`.
  */
 
 export const PING = fileURLToPath(new URL('./ping.mjs', import.meta.url));
-export const KEY = 'k3y_-secret';
 
 /** A Release of the ping Plugin, its file in a folder: one file that runs PING from where it is, and its `file:` URL. */
 export const release = (variant = '') => {
@@ -60,24 +58,35 @@ export const fake = (options: {
     count: number,
   ) => Readonly<Record<string, Release>> | null;
   /** How getting cloudflared goes; at once unless given. */
-  readonly cloudflared?: Effect.Effect<string, Error>;
+  readonly cloudflared?: Tunnels['Service']['cloudflared'];
+  /** How long a download goes between telling how far it came; 50 ms unless given. */
+  readonly downloadEvery?: Duration.Input;
+  /** A tunnel that never opens, to stay SettingUp. */
+  readonly neverOpens?: boolean;
+  /** How long between Heartbeats; 10 ms unless given. */
+  readonly every?: Duration.Input;
 }) => {
   const opened: Array<string> = [];
   const closed: Array<string> = [];
   const ports: Array<number> = [];
   const reports: Array<ConnectionStatus> = [];
+  const keys: Array<string> = [];
   const tunnels = Tunnels.of({
-    cloudflared: options.cloudflared ?? Effect.succeed('/bin/cloudflared'),
+    cloudflared:
+      options.cloudflared ?? (() => Effect.succeed('/bin/cloudflared')),
+    downloadEvery: options.downloadEvery ?? '50 millis',
     open: (port) =>
-      Effect.acquireRelease(
-        Effect.sync(() => {
-          const url = `https://t${opened.length + 1}.example`;
-          opened.push(url);
-          ports.push(port);
-          return { url, closed: Effect.never };
-        }),
-        ({ url }) => Effect.sync(() => void closed.push(url)),
-      ),
+      options.neverOpens
+        ? Effect.never
+        : Effect.acquireRelease(
+            Effect.sync(() => {
+              const url = `https://t${opened.length + 1}.example`;
+              opened.push(url);
+              ports.push(port);
+              return { url, closed: Effect.never };
+            }),
+            ({ url }) => Effect.sync(() => void closed.push(url)),
+          ),
     check: (url: string) =>
       Effect.succeed({
         ok: options.healthy(url),
@@ -86,15 +95,16 @@ export const fake = (options: {
       }),
   });
   const cloud = Cloud.of({
-    every: '10 millis',
-    report: (status) =>
+    every: options.every ?? '10 millis',
+    report: (status, key) =>
       Effect.sync(() => {
         reports.push(status);
+        keys.push(key);
         return options.answer ? options.answer(status, reports.length) : {};
       }),
   });
   const host: Host = { cloud, tunnels };
-  return { host, opened, closed, ports, reports };
+  return { host, opened, closed, ports, reports, keys };
 };
 
 /** The Input of a Connection with folders of its own. */
@@ -103,9 +113,6 @@ export const inputOf = () => {
   const runtime = folder();
   const socketId = 'c0ffee00';
   return {
-    id: 'connection-1',
-    name: 'test',
-    key: KEY,
     folders: {
       data: join(root, 'data'),
       state: join(root, 'state'),
@@ -117,61 +124,83 @@ export const inputOf = () => {
     control: socketPath(runtime, socketId, 'connect'),
     port: 0,
     origins: ['http://localhost:*', 'https://*.app.test'],
-    lastWanted: {} as Record<string, { hash: string; url: string }>,
+    rotateEvery: ROTATE_EVERY,
   };
 };
 
-/** Holds its control socket and runs a Connection on `host`, for as long as the Scope: its root, and why Identity was asked to stop. */
+/** Runs a Connection on `host`, for as long as the Scope. */
 export const start = (
   host: Host,
   input: ReturnType<typeof inputOf> = inputOf(),
 ) =>
   Effect.gen(function* () {
-    const held = yield* hold(input.control, input.name);
-    if (held._tag === 'AlreadyRunning')
-      return yield* Effect.die(new Error(`${input.name} is already running`));
-    const stopped = yield* Deferred.make<string | null>();
     const running = yield* Runtime.start(
       History.make(ActorConnection, { window: 0, input }),
       Layer.mergeAll(
-        Layer.succeed(Control, held.control),
-        Layer.succeed(
-          Identity,
-          Identity.of({
-            stop: (reason) => Effect.asVoid(Deferred.succeed(stopped, reason)),
-          }),
-        ),
         Layer.succeed(Cloud, host.cloud),
         Layer.succeed(Tunnels, host.tunnels),
         Downloads.layer(input.folders.cache),
       ),
     );
     const root = () => running.instance({ from: 'test' });
-    return { stopped: Deferred.await(stopped), root, input };
+    /** The port and the key now; it must be Listening. */
+    const listening = () => {
+      const { state } = root();
+      if (state._tag !== 'Listening') throw new Error('It is not Listening');
+      return state;
+    };
+    /** The Tunnel now, as the Snapshot holds it; it must be Listening. */
+    const tunnel = () => running.snapshot().children['tunnel'];
+    /** The id of each Plugin Child now. */
+    const pluginIds = () => {
+      const plugins = running.snapshot().children['plugins'];
+      return Array.isArray(plugins) ? plugins.map(({ id }) => id) : [];
+    };
+    /** Sends a Message to the Connection's Tunnel. */
+    const sendTunnel = (message: Parameters<typeof running.send>[1]) =>
+      running.send(`${running.snapshot().id}/tunnel#1`, message);
+    return {
+      running,
+      root,
+      listening,
+      tunnel,
+      pluginIds,
+      sendTunnel,
+      input,
+    };
   });
 
 export const eventually = (assertion: () => void, timeout = 5_000) =>
   Effect.promise(() => vi.waitFor(assertion, { timeout, interval: 10 }));
 
-/** How a WebSocket to the router at `path`, with the key, closed: its code and reason. */
-export const closeOf = (port: number, path: string) =>
+/** The subprotocols a caller offers with `key`. */
+export const withKey = (key: string) => ({
+  'sec-websocket-protocol': `ke-connect, key.${key}`,
+});
+
+/** How a WebSocket to the server at `path`, with `key`, closed: its code and reason. */
+export const closeOf = (port: number, path: string, key: string) =>
   new Promise<{ code: number; reason: string }>((resolve) => {
     const socket = new WebSocket(`ws://127.0.0.1:${port}${path}`, [
       'ke-connect',
-      `key.${KEY}`,
+      `key.${key}`,
     ]);
     socket.onclose = ({ code, reason }) => resolve({ code, reason });
   });
 
-/** How the router answers a plain GET at `path`, with the key: its status and body. */
-export const get = (port: number, path: string) =>
+/** How the server answers a plain GET at `path`, with these headers: its status and body. */
+export const get = (
+  port: number,
+  path: string,
+  headers: Record<string, string> = {},
+) =>
   new Promise<{ status: number; body: string }>((resolve, reject) => {
     const asking = request({
       host: '127.0.0.1',
       port,
       path,
       agent: false,
-      headers: { 'sec-websocket-protocol': `ke-connect, key.${KEY}` },
+      headers,
     });
     asking.on('response', (response) => {
       let body = '';
@@ -185,7 +214,7 @@ export const get = (port: number, path: string) =>
     asking.end();
   });
 
-/** How the router answers a WebSocket upgrade at `path`: 101, or its refusal. */
+/** How the server answers a WebSocket upgrade at `path`: 101, or its refusal. */
 export const upgrade = (
   port: number,
   path: string,
@@ -216,5 +245,3 @@ export const upgrade = (
     asking.on('error', reject);
     asking.end();
   });
-
-export const withKey = { 'sec-websocket-protocol': `ke-connect, key.${KEY}` };

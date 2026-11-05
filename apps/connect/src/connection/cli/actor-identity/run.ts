@@ -1,18 +1,13 @@
 import { Effect, Layer, Option, Stream } from 'effect';
 import { History, Runtime } from '@kestack/kabuki';
 import { Downloads } from '@kestack/cli-platform/files';
-import {
-  CLOUDFLARED_KEY,
-  Control,
-  Tunnels,
-  tunnels,
-} from './actor-connection/index.js';
+import { CLOUDFLARED_KEY, Tunnels, tunnels } from './actor-connection/index.js';
 import { ActorIdentity, type IdentityInput } from './actor.js';
-import { CloudAccount } from './capabilities/index.js';
+import { CloudAccount, Control } from './capabilities/index.js';
 
 /*
  * Running the tree, standing on the User's account on Connect Cloud and on
- * cloudflared, until it ends, Forgotten or Stopped. First, the shared cache
+ * cloudflared, until it is Ended. First, the shared cache
  * drops each download no Connection has used for 30 days, keeping
  * cloudflared, which the tunnel runs at once; a running Plugin marks its file
  * used every day, so no file in use goes.
@@ -44,11 +39,11 @@ export interface RunOptions {
   readonly input: IdentityInput;
   /** The User's account on Connect Cloud. */
   readonly account: CloudAccount['Service'];
-  /** The control socket `serve` holds, for the Connection to answer on. */
+  /** The control socket `serve` holds, for Identity to answer on. */
   readonly control: Control['Service'];
 }
 
-/** Runs the tree until it ends, for as long as the Scope: how it ended. */
+/** Runs the tree until it is Ended, for as long as the Scope: why, Forgotten or Stopped. */
 export const run = (options: RunOptions) =>
   Effect.gen(function* () {
     const downloads = Downloads.layer(options.input.folders.cache);
@@ -67,10 +62,9 @@ export const run = (options: RunOptions) =>
       Stream.map(() => root()),
       Stream.merge(Stream.sync(root)),
       Stream.map(({ state }) => state),
-      Stream.filter(
-        (state) => state._tag === 'Forgotten' || state._tag === 'Stopped',
-      ),
+      Stream.filter((state) => state._tag === 'Ended'),
       Stream.runHead,
       Effect.map(Option.getOrThrow),
+      Effect.map(({ why }) => why),
     );
   });

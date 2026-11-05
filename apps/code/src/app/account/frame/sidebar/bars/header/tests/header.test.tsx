@@ -26,7 +26,11 @@ const record = (
   name,
   key: `key-${id}`,
   version: '0.0.6',
-  status: { _tag: 'Reachable', url: `https://${id}.example`, at: 0 },
+  status: {
+    _tag: 'Ready',
+    url: `https://${id}.example`,
+    check: { _tag: 'Reachable', at: 0 },
+  },
   lastSeen: Date.now(),
   wanted: {},
   minConnect: null,

@@ -8,7 +8,7 @@ import {
   Downloads,
   type HashMismatch,
 } from '../../files/downloads/index.js';
-import { Plugins, type PluginState } from '../contract/index.js';
+import { PluginState } from '../contract/index.js';
 import { child, LOG_LINES, previousGone, socketFree } from './child.js';
 
 /*
@@ -22,9 +22,10 @@ import { child, LOG_LINES, previousGone, socketFree } from './child.js';
  * exited, its finalizers done or it killed. A process that exits goes Crashed, and is tried
  * again after a pause that doubles each time, up to a minute; one that ran
  * a minute or more before it exited starts the count over. Every change in
- * where it stands is reported up through Plugins. While a downloaded file
- * is what runs, it is marked used every day, so a prune by this or another
- * CLI never deletes it.
+ * where it stands is Emitted to its parent as Reported; a parent keeping many
+ * tells them apart by the key of `each`. While a downloaded file is what
+ * runs, it is marked used every day, so a prune by this or another CLI never
+ * deletes it.
  */
 
 /** How long a Plugin must run before its crashes no longer count. */
@@ -123,6 +124,8 @@ const Message = Schema.TaggedUnion({
     log: Schema.Array(Schema.String),
   },
   Retry: {},
+  /** Where it now stands, to Emit. */
+  Reporting: { state: PluginState.schema },
 });
 type Message = typeof Message.Type;
 
@@ -289,32 +292,29 @@ const stateOf = (
   }
 };
 
-/** Reports every change in where the Plugin stands, through Plugins. */
+/** Sends every change in where the Plugin stands, for the Update to Emit. */
 const report = (self: PluginSelf) =>
-  Effect.gen(function* () {
-    const plugins = yield* Plugins;
-    const { model } = yield* self.get;
-    yield* self.changes.pipe(
-      Stream.mapEffect((data) =>
-        Effect.map(self.now, (now) => stateOf(data, now)),
-      ),
-      Stream.changesWith(
-        (a, b) =>
-          a._tag === b._tag &&
-          JSON.stringify({ ...a, retryAt: 0 }) ===
-            JSON.stringify({ ...b, retryAt: 0 }),
-      ),
-      Stream.runForEach((state) => plugins.report(model.name, state)),
-    );
-  });
+  self.changes.pipe(
+    Stream.mapEffect((data) =>
+      Effect.map(self.now, (now) => stateOf(data, now)),
+    ),
+    Stream.changesWith(
+      (a, b) =>
+        a._tag === b._tag &&
+        JSON.stringify({ ...a, retryAt: 0 }) ===
+          JSON.stringify({ ...b, retryAt: 0 }),
+    ),
+    Stream.runForEach((state) => self.send({ _tag: 'Reporting', state })),
+  );
 
 export const ActorPlugin = Actor.define('Plugin', {
-  requires: [Downloads, Plugins],
+  requires: [Downloads],
   input: Input,
   props: Props,
   model: Model,
   state: State,
   message: Message,
+  emits: { Reported: { state: PluginState.schema } },
 }).build({
   init: ({ name, folders, socket, pause }) => ({
     model: {
@@ -373,6 +373,7 @@ export const ActorPlugin = Actor.define('Plugin', {
           }
         : { model: failed };
     },
+    Reporting: ({ state }) => ({ emit: { _tag: 'Reported', state } }),
   },
   workers: {
     download: {

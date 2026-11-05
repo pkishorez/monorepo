@@ -23,10 +23,12 @@ import { PLUGIN_CODE } from './release.ts';
  *             `/code/<sha256>/rpc` (`release.ts`), offering its Connection
  *             Key as listed on each connect, so a Connection that comes
  *             back at a new address, as a quick tunnel does, is reached
- *             there. Until it is listed with one, its socket waits. A
- *             Connection running another Release closes it at once; who is
- *             behind is `release.ts`'s to say. `Sockets` opens it, and only
- *             a Connection Actor asks it to.
+ *             there, and with a Connection Key that rotated, which the
+ *             Account's page asks for once a socket is closed for an expired
+ *             key. Until it is listed with one, its socket waits. A Connection
+ *             running another Release closes it at once; who is behind is
+ *             `release.ts`'s to say. `Sockets` opens it, and only a Connection
+ *             Actor asks it to.
  * 3. Borrow   what the Account's page gives everything under it,
  *             `CodeClients`, holds no socket of its own: each call or
  *             stream on a Connection waits until that Connection runs,
@@ -99,10 +101,23 @@ const firstOf = <A>(stream: Stream.Stream<A | null>): Effect.Effect<A> =>
     ),
   );
 
+/** What `read` says of a Connection's clients while it runs, and `none` while it does not. */
+const whileRunning = <A>(
+  clients: Stream.Stream<CodeClients['Service'] | null>,
+  none: A,
+  read: (running: CodeClients['Service']) => Stream.Stream<A>,
+) =>
+  clients.pipe(
+    Stream.switchMap((running) =>
+      running === null ? Stream.make(none) : read(running),
+    ),
+    Stream.changes,
+  );
+
 /**
  * 3. Borrow: every Connection's socket, borrowed from its Connection while
- * it runs. A hold waits until it runs; its mismatch is none while it does
- * not.
+ * it runs. A hold waits until it runs; it is neither mismatched nor expired
+ * while it does not.
  */
 export const borrowing = Layer.effect(
   CodeClients,
@@ -113,13 +128,12 @@ export const borrowing = Layer.effect(
           running.hold(connectionId),
         ),
       mismatch: (connectionId) =>
-        clients(connectionId).pipe(
-          Stream.switchMap((running) =>
-            running === null
-              ? Stream.make(null)
-              : running.mismatch(connectionId),
-          ),
-          Stream.changes,
+        whileRunning(clients(connectionId), null, (running) =>
+          running.mismatch(connectionId),
+        ),
+      expired: (connectionId) =>
+        whileRunning(clients(connectionId), false, (running) =>
+          running.expired(connectionId),
         ),
     }),
   ),

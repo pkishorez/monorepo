@@ -5,7 +5,7 @@ import { ESchema } from '@kestack/std-toolkit/eschema';
  * How every side names one Release of a Plugin: by the Plugin's name and
  * the sha256 of its file. Code calls a Connection's Plugin at the Release
  * it was built with, `<tunnel>/<name>/<sha256>/rpc`. When the Connection
- * runs another, its router takes the socket and closes it at once with
+ * runs another, its server takes the socket and closes it at once with
  * `PLUGIN_MISMATCH`, the reason saying which hash runs: a browser cannot
  * read the status of a refused WebSocket, only how it closed. The file
  * itself is a Release File, `<name>/<sha256>.mjs`, under whichever root holds
@@ -15,6 +15,10 @@ import { ESchema } from '@kestack/std-toolkit/eschema';
  * Minimum Connect. A Connection below it is Outdated: it reports once, so
  * its User sees the version it runs, then stops, and an App says to
  * update `ke-connect`. The version every Report carries is what says so.
+ *
+ * A socket offering any key but the Connection Key is closed the same way,
+ * with `KEY_EXPIRED`: the Connection keeps only the one key, so it cannot tell
+ * an old key from a made-up one.
  */
 
 /** A Plugin's name: a DNS label. */
@@ -94,6 +98,15 @@ export const mismatchOf = (close: {
         Schema.decodeUnknownOption(MismatchJson)(close.reason),
         () => ({ running: null }),
       );
+
+/** The close code of a socket that offered a key other than the Connection Key. */
+export const KEY_EXPIRED = 4401;
+
+/** Whether a socket was closed for offering a key other than the Connection Key. */
+export const keyExpired = (close: {
+  readonly code: number;
+  readonly reason: string;
+}): boolean => close.code === KEY_EXPIRED;
 
 /** A version's numbers, and whether it is a pre-release. */
 const partsOf = (version: string) => {

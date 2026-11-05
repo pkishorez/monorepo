@@ -23,8 +23,7 @@ import {
   PluginControl,
   PluginEnv,
   PluginPaths,
-  Plugins,
-  type PluginState,
+  PluginState,
 } from '../contract/index.js';
 import { Ping } from './fixtures/ping.js';
 
@@ -64,7 +63,7 @@ beforeAll(
 );
 afterAll(() => new Promise<void>((done) => server.close(() => done())));
 
-/** A CLI's folders in a fresh temporary home, and what its Plugin reports. */
+/** A CLI's folders in a fresh temporary home. */
 const setup = () => {
   const home = mkdtempSync(join(tmpdir(), 'kestack-plugins-'));
   const cli = foldersOf({
@@ -74,43 +73,63 @@ const setup = () => {
     home,
     tmp: home,
   });
-  const reports: Array<PluginState> = [];
-  const layer = Layer.mergeAll(
-    Downloads.layer(cli.cache),
-    Layer.succeed(Plugins, {
-      report: (_name, state) => Effect.sync(() => void reports.push(state)),
-    }),
-  );
   return {
     folders: pluginFolders(cli, 'ping'),
     socket: socketPath(cli.runtime, 'abcdef0123', 'ping'),
-    reports,
-    layer,
+    layer: Downloads.layer(cli.cache),
   };
 };
 
-/** The CLI side as a test writes it: one Plugin, wanted as the Model says. */
+/** The CLI's Model: what it wants, and what it heard from a Plugin, and when. */
+const CliModel = Schema.Struct({
+  wanted: Wanted,
+  heard: Schema.Array(
+    Schema.Struct({
+      name: Schema.String,
+      state: PluginState.schema,
+      at: Schema.Finite,
+    }),
+  ),
+});
+
+/** The CLI side as a test writes it: one Plugin, wanted as the Model says, and all it hears from it. */
 const cliOf = (
   plugin: { folders: ReturnType<typeof setup>['folders']; socket: string },
   first: Wanted,
 ) =>
   Actor.define('Cli', {
-    model: Schema.Struct({ wanted: Wanted }),
-    message: Schema.TaggedUnion({ Want: { wanted: Wanted } }),
+    model: CliModel,
+    message: Schema.TaggedUnion({
+      Want: { wanted: Wanted },
+      PluginReported: { name: Schema.String, state: PluginState.schema },
+    }),
   }).build({
-    init: () => ({ model: { wanted: first } }),
+    init: () => ({ model: { wanted: first, heard: [] } }),
     children: {
       plugin: Actor.child(ActorPlugin, {
-        input: () => ({
-          name: 'ping',
+        each: () => ['ping'],
+        input: (_, name) => ({
+          name,
           folders: plugin.folders,
           socket: plugin.socket,
           pause: { first: 100, most: 400 },
         }),
         props: ({ model }) => ({ wanted: model.wanted }),
+        emits: {
+          Reported: ({ state }, name) => ({
+            _tag: 'PluginReported',
+            name,
+            state,
+          }),
+        },
       }),
     },
-    on: { Want: ({ wanted }) => ({ model: { wanted } }) },
+    on: {
+      Want: ({ wanted }) => ({ model: { wanted } }),
+      PluginReported: ({ name, state }, { model, at }) => ({
+        model: { heard: [...model.heard, { name, state, at }] },
+      }),
+    },
   });
 
 /** A client to the Plugin's own group on its socket. */
@@ -145,7 +164,18 @@ const controlAt = (socket: string) =>
 const eventually = (assertion: () => void, timeout = 20_000) =>
   Effect.promise(() => vi.waitFor(assertion, { timeout, interval: 50 }));
 
-const last = (reports: ReadonlyArray<PluginState>) => reports.at(-1);
+/** A CLI running, whose Snapshot says nothing of its Model's type. */
+interface Hearing {
+  readonly snapshot: () => { readonly model: unknown };
+}
+
+/** Everything a running CLI has heard from its Plugin, oldest first. */
+const heardBy = (running: Hearing) => {
+  const { model } = running.snapshot();
+  return Schema.is(CliModel)(model) ? model.heard : [];
+};
+
+const last = (running: Hearing) => heardBy(running).at(-1)?.state;
 
 describe('a Plugin kept running by its CLI', () => {
   it(
@@ -161,9 +191,11 @@ describe('a Plugin kept running by its CLI', () => {
               plugin.layer,
             );
             yield* eventually(() =>
-              expect(last(plugin.reports)).toEqual({ _tag: 'Running', hash }),
+              expect(last(running)).toEqual({ _tag: 'Running', hash }),
             );
-            const tags = plugin.reports.map(({ _tag }) => _tag);
+            const heard = heardBy(running);
+            expect(heard.every(({ name }) => name === 'ping')).toBe(true);
+            const tags = heard.map(({ state }) => state._tag);
             expect(tags.slice(0, 1)).toEqual(['Downloading']);
             expect(tags).toContain('Starting');
             const ping = yield* pingAt(plugin.socket);
@@ -231,7 +263,7 @@ describe('a Plugin kept running by its CLI', () => {
               plugin.layer,
             );
             yield* eventually(() =>
-              expect(last(plugin.reports)?._tag).toBe('Running'),
+              expect(last(running)?._tag).toBe('Running'),
             );
             const before = yield* controlAt(plugin.socket);
             const { pid } = yield* before.status();
@@ -240,7 +272,7 @@ describe('a Plugin kept running by its CLI', () => {
               wanted: { file: fixture('ping-b.mjs') },
             });
             yield* eventually(() =>
-              expect(last(plugin.reports)).toEqual({
+              expect(last(running)).toEqual({
                 _tag: 'Running',
                 hash: fixture('ping-b.mjs'),
               }),
@@ -273,7 +305,7 @@ describe('a Plugin kept running by its CLI', () => {
               plugin.layer,
             );
             yield* eventually(() =>
-              expect(last(plugin.reports)?._tag).toBe('Running'),
+              expect(last(running)?._tag).toBe('Running'),
             );
             const before = yield* controlAt(plugin.socket);
             const { pid } = yield* before.status();
@@ -284,7 +316,7 @@ describe('a Plugin kept running by its CLI', () => {
             // It leaves the socket at once, then takes two seconds to stop:
             // the new one waits all of it, so they never share the folders.
             yield* eventually(() =>
-              expect(last(plugin.reports)).toEqual({
+              expect(last(running)).toEqual({
                 _tag: 'Running',
                 hash: fixture('ping-b.mjs'),
               }),
@@ -308,9 +340,12 @@ describe('a Plugin kept running by its CLI', () => {
           const url = pathToFileURL(
             join(plugin.folders.cache, 'releases', 'ping', `${hash}.mjs`),
           ).href;
-          yield* Runtime.start(cliOf(plugin, { hash, url }), plugin.layer);
+          const running = yield* Runtime.start(
+            cliOf(plugin, { hash, url }),
+            plugin.layer,
+          );
           yield* eventually(() =>
-            expect(last(plugin.reports)).toMatchObject({
+            expect(last(running)).toMatchObject({
               _tag: 'Crashed',
               hash,
               log: [`ping ${hash} has no file; run the build`],
@@ -327,31 +362,28 @@ describe('a Plugin kept running by its CLI', () => {
         Effect.scoped(
           Effect.gen(function* () {
             const plugin = setup();
-            const startedAt: Array<number> = [];
-            const reports = plugin.reports;
-            const layer = Layer.mergeAll(
-              Downloads.layer(join(plugin.folders.cache, '..', '..')),
-              Layer.succeed(Plugins, {
-                report: (_name, state) =>
-                  Effect.sync(() => {
-                    if (state._tag === 'Starting') startedAt.push(Date.now());
-                    reports.push(state);
-                  }),
-              }),
-            );
-            yield* Runtime.start(
+            const running = yield* Runtime.start(
               cliOf(plugin, { file: fixture('crash.mjs') }),
-              layer,
+              plugin.layer,
             );
-            yield* eventually(() => expect(startedAt.length).toBe(4));
-            const crashed = reports.find((report) => report._tag === 'Crashed');
-            expect(crashed).toMatchObject({
+            const startedAt = () =>
+              heardBy(running)
+                .filter(({ state }) => state._tag === 'Starting')
+                .map(({ at }) => at);
+            yield* eventually(() =>
+              expect(startedAt().length).toBeGreaterThanOrEqual(4),
+            );
+            const crashed = heardBy(running).find(
+              ({ state }) => state._tag === 'Crashed',
+            );
+            expect(crashed?.state).toMatchObject({
               _tag: 'Crashed',
               hash: fixture('crash.mjs'),
               log: ['starting', 'boom'],
             });
             // Pauses of 100, 200 and 400 ms between starts.
-            const gaps = startedAt.slice(1).map((at, i) => at - startedAt[i]!);
+            const starts = startedAt().slice(0, 4);
+            const gaps = starts.slice(1).map((at, i) => at - starts[i]!);
             expect(gaps[0]!).toBeGreaterThanOrEqual(100);
             expect(gaps[2]!).toBeGreaterThanOrEqual(400);
             expect(gaps[2]!).toBeGreaterThan(gaps[0]!);

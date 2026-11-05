@@ -4,37 +4,41 @@ import {
   Effect,
   Fiber,
   Option,
-  Schedule,
   Schema,
+  Semaphore,
   Stream,
 } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import type { Self } from '@kestack/kabuki/core/actor';
 import {
-  addressOf,
+  CheckResult,
   type ConnectionStatus,
+  Release,
+  SetupStep,
   TunnelCheck,
 } from '../../../../../contract/index.js';
 import { Cloud } from '../../capabilities/index.js';
-import { Connection } from '../capabilities/index.js';
 import { Tunnels } from './capabilities/index.js';
 
 /*
  * The door to the street, and how Connect Cloud knows where it stands. Its
- * State is the Connection Status, the very value a Report carries: getting
- * cloudflared (Installing), Opening, failed to open, or up at an address and
- * how its last check went.
+ * State is the Connection Status, the very value a Report carries: SettingUp,
+ * at a step, or Ready, at an address, with how its last check went.
  *
- * The keep Worker holds one tunnel, of one generation: it gets cloudflared,
+ * The tunnel Worker holds one tunnel, of one generation: it gets cloudflared,
  * opens the tunnel, and holds it until cloudflared stops or it could not open.
  * Either way it asks for a new generation, which closes the old one and opens
- * another, as three failed checks in a row do too. A word from a tunnel
- * already replaced is dropped by its generation.
+ * another, as three failed checks in a row do too. It belongs to no State, as
+ * it holds what it opened across both. A word from a tunnel already replaced
+ * is dropped by its generation.
  *
- * Connect Cloud hears from it two ways: the beat Worker, on a fixed interval,
- * checks the tunnel, then Reports; and a change the app waits on, a download
- * begun or a tunnel opening, up or failed, is Reported at once. What Connect
- * Cloud answers goes up to the Connection.
+ * Connect Cloud hears from it two ways, one for each State, so each can do its
+ * own: reportSetup at once, on each change of step or key, and every
+ * `Cloud.every` since the last; heartbeat at once, on each change of key, and
+ * every `Cloud.every` after checking the tunnel. A Worker of a State lives as
+ * long as that State's tag, so neither starts over on a step, a check or a key.
+ *
+ * What Connect Cloud answers, when it does, is Emitted as Wanted.
  */
 
 /** Failed Tunnel Checks in a row before the tunnel is restarted. */
@@ -43,12 +47,17 @@ const FAILURES_BEFORE_RESTART = 3;
 /** How long to wait before opening a tunnel again after one failed to open. */
 const REOPEN_AFTER = Duration.seconds(5);
 
-/** How long getting cloudflared may take before the tunnel says it is Installing. */
-const INSTALLING_AFTER = Duration.millis(500);
+/** How long getting cloudflared may take before the tunnel says it is Downloading, so a cached one never does. */
+const DOWNLOADING_AFTER = Duration.millis(500);
 
 const Input = Schema.Struct({
-  /** The router's port, which the tunnel points at. */
+  /** The server's port, which the tunnel points at. */
   port: Schema.Finite,
+});
+
+const Props = Schema.Struct({
+  /** The Connection Key now, which every Report carries. */
+  key: Schema.String,
 });
 
 const Model = Schema.Struct({
@@ -61,29 +70,21 @@ const Model = Schema.Struct({
 type Model = typeof Model.Type;
 
 const State = Schema.TaggedUnion({
-  /** Downloading cloudflared, once per computer. */
-  Installing: {},
-  /** cloudflared is starting and connecting to Cloudflare. */
-  Opening: {},
-  /** The tunnel could not open; another is tried shortly. */
-  OpenFailed: { at: Schema.Finite, problem: Schema.String },
-  /** Up at `url`, not checked yet. */
-  Unchecked: { url: Schema.String },
-  /** Up at `url`, and the last Tunnel Check reached it. */
-  Reachable: { url: Schema.String, at: Schema.Finite },
-  /** Up at `url`, but the last Tunnel Check did not reach it. */
-  Unreachable: {
-    url: Schema.String,
-    at: Schema.Finite,
-    problem: Schema.String,
-  },
+  /** On its way, or failed to open and about to try again. */
+  SettingUp: { step: SetupStep },
+  /** Up at `url`. */
+  Ready: { url: Schema.String, check: CheckResult },
 });
 type State = ConnectionStatus;
 
 const Message = Schema.TaggedUnion({
-  Installing: { generation: Schema.Number },
+  Downloading: {
+    generation: Schema.Number,
+    elapsed: Schema.Finite,
+    received: Schema.Finite,
+  },
   Opening: { generation: Schema.Number },
-  OpenFailed: {
+  Failed: {
     generation: Schema.Number,
     at: Schema.Finite,
     problem: Schema.String,
@@ -91,33 +92,67 @@ const Message = Schema.TaggedUnion({
   Up: { generation: Schema.Number, url: Schema.String },
   Lost: { generation: Schema.Number },
   Checked: { generation: Schema.Number, check: TunnelCheck.schema },
+  /** Connect Cloud took a Report, and wants these Releases run. */
+  Answered: { releases: Schema.Record(Schema.String, Release) },
 });
 
-type TunnelSelf = Self<Model, State, typeof Message.Type>;
+type TunnelSelf = Self<Model, State, typeof Message.Type, typeof Props.Type>;
+type ReadySelf = Self<
+  Model,
+  Extract<State, { readonly _tag: 'Ready' }>,
+  typeof Message.Type,
+  typeof Props.Type
+>;
 
-/** cloudflared, Installing while it downloads, when that takes a while. */
-const install = (self: TunnelSelf, generation: number) =>
+/** `bytes` and `ms` as a person reads them: `12.4 MB, 40s`. */
+const progressOf = (bytes: number, ms: number) =>
+  `${(bytes / 1_000_000).toFixed(1)} MB, ${Math.round(ms / 1_000)}s`;
+
+/**
+ * cloudflared. One that takes a while is Downloading: every `downloadEvery`,
+ * for how long and how much has arrived. One waiting on another Connection's
+ * download hears of no bytes, so only its time rises.
+ */
+const getCloudflared = (self: TunnelSelf, generation: number) =>
   Effect.gen(function* () {
     const tunnels = yield* Tunnels;
-    const getting = yield* Effect.forkScoped(tunnels.cloudflared);
+    const startedAt = yield* Clock.currentTimeMillis;
+    let received = 0;
+    const getting = yield* Effect.forkScoped(
+      tunnels.cloudflared((bytes) =>
+        Effect.sync(() => {
+          received = bytes;
+        }),
+      ),
+    );
     const quick = yield* Fiber.await(getting).pipe(
-      Effect.timeoutOption(INSTALLING_AFTER),
+      Effect.timeoutOption(DOWNLOADING_AFTER),
     );
     if (Option.isSome(quick)) return yield* quick.value;
-    yield* Effect.log('Downloading cloudflared');
-    yield* self.send({ _tag: 'Installing', generation });
-    const binary = yield* Fiber.join(getting);
+    const telling = Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis;
+      const elapsed = now - startedAt;
+      yield* Effect.log(
+        `Downloading cloudflared: ${progressOf(received, elapsed)}`,
+      );
+      yield* self.send({ _tag: 'Downloading', generation, elapsed, received });
+    }).pipe(
+      Effect.andThen(Effect.sleep(tunnels.downloadEvery)),
+      Effect.forever,
+    );
+    // The race stops the telling first, so no word of it follows the outcome.
+    const binary = yield* Effect.raceFirst(Fiber.join(getting), telling);
     yield* self.send({ _tag: 'Opening', generation });
     return binary;
   });
 
 /** Holds the tunnel of `generation` until it closes or could not open, then asks for the next. */
-const keep = (self: TunnelSelf, generation: number) =>
+const tunnel = (self: TunnelSelf, generation: number) =>
   Effect.gen(function* () {
     const tunnels = yield* Tunnels;
     const { model } = yield* self.get;
     const opened = yield* Effect.result(
-      Effect.flatMap(install(self, generation), (binary) =>
+      Effect.flatMap(getCloudflared(self, generation), (binary) =>
         tunnels.open(model.port, binary),
       ),
     );
@@ -125,7 +160,7 @@ const keep = (self: TunnelSelf, generation: number) =>
       yield* Effect.logWarning('Could not open a tunnel', opened.failure);
       const { failure } = opened;
       yield* self.send({
-        _tag: 'OpenFailed',
+        _tag: 'Failed',
         generation,
         at: yield* Clock.currentTimeMillis,
         problem: failure instanceof Error ? failure.message : String(failure),
@@ -141,144 +176,165 @@ const keep = (self: TunnelSelf, generation: number) =>
     yield* self.send({ _tag: 'Lost', generation });
   }).pipe(Effect.scoped);
 
-/** Tells Connect Cloud where the tunnel stands now, and hands up what it answers. */
+/** Tells Connect Cloud where the tunnel stands now, with the key, and Sends what it answers, if it took the Report. */
 const report = (self: TunnelSelf) =>
   Effect.gen(function* () {
     const cloud = yield* Cloud;
-    const connection = yield* Connection;
-    const { state } = yield* self.get;
-    const wanted = yield* cloud.report(state);
-    if (wanted !== null) yield* connection.wanted(wanted);
+    const { state, props } = yield* self.get;
+    const releases = yield* cloud.report(state, props.key);
+    if (releases !== null) yield* self.send({ _tag: 'Answered', releases });
   });
 
-/** One beat: check the tunnel if there is one, then Report. */
-const beat = (self: TunnelSelf) =>
+/**
+ * Reports while SettingUp: at once, on each change of step or key, and every
+ * `Cloud.every` since the last. Reports go one at a time, each saying how it
+ * stands as it goes, so a slow Connect Cloud sees at most the one waiting.
+ */
+const reportSetup = (self: TunnelSelf) =>
+  Effect.flatMap(Cloud, ({ every }) =>
+    self.changes.pipe(
+      Stream.map(({ state, props }) => JSON.stringify([state, props.key])),
+      Stream.changes,
+      Stream.switchMap(() => Stream.tick(every)),
+      Stream.buffer({ capacity: 1, strategy: 'sliding' }),
+      Stream.runForEach(() => report(self)),
+    ),
+  );
+
+/**
+ * Reports while Ready: at once with the address, on each change of key so
+ * Connect Cloud learns it without waiting, and every `Cloud.every` after
+ * checking the tunnel. A check may take seconds, so it never holds up a new
+ * key; the Reports themselves go one at a time, so an older one cannot arrive
+ * after a newer one.
+ */
+const heartbeat = (self: ReadySelf) =>
   Effect.gen(function* () {
+    const { every } = yield* Cloud;
     const tunnels = yield* Tunnels;
-    const { model, state } = yield* self.get;
-    const url = addressOf(state);
-    if (url !== null) {
-      const check = yield* tunnels.check(url);
+    const oneAtATime = yield* Semaphore.make(1);
+    const reported = oneAtATime.withPermit(report(self));
+    const beat = Effect.gen(function* () {
+      const { model, state } = yield* self.get;
+      const check = yield* tunnels.check(state.url);
       if (!check.ok)
         yield* Effect.logWarning(
           `Tunnel check ${model.failures + 1}/${FAILURES_BEFORE_RESTART} failed: ${check.problem}`,
+        );
+      if (!check.ok && model.failures + 1 >= FAILURES_BEFORE_RESTART)
+        yield* Effect.logWarning(
+          'The tunnel is broken; restarting cloudflared',
         );
       yield* self.send({
         _tag: 'Checked',
         generation: model.generation,
         check,
       });
-      const after = yield* self.get;
-      if (after.model.generation !== model.generation)
-        yield* Effect.logWarning(
-          'The tunnel is broken; restarting cloudflared',
-        );
-    }
-    yield* report(self);
+      yield* reported;
+    });
+    yield* Effect.all(
+      [
+        self.changes.pipe(
+          Stream.map(({ props }) => props.key),
+          Stream.changes,
+          Stream.runForEach(() => reported),
+        ),
+        Effect.sleep(every).pipe(Effect.andThen(beat), Effect.forever),
+      ],
+      { concurrency: 'unbounded', discard: true },
+    );
   });
-
-/** Reports each change the app waits on as it happens; what a check found waits for its beat. */
-const told = (self: TunnelSelf) =>
-  self.changes.pipe(
-    // `changes` starts with the state now, which the first beat Reports.
-    Stream.drop(1),
-    Stream.map(({ state }) => state),
-    Stream.filter(({ _tag }) => _tag !== 'Reachable' && _tag !== 'Unreachable'),
-    Stream.changesWith(
-      (a, b) => a._tag === b._tag && addressOf(a) === addressOf(b),
-    ),
-    Stream.runForEach(() => report(self)),
-  );
-
-/** Tells the Connection the tunnel's address each time it changes. */
-const address = (self: TunnelSelf) =>
-  Effect.flatMap(Connection, (connection) =>
-    self.changes.pipe(
-      Stream.map(({ state }) => addressOf(state)),
-      Stream.changes,
-      Stream.runForEach(connection.address),
-    ),
-  );
 
 /** The next generation: the last tunnel closes, and another opens. */
 const restarted = (model: Model) => ({
   model: { ...model, generation: model.generation + 1, failures: 0 },
-  state: { _tag: 'Opening' } as const,
+  state: { _tag: 'SettingUp', step: { _tag: 'Opening' } } as const,
 });
 
 /** `then`, for a word from the tunnel that is current; a word from one already replaced changes nothing. */
 const ofTunnel = <A>(model: Model, generation: number, then: () => A) =>
   generation === model.generation ? then() : {};
 
+/** Which step SettingUp is at, for a word from the tunnel that is current. */
+const atStep = (model: Model, generation: number, step: SetupStep) =>
+  ofTunnel(model, generation, () => ({
+    state: { _tag: 'SettingUp', step } as const,
+  }));
+
 export const ActorTunnel = Actor.define('Tunnel', {
-  requires: [Cloud, Connection, Tunnels],
+  requires: [Cloud, Tunnels],
   input: Input,
+  props: Props,
   model: Model,
   state: State,
   message: Message,
+  emits: {
+    /** Connect Cloud wants these Releases run. */
+    Wanted: { releases: Schema.Record(Schema.String, Release) },
+  },
 }).build({
   init: ({ port }) => ({
     model: { port, generation: 0, failures: 0 },
-    state: { _tag: 'Opening' },
+    state: { _tag: 'SettingUp', step: { _tag: 'Opening' } },
   }),
   on: {
-    Installing: ({ generation }, { model }) =>
-      ofTunnel(model, generation, () => ({
-        state: { _tag: 'Installing' } as const,
-      })),
-    Opening: ({ generation }, { model }) =>
-      ofTunnel(model, generation, () => ({
-        state: { _tag: 'Opening' } as const,
-      })),
-    OpenFailed: ({ generation, at, problem }, { model }) =>
-      ofTunnel(model, generation, () => ({
-        state: { _tag: 'OpenFailed', at, problem } as const,
-      })),
-    Up: ({ generation, url }, { model }) =>
-      ofTunnel(model, generation, () => ({
-        model: { ...model, failures: 0 },
-        state: { _tag: 'Unchecked', url } as const,
-      })),
     Lost: ({ generation }, { model }) =>
       ofTunnel(model, generation, () => restarted(model)),
-    Checked: ({ generation, check }, { model, state }) => {
-      const url = addressOf(state);
-      if (generation !== model.generation || url === null) return {};
-      const failures = check.ok ? 0 : model.failures + 1;
-      if (failures >= FAILURES_BEFORE_RESTART) return restarted(model);
-      return {
-        model: { ...model, failures },
-        state: check.ok
-          ? ({ _tag: 'Reachable', url, at: check.at } as const)
-          : ({
-              _tag: 'Unreachable',
-              url,
-              at: check.at,
-              problem: check.problem ?? 'Unknown',
-            } as const),
-      };
-    },
+    Answered: ({ releases }) => ({ emit: { _tag: 'Wanted', releases } }),
   },
   workers: {
-    keep: {
+    tunnel: {
       each: ({ model }) => [String(model.generation)],
-      run: (self, generation) => keep(self, Number(generation)),
+      run: (self, generation) => tunnel(self, Number(generation)),
     },
-    beat: {
-      run: (self) =>
-        Effect.flatMap(Cloud, ({ every }) =>
-          Effect.repeat(beat(self), Schedule.spaced(every)),
-        ),
-    },
-    told: { run: told },
-    address: { run: address },
   },
   states: {
-    Installing: {},
-    Opening: {},
-    OpenFailed: {},
-    Unchecked: {},
-    Reachable: {},
-    Unreachable: {},
+    SettingUp: {
+      on: {
+        Downloading: ({ generation, elapsed, received }, { model }) =>
+          atStep(model, generation, {
+            _tag: 'Downloading',
+            elapsed,
+            received,
+          }),
+        Opening: ({ generation }, { model }) =>
+          atStep(model, generation, { _tag: 'Opening' }),
+        Failed: ({ generation, at, problem }, { model }) =>
+          atStep(model, generation, { _tag: 'Failed', at, problem }),
+        Up: ({ generation, url }, { model }) =>
+          ofTunnel(model, generation, () => ({
+            model: { ...model, failures: 0 },
+            state: {
+              _tag: 'Ready',
+              url,
+              check: { _tag: 'Unchecked' },
+            } as const,
+          })),
+      },
+      workers: { reportSetup: { run: reportSetup } },
+    },
+    Ready: {
+      on: {
+        Checked: ({ generation, check }, { model, state }) => {
+          if (generation !== model.generation) return {};
+          const failures = check.ok ? 0 : model.failures + 1;
+          if (failures >= FAILURES_BEFORE_RESTART) return restarted(model);
+          return {
+            model: { ...model, failures },
+            state: {
+              ...state,
+              check: check.ok
+                ? ({ _tag: 'Reachable', at: check.at } as const)
+                : ({
+                    _tag: 'Unreachable',
+                    at: check.at,
+                    problem: check.problem ?? 'Unknown',
+                  } as const),
+            },
+          };
+        },
+      },
+      workers: { heartbeat: { run: heartbeat } },
+    },
   },
 });

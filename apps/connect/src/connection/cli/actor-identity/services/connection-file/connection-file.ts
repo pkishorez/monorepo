@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { hostname } from 'node:os';
 import { Data, Effect } from 'effect';
 import {
@@ -6,13 +7,12 @@ import {
   removeConnection,
   writeConnection,
 } from './record.js';
-import { newConnectionId, newConnectionKey } from './secrets.js';
 
 /*
  * Which Connection this is. Its `connection.json` is one Connection, signed
  * in as one User to one Connect Cloud: the first `serve` makes the
- * Connection, with a random id and Connection Key and the name it is given,
- * else the host's name, and every later start finds it again. The host's
+ * Connection, with a random id and the name it is given, else the host's
+ * name, and every later start finds it again. The host's
  * name is cut at its first dot, so `Ada-MacBook.local` is `Ada-MacBook`; a
  * name kept with the whole of it takes the short one. A different User
  * signing in is refused, and so is another Connect Cloud; `remove` forgets
@@ -94,16 +94,15 @@ export const claim = (
           startedAt: options.startedAt,
         }
       : {
-          id: newConnectionId(),
+          id: randomUUID(),
           name: (options.firstName ?? hostName()).slice(0, 64),
-          key: newConnectionKey(),
           owner: options.owner,
           cloud: options.cloud,
           startedAt: options.startedAt,
         };
     if (JSON.stringify(connection) !== JSON.stringify(found))
       yield* writeConnection(options.file, connection);
-    return { id: connection.id, name: connection.name, key: connection.key };
+    return { id: connection.id, name: connection.name };
   });
 
 /** The Connection kept, and its owner, without making one; null when there is none yet. */

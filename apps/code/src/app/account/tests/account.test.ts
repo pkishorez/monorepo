@@ -19,6 +19,7 @@ import { CodeClient, CodeClients } from '@kestack/connect/code';
 import {
   CloudClient,
   type Connection as ConnectionSchema,
+  KEY_EXPIRED,
   PLUGIN_MISMATCH,
 } from '@kestack/connect/cloud';
 import { OnOutdated } from '@kestack/std-toolkit/replica';
@@ -57,6 +58,7 @@ import {
 } from '../actor.ts';
 import { PLUGIN_CODE } from '../connection/link/index.ts';
 import {
+  addressAt,
   borrowing,
   byConnection,
   Sockets,
@@ -80,7 +82,9 @@ import { SetupShelf } from '../connection/commands.ts';
  * elsewhere, another active, or not signed in here. It never moves by
  * itself: only a switch asked in this tab, from the header or the sign-in
  * screen, goes to the new Account's home. Its sockets are its
- * Connections' own, closed as it leaves Active.
+ * Connections' own, closed as it leaves Active. A socket refused with an
+ * expired Connection Key alone asks the list at once, and connects again with
+ * the key listed.
  */
 
 type Connection = typeof ConnectionSchema.Type;
@@ -96,8 +100,8 @@ const connection = (
   version: '0.0.1',
   status:
     url === null
-      ? { _tag: 'Opening' }
-      : { _tag: 'Reachable', url, at: lastSeen },
+      ? { _tag: 'SettingUp', step: { _tag: 'Opening' } }
+      : { _tag: 'Ready', url, check: { _tag: 'Reachable', at: lastSeen } },
   lastSeen,
   wanted: {},
   minConnect: null,
@@ -1300,5 +1304,188 @@ describe('the Account mismatched', () => {
         expect(moves()).toBe(0);
       }),
     );
+  });
+
+  it('is not mismatched by a socket closed with an expired key', async () => {
+    const { app: starting, watches, moves } = started(NEWER);
+    await run(
+      Effect.gen(function* () {
+        const app = yield* starting;
+        yield* wait();
+        watches.get('m1')?.closed?.({
+          code: KEY_EXPIRED,
+          reason: 'key expired',
+        });
+        yield* wait();
+        expect(linksOf(app).mismatched).toEqual({});
+        expect(moves()).toBe(0);
+      }),
+    );
+  });
+});
+
+describe('the Account, its Connection Key expired', () => {
+  /** The Account's link to `m1`. */
+  const linkOf = (app: Running<unknown>) =>
+    (list(app).model as { readonly links: Readonly<Record<string, string>> })
+      .links.m1;
+
+  it('asks Connect Cloud at once, once, though a link that only drops waits', async () => {
+    const down = await Effect.runPromise(
+      SubscriptionRef.make<ReadonlySet<string>>(new Set()),
+    );
+    const { OwnerLive, layer, over, lists, watches } = world(
+      Effect.succeed([connection('m1', Date.now())]),
+      down,
+    );
+    await run(
+      Effect.gen(function* () {
+        const app = yield* start({ OwnerLive, layer, over });
+        yield* wait();
+        expect(linkOf(app)).toBe('linked');
+        const first = lists();
+        // Only a drop: nothing is asked until the recheck is due.
+        yield* SubscriptionRef.set(down, new Set(['m1']));
+        watches.get('m1')?.closed?.({ code: 1006, reason: '' });
+        yield* wait();
+        expect(linkOf(app)).toBe('relinking');
+        expect(lists()).toBe(first);
+        yield* SubscriptionRef.set(down, new Set());
+        yield* wait();
+        expect(linkOf(app)).toBe('linked');
+        expect(lists()).toBe(first);
+        // Its key refused: relinking, though the socket is open, and asked now.
+        const close = { code: KEY_EXPIRED, reason: 'key expired' };
+        watches.get('m1')?.closed?.(close);
+        yield* wait();
+        expect(linkOf(app)).toBe('relinking');
+        expect(lists()).toBe(first + 1);
+        // Refused again before any answer: no more asked.
+        watches.get('m1')?.closed?.(close);
+        yield* wait();
+        expect(lists()).toBe(first + 1);
+        // Answered: linked; a later refusal asks again.
+        watches.get('m1')?.answered?.();
+        yield* wait();
+        expect(linkOf(app)).toBe('linked');
+        watches.get('m1')?.closed?.(close);
+        yield* wait();
+        expect(lists()).toBe(first + 2);
+      }),
+    );
+  });
+
+  it('leaves an ask already out to answer', async () => {
+    const answer = await Effect.runPromise(
+      Deferred.make<ReadonlyArray<Connection>>(),
+    );
+    const { OwnerLive, layer, over, lists, watches } = world(
+      Deferred.await(answer),
+    );
+    await run(
+      Effect.gen(function* () {
+        yield* (yield* Cache).write(ListShelf, a1, [connection('m1', 1)]);
+        yield* start({ OwnerLive, layer, over });
+        yield* wait();
+        expect(lists()).toBe(1);
+        watches.get('m1')?.closed?.({
+          code: KEY_EXPIRED,
+          reason: 'key expired',
+        });
+        yield* wait();
+        expect(lists()).toBe(1);
+      }),
+    );
+  });
+
+  /**
+   * A Connection behind a stand-in WebSocket, the app's own sockets over it: it
+   * accepts each socket, and closes one offering a key other than `current` at
+   * once with `KEY_EXPIRED`, so a browser sees it open, then close; it answers
+   * any other. It says each key offered, and when it closed a socket.
+   */
+  const serving = (current: string) => {
+    const dials: Array<string | undefined> = [];
+    const closes: Array<number> = [];
+    return {
+      dials,
+      closes,
+      WebSocket: class extends EventTarget {
+        readyState = 0;
+        binaryType = 'blob';
+        constructor(_url: string, protocols?: ReadonlyArray<string>) {
+          super();
+          const key = protocols
+            ?.find((each) => each.startsWith('key.'))
+            ?.slice('key.'.length);
+          dials.push(key);
+          setTimeout(() => {
+            this.readyState = 1;
+            this.dispatchEvent(new Event('open'));
+            if (key === current) {
+              this.dispatchEvent(
+                new MessageEvent('message', { data: '{"_tag":"Pong"}' }),
+              );
+              return;
+            }
+            setTimeout(() => {
+              closes.push(Date.now());
+              this.finish(KEY_EXPIRED, 'key expired');
+            }, 1);
+          }, 1);
+        }
+        send() {}
+        close() {
+          this.finish(1000, '');
+        }
+        private finish(code: number, reason: string) {
+          if (this.readyState === 3) return;
+          this.readyState = 3;
+          this.dispatchEvent(
+            Object.assign(new Event('close'), { code, reason }),
+          );
+        }
+      },
+    };
+  };
+
+  it('asks Connect Cloud again without waiting, and reconnects with the new key', async () => {
+    const { dials, closes, WebSocket } = serving('key-new');
+    vi.stubGlobal('WebSocket', WebSocket);
+    // Connect Cloud knows only the old key at first, then the new one.
+    const asked: Array<number> = [];
+    const { layer, over } = world(
+      Effect.sync(() => {
+        asked.push(Date.now());
+        return [
+          {
+            ...connection('m1', Date.now()),
+            key: asked.length === 1 ? 'key-old' : 'key-new',
+          },
+        ];
+      }),
+    );
+    const OwnerLive = OwnerOf(
+      CodeClients.layer.pipe(Layer.provide(addressAt(PLUGIN_CODE))) as never,
+      undefined,
+    );
+    await run(
+      Effect.gen(function* () {
+        const app = yield* start({ OwnerLive, layer, over });
+        yield* wait(100);
+        // The key listed first was refused, and the list asked at once.
+        expect(dials).toEqual(['key-old']);
+        expect(closes).toHaveLength(1);
+        expect(asked).toHaveLength(2);
+        expect((asked[1] ?? Infinity) - (closes[0] ?? 0)).toBeLessThan(
+          RECHECK.fast / 10,
+        );
+        // The socket's next connect offers the key as listed now, and stays.
+        yield* wait(600);
+        expect(dials).toEqual(['key-old', 'key-new']);
+        expect(closes).toHaveLength(1);
+        expect(linkOf(app)).toBe('linked');
+      }),
+    ).finally(() => vi.unstubAllGlobals());
   });
 });

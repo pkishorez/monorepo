@@ -65,7 +65,7 @@ export const account = (options: AccountOptions) =>
           signInAgain: session.signInAgain,
         }),
       };
-      return { id: connection.id, key: connection.key };
+      return { id: connection.id };
     });
 
     /** What only runs once signed in, which Identity sees to. */
@@ -83,8 +83,8 @@ export const account = (options: AccountOptions) =>
       signInAgain: once(({ signInAgain }) => signInAgain),
       backoff: FIRST_BACKOFF,
       every: `${options.heartbeat} seconds`,
-      report: (status: ConnectionStatus) =>
-        once(({ report }) => report(status)),
+      report: (status: ConnectionStatus, key: string) =>
+        once(({ report }) => report(status, key)),
       signOut: Effect.suspend(() => signedIn?.signOut ?? Effect.void),
     } as const;
   });

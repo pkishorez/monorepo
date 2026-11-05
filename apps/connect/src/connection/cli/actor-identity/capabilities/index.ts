@@ -4,4 +4,4 @@ export {
   type Identified,
   type Reported,
 } from './cloud-account.js';
-export { Identity } from './identity.js';
+export { type Answers, Control } from './control.js';

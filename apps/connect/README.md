@@ -49,6 +49,8 @@ Every value an RPC sends is an ESchema, so the newer side reads what an older on
 | `CodeClients.on`         | Runs an Effect that needs `CodeClient` against one Connection, by its id.                                                                            |
 | `CodeClients.stream`     | Runs a Stream that needs `CodeClient` against one Connection, its socket held while it runs.                                                         |
 | `CodeClients.link`       | Stream of one Connection's Link now and on each change.                                                                                              |
+| `CodeClients.mismatch`   | Stream of which Release a Connection last closed its socket saying it runs, until a socket to it is answered.                                        |
+| `CodeClients.expired`    | Stream of whether a Connection last closed its socket with `KEY_EXPIRED`, until a socket to it is answered.                                          |
 | `link`                   | Stream of the Link of the `CodeClient` in context: `linking`, `linked` or `relinking`.                                                               |
 | `CodeReplica`            | The Replica of each Connection's records, keyed by Connection id: `projects`, `sessions` and `messages`.                                             |
 | `CodeReplicaLive`        | How `CodeReplica` syncs: every Project and Session, and a Session's Messages while a Query filters on its id.                                        |
@@ -107,20 +109,23 @@ Every value an RPC sends is an ESchema, so the newer side reads what an older on
 
 What an App imports to reach Connect Cloud: its client, and the Connections it lists.
 
-| Export              | What it does                                                                                                                        |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `CloudClient`       | Service holding the `CloudApi` client over HTTP.                                                                                    |
-| `CloudClient.layer` | Layer of `CloudClient` for Connect Cloud's base URL; the caller's auth signs every call.                                            |
-| `Connection`        | ESchema of a Connection as its User sees it: its last Report, its Last Seen, each Plugin's latest Release, and the Minimum Connect. |
-| `ConnectionStatus`  | ESchema of how far a Connection's tunnel got: installing cloudflared, opening, failed, or up.                                       |
-| `addressOf`         | The public address a Connection Status is up at, or null.                                                                           |
-| `isOutdated`        | Whether a Connection runs a `ke-connect` older than the Minimum Connect, and so should be updated.                                  |
-| `pluginPath`        | The path a Connection serves a Plugin at one Release: `/<name>/<sha256>/rpc`.                                                       |
-| `PLUGIN_MISMATCH`   | The close code, 4409, of a socket that asked for a Release the Connection does not run.                                             |
-| `PluginMismatch`    | ESchema of that close's reason: the hash the Connection runs, or null.                                                              |
-| `mismatchOf`        | What a socket's close code and reason say of the Release asked for: a `PluginMismatch`, or null for any other close.                |
-| `VersionGap`        | Error of every `CodeClient` and `CloudClient` call that failed because one side is older: `client` or `server`.                     |
-| `authInfo`          | How a Connection signs in to the Connect Cloud at a base URL, from its `/auth`; fails when it cannot be asked.                      |
+| Export              | What it does                                                                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CloudClient`       | Service holding the `CloudApi` client over HTTP.                                                                                                                    |
+| `CloudClient.layer` | Layer of `CloudClient` for Connect Cloud's base URL; the caller's auth signs every call.                                                                            |
+| `Connection`        | ESchema of a Connection as its User sees it: its last Report, its Last Seen, each Plugin's latest Release, and the Minimum Connect.                                 |
+| `ConnectionStatus`  | ESchema of where a Connection's tunnel stands: `SettingUp` at a step (`Downloading`, `Opening` or `Failed`), or `Ready` at an address with how its last check went. |
+| `DISPLAY_NAME_MAX`  | The longest Display Name, in characters.                                                                                                                            |
+| `addressOf`         | The public address a Connection Status is up at, or null.                                                                                                           |
+| `isOutdated`        | Whether a Connection runs a `ke-connect` older than the Minimum Connect, and so should be updated.                                                                  |
+| `pluginPath`        | The path a Connection serves a Plugin at one Release: `/<name>/<sha256>/rpc`.                                                                                       |
+| `PLUGIN_MISMATCH`   | The close code, 4409, of a socket that asked for a Release the Connection does not run.                                                                             |
+| `PluginMismatch`    | ESchema of that close's reason: the hash the Connection runs, or null.                                                                                              |
+| `mismatchOf`        | What a socket's close code and reason say of the Release asked for: a `PluginMismatch`, or null for any other close.                                                |
+| `KEY_EXPIRED`       | The close code, 4401, of a socket that offered a key other than the Connection Key.                                                                                 |
+| `keyExpired`        | Whether a socket's close says its key expired, so the App should ask Connect Cloud for the list again.                                                              |
+| `VersionGap`        | Error of every `CodeClient` and `CloudClient` call that failed because one side is older: `client` or `server`.                                                     |
+| `authInfo`          | How a Connection signs in to the Connect Cloud at a base URL, from its `/auth`; fails when it cannot be asked.                                                      |
 
 ### `./worker`
 
@@ -153,9 +158,10 @@ ke-connect list                  # every Connection: running or not, its address
 ke-connect remove work           # stops it, forgets it in Connect Cloud, signs out, deletes its folders
 ```
 
-- It signs in through the Auth Worker that Connect Cloud's `/auth` names, and keeps the Connection's id, Connection Key and Connect Cloud in `connection.json`; serving it against another Connect Cloud is refused. It keeps what `/auth` said in `auth.json`, so a Connection that signed in before starts while Connect Cloud cannot be reached, or does not answer in five seconds: it signs in as last time, runs its Plugins at the Releases it last wanted, and keeps sending its Heartbeat until Connect Cloud answers. A first Sign-in needs Connect Cloud. Signing in again, once Connect Cloud refuses the Sign-in, asks `/auth` first, so an Auth Worker it moved to is the one used, and kept.
-- It runs each Plugin at the Release Connect Cloud names, or the one it last named while Connect Cloud cannot be reached, passes `/<plugin>/<sha256>/rpc` to it while it runs that Release and closes any other with 4409, asks every caller for the Connection Key, and opens a cloudflared tunnel to its port; any other path is 404.
-- Its Heartbeat reports the tunnel's address and how it stands every 15 seconds. A Sign-in Connect Cloud says is gone stops the Connection and its Plugins until signed in again, which an outage never does. A forgotten Connection signs out and stops; one below the Minimum Connect stops, saying how to update.
+- It signs in through the Auth Worker that Connect Cloud's `/auth` names, and keeps the Connection's id and Connect Cloud in `connection.json`; serving it against another Connect Cloud is refused. It keeps what `/auth` said in `auth.json`, so a Connection that signed in before starts while Connect Cloud cannot be reached, or does not answer in five seconds: it signs in as last time, and keeps sending its Heartbeat until Connect Cloud answers. Its Plugins wait for that answer. A first Sign-in needs Connect Cloud. Signing in again, once Connect Cloud refuses the Sign-in, asks `/auth` first, so an Auth Worker it moved to is the one used, and kept.
+- It runs each Plugin Connect Cloud names, at the Release it names, or the one it last named while Connect Cloud cannot be reached, passes `/<plugin>/<sha256>/rpc` to it while it runs that Release and closes any other with 4409, asks every caller for the Connection Key, and opens a cloudflared tunnel to its port; any other path is 404.
+- Its Connection Key is new at each start and every hour, and is kept only in memory. A socket already open stays open. A new socket offering any other key closes with 4401.
+- Its Heartbeat reports the tunnel's address and how it stands every 15 seconds, and at once when the Connection Key changes. A Sign-in Connect Cloud says is gone stops the Connection and its Plugins until signed in again, which an outage never does. A forgotten Connection signs out and stops; one below the Minimum Connect stops, saying how to update.
 
 ### Talk to a Connection from a browser
 
@@ -166,13 +172,16 @@ import { Effect, Layer, Schema } from 'effect';
 import { Actor, Runtime } from '@kestack/kabuki';
 import { Query, Replicas } from '@kestack/std-toolkit/replica';
 import { Store } from '@kestack/std-toolkit/replica/idb';
-import { addressOf, CloudClient } from '@kestack/connect/cloud';
+import { addressOf, CloudClient, pluginPath } from '@kestack/connect/cloud';
 import {
   CodeClients,
   CodeReplica,
   CodeReplicaLive,
   ConnectionAddress,
 } from '@kestack/connect/code';
+
+/** The code Plugin's Release this App was built with. */
+declare const release: string;
 
 const address = Layer.effect(
   ConnectionAddress,
@@ -182,7 +191,10 @@ const address = Layer.effect(
         Effect.map(Effect.orDie(cloud.List({})), (connections) => {
           const connection = connections.find(({ id }) => id === connectionId)!;
           const url = addressOf(connection.status)!.replace('https', 'wss');
-          return { url: `${url}/code/rpc`, key: connection.key };
+          return {
+            url: `${url}${pluginPath('code', release)}`,
+            key: connection.key,
+          };
         }),
     }),
   ),
@@ -219,7 +231,7 @@ Runtime.start(
 ```
 
 - `CloudClient` calls are signed by the App's auth-toolkit `browser()` Accounts, provided above it.
-- Each Connection gets its own socket, opened at the address `ConnectionAddress` gives on each connect, so a Connection back at a new tunnel address is reached there.
+- Each Connection gets its own socket, opened at the address `ConnectionAddress` gives on each connect, so a Connection back at a new tunnel address, or with a new Connection Key, is reached with what is listed now.
 - `CodeClients.on(connectionId, …)` runs a command, such as `addProject`, against one Connection.
 
 ### Run Connect Cloud on a Worker
