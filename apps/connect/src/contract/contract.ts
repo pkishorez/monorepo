@@ -3,15 +3,15 @@ import { Rpc, RpcGroup } from 'effect/rpc';
 import { Authz, type Guarded } from '@kestack/auth-toolkit';
 import { PluginState } from '@kestack/cli-platform/plugins/contract';
 import { ESchema, ValueESchema } from '@kestack/std-toolkit/eschema';
-import { belowMinimum } from './releases.js';
+import { belowMinimum, ReleaseStanding } from './releases.js';
 
 /*
  * What all three parts of Connect agree on: Connect Cloud, the Connect CLI and
  * every App. Connect Cloud's RPC is here: every call is the signed-in caller's
  * own, so nothing names a User. A Connection reports itself on every Heartbeat;
- * an App lists the caller's Connections, renames one and forgets one. A
- * Connection forgotten stays forgotten: its Sign-in may never report it again
- * (ADR 0004).
+ * an App lists the caller's Connections, renames one and forgets one, and asks
+ * where a Release stands, its Release Standing (ADR 0006). A Connection
+ * forgotten stays forgotten: its Sign-in may never report it again (ADR 0004).
  *
  * Besides the RPC, Connect Cloud answers `GET /auth` with how a Connection signs
  * in, so `serve` needs Connect Cloud's address alone. Both servers, Connect
@@ -40,6 +40,7 @@ export {
   PluginMismatch,
   RELEASE_PATH,
   releaseKey,
+  ReleaseStanding,
 } from './releases.js';
 export { VersionGap, versionedClient } from './version-gap.js';
 
@@ -311,6 +312,12 @@ const RenamePayload = ESchema.make('RenamePayload', {
   ),
 }).build();
 
+/** What `Standing` takes: a Plugin, and the hash of one of its Releases. */
+const StandingPayload = ESchema.make('StandingPayload', {
+  plugin: Bounded(64),
+  hash: Bounded(64),
+}).build();
+
 const Rpcs = RpcGroup.make(
   Rpc.make('Report', {
     payload: ConnectionReport.schema,
@@ -328,6 +335,10 @@ const Rpcs = RpcGroup.make(
   Rpc.make('Rename', {
     payload: RenamePayload.schema,
     success: Schema.Void,
+  }),
+  Rpc.make('Standing', {
+    payload: StandingPayload.schema,
+    success: ReleaseStanding.schema,
   }),
 );
 

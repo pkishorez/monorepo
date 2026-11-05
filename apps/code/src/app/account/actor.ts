@@ -1,10 +1,6 @@
 import { Effect, Layer, Queue, Schema, Stream } from 'effect';
 import { Accounts, type AccountsState } from '@kestack/auth-toolkit/client';
-import {
-  CloudClient,
-  Connection,
-  PluginMismatch,
-} from '@kestack/connect/cloud';
+import { CloudClient, Connection } from '@kestack/connect/cloud';
 import { Actor, Command } from '@kestack/kabuki';
 import { Page, Router } from '@kestack/kabuki/routing';
 import { OnOutdated } from '@kestack/std-toolkit/replica';
@@ -18,7 +14,6 @@ import {
   Storage,
 } from '../storage/index.ts';
 import {
-  behindAll,
   Connection as ConnectionActor,
   moves,
   reach,
@@ -81,13 +76,10 @@ import { Settings } from './pages/settings/index.ts';
  *             tab's never deletes a Connection that tab has just listed and
  *             reads, and a list that failed deletes nothing either.
  * 4. Links    one Connection each (`connection/`), which opens its own
- *             database, sync Store and socket, and says its link: one the
- *             Connection closed with `PLUGIN_MISMATCH`, as it runs another
- *             Release of the code Plugin than this Code calls, is kept as
- *             Mismatched until one is answered; who is behind is what
- *             Connect Cloud wants it to run (`link/reach/`): the
- *             Connection, Updating, while its Link keeps relinking; or
- *             this Code, Stale, which moves to its newest build.
+ *             database, sync Store and socket, and says its link, and, once it
+ *             closed one with `PLUGIN_MISMATCH`, what Connect Cloud said of
+ *             this Code's Release of the code Plugin (`link/reach/`). This Code
+ *             found Stale on any of them moves to its newest build, once.
  * 5. Recheck  while a listed Connection's link is not up, Connect Cloud is
  *             asked again: every few seconds for the first minute, then
  *             every half a minute, until every link is up; a link that
@@ -278,8 +270,6 @@ const Model = Schema.Struct({
   ),
   /** Each listed Connection's link, by id. */
   links: Schema.Record(Schema.String, Link),
-  /** Each listed Connection that closed its socket running another Release of the code Plugin, by id, until a socket to it is answered. */
-  mismatched: Schema.Record(Schema.String, PluginMismatch.schema),
   /** How many times Connect Cloud was asked again since every link was last up. */
   rechecks: Schema.Finite,
   /** What each Connection said of itself, by id. */
@@ -294,7 +284,6 @@ const fresh = {
   checked: false,
   forgetting: null,
   links: {},
-  mismatched: {},
   rechecks: 0,
   said: {},
 } satisfies Partial<Model>;
@@ -352,13 +341,9 @@ export const fetching = (model: Model) => copying.asking(model.list).length > 0;
 export const anyDown = (model: Model) =>
   idsOf(model).some((id) => model.links[id] !== 'linked');
 
-/** Whether `after` finds this Code Stale on a Connection `before` did not: it moves to its newest build. */
-const newlyStale = (before: Model, after: Model) => {
-  const was = behindAll(before.list.value, before.mismatched);
-  return Object.entries(behindAll(after.list.value, after.mismatched)).some(
-    ([id, behind]) => behind === 'Stale' && was[id] !== 'Stale',
-  );
-};
+/** Whether a Connection's answer found this Code Stale: it moves to its newest build. */
+const stale = ({ said }: Model) =>
+  Object.values(said).some(({ standing }) => standing?._tag === 'Older');
 
 const delayOf = (rechecks: number) =>
   rechecks < RECHECK.fastFor ? RECHECK.fast : RECHECK.slow;
@@ -636,9 +621,6 @@ export const accountWith = (to: typeof reach) =>
           model: next,
           command: [
             keepList({ accountId, connections }),
-            // 4. Links: Connect Cloud now wants another Release than this
-            // Code calls, of a Connection that refused it.
-            ...(newlyStale(model, next) ? [toNewest({})] : []),
             ...(model.fetchedAt === null
               ? [
                   pruneUnlisted({
@@ -673,19 +655,13 @@ export const accountWith = (to: typeof reach) =>
           rechecks: model.rechecks + 1,
         },
       }),
-      // 4. Links: what a Connection says, its link and its mismatch with it,
-      // kept until a socket is answered; this Code found Stale moves to its
-      // newest build.
+      // 4. Links: what a Connection says, its link with it; this Code found
+      // Stale moves to its newest build.
       Said: ({ connectionId, said }, { model }) => {
-        const { [connectionId]: _was, ...rest } = model.mismatched;
         const next = {
           ...model,
           said: { ...model.said, [connectionId]: said },
           links: { ...model.links, [connectionId]: said.link },
-          mismatched:
-            said.mismatch === null
-              ? rest
-              : { ...rest, [connectionId]: said.mismatch },
         };
         const up = anyDown(next) ? next : { ...next, rechecks: 0 };
         // 5. Recheck: a Connection whose key just expired asks at once. An
@@ -699,7 +675,7 @@ export const accountWith = (to: typeof reach) =>
             expired && !fetching(rechecked)
               ? { ...rechecked, list: copying.ask(rechecked.list) }
               : rechecked,
-          ...(newlyStale(model, up) ? { command: toNewest({}) } : {}),
+          ...(stale(next) && !stale(model) ? { command: toNewest({}) } : {}),
         };
       },
       // 6. Forget

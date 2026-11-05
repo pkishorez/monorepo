@@ -1,5 +1,8 @@
+import { readFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Effect, Layer } from 'effect';
 import { RpcClient } from 'effect/rpc';
 import { describe, expect, it } from 'vitest';
@@ -159,6 +162,95 @@ describe('its server', () => {
         ),
       ),
     30_000,
+  );
+
+  it(
+    'keeps passing the Release it runs while the next one downloads, and closes it only once that one runs',
+    () =>
+      Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const ping = release();
+            const next = release('// next\n');
+            const content = readFileSync(fileURLToPath(next.url));
+            // The next Release's file, half sent until the test lets it go.
+            let letGo = () => {};
+            const held = new Promise<void>((done) => (letGo = done));
+            let downloading = false;
+            const files = createServer((_, response) => {
+              downloading = true;
+              response.writeHead(200, { 'content-length': content.length });
+              response.write(content.subarray(0, 10));
+              void held.then(() => response.end(content.subarray(10)));
+            });
+            yield* Effect.acquireRelease(
+              Effect.promise(
+                () =>
+                  new Promise<void>((done) =>
+                    files.listen(0, '127.0.0.1', () => done()),
+                  ),
+              ),
+              () => Effect.sync(() => files.close()),
+            );
+            const at = `http://127.0.0.1:${(files.address() as AddressInfo).port}/next.mjs`;
+            let wanted = ping;
+            const { host } = fake({
+              healthy: () => true,
+              answer: () => ({ ping: wanted }),
+            });
+            const { root, listening } = yield* start(host);
+            yield* eventually(
+              () =>
+                expect(root().model.plugins['ping']).toEqual({
+                  _tag: 'Running',
+                  hash: ping.hash,
+                }),
+              20_000,
+            );
+            const { port, key } = listening();
+            wanted = { hash: next.hash, url: at };
+            yield* eventually(() => expect(downloading).toBe(true), 20_000);
+            // The Release before is still the one running: passed.
+            const context = yield* Layer.build(
+              client(Ping, {
+                url: `ws://127.0.0.1:${port}${pluginPath('ping', ping.hash)}`,
+                protocols: ['ke-connect', `key.${key}`],
+              }),
+            );
+            const api = yield* Effect.provideContext(
+              RpcClient.make(Ping),
+              context,
+            );
+            expect(yield* api.ping()).toBe('pong');
+            expect(
+              yield* Effect.promise(() =>
+                closeOf(port, pluginPath('ping', next.hash), key),
+              ),
+            ).toEqual({
+              code: PLUGIN_MISMATCH,
+              reason: mismatchReason(ping.hash),
+            });
+            letGo();
+            yield* eventually(
+              () =>
+                expect(root().model.plugins['ping']).toEqual({
+                  _tag: 'Running',
+                  hash: next.hash,
+                }),
+              20_000,
+            );
+            expect(
+              yield* Effect.promise(() =>
+                closeOf(port, pluginPath('ping', ping.hash), key),
+              ),
+            ).toEqual({
+              code: PLUGIN_MISMATCH,
+              reason: mismatchReason(next.hash),
+            });
+          }),
+        ),
+      ),
+    60_000,
   );
 
   it('closes with 4409 and no hash while the Plugin runs none yet', () =>

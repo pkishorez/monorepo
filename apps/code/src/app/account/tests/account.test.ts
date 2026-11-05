@@ -61,6 +61,7 @@ import {
   addressAt,
   borrowing,
   byConnection,
+  RELINK_SLOWLY,
   Sockets,
 } from '../connection/link/reach/index.ts';
 import { ListShelf } from '../commands.ts';
@@ -197,6 +198,12 @@ const world = (
   /** Each sign-in asked, with its options. */
   const signIns: Array<unknown> = [];
   let lists = 0;
+  /** What Connect Cloud says of this Code's Release, and how many times it was asked. */
+  const standing = {
+    answer: (): Effect.Effect<unknown, unknown> =>
+      Effect.succeed({ _tag: 'Latest' }),
+    asks: 0,
+  };
   /** How many reads of a job's output were opened, and how many ended. */
   const output = { opened: 0, ended: 0 };
   /** What each Connection's sockets tell the app as they answer and close. */
@@ -291,6 +298,11 @@ const world = (
         ),
       Forget: ({ id }: { readonly id: string }) =>
         Effect.sync(() => void forgotten.push(id)),
+      Standing: () =>
+        Effect.suspend(() => {
+          standing.asks++;
+          return standing.answer();
+        }),
     } as never),
   );
   // What is kept, in memory; what is pruned and dropped, said.
@@ -329,6 +341,7 @@ const world = (
     watches,
     sockets,
     output,
+    standing,
     lists: () => lists,
   };
 };
@@ -1174,30 +1187,29 @@ describe('the Account checks', () => {
 });
 
 describe('the Account mismatched', () => {
-  /** A Connection Connect Cloud wants to run the code Plugin at `wanted`. */
-  const wanting = (wanted: string): Connection => ({
-    ...connection('m1', Date.now()),
-    wanted: { code: { hash: wanted, url: `file:///${wanted}.mjs` } },
-  });
-
-  /** The close reason of a Connection running `running`, as its router says it. */
+  /** The close reason of a Connection running `running`, as its server says it. */
   const mismatchReason = (running: string | null) =>
     JSON.stringify({ running });
 
   const OLDER = 'b'.repeat(64);
   const NEWER = 'c'.repeat(64);
 
-  /** The Connections' Links and mismatches, as it holds them. */
-  const linksOf = (app: Running<unknown>) =>
-    list(app).model as {
+  /** The Connections' Links and what each said of a mismatch, as it holds them. */
+  const linksOf = (app: Running<unknown>) => {
+    const { links, said } = list(app).model as {
       readonly links: Readonly<Record<string, string>>;
-      readonly mismatched: Readonly<Record<string, unknown>>;
+      readonly said: Readonly<
+        Record<string, { readonly standing: unknown; readonly held: boolean }>
+      >;
     };
+    return { links, standing: said['m1']?.standing, held: said['m1']?.held };
+  };
 
-  /** The app, counting each move to Code's newest build. */
-  const started = (wanted: string) => {
+  /** The app, as Connect Cloud says `standing`, counting each ask and each move to Code's newest build. */
+  const started = (standing: () => Effect.Effect<unknown, unknown>) => {
     let moves = 0;
-    const the = world(Effect.succeed([wanting(wanted)]));
+    const the = world(Effect.succeed([connection('m1', Date.now())]));
+    the.standing.answer = standing;
     const { watches, lists } = the;
     const told = Layer.succeed(
       OnOutdated,
@@ -1208,11 +1220,30 @@ describe('the Account mismatched', () => {
       watches,
       lists,
       moves: () => moves,
+      asks: () => the.standing.asks,
     };
   };
 
-  it('is Updating while Connect Cloud wants this Code’s Release: it keeps relinking, until a socket is answered', async () => {
-    const { app: starting, watches, lists, moves } = started(PLUGIN_CODE);
+  /** Runs `effect` with its clock the test's own, for what waits `RELINK_SLOWLY`. */
+  const timed = (effect: Effect.Effect<void, unknown, Scope.Scope | Cache>) =>
+    Effect.runPromise(
+      Effect.scoped(effect).pipe(
+        Effect.provide(cacheMemory()),
+        Effect.provide(TestClock.layer()),
+      ) as Effect.Effect<void>,
+    );
+
+  /** `RELINK_SLOWLY` passed, and everything it set off done. */
+  const slowlyPassed = Effect.andThen(TestClock.adjust(RELINK_SLOWLY), wait());
+
+  it('is Updating while Connect Cloud names this Code’s Release: it relinks at once, until a socket is answered', async () => {
+    const {
+      app: starting,
+      watches,
+      lists,
+      moves,
+      asks,
+    } = started(() => Effect.succeed({ _tag: 'Latest' }));
     await run(
       Effect.gen(function* () {
         const app = yield* starting;
@@ -1225,36 +1256,41 @@ describe('the Account mismatched', () => {
         });
         yield* wait();
         expect(linksOf(app).links).toEqual({ m1: 'relinking' });
-        expect(linksOf(app).mismatched).toEqual({ m1: { running: OLDER } });
+        expect(linksOf(app).standing).toEqual({ _tag: 'Latest' });
+        expect(linksOf(app).held).toBe(false);
+        expect(asks()).toBe(1);
         expect(moves()).toBe(0);
-        // Relinking: Connect Cloud is asked again, as for any Link down.
+        // Relinking: the list is asked again, as for any Link down.
         const asked = lists();
         yield* wait(RECHECK.fast + 200);
         expect(lists()).toBeGreaterThan(asked);
+        // Closed again, Connect Cloud is asked afresh.
+        watches.get('m1')!.closed!({
+          code: PLUGIN_MISMATCH,
+          reason: mismatchReason(OLDER),
+        });
+        yield* wait();
+        expect(asks()).toBe(2);
         // Updated: a socket to it is answered, and it is linked.
         watches.get('m1')!.answered!();
         yield* wait();
         expect(linksOf(app).links).toEqual({ m1: 'linked' });
-        expect(linksOf(app).mismatched).toEqual({});
+        expect(linksOf(app).standing).toBeNull();
         expect(moves()).toBe(0);
       }),
     );
   });
 
-  it('is Updating too while Connect Cloud wants no Release of the code Plugin', async () => {
-    const { OwnerLive, layer, over, watches } = world(
-      Effect.succeed([connection('m1', Date.now())]),
-    );
-    let moves = 0;
-    await run(
+  it('holds the Link, then relinks slowly and asks again, while Connect Cloud has not heard of this Code’s Release', async () => {
+    const {
+      app: starting,
+      watches,
+      moves,
+      asks,
+    } = started(() => Effect.succeed({ _tag: 'Unknown' }));
+    await timed(
       Effect.gen(function* () {
-        const app = yield* start(
-          { OwnerLive, layer, over },
-          Layer.succeed(
-            OnOutdated,
-            Effect.sync(() => void moves++),
-          ),
-        );
+        const app = yield* starting;
         yield* wait();
         watches.get('m1')!.closed!({
           code: PLUGIN_MISMATCH,
@@ -1262,14 +1298,30 @@ describe('the Account mismatched', () => {
         });
         yield* wait();
         expect(linksOf(app).links).toEqual({ m1: 'relinking' });
-        expect(moves).toBe(0);
+        expect(linksOf(app).standing).toEqual({ _tag: 'Unknown' });
+        expect(linksOf(app).held).toBe(true);
+        expect(moves()).toBe(0);
+        yield* slowlyPassed;
+        expect(linksOf(app).held).toBe(false);
+        // Dialled again and closed the same way, it asks again.
+        watches.get('m1')!.closed!({
+          code: PLUGIN_MISMATCH,
+          reason: mismatchReason(null),
+        });
+        yield* wait();
+        expect(asks()).toBe(2);
+        expect(linksOf(app).held).toBe(true);
       }),
     );
   });
 
-  it('moves this Code to its newest build when Connect Cloud wants another Release', async () => {
-    const { app: starting, watches, moves } = started(NEWER);
-    await run(
+  it('decides nothing while Connect Cloud is out of reach: it relinks slowly', async () => {
+    const {
+      app: starting,
+      watches,
+      moves,
+    } = started(() => Effect.fail({ _tag: 'RpcClientError' }));
+    await timed(
       Effect.gen(function* () {
         const app = yield* starting;
         yield* wait();
@@ -1278,37 +1330,72 @@ describe('the Account mismatched', () => {
           reason: mismatchReason(NEWER),
         });
         yield* wait();
-        expect(linksOf(app).mismatched).toEqual({ m1: { running: NEWER } });
-        expect(moves()).toBe(1);
-        // Told again, it moves once: it is moving already.
+        expect(linksOf(app).standing).toBeNull();
+        expect(linksOf(app).held).toBe(true);
+        expect(moves()).toBe(0);
+        yield* slowlyPassed;
+        expect(linksOf(app).held).toBe(false);
+      }),
+    );
+  });
+
+  it('moves this Code to its newest build, once, and holds the Link for good, when its Release is Older', async () => {
+    const {
+      app: starting,
+      watches,
+      moves,
+      asks,
+    } = started(() => Effect.succeed({ _tag: 'Older' }));
+    await timed(
+      Effect.gen(function* () {
+        const app = yield* starting;
+        yield* wait();
         watches.get('m1')!.closed!({
           code: PLUGIN_MISMATCH,
           reason: mismatchReason(NEWER),
         });
         yield* wait();
+        expect(linksOf(app).standing).toEqual({ _tag: 'Older' });
         expect(moves()).toBe(1);
+        // Told again, it neither moves nor asks: it is moving already.
+        watches.get('m1')!.closed!({
+          code: PLUGIN_MISMATCH,
+          reason: mismatchReason(NEWER),
+        });
+        yield* slowlyPassed;
+        expect(moves()).toBe(1);
+        expect(asks()).toBe(1);
+        expect(linksOf(app).held).toBe(true);
       }),
     );
   });
 
   it('is not mismatched by a socket that closes another way', async () => {
-    const { app: starting, watches, moves } = started(NEWER);
-    await run(
+    const {
+      app: starting,
+      watches,
+      moves,
+    } = started(() => Effect.succeed({ _tag: 'Older' }));
+    await timed(
       Effect.gen(function* () {
         const app = yield* starting;
         yield* wait();
         watches.get('m1')!.closed!({ code: 1006, reason: '' });
         yield* wait();
         expect(linksOf(app).links).toEqual({ m1: 'linked' });
-        expect(linksOf(app).mismatched).toEqual({});
+        expect(linksOf(app).standing).toBeNull();
         expect(moves()).toBe(0);
       }),
     );
   });
 
   it('is not mismatched by a socket closed with an expired key', async () => {
-    const { app: starting, watches, moves } = started(NEWER);
-    await run(
+    const {
+      app: starting,
+      watches,
+      moves,
+    } = started(() => Effect.succeed({ _tag: 'Older' }));
+    await timed(
       Effect.gen(function* () {
         const app = yield* starting;
         yield* wait();
@@ -1317,10 +1404,75 @@ describe('the Account mismatched', () => {
           reason: 'key expired',
         });
         yield* wait();
-        expect(linksOf(app).mismatched).toEqual({});
+        expect(linksOf(app).standing).toBeNull();
         expect(moves()).toBe(0);
       }),
     );
+  });
+});
+
+describe('the Account, its socket refused for its Release', () => {
+  /** A stand-in WebSocket that opens, then closes with `PLUGIN_MISMATCH`, counting each dial. */
+  const refusing = () => {
+    const dials: Array<number> = [];
+    return {
+      dials,
+      WebSocket: class extends EventTarget {
+        static readonly OPEN = 1;
+        readyState = 0;
+        protocol = 'ke-connect';
+        constructor() {
+          super();
+          dials.push(Date.now());
+          setTimeout(() => {
+            this.readyState = 1;
+            this.dispatchEvent(new Event('open'));
+            setTimeout(() => {
+              this.readyState = 3;
+              this.dispatchEvent(
+                Object.assign(new Event('close'), {
+                  code: PLUGIN_MISMATCH,
+                  reason: JSON.stringify({ running: null }),
+                }),
+              );
+            }, 1);
+          }, 1);
+        }
+        send() {}
+        close() {}
+      },
+    };
+  };
+
+  /** How many dials the socket made in a while, as Connect Cloud says `tag`. */
+  const dialsWhile = async (tag: 'Latest' | 'Unknown' | 'Older') => {
+    const { dials, WebSocket } = refusing();
+    vi.stubGlobal('WebSocket', WebSocket);
+    const the = world(Effect.succeed([connection('m1', Date.now())]));
+    the.standing.answer = () => Effect.succeed({ _tag: tag });
+    const OwnerLive = OwnerOf(
+      CodeClients.layer.pipe(Layer.provide(addressAt(PLUGIN_CODE))) as never,
+      undefined,
+    );
+    await run(
+      Effect.gen(function* () {
+        yield* start({ OwnerLive, layer: the.layer, over: the.over });
+        yield* wait(1_000);
+      }),
+    ).finally(() => vi.unstubAllGlobals());
+    return dials.length;
+  };
+
+  it('dials again when its Release is Latest, as the Connection catches up', async () => {
+    expect(await dialsWhile('Latest')).toBeGreaterThan(1);
+  });
+
+  it('holds its dial while Connect Cloud has not heard of its Release', async () => {
+    expect(await dialsWhile('Unknown')).toBe(1);
+  });
+
+  it('holds its dial once its Release is Older', async () => {
+    expect(await dialsWhile('Older')).toBe(1);
   });
 });
 

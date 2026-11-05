@@ -49,7 +49,7 @@ Every value an RPC sends is an ESchema, so the newer side reads what an older on
 | `CodeClients.on`         | Runs an Effect that needs `CodeClient` against one Connection, by its id.                                                                            |
 | `CodeClients.stream`     | Runs a Stream that needs `CodeClient` against one Connection, its socket held while it runs.                                                         |
 | `CodeClients.link`       | Stream of one Connection's Link now and on each change.                                                                                              |
-| `CodeClients.mismatch`   | Stream of which Release a Connection last closed its socket saying it runs, until a socket to it is answered.                                        |
+| `CodeClients.mismatch`   | Stream of which Release a Connection said it runs, each time it closed a socket with a mismatch, then null once a socket to it is answered.          |
 | `CodeClients.expired`    | Stream of whether a Connection last closed its socket with `KEY_EXPIRED`, until a socket to it is answered.                                          |
 | `link`                   | Stream of the Link of the `CodeClient` in context: `linking`, `linked` or `relinking`.                                                               |
 | `CodeReplica`            | The Replica of each Connection's records, keyed by Connection id: `projects`, `sessions` and `messages`.                                             |
@@ -122,6 +122,7 @@ What an App imports to reach Connect Cloud: its client, and the Connections it l
 | `PLUGIN_MISMATCH`   | The close code, 4409, of a socket that asked for a Release the Connection does not run.                                                                             |
 | `PluginMismatch`    | ESchema of that close's reason: the hash the Connection runs, or null.                                                                                              |
 | `mismatchOf`        | What a socket's close code and reason say of the Release asked for: a `PluginMismatch`, or null for any other close.                                                |
+| `ReleaseStanding`   | ESchema of where a Release stands, as `Standing` answers: `Latest`, `Older`, or `Unknown` to Connect Cloud.                                                         |
 | `KEY_EXPIRED`       | The close code, 4401, of a socket that offered a key other than the Connection Key.                                                                                 |
 | `keyExpired`        | Whether a socket's close says its key expired, so the App should ask Connect Cloud for the list again.                                                              |
 | `VersionGap`        | Error of every `CodeClient` and `CloudClient` call that failed because one side is older: `client` or `server`.                                                     |
@@ -236,7 +237,7 @@ Runtime.start(
 
 ### Run Connect Cloud on a Worker
 
-`serve` from `./worker` is Connect Cloud over a D1 database, signing in through an Auth Worker, letting the listed origins call with credentials, telling every Connection the latest Release of each Plugin and the Minimum Connect, and serving Release Files. Shaped after `src/cloud/worker/worker.server.ts`, which `alchemy.run.ts` deploys.
+`serve` from `./worker` is Connect Cloud over a D1 database, signing in through an Auth Worker, letting the listed origins call with credentials, telling every Connection the latest Release of each Plugin and the Minimum Connect, saying where any Release stands, and serving Release Files. Shaped after `src/cloud/worker/worker.server.ts`, which `alchemy.run.ts` deploys.
 
 ```ts
 import { serve } from '@kestack/connect/worker';
@@ -270,4 +271,6 @@ export default {
 - `GET /releases/<name>/<sha256>.mjs` answers that Release File from `files`, cached for good; anything else there is 404.
 - `MIN_CONNECT` is the Minimum Connect, the oldest `ke-connect` let run the Plugins; a Connection below it is Outdated.
 - Set the D1 table up from `connectionsTable` before the first request.
+- `Standing` answers `Latest` for the Release `RELEASES` names, `Older` for another whose file is in `files`, and `Unknown` for any other, or for any but the latest without `files`.
 - In this monorepo, a change to the code Plugin is released with `pnpm -F @kestack/connect release:plugin code "<what changed>"`, which builds it and appends its hash to its Release Log. `pnpm -F @kestack/connect build:plugin && pnpm -F @kestack/connect deploy:prod` deploys it to `connect.kishore.app`: the deploy refuses a build that is not the latest Release, uploads `code.mjs` to the Stage's R2 bucket unless it is there, then points `RELEASES` at it, and sets `MIN_CONNECT` from `minConnect` in `package.json` (ADR 0006). A personal Stage, `alchemy deploy --stage <name>`, has no URL its Connections could read Release Files at, so it refuses to deploy; develop under `alchemy dev`.
+- In CI, `deploy:connect` (`.github/workflows/deploy-connect.yml`) deploys as one chain, each step only once the one before it succeeded: on prod, nothing deploys while `@kestack/connect` has pending changesets, until the release PR is merged; the code Plugin's build must be its latest Release; Connect Cloud deploys; then each front end that changed.
