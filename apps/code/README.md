@@ -93,6 +93,9 @@ pnpm --filter code deploy:prod   # ALLOW_DEPLOY=true: code.kishore.app
   shows up beside the others.
 - A deployed stage (`prod`, `demo`, `pr<N>`) needs `ALLOW_DEPLOY=true` and
   keeps its state in Cloudflare; a personal stage keeps it in `.alchemy/`.
+- CI deploys it in `deploy:connect`, after Connect Cloud
+  (`.github/workflows/deploy-connect.yml`), and never on prod while
+  `@kestack/connect` waits for its release.
 - `pnpm --filter code lint` checks types, the Laymos Rules and the tree's
   shape (`pnpm --filter code tree`); `pnpm --filter code test` runs the
   tests. Videos recorded under `qa/` stay local.
