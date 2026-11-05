@@ -38,6 +38,15 @@ export const setTextSize = Command.make('SetTextSize', {
     ),
 });
 
+/** Keeps whether the screen is kept on in Preferences; a write that fails is lost. */
+export const setKeepScreenOn = Command.make('SetKeepScreenOn', {
+  args: Schema.Struct({ on: Schema.Boolean }),
+  run: ({ on }) =>
+    Effect.flatMap(Preferences, (store) => store.setKeepScreenOn(on)).pipe(
+      Effect.ignore,
+    ),
+});
+
 /** Keeps when the Draft shows how full the context is in Preferences; a write that fails is lost. */
 export const setContext = Command.make('SetContext', {
   args: Schema.Struct({ shown: PreferencesRead.fields.context }),

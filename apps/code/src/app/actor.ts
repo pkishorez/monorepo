@@ -1,4 +1,4 @@
-import { Effect, Schema, Stream } from 'effect';
+import { Effect, type Scope, Schema, Stream } from 'effect';
 import { Accounts, type AccountsState } from '@kestack/auth-toolkit/client';
 import { Actor } from '@kestack/kabuki';
 import { Navigation, Page, Router } from '@kestack/kabuki/routing';
@@ -9,7 +9,7 @@ import {
 import { Account } from './account/index.ts';
 import { accountOf, before, home, type Route } from './app.ts';
 import { pruneAccounts, signIn } from './commands.ts';
-import { Storage } from './storage/index.ts';
+import { Preferences, Storage } from './storage/index.ts';
 import type { Start } from './sign-in/index.ts';
 
 /*
@@ -45,6 +45,13 @@ import type { Start } from './sign-in/index.ts';
  *              whoever is signed in.
  * 5. Switcher  who is signed in, for the Account's page and its header:
  *              the Account Switcher, always, and `CurrentAccount`.
+ * 7. Awake     once Preferences says so, whoever is signed in, the screen is
+ *              kept on while the page shows, and let go when it no longer
+ *              says so. The browser lets go whenever the page hides, so it
+ *              is asked again when the page shows; refused, or let go while
+ *              showing, it is asked again at the user's next tap or key, as
+ *              asking in a loop would not help. A browser without it, or
+ *              that keeps refusing, dims as it always has.
  */
 
 /** An Account as the app is drawn for it. */
@@ -186,6 +193,64 @@ export const settled = (account: Signed, route: At, placed: string) =>
 export const nowhere = (route: At) =>
   route.notFound !== null && before(route.notFound, '') === null;
 
+// 7. Awake
+/** Whether Preferences keeps the screen on, now and after each change to it. */
+export const keepScreenOn = Stream.concat(
+  Stream.make(undefined),
+  Preferences.changes,
+).pipe(
+  Stream.mapEffect(() =>
+    Effect.map(Preferences.read, ({ keepScreenOn }) => keepScreenOn),
+  ),
+  Stream.changes,
+);
+
+/** Keeps the screen on until its Scope closes; a browser without a wake lock does nothing. */
+export const holdScreen: Effect.Effect<void, never, Scope.Scope> =
+  Effect.suspend(() =>
+    typeof document === 'undefined' || !('wakeLock' in navigator)
+      ? Effect.void
+      : Effect.acquireRelease(
+          Effect.sync(() => {
+            let lock: WakeLockSentinel | null = null;
+            let asking = false;
+            let stopped = false;
+            const ask = () => {
+              if (
+                asking ||
+                document.visibilityState !== 'visible' ||
+                (lock !== null && !lock.released)
+              )
+                return;
+              asking = true;
+              navigator.wakeLock.request('screen').then(
+                (granted) => {
+                  asking = false;
+                  lock = granted;
+                  if (stopped) void granted.release();
+                },
+                () => {
+                  asking = false;
+                },
+              );
+            };
+            const touched = { capture: true, passive: true };
+            ask();
+            document.addEventListener('visibilitychange', ask);
+            window.addEventListener('pointerup', ask, touched);
+            window.addEventListener('keydown', ask, touched);
+            return () => {
+              stopped = true;
+              document.removeEventListener('visibilitychange', ask);
+              window.removeEventListener('pointerup', ask, touched);
+              window.removeEventListener('keydown', ask, touched);
+              void lock?.release();
+            };
+          }),
+          (stop) => Effect.sync(stop),
+        ).pipe(Effect.andThen(Effect.never)),
+  );
+
 const Model = Schema.Struct({
   /** Why signing in failed, until it is tried again. */
   signInProblem: Schema.NullOr(Schema.String),
@@ -196,11 +261,13 @@ const Model = Schema.Struct({
    * the Auth Worker was still asked, its guess, until it is settled.
    */
   placed: Schema.NullOr(Schema.String),
+  /** 7. Awake: whether the screen is kept on; off until Preferences is read. */
+  keepScreenOn: Schema.Boolean,
 });
 
 export const App = Page.define({
   render: 'client',
-  requires: [Navigation, Accounts, Storage],
+  requires: [Navigation, Accounts, Storage, Preferences],
   metadata: { title: 'code' },
   pages: { Account: Account.page },
   model: Model,
@@ -215,12 +282,18 @@ export const App = Page.define({
     /** A sign-in ended without leaving the page, as under the Fake. */
     SignInEnded: {},
     SignInFailed: { problem: Schema.String },
+    KeepScreenOnRead: { on: Schema.Boolean },
   }),
 });
 
 export const AppLive = App.build({
   init: () => ({
-    model: { signInProblem: null, signingIn: false, placed: null },
+    model: {
+      signInProblem: null,
+      signingIn: false,
+      placed: null,
+      keepScreenOn: false,
+    },
     state: { _tag: 'Reading' },
   }),
   pages: { Account: Account.actor },
@@ -250,6 +323,17 @@ export const AppLive = App.build({
       while: ({ model, state, props }) =>
         model.placed !== null && settled(state, props.route, model.placed),
       run: (self) => self.send({ _tag: 'Settled' }),
+    },
+    // 7. Awake
+    keepScreenOn: {
+      run: (self) =>
+        Stream.runForEach(keepScreenOn, (on) =>
+          self.send({ _tag: 'KeepScreenOnRead', on }),
+        ),
+    },
+    awake: {
+      while: ({ model }) => model.keepScreenOn,
+      run: () => holdScreen,
     },
   },
   on: {
@@ -296,6 +380,9 @@ export const AppLive = App.build({
     }),
     SignInFailed: ({ problem }, { model }) => ({
       model: { ...model, signInProblem: problem, signingIn: false },
+    }),
+    KeepScreenOnRead: ({ on }, { model }) => ({
+      model: { ...model, keepScreenOn: on },
     }),
   },
 });
