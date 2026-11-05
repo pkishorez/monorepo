@@ -184,6 +184,23 @@ describe('install', () => {
     }
   });
 
+  it('fails install when Start cannot be reached or its server fails, to try again', async () => {
+    for (const answer of [
+      offline,
+      () => Promise.resolve(new Response('', { status: 503 })),
+    ]) {
+      const fake = start();
+      fake.setNetwork((request) =>
+        request.url.endsWith('/_kabuki/pages')
+          ? answer()
+          : startNetwork(request),
+      );
+      const event = fake.dispatch('install');
+      await expect(Promise.all(event.lifetimes)).rejects.toThrow();
+      expect(fake.calls.skipWaiting).toBe(0);
+    }
+  });
+
   it('waits for SKIP_WAITING when an older version is active', async () => {
     const fake = start(build(), { active: true });
     fake.setNetwork(startNetwork);

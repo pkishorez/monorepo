@@ -864,13 +864,18 @@ describe('under a client root', () => {
   const InboxLive = Inbox.build();
   const Pinned = Page.define({ path: '/pinned', render: 'static' });
   const PinnedLive = Pinned.build();
+  const Person = Page.define({
+    path: '/people/:name',
+    params: { name: Schema.String },
+  });
+  const PersonLive = Person.build();
   const Root = Page.define({
     render: 'client',
     metadata: { title: 'Mail', description: 'Your mail' },
-    pages: { Inbox, Pinned },
+    pages: { Inbox, Pinned, Person },
   });
   const RootLive = Root.build({
-    pages: { Inbox: InboxLive, Pinned: PinnedLive },
+    pages: { Inbox: InboxLive, Pinned: PinnedLive, Person: PersonLive },
   });
   const rooted = Router.define(Root);
   const RootView = View.make(RootLive, () => <p>the inbox</p>);
@@ -897,6 +902,7 @@ describe('under a client root', () => {
     expect(rooted.every.map(({ name, render }) => [name, render])).toEqual([
       ['Inbox', 'client'],
       ['Pinned', 'static'],
+      ['Person', 'client'],
     ]);
     expect(rooted.places(rooted.Inbox()).map((place) => place.render)).toEqual([
       'client',
@@ -904,13 +910,34 @@ describe('under a client root', () => {
   });
 
   it('answers every URL with the App Shell and a 200, one that names no page too', async () => {
-    for (const path of ['/', '/inbox', '/pinned', '/nowhere']) {
+    for (const path of [
+      '/',
+      '/inbox',
+      '/pinned',
+      '/nowhere',
+      '/people/john.doe',
+    ]) {
       const response = await at(path);
       const html = await response.text();
       expect(response.status).toBe(200);
       expect(html).toContain('<p>waiting</p>');
       expect(html).not.toContain('the inbox');
       expect(saved(html).saved).toBeUndefined();
+    }
+  });
+
+  it('answers a file that is not there with a 404, never the App Shell', async () => {
+    for (const path of [
+      '/missing.png',
+      '/assets/old-chunk.js',
+      '/robots.txt',
+    ]) {
+      const response = await at(path);
+      expect(response.status).toBe(404);
+      expect(response.headers.get('cache-control')).toBe(
+        'private, no-store, no-transform',
+      );
+      expect(await response.text()).not.toContain('<p>waiting</p>');
     }
   });
 
@@ -939,14 +966,21 @@ describe('under a client root', () => {
 
   it('says every page is client in the Pages', async () => {
     const { pages } = (await (await at(Start.pages)).json()) as Pages;
-    expect(pages.map((one) => one.render)).toEqual(['client', 'client']);
+    expect(pages.map((one) => one.render)).toEqual([
+      'client',
+      'client',
+      'client',
+    ]);
   });
 });
 
 describe('under a dynamic root', () => {
   const Feed = Page.define({ path: '/feed' });
-  const Root = Page.define({ render: 'dynamic', pages: { Feed } });
-  const RootLive = Root.build({ pages: { Feed: Feed.build() } });
+  const Open = Page.define({ path: '/open', render: 'static' });
+  const Root = Page.define({ render: 'dynamic', pages: { Feed, Open } });
+  const RootLive = Root.build({
+    pages: { Feed: Feed.build(), Open: Open.build() },
+  });
   const rooted = Router.define(Root);
   const site = handler({
     app: Start.app({
@@ -955,6 +989,24 @@ describe('under a dynamic root', () => {
       document: Document,
     }),
     build,
+  });
+
+  it('says of each page what the server does with it, one that says static too', async () => {
+    const { pages } = (await (
+      await site.fetch(new Request(`https://site.test${Start.pages}`), {
+        env: {},
+      })
+    ).json()) as Pages;
+    expect(pages.map((one) => [one.name, one.render])).toEqual([
+      ['Feed', 'dynamic'],
+      ['Open', 'static'],
+    ]);
+    const open = await site.fetch(new Request('https://site.test/open'), {
+      env: {},
+    });
+    expect(open.headers.get('cache-control')).toBe(
+      'public, max-age=0, s-maxage=31536000, no-transform',
+    );
   });
 
   it('draws its pages for each visitor', async () => {

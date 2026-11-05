@@ -40,7 +40,7 @@ import {
  *             and those under the first client place, which the browser loads.
  *             Under a client root the browser draws everything: every URL is
  *             the App Shell, with a `200`, one that names no page too, as the
- *             app reads it.
+ *             app reads it; only a file that is not there stays a `404`.
  * 4. Load     the Loaders of the places drawn here, all at once, with the
  *             request unless the place is static, and their two Layers:
  *             the visitor only if a place is not static; see `lifetimes.ts`.
@@ -77,6 +77,9 @@ const drawnHere = (places: ReadonlyArray<Place>) => {
   const client = places.findIndex((place) => place.render === 'client');
   return client < 0 ? places : places.slice(0, client);
 };
+
+/** Whether a path that names no page asks for a file, not a page: it has an extension. */
+const isFile = (pathname: string) => /\.[^/]+$/.test(pathname);
 
 /** The path of a URL, without its query. */
 const pathOf = (url: string, base: URL) => new URL(url, base).pathname;
@@ -227,7 +230,11 @@ export const handler = (options: HandlerOptions): Handler => {
       );
 
     // 3. Split
-    if (app.routes.render === 'client') return shell(request, host);
+    if (
+      app.routes.render === 'client' &&
+      !(route._tag === 'NotFound' && isFile(url.pathname))
+    )
+      return shell(request, host);
     const here = drawnHere(app.routes.places(route));
     const shared =
       build.id !== undefined &&

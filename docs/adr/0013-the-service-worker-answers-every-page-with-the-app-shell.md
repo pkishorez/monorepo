@@ -4,7 +4,7 @@ A page's offline behaviour used to follow from its Render Mode: a client page wa
 
 So the worker keeps the build's assets and the App Shell, and answers every page navigation with the App Shell, without the network. The app starts in it at the page's URL, and each page that needs data asks the Loader RPC, as a move in the app already does. A Render Mode now only says what the server sends when no worker answers: a first visit, a crawler, a shared link. The worker no longer reads a page's Render Mode, and keeps no copy of any other page.
 
-The App Shell paints what `Start.app({ loading })` says until the app is drawn, so it is not blank before the script runs. A root page's Render Mode is inherited like any other, and under a `client` root the server answers every URL with the App Shell and a `200`, so an app such as `code` has one document, not one per URL.
+The App Shell paints what `Start.app({ loading })` says until the app is drawn, so it is not blank before the script runs. A root page's Render Mode is inherited like any other, and under a `client` root the server answers every URL with the App Shell and a `200`, so an app such as `code` has one document, not one per URL. Only a path with a file extension that names no page stays a `404`.
 
 ## Consequences
 
