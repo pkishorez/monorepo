@@ -38,6 +38,9 @@ import {
  *             Route is, is a `308` to the Route's URL.
  * 3. Split    the Route's places into those drawn here, static and dynamic,
  *             and those under the first client place, which the browser loads.
+ *             Under a client root the browser draws everything: every URL is
+ *             the App Shell, with a `200`, one that names no page too, as the
+ *             app reads it.
  * 4. Load     the Loaders of the places drawn here, all at once, with the
  *             request unless the place is static, and their two Layers:
  *             the visitor only if a place is not static; see `lifetimes.ts`.
@@ -80,9 +83,9 @@ const pathOf = (url: string, base: URL) => new URL(url, base).pathname;
 
 export const handler = (options: HandlerOptions): Handler => {
   const { build } = options;
-  const { app, document = Start.Document } = appOf(options.app);
+  const { app, document = Start.Document, loading: shown } = appOf(options.app);
   const { loaders, layers } = serverOf(options.server);
-  const draw = drawer(app, document, build);
+  const draw = drawer(app, document, build, shown);
   const layerFor = lifetimes(layers);
   const modes = new Map<string, RenderMode>(
     app.routes.every.map((place) => [place.name, place.render]),
@@ -190,7 +193,7 @@ export const handler = (options: HandlerOptions): Handler => {
     html(await draw.page(at), status, cache);
 
   const pages = JSON.stringify(
-    pagesOf(app.routes.every, app.routes.paths(), build.id),
+    pagesOf(app.routes.every, app.routes.paths(), build.id, app.routes.render),
   );
   /** The App Shell, the same for everyone until the next deploy. */
   const shell = async (request: Request, host: Host) => {
@@ -198,7 +201,13 @@ export const handler = (options: HandlerOptions): Handler => {
       html(await draw.shell(), 200, build.id === undefined ? PRIVATE : SHARED);
     return build.id === undefined
       ? drawShell()
-      : kept(host.cache, SHARED, build.id, new URL(request.url), drawShell);
+      : kept(
+          host.cache,
+          SHARED,
+          build.id,
+          new URL(SHELL, request.url),
+          drawShell,
+        );
   };
 
   const page = async (
@@ -218,6 +227,7 @@ export const handler = (options: HandlerOptions): Handler => {
       );
 
     // 3. Split
+    if (app.routes.render === 'client') return shell(request, host);
     const here = drawnHere(app.routes.places(route));
     const shared =
       build.id !== undefined &&

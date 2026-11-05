@@ -56,7 +56,7 @@ describe('resolvePwaConfig', () => {
       dev: false,
       preset: 'app',
       precache: { include: [], exclude: [], warnAboveBytes: 5 * 1024 * 1024 },
-      navigation: { networkTimeoutMs: 3000, denylist: [] },
+      navigation: { denylist: [] },
       neverCache: ['/api/auth/'],
       update: { checkIntervalMinutes: 60 },
       worker: null,
@@ -97,7 +97,7 @@ describe('resolvePwaConfig', () => {
       decodeOptions({
         name: 'Todo',
         preset: 'content',
-        navigation: { networkTimeoutMs: 500 },
+        navigation: { denylist: ['/admin'] },
         strategies: [
           {
             match: { pathPrefix: '/api/' },
@@ -108,7 +108,7 @@ describe('resolvePwaConfig', () => {
         update: { checkIntervalMinutes: 5 },
       }),
     );
-    expect(config.navigation.networkTimeoutMs).toBe(500);
+    expect(config.navigation.denylist).toEqual(['/admin']);
     expect(config.strategies.map((rule) => rule.cacheName)).toEqual([
       'api',
       'images',

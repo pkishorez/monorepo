@@ -7,6 +7,7 @@ import type {
   Place,
   PlaceData,
   PlaceSchema,
+  RenderMode,
 } from '../../../routing/route/index.ts';
 
 /*
@@ -32,6 +33,10 @@ export type ServedApp = ViewOf<any> & {
     readonly metadata: (of: any, data?: PlaceData) => Metadata;
     readonly places: (of: any) => ReadonlyArray<Place>;
     readonly every: ReadonlyArray<PlaceSchema>;
+    /** The root's Render Mode, which the places under it inherit. */
+    readonly render: RenderMode;
+    /** The root's own Metadata, under every place's. */
+    readonly rootMetadata: Metadata;
   };
 };
 
@@ -47,6 +52,8 @@ export interface StartApp<A extends ServedApp = ServedApp> {
   readonly name?: string;
   /** The HTML around the app; the plainest one if none. */
   readonly document?: DocumentType;
+  /** What the App Shell shows until the browser has drawn the app. */
+  readonly loading?: ReactNode;
   /** What the app's Actors Require in the browser, besides the address and the Loaders. */
   readonly layer?: Layer.Layer<any, never, never>;
   /** What runs beside the app in the browser, such as a devtool. */

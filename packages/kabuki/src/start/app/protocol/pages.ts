@@ -42,7 +42,7 @@ export interface Pages {
   readonly pages: ReadonlyArray<PageInfo>;
 }
 
-/** How a page's first drawing is made, from the Render Modes of the places on its path, the root first. */
+/** How a page's first drawing is made, from the Render Modes on its path: the root's, then each place's. */
 const renderOf = (modes: ReadonlyArray<RenderMode>): RenderMode => {
   const client = modes.indexOf('client');
   const here = client < 0 ? modes : modes.slice(0, client);
@@ -55,6 +55,7 @@ export const pagesOf = (
   every: ReadonlyArray<PlaceSchema>,
   paths: Readonly<Record<string, string>>,
   build: string | undefined,
+  root: RenderMode = 'static',
 ): Pages => {
   const modes = new Map(every.map((place) => [place.name, place.render]));
   return {
@@ -67,9 +68,11 @@ export const pagesOf = (
         name,
         path,
         params: path.split('/').some((part) => part.startsWith(':')),
-        render: renderOf(
-          parts.map((_, at) => modes.get(parts.slice(0, at + 1).join('.'))!),
-        ),
+        render: renderOf([
+          // The default root says nothing of the pages under it.
+          ...(root === 'static' ? [] : [root]),
+          ...parts.map((_, at) => modes.get(parts.slice(0, at + 1).join('.'))!),
+        ]),
       };
     }),
   };

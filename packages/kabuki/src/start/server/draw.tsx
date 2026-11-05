@@ -30,8 +30,9 @@ import type {
  * the lazy Views it drew added to the head, each marked with its id so the
  * browser preloads it before it hydrates.
  *
- * The App Shell is the Document alone: where the app goes, a boundary the
- * server leaves for the browser, which draws the app there at its own URL.
+ * The App Shell is the Document with the root's Metadata and no app: where
+ * the app goes, a boundary the server leaves for the browser, which draws the
+ * app there at its own URL, showing what the app says it `loading` until then.
  */
 
 type DrawnApp = ComponentType<{
@@ -95,6 +96,7 @@ export const drawer = (
   app: ServedApp,
   Document: DocumentType,
   build: Build,
+  loading: ReactNode = null,
 ) => {
   const App = (View.app as (view: unknown) => unknown)(
     app,
@@ -162,16 +164,20 @@ export const drawer = (
         views,
       );
     },
-    /** The App Shell: the Document, with the app left for the browser to draw. */
+    /** The App Shell: the Document, with the app left for the browser to draw and what shows until it has. */
     shell: (): Promise<string> => {
       const page: Page = {
         entry: build.entry,
         head: build.head,
         drawn: { at: Date.now(), build: build.id },
       };
+      const metadata = app.routes.rootMetadata;
       return html(
-        serialize(page),
-        <Suspense fallback={null}>
+        {
+          ...serialize(page),
+          metadata: { title: metadata.title, tags: tagsOf(metadata) },
+        },
+        <Suspense fallback={loading}>
           <NotHere.Draw />
         </Suspense>,
         new Set(),

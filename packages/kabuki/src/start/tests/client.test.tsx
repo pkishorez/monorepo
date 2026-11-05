@@ -283,10 +283,10 @@ describe('hydrating a page Start drew', () => {
 
 describe('the App Shell', () => {
   /** Opens the App Shell at `path`, as a service worker answers a page with it, and hydrates it. */
-  const openShell = async (path: string) => {
+  const openShell = async (path: string, app = started) => {
     history.replaceState(null, '', path);
     const html = await (
-      await worker.fetch(
+      await handler({ app, server, build }).fetch(
         new Request(new URL('/_kabuki/shell', location.href)),
         host,
       )
@@ -294,10 +294,28 @@ describe('the App Shell', () => {
     document.open();
     document.write(html);
     document.close();
+    const shown = document.getElementById('waiting')?.textContent;
     await act(async () => {
-      ({ root, redraw } = await client(started));
+      ({ root, redraw } = await client(app));
     });
+    return shown;
   };
+
+  it('shows what the app says until it is drawn, then the app in its place', async () => {
+    const shown = await openShell(
+      '/blog/hello',
+      Start.app({
+        router,
+        view: AppView,
+        document: Document,
+        loading: <p id="waiting">waiting</p>,
+      }),
+    );
+    expect(shown).toBe('waiting');
+    await until(() => document.querySelector('h1')?.textContent === 'Hello');
+    expect(document.getElementById('waiting')).toBeNull();
+    expect(errors).toEqual([]);
+  });
 
   it('draws the app at its own URL, every place loading, with no error', async () => {
     await openShell('/blog/hello');

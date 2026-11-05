@@ -55,11 +55,11 @@ _Avoid_: utilities, helpers, add-ons
 #### Offline
 
 **App Shell**:
-Kabuki Start's App Shell, kept by the service worker for its Build ID: what a client page is always answered with, and any other page offline when this build has no copy of it, so it boots and loads its own data with no network. There is no other offline page.
+Kabuki Start's App Shell, kept by the service worker for its Build ID: what every page is answered with, without the network, so the app boots at once and each page loads its own data. There is no other offline page.
 _Avoid_: shell page, skeleton, offline page, Offline Fallback (the former page for a navigation with nothing cached), Frame (the layout every screen sits in)
 
 **Precache**:
-What a new version saves as it installs, so the app opens with no network: the build's assets, and from Kabuki Start's Pages the App Shell and every static page that is one URL.
+What a new version saves as it installs, so the app opens with no network: the build's assets and Kabuki Start's App Shell.
 _Avoid_: preload, static cache
 
 **Runtime Cache**:
@@ -95,7 +95,7 @@ _Avoid_: A2HS banner, install banner
 #### Setup
 
 **Preset**:
-A named bundle of defaults for one kind of app, such as a content site or a signed-in dashboard. Chosen from evidence gathered in the playground, never by guess. How a page works offline is never a Preset's: its Render Mode decides.
+A named bundle of defaults for one kind of app, such as a content site or a signed-in dashboard. Chosen from evidence gathered in the playground, never by guess. How a page works offline is never a Preset's: every page is the App Shell.
 _Avoid_: template, profile, mode
 
 **Kill Switch**:

@@ -858,3 +858,112 @@ describe('the App Shell', () => {
     ]);
   });
 });
+
+describe('under a client root', () => {
+  const Inbox = Page.define({ path: '/inbox' });
+  const InboxLive = Inbox.build();
+  const Pinned = Page.define({ path: '/pinned', render: 'static' });
+  const PinnedLive = Pinned.build();
+  const Root = Page.define({
+    render: 'client',
+    metadata: { title: 'Mail', description: 'Your mail' },
+    pages: { Inbox, Pinned },
+  });
+  const RootLive = Root.build({
+    pages: { Inbox: InboxLive, Pinned: PinnedLive },
+  });
+  const rooted = Router.define(Root);
+  const RootView = View.make(RootLive, () => <p>the inbox</p>);
+  const mail = handler({
+    app: Start.app({
+      router: rooted,
+      view: RootView,
+      document: Document,
+      loading: <p>waiting</p>,
+    }),
+    build,
+  });
+  const at = (
+    path: string,
+    cache?: Parameters<typeof mail.fetch>[1]['cache'],
+  ) =>
+    mail.fetch(
+      new Request(`https://site.test${path}`),
+      cache ? { env: {}, cache } : { env: {} },
+    );
+
+  it('inherits the root Render Mode in every place, unless a place says its own', () => {
+    expect(rooted.render).toBe('client');
+    expect(rooted.every.map(({ name, render }) => [name, render])).toEqual([
+      ['Inbox', 'client'],
+      ['Pinned', 'static'],
+    ]);
+    expect(rooted.places(rooted.Inbox()).map((place) => place.render)).toEqual([
+      'client',
+    ]);
+  });
+
+  it('answers every URL with the App Shell and a 200, one that names no page too', async () => {
+    for (const path of ['/', '/inbox', '/pinned', '/nowhere']) {
+      const response = await at(path);
+      const html = await response.text();
+      expect(response.status).toBe(200);
+      expect(html).toContain('<p>waiting</p>');
+      expect(html).not.toContain('the inbox');
+      expect(saved(html).saved).toBeUndefined();
+    }
+  });
+
+  it("draws the root's Metadata into the App Shell", async () => {
+    const html = await (await at('/_kabuki/shell')).text();
+    expect(html).toContain('<title>Mail</title>');
+    expect(html).toContain('content="Your mail"');
+  });
+
+  it('keeps one App Shell for every URL, once per build', async () => {
+    const kept = new Map<string, Response>();
+    const cache = {
+      match: async (key: Request) => kept.get(key.url)?.clone(),
+      put: async (key: Request, response: Response) => {
+        kept.set(key.url, response);
+      },
+    };
+    for (const path of ['/', '/inbox?tab=1', '/nowhere'])
+      expect((await at(path, cache)).headers.get('cache-control')).toBe(
+        'public, max-age=0, s-maxage=31536000, no-transform',
+      );
+    expect([...kept.keys()]).toEqual([
+      'https://site.test/_kabuki/cache/build-1/_kabuki/shell',
+    ]);
+  });
+
+  it('says every page is client in the Pages', async () => {
+    const { pages } = (await (await at(Start.pages)).json()) as Pages;
+    expect(pages.map((one) => one.render)).toEqual(['client', 'client']);
+  });
+});
+
+describe('under a dynamic root', () => {
+  const Feed = Page.define({ path: '/feed' });
+  const Root = Page.define({ render: 'dynamic', pages: { Feed } });
+  const RootLive = Root.build({ pages: { Feed: Feed.build() } });
+  const rooted = Router.define(Root);
+  const site = handler({
+    app: Start.app({
+      router: rooted,
+      view: View.make(RootLive, () => <p>the feed</p>),
+      document: Document,
+    }),
+    build,
+  });
+
+  it('draws its pages for each visitor', async () => {
+    const response = await site.fetch(new Request('https://site.test/feed'), {
+      env: {},
+    });
+    expect(response.headers.get('cache-control')).toBe(
+      'private, no-store, no-transform',
+    );
+    expect(await response.text()).toContain('the feed');
+  });
+});

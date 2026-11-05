@@ -95,10 +95,11 @@ its path: `static` if every place the server draws is static, `client` if
 it draws none, and `dynamic` otherwise.
 
 `GET /_kabuki/shell` answers the **App Shell**: your Document with no app
-in it, the same for everyone until the next deploy. The browser draws the
-app into it, at its own URL, every place loading. A service worker can
-answer any page with it when it has nothing better, like offline. For a
-client page, the App Shell is exactly that page.
+in it, the same for everyone until the next deploy. It shows what
+`Start.app({ loading })` says until the browser has drawn the app into it, at
+its own URL, every place loading. A service worker can answer any page with
+it. If your root page is `render: 'client'`, the server does too: every URL
+is the App Shell.
 
 ## Start serves; the Web Platform decides
 
@@ -108,16 +109,16 @@ the App Shell for whatever is built on top. That keeps it usable with any
 UI and any host.
 
 Those choices are made in the Web Platform, `@kestack/web-platform`. Every
-app on it is a PWA unless it says `pwa: false`, and its service worker
-treats each page by its Render Mode alone:
+app on it is a PWA unless it says `pwa: false`, and its service worker keeps
+the app's assets and the App Shell, and answers every page with the App Shell:
 
-- a static page is saved ahead of time;
-- a dynamic page goes to the network first, and falls back to its last
-  copy;
-- a client page is answered with the App Shell.
+- the app opens at once, with or without a network;
+- each page then loads its own data, as a move in the app does, so server
+  data needs a connection;
+- a Render Mode only says what the server sends when no worker answers, as
+  on a first visit or to a crawler.
 
-So a page can't work one way offline and be served another. The reasons
-are in [ADR 0010](https://github.com/pkishorez/monorepo/blob/main/docs/adr/0010-kabuki-start-serves-the-web-platform-decides.md).
+The reasons are in [ADR 0013](https://github.com/pkishorez/monorepo/blob/main/docs/adr/0013-the-service-worker-answers-every-page-with-the-app-shell.md).
 
 <Callout title="Remember">
   Your app doesn't change with the host: the adapter does. Start serves the app

@@ -289,7 +289,7 @@ The page's HTML around the app, written once: where Start puts the Metadata, the
 _Avoid_: shell, layout, root, html
 
 **App Shell**:
-The Document with no app drawn in it, the same for everyone until the next deploy: the browser draws the app in it at its own URL, every place loading. What something in front of the app, such as a service worker, answers a page with when it has nothing better; for a page whose places are all client, it is the page.
+The Document with no app drawn in it, the same for everyone until the next deploy: it shows what `Start.app({ loading })` says until the browser has drawn the app in it at its own URL, every place loading. What something in front of the app, such as a service worker, answers a page with; under a client root, it is what the server answers every URL with.
 _Avoid_: shell page, skeleton, empty page
 
 **Pages**:

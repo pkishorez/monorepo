@@ -7,6 +7,7 @@ import type {
   RoutesApi,
   Tree,
 } from '../route/index.ts';
+import type { RenderMode } from '../route/index.ts';
 import type { AnyPageDefinition, Rootless } from '../page/index.ts';
 import type { ScrollRestorationOptions } from './scroll/index.ts';
 
@@ -123,6 +124,9 @@ export const define = <
         ...(notFound ? { notFound } : {}),
         ...(metadata ? { metadata } : {}),
         ...(staleTime === undefined ? {} : { staleTime }),
+        ...(page.render === undefined
+          ? {}
+          : { render: page.render as RenderMode }),
       }),
       {
         root: page,

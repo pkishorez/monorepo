@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { Layer } from 'effect';
 import type { AnyActor } from '../../core/actor/index.ts';
 import type { Needs } from '../../core/runtime/index.ts';
@@ -10,9 +11,10 @@ import type { DocumentType, StartApp } from './protocol/index.ts';
 
 /*
  * What `src/app` hands Start, on both sides: `Start.app({ router, view,
- * document, layer })`, the app's router and the View of its root page, its
- * Document, and what its Actors Require in the browser, checked against
- * them. Start reads nothing else there, so the check cannot be skipped.
+ * document, loading, layer })`, the app's router and the View of its root
+ * page, its Document, what the App Shell shows until the app is drawn, and
+ * what its Actors Require in the browser, checked against them. Start reads
+ * nothing else there, so the check cannot be skipped.
  */
 
 /** What the root page's build still needs from above, besides what the Router Provides. */
@@ -31,6 +33,11 @@ export type AppOptions<G extends PageDefinition, A extends PageBuild<G>> = {
   readonly view: ViewOf<A>;
   /** The HTML around the app; the plainest one if none. */
   readonly document?: DocumentType;
+  /**
+   * What the App Shell shows until the browser has drawn the app: in its
+   * HTML, so it paints before any script runs. Nothing if none.
+   */
+  readonly loading?: ReactNode;
   /**
    * What the app is called in the browser, as a devtool lists it: its
    * History and its Window are kept under this name. `Router`, the root
@@ -54,7 +61,7 @@ export type AppOptions<G extends PageDefinition, A extends PageBuild<G>> = {
 export const app = <G extends PageDefinition, A extends PageBuild<G>>(
   options: AppOptions<G, A>,
 ): StartApp => {
-  const { router, view, document, name, attach } = options;
+  const { router, view, document, loading, name, attach } = options;
   const { layer } = options as {
     readonly layer?: Layer.Layer<any, never, never>;
   };
@@ -62,6 +69,7 @@ export const app = <G extends PageDefinition, A extends PageBuild<G>>(
     [APP]: true,
     app: Router.view(router as never, view as unknown as ViewOf<AnyActor>),
     ...(document && { document }),
+    ...(loading !== undefined && { loading }),
     ...(name && { name }),
     ...(layer && { layer }),
     ...(attach && { attach }),

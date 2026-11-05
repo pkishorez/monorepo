@@ -133,9 +133,6 @@
       "src/pwa/engine/worker/global-scope",
       "src/pwa/engine/worker/precache"
     ],
-    "src/pwa/engine/worker/requests/pages": [
-      "src/pwa/engine/worker/requests/strategies"
-    ],
     "src/pwa/prompts/extras": [
       "src/pwa/engine/contract/dom-events.ts",
       "src/pwa/engine/contract/subscription-ref.ts",

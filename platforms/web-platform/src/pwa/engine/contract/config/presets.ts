@@ -12,8 +12,8 @@ const DAY_SECONDS = 24 * 60 * 60;
 /**
  * `app` for signed-in dashboards and tools, `content` for docs and content
  * sites. Images are left out of the Precache, so every preset caches them
- * at runtime. How pages work offline is no preset's business: it follows
- * from each page's Render Mode.
+ * at runtime. How pages work offline is no preset's business: every page is
+ * the App Shell.
  */
 export const PRESETS: Record<PresetName, Preset> = {
   app: {
