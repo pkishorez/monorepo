@@ -42,9 +42,15 @@ export function Screen({ children }: { readonly children?: ReactNode }) {
   );
 }
 
-/** 1. Waiting: the mark alone. */
+/** 1. Waiting: the mark alone, and to a screen reader, that it waits. */
 export function WaitScreen() {
-  return <Screen />;
+  return (
+    <Screen>
+      <span role="status" className="sr-only">
+        Loading
+      </span>
+    </Screen>
+  );
 }
 
 /** One part of the step, rising into place `order` beats after the first. */

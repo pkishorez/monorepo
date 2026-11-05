@@ -241,7 +241,8 @@ says, so it paints before any script runs; the browser hydrates the Document
 and draws the app in it at its own URL, every place loading. A service worker
 can answer any page with it. Under a `client` root the server does too: every
 URL is the App Shell with a `200`, one that names no page included, as the
-app reads it in the browser.
+app reads it in the browser. Only a path with a file extension that names no
+page stays a `404`.
 
 ## Lazy Views
 

@@ -33,21 +33,24 @@ const decode = Schema.decodeUnknownOption(Pages);
 
 /**
  * Asks Start which build it is and saves its App Shell into this build's
- * Precache. No answer from Start is no failure; an App Shell that will not
- * download fails install, as an asset would.
+ * Precache. An app that says it is not on Start, with a `4xx` or an answer
+ * that is not Start's, installs without one. Anything else that keeps the App
+ * Shell from being saved fails install, which the browser tries again: a
+ * network or server failure, or an App Shell that will not download.
  */
 export const installShell = (
   buildId: BuildId,
 ): Effect.Effect<void, Error, GlobalScope> =>
   Effect.gen(function* () {
     const scope = yield* GlobalScope;
-    const response = yield* fetchNetwork(PAGES_URL, { cache: 'reload' }).pipe(
-      Effect.option,
-    );
-    if (Option.isNone(response) || !response.value.ok) return;
-    const body = yield* attempt(() => response.value.text()).pipe(
-      Effect.orElseSucceed(() => ''),
-    );
+    const response = yield* fetchNetwork(PAGES_URL, { cache: 'reload' });
+    if (response.status >= 500) {
+      return yield* Effect.fail(
+        new Error(`Install failed: ${PAGES_URL} (${response.status})`),
+      );
+    }
+    if (!response.ok) return;
+    const body = yield* attempt(() => response.text());
     const pages = Option.liftThrowable(JSON.parse)(body).pipe(
       Option.flatMap(decode),
     );
