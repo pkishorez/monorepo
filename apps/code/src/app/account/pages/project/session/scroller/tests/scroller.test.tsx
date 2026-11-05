@@ -254,6 +254,14 @@ describe('the scroller', () => {
     expect(top).toBe(was);
   });
 
+  it('holds nothing in place by the browser while following, and does once up the page', async () => {
+    expect(scroller.style.overflowAnchor).toBe('none');
+    await scrolled(-250);
+    expect(scroller.style.overflowAnchor).toBe('');
+    await scrolled(250);
+    expect(scroller.style.overflowAnchor).toBe('none');
+  });
+
   it('2. leaves the view where it is when the block it was kept by goes', async () => {
     await scrolled(-250);
     const was = top;

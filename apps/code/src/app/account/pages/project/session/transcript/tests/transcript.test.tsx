@@ -230,6 +230,40 @@ describe('a long transcript', () => {
     expect(drawn()).toBe(30 * 4);
   });
 
+  it('hears a touch end on what it began on, as when that is taken away', async () => {
+    act(() => root.render(<Transcript rows={turns(30)} scrolled />));
+    const scroller = container.firstElementChild as HTMLElement;
+    let top = 40;
+    Object.defineProperty(scroller, 'scrollTop', {
+      configurable: true,
+      get: () => top,
+      set: (to: number) => {
+        top = to;
+      },
+    });
+    const touched = scroller.querySelector('[data-block]')!;
+    act(() =>
+      touched.dispatchEvent(new Event('touchstart', { bubbles: true })),
+    );
+    act(() => scroller.dispatchEvent(new Event('scroll')));
+    top = 0;
+    room = true;
+    act(() => scroller.dispatchEvent(new Event('scroll')));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 200)));
+    await settle();
+    expect(drawn()).toBe(10);
+    // Taken away, its end does not reach the scroller, only itself.
+    act(() =>
+      touched.dispatchEvent(
+        Object.assign(new Event('touchend', { bubbles: false }), {
+          touches: [] as Touch[],
+        }),
+      ),
+    );
+    await settle();
+    expect(drawn()).toBe(30 * 4);
+  });
+
   it('at the very top, draws above only once the finger has lifted', async () => {
     act(() => root.render(<Transcript rows={turns(30)} scrolled />));
     const scroller = container.firstElementChild as HTMLElement;
