@@ -99,6 +99,10 @@ const touch = (type: 'touchstart' | 'touchend') =>
 
 const atBottom = () => top === total() - VIEW;
 
+/** Long enough with no scroll for the view to count as still. */
+const quiet = () =>
+  act(() => new Promise((resolve) => setTimeout(resolve, 200)));
+
 beforeEach(async () => {
   grown = 0;
   top = 0;
@@ -195,6 +199,7 @@ describe('the scroller', () => {
   it('2. puts the view back as more is drawn above it', async () => {
     await scrolled(-total());
     expect(top).toBe(0);
+    await quiet();
     const shown = container.querySelector<HTMLElement>('[data-block="b20"]')!;
     const was = shown.getBoundingClientRect().top;
     await act(async () => setIds(['a0', 'a1', 'a2', ...ids]));
@@ -233,6 +238,7 @@ describe('the scroller', () => {
 
   it('3. puts in place at once what changes under a tap, which moves nothing', async () => {
     await scrolled(-total());
+    await quiet();
     await touch('touchstart');
     await touch('touchend');
     const shown = [

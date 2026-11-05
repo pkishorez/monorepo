@@ -208,6 +208,28 @@ describe('a long transcript', () => {
     expect(drawn()).toBe(10);
   });
 
+  it('at the very top, waits for the view to be still, with no touch heard', async () => {
+    act(() => root.render(<Transcript rows={turns(30)} scrolled />));
+    const scroller = container.firstElementChild as HTMLElement;
+    let top = 40;
+    Object.defineProperty(scroller, 'scrollTop', {
+      configurable: true,
+      get: () => top,
+      set: (to: number) => {
+        top = to;
+      },
+    });
+    act(() => scroller.dispatchEvent(new Event('scroll')));
+    top = 0;
+    room = true;
+    act(() => scroller.dispatchEvent(new Event('scroll')));
+    await settle();
+    expect(drawn()).toBe(10);
+    await act(() => new Promise((resolve) => setTimeout(resolve, 200)));
+    await settle();
+    expect(drawn()).toBe(30 * 4);
+  });
+
   it('at the very top, draws above only once the finger has lifted', async () => {
     act(() => root.render(<Transcript rows={turns(30)} scrolled />));
     const scroller = container.firstElementChild as HTMLElement;

@@ -209,7 +209,9 @@ export function useScroller(key: string, id: string) {
       if (Math.abs(outer.scrollTop - put) < 1) return;
       // A finger moving it: a glide, until it is quiet. A tap moves
       // nothing, so what it opens or shuts is put in place at once.
-      if (scroll.touching) scroll.gliding = true;
+      // Reaching the very top too, as a phone may stop telling of a touch
+      // once it scrolls: what is drawn there waits for the view to be still.
+      if (scroll.touching || outer.scrollTop <= 0) scroll.gliding = true;
       if (scroll.gliding) settleSoon();
       // Nothing to read a place from before its list is drawn.
       if (!scroll.drawn) return;
