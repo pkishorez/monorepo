@@ -9,7 +9,6 @@ export {
   isRuntimeCacheName,
   isToolkitCacheName,
   MANIFEST_URL,
-  pagesCacheName,
   PrecacheEntry,
   PrecacheList,
   precacheCacheName,

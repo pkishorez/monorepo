@@ -5,7 +5,6 @@ import {
   isPrecacheCacheName,
   isRuntimeCacheName,
   isToolkitCacheName,
-  pagesCacheName,
   precacheCacheName,
   runtimeCacheName,
 } from '../index.js';
@@ -52,12 +51,11 @@ describe('cache names', () => {
   it('prefixes every toolkit cache', () => {
     expect(precacheCacheName(buildId)).toBe('pwa-toolkit:precache:abc');
     expect(runtimeCacheName('images')).toBe('pwa-toolkit:runtime:images');
-    expect(pagesCacheName(buildId)).toBe('pwa-toolkit:runtime:pages:abc');
   });
 
   it('classifies names', () => {
     expect(isPrecacheCacheName(precacheCacheName(buildId))).toBe(true);
-    expect(isRuntimeCacheName(pagesCacheName(buildId))).toBe(true);
+    expect(isRuntimeCacheName(runtimeCacheName('images'))).toBe(true);
     expect(isRuntimeCacheName(precacheCacheName(buildId))).toBe(false);
     expect(isToolkitCacheName('workbox-precache')).toBe(false);
   });

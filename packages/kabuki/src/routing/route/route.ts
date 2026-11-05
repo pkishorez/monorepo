@@ -21,6 +21,7 @@ import type {
   Tree,
   Value,
 } from './node.ts';
+import type { RenderMode } from './loader.ts';
 import { allPlaces, pathsOf, placesOn } from './places.ts';
 import { decodeSegment, fit, match, write } from './url.ts';
 import { dataSchemas, levelSchema, pick } from './values.ts';
@@ -98,6 +99,8 @@ export type RoutesOptions<C, D> = {
   readonly metadata?: Metadata;
   /** The not-found Route's Metadata, over the root's. */
   readonly notFound?: Metadata;
+  /** The root's Render Mode, which the places under it inherit: `static` unless said. */
+  readonly render?: RenderMode;
   /** The Stale time of every dynamic or client place that says none, nor its parent: 0 unless said. */
   readonly staleTime?: number;
 };
@@ -122,6 +125,10 @@ export interface RoutesApi<C> {
   readonly places: (of: RouteOf<C> | string) => ReadonlyArray<Place<NameOf<C>>>;
   /** Every place of the tree, as Schemas, from the root down. */
   readonly every: ReadonlyArray<PlaceSchema<NameOf<C>>>;
+  /** The root's Render Mode, which the places under it inherit. */
+  readonly render: RenderMode;
+  /** The root's own Metadata, under every place's. */
+  readonly rootMetadata: Metadata;
   /** Every place with data, by dotted name, with its data's Schema. */
   readonly data: ReadonlyArray<readonly [string, Codec<unknown>]>;
   /**
@@ -186,7 +193,8 @@ export const routesOf = <C extends object, D>(
   };
   const routeOf = (of: Route | string) =>
     (typeof of === 'string' ? read(of).route : of) as Value;
-  const every = allPlaces(nodes, options.staleTime);
+  const render = options.render ?? 'static';
+  const every = allPlaces(nodes, options.staleTime, [], {}, render);
   const names = every.map((place) => place.name);
   const staleTimes = new Map(
     every.map((place) => [place.name, place.staleTime]),
@@ -212,10 +220,14 @@ export const routesOf = <C extends object, D>(
     places: (of) => {
       const value = routeOf(of);
       return (
-        value._tag === 'NotFound' ? [] : placesOn(nodes, value, staleTimes)
+        value._tag === 'NotFound'
+          ? []
+          : placesOn(nodes, value, staleTimes, render)
       ) as ReadonlyArray<Place<NameOf<C>>>;
     },
     every: every as ReadonlyArray<PlaceSchema<NameOf<C>>>,
+    render,
+    rootMetadata: options.metadata ?? {},
     data: dataSchemas(nodes),
     // Typed by `RoutesApi`.
     loaders: ((loaders: unknown) => loaders) as RoutesApi<C>['loaders'],

@@ -1,18 +1,14 @@
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
-import { type BuildId, pagesCacheName } from '../../../contract/build/index.js';
 import type { WorkerBuildInfo } from '../../../contract/config/index.js';
-import {
-  attempt,
-  fetchNetwork,
-  GlobalScope,
-  type KeepAlive,
-  openCache,
-} from '../../global-scope/index.js';
-import { networkFirst } from '../strategies/index.js';
-import { matchPrecache, pageAt, readPages } from '../../precache/index.js';
+import { fetchNetwork, GlobalScope } from '../../global-scope/index.js';
+import { matchPrecache, SHELL_URL } from '../../precache/index.js';
 
-/** Whether the worker answers this navigation; denylisted paths go straight to the network. */
+/** A file opened in a tab, or Kabuki Start's own address: never a page of the app. */
+const isPage = (pathname: string): boolean =>
+  !pathname.startsWith('/_kabuki/') && !/\.[^/]+$/.test(pathname);
+
+/** Whether the worker answers this navigation; anything else goes straight to the network. */
 export const isHandledNavigation = (
   info: WorkerBuildInfo,
   request: Request,
@@ -22,6 +18,7 @@ export const isHandledNavigation = (
   return (
     request.mode === 'navigate' &&
     url.origin === origin &&
+    isPage(url.pathname) &&
     !info.config.navigation.denylist.some((prefix) =>
       url.pathname.startsWith(prefix),
     )
@@ -29,95 +26,21 @@ export const isHandledNavigation = (
 };
 
 /**
- * How a page is answered follows from its Render Mode, as this build's
- * Pages say (a page they do not name, or no Pages at all, is dynamic):
- *
- *   client   the App Shell, which is what the server would send; the
- *            network only if it is missing.
- *   static   this build's copy, precached or saved when first visited;
- *            else as dynamic. Only the bare path is precached: one with
- *            a query is its own page, saved when first visited.
- *   dynamic  the network within `networkTimeoutMs`, kept; then the copy
- *            saved last, then the App Shell.
- *
- * While a newer version waits to be accepted, the network holds that newer
- * build's HTML, so this build's copy, or else its App Shell, answers
- * first: every page stays on the active Build ID until the update is
- * accepted. For the same reason, pages are not saved while a newer version
- * waits: they belong to that build, not to this Build ID's pages cache.
- * A page the server marks `private` or `no-store` is never saved: it is
- * one account's, and the cache is the device's.
+ * Every page is this build's App Shell, whatever its Render Mode, without
+ * asking the network: the app starts in it at the page's URL, and each page
+ * that needs data asks the server for it, as a move in the app does. So the
+ * app always opens, server data needs a connection, and every page stays on
+ * this Build ID while a newer version waits. With no App Shell, as for an
+ * app not on Kabuki Start, a page is the network's.
  */
 export const handleNavigation = (
   info: WorkerBuildInfo,
   request: Request,
-): Effect.Effect<Response, Error, GlobalScope | KeepAlive> =>
-  Effect.gen(function* () {
-    const scope = yield* GlobalScope;
-    const pages = yield* readPages(info.buildId);
-    const { pathname, search } = new URL(request.url);
-    const render = pages.pipe(
-      Option.flatMap((all) => pageAt(all, pathname)),
-      Option.match({ onNone: () => 'dynamic', onSome: (page) => page.render }),
-    );
-    const shell = Option.match(pages, {
-      onNone: () => Effect.succeed(Option.none<Response>()),
-      onSome: (all) => matchPrecache(info.buildId, all.shell),
-    });
-    const saved = matchPage(info.buildId, request);
-    const network = Effect.tap(fetchNetwork(request), (response) =>
-      keeps(response)
-        ? savePage(info.buildId, request, response.clone())
-        : Effect.void,
-    );
-    const ours =
-      render === 'client'
-        ? [shell]
-        : render === 'static'
-          ? search === ''
-            ? [matchPrecache(info.buildId, pathname), saved]
-            : [saved]
-          : [];
-    const pinned = scope.hasWaitingWorker() ? [saved, shell] : [];
-    const first = yield* firstSome([...ours, ...pinned]);
-    if (Option.isSome(first)) return first.value;
-    return yield* networkFirst({
-      network,
-      fallback: firstSome([saved, shell]),
-      timeoutMs: info.config.navigation.networkTimeoutMs,
-    });
-  });
-
-/** Whether a page from the network may be saved for later. */
-const keeps = (response: Response): boolean =>
-  response.ok &&
-  !/\b(?:private|no-store)\b/i.test(
-    response.headers.get('cache-control') ?? '',
+): Effect.Effect<Response, Error, GlobalScope> =>
+  Effect.flatMap(
+    matchPrecache(info.buildId, SHELL_URL),
+    Option.match({
+      onNone: () => fetchNetwork(request),
+      onSome: Effect.succeed,
+    }),
   );
-
-const savePage = (buildId: BuildId, request: Request, response: Response) =>
-  Effect.gen(function* () {
-    const scope = yield* GlobalScope;
-    if (scope.hasWaitingWorker()) return;
-    const cache = yield* openCache(pagesCacheName(buildId));
-    yield* attempt(() => cache.put(request, response));
-  }).pipe(Effect.ignore);
-
-const matchPage = (buildId: BuildId, request: Request) =>
-  Effect.flatMap(openCache(pagesCacheName(buildId)), (cache) =>
-    attempt(() => cache.match(request)),
-  ).pipe(
-    Effect.map(Option.fromNullishOr),
-    Effect.orElseSucceed(() => Option.none<Response>()),
-  );
-
-const firstSome = <R>(
-  candidates: ReadonlyArray<Effect.Effect<Option.Option<Response>, never, R>>,
-): Effect.Effect<Option.Option<Response>, never, R> =>
-  Effect.gen(function* () {
-    for (const candidate of candidates) {
-      const hit = yield* candidate;
-      if (Option.isSome(hit)) return hit;
-    }
-    return Option.none();
-  });

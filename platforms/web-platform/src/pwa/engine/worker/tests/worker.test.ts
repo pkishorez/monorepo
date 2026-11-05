@@ -4,7 +4,6 @@ import * as Stream from 'effect/Stream';
 import { describe, expect, it } from 'vitest';
 import {
   BuildId,
-  pagesCacheName,
   precacheCacheName,
   runtimeCacheName,
 } from '../../contract/build/index.js';
@@ -22,9 +21,8 @@ import { startServiceWorker } from '../worker.js';
 
 const BUILD = BuildId.make('b2');
 const PRECACHE = precacheCacheName(BUILD);
-const SAVED = pagesCacheName(BUILD);
 
-/** What Kabuki Start answers at `/_kabuki/pages`: one page of each kind. */
+/** What Kabuki Start answers at `/_kabuki/pages`. */
 const PAGES = {
   build: 'k1',
   shell: '/_kabuki/shell',
@@ -50,13 +48,11 @@ const start = (
   info: WorkerBuildInfo = build(),
   options: {
     active?: boolean;
-    waiting?: boolean;
     layer?: Layer.Layer<never, never, WorkerHost>;
   } = {},
 ) => {
   const fake = makeFakeGlobal({
     active: options.active ?? false,
-    waiting: options.waiting ?? false,
   });
   startServiceWorker(
     fake.global,
@@ -66,13 +62,11 @@ const start = (
   return fake;
 };
 
-/** This build installed: its asset, and what Start said of its pages. */
+/** This build installed: its asset and the App Shell. */
 const withPrecache = (fake: ReturnType<typeof makeFakeGlobal>) =>
   fake.caches.seed(PRECACHE, {
     '/assets/app.js': 'app-js',
-    '/_kabuki/pages': JSON.stringify(PAGES),
     '/_kabuki/shell': 'shell',
-    '/': 'home',
   });
 
 /** Start's answers, each page drawn by the server build `drawnBy`. */
@@ -118,13 +112,11 @@ describe('listeners', () => {
 });
 
 describe('install', () => {
-  it("saves the assets, Start's Pages, the App Shell and static pages without params, then skips waiting", async () => {
+  it('saves the assets and the App Shell, and no other page, then skips waiting', async () => {
     const fake = start();
     fake.setNetwork(startNetwork);
     await settle(fake.dispatch('install'));
     expect(fake.caches.urls(PRECACHE).sort()).toEqual([
-      '/',
-      '/_kabuki/pages',
       '/_kabuki/shell',
       '/assets/app.js',
     ]);
@@ -132,65 +124,64 @@ describe('install', () => {
     expect(fake.calls.skipWaiting).toBe(1);
   });
 
-  it("asks once more, past every cache, for a page an older deploy drew, and saves Start's own", async () => {
+  it("asks once more, past every cache, for an App Shell an older deploy drew, and saves Start's own", async () => {
     const fake = start();
-    fake.setNetwork(staleAt('/', 1));
+    fake.setNetwork(staleAt('/_kabuki/shell', 1));
     await settle(fake.dispatch('install'));
-    const saved = await (await fake.caches.open(PRECACHE)).match('/');
-    expect(await saved?.text()).toBe('body:/ k1');
-    const asked = fake.requests.filter((r) => r.url === '/');
+    const saved = await (
+      await fake.caches.open(PRECACHE)
+    ).match('/_kabuki/shell');
+    expect(await saved?.text()).toBe('body:/_kabuki/shell k1');
+    const asked = fake.requests.filter((r) => r.url === '/_kabuki/shell');
     expect(asked.map((r) => r.init?.cache)).toEqual(['reload', 'no-store']);
   });
 
-  it("leaves to the network a static page that is still an older deploy's", async () => {
+  it('replaces an App Shell the last install of this Build ID saved from an older deploy', async () => {
     const fake = start();
-    fake.setNetwork(staleAt('/', 2));
-    await settle(fake.dispatch('install'));
-    expect(fake.caches.urls(PRECACHE)).not.toContain('/');
-    expect(fake.calls.skipWaiting).toBe(1);
-  });
-
-  it('replaces a page the last install of this Build ID saved from an older deploy', async () => {
-    const fake = start();
-    fake.caches.seed(PRECACHE, {
-      '/': 'body:/ k0',
-      '/_kabuki/shell': 'body:/_kabuki/shell k1',
-    });
+    fake.caches.seed(PRECACHE, { '/_kabuki/shell': 'body:/_kabuki/shell k0' });
     fake.setNetwork(startNetwork);
     await settle(fake.dispatch('install'));
-    const saved = await (await fake.caches.open(PRECACHE)).match('/');
-    expect(await saved?.text()).toBe('body:/ k1');
+    const saved = await (
+      await fake.caches.open(PRECACHE)
+    ).match('/_kabuki/shell');
+    expect(await saved?.text()).toBe('body:/_kabuki/shell k1');
+  });
+
+  it('keeps an App Shell this deploy already drew', async () => {
+    const fake = start();
+    fake.caches.seed(PRECACHE, { '/_kabuki/shell': 'body:/_kabuki/shell k1' });
+    fake.setNetwork(startNetwork);
+    await settle(fake.dispatch('install'));
     expect(fake.requests.filter((r) => r.url === '/_kabuki/shell')).toEqual([]);
   });
 
-  it("deletes a held page that is still an older deploy's, leaving it to the network", async () => {
+  it("fails install, deleting it, when the App Shell is still an older deploy's", async () => {
     const fake = start();
-    fake.caches.seed(PRECACHE, { '/': 'body:/ k0' });
-    fake.setNetwork(staleAt('/', 2));
-    await settle(fake.dispatch('install'));
-    expect(fake.caches.urls(PRECACHE)).not.toContain('/');
-  });
-
-  it("fails install when the App Shell is still an older deploy's", async () => {
-    const fake = start();
+    fake.caches.seed(PRECACHE, { '/_kabuki/shell': 'body:/_kabuki/shell k0' });
     fake.setNetwork(staleAt('/_kabuki/shell', 2));
     const event = fake.dispatch('install');
     await expect(Promise.all(event.lifetimes)).rejects.toThrow(
       '/_kabuki/shell',
     );
     expect(fake.calls.skipWaiting).toBe(0);
+    expect(fake.caches.urls(PRECACHE)).not.toContain('/_kabuki/shell');
   });
 
-  it('installs with the assets alone when Start answers no Pages', async () => {
-    const fake = start();
-    fake.setNetwork((request) =>
-      request.url.endsWith('/_kabuki/pages')
-        ? new Response('', { status: 404 })
-        : new Response('ok'),
-    );
-    await settle(fake.dispatch('install'));
-    expect(fake.caches.urls(PRECACHE)).toEqual(['/assets/app.js']);
-    expect(fake.calls.skipWaiting).toBe(1);
+  it('installs with the assets alone when Start answers no Pages, or not as Start does', async () => {
+    for (const answer of [
+      new Response('', { status: 404 }),
+      Response.json({ hello: 'world' }),
+    ]) {
+      const fake = start();
+      fake.setNetwork((request) =>
+        request.url.endsWith('/_kabuki/pages')
+          ? answer.clone()
+          : new Response('ok'),
+      );
+      await settle(fake.dispatch('install'));
+      expect(fake.caches.urls(PRECACHE)).toEqual(['/assets/app.js']);
+      expect(fake.calls.skipWaiting).toBe(1);
+    }
   });
 
   it('waits for SKIP_WAITING when an older version is active', async () => {
@@ -213,27 +204,16 @@ describe('install', () => {
       expect(fake.calls.skipWaiting).toBe(0);
     }
   });
-
-  it('leaves a static page that fails to download to the network', async () => {
-    const fake = start();
-    fake.setNetwork((request) =>
-      new URL(request.url).pathname === '/'
-        ? new Response('', { status: 500 })
-        : startNetwork(request),
-    );
-    await settle(fake.dispatch('install'));
-    expect(fake.caches.urls(PRECACHE)).not.toContain('/');
-    expect(fake.calls.skipWaiting).toBe(1);
-  });
 });
 
 describe('activate', () => {
-  it('deletes other Precaches and orphaned Runtime Caches, then claims clients', async () => {
+  it('deletes other Precaches, pages an older worker saved and orphaned Runtime Caches, then claims clients', async () => {
     const fake = start();
     const images = runtimeCacheName('images');
     fake.caches.seed(precacheCacheName(BuildId.make('b1')), { '/a': 'old' });
     fake.caches.seed(PRECACHE, { '/a': 'new' });
     fake.caches.seed(images, { '/i.png': 'img' });
+    fake.caches.seed(runtimeCacheName('pages:b1'), { '/feed': 'old' });
     fake.caches.seed(runtimeCacheName('gone'), { '/x': 'x' });
     fake.caches.seed('someone-else', { '/y': 'y' });
     await settle(fake.dispatch('activate'));
@@ -241,15 +221,6 @@ describe('activate', () => {
       [PRECACHE, images, 'someone-else'].sort(),
     );
     expect(fake.calls.claim).toBe(1);
-  });
-
-  it("keeps only this build's saved pages", async () => {
-    const oldPages = pagesCacheName(BuildId.make('b1'));
-    const fake = start();
-    fake.caches.seed(oldPages, { '/feed': 'old' });
-    fake.caches.seed(SAVED, { '/feed': 'new' });
-    await settle(fake.dispatch('activate'));
-    expect([...fake.caches.caches.keys()]).toEqual([SAVED]);
   });
 });
 
@@ -275,142 +246,62 @@ describe('fetch routing', () => {
 });
 
 describe('navigation', () => {
-  describe('a dynamic page', () => {
-    it('is the network when it answers in time, and kept', async () => {
-      const fake = start();
-      withPrecache(fake);
-      fake.setNetwork(() => new Response('fresh'));
-      const first = fake.fetchEvent('/feed', { mode: 'navigate' });
-      expect(await text(first)).toBe('fresh');
-      await settle(first);
-      fake.setNetwork(offline);
-      expect(await navigate(fake, '/feed')).toBe('fresh');
-    });
-
-    it('is not kept when the server marks it private or no-store', async () => {
-      const fake = start();
-      withPrecache(fake);
-      for (const control of ['private', 'no-store']) {
-        fake.setNetwork(
-          () => new Response('mine', { headers: { 'cache-control': control } }),
-        );
-        const first = fake.fetchEvent('/feed', { mode: 'navigate' });
-        expect(await text(first)).toBe('mine');
-        await settle(first);
-      }
-      fake.setNetwork(offline);
-      expect(await navigate(fake, '/feed')).toBe('shell');
-    });
-
-    it('is the App Shell offline when it was never kept', async () => {
-      const fake = start();
-      withPrecache(fake);
-      fake.setNetwork(offline);
-      expect(await navigate(fake, '/feed')).toBe('shell');
-    });
-
-    it('falls back after networkTimeoutMs', async () => {
-      const fake = start(build({ navigation: { networkTimeoutMs: 20 } }));
-      withPrecache(fake);
-      fake.setNetwork(() => sleep(200).then(() => new Response('late')));
-      expect(await navigate(fake, '/feed')).toBe('shell');
-    });
-
-    it('waits for a slow network when there is nothing to fall back to', async () => {
-      const fake = start(build({ navigation: { networkTimeoutMs: 10 } }));
-      fake.setNetwork(() => sleep(40).then(() => new Response('late')));
-      expect(await navigate(fake, '/feed')).toBe('late');
-    });
-  });
-
-  describe('a static page', () => {
-    it('is the precached copy, without the network', async () => {
-      const fake = start();
-      withPrecache(fake);
-      fake.setNetwork(() => new Response('fresh'));
-      expect(await navigate(fake, '/')).toBe('home');
-      expect(fake.requests).toEqual([]);
-    });
-
-    it('with a query is its own page, fetched once, then kept', async () => {
-      const fake = start();
-      withPrecache(fake);
-      fake.setNetwork(() => new Response('other'));
-      const first = fake.fetchEvent('/?q=other', { mode: 'navigate' });
-      expect(await text(first)).toBe('other');
-      await settle(first);
-      fake.setNetwork(offline);
-      expect(await navigate(fake, '/?q=other')).toBe('other');
-      expect(await navigate(fake, '/')).toBe('home');
-    });
-
-    it('with params is fetched once, then kept', async () => {
-      const fake = start();
-      withPrecache(fake);
-      fake.setNetwork(() => new Response('post'));
-      const first = fake.fetchEvent('/blog/hello', { mode: 'navigate' });
-      expect(await text(first)).toBe('post');
-      await settle(first);
-      fake.setNetwork(() => new Response('newer'));
-      expect(await navigate(fake, '/blog/hello')).toBe('post');
-      fake.setNetwork(offline);
-      expect(await navigate(fake, '/blog/other')).toBe('shell');
-    });
-  });
-
-  describe('a client page', () => {
-    it('is the App Shell, without the network', async () => {
-      const fake = start();
-      withPrecache(fake);
-      fake.setNetwork(() => new Response('drawn'));
-      expect(await navigate(fake, '/inbox?tab=1')).toBe('shell');
-      expect(fake.requests).toEqual([]);
-    });
-  });
-
-  it('treats a page Start did not name, or every page with no Pages, as dynamic', async () => {
+  it('answers every page with the App Shell, without the network', async () => {
     const fake = start();
     withPrecache(fake);
-    fake.setNetwork(() => new Response('fresh'));
-    expect(await navigate(fake, '/nowhere')).toBe('fresh');
-
-    const bare = start();
-    bare.caches.seed(PRECACHE, { '/assets/app.js': 'app-js' });
-    bare.setNetwork(() => new Response('drawn'));
-    expect(await navigate(bare, '/inbox')).toBe('drawn');
-  });
-
-  it('never handles denylisted paths', () => {
-    const fake = start(build({ navigation: { denylist: ['/admin'] } }));
-    expect(
-      fake.fetchEvent('/admin/x', { mode: 'navigate' }).response,
-    ).toBeUndefined();
-  });
-
-  it("answers with this build's copy, else its App Shell, without the network while an update waits", async () => {
-    const fake = start(build(), { waiting: true });
-    withPrecache(fake);
-    fake.caches.seed(SAVED, { '/feed': 'feed-v1' });
-    fake.setNetwork(() => new Response('newer-build'));
-    expect(await navigate(fake, '/feed')).toBe('feed-v1');
-    expect(await navigate(fake, '/nowhere')).toBe('shell');
+    fake.setNetwork(() => new Response('drawn'));
+    for (const path of [
+      '/',
+      '/feed',
+      '/blog/hello',
+      '/inbox?tab=1',
+      '/nowhere',
+    ])
+      expect(await navigate(fake, path)).toBe('shell');
     expect(fake.requests).toEqual([]);
   });
 
-  it('uses the network while an update waits when this build has nothing', async () => {
-    const fake = start(build(), { waiting: true });
+  it('answers with the App Shell offline', async () => {
+    const fake = start();
+    withPrecache(fake);
+    fake.setNetwork(offline);
+    expect(await navigate(fake, '/feed')).toBe('shell');
+  });
+
+  it("stays on this build's App Shell while an update waits", async () => {
+    const fake = start(build(), { active: true });
+    withPrecache(fake);
     fake.setNetwork(() => new Response('newer-build'));
-    const event = fake.fetchEvent('/feed', { mode: 'navigate' });
-    expect(await text(event)).toBe('newer-build');
-    await settle(event);
-    // Not kept: the page belongs to the waiting build.
-    expect(fake.caches.caches.get(SAVED)?.entries.size ?? 0).toBe(0);
+    expect(await navigate(fake, '/feed')).toBe('shell');
+    expect(fake.requests).toEqual([]);
+  });
+
+  it('is the network with no App Shell, as for an app not on Start', async () => {
+    const fake = start();
+    fake.caches.seed(PRECACHE, { '/assets/app.js': 'app-js' });
+    fake.setNetwork(() => new Response('drawn'));
+    expect(await navigate(fake, '/inbox')).toBe('drawn');
   });
 
   it('answers with a network error when nothing is available', async () => {
     const fake = start();
     const event = fake.fetchEvent('/feed', { mode: 'navigate' });
     expect((await event.response!).type).toBe('error');
+  });
+
+  it("leaves files, Start's own addresses and denylisted paths to the browser", () => {
+    const fake = start(build({ navigation: { denylist: ['/admin'] } }));
+    withPrecache(fake);
+    for (const path of [
+      '/og.png',
+      '/files/report.pdf',
+      '/_kabuki/pages',
+      '/_kabuki/shell',
+      '/admin/x',
+    ])
+      expect(
+        fake.fetchEvent(path, { mode: 'navigate' }).response,
+      ).toBeUndefined();
   });
 });
 

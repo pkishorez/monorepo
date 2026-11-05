@@ -505,7 +505,7 @@ const DemoApp = View.app(AuthView, { layer: ServerLive });
 - Work that must survive a stop belongs in a Worker: Commands running at a stop are lost. The outside world is not rewound.
 - What changes over time arrives as Messages: a Worker Sends a `Tick` or its progress, and the View draws the Model. motion can smooth what it draws from one Message to the next.
 - `View.app` does not compile until its `layer` covers every Capability the tree still needs; a tree that Requires nothing needs no `layer`.
-- Give `attach: [(runtime) => stop]` to run something beside the app, such as a devtool: each Attachment is called with the running app at the first mount in a browser, never on a server, and its `stop` at the last unmount or a hot reload. It holds the same object `useRuntime` returns, always read as it is now, and `runtime.subscribe` tells it of each change. One that throws is logged with `console.error`, and the app and the other Attachments run on. `Start.app({ …, attach })` hands them on in the same way.
+- Give `attach: [(runtime) => stop]` to run something beside the app, such as a devtool: each Attachment is called with the running app at the first mount in a browser, never on a server, and its `stop` at the last unmount or a hot reload. It holds the same object `useRuntime` returns, always read as it is now, and `runtime.subscribe` tells it of each change. One that throws is logged with `console.error`, and the app and the other Attachments run on. `Start.app({ …, attach })` hands them on in the same way. `Start.app({ …, loading })` is what the App Shell paints until the app is drawn.
 
 ### Drawing it before it runs
 

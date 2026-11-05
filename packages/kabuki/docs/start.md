@@ -234,11 +234,14 @@ A page's `render` is how its first drawing is made: `static` when every
 place the server draws is static, `client` when it draws none of them,
 `dynamic` otherwise. `build` is `null` in dev.
 
-`GET /_kabuki/shell` is the App Shell: the Document, its files and no app,
-kept per build as a static page is. The server leaves a Suspense boundary
-where the app goes; the browser hydrates the Document and draws the app in
-it at its own URL, every place loading. A service worker can answer a
-client page with it, which is that page exactly, and any page offline.
+`GET /_kabuki/shell` is the App Shell: the Document, its files, the root's
+Metadata and no app, kept per build as a static page is. The server leaves a
+Suspense boundary where the app goes, showing what `Start.app({ loading })`
+says, so it paints before any script runs; the browser hydrates the Document
+and draws the app in it at its own URL, every place loading. A service worker
+can answer any page with it. Under a `client` root the server does too: every
+URL is the App Shell with a `200`, one that names no page included, as the
+app reads it in the browser.
 
 ## Lazy Views
 

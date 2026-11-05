@@ -36,7 +36,7 @@ import { loading } from './rpc.ts';
  *
  * In the App Shell the server drew no app: the Document is hydrated, and
  * the app is drawn in the boundary the server left, at the browser's URL,
- * every place loading.
+ * every place loading, in place of what the app says shows until then.
  */
 
 /** The page once hydrated: its React root, and how to draw it again with new code. */
@@ -67,6 +67,7 @@ export const client = async (exported: StartApp): Promise<Hydrated> => {
     const {
       app,
       document: Document = Start.Document,
+      loading: shown = null,
       layer,
       name,
       attach,
@@ -89,7 +90,7 @@ export const client = async (exported: StartApp): Promise<Hydrated> => {
             {saved ? (
               <App saved={saved} />
             ) : (
-              <Suspense fallback={null}>
+              <Suspense fallback={shown}>
                 <App />
               </Suspense>
             )}

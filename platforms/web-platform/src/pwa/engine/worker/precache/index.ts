@@ -5,4 +5,4 @@ export {
   precachedUrls,
   servePrecached,
 } from './precache.js';
-export { installPages, type Pages, pageAt, readPages } from './pages.js';
+export { installShell, SHELL_URL } from './shell.js';

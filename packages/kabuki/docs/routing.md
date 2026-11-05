@@ -232,10 +232,11 @@ a move.
 #### Data and Render Modes
 
 `data`, a Schema, says a page needs a Loader. `render` is `static`, the
-default, `dynamic` or `client`, inherited by the pages under it; any mode may
-sit under any other. A server draws a page's data for `static` and `dynamic`;
-a `client` page, and every page under it, is sent loading, and the browser
-loads it.
+default, `dynamic` or `client`, inherited by the pages under it, the root's
+too; any mode may sit under any other. A server draws a page's data for
+`static` and `dynamic`; a `client` page, and every page under it, is sent
+loading, and the browser loads it. Under a `client` root Start answers every
+URL with the App Shell: see [start.md](start.md).
 
 `staleTime`, in milliseconds, is how long a copy of a page's data stays
 fresh in the Data cache once it arrives: see [Stale time](#stale-time). It

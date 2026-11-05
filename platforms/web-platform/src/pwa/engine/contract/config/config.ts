@@ -10,12 +10,10 @@ const Path = Schema.String.check(Schema.isStartingWith('/'));
 const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0));
 
 /**
- * How navigations resolve. Each page's own way follows from its Render
- * Mode, as Kabuki Start lists them; this only says how long a page waits
- * for the network, and which paths the worker leaves alone.
+ * How navigations resolve. Every page is the App Shell; this only says which
+ * paths the worker leaves alone.
  */
 export const NavigationConfig = Schema.Struct({
-  networkTimeoutMs: PositiveInt,
   /** Path prefixes whose navigations the worker never handles. */
   denylist: Schema.Array(Path),
 });
@@ -66,7 +64,6 @@ export const PwaOptions = Schema.Struct({
   strategies: Schema.optionalKey(Schema.Array(StrategyRule)),
   navigation: Schema.optionalKey(
     NavigationConfig.mapFields((f) => ({
-      networkTimeoutMs: Schema.optionalKey(f.networkTimeoutMs),
       denylist: Schema.optionalKey(f.denylist),
     })),
   ),
@@ -143,7 +140,6 @@ export const resolvePwaConfig = (
     },
     strategies: [...(options.strategies ?? []), ...defaults.strategies],
     navigation: {
-      networkTimeoutMs: options.navigation?.networkTimeoutMs ?? 3000,
       denylist: options.navigation?.denylist ?? [],
     },
     neverCache: options.neverCache ?? ['/api/auth/'],

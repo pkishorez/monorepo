@@ -48,6 +48,12 @@ export default Start.app({
   // The Web Platform's Document, with the site's favicons.
   // A docs site asks nothing: a new version is taken as soon as it is
   // ready, and install is never offered.
+  // What the App Shell paints until the site's script has run.
+  loading: (
+    <main className="flex min-h-dvh items-center justify-center font-mono text-sm text-muted-foreground">
+      ke stack
+    </main>
+  ),
   document: document({
     theme: Theme,
     prompts: { update: 'reload', install: 'off' },

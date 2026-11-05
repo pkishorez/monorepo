@@ -23,13 +23,14 @@ export const placesOn = (
   children: Children,
   route: Value,
   staleTimes: ReadonlyMap<string, number>,
+  root: RenderMode = 'static',
 ): ReadonlyArray<Place> => {
   const out: Array<Place> = [];
   let layer = children;
   let value: Value | undefined = route;
   const at: Array<string> = [];
   let params: Record<string, unknown> = {};
-  let render: RenderMode = 'static';
+  let render = root;
   while (value) {
     const node: AnyNode | undefined = layer[value._tag];
     if (!node) break;

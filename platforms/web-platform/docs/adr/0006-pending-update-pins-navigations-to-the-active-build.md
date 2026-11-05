@@ -1,5 +1,7 @@
 # A pending update pins navigations to the active build
 
+Replaced by [ADR 0013](../../../../docs/adr/0013-the-service-worker-answers-every-page-with-the-app-shell.md): every navigation is the active build's App Shell, whether or not an update waits, so nothing needs pinning.
+
 While a newer version waits to be accepted, the worker answers navigations with the active build's App Shell from the Precache instead of the network. The network already serves the newer build's HTML, and loading it under the old worker gives Version Skew: its hashed assets are not in the old Precache and Worker RPC refuses its calls. Pinning keeps every tab on the active Build ID until the user accepts, which is what [ADR 0004](0004-all-tabs-run-one-version.md) asks for.
 
 ## Consequences
