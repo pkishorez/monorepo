@@ -1,9 +1,12 @@
+import { CheckIcon, CopyIcon, XIcon } from 'lucide-react';
 import {
   createContext,
   Fragment,
   memo,
   useContext,
+  useEffect,
   useMemo,
+  useState,
   type ComponentProps,
   type MouseEvent,
   type ReactNode,
@@ -134,7 +137,8 @@ const Block = memo(function Block({ text }: { readonly text: string }) {
  * language or without, a quiet filled box, flush with the text's edge,
  * its words inset inside it; a long line scrolls sideways inside the box. A block's text always ends in a newline;
  * inline code never holds one, so that is what tells them apart, since
- * the `pre` around a block is dropped.
+ * the `pre` around a block is dropped. A block has a way to copy it at its
+ * top right, outside what scrolls, so it stays put as a long line moves.
  */
 function MarkdownCode({ className, children }: ComponentProps<'code'>) {
   const text = String(children);
@@ -142,11 +146,12 @@ function MarkdownCode({ className, children }: ComponentProps<'code'>) {
   if (language === undefined && !text.includes('\n')) {
     return <code className={className}>{children}</code>;
   }
+  const content = text.replace(/\n$/, '');
   return (
-    <div className="not-prose my-3">
+    <div className="group/code not-prose relative my-3">
       <SourceViewer
         filePath={`snippet.${language ?? 'txt'}`}
-        content={text.replace(/\n$/, '')}
+        content={content}
         autoHeight
         showHeader={false}
         showLineNumbers={false}
@@ -155,6 +160,45 @@ function MarkdownCode({ className, children }: ComponentProps<'code'>) {
           scrollbarStyles,
         )}
       />
+      <CopyCode text={content} />
     </div>
+  );
+}
+
+/**
+ * Copies a block, and says how that went for a moment. Shown on pointing at
+ * the block, or focus; always on a touch screen, where a finger reaches past
+ * its small square.
+ */
+function CopyCode({ text }: { readonly text: string }) {
+  const [told, setTold] = useState<'copied' | 'refused' | null>(null);
+  useEffect(() => {
+    if (told === null) return;
+    const timer = setTimeout(() => setTold(null), 1500);
+    return () => clearTimeout(timer);
+  }, [told]);
+  const label = told === 'refused' ? "Couldn't copy" : 'Copy the code';
+  return (
+    <button
+      type="button"
+      aria-label={told === 'copied' ? 'Copied' : label}
+      title={label}
+      onClick={() => {
+        void (navigator.clipboard?.writeText(text) ?? Promise.reject()).then(
+          () => setTold('copied'),
+          () => setTold('refused'),
+        );
+      }}
+      className={cn(
+        'focus-ring absolute top-1 right-1 grid size-7 place-items-center rounded-md bg-muted text-muted-foreground transition-[color,opacity] duration-150 hover:text-foreground motion-reduce:transition-none pointer-coarse:after:absolute pointer-coarse:after:-inset-2 [&_svg]:size-3.5',
+        told === null
+          ? 'opacity-0 group-hover/code:opacity-100 group-focus-within/code:opacity-100 [@media(hover:none)]:opacity-100'
+          : 'opacity-100',
+      )}
+    >
+      {told === 'copied' && <CheckIcon aria-hidden />}
+      {told === 'refused' && <XIcon aria-hidden />}
+      {told === null && <CopyIcon aria-hidden />}
+    </button>
   );
 }
