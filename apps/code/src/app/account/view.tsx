@@ -121,7 +121,7 @@ function Drawn({ root, model, props, children, send }: Active) {
     () => ({
       page: (
         <Suspense fallback={null}>
-          <PageOf children={children} none={none} />
+          <PageOf children={children} ready={ready} none={none} />
         </Suspense>
       ),
       ready,
@@ -245,11 +245,35 @@ function PageReady({ children }: { readonly children: Active['children'] }) {
  * is no Account's page: the root page says nothing lives there.
  */
 function PageOf({
+  children: next,
+  ready,
+  none,
+}: {
+  readonly children: Active['children'];
+  /** Whether the page the URL names can be drawn whole. */
+  readonly ready: boolean;
+  /** What home says while there is no Connection to show. */
+  readonly none: ReactNode;
+}) {
+  // A move to another page keeps the one before on screen until the next
+  // can be drawn whole, reading it meanwhile.
+  const page = next.Home ?? next.Project ?? next.Settings;
+  const shown = Project.useHeld({ id: page?.id ?? '', children: next }, ready);
+  const children = shown.children;
+  return (
+    <>
+      {children !== next && <PageReady children={next} />}
+      <Page children={children} none={none} />
+    </>
+  );
+}
+
+/** One page, as `PageOf` draws it. */
+function Page({
   children,
   none,
 }: {
   readonly children: Active['children'];
-  /** What home says while there is no Connection to show. */
   readonly none: ReactNode;
 }) {
   if (children.Home)
