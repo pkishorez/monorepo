@@ -73,6 +73,24 @@ describe('client', () => {
     expect(dials[0]?.protocols).toEqual(['fresh']);
   });
 
+  it('closes while a URL given as an Effect still waits, dialling nothing', async () => {
+    globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
+    const closed = Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          yield* Layer.build(
+            client(RpcGroup.make(), {
+              url: Effect.never as Effect.Effect<string>,
+            }),
+          );
+          yield* Effect.sleep('20 millis');
+        }),
+      ),
+    );
+    await expect(closed).resolves.toBeUndefined();
+    expect(dials).toEqual([]);
+  });
+
   it("tells `watch` of a socket's first frame, and how it closed", async () => {
     const told: Array<unknown> = [];
     await dial({
