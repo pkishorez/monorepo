@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 
 /*
  * The room a scrollbar takes beside what scrolls: none where scrollbars
@@ -25,18 +25,36 @@ const measure = () => {
   return room;
 };
 
-/** The room to inset what sits beside a column that scrolls, on each side, in px. */
-export const useGutter = () => {
-  const [gutter, setGutter] = useState(0);
-  useEffect(() => {
-    const update = () => setGutter(measure());
-    update();
-    // A display with another density, or a change to how scrollbars show.
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, []);
-  return gutter;
+/**
+ * The room as last measured, for the whole page: measuring lays the page out
+ * at once, so it is measured once, and again only as the window resizes,
+ * however many columns are drawn.
+ */
+let room: number | undefined;
+const listeners = new Set<() => void>();
+const resized = () => {
+  const next = measure();
+  if (next === room) return;
+  room = next;
+  for (const listener of listeners) listener();
 };
+const subscribe = (listener: () => void) => {
+  // A display with another density, or a change to how scrollbars show.
+  if (listeners.size === 0) window.addEventListener('resize', resized);
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) window.removeEventListener('resize', resized);
+  };
+};
+
+/** The room to inset what sits beside a column that scrolls, on each side, in px. */
+export const useGutter = () =>
+  useSyncExternalStore(
+    subscribe,
+    () => (room ??= measure()),
+    () => 0,
+  );
 
 /** The classes for a column that scrolls and keeps a scrollbar's room on both sides. */
 export const GUTTERED = '[scrollbar-gutter:stable_both-edges]';

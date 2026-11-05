@@ -272,6 +272,15 @@ const make = (
     );
 
   // 1. Read
+  // Fitting checks every Binding against every other, and Preferences are
+  // read whenever a Session or a Draft opens; what is kept changes only as
+  // the user rebinds a key, so the last fitting is kept for the same Bindings.
+  let fit = { said: '', bindings: {} as Bindings };
+  const fittedOnce = (bindings: Bindings) => {
+    const said = JSON.stringify(bindings);
+    if (said !== fit.said) fit = { said, bindings: fitted(bindings) };
+    return fit.bindings;
+  };
   const read = Effect.gen(function* () {
     const stored = yield* Stream.runCollect(table.scan());
     const rows: Rows = new Map(
@@ -282,7 +291,7 @@ const make = (
     ) => partOf(rows, part);
     const { bindings } = yield* kept(keyboard);
     return {
-      bindings: fitted(bindings),
+      bindings: fittedOnce(bindings),
       vim: (yield* kept(vim)).on,
       floating: (yield* kept(floating)).on,
       textSize: (yield* kept(textSize)).size,

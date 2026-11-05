@@ -48,7 +48,7 @@ function Recorder({
   readonly label: string;
   readonly send: Self['send'];
 }) {
-  const { leave } = keys.useKeyboard();
+  const { leave } = keys.useMoves();
   const spot = keys.useFocusSpot('record', 'key', { default: true });
   return (
     <keys.Surface id="record" asChild onExit={() => send({ _tag: 'Stopped' })}>
@@ -92,7 +92,7 @@ function Key({
   readonly bindings: Bindings;
   readonly send: Self['send'];
 }) {
-  const { enter } = keys.useKeyboard();
+  const { enter } = keys.useMoves();
   const spot = keys.useFocusSpot('content', `shortcut ${id}`);
   const action = actionOf(id);
   if (action === undefined) return null;
@@ -301,7 +301,7 @@ function Table({
   readonly bindings: Bindings;
   readonly send: Self['send'];
 }) {
-  const { vim } = keys.useKeyboard();
+  const vim = keys.useVim();
   const shadows = shadowsOf(bindings);
   // Vim Mode off, what only it does is left out.
   const found = search(bindings, model.query).flatMap((section) => {
