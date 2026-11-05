@@ -4,7 +4,7 @@ import { readyOf, showingOf } from '../actor.ts';
 /*
  * What home draws, and when: nothing until the list kept on this device
  * and each Connection's projects held here are read; never a loading line under
- * the Connections' own word that Cloud Connect cannot list them and nothing
+ * the Connections' own word that Connect Cloud cannot list them and nothing
  * is kept; a loading line only for what was never synced here; no project yet
  * only once that is known.
  */
@@ -47,11 +47,11 @@ describe('home', () => {
     ).toBe('waiting');
   });
 
-  it('leaves the word to the Connections when Cloud Connect fails and nothing is kept, never a loading line', () => {
+  it('leaves the word to the Connections when Connect Cloud fails and nothing is kept, never a loading line', () => {
     expect(
       showingOf({ read: true, connectionIds: null, problem: 'offline' }, []),
     ).toBe('nothing');
-    // Nothing kept, and Cloud Connect still asked: a loading line meanwhile.
+    // Nothing kept, and Connect Cloud still asked: a loading line meanwhile.
     expect(
       showingOf({ read: true, connectionIds: null, problem: null }, []),
     ).toBe('waiting');
@@ -73,7 +73,7 @@ describe('home, ready', () => {
     expect(
       readyOf({ read: true, connectionIds: null, problem: 'offline' }, []),
     ).toBe(true);
-    // Nothing kept, Cloud Connect still asked: drawn waiting, not waited for.
+    // Nothing kept, Connect Cloud still asked: drawn waiting, not waited for.
     expect(
       readyOf({ read: true, connectionIds: null, problem: null }, []),
     ).toBe(true);

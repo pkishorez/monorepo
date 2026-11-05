@@ -85,7 +85,6 @@ describe('the socket of every Connection', () => {
     version: '0.0.5',
     status: { _tag: 'Reachable', url, at: 0 },
     lastSeen: 0,
-    plugins: {},
     wanted: {},
     minConnect: null,
     displayName: null,
@@ -95,7 +94,7 @@ describe('the socket of every Connection', () => {
     const log = JSON.parse(
       readFileSync(
         new URL(
-          '../../../../../../../node_modules/@kestack/connect/src/plugins/code/releases.json',
+          '../../../../../../../node_modules/@kestack/connect/src/connection/plugins/code/releases.json',
           import.meta.url,
         ),
         'utf8',

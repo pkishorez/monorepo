@@ -24,7 +24,6 @@ const connection = (status: Connection['status']): Connection => ({
   version: '0.0.1',
   status,
   lastSeen: Date.now(),
-  plugins: {},
   wanted: {},
   minConnect: null,
   displayName: null,

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
  * A build names the latest Release in the code Plugin's Release Log, from
  * the same commit, and fails without one. Under `pnpm dev` it names the
  * sha256 of the Plugin built here, `dist/plugin/code.mjs`, as the dev
- * Worker does (`releaseOf` in Connect's `infra/plugins/`), so a Connection
+ * Worker does (`releaseOf` in Connect's `infra/releases/`), so a Connection
  * running it is called at its own hash; with no build, the latest in the
  * Log.
  */
@@ -23,7 +23,7 @@ const HASH = /^[a-f0-9]{64}$/;
 
 /** The hash of the latest Release in the code Plugin's Release Log; throws when there is none. */
 const latestReleased = () => {
-  const file = connect('src/plugins/code/releases.json');
+  const file = connect('src/connection/plugins/code/releases.json');
   if (!existsSync(file)) throw new Error(`No Release Log at ${file}`);
   const log = JSON.parse(readFileSync(file, 'utf8')) as {
     readonly releases?: ReadonlyArray<{ readonly hash?: unknown }>;

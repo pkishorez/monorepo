@@ -65,16 +65,16 @@ import { ListShelf } from '../commands.ts';
 import { SetupShelf } from '../connection/commands.ts';
 
 /*
- * The Account's page with Cloud Connect, who is signed in and the databases
+ * The Account's page with Connect Cloud, who is signed in and the databases
  * stood in for. Active, the list kept in the Account's database shows first
- * and Cloud Connect's answer replaces it and is kept; only the first answer
+ * and Connect Cloud's answer replaces it and is kept; only the first answer
  * prunes, and only the Account's own Connections not on it, by database,
- * never the Account; a list that failed prunes nothing. Forget asks Cloud
- * Connect, takes the Connection out of the list, then stops its records and
+ * never the Account; a list that failed prunes nothing. Forget asks Connect
+ * Cloud, takes the Connection out of the list, then stops its records and
  * deletes its database alone, its Saved Drafts with it; and while a
- * Connection's link is not up Cloud Connect is asked again, every few
+ * Connection's link is not up Connect Cloud is asked again, every few
  * seconds, until every link is. A kept list's Last Seen is believed only
- * once Cloud Connect answers, or `CHECK_FOR` passes without. Not the
+ * once Connect Cloud answers, or `CHECK_FOR` passes without. Not the
  * Account active, it is Away: it asks nothing, shares nobody's
  * Connections, opens no socket, and says why: signed out, switched
  * elsewhere, another active, or not signed in here. It never moves by
@@ -99,7 +99,6 @@ const connection = (
       ? { _tag: 'Opening' }
       : { _tag: 'Reachable', url, at: lastSeen },
   lastSeen,
-  plugins: {},
   wanted: {},
   minConnect: null,
   displayName: null,
@@ -408,7 +407,7 @@ const listModel = (app: Running<unknown>) => {
 };
 
 describe('the Account, active', () => {
-  it('shows the saved list first, then Cloud Connect’s, and keeps it', async () => {
+  it('shows the saved list first, then Connect Cloud’s, and keeps it', async () => {
     const answer = await Effect.runPromise(
       Deferred.make<ReadonlyArray<Connection>>(),
     );
@@ -473,7 +472,7 @@ describe('the Account, active', () => {
     );
   });
 
-  it('keeps nothing less when Cloud Connect cannot be asked', async () => {
+  it('keeps nothing less when Connect Cloud cannot be asked', async () => {
     const { OwnerLive, layer, over, kept } = world(
       Effect.fail(new Error('offline')),
     );
@@ -489,7 +488,7 @@ describe('the Account, active', () => {
     );
   });
 
-  it('forgets a Connection at Cloud Connect, takes it out of the list, then deletes its database here, and no other', async () => {
+  it('forgets a Connection at Connect Cloud, takes it out of the list, then deletes its database here, and no other', async () => {
     const {
       OwnerLive,
       layer,
@@ -526,7 +525,7 @@ describe('the Account, active', () => {
       Deferred.make<ReadonlyArray<Connection>>(),
     );
     const before = [connection('m1', 1), connection('m2', 2)];
-    // The first ask, then one that answers late, then Cloud Connect renamed.
+    // The first ask, then one that answers late, then Connect Cloud renamed.
     const answers = [
       Effect.succeed(before),
       Deferred.await(stale),
@@ -1028,7 +1027,7 @@ describe('the Account rechecks', () => {
       ) as Effect.Effect<A>,
     );
 
-  it('asks Cloud Connect again while a link is not up, and stops once every link is', () =>
+  it('asks Connect Cloud again while a link is not up, and stops once every link is', () =>
     timed(
       Effect.gen(function* () {
         const down = yield* SubscriptionRef.make<ReadonlySet<string>>(
@@ -1096,7 +1095,7 @@ describe('the Account checks', () => {
     for (let at = 0; at < 20; at++) yield* Effect.yieldNow;
   });
 
-  it('believes the kept list’s Last Seen only once Cloud Connect answers', async () => {
+  it('believes the kept list’s Last Seen only once Connect Cloud answers', async () => {
     const answer = await Effect.runPromise(
       Deferred.make<ReadonlyArray<Connection>>(),
     );
@@ -1133,7 +1132,7 @@ describe('the Account checks', () => {
         yield* Deferred.succeed(answers[0], [connection('m1', 2)]);
         yield* wait();
         expect(checkedOf(app)).toBe(true);
-        // Back: not believed again until Cloud Connect answers anew.
+        // Back: not believed again until Connect Cloud answers anew.
         answer = answers[1];
         app.send(list(app).id, { _tag: 'Back' });
         yield* wait();
@@ -1145,7 +1144,7 @@ describe('the Account checks', () => {
     );
   });
 
-  it('believes it anyway once Cloud Connect has been waited on for long enough', () =>
+  it('believes it anyway once Connect Cloud has been waited on for long enough', () =>
     Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
@@ -1171,7 +1170,7 @@ describe('the Account checks', () => {
 });
 
 describe('the Account mismatched', () => {
-  /** A Connection Cloud Connect wants to run the code Plugin at `wanted`. */
+  /** A Connection Connect Cloud wants to run the code Plugin at `wanted`. */
   const wanting = (wanted: string): Connection => ({
     ...connection('m1', Date.now()),
     wanted: { code: { hash: wanted, url: `file:///${wanted}.mjs` } },
@@ -1208,7 +1207,7 @@ describe('the Account mismatched', () => {
     };
   };
 
-  it('is Updating while Cloud Connect wants this Code’s Release: it keeps relinking, until a socket is answered', async () => {
+  it('is Updating while Connect Cloud wants this Code’s Release: it keeps relinking, until a socket is answered', async () => {
     const { app: starting, watches, lists, moves } = started(PLUGIN_CODE);
     await run(
       Effect.gen(function* () {
@@ -1224,7 +1223,7 @@ describe('the Account mismatched', () => {
         expect(linksOf(app).links).toEqual({ m1: 'relinking' });
         expect(linksOf(app).mismatched).toEqual({ m1: { running: OLDER } });
         expect(moves()).toBe(0);
-        // Relinking: Cloud Connect is asked again, as for any Link down.
+        // Relinking: Connect Cloud is asked again, as for any Link down.
         const asked = lists();
         yield* wait(RECHECK.fast + 200);
         expect(lists()).toBeGreaterThan(asked);
@@ -1238,7 +1237,7 @@ describe('the Account mismatched', () => {
     );
   });
 
-  it('is Updating too while Cloud Connect wants no Release of the code Plugin', async () => {
+  it('is Updating too while Connect Cloud wants no Release of the code Plugin', async () => {
     const { OwnerLive, layer, over, watches } = world(
       Effect.succeed([connection('m1', Date.now())]),
     );
@@ -1264,7 +1263,7 @@ describe('the Account mismatched', () => {
     );
   });
 
-  it('moves this Code to its newest build when Cloud Connect wants another Release', async () => {
+  it('moves this Code to its newest build when Connect Cloud wants another Release', async () => {
     const { app: starting, watches, moves } = started(NEWER);
     await run(
       Effect.gen(function* () {

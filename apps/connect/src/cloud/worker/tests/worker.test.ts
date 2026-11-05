@@ -6,11 +6,15 @@ import { fakeGuard } from '@kestack/auth-toolkit/fake';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { CloudClient } from '../../client/index.js';
-import { ConnectionReport, isOutdated } from '../../contract/index.js';
+import {
+  belowMinimum,
+  ConnectionReport,
+  isOutdated,
+} from '../../../contract/index.js';
 import { connectionsTable, serveOver } from '../index.js';
 
 /*
- * Cloud Connect over an in-memory SQLite database, called through
+ * Connect Cloud over an in-memory SQLite database, called through
  * `CloudClient`, with `fakeGuard.rpc({ as })` saying who signed each request. Each
  * test signs in Users of its own, so they share one database.
  */
@@ -52,19 +56,19 @@ const anotherSignIn = (user: ReturnType<typeof signIn>, n: number) => ({
   } as unknown as Principal,
 });
 
-/** The version of each Plugin this Cloud Connect wants run. */
+/** The version of each Plugin this Connect Cloud wants run. */
 const WANTED = {
   code: { hash: 'a'.repeat(64), url: 'https://files.test/code' },
 };
 
-/** The Minimum Connect this Cloud Connect was deployed with. */
+/** The Minimum Connect this Connect Cloud was deployed with. */
 const MIN_CONNECT = '0.0.9';
 
 /** The code Plugin's file, as R2 keeps it. */
-const PLUGIN_KEY = `plugins/code/${'b'.repeat(64)}.mjs`;
+const PLUGIN_KEY = `releases/code/${'b'.repeat(64)}.mjs`;
 const PLUGIN_FILE = 'export {};\n';
 
-/** R2 as Cloud Connect reads it: one Plugin file. */
+/** R2 as Connect Cloud reads it: one Plugin file. */
 const files = {
   get: async (key: string) =>
     key === PLUGIN_KEY ? { body: new Response(PLUGIN_FILE).body } : null,
@@ -76,13 +80,13 @@ const answerAs = (principal: Principal | null) =>
     authInfo: AUTH_INFO,
     origins: ORIGINS,
     driver,
-    plugins: WANTED,
+    wanted: WANTED,
     minConnect: MIN_CONNECT,
     files,
   });
 
 /**
- * Runs `program` with Cloud Connect's client, signed as `user` (nobody for
+ * Runs `program` with Connect Cloud's client, signed as `user` (nobody for
  * null); from a page at `origin` when given, else as `serve` calls, with no
  * Origin.
  */
@@ -116,22 +120,20 @@ const reportOf = (id: string, name = 'laptop'): ConnectionReport => ({
   key: `key-${id}`,
   version: '0.0.2',
   status: { _tag: 'Reachable', url: `https://${id}.tunnel.test`, at: 1 },
-  plugins: {},
 });
 
-describe('Cloud Connect', () => {
+describe('Connect Cloud', () => {
   it('records a Report, lists it with its Last Seen, and updates it on the next', async () => {
     const ada = signIn('ada');
     const before = Date.now();
-    const first = await as(ada, (m) => m.Report(reportOf('m1')));
-    expect(first).toMatchObject(reportOf('m1'));
-    expect(first.lastSeen).toBeGreaterThanOrEqual(before);
-    const second = await as(ada, (m) => m.Report(reportOf('m1', 'renamed')));
-    expect(second.name).toBe('renamed');
-    expect(second.lastSeen).toBeGreaterThanOrEqual(first.lastSeen);
-    expect(await as(ada, (m) => m.List({}))).toEqual([
-      { ...second, displayName: null },
-    ]);
+    await as(ada, (m) => m.Report(reportOf('m1')));
+    const [first] = await as(ada, (m) => m.List({}));
+    expect(first).toMatchObject({ ...reportOf('m1'), displayName: null });
+    expect(first!.lastSeen).toBeGreaterThanOrEqual(before);
+    await as(ada, (m) => m.Report(reportOf('m1', 'renamed')));
+    const [second] = await as(ada, (m) => m.List({}));
+    expect(second!.name).toBe('renamed');
+    expect(second!.lastSeen).toBeGreaterThanOrEqual(first!.lastSeen);
   });
 
   it('renames a Connection: listed by its Display Name, which a Report keeps, and a blank one goes back to none', async () => {
@@ -146,8 +148,7 @@ describe('Cloud Connect', () => {
       { name: 'Ada-MacBook', displayName: 'Work' },
     ]);
     // The Connection's own name moves on; the Display Name stays.
-    const answer = await as(ada, (m) => m.Report(reportOf('named', 'Ada-Mac')));
-    expect(answer).not.toHaveProperty('displayName');
+    await as(ada, (m) => m.Report(reportOf('named', 'Ada-Mac')));
     expect(await listed()).toEqual([{ name: 'Ada-Mac', displayName: 'Work' }]);
     await as(ada, (m) => m.Rename({ id: 'named', displayName: '   ' }));
     expect(await listed()).toEqual([{ name: 'Ada-Mac', displayName: null }]);
@@ -167,16 +168,12 @@ describe('Cloud Connect', () => {
     expect(await as(ada, (m) => m.List({}))).toEqual([]);
   });
 
-  it('answers a Report with the Plugins wanted, and keeps where each stands', async () => {
+  it('answers a Report with the Releases wanted, and lists them on each Connection', async () => {
     const ada = signIn('ada');
-    const running = { _tag: 'Running' as const, hash: 'a'.repeat(64) };
-    const reported = await as(ada, (m) =>
-      m.Report({ ...reportOf('p1'), plugins: { code: running } }),
-    );
+    const reported = await as(ada, (m) => m.Report(reportOf('p1')));
     expect(reported.wanted).toEqual(WANTED);
-    expect(reported.plugins).toEqual({ code: running });
     expect(await as(ada, (m) => m.List({}))).toMatchObject([
-      { id: 'p1', plugins: { code: running }, wanted: WANTED },
+      { id: 'p1', wanted: WANTED },
     ]);
   });
 
@@ -184,7 +181,9 @@ describe('Cloud Connect', () => {
     const ada = signIn('ada');
     const reported = await as(ada, (m) => m.Report(reportOf('v1')));
     expect(reported.minConnect).toBe(MIN_CONNECT);
-    expect(isOutdated(reported)).toBe(true);
+    expect(belowMinimum(reportOf('v1').version, reported.minConnect)).toBe(
+      true,
+    );
     expect(await as(ada, (m) => m.List({}))).toMatchObject([
       { id: 'v1', minConnect: MIN_CONNECT },
     ]);
@@ -217,10 +216,10 @@ describe('Cloud Connect', () => {
     );
     expect(found.headers.get('content-type')).toMatch(/^text\/javascript/);
     for (const path of [
-      `plugins/code/${'c'.repeat(64)}.mjs`,
-      'plugins/code/latest.mjs',
-      `plugins/../${'b'.repeat(64)}.mjs`,
-      'plugins/',
+      `releases/code/${'c'.repeat(64)}.mjs`,
+      'releases/code/latest.mjs',
+      `releases/../${'b'.repeat(64)}.mjs`,
+      'releases/',
     ])
       expect((await answer(new Request(`${CLOUD}/${path}`))).status).toBe(404);
     const unbound = serveOver({
@@ -270,7 +269,7 @@ describe('Cloud Connect', () => {
     const elsewhere = anotherSignIn(ada, 2);
     expect(
       await as(elsewhere, (m) => m.Report(reportOf('fresh'))),
-    ).toMatchObject({ id: 'fresh' });
+    ).toMatchObject({ wanted: WANTED });
     // The forgotten id stays forgotten whatever the Sign-in.
     expect(
       await as(elsewhere, (m) => Effect.flip(m.Report(reportOf('gone')))),
@@ -322,7 +321,7 @@ describe('Cloud Connect', () => {
   });
 
   it('takes a Report only with an https:// address, or none, and every field bounded', async () => {
-    // Client and Cloud Connect both check the payload against the contract.
+    // Client and Connect Cloud both check the payload against the contract.
     const valid = Schema.is(ConnectionReport.schema);
     const base = reportOf('bounded');
     expect(valid(base)).toBe(true);
@@ -343,7 +342,10 @@ describe('Cloud Connect', () => {
       await as(ada, (m) =>
         m.Report({ ...base, status: { _tag: 'Installing' } }),
       ),
-    ).toMatchObject({ id: 'bounded', status: { _tag: 'Installing' } });
+    ).toMatchObject({ wanted: WANTED });
+    expect(await as(ada, (m) => m.List({}))).toMatchObject([
+      { id: 'bounded', status: { _tag: 'Installing' } },
+    ]);
   });
 
   it('answers /auth with how a Connection signs in, to anyone', async () => {

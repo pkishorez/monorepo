@@ -1,14 +1,14 @@
 # @kestack/connect
 
-Connects a computer to the cloud as a Connection its User reaches from anywhere: the ke-connect command, Cloud Connect on a Cloudflare Worker, and the code Plugin Code talks to
+Connects a computer to the cloud as a Connection its User reaches from anywhere: the ke-connect command, Connect Cloud on a Cloudflare Worker, and the code Plugin Code talks to
 
 ## Big picture
 
-A coding agent runs on a computer, but its User wants to reach it from a phone or another laptop. Connect makes the computer a Connection: `ke-connect serve` signs it in to Cloud Connect as its User, opens a tunnel, and reports a Heartbeat with its address and Connection Key. An App lists its User's Connections from Cloud Connect, a Worker with a D1 database at `connect.kishore.app`, then talks to each Connection straight through its tunnel, at `/<plugin>/<sha256>/rpc`.
+A coding agent runs on a computer, but its User wants to reach it from a phone or another laptop. Connect makes the computer a Connection: `ke-connect serve` signs it in to Connect Cloud as its User, opens a tunnel, and reports a Heartbeat with its address and Connection Key. A Connection runs only while its User is signed in. An App lists its User's Connections from Connect Cloud, a Worker with a D1 database at `connect.kishore.app`, then talks to each Connection straight through its tunnel, at `/<plugin>/<sha256>/rpc`.
 
-`ke-connect` itself stays small and rarely changes. What a Connection serves comes in Plugins: separate programs it runs, each downloaded at the version Cloud Connect names in its answer to every Heartbeat, and swapped for a new one while the tunnel stays up, through [`@kestack/cli-platform`](../../platforms/cli-platform/README.md). The Connection checks the Connection Key and passes each Plugin's requests to that Plugin's own socket without reading them. The `code` Plugin keeps Projects and Sessions for [Code](../code/README.md): it runs each Session's Agent through [`@kestack/ai-toolkit`](../../toolkits/ai-toolkit/README.md), with the Claude Code or Codex installed on the computer and as one of its Harness Accounts, orders its Turns, stores its Raw records, and sends them to the browser through a [std-toolkit](../../toolkits/std-toolkit/README.md) Replica over [rpc-toolkit](../../toolkits/rpc-toolkit/README.md). Sign-in comes from [auth-toolkit](../../toolkits/auth-toolkit/README.md). Why Connect owns this and ai-toolkit stops at the harness is [root ADR 0011](../../docs/adr/0011-ai-toolkit-stops-at-the-harness-connect-owns-the-rest.md).
+`ke-connect` itself stays small and rarely changes. What a Connection serves comes in Plugins: separate programs it runs, each downloaded at the version Connect Cloud names in its answer to every Heartbeat, and swapped for a new one while the tunnel stays up, through [`@kestack/cli-platform`](../../platforms/cli-platform/README.md). The Connection checks the Connection Key and passes each Plugin's requests to that Plugin's own socket without reading them. The `code` Plugin keeps Projects and Sessions for [Code](../code/README.md): it runs each Session's Agent through [`@kestack/ai-toolkit`](../../toolkits/ai-toolkit/README.md), with the Claude Code or Codex installed on the computer and as one of its Harness Accounts, orders its Turns, stores its Raw records, and sends them to the browser through a [std-toolkit](../../toolkits/std-toolkit/README.md) Replica over [rpc-toolkit](../../toolkits/rpc-toolkit/README.md). Sign-in comes from [auth-toolkit](../../toolkits/auth-toolkit/README.md). Why Connect owns this and ai-toolkit stops at the harness is [root ADR 0011](../../docs/adr/0011-ai-toolkit-stops-at-the-harness-connect-owns-the-rest.md).
 
-Each Connection has a name on its computer, `main` unless given, and keeps its files in its own folders, as cli-platform lays them out; one name runs as one process. In development each branch has its own Connection, `dev-<branch>`, and its own Cloud Connect, and every App's `pnpm dev` starts or reuses them: see [docs/dev.md](docs/dev.md).
+Each Connection has a name on its computer, `main` unless given, and keeps its files in its own folders, as cli-platform lays them out; one name runs as one process. In development each branch has its own Connection, `dev-<branch>`, and its own Connect Cloud, and every App's `pnpm dev` starts or reuses them: see [docs/dev.md](docs/dev.md).
 
 The words are in [CONTEXT.md](CONTEXT.md), the Actors in [docs/kabuki-tree.md](docs/kabuki-tree.md), and the decisions in [docs/adr/](docs/adr/).
 
@@ -23,7 +23,7 @@ npx @kestack/connect serve
 - `@kestack/kabuki`: a Connection and the `code` Plugin run as Actors.
 - `@kestack/std-toolkit`: the stored records and the Replica an App reads them through.
 - `@kestack/rpc-toolkit`: the WebSocket an App reaches a Connection over.
-- `@kestack/auth-toolkit`: a Connection signs in to Cloud Connect as its User.
+- `@kestack/auth-toolkit`: a Connection signs in to Connect Cloud as its User.
 - `@tanstack/db`: the collections the Replica fills.
 
 Node 24 or newer is required. Sessions run the agents installed on the computer, which Connect does not bring: install [Claude Code](https://claude.com/claude-code) or Codex (`npm install -g @openai/codex`) and sign in with `claude auth login` or `codex login`.
@@ -105,12 +105,12 @@ Every value an RPC sends is an ESchema, so the newer side reads what an older on
 
 ### `./cloud`
 
-What an App imports to reach Cloud Connect: its client, and the Connections it lists.
+What an App imports to reach Connect Cloud: its client, and the Connections it lists.
 
 | Export              | What it does                                                                                                                        |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `CloudClient`       | Service holding the `CloudApi` client over HTTP.                                                                                    |
-| `CloudClient.layer` | Layer of `CloudClient` for Cloud Connect's base URL; the caller's auth signs every call.                                            |
+| `CloudClient.layer` | Layer of `CloudClient` for Connect Cloud's base URL; the caller's auth signs every call.                                            |
 | `Connection`        | ESchema of a Connection as its User sees it: its last Report, its Last Seen, each Plugin's latest Release, and the Minimum Connect. |
 | `ConnectionStatus`  | ESchema of how far a Connection's tunnel got: installing cloudflared, opening, failed, or up.                                       |
 | `addressOf`         | The public address a Connection Status is up at, or null.                                                                           |
@@ -120,15 +120,15 @@ What an App imports to reach Cloud Connect: its client, and the Connections it l
 | `PluginMismatch`    | ESchema of that close's reason: the hash the Connection runs, or null.                                                              |
 | `mismatchOf`        | What a socket's close code and reason say of the Release asked for: a `PluginMismatch`, or null for any other close.                |
 | `VersionGap`        | Error of every `CodeClient` and `CloudClient` call that failed because one side is older: `client` or `server`.                     |
-| `authInfo`          | How a Connection signs in to the Cloud Connect at a base URL, from its `/auth`; fails when it cannot be asked.                      |
+| `authInfo`          | How a Connection signs in to the Connect Cloud at a base URL, from its `/auth`; fails when it cannot be asked.                      |
 
 ### `./worker`
 
-| Export             | What it does                                                                        |
-| ------------------ | ----------------------------------------------------------------------------------- |
-| `serve`            | Cloud Connect on a Worker's D1 database, and the Plugins' files from its R2 bucket. |
-| `serveOver`        | The same over any std-toolkit SQLite driver and auth Guard, for tests.              |
-| `connectionsTable` | The std Table Cloud Connect keeps Connections in, for `SQLite.setup` and deploys.   |
+| Export             | What it does                                                                      |
+| ------------------ | --------------------------------------------------------------------------------- |
+| `serve`            | Connect Cloud on a Worker's D1 database, and Release Files from its R2 bucket.    |
+| `serveOver`        | The same over any std-toolkit SQLite driver and auth Guard, for tests.            |
+| `connectionsTable` | The std Table Connect Cloud keeps Connections in, for `SQLite.setup` and deploys. |
 
 ### `./dev`
 
@@ -136,30 +136,30 @@ What an App imports to reach Cloud Connect: its client, and the Connections it l
 | --------------- | ------------------------------------------------------------------------------------------------ |
 | `withConnect`   | An App's `pnpm dev`: makes sure the branch's Connect runs, then runs the App with `CONNECT_URL`. |
 | `ensureConnect` | Makes sure the branch's Connect runs, starting it detached if not, and takes a lease on it.      |
-| `runConnectDev` | Runs this branch's Cloud Connect under `alchemy dev` and a Connection on it.                     |
-| `branchOf`      | The branch a checkout is, and its Cloud Connect's URL, as Portless names them.                   |
+| `runConnectDev` | Runs this branch's Connect Cloud under `alchemy dev` and a Connection on it.                     |
+| `branchOf`      | The branch a checkout is, and its Connect Cloud's URL, as Portless names them.                   |
 
 ## Usage
 
 ### Serve a Connection
 
-Install Claude Code or Codex first. Run `npx @kestack/connect serve` on a computer, sign in with the device code it prints, and the computer is listed as one of your Connections within a few seconds. `ke-connect` with no command opens a wizard that builds one. The commands, as `src/connection/tests/connection.test.ts` runs them:
+Install Claude Code or Codex first. Run `npx @kestack/connect serve` on a computer, sign in with the device code it prints, and the computer is listed as one of your Connections within a few seconds. `ke-connect` with no command opens a wizard that builds one. The commands, as `src/connection/cli/tests/connection.test.ts` runs them:
 
 ```sh
 ke-connect serve                 # the Connection `main`
 ke-connect serve work --port 0   # another one, `work`, on any free port
 ke-connect serve work            # `work is already running at https://….trycloudflare.com`
 ke-connect list                  # every Connection: running or not, its address, its last start
-ke-connect remove work           # stops it, forgets it in Cloud Connect, signs out, deletes its folders
+ke-connect remove work           # stops it, forgets it in Connect Cloud, signs out, deletes its folders
 ```
 
-- It signs in through the Auth Worker that Cloud Connect's `/auth` names, and keeps the Connection's id, Connection Key and Cloud Connect in `connection.json`; serving it against another Cloud Connect is refused. It keeps what `/auth` said in `auth.json`, so a Connection that signed in before starts while Cloud Connect cannot be reached, or does not answer in five seconds: it signs in as last time, runs its Plugins at the Releases it last wanted, and keeps sending its Heartbeat until Cloud Connect answers. A first Sign-in needs Cloud Connect. Signing in again, once Cloud Connect refuses the Sign-in, asks `/auth` first, so an Auth Worker it moved to is the one used, and kept.
-- It runs each Plugin at the Release Cloud Connect names, or the one it last named while Cloud Connect cannot be reached, passes `/<plugin>/<sha256>/rpc` to it while it runs that Release and closes any other with 4409, asks every caller for the Connection Key, and opens a cloudflared tunnel to its port; any other path is 404.
-- Its Heartbeat reports the tunnel's address and each Plugin State every 15 seconds. A forgotten Connection signs out and stops; one below the Minimum Connect stops, saying how to update.
+- It signs in through the Auth Worker that Connect Cloud's `/auth` names, and keeps the Connection's id, Connection Key and Connect Cloud in `connection.json`; serving it against another Connect Cloud is refused. It keeps what `/auth` said in `auth.json`, so a Connection that signed in before starts while Connect Cloud cannot be reached, or does not answer in five seconds: it signs in as last time, runs its Plugins at the Releases it last wanted, and keeps sending its Heartbeat until Connect Cloud answers. A first Sign-in needs Connect Cloud. Signing in again, once Connect Cloud refuses the Sign-in, asks `/auth` first, so an Auth Worker it moved to is the one used, and kept.
+- It runs each Plugin at the Release Connect Cloud names, or the one it last named while Connect Cloud cannot be reached, passes `/<plugin>/<sha256>/rpc` to it while it runs that Release and closes any other with 4409, asks every caller for the Connection Key, and opens a cloudflared tunnel to its port; any other path is 404.
+- Its Heartbeat reports the tunnel's address and how it stands every 15 seconds. A Sign-in Connect Cloud says is gone stops the Connection and its Plugins until signed in again, which an outage never does. A forgotten Connection signs out and stops; one below the Minimum Connect stops, saying how to update.
 
 ### Talk to a Connection from a browser
 
-An App lists its User's Connections from Cloud Connect, says where each one is through `ConnectionAddress`, and reads each Connection's records through `CodeReplicaLive`, one Instance per Connection. Trimmed from `src/plugins/code/serve/tests/serve.test.ts` and Code's `reach.ts`.
+An App lists its User's Connections from Connect Cloud, says where each one is through `ConnectionAddress`, and reads each Connection's records through `CodeReplicaLive`, one Instance per Connection. Trimmed from `src/connection/plugins/code/serve/tests/serve.test.ts` and Code's `reach.ts`.
 
 ```ts
 import { Effect, Layer, Schema } from 'effect';
@@ -222,9 +222,9 @@ Runtime.start(
 - Each Connection gets its own socket, opened at the address `ConnectionAddress` gives on each connect, so a Connection back at a new tunnel address is reached there.
 - `CodeClients.on(connectionId, …)` runs a command, such as `addProject`, against one Connection.
 
-### Run Cloud Connect on a Worker
+### Run Connect Cloud on a Worker
 
-`serve` from `./worker` is Cloud Connect over a D1 database, signing in through an Auth Worker, letting the listed origins call with credentials, telling every Connection the latest Release of each Plugin and the Minimum Connect, and serving the Shelf. Shaped after `src/cloud/worker/worker.server.ts`, which `alchemy.run.ts` deploys.
+`serve` from `./worker` is Connect Cloud over a D1 database, signing in through an Auth Worker, letting the listed origins call with credentials, telling every Connection the latest Release of each Plugin and the Minimum Connect, and serving Release Files. Shaped after `src/cloud/worker/worker.server.ts`, which `alchemy.run.ts` deploys.
 
 ```ts
 import { serve } from '@kestack/connect/worker';
@@ -232,10 +232,10 @@ import { serve } from '@kestack/connect/worker';
 interface Env {
   readonly AUTH_URL: string;
   readonly ALLOWED_ORIGINS: string;
-  readonly PLUGINS?: string;
+  readonly RELEASES?: string;
   readonly MIN_CONNECT?: string;
   readonly DB: D1Database;
-  readonly PLUGIN_FILES?: R2Bucket;
+  readonly RELEASE_FILES?: R2Bucket;
 }
 
 let served: ((request: Request) => Promise<Response>) | undefined;
@@ -246,16 +246,16 @@ export default {
       auth: { url: env.AUTH_URL },
       origins: env.ALLOWED_ORIGINS.split(','),
       database: env.DB,
-      plugins: env.PLUGINS ? JSON.parse(env.PLUGINS) : {},
+      wanted: env.RELEASES ? JSON.parse(env.RELEASES) : {},
       ...(env.MIN_CONNECT ? { minConnect: env.MIN_CONNECT } : {}),
-      ...(env.PLUGIN_FILES ? { files: env.PLUGIN_FILES } : {}),
+      ...(env.RELEASE_FILES ? { files: env.RELEASE_FILES } : {}),
     }))(request),
 };
 ```
 
 - `ALLOWED_ORIGINS` takes comma-separated patterns such as `https://*.kishore.app`.
-- `PLUGINS` is `{"code":{"hash":"<sha256>","url":"<where to read it>"}}`, the latest Release of each Plugin; `pnpm build:plugin` makes `dist/plugin/code.mjs` and prints its sha256, and whether it is the latest Release in `src/plugins/code/releases.json`.
-- `GET /plugins/<name>/<sha256>.mjs` answers that file from `files`, cached for good; anything else there is 404.
+- `RELEASES` is `{"code":{"hash":"<sha256>","url":"<where to read it>"}}`, the latest Release of each Plugin; `pnpm build:plugin` makes `dist/plugin/code.mjs` and prints its sha256, and whether it is the latest Release in `src/connection/plugins/code/releases.json`.
+- `GET /releases/<name>/<sha256>.mjs` answers that Release File from `files`, cached for good; anything else there is 404.
 - `MIN_CONNECT` is the Minimum Connect, the oldest `ke-connect` let run the Plugins; a Connection below it is Outdated.
 - Set the D1 table up from `connectionsTable` before the first request.
-- In this monorepo, a change to the code Plugin is released with `pnpm -F @kestack/connect release:plugin code "<what changed>"`, which builds it and appends its hash to its Release Log. `pnpm -F @kestack/connect build:plugin && pnpm -F @kestack/connect deploy:prod` deploys it to `connect.kishore.app`: the deploy refuses a build that is not the latest Release, uploads `code.mjs` to the Stage's R2 bucket unless it is there, then points `PLUGINS` at it, and sets `MIN_CONNECT` from `minConnect` in `package.json` (ADR 0006). A personal Stage, `alchemy deploy --stage <name>`, has no URL its Connections could read the Shelf at, so it refuses to deploy; develop under `alchemy dev`.
+- In this monorepo, a change to the code Plugin is released with `pnpm -F @kestack/connect release:plugin code "<what changed>"`, which builds it and appends its hash to its Release Log. `pnpm -F @kestack/connect build:plugin && pnpm -F @kestack/connect deploy:prod` deploys it to `connect.kishore.app`: the deploy refuses a build that is not the latest Release, uploads `code.mjs` to the Stage's R2 bucket unless it is there, then points `RELEASES` at it, and sets `MIN_CONNECT` from `minConnect` in `package.json` (ADR 0006). A personal Stage, `alchemy deploy --stage <name>`, has no URL its Connections could read Release Files at, so it refuses to deploy; develop under `alchemy dev`.

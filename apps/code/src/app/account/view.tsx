@@ -274,7 +274,7 @@ export const serveCommand = () => 'npx @kestack/connect serve';
 
 /**
  * What home shows in place of the projects while there is no Connection to
- * show them from: Cloud Connect out of reach with no list kept on this
+ * show them from: Connect Cloud out of reach with no list kept on this
  * device, saying so and why, with a way to ask again; or no Connection at
  * all, with how to start one. Nothing otherwise, and nothing until the
  * list kept here has been read, so a kept list never follows either.
@@ -297,9 +297,9 @@ function None({
   if (connections === null)
     return (
       <Screen>
-        <h1 className="text-lg font-semibold">Can't reach Cloud Connect</h1>
+        <h1 className="text-lg font-semibold">Can't reach Connect Cloud</h1>
         <p className="text-sm text-muted-foreground">
-          Your Connections are listed by Cloud Connect, and this device has no
+          Your Connections are listed by Connect Cloud, and this device has no
           list of them kept yet, so there is nothing to show until it answers.
         </p>
         <p className="w-full rounded-md border border-border bg-muted/50 px-3 py-2 font-mono text-xs break-words">

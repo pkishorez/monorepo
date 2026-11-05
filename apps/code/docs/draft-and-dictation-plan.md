@@ -106,7 +106,7 @@ keys inside the `picker` Surface stay as they are.
   text after it, hidden with only one Connection. A Connection that does not answer
   keeps what it last synced, marked by its Last Seen.
 - The Project Picker's first Step picks the Connection, skipped with only one.
-- Settings is at the root. Its Connections list comes from Cloud Connect
+- Settings is at the root. Its Connections list comes from Connect Cloud
   alone and draws at once. Each Connection has its own settings (its Harness
   Accounts, its Speech to Text switch), each loading on its own; one that
   does not answer says so in its own row.

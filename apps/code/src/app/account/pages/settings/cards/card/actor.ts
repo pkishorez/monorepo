@@ -16,8 +16,8 @@ import { askForget, rename } from './commands.ts';
  * 1. Shown   its Agents: its Harness Accounts (`agents/`) and its
  *            Speech to Text switch (`speech/`), each handed what its setup
  *            holds. Its Projects are not shown: they are never managed.
- * 2. Rename  its Display Name, typed in place of its name: saved to Cloud
- *            Connect, so it is renamed even while out of reach; left
+ * 2. Rename  its Display Name, typed in place of its name: saved to Connect
+ *            Cloud, so it is renamed even while out of reach; left
  *            empty, it goes back to its Computer Name. Refused, it says why
  *            and keeps what was typed.
  * 3. Forget  asked of the list (`ConnectionCards`), which asks first.
@@ -27,9 +27,9 @@ const Renaming = Schema.NullOr(
   Schema.Struct({
     /** What is typed. */
     text: Schema.String,
-    /** Whether Cloud Connect is being asked. */
+    /** Whether Connect Cloud is being asked. */
     saving: Schema.Boolean,
-    /** Why Cloud Connect refused it. */
+    /** Why Connect Cloud refused it. */
     problem: Schema.NullOr(Schema.String),
   }),
 );

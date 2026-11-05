@@ -28,7 +28,6 @@ const record = (
   version: '0.0.6',
   status: { _tag: 'Reachable', url: `https://${id}.example`, at: 0 },
   lastSeen: Date.now(),
-  plugins: {},
   wanted: {},
   minConnect: null,
   displayName,
