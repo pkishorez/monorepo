@@ -114,10 +114,10 @@ export const statusOf = (status: ConnectionStatus) => {
 };
 
 /**
- * How the code Plugin stands when the app should say so, as its socket said
- * when it runs another Release: Updating, when it runs one older than this
- * Code calls, or Stale, when this Code is the older side, which is moving to
- * its newest build.
+ * How the code Plugin stands when the app should say so, as Connect Cloud said
+ * once the Connection closed a socket running another Release: Updating, while
+ * Connect is catching up with this Code, or Stale, when this Code is the older
+ * side, which is moving to its newest build.
  */
 export type PluginNotice =
   | { readonly _tag: 'Updating' }

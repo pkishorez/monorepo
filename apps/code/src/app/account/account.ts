@@ -22,7 +22,7 @@ import {
 import {
   addressOf,
   type Connection as ConnectionSchema,
-  PluginMismatch,
+  ReleaseStanding,
 } from '@kestack/connect/cloud';
 
 /*
@@ -187,6 +187,8 @@ export interface Known {
   } | null;
   /** Each listed Connection's link, by id; one not followed yet is linking. */
   readonly links: Readonly<Record<string, Link>>;
+  /** The Connections whose Link waits to relink, after a mismatch, until Connect Cloud says it may. */
+  readonly held: ReadonlyArray<string>;
   /** Each listed Connection's setup, by id, while it lives. */
   readonly setups: Readonly<Record<string, Setup>>;
   /** Each listed Connection's Unseen marks (`Marks`), by id, once read, while it lives. */
@@ -213,6 +215,7 @@ export const nobody: Known = {
   problem: null,
   forgetting: null,
   links: {},
+  held: [],
   setups: {},
   seen: {},
   questions: {},
@@ -223,8 +226,10 @@ export const nobody: Known = {
 /** What a Connection says of itself, for the Account's page to share. */
 export const Said = Schema.Struct({
   link: Schema.Literals(['linking', 'linked', 'relinking']),
-  /** The Release it said it runs as it closed a socket, until one is answered. */
-  mismatch: Schema.NullOr(PluginMismatch.schema),
+  /** Where Connect Cloud said this Code's Release stands, once it closed a socket for running another, until one is answered. */
+  standing: Schema.NullOr(ReleaseStanding.schema),
+  /** Whether its Link waits to relink, after such a close. */
+  held: Schema.Boolean,
   /** Whether it closed a socket for offering a key it no longer holds, until one is answered. */
   expired: Schema.Boolean,
   setup: Setup,
@@ -241,7 +246,10 @@ export type Said = typeof Said.Type;
 export const saidOf = (
   said: Readonly<Record<string, Said>>,
   running: ReadonlyArray<string>,
-): Pick<Known, 'setups' | 'seen' | 'questions' | 'answering' | 'jobs'> => {
+): Pick<
+  Known,
+  'held' | 'setups' | 'seen' | 'questions' | 'answering' | 'jobs'
+> => {
   const each = running.flatMap((id) => {
     const one = said[id];
     return one === undefined ? [] : [[id, one] as const];
@@ -254,6 +262,7 @@ export const saidOf = (
       }),
     ) as Record<string, A>;
   return {
+    held: each.flatMap(([id, { held }]) => (held ? [id] : [])),
     setups: by(({ setup }) => setup),
     seen: by(({ seen }) => seen),
     questions: by(({ questions }) => questions),
@@ -334,7 +343,7 @@ export class Connections extends Context.Service<
     readonly clients: (
       id: string,
     ) => Stream.Stream<CodeClients['Service'] | null>;
-    /** Where the Connection's sockets go, `wss://…` (`tunnelOf`), and its Key, once it is listed at an `https://` address; waits until it is. */
+    /** Where the Connection's sockets go, `wss://…` (`tunnelOf`), and its Key, once it is listed at an `https://` address and its Link is not held; waits until then. */
     readonly reachable: (
       id: string,
     ) => Effect.Effect<{ readonly tunnel: string; readonly key: string }>;
@@ -458,10 +467,14 @@ export const connectionsOf = ({ known, current, send }: Source) =>
           Stream.changes,
         ),
       reachable: (id) =>
-        first(id, ({ status, key }) => {
-          const tunnel = tunnelOf(addressOf(status));
-          return tunnel === null ? null : { tunnel, key };
-        }),
+        firstOf(
+          Stream.map(known, ({ connections, held }) => {
+            const listed = connections?.find((each) => each.id === id);
+            if (listed === undefined || held.includes(id)) return null;
+            const tunnel = tunnelOf(addressOf(listed.status));
+            return tunnel === null ? null : { tunnel, key: listed.key };
+          }),
+        ),
       reload: Effect.andThen(
         send({ _tag: 'ReloadAsked' }),
         ask(null, { _tag: 'Asked' }),

@@ -19,7 +19,8 @@ type Connection = typeof ConnectionSchema.Type;
  * synced stays readable, marked by its Last Seen; the header of a page on
  * it says why, from its record: on its way, its tunnel broken, or the
  * Connection down; and, once it closed a socket running another Release of
- * the code Plugin, who is behind (`reach/release.ts`). Whether a list or a row the Replica shows can be believed
+ * the code Plugin, who Connect Cloud says is behind (`reach/release.ts`).
+ * Whether a list or a row the Replica shows can be believed
  * empty is each Query's own `caughtUp` and `neverSynced`.
  */
 
@@ -27,14 +28,14 @@ type Status = 'linking' | 'linked' | 'relinking';
 
 /**
  * The Connections as listed, null before any list, each one's socket now,
- * whether their Last Seen is believed yet (`Known.checked`), and who is
- * behind on each that closed its socket running another Release.
+ * whether their Last Seen is believed yet (`Known.checked`), and who Connect
+ * Cloud says is behind on each that closed its socket running another Release.
  */
 export const Links = createContext<{
   readonly connections: ReadonlyArray<Connection> | null;
   readonly status: Readonly<Record<string, Status>>;
   readonly checked: boolean;
-  /** None while no Connection refused this Code's Release. */
+  /** None while no Connection refused this Code's Release, or Connect Cloud has not said. */
   readonly behind?: Readonly<Record<string, Behind>>;
 }>({ connections: null, status: {}, checked: false });
 
@@ -166,7 +167,7 @@ export const useHealths = () => {
     );
 };
 
-/** Who is behind, once the Connection closed a socket running another Release of the code Plugin; null while it has not. */
+/** Who Connect Cloud says is behind, once the Connection closed a socket running another Release of the code Plugin; null while none is said. */
 export const useBehind = (connectionId: string): Behind | null =>
   use(Links).behind?.[connectionId] ?? null;
 

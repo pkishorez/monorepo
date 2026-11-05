@@ -25,10 +25,11 @@ import { PLUGIN_CODE } from './release.ts';
  *             back at a new address, as a quick tunnel does, is reached
  *             there, and with a Connection Key that rotated, which the
  *             Account's page asks for once a socket is closed for an expired
- *             key. Until it is listed with one, its socket waits. A Connection
- *             running another Release closes it at once; who is behind is
- *             `release.ts`'s to say. `Sockets` opens it, and only a Connection
- *             Actor asks it to.
+ *             key. Until it is listed with one, its socket waits, and so it
+ *             does while its Link is held: a Connection running another
+ *             Release closes it at once, and Connect Cloud is asked who is
+ *             behind (`release.ts`) before it is dialled again. `Sockets` opens
+ *             it, and only a Connection Actor asks it to.
  * 3. Borrow   what the Account's page gives everything under it,
  *             `CodeClients`, holds no socket of its own: each call or
  *             stream on a Connection waits until that Connection runs,
@@ -46,7 +47,7 @@ export const byConnection = Layer.effect(
   ),
 );
 
-/** 2. Socket: where each Connection's code Plugin is, at `release`, as listed, once it is. */
+/** 2. Socket: where each Connection's code Plugin is, at `release`, as listed, once it is and its Link is not held. */
 export const addressAt = (release: string) =>
   Layer.effect(
     ConnectionAddress,
@@ -111,7 +112,6 @@ const whileRunning = <A>(
     Stream.switchMap((running) =>
       running === null ? Stream.make(none) : read(running),
     ),
-    Stream.changes,
   );
 
 /**

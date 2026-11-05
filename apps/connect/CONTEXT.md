@@ -28,6 +28,10 @@ _Avoid_: App Group, module, feature
 One build of a Plugin, named by the sha256 of its file, with one line on what changed. Every change to the file is a new Release. Which `ke-connect` may run it is not the Release's to say: that is the Minimum Connect.
 _Avoid_: version (a Plugin has no version number), build (one that may not be a Release yet), deploy
 
+**Release Standing**:
+Where one Release of a Plugin stands, as Connect Cloud answers it: Latest, the one it names now; Older, one whose Release File it keeps but does not name; or Unknown, any other, so newer than what it runs: its deploy is pending, or failed.
+_Avoid_: version check, compatibility, behind (who is behind is what an App makes of it)
+
 **Release Log**:
 Every Release of one Plugin in order, the latest last, kept in git as `src/connection/plugins/<name>/releases.json`. `pnpm release:plugin <name> "<what changed>"` appends one; a deployed Stage names the latest, and refuses to deploy a build that is not it.
 _Avoid_: changelog (the package's, for people), manifest, versions file

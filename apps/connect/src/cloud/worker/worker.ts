@@ -17,7 +17,12 @@ import {
   RPC_PATH,
 } from '../../contract/index.js';
 import { Connections, connectionsTable } from './connections/index.js';
-import { type Latest, releaseFile, type ReleaseFiles } from './releases.js';
+import {
+  type Latest,
+  releaseFile,
+  type ReleaseFiles,
+  standingOf,
+} from './releases.js';
 
 /*
  * Connect Cloud: `CloudApi` for the signed-in caller over the `connections`
@@ -30,7 +35,8 @@ import { type Latest, releaseFile, type ReleaseFiles } from './releases.js';
  *   asking the Auth Worker; a call with no Sign-in is refused
  *   Unauthenticated. Every Connection is told `wanted`, the latest Release of
  *   each Plugin, none unless given, and `minConnect`, the Minimum Connect, null
- *   unless given.
+ *   unless given. `Standing` says where a Release stands, by `wanted` and
+ *   `files` (see releases.ts).
  * - `GET /releases/<name>/<sha256>.mjs` answers that Release File from `files`,
  *   to anyone. Anything else there, or no `files`, is 404.
  * - Apps are on other origins of the same site: an origin matching one of
@@ -46,7 +52,7 @@ import { type Latest, releaseFile, type ReleaseFiles } from './releases.js';
  * `D1.table(connectionsTable)`.
  */
 
-const handlers = (latest: Latest) =>
+const handlers = (latest: Latest, files: ReleaseFiles | undefined) =>
   CloudApi.toLayer({
     Report: (input) =>
       Effect.flatMap(Authz.User, (principal) =>
@@ -65,6 +71,12 @@ const handlers = (latest: Latest) =>
     Rename: ({ id, displayName }) =>
       Effect.flatMap(Authz.User, (principal) =>
         Connections.rename(principal, id, displayName),
+      ),
+    // Signed in, as every call is; whose call it is changes nothing.
+    Standing: ({ plugin, hash }) =>
+      Effect.andThen(
+        Authz.User,
+        standingOf(latest.wanted, files, plugin, hash),
       ),
   });
 
@@ -103,7 +115,7 @@ export const serveOver = (options: {
   const answer = server(
     CloudApi,
     Layer.mergeAll(
-      handlers(latest).pipe(Layer.provide(table.layer)),
+      handlers(latest, options.files).pipe(Layer.provide(table.layer)),
       options.guard,
     ),
   );

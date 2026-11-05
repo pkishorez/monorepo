@@ -103,9 +103,9 @@ function Drawn({ root, model, props, children, send }: Active) {
       connections,
       status: model.links,
       checked: model.checked,
-      behind: behindAll(connections, model.mismatched),
+      behind: behindAll(model.said),
     }),
-    [connections, model.links, model.checked, model.mismatched],
+    [connections, model.links, model.checked, model.said],
   );
   const none = useMemo(
     () => (

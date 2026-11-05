@@ -8,9 +8,9 @@ import { outdated, pluginNotice, UPDATE_COMMAND } from './health.ts';
 type Connection = typeof ConnectionSchema.Type;
 
 /*
- * What the app says of a Connection's own programs, linked or not: its code
- * Plugin Updating, or this Code moving to its newest build, when the
- * Connection runs another Release than it calls; and, when the Connection is
+ * What the app says of a Connection's own programs, linked or not: Connect
+ * catching up with this Code, or this Code moving to its newest build, as
+ * Connect Cloud says once the Connection refused its Release; and, when it is
  * Outdated, its `ke-connect` older than Connect Cloud accepts, how to update
  * it. Otherwise it says nothing. The header's pill says it in a few words, and
  * Settings in full.
@@ -21,14 +21,14 @@ type Pill = readonly [label: string, title: string, tone: string];
 /** What the pill says of the code Plugin or `ke-connect`, more on hover, and its colour; null when there is nothing to say. */
 export const noticePillOf = (
   connection: Connection | null,
-  /** Who is behind, when the Connection closed a socket running another Release. */
+  /** Who Connect Cloud says is behind, once the Connection closed a socket running another Release. */
   behind: Behind | null = null,
 ): Pill | null => {
   const notice = pluginNotice(behind);
   if (notice?._tag === 'Updating')
     return [
       'Updating Connect…',
-      'The Connection is updating its code Plugin. Its tunnel stays up; a session may pause for a moment.',
+      'Connect is catching up with this Code. Its tunnel stays up; a session may pause for a moment.',
       'bg-warning',
     ];
   if (notice?._tag === 'Stale') return ['Updating Code…', STALE, 'bg-warning'];
@@ -42,8 +42,7 @@ export const noticePillOf = (
 };
 
 /** What is said of this Code while it moves to its newest build. */
-const STALE =
-  'This Connection runs a newer code Plugin than this Code calls: Code is moving to its newest version.';
+const STALE = 'A newer Code is out: Code is moving to its newest version.';
 
 /** What is said of an Outdated Connection's `ke-connect`. */
 const outdatedOf = (version: string) =>
@@ -98,7 +97,7 @@ export function ConnectionNotice({
   behind = null,
 }: {
   readonly connection: Connection;
-  /** Who is behind, when the Connection closed a socket running another Release. */
+  /** Who Connect Cloud says is behind, once the Connection closed a socket running another Release. */
   readonly behind?: Behind | null;
 }) {
   const notice = pluginNotice(behind);
@@ -108,7 +107,7 @@ export function ConnectionNotice({
     <div className="flex flex-col gap-3">
       {notice?._tag === 'Updating' && (
         <p role="status" className="text-xs text-muted-foreground">
-          Updating Connect: starting the new version. The tunnel stays up.
+          Updating Connect: catching up with this Code. The tunnel stays up.
         </p>
       )}
       {notice?._tag === 'Stale' && (

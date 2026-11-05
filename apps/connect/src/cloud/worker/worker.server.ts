@@ -9,7 +9,8 @@ import { serve } from './worker.ts';
  * credentials, telling every Connection to run the Releases `RELEASES` names
  * (JSON, `{"code":{"hash":"…","url":"…"}}`, the latest of each Plugin; none when
  * it is empty) and that the Minimum Connect is `MIN_CONNECT`, and serving
- * Release Files from the R2 bucket `RELEASE_FILES`.
+ * Release Files from the R2 bucket `RELEASE_FILES`, where a Release that is not
+ * the latest is looked for.
  */
 
 /** What this Worker is handed by Alchemy. */

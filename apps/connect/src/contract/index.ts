@@ -26,6 +26,7 @@ export {
   RPC_PATH,
   RELEASE_PATH,
   releaseKey,
+  ReleaseStanding,
   SetupStep,
   TunnelCheck,
   Release,

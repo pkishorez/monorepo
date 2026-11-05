@@ -71,6 +71,12 @@ describe('a Connection running another Release', () => {
             reason: mismatchReason(HASH),
           });
           yield* wait();
+          // Closed so again, it is told again: the app asks Connect Cloud each time.
+          watch.closed!({
+            code: PLUGIN_MISMATCH,
+            reason: mismatchReason(HASH),
+          });
+          yield* wait();
           watch.answered!();
           yield* wait();
           // A reason it cannot read is a mismatch all the same.
@@ -93,6 +99,7 @@ describe('a Connection running another Release', () => {
     ]);
     expect(seen.mismatches).toEqual([
       null,
+      { running: HASH },
       { running: HASH },
       null,
       { running: null },
