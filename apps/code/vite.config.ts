@@ -26,8 +26,7 @@ export default defineConfig(({ command }) => ({
         splash: true,
         manifest: {
           short_name: 'Code',
-          description:
-            'Claude Code and Codex sessions in your project folders.',
+          description: 'Connect with your coding agents from any device.',
           screenshots: [
             {
               src: '/screenshots/narrow.png',

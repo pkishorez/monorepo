@@ -7,10 +7,13 @@ import { splashScreens } from '@kestack/web-platform/pwa/splash';
  * Draws what installing Code shows, into `public/`:
  *
  * 1. Splash       `splash/<w>x<h>.png`, one per iOS screen `splashScreens`
- *                 lists: the Code mark and name a third of the way down,
- *                 "Powered by kestack" above the home bar.
+ *                 lists.
  * 2. Screenshots  `screenshots/narrow.png` and `screenshots/wide.png`, the
- *                 manifest's, for Android's richer install sheet.
+ *                 manifest's, for the install sheet on a phone and the
+ *                 install dialog on a desktop.
+ *
+ * All are one screen, centred both ways: the Code mark,
+ * what Code is, then "powered by", the ke logo and "stack".
  *
  * Each is a page Chromium renders at the screen's size in points and its
  * scale, in the dark Theme the manifest's background colour is, so the
@@ -25,7 +28,6 @@ const pub = join(app, 'public');
 const COLORS = {
   background: 'oklch(0.145 0 0)',
   foreground: 'oklch(0.985 0 0)',
-  card: 'oklch(0.195 0 0)',
   mutedForeground: 'oklch(0.708 0 0)',
 };
 
@@ -37,19 +39,19 @@ const inter = readFileSync(
   ),
 ).toString('base64');
 
+// The ke logo, black on white, flipped for the dark Theme as the About page does.
+const ke = readFileSync(join(pub, 'ke-stack.svg')).toString('base64');
+
 // The favicon's prompt, `>_`, drawn on a 20-unit square.
 const PROMPT = 'M6 7l3 3-3 3M10.5 13.5H14';
 
-/** The mark and the name side by side; `size` is the mark's edge in points. */
-const lockup = (size: number) => `
-  <div class="lockup" style="gap:${size * 0.3}px">
-    <svg width="${size}" height="${size}" viewBox="0 0 20 20" aria-hidden="true">
-      <rect width="20" height="20" rx="5" fill="${COLORS.card}"/>
-      <path d="${PROMPT}" stroke="${COLORS.foreground}" stroke-width="1.6"
-        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    </svg>
-    <span style="font-size:${size * 0.6}px">Code</span>
-  </div>`;
+/** The mark; `size` is its edge in points. */
+const mark = (size: number) => `
+  <svg width="${size}" height="${size}" viewBox="0 0 20 20" aria-hidden="true">
+    <rect width="20" height="20" rx="5" fill="${COLORS.foreground}"/>
+    <path d="${PROMPT}" stroke="${COLORS.background}" stroke-width="1.6"
+      stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </svg>`;
 
 const page = (body: string) => `<!doctype html>
 <html><head><style>
@@ -64,53 +66,31 @@ const page = (body: string) => `<!doctype html>
     position: relative;
     overflow: hidden;
   }
-  .lockup { display: flex; align-items: center; }
-  .lockup span { font-weight: 600; letter-spacing: -0.02em; line-height: 1; }
+  .stage { height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+  .description { line-height: 1.4; text-wrap: balance; }
   .muted { color: ${COLORS.mutedForeground}; }
-  .credit { font-weight: 400; letter-spacing: 0.005em; }
-  .credit b { font-weight: 500; color: ${COLORS.foreground}; }
+  .credit { font-weight: 400; }
+  .credit > span { display: inline-flex; align-items: center; gap: 0.6em; }
+  .credit b { display: inline-flex; align-items: center; gap: 0.4em; font-weight: 500; color: ${COLORS.foreground}; }
+  .credit img { height: 1.5em; width: 1.5em; border-radius: 0.35em; filter: invert(1); }
 </style></head><body>${body}</body></html>`;
 
-const CREDIT = 'Powered by <b>kestack</b>';
+const CREDIT = `<span>powered by <b><img src="data:image/svg+xml;base64,${ke}" alt="">stack</b></span>`;
 
-/**
- * The Splash for one screen, in points. The home bar takes 34 points on
- * iPhones without a Home button and 20 on iPads without one; the
- * credit sits a step above it.
- */
-const splash = (width: number, height: number, tablet: boolean) => {
-  const portraitHeight = Math.max(width, height);
-  const homeBar = tablet
-    ? portraitHeight >= 1133
-      ? 20
-      : 0
-    : portraitHeight >= 812
-      ? 34
-      : 0;
-  const mark = tablet ? 72 : 56;
-  return page(`
-    <div style="position:absolute;left:0;right:0;top:${height / 3}px;transform:translateY(-50%);display:flex;justify-content:center">
-      ${lockup(mark)}
-    </div>
-    <p class="muted credit" style="position:absolute;left:0;right:0;bottom:${homeBar + (tablet ? 32 : 24)}px;text-align:center;font-size:${tablet ? 15 : 13}px">
-      ${CREDIT}
-    </p>`);
-};
+const DESCRIPTION = 'connect with your coding agents from any device.';
 
-const DESCRIPTION = 'Claude Code and Codex sessions in your project folders.';
-
-/** A manifest screenshot: the lockup over what Code is, in the Splash's look. */
-const screenshot = (wide: boolean) =>
+/** The one screen, `large` for a tablet or a desktop; sizes are in points. */
+const screen = (large: boolean) =>
   page(`
-    <div style="height:100%;display:flex;flex-direction:column;justify-content:center;${wide ? 'padding:0 96px' : 'padding:0 32px;align-items:center;text-align:center'}">
-      ${lockup(wide ? 72 : 56)}
-      <p class="muted" style="margin-top:${wide ? 28 : 24}px;font-size:${wide ? 24 : 18}px;line-height:1.4;max-width:${wide ? 520 : 280}px;text-wrap:balance">
+    <div class="stage" style="padding:0 ${large ? 96 : 32}px">
+      ${mark(large ? 72 : 56)}
+      <p class="muted description" style="margin-top:${large ? 28 : 24}px;font-size:${large ? 24 : 18}px;max-width:${large ? 520 : 296}px">
         ${DESCRIPTION}
       </p>
-    </div>
-    <p class="muted credit" style="position:absolute;bottom:${wide ? 40 : 32}px;${wide ? 'left:96px' : 'left:0;right:0;text-align:center'};font-size:${wide ? 15 : 13}px">
-      ${CREDIT}
-    </p>`);
+      <p class="muted credit" style="margin-top:${large ? 28 : 24}px;font-size:${large ? 15 : 13}px">
+        ${CREDIT}
+      </p>
+    </div>`);
 
 const browser = await chromium.launch();
 const draw = async (
@@ -135,19 +115,19 @@ try {
     const width = each.width / each.scale;
     const height = each.height / each.scale;
     await draw(
-      splash(width, height, each.tablet),
+      screen(each.tablet),
       { width, height, scale: each.scale },
       join(pub, each.href),
     );
   }
   mkdirSync(join(pub, 'screenshots'), { recursive: true });
   await draw(
-    screenshot(false),
+    screen(false),
     { width: 360, height: 640, scale: 3 },
     join(pub, 'screenshots/narrow.png'),
   );
   await draw(
-    screenshot(true),
+    screen(true),
     { width: 960, height: 540, scale: 2 },
     join(pub, 'screenshots/wide.png'),
   );

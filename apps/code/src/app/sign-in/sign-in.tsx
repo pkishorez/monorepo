@@ -11,9 +11,10 @@ import { type Away, AccountList, wordsOf } from './away.tsx';
  * it. The root page draws it while no Account is active, and an
  * Account's page while it is not the one active.
  *
- * 1. Reading   the app starts and this device is read: the mark alone,
- *              and only once the start is slow enough to see, so a reload
- *              that opens from what this device kept shows nothing.
+ * 1. Reading   the app starts and this device is read: the mark and the
+ *              name under it, with nothing else to say what this is, and
+ *              only once the start is slow enough to see, so a reload that
+ *              opens from what this device kept shows nothing.
  * 2. Checking  the Auth Worker is asked who is signed in, and nothing kept
  *              says: it says so, as quietly, after the same wait from when
  *              it is asked, so a quick answer goes from the mark, or from
@@ -25,7 +26,7 @@ import { type Away, AccountList, wordsOf } from './away.tsx';
  *              first (`away.tsx`), and lists the Accounts signed in on
  *              this browser to switch to. The heading, the line under it
  *              and the buttons rise into place one after another, under
- *              the mark.
+ *              the mark, and the credit last.
  */
 
 /** What is drawn before the app: the mark, checking who is signed in, or signing in. */
@@ -34,7 +35,9 @@ export type Start = 'reading' | 'checking' | 'signed-out';
 /**
  * The mark, where every step draws it, and what the step says under it.
  * Always the same elements, so the mark already shown stays as it is when
- * the step changes.
+ * the step changes. It sits where the iOS Splash draws it
+ * (`scripts/draw-install.ts`), which centres a block 174 points tall on a
+ * phone and 218 on a tablet, so the app opens without it moving.
  */
 export function Screen({
   waits,
@@ -45,11 +48,11 @@ export function Screen({
   readonly children?: ReactNode;
 }) {
   return (
-    <main className="flex min-h-dvh flex-col items-center px-6 pt-[30dvh]">
+    <main className="flex min-h-dvh flex-col items-center px-6 pt-[max(2rem,calc(50dvh-87px))] pb-8 min-[744px]:pt-[max(2rem,calc(50dvh-109px))]">
       <div
         className={`flex w-full max-w-xs flex-col items-center gap-6 text-center ${waits ? 'animate-arrive' : ''}`}
       >
-        <Mark className="size-10" />
+        <Mark className="size-14 min-[744px]:size-18" />
         {children}
       </div>
     </main>
@@ -90,7 +93,14 @@ export function StartScreen({
   readonly onSignIn: () => void;
 }) {
   // 1. Reading
-  if (start === 'reading') return <Screen waits />;
+  if (start === 'reading')
+    return (
+      <Screen waits>
+        <span className="font-mono text-2xl leading-none font-medium tracking-[-0.02em]">
+          code
+        </span>
+      </Screen>
+    );
   // 2. Checking
   if (start === 'checking')
     return (
@@ -111,6 +121,26 @@ export function StartScreen({
       leaving={leaving}
       onSignIn={onSignIn}
     />
+  );
+}
+
+/** Who the app is powered by, as the iOS Splash says it: the ke logo, then "stack". */
+function Credit() {
+  return (
+    <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+      powered by
+      <span className="flex items-center gap-1 font-medium text-foreground">
+        <img
+          src="/ke-stack.svg"
+          alt="ke"
+          width={20}
+          height={20}
+          // Black on white in the light theme, flipped in the dark.
+          className="size-5 rounded-[5px] dark:invert"
+        />
+        stack
+      </span>
+    </p>
   );
 }
 
@@ -148,8 +178,15 @@ export function SignInScreen({
   const words =
     away === null
       ? {
-          title: 'Sign in to code',
-          line: 'Run Claude Code and Codex on your Connections, from any device.',
+          title: (
+            <>
+              Sign in to{' '}
+              <span className="font-mono font-medium tracking-normal">
+                code
+              </span>
+            </>
+          ),
+          line: 'Connect with your coding agents from any device.',
         }
       : wordsOf(away.why);
   return (
@@ -161,7 +198,7 @@ export function SignInScreen({
           </h1>
         </Rise>
         <Rise order={1}>
-          <p className="text-sm text-pretty text-muted-foreground">
+          <p className="text-sm text-balance text-muted-foreground">
             {words.line}
           </p>
         </Rise>
@@ -198,6 +235,9 @@ export function SignInScreen({
           <AccountList away={away} onChoose={onChoose} />
         </Rise>
       )}
+      <Rise order={4}>
+        <Credit />
+      </Rise>
     </Screen>
   );
 }
