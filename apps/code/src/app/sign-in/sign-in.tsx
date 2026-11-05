@@ -1,25 +1,18 @@
 import { GoogleButton } from '@kestack/web-platform/ui/components/google-button';
 import { CircleAlert } from 'lucide-react';
-import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { type ReactNode, useEffect } from 'react';
 import { Mark } from '../../ui/page/theme/index.ts';
 import { type Away, AccountList, wordsOf } from './away.tsx';
 
 /*
- * What is drawn in place of the app: one screen in three steps, the mark at
- * the same place in each and on the iOS Splash, so nothing moves from the
- * launch to signing in. The App Shell paints it before any script runs, the
- * root page draws it while no Account is active, and an Account's page while
- * it is not the one active.
+ * What is drawn in place of the app, the mark at the same place throughout
+ * and on the iOS Splash, so nothing moves from the launch to signing in. The
+ * App Shell paints it before any script runs, the root page draws it while no
+ * Account is active, and an Account's page while it is not the one active.
  *
- * 1. Reading   the app starts and this device is read: the mark and the
- *              name under it, with nothing else to say what this is, from
- *              the first paint.
- * 2. Checking  the Auth Worker is asked who is signed in, and nothing kept
- *              says: the same, and once the wait is long enough to see, it
- *              says so quietly under the name, so a quick answer goes
- *              straight to signing in or to the app.
- * 3. Sign in   the one screen to sign in from: "Continue with Google",
+ * 1. Waiting   the app starts, this device is read, or the Auth Worker is
+ *              asked who is signed in: the mark alone.
+ * 2. Sign in   the one screen to sign in from: "Continue with Google",
  *              which leaves for Google at once (under the dev Fake, it
  *              asks for an email), and why it failed, if it did. On an
  *              Account's page that is not the one active, it says why
@@ -29,11 +22,11 @@ import { type Away, AccountList, wordsOf } from './away.tsx';
  *              the mark, and the credit last.
  */
 
-/** What is drawn before the app: the mark, checking who is signed in, or signing in. */
-export type Start = 'reading' | 'checking' | 'signed-out';
+/** What is drawn before the app: the mark, or signing in. */
+export type Start = 'waiting' | 'signed-out';
 
 /**
- * The mark and what the step says under it. The mark is where signing in
+ * The mark and what is said under it. The mark is where signing in
  * centres, a block 264 points tall on a phone and 266 on a tablet or a desktop, and where
  * the iOS Splash draws it (`scripts/draw-install.ts`), whatever is under it:
  * so an error or a status that appears below moves nothing above it.
@@ -47,6 +40,11 @@ export function Screen({ children }: { readonly children?: ReactNode }) {
       </div>
     </main>
   );
+}
+
+/** 1. Waiting: the mark alone. */
+export function WaitScreen() {
+  return <Screen />;
 }
 
 /** One part of the step, rising into place `order` beats after the first. */
@@ -69,7 +67,7 @@ export function Rise({
   );
 }
 
-/** Before the app: reading this device, checking who is signed in, or signing in. */
+/** Before the app: waiting, or signing in. */
 export function StartScreen({
   start,
   problem,
@@ -82,24 +80,8 @@ export function StartScreen({
   readonly leaving?: boolean;
   readonly onSignIn: () => void;
 }) {
-  // 1. Reading, 2. Checking
-  if (start !== 'signed-out')
-    return (
-      <Screen>
-        <span className="font-mono text-2xl leading-none font-medium tracking-[-0.02em]">
-          code
-        </span>
-        {start === 'checking' && (
-          <p
-            role="status"
-            className="flex animate-arrive items-center gap-2 text-sm text-muted-foreground"
-          >
-            <Spinner /> Checking who is signed in…
-          </p>
-        )}
-      </Screen>
-    );
-  // 3. Sign in, with no Account to switch to.
+  if (start === 'waiting') return <WaitScreen />;
+  // 2. Sign in, with no Account to switch to.
   return (
     <SignInScreen
       away={null}
@@ -130,7 +112,7 @@ function Credit() {
   );
 }
 
-/** 3. Sign in: why, when the page is an Account's; signing in; and the Accounts to switch to. */
+/** 2. Sign in: why, when the page is an Account's; signing in; and the Accounts to switch to. */
 export function SignInScreen({
   away,
   problem,
@@ -142,10 +124,7 @@ export function SignInScreen({
   readonly away: Away | null;
   /** Why signing in, or a switch, failed, until it is tried again. */
   readonly problem: string | null;
-  /**
-   * Whether the page is leaving for Google: Google's button has no busy
-   * look, so it is disabled and the line under it says so.
-   */
+  /** Whether the page is leaving for Google: the button is disabled meanwhile. */
   readonly leaving?: boolean;
   readonly onSignIn: () => void;
   /** Switches to an Account signed in here, by its id. */
@@ -198,14 +177,6 @@ export function SignInScreen({
           aria-busy={leaving || undefined}
           onClick={onSignIn}
         />
-        {leaving && (
-          <p
-            role="status"
-            className="flex items-center justify-center gap-2 text-sm text-muted-foreground"
-          >
-            <Spinner /> Opening Google…
-          </p>
-        )}
         {problem !== null && (
           <p
             role="alert"

@@ -13,9 +13,10 @@ import { splashScreens } from '@kestack/web-platform/pwa/splash';
  *                 install dialog on a desktop.
  *
  * All are one screen, centred both ways: the Code mark, what Code is, then
- * "powered by", the ke logo and "stack". The Splash holds them in the block
- * signing in centres (`Screen` in `src/app/sign-in/sign-in.tsx`), so the mark
- * and the credit stay where they are as the app opens.
+ * "powered by", the ke logo and "stack". The Splash also names Code under the
+ * mark, and holds them in the block signing in centres (`Screen` in
+ * `src/app/sign-in/sign-in.tsx`), so the mark and the credit stay where they
+ * are as the app opens.
  *
  * Each is a page Chromium renders at the screen's size in points and its
  * scale, in the dark Theme the manifest's background colour is, so the
@@ -41,6 +42,14 @@ const inter = readFileSync(
   ),
 ).toString('base64');
 
+// JetBrains Mono, as the app sets the name, from the same place.
+const mono = readFileSync(
+  join(
+    realpathSync(join(app, 'node_modules/@kestack/web-platform')),
+    'node_modules/@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2',
+  ),
+).toString('base64');
+
 // The ke logo, black on white, flipped for the dark Theme as the About page does.
 const ke = readFileSync(join(pub, 'ke-stack.svg')).toString('base64');
 
@@ -58,6 +67,8 @@ const mark = (size: number) => `
 const page = (body: string) => `<!doctype html>
 <html><head><style>
   @font-face { font-family: Inter; src: url(data:font/woff2;base64,${inter}) format('woff2'); font-weight: 100 900; }
+  @font-face { font-family: Mono; src: url(data:font/woff2;base64,${mono}) format('woff2'); font-weight: 100 800; }
+  .name { font-family: Mono, monospace; font-weight: 500; line-height: 1; letter-spacing: -0.02em; }
   * { margin: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; }
   body {
@@ -91,7 +102,8 @@ const screen = (large: boolean, block?: number) =>
     <div class="stage" style="padding:0 ${large ? 96 : 32}px">
       <div style="display:flex;flex-direction:column;align-items:center;${block === undefined ? '' : `height:${block}px`}">
         ${mark(large ? 72 : 56)}
-        <p class="muted description" style="margin-top:${large ? 28 : 24}px;font-size:${large ? 24 : 18}px;max-width:${large ? 520 : 296}px">
+        ${block === undefined ? '' : `<p class="name" style="margin-top:${large ? 28 : 24}px;font-size:${large ? 30 : 24}px">code</p>`}
+        <p class="muted description" style="margin-top:${block === undefined ? (large ? 28 : 24) : large ? 16 : 12}px;font-size:${large ? 24 : 18}px;max-width:${large ? 520 : 296}px">
           ${DESCRIPTION}
         </p>
         <p class="muted credit" style="margin-top:${block === undefined ? `${large ? 28 : 24}px` : 'auto'};font-size:${large ? 15 : 13}px">

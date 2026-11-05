@@ -101,16 +101,13 @@ describe('the Account step', () => {
 });
 
 describe('before the app', () => {
-  it('never says it is checking while it draws an Account this device kept', () => {
-    expect(startOf(checking('a1'))).toBe('reading');
-  });
-
-  it('says it is checking only with no Account kept here', () => {
-    expect(startOf(checking(null))).toBe('checking');
+  it('draws the mark while it checks who is signed in, with an Account kept here or none', () => {
+    expect(startOf(checking('a1'))).toBe('waiting');
+    expect(startOf(checking(null))).toBe('waiting');
   });
 
   it('draws the mark while this device is read, and signing in once signed out', () => {
-    expect(startOf(reading)).toBe('reading');
+    expect(startOf(reading)).toBe('waiting');
     expect(startOf(signedOut)).toBe('signed-out');
   });
 });

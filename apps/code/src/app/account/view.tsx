@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { Page } from '../app.ts';
-import { SignInScreen, StartScreen } from '../sign-in/index.ts';
+import { SignInScreen, WaitScreen } from '../sign-in/index.ts';
 import { behindAll, Links } from './connection/link/index.ts';
 import { Frame } from './frame/index.ts';
 import { Home } from './pages/home/index.ts';
@@ -57,9 +57,6 @@ export const AccountView = View.make(AccountLive, (self) =>
   ),
 );
 
-/** The mark, where the start screens draw it. */
-const mark = <StartScreen start="reading" problem={null} onSignIn={() => {}} />;
-
 /** In place of the app: why the Account is not drawn, and the sign-in screen. */
 function Elsewhere({ root, model, state, props, send }: Self) {
   const { who, leaving } = model;
@@ -69,10 +66,8 @@ function Elsewhere({ root, model, state, props, send }: Self) {
       (state._tag === 'Active' || who.active?.id === leaving));
   return (
     <div {...root}>
-      {moving || state._tag === 'Active' ? (
-        mark
-      ) : !who.answered ? (
-        <StartScreen start="checking" problem={null} onSignIn={() => {}} />
+      {moving || state._tag === 'Active' || !who.answered ? (
+        <WaitScreen />
       ) : (
         <SignInScreen
           away={{
@@ -139,7 +134,7 @@ function Drawn({ root, model, props, children, send }: Active) {
   );
   return (
     <div {...root}>
-      {(children.frame === undefined || !shown) && mark}
+      {(children.frame === undefined || !shown) && <WaitScreen />}
       {children.frame !== undefined && (
         <Links value={links}>
           <Frame.Given value={given}>
