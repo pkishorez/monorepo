@@ -34,13 +34,13 @@ export type Start = 'reading' | 'checking' | 'signed-out';
 
 /**
  * The mark and what the step says under it. The mark is where signing in
- * centres, a block 264 points tall on a phone and 280 on a tablet, and where
+ * centres, a block 264 points tall on a phone and 266 on a tablet or a desktop, and where
  * the iOS Splash draws it (`scripts/draw-install.ts`), whatever is under it:
  * so an error or a status that appears below moves nothing above it.
  */
 export function Screen({ children }: { readonly children?: ReactNode }) {
   return (
-    <main className="flex min-h-dvh flex-col items-center px-6 pt-[max(2rem,calc(50dvh-132px))] pb-8 min-[744px]:pt-[max(2rem,calc(50dvh-140px))]">
+    <main className="flex min-h-dvh flex-col items-center px-6 pt-[max(2rem,calc(50dvh-132px))] pb-8 min-[744px]:pt-[max(2rem,calc(50dvh-133px))]">
       <div className="flex w-full max-w-xs flex-col items-center gap-6 text-center">
         <Mark className="size-14 min-[744px]:size-18" />
         {children}
