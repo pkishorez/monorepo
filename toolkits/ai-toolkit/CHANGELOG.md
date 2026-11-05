@@ -1,5 +1,56 @@
 # @kestack/ai-toolkit
 
+## 0.0.7
+
+### Patch Changes
+
+- [`d07ead4`](https://github.com/pkishorez/monorepo/commit/d07ead4c905eeb32e56945f7090c8e457c6733ff) Thanks [@pkishorez](https://github.com/pkishorez)! - A Background Job's output can be followed live.
+
+  **Added**
+
+  - `Agent.backgroundJobOutput(id)` streams what a shell job writes: the last 64 KiB of it at once, then each piece as it comes, until the job ends. Claude Code's is read from the file its tool result names; Codex's comes from `item/commandExecution/outputDelta`, kept from the command's start so it can be read however late it is asked for. A subagent job gives nothing.
+  - A `BackgroundJob` carries `tokens`, a subagent's tokens so far, from Claude Code's `task_progress`.
+  - A Codex background terminal's job names its `toolCallId`, the command's item.
+  - Connect's `backgroundJobOutput` RPC streams one Session's job output.
+
+  **Changed**
+
+  - A Session's record keeps its jobs without `tokens`, so its stored shape is as before, and a subagent's progress never rewrites it.
+
+- [`c2585bc`](https://github.com/pkishorez/monorepo/commit/c2585bcc922903271d4e6c01d0da622ee68e0b00) Thanks [@pkishorez](https://github.com/pkishorez)! - A `toolResult` says when its call went on in the background, asked or not.
+
+  **Fixed**
+
+  - Claude Code may launch a subagent async with no `run_in_background` in its call, and gives a command a background task on its own. Its result now carries `background: true` (from `isAsync`, `status: 'async_launched'` or `backgroundTaskId`), so a client knows the call runs on until its `jobEnded`, rather than taking the "launched" result as its end. `PROJECTION_VERSION` is 7.
+
+- [`04f120d`](https://github.com/pkishorez/monorepo/commit/04f120d75067a8add528b10de6a4bb8378d0456b) Thanks [@pkishorez](https://github.com/pkishorez)! - What a background subagent writes is kept as it comes, and a Background Job's end is a Message.
+
+  **New**
+
+  - `Agent.between`: what the agent writes while no Turn runs, a background subagent's records and a job's end, as it comes. Claude Code no longer holds them for the next Turn; Codex and the fake harness give none.
+  - A `jobEnded` Part, projected from Claude Code's `task_notification`: the job, the tool call that started it, and `done`, `failed` or `stopped`.
+  - A `toolCall` may be `background`: its result only says it started.
+  - A `turnStarted` may carry `cutOff`: the Turn and the Background Jobs a stop cut off before it.
+  - `BackgroundJob.toolCallId`: the tool call that started a job, when the harness says.
+  - Messages are v3, and `PROJECTION_VERSION` is 6.
+
+- [`74e34c3`](https://github.com/pkishorez/monorepo/commit/74e34c3dcda784dae45f5c1b3b42349c5d2869a2) Thanks [@pkishorez](https://github.com/pkishorez)! - A Codex `usage` counts its input as Claude Code's does.
+
+  **Fixed**
+
+  - Codex counts what it read from and wrote to the cache inside its input, so its `inputTokens` came out larger than Claude Code's for the same work, and a sum of input and cache read counted the cache twice. A Codex `usage` now gives only what was sent fresh as `inputTokens`, with `cacheReadTokens` and, when there are any, `cacheWriteTokens` apart. `UsageSchema` says what each field means. `PROJECTION_VERSION` is 8.
+
+- [#128](https://github.com/pkishorez/monorepo/pull/128) [`02c3bcb`](https://github.com/pkishorez/monorepo/commit/02c3bcbe390c4155ebe49f398ac273a75a34c116) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A Dictation can be heard while it is recorded, as a Take: its audio goes in numbered stretches and its text comes back as it goes.
+
+  **Added**
+
+  - `Speech` has `watchTake`, `addTakeAudio` and `endTake`. A Take switches Speech to Text on if it is off, says how far the model has downloaded meanwhile, keeps the audio, and transcribes only what is not yet settled, cutting a long tail at its quietest moment, and lets go of the audio before the cut. A stretch sent again is ignored, so a sender that lost track, as after a restart, sends them all again. A Take watched is never dropped, however long its model downloads; one nobody watches or touches for 10 minutes is. One dropped or broken before it is Done fails whoever watches it. Calls that reach a new Take together start one.
+  - The code Plugin's API has the same three calls, and `TakeHeard`: `Downloading`, `Heard` or `Done`.
+
+- Updated dependencies [[`df76ba6`](https://github.com/pkishorez/monorepo/commit/df76ba60280fdb5405ca85b29fe67f8604de18bf), [`2678376`](https://github.com/pkishorez/monorepo/commit/2678376efd3ce396d3f491c63c615169112eccd9), [`6cf1d7f`](https://github.com/pkishorez/monorepo/commit/6cf1d7fb87f1b98311e1d6ab9b86b8f233e0c707)]:
+  - @kestack/kabuki@0.0.6
+  - @kestack/std-toolkit@0.0.7
+
 ## 0.0.6
 
 ### Patch Changes

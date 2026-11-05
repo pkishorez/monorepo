@@ -1,5 +1,15 @@
 # @kestack/kabuki
 
+## 0.0.6
+
+### Patch Changes
+
+- [#79](https://github.com/pkishorez/monorepo/pull/79) [`df76ba6`](https://github.com/pkishorez/monorepo/commit/df76ba60280fdb5405ca85b29fe67f8604de18bf) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A Router that routes in memory starts at its root, not at whatever page the browser is on, so a routed demo can sit inside another app's page. `Router.view` no longer gives `View.app` an `input` that reads the browser's address: only an app whose Layer holds an Adapter owns the address, and it starts there with `input: () => view.startAt()`. Start's client does this for you; an app that gives `browser()` or `tanstack()` to `View.app` itself adds that line.
+
+- [#133](https://github.com/pkishorez/monorepo/pull/133) [`2678376`](https://github.com/pkishorez/monorepo/commit/2678376efd3ce396d3f491c63c615169112eccd9) Thanks [@pkishorez](https://github.com/pkishorez)! - The service worker now answers every page with the App Shell, without the network, so an installed app opens at once at any URL. It keeps only the build's assets and the App Shell; each page loads its data through the Loader RPC, so server data needs a connection, and a Render Mode only says what the server sends when no worker answers. `navigation.networkTimeoutMs` is gone, and a navigation to a path with a file extension or under `/_kabuki/` goes to the network.
+
+  In Kabuki, the root page's Render Mode is now inherited like any other. Under a `client` root the server answers every URL with the App Shell and a `200`, except a file that is not there, which stays a `404`. `Start.app({ loading })` is what the App Shell paints until the app is drawn, and the App Shell now carries the root's Metadata.
+
 ## 0.0.5
 
 ### Patch Changes
