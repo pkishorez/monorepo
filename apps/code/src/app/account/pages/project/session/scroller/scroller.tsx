@@ -118,15 +118,23 @@ export function useScroller(key: string, id: string) {
     let landing = 0;
     /** Whether it still goes to its anchor's block, as on opening at a kept place or by `toBlock`. */
     let placing = true;
+    /** Whether the browser keeps the view in place: where it does not, as below iOS 27, this does. */
+    const anchoring =
+      globalThis.CSS?.supports?.('overflow-anchor', 'auto') !== false;
     let placingEnds = 0;
     let settling = 0;
     const blockOf = (id: string) =>
       outer.querySelector<HTMLElement>(`[data-block="${CSS.escape(id)}"]`) ??
       undefined;
     const report = () => setAway(scroll.anchor.at !== 'bottom');
+    /** Following, nothing is held in place: what the browser did would read as the reader's. */
+    const holdInPlace = () => {
+      outer.style.overflowAnchor = scroll.anchor.at === 'bottom' ? 'none' : '';
+    };
     const set = (anchor: typeof scroll.anchor) => {
       scroll.anchor = anchor;
       keep(anchor);
+      holdInPlace();
     };
     /** Rule 3: where the reader is now. */
     const read = () => set(anchorOf(outer));
@@ -173,18 +181,15 @@ export function useScroller(key: string, id: string) {
       const moved = outer.scrollTop - put;
       // Rule 5: its glide down goes on undisturbed, unless the reader goes
       // up out of it; it lands once quiet.
-      if (descending && moved > -1) return;
+      if (descending && moved > -1 && !drew) return;
       stopDescending();
-      // Rule 3, for a scroll whose event is yet to come: the reader, or
-      // the browser keeping the view in what it holds, moved it.
-      if (Math.abs(moved) >= 1 && !scroll.landing) {
-        if (atBottom(outer)) set(BOTTOM);
-        else if (scroll.anchor.at === 'block')
-          set({ ...scroll.anchor, offset: scroll.anchor.offset - moved });
-        else read();
-      }
+      holdInPlace();
+      // Rule 3, for a scroll whose event is yet to come: the reader, or the
+      // browser keeping the view in what it holds, moved it.
+      if (Math.abs(moved) >= 1 && !scroll.landing && !placing) read();
       // Rule 1, rule 6, or rule 2 as more was drawn; else the browser's.
-      const putting = drew || placing || scroll.anchor.at === 'bottom';
+      const putting =
+        drew || placing || !anchoring || scroll.anchor.at === 'bottom';
       if (putting && !putBack(outer, scroll.anchor, blockOf) && scroll.drawn) {
         // Its block is gone, as when an answer's words were split again:
         // the view stays where it is, or, never put in place, as when a
@@ -225,12 +230,27 @@ export function useScroller(key: string, id: string) {
       clearTimeout(settling);
       settling = window.setTimeout(settled, SETTLE_MS);
     };
-    const onTouchStart = () => {
+    /** What fingers are on: a touch's end comes there, even once it is taken away. */
+    const touched = new Set<EventTarget>();
+    const listenForEnd = (target: EventTarget, listening: boolean) => {
+      const listen = listening ? 'addEventListener' : 'removeEventListener';
+      target[listen]('touchend', onTouchEnd as EventListener);
+      target[listen]('touchcancel', onTouchEnd as EventListener);
+    };
+    const forgetTouched = () => {
+      for (const target of touched) listenForEnd(target, false);
+      touched.clear();
+    };
+    const onTouchStart = (event: TouchEvent) => {
       scroll.touching = true;
       stopLanding();
+      if (event.target === null) return;
+      touched.add(event.target);
+      listenForEnd(event.target, true);
     };
     const onTouchEnd = (event: TouchEvent) => {
       if (event.touches.length > 0) return;
+      forgetTouched();
       scroll.touching = false;
       if (scroll.gliding) settleSoon();
       else scroll.fill(false);
@@ -252,7 +272,10 @@ export function useScroller(key: string, id: string) {
       // As it lands, what a scroll says of where it was is not the reader's.
       if (scroll.landing) return;
       // Where it put the view itself: nothing of the reader's.
-      if (Math.abs(outer.scrollTop - put) < 1) return;
+      if (Math.abs(outer.scrollTop - put) < 1) {
+        scroll.fill(false);
+        return;
+      }
       // A finger moving it: a glide, until it is quiet. A tap moves
       // nothing, so what it opens or shuts is put in place at once.
       // Reaching the very top too, as a phone may stop telling of a touch
@@ -324,8 +347,8 @@ export function useScroller(key: string, id: string) {
         report();
       },
     };
-    // After anything in it grows or shrinks, or it does, as when shown
-    // again or the window grows: back to the anchor, and enough drawn.
+    // After anything in it grows or shrinks, or it does, as when the window
+    // grows: following, back at the bottom, and enough drawn.
     const resized =
       typeof ResizeObserver === 'undefined'
         ? null
@@ -341,8 +364,9 @@ export function useScroller(key: string, id: string) {
     outer.addEventListener('scroll', onScroll, { passive: true });
     outer.addEventListener('wheel', stopLanding, { passive: true });
     outer.addEventListener('touchstart', onTouchStart, { passive: true });
-    outer.addEventListener('touchend', onTouchEnd, { passive: true });
-    outer.addEventListener('touchcancel', onTouchEnd, { passive: true });
+    // Keys and a held scrollbar take over from landing, as a finger does.
+    outer.addEventListener('pointerdown', stopLanding, { passive: true });
+    document.addEventListener('keydown', stopLanding, { passive: true });
     return () => {
       scroll.place = () => {};
       scroll.keepStill = () => {};
@@ -356,8 +380,9 @@ export function useScroller(key: string, id: string) {
       outer.removeEventListener('scroll', onScroll);
       outer.removeEventListener('wheel', stopLanding);
       outer.removeEventListener('touchstart', onTouchStart);
-      outer.removeEventListener('touchend', onTouchEnd);
-      outer.removeEventListener('touchcancel', onTouchEnd);
+      outer.removeEventListener('pointerdown', stopLanding);
+      document.removeEventListener('keydown', stopLanding);
+      forgetTouched();
     };
   }, [scroll, keep]);
   return useMemo(

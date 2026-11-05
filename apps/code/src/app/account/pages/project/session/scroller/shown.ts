@@ -135,6 +135,7 @@ export function useShown(
       // rest wait for the reader to reach the top.
       if (before) {
         if (top < view.top - view.height * AHEAD || now >= MAX_NOW) return;
+        if (scroll.gliding || scroll.touching) return;
         now++;
         shown ||= requestAnimationFrame(() => {
           now = 0;
@@ -167,7 +168,7 @@ export function useShown(
   return {
     /** The index of the first block drawn. */
     from,
-    /** The list's element: more is drawn above it as the view nears its top. */
+    /** The list's element: more is drawn above it as the view reaches its top. */
     list,
     /** Whether blocks above the first drawn are still to be drawn. */
     more: drawing && from > 0,
