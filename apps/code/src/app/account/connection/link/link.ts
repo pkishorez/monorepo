@@ -166,20 +166,10 @@ export const useHealths = () => {
     );
 };
 
-/** The time now for what is said of a Connection's code Plugin, worked out again every few seconds while it is not simply running. */
-export const useNoticeClock = (connection: Connection | null) =>
-  useNow(
-    connection !== null &&
-      Object.values(connection.plugins).some(({ _tag }) => _tag !== 'Running'),
-  );
-
 /** Who is behind, once the Connection closed a socket running another Release of the code Plugin; null while it has not. */
 export const useBehind = (connectionId: string): Behind | null =>
   use(Links).behind?.[connectionId] ?? null;
 
-/** The pill for the Connection's code Plugin or `ke-connect`, worked out again every few seconds while its Plugin is not simply running (`noticePillOf`). */
-export const useNoticePill = (connectionId: string) => {
-  const connection = useConnection(connectionId);
-  const behind = useBehind(connectionId);
-  return noticePillOf(connection, useNoticeClock(connection), behind);
-};
+/** The pill for the Connection's code Plugin or `ke-connect` (`noticePillOf`). */
+export const useNoticePill = (connectionId: string) =>
+  noticePillOf(useConnection(connectionId), useBehind(connectionId));

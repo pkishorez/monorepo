@@ -45,7 +45,7 @@ jobs:
           node-version: 24.18.0
 
       # Only the package, ai-toolkit and cli-platform (which its code Plugin
-      # runs) and this workflow deploy Cloud Connect; a change to another
+      # runs) and this workflow deploy Connect Cloud; a change to another
       # workspace package does not. Run it by hand to ship one.
       - name: Check connect affected
         id: affected
@@ -108,7 +108,7 @@ jobs:
       - name: Build workspace dependencies
         run: pnpm --filter '@kestack/connect^...' run build
 
-      # The code Plugin the deploy uploads to R2 and names in PLUGINS, by its
+      # The code Plugin the deploy uploads to R2 and names in RELEASES, by its
       # sha256; alchemy.run.ts refuses a deployed Stage without it.
       - name: Build the code Plugin
         run: pnpm --filter @kestack/connect build:plugin
@@ -158,5 +158,5 @@ jobs:
             echo ""
             echo "| App | Status | URL |"
             echo "| --- | --- | --- |"
-            echo "| Cloud Connect | $status | $url |"
+            echo "| Connect Cloud | $status | $url |"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -118,7 +118,6 @@ const connection = (id: string, name: string) => ({
   version: '0.0.1',
   status: { _tag: 'Opening' as const },
   lastSeen: 1,
-  plugins: {},
   wanted: {},
   minConnect: null,
   displayName: null,

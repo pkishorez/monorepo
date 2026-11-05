@@ -299,14 +299,14 @@ describe('a Plugin kept running by its CLI', () => {
     30_000,
   );
 
-  it('says a file: URL with no file is not on the shelf', () =>
+  it('says a file: URL with no file has no file', () =>
     Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
           const plugin = setup();
           const hash = 'c'.repeat(64);
           const url = pathToFileURL(
-            join(plugin.folders.cache, 'shelf', 'ping', `${hash}.mjs`),
+            join(plugin.folders.cache, 'releases', 'ping', `${hash}.mjs`),
           ).href;
           yield* Runtime.scoped(cliOf(plugin, { hash, url }), {
             layer: plugin.layer,
@@ -315,7 +315,7 @@ describe('a Plugin kept running by its CLI', () => {
             expect(last(plugin.reports)).toMatchObject({
               _tag: 'Crashed',
               hash,
-              log: [`ping ${hash} isn't on the shelf; run the build`],
+              log: [`ping ${hash} has no file; run the build`],
             }),
           );
         }),

@@ -3,7 +3,7 @@ import type { Effect } from 'effect';
 import type { Gone } from '../database/index.ts';
 
 /*
- * The cache: what the app keeps on this device of what Cloud Connect and
+ * The cache: what the app keeps on this device of what Connect Cloud and
  * each Connection last said, so it shows at once and is asked again behind:
  * an Account's Connection List, in the Account's database; a Connection's setup
  * and its Projects' Skills, in the Connection's. Each kind is a table there,

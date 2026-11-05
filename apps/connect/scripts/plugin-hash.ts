@@ -5,7 +5,7 @@ import {
   checkBuild,
   logFile,
   readLog,
-} from '../infra/plugins/release-log/index.ts';
+} from '../infra/releases/release-log/index.ts';
 
 /*
  * Prints the sha256 of the code Plugin's build, the hash a deploy names,

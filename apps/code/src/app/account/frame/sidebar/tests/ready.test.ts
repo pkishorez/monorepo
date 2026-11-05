@@ -6,7 +6,7 @@ import type { Read } from '../list/order/drawn.ts';
  * When the sidebar can be drawn whole, so the frame first draws it with its
  * rows and never its header alone: once its width, the kept list, the
  * Connection Filter, and each Connection shown, its Projects, Sessions and
- * Unseen marks, are read from this device. Cloud Connect and the Connections
+ * Unseen marks, are read from this device. Connect Cloud and the Connections
  * answering are never waited for.
  */
 

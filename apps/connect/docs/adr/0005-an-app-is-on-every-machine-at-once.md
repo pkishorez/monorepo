@@ -4,7 +4,7 @@ Moved from toolkits/ai-toolkit/docs/adr/0018
 
 Status: accepted.
 
-An app holds one `CodeReplica` Instance for every Machine in the signed-in User's Machine List, and each Instance syncs through its own Machine's socket, found by its key, the Machine id. Queries read across every Instance, and each row says which Machine it came from, as the Replica glossary already allows. Nothing in the app is inside one Machine: only a Session's address names its Machine. The Machine list itself always comes from Cloud Connect and never waits for a Machine.
+An app holds one `CodeReplica` Instance for every Machine in the signed-in User's Machine List, and each Instance syncs through its own Machine's socket, found by its key, the Machine id. Queries read across every Instance, and each row says which Machine it came from, as the Replica glossary already allows. Nothing in the app is inside one Machine: only a Session's address names its Machine. The Machine list itself always comes from Connect Cloud and never waits for a Machine.
 
 ## Considered options
 

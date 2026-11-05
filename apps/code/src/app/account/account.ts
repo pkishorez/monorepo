@@ -170,10 +170,10 @@ export interface Known {
   readonly connections: ReadonlyArray<Connection> | null;
   /** Whether the list kept on this device has been read, kept or not. */
   readonly savedRead: boolean;
-  /** When Cloud Connect last answered, epoch ms; null before it has. */
+  /** When Connect Cloud last answered, epoch ms; null before it has. */
   readonly fetchedAt: number | null;
   /**
-   * Whether the Connections' Last Seen can be believed: Cloud Connect has
+   * Whether the Connections' Last Seen can be believed: Connect Cloud has
    * answered, or long enough passed without (`CHECK_FOR`). Until then a
    * Connection whose socket is on its way is only linking, never down.
    */
@@ -336,13 +336,13 @@ export class Connections extends Context.Service<
     readonly reachable: (
       id: string,
     ) => Effect.Effect<{ readonly tunnel: string; readonly key: string }>;
-    /** Asks Cloud Connect for the list again now, and every Connection for its setup. */
+    /** Asks Connect Cloud for the list again now, and every Connection for its setup. */
     readonly reload: Effect.Effect<void>;
     /** Forgets the Connection for good, and its records on this device. */
     readonly forget: (id: string) => Effect.Effect<void>;
     /** Done with a Forget that failed. */
     readonly keepForgetting: Effect.Effect<void>;
-    /** Tells the list Cloud Connect renamed the Connection, for every name of it to show at once. */
+    /** Tells the list Connect Cloud renamed the Connection, for every name of it to show at once. */
     readonly renamed: (
       id: string,
       displayName: string | null,

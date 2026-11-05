@@ -4,7 +4,7 @@ import { behindAll, behindOf } from '../release.ts';
 
 /*
  * Who is behind when a Connection closed a socket running another Release
- * of the code Plugin: what Cloud Connect wants it to run says.
+ * of the code Plugin: what Connect Cloud wants it to run says.
  */
 
 const OURS = 'a'.repeat(64);
@@ -20,7 +20,6 @@ const wanting = (
   version: '0.0.5',
   status: { _tag: 'Opening' },
   lastSeen: 0,
-  plugins: {},
   wanted:
     wanted === null ? {} : { code: { hash: wanted, url: `file:///${wanted}` } },
   minConnect: null,
@@ -28,13 +27,13 @@ const wanting = (
 });
 
 describe('who is behind', () => {
-  it('is the Connection, Updating, while Cloud Connect wants this Code’s Release, or none', () => {
+  it('is the Connection, Updating, while Connect Cloud wants this Code’s Release, or none', () => {
     expect(behindOf(wanting('m1', OURS), OURS)).toBe('Updating');
     expect(behindOf(wanting('m1', null), OURS)).toBe('Updating');
     expect(behindOf(null, OURS)).toBe('Updating');
   });
 
-  it('is this Code, Stale, while Cloud Connect wants another', () => {
+  it('is this Code, Stale, while Connect Cloud wants another', () => {
     expect(behindOf(wanting('m1', OTHER), OURS)).toBe('Stale');
   });
 

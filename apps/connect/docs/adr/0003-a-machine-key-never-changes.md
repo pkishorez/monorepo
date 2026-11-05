@@ -8,7 +8,7 @@ A Machine is reached through a public tunnel address, and a browser cannot carry
 
 ## Considered options
 
-- **A short-lived ticket signed by Cloud Connect** after it checks the browser's Sign-in, verified by the Machine against a key that never leaves it. Rejected for now: more moving parts than the first version needs.
+- **A short-lived ticket signed by Connect Cloud** after it checks the browser's Sign-in, verified by the Machine against a key that never leaves it. Rejected for now: more moving parts than the first version needs.
 - **A key that rotates on every start or every connection.** Rejected for now; it is the first step when this is revisited.
 - **The Machine asks the Auth Worker about the caller.** Not possible: a browser has no token to send to another site.
 

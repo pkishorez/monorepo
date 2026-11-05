@@ -1,15 +1,15 @@
 # Connect in development
 
-Every branch has its own Connect: its own Cloud Connect under `alchemy dev`, its own Connection, and its own folders. Every App run on that branch shares it.
+Every branch has its own Connect: its own Connect Cloud under `alchemy dev`, its own Connection, and its own folders. Every App run on that branch shares it.
 
 ## The branch
 
-The branch is the name Portless gives this checkout. `portless get connect.kishore` prints Cloud Connect's URL:
+The branch is the name Portless gives this checkout. `portless get connect.kishore` prints Connect Cloud's URL:
 
 - In the main checkout it is `https://connect.kishore.computer`, and the branch is `main`.
 - In a linked git worktree Portless adds a prefix, `https://<prefix>.connect.kishore.computer`, and the branch is `<prefix>`.
 
-The branch's Connection is `dev-<branch>`: the dev script runs this checkout's own `ke-connect serve dev-<branch>` as a process of its own, named `<host> (dev-<branch>)` in Code, so each branch's Connection is told apart there. The `dev-` keeps it clear of `main`, the Connection `ke-connect serve` makes by default, so the main checkout's development Connection (`dev-main`) never takes a real one's name. It runs the code Plugin the way a deployed Connection does: before `alchemy dev` starts, the dev script runs `pnpm build:plugin`; Cloud Connect under `alchemy dev` names that bundle without asking the Release Log, puts it on the folder Shelf and names its `file:` URL in `PLUGINS`; and the Connection fetches that Release from the Shelf, checks its hash, and runs it. Code calls it at `/code/<sha256>/rpc`.
+The branch's Connection is `dev-<branch>`: the dev script runs this checkout's own `ke-connect serve dev-<branch>` as a process of its own, named `<host> (dev-<branch>)` in Code, so each branch's Connection is told apart there. The `dev-` keeps it clear of `main`, the Connection `ke-connect serve` makes by default, so the main checkout's development Connection (`dev-main`) never takes a real one's name. It runs the code Plugin the way a deployed Connection does: before `alchemy dev` starts, the dev script runs `pnpm build:plugin`; Connect Cloud under `alchemy dev` names that bundle without asking the Release Log, puts its Release File in a folder and names its `file:` URL in `RELEASES`; and the Connection fetches that file, checks its hash, and runs it. Code calls it at `/code/<sha256>/rpc`.
 
 ## Folders
 
@@ -18,13 +18,13 @@ The branch's Connection is `dev-<branch>`: the dev script runs this checkout's o
 | Data: `connection.json`, the Sign-in and `auth.json`, `wanted.json`, the code Plugin's | `~/.local/share/kestack/connect/connections/dev-<branch>/` |
 | State: `connect.log`, `plugins/code.log`                                               | `~/.local/state/kestack/connect/connections/dev-<branch>/` |
 | The branch's dev folder                                                                | `~/.local/state/kestack/connect/dev/<branch>/`             |
-| The folder Shelf, every branch's                                                       | `~/.cache/kestack/connect/shelf/<name>/<sha256>.mjs`       |
+| Release Files, every branch's                                                          | `~/.cache/kestack/connect/releases/<name>/<sha256>.mjs`    |
 
 `$XDG_DATA_HOME` and `$XDG_STATE_HOME` replace `~/.local/share` and `~/.local/state` when set. The cache (cloudflared, models, Speech to Text) is shared by every Connection. `ke-connect list` shows every branch's Connection, and whether it runs.
 
 The dev folder holds:
 
-- `connect.json`: the running Connect's pid, mode, Cloud Connect URL, the Connection's port and name, and whether it is ready.
+- `connect.json`: the running Connect's pid, mode, Connect Cloud URL, the Connection's port and name, and whether it is ready.
 - `leases/<pid>.json`: one per App dev process using Connect.
 - `connect.log`: the shared Connect's output.
 
@@ -32,16 +32,16 @@ The lock that one dev process takes while it decides whether Connect must start 
 
 ## Signing in
 
-`pnpm dev` signs in with auth-toolkit's Fake ([root ADR 0012](../../../docs/adr/0012-pnpm-dev-signs-in-with-the-fake.md)): Cloud Connect reads Fake Tokens, and the Connection `dev-<branch>` signs in at once as `dev@kestack.test`, with no device code, and lets in pages through a Cloudflare tunnel (`https://*.trycloudflare.com`). `pnpm dev:real` (`KESTACK_AUTH=real`) signs in through the Auth Worker, as the Connection `dev-<branch>-real`, with folders of its own. `connect.json` says which (`auth`), and an App run the other way while one runs is refused: stop every dev on the branch first.
+`pnpm dev` signs in with auth-toolkit's Fake ([root ADR 0012](../../../docs/adr/0012-pnpm-dev-signs-in-with-the-fake.md)): Connect Cloud reads Fake Tokens, and the Connection `dev-<branch>` signs in at once as `dev@kestack.test`, with no device code, and lets in pages through a Cloudflare tunnel (`https://*.trycloudflare.com`). `pnpm dev:real` (`KESTACK_AUTH=real`) signs in through the Auth Worker, as the Connection `dev-<branch>-real`, with folders of its own. `connect.json` says which (`auth`), and an App run the other way while one runs is refused: stop every dev on the branch first.
 
 ## Running an App
 
 `pnpm dev` in an App, such as `apps/code`, calls `withConnect`:
 
-1. Under the lock it reads `connect.json`. Connect is alive when its process runs, it says it is ready, Cloud Connect answers `/auth` and the Connection answers `/health` on its port.
+1. Under the lock it reads `connect.json`. Connect is alive when its process runs, it says it is ready, Connect Cloud answers `/auth` and the Connection answers `/health` on its port.
 2. If no Connect runs, it starts the shared supervisor, detached from the terminal, writing to `connect.log`.
 3. It takes a lease and waits until Connect is alive, showing `connect.log` meanwhile. A new branch signs in on its first run, and the device code appears there.
-4. It runs the App with `CONNECT_URL` set to the branch's Cloud Connect.
+4. It runs the App with `CONNECT_URL` set to the branch's Connect Cloud.
 
 Ctrl-C stops the App and gives its lease back. Once no lease has been held for 3 s, the supervisor stops the Connection, then `alchemy dev` (SIGINT, and SIGKILL after 10 s), and deletes `connect.json`.
 
@@ -58,7 +58,7 @@ If a Connect already runs for the branch, it attaches instead: it takes a lease,
 - **TLS errors reaching `*.kishore.computer`**: Node needs Portless's CA. Set `NODE_EXTRA_CA_CERTS=~/.portless/ca.pem`.
 - **A Connect that will not stop**: `pgrep -fl supervisor.js` finds it. Kill it and delete `connect.json`.
 - **The code Plugin is Crashed**: its output is in `plugins/code.log` in the Connection's state folder. `pnpm dev` builds it first; after changing it, stop and start `pnpm dev` again.
-- **"code <sha256> isn't on the shelf; run the build"**: the Connection was told of a Release that is not in the folder Shelf. Stop and start `pnpm dev`, which builds it and puts it there.
+- **"code <sha256> has no file; run the build"**: the Connection was told of a Release whose Release File is not in the folder. Stop and start `pnpm dev`, which builds it and puts it there.
 
 ## Resetting a branch
 
@@ -72,4 +72,4 @@ The next `pnpm dev` makes a new Connection and signs in again.
 
 ## Branches that are gone
 
-Each time a dev runner starts, it lists the branches that still have a checkout (`git worktree list`, with Portless's names) and removes every `dev-` Connection that is none of theirs, as `ke-connect remove` does: forgotten in its branch's Cloud Connect when that still answers, its folders deleted either way. It runs beside Connect starting, and says what it removed in the log. When git cannot list the branches, nothing is removed.
+Each time a dev runner starts, it lists the branches that still have a checkout (`git worktree list`, with Portless's names) and removes every `dev-` Connection that is none of theirs, as `ke-connect remove` does: forgotten in its branch's Connect Cloud when that still answers, its folders deleted either way. It runs beside Connect starting, and says what it removed in the log. When git cannot list the branches, nothing is removed.
