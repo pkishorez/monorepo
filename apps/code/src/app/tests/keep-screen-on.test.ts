@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { Effect, Exit, Fiber, Scope, Stream } from 'effect';
+import { Effect, Fiber, Stream } from 'effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { holdScreen, keepScreenOn } from '../actor.ts';
 import { Preferences, preferencesMemory } from '../storage/index.ts';
@@ -30,14 +30,45 @@ let asked: Array<{
 }>;
 let visibility: DocumentVisibilityState;
 
-/** Lets what a settled request runs, run. */
-const settle = () => new Promise((resolve) => setTimeout(resolve));
+/** Lets what is under way run. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 5));
 
-/** Starts holding the screen; what it gives back stops it. */
-const hold = () => {
-  const scope = Effect.runSync(Scope.make());
-  Effect.runFork(holdScreen.pipe(Scope.provide(scope)));
-  return () => Effect.runPromise(Scope.close(scope, Exit.void));
+/** How many requests it has made, once it has made them. */
+const asks = (count: number) =>
+  vi.waitFor(() => expect(asked).toHaveLength(count));
+
+/** Starts it, and waits until it listens and, the page showing, has asked. */
+const hold = async () => {
+  const onWindow = vi.spyOn(window, 'addEventListener');
+  const onDocument = vi.spyOn(document, 'addEventListener');
+  const holding = Effect.runFork(Effect.scoped(holdScreen));
+  await vi.waitFor(() => {
+    expect(onWindow).toHaveBeenCalledWith(
+      'pointerup',
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(onWindow).toHaveBeenCalledWith(
+      'keydown',
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(onDocument).toHaveBeenCalledWith(
+      'visibilitychange',
+      expect.anything(),
+      undefined,
+    );
+  });
+  if (visibility === 'visible') await asks(1);
+  return holding;
+};
+
+/** Stops it, refusing what it still waits on: a stop waits for the answer. */
+const stop = async (holding: Fiber.Fiber<void>) => {
+  const stopped = Effect.runPromise(Fiber.interrupt(holding));
+  await settle();
+  asked.forEach(({ refuse }) => refuse());
+  await stopped;
 };
 
 /** Answers the latest request and lets it land. */
@@ -47,9 +78,20 @@ const grant = async () => {
   return lock;
 };
 
-const showing = (state: DocumentVisibilityState) => {
+const tap = async () => {
+  window.dispatchEvent(new Event('pointerup'));
+  await settle();
+};
+
+const press = async () => {
+  window.dispatchEvent(new Event('keydown'));
+  await settle();
+};
+
+const showing = async (state: DocumentVisibilityState) => {
   visibility = state;
   document.dispatchEvent(new Event('visibilitychange'));
+  await settle();
 };
 
 beforeEach(() => {
@@ -83,95 +125,91 @@ afterEach(() => {
 
 describe('holdScreen', () => {
   it('asks as it starts, and only once while it holds', async () => {
-    const stop = hold();
-    await settle();
+    const holding = await hold();
     expect(asked).toHaveLength(1);
     await grant();
-    window.dispatchEvent(new Event('pointerup'));
-    showing('visible');
+    await tap();
+    await showing('visible');
     expect(asked).toHaveLength(1);
-    await stop();
+    await stop(holding);
   });
 
   it('does not ask twice while it waits for an answer', async () => {
-    const stop = hold();
-    await settle();
-    window.dispatchEvent(new Event('pointerup'));
+    const holding = await hold();
+    await tap();
     expect(asked).toHaveLength(1);
-    await stop();
+    await grant();
+    expect(asked).toHaveLength(1);
+    await stop(holding);
   });
 
   it('asks again when the page shows, after the browser let go as it hid', async () => {
-    const stop = hold();
-    await settle();
+    const holding = await hold();
     const lock = await grant();
     lock.released = true;
-    showing('hidden');
+    await showing('hidden');
     expect(asked).toHaveLength(1);
-    showing('visible');
-    expect(asked).toHaveLength(2);
-    await stop();
+    await showing('visible');
+    await asks(2);
+    await stop(holding);
   });
 
   it('never asks while the page is hidden', async () => {
     visibility = 'hidden';
-    const stop = hold();
-    await settle();
-    window.dispatchEvent(new Event('pointerup'));
+    const holding = await hold();
+    await tap();
     expect(asked).toHaveLength(0);
-    showing('visible');
-    expect(asked).toHaveLength(1);
-    await stop();
+    await showing('visible');
+    await asks(1);
+    await stop(holding);
   });
 
   it('refused, asks again at the next tap or key, not before', async () => {
-    const stop = hold();
-    await settle();
+    const holding = await hold();
     asked[0]!.refuse();
     await settle();
     expect(asked).toHaveLength(1);
-    window.dispatchEvent(new Event('pointerup'));
-    expect(asked).toHaveLength(2);
+    await tap();
+    await asks(2);
     asked[1]!.refuse();
     await settle();
-    window.dispatchEvent(new Event('keydown'));
-    expect(asked).toHaveLength(3);
-    await stop();
+    await press();
+    await asks(3);
+    await stop(holding);
   });
 
   it('let go while showing, asks again at the next tap', async () => {
-    const stop = hold();
-    await settle();
+    const holding = await hold();
     const lock = await grant();
     lock.released = true;
     expect(asked).toHaveLength(1);
-    window.dispatchEvent(new Event('pointerup'));
-    expect(asked).toHaveLength(2);
-    await stop();
+    await tap();
+    await asks(2);
+    await stop(holding);
   });
 
   it('lets go as it stops, and asks no more', async () => {
-    const stop = hold();
-    await settle();
+    const holding = await hold();
     const lock = await grant();
-    await stop();
+    await stop(holding);
     expect(lock.release).toHaveBeenCalledOnce();
-    showing('visible');
-    window.dispatchEvent(new Event('pointerup'));
+    await showing('visible');
+    await tap();
     expect(asked).toHaveLength(1);
   });
 
   it('stopped while asking, lets go of what is granted after', async () => {
-    const stop = hold();
+    const holding = await hold();
+    const stopped = Effect.runPromise(Fiber.interrupt(holding));
     await settle();
-    await stop();
     const lock = await grant();
+    await stopped;
     expect(lock.release).toHaveBeenCalledOnce();
   });
 
   it('does nothing in a browser without a wake lock', async () => {
     Reflect.deleteProperty(navigator, 'wakeLock');
-    await Effect.runPromise(holdScreen.pipe(Effect.scoped));
+    await Effect.runPromise(Effect.scoped(holdScreen));
     expect(asked).toHaveLength(0);
   });
 });

@@ -1,4 +1,4 @@
-import { Effect, type Scope, Schema, Stream } from 'effect';
+import { Effect, Schema, ScopedRef, Stream } from 'effect';
 import { Accounts, type AccountsState } from '@kestack/auth-toolkit/client';
 import { Actor } from '@kestack/kabuki';
 import { Navigation, Page, Router } from '@kestack/kabuki/routing';
@@ -205,51 +205,37 @@ export const keepScreenOn = Stream.concat(
   Stream.changes,
 );
 
+/** The screen's wake lock, let go as its Scope closes; a refusal is its failure. */
+const wakeLock = Effect.acquireRelease(
+  Effect.tryPromise(() => navigator.wakeLock.request('screen')),
+  (lock) => Effect.promise(() => lock.release()),
+);
+
+const touched = { capture: true, passive: true };
+
 /** Keeps the screen on until its Scope closes; a browser without a wake lock does nothing. */
-export const holdScreen: Effect.Effect<void, never, Scope.Scope> =
-  Effect.suspend(() =>
-    typeof document === 'undefined' || !('wakeLock' in navigator)
-      ? Effect.void
-      : Effect.acquireRelease(
-          Effect.sync(() => {
-            let lock: WakeLockSentinel | null = null;
-            let asking = false;
-            let stopped = false;
-            const ask = () => {
-              if (
-                asking ||
-                document.visibilityState !== 'visible' ||
-                (lock !== null && !lock.released)
-              )
-                return;
-              asking = true;
-              navigator.wakeLock.request('screen').then(
-                (granted) => {
-                  asking = false;
-                  lock = granted;
-                  if (stopped) void granted.release();
-                },
-                () => {
-                  asking = false;
-                },
-              );
-            };
-            const touched = { capture: true, passive: true };
-            ask();
-            document.addEventListener('visibilitychange', ask);
-            window.addEventListener('pointerup', ask, touched);
-            window.addEventListener('keydown', ask, touched);
-            return () => {
-              stopped = true;
-              document.removeEventListener('visibilitychange', ask);
-              window.removeEventListener('pointerup', ask, touched);
-              window.removeEventListener('keydown', ask, touched);
-              void lock?.release();
-            };
-          }),
-          (stop) => Effect.sync(stop),
-        ).pipe(Effect.andThen(Effect.never)),
+export const holdScreen = Effect.gen(function* () {
+  if (!('wakeLock' in navigator)) return;
+  const held = yield* ScopedRef.make<WakeLockSentinel | null>(() => null);
+  const ask = Effect.gen(function* () {
+    const lock = yield* ScopedRef.get(held);
+    if (document.visibilityState !== 'visible' || lock?.released === false)
+      return;
+    yield* ScopedRef.set(held, wakeLock).pipe(Effect.ignore);
+  });
+  yield* Stream.runForEach(
+    Stream.mergeAll(
+      [
+        Stream.make(undefined),
+        Stream.fromEventListener(document, 'visibilitychange'),
+        Stream.fromEventListener(window, 'pointerup', touched),
+        Stream.fromEventListener(window, 'keydown', touched),
+      ],
+      { concurrency: 'unbounded' },
+    ),
+    () => ask,
   );
+});
 
 const Model = Schema.Struct({
   /** Why signing in failed, until it is tried again. */
