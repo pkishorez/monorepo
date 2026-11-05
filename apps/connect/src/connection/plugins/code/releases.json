@@ -64,6 +64,10 @@
     {
       "hash": "b9bcb15fecc73414301f307e156a1dc3d75ec498f5fa66ef8ee389e373b98c32",
       "summary": "A new folder is only a folder: createFolder starts no git repository, and CreatedFolder has no gitInitError"
+    },
+    {
+      "hash": "72259750d458e7f7ef7f32ba4281452b46d23280ddd7f07753c54ef37801622b",
+      "summary": "The code Plugin as Connect is one simple tree: built from its new folders, its Connection Key checked by the server"
     }
   ]
 }
