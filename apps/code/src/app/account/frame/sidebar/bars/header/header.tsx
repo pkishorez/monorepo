@@ -96,8 +96,7 @@ function useInfos(
       about:
         [
           record?.displayName == null ? null : record.name,
-          noticePillOf(record ?? null, Date.now(), behind?.[id] ?? null)?.[0] ??
-            null,
+          noticePillOf(record ?? null, behind?.[id] ?? null)?.[0] ?? null,
           record === undefined ? null : (TUNNEL[record.status._tag] ?? null),
           record?.version ? `Connect ${record.version}` : null,
         ]

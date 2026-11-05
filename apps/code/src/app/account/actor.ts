@@ -70,9 +70,9 @@ import { Settings } from './pages/settings/index.ts';
  *             guess, it corrects (`../actor.ts`).
  * 2. Kept     while `Active`: the Connection List kept for the Account
  *             shows first, so the app opens on its Connections even while
- *             Cloud Connect is out of reach; once read, kept or not, it
+ *             Connect Cloud is out of reach; once read, kept or not, it
  *             says so.
- * 3. Fetch    then Cloud Connect's list, once, and again on Reload; each
+ * 3. Fetch    then Connect Cloud's list, once, and again on Reload; each
  *             answer is kept for next time. The first answer prunes: every
  *             database of a Connection of the Account not on it goes, all
  *             under it with it, its Saved Drafts too, and never the
@@ -85,23 +85,23 @@ import { Settings } from './pages/settings/index.ts';
  *             Connection closed with `PLUGIN_MISMATCH`, as it runs another
  *             Release of the code Plugin than this Code calls, is kept as
  *             Mismatched until one is answered; who is behind is what
- *             Cloud Connect wants it to run (`link/reach/`): the
+ *             Connect Cloud wants it to run (`link/reach/`): the
  *             Connection, Updating, while its Link keeps relinking; or
  *             this Code, Stale, which moves to its newest build.
- * 5. Recheck  while a listed Connection's link is not up, Cloud Connect is
+ * 5. Recheck  while a listed Connection's link is not up, Connect Cloud is
  *             asked again: every few seconds for the first minute, then
  *             every half a minute, until every link is up; a link that
  *             drops starts it again. What the kept list says of each
- *             Connection's Last Seen is believed only once checked: Cloud
- *             Connect has answered, or `CHECK_FOR` passed without; until
+ *             Connection's Last Seen is believed only once checked: Connect
+ *             Cloud has answered, or `CHECK_FOR` passed without; until
  *             then a Connection on its way is only linking. The page back
  *             after `AWAY` or more hidden, the list is checked again, and
  *             asked at once.
- * 6. Forget   a Connection, asked from Settings: Cloud Connect forgets it,
+ * 6. Forget   a Connection, asked from Settings: Connect Cloud forgets it,
  *             it leaves the list, so its Connection stops, and an answer
  *             asked before never brings it back; then its database goes,
  *             and no other's.
- * 7. Rename   a Connection renamed from Settings, once Cloud Connect has
+ * 7. Rename   a Connection renamed from Settings, once Connect Cloud has
  *             it: its Display Name changes in the list at once, and is kept.
  * 8. Share    `Connections`, in every State, so the pages, which Kabuki
  *             keeps whatever the State, find it: nobody's until `Active`,
@@ -116,7 +116,7 @@ import { Settings } from './pages/settings/index.ts';
  *             sessions (`pages/`), drawn inside the frame while `Active`.
  */
 
-/** How long a kept list's Last Seen waits for Cloud Connect's before it is believed anyway. */
+/** How long a kept list's Last Seen waits for Connect Cloud's before it is believed anyway. */
 export const CHECK_FOR = 10_000;
 
 /** How long the page may be hidden before what the list says is checked again. */
@@ -147,7 +147,7 @@ const back: Stream.Stream<void> =
         ),
       );
 
-/** How long to wait before asking Cloud Connect again, while a link is not up. */
+/** How long to wait before asking Connect Cloud again, while a link is not up. */
 export const RECHECK = { fast: 3_000, slow: 30_000, fastFor: 20 } as const;
 
 const Link = Schema.Literals(['linking', 'linked', 'relinking']);
@@ -261,10 +261,10 @@ const Model = Schema.Struct({
   signingIn: Schema.Boolean,
   /** The frame's keyboard, from Preferences; null until read. */
   keyboard: Schema.NullOr(Frame.Keys),
-  /** The list: kept on this device, or as Cloud Connect said it. */
+  /** The list: kept on this device, or as Connect Cloud said it. */
   list: Copy(Schema.Array(Connection.schema)),
   fetchedAt: Schema.NullOr(Schema.Number),
-  /** Whether the list's Last Seen is believed: Cloud Connect answered, or `CHECK_FOR` passed. */
+  /** Whether the list's Last Seen is believed: Connect Cloud answered, or `CHECK_FOR` passed. */
   checked: Schema.Boolean,
   forgetting: Schema.NullOr(
     Schema.Struct({
@@ -276,7 +276,7 @@ const Model = Schema.Struct({
   links: Schema.Record(Schema.String, Link),
   /** Each listed Connection that closed its socket running another Release of the code Plugin, by id, until a socket to it is answered. */
   mismatched: Schema.Record(Schema.String, PluginMismatch.schema),
-  /** How many times Cloud Connect was asked again since every link was last up. */
+  /** How many times Connect Cloud was asked again since every link was last up. */
   rechecks: Schema.Finite,
   /** What each Connection said of itself, by id. */
   said: Schema.Record(Schema.String, Said),
@@ -341,10 +341,10 @@ export const Account = Page.define({
 
 const idsOf = (model: Model) => (model.list.value ?? []).map(({ id }) => id);
 
-/** Whether Cloud Connect is being asked. */
+/** Whether Connect Cloud is being asked. */
 export const fetching = (model: Model) => copying.asking(model.list).length > 0;
 
-/** Whether a listed Connection's link is not up, so Cloud Connect is asked again. */
+/** Whether a listed Connection's link is not up, so Connect Cloud is asked again. */
 export const anyDown = (model: Model) =>
   idsOf(model).some((id) => model.links[id] !== 'linked');
 
@@ -521,7 +521,7 @@ export const accountWith = (to: typeof reach) =>
             run: (self) =>
               Stream.runForEach(back, () => self.send({ _tag: 'Back' })),
           },
-          // 5. Recheck: the kept list believed anyway, once Cloud Connect
+          // 5. Recheck: the kept list believed anyway, once Connect Cloud
           // has been waited on for long enough.
           check: {
             while: ({ model }) => !model.checked,
@@ -632,7 +632,7 @@ export const accountWith = (to: typeof reach) =>
           model: next,
           command: [
             keepList({ accountId, connections }),
-            // 4. Links: Cloud Connect now wants another Release than this
+            // 4. Links: Connect Cloud now wants another Release than this
             // Code calls, of a Connection that refused it.
             ...(newlyStale(model, next) ? [toNewest({})] : []),
             ...(model.fetchedAt === null

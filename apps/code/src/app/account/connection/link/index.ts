@@ -9,7 +9,6 @@ export {
   useConnections,
   nameOf,
   useConnectionName,
-  useNoticeClock,
   useNoticePill,
   useOffline,
   useOfflineSaid,

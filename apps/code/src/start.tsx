@@ -16,8 +16,8 @@ import './styles.css';
 /*
  * The app as Start draws it: the router, the root page's View, the
  * Document, and the browser's Layer, what lives as long as the page:
- * who is signed in (`Accounts`, which also signs every call to Cloud
- * Connect), Cloud Connect at `VITE_CONNECT_URL`, this device's
+ * who is signed in (`Accounts`, which also signs every call to Connect
+ * Cloud), Connect Cloud at `VITE_CONNECT_URL`, this device's
  * Preferences, their Bindings kept to what the keys still take, what this
  * device keeps of each Account and Connection, in databases named by their
  * place (`Storage`: the Unseen marks and Saved Drafts, the cache, the sync

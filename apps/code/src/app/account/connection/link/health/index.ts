@@ -18,4 +18,4 @@ export {
   StandingDot,
   standingOf,
 } from './view.tsx';
-export { ConnectionNotice, noticePillOf, retryIn } from './notice.tsx';
+export { ConnectionNotice, noticePillOf } from './notice.tsx';

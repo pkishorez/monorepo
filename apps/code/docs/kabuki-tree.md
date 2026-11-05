@@ -35,7 +35,7 @@ whole address or none.
 
 Kabuki Start draws the app: the router, the root page's View, the Document,
 and what lives as long as the page. It gives `Accounts` (who is signed in),
-`CloudClient` (Cloud Connect), `Preferences`, `Storage` and `OnOutdated`.
+`CloudClient` (Connect Cloud), `Preferences`, `Storage` and `OnOutdated`.
 
 ### `app/` ◆ the root page
 
@@ -69,7 +69,7 @@ Stores, one per Connection, are made here too.
    database: the Preferences, and auth-toolkit's `Accounts` with the
    Accounts signed in here), `seen/` (the Unseen marks) and `drafts/` (the
    Saved Drafts).
-2. **`cache/`**: copies of what Cloud Connect and each Connection last
+2. **`cache/`**: copies of what Connect Cloud and each Connection last
    said, and how a holder's Model follows one (`copy.ts`).
 3. **`database/`**: the name of each database by its place, and how every
    store keeps its rows. It is the one part the other two use.
@@ -87,7 +87,7 @@ is in one of two States:
   the Accounts signed in on this browser to switch to. While the Auth
   Worker is still asked, it says it is checking.
 - `Active`: the app. It reads the Connection List, kept first, then from
-  Cloud Connect, and rechecks it while a Connection is down.
+  Connect Cloud, and rechecks it while a Connection is down.
 
 It never switches, nor moves, by itself. It moves, drawing the mark
 meanwhile, only for what was asked in this tab: a switch from the header's
@@ -303,7 +303,7 @@ read (`Ready`): the sidebar its width, the Connections collapsed, and the
 rows and marks of every Connection shown; the page its own (home its
 projects; a project its row and the new session's Saved Draft; a session
 its row, messages and Saved Draft). With the header's rows and the page's
-code loaded too, the frame is shown. Nothing waits on Cloud Connect or a
+code loaded too, the frame is shown. Nothing waits on Connect Cloud or a
 Connection: what they answer comes in behind.
 
 ## Moving between pages
@@ -345,14 +345,14 @@ A Connection running another Release closes the socket at once with
 `PLUGIN_MISMATCH`. Connect's client keeps what it said until a socket to it
 is answered, and the Link is relinking until then, though the socket
 opened. The Account's page holds it as `mismatched`, per Connection, beside
-its Link, and what Cloud Connect wants it to run says who is behind
+its Link, and what Connect Cloud wants it to run says who is behind
 (`release.ts`):
 
-- **Updating**: Cloud Connect wants this Code's Release, or names none. The
-  socket keeps retrying, with its own backoff, and Cloud Connect is
+- **Updating**: Connect Cloud wants this Code's Release, or names none. The
+  socket keeps retrying, with its own backoff, and Connect Cloud is
   rechecked as for any Link down; the header's pill says "Updating
   Connect…". The first socket answered ends it.
-- **Stale**: Cloud Connect wants another. This Code moves to its newest
+- **Stale**: Connect Cloud wants another. This Code moves to its newest
   build (`OnOutdated`), once, as it turns Stale; the pill says "Updating
   Code…".
 
@@ -380,8 +380,8 @@ they were.
 |                                                                  | `drafts`                   | Local | draft                     |
 | `code:account:<accountId>:connection:<connectionId>:sync:<name>` | Projects, Sessions, Turns… | Sync  | the Connection's Replicas |
 
-Local is known only here and is the truth. Cache is a copy of what Cloud
-Connect or a Connection last said: shown first, replaced by the next answer.
+Local is known only here and is the truth. Cache is a copy of what Connect
+Cloud or a Connection last said: shown first, replaced by the next answer.
 Sync is a copy the backend keeps live. Every store but the Preferences is
 reached through `Storage`.
 
@@ -390,7 +390,7 @@ Who prunes, and only on a real answer (a check that fails deletes nothing):
 | Who                | When                                   | Prefix                          | Keeps                        |
 | ------------------ | -------------------------------------- | ------------------------------- | ---------------------------- |
 | the root page      | the Auth Worker answers, or a sign-out | `code:account:`                 | every Account signed in here |
-| the Account's page | Cloud Connect first answers            | `code:account:<id>:connection:` | the Connections it lists     |
+| the Account's page | Connect Cloud first answers            | `code:account:<id>:connection:` | the Connections it lists     |
 
 A Project removed and a Connection forgotten are your asks, and go at once
 (`Storage.forget`).

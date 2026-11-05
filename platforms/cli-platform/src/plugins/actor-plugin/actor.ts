@@ -151,7 +151,7 @@ const whyFailed = (
     case 'DownloadFailed':
       // A `file:` URL is a folder a build puts each file in.
       return error.missing
-        ? `${name} ${hash} isn't on the shelf; run the build`
+        ? `${name} ${hash} has no file; run the build`
         : `Could not download ${error.url}: ${error.message}`;
     case 'CacheError':
       return `Could not download ${error.path}: ${error.message}`;

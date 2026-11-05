@@ -13,14 +13,14 @@ type Connection = typeof ConnectionSchema.Type;
  * a Connection runs another (ADR 0006 in @kestack/connect). Code is built
  * with one Release, `PLUGIN_CODE`, and dials it by its hash. A Connection
  * running another closes the socket at once with `PLUGIN_MISMATCH`; what
- * Cloud Connect names latest, the Connection's `wanted`, says which side
+ * Connect Cloud names latest, the Connection's `wanted`, says which side
  * is behind:
  *
- * - Updating  Cloud Connect wants this Code's Release, or names none: the
+ * - Updating  Connect Cloud wants this Code's Release, or names none: the
  *             Connection is moving to it. The Link keeps relinking, as it
  *             does, until a socket is answered, and the app says the
  *             Connection is Updating.
- * - Stale     Cloud Connect wants another: this Code is the older side. It
+ * - Stale     Connect Cloud wants another: this Code is the older side. It
  *             moves to its newest build (`toNewest`), as it does when it
  *             reads anything newer than it knows.
  */
