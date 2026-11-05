@@ -54,7 +54,7 @@ Every value an RPC sends is an ESchema, so the newer side reads what an older on
 | `CodeReplicaLive`        | How `CodeReplica` syncs: every Project and Session, and a Session's Messages while a Query filters on its id.                                        |
 | `FolderListing`          | ESchema of a `listFolder` answer: the folder, its parent, up to 100 sub-folders, and if it was cut short.                                            |
 | `FolderEntry`            | ESchema of one sub-folder in a listing: its name, whether it is hidden, and whether it is a symlink.                                                 |
-| `CreatedFolder`          | ESchema of a `createFolder` answer: the new folder's path, and why `git init` failed, if it did.                                                     |
+| `CreatedFolder`          | ESchema of a `createFolder` answer: the new folder's path.                                                                                           |
 | `WireEntity`             | ESchema of an entity in encoded form with its meta, as feeds send it and take it back as a cursor.                                                   |
 | `Harness`                | Schema of a harness name: `claude` or `codex`.                                                                                                       |
 | `HarnessInfo`            | ESchema of one Harness Account as a new Session offers it: its harness, name, settings, default model, and whether its binary runs.                  |

@@ -286,7 +286,6 @@ function Signed({
         ),
       }}
     >
-      <Pickers.ProjectNotice />
       {given.page}
     </Screen>
   );

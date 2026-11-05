@@ -298,13 +298,6 @@ describe('git', () => {
     ]);
   });
 
-  it('starts a repository, saying why when it cannot', async () => {
-    const path = temp();
-    expect(await run((git) => git.init(path))).toBeNull();
-    expect(existsSync(join(path, '.git'))).toBe(true);
-    expect(await run((git) => git.init(join(path, 'gone')))).not.toBeNull();
-  });
-
   it('fetches from Origin in the background', async () => {
     const repo = clone();
     const origin = sh(repo, 'remote', 'get-url', 'origin');

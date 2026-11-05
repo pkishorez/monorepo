@@ -17,7 +17,7 @@ import { homeOf, keyAt, placeOf } from './place.ts';
  * 3. Choose   Mod+Enter chooses the folder highlighted, and "Open this
  *             folder" the folder open, under its path on touch; a search
  *             that names no folder offers to create it there, and on touch
- *             "New folder" makes one, with git init, and goes into it. Either way it becomes a
+ *             "New folder" makes one and goes into it. Either way it becomes a
  *             Project, or opens the one it already is, while the Picker
  *             waits; a refusal is said in the Step.
  */
@@ -107,8 +107,8 @@ const load = (key: string, query: string) => {
 
 /**
  * 3. Choose: the Project the folder Step `key` finished on, made from the
- * folder created there if a Create row was picked; with why `git init`
- * failed, if it did. Fails with why, as a sentence.
+ * folder created there if a Create row was picked. Fails with why, as a
+ * sentence.
  */
 const choose = (choices: ReadonlyArray<Choice>, key: string) =>
   Effect.gen(function* () {
@@ -126,15 +126,12 @@ const choose = (choices: ReadonlyArray<Choice>, key: string) =>
     return {
       connectionId,
       projectId: project.id,
-      gitInitError: created?.gitInitError ?? null,
-      path: project.path,
     };
   });
 
 /**
- * Makes the folder `name` in the folder Step `key`, with git init: the row
- * it is, to go into, or why not. A `git init` that failed is no refusal:
- * the folder is there.
+ * Makes the folder `name` in the folder Step `key`: the row it is, to go
+ * into, or why not.
  */
 const make = (key: string, name: string) => {
   const { connectionId, path } = placeOf(key);
