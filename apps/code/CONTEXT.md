@@ -124,8 +124,12 @@ _Avoid_: portal, inset, frame (that is what is drawn around every page)
 How big the text and spacing are with a keyboard on a wide screen: small, medium, a little under the browser's own and the default, or large, the browser's own. Chosen in Settings in this browser. A touch screen keeps the browser's size.
 _Avoid_: density, zoom, scale
 
+**Keep Screen On**:
+The screen staying lit while the app shows, on until turned off in Settings in this browser. It is held only while the page is visible and asked for again when it shows; a browser may refuse it, on low battery say, and then the screen dims as it always has.
+_Avoid_: wake lock (that is the browser's API), prevent sleep, keep awake
+
 **Preferences**:
-The Local Storage of this browser, what it keeps for itself and no other device sees: the user's Bindings, whether Vim Mode is on, the Window, the Text Size, the sidebar's width, the Microphone chosen, and whether the Touch Draft takes Smart Input and Smart Displacement. The Connection Filter, and which Connections the Sidebar shows collapsed, are each Account's, and go with it; the Unseen marks are each Connection's, and go with it; each Draft is kept apart, as its Saved Draft, with its Connection; and what Connections said is kept apart, as each Setup. Signed in, the app is drawn only once they have been read, all at once, so it draws whole.
+The Local Storage of this browser, what it keeps for itself and no other device sees: the user's Bindings, whether Vim Mode is on, the Window, the Text Size, the sidebar's width, the Microphone chosen, whether the Touch Draft takes Smart Input and Smart Displacement, and Keep Screen On. The Connection Filter, and which Connections the Sidebar shows collapsed, are each Account's, and go with it; the Unseen marks are each Connection's, and go with it; each Draft is kept apart, as its Saved Draft, with its Connection; and what Connections said is kept apart, as each Setup. Signed in, the app is drawn only once they have been read, all at once, so it draws whole.
 _Avoid_: device state, local settings, localStorage
 
 **Draft**:

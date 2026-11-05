@@ -4,6 +4,7 @@ import { Preferences, PreferencesRead } from '../../../../../storage/index.ts';
 import {
   setContext,
   setFloating,
+  setKeepScreenOn,
   setSmartDisplacement,
   setSmartInput,
   setTextSize,
@@ -15,13 +16,14 @@ import {
  *
  * 1. Read    whether the app floats as a window, the text size, the
  *            Microphone chosen, whether the Touch Draft takes Smart Input
- *            and Smart Displacement, and when the Draft shows how full the
- *            context is, and again after every write, here or in
- *            another tab. Vim Mode is the keyboard's, which the frame
- *            keeps; the frame follows the window too, once kept.
- * 2. Choose  the window, Smart Input, or Smart Displacement, on or off,
- *            a text size, or when the context shows, shown at once and
- *            kept.
+ *            and Smart Displacement, when the Draft shows how full the
+ *            context is, and whether the screen is kept on, and again after
+ *            every write, here or in another tab. Vim Mode is the keyboard's,
+ *            which the frame keeps; the frame follows the window too, once
+ *            kept, and the root page whether the screen is kept on.
+ * 2. Choose  the window, Smart Input, Smart Displacement, or keeping the
+ *            screen on, on or off, a text size, or when the context shows,
+ *            shown at once and kept.
  *            The Microphone is chosen in the Microphone Picker, which
  *            keeps it itself.
  */
@@ -33,6 +35,7 @@ const Device = Schema.Struct({
   smartInput: PreferencesRead.fields.smartInput,
   smartDisplacement: PreferencesRead.fields.smartDisplacement,
   context: PreferencesRead.fields.context,
+  keepScreenOn: PreferencesRead.fields.keepScreenOn,
 });
 
 export const General = Actor.define('General', {
@@ -48,6 +51,7 @@ export const General = Actor.define('General', {
     SmartInputChosen: { on: Schema.Boolean },
     SmartDisplacementChosen: { on: Schema.Boolean },
     ContextChosen: { shown: PreferencesRead.fields.context },
+    KeepScreenOnChosen: { on: Schema.Boolean },
   }),
 });
 
@@ -69,6 +73,7 @@ export const GeneralLive = General.build({
                 smartInput,
                 smartDisplacement,
                 context,
+                keepScreenOn,
               }) =>
                 self.send({
                   _tag: 'Read',
@@ -79,6 +84,7 @@ export const GeneralLive = General.build({
                     smartInput,
                     smartDisplacement,
                     context,
+                    keepScreenOn,
                   },
                 }),
             ),
@@ -122,6 +128,13 @@ export const GeneralLive = General.build({
         : {
             model: { device: { ...model.device, context: shown } },
             command: setContext({ shown }),
+          },
+    KeepScreenOnChosen: ({ on }, { model }) =>
+      model.device === null || model.device.keepScreenOn === on
+        ? {}
+        : {
+            model: { device: { ...model.device, keepScreenOn: on } },
+            command: setKeepScreenOn({ on }),
           },
   },
 });

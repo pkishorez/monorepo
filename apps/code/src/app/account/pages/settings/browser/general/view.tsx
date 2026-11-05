@@ -18,8 +18,8 @@ import { GeneralLive } from './actor.ts';
 /*
  * General: this browser's settings, in Sections. Appearance: the theme,
  * the text size and the window, the last two only with a keyboard on a
- * wide screen. Keyboard: Vim Mode, which a touch screen with no keyboard
- * leaves out. Voice: the Microphone, chosen in the Microphone Picker.
+ * wide screen. Screen: whether it is kept on while the app shows. Keyboard:
+ * Vim Mode, which a touch screen with no keyboard leaves out. Voice: the Microphone, chosen in the Microphone Picker.
  * Touch: Smart Input and Smart Displacement, which a keyboard leaves out.
  * Sessions: when the Draft shows how full the context is.
  * Each says what it does in a line; a Row of one switch, and the theme's,
@@ -173,6 +173,30 @@ export const GeneralView = View.make(GeneralLive, ({ root, model, send }) => {
           }
         >
           Float the app in a window on very wide screens. Nice for demos.
+        </Row>
+      </Section>
+      <Section name="Screen">
+        <Row
+          id="keep-screen-on"
+          name="Keep screen on"
+          onToggle={
+            device === null
+              ? undefined
+              : () =>
+                  send({
+                    _tag: 'KeepScreenOnChosen',
+                    on: !device.keepScreenOn,
+                  })
+          }
+          control={
+            <OnOff
+              id="keep-screen-on"
+              on={device?.keepScreenOn ?? null}
+              onChange={(on) => send({ _tag: 'KeepScreenOnChosen', on })}
+            />
+          }
+        >
+          Stops the screen dimming while Code is open.
         </Row>
       </Section>
       <Section name="Keyboard" className="touch:hidden keyboard:flex">

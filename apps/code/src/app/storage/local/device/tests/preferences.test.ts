@@ -43,6 +43,7 @@ describe('Preferences', () => {
       smartDisplacement: false,
       sidebarWidth: 260,
       context: 'always',
+      keepScreenOn: true,
     });
   });
 
@@ -92,6 +93,18 @@ describe('Preferences', () => {
       }),
     );
     expect(read).toEqual([false, true]);
+  });
+
+  it('keeps the screen on until it is turned off', async () => {
+    const read = await run(
+      Effect.gen(function* () {
+        const device = yield* store;
+        const before = (yield* device.read).keepScreenOn;
+        yield* device.setKeepScreenOn(false);
+        return [before, (yield* device.read).keepScreenOn];
+      }),
+    );
+    expect(read).toEqual([true, false]);
   });
 
   it('keeps Vim Mode, off until it is turned on', async () => {

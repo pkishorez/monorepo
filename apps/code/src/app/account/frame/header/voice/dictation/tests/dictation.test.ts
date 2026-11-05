@@ -134,6 +134,7 @@ const world = (options: {
       setSmartDisplacement: () => Effect.void,
       setSidebarWidth: () => Effect.void,
       setContext: () => Effect.void,
+      setKeepScreenOn: () => Effect.void,
       changes: SubscriptionRef.changes(chosen).pipe(
         Stream.drop(1),
         Stream.map(() => undefined),
