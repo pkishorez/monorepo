@@ -1,9 +1,11 @@
+import { useMemo } from 'react';
 import type { MouseEvent } from 'react';
 import { View } from '../../react/index.ts';
 import type { ViewOf } from '../../react/view/index.ts';
 import type { AnyActor } from '../../core/actor/index.ts';
 import type { AnyRoute } from '../capabilities/index.ts';
 import { linkOf, linkOptions } from './context.tsx';
+import type { Drawing, Sends } from './context.tsx';
 import { readyOf, shownOf } from './data.ts';
 import { Frame } from './frame.tsx';
 import type { RouterMessage, RouterModel, RoutesLike } from './model.ts';
@@ -57,33 +59,47 @@ export const viewOf = <Route extends AnyRoute>(
       drawn,
       readyOf(shownOf(routes, drawn, model.data, model.reload)),
     );
+    // What links read never changes, and what `useRouter` reads changes only
+    // with what it holds: the Router draws again on every Message, such as
+    // a preload or a page's data, and nothing under it need draw with it.
+    const sends = useMemo(
+      (): Sends => ({
+        href: href as (route: AnyRoute) => string,
+        go: (by) => send({ _tag: 'Went', by }),
+        // Only what a reload says: a handler handed an event reloads plainly.
+        reload: (options) =>
+          send({
+            _tag: 'Reloaded',
+            ...(options?.anew === true ? { anew: true } : {}),
+            ...(options?.hold === true ? { hold: true } : {}),
+          }),
+        preload: (route) => send({ _tag: 'Preloading', route: route as Route }),
+        linkPreload: routes.options.preload,
+      }),
+      [send],
+    );
+    const said = JSON.stringify(metadata);
+    const drawing = useMemo(
+      (): Drawing => ({
+        ...sends,
+        entries: model.entries,
+        at: model.at,
+        move: model.move,
+        pending: model.pending
+          ? {
+              to: model.pending.to,
+              how: model.pending.how === 'arrive' ? 'push' : model.pending.how,
+            }
+          : null,
+        metadata,
+      }),
+      // oxlint-disable-next-line react-hooks/exhaustive-deps -- `said` is the Metadata, as one string.
+      [sends, model.entries, model.at, model.move, model.pending, said],
+    );
     return (
       <Frame
-        drawing={{
-          href: href as (route: AnyRoute) => string,
-          entries: model.entries,
-          at: model.at,
-          move: model.move,
-          pending: model.pending
-            ? {
-                to: model.pending.to,
-                how:
-                  model.pending.how === 'arrive' ? 'push' : model.pending.how,
-              }
-            : null,
-          metadata,
-          go: (by) => send({ _tag: 'Went', by }),
-          // Only what a reload says: a handler handed an event reloads plainly.
-          reload: (options) =>
-            send({
-              _tag: 'Reloaded',
-              ...(options?.anew === true ? { anew: true } : {}),
-              ...(options?.hold === true ? { hold: true } : {}),
-            }),
-          preload: (route) =>
-            send({ _tag: 'Preloading', route: route as Route }),
-          linkPreload: routes.options.preload,
-        }}
+        sends={sends}
+        drawing={drawing}
         attached={model.attached}
         root={self.root}
         onClick={onClick}

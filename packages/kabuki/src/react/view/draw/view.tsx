@@ -93,7 +93,9 @@ export type ViewOf<A> = ((props: {
  * afresh: no React state carries over from the one before.
  *
  * Once the Instance stops, the View keeps drawing its last data, so an exit
- * animation still has something to show.
+ * animation still has something to show, or a page can stay on screen
+ * until the next is ready; what it reads of its Children with `useChild`
+ * and `useChildren` stays as last read too.
  *
  * `style` counts as changed only when its values do: `motion.create` hands
  * the View a new `style` object on every render, with the same values.

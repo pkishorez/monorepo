@@ -46,7 +46,7 @@ export const makeDrawn = (
     snapshot: Snapshot | undefined,
     id: string,
   ) => {
-    const instance = snapshot && Snapshot.instanceAt(snapshot, id);
+    const instance = snapshot && indexOf(snapshot).get(id);
     const hit = cache.get(id);
     if (!instance) {
       cache.delete(id);
@@ -87,11 +87,12 @@ export const makeDrawn = (
     const now = drawn();
     if (now === pruned) return;
     pruned = now;
-    const live = new Set<string>();
-    idsIn(now, live);
-    idsIn(served(), live);
+    const was = served();
+    const live = indexOf(now);
+    const first = was === undefined ? undefined : indexOf(was);
     for (const kept of [handles, sends, cache, onServer])
-      for (const id of kept.keys()) if (!live.has(id)) kept.delete(id);
+      for (const id of kept.keys())
+        if (!live.has(id) && !first?.has(id)) kept.delete(id);
   };
 
   return {
@@ -111,12 +112,30 @@ export const makeDrawn = (
   };
 };
 
-const idsIn = (instance: Instance | undefined, ids: Set<string>) => {
-  if (!instance) return;
-  ids.add(instance.id);
+/**
+ * Every Instance of a Snapshot by its ID, made once per Snapshot: each View
+ * reads its own Instance after every Message, and finding each by walking
+ * down from the root would cost every View the walk.
+ */
+const indexes = new WeakMap<Snapshot, ReadonlyMap<string, Instance>>();
+const EMPTY: ReadonlyMap<string, Instance> = new Map();
+
+const indexOf = (snapshot: Snapshot | undefined) => {
+  if (!snapshot) return EMPTY;
+  let index = indexes.get(snapshot);
+  if (!index) {
+    const all = new Map<string, Instance>();
+    indexIn(snapshot, all);
+    indexes.set(snapshot, (index = all));
+  }
+  return index;
+};
+
+const indexIn = (instance: Instance, all: Map<string, Instance>) => {
+  all.set(instance.id, instance);
   for (const held of Object.values(instance.children))
     for (const child of Snapshot.isMany(held) ? held : [held])
-      idsIn(child, ids);
+      indexIn(child, all);
 };
 
 const same = (a: Instance, b: Instance) =>

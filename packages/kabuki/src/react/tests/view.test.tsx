@@ -478,6 +478,67 @@ describe('exit', () => {
   });
 });
 
+// A stopped Instance's View keeps what it read of its Children -------------------
+
+const Shelf = Actor.define('Shelf', {
+  model: Schema.Struct({ ids: Schema.Array(Schema.String), n: Schema.Number }),
+  message: Schema.TaggedUnion({ Dropped: {}, Ticked: {} }),
+}).build({
+  init: () => ({ model: { ids: ['x'], n: 0 } }),
+  children: {
+    lists: Actor.child(List, { each: ({ model }) => model.ids }),
+  },
+  on: {
+    Dropped: (_, { model }) => ({ model: { ...model, ids: [] } }),
+    Ticked: (_, { model }) => ({ model: { ...model, n: model.n + 1 } }),
+  },
+});
+
+const SummaryView = View.make(List, (self) => {
+  drew(self);
+  const clicks = useChild(self.children.header, ({ model }) => model.clicks);
+  const texts = useChildren(self.children.rows, ({ model }) => model.text);
+  return (
+    <p {...self.root}>
+      {`${self.model.title} ${clicks ?? 'gone'} ${texts.join('') || 'none'}`}
+    </p>
+  );
+});
+const MotionSummary = motion.create(SummaryView);
+
+const ShelfView = View.make(Shelf, (self) => {
+  drew(self);
+  return (
+    <AnimatePresence>
+      {self.children.lists.map((kid) => (
+        <MotionSummary
+          key={kid.id}
+          instance={kid}
+          exit={{ opacity: 0, transition: { duration: 60 } }}
+        />
+      ))}
+    </AnimatePresence>
+  );
+});
+
+describe('a stopped View', () => {
+  it('keeps what it read of its Children while it is drawn', async () => {
+    const App = View.app(ShelfView);
+    await mount(<App />);
+    expect(host.textContent).toBe('List 0 abc');
+    await send('Shelf', { _tag: 'Dropped' });
+    await send('Shelf', { _tag: 'Ticked' });
+    expect(host.textContent).toBe('List 0 abc');
+  });
+
+  it('still reads a Child its live parent stopped as gone', async () => {
+    const App = View.app(ShelfView);
+    await mount(<App />);
+    await send('Shelf/lists[x]#1', { _tag: 'Removed', id: 'b' });
+    expect(host.textContent).toBe('List 0 ac');
+  });
+});
+
 // motion.create keeps memo ----------------------------------------------------------
 
 const SelectView = View.make(List, (self) => {
