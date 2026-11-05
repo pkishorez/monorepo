@@ -14,7 +14,7 @@ import {
   SidebarMenuItem,
   useAppShell,
 } from '@kestack/web-platform/recipes/frame';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { keys, useBound } from '../../commands.ts';
 import { outOfReach } from '../../../connection/link/index.ts';
 import * as routes from '../../../../app.ts';
@@ -215,9 +215,14 @@ export function Places({
   // Its keys go back to the page.
   keys.useAction('sidebar.back', () => {});
 
-  // The Session open is in view, however it was opened.
-  useLayoutEffect(() => {
-    if (open !== null) revealInView(cursor.element(open));
+  // The Session open is in view, however it was opened: in the next frame,
+  // as it is laid out anyway, never inside the move that drew a new page.
+  useEffect(() => {
+    if (open === null) return;
+    const frame = requestAnimationFrame(() =>
+      revealInView(cursor.element(open)),
+    );
+    return () => cancelAnimationFrame(frame);
   }, [open, settledOpen]);
 
   const before = sessionBeside(groups, from, -1);
@@ -268,7 +273,14 @@ export function Places({
           ) : (
             <section aria-label="Sessions" className="pb-5">
               <SidebarMenu className="gap-0">
-                <AnimatePresence key={read} initial={false}>
+                {/* No row's presence moves the others by `layout`, so each
+                    row's presence holds still and a memoized row stays put
+                    as the list draws again. */}
+                <AnimatePresence
+                  key={read}
+                  initial={false}
+                  presenceAffectsLayout={false}
+                >
                   {listed.flatMap((group, index) => {
                     const quiet = away(group.connectionId);
                     const name =
@@ -282,8 +294,8 @@ export function Places({
                               first={index === 0}
                               collapsed={folded.has(group.connectionId)}
                               count={countOf(listed, group.connectionId)}
-                              at={at}
-                              onToggle={() => onCollapse(group.connectionId)}
+                              cursor={at(connectionPlace(group.connectionId))}
+                              onCollapse={onCollapse}
                             />,
                           ];
                     if (folded.has(group.connectionId)) return name;
@@ -292,25 +304,30 @@ export function Places({
                       <ProjectHeading
                         key={group.place}
                         accountId={accountId}
-                        group={group}
+                        place={group.place}
+                        connectionId={group.connectionId}
+                        projectId={group.projectId}
+                        name={group.name}
+                        branch={group.branch}
                         first={index === 0 || group.connection !== null}
                         open={open === group.place}
                         quiet={quiet}
-                        at={at}
+                        cursor={at(group.place)}
                       />,
-                      ...group.sessions.map((entry) => (
+                      ...group.sessions.map(({ place, session }) => (
                         <SessionRow
-                          key={entry.place}
+                          key={place}
                           accountId={accountId}
-                          entry={entry}
+                          place={place}
+                          session={session}
+                          original={originalOf(session, titles)}
                           heading={group.branch}
                           quiet={quiet}
-                          here={here}
-                          at={at}
-                          titles={titles}
-                          isUnseen={isUnseen}
-                          isAsking={isAsking}
-                          isWorking={isWorking}
+                          open={open === place}
+                          cursor={at(place)}
+                          unseen={isUnseen(session)}
+                          asking={isAsking(session)}
+                          working={isWorking(session)}
                           onMove={onMove}
                         />
                       )),
@@ -342,7 +359,7 @@ export function Places({
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
-            <AnimatePresence initial={false}>
+            <AnimatePresence initial={false} presenceAffectsLayout={false}>
               {settledOpen && (
                 <motion.div
                   key="settled"
@@ -422,14 +439,14 @@ function OpenProject() {
  * ever, and opens them again; a finger's height to
  * hit. Room above it sets each Connection apart.
  */
-function ConnectionLabel({
+const ConnectionLabel = memo(function ConnectionLabel({
   connectionId,
   name,
   first,
   collapsed,
   count,
-  at,
-  onToggle,
+  cursor,
+  onCollapse,
 }: {
   readonly connectionId: string;
   readonly name: string;
@@ -437,8 +454,9 @@ function ConnectionLabel({
   readonly collapsed: boolean;
   /** How many Projects it has listed, as `countOf` says it. */
   readonly count: string;
-  readonly at: (place: string) => true | undefined;
-  readonly onToggle: () => void;
+  /** Whether the sidebar's cursor is on it. */
+  readonly cursor: true | undefined;
+  readonly onCollapse: (connectionId: string) => void;
 }) {
   const place = connectionPlace(connectionId);
   const health = useHealth(connectionId);
@@ -447,9 +465,9 @@ function ConnectionLabel({
     <ArriveItem className={first ? undefined : 'mt-4'}>
       <SidebarMenuButton
         data-place={place}
-        data-cursor={at(place)}
+        data-cursor={cursor}
         aria-expanded={!collapsed}
-        onClick={onToggle}
+        onClick={() => onCollapse(connectionId)}
         className={`h-10 gap-2 rounded-lg px-3 text-[11px] font-medium tracking-[0.06em] uppercase hover:bg-transparent active:bg-sidebar-accent/60 keyboard:md:h-7 keyboard:md:text-[10.5px] text-muted-foreground hover:text-sidebar-foreground active:text-sidebar-foreground ${cursorRing}`}
       >
         <span
@@ -479,7 +497,7 @@ function ConnectionLabel({
       </SidebarMenuButton>
     </ArriveItem>
   );
-}
+});
 
 /**
  * A Project's heading over its Sessions: its name, and the branch its
@@ -487,30 +505,39 @@ function ConnectionLabel({
  * opens its new session, so the plus is only its sign; a finger's height
  * to hit. Of a Connection out of reach it is quieter, with no plus.
  */
-function ProjectHeading({
+const ProjectHeading = memo(function ProjectHeading({
   accountId,
-  group: { place, connectionId, projectId, name, branch },
+  place,
+  connectionId,
+  projectId,
+  name,
+  branch,
   first,
   open,
   quiet,
-  at,
+  cursor,
 }: {
   /** The Account its link is under. */
   readonly accountId: string;
-  readonly group: Group;
+  readonly place: Group['place'];
+  readonly connectionId: Group['connectionId'];
+  readonly projectId: Group['projectId'];
+  readonly name: Group['name'];
+  readonly branch: Group['branch'];
   readonly first: boolean;
   /** Whether its new session is open. */
   readonly open: boolean;
   /** Whether its Connection is out of reach. */
   readonly quiet: boolean;
-  readonly at: (place: string) => true | undefined;
+  /** Whether the sidebar's cursor is on it. */
+  readonly cursor: true | undefined;
 }) {
   const project = name ?? 'Unknown project';
   return (
     <ArriveItem className={first ? undefined : 'mt-2'}>
       <SidebarMenuButton
         data-place={place}
-        data-cursor={at(place)}
+        data-cursor={cursor}
         isActive={open}
         className={`group/heading h-11 gap-2 rounded-lg px-3 text-[13px] hover:bg-sidebar-accent/50 keyboard:md:h-7 keyboard:md:text-xs ${TOUCH_ROW} ${cursorRing}`}
         render={
@@ -541,7 +568,7 @@ function ProjectHeading({
       </SidebarMenuButton>
     </ArriveItem>
   );
-}
+});
 
 /**
  * A Session's row hangs from its Project's guide line: a thin line down
@@ -556,49 +583,61 @@ const GUIDE =
  * status at the right. The title wins: the branch, capped small, gives way
  * first, down to its mark alone, and the status never.
  */
-function SessionRow({
+/** What a Fork came from, named, from every Session's title by `keyOf`; null for a Session that is no Fork. */
+const originalOf = (
+  session: OnConnection<Session>,
+  titles: ReadonlyMap<string, string>,
+) =>
+  session.forkedFrom === null
+    ? null
+    : titles.get(
+        keyOf({
+          connectionId: session.connectionId,
+          id: session.forkedFrom.sessionId,
+        }),
+      ) || 'Untitled session';
+
+/**
+ * Drawn again only when what it shows changes: a move draws the row left
+ * and the row opened, not every row.
+ */
+const SessionRow = memo(function SessionRow({
   accountId,
-  entry: { place, session },
+  place,
+  session,
+  original,
   heading,
   quiet,
-  here,
-  at,
-  titles,
-  isUnseen,
-  isAsking,
-  isWorking,
+  open,
+  cursor,
+  unseen,
+  asking,
+  working,
   onMove,
 }: {
   /** The Account its link is under. */
   readonly accountId: string;
-  readonly entry: Entry;
+  readonly place: Entry['place'];
+  readonly session: Entry['session'];
+  /** The title of the Session it was forked from, or null for no Fork. */
+  readonly original: string | null;
   /** The branch its Project's heading says. */
   readonly heading: string | null;
   /** Whether its Connection is out of reach. */
   readonly quiet: boolean;
-  readonly here: Extract<Page, { readonly _tag: 'Project' }> | null;
-  readonly at: (place: string) => true | undefined;
-  /** Every Session's title, by `keyOf`, to name what a Fork came from. */
-  readonly titles: ReadonlyMap<string, string>;
-  readonly isUnseen: (session: OnConnection<Session>) => boolean;
+  /** Whether it is the Session open. */
+  readonly open: boolean;
+  /** Whether the sidebar's cursor is on it. */
+  readonly cursor: true | undefined;
+  readonly unseen: boolean;
   /** Whether its agent waits on an Agent Question. */
-  readonly isAsking: (session: OnConnection<Session>) => boolean;
+  readonly asking: boolean;
   /** Whether its agent runs Background Jobs. */
-  readonly isWorking: (session: OnConnection<Session>) => boolean;
+  readonly working: boolean;
   readonly onMove: (session: OnConnection<Session>, settled: boolean) => void;
 }) {
-  const original =
-    session.forkedFrom === null
-      ? null
-      : titles.get(
-          keyOf({
-            connectionId: session.connectionId,
-            id: session.forkedFrom.sessionId,
-          }),
-        ) || 'Untitled session';
   const title = session.title || 'Untitled session';
   const branch = branchOf(session, heading);
-  const unseen = isUnseen(session);
   return (
     <ArriveItem className={GUIDE}>
       <SwipeToMove
@@ -609,11 +648,8 @@ function SessionRow({
       >
         <SidebarMenuButton
           data-place={place}
-          data-cursor={at(place)}
-          isActive={
-            here?.connectionId === session.connectionId &&
-            here.page?.sessionId === session.id
-          }
+          data-cursor={cursor}
+          isActive={open}
           className={`h-auto min-h-12 gap-2 rounded-xl px-2.5 py-2 data-active:font-normal keyboard:md:h-auto keyboard:md:min-h-8 keyboard:md:rounded-lg keyboard:md:py-[5px] ${HOVER_ROW} ${TOUCH_ROW} ${cursorRing}`}
           render={
             <Router.Link
@@ -657,15 +693,15 @@ function SessionRow({
           <StatusWord
             status={session.status}
             unseen={unseen}
-            asking={isAsking(session)}
-            working={isWorking(session)}
+            asking={asking}
+            working={working}
             at={session.activeAt}
           />
         </SidebarMenuButton>
       </SwipeToMove>
     </ArriveItem>
   );
-}
+});
 
 /** The Connections whose Projects never synced here, each with how far it got. */
 function Waiting({
@@ -750,7 +786,7 @@ function useCursor({
   readonly open: string | null;
   readonly active: boolean;
 }) {
-  const { enter } = keys.useKeyboard();
+  const { enter } = keys.useMoves();
   const [cursor, setCursor] = useState<string | null>(null);
   const [was, setWas] = useState({ active, open });
   if (active !== was.active || open !== was.open) {
