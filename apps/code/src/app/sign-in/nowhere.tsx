@@ -12,7 +12,7 @@ const ROOT = { _tag: 'NotFound' as const, path: '/' };
 
 export function NowhereScreen() {
   return (
-    <Screen waits={false}>
+    <Screen>
       <Rise order={0}>
         <h1 className="text-xl font-semibold tracking-tight text-balance">
           Nothing lives at this address

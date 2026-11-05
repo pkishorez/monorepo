@@ -6,20 +6,19 @@ import { Mark } from '../../ui/page/theme/index.ts';
 import { type Away, AccountList, wordsOf } from './away.tsx';
 
 /*
- * What is drawn in place of the app: one screen in three steps. While the
- * app starts, the mark stays where the iOS Splash drew it; to sign in, all
- * of it is centred, as what is under the mark makes it tall. The App Shell
- * paints it before any script runs, the root page draws it while no Account
- * is active, and an Account's page while it is not the one active.
+ * What is drawn in place of the app: one screen in three steps, the mark at
+ * the same place in each and on the iOS Splash, so nothing moves from the
+ * launch to signing in. The App Shell paints it before any script runs, the
+ * root page draws it while no Account is active, and an Account's page while
+ * it is not the one active.
  *
  * 1. Reading   the app starts and this device is read: the mark and the
  *              name under it, with nothing else to say what this is, from
- *              the first paint, so nothing moves or blinks as the app takes
- *              over from the App Shell.
+ *              the first paint.
  * 2. Checking  the Auth Worker is asked who is signed in, and nothing kept
- *              says: it says so quietly, once the wait is long enough to
- *              see, so a quick answer goes from the mark straight to signing
- *              in or to the app.
+ *              says: the same, and once the wait is long enough to see, it
+ *              says so quietly under the name, so a quick answer goes
+ *              straight to signing in or to the app.
  * 3. Sign in   the one screen to sign in from: "Continue with Google",
  *              which leaves for Google at once (under the dev Fake, it
  *              asks for an email), and why it failed, if it did. On an
@@ -34,24 +33,14 @@ import { type Away, AccountList, wordsOf } from './away.tsx';
 export type Start = 'reading' | 'checking' | 'signed-out';
 
 /**
- * The mark and what the step says under it. Always the same elements, so
- * the mark already shown stays as it is when a wait's step changes. A wait
- * draws it where the iOS Splash does (`scripts/draw-install.ts`), which
- * centres a block 174 points tall on a phone and 218 on a tablet, so the app
- * opens without it moving; anything else is centred whole.
+ * The mark and what the step says under it. The mark is where signing in
+ * centres, a block 264 points tall on a phone and 280 on a tablet, and where
+ * the iOS Splash draws it (`scripts/draw-install.ts`), whatever is under it:
+ * so an error or a status that appears below moves nothing above it.
  */
-export function Screen({
-  waits,
-  children,
-}: {
-  /** Whether the app is still starting: the mark holds the Splash's place, rather than the whole being centred. */
-  readonly waits: boolean;
-  readonly children?: ReactNode;
-}) {
+export function Screen({ children }: { readonly children?: ReactNode }) {
   return (
-    <main
-      className={`flex min-h-dvh flex-col items-center px-6 pb-8 ${waits ? 'pt-[max(2rem,calc(50dvh-87px))] min-[744px]:pt-[max(2rem,calc(50dvh-109px))]' : 'justify-center pt-8'}`}
-    >
+    <main className="flex min-h-dvh flex-col items-center px-6 pt-[max(2rem,calc(50dvh-132px))] pb-8 min-[744px]:pt-[max(2rem,calc(50dvh-140px))]">
       <div className="flex w-full max-w-xs flex-col items-center gap-6 text-center">
         <Mark className="size-14 min-[744px]:size-18" />
         {children}
@@ -93,25 +82,21 @@ export function StartScreen({
   readonly leaving?: boolean;
   readonly onSignIn: () => void;
 }) {
-  // 1. Reading
-  if (start === 'reading')
+  // 1. Reading, 2. Checking
+  if (start !== 'signed-out')
     return (
-      <Screen waits>
+      <Screen>
         <span className="font-mono text-2xl leading-none font-medium tracking-[-0.02em]">
           code
         </span>
-      </Screen>
-    );
-  // 2. Checking
-  if (start === 'checking')
-    return (
-      <Screen waits>
-        <p
-          role="status"
-          className="flex animate-arrive items-center gap-2 text-sm text-muted-foreground"
-        >
-          <Spinner /> Checking who is signed in…
-        </p>
+        {start === 'checking' && (
+          <p
+            role="status"
+            className="flex animate-arrive items-center gap-2 text-sm text-muted-foreground"
+          >
+            <Spinner /> Checking who is signed in…
+          </p>
+        )}
       </Screen>
     );
   // 3. Sign in, with no Account to switch to.
@@ -191,7 +176,7 @@ export function SignInScreen({
         }
       : wordsOf(away.why);
   return (
-    <Screen waits={false}>
+    <Screen>
       <div className="flex flex-col gap-2">
         <Rise order={0}>
           <h1 className="text-xl font-semibold tracking-tight text-balance break-words">

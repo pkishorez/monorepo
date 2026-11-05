@@ -12,8 +12,10 @@ import { splashScreens } from '@kestack/web-platform/pwa/splash';
  *                 manifest's, for the install sheet on a phone and the
  *                 install dialog on a desktop.
  *
- * All are one screen, centred both ways: the Code mark,
- * what Code is, then "powered by", the ke logo and "stack".
+ * All are one screen, centred both ways: the Code mark, what Code is, then
+ * "powered by", the ke logo and "stack". The Splash holds them in the block
+ * signing in centres (`Screen` in `src/app/sign-in/sign-in.tsx`), so the mark
+ * and the credit stay where they are as the app opens.
  *
  * Each is a page Chromium renders at the screen's size in points and its
  * scale, in the dark Theme the manifest's background colour is, so the
@@ -79,17 +81,23 @@ const CREDIT = `<span>powered by <b><img src="data:image/svg+xml;base64,${ke}" a
 
 const DESCRIPTION = 'connect with your coding agents from any device.';
 
-/** The one screen, `large` for a tablet or a desktop; sizes are in points. */
-const screen = (large: boolean) =>
+/**
+ * The one screen, `large` for a tablet or a desktop; sizes are in points.
+ * `block` is how tall the centred block is, the credit at its foot; none
+ * lets it be as tall as what it holds.
+ */
+const screen = (large: boolean, block?: number) =>
   page(`
     <div class="stage" style="padding:0 ${large ? 96 : 32}px">
-      ${mark(large ? 72 : 56)}
-      <p class="muted description" style="margin-top:${large ? 28 : 24}px;font-size:${large ? 24 : 18}px;max-width:${large ? 520 : 296}px">
-        ${DESCRIPTION}
-      </p>
-      <p class="muted credit" style="margin-top:${large ? 28 : 24}px;font-size:${large ? 15 : 13}px">
-        ${CREDIT}
-      </p>
+      <div style="display:flex;flex-direction:column;align-items:center;${block === undefined ? '' : `height:${block}px`}">
+        ${mark(large ? 72 : 56)}
+        <p class="muted description" style="margin-top:${large ? 28 : 24}px;font-size:${large ? 24 : 18}px;max-width:${large ? 520 : 296}px">
+          ${DESCRIPTION}
+        </p>
+        <p class="muted credit" style="margin-top:${block === undefined ? `${large ? 28 : 24}px` : 'auto'};font-size:${large ? 15 : 13}px">
+          ${CREDIT}
+        </p>
+      </div>
     </div>`);
 
 const browser = await chromium.launch();
@@ -115,7 +123,7 @@ try {
     const width = each.width / each.scale;
     const height = each.height / each.scale;
     await draw(
-      screen(each.tablet),
+      screen(each.tablet, each.tablet ? 280 : 264),
       { width, height, scale: each.scale },
       join(pub, each.href),
     );
