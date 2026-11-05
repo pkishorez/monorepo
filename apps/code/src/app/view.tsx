@@ -36,7 +36,7 @@ export const AppView = View.make(
       return (
         <div {...root}>
           <StartScreen
-            start={active === null ? startOf(state) : 'reading'}
+            start={active === null ? startOf(state) : 'waiting'}
             problem={model.signInProblem}
             leaving={model.signingIn}
             onSignIn={() => send({ _tag: 'SignInAsked' })}

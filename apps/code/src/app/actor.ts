@@ -110,17 +110,9 @@ export const shownOf = (account: Signed): Shown | null =>
       ? account.last
       : null;
 
-/**
- * What is drawn while no Account is: signing in once signed out; checking
- * only once asked with no Account kept here, for this device draws the
- * Account it kept while it is checked; else the mark.
- */
+/** What is drawn while no Account is: signing in once signed out, else the mark. */
 export const startOf = (account: Signed): Start =>
-  account._tag === 'SignedOut'
-    ? 'signed-out'
-    : account._tag === 'Checking' && account.last === null
-      ? 'checking'
-      : 'reading';
+  account._tag === 'SignedOut' ? 'signed-out' : 'waiting';
 
 /** The Accounts signed in on this device, as the Auth Worker answered; null while it is checked. */
 const signedInOf = (account: Signed): ReadonlyArray<string> | null =>
