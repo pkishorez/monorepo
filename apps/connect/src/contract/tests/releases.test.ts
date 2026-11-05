@@ -4,6 +4,8 @@ import {
   type Connection,
   fromReleaseKey,
   isOutdated,
+  KEY_EXPIRED,
+  keyExpired,
   mismatchOf,
   mismatchReason,
   PLUGIN_MISMATCH,
@@ -65,13 +67,26 @@ describe('a Release of a Plugin', () => {
   });
 });
 
+describe('a key the Connection does not hold', () => {
+  it('closes a socket with 4401, whatever the reason says', () => {
+    expect(KEY_EXPIRED).toBe(4401);
+    expect(keyExpired({ code: KEY_EXPIRED, reason: 'key expired' })).toBe(true);
+    expect(keyExpired({ code: KEY_EXPIRED, reason: '' })).toBe(true);
+  });
+
+  it('is told from any other close', () => {
+    for (const code of [1000, 1006, PLUGIN_MISMATCH])
+      expect(keyExpired({ code, reason: 'key expired' })).toBe(false);
+  });
+});
+
 describe('the Minimum Connect', () => {
   const at = (version: string, minConnect: string | null): Connection => ({
     id: 'c1',
     name: 'laptop',
     key: 'k',
     version,
-    status: { _tag: 'Opening' },
+    status: { _tag: 'SettingUp', step: { _tag: 'Opening' } },
     lastSeen: 1,
     wanted: {},
     minConnect,

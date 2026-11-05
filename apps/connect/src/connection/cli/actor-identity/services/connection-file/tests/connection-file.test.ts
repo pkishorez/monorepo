@@ -1,4 +1,10 @@
-import { mkdtempSync, rmSync, statSync } from 'node:fs';
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Effect } from 'effect';
@@ -27,7 +33,6 @@ describe('connection.json is one Connection of one User', () => {
         const at = kept();
         const first = yield* claim({ ...at, ...on, owner: ada });
         expect(first.name).toBe(hostname().split('.')[0]);
-        expect(first.key).toMatch(/^[A-Za-z0-9_-]{43}$/);
         expect(statSync(at.file).mode & 0o777).toBe(0o600);
         expect(yield* claim({ ...at, ...on, owner: ada })).toEqual(first);
       }),
@@ -46,7 +51,7 @@ describe('connection.json is one Connection of one User', () => {
       }),
     ));
 
-  it('keeps its name, id and key, and when it last started', () =>
+  it('keeps its name and id, and when it last started', () =>
     Effect.runPromise(
       Effect.gen(function* () {
         const at = kept();
@@ -60,6 +65,38 @@ describe('connection.json is one Connection of one User', () => {
         });
         expect(again).toEqual(first);
         expect((yield* found(at))?.startedAt).toBe(2);
+      }),
+    ));
+
+  it('reads a file from when it kept a key, and drops the key as it next starts', () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const at = kept();
+        const old = {
+          id: 'c-old',
+          name: 'studio',
+          key: 'kept-key',
+          owner: ada,
+          cloud,
+          startedAt: 1,
+        };
+        writeFileSync(at.file, JSON.stringify(old));
+        expect(yield* found(at)).toEqual({
+          id: 'c-old',
+          name: 'studio',
+          owner: ada,
+          cloud,
+          startedAt: 1,
+        });
+        const claimed = yield* claim({
+          ...at,
+          ...on,
+          startedAt: 2,
+          owner: ada,
+        });
+        expect(claimed).toEqual({ id: 'c-old', name: 'studio' });
+        expect(readFileSync(at.file, 'utf8')).not.toContain('kept-key');
+        expect(yield* found(at)).toMatchObject({ id: 'c-old', startedAt: 2 });
       }),
     ));
 
@@ -115,7 +152,6 @@ describe('connection.json is one Connection of one User', () => {
         expect(yield* found(at)).toBeNull();
         const next = yield* claim({ ...at, ...on, owner: bob });
         expect(next.id).not.toBe(first.id);
-        expect(next.key).not.toBe(first.key);
       }),
     ));
 });

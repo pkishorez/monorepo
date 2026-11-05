@@ -31,7 +31,8 @@ import { run as runCommands, type ServeFlags } from './commands/index.js';
  * - serve: a Connection already running, or starting, is only reported.
  *   Else it holds the control socket first, so it alone signs in, and runs
  *   the Actor tree, actor-identity/: signed in, the Connection runs, until it
- *   is forgotten, refused or stopped. A Connection forgotten signs out first.
+ *   is Ended: forgotten, refused or stopped. A Connection forgotten signs out
+ *   first.
  * - list: every Connection with a folder, asking each that runs about
  *   itself on its control socket.
  * - remove: stops it if it runs, forgets it in Connect Cloud, signs out
@@ -181,8 +182,8 @@ const serve = (options: ServeFlags) =>
         return yield* new ConnectionStopped({ message: ended.reason });
       yield* Effect.log(`${options.name} stopped`);
     });
-    // A `stop` asked while no Connection runs ends the program; while one
-    // runs, it answers `stop` itself.
+    // A `stop` asked before the tree runs ends the program; once it runs,
+    // Identity answers `stop` itself.
     yield* Effect.raceFirst(
       serving,
       held.stopping.pipe(Effect.andThen(Effect.log(`${options.name} stopped`))),

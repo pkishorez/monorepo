@@ -37,6 +37,7 @@ const replicasOf = (connectionId: string, held: Array<string>) =>
 const noSockets = CodeClients.of({
   hold: () => Effect.never,
   mismatch: () => Stream.never,
+  expired: () => Stream.never,
 });
 
 describe('the Replicas of every Connection', () => {
@@ -83,7 +84,7 @@ describe('the socket of every Connection', () => {
     name: 'm1',
     key: 'key-m1',
     version: '0.0.5',
-    status: { _tag: 'Reachable', url, at: 0 },
+    status: { _tag: 'Ready', url, check: { _tag: 'Reachable', at: 0 } },
     lastSeen: 0,
     wanted: {},
     minConnect: null,

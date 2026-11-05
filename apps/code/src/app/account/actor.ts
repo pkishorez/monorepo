@@ -91,7 +91,11 @@ import { Settings } from './pages/settings/index.ts';
  * 5. Recheck  while a listed Connection's link is not up, Connect Cloud is
  *             asked again: every few seconds for the first minute, then
  *             every half a minute, until every link is up; a link that
- *             drops starts it again. What the kept list says of each
+ *             drops starts it again. A Connection whose Connection Key
+ *             rotated closes a socket offering the old one with `KEY_EXPIRED`:
+ *             that alone asks at once, unless an ask is already out, and the
+ *             socket's next connect offers the key as listed by then. What
+ *             the kept list says of each
  *             Connection's Last Seen is believed only once checked: Connect
  *             Cloud has answered, or `CHECK_FOR` passed without; until
  *             then a Connection on its way is only linking. The page back
@@ -684,8 +688,17 @@ export const accountWith = (to: typeof reach) =>
               : { ...rest, [connectionId]: said.mismatch },
         };
         const up = anyDown(next) ? next : { ...next, rechecks: 0 };
+        // 5. Recheck: a Connection whose key just expired asks at once. An
+        // ask already out may answer with the old key, and the socket closing
+        // again says nothing new, so the rechecks go back to their fast pace.
+        const expired =
+          said.expired && model.said[connectionId]?.expired !== true;
+        const rechecked = expired ? { ...up, rechecks: 0 } : up;
         return {
-          model: up,
+          model:
+            expired && !fetching(rechecked)
+              ? { ...rechecked, list: copying.ask(rechecked.list) }
+              : rechecked,
           ...(newlyStale(model, up) ? { command: toNewest({}) } : {}),
         };
       },

@@ -18,7 +18,7 @@ const wanting = (
   name: id,
   key: `key-${id}`,
   version: '0.0.5',
-  status: { _tag: 'Opening' },
+  status: { _tag: 'SettingUp', step: { _tag: 'Opening' } },
   lastSeen: 0,
   wanted:
     wanted === null ? {} : { code: { hash: wanted, url: `file:///${wanted}` } },

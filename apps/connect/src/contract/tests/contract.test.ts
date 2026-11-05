@@ -4,9 +4,11 @@ import { describe, expect, it } from 'vitest';
 import { ESchema } from '@kestack/std-toolkit/eschema';
 import { expectUpgradable } from '@kestack/std-toolkit/eschema/testing';
 import {
+  addressOf,
   CloudApi,
   Connection,
   ConnectionReport,
+  ConnectionStatus,
   ReportAnswer,
 } from '../index.js';
 import { versionedValuesOf } from './versioned.js';
@@ -18,6 +20,48 @@ import { versionedValuesOf } from './versioned.js';
  */
 
 const { problems, eschemas } = versionedValuesOf(CloudApi);
+
+const ADDRESS = 'https://t1.example';
+
+/** Each status of v1, as an App kept it, and what it reads as now. */
+const READS: ReadonlyArray<
+  readonly [
+    { readonly _tag: string; readonly [field: string]: unknown },
+    ConnectionStatus,
+  ]
+> = [
+  [
+    { _tag: 'Installing' },
+    {
+      _tag: 'SettingUp',
+      step: { _tag: 'Downloading', elapsed: 0, received: 0 },
+    },
+  ],
+  [{ _tag: 'Opening' }, { _tag: 'SettingUp', step: { _tag: 'Opening' } }],
+  [
+    { _tag: 'OpenFailed', at: 5, problem: 'no route' },
+    {
+      _tag: 'SettingUp',
+      step: { _tag: 'Failed', at: 5, problem: 'no route' },
+    },
+  ],
+  [
+    { _tag: 'Unchecked', url: ADDRESS },
+    { _tag: 'Ready', url: ADDRESS, check: { _tag: 'Unchecked' } },
+  ],
+  [
+    { _tag: 'Reachable', url: ADDRESS, at: 5 },
+    { _tag: 'Ready', url: ADDRESS, check: { _tag: 'Reachable', at: 5 } },
+  ],
+  [
+    { _tag: 'Unreachable', url: ADDRESS, at: 5, problem: 'timed out' },
+    {
+      _tag: 'Ready',
+      url: ADDRESS,
+      check: { _tag: 'Unreachable', at: 5, problem: 'timed out' },
+    },
+  ],
+];
 
 describe('Connect Cloud contract', () => {
   it('sends every payload, success and item as an ESchema', () => {
@@ -67,6 +111,70 @@ describe('Connect Cloud contract', () => {
         displayName: 'Work',
       }),
     ).not.toHaveProperty('plugins');
+  });
+
+  describe('a Connection Status', () => {
+    const read = Schema.decodeUnknownSync(ConnectionStatus.schema);
+
+    it.each(READS.map(([old, now]) => [old._tag, old, now] as const))(
+      'reads %s from before it was the State of the Tunnel',
+      (_, old, now) => {
+        expect(read({ _v: 'v1', _value: old })).toEqual(now);
+        expect(read(old)).toEqual(now);
+      },
+    );
+
+    it('reads inside a Connection an App kept before it changed', () => {
+      expect(
+        Schema.decodeUnknownSync(Connection.schema)({
+          _v: 'v3',
+          id: 'c1',
+          name: 'laptop',
+          key: 'k',
+          version: '0.0.6',
+          status: {
+            _v: 'v1',
+            _value: { _tag: 'Reachable', url: ADDRESS, at: 5 },
+          },
+          lastSeen: 1,
+          wanted: {},
+          minConnect: null,
+          displayName: null,
+        }).status,
+      ).toEqual({
+        _tag: 'Ready',
+        url: ADDRESS,
+        check: { _tag: 'Reachable', at: 5 },
+      });
+    });
+
+    it('is written at its newest version', () => {
+      expect(
+        Schema.encodeSync(ConnectionStatus.schema)({
+          _tag: 'SettingUp',
+          step: { _tag: 'Opening' },
+        }),
+      ).toEqual({
+        _v: 'v2',
+        _value: { _tag: 'SettingUp', step: { _tag: 'Opening' } },
+      });
+    });
+
+    it('has an address only when Ready', () => {
+      for (const [, now] of READS)
+        expect(addressOf(now)).toBe(now._tag === 'Ready' ? ADDRESS : null);
+    });
+
+    it('takes only an https:// address', () => {
+      const ready = (url: string) => ({
+        _tag: 'Ready',
+        url,
+        check: { _tag: 'Unchecked' },
+      });
+      const valid = Schema.is(ConnectionStatus.schema);
+      expect(valid(ready(ADDRESS))).toBe(true);
+      expect(valid(ready('http://t1.example'))).toBe(false);
+    });
   });
 
   it('names the Rpc and field of a plain struct or union', () => {

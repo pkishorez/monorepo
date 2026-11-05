@@ -9,11 +9,20 @@ import {
 import { connect, type Socket } from 'node:net';
 import { Effect } from 'effect';
 import {
+  KEY_EXPIRED,
   mismatchReason,
   PLUGIN_MISMATCH,
   pluginOfPath,
-} from '../../../../contract/index.js';
-import { guard, HEALTH, pathOf, type Refusal, withoutKey } from './guard.js';
+} from '../../../../../contract/index.js';
+import {
+  EXPIRED,
+  guard,
+  HEALTH,
+  pathOf,
+  type Refusal,
+  withoutKey,
+} from './guard.js';
+import { MOST_HELD, readFrames } from './frames.js';
 
 /*
  * The Connection's one public port, which its tunnel points at. After the
@@ -23,17 +32,21 @@ import { guard, HEALTH, pathOf, type Refusal, withoutKey } from './guard.js';
  * other request through an HTTP request of its own. A Release it does not
  * run is refused with what it runs: a WebSocket is taken and closed at
  * once with 4409, its reason saying so, since a browser reads nothing else
- * of it; any other request answers 409 with the same JSON. The router
+ * of it; any other request answers 409 with the same JSON. The server
  * never reads what passes: Code and the Plugin type it end to end. A
  * Plugin not listening yet answers 503; a name that is no Plugin, and any
  * other path, 404.
+ *
+ * A key that has expired is told the same way: a WebSocket is taken and closed
+ * at once with 4401, and any other request answers 401. The key is checked
+ * only as a socket connects, so one already open stays open when it changes.
  */
 
-export interface RouterOptions {
+export interface ServerOptions {
   /** The port to listen on; 0 for any free one. */
   readonly port: number;
-  /** The Connection Key. */
-  readonly key: string;
+  /** The Connection Key now; read on each request, so a new one needs no restart. */
+  readonly key: () => string;
   /** The origins a browser page may call from. */
   readonly origins: ReadonlyArray<string>;
   /** The socket of the Plugin `name`; null when there is no such Plugin. */
@@ -55,7 +68,7 @@ type Target =
   | Mismatch;
 
 /** Where a request goes: a Plugin's socket and the path on it, or why it goes nowhere. */
-const targetOf = (url: string | undefined, options: RouterOptions): Target => {
+const targetOf = (url: string | undefined, options: ServerOptions): Target => {
   const path = pathOf(url) ?? '';
   const query = (url ?? '').slice(path.length);
   const release = pluginOfPath(path);
@@ -98,16 +111,22 @@ const answerMismatch = (response: ServerResponse, { running }: Mismatch) => {
 /** What every WebSocket server adds to a key it accepts (RFC 6455). */
 const ACCEPT = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
+/** How long a socket told to close has before it is cut, whatever it sends, in ms. */
+const CLOSE_ANSWER = 5_000;
+
 /**
- * Takes a WebSocket that asked for a Release the Plugin does not run, and
- * closes it at once with 4409, its reason saying which it runs. It selects
- * `ke-connect`, as a Plugin does, never the key: a browser drops a socket
- * that selects none of what it offered.
+ * Takes a WebSocket and closes it at once with `code` and `text`, since a
+ * browser cannot read the status of one refused. It selects `ke-connect`, as a
+ * Plugin does, never the key: a browser drops a socket that selects none of
+ * what it offered. It waits for the caller's own close before it ends the
+ * socket: a tunnel between them loses a close followed straight away by the
+ * end, and the caller reads only 1006.
  */
-const closeMismatch = (
+const closeWith = (
   request: IncomingMessage,
   socket: Socket,
-  { running }: Mismatch,
+  code: number,
+  text: string,
 ) => {
   const key = request.headers['sec-websocket-key'];
   if (typeof key !== 'string')
@@ -118,11 +137,11 @@ const closeMismatch = (
   const accept = createHash('sha1')
     .update(key + ACCEPT)
     .digest('base64');
-  const reason = Buffer.from(mismatchReason(running));
+  const reason = Buffer.from(text);
   const close = Buffer.alloc(4 + reason.length);
   close[0] = 0x88; // FIN, close
   close[1] = 2 + reason.length;
-  close.writeUInt16BE(PLUGIN_MISMATCH, 2);
+  close.writeUInt16BE(code, 2);
   reason.copy(close, 4);
   socket.write(
     'HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n' +
@@ -132,7 +151,20 @@ const closeMismatch = (
         : `Sec-WebSocket-Protocol: ${protocol}\r\n`) +
       '\r\n',
   );
-  socket.end(close);
+  socket.write(close);
+  const cut = setTimeout(() => socket.destroy(), CLOSE_ANSWER);
+  socket.once('close', () => clearTimeout(cut));
+  let held: Buffer = Buffer.alloc(0);
+  const reading = (chunk: Buffer) => {
+    const { closed, left } = readFrames(Buffer.concat([held, chunk]));
+    held = left;
+    if (closed) {
+      socket.off('data', reading);
+      socket.resume();
+      socket.end();
+    } else if (held.length > MOST_HELD) socket.destroy();
+  };
+  socket.on('data', reading);
 };
 
 /** The request's headers to pass on: its subprotocols without the key. */
@@ -215,7 +247,7 @@ const passUpgrade = (
 };
 
 /** Listens on `options.port` for as long as the Scope: the port it got. */
-export const router = (options: RouterOptions) =>
+export const server = (options: ServerOptions) =>
   Effect.acquireRelease(
     Effect.callback<
       { readonly port: number; readonly close: () => void },
@@ -223,7 +255,7 @@ export const router = (options: RouterOptions) =>
     >((resume) => {
       const allowed = guard(options.key, options.origins);
       const open = new Set<Socket>();
-      const server = createServer((request, response) => {
+      const listener = createServer((request, response) => {
         const refused = allowed(request);
         if (refused !== null) return answer(response, refused);
         if (pathOf(request.url) === HEALTH) {
@@ -235,17 +267,31 @@ export const router = (options: RouterOptions) =>
         if ('running' in target) return answerMismatch(response, target);
         pass(request, response, target);
       });
-      server.on('upgrade', (request: IncomingMessage, socket: Socket, head) => {
-        open.add(socket);
-        socket.once('close', () => open.delete(socket));
-        const refused = allowed(request);
-        if (refused !== null) return answerRaw(socket, refused);
-        const target = targetOf(request.url, options);
-        if ('status' in target) return answerRaw(socket, target);
-        if ('running' in target) return closeMismatch(request, socket, target);
-        passUpgrade(request, socket, head, target, open);
-      });
-      server.once('error', (error) =>
+      listener.on(
+        'upgrade',
+        (request: IncomingMessage, socket: Socket, head) => {
+          open.add(socket);
+          socket.once('close', () => open.delete(socket));
+          // Node leaves an upgraded socket without a listener: a caller that
+          // resets it must not end the program, and anyone can.
+          socket.on('error', () => socket.destroy());
+          const refused = allowed(request);
+          if (refused === EXPIRED)
+            return closeWith(request, socket, KEY_EXPIRED, 'key expired');
+          if (refused !== null) return answerRaw(socket, refused);
+          const target = targetOf(request.url, options);
+          if ('status' in target) return answerRaw(socket, target);
+          if ('running' in target)
+            return closeWith(
+              request,
+              socket,
+              PLUGIN_MISMATCH,
+              mismatchReason(target.running),
+            );
+          passUpgrade(request, socket, head, target, open);
+        },
+      );
+      listener.once('error', (error) =>
         resume(
           Effect.fail(
             new Error(
@@ -255,8 +301,8 @@ export const router = (options: RouterOptions) =>
           ),
         ),
       );
-      server.listen({ port: options.port, host: HOST }, () => {
-        const address = server.address();
+      listener.listen({ port: options.port, host: HOST }, () => {
+        const address = listener.address();
         const port =
           typeof address === 'object' && address !== null
             ? address.port
@@ -266,8 +312,8 @@ export const router = (options: RouterOptions) =>
             port,
             close: () => {
               for (const socket of open) socket.destroy();
-              server.closeAllConnections();
-              server.close();
+              listener.closeAllConnections();
+              listener.close();
             },
           }),
         );

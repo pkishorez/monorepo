@@ -225,6 +225,8 @@ export const Said = Schema.Struct({
   link: Schema.Literals(['linking', 'linked', 'relinking']),
   /** The Release it said it runs as it closed a socket, until one is answered. */
   mismatch: Schema.NullOr(PluginMismatch.schema),
+  /** Whether it closed a socket for offering a key it no longer holds, until one is answered. */
+  expired: Schema.Boolean,
   setup: Setup,
   /** Its Unseen marks; null until read. */
   seen: Schema.NullOr(Schema.Record(Schema.String, Schema.Finite)),

@@ -2,12 +2,12 @@
 
 Connect is two programs on one computer, each with one Kabuki tree. The
 Connect CLI's tree is `ke-connect serve`: it signs its User in, and while
-signed in runs one Connection: a router on its port, a tunnel to it that
+signed in runs one Connection: a server on its port, a tunnel to it that
 reports to Connect Cloud, and one Child per Plugin that keeps that Plugin's
 process running at the Release wanted. The engine tree is the `code` Plugin's,
 in a process of its own: it holds the Projects and the Sessions in them, runs
 each Session's Turns on its Agent, and keeps every record in the Store. The two
-never import each other; the router passes Code's socket to the Plugin's
+never import each other; the server passes Code's socket to the Plugin's
 without reading it. Each root runs with `Runtime.start`. The CLI's Layer gives
 `CloudAccount`, `Tunnels`, `Control` and `Downloads`. The engine Layer gives
 `Store`, `Harnesses`, `HarnessAccounts`, `OneShotPrompt`, `Agents`, `Answers`
@@ -20,15 +20,15 @@ Changed through `/kabukifi`; edit by hand and it drifts.
 src/connection/cli/
   cli.ts                     serve, list, remove; serve runs the root
   commands/                  the commands' flags and arguments; dev/ runs them in development
-  actor-identity/            root; States: SigningIn | SignedIn | Forgotten | Stopped; run.ts starts it
-  ├── capabilities/          CloudAccount: what it stands on; Cloud, Identity: what it Provides
-  ├── services/              account: Connect Cloud's client, signed in; folders, connection.json, the Sign-in
-  └── actor-connection/      in SignedIn; the router
-      ├── capabilities/      Connection: the tunnel's Requests
-      ├── actor-tunnel/      while the router listens; States: the Connection Status
+  actor-identity/            root; States: SigningIn | SignedIn | Ended; run.ts starts it
+  ├── capabilities/          CloudAccount, Control: what it stands on; Cloud: what it Provides
+  ├── services/              account, cloud: Connect Cloud's client, signed in; control: the control socket; folders, connection.json, the Sign-in
+  └── actor-connection/      in SignedIn; States: Starting | Listening
+      ├── server/            the public port, who may come in, and minting a Connection Key
+      ├── actor-tunnel/      in Listening; States: the Connection Status, SettingUp | Ready
       │   ├── capabilities/  Tunnels
-      │   └── services/      quick-tunnel, binary, check
-      └── ActorPlugin        each: model.wanted; from @kestack/cli-platform/plugins
+      │   └── services/      tunnels, quick-tunnel, binary, check
+      └── ActorPlugin        in Listening, each: model.wanted; from @kestack/cli-platform/plugins
 
 src/connection/plugins/code/engine/
   engine.ts                  the front door: finds an Instance, Sends a Message, asks a Query
@@ -54,11 +54,10 @@ Down, from the root:
 
 ```
 CLI Layer        ─ CloudAccount, Tunnels, Control, Downloads ────────────────▶ actor-identity
-actor-identity   ─ Provides Cloud, Identity ─────────────────────────────────▶ actor-connection and below
-actor-identity   ─ Input: id, key, name, folders, socketId, control, port, origins, lastWanted ▶ actor-connection
-actor-connection ─ Provides Connection, Plugins ─────────────────────────────▶ actor-tunnel, ActorPlugin
-actor-connection ─ while listening; Input: port ─────────────────────────────▶ actor-tunnel
-actor-connection ─ each Plugin name; Input: name, folders, socket; Props: wanted ▶ ActorPlugin
+actor-identity   ─ Provides Cloud ───────────────────────────────────────────▶ actor-connection and below
+actor-identity   ─ in SignedIn; Input: id, name, folders, socketId, control, port, origins, rotateEvery ▶ actor-connection
+actor-connection ─ in Listening; Input: port; Props: key ────────────────────▶ actor-tunnel
+actor-connection ─ in Listening, each Plugin name; Input: name, folders, socket; Props: wanted ▶ ActorPlugin
 engine Layer     ─ Store, Harnesses, HarnessAccounts, OneShotPrompt, Agents, Answers, Git ▶ actor-code
 actor-code       ─ each session id; Input: session, cwd, first ──────────────▶ actor-session
 ```
@@ -66,15 +65,17 @@ actor-code       ─ each session id; Input: session, cwd, first ─────
 Up, from the leaves:
 
 ```
-ActorPlugin      ─ Request Plugins.report ────────▶ Sends PluginReported to actor-connection
-actor-tunnel     ─ Worker keep, each generation ──▶ holds the tunnel; Sends Installing, Opening, Up, OpenFailed, Lost
-actor-tunnel     ─ Worker beat, always ───────────▶ checks, Sends Checked; Requests Cloud.report, Connection.wanted
-actor-tunnel     ─ Worker told, always ───────────▶ Requests Cloud.report as a change the app waits on happens
-actor-tunnel     ─ Worker address, always ────────▶ Requests Connection.address
-actor-connection ─ Worker router, always ─────────▶ listens on the port; Sends Listening, or Requests Identity.stop
-actor-connection ─ Worker control, always ────────▶ answers on the control socket; Requests Identity.stop
-actor-connection ─ Worker remember, always ───────▶ keeps the Releases wanted in wanted.json
+ActorPlugin      ─ Emits Reported ────────────────▶ becomes PluginReported on actor-connection
+actor-tunnel     ─ Emits Wanted ──────────────────▶ becomes Wanted on actor-connection
+actor-connection ─ Emits ServerFailed ────────────▶ becomes Stop on actor-identity
+actor-tunnel     ─ Worker tunnel, each generation ▶ holds the tunnel; Sends Downloading, Opening, Failed, Up, Lost
+actor-tunnel     ─ Worker reportSetup, in SettingUp ▶ Requests Cloud.report; Sends Answered
+actor-tunnel     ─ Worker heartbeat, in Ready ────▶ checks, Sends Checked; Requests Cloud.report; Sends Answered
+actor-connection ─ Worker server, always ─────────▶ mints the first key, listens on the port; Sends Listening or ServerFailed
+actor-connection ─ Worker rotateKey, in Listening ▶ Sends KeyRotated
+actor-identity   ─ Cloud.report ──────────────────▶ Sends Addressed, Reported, SignedOut, Forgotten, Stop
 actor-identity   ─ Worker signIn, in SigningIn ───▶ Sends SignedIn, or Stop
+actor-identity   ─ Worker answerLocal, always ────▶ answers on the control socket; Sends Stop
 actor-session    ─ Worker agent, always ───────────▶ keeps the Agent in Agents
 actor-session    ─ Worker turn, in Running ────────▶ appends Raw; Sends NativeId, Steered, TurnEnded
 actor-session    ─ Worker cancel, while cancelling ▶ Sends TurnEnded
@@ -103,29 +104,34 @@ folder switched for it stays switched.
 ## actor-identity
 
 **Does**: ties everything to the User's login: runs the Connection only while
-signed in, and is the only place that knows what a Report's answer means for
-the login.
+signed in, is the only place that knows what a Report's answer means for the
+login, and answers on the control socket.
 **Input**: the Connection's name on this computer, its folders, its control
-socket and what names its Plugins' sockets, the port, and the origins let in.
-**Model**: the Input; who: the Connection's id and Connection Key, null until
-first signed in. lastWanted: the Release of each Plugin it last wanted, read
-from `wanted.json` as it signs in. refusals: Sign-ins refused in a row since a
-Report was last taken.
-**States**: SigningIn. SignedIn. Forgotten. Stopped: reason, null when asked to
-stop. SignedIn moves SigningIn to SignedIn; SignedOut moves it back. Forgotten
-and Stop end it.
-**Messages**: SignedIn: the signIn Worker. Reported, SignedOut, Forgotten: Cloud's
-report, from what Connect Cloud answered. Stop: the same, the signIn Worker, and
-the Identity Request.
+socket and what names its Plugins' sockets, the port, the origins let in, and
+how long a Connection Key lasts, an hour unless given.
+**Model**: the Input. url: the tunnel's address, as the last Report said it,
+null while there is none. refusals: Sign-ins refused in a row since a Report was
+last taken.
+**States**: SigningIn: who, null the first time. SignedIn: who, the Connection's
+id. Ended: why, Forgotten or Stopped with a reason, null when asked to stop.
+SignedIn moves SigningIn to SignedIn; SignedOut moves it back, keeping who.
+Forgotten and Stop end it.
+**Messages**: SignedIn: the signIn Worker. Addressed, Reported, SignedOut,
+Forgotten: Cloud's report, from what it was given and what Connect Cloud
+answered. Stop: the same, the signIn and answerLocal Workers, and the
+Connection's ServerFailed.
 **Commands**: none.
 **Workers**: signIn: in SigningIn; signs in for the first time, or after waiting
-the back-off signs in again; Sends SignedIn or Stop.
-**Requires**: CloudAccount: signIn, Cloud's report.
-**Provides**: Cloud: `every`, and `report`, which answers with the Releases to run
-or null, and Sends what any other answer means. Identity: `stop`.
+the back-off signs in again; Sends SignedIn or Stop. answerLocal: always; answers
+`status` and `stop` on the control socket `serve` holds.
+**Requires**: CloudAccount: signIn, Cloud's report. Control: answerLocal.
+**Provides**: Cloud: `every`, and `report`, which takes the status and the
+Connection Key, answers with the Releases to run or null, and Sends what any
+other answer means.
 **Services**: account: signing in, signing in again, and a Report, on Connect
-Cloud's client.
-**Children**: connection: in SignedIn; Input: who it is and where it runs.
+Cloud's client. control: `hold`, which `serve` takes the control socket with.
+**Children**: connection: in SignedIn; Input: who it is and where it runs; its
+ServerFailed becomes Stop.
 **View**: none.
 
 ### Decisions
@@ -140,110 +146,145 @@ Cloud's client.
 - **What an answer means for the login stops at Identity**, because the tunnel
   only needs the Releases to run. Caveat: Cloud and CloudAccount are two
   Capabilities, what Identity stands on and what it Provides.
+- **who is in the State, not the Model**, because SignedIn always has one and
+  only SigningIn may have none.
+- **The address is learned from each Report**, because every Report already
+  passes through Cloud's report, so the Tunnel needs no second way up.
 - **The Sign-in lives in a Scope outside the tree**, because the signIn Worker
   ends with SigningIn, but the client it signs must outlast it. `account` is
   built before the tree starts, and signs in when asked.
-- **What it last wanted is read as it signs in, not at the start**, because a
-  Connection started again after logging out should run the Releases it wanted
-  last, not those of when the program started.
-- **It starts offline, from what it kept**, because a computer whose Connect
-  Cloud is down must still run Code: services/ signs in through the AuthInfo it
-  kept in `auth.json`, with the Sign-in kept, when Connect Cloud cannot be asked
-  or does not answer in five seconds. Caveat: a first Sign-in needs Connect
-  Cloud, and a Sign-in Connect Cloud refuses once it answers is signed in again
-  through the Auth Worker it names then, which `auth.json` keeps from there.
+- **It signs in offline, from what it kept, and its Plugins wait**, because a
+  Connection whose Connect Cloud is down must still start and keep reporting:
+  services/ signs in through the AuthInfo it kept in `auth.json`, with the
+  Sign-in kept, when Connect Cloud cannot be asked or does not answer in five
+  seconds. Its Plugins wait for Connect Cloud's first answer (ADR 0010). Caveat:
+  a first Sign-in needs Connect Cloud, and a Sign-in Connect Cloud refuses once
+  it answers is signed in again through the Auth Worker it names then, which
+  `auth.json` keeps from there.
 - **services/ is usable beside the tree**, because `list` and `remove` read and
   forget a Connection without running it.
-- **An Outdated Connection stops**, as any stop with a reason does. Caveat: it
-  has already reported, so its User sees the version it runs.
+- **What cannot go on ends it, saying why**, as a Sign-in that fails, a refusal,
+  an Outdated Connection and a port that cannot be opened all do. Caveat: an
+  Outdated Connection has already reported, so its User sees the version it runs.
+- **answerLocal is here, not on the Connection**, because `status` and `stop`
+  must answer while signing in, first or again, as while signed in. Caveat: until
+  the tree runs, `hold` answers for it: `status` says starting, and `stop` ends
+  the program.
+- **`serve` asks the control socket before it signs in**, because a second `serve`
+  of a running name must report it, not sign in again. Caveat: two started at once
+  both sign in, and the second stops once the first holds the socket.
 
 ## actor-connection
 
 **Does**: keeps one Connection running while its User is signed in: its public
-port, its tunnel, and its Plugins.
-**Input**: the Connection's id, name and Connection Key, its folders, its control
-socket and what names its Plugins' sockets, the port, the origins let in, and
-lastWanted.
-**Model**: the Input; listening: the router's port, null until it listens. url:
-the tunnel's address, null while there is none. wanted: the Release of each Plugin
-to run: lastWanted at first, then Connect Cloud's answers, which win over it.
-plugins: each Plugin State as last reported.
-**States**: none.
-**Messages**: Listening: the router Worker. Wanted, Addressed: the Connection
-Requests. PluginReported: the Plugins Request.
+port and Connection Key, its tunnel, and its Plugins.
+**Input**: the Connection's id and name, its folders, its control socket and what
+names its Plugins' sockets, the port, the origins let in, and how long a
+Connection Key lasts.
+**Model**: the Input. wanted: the Release of each Plugin to run: empty at first,
+then each of Connect Cloud's answers merged over it. plugins: each Plugin State
+as last reported.
+**States**: Starting: the port is not open yet. Listening: port, key: the port it
+got, and the Connection Key now. Listening moves Starting to Listening; KeyRotated
+changes the key.
+**Messages**: Listening, ServerFailed: the server Worker. KeyRotated: the rotateKey
+Worker. Wanted: the tunnel's Emit. PluginReported: each Plugin's Emit.
+**Emits**: ServerFailed: reason; the port cannot be opened.
 **Commands**: none.
-**Workers**: router: always; listens on the port, checks the Connection Key,
-passes `/<plugin>/<sha256>/rpc` to each Plugin's socket as `/rpc` while the Plugin
-is Running that hash, and closes a WebSocket for any other with 4409, or answers
-409, naming the hash it runs; any other path is 404. control: always; answers
-`status` and `stop` on the control socket. remember: always; writes the Releases in
-wanted to `wanted.json` each time they change.
-**Requires**: Control: control. Identity: router, control.
-**Provides**: Connection: wanted, address, each Sending its Message. Plugins: its
-Request `report` Sends PluginReported.
-**Services**: none.
-**Children**: tunnel: while listening; Input: the port. plugins: each name in
-wanted; ActorPlugin from `@kestack/cli-platform/plugins`; Input: its name, its
-folders inside the Connection's, its socket; Props: the Release wanted.
+**Workers**: server: always; mints the first Connection Key, listens on the port,
+checks the key, passes `/<plugin>/<sha256>/rpc` to each Plugin's socket as `/rpc`
+while the Plugin is Running that hash, and closes a WebSocket for any other with
+4409, or answers 409, naming the hash it runs; a wrong key closes a WebSocket with
+4401, or answers 401; any other path is 404. rotateKey: in Listening; mints a new
+key every `rotateEvery`.
+**Requires**: none of its own.
+**Provides**: none.
+**Services**: server/: the server, its guard, and minting a key.
+**Children**: tunnel: in Listening; Input: the port; Props: the Connection Key; its
+Wanted becomes Wanted. plugins: in Listening, each name in wanted; ActorPlugin from
+`@kestack/cli-platform/plugins`; Input: its name, its folders inside the
+Connection's, its socket; Props: the Release wanted; its Reported becomes
+PluginReported, with its name.
 **View**: none.
 
 ### Decisions
 
-- **The router is a Worker here, not an Actor of its own**, because a request
+- **A Worker holding something open is not tied to a State**, because a Worker of
+  a State stops as that State ends, and closes what it holds. server runs across
+  Starting and Listening, holding the port, as tunnel does the tunnel below.
+- **The Tunnel and the Plugins are siblings in Listening**, because a broken tunnel
+  must never stop a Plugin. Neither sees the other. Caveat: what Connect Cloud
+  answers still comes through the tunnel's Report, and up as Wanted.
+- **The server is a Worker here, not an Actor of its own**, because a request
   comes to the Connection and the Connection keeps track of the Plugins. It holds
   one socket and has no States.
-- **The tunnel never sees the Plugins**, because a Report says only how the tunnel
-  stands. Caveat: what Connect Cloud answers still comes through the tunnel's
-  Report, and up to the Connection.
-- **The router reads which Release runs from the Plugin States**, because that is
+- **The key is in Listening, read on each request**, because it changes while the
+  Connection runs, and a new one must need no restart. There is one key, and any
+  other reads as expired; a socket already open stays open (ADR 0009).
+- **The server reads which Release runs from the Plugin States**, because that is
   where each Plugin reports it. Caveat: a Plugin Starting a new Release runs none
   yet, so a socket closes with no hash until it is Running.
-- **A Plugin no longer wanted keeps running**, because an answer says which
-  Release of a Plugin to run, not which Plugins: one that names none must not stop
-  Code. Caveat: it stays in `wanted.json` too, so nothing yet retires a Plugin.
-- **The control Worker answers only while the Connection runs**, because `hold`
-  answers for it otherwise: while signing in, first or again, `status` says
-  starting, and `stop` ends the program.
-- **`serve` asks the control socket before it signs in**, because a second `serve`
-  of a running name must report it, not sign in again. Caveat: two started at once
-  both sign in, and the second stops once the first holds the socket.
+- **The list comes only from Connect Cloud**, because the product runs only online,
+  and a file was another thing to keep in step (ADR 0010). Caveat: until Connect
+  Cloud answers, no Plugin runs, and the server answers their paths with 404.
+- **The Plugins running are the Plugins Connect Cloud names**, because a Report
+  that succeeds says the whole list, and one that fails answers nothing. Caveat: a
+  Plugin no longer named stops within a Heartbeat, cutting off its running Turns,
+  and a deploy that names none stops every Plugin.
+- **A Child tells its parent by Emitting**, because a Capability is too much for
+  one level. Caveat: Cloud stays a Capability, because the Tunnel is two levels
+  below Identity and needs its answer.
 
 ## actor-tunnel
 
 **Does**: holds the door to the street, and keeps Connect Cloud told where it
 stands.
-**Input**: port: the router's.
+**Input**: port: the server's.
+**Props**: key: the Connection Key now, which every Report carries.
 **Model**: port. generation: which tunnel this is. failures: failed Tunnel Checks
 in a row.
-**States**: the Connection Status, the very value a Report carries: Installing.
-Opening. OpenFailed: when, problem. Unchecked: url. Reachable: url, when.
-Unreachable: url, when, problem.
-**Messages**: Installing, Opening, Up, OpenFailed, Lost: the keep Worker. Checked:
-the beat Worker. Each carries its generation, so a word from a tunnel already
-replaced is dropped.
+**States**: the Connection Status, the very value a Report carries. SettingUp: step,
+one of Downloading: elapsed, received. Opening. Failed: at, problem. Ready: url,
+check, one of Unchecked. Reachable: at. Unreachable: at, problem. Up moves SettingUp
+to Ready. Lost, or a third failed check in a row, starts a new generation at
+SettingUp, Opening.
+**Messages**: Downloading, Opening, Failed, Up, Lost: the tunnel Worker. Checked: the
+heartbeat Worker. Each carries its generation, so a word from a tunnel already
+replaced is dropped. Answered: reportSetup and heartbeat, when Connect Cloud took a
+Report.
+**Emits**: Wanted: releases; what Connect Cloud answered.
 **Commands**: none.
-**Workers**: keep: each generation; gets cloudflared, saying Installing after half
-a second, opens the tunnel and holds it until it closes, or waits five seconds
-when it could not open; Sends Lost either way. beat: always; checks the tunnel,
-then Reports. told: always; Reports each change the app waits on as it happens.
-address: always; Requests Connection.address as the address changes.
-**Requires**: Tunnels: keep, beat. Cloud: beat, told. Connection: beat, told,
-address.
+**Workers**: tunnel: each generation; gets cloudflared, saying Downloading after half
+a second and then every five seconds, opens the tunnel and holds it until it closes,
+or waits five seconds when it could not open; Sends Lost either way. reportSetup: in
+SettingUp; Reports at once, on each change of step or key, and every `Cloud.every`
+since the last. heartbeat: in Ready; Reports at once with the address and on each
+change of key, and every `Cloud.every` checks the tunnel, Sends Checked, and Reports.
+**Requires**: Tunnels: tunnel, heartbeat. Cloud: reportSetup, heartbeat.
 **Provides**: none.
-**Services**: quick-tunnel, binary and check, which run.ts makes Tunnels from.
+**Services**: tunnels, quick-tunnel, binary and check, which run.ts makes Tunnels from.
 **Children**: none.
 **View**: none.
 
 ### Decisions
 
 - **Its State is the Connection Status**, because what it is and what Connect Cloud
-  is told are the same thing: no copy of one to keep in step with the other.
+  is told are the same thing: no copy of one to keep in step with the other. Caveat:
+  an App and Connect Cloud keep older values, so v1 of `ConnectionStatus` still
+  reads, and so does a stored Connection from before v4.
 - **A tunnel is a Worker keyed by generation, not a Child**, because a tunnel has
   no States of its own apart from the Status. A new generation is a fresh tunnel,
-  and three failed checks in a row start one.
-- **keep is one Worker across Opening, Installing and Up**, because the tunnel
-  lives in its Scope: a Worker per State would close it on each step.
-- **The Heartbeat lives here**, because it reports the tunnel, and checks it first.
+  and three failed checks in a row or cloudflared stopping start one.
+- **tunnel is one Worker across SettingUp and Ready**, because the tunnel lives in
+  its Scope: a Worker per State would close it on each step.
+- **The Heartbeat lives here, in two Workers, one for each State**, because it
+  reports the tunnel, and only Ready has one to check. A Worker of a State lives as
+  long as that State's tag, so neither starts over on a step, a check or a key.
+  Caveat: a check may take seconds, so it never holds up a new key, and Reports go
+  one at a time so an older one cannot arrive after a newer one.
+- **A cached cloudflared never says Downloading**, because the step only shows after
+  half a second. Caveat: a Connection waiting on another's download hears of no
+  bytes, so only its time rises.
 - **Cloud and Tunnels are two Capabilities, not one host**, because each has one
   outside thing behind it, Connect Cloud or cloudflared, and each fake stands alone.
 
