@@ -1,5 +1,6 @@
 import { View } from '@kestack/kabuki/react';
 import { placeIn, Project as page, ProjectLive } from './actor.ts';
+import { useHeld } from './held.ts';
 
 /**
  * Draws nothing; says it can be drawn whole. Loads with its View, and once
@@ -17,4 +18,6 @@ export const Project = {
   /** The place in it the URL names, as it says it is ready at. */
   placeIn,
   ready,
+  /** The page drawn before, kept until the next can be drawn whole. */
+  useHeld,
 };
