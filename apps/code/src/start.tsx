@@ -6,6 +6,7 @@ import { Start } from '@kestack/kabuki/start';
 import { OnOutdated } from '@kestack/std-toolkit/replica';
 import { document } from '@kestack/web-platform/app/document';
 import { App } from './app/index.ts';
+import { StartScreen } from './app/sign-in/index.ts';
 import { fitted } from './app/account/frame/commands.ts';
 import { accounts, preferencesIdb, storageIdb } from './app/storage/index.ts';
 import { Devtools } from './ui/page/devtools/index.ts';
@@ -65,6 +66,9 @@ export default Start.app({
       ? { around: (app: ReactNode) => <Devtools>{app}</Devtools> }
       : {}),
   }),
+  // What the App Shell paints before any script runs: where the iOS Splash
+  // leaves the mark, and what the app draws first.
+  loading: <StartScreen start="reading" problem={null} onSignIn={() => {}} />,
   layer,
   attach: import.meta.env.DEV ? [connect()] : [],
 });
