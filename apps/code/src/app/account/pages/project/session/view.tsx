@@ -396,7 +396,7 @@ function Page({ root, model, props, children, send }: Self) {
         // Positioned, so what is placed absolutely inside it, such as
         // markdown's screen-reader-only footnotes heading, is measured
         // here and never makes the page around it scroll too.
-        className={`relative min-h-0 flex-1 overflow-y-auto outline-none select-text [overflow-anchor:none] ${GUTTERED}`}
+        className={`relative min-h-0 flex-1 overflow-y-auto outline-none select-text ${GUTTERED}`}
       >
         <Scrolled value={scroll.scroll}>
           <SessionOpener value={openFromTurn}>

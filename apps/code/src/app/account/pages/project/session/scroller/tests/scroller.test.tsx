@@ -7,11 +7,13 @@ import { Block, Scrolled, useBlocks, useScroller } from '../index.ts';
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 /*
- * The scroller's five rules, each as the reader meets it. jsdom lays
+ * The scroller's six rules, each as the reader meets it. jsdom lays
  * nothing out, so here every block is BLOCK tall, one under another,
  * the view VIEW tall at the top of the page, the scroll clamped to what
  * it holds, and words arriving grow the last block and tell the
- * scroller's ResizeObservers, as a browser would.
+ * scroller's ResizeObservers, as a browser would. It has no scroll
+ * anchoring: what the browser keeps in place is seen here as the scroller
+ * leaving the view alone.
  */
 
 const BLOCK = 100;
@@ -29,6 +31,7 @@ let observers: Array<() => void> = [];
 let setIds: (ids: Array<string>) => void = () => {};
 let holdOn: (smooth?: boolean) => void = () => {};
 let still: () => void = () => {};
+let toBlock: (id: string) => void = () => {};
 const laidOut = Element.prototype.getBoundingClientRect;
 
 const total = () => ids.length * BLOCK + grown;
@@ -54,6 +57,7 @@ function List() {
   const scroll = useScroller('list', 'transcript');
   holdOn = scroll.holdOn;
   still = () => scroll.scroll.keepStill();
+  toBlock = scroll.toBlock;
   return (
     <div
       ref={(element) => {
@@ -142,6 +146,8 @@ beforeEach(async () => {
   }) as typeof scroller.scrollTo;
   // Opened at the bottom, as a session is.
   await grow(0);
+  // Shown: from here the view is only put at a block when asked.
+  await act(() => new Promise((resolve) => requestAnimationFrame(resolve)));
 });
 
 afterEach(() => {
@@ -176,15 +182,23 @@ describe('the scroller', () => {
     expect(top).toBe(was);
   });
 
-  it('2. keeps what is on the screen still as more is drawn above it', async () => {
+  it('2. leaves what is drawn above to the browser, away from the very top', async () => {
     await scrolled(-250);
-    const shown = [
-      ...container.querySelectorAll<HTMLElement>('[data-block]'),
-    ].find((each) => each.getBoundingClientRect().bottom > 0)!;
+    const was = top;
+    await act(async () => setIds(['a0', 'a1', 'a2', ...ids]));
+    await grow(0);
+    expect(top).toBe(was);
+  });
+
+  it('2. puts the view back at the very top, where the browser does not', async () => {
+    await scrolled(-total());
+    expect(top).toBe(0);
+    const shown = container.querySelector<HTMLElement>('[data-block="b20"]')!;
     const was = shown.getBoundingClientRect().top;
-    await act(async () => setIds([...['a0', 'a1', 'a2'], ...ids]));
+    await act(async () => setIds(['a0', 'a1', 'a2', ...ids]));
     await grow(0);
     expect(shown.getBoundingClientRect().top).toBe(was);
+    expect(top).toBe(3 * BLOCK);
   });
 
   it('2. leaves the view where it is when the block it was kept by goes', async () => {
@@ -216,7 +230,7 @@ describe('the scroller', () => {
   });
 
   it('3. puts in place at once what changes under a tap, which moves nothing', async () => {
-    await scrolled(-250);
+    await scrolled(-total());
     await touch('touchstart');
     await touch('touchend');
     const shown = [
@@ -250,6 +264,17 @@ describe('the scroller', () => {
     await scrolled(-20);
     const was = top;
     await grow(40);
+    expect(top).toBe(was);
+  });
+
+  it('6. goes to a block once, then leaves it to the browser', async () => {
+    await act(() => toBlock('b5'));
+    // A little below the view's top, as `GO_OFFSET` puts it.
+    expect(top).toBe(5 * BLOCK - 16);
+    await act(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+    const was = top;
+    await act(async () => setIds(['a0', ...ids]));
+    await grow(0);
     expect(top).toBe(was);
   });
 

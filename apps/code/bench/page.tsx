@@ -69,7 +69,7 @@ function Session({
         <div
           ref={scroll.scroller}
           id="scroller"
-          className="relative min-h-0 flex-1 overflow-y-auto outline-none select-text [overflow-anchor:none]"
+          className="relative min-h-0 flex-1 overflow-y-auto outline-none select-text"
         >
           <Scrolled value={scroll.scroll}>
             <div

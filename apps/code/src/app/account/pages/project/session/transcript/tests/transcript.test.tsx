@@ -195,10 +195,26 @@ describe('a long transcript', () => {
     expect(drawn()).toBeLessThan(10);
   });
 
-  it('draws nothing above while a touch glides the view, and draws it once the glide settles', async () => {
+  it('draws above while a touch glides the view, the browser keeping it in place', async () => {
     act(() => root.render(<Transcript rows={turns(30)} scrolled />));
     const scroller = container.firstElementChild as HTMLElement;
-    let top = 0;
+    Object.defineProperty(scroller, 'scrollTop', {
+      configurable: true,
+      get: () => 40,
+    });
+    room = true;
+    act(() => {
+      scroller.dispatchEvent(new Event('touchstart'));
+      scroller.dispatchEvent(new Event('scroll'));
+    });
+    await settle();
+    expect(drawn()).toBe(30 * 4);
+  });
+
+  it('at the very top, draws above only once the finger has lifted', async () => {
+    act(() => root.render(<Transcript rows={turns(30)} scrolled />));
+    const scroller = container.firstElementChild as HTMLElement;
+    let top = 40;
     Object.defineProperty(scroller, 'scrollTop', {
       configurable: true,
       get: () => top,
@@ -206,27 +222,22 @@ describe('a long transcript', () => {
         top = to;
       },
     });
-    const touch = (type: string) =>
-      act(() =>
-        scroller.dispatchEvent(
-          Object.assign(new Event(type), { touches: [] as Touch[] }),
-        ),
-      );
-    const glide = () =>
-      act(() => {
-        top += 40;
-        scroller.dispatchEvent(new Event('scroll'));
-      });
-    touch('touchstart');
+    const scrolled = () =>
+      act(() => scroller.dispatchEvent(new Event('scroll')));
+    act(() => scroller.dispatchEvent(new Event('touchstart')));
+    scrolled();
+    top = 0;
     room = true;
-    glide();
-    touch('touchend');
-    // Its glide goes on after the finger lifts.
-    glide();
-    await act(() => new Promise((resolve) => setTimeout(resolve, 100)));
-    glide();
-    expect(drawn()).toBe(10);
+    scrolled();
+    // Held there, past the time a glide takes to settle.
     await act(() => new Promise((resolve) => setTimeout(resolve, 200)));
+    await settle();
+    expect(drawn()).toBe(10);
+    act(() =>
+      scroller.dispatchEvent(
+        Object.assign(new Event('touchend'), { touches: [] as Touch[] }),
+      ),
+    );
     await settle();
     expect(drawn()).toBe(30 * 4);
   });
