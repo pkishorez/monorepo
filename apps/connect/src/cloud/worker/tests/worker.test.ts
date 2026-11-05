@@ -6,11 +6,16 @@ import { fakeGuard } from '@kestack/auth-toolkit/fake';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { CloudClient } from '../../client/index.js';
-import { ConnectionReport, isOutdated } from '../../contract/index.js';
+import {
+  belowMinimum,
+  ConnectionReport,
+  isOutdated,
+} from '../../../contract/index.js';
 import { connectionsTable, serveOver } from '../index.js';
+import { standingOf } from '../releases.js';
 
 /*
- * Cloud Connect over an in-memory SQLite database, called through
+ * Connect Cloud over an in-memory SQLite database, called through
  * `CloudClient`, with `fakeGuard.rpc({ as })` saying who signed each request. Each
  * test signs in Users of its own, so they share one database.
  */
@@ -52,22 +57,33 @@ const anotherSignIn = (user: ReturnType<typeof signIn>, n: number) => ({
   } as unknown as Principal,
 });
 
-/** The version of each Plugin this Cloud Connect wants run. */
+/** The version of each Plugin this Connect Cloud wants run. */
 const WANTED = {
   code: { hash: 'a'.repeat(64), url: 'https://files.test/code' },
 };
 
-/** The Minimum Connect this Cloud Connect was deployed with. */
+/** The Minimum Connect this Connect Cloud was deployed with. */
 const MIN_CONNECT = '0.0.9';
 
 /** The code Plugin's file, as R2 keeps it. */
-const PLUGIN_KEY = `plugins/code/${'b'.repeat(64)}.mjs`;
+const PLUGIN_KEY = `releases/code/${'b'.repeat(64)}.mjs`;
 const PLUGIN_FILE = 'export {};\n';
 
-/** R2 as Cloud Connect reads it: one Plugin file. */
+/** A key R2 fails to look up. */
+const FAILING_KEY = `releases/code/${'f'.repeat(64)}.mjs`;
+
+/** Every key R2 was asked whether it holds. */
+const headed: Array<string> = [];
+
+/** R2 as Connect Cloud reads it: one Plugin file, and one key it fails on. */
 const files = {
   get: async (key: string) =>
     key === PLUGIN_KEY ? { body: new Response(PLUGIN_FILE).body } : null,
+  head: async (key: string) => {
+    headed.push(key);
+    if (key === FAILING_KEY) throw new Error('R2 is down');
+    return key === PLUGIN_KEY ? { key } : null;
+  },
 };
 
 const answerAs = (principal: Principal | null) =>
@@ -76,13 +92,13 @@ const answerAs = (principal: Principal | null) =>
     authInfo: AUTH_INFO,
     origins: ORIGINS,
     driver,
-    plugins: WANTED,
+    wanted: WANTED,
     minConnect: MIN_CONNECT,
     files,
   });
 
 /**
- * Runs `program` with Cloud Connect's client, signed as `user` (nobody for
+ * Runs `program` with Connect Cloud's client, signed as `user` (nobody for
  * null); from a page at `origin` when given, else as `serve` calls, with no
  * Origin.
  */
@@ -115,23 +131,25 @@ const reportOf = (id: string, name = 'laptop'): ConnectionReport => ({
   name,
   key: `key-${id}`,
   version: '0.0.2',
-  status: { _tag: 'Reachable', url: `https://${id}.tunnel.test`, at: 1 },
-  plugins: {},
+  status: {
+    _tag: 'Ready',
+    url: `https://${id}.tunnel.test`,
+    check: { _tag: 'Reachable', at: 1 },
+  },
 });
 
-describe('Cloud Connect', () => {
+describe('Connect Cloud', () => {
   it('records a Report, lists it with its Last Seen, and updates it on the next', async () => {
     const ada = signIn('ada');
     const before = Date.now();
-    const first = await as(ada, (m) => m.Report(reportOf('m1')));
-    expect(first).toMatchObject(reportOf('m1'));
-    expect(first.lastSeen).toBeGreaterThanOrEqual(before);
-    const second = await as(ada, (m) => m.Report(reportOf('m1', 'renamed')));
-    expect(second.name).toBe('renamed');
-    expect(second.lastSeen).toBeGreaterThanOrEqual(first.lastSeen);
-    expect(await as(ada, (m) => m.List({}))).toEqual([
-      { ...second, displayName: null },
-    ]);
+    await as(ada, (m) => m.Report(reportOf('m1')));
+    const [first] = await as(ada, (m) => m.List({}));
+    expect(first).toMatchObject({ ...reportOf('m1'), displayName: null });
+    expect(first!.lastSeen).toBeGreaterThanOrEqual(before);
+    await as(ada, (m) => m.Report(reportOf('m1', 'renamed')));
+    const [second] = await as(ada, (m) => m.List({}));
+    expect(second!.name).toBe('renamed');
+    expect(second!.lastSeen).toBeGreaterThanOrEqual(first!.lastSeen);
   });
 
   it('renames a Connection: listed by its Display Name, which a Report keeps, and a blank one goes back to none', async () => {
@@ -146,8 +164,7 @@ describe('Cloud Connect', () => {
       { name: 'Ada-MacBook', displayName: 'Work' },
     ]);
     // The Connection's own name moves on; the Display Name stays.
-    const answer = await as(ada, (m) => m.Report(reportOf('named', 'Ada-Mac')));
-    expect(answer).not.toHaveProperty('displayName');
+    await as(ada, (m) => m.Report(reportOf('named', 'Ada-Mac')));
     expect(await listed()).toEqual([{ name: 'Ada-Mac', displayName: 'Work' }]);
     await as(ada, (m) => m.Rename({ id: 'named', displayName: '   ' }));
     expect(await listed()).toEqual([{ name: 'Ada-Mac', displayName: null }]);
@@ -167,16 +184,12 @@ describe('Cloud Connect', () => {
     expect(await as(ada, (m) => m.List({}))).toEqual([]);
   });
 
-  it('answers a Report with the Plugins wanted, and keeps where each stands', async () => {
+  it('answers a Report with the Releases wanted, and lists them on each Connection', async () => {
     const ada = signIn('ada');
-    const running = { _tag: 'Running' as const, hash: 'a'.repeat(64) };
-    const reported = await as(ada, (m) =>
-      m.Report({ ...reportOf('p1'), plugins: { code: running } }),
-    );
+    const reported = await as(ada, (m) => m.Report(reportOf('p1')));
     expect(reported.wanted).toEqual(WANTED);
-    expect(reported.plugins).toEqual({ code: running });
     expect(await as(ada, (m) => m.List({}))).toMatchObject([
-      { id: 'p1', plugins: { code: running }, wanted: WANTED },
+      { id: 'p1', wanted: WANTED },
     ]);
   });
 
@@ -184,7 +197,9 @@ describe('Cloud Connect', () => {
     const ada = signIn('ada');
     const reported = await as(ada, (m) => m.Report(reportOf('v1')));
     expect(reported.minConnect).toBe(MIN_CONNECT);
-    expect(isOutdated(reported)).toBe(true);
+    expect(belowMinimum(reportOf('v1').version, reported.minConnect)).toBe(
+      true,
+    );
     expect(await as(ada, (m) => m.List({}))).toMatchObject([
       { id: 'v1', minConnect: MIN_CONNECT },
     ]);
@@ -207,6 +222,39 @@ describe('Cloud Connect', () => {
     expect(listed.map(isOutdated)).toEqual([false]);
   });
 
+  it('says where a Release stands: the one it names Latest, another it keeps Older, any other Unknown', async () => {
+    const ada = signIn('ada');
+    const standing = (plugin: string, hash: string) =>
+      as(ada, (m) => m.Standing({ plugin, hash })).then(({ _tag }) => _tag);
+    expect(await standing('code', 'a'.repeat(64))).toBe('Latest');
+    expect(await standing('code', 'b'.repeat(64))).toBe('Older');
+    expect(headed).toEqual([PLUGIN_KEY]);
+    expect(await standing('code', 'e'.repeat(64))).toBe('Unknown');
+    expect(await standing('other', 'b'.repeat(64))).toBe('Unknown');
+    expect(await standing('constructor', 'a'.repeat(64))).toBe('Unknown');
+    // R2 failing to answer keeps nothing.
+    expect(await standing('code', 'f'.repeat(64))).toBe('Unknown');
+    // A name or hash no file could have is never looked for.
+    headed.length = 0;
+    expect(await standing('code', 'B'.repeat(64))).toBe('Unknown');
+    expect(await standing('code', '../x')).toBe('Unknown');
+    expect(await standing('Code', 'b'.repeat(64))).toBe('Unknown');
+    expect(headed).toEqual([]);
+    // Only a signed-in caller is answered.
+    expect(
+      await as(null, (m) =>
+        Effect.flip(m.Standing({ plugin: 'code', hash: 'a'.repeat(64) })),
+      ),
+    ).toMatchObject({ _tag: 'Unauthenticated' });
+  });
+
+  it('with no Release Files, knows only the Release it names', async () => {
+    const standing = (hash: string) =>
+      Effect.runPromise(standingOf(WANTED, undefined, 'code', hash));
+    expect(await standing('a'.repeat(64))).toEqual({ _tag: 'Latest' });
+    expect(await standing('b'.repeat(64))).toEqual({ _tag: 'Unknown' });
+  });
+
   it('serves a Plugin file by its hash, cached for good, and nothing else', async () => {
     const answer = answerAs(null);
     const found = await answer(new Request(`${CLOUD}/${PLUGIN_KEY}`));
@@ -217,10 +265,10 @@ describe('Cloud Connect', () => {
     );
     expect(found.headers.get('content-type')).toMatch(/^text\/javascript/);
     for (const path of [
-      `plugins/code/${'c'.repeat(64)}.mjs`,
-      'plugins/code/latest.mjs',
-      `plugins/../${'b'.repeat(64)}.mjs`,
-      'plugins/',
+      `releases/code/${'c'.repeat(64)}.mjs`,
+      'releases/code/latest.mjs',
+      `releases/../${'b'.repeat(64)}.mjs`,
+      'releases/',
     ])
       expect((await answer(new Request(`${CLOUD}/${path}`))).status).toBe(404);
     const unbound = serveOver({
@@ -270,7 +318,7 @@ describe('Cloud Connect', () => {
     const elsewhere = anotherSignIn(ada, 2);
     expect(
       await as(elsewhere, (m) => m.Report(reportOf('fresh'))),
-    ).toMatchObject({ id: 'fresh' });
+    ).toMatchObject({ wanted: WANTED });
     // The forgotten id stays forgotten whatever the Sign-in.
     expect(
       await as(elsewhere, (m) => Effect.flip(m.Report(reportOf('gone')))),
@@ -322,15 +370,20 @@ describe('Cloud Connect', () => {
   });
 
   it('takes a Report only with an https:// address, or none, and every field bounded', async () => {
-    // Client and Cloud Connect both check the payload against the contract.
+    // Client and Connect Cloud both check the payload against the contract.
     const valid = Schema.is(ConnectionReport.schema);
     const base = reportOf('bounded');
     expect(valid(base)).toBe(true);
     const at = (url: string) => ({
       ...base,
-      status: { _tag: 'Unchecked', url },
+      status: { _tag: 'Ready', url, check: { _tag: 'Unchecked' } },
     });
-    expect(valid({ ...base, status: { _tag: 'Opening' } })).toBe(true);
+    expect(
+      valid({
+        ...base,
+        status: { _tag: 'SettingUp', step: { _tag: 'Opening' } },
+      }),
+    ).toBe(true);
     expect(valid(at('http://bounded.tunnel.test'))).toBe(false);
     expect(valid(at('wss://bounded.tunnel.test'))).toBe(false);
     expect(valid(at('https://'))).toBe(false);
@@ -339,11 +392,43 @@ describe('Cloud Connect', () => {
     expect(valid({ ...base, version: 'v'.repeat(33) })).toBe(false);
     expect(valid({ ...base, key: 'k'.repeat(129) })).toBe(false);
     const ada = signIn('ada');
+    const downloading = {
+      _tag: 'SettingUp',
+      step: { _tag: 'Downloading', elapsed: 40_000, received: 12_400_000 },
+    } as const;
     expect(
-      await as(ada, (m) =>
-        m.Report({ ...base, status: { _tag: 'Installing' } }),
-      ),
-    ).toMatchObject({ id: 'bounded', status: { _tag: 'Installing' } });
+      await as(ada, (m) => m.Report({ ...base, status: downloading })),
+    ).toMatchObject({ wanted: WANTED });
+    expect(await as(ada, (m) => m.List({}))).toMatchObject([
+      { id: 'bounded', status: downloading },
+    ]);
+  });
+
+  it('keeps every step and check a Report can say', async () => {
+    const ada = signIn('ada');
+    const url = 'https://steps.tunnel.test';
+    for (const status of [
+      { _tag: 'SettingUp', step: { _tag: 'Opening' } },
+      { _tag: 'SettingUp', step: { _tag: 'Failed', at: 2, problem: 'no' } },
+      { _tag: 'Ready', url, check: { _tag: 'Unchecked' } },
+      { _tag: 'Ready', url, check: { _tag: 'Reachable', at: 3 } },
+      {
+        _tag: 'Ready',
+        url,
+        check: { _tag: 'Unreachable', at: 4, problem: 'no' },
+      },
+    ] as const) {
+      await as(ada, (m) => m.Report({ ...reportOf('steps'), status }));
+      expect((await as(ada, (m) => m.List({})))[0]?.status).toEqual(status);
+    }
+  });
+
+  it('lists the key a Connection last reported, so a rotated key is read', async () => {
+    const ada = signIn('ada');
+    await as(ada, (m) => m.Report({ ...reportOf('rotates'), key: 'first' }));
+    expect((await as(ada, (m) => m.List({})))[0]?.key).toBe('first');
+    await as(ada, (m) => m.Report({ ...reportOf('rotates'), key: 'second' }));
+    expect((await as(ada, (m) => m.List({})))[0]?.key).toBe('second');
   });
 
   it('answers /auth with how a Connection signs in, to anyone', async () => {

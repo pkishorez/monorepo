@@ -10,7 +10,7 @@ Connections (through [ai-toolkit](../../toolkits/ai-toolkit/README.md), as the
 [v1 spec](../../toolkits/ai-toolkit/docs/v1-spec.md) says), and the app
 follows each Session live: what you asked, the agent's words, its tool
 calls and subagents, and how each turn ended. You sign in with
-auth-toolkit's `Accounts`; Cloud Connect lists the Connections signed in as
+auth-toolkit's `Accounts`; Connect Cloud lists the Connections signed in as
 you, and the app is on all of them at once
 ([ADR 0018](../../toolkits/ai-toolkit/docs/adr/0018-an-app-is-on-every-connection-at-once.md)).
 
@@ -35,7 +35,7 @@ reload shows what this device last saw at once. The sidebar keeps every
 Session it shows in sync ahead, so opening one draws its messages at once.
 Every write is a Command an Actor asks of one Connection. While a Connection's
 code Plugin is Updating or stopped, or it runs a `ke-connect` older than
-Cloud Connect names, a pill in the header of a page on it says so and
+Connect Cloud names, a pill in the header of a page on it says so and
 opens Settings, whose card for it shows how far the update got, the
 stopped Plugin's last lines to copy, or the command that updates it.
 
@@ -69,7 +69,7 @@ waits for "Reload" before taking a new version.
 the one another App started, then runs the site against it. It signs in
 with auth-toolkit's Fake: sign in as any `@kestack.test` email
 (`dev@kestack.test` is the Connection's), and the branch's Connection shows up in
-the app; it reports itself to Cloud Connect every 15 seconds. Every backend
+the app; it reports itself to Connect Cloud every 15 seconds. Every backend
 is on the site's own origin, so a tunnel to it, such as
 `cloudflared tunnel --url http://localhost:<port>`, opens the whole app on
 a phone. `pnpm dev:real` signs in through the Auth Worker instead.
@@ -85,7 +85,7 @@ pnpm --filter code deploy:prod   # ALLOW_DEPLOY=true: code.kishore.app
   ([Connect in development](../connect/docs/dev.md)), then runs
   `alchemy dev` (`alchemy.run.ts`, `src/deploy/infra/`) through Portless,
   the site at `https://code.kishore.computer` (the branch in front in a
-  linked git worktree), handed the branch's Cloud Connect in
+  linked git worktree), handed the branch's Connect Cloud in
   `CONNECT_URL`. Connect stops once no App on the branch runs.
 - The site gets `VITE_AUTH_URL` and `VITE_CONNECT_URL`. A deployed stage
   uses `https://connect.kishore.app`, where your Connections are.
@@ -93,6 +93,10 @@ pnpm --filter code deploy:prod   # ALLOW_DEPLOY=true: code.kishore.app
   shows up beside the others.
 - A deployed stage (`prod`, `demo`, `pr<N>`) needs `ALLOW_DEPLOY=true` and
   keeps its state in Cloudflare; a personal stage keeps it in `.alchemy/`.
+- CI deploys it in `deploy:connect`, after Connect Cloud
+  (`.github/workflows/deploy-connect.yml`), and never on prod while
+  `@kestack/connect` waits for its release. A pull request's preview deploys
+  Code alone, against production Connect Cloud.
 - `pnpm --filter code lint` checks types, the Laymos Rules and the tree's
   shape (`pnpm --filter code tree`); `pnpm --filter code test` runs the
   tests. Videos recorded under `qa/` stay local.

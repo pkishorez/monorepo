@@ -21,7 +21,6 @@ import {
   standingOf,
   useBehind,
   useLock,
-  useNoticeClock,
 } from '../../../../connection/link/index.ts';
 import { CardLive } from './actor.ts';
 import { Agents } from './agents/index.ts';
@@ -38,7 +37,7 @@ type Connection = typeof ConnectionSchema.Type;
  * its tunnel and the version of Connect it runs under it; beside it
  * Rename, a quiet pencil, which turns its name into a field, saved with
  * Enter and left with Escape, which takes a name even while the Connection is
- * out of reach, as Cloud Connect keeps it; and Forget, a quiet bin that
+ * out of reach, as Connect Cloud keeps it; and Forget, a quiet bin that
  * turns the danger colour under the pointer, which the list asks first; while its code Plugin is Updating or stopped,
  * or its `ke-connect` is out of date, what to know and do about it; and
  * its Agents, each between rules: its agents' accounts and its Speech to
@@ -185,7 +184,6 @@ export const CardView = View.make(
     const open = Confirm.useOpen();
     const { connection } = props;
     const { renaming } = model;
-    const now = useNoticeClock(connection);
     const behind = useBehind(connection.id);
     const title = titleOf(connection);
     return (
@@ -233,7 +231,7 @@ export const CardView = View.make(
               </Button>
             </div>
           )}
-          <ConnectionNotice connection={connection} now={now} behind={behind} />
+          <ConnectionNotice connection={connection} behind={behind} />
         </div>
         <div className="flex flex-col divide-y divide-border *:px-4 *:py-4 sm:*:px-5">
           <Agents.view instance={children.agents} />

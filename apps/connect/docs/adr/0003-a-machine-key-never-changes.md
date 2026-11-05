@@ -2,13 +2,13 @@ Moved from toolkits/ai-toolkit/docs/adr/0015
 
 # A Machine Key never changes
 
-Status: accepted.
+Status: superseded by [ADR 0009](0009-a-connection-key-rotates.md).
 
 A Machine is reached through a public tunnel address, and a browser cannot carry its Sign-in there: its cookie only reaches the Shared Cookie Domain, and browsers never hold tokens (auth-toolkit ADR 0019). So a Machine accepts a caller by its Machine Key instead, a secret it makes once, keeps with its own records, and lists for its User alongside its address. The key never rotates, and a lost or leaked key is lost for good. A browser sends it in the `Sec-WebSocket-Protocol` header, the one header page code may set on a WebSocket, so it stays out of URLs and most logs. We chose this for simplicity, knowing it is the weakest option.
 
 ## Considered options
 
-- **A short-lived ticket signed by Cloud Connect** after it checks the browser's Sign-in, verified by the Machine against a key that never leaves it. Rejected for now: more moving parts than the first version needs.
+- **A short-lived ticket signed by Connect Cloud** after it checks the browser's Sign-in, verified by the Machine against a key that never leaves it. Rejected for now: more moving parts than the first version needs.
 - **A key that rotates on every start or every connection.** Rejected for now; it is the first step when this is revisited.
 - **The Machine asks the Auth Worker about the caller.** Not possible: a browser has no token to send to another site.
 

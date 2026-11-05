@@ -6,7 +6,7 @@ import { ConnectionCards } from '../store.ts';
 
 /*
  * What a Connection's card asks: Forget, of Settings → Connections, through
- * `ConnectionCards`; Rename, of Cloud Connect, then told to the Connection
+ * `ConnectionCards`; Rename, of Connect Cloud, then told to the Connection
  * List, so every name of it shows the new one at once.
  */
 
@@ -33,7 +33,7 @@ export const rename = Command.make('RenameConnection', {
       Effect.catch((error) =>
         Effect.succeed({
           _tag: 'RenameFailed' as const,
-          problem: error.message || 'Cloud Connect could not be reached',
+          problem: error.message || 'Connect Cloud could not be reached',
         }),
       ),
     ),

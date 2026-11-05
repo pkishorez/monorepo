@@ -8,17 +8,18 @@ import {
   RPC_PATH,
   versionedClient,
   type VersionGap,
-} from '../contract/index.js';
+} from '../../contract/index.js';
 
 /*
- * Cloud Connect as a client calls it: the RPC over HTTP at `<cloud>/rpc`,
+ * Connect Cloud as a client calls it: the RPC over HTTP at `<cloud>/rpc`,
  * every call signed by whatever signs the caller's calls (auth-toolkit's
  * `browser()` in an App, `device()` in `serve`), and `authInfo`, the one
- * call that needs no Sign-in: how a Connection signs in to this Cloud
- * Connect. With it, what an App needs to read its answers: a Connection,
+ * call that needs no Sign-in: how a Connection signs in to this Connect
+ * Cloud. With it, what an App needs to read its answers: a Connection,
  * where its status says it is, whether it is Outdated, and `VersionGap`,
  * which every call may fail with; and how to reach its Plugin at the
- * Release the App was built with, and what a close for another means.
+ * Release the App was built with, what a close for another Release, or for a
+ * key that expired, means, and where Connect Cloud says that Release stands.
  */
 
 export {
@@ -27,12 +28,15 @@ export {
   ConnectionStatus,
   DISPLAY_NAME_MAX,
   isOutdated,
+  KEY_EXPIRED,
+  keyExpired,
   mismatchOf,
   PLUGIN_MISMATCH,
   pluginPath,
   PluginMismatch,
+  ReleaseStanding,
   VersionGap,
-} from '../contract/index.js';
+} from '../../contract/index.js';
 
 /** `base` without a trailing slash, then `path`. */
 const at = (base: string, path: string) => `${base.replace(/\/+$/, '')}${path}`;
@@ -44,7 +48,7 @@ export class CloudClient extends Context.Service<
     RpcClientError.RpcClientError | VersionGap
   >
 >()('@kestack/connect/CloudClient') {
-  /** Cloud Connect at `cloud`, its base URL such as `https://connect.kishore.app`. */
+  /** Connect Cloud at `cloud`, its base URL such as `https://connect.kishore.app`. */
   static readonly layer = (cloud: string) =>
     Layer.effect(CloudClient, versionedClient(CloudApi)).pipe(
       Layer.provide(client(CloudApi, { url: at(cloud, RPC_PATH) })),
@@ -60,7 +64,7 @@ const reason = (cause: unknown): string => {
     : cause.message;
 };
 
-/** How a Connection signs in to Cloud Connect at `cloud`; fails when it cannot be asked. Interrupting it aborts the fetch. */
+/** How a Connection signs in to Connect Cloud at `cloud`; fails when it cannot be asked. Interrupting it aborts the fetch. */
 export const authInfo = (cloud: string) =>
   Effect.tryPromise({
     try: async (signal) => {
@@ -70,7 +74,7 @@ export const authInfo = (cloud: string) =>
     },
     catch: (cause) =>
       new Error(
-        `Could not ask ${cloud} how to sign in (${reason(cause)}); is Cloud Connect running?`,
+        `Could not ask ${cloud} how to sign in (${reason(cause)}); is Connect Cloud running?`,
         { cause },
       ),
   }).pipe(

@@ -1,132 +1,271 @@
-import { Config, Effect } from 'effect';
-import { Argument, Command, Flag } from 'effect/cli';
-import { NodeRuntime, NodeServices } from '@effect/platform-node';
+import {
+  appendFileSync,
+  existsSync,
+  readFileSync,
+  statSync,
+  truncateSync,
+} from 'node:fs';
+import { Console, Data, Effect, Layer, Logger, Option, Schedule } from 'effect';
+import { createFolders } from '@kestack/cli-platform/files';
+import { reach } from '@kestack/cli-platform/single';
+import {
+  account,
+  ConnectionControl,
+  type ConnectionFolders,
+  connectionFolders,
+  connectionNames,
+  deleteFolders,
+  forget,
+  hold,
+  hostName,
+  kept,
+  run,
+  type RunningConnection,
+} from './actor-identity/index.js';
+import { run as runCommands, type ServeFlags } from './commands/index.js';
 
 /*
- * `ke-connect`'s commands: their flags and arguments, and nothing else.
- * What each does is handed in. `serve [name]` runs a Connection, `list`
- * shows every Connection on this computer, and `remove <name>` deletes
- * one. With no command it opens Effect CLI's wizard, which builds one and
- * runs it. A failure ends the program with its message alone. dev/ runs
- * this same program in development: each branch's Connection, `dev-<branch>`.
+ * `ke-connect`: the Connections on this computer. commands/ is its commands;
+ * each is done here.
+ *
+ * - serve: a Connection already running, or starting, is only reported.
+ *   Else it holds the control socket first, so it alone signs in, and runs
+ *   the Actor tree, actor-identity/: signed in, the Connection runs, until it
+ *   is Ended: forgotten, refused or stopped. A Connection forgotten signs out
+ *   first.
+ * - list: every Connection with a folder, asking each that runs about
+ *   itself on its control socket.
+ * - remove: stops it if it runs, forgets it in Connect Cloud, signs out
+ *   and deletes its folders.
+ *
+ * A Connection keeps its files where actor-identity/services/ says. `serve` logs to the
+ * console and to a file, so a Connect started by a dev script or in the
+ * background can still be read afterwards. The file is only ever appended
+ * to; a file grown past 10 MB is emptied when `serve` starts, rather than
+ * rotated.
  */
 
-const DEFAULT_NAME = 'main';
-const DEFAULT_CLOUD = 'https://connect.kishore.app';
-const DEFAULT_HEARTBEAT = 15;
+/** This Connect's version, as it reports itself. */
+const version = (
+  JSON.parse(
+    readFileSync(new URL('../../../package.json', import.meta.url), 'utf8'),
+  ) as { readonly version: string }
+).version;
 
-/** What `serve` is asked to do. */
-export interface ServeFlags {
-  /** The Connection's name on this computer. */
-  readonly name: string;
-  /** The public port, which only the tunnel uses; 0 for any free one. */
-  readonly port: number;
-  /** Cloud Connect's base URL. */
-  readonly cloud: string;
-  /** Origins a browser page may call from, besides the stack's own. */
-  readonly origins: ReadonlyArray<string>;
-  /** Seconds between Heartbeats. */
-  readonly heartbeat: number;
-}
+/** This computer, and every App on the stack's domains, deployed or as Portless serves it in development. */
+const DEFAULT_ORIGINS: ReadonlyArray<string> = [
+  'http://localhost:*',
+  'http://127.0.0.1:*',
+  'http://[::1]:*',
+  'https://localhost:*',
+  'https://*.localhost:*',
+  'https://*.kishore.app',
+  'https://*.kishore.computer',
+];
 
-/** What each command does. */
-export interface Commands {
-  readonly serve: (flags: ServeFlags) => Effect.Effect<void, unknown>;
-  readonly list: () => Effect.Effect<void, unknown>;
-  readonly remove: (name: string) => Effect.Effect<void, unknown>;
-}
+/** The largest the log may be when `serve` starts before it is emptied. */
+const MOST_BYTES = 10 * 1024 * 1024;
 
-const name = Argument.String('name').pipe(
-  Argument.withDescription(
-    `The Connection's name on this computer; ${DEFAULT_NAME} unless given`,
-  ),
-  Argument.withDefault(DEFAULT_NAME),
-);
+/** Every log line also appended to `file`, 0600, emptied first when it is over 10 MB. */
+const logsTo = (file: string) =>
+  Logger.layer(
+    [
+      Effect.sync(() => {
+        if (existsSync(file) && statSync(file).size > MOST_BYTES)
+          truncateSync(file, 0);
+        return Logger.map(Logger.formatLogFmt, (line) =>
+          appendFileSync(file, `${line}\n`, { mode: 0o600 }),
+        );
+      }),
+    ],
+    { mergeWithExisting: true },
+  ) satisfies Layer.Layer<never>;
 
-const port = Flag.Int('port').pipe(
-  Flag.withAlias('p'),
-  Flag.withDescription(
-    'The port the tunnel points at; any free port unless given',
-  ),
-  Flag.withDefault(0),
-);
+/** The Connection cannot go on serving; `message` says why and what to do. */
+class ConnectionStopped extends Data.TaggedError('ConnectionStopped')<{
+  readonly message: string;
+}> {}
 
-const cloud = Flag.String('cloud').pipe(
-  Flag.withDescription(
-    `Cloud Connect; KE_CONNECT_CLOUD, else ${DEFAULT_CLOUD}`,
-  ),
-  Flag.withFallbackConfig(Config.String('KE_CONNECT_CLOUD')),
-  Flag.withDefault(DEFAULT_CLOUD),
-);
+/** How long `remove` waits for a running Connection to stop. */
+const STOPPING = '30 seconds';
 
-const origin = Flag.String('origin').pipe(
-  Flag.withDescription(
-    'Another origin a browser page may call from, such as https://*.example.ts.net:*; repeatable',
-  ),
-  Flag.atLeast(0),
-);
-
-const heartbeat = Flag.Int('heartbeat').pipe(
-  Flag.withDescription(
-    `Seconds between Heartbeats; ${DEFAULT_HEARTBEAT} unless given`,
-  ),
-  Flag.withDefault(DEFAULT_HEARTBEAT),
-);
-
-/** What went wrong, down every cause, such as a port already in use under a failed serve. */
-const reasonOf = (error: unknown): string => {
-  if (!(error instanceof Error)) return String(error);
-  const cause = error.cause === undefined ? '' : reasonOf(error.cause);
-  return [error.message, cause].filter((part) => part !== '').join(': ');
-};
-
-/** Ends the program with `error`'s message alone, and a failing exit code. */
-const exitWith = (error: unknown) =>
-  Effect.sync(() => {
-    process.stderr.write(`${reasonOf(error)}\n`);
-    process.exitCode = 1;
-  });
-
-/** `ke-connect` and its commands, each doing what `commands` says. */
-const root = (commands: Commands) =>
-  Command.make('ke-connect').pipe(
-    Command.withDescription(
-      'Connects this computer to the cloud as Connections its User reaches from anywhere',
+/** What the running Connection of `own` says of itself; None when none runs. */
+const runningOf = (
+  own: ConnectionFolders,
+): Effect.Effect<Option.Option<Pick<RunningConnection, 'url'>>, unknown> =>
+  reach(own.control, ConnectionControl).pipe(
+    Effect.flatMap((client) => client.status()),
+    Effect.map((running) =>
+      Option.some<Pick<RunningConnection, 'url'>>(running),
     ),
-    Command.withSubcommands([
-      Command.make(
-        'serve',
-        { name, port, cloud, origin, heartbeat },
-        ({ origin, ...flags }) =>
-          commands
-            .serve({ ...flags, origins: origin })
-            .pipe(Effect.catch(exitWith)),
-      ).pipe(
-        Command.withDescription(
-          'Run a Connection: signed in, tunnelled, running its Plugins and reporting its Heartbeat',
-        ),
-      ),
-      Command.make('list', {}, () =>
-        commands.list().pipe(Effect.catch(exitWith)),
-      ).pipe(
-        Command.withDescription(
-          'Every Connection on this computer: whether it runs, its address and its last start',
-        ),
-      ),
-      Command.make('remove', { name: Argument.String('name') }, ({ name }) =>
-        commands.remove(name).pipe(Effect.catch(exitWith)),
-      ).pipe(
-        Command.withDescription(
-          'Stop a Connection, forget it in Cloud Connect, sign it out and delete its files',
-        ),
-      ),
-    ]),
+    // It holds the socket, but cannot say more.
+    Effect.catchTag('RpcClientError', () => Effect.succeedSome({ url: null })),
+    Effect.catchTag('NotRunning', () => Effect.succeedNone),
+    Effect.scoped,
   );
 
-/** Runs `ke-connect` on this process's arguments until it ends; with none, its wizard. */
-export const run = (commands: Commands, version: string) => {
-  const args = process.argv.slice(2);
-  return Command.runWith(root(commands), { version })(
-    args.length === 0 ? ['--wizard'] : args,
-  ).pipe(Effect.provide(NodeServices.layer), NodeRuntime.runMain);
-};
+/**
+ * Runs the Connection `name` until it is stopped, or must stop: signed in,
+ * tunnelled, running its Plugins and reporting its Heartbeat. One already
+ * running is reported instead. It logs to the console and to its state
+ * folder.
+ */
+const serve = (options: ServeFlags) =>
+  Effect.gen(function* () {
+    const own = yield* connectionFolders(options.name);
+    const held = yield* hold(own.control, options.name).pipe(
+      Effect.mapError(
+        (error) =>
+          new ConnectionStopped({
+            message: `Could not hold the control socket: ${error.message}`,
+          }),
+      ),
+    );
+    if (held._tag === 'AlreadyRunning') {
+      const url = yield* held.client.status().pipe(
+        Effect.map((running) => running.url),
+        // It holds the socket, but cannot say more.
+        Effect.catchTag('RpcClientError', () => Effect.succeed(null)),
+      );
+      return yield* Console.log(
+        `${options.name} is already running at ${url ?? 'no address yet'}`,
+      );
+    }
+    yield* createFolders({
+      data: own.data,
+      state: own.state,
+      cache: own.cache,
+      shared: own.shared,
+      runtime: own.runtime,
+    });
+    const serving = Effect.gen(function* () {
+      yield* Effect.log(`ke-connect ${version}: ${options.name}`);
+      yield* Effect.log(`data in ${own.data}`);
+      const signedIn = yield* account({
+        cloud: options.cloud,
+        db: own.db,
+        connectionFile: own.connectionFile,
+        version,
+        name: options.name,
+        firstName:
+          options.name === 'main'
+            ? hostName()
+            : `${hostName()} (${options.name})`,
+        startedAt: Date.now(),
+        heartbeat: options.heartbeat,
+      });
+      const ended = yield* run({
+        input: {
+          name: own.name,
+          folders: {
+            data: own.data,
+            state: own.state,
+            cache: own.cache,
+            shared: own.shared,
+            runtime: own.runtime,
+          },
+          socketId: own.socketId,
+          control: own.control,
+          port: options.port,
+          origins: [...DEFAULT_ORIGINS, ...options.origins],
+        },
+        account: signedIn,
+        control: held.control,
+      });
+      if (ended._tag === 'Forgotten') {
+        yield* signedIn.signOut;
+        return yield* new ConnectionStopped({
+          message: `${options.name} was forgotten from the app, so it signed out and stopped. Run \`ke-connect remove ${options.name}\` to delete it here too, then serve again as a new Connection.`,
+        });
+      }
+      if (ended.reason !== null)
+        return yield* new ConnectionStopped({ message: ended.reason });
+      yield* Effect.log(`${options.name} stopped`);
+    });
+    // A `stop` asked before the tree runs ends the program; once it runs,
+    // Identity answers `stop` itself.
+    yield* Effect.raceFirst(
+      serving,
+      held.stopping.pipe(Effect.andThen(Effect.log(`${options.name} stopped`))),
+    ).pipe(Effect.provide(logsTo(own.log)));
+  }).pipe(Effect.scoped);
+
+/** Prints every Connection on this computer: its name, whether it runs, its address and when it last started. */
+const list = () =>
+  Effect.gen(function* () {
+    const names = yield* connectionNames();
+    if (names.length === 0)
+      return yield* Console.log(
+        'No Connections yet; `ke-connect serve` makes one.',
+      );
+    for (const name of names) {
+      const own = yield* connectionFolders(name);
+      const running = yield* runningOf(own);
+      const record = yield* kept(own.connectionFile).pipe(
+        Effect.orElseSucceed(() => null),
+      );
+      yield* Console.log(
+        [
+          name,
+          Option.isSome(running) ? 'running' : 'stopped',
+          Option.flatMap(running, ({ url }) => Option.fromNullishOr(url)).pipe(
+            Option.getOrElse(() => '-'),
+          ),
+          record === null ? '-' : new Date(record.startedAt).toISOString(),
+        ].join('\t'),
+      );
+    }
+  });
+
+/**
+ * Stops the Connection `name` if it runs, forgets it in Connect Cloud,
+ * signs it out and deletes its folders. A Connect Cloud that cannot be
+ * told is only warned of.
+ */
+const remove = (name: string) =>
+  Effect.gen(function* () {
+    const own = yield* connectionFolders(name);
+    if (!existsSync(own.data) && !existsSync(own.state))
+      return yield* Effect.fail(new Error(`There is no Connection ${name}`));
+    if (Option.isSome(yield* runningOf(own))) {
+      yield* Console.log(`Stopping ${name}`);
+      yield* reach(own.control, ConnectionControl).pipe(
+        Effect.flatMap((client) => client.stop()),
+        Effect.ignore,
+        Effect.scoped,
+      );
+      yield* runningOf(own).pipe(
+        Effect.repeat({
+          while: (running) => Option.isSome(running),
+          schedule: Schedule.spaced('100 millis'),
+        }),
+        Effect.timeoutOrElse({
+          duration: STOPPING,
+          orElse: () =>
+            Effect.fail(new Error(`${name} did not stop in ${STOPPING}`)),
+        }),
+      );
+    }
+    const record = yield* kept(own.connectionFile).pipe(
+      Effect.orElseSucceed(() => null),
+    );
+    if (record !== null)
+      yield* forget({
+        cloud: record.cloud,
+        db: own.db,
+        connectionFile: own.connectionFile,
+        version,
+      }).pipe(
+        Effect.catch((error) =>
+          Effect.logWarning(
+            `Could not sign ${name} out of ${record.cloud}; Forget it from the app`,
+            error,
+          ),
+        ),
+      );
+    yield* deleteFolders(own);
+    yield* Console.log(`Removed ${name}`);
+  });
+
+/** Runs `ke-connect` on this process's arguments, until it ends. */
+export const main = () => runCommands({ serve, list, remove }, version);

@@ -2,24 +2,22 @@
 import type { Connection as ConnectionSchema } from '@kestack/connect/cloud';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ConnectionNotice, noticePillOf, retryIn } from '../notice.tsx';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { ConnectionNotice, noticePillOf } from '../notice.tsx';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 /*
  * What the app says of a Connection's code Plugin and its `ke-connect`:
- * Updating with how far, the Plugin stopped with its last lines to read and
- * copy, and how to update an older `ke-connect`; nothing while all is well.
+ * Updating, Code moving to its newest build, and how to update an older
+ * `ke-connect`; nothing while all is well.
  */
 
 type Connection = typeof ConnectionSchema.Type;
 
 const NOW = 1_000_000;
-const HASH = 'a'.repeat(64);
 
 const connection = (
-  plugins: Connection['plugins'],
   version = '0.0.5',
   minConnect: string | null = '0.0.5',
 ): Connection => ({
@@ -27,83 +25,43 @@ const connection = (
   name: 'Laptop',
   key: 'k',
   version,
-  status: { _tag: 'Reachable', url: 'https://a.example', at: NOW },
+  status: {
+    _tag: 'Ready',
+    url: 'https://a.example',
+    check: { _tag: 'Reachable', at: NOW },
+  },
   lastSeen: NOW,
-  plugins,
   wanted: {},
   minConnect,
   displayName: null,
 });
 
-const updating = connection({
-  code: {
-    _tag: 'Downloading',
-    hash: HASH,
-    received: 1_500_000,
-    total: 3_000_000,
-  },
-});
-const crashed = connection({
-  code: {
-    _tag: 'Crashed',
-    hash: HASH,
-    log: ['Error: boom', '    at main (code.mjs:1:1)'],
-    retryAt: NOW + 12_000,
-  },
-});
-const older = connection({ code: { _tag: 'Running', hash: HASH } }, '0.0.4');
+const older = connection('0.0.4');
 
 describe('the notice pill', () => {
-  it('says Connect is Updating, with how far it downloaded', () => {
-    expect(noticePillOf(updating, NOW)?.[0]).toBe('Updating Connect… 50%');
-    expect(
-      noticePillOf(
-        connection({ code: { _tag: 'Starting', hash: HASH } }),
-        NOW,
-      )?.[0],
-    ).toBe('Updating Connect…');
-  });
-
-  it('says the code Plugin stopped, and when it is tried again', () => {
-    const [label, title, tone] = noticePillOf(crashed, NOW)!;
-    expect(label).toBe('The code Plugin stopped');
-    expect(title).toContain('trying again in 12 s');
-    expect(tone).toBe('bg-destructive');
-    expect(retryIn(NOW - 1, NOW)).toBe('now');
-  });
-
   it('asks to update an Outdated ke-connect, with the command', () => {
-    const [label, title] = noticePillOf(older, NOW)!;
+    const [label, title] = noticePillOf(older)!;
     expect(label).toBe('Update ke-connect');
     expect(title).toBe(
-      'ke-connect 0.0.4 is older than Cloud Connect accepts; run `npm i -g @kestack/connect@latest` on it, then start it again.',
+      'ke-connect 0.0.4 is older than Connect Cloud accepts; run `npm i -g @kestack/connect@latest` on it, then start it again.',
     );
     // At the Minimum Connect, or with none named, it is not Outdated.
-    expect(
-      noticePillOf(
-        connection({ code: { _tag: 'Running', hash: HASH } }, '0.0.4', null),
-        NOW,
-      ),
-    ).toBeNull();
+    expect(noticePillOf(connection('0.0.4', null))).toBeNull();
   });
 
   it('says the Connection is Updating while its socket says it runs an older Release', () => {
-    const running = connection({ code: { _tag: 'Running', hash: HASH } });
-    expect(noticePillOf(running, NOW, 'Updating')?.[0]).toBe(
+    expect(noticePillOf(connection(), 'Updating')?.[0]).toBe(
       'Updating Connect…',
     );
   });
 
   it('says Code is updating when it is the older side', () => {
-    const running = connection({ code: { _tag: 'Running', hash: HASH } });
-    expect(noticePillOf(running, NOW, 'Stale')?.[0]).toBe('Updating Code…');
+    expect(noticePillOf(connection(), 'Stale')?.[0]).toBe('Updating Code…');
   });
 
-  it('says nothing while the Plugin runs on the latest ke-connect', () => {
-    expect(
-      noticePillOf(connection({ code: { _tag: 'Running', hash: HASH } }), NOW),
-    ).toBeNull();
-    expect(noticePillOf(null, NOW)).toBeNull();
+  it('says nothing while all is well', () => {
+    expect(noticePillOf(connection())).toBeNull();
+    expect(noticePillOf(null)).toBeNull();
   });
 });
 
@@ -122,41 +80,20 @@ describe('the notice in Settings', () => {
     host.remove();
   });
 
-  const render = (shown: Connection) =>
-    act(() => root.render(<ConnectionNotice connection={shown} now={NOW} />));
+  const render = (shown: Connection, behind: 'Updating' | null = null) =>
+    act(() =>
+      root.render(<ConnectionNotice connection={shown} behind={behind} />),
+    );
 
-  it('shows the update’s progress', () => {
-    render(updating);
-    expect(host.textContent).toContain('Updating Connect: 1.5 MB of 3.0 MB');
-    expect(host.querySelector('[role="progressbar"]')).not.toBeNull();
-  });
-
-  it('shows the Plugin stopped, its last lines behind a fold, and copies them', async () => {
-    const writeText = vi.fn(() => Promise.resolve());
-    Object.assign(navigator, { clipboard: { writeText } });
-    render(crashed);
-    expect(host.querySelector('[role="alert"]')?.textContent).toContain(
-      'The code Plugin stopped; trying again in 12 s.',
-    );
-    expect(host.querySelector('summary')?.textContent).toBe('Its last 2 lines');
-    expect(host.querySelector('pre')?.textContent).toBe(
-      'Error: boom\n    at main (code.mjs:1:1)',
-    );
-    await act(async () => {
-      host
-        .querySelector<HTMLButtonElement>('[aria-label="Copy its last lines"]')!
-        .click();
-    });
-    expect(writeText).toHaveBeenCalledWith(
-      'Error: boom\n    at main (code.mjs:1:1)',
-    );
-    expect(host.textContent).toContain('Copied');
+  it('says the Connection is Updating', () => {
+    render(connection(), 'Updating');
+    expect(host.textContent).toContain('Updating Connect');
   });
 
   it('shows how to update an Outdated ke-connect', () => {
     render(older);
     expect(host.textContent).toContain(
-      'ke-connect 0.0.4 is older than Cloud Connect accepts; run this on it',
+      'ke-connect 0.0.4 is older than Connect Cloud accepts; run this on it',
     );
     expect(host.querySelector('code')?.textContent).toBe(
       'npm i -g @kestack/connect@latest',
@@ -164,7 +101,7 @@ describe('the notice in Settings', () => {
   });
 
   it('shows nothing while all is well', () => {
-    render(connection({ code: { _tag: 'Running', hash: HASH } }));
+    render(connection());
     expect(host.innerHTML).toBe('');
   });
 });

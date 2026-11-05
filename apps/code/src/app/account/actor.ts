@@ -1,10 +1,6 @@
 import { Effect, Layer, Queue, Schema, Stream } from 'effect';
 import { Accounts, type AccountsState } from '@kestack/auth-toolkit/client';
-import {
-  CloudClient,
-  Connection,
-  PluginMismatch,
-} from '@kestack/connect/cloud';
+import { CloudClient, Connection } from '@kestack/connect/cloud';
 import { Actor, Command } from '@kestack/kabuki';
 import { Page, Router } from '@kestack/kabuki/routing';
 import { OnOutdated } from '@kestack/std-toolkit/replica';
@@ -18,7 +14,6 @@ import {
   Storage,
 } from '../storage/index.ts';
 import {
-  behindAll,
   Connection as ConnectionActor,
   moves,
   reach,
@@ -70,9 +65,9 @@ import { Settings } from './pages/settings/index.ts';
  *             guess, it corrects (`../actor.ts`).
  * 2. Kept     while `Active`: the Connection List kept for the Account
  *             shows first, so the app opens on its Connections even while
- *             Cloud Connect is out of reach; once read, kept or not, it
+ *             Connect Cloud is out of reach; once read, kept or not, it
  *             says so.
- * 3. Fetch    then Cloud Connect's list, once, and again on Reload; each
+ * 3. Fetch    then Connect Cloud's list, once, and again on Reload; each
  *             answer is kept for next time. The first answer prunes: every
  *             database of a Connection of the Account not on it goes, all
  *             under it with it, its Saved Drafts too, and never the
@@ -81,27 +76,28 @@ import { Settings } from './pages/settings/index.ts';
  *             tab's never deletes a Connection that tab has just listed and
  *             reads, and a list that failed deletes nothing either.
  * 4. Links    one Connection each (`connection/`), which opens its own
- *             database, sync Store and socket, and says its link: one the
- *             Connection closed with `PLUGIN_MISMATCH`, as it runs another
- *             Release of the code Plugin than this Code calls, is kept as
- *             Mismatched until one is answered; who is behind is what
- *             Cloud Connect wants it to run (`link/reach/`): the
- *             Connection, Updating, while its Link keeps relinking; or
- *             this Code, Stale, which moves to its newest build.
- * 5. Recheck  while a listed Connection's link is not up, Cloud Connect is
+ *             database, sync Store and socket, and says its link, and, once it
+ *             closed one with `PLUGIN_MISMATCH`, what Connect Cloud said of
+ *             this Code's Release of the code Plugin (`link/reach/`). This Code
+ *             found Stale on any of them moves to its newest build, once.
+ * 5. Recheck  while a listed Connection's link is not up, Connect Cloud is
  *             asked again: every few seconds for the first minute, then
  *             every half a minute, until every link is up; a link that
- *             drops starts it again. What the kept list says of each
- *             Connection's Last Seen is believed only once checked: Cloud
- *             Connect has answered, or `CHECK_FOR` passed without; until
+ *             drops starts it again. A Connection whose Connection Key
+ *             rotated closes a socket offering the old one with `KEY_EXPIRED`:
+ *             that alone asks at once, unless an ask is already out, and the
+ *             socket's next connect offers the key as listed by then. What
+ *             the kept list says of each
+ *             Connection's Last Seen is believed only once checked: Connect
+ *             Cloud has answered, or `CHECK_FOR` passed without; until
  *             then a Connection on its way is only linking. The page back
  *             after `AWAY` or more hidden, the list is checked again, and
  *             asked at once.
- * 6. Forget   a Connection, asked from Settings: Cloud Connect forgets it,
+ * 6. Forget   a Connection, asked from Settings: Connect Cloud forgets it,
  *             it leaves the list, so its Connection stops, and an answer
  *             asked before never brings it back; then its database goes,
  *             and no other's.
- * 7. Rename   a Connection renamed from Settings, once Cloud Connect has
+ * 7. Rename   a Connection renamed from Settings, once Connect Cloud has
  *             it: its Display Name changes in the list at once, and is kept.
  * 8. Share    `Connections`, in every State, so the pages, which Kabuki
  *             keeps whatever the State, find it: nobody's until `Active`,
@@ -116,7 +112,7 @@ import { Settings } from './pages/settings/index.ts';
  *             sessions (`pages/`), drawn inside the frame while `Active`.
  */
 
-/** How long a kept list's Last Seen waits for Cloud Connect's before it is believed anyway. */
+/** How long a kept list's Last Seen waits for Connect Cloud's before it is believed anyway. */
 export const CHECK_FOR = 10_000;
 
 /** How long the page may be hidden before what the list says is checked again. */
@@ -147,7 +143,7 @@ const back: Stream.Stream<void> =
         ),
       );
 
-/** How long to wait before asking Cloud Connect again, while a link is not up. */
+/** How long to wait before asking Connect Cloud again, while a link is not up. */
 export const RECHECK = { fast: 3_000, slow: 30_000, fastFor: 20 } as const;
 
 const Link = Schema.Literals(['linking', 'linked', 'relinking']);
@@ -261,10 +257,10 @@ const Model = Schema.Struct({
   signingIn: Schema.Boolean,
   /** The frame's keyboard, from Preferences; null until read. */
   keyboard: Schema.NullOr(Frame.Keys),
-  /** The list: kept on this device, or as Cloud Connect said it. */
+  /** The list: kept on this device, or as Connect Cloud said it. */
   list: Copy(Schema.Array(Connection.schema)),
   fetchedAt: Schema.NullOr(Schema.Number),
-  /** Whether the list's Last Seen is believed: Cloud Connect answered, or `CHECK_FOR` passed. */
+  /** Whether the list's Last Seen is believed: Connect Cloud answered, or `CHECK_FOR` passed. */
   checked: Schema.Boolean,
   forgetting: Schema.NullOr(
     Schema.Struct({
@@ -274,9 +270,7 @@ const Model = Schema.Struct({
   ),
   /** Each listed Connection's link, by id. */
   links: Schema.Record(Schema.String, Link),
-  /** Each listed Connection that closed its socket running another Release of the code Plugin, by id, until a socket to it is answered. */
-  mismatched: Schema.Record(Schema.String, PluginMismatch.schema),
-  /** How many times Cloud Connect was asked again since every link was last up. */
+  /** How many times Connect Cloud was asked again since every link was last up. */
   rechecks: Schema.Finite,
   /** What each Connection said of itself, by id. */
   said: Schema.Record(Schema.String, Said),
@@ -290,7 +284,6 @@ const fresh = {
   checked: false,
   forgetting: null,
   links: {},
-  mismatched: {},
   rechecks: 0,
   said: {},
 } satisfies Partial<Model>;
@@ -341,20 +334,16 @@ export const Account = Page.define({
 
 const idsOf = (model: Model) => (model.list.value ?? []).map(({ id }) => id);
 
-/** Whether Cloud Connect is being asked. */
+/** Whether Connect Cloud is being asked. */
 export const fetching = (model: Model) => copying.asking(model.list).length > 0;
 
-/** Whether a listed Connection's link is not up, so Cloud Connect is asked again. */
+/** Whether a listed Connection's link is not up, so Connect Cloud is asked again. */
 export const anyDown = (model: Model) =>
   idsOf(model).some((id) => model.links[id] !== 'linked');
 
-/** Whether `after` finds this Code Stale on a Connection `before` did not: it moves to its newest build. */
-const newlyStale = (before: Model, after: Model) => {
-  const was = behindAll(before.list.value, before.mismatched);
-  return Object.entries(behindAll(after.list.value, after.mismatched)).some(
-    ([id, behind]) => behind === 'Stale' && was[id] !== 'Stale',
-  );
-};
+/** Whether a Connection's answer found this Code Stale: it moves to its newest build. */
+const stale = ({ said }: Model) =>
+  Object.values(said).some(({ standing }) => standing?._tag === 'Older');
 
 const delayOf = (rechecks: number) =>
   rechecks < RECHECK.fastFor ? RECHECK.fast : RECHECK.slow;
@@ -521,7 +510,7 @@ export const accountWith = (to: typeof reach) =>
             run: (self) =>
               Stream.runForEach(back, () => self.send({ _tag: 'Back' })),
           },
-          // 5. Recheck: the kept list believed anyway, once Cloud Connect
+          // 5. Recheck: the kept list believed anyway, once Connect Cloud
           // has been waited on for long enough.
           check: {
             while: ({ model }) => !model.checked,
@@ -632,9 +621,6 @@ export const accountWith = (to: typeof reach) =>
           model: next,
           command: [
             keepList({ accountId, connections }),
-            // 4. Links: Cloud Connect now wants another Release than this
-            // Code calls, of a Connection that refused it.
-            ...(newlyStale(model, next) ? [toNewest({})] : []),
             ...(model.fetchedAt === null
               ? [
                   pruneUnlisted({
@@ -669,24 +655,27 @@ export const accountWith = (to: typeof reach) =>
           rechecks: model.rechecks + 1,
         },
       }),
-      // 4. Links: what a Connection says, its link and its mismatch with it,
-      // kept until a socket is answered; this Code found Stale moves to its
-      // newest build.
+      // 4. Links: what a Connection says, its link with it; this Code found
+      // Stale moves to its newest build.
       Said: ({ connectionId, said }, { model }) => {
-        const { [connectionId]: _was, ...rest } = model.mismatched;
         const next = {
           ...model,
           said: { ...model.said, [connectionId]: said },
           links: { ...model.links, [connectionId]: said.link },
-          mismatched:
-            said.mismatch === null
-              ? rest
-              : { ...rest, [connectionId]: said.mismatch },
         };
         const up = anyDown(next) ? next : { ...next, rechecks: 0 };
+        // 5. Recheck: a Connection whose key just expired asks at once. An
+        // ask already out may answer with the old key, and the socket closing
+        // again says nothing new, so the rechecks go back to their fast pace.
+        const expired =
+          said.expired && model.said[connectionId]?.expired !== true;
+        const rechecked = expired ? { ...up, rechecks: 0 } : up;
         return {
-          model: up,
-          ...(newlyStale(model, up) ? { command: toNewest({}) } : {}),
+          model:
+            expired && !fetching(rechecked)
+              ? { ...rechecked, list: copying.ask(rechecked.list) }
+              : rechecked,
+          ...(stale(next) && !stale(model) ? { command: toNewest({}) } : {}),
         };
       },
       // 6. Forget

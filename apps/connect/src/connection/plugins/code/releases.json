@@ -1,0 +1,73 @@
+{
+  "plugin": "code",
+  "releases": [
+    {
+      "hash": "c0faf06a7a19985aa3108dd91796a1e121d9ecb84c9286bc28c311a2ecb6ebc3",
+      "summary": "The code Plugin's first Release: served at /code/<sha256>/rpc, its records at their first version"
+    },
+    {
+      "hash": "caa115b47faef44022c9b2c860bd12accdb587eed805cc7c80e21c86edb38e7a",
+      "summary": "Worktrees: a Session runs in a Worktree on a branch; branches lists them; startSession streams its Starting steps and leaves nothing when it fails; Session records at v2"
+    },
+    {
+      "hash": "f0a90217324188027bf5a716be58d3271e529d2517888fb099af4bc60b9c8918",
+      "summary": "Images a tool gives back come through whole"
+    },
+    {
+      "hash": "0b6dc4d651d86726e338374e20bbfb12ee74d5a29da7859f70147fd1bbe6fd3c",
+      "summary": "Kabuki's new namespaces: no change in what it does"
+    },
+    {
+      "hash": "c48848d5d7b5e399568107e2b647ae9f9a942a29b395712fc185521214782858",
+      "summary": "Kabuki's explicit doors: no change in what it does"
+    },
+    {
+      "hash": "81d08891da0af67acaff1192a47660dd61161f076bbb982121abea7bce54839b",
+      "summary": "Kabuki's trimmed doors: no change in what it does"
+    },
+    {
+      "hash": "5dbcb944c7fef888a33998ea1f409fc60ca8a3a637eac0eed3f44fa699181c9e",
+      "summary": "The code Plugin on Kabuki's Emits, Children made with child, and partial Models; its build changed only by the move to them."
+    },
+    {
+      "hash": "79d2d3a826224dd493e6d0b1acd0dcc672d2a1cee999e91ab2b9de192556a7bb",
+      "summary": "The code Plugin on Kabuki's definitions that build, Children made with Actor.child, and declared Queries; the Session's Queries now declare their args and answers."
+    },
+    {
+      "hash": "8f3499a2c438f19535f3a7750d8f4e56848d8eee2ce6a1c78b7fd85428cc0b48",
+      "summary": "Background work is kept as it comes, a cancel stops every job, and a restart tells the agent what it cut off"
+    },
+    {
+      "hash": "0dd4387b2aee3175d11196a2c4c7da04d80ffd662e0cf2cb6df795f8cefe4c1f",
+      "summary": "A tool result says when its call went on in the background, so an async subagent reads as running"
+    },
+    {
+      "hash": "a8b9adece4a2c69ff05ee1acaee51e7487a0e5e5bedb8206e1fd4960bf4449bd",
+      "summary": "Codex usage counts its input as Claude Code's does, apart from what the cache read and wrote"
+    },
+    {
+      "hash": "9d2a88f6fc7b9937a949bf01bf75db106093e73e50dc9a3ea4aad4333baa2d8c",
+      "summary": "A Background Job's output can be followed live (backgroundJobOutput); a subagent job says its tokens so far, which a Session's record does not keep"
+    },
+    {
+      "hash": "5c7d611797a27e7bd1b8ca201c4aff316f3ff9cd9c8afcfb351d6216f498fd3d",
+      "summary": "A Project inside a git repository, as a package of a monorepo, is a git Project: it lists the branches, and its Sessions run in the same folder of each Worktree"
+    },
+    {
+      "hash": "05bf55ec7b4be7fd93fed9291d04cfe3d9c799efd078218700e0e305dcc34e06",
+      "summary": "A Session Resumed on start is active from after its cut-off Turn ended"
+    },
+    {
+      "hash": "3acbe43b590cce9cd996f9db01e5906ae6fcbe48444304c65b10c925bd3fb1fd",
+      "summary": "A Take is heard as its audio comes in, and survives a reconnect: watchTake, addTakeAudio and endTake, with TakeHeard Downloading, Heard or Done; a Take watched is never dropped, and one dropped or broken fails its watchers"
+    },
+    {
+      "hash": "b9bcb15fecc73414301f307e156a1dc3d75ec498f5fa66ef8ee389e373b98c32",
+      "summary": "A new folder is only a folder: createFolder starts no git repository, and CreatedFolder has no gitInitError"
+    },
+    {
+      "hash": "72259750d458e7f7ef7f32ba4281452b46d23280ddd7f07753c54ef37801622b",
+      "summary": "The code Plugin as Connect is one simple tree: built from its new folders, its Connection Key checked by the server"
+    }
+  ]
+}

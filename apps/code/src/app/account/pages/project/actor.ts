@@ -54,7 +54,7 @@ import { Actor } from '@kestack/kabuki';
  */
 
 const Model = Schema.Struct({
-  /** Whether Cloud Connect has answered and no longer lists the Connection. */
+  /** Whether Connect Cloud has answered and no longer lists the Connection. */
   gone: Schema.Boolean,
   /** Whether the Connection is off the list as read here, kept or answered: nothing of it is read here. */
   unlisted: Schema.Boolean,

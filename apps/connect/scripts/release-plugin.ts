@@ -7,7 +7,7 @@ import {
   logFile,
   readLog,
   writeLog,
-} from '../infra/plugins/release-log/index.ts';
+} from '../infra/releases/release-log/index.ts';
 
 /*
  * `pnpm release:plugin <name> "<summary>"`: builds the Plugins, then

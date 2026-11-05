@@ -29,7 +29,7 @@ The one screen to sign in from, drawn by Code itself: "Continue with Google" lea
 _Avoid_: login page, switch screen
 
 **Connection List**:
-The signed-in Account's Connections as this device last had them, kept per Account so the app opens with all of them even while Cloud Connect is out of reach, then asked again once, on Reload, and on each Recheck. The app holds a Link to every Connection in it at once, and the Setup of each, and shows their Projects and Sessions together. A Connection that stops answering keeps what was last synced, marked by its Last Seen; a Last Seen only as this device kept it is believed once Cloud Connect answers, or after a while without, and until then the Connection is only Linking.
+The signed-in Account's Connections as this device last had them, kept per Account so the app opens with all of them even while Connect Cloud is out of reach, then asked again once, on Reload, and on each Recheck. The app holds a Link to every Connection in it at once, and the Setup of each, and shows their Projects and Sessions together. A Connection that stops answering keeps what was last synced, marked by its Last Seen; a Last Seen only as this device kept it is believed once Connect Cloud answers, or after a while without, and until then the Connection is only Linking.
 _Avoid_: machine registry, device list, machine switcher
 
 **Setup**:
@@ -37,7 +37,7 @@ What the app keeps of how one Connection in the Connection List is set up: its H
 _Avoid_: machine kit, kit, machine cache, machine settings (as a store), catalog (for the per-Connection part)
 
 **Storage**:
-What this device keeps, in databases named by their place: the device's own, `code:device`; each Account's, `code:account:<accountId>`; and each of its Connections', under the Account's. The database says whose it is, the table what it is, and it is one of three kinds: Local, Cache or Sync. Whoever checks a level deletes the children it no longer lists, never itself, and only on a real answer: once the Auth Worker answers, every Account not signed in on this device goes, with all under it; once Cloud Connect first answers, every Connection of the Account it does not list goes, with all under it; a check that fails deletes nothing, and a later answer neither, since another tab may already list a Connection this one has not heard of. A Project removed and a Connection forgotten go at once, as the user asked. The app reaches all of it through one Storage, but for the Preferences, which are their own.
+What this device keeps, in databases named by their place: the device's own, `code:device`; each Account's, `code:account:<accountId>`; and each of its Connections', under the Account's. The database says whose it is, the table what it is, and it is one of three kinds: Local, Cache or Sync. Whoever checks a level deletes the children it no longer lists, never itself, and only on a real answer: once the Auth Worker answers, every Account not signed in on this device goes, with all under it; once Connect Cloud first answers, every Connection of the Account it does not list goes, with all under it; a check that fails deletes nothing, and a later answer neither, since another tab may already list a Connection this one has not heard of. A Project removed and a Connection forgotten go at once, as the user asked. The app reaches all of it through one Storage, but for the Preferences, which are their own.
 _Avoid_: persistence, IndexedDB (for the idea), local storage
 
 **Local**:
@@ -45,7 +45,7 @@ Storage only this device knows, and the truth: the Preferences, the Accounts sig
 _Avoid_: device state, saved
 
 **Cache**:
-Storage of what Cloud Connect or a Connection last said, such as a Connection List, a Setup or a Project's Skills: shown at once, then asked again behind, the answer to the latest ask replacing it and kept in its place. Never the truth, and never synced. It goes with Whose it is.
+Storage of what Connect Cloud or a Connection last said, such as a Connection List, a Setup or a Project's Skills: shown at once, then asked again behind, the answer to the latest ask replacing it and kept in its place. Never the truth, and never synced. It goes with Whose it is.
 _Avoid_: kept copy, saved copy, snapshot
 
 **Sync**:
@@ -65,11 +65,11 @@ The app's socket to one Connection, as it stands: linking, linked, or relinking.
 _Avoid_: line, socket status
 
 **Mismatched**:
-A Connection that closed its Link's socket at once, as it runs another Release of the code Plugin than this Code calls, until a socket to it is answered. What Cloud Connect wants it to run says who is behind: this Code's Release, or none, and the Connection is Updating, so the Link keeps relinking and the app says "Updating Connect…"; another, and this Code is Stale, so it moves to its newest build and says "Updating Code…".
+A Connection that closed its Link's socket at once, as it runs another Release of the code Plugin than this Code calls, until a socket to it is answered. Each time, its Link waits to relink while Connect Cloud is asked afresh for this Code's Release Standing, which alone says who is behind: Latest, and the Connection is Updating, so the Link relinks at once and the app says "Updating Connect…"; Unknown, and Connect Cloud is behind, so the Link relinks slowly and the app says the same; Older, and this Code is Stale: it moves to its newest build and says "Updating Code…", and its Link waits for good. Connect Cloud out of reach decides nothing, and the Link relinks slowly.
 _Avoid_: version mismatch, incompatible, refused (a refused call is a Message)
 
 **Outdated**:
-A Connection whose `ke-connect` is older than Cloud Connect accepts, the Minimum Connect. Its header and Settings ask to run `npm i -g @kestack/connect@latest` on it; a newer `ke-connect` being out is no reason to.
+A Connection whose `ke-connect` is older than Connect Cloud accepts, the Minimum Connect. Its header and Settings ask to run `npm i -g @kestack/connect@latest` on it; a newer `ke-connect` being out is no reason to.
 _Avoid_: old, behind (that is a Mismatched one)
 
 **Recheck**:

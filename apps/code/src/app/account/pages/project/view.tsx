@@ -41,7 +41,7 @@ const link =
 
 /**
  * The project on its Connection, with the Connection handed to every View under
- * it; a Connection Cloud Connect no longer lists says so in its place.
+ * it; a Connection Connect Cloud no longer lists says so in its place.
  */
 export const ProjectView = View.make(ProjectLive, (self) => (
   <PageConnection value={self.props.params.connectionId}>

@@ -29,7 +29,7 @@ import {
  *             each Connection's Unseen marks and Saved Drafts. The
  *             Preferences are Local too, in the device's own database,
  *             and their own Capability.
- * 2. Cache    copies of what Cloud Connect and each Connection last said
+ * 2. Cache    copies of what Connect Cloud and each Connection last said
  *             (`cache/`): shown first, replaced by the next answer.
  * 3. Sync     each Connection's records, the live copy the backend keeps
  *             up to date: one Replica Store per Connection, each made the
@@ -45,8 +45,8 @@ import {
  * nothing.
  *
  * 4. Prune    the Accounts not signed in here, once the Auth Worker has
- *             answered; an Account's Connections not listed, once Cloud
- *             Connect has first answered. A level pruned is every database
+ *             answered; an Account's Connections not listed, once Connect
+ *             Cloud has first answered. A level pruned is every database
  *             under its prefix whose next segment is not kept, deleted by
  *             its name, so nothing of what is under it is named here.
  * 5. Forget   what the user asked to go, a Project removed or a Connection
@@ -104,7 +104,7 @@ export class Storage extends Context.Service<
     /** Each place's Saved Draft. */
     readonly drafts: Omit<SavedDrafts, 'drop'>;
     // 2. Cache
-    /** Each copy kept of what Cloud Connect or a Connection last said. */
+    /** Each copy kept of what Connect Cloud or a Connection last said. */
     readonly cache: Omit<Cache, 'drop'>;
     // 3. Sync
     /** The Connection's Store: one per Connection, shared by all who ask for it. */
