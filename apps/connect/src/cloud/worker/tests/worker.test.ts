@@ -12,6 +12,7 @@ import {
   isOutdated,
 } from '../../../contract/index.js';
 import { connectionsTable, serveOver } from '../index.js';
+import { standingOf } from '../releases.js';
 
 /*
  * Connect Cloud over an in-memory SQLite database, called through
@@ -68,10 +69,21 @@ const MIN_CONNECT = '0.0.9';
 const PLUGIN_KEY = `releases/code/${'b'.repeat(64)}.mjs`;
 const PLUGIN_FILE = 'export {};\n';
 
-/** R2 as Connect Cloud reads it: one Plugin file. */
+/** A key R2 fails to look up. */
+const FAILING_KEY = `releases/code/${'f'.repeat(64)}.mjs`;
+
+/** Every key R2 was asked whether it holds. */
+const headed: Array<string> = [];
+
+/** R2 as Connect Cloud reads it: one Plugin file, and one key it fails on. */
 const files = {
   get: async (key: string) =>
     key === PLUGIN_KEY ? { body: new Response(PLUGIN_FILE).body } : null,
+  head: async (key: string) => {
+    headed.push(key);
+    if (key === FAILING_KEY) throw new Error('R2 is down');
+    return key === PLUGIN_KEY ? { key } : null;
+  },
 };
 
 const answerAs = (principal: Principal | null) =>
@@ -208,6 +220,39 @@ describe('Connect Cloud', () => {
     );
     expect(listed).toMatchObject([{ id: 'v1', minConnect: null }]);
     expect(listed.map(isOutdated)).toEqual([false]);
+  });
+
+  it('says where a Release stands: the one it names Latest, another it keeps Older, any other Unknown', async () => {
+    const ada = signIn('ada');
+    const standing = (plugin: string, hash: string) =>
+      as(ada, (m) => m.Standing({ plugin, hash })).then(({ _tag }) => _tag);
+    expect(await standing('code', 'a'.repeat(64))).toBe('Latest');
+    expect(await standing('code', 'b'.repeat(64))).toBe('Older');
+    expect(headed).toEqual([PLUGIN_KEY]);
+    expect(await standing('code', 'e'.repeat(64))).toBe('Unknown');
+    expect(await standing('other', 'b'.repeat(64))).toBe('Unknown');
+    expect(await standing('constructor', 'a'.repeat(64))).toBe('Unknown');
+    // R2 failing to answer keeps nothing.
+    expect(await standing('code', 'f'.repeat(64))).toBe('Unknown');
+    // A name or hash no file could have is never looked for.
+    headed.length = 0;
+    expect(await standing('code', 'B'.repeat(64))).toBe('Unknown');
+    expect(await standing('code', '../x')).toBe('Unknown');
+    expect(await standing('Code', 'b'.repeat(64))).toBe('Unknown');
+    expect(headed).toEqual([]);
+    // Only a signed-in caller is answered.
+    expect(
+      await as(null, (m) =>
+        Effect.flip(m.Standing({ plugin: 'code', hash: 'a'.repeat(64) })),
+      ),
+    ).toMatchObject({ _tag: 'Unauthenticated' });
+  });
+
+  it('with no Release Files, knows only the Release it names', async () => {
+    const standing = (hash: string) =>
+      Effect.runPromise(standingOf(WANTED, undefined, 'code', hash));
+    expect(await standing('a'.repeat(64))).toEqual({ _tag: 'Latest' });
+    expect(await standing('b'.repeat(64))).toEqual({ _tag: 'Unknown' });
   });
 
   it('serves a Plugin file by its hash, cached for good, and nothing else', async () => {

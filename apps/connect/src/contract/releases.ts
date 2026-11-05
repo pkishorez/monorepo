@@ -1,5 +1,5 @@
 import { Option, Schema } from 'effect';
-import { ESchema } from '@kestack/std-toolkit/eschema';
+import { ESchema, ValueESchema } from '@kestack/std-toolkit/eschema';
 
 /*
  * How every side names one Release of a Plugin: by the Plugin's name and
@@ -7,9 +7,11 @@ import { ESchema } from '@kestack/std-toolkit/eschema';
  * it was built with, `<tunnel>/<name>/<sha256>/rpc`. When the Connection
  * runs another, its server takes the socket and closes it at once with
  * `PLUGIN_MISMATCH`, the reason saying which hash runs: a browser cannot
- * read the status of a refused WebSocket, only how it closed. The file
- * itself is a Release File, `<name>/<sha256>.mjs`, under whichever root holds
- * it: Connect Cloud's `/releases`, R2's `releases/`, or a folder.
+ * read the status of a refused WebSocket, only how it closed. Which side is
+ * behind then is Connect Cloud's alone to say, as a Release Standing: hashes
+ * have no order, and only it knows every Release. The file itself is a Release
+ * File, `<name>/<sha256>.mjs`, under whichever root holds it: Connect Cloud's
+ * `/releases`, R2's `releases/`, or a folder.
  *
  * Which `ke-connect` may run them is one value for every Plugin, the
  * Minimum Connect. A Connection below it is Outdated: it reports once, so
@@ -98,6 +100,22 @@ export const mismatchOf = (close: {
         Schema.decodeUnknownOption(MismatchJson)(close.reason),
         () => ({ running: null }),
       );
+
+/**
+ * Where one Release of a Plugin stands, as Connect Cloud answers it: the one it
+ * names now (`Latest`), one whose Release File it keeps though it names another
+ * (`Older`), or one it has never heard of (`Unknown`), so newer than what it
+ * runs: its deploy is pending, or failed.
+ */
+export const ReleaseStanding = ValueESchema.make(
+  'ReleaseStanding',
+  Schema.Union([
+    Schema.Struct({ _tag: Schema.Literal('Latest') }),
+    Schema.Struct({ _tag: Schema.Literal('Older') }),
+    Schema.Struct({ _tag: Schema.Literal('Unknown') }),
+  ]),
+).build();
+export type ReleaseStanding = typeof ReleaseStanding.Type;
 
 /** The close code of a socket that offered a key other than the Connection Key. */
 export const KEY_EXPIRED = 4401;
