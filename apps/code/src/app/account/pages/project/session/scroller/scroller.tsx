@@ -32,14 +32,13 @@ export { useScrollKeys } from './keys.ts';
  *            bottom as what it holds grows.
  * 2. Stay    anywhere else, what is on the screen never moves by itself:
  *            the browser keeps it so as anything in the list grows or
- *            shrinks (`overflow-anchor`). At the very top it does not, by
- *            the standard's own rule, so there the view is put back at the
- *            anchor.
+ *            shrinks (`overflow-anchor`); only as more is drawn above is
+ *            the view put back at the anchor.
  * 3. Read    every scroll it did not make itself is the reader's, and
  *            sets the anchor where the view is now: at the bottom, it
  *            follows; scrolled up even a pixel, it stays.
- * 4. More    near the top of what is drawn, more is drawn above, as the
- *            view moves too (`shown.ts`), and rule 2 keeps it where it was.
+ * 4. More    at the very top of what is drawn, with the view still, more
+ *            is drawn above (`shown.ts`), and rule 2 keeps it where it was.
  * 5. Down    `holdOn` goes back to the bottom, as a message is sent: one
  *            glide there, not the reader's scroll unless it goes up, and
  *            once it is quiet, the rest of the way at once if the bottom
@@ -52,10 +51,9 @@ export { useScrollKeys } from './keys.ts';
  * `keepStill` (`../transcript/words/fold.tsx`); this needs nothing else.
  *
  * A phone takes no notice of the view being put back while a finger moves
- * it, or while the glide it set off goes on: then it is not put back, until
- * the glide settles, and at the very top nothing is drawn above until then.
- * Near the top, with more above, it does not bounce, so a glide that reaches
- * it settles at once. The anchor
+ * it, or while the glide it set off goes on: so nothing is drawn above until
+ * the finger lifts and the glide settles. Near the top, with more above, it
+ * does not bounce, so a glide that reaches it settles at once. The anchor
  * is kept with the history entry: Back, Forward and a reload open where
  * the reader was, drawn from there down, and anywhere else at the bottom.
  *
@@ -137,7 +135,7 @@ export function useScroller(key: string, id: string) {
         place();
       }, SETTLE_MS);
     };
-    const place = () => {
+    const place = (drew = false) => {
       // Not while a glide goes on: it would take the view back.
       if (scroll.gliding) return;
       const moved = outer.scrollTop - put;
@@ -153,9 +151,8 @@ export function useScroller(key: string, id: string) {
           set({ ...scroll.anchor, offset: scroll.anchor.offset - moved });
         else read();
       }
-      // Rule 1, rule 6, or rule 2 at the very top; elsewhere the browser's.
-      const putting =
-        placing || scroll.anchor.at === 'bottom' || outer.scrollTop <= 0;
+      // Rule 1, rule 6, or rule 2 as more was drawn; else the browser's.
+      const putting = drew || placing || scroll.anchor.at === 'bottom';
       if (putting && !putBack(outer, scroll.anchor, blockOf) && scroll.drawn) {
         // Its block is gone, as when an answer's words were split again:
         // the view stays where it is, or, never put in place, as when a

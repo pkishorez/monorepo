@@ -1,21 +1,14 @@
-import { startTransition, useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import type { Anchor } from './anchor.ts';
 
 /*
  * Which of a list's blocks are drawn: from where the reader was, or its
- * last few, to its end, and above that only as much as the reader may
- * soon scroll to. It opens on a few, and draws a few more at a time until
- * a view and a half is drawn above the view, before it is first shown;
- * then a few more at a time, without holding up the page, until four
- * views are, and again each time scrolling up leaves less. A block
- * arriving after is drawn, at the end; nothing drawn is taken away. Going
- * to the top draws them all.
- *
- * What is drawn above is drawn as the view moves too: the browser keeps
- * the view where it was (`overflow-anchor`). Only at the very top does it
- * not, by the standard's own rule, so there it waits for the view to be
- * still, and the scroller puts it back once.
+ * last few, to its end, and above that a few views, drawn before it is
+ * first shown. More is drawn above only at the very top, with no finger on
+ * it and no glide going on, so the view is still as it is put back, once;
+ * then a few views more. A block arriving after is drawn, at the end;
+ * nothing drawn is taken away. Going to the top draws them all.
  *
  * A group of blocks laid out once, such as a turn, may be skipped by the
  * browser while far from the view (`content-visibility`), as tall as it
@@ -26,11 +19,8 @@ import type { Anchor } from './anchor.ts';
 /** How many blocks are drawn at a time. */
 const BATCH = 10;
 
-/** How much is drawn above the view before it is shown, in views. */
-const AHEAD = 1.5;
-
-/** How much is kept drawn above the view after, in views: past most flicks. */
-const FAR = 4;
+/** How much is drawn above the view at a time, before it is shown, in views. */
+const AHEAD = 3;
 
 /** How many times more is drawn at once before the page is shown; React allows no more than 50. */
 const MAX_NOW = 20;
@@ -49,11 +39,11 @@ export interface Scroll {
   touching: boolean;
   /** Draws every block now, to go to the top. */
   showAll: () => void;
-  /** Puts the view back at the anchor now, as more is drawn above it. */
-  place: () => void;
+  /** Puts the view back at the anchor now; `drew` more above it, wherever it is. */
+  place: (drew?: boolean) => void;
   /** Keeps what is on the screen still, at the bottom too, as something in it opens or shuts. */
   keepStill: () => void;
-  /** Draws more above, if what is drawn there is less than enough: `before` it is shown, or as a Transition. */
+  /** Draws more above: `before` it is shown, if less than enough is; otherwise only at the very top, still. */
   fill: (before: boolean) => void;
   /** A group's element, to be skipped far from the view once laid out. */
   readonly group: (element: HTMLElement | null) => (() => void) | undefined;
@@ -132,25 +122,25 @@ export function useShown(
       const outer = scroll.scroller;
       const element = list.current;
       if (from === 0 || !order || !outer || !element) return;
-      // At the very top the browser keeps nothing in place: not until still.
-      if (outer.scrollTop <= 0 && (scroll.gliding || scroll.touching)) return;
       const view = outer.getBoundingClientRect();
       // Not laid out, as while hidden: nothing to measure enough by.
       if (view.height === 0) return;
-      const top = element.getBoundingClientRect().top;
-      if (top < view.top - view.height * FAR) return;
       const next = order[Math.max(0, from - BATCH)] ?? null;
+      const top = element.getBoundingClientRect().top;
       // Each, while less than must be is drawn before it is shown, draws
-      // again at once; past a few, as when blocks add next to nothing, and
-      // beyond that, the rest wait their turn.
-      if (before && top >= view.top - view.height * AHEAD && now < MAX_NOW) {
+      // again at once; past a few, as when blocks add next to nothing, the
+      // rest wait for the reader to reach the top.
+      if (before) {
+        if (top < view.top - view.height * AHEAD || now >= MAX_NOW) return;
         now++;
         shown ||= requestAnimationFrame(() => {
           now = 0;
           shown = 0;
         });
         setFirst(next);
-      } else startTransition(() => setFirst(next));
+      } else if (outer.scrollTop <= 0 && !scroll.gliding && !scroll.touching) {
+        setFirst(next);
+      }
     };
     return () => {
       cancelAnimationFrame(shown);
@@ -162,7 +152,7 @@ export function useShown(
   // not enough, more again, before it is shown.
   useLayoutEffect(() => {
     if (!drawing) return;
-    scroll.place();
+    scroll.place(true);
     scroll.fill(true);
   }, [scroll, drawing, from]);
   return {
