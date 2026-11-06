@@ -7,6 +7,7 @@ import { HomeView } from './pages/home/index.ts';
 import { KabukiView } from './pages/kabuki/index.ts';
 import { StdToolkitView } from './pages/std-toolkit/index.ts';
 import { NotFound } from './pages/not-found/index.ts';
+import { PlaygroundView } from './playground/index.ts';
 import './styles.css';
 
 /*
@@ -16,7 +17,7 @@ import './styles.css';
  */
 
 const AppView = View.make(Pages.AppLive, (self) => {
-  const { Home, Kabuki, StdToolkit } = self.children;
+  const { Home, Kabuki, StdToolkit, Playground } = self.children;
   const { route } = self.props;
   if (
     Kabuki &&
@@ -27,6 +28,7 @@ const AppView = View.make(Pages.AppLive, (self) => {
       route.page.page?._tag === 'SnakeRecord')
   )
     return <KabukiView instance={Kabuki} />;
+  if (Playground) return <PlaygroundView instance={Playground} />;
   return (
     <div {...self.root}>
       <Layout>

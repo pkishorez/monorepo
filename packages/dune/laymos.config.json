@@ -1,0 +1,15 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "rules": {
+    "src/core/shader": ["src/core/effect/define"],
+    "src/core/effect/library": ["src/core/effect/define"],
+    "src/core/engine": [
+      "src/core/platform",
+      "src/core/shader",
+      "src/core/effect/define"
+    ],
+    "src/react": ["src/core"],
+    "src/react/lamp": ["src/react/canvas"]
+  }
+}
