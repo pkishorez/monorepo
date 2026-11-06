@@ -1,0 +1,16 @@
+```tsx
+import { defineEffect, lighting, num } from '@kestack/dune';
+
+export const ripple = defineEffect({
+  name: 'Ripple',
+  params: { strength: num(6, 0, 20, 0.5, 'strength (px)') },
+  glsl: /* glsl */ `
+vec4 effect(vec2 uv) {
+  float d = length(square(uv) - square(u_pointer));
+  vec2 push = normalize(uv - u_pointer + 1e-5) * sin(d * 60.0 - u_time * 6.0);
+  return source(uv + push * p.strength * pxUv() * u_pointerInside);
+}`,
+});
+
+<HtmlCanvas effect={[ripple({ strength: 8 }), lighting()]}>…</HtmlCanvas>;
+```

@@ -128,17 +128,17 @@ export function Row({
       className={present ? 'w-full' : 'z-10 w-full'}
     >
       <div className="pb-2">
-        <div className="group flex items-center rounded-2xl bg-(--pg-raised) transition-[background-color] duration-150 hover:bg-(--pg-raised-hover)">
+        <div className="group flex items-center rounded-2xl bg-(--dn-raised) transition-[background-color] duration-150 hover:bg-(--dn-raised-hover)">
           <button
             type="button"
             role="checkbox"
             aria-checked={item.done}
             onClick={() => toggle(id)}
-            className="flex min-h-14 min-w-0 flex-1 cursor-pointer items-center gap-3.5 rounded-2xl py-3 pl-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--pg-focus)"
+            className="flex min-h-14 min-w-0 flex-1 cursor-pointer items-center gap-3.5 rounded-2xl py-3 pl-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--dn-focus)"
           >
             <Tick done={item.done} />
             <span
-              className={`relative min-w-0 text-[15px] leading-snug transition-colors duration-150 ${item.done ? 'text-(--pg-text-3)' : 'text-(--pg-text)'}`}
+              className={`relative min-w-0 text-[15px] leading-snug transition-colors duration-150 ${item.done ? 'text-(--dn-text-3)' : 'text-(--dn-text)'}`}
             >
               {item.text}
               <motion.span
@@ -159,7 +159,7 @@ export function Row({
             type="button"
             aria-label={`Delete “${item.text}”`}
             onClick={() => remove(id)}
-            className="mr-1.5 grid size-11 shrink-0 cursor-pointer place-items-center rounded-xl text-(--pg-text-4) transition-[color,background-color] duration-150 group-hover:text-(--pg-text-3) hover:bg-(--pg-raised) hover:!text-(--pg-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--pg-focus) active:scale-95"
+            className="mr-1.5 grid size-11 shrink-0 cursor-pointer place-items-center rounded-xl text-(--dn-text-4) transition-[color,background-color] duration-150 group-hover:text-(--dn-text-3) hover:bg-(--dn-raised) hover:!text-(--dn-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--dn-focus) active:scale-95"
           >
             <Trash2Icon className="size-[18px]" strokeWidth={1.75} />
           </button>
@@ -175,9 +175,9 @@ function Tick({ done }: { readonly done: boolean }) {
   return (
     <span
       aria-hidden
-      className={`grid size-[22px] shrink-0 place-items-center rounded-full border-[1.5px] transition-[background-color,border-color] duration-150 ${done ? 'border-(--pg-accent) bg-(--pg-accent)' : 'border-(--pg-control) group-hover:border-(--pg-text-4)'}`}
+      className={`grid size-[22px] shrink-0 place-items-center rounded-full border-[1.5px] transition-[background-color,border-color] duration-150 ${done ? 'border-(--dn-accent) bg-(--dn-accent)' : 'border-(--dn-control) group-hover:border-(--dn-text-4)'}`}
     >
-      <svg viewBox="0 0 24 24" className="size-3.5 text-(--pg-accent-ink)">
+      <svg viewBox="0 0 24 24" className="size-3.5 text-(--dn-accent-ink)">
         <motion.path
           {...DRAWN}
           d="M20 6 9 17l-5-5"

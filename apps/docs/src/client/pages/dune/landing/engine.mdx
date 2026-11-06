@@ -1,0 +1,22 @@
+```ts
+import {
+  Engine,
+  canvasAttributes,
+  detect,
+  drawableAttributes,
+  lighting,
+} from '@kestack/dune';
+
+const api = detect(); // 'current' | 'legacy' | 'none'
+if (api !== 'none') {
+  for (const [name, value] of Object.entries(canvasAttributes))
+    canvas.setAttribute(name, value);
+  for (const [name, value] of Object.entries(drawableAttributes))
+    content.setAttribute(name, value);
+
+  const engine = new Engine({ canvas, content, api });
+  engine.setEffects([lighting({ ambient: 0.7 })]);
+  // …and when it goes:
+  engine.dispose();
+}
+```

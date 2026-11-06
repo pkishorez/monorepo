@@ -2,13 +2,13 @@ import { Page } from '@kestack/kabuki/routing';
 import { NAME } from '../content/index.ts';
 import { Home, HomeLive } from './home.ts';
 import { Kabuki, KabukiLive } from './kabuki/index.ts';
-import { Playground, PlaygroundLive } from './playground.ts';
+import { Dune, DuneLive } from './dune.ts';
 import { StdToolkit, StdToolkitLive } from './std-toolkit/index.ts';
 
 /** The root page: no path and no data, every package's place under it. */
 export const App = Page.define({
   metadata: { meta: [{ property: 'og:site_name', content: NAME }] },
-  pages: { Home, Kabuki, StdToolkit, Playground },
+  pages: { Home, Kabuki, StdToolkit, Dune },
 });
 
 export const AppLive = App.build({
@@ -16,6 +16,6 @@ export const AppLive = App.build({
     Home: HomeLive,
     Kabuki: KabukiLive,
     StdToolkit: StdToolkitLive,
-    Playground: PlaygroundLive,
+    Dune: DuneLive,
   },
 });
