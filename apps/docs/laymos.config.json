@@ -5,7 +5,11 @@
   "fileModules": ["src/client/app.tsx"],
   "rules": {
     "src/client": ["src/shared"],
-    "src/client/app.tsx": ["src/client/pages", "src/client/components"],
+    "src/client/app.tsx": [
+      "src/client/pages",
+      "src/client/components",
+      "src/client/playground"
+    ],
     "src/client/pages": [
       "src/client/components",
       "src/client/demos",
@@ -23,6 +27,7 @@
     "src/client/demos/opening-an-app": ["src/client/demos/stage"],
     "src/client/field/shapes/stack": ["src/client/field/shapes/pen"],
     "src/client/field/shapes/kabuki": ["src/client/field/shapes/pen"],
-    "src/client/field/shapes/std-toolkit": ["src/client/field/shapes/pen"]
+    "src/client/field/shapes/std-toolkit": ["src/client/field/shapes/pen"],
+    "src/client/playground/scenes": ["src/client/playground/kit"]
   }
 }
