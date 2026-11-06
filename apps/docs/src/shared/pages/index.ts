@@ -1,4 +1,5 @@
 export { App, AppLive } from './app.ts';
+export { Dune, DuneLive } from './dune.ts';
 export { Home, HomeLive } from './home.ts';
 export {
   Demo,

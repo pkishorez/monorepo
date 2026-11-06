@@ -4,6 +4,7 @@ import { document } from '@kestack/web-platform/app/document';
 import { Pages, router } from '../shared/index.ts';
 import { Layout, Theme } from './components/index.ts';
 import { HomeView } from './pages/home/index.ts';
+import { DuneView } from './pages/dune/index.ts';
 import { KabukiView } from './pages/kabuki/index.ts';
 import { StdToolkitView } from './pages/std-toolkit/index.ts';
 import { NotFound } from './pages/not-found/index.ts';
@@ -16,7 +17,7 @@ import './styles.css';
  */
 
 const AppView = View.make(Pages.AppLive, (self) => {
-  const { Home, Kabuki, StdToolkit } = self.children;
+  const { Home, Kabuki, StdToolkit, Dune } = self.children;
   const { route } = self.props;
   if (
     Kabuki &&
@@ -27,6 +28,7 @@ const AppView = View.make(Pages.AppLive, (self) => {
       route.page.page?._tag === 'SnakeRecord')
   )
     return <KabukiView instance={Kabuki} />;
+  if (Dune) return <DuneView instance={Dune} />;
   return (
     <div {...self.root}>
       <Layout>
