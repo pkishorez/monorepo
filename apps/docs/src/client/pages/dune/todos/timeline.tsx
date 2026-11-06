@@ -140,7 +140,7 @@ export function TimelineBar() {
       aria-label="Time travel"
       className="flex items-center gap-1.5"
     >
-      <div className="flex items-center rounded-xl bg-(--pg-raised)">
+      <div className="flex items-center rounded-xl bg-(--dn-raised)">
         <button
           type="button"
           onClick={() => step(-1)}
@@ -154,10 +154,10 @@ export function TimelineBar() {
         <span
           aria-live="polite"
           aria-label={`Step ${at} of ${total}`}
-          className="w-14 text-center font-mono text-xs text-(--pg-text-2) tabular-nums"
+          className="w-14 text-center font-mono text-xs text-(--dn-text-2) tabular-nums"
         >
           {at}
-          <span className="text-(--pg-text-4)"> / </span>
+          <span className="text-(--dn-text-4)"> / </span>
           {total}
         </span>
         <button
@@ -176,11 +176,11 @@ export function TimelineBar() {
         onClick={goLive}
         disabled={live}
         title={live ? 'Showing the list as it is now' : 'Back to now'}
-        className="flex h-9 cursor-pointer items-center gap-1.5 rounded-xl px-2.5 text-xs font-medium text-(--pg-text) transition-colors duration-150 hover:bg-(--pg-raised) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--pg-focus) disabled:cursor-default disabled:text-(--pg-text-4) disabled:hover:bg-transparent"
+        className="flex h-9 cursor-pointer items-center gap-1.5 rounded-xl px-2.5 text-xs font-medium text-(--dn-text) transition-colors duration-150 hover:bg-(--dn-raised) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--dn-focus) disabled:cursor-default disabled:text-(--dn-text-4) disabled:hover:bg-transparent"
       >
         <span
           aria-hidden
-          className={`size-1.5 rounded-full transition-colors duration-150 ${live ? 'bg-(--pg-live)' : 'bg-(--pg-accent)'}`}
+          className={`size-1.5 rounded-full transition-colors duration-150 ${live ? 'bg-(--dn-live)' : 'bg-(--dn-accent)'}`}
         />
         Live
       </button>
@@ -189,7 +189,7 @@ export function TimelineBar() {
         onClick={fork}
         disabled={live}
         title="Carry on from this Step"
-        className="flex h-9 cursor-pointer items-center gap-1.5 rounded-xl bg-(--pg-accent) px-3 text-xs font-semibold text-(--pg-accent-ink) transition-[background-color,color,transform] duration-150 hover:bg-(--pg-accent-hover) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--pg-focus) active:scale-[0.97] disabled:cursor-default disabled:bg-(--pg-raised) disabled:text-(--pg-text-4)"
+        className="flex h-9 cursor-pointer items-center gap-1.5 rounded-xl bg-(--dn-accent) px-3 text-xs font-semibold text-(--dn-accent-ink) transition-[background-color,color,transform] duration-150 hover:bg-(--dn-accent-hover) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--dn-focus) active:scale-[0.97] disabled:cursor-default disabled:bg-(--dn-raised) disabled:text-(--dn-text-4)"
       >
         <GitBranchIcon className="size-3.5" strokeWidth={2} />
         Fork
@@ -199,4 +199,4 @@ export function TimelineBar() {
 }
 
 const STEP =
-  'grid size-9 cursor-pointer place-items-center rounded-xl text-(--pg-text-2) transition-[color,background-color,transform] duration-150 hover:bg-(--pg-raised) hover:text-(--pg-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--pg-focus) active:scale-90 disabled:cursor-default disabled:text-(--pg-text-4) disabled:hover:bg-transparent disabled:active:scale-100';
+  'grid size-9 cursor-pointer place-items-center rounded-xl text-(--dn-text-2) transition-[color,background-color,transform] duration-150 hover:bg-(--dn-raised) hover:text-(--dn-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--dn-focus) active:scale-90 disabled:cursor-default disabled:text-(--dn-text-4) disabled:hover:bg-transparent disabled:active:scale-100';
