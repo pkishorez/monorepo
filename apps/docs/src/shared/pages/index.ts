@@ -14,6 +14,7 @@ export {
   TodosDemo,
   TodosDemoLive,
 } from './kabuki/index.ts';
+export { Playground, PlaygroundLive } from './playground.ts';
 export {
   StdToolkit,
   StdToolkitDoc,
