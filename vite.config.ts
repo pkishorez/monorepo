@@ -3,6 +3,7 @@ import { defineConfig } from 'vite-plus';
 export default defineConfig({
   lint: {
     ignorePatterns: [
+      '.claude/worktrees/**',
       'dist/**',
       '*.gen.ts',
       '**/std-toolkit/db-dynamodb/src/generated/**',
@@ -44,6 +45,7 @@ export default defineConfig({
     semi: true,
     singleQuote: true,
     ignorePatterns: [
+      '.claude/worktrees/**',
       'dist/**',
       '*.gen.ts',
       '**/std-toolkit/db-dynamodb/src/generated/**',
