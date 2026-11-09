@@ -185,9 +185,18 @@ export const SessionsRpc = RpcGroup.make(
     success: McpServers.schema,
     error: Schema.Union([SessionNotFound, HarnessFailed]),
   }),
-  /** How full the Session's context is; opens its agent if needed. */
+  /** How full the Session's context is, from its open agent; fails while it is closed. */
   Rpc.make('contextUsage', {
     payload: OnSession('ContextUsagePayload'),
+    success: ContextUsage.schema,
+    error: Schema.Union([SessionNotFound, HarnessFailed]),
+  }),
+  /**
+   * How full the Session's context is, even with its agent closed, as after
+   * a restart. Calls no model, and its agent stays closed.
+   */
+  Rpc.make('fetchContext', {
+    payload: OnSession('FetchContextPayload'),
     success: ContextUsage.schema,
     error: Schema.Union([SessionNotFound, HarnessFailed]),
   }),

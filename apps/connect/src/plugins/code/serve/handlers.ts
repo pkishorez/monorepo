@@ -241,6 +241,16 @@ export const CodeApiLive = CodeApi.toLayer(
                 : wire.HarnessFailed(error),
             ),
           ),
+      fetchContext: ({ sessionId }) =>
+        engine
+          .fetchContext(sessionId)
+          .pipe(
+            Effect.mapError((error) =>
+              error._tag === 'SessionNotFound'
+                ? wire.SessionNotFound(error)
+                : wire.HarnessFailed(error),
+            ),
+          ),
       backgroundJobs: () => engine.backgroundJobs,
       stopBackgroundJob: ({ sessionId, jobId }) =>
         engine
