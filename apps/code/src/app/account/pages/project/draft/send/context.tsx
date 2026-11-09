@@ -1,4 +1,5 @@
-import { ChevronRightIcon } from 'lucide-react';
+import { ChevronRightIcon, RefreshCwIcon } from 'lucide-react';
+import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 
 /*
@@ -7,7 +8,8 @@ import { cn } from '@kestack/web-platform/ui/components/utils';
  * "124K / 200K"; grey while there is room, amber when filling and red when
  * full, which its title says in words. A click or a tap opens the
  * session's details. In the model chip's Drawer, on touch, it is the
- * first row, the ring beside its numbers.
+ * first row, the ring beside its numbers. With no reading, as when its agent
+ * closed with a restart, a small button in its place fetches one.
  */
 
 /** The context as the page tells the Draft, worded, and the way to its details. */
@@ -21,6 +23,14 @@ export interface Context {
   readonly fraction: number;
   readonly level: 'fine' | 'filling' | 'full';
   readonly onOpen: () => void;
+}
+
+/** How fetching a reading goes, while there is none, and the way to ask. */
+export interface ContextFetch {
+  readonly fetching: boolean;
+  /** Why the last try could not read it; null when it could. */
+  readonly problem: string | null;
+  readonly onFetch: () => void;
 }
 
 const TONE = {
@@ -95,6 +105,34 @@ export function Reading({
           {context.max}
         </span>
       </span>
+    </button>
+  );
+}
+
+/** In the reading's place while there is none: fetches one, without sending anything. */
+export function FetchContext({ fetch }: { readonly fetch: ContextFetch }) {
+  const title =
+    fetch.problem === null
+      ? "Read how full this session's context is"
+      : `Could not read the context: ${fetch.problem}. Try again`;
+  return (
+    <button
+      type="button"
+      aria-label={title}
+      aria-busy={fetch.fetching}
+      title={title}
+      disabled={fetch.fetching}
+      onClick={fetch.onFetch}
+      // Keeps the on-screen keyboard up, and the caret where it is.
+      onMouseDown={(event) => event.preventDefault()}
+      className="focus-ring flex h-8 shrink-0 items-center gap-1.5 rounded-full px-2 text-xs whitespace-nowrap text-muted-foreground transition-colors duration-150 hover:bg-muted active:bg-muted disabled:hover:bg-transparent motion-reduce:transition-none pointer-coarse:h-11"
+    >
+      {fetch.fetching ? (
+        <Spinner aria-hidden className="size-3.5" />
+      ) : (
+        <RefreshCwIcon aria-hidden className="size-3.5" />
+      )}
+      {fetch.problem === null ? 'Fetch context' : 'Retry context'}
     </button>
   );
 }

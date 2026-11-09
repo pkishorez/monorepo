@@ -83,7 +83,9 @@ import { cancel, run } from './turn.js';
  * What code outside the tree asks of it is a Query: a Fork (see fork.ts),
  * an Ask, a new Title, and what the Agent says of itself, its MCP Server
  * Status and Context Usage. The last two read the Agent while it is open:
- * a Query never opens it, so a closed Agent answers AgentClosed.
+ * a Query never opens it, so a closed Agent answers AgentClosed. Only when
+ * asked to fetch it is Context Usage read with the Agent closed, from a copy
+ * resumed just for that, which the Session never keeps (see fetchContext).
  */
 
 /** A Query was asked of the agent while it is closed; the next Turn opens it. */
@@ -386,6 +388,36 @@ const fromAgent = <A>(
     return yield* read(agent);
   });
 
+/**
+ * Context Usage even with the Agent closed. A closed one is read from a copy
+ * resumed for it and closed again: no model is called, and the kept Agent
+ * stays closed, so its next Turn still tells it what its closing cut off.
+ */
+const fetchContext = (self: SessionQuerySelf) =>
+  Effect.gen(function* () {
+    const { model } = yield* self.get;
+    const kept = yield* (yield* Agents).of(model.session.id);
+    const open = yield* kept.opened;
+    if (open) return yield* open.contextUsage;
+    const { nativeId } = model.session;
+    if (nativeId === null) return yield* new AgentClosed();
+    const harnesses = yield* Harnesses;
+    const account = yield* (yield* HarnessAccounts).as(model.session.account);
+    return yield* harnesses
+      .get(model.session.harness)
+      .open({
+        cwd: model.cwd,
+        model: model.session.model,
+        settings: model.session.settings,
+        nativeId,
+      })
+      .pipe(
+        Effect.flatMap((copy) => copy.contextUsage),
+        Effect.scoped,
+        Effect.provideService(HarnessAccount, account),
+      );
+  });
+
 /** The ask Query: a question put to the Agent's context, leaving it untouched. */
 const ask = (self: SessionQuerySelf, question: string, schema: Json | null) =>
   Effect.gen(function* () {
@@ -460,6 +492,8 @@ export const Session = Actor.define('Session', {
     retitle: { result: Schema.NullOr(Schema.String) },
     mcpStatus: { result: Schema.Array(McpServerStatusSchema) },
     contextUsage: { result: ContextUsageSchema },
+    /** Context Usage, read even with the Agent closed. */
+    fetchContext: { result: ContextUsageSchema },
   },
 }).build({
   init: ({ session, cwd, first }) => ({
@@ -565,6 +599,7 @@ export const Session = Actor.define('Session', {
     retitle: (self) => retitle(self),
     mcpStatus: (self) => fromAgent(self, (agent) => agent.mcpStatus),
     contextUsage: (self) => fromAgent(self, (agent) => agent.contextUsage),
+    fetchContext: (self) => fetchContext(self),
   },
   states: {
     Idle: {

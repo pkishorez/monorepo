@@ -3,7 +3,7 @@ import { AttachmentSchema } from '@kestack/connect/code';
 import { createContext, type ReactNode } from 'react';
 import type { Agent } from '../../../../../ui/labels/agent/index.ts';
 import type { Stop } from './write/touch/index.ts';
-import type { Context } from './send/context.tsx';
+import type { Context, ContextFetch } from './send/context.tsx';
 
 /*
  * What a Draft holds that is sent: its files, and the Inserts put into it;
@@ -66,4 +66,6 @@ export const Slots = createContext<{
   readonly where?: HTMLElement | null;
   /** How full the session's context is, shown by the send button; none to show nothing. */
   readonly context?: Context | null;
+  /** In its place while there is no reading, the way to fetch one; none to show nothing. */
+  readonly contextFetch?: ContextFetch | null;
 }>({});

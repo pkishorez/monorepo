@@ -392,10 +392,13 @@ after the grace period.
 **Queries**: fork: a new Session record after a finished Turn. ask: the
 Agent's answer to a question. retitle: a Title from the latest messages, or
 null. mcpStatus, contextUsage: from the open Agent; AgentClosed while closed.
+fetchContext: Context Usage from the open Agent, else from a copy resumed just
+to read it, which is never kept; AgentClosed with no Native Id to resume.
 **Requires**: Agents: agent, jobs, questions, agentTurn, turn, cancel,
-StopJob, AnswerQuestion, mcpStatus, contextUsage. Answers: AnswerQuestion,
+StopJob, AnswerQuestion, mcpStatus, contextUsage, fetchContext. Answers: AnswerQuestion,
 AnswerNotAsked. Git: branch, title. Store: persist, turn, fork, retitle. Harnesses:
-agent, fork, ask. HarnessAccounts: agent, fork, ask, title, retitle. OneShotPrompt:
+agent, fork, ask, fetchContext. HarnessAccounts: agent, fork, ask, title, retitle,
+fetchContext. OneShotPrompt:
 title, retitle.
 **Provides**: none.
 **Services**: none in the tree: services/agents/ keeps each Agent, opened on

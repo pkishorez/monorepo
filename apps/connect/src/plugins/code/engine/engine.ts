@@ -303,6 +303,10 @@ export interface EngineService {
   readonly contextUsage: (
     sessionId: string,
   ) => Effect.Effect<ContextUsage, SessionNotFound | HarnessFailed>;
+  /** Its Context Usage even with its agent closed, which stays closed. */
+  readonly fetchContext: (
+    sessionId: string,
+  ) => Effect.Effect<ContextUsage, SessionNotFound | HarnessFailed>;
   /** Every Session with Background Jobs, now, then again on each change. */
   readonly backgroundJobs: Stream.Stream<ReadonlyArray<SessionJobs>>;
   /** Asks the Session to stop one of its agent's Background Jobs, and waits until it is gone, or the harness refused. */
@@ -753,6 +757,11 @@ const make = (options: EngineOptions) =>
       contextUsage: (sessionId) =>
         Effect.flatMap(toSession(sessionId), (session) =>
           Effect.mapError(session.queries.contextUsage(), failed),
+        ),
+
+      fetchContext: (sessionId) =>
+        Effect.flatMap(toSession(sessionId), (session) =>
+          Effect.mapError(session.queries.fetchContext(), failed),
         ),
 
       backgroundJobs: running.changes.pipe(

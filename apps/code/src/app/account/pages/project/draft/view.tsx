@@ -32,7 +32,7 @@ import {
   Triggers,
 } from './choose/index.ts';
 import { Slots } from './draft.ts';
-import { Reading, Row as ContextRow } from './send/context.tsx';
+import { FetchContext, Reading, Row as ContextRow } from './send/context.tsx';
 
 /*
  * The Draft at the page's foot: the line that says why nothing can be
@@ -392,6 +392,12 @@ function Composer({
   const label = wording.send;
   const title = sendKeys === null ? label : `${label} (${sendKeys})`;
   const context = slots.context ?? null;
+  const reading =
+    context !== null ? (
+      <Reading context={context} />
+    ) : slots.contextFetch ? (
+      <FetchContext fetch={slots.contextFetch} />
+    ) : null;
   const blocked = unsendable || !draft.filled;
 
   const drawn = draft.touch ? (
@@ -401,7 +407,7 @@ function Composer({
       blocked: unsendable,
       starting: model.starting !== null,
       stop: slots.stop ?? null,
-      context: context === null ? null : <Reading context={context} />,
+      context: reading,
       attachments:
         draft.attachments.length > 0 || draft.files.refused.length > 0 ? (
           <AttachmentStrip
@@ -456,7 +462,7 @@ function Composer({
     <Card draft={draft}>
       <StatusLine
         draft={draft}
-        context={context === null ? null : <Reading context={context} />}
+        context={reading}
         actions={slots.actions}
         send={
           <Button
