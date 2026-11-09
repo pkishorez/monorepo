@@ -57,6 +57,20 @@
         "type": "string"
       }
     },
+    "indexFiles": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "File names, beyond index.ts, index.tsx, index.js and the other built-in index files, that make the folder holding one a Module and are its Index (e.g. \"index.page.tsx\" for Next.js pageExtensions). A built-in index file in the same folder is the Index instead."
+    },
     "rules": {
       "type": "object",
       "additionalProperties": {

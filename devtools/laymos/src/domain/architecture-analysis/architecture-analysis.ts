@@ -12,7 +12,11 @@ export function analyzeArchitecture(
   fileGraph: FileGraph,
   config: Config,
 ): ArchitectureAnalysis {
-  const tree = buildModuleTree(fileGraph.keys(), config.fileModules);
+  const tree = buildModuleTree(
+    fileGraph.keys(),
+    config.fileModules,
+    config.indexFiles,
+  );
   const law = {
     tree,
     rules: expandRules(config, tree),

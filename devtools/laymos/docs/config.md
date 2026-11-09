@@ -44,6 +44,7 @@ All paths are project-relative and resolved from the config file's directory.
 | `storiesPath`  | no       | Folder holding the Story tree: it and each folder beneath it is a Story told by its `story.md`, with its Proofs (`*.proof.ts`, `*.proof.tsx`) inside. Implicitly ignored by analysis. |
 | `storyTimeout` | no       | How long one process Proof may run, as an Effect Duration string such as `"10 seconds"`. Defaults to 10 seconds; browser Proofs default to 90 seconds. A Proof may override it.       |
 | `fileModules`  | no       | Single source files that are Modules of their own. Defaults to `[]`.                                                                                                                  |
+| `indexFiles`   | no       | File names that count as an index file beside the built-in ones, such as `"index.page.tsx"` for a Next.js app with `pageExtensions`. Each is a bare file name, not a path.            |
 | `rules`        | no       | One-way permissions between paths. Defaults to `{}`, which lets no Module import another.                                                                                             |
 | `exceptions`   | no       | Imports no Rule could hold, each with a Reason. Defaults to `[]`.                                                                                                                     |
 
@@ -52,9 +53,11 @@ All paths are project-relative and resolved from the config file's directory.
 Laymos reads the tree from disk. Beneath the Source roots, minus the Ignored
 paths:
 
-- A folder with an index file (`index.ts`, `index.tsx`, `index.js`, …) is a
-  **Module**. Its index is its **Index**: the one file of the Module anyone
-  outside may import.
+- A folder with an index file (`index.ts`, `index.tsx`, `index.js`, …, or a
+  file name listed under `indexFiles`) is a **Module**. Its index is its
+  **Index**: the one file of the Module anyone outside may import. A folder
+  holding both a built-in index file and one listed under `indexFiles` takes
+  the built-in one as its Index.
 - A file listed under `fileModules` is a **Module** and its own Index.
 - Any other folder is a **Wrapper**: a name for everything inside it. Nobody
   imports a Wrapper.

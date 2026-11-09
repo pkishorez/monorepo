@@ -35,7 +35,11 @@ export function loadProject(configPath: string) {
       ...missingIgnoredPaths(config, baseDir),
       ...validateAgainstTree(
         config,
-        buildModuleTree(fileGraph.keys(), config.fileModules),
+        buildModuleTree(
+          fileGraph.keys(),
+          config.fileModules,
+          config.indexFiles,
+        ),
       ),
     ];
     if (issues.length > 0) {
