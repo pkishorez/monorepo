@@ -1,6 +1,8 @@
 import { Page } from '@kestack/kabuki/routing';
 import { about, packageOf } from '../../content/index.ts';
 import {
+  ActorStory,
+  ActorStoryLive,
   Demo,
   DemoLive,
   SnakeRecord,
@@ -20,7 +22,7 @@ import { Doc, DocLive } from './doc.ts';
 export const Kabuki = Page.define({
   path: '/kabuki',
   metadata: about('/kabuki', 'kabuki', packageOf('kabuki').pitch),
-  pages: { Doc, Demo, TodosDemo, StageDemo, SnakeRecord },
+  pages: { Doc, Demo, TodosDemo, StageDemo, SnakeRecord, ActorStory },
 });
 
 export const KabukiLive = Kabuki.build({
@@ -30,5 +32,6 @@ export const KabukiLive = Kabuki.build({
     TodosDemo: TodosDemoLive,
     StageDemo: StageDemoLive,
     SnakeRecord: SnakeRecordLive,
+    ActorStory: ActorStoryLive,
   },
 });
