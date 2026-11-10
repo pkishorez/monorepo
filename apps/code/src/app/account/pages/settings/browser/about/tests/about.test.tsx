@@ -41,7 +41,7 @@ vi.mock('@kestack/web-platform/pwa', () => ({
 }));
 vi.mock('../store.ts', () => ({ clearAndReload: cleared }));
 
-const { AboutView, size } = await import('../view.tsx');
+const { AboutView } = await import('../view.tsx');
 
 let root: Root | undefined;
 
@@ -129,14 +129,5 @@ describe('About', () => {
     await flush();
     await act(async () => byText('Clear and reload')!.click());
     expect(cleared).toHaveBeenCalledOnce();
-  });
-});
-
-describe('size', () => {
-  it('reads as a person would', () => {
-    expect(size(200)).toBe('1 KB');
-    expect(size(52_300)).toBe('52 KB');
-    expect(size(18_400_000)).toBe('18.4 MB');
-    expect(size(2_100_000_000)).toBe('2.1 GB');
   });
 });

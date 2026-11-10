@@ -34,9 +34,9 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * Settings → Connections draws once: nothing while the list kept on this
  * device, or any listed Connection's setup, is still being read, and then every
  * card whole, with what its setup holds, no skeleton. With nothing kept at
- * all, a skeleton until Cloud Connect answers. Rename and Forget sit beside
- * each Connection's name: Rename turns it into a field, saved to Cloud
- * Connect and told to the list; Forget, a bin, asks first. A Display Name
+ * all, a skeleton until Connect Cloud answers. Rename and Forget sit beside
+ * each Connection's name: Rename turns it into a field, saved to Connect
+ * Cloud and told to the list; Forget, a bin, asks first. A Display Name
  * shows over the Computer Name. A card shows its Agents
  * alone, with no tabs: its Projects are never managed here.
  */
@@ -80,9 +80,12 @@ const M1: Connection = {
   name: 'Studio',
   key: 'key-m1',
   version: '0.0.4',
-  status: { _tag: 'Reachable', url: 'https://m1.trycloudflare.com', at: 0 },
+  status: {
+    _tag: 'Ready',
+    url: 'https://m1.trycloudflare.com',
+    check: { _tag: 'Reachable', at: 0 },
+  },
   lastSeen: Date.now(),
-  plugins: {},
   wanted: {},
   minConnect: null,
   displayName: null,
@@ -106,10 +109,10 @@ const CLAUDE: HarnessAccountInfo = {
 
 let known: SubscriptionRef.SubscriptionRef<Known>;
 let forgot: Array<string>;
-/** What Cloud Connect was asked to rename, and what the list was told. */
+/** What Connect Cloud was asked to rename, and what the list was told. */
 let renames: Array<{ id: string; displayName: string | null }>;
 let told: Array<{ id: string; displayName: string | null }>;
-/** Why Cloud Connect refuses a Rename; null while it takes one. */
+/** Why Connect Cloud refuses a Rename; null while it takes one. */
 let refusal: string | null;
 
 const setup = (parts: Partial<Setup>): Setup => ({
@@ -250,7 +253,7 @@ describe('Settings → Connections, drawn once', () => {
     expect(busy()).toBe(false);
   });
 
-  it('shows a skeleton when nothing was ever kept, until Cloud Connect answers', async () => {
+  it('shows a skeleton when nothing was ever kept, until Connect Cloud answers', async () => {
     await mount();
     await tell({ accountId: 'a1', savedRead: true });
     expect(cards()).toBe(0);
@@ -371,7 +374,7 @@ describe('Settings → Connections, Rename', () => {
     expect(document.querySelector('[aria-label="Computer Name"]')).toBeNull();
   });
 
-  it('renames in place: saved trimmed to Cloud Connect, and told to the list', async () => {
+  it('renames in place: saved trimmed to Connect Cloud, and told to the list', async () => {
     await mount();
     await shown();
     await startRenaming();
@@ -426,8 +429,8 @@ describe('Settings → Connections, Rename', () => {
     expect(document.querySelector('h3')?.textContent).toBe('Studio');
   });
 
-  it('says why Cloud Connect refused it, and keeps what was typed', async () => {
-    refusal = 'Cloud Connect could not be reached';
+  it('says why Connect Cloud refused it, and keeps what was typed', async () => {
+    refusal = 'Connect Cloud could not be reached';
     await mount();
     await shown();
     await startRenaming();
@@ -435,7 +438,7 @@ describe('Settings → Connections, Rename', () => {
     await act(async () => button('Save').click());
     await settle();
     expect(document.querySelector('[role="alert"]')?.textContent).toContain(
-      'Cloud Connect could not be reached',
+      'Connect Cloud could not be reached',
     );
     expect(field()?.value).toBe('Work');
     expect(told).toEqual([]);

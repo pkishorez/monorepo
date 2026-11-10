@@ -1,0 +1,152 @@
+import { Clock, Effect } from 'effect';
+import type { Principal } from '@kestack/auth-toolkit';
+import type { Entity } from '@kestack/std-toolkit/core';
+import {
+  ConnectionForgotten,
+  type ConnectionReport,
+  ConnectionTaken,
+} from '../../../heartbeat/index.js';
+import { type ConnectionRecord, connections } from './storage/index.js';
+
+/*
+ * Connect Cloud's Connections, for the signed-in caller. A Connection id
+ * belongs to the first User who reports it; another User reporting it is
+ * refused ConnectionTaken. A forgotten Connection stays forgotten (ADR 0004): a
+ * Report from its id, or from the Sign-in it last reported with, is refused
+ * ConnectionForgotten, so a Connection that comes back under a new id on the same
+ * Sign-in is refused too. A Report keeps the Connection's Display Name as its
+ * User gave it; only its User renames it. Storage failing is a defect.
+ */
+
+/** Who is calling: their User id, and their Sign-in when they have one. */
+const callerOf = (principal: Principal) => ({
+  userId: principal.user.id,
+  signInId: principal.kind === 'session' ? principal.session.id : null,
+});
+
+/** A stored Connection as its User sees it, but for what every Connection is told. */
+const toConnection = (record: ConnectionRecord) => ({
+  id: record.id,
+  name: record.name,
+  key: record.key,
+  version: record.version,
+  status: record.status,
+  lastSeen: record.lastSeen,
+  displayName: record.displayName,
+});
+
+/** Every Connection `userId` ever reported, forgotten ones included. */
+const owned = (userId: string) =>
+  Effect.gen(function* () {
+    const found: Array<Entity<ConnectionRecord>> = [];
+    let after: Entity<ConnectionRecord> | undefined;
+    while (true) {
+      const { items, hasMore } = yield* connections.query(
+        'byOwner',
+        { pk: { userId }, '>=': null },
+        after === undefined ? {} : { after },
+      );
+      found.push(...items);
+      after = items.at(-1);
+      if (!hasMore || after === undefined) return found;
+    }
+  });
+
+/** Whether a write lost a race to another write of the same Connection. */
+const raced = (error: unknown) => {
+  const { _tag, reason } = error as {
+    _tag?: unknown;
+    reason?: { _tag?: unknown };
+  };
+  return (
+    _tag === 'DatabaseError' &&
+    (reason?._tag === 'ItemAlreadyExists' || reason?._tag === 'TransactFailed')
+  );
+};
+
+const report = (principal: Principal, input: ConnectionReport) =>
+  Effect.gen(function* () {
+    const { userId, signInId } = callerOf(principal);
+    const existing = yield* connections.get({ id: input.id });
+    if (existing !== null && existing.value.userId !== userId)
+      return yield* new ConnectionTaken({ id: input.id });
+    if (existing?.value.forgottenAt != null)
+      return yield* new ConnectionForgotten({ id: input.id });
+    if (signInId !== null) {
+      const tombstones = (yield* owned(userId)).filter(
+        ({ value }) => value.forgottenAt !== null,
+      );
+      if (tombstones.some(({ value }) => value.signInId === signInId))
+        return yield* new ConnectionForgotten({ id: input.id });
+    }
+    const lastSeen = yield* Clock.currentTimeMillis;
+    if (existing === null)
+      yield* connections.insert({
+        ...input,
+        userId,
+        lastSeen,
+        signInId,
+        forgottenAt: null,
+        displayName: null,
+      });
+    else
+      yield* connections.getAndUpdate({ id: input.id }, (current) => ({
+        ...input,
+        lastSeen,
+        // A Report signed by an Access Token keeps the Sign-in last seen.
+        signInId: signInId ?? current.signInId,
+      }));
+  }).pipe(
+    // Two first Reports of one id at once: the loser reads the winner's.
+    Effect.retry({ times: 2, while: raced }),
+    Effect.catchTag('DatabaseError', Effect.die),
+  );
+
+const list = (principal: Principal) =>
+  owned(callerOf(principal).userId).pipe(
+    Effect.map((found) =>
+      found
+        .filter(({ value }) => value.forgottenAt === null)
+        .map(({ value }) => toConnection(value)),
+    ),
+    Effect.orDie,
+  );
+
+const forget = (principal: Principal, id: string) =>
+  Effect.gen(function* () {
+    const { userId } = callerOf(principal);
+    const existing = yield* connections.get({ id });
+    // Another User's Connection, or one gone already, is left as it is.
+    if (
+      existing === null ||
+      existing.value.userId !== userId ||
+      existing.value.forgottenAt !== null
+    )
+      return;
+    const forgottenAt = yield* Clock.currentTimeMillis;
+    yield* connections.getAndUpdate({ id }, (current) =>
+      current.forgottenAt === null ? { forgottenAt } : {},
+    );
+  }).pipe(Effect.orDie);
+
+/**
+ * Gives the caller's Connection `id` its Display Name, trimmed, or none,
+ * for `displayName` null or blank. Another User's Connection, or one
+ * forgotten or gone, is left as it is.
+ */
+const rename = (principal: Principal, id: string, displayName: string | null) =>
+  Effect.gen(function* () {
+    const { userId } = callerOf(principal);
+    const existing = yield* connections.get({ id });
+    if (
+      existing === null ||
+      existing.value.userId !== userId ||
+      existing.value.forgottenAt !== null
+    )
+      return;
+    const named = displayName?.trim() || null;
+    yield* connections.getAndUpdate({ id }, () => ({ displayName: named }));
+  }).pipe(Effect.orDie);
+
+/** What each call does, for the caller `principal`, over storage. */
+export const Connections = { report, list, forget, rename };

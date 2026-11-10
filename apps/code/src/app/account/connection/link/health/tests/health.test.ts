@@ -1,7 +1,14 @@
 import type { Connection as ConnectionSchema } from '@kestack/connect/cloud';
 import { describe, expect, it } from 'vitest';
 import { tunnelOf } from '../../../../account.ts';
-import { health, outdated, pluginNotice } from '../health.ts';
+import {
+  health,
+  outdated,
+  outOfReach,
+  pluginNotice,
+  statusOf,
+} from '../health.ts';
+import { pillOf, shortOf } from '../view.tsx';
 
 /*
  * What a Connection's record says of it.
@@ -20,10 +27,9 @@ const connection = (
   version: '0.0.1',
   status:
     url === null
-      ? { _tag: 'Opening' }
-      : { _tag: 'Reachable', url, at: lastSeen },
+      ? { _tag: 'SettingUp', step: { _tag: 'Opening' } }
+      : { _tag: 'Ready', url, check: { _tag: 'Reachable', at: lastSeen } },
   lastSeen,
-  plugins: {},
   wanted: {},
   minConnect: null,
   displayName: null,
@@ -38,10 +44,9 @@ describe('a Connection’s record', () => {
     );
     expect(health(null, 'linking', now, true)._tag).toBe('Unknown');
     const broken = {
-      _tag: 'Unreachable',
+      _tag: 'Ready',
       url: 'https://m.trycloudflare.com',
-      at: now,
-      problem: 'no route',
+      check: { _tag: 'Unreachable', at: now, problem: 'no route' },
     } as const;
     expect(
       health(
@@ -60,7 +65,7 @@ describe('a Connection’s record', () => {
     const stale = connection('m', now - 18 * 60_000);
     // Kept, its socket on its way: only linking, never down.
     expect(health(stale, 'linking', now, false)._tag).toBe('Unknown');
-    // Checked: Cloud Connect answered, or long enough passed.
+    // Checked: Connect Cloud answered, or long enough passed.
     expect(health(stale, 'linking', now, true)._tag).toBe('Down');
     // Relinking, as when the page comes back after a while hidden: still
     // only linking until checked.
@@ -80,86 +85,89 @@ describe('a Connection’s record', () => {
 });
 
 describe('a Connection’s code Plugin', () => {
-  const now = 1_000_000;
-  const hash = 'a'.repeat(64);
-  const withPlugin = (
-    state: Connection['plugins'][string],
-    lastSeen = now,
-  ) => ({
-    ...connection('m', lastSeen),
-    plugins: { code: state },
-  });
-
-  it('is Updating while a new version downloads, with how far, and while it starts', () => {
-    expect(
-      pluginNotice(
-        withPlugin({ _tag: 'Downloading', hash, received: 512, total: 2048 }),
-        now,
-      ),
-    ).toEqual({ _tag: 'Updating', progress: { received: 512, total: 2048 } });
-    expect(pluginNotice(withPlugin({ _tag: 'Starting', hash }), now)).toEqual({
-      _tag: 'Updating',
-      progress: null,
-    });
-  });
-
-  it('is Crashed with its last lines and when it is tried again', () => {
-    expect(
-      pluginNotice(
-        withPlugin({
-          _tag: 'Crashed',
-          hash,
-          log: ['Error: boom'],
-          retryAt: now + 4_000,
-        }),
-        now,
-      ),
-    ).toEqual({ _tag: 'Crashed', log: ['Error: boom'], retryAt: now + 4_000 });
-  });
-
-  it('says nothing while it runs, before it reported, or while the Connection is down', () => {
-    expect(pluginNotice(withPlugin({ _tag: 'Running', hash }), now)).toBeNull();
-    expect(pluginNotice(connection('m', now), now)).toBeNull();
-    expect(
-      pluginNotice(withPlugin({ _tag: 'Starting', hash }, now - 60_000), now),
-    ).toBeNull();
-    expect(pluginNotice(null, now)).toBeNull();
-  });
-
-  it('is Updating while its socket says it runs an older Release, with no report needed', () => {
-    const updating = { _tag: 'Updating', progress: null };
-    expect(
-      pluginNotice(withPlugin({ _tag: 'Running', hash }), now, 'Updating'),
-    ).toEqual(updating);
-    expect(pluginNotice(null, now, 'Updating')).toEqual(updating);
-    // What its report says of the download is said instead.
-    expect(
-      pluginNotice(
-        withPlugin({ _tag: 'Downloading', hash, received: 1, total: 2 }),
-        now,
-        'Updating',
-      ),
-    ).toEqual({ _tag: 'Updating', progress: { received: 1, total: 2 } });
+  it('is Updating while its socket says it runs an older Release', () => {
+    expect(pluginNotice('Updating')).toEqual({ _tag: 'Updating' });
   });
 
   it('is Stale when its socket says this Code is the older side', () => {
-    expect(
-      pluginNotice(withPlugin({ _tag: 'Running', hash }), now, 'Stale'),
-    ).toEqual({ _tag: 'Stale' });
+    expect(pluginNotice('Stale')).toEqual({ _tag: 'Stale' });
+  });
+
+  it('says nothing while nobody is behind', () => {
+    expect(pluginNotice(null)).toBeNull();
   });
 });
 
-describe('a Connection’s ke-connect', () => {
-  it('is Outdated only below the Minimum Connect Cloud Connect names', () => {
-    const at = (version: string, minConnect: string | null) => ({
-      ...connection('m', 0),
-      version,
-      minConnect,
-    });
-    expect(outdated(at('0.0.4', '0.0.5'))).toBe(true);
-    expect(outdated(at('0.0.5', '0.0.5'))).toBe(false);
-    expect(outdated(at('0.0.6', '0.0.5'))).toBe(false);
-    expect(outdated(at('0.0.4', null))).toBe(false);
-    expect(outdated(null)).toBe(false);
+describe('a Connection’s tunnel, as the app says it', () => {
+  const seen = (status: Connection['status']) =>
+    ({ _tag: 'Seen', lastSeen: 0, status }) as const;
+  const settingUp = (
+    step: Extract<Connection['status'], { _tag: 'SettingUp' }>['step'],
+  ) => seen({ _tag: 'SettingUp', step });
+  const ready = (
+    check: Extract<Connection['status'], { _tag: 'Ready' }>['check'],
+  ) => seen({ _tag: 'Ready', url: 'https://m.trycloudflare.com', check });
+  const FAILED = { _tag: 'Failed', at: 0, problem: 'no route' } as const;
+  const BROKEN = { _tag: 'Unreachable', at: 0, problem: 'no route' } as const;
+
+  it('says how much of cloudflared has arrived, and for how long', () => {
+    const step = {
+      _tag: 'Downloading',
+      elapsed: 40_000,
+      received: 12_400_000,
+    } as const;
+    const said = 'Downloading cloudflared · 12.4 MB, 40s';
+    expect(statusOf(settingUp(step).status)).toBe(said);
+    expect(pillOf(settingUp(step))?.[0]).toBe(said);
+  });
+
+  it('says only the time while none of it has arrived', () => {
+    const step = { _tag: 'Downloading', elapsed: 40_000, received: 0 } as const;
+    expect(statusOf(settingUp(step).status)).toBe(
+      'Downloading cloudflared · 40s',
+    );
+  });
+
+  it('says each other step and check', () => {
+    expect(statusOf(settingUp({ _tag: 'Opening' }).status)).toBe(
+      'Opening its tunnel',
+    );
+    expect(statusOf(settingUp(FAILED).status)).toBe(
+      'Tunnel failed to open: no route',
+    );
+    expect(statusOf(ready({ _tag: 'Unchecked' }).status)).toBe(
+      'Tunnel not checked yet',
+    );
+    expect(statusOf(ready({ _tag: 'Reachable', at: 0 }).status)).toBe(
+      'Tunnel working',
+    );
+    expect(statusOf(ready(BROKEN).status)).toBe('Tunnel broken: no route');
+  });
+
+  it('is a socket still linking while Ready, Unchecked or Reachable', () => {
+    for (const each of [
+      ready({ _tag: 'Unchecked' }),
+      ready({ _tag: 'Reachable', at: 0 }),
+    ]) {
+      expect(outOfReach(each)).toBe(false);
+      expect(pillOf(each)?.[0]).toBe('Connecting…');
+      expect(shortOf(each)).toBe('Connecting…');
+    }
+  });
+
+  it('is out of reach when it failed to open, or its check did not reach it', () => {
+    for (const each of [settingUp(FAILED), ready(BROKEN)]) {
+      expect(outOfReach(each)).toBe(true);
+      expect(shortOf(each)).toBe('Out of reach');
+    }
+    expect(pillOf(settingUp(FAILED))?.[0]).toBe('Tunnel failed · retrying');
+    expect(pillOf(ready(BROKEN))?.[0]).toMatch(/^Out of reach · seen /);
+  });
+
+  it('is still on its way while it sets up, though out of reach', () => {
+    const opening = settingUp({ _tag: 'Opening' });
+    expect(outOfReach(opening)).toBe(true);
+    expect(shortOf(opening)).toBe('Connecting…');
+    expect(pillOf(opening)?.[0]).toBe('Opening tunnel…');
   });
 });

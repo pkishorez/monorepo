@@ -6,7 +6,7 @@ What every kestack CLI needs on a computer: its folders, one shared copy of each
 
 A kestack CLI, such as `ke-connect`, runs on a user's computer for a long time. It needs the same few things whatever it does: folders that follow the platform's rules, downloads kept once for every CLI and checked against their hash, a guarantee that one name runs as one process, and a way to run separate programs, its Plugins, at the version it is told and start them again when they die. This package holds those parts and nothing about what a CLI is for: no sign-in, no cloud, no tunnels.
 
-A Plugin is one Node file named by its sha256. On the CLI's side, `ActorPlugin` is a [Kabuki](../../packages/kabuki/README.md) Actor that downloads it, runs it, swaps it when the wanted version changes, and reports its Plugin State upward through the `Plugins` Capability. On the Plugin's side, `Plugin.make` serves its RPC group on the socket the CLI gave it. The values they pass are [std-toolkit ESchemas](../../toolkits/std-toolkit/src/eschema/README.md), so a newer side reads an older one.
+A Plugin is one Node file named by its sha256. On the CLI's side, `ActorPlugin` is a [Kabuki](../../packages/kabuki/README.md) Actor that downloads it, runs it, swaps it when the wanted version changes, and Emits its Plugin State to its parent as `Reported`. On the Plugin's side, `Plugin.make` serves its RPC group on the socket the CLI gave it. The values they pass are [std-toolkit ESchemas](../../toolkits/std-toolkit/src/eschema/README.md), so a newer side reads an older one.
 
 The words are in [CONTEXT.md](./CONTEXT.md), which also says how the folders are laid out.
 
@@ -41,20 +41,19 @@ pnpm add @kestack/cli-platform effect @kestack/kabuki @kestack/std-toolkit
 
 ### `@kestack/cli-platform/plugins`
 
-| Export          | What it does                                                                                       |
-| --------------- | -------------------------------------------------------------------------------------------------- |
-| `ActorPlugin`   | The Kabuki Actor that keeps one Plugin running at the hash, or local file, its parent wants.       |
-| `Plugins`       | The Capability a CLI Provides above its Plugins' Actors; each reports its Plugin State through it. |
-| `PluginState`   | The ESchema of where a Plugin stands: Downloading, Starting, Running or Crashed.                   |
-| `PluginStatus`  | The ESchema of what a running Plugin says about itself.                                            |
-| `PluginControl` | The RPC group a CLI asks a Plugin with: `status` and `health`.                                     |
-| `PluginEnv`     | The names of the environment variables a Plugin is started with.                                   |
-| `PluginPaths`   | Where on its socket a Plugin serves its own group and PluginControl.                               |
-| `READY`         | The Node IPC message a Plugin sends once it listens.                                               |
+| Export          | What it does                                                                                 |
+| --------------- | -------------------------------------------------------------------------------------------- |
+| `ActorPlugin`   | The Kabuki Actor that keeps one Plugin running at the hash, or local file, its parent wants. |
+| `PluginState`   | The ESchema of where a Plugin stands: Downloading, Starting, Running or Crashed.             |
+| `PluginStatus`  | The ESchema of what a running Plugin says about itself.                                      |
+| `PluginControl` | The RPC group a CLI asks a Plugin with: `status` and `health`.                               |
+| `PluginEnv`     | The names of the environment variables a Plugin is started with.                             |
+| `PluginPaths`   | Where on its socket a Plugin serves its own group and PluginControl.                         |
+| `READY`         | The Node IPC message a Plugin sends once it listens.                                         |
 
 ### `@kestack/cli-platform/plugins/contract`
 
-The same `Plugins`, `PluginState`, `PluginStatus`, `PluginControl`, `PluginEnv`, `PluginPaths` and `READY` as `./plugins`, without `ActorPlugin`: nothing in it needs Node, so a browser or a Worker may import it, such as a contract that carries a Plugin State.
+The same `PluginState`, `PluginStatus`, `PluginControl`, `PluginEnv`, `PluginPaths` and `READY` as `./plugins`, without `ActorPlugin`: nothing in it needs Node, so a browser or a Worker may import it, such as a contract that carries a Plugin State.
 
 ### `@kestack/cli-platform/plugins/plugin`
 
@@ -108,40 +107,51 @@ const reached = yield * reach(path, Control); // for `list` and `remove`
 
 ### Keeping a Plugin running
 
-A CLI places `ActorPlugin` under one of its Actors, hands it the Plugin's folders and socket as Input and the version it wants as Props, and Provides `Plugins` to hear where it stands. Lifted from `src/plugins/tests/plugins.test.ts`.
+A CLI places `ActorPlugin` under one of its Actors, hands it the Plugin's folders and socket as Input and the version it wants as Props, and hears where it stands by turning `Reported` into a Message of its own. Lifted from `src/plugins/tests/plugins.test.ts`.
 
 ```ts
 const cli = folders({ app: 'connect', name: 'work' });
 const Cli = Actor.define('Cli', {
-  model: Schema.Struct({ wanted: Wanted }),
-  message: Schema.TaggedUnion({ Want: { wanted: Wanted } }),
+  model: Schema.Struct({
+    wanted: Wanted,
+    states: Schema.Record(Schema.String, PluginState.schema),
+  }),
+  message: Schema.TaggedUnion({
+    Want: { wanted: Wanted },
+    PluginReported: { name: Schema.String, state: PluginState.schema },
+  }),
 }).build({
-  init: () => ({ model: { wanted: { hash, url: `${base}/a` } } }),
+  init: () => ({ model: { wanted: { hash, url: `${base}/a` }, states: {} } }),
   children: {
     plugin: Actor.child(ActorPlugin, {
-      input: () => ({
-        name: 'ping',
-        folders: pluginFolders(cli, 'ping'),
-        socket: socketPath(cli.runtime, connectionId, 'ping'),
+      each: () => ['ping'],
+      input: (_, name) => ({
+        name,
+        folders: pluginFolders(cli, name),
+        socket: socketPath(cli.runtime, connectionId, name),
       }),
       props: ({ model }) => ({ wanted: model.wanted }),
+      emits: {
+        Reported: ({ state }, name) => ({
+          _tag: 'PluginReported',
+          name,
+          state,
+        }),
+      },
     }),
   },
-  on: { Want: ({ wanted }) => ({ model: { wanted } }) },
+  on: {
+    Want: ({ wanted }) => ({ model: { wanted } }),
+    PluginReported: ({ name, state }, { model }) => ({
+      model: { states: { ...model.states, [name]: state } },
+    }),
+  },
 });
-yield *
-  Runtime.start(
-    Cli,
-    Layer.mergeAll(
-      Downloads.layer(cli.cache),
-      Layer.succeed(Plugins, {
-        report: (name, state) => Effect.log(name, state),
-      }),
-    ),
-  );
+yield * Runtime.start(Cli, Downloads.layer(cli.cache));
 ```
 
-- `wanted` is `{ hash, url }`, downloaded through Downloads and checked against the hash, or `{ file }`, a local file in development. A `file:` URL is copied and checked the same way; one with no file there is Crashed as not on the shelf.
+- `Reported` carries only the Plugin State: a parent keeping many Plugins uses `each`, and its `emits` function is given the Plugin's name as the key.
+- `wanted` is `{ hash, url }`, downloaded through Downloads and checked against the hash, or `{ file }`, a local file in development. A `file:` URL is copied and checked the same way; one with no file there is Crashed, saying so.
 - A new `wanted` downloads while the old Plugin runs; then the old one gets SIGTERM, SIGKILL after ten seconds, and the new one starts once the old process has exited, its finalizers done, and the socket is free. Two never run at once on one Plugin's folders.
 - A Plugin that exits is Crashed and started again after 1 s, 2 s, 4 s, up to 60 s; its last 50 lines are in the report and all of them in `<state>/plugins/<name>.log`.
 - While a downloaded file runs, it is marked used every day, so `Downloads.prune` from any CLI on the computer keeps it.

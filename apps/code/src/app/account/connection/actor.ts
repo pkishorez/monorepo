@@ -4,11 +4,12 @@ import {
   CodeReplicaLive,
   HarnessAccountInfo,
   HarnessInfo,
+  PluginMismatch,
   SessionJobs,
   SessionQuestions,
   SpeechToTextState,
 } from '@kestack/connect/code';
-import { PluginMismatch } from '@kestack/connect/cloud';
+import { CloudClient, ReleaseStanding } from '@kestack/connect/cloud';
 import { Actor } from '@kestack/kabuki';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { Copy, copying, Marks, Storage } from '../../storage/index.ts';
@@ -22,7 +23,16 @@ import {
   SetupParts,
 } from '../account.ts';
 import { ask, speechOn } from './commands.ts';
-import { Sockets } from './link/index.ts';
+import {
+  askStanding,
+  Mismatch,
+  mismatchTold,
+  RELINK_SLOWLY,
+  relinkDue,
+  relinksSlowly,
+  Sockets,
+  standingAnswered,
+} from './link/index.ts';
 import { answeringAsked, jobsOn, questionsOn } from './records/index.ts';
 import { keepSetup, SetupShelf } from './commands.ts';
 
@@ -57,8 +67,9 @@ import { keepSetup, SetupShelf } from './commands.ts';
  *            closed as it stops, as its Account leaves `Active` or the list
  *            leaves it out. Its Replicas sync over it, and the pages and
  *            Pickers borrow it through `Connections` while it runs.
- * 7. Share   its Link, and the Release it runs once it refused this
- *            Code's, its setup and marks, said to its Account's page
+ * 7. Share   its Link, what Connect Cloud said once it refused this Code's
+ *            Release, whether it refused its key, its setup and marks, said to
+ *            its Account's page
  *            through `Connections`, for Settings, the Dictation, the
  *            sidebar and each Project; what others ask of it is heard
  *            there too.
@@ -77,6 +88,10 @@ import { keepSetup, SetupShelf } from './commands.ts';
  *            shared in `Connections`; a question gone from the feed takes
  *            its part with it. Never written to storage: an answer may be
  *            a secret.
+ * 11. Release a socket it closed for running another Release of the code
+ *            Plugin than this Code calls holds its Link, while Connect Cloud
+ *            is asked afresh where this Code's Release stands; that answer
+ *            says when the Link relinks (`link/reach/release.ts`).
  */
 
 const Link = Schema.Literals(['linking', 'linked', 'relinking']);
@@ -86,8 +101,10 @@ const Model = Schema.Struct({
   connectionId: Schema.String,
   setup: Copy(SetupParts),
   link: Link,
-  /** The Release it said it runs as it closed a socket with a mismatch, until one is answered. */
-  mismatch: Schema.NullOr(PluginMismatch.schema),
+  /** A socket it closed with a mismatch, and what Connect Cloud said of it, until one is answered. */
+  mismatch: Schema.NullOr(Mismatch),
+  /** Whether it closed a socket for offering a key it no longer holds, until one is answered. */
+  expired: Schema.Boolean,
   /** Its Unseen marks; null until read. */
   seen: Schema.NullOr(Marks),
   /** Its Sessions' Agent Questions, as it last said them. */
@@ -100,7 +117,7 @@ const Model = Schema.Struct({
 type Model = typeof Model.Type;
 
 const Connection = Actor.define('Connection', {
-  requires: [CodeClients, Sockets, Storage, Connections],
+  requires: [CloudClient, CodeClients, Sockets, Storage, Connections],
   input: Schema.Struct({
     accountId: Schema.String,
     connectionId: Schema.String,
@@ -111,6 +128,12 @@ const Connection = Actor.define('Connection', {
     KeptRead: { parts: Schema.NullOr(SetupParts) },
     LinkChanged: { link: Link },
     Mismatched: { mismatch: Schema.NullOr(PluginMismatch.schema) },
+    StandingAnswered: {
+      asks: Schema.Finite,
+      standing: Schema.NullOr(ReleaseStanding.schema),
+    },
+    RelinkDue: { asks: Schema.Finite },
+    Expired: { expired: Schema.Boolean },
     Asked: {},
     Changed: { change: SetupChange },
     Answered: {
@@ -200,6 +223,7 @@ export const ConnectionLive = Connection.build({
       setup: copying.empty,
       link: 'linking',
       mismatch: null,
+      expired: false,
       seen: null,
       questions: [],
       answering: {},
@@ -226,8 +250,8 @@ export const ConnectionLive = Connection.build({
     replicas: Actor.child(Replicas.actor([CodeReplicaLive])),
   },
   workers: {
-    // 7. Share: its Link, and the Release it said it runs when it closed a
-    // socket with a mismatch.
+    // 7. Share: its Link, and whether it closed a socket for its key;
+    // 11. Release: each socket it closed with a mismatch.
     link: {
       run: (self) =>
         Effect.flatMap(self.get, ({ model }) =>
@@ -242,6 +266,35 @@ export const ConnectionLive = Connection.build({
           Stream.runForEach(
             CodeClients.mismatch(model.connectionId),
             (mismatch) => self.send({ _tag: 'Mismatched', mismatch }),
+          ),
+        ),
+    },
+    standing: {
+      each: ({ model }) =>
+        model.mismatch?.asking === true ? [String(model.mismatch.asks)] : [],
+      run: (self, asks) =>
+        Effect.flatMap(askStanding(), (standing) =>
+          self.send({
+            _tag: 'StandingAnswered',
+            asks: Number(asks),
+            standing,
+          }),
+        ),
+    },
+    relink: {
+      each: ({ model }) =>
+        relinksSlowly(model.mismatch) ? [String(model.mismatch?.asks)] : [],
+      run: (self, asks) =>
+        Effect.sleep(RELINK_SLOWLY).pipe(
+          Effect.andThen(self.send({ _tag: 'RelinkDue', asks: Number(asks) })),
+        ),
+    },
+    expired: {
+      run: (self) =>
+        Effect.flatMap(self.get, ({ model }) =>
+          Stream.runForEach(
+            CodeClients.expired(model.connectionId),
+            (expired) => self.send({ _tag: 'Expired', expired }),
           ),
         ),
     },
@@ -317,7 +370,9 @@ export const ConnectionLive = Connection.build({
           yield* self.changes.pipe(
             Stream.map(({ model, state }) => ({
               link: model.link,
-              mismatch: model.mismatch,
+              standing: model.mismatch?.standing ?? null,
+              held: model.mismatch?.held ?? false,
+              expired: model.expired,
               setup: sharedOf(model, state._tag === 'Shown'),
               seen: model.seen,
               questions: model.questions,
@@ -395,9 +450,20 @@ export const ConnectionLive = Connection.build({
             : model.setup,
       },
     }),
+    // 11. Release
     Mismatched: ({ mismatch }, { model }) => ({
-      model: { ...model, mismatch },
+      model: { ...model, mismatch: mismatchTold(model.mismatch, mismatch) },
     }),
+    StandingAnswered: ({ asks, standing }, { model }) => ({
+      model: {
+        ...model,
+        mismatch: standingAnswered(model.mismatch, asks, standing),
+      },
+    }),
+    RelinkDue: ({ asks }, { model }) => ({
+      model: { ...model, mismatch: relinkDue(model.mismatch, asks) },
+    }),
+    Expired: ({ expired }, { model }) => ({ model: { ...model, expired } }),
     Asked: (_, { model }) => ({
       model: { ...model, setup: copying.ask(model.setup) },
     }),

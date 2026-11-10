@@ -19,7 +19,7 @@ Delete this file once every task is done.
   module in apps/code. Every folder there is a deep module: a narrow
   `index.ts` over a mandatory main file, with the Page folder exception in
   `apps/code/README.md`. apps/code is laid out as Kabuki Actor folders
-  ([`kabuki-tree.md`](kabuki-tree.md)); change it through `/kabukifi`.
+  ([`design.md`](design.md)); keep that page in step with a change.
 - In ai-toolkit's `src/kabuki/`, follow `~/.claude/skills/kabukifi/LAYOUT.md`
   and `CONCEPTS.md` (read them whole), and update
   `toolkits/ai-toolkit/docs/kabuki-tree.md` to match the tree after the
@@ -106,7 +106,7 @@ keys inside the `picker` Surface stay as they are.
   text after it, hidden with only one Connection. A Connection that does not answer
   keeps what it last synced, marked by its Last Seen.
 - The Project Picker's first Step picks the Connection, skipped with only one.
-- Settings is at the root. Its Connections list comes from Cloud Connect
+- Settings is at the root. Its Connections list comes from Connect Cloud
   alone and draws at once. Each Connection has its own settings (its Harness
   Accounts, its Speech to Text switch), each loading on its own; one that
   does not answer says so in its own row.

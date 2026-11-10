@@ -21,7 +21,7 @@ import type {
   TranscriptionFailed,
   UnknownAccount,
 } from '@kestack/connect/code';
-import type { VersionGap } from '@kestack/connect/cloud';
+import type { VersionGap } from '@kestack/rpc-toolkit/rpc/version-gap';
 
 /*
  * How every call to the server ends: in one Message, what came back or why
@@ -30,7 +30,7 @@ import type { VersionGap } from '@kestack/connect/cloud';
  * socket is down waits for it to come back. A call that failed because one
  * side is older says which: a Connection whose code Plugin lacks the call or
  * cannot read it needs a newer Connect, which it downloads on its own once
- * Cloud Connect names it (the header then says it is Updating); Code, older,
+ * Connect Cloud names it (the header then says it is Updating); Code, older,
  * is already moving to its newest build (the app's `OnOutdated`).
  */
 

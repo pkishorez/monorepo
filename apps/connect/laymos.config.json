@@ -1,36 +1,45 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
-  "ignoredPaths": ["src/connection/tests/fixtures"],
+  "ignoredPaths": ["src/connection/cli/tests/fixtures"],
   "fileModules": [],
   "rules": {
-    "*": ["src/cloud/contract"],
-    "src/cloud/worker/registry": ["src/cloud/worker/storage"],
-    "src/connection": ["src/cloud/contract", "src/cloud/client"],
-    "src/connection/actor-connection/actor-online": [
-      "src/connection/actor-connection/capabilities"
+    "src/cloud": ["src/heartbeat"],
+    "src/cloud/client": ["src/cloud/app-api"],
+    "src/cloud/worker": ["src/cloud/app-api", "src/connection/link"],
+    "src/cloud/worker/app": ["src/cloud/worker/store"],
+    "src/cloud/worker/heartbeat": ["src/cloud/worker/store"],
+    "src/connection/cli": ["src/heartbeat", "src/connection/link"],
+    "src/connection/cli/actor-identity/actor-connection": [
+      "src/connection/cli/actor-identity/capabilities"
     ],
-    "src/connection/actor-connection/actor-online/actor-tunnel": [
-      "src/connection/actor-connection/actor-online/capabilities"
+    "src/connection/cli/actor-identity/services/control": [
+      "src/connection/cli/actor-identity/capabilities"
     ],
-    "src/connection/actor-connection/actor-plugins": [
-      "src/connection/actor-connection/capabilities"
+    "src/connection/plugins/code/api": [
+      "src/connection/link",
+      "src/connection/plugins/code/records"
     ],
-    "src/plugins/code/api": ["src/plugins/code/records", "src/cloud/contract"],
-    "src/plugins/code/serve": [
-      "src/plugins/code/api",
-      "src/plugins/code/engine",
-      "src/plugins/code/records"
+    "src/connection/plugins/code/serve": [
+      "src/connection/plugins/code/api",
+      "src/connection/plugins/code/engine",
+      "src/connection/plugins/code/records"
     ],
-    "src/plugins/code/api/client": ["src/plugins/code/api/contract"],
-    "src/plugins/code/engine": ["src/plugins/code/records"],
-    "src/plugins/code/engine/actor-code": [
-      "src/plugins/code/engine/capabilities",
-      "src/plugins/code/engine/engine-raw"
+    "src/connection/plugins/code/api/client": [
+      "src/connection/plugins/code/api/contract"
     ],
-    "src/plugins/code/engine/actor-code/checks": [
-      "src/plugins/code/engine/actor-code/actor-session"
+    "src/connection/plugins/code/engine": [
+      "src/connection/plugins/code/records"
     ],
-    "src/plugins/code/engine/services": ["src/plugins/code/engine/capabilities"]
+    "src/connection/plugins/code/engine/actor-code": [
+      "src/connection/plugins/code/engine/capabilities",
+      "src/connection/plugins/code/engine/engine-raw"
+    ],
+    "src/connection/plugins/code/engine/actor-code/checks": [
+      "src/connection/plugins/code/engine/actor-code/actor-session"
+    ],
+    "src/connection/plugins/code/engine/services": [
+      "src/connection/plugins/code/engine/capabilities"
+    ]
   }
 }

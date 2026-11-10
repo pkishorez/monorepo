@@ -16,18 +16,13 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * to be read.
  */
 
-const connection = (
-  lastSeen: number,
-  status: object,
-  plugins: object = {},
-) => ({
+const connection = (lastSeen: number, status: object) => ({
   id: 'm1',
   name: 'Laptop',
   key: 'k',
   version: '0.0.1',
   status,
   lastSeen,
-  plugins,
   wanted: {},
   minConnect: null,
 });
@@ -40,15 +35,16 @@ const render = (
   status: object,
   link: 'linked' | 'linking' | 'relinking',
   checked = true,
-  plugins: object = {},
+  behind?: 'Updating',
 ) =>
   act(() =>
     root.render(
       <Links
         value={{
-          connections: [connection(lastSeen, status, plugins)] as never,
+          connections: [connection(lastSeen, status)] as never,
           status: { m1: link },
           checked,
+          ...(behind === undefined ? {} : { behind: { m1: behind } }),
         }}
       >
         <Offline connectionId="m1" />
@@ -74,7 +70,11 @@ afterEach(() => {
 });
 
 describe('the offline mark', () => {
-  const reachable = { _tag: 'Reachable', url: 'https://a.example', at: 0 };
+  const reachable = {
+    _tag: 'Ready',
+    url: 'https://a.example',
+    check: { _tag: 'Reachable', at: 0 },
+  };
 
   it('is not drawn while the Connection is in reach', () => {
     render(Date.now(), reachable, 'linked');
@@ -91,10 +91,13 @@ describe('the offline mark', () => {
     render(
       Date.now() - 5_000,
       {
-        _tag: 'Unreachable',
+        _tag: 'Ready',
         url: 'https://a.example',
-        problem: 'no route',
-        at: Date.now() - 5_000,
+        check: {
+          _tag: 'Unreachable',
+          problem: 'no route',
+          at: Date.now() - 5_000,
+        },
       },
       'relinking',
     );
@@ -137,9 +140,7 @@ describe('the offline mark', () => {
   });
 
   it('leaves linking to the Notice while the code Plugin is Updating', () => {
-    render(Date.now(), reachable, 'relinking', true, {
-      code: { _tag: 'Starting', hash: 'a'.repeat(64) },
-    });
+    render(Date.now(), reachable, 'relinking', true, 'Updating');
     expect(host.textContent).toBe('');
   });
 });

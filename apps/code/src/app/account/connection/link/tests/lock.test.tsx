@@ -24,16 +24,15 @@ const connection = (status: Connection['status']): Connection => ({
   version: '0.0.1',
   status,
   lastSeen: Date.now(),
-  plugins: {},
   wanted: {},
   minConnect: null,
   displayName: null,
 });
 
 const REACHABLE = {
-  _tag: 'Reachable',
+  _tag: 'Ready',
   url: 'https://m1.trycloudflare.com',
-  at: 0,
+  check: { _tag: 'Reachable', at: 0 },
 } as const;
 
 let host: HTMLDivElement;
@@ -83,7 +82,10 @@ describe("a Connection's settings, locked", () => {
   it('are said to be locked at once when the Connection is out of reach', () => {
     render(
       'relinking',
-      connection({ ...REACHABLE, _tag: 'Unreachable', problem: 'no route' }),
+      connection({
+        ...REACHABLE,
+        check: { _tag: 'Unreachable', at: 0, problem: 'no route' },
+      }),
     );
     expect(seen).toEqual({ locked: true, said: true });
   });

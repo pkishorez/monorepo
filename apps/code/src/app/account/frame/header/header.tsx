@@ -9,6 +9,7 @@ import * as routes from '../../../app.ts';
 import type { Route } from '../../../app.ts';
 import { SessionStatus } from '../../../../ui/labels/status/index.ts';
 import {
+  outOfReach,
   pillOf,
   StandingDot,
   standingOf,
@@ -284,11 +285,7 @@ export function Offline({ connectionId }: { readonly connectionId: string }) {
       </span>
     ) : null;
   // A Plugin Updating or stopped is why it is linking: the Notice says so.
-  if (
-    notice !== null &&
-    health._tag === 'Seen' &&
-    (health.status._tag === 'Reachable' || health.status._tag === 'Unchecked')
-  )
+  if (notice !== null && health._tag === 'Seen' && !outOfReach(health))
     return null;
   const [label, title] = pill;
   return (

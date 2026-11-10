@@ -2,7 +2,7 @@ import { where as whereOn } from '@kestack/web-platform/app/alchemy';
 import { Effect } from 'effect';
 
 /*
- * Where Cloud Connect is served on the Stage being run, as the Web
+ * Where Connect Cloud is served on the Stage being run, as the Web
  * Platform says (`connect.kishore.app`, `pr12-connect.kishore.app`), the
  * Auth Worker it signs in through, and the origins whose pages may call
  * it. Under `alchemy dev` all three are on `.kishore.computer`, the
@@ -11,7 +11,7 @@ import { Effect } from 'effect';
 
 export const CONNECT = { host: 'connect', zone: 'kishore.app' } as const;
 
-/** Where the Stage being run serves Cloud Connect, its Auth Worker, and the origins it lets call. */
+/** Where the Stage being run serves Connect Cloud, its Auth Worker, and the origins it lets call. */
 export const where = Effect.gen(function* () {
   const at = yield* whereOn(CONNECT);
   return {
