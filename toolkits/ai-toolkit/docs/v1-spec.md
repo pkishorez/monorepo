@@ -146,8 +146,8 @@ line of the message as the title.
 
 ## Engine (Kabuki, server-side, no drawing)
 
-Now Connect's: `actor-code` -> `actor-session` (each), drawn in
-[Connect's kabuki-tree.md](../../../apps/connect/docs/kabuki-tree.md). In v1:
+Now Connect's: `actor-code` -> `actor-session` (each), described in
+[Connect's design.md](../../../apps/connect/docs/design.md). In v1:
 Host -> Project (each) -> Session (each) -> Turn (while running).
 
 - `sendMessage` to an idle Session starts a Turn: writes `turn.started` Raw,

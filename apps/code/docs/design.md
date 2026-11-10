@@ -1,15 +1,32 @@
-# code actor tree
+# How code is built
 
 `code` runs Claude Code and Codex Sessions in Projects, on every Connection of
-an Account at once. The folders under `src/app/` tell one story, top down.
-Each level has at most three parts. Read it depth first: a part, then what is
-inside it, then the next part.
+an Account at once. The folders under `src/app/` tell one story, top down,
+each level with at most three parts. This page walks it, then says how the
+parts behave together.
 
 `pnpm tree` checks the shape: a folder holds at most three parts, and every
 test sits in a `tests/` folder beside what it tests. `pnpm lint:laymos`
 checks who may import whom (`laymos.config.json`). A part is a child folder,
 or a file that is not the folder's own (`index`, `actor`, `store`, `view`,
-`commands`, and the file named as the folder).
+`commands`, and the file named as the folder). ◆ marks a folder that holds
+an Actor.
+
+## Folders
+
+```
+src/
+├── start.tsx                 draws the app, and gives what lives as long as the page
+├── app/ ◆                    the root page: who is signed in
+│   ├── storage/              what this device keeps: local/, cache/, database/
+│   ├── sign-in/              what is drawn in place of the app
+│   └── account/ ◆            one Account's page, /a/:accountId
+│       ├── connection/ ◆     one per listed Connection: link/, records/
+│       ├── frame/ ◆          around every page: sidebar/, header/, pickers/
+│       └── pages/            one at a time: home/, project/, settings/
+├── ui/                       plain parts with no data: page/, controls/, labels/
+└── deploy/                   the site's infrastructure
+```
 
 ## Addresses
 
@@ -29,7 +46,9 @@ names no page: the root page draws a 404, whoever is signed in, "Nothing
 lives at this address", with "Go home" to `/`, as the router matches a
 whole address or none.
 
-## The story
+## Each level
+
+Read it depth first: a part, then what is inside it, then the next part.
 
 ### `start.tsx`
 
@@ -185,85 +204,6 @@ keyed by how many times it ran (`records.ts`, `readingOf`).
 `src/ui/` holds plain parts with no data: `page/` (devtools, gutter, theme),
 `controls/` (notices, the Picker, settings rows) and `labels/` (agent, path,
 status).
-
-## Actors
-
-```
-App                         root page · Reading | Checking | SignedIn | SignedOut
-├── account                 the Account Switcher (library Actor)
-└── Account                 page /a/:accountId · Away | Active
-    ├── connection          each: listed Connection id · while Active; owns its socket
-    │   └── replicas        its Connection's Replica Instances
-    ├── frame               while Active, once its keys are read
-    │   ├── sidebar
-    │   │   ├── projects, sessions  each: shown Connection id (Queries)
-    │   │   └── prefetch
-    │   │       └── messages  each: shown Session id (a MessageIds Query)
-    │   ├── header
-    │   │   ├── project     while the URL names one (a ProjectRow Query)
-    │   │   ├── session     while the URL names one (a SessionRow Query)
-    │   │   └── voice
-    │   │       ├── dictation
-    │   │       └── microphone  the Microphone Picker
-    │   └── pickers
-    │       ├── projects    the Project Picker, as one of `Picker.make`
-    │       ├── sessions    the Session Switcher, as one of `Picker.make`
-    │       └── actions     Actions
-    └── pages               one at a time, from the address
-        ├── Home
-        │   └── projects    each: shown Connection id (Queries)
-        ├── Settings        general, shortcuts, and cards
-        │   └── cards       the Connections tab
-        │       └── card    each: listed Connection id
-        │           ├── agents   its Harness Accounts, by agent
-        │           │   └── card each: a Harness Account open
-        │           └── speech   its Speech to Text
-        └── Project         the Catalog; the Handover of a Session its Draft started
-            ├── project     its row (a ProjectRow Query); key: its Connection's runs here
-            ├── draft       while no Session is open, or the one it started is not yet drawn whole
-            │   ├── modes   each: a Draft Mode (Message, Btw), the Actor `write`
-            │   │   └── touch  the Touch Draft
-            │   └── choose  the skills, model and Branch Pickers, one open at a time
-            └── Session     …/s/:sessionId
-                ├── transcript   key: its Connection's runs here
-                │   ├── session   its row (a SessionRow Query)
-                │   ├── messages  each: its own, and each session up its fork chain (Queries)
-                │   └── running   while open (the Running Picker)
-                ├── draft     key: the session id
-                └── question  key: the session id; the Question Panel
-```
-
-Every Picker made by `Picker.make`, every Replica Query and the Account
-Switcher come from a library or a factory, and have no folder of their own.
-`pages` is one kind of Child: one page at a time, named by the address.
-
-No Actor has more than three kinds of Children. Three sit between a parent
-and the Children that crowded it, and only hand on its Props: `pickers`
-(the frame's Pickers), `choose` (the Draft's) and `transcript` (the
-session's Queries and its Running Picker). The Pickers under `choose` and
-`transcript` still answer the Actor that gives their owner, the Draft or
-the session, which keeps which one is open. Each of the three hands what
-it holds to its parent's View through `Around`.
-
-Each Actor is named as its folder: `Projects` and `Sessions` hold the
-Project Picker and the Session Switcher, `Write` the Draft Modes, `Touch`
-the Touch Draft, `Choose` the Draft's Pickers, `Cards`, `Card`, `Agents`
-and `Speech` the Connections tab, and `Prefetch` what the sidebar syncs
-ahead. The words of `CONTEXT.md` name what they hold.
-
-## Capabilities
-
-Each is given by its owner, and reaches every Actor below it.
-
-| Given by         | Capabilities                                                                     |
-| ---------------- | -------------------------------------------------------------------------------- |
-| `start.tsx`      | `Accounts`, `CloudClient`, `Preferences`, `Storage`, `OnOutdated`                |
-| `app/`           | `CurrentAccount`                                                                 |
-| `account/`       | `Connections`, `CodeClients` (borrowed), `Replicas`, `Sockets`, `Moves`, `Voice` |
-| `connection/`    | its own `Replicas` and socket, to its Instance                                   |
-| `frame/`         | `ConnectionFilter`                                                               |
-| `header/voice/`  | `Recorder`                                                                       |
-| `pages/project/` | its Connection's `CodeClient` (borrowed), the Catalog, the Handover              |
 
 ## Links between parts
 
