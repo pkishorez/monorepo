@@ -6,9 +6,9 @@ import {
 } from '@kestack/std-toolkit/eschema';
 
 /*
- * The guard both contracts' tests run: every value an Rpc sends, its
- * payload, its success or each item it streams, is an ESchema, so a newer
- * side reads what an older one sends. A list of ESchema values is one, each
+ * The guard every API's tests run, the Heartbeat's, the App API's and each
+ * Plugin's: every value an Rpc sends, its payload, its success or each item
+ * it streams, is an ESchema, so a newer side reads what an older one sends. A list of ESchema values is one, each
  * item carrying its own version. Nothing, a string, a number, a boolean or a
  * literal may stay plain: if one must ever change its type, it becomes a new
  * Rpc. An error's fields follow the same rule.

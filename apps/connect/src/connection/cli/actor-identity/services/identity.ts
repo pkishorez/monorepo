@@ -1,6 +1,6 @@
 import { chmodSync, existsSync } from 'node:fs';
-import { Context, Effect, Layer } from 'effect';
-import { CloudClient } from '../../../../cloud/client/index.js';
+import { Console, Context, Effect, Layer } from 'effect';
+import { HeartbeatClient } from './cloud/index.js';
 import {
   claim,
   forget as forgetHere,
@@ -42,11 +42,16 @@ interface Where {
   readonly version: string;
 }
 
-/** Connect Cloud at `cloud`, its calls signed by `signing`, for as long as the Scope. */
-const clientAt = (cloud: string, signing: Layer.Layer<unknown>) =>
+/** Connect Cloud at `cloud`, called as `ke-connect` at `version`, its calls signed by `signing`, for as long as the Scope. */
+const clientAt = (
+  { cloud, version }: Pick<Where, 'cloud' | 'version'>,
+  signing: Layer.Layer<unknown>,
+) =>
   Effect.map(
-    Layer.build(CloudClient.layer(cloud).pipe(Layer.provide(signing))),
-    (context) => Context.get(context, CloudClient),
+    Layer.build(
+      HeartbeatClient.layer(cloud, version).pipe(Layer.provide(signing)),
+    ),
+    (context) => Context.get(context, HeartbeatClient),
   );
 
 /** Keeps the database 0600 once it is there. */
@@ -75,14 +80,16 @@ export const identify = (
     });
     // Signing in opened the database first.
     yield* ownDb(options.db);
-    const client = yield* clientAt(options.cloud, session.signing);
+    const client = yield* clientAt(options, session.signing);
     return { ...options, connection, user: session.user, session, client };
   });
 
 /**
  * Asks Connect Cloud to forget the Connection, signs out, revoking the
  * Sign-in, and forgets the Connection here. A Connect Cloud that cannot be
- * told is only logged: the Sign-in revoked, it can never Report again.
+ * told is only logged: the Sign-in revoked, it can never Report again. One
+ * that refuses this `ke-connect` as Outdated keeps listing it, which is said
+ * plainly, with Connect Cloud's line: only the App can forget it then.
  */
 export const forget = (options: Where) =>
   Effect.scoped(
@@ -91,17 +98,20 @@ export const forget = (options: Where) =>
       const connection = yield* found(kept);
       const session = yield* stored(options);
       if (connection !== null && session.signing !== null) {
-        const client = yield* clientAt(options.cloud, session.signing);
-        yield* client
-          .Forget({ id: connection.id })
-          .pipe(
-            Effect.catch((error) =>
-              Effect.logWarning(
-                `${options.cloud} could not be told to forget ${connection.name}; Forget it from the app`,
-                error,
-              ),
+        const client = yield* clientAt(options, session.signing);
+        yield* client.Forget({ id: connection.id }).pipe(
+          Effect.catchTag('Outdated', ({ line }) =>
+            Console.error(
+              `${line}\nConnect Cloud still lists ${connection.name}, as this ke-connect is too old to have it forgotten: forget it from the app.`,
             ),
-          );
+          ),
+          Effect.catch((error) =>
+            Effect.logWarning(
+              `${options.cloud} could not be told to forget ${connection.name}; Forget it from the app`,
+              error,
+            ),
+          ),
+        );
       }
       yield* session.signOut;
       yield* forgetHere(kept);

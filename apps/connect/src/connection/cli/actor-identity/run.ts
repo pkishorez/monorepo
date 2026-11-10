@@ -43,7 +43,7 @@ export interface RunOptions {
   readonly control: Control['Service'];
 }
 
-/** Runs the tree until it is Ended, for as long as the Scope: why, Forgotten or Stopped. */
+/** Runs the tree until it is Ended, for as long as the Scope: why, Forgotten, Outdated or Stopped. */
 export const run = (options: RunOptions) =>
   Effect.gen(function* () {
     const downloads = Downloads.layer(options.input.folders.cache);

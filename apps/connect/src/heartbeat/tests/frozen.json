@@ -1,0 +1,28 @@
+{
+  "minConnect": "0.0.4",
+  "values": {
+    "HEARTBEAT_PATH": "/heartbeat",
+    "HeartbeatApi": "Forget,Report #2fae18089c7c",
+    "ReportAnswer": "v2 #f527e8ecdb80",
+    "ConnectionForgotten": "#d2cf17c8ee5a",
+    "ConnectionTaken": "#3cd053b260ab",
+    "AUTH_PATH": "/auth",
+    "AuthInfo": "v1 #93f69761de80",
+    "RELEASE_PATH": "/releases",
+    "releaseKey": "x/y.mjs",
+    "VERSION_HEADER": "ke-connect-version",
+    "UPGRADE_REQUIRED": 426,
+    "pluginPath": "/x/y/rpc",
+    "PROTOCOL": "ke-connect",
+    "KEY_PREFIX": "key.",
+    "HEALTH": "/health",
+    "PLUGIN_MISMATCH": 4409,
+    "PluginMismatch": "v1 #f22c85b0fcfe",
+    "KEY_EXPIRED": 4401,
+    "PluginEnv": "{\"name\":\"KESTACK_PLUGIN_NAME\",\"socket\":\"KESTACK_PLUGIN_SOCKET\",\"data\":\"KESTACK_PLUGIN_DATA\",\"state\":\"KESTACK_PLUGIN_STATE\",\"cache\":\"KESTACK_PLUGIN_CACHE\",\"shared\":\"KESTACK_PLUGIN_SHARED\"}",
+    "PluginPaths": "{\"rpc\":\"/rpc\",\"control\":\"/control\"}",
+    "READY": "{\"ready\":true}",
+    "PluginControl": "health,status #8ac89146c362",
+    "PluginStatus": "v1 #08e7f0c5964b"
+  }
+}

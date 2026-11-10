@@ -7,7 +7,7 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Effect, Schema } from 'effect';
-import type { AuthInfo } from '../../../../../contract/index.js';
+import type { AuthInfo } from '../../../../../heartbeat/index.js';
 
 /*
  * How Connect Cloud last said to sign in, kept as `auth.json` beside the

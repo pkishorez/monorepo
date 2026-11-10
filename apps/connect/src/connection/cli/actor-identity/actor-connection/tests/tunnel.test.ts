@@ -1,6 +1,6 @@
 import { Effect, type Scope } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { addressOf } from '../../../../../contract/index.js';
+import { addressOf } from '../../../../../heartbeat/index.js';
 import { eventually, fake, start } from './fixtures/connection.js';
 
 /*

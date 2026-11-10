@@ -69,11 +69,11 @@ A Connection that closed its Link's socket at once, as it runs another Release o
 _Avoid_: version mismatch, incompatible, refused (a refused call is a Message)
 
 **Outdated**:
-A Connection whose `ke-connect` is older than Connect Cloud accepts, the Minimum Connect. Its header and Settings ask to run `npm i -g @kestack/connect@latest` on it; a newer `ke-connect` being out is no reason to.
+A Connection whose `ke-connect` is older than Connect Cloud accepts, the Minimum Connect. The app never dials it until the Connection List says it was updated; its header and Settings ask to run `npm i -g @kestack/connect@latest` on it, then start it again. A newer `ke-connect` being out is no reason to.
 _Avoid_: old, behind (that is a Mismatched one)
 
 **Recheck**:
-The Connection List asked again because a Connection's Link is not up: every 3 seconds for the first minute, then every 30 seconds, until every Link is up; a Link that drops starts it again. Reload starts it over at once.
+The Connection List asked again because a Connection's Link is not up, at the pace of the Connection that needs it most: every 3 seconds while one is on its way (setting up, ready but not linked yet, or Outdated and seen lately), every 10 while one is stuck (its tunnel failed or unreachable) or down, never once every Link is up; a Link that drops starts it again. Reload, an expired Connection Key, and the page back after a while hidden ask at once.
 _Avoid_: poll, heartbeat (that is the Connection's own report)
 
 **Connection Filter**:

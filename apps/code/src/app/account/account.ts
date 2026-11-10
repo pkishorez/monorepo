@@ -22,6 +22,7 @@ import {
 import {
   addressOf,
   type Connection as ConnectionSchema,
+  isOutdated,
   ReleaseStanding,
 } from '@kestack/connect/cloud';
 
@@ -343,7 +344,13 @@ export class Connections extends Context.Service<
     readonly clients: (
       id: string,
     ) => Stream.Stream<CodeClients['Service'] | null>;
-    /** Where the Connection's sockets go, `wss://…` (`tunnelOf`), and its Key, once it is listed at an `https://` address and its Link is not held; waits until then. */
+    /**
+     * Where the Connection's sockets go, `wss://…` (`tunnelOf`), and its Key,
+     * once it is listed at an `https://` address, its Link is not held, and it
+     * is not Outdated; waits until then. Asked before every connect, so an
+     * Outdated Connection is never dialled, nor dialled again as it relinks,
+     * until a list says it was updated.
+     */
     readonly reachable: (
       id: string,
     ) => Effect.Effect<{ readonly tunnel: string; readonly key: string }>;
@@ -470,7 +477,8 @@ export const connectionsOf = ({ known, current, send }: Source) =>
         firstOf(
           Stream.map(known, ({ connections, held }) => {
             const listed = connections?.find((each) => each.id === id);
-            if (listed === undefined || held.includes(id)) return null;
+            if (listed === undefined || held.includes(id) || isOutdated(listed))
+              return null;
             const tunnel = tunnelOf(addressOf(listed.status));
             return tunnel === null ? null : { tunnel, key: listed.key };
           }),

@@ -18,10 +18,11 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { fakeGuard } from '@kestack/auth-toolkit/fake';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
-import { pluginPath } from '../../../contract/index.js';
+import { pluginPath } from '../../../connection/link/index.js';
 import { connectionsTable, serveOver } from '../../../cloud/worker/index.js';
 import { CodeClient } from '../../plugins/code/api/index.js';
 import { CLOUDFLARED_KEY } from '../actor-identity/actor-connection/index.js';
+import { OUTDATED_EXIT } from '../commands/index.js';
 
 /*
  * `ke-connect` end to end, each command its own process, as a user runs it:
@@ -90,8 +91,8 @@ const fakeRelease = () => {
 const keyInReport = (body: Buffer) =>
   /"key":"([\w-]+)"/.exec(body.toString())?.[1] ?? null;
 
-/** Connect Cloud over an in-memory database, signing in with the Fake, on `port`, else a port of its own. */
-const startCloud = async (port = 0) => {
+/** Connect Cloud over an in-memory database, signing in with the Fake, on `port`, else a port of its own, refusing any `ke-connect` below `minConnect`. */
+const startCloud = async (port = 0, minConnect?: string) => {
   const driver = makeNodeSQLite({ path: ':memory:' });
   await Effect.runPromise(
     SQLite.setup(connectionsTable, { database: driver, mode: 'persistent' }),
@@ -102,6 +103,7 @@ const startCloud = async (port = 0) => {
     origins: [],
     driver,
     wanted: { code },
+    ...(minConnect === undefined ? {} : { minConnect }),
   });
   const server = createServer(async (request, response) => {
     const chunks: Array<Buffer> = [];
@@ -169,12 +171,16 @@ const keConnect = (args: ReadonlyArray<string>) => {
   );
   children.push(child);
   let output = '';
+  let errors = '';
   child.stdout?.on('data', (chunk: Buffer) => (output += chunk.toString()));
-  child.stderr?.on('data', (chunk: Buffer) => (output += chunk.toString()));
+  child.stderr?.on('data', (chunk: Buffer) => {
+    output += chunk.toString();
+    errors += chunk.toString();
+  });
   const exited = new Promise<number | null>((resolve) =>
     child.once('exit', (code) => resolve(code)),
   );
-  return { child, output: () => output, exited };
+  return { child, output: () => output, errors: () => errors, exited };
 };
 
 /** `ke-connect <args>` run to its end: its exit code and output. */
@@ -268,6 +274,40 @@ describe('ke-connect', () => {
       );
     }
   }, 180_000);
+
+  it('prints the line of a Connect Cloud that refuses it as Outdated, and exits 75', async () => {
+    const strict = await startCloud(0, '99.0.0');
+    const serving = keConnect([
+      'serve',
+      'outdated',
+      '--cloud',
+      strict.url,
+      '--port',
+      String(await freePort()),
+      '--heartbeat',
+      '1',
+    ]);
+    try {
+      const code = await Promise.race([
+        serving.exited,
+        new Promise<'hung'>((resolve) =>
+          setTimeout(() => resolve('hung'), 10_000),
+        ),
+      ]);
+      expect(code).toBe(OUTDATED_EXIT);
+      expect(serving.errors()).toMatch(
+        /^ke-connect \S+ is older than Connect Cloud accepts \(99\.0\.0\): run `npm i -g @kestack\/connect@latest`, then start it again\.$/m,
+      );
+    } catch (error) {
+      throw new Error(
+        `${String(error)}\n--- serve said:\n${serving.output()}`,
+        { cause: error },
+      );
+    } finally {
+      strict.server.closeAllConnections();
+      await new Promise((resolve) => strict.server.close(resolve));
+    }
+  }, 60_000);
 
   /**
    * Serves the Connection `name` with Connect Cloud up until Code reaches its

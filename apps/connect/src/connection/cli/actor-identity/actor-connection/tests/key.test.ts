@@ -2,7 +2,10 @@ import { Effect, Layer } from 'effect';
 import { RpcClient } from 'effect/rpc';
 import { describe, expect, it } from 'vitest';
 import { client } from '@kestack/rpc-toolkit/rpc/websocket';
-import { KEY_EXPIRED, pluginPath } from '../../../../../contract/index.js';
+import {
+  KEY_EXPIRED,
+  pluginPath,
+} from '../../../../../connection/link/index.js';
 import {
   closeOf,
   eventually,

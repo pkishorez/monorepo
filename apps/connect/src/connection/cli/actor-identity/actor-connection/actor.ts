@@ -7,7 +7,7 @@ import {
   type Folders,
 } from '@kestack/cli-platform/files';
 import { ActorPlugin, PluginState } from '@kestack/cli-platform/plugins';
-import { Release } from '../../../../contract/index.js';
+import { Release } from '../../../../heartbeat/index.js';
 import { ActorTunnel } from './actor-tunnel/index.js';
 import { newConnectionKey, server } from './server/index.js';
 

@@ -28,9 +28,11 @@ import { OnOutdated } from '@kestack/std-toolkit/replica';
  */
 
 /** A call failed because the `older` side is older than the other. */
-export class VersionGap extends Data.TaggedError('VersionGap')<{
-  readonly older: 'client' | 'server';
-}> {
+export class VersionGap
+  extends /*#__PURE__*/ Data.TaggedError('VersionGap')<{
+    readonly older: 'client' | 'server';
+  }>
+{
   override get message() {
     return this.older === 'server'
       ? 'The server is older: it lacks this call, or cannot read it'
@@ -48,7 +50,10 @@ const olderSideOf = (defect: unknown): VersionGap | null =>
       ? new VersionGap({ older: 'client' })
       : null;
 
-const outdated = Effect.flatMap(Effect.service(OnOutdated), (tell) => tell);
+const outdated = /*#__PURE__*/ Effect.flatMap(
+  Effect.service(OnOutdated),
+  (tell) => tell,
+);
 
 const gapOrDie = (defect: unknown) => {
   const gap = olderSideOf(defect);

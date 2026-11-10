@@ -1,6 +1,9 @@
 import { Context, Effect, Layer, Option, type Scope, Stream } from 'effect';
-import { pluginPath } from '@kestack/connect/cloud';
-import { CodeClients, ConnectionAddress } from '@kestack/connect/code';
+import {
+  CodeClients,
+  ConnectionAddress,
+  pluginPath,
+} from '@kestack/connect/code';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { Connections } from '../../../account.ts';
 import { PLUGIN_CODE } from './release.ts';
@@ -28,8 +31,10 @@ import { PLUGIN_CODE } from './release.ts';
  *             key. Until it is listed with one, its socket waits, and so it
  *             does while its Link is held: a Connection running another
  *             Release closes it at once, and Connect Cloud is asked who is
- *             behind (`release.ts`) before it is dialled again. `Sockets` opens
- *             it, and only a Connection Actor asks it to.
+ *             behind (`release.ts`) before it is dialled again. Nor is a
+ *             Connection dialled while it is Outdated, its `ke-connect` older
+ *             than Connect Cloud accepts, until a list says it was updated.
+ *             `Sockets` opens it, and only a Connection Actor asks it to.
  * 3. Borrow   what the Account's page gives everything under it,
  *             `CodeClients`, holds no socket of its own: each call or
  *             stream on a Connection waits until that Connection runs,

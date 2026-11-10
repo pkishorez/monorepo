@@ -22,7 +22,11 @@ import {
   run,
   type RunningConnection,
 } from './actor-identity/index.js';
-import { run as runCommands, type ServeFlags } from './commands/index.js';
+import {
+  OUTDATED_EXIT,
+  run as runCommands,
+  type ServeFlags,
+} from './commands/index.js';
 
 /*
  * `ke-connect`: the Connections on this computer. commands/ is its commands;
@@ -31,8 +35,9 @@ import { run as runCommands, type ServeFlags } from './commands/index.js';
  * - serve: a Connection already running, or starting, is only reported.
  *   Else it holds the control socket first, so it alone signs in, and runs
  *   the Actor tree, actor-identity/: signed in, the Connection runs, until it
- *   is Ended: forgotten, refused or stopped. A Connection forgotten signs out
- *   first.
+ *   is Ended: forgotten, refused, Outdated or stopped. A Connection forgotten
+ *   signs out first. One Outdated, refused by Connect Cloud as older than its
+ *   Minimum Connect, prints Connect Cloud's line and exits `OUTDATED_EXIT`.
  * - list: every Connection with a folder, asking each that runs about
  *   itself on its control socket.
  * - remove: stops it if it runs, forgets it in Connect Cloud, signs out
@@ -81,9 +86,10 @@ const logsTo = (file: string) =>
     { mergeWithExisting: true },
   ) satisfies Layer.Layer<never>;
 
-/** The Connection cannot go on serving; `message` says why and what to do. */
+/** The Connection cannot go on serving; `message` says why and what to do, and `exitCode` is the program's when not 1. */
 class ConnectionStopped extends Data.TaggedError('ConnectionStopped')<{
   readonly message: string;
+  readonly exitCode?: number;
 }> {}
 
 /** How long `remove` waits for a running Connection to stop. */
@@ -178,6 +184,11 @@ const serve = (options: ServeFlags) =>
           message: `${options.name} was forgotten from the app, so it signed out and stopped. Run \`ke-connect remove ${options.name}\` to delete it here too, then serve again as a new Connection.`,
         });
       }
+      if (ended._tag === 'Outdated')
+        return yield* new ConnectionStopped({
+          message: ended.line,
+          exitCode: OUTDATED_EXIT,
+        });
       if (ended.reason !== null)
         return yield* new ConnectionStopped({ message: ended.reason });
       yield* Effect.log(`${options.name} stopped`);

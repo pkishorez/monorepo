@@ -1,7 +1,6 @@
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import type { ReportAnswer } from '../../../../../../contract/index.js';
-import { cloud, type CloudOptions } from '../cloud.js';
+import { cloud, type CloudOptions, Outdated } from '../cloud.js';
 
 /* How Connect Cloud's answer to a Report reads, against a fake client. */
 
@@ -23,22 +22,13 @@ const sent = (
     signInAgain: Effect.die('unused'),
   }).report({ _tag: 'SettingUp', step: { _tag: 'Opening' } }, 'k3y');
 
-const answered = (minConnect: ReportAnswer['minConnect']) =>
-  sent(
-    Effect.succeed({
-      wanted: { code: { hash: 'h', url: 'u' } },
-      minConnect,
-    }),
-  );
-
 describe('a Report', () => {
   it('carries the status and the key it is given', () =>
     Effect.runPromise(
       Effect.gen(function* () {
         const reports: Array<unknown> = [];
-        yield* sent(
-          Effect.succeed({ wanted: {}, minConnect: null }),
-          (report) => reports.push(report),
+        yield* sent(Effect.succeed({ wanted: {} }), (report) =>
+          reports.push(report),
         );
         expect(reports).toEqual([
           {
@@ -54,21 +44,23 @@ describe('a Report', () => {
 });
 
 describe('a Report’s answer', () => {
-  it('is the Plugins to run, or Outdated below the Minimum Connect', () =>
+  it('is the Plugins to run', () =>
     Effect.runPromise(
       Effect.gen(function* () {
-        expect(yield* answered('0.0.3')).toEqual({
+        const wanted = { code: { hash: 'h', url: 'u' } };
+        expect(yield* sent(Effect.succeed({ wanted }))).toEqual({
           _tag: 'Reported',
-          wanted: { code: { hash: 'h', url: 'u' } },
+          wanted,
         });
-        expect(yield* answered(null)).toEqual(
-          expect.objectContaining({ _tag: 'Reported' }),
-        );
-        expect(yield* answered('0.0.4')).toEqual({
-          _tag: 'Outdated',
-          version: '0.0.3',
-          minConnect: '0.0.4',
-        });
+      }),
+    ));
+
+  it('is Outdated, with Connect Cloud’s line, when it refused this ke-connect as too old', () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        expect(
+          yield* sent(Effect.fail(new Outdated({ line: 'update me' }))),
+        ).toEqual({ _tag: 'Outdated', line: 'update me' });
       }),
     ));
 });

@@ -1,6 +1,7 @@
 import { Effect, Fiber, Layer } from 'effect';
 import { TestClock } from 'effect/testing';
-import { CloudClient, VersionGap } from '@kestack/connect/cloud';
+import { CloudClient } from '@kestack/connect/cloud';
+import { VersionGap } from '@kestack/rpc-toolkit/rpc/version-gap';
 import { describe, expect, it } from 'vitest';
 import {
   askStanding,

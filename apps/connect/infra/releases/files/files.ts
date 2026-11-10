@@ -5,12 +5,16 @@ import { Action, Stage } from 'alchemy';
 import * as Cloudflare from '@alchemy.run/cloudflare';
 import * as Output from 'alchemy/Output';
 import { Effect } from 'effect';
-import { RELEASE_PATH, releaseKey } from '../../../src/contract/index.ts';
+import {
+  RELEASE_PATH,
+  releaseKey,
+} from '../../../src/cloud/worker/store/index.ts';
 
 /*
  * Where each Release File is kept, named by its hash and never changed, as
- * `<name>/<sha256>.mjs` under its root (see contract/). Putting a file there
- * answers where a Connection reads it, the `url` `RELEASES` names. Two kinds:
+ * `<name>/<sha256>.mjs` under its root (see src/cloud/worker/store/). Putting
+ * a file there answers where a Connection reads it, the `url` `RELEASES`
+ * names. Two kinds:
  *
  * - r2      the Stage's R2 bucket, which Connect Cloud serves at
  *           `<cloud>/releases/<name>/<sha256>.mjs`, for every Stage

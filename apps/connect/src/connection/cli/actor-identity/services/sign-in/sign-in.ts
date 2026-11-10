@@ -1,13 +1,13 @@
 import { Context, Data, Effect, Layer } from 'effect';
 import { Accounts, type AccountsState } from '@kestack/auth-toolkit/client';
 import { device } from '@kestack/auth-toolkit/client/device';
-import { authInfo } from '../../../../../cloud/client/index.js';
 import { keepAuthInfo, keptAuthInfo } from './auth-file.js';
+import { authInfo } from './auth-info.js';
 import { signInStore } from './sign-in-store.js';
 
 /*
  * How a Connection signs in to Connect Cloud, which says how when asked
- * (`authInfo`): through the Auth Worker it names, as a Device whose one
+ * (auth-info.ts): through the Auth Worker it names, as a Device whose one
  * Sign-in is kept in the database file and reused on later runs. The
  * result signs every Connect Cloud call with a bearer.
  *

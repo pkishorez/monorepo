@@ -1,9 +1,9 @@
 /*
- * Which web pages may talk to the server. A browser names the page's
- * origin on every request, the WebSocket's included, so a page on another
- * site cannot drive the server from a tab the user happens to have open.
- * A program that is not a browser sends no Origin and is let through: the
- * server listens on this machine only.
+ * Which web pages may knock: a Connection's server and Connect Cloud let in
+ * the same origin patterns. A browser names the page's origin on every
+ * request, the WebSocket's included, so a page on another site cannot drive
+ * a server from a tab the user happens to have open. A program that is not a
+ * browser sends no Origin; each server says what it does with one.
  *
  * A pattern is an origin, `scheme://host[:port]`, where `*.` before the
  * host stands for any subdomains and `:*` for any port.

@@ -43,7 +43,7 @@ describe('the notice pill', () => {
     const [label, title] = noticePillOf(older)!;
     expect(label).toBe('Update ke-connect');
     expect(title).toBe(
-      'ke-connect 0.0.4 is older than Connect Cloud accepts; run `npm i -g @kestack/connect@latest` on it, then start it again.',
+      'This computer runs ke-connect 0.0.4, older than Connect Cloud accepts, so Code does not connect to it. Update it, then start it again: npm i -g @kestack/connect@latest',
     );
     // At the Minimum Connect, or with none named, it is not Outdated.
     expect(noticePillOf(connection('0.0.4', null))).toBeNull();
@@ -93,7 +93,7 @@ describe('the notice in Settings', () => {
   it('shows how to update an Outdated ke-connect', () => {
     render(older);
     expect(host.textContent).toContain(
-      'ke-connect 0.0.4 is older than Connect Cloud accepts; run this on it',
+      'This computer runs ke-connect 0.0.4, older than Connect Cloud accepts, so Code does not connect to it. Update it, then start it again:',
     );
     expect(host.querySelector('code')?.textContent).toBe(
       'npm i -g @kestack/connect@latest',

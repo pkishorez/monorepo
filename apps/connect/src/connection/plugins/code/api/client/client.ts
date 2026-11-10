@@ -22,12 +22,15 @@ import type { Entity } from '@kestack/std-toolkit/core';
 import { oldToNew, Replica, Replicas } from '@kestack/std-toolkit/replica';
 import { CodeApi, type WireEntity } from '../contract/index.js';
 import {
+  versionedClient,
+  type VersionGap,
+} from '@kestack/rpc-toolkit/rpc/version-gap';
+import {
   keyExpired,
   mismatchOf,
   type PluginMismatch,
-  versionedClient,
-  type VersionGap,
-} from '../../../../../contract/index.js';
+  keyProtocols,
+} from '../../../../link/index.js';
 import {
   MessageSchema,
   PROJECTION_VERSION,
@@ -75,7 +78,7 @@ import { ProjectSchema, SessionSchema } from '../../records/index.js';
 
 /** The subprotocols that prove a Connection Key: none without one. */
 const protocolsOf = (key: string | undefined): ReadonlyArray<string> =>
-  key === undefined ? [] : ['ke-connect', `key.${key}`];
+  key === undefined ? [] : keyProtocols(key);
 
 export class CodeClient extends Context.Service<
   CodeClient,

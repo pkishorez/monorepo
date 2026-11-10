@@ -1,6 +1,9 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { IncomingHttpHeaders } from 'node:http';
-import { allowsOrigin } from '../../../../../contract/index.js';
+import {
+  allowsOrigin,
+  KEY_PREFIX,
+} from '../../../../../connection/link/index.js';
 
 /*
  * Who may come in. A browser page is let in only from an origin given; a
@@ -18,8 +21,6 @@ import { allowsOrigin } from '../../../../../contract/index.js';
 
 /** The one path open without the key, for the Heartbeat's Tunnel Check. */
 export const HEALTH = '/health';
-
-const KEY = 'key.';
 
 /** Why a request is turned away, or null when it may come in. */
 export interface Refusal {
@@ -60,8 +61,8 @@ export const guard = (key: () => string, origins: ReadonlyArray<string>) => {
       return { status: 403, text: 'This origin is not allowed' };
     if (pathOf(request.url) === HEALTH) return null;
     const keys = offered(request.headers['sec-websocket-protocol'])
-      .filter((each) => each.startsWith(KEY))
-      .map((each) => each.slice(KEY.length));
+      .filter((each) => each.startsWith(KEY_PREFIX))
+      .map((each) => each.slice(KEY_PREFIX.length));
     if (keys.length === 0)
       return { status: 401, text: 'This Connection needs its key' };
     const held = key();
@@ -73,6 +74,6 @@ export const guard = (key: () => string, origins: ReadonlyArray<string>) => {
 export const withoutKey = (
   header: string | ReadonlyArray<string> | undefined,
 ) => {
-  const left = offered(header).filter((each) => !each.startsWith(KEY));
+  const left = offered(header).filter((each) => !each.startsWith(KEY_PREFIX));
   return left.length === 0 ? undefined : left.join(', ');
 };

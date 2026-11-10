@@ -35,7 +35,7 @@ export const noticePillOf = (
   if (connection !== null && outdated(connection))
     return [
       'Update ke-connect',
-      `${outdatedOf(connection.version)} run \`${UPDATE_COMMAND}\` on it, then start it again.`,
+      `${outdatedOf(connection.version)} ${UPDATE_COMMAND}`,
       'bg-warning',
     ];
   return null;
@@ -44,9 +44,9 @@ export const noticePillOf = (
 /** What is said of this Code while it moves to its newest build. */
 const STALE = 'A newer Code is out: Code is moving to its newest version.';
 
-/** What is said of an Outdated Connection's `ke-connect`. */
+/** What is said of an Outdated Connection's `ke-connect`, before the command that updates it. */
 const outdatedOf = (version: string) =>
-  `ke-connect ${version} is older than Connect Cloud accepts;`;
+  `This computer runs ke-connect ${version}, older than Connect Cloud accepts, so Code does not connect to it. Update it, then start it again:`;
 
 /** A button that copies `text`, and says so once it did. */
 function Copy({
@@ -77,10 +77,7 @@ function Copy({
 function Update({ version }: { readonly version: string }) {
   return (
     <div role="status" className="flex flex-col gap-1.5">
-      <p className="text-xs text-muted-foreground">
-        Update ke-connect: {outdatedOf(version)} run this on it, then start it
-        again:
-      </p>
+      <p className="text-xs text-muted-foreground">{outdatedOf(version)}</p>
       <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 py-1 pr-1 pl-3">
         <code className="min-w-0 flex-1 truncate font-mono text-xs">
           {UPDATE_COMMAND}

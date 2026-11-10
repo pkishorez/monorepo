@@ -1,5 +1,5 @@
 import { Context, type Duration, type Effect, type Scope } from 'effect';
-import type { TunnelCheck } from '../../../../../../contract/index.js';
+import type { TunnelCheck } from '../../../../../../heartbeat/index.js';
 
 /*
  * The tunnel a Connection is reached through, so it can be run against a

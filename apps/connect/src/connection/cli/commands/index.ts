@@ -1,1 +1,6 @@
-export { run, type Commands, type ServeFlags } from './commands.js';
+export {
+  OUTDATED_EXIT,
+  run,
+  type Commands,
+  type ServeFlags,
+} from './commands.js';

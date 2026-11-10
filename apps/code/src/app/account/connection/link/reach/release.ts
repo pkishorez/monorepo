@@ -1,9 +1,6 @@
 import { Effect, Option, Schema } from 'effect';
-import {
-  CloudClient,
-  type PluginMismatch,
-  ReleaseStanding,
-} from '@kestack/connect/cloud';
+import { CloudClient, ReleaseStanding } from '@kestack/connect/cloud';
+import type { PluginMismatch } from '@kestack/connect/code';
 import { Command } from '@kestack/kabuki';
 import { OnOutdated } from '@kestack/std-toolkit/replica';
 

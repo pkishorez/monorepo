@@ -21,7 +21,7 @@ import type {
   TranscriptionFailed,
   UnknownAccount,
 } from '@kestack/connect/code';
-import type { VersionGap } from '@kestack/connect/cloud';
+import type { VersionGap } from '@kestack/rpc-toolkit/rpc/version-gap';
 
 /*
  * How every call to the server ends: in one Message, what came back or why

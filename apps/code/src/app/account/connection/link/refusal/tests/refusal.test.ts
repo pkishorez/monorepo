@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { VersionGap } from '@kestack/connect/cloud';
+import { VersionGap } from '@kestack/rpc-toolkit/rpc/version-gap';
 import { describe, expect, it } from 'vitest';
 import { orRefused, reasonOf } from '../refusal.ts';
 
