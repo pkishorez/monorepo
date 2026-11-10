@@ -1,5 +1,61 @@
 # @kestack/ui-toolkit
 
+## 0.0.7
+
+### Patch Changes
+
+- [`e6bff3f`](https://github.com/pkishorez/monorepo/commit/e6bff3f08491006cbcfa392a68f913a4a0238348) Thanks [@pkishorez](https://github.com/pkishorez)! - A code block in `MarkdownViewer` can be copied.
+
+  **Added**
+
+  - A small copy button at the top right of every code block, fenced or indented, shown on pointing at the block or on focus, and always on a touch screen. It copies the code as written, then shows a check for a moment, or a cross if the clipboard refused.
+
+- [`5f58fb2`](https://github.com/pkishorez/monorepo/commit/5f58fb2c3a7749326a07fe8c474f532a775c3280) Thanks [@pkishorez](https://github.com/pkishorez)! - `ImageViewer` stops at the first and last image, opens without sliding, and moves between images faster.
+
+  **Fixed**
+
+  - Past the first or the last image, a swipe gives a little and springs back, and the arrow and key that way do nothing: it never wraps around to the other end.
+  - An image opened afresh shows in place. It used to slide in from the side the last move went.
+  - Moving to the next image takes 0.32 s instead of about 0.8 s: the image shown carries on off the screen in 120 ms, and the next eases in from a third of the way across in 200 ms.
+
+- [`aa238be`](https://github.com/pkishorez/monorepo/commit/aa238be43c331c2400846ff49fdd12a0fb199fdf) Thanks [@pkishorez](https://github.com/pkishorez)! - `ImageViewer` moves through a set of images, and frames each one.
+
+  **New**
+
+  - `images` and `onShow`: given every image, `src` among them, it says which one it shows, "2 of 5", and moves to the one before or after: by a swipe sideways on touch, the image following the finger and the next sliding in; by arrows at its sides or the arrow keys otherwise. Alone, a sideways swipe only gives a little.
+  - Its buttons and count show while it is used, and fade after 2.5 s left alone.
+  - The image sits inside a margin with rounded corners, a hairline and a shadow, on a dimmed, blurred backdrop, so its edges are plain.
+
+- [#123](https://github.com/pkishorez/monorepo/pull/123) [`4ed2c1a`](https://github.com/pkishorez/monorepo/commit/4ed2c1a126382b68b60392c8aef71c7b0a042046) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A page the service worker already saved is checked against the server build too. A deploy that changes no asset keeps the Build ID, so the new worker installs into the last install's Precache; before, it kept every page found there, a stale one included, and the home page stayed unstyled after the fix for saving stale pages shipped.
+
+- [#122](https://github.com/pkishorez/monorepo/pull/122) [`75f0a0b`](https://github.com/pkishorez/monorepo/commit/75f0a0bab4f116611a8c3988e26997b98b7b4e78) Thanks [@kishorenuma](https://github.com/kishorenuma)! - The service worker no longer saves a page an older deploy drew. On install, each page must carry the server build that Kabuki Start's Pages name; a stale copy, as iOS Safari can answer even a `reload` fetch with, is asked for once more past every cache, then left to the network, or fails install if it is the App Shell. Before, a stale home page was saved and loaded unstyled for the whole life of the build, since the files it pointed at were gone.
+
+- [#133](https://github.com/pkishorez/monorepo/pull/133) [`2678376`](https://github.com/pkishorez/monorepo/commit/2678376efd3ce396d3f491c63c615169112eccd9) Thanks [@pkishorez](https://github.com/pkishorez)! - The service worker now answers every page with the App Shell, without the network, so an installed app opens at once at any URL. It keeps only the build's assets and the App Shell; each page loads its data through the Loader RPC, so server data needs a connection, and a Render Mode only says what the server sends when no worker answers. `navigation.networkTimeoutMs` is gone, and a navigation to a path with a file extension or under `/_kabuki/` goes to the network.
+
+  In Kabuki, the root page's Render Mode is now inherited like any other. Under a `client` root the server answers every URL with the App Shell and a `200`, except a file that is not there, which stays a `404`. `Start.app({ loading })` is what the App Shell paints until the app is drawn, and the App Shell now carries the root's Metadata.
+
+- [#121](https://github.com/pkishorez/monorepo/pull/121) [`32c3798`](https://github.com/pkishorez/monorepo/commit/32c379829a355b88722e35efe8eb5f2ffc57fd95) Thanks [@kishorenuma](https://github.com/kishorenuma)! - `document({ prompts })` chooses what the PWA asks of the reader.
+
+  **Added**
+
+  - `prompts.update: 'reload'` reloads every open page into a new version as soon as it is ready, in place of the Update Prompt. `'prompt'`, the default, asks first, as before.
+  - `prompts.install: 'off'` never offers install. `'prompt'`, the default, offers it once, as before.
+  - `Pwa` takes the same `prompts`, and `PwaPrompts` is their type.
+
+- [#79](https://github.com/pkishorez/monorepo/pull/79) [`2b2e5e5`](https://github.com/pkishorez/monorepo/commit/2b2e5e5d5e8ec705ed0b2fbec34587806030391d) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A Drawer can be swiped open from the edge of the screen: `DrawerSwipeArea`, from `@kestack/web-platform/ui/components/drawer`, is an invisible strip you place along an edge, and swiping away from it pulls the Drawer out under the finger, the way a side menu opens on a phone. The page still scrolls the other way through it.
+
+- [#128](https://github.com/pkishorez/monorepo/pull/128) [`d5a56b3`](https://github.com/pkishorez/monorepo/commit/d5a56b3119b67926410d5d8bedf6c2127573e6f3) Thanks [@kishorenuma](https://github.com/kishorenuma)! - `GoogleButton` (`ui/components/google-button`) is now auth-toolkit's (`@kestack/auth-toolkit/google-button`), re-exported, so an app and the Auth Worker draw the same button.
+
+  - It takes a `label`, one of the words Google's branding guidelines allow ("Sign in with Google", "Continue with Google", "Sign up with Google"), and a `theme` of `light`, `dark` or `auto`, which follows the page's dark mode.
+  - It loads its font, Google Sans Medium as Google's guidelines say, only on a page that draws it, where before it named Roboto and fell back to Arial.
+  - Its width grows with its label, from Google's 183px up to 400px. It no longer centers itself: pass `className="mx-auto"` for that. A `className` given to it is added to its own instead of replacing them.
+  - Its prop types are exported as `GoogleButtonProps`, `GoogleButtonLabel` and `GoogleButtonTheme`.
+
+- [#117](https://github.com/pkishorez/monorepo/pull/117) [`9daf71c`](https://github.com/pkishorez/monorepo/commit/9daf71c79cd51ac7aff2e1e18c71869f2e8bde2f) Thanks [@kishorenuma](https://github.com/kishorenuma)! - `./recipes/image-viewer` shows an image whole over the page to zoom into: `ImageViewer`, opened on an image by its caller, and `ImageButton`, a thumbnail that opens it when pressed. Pinch, a double tap, the wheel, its buttons or `+`, `-` and `0` zoom it, a drag moves it, and a swipe down, Escape or a tap on the backdrop close it at once.
+- Updated dependencies [[`eba4397`](https://github.com/pkishorez/monorepo/commit/eba4397640c4ab3e921bb0c7613e24b25b89ca6a), [`eba4397`](https://github.com/pkishorez/monorepo/commit/eba4397640c4ab3e921bb0c7613e24b25b89ca6a), [`eba4397`](https://github.com/pkishorez/monorepo/commit/eba4397640c4ab3e921bb0c7613e24b25b89ca6a), [`df76ba6`](https://github.com/pkishorez/monorepo/commit/df76ba60280fdb5405ca85b29fe67f8604de18bf), [`2678376`](https://github.com/pkishorez/monorepo/commit/2678376efd3ce396d3f491c63c615169112eccd9)]:
+  - @kestack/auth-toolkit@0.0.7
+  - @kestack/kabuki@0.0.6
+
 ## 0.0.6
 
 ### Patch Changes
