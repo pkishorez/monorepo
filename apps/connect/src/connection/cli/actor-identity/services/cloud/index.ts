@@ -1,1 +1,6 @@
-export { cloud, type CloudOptions } from './cloud.js';
+export {
+  cloud,
+  type CloudOptions,
+  HeartbeatClient,
+  Outdated,
+} from './cloud.js';

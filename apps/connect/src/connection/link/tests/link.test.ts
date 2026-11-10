@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { expectUpgradable } from '@kestack/std-toolkit/eschema/testing';
 import {
-  type Connection,
-  fromReleaseKey,
-  isOutdated,
   KEY_EXPIRED,
   keyExpired,
   mismatchOf,
@@ -12,13 +9,12 @@ import {
   pluginOfPath,
   pluginPath,
   PluginMismatch,
-  releaseKey,
 } from '../index.js';
 
 /*
- * How every side names a Release of a Plugin: the path Code calls it at,
- * its Release File, and the close that says the Connection runs
- * another; and when a Connection is Outdated.
+ * How an App reaches a Release of a Plugin through a Connection: the path it
+ * calls it at, and the closes that say the Connection runs another, or that
+ * the key offered expired.
  */
 
 const HASH = 'a'.repeat(64);
@@ -38,16 +34,6 @@ describe('a Release of a Plugin', () => {
       `//code/${HASH}/rpc`,
     ])
       expect(pluginOfPath(path)).toBeNull();
-  });
-
-  it('keeps its file as `<name>/<sha256>.mjs`', () => {
-    expect(releaseKey('code', HASH)).toBe(`code/${HASH}.mjs`);
-    expect(fromReleaseKey(releaseKey('code', HASH))).toEqual({
-      name: 'code',
-      hash: HASH,
-    });
-    for (const key of [`../${HASH}.mjs`, 'code/latest.mjs', `code/${HASH}`])
-      expect(fromReleaseKey(key)).toBeNull();
   });
 
   it('closes a socket for another Release with 4409 and the hash running', async () => {
@@ -77,27 +63,5 @@ describe('a key the Connection does not hold', () => {
   it('is told from any other close', () => {
     for (const code of [1000, 1006, PLUGIN_MISMATCH])
       expect(keyExpired({ code, reason: 'key expired' })).toBe(false);
-  });
-});
-
-describe('the Minimum Connect', () => {
-  const at = (version: string, minConnect: string | null): Connection => ({
-    id: 'c1',
-    name: 'laptop',
-    key: 'k',
-    version,
-    status: { _tag: 'SettingUp', step: { _tag: 'Opening' } },
-    lastSeen: 1,
-    wanted: {},
-    minConnect,
-    displayName: null,
-  });
-
-  it('makes a Connection below it Outdated, and none when there is none', () => {
-    expect(isOutdated(at('0.0.4', '0.0.5'))).toBe(true);
-    expect(isOutdated(at('0.0.5', '0.0.5'))).toBe(false);
-    expect(isOutdated(at('0.1.0', '0.0.5'))).toBe(false);
-    expect(isOutdated(at('0.0.5-next.1', '0.0.5'))).toBe(true);
-    expect(isOutdated(at('0.0.1', null))).toBe(false);
   });
 });

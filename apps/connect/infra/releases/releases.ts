@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import * as Output from 'alchemy/Output';
 import { Effect } from 'effect';
 import { folders } from '@kestack/cli-platform/files';
-import { belowMinimum } from '../../src/contract/index.ts';
+import { belowMinimum } from '../../src/heartbeat/index.ts';
 import { where } from '../stage.ts';
 import {
   builtHash,
@@ -16,8 +16,8 @@ import { folderFiles, r2Files, ReleaseFiles } from './files/index.ts';
 
 /*
  * What a Stage tells every Connection about its Plugins: which Release of
- * each to run, with its Release File kept, and the Minimum Connect, the oldest
- * `ke-connect` let run them. There is one Plugin, `code`.
+ * each to run, with its Release File kept; and the Minimum Connect, the oldest
+ * `ke-connect` Connect Cloud answers at all. There is one Plugin, `code`.
  *
  * A deployed Stage names the latest Release in the Plugin's Release Log,
  * and refuses to deploy unless the build is that Release; its file goes

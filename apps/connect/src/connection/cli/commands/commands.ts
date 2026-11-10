@@ -7,9 +7,17 @@ import { NodeRuntime, NodeServices } from '@effect/platform-node';
  * What each does is handed in. `serve [name]` runs a Connection, `list`
  * shows every Connection on this computer, and `remove <name>` deletes
  * one. With no command it opens Effect CLI's wizard, which builds one and
- * runs it. A failure ends the program with its message alone. dev/ runs
- * this same program in development: each branch's Connection, `dev-<branch>`.
+ * runs it. A failure ends the program with its message alone, and exit code
+ * 1, or the one it names, as `OUTDATED_EXIT`. dev/ runs this same program in
+ * development: each branch's Connection, `dev-<branch>`.
  */
+
+/**
+ * The exit code of a `ke-connect` Connect Cloud refused as older than its
+ * Minimum Connect (EX_TEMPFAIL). A service running `ke-connect` (systemd,
+ * launchd: later work) starts it again on this code, at the newest version.
+ */
+export const OUTDATED_EXIT = 75;
 
 const DEFAULT_NAME = 'main';
 const DEFAULT_CLOUD = 'https://connect.kishore.app';
@@ -80,11 +88,17 @@ const reasonOf = (error: unknown): string => {
   return [error.message, cause].filter((part) => part !== '').join(': ');
 };
 
-/** Ends the program with `error`'s message alone, and a failing exit code. */
+/** The exit code `error` names, as `{ exitCode }`; else 1. */
+const exitCodeOf = (error: unknown): number => {
+  const code = (error as { readonly exitCode?: unknown } | null)?.exitCode;
+  return typeof code === 'number' ? code : 1;
+};
+
+/** Ends the program with `error`'s message alone, and a failing exit code: 1, or the one it names. */
 const exitWith = (error: unknown) =>
   Effect.sync(() => {
     process.stderr.write(`${reasonOf(error)}\n`);
-    process.exitCode = 1;
+    process.exitCode = exitCodeOf(error);
   });
 
 /** `ke-connect` and its commands, each doing what `commands` says. */

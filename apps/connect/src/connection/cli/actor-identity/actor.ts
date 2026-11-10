@@ -1,7 +1,7 @@
 import { Duration, Effect, Layer, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import type { Self } from '@kestack/kabuki/core/actor';
-import { addressOf } from '../../../contract/index.js';
+import { addressOf } from '../../../heartbeat/index.js';
 import { ActorConnection, ROTATE_EVERY } from './actor-connection/index.js';
 import { Cloud, CloudAccount, Control } from './capabilities/index.js';
 
@@ -16,7 +16,10 @@ import { Cloud, CloudAccount, Control } from './capabilities/index.js';
  * A Report that could not be sent says nothing of the login, so everything
  * goes on running, and the next Heartbeat asks again. A forgotten, refused or
  * Outdated Connection ends the program, and so does a Sign-in that fails, or a
- * port that cannot be opened: each is Ended, saying why.
+ * port that cannot be opened: each is Ended, saying why. Outdated is Connect
+ * Cloud refusing this `ke-connect` 426, below its Minimum Connect, with one
+ * line to show, which is the why: the program ends with an exit code of its
+ * own, so a service starts it again at the newest version.
  *
  * A Connect Cloud that refuses Sign-in after Sign-in would have it sign in
  * over and over: from the second refusal in a row it waits before signing in
@@ -42,10 +45,6 @@ const backoffAfter = (refusals: number, first: Duration.Input) =>
         Duration.times(Duration.fromInputUnsafe(first), 2 ** (refusals - 2)),
         MOST_BACKOFF,
       );
-
-/** Why an Outdated Connection stops, and what to do. */
-const outdatedReason = (version: string, minConnect: string) =>
-  `ke-connect ${version} is older than Connect Cloud accepts (${minConnect}): run \`npm i -g @kestack/connect@latest\`, then serve again.`;
 
 const Input = Schema.Struct({
   /** The Connection's name on this computer. */
@@ -89,10 +88,11 @@ const State = Schema.TaggedUnion({
   /** Signing in: `who` it was when signed in before, or null the first time. */
   SigningIn: { who: Schema.NullOr(Who) },
   SignedIn: { who: Who },
-  /** It must stop, and why: forgotten, or stopped for a reason, null when it was asked to. */
+  /** It must stop, and why: forgotten, Outdated as Connect Cloud's `line` says, or stopped for a reason, null when it was asked to. */
   Ended: {
     why: Schema.TaggedUnion({
       Forgotten: {},
+      Outdated: { line: Schema.String },
       Stopped: { reason: Schema.NullOr(Schema.String) },
     }),
   },
@@ -105,6 +105,7 @@ const Message = Schema.TaggedUnion({
   Reported: {},
   SignedOut: {},
   Forgotten: {},
+  Outdated: { line: Schema.String },
   Stop: { reason: Schema.NullOr(Schema.String) },
 });
 type Message = typeof Message.Type;
@@ -163,10 +164,7 @@ const reportFor =
             );
           case 'Outdated':
             return Effect.as(
-              self.send({
-                _tag: 'Stop',
-                reason: outdatedReason(answer.version, answer.minConnect),
-              }),
+              self.send({ _tag: 'Outdated', line: answer.line }),
               null,
             );
           case 'Forgotten':
@@ -226,6 +224,9 @@ export const ActorIdentity = Actor.define('Identity', {
   on: {
     Forgotten: () => ({
       state: { _tag: 'Ended', why: { _tag: 'Forgotten' } },
+    }),
+    Outdated: ({ line }) => ({
+      state: { _tag: 'Ended', why: { _tag: 'Outdated', line } },
     }),
     Stop: ({ reason }) => ({
       state: { _tag: 'Ended', why: { _tag: 'Stopped', reason } },

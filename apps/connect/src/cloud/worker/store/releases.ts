@@ -1,11 +1,6 @@
 import { Effect } from 'effect';
-import {
-  fromReleaseKey,
-  type Release,
-  RELEASE_PATH,
-  releaseKey,
-  type ReleaseStanding,
-} from '../../contract/index.js';
+import { type Release } from '../../../heartbeat/index.js';
+import { type ReleaseStanding } from '../../app-api/index.js';
 
 /*
  * Connect Cloud's Releases: what every Connection should run, which the deploy
@@ -15,7 +10,24 @@ import {
  * that it does not name is an older Release.
  */
 
-/** What every Connection is told: the latest Release of each Plugin, and the Minimum Connect. */
+/** Where Connect Cloud serves Release Files: `<cloud>/releases/<name>/<sha256>.mjs`. R2 keeps each file at the same path. */
+export const RELEASE_PATH = '/releases';
+
+/** A Plugin's name, a DNS label, then a Release's hash, the sha256 of its file in lowercase hex. */
+const KEY = /^([a-z0-9-]{1,64})\/([a-f0-9]{64})\.mjs$/;
+
+/** A Release File's key, under any root: `<name>/<sha256>.mjs`. */
+export const releaseKey = (name: string, hash: string) => `${name}/${hash}.mjs`;
+
+/** The Plugin and hash a Release File's key names; null for anything else. */
+export const fromReleaseKey = (
+  key: string,
+): { readonly name: string; readonly hash: string } | null => {
+  const found = KEY.exec(key);
+  return found === null ? null : { name: found[1]!, hash: found[2]! };
+};
+
+/** The latest Release of each Plugin, which every Connection is told to run, and the Minimum Connect, below which none is answered. */
 export interface Latest {
   readonly wanted: Readonly<Record<string, Release>>;
   readonly minConnect: string | null;

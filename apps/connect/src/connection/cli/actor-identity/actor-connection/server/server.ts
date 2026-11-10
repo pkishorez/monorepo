@@ -13,7 +13,8 @@ import {
   mismatchReason,
   PLUGIN_MISMATCH,
   pluginOfPath,
-} from '../../../../../contract/index.js';
+  PROTOCOL,
+} from '../../../../../connection/link/index.js';
 import {
   EXPIRED,
   guard,
@@ -133,7 +134,7 @@ const closeWith = (
     return answerRaw(socket, { status: 400, text: 'Not a WebSocket' });
   const offered =
     withoutKey(request.headers['sec-websocket-protocol'])?.split(', ') ?? [];
-  const protocol = offered.includes('ke-connect') ? 'ke-connect' : offered[0];
+  const protocol = offered.includes(PROTOCOL) ? PROTOCOL : offered[0];
   const accept = createHash('sha1')
     .update(key + ACCEPT)
     .digest('base64');

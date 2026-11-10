@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { expectUpgradable } from '@kestack/std-toolkit/eschema/testing';
-import { versionedValuesOf } from '../../../../../../contract/tests/versioned.js';
+import { versionedValuesOf } from '../../../../../../heartbeat/tests/versioned.js';
 import { CodeApi } from '../index.js';
 
 /*

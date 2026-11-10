@@ -1,19 +1,18 @@
 import { Effect } from 'effect';
-import type { CloudClient } from '../../../../../cloud/client/index.js';
-import {
-  belowMinimum,
-  type ConnectionStatus,
-} from '../../../../../contract/index.js';
+import type { ConnectionStatus } from '../../../../../heartbeat/index.js';
+import type { HeartbeatClient } from './client.js';
+
+export { HeartbeatClient, Outdated } from './client.js';
 
 /*
- * Connect Cloud's client, signed in as the Connection's User. A Report is
- * answered with the Release of each Plugin to run, or with why it was not
- * taken; one that names a Minimum Connect above this `ke-connect` is
- * Outdated. Only `Unauthenticated`, which Connect Cloud answers once the
- * Auth Worker said this Sign-in names nobody, is SignedOut; anything else
- * that goes wrong, a crash on either side included, leaves it Unsent, so
- * the next Heartbeat tries again. Signing in again must come back as the
- * same User.
+ * Connect Cloud's Heartbeat client (client.ts), signed in as the Connection's
+ * User. A Report is answered with the Release of each Plugin to run, or with
+ * why it was not taken; one Connect Cloud answers 426, below its Minimum
+ * Connect, is Outdated, with the line it sent. Only `Unauthenticated`, which
+ * Connect Cloud answers once the Auth Worker said this Sign-in names nobody,
+ * is SignedOut; anything else that goes wrong, a crash on either side
+ * included, leaves it Unsent, so the next Heartbeat tries again. Signing in
+ * again must come back as the same User.
  */
 
 /** How long Connect Cloud has to answer a Report before it is Unsent, so a stalled one never holds up the Heartbeat. */
@@ -26,7 +25,7 @@ interface User {
 
 export interface CloudOptions {
   /** Connect Cloud's client, its calls signed. */
-  readonly client: CloudClient['Service'];
+  readonly client: HeartbeatClient['Service'];
   readonly connection: {
     readonly id: string;
     readonly name: string;
@@ -43,6 +42,11 @@ export interface CloudOptions {
 const outcomeOf = (error: unknown) => {
   const tag = (error as { readonly _tag?: string })._tag;
   switch (tag) {
+    case 'Outdated':
+      return {
+        _tag: 'Outdated',
+        line: (error as { readonly line: string }).line,
+      } as const;
     case 'ConnectionForgotten':
       return { _tag: 'Forgotten' } as const;
     case 'Unauthenticated':
@@ -84,14 +88,8 @@ export const cloud = (options: CloudOptions) => {
           status,
         })
         .pipe(
-          Effect.map((answer) =>
-            belowMinimum(version, answer.minConnect)
-              ? ({
-                  _tag: 'Outdated',
-                  version,
-                  minConnect: answer.minConnect!,
-                } as const)
-              : ({ _tag: 'Reported', wanted: answer.wanted } as const),
+          Effect.map(
+            (answer) => ({ _tag: 'Reported', wanted: answer.wanted }) as const,
           ),
           Effect.catch((error) => Effect.succeed(outcomeOf(error))),
           Effect.catchDefect((defect) => Effect.succeed(crashOf(defect))),

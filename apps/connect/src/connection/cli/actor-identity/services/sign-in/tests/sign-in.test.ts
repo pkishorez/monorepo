@@ -7,11 +7,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeGuard } from '@kestack/auth-toolkit/fake';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
-import { CloudClient } from '../../../../../../cloud/client/index.js';
 import {
   connectionsTable,
   serveOver,
 } from '../../../../../../cloud/worker/index.js';
+import { HeartbeatClient } from '../../cloud/index.js';
 import { signIn } from '../index.js';
 
 /*
@@ -119,9 +119,13 @@ describe('signIn', () => {
           // the Auth Worker it names now.
           const before = fake.calls.length;
           const refused = yield* Effect.flip(
-            Effect.flatMap(CloudClient, (client) => client.List({})).pipe(
+            Effect.flatMap(HeartbeatClient, (client) =>
+              client.Forget({ id: 'c1' }),
+            ).pipe(
               Effect.provide(
-                CloudClient.layer(CLOUD).pipe(Layer.provide(session.signing)),
+                HeartbeatClient.layer(CLOUD, '0.0.6').pipe(
+                  Layer.provide(session.signing),
+                ),
               ),
               Effect.provideService(FetchHttpClient.Fetch, fake.fetch),
             ),

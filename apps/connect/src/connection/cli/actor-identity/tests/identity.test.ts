@@ -3,7 +3,7 @@ import { Effect } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
 import { socketPath } from '@kestack/cli-platform/files';
 import { reach } from '@kestack/cli-platform/single';
-import { addressOf } from '../../../../contract/index.js';
+import { addressOf } from '../../../../heartbeat/index.js';
 import { ConnectionControl } from '../services/index.js';
 import {
   eventually,
@@ -244,21 +244,13 @@ describe('a Report’s answer', () => {
       }),
     ));
 
-  it('reports once when Outdated, then stops, saying how to update', () =>
+  it('stops Outdated when Connect Cloud refuses it as too old, with the line it sent', () =>
     Effect.runPromise(
       Effect.gen(function* () {
-        const host = fake({
-          answer: () => ({
-            _tag: 'Outdated',
-            version: '0.0.3',
-            minConnect: '0.0.4',
-          }),
-        });
-        expect(yield* runToEnd(host)).toEqual({
-          _tag: 'Stopped',
-          reason:
-            'ke-connect 0.0.3 is older than Connect Cloud accepts (0.0.4): run `npm i -g @kestack/connect@latest`, then serve again.',
-        });
+        const line =
+          'ke-connect 0.0.3 is older than Connect Cloud accepts (0.0.4): run `npm i -g @kestack/connect@latest`, then start it again.';
+        const host = fake({ answer: () => ({ _tag: 'Outdated', line }) });
+        expect(yield* runToEnd(host)).toEqual({ _tag: 'Outdated', line });
         expect(host.reports.length).toBeGreaterThan(0);
       }),
     ));

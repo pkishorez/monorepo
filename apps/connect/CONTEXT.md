@@ -9,7 +9,7 @@ How a computer is connected to the cloud so that its User can reach it from outs
 _Avoid_: daemon (for now: it is not a background service), agent, server
 
 **Connect Cloud**:
-The cloud part of Connect, with two jobs. Connections: where a Connection signs in and sends its Heartbeats, and what keeps and advertises each User's Connections. Releases: what decides the latest Release of each Plugin, and where each Release File is read from. A UI asks it for the Connections and then talks to each Connection itself.
+The cloud part of Connect, with two jobs. Connections: where a Connection signs in and sends its Heartbeats, and what keeps and advertises each User's Connections. Releases: what decides the latest Release of each Plugin, and where each Release File is read from. It serves two APIs: the Heartbeat, which only `ke-connect` calls, and the App API, which only an App calls. An App asks it for the Connections and then talks to each Connection itself, over a Link.
 _Avoid_: Cloud Connect, Connect Service, Connections Backend, registry
 
 **Connect CLI**:
@@ -21,7 +21,7 @@ One UI on Connect, such as Code, reaching the Connections Connect Cloud lists.
 _Avoid_: client, frontend, product
 
 **Plugin**:
-A program a Connection runs beside itself, for as long as the Connection runs, and keeps at the Release Connect Cloud names latest, or, while Connect Cloud cannot be reached, the one it last named, serving one RPC group. None starts until Connect Cloud first answers. An App calls it at the Release it was built with, `<tunnel>/<name>/<sha256>/rpc`; a Connection running another closes the socket with 4409, naming the one it runs. `code` is the first.
+A program a Connection runs beside itself, for as long as the Connection runs, and keeps at the Release Connect Cloud names latest, or, while Connect Cloud cannot be reached, the one it last named, serving one RPC group. None starts until Connect Cloud first answers. An App calls it over a Link, at the Release it was built with. `code` is the first.
 _Avoid_: App Group, module, feature
 
 **Release**:
@@ -41,7 +41,7 @@ A Release's one file, kept as `<name>/<sha256>.mjs` and never changed once kept.
 _Avoid_: shelf, registry, store (the code Plugin's records), CDN, artifact
 
 **Minimum Connect**:
-The oldest `ke-connect` Connect Cloud lets run its Plugins, one for all of them, which a person raises on purpose as `minConnect` in `package.json`. A Connection below it is Outdated: it reports once, so its User sees the version it runs, then stops, and an App says to update `ke-connect`.
+The oldest `ke-connect` Connect Cloud lets run its Plugins, one for all of them, which a person raises on purpose as `minConnect` in `package.json`. A Connection below it, or one that names no version, is Outdated: every Heartbeat it sends is answered 426, before it is read, with one line to show. `ke-connect` prints the line and exits 75. An App shows the Connection Outdated, from the version in its last Report, says to update `ke-connect`, and does not dial it.
 _Avoid_: latest version (a newer `ke-connect` is no reason to update), required version, compatibility range
 
 **Plugin State**:
@@ -73,15 +73,15 @@ The name a User gives a Connection in an App, kept by Connect Cloud, never by th
 _Avoid_: label, alias, nickname, custom name
 
 **Link**:
-The socket from an App to one Connection, and how it stands: linking, linked or relinking.
-_Avoid_: connection (the Connection itself)
+The socket from an App to one Connection's Plugin, and how it stands: linking, linked or relinking. It opens at `<tunnel>/<name>/<sha256>/rpc`, the Plugin at one Release, offering the Connection Key. A socket offering any other key closes with 4401; one asking for a Release the Connection does not run closes with 4409, naming the one it runs. `ke-connect` serves it, so how a Link opens and closes changes only with a raised Minimum Connect.
+_Avoid_: connection (the Connection itself), door, gateway, proxy, router
 
 **Connection Key**:
 The secret a Connection asks of anyone who connects to it. It holds one at a time, in memory, new as it starts and every hour; whoever holds the one it holds now can reach the Connection. A socket already open stays open when the key changes; a new socket offering any other closes with 4401, and an App then asks Connect Cloud for the list again.
 _Avoid_: token (that proves a Sign-in), password, API key
 
 **Heartbeat**:
-A Connection's regular act of telling Connect Cloud how its tunnel stands, from the moment its port opens. Each one sends a Report, which says it is running, by when it arrives, and whether it could reach itself at its public address. It goes every 15 seconds, and at once when the tunnel comes up, moves a step in being set up, or the Connection Key changes. A Connection that stops reporting is down; one that reports but cannot reach itself is up with its tunnel broken. Connect Cloud answers each with the latest Release of each Plugin to run, and the Minimum Connect; every Report is also how a login that has gone is found.
+A Connection's regular act of telling Connect Cloud how its tunnel stands, from the moment its port opens. Each one sends a Report, which says it is running, by when it arrives, and whether it could reach itself at its public address. It goes every 15 seconds, and at once when the tunnel comes up, moves a step in being set up, or the Connection Key changes. A Connection that stops reporting is down; one that reports but cannot reach itself is up with its tunnel broken. It is served at `/heartbeat`, and every call carries the `ke-connect` version in the `ke-connect-version` header. Connect Cloud answers each with only the Release of each Plugin to run; every Report is also how a login that has gone is found. It is the one API that must stay compatible, as `ke-connect` is the one part that can be older than the rest.
 _Avoid_: poll, ping, health check (the route it calls, not the concept)
 
 **Connection Status**:
@@ -89,7 +89,7 @@ Where a Connection's tunnel stands, the same value as its Tunnel's State: Settin
 _Avoid_: health, state (of a Plugin)
 
 **Report**:
-What a Heartbeat carries: the Connection's id, name, Connection Key, version, and Connection Status.
+What a Heartbeat carries: the Connection's id, name, Connection Key, version, and Connection Status. Connect Cloud reads it at any older version, so it may change freely.
 _Avoid_: update, status message
 
 **Last Seen**:

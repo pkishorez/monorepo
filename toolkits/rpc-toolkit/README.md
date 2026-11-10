@@ -6,7 +6,7 @@ Effect RPC and HttpApi with Middleware both sides agree on, three Transports wit
 
 Effect RPC and Effect HttpApi give you middleware, but every app re-invents the same layer on top: a declaration on an endpoint that says how it may be called, a server half that checks it, a client half that rewrites the outgoing request. rpc-toolkit ships that once as Middleware (`middleware` from the `rpc` door and from the `http-api` door). The declaration lives in shared contract code; the two halves stay on their own side of the wire. Who may call what is auth-toolkit's Guard, built on this Middleware; use [`@kestack/auth-toolkit`](../auth-toolkit/README.md) for sign-in and authorization.
 
-The other thing every app re-invents is how a client reaches its server. Effect RPC gets three Transports, each its own door and each a client and server pair with the protocol fixed so the two always agree: `rpc/http` (POST, NDJSON, batched, on anything that speaks `Request` and `Response`), `rpc/websocket` (a Cloudflare Durable Object that hibernates without breaking streams, and a client that restarts subscriptions after a reconnect) and `rpc/in-process` (the handlers in the same process, no wire). Client code is `RpcClient.make(group)` on every Transport, so moving between them changes one layer.
+The other thing every app re-invents is how a client reaches its server. Effect RPC gets three Transports, each its own door and each a client and server pair with the protocol fixed so the two always agree: `rpc/http` (POST, NDJSON, batched, on anything that speaks `Request` and `Response`), `rpc/websocket` (a Cloudflare Durable Object that hibernates without breaking streams, and a client that restarts subscriptions after a reconnect) and `rpc/in-process` (the handlers in the same process, no wire). Client code is `RpcClient.make(group)` on every Transport, so moving between them changes one layer. When every value a group sends is a std-toolkit ESchema, the newer side reads the older one; `versionedClient`, from the `rpc/version-gap` door, turns the older side's failure into a `VersionGap` naming which side to update.
 
 The `alchemy` door deploys the websocket server as one Worker plus one Durable Object. The websocket server can keep its Stream Store on the Durable Object's own SQLite through [`@kestack/std-toolkit`](../std-toolkit/README.md), for sockets whose open streams outgrow the attachment. The `rpc` and `http-api` doors never import Alchemy, and Cloudflare only as types.
 
@@ -61,6 +61,13 @@ Each door exports plain names, so an app imports only what it uses and two doors
 | Export   | What it does                                                                                                                            |
 | -------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `client` | Layer that provides an `RpcClient.Protocol` answered by a group's handlers in the same process, with no transport and no serialization. |
+
+### `@kestack/rpc-toolkit/rpc/version-gap`
+
+| Export            | What it does                                                                                                                                                                             |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VersionGap`      | Error of a call that failed because one side is older than the other, naming which: `client` or `server`.                                                                                |
+| `versionedClient` | `RpcClient.make(group)` on any Transport, whose every call fails with `VersionGap` where Effect RPC would die of an older side, telling the app's `OnOutdated` when the client is older. |
 
 ### `@kestack/rpc-toolkit/http-api`
 

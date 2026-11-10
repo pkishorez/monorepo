@@ -1,23 +1,33 @@
-import { Effect, Schema } from 'effect';
+import { Effect, Layer, Schema } from 'effect';
+import type { RpcClient, RpcClientError } from 'effect/rpc';
 import { FetchHttpClient } from 'effect/http';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { Principal } from '@kestack/auth-toolkit';
 import { fakeGuard } from '@kestack/auth-toolkit/fake';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
+import { client } from '@kestack/rpc-toolkit/rpc/http';
+import {
+  versionedClient,
+  type VersionGap,
+} from '@kestack/rpc-toolkit/rpc/version-gap';
 import { CloudClient } from '../../client/index.js';
 import {
-  belowMinimum,
   ConnectionReport,
-  isOutdated,
-} from '../../../contract/index.js';
+  HEARTBEAT_PATH,
+  HeartbeatApi,
+  VERSION_HEADER,
+} from '../../../heartbeat/index.js';
+import { isOutdated } from '../../app-api/index.js';
 import { connectionsTable, serveOver } from '../index.js';
-import { standingOf } from '../releases.js';
+import { standingOf } from '../store/index.js';
 
 /*
- * Connect Cloud over an in-memory SQLite database, called through
- * `CloudClient`, with `fakeGuard.rpc({ as })` saying who signed each request. Each
- * test signs in Users of its own, so they share one database.
+ * Connect Cloud over an in-memory SQLite database, called as `ke-connect`
+ * calls it, the Heartbeat at `/heartbeat`, and as an App does, through
+ * `CloudClient` at `/rpc`, both as one client here, with
+ * `fakeGuard.rpc({ as })` saying who signed each request. Each test signs in
+ * Users of its own, so they share one database.
  */
 
 const SITE = 'https://code.test';
@@ -97,26 +107,47 @@ const answerAs = (principal: Principal | null) =>
     files,
   });
 
+/** Both of Connect Cloud's RPCs: the Heartbeat, as `ke-connect` calls it, and an App's. */
+type Both = CloudClient['Service'] &
+  RpcClient.FromGroup<
+    typeof HeartbeatApi,
+    RpcClientError.RpcClientError | VersionGap
+  >;
+
 /**
- * Runs `program` with Connect Cloud's client, signed as `user` (nobody for
- * null); from a page at `origin` when given, else as `serve` calls, with no
- * Origin.
+ * Runs `program` with the clients of the Connect Cloud `answer`; from a page
+ * at `origin` when given, else as `serve` calls, with no Origin; its
+ * Heartbeat calls as `ke-connect` at `version`, the Minimum Connect unless
+ * given.
  */
-const as = <A, E>(
-  user: { readonly principal: Principal } | null,
-  program: (connections: CloudClient['Service']) => Effect.Effect<A, E>,
-  origin?: string,
+const callOn = <A, E>(
+  answer: (request: Request) => Promise<Response>,
+  program: (connections: Both) => Effect.Effect<A, E>,
+  options: { readonly origin?: string; readonly version?: string } = {},
 ) => {
-  const answer = answerAs(user?.principal ?? null);
+  const { origin, version = MIN_CONNECT } = options;
   const fetch = (input: RequestInfo | URL, init?: RequestInit) => {
     const request = new Request(input, init);
     if (origin !== undefined) request.headers.set('origin', origin);
     return answer(request);
   };
   return Effect.runPromise(
-    Effect.gen(function* () {
-      return yield* program(yield* CloudClient);
-    }).pipe(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const app = yield* CloudClient;
+        const protocol = yield* Layer.build(
+          client(HeartbeatApi, {
+            url: `${CLOUD}${HEARTBEAT_PATH}`,
+            headers: { [VERSION_HEADER]: version },
+          }),
+        );
+        const heartbeat = yield* Effect.provideContext(
+          versionedClient(HeartbeatApi),
+          protocol,
+        );
+        return yield* program({ ...app, ...heartbeat });
+      }),
+    ).pipe(
       Effect.provide(CloudClient.layer(CLOUD)),
       Effect.provideService(
         FetchHttpClient.Fetch,
@@ -126,11 +157,27 @@ const as = <A, E>(
   );
 };
 
+/**
+ * Runs `program` with Connect Cloud's clients, signed as `user` (nobody for
+ * null); from a page at `origin` when given, else as `serve` calls, with no
+ * Origin.
+ */
+const as = <A, E>(
+  user: { readonly principal: Principal } | null,
+  program: (connections: Both) => Effect.Effect<A, E>,
+  origin?: string,
+) =>
+  callOn(
+    answerAs(user?.principal ?? null),
+    program,
+    origin === undefined ? {} : { origin },
+  );
+
 const reportOf = (id: string, name = 'laptop'): ConnectionReport => ({
   id,
   name,
   key: `key-${id}`,
-  version: '0.0.2',
+  version: MIN_CONNECT,
   status: {
     _tag: 'Ready',
     url: `https://${id}.tunnel.test`,
@@ -193,33 +240,27 @@ describe('Connect Cloud', () => {
     ]);
   });
 
-  it('tells each Connection the Minimum Connect it was deployed with, or null', async () => {
+  it('lists each Connection beside the Minimum Connect it was deployed with, or null, so an App tells one Outdated', async () => {
     const ada = signIn('ada');
-    const reported = await as(ada, (m) => m.Report(reportOf('v1')));
-    expect(reported.minConnect).toBe(MIN_CONNECT);
-    expect(belowMinimum(reportOf('v1').version, reported.minConnect)).toBe(
-      true,
-    );
-    expect(await as(ada, (m) => m.List({}))).toMatchObject([
-      { id: 'v1', minConnect: MIN_CONNECT },
-    ]);
     const untold = serveOver({
       guard: fakeGuard.rpc({ as: ada.principal }),
       authInfo: AUTH_INFO,
       origins: ORIGINS,
       driver,
     });
-    const listed = await Effect.runPromise(
-      Effect.flatMap(CloudClient, (cloud) => cloud.List({})).pipe(
-        Effect.provide(CloudClient.layer(CLOUD)),
-        Effect.provideService(FetchHttpClient.Fetch, ((
-          input: RequestInfo | URL,
-          init?: RequestInit,
-        ) => untold(new Request(input, init))) as typeof globalThis.fetch),
-      ),
-    );
-    expect(listed).toMatchObject([{ id: 'v1', minConnect: null }]);
-    expect(listed.map(isOutdated)).toEqual([false]);
+    // It reported before the Minimum Connect rose above it.
+    const older = { ...reportOf('v1'), version: '0.0.2' };
+    expect(
+      await callOn(untold, (m) => m.Report(older), { version: '0.0.2' }),
+    ).toEqual({ wanted: {} });
+    const listed = await as(ada, (m) => m.List({}));
+    expect(listed).toMatchObject([
+      { id: 'v1', version: '0.0.2', minConnect: MIN_CONNECT },
+    ]);
+    expect(listed.map(isOutdated)).toEqual([true]);
+    const listedUntold = await callOn(untold, (m) => m.List({}));
+    expect(listedUntold).toMatchObject([{ id: 'v1', minConnect: null }]);
+    expect(listedUntold.map(isOutdated)).toEqual([false]);
   });
 
   it('says where a Release stands: the one it names Latest, another it keeps Older, any other Unknown', async () => {
@@ -343,7 +384,12 @@ describe('Connect Cloud', () => {
 
   it("takes an allowed origin's calls, and refuses another origin's 403 before reading them", async () => {
     const ada = signIn('ada');
-    await as(ada, (m) => m.Report(reportOf('from-site')), SITE);
+    await as(ada, (m) => m.Report(reportOf('from-site')));
+    await as(
+      ada,
+      (m) => m.Rename({ id: 'from-site', displayName: 'Site' }),
+      SITE,
+    );
     const answer = answerAs(ada.principal);
     // A simple POST, as a page of the same site could send with the cookie.
     const forged = await answer(
@@ -353,24 +399,70 @@ describe('Connect Cloud', () => {
           origin: 'https://pr1-code.elsewhere.app',
           'content-type': 'text/plain',
         },
-        body: JSON.stringify({ _tag: 'Request', tag: 'Report' }),
+        body: JSON.stringify({ _tag: 'Request', tag: 'Forget' }),
       }),
     );
     expect(forged.status).toBe(403);
     expect(
       await as(
         ada,
-        (m) => Effect.flip(m.Report(reportOf('forged'))),
+        (m) => Effect.flip(m.Forget({ id: 'from-site' })),
         'https://test.evil.app',
       ),
     ).toBeDefined();
-    expect((await as(ada, (m) => m.List({}))).map(({ id }) => id)).toEqual([
-      'from-site',
+    expect(await as(ada, (m) => m.List({}), SITE)).toMatchObject([
+      { id: 'from-site', displayName: 'Site' },
     ]);
   });
 
+  it('answers the Heartbeat only to a caller that names no Origin, as no browser is', async () => {
+    const ada = signIn('ada');
+    for (const origin of [SITE, 'https://test.evil.app'])
+      expect(
+        await as(ada, (m) => Effect.flip(m.Report(reportOf('paged'))), origin),
+      ).toBeDefined();
+    const answer = answerAs(ada.principal);
+    const forged = await answer(
+      new Request(`${CLOUD}/heartbeat`, {
+        method: 'POST',
+        headers: { origin: SITE, 'content-type': 'text/plain' },
+        body: JSON.stringify({ _tag: 'Request', tag: 'Report' }),
+      }),
+    );
+    expect(forged.status).toBe(403);
+    expect(forged.headers.get('access-control-allow-origin')).toBeNull();
+    const preflight = await answer(
+      new Request(`${CLOUD}/heartbeat`, {
+        method: 'OPTIONS',
+        headers: { origin: SITE, 'access-control-request-method': 'POST' },
+      }),
+    );
+    expect(preflight.headers.get('access-control-allow-origin')).toBeNull();
+    expect(await as(ada, (m) => m.List({}))).toEqual([]);
+  });
+
+  it('answers the Heartbeat at /heartbeat and an App at /rpc, and neither call at the other', async () => {
+    const ada = signIn('ada');
+    const answer = answerAs(ada.principal);
+    const call = (path: string, tag: string) =>
+      answer(
+        new Request(`${CLOUD}${path}`, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/ndjson',
+            [VERSION_HEADER]: MIN_CONNECT,
+          },
+          body: `${JSON.stringify({ _tag: 'Request', id: '1', tag, payload: {}, headers: [] })}\n`,
+        }),
+      ).then((response) => response.text());
+    expect(await call('/rpc', 'Report')).toMatch(/Unknown request tag: Report/);
+    expect(await call('/heartbeat', 'List')).toMatch(
+      /Unknown request tag: List/,
+    );
+  });
+
   it('takes a Report only with an https:// address, or none, and every field bounded', async () => {
-    // Client and Connect Cloud both check the payload against the contract.
+    // Client and Connect Cloud both check the payload against the Heartbeat.
     const valid = Schema.is(ConnectionReport.schema);
     const base = reportOf('bounded');
     expect(valid(base)).toBe(true);
@@ -471,5 +563,85 @@ describe('Connect Cloud', () => {
       }),
     );
     expect(elsewhere.headers.get('access-control-allow-origin')).toBeNull();
+  });
+});
+
+describe('a ke-connect below the Minimum Connect', () => {
+  /** A Forget sent raw to `path` with `headers`, as no client would frame it. */
+  const raw = (
+    answer: (request: Request) => Promise<Response>,
+    headers: Record<string, string>,
+    path = HEARTBEAT_PATH,
+  ) =>
+    answer(
+      new Request(`${CLOUD}${path}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/ndjson', ...headers },
+        body: `${JSON.stringify({ _tag: 'Request', id: '1', tag: 'Forget', payload: { _v: 'v1', id: 'x' }, headers: [] })}\n`,
+      }),
+    );
+
+  const line = (named: string) =>
+    `${named} is older than Connect Cloud accepts (${MIN_CONNECT}): run \`npm i -g @kestack/connect@latest\`, then start it again.`;
+
+  it('is answered 426 and one line of plain text, before its call is read or its Sign-in checked', async () => {
+    const answer = answerAs(null);
+    for (const [headers, named] of [
+      [{}, 'This ke-connect'],
+      [{ [VERSION_HEADER]: '0.0.8' }, 'ke-connect 0.0.8'],
+      [{ [VERSION_HEADER]: '0.0.9-next.1' }, 'ke-connect 0.0.9-next.1'],
+    ] as const) {
+      const response = await raw(answer, headers);
+      expect(response.status).toBe(426);
+      expect(response.headers.get('content-type')).toBe(
+        'text/plain; charset=utf-8',
+      );
+      expect(await response.text()).toBe(line(named));
+    }
+  });
+
+  it('keeps nothing of a Report it refused', async () => {
+    const ada = signIn('ada');
+    const refused = await callOn(
+      answerAs(ada.principal),
+      (m) => Effect.flip(m.Report(reportOf('too-old'))),
+      { version: '0.0.8' },
+    );
+    expect(refused).toMatchObject({ _tag: 'RpcClientError' });
+    expect(await as(ada, (m) => m.List({}))).toEqual([]);
+  });
+
+  it('lets a ke-connect at the Minimum Connect or above through', async () => {
+    const ada = signIn('ada');
+    for (const version of [MIN_CONNECT, '0.1.0'])
+      expect(
+        await callOn(
+          answerAs(ada.principal),
+          (m) => m.Report(reportOf(`at-${version}`)),
+          { version },
+        ),
+      ).toEqual({ wanted: WANTED });
+  });
+
+  it('checks no version when Connect Cloud has no Minimum Connect', async () => {
+    const ada = signIn('ada');
+    const untold = serveOver({
+      guard: fakeGuard.rpc({ as: ada.principal }),
+      authInfo: AUTH_INFO,
+      origins: ORIGINS,
+      driver,
+    });
+    expect((await raw(untold, {})).status).toBe(200);
+    expect(
+      await callOn(untold, (m) => m.Report(reportOf('any')), {
+        version: '0.0.1',
+      }),
+    ).toEqual({ wanted: {} });
+  });
+
+  it('leaves an App’s calls at /rpc alone', async () => {
+    const response = await raw(answerAs(null), {}, '/rpc');
+    expect(response.status).toBe(200);
+    expect(await response.text()).not.toMatch(/older than Connect Cloud/);
   });
 });

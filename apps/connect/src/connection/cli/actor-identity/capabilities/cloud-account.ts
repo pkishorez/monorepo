@@ -1,5 +1,5 @@
 import { Context, type Duration, type Effect } from 'effect';
-import type { ConnectionStatus, Release } from '../../../../contract/index.js';
+import type { ConnectionStatus, Release } from '../../../../heartbeat/index.js';
 
 /*
  * The User's account on Connect Cloud, which Identity stands on, so it can
@@ -19,12 +19,8 @@ export type Reported =
       readonly _tag: 'Reported';
       readonly wanted: Readonly<Record<string, Release>>;
     }
-  /** This `ke-connect` is below the Minimum Connect: stop. */
-  | {
-      readonly _tag: 'Outdated';
-      readonly version: string;
-      readonly minConnect: string;
-    }
+  /** This `ke-connect` is below the Minimum Connect, as Connect Cloud's one `line` says: stop. */
+  | { readonly _tag: 'Outdated'; readonly line: string }
   /** The Connection was forgotten: sign out and stop. */
   | { readonly _tag: 'Forgotten' }
   /** Connect Cloud says the Sign-in is gone: the User is logged out. */

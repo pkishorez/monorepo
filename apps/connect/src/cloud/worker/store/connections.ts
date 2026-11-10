@@ -5,7 +5,7 @@ import {
   ConnectionForgotten,
   type ConnectionReport,
   ConnectionTaken,
-} from '../../../contract/index.js';
+} from '../../../heartbeat/index.js';
 import { type ConnectionRecord, connections } from './storage/index.js';
 
 /*

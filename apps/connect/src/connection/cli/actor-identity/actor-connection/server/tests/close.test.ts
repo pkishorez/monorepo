@@ -1,7 +1,7 @@
 import { connect, type Socket } from 'node:net';
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { KEY_EXPIRED } from '../../../../../../contract/index.js';
+import { KEY_EXPIRED } from '../../../../../../connection/link/index.js';
 import { server } from '../index.js';
 
 /*

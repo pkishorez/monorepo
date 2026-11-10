@@ -5,18 +5,18 @@ import { HttpRouter } from 'effect/http';
 import { Rpc, RpcGroup, RpcSerialization, RpcServer } from 'effect/rpc';
 import { NodeHttpServer } from '@effect/platform-node';
 import { describe, expect, it } from 'vitest';
-import { client } from '@kestack/rpc-toolkit/rpc/websocket';
 import { ESchema } from '@kestack/std-toolkit/eschema';
 import { OnOutdated } from '@kestack/std-toolkit/replica';
-import { versionedClient, VersionGap } from '../index.js';
+import { client } from '../websocket/index.ts';
+import { versionedClient, VersionGap } from './index.ts';
 
 /*
- * What a call answers when one side is older, over a real socket, as Code
- * meets a Plugin: the newer side reads the older one, and the older
- * side fails with `VersionGap`, naming itself. Effect RPC answers an Rpc the
- * server lacks, or a payload newer than it reads, with a defect, a
- * sentence; `versionedClient` makes that the server's gap. The client
- * older tells the app's `OnOutdated`.
+ * What a call answers when one side is older, over a real WebSocket: the
+ * newer side reads the older one, and the older side fails with
+ * `VersionGap`, naming itself. Effect RPC answers an Rpc the server lacks,
+ * or a payload newer than it reads, with a defect, a sentence;
+ * `versionedClient` makes that the server's gap. The client older tells the
+ * app's `OnOutdated`.
  */
 
 const NoteV1 = ESchema.make('Note', { text: Schema.String }).build();

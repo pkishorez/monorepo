@@ -19,8 +19,9 @@ import { where } from './stage.ts';
  * `backend` bundles it.
  *
  * It tells every Connection what releases/ says: the latest Release of each
- * Plugin in `RELEASES`, and the Minimum Connect in `MIN_CONNECT`. It serves the
- * Release Files from R2, `RELEASE_FILES`.
+ * Plugin in `RELEASES`; and refuses, 426, any `ke-connect` below the Minimum
+ * Connect in `MIN_CONNECT`. It serves the Release Files from R2,
+ * `RELEASE_FILES`.
  */
 
 export const ConnectCloudDatabase = Cloudflare.D1.Database(

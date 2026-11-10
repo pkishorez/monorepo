@@ -1,5 +1,6 @@
 import 'fake-indexeddb/auto';
 import {
+  Clock,
   Context,
   Deferred,
   Effect,
@@ -15,12 +16,15 @@ import {
   AccountsState,
   AuthWorkerRejected,
 } from '@kestack/auth-toolkit/client';
-import { CodeClient, CodeClients } from '@kestack/connect/code';
+import {
+  CodeClient,
+  CodeClients,
+  KEY_EXPIRED,
+  PLUGIN_MISMATCH,
+} from '@kestack/connect/code';
 import {
   CloudClient,
   type Connection as ConnectionSchema,
-  KEY_EXPIRED,
-  PLUGIN_MISMATCH,
 } from '@kestack/connect/cloud';
 import { OnOutdated } from '@kestack/std-toolkit/replica';
 import { Actor, Runtime } from '@kestack/kabuki';
@@ -51,8 +55,9 @@ import {
   accountWith,
   CHECK_FOR,
   knownOf,
-  RECHECK,
+  ON_ITS_WAY,
   standOf,
+  STUCK,
   type Who,
   whoOf,
 } from '../actor.ts';
@@ -75,8 +80,9 @@ import { SetupShelf } from '../connection/commands.ts';
  * never the Account; a list that failed prunes nothing. Forget asks Connect
  * Cloud, takes the Connection out of the list, then stops its records and
  * deletes its database alone, its Saved Drafts with it; and while a
- * Connection's link is not up Connect Cloud is asked again, every few
- * seconds, until every link is. A kept list's Last Seen is believed only
+ * Connection's link is not up Connect Cloud is asked again, at the pace of
+ * the Connection that needs it most, until every link is; an Outdated
+ * Connection is never dialled until a list says it was updated. A kept list's Last Seen is believed only
  * once Connect Cloud answers, or `CHECK_FOR` passes without. Not the
  * Account active, it is Away: it asks nothing, shares nobody's
  * Connections, opens no socket, and says why: signed out, switched
@@ -1057,50 +1063,58 @@ describe('the Account rechecks', () => {
         yield* start({ OwnerLive, layer, over });
         yield* settle;
         expect(lists()).toBe(1);
-        yield* TestClock.adjust(RECHECK.fast);
+        yield* TestClock.adjust(ON_ITS_WAY);
         yield* settle;
         expect(lists()).toBe(2);
         // Every link up: nothing more is asked.
         yield* SubscriptionRef.set(down, new Set());
         yield* settle;
-        yield* TestClock.adjust(RECHECK.slow * 2);
+        yield* TestClock.adjust(STUCK * 2);
         yield* settle;
         expect(lists()).toBe(2);
         // A link drops: asked again.
         yield* SubscriptionRef.set(down, new Set(['m2']));
         yield* settle;
-        yield* TestClock.adjust(RECHECK.fast);
+        yield* TestClock.adjust(ON_ITS_WAY);
         yield* settle;
         expect(lists()).toBe(3);
       }),
     ));
 
-  it('asks less often after the first minute, and at once on Reload', () =>
+  it('asks less often while the one Connection down is gone, faster once another is on its way, and at once on Reload', () =>
     timed(
       Effect.gen(function* () {
         const down = yield* SubscriptionRef.make<ReadonlySet<string>>(
           new Set(['m1']),
         );
+        const now = yield* Clock.currentTimeMillis;
+        // m1 not seen for a minute: Down.
         const { OwnerLive, layer, over, lists } = world(
-          Effect.succeed([connection('m1', 1)]),
+          Effect.succeed([
+            connection('m1', now - 60_000),
+            connection('m2', now),
+          ]),
           down,
         );
         const app = yield* start({ OwnerLive, layer, over });
         yield* settle;
-        for (let at = 0; at < RECHECK.fastFor; at++) {
-          yield* TestClock.adjust(RECHECK.fast);
-          yield* settle;
-        }
-        expect(lists()).toBe(1 + RECHECK.fastFor);
-        yield* TestClock.adjust(RECHECK.fast);
+        expect(lists()).toBe(1);
+        yield* TestClock.adjust(ON_ITS_WAY);
         yield* settle;
-        expect(lists()).toBe(1 + RECHECK.fastFor);
-        yield* TestClock.adjust(RECHECK.slow - RECHECK.fast);
+        expect(lists()).toBe(1);
+        yield* TestClock.adjust(STUCK - ON_ITS_WAY);
         yield* settle;
-        expect(lists()).toBe(2 + RECHECK.fastFor);
+        expect(lists()).toBe(2);
+        // m2 drops while m1's wait runs: its own pace, the faster, sets it.
+        yield* TestClock.adjust(1_000);
+        yield* SubscriptionRef.set(down, new Set(['m1', 'm2']));
+        yield* settle;
+        yield* TestClock.adjust(ON_ITS_WAY);
+        yield* settle;
+        expect(lists()).toBe(3);
         app.send(list(app).id, { _tag: 'ReloadAsked' });
         yield* settle;
-        expect(lists()).toBe(3 + RECHECK.fastFor);
+        expect(lists()).toBe(4);
       }),
     ));
 });
@@ -1262,7 +1276,7 @@ describe('the Account mismatched', () => {
         expect(moves()).toBe(0);
         // Relinking: the list is asked again, as for any Link down.
         const asked = lists();
-        yield* wait(RECHECK.fast + 200);
+        yield* wait(ON_ITS_WAY + 200);
         expect(lists()).toBeGreaterThan(asked);
         // Closed again, Connect Cloud is asked afresh.
         watches.get('m1')!.closed!({
@@ -1476,6 +1490,62 @@ describe('the Account, its socket refused for its Release', () => {
   });
 });
 
+describe('the Account, a Connection Outdated', () => {
+  it('never dials it, until a list says it was updated', async () => {
+    const dials: Array<string | undefined> = [];
+    /** A Connection that answers every socket, saying each key offered. */
+    class Answering extends EventTarget {
+      readyState = 0;
+      binaryType = 'blob';
+      constructor(_url: string, protocols?: ReadonlyArray<string>) {
+        super();
+        dials.push(
+          protocols
+            ?.find((each) => each.startsWith('key.'))
+            ?.slice('key.'.length),
+        );
+        setTimeout(() => {
+          this.readyState = 1;
+          this.dispatchEvent(new Event('open'));
+          this.dispatchEvent(
+            new MessageEvent('message', { data: '{"_tag":"Pong"}' }),
+          );
+        }, 1);
+      }
+      send() {}
+      close() {}
+    }
+    vi.stubGlobal('WebSocket', Answering);
+    let version = '0.0.1';
+    const { layer, over } = world(
+      Effect.sync(() => [
+        { ...connection('m1', Date.now()), version, minConnect: '0.0.2' },
+      ]),
+    );
+    const OwnerLive = OwnerOf(
+      CodeClients.layer.pipe(Layer.provide(addressAt(PLUGIN_CODE))) as never,
+      undefined,
+    );
+    const linkOf = (app: Running<unknown>) =>
+      (list(app).model as { readonly links: Readonly<Record<string, string>> })
+        .links.m1;
+    await run(
+      Effect.gen(function* () {
+        const app = yield* start({ OwnerLive, layer, over });
+        yield* wait(300);
+        expect(dials).toEqual([]);
+        expect(linkOf(app)).not.toBe('linked');
+        // ke-connect updated, and the list says so.
+        version = '0.0.2';
+        app.send(list(app).id, { _tag: 'ReloadAsked' });
+        yield* wait(300);
+        expect(dials).toEqual(['key-m1']);
+        expect(linkOf(app)).toBe('linked');
+      }),
+    ).finally(() => vi.unstubAllGlobals());
+  });
+});
+
 describe('the Account, its Connection Key expired', () => {
   /** The Account's link to `m1`. */
   const linkOf = (app: Running<unknown>) =>
@@ -1630,7 +1700,7 @@ describe('the Account, its Connection Key expired', () => {
         expect(closes).toHaveLength(1);
         expect(asked).toHaveLength(2);
         expect((asked[1] ?? Infinity) - (closes[0] ?? 0)).toBeLessThan(
-          RECHECK.fast / 10,
+          ON_ITS_WAY / 10,
         );
         // The socket's next connect offers the key as listed now, and stays.
         yield* wait(600);

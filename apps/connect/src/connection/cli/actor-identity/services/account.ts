@@ -1,5 +1,5 @@
 import { Effect, Scope } from 'effect';
-import type { ConnectionStatus } from '../../../../contract/index.js';
+import type { ConnectionStatus } from '../../../../heartbeat/index.js';
 import { cloud } from './cloud/index.js';
 import { belongsTo, identify } from './identity.js';
 

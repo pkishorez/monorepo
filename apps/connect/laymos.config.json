@@ -4,15 +4,22 @@
   "ignoredPaths": ["src/connection/cli/tests/fixtures"],
   "fileModules": [],
   "rules": {
-    "*": ["src/contract"],
-    "src/connection/cli": ["src/cloud/client"],
+    "src/cloud": ["src/heartbeat"],
+    "src/cloud/client": ["src/cloud/app-api"],
+    "src/cloud/worker": ["src/cloud/app-api", "src/connection/link"],
+    "src/cloud/worker/app": ["src/cloud/worker/store"],
+    "src/cloud/worker/heartbeat": ["src/cloud/worker/store"],
+    "src/connection/cli": ["src/heartbeat", "src/connection/link"],
     "src/connection/cli/actor-identity/actor-connection": [
       "src/connection/cli/actor-identity/capabilities"
     ],
     "src/connection/cli/actor-identity/services/control": [
       "src/connection/cli/actor-identity/capabilities"
     ],
-    "src/connection/plugins/code/api": ["src/connection/plugins/code/records"],
+    "src/connection/plugins/code/api": [
+      "src/connection/link",
+      "src/connection/plugins/code/records"
+    ],
     "src/connection/plugins/code/serve": [
       "src/connection/plugins/code/api",
       "src/connection/plugins/code/engine",

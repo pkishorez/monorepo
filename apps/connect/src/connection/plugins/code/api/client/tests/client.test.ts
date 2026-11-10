@@ -8,7 +8,7 @@ import {
   KEY_EXPIRED,
   mismatchReason,
   PLUGIN_MISMATCH,
-} from '../../../../../../contract/index.js';
+} from '../../../../../../connection/link/index.js';
 import { CodeClient, CodeClients, type LinkStatus } from '../client.js';
 
 /*

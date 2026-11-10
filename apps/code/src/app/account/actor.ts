@@ -1,6 +1,6 @@
-import { Effect, Layer, Queue, Schema, Stream } from 'effect';
+import { Clock, Effect, Layer, Queue, Schema, Stream } from 'effect';
 import { Accounts, type AccountsState } from '@kestack/auth-toolkit/client';
-import { CloudClient, Connection } from '@kestack/connect/cloud';
+import { CloudClient, Connection, isOutdated } from '@kestack/connect/cloud';
 import { Actor, Command } from '@kestack/kabuki';
 import { Page, Router } from '@kestack/kabuki/routing';
 import { OnOutdated } from '@kestack/std-toolkit/replica';
@@ -15,6 +15,7 @@ import {
 } from '../storage/index.ts';
 import {
   Connection as ConnectionActor,
+  health,
   moves,
   reach,
   toNewest,
@@ -81,9 +82,11 @@ import { Settings } from './pages/settings/index.ts';
  *             this Code's Release of the code Plugin (`link/reach/`). This Code
  *             found Stale on any of them moves to its newest build, once.
  * 5. Recheck  while a listed Connection's link is not up, Connect Cloud is
- *             asked again: every few seconds for the first minute, then
- *             every half a minute, until every link is up; a link that
- *             drops starts it again. A Connection whose Connection Key
+ *             asked again, at the pace of the Connection that needs it
+ *             most (`recheckIn`): every few seconds for one on its way,
+ *             Outdated ones seen lately among them, every ten for one stuck
+ *             or down, never once every link is up; a link that drops
+ *             starts it again. A Connection whose Connection Key
  *             rotated closes a socket offering the old one with `KEY_EXPIRED`:
  *             that alone asks at once, unless an ask is already out, and the
  *             socket's next connect offers the key as listed by then. What
@@ -143,10 +146,79 @@ const back: Stream.Stream<void> =
         ),
       );
 
-/** How long to wait before asking Connect Cloud again, while a link is not up. */
-export const RECHECK = { fast: 3_000, slow: 30_000, fastFor: 20 } as const;
-
 const Link = Schema.Literals(['linking', 'linked', 'relinking']);
+
+// 5. Recheck: how soon Connect Cloud is asked for the list again, from where
+// each listed Connection stands. Only the list says when one comes up, a new
+// address or key with it, so one about to come up is asked after often; one
+// stuck or gone changes slowly, and is asked after less; one linked needs
+// nothing of the list (ADR 0011 of Connect).
+
+/**
+ * On its way: nothing believed yet, its tunnel downloading or opening, ready
+ * but not linked yet, or Outdated and seen lately, so it may come back
+ * updated at any moment.
+ */
+export const ON_ITS_WAY = 3_000;
+
+/**
+ * Stuck or gone: its tunnel failed or unreachable, or not seen for three
+ * Heartbeats. A Connection reports every 15 seconds, so asking faster
+ * rarely learns anything new.
+ */
+export const STUCK = 10_000;
+
+/** How soon one Connection needs the list asked again; null once it is linked. */
+const paceOf = (
+  connection: typeof Connection.schema.Type,
+  link: typeof Link.Type,
+  now: number,
+  checked: boolean,
+): number | null => {
+  const seen = health(connection, link, now, checked);
+  switch (seen._tag) {
+    case 'Linked':
+      return null;
+    case 'Unknown':
+      return ON_ITS_WAY;
+    case 'Down':
+      return STUCK;
+  }
+  // Never dialled while Outdated: its version, once updated, is what to see.
+  if (isOutdated(connection)) return ON_ITS_WAY;
+  const { status } = seen;
+  const stuck =
+    status._tag === 'SettingUp'
+      ? status.step._tag === 'Failed'
+      : status.check._tag === 'Unreachable';
+  return stuck ? STUCK : ON_ITS_WAY;
+};
+
+/**
+ * How long to wait before asking Connect Cloud for the list again, given the
+ * listed Connections, each one's link (linking until said), whether their
+ * Last Seen is believed (`checked`), and the time now: the soonest any of
+ * them needs; null when every one is linked, or none is listed.
+ */
+export const recheckIn = (
+  connections: ReadonlyArray<typeof Connection.schema.Type>,
+  links: Readonly<Record<string, typeof Link.Type>>,
+  checked: boolean,
+  now: number,
+): number | null =>
+  connections.reduce<number | null>((soonest, connection) => {
+    const pace = paceOf(
+      connection,
+      links[connection.id] ?? 'linking',
+      now,
+      checked,
+    );
+    return pace === null
+      ? soonest
+      : soonest === null
+        ? pace
+        : Math.min(soonest, pace);
+  }, null);
 
 // 1. Who
 /** An Account, by its id and email. */
@@ -270,8 +342,6 @@ const Model = Schema.Struct({
   ),
   /** Each listed Connection's link, by id. */
   links: Schema.Record(Schema.String, Link),
-  /** How many times Connect Cloud was asked again since every link was last up. */
-  rechecks: Schema.Finite,
   /** What each Connection said of itself, by id. */
   said: Schema.Record(Schema.String, Said),
 });
@@ -284,7 +354,6 @@ const fresh = {
   checked: false,
   forgetting: null,
   links: {},
-  rechecks: 0,
   said: {},
 } satisfies Partial<Model>;
 
@@ -344,9 +413,6 @@ export const anyDown = (model: Model) =>
 /** Whether a Connection's answer found this Code Stale: it moves to its newest build. */
 const stale = ({ said }: Model) =>
   Object.values(said).some(({ standing }) => standing?._tag === 'Older');
-
-const delayOf = (rechecks: number) =>
-  rechecks < RECHECK.fastFor ? RECHECK.fast : RECHECK.slow;
 
 /** 8. Share: what is known of the Account's Connections, nobody's until it is `Active`. */
 export const knownOf = ({
@@ -495,14 +561,34 @@ export const accountWith = (to: typeof reach) =>
             run: (self, since) =>
               Effect.flatMap(list(Number(since)), self.send),
           },
-          // 5. Recheck
+          // 5. Recheck: the wait starts over whenever the pace changes, so
+          // a Connection that comes on its way while another is down is
+          // asked after at its own pace.
           recheck: {
             while: ({ model }) => !fetching(model) && anyDown(model),
             run: (self) =>
-              Effect.flatMap(self.get, ({ model }) =>
-                Effect.sleep(delayOf(model.rechecks)).pipe(
-                  Effect.andThen(self.send({ _tag: 'RecheckDue' })),
+              self.changes.pipe(
+                Stream.mapEffect(({ model }) =>
+                  Effect.map(Clock.currentTimeMillis, (now) =>
+                    recheckIn(
+                      model.list.value ?? [],
+                      model.links,
+                      model.checked,
+                      now,
+                    ),
+                  ),
                 ),
+                Stream.changes,
+                Stream.switchMap((pace) =>
+                  pace === null
+                    ? Stream.empty
+                    : Stream.fromEffect(
+                        Effect.sleep(pace).pipe(
+                          Effect.andThen(self.send({ _tag: 'RecheckDue' })),
+                        ),
+                      ),
+                ),
+                Stream.runDrain,
               ),
           },
           // 5. Recheck: back after a while away, the list is checked again.
@@ -635,25 +721,16 @@ export const accountWith = (to: typeof reach) =>
       Failed: ({ since, problem }, { model }) => ({
         model: { ...model, list: copying.refused(model.list, since, problem) },
       }),
-      // Reload: asked at once, and quickly again while a link is not up.
+      // Reload: asked at once.
       ReloadAsked: (_, { model }) => ({
-        model: { ...model, list: copying.ask(model.list), rechecks: 0 },
+        model: { ...model, list: copying.ask(model.list) },
       }),
       CheckWaited: (_, { model }) => ({ model: { ...model, checked: true } }),
       Back: (_, { model }) => ({
-        model: {
-          ...model,
-          checked: false,
-          list: copying.ask(model.list),
-          rechecks: 0,
-        },
+        model: { ...model, checked: false, list: copying.ask(model.list) },
       }),
       RecheckDue: (_, { model }) => ({
-        model: {
-          ...model,
-          list: copying.ask(model.list),
-          rechecks: model.rechecks + 1,
-        },
+        model: { ...model, list: copying.ask(model.list) },
       }),
       // 4. Links: what a Connection says, its link with it; this Code found
       // Stale moves to its newest build.
@@ -663,18 +740,16 @@ export const accountWith = (to: typeof reach) =>
           said: { ...model.said, [connectionId]: said },
           links: { ...model.links, [connectionId]: said.link },
         };
-        const up = anyDown(next) ? next : { ...next, rechecks: 0 };
-        // 5. Recheck: a Connection whose key just expired asks at once. An
-        // ask already out may answer with the old key, and the socket closing
-        // again says nothing new, so the rechecks go back to their fast pace.
+        // 5. Recheck: a Connection whose key just expired asks at once,
+        // unless an ask is already out; one that answers with the old key
+        // leaves it relinking, so the recheck asks again at its pace.
         const expired =
           said.expired && model.said[connectionId]?.expired !== true;
-        const rechecked = expired ? { ...up, rechecks: 0 } : up;
         return {
           model:
-            expired && !fetching(rechecked)
-              ? { ...rechecked, list: copying.ask(rechecked.list) }
-              : rechecked,
+            expired && !fetching(next)
+              ? { ...next, list: copying.ask(next.list) }
+              : next,
           ...(stale(next) && !stale(model) ? { command: toNewest({}) } : {}),
         };
       },

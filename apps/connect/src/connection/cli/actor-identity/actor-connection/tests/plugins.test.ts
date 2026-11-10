@@ -11,7 +11,7 @@ import {
   mismatchReason,
   PLUGIN_MISMATCH,
   pluginPath,
-} from '../../../../../contract/index.js';
+} from '../../../../../connection/link/index.js';
 import {
   closeOf,
   eventually,

@@ -10,7 +10,7 @@ import { Downloads, socketPath } from '@kestack/cli-platform/files';
 import {
   addressOf,
   type ConnectionStatus,
-} from '../../../../../contract/index.js';
+} from '../../../../../heartbeat/index.js';
 import { Tunnels } from '../../actor-connection/index.js';
 import { ActorIdentity } from '../../actor.js';
 import {

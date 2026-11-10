@@ -41,7 +41,9 @@ src/connection/plugins/code/engine/
   └── actor-session          in Ready, each: model.sessions; States: Idle | Running
 ```
 
-Around the CLI's tree, `src/cloud/` is Connect Cloud, which it reports to.
+Around the CLI's tree, `src/cloud/` is Connect Cloud, which it reports to,
+`src/heartbeat/` everything the two say to each other, and
+`src/connection/link/` how an App reaches a Plugin through its server: the Link.
 Around the engine tree, `src/connection/plugins/code/records/` is what it keeps,
 `src/connection/plugins/code/api/` is the contract and the browser client, and
 `src/connection/plugins/code/serve/main.ts` serves the engine on the socket the

@@ -1,9 +1,19 @@
 /*
  * `@kestack/connect/code`: what Code's browser imports. The code
  * Plugin's API, the records it speaks of, and the client and Replica that
- * reach it on each Connection. The Connections an App lists and forgets
- * are Connect Cloud's, through `@kestack/connect/cloud`.
+ * reach it on each Connection, with how a Connection's Link says it runs
+ * another Release, or that a key expired. The Connections an App lists and
+ * forgets are Connect Cloud's, through `@kestack/connect/cloud`.
  */
+
+export {
+  KEY_EXPIRED,
+  keyExpired,
+  mismatchOf,
+  PLUGIN_MISMATCH,
+  pluginPath,
+  PluginMismatch,
+} from '../../../link/index.js';
 
 export {
   CodeApi,
