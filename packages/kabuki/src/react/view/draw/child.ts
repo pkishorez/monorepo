@@ -38,6 +38,20 @@ const useDrawn = (hook: string): DrawnApp => {
 };
 
 /**
+ * Whether the parent of the Child with this ID has stopped: an Instance's ID
+ * is its parent's, then `/` and its own place, a key's `/` written `%2F`.
+ * A parent whose View is still drawn, as it leaves the page, keeps what it
+ * last read of its Children, as it keeps its own last data.
+ */
+const parentGone = (
+  read: (id: string) => Drawable | undefined,
+  child: string | undefined,
+) => {
+  const at = child?.lastIndexOf('/') ?? -1;
+  return at > 0 && read(child!.slice(0, at)) === undefined;
+};
+
+/**
  * What a selector picked from each Child, kept per Child read, so a Child
  * that did not change is not picked from again. A new selector, as an inline
  * one is on every render, starts over.
@@ -64,7 +78,8 @@ interface UseChild {
 
 /**
  * Reads one fixed Child from its parent's View: its Model, State and Props,
- * at the Step drawn; `undefined` once the Child has stopped. The component
+ * at the Step drawn; `undefined` once the Child has stopped, unless its
+ * parent stopped too, while its View is still drawn: then as last read. The component
  * re-renders when they change, or, given a selector, only when what it picks
  * changes. For drawing only: what a parent must act on, it owns.
  */
@@ -77,6 +92,7 @@ export const useChild: UseChild = (
   const last = useRef<unknown>(undefined);
   const from = (read: (id: string) => Drawable | undefined) => () => {
     const child = readOf(read(handle.id));
+    if (child === undefined && parentGone(read, handle.id)) return last.current;
     const next = child && pick(child);
     return Object.is(next, last.current) ? last.current : (last.current = next);
   };
@@ -109,6 +125,7 @@ export const useChildren: UseChildren = (
   const pick = usePicked(select);
   const last = useRef<ReadonlyArray<unknown>>([]);
   const from = (read: (id: string) => Drawable | undefined) => () => {
+    if (parentGone(read, handles[0]?.id)) return last.current;
     const next = handles.flatMap((handle) => {
       const child = readOf(read(handle.id));
       return child ? [pick(child)] : [];

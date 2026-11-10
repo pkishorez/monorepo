@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, useState } from 'react';
+import { act, memo, Profiler, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema } from 'effect';
@@ -361,8 +361,18 @@ describe('a page with data', () => {
   const ShopLive = ShopRoot.build({
     pages: { Front: FrontLive, Item: ItemLive },
   });
+  // A link outside the page a move swaps, drawn by no move.
+  let linkDraws = 0;
+  const Stay = memo(() => (
+    <Profiler id="stay" onRender={() => void linkDraws++}>
+      <Router.Link to={Shop.Front()} id="stay">
+        shop
+      </Router.Link>
+    </Profiler>
+  ));
   const ShopView = View.make(ShopLive, (self) => (
     <>
+      <Stay />
       <Progress />
       <From />
       {self.children.Front && <FrontView instance={self.children.Front} />}
@@ -490,6 +500,16 @@ describe('a page with data', () => {
     await click('#lamp');
     expect(host.textContent).toContain('item Lamp 2');
     expect(calls).toEqual([2]);
+  });
+
+  it('draws no link again as the Router moves', async () => {
+    await drawShop();
+    linkDraws = 0;
+    await click('#lamp');
+    await act(async () => open());
+    await settle();
+    expect(host.textContent).toContain('item Lamp 2');
+    expect(linkDraws).toBe(0);
   });
 
   it('a link told not to preload never does', async () => {

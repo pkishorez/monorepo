@@ -70,9 +70,13 @@ function ProjectTitle({
   readonly session: SessionHandle | undefined;
 }) {
   const found = useChild(project, ({ model }) => model);
-  const row = found?.rows[0]?.row;
-  const unknown = (found?.neverSynced.length ?? 0) > 0;
   const pending = pendingOf(found);
+  // Moved to another project, its row still read: the one before stays
+  // named, as its page stays on screen until the next is drawn whole.
+  const last = useRef(found?.rows[0]?.row);
+  if (found?.rows[0] !== undefined) last.current = found.rows[0].row;
+  const row = found?.rows[0]?.row ?? (pending ? last.current : undefined);
+  const unknown = (found?.neverSynced.length ?? 0) > 0;
   if (session === undefined)
     return (
       <Title
@@ -108,12 +112,18 @@ function SessionTitle({
   readonly session: SessionHandle;
 }) {
   const found = useChild(session, ({ model }) => model);
+  const row = found?.rows[0]?.row;
+  const waiting = pending || pendingOf(found);
+  // Moved to another session, its row still read: the one before stays
+  // named, as its page stays on screen until the next is drawn whole.
+  const last = useRef(row);
+  if (row !== undefined) last.current = row;
   return (
     <Title
       route={route}
       project={project}
-      session={found?.rows[0]?.row}
-      pending={pending || pendingOf(found)}
+      session={row ?? (waiting ? last.current : undefined)}
+      pending={waiting}
       unknown={unknown || (found?.neverSynced.length ?? 0) > 0}
     />
   );

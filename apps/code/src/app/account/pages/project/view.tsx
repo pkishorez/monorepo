@@ -19,6 +19,7 @@ import { PageConnection } from '../../connection/link/index.ts';
 import { placeIn, ProjectLive, readyOf } from './actor.ts';
 import { Draft } from './draft/index.ts';
 import { Session as SessionPage } from './session/index.ts';
+import { useHeld } from './held.ts';
 
 /*
  * A project: the session open in it (`session/`), or, with none open, a
@@ -33,7 +34,9 @@ import { Session as SessionPage } from './session/index.ts';
  * once its row and the Saved Draft are read (`readyOf`); `ProjectReady`
  * says so once, before the frame is first drawn. A session its Draft started
  * is drawn once it can be drawn whole, or waited for long enough, its
- * Draft and Starting until then (`HandingOver`).
+ * Draft and Starting until then (`HandingOver`). A move to another Session,
+ * as by `[` and `]`, keeps the one before on screen until the next can be
+ * drawn whole, never a blank page between (`held.ts`).
  */
 
 const link =
@@ -92,9 +95,10 @@ function ProjectScreen({ root, model, props, children, send }: Self) {
   if (children.Session)
     return (
       <div {...root} className="flex min-h-0 flex-1 flex-col">
-        <SessionPage.Folder value={project?.path ?? null}>
-          <SessionPage.view instance={children.Session} />
-        </SessionPage.Folder>
+        <HeldSession
+          session={children.Session}
+          folder={project?.path ?? null}
+        />
       </div>
     );
   // Until the Store is read, nothing; a project it does not hold is not
@@ -146,6 +150,34 @@ function ProjectScreen({ root, model, props, children, send }: Self) {
 }
 
 type Self = ViewProps<typeof ProjectLive>;
+
+/**
+ * The Session open, drawn once it can be drawn whole: a move to another,
+ * as by `[` and `]`, keeps the one before on screen until then (`held.ts`),
+ * reading the next meanwhile.
+ */
+function HeldSession({
+  session,
+  folder,
+}: {
+  readonly session: NonNullable<Self['children']['Session']>;
+  readonly folder: string | null;
+}) {
+  const ready = useChild(session, ({ model }) => model.ready) === true;
+  const shown = useHeld(session, ready);
+  return (
+    <>
+      {shown !== session && (
+        <Suspense fallback={null}>
+          <SessionPage.ready instance={session} />
+        </Suspense>
+      )}
+      <SessionPage.Folder value={folder}>
+        <SessionPage.view instance={shown} />
+      </SessionPage.Folder>
+    </>
+  );
+}
 
 /** No Instance: what a Hook reads while a Child is absent. */
 const NONE = { id: '' };

@@ -359,9 +359,22 @@ export const createStore = (flat: Flat, dispatcher: Dispatcher, vim: Vim) => {
     return null;
   };
 
-  // Snapshots, so each subscriber re-renders only when what it reads does.
+  // Snapshots, so each subscriber re-renders only when what it reads does:
+  // a change elsewhere in the store, such as a Handler added for an Action
+  // that already worked, gives the same object.
   let statusView = { key: '', view: undefined as unknown as Status };
-  let availableView = { version: -1, list: [] as ReadonlyArray<Available> };
+  let availableView = {
+    version: -1,
+    key: '',
+    list: [] as ReadonlyArray<Available>,
+  };
+  // One `run` per Action, so an Action listed again is the same object.
+  const runs = new Map<string, () => void>();
+  const runOf = (id: string) => {
+    let each = runs.get(id);
+    if (each === undefined) runs.set(id, (each = () => run(id)));
+    return each;
+  };
 
   return {
     subscribe: (listener: () => void) => {
@@ -543,7 +556,19 @@ export const createStore = (flat: Flat, dispatcher: Dispatcher, vim: Vim) => {
     /** Every Action that works now, nearest Surface first. */
     available: () => {
       if (availableView.version === version) return availableView.list;
-      const list = resolved().shown.map(
+      const { shown } = resolved();
+      const key = JSON.stringify(
+        shown.map(({ live: { action, bindings }, shadowed }) => [
+          action.id,
+          bindings.map(describe),
+          shadowed,
+        ]),
+      );
+      if (key === availableView.key) {
+        availableView = { ...availableView, version };
+        return availableView.list;
+      }
+      const list = shown.map(
         ({ live: { action, bindings }, shadowed }): Available => ({
           id: action.id,
           keys: bindings,
@@ -551,10 +576,10 @@ export const createStore = (flat: Flat, dispatcher: Dispatcher, vim: Vim) => {
           surface: action.surface,
           always: action.always,
           shadowed,
-          run: () => run(action.id),
+          run: runOf(action.id),
         }),
       );
-      availableView = { version, list };
+      availableView = { version, key, list };
       return list;
     },
   };
