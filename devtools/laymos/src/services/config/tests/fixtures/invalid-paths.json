@@ -1,6 +1,7 @@
 {
   "sourceRoots": ["src/"],
   "fileModules": ["../ids.ts"],
+  "indexFiles": ["index.page.tsx", "pages/index.page.tsx"],
   "rules": { "/app": ["src/./domain"] },
   "exceptions": [{ "from": "src\\infra", "to": "src/..", "because": "x" }]
 }

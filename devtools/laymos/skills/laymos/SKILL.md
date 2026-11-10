@@ -37,8 +37,8 @@ The config states intent. Source code is evidence. When the two disagree,
 
 ## What is a Module?
 
-A folder with an index file (`index.ts`, `index.tsx`, …), or a single file
-listed under `fileModules`. Nothing else is declared: Laymos reads the tree
+A folder with an index file (`index.ts`, `index.tsx`, …, or a name listed
+under `indexFiles`), or a single file listed under `fileModules`. Nothing else is declared: Laymos reads the tree
 from disk beneath `sourceRoots`, minus `ignoredPaths`.
 
 - Its **Index** is the one file of the Module anyone outside may import. It

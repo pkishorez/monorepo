@@ -38,6 +38,11 @@ const FileModulesSchema = Schema.Array(Schema.String).annotate({
     'Project-relative source files that are Modules of their own. The one kind of Module that must be declared, because a file carries no index to say so.',
 });
 
+const indexFilesField = Schema.optional(Schema.Array(Schema.String)).annotate({
+  description:
+    'File names, beyond index.ts, index.tsx, index.js and the other built-in index files, that make the folder holding one a Module and are its Index (e.g. "index.page.tsx" for Next.js pageExtensions). A built-in index file in the same folder is the Index instead.',
+});
+
 const RulesSchema = Schema.Record(
   Schema.String,
   Schema.Array(Schema.String),
@@ -78,6 +83,7 @@ export const ProjectConfigSchema = Schema.Struct({
   storiesPath: storiesPathField,
   storyTimeout: storyTimeoutField,
   fileModules: FileModulesSchema,
+  indexFiles: indexFilesField,
   rules: RulesSchema,
   exceptions: ExceptionsSchema,
 }).annotate(projectConfigAnnotations);
@@ -98,6 +104,7 @@ export const ProjectConfigInputSchema = Schema.Struct({
   fileModules: FileModulesSchema.pipe(
     Schema.withDecodingDefaultKey(Effect.succeed<readonly string[]>([])),
   ),
+  indexFiles: indexFilesField,
   rules: RulesSchema.pipe(
     Schema.withDecodingDefaultKey(
       Effect.succeed<Readonly<Record<string, readonly string[]>>>({}),

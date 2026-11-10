@@ -207,7 +207,8 @@ _Avoid_: layer, module graph, package, deep module (that is a quality a
 Module has, not a kind), configured module, directory module, declared module
 
 **Index**:
-A folder Module's `index.ts`: the one file of that Module anyone outside may
+A folder Module's `index.ts`, or the file a config's `indexFiles` names in its
+place (such as `index.page.tsx`): the one file of that Module anyone outside may
 import. It only exports; the Module's own files do the importing. An Index
 says nothing about the Modules nested below it, which have their own.
 _Avoid_: door (the monorepo's word for a Toolkit subpath), entry point,

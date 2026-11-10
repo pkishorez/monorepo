@@ -72,12 +72,13 @@ describe('ConfigService', () => {
 
     expect(error.reason).toBe('validation');
     expect(error.issues.map((issue) => issue.kind)).toEqual(
-      Array.from({ length: 6 }, () => 'path'),
+      Array.from({ length: 7 }, () => 'path'),
     );
     expect(error.issues.map((issue) => issue.message)).toEqual(
       expect.arrayContaining([
         'sourceRoots[0] must be a canonical project-relative path: "src/"',
         'fileModules[0] must be a canonical project-relative path: "../ids.ts"',
+        'indexFiles[1] must be a file name, not a path: "pages/index.page.tsx"',
         'rules must be a canonical project-relative path: "/app"',
         'exceptions[0].to must be a canonical project-relative path: "src/.."',
       ]),
