@@ -43,7 +43,7 @@ The app is one tree of Kabuki Actors, and `src/app/` tells it as one
 story, top down, each level with at most three parts: the root page, with
 `storage/`, `sign-in/` and the Account's page; then the Account's
 `connection/` for each Connection, its `frame/` (the sidebar, the header
-with Voice, and the Pickers) and its `pages/`. [docs/kabuki-tree.md](docs/kabuki-tree.md)
+with Voice, and the Pickers) and its `pages/`. [docs/design.md](docs/design.md)
 walks it, with the addresses and what each level keeps in storage. Voice is global: a
 Dictation starts from the field you dictate into, the Draft or a
 question's own answer, keeps going as you move, and its text goes back

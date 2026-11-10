@@ -10,7 +10,7 @@ A coding agent runs on a computer, but its User wants to reach it from a phone o
 
 Each Connection has a name on its computer, `main` unless given, and keeps its files in its own folders, as cli-platform lays them out; one name runs as one process. In development each branch has its own Connection, `dev-<branch>`, and its own Connect Cloud, and every App's `pnpm dev` starts or reuses them: see [docs/dev.md](docs/dev.md).
 
-The words are in [CONTEXT.md](CONTEXT.md), the Actors in [docs/kabuki-tree.md](docs/kabuki-tree.md), and the decisions in [docs/adr/](docs/adr/).
+The words are in [CONTEXT.md](CONTEXT.md), how it is built in [docs/design.md](docs/design.md), and the decisions in [docs/adr/](docs/adr/).
 
 ## Install
 
