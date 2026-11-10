@@ -5,7 +5,7 @@ import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import * as Picker from '../../../../../../../../../../ui/controls/picker/index.ts';
 import { type Row, stateNow } from '../../../rows/index.ts';
 import { Count } from '../../../../words/index.ts';
-import { doingOf, stepsOf } from './subagent.tsx';
+import { doingOf, nowOf, stepsOf } from './subagent.tsx';
 
 /*
  * What a session runs now, apart from its turn: its subagents that run,
@@ -13,7 +13,9 @@ import { doingOf, stepsOf } from './subagent.tsx';
  * commands. A floating button over the transcript's top right counts them
  * while any run, and opens the Running Picker, which the session page
  * keeps: by a click, in place under it; by `r`, centred, as every Picker
- * the keys open; by a touch, as a Drawer.
+ * the keys open; by a touch, as a Drawer. A subagent's own subagents are
+ * listed under it, one step in however deep they are, and it says it
+ * waits on them rather than naming one.
  */
 
 /** One thing that runs, as the Running Picker lists it. */
@@ -31,24 +33,48 @@ export interface RunningItem {
   readonly rowId: string | null;
   /** Its Background Job, to stop it. */
   readonly jobId: string | null;
+  /** Asked by a subagent listed before it, so drawn under that one. */
+  readonly nested: boolean;
 }
 
 type SubagentRow = Extract<Row, { readonly kind: 'subagent' }>;
 
-/** Every subagent that runs, however deep it is nested. */
+interface Listed {
+  readonly row: SubagentRow;
+  /** A subagent that asked it is listed too. */
+  readonly nested: boolean;
+}
+
+/** Every subagent that runs, however deep it is nested, each after the one that asked it. */
 const runningSubagents = (
   rows: ReadonlyArray<Row>,
   running: boolean,
   jobs: ReadonlyArray<BackgroundJob>,
-): ReadonlyArray<SubagentRow> =>
-  rows.flatMap((row) =>
-    row.kind !== 'subagent'
-      ? []
-      : [
-          ...(stateNow(row, running, { jobs }) === 'running' ? [row] : []),
-          ...runningSubagents(row.rows, running, jobs),
-        ],
-  );
+  under = false,
+): ReadonlyArray<Listed> =>
+  rows.flatMap((row) => {
+    if (row.kind !== 'subagent') return [];
+    const runs = stateNow(row, running, { jobs }) === 'running';
+    return [
+      ...(runs ? [{ row, nested: under }] : []),
+      ...runningSubagents(row.rows, running, jobs, under || runs),
+    ];
+  });
+
+/** What a listed subagent is doing: waiting on its own when it is on one, as they are listed under it. */
+const doing = (
+  row: SubagentRow,
+  listed: ReadonlySet<string>,
+  folder: string | null,
+): string => {
+  if (nowOf(row)?.kind !== 'subagent') return doingOf(row, folder);
+  const asked = row.rows.filter(
+    (each) => each.kind === 'subagent' && listed.has(each.id),
+  ).length;
+  return asked === 0
+    ? doingOf(row, folder)
+    : `Waiting on ${asked === 1 ? 'its subagent' : `${asked} subagents`}`;
+};
 
 /**
  * What runs now: each running subagent, with its job when it has one, then
@@ -62,6 +88,7 @@ export const itemsOf = (
   folder: string | null,
 ): ReadonlyArray<RunningItem> => {
   const subagents = runningSubagents(rows, running, jobs);
+  const listed = new Set(subagents.map(({ row }) => row.id));
   // A background subagent's job is its latest run's: a resumed one runs
   // under the call that resumed it.
   const jobOf = (row: SubagentRow) =>
@@ -69,23 +96,24 @@ export const itemsOf = (
       (job) => job.toolCallId === (row.background ? row.job : row.call.id),
     );
   const linked = new Set(
-    subagents.flatMap((row) => {
+    subagents.flatMap(({ row }) => {
       const job = jobOf(row);
       return job === undefined ? [] : [job.id];
     }),
   );
   return [
-    ...subagents.map((row): RunningItem => {
+    ...subagents.map(({ row, nested }): RunningItem => {
       const job = jobOf(row);
       return {
         id: row.id,
         kind: 'agent',
         title: row.call.title || 'Subagent',
-        doing: doingOf(row, folder),
+        doing: doing(row, listed, folder),
         steps: stepsOf(row),
-        startedAt: job?.startedAt ?? null,
+        startedAt: job?.startedAt ?? row.startedAt,
         rowId: row.id,
         jobId: job?.id ?? null,
+        nested,
       };
     }),
     ...jobs
@@ -99,6 +127,7 @@ export const itemsOf = (
         startedAt: job.startedAt ?? null,
         rowId: null,
         jobId: job.id,
+        nested: false,
       })),
   ];
 };

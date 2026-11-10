@@ -38,6 +38,7 @@ const subagent = (
   job: null,
   state: 'done',
   rows,
+  nested: false,
   startedAt: 0,
   endedAt: null,
   ...more,
@@ -231,6 +232,33 @@ describe('a subagent’s foot', () => {
     expect(foot?.textContent).toContain('Explore');
     expect(foot?.textContent).toContain('0 steps');
     expect(foot?.textContent).toContain('12K tokens');
+  });
+
+  it('says a subagent another asked shares only its start and end, and how long it took', () => {
+    const asked = subagent('asked', 'Simplify the changes', [], {
+      nested: true,
+      startedAt: 0,
+      endedAt: 95_000,
+    });
+    act(() =>
+      root.render(
+        <SubagentDrawers
+          model={null}
+          rows={[{ ...outer, rows: [asked] }]}
+          ids={['outer', 'asked']}
+          running={false}
+          opening={SHUT}
+          live={live()}
+          close={() => {}}
+        />,
+      ),
+    );
+    const dialog = document.querySelector('[data-slot="dialog-content"]');
+    expect(dialog?.textContent).toContain('only when it started and ended');
+    expect(dialog?.textContent).not.toContain('No steps.');
+    const foot = document.querySelector('footer');
+    expect(foot?.textContent).toContain('1m 35s');
+    expect(foot?.textContent).not.toContain('0 steps');
   });
 
   it('names the session’s model when it names none, and how long it took', () => {

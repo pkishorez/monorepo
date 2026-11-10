@@ -13,6 +13,7 @@ const items = [
     startedAt: null,
     rowId: 'a',
     jobId: 'j1',
+    nested: false,
   },
   {
     id: 'j2',
@@ -23,6 +24,7 @@ const items = [
     startedAt: null,
     rowId: null,
     jobId: 'j2',
+    nested: false,
   },
 ];
 

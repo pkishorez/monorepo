@@ -25,6 +25,7 @@ const subagent = (
   job: null,
   state: 'running',
   rows: [],
+  nested: false,
   startedAt: 0,
   endedAt: null,
   ...more,
@@ -68,6 +69,47 @@ describe('itemsOf', () => {
       'bg',
       'inner',
       'j2',
+    ]);
+  });
+
+  it("lists a subagent's own under it, one step in however deep, and says it waits on them", () => {
+    const deepest = subagent('deepest', { job: 'call-bg', nested: true });
+    const inner = subagent('inner', {
+      job: 'call-bg',
+      nested: true,
+      startedAt: 7,
+      rows: [deepest],
+    });
+    const rows = [
+      subagent('bg', { background: true, job: 'call-bg', rows: [inner] }),
+    ];
+    const jobs = [
+      {
+        id: 'j1',
+        kind: 'agent' as const,
+        title: 'bg',
+        toolCallId: 'call-bg',
+        startedAt: 5,
+      },
+    ];
+    expect(itemsOf(rows, jobs, false, null)).toEqual([
+      expect.objectContaining({
+        id: 'bg',
+        nested: false,
+        doing: 'Waiting on its subagent',
+      }),
+      // Its steps are never sent: it runs, from when it was asked.
+      expect.objectContaining({
+        id: 'inner',
+        nested: true,
+        doing: 'Waiting on its subagent',
+        startedAt: 7,
+      }),
+      expect.objectContaining({
+        id: 'deepest',
+        nested: true,
+        doing: 'Running',
+      }),
     ]);
   });
 

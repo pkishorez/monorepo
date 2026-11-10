@@ -21,20 +21,31 @@ export const stepsOf = (row: SubagentRow) =>
   row.rows.filter((each) => each.kind === 'tool' || each.kind === 'subagent')
     .length;
 
-/** What a running subagent is doing now, in a few words. */
-export const doingOf = (row: SubagentRow, folder: string | null): string => {
-  const now = [...row.rows]
+/**
+ * Whether its steps are not sent at all, only when it started and ended:
+ * one asked by another subagent, which Claude Code shares no steps of.
+ */
+export const unseen = (row: SubagentRow) => row.nested && stepsOf(row) === 0;
+
+/** The step a running subagent is on now: the last of its steps that runs. */
+export const nowOf = (row: SubagentRow) =>
+  [...row.rows]
     .reverse()
     .find(
       (each) =>
         (each.kind === 'tool' || each.kind === 'subagent') &&
         each.state === 'running',
     );
+
+/** What a running subagent is doing now, in a few words. */
+export const doingOf = (row: SubagentRow, folder: string | null): string => {
+  const now = nowOf(row);
   if (now?.kind === 'tool') {
     const { verb, target } = summary(now.call, 'running', folder);
     return `${verb} ${target}`.trim();
   }
   if (now?.kind === 'subagent') return now.call.title || 'Asking a subagent';
+  if (unseen(row)) return 'Running';
   return stepsOf(row) === 0 ? 'Starting' : 'Working';
 };
 

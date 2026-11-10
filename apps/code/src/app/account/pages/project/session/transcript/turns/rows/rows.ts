@@ -110,6 +110,11 @@ export type Row =
       readonly job: string | null;
       readonly state: ToolState;
       readonly rows: ReadonlyArray<Row>;
+      /**
+       * Asked by another subagent. Claude Code sends when such a one
+       * started and ended, but none of its steps.
+       */
+      readonly nested: boolean;
       /** When it was asked, in epoch ms. */
       readonly startedAt: number;
       /** When it ended: its result, or for a background one its job's end; null until then. */
@@ -470,6 +475,7 @@ export const thread = (
                 job,
                 state,
                 rows,
+                nested: agentId !== null,
                 startedAt: message.at,
                 endedAt:
                   (background

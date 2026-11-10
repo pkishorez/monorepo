@@ -17,7 +17,7 @@ import {
 } from '../../../../rows/index.ts';
 import { Long, Markdown, type Opening } from '../../../../../words/index.ts';
 import { Steps } from '../../steps.tsx';
-import { stepsOf } from '../subagent.tsx';
+import { stepsOf, unseen } from '../subagent.tsx';
 import { tokens } from '../../../../../../panels/details/index.ts';
 import {
   Foot,
@@ -30,7 +30,9 @@ import {
 
 /*
  * The subagents opened over the page, each whole: what it was asked,
- * every step it took, and its report. Nothing in one can be changed. Its
+ * every step it took, and its report; one asked by another subagent says
+ * its steps are not shared, as only its start and end are. Nothing in one
+ * can be changed. Its
  * foot says where it stands and for how long, its model and kind, its
  * steps and the tokens it has used, and a running one can be stopped
  * from there (`frame.tsx`).
@@ -236,13 +238,14 @@ function Body({
   const prompt = first?.kind === 'prompt' ? first : undefined;
   const steps = prompt === undefined ? row.rows : row.rows.slice(1);
   const count = stepsOf(row);
+  const hidden = unseen(row);
   const report = row.result;
   const standing: Standing =
     state === 'running' && stopping ? 'stopping' : state;
   const details = [
     said(row.call.input, 'model') ?? model,
     said(row.call.input, 'subagent_type'),
-    `${count} ${count === 1 ? 'step' : 'steps'}`,
+    hidden ? null : `${count} ${count === 1 ? 'step' : 'steps'}`,
     job?.tokens === undefined ? null : `${tokens(job.tokens)} tokens`,
   ].filter((each) => each !== null);
   return (
@@ -268,7 +271,12 @@ function Body({
             </Section>
           )}
           <Section label="Steps">
-            {steps.length === 0 ? (
+            {hidden ? (
+              <p className="text-sm text-muted-foreground">
+                Claude Code doesn&apos;t share the steps of a subagent&apos;s
+                own subagents, only when it started and ended.
+              </p>
+            ) : steps.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 {state === 'running' ? 'Starting…' : 'No steps.'}
               </p>

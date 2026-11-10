@@ -154,11 +154,13 @@ describe('thread', () => {
       {
         kind: 'subagent',
         state: 'done',
+        nested: false,
         rows: [
           { kind: 'prompt', text: 'look around' },
           {
             kind: 'subagent',
             state: 'running',
+            nested: true,
             rows: [{ kind: 'text', text: 'deep' }],
           },
         ],

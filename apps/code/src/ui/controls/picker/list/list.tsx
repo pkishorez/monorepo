@@ -364,10 +364,15 @@ export function List<P>({
                   disabled={entry.unavailable !== undefined}
                   data-checked={entry.checked === true}
                   data-quiet={entry.quiet === true || undefined}
+                  data-nested={
+                    (query === '' && entry.nested === true) || undefined
+                  }
                   title={entry.unavailable}
                   onSelect={() => pick(entry.value)}
                   className={cn(
                     'items-start data-quiet:opacity-60',
+                    // One step in, with a rule in the margin that ties it to the row above.
+                    'data-nested:ml-5 data-nested:before:absolute data-nested:before:inset-y-0 data-nested:before:-left-2.5 data-nested:before:w-px data-nested:before:bg-border',
                     entry.keys !== undefined && 'max-sm:flex-wrap',
                     // No room kept for a check a row does not have.
                     touch && 'data-[checked=false]:[&>svg:last-child]:hidden',

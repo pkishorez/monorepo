@@ -53,6 +53,8 @@ const Row = Schema.Struct({
   unavailable: Schema.optionalKey(Schema.String),
   /** Drawn quieter than the rest, such as a Settled Session. */
   quiet: Schema.optionalKey(Schema.Boolean),
+  /** Drawn one step in, under the row before it, such as a subagent's own. */
+  nested: Schema.optionalKey(Schema.Boolean),
   /** What it is, drawn beside it on touch: a Project, a folder, or an action that adds one. */
   icon: Schema.optionalKey(Schema.Literals(['project', 'folder', 'add'])),
   /**

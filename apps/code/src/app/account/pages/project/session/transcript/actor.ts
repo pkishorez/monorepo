@@ -44,6 +44,8 @@ export const RunningItem = Schema.Struct({
   rowId: Schema.NullOr(Schema.String),
   /** Its Background Job, to stop it. */
   jobId: Schema.NullOr(Schema.String),
+  /** Asked by a subagent listed before it, so drawn under that one. */
+  nested: Schema.Boolean,
 });
 type RunningItem = typeof RunningItem.Type;
 
@@ -81,6 +83,7 @@ const Running = Picker.make('RunningPicker', {
                   ? `${item.doing ?? 'Working'}…`
                   : 'Running',
               group: item.kind === 'agent' ? 'Subagents' : 'Commands',
+              ...(item.nested ? { nested: true } : {}),
               ...(hint === '' ? {} : { hint }),
               ...(item.kind === 'agent' && item.rowId === null
                 ? {
