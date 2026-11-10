@@ -62,8 +62,12 @@ export const itemsOf = (
   folder: string | null,
 ): ReadonlyArray<RunningItem> => {
   const subagents = runningSubagents(rows, running, jobs);
+  // A background subagent's job is its latest run's: a resumed one runs
+  // under the call that resumed it.
   const jobOf = (row: SubagentRow) =>
-    jobs.find((job) => job.toolCallId === row.call.id);
+    jobs.find(
+      (job) => job.toolCallId === (row.background ? row.job : row.call.id),
+    );
   const linked = new Set(
     subagents.flatMap((row) => {
       const job = jobOf(row);

@@ -18,6 +18,12 @@ import type { Message, Part, Usage } from '@kestack/connect/code';
  *   to say, where it is drawn. So are the steps of a background subagent,
  *   each with its `job`: one without a result runs on after its turn has
  *   ended, while its job does;
+ * - a subagent that ended can be resumed by a SendMessage call (Claude's),
+ *   which runs it again as a Background Job under that call's id. Its row
+ *   follows its latest run: its `job` is that run's, it runs until that
+ *   run's jobEnded, which is drawn in the subagent's turn, and its report
+ *   is its last words then. It writes on into the same row, as its
+ *   Messages keep its first call's id;
  * - a toolCall to a subagent holds the Messages whose `agentId` is its id,
  *   drawn the same way, so subagents nest. Its prompt comes first: the
  *   subagent's own user words (Codex sends them), or else the call's
@@ -156,6 +162,74 @@ const promptOf = (call: Of<'toolCall'>): string | null => {
 
 const NONE: ReadonlyArray<never> = [];
 
+/** The calls that resumed each subagent, oldest first, by its call's id. */
+type Resumes = ReadonlyMap<string, ReadonlyArray<string>>;
+
+const NO_RESUMES: Resumes = new Map();
+
+/** The agent id a subagent's launch gives back, as Claude Code words it. */
+const LAUNCHED = /\bagentId: ([\w-]+)/;
+
+/** The agent a SendMessage result says it resumed: it had ended, and runs again. */
+const resumedBy = (output: string): string | undefined => {
+  try {
+    const said: unknown = JSON.parse(output);
+    return typeof said === 'object' &&
+      said !== null &&
+      'resumedAgentId' in said &&
+      typeof said.resumedAgentId === 'string'
+      ? said.resumedAgentId
+      : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+/**
+ * Which SendMessage calls resumed which subagent. A subagent's agent id is
+ * in its launch's result, or in its job's end; a SendMessage resumed it
+ * when its result says so, or when its own job ended under that agent id.
+ */
+const resumesOf = (messages: ReadonlyArray<Message>): Resumes => {
+  const subagents = new Set<string>();
+  /** The SendMessage calls, oldest first. */
+  const sent = new Set<string>();
+  /** The call that started each agent, by agent id. */
+  const callOf = new Map<string, string>();
+  /** The agent each call ran, by its call's id. */
+  const agentOf = new Map<string, string>();
+  for (const message of messages)
+    for (const part of message.parts) {
+      if (part.type === 'toolCall') {
+        if (part.tool === 'subagent') subagents.add(part.id);
+        else if (part.name === 'SendMessage') sent.add(part.id);
+      } else if (part.type === 'toolResult') {
+        if (subagents.has(part.toolCallId)) {
+          const agent = LAUNCHED.exec(part.output)?.[1];
+          if (agent !== undefined) callOf.set(agent, part.toolCallId);
+        } else if (sent.has(part.toolCallId)) {
+          const agent = resumedBy(part.output);
+          if (agent !== undefined) agentOf.set(part.toolCallId, agent);
+        }
+      } else if (part.type === 'jobEnded' && part.toolCallId !== undefined) {
+        if (subagents.has(part.toolCallId))
+          callOf.set(part.jobId, part.toolCallId);
+        else agentOf.set(part.toolCallId, part.jobId);
+      }
+    }
+  if (sent.size === 0) return NO_RESUMES;
+  const resumes = new Map<string, string[]>();
+  for (const id of sent) {
+    const agent = agentOf.get(id);
+    const call = agent === undefined ? undefined : callOf.get(agent);
+    if (call === undefined) continue;
+    const list = resumes.get(call);
+    if (list) list.push(id);
+    else resumes.set(call, [id]);
+  }
+  return resumes.size === 0 ? NO_RESUMES : resumes;
+};
+
 const JOB_STATES: Record<Of<'jobEnded'>['status'], ToolState> = {
   done: 'done',
   failed: 'failed',
@@ -177,11 +251,13 @@ const inOrder = (messages: ReadonlyArray<Message>) => {
 /**
  * Every row of the main agent, oldest first, each subagent nested in its
  * call. `followed`: Messages of later turns follow these, so the main
- * agent has said more since any stream here.
+ * agent has said more since any stream here. `resumes`: the calls that
+ * resumed its subagents, which may be in other turns.
  */
 export const thread = (
   messages: ReadonlyArray<Message>,
   followed = false,
+  resumes: Resumes = resumesOf(messages),
 ): ReadonlyArray<Row> => {
   const sorted = inOrder(messages);
   const results = new Map<string, Of<'toolResult'>>();
@@ -239,9 +315,14 @@ export const thread = (
     }
   }
 
-  /** Whether a call went on as a Background Job: as it asked, or as its result says. */
+  /** Whether a call went on as a Background Job: as it asked, as its result says, or once resumed. */
   const inBackground = (call: Of<'toolCall'>) =>
-    call.background === true || results.get(call.id)?.background === true;
+    call.background === true ||
+    results.get(call.id)?.background === true ||
+    resumes.has(call.id);
+
+  /** The call a subagent's latest run is under: the last that resumed it, or its own. */
+  const runOf = (callId: string) => resumes.get(callId)?.at(-1) ?? callId;
 
   const stateOf = (
     call: Of<'toolCall'>,
@@ -250,7 +331,7 @@ export const thread = (
   ): ToolState => {
     const result = results.get(call.id);
     if (inBackground(call) && !result?.isError) {
-      const end = jobEnds.get(call.id);
+      const end = jobEnds.get(runOf(call.id));
       return end === undefined ? 'running' : JOB_STATES[end.status];
     }
     if (result && !result.isError) return 'done';
@@ -329,7 +410,8 @@ export const thread = (
           }
           case 'toolCall': {
             const background = inBackground(part);
-            const job = background ? part.id : under;
+            const run = runOf(part.id);
+            const job = background ? run : under;
             const launched = results.get(part.id) ?? null;
             const state = stateOf(part, message.turnId, under);
             if (part.tool !== 'subagent' || seen.has(part.id))
@@ -347,9 +429,10 @@ export const thread = (
               ];
             const all = rowsOf(part.id, new Set(seen).add(part.id), job);
             const last = all.at(-1);
-            const end = jobEnds.get(part.id);
+            const end = jobEnds.get(run);
             // A background one's result only says it started: its report
-            // is what it said last once it ended, or else the end's summary.
+            // is what it said last once its latest run ended, or else the
+            // end's summary.
             const result: Of<'toolResult'> | null = !background
               ? launched
               : launched?.isError
@@ -390,7 +473,7 @@ export const thread = (
                 startedAt: message.at,
                 endedAt:
                   (background
-                    ? jobEndTimes.get(part.id)
+                    ? jobEndTimes.get(run)
                     : resultTimes.get(part.id)) ?? null,
               },
             ];
@@ -498,11 +581,20 @@ export const kept = (
   return unchanged ? before : rows;
 };
 
-/** The tool call a Message belongs to apart from its turn: its subagent's, or the job it ends. */
-const linkOf = (message: Message): string | undefined => {
+/**
+ * The tool call a Message belongs to apart from its turn: its subagent's,
+ * or the job it ends, a resumed subagent's run ending with the subagent.
+ */
+const linkOf = (
+  message: Message,
+  resumed: ReadonlyMap<string, string>,
+): string | undefined => {
   if (message.agentId !== null) return message.agentId;
   for (const part of message.parts)
-    if (part.type === 'jobEnded') return part.toolCallId;
+    if (part.type === 'jobEnded')
+      return part.toolCallId === undefined
+        ? undefined
+        : (resumed.get(part.toolCallId) ?? part.toolCallId);
   return undefined;
 };
 
@@ -511,7 +603,10 @@ const linkOf = (message: Message): string | undefined => {
  * job's end, the turn of the toolCall it belongs to, through any subagents
  * it is nested in.
  */
-const ownerTurns = (messages: ReadonlyArray<Message>) => {
+const ownerTurns = (messages: ReadonlyArray<Message>, resumes: Resumes) => {
+  /** The subagent each resuming call ran again, by that call's id. */
+  const resumed = new Map<string, string>();
+  for (const [call, by] of resumes) for (const id of by) resumed.set(id, call);
   const callIn = new Map<string, Message>();
   for (const message of messages)
     for (const part of message.parts)
@@ -520,7 +615,7 @@ const ownerTurns = (messages: ReadonlyArray<Message>) => {
   const turnOf = (message: Message, depth = 0): string => {
     const known = owner.get(message.id);
     if (known !== undefined) return known;
-    const link = linkOf(message);
+    const link = linkOf(message, resumed);
     const call = link === undefined ? undefined : callIn.get(link);
     const turnId =
       call === undefined || call === message || depth > 32
@@ -536,8 +631,26 @@ interface ThreadedTurn {
   readonly messages: ReadonlyArray<Message>;
   /** Whether later turns follow it. */
   readonly followed: boolean;
+  /** The calls that resumed its subagents, from any turn, as `resumedIn` keys them. */
+  readonly resumed: string;
   readonly rows: ReadonlyArray<Row>;
 }
+
+/** The calls that resumed the subagents among `messages`, as a key that changes when they do. */
+const resumedIn = (
+  messages: ReadonlyArray<Message>,
+  resumes: Resumes,
+): string => {
+  if (resumes.size === 0) return '';
+  let key = '';
+  for (const message of messages)
+    for (const part of message.parts) {
+      if (part.type !== 'toolCall') continue;
+      const by = resumes.get(part.id);
+      if (by !== undefined) key += `${part.id}>${by.join(',')};`;
+    }
+  return key;
+};
 
 /** A session threaded: its rows, and each turn's Messages and rows, by its id, in order. */
 export interface Threaded {
@@ -550,16 +663,18 @@ export const UNTHREADED: Threaded = { rows: NONE, turns: new Map() };
 
 /**
  * A session's Messages threaded again from what was threaded `before`:
- * only the turns whose Messages changed, their rows `kept`; the same
- * `Threaded` when no turn changed.
+ * only the turns whose Messages changed, or whose subagents were resumed
+ * since, their rows `kept`; the same `Threaded` when no turn changed.
  */
 export const threaded = (
   before: Threaded,
   messages: ReadonlyArray<Message>,
 ): Threaded => {
   const byTurn = new Map<string, Message[]>();
-  const turnOf = ownerTurns(messages);
-  for (const message of inOrder(messages)) {
+  const sorted = inOrder(messages);
+  const resumes = resumesOf(sorted);
+  const turnOf = ownerTurns(sorted, resumes);
+  for (const message of sorted) {
     const turnId = turnOf(message);
     const list = byTurn.get(turnId);
     if (list) list.push(message);
@@ -570,10 +685,12 @@ export const threaded = (
   let left = byTurn.size;
   for (const [turnId, list] of byTurn) {
     const followed = --left > 0;
+    const resumed = resumedIn(list, resumes);
     const was = before.turns.get(turnId);
     if (
       was !== undefined &&
       was.followed === followed &&
+      was.resumed === resumed &&
       sameItems(was.messages, list)
     ) {
       turns.set(turnId, was);
@@ -583,7 +700,8 @@ export const threaded = (
     turns.set(turnId, {
       messages: list,
       followed,
-      rows: kept(was?.rows ?? NONE, thread(list, followed)),
+      resumed,
+      rows: kept(was?.rows ?? NONE, thread(list, followed, resumes)),
     });
   }
   if (!changed) return before;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Message, Part } from '@kestack/connect/code';
-import { kept, thread, threaded, UNTHREADED } from '../rows.ts';
+import { kept, thread, threaded, UNTHREADED, type Row } from '../rows.ts';
 import { keptTurns, turnsOf } from '../../turns.ts';
 
 let n = 0;
@@ -610,6 +610,102 @@ describe('threaded', () => {
       expect(
         subagent?.kind === 'subagent' && subagent.rows.map((row) => row.kind),
       ).toEqual(['prompt']);
+    });
+
+    describe('resumed by a SendMessage', () => {
+      const send = (id: string): Part => ({
+        type: 'toolCall',
+        id,
+        tool: 'other',
+        name: 'SendMessage',
+        title: 'a1',
+        input: { to: 'a1', message: 'Go on' },
+      });
+      const sent = (toolCallId: string, said: object): Part => ({
+        type: 'toolResult',
+        toolCallId,
+        output: JSON.stringify({ success: true, ...said }),
+        truncated: false,
+        isError: false,
+      });
+      const first = [
+        start('t1', 'go'),
+        message([launch]),
+        message([launched], { role: 'tool' }),
+        done('t1'),
+        message([{ type: 'text', text: 'First pass.' }], { agentId: 'bg' }),
+        message([ended], { role: 'system', turnId: 't1' }),
+        start('t2', 'go on'),
+        message([send('resume')], { turnId: 't2' }),
+        message([sent('resume', { resumedAgentId: 'a1' })], {
+          role: 'tool',
+          turnId: 't2',
+        }),
+        done('t2'),
+      ];
+      const subagentIn = (threadedRows: ReadonlyArray<Row>) =>
+        threadedRows.find((row) => row.kind === 'subagent');
+
+      it('runs again under the call that resumed it, until that run ends', () => {
+        const before = threaded(UNTHREADED, first.slice(0, 6));
+        expect(subagentIn(before.rows)).toMatchObject({ state: 'done' });
+        const resumed = threaded(before, first);
+        expect(subagentIn(resumed.rows)).toMatchObject({
+          background: true,
+          job: 'resume',
+          state: 'running',
+          result: null,
+          endedAt: null,
+        });
+        const end = message(
+          [{ ...ended, toolCallId: 'resume', summary: 'Finished again' }],
+          { role: 'system', turnId: 't2' },
+        );
+        const after = threaded(resumed, [
+          ...first,
+          message([{ type: 'text', text: 'Second pass.' }], {
+            agentId: 'bg',
+            turnId: 't2',
+          }),
+          end,
+        ]);
+        expect(subagentIn(after.rows)).toMatchObject({
+          state: 'done',
+          result: { output: 'Second pass.' },
+          endedAt: end.at,
+        });
+        expect(
+          after.rows.map((row) => row.kind).filter((kind) => kind === 'turn'),
+        ).toHaveLength(2);
+      });
+
+      it('is resumed by its own job ending under the call, though its result never said', () => {
+        const queued = first.map((each) =>
+          each.parts[0]?.type === 'toolResult' &&
+          each.parts[0].toolCallId === 'resume'
+            ? { ...each, parts: [sent('resume', { message: 'queued' })] }
+            : each,
+        );
+        expect(subagentIn(threaded(UNTHREADED, queued).rows)).toMatchObject({
+          job: 'bg',
+          state: 'done',
+        });
+        const after = threaded(UNTHREADED, [
+          ...queued,
+          message([{ ...ended, toolCallId: 'resume', status: 'failed' }], {
+            role: 'system',
+            turnId: 't2',
+          }),
+        ]);
+        expect(subagentIn(after.rows)).toMatchObject({
+          job: 'resume',
+          state: 'failed',
+        });
+      });
+
+      it('threads the same a turn at a time as whole', () => {
+        expect(threaded(UNTHREADED, first).rows).toEqual(thread(first));
+      });
     });
   });
 });

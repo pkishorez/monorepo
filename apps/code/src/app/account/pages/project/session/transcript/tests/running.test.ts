@@ -70,4 +70,20 @@ describe('itemsOf', () => {
       'j2',
     ]);
   });
+
+  it('lists a resumed subagent with the job of the call that resumed it', () => {
+    const rows = [subagent('bg', { background: true, job: 'call-resume' })];
+    const jobs = [
+      {
+        id: 'a1',
+        kind: 'agent' as const,
+        title: 'bg',
+        toolCallId: 'call-resume',
+        startedAt: 5,
+      },
+    ];
+    expect(itemsOf(rows, jobs, false, null)).toEqual([
+      expect.objectContaining({ id: 'bg', rowId: 'bg', jobId: 'a1' }),
+    ]);
+  });
 });
