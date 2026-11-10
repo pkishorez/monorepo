@@ -1,6 +1,6 @@
 {
   "name": "@kestack/cli-platform",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "description": "What every kestack CLI needs on a computer: its folders, one shared copy of each download, one process per name, and Plugins kept running at the version asked for.",
   "license": "MIT",

@@ -1,5 +1,79 @@
 # @kestack/connect
 
+## 0.0.7
+
+### Patch Changes
+
+- [`d07ead4`](https://github.com/pkishorez/monorepo/commit/d07ead4c905eeb32e56945f7090c8e457c6733ff) Thanks [@pkishorez](https://github.com/pkishorez)! - A Background Job's output can be followed live.
+
+  **Added**
+
+  - `Agent.backgroundJobOutput(id)` streams what a shell job writes: the last 64 KiB of it at once, then each piece as it comes, until the job ends. Claude Code's is read from the file its tool result names; Codex's comes from `item/commandExecution/outputDelta`, kept from the command's start so it can be read however late it is asked for. A subagent job gives nothing.
+  - A `BackgroundJob` carries `tokens`, a subagent's tokens so far, from Claude Code's `task_progress`.
+  - A Codex background terminal's job names its `toolCallId`, the command's item.
+  - Connect's `backgroundJobOutput` RPC streams one Session's job output.
+
+  **Changed**
+
+  - A Session's record keeps its jobs without `tokens`, so its stored shape is as before, and a subagent's progress never rewrites it.
+
+- [#118](https://github.com/pkishorez/monorepo/pull/118) [`a88fc46`](https://github.com/pkishorez/monorepo/commit/a88fc4603b3327a1f8f0794f9b8445023aa131d5) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A Connection can be given a Display Name, which Cloud Connect keeps.
+
+  **Added**
+
+  - `Rename` on Cloud Connect gives one of the caller's Connections a Display Name, trimmed, or clears it when given null or a blank one. It works while the Connection is out of reach.
+  - `Connection` v2 carries `displayName`, null until one is given. `name` stays the Computer Name the Connection reports, so two Connections given the same Display Name can still be told apart.
+  - `DISPLAY_NAME_MAX`, the longest Display Name: 64 characters.
+
+  **Changed**
+
+  - A Report no longer changes the Display Name, only the Computer Name.
+  - A Report is answered with `ReportAnswer`, which is v1 of `Connection` on the wire, so every `ke-connect` already released reads it as before.
+
+- [`e5ae350`](https://github.com/pkishorez/monorepo/commit/e5ae35091165ae901747411880ee6da4a9b21ed2) Thanks [@pkishorez](https://github.com/pkishorez)! - A Heartbeat that crashes no longer stops the ones after it.
+
+  **Fixed**
+
+  - A Report that crashed, such as one Cloud Connect failed with a `DatabaseError`, is logged as not sent, and the next Heartbeat tries again. Before, it ended the Heartbeat for good, and the Connection showed down until `ke-connect` was restarted.
+
+- [`9e04093`](https://github.com/pkishorez/monorepo/commit/9e04093be077abe1271077cc5f15eaf4624ce2b9) Thanks [@pkishorez](https://github.com/pkishorez)! - A stop tells the agent what it cut off, and a cancel stops everything.
+
+  **New**
+
+  - What the agent writes between Turns is stored as it comes, in the Session's latest Turn.
+  - A Session record is v3, with the Background Jobs it last had. A restart Resumes a Session that had jobs running, as it did one with a Turn running, with a prompt that names each Turn, subagent and command cut off. A message after the agent closed with jobs running tells it of them first.
+  - A cancel also stops every Background Job, whether a Turn runs or not.
+
+- [#128](https://github.com/pkishorez/monorepo/pull/128) [`02c3bcb`](https://github.com/pkishorez/monorepo/commit/02c3bcbe390c4155ebe49f398ac273a75a34c116) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A Dictation can be heard while it is recorded, as a Take: its audio goes in numbered stretches and its text comes back as it goes.
+
+  **Added**
+
+  - `Speech` has `watchTake`, `addTakeAudio` and `endTake`. A Take switches Speech to Text on if it is off, says how far the model has downloaded meanwhile, keeps the audio, and transcribes only what is not yet settled, cutting a long tail at its quietest moment, and lets go of the audio before the cut. A stretch sent again is ignored, so a sender that lost track, as after a restart, sends them all again. A Take watched is never dropped, however long its model downloads; one nobody watches or touches for 10 minutes is. One dropped or broken before it is Done fails whoever watches it. Calls that reach a new Take together start one.
+  - The code Plugin's API has the same three calls, and `TakeHeard`: `Downloading`, `Heard` or `Done`.
+
+- [#129](https://github.com/pkishorez/monorepo/pull/129) [`954b985`](https://github.com/pkishorez/monorepo/commit/954b985d18ebc28e2cb6c1c4fd8ebd4b056b2aae) Thanks [@pkishorez](https://github.com/pkishorez)! - A new folder is only a folder: `createFolder` no longer starts a git repository in it.
+
+  **Changed**
+
+  - `createFolder` makes the folder and nothing else. Whoever wants a repository there starts one.
+
+  **Removed**
+
+  - `gitInitError` from `CreatedFolder`.
+
+- [`3a9aca6`](https://github.com/pkishorez/monorepo/commit/3a9aca6d91681c39cde11dcf22c239de63936c1e) Thanks [@pkishorez](https://github.com/pkishorez)! - A Project whose folder is inside a git repository, as a package of a monorepo, is a git Project.
+
+  **Changed**
+
+  - `branches` lists the repository's branches for a folder anywhere inside it, not only at its top, so the Branch Picker and New Worktree switch show for it.
+  - A Session in such a Project runs in the same folder of its Worktree: a new Worktree's `packages/one`, or that of the Worktree a branch is out in.
+
+- [`97a6eae`](https://github.com/pkishorez/monorepo/commit/97a6eae84de2e72fc45bb1e05ad0fc11916a66b3) Thanks [@pkishorez](https://github.com/pkishorez)! - A Session Resumed on start is active from after its cut-off Turn ended, never a moment before.
+
+  **Fixed**
+
+  - The Bootstrap Sweep set a Resumed Session's `activeAt` from the time it read before stamping the Turn's `turn.ended`, so it could come out a millisecond before its own `endedAt`.
+
 ## 0.0.6
 
 ### Patch Changes

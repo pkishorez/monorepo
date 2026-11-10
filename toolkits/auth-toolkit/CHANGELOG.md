@@ -1,5 +1,38 @@
 # @kestack/auth-toolkit
 
+## 0.0.7
+
+### Patch Changes
+
+- [#128](https://github.com/pkishorez/monorepo/pull/128) [`eba4397`](https://github.com/pkishorez/monorepo/commit/eba4397640c4ab3e921bb0c7613e24b25b89ca6a) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A Browser app can say where a sign-in comes back to, and read the Accounts its cache remembers.
+
+  **Added**
+
+  - `browser({ returnTo })`: where a sign-in that names no `returnTo` comes back to, as an absolute URL. Unless given, it is the page the sign-in left from, as before. An app whose pages are each one Account's can send an Account added from its Account Switcher to a page that is not the old Account's.
+  - `rememberedAccounts`, from `client/browser`: the Accounts the `cache` remembers as last signed in, without tokens, in sign-in order; none when it remembers none or cannot be read. Provide it the same Layer of `browserAccountsTable` given as `cache`.
+
+- [#128](https://github.com/pkishorez/monorepo/pull/128) [`eba4397`](https://github.com/pkishorez/monorepo/commit/eba4397640c4ab3e921bb0c7613e24b25b89ca6a) Thanks [@kishorenuma](https://github.com/kishorenuma)! - Google's own sign-in button is one component, at the new `@kestack/auth-toolkit/google-button` door, and the Auth Worker's Login Screen and Device Screen draw it.
+
+  **Added**
+
+  - `GoogleButton` (`@kestack/auth-toolkit/google-button`): the GSI material button as Google's branding guidelines draw it, with only Google's words ("Sign in with Google", "Continue with Google", "Sign up with Google") and a `light`, `dark` or `auto` theme; `auto` is dark under `.dark` or `data-theme="dark"`. It brings Google Sans Medium, the guidelines' font, from `@fontsource/google-sans` (its Latin file, 23 KB), declared in the button's own style, so a browser fetches it only on a page that draws the button, and uses one installed on the computer first. The app's bundler ships the file, imported `?url`. It sets no margin or width: place it with `className`.
+
+  **Changed**
+
+  - The Login Screen and the Device Screen draw that button in place of their own, 40px tall as Google's is. It says only Google's words: where it said "Sign in as {email}", it says "Sign in with Google" and the line above it names the account. It has no spinner: while the page leaves for Google it disables, and "Opening Google…" shows under it.
+
+- [#128](https://github.com/pkishorez/monorepo/pull/128) [`eba4397`](https://github.com/pkishorez/monorepo/commit/eba4397640c4ab3e921bb0c7613e24b25b89ca6a) Thanks [@kishorenuma](https://github.com/kishorenuma)! - A Browser app can sign in with Google from its own screen, and the Fake comes back where a sign-in asks.
+
+  **Added**
+
+  - `signIn({ provider: 'google', returnTo })` on `browser()`: asks the Auth Worker where Google is, as its Login Screen's button does, and leaves for it at once, without the Login Screen. The sign-in comes back to `returnTo` (else `browser({ returnTo })`, else the page it left from); one that fails lands on the Login Screen, which says why, adding an Account when one was signed in already. The Auth Worker needs no change: it trusts every origin under its `cookieDomain`.
+  - `browser({ maxAccounts })`, 5 unless given: a `provider` sign-in with that many Accounts signed in fails `AccountLimitReached`, as the Login Screen refuses one.
+  - `fakeAccounts({ returnTo })`, and the Fake `browser({ returnTo })`: once someone is chosen, a sign-in whose `returnTo` (its own, else this one) is another page leaves for it with `window.location.assign`, as the real one would; on the same page it signs in in place, as before. A Test User (`test`) always signs in in place. The Fake asks who for a `provider` sign-in as for any other.
+
+- Updated dependencies [[`6cf1d7f`](https://github.com/pkishorez/monorepo/commit/6cf1d7fb87f1b98311e1d6ab9b86b8f233e0c707)]:
+  - @kestack/std-toolkit@0.0.7
+  - @kestack/rpc-toolkit@0.0.7
+
 ## 0.0.6
 
 ### Patch Changes
