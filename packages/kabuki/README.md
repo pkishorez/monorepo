@@ -27,17 +27,23 @@ code reaches only the Capabilities it Requires. What its Children need bubbles
 up until an ancestor Provides it, and the app does not compile until its Layer
 covers the rest.
 
-The Runtime runs a History. It starts the root Instance at the History's
-Head, hands it every Message through one Mailbox, and writes each one into
-the History; every Instance runs the rest of its own life, starting and
-stopping its States, Children, Workers and Commands. The History is a tree
-of Messages, like git commits, that replays itself to the Snapshot right
-after any one of them, on any Branch, while the live app keeps running. Stop,
-move its Head, and start again, and new Messages grow a new Branch. A History
-is also what an app is saved as and drawn from before it runs: on a server,
-at build time, and across a hot reload.
+Core has three parts. The Actor says what can happen, and its Blueprint is
+that as plain data, for any tool to read; nothing runs. The data is what
+happened and what is: Addresses, the History and Snapshots, plain values
+with pure functions, and playing a History entry is the only thing that
+changes them. The Runtime makes it run: one per app, a History and the
+Snapshot at its Head, running from the moment it is made. Every Message Sent
+becomes a History entry, is played at once and runs its Commands, and the
+Workers and Provides the Snapshot asks for run. Stopped, all of that stops
+and a Send is refused; started again, the work starts from the Head's data
+and no past Command runs. The History is a tree of entries, like git
+commits. The Runtime Seeks any Step, on any Branch, as plain data, while it
+stays where it is, and Forks in place: its Head moves to any entry and the
+next Message grows a new Branch. A History is also what an app is saved as
+and drawn from before it runs: on a server, at build time, and across a hot
+reload.
 
-Routing is a layer on top, in `@kestack/kabuki/routing`, that core never
+Routing is a Part on top, in `@kestack/kabuki/routing`, that core never
 imports: a page is an Actor with a place in the URL. The router is read down
 from the pages' definitions, so any build can import it and name a Route by
 type. One Router Actor above the pages holds the history and the data of
@@ -62,16 +68,18 @@ how its first drawing is made, and its App Shell, which the browser draws the
 app in at its own URL; it knows nothing of what uses them. How it works is in
 [docs/start.md](./docs/start.md).
 
-Kabuki is four layers, each its own subpath and each using only the layers
+Kabuki is four Parts, each its own subpath and each using only the Parts
 below it: core, `@kestack/kabuki`, defines and runs Actors and knows no
 React; `@kestack/kabuki/react` draws them; `@kestack/kabuki/routing` gives
 pages a place in the URL; `@kestack/kabuki/start` serves a routed app. An
-app takes as many as it needs, from the bottom up. A layer's path gives
-only the values an app is made of: `Actor`, `Command`, `History` and
-`Runtime`; `View`; `Page`, `Router` and `Navigation`; `Start`.
-Each folder in a layer is a path of its own that gives its value and every
+app takes as many as it needs, from the bottom up. A Part's path gives
+only the values an app is made of: `Actor`, `Blueprint`, `Command`,
+`Address`, `History`, `Snapshot`, `Runtime` and `Stopped`;
+`Kabuki`, `View`, `useChild` and `useChildren`; `Page`, `Router`,
+`useRouter` and `Navigation`; `Start`.
+Each folder in a Part is a path of its own that gives its value and every
 type that goes with it, so a type is imported from where it lives:
-`import type { Running } from '@kestack/kabuki/core/runtime'`.
+`import type { Entry } from '@kestack/kabuki/core/data'`.
 
 Read the language in [CONTEXT.md](./CONTEXT.md), the decisions in
 [docs/adr/](./docs/adr/), and how the History works in
@@ -94,110 +102,127 @@ pnpm add @kestack/kabuki effect react
 
 ### `@kestack/kabuki`
 
-| Export             | What it does                                                                                                                                                                                                                               |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `Actor.define`     | Says what an Actor is: its name, Requires, Schemas, what it Emits and the Queries it answers, each with what it is asked with and answers; each Schema may be written as its fields or its cases. It runs nothing.                         |
-| `definition.build` | Says how a defined Actor behaves, at the top and under `states` in one block per State: its rules, Children, Workers, Provides and answers to its Queries. The build is what runs and is drawn.                                            |
-| `Actor.child`      | Makes one Child in a level's `children`: its Actor, then always, `while` a test holds, or one per key `each` names, with what it is handed and what the parent hears; every function in it is typed by the level it is written in.         |
-| `Command.make`     | Defines a Command from its name, the Schema of its args and the Effect it runs; an Update calls it with the args.                                                                                                                          |
-| `Runtime.start`    | Runs an Actor, or carries a History on, inside a Scope, with the app's Layer; gives back `send`, `start` and `stop`. Started from an Actor, its History keeps no Messages.                                                                 |
-| `running.changes`  | The live Snapshot as an Effect Stream: now, then whenever the app settles; a slow reader gets only the latest.                                                                                                                             |
-| `running.instance` | The root Instance, typed and live, for code outside the tree: reads any Instance's data, Children and Workers, asks its Queries, Sends to it under a name and learns what became of the Message, and waits `until` its data passes a test. |
-| `History.make`     | A new, empty History for an Actor, with the root's Input.                                                                                                                                                                                  |
-| `History.load`     | A History carrying on from one saved before, read with the Actor's code as it is now.                                                                                                                                                      |
-| `History.restored` | The lightest History an app can be saved as: one Restore of a Snapshot at a Time, right after init.                                                                                                                                        |
-| `history.changes`  | The History as plain JSON in an Effect Stream: now, then after every change, so saving it is `Stream.debounce` and `Stream.runForEach`.                                                                                                    |
-| `history.keep`     | Sets the History's Window, how many entries it keeps; older ones Compact into a Restore. Works while it runs.                                                                                                                              |
+| Export             | What it does                                                                                                                                                                                                                                               |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Actor.define`     | Says what an Actor is: its name, Requires, Schemas, what it Emits and the Queries it answers, each with what it is asked with and answers; each Schema may be written as its fields or its cases. It runs nothing.                                         |
+| `definition.build` | Says how a defined Actor behaves, at the top and under `states` in one block per State: its rules, Children, Workers, Provides and answers to its Queries. The build is what runs and is drawn, and its `blueprint` is what it is and does, as plain data. |
+| `Actor.child`      | Makes one Child in a level's `children`: its Actor, then always, `while` a test holds, or one per key `each` names, with what it is handed and what the parent hears; every function in it is typed by the level it is written in.                         |
+| `Blueprint.at`     | Finds the Blueprint at a place in the tree the root's Blueprint can grow, as `App/Inside:downloads/files`.                                                                                                                                                 |
+| `Command.make`     | Defines a Command from its name, the Schema of its args and the Effect it runs; an Update calls it with the args.                                                                                                                                          |
+| `Address.parse`    | Reads an Address into its root and its segments: the State, slot, key and count of each Child on the way.                                                                                                                                                  |
+| `Address.parent`   | Gives the Address of an Instance's parent, or nothing for the root.                                                                                                                                                                                        |
+| `Address.place`    | Gives an Instance's place in the root's Blueprint: its Address without keys and counts.                                                                                                                                                                    |
+| `Address.within`   | Says whether an Address is another one or below it.                                                                                                                                                                                                        |
+| `Address.check`    | Turns text written by hand into an Address of the root's tree, if the root's Blueprint has a Child at every segment.                                                                                                                                       |
+| `History.make`     | A new, empty History, right after init, with the root's Input.                                                                                                                                                                                             |
+| `History.add`      | Writes an entry after the Head and moves the Head to it; after an entry that already has one, it grows a new Branch.                                                                                                                                       |
+| `History.go`       | Moves the Head to any entry, or to init, so the next one grows from there.                                                                                                                                                                                 |
+| `History.entry`    | Finds the entry with an id, if the History still has it.                                                                                                                                                                                                   |
+| `History.line`     | Gives the entries from the first to any one, the Head by default.                                                                                                                                                                                          |
+| `History.children` | Gives the entries that follow an entry, or init, oldest first.                                                                                                                                                                                             |
+| `History.tips`     | Gives the last entry of every Branch, the ones nothing follows yet, oldest first: with `entry(h, id).parent` and `children`, how a tool walks the History.                                                                                                 |
+| `History.compact`  | Keeps only a Window on the Head's Branch: the oldest entry kept becomes a Restore of the Snapshot right after it.                                                                                                                                          |
+| `History.restored` | The lightest History an app can be saved as: one Restore of a Snapshot at a Time, right after init.                                                                                                                                                        |
+| `History.save`     | The History as plain JSON, every value as its Schema's encoded side.                                                                                                                                                                                       |
+| `History.load`     | A History saved before, read with the Actor's code as it is now; what no longer fits warns, or fails at once with `onMismatch: 'fail'`.                                                                                                                    |
+| `Snapshot.init`    | The app right after init, from the root's Input.                                                                                                                                                                                                           |
+| `Snapshot.play`    | Plays one more entry on a Snapshot, purely: the next Snapshot, whether it was handled, ignored or dropped, the Commands asked for and what was Emitted.                                                                                                    |
+| `Snapshot.replay`  | The Snapshot right after any entry of a History, the Head by default, from the Messages alone.                                                                                                                                                             |
+| `Snapshot.seek`    | The same as an Effect that yields to the page as it plays, so a long History never freezes it.                                                                                                                                                             |
+| `Snapshot.at`      | Finds the Instance at an Address in a Snapshot, with everything under it.                                                                                                                                                                                  |
+| `Snapshot.trail`   | One Instance's Trail up to any entry, the History's Head by default: when it started, each entry Sent to it or that changed it, and when it stopped.                                                                                                       |
+| `Snapshot.workers` | The Workers the data asks for at an Instance, from the Snapshot and the root's Actor alone: each by its name, and its key for one of `each`, as a running Runtime runs them there.                                                                         |
+| `Snapshot.isMany`  | Tells the list of an `each` Child from one Instance in an Instance's Children.                                                                                                                                                                             |
+| `Runtime.make`     | Makes the app's one Runtime of an Actor with the app's Layer, running from the moment it is made, on a new History unless given one, keeping 100 entries unless `window` says.                                                                             |
+| `Runtime.scoped`   | The same for Effect code: on its clock, and let go when its Scope closes.                                                                                                                                                                                  |
+| `runtime.running`  | Whether the Runtime runs: its Workers, Provides and Commands, and the Messages Sent to it.                                                                                                                                                                 |
+| `runtime.send`     | Hands a Message to any Instance, from outside unless said: a History entry after the Head, played at once, its Commands run; says what became of it. Throws `Stopped` while the Runtime is stopped.                                                        |
+| `runtime.stop`     | Stops every Worker, Provide and Command, and Time with it; a Send is refused until it starts again.                                                                                                                                                        |
+| `runtime.start`    | Runs again at the Head: the Workers and Provides its data asks for start. No past Command runs again.                                                                                                                                                      |
+| `runtime.fork`     | Moves the same Runtime's Head to any entry, or init, so the next Message grows a new Branch. Running, its work starts again from that entry's data, running no Command; stopped, only the Head moves.                                                      |
+| `runtime.seek`     | The app right after any entry, on any Branch, or init, as a Step: plain data, `{ entry, at, snapshot }`, which changes nothing.                                                                                                                            |
+| `runtime.instance` | The root Instance, typed and live, for code outside the tree: reads any Instance's data, Children and Workers, asks its Queries, Sends to it under a name and learns what became of the Message, and waits `until` its data passes a test.                 |
+| `runtime.changes`  | The Snapshot at the Head as an Effect Stream: now, then whenever the app settles; a slow reader gets only the latest.                                                                                                                                      |
+| `runtime.keep`     | Sets the Window, how many entries the History keeps; older ones Compact into a Restore. Works running or stopped.                                                                                                                                          |
+| `Stopped`          | What `runtime.send` throws while the Runtime is stopped, adding nothing; and what a Query asked from outside the tree, or an `until` waiting on an Instance, fails with once the Instance has stopped or the Runtime is stopped.                           |
 
 ### `@kestack/kabuki/core/actor`
 
-`Actor`, as `@kestack/kabuki` gives it, with the types an Actor is named and written by: `ActorType`, `AnyActor`, `ActorDefinition`, `Self`, `Single`, `Types` and the rest.
-
-| Export         | What it does                                   |
-| -------------- | ---------------------------------------------- |
-| `Actor.define` | As in `@kestack/kabuki`: what an Actor is.     |
-| `Actor.child`  | As in `@kestack/kabuki`: one Child of a level. |
-
-### `@kestack/kabuki/core/command`
+`Actor`, `Blueprint` and `Command`, as `@kestack/kabuki` gives them, with the types an Actor is named and written by: `ActorType`, `AnyActor`, `Self`, `Single`, `Types`, `BlueprintLevel`, `BlueprintState`, `BlueprintChild` and the rest.
 
 | Export         | What it does                                                                             |
 | -------------- | ---------------------------------------------------------------------------------------- |
+| `Actor.define` | As in `@kestack/kabuki`: what an Actor is.                                               |
+| `Actor.child`  | As in `@kestack/kabuki`: one Child of a level.                                           |
+| `Blueprint.at` | As in `@kestack/kabuki`: the Blueprint at a place.                                       |
 | `Command.make` | As in `@kestack/kabuki`: a Command from its name, the Schema of its args and its Effect. |
 
-### `@kestack/kabuki/core/history`
+### `@kestack/kabuki/core/data`
 
-`History`, with `SavedHistory`, `Entry` and `HistoryOptions`.
+What happened and what is, as plain data and pure functions, read and stepped outside any Runtime, as a devtool or a test does. `Address`, `History` and `Snapshot`, with `Entry`, `From`, `SavedHistory`, `Instance`, `Moment`, `Played`, `Emitted`, `WantedWorker`, `Parsed` and `Segment`.
 
-| Export             | What it does             |
-| ------------------ | ------------------------ |
-| `History.make`     | As in `@kestack/kabuki`. |
-| `History.load`     | As in `@kestack/kabuki`. |
-| `History.restored` | As in `@kestack/kabuki`. |
+| Export                                                                                                                                                                                  | What it does             |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `Address.parse`, `Address.parent`, `Address.place`, `Address.within`, `Address.check`                                                                                                   | As in `@kestack/kabuki`. |
+| `History.make`, `History.add`, `History.go`, `History.entry`, `History.line`, `History.children`, `History.tips`, `History.compact`, `History.restored`, `History.save`, `History.load` | As in `@kestack/kabuki`. |
+| `Snapshot.init`, `Snapshot.play`, `Snapshot.replay`, `Snapshot.seek`, `Snapshot.at`, `Snapshot.trail`, `Snapshot.workers`, `Snapshot.isMany`                                            | As in `@kestack/kabuki`. |
 
 ### `@kestack/kabuki/core/runtime`
 
-`Runtime`, with `Running`, `LiveInstance`, `Needs`, `Provided` and `WorkerStatus`.
+`Runtime` and `Stopped`, with `Step`, `LiveInstance`, `Needs`, `RuntimeOptions`, `RuntimeSettings`, `MessageOf`, `Sent` and `WorkerStatus`.
 
-| Export          | What it does                                                                                                                               |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `Runtime.start` | As in `@kestack/kabuki`.                                                                                                                   |
-| `Stopped`       | What a Query asked from outside the tree, or an `until` waiting on an Instance, fails with once the Instance, or the Runtime, has stopped. |
-
-### `@kestack/kabuki/core/snapshot`
-
-The whole app as one value, read and stepped from outside the Runtime, as a devtool or a test does. With `Snapshot`, `Instance`, `Envelope`, `Handled` and `Source`.
-
-| Export                | What it does                                                                   |
-| --------------------- | ------------------------------------------------------------------------------ |
-| `Snapshot.handle`     | Applies one Envelope to a Snapshot and gives the next one, purely.             |
-| `Snapshot.instanceAt` | Finds the Instance with an ID in a Snapshot.                                   |
-| `Snapshot.isMany`     | Tells the list of an `each` Child from one Instance in an Instance's Children. |
+| Export                           | What it does             |
+| -------------------------------- | ------------------------ |
+| `Runtime.make`, `Runtime.scoped` | As in `@kestack/kabuki`. |
+| `Stopped`                        | As in `@kestack/kabuki`. |
 
 ### `@kestack/kabuki/react`
 
-| Export         | What it does                                                                                                                                                                                                                                                                                               |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `View.make`    | Defines how one built Actor is drawn, one function for every State, as a React component that takes the Instance, and a `ref` and `style`, from its parent; the View carries its Actor as `.actor`.                                                                                                        |
-| `View.app`     | Turns the root's View, with the Layer that gives what the tree Requires, into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its History, shows any Step, and stops and starts it. Drawn before it runs, on a server too, from a saved History if given one. |
-| `View.lazy`    | A View of the Actor it is given first, whose code is loaded the first time it is drawn, or on `preload()`; a server waits for it before it sends, and tells the App's `onLazyView`.                                                                                                                        |
-| `View.preload` | Loads the lazy Views made with these ids, so a browser hydrating a page a server drew never waits on their code.                                                                                                                                                                                           |
-| `useChild`     | Reads one Child's Model, State and Props from its parent's View, to draw, or only what an optional selector picks; it can never Send.                                                                                                                                                                      |
-| `useChildren`  | Reads the Instances of an `each` Child the same way, in order; only the component that calls it re-renders, as they change or as what the selector picks does.                                                                                                                                             |
+| Export         | What it does                                                                                                                                                                                                                                                                                                                                                                       |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Kabuki`       | Draws a Runtime or a Step with the root's View, `<Kabuki of={runtime} view={AppView} />`: a Runtime at its Head, what its Views Send going to it while it runs; a Step, `runtime.seek(id)`, as it is, what its Views Send dropped.                                                                                                                                                 |
+| `View.make`    | Defines how one built Actor is drawn, one function for every State, as a React component that takes the Instance, and a `ref` and `style`, from its parent; the View carries its Actor as `.actor`.                                                                                                                                                                                |
+| `View.app`     | Turns the root's View, with the Layer that gives what the tree Requires, into one React component that makes and owns the app's one Runtime, made at the first mount; `useRuntime` gives that Runtime and the Step it Seeks, Seeks any Step, Forks, and stops and starts it, always on the same Runtime. Drawn before it runs, on a server too, from a saved History if given one. |
+| `View.lazy`    | A View of the Actor it is given first, whose code is loaded the first time it is drawn, or on `preload()`; a server waits for it before it sends, and tells the App's `onLazyView`.                                                                                                                                                                                                |
+| `View.preload` | Loads the lazy Views made with these ids, so a browser hydrating a page a server drew never waits on their code.                                                                                                                                                                                                                                                                   |
+| `useChild`     | Reads one Child's Model, State and Props from its parent's View, to draw, or only what an optional selector picks; it can never Send.                                                                                                                                                                                                                                              |
+| `useChildren`  | Reads the Instances of an `each` Child the same way, in order; only the component that calls it re-renders, as they change or as what the selector picks does.                                                                                                                                                                                                                     |
 
 ### `@kestack/kabuki/react/view`
 
-`View`, `useChild` and `useChildren`, as `@kestack/kabuki/react` gives them, and `useLive`, with `ViewProps`, `ViewOf`, `Handle`, `Root`, `ChildData`, `LazyView`, `AppRuntime`, `Attachment`, `AppSetup`, `AppOptions` and `AppProps`.
+`Kabuki`, `View`, `useChild` and `useChildren`, as `@kestack/kabuki/react` gives them, and `useLive`, with `KabukiProps`, `ViewProps`, `ViewOf`, `Handle`, `Root`, `ChildData`, `LazyView`, `AppRuntime`, `Attachment`, `Failure`, `AppSetup`, `AppOptions` and `AppProps`.
 
 | Export                                               | What it does                                                                                                                                   |
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Kabuki`                                             | As in `@kestack/kabuki/react`.                                                                                                                 |
 | `View.make`, `View.lazy`, `View.preload`, `View.app` | As in `@kestack/kabuki/react`.                                                                                                                 |
 | `useChild`, `useChildren`                            | As in `@kestack/kabuki/react`.                                                                                                                 |
-| `useLive`                                            | Says whether the app is drawn as it is now, not at a past Step, so an effect that touches the page around it can stay still under Time Travel. |     |
+| `useLive`                                            | Says whether the app is drawn as it is now, not at a past Step, so an effect that touches the page around it can stay still under Time Travel. |
 
 ### `@kestack/kabuki/routing`
 
-| Export            | What it does                                                                                                                                                                                                                                                                                                                                                                          |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Page.define`     | Says what a page is: an Actor definition with a place in the URL, its params, query, data, Render Mode, Metadata, the definitions of the pages under it, and its own Schemas and Queries.                                                                                                                                                                                             |
-| `page.build`      | Says how a page behaves, as an Actor's `build` takes it, with the build of each page under it in `pages`; a page is drawn with `View.make`.                                                                                                                                                                                                                                           |
-| `Page.notFound`   | What a Loader fails with when its place is not found.                                                                                                                                                                                                                                                                                                                                 |
-| `Page.redirect`   | What a Loader fails with to send the app to another of its Routes, or to a whole URL outside it; `{ permanent: true }` makes a server answer `308` rather than `302`.                                                                                                                                                                                                                 |
-| `Page.NotFound`   | The Schema of a Loader's not-found failure, to carry it over the wire.                                                                                                                                                                                                                                                                                                                |
-| `Page.Redirect`   | The Schema of a Loader's Redirect, to carry it over the wire.                                                                                                                                                                                                                                                                                                                         |
-| `Page.wholeQuery` | A query field holding the whole query as written, every pair of it, a repeated or undeclared one too: for a page whose query is someone else's to say, as a signed request. Written back whole, the page's other fields over it.                                                                                                                                                      |
-| `Router.define`   | Reads the app's router down from the root page's definition: a constructor per place, the URL both ways, each place's Metadata and Render Mode, every path, the typing of the Loaders, and how the Router behaves in the browser, such as how long a move waits for its data, `delay` (150 ms), and how long a loading screen stays at least once drawn, `minimum` (300 ms).          |
-| `Router.view`     | Puts the Router above the root page's View: it holds the history, every move and every page's data. It gives the Router's View, which `View.app` starts at its root, in memory, with `startAt` and `href`; an app on an Adapter starts it at the address with `input: () => view.startAt()`. With `scrollRestoration: true` on the router it restores scroll as TanStack Router does. |
-| `Router.Link`     | Draws a plain `<a href>` to a Route, preloading it on hover, once in view, or never, going to an element on the page with `hash`, and leaving every scroll as it is with `resetScroll={false}`; the Router catches a plain click and moves the app.                                                                                                                                   |
-| `Router.Retry`    | A button that loads every page on screen again, for a page whose Loader broke.                                                                                                                                                                                                                                                                                                        |
-| `Router.push`     | A Command that moves the app to a Route, as a new entry.                                                                                                                                                                                                                                                                                                                              |
-| `Router.replace`  | A Command that puts a Route in place of the current entry, so Back skips it.                                                                                                                                                                                                                                                                                                          |
-| `Router.back`     | A Command that goes Back.                                                                                                                                                                                                                                                                                                                                                             |
-| `Router.forward`  | A Command that goes Forward.                                                                                                                                                                                                                                                                                                                                                          |
-| `Router.backTo`   | A Command that goes Back when the app came from a Route, and replaces the entry with it otherwise: closing a dialog with a Route of its own.                                                                                                                                                                                                                                          |
-| `Router.reload`   | A Command that loads every page on screen again, as after a save; the pages and their Models stay. `Router.reload({ anew: true })`, when what the data belongs to changed, as the signed-in account: the data shown goes, held and then loading as on a move; with `hold: true`, held until the new data comes, the Command ending once it lands.                                     |
-| `Router.preload`  | A Command that warms the Data cache, and the code of the lazy Views, for a Route.                                                                                                                                                                                                                                                                                                     |
-| `Navigation`      | The Capability the Router Provides to every page, which an Actor under a page that moves the app lists in its Requires.                                                                                                                                                                                                                                                               |
-| `useRouter`       | Reads the Router from a component drawn inside the app: the current Route and URL, the history, the move it holds while it loads as `pending`, the title, Back, Forward, reload and preload; `useRouter<Route>()` types its Routes as the app's.                                                                                                                                      |
+| Export            | What it does                                                                                                                                                                                                                                                                                                                                                                      |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Page.define`     | Says what a page is: an Actor definition with a place in the URL, its params, query, data, Render Mode, Metadata, the definitions of the pages under it, and its own Schemas and Queries.                                                                                                                                                                                         |
+| `page.build`      | Says how a page behaves, as an Actor's `build` takes it, with the build of each page under it in `pages`; a page is drawn with `View.make`.                                                                                                                                                                                                                                       |
+| `Page.notFound`   | What a Loader fails with when its place is not found.                                                                                                                                                                                                                                                                                                                             |
+| `Page.redirect`   | What a Loader fails with to send the app to another of its Routes, or to a whole URL outside it; `{ permanent: true }` makes a server answer `308` rather than `302`.                                                                                                                                                                                                             |
+| `Page.NotFound`   | The Schema of a Loader's not-found failure, to carry it over the wire.                                                                                                                                                                                                                                                                                                            |
+| `Page.Redirect`   | The Schema of a Loader's Redirect, to carry it over the wire.                                                                                                                                                                                                                                                                                                                     |
+| `Page.wholeQuery` | A query field holding the whole query as written, every pair of it, a repeated or undeclared one too: for a page whose query is someone else's to say, as a signed request. Written back whole, the page's other fields over it.                                                                                                                                                  |
+| `Router.define`   | Reads the app's router down from the root page's definition: a constructor per place, the URL both ways, each place's Metadata and Render Mode, every path, the typing of the Loaders, and how the Router behaves in the browser, such as how long a move waits for its data, `delay` (150 ms), and how long a loading screen stays at least once drawn, `minimum` (300 ms).      |
+| `Router.view`     | Puts the Router above the root page's View: it holds the history, every move and every page's data. It gives the Router's View, which `View.app` starts at its root, in memory, with `startAt` and `href`; an app on an Adapter starts it at the URL with `input: () => view.startAt()`. With `scrollRestoration: true` on the router it restores scroll as TanStack Router does. |
+| `Router.Link`     | Draws a plain `<a href>` to a Route, preloading it on hover, once in view, or never, going to an element on the page with `hash`, and leaving every scroll as it is with `resetScroll={false}`; the Router catches a plain click and moves the app.                                                                                                                               |
+| `Router.Retry`    | A button that loads every page on screen again, for a page whose Loader broke.                                                                                                                                                                                                                                                                                                    |
+| `Router.push`     | A Command that moves the app to a Route, as a new entry.                                                                                                                                                                                                                                                                                                                          |
+| `Router.replace`  | A Command that puts a Route in place of the current entry, so Back skips it.                                                                                                                                                                                                                                                                                                      |
+| `Router.back`     | A Command that goes Back.                                                                                                                                                                                                                                                                                                                                                         |
+| `Router.forward`  | A Command that goes Forward.                                                                                                                                                                                                                                                                                                                                                      |
+| `Router.backTo`   | A Command that goes Back when the app came from a Route, and replaces the entry with it otherwise: closing a dialog with a Route of its own.                                                                                                                                                                                                                                      |
+| `Router.reload`   | A Command that loads every page on screen again, as after a save; the pages and their Models stay. `Router.reload({ anew: true })`, when what the data belongs to changed, as the signed-in account: the data shown goes, held and then loading as on a move; with `hold: true`, held until the new data comes, the Command ending once it lands.                                 |
+| `Router.preload`  | A Command that warms the Data cache, and the code of the lazy Views, for a Route.                                                                                                                                                                                                                                                                                                 |
+| `Navigation`      | The Capability the Router Provides to every page, which an Actor under a page that moves the app lists in its Requires.                                                                                                                                                                                                                                                           |
+| `useRouter`       | Reads the Router from a component drawn inside the app: the current Route and URL, the history, the move it holds while it loads as `pending`, the title, Back, Forward, reload and preload; `useRouter<Route>()` types its Routes as the app's.                                                                                                                                  |
 
 ### `@kestack/kabuki/routing/page`
 
@@ -224,23 +249,23 @@ The whole app as one value, read and stepped from outside the Runtime, as a devt
 
 ### `@kestack/kabuki/routing/adapter`
 
-| Export    | What it does                                                                                               |
-| --------- | ---------------------------------------------------------------------------------------------------------- |
-| `Adapter` | The service where an app's address lives, which each adapter below gives: write one for any other history. |
-| `KEY`     | The key the Router keeps in a history entry's state, so Back and Forward land on an entry it knows.        |
-| `keyIn`   | Reads that key from a history entry's state, if the Router wrote one.                                      |
+| Export    | What it does                                                                                           |
+| --------- | ------------------------------------------------------------------------------------------------------ |
+| `Adapter` | The service where an app's URL lives, which each adapter below gives: write one for any other history. |
+| `KEY`     | The key the Router keeps in a history entry's state, so Back and Forward land on an entry it knows.    |
+| `keyIn`   | Reads that key from a history entry's state, if the Router wrote one.                                  |
 
 ### `@kestack/kabuki/routing/browser`
 
-| Export    | What it does                                                                                                                        |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `browser` | A Layer that puts the app's address in the browser's own history, for an app that owns the whole site or everything under its base. |
+| Export    | What it does                                                                                                                    |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `browser` | A Layer that puts the app's URL in the browser's own history, for an app that owns the whole site or everything under its base. |
 
 ### `@kestack/kabuki/routing/tanstack`
 
-| Export     | What it does                                                                                                                                                     |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tanstack` | A Layer that puts the app's address in TanStack Router's history, for an app on a TanStack Start catch-all route; TanStack gets back every URL outside the base. |
+| Export     | What it does                                                                                                                                                 |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `tanstack` | A Layer that puts the app's URL in TanStack Router's history, for an app on a TanStack Start catch-all route; TanStack gets back every URL outside the base. |
 
 ### `@kestack/kabuki/start`
 
@@ -251,7 +276,7 @@ The whole app as one value, read and stepped from outside the Runtime, as a devt
 | `Start.Head`       | Draws, in the Document's `<head>`, the charset and viewport (its own with `viewport`), the Metadata, and the styles and chunks the page needs.                                                          |
 | `Start.Scripts`    | Draws, at the end of the Document's `<body>`, the saved History as JSON and the script that hydrates the page.                                                                                          |
 | `Start.useDrawn`   | Reads when and by which build the server drew the page, and whether the component asking was in that drawing or drawn later by the browser.                                                             |
-| `Start.useRuntime` | Reads the running app from the Document, for devtools drawn around it; `null` on the server.                                                                                                            |
+| `Start.useRuntime` | Reads the app's `AppRuntime` from the Document, as `useRuntime` gives it, for devtools drawn around it; `null` on the server.                                                                           |
 | `Start.pages`      | Where the server answers the Pages as JSON (`Pages`, from `@kestack/kabuki/start/app`): the build, where the App Shell is, and every page with its path, whether it has params, and its Render Mode.    |
 
 ### `@kestack/kabuki/start/app`
@@ -370,11 +395,14 @@ export const AuthLive = Auth.build({
     },
     Authenticated: {
       children: { todos: Actor.child(TodosLive) },
-      provides: (self) =>
-        Layer.succeed(Session, {
-          user: self.get.pipe(Effect.map(({ state }) => state.user)),
-          logOut: self.send({ _tag: 'LoggedOut' }),
-        }),
+      provides: {
+        capabilities: [Session],
+        layer: (self) =>
+          Layer.succeed(Session, {
+            user: self.get.pipe(Effect.map(({ state }) => state.user)),
+            logOut: self.send({ _tag: 'LoggedOut' }),
+          }),
+      },
       on: { LoggedOut: () => ({ state: { _tag: 'Anonymous' } }) },
     },
   },
@@ -387,7 +415,7 @@ export const AuthLive = Auth.build({
 - A level's `children` names each Child, made with `Actor.child`: `Actor.child(LoginLive, { … })`, the Actor, then when it exists, what it is handed and what the parent hears. `Actor.child` is typed by the level it is written in, its State narrowed in a State's block, so every function in it is checked against the parent's data and the Child's Actor. A Child that needs no Input and no Props is `Actor.child(TodosLive)`.
 - What a Child tells its parent it Emits: its Update returns `emit`, checked against its `emits` Schema, and the slot's `emits` turns each into one of the parent's Messages, Sent to the parent right after. That Message is in the History as its own entry, Sent by the Child. An event the slot does not turn is not heard, so a Child fits any parent. Use Emits between a parent and its Child, and a Capability for what any Actor further down may need.
 - A Worker is a named, scoped Effect given `self`: `send` to its own Instance, `get` and `changes` for its current data, and `now` for the app's Time. Written in the `Checking` block, `check` runs while that State lasts.
-- Provides is one Layer per Level, built each time its Level starts. A Capability that reads the Model reads it through `self`, so it never goes stale. It cancels out what the Children below it need; a need nothing cancels bubbles up to the app's Layer.
+- Provides names the Capabilities a Level gives, `capabilities: [Session]`, beside the one Layer that builds exactly those: one named and not built, or built and not named, does not compile. Only the ones named reach the Children, so the Blueprint knows them with nothing running. The Layer is built each time its Level starts. A Capability that reads the Model reads it through `self`, so it never goes stale. It cancels out what the Children below it need; a need nothing cancels bubbles up to the app's Layer.
 - Requires caps the Actor's own code: a Worker, Command or Provide that reaches for anything else does not compile. Update and init never see Capabilities.
 - A Query is a question code outside the tree asks an Instance. `define` declares it, with what it is asked with and what it answers, `queries: { peers: { args: { room: Schema.String }, result: Schema.Array(Schema.String) } }`, and `build` answers it, `queries: { peers: (self, { room }) => Effect }`: it reads `self` and the Actor's Requires, and never Sends. Its args and answer are checked against their Schemas, and a Query answered but not declared does not compile. Written in a State's block it is askable only in that State, and the live Instance has it on its type only once `_tag` has narrowed to it. Asked of an Instance that has stopped or left the State, it fails with `Stopped`, from `@kestack/kabuki/core/runtime`.
 - Outside code tells an Instance with `send`, which says what became of the Message: `handled`, `ignored` with no rule for it in that State, `queued` behind one being handled, or `refused`. It waits on one with `until`, `yield* session.until((s) => s._tag === 'Running')`, which answers with the Instance narrowed as the test narrows it, from data the History keeps, or fails with `Stopped`. A job that needs outside work and then a change asks a Query, then Sends.
@@ -462,11 +490,11 @@ const ListLive = List.build({
 
 - A Child is made as a Worker is written: `Actor.child` takes its Actor, then always, `while` a test is true, or `each` key a function names, one Instance per key. Its `input`, `props` and `emits` are worked out from the parent's data and the Child's key, `''` unless it is one of `each`, so the List knows which Row Emitted `Remove`. After every Update, a new key Invokes a Row, a key gone stops it, and a key kept keeps its Instance. From then on the Row owns its data. A Child written with `while` stops when its test turns false and comes back as a fresh Instance.
 - Props are what the parent says now, worked out again after each of its Updates: the Row declares them with `props` beside `input`, and its Update, its Workers' Conditions and its View read them. It never writes them, and a change runs none of its rules. Props equal to the last ones keep the Instance; new ones are not in the History, since Replay works them out again from the parent.
-- Instance IDs are deterministic: `List/rows[0]#1` is the first `rows` keyed `0`. A key Invoked again gets `#2`, so a Message meant for the old Instance is dropped.
+- Addresses are deterministic: `List/rows[0]#1` is the first `rows` keyed `0`, and a Child written in a State says so, as `Auth/Anonymous:login#1`. A key Invoked again gets `#2`, so a Message meant for the old Instance is dropped. An Address taken from a Snapshot knows its Actor, so only that Actor's Messages can be Sent to it.
 - A Command is an errand, made once with `Command.make`: a name, the Schema of its args and the Effect it runs from them, ending with at most one Message. The Update asks for it with its args, `save({ id })`, which is plain data a test can compare; the args are checked when it runs. Nothing stops it but its Instance stopping, and there is no cancel. An Update may return a list of Commands; they run concurrently.
 - A Worker runs for exactly as long as its Condition holds, read from the Model, State and Props whenever they change: where it is written, at the top or in a State, and within that always, `while` a test is true, or `each` key a function names, one Worker per key. Removing an id from `uploading` interrupts that upload and runs its finalizers; a finished upload Sends `Uploaded`, whose Update takes its key away. Stopping work is changing the Model.
-- The Worker does the work and the Model keeps the story: every step the user could notice is a Message. A Worker must be able to start from the Model alone, because a resume or a start from an earlier History entry starts every Worker whose condition holds. A Worker that waits until a Time in the Model sleeps for `that - now`, so it waits only what is left. A finalizer never Sends.
-- Time (`at`, `self.now`) is the app's stopwatch: it stands still while the app is stopped, so use it for how long things take inside the app, such as an animation or a countdown that pauses with it. For a moment in the real world, a session that expires or a reminder at nine, send a real date in the Message and have the Worker wait on the real clock, so it holds across a reload or a server starting over.
+- The Worker does the work and the Model keeps the story: every step the user could notice is a Message. A Worker must be able to start from the Model alone, because a Runtime made on a saved History, a Fork to an earlier Step, or a start after a stop starts every Worker whose Condition holds, and no Command runs again. A Worker that waits until a Time in the Model sleeps for `that - now`, so it waits only what is left. A finalizer never Sends.
+- Time (`at`, `self.now`) is the app's stopwatch: 0 at init, carried on from the Head's Time when a Runtime is made or Forked, counting while it runs, and standing still while it is stopped. Use it for how long things take inside the app, such as an animation or a countdown. For a moment in the real world, a session that expires or a reminder at nine, send a real date in the Message and have the Worker wait on the real clock, so it holds across a reload, a Fork or a server starting over.
 
 ### Drawing it with React
 
@@ -494,25 +522,77 @@ const RowView = View.make(RowLive, ({ model, props, root }) => (
 ));
 const MotionRow = motion.create(RowView);
 
+const ListView = View.make(ListLive, ({ children }) => (
+  <ul>
+    {children.rows.map((row) => (
+      <RowView key={row.address} instance={row} />
+    ))}
+  </ul>
+));
+
 const DemoApp = View.app(AuthView, { layer: ServerLive });
 ```
 
-- One function draws every State. It gets `_tag`, `model`, `state`, `props`, `children` (Handles: one for a Child that is always there, one or `undefined` for a `while` Child, a list for an `each` Child, each with its `key`), `send` and `root`; a `switch` on `_tag` narrows `state` and `children`. The DOM stays across a Transition. It never sees Capabilities, so it draws a Replay exactly like the live app.
-- A Child is placed with `<RowView instance={handle} />`. A parent View hands it only where to draw; data from the parent is the Row's Props, which the parent Actor hands it, so its Update and Workers see the same.
+- One function draws every State. It gets `_tag`, `address`, `model`, `state`, `props`, `children` (Handles: one for a Child that is always there, one or `undefined` for a `while` Child, a list for an `each` Child, each with its `address` and its `key`), `send` and `root`; a `switch` on `_tag` narrows `state` and `children`. The DOM stays across a Transition. It never sees Capabilities, so it draws a Replay exactly like the live app.
+- A Child is placed with `<RowView instance={handle} />`, keyed in a list by its `address`. A parent View hands it only where to draw; data from the parent is the Row's Props, which the parent Actor hands it, so its Update and Workers see the same.
 - Spreading `root` on the View's own element hands it the parent's `ref` and `style`, so `motion.create(RowView)` animates it, with no wrapper element, and it stays memoized. A View whose Instance has stopped keeps drawing its last data, so `AnimatePresence` can play its exit.
 - A View re-renders only when its own Instance's Model, State, Props or set of Children changes, or its `ref` or `style` does. Many Messages handled in a row make one render.
-- `DemoApp.useRuntime()` returns `{ history, branch, head, running, shown, show, start, stop, clear, workers, provided, failure, subscribe }` from anywhere on the page. Each `branch` entry is only its Envelope: `destination`, `message`, `at`, and `source`, the Instance that Sent it and what in it did; `history.outcome(id)` works out whether it was handled, ignored or dropped, and `history.snapshotAt(id)` takes the app apart there. `show(id)` draws the app right after that entry, on any Branch, while the live app runs on; `stop()` closes every Worker, Command and Capability; `start(id)` moves the Head to that entry and goes live there, growing a new Branch, and `start()` carries on from the Head, at its Time. `workers(id)` says what an Instance's Workers are doing live: running, finished, or failed; `provided(id)` names the Capabilities it provides now, at its top and in its State. A start, stop or clear that fails, like the Runtime's first start or `start(id)` with no such entry, is logged with `console.error` and kept as `failure`, an Effect `Cause`, until one succeeds.
-- Work that must survive a stop belongs in a Worker: Commands running at a stop are lost. The outside world is not rewound.
+- `View.app` makes and owns the app's one Runtime. `DemoApp.useRuntime()` returns its `AppRuntime` from anywhere on the page: `{ name, runtime, seeking, seek, toHead, fork, start, stop, workers, instance, failure, subscribe }`. `runtime` is the Runtime, `null` until the first mount and on a server, and the same object through every Seek, Fork, stop and start. Its `history` is plain data: `History.line(runtime.history)` gives the entries on the Head's Branch, each with `to`, `message`, `at` and `from`, the Instance that Sent it and what in it did, and `History.tips` the last entry of every Branch. `seek(id)` draws the app right after that entry, on any Branch, `null` for init as with `runtime.seek`, while the Runtime stays where it is, and `toHead()` draws the Head again; `seeking` is the Step drawn. `fork(id)` moves the Runtime's Head there, `null` for init, so the next Message grows a new Branch. `stop()` stops every Worker, Command and Provide, and a click does nothing until `start()` runs it again at the Head. `workers(address)` says what an Instance's Workers are doing: running, finished, or failed; what it Provides is in its Blueprint. A Seek, start, stop or Fork that fails is logged with `console.error` and kept as `failure`, `{ what, error }`, until one succeeds.
+- Work that must survive a stop or a Fork belongs in a Worker: Commands running at a stop are lost, and none runs again. The outside world is not rewound.
 - What changes over time arrives as Messages: a Worker Sends a `Tick` or its progress, and the View draws the Model. motion can smooth what it draws from one Message to the next.
 - `View.app` does not compile until its `layer` covers every Capability the tree still needs; a tree that Requires nothing needs no `layer`.
-- Give `attach: [(runtime) => stop]` to run something beside the app, such as a devtool: each Attachment is called with the running app at the first mount in a browser, never on a server, and its `stop` at the last unmount or a hot reload. It holds the same object `useRuntime` returns, always read as it is now, and `runtime.subscribe` tells it of each change. One that throws is logged with `console.error`, and the app and the other Attachments run on. `Start.app({ …, attach })` hands them on in the same way. `Start.app({ …, loading })` is what the App Shell paints until the app is drawn.
+- Give `attach: [(app) => stop]` to run something beside the app, such as a devtool: each Attachment is called with the app's `AppRuntime` once its Runtime is made at the first mount in a browser, never on a server, and its `stop` at the last unmount or a hot reload. It holds the same object `useRuntime` returns, always read as it is now, and `app.subscribe` tells it of each change. One that throws is logged with `console.error`, and the app and the other Attachments run on. `Start.app({ …, attach })` hands them on in the same way. `Start.app({ …, loading })` is what the App Shell paints until the app is drawn.
 
-### Drawing it before it runs
+### Running it, looking back, and drawing it before it runs
+
+A Runtime runs outside React too, as a test or a server does. It Seeks any
+Step while it stays where it is, Forks in place to carry on from one, and
+the History saves as plain JSON.
 
 ```tsx
-const DemoApp = View.app(AuthView, { layer: ServerLive, saved });
+const runtime = Runtime.make(ListLive);
+const list = runtime.snapshot.root.address;
+runtime.send(list, { _tag: 'Added' }); // entry 0
+runtime.send(list, { _tag: 'Added' }); // entry 1
+
+// The app right after entry 0, as plain data; the Runtime stays where it is.
+const past = runtime.seek(0); // { entry: 0, at, snapshot }
+const second = Address.check(ListLive, 'List/rows[1]#1')!;
+Snapshot.at(past.snapshot, second); // undefined: not started yet
+Snapshot.trail(ListLive, runtime.history, second); // started at entry 1
+
+// Drawn at its Head, or at a Step, where a click does nothing.
+<Kabuki of={runtime} view={ListView} />;
+<Kabuki of={past} view={ListView} />;
+
+// A Fork moves the same Runtime back there; its next Message grows a new Branch.
+await runtime.fork(0);
+runtime.send(list, { _tag: 'Removed', id: '0' }); // entry 2
+History.children(runtime.history, 0).map((entry) => entry.id); // [1, 2]
+History.tips(runtime.history).map((entry) => entry.id); // [1, 2]
+
+// Stopped, nothing runs and a Send throws Stopped.
+await runtime.stop();
+await runtime.start();
+
+// Saved as plain JSON, and carried on from later.
+const saved = History.save(ListLive, runtime.history);
+const later = Runtime.make(ListLive, {
+  history: History.load(ListLive, saved, { onMismatch: 'fail' }),
+  window: 0,
+});
+
+// Drawn before it runs, on a server too.
+const SavedApp = View.app(ListView, { saved });
 ```
 
-- The app is drawn before any Runtime exists: with no History, right after init; with a saved one, at its Head, replayed through Suspense. A server or a static build gets the same HTML the client hydrates, and `useRuntime` reads the saved History from the start, so a Timeline is drawn there too. Until the Runtime starts, a Send is dropped.
-- `saved` is what `history.save()` gives: its entries and its Head, each Message, and each Instance of a Restore's Snapshot, written through its Actor's Schemas and read back through them on load. So the encoded side of every Schema must be JSON-safe, and then it is plain JSON: a `Date` as `Schema.DateFromString`, an `Option` as `Schema.OptionFromNullOr`. A saved History never changes, and one whose Head is not one of its entries fails to load. The Runtime carries on live at the Head, with Time going on from the Head's. `History.restored(AuthLive, snapshot, at).save()` makes the lightest one, a History of one Restore right after init, for an app that saves only its Snapshot; init stays the first Step. Where the History is kept is the app's business: `history.changes` streams it as it changes, so a server saves it with `Stream.debounce` and `Stream.runForEach` and a finalizer for the last write, and starts again from `History.load(actor, saved, { window: 0, onMismatch: 'fail' })`. `onMismatch: 'fail'` throws at load when what was saved no longer fits the code, where the default warns, skips it, and may start from init. Give `window` to keep only that many entries on the Head's Branch: the oldest kept becomes a Restore of the Snapshot right after it, and Time Travel reaches nothing before it. `history.keep(n)` changes it at any time, `history.keep(null)` stops Compacting. A Runtime started from an Actor keeps none, only the app as it is now, and an app made with `View.app` keeps the last 100. An app made with `View.app` remembers a Window changed that way in `localStorage` under its name, and starts from it after a reload, over the `window` it was given.
+- `Runtime.make(actor, { input, history, layer, window })` makes the app's one Runtime, running from the moment it is made, on a new History unless given one, with the app's Layer, which must cover what the tree still needs. While it runs, every Message Sent becomes a History entry after the Head, is played at once and runs its Commands, and `send` says what became of it. `stop()` stops every Worker, Provide and Command, and Time with it; `running` is then `false`, `send` throws `Stopped` and adds nothing, and Queries fail with `Stopped`. `start()` runs again at the Head: Workers and Provides start from its data, and no past Command runs again, as for a Runtime made on a saved History. `start()`, `stop()`, `fork()` and `dispose()` are Promises; Effect code makes one with `Runtime.scoped`, let go when its Scope closes.
+- An Address taken from a Snapshot carries its Actor, so `send` takes only that Actor's Messages. `Address.check(actor, text)` turns text written by hand into one, if the root's Blueprint has a Child at every segment; it says nothing of whether an Instance is there now.
+- `runtime.seek(id)` is the app right after an entry, on any Branch, `null` for init: a Step, the plain data `{ entry, at, snapshot }`, which changes nothing. Read any Instance in it with `Snapshot.at(step.snapshot, address)` and its Trail up to it with `Snapshot.trail(actor, history, address, step.entry)`. A devtool with a saved History and no Runtime reads the same with `Snapshot.replay(actor, history, id)`.
+- `runtime.fork(id)` moves the same Runtime's Head to an entry, `null` for init, and its Time to that entry's; the next Message grows a new Branch, and the old ones stay. Running, its work stops and every Worker and Provide that entry's data asks for starts again from the Model alone; stopped, only the Head moves. No Command runs at a Fork. An Instance reached with `runtime.instance` before it reads as it was; reach the app again.
+- `<Kabuki of={…} view={…} />` draws a Runtime at its Head, what its Views Send going to it while it runs, or a Step, what its Views Send dropped. `View.app` is the same with the Runtime made and owned for you.
+- `History.save(actor, history)` gives its entries and its Head, each Message, and each Instance of a Restore's Snapshot, written through its Actor's Schemas and read back through them by `History.load`. So the encoded side of every Schema must be JSON-safe, and then it is plain JSON: a `Date` as `Schema.DateFromString`, an `Option` as `Schema.OptionFromNullOr`. A saved History never changes, and one whose Head is not one of its entries fails to load. `onMismatch: 'fail'` throws at load when what was saved no longer fits the code, where the default warns, skips it, and may start from init. `History.restored(snapshot, { input, at })` makes the lightest one, a History of one Restore right after init, for an app that saves only its Snapshot; init stays the first Step.
+- Where the History is kept is the app's business. A server saves it as it changes, `runtime.changes.pipe(Stream.map(() => History.save(runtime.actor, runtime.history)), Stream.debounce('100 millis'), Stream.runForEach(write))`, with a finalizer for the last write, and starts again from `History.load`.
+- `window` keeps only that many entries on the Head's Branch, 100 unless said: the oldest kept becomes a Restore of the Snapshot right after it, and Time Travel reaches nothing before it. `0` keeps only the app as it is now, as a server wants, and `null` keeps every entry. `runtime.keep(n)` changes it at any time, running or stopped. An app made with `View.app` remembers a Window changed that way in `localStorage` under its name, and starts from it after a reload, over the `window` it was given.
+- `View.app` draws the app before any Runtime exists: with no History, right after init; with a `saved` one, at its Head, replayed through Suspense. A server or a static build gets the same HTML the client hydrates. The first mount makes the Runtime, running at the Head; until then a Send is dropped.
 - When the last mount closes, the History is left under the app's name, the root Actor's by default, and the next mount of an app with that name carries on from it: the same component mounted again, or a new one after a hot reload, whose code replays the old Messages. A Message the new code handles differently warns and goes on. Give `name` when two apps share a root Actor and must not share a History; two apps of one name mounted at once is a console error.

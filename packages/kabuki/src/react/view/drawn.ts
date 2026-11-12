@@ -1,12 +1,12 @@
-import { Snapshot } from '../../core/snapshot/index.ts';
-import type { Instance } from '../../core/snapshot/index.ts';
+import { Address, Snapshot } from '../../core/data/index.ts';
+import type { Instance } from '../../core/data/index.ts';
 import type { AnyActor, Tagged } from '../../core/actor/index.ts';
 import type { Drawable, DrawnApp, Handle } from './draw/index.ts';
 
 /*
  * What Views read: what any Instance is drawn from, out of the Snapshot drawn
  * now. It stays the same object while the Instance's Model, State, Props and
- * Children's IDs stay the same, so a View re-renders only when its own
+ * Children's Addresses stay the same, so a View re-renders only when its own
  * Instance changes.
  * A View of the past, of a stopped app, or of an app whose Runtime has not
  * started cannot Send. What it keeps for an Instance is let go once the
@@ -15,7 +15,7 @@ import type { Drawable, DrawnApp, Handle } from './draw/index.ts';
 export const makeDrawn = (
   drawn: () => Snapshot | undefined,
   served: () => Snapshot | undefined,
-  deliver: (id: string, message: Tagged) => void,
+  deliver: (address: Address, message: Tagged) => void,
   subscribe: DrawnApp['subscribe'],
   live: () => boolean = () => true,
 ): DrawnApp => {
@@ -23,19 +23,24 @@ export const makeDrawn = (
   const sends = new Map<string, (message: Tagged) => void>();
   const cache = new Map<string, { instance: Instance; props: Drawable }>();
 
-  const handleOf = ({ id, key }: Instance) => {
-    let handle = handles.get(id);
-    if (!handle)
-      handles.set(id, (handle = key === undefined ? { id } : { id, key }));
+  const handleOf = ({ address }: Instance) => {
+    let handle = handles.get(address);
+    if (!handle) {
+      const key = Address.parse(address).path.at(-1)?.key;
+      handles.set(
+        address,
+        (handle = key === undefined ? { address } : { address, key }),
+      );
+    }
     return handle;
   };
-  const sendTo = (id: string) => {
-    let send = sends.get(id);
+  const sendTo = (address: Address) => {
+    let send = sends.get(address);
     if (!send)
       sends.set(
-        id,
+        address,
         (send = (message) => {
-          deliver(id, message);
+          deliver(address, message);
         }),
       );
     return send;
@@ -44,12 +49,12 @@ export const makeDrawn = (
   const propsIn = (
     cache: Map<string, { instance: Instance; props: Drawable }>,
     snapshot: Snapshot | undefined,
-    id: string,
+    address: Address,
   ) => {
-    const instance = snapshot && Snapshot.instanceAt(snapshot, id);
-    const hit = cache.get(id);
+    const instance = snapshot && Snapshot.at(snapshot, address);
+    const hit = cache.get(address);
     if (!instance) {
-      cache.delete(id);
+      cache.delete(address);
       return undefined;
     }
     if (hit && (hit.instance === instance || same(hit.instance, instance))) {
@@ -58,14 +63,14 @@ export const makeDrawn = (
     }
     const next = {
       _tag: instance.state._tag,
-      id,
+      address,
       model: instance.model,
       state: instance.state,
       props: instance.props,
-      // The same object while the Children's IDs stay the same, so a memoized
-      // component or a `useMemo` given them sees no change.
+      // The same object while the Children's Addresses stay the same, so a
+      // memoized component or a `useMemo` given them sees no change.
       children:
-        hit && sameIds(hit.instance, instance)
+        hit && sameAddresses(hit.instance, instance)
           ? hit.props.children
           : Object.fromEntries(
               Object.entries(instance.children).map(([slot, held]) => [
@@ -73,9 +78,9 @@ export const makeDrawn = (
                 Snapshot.isMany(held) ? held.map(handleOf) : handleOf(held),
               ]),
             ),
-      send: sendTo(id),
+      send: sendTo(address),
     } as Drawable;
-    cache.set(id, { instance, props: next });
+    cache.set(address, { instance, props: next });
     return next;
   };
 
@@ -88,44 +93,48 @@ export const makeDrawn = (
     if (now === pruned) return;
     pruned = now;
     const live = new Set<string>();
-    idsIn(now, live);
-    idsIn(served(), live);
+    addressesIn(now?.root, live);
+    addressesIn(served()?.root, live);
     for (const kept of [handles, sends, cache, onServer])
-      for (const id of kept.keys()) if (!live.has(id)) kept.delete(id);
+      for (const address of kept.keys())
+        if (!live.has(address)) kept.delete(address);
   };
 
   return {
     subscribe,
     live,
-    instance: (id) => {
+    instance: (address) => {
       prune();
-      return propsIn(cache, drawn(), id);
+      return propsIn(cache, drawn(), address);
     },
-    served: (id) => {
+    served: (address) => {
       prune();
       const snapshot = served();
       return snapshot === drawn()
-        ? propsIn(cache, snapshot, id)
-        : propsIn(onServer, snapshot, id);
+        ? propsIn(cache, snapshot, address)
+        : propsIn(onServer, snapshot, address);
     },
   };
 };
 
-const idsIn = (instance: Instance | undefined, ids: Set<string>) => {
+const addressesIn = (
+  instance: Instance | undefined,
+  addresses: Set<string>,
+) => {
   if (!instance) return;
-  ids.add(instance.id);
+  addresses.add(instance.address);
   for (const held of Object.values(instance.children))
     for (const child of Snapshot.isMany(held) ? held : [held])
-      idsIn(child, ids);
+      addressesIn(child, addresses);
 };
 
 const same = (a: Instance, b: Instance) =>
   a.model === b.model &&
   a.state === b.state &&
   a.props === b.props &&
-  sameIds(a, b);
+  sameAddresses(a, b);
 
-const sameIds = (a: Instance, b: Instance) => {
+const sameAddresses = (a: Instance, b: Instance) => {
   if (a.children === b.children) return true;
   const slots = Object.keys(b.children);
   if (slots.length !== Object.keys(a.children).length) return false;
@@ -134,10 +143,14 @@ const sameIds = (a: Instance, b: Instance) => {
     const is = b.children[slot]!;
     if (!was) return false;
     if (!Snapshot.isMany(is) || !Snapshot.isMany(was))
-      return !Snapshot.isMany(is) && !Snapshot.isMany(was) && is.id === was.id;
+      return (
+        !Snapshot.isMany(is) &&
+        !Snapshot.isMany(was) &&
+        is.address === was.address
+      );
     return (
       is.length === was.length &&
-      is.every((kid, index) => kid.id === was[index]!.id)
+      is.every((kid, index) => kid.address === was[index]!.address)
     );
   });
 };

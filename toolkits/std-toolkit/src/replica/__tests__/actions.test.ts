@@ -12,6 +12,7 @@ import {
   read,
   run,
   start,
+  pageOf,
 } from './fixtures.js';
 
 const transfer = {
@@ -60,7 +61,7 @@ describe('Action', () => {
       Effect.gen(function* () {
         const { world, app, seen, entries } = yield* ready();
         const respond = yield* world.holdAnswer();
-        app.send('Root/page#1', transfer);
+        app.send(pageOf(app), transfer);
 
         yield* eventually(() => {
           expect(balances(seen.mine())).toEqual({ w1: 90 });
@@ -101,7 +102,7 @@ describe('Action', () => {
             shown.push(balance);
         });
         const respond = yield* world.holdAnswer();
-        app.send('Root/page#1', transfer);
+        app.send(pageOf(app), transfer);
         yield* eventually(() =>
           expect(balances(seen.mine())).toEqual({ w1: 90 }),
         );
@@ -148,7 +149,7 @@ describe('Action', () => {
       Effect.gen(function* () {
         const { world, app, seen, store } = yield* ready();
         const respond = yield* world.holdAnswer();
-        app.send('Root/page#1', transfer);
+        app.send(pageOf(app), transfer);
         yield* eventually(() =>
           expect(balances(seen.theirs())).toEqual({ w2: 60 }),
         );

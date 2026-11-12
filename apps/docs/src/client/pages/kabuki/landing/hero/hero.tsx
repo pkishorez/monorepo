@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { MotionConfig, motion } from 'motion/react';
 import { View } from '@kestack/kabuki/react';
-import { Snapshot } from '@kestack/kabuki/core/snapshot';
-import type { Instance } from '@kestack/kabuki/core/snapshot';
+import { History, Snapshot } from '@kestack/kabuki';
+import type { Instance } from '@kestack/kabuki';
 import { CheckIcon, PlusIcon } from 'lucide-react';
 import { FILTERS, ROWS, TodoLive, TodosLive } from './todos.ts';
 
@@ -174,6 +174,9 @@ const TodosView = View.make(
 
 const App = View.app(TodosView, { name: 'kabuki:todos' });
 
+/** The app right after init, drawn before its Runtime is made. */
+const INIT = Snapshot.init(TodosLive);
+
 // 2. Its Actors, read from the Snapshot
 
 /** Whether the list's filter shows a to-do, as the left column decides. */
@@ -215,7 +218,7 @@ function Actors({
       <ul style={ruled}>
         {todos.map((todo) => (
           <Fold
-            key={todo.id}
+            key={todo.address}
             shown={showing(root, todo)}
             filter={root.state._tag}
           >
@@ -240,17 +243,18 @@ function Timeline({
   count,
   at,
   label,
-  live,
+  atHead,
   onStep,
-  onLive,
+  onHead,
 }: {
   readonly count: number;
   readonly at: number;
   /** The Message at this step. */
   readonly label: string;
-  readonly live: boolean;
+  /** Whether the Head is drawn, the last step, rather than a past Step. */
+  readonly atHead: boolean;
   readonly onStep: (step: number) => void;
-  readonly onLive: () => void;
+  readonly onHead: () => void;
 }) {
   // Where a step sits on the track: init at the start, the Head at the end.
   const place = (step: number) => `${count === 0 ? 0 : (step / count) * 100}%`;
@@ -258,14 +262,14 @@ function Timeline({
     <div className="flex h-14 items-center gap-4 border-t border-border px-5">
       <button
         type="button"
-        onClick={onLive}
-        disabled={live}
+        onClick={onHead}
+        disabled={atHead}
         className="flex h-7 w-16 shrink-0 items-center justify-center gap-1.5 rounded-full border border-border text-xs font-medium transition-colors duration-150 enabled:hover:bg-muted disabled:border-transparent"
       >
         <span
-          className={`size-1.5 rounded-full transition-colors duration-150 ${live ? 'bg-foreground' : 'bg-muted-foreground/40'}`}
+          className={`size-1.5 rounded-full transition-colors duration-150 ${atHead ? 'bg-foreground' : 'bg-muted-foreground/40'}`}
         />
-        Live
+        Head
       </button>
       <div className="relative h-6 flex-1 rounded has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-4 has-[:focus-visible]:outline-foreground">
         <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border" />
@@ -314,36 +318,31 @@ function Timeline({
 // 4. The card
 
 export function Hero() {
-  const { history, branch, head, shown, show } = App.useRuntime();
+  const { runtime, seeking, seek, toHead } = App.useRuntime();
+  const branch = runtime === null ? [] : History.line(runtime.history);
   // Step 0 is right after init; step n right after the nth Message.
   const at =
-    shown === null
+    seeking === null
       ? branch.length
-      : shown === 'init'
+      : seeking.entry === null
         ? 0
-        : branch.findIndex((entry) => entry.id === shown) + 1;
+        : branch.findIndex((entry) => entry.id === seeking.entry) + 1;
   const showStep = (step: number) =>
-    show(
-      step === branch.length
-        ? null
-        : step === 0
-          ? 'init'
-          : branch[step - 1]!.id,
-    );
-  const drawn = history.snapshotAt(
-    shown === null ? head : shown === 'init' ? null : shown,
-  );
+    step === branch.length
+      ? toHead()
+      : seek(step === 0 ? null : branch[step - 1]!.id);
+  // Before the app is first drawn, as on the server, it is right after init.
+  const drawn = (seeking ?? runtime)?.snapshot.root ?? INIT.root;
   const held = drawn.children['todos'];
   const todos = held !== undefined && Snapshot.isMany(held) ? held : [];
   // The row the Message at this step landed on: 0 for the list, then each to-do.
   const landed = at === 0 ? undefined : branch[at - 1];
   const band =
-    landed?.destination === drawn.id
+    landed?.to === drawn.address
       ? 0
       : todos
           .filter((todo) => showing(drawn, todo))
-          .findIndex((todo) => todo.id === landed?.destination) + 1 ||
-        undefined;
+          .findIndex((todo) => todo.address === landed?.to) + 1 || undefined;
 
   return (
     <MotionConfig reducedMotion="user">
@@ -358,7 +357,7 @@ export function Hero() {
               opacity: band === undefined ? 0 : 1,
             }}
           />
-          <div inert={shown !== null}>
+          <div inert={seeking !== null}>
             <App />
           </div>
           <Actors root={drawn} todos={todos} />
@@ -367,9 +366,9 @@ export function Hero() {
           count={branch.length}
           at={at}
           label={landed?.message._tag ?? 'init'}
-          live={shown === null}
+          atHead={seeking === null}
           onStep={showStep}
-          onLive={() => show(null)}
+          onHead={toHead}
         />
       </div>
     </MotionConfig>

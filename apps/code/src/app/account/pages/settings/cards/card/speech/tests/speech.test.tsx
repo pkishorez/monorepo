@@ -28,6 +28,8 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  */
 
 const Owner = Actor.define('Owner', {
+  /** How the setup holds it as it opens. */
+  input: Schema.Struct({ speech: Schema.NullOr(SpeechToTextState.schema) }),
   model: Schema.Struct({
     pings: Schema.Finite,
     speech: Schema.NullOr(SpeechToTextState.schema),
@@ -39,7 +41,7 @@ const Owner = Actor.define('Owner', {
 });
 
 const OwnerLive = Owner.build({
-  init: () => ({ model: { pings: 0, speech: handed } }),
+  init: ({ speech }) => ({ model: { pings: 0, speech } }),
   children: {
     speech: Actor.child(SpeechLive, {
       input: () => ({ connectionId: 'm1' }),
@@ -123,6 +125,7 @@ const mount = async () => {
   const App = View.app(OwnerView, {
     layer: clients,
     name: `speech-test-${apps++}`,
+    input: () => ({ speech: handed }),
   });
   root = createRoot(document.body.appendChild(document.createElement('div')));
   await act(async () => root!.render(<App />));

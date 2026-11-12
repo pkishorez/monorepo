@@ -3,6 +3,7 @@ import { type ComponentProps, createContext, type ReactNode, use } from 'react';
 import type { Written } from '../../../../../storage/index.ts';
 import {
   blank,
+  capabilities,
   WriteLive,
   Given,
   Mode,
@@ -76,6 +77,8 @@ export const Write = {
   Compose,
   /** The Layer the Draft Provides: what each mode shows and hands it. */
   owner,
+  /** What `owner` builds, for the `provides` that gives it. */
+  capabilities,
   Mode,
   Given,
   blank,

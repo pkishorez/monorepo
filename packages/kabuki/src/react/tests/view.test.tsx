@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Actor } from '../../core/index.ts';
+import type { Address } from '../../core/index.ts';
 import { View, useChild, useChildren } from '../index.ts';
 import type { Handle, ViewProps } from '../view/index.ts';
 import { registry } from '../view/registry.ts';
@@ -16,9 +17,9 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 // Every draw counts its renders by Instance ID and keeps its `send`.
 let renders: Record<string, number> = {};
 let sends: Record<string, (message: never) => void> = {};
-const drew = (self: { readonly id: string; readonly send: unknown }) => {
-  renders[self.id] = (renders[self.id] ?? 0) + 1;
-  sends[self.id] = self.send as (message: never) => void;
+const drew = (self: { readonly address: string; readonly send: unknown }) => {
+  renders[self.address] = (renders[self.address] ?? 0) + 1;
+  sends[self.address] = self.send as (message: never) => void;
 };
 const send = <M,>(id: string, message: M) =>
   act(() => (sends[id] as (message: M) => void)(message));
@@ -139,7 +140,7 @@ const ListView = View.make(List, (self) => {
       <HeaderView instance={children.header} />
       <ul>
         {children.rows.map((row) => (
-          <RowView key={row.id} instance={row} />
+          <RowView key={row.address} instance={row} />
         ))}
       </ul>
     </section>
@@ -278,7 +279,7 @@ const ReadingView = View.make(List, (self) => {
       <HeaderView instance={children.header} />
       <ul>
         {children.rows.map((kid) => (
-          <RowView key={kid.id} instance={kid} />
+          <RowView key={kid.address} instance={kid} />
         ))}
       </ul>
     </section>
@@ -325,7 +326,7 @@ describe('a parent View reading its Children', () => {
     await mount(<ReadingApp />);
     expect(Object.keys(seenRows[0]!).sort()).toEqual([
       '_tag',
-      'id',
+      'address',
       'model',
       'props',
       'state',
@@ -338,15 +339,14 @@ describe('a parent View reading its Children', () => {
     await send(LIST, { _tag: 'Retitled', title: 'Renamed' });
     expect(seenRows).toBe(before);
     await send(LIST, { _tag: 'Removed', id: 'a' });
-    expect(seenRows.map((kid) => (kid as { id: string }).id)).toEqual([
-      row('b'),
-      row('c'),
-    ]);
+    expect(seenRows.map((kid) => (kid as { address: string }).address)).toEqual(
+      [row('b'), row('c')],
+    );
   });
 
   it('throws outside an app', () => {
     const Lost = () => {
-      useChild({ id: 'nowhere' });
+      useChild({ address: 'nowhere' as Address });
       return null;
     };
     expect(() => {
@@ -449,7 +449,7 @@ const ExitView = View.make(List, (self) => {
       <AnimatePresence>
         {self.children.rows.map((kid) => (
           <MotionRow
-            key={kid.id}
+            key={kid.address}
             instance={kid}
             exit={{ opacity: 0, transition: { duration: 60 } }}
           />
@@ -485,7 +485,7 @@ const SelectView = View.make(List, (self) => {
   return (
     <ul>
       {self.children.rows.map((kid) => (
-        <MotionRow key={kid.id} instance={kid} animate={{ opacity: 1 }} />
+        <MotionRow key={kid.address} instance={kid} animate={{ opacity: 1 }} />
       ))}
     </ul>
   );
@@ -567,17 +567,19 @@ export const types = () => {
     },
   });
   View.make(Lamp, ({ children }) => [
-    children.header.id,
-    children.shade?.id,
+    children.header.address,
+    children.shade?.address,
     children.rows.map((row) => row.key),
     // @ts-expect-error `shade` is there only while its test holds
-    children.shade.id,
+    children.shade.address,
   ]);
   const self = null! as ViewProps<typeof Row>;
   return [
     self.root,
-    <RowView instance={{ id: 'x' }} />,
+    <RowView instance={{ address: 'x' as Address<typeof Row> }} />,
     // @ts-expect-error a parent View hands only where to draw: data is Props
-    <RowView instance={{ id: 'x' }} selected />,
+    <RowView instance={{ address: 'x' as Address<typeof Row> }} selected />,
+    // @ts-expect-error a Handle carries its Actor: another's does not fit
+    <RowView instance={{ address: 'x' as Address<typeof Header> }} />,
   ];
 };

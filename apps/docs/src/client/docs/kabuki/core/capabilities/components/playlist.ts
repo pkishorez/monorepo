@@ -53,10 +53,13 @@ export const Playlist = Actor.define('Playlist', {
 export const PlaylistLive = Playlist.build({
   init: () => ({ model: { ids: ['0', '1', '2', '3'], playing: null } }),
   // Everything below can ask for a song. Each ask is a Message to here.
-  provides: (self) =>
-    Layer.succeed(Player, {
-      play: (id) => self.send({ _tag: 'Played', id }),
-    }),
+  provides: {
+    capabilities: [Player],
+    layer: (self) =>
+      Layer.succeed(Player, {
+        play: (id) => self.send({ _tag: 'Played', id }),
+      }),
+  },
   children: {
     songs: Actor.child(SongLive, {
       each: ({ model }) => model.ids,

@@ -164,10 +164,13 @@ export const CardsLive = Cards.build({
     }),
   },
   // 2. Ask
-  provides: (self) =>
-    Layer.succeed(ConnectionCards, {
-      forget: (id) => self.send({ _tag: 'Ask', id }),
-    }),
+  provides: {
+    capabilities: [ConnectionCards],
+    layer: (self) =>
+      Layer.succeed(ConnectionCards, {
+        forget: (id) => self.send({ _tag: 'Ask', id }),
+      }),
+  },
   workers: {
     // 1. Read
     known: {

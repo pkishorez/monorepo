@@ -3,7 +3,7 @@ import { Actor, Command } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
 import { Preferences, PreferencesRead } from '../../storage/index.ts';
 import { home, project, session, settings } from '../../app.ts';
-import { connectionFilterIdb } from './store.ts';
+import { ConnectionFilter, connectionFilterIdb } from './store.ts';
 import { Header } from './header/index.ts';
 import { Pickers } from './pickers/index.ts';
 import { Sidebar } from './sidebar/index.ts';
@@ -131,7 +131,10 @@ export const FrameLive = Frame.build({
     model: { back: null, keyboard, shown: false },
   }),
   // 2. Children: the Connection Filter, for the sidebar and the Project Picker.
-  provides: () => connectionFilterIdb,
+  provides: {
+    capabilities: [ConnectionFilter],
+    layer: () => connectionFilterIdb,
+  },
   children: {
     sidebar: Actor.child(Sidebar.actor, {
       props: ({ props }) => ({ accountId: props.accountId }),

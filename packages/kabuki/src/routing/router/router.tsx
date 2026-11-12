@@ -49,8 +49,8 @@ import { workersOf } from './workers.ts';
  * `status`, down through the pages above it. It draws the app, catches
  * plain clicks on links inside it, preloads for links, and writes the
  * Metadata. With no Adapter in the Layer it routes in memory; with one, it
- * writes each move to the address with a Command, and hears the address
- * with a Worker.
+ * writes each move to the URL with a Command, and hears the URL with a
+ * Worker.
  */
 export const view = <Route extends AnyRoute, A extends AnyActor>(
   routes: RoutesLike<Route>,
@@ -102,43 +102,47 @@ export const view = <Route extends AnyRoute, A extends AnyActor>(
         },
       },
     },
-    provides: (self: {
-      readonly send: Send<Route>;
-      readonly changes: Stream.Stream<{ readonly model: Model }>;
-    }) =>
-      Layer.succeed(Navigation, {
-        push: (to, options) =>
-          self.send({
-            _tag: 'Pushed',
-            route: to as Route,
-            ...options,
-          }),
-        replace: (to, options) =>
-          self.send({
-            _tag: 'Replaced',
-            route: to as Route,
-            ...options,
-          }),
-        back: self.send({ _tag: 'Went', by: -1 }),
-        forward: self.send({ _tag: 'Went', by: 1 }),
-        backTo: (to) => self.send({ _tag: 'WentBackTo', route: to as Route }),
-        reload: (options) =>
-          options?.anew === true && options.hold === true
-            ? Effect.gen(function* () {
-                yield* self.send({ _tag: 'Reloaded', ...options });
-                // Sent while the Mailbox is still busy, the Message waits
-                // its turn: past a yield, the Model is what it made.
-                yield* Effect.yieldNow;
-                yield* Stream.runHead(
-                  Stream.filter(
-                    self.changes,
-                    ({ model }) => model.pending?.hold !== true,
-                  ),
-                );
-              })
-            : self.send({ _tag: 'Reloaded', ...options }),
-        preload: (to) => self.send({ _tag: 'Preloading', route: to as Route }),
-      }),
+    provides: {
+      capabilities: [Navigation],
+      layer: (self: {
+        readonly send: Send<Route>;
+        readonly changes: Stream.Stream<{ readonly model: Model }>;
+      }) =>
+        Layer.succeed(Navigation, {
+          push: (to, options) =>
+            self.send({
+              _tag: 'Pushed',
+              route: to as Route,
+              ...options,
+            }),
+          replace: (to, options) =>
+            self.send({
+              _tag: 'Replaced',
+              route: to as Route,
+              ...options,
+            }),
+          back: self.send({ _tag: 'Went', by: -1 }),
+          forward: self.send({ _tag: 'Went', by: 1 }),
+          backTo: (to) => self.send({ _tag: 'WentBackTo', route: to as Route }),
+          reload: (options) =>
+            options?.anew === true && options.hold === true
+              ? Effect.gen(function* () {
+                  yield* self.send({ _tag: 'Reloaded', ...options });
+                  // Sent while the Mailbox is still busy, the Message waits
+                  // its turn: past a yield, the Model is what it made.
+                  yield* Effect.yieldNow;
+                  yield* Stream.runHead(
+                    Stream.filter(
+                      self.changes,
+                      ({ model }) => model.pending?.hold !== true,
+                    ),
+                  );
+                })
+              : self.send({ _tag: 'Reloaded', ...options }),
+          preload: (to) =>
+            self.send({ _tag: 'Preloading', route: to as Route }),
+        }),
+    },
     on: updatesOf(urls, moves, loads),
     workers: workersOf(routes, urls, moves, loads),
   });

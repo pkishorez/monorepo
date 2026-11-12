@@ -3,14 +3,8 @@
   "sourceRoots": ["src"],
   "ignoredPaths": ["src/start/tests/app", "src/start/tests/bare"],
   "rules": {
-    "src/core/snapshot": ["src/core/actor"],
-    "src/core/history": ["src/core/actor", "src/core/snapshot"],
-    "src/core/runtime": [
-      "src/core/actor",
-      "src/core/snapshot",
-      "src/core/history",
-      "src/core/command"
-    ],
+    "src/core/data": ["src/core/actor"],
+    "src/core/runtime": ["src/core/actor", "src/core/data"],
     "src/react": ["src/core"],
     "src/routing": ["src/core", "src/react"],
     "src/routing/router": [
@@ -34,10 +28,14 @@
     "src/start/vite": ["src/start/app", "src/start/platform"],
     "src/start/app": ["src/core", "src/react", "src/routing"],
     "src/routing/capabilities": ["src/routing/route"],
-    "src/routing/page": ["src/routing/route", "src/routing/capabilities"],
-    "src/core/actor": ["src/core/command"]
+    "src/routing/page": ["src/routing/route", "src/routing/capabilities"]
   },
   "exceptions": [
+    {
+      "from": "src/core/actor/engine",
+      "to": "src/core/actor",
+      "because": "The engine form is written in the words of the Actor it holds: it imports the types every Actor is written in, Tagged, Data, Requires and QuerySchemas, and nothing else of its parent."
+    },
     {
       "from": "src/start/platform/cloudflare",
       "to": "src/start/platform",

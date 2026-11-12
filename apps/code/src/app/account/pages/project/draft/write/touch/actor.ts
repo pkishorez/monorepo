@@ -287,3 +287,6 @@ export const owner = (
   sendDraft: Effect.Effect<void>,
   opened: (open: boolean) => Effect.Effect<void> = () => Effect.void,
 ) => Layer.succeed(Owner, { send: sendDraft, opened });
+
+/** What `owner` builds, for the `provides` that gives it. */
+export const capabilities: readonly [typeof Owner] = [Owner];

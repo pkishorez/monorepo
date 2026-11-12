@@ -12,3 +12,7 @@ Time stands still while a Runtime is stopped, so a fork from an earlier Step car
 
 - A server that starts over from what it saved has its real-world deadlines right with no help from Kabuki, as long as they are dates in its Model.
 - `at` and `self.now` stay optional: an app that never reads them is unaffected.
+
+## Note
+
+Since the Runtime was redesigned, Time still stands still while a Runtime is stopped, which then takes no Message, and carries on from there when it starts again. A Fork sets it to the Time of the entry it moves the Head to, so Replay gives the same answer. A moment in the world is still data.

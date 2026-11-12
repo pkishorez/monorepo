@@ -8,12 +8,12 @@ import type {
   Only,
   Types,
 } from '../../../core/actor/index.ts';
+import type { Address } from '../../../core/data/index.ts';
 
-/** One Instance in the tree, to draw: its ID and, for a keyed Child, its key. Never changes. */
+/** One Instance in the tree, to draw: its Address and, for a keyed Child, its key. Never changes. */
 export interface Handle<A> {
-  readonly id: string;
+  readonly address: Address<A>;
   readonly key?: string;
-  readonly actor?: A;
 }
 
 /**
@@ -33,7 +33,7 @@ export interface Root {
 export type ViewProps<A> = {
   [T in Types<A>['state']['_tag']]: {
     readonly _tag: T;
-    readonly id: string;
+    readonly address: Address<A>;
     readonly model: Types<A>['model'];
     readonly state: Only<Types<A>['state'], T>;
     /** What its parent hands it now. */
@@ -53,13 +53,13 @@ export type ViewProps<A> = {
 /** The Instance's part of what a View draws from; `root` is added when drawing. */
 export type Drawable = Omit<ViewProps<AnyActor>, 'root'>;
 
-/** What Views read the app through, provided by `View.app`. */
+/** What Views read the app through, provided by `<Kabuki>` and `View.app`. */
 export interface DrawnApp {
   readonly subscribe: (listener: () => void) => () => void;
-  /** The Instance with this ID in the Snapshot drawn now, the same object while it does not change. */
-  readonly instance: (id: string) => Drawable | undefined;
-  /** The Instance as first drawn, before any Runtime: what a server draws and the client hydrates against. */
-  readonly served: (id: string) => Drawable | undefined;
+  /** The Instance at this Address in the Snapshot drawn now, the same object while it does not change. */
+  readonly instance: (address: Address<any>) => Drawable | undefined;
+  /** The Instance as first drawn: what a server draws and the client hydrates against. */
+  readonly served: (address: Address<any>) => Drawable | undefined;
   /** Whether it draws the app as it is now, not a past Step: what may touch the page around it. */
   readonly live: () => boolean;
 }
@@ -111,8 +111,8 @@ export const make = <A extends AnyActor>(
       );
     const live = useSyncExternalStore(
       drawn.subscribe,
-      () => drawn.instance(instance.id),
-      () => drawn.served(instance.id),
+      () => drawn.instance(instance.address),
+      () => drawn.served(instance.address),
     );
     // The last data drawn, for a View still on screen after its Instance
     // stopped. Written during render on purpose: it only ever holds what
@@ -128,7 +128,7 @@ export const make = <A extends AnyActor>(
   };
   const View = memo(
     (given: Given & { readonly key?: never }) => (
-      <Drawn key={given.instance.id} {...given} />
+      <Drawn key={given.instance.address} {...given} />
     ),
     same,
   );

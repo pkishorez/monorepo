@@ -54,7 +54,7 @@ export interface StartApp<A extends ServedApp = ServedApp> {
   readonly document?: DocumentType;
   /** What the App Shell shows until the browser has drawn the app. */
   readonly loading?: ReactNode;
-  /** What the app's Actors Require in the browser, besides the address and the Loaders. */
+  /** What the app's Actors Require in the browser, besides the URL and the Loaders. */
   readonly layer?: Layer.Layer<any, never, never>;
   /** What runs beside the app in the browser, such as a devtool. */
   readonly attach?: ReadonlyArray<Attachment>;

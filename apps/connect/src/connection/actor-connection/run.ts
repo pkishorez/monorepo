@@ -1,5 +1,5 @@
 import { Effect, Layer, Option, Stream } from 'effect';
-import { History, Runtime } from '@kestack/kabuki';
+import { Runtime } from '@kestack/kabuki';
 import { Downloads } from '@kestack/cli-platform/files';
 import { ActorConnection, type ConnectionInput } from './actor.js';
 import { Control } from './control.js';
@@ -63,15 +63,16 @@ export const run = (options: RunOptions) =>
       ...options.input,
       lastWanted: yield* remembered(options.input.folders.data),
     };
-    const running = yield* Runtime.start(
-      History.make(ActorConnection, { window: 0, input }),
-      Layer.mergeAll(
+    const running = yield* Runtime.scoped(ActorConnection, {
+      input,
+      window: 0,
+      layer: Layer.mergeAll(
         Layer.succeed(Cloud, Cloud.of(cloud(options.cloud))),
         Layer.succeed(Tunnels, Tunnels.of(tunnels(downloads))),
         Layer.succeed(Control, options.control),
         downloads,
       ),
-    );
+    });
     const root = () => running.instance({ from: 'serve' });
     const states = running.changes.pipe(
       Stream.map(() => root()),

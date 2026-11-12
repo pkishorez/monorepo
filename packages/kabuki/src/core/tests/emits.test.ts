@@ -2,12 +2,9 @@ import { Effect, Schema } from 'effect';
 import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, it } from 'vitest';
-import { Replay } from '../history/replay.ts';
-import { init } from '../snapshot/engine/index.ts';
-import { Actor, History, Runtime } from '../index.ts';
-import type { Running } from '../runtime/index.ts';
-import { Snapshot } from '../snapshot/index.ts';
-import type { Instance } from '../snapshot/index.ts';
+import { Actor, Address, Runtime, Snapshot } from '../index.ts';
+import type { Instance } from '../index.ts';
+import { line, to } from './fixtures.ts';
 
 // A sign-in form that tells its parent who signed in ------------------------------
 
@@ -85,10 +82,10 @@ const List = Actor.define('List', {
   },
 });
 
-const LOGIN = 'Gate/login#1';
+const LOGIN = Address.check(GateLive, 'Gate/Anonymous:login#1')!;
 
-const at = (app: Running<unknown>, id: string): Instance | undefined =>
-  Snapshot.instanceAt(app.snapshot(), id);
+const at = (app: Runtime<any>, address: string): Instance | undefined =>
+  Snapshot.at(app.snapshot, address as Address);
 
 const run = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
   Effect.runPromise(
@@ -99,14 +96,14 @@ describe('Emits', () => {
   it("become the parent's Message, handled before `send` returns", () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(GateLive));
+        const app = yield* Runtime.scoped(GateLive);
         app.send(LOGIN, { _tag: 'Typed', name: 'ada' });
         app.send(LOGIN, { _tag: 'Submitted' });
-        expect(app.snapshot().state).toEqual({
+        expect(app.snapshot.root.state).toEqual({
           _tag: 'Authenticated',
           user: 'ada',
         });
-        expect(app.snapshot().model).toEqual({ signIns: 1 });
+        expect(app.snapshot.root.model).toEqual({ signIns: 1 });
         // The Child left with the State it was Invoked in.
         expect(at(app, LOGIN)).toBeUndefined();
       }),
@@ -115,40 +112,41 @@ describe('Emits', () => {
   it('are in the History as the parent’s Message, Sent by the Child', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(GateLive));
+        const app = yield* Runtime.scoped(GateLive);
         app.send(LOGIN, { _tag: 'Submitted' });
-        const [submitted, loggedIn] = app.history.branch();
+        const [submitted, loggedIn] = line(app);
         expect(submitted!.message).toEqual({ _tag: 'Submitted' });
-        expect(loggedIn!.destination).toBe('Gate');
+        expect(loggedIn!.to).toBe('Gate');
         expect(loggedIn!.message).toEqual({ _tag: 'LoggedIn', user: '' });
-        expect(loggedIn!.source).toEqual({
+        expect(loggedIn!.from).toEqual({
           kind: 'emit',
           instance: LOGIN,
           name: 'SignedIn',
         });
         // Replay hears nothing twice: the parent's Message is its own entry.
-        expect(Replay.fold(GateLive.definition, app.history.branch())).toEqual(
-          app.snapshot(),
-        );
+        expect(Snapshot.replay(GateLive, app.history)).toBe(app.snapshot);
+        expect(
+          Snapshot.trail(GateLive, app.history, LOGIN).map(({ kind }) => kind),
+        ).toEqual(['started', 'received', 'stopped']);
       }),
     ));
 
   it('a slot does not turn is not heard', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(GateLive));
+        const app = yield* Runtime.scoped(GateLive);
         app.send(LOGIN, { _tag: 'Cancelled' });
-        expect(app.history.branch()).toHaveLength(1);
-        expect(app.snapshot().state._tag).toBe('Anonymous');
+        expect(line(app)).toHaveLength(1);
+        expect(app.snapshot.root.state._tag).toBe('Anonymous');
       }),
     ));
 
   it('are handed the key of the Child of `each` that Emitted them', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(List));
-        app.send('List/rows[a]#1', { _tag: 'Removing' });
-        expect(app.snapshot().model).toEqual({ ids: ['b'], title: '' });
+        const app = yield* Runtime.scoped(List);
+        app.send(to(app, 'List/rows[a]#1'), { _tag: 'Removing' });
+        expect(app.snapshot.root.model).toEqual({ ids: ['b'], title: '' });
         expect(at(app, 'List/rows[a]#1')).toBeUndefined();
       }),
     ));
@@ -158,11 +156,14 @@ describe('Emits', () => {
       init: () => ({ model: { name: '' } }),
       on: { Submitted: () => ({ emit: { _tag: 'SignedIn' } as never }) },
     });
+    const first = Snapshot.init(Bad);
     expect(() =>
-      Snapshot.handle(Bad.definition, init(Bad.definition), {
-        destination: 'Login',
+      Snapshot.play(Bad, first, {
+        id: 0,
+        parent: null,
+        to: first.root.address,
         message: { _tag: 'Submitted' },
-        source: { kind: 'outside' },
+        from: { kind: 'outside' },
         at: 0,
       }),
     ).toThrow(/Emitted/);
@@ -173,9 +174,9 @@ describe('An Update', () => {
   it('gives only the fields of the Model that change', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(List));
-        app.send('List', { _tag: 'Retitled', title: 'Mine' });
-        expect(app.snapshot().model).toEqual({
+        const app = yield* Runtime.scoped(List);
+        app.send(to(app, 'List'), { _tag: 'Retitled', title: 'Mine' });
+        expect(app.snapshot.root.model).toEqual({
           ids: ['a', 'b'],
           title: 'Mine',
         });
@@ -185,11 +186,12 @@ describe('An Update', () => {
   it('keeps the same Model while no field it gives changes', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(List));
-        app.send('List', { _tag: 'Retitled', title: 'Mine' });
-        const before = app.snapshot();
-        app.send('List', { _tag: 'Retitled', title: 'Mine' });
-        expect(app.snapshot()).toBe(before);
+        const app = yield* Runtime.scoped(List);
+        app.send(to(app, 'List'), { _tag: 'Retitled', title: 'Mine' });
+        const before = app.snapshot.root;
+        app.send(to(app, 'List'), { _tag: 'Retitled', title: 'Mine' });
+        expect(app.snapshot.root).toBe(before);
+        expect(app.snapshot.entry).toBe(1);
       }),
     ));
 });

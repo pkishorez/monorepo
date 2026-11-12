@@ -16,9 +16,10 @@ export const DiceApp = View.app(DiceView, {
 });
 ```
 
-Render `<DiceApp />` and the app runs. The first mount starts its
-**Runtime**, which holds the History and hands every Message to the right
-Instance. When the last mount goes, the Runtime stops.
+Render `<DiceApp />` and the app runs. The first mount makes its
+**Runtime**, one for the app, running from the start, which holds the
+History and hands every Message to the right Instance. When the last mount goes, the Runtime is let go, and its History
+is kept.
 
 `name` is where the History is kept when that happens. It's the root
 Actor's name unless you say otherwise. Mount an App of that name again,
@@ -54,7 +55,7 @@ corner of a page you already have. There's no provider to wrap it in.
 You can even mount it twice. Both mounts draw the same app, from the same
 Runtime.
 
-<Picture caption="The first mount starts the Runtime and the second shares it. One Rolled Message lands in one History, and both mounts draw it. When the last mount goes, the History stays, and the next mount carries on from it.">
+<Picture caption="The first mount makes the Runtime and the second shares it. One Rolled Message lands in one History, and both mounts draw it. When the last mount goes, the History stays, and the next mount carries on from it.">
   <MountsPicture />
 </Picture>
 
@@ -67,28 +68,39 @@ While a long History is replayed for the first drawing, the App draws its
 on the page, inside the app or not.
 
 ```tsx
-const { branch, shown, show, running, stop, start } = DiceApp.useRuntime();
+const { runtime, seeking, seek, toHead, fork, stop, start } =
+  DiceApp.useRuntime();
 ```
 
-- `branch` is the History, from the first Message to the newest.
-- `show(id)` draws the app right after that Message, and `show(null)`
-  goes back to live.
-- `stop()` stops every Worker and Command. `start()` carries on, and
-  `start(id)` carries on from an earlier Message, on a new Branch.
+- `runtime` is the app's [Runtime](/kabuki/history): its `history`, the
+  `snapshot` at its Head, and whether it is `running`. It's `null` until
+  the App first mounts, and then always the same one: a Fork moves it, it
+  never replaces it.
+- `seek(entry)` draws the app at a Step: right after that entry, or
+  `init` for `null`. `seeking` is the Step drawn, `{ entry, at, snapshot }`,
+  and `toHead()` goes back to drawing the Head.
+- `stop()` stops every Worker and Command, and the app takes no Message:
+  a click sends nothing until `start()`, which runs again at the Head
+  without running any past Command. `fork(entry)` moves the Head back to an earlier entry,
+  and the next Message grows a new Branch.
 
-The devtools on this site are built on just that.
+Which entry to Seek next comes from the History:
+`History.entry(history, id).parent` is the one before,
+`History.children(history, id)` the ones after, and
+`History.tips(history)` the end of every Branch. The devtools
+on this site are built on just that.
 
 A past Step is drawn read only. Every View draws the app as it was, and a
-Message sent from there is dropped. The live app keeps running
-underneath.
+Message sent from there is dropped. The Runtime stays where it is
+underneath, at its Head.
 
 Most Views need nothing more. But a View that touches the page around the
 app, say it scrolls to the newest row, should hold still while you look
-at the past. `useLive` tells it:
+at the past. `useLive` tells it whether the app is drawn as it is now:
 
 ```tsx
 const live = useLive();
-// Scroll to the newest row, but only while the app is live.
+// Scroll to the newest row, but only while the Head is drawn.
 useEffect(() => {
   if (live) newest.current?.scrollIntoView();
 }, [live, model.rows.length]);
@@ -99,7 +111,7 @@ useEffect(() => {
 The bar under the dice isn't part of the app. It's a component beside it
 that reads `useRuntime`.
 
-<Live app={DiceWindow} caption="Press Roll, then Stop: the dice freeze, because stopping the app stops its Worker. Start, and it rolls on. Open Devtools and pick an earlier Step: the bar shows which, and the app is read only.">
+<Live app={DiceWindow} caption="Press Roll, then Stop: the dice freeze, because stopping the app stops its Worker, and Hold does nothing. Start, and it rolls on. Open Devtools and pick an earlier Step: the bar shows which, and the app is read only.">
 
 ```ts file=./components/dice.ts
 
@@ -118,19 +130,41 @@ before, and it's drawn at that History's Head:
 
 ```tsx
 // Kept earlier, from the running app.
-const saved = runtime.history.save();
+const saved = History.save(DiceLive, runtime.history);
 
 // Drawn later, anywhere: at the saved Head.
 <DiceApp saved={saved} />;
 ```
 
-`history.save()` is plain JSON, so you can keep it anywhere. Until the
-Runtime starts, a Message sent is dropped. Once the App mounts in a
-browser, the Runtime starts and carries on from the Head.
+`History.save` gives plain JSON, so you can keep it anywhere. Until there
+is a Runtime, a Message sent is dropped. Once the App mounts in a browser,
+it makes the Runtime, which carries on from the Head.
 
 That's how a server draws your app: no Runtime, just a History, drawn to
 HTML that the browser carries on from. [Serving](/kabuki/serving) shows
 the whole trip.
+
+## Drawing a Runtime you made
+
+`View.app` makes and keeps the Runtime for you. To hold it yourself, make
+one with `Runtime.make` and draw it with `<Kabuki>`, giving it the root's
+View:
+
+```tsx
+const runtime = Runtime.make(DiceLive, { layer: RandomLive });
+
+// The Head: a click is sent to the Runtime.
+<Kabuki of={runtime} view={DiceView} />;
+
+// A Step, right after entry 3: drawn as it was, and a click does nothing.
+<Kabuki of={runtime.seek(3)} view={DiceView} />;
+```
+
+A stopped Runtime is drawn at its Head, and a click does nothing there
+either.
+
+The Runtime is yours, so you let it go when you're done:
+`runtime.dispose()`.
 
 ## Lazy Views
 

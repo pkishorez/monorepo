@@ -2,6 +2,7 @@ import { VoiceLive } from './actor.ts';
 import { Dictation } from './dictation/index.ts';
 import { Microphone } from './microphone/index.ts';
 import { Around, VoiceView } from './view.tsx';
+import { capabilities } from './voice.ts';
 
 export type { Availability, Dictated } from './dictation/index.ts';
 
@@ -21,5 +22,7 @@ export const Voice = {
   Button: Dictation.button,
   /** For a tap elsewhere, such as Settings: opens the Microphone Picker. */
   Opener: Microphone.Opener,
+  /** What `voice` builds, for the Account's page that Provides it. */
+  capabilities,
 };
 export { Ask, type Owner, voice } from './voice.ts';

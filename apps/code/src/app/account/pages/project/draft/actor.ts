@@ -300,53 +300,61 @@ export const DraftLive = Draft.build({
       sends: 0,
     },
   }),
-  provides: (self) =>
-    Layer.mergeAll(
-      // 2. Choose
-      SkillPicker.owner((name) =>
-        self.send(
-          name === null
-            ? { _tag: 'PickerClosed' }
-            : { _tag: 'SkillChosen', name },
+  provides: {
+    capabilities: [
+      ...SkillPicker.capabilities,
+      ...ModelPicker.capabilities,
+      ...BranchPicker.capabilities,
+      ...Write.capabilities,
+    ],
+    layer: (self) =>
+      Layer.mergeAll(
+        // 2. Choose
+        SkillPicker.owner((name) =>
+          self.send(
+            name === null
+              ? { _tag: 'PickerClosed' }
+              : { _tag: 'SkillChosen', name },
+          ),
+        ),
+        ModelPicker.owner((chosen) =>
+          self.send(
+            chosen === null
+              ? { _tag: 'PickerClosed' }
+              : { _tag: 'ModelChosen', chosen },
+          ),
+        ),
+        BranchPicker.owner((branch) =>
+          self.send(
+            branch === null
+              ? { _tag: 'PickerClosed' }
+              : { _tag: 'BranchChosen', branch },
+          ),
+        ),
+        // 1. Write, 3. Send, 4. Keep: what each mode shows and hands up.
+        Write.owner(
+          Effect.gen(function* () {
+            const texts = yield* SubscriptionRef.make<
+              Partial<Record<Mode, Written>>
+            >({});
+            yield* Effect.forkScoped(saving(self, modesOf, texts));
+            return {
+              shows: (mode: Mode, written: Stream.Stream<Written>) =>
+                Stream.runForEach(written, (each) =>
+                  SubscriptionRef.update(texts, (all) => ({
+                    ...all,
+                    [mode]: each,
+                  })),
+                ),
+              send: (mode: Mode, text: string) =>
+                self.send({ _tag: 'SendAsked', mode, text }),
+              opened: (mode: Mode, open: boolean) =>
+                self.send({ _tag: 'Opened', mode, open }),
+            };
+          }),
         ),
       ),
-      ModelPicker.owner((chosen) =>
-        self.send(
-          chosen === null
-            ? { _tag: 'PickerClosed' }
-            : { _tag: 'ModelChosen', chosen },
-        ),
-      ),
-      BranchPicker.owner((branch) =>
-        self.send(
-          branch === null
-            ? { _tag: 'PickerClosed' }
-            : { _tag: 'BranchChosen', branch },
-        ),
-      ),
-      // 1. Write, 3. Send, 4. Keep: what each mode shows and hands up.
-      Write.owner(
-        Effect.gen(function* () {
-          const texts = yield* SubscriptionRef.make<
-            Partial<Record<Mode, Written>>
-          >({});
-          yield* Effect.forkScoped(saving(self, modesOf, texts));
-          return {
-            shows: (mode: Mode, written: Stream.Stream<Written>) =>
-              Stream.runForEach(written, (each) =>
-                SubscriptionRef.update(texts, (all) => ({
-                  ...all,
-                  [mode]: each,
-                })),
-              ),
-            send: (mode: Mode, text: string) =>
-              self.send({ _tag: 'SendAsked', mode, text }),
-            opened: (mode: Mode, open: boolean) =>
-              self.send({ _tag: 'Opened', mode, open }),
-          };
-        }),
-      ),
-    ),
+  },
   children: {
     // 1. Write: one Child per Draft Mode, once its Saved Draft is read back.
     modes: Actor.child(Write.actor, {

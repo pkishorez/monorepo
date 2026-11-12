@@ -123,17 +123,20 @@ export const MicrophoneLive = Microphone.build({
       }),
     }),
   },
-  provides: (self) =>
-    Microphones.owner({
-      done: (choices) => {
-        const chosen = choices?.at(-1)?.value;
-        return self.send(
-          chosen === undefined
-            ? { _tag: 'Closed' }
-            : { _tag: 'Chose', value: chosen },
-        );
-      },
-    }),
+  provides: {
+    capabilities: Microphones.capabilities,
+    layer: (self) =>
+      Microphones.owner({
+        done: (choices) => {
+          const chosen = choices?.at(-1)?.value;
+          return self.send(
+            chosen === undefined
+              ? { _tag: 'Closed' }
+              : { _tag: 'Chose', value: chosen },
+          );
+        },
+      }),
+  },
   workers: {
     // 1. Read
     inputs: {

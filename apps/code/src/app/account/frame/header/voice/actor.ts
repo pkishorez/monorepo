@@ -4,7 +4,7 @@ import { Ask, Voice } from './voice.ts';
 import { askDictation } from './commands.ts';
 import { Dictation } from './dictation/index.ts';
 import { Microphone } from './microphone/index.ts';
-import { recorder } from './recorder/index.ts';
+import { Recorder, recorder } from './recorder/index.ts';
 
 /*
  * Voice: recording from anywhere, a Child of the header, which is drawn
@@ -29,7 +29,7 @@ const Spoken = Actor.define('Voice', {
 });
 
 export const VoiceLive = Spoken.build({
-  provides: () => recorder,
+  provides: { capabilities: [Recorder], layer: () => recorder },
   children: {
     // 1. Dictation
     dictation: Actor.child(Dictation.actor),

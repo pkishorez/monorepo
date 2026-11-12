@@ -103,18 +103,29 @@ const historyCommand = Command.make(
         Flag.withDescription('Only the entries after this entry id'),
       ),
     ),
+    branch: Flag.optional(
+      Flag.Int('branch').pipe(
+        Flag.withDescription(
+          "The Branch through this entry id, in place of the Head's",
+        ),
+      ),
+    ),
     ...clientFlags,
   },
-  ({ session, last, since, ...flags }) =>
+  ({ session, last, since, branch, ...flags }) =>
     printClient(
       flags,
       withKabukiSession(flags.url, session, (client) =>
-        client.history({ ...someOf('last', last), ...someOf('since', since) }),
+        client.history({
+          ...someOf('last', last),
+          ...someOf('since', since),
+          ...someOf('branch', branch),
+        }),
       ).pipe(Effect.map((history) => output(history, renderHistoryText))),
     ),
 ).pipe(
   Command.withDescription(
-    "A Kabuki Session's History, oldest first: each entry's id, Message, destination, source, outcome and time",
+    "A Kabuki Session's History, a Branch at a time, oldest first: each entry's id, Message, the Address it was Sent to, who Sent it, outcome and time",
   ),
 );
 

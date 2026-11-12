@@ -24,7 +24,7 @@ export function Devtools({ children }: { readonly children: ReactNode }) {
       scrolls="window"
       storageKey="kabuki-start:devtools"
       status={
-        runtime?.shown != null && (
+        runtime?.seeking != null && (
           <span
             title="Showing a past Step"
             className="block size-2 rounded-full bg-foreground ring-2 ring-background"

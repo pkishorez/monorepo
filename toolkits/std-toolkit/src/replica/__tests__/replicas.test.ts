@@ -10,6 +10,7 @@ import {
   read,
   run,
   start,
+  pageOf,
 } from './fixtures.js';
 
 describe('two participants', () => {
@@ -47,7 +48,7 @@ describe('two participants', () => {
           expect(balances(two.mine())).toEqual({ w1: 80 }),
         );
 
-        yield* first.stop();
+        yield* Effect.promise(() => first.stop());
         yield* eventually(() =>
           expect(two.instance('a')?.role).toBe('leading'),
         );
@@ -75,7 +76,7 @@ describe('Replicas', () => {
           expect(seen.instance('a')?.role).toBe('leading'),
         );
 
-        app.send('Root/page#1', { _tag: 'Shown', shown: false });
+        app.send(pageOf(app), { _tag: 'Shown', shown: false });
         yield* eventually(() =>
           expect(seen.instance('a')).toMatchObject({
             holders: [],
@@ -83,11 +84,11 @@ describe('Replicas', () => {
           }),
         );
         // Held again before its GC Time runs out, it carries on.
-        app.send('Root/page#1', { _tag: 'Shown', shown: true });
+        app.send(pageOf(app), { _tag: 'Shown', shown: true });
         yield* eventually(() =>
           expect(seen.instance('a')).toMatchObject({ gcAt: null }),
         );
-        app.send('Root/page#1', { _tag: 'Shown', shown: false });
+        app.send(pageOf(app), { _tag: 'Shown', shown: false });
         yield* eventually(() => expect(seen.instances()).toEqual([]));
       }),
     ));
@@ -102,7 +103,7 @@ describe('Replicas', () => {
           expect(seen.instance('a')?.role).toBe('leading'),
         );
 
-        app.send('Root/page#1', { _tag: 'Shown', shown: false });
+        app.send(pageOf(app), { _tag: 'Shown', shown: false });
         yield* eventually(() =>
           expect(seen.instance('a')?.holders).toEqual([]),
         );

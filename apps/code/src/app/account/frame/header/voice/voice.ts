@@ -42,3 +42,6 @@ export const voice: Layer.Layer<Voice> = Layer.effect(
   Voice,
   Effect.map(Queue.unbounded<typeof Ask.Type>(), (asked) => ({ asked })),
 );
+
+/** What `voice` builds, for the Account's page that Provides it. */
+export const capabilities: readonly [typeof Voice] = [Voice];

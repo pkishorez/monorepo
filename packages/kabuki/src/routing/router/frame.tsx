@@ -4,7 +4,7 @@ import type { Drawing } from './context.tsx';
 
 /*
  * What the Router draws around the app: the context links and hooks read,
- * a catch for plain clicks on links, and, when an Adapter holds the address,
+ * a catch for plain clicks on links, and, when an Adapter holds the URL,
  * the Metadata, worked out from the data of the pages drawn.
  */
 

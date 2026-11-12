@@ -1,11 +1,10 @@
 import { Deferred, Effect, Layer, SubscriptionRef } from 'effect';
 import type { Scope } from 'effect';
-import { History, Runtime } from '@kestack/kabuki';
+import { Runtime } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
 import { Loading } from '@kestack/kabuki/routing/capabilities';
-import type { Running } from '@kestack/kabuki/core/runtime';
-import type { Instance } from '@kestack/kabuki/core/snapshot';
+import type { Instance } from '@kestack/kabuki/core/data';
 import {
   type Account,
   Accounts,
@@ -128,27 +127,27 @@ const walk = (at: Instance): ReadonlyArray<Instance> => [
     ((Array.isArray(child) ? child : [child]) as Array<Instance>).flatMap(walk),
   ),
 ];
-const apis = (app: Running<unknown>) =>
-  walk(app.snapshot()).find((each) => each.actor === 'Apis')!;
-const switcher = (app: Running<unknown>) =>
-  walk(app.snapshot()).find((each) => each.actor === 'AccountSwitcher')!;
-const model = (app: Running<unknown>) =>
+const apis = (app: Runtime) =>
+  walk(app.snapshot.root).find((each) => each.actor === 'Apis')!;
+const switcher = (app: Runtime) =>
+  walk(app.snapshot.root).find((each) => each.actor === 'AccountSwitcher')!;
+const model = (app: Runtime) =>
   apis(app).model as {
     readonly caller: { readonly _tag: string; readonly id?: string };
     readonly switching: boolean;
     readonly http: { readonly public: { readonly _tag: string } };
   };
-const switchTo = (app: Running<unknown>, id: string) =>
-  app.send(switcher(app).id, { _tag: 'SwitchTo', id } as never);
+const switchTo = (app: Runtime, id: string) =>
+  app.send(switcher(app).address, { _tag: 'SwitchTo', id } as never);
 
 const opened = Effect.gen(function* () {
   const accounts = yield* fakeAccounts;
-  const app = yield* Runtime.start(
-    History.make(Root.actor, { input: Root.startAt('/apis') }),
-    Layer.mergeAll(loading, accounts.layer, workers),
-  );
+  const app = yield* Runtime.scoped(Root.actor, {
+    input: Root.startAt('/apis'),
+    layer: Layer.mergeAll(loading, accounts.layer, workers),
+  });
   yield* wait(20);
-  app.send(apis(app).id, { _tag: 'Send', api: 'http', level: 'public' });
+  app.send(apis(app).address, { _tag: 'Send', api: 'http', level: 'public' });
   yield* wait(20);
   expect(model(app).http.public._tag).toBe('Answered');
   return { app, answer: accounts.answer };

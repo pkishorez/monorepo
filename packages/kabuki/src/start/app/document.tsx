@@ -110,10 +110,10 @@ function useDrawn(): Drawn | null {
 }
 
 /**
- * The running app, for devtools drawn in the Document around it: its
- * History, the Step shown, and how to show another. `null` on the server,
- * which draws each request from a History of its own and runs none, and
- * outside a page Start served.
+ * The running app, for devtools drawn in the Document around it: its one
+ * Runtime, the Step it Seeks, and how to Seek another or Fork to it.
+ * `null` on the server, which draws each request from a History of its own
+ * and runs none, and outside a page Start served.
  */
 function useRuntime(): AppRuntime | null {
   const read = use(RuntimeContext);

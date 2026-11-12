@@ -22,7 +22,7 @@ export const program = Effect.gen(function* () {
     play: (id) => Deferred.succeed(asked, id).pipe(Effect.asVoid),
   });
 
-  const app = yield* Runtime.start(ShelfLive, PlayerLive);
+  const app = yield* Runtime.scoped(ShelfLive, { layer: PlayerLive });
   app.instance({ from: 'docs' }).children.song.send({ _tag: 'Pressed' });
 
   // The Song's Command called the Layer's Player.

@@ -2,13 +2,9 @@ import { Effect, Schema } from 'effect';
 import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Replay, outcomeOf } from '../history/replay.ts';
-import { init } from '../snapshot/engine/index.ts';
-import { Actor, History, Runtime } from '../index.ts';
-import type { SavedHistory } from '../history/index.ts';
-import type { Running } from '../runtime/index.ts';
-import { Snapshot } from '../snapshot/index.ts';
-import type { Instance } from '../snapshot/index.ts';
+import { Actor, History, Runtime, Snapshot } from '../index.ts';
+import type { Address, Entry, Instance } from '../index.ts';
+import { line, outcome, to } from './fixtures.ts';
 
 // A list whose rows are handed whether they are selected --------------------------
 
@@ -77,11 +73,11 @@ const List = Actor.define('List', {
   },
 });
 
-const row = (key: string) => `List/rows[${key}]#1`;
+const row = (key: string) => `List/rows[${key}]#1` as Address;
 
-const at = (app: Running<unknown>, id: string): Instance => {
-  const instance = Snapshot.instanceAt(app.snapshot(), id);
-  expect(instance, id).toBeDefined();
+const at = (app: Runtime<any>, address: string): Instance => {
+  const instance = Snapshot.at(app.snapshot, address as Address);
+  expect(instance, address).toBeDefined();
   return instance!;
 };
 
@@ -98,7 +94,7 @@ describe('Props', () => {
   it("hands each Child its Props, and the Child's Update reads them", () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(List));
+        const app = yield* Runtime.scoped(List);
         expect(at(app, row('a')).props).toEqual({ selected: true });
         expect(at(app, row('b')).props).toEqual({ selected: false });
         app.send(row('b'), { _tag: 'Edited' });
@@ -111,31 +107,37 @@ describe('Props', () => {
   it('a change runs none of the Child’s rules, and keeps the Instance while they say the same', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(List));
+        const app = yield* Runtime.scoped(List);
         const [a, b, c] = ['a', 'b', 'c'].map((key) => at(app, row(key)));
-        app.send('List', { _tag: 'Retitled', title: 'Mine' });
+        app.send(to(app, 'List'), { _tag: 'Retitled', title: 'Mine' });
         expect(at(app, row('a'))).toBe(a);
         expect(at(app, row('b'))).toBe(b);
 
-        app.send('List', { _tag: 'Selected', id: 'b' });
+        app.send(to(app, 'List'), { _tag: 'Selected', id: 'b' });
         expect(at(app, row('a')).props).toEqual({ selected: false });
         expect(at(app, row('b')).props).toEqual({ selected: true });
         expect(at(app, row('a')).model).toBe(a!.model);
         expect(at(app, row('b')).model).toBe(b!.model);
         expect(at(app, row('c'))).toBe(c);
+        // New Props change the Child, by the parent's entry.
+        expect(at(app, row('a')).changed).toBe(1);
+        expect(at(app, row('b')).changed).toBe(1);
+        expect(at(app, row('c')).changed).toBe(null);
+        expect(at(app, row('a')).started).toBe(null);
         // Only the parent's Message is in the History.
-        expect(app.history.branch().map((entry) => entry.message._tag)).toEqual(
-          ['Retitled', 'Selected'],
-        );
+        expect(line(app).map((entry) => entry.message._tag)).toEqual([
+          'Retitled',
+          'Selected',
+        ]);
       }),
     ));
 
   it("flow on down through a Child's own invoke", () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(List));
+        const app = yield* Runtime.scoped(List);
         expect(at(app, `${row('b')}/cell#1`).props).toEqual({ lit: false });
-        app.send('List', { _tag: 'Selected', id: 'b' });
+        app.send(to(app, 'List'), { _tag: 'Selected', id: 'b' });
         expect(at(app, `${row('b')}/cell#1`).props).toEqual({ lit: true });
         expect(at(app, `${row('a')}/cell#1`).props).toEqual({ lit: false });
       }),
@@ -144,17 +146,17 @@ describe('Props', () => {
   it('start and stop the Workers whose Condition reads them', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(List));
+        const app = yield* Runtime.scoped(List);
         const running = (key: string) =>
           app.workers(row(key)).map(({ name }) => name);
         expect(running('a')).toEqual(['poll']);
         expect(running('b')).toEqual([]);
-        app.send('List', { _tag: 'Selected', id: 'b' });
+        app.send(to(app, 'List'), { _tag: 'Selected', id: 'b' });
         expect(running('a')).toEqual([]);
         expect(running('b')).toEqual(['poll']);
         yield* TestClock.adjust('25 millis');
         expect(at(app, row('b')).model).toMatchObject({ ticks: 2 });
-        expect(app.history.branch().at(-1)!.source).toEqual({
+        expect(line(app).at(-1)!.from).toEqual({
           kind: 'worker',
           instance: row('b'),
           name: 'poll',
@@ -165,19 +167,15 @@ describe('Props', () => {
   it('are worked out again by Replay, never kept in the History', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(List));
-        app.send('List', { _tag: 'Selected', id: 'c' });
+        const app = yield* Runtime.scoped(List);
+        app.send(to(app, 'List'), { _tag: 'Selected', id: 'c' });
         app.send(row('c'), { _tag: 'Edited' });
-        app.send('List', { _tag: 'Selected', id: 'a' });
-        expect(app.history.snapshotAt(app.history.head())).toEqual(
-          app.snapshot(),
+        app.send(to(app, 'List'), { _tag: 'Selected', id: 'a' });
+        const saved = History.save(List, app.history);
+        expect(Snapshot.replay(List, History.load(List, saved))).toEqual(
+          app.snapshot,
         );
-        expect(Replay.fold(List.definition, app.history.branch())).toEqual(
-          app.snapshot(),
-        );
-        expect(JSON.stringify(app.history.save().entries)).not.toContain(
-          'selected"',
-        );
+        expect(JSON.stringify(saved.entries)).not.toContain('selected"');
       }),
     ));
 
@@ -190,18 +188,18 @@ describe('Props', () => {
         }),
       },
     });
-    expect(() => init(Bad.definition)).toThrow(
+    expect(() => Snapshot.init(Bad)).toThrow(
       /Row: the Props of Bad\/row#1 does not match its Schema/,
     );
   });
 });
 
 describe('the History', () => {
-  it('holds only the Envelope, from outside the tree unless a View says so', () =>
+  it('holds only the entry, from outside the tree unless a View says so', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(List));
-        app.send('List', { _tag: 'Retitled', title: 'x' });
+        const app = yield* Runtime.scoped(List);
+        app.send(to(app, 'List'), { _tag: 'Retitled', title: 'x' });
         app.send(
           row('a'),
           { _tag: 'Edited' },
@@ -210,21 +208,21 @@ describe('the History', () => {
             instance: row('a'),
           },
         );
-        expect(app.history.branch()).toEqual([
+        expect(line(app)).toEqual([
           {
             id: 0,
             parent: null,
-            destination: 'List',
+            to: 'List',
             message: { _tag: 'Retitled', title: 'x' },
-            source: { kind: 'outside' },
+            from: { kind: 'outside' },
             at: 0,
           },
           {
             id: 1,
             parent: 0,
-            destination: row('a'),
+            to: row('a'),
             message: { _tag: 'Edited' },
-            source: { kind: 'view', instance: row('a') },
+            from: { kind: 'view', instance: row('a') },
             at: 0,
           },
         ]);
@@ -234,56 +232,57 @@ describe('the History', () => {
   it('says what came of each entry, worked out, on a saved History too', () =>
     run(
       Effect.gen(function* () {
-        const live = yield* Runtime.start(History.make(List));
-        live.send('List', { _tag: 'Retitled', title: 'x' });
+        const live = yield* Runtime.scoped(List);
+        live.send(to(live, 'List'), { _tag: 'Retitled', title: 'x' });
         live.send(row('b'), { _tag: 'Edited' });
-        live.send('List', { _tag: 'Selected', id: 'b' });
+        live.send(to(live, 'List'), { _tag: 'Selected', id: 'b' });
         live.send(row('zzz'), { _tag: 'Edited' });
-        const outcomes = (app: Running<unknown>) =>
-          app.history.branch().map((entry) => app.history.outcome(entry.id));
+        const outcomes = (app: Runtime<any>) =>
+          line(app).map((entry) => outcome(app, entry.id));
         expect(outcomes(live)).toEqual([
           'handled',
           'handled',
           'handled',
           'dropped',
         ]);
-        const saved = yield* Runtime.start(
-          History.load(List, live.history.save()),
-        );
+        const saved = yield* Runtime.scoped(List, {
+          history: History.load(List, History.save(List, live.history)),
+        });
         expect(outcomes(saved)).toEqual(outcomes(live));
       }),
     ));
 
   it('Replay warns of a Message that no longer fits, once, and skips it', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const entries: SavedHistory['entries'] = [
+    const entries: ReadonlyArray<Entry> = [
       {
         id: 0,
         parent: null,
-        destination: row('a'),
+        to: row('a'),
         message: { _tag: 'Renamed' },
-        source: { kind: 'outside' },
+        from: { kind: 'outside' },
         at: 0,
       },
       {
         id: 1,
         parent: 0,
-        destination: row('a'),
+        to: row('a'),
         message: { _tag: 'Edited' },
-        source: { kind: 'outside' },
+        from: { kind: 'outside' },
         at: 0,
       },
     ];
-    const snapshot = Replay.fold(List.definition, entries);
-    Replay.fold(List.definition, entries);
-    expect(Snapshot.instanceAt(snapshot, row('a'))!.model).toMatchObject({
+    const history = { input: undefined, entries, head: 1 };
+    const snapshot = Snapshot.replay(List, history);
+    Snapshot.replay(List, { ...history });
+    expect(Snapshot.at(snapshot, row('a'))!.model).toMatchObject({
       edits: 1,
     });
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn.mock.calls[0]![0]).toContain('diverged at entry 0');
-    // What came of it, worked out again, agrees with Replay: it changed nothing.
-    expect(outcomeOf(List.definition, init(List.definition), entries[0]!)).toBe(
-      'ignored',
+    // Played on its own, it throws: Replay skips it, so it changed nothing.
+    expect(() => Snapshot.play(List, Snapshot.init(List), entries[0]!)).toThrow(
+      /does not match its Schema/,
     );
   });
 });

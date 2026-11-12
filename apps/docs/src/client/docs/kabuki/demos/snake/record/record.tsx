@@ -10,6 +10,7 @@ import { HistoryIcon } from 'lucide-react';
 import {
   Timeline,
   carryOn,
+  lineOf,
   showStep,
   stepOf,
 } from '../../../../../components/index.ts';
@@ -30,7 +31,7 @@ import { Tree } from './tree.tsx';
  *
  * The keys are locked to the game for as long as the recording is open.
  * Beside them: [ a Step back, ] a Step on, F carries on from the Step
- * shown, L goes live, N the next caption.
+ * shown, L goes back to the Head, N the next caption.
  */
 
 const param = (name: string) =>
@@ -54,9 +55,8 @@ export function SnakeRecord() {
     keyLock.set(true);
     return () => keyLock.set(false);
   }, []);
-  const live = runtime.shown === null;
-  const over =
-    live && runtime.history.snapshotAt(runtime.head).state._tag === 'Over';
+  const atHead = runtime.seeking === null;
+  const over = atHead && runtime.runtime?.snapshot.root.state._tag === 'Over';
   return (
     <div className="grid h-dvh w-full place-items-center overflow-hidden bg-muted">
       <div
@@ -64,7 +64,7 @@ export function SnakeRecord() {
       >
         <Caption cues={cues} skips={skips} />
         <div className="grid min-h-0 grid-cols-[auto_minmax(0,1fr)] gap-6">
-          <div className="[zoom:1.32]" inert={!live}>
+          <div className="[zoom:1.32]" inert={!atHead}>
             <Recorded />
           </div>
           <div className="flex min-h-0 flex-col overflow-hidden rounded-3xl bg-muted/50">
@@ -94,9 +94,9 @@ export function SnakeRecord() {
   );
 }
 
-/** Goes live from the Step `ms` before the last Message, growing a new Branch. */
+/** Forks from the Step `ms` before the last Message, growing a new Branch. */
 const rewind = (runtime: AppRuntime, ms: number) => {
-  const { branch } = runtime;
+  const branch = lineOf(runtime);
   const until = (branch.at(-1)?.at ?? 0) - ms;
   carryOn(runtime, branch.findLastIndex((entry) => entry.at <= until) + 1);
 };
@@ -111,8 +111,8 @@ function useKeys(
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key === '[') showStep(runtime, at - 1);
       else if (event.key === ']') showStep(runtime, at + 1);
-      else if (event.key === 'l') runtime.show(null);
-      else if (event.key === 'f' && runtime.shown !== null)
+      else if (event.key === 'l') runtime.toHead();
+      else if (event.key === 'f' && runtime.seeking !== null)
         carryOn(runtime, at);
       else if (event.key === 'n') setSkips((n) => n + 1);
       else return;

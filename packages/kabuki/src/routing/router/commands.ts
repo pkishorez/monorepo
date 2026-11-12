@@ -1,10 +1,10 @@
 import { Effect, Option, Schema } from 'effect';
-import { Command } from '../../core/command/index.ts';
+import { Command } from '../../core/actor/index.ts';
 import { Loading } from '../capabilities/index.ts';
 import { Adapter } from './adapter/index.ts';
 
 /*
- * The Router's Commands: what it asks of the address, through the Adapter
+ * The Router's Commands: what it asks of the URL, through the Adapter
  * if the Layer has one, and of the Data cache.
  */
 
@@ -15,7 +15,7 @@ const adapter = (use: (adapter: typeof Adapter.Service) => void) =>
     Effect.asVoid,
   );
 
-export const write = Command.make('write the address', {
+export const write = Command.make('write the URL', {
   args: Schema.Struct({
     url: Schema.String,
     key: Schema.String,

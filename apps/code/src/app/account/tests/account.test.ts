@@ -22,10 +22,8 @@ import {
   PLUGIN_MISMATCH,
 } from '@kestack/connect/cloud';
 import { OnOutdated } from '@kestack/std-toolkit/replica';
-import { Actor, Runtime } from '@kestack/kabuki';
+import { Actor, Runtime, type Instance } from '@kestack/kabuki';
 import { Navigation } from '@kestack/kabuki/routing';
-import type { Running } from '@kestack/kabuki/core/runtime';
-import type { Instance } from '@kestack/kabuki/core/snapshot';
 import {
   connection as RpcConnection,
   type SocketWatch,
@@ -359,17 +357,17 @@ const start = (
   over?: Layer.Layer<typeof OnOutdated.Identifier>,
 ) =>
   Effect.flatMap(Cache, (kept) =>
-    Runtime.start(
-      the.OwnerLive as never,
-      Layer.mergeAll(
+    Runtime.scoped(the.OwnerLive as never, {
+      window: 0,
+      layer: Layer.mergeAll(
         over === undefined ? the.layer : Layer.merge(the.layer, over),
         storageMemory((parts) => ({
           ...the.over(parts),
           cache: { ...parts.cache, ...kept },
         })),
       ) as never,
-    ),
-  ) as Effect.Effect<Running<unknown>, never, Scope.Scope | Cache>;
+    }),
+  ) as Effect.Effect<Runtime, never, Scope.Scope | Cache>;
 
 const a1 = { accountId: 'a1', connectionId: null, projectId: null };
 const setupOf = (connectionId: string) => ({
@@ -392,14 +390,14 @@ const walk = (at: Instance): ReadonlyArray<Instance> => [
 ];
 
 /** The Account's page. */
-const list = (app: Running<unknown>) =>
-  walk(app.snapshot()).find((each) => each.actor === 'Page')!;
+const list = (app: Runtime) =>
+  walk(app.snapshot.root).find((each) => each.actor === 'Page')!;
 
 /** Whether the list's Last Seen is believed yet. */
-const checkedOf = (app: Running<unknown>) =>
+const checkedOf = (app: Runtime) =>
   (list(app).model as { readonly checked: boolean }).checked;
 
-const listModel = (app: Running<unknown>) => {
+const listModel = (app: Runtime) => {
   const { list: held, fetchedAt } = list(app).model as {
     readonly list: { readonly value: ReadonlyArray<Connection> | null };
     readonly fetchedAt: number | null;
@@ -465,7 +463,7 @@ describe('the Account, active', () => {
           { accountId: 'a1', connectionIds: ['m1', 'm2'] },
         ]);
         listed = [connection('m1', 1)];
-        app.send(list(app).id, { _tag: 'ReloadAsked' });
+        app.send(list(app).address, { _tag: 'ReloadAsked' });
         yield* wait();
         expect(listModel(app).connections?.map(({ id }) => id)).toEqual(['m1']);
         expect(kept).toHaveLength(1);
@@ -507,7 +505,7 @@ describe('the Account, active', () => {
         yield* saved.write(SetupShelf, setupOf('m2'), speechOff);
         const app = yield* start({ OwnerLive, layer, over });
         yield* wait();
-        app.send(list(app).id, { _tag: 'ForgetAsked', id: 'm1' });
+        app.send(list(app).address, { _tag: 'ForgetAsked', id: 'm1' });
         yield* wait();
         expect(forgotten).toEqual(['m1']);
         // Its own alone: another tab may list a Connection not heard of here.
@@ -545,9 +543,9 @@ describe('the Account, active', () => {
         const app = yield* start({ OwnerLive, layer, over });
         yield* wait();
         // Asked before the rename, answered after it, with the old name.
-        app.send(list(app).id, { _tag: 'ReloadAsked' });
+        app.send(list(app).address, { _tag: 'ReloadAsked' });
         yield* wait();
-        app.send(list(app).id, {
+        app.send(list(app).address, {
           _tag: 'Renamed',
           id: 'm1',
           displayName: 'Work',
@@ -617,7 +615,7 @@ describe('the Account, by who is active', () => {
       stream: SubscriptionRef.changes(ref),
     }));
 
-  const stateOf = (app: Running<unknown>) => list(app).state;
+  const stateOf = (app: Runtime) => list(app).state;
 
   /** `active` signed in beside `others`, a switch to `to` under way. */
   const switching = (
@@ -701,7 +699,7 @@ describe('the Account, by who is active', () => {
         expect(the.moved).toEqual([]);
         // Its Connections stop with it.
         expect(
-          walk(app.snapshot()).some((each) => each.actor === 'Connection'),
+          walk(app.snapshot.root).some((each) => each.actor === 'Connection'),
         ).toBe(false);
         // Added in another tab, it is the same.
         yield* SubscriptionRef.set(ref, signedIn('a3', 'a2', 'a1'));
@@ -786,12 +784,12 @@ describe('the Account, by who is active', () => {
         const the = world(Effect.succeed([]), null, stream);
         const app = yield* start(the);
         yield* wait();
-        app.send(list(app).id, { _tag: 'ChooseAsked', id: 'a1' });
+        app.send(list(app).address, { _tag: 'ChooseAsked', id: 'a1' });
         yield* wait();
         expect(the.switched).toEqual([]);
         yield* SubscriptionRef.set(ref, signedIn('a2', 'a1'));
         yield* wait();
-        app.send(list(app).id, { _tag: 'ChooseAsked', id: 'a1' });
+        app.send(list(app).address, { _tag: 'ChooseAsked', id: 'a1' });
         yield* wait();
         expect(the.switched).toEqual(['a1']);
         yield* SubscriptionRef.set(ref, switching('a1', 'a2', 'a1'));
@@ -811,7 +809,7 @@ describe('the Account, by who is active', () => {
         const the = world(Effect.succeed([]), null, stream);
         const app = yield* start(the);
         yield* wait();
-        app.send(list(app).id, { _tag: 'ChooseAsked', id: 'a3' });
+        app.send(list(app).address, { _tag: 'ChooseAsked', id: 'a3' });
         yield* wait();
         expect(the.switched).toEqual(['a3']);
         expect(the.moved).toEqual([]);
@@ -827,7 +825,7 @@ describe('the Account, by who is active', () => {
         const the = world(Effect.succeed([]), null, stream);
         const app = yield* start(the);
         yield* wait();
-        app.send(list(app).id, { _tag: 'ChooseAsked', id: 'a2' });
+        app.send(list(app).address, { _tag: 'ChooseAsked', id: 'a2' });
         yield* wait();
         expect(the.switched).toEqual([]);
         expect(the.moved).toEqual([home('a2')]);
@@ -842,7 +840,7 @@ describe('the Account, by who is active', () => {
         const the = world(Effect.succeed([]), null, stream);
         const app = yield* start(the);
         yield* wait();
-        app.send(list(app).id, { _tag: 'ChooseAsked', id: 'refused' });
+        app.send(list(app).address, { _tag: 'ChooseAsked', id: 'refused' });
         yield* wait();
         const model = list(app).model as {
           readonly leaving: string | null;
@@ -866,7 +864,7 @@ describe('the Account, by who is active', () => {
           const the = world(Effect.succeed([]), null, stream);
           const app = yield* start(the);
           yield* wait();
-          app.send(list(app).id, { _tag: 'SignInAsked' });
+          app.send(list(app).address, { _tag: 'SignInAsked' });
           yield* wait();
           expect(the.signIns).toEqual([
             { provider: 'google', returnTo: 'https://code.example.com/a/a1' },
@@ -945,8 +943,8 @@ describe('the Account, Active again', () => {
     }));
 
   /** How each of the page's own Queries stands: its row, the session's row and its messages. */
-  const queriesOf = (app: Running<unknown>) =>
-    walk(app.snapshot())
+  const queriesOf = (app: Runtime) =>
+    walk(app.snapshot.root)
       .filter(({ actor }) =>
         ['ProjectRow', 'SessionRow', 'Messages'].includes(actor),
       )
@@ -956,8 +954,8 @@ describe('the Account, Active again', () => {
       )
       .sort();
 
-  const sessionOf = (app: Running<unknown>) =>
-    walk(app.snapshot()).find(({ actor }) => actor === 'Session')!;
+  const sessionOf = (app: Runtime) =>
+    walk(app.snapshot.root).find(({ actor }) => actor === 'Session')!;
 
   /** Waits, a little at a time, until `holds`, for a few seconds at most. */
   const until = (holds: () => boolean) =>
@@ -989,7 +987,10 @@ describe('the Account, Active again', () => {
             (sessionOf(app).model as { readonly jobs: ReadonlyArray<unknown> })
               .jobs.length > 0,
         );
-        app.send(sessionOf(app).id, { _tag: 'CommandOpened', jobId: 'j1' });
+        app.send(sessionOf(app).address, {
+          _tag: 'CommandOpened',
+          jobId: 'j1',
+        });
         yield* until(() => the.output.opened === 1);
         expect(the.output).toEqual({ opened: 1, ended: 0 });
         // Another tab switched: its Connection stops, and nothing asks it.
@@ -1082,7 +1083,7 @@ describe('the Account rechecks', () => {
         yield* TestClock.adjust(RECHECK.slow - RECHECK.fast);
         yield* settle;
         expect(lists()).toBe(2 + RECHECK.fastFor);
-        app.send(list(app).id, { _tag: 'ReloadAsked' });
+        app.send(list(app).address, { _tag: 'ReloadAsked' });
         yield* settle;
         expect(lists()).toBe(3 + RECHECK.fastFor);
       }),
@@ -1135,7 +1136,7 @@ describe('the Account checks', () => {
         expect(checkedOf(app)).toBe(true);
         // Back: not believed again until Cloud Connect answers anew.
         answer = answers[1];
-        app.send(list(app).id, { _tag: 'Back' });
+        app.send(list(app).address, { _tag: 'Back' });
         yield* wait();
         expect(checkedOf(app)).toBe(false);
         yield* Deferred.succeed(answers[1], [connection('m1', 3)]);
@@ -1185,7 +1186,7 @@ describe('the Account mismatched', () => {
   const NEWER = 'c'.repeat(64);
 
   /** The Connections' Links and mismatches, as it holds them. */
-  const linksOf = (app: Running<unknown>) =>
+  const linksOf = (app: Runtime) =>
     list(app).model as {
       readonly links: Readonly<Record<string, string>>;
       readonly mismatched: Readonly<Record<string, unknown>>;

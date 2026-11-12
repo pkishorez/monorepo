@@ -1,13 +1,12 @@
 import { Effect, Layer, Schema } from 'effect';
 import type { Scope } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { Command, History, Runtime } from '../../core/index.ts';
+import { Command, History, Runtime, Snapshot } from '../../core/index.ts';
+import type { Instance } from '../../core/index.ts';
 import { View } from '../../react/index.ts';
 import { Navigation, Page, Router } from '../index.ts';
 import { Loading } from '../capabilities/index.ts';
-import type { Running } from '../../core/runtime/index.ts';
 import type { Types } from '../../core/actor/index.ts';
-import type { Instance } from '../../core/snapshot/index.ts';
 import { Adapter } from '../router/adapter/index.ts';
 import type { NotFoundError, RedirectTo } from '../page/index.ts';
 
@@ -137,22 +136,22 @@ const walk = (at: Instance): ReadonlyArray<Instance> => [
     ((Array.isArray(child) ? child : [child]) as Array<Instance>).flatMap(walk),
   ),
 ];
-const find = (app: Running<unknown>, name: string) =>
-  walk(app.snapshot()).find((each) => each.actor === name);
+const find = (app: Runtime, name: string) =>
+  walk(app.snapshot.root).find((each) => each.actor === name);
 /** What the page `name` is handed as `status`. */
-const status = (app: Running<unknown>, name: string) =>
+const status = (app: Runtime, name: string) =>
   (find(app, name)?.props as { readonly status?: unknown } | undefined)?.status;
-const router = (app: Running<unknown>) =>
-  app.snapshot().model as {
+const router = (app: Runtime) =>
+  app.snapshot.root.model as {
     readonly entries: ReadonlyArray<{ readonly route: unknown }>;
     readonly at: number;
     readonly pending: { readonly to: unknown } | null;
   };
 const send = (
-  app: Running<unknown>,
+  app: Runtime,
   message: { readonly _tag: string; readonly [field: string]: unknown },
-) => app.send('Router', message);
-const push = (app: Running<unknown>, route: unknown) =>
+) => app.send(app.snapshot.root.address, message);
+const push = (app: Runtime, route: unknown) =>
   send(app, { _tag: 'Pushed', route });
 
 /** What a server drew a place with: `data`, loaded as the page was drawn. */
@@ -168,14 +167,14 @@ const served = (data: unknown) => ({
 const ready = (data: unknown, refreshing = false) =>
   expect.objectContaining({ _tag: 'Ready', data, refreshing });
 /** When the page `name`'s data goes stale. */
-const freshUntil = (app: Running<unknown>, name: string) =>
+const freshUntil = (app: Runtime, name: string) =>
   (
     status(app, name) as
       | { readonly info?: { readonly freshUntil?: number | null } }
       | undefined
   )?.info?.freshUntil;
 /** Where the page `name`'s data came from, and how long it took. */
-const from = (app: Running<unknown>, name: string) => {
+const from = (app: Runtime, name: string) => {
   const info = (
     status(app, name) as
       | { readonly info?: { readonly from?: string; readonly took?: unknown } }
@@ -190,7 +189,7 @@ describe('a move to pages with data', () => {
     run(
       Effect.gen(function* () {
         const open = hold('Blog.Post:hello');
-        const app = yield* Runtime.start(Root.actor, loading);
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
         push(app, Routes.Blog.Post({ slug: 'hello' }));
         yield* settle;
         expect(find(app, 'Home')).toBeDefined();
@@ -211,7 +210,7 @@ describe('a move to pages with data', () => {
     run(
       Effect.gen(function* () {
         const open = hold('Blog.Post:hello');
-        const app = yield* Runtime.start(Root.actor, loading);
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
         push(app, Routes.Blog.Post({ slug: 'hello' }));
         yield* wait(200);
         expect(router(app).pending).toBeNull();
@@ -232,7 +231,7 @@ describe('a move to pages with data', () => {
     run(
       Effect.gen(function* () {
         const open = hold('Blog');
-        const app = yield* Runtime.start(Root.actor, loading);
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
         push(app, Routes.Blog.Post({ slug: 'hello' }));
         yield* wait(500);
         expect(status(app, 'Blog')).toEqual({
@@ -250,14 +249,14 @@ describe('a move to pages with data', () => {
   it('keeps a page whose params did not change, with its own Model', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Root.actor, loading);
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
         push(app, Routes.Blog.Post({ slug: 'hello' }));
         yield* settle;
-        const blog = find(app, 'Blog')!.id;
-        app.send(find(app, 'Post')!.id, { _tag: 'Typed', text: 'mine' });
+        const blog = find(app, 'Blog')!.address;
+        app.send(find(app, 'Post')!.address, { _tag: 'Typed', text: 'mine' });
         push(app, Routes.Blog.Post({ slug: 'again' }));
         yield* settle;
-        expect(find(app, 'Blog')!.id).toBe(blog);
+        expect(find(app, 'Blog')!.address).toBe(blog);
         // New params, a new page: its Model starts again.
         expect(find(app, 'Post')!.model).toEqual({ draft: null });
         expect(calls).toEqual({
@@ -271,14 +270,14 @@ describe('a move to pages with data', () => {
   it('loads a page again when the query its Loader reads changes, the data shown meanwhile', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Root.actor, loading);
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
         push(app, Routes.Blog());
         yield* settle;
-        const blog = find(app, 'Blog')!.id;
+        const blog = find(app, 'Blog')!.address;
         const open = hold('Blog:again');
         push(app, Routes.Blog({ tag: 'again' }));
         yield* settle;
-        expect(find(app, 'Blog')!.id).toBe(blog);
+        expect(find(app, 'Blog')!.address).toBe(blog);
         expect(status(app, 'Blog')).toEqual(ready(BLOG, true));
         open();
         yield* settle;
@@ -292,7 +291,7 @@ describe('a Loader that does not answer with data', () => {
     run(
       Effect.gen(function* () {
         breaks.add('Blog.Post:hello');
-        const app = yield* Runtime.start(Root.actor, loading);
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
         push(app, Routes.Blog.Post({ slug: 'hello' }));
         yield* settle;
         expect(status(app, 'Blog')).toEqual(ready(BLOG));
@@ -312,7 +311,7 @@ describe('a Loader that does not answer with data', () => {
   it('says not found on its page', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Root.actor, loading);
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
         push(app, Routes.Blog.Post({ slug: 'nope' }));
         yield* settle;
         expect(status(app, 'Post')).toEqual({
@@ -327,7 +326,7 @@ describe('a Loader that does not answer with data', () => {
   it('Redirects: the move goes on to where it says', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Root.actor, loading);
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
         push(app, Routes.Blog.Post({ slug: 'old' }));
         yield* settle;
         const { entries, at } = router(app);
@@ -357,10 +356,9 @@ describe('a Redirect out of the app', () => {
     run(
       Effect.gen(function* () {
         const { left, layer } = away();
-        const app = yield* Runtime.start(
-          Root.actor,
-          Layer.merge(loading, layer),
-        );
+        const app = yield* Runtime.scoped(Root.actor, {
+          layer: Layer.merge(loading, layer),
+        });
         yield* settle;
         push(app, Routes.Blog.Post({ slug: 'away' }));
         yield* settle;
@@ -374,7 +372,7 @@ describe('a Redirect out of the app', () => {
   it('in memory, drops the move and leaves nothing', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Root.actor, loading);
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
         push(app, Routes.Blog.Post({ slug: 'away' }));
         yield* settle;
         expect(router(app).pending).toBeNull();
@@ -387,7 +385,7 @@ describe('the Data cache', () => {
   it('answers Back at once, and loads it again behind the data shown', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Root.actor, loading);
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
         push(app, Routes.Blog.Post({ slug: 'hello' }));
         yield* settle;
         push(app, Routes.Home());
@@ -414,10 +412,10 @@ describe('the Data cache', () => {
           Blog: served(BLOG),
           'Blog.Post': served(POSTS[0]),
         });
-        const app = yield* Runtime.start(
-          History.make(Root.actor, { input }),
-          loading,
-        );
+        const app = yield* Runtime.scoped(Root.actor, {
+          input,
+          layer: loading,
+        });
         yield* settle;
         push(app, Routes.Home());
         yield* settle;
@@ -434,7 +432,7 @@ describe('the Data cache', () => {
   it('shows a dynamic or client page from its copy at once, Ready and refreshing, then fresh', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Root.actor, loading);
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
         push(app, Routes.Stats());
         yield* settle;
         push(app, Routes.Home());
@@ -454,7 +452,7 @@ describe('the Data cache', () => {
   it('a preload warms it: the move then needs no Loader', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Root.actor, loading);
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
         send(app, {
           _tag: 'Preloading',
           route: Routes.Blog.Post({ slug: 'again' }),
@@ -474,7 +472,7 @@ describe('the Data cache', () => {
     run(
       Effect.gen(function* () {
         const open = hold('Blog.Post:again');
-        const app = yield* Runtime.start(Root.actor, loading);
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
         send(app, {
           _tag: 'Preloading',
           route: Routes.Blog.Post({ slug: 'again' }),
@@ -494,7 +492,7 @@ describe('a held Back', () => {
   it('moves the history at once, so a second Back and a push start from where it goes', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Root.actor, loading);
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
         push(app, Routes.Blog.Post({ slug: 'hello' }));
         yield* settle;
         push(app, Routes.Blog.Post({ slug: 'again' }));
@@ -527,10 +525,10 @@ describe('a reload', () => {
   it('loads every page on screen again, its data and its own Model kept meanwhile', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Root.actor, loading);
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
         push(app, Routes.Blog.Post({ slug: 'hello' }));
         yield* settle;
-        const post = find(app, 'Post')!.id;
+        const post = find(app, 'Post')!.address;
         app.send(post, { _tag: 'Typed', text: 'mine' });
         const open = hold('Blog.Post:hello');
         send(app, { _tag: 'Reloaded' });
@@ -539,7 +537,7 @@ describe('a reload', () => {
         open();
         yield* settle;
         expect(status(app, 'Post')).toEqual(ready(POSTS[0]));
-        expect(find(app, 'Post')!.id).toBe(post);
+        expect(find(app, 'Post')!.address).toBe(post);
         expect(find(app, 'Post')!.model).toEqual({ draft: 'mine' });
         expect(calls).toEqual({ Blog: 2, 'Blog.Post:hello': 2 });
       }),
@@ -548,7 +546,7 @@ describe('a reload', () => {
   it('keeps what it loaded in the Data cache: Back to it after is at once', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Root.actor, loading);
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
         push(app, Routes.Blog.Post({ slug: 'hello' }));
         yield* settle;
         send(app, { _tag: 'Reloaded' });
@@ -589,10 +587,10 @@ describe('a copy that comes while a page loads', () => {
               );
             }),
         });
-        const app = yield* Runtime.start(
-          History.make(Root.actor, { input: Root.startAt('/stats') }),
-          stale,
-        );
+        const app = yield* Runtime.scoped(Root.actor, {
+          input: Root.startAt('/stats'),
+          layer: stale,
+        });
         yield* wait(400);
         expect(status(app, 'Stats')).toEqual(ready({ visits: 2 }));
         expect(fresh).toBe(1);
@@ -622,7 +620,7 @@ describe('two reloads in a row', () => {
             }),
           ),
         );
-        const app = yield* Runtime.start(Root.actor, counting);
+        const app = yield* Runtime.scoped(Root.actor, { layer: counting });
         push(app, Routes.Stats());
         yield* wait(60);
         expect(status(app, 'Stats')).toEqual(ready({ visits: 1 }));
@@ -639,17 +637,17 @@ describe('a client page', () => {
   it('starts Loading when the app opens at it, and loads once it runs', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(
-          History.make(Root.actor, { input: Root.startAt('/stats') }),
-          loading,
-        );
+        const app = yield* Runtime.scoped(Root.actor, {
+          input: Root.startAt('/stats'),
+          layer: loading,
+        });
         yield* wait(350);
         expect(status(app, 'Stats')).toEqual(ready({ visits: 3 }));
       }),
     ));
 });
 
-describe('a Fork, the app started again from an earlier Step', () => {
+describe('a Fork, the app carried on from an earlier Step', () => {
   /** A browser's history in memory: its entries, and the one shown. */
   const browser = (url: string) => {
     const entries: Array<{ url: string; key: string | null }> = [
@@ -682,48 +680,49 @@ describe('a Fork, the app started again from an earlier Step', () => {
     });
     return { layer, shown: () => entries[at]!, count: () => entries.length };
   };
-  const current = (app: Running<unknown>) => {
-    const model = app.snapshot().model as {
+  /** The app Forked to `entry`, as a tool does: the same Runtime, its work started again there, running no Command. */
+  const fork = (app: Runtime, entry: number) =>
+    Effect.promise(() => app.fork(entry)).pipe(Effect.as(app));
+  const current = (app: Runtime) => {
+    const model = app.snapshot.root.model as {
       readonly entries: ReadonlyArray<{ readonly key: string; route: unknown }>;
       readonly at: number;
     };
     return model.entries[model.at]!;
   };
 
-  it("carries on at the Step's own page, and puts the address there", () =>
+  it("carries on at the Step's own page, and puts the URL there", () =>
     run(
       Effect.gen(function* () {
-        const address = browser('/');
-        const app = yield* Runtime.start(
-          History.make(Root.actor),
-          Layer.merge(loading, address.layer),
-        );
+        const tab = browser('/');
+        const app = yield* Runtime.scoped(Root.actor, {
+          layer: Layer.merge(loading, tab.layer),
+        });
         yield* settle;
         push(app, Routes.Blog());
         yield* settle;
-        const onBlog = app.history.head()!;
+        const onBlog = app.history.head!;
         push(app, Routes.Blog.Post({ slug: 'hello' }));
         yield* settle;
-        expect(address.shown().url).toBe('/blog/hello');
+        expect(tab.shown().url).toBe('/blog/hello');
 
-        yield* app.start(onBlog);
+        const forked = yield* fork(app, onBlog);
         yield* settle;
-        expect(current(app).route).toEqual(Routes.Blog());
-        expect(address.shown()).toEqual({
+        expect(current(forked).route).toEqual(Routes.Blog());
+        expect(tab.shown()).toEqual({
           url: '/blog',
-          key: current(app).key,
+          key: current(forked).key,
         });
       }),
     ));
 
-  it('goes to the entry the address kept for it, when the Step had one', () =>
+  it('goes to the entry the URL kept for it, when the Step had one', () =>
     run(
       Effect.gen(function* () {
-        const address = browser('/');
-        const app = yield* Runtime.start(
-          History.make(Root.actor),
-          Layer.merge(loading, address.layer),
-        );
+        const tab = browser('/');
+        const app = yield* Runtime.scoped(Root.actor, {
+          layer: Layer.merge(loading, tab.layer),
+        });
         yield* settle;
         push(app, Routes.Blog());
         yield* settle;
@@ -731,20 +730,20 @@ describe('a Fork, the app started again from an earlier Step', () => {
         yield* settle;
         send(app, { _tag: 'Went', by: -1 });
         yield* settle;
-        const backOnBlog = app.history.head()!;
+        const backOnBlog = app.history.head!;
         send(app, { _tag: 'Went', by: 1 });
         yield* settle;
-        expect(address.shown().url).toBe('/blog/hello');
+        expect(tab.shown().url).toBe('/blog/hello');
 
-        yield* app.start(backOnBlog);
+        const forked = yield* fork(app, backOnBlog);
         yield* settle;
-        expect(current(app).route).toEqual(Routes.Blog());
-        expect(address.shown()).toEqual({
+        expect(current(forked).route).toEqual(Routes.Blog());
+        expect(tab.shown()).toEqual({
           url: '/blog',
-          key: current(app).key,
+          key: current(forked).key,
         });
         // Back on the entry it kept, not a copy written over the one after.
-        expect(address.count()).toBe(3);
+        expect(tab.count()).toBe(3);
       }),
     ));
 });
@@ -753,7 +752,7 @@ describe('the not-found Route', () => {
   it('is handed to the root page as its path', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Root.actor, loading);
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
         push(app, Routes.read('/nowhere').route);
         yield* settle;
         const props = find(app, 'App')!.props as {
@@ -780,16 +779,12 @@ describe('a drawing a server saves', () => {
       Blog: served(BLOG),
       'Blog.Post': { _tag: 'Failed', reason: 'gone', notFound: true },
     });
-    const history = History.make(Root.actor, { input });
-    const saved = History.restored(
-      Root.actor,
-      history.snapshotAt(null),
-      0,
-    ).save();
+    const drawn = Snapshot.init(Root.actor, input);
+    const saved = History.save(Root.actor, History.restored(drawn, { input }));
     const loaded = History.load(Root.actor, JSON.parse(JSON.stringify(saved)));
     // Right after its one entry, the Restore.
-    expect(loaded.snapshotAt(0)).toEqual(history.snapshotAt(null));
-    const tree = loaded.snapshotAt(0) as Instance;
+    const tree = Snapshot.replay(Root.actor, loaded, 0).root as Instance;
+    expect(tree).toEqual(drawn.root);
     const post = walk(tree).find((each) => each.actor === 'Post')!;
     expect((post.props as { readonly status: unknown }).status).toEqual({
       _tag: 'Failed',
@@ -833,7 +828,7 @@ describe('a page with a Stale time', () => {
   it('shows a fresh copy and loads nothing', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(FreshRoot.actor, fresh);
+        const app = yield* Runtime.scoped(FreshRoot.actor, { layer: fresh });
         push(app, Fresh.Feed());
         yield* settle;
         push(app, Fresh.Start());
@@ -849,7 +844,7 @@ describe('a page with a Stale time', () => {
   it('shows an older copy at once, refreshing, and loads it again behind it', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(FreshRoot.actor, fresh);
+        const app = yield* Runtime.scoped(FreshRoot.actor, { layer: fresh });
         push(app, Fresh.Feed());
         yield* settle;
         push(app, Fresh.Start());
@@ -869,7 +864,7 @@ describe('a page with a Stale time', () => {
   it('a preload skips a fresh copy, loads an older one again, and the move after it loads nothing', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(FreshRoot.actor, fresh);
+        const app = yield* Runtime.scoped(FreshRoot.actor, { layer: fresh });
         send(app, { _tag: 'Preloading', route: Fresh.Feed() });
         yield* settle;
         send(app, { _tag: 'Preloading', route: Fresh.Feed() });
@@ -889,7 +884,7 @@ describe('a page with a Stale time', () => {
   it('a move to an older copy during a preload of it joins the preload: one load', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(FreshRoot.actor, fresh);
+        const app = yield* Runtime.scoped(FreshRoot.actor, { layer: fresh });
         push(app, Fresh.Feed());
         yield* settle;
         push(app, Fresh.Start());
@@ -910,7 +905,7 @@ describe('a page with a Stale time', () => {
   it('says when its data goes stale: its Stale time from when it arrived, kept on a copy', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(FreshRoot.actor, fresh);
+        const app = yield* Runtime.scoped(FreshRoot.actor, { layer: fresh });
         const before = Date.now();
         push(app, Fresh.Feed());
         yield* settle;
@@ -935,7 +930,7 @@ describe('a page with a Stale time', () => {
   it('says where its data came from, and how long it took: in `info`', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(FreshRoot.actor, fresh);
+        const app = yield* Runtime.scoped(FreshRoot.actor, { layer: fresh });
         const open = hold('Feed');
         push(app, Fresh.Feed());
         yield* wait(200);
@@ -963,7 +958,7 @@ describe('a page with a Stale time', () => {
   it('a reload loads it again, fresh or not', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(FreshRoot.actor, fresh);
+        const app = yield* Runtime.scoped(FreshRoot.actor, { layer: fresh });
         push(app, Fresh.Feed());
         yield* settle;
         send(app, { _tag: 'Reloaded' });
@@ -978,10 +973,9 @@ describe("the router's cacheSize", () => {
     run(
       Effect.gen(function* () {
         const Small = Router.define(App, { cacheSize: 1 });
-        const app = yield* Runtime.start(
-          Router.view(Small, AppView).actor,
-          Loading.cached(Small, Loading.memory(Small, loaders)),
-        );
+        const app = yield* Runtime.scoped(Router.view(Small, AppView).actor, {
+          layer: Loading.cached(Small, Loading.memory(Small, loaders)),
+        });
         push(app, Small.Blog.Post({ slug: 'hello' }));
         yield* settle;
         push(app, Small.Blog.Post({ slug: 'again' }));
@@ -1009,7 +1003,7 @@ describe("a Ready status's waited", () => {
   it('is false for data that came while the move was held', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Root.actor, loading);
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
         push(app, Routes.Blog.Post({ slug: 'hello' }));
         yield* settle;
         expect(status(app, 'Post')).toEqual(arrived(POSTS[0], false));
@@ -1020,7 +1014,7 @@ describe("a Ready status's waited", () => {
     run(
       Effect.gen(function* () {
         const open = hold('Blog.Post:hello');
-        const app = yield* Runtime.start(Root.actor, loading);
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
         push(app, Routes.Blog.Post({ slug: 'hello' }));
         yield* wait(200);
         expect(status(app, 'Post')).toEqual(LOADING_POST);
@@ -1033,10 +1027,10 @@ describe("a Ready status's waited", () => {
   it('is false again once the data is loaded behind the data shown', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(
-          History.make(Root.actor, { input: Root.startAt('/stats') }),
-          loading,
-        );
+        const app = yield* Runtime.scoped(Root.actor, {
+          input: Root.startAt('/stats'),
+          layer: loading,
+        });
         yield* wait(350);
         expect(status(app, 'Stats')).toEqual(arrived({ visits: 3 }, true));
         send(app, { _tag: 'Reloaded' });
@@ -1057,8 +1051,8 @@ describe("the router's minimum", () => {
         expect(Routes.options.minimum).toBe(300);
         expect(Quick.options.minimum).toBe(40);
         const open = hold('Blog.Post:hello');
-        const slow = yield* Runtime.start(Root.actor, loading);
-        const fast = yield* Runtime.start(QuickRoot.actor, quick);
+        const slow = yield* Runtime.scoped(Root.actor, { layer: loading });
+        const fast = yield* Runtime.scoped(QuickRoot.actor, { layer: quick });
         push(slow, Routes.Blog.Post({ slug: 'hello' }));
         push(fast, Quick.Blog.Post({ slug: 'hello' }));
         yield* wait(200);
@@ -1091,7 +1085,7 @@ describe('a reload anew', () => {
   );
   const atStats = Effect.gen(function* () {
     version = 0;
-    const app = yield* Runtime.start(Root.actor, versioned);
+    const app = yield* Runtime.scoped(Root.actor, { layer: versioned });
     push(app, Routes.Stats());
     yield* settle;
     expect(status(app, 'Stats')).toEqual(arrived({ visits: 1 }, false));
@@ -1147,7 +1141,7 @@ describe('a reload anew', () => {
   it('a move while it is held loads the data it keeps anew too', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Root.actor, loading);
+        const app = yield* Runtime.scoped(Root.actor, { layer: loading });
         push(app, Routes.Blog.Post({ slug: 'hello' }));
         yield* settle;
         expect(calls).toEqual({ Blog: 1, 'Blog.Post:hello': 1 });
@@ -1221,11 +1215,13 @@ describe('a reload anew', () => {
     );
     return run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(HeldRoot.actor, heldLoading);
+        const app = yield* Runtime.scoped(HeldRoot.actor, {
+          layer: heldLoading,
+        });
         // Past the minimum its first loading screen stays.
         yield* wait(400);
         const open = hold('Shown');
-        app.send(find(app, 'Shown')!.id, { _tag: 'Renew' });
+        app.send(find(app, 'Shown')!.address, { _tag: 'Renew' });
         yield* wait(500);
         expect(find(app, 'Shown')!.model).toEqual({ landed: false });
         expect(status(app, 'Shown')).toEqual(arrived({ visits: 1 }, true));

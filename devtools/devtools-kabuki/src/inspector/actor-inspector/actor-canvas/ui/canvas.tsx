@@ -65,6 +65,12 @@ export function Canvas({
   dotted = true,
   spotlight,
   bring,
+  unfold,
+  folding = true,
+  selected,
+  onSelect,
+  onTrail,
+  onFold,
   onOpen,
 }: {
   readonly root: GraphNode;
@@ -88,6 +94,21 @@ export function Canvas({
     readonly key: string;
     readonly with?: ReadonlyArray<string>;
   };
+  /**
+   * Which cards show what is under them, said by whoever places the canvas
+   * instead of the reader's folds; a fold asked is told to `onFold`. The
+   * cards above one open always show it.
+   */
+  readonly unfold?: (node: GraphNode) => boolean;
+  /** Whether the cards have a button to fold what is under them. */
+  readonly folding?: boolean;
+  /** The card picked, marked. */
+  readonly selected?: string | null;
+  /** A small card pressed: told here, instead of opening it. */
+  readonly onSelect?: (id: string) => void;
+  /** An open card's way to its Trail pressed; none where the cards are no Instances. */
+  readonly onTrail?: (id: string) => void;
+  readonly onFold?: (id: string, unfold: boolean) => void;
   readonly onOpen: (id: string, open: boolean) => void;
 }) {
   const space = useSpace();
@@ -122,8 +143,15 @@ export function Canvas({
         .forEach((one) => ids.add(one));
     return ids;
   }, [root, opened]);
+  // Said from outside, only the cards above one open show it besides.
+  const above = useMemo(
+    () => new Set(opened.flatMap((id) => pathTo(root, id).slice(0, -1))),
+    [root, opened],
+  );
   const unfolded = (node: GraphNode) =>
-    folds.get(node.id) ?? (node === root || reveal.has(node.id));
+    unfold
+      ? node === root || unfold(node) || above.has(node.id)
+      : (folds.get(node.id) ?? (node === root || reveal.has(node.id)));
 
   // 2. Lay
   const heightOf = (id: string) => heights.get(id) ?? 420;
@@ -481,12 +509,24 @@ export function Canvas({
                 ? { focus: focusOf(one.node.id)! }
                 : {})}
               dim={lit !== undefined && !lit.has(one.node.id)}
+              folding={folding}
+              onTrail={onTrail}
+              selected={selected === one.node.id}
+              {...(onSelect
+                ? {
+                    onSelect: (id: string) => {
+                      hold(id);
+                      onSelect(id);
+                    },
+                  }
+                : {})}
               {...(flash?.id === one.node.id ? { flash: flash.count } : {})}
               onOpen={toggle}
               onCenter={center}
-              onFold={(id, unfold) => {
+              onFold={(id, open) => {
                 hold(id);
-                setFolds((was) => new Map(was).set(id, unfold));
+                if (onFold) onFold(id, open);
+                else setFolds((was) => new Map(was).set(id, open));
               }}
               onChild={(parent, title) => {
                 const child = byId

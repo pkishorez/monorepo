@@ -17,3 +17,7 @@ The Restore already is how a Snapshot enters a History ([ADR 0021](0021-an-app-i
 - What the folded Messages did is kept only as the Restore's Snapshot. Code changed later never plays them again; a Snapshot that no longer fits its Schemas is warned of and skipped, as any Restore is, and the app starts from init.
 - Time Travel reaches init, the Restore, and the Window, nothing before. A Step shown that is Compacted away shows the Restore.
 - Moving the Head back and growing a new Branch drops the old one once the oldest kept entry passes where they split.
+
+## Note
+
+Since the Runtime was redesigned, the Window belongs to the Runtime, not the History: the `window` option of `Runtime.make`, 100 by default, and `runtime.keep(n)`, running or stopped. `History.compact(actor, history, window)` is the pure function the Runtime calls after every Message. Compacting itself stands.

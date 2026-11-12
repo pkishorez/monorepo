@@ -1,9 +1,9 @@
 import { Effect, Fiber, Schema, Stream } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, it, vi } from 'vitest';
-import { Actor, History, Runtime } from '../index.ts';
-import type { SavedHistory } from '../history/index.ts';
-import { Snapshot } from '../snapshot/index.ts';
+import { Actor, History, Runtime, Snapshot } from '../index.ts';
+import type { AnyActor } from '../actor/index.ts';
+import type { SavedHistory } from '../index.ts';
 import { Counter, run, settle, timed } from './fixtures.ts';
 
 /*
@@ -11,8 +11,8 @@ import { Counter, run, settle, timed } from './fixtures.ts';
  * through Effect, and loaded again when the process starts over.
  */
 
-const count = (snapshot: { readonly model: unknown }) =>
-  (snapshot.model as { readonly count: number }).count;
+const count = (snapshot: Snapshot) =>
+  (snapshot.root.model as { readonly count: number }).count;
 
 /** A Counter whose Model changed shape since it was saved. */
 const Renamed = Actor.define('Counter', {
@@ -36,61 +36,22 @@ const Quiet = Actor.define('Counter', {
 const bumped = (n: number, window: number | null = 0) =>
   run(
     Effect.gen(function* () {
-      const app = yield* Runtime.start(History.make(Counter, { window }));
-      for (let i = 0; i < n; i++) app.send('Counter', { _tag: 'Bumped' });
-      return app.history.save();
+      const app = yield* Runtime.scoped(Counter, { window });
+      for (let i = 0; i < n; i++)
+        app.send(app.snapshot.root.address, { _tag: 'Bumped' });
+      return History.save(Counter, app.history);
     }),
   );
 
-describe('history.changes', () => {
-  it('gives the saved History now, then after every change', () =>
-    run(
-      Effect.gen(function* () {
-        const app = yield* Runtime.start(Counter);
-        const seen: Array<SavedHistory> = [];
-        const reading = yield* app.history.changes.pipe(
-          Stream.runForEach((saved) => Effect.sync(() => seen.push(saved))),
-          Effect.forkScoped,
-        );
-        yield* settle;
-        app.send('Counter', { _tag: 'Bumped' });
-        yield* settle;
-        app.send('Counter', { _tag: 'Bumped' });
-        yield* settle;
-        yield* Fiber.interrupt(reading);
-        expect(seen.map((saved) => saved.entries.length)).toEqual([0, 1, 1]);
-        expect(seen.at(-1)).toBe(app.history.save());
-      }),
-    ));
+/** What a Runtime of `actor` holds now, saved: now, then after every change. */
+const savedChanges = <A extends AnyActor>(app: Runtime<A>) =>
+  app.changes.pipe(Stream.map(() => History.save(app.actor, app.history)));
 
-  it('hands a slow reader only the latest', () =>
+describe('runtime.changes', () => {
+  it('gives the Snapshot now, then once the Mailbox is empty', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Counter);
-        const seen: Array<number> = [];
-        yield* app.history.changes.pipe(
-          Stream.runForEach((saved) =>
-            Effect.sync(() =>
-              seen.push(
-                count(History.load(Counter, saved).snapshotAt(saved.head)),
-              ),
-            ),
-          ),
-          Effect.forkScoped,
-        );
-        yield* settle;
-        for (let i = 0; i < 5; i++) app.send('Counter', { _tag: 'Bumped' });
-        yield* settle;
-        expect(seen).toEqual([0, 5]);
-      }),
-    ));
-});
-
-describe('running.changes', () => {
-  it('gives the live Snapshot now, then once the Mailbox is empty', () =>
-    run(
-      Effect.gen(function* () {
-        const app = yield* Runtime.start(Counter);
+        const app = yield* Runtime.scoped(Counter);
         const seen: Array<number> = [];
         yield* app.changes.pipe(
           Stream.runForEach((snapshot) =>
@@ -99,9 +60,32 @@ describe('running.changes', () => {
           Effect.forkScoped,
         );
         yield* settle;
-        app.send('Counter', { _tag: 'Bumped' });
+        app.send(app.snapshot.root.address, { _tag: 'Bumped' });
         yield* settle;
         expect(seen).toEqual([0, 1]);
+      }),
+    ));
+
+  it('saves the History as it changes, a slow reader getting only the latest', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.scoped(Counter, { window: 0 });
+        const seen: Array<SavedHistory> = [];
+        const reading = yield* savedChanges(app).pipe(
+          Stream.runForEach((saved) => Effect.sync(() => seen.push(saved))),
+          Effect.forkScoped,
+        );
+        yield* settle;
+        for (let i = 0; i < 5; i++)
+          app.send(app.snapshot.root.address, { _tag: 'Bumped' });
+        yield* settle;
+        yield* Fiber.interrupt(reading);
+        expect(
+          seen.map((saved) =>
+            count(Snapshot.replay(Counter, History.load(Counter, saved))),
+          ),
+        ).toEqual([0, 5]);
+        expect(seen.at(-1)).toBe(History.save(Counter, app.history));
       }),
     ));
 });
@@ -135,24 +119,29 @@ describe('an app saved as it changes', () => {
 
     /** What a server does as it starts: load what it saved, keep saving. */
     const boot = Effect.gen(function* () {
-      const history =
-        disk === undefined
-          ? History.make(Ticking, { window: 0 })
-          : History.load(Ticking, JSON.parse(disk) as SavedHistory, {
-              window: 0,
-              onMismatch: 'fail',
-            });
+      const app = yield* Runtime.scoped(Ticking, {
+        window: 0,
+        ...(disk === undefined
+          ? {}
+          : {
+              history: History.load(Ticking, JSON.parse(disk) as SavedHistory, {
+                onMismatch: 'fail',
+              }),
+            }),
+      });
       const write = (saved: SavedHistory) =>
         Effect.sync(() => {
           disk = JSON.stringify(saved);
         });
-      yield* history.changes.pipe(
+      yield* savedChanges(app).pipe(
         Stream.debounce('100 millis'),
         Stream.runForEach(write),
         Effect.forkScoped,
       );
-      yield* Effect.addFinalizer(() => write(history.save()));
-      return yield* Runtime.start(history);
+      yield* Effect.addFinalizer(() =>
+        write(History.save(Ticking, app.history)),
+      );
+      return app;
     });
 
     await timed(
@@ -184,13 +173,11 @@ describe('a saved History that no longer fits the code', () => {
     const saved = await bumped(3);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const history = History.load(Renamed, saved);
-    expect(
-      Snapshot.instanceAt(history.snapshotAt(history.head()), 'Counter')?.model,
-    ).toEqual({ total: 0 });
+    expect(Snapshot.replay(Renamed, history).root.model).toEqual({ total: 0 });
     warn.mockRestore();
   });
 
-  it("fails at once with `onMismatch: 'fail'`, whether its Snapshot or a Message no longer fits", async () => {
+  it("fails at once with `onMismatch: 'fail'`, whether its tree or a Message no longer fits", async () => {
     const restored = await bumped(3);
     const sent = await bumped(2, null);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -201,13 +188,6 @@ describe('a saved History that no longer fits the code', () => {
       /no longer fits the code at entry 0, Bumped for Counter/,
     );
     warn.mockRestore();
-  });
-
-  it('fails before a Window Compacts away what does not fit', async () => {
-    const sent = await bumped(2, null);
-    expect(() =>
-      History.load(Quiet, sent, { window: 0, onMismatch: 'fail' }),
-    ).toThrow(/at entry 0, Bumped for Counter/);
   });
 
   it('fails when a Message no longer decodes, though its decoded side would fit', async () => {
@@ -221,9 +201,10 @@ describe('a saved History that no longer fits the code', () => {
       });
     const saved = await run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(setter(Schema.Number)));
-        app.send('Setter', { _tag: 'Set', n: 42 });
-        return app.history.save();
+        const Setter = setter(Schema.Number);
+        const app = yield* Runtime.scoped(Setter);
+        app.send(app.snapshot.root.address, { _tag: 'Set', n: 42 });
+        return History.save(Setter, app.history);
       }),
     );
     expect(() =>
@@ -246,11 +227,11 @@ describe('a saved History that no longer fits the code', () => {
     });
     const saved = await run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(Both));
-        app.send('Counter', { _tag: 'Reset' });
-        yield* app.start(null);
-        app.send('Counter', { _tag: 'Bumped' });
-        return app.history.save();
+        const app = yield* Runtime.scoped(Both);
+        app.send(app.snapshot.root.address, { _tag: 'Reset' });
+        yield* Effect.promise(() => app.fork(null));
+        app.send(app.snapshot.root.address, { _tag: 'Bumped' });
+        return History.save(Both, app.history);
       }),
     );
     expect(saved.head).toBe(1);
@@ -264,20 +245,24 @@ describe('a saved History that no longer fits the code', () => {
       Actor.define('Parent', {}).build(
         withChild ? { children: { child: Actor.child(Counter) } } : {},
       );
+    const Parent = parent(true);
     const saved = await run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(parent(true)));
-        app.send('Parent/child#1', { _tag: 'Bumped' });
+        const app = yield* Runtime.scoped(Parent, { window: null });
+        app.send(
+          Snapshot.at(app.snapshot, 'Parent/child#1' as never)!.address,
+          {
+            _tag: 'Bumped',
+          },
+        );
         // Never there: dropped live.
-        app.send('Parent/child#2', { _tag: 'Bumped' });
-        return app.history.save();
+        app.send('Parent/child#2' as never, { _tag: 'Bumped' });
+        return History.save(Parent, app.history);
       }),
     );
-    expect(
-      History.load(parent(true), saved, { onMismatch: 'fail' }).head(),
-    ).toBe(1);
+    expect(History.load(Parent, saved, { onMismatch: 'fail' }).head).toBe(1);
     expect(() =>
-      History.load(parent(false), saved, { window: 0, onMismatch: 'fail' }),
+      History.load(parent(false), saved, { onMismatch: 'fail' }),
     ).toThrow(
       /at entry 0, Bumped for Parent\/child#1: the code no longer has a slot/,
     );
@@ -295,19 +280,20 @@ describe('a saved History that no longer fits the code', () => {
     });
     const saved = await run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(Named));
-        app.send('app/Counter', { _tag: 'Bumped' });
-        return app.history.save();
+        const app = yield* Runtime.scoped(Named);
+        expect(app.snapshot.root.address).toBe('app/Counter');
+        app.send(app.snapshot.root.address, { _tag: 'Bumped' });
+        return History.save(Named, app.history);
       }),
     );
     const history = History.load(Named, saved, { onMismatch: 'fail' });
-    expect(count(history.snapshotAt(history.head()))).toBe(1);
+    expect(count(Snapshot.replay(Named, history))).toBe(1);
   });
 
   it("loads one that still fits with `onMismatch: 'fail'`", async () => {
     const history = History.load(Counter, await bumped(3), {
       onMismatch: 'fail',
     });
-    expect(count(history.snapshotAt(history.head()))).toBe(3);
+    expect(count(Snapshot.replay(Counter, history))).toBe(3);
   });
 });

@@ -19,12 +19,12 @@ export function Todos({
   readonly actions?: ReactNode;
 }) {
   const runtime = Demo.useRuntime();
-  const { shown } = runtime;
+  const { seeking } = runtime;
   return (
     <DevtoolsDock
       storageKey="todos-demo:devtools"
       status={
-        shown !== null && (
+        seeking !== null && (
           <span
             title="Showing a past Step"
             className="block size-2 rounded-full bg-amber-500 ring-2 ring-background"
@@ -62,8 +62,8 @@ export function Todos({
               <div className="w-[42px]" aria-hidden />
             </div>
             <div
-              className={`min-h-0 flex-1 overflow-auto ${shown !== null ? 'pointer-events-none' : ''}`}
-              inert={shown !== null}
+              className={`min-h-0 flex-1 overflow-auto ${seeking !== null ? 'pointer-events-none' : ''}`}
+              inert={seeking !== null}
             >
               <Demo />
             </div>

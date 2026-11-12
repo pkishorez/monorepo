@@ -91,6 +91,8 @@ const Branch = Picker.make('BranchPicker', {
 export const BranchPicker = {
   Live: Branch.Live,
   View: Branch.View,
+  /** What `owner` builds, for the `provides` that gives it. */
+  capabilities: Branch.capabilities,
   opening: (how: typeof Picker.How.Type) => ({
     how,
     step: { id: 'branch', key: '' },

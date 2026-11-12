@@ -2,9 +2,10 @@ import { useMemo } from 'react';
 import { View, useChildren } from '@kestack/kabuki/react';
 import type { Node } from '../../../api/index.ts';
 import { CanvasLive } from './actor.ts';
+import { Blueprint } from './ui/blueprint.tsx';
 import { Canvas } from './ui/canvas.tsx';
 
-/* The canvas drawn: the graph, each open card with its Card's data. */
+/* The canvas drawn: the graph, each open card with its Card's data; or the Blueprint. */
 
 export const CanvasView = View.make(
   CanvasLive,
@@ -23,6 +24,20 @@ export const CanvasView = View.make(
       return (
         <p className="p-6 text-sm text-muted-foreground">{model.problem}</p>
       );
+    if (props.blueprint)
+      return model.print ? (
+        <Blueprint
+          root={model.print}
+          opened={props.opened}
+          form={model.form}
+          off={model.off}
+          picked={model.picked}
+          onForm={(form) => send({ _tag: 'Formed', form })}
+          onOff={(off) => send({ _tag: 'Offed', off })}
+          onPick={(id) => send({ _tag: 'Picked', id })}
+          onOpen={(id, open) => send({ _tag: 'Opened', id, open })}
+        />
+      ) : null;
     if (!model.graph) return null;
     return (
       <div className="relative flex min-h-0 flex-1 flex-col">
@@ -33,6 +48,10 @@ export const CanvasView = View.make(
           frame
           follow={props.follow}
           {...(props.bring ? { bring: { ...props.bring, with: [] } } : {})}
+          // Presenting, nothing to press.
+          {...(props.follow
+            ? {}
+            : { onTrail: (id: string) => send({ _tag: 'Zoomed', id }) })}
           onOpen={(id, open) => send({ _tag: 'Opened', id, open })}
         />
       </div>

@@ -1,5 +1,6 @@
 import { use, useRef, useSyncExternalStore } from 'react';
 import { AppContext } from './view.tsx';
+import type { Address } from '../../../core/data/index.ts';
 import type { Drawable, DrawnApp, Handle, ViewProps } from './view.tsx';
 
 /**
@@ -24,8 +25,8 @@ const readOf = (drawn: Drawable | undefined): Read | undefined => {
   if (!drawn) return undefined;
   let read = reads.get(drawn);
   if (!read) {
-    const { _tag, id, model, state, props } = drawn;
-    reads.set(drawn, (read = { _tag, id, model, state, props } as Read));
+    const { _tag, address, model, state, props } = drawn;
+    reads.set(drawn, (read = { _tag, address, model, state, props } as Read));
   }
   return read;
 };
@@ -75,11 +76,14 @@ export const useChild: UseChild = (
   const drawn = useDrawn('useChild');
   const pick = usePicked(select);
   const last = useRef<unknown>(undefined);
-  const from = (read: (id: string) => Drawable | undefined) => () => {
-    const child = readOf(read(handle.id));
-    const next = child && pick(child);
-    return Object.is(next, last.current) ? last.current : (last.current = next);
-  };
+  const from =
+    (read: (address: Address<any>) => Drawable | undefined) => () => {
+      const child = readOf(read(handle.address));
+      const next = child && pick(child);
+      return Object.is(next, last.current)
+        ? last.current
+        : (last.current = next);
+    };
   return useSyncExternalStore(
     drawn.subscribe,
     from(drawn.instance),
@@ -108,19 +112,20 @@ export const useChildren: UseChildren = (
   const drawn = useDrawn('useChildren');
   const pick = usePicked(select);
   const last = useRef<ReadonlyArray<unknown>>([]);
-  const from = (read: (id: string) => Drawable | undefined) => () => {
-    const next = handles.flatMap((handle) => {
-      const child = readOf(read(handle.id));
-      return child ? [pick(child)] : [];
-    });
-    const was = last.current;
-    if (
-      next.length === was.length &&
-      next.every((value, index) => Object.is(value, was[index]))
-    )
-      return was;
-    return (last.current = next);
-  };
+  const from =
+    (read: (address: Address<any>) => Drawable | undefined) => () => {
+      const next = handles.flatMap((handle) => {
+        const child = readOf(read(handle.address));
+        return child ? [pick(child)] : [];
+      });
+      const was = last.current;
+      if (
+        next.length === was.length &&
+        next.every((value, index) => Object.is(value, was[index]))
+      )
+        return was;
+      return (last.current = next);
+    };
   return useSyncExternalStore(
     drawn.subscribe,
     from(drawn.instance),

@@ -39,15 +39,23 @@ export class Player extends Context.Service<
 >()('docs/Player') {}
 ```
 
-The Playlist provides it. Here, `play` sends the Playlist a Message, so
+The Playlist provides it. It names the Capabilities it gives, and the
+Layer that builds them. Here, `play` sends the Playlist a Message, so
 asking for a song is just one more Message, kept like any other.
 
 ```ts
-provides: (self) =>
-  Layer.succeed(Player, {
-    play: (id) => self.send({ _tag: 'Played', id }),
-  }),
+provides: {
+  capabilities: [Player],
+  layer: (self) =>
+    Layer.succeed(Player, {
+      play: (id) => self.send({ _tag: 'Played', id }),
+    }),
+},
 ```
+
+The list and the Layer must agree: a Layer that builds less than the list,
+or more, doesn't compile. Only what the list names reaches the Actors
+below, so kabuki knows what each Actor provides without running anything.
 
 The Song says it **Requires** a Player, in its Definition. Then a Command
 can use it:
@@ -92,8 +100,8 @@ come from outside the tree. You hand them to the whole app as a Layer, the
 there.
 
 Here the same Song sits on a Shelf that provides nothing. Its need for a
-Player climbs to the root, so `Runtime.start` must be given a Layer with
-one.
+Player climbs to the root, so `Runtime.scoped` must be given a `layer`
+with one.
 
 <Run program={shelf} caption="The Song doesn't change: it asks for a Player the same way. This time the Player comes from the app's Layer, not from an Actor.">
 

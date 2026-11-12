@@ -10,7 +10,7 @@ import {
 } from '@kestack/connect/code';
 import { PluginMismatch } from '@kestack/connect/cloud';
 import { Actor } from '@kestack/kabuki';
-import { Replicas } from '@kestack/std-toolkit/replica';
+import { Replicas, Store } from '@kestack/std-toolkit/replica';
 import { Copy, copying, Marks, Storage } from '../../storage/index.ts';
 import {
   Answering,
@@ -208,20 +208,23 @@ export const ConnectionLive = Connection.build({
     state: { _tag: 'Reading' },
   }),
   // 6. Sync: its own Store, its socket, and the Replicas over them.
-  provides: (self) =>
-    Layer.unwrap(
-      Effect.gen(function* () {
-        const { model } = yield* self.get;
-        const storage = yield* Storage;
-        return said(model.connectionId).pipe(
-          Layer.provideMerge(Replicas.layer),
-          Layer.provideMerge(
-            storage.store(model.accountId, model.connectionId),
-          ),
-          Layer.provideMerge(socket(model.connectionId)),
-        );
-      }),
-    ),
+  provides: {
+    capabilities: [...Replicas.capabilities, Store, CodeClients],
+    layer: (self) =>
+      Layer.unwrap(
+        Effect.gen(function* () {
+          const { model } = yield* self.get;
+          const storage = yield* Storage;
+          return said(model.connectionId).pipe(
+            Layer.provideMerge(Replicas.layer),
+            Layer.provideMerge(
+              storage.store(model.accountId, model.connectionId),
+            ),
+            Layer.provideMerge(socket(model.connectionId)),
+          );
+        }),
+      ),
+  },
   children: {
     replicas: Actor.child(Replicas.actor([CodeReplicaLive])),
   },

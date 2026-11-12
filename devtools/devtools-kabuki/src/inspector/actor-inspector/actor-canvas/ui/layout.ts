@@ -23,10 +23,10 @@ export const pathTo = (node: GraphNode, id: string): ReadonlyArray<string> => {
   return [];
 };
 
-/** The Capabilities an Instance provides now: at its top, and in the State it is in. */
+/** The Capabilities an Instance Provides now, as its Blueprint declares: at its top, and in the State it is in. */
 const givesNow = (node: GraphNode): ReadonlyArray<string> => [
-  ...(node.known?.gives.top ?? []),
-  ...(node.state ? (node.known?.gives.state[node.state] ?? []) : []),
+  ...node.blueprint.top.provides,
+  ...(node.state ? (node.blueprint.state[node.state]?.provides ?? []) : []),
 ];
 
 /**

@@ -84,13 +84,13 @@ describe('connect', () => {
       run(
         Effect.gen(function* () {
           const port = yield* Effect.promise(freePort);
-          const { runtime, write } = yield* started;
+          const { app, write } = yield* started;
           write('first', 5);
           const stop = connect({
             url: `ws://127.0.0.1:${port}`,
             name: 'diary',
             environment: 'kishores-mbp',
-          })(runtime);
+          })(app);
           yield* Effect.addFinalizer(() => Effect.sync(stop));
           const accepted = yield* Queue.unbounded<Accepted>();
 
@@ -138,8 +138,8 @@ describe('connect', () => {
         const port = yield* Effect.promise(freePort);
         const accepted = yield* Queue.unbounded<Accepted>();
         yield* devtools(port, accepted);
-        const { runtime } = yield* started;
-        const stop = connect(runtime, { url: `ws://127.0.0.1:${port}` });
+        const { app } = yield* started;
+        const stop = connect(app, { url: `ws://127.0.0.1:${port}` });
         yield* Effect.addFinalizer(() => Effect.sync(stop));
         const one = yield* Queue.take(accepted);
         expect(one.query.get('name')).toBe('diary');
@@ -162,13 +162,13 @@ describe('connect', () => {
         const port = yield* Effect.promise(freePort);
         const accepted = yield* Queue.unbounded<Accepted>();
         yield* devtools(port, accepted);
-        const { runtime } = yield* started;
-        const page = connect(runtime, { url: `ws://127.0.0.1:${port}` });
+        const { app } = yield* started;
+        const page = connect(app, { url: `ws://127.0.0.1:${port}` });
         yield* Effect.addFinalizer(() => Effect.sync(page));
         expect((yield* Queue.take(accepted)).query.get('environment')).toBe(
           'app.trycloudflare.com',
         );
-        const given = connect(runtime, {
+        const given = connect(app, {
           url: `ws://127.0.0.1:${port}`,
           environment: 'staging',
         });

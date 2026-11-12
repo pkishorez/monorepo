@@ -13,12 +13,12 @@ const EASE = [0.32, 0.72, 0, 1] as const;
  */
 export function Browser({
   device,
-  address,
+  url,
   onReload,
   children,
 }: {
   readonly device: Device;
-  readonly address: string;
+  readonly url: string;
   /** Load the page again: start the app over. */
   readonly onReload: () => void;
   readonly children: ReactNode;
@@ -41,7 +41,7 @@ export function Browser({
         )}
         <div className="mx-auto flex h-7 w-full max-w-sm min-w-0 items-center gap-2 rounded-lg bg-background px-2.5 text-xs text-muted-foreground">
           <Lock className="size-3 shrink-0" />
-          <span className="truncate">{address}</span>
+          <span className="truncate">{url}</span>
           <button
             type="button"
             onClick={onReload}

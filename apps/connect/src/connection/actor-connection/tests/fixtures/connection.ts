@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { type Duration, Effect, Layer, Option, Stream } from 'effect';
 import { afterEach, vi } from 'vitest';
-import { History, Runtime } from '@kestack/kabuki';
+import { Runtime } from '@kestack/kabuki';
 import { Downloads, socketPath } from '@kestack/cli-platform/files';
 import type { PluginState } from '@kestack/cli-platform/plugins';
 import type { ConnectionStatus } from '../../../../cloud/contract/index.js';
@@ -154,15 +154,16 @@ export const start = (
     const held = yield* hold(input.control, input.name);
     if (held._tag === 'AlreadyRunning')
       return yield* Effect.die(new Error(`${input.name} is already running`));
-    const running = yield* Runtime.start(
-      History.make(ActorConnection, { window: 0, input }),
-      Layer.mergeAll(
+    const running = yield* Runtime.scoped(ActorConnection, {
+      input,
+      window: 0,
+      layer: Layer.mergeAll(
         Layer.succeed(Control, held.control),
         Layer.succeed(Cloud, host.cloud),
         Layer.succeed(Tunnels, host.tunnels),
         Downloads.layer(input.folders.cache),
       ),
-    );
+    });
     const root = () => running.instance({ from: 'test' });
     const ended = running.changes.pipe(
       Stream.map(() => root().state),

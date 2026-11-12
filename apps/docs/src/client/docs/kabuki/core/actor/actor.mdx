@@ -82,8 +82,9 @@ its Definition.
 
 ## Run it
 
-An Actor needs no screen. `Runtime.start` runs it, and `instance` hands you
-the running Counter to send Messages to and read from. Press Run.
+An Actor needs no screen. `Runtime.scoped` runs it, for as long as the
+program does, and `instance` hands you the running Counter to send Messages
+to and read from. Press Run.
 
 <Run program={program} caption="Each send says what became of its Message: handled, or refused when it does not fit the Schema. The Model only ever changes through an Update.">
 

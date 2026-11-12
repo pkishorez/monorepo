@@ -4,7 +4,7 @@ import { Adapter, KEY, keyIn } from '../index.ts';
 const CHANGED = '@kestack/kabuki/routing:changed';
 
 /**
- * The browser's own history, for an app that owns the address: the whole
+ * The browser's own history, for an app that owns the URL: the whole
  * site, or everything under its base.
  */
 export const browser = () =>

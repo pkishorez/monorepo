@@ -253,7 +253,10 @@ ahead. The words of `CONTEXT.md` name what they hold.
 
 ## Capabilities
 
-Each is given by its owner, and reaches every Actor below it.
+Each is given by its owner, and reaches every Actor below it. An owner's
+`provides` names the Capabilities beside the Layer that builds them, and
+only those named reach below: a Picker's, the Touch Draft's and the Draft
+Modes' owners name theirs as `capabilities`, beside `owner`.
 
 | Given by         | Capabilities                                                                     |
 | ---------------- | -------------------------------------------------------------------------------- |

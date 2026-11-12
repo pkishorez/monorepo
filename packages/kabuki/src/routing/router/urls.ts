@@ -22,7 +22,7 @@ export const urlsOf = <Route extends AnyRoute>(routes: RoutesLike<Route>) => {
   const same = (a: Route, b: Route) => routes.path(a) === routes.path(b);
   /**
    * Whether `url` is how `route` is written, give or take query params no
-   * page reads, like `?utm_source=`: such a URL is left in the address as
+   * page reads, like `?utm_source=`: such a URL is left in the browser as
    * it is, and every move the app makes writes its Route alone.
    */
   const shows = (url: string, route: Route) => {

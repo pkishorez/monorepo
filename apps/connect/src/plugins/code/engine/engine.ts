@@ -400,7 +400,10 @@ const make = (options: EngineOptions) =>
     const repos = yield* Git;
     const accounts = yield* HarnessAccounts;
     const replies = yield* Answers;
-    const running = yield* Runtime.start(Code, Layer.succeedContext(services));
+    const running = yield* Runtime.scoped(Code, {
+      window: 0,
+      layer: Layer.succeedContext(services),
+    });
     /** Closed as Connect stops, before the Sessions, interrupting a start. */
     const scope = yield* Effect.scope;
     const root = running.instance({ from: 'rpc' });

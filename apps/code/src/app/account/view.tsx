@@ -199,7 +199,7 @@ function usePreloaded(children: Active['children']) {
 }
 
 /** No Instance: what a Hook reads while a Child is absent. */
-const NONE = { id: '' };
+const NONE = { address: '' };
 
 /**
  * Whether the page the URL names can be drawn whole, as it said
