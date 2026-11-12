@@ -114,8 +114,11 @@ const PageLive = Page.build({
       }),
     }),
   },
-  provides: (self) =>
-    BranchPicker.owner((branch) => self.send({ _tag: 'Done', branch })),
+  provides: {
+    capabilities: BranchPicker.capabilities,
+    layer: (self) =>
+      BranchPicker.owner((branch) => self.send({ _tag: 'Done', branch })),
+  },
   on: {
     Open: ({ how }, { model }) => ({
       model: { ...model, how, opened: model.opened + 1 },

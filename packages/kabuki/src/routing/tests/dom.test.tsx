@@ -523,23 +523,23 @@ describe('the Timeline', () => {
     const counts = await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const app = yield* Runtime.start(History.make(Root.actor), browser());
+          const app = yield* Runtime.scoped(Root.actor, { layer: browser() });
           const settled = Effect.promise(
             () => new Promise((done) => setTimeout(done, 10)),
           );
           yield* settled;
-          const before = app.history.branch().length;
-          app.send('Router', {
+          const before = History.line(app.history).length;
+          app.send(app.snapshot.root.address, {
             _tag: 'Pushed',
             route: Routes.Projects.Project({ id: 7 }),
           });
           yield* settled;
-          const pushed = app.history.branch().length - before;
+          const pushed = History.line(app.history).length - before;
           history.back();
           yield* settled;
           return {
             pushed,
-            back: app.history.branch().length - before - pushed,
+            back: History.line(app.history).length - before - pushed,
           };
         }),
       ),

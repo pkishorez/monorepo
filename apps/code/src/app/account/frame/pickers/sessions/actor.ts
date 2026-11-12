@@ -170,17 +170,20 @@ export const SessionsLive = Sessions.build({
       props: ({ model }) => ({ sessions: model.sessions, open: model.open }),
     }),
   },
-  provides: (self) =>
-    List.owner({
-      done: (choices) => {
-        const chosen = choices?.at(-1)?.value;
-        return self.send(
-          chosen === undefined
-            ? { _tag: 'Closed' }
-            : { _tag: 'Chose', value: chosen },
-        );
-      },
-    }),
+  provides: {
+    capabilities: List.capabilities,
+    layer: (self) =>
+      List.owner({
+        done: (choices) => {
+          const chosen = choices?.at(-1)?.value;
+          return self.send(
+            chosen === undefined
+              ? { _tag: 'Closed' }
+              : { _tag: 'Chose', value: chosen },
+          );
+        },
+      }),
+  },
   workers: {
     // 1. Read: the Connections' ids and names only, so nothing else of a
     // Connection changes anything here.

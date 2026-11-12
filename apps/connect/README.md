@@ -199,23 +199,25 @@ const Projects = Query.make('Projects', {
 });
 
 const Root = Actor.define('Root', {}).build({
-  provides: () => Replicas.layer,
+  provides: {
+    capabilities: Replicas.capabilities,
+    layer: () => Replicas.layer,
+  },
   children: {
     replicas: Actor.child(Replicas.actor([CodeReplicaLive])),
     projects: Actor.child(Projects, { props: () => ({ connectionId: 'm1' }) }),
   },
 });
 
-Runtime.start(
-  Root,
-  Layer.mergeAll(
+Runtime.make(Root, {
+  layer: Layer.mergeAll(
     Store.idb(),
     CodeClients.layer.pipe(
       Layer.provide(address),
       Layer.provide(CloudClient.layer('https://connect.kishore.app')),
     ),
   ),
-);
+});
 ```
 
 - `CloudClient` calls are signed by the App's auth-toolkit `browser()` Accounts, provided above it.

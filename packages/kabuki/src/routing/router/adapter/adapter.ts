@@ -1,14 +1,14 @@
 import { Context } from 'effect';
 
 /*
- * Where an app's address lives: the port each adapter fills, each in a
+ * Where an app's URL lives: the port each adapter fills, each in a
  * folder of its own under this one, imported from its own subpath, so an
  * app carries only the adapter it uses: `browser/` for the browser's own
  * history, `tanstack/` for TanStack Router's.
  */
 
 /**
- * Where an app's Address lives, besides memory: the browser's own history or
+ * Where an app's URL lives, besides memory: the browser's own history or
  * TanStack Router's. Every URL here is a whole path with its query, base
  * included. An entry's key is what the router stamps on each history entry it
  * writes, so Back and Forward land on an entry it knows. With no Adapter in

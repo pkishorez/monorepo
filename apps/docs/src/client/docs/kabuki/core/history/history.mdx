@@ -5,7 +5,7 @@ import {
   TravelPicture,
 } from './components/timeline-pictures.tsx';
 
-Every live app on this site has a Devtools button in its bar. Open it,
+Every running app on this site has a Devtools button in its bar. Open it,
 and there's a timeline: drag it back, and the app goes back with it. This page is about
 how that works. The short answer: you get it for free.
 
@@ -23,14 +23,59 @@ You don't write anything to get it. The sketch pad below is an Actor like
 any other, with a Model, two Messages and two Updates. kabuki keeps its
 Messages on its own.
 
+Each Message is kept as one **History entry**: the Message, who sent it,
+when, the entry before it, and the Instance it went to, named by its
+**Address**. An Address is a path from the root:
+
+```ts
+'App/Inside:downloads#2/files[3]#1';
+```
+
+Read it left to right. The root is `App`. Under it is its `downloads`
+Child, written in the `Inside` State, started for the second time. Under
+that is the `files` Child with the key `3`, started once. The same
+Messages always give the same Addresses, and a Child started again gets a
+new one. So a Message for an Instance that has gone is dropped, never
+handed to the one that took its place.
+
 ## Going back is playing again
 
 Updates are pure. The same Model and the same Message always give the same
 answer. So to see the app as it was after any Message, kabuki starts from
 `init` and plays the Messages again, up to that point. That's a **Replay**.
 
-Showing a past moment this way is **Time Travel**. The live app keeps
-running underneath, and the past is read only: you can look, but nothing
+What a Replay gives back is a **Snapshot**: the whole app as one plain
+value. `entry` is the History entry it is right after, `null` for right
+after `init`, and `root` is the root Instance, with every Instance under it
+in its `children`. Each Instance has its `address`, `state`, `model` and
+`props`, and two entries: `started`, the one that started it, and
+`changed`, the last one that changed it.
+
+Looking at any entry this way is a **Seek**. `runtime.seek(entry)` gives
+back a **Step**: the entry, its Time `at`, and its `snapshot`. It's plain
+data, and only a look: the Runtime stays where it is, and nothing changes.
+
+```ts
+const { entry, at, snapshot } = runtime.seek(9);
+snapshot.root.children.downloads; // { address: 'App/Inside:downloads#2', started: 4, changed: 9, … }
+```
+
+Where to look next is the History's to say:
+
+- `History.entry(history, id).parent` is the entry before.
+- `History.children(history, id)` are the ones that follow it, more than
+  one where the story split.
+- `History.line(history, id)` is every entry from the first up to it.
+- `History.tips(history)` is the last entry of every Branch.
+
+Follow one Instance along the History and you have its **Trail**: when it
+started, each Message it got, each one that changed it, and when it
+stopped. `Snapshot.trail(actor, history, address, entry)` gives it, up to
+any entry, and `Snapshot.at(snapshot, address)` picks one Instance out of
+a Step. That's how the Devtools zoom in on one card.
+
+Drawing the app at a Step it Seeks is **Time Travel**. The Runtime stays
+where it is underneath, and the past is read only: you can look, but nothing
 can be sent from there.
 
 This is why Workers live outside Updates. A Replay plays only Messages and
@@ -38,20 +83,58 @@ Updates, so no request is sent twice and no timer fires twice.
 
 ## Carrying on from the past
 
-You can also go back and carry on from there. The new Messages grow a new
-**Branch** beside the old one, like a branch in git. Nothing is lost.
+You can also go back and carry on from there. That's a **Fork**: the
+Runtime moves its Head back to that entry, in place. The next Message
+grows a new **Branch** beside the old one, like a branch in git. Nothing
+is lost.
+
+A Fork runs no Command again. A Command belongs to the Message that asked
+for it, and that Message has already happened. So work that must go on
+while a State lasts, like a timer or a socket, is a Worker: it starts
+again from the data at the Fork.
 
 <Picture caption="Back at Step 2, the app carries on. A new line grows beside the old one, and the old one stays.">
   <BranchPicture />
 </Picture>
 
+## The Runtime
+
+What runs all this is a **Runtime**: one per app, holding a History and
+the Snapshot at its Head. It's **running** from the moment it's made.
+
+```ts
+const runtime = Runtime.make(SketchLive, {
+  input, // the root's Input, for a new History
+  history, // a History to carry on from
+  layer, // what the tree Requires
+  window, // how many entries to keep: 100 unless you say
+});
+```
+
+Each one can be left out, except a `layer` when the tree Requires
+something. Running, every Message sent becomes an entry at the Head and
+is played at once, its Commands run, and the Workers the Snapshot asks
+for run. `runtime.running` says whether it is.
+
+`stop()` stops all of that, and Time stands still. A stopped Runtime
+takes no Messages: `send` throws, and nothing is added. `start()` runs
+again at the Head: the Workers start from its data, and no past Command
+runs again.
+
+`runtime.seek(entry)` is a Step at any entry, on any Branch, while the
+Runtime stays where it is. `runtime.fork(entry)` moves its Head there,
+`null` for `init`. Running, it stops the work and starts it again from
+that entry's data; stopped, only the Head moves. Either way it's the same
+Runtime. In Effect code, `Runtime.scoped` makes the same Runtime and lets
+it go when its Scope closes.
+
 ## Run it
 
-The History is a value you can hold. Make one with `History.make`, start
-the app on it, and send a few Messages. Then move back: `app.start(entry)`
-stops the app, moves the Head to that entry, and starts again there.
+Send the sketch a few Messages, and read what was kept with
+`History.line`: every entry from the first to the Head. Then Seek the
+first entry, and Fork to it.
 
-<Run program={program} caption="Three Messages are kept. Starting again from the first replays it: the rose cell is gone. The new Painted grows beside the old Picked, and the History now holds four entries.">
+<Run program={program} caption="Three Messages are kept. The Step at the first is the app before the rose: Forked there, the same Runtime carries on from it. The new Painted grows beside the old Picked, and the History now holds four entries.">
 
 ```ts file=./run/sketch.ts
 
@@ -62,11 +145,12 @@ stops the app, moves the Head to that entry, and starts again there.
 ## Saving is easy, too
 
 Since the app is its Messages, saving the app is saving its History.
-`history.save()` gives plain JSON. Hand it back with `View.app(…, { saved
-})`, and the app carries on from where it was, even after a reload.
+`History.save(SketchLive, history)` gives plain JSON. Hand it back with
+`View.app(…, { saved })`, and the app carries on from where it was, even
+after a reload.
 
 The History is yours to read, too. `App.useRuntime()` gives you the
-Messages, a way to show any moment, and a way to carry on from one. The
+Runtime, a way to Seek any moment, and a way to Fork to one. The
 Devtools on this site are built on just that.
 
 ## Try it
@@ -91,6 +175,10 @@ different.
   Your app is its Messages. Keep them, and you can rebuild any moment.
 </Callout>
 
-That's all of core: an Actor, its States and Workers, Children with their
-Props and Capabilities, and the History of it all. None of it needed a
-screen. Next, how React draws it: [View](/kabuki/view).
+That's all of core, in three parts. The **Actor** says what can happen:
+its States, Workers, Children with their Props and Capabilities. kabuki
+reads it as a **Blueprint**, plain data, with nothing running. The
+**data** says what happened and what is: Addresses, the History and its
+Snapshots, all plain values. The **Runtime** makes it run, or stops it,
+Seeks any moment to look at, and Forks to carry on from one. None of it needed
+a screen. Next, how React draws it: [View](/kabuki/view).

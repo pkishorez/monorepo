@@ -1,5 +1,6 @@
 import { Effect, Layer, Queue, Schema, Stream } from 'effect';
 import { Accounts, type AccountsState } from '@kestack/auth-toolkit/client';
+import { CodeClients } from '@kestack/connect/code';
 import {
   CloudClient,
   Connection,
@@ -7,7 +8,7 @@ import {
 } from '@kestack/connect/cloud';
 import { Actor, Command } from '@kestack/kabuki';
 import { Page, Router } from '@kestack/kabuki/routing';
-import { OnOutdated } from '@kestack/std-toolkit/replica';
+import { OnOutdated, Replicas } from '@kestack/std-toolkit/replica';
 import { home, type Page as Place } from '../app.ts';
 import {
   Copy,
@@ -21,7 +22,9 @@ import {
   behindAll,
   Connection as ConnectionActor,
   moves,
+  Moves,
   reach,
+  Sockets,
   toNewest,
 } from './connection/index.ts';
 import {
@@ -41,7 +44,7 @@ import {
   pruneUnlisted,
 } from './commands.ts';
 import { Frame } from './frame/index.ts';
-import { voice } from './frame/header/voice/index.ts';
+import { Voice, voice } from './frame/header/voice/index.ts';
 import { Home } from './pages/home/index.ts';
 import { Project } from './pages/project/index.ts';
 import { Settings } from './pages/settings/index.ts';
@@ -444,19 +447,29 @@ export const accountWith = (to: typeof reach) =>
       Project: Project.actor,
     },
     // 8. Share
-    provides: (self) =>
-      Layer.mergeAll(moves.pipe(Layer.provideMerge(to)), voice).pipe(
-        Layer.provideMerge(
-          Layer.effect(
-            Connections,
-            connectionsOf({
-              known: Stream.map(self.changes, knownOf),
-              current: Effect.map(self.get, knownOf),
-              send: self.send,
-            }),
+    provides: {
+      capabilities: [
+        Replicas,
+        CodeClients,
+        Sockets,
+        Moves,
+        ...Voice.capabilities,
+        Connections,
+      ],
+      layer: (self) =>
+        Layer.mergeAll(moves.pipe(Layer.provideMerge(to)), voice).pipe(
+          Layer.provideMerge(
+            Layer.effect(
+              Connections,
+              connectionsOf({
+                known: Stream.map(self.changes, knownOf),
+                current: Effect.map(self.get, knownOf),
+                send: self.send,
+              }),
+            ),
           ),
         ),
-      ),
+    },
     workers: {
       // 1. Who
       accounts: {

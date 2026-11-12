@@ -267,7 +267,7 @@ export interface RouterState<Route extends AnyRoute = AnyRoute> {
 }
 
 /**
- * The router, for a component drawn inside a `Router.view`: an address bar, a
+ * The router, for a component drawn inside a `Router.view`: a URL bar, a
  * history list, a retry button. Name the app's Route,
  * `useRouter<Route>()` with `type Route = typeof router.route.Type`, to read
  * its Routes as that type: every Route the Router holds is one of them.

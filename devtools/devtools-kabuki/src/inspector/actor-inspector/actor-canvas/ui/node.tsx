@@ -9,6 +9,7 @@ import { flushSync } from 'react-dom';
 import {
   ArrowRightIcon,
   ChevronRightIcon,
+  FootprintsIcon,
   LayersIcon,
   MailIcon,
   PlugIcon,
@@ -307,8 +308,6 @@ export interface Use {
 interface WorkerRow {
   readonly name: string;
   readonly condition: Condition;
-  /** Written at the top, and seen to run only in this State. */
-  readonly seen: boolean;
 }
 
 interface Level {
@@ -323,19 +322,11 @@ interface Level {
   readonly gives: ReadonlyArray<string>;
 }
 
-/** Always, then each State, with what was seen of it filed where it ran. */
+/** Always, then each State, as the Blueprint declares them, with the moves seen of each Message. */
 const levelsOf = (
   node: GraphNode,
 ): { readonly always: Level; readonly states: ReadonlyArray<Level> } => {
   const { blueprint: print, known } = node;
-  const onlyIn = (worker: {
-    readonly name: string;
-    readonly condition: Condition;
-  }) => {
-    if (worker.condition === 'always') return null;
-    const states = known?.ran[worker.name];
-    return states && states.length === 1 ? states[0]! : null;
-  };
   const targets = (message: string, from: string | null) => [
     ...new Set(
       (known?.moves ?? [])
@@ -349,37 +340,24 @@ const levelsOf = (
   const single = print.single ? print.state['Single'] : undefined;
   const always: Level = {
     key: '*',
-    workers: [
-      ...print.top.workers.filter(
-        (worker) => single || onlyIn(worker) === null,
-      ),
-      ...(single?.workers ?? []),
-    ].map((worker) => ({ ...worker, seen: false })),
+    workers: [...print.top.workers, ...(single?.workers ?? [])],
     on: [...print.top.on, ...(single?.on ?? [])].map((name) => ({
       name,
       to: targets(name, null),
     })),
     children: [...print.top.children, ...(single?.children ?? [])],
-    gives: known?.gives.top ?? [],
+    gives: [...print.top.provides, ...(single?.provides ?? [])],
   };
   if (single) return { always, states: [] };
   return {
     always,
-    states: print.states.map((tag): Level => {
-      const level = print.state[tag]!;
-      return {
-        key: tag,
-        workers: [
-          ...level.workers.map((worker) => ({ ...worker, seen: false })),
-          ...print.top.workers
-            .filter((worker) => onlyIn(worker) === tag)
-            .map((worker) => ({ ...worker, seen: true })),
-        ],
-        on: level.on.map((name) => ({ name, to: targets(name, tag) })),
-        children: level.children,
-        gives: known?.gives.state[tag] ?? [],
-      };
-    }),
+    states: Object.entries(print.state).map(([tag, level]): Level => ({
+      key: tag,
+      workers: level.workers,
+      on: level.on.map((name) => ({ name, to: targets(name, tag) })),
+      children: level.children,
+      gives: level.provides,
+    })),
   };
 };
 
@@ -655,7 +633,7 @@ function Opened({
               const on = live && keys.length > 0;
               const kind = live ? workerKind(node, worker.name) : undefined;
               return (
-                <li key={worker.name} className={cn()}>
+                <li key={worker.name}>
                   <Spot
                     wide
                     on={focus?.kind === 'worker' && focus.name === worker.name}
@@ -686,10 +664,8 @@ function Opened({
                         ? 'started'
                         : kind === 'removed'
                           ? 'stopped'
-                          : on
-                            ? keys.some((key) => key !== '')
-                              ? keys.map((key) => `#${key}`).join(' ')
-                              : ''
+                          : on && keys.some((key) => key !== '')
+                            ? keys.map((key) => `#${key}`).join(' ')
                             : ''}
                     </span>
                   </Spot>
@@ -969,8 +945,8 @@ function Sections({
   const diff = card?.change?.diff;
   const gives = [
     ...new Set([
-      ...(node.known?.gives.top ?? []),
-      ...Object.values(node.known?.gives.state ?? {}).flat(),
+      ...node.blueprint.top.provides,
+      ...Object.values(node.blueprint.state).flatMap((level) => level.provides),
     ]),
   ];
   // What it requires, split: Capabilities an Actor above provides, and
@@ -1320,8 +1296,8 @@ export const readableKey = (key: string): string => {
  * The open card's header, each thing on its own line and the controls
  * centred beside them: its name; what Actor it is, when and where it
  * exists; the key it is made again by. Then the State it is in, as a
- * label, and two icon switches, its other States and its Services.
- * Clicking the band closes the card.
+ * label, and two icon switches, its other States and its Services; the
+ * way to its Trail, for an Instance. Clicking the band closes the card.
  */
 function Head({
   node,
@@ -1329,6 +1305,7 @@ function Head({
   onAll,
   services,
   onServices,
+  onTrail,
   onClose,
 }: {
   readonly node: GraphNode;
@@ -1337,10 +1314,12 @@ function Head({
   /** Whether its Services show; undefined when it requires none. */
   readonly services: boolean | undefined;
   readonly onServices: (services: boolean) => void;
+  /** Zoom in on it, to its Trail; none where it is no Instance. */
+  readonly onTrail?: (() => void) | undefined;
   readonly onClose: () => void;
 }) {
   // Only a running card with more than one State has others to show.
-  const others = node.blueprint.states.length > 1;
+  const others = Object.keys(node.blueprint.state).length > 1;
   const { name, key } = nameOf(node);
   const where = [
     node.actor !== name ? node.actor : undefined,
@@ -1399,6 +1378,17 @@ function Head({
           )}
         </div>
       )}
+      {onTrail && (
+        <button
+          type="button"
+          aria-label={`Show the Trail of ${name}`}
+          title="Its Trail: every moment it started, changed, received or stopped"
+          onClick={onTrail}
+          className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-background/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring touch:size-11"
+        >
+          <FootprintsIcon aria-hidden className="size-4" />
+        </button>
+      )}
       <button
         type="button"
         aria-label={`Close ${name}`}
@@ -1419,6 +1409,10 @@ export function ActorNode({
   focus,
   dim = false,
   still = false,
+  folding = true,
+  selected = false,
+  onSelect,
+  onTrail,
   flash,
   onOpen,
   onCenter,
@@ -1437,6 +1431,14 @@ export function ActorNode({
   readonly dim?: boolean;
   /** Out of sight, before the canvas is drawn: in place at once, nothing glides or fades in. */
   readonly still?: boolean;
+  /** Whether it has a button to fold what is under it. */
+  readonly folding?: boolean;
+  /** The card picked: ringed. */
+  readonly selected?: boolean;
+  /** Pressed while small: told here instead of opening. */
+  readonly onSelect?: ((id: string) => void) | undefined;
+  /** Zoom in on it, to its Trail: an Instance's card, open. */
+  readonly onTrail?: ((id: string) => void) | undefined;
   /** A new number each time it is reached from its parent's card: it glows once. */
   readonly flash?: number;
   readonly onOpen: (id: string, open: boolean) => void;
@@ -1489,9 +1491,6 @@ export function ActorNode({
   const running = workers.filter((worker) =>
     isRunning(node, worker.name),
   ).length;
-  const workersKind = rollup(
-    workers.map((worker) => workerKind(node, worker.name)),
-  );
   return (
     <motion.div
       data-node={node.id}
@@ -1543,6 +1542,7 @@ export function ActorNode({
           'relative overflow-hidden rounded-xl border bg-card text-card-foreground transition-[border-color] duration-300 motion-reduce:transition-none',
           open ? 'shadow-lg' : 'shadow-xs',
           open ? 'border-foreground/15' : 'border-border',
+          selected && 'ring-2 ring-ring ring-offset-2 ring-offset-background',
         )}
         style={{
           width: open ? OPEN_WIDTH : SMALL.width,
@@ -1581,6 +1581,7 @@ export function ActorNode({
                   uses.some((use) => use.from === null) ? services : undefined
                 }
                 onServices={setServices}
+                onTrail={onTrail && (() => onTrail(node.id))}
                 onClose={() => onOpen(node.id, false)}
               />
               <div className="px-2 pt-2 pb-1">
@@ -1602,8 +1603,11 @@ export function ActorNode({
           ) : (
             <button
               type="button"
-              onClick={() => onOpen(node.id, true)}
+              onClick={() =>
+                onSelect ? onSelect(node.id) : onOpen(node.id, true)
+              }
               aria-expanded={false}
+              aria-pressed={onSelect ? selected : undefined}
               aria-label={`${node.title}${changed ? ', changed at this Step' : ''}`}
               className="flex w-full min-w-0 flex-col gap-1 px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
             >
@@ -1639,9 +1643,7 @@ export function ActorNode({
                     title={`${running} of ${plural(workers.length, 'Worker')} running`}
                     className={cn(
                       'ml-auto flex shrink-0 items-center gap-1 text-[11px] tabular-nums',
-                      workersKind
-                        ? cn('font-medium', INK[workersKind])
-                        : running > 0 && ACTIVE_INK,
+                      running > 0 && ACTIVE_INK,
                     )}
                   >
                     {running}/{workers.length}
@@ -1666,7 +1668,7 @@ export function ActorNode({
       </div>
       {/* Open or not, a card folds and unfolds what is under it: beside it,
           clear of what it says, where its lines leave. */}
-      {node.children.length > 0 && (
+      {folding && node.children.length > 0 && (
         <button
           type="button"
           aria-label={

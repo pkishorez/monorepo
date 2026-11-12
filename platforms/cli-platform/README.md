@@ -130,15 +130,14 @@ const Cli = Actor.define('Cli', {
   on: { Want: ({ wanted }) => ({ model: { wanted } }) },
 });
 yield *
-  Runtime.start(
-    Cli,
-    Layer.mergeAll(
+  Runtime.scoped(Cli, {
+    layer: Layer.mergeAll(
       Downloads.layer(cli.cache),
       Layer.succeed(Plugins, {
         report: (name, state) => Effect.log(name, state),
       }),
     ),
-  );
+  });
 ```
 
 - `wanted` is `{ hash, url }`, downloaded through Downloads and checked against the hash, or `{ file }`, a local file in development. A `file:` URL is copied and checked the same way; one with no file there is Crashed as not on the shelf.

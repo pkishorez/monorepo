@@ -13,3 +13,7 @@ A Log entry is its place on the Branch (`id`, `parent`) and its Envelope: the `d
 
 - Drawing a saved Log's Timeline needs a Replay first, to know which Messages were ignored or dropped.
 - A Message for an Instance that is gone is dropped silently, live and in Replay alike.
+
+## Note
+
+Since the Runtime was redesigned, an entry is `{ id, parent, to, message, from, at }`: `destination` is `to`, an Address, and `source` is `from`. What came of an entry is not kept beside the History while it runs either: `Snapshot.play` says it as it plays the entry, and it is worked out again by playing the entry on the Snapshot before it.

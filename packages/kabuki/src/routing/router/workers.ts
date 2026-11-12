@@ -11,12 +11,12 @@ import type { Urls } from './urls.ts';
 /*
  * The Router's Workers: each place on screen loading its data when due,
  * the pending move's load and its wait, the first pages' data kept in the
- * Data cache, and the address heard through the Adapter.
+ * Data cache, and the URL heard through the Adapter.
  */
 export const workersOf = <Route extends AnyRoute>(
   routes: RoutesLike<Route>,
   { inside, shows }: Urls<Route>,
-  { current, shown, addressOf }: Moves<Route>,
+  { current, shown, urlOf }: Moves<Route>,
   { load }: Loads<Route>,
 ) => {
   const { delay, minimum } = routes.options;
@@ -98,8 +98,8 @@ export const workersOf = <Route extends AnyRoute>(
           }
         }),
     },
-    // Hears the address, if an Adapter holds one: Back, Forward, a typed URL.
-    address: {
+    // Hears the URL, if an Adapter holds one: Back, Forward, a typed URL.
+    url: {
       run: (self: {
         readonly send: Send;
         readonly get: Effect.Effect<{ readonly model: Model }>;
@@ -108,9 +108,9 @@ export const workersOf = <Route extends AnyRoute>(
           const found = yield* Effect.serviceOption(Adapter);
           if (Option.isNone(found)) return;
           const at = found.value;
-          // Attached already, the Runtime started again on a History this
-          // Router wrote the address from, as a Fork does: its entry is
-          // the truth, and the address is put back there, not followed.
+          // Attached already, the Runtime Forked, or made again, on a
+          // History this Router wrote the URL from: its entry is the truth,
+          // and the URL is put back there, not followed.
           let carried = (yield* self.get).model.attached;
           if (!carried)
             yield* self.send({
@@ -135,7 +135,7 @@ export const workersOf = <Route extends AnyRoute>(
               const { model } = yield* self.get;
               const entry = current(model);
               const target = model.pending?.to;
-              // The Router's own write coming back, or the address of a move still loading: nothing moved.
+              // The Router's own write coming back, or the URL of a move still loading: nothing moved.
               if (at.key() === entry.key && shows(url, entry.route)) return;
               if (target && url === routes.path(target)) return;
               if (first) {
@@ -143,7 +143,7 @@ export const workersOf = <Route extends AnyRoute>(
                   (one) => one.key === at.key(),
                 );
                 if (kept >= 0 && kept !== model.at) at.go(model.at - kept);
-                else at.replace(addressOf(entry), entry.key);
+                else at.replace(urlOf(entry), entry.key);
                 return;
               }
               yield* self.send({

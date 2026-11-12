@@ -21,3 +21,7 @@ The reason is that Replay already is the whole story of loading an app: init, th
 - A Send before the Runtime starts is dropped, like one to a stopped app.
 - `Source.kind` gains `restore`. `Replay.fold` and `Replay.restored` are exported; the Runtime takes a `replay` to share what was played for the first draw.
 - Where the Log is stored between page loads is the app's business; the package only guarantees `RuntimeState`, Messages included, is plain JSON.
+
+## Note
+
+Since the Runtime was redesigned, an app is saved with `History.save(actor, history)`, and `useRuntime()` no longer reads a History before the Runtime exists: its `runtime` is `null` until the first mount and on a server. Drawing before it runs stands.

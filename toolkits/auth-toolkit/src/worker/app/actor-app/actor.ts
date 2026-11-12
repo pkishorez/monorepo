@@ -151,10 +151,13 @@ export const AppLive = App.build({
   init: () => ({
     model: { busy: null, switching: null, toasts: [], nextToast: 0 },
   }),
-  provides: (self) =>
-    Layer.succeed(Toasts, {
-      show: (text) => self.send({ _tag: 'Toasted', text }),
-    }),
+  provides: {
+    capabilities: [Toasts],
+    layer: (self) =>
+      Layer.succeed(Toasts, {
+        show: (text) => self.send({ _tag: 'Toasted', text }),
+      }),
+  },
   workers: {
     // A switch still under way after the delay shows.
     showSwitch: {

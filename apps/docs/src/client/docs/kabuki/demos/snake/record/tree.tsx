@@ -1,28 +1,33 @@
 import { AnimatePresence, motion } from 'motion/react';
-import type { Instance } from '@kestack/kabuki/core/snapshot';
+import type { Instance } from '@kestack/kabuki';
 import type { AppRuntime } from '@kestack/kabuki/react/view';
+import type { GameLive } from '../app/game/game.ts';
+import type { StageLive } from '../app/stage/stage.ts';
 
 /*
  * The Actor tree at the Step shown: the Stage, and the Game under it
  * while one is on, each with its State, the data worth reading, and,
- * live, the Workers running in it. The Game's node comes and goes with
+ * at the Head, the Workers running in it. The Game's node comes and goes with
  * the Game.
  */
 
-export function Tree({ runtime }: { readonly runtime: AppRuntime }) {
-  const { history, head, shown } = runtime;
-  const stage = history.snapshotAt(
-    shown === null ? head : shown === 'init' ? null : shown,
-  );
-  const game = Object.values(stage.children).flat()[0];
+export function Tree({
+  runtime,
+}: {
+  readonly runtime: AppRuntime<typeof StageLive>;
+}) {
+  const { seeking } = runtime;
+  const stage = (seeking ?? runtime.runtime)?.snapshot.root;
+  if (stage === undefined) return null;
+  const { game } = stage.children;
   const workers = (instance: Instance) =>
-    shown === null
+    seeking === null
       ? runtime
-          .workers(instance.id)
+          .workers(instance.address)
           .filter((worker) => worker.status === 'running')
           .map((worker) => worker.name)
       : null;
-  const s = stage.model as { lives: number; score: number; best: number };
+  const s = stage.model;
   return (
     <section
       aria-label="Actor tree"
@@ -42,7 +47,7 @@ export function Tree({ runtime }: { readonly runtime: AppRuntime }) {
         <AnimatePresence initial={false}>
           {game && (
             <motion.div
-              key={game.id}
+              key={game.address}
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
@@ -62,13 +67,10 @@ export function Tree({ runtime }: { readonly runtime: AppRuntime }) {
   );
 }
 
-const gameFields = (game: Instance): ReadonlyArray<[string, unknown]> => {
-  const model = game.model as {
-    at: number;
-    length: number;
-    heading: string;
-    food: { x: number; y: number } | null;
-  };
+const gameFields = (
+  game: Instance<typeof GameLive>,
+): ReadonlyArray<[string, unknown]> => {
+  const { model } = game;
   return [
     ['length', model.length],
     ['at', model.at],
@@ -86,7 +88,7 @@ function Node({
   readonly name: string;
   readonly state: string;
   readonly fields: ReadonlyArray<[string, unknown]>;
-  /** `null` at a past Step: only the live app knows its Workers. */
+  /** `null` at a past Step: only the Runtime knows its Workers, at its Head. */
   readonly workers: ReadonlyArray<string> | null;
 }) {
   return (
@@ -116,7 +118,7 @@ function Node({
         <dt className="text-muted-foreground">workers</dt>
         <dd className="text-[var(--snake)]">
           {workers === null
-            ? 'live only'
+            ? 'at the Head only'
             : workers.length === 0
               ? '—'
               : workers.join(', ')}

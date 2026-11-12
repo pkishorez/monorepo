@@ -31,21 +31,13 @@
       "types": "./dist/core/actor/index.d.ts",
       "default": "./dist/core/actor/index.js"
     },
-    "./core/command": {
-      "types": "./dist/core/command/index.d.ts",
-      "default": "./dist/core/command/index.js"
-    },
-    "./core/history": {
-      "types": "./dist/core/history/index.d.ts",
-      "default": "./dist/core/history/index.js"
+    "./core/data": {
+      "types": "./dist/core/data/index.d.ts",
+      "default": "./dist/core/data/index.js"
     },
     "./core/runtime": {
       "types": "./dist/core/runtime/index.d.ts",
       "default": "./dist/core/runtime/index.js"
-    },
-    "./core/snapshot": {
-      "types": "./dist/core/snapshot/index.d.ts",
-      "default": "./dist/core/snapshot/index.js"
     },
     "./react": {
       "types": "./dist/react/index.d.ts",

@@ -1,6 +1,12 @@
 export { Runtime } from './runtime.ts';
-export type { Needs, Running } from './runtime.ts';
-export type { LiveInstance } from './reach.ts';
-export type { Sent } from './mailbox.ts';
-export { Stopped } from './instance/index.ts';
-export type { Provided, WorkerStatus } from './instance/index.ts';
+export type {
+  MessageOf,
+  Needs,
+  OptionsFor,
+  RuntimeOptions,
+  RuntimeSettings,
+  Step,
+} from './runtime.ts';
+export type { LiveInstance } from './outside.ts';
+export { Stopped } from './live/index.ts';
+export type { Sent, WorkerStatus } from './live/index.ts';

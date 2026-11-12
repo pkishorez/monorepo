@@ -3,28 +3,29 @@ import type { KeyboardEvent, PointerEvent } from 'react';
 import type { AppRuntime } from '@kestack/kabuki/react/view';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { ChevronLeftIcon, ChevronRightIcon, RotateCcwIcon } from 'lucide-react';
-import { carryOn, showStep, stepOf } from './steps.ts';
+import { carryOn, lineOf, showStep, stepOf } from './steps.ts';
 
 /*
  * Every step of the app on one track, like a video's: the left end is the
  * app right after init, the right end is now, and a tick marks each
  * Message between. Press anywhere on it and drag, with a mouse or a
  * finger, and the app shows the step nearest the pointer, its Message
- * named above the thumb; drag to the right end and it is live again. The
- * arrows and arrow keys move one step. While a past step is shown, Live
- * goes back to now, and Carry on goes live from there, growing a new
- * Branch. Dragging sideways scrubs; dragging up and down still scrolls
- * the page.
+ * named above the thumb; drag to the right end and it is at the Head
+ * again. The arrows and arrow keys move one step. While a past step is
+ * shown, Go to Head goes back to the Head, and Carry on Forks from
+ * there, growing a new Branch. Dragging sideways scrubs; dragging up and
+ * down still scrolls the page.
  */
 
 /** Past this many Messages the ticks would touch, so the track has none. */
 const MOST_TICKS = 60;
 
 export function Timeline({ runtime }: { readonly runtime: AppRuntime }) {
-  const { branch, shown } = runtime;
+  const { seeking } = runtime;
+  const branch = lineOf(runtime);
   const at = stepOf(runtime);
   const last = branch.length;
-  const live = shown === null;
+  const atHead = seeking === null;
   const rail = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -154,12 +155,12 @@ export function Timeline({ runtime }: { readonly runtime: AppRuntime }) {
           </span>{' '}
           <span className="text-foreground">{message}</span>
         </p>
-        {live ? (
+        {atHead ? (
           <Button
             size="xs"
             variant="ghost"
             disabled={last === 0}
-            onClick={runtime.clear}
+            onClick={() => runtime.fork(null)}
           >
             <RotateCcwIcon />
             Start over
@@ -173,8 +174,8 @@ export function Timeline({ runtime }: { readonly runtime: AppRuntime }) {
             >
               Carry on from here
             </Button>
-            <Button size="xs" onClick={() => runtime.show(null)}>
-              Live
+            <Button size="xs" onClick={runtime.toHead}>
+              Go to Head
             </Button>
           </>
         )}

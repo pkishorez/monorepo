@@ -101,8 +101,13 @@ export const AppLive = App.build({
         }),
         downloads: Actor.child(DownloadsLive),
       },
-      provides: (self) =>
-        Layer.succeed(Session, { signOut: self.send({ _tag: 'SignedOut' }) }),
+      provides: {
+        capabilities: [Session],
+        layer: (self) =>
+          Layer.succeed(Session, {
+            signOut: self.send({ _tag: 'SignedOut' }),
+          }),
+      },
       on: {
         SignedOut: () => ({ state: { _tag: 'SignedOut', signingIn: false } }),
       },

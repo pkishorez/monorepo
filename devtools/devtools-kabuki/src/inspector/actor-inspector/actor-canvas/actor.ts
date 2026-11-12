@@ -1,20 +1,24 @@
 import { Effect, Schema } from 'effect';
 import { Actor, Command } from '@kestack/kabuki';
-import { Graph, Step } from '../../../api/index.ts';
+import { Graph, GraphNode, Step } from '../../../api/index.ts';
 import { KabukiSession } from '../../kabuki-session/index.ts';
 import { CardLive } from './actor-card/index.ts';
 import { Opening } from './capabilities/opening.ts';
 
 /*
  * The canvas: the app at the Step shown, every Instance a card, laid out
- * and drawn by its View (./ui).
+ * and drawn by its View (./ui); or, given `blueprint`, every Actor the
+ * app's root can grow, whether it runs or not.
  *
  * 1. Graph   what the Kabuki Session answers for the Step: read again at
- *            each new Step, and, live, at each change of the app.
+ *            each new Step, and, live, at each change of the app. The
+ *            Blueprint is read once each time it is shown: it holds only
+ *            what the Actors declare. How it is shown is kept here.
  * 2. Cards   one Card per card open, reading its Instance's data while it
  *            is open (./actor-card).
- * 3. Open    a card the reader opens or closes is asked of whoever placed
- *            the canvas, who keeps the cards open.
+ * 3. Open    a card the reader opens or closes, or an Instance zoomed in
+ *            on to its Trail, is asked of whoever placed the canvas, who
+ *            keeps the cards open.
  */
 
 const Props = Schema.Struct({
@@ -30,20 +34,38 @@ const Props = Schema.Struct({
   ),
   /** Keep the whole tree in view as it changes, nothing to press: presenting. */
   follow: Schema.Boolean,
+  /** Draw the Blueprint instead of the app at a Step. */
+  blueprint: Schema.Boolean,
 });
+
+const Form = Schema.Literals(['whole', 'steps']);
+const Off = Schema.Literals(['dim', 'hide']);
 
 export const Canvas = Actor.define('Canvas', {
   requires: [KabukiSession, Opening],
   props: Props,
   model: Schema.Struct({
     graph: Schema.NullOr(Graph),
+    /** The Blueprint, once read. */
+    print: Schema.NullOr(GraphNode),
+    /** The Blueprint whole, or a level at a time. */
+    form: Form,
+    /** What is out of the light: dimmed, or hidden. */
+    off: Off,
+    /** The Blueprint's card picked. */
+    picked: Schema.NullOr(Schema.String),
     /** Why the Step could not be drawn: no longer kept, or the Kabuki Session gone. */
     problem: Schema.NullOr(Schema.String),
   }),
   message: Schema.TaggedUnion({
     Drawn: { graph: Graph },
+    Printed: { root: GraphNode },
+    Formed: { form: Form },
+    Offed: { off: Off },
+    Picked: { id: Schema.NullOr(Schema.String) },
     Failed: { problem: Schema.String },
     Opened: { id: Schema.String, open: Schema.Boolean },
+    Zoomed: { id: Schema.String },
   }),
 });
 
@@ -54,16 +76,36 @@ const open = Command.make('open', {
     Effect.flatMap(Opening, (opening) => opening.open(id, open)),
 });
 
-/** What is drawn: a Step's graph stays as it is; the Head's, after each change. */
-const drawnOf = ({ at, revision }: typeof Props.Type) =>
-  at === null ? `head#${revision}` : `${at}`;
+const zoom = Command.make('zoom', {
+  args: Schema.Struct({ id: Schema.String }),
+  run: ({ id }) => Effect.flatMap(Opening, (opening) => opening.zoom(id)),
+});
+
+/** What is drawn: the Blueprint and a Step's graph stay as they are; the Head's, after each change. */
+const drawnOf = ({ at, revision, blueprint }: typeof Props.Type) =>
+  blueprint ? 'print' : at === null ? `head#${revision}` : `${at}`;
+
+const problemOf = (error: { readonly _tag: string }) =>
+  error._tag === 'StepNotFound'
+    ? 'This Step is no longer kept.'
+    : 'The Kabuki Session did not answer.';
 
 export const CanvasLive = Canvas.build({
-  init: () => ({ model: { graph: null, problem: null } }),
+  init: () => ({
+    model: {
+      graph: null,
+      print: null,
+      form: 'whole',
+      off: 'dim',
+      picked: null,
+      problem: null,
+    },
+  }),
   // 2. Cards
   children: {
     card: Actor.child(CardLive, {
-      each: ({ props }) => props.opened,
+      // The Blueprint's cards are no Instance: nothing to read for them.
+      each: ({ props }) => (props.blueprint ? [] : props.opened),
       input: (_, instance) => ({ instance }),
       props: ({ props }) => ({ at: props.at, revision: props.revision }),
     }),
@@ -76,25 +118,39 @@ export const CanvasLive = Canvas.build({
         Effect.gen(function* () {
           const { props } = yield* self.get;
           const session = yield* KabukiSession;
+          if (props.blueprint)
+            return yield* session.blueprint().pipe(
+              Effect.matchEffect({
+                onSuccess: ({ root }) => self.send({ _tag: 'Printed', root }),
+                onFailure: (error) =>
+                  self.send({ _tag: 'Failed', problem: problemOf(error) }),
+              }),
+            );
           yield* session.graph(props.at === null ? {} : { at: props.at }).pipe(
             Effect.matchEffect({
               onSuccess: (graph) => self.send({ _tag: 'Drawn', graph }),
               onFailure: (error) =>
-                self.send({
-                  _tag: 'Failed',
-                  problem:
-                    error._tag === 'StepNotFound'
-                      ? 'This Step is no longer kept.'
-                      : 'The Kabuki Session did not answer.',
-                }),
+                self.send({ _tag: 'Failed', problem: problemOf(error) }),
             }),
           );
         }),
     },
   },
   on: {
-    Drawn: ({ graph }) => ({ model: { graph, problem: null } }),
+    Drawn: ({ graph }, { model }) => ({
+      model: { ...model, graph, problem: null },
+    }),
+    Printed: ({ root }, { model }) => ({
+      model: { ...model, print: root, problem: null },
+    }),
+    // A Form starts from the root: a card picked in one means another thing in the other.
+    Formed: ({ form }, { model }) => ({
+      model: { ...model, form, picked: null },
+    }),
+    Offed: ({ off }, { model }) => ({ model: { ...model, off } }),
+    Picked: ({ id }, { model }) => ({ model: { ...model, picked: id } }),
     Failed: ({ problem }, { model }) => ({ model: { ...model, problem } }),
     Opened: ({ id, open: shown }) => ({ command: open({ id, open: shown }) }),
+    Zoomed: ({ id }) => ({ command: zoom({ id }) }),
   },
 });

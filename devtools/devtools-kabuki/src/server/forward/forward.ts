@@ -83,7 +83,10 @@ const forwarding = (client: KabukiSessionClient) =>
   KabukiSessionApi.toHandlers({
     info: () => Effect.orDie(client.info()),
     named: (payload) => Effect.orDie(client.named(payload)),
-    history: (payload) => Effect.orDie(client.history(payload)),
+    history: (payload) =>
+      client
+        .history(payload)
+        .pipe(Effect.catchTag('RpcClientError', Effect.die)),
     watch: () => Stream.orDie(client.watch()),
     page: () => Stream.orDie(client.page()),
     snapshot: (payload) =>
@@ -96,12 +99,13 @@ const forwarding = (client: KabukiSessionClient) =>
         .pipe(Effect.catchTag('RpcClientError', Effect.die)),
     graph: (payload) =>
       client.graph(payload).pipe(Effect.catchTag('RpcClientError', Effect.die)),
+    blueprint: () => Effect.orDie(client.blueprint()),
     node: (payload) =>
       client.node(payload).pipe(Effect.catchTag('RpcClientError', Effect.die)),
-    travel: (payload) =>
-      client
-        .travel(payload)
-        .pipe(Effect.catchTag('RpcClientError', Effect.die)),
+    trail: (payload) =>
+      client.trail(payload).pipe(Effect.catchTag('RpcClientError', Effect.die)),
+    seek: (payload) =>
+      client.seek(payload).pipe(Effect.catchTag('RpcClientError', Effect.die)),
     fork: (payload) =>
       client.fork(payload).pipe(Effect.catchTag('RpcClientError', Effect.die)),
   });

@@ -1,9 +1,18 @@
 import { Effect, Schema } from 'effect';
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { restore } from '../snapshot/engine/index.ts';
+import { restore } from '../data/play/index.ts';
 import { Actor, History, Runtime } from '../index.ts';
 import type { LiveInstance, Sent } from '../runtime/index.ts';
-import { Auth, ServerLive, run, settle } from './fixtures.ts';
+import {
+  Auth,
+  ServerLive,
+  line,
+  run,
+  settle,
+  start,
+  stop,
+  to,
+} from './fixtures.ts';
 
 /*
  * An app reached from outside its tree: the root Instance, typed by its
@@ -65,9 +74,9 @@ describe('an Instance reached from outside', () => {
   it('reads the app live: what it reads is what the app holds now', () =>
     run(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(Board);
+        const running = yield* Runtime.scoped(Board);
         const board = running.instance({ from: 'test' });
-        expect(board.id).toBe('Board');
+        expect(board.address).toBe('Board');
         expect(board.model.ids).toEqual(['a', 'b']);
         expect(board.send({ _tag: 'Added', id: 'c' })).toBe('handled');
         expect(board.model.ids).toEqual(['a', 'b', 'c']);
@@ -77,7 +86,7 @@ describe('an Instance reached from outside', () => {
   it('finds keyed Children as a list, and one that may be absent as undefined', () =>
     run(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(Board);
+        const running = yield* Runtime.scoped(Board);
         const board = running.instance({ from: 'test' });
         expect(board.children.detail).toBeUndefined();
         expect(
@@ -87,7 +96,7 @@ describe('an Instance reached from outside', () => {
           ['b', 1],
         ]);
         board.send({ _tag: 'Toggled' });
-        expect(board.children.detail?.id).toBe('Board/detail#1');
+        expect(board.children.detail?.address).toBe('Board/detail#1');
 
         expectTypeOf(board.children.rows[0]!.key).toEqualTypeOf<string>();
         expectTypeOf(board.children.detail).toExtend<object | undefined>();
@@ -97,7 +106,7 @@ describe('an Instance reached from outside', () => {
   it('narrows `state` and `children` together by `_tag`', () =>
     run(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(Auth, ServerLive);
+        const running = yield* Runtime.scoped(Auth, { layer: ServerLive });
         yield* settle;
         const auth = running.instance({ from: 'test' });
         expect(auth._tag).toBe('Anonymous');
@@ -117,7 +126,7 @@ describe('an Instance reached from outside', () => {
   it('Sends from outside, named, and says what became of the Message', () =>
     run(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(Board);
+        const running = yield* Runtime.scoped(Board);
         const row = running.instance({ from: 'admin' }).children.rows[0]!;
         expect(row.send({ _tag: 'Broke', reason: 'offline' })).toBe('handled');
         expect(row.state).toEqual({ _tag: 'Failed', reason: 'offline' });
@@ -134,9 +143,9 @@ describe('an Instance reached from outside', () => {
   it('stamps every Send with the name it was reached with', () =>
     run(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(History.make(Board));
+        const running = yield* Runtime.scoped(Board);
         running.instance({ from: 'admin' }).send({ _tag: 'Toggled' });
-        expect(running.history.branch().at(-1)?.source).toEqual({
+        expect(line(running).at(-1)?.from).toEqual({
           kind: 'outside',
           name: 'admin',
         });
@@ -146,7 +155,7 @@ describe('an Instance reached from outside', () => {
   it('reads the Workers of an Instance live', () =>
     run(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(Board);
+        const running = yield* Runtime.scoped(Board);
         yield* settle;
         const row = running.instance({ from: 'test' }).children.rows[0]!;
         expect(row.workers).toEqual([
@@ -158,7 +167,7 @@ describe('an Instance reached from outside', () => {
   it('once stopped, reads what it held when last read, and nothing Sent to it arrives', () =>
     run(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(Board);
+        const running = yield* Runtime.scoped(Board);
         const board = running.instance({ from: 'test' });
         const row = board.children.rows[0]!;
         row.send({ _tag: 'Edited', text: 'kept' });
@@ -172,27 +181,34 @@ describe('an Instance reached from outside', () => {
         // Back again, the key is a fresh Instance: the old one stays stopped.
         board.send({ _tag: 'Added', id: 'a' });
         expect(row.stopped).toBe(true);
-        expect(board.children.rows.at(-1)?.id).toBe('Board/rows[a]#2');
+        expect(board.children.rows.at(-1)?.address).toBe('Board/rows[a]#2');
 
-        yield* running.stop();
+        // The Runtime stopped, it still reads, and nothing Sent to it arrives; let go, it is stopped.
+        yield* stop(running);
+        expect(board.stopped).toBe(false);
+        expect(board.workers).toEqual([]);
+        expect(board.send({ _tag: 'Toggled' })).toBe('refused');
+        yield* start(running);
+        expect(board.send({ _tag: 'Toggled' })).toBe('handled');
+        yield* Effect.promise(() => running.dispose());
         expect(board.stopped).toBe(true);
         expect(board.send({ _tag: 'Toggled' })).toBe('refused');
         expect(board.model.ids).toEqual(['b', 'a']);
       }),
     ));
 
-  it('reached before a Restore, is stopped, though the Restore brings its ID back', () =>
+  it('reached before a Restore, is stopped, though the Restore brings its Address back', () =>
     run(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(Board);
+        const running = yield* Runtime.scoped(Board);
         const board = running.instance({ from: 'test' });
         const row = board.children.rows[0]!;
-        const saved = running.snapshot();
+        const saved = running.snapshot.root;
         board.send({ _tag: 'Removed', id: 'a' });
-        running.send('Board', { ...restore(saved) });
-        expect(running.instance({ from: 'test' }).children.rows[0]!.id).toBe(
-          row.id,
-        );
+        running.send(to(running, 'Board'), { ...restore(saved) });
+        expect(
+          running.instance({ from: 'test' }).children.rows[0]!.address,
+        ).toBe(row.address);
         expect(row.stopped).toBe(true);
         expect(row.send({ _tag: 'Retried' })).toBe('refused');
       }),
@@ -227,13 +243,13 @@ describe('an Instance reached from outside', () => {
             },
           },
         });
-        const running = yield* Runtime.start(Lamp);
+        const running = yield* Runtime.scoped(Lamp);
         held = running.instance({ from: 'test' });
         held.send({ _tag: 'Switched' });
-        const saved = running.snapshot();
+        const saved = running.snapshot.root;
         held.send({ _tag: 'Switched' });
         armed = true;
-        running.send('Lamp', { ...restore(saved) });
+        running.send(to(running, 'Lamp'), { ...restore(saved) });
         expect(sent).toEqual(['refused']);
         expect(running.instance({ from: 'test' }).model).toEqual({
           on: true,
@@ -245,15 +261,17 @@ describe('an Instance reached from outside', () => {
   it('stays live through a Restore that is refused', () =>
     run(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(Board);
+        const running = yield* Runtime.scoped(Board);
         const board = running.instance({ from: 'test' });
         const row = board.children.rows[0]!;
         // Not for the root: dropped.
-        running.send(row.id, { ...restore(running.snapshot()) });
+        running.send(row.address, {
+          ...restore(running.snapshot.root),
+        } as never);
         // Not a Snapshot of this app: ignored, with a warning.
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-        running.send('Board', {
-          ...restore({ ...running.snapshot(), actor: 'Other' }),
+        running.send(to(running, 'Board'), {
+          ...restore({ ...running.snapshot.root, actor: 'Other' }),
         });
         warn.mockRestore();
         expect(row.stopped).toBe(false);
@@ -261,25 +279,24 @@ describe('an Instance reached from outside', () => {
       }),
     ));
 
-  it('reached before the Runtime last started, is stopped, though a new Instance has its ID', () =>
+  it('reached before a Fork, reads as it was: the app has started over', () =>
     run(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(History.make(Board));
+        const running = yield* Runtime.scoped(Board);
         const board = running.instance({ from: 'test' });
-        const row = board.children.rows[0]!;
         board.send({ _tag: 'Removed', id: 'a' });
         expect(board.model.ids).toEqual(['b']);
-        yield* running.start(null);
+        yield* Effect.promise(() => running.fork(null));
         yield* settle;
-        // Started over from init: `Board/rows[a]#1` is a new Instance.
-        expect(running.instance({ from: 'test' }).children.rows[0]!.id).toBe(
-          row.id,
-        );
-        expect(row.stopped).toBe(true);
-        expect(row.workers).toEqual([]);
-        expect(row.send({ _tag: 'Retried' })).toBe('refused');
         expect(board.stopped).toBe(true);
         expect(board.model.ids).toEqual(['b']);
+        expect(board.send({ _tag: 'Removed', id: 'b' })).toBe('refused');
+        // From init again: `Board/rows[a]#1` is there again, reached anew.
+        const again = running.instance({ from: 'test' });
+        expect(again.children.rows[0]!.address).toBe('Board/rows[a]#1');
+        expect(again.children.rows[0]!.workers).toEqual([
+          { name: 'sync', key: '', status: 'running' },
+        ]);
       }),
     ));
 });

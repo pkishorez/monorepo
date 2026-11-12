@@ -24,13 +24,17 @@ _Avoid_: spec, schema (on its own), type
 How a defined Actor behaves, made by its Definition's `build`: its init, its Updates, its Children, Workers and Provides, and its answers to its Queries, written at the top, for as long as the Instance lives, or under `states`, in a State's block, for as long as that State lasts. It is what runs, what a parent Invokes and what a View draws. Named after the Actor with `Live`: `CounterLive`, beside its Definition.
 _Avoid_: implementation, instance (an Instance is a running Build)
 
+**Blueprint**:
+What an Actor is and does, made from its Definition and its Build together, with nothing running: its name, its Requires and its Schemas, and for each level, the top and each of its States, the Messages it has an Update for, its Workers and their Conditions, its Children with theirs, its Queries and the Capabilities it Provides. Each State's level also holds the Schema of the data that State carries, and its States are exactly its levels besides the top. A Child's place in it holds that Child's own Blueprint, so the root's Blueprint reaches the whole tree an app can grow. What runs the app is made from it, and every tool that describes an Actor reads it, never how the engine holds it.
+_Avoid_: definition (that is what `define` gives), compiled, schema, spec
+
 **Instance**:
-One running Actor in the tree: its ID, its current Model, State and Props, and its Children. Called an "actor instance" where "Instance" alone is unclear. Views draw an Instance; Messages are sent to one. Code outside the tree reaches the root Instance through its Runtime, typed by its Actor and always live, and from it any Instance below: it reads their data and their Workers, Sends to them, asks their Queries and waits `until` their data passes a test, and changes nothing else. An Instance that has stopped, or was reached before the app last started over, by a start or a Restore, reads as it was when last read, and nothing Sent to it arrives.
+One running Actor in the tree: its Address, its current Model, State and Props, and its Children. Called an "actor instance" where "Instance" alone is unclear. Views draw an Instance; Messages are sent to one. Code outside the tree reaches the root Instance through its Runtime, typed by its Actor and always live, and from it any Instance below: it reads their data and their Workers, Sends to them, asks their Queries and waits `until` their data passes a test, and changes nothing else. An Instance that has stopped, or was reached before the app last started over, by a start or a Restore, reads as it was when last read, and nothing Sent to it arrives.
 _Avoid_: ref, process, live node, store
 
-**Instance ID**:
-Who an Instance is, made from its parent's ID, the Child's name, its key if it has one, and how many times the parent has Invoked that Child so far. The same Messages always give the same IDs, and an Instance Invoked again gets a new ID, so a Message for an Instance that is gone is dropped.
-_Avoid_: path, address, number
+**Address**:
+Who an Instance is and where it lives, as one path from the root: its parent's Address, then the State its Child is written in if it is written in one, the Child's name, its key if it has one, and how many times the parent has Invoked that Child so far, as in `App/Inside:downloads#2/files[3]#1`. The same Messages always give the same Addresses, and an Instance Invoked again gets a new one, so a Message for an Instance that is gone is dropped. Without its keys and counts, the same path is the Instance's place in the root's Blueprint, which is how a tool finds what an Instance is. An Address taken from a Snapshot knows its Actor, so only that Actor's Messages can be Sent to it.
+_Avoid_: instance ID, path, number, URL (the Router's is another thing)
 
 **Child**:
 An Actor its parent Invokes, named in a level's `children` and made with `Actor.child`, with a Condition, as a Worker is written: `children: { rows: Actor.child(RowLive, { each, input, props, emits }) }`. `Actor.child` is typed by the level it is written in, so every function in it is checked against the parent's data and the Child's Actor. Written at the top, a Child exists for as long as its parent and lasts through every Transition; written in a State's block, for as long as that State lasts. Within that it exists always, `while` a test on the parent's data holds, or once per key `each` names. A Child that may be absent is typed so in its parent's View. The State and the Model decide which Children exist, never the View. A parent controls a Child only by whether it exists and by its Props, and never Sends to it; it hears from it only what it Emits. What a parent must control, it owns.
@@ -45,7 +49,7 @@ What a parent does to its Children: the State and each Child's Condition say whi
 _Avoid_: spawn, create, mount
 
 **Snapshot**:
-The whole app as one value: every Instance, with its ID, its Actor's name, its State, its Model and its Children. The only truth about the app's data, and Replay rebuilds it from the History. Saving the app saves its History; a lighter save is a History of one Restore.
+The whole app as one value, right after one History entry or right after init: every Instance, with its Address, its Actor's name, its State, its Model, its Props and its Children, and the History entries that started it and last changed it. The only truth about the app's data, and Replay rebuilds it from the History. It holds data only: which Workers run follows from it and the Blueprint, and how each is doing is known only to the Runtime. Following the entry that last changed an Instance back, Snapshot by Snapshot, tells its whole Trail. Saving the app saves its History; a lighter save is a History of one Restore.
 _Avoid_: store, app state, actor system
 
 ### Data and change
@@ -74,16 +78,16 @@ _Avoid_: event (XState's word; Kabuki uses Elm's names), action
 A Message to the root that replaces the whole Snapshot with one saved before, stamped with that Snapshot's Time. The only Message no Update sees: Replay checks each Instance against its Actor's Schemas and puts the Snapshot in place, or warns and leaves init as it was; a History loaded strictly refuses to load instead. A History of one Restore is the light way to save an app: the Step before it is init, and nothing before the Restore can be travelled to but init.
 _Avoid_: checkpoint, hydrate, load, seed
 
-**Envelope**:
-A Message with the Instance it is sent to, its Source and its Time: what a Send makes, what Replay plays, and all a History entry holds.
-_Avoid_: event, packet
+**History entry**:
+The smallest record of one Message: the Message, the Address it is sent to, its Source, its Time, and the entry before it. What a Send makes, what Replay plays, and all a History holds besides the root's Input.
+_Avoid_: envelope, event, packet, entry (on its own: the Router's Entry is another thing)
 
 **Source**:
-Who Sent a Message: the Instance, and what in it Sent: its View, a Command by its name, a Worker by its name and key, or what it Provides. The same Instance the Message goes to, except for a Request, which comes from the Instance whose Command or Worker made it, and an Emit, which comes from the Child that Emitted it, named by the tag of what it Emitted. A Message Sent from outside the tree, by a test, a tool or the server the app runs on, comes from outside, not from an Instance, named by whoever Sent it; a Restore no one Sent: it was given to the app. Kept with the Envelope to show who talked to whom; Replay never reads it.
+Who Sent a Message: the Instance, and what in it Sent: its View, a Command by its name, a Worker by its name and key, or what it Provides. The same Instance the Message goes to, except for a Message a Capability's function Sends to its Provider, which comes from the Instance whose Command or Worker called it, and an Emit, which comes from the Child that Emitted it, named by the tag of what it Emitted. A Message Sent from outside the tree, by a test, a tool or the server the app runs on, comes from outside, not from an Instance, named by whoever Sent it; a Restore no one Sent: it was given to the app. Kept with the History entry to show who talked to whom; Replay never reads it.
 _Avoid_: sender, origin, caller
 
 **Time**:
-When a Message arrived, in milliseconds: from 0 at init, carried on from the Head's Time when a Runtime starts, and standing still while it is stopped. Stamped by the Runtime and kept with the Message. Update reads it, so a Replay gets the same answer as the live app. The one clock the app and its History share. It is how long things take inside the app, not a date: a moment in the world, a session that expires or a reminder at nine, is data a Message carries, and a Worker waits for it on the real clock, so it holds across a reload, a stop and a server starting over. Update never reads the real clock itself, as it reads nothing but its arguments.
+When a Message arrived, in milliseconds: from 0 at init, carried on from the Head's Time when a Runtime is made or Forked, and standing still while it is stopped. Stamped by the Runtime and kept with the Message. Update reads it, so Replay gets the same answer as the running app. The one clock the app and its History share. It is how long things take inside the app, not a date: a moment in the world, a session that expires or a reminder at nine, is data a Message carries, and a Worker waits for it on the real clock, so it holds across a reload, a Fork and a server starting over. Update never reads the real clock itself, as it reads nothing but its arguments.
 _Avoid_: timestamp, now, clock (on its own), date
 
 **Update**:
@@ -95,11 +99,11 @@ What a Child tells its parent: a tagged value its Update returns under `emit`, c
 _Avoid_: output, event, callback
 
 **History**:
-Everything that happened to an app: a tree of entries, one per Message, each pointing to the entry before it and holding its Envelope, nothing else, and the Head the next one grows from. What came of a Message is worked out from the Snapshots before and after it. Replay needs only the Messages on the way to an entry. Saved and given back, it is where an app carries on from, on a server, at build time, after a reload, or after its code changed. Saved, every value in it is its Schema's encoded side, so that side must be JSON-safe. Keeps as much as its Window says.
+Everything that happened to an app: the root's Input, a tree of History entries, one per Message, each pointing to the entry before it, and the Head the next one grows from. What came of a Message is worked out from the Snapshots before and after it. Replay needs only the Input and the Messages on the way to an entry. Saved and given back, it is where an app carries on from, on a server, at build time, after a reload, or after its code changed. Saved, every value in it is its Schema's encoded side, so that side must be JSON-safe. Keeps as much as its Window says.
 _Avoid_: log, journal, event store
 
 **Window**:
-How many entries a History keeps on the Head's Branch, counted back from the Head: a hundred in a browser, and none on a server, where a History holds only the app as it is now. Keeping everything is a choice, never a default. It can be set when the History is made and changed at any time, even while a Runtime runs on it; a smaller one Compacts at once, and every entry after keeps to it.
+How many entries a History keeps on the Head's Branch, counted back from the Head: a hundred in a browser, and none on a server, where a History holds only the app as it is now. Keeping everything is a choice, never a default. It can be set when the Runtime is made and changed at any time, even while it runs; a smaller one Compacts at once, and every entry after keeps to it.
 _Avoid_: limit, cap, retention, max size
 
 **Compact**:
@@ -107,29 +111,41 @@ Fold every entry before the Window into one: the oldest entry kept becomes a Res
 _Avoid_: prune, trim, truncate, garbage-collect
 
 **Head**:
-The History entry the next Message goes after. It moves to each new entry, and to an earlier one only while no Runtime runs on the History; starting there grows a new Branch.
+The History entry the next Message goes after, and where the Runtime is: it moves to each new entry, and a Fork moves it to any earlier one, so the next Message grows a new Branch.
 _Avoid_: cursor, current, tip
 
 **Branch**:
-The line of entries grown from one start of the Runtime: starting from an earlier entry begins a new Branch beside the old one, which stays in the History. Time on a new Branch carries on from the entry it starts from.
-_Avoid_: fork (as a noun), timeline, run, session
+One line of entries from init to an entry nothing has followed yet: a Fork to an earlier entry begins a new Branch beside the old one, which stays in the History. Time on a new Branch carries on from the entry it starts from.
+_Avoid_: fork (as a noun for the line), timeline, run, session
 
 **Replay**:
-Rebuilding the Snapshot from Messages alone: init, then each Message with its Time through Update, handed to the Instance with its ID, and a Restore in place of the whole Snapshot. A Message for an Instance that is gone is dropped, as it was live; Replay never Invokes an Instance the Messages did not. Props are worked out again from each parent. A Message that no longer fits its Actor's Schema is warned of and skipped. No Capabilities, Workers or Commands run.
-_Avoid_: rehydrate, rebuild
+Rebuilding the app right after one History entry, or right after init, from the Input and the Messages alone: init, then each Message with its Time through Update, handed to the Instance at its Address, and a Restore in place of the whole Snapshot. A Message for an Instance that is gone is dropped, as it was when it was Sent; Replay never Invokes an Instance the Messages did not. Props are worked out again from each parent. A Message that no longer fits its Actor's Schema is warned of and skipped. No Capabilities, Workers or Commands run.
+_Avoid_: rehydrate, rebuild, preview
 
 **Step**:
-One point Time Travel can show: the app right after one History entry, or right after init. Nothing between two Messages is a Step.
-_Avoid_: index, tick, position
+The app right after one History entry, or right after init: its Time and its Snapshot, and nothing else. What a Seek gives. Nothing between two Messages is a Step.
+_Avoid_: index, tick, position, replay (the way a Step is made)
+
+**Seek**:
+Looking at any History entry, on any Branch, as a Step, while the Runtime stays where it is: running at its Head, or stopped. Nothing runs and nothing can be Sent to what it shows. Which entries a Seek can go to next is the History's to say: the one before, the ones that follow, and the last entry of every Branch.
+_Avoid_: replay, rewind, go to
+
+**Trail**:
+One Instance's story along the History, up to any entry: when it started, each History entry Sent to it, each that changed its State, Model or Props, and when it stopped, with the Instance before and after each. How a tool zooms in on one Instance; Seeking any of its entries zooms back out to the whole app.
+_Avoid_: log, timeline (the Inspector's Timeline is another thing)
+
+**Fork**:
+Moving the Runtime's Head to an earlier History entry, or to init, so the next Message grows a new Branch from it. A running Runtime stops its work and starts it again from that entry's data; a stopped one only moves. No Command runs again: a Command belongs to the Message that asked for it, so work that must go on in a State is a Worker. Always the same Runtime; the old Branch stays in the History.
+_Avoid_: rewind, restart, branch (the line it grows is the Branch)
 
 **Time Travel**:
-Drawing the app as a Replay at a Step: every Message up to it is played, and the app is drawn at that Message's Time. The live app keeps running underneath, and nothing can be sent from the past.
+Drawing the app at a Step it Seeks: every Message up to it is played, and the app is drawn at that Message's Time. The Runtime stays where it is underneath, and nothing can be Sent from the past; going on from there is a Fork.
 _Avoid_: undo, rewind, snapshot history, pause
 
 ### Work
 
 **Command**:
-An errand an Update asks for: made once, outside any Update, as a name, the Schema of its args and an Effect run from those args; an Update asks for it with its args. It ends with at most one Message, Sent to its Instance, and turns its own failures into that Message. Fire and forget: never in the History, never replayed. For work with nothing to show while it runs: replace the URL, tell a cache, make a Request. It gets Capabilities from Effect. Nothing stops it but its Instance stopping; work that must be stopped, show progress, or survive a stop is a Worker.
+An errand an Update asks for: made once, outside any Update, as a name, the Schema of its args and an Effect run from those args; an Update asks for it with its args. It ends with at most one Message, Sent to its Instance, and turns its own failures into that Message. Fire and forget: never in the History, never replayed. For work with nothing to show while it runs: replace the URL, tell a cache, call a Capability. It gets Capabilities from Effect. Nothing stops it but its Instance stopping; work that must be stopped, show progress, or survive a stop is a Worker.
 _Avoid_: effect, side effect, task, invoke, cancel (there is none)
 
 **Worker**:
@@ -146,29 +162,25 @@ _Avoid_: cleanup hook, teardown, on exit
 
 **Query**:
 A question an Instance answers from what it holds and what its Services know, without changing the Actor: declared in its Definition with what it is asked with and what it answers, each a Schema, and answered by a function in its Build, at the top or in a State, given its Instance's Model, State and Props and the Capabilities the Actor Requires, and returning an Effect with the answer or a typed failure. It never Sends; it may ask the outside world to answer. Written in a State, it exists only while that State lasts. Asked only from outside the tree, through a live Instance; a Parent, a View and a descendant never ask. Never in the History and never replayed; its args and its answer are checked against their Schemas. Asked of an Instance that has stopped, it fails rather than answers. When outside code needs work done and then a change, it asks a Query, then Sends.
-_Avoid_: ask, probe, inquiry, request (Kabuki's Request is another thing), RPC, call, getter
+_Avoid_: ask, probe, inquiry, request, RPC, call, getter
 
 ### Capabilities
 
 **Capability**:
-What an Actor can rely on from above, or offers to everything below it while in a State: a projection of its Model and State, functions that return Effects, or both. Built on an Effect service and identified by its key.
-_Avoid_: service (for this), context, interface, dependency, input, output
+What an Actor can rely on from above, or offers to everything below it while in a State: a projection of its Model and State, functions that return Effects, or both. Built on an Effect service and identified by its key. A function on it may Send a Message to the Instance that Provides it, so a descendant asks an ancestor for a change without knowing where it is; it is called from a Command or a Worker, never from a View.
+_Avoid_: service (for this), context, interface, dependency, input, output, request (for its functions)
 
 **Requires**:
 The Capabilities an Actor's own Workers, Commands and Provides may use, as a list: nothing else is in reach of its code. It is about the Actor alone, never its Children. What an Actor still needs from above is its Requires plus whatever its Children need that it does not Provide where they are placed; that need bubbles up until an ancestor Provides it, and the app's Layer covers the rest.
 _Avoid_: inject, consume, depends on
 
 **Provides**:
-The Capabilities an Actor gives its descendants, as one Layer written at the top, one written in each State, or both: written at the top, it is built once when the Instance starts and reaches the Children of every State; written in a State's block, it is built each time that State is entered, torn down when it is left, and reaches only that State's Children. It cancels out what the Children below it need. A Capability that follows the Model watches its Instance's changes itself. The nearest Provider wins. Most belong at the top; a State Provides only what can exist only in it.
+The Capabilities an Actor gives its descendants, each level naming the ones it gives beside the one Layer that builds them, which must build exactly those: one written at the top, one written in each State, or both. Only the Capabilities named reach the descendants, so its Blueprint knows them with nothing running. Written at the top, it is built once when the Instance starts and reaches the Children of every State; written in a State's block, it is built each time that State is entered, torn down when it is left, and reaches only that State's Children. It cancels out what the Children below it need. A Capability that follows the Model watches its Instance's changes itself. The nearest Provider wins. Most belong at the top; a State Provides only what can exist only in it.
 _Avoid_: exposes, exports
 
 **Service**:
 The implementation behind a Capability that wraps an outside thing: a table, an agent process, a socket, a client. Kept by the Actor whose Provides or Workers use it. A Capability that is a projection of its Provider's own Model and State has no Service.
 _Avoid_: adapter, client (as a kind), capability (for this)
-
-**Request**:
-A function on a Capability that sends a Message to the Instance that Provides it, so a descendant can ask an ancestor for a change without knowing where it is. Called from a Command or a Worker, never from a View.
-_Avoid_: output, bubble, callback, event
 
 ### Routing
 
@@ -213,7 +225,7 @@ Loading every Page on screen again, its data shown meanwhile, and dropping every
 _Avoid_: refresh (a browser's), invalidate, revalidate
 
 **Navigation**:
-The Capability the Router Provides to everything below it: Requests to push a Route, replace it, go back or forward, Reload and Preload, each one Message to the Router, with its Source. Moving between Pages is a Child coming and going under a Page, never "a navigation".
+The Capability the Router Provides to everything below it: functions to push a Route, replace it, go back or forward, Reload and Preload, each one Message to the Router, with its Source. Moving between Pages is a Child coming and going under a Page, never "a navigation".
 _Avoid_: router (the Actor), history
 
 **Move**:
@@ -232,12 +244,12 @@ _Avoid_: scroll memory, scroll area, scroll position
 Going somewhere other than the URL asked for, in place of it, so Back never returns to it. Written in the Router definition for a URL that is never a place, for good; or said by a Loader, to a Route of the app or a URL outside it, for this visitor, and for good only if it says so. A URL that reads as a Route but is not how that Route is written is replaced the same way.
 _Avoid_: guard, forward
 
-**Address**:
-The URL as the live Router writes it: a Command per move, and nothing when the browser already shows it. Time Travel never touches it: a past Step is a drawing of the app, and the move that led there is one Message on the Timeline.
-_Avoid_: location, url bar, sync
+**URL**:
+Where the app is, as the live Router writes it into its Adapter: a Command per move, and nothing when the browser already shows it. Time Travel never touches it: a past Step is a drawing of the app, and the move that led there is one Message on the Timeline.
+_Avoid_: location, address (an Instance's Address is another thing), sync
 
 **Adapter**:
-Where an app's Address lives: in memory, the default, so any app routes without touching a URL; in the browser's own history; or in TanStack Router's, for an app on a TanStack Start catch-all route. Given in the app's Layer; the Router definition and every Actor are the same whichever it is.
+Where an app's URL lives: in memory, the default, so any app routes without touching a URL; in the browser's own history; or in TanStack Router's, for an app on a TanStack Start catch-all route. Given in the app's Layer; the Router definition and every Actor are the same whichever it is.
 _Avoid_: backend, driver, host, mode
 
 **Metadata**:
@@ -259,7 +271,7 @@ How one Build is drawn: a React component that reads the Model, State, Props and
 _Avoid_: render, template, component (on its own)
 
 **Send**:
-Hand a Message to an Instance, making an Envelope that is handled at once. The only thing a View can do besides drawing; Workers and Commands can Send only to their own Instance. Code outside the tree can Send to any live Instance, through its Runtime, and learns what became of the Message: handled by a rule, ignored with none for it in that State, queued behind one being handled, or refused, the Instance gone or the Message not matching its Schema.
+Hand a Message to an Instance, making a History entry that is played at once. The only thing a View can do besides drawing; Workers and Commands can Send only to their own Instance. Code outside the tree can Send to any live Instance, through its Runtime, and learns what became of the Message: handled by a rule, ignored with none for it in that State, queued behind one being handled, or refused, the Instance gone or the Message not matching its Schema.
 _Avoid_: dispatch, emit, trigger
 
 **Host**:
@@ -267,11 +279,11 @@ What the Runtime gives the Instances it runs: a way to Send to any Instance, the
 _Avoid_: self, context, environment
 
 **Runtime**:
-What runs a History: it starts the root Instance at the History's Head, hands it every Message through the one Mailbox, and writes each one into the History. Everything else about an Instance's life happens in the Instance. One per app, however many times the app is drawn; it starts when the app is first mounted in a browser, and stops when the last drawing goes. On a server it can run with no drawing at all, for as long as the process lives. Drawn with no Runtime, on a server or at build time, the app shows its History's Head and cannot Send.
-_Avoid_: store, engine, interpreter, actor system
+What an app runs as: one per app, holding its History and the Snapshot at its Head. It runs from the moment it is made: every Message Sent becomes a History entry at the Head and is played at once, its Commands run, and the Workers and Provides the Snapshot asks for run. Stopped, all of that stops and a Send is refused; started again, the work starts from the Head's data and no past Command runs. It Seeks any Step and Forks to any entry, always staying the same Runtime. In a browser it is made when the app is first mounted and let go when the last drawing goes; on a server it can run with no drawing at all, for as long as the process lives.
+_Avoid_: store, engine, interpreter, actor system, live, preview
 
 **App**:
-An Actor tree with its Layer, made into one React component: it runs one Runtime for every mount, and draws the Snapshot at the Step shown, or live. Each View draws its Instance from that Snapshot; a Send from a past Step is dropped.
+An Actor tree with its Layer, made into one React component: it makes one Runtime for every mount, and draws its Head, or the Step it Seeks. Each View draws its Instance from that Snapshot; a Send from a Step is dropped.
 _Avoid_: stage, root, provider
 
 **Attachment**:
@@ -299,7 +311,7 @@ _Avoid_: sitemap, route manifest, page list
 ### Seeing the app
 
 **Timeline**:
-The Inspector's bar for picking the Step shown: every Step on the Branch in view, in order. With Travel the app on, as it is at first, picking a Step Time Travels the app too, and a Fork carries on from it on a new Branch; off, only the Inspector looks back while the app runs on. Going live shows the Head again.
+The Inspector's bar for picking the Step shown: every Step on the Branch in view, in order. With Travel the app on, as it is at first, picking a Step Time Travels the app too, and a Fork carries on from it on a new Branch; off, only the Inspector looks back while the app runs on. Going to the Head shows it again.
 _Avoid_: history, message list, scrubber
 
 **Branch in view**:

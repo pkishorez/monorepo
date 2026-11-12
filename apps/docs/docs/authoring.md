@@ -228,7 +228,7 @@ A demo is the page's own kabuki app, in its `components/` folder:
   page can show each with `file=`.
 - The MDX imports the app and hands it to `<Live>`. A core page also runs
   its Actor in a `<Run>`, from a `run/` file that starts it with
-  `Runtime.start`, sends it Messages and logs with `Console.log`.
+  `Runtime.scoped`, sends it Messages and logs with `Console.log`.
 - `View.app` takes a `name` unique on the site, such as `docs:introduction`,
   when its root Actor's name could clash with another demo's.
 - It draws on the server first: nothing in it may read `window` while

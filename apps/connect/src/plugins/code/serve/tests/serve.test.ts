@@ -5,7 +5,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { eq } from '@tanstack/db';
-import { Actor, Runtime } from '@kestack/kabuki';
+import { Actor, Address, Runtime } from '@kestack/kabuki';
 import { Query, Replicas } from '@kestack/std-toolkit/replica';
 import { Store as ReplicaStore } from '@kestack/std-toolkit/replica/memory';
 import {
@@ -156,7 +156,10 @@ const Page = Actor.define('Page', {
 });
 
 const Root = Actor.define('Root', {}).build({
-  provides: () => Replicas.layer,
+  provides: {
+    capabilities: Replicas.capabilities,
+    layer: () => Replicas.layer,
+  },
   children: {
     replicas: Actor.child(Replicas.actor([CodeReplicaLive])),
     page: Actor.child(Page),
@@ -175,7 +178,10 @@ const ConnectionProjects = Query.make('ConnectionProjects', {
 
 /** An app on two Connections at once, each Instance syncing on its own. */
 const TwoConnections = Actor.define('TwoConnections', {}).build({
-  provides: () => Replicas.layer,
+  provides: {
+    capabilities: Replicas.capabilities,
+    layer: () => Replicas.layer,
+  },
   children: {
     replicas: Actor.child(Replicas.actor([CodeReplicaLive])),
     one: Actor.child(ConnectionProjects, {
@@ -458,9 +464,9 @@ describe('the code Plugin, through the client and Replica', () => {
               ),
             );
 
-            const app = yield* Runtime.start(
-              Root,
-              Layer.mergeAll(
+            const app = yield* Runtime.scoped(Root, {
+              window: 0,
+              layer: Layer.mergeAll(
                 ReplicaStore.memory(),
                 CodeClients.make(() =>
                   Layer.succeedContext(
@@ -468,7 +474,7 @@ describe('the code Plugin, through the client and Replica', () => {
                   ),
                 ),
               ),
-            );
+            });
             const page = () =>
               app.instance({ from: 'test' }).children.page as unknown as {
                 readonly children: {
@@ -503,7 +509,10 @@ describe('the code Plugin, through the client and Replica', () => {
                 newWorktree: false,
               }),
             );
-            app.send('Root/page#1', { _tag: 'Open', sessionId: session.id });
+            app.send(Address.check(Root, 'Root/page#1')!, {
+              _tag: 'Open',
+              sessionId: session.id,
+            });
             yield* eventually(() =>
               expect(lines()).toEqual(['turnStarted hi', 'text echo:hi']),
             );
@@ -579,9 +588,9 @@ describe('the code Plugin, through the client and Replica', () => {
                 }),
               );
             const dialled: Array<string> = [];
-            const app = yield* Runtime.start(
-              TwoConnections,
-              Layer.mergeAll(
+            const app = yield* Runtime.scoped(TwoConnections, {
+              window: 0,
+              layer: Layer.mergeAll(
                 ReplicaStore.memory(),
                 CodeClients.layer.pipe(
                   Layer.provide(
@@ -597,7 +606,7 @@ describe('the code Plugin, through the client and Replica', () => {
                   ),
                 ),
               ),
-            );
+            });
             const rows = (connection: 'one' | 'two') =>
               (
                 app.instance({ from: 'test' }).children[

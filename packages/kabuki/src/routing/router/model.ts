@@ -2,7 +2,7 @@ import type { AnyRoute } from '../capabilities/index.ts';
 import { Schema } from 'effect';
 import type { Effect } from 'effect';
 import { Actor } from '../../core/actor/index.ts';
-import type { Command } from '../../core/command/index.ts';
+import type { Command } from '../../core/actor/index.ts';
 import {
   moveOptions,
   reloadOptions,
@@ -48,7 +48,7 @@ export const HOW: ReadonlyArray<How> = [
   'back',
   'forward',
 ];
-/** How a pending move lands: `arrive` is a push the address already shows; `back` and `forward` go to an entry; `reload` stays on the entry shown, its data loaded anew. */
+/** How a pending move lands: `arrive` is a push the URL already shows; `back` and `forward` go to an entry; `reload` stays on the entry shown, its data loaded anew. */
 export const LANDS = [
   'push',
   'replace',
@@ -74,7 +74,7 @@ export interface PendingMove<Route> {
   readonly hops: number;
   /** When the move began: it lands without its data `delay` after. */
   readonly since: number;
-  /** The key the address already holds for where it goes, from before the page loaded, else `null`: a new entry gets a new one. */
+  /** The key the URL already holds for where it goes, from before the page loaded, else `null`: a new entry gets a new one. */
   readonly key: string | null;
   /** What the push or replace said besides where it goes. */
   readonly said?: MoveOptions;
@@ -88,7 +88,7 @@ export interface PendingMove<Route> {
 export interface Along {
   /** How many Redirects led here. */
   readonly hops?: number;
-  /** The key the address already holds for where it goes. */
+  /** The key the URL already holds for where it goes. */
   readonly key?: string | null;
   readonly said?: MoveOptions | undefined;
 }
@@ -146,7 +146,7 @@ export interface RouterModel<Route> {
   readonly pending: PendingMove<Route> | null;
   /**
    * The Route still drawn while a held Back or Forward loads: the history,
-   * like the address, is already at the entry it goes to.
+   * like the URL, is already at the entry it goes to.
    */
   readonly holding: Route | null;
   /** The id the next pending move gets. */
@@ -155,7 +155,7 @@ export interface RouterModel<Route> {
   readonly data: Holding;
   /** How many times the app was reloaded: every place on screen loads its data again when it goes up. */
   readonly reload: number;
-  /** Whether an Adapter holds the address. */
+  /** Whether an Adapter holds the URL. */
   readonly attached: boolean;
   /** Whether the Adapter has said which URL the app opened at. */
   readonly loaded: boolean;
@@ -171,7 +171,7 @@ export type RouterMessage<Route> =
       readonly route: Route;
       readonly key: string | null;
       readonly url: string;
-      /** The element on the page the address names, after its `#`. */
+      /** The element on the page the URL names, after its `#`. */
       readonly hash: string;
     }
   | { readonly _tag: 'Attached'; readonly session: string }

@@ -129,8 +129,11 @@ const PageLive = Page.build({
       }),
     }),
   },
-  provides: (self) =>
-    SkillPicker.owner((name) => self.send({ _tag: 'Picked', name })),
+  provides: {
+    capabilities: SkillPicker.capabilities,
+    layer: (self) =>
+      SkillPicker.owner((name) => self.send({ _tag: 'Picked', name })),
+  },
   on: {
     Ping: (_, { model }) => ({ model: { ...model, pings: model.pings + 1 } }),
     Dictation: ({ pending }, { model }) => ({ model: { ...model, pending } }),

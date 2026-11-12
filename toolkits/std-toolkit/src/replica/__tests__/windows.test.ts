@@ -14,6 +14,7 @@ import {
   stored,
   type Backend,
   type QueryModel,
+  pageOf,
 } from './fixtures.js';
 
 const entry = (id: string, wallet: string, amount: number) => ({
@@ -57,7 +58,7 @@ describe('Windows', () => {
         // No Query filters entries yet: nothing reads them.
         expect(seen.windows('a')).toEqual([]);
 
-        app.send('Root/page#1', { _tag: 'Picked', wallets: ['w1'] });
+        app.send(pageOf(app), { _tag: 'Picked', wallets: ['w1'] });
         yield* eventually(() => expect(ids(seen.entries())).toEqual(['e1']));
         expect(seen.windows('a')).toMatchObject([
           { path: 'wallet', value: 'w1', users: 1, status: 'running' },
@@ -80,10 +81,10 @@ describe('Windows', () => {
           Store.memory(),
         );
         const seen = read(app);
-        app.send('Root/page#1', { _tag: 'Picked', wallets: ['w1'] });
+        app.send(pageOf(app), { _tag: 'Picked', wallets: ['w1'] });
         yield* eventually(() => expect(ids(seen.entries())).toEqual(['e1']));
 
-        app.send('Root/page#1', { _tag: 'Picked', wallets: ['w2'] });
+        app.send(pageOf(app), { _tag: 'Picked', wallets: ['w2'] });
         yield* eventually(() => expect(ids(seen.entries())).toEqual(['e2']));
         const [w1, w2] = ['w1', 'w2'].map((wallet) =>
           seen.windows('a').find((each) => each.value === wallet),
@@ -105,10 +106,10 @@ describe('Windows', () => {
           Store.memory(),
         );
         const seen = read(app);
-        app.send('Root/page#1', { _tag: 'Picked', wallets: ['w1'] });
+        app.send(pageOf(app), { _tag: 'Picked', wallets: ['w1'] });
         yield* eventually(() => expect(ids(seen.entries())).toEqual(['e1']));
 
-        app.send('Root/page#1', { _tag: 'Picked', wallets: [] });
+        app.send(pageOf(app), { _tag: 'Picked', wallets: [] });
         yield* eventually(() =>
           expect(seen.windows('a')).toMatchObject([
             { value: 'w1', users: 0, gcAt: expect.any(Number) },
@@ -132,7 +133,7 @@ describe('Windows', () => {
           Store.memory(),
         );
         const seen = read(app);
-        app.send('Root/page#1', { _tag: 'Picked', wallets: ['w1', 'w2'] });
+        app.send(pageOf(app), { _tag: 'Picked', wallets: ['w1', 'w2'] });
         yield* eventually(() =>
           expect(ids(seen.entries())).toEqual(['e1', 'e2']),
         );
@@ -161,7 +162,7 @@ describe('Windows', () => {
           Store.memory(),
         );
         const seen = read(app);
-        app.send('Root/page#1', { _tag: 'Picked', wallets: ['w1'] });
+        app.send(pageOf(app), { _tag: 'Picked', wallets: ['w1'] });
         yield* eventually(() => expect(ids(seen.entries())).toEqual(['e1']));
         const entries = seen
           .reached('a')
@@ -191,7 +192,7 @@ describe('Windows', () => {
           makeWorld({ backend, entries: 'windows' }),
           store,
         );
-        first.send('Root/page#1', { _tag: 'Picked', wallets: ['w1'] });
+        first.send(pageOf(first), { _tag: 'Picked', wallets: ['w1'] });
         yield* eventually(() =>
           expect(ids(read(first).entries())).toEqual(['e1']),
         );
@@ -210,14 +211,14 @@ describe('Windows', () => {
           (yield* stored(store, 'pocket·a', 'entries', 'wallet="w2"')).cursor,
         ).toBeNull();
         expect((yield* stored(store, 'pocket·a', 'entries')).cursor).toBeNull();
-        yield* first.stop();
+        yield* Effect.promise(() => first.stop());
 
         backend.reads.length = 0;
         const second = yield* start(
           makeWorld({ backend, entries: 'windows' }),
           store,
         );
-        second.send('Root/page#1', { _tag: 'Picked', wallets: ['w1'] });
+        second.send(pageOf(second), { _tag: 'Picked', wallets: ['w1'] });
         yield* eventually(() =>
           expect(readsOf(backend, 'w1').length).toBeGreaterThan(0),
         );
@@ -247,7 +248,7 @@ describe('Windows', () => {
           expect(two.instance('a')?.role).toBe('following'),
         );
 
-        follower.send('Root/page#1', { _tag: 'Picked', wallets: ['w2'] });
+        follower.send(pageOf(follower), { _tag: 'Picked', wallets: ['w2'] });
         yield* eventually(() => expect(ids(two.entries())).toEqual(['e2']));
         yield* eventually(() =>
           expect(one.windows('a')).toMatchObject([
@@ -264,7 +265,7 @@ describe('Windows', () => {
         );
 
         // Closed in the follower, it closes in the Leader too.
-        follower.send('Root/page#1', { _tag: 'Picked', wallets: [] });
+        follower.send(pageOf(follower), { _tag: 'Picked', wallets: [] });
         yield* eventually(() => expect(one.windows('a')).toEqual([]));
       }),
     ));

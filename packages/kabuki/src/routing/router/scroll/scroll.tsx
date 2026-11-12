@@ -61,7 +61,7 @@ export type HashScroll =
 /** Where an app is, as scroll restoration reads it. */
 export interface ScrollLocation<Route = { readonly _tag: string }> {
   readonly route: Route;
-  /** Its path and query, as the address writes it. */
+  /** Its path and query, as written in the URL. */
   readonly path: string;
   /** The key of its history entry. */
   readonly key: string;
@@ -101,7 +101,7 @@ export interface ScrollingProps {
   };
   /** Whether a move is held: the entry may already be the one it goes to. */
   readonly pending: boolean;
-  /** Whether an Adapter holds the address: positions are saved for a reload. */
+  /** Whether an Adapter holds the URL: positions are saved for a reload. */
   readonly attached: boolean;
   /** Whether the Adapter has said which entry the app opened at: before, its key is not known. */
   readonly loaded: boolean;
@@ -146,7 +146,7 @@ export function Scrolling(props: ScrollingProps) {
   latest.current = { props, live, on };
   const [s] = useState(() => ({
     positions: undefined as Positions | undefined,
-    /** Whether what the tab saved is read in: once the Adapter holds the address. */
+    /** Whether what the tab saved is read in: once the Adapter holds the URL. */
     read: false,
     /** The restoration key drawn: through a held move, still the one before it. */
     key,
@@ -155,7 +155,7 @@ export function Scrolling(props: ScrollingProps) {
     /** The move last restored for, as one string. */
     last: undefined as string | undefined,
   }));
-  // Read before the Adapter holds the address, as by a list drawn on a
+  // Read before the Adapter holds the URL, as by a list drawn on a
   // page load, it starts empty; what the tab saved joins it once it does,
   // under it: what was kept since is newer, and an anchor it lacks stays.
   const positions = () => {

@@ -61,8 +61,11 @@ export const TickerLive = Ticker.build({
     On: {
       // Built on entering On, closed on leaving it: the Quote and its
       // Worker stop first, then the feed closes.
-      provides: (self) =>
-        priceFeed((text) => self.send({ _tag: 'Logged', text })),
+      provides: {
+        capabilities: [PriceFeed],
+        layer: (self) =>
+          priceFeed((text) => self.send({ _tag: 'Logged', text })),
+      },
       children: { quote: Actor.child(QuoteLive) },
       on: { Switched: () => ({ state: { _tag: 'Off' } }) },
     },

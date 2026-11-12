@@ -4,7 +4,7 @@ import { PlaylistLive } from '../components/playlist.ts';
 
 // Press a Song. It asks the Player for itself, and the Playlist answers.
 export const program = Effect.gen(function* () {
-  const app = yield* Runtime.start(PlaylistLive);
+  const app = yield* Runtime.scoped(PlaylistLive);
   const playlist = app.instance({ from: 'docs' });
   yield* Console.log('starts', playlist.model);
 

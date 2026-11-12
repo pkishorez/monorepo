@@ -18,3 +18,7 @@ This sits beside [ADR 0027](0027-a-parent-controls-its-children-only-through-dat
 - An Instance reached before the app last started over, by a start or a Restore, is stopped too, even where a new Instance has its ID, as one does after starting from an earlier entry or a Restore of an older Snapshot; code reaches the app again after either.
 - An Instance that has stopped reads as it was when last read, and a Send to it does not arrive: keeping its very last data would mean watching every Instance ever reached, which a server running for weeks cannot afford. A key that comes back is a new Instance with a new ID, so an old one never points at it.
 - TypeScript keeps a narrowing across a `send` or an `await`, though the State may have moved on: read it again.
+
+## Note
+
+Since the Runtime was redesigned, it is `runtime.instance({ from })`, and the past is read with `runtime.seek(id)`, a Step, and `Snapshot.replay`. While the Runtime is stopped, an Instance reached from outside reads, and what it Sends is refused. Every Runtime keeps 100 entries unless its `window` says otherwise, a server included, so a server that wants only the app as it is now gives `window: 0`. An Instance's ID is its Address.

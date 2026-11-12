@@ -14,9 +14,7 @@ import {
   CodeClients,
   TranscriptionFailed,
 } from '@kestack/connect/code';
-import { Actor, Command, Runtime } from '@kestack/kabuki';
-import type { Running } from '@kestack/kabuki/core/runtime';
-import type { Instance } from '@kestack/kabuki/core/snapshot';
+import { Actor, Command, Runtime, type Instance } from '@kestack/kabuki';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { describe, expect, it } from 'vitest';
 import { Connections } from '../../../../../account.ts';
@@ -342,20 +340,20 @@ const walk = (at: Instance): ReadonlyArray<Instance> => [
   ),
 ];
 
-const dictation = (app: Running<unknown>) =>
-  walk(app.snapshot()).find((each) => each.actor === 'Dictation')!;
+const dictation = (app: Runtime) =>
+  walk(app.snapshot.root).find((each) => each.actor === 'Dictation')!;
 
-const stateOf = (app: Running<unknown>) =>
+const stateOf = (app: Runtime) =>
   Schema.decodeUnknownSync(State)(dictation(app).state);
 
-const noticeOf = (app: Running<unknown>) =>
+const noticeOf = (app: Runtime) =>
   Schema.decodeUnknownSync(
     Schema.Struct({
       notice: Schema.NullOr(Schema.Struct({ reason: Schema.String })),
     }),
   )(dictation(app).model).notice?.reason ?? null;
 
-const blockedOf = (app: Running<unknown>) =>
+const blockedOf = (app: Runtime) =>
   Schema.decodeUnknownSync(Schema.Struct({ blocked: Schema.Boolean }))(
     dictation(app).model,
   ).blocked;
@@ -373,7 +371,7 @@ const timed = <A>(effect: Effect.Effect<A, unknown, Scope.Scope>) =>
     ) as Effect.Effect<A>,
   );
 
-const textsOf = (app: Running<unknown>) =>
+const textsOf = (app: Runtime) =>
   Schema.decodeUnknownSync(
     Schema.Struct({
       texts: Schema.Array(
@@ -387,38 +385,38 @@ const textsOf = (app: Running<unknown>) =>
   )(dictation(app).model).texts;
 
 /** The field each app's toggles start one for, unless told another. */
-const fields = new WeakMap<Running<unknown>, Draft | null>();
+const fields = new WeakMap<Runtime, Draft | null>();
 
 /** The app, its toggles starting one for `draft`. */
 const start = (draft: Draft | null, layer: Layer.Layer<any>) =>
   Effect.gen(function* () {
-    const app = (yield* Runtime.start(
-      OwnerLive as never,
-      layer as never,
-    )) as Running<unknown>;
+    const app = (yield* Runtime.scoped(OwnerLive as never, {
+      layer: layer as never,
+      window: 0,
+    })) as Runtime;
     fields.set(app, draft);
     return app;
   });
 
 /** Asks the Dictation as the app does: through the root's Command. */
-const askIt = (app: Running<unknown>, asked: typeof Ask.Type) =>
+const askIt = (app: Runtime, asked: typeof Ask.Type) =>
   Effect.andThen(
-    Effect.sync(() => app.send(app.snapshot().id, { _tag: 'Ask', ask: asked })),
+    Effect.sync(() =>
+      app.send(app.snapshot.root.address, { _tag: 'Ask', ask: asked }),
+    ),
     settle,
   );
 
 /** Start one for `owner`, or stop the one recording. */
-const toggle = (
-  app: Running<unknown>,
-  owner: Draft | null = fields.get(app) ?? null,
-) => askIt(app, { _tag: 'Toggle', owner });
+const toggle = (app: Runtime, owner: Draft | null = fields.get(app) ?? null) =>
+  askIt(app, { _tag: 'Toggle', owner });
 
 const send = (
-  app: Running<unknown>,
+  app: Runtime,
   message: { readonly _tag: string; readonly [field: string]: unknown },
 ) =>
   Effect.andThen(
-    Effect.sync(() => app.send(dictation(app).id, message)),
+    Effect.sync(() => app.send(dictation(app).address, message)),
     settle,
   );
 
@@ -715,7 +713,10 @@ describe('Dictation', () => {
           microphone: 'usb',
           using: 'usb',
         });
-        app.send(app.snapshot().id, { _tag: 'Choose', microphone: 'desk' });
+        app.send(app.snapshot.root.address, {
+          _tag: 'Choose',
+          microphone: 'desk',
+        });
         yield* settle;
         expect(stateOf(app)).toMatchObject({
           _tag: 'Recording',

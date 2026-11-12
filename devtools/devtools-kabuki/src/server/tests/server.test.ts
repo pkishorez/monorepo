@@ -89,7 +89,7 @@ describe('the Kabuki routes', () => {
 
           const diary = yield* started;
           diary.write('first', 5);
-          const stop = connect(diary.runtime, {
+          const stop = connect(diary.app, {
             url: `ws://127.0.0.1:${port}`,
             name: 'diary',
             environment: 'kishores-mbp',
@@ -98,7 +98,7 @@ describe('the Kabuki routes', () => {
           yield* namesOnceThere(sessions, 1);
 
           const other = yield* started;
-          const stopOther = connect(other.runtime, {
+          const stopOther = connect(other.app, {
             url: `ws://127.0.0.1:${port}`,
             name: 'diary',
           });
@@ -154,7 +154,7 @@ describe('the Kabuki routes', () => {
           const sessions = yield* dialSessions(url);
           for (const name of ['diary', 'shop', 'notes']) {
             const app = yield* started;
-            const stop = connect(app.runtime, {
+            const stop = connect(app.app, {
               url: `ws://127.0.0.1:${port}`,
               name,
             });

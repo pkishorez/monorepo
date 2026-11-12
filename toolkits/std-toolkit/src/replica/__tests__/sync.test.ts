@@ -14,6 +14,7 @@ import {
   start,
   stored,
   type QueryModel,
+  pageOf,
 } from './fixtures.js';
 
 const wallet = (id: string, account: string, balance: number) => ({
@@ -73,7 +74,7 @@ describe('Query', () => {
 
         const shown: Array<QueryModel | undefined> = [];
         const stop = app.subscribe(() => shown.push(seen.mine()));
-        app.send('Root/page#1', { _tag: 'Switched', mine: 'c' });
+        app.send(pageOf(app), { _tag: 'Switched', mine: 'c' });
         yield* eventually(() =>
           expect(balances(seen.mine())).toEqual({ w3: 30 }),
         );

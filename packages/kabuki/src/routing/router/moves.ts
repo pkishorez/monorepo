@@ -32,12 +32,12 @@ export const movesOf = <Route extends AnyRoute>(
   const shown = (model: Model) => model.holding ?? current(model).route;
   /** A key no entry has had, in this page load or any before it. */
   const fresh = (model: Model) => `${model.session}.${model.next}`;
-  /** Where an entry is in the address: its Route's URL, and its hash. */
-  const addressOf = (entry: Entry<Route>) =>
+  /** An entry's URL: its Route's, and its hash. */
+  const urlOf = (entry: Entry<Route>) =>
     `${href(entry.route)}${entry.hash ? `#${entry.hash}` : ''}`;
   const writing = (model: Model, replace: boolean) =>
     write({
-      url: addressOf(current(model)),
+      url: urlOf(current(model)),
       key: current(model).key,
       replace,
     });
@@ -103,7 +103,7 @@ export const movesOf = <Route extends AnyRoute>(
       };
       return { model: next, command: writing(next, true) };
     }
-    // A URL the app did not write is an entry the address already holds,
+    // A URL the app did not write is an entry the URL already holds,
     // even at the Route shown: a redirect's is written over.
     if (
       how !== 'arrive' &&
@@ -163,8 +163,8 @@ export const movesOf = <Route extends AnyRoute>(
 
   /**
    * To entry `to` of the history, at `route`: the history moves at once, as
-   * the address does, and the Route shown stays drawn while the move is
-   * held, so anything that replaces the move starts from where the address is.
+   * the URL does, and the Route shown stays drawn while the move is held,
+   * so anything that replaces the move starts from where the URL is.
    */
   const reaching = (model: Model, to: number, route: Route, now: number) =>
     toward(
@@ -181,7 +181,7 @@ export const movesOf = <Route extends AnyRoute>(
       now,
     );
 
-  /** Back or Forward by `by` entries, the address too. */
+  /** Back or Forward by `by` entries, the URL too. */
   const going = (model: Model, by: number, now: number): Out => {
     const to = Math.min(Math.max(model.at + by, 0), model.entries.length - 1);
     if (to === model.at) return {};
@@ -254,7 +254,7 @@ export const movesOf = <Route extends AnyRoute>(
     current,
     shown,
     fresh,
-    addressOf,
+    urlOf,
     writing,
     land,
     toward,

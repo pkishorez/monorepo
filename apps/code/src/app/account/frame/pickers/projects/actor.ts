@@ -236,36 +236,43 @@ export const ProjectsLive = Projects.build({
     }),
   },
   // The folder Steps call each Connection through the clients this actor has.
-  provides: (self) =>
-    Layer.unwrap(
-      Effect.map(Effect.context<CodeClients>(), (client) =>
-        List.owner({
-          done: (choices, step) => {
-            const chosen = choices?.at(-1)?.value;
-            return self.send(
-              chosen === undefined
-                ? { _tag: 'Closed' }
-                : step?.id === 'recent'
-                  ? { _tag: 'Chose', connectionId: step.key, projectId: chosen }
-                  : { _tag: 'Opened' },
-            );
-          },
-          load: ({ key }, query) =>
-            FolderPicker.load(key, query).pipe(Effect.provide(client)),
-          make: ({ key }, name) =>
-            FolderPicker.make(key, name).pipe(Effect.provide(client)),
-          // The folder chosen, or made, becomes a Project while it waits.
-          settle: (choices, { key }) =>
-            FolderPicker.choose(choices, key).pipe(
-              Effect.provide(client),
-              Effect.flatMap((added) =>
-                Effect.as(self.send({ _tag: 'Added', ...added }), null),
+  provides: {
+    capabilities: List.capabilities,
+    layer: (self) =>
+      Layer.unwrap(
+        Effect.map(Effect.context<CodeClients>(), (client) =>
+          List.owner({
+            done: (choices, step) => {
+              const chosen = choices?.at(-1)?.value;
+              return self.send(
+                chosen === undefined
+                  ? { _tag: 'Closed' }
+                  : step?.id === 'recent'
+                    ? {
+                        _tag: 'Chose',
+                        connectionId: step.key,
+                        projectId: chosen,
+                      }
+                    : { _tag: 'Opened' },
+              );
+            },
+            load: ({ key }, query) =>
+              FolderPicker.load(key, query).pipe(Effect.provide(client)),
+            make: ({ key }, name) =>
+              FolderPicker.make(key, name).pipe(Effect.provide(client)),
+            // The folder chosen, or made, becomes a Project while it waits.
+            settle: (choices, { key }) =>
+              FolderPicker.choose(choices, key).pipe(
+                Effect.provide(client),
+                Effect.flatMap((added) =>
+                  Effect.as(self.send({ _tag: 'Added', ...added }), null),
+                ),
+                Effect.catch((reason) => Effect.succeed(reason)),
               ),
-              Effect.catch((reason) => Effect.succeed(reason)),
-            ),
-        }),
+          }),
+        ),
       ),
-    ),
+  },
   workers: {
     // 1. Connection: their ids and names only, so nothing else of a Connection
     // changes anything here.

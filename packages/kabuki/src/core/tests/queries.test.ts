@@ -10,10 +10,10 @@ import {
 } from 'effect';
 import type { Scope } from 'effect';
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { restore } from '../snapshot/engine/index.ts';
+import { restore } from '../data/play/index.ts';
 import { Actor, Runtime } from '../index.ts';
 import { Stopped } from '../runtime/index.ts';
-import { run as runNever, settle } from './fixtures.ts';
+import { run as runNever, settle, stop, to } from './fixtures.ts';
 
 /** The core's `run`, for a test whose Effect may fail: a failure fails the test. */
 const run = <A, E>(effect: Effect.Effect<A, E, Scope.Scope>) =>
@@ -88,7 +88,7 @@ describe('a Query', () => {
   it('answers from the Instance, with args, at the top in every State', () =>
     run(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(SocketLive, ProbeLive);
+        const running = yield* Runtime.scoped(SocketLive, { layer: ProbeLive });
         const socket = running.instance({ from: 'test' });
         expect(yield* socket.queries.url()).toBe('wss://a');
         expect(yield* socket.queries.sentOver({ than: 0 })).toBe(false);
@@ -119,7 +119,7 @@ describe('a Query', () => {
   it("is on the type only in its State, and runs with the Actor's Capabilities", () =>
     run(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(SocketLive, ProbeLive);
+        const running = yield* Runtime.scoped(SocketLive, { layer: ProbeLive });
         const socket = running.instance({ from: 'test' });
         expectTypeOf(socket.queries).not.toHaveProperty('peers');
         if (socket._tag === 'Closed') {
@@ -149,7 +149,7 @@ describe('a Query', () => {
   it('fails as Stopped once its State is left, though the Instance lives on', () =>
     run(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(SocketLive, ProbeLive);
+        const running = yield* Runtime.scoped(SocketLive, { layer: ProbeLive });
         const socket = running.instance({ from: 'test' });
         socket.send({ _tag: 'Opened' });
         const open = running.instance({ from: 'test' });
@@ -166,12 +166,12 @@ describe('a Query', () => {
       }),
     ));
 
-  it('fails as Stopped once the Instance has stopped', () =>
+  it('fails as Stopped while the Runtime is stopped', () =>
     run(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(SocketLive, ProbeLive);
+        const running = yield* Runtime.scoped(SocketLive, { layer: ProbeLive });
         const socket = running.instance({ from: 'test' });
-        yield* running.stop();
+        yield* stop(running);
         const refused = yield* Effect.flip(socket.queries.url());
         expect(refused._tag).toBe('Stopped');
       }),
@@ -181,10 +181,9 @@ describe('a Query', () => {
     run(
       Effect.gen(function* () {
         const hold = yield* Deferred.make<ReadonlyArray<string>>();
-        const running = yield* Runtime.start(
-          SocketLive,
-          Layer.succeed(Probe, { peers: Deferred.await(hold) }),
-        );
+        const running = yield* Runtime.scoped(SocketLive, {
+          layer: Layer.succeed(Probe, { peers: Deferred.await(hold) }),
+        });
         const socket = running.instance({ from: 'test' });
         socket.send({ _tag: 'Opened' });
         const open = running.instance({ from: 'test' });
@@ -199,24 +198,23 @@ describe('a Query', () => {
       }),
     ));
 
-  it('is cancelled by a Restore, which starts the app over, though its Instance keeps its ID', () =>
+  it('is cancelled by a Restore, which starts the app over, though its Instance keeps its Address', () =>
     run(
       Effect.gen(function* () {
         const hold = yield* Deferred.make<ReadonlyArray<string>>();
-        const running = yield* Runtime.start(
-          SocketLive,
-          Layer.succeed(Probe, { peers: Deferred.await(hold) }),
-        );
+        const running = yield* Runtime.scoped(SocketLive, {
+          layer: Layer.succeed(Probe, { peers: Deferred.await(hold) }),
+        });
         const socket = running.instance({ from: 'test' });
         socket.send({ _tag: 'Opened' });
-        const saved = running.snapshot();
+        const saved = running.snapshot.root;
         const open = running.instance({ from: 'test' });
         if (open._tag !== 'Open') throw new Error('not Open');
         const asking = yield* Effect.forkChild(
           Effect.flip(open.queries.peers()),
         );
         yield* settle;
-        running.send('Socket', { ...restore(saved) });
+        running.send(to(running, 'Socket'), { ...restore(saved) });
         expect((yield* Fiber.join(asking))._tag).toBe('Stopped');
         // Were it still running, this would answer it.
         yield* Deferred.succeed(hold, []);
@@ -253,10 +251,9 @@ describe('a Query', () => {
     /** A Room whose Bulb is answering `glow`, held until `hold` is done. */
     const asking = Effect.gen(function* () {
       const hold = yield* Deferred.make<string>();
-      const running = yield* Runtime.start(
-        Room,
-        Layer.succeed(Wait, { answer: Deferred.await(hold) }),
-      );
+      const running = yield* Runtime.scoped(Room, {
+        layer: Layer.succeed(Wait, { answer: Deferred.await(hold) }),
+      });
       const bulb = running.instance({ from: 'test' }).children.lamp!.children
         .bulb;
       const fiber = yield* Effect.forkChild(Effect.flip(bulb.queries.glow()));
@@ -269,7 +266,7 @@ describe('a Query', () => {
       run(
         Effect.gen(function* () {
           const { hold, running, fiber } = yield* asking;
-          yield* running.stop();
+          yield* stop(running);
           yield* Deferred.succeed(hold, 'late');
           expect(yield* Fiber.join(fiber)).toBeInstanceOf(Stopped);
         }),
@@ -279,9 +276,9 @@ describe('a Query', () => {
       run(
         Effect.gen(function* () {
           const { hold, running, fiber } = yield* asking;
-          running.send('Room', { _tag: 'Switched' });
+          running.send(to(running, 'Room'), { _tag: 'Switched' });
           yield* settle;
-          expect(running.snapshot().children).toEqual({});
+          expect(running.snapshot.root.children).toEqual({});
           yield* Deferred.succeed(hold, 'late');
           expect(yield* Fiber.join(fiber)).toBeInstanceOf(Stopped);
         }),
@@ -291,10 +288,9 @@ describe('a Query', () => {
   it('passes its own failure through', () =>
     run(
       Effect.gen(function* () {
-        const running = yield* Runtime.start(
-          SocketLive,
-          Layer.succeed(Probe, { peers: Effect.die(new Error('boom')) }),
-        );
+        const running = yield* Runtime.scoped(SocketLive, {
+          layer: Layer.succeed(Probe, { peers: Effect.die(new Error('boom')) }),
+        });
         const socket = running.instance({ from: 'test' });
         socket.send({ _tag: 'Opened' });
         const open = running.instance({ from: 'test' });
@@ -359,7 +355,7 @@ describe('a Query', () => {
             name: () => Effect.succeed(42 as unknown as string),
           },
         });
-        const running = yield* Runtime.start(Liar);
+        const running = yield* Runtime.scoped(Liar);
         const liar = running.instance({ from: 'test' });
         expect(yield* liar.queries.double({ n: 2 })).toBe(4);
         const badArgs = yield* Effect.exit(

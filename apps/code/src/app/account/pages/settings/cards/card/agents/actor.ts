@@ -126,10 +126,13 @@ export const AgentsLive = Agents.build({
       },
     }),
   },
-  provides: (self) =>
-    Layer.succeed(AccountList, {
-      closed: (key) => self.send({ _tag: 'Closed', key }),
-    }),
+  provides: {
+    capabilities: [AccountList],
+    layer: (self) =>
+      Layer.succeed(AccountList, {
+        closed: (key) => self.send({ _tag: 'Closed', key }),
+      }),
+  },
   on: {
     // 1. Shown
     Retry: (_, { model }) => ({

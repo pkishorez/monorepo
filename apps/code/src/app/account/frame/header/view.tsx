@@ -32,7 +32,7 @@ export const HeaderVoice = View.make(HeaderLive, ({ children }) => (
 ));
 
 /** No Instance: what a Hook reads while a Child is absent. */
-const NONE = { id: '' };
+const NONE = { address: '' };
 
 type Children = ViewProps<typeof HeaderLive>['children'];
 

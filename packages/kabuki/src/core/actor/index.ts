@@ -1,5 +1,7 @@
-export { Actor } from './actor.ts';
+export { Actor } from './define.ts';
 export type {
+  ActorType,
+  AnyActor,
   AnyDefined,
   BehaviorOf,
   Buildable,
@@ -7,10 +9,12 @@ export type {
   DeclaredOf,
   Defined,
   DefinedOf,
+  QuerySchemas,
   QueryWritten,
   Refused,
+  Types,
   Written,
-} from './actor.ts';
+} from './define.ts';
 export type {
   Cases,
   Fields,
@@ -19,44 +23,41 @@ export type {
   TaggedOf,
   TaggedWritten,
 } from './schemas.ts';
-export type { Data, Only, Requires, Self, Single, Tagged } from './instance.ts';
+export type { Data, Only, Requires, Self, Single, Tagged } from './self.ts';
 export type {
   ActorOf,
   AnyChild,
   Answer,
   Behavior,
+  ChildAs,
   ChildOptions,
   Declared,
   DeclaredQueries,
+  Doubled,
   Hears,
+  KidsByState,
+  KidsIn,
   MakeChild,
   Made,
   OpenOfBehavior,
   ProvidedOf,
   Queries,
-  QuerySelf,
-  Slot,
-  Undeclared,
-  Worker,
-  Workers,
-} from './behavior.ts';
-export type {
-  ChildAs,
-  KidsByState,
-  KidsIn,
   QueriesByState,
   QueriesIn,
   QueryAs,
-} from './kept.ts';
+  QuerySelf,
+  Slot,
+  Undeclared,
+  Unprovided,
+  Worker,
+  Workers,
+} from './build.ts';
+export { Command } from './command.ts';
+export { Blueprint } from './blueprint.ts';
 export type {
-  /** The Actor interface, by a name that does not clash with the `Actor` value. */
-  Actor as ActorType,
-  ActorDefinition,
-  AnyActor,
-  Encoding,
-  QueryDefinition,
-  QuerySchemas,
-  SlotDefinition,
-  Types,
-  WorkerDefinition,
-} from './definition.ts';
+  BlueprintChild,
+  BlueprintLevel,
+  BlueprintSchemas,
+  BlueprintState,
+  BlueprintWorker,
+} from './blueprint.ts';

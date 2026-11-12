@@ -70,42 +70,45 @@ export const renderSessionsText = ({ apps }: SessionsTree) => {
   return lines.join('\n');
 };
 
-const sourceText = (source: Entry['source']) => {
-  switch (source.kind) {
+const fromText = (from: Entry['from']) => {
+  switch (from.kind) {
     case 'view':
-    case 'provide':
-      return `${source.kind} ${source.instance}`;
+    case 'provides':
+      return `${from.kind} ${from.instance}`;
     case 'command':
-      return `command ${source.instance}/${source.name}`;
+      return `command ${from.instance}/${from.name}`;
     case 'emit':
-      return `emit ${source.instance}/${source.name}`;
+      return `emit ${from.instance}/${from.name}`;
     case 'worker':
-      return `worker ${source.instance}/${source.name}${source.key === undefined ? '' : `#${source.key}`}`;
+      return `worker ${from.instance}/${from.name}${from.key === undefined ? '' : `#${from.key}`}`;
     case 'outside':
-      return source.name === undefined ? 'outside' : `outside ${source.name}`;
+      return from.name === undefined ? 'outside' : `outside ${from.name}`;
     case 'restore':
       return 'restore';
   }
 };
 
-/** One History entry: id, tag, destination, source, outcome, and its Time after init. */
+/** One History entry: id, tag, the Address it was Sent to, who Sent it, outcome, and its Time after init. */
 export const entryLine = (entry: Entry) =>
   [
     `#${entry.id}`,
     entry.tag,
-    `→ ${entry.destination}`,
-    `from ${sourceText(entry.source)}`,
+    `→ ${entry.to}`,
+    `from ${fromText(entry.from)}`,
     entry.outcome,
     `at ${appTime(entry.at)}`,
   ].join('  ');
 
-/** The Head's Branch: where the app is, then one line per entry, oldest first. */
+/** A Branch, the Head's unless asked: where the app is, then one line per entry, oldest first. */
 export const renderHistoryText = (history: History) => {
   const where = [
     `head ${history.head === null ? 'init' : `#${history.head}`}`,
     `${history.size} entries kept`,
-    history.shown === null ? 'live' : `showing ${history.shown}`,
+    history.seeking === null
+      ? 'drawing the Head'
+      : `seeking ${history.seeking}`,
     history.running ? 'running' : 'stopped',
+    ...(history.tips.length > 1 ? [`${history.tips.length} Branches`] : []),
   ];
   const lines = [where.join(' · ')];
   if (history.failure !== null) lines.push(`failure: ${history.failure}`);
@@ -128,10 +131,6 @@ const changeLines = (change: InstanceChange) => {
         `    ${part} ${value.path}: ${json(value.from)} → ${json(value.to)}`,
       );
   }
-  if (change.started.length > 0)
-    lines.push(`    started ${change.started.join(', ')}`);
-  if (change.stopped.length > 0)
-    lines.push(`    stopped ${change.stopped.join(', ')}`);
   return lines;
 };
 

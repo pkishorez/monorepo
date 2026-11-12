@@ -133,41 +133,44 @@ const OwnerLive = Owner.build({
     first: Actor.child(Places.Live, picker('first')),
     second: Actor.child(Places.Live, picker('second')),
   },
-  provides: (self) =>
-    Places.owner({
-      done: (choices, step) =>
-        self.send({
-          _tag: 'Heard',
-          place: choices === null ? null : (step?.key ?? ''),
-        }),
-      load: ({ key }) =>
-        Effect.succeed({
-          rows: (TREE[key] ?? []).map((name) => ({
-            value: key === '' ? name : `${key}/${name}`,
-            label: name,
-          })),
-          truncated: false,
-          problem: null,
-        }),
-      make: ({ key }, name) =>
-        Effect.succeed(
-          name === 'taken'
-            ? { refused: 'Already there' }
-            : {
-                row: {
-                  value: key === '' ? name : `${key}/${name}`,
-                  label: name,
+  provides: {
+    capabilities: Places.capabilities,
+    layer: (self) =>
+      Places.owner({
+        done: (choices, step) =>
+          self.send({
+            _tag: 'Heard',
+            place: choices === null ? null : (step?.key ?? ''),
+          }),
+        load: ({ key }) =>
+          Effect.succeed({
+            rows: (TREE[key] ?? []).map((name) => ({
+              value: key === '' ? name : `${key}/${name}`,
+              label: name,
+            })),
+            truncated: false,
+            problem: null,
+          }),
+        make: ({ key }, name) =>
+          Effect.succeed(
+            name === 'taken'
+              ? { refused: 'Already there' }
+              : {
+                  row: {
+                    value: key === '' ? name : `${key}/${name}`,
+                    label: name,
+                  },
                 },
-              },
-        ),
-      settle: (choices, { key }) => {
-        // The owner shows something over the place b: the Picker holds.
-        if (key === 'b') return Effect.succeed(HOLD);
-        const made = choices.at(-1)?.value ?? '';
-        if (made === 'new:bad') return Effect.succeed('Not a good name');
-        return Effect.as(self.send({ _tag: 'Settled', place: key }), null);
-      },
-    }),
+          ),
+        settle: (choices, { key }) => {
+          // The owner shows something over the place b: the Picker holds.
+          if (key === 'b') return Effect.succeed(HOLD);
+          const made = choices.at(-1)?.value ?? '';
+          if (made === 'new:bad') return Effect.succeed('Not a good name');
+          return Effect.as(self.send({ _tag: 'Settled', place: key }), null);
+        },
+      }),
+  },
   on: {
     Ping: (_, { model }) => ({ model: { ...model, pings: model.pings + 1 } }),
     Open: ({ which, how }, { model }) => ({

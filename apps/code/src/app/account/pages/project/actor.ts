@@ -1,5 +1,6 @@
 import { Effect, Layer, Schema, Stream } from 'effect';
-import { CodeClients } from '@kestack/connect/code';
+import { CodeClient, CodeClients } from '@kestack/connect/code';
+import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { Navigation, Page, Router } from '@kestack/kabuki/routing';
 import { Preferences, Storage } from '../../../storage/index.ts';
 import { Connections } from '../../account.ts';
@@ -185,31 +186,41 @@ export const ProjectLive = Project.build({
     },
   }),
   pages: { Session: Session.actor },
-  provides: (self) =>
-    Layer.mergeAll(
-      // 0. Connection: its Connection's `CodeClient`, borrowed while the
-      // Connection runs, for what is under it.
-      Layer.unwrap(
-        Effect.map(self.get, ({ props }) =>
-          borrowed(props.params.connectionId),
+  provides: {
+    capabilities: [
+      CodeClient,
+      RpcConnection,
+      SharedCatalog,
+      SessionArrival,
+      Handover,
+    ],
+    layer: (self) =>
+      Layer.mergeAll(
+        // 0. Connection: its Connection's `CodeClient`, borrowed while the
+        // Connection runs, for what is under it.
+        Layer.unwrap(
+          Effect.map(self.get, ({ props }) =>
+            borrowed(props.params.connectionId),
+          ),
+        ),
+        // 1. Catalog, for the pages under it.
+        Layer.succeed(SharedCatalog, catalog.shares(self)),
+        // A new session its Draft asked for, its answer lost.
+        Layer.unwrap(
+          Effect.map(self.get, ({ props }) =>
+            SessionArrival.connection(props.params.connectionId),
+          ),
+        ),
+        // 2. Draft: a new session it started, kept drawn until it is ready.
+        Layer.succeed(
+          Handover,
+          Handover.of({
+            started: (sessionId) =>
+              self.send({ _tag: 'HandedOver', sessionId }),
+          }),
         ),
       ),
-      // 1. Catalog, for the pages under it.
-      Layer.succeed(SharedCatalog, catalog.shares(self)),
-      // A new session its Draft asked for, its answer lost.
-      Layer.unwrap(
-        Effect.map(self.get, ({ props }) =>
-          SessionArrival.connection(props.params.connectionId),
-        ),
-      ),
-      // 2. Draft: a new session it started, kept drawn until it is ready.
-      Layer.succeed(
-        Handover,
-        Handover.of({
-          started: (sessionId) => self.send({ _tag: 'HandedOver', sessionId }),
-        }),
-      ),
-    ),
+  },
   workers: {
     // 0. Connection: whether the Account's list still has it.
     connection: {

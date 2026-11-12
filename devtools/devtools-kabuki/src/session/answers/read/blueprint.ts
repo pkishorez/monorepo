@@ -1,193 +1,134 @@
-import type { ActorDefinition } from '@kestack/kabuki/core/actor';
+import type { Blueprint, BlueprintLevel } from '@kestack/kabuki/core/actor';
+import type * as Api from '../../../api/index.ts';
 import { schemaShape } from './schema.ts';
-import type { Shape } from './schema.ts';
 
 /*
- * The Blueprint: what an Actor is, read from its definition alone, so it is
- * the same every time and needs nothing running. Everything here is what
- * `build` keeps: its States, the Capabilities it requires, whether a
- * level provides any, the Messages each level has a rule for, its Workers
- * and when they run, its Children and when they exist, and the Queries it
- * answers, each with what it is asked with and answers. What it cannot
- * say: what a `provides` gives, what a Condition tests, a Model's fields.
- * Those are functions or Schemas `build` does not keep.
+ * The Blueprint as the Api says it: Kabuki's own (`actor.blueprint`), what
+ * an Actor is and does with nothing running, read as plain data.
+ *
+ * 1. Levels  each level's Messages, Workers and when they run, Children
+ *            and when they exist, Queries with what each is asked with and
+ *            answers, and the Capabilities it Provides, declared.
+ * 2. Tree    every Actor the root can grow, one node per Child slot, each
+ *            by its place; an Actor that is its own Child below stops there.
  */
 
-/** When a Worker or Child exists, inside the level it is written in. */
-export type Condition = 'always' | 'while' | 'each';
-
-export interface WorkerPrint {
-  readonly name: string;
-  readonly condition: Condition;
-}
-
-export interface SlotPrint {
-  readonly name: string;
-  readonly actor: ActorDefinition;
-  readonly condition: Condition;
-  /** Made again, a fresh Instance, when its key changes. */
-  readonly keyed: boolean;
-}
-
-/** One Query a level answers: what it is asked with, if anything, and what it answers. */
-export interface QueryPrint {
-  readonly name: string;
-  readonly args?: Shape;
-  readonly result: Shape;
-}
-
-/** One level: the top, for as long as the Instance lives, or one State's block. */
-export interface Level {
-  /** The Messages it has a rule for. */
-  readonly on: ReadonlyArray<string>;
-  readonly workers: ReadonlyArray<WorkerPrint>;
-  readonly children: ReadonlyArray<SlotPrint>;
-  readonly queries: ReadonlyArray<QueryPrint>;
-  /** Whether it provides Capabilities to everything below it. */
-  readonly provides: boolean;
-}
-
-export interface Blueprint {
-  readonly name: string;
-  /** Its State tags; `Single` alone for an Actor without States. */
-  readonly states: ReadonlyArray<string>;
-  readonly single: boolean;
-  /** The Capabilities its own code may use, by name. */
-  readonly requires: ReadonlyArray<string>;
-  readonly top: Level;
-  readonly state: Readonly<Record<string, Level>>;
-}
-
 /** A Capability's name: the last part of its key. */
-export const nameOf = (key: unknown): string => {
-  const id = String((key as { readonly key?: unknown }).key ?? key);
-  return id.split(/[/:]/).at(-1) ?? id;
-};
+export const nameOf = (key: string): string => key.split(/[/:]/).at(-1) ?? key;
 
-const conditionOf = (kind: string): Condition =>
+// 1. Levels
+const conditionOf = (
+  kind: BlueprintLevel['workers'][number]['kind'] | 'always',
+): Api.GraphNode['blueprint']['top']['workers'][number]['condition'] =>
   kind === 'each' ? 'each' : kind === 'while' ? 'while' : 'always';
 
-const prints = new WeakMap<ActorDefinition, Blueprint>();
+const levelOf = (
+  print: Blueprint,
+  level: BlueprintLevel,
+): Api.GraphNode['blueprint']['top'] => ({
+  on: Object.keys(level.on),
+  workers: level.workers.map(({ name, kind }) => ({
+    name,
+    condition: conditionOf(kind),
+  })),
+  children: Object.entries(level.children).map(([name, child]) => ({
+    name,
+    actor: child.blueprint.name,
+    condition: child.kind,
+    keyed: child.keyed,
+  })),
+  queries: level.queries.map((name) => {
+    const schemas = print.schemas.queries?.[name];
+    const args = schemaShape(schemas?.args);
+    return {
+      name,
+      ...(args ? { args } : {}),
+      result: schemaShape(schemas?.result) ?? { kind: 'leaf', text: '?' },
+    };
+  }),
+  provides: level.provides.map(nameOf),
+});
 
-export const blueprintOf = (definition: ActorDefinition): Blueprint => {
-  const kept = prints.get(definition);
+const read = new WeakMap<Blueprint, Api.GraphNode['blueprint']>();
+
+/** An Actor's Blueprint as the Api says it, read once. */
+export const blueprintOf = (print: Blueprint): Api.GraphNode['blueprint'] => {
+  const kept = read.get(print);
   if (kept) return kept;
-  const workersIn = (state: string | undefined) =>
-    Object.entries(definition.workers)
-      .filter(([, worker]) => worker.state === state)
-      .map(([name, worker]) => ({ name, condition: conditionOf(worker.kind) }));
-  const queriesIn = (state: string | undefined): ReadonlyArray<QueryPrint> =>
-    Object.entries(definition.queries)
-      .filter(([, query]) => query.state === state)
-      .map(([name]) => {
-        const schemas = definition.schemas.queries?.[name];
-        const args = schemaShape(schemas?.args);
-        return {
-          name,
-          ...(args ? { args } : {}),
-          result: schemaShape(schemas?.result) ?? { kind: 'leaf', text: '?' },
-        };
-      });
-  const slotsIn = (state: string, names: (name: string) => boolean) =>
-    Object.entries(definition.children[state] ?? {})
-      .filter(([name]) => names(name))
-      .map(([name, slot]) => ({
-        name,
-        actor: slot.definition,
-        condition: conditionOf(slot.kind),
-        keyed: slot.keyed,
-      }));
-  const lasting = new Set(definition.lasting);
-  const first = definition.states[0] ?? 'Single';
-  const print: Blueprint = {
-    name: definition.name,
-    states: definition.states,
-    single: definition.states.length === 1 && first === 'Single',
-    requires: [...new Set(definition.requires.map(nameOf))],
-    top: {
-      on: Object.keys(definition.update['*'] ?? {}),
-      workers: workersIn(undefined),
-      children: slotsIn(first, (name) => lasting.has(name)),
-      queries: queriesIn(undefined),
-      provides: definition.provides !== undefined,
-    },
+  const states = Object.keys(print.state);
+  const made = {
+    name: print.name,
+    single: states.length === 1 && states[0] === 'Single',
+    requires: [...new Set(print.requires.map(nameOf))],
+    top: levelOf(print, print.top),
     state: Object.fromEntries(
-      definition.states.map((tag) => [
+      Object.entries(print.state).map(([tag, level]) => [
         tag,
-        {
-          on: Object.keys(definition.update[tag] ?? {}),
-          workers: workersIn(tag),
-          children: slotsIn(tag, (name) => !lasting.has(name)),
-          queries: queriesIn(tag),
-          provides: definition.stateProvides[tag] !== undefined,
-        },
+        levelOf(print, level),
       ]),
     ),
   };
-  prints.set(definition, print);
-  return print;
+  read.set(print, made);
+  return made;
 };
 
-/** One Actor in the Blueprint's tree, by the path of slot names that leads to it. */
-export interface PrintNode {
-  /** `''` for the root, else its slots joined by `/`. */
-  readonly path: string;
-  readonly slot: SlotPrint | null;
-  /** The State of its parent it exists in, or null at the parent's top. */
-  readonly in: string | null;
-  readonly definition: ActorDefinition;
-  readonly print: Blueprint;
-  readonly children: ReadonlyArray<PrintNode>;
-}
+/** An Actor with no place in the root's Blueprint, as an Instance a Restore from older code left: nothing known of it. */
+export const unknownOf = (name: string): Api.GraphNode['blueprint'] => ({
+  name,
+  single: true,
+  requires: [],
+  top: { on: [], workers: [], children: [], queries: [], provides: [] },
+  state: {},
+});
 
-/** The whole tree an Actor can grow, each Actor once per branch, so a cycle stops. */
+// 2. Tree
+/** Every Actor the root can grow, whether it runs or not: no Instance, Step or change. */
 export const treeOf = (
-  definition: ActorDefinition,
-  path = '',
-  slot: SlotPrint | null = null,
-  within: string | null = null,
-  above: ReadonlySet<ActorDefinition> = new Set(),
-): PrintNode => {
-  const print = blueprintOf(definition);
-  const seen = new Set(above).add(definition);
-  const grow = (child: SlotPrint, state: string | null) =>
-    seen.has(child.actor)
-      ? []
-      : [
-          treeOf(
-            child.actor,
-            path === '' ? child.name : `${path}/${child.name}`,
-            child,
-            state,
-            seen,
-          ),
-        ];
+  print: Blueprint,
+  place: string = print.name,
+  slot: {
+    readonly name: string;
+    readonly condition: Api.GraphNode['condition'] & string;
+    readonly keyed: boolean;
+    readonly within: string | null;
+  } | null = null,
+  above: ReadonlySet<Blueprint> = new Set(),
+): Api.GraphNode => {
+  const seen = new Set(above).add(print);
+  const grow = (level: BlueprintLevel, state: string | null) =>
+    Object.entries(level.children).flatMap(([name, child]) =>
+      seen.has(child.blueprint)
+        ? []
+        : [
+            treeOf(
+              child.blueprint,
+              `${place}/${state === null ? '' : `${state}:`}${name}`,
+              {
+                name,
+                condition: child.kind,
+                keyed: child.keyed,
+                within: state,
+              },
+              seen,
+            ),
+          ],
+    );
   return {
-    path,
-    slot,
-    in: within,
-    definition,
-    print,
+    id: place,
+    title: slot?.name ?? print.name,
+    actor: print.name,
+    blueprint: blueprintOf(print),
+    condition: slot?.condition ?? null,
+    keyed: slot?.keyed ?? false,
+    within: slot?.within ?? null,
+    state: null,
+    workers: [],
+    gone: [],
     children: [
-      ...print.top.children.flatMap((child) => grow(child, null)),
-      ...print.states.flatMap((tag) =>
-        print.state[tag]!.children.flatMap((child) => grow(child, tag)),
+      ...grow(print.top, null),
+      ...Object.entries(print.state).flatMap(([tag, level]) =>
+        grow(level, tag),
       ),
     ],
   };
-};
-
-/** The node at a path, if the tree has one. */
-export const nodeAt = (
-  root: PrintNode,
-  path: string,
-): PrintNode | undefined => {
-  if (path === '') return root;
-  let node: PrintNode | undefined = root;
-  let walked = '';
-  for (const part of path.split('/')) {
-    walked = walked === '' ? part : `${walked}/${part}`;
-    node = node?.children.find((child) => child.path === walked);
-  }
-  return node;
 };

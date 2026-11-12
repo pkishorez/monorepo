@@ -12,3 +12,7 @@ A saved History is its entries and its Head, nothing else. Whether the Runtime r
 - **Take either one, never both, checked by the types**: rejected. Two ways in for one idea, when the Restore already turns one into the other.
 - **Keep `running` and `shown` in the saved History**: rejected. They are not what happened, and keeping them made the History, the Runtime and the viewer share state.
 - **Resume at the Time the Runtime stopped**: rejected. It needs memory the History does not have, and no Message happened in between.
+
+## Note
+
+Since the Runtime was redesigned, a History is plain data, `History.make({ input })`, and every function that plays it is given the Actor. A Runtime is made with `Runtime.make(actor, { history, layer })` or `Runtime.scoped`, running at the Head from the moment it is made, and runs none of the Head's Commands. A Branch grows from `runtime.fork(id)`, which moves the same Runtime's Head. `History.restored(snapshot, { input, at })` takes the Snapshot alone. A History, not a Snapshot, is still the one way in.

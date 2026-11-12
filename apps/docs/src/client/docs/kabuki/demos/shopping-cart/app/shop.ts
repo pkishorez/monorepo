@@ -26,12 +26,15 @@ export const Shop = Actor.define('Shop', {
 export const ShopLive = Shop.build({
   init: () => ({ state: { _tag: 'Shopping' }, model: { lines: [] } }),
   // Everything below can change the order. Each change is a Message to here.
-  provides: (self) =>
-    Layer.succeed(Basket, {
-      add: (id) => self.send({ _tag: 'Added', id }),
-      change: (id, by) => self.send({ _tag: 'Changed', id, by }),
-      checkout: () => self.send({ _tag: 'CheckedOut' }),
-    }),
+  provides: {
+    capabilities: [Basket],
+    layer: (self) =>
+      Layer.succeed(Basket, {
+        add: (id) => self.send({ _tag: 'Added', id }),
+        change: (id, by) => self.send({ _tag: 'Changed', id, by }),
+        checkout: () => self.send({ _tag: 'CheckedOut' }),
+      }),
+  },
   states: {
     Shopping: {
       children: {

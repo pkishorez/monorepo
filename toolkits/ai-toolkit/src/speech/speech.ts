@@ -164,10 +164,9 @@ const host = (folder: string) =>
 
 const make = (options: SpeechOptions) =>
   Effect.gen(function* () {
-    const running = yield* Runtime.start(
-      SpeechModel,
-      Layer.succeed(SpeechHost, yield* host(options.folder)),
-    );
+    const running = yield* Runtime.scoped(SpeechModel, {
+      layer: Layer.succeed(SpeechHost, yield* host(options.folder)),
+    });
     const root = running.instance({ from: 'rpc' });
     // The model reads the wish and the files first; it is open once it knows.
     yield* running.changes.pipe(

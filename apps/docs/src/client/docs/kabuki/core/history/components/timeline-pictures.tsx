@@ -98,7 +98,7 @@ function Ring({ cx, cy }: { readonly cx: number; readonly cy: number }) {
 const fill = (count: number, colour: Cell = 'ink'): ReadonlyArray<Cell> =>
   Array.from({ length: 4 }, (_, at) => (at < count ? colour : null));
 
-/** Init, four Messages one by one, back to Step 2, then live again. */
+/** Init, four Messages one by one, a Seek back to Step 2, then the Head again. */
 const TRAVEL = [1000, 800, 800, 800, 1400, 2600, 1200];
 const TRAVEL_SHOWN = [0, 1, 2, 3, 4, 2, 4];
 
@@ -112,7 +112,7 @@ export function TravelPicture() {
       <div key={round} className="w-full max-w-60">
         <Sketch
           cells={fill(at)}
-          label={past ? `Step ${at}, read only` : 'live'}
+          label={past ? `Step ${at}, read only` : 'running'}
           past={past}
         />
         <svg
@@ -145,7 +145,7 @@ export function TravelPicture() {
   );
 }
 
-/** Live at Step 4, back to Step 2, the new line, two Messages on it, out. */
+/** Running at Step 4, a Fork to Step 2, the new line, two Messages on it, out. */
 const BRANCH = [1600, 1400, 1000, 900, 2600, 400];
 
 export function BranchPicture() {
@@ -178,7 +178,11 @@ export function BranchPicture() {
         <Sketch
           cells={cells}
           label={
-            at === 1 ? 'Step 2, read only' : grown ? 'live, new Branch' : 'live'
+            at === 1
+              ? 'Step 2, read only'
+              : grown
+                ? 'running, new Branch'
+                : 'running'
           }
           past={at === 1}
         />

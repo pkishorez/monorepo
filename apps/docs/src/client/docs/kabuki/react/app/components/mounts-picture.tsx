@@ -12,9 +12,9 @@ import {
 
 /*
  * One App, mounted in two places on a page, and the one Runtime behind
- * them. The first mount starts the Runtime; the second shares it. A Rolled
+ * them. The first mount makes the Runtime; the second shares it. A Rolled
  * Message lands once, in the one History, and both mounts draw it. One
- * mount goes and the app runs on; the last goes and the Runtime stops,
+ * mount goes and the app runs on; the last goes and the Runtime is let go,
  * its History kept under the app's name; mounted again, it carries on
  * where it was.
  */
@@ -43,7 +43,7 @@ const FRAMES: ReadonlyArray<Frame> = [
     running: true,
     messages: 0,
     drawn: 0,
-    note: 'the first mount starts the Runtime',
+    note: 'the first mount makes the Runtime',
   },
   {
     mounted: [true, true],

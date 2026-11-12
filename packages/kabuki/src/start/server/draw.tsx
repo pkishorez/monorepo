@@ -1,8 +1,8 @@
 import { Suspense } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import { renderToReadableStream } from 'react-dom/server';
-import { History } from '../../core/history/index.ts';
-import type { SavedHistory } from '../../core/history/index.ts';
+import { History, Snapshot } from '../../core/data/index.ts';
+import type { SavedHistory } from '../../core/data/index.ts';
 import type { AnyActor } from '../../core/actor/index.ts';
 import { View } from '../../react/index.ts';
 import type { LazyView } from '../../react/view/index.ts';
@@ -135,12 +135,10 @@ export const drawer = (
   return {
     /** The app at a Route as a whole HTML page; throws if anything in it fails to draw. */
     page: async (at: At): Promise<string> => {
-      const history = History.make(app.actor, { input: at });
-      const saved = History.restored(
+      const saved = History.save(
         app.actor,
-        history.snapshotAt(null),
-        0,
-      ).save();
+        History.restored(Snapshot.init(app.actor, at), { input: at }),
+      );
       const metadata = app.routes.metadata(at.route, dataOf(at.known));
       const page: Page = {
         entry: build.entry,

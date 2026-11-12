@@ -52,6 +52,8 @@ const rowOf =
 export const SkillPicker = {
   Live: Skills.Live,
   View: Skills.View,
+  /** What `owner` builds, for the `provides` that gives it. */
+  capabilities: Skills.capabilities,
   opening: (how: typeof Picker.How.Type) => ({
     how,
     step: { id: 'skill', key: '' },

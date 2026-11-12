@@ -385,8 +385,11 @@ export const SessionLive = Session.build({
     },
   }),
   // 8. Running
-  provides: (self) =>
-    RunningPicker.owner((last) => self.send({ _tag: 'RunningDone', last })),
+  provides: {
+    capabilities: RunningPicker.capabilities,
+    layer: (self) =>
+      RunningPicker.owner((last) => self.send({ _tag: 'RunningDone', last })),
+  },
   children: {
     // 1. Read, 8. Running: the transcript, and the Running Picker over it.
     // 11. Here: anew once its Connection runs here again.

@@ -521,7 +521,7 @@ const typed = <P>(spec: Spec<P>, model: Model, props: P, query: string) => {
 
 // The Actor -----------------------------------------------------------------
 
-/** A Picker's actor, and the Layer its owner gives it. */
+/** A Picker's actor, the Layer its owner gives it, and what that Layer builds. */
 export const build = <const Name extends string, P>(
   name: Name,
   spec: Spec<P>,
@@ -818,5 +818,8 @@ export const build = <const Name extends string, P>(
           })),
     });
 
-  return { Live, owner };
+  /** What `owner` builds, as the owner that Provides it names them: `provides: { capabilities, layer: (self) => owner(…) }`. */
+  const capabilities: readonly [typeof Owner] = [Owner];
+
+  return { Live, owner, capabilities };
 };

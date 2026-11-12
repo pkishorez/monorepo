@@ -3,22 +3,22 @@ import { StrictMode, act } from 'react';
 import { createRoot, hydrateRoot } from 'react-dom/client';
 import type { Root as ReactRoot } from 'react-dom/client';
 import { prerender } from 'react-dom/static';
-import { Cause, Context, Effect, Layer, Schema } from 'effect';
+import { Context, Effect, Layer, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Replay } from '../../core/history/replay.ts';
-import { Actor, History, Runtime } from '../../core/index.ts';
-import { View } from '../index.ts';
-import type { AppSetup } from '../view/index.ts';
-import type { SavedHistory } from '../../core/history/index.ts';
-import type { AppRuntime } from '../view/index.ts';
+import { Actor, History, Runtime, Snapshot } from '../../core/index.ts';
+import type { SavedHistory, Step } from '../../core/index.ts';
+import { Kabuki, View } from '../index.ts';
+import type { AppRuntime, AppSetup } from '../view/index.ts';
 import { registry } from '../view/registry.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 /*
- * The app before it runs: drawn from its History on a server and in a browser,
- * hydrated, then taken over by the Runtime; and carried across mounts and
- * hot reloads by the registry.
+ * A Runtime or a Step drawn by `<Kabuki>`; and `View.app`, the app before
+ * it runs: drawn from its History on a server and in a browser, hydrated,
+ * then taken over by the Runtime it makes; carried across mounts and hot
+ * reloads by the registry; and Time Travelled, Forked, stopped and started,
+ * always on that one Runtime.
  */
 
 const Counter = Actor.define('Counter', {
@@ -31,19 +31,32 @@ const Counter = Actor.define('Counter', {
 
 let sends: Record<string, (message: { _tag: 'Bumped' }) => void> = {};
 const CounterView = View.make(Counter, (self) => {
-  sends[self.id] = self.send;
+  sends[self.address] = self.send;
   return <output>{self.model.count}</output>;
 });
 
+/** A Runtime of Counter, Bumped `n` times. */
+const bumping = (n: number) => {
+  const runtime = Runtime.make(Counter);
+  for (let i = 0; i < n; i++)
+    runtime.send(runtime.snapshot.root.address, { _tag: 'Bumped' });
+  return runtime;
+};
+
 /** A History of `n` Bumps, as a Runtime leaves it. */
-const bumped = (n: number): Promise<SavedHistory> =>
-  Effect.runPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        const app = yield* Runtime.start(History.make(Counter));
-        for (let i = 0; i < n; i++) app.send('Counter', { _tag: 'Bumped' });
-        return app.history.save();
-      }),
+const bumped = async (n: number): Promise<SavedHistory> => {
+  const runtime = bumping(n);
+  await runtime.dispose();
+  return History.save(Counter, runtime.history);
+};
+
+/** A History of one Restore at `n` Bumps, at Time `at`, as a server makes one. */
+const restoredAt = async (n: number, at = 100) =>
+  History.save(
+    Counter,
+    History.restored(
+      Snapshot.replay(Counter, History.load(Counter, await bumped(n))),
+      { at },
     ),
   );
 
@@ -123,11 +136,7 @@ describe('the first draw', () => {
   });
 
   it('draws a History of one Restore', async () => {
-    const state = await bumped(5);
-    const snapshot = Replay.fold(Counter.definition, state.entries);
-    const App = View.app(CounterView, {
-      saved: History.restored(Counter, snapshot, 500).save(),
-    });
+    const App = View.app(CounterView, { saved: await restoredAt(5, 500) });
     root = createRoot(host);
     await act(async () => root!.render(<App />));
     expect(host.textContent).toBe('5');
@@ -193,13 +202,6 @@ describe('a History given when drawn', () => {
     }
   };
 
-  /** A History of one Restore at `n` Bumps, as a server makes one from its Loaders. */
-  const restoredAt = async (n: number) => {
-    const state = await bumped(n);
-    const snapshot = Replay.fold(Counter.definition, state.entries);
-    return History.restored(Counter, snapshot, 100).save();
-  };
-
   it('a server draws each request its own, at once, in one process', async () => {
     const App = View.app(CounterView);
     const [three, seven] = await Promise.all([
@@ -247,7 +249,7 @@ describe('a History given when drawn', () => {
       );
       await started(host);
       expect(host.textContent).toBe(`${count + 1}`);
-      expect(registry.history('Counter')?.branch().length).toBe(
+      expect(History.line(registry.history('Counter')!).length).toBe(
         saved.entries.length + 1,
       );
     },
@@ -266,12 +268,12 @@ describe('a History given when drawn', () => {
   });
 });
 
-describe('useRuntime before the Runtime', () => {
-  it('reads the saved History on a server, drawn before the app', async () => {
+describe('useRuntime', () => {
+  it('has no Runtime on a server, where the app is only drawn', async () => {
     const App = View.app(CounterView, { saved: await bumped(3) });
     const Probe = () => {
-      const { branch, head, running } = App.useRuntime();
-      return <i>{`${branch.length}/${head}/${running}`}</i>;
+      const { runtime, seeking } = App.useRuntime();
+      return <i>{`${runtime === null}/${seeking === null}`}</i>;
     };
     const { prelude } = await prerender(
       <>
@@ -286,11 +288,11 @@ describe('useRuntime before the Runtime', () => {
       if (done) break;
       served += new TextDecoder().decode(value);
     }
-    expect(served).toContain('<i>3/2/false</i>');
+    expect(served).toContain('<i>true/true</i>');
     expect(served).toContain('<output>3</output>');
   });
 
-  it('reads the saved History', async () => {
+  it('reads the Runtime made on the saved History', async () => {
     const App = View.app(CounterView, { saved: await bumped(2) });
     let seen: ReturnType<typeof App.useRuntime> | undefined;
     const Probe = () => {
@@ -306,113 +308,145 @@ describe('useRuntime before the Runtime', () => {
         </>,
       ),
     );
-    expect(seen?.branch.map((e) => e.message._tag)).toEqual([
+    await tick();
+    const history = seen!.runtime!.history;
+    expect(History.line(history).map((e) => e.message._tag)).toEqual([
       'Bumped',
       'Bumped',
     ]);
-    expect(seen?.head).toBe(1);
-    expect(seen?.history.snapshotAt(0).model).toEqual({ count: 1 });
-    expect(seen?.history.children(null).map((e) => e.id)).toEqual([0]);
+    expect(history.head).toBe(1);
+    expect(Snapshot.replay(Counter, history, 0).root.model).toEqual({
+      count: 1,
+    });
+    expect(History.children(history, null).map((e) => e.id)).toEqual([0]);
   });
 });
 
+/** Mount `App` with a probe of its `useRuntime`, and wait for its Runtime. */
+const probed = async <A,>(App: {
+  (props: object): React.ReactNode;
+  useRuntime: () => AppRuntime<A>;
+}) => {
+  let seen: AppRuntime<A> | undefined;
+  const Probe = () => {
+    seen = App.useRuntime();
+    return null;
+  };
+  root = createRoot(host);
+  await act(async () =>
+    root!.render(
+      <>
+        <App />
+        <Probe />
+      </>,
+    ),
+  );
+  await tick();
+  return () => seen!;
+};
+
 describe('Time Travel', () => {
-  it('shows any Step while the live app runs on, and drops a Send from the past', async () => {
+  it('draws a Step Sought while the Runtime runs on, and drops a Send from the past', async () => {
     const App = View.app(CounterView, { saved: await bumped(4) });
-    let seen: ReturnType<typeof App.useRuntime> | undefined;
-    const Probe = () => {
-      seen = App.useRuntime();
-      return null;
-    };
-    root = createRoot(host);
-    await act(async () =>
-      root!.render(
-        <>
-          <App />
-          <Probe />
-        </>,
-      ),
-    );
+    const seen = await probed(App);
     await started(host);
     expect(host.textContent).toBe('5');
+    const runtime = seen().runtime!;
 
-    await act(async () => seen!.show(1));
+    await act(async () => seen().seek(1));
     await tick();
     expect(host.textContent).toBe('2');
-    expect(seen?.shown).toBe(1);
+    expect(seen().seeking).toMatchObject({ entry: 1 });
+    expect(seen().runtime).toBe(runtime);
     await act(async () => sends['Counter']!({ _tag: 'Bumped' }));
-    expect(seen?.head).toBe(4);
+    expect(seen().runtime!.history.head).toBe(4);
+    expect(host.textContent).toBe('2');
 
-    await act(async () => seen!.show(null));
-    expect(host.textContent).toBe('5');
-    expect(seen?.running).toBe(true);
+    // The Runtime runs on underneath, and the past stays as it was.
+    await act(async () =>
+      seen().runtime!.send(seen().runtime!.snapshot.root.address, {
+        _tag: 'Bumped',
+      }),
+    );
+    expect(host.textContent).toBe('2');
+
+    await act(async () => seen().toHead());
+    expect(host.textContent).toBe('6');
+    expect(seen().seeking).toBe(null);
+    expect(seen().runtime).toBe(runtime);
+    expect(runtime.running).toBe(true);
   });
 
-  it('a Step Compacted away shows the oldest one left', async () => {
+  it('seeks init, as runtime.seek(null) does, and toHead draws the Head again', async () => {
     const App = View.app(CounterView, { saved: await bumped(4) });
-    let seen: ReturnType<typeof App.useRuntime> | undefined;
-    const Probe = () => {
-      seen = App.useRuntime();
-      return null;
-    };
-    root = createRoot(host);
-    await act(async () =>
-      root!.render(
-        <>
-          <App />
-          <Probe />
-        </>,
-      ),
-    );
+    const seen = await probed(App);
     await started(host);
-    await act(async () => seen!.show(1));
+    expect(host.textContent).toBe('5');
+
+    await act(async () => seen().seek(null));
+    await tick();
+    expect(seen().seeking).toMatchObject({ entry: null, at: 0 });
+    expect(seen().seeking!.snapshot).toEqual(
+      seen().runtime!.seek(null).snapshot,
+    );
+    expect(host.textContent).toBe('0');
+    await act(async () => sends['Counter']!({ _tag: 'Bumped' }));
+    expect(seen().runtime!.history.head).toBe(4);
+
+    await act(async () => seen().toHead());
+    expect(seen().seeking).toBe(null);
+    expect(host.textContent).toBe('5');
+  });
+
+  it('a Seek to an entry not in the History is logged and kept as the failure', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const App = View.app(CounterView);
+    const seen = await probed(App);
+    await started(host);
+    await act(async () => seen().seek(99));
+    expect(ours(errors)[0]).toContain('Counter could not seek 99');
+    expect(seen().seeking).toBe(null);
+    await act(async () => seen().seek(0));
+    await tick();
+    expect(seen().failure).toBe(null);
+    expect(seen().seeking?.entry).toBe(0);
+  });
+
+  it('a Step Sought keeps its Snapshot after the Runtime Compacts it away', async () => {
+    const App = View.app(CounterView, { saved: await bumped(4) });
+    const seen = await probed(App);
+    await started(host);
+    await act(async () => seen().seek(1));
     await tick();
     expect(host.textContent).toBe('2');
 
-    await act(async () => seen!.history.keep(2));
+    await act(async () => seen().runtime!.keep(2));
     await tick();
-    expect(seen?.shown).toBe(3);
-    expect(host.textContent).toBe('4');
-    expect(seen?.branch.map((entry) => entry.id)).toEqual([3, 4]);
+    expect(seen().seeking?.entry).toBe(1);
+    expect(host.textContent).toBe('2');
+    expect(History.line(seen().runtime!.history).map((e) => e.id)).toEqual([
+      3, 4,
+    ]);
   });
 });
 
 describe('the Window', () => {
   it('is remembered by name and outlasts a reload, over the one given in code', async () => {
     const First = View.app(CounterView, { name: 'kept', window: 10 });
-    let seen: ReturnType<typeof First.useRuntime> | undefined;
-    const Probe = () => {
-      seen = First.useRuntime();
-      return null;
-    };
-    root = createRoot(host);
-    await act(async () =>
-      root!.render(
-        <>
-          <First />
-          <Probe />
-        </>,
-      ),
-    );
-    expect(seen?.history.window()).toBe(10);
+    const seen = await probed(First);
+    expect(seen().runtime!.window).toBe(10);
     expect(localStorage.getItem('@kestack/kabuki:kept:window')).toBeNull();
-    await act(async () => seen!.history.keep(3));
+    await act(async () => seen().runtime!.keep(3));
     expect(localStorage.getItem('@kestack/kabuki:kept:window')).toBe('3');
     await act(async () => root?.unmount());
 
     // A reload: nothing left in memory, only what the browser kept.
     registry.clear();
     const Again = View.app(CounterView, { name: 'kept', window: 10 });
-    let again: ReturnType<typeof Again.useRuntime> | undefined;
-    const Read = () => {
-      again = Again.useRuntime();
-      return null;
-    };
-    root = createRoot(host);
-    await act(async () => root!.render(<Read />));
-    expect(again?.history.window()).toBe(3);
+    const again = await probed(Again);
+    expect(again().runtime!.window).toBe(3);
 
-    await act(async () => again!.history.keep(null));
+    await act(async () => again().runtime!.keep(null));
     expect(localStorage.getItem('@kestack/kabuki:kept:window')).toBe('all');
   });
 });
@@ -438,7 +472,7 @@ describe('across mounts and hot reloads', () => {
       },
     });
     const ReloadedView = View.make(Reloaded, (self) => {
-      sends[self.id] = self.send;
+      sends[self.address] = self.send;
       return <output>{self.model.count}</output>;
     });
     const Second = View.app(ReloadedView);
@@ -581,7 +615,7 @@ describe('mounting', () => {
     root = undefined;
     await tick();
     expect(ours(errors)).toEqual([]);
-    expect(registry.history('Counter')?.head()).toBe(1);
+    expect(registry.history('Counter')?.head).toBe(1);
   });
 });
 
@@ -605,9 +639,9 @@ describe('Attachments', () => {
     root = createRoot(host);
     await act(async () => root!.render(<App />));
     await started(host);
-    expect(held?.running).toBe(true);
-    expect(held?.head).toBe(0);
-    expect(held?.branch).toHaveLength(1);
+    expect(held?.runtime?.running).toBe(true);
+    expect(held?.runtime?.history.head).toBe(0);
+    expect(History.line(held!.runtime!.history)).toHaveLength(1);
     expect(heard).toBeGreaterThan(0);
     await act(async () => root!.unmount());
     root = undefined;
@@ -643,33 +677,13 @@ describe('Attachments', () => {
 });
 
 describe('useRuntime controls', () => {
-  const probed = async (
-    App: ReturnType<typeof View.app<typeof Counter, never>>,
-  ) => {
-    let seen: ReturnType<typeof App.useRuntime> | undefined;
-    const Probe = () => {
-      seen = App.useRuntime();
-      return null;
-    };
-    root = createRoot(host);
-    await act(async () =>
-      root!.render(
-        <>
-          <App />
-          <Probe />
-        </>,
-      ),
-    );
-    return () => seen!;
-  };
-
   it('gives one object, read as it is now, and draws again on each change', async () => {
     const App = View.app(CounterView);
     const each: Array<ReturnType<typeof App.useRuntime>> = [];
     const Probe = () => {
-      const runtime = App.useRuntime();
-      each.push(runtime);
-      return <span>{runtime.head}</span>;
+      const app = App.useRuntime();
+      each.push(app);
+      return <span>{app.runtime?.history.head}</span>;
     };
     root = createRoot(host);
     await act(async () =>
@@ -685,51 +699,203 @@ describe('useRuntime controls', () => {
     await act(async () => sends['Counter']!({ _tag: 'Bumped' }));
     expect(host.querySelector('span')!.textContent).toBe('1');
     expect(new Set(each).size).toBe(1);
-    expect(each[0]!.head).toBe(1);
+    expect(each[0]!.runtime?.history.head).toBe(1);
   });
 
-  it('clear forgets the History and goes live from init', async () => {
+  it('stop stops the work and drops each click; start runs it again, on the same Runtime', async () => {
+    const App = View.app(CounterView);
+    const seen = await probed(App);
+    await started(host);
+    const runtime = seen().runtime!;
+    await act(async () => seen().stop());
+    await tick();
+    expect(runtime.running).toBe(false);
+    await act(async () => sends['Counter']!({ _tag: 'Bumped' }));
+    expect(host.textContent).toBe('1');
+    expect(runtime.history.head).toBe(0);
+
+    await act(async () => seen().start());
+    await tick();
+    expect(seen().runtime).toBe(runtime);
+    expect(runtime.running).toBe(true);
+    expect(seen().failure).toBe(null);
+    await act(async () => sends['Counter']!({ _tag: 'Bumped' }));
+    expect(host.textContent).toBe('2');
+  });
+
+  it('fork moves the same Runtime to a Step and grows a new Branch from it', async () => {
+    const App = View.app(CounterView, { saved: await bumped(4) });
+    const seen = await probed(App);
+    await started(host);
+    const runtime = seen().runtime!;
+    await act(async () => seen().seek(2));
+    await tick();
+
+    await act(async () => seen().fork(seen().seeking!.entry));
+    await tick();
+    expect(seen().runtime).toBe(runtime);
+    expect(runtime.running).toBe(true);
+    expect(runtime.history.head).toBe(2);
+    expect(seen().seeking).toBe(null);
+    expect(host.textContent).toBe('3');
+
+    await started(host);
+    expect(host.textContent).toBe('4');
+    expect(History.children(runtime.history, 2)).toHaveLength(2);
+    expect(registry.history('Counter')).toBe(runtime.history);
+
+    // To init: what `clear` was. The old Branches stay.
+    await act(async () => seen().fork(null));
+    await tick();
+    expect(runtime.history.head).toBe(null);
+    expect(host.textContent).toBe('0');
+    expect(History.tips(runtime.history)).toHaveLength(2);
+  });
+
+  it('fork while stopped only moves the Head, and stays stopped', async () => {
     const App = View.app(CounterView, { saved: await bumped(3) });
     const seen = await probed(App);
     await started(host);
-    expect(host.textContent).toBe('4');
-    await act(async () => seen().clear());
+    const runtime = seen().runtime!;
+    await act(async () => seen().stop());
     await tick();
-    expect(seen().branch).toEqual([]);
-    expect(seen().head).toBe(null);
-    expect(seen().running).toBe(true);
-    expect(host.textContent).toBe('0');
-    await started(host);
+    await act(async () => seen().fork(0));
+    await tick();
+    expect(runtime.running).toBe(false);
+    expect(runtime.history.head).toBe(0);
+    expect(host.textContent).toBe('1');
+    await act(async () => sends['Counter']!({ _tag: 'Bumped' }));
     expect(host.textContent).toBe('1');
   });
 
-  it('a start that fails is logged and kept as the failure', async () => {
+  it('a Fork from an entry not in the History is logged and kept as the failure', async () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
     const App = View.app(CounterView);
     const seen = await probed(App);
     await started(host);
+    const runtime = seen().runtime;
     expect(seen().failure).toBe(null);
-    await act(async () => seen().start(99));
+    await act(async () => seen().fork(99));
     await tick();
-    expect(ours(errors)[0]).toContain('Counter could not start');
-    expect(String(seen().failure && Cause.squash(seen().failure!))).toContain(
-      'no History entry 99',
-    );
+    expect(ours(errors)[0]).toContain('Counter could not fork from 99');
+    expect(seen().failure?.what).toBe('fork from 99');
+    expect(String(seen().failure?.error)).toContain('no History entry 99');
+    expect(seen().runtime).toBe(runtime);
     await act(async () => seen().start());
     await tick();
     expect(seen().failure).toBe(null);
-    expect(seen().running).toBe(true);
+    expect(seen().runtime!.running).toBe(true);
   });
 
-  it('a Runtime that cannot start is logged and kept as the failure', async () => {
+  it('a Layer that fails is logged; the app still plays its Sends', async () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
     const App = View.app(CounterView, {
       layer: Layer.effectDiscard(Effect.die(new Error('no server'))),
     });
-    const seen = await probed(App);
+    await probed(App);
     await tick();
-    expect(seen().running).toBe(false);
     expect(ours(errors)[0]).toContain('no server');
-    expect(seen().failure).not.toBe(null);
+    await started(host);
+    expect(host.textContent).toBe('1');
+  });
+});
+
+describe('<Kabuki>', () => {
+  const ButtonView = View.make(Counter, (self) => (
+    <button onClick={() => self.send({ _tag: 'Bumped' })}>
+      {self.model.count}
+    </button>
+  ));
+  const click = (within: HTMLElement) =>
+    act(() => within.querySelector('button')!.click());
+
+  it('draws a Runtime, and a click Sends to it from its View', async () => {
+    const runtime = bumping(0);
+    root = createRoot(host);
+    await act(async () =>
+      root!.render(<Kabuki of={runtime} view={ButtonView} />),
+    );
+    expect(host.textContent).toBe('0');
+    await click(host);
+    expect(host.textContent).toBe('1');
+    expect(History.line(runtime.history).at(-1)?.from).toEqual({
+      kind: 'view',
+      instance: 'Counter',
+    });
+
+    // What is Sent from outside is drawn too.
+    await act(async () =>
+      runtime.send(runtime.snapshot.root.address, { _tag: 'Bumped' }),
+    );
+    expect(host.textContent).toBe('2');
+    await act(async () => root?.unmount());
+    root = undefined;
+    await runtime.dispose();
+  });
+
+  it('draws a Step, drops its clicks, and the Runtime keeps going', async () => {
+    const runtime = bumping(3);
+    const past = document.createElement('div');
+    document.body.append(past);
+    const pastRoot = createRoot(past);
+    root = createRoot(host);
+    await act(async () => {
+      root!.render(<Kabuki of={runtime} view={ButtonView} />);
+      pastRoot.render(<Kabuki of={runtime.seek(0)} view={ButtonView} />);
+    });
+    expect(past.textContent).toBe('1');
+    expect(host.textContent).toBe('3');
+
+    await click(past);
+    expect(past.textContent).toBe('1');
+    expect(runtime.history.head).toBe(2);
+
+    await click(host);
+    expect(host.textContent).toBe('4');
+    expect(past.textContent).toBe('1');
+
+    await act(async () => pastRoot.unmount());
+    past.remove();
+    await runtime.dispose();
+  });
+
+  it('draws a Step made from a History with no Runtime', () => {
+    return bumped(2).then((saved) => {
+      const history = History.load(Counter, saved);
+      const step: Step<typeof Counter> = {
+        entry: 0,
+        at: History.entry(history, 0)!.at,
+        snapshot: Snapshot.replay(Counter, history, 0),
+      };
+      root = createRoot(host);
+      act(() => root!.render(<Kabuki of={step} view={ButtonView} />));
+      expect(host.textContent).toBe('1');
+    });
+  });
+
+  it('drops a click while the Runtime is stopped', async () => {
+    const runtime = bumping(1);
+    root = createRoot(host);
+    await act(async () =>
+      root!.render(<Kabuki of={runtime} view={ButtonView} />),
+    );
+    await runtime.stop();
+    await click(host);
+    expect(host.textContent).toBe('1');
+    expect(runtime.history.head).toBe(0);
+    await act(async () => root?.unmount());
+    root = undefined;
+    await runtime.dispose();
+  });
+
+  it('takes only a View of its Actor', () => {
+    const Other = Actor.define('Other', {
+      model: Schema.Struct({ on: Schema.Boolean }),
+    }).build({ init: () => ({ model: { on: false } }) });
+    const OtherView = View.make(Other, () => null);
+    const runtime = Runtime.make(Counter);
+    // @ts-expect-error a View of another Actor cannot draw this Runtime
+    void (<Kabuki of={runtime} view={OtherView} />);
+    void runtime.dispose();
   });
 });

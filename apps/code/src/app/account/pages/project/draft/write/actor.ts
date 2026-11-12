@@ -72,6 +72,9 @@ export class Owner extends Context.Service<
 export const owner = <R>(given: Effect.Effect<Owner['Service'], never, R>) =>
   Layer.effect(Owner, given);
 
+/** What `owner` builds, for the `provides` that gives it. */
+export const capabilities: readonly [typeof Owner] = [Owner];
+
 const openedUp = Command.make('DraftModeOpened', {
   args: Schema.Struct({ mode: Mode, open: Schema.Boolean }),
   run: ({ mode, open }) =>
@@ -135,10 +138,13 @@ export const WriteLive = Write.build({
     model: { written, open, collapses, took: 0 },
   }),
   // 3. Send: on touch, through the Touch Draft.
-  provides: (self) =>
-    Touch.owner(self.send({ _tag: 'SendAsked' }), (open) =>
-      self.send({ _tag: 'TouchOpened', open }),
-    ),
+  provides: {
+    capabilities: Touch.capabilities,
+    layer: (self) =>
+      Touch.owner(self.send({ _tag: 'SendAsked' }), (open) =>
+        self.send({ _tag: 'TouchOpened', open }),
+      ),
+  },
   children: {
     touch: Actor.child(Touch.actor, {
       input: ({ model }) => ({ open: model.open, collapses: model.collapses }),

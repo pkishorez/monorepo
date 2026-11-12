@@ -91,7 +91,10 @@ const madeUp = (start: AccountsState) =>
   );
 
 const Header = Actor.define('Header', {}).build({
-  provides: () => CurrentAccount.layer,
+  provides: {
+    capabilities: CurrentAccount.capabilities,
+    layer: () => CurrentAccount.layer,
+  },
   children: {
     account: Actor.child(AccountSwitcherLive, {
       input: () => ({ maxAccounts: 5 }),

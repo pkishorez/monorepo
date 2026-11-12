@@ -357,45 +357,48 @@ export const ActionsLive = Actions.build({
       }),
     }),
   },
-  provides: (self) =>
-    Layer.unwrap(
-      Effect.map(Effect.context<CodeClients | Moves>(), (client) =>
-        List.owner({
-          done: () => self.send({ _tag: 'Closed' }),
-          settle: (choices) =>
-            Effect.gen(function* () {
-              const { model } = yield* self.get;
-              const action = choices.at(-1)?.value ?? '';
-              // An Action of the keyboard runs once the Picker is closed.
-              if (isKey(action)) {
-                yield* self.send({ _tag: 'Chose', id: action });
+  provides: {
+    capabilities: List.capabilities,
+    layer: (self) =>
+      Layer.unwrap(
+        Effect.map(Effect.context<CodeClients | Moves>(), (client) =>
+          List.owner({
+            done: () => self.send({ _tag: 'Closed' }),
+            settle: (choices) =>
+              Effect.gen(function* () {
+                const { model } = yield* self.get;
+                const action = choices.at(-1)?.value ?? '';
+                // An Action of the keyboard runs once the Picker is closed.
+                if (isKey(action)) {
+                  yield* self.send({ _tag: 'Chose', id: action });
+                  return null;
+                }
+                if (model.session === null) return 'This session is not found';
+                // Written behind, the Picker closed at once.
+                if (action === 'retitle') {
+                  yield* self.send({ _tag: 'RetitleAsked' });
+                  return null;
+                }
+                const { connectionId, session } = model;
+                const go =
+                  action === 'settle' || action === 'unsettle'
+                    ? yield* Effect.flatMap(Moves, (moves) =>
+                        moves.put(
+                          { connectionId, sessionId: session.id },
+                          action === 'settle',
+                        ),
+                      ).pipe(Effect.as(null), Effect.provide(client))
+                    : yield* CodeClients.on(
+                        connectionId,
+                        run(action, session),
+                      ).pipe(Effect.provide(client));
+                yield* self.send({ _tag: 'Ran', go });
                 return null;
-              }
-              if (model.session === null) return 'This session is not found';
-              // Written behind, the Picker closed at once.
-              if (action === 'retitle') {
-                yield* self.send({ _tag: 'RetitleAsked' });
-                return null;
-              }
-              const { connectionId, session } = model;
-              const go =
-                action === 'settle' || action === 'unsettle'
-                  ? yield* Effect.flatMap(Moves, (moves) =>
-                      moves.put(
-                        { connectionId, sessionId: session.id },
-                        action === 'settle',
-                      ),
-                    ).pipe(Effect.as(null), Effect.provide(client))
-                  : yield* CodeClients.on(
-                      connectionId,
-                      run(action, session),
-                    ).pipe(Effect.provide(client));
-              yield* self.send({ _tag: 'Ran', go });
-              return null;
-            }).pipe(Effect.catch((reason) => Effect.succeed(reason))),
-        }),
+              }).pipe(Effect.catch((reason) => Effect.succeed(reason))),
+          }),
+        ),
       ),
-    ),
+  },
   workers: {
     // 1. Read
     session: {

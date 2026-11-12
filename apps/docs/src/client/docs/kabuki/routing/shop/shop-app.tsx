@@ -15,7 +15,7 @@ import {
 import type { Route } from './shop.ts';
 
 /*
- * The shop's Views. The window's address never changes, so the shop draws
+ * The shop's Views. The window's URL never changes, so the shop draws
  * its own bar: Back, Forward, the page's title and its URL, and under it
  * the Route the Router holds, written as code makes it.
  */
@@ -218,7 +218,7 @@ const ShopView = View.make(ShopLive, ({ children, props, root }) => (
 ));
 
 // The Router above the shop. With no Adapter in the Layer it routes in
-// memory and never reads or touches the address. It would start at its
+// memory and never reads or touches the URL. It would start at its
 // root, which names no page here, so it starts at the products.
 const Routed = Router.view(router, ShopView);
 

@@ -116,6 +116,8 @@ const Chosen = Schema.Struct({
 });
 
 const Page = Actor.define('Page', {
+  /** The account it starts on, as each test mounts it. */
+  input: Schema.Struct({ startAs: Schema.String }),
   model: Schema.Struct({
     current: Chosen,
     picking: Schema.NullOr(
@@ -141,7 +143,7 @@ const Page = Actor.define('Page', {
 });
 
 const PageLive = Page.build({
-  init: () => ({
+  init: ({ startAs }) => ({
     model: {
       current: { account: startAs, model: null, settings: {} },
       picking: null,
@@ -169,8 +171,11 @@ const PageLive = Page.build({
       }),
     }),
   },
-  provides: (self) =>
-    ModelPicker.owner((chosen) => self.send({ _tag: 'Done', chosen })),
+  provides: {
+    capabilities: ModelPicker.capabilities,
+    layer: (self) =>
+      ModelPicker.owner((chosen) => self.send({ _tag: 'Done', chosen })),
+  },
   on: {
     Ping: (_, { model }) => ({ model: { ...model, pings: model.pings + 1 } }),
     Open: ({ how, at }, { model }) => ({
@@ -297,7 +302,10 @@ beforeAll(() => {
 
 beforeEach(async () => {
   document.documentElement.toggleAttribute('data-keyboard', !chip);
-  const App = View.app(PageView, { name: `model-picker-test-${apps++}` });
+  const App = View.app(PageView, {
+    name: `model-picker-test-${apps++}`,
+    input: () => ({ startAs }),
+  });
   root = createRoot(document.body.appendChild(document.createElement('div')));
   await act(async () => root!.render(<App />));
   for (let tries = 0; tries < 50 && page.pings === 0; tries++) {
@@ -566,7 +574,10 @@ describe('ModelPicker, with a Harness Account beside the Default Accounts', () =
     document.body.innerHTML = '';
     chip = true;
     document.documentElement.toggleAttribute('data-keyboard', false);
-    const App = View.app(PageView, { name: `model-picker-test-${apps++}` });
+    const App = View.app(PageView, {
+      name: `model-picker-test-${apps++}`,
+      input: () => ({ startAs }),
+    });
     root = createRoot(document.body.appendChild(document.createElement('div')));
     await act(async () => root!.render(<App />));
     await flush();

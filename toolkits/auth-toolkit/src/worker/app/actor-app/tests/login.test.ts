@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import type { Running } from '@kestack/kabuki/core/runtime';
+import type { Runtime } from '@kestack/kabuki/core/runtime';
 import { describe, expect, it } from 'vitest';
 import {
   find,
@@ -21,7 +21,7 @@ const SIGNED =
 
 const signedOut = () => ({ ...twoAccounts(), accounts: [], active: null });
 
-const model = (app: Running<unknown>) =>
+const model = (app: Runtime) =>
   find(app, 'Login')!.model as {
     testing: boolean;
     testFailure: string | null;

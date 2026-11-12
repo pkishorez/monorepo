@@ -109,7 +109,7 @@ Child comes and goes.
 </Picture>
 
 Since a move is a Message, the History has it. Drag the Timeline back and
-the app is drawn at the page it was on. The address isn't touched: a past
+the app is drawn at the page it was on. The URL isn't touched: a past
 Step is only a drawing.
 
 ## Reading the Router
@@ -159,7 +159,7 @@ A move can say otherwise for itself: `resetScroll={false}` on a link, or
 `{ resetScroll: false }` on `Router.push`, leaves every scroll as it is.
 `hash` goes to an element on the Page.
 
-## Where the address lives
+## Where the URL lives
 
 The Router doesn't care where the URL is. An **Adapter**, given in the
 app's Layer, keeps it:
@@ -181,8 +181,8 @@ export const ShopApp = View.app(Routed, {
 });
 ```
 
-With an Adapter, `input` starts the app at the address it holds: `startAt`
-with no URL reads it. In memory there is no address to read, so the Router
+With an Adapter, `input` starts the app at the URL it holds: `startAt`
+with no URL reads it. In memory there is no URL to read, so the Router
 starts at its root, or wherever `startAt` names: the shop has no page at
 its root, so it starts with `input: () => Routed.startAt('/products')`.
 

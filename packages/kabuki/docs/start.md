@@ -135,10 +135,11 @@ was in the drawing and hydrated, or was drawn later by the browser, after a
 move or as part of a client place. It is `null` outside a page Start served,
 as in a test or a story.
 
-`Start.useRuntime()` reads the running app from the Document, for devtools
-drawn around it: what `App.useRuntime()` gives an app drawn with `View.app`,
-its History, the Step shown and how to show another. It is `null` on the
-server, which draws each request from a History of its own and runs none.
+`Start.useRuntime()` reads the app from the Document, for devtools drawn
+around it: what `App.useRuntime()` gives an app drawn with `View.app`, its
+one Runtime, running from the first mount, the Step it Seeks, and how to Seek
+another Step or Fork to one. It is `null` on the server, which draws each
+request from a History of its own and makes no Runtime.
 
 ## One request
 
@@ -188,10 +189,10 @@ GET /blog/hello
 ## In the browser
 
 The client entry reads the saved History from the page, preloads the lazy
-Views the head names, and hydrates the Document with the browser's address,
+Views the head names, and hydrates the Document with the browser's URL,
 the Loader RPC behind the Data cache, and the app's own Layer. Once mounted,
-the Runtime starts at the Restore. A client page, drawn loading, has its
-data loaded by the Router once it starts. The Metadata the server drew is the Router's from
+the app's one Runtime is made on that History, running at the Restore. A client
+page, drawn loading, has its data loaded by the Router once it starts. The Metadata the server drew is the Router's from
 then on: it writes it after every move, and when a page's data comes.
 
 ## The Loader RPC

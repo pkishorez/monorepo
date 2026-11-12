@@ -9,3 +9,7 @@ A State is the stretch of an Instance's life it spends in one State: a Scope ins
 - **Reconcile from outside, as before**: rejected. The Runtime had to know that leaving a State comes before the new data and entering comes after, so the Instance's life was spread over three files.
 - **A State module of its own**: rejected. It would call back into the Instance module to start its Children, so its loop would never close.
 - **Keep a map of every living Instance in the Runtime**: rejected. The ID already is the path, and the map would be one more thing to keep in step with the Snapshot.
+
+## Note
+
+Since the Runtime was redesigned, the Runtime plays each Message itself, `Snapshot.play` on the Snapshot at the Head, and the live tree follows the Snapshot that comes of it, starting and stopping States, Children, Workers and Provides, while the Runtime runs. Stopped, it takes no Message. Instances no longer decide the next Snapshot. A Message reaches its Instance by its Address, which is still the path from the root.

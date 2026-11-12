@@ -148,7 +148,7 @@ function ProjectScreen({ root, model, props, children, send }: Self) {
 type Self = ViewProps<typeof ProjectLive>;
 
 /** No Instance: what a Hook reads while a Child is absent. */
-const NONE = { id: '' };
+const NONE = { address: '' };
 
 /**
  * Draws nothing: says, for the place in it the app first loads at, that

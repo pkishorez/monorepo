@@ -1,10 +1,13 @@
 export { View } from './view.ts';
+export { Kabuki } from './kabuki.tsx';
+export type { KabukiProps } from './kabuki.tsx';
 export type {
   AppOptions,
   AppProps,
   AppRuntime,
   AppSetup,
   Attachment,
+  Failure,
 } from './app.tsx';
 export { useChild, useChildren, useLive } from './draw/index.ts';
 export type {

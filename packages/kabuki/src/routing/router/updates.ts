@@ -24,7 +24,7 @@ export const updatesOf = <Route extends AnyRoute>(
     current,
     shown,
     fresh,
-    addressOf,
+    urlOf,
     writing,
     land,
     toward,
@@ -104,7 +104,7 @@ export const updatesOf = <Route extends AnyRoute>(
               command: [
                 ...([] as Array<Cmd>).concat(moving.command ?? []),
                 write({
-                  url: addressOf(entryOf(key!, route, hash)),
+                  url: urlOf(entryOf(key!, route, hash)),
                   key: key!,
                   replace: true,
                 }),
@@ -112,7 +112,7 @@ export const updatesOf = <Route extends AnyRoute>(
             };
       }
       if (!model.loaded) {
-        // The URL the app opened at: this entry, with the key the address
+        // The URL the app opened at: this entry, with the key the URL
         // kept for it before a reload, else a new one.
         const opened: Model = {
           ...model,

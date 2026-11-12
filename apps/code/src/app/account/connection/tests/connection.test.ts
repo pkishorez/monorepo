@@ -187,9 +187,9 @@ const run = (
         const shared = Context.get(context, Connections);
         const storage = Context.get(context, Storage);
         const startIn = (over: Partial<Storage['Service']>) =>
-          Runtime.start(
-            OwnerLive as never,
-            Layer.merge(
+          Runtime.scoped(OwnerLive as never, {
+            window: 0,
+            layer: Layer.merge(
               Layer.succeedContext(
                 Context.add(context, Storage, { ...storage, ...over }),
               ),
@@ -199,7 +199,7 @@ const run = (
                 Layer.provide(Layer.succeedContext(context)),
               ),
             ) as never,
-          );
+          });
         const startOver = (kept: Cache) => startIn({ cache: kept });
         const startWith = (sync: Sync) => startIn(sync);
         yield* test({

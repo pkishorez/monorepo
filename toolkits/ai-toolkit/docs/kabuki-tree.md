@@ -4,7 +4,7 @@ ai-toolkit gives Coding Harnesses as plain Effects and has no Actor in its
 doors. One Kabuki tree is left, private behind `@kestack/ai-toolkit/speech`:
 it keeps the Speech to Text model on this computer. It downloads the model,
 deletes it, and turns audio into text with it. `speech.ts` is its front door
-and starts the root with `Runtime.start`; the speech Layer gives
+and runs the root with `Runtime.scoped`; the speech Layer gives
 `SpeechHost`.
 Changed through `/kabukifi`; edit by hand and it drifts.
 

@@ -1,5 +1,5 @@
 import { View } from '@kestack/kabuki/react';
-import { owner, TouchLive } from './actor.ts';
+import { capabilities, owner, TouchLive } from './actor.ts';
 import { Given } from './touch.ts';
 
 export type { Stop } from './controls/index.ts';
@@ -12,4 +12,6 @@ export const Touch = {
   Given,
   /** The Layer the Draft Provides: how it is sent. */
   owner,
+  /** What `owner` builds, for the `provides` that gives it. */
+  capabilities,
 };

@@ -28,18 +28,20 @@ it("needs what the Gate and the Strategies use from the app's Layer", () => {
     },
   });
   const Root = Actor.define('Root', {}).build({
-    provides: () => Replicas.layer,
+    provides: {
+      capabilities: Replicas.capabilities,
+      layer: () => Replicas.layer,
+    },
     children: { replicas: Actor.child(Replicas.actor([PocketLive])) },
   });
-  const covered = Runtime.start(
-    Root,
-    Layer.mergeAll(
+  const covered = Runtime.scoped(Root, {
+    layer: Layer.mergeAll(
       Store.memory(),
       Layer.succeed(Backend, { wallets: () => Effect.succeed([]) }),
       Layer.succeed(SignedIn, Stream.make(true)),
     ),
-  );
+  });
   // @ts-expect-error Backend and SignedIn are still needed
-  const short = Runtime.start(Root, Store.memory());
+  const short = Runtime.scoped(Root, { layer: Store.memory() });
   expect([covered, short]).toBeDefined();
 });

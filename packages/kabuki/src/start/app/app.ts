@@ -46,7 +46,7 @@ export type AppOptions<G extends PageDefinition, A extends PageBuild<G>> = {
   readonly name?: string;
   /**
    * What runs beside the app in the browser, such as a devtool: each is
-   * called with the running app once its Runtime starts, and what it returns
+   * called with the app once its Runtime is made, and what it returns
    * when the app goes, as after a hot reload. Never on the server.
    */
   readonly attach?: ReadonlyArray<Attachment>;

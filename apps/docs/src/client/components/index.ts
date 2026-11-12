@@ -14,7 +14,13 @@ export {
 export { PartLinks } from './parts.tsx';
 export { Callout, prose } from './prose.tsx';
 export { KabukiMark, PackageMark } from './brand.tsx';
-export { Timeline, carryOn, showStep, stepOf } from './timeline/index.ts';
+export {
+  Timeline,
+  carryOn,
+  lineOf,
+  showStep,
+  stepOf,
+} from './timeline/index.ts';
 export {
   ARROW,
   Box,

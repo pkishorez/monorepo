@@ -130,11 +130,14 @@ const PageLive = Page.build({
       }),
     }),
   },
-  provides: (self) =>
-    Layer.merge(
-      SkillPicker.owner((name) => self.send({ _tag: 'Picked', name })),
-      Touch.owner(self.send({ _tag: 'Send' })),
-    ),
+  provides: {
+    capabilities: [...SkillPicker.capabilities, ...Touch.capabilities],
+    layer: (self) =>
+      Layer.merge(
+        SkillPicker.owner((name) => self.send({ _tag: 'Picked', name })),
+        Touch.owner(self.send({ _tag: 'Send' })),
+      ),
+  },
   on: {
     Ping: (_, { model }) => ({ model: { ...model, pings: model.pings + 1 } }),
     Dictation: ({ pending }, { model }) => ({ model: { ...model, pending } }),

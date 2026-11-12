@@ -276,6 +276,8 @@ const chosenOf = (choices: Choices) => ({
 export const ModelPicker = {
   Live: Models.Live,
   View: Models.View,
+  /** What `owner` builds, for the `provides` that gives it. */
+  capabilities: Models.capabilities,
   /** Where it opens, for an owner's Model. */
   At,
   /** The agent, model and settings in effect, as its owner hands them. */

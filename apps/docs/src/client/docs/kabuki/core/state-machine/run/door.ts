@@ -4,7 +4,7 @@ import { DoorLive } from '../components/door.ts';
 
 // Send the door every Message, and see which ones its State takes.
 export const program = Effect.gen(function* () {
-  const app = yield* Runtime.start(DoorLive);
+  const app = yield* Runtime.scoped(DoorLive);
   const door = app.instance({ from: 'docs' });
   yield* Console.log('starts', door.state);
 

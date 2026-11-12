@@ -8,8 +8,7 @@ import {
 } from 'effect';
 import type { Scope } from 'effect';
 import { Actor, Command, Runtime } from '@kestack/kabuki';
-import type { Running } from '@kestack/kabuki/core/runtime';
-import type { Instance } from '@kestack/kabuki/core/snapshot';
+import type { Instance } from '@kestack/kabuki/core/data';
 import {
   type Account,
   Accounts,
@@ -144,7 +143,10 @@ const PageLive = Page.build({
 });
 
 const Root = Actor.define('Root', {}).build({
-  provides: () => CurrentAccount.layer,
+  provides: {
+    capabilities: CurrentAccount.capabilities,
+    layer: () => CurrentAccount.layer,
+  },
   children: {
     account: Actor.child(AccountSwitcherLive, {
       input: () => ({ maxAccounts: 5 }),
@@ -164,8 +166,8 @@ const walk = (at: Instance): ReadonlyArray<Instance> => [
     ((Array.isArray(child) ? child : [child]) as Array<Instance>).flatMap(walk),
   ),
 ];
-const find = (app: Running<unknown>, actor: string) =>
-  walk(app.snapshot()).find((each) => each.actor === actor)!;
+const find = (app: Runtime, actor: string) =>
+  walk(app.snapshot.root).find((each) => each.actor === actor)!;
 
 type Model = {
   readonly account: { readonly _tag: string; readonly active?: Account };
@@ -176,21 +178,20 @@ type Model = {
   readonly busy: string | null;
   readonly failed: string | null;
 };
-const model = (app: Running<unknown>) =>
-  find(app, 'AccountSwitcher').model as Model;
-const active = (app: Running<unknown>) => {
+const model = (app: Runtime) => find(app, 'AccountSwitcher').model as Model;
+const active = (app: Runtime) => {
   const { account } = model(app);
   return account.active?.id ?? account._tag;
 };
-const seen = (app: Running<unknown>) =>
+const seen = (app: Runtime) =>
   (find(app, 'Page').model as { seen: ReadonlyArray<string> }).seen;
 
 const opened = Effect.gen(function* () {
   const accounts = yield* fakeAccounts;
-  const app = yield* Runtime.start(Root, accounts.layer);
+  const app = yield* Runtime.scoped(Root, { layer: accounts.layer });
   yield* wait(20);
   const send = (message: { readonly _tag: string; readonly id?: string }) =>
-    app.send(find(app, 'AccountSwitcher').id, message as never);
+    app.send(find(app, 'AccountSwitcher').address, message as never);
   return { app, send, ...accounts };
 });
 
@@ -292,7 +293,10 @@ describe('CurrentAccount', () => {
     run(
       Effect.gen(function* () {
         const { app, asked } = yield* opened;
-        app.send(find(app, 'Page').id, { _tag: 'Ask', id: 'bob' } as never);
+        app.send(find(app, 'Page').address, {
+          _tag: 'Ask',
+          id: 'bob',
+        } as never);
         yield* wait(20);
         expect(asked).toEqual(['switchTo bob']);
         expect(model(app).switching?.id).toBe('bob');

@@ -63,11 +63,14 @@ export const StageLive = Stage.build({
           props: ({ model }) => ({ lives: model.lives }),
         }),
       },
-      provides: (self) =>
-        Layer.succeed(Referee, {
-          scored: self.send({ _tag: 'Scored' }),
-          crashed: (body) => self.send({ _tag: 'Crashed', body }),
-        }),
+      provides: {
+        capabilities: [Referee],
+        layer: (self) =>
+          Layer.succeed(Referee, {
+            scored: self.send({ _tag: 'Scored' }),
+            crashed: (body) => self.send({ _tag: 'Crashed', body }),
+          }),
+      },
       on: {
         Scored: (_, { model }) => {
           const score = model.score + 1;

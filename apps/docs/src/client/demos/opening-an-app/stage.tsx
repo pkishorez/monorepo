@@ -7,7 +7,7 @@ const Demo = View.app(AppView, { name: 'opening-an-app-stage' });
 /** Opening an app, staged to be watched: the app over its Actors. */
 export function OpeningAnAppStage() {
   const runtime = Demo.useRuntime();
-  const past = runtime.shown !== null;
+  const past = runtime.seeking !== null;
   return (
     <Stage runtime={runtime} past={past}>
       <div className="h-full">
