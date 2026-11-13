@@ -36,7 +36,6 @@
     "src/ui/components/dropdown-menu.tsx",
     "src/ui/components/empty.tsx",
     "src/ui/components/field.tsx",
-    "src/ui/components/file-tree.tsx",
     "src/ui/components/google-button.tsx",
     "src/ui/components/hooks/use-element-width.ts",
     "src/ui/components/hooks/use-mobile.ts",
@@ -66,10 +65,8 @@
     "src/ui/components/scroll-area.tsx",
     "src/ui/components/select.tsx",
     "src/ui/components/separator.tsx",
-    "src/ui/components/sheet.tsx",
     "src/ui/components/skeleton.tsx",
     "src/ui/components/slider.tsx",
-    "src/ui/components/sonner.tsx",
     "src/ui/components/spinner.tsx",
     "src/ui/components/switch.tsx",
     "src/ui/components/table.tsx",
@@ -172,11 +169,6 @@
       "src/ui/components/label.tsx",
       "src/ui/components/separator.tsx"
     ],
-    "src/ui/components/file-tree.tsx": [
-      "src/ui/components/button.tsx",
-      "src/ui/components/kit/class-names.ts",
-      "src/ui/components/scroll-area.tsx"
-    ],
     "src/ui/components/input-group.tsx": [
       "src/ui/components/button.tsx",
       "src/ui/components/input.tsx",
@@ -190,10 +182,8 @@
     "src/ui/components/message-scroller.tsx": ["src/ui/components/button.tsx"],
     "src/ui/components/pagination.tsx": ["src/ui/components/button.tsx"],
     "src/ui/components/questionnaire.tsx": ["src/ui/components/button.tsx"],
-    "src/ui/components/sheet.tsx": ["src/ui/components/button.tsx"],
     "src/ui/components/toast.tsx": ["src/ui/components/button.tsx"],
     "src/ui/components/toggle-group.tsx": ["src/ui/components/toggle.tsx"],
-    "src/ui/form": ["src/ui/components"],
     "src/ui/input/gesture/patterns": ["src/ui/input/gesture/recognizers"],
     "src/ui/input/gesture/patterns/sidebar": ["src/ui/input/gesture/zones"],
     "src/ui/input/gesture/recognizers": ["src/ui/input/gesture/zones"],

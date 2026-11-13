@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Effect } from 'effect';
 import type { FileDiff } from 'laymos';
 import { useQuery } from '@tanstack/react-query';
-import { toast } from '@kestack/web-platform/ui/components/sonner';
+import { toast } from '@kestack/web-platform/ui/components/toast';
 
 import {
   DevtoolsClient,
@@ -81,7 +81,9 @@ export function useGitChanges(folder: string, options: GitChangesOptions = {}) {
 
   useEffect(() => {
     if (!changesQuery.error) return;
-    toast.warning('Git changes are unavailable', {
+    toast.add({
+      type: 'warning',
+      title: 'Git changes are unavailable',
       description: messageOf(changesQuery.error),
     });
   }, [changesQuery.error]);

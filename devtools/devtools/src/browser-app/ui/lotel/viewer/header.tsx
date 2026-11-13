@@ -12,7 +12,7 @@ import {
   AlertDialogTrigger,
 } from '@kestack/web-platform/ui/components/alert-dialog';
 import { Trash2Icon } from 'lucide-react';
-import { toast } from '@kestack/web-platform/ui/components/sonner';
+import { toast } from '@kestack/web-platform/ui/components/toast';
 
 /** Telemetry toolbar actions. The DevTools URL is owned by the route shell. */
 export function Header({ onClear }: { onClear: () => Promise<number> }) {
@@ -25,11 +25,14 @@ export function Header({ onClear }: { onClear: () => Promise<number> }) {
     try {
       const deleted = await onClear();
       setClearOpen(false);
-      toast.success(
-        `Cleared ${deleted} telemetry record${deleted === 1 ? '' : 's'}`,
-      );
+      toast.add({
+        type: 'success',
+        title: `Cleared ${deleted} telemetry record${deleted === 1 ? '' : 's'}`,
+      });
     } catch (cause) {
-      toast.error('Could not clear telemetry', {
+      toast.add({
+        type: 'error',
+        title: 'Could not clear telemetry',
         description: cause instanceof Error ? cause.message : String(cause),
       });
     } finally {

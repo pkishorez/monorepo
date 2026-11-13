@@ -8,7 +8,7 @@ import {
   RouterProvider,
   useMatchRoute,
 } from '@tanstack/react-router';
-import { Toaster } from '@kestack/web-platform/ui/components/sonner';
+import { Toaster } from '@kestack/web-platform/ui/components/toast';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { ArrowRightIcon, MoonIcon, SunIcon } from 'lucide-react';
 import { DevtoolsRpcProvider } from './devtools-rpc/index.js';
