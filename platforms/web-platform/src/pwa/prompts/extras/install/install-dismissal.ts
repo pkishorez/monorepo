@@ -1,4 +1,4 @@
-const KEY = 'pwa-toolkit:install-dismissed-at';
+const KEY = 'web-platform:install-dismissed-at';
 const REMEMBER_MS = 30 * 24 * 60 * 60 * 1000;
 
 // localStorage throws in some private modes; then dismissal lasts for the page only.

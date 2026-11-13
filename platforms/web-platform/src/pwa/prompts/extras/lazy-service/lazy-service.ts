@@ -27,7 +27,7 @@ export const lazyService = <I, S>(
       build().then(
         (built) => mounted && setValue(built),
         (error: unknown) =>
-          console.error('pwa-toolkit: extra failed to start', error),
+          console.error('web-platform/pwa: extra failed to start', error),
       );
       return () => {
         mounted = false;

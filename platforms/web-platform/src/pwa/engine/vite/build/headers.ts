@@ -1,5 +1,5 @@
-const BEGIN = '# pwa-toolkit: begin';
-const END = '# pwa-toolkit: end';
+const BEGIN = '# web-platform pwa: begin';
+const END = '# web-platform pwa: end';
 
 const withoutManagedBlock = (text: string): string => {
   const begin = text.indexOf(BEGIN);
@@ -12,7 +12,7 @@ const withoutManagedBlock = (text: string): string => {
  * Cloudflare `_headers` with `Cache-Control: no-cache` for each path, so
  * browsers always revalidate the worker script and the manifest. The app's
  * own rules stay as they are; a path the app already lists is left to it.
- * Re-running replaces the toolkit's block instead of adding another.
+ * Re-running replaces the PWA's block instead of adding another.
  */
 export const mergeHeaders = (
   existing: string | null,

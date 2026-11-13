@@ -95,8 +95,6 @@
       "src/pwa/engine/contract/strategy",
       "src/ui/theme/model.ts"
     ],
-    "src/pwa/engine/contract/handshake": ["src/pwa/engine/contract/build"],
-    "src/pwa/engine/contract/worker-host": ["src/pwa/engine/contract/build"],
     "src/pwa/engine/page": ["src/pwa/engine/contract"],
     "src/pwa/engine/page/status": ["src/pwa/engine/page/commands"],
     "src/pwa/engine/vite": [
@@ -119,9 +117,7 @@
       "src/pwa/engine/contract/build",
       "src/pwa/engine/contract/commands",
       "src/pwa/engine/contract/config",
-      "src/pwa/engine/contract/handshake",
-      "src/pwa/engine/contract/strategy",
-      "src/pwa/engine/contract/worker-host"
+      "src/pwa/engine/contract/strategy"
     ],
     "src/pwa/engine/worker/commands": ["src/pwa/engine/worker/global-scope"],
     "src/pwa/engine/worker/lifecycle": [

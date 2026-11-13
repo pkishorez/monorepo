@@ -19,8 +19,9 @@ import { noPwa, pwa } from '../../pwa/engine/vite/index.ts';
  *
  * 1. Look    Tailwind, which the Theme's CSS is written in, and React.
  * 2. Serve   Kabuki Start, with the app's own files and platform.
- * 3. PWA     installable, and each page offline as its Render Mode says;
- *            `pwa: false` makes it none, and the Document draws none of it.
+ * 3. PWA     installable, and every page answered with the App Shell, so
+ *            the app opens without the network; `pwa: false` makes it
+ *            none, and the Document draws none of it.
  * 4. Server  the Web Platform bundled for the server too, its components
  *            being ESM with CSS-only side effects; and `debug`'s browser
  *            build, as workerd throws on its Node one.

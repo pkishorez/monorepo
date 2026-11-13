@@ -10,9 +10,9 @@ import { devPlugin } from './dev/index.js';
 /**
  * Turns a Kabuki Start app into a PWA: its manifest, and its worker,
  * written beside the client's files once Start has built both sides. The
- * worker asks Start for its Pages when it installs, so each page works
- * offline as its Render Mode says. Invalid options throw here, at config
- * time.
+ * worker asks Start for its App Shell when it installs, and answers every
+ * page with it, so the app opens without the network. Invalid options throw
+ * here, at config time.
  */
 export const pwa = (options: PwaOptions): Plugin[] => {
   const config = resolvePwaConfig(

@@ -27,7 +27,7 @@ export const downloadEntry = (
 
 /**
  * Browsers refuse a redirected response for a navigation, and the App Shell
- * and Offline Fallback answer navigations, so store a fresh copy.
+ * answers navigations, so store a fresh copy.
  */
 const withoutRedirect = (response: Response): Response =>
   response.redirected

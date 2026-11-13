@@ -14,7 +14,7 @@ import { workerScript } from '../worker-bundle/index.js';
  * the page does not register. Rebuilt after any file change.
  */
 export const devPlugin = (config: ResolvedPwaConfig): Plugin => ({
-  name: 'pwa-toolkit:dev',
+  name: '@kestack/web-platform:pwa-dev',
   apply: 'serve',
   configureServer(server) {
     let script: Promise<string> | null = null;

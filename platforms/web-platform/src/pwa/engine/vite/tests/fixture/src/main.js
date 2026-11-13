@@ -1,5 +1,5 @@
 import './style.css';
-import info from 'virtual:pwa-toolkit/client';
+import info from 'virtual:web-platform/pwa/client';
 import logo from './logo.png';
 
 document.body.dataset.pwa = JSON.stringify(info);

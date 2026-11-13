@@ -169,7 +169,7 @@ export const workerConfigOf = (config: ResolvedPwaConfig): WorkerConfig => ({
   neverCache: config.neverCache,
 });
 
-/** Default export of `virtual:pwa-toolkit/build` (worker bundle only). */
+/** Default export of `virtual:web-platform/pwa/build` (worker bundle only). */
 export const WorkerBuildInfo = Schema.Struct({
   buildId: BuildId,
   precache: PrecacheList,
@@ -178,7 +178,7 @@ export const WorkerBuildInfo = Schema.Struct({
 export type WorkerBuildInfo = typeof WorkerBuildInfo.Type;
 
 /**
- * Default export of `virtual:pwa-toolkit/client` (client and ssr).
+ * Default export of `virtual:web-platform/pwa/client` (client and ssr).
  * `buildId` is `null` in the client environment, which builds before the ID
  * exists; the page reads it from the Build ID meta tag instead.
  */

@@ -6,11 +6,11 @@ import { DEFAULT_ENTRY_ID, DEFAULT_ENTRY_SOURCE } from './entry.js';
 const resolved = (id: string) => `\0${id}`;
 
 /**
- * Serves the worker bundle's virtual modules: `virtual:pwa-toolkit/build`
+ * Serves the worker bundle's virtual modules: `virtual:web-platform/pwa/build`
  * with the WorkerBuildInfo inlined, and the built-in entry.
  */
 export const buildModulePlugin = (info: WorkerBuildInfo): Plugin => ({
-  name: 'pwa-toolkit:worker-build-module',
+  name: '@kestack/web-platform:pwa-worker-build-module',
   enforce: 'pre',
   resolveId(id) {
     if (id === VIRTUAL_BUILD_MODULE_ID || id === DEFAULT_ENTRY_ID) {

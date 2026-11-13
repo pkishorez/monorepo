@@ -35,8 +35,8 @@ export default defineConfig({
   },
   test: {
     alias: {
-      'virtual:pwa-toolkit/build': fixture('virtual-build'),
-      'virtual:pwa-toolkit/client': fixture('virtual-client'),
+      'virtual:web-platform/pwa/build': fixture('virtual-build'),
+      'virtual:web-platform/pwa/client': fixture('virtual-client'),
     },
   },
 });

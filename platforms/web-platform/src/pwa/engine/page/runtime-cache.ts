@@ -16,7 +16,7 @@ export const clearRuntimeCaches: Effect.Effect<void> = Effect.suspend(() =>
       }).pipe(
         Effect.catch((error) =>
           Effect.logWarning(
-            'pwa-toolkit: clearing Runtime Caches failed',
+            'web-platform/pwa: clearing Runtime Caches failed',
             error,
           ),
         ),
